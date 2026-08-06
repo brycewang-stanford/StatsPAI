@@ -108,6 +108,7 @@ _CLASSICAL_ONLY_KWARGS = frozenset(
         "se_method",
         "bootstrap_reps",
         "bootstrap_seed",
+        "llr_stata_compat",
     }
 )
 

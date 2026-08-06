@@ -947,6 +947,7 @@ def psmatch2(
     distance: Optional[str] = None,
     bootstrap_reps: int = 200,
     bootstrap_seed: Optional[int] = None,
+    llr_stata_compat: bool = False,
     alpha: float = 0.05,
 ) -> PSMatch2Result:
     """Stata ``psmatch2``-faithful supported propensity-score matching.
@@ -1001,6 +1002,15 @@ def psmatch2(
         homoskedastic analytic ATT SE digit for digit; ``'ai'`` is the simple
         matched-pair SE; ``'abadie_imbens'`` is the Abadie-Imbens (2006)
         heteroskedasticity-robust SE (Stata ``psmatch2 , ai(J)``).
+    llr_stata_compat : bool, default False
+        Reproduce Stata's ``psmatch2 ..., llr`` *exactly*, including its
+        substitution.  With its default Epanechnikov kernel psmatch2 does
+        not run local linear regression matching: it smooths the outcome
+        with ``lpoly, deg(1)`` fitted on the on-support controls and then
+        runs nearest-neighbour matching, so a treated unit's raw outcome is
+        compared with its match's **smoothed** one.  Set this only to
+        reproduce a published psmatch2 number; leave it ``False`` for the
+        estimator ``method='llr'`` actually names.
     ai : int, default 0
         Shorthand for the Abadie-Imbens (2006) robust SE with ``J = ai``
         within-arm matches (Stata's ``ai(J)``). Any ``ai > 0`` selects the
@@ -1142,10 +1152,12 @@ def psmatch2(
         se_method = "abadie_imbens"
     else:
         se_method = "ai"
-    if match_method == "llr" and se_method == "psmatch2":
+    if match_method == "llr" and se_method == "psmatch2" and not llr_stata_compat:
         # `se='psmatch2'` is this function's default, so an llr caller who
         # never touched `se` would otherwise hit the sp.match refusal. Stata
-        # reports seatt = . here; we give a real number instead.
+        # reports seatt = . here; we give a real number instead.  Under
+        # llr_stata_compat the analytic SE *is* what Stata reports, so it
+        # stays.
         se_method = "bootstrap"
     # ``ai=J`` (Stata's ai(J)) is shorthand for the Abadie-Imbens robust SE
     # with J within-arm matches; it overrides ``se``.
@@ -1191,6 +1203,7 @@ def psmatch2(
             ai_matches=ai_matches,
             bootstrap_reps=bootstrap_reps,
             bootstrap_seed=bootstrap_seed,
+            llr_stata_compat=llr_stata_compat,
             alpha=alpha,
         )
 

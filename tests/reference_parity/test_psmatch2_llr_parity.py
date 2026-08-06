@@ -366,3 +366,152 @@ class TestPsmatch2LLRFrontDoor:
                 bootstrap_seed=1,
             )
         assert np.isfinite(m.se)
+
+
+@pytest.fixture(scope="module")
+def epan_data() -> pd.DataFrame:
+    """The rerouted-path frame, carrying Stata's own `_s_y` and `_y`."""
+    path = _FIXTURE_DIR / "psmatch2_llr_epan_data.csv"
+    if not path.exists():  # pragma: no cover - fixture ships with the repo
+        pytest.skip(f"missing {path.name}. {_REGEN}")
+    return pd.read_csv(path)
+
+
+class TestStataCompatReroute:
+    """`llr_stata_compat=True` reproduces psmatch2's substitution exactly.
+
+    The substituted estimator is genuinely odd — it compares a treated
+    unit's *raw* outcome to its match's *lpoly-smoothed* one — so every
+    piece of it is pinned rather than assumed.
+    """
+
+    @pytest.fixture(scope="class")
+    def fitted(self, epan_data):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return sp.match(
+                epan_data,
+                y="y",
+                treat="d",
+                covariates=["x1", "x2"],
+                method="llr",
+                kernel="epan",
+                bwidth=_BWIDTH,
+                llr_stata_compat=True,
+            )
+
+    def test_att_matches_stata(self, fitted, stata):
+        assert fitted.estimate == pytest.approx(
+            stata["llr_epan_reroute"]["att"], rel=1e-9
+        )
+
+    def test_se_matches_stata(self, fitted, stata):
+        """Stata reports an SE here (unlike genuine LLR) — the analytic one."""
+        assert fitted.se == pytest.approx(stata["llr_epan_reroute"]["seatt"], rel=1e-6)
+        assert fitted.model_info["se_method"] == "psmatch2"
+
+    def test_matched_outcome_is_the_partner_smoothed_value(self, fitted, epan_data):
+        """`_y` is the match's `_s_y`, not its raw `y`."""
+        ours = fitted.matched_data["_y"].to_numpy(dtype=float)
+        theirs = epan_data["_y"].to_numpy(dtype=float)
+        both = np.isfinite(ours) & np.isfinite(theirs)
+        assert both.sum() > 50
+        np.testing.assert_allclose(ours[both], theirs[both], rtol=1e-9, atol=1e-10)
+
+    def test_lpoly_smoother_matches_stata(self, epan_data):
+        """Our lpoly reproduces Stata's `_s_y` column directly."""
+        from statspai.matching._stata_lpoly import psmatch2_llr_smoothed_outcome
+
+        sy = psmatch2_llr_smoothed_outcome(
+            epan_data["y"].to_numpy(dtype=float),
+            epan_data["_pscore"].to_numpy(dtype=float),
+            epan_data["d"].to_numpy(dtype=float),
+            np.ones(len(epan_data), dtype=bool),
+            bandwidth=_BWIDTH,
+            degree=1,
+        )
+        theirs = epan_data["_s_y"].to_numpy(dtype=float)
+        both = np.isfinite(sy) & np.isfinite(theirs)
+        np.testing.assert_allclose(sy[both], theirs[both], rtol=1e-10, atol=1e-12)
+
+    def test_stata_epanechnikov_is_the_unit_variance_one(self):
+        """lpoly's kernel is NOT psmatch2's compact `epan`.
+
+        Stata's lpoly Epanechnikov has support +/- sqrt(5) and unit
+        variance; using the compact form silently rescales the bandwidth by
+        sqrt(5).
+        """
+        from statspai.matching._stata_lpoly import stata_epanechnikov
+
+        assert stata_epanechnikov(np.array([0.0]))[0] == pytest.approx(
+            0.75 / np.sqrt(5.0)
+        )
+        assert stata_epanechnikov(np.array([np.sqrt(5.0) + 1e-9]))[0] == 0.0
+        # Integrates to 1 and has unit variance.
+        u = np.linspace(-3, 3, 200001)
+        k = stata_epanechnikov(u)
+        du = u[1] - u[0]
+        assert float(np.sum(k) * du) == pytest.approx(1.0, abs=1e-6)
+        assert float(np.sum(u**2 * k) * du) == pytest.approx(1.0, abs=1e-5)
+
+    def test_compat_differs_from_genuine_llr(self, epan_data, stata):
+        genuine = _llr(epan_data, "epan").estimate
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            compat = sp.match(
+                epan_data,
+                y="y",
+                treat="d",
+                covariates=["x1", "x2"],
+                method="llr",
+                kernel="epan",
+                bwidth=_BWIDTH,
+                llr_stata_compat=True,
+            ).estimate
+        assert abs(genuine - compat) > 1e-3
+
+    def test_compat_suppresses_the_divergence_warning(self, epan_data):
+        """The warning exists to flag an unintended divergence; opting in
+        to Stata's behaviour is not one."""
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            sp.match(
+                epan_data,
+                y="y",
+                treat="d",
+                covariates=["x1", "x2"],
+                method="llr",
+                kernel="epan",
+                bwidth=_BWIDTH,
+                llr_stata_compat=True,
+            )
+        assert not [
+            w for w in caught if "does not perform local linear" in str(w.message)
+        ]
+
+    def test_flag_is_rejected_for_other_methods(self, epan_data):
+        with pytest.raises(MethodIncompatibility, match="only applies to"):
+            sp.match(
+                epan_data,
+                y="y",
+                treat="d",
+                covariates=["x1", "x2"],
+                method="kernel",
+                llr_stata_compat=True,
+            )
+
+    def test_psmatch2_front_door_reaches_the_same_number(self, epan_data, stata):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            m = sp.psmatch2(
+                epan_data,
+                treat="d",
+                outcome="y",
+                covariates=["x1", "x2"],
+                method="llr",
+                kernel="epan",
+                bwidth=_BWIDTH,
+                llr_stata_compat=True,
+            )
+        assert m.att == pytest.approx(stata["llr_epan_reroute"]["att"], rel=1e-9)
+        assert m.se == pytest.approx(stata["llr_epan_reroute"]["seatt"], rel=1e-6)

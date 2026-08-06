@@ -54,6 +54,7 @@ from ._matched_frame import (
     matched_columns,
     psmatch2_se,
 )
+from ._stata_lpoly import psmatch2_llr_smoothed_outcome
 
 # ======================================================================
 # Legacy method aliases → (distance, method) pairs
@@ -191,6 +192,7 @@ def match(
     ai_matches: int = 1,
     bootstrap_reps: int = 200,
     bootstrap_seed: Optional[int] = None,
+    llr_stata_compat: bool = False,
     # --- stratification parameters ---
     n_strata: int = 5,
     # --- CEM parameters ---
@@ -372,6 +374,7 @@ def match(
         se_method=se_method,
         bootstrap_reps=bootstrap_reps,
         bootstrap_seed=bootstrap_seed,
+        llr_stata_compat=llr_stata_compat,
         ai_matches=ai_matches,
         n_strata=n_strata,
         n_bins=n_bins,
@@ -497,6 +500,7 @@ class MatchEstimator:
         ai_matches: int = 1,
         bootstrap_reps: int = 200,
         bootstrap_seed: Optional[int] = None,
+        llr_stata_compat: bool = False,
         n_strata: int = 5,
         n_bins: Optional[int] = None,
         alpha: float = 0.05,
@@ -579,6 +583,7 @@ class MatchEstimator:
             context=context,
         )
         self.bootstrap_seed = bootstrap_seed
+        self.llr_stata_compat = bool(llr_stata_compat)
         # Set by fit() before the SE stage so _bootstrap_se can report bias.
         self._point_estimate: float = float("nan")
         self.n_strata = _positive_int(
@@ -711,7 +716,17 @@ class MatchEstimator:
                 "'abadie_imbens', 'abadie_imbens_pop', or 'bootstrap', got "
                 f"'{self.se_method}'"
             )
-        if self.method == "llr" and self.se_method == "psmatch2":
+        if self.llr_stata_compat and self.method != "llr":
+            raise MethodIncompatibility(
+                "match: llr_stata_compat=True only applies to method='llr'; "
+                f"got method={self.method!r}.",
+                recovery_hint="Pass method='llr', or drop llr_stata_compat.",
+            )
+        if (
+            self.method == "llr"
+            and self.se_method == "psmatch2"
+            and not self.llr_stata_compat
+        ):
             raise MethodIncompatibility(
                 "match: se_method='psmatch2' is not defined for "
                 "method='llr'. Local linear weights can be negative, which "
@@ -765,6 +780,11 @@ class MatchEstimator:
         elif self.method == "stratify":
             att, se, balance, extra_info = self._fit_stratify(Y, X, T, idx_t, idx_c)
             method_label = "Matching (PS Stratification)"
+        elif self.method == "llr" and self.llr_stata_compat:
+            # Stata compatibility: psmatch2 does not run LLR here, it runs
+            # nearest-neighbour matching on an lpoly-smoothed outcome.
+            att, se, balance = self._fit_nearest(Y, X, T, idx_t, idx_c, row_order)
+            method_label = "Matching (psmatch2 llr-compat: lpoly + nearest)"
         elif self.method in ("kernel", "radius", "llr"):
             att, se, balance, extra_info = self._fit_kernel(Y, X, T, idx_t, idx_c)
             kt = "Radius" if self.method == "radius" else f"Kernel:{self.kernel}"
@@ -823,7 +843,7 @@ class MatchEstimator:
                 weights=a["weights"],
                 n_matches=self.n_matches,
                 support=a["support"],
-                outcome=a["outcome"],
+                outcome=a.get("outcome_frame", a["outcome"]),
                 neighbors=emit_neighbors,
             )
             matched_data = attach_matched_frame(self.data, frame)
@@ -1024,6 +1044,30 @@ class MatchEstimator:
         # below is byte-identical to the historical implementation.
         support = common_support_mask(pscore, T, rule=self.common_support)
 
+        # psmatch2 llr-compat: Stata replaces the *control* outcome with an
+        # lpoly(deg 1) fit on the on-support controls, then matches on the
+        # propensity score as usual.  A treated unit's counterfactual is the
+        # SMOOTHED outcome of its match, while its own outcome stays raw --
+        # so the estimator compares a raw level to a smoothed one.  Y_eff
+        # carries that mix; the raw Y is kept for the analytic SE, which
+        # psmatch2 also computes off the unsmoothed outcome.
+        Y_eff = Y
+        if self.llr_stata_compat:
+            smoothed = psmatch2_llr_smoothed_outcome(
+                Y, pscore, T, support, bandwidth=float(self.bwidth), degree=1
+            )
+            Y_eff = np.where(T == 1, Y, smoothed)
+            if not np.all(np.isfinite(Y_eff[T == 0])):
+                bad = int(np.sum(~np.isfinite(Y_eff[T == 0])))
+                warnings.warn(
+                    f"sp.match(llr_stata_compat=True): the lpoly smoother "
+                    f"left {bad} control outcome(s) undefined (no donor "
+                    f"inside the bandwidth). Those controls cannot serve as "
+                    f"matches. Increase bwidth.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+
         # Targets actually fed to the matcher.  Under 'minmax' we drop the
         # off-support treated *before* matching so the ATT is taken over the
         # on-support treated (Stata psmatch2 `common`).
@@ -1051,7 +1095,7 @@ class MatchEstimator:
                 pool_order=row_order[idx_c],
                 pscore_target=None if pscore is None else pscore[t_use],
             )
-            att = self._compute_effect(Y, t_use, idx_c, X, matches, weights)
+            att = self._compute_effect(Y_eff, t_use, idx_c, X, matches, weights)
             se = self._ai_se(Y, X, T, t_use, idx_c, matches, weights)
             assign_matches, assign_weights = matches, weights
         else:
@@ -1104,6 +1148,9 @@ class MatchEstimator:
             "weights": full_weights,
             "support": support,
             "outcome": Y,
+            # `_y` is the matched partner's outcome as psmatch2 records it,
+            # which under llr-compat is the smoothed value.
+            "outcome_frame": Y_eff,
             "neighbors": True,
         }
 
@@ -1196,6 +1243,7 @@ class MatchEstimator:
                         common_support=self.common_support,
                         kernel=self.kernel,
                         bwidth=self.bwidth,
+                        llr_stata_compat=self.llr_stata_compat,
                         se_method="ai",  # never recurse into the bootstrap
                         ai_matches=self.ai_matches,
                         n_strata=self.n_strata,
@@ -1254,6 +1302,11 @@ class MatchEstimator:
         if self.se_method != "auto":
             return self.se_method
         if self.method == "llr":
+            if self.llr_stata_compat:
+                # The compat path is ordinary nearest-neighbour matching on a
+                # smoothed outcome, so the weights are non-negative and the
+                # analytic formula applies -- which is what Stata reports.
+                return "psmatch2"
             # Stata psmatch2 reports seatt = . for genuine LLR: the analytic
             # formula assumes non-negative matching weights, which local
             # linear weights violate. Bootstrap is the honest default.
