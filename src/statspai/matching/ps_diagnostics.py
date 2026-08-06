@@ -26,12 +26,14 @@ Rosenbaum, P.R. and Rubin, D.B. (1983). Biometrika, 70(1), 41-55.
 Austin, P.C. (2011). Multivariate Behavioral Research, 46(3), 399-424. [@crump2009dealing]
 """
 
-from typing import Any, Dict, Optional, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-from scipy import stats, optimize
+from scipy import optimize, stats
+
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 
 # ======================================================================
 # Propensity score estimation
@@ -979,9 +981,9 @@ def overlap_plot(
 
 
 def love_plot(
-    data: pd.DataFrame,
-    treatment: str,
-    covariates: List[str],
+    data: Any,
+    treatment: Optional[str] = None,
+    covariates: Optional[List[str]] = None,
     weights: Optional[Union[np.ndarray, pd.Series]] = None,
     threshold: float = 0.1,
     ps_method: str = "logit",
@@ -1031,9 +1033,67 @@ def love_plot(
     ...                        threshold=0.05,
     ...                        title='Balance: union vs non-union')
     """
+    data, treatment, covariates, weights = _unpack_matching_result(
+        data, treatment, covariates, weights
+    )
     result = ps_balance(data, treatment, covariates, weights=weights, method=ps_method)
     return _love_plot_from_table(
         result.table, threshold=threshold, ax=ax, figsize=figsize, title=title
+    )
+
+
+def _unpack_matching_result(
+    data: Any,
+    treatment: Optional[str],
+    covariates: Optional[List[str]],
+    weights: Optional[Union[np.ndarray, pd.Series]],
+) -> Tuple[pd.DataFrame, str, List[str], Optional[Union[np.ndarray, pd.Series]]]:
+    """Accept a fitted matching result in place of ``(data, treatment,
+    covariates)``.
+
+    ``sp.psmatch2`` / ``sp.match`` already know the treatment column,
+    the covariate list, and the matched sample, so requiring the caller
+    to repeat all three is pure friction — and repeating them by hand
+    invites a mismatch between the plot and the estimate it documents.
+    Raw-DataFrame calls are unchanged.
+    """
+    if isinstance(data, pd.DataFrame):
+        if treatment is None or covariates is None:
+            raise MethodIncompatibility(
+                "love_plot(data=DataFrame) requires treatment= and " "covariates=.",
+                recovery_hint=(
+                    "Pass love_plot(df, treatment='d', covariates=[...]), "
+                    "or hand it a fitted sp.psmatch2 / sp.match result "
+                    "instead."
+                ),
+            )
+        return data, treatment, covariates, weights
+
+    res_treat = getattr(data, "treat", None) or getattr(data, "treatment", None)
+    res_covs = getattr(data, "covariates", None)
+    frame = getattr(data, "matched_data", None)
+    if frame is None:
+        frame = getattr(data, "data", None)
+    if frame is None or res_treat is None or res_covs is None:
+        raise MethodIncompatibility(
+            f"love_plot() cannot read a balance specification off a "
+            f"{type(data).__name__}.",
+            recovery_hint=(
+                "Pass a fitted sp.psmatch2 / sp.match result, or the "
+                "explicit love_plot(df, treatment=..., covariates=[...])."
+            ),
+        )
+    # Matched samples carry a per-row weight from the matching step;
+    # using it is what makes the "after" column reflect the estimator.
+    if weights is None and "_weight" in getattr(frame, "columns", []):
+        weights = frame["_weight"]
+    # Explicit treatment=/covariates= still win when supplied alongside
+    # a result object.
+    return (
+        frame,
+        str(treatment if treatment is not None else res_treat),
+        list(covariates if covariates is not None else res_covs),
+        weights,
     )
 
 

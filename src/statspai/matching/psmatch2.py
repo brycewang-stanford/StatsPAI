@@ -41,10 +41,10 @@ from typing import TYPE_CHECKING, Any, List, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
+from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult, SummaryText
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from . import _matched_frame as _mf
-from .._result_serialize import ResultProtocolMixin
 
 if TYPE_CHECKING:
     from .ps_diagnostics import BalanceDiagnosticsResult
@@ -656,7 +656,11 @@ class PSMatch2Result(ResultProtocolMixin):
             f"  Covariates        : {', '.join(self.covariates)}",
             f"  Method            : {self.method}",
             design,
-            f"  Common support    : {self.common_support}",
+            # ``common_support='none'`` means *no restriction was
+            # imposed*, not "there is no common support" — the bare value
+            # read as a diagnostic failure to more than one reader.
+            f"  Common support    : "
+            f"{'no restriction imposed' if str(self.common_support) == 'none' else self.common_support}",
             "-" * 62,
             f"  Treated           : {self.n_treated}"
             f"  (on support: {self.n_on_support},"

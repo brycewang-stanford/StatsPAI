@@ -481,7 +481,11 @@ def _jive_fit(
     # JIVE1: X_hat_i = (P_W X_endog)_i / (1 - h_ii) - h_ii/(1-h_ii) * X_endog_i
     # Equivalently: X_hat_jive_i = (P_W X_endog_i - h_ii X_endog_i) / (1 - h_ii)
     X_endog_hat_full = P_W @ X_endog
-    X_endog_jive = np.empty_like(X_endog)
+    # Float buffer regardless of the input dtype: an integer-typed
+    # endogenous regressor (0/1 treatment, counts) would otherwise
+    # truncate the leave-one-out fitted values on assignment. Same
+    # failure mode fixed in _hausman_test.
+    X_endog_jive = np.empty_like(X_endog, dtype=np.float64)
     for j in range(k2):
         X_endog_jive[:, j] = (X_endog_hat_full[:, j] - h * X_endog[:, j]) / (1 - h)
 
@@ -693,8 +697,19 @@ def _hausman_test(
     n = len(y)
     k2 = X_endog.shape[1]
 
+    # ``np.empty_like(X_endog)`` inherits the *input* dtype. With an
+    # integer-typed endogenous regressor — a 0/1 treatment or a count,
+    # i.e. the common case — the first-stage residuals below were
+    # truncated toward zero on assignment: identically 0 for a binary
+    # treatment (singular augmented design -> NaN statistic) and
+    # silently biased for integer counts. Always accumulate in float.
+    X_endog = np.asarray(X_endog, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64)
+    X_exog = np.asarray(X_exog, dtype=np.float64)
+    W = np.asarray(W, dtype=np.float64)
+
     WtW_inv = np.linalg.inv(W.T @ W)
-    v_hat = np.empty_like(X_endog)
+    v_hat = np.empty_like(X_endog, dtype=np.float64)
     for j in range(k2):
         gamma_j = WtW_inv @ W.T @ X_endog[:, j]
         v_hat[:, j] = X_endog[:, j] - W @ gamma_j
@@ -1900,6 +1915,7 @@ def ivreg(
     cluster: Optional[str] = None,
     *,
     vce: Optional[str] = None,
+    vcov: Optional[Any] = None,
     wild_reps: int = 999,
     wild_weight_type: str = "rademacher",
     seed: Optional[int] = None,
@@ -1959,6 +1975,25 @@ def ivreg(
     >>> # Preferred modern entry point:
     >>> result = sp.iv("y ~ (x ~ z)", data=df, method='2sls')
     """
+    # --- vcov= (pyfixest spelling) -> native robust=/cluster=/vce= ---
+    # Accepted as a canonical cross-estimator alias; previously it fell
+    # through **kwargs and was dropped, silently returning default SEs.
+    if vcov is not None:
+        from ..core._vcov_spec import normalize_vcov
+
+        _robust, _cluster, _vce = normalize_vcov(
+            vcov=vcov,
+            robust=robust,
+            cluster=cluster,
+            vce=vce,
+            function="ivreg",
+        )
+        cluster = _cluster
+        if _vce is not None:
+            vce = _vce
+        else:
+            robust = _robust if _robust is not None else "nonrobust"
+
     # Resolve the canonical `vce` alias; intercept the wild sentinel.
     se_kw = vce if vce is not None else robust
     if isinstance(se_kw, str) and se_kw.lower() in _IV_WILD_VCOV:
@@ -2132,4 +2167,14 @@ def ivreg(
         return base
 
     kwargs.setdefault("method", "2sls")
+    # Reject leftovers rather than forwarding them into iv(**kwargs),
+    # where an unrecognised option would vanish and silently return
+    # default standard errors.
+    from ..core._vcov_spec import reject_unknown_kwargs
+
+    reject_unknown_kwargs(
+        kwargs,
+        function="ivreg",
+        known=("method", "alpha", "weights", "small", "iv_diag"),
+    )
     return iv(formula=formula, data=data, robust=se_kw, cluster=cluster, **kwargs)

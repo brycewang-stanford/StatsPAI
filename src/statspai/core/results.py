@@ -3022,6 +3022,18 @@ class CausalResult:
             "conventional",
             "robust",
         }
+        # Internal solver telemetry: kept in ``model_info`` for auditing
+        # (non-uniqueness disclosures, restart diagnostics) but not worth
+        # a dozen footer lines in a printed summary. The headline
+        # non-uniqueness flag stays visible.
+        _telemetry_prefixes = ("solver_",)
+        _telemetry_keys = {
+            "n_starts",
+            "v_method",
+            "converged",
+            "weight_hhi",
+            "crit_val_uniform",
+        }
         # Friendly labels for keys whose title-cased form is cryptic
         # ("Ml G", "Dml Model", …); private "_"-prefixed keys are
         # internal state and stay out of the summary.
@@ -3033,13 +3045,35 @@ class CausalResult:
             "ml_r": "ML model for r(X) — instrument",
             "pscore": "Propensity score",
         }
+        n_telemetry = 0
         for key, val in self.model_info.items():
-            if key in _skip or isinstance(val, (pd.DataFrame, np.ndarray, dict, list)):
+            if key in _skip or isinstance(
+                val, (pd.DataFrame, np.ndarray, dict, list, tuple, pd.Series)
+            ):
+                # Vector-valued entries (donor weights, time weights,
+                # observed/synthetic paths) belong in ``model_info`` for
+                # programmatic access, not printed row-by-row in the
+                # footer — a single SDID summary was dumping three whole
+                # Series and ran to 110 lines. Show shape instead.
+                if isinstance(val, pd.Series) and key not in _skip:
+                    label = _labels.get(key, key.replace("_", " ").title())
+                    lines.append(
+                        f"  {label}:    <{len(val)} values; "
+                        f'see .model_info["{key}"]>'
+                    )
                 continue
             if key.startswith("_"):
                 continue
+            if key.startswith(_telemetry_prefixes) or key in _telemetry_keys:
+                n_telemetry += 1
+                continue
             label = _labels.get(key, key.replace("_", " ").title())
             lines.append(f"  {label}:    {val}")
+        if n_telemetry:
+            lines.append(
+                f"  ({n_telemetry} solver/diagnostic entries hidden; "
+                "see .model_info)"
+            )
         lines.append("=" * 78)
         lines.append("  * p<0.1, ** p<0.05, *** p<0.01")
 
@@ -3124,14 +3158,38 @@ class CausalResult:
                     }
                 )
 
-        # Group-time ATTs
-        if self.detail is not None and "att" in getattr(self.detail, "columns", []):
+        # Per-cell ATTs from ``detail``. The label is built from whichever
+        # index columns the detail frame actually carries: group-time
+        # aggregations have group/time, dynamic (event-study) ones have
+        # relative_time, calendar ones have time, group ones have group.
+        # Hard-coding group/time produced a useless ``att(g=,t=)`` for
+        # every row of an event study, discarding the event time.
+        detail_cols = list(getattr(self.detail, "columns", []))
+        if self.detail is not None and "att" in detail_cols:
+            has_group = "group" in detail_cols
+            has_time = "time" in detail_cols
+            has_rel = "relative_time" in detail_cols
+            if has_rel and not (has_group and has_time):
+                row_type = "event_study"
+            else:
+                row_type = "group_time"
+
+            def _label(r: "pd.Series") -> str:
+                if has_group and has_time:
+                    return f"att(g={r.get('group')},t={r.get('time')})"
+                if has_rel:
+                    e = r.get("relative_time")
+                    return f"event_{int(e):+d}" if pd.notna(e) else "event"
+                if has_group:
+                    return f"att(g={r.get('group')})"
+                if has_time:
+                    return f"att(t={r.get('time')})"
+                return "att"
+
             for _, r in self.detail.iterrows():
-                g = r.get("group", "")
-                t = r.get("time", "")
                 rows.append(
                     {
-                        "term": f"att(g={g},t={t})",
+                        "term": _label(r),
                         "estimate": r.get("att"),
                         "std_error": r.get("se"),
                         "statistic": (
@@ -3142,7 +3200,7 @@ class CausalResult:
                         "p_value": r.get("pvalue", np.nan),
                         "conf_low": r.get("ci_lower", np.nan),
                         "conf_high": r.get("ci_upper", np.nan),
-                        "type": "group_time",
+                        "type": row_type,
                     }
                 )
 

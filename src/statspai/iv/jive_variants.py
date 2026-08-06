@@ -36,6 +36,7 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -174,7 +175,7 @@ def _jive_estimate(
 
     if method == "jive1":
         # AIK99 JIVE1: pi_{-i} = (pi - h_ii*D_i/(1-h_ii) term)
-        D_hat = np.empty_like(D)
+        D_hat = np.empty_like(D, dtype=np.float64)
         for j in range(p):
             D_hat[:, j] = (D_hat_full[:, j] - h * D[:, j]) / (1 - h)
 
@@ -199,7 +200,7 @@ def _jive_estimate(
     elif method == "ijive":
         # Ackerberg-Devereux 2009 IJIVE: leave-one-out projection
         # identical to JIVE1 in point estimate; differs in SE.
-        D_hat = np.empty_like(D)
+        D_hat = np.empty_like(D, dtype=np.float64)
         for j in range(p):
             D_hat[:, j] = (D_hat_full[:, j] - h * D[:, j]) / (1 - h)
 
@@ -207,7 +208,7 @@ def _jive_estimate(
         if ridge <= 0:
             raise ValueError("rjive requires ridge > 0")
         # Already ridge-regularised above via ridge argument
-        D_hat = np.empty_like(D)
+        D_hat = np.empty_like(D, dtype=np.float64)
         for j in range(p):
             D_hat[:, j] = (D_hat_full[:, j] - h * D[:, j]) / (1 - h)
 

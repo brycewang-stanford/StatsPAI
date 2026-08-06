@@ -395,7 +395,7 @@ def jive(
     Pz = Z_all @ np.linalg.solve(Z_all.T @ Z_all, Z_all.T)
     h_ii = np.diag(Pz)
 
-    X_endog_hat = np.zeros_like(X_endog)
+    X_endog_hat = np.zeros_like(X_endog, dtype=np.float64)
 
     for j in range(X_endog.shape[1]):
         x_j = X_endog[:, j]

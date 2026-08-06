@@ -17976,9 +17976,7 @@
         }
       },
       "required": [
-        "data",
-        "treatment",
-        "covariates"
+        "data"
       ],
       "type": "object"
     }

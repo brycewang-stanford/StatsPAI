@@ -1738,7 +1738,8 @@
       "Track A parity seed",
       "R parity module 08_dml",
       "R parity module 71_dml_family",
-      "Stata parity module 08_dml"
+      "Stata parity module 08_dml",
+      "Stata parity module 71_dml_family"
     ],
     "validation_status": "certified"
   },
@@ -2782,6 +2783,7 @@
     "typical_n_min": 500,
     "validation_notes": [
       "R parity module 72_tmle",
+      "Stata parity module 72_tmle",
       "API/unit contract evidence: tests/test_tmle.py",
       "API/unit contract evidence: tests/test_low_cov_battery.py"
     ],
@@ -4763,6 +4765,7 @@
     "typical_n_min": 50,
     "validation_notes": [
       "R parity module 65_spatial",
+      "Stata parity module 65_spatial",
       "API/unit contract evidence: tests/spatial/test_models_ml.py"
     ],
     "validation_status": "certified"
@@ -13382,7 +13385,8 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "R parity module 73_did2s"
+      "R parity module 73_did2s",
+      "Stata parity module 73_did2s"
     ],
     "validation_status": "certified"
   },
@@ -17941,7 +17945,8 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "R parity module 81_didm"
+      "R parity module 81_didm",
+      "Stata parity module 81_didm"
     ],
     "validation_status": "certified"
   },
@@ -18923,6 +18928,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "R parity module 74_cic",
+      "Stata parity module 74_cic",
       "API/unit contract evidence: tests/test_did_frontiers.py"
     ],
     "validation_status": "certified"
@@ -19033,6 +19039,7 @@
     "typical_n_min": 100,
     "validation_notes": [
       "R parity module 75_stacked",
+      "Stata parity module 75_stacked",
       "API/unit contract evidence: tests/test_did.py"
     ],
     "validation_status": "certified"
@@ -33098,7 +33105,8 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "R parity module 67_panel_glm"
+      "R parity module 67_panel_glm",
+      "Stata parity module 67_panel_glm"
     ],
     "validation_status": "certified"
   },

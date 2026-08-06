@@ -223,7 +223,76 @@ All notable changes to StatsPAI will be documented in this file.
   random-assignment baselines. Accepts raw arrays, CATE-bearing
   results, or fitted forests.
 
+### ⚠️ Correctness
+
+- **`sp.regress` / `sp.ivreg` silently ignored `vcov=`, returning
+  unclustered standard errors.** The pyfixest spelling a user carries
+  over from `sp.feols` — `vcov={"CRV1": "firm"}` or `vcov="hetero"` —
+  fell through `**kwargs` into `fit()` and was dropped on the floor. No
+  warning: the call succeeded and reported default SEs. In a 15-cluster
+  example the reported SE was 0.109 where the clustered value is 0.063,
+  i.e. **1.7× too small**. `vcov=` is now a canonical alias honoured by
+  both functions (`CRV1`/`CRV2`/`CRV3` map to `cluster=` and the
+  matching small-sample correction; `iid`/`hetero`/`HC0`–`HC3` map to
+  `robust=`), and supplying it alongside a conflicting `robust=` /
+  `cluster=` / `vce=` raises instead of silently preferring one.
+  Anyone who passed `vcov=` to `sp.regress` or `sp.ivreg` should re-run:
+  the previously reported standard errors were wrong.
+
+- **`sp.regress` / `sp.ivreg` silently swallowed *any* unrecognised
+  keyword.** A misspelled `robsut="hc1"` produced default standard
+  errors with no error. Both now raise `TypeError`, matching `sp.feols`
+  and `sp.did_2x2`, which already did.
+
+- **Durbin-Wu-Hausman endogeneity test was NaN or silently wrong for
+  integer-typed endogenous regressors.** `_hausman_test` accumulated
+  first-stage residuals into `np.empty_like(X_endog)`, which inherits
+  the *input* dtype. With a 0/1 integer treatment — the common case,
+  and exactly what `sp.ivreg("y ~ (d ~ z)")` receives from a
+  `.astype(int)` column — the residuals truncated to all-zero, the
+  augmented design went singular, and the reported statistic was `NaN`.
+  With integer counts the truncation was partial and produced a
+  **finite but wrong** F (4971.6 against a correct 5316.7) with nothing
+  to signal it. Now computed in float regardless of input dtype; the
+  float path is bit-identical to before. The same buffer pattern was
+  hardened in the JIVE estimators, whose public wrappers already cast
+  upstream (no numeric change there).
+
 ### Changed
+
+- **Event-study rows lost their event time in `tidy()`.** Every row of
+  a dynamic `sp.aggte(..., type="dynamic")` result was labelled
+  `att(g=,t=)` — the group-time template applied to a frame that has
+  neither column — so the table could not be read or plotted without
+  going back to `.detail`. Labels are now derived from the columns the
+  detail frame actually carries: `event_-3` / `event_+2` for dynamic,
+  `att(g=2004)` for group, `att(t=2007)` for calendar, and the existing
+  `att(g=…,t=…)` for full group-time results (unchanged).
+
+- **`summary()` dumped whole pandas Series into the footer.** One
+  `sp.sdid` summary ran to **110 lines**, ~90 of them three raw Series
+  (time weights, observed path, synthetic path) printed row by row.
+  Vector-valued `model_info` entries now render as
+  `<31 values; see .model_info["Y_synth"]>`; the data itself is
+  unchanged and still reachable. SDID: 110 → 25 lines.
+
+- **Solver telemetry no longer crowds out the result.** `sp.synth`
+  printed eleven `Solver Near Best Weight L1 Max`-style internals. These
+  stay in `model_info` for auditing but are collapsed to a disclosed
+  count (`(11 solver/diagnostic entries hidden; see .model_info)`); the
+  substantive `Weight Solution Nonunique` disclosure stays visible.
+  SCM: 52 → 42 lines.
+
+- **`sp.love_plot` accepts the matching result that produced it.**
+  `love_plot(m)` now reads the treatment column, covariate list, and
+  matched weights off a fitted `sp.psmatch2` / `sp.match` result instead
+  of requiring the caller to restate all three (and risk a mismatch
+  between the plot and the estimate it documents). Raw-DataFrame calls
+  are unchanged; explicit `treatment=`/`covariates=` still win.
+
+- **`sp.psmatch2` summary said `Common support: none`**, which reads as
+  "no overlap was found" rather than "no support restriction was
+  imposed". Now spelled out.
 
 - **DML summary footer labels are readable.** `Ml G:` →
   `ML model for g(X) — outcome`, `Ml M:` → `ML model for m(X) —

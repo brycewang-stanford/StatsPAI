@@ -1134,6 +1134,7 @@ def regress(
     weights: Optional[Any] = None,
     *,
     vce: Optional[str] = None,
+    vcov: Optional[Any] = None,
     conley_lat: Optional[str] = None,
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
@@ -1160,8 +1161,17 @@ def regress(
         ``regress y x [aw=w]``. Weights must be strictly positive and finite;
         invalid weights raise ``ValueError`` rather than being silently
         ignored.
+    vcov : str or dict, optional
+        pyfixest/``fixest``-style variance specification, accepted as a
+        canonical alias so the same spelling works across ``sp.regress``
+        and ``sp.feols``: ``"iid"`` / ``"hetero"`` / ``"HC0"``–``"HC3"``,
+        or a cluster dict such as ``{"CRV1": "firm"}`` (``CRV2`` /
+        ``CRV3`` select the matching small-sample correction). Mutually
+        exclusive with ``robust`` / ``cluster`` / ``vce``.
     **kwargs
-        Additional options
+        Additional options. Unrecognised keywords raise ``TypeError``
+        rather than being ignored — a misspelled option must not
+        silently fall back to default standard errors.
 
     Returns
     -------
@@ -1181,6 +1191,28 @@ def regress(
     >>> "education" in results.params.index
     True
     """
+    # --- vcov= (pyfixest spelling) -> native robust=/cluster=/vce= ---
+    # Accepted as a canonical cross-estimator alias; previously it fell
+    # through **kwargs and was dropped, silently returning default SEs.
+    from ..core._vcov_spec import normalize_vcov
+
+    if vcov is not None:
+        _robust, _cluster, _vce = normalize_vcov(
+            vcov=vcov,
+            robust=robust,
+            cluster=cluster,
+            vce=vce,
+            function="regress",
+        )
+        # The @accepts_aliases(vce="robust") decorator folds vce= into
+        # robust=, and the CR2/CR3 dispatch below reads `robust`; write
+        # the small-sample kind there rather than into the dead `vce`.
+        cluster = _cluster
+        if _vce is not None:
+            robust = _vce
+        else:
+            robust = _robust if _robust is not None else "nonrobust"
+
     # --- Input validation (Stata-quality error messages) ---
     if not isinstance(data, pd.DataFrame):
         raise TypeError(
@@ -1389,6 +1421,13 @@ def regress(
         base.model_info["vcov_type"] = "two-way cluster (CGM 2011)"
         base.model_info["cluster"] = list(cluster)
         return base
+
+    # Anything still in kwargs is unrecognised: reject rather than let it
+    # fall through to fit(**kwargs) and vanish (a misspelled option must
+    # not silently return default standard errors).
+    from ..core._vcov_spec import reject_unknown_kwargs
+
+    reject_unknown_kwargs(kwargs, function="regress", known=("weights",))
 
     model = OLSRegression(formula=formula, data=data)
     robust_kw = vce_kw if vce_kw is not None else robust

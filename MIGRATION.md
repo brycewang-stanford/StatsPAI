@@ -170,6 +170,80 @@ they cannot drift apart.
 R `did` on real data. See
 [the guide](docs/guides/mixtape_castle_replication.md).
 
+<a id="vcov-silently-ignored"></a>
+
+## Unreleased — ⚠️ `vcov=` on `sp.regress` / `sp.ivreg` was ignored
+
+**What changed.** `sp.regress` and `sp.ivreg` accepted a `vcov=`
+argument — the pyfixest spelling used by `sp.feols` — and silently
+discarded it, reporting **default (unclustered) standard errors**. The
+call raised nothing and printed nothing.
+
+```python
+# Before: returned plain OLS standard errors, no warning.
+# After:  clustered, identical to cluster="firm".
+sp.regress("y ~ x", df, vcov={"CRV1": "firm"})
+```
+
+In a 15-cluster example the reported SE was `0.109` where the clustered
+value is `0.063` — **1.7× too small**, i.e. t-statistics inflated by the
+same factor.
+
+**Who is affected.** Anyone who passed `vcov=` to `sp.regress` or
+`sp.ivreg` — most likely users moving between `sp.feols` (where `vcov=`
+is native) and the other two. `sp.feols` itself was always correct.
+**Re-run those regressions**; the previously reported standard errors,
+t-statistics, p-values, and confidence intervals were wrong. Point
+estimates are unaffected.
+
+**How to check an archived result.** If a saved `sp.regress` result used
+`vcov=` and its SEs match a plain unclustered run, it hit this bug.
+
+**New behaviour.**
+
+| Spelling | Maps to |
+| --- | --- |
+| `vcov="iid"` | `robust="nonrobust"` |
+| `vcov="hetero"` / `"HC0"`–`"HC3"` | `robust="hc0"`–`"hc3"` |
+| `vcov={"CRV1": "firm"}` | `cluster="firm"` |
+| `vcov={"CRV2": "firm"}` | `cluster="firm", vce="CR2"` |
+| `vcov={"CRV3": "firm"}` | `cluster="firm", vce="CR3"` |
+
+Supplying `vcov=` together with a conflicting `robust=` / `cluster=` /
+`vce=` now raises `MethodIncompatibility` rather than silently choosing
+one.
+
+**Unrecognised keywords now raise.** Relatedly, `sp.regress` and
+`sp.ivreg` forwarded any unknown keyword into `fit(**kwargs)`, where it
+vanished — a misspelled `robsut="hc1"` quietly produced default
+standard errors. Both now raise `TypeError`, matching `sp.feols` and
+`sp.did_2x2`. If you have code passing an option that was never
+implemented, it will now fail loudly instead of being ignored.
+
+---
+
+<a id="hausman-integer-dtype"></a>
+
+## Unreleased — ⚠️ Durbin-Wu-Hausman test with integer treatments
+
+**What changed.** The endogeneity test reported by `sp.ivreg` /
+`sp.iv` computed its first-stage residuals in the dtype of the
+endogenous regressor. With an integer 0/1 treatment — what you get from
+`d = (...).astype(int)` — the residuals truncated to zero and the test
+returned `NaN`. With integer counts it returned a **finite but wrong**
+statistic (4971.6 against a correct 5316.7) with no indication.
+
+**Who is affected.** Anyone who read `Hausman F-stat` / `Hausman
+p-value` off an IV result whose endogenous regressor was an integer
+column. A `NaN` was visible; the wrong-but-finite case was not. Point
+estimates, standard errors, and the first-stage F are unaffected — only
+the DWH endogeneity diagnostic.
+
+**Fix.** Computed in float regardless of input dtype. Results for
+float-typed regressors are bit-identical to before; casting your
+treatment with `.astype(float)` reproduced the correct value under the
+old code.
+
 ---
 
 <a id="rdrobust-bandwidth-rebuild"></a>

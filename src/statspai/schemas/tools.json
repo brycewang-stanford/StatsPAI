@@ -11863,10 +11863,7 @@
           "type": "string"
         }
       },
-      "required": [
-        "covariates",
-        "treatment"
-      ],
+      "required": [],
       "type": "object"
     },
     "name": "love_plot"

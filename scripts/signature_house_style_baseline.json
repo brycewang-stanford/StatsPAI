@@ -1,10 +1,10 @@
 {
-  "_comment": "Frozen ceiling of legacy-spelling sites per theme for the signature house-style ratchet. Lower these as convergence lands; regenerate with `python scripts/signature_house_style.py --update-baseline`.  se raised 58->60 on 2026-08-02 for gmm(vcov=) and xtdpdsys(robust=): both match their own family's existing spelling \u2014 feols(vcov=) and xtabond(robust=) \u2014 so renaming them in isolation would trade a house-style violation for a sibling inconsistency, which is worse for users. xtdpdsys is already registered in _house_style.ROBUST_BOOL_HINTS as awaiting the coordinated vce= convergence. Lower this again when that convergence lands, not before.",
+  "_comment": "Frozen ceiling of legacy-spelling sites per theme for the signature house-style ratchet. Lower these as convergence lands; regenerate with `python scripts/signature_house_style.py --update-baseline`.  se raised 58->60 on 2026-08-02 for gmm(vcov=) and xtdpdsys(robust=): both match their own family's existing spelling — feols(vcov=) and xtabond(robust=) — so renaming them in isolation would trade a house-style violation for a sibling inconsistency, which is worse for users. xtdpdsys is already registered in _house_style.ROBUST_BOOL_HINTS as awaiting the coordinated vce= convergence. Lower this again when that convergence lands, not before.  se raised 60->62 on 2026-08-05 for regress(vcov=) and ivreg(vcov=). These are NOT drift: vcov= was previously accepted by both functions via **kwargs and silently discarded, returning unclustered standard errors (measured 1.7x too small on a 15-cluster example; see MIGRATION.md#vcov-silently-ignored). The options were to honour the spelling or to reject it; honouring it is what users moving between sp.feols and sp.regress actually want, and the notebook that surfaced the bug mixes both spellings in one file. vce= remains canonical and is unchanged; vcov= is a documented alias that normalises onto it. Do not lower this by renaming vcov= away -- that would re-open the silent-SE path.",
   "by_theme": {
     "cluster": 2,
     "data": 5,
     "outcome": 55,
-    "se": 60,
+    "se": 62,
     "treatment": 63,
     "weights": 5
   },
