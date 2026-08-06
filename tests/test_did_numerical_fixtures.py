@@ -99,9 +99,11 @@ def test_att_gt_matches_pinned_values(cs_fixture):
 
 def test_overall_att_matches_pinned(cs_fixture):
     assert cs_fixture.estimate == pytest.approx(1.282166, abs=1e-4)
-    # SE re-pinned to 0.289142 (was 0.101724 pre-v1.13) following the
-    # simple-ATT IF-scaling fix; see module docstring.
-    assert cs_fixture.se == pytest.approx(0.289142, abs=1e-4)
+    # SE re-pinned to 0.290596 (was 0.289142; 0.101724 pre-v1.13) after
+    # the aggregation variance began carrying the weight-estimation term
+    # (R `did:::wif`).  See MIGRATION.md.  The headline SE must equal
+    # aggte(type='simple').se — test_aggte.py guards that invariant.
+    assert cs_fixture.se == pytest.approx(0.290596, abs=1e-4)
 
 
 # --------------------------------------------------------------------------- #
@@ -109,6 +111,16 @@ def test_overall_att_matches_pinned(cs_fixture):
 # --------------------------------------------------------------------------- #
 
 PINNED_EVENT_STUDY = {
+    # Re-pinned 2026-08-07 (Unreleased): aggregation weights are estimated
+    # cohort shares, and the variance now carries their sampling
+    # variability (R `did:::wif`); see MIGRATION.md "sp.aggte standard
+    # errors get larger".  ATT point estimates are bit-identical.
+    #
+    # Note which SEs did NOT move: e = -6, -5, 4, 5 are reachable by a
+    # single cohort, and for single-cohort aggregates the weight term is
+    # identically zero.  Only the multi-cohort event times shift — which
+    # is exactly the signature the fix predicts.
+    #
     # Re-pinned 2026-07-25 (v1.21): multiplier-bootstrap weights switched
     # from Mammen to Rademacher to match what R `did` actually draws
     # (BMisc::multiplier_bootstrap). ATT point estimates unchanged; the
@@ -116,13 +128,13 @@ PINNED_EVENT_STUDY = {
     # Previous pins (2026-05-05, v1.13 IF-scaling fix) kept in history.
     -6: (0.082153, 0.554551),
     -5: (0.284830, 0.501990),
-    -4: (0.135512, 0.410571),
-    -3: (0.427031, 0.299943),
-    -2: (-0.183822, 0.362842),
-    0: (0.356390, 0.311850),
-    1: (1.024010, 0.236992),
-    2: (1.378177, 0.484091),
-    3: (1.663324, 0.374627),
+    -4: (0.135512, 0.396650),
+    -3: (0.427031, 0.303998),
+    -2: (-0.183822, 0.361602),
+    0: (0.356390, 0.315623),
+    1: (1.024010, 0.233379),
+    2: (1.378177, 0.478616),
+    3: (1.663324, 0.376293),
     4: (2.299304, 0.550773),
     5: (2.862484, 0.511380),
 }

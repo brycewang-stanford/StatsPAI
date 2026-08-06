@@ -1,14 +1,17 @@
 """Reference parity: ``sp.aggte`` all four aggregations vs R ``did::aggte``.
 
-This is the guard for the two ⚠️ correctness fixes to ``sp.aggte``:
+This is the guard for the three ⚠️ correctness fixes to ``sp.aggte``:
 
 1. ``type='group'`` collapsed the per-cohort θ(g) with equal ``1/K`` weights;
    R weights each cohort by its share of treated units.
 2. The ``bstrap=False`` path summed per-cell variances as if the ATT(g, t)
    cells were independent, producing standard errors ~0.64x the truth.
+3. The aggregation weights are *estimated* cohort shares, but the variance
+   treated them as fixed, dropping R's ``did:::wif`` term and leaving the
+   standard errors up to 8% too small.
 
-With both fixed, every aggregation matches R ``did`` 2.3.0 on canonical
-``did::mpdta`` to 10 decimal places on the point estimate and to ~2.5% on the
+With all three fixed, every aggregation matches R ``did`` 2.3.0 on canonical
+``did::mpdta`` to 10 decimal places on **both** the point estimate and the
 influence-function standard error.
 
 Reference generation
@@ -134,15 +137,26 @@ def test_aggte_point_estimate_matches_r(cs_result, agg_type):
 
 @pytest.mark.parametrize("agg_type", sorted(R_AGGTE))
 def test_aggte_analytic_se_matches_r(cs_result, agg_type):
-    """Covariance-aware analytic SEs land within 2.5% of R's.
+    """Analytic SEs now match R exactly, not merely within a few percent.
 
-    Before the fix the ``bstrap=False`` path treated the ATT(g, t) cells as
-    independent and came in around 0.64x these values.
+    History of this assertion, which is a record of two separate bugs:
+
+    1. Originally the ``bstrap=False`` path treated the ATT(g, t) cells as
+       independent and came in around **0.64x** these values.  Fixing that
+       (aggregating through the influence functions) got within ~2.5%, and
+       the tolerance was set to ``rel=0.025`` to accommodate the residual.
+    2. That residual was itself a bug: the aggregation weights are
+       *estimated* cohort shares, and the variance was treating them as
+       fixed — R's ``did:::wif`` term was missing.  With it restored the
+       agreement is exact, so the tolerance is now ~1e-9.
+
+    If this assertion starts needing a loose ``rel=`` again, something has
+    regressed — do not widen it without finding out what.
     """
     _, se_r = R_AGGTE[agg_type]
     got = sp.aggte(cs_result, type=agg_type, bstrap=False)
-    assert got.se == pytest.approx(se_r, rel=0.025), (
-        f"{agg_type}: SE {got.se:.8f} vs R {se_r:.8f} " f"(ratio {got.se / se_r:.4f})"
+    assert got.se == pytest.approx(se_r, abs=1e-9), (
+        f"{agg_type}: SE {got.se:.10f} vs R {se_r:.10f} " f"(ratio {got.se / se_r:.6f})"
     )
 
 

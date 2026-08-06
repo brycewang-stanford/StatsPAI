@@ -7,7 +7,7 @@
       "side": "py",
       "statistic": "simple_ATT",
       "estimate": -0.039951275155176276,
-      "se": 0.007439785868984351,
+      "se": 0.012034012770185353,
       "n": 2500,
       "published": -0.0454,
       "citation": "Callaway-Sant'Anna (2021) R 'did' vignette aggte simple",

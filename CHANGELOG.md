@@ -6,6 +6,28 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.aggte` and `sp.callaway_santanna` standard errors were too small.**
+  The Callaway–Sant'Anna aggregation weights are *estimated* cohort shares
+  `p̂_g = P̂(G = g)`, but the variance treated them as fixed — dropping the
+  weight-estimation influence term (R `did:::wif`). Reported SEs were
+  **anti-conservative** on every aggregation mixing more than one adoption
+  cohort, by up to **8.4%** in the cases measured. Point estimates were
+  never affected (they already matched R `did` to ~1e-11); `se`, the
+  confidence interval, and the p-value all move, and only ever wider.
+
+  On real `did::mpdta`: `simple` SE 0.0117467 → **0.0120340**, `calendar`
+  t=2006 0.0184354 → **0.0201259** — both now equal to R. Single-cohort
+  aggregates (`type='group'` cells) were always correct, because the `p̂_g`
+  factors cancel there; that is why no internal consistency check caught
+  this. Fixed in `sp.aggte`, `sp.aggte_from_influence`, and
+  `callaway_santanna`'s own headline SE, all of which now derive from one
+  shared primitive (`did/_core.py`), so the analytic and `bstrap=True`
+  paths cannot drift apart. See [`MIGRATION.md`](MIGRATION.md#aggte-weight-influence).
+
+  Found by the new Cheng–Hoekstra castle-doctrine replication, which
+  compares StatsPAI against Stata 18 MP and R `did` on real data; the
+  regression guard is `tests/reference_parity/test_aggte_r_did_parity.py`.
+
 - **Table precision is now chosen per coefficient/SE *pair*, not per cell.**
   `fmt="auto"` used to pick decimals from each value's own magnitude
   independently, so a row could render as `-5.22 (45.3)` — an estimate and

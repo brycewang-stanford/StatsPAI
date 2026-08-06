@@ -295,6 +295,11 @@ def aggte_from_influence(
         "cohort_sizes": cohort_sizes,
         "n_units": n_units,
         "source": "influence_functions export",
+        # Row-aligned cohort labels.  aggte() needs these to rebuild the
+        # weight-estimation influence term (R did:::wif); without them it
+        # would silently fall back to treating the aggregation weights as
+        # fixed and this path would report smaller SEs than sp.aggte().
+        "_unit_cohorts": unit_cohorts.reindex(units).to_numpy(),
     }
     if "cluster" in frame.columns:
         model_info["_cluster_ids"] = (

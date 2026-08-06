@@ -40,7 +40,9 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ._core import cohort_share_context as _cohort_share_context
 from ._core import multiplier_bootstrap as _core_multiplier_bootstrap
+from ._core import weight_influence as _weight_influence
 
 # ======================================================================
 # Public API
@@ -210,26 +212,45 @@ def aggte(
     # bootstrap then resamples clusters instead of units (R did::mboot).
     cluster_ids = model_info.get("_cluster_ids")
 
+    # Per-cell aggregated influence functions.
+    #
+    # ⚠️ correctness fix: the aggregation weights are *estimated* cohort
+    # shares, not constants.  Treating them as fixed drops R
+    # ``did:::wif`` from the variance and the reported SE came out up to
+    # ~8% too small (anti-conservative).  Build the corrected functions
+    # once here; every SE below is derived from them so the analytic and
+    # bootstrap paths cannot drift apart.
+    unit_cohorts = model_info.get("_unit_cohorts")
+    psi_cells: Optional[np.ndarray] = None
+    if inf_matrix is not None:
+        if unit_cohorts is not None and len(unit_cohorts) == inf_matrix.shape[0]:
+            pg_cells, ind_cells = _cohort_share_context(
+                detail["group"].values, unit_cohorts
+            )
+            psi_cells = _aggregated_influence(
+                W, inf_matrix, att_vec, pg_cells, ind_cells
+            )
+        else:
+            # Result predates ``_unit_cohorts`` (or it is misaligned) —
+            # fall back to fixed weights rather than guessing.
+            pg_cells = ind_cells = None
+            psi_cells = inf_matrix @ W.T
+
     # SE + CI per cell, plus uniform band if requested.
-    if bstrap and inf_matrix is not None:
-        se_cells, crit_unif = _multiplier_bootstrap(
-            W,
-            inf_matrix,
+    if bstrap and psi_cells is not None:
+        se_cells, crit_unif = _bootstrap_from_influence(
+            psi_cells,
             n_units,
             alpha,
             n_boot,
             random_state,
             cluster_ids=cluster_ids,
         )
-    elif inf_matrix is not None:
-        # ⚠️ correctness fix: the non-bootstrap path used to sum the
-        # per-cell variances as if the ATT(g, t) cells were independent.
-        # They are not — cells share control units, so the omitted
-        # covariances are large and positive and the SE came out ~0.64x
-        # the truth.  Aggregate through the influence functions instead,
-        # which is the same estimator R ``did`` uses and matches the
-        # ``bstrap=True`` branch below.
-        se_cells = _analytic_se_influence(W, inf_matrix, n_units)
+    elif psi_cells is not None:
+        # Aggregating through the influence functions carries the
+        # covariance between ATT(g, t) cells that share control units;
+        # summing per-cell variances would treat them as independent.
+        se_cells = _se_from_influence(psi_cells, n_units)
         crit_unif = stats.norm.ppf(1 - alpha / 2)
     else:
         se_cells = _analytic_se(W, detail)
@@ -268,8 +289,8 @@ def aggte(
     if type == "simple":
         overall_est = float(est_cells[0])
         overall_se = float(se_cells[0])
-        if inf_matrix is not None:
-            overall_inf = np.asarray(W[0] @ inf_matrix.T, dtype=float)
+        if psi_cells is not None:
+            overall_inf = np.asarray(psi_cells[:, 0], dtype=float)
     else:
         if type == "dynamic":
             post_mask_agg = np.asarray(labels, dtype=float) >= 0
@@ -310,15 +331,28 @@ def aggte(
         # unclustered overall SE is that formula even under bstrap=True).
         # For type='simple' the reported SE is a genuine multiplier
         # bootstrap, so the two agree only up to bootstrap noise.
-        if inf_matrix is not None:
-            overall_inf = np.asarray((w_overall @ W) @ inf_matrix.T, dtype=float)
-        if bstrap and inf_matrix is not None:
-            if cluster_ids is not None:
-                # Cluster-aware: bootstrap the single overall combination
-                # so the SE resamples clusters like the per-cell SEs do.
-                se_overall_arr, _ = _multiplier_bootstrap(
-                    (w_overall @ W).reshape(1, -1),
-                    inf_matrix,
+        if psi_cells is not None:
+            # Compose the OVERALL from the already-corrected per-cell
+            # functions.  R applies ``wif`` once, at the level where the
+            # estimated cohort shares actually enter:
+            #
+            #   dynamic / calendar — the overall is an equal-weight mean
+            #     over event times / calendar periods, so those weights
+            #     are constants and carry no extra term.
+            #   group — the overall re-weights theta(g) by each cohort's
+            #     estimated share, so the term applies here instead (the
+            #     per-cohort cells are single-cohort and hence wif-free).
+            overall_inf = np.asarray(psi_cells @ w_overall, dtype=float)
+            if type == "group" and ind_cells is not None:
+                pg_g, ind_g = _cohort_share_context(
+                    np.asarray(labels, dtype=float), unit_cohorts
+                )
+                wif_g = _weight_influence(pg_g, ind_g)
+                overall_inf = overall_inf + wif_g @ est_cells
+
+            if bstrap:
+                se_overall_arr, _ = _bootstrap_from_influence(
+                    overall_inf.reshape(-1, 1),
                     n_units,
                     alpha,
                     n_boot,
@@ -327,17 +361,7 @@ def aggte(
                 )
                 overall_se = float(se_overall_arr[0])
             else:
-                agg_inf = (w_overall @ W) @ inf_matrix.T
-                overall_se = float(np.sqrt(np.mean(agg_inf**2) / n_units))
-        elif inf_matrix is not None:
-            # ⚠️ correctness fix: same independence bug as the per-cell
-            # path above — aggregate through the influence functions so the
-            # cross-cell covariances are carried.
-            overall_se = float(
-                _analytic_se_influence(
-                    (w_overall @ W).reshape(1, -1), inf_matrix, n_units
-                )[0]
-            )
+                overall_se = float(_se_from_influence(overall_inf[:, None], n_units)[0])
         else:
             overall_se = float(np.sqrt(np.sum((w_overall**2) * se_cells**2)))
 
@@ -566,9 +590,44 @@ def _analytic_se_influence(
     bootstrap in :func:`_multiplier_bootstrap`.  Because it works on the
     influence functions rather than the per-cell variances, it carries
     the covariance between ATT(g, t) cells that share control units.
+
+    Note this treats ``W`` as **fixed**.  When the weights are estimated
+    cohort shares the caller must add the weight-estimation term first —
+    see :func:`_aggregated_influence`.
     """
     psi = inf_matrix @ W.T  # (n_units, K)
+    return _se_from_influence(psi, n_units)
+
+
+def _se_from_influence(psi: np.ndarray, n_units: int) -> np.ndarray:
+    """``sqrt(mean(ψ²) / n)`` per column — R ``did``'s ``getSE``."""
     return np.asarray(np.sqrt(np.mean(psi**2, axis=0) / n_units), dtype=float)
+
+
+def _aggregated_influence(
+    W: np.ndarray,
+    inf_matrix: np.ndarray,
+    att_vec: np.ndarray,
+    pg: np.ndarray,
+    ind: np.ndarray,
+) -> np.ndarray:
+    """Per-cell aggregated influence functions, weight estimation included.
+
+    Column ``r`` is ``Ψ[:, keep] @ w_r + wif_r @ att[keep]`` where
+    ``keep`` are the cells row ``r`` of ``W`` actually loads on.  This is
+    R ``did:::get_agg_inf_func`` with a non-null ``wif``.
+    """
+    n_units = inf_matrix.shape[0]
+    out = np.zeros((n_units, W.shape[0]), dtype=float)
+    for r in range(W.shape[0]):
+        keep = np.nonzero(W[r])[0]
+        if keep.size == 0:
+            continue
+        w = W[r, keep]
+        psi = inf_matrix[:, keep] @ w
+        wif = _weight_influence(pg[keep], ind[:, keep])
+        out[:, r] = psi + wif @ att_vec[keep]
+    return out
 
 
 def _analytic_se(W: np.ndarray, detail: pd.DataFrame) -> np.ndarray:
@@ -607,6 +666,25 @@ def _multiplier_bootstrap(
         Uniform (sup-t) critical value at level ``1 - alpha``.
     """
     psi = inf_matrix @ W.T  # (n_units, K)
+    return _bootstrap_from_influence(
+        psi, n_units, alpha, n_boot, random_state, cluster_ids=cluster_ids
+    )
+
+
+def _bootstrap_from_influence(
+    psi: np.ndarray,
+    n_units: int,
+    alpha: float,
+    n_boot: int,
+    random_state: Optional[int],
+    cluster_ids: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, float]:
+    """Multiplier bootstrap on already-aggregated influence functions.
+
+    Separate from :func:`_multiplier_bootstrap` so callers that have
+    applied the weight-estimation correction can bootstrap the corrected
+    functions instead of re-deriving them from ``W``.
+    """
     return _core_multiplier_bootstrap(
         psi,
         n_units,

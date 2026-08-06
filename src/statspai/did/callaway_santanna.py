@@ -33,9 +33,11 @@ from scipy import stats
 
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ._core import cohort_share_context as _cohort_share_context
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import multiplier_bootstrap as _core_multiplier_bootstrap
 from ._core import require_bool as _require_bool
+from ._core import weight_influence as _weight_influence
 
 
 class CallawayNotImplemented(MethodIncompatibility, NotImplementedError):
@@ -582,6 +584,7 @@ def callaway_santanna(
         n_units,
         alpha,
         boot_cfg=boot_cfg,
+        unit_cohorts=unit_info[g].to_numpy(),
     )
 
     # 6. Event study aggregation
@@ -1140,12 +1143,18 @@ def _aggregate_simple(
     n_total: int,
     alpha: float,
     boot_cfg: Optional[Dict[str, Any]] = None,
+    unit_cohorts: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, float, Tuple[float, float]]:
     """Simple aggregation: group-size-weighted average of post-treatment ATTs.
 
     When ``boot_cfg`` is given (bstrap=True path), the SE of the
     aggregated ATT comes from the multiplier bootstrap on the aggregated
     influence function instead of the analytic plug-in.
+
+    ``unit_cohorts`` (row-aligned with ``post_inf``) enables the
+    weight-estimation influence term — the aggregation weights are
+    estimated cohort shares, and treating them as fixed understates the
+    SE.  See :func:`statspai.did._core.weight_influence`.
     """
     if len(post_detail) == 0:
         return 0.0, np.inf, 1.0, (np.nan, np.nan)
@@ -1157,6 +1166,11 @@ def _aggregate_simple(
 
     if post_inf is not None and post_inf.shape[1] > 0:
         inf_agg = post_inf @ weights
+        if unit_cohorts is not None and len(unit_cohorts) == post_inf.shape[0]:
+            pg, ind = _cohort_share_context(post_detail["group"].values, unit_cohorts)
+            inf_agg = inf_agg + _weight_influence(pg, ind) @ (
+                post_detail["att"].values.astype(float)
+            )
         if boot_cfg is not None:
             se_arr, _ = _core_multiplier_bootstrap(
                 inf_agg,
@@ -1541,6 +1555,7 @@ def _callaway_santanna_rcs(
         cohort_sizes,
         n_obs,
         alpha,
+        unit_cohorts=g_arr,
     )
     event_study = _aggregate_event_study(
         detail,

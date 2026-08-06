@@ -520,3 +520,60 @@ def drop_unusable_rows(
         )
 
     return clean.reset_index(drop=True) if reset_index else clean
+
+
+# ---------------------------------------------------------------------------
+# Weight-estimation influence (Callaway-Sant'Anna aggregation)
+# ---------------------------------------------------------------------------
+
+
+def cohort_share_context(
+    cell_groups: "np.ndarray",
+    unit_cohorts: "np.ndarray",
+) -> "tuple[np.ndarray, np.ndarray]":
+    """Build ``(pg, ind)`` for a vector of per-cell cohort labels.
+
+    ``pg[k]`` is the share of **all** units (never-treated included) whose
+    cohort equals cell ``k``'s group, matching R ``did``'s
+    ``pg <- mean(weights * (G == g))``.  ``ind[i, k]`` is ``1{G_i == g_k}``.
+    """
+    g_units = np.asarray(unit_cohorts, dtype=float)
+    g_cells = np.asarray(cell_groups, dtype=float)
+    ind = (g_units[:, None] == g_cells[None, :]).astype(float)
+    return ind.mean(axis=0), ind
+
+
+def weight_influence(pg: "np.ndarray", ind: "np.ndarray") -> "np.ndarray":
+    """Influence function of the *estimated* aggregation weights.
+
+    Port of R ``did:::wif``.  Callaway-Sant'Anna aggregations weight each
+    cell by its cohort share ``pg[k] = P(G = g_k)``, which is itself
+    estimated.  Treating those weights as fixed drops a term from the
+    variance and makes the reported standard error too small
+    (anti-conservative).
+
+    Parameters
+    ----------
+    pg : ndarray, shape (K,)
+        Estimated cohort share behind each kept cell.
+    ind : ndarray, shape (n_units, K)
+        ``1{G_i == g_k}`` membership indicators.
+
+    Returns
+    -------
+    ndarray, shape (n_units, K)
+        Multiply by the cell ATTs and add to ``Psi[:, keep] @ w``.
+
+    Notes
+    -----
+    When every kept cell comes from the same cohort the ``pg`` factors
+    cancel and this is identically zero — which is why single-cohort
+    aggregates were never affected by the omission.
+    """
+    total = float(np.sum(pg))
+    if total <= 0:
+        return np.zeros_like(ind, dtype=float)
+    centered = ind - pg[None, :]
+    if1 = centered / total
+    if2 = np.outer(centered.sum(axis=1), pg / (total**2))
+    return np.asarray(if1 - if2, dtype=float)

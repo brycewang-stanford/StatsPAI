@@ -66,6 +66,57 @@ sp.esttab(m1, m2, fmt="%.4f")         # pre-Unreleased esttab / modelsummary
 
 ---
 
+<a id="aggte-weight-influence"></a>
+
+## Unreleased — ⚠️ `sp.aggte` standard errors get larger
+
+**What changed.** The Callaway–Sant'Anna aggregation weights are
+*estimated* cohort shares $\hat p_g = \widehat{P}(G = g)$, not constants.
+`sp.aggte` was treating them as fixed, which drops a term from the
+variance (R `did`'s `wif`, "weight influence function"). The reported
+standard errors were therefore **too small** — anti-conservative — on
+every aggregation that mixes more than one adoption cohort.
+
+**Point estimates never changed.** They already matched R `did` and Stata
+`csdid` to ~1e-11. Only `se`, the confidence interval, and the p-value
+move, and they move in the conservative direction (SEs widen).
+
+Real `did::mpdta`, `bstrap=False`, `base_period='universal'`:
+
+| aggregation | old SE | new SE | R `did` |
+| --- | ---: | ---: | ---: |
+| `simple` | 0.0117467 | **0.0120340** | 0.0120340 |
+| `dynamic` (overall) | 0.0199587 | **0.0199650** | 0.0199650 |
+| `group` (overall) | 0.0123872 | **0.0124461** | 0.0124461 |
+| `calendar` (overall) | 0.0158022 | **0.0159719** | 0.0159719 |
+| `calendar`, t=2006 | 0.0184354 | **0.0201259** | 0.0201259 |
+
+The largest gap observed was **8.4%** (`calendar` t=2006). On the
+Cheng–Hoekstra castle panel the `simple` SE moves 0.038602 → **0.038724**,
+matching both R and Stata exactly.
+
+**Who is affected.** Anyone quoting a CS standard error, CI, or p-value
+from `sp.aggte` — including `sp.cs_report`, `sp.did_report`, and
+`honest_did` inputs built off `aggte`. Re-run and re-quote. A result that
+was significant at exactly 5% may no longer be.
+
+**Who is not.** Per-cohort cells of `type='group'` were always correct:
+within a single cohort the $\hat p_g$ factors cancel and the omitted term
+is identically zero. That is precisely why the bug survived — every
+internal consistency check passed.
+
+**No flag restores the old behaviour.** It was not an alternative variance
+convention; the term was missing. Both the analytic path and
+`bstrap=True` now derive from the same corrected influence functions, so
+they cannot drift apart.
+
+**How this was found.** The Cheng–Hoekstra castle-doctrine replication
+(`sp.replicate('castle_2013')`) compared StatsPAI against Stata 18 MP and
+R `did` on real data. See
+[the guide](docs/guides/mixtape_castle_replication.md).
+
+---
+
 <a id="rdrobust-bandwidth-rebuild"></a>
 
 ## 1.21.0 — ⚠️ `sp.rdrobust` numbers change
