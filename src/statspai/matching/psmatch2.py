@@ -604,13 +604,23 @@ class PSMatch2Result(ResultProtocolMixin):
            ``fweight`` interval is ~14% narrower purely from the degrees of
            freedom.
 
-           ``'aweight'`` is the default because reused controls are *not*
-           independent draws, so the ``fweight`` interval understates
-           uncertainty.  ``'fweight'`` is provided for exact reproduction of
-           the textbook Stata line, and is implemented by physically
-           replicating rows — which is what a frequency weight means, and
-           which reproduces Stata bit-for-bit (see
+           Choosing between them is mostly a *reproducibility* question:
+           match the Stata line you are reconciling against.  ``'aweight'``
+           is the default because it is the more conservative of the two and
+           the only one defined when ``k > 1`` makes ``_weight`` fractional.
+           ``'fweight'`` is implemented by physically replicating rows —
+           which is what a frequency weight means — and reproduces Stata
+           bit-for-bit (see
            ``tests/reference_parity/test_psmdid_weight_parity.py``).
+
+           **Neither regime gives correct inference under matching with
+           replacement.**  Both condition on the realised match structure and
+           treat the matched sample as independently drawn, while a control
+           serving several treated units induces dependence across those
+           comparisons that no degrees-of-freedom convention captures.
+           ``'aweight'`` is the less optimistic of the two, not the correct
+           one.  When the standard error is load-bearing, cluster on the
+           matched control's identity or bootstrap the pipeline.
 
            .. versionchanged:: 1.22
               ``weight='fweight'`` now computes genuine Stata ``fweight``

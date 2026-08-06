@@ -279,15 +279,29 @@ independent observations:
 The DiD coefficient is 1.551163 in all three cases. The `fweight` interval is
 about 14% narrower *purely from the degrees of freedom*.
 
-**The default is `'aweight'`, and that is the recommendation.** A control that
-gets matched three times is not three independent draws, so the `fweight`
-degrees of freedom overstate how much information the matched sample carries.
-Use `'fweight'` when you specifically need to reproduce the textbook Stata
-line, not because it looks more precise.
+**Which should you pick?** Mostly this is a *reproducibility* question, not a
+statistical one: pick the regime matching the Stata line you are reconciling
+against. `'aweight'` is the default because it is the more conservative of the
+two, and because it is the only one defined when `k > 1` makes `_weight`
+fractional.
 
 ```python
 did = m.psm_did(panel, id='id', y='y', post='post', weight='fweight')
 ```
+
+> **Neither regime gives correct inference under matching *with
+> replacement*.** Both condition on the realised match structure and treat
+> the matched sample as if it were drawn independently. A control that serves
+> as the counterfactual for three treated units induces dependence across
+> those three comparisons, which no `[aweight=]`/`[fweight=]` degrees-of-
+> freedom convention captures. `'aweight'` is merely the less optimistic of
+> the two — not the correct one.
+>
+> If the standard error is load-bearing for your conclusion, cluster on the
+> matched control's identity or bootstrap the whole pipeline
+> (`se='bootstrap'` on the cross-sectional ATT re-estimates the propensity
+> score each draw). Matching *without* replacement, where each control is
+> used at most once, does not have this problem.
 
 `'fweight'` requires **integer** weights, exactly as Stata does. Matching with
 `k > 1` neighbours splits each treated unit's weight into `1/k` shares, so
