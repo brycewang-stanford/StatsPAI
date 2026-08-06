@@ -107,6 +107,59 @@ cs = sp.callaway_santanna(
 es = sp.aggte(cs, type='dynamic')   # inherits the clustering automatically
 ```
 
+## Migrating from Stata `csdid`
+
+The option names do **not** line up, and two of the mismatches change
+your numbers silently. This table is the mapping.
+
+| `csdid` | StatsPAI | Note |
+| --- | --- | --- |
+| `method(dripw)` | `estimator='dr'` | default both sides |
+| `method(reg)` | `estimator='reg'` | |
+| `method(stdipw)` | `estimator='ipw'` **or** `'stdipw'` | ⚠️ see below |
+| `method(ipw)` | `estimator='ipw_abadie'` | ⚠️ see below |
+| `wboot` | `bstrap=True` or `se_method='wboot'` | |
+| `wboot(reps(999))` | `biters=999` | |
+| `wboot(wtype(mammen))` | `boot_weight_type='mammen'` | csdid defaults to mammen, StatsPAI to rademacher — R `did` draws rademacher despite citing Mammen |
+| `pointwise` | `cband=False` | csdid's default is *uniform*; StatsPAI's is pointwise |
+| `long2` | `base_period='universal'` | StatsPAI's default |
+| (csdid default gaps) | `base_period='varying'` | |
+| `asinr` | `notyet_cutoff='period'` | StatsPAI's default |
+| (csdid default) | `notyet_cutoff='cohort'` | |
+| `notyet` | `control_group='notyettreated'` | |
+| `pscoretrim(#)` | `pscore_trim=#` | both default 0.995 |
+| `saverif(f)` | `sp.influence_functions(res, path=f)` | |
+| `cluster(v)` | `clustervars=['v']` | requires `bstrap=True` |
+
+### ⚠️ `ipw` means different things in the two ecosystems
+
+StatsPAI follows **R `did`**, where `est_method='ipw'` dispatches to
+`DRDID::std_ipw_did_panel` — the Hájek-*stabilized* estimator. Stata's
+`method(ipw)` is Abadie (2005), which normalizes both arms by the same
+`E[D]` and is a genuinely different estimator.
+
+```python
+# porting `csdid ..., method(ipw)`     -> estimator='ipw_abadie'
+# porting `csdid ..., method(stdipw)`  -> estimator='ipw'  (or 'stdipw')
+```
+
+On `mpdta` the two differ by up to 2.4e-4 — small enough to look like
+noise, large enough to change a marginal t-statistic. Both spellings are
+pinned against Stata in
+`tests/reference_parity/test_csdid_conventions_stata_parity.py`.
+
+### ⚠️ `asinr` is a control-set convention, not a test
+
+Despite the name, `asinr` does not test anything. It selects which date a
+control must still be untreated at, for **pre-treatment** ATT(g,t) only:
+
+- `notyet_cutoff='period'` — untreated as of `t` (R `did`, `csdid, asinr`)
+- `notyet_cutoff='cohort'` — untreated as of `g` (`csdid`'s own default)
+
+Post-treatment cells are identical either way. On `mpdta` the
+pre-treatment placebos move in the third decimal, e.g. ATT(2007, 2004)
+goes from 0.032971 to 0.033813.
+
 ## Influence-function export (`saverif` workflow)
 
 Stata's `csdid, saverif()` saves the per-observation influence

@@ -100,6 +100,102 @@ All notable changes to StatsPAI will be documented in this file.
   hardened in the JIVE estimators, whose public wrappers already cast
   upstream (no numeric change there).
 
+- **`sp.did_multiplegt_dyn`'s bootstrap used a different switch date than
+  its point estimate.** The estimate finds each unit's first treatment
+  *change* in either direction (`_first_switch`); the cluster bootstrap
+  re-derived it as `min(time | d == 1)` — "first period treated", which is
+  the first change only for switch-**on** units. A unit going 1 → 0 at F
+  was therefore assigned `_F` = its own first period, which has no base
+  period F−1, so it dropped out of every replicate.
+
+  Effect on **non-absorbing** panels (any panel with switch-off events):
+  `switchers='out'`-style samples returned a **NaN** standard error, and
+  the pooled bootstrap SE silently collapsed onto the switch-in-only SE
+  (0.182973 vs the correct 0.119610 on the new fixture) because the
+  switch-off units were broken in every draw. Point estimates were never
+  affected. **Absorbing panels are bit-identical** — there "first period
+  treated" *is* the first change — which is why the existing
+  `DIDmultiplegtDYN` parity suite never caught it. Fixed, and pinned by
+  `tests/reference_parity/test_multiplegt_dyn_options_parity.py`.
+
+- **`sp.sun_abraham` standard errors were missing the cohort-share term.**
+  The IW estimator δ̂_ℓ = Σ_g ŵ_{g,ℓ} β̂_{g,ℓ} multiplies two estimated
+  objects, so Sun & Abraham (2021) Prop. 3 gives it a two-part variance:
+  `w' Var(β̂) w + β' Var(ŵ) β`. StatsPAI reported only the first part,
+  **understating** the SE wherever more than one cohort contributes at a
+  relative time. The omission was invisible at single-cohort event times,
+  where Var(ŵ) is degenerate — on `mpdta` the SE agreed with Stata to
+  0.02% there and drifted up to 2.0% at two-cohort event times. Fixed;
+  per-event-time SEs at multi-cohort event times now rise slightly (~0.6–2%
+  on `mpdta`), and the agreement with Stata `eventstudyinteract` is now a
+  uniform 0.02–0.08% across all event times. Point estimates are
+  unchanged.
+
+  Note that R `fixest::sunab` treats the shares as fixed and so reports
+  the smaller, first-term-only SE. StatsPAI deliberately follows
+  `eventstudyinteract`, Liyang Sun's own implementation of her paper.
+  See [`MIGRATION.md`](MIGRATION.md).
+
+### Added
+
+- **DiD option depth vs Stata — one campaign, six estimators.** Audited
+  against the installed `.ado` help files rather than a summary, which
+  overturned two commonly-repeated claims: `csdid`'s `asinr` is a
+  *control-set convention* for pre-treatment ATT(g,t), not an
+  "as-if-random test", and `long`/`long2` are *base-period* options
+  already covered by `base_period=`.
+
+  - `sp.callaway_santanna`: `notyet_cutoff=` ('period' = R `did` /
+    `csdid, asinr`, the default; 'cohort' = `csdid`'s own default),
+    `estimator='stdipw'` (explicit alias — StatsPAI's `'ipw'` always
+    *was* the stabilized estimator, matching R `did`) and the genuinely
+    new `estimator='ipw_abadie'` (Abadie 2005, which is what `csdid`
+    calls `method(ipw)`), plus `pscore_trim=0.995` matching DRDID's
+    `trim.level`, which StatsPAI previously did not apply at all.
+    Trimming that binds is counted in `diagnostics['n_pscore_trimmed']`
+    and warns rather than acting silently.
+  - `sp.sun_abraham`: `control_cohort=` (Stata `eventstudyinteract`'s
+    `control_cohort()`), accepting a 0/1 indicator column or a cohort
+    value.
+  - `sp.did_imputation` / `sp.bjs`: `unit_covariates=`,
+    `time_covariates=` and `fe=` (Stata's `unitcontrols()`,
+    `timecontrols()`, `fe()`), plus `project=` (Stata's `project()`) for
+    regressing the imputed effects on covariates. The projection reuses
+    the estimator's own influence function and reduces *exactly* to the
+    ATT when projecting on a constant.
+  - `sp.did_multiplegt_dyn`: `switchers='in'|'out'`, `same_switchers=`
+    and `effects_equal=`, matching the current dCDH command (the review
+    that prompted this asked for options from the *deprecated*
+    `did_multiplegt`).
+  - `sp.sun_abraham` gains a joint pre-trend test — it had none — and
+    both it and `sp.callaway_santanna` gain `pretest=` /
+    `pretest_periods=`. The test uses the full covariance across leads,
+    not the diagonal.
+  - One shared `se_method=` vocabulary across the DiD family
+    (`'analytic'`, `'bootstrap'`, `'multiplier'`/`'wboot'`, `'auto'`),
+    layered over each estimator's native spelling (`bstrap=`, `vce=`)
+    without moving any default. `'auto'` switches to a bootstrap at or
+    below 30 clusters, the top of the range where Cameron, Gelbach &
+    Miller (2008) document over-rejection.
+
+  All new paths are pinned against Stata 18 MP with reproducible
+  do-files under `tests/stata_parity/` (82-85).
+
+### Fixed
+
+- **128 registry entries hid parameters from `sp.function_schema()`.**
+  The agent-facing schema is built from hand-written `params=` lists that
+  the auto-builder deliberately never overwrites, so adding an argument
+  to a signature left it invisible to agent callers — silently, with no
+  warning. `callaway_santanna`, `sun_abraham`, `did_imputation` and
+  `did_multiplegt_dyn` are now complete (this also surfaced
+  `did_imputation`'s long-missing `vce`, `n_boot`, `boot_seed` and
+  `sun_abraham`'s `aggregation`). The remaining 124 entries — 501 hidden
+  parameters, including `regress`'s `vce` / `weights` / Conley options —
+  are frozen in `scripts/registry_param_drift_baseline.json` and
+  ratcheted by `tests/test_registry_param_drift.py`, so the debt can
+  shrink but not grow.
+
 ### Added
 
 

@@ -243,6 +243,48 @@ the DWH endogeneity diagnostic.
 float-typed regressors are bit-identical to before; casting your
 treatment with `.astype(float)` reproduced the correct value under the
 old code.
+<a id="sunab-share-variance"></a>
+
+## Unreleased — ⚠️ `sp.sun_abraham` standard errors rise at multi-cohort event times
+
+**What changed.** The interaction-weighted estimator is
+δ̂_ℓ = Σ_g ŵ_{g,ℓ} β̂_{g,ℓ} — a product of *two* estimated objects. Sun &
+Abraham (2021), Prop. 3 accordingly gives it a two-part variance:
+
+```
+Var(δ̂_ℓ) = w_ℓ' Var(β̂) w_ℓ   +   β_ℓ' Var(ŵ_ℓ) β_ℓ
+            \___ regression ___/     \___ cohort shares ___/
+```
+
+StatsPAI computed only the first part. The second is dropped-to-zero
+whenever a single cohort is eligible at ℓ (there ŵ ≡ 1 carries no
+uncertainty), which is why the omission survived: it is *exactly* correct
+at single-cohort event times and only bites where cohorts pool.
+
+**Effect.** Point estimates, confidence-interval centres and the overall
+ATT point estimate are **unchanged**. Per-event-time SEs — and hence CIs
+and p-values — **increase** at event times where two or more cohorts
+contribute. On `mpdta` the increase is 0.6–2.0%; it grows with the number
+of pooled cohorts and with the dispersion of β̂ across them. The previous
+numbers were anti-conservative.
+
+| `mpdta`, never-treated control | old SE | new SE | Stata |
+| --- | ---: | ---: | ---: |
+| e = 1 (2 cohorts) | 0.016884 | **0.016978** | 0.016964 |
+| e = 2 (1 cohort) | 0.036619 | 0.036619 | 0.036589 |
+
+**Who should re-run.** Anyone quoting `sp.sun_abraham` event-study SEs,
+CIs or p-values from a staggered design with more than one cohort at a
+given relative time. Point estimates need no revision.
+
+**Reference divergence — read before "fixing" this back.** R
+`fixest::sunab` treats the cohort shares as fixed and reports the
+first-term-only SE; Stata `eventstudyinteract` carries both terms.
+StatsPAI now follows `eventstudyinteract`, which is Liyang Sun's own
+implementation of her paper. So StatsPAI SEs now sit slightly *above*
+`fixest`'s at multi-cohort event times and match it exactly at
+single-cohort ones. That divergence is deliberate; there is no flag to
+restore the old behaviour.
 
 ---
 
