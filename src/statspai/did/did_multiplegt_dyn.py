@@ -95,7 +95,7 @@ faithful implementation.
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -122,6 +122,9 @@ def did_multiplegt_dyn(
     seed: Optional[int] = None,
     aggregation: str = "simple",
     se_method: str = "bootstrap",
+    switchers: Optional[str] = None,
+    same_switchers: bool = False,
+    effects_equal: Any = False,
 ) -> CausalResult:
     """dCDH (2024) intertemporal event-study DiD estimator.
 
@@ -175,6 +178,39 @@ def did_multiplegt_dyn(
         The default is left on ``"simple"`` because changing it would
         move the number existing callers get back;
         ``model_info["aggregation"]`` records which was used.
+    switchers : {None, 'in', 'out'}, optional
+        Estimate on switch-**in** events (treatment rises above its
+        period-one level) or switch-**out** events (falls below) only.
+        Stata ``did_multiplegt_dyn, switchers()``. Default ``None`` pools
+        both, which is what StatsPAI has always done.
+
+        dCDH recommend running the two separately: pooling is only
+        meaningful if a switch up and a switch down move the outcome by
+        the same amount per unit of treatment, which is an assumption, not
+        a fact. Splitting is the way to check it.
+    same_switchers : bool, default False
+        Restrict the treated arm to switchers observed at *every*
+        requested horizon (and at the base period), so the composition is
+        held fixed across ℓ. Stata ``did_multiplegt_dyn, same_switchers``.
+
+        Without it, later horizons rest on fewer — and differently
+        selected — switchers, so a rising or falling ℓ-profile confounds
+        the true dynamic path with a moving sample. With it, the profile
+        is comparable across ℓ but rests on a smaller sample. Availability
+        is judged per unit against the periods that unit is actually
+        observed in, so this is correct on unbalanced panels.
+    effects_equal : bool or (int, int), default False
+        Test H0 that the dynamic effects are all equal. ``True`` tests
+        every estimated effect; a ``(lower, upper)`` pair tests the closed
+        horizon range, matching Stata ``did_multiplegt_dyn,
+        effects_equal()``.
+
+        Reported in ``model_info['effects_equal_test']`` as
+        ``{'statistic', 'df', 'pvalue', 'horizons'}``. The statistic is
+        χ² on ``k−1`` degrees of freedom for ``k`` effects — one fewer
+        than the all-zero joint test, since equality leaves the common
+        level unrestricted. Rejecting says the effect moves with exposure
+        length; failing to reject does **not** establish a constant effect.
 
     Returns
     -------
@@ -204,6 +240,12 @@ def did_multiplegt_dyn(
     True
     >>> sens = sp.honest_did(r, m_grid=[0.5])  # Rambachan-Roth sensitivity
     """
+    if switchers not in (None, "in", "out"):
+        raise ValueError(
+            f"switchers must be None, 'in' or 'out', got {switchers!r}. "
+            "dCDH recommend estimating switch-in and switch-out effects "
+            "separately rather than pooling them."
+        )
     if control not in {"not_yet_treated", "never_treated"}:
         raise ValueError(
             f"control={control!r} must be 'not_yet_treated' or 'never_treated'"
@@ -214,10 +256,12 @@ def did_multiplegt_dyn(
         raise ValueError(
             f"aggregation must be 'simple' or 'switchers', got {aggregation!r}"
         )
-    if se_method not in {"bootstrap", "analytic"}:
-        raise ValueError(
-            f"se_method must be 'bootstrap' or 'analytic', got {se_method!r}"
-        )
+    se_method = _dc.normalize_se_method(
+        se_method,
+        supported=("analytic", "bootstrap"),
+        function="did_multiplegt_dyn",
+        n_clusters=int(data[cluster or group].nunique()),
+    )
 
     df = data.copy()
     for col in (y, group, time, treatment):
@@ -255,6 +299,8 @@ def did_multiplegt_dyn(
         treatment=treatment,
         horizons=horizons,
         control=control,
+        switchers=switchers,
+        same_switchers=same_switchers,
     )
 
     # Cluster bootstrap for SE
@@ -268,13 +314,28 @@ def did_multiplegt_dyn(
                 rng=rng,
                 relabel_cols=[group],
             )
-            # Recompute F in bootstrap sample.
-            first_treat_b = (
-                bdf[bdf[treatment] == 1].groupby(group)[time].min().rename("_F")
+            # Recompute the switch date in the bootstrap sample the SAME
+            # way the point estimate does.
+            #
+            # This used to be `min(time | d == 1)`, i.e. "first period
+            # treated". That is the first *switch* only for switch-ON
+            # units: a unit going 1 → 0 at F got _F = 1, its own first
+            # period, which has no base period F−1 and so silently
+            # dropped out of every replicate. The point estimate has
+            # handled switch-off events since 1.21.0 via _first_switch;
+            # the bootstrap was never updated to match, so on any
+            # non-absorbing panel the replicates were estimating a
+            # different quantity than the estimate whose variance they
+            # were supposed to describe.
+            bdf = bdf.drop(
+                columns=[c for c in ("_F", "_dir", "_base") if c in bdf.columns]
             )
-            if "_F" in bdf.columns:
-                bdf = bdf.drop(columns=["_F"])
-            bdf = bdf.merge(first_treat_b, on=group, how="left")
+            fs_b, dir_b, base_b = _first_switch(
+                bdf, group=group, time=time, treatment=treatment
+            )
+            bdf = bdf.merge(fs_b, on=group, how="left")
+            bdf = bdf.merge(dir_b, on=group, how="left")
+            bdf = bdf.merge(base_b, on=group, how="left")
             best = _estimate_all_horizons(
                 df=bdf,
                 y=y,
@@ -283,6 +344,8 @@ def did_multiplegt_dyn(
                 treatment=treatment,
                 horizons=horizons,
                 control=control,
+                switchers=switchers,
+                same_switchers=same_switchers,
             )
             for j, h in enumerate(horizons):
                 # Align by h
@@ -348,6 +411,39 @@ def did_multiplegt_dyn(
     joint_overall = _joint_test_from_boot(
         main, horizons, boot_hist, placebo_idx + dyn_idx
     )
+
+    # effects_equal: H0 that the dynamic effects share a common value.
+    # False disables it; True tests every estimated effect; (lo, hi) tests
+    # the closed range, matching Stata's lower/upper bound form.
+    equal_test = None
+    equal_range = None
+    if effects_equal is not False and effects_equal is not None:
+        if effects_equal is True:
+            sel = dyn_idx
+            equal_range = (
+                (horizons[dyn_idx[0]], horizons[dyn_idx[-1]]) if dyn_idx else None
+            )
+        else:
+            try:
+                lo, hi = effects_equal
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "effects_equal must be False, True, or a (lower, upper) "
+                    f"pair of horizons, got {effects_equal!r}."
+                ) from None
+            lo, hi = int(lo), int(hi)
+            if lo > hi:
+                raise ValueError(f"effects_equal=({lo}, {hi}) has its bounds reversed.")
+            sel = [j for j in dyn_idx if lo <= horizons[j] <= hi]
+            if len(sel) < 2:
+                raise ValueError(
+                    f"effects_equal=({lo}, {hi}) selects {len(sel)} of the "
+                    f"estimated effects {[horizons[j] for j in dyn_idx]}; the "
+                    "range must cover at least two of them for an equality "
+                    "test to mean anything."
+                )
+            equal_range = (lo, hi)
+        equal_test = _effects_equal_test(main, horizons, boot_hist, sel)
 
     # Headline estimate over the dynamic horizons. "simple" gives each
     # horizon equal weight; "switchers" weights by the switchers behind
@@ -442,6 +538,10 @@ def did_multiplegt_dyn(
             "cluster_var": cluster_var,
             "joint_placebo_test": joint_placebo,
             "joint_overall_test": joint_overall,
+            "effects_equal_test": equal_test,
+            "effects_equal_range": equal_range,
+            "switchers": switchers,
+            "same_switchers": same_switchers,
             "warning": (
                 "MVP implementation: no analytical IF variance, no "
                 "switch-off handling, no heteroskedastic weights. See "
@@ -508,6 +608,8 @@ def _estimate_all_horizons(
     treatment: str,
     horizons: List[int],
     control: str,
+    switchers: Optional[str] = None,
+    same_switchers: bool = False,
 ) -> Dict[str, Any]:
     """Compute δ_l for each horizon h using long-difference event-study.
 
@@ -533,6 +635,25 @@ def _estimate_all_horizons(
     n_panel = len(all_units)
     unit_pos = pd.Series(np.arange(n_panel), index=all_units)
 
+    # switchers=: estimate switch-in and switch-out events separately.
+    # dCDH recommend running the command twice rather than pooling, because
+    # the two need not measure the same effect per unit of treatment.
+    if switchers == "in":
+        directions: Tuple[int, ...] = (1,)
+    elif switchers == "out":
+        directions = (-1,)
+    else:
+        directions = (1, -1)
+
+    # same_switchers=: hold the switcher composition fixed across horizons.
+    # Without it, a longer horizon is estimated on a shrinking, differently
+    # composed set of switchers, so movement across ℓ mixes a genuine
+    # dynamic path with a change of who is being averaged over.
+    if same_switchers and len(horizons) > 1:
+        df = _restrict_to_common_switchers(
+            df, group=group, time=time, horizons=horizons
+        )
+
     F_values = sorted(df["_F"].dropna().unique())
     if not F_values:
         return {"cell_estimates": []}
@@ -549,7 +670,7 @@ def _estimate_all_horizons(
         psi = np.zeros(n_panel, dtype=float)
 
         for F in F_values:
-            for direction in (1, -1):
+            for direction in directions:
                 _cell = _one_event(
                     df=df,
                     y=y,
@@ -625,7 +746,13 @@ def _one_event(
     * It is otherwise an ordinary two-sample comparison, so the influence
       function has the same shape.
     """
-    switchers = df[(df["_F"] == F) & (df["_dir"] == direction)]
+    sw_mask = (df["_F"] == F) & (df["_dir"] == direction)
+    if "_elig" in df.columns:
+        # same_switchers: this unit switches at F but cannot support every
+        # requested horizon, so it must not contribute an effect. It stays
+        # in the frame as a control candidate.
+        sw_mask &= df["_elig"]
+    switchers = df[sw_mask]
     if switchers.empty:
         return None
     switcher_ids = set(switchers[group].unique())
@@ -684,6 +811,118 @@ def _unit_change(df, group, time, y, ids, t_pre, t_post):
     if len(idx) == 0:
         return None
     return post.loc[idx] - pre.loc[idx]
+
+
+def _restrict_to_common_switchers(
+    df: pd.DataFrame,
+    *,
+    group: str,
+    time: str,
+    horizons: List[int],
+) -> pd.DataFrame:
+    """Drop switchers that cannot support every requested horizon.
+
+    Stata ``did_multiplegt_dyn, same_switchers``. A switcher at F
+    contributes to horizon ℓ only if it is observed at both the base
+    period F−1 and the comparison period F+ℓ. Panels being what they are,
+    late switchers drop out of long horizons and early ones drop out of
+    deep placebos — so the ℓ-profile silently mixes the dynamic path with
+    a moving composition. Restricting to switchers observed at *every*
+    requested period removes that confound, at the cost of sample size.
+
+    Availability is checked per unit against the periods that unit is
+    actually observed in, not against the global panel range, so the
+    restriction is correct on unbalanced panels.
+
+    Control units (``_F`` NaN) are never dropped: the restriction is about
+    the composition of the treated arm.
+    """
+    # Judged on the EFFECTS (h >= 0) plus the base period F-1, not on the
+    # placebos: Stata scopes same_switchers to the effects and has a
+    # separate same_switchers_pl for extending it to the placebos.
+    need = sorted({-1, *(h for h in horizons if h >= 0)})
+    obs = df.groupby(group)[time].apply(set)
+    f_of = df.groupby(group)["_F"].first()
+
+    eligible = {}
+    for uid, f_val in f_of.items():
+        if pd.isna(f_val):
+            eligible[uid] = True  # never-switchers are controls, not switchers
+            continue
+        periods = obs.loc[uid]
+        eligible[uid] = all((f_val + h) in periods for h in need)
+
+    # Flag rather than filter. A restricted switcher must stay in the frame
+    # with its `_F` intact, because control eligibility is decided from
+    # `_F` (`not yet treated at F+l`): dropping the rows would promote a
+    # unit that really does switch at F=8 out of the data entirely, and
+    # silently shrink the control pool available to the F=4 and F=6
+    # events. Blanking `_F` would be worse still — it would promote that
+    # unit to a *never*-switcher and let it serve as a control at horizons
+    # where it is already treated.
+    out = df.copy()
+    out["_elig"] = out[group].map(eligible).fillna(True).astype(bool)
+    return out
+
+
+def _effects_equal_test(
+    main: Dict[str, Any],
+    horizons: List[int],
+    boot_hist: np.ndarray,
+    indices: List[int],
+) -> Optional[Dict[str, Any]]:
+    """Wald test of H0: every effect in ``indices`` is equal.
+
+    Stata ``did_multiplegt_dyn, effects_equal``. Differencing adjacent
+    effects turns "all equal" into "all contrasts zero", so the existing
+    :func:`joint_wald` applies once the contrast matrix R has been pushed
+    through both the estimates and the bootstrap covariance::
+
+        H0: δ_1 = δ_2 = ... = δ_k   <=>   R δ = 0,  R = [e_j - e_{j+1}]
+
+    Under the null the statistic is χ²(k−1) — one fewer degree of freedom
+    than the corresponding all-zero test, because equality leaves the
+    common level free.
+
+    Returns ``None`` when fewer than two effects are available (nothing to
+    compare) or the bootstrap has too few usable draws to form R V R'.
+    """
+    if len(indices) < 2:
+        return None
+    est = np.array(
+        [
+            next(
+                (
+                    r["delta_l"]
+                    for r in main["cell_estimates"]
+                    if r["horizon"] == horizons[j]
+                ),
+                np.nan,
+            )
+            for j in indices
+        ],
+        dtype=float,
+    )
+    if np.any(np.isnan(est)):
+        return None
+
+    sub = boot_hist[:, indices]
+    valid = ~np.any(np.isnan(sub), axis=1)
+    if valid.sum() < len(indices) + 1:
+        return None
+    cov = np.cov(sub[valid], rowvar=False, ddof=1)
+    if cov.ndim == 0:
+        cov = np.array([[float(cov)]])
+
+    k = len(indices)
+    contrast = np.zeros((k - 1, k))
+    for r in range(k - 1):
+        contrast[r, r] = 1.0
+        contrast[r, r + 1] = -1.0
+
+    out = _dc.joint_wald(contrast @ est, contrast @ cov @ contrast.T)
+    out["horizons"] = [horizons[j] for j in indices]
+    return out
 
 
 def _joint_test_from_boot(
