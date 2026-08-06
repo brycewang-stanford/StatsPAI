@@ -15,7 +15,7 @@ Borusyak, K., Jaravel, X. and Spiess, J. (2024).
 """
 
 import warnings
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -25,6 +25,7 @@ from scipy.sparse.linalg import lsqr
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
 from ._core import drop_unusable_rows as _drop_unusable_rows
+from ._core import normalize_se_method as _normalize_se_method
 
 
 def _didimp_cluster_bootstrap(
@@ -88,16 +89,21 @@ def did_imputation(
     time: str,
     first_treat: str,
     controls: Optional[List[str]] = None,
+    unit_covariates: Optional[List[str]] = None,
+    time_covariates: Optional[List[str]] = None,
+    fe: Optional[Sequence[str]] = None,
     horizon: Optional[List[int]] = None,
     cluster: Optional[str] = None,
     alpha: float = 0.05,
     vce: str = "analytic",
+    se_method: Optional[str] = None,
     n_boot: int = 199,
     boot_seed: int = 0,
     pretrends: Optional[int] = None,
     balanced: bool = False,
     min_n: Optional[int] = None,
     hetby: Optional[str] = None,
+    project: Optional[List[str]] = None,
     save_weights: bool = False,
     save_residuals: bool = False,
 ) -> CausalResult:
@@ -121,7 +127,35 @@ def did_imputation(
         Column indicating the period of first treatment.
         Use ``np.inf``, ``np.nan``, or ``0`` for never-treated units.
     controls : list of str, optional
-        Additional control covariates.
+        Continuous time-varying controls, entering the Y(0) model
+        additively. Stata ``did_imputation``'s ``controls()``.
+    unit_covariates : list of str, optional
+        Controls interacted with the **unit** fixed effects, i.e. one
+        slope per unit. Stata's ``unitcontrols()``. The canonical use is
+        ``unit_covariates=[time_col]``, which makes Y(0) carry
+        unit-specific linear trends.
+
+        Identification bites hard here: a unit-specific slope needs at
+        least two untreated periods for that unit, so early-treated
+        cohorts can lose their imputation entirely.
+    time_covariates : list of str, optional
+        Controls interacted with the **period** fixed effects, i.e. one
+        coefficient per period. Stata's ``timecontrols()``. Typically a
+        time-invariant unit characteristic whose effect is allowed to
+        move over calendar time.
+    fe : sequence of str, optional
+        Which fixed effects the Y(0) model carries, replacing the default
+        two-way ``unit + time``. Mirrors Stata ``did_imputation``'s
+        ``fe()``. Each entry is one fixed effect, written either as a bare
+        column or Stata-style with ``#`` for the interacted cell::
+
+            fe=['time']                  # period FE only
+            fe=['unit', 'state#year']    # unit FE + state-by-year FE
+            fe=[]                        # no fixed effects at all
+
+        Levels are factorized over the whole panel, so a cell seen only
+        among treated rows still gets a column and is imputed rather than
+        silently absorbing the reference level.
     horizon : list of int, optional
         Relative time periods for event study estimates,
         e.g. ``list(range(-5, 6))``. If ``None``, reports only the
@@ -131,6 +165,14 @@ def did_imputation(
         Defaults to ``group`` (unit-level clustering).
     alpha : float, default 0.05
         Significance level for confidence intervals.
+    se_method : str, optional
+        Shared DiD spelling for ``vce=`` — ``'analytic'``,
+        ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``.
+        Passing both raises. ``'auto'`` picks the cluster bootstrap when
+        the design has at most 30 clusters (Cameron, Gelbach & Miller
+        2008) and the analytic influence-function SE otherwise — which
+        for this estimator is the anti-conservative one, so ``'auto'``
+        errs toward the bootstrap exactly where it matters most.
     vce : {'analytic', 'bootstrap'}, default 'analytic'
         Standard-error mode for the overall ATT. ``'analytic'`` uses the
         influence-function cluster SE (fast) but under-counts the variance
@@ -240,6 +282,44 @@ def did_imputation(
     for col in control_names:
         if col not in df.columns:
             raise ValueError(f"Control column '{col}' not found in data.")
+
+    if se_method is not None:
+        if vce != "analytic":
+            raise ValueError(
+                "did_imputation: pass either se_method= or vce=, not both — "
+                "they set the same thing and disagreeing values would "
+                "silently resolve one way."
+            )
+        vce = _normalize_se_method(
+            se_method,
+            supported=("analytic", "bootstrap"),
+            function="did_imputation",
+            n_clusters=int(data[cluster or group].nunique()),
+        )
+
+    unit_cov_names = list(unit_covariates or [])
+    time_cov_names = list(time_covariates or [])
+    for label, names in (
+        ("unit_covariates", unit_cov_names),
+        ("time_covariates", time_cov_names),
+    ):
+        for col in names:
+            if col not in df.columns:
+                raise ValueError(f"{label} column '{col}' not found in data.")
+        overlap = sorted(set(names) & set(control_names))
+        if overlap:
+            raise ValueError(
+                f"{overlap} appear in both `controls` and `{label}`. A "
+                "variable enters Y(0) either additively (controls) or "
+                "interacted with the fixed effect ({label}), not both — "
+                "including it twice makes the design collinear."
+            )
+    if fe is not None and isinstance(fe, str):
+        raise ValueError(
+            f"fe must be a sequence of specs, not a bare string {fe!r}. "
+            f"Pass fe=['{fe}'] for one fixed effect, or e.g. "
+            "fe=['unit', 'state#year']."
+        )
 
     # Drop rows the estimator cannot use before the cohort/horizon logic runs,
     # so a wiped outcome surfaces as an error instead of a bare NaN ATT. Keep
@@ -393,6 +473,37 @@ def did_imputation(
             + (" ..." if len(missing_times) > 5 else "")
         )
 
+    # Interacted covariates raise the bar: a unit carrying its own slope on
+    # k variables needs k+1 untreated observations, not 1, before its Y(0)
+    # is identified. lsqr would otherwise return a minimum-norm solution
+    # and hand back a confident-looking number built on an unidentified
+    # fit. Stata's did_imputation refuses outright here (rc 481, "collinear
+    # in the D==0 subsample but not in the full sample"); so do we (§7).
+    for label, names, counts, ids, treated_idx in (
+        ("unit_covariates", unit_cov_names, unit_adj_count, unit_ids, treated_uids),
+        ("time_covariates", time_cov_names, time_resid_count, time_ids, treated_tids),
+    ):
+        if not names:
+            continue
+        need = len(names) + 1
+        short = [
+            (ids[int(k)], int(counts[int(k)]))
+            for k in treated_idx
+            if counts[int(k)] < need
+        ]
+        if short:
+            preview = ", ".join(f"{lab} ({n} untreated)" for lab, n in short[:5])
+            axis = "unit" if label == "unit_covariates" else "period"
+            raise ValueError(
+                f"{label}={names} gives every {axis} its own slope on "
+                f"{len(names)} variable(s), so each treated {axis} needs at "
+                f"least {need} untreated observations to identify the "
+                f"intercept plus slope(s). {len(short)} fall short: {preview}"
+                + (" ..." if len(short) > 5 else "")
+                + f". Drop {label}, shorten the covariate list, or restrict "
+                f"to {axis}s with enough untreated history."
+            )
+
     y0_hat, beta, X_u_design, X_all = _fit_untreated_twfe_sparse(
         df=df,
         untreated=untreated,
@@ -402,6 +513,9 @@ def did_imputation(
         tid_col="_tid",
         n_units=n_units,
         n_times=n_times,
+        unit_covariates=unit_cov_names,
+        time_covariates=time_cov_names,
+        fe=fe,
     )
 
     # These arguments are retained for the existing SE helper API.  The
@@ -580,6 +694,34 @@ def did_imputation(
             }
 
     # ── Heterogeneity by group (Stata: hetby) ──────────────────── #
+    project_df = None
+    if project is not None:
+        project_names = list(project)
+        for col in project_names:
+            if col not in df.columns:
+                raise ValueError(f"project column '{col}' not found in data.")
+        if hetby is not None:
+            raise ValueError(
+                "project= and hetby= cannot be combined: they are two "
+                "different heterogeneity summaries of the same effects "
+                "(a projection onto covariates versus a split into cells). "
+                "Stata's did_imputation rejects the combination too. Run "
+                "the estimator twice if you want both."
+            )
+        project_df = _project_treatment_effects(
+            df=df,
+            tau_hat=tau_hat,
+            treated_mask=treated_mask,
+            resid_untreated=resid_u,
+            project_vars=project_names,
+            cluster_col=cluster,
+            uid_col="_uid",
+            tid_col="_tid",
+            unit_adj_count=unit_adj_count,
+            time_resid_count=time_resid_count,
+            alpha=alpha,
+        )
+
     hetby_df = None
     if hetby is not None:
         het_rows = []
@@ -681,6 +823,9 @@ def did_imputation(
     if hetby_df is not None:
         model_info["hetby"] = hetby_df
         model_info["hetby_var"] = hetby
+    if project_df is not None:
+        model_info["project"] = project_df
+        model_info["project_vars"] = list(project)
     if save_weights:
         # Indexed by the (possibly balanced-filtered) rows of `data`, so
         # the weights map back to the caller's frame even after filtering.
@@ -751,6 +896,64 @@ def _ols_coef(X: np.ndarray, y: np.ndarray) -> np.ndarray:
         return np.zeros(X.shape[1])
 
 
+def _build_fe_blocks(
+    df: pd.DataFrame,
+    untreated: pd.DataFrame,
+    fe: Sequence[str],
+) -> Tuple[List[Tuple[str, np.ndarray, int]], List[np.ndarray]]:
+    """Parse ``fe=`` into level codes, mirroring did_imputation's ``fe()``.
+
+    Each entry names one fixed effect and is either a bare column
+    (``'state'``) or an interacted cell written Stata-style with ``#``
+    (``'state#year'`` for state-by-year effects). ``fe=[]`` means no fixed
+    effects at all — the intercept-only Y(0) model, which ``fe(none)``
+    requests in Stata.
+
+    Levels are factorized over the **full** panel, not the untreated
+    subsample, so that a level appearing only among treated rows still
+    receives a column and its Y(0) is imputed rather than silently taking
+    the reference level's value. Levels never seen untreated end up
+    unidentified; ``lsqr`` returns the minimum-norm solution there, and
+    the caller's untreated-coverage check is what rejects the genuinely
+    unimputable cases.
+
+    Returns ``(blocks, codes_over_full_panel)`` where each block is
+    ``(name, codes_on_untreated, n_levels)``.
+    """
+    blocks: List[Tuple[str, np.ndarray, int]] = []
+    codes_all: List[np.ndarray] = []
+    for spec in fe:
+        if not isinstance(spec, str) or not spec.strip():
+            raise ValueError(
+                f"fe entries must be non-empty strings, got {spec!r}. Use "
+                "'state' for a single factor or 'state#year' for the "
+                "interacted cell."
+            )
+        parts = [p.strip() for p in spec.split("#") if p.strip()]
+        missing = [p for p in parts if p not in df.columns]
+        if missing:
+            raise ValueError(
+                f"fe='{spec}' names column(s) {missing} that are not in the "
+                f"data. Available: {sorted(df.columns)[:12]}..."
+            )
+        # Factorize the tuple of levels over the full panel so codes are
+        # comparable between the untreated fit and the all-rows prediction.
+        key_all = pd.MultiIndex.from_arrays([df[p].values for p in parts])
+        codes_full, uniques = pd.factorize(key_all, sort=True)
+        n_lev = len(uniques)
+        key_u = pd.MultiIndex.from_arrays([untreated[p].values for p in parts])
+        codes_untr = pd.Index(uniques).get_indexer(key_u)
+        if (codes_untr < 0).any():
+            raise ValueError(
+                f"fe='{spec}': some untreated rows carry a level absent from "
+                "the full-panel factorization — this should be impossible "
+                "and indicates the untreated frame is not a subset of `data`."
+            )
+        blocks.append((spec, codes_untr.astype(int), n_lev))
+        codes_all.append(codes_full.astype(int))
+    return blocks, codes_all
+
+
 def _fit_untreated_twfe_sparse(
     df: pd.DataFrame,
     untreated: pd.DataFrame,
@@ -760,6 +963,9 @@ def _fit_untreated_twfe_sparse(
     tid_col: str,
     n_units: int,
     n_times: int,
+    unit_covariates: Optional[List[str]] = None,
+    time_covariates: Optional[List[str]] = None,
+    fe: Optional[Sequence[str]] = None,
 ) -> Tuple[np.ndarray, np.ndarray, sparse.csr_matrix, sparse.csr_matrix]:
     """Fit untreated-only TWFE by sparse least squares and predict all rows.
 
@@ -771,54 +977,91 @@ def _fit_untreated_twfe_sparse(
     regression directly with a sparse design matrix.
     """
     controls = list(controls or [])
+    unit_covariates = list(unit_covariates or [])
+    time_covariates = list(time_covariates or [])
     y_u = untreated[y].values.astype(float)
-    uid_u = untreated[uid_col].values.astype(int)
-    tid_u = untreated[tid_col].values.astype(int)
 
-    unit_seen = np.bincount(uid_u, minlength=n_units) > 0
-    time_seen = np.bincount(tid_u, minlength=n_times) > 0
-    if not unit_seen.any() or not time_seen.any():
-        raise ValueError("No untreated observations available for BJS TWFE fit.")
+    # ---- Fixed-effect blocks -------------------------------------------
+    # Default is the two-way unit + time model. ``fe`` replaces it wholesale,
+    # mirroring did_imputation's fe() option: each entry is one FE, written
+    # either as a single variable or as ``a#b`` for the interacted cell.
+    if fe is None:
+        blocks = [
+            ("unit", untreated[uid_col].values.astype(int), n_units),
+            ("time", untreated[tid_col].values.astype(int), n_times),
+        ]
+        block_codes_all = [
+            df[uid_col].values.astype(int),
+            df[tid_col].values.astype(int),
+        ]
+    else:
+        blocks, block_codes_all = _build_fe_blocks(df, untreated, fe)
 
-    ref_unit = int(np.flatnonzero(unit_seen)[0])
-    ref_time = int(np.flatnonzero(time_seen)[0])
+    if not blocks:
+        # fe=[] is the legitimate "no fixed effects at all" request; the
+        # intercept alone still identifies a level.
+        pass
+    else:
+        for name, codes_u, n_lev in blocks:
+            if not (np.bincount(codes_u, minlength=n_lev) > 0).any():
+                raise ValueError(
+                    f"No untreated observations available to identify the "
+                    f"'{name}' fixed effect in the BJS Y(0) model."
+                )
 
-    unit_cols = np.full(n_units, -1, dtype=int)
-    next_col = 1  # intercept
-    for u in range(n_units):
-        if u != ref_unit:
-            unit_cols[u] = next_col
-            next_col += 1
+    # Column layout: [intercept | FE blocks (one level dropped each) |
+    #                 unit-interacted covs | time-interacted covs | controls]
+    col_maps: List[np.ndarray] = []
+    next_col = 1  # intercept occupies column 0
+    for name, codes_u, n_lev in blocks:
+        seen = np.bincount(codes_u, minlength=n_lev) > 0
+        ref = int(np.flatnonzero(seen)[0])
+        cmap = np.full(n_lev, -1, dtype=int)
+        for lev in range(n_lev):
+            if lev != ref and seen[lev]:
+                cmap[lev] = next_col
+                next_col += 1
+        col_maps.append(cmap)
 
-    time_cols = np.full(n_times, -1, dtype=int)
-    for t_idx in range(n_times):
-        if t_idx != ref_time:
-            time_cols[t_idx] = next_col
-            next_col += 1
+    # Interaction blocks. These are FE × continuous, so they are NOT
+    # collinear with the parent FE and no level is dropped: with unit
+    # dummies plus unit#x we get a separate slope on x for every unit,
+    # which is exactly did_imputation's "unit-specific trends" reading of
+    # unitcontrols(t).
+    inter_specs: List[Tuple[str, str, int, int]] = []  # (kind, var, base_col, n_lev)
+    for var in unit_covariates:
+        inter_specs.append(("unit", var, next_col, n_units))
+        next_col += n_units
+    for var in time_covariates:
+        inter_specs.append(("time", var, next_col, n_times))
+        next_col += n_times
 
     n_fe_cols = next_col
 
-    def _design(frame: pd.DataFrame) -> sparse.csr_matrix:
+    def _design(frame: pd.DataFrame, codes_list: List[np.ndarray]) -> sparse.csr_matrix:
         n = len(frame)
         rows_parts: List[np.ndarray] = [np.arange(n, dtype=int)]
         cols_parts: List[np.ndarray] = [np.zeros(n, dtype=int)]
         data_parts: List[np.ndarray] = [np.ones(n, dtype=float)]
 
-        uid = frame[uid_col].values.astype(int)
-        ucols = unit_cols[uid]
-        u_mask = ucols >= 0
-        if u_mask.any():
-            rows_parts.append(np.flatnonzero(u_mask))
-            cols_parts.append(ucols[u_mask])
-            data_parts.append(np.ones(int(u_mask.sum()), dtype=float))
+        for cmap, codes in zip(col_maps, codes_list):
+            cols = cmap[codes]
+            mask = cols >= 0
+            if mask.any():
+                rows_parts.append(np.flatnonzero(mask))
+                cols_parts.append(cols[mask])
+                data_parts.append(np.ones(int(mask.sum()), dtype=float))
 
+        uid = frame[uid_col].values.astype(int)
         tid = frame[tid_col].values.astype(int)
-        tcols = time_cols[tid]
-        t_mask = tcols >= 0
-        if t_mask.any():
-            rows_parts.append(np.flatnonzero(t_mask))
-            cols_parts.append(tcols[t_mask])
-            data_parts.append(np.ones(int(t_mask.sum()), dtype=float))
+        for kind, var, base_col, _n_lev in inter_specs:
+            codes = uid if kind == "unit" else tid
+            vals = frame[var].values.astype(float)
+            nz = vals != 0.0
+            if nz.any():
+                rows_parts.append(np.flatnonzero(nz))
+                cols_parts.append(base_col + codes[nz])
+                data_parts.append(vals[nz])
 
         fixed = sparse.coo_matrix(
             (
@@ -834,17 +1077,33 @@ def _fit_untreated_twfe_sparse(
         x = sparse.csr_matrix(frame[controls].values.astype(float))
         return sparse.hstack([fixed, x], format="csr")
 
-    X_u = _design(untreated)
+    codes_u = [b[1] for b in blocks]
+    X_u = _design(untreated, codes_u)
     n_cols = X_u.shape[1]
+
+    # Column equilibration before the iterative solve. The FE dummies are
+    # 0/1 while an interacted covariate can be O(1e3) (unit_covariates=
+    # ['year'] on calendar years is the standard case), and lsqr on that
+    # mix stalls far from the least-squares solution: on mpdta it landed
+    # 1.6e-4 from Stata, three orders worse than every other variant.
+    #
+    # Rescaling columns is exact — solving (X D) z = y and returning D z
+    # recovers the same coefficients in exact arithmetic for any invertible
+    # diagonal D — so unlike centring the covariate it cannot change the
+    # column span. That matters because centring is only span-preserving
+    # when the parent fixed effect is also in the model, which fe=[] breaks.
+    col_norms = np.sqrt(np.asarray(X_u.multiply(X_u).sum(axis=0)).ravel())
+    col_norms[col_norms <= 0] = 1.0  # unused levels: leave them alone
+    scale = sparse.diags(1.0 / col_norms)
     fit = lsqr(
-        X_u,
+        X_u @ scale,
         y_u,
-        atol=1e-10,
-        btol=1e-10,
-        iter_lim=max(1000, 4 * n_cols),
+        atol=1e-12,
+        btol=1e-12,
+        iter_lim=max(2000, 8 * n_cols),
     )
-    coef = fit[0]
-    X_all = _design(df)
+    coef = fit[0] / col_norms
+    X_all = _design(df, block_codes_all)
     y0_hat = np.asarray(X_all @ coef, dtype=float)
     beta = coef[-len(controls) :] if controls else np.array([])
     # The design matrices ride along for the saveweights() path — the
@@ -1022,6 +1281,125 @@ def _cluster_se_horizon(
         se *= np.sqrt(n_clusters / (n_clusters - 1))
 
     return se
+
+
+def _project_treatment_effects(
+    df: pd.DataFrame,
+    tau_hat: np.ndarray,
+    treated_mask: np.ndarray,
+    resid_untreated: np.ndarray,
+    project_vars: List[str],
+    cluster_col: str,
+    uid_col: str,
+    tid_col: str,
+    unit_adj_count: np.ndarray,
+    time_resid_count: np.ndarray,
+    alpha: float,
+) -> pd.DataFrame:
+    """Regress the imputed treatment effects on covariates.
+
+    Stata ``did_imputation, project(varlist)``: instead of averaging the
+    per-observation effects τ̂_it into one ATT, project them onto
+    ``[1, Z_it]`` and report the constant and slopes. This is the
+    continuous counterpart of ``hetby``, which splits into cells.
+
+    Inference reuses the estimator's own influence function rather than a
+    separate regression sandwich. The ATT is the special case where the
+    weight matrix is a single row of 1/N, and the two terms below reduce
+    exactly to :func:`_cluster_se_horizon`'s ``direct`` and ``adjustment``
+    — a property the test suite pins directly.
+
+    ψ_c = Σ_{i∈c, treated} a_i (τ̂_i − Z_i'θ̂)          (direct)
+        + Σ_{i∈c, untreated} ε̂_i [ ā_unit(i)/n_unit(i)
+                                  + ā_time(i)/n_time(i) ]   (FE estimation)
+
+    where ``a_i`` is the row of (Z'Z)⁻¹Z' belonging to the coefficient and
+    ``ā_unit(u)`` sums the weights of treated observations in unit ``u``.
+    """
+    z_crit = stats.norm.ppf(1 - alpha / 2)
+    t_idx = np.flatnonzero(treated_mask)
+    n_t = len(t_idx)
+
+    z_cols = df.loc[treated_mask, project_vars].to_numpy(dtype=float)
+    Z = np.column_stack([np.ones(n_t), z_cols])
+    names = ["_cons"] + list(project_vars)
+    p = Z.shape[1]
+
+    zz = Z.T @ Z
+    if np.linalg.matrix_rank(zz) < p:
+        raise ValueError(
+            f"project={project_vars} is collinear on the treated sample "
+            "(after adding the constant), so the projection coefficients "
+            "are not identified. Drop a redundant variable — note that a "
+            "covariate constant among treated observations is collinear "
+            "with the constant."
+        )
+    zz_inv = np.linalg.inv(zz)
+    theta = zz_inv @ (Z.T @ tau_hat[t_idx])
+    resid_proj = tau_hat[t_idx] - Z @ theta
+
+    # A[j, i]: weight of treated observation i in coefficient j.
+    A = zz_inv @ Z.T
+
+    uid = df[uid_col].values
+    tid = df[tid_col].values
+    n_units = len(unit_adj_count)
+    n_times = len(time_resid_count)
+
+    # Per-unit / per-time weight totals over treated observations.
+    a_unit = np.zeros((p, n_units))
+    a_time = np.zeros((p, n_times))
+    for j in range(p):
+        np.add.at(a_unit[j], uid[t_idx], A[j])
+        np.add.at(a_time[j], tid[t_idx], A[j])
+
+    clusters = df[cluster_col].values
+    unique_clusters = np.unique(clusters)
+    n_clusters = len(unique_clusters)
+    psi = np.zeros((n_clusters, p))
+
+    treated_pos = np.full(len(df), -1, dtype=int)
+    treated_pos[t_idx] = np.arange(n_t)
+
+    safe_unit = np.where(unit_adj_count > 0, unit_adj_count, 1.0)
+    safe_time = np.where(time_resid_count > 0, time_resid_count, 1.0)
+
+    for c_idx, c_val in enumerate(unique_clusters):
+        c_mask = clusters == c_val
+
+        c_t = np.flatnonzero(c_mask & treated_mask)
+        if c_t.size:
+            pos = treated_pos[c_t]
+            psi[c_idx] += A[:, pos] @ resid_proj[pos]
+
+        c_u = np.flatnonzero(c_mask & (~treated_mask))
+        if c_u.size:
+            eps = resid_untreated[c_u]
+            u_of = uid[c_u]
+            t_of = tid[c_u]
+            w_unit = a_unit[:, u_of] / safe_unit[u_of]
+            w_time = a_time[:, t_of] / safe_time[t_of]
+            psi[c_idx] += (w_unit + w_time) @ eps
+
+    vcov = psi.T @ psi
+    if n_clusters > 1:
+        vcov *= n_clusters / (n_clusters - 1)
+    se = np.sqrt(np.clip(np.diag(vcov), 0.0, None))
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        zstat = np.where(se > 0, theta / se, 0.0)
+    pval = 2 * (1 - stats.norm.cdf(np.abs(zstat)))
+
+    return pd.DataFrame(
+        {
+            "term": names,
+            "coef": theta,
+            "se": se,
+            "ci_lower": theta - z_crit * se,
+            "ci_upper": theta + z_crit * se,
+            "pvalue": np.where(se > 0, pval, 1.0),
+        }
+    )
 
 
 # Register citation
