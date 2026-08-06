@@ -2376,6 +2376,16 @@ def _build_registry() -> None:
                     "Seed for the bootstrap resampler (pass for reproducibility)",
                 ),
                 ParamSpec(
+                    "llr_stata_compat",
+                    "bool",
+                    False,
+                    False,
+                    "method='llr' only: reproduce Stata psmatch2's SUBSTITUTE "
+                    "for LLR (lpoly-smoothed outcome + nearest-neighbour "
+                    "matching) instead of genuine local linear regression. "
+                    "Set only to reconcile a published psmatch2 number.",
+                ),
+                ParamSpec(
                     "ai",
                     "int",
                     False,

@@ -17030,6 +17030,11 @@
           ],
           "type": "string"
         },
+        "llr_stata_compat": {
+          "default": false,
+          "description": "method='llr' only: reproduce Stata psmatch2's SUBSTITUTE for LLR (lpoly-smoothed outcome + nearest-neighbour matching) instead of genuine local linear regression. Set only to reconcile a published psmatch2 number.",
+          "type": "boolean"
+        },
         "method": {
           "default": "neighbor",
           "description": "Matching algorithm",
