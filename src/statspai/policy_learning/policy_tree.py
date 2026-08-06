@@ -332,8 +332,14 @@ class PolicyTreeResult(dict, ResultProtocolMixin):
             "\\end{table}"
         )
 
-    def to_excel(self, path: str, digits: int = 4) -> str:
-        """Write a single-sheet Excel summary."""
+    def to_excel(self, path: str, digits: int = 6) -> str:
+        """Write a single-sheet Excel summary.
+
+        Six decimals to match every other ``to_excel`` in the package: a
+        spreadsheet is a data-interchange target that gets sorted, charted
+        and recomputed, so it keeps numeric headroom rather than the
+        display precision used by the presentation exports.
+        """
         df = pd.DataFrame(
             {
                 "quantity": [
