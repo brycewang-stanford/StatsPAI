@@ -70,6 +70,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_aggte_mpdta_parity.py",
+        "tests/reference_parity/test_aggte_r_did_parity.py",
+        "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_cs_base_period_parity.py",
         "tests/reference_parity/test_cs_rcs_parity.py"
       ],
@@ -90,6 +92,23 @@
       "test": [
         "tests/external_parity/test_honest_did_paper_parity.py",
         "tests/external_parity/test_published_replications.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "aggte_from_influence",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_aggte_r_did_parity.py"
       ],
       "tolerance": ""
     },
@@ -366,6 +385,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_did_parity.py"
       ],
       "also_verified_by": [
@@ -914,7 +934,9 @@
         "tests/external_parity/test_published_replications.py",
         "tests/reference_parity/test_absorbing_reference.py",
         "tests/reference_parity/test_aggte_mpdta_parity.py",
+        "tests/reference_parity/test_aggte_r_did_parity.py",
         "tests/reference_parity/test_callaway_santanna_parity.py",
+        "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_cs_base_period_parity.py",
         "tests/reference_parity/test_cs_inference_parity.py",
         "tests/reference_parity/test_cs_rcs_parity.py",
@@ -2926,6 +2948,7 @@
         "tests/r_parity/15_hdfe_cluster.py",
         "tests/r_parity/15_hdfe_cluster.R",
         "tests/stata_parity/15_hdfe_cluster.do",
+        "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_feols_wild_boottest_parity.py"
       ],
       "also_in_modules": [
@@ -4079,6 +4102,23 @@
       "tolerance": "all indices 1e-12 abs (observed ~2e-16)"
     },
     {
+      "function": "influence_functions",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_aggte_r_did_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "interactive_fe",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -4635,6 +4675,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_causal_discovery_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "list_replications",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_castle_stata_parity.py"
       ],
       "tolerance": ""
     },
@@ -7717,6 +7774,23 @@
         "tests/reference_parity/_fixtures/epi_R.json"
       ],
       "tolerance": "estimate, se_log, CI 1e-12 abs (observed 0)"
+    },
+    {
+      "function": "replicate",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_castle_stata_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "also_verified_by": [

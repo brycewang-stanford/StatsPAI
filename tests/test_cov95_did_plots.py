@@ -91,13 +91,43 @@ def test_ggdid_simple(cs_result):
             # Bootstrap SE/CI under Rademacher multiplier weights (v1.21:
             # switched from Mammen to match R did's actual implementation,
             # BMisc::multiplier_bootstrap).
-            0.0732881415369201,
-            2.9524847114269765,
-            3.2397689472394515,
+            #
+            # Refreshed when aggte gained the weight-estimation influence
+            # term (R did:::wif): the Callaway-Sant'Anna aggregation weights
+            # are estimated cohort shares, and treating them as fixed made
+            # every multi-cohort SE anti-conservative. `simple` mixes g=5 and
+            # g=7 here, so the p̂_g factors do not cancel and the SE rises
+            # 0.07328814 -> 0.09318131. The point estimate is untouched.
+            0.09318130502950958,
+            2.913494827442934,
+            3.278758831223494,
             4,
             1,
         ],
         atol=1e-12,
+    )
+
+
+def test_bootstrap_and_analytic_se_agree(cs_result):
+    """The two inference paths must not drift apart.
+
+    A frozen literal catches a *change*, but not a change in only one of the
+    two paths — which is exactly how the weight-estimation influence term
+    went missing from the analytic variance while the bootstrap looked fine.
+    Both now derive from the same primitive, so pinning the ratio catches a
+    one-sided regression that no single snapshot would.
+
+    The analytic path is itself pinned against R ``did`` on real ``mpdta``
+    data by ``tests/reference_parity/test_aggte_mpdta_parity.py``; this ties
+    the bootstrap to it.
+    """
+    boot = sp.aggte(cs_result, type="simple", random_state=0, n_boot=2000)
+    analytic = sp.aggte(cs_result, type="simple", bstrap=False)
+    assert boot.estimate == pytest.approx(analytic.estimate, rel=1e-12)
+    assert boot.se == pytest.approx(analytic.se, rel=0.05), (
+        f"bootstrap SE {boot.se:.8f} and analytic SE {analytic.se:.8f} "
+        f"disagree by {abs(boot.se / analytic.se - 1):.1%} — one of the two "
+        f"variance paths has drifted"
     )
 
 
