@@ -149,11 +149,48 @@ class TestMatchedFrameAttached:
         att_frame = float((md.loc[treated, "y"] - md.loc[treated, "_y"]).mean())
         assert att_frame == pytest.approx(r.estimate, abs=1e-9)
 
-    def test_non_nearest_methods_have_no_frame(self, psm_data):
-        r = sp.match(psm_data, y="y", treat="d", covariates=["x1", "x2"], method="cem")
-        assert getattr(r, "matched_data", None) is None
+    @pytest.mark.parametrize("method", ["cem", "stratify"])
+    def test_cell_methods_emit_a_stratum_frame(self, psm_data, method):
+        """Stratification / CEM compare cells, so the frame carries _stratum.
 
-    def test_ate_omits_att_style_matched_data(self, psm_data):
+        Before v1.22 these paths returned ``matched_data=None`` with no
+        explanation at all — a silent hole in the post-matching workflow.
+        """
+        r = sp.match(psm_data, y="y", treat="d", covariates=["x1", "x2"], method=method)
+        md = r.matched_data
+        assert md is not None
+        for col in ["_id", "_treated", "_pscore", "_support", "_weight", "_stratum"]:
+            assert col in md.columns
+        # No ordered nearest neighbour exists for a cell comparison.
+        assert "_n1" not in md.columns
+        assert "_pdif" not in md.columns
+        assert r.model_info["matched_frame_weight_kind"] == "att_frequency"
+
+    @pytest.mark.parametrize("method", ["cem", "stratify"])
+    def test_cell_frame_weights_reproduce_the_point_estimate(self, psm_data, method):
+        """The frame is bookkeeping: its weights must rebuild the estimate."""
+        r = sp.match(psm_data, y="y", treat="d", covariates=["x1", "x2"], method=method)
+        md = r.matched_data
+        w = md["_weight"].to_numpy(dtype=float)
+        t = md["_treated"].to_numpy(dtype=float)
+        y = md["y"].to_numpy(dtype=float)
+        ok = np.isfinite(w)
+        att = np.average(y[ok & (t == 1)], weights=w[ok & (t == 1)]) - np.average(
+            y[ok & (t == 0)], weights=w[ok & (t == 0)]
+        )
+        assert att == pytest.approx(r.estimate, abs=1e-10)
+
+    def test_cell_control_weights_sum_to_matched_treated(self, psm_data):
+        """The psmatch2 invariant carries over to cell matching."""
+        r = sp.match(
+            psm_data, y="y", treat="d", covariates=["x1", "x2"], method="stratify"
+        )
+        md = r.matched_data
+        n_treated_kept = int(((md["_treated"] == 1) & md["_weight"].notna()).sum())
+        ctrl_w = md.loc[md["_treated"] == 0, "_weight"].sum()
+        assert ctrl_w == pytest.approx(n_treated_kept)
+
+    def test_ate_emits_a_signed_abadie_imbens_frame(self, psm_data):
         r = sp.match(
             psm_data,
             y="y",
@@ -162,8 +199,32 @@ class TestMatchedFrameAttached:
             method="psm",
             estimand="ATE",
         )
-        assert getattr(r, "matched_data", None) is None
-        assert "ATT assignment" in r.model_info["matched_data_note"]
+        md = r.matched_data
+        assert md is not None
+        assert r.model_info["matched_frame_estimand"] == "ATE"
+        assert r.model_info["matched_frame_weight_kind"] == "ate_signed"
+        # Loudly flagged as not a frequency weight.
+        assert "NOT a frequency weight" in r.model_info["matched_data_note"]
+        # Abadie-Imbens weights are 1 + K_M(i) >= 1.
+        w = md["_weight"].dropna().to_numpy(dtype=float)
+        assert (w >= 1.0 - 1e-12).all()
+
+    def test_ate_frame_reproduces_the_ate(self, psm_data):
+        r = sp.match(
+            psm_data,
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            method="psm",
+            estimand="ATE",
+        )
+        md = r.matched_data
+        w = md["_weight"].to_numpy(dtype=float)
+        t = md["_treated"].to_numpy(dtype=float)
+        y = md["y"].to_numpy(dtype=float)
+        ok = np.isfinite(w)
+        ate = np.sum((2 * t[ok] - 1) * w[ok] * y[ok]) / int(ok.sum())
+        assert ate == pytest.approx(r.estimate, abs=1e-10)
 
 
 # ======================================================================

@@ -71,6 +71,9 @@ COL_WEIGHT = "_weight"
 COL_NN = "_nn"
 COL_PDIF = "_pdif"
 COL_Y = "_y"
+#: Cell label for stratification / CEM frames (no psmatch2 analogue; Stata's
+#: ``pscore``/``cem`` packages call it ``block`` and ``cem_strata``).
+COL_STRATUM = "_stratum"
 
 
 def neighbor_col(j: int) -> str:
@@ -408,17 +411,242 @@ def build_matched_frame(
 
 
 def matched_columns(
-    n_matches: int, *, with_outcome: bool = False, neighbors: bool = True
+    n_matches: int,
+    *,
+    with_outcome: bool = False,
+    neighbors: bool = True,
+    stratum: bool = False,
 ) -> List[str]:
-    """Ordered list of the psmatch2 columns for ``k = n_matches`` neighbours."""
+    """Ordered list of the psmatch2 columns for ``k = n_matches`` neighbours.
+
+    ``stratum=True`` describes a :func:`build_stratum_matched_frame` result,
+    which carries ``_stratum`` and ``_nn`` but none of the ordered
+    nearest-neighbour columns.
+    """
     k = max(int(n_matches), 1)
     cols = [COL_ID, COL_TREATED, COL_PSCORE, COL_SUPPORT, COL_WEIGHT]
+    if stratum:
+        cols += [COL_STRATUM, COL_NN]
+        if with_outcome:
+            cols.append(COL_Y)
+        return cols
     if neighbors:
         cols += [neighbor_col(j + 1) for j in range(k)]
         cols += [COL_NN, COL_PDIF]
     if with_outcome:
         cols.append(COL_Y)
     return cols
+
+
+def build_ate_matched_frame(
+    *,
+    index: pd.Index,
+    treated: np.ndarray,
+    pscore: np.ndarray,
+    idx_t: np.ndarray,
+    idx_c: np.ndarray,
+    matches_tc: Sequence[np.ndarray],
+    weights_tc: Sequence[np.ndarray],
+    matches_ct: Sequence[np.ndarray],
+    weights_ct: Sequence[np.ndarray],
+    n_matches: int,
+    support: Optional[np.ndarray] = None,
+    outcome: Optional[np.ndarray] = None,
+) -> pd.DataFrame:
+    """Matched frame for ``estimand='ATE'`` (both arms matched).
+
+    The ATT frame's ``_weight`` is a *frequency*: how many times a control
+    stands in for a treated unit.  The ATE estimator has no such asymmetry —
+    every unit both contributes its own outcome and serves as a counterfactual
+    for the other arm — so the natural per-unit weight is the Abadie-Imbens
+    (2006) matching weight
+
+    .. math:: w_i = 1 + K_M(i)
+
+    where :math:`K_M(i)` is the total share unit *i* receives across the
+    opposite-arm units matched to it.  The estimator is then the signed sum
+
+    .. math:: \\widehat{ATE} = \\frac{1}{N} \\sum_i (2 D_i - 1)\\, w_i\\, Y_i
+
+    which this function's output reproduces exactly — the same "pure
+    bookkeeping" contract the ATT frame satisfies.
+
+    Because the sign matters, ``_weight`` here is **not** a frequency weight
+    and must not be fed to ``[fweight=]``.  Callers record the distinction in
+    ``model_info['matched_frame_weight_kind']``.
+
+    ``_n{j}`` / ``_nn`` / ``_pdif`` are filled for *both* arms: for a treated
+    row they point at the matched controls, for a control row at the matched
+    treated units.  ``_y`` is the matched counterfactual mean outcome, again
+    for both arms.
+
+    Parameters
+    ----------
+    matches_tc, weights_tc : sequence of ndarray
+        Treated-to-control assignment: ``matches_tc[i]`` holds positions into
+        ``idx_c`` for the i-th treated unit.
+    matches_ct, weights_ct : sequence of ndarray
+        Control-to-treated assignment: ``matches_ct[j]`` holds positions into
+        ``idx_t`` for the j-th control unit.
+
+    Other parameters are as in :func:`build_matched_frame`.
+
+    References
+    ----------
+    Abadie, A. and Imbens, G.W. (2006). Large Sample Properties of Matching
+        Estimators for Average Treatment Effects. *Econometrica*, 74(1),
+        235-267.
+    """
+    n = len(treated)
+    treated = np.asarray(treated)
+    pscore = np.asarray(pscore, dtype=float)
+    if support is None:
+        support = np.ones(n, dtype=bool)
+    support = np.asarray(support, dtype=bool)
+    outcome_arr = None if outcome is None else np.asarray(outcome, dtype=float)
+
+    obs_id = np.arange(1, n + 1, dtype=float)
+    k = max(int(n_matches), 1)
+
+    # K_M(i): the share unit i receives as somebody else's match.
+    k_share = np.zeros(n, dtype=float)
+    nn = np.zeros(n, dtype=float)
+    pdif = np.full(n, np.nan, dtype=float)
+    matched_y = np.full(n, np.nan, dtype=float)
+    neighbor = np.full((n, k), np.nan, dtype=float)
+
+    for target_idx, pool_idx, matches, weights in (
+        (idx_t, idx_c, matches_tc, weights_tc),
+        (idx_c, idx_t, matches_ct, weights_ct),
+    ):
+        for i, (m, w) in enumerate(zip(matches, weights)):
+            pos = int(target_idx[i])
+            if len(m) == 0:
+                continue
+            partner_pos = pool_idx[np.asarray(m, dtype=int)]
+            w_arr = np.asarray(w, dtype=float)
+
+            nn[pos] = float(len(m))
+            ids = obs_id[partner_pos]
+            neighbor[pos, : min(len(ids), k)] = ids[:k]
+            pdif[pos] = float(abs(pscore[pos] - pscore[partner_pos[0]]))
+            if outcome_arr is not None:
+                matched_y[pos] = float(
+                    np.average(outcome_arr[partner_pos], weights=w_arr)
+                )
+            for p, share in zip(partner_pos, w_arr):
+                k_share[int(p)] += share
+
+    weight = 1.0 + k_share
+    # A unit that never matched and was never matched to contributes nothing.
+    unmatched = (nn == 0) & (k_share == 0)
+    weight[unmatched] = np.nan
+
+    data: Dict[str, np.ndarray] = {
+        COL_ID: obs_id,
+        COL_TREATED: treated.astype(float),
+        COL_PSCORE: pscore,
+        COL_SUPPORT: support.astype(float),
+        COL_WEIGHT: weight,
+    }
+    for j in range(k):
+        data[neighbor_col(j + 1)] = neighbor[:, j]
+    data[COL_NN] = nn
+    data[COL_PDIF] = pdif
+    if outcome_arr is not None:
+        data[COL_Y] = matched_y
+
+    return pd.DataFrame(data, index=index)
+
+
+def build_stratum_matched_frame(
+    *,
+    index: pd.Index,
+    treated: np.ndarray,
+    pscore: np.ndarray,
+    stratum: np.ndarray,
+    keep: np.ndarray,
+    outcome: Optional[np.ndarray] = None,
+) -> pd.DataFrame:
+    """Matched frame for stratification / coarsened exact matching.
+
+    Both estimators partition the sample into cells and compare arm means
+    within each retained cell.  With :math:`n^s_1` treated and :math:`n^s_0`
+    controls in cell *s*, the ATT is
+
+    .. math::
+
+        \\widehat{ATT} = \\sum_s \\frac{n^s_1}{N_1}
+            \\left( \\bar{Y}^s_1 - \\bar{Y}^s_0 \\right)
+
+    which is exactly the psmatch2 weighting scheme written cell-wise: give
+    every retained treated unit ``_weight = 1`` and every retained control
+    ``_weight = n^s_1 / n^s_0``.  The control weights then sum to the number
+    of matched treated units, just as they do after nearest-neighbour
+    matching, and the weighted difference of arm means reproduces the
+    estimator's own point estimate.
+
+    Units in a cell that lacks one of the two arms fall out of the matched
+    sample: ``_weight`` is missing and ``_support`` is 0.
+
+    Parameters
+    ----------
+    stratum : ndarray
+        Cell label per unit (any hashable dtype).
+    keep : ndarray of bool
+        Whether the unit's cell contains both arms, i.e. whether the unit
+        entered the estimator's comparison.
+
+    Returns
+    -------
+    pd.DataFrame
+        ``_id``, ``_treated``, ``_pscore``, ``_support``, ``_weight``,
+        ``_stratum``, ``_nn`` and (when an outcome is supplied) ``_y``.  The
+        discrete-neighbour columns ``_n{j}`` / ``_pdif`` are omitted: a cell
+        comparison has no ordered nearest neighbour to name, exactly as
+        kernel matching has none.
+    """
+    n = len(treated)
+    treated = np.asarray(treated)
+    pscore = np.asarray(pscore, dtype=float)
+    keep = np.asarray(keep, dtype=bool)
+    outcome_arr = None if outcome is None else np.asarray(outcome, dtype=float)
+
+    obs_id = np.arange(1, n + 1, dtype=float)
+    weight = np.full(n, np.nan, dtype=float)
+    nn = np.zeros(n, dtype=float)
+    matched_y = np.full(n, np.nan, dtype=float)
+
+    for s in pd.unique(stratum[keep]) if keep.any() else []:
+        in_s = keep & (stratum == s)
+        t_in = in_s & (treated == 1)
+        c_in = in_s & (treated == 0)
+        n_t = int(t_in.sum())
+        n_c = int(c_in.sum())
+        if n_t == 0 or n_c == 0:  # pragma: no cover - keep already excludes
+            continue
+        weight[t_in] = 1.0
+        weight[c_in] = n_t / n_c
+        # _nn: how many opposite-arm units the row is compared against.
+        nn[t_in] = float(n_c)
+        nn[c_in] = float(n_t)
+        if outcome_arr is not None:
+            matched_y[t_in] = float(np.mean(outcome_arr[c_in]))
+            matched_y[c_in] = float(np.mean(outcome_arr[t_in]))
+
+    data: Dict[str, np.ndarray] = {
+        COL_ID: obs_id,
+        COL_TREATED: treated.astype(float),
+        COL_PSCORE: pscore,
+        COL_SUPPORT: keep.astype(float),
+        COL_WEIGHT: weight,
+        COL_STRATUM: np.asarray(stratum, dtype=object),
+        COL_NN: nn,
+    }
+    if outcome_arr is not None:
+        data[COL_Y] = matched_y
+
+    return pd.DataFrame(data, index=index)
 
 
 def attach_matched_frame(
