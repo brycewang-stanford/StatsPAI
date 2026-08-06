@@ -13,10 +13,10 @@ operations that ``sp.match`` alone could not previously support:
    (the post-matching analogue of Stata ``pstest``).
 2. ``.psplot()``   — propensity-score density before/after matching, with
    the controls reweighted by ``_weight`` (the common-support diagnostic).
-3. ``.psm_did()``  — frequency-weighted PSM-DID: merge ``_weight`` into a
-   panel, keep the matched sample, and run the weighted
-   ``y ~ treat * post`` regression (Stata's ``reg y i.treat##i.post
-   [fweight=_weight]``).
+3. ``.psm_did()``  — weighted PSM-DID: merge ``_weight`` into a panel, keep
+   the matched sample, and run the weighted ``y ~ treat * post`` regression
+   (Stata's ``reg y i.treat##i.post [aweight=_weight]``, with
+   ``weight='fweight'`` available for the ``[fweight=]`` degrees of freedom).
 
 For the pinned Stata 18 ``psmatch2`` paths (nearest-neighbour,
 Epanechnikov kernel, and radius matching), the point estimate, analytic
@@ -45,6 +45,12 @@ from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult, SummaryText
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from . import _matched_frame as _mf
+from ._weight_modes import (
+    WEIGHT_MODES,
+    expand_frequency_weights,
+    resolve_weight_mode,
+    weight_regime_info,
+)
 
 if TYPE_CHECKING:
     from .ps_diagnostics import BalanceDiagnosticsResult
@@ -422,10 +428,10 @@ class PSMatch2Result(ResultProtocolMixin):
         fixed_effects: Optional[Sequence[str]] = None,
         cluster: Optional[Union[str, List[str]]] = None,
         on_support: bool = True,
-        weight: str = "fweight",
+        weight: str = "aweight",
         alpha: float = 0.05,
     ) -> CausalResult:
-        """Frequency-weighted PSM-DID on a panel.
+        """Weighted PSM-DID on a panel.
 
         Implements the Stata workflow
 
@@ -433,7 +439,7 @@ class PSMatch2Result(ResultProtocolMixin):
 
             psmatch2 d x1 x2, out(y) ...        // produces _weight
             // merge _weight back onto the panel by id, then
-            reg y i.treat##i.post [fweight=_weight] if _support==1
+            reg y i.treat##i.post [aweight=_weight] if _support==1
 
         The matching ``_weight`` (and ``_support``) are merged onto ``panel``
         by ``id``, the matched sample is selected, and the weighted
@@ -443,6 +449,32 @@ class PSMatch2Result(ResultProtocolMixin):
 
         is fitted with :func:`sp.feols`.  The ``treat:post`` coefficient is
         the PSM-DID treatment effect.
+
+        .. note::
+
+           **Which Stata weight regime?**  ``aweight`` and ``fweight`` give
+           the *same* coefficient but different standard errors, because
+           ``fweight`` treats a control reused ``w`` times as ``w``
+           independent observations and so uses ``df = sum(w) - k`` instead
+           of ``df = n_rows - k``.  On the reference fixture the DiD SE is
+           0.250051 under ``aweight`` and 0.214797 under ``fweight`` — the
+           ``fweight`` interval is ~14% narrower purely from the degrees of
+           freedom.
+
+           ``'aweight'`` is the default because reused controls are *not*
+           independent draws, so the ``fweight`` interval understates
+           uncertainty.  ``'fweight'`` is provided for exact reproduction of
+           the textbook Stata line, and is implemented by physically
+           replicating rows — which is what a frequency weight means, and
+           which reproduces Stata bit-for-bit (see
+           ``tests/reference_parity/test_psmdid_weight_parity.py``).
+
+           .. versionchanged:: 1.22
+              ``weight='fweight'`` now computes genuine Stata ``fweight``
+              degrees of freedom.  Before 1.22 it silently computed
+              ``aweight`` numbers.  The **default** changed from
+              ``'fweight'`` to ``'aweight'``, so results from the default
+              call are unchanged.
 
         Parameters
         ----------
@@ -472,9 +504,17 @@ class PSMatch2Result(ResultProtocolMixin):
             Cluster variable(s) for the standard errors.
         on_support : bool, default True
             Keep only matched units on common support.
-        weight : {'fweight', 'none'}, default 'fweight'
-            ``'fweight'`` weights the regression by ``_weight``; ``'none'``
-            runs the matched-sample DiD unweighted.
+        weight : {'aweight', 'fweight', 'none'}, default 'aweight'
+            Weight regime for the DiD regression, following Stata:
+
+            - ``'aweight'`` — WLS on the matched rows, ``df = n_rows - k``
+              (Stata ``[aweight=_weight]``).  The default, and the right
+              choice when ``_weight`` is fractional (k > 1 neighbours).
+            - ``'fweight'`` — each row stands for ``_weight`` identical rows,
+              ``df = sum(_weight) - k`` (Stata ``[fweight=_weight]``).
+              Requires integer weights, exactly as Stata does; raises
+              :class:`~statspai.exceptions.MethodIncompatibility` otherwise.
+            - ``'none'`` — unweighted regression on the matched sample.
         alpha : float, default 0.05
             Significance level for the returned CI.
 
@@ -486,12 +526,7 @@ class PSMatch2Result(ResultProtocolMixin):
         """
         from ..panel.feols import feols
 
-        if weight not in {"fweight", "none"}:
-            raise _psmatch2_error(
-                "weight must be 'fweight' or 'none'.",
-                diagnostics={"weight": weight},
-                recovery_hint="Use weight='fweight' or weight='none'.",
-            )
+        weight_mode = resolve_weight_mode(weight)
 
         panel = _require_dataframe(panel, "psm_did panel")
         treat = treat or self.treat
@@ -590,8 +625,29 @@ class PSMatch2Result(ResultProtocolMixin):
         if fixed_effects:
             formula += " | " + " + ".join(fixed_effects)
 
-        w_arg = psm_weight_col if weight == "fweight" else None
-        fres = feols(formula, samp, weights=w_arg, cluster=cluster, alpha=alpha)
+        # --- apply the weight regime -------------------------------------
+        # 'aweight' hands the weights to feols (WLS, df = n_rows - k).
+        # 'fweight' instead replicates rows, which *is* the definition of a
+        # frequency weight and reproduces Stata's df = sum(w) - k exactly —
+        # including the (N-1)/(N-k) factor inside the cluster sandwich, which
+        # a weights= argument alone would leave at the row count.
+        n_regression_rows = int(len(samp))
+        if weight_mode == "aweight":
+            fit_frame = samp
+            w_arg: Optional[str] = psm_weight_col
+        elif weight_mode == "fweight":
+            fit_frame = expand_frequency_weights(
+                samp,
+                psm_weight_col,
+                context="psm_did(weight='fweight')",
+            )
+            n_regression_rows = int(len(fit_frame))
+            w_arg = None
+        else:  # 'none'
+            fit_frame = samp
+            w_arg = None
+
+        fres = feols(formula, fit_frame, weights=w_arg, cluster=cluster, alpha=alpha)
 
         # --- pull out the DiD coefficient as a CausalResult ---
         coef = fres.coef if hasattr(fres, "coef") else fres.params
@@ -613,17 +669,21 @@ class PSMatch2Result(ResultProtocolMixin):
             pvalue=pval,
             ci=ci,
             alpha=alpha,
-            n_obs=int(len(samp)),
+            n_obs=n_regression_rows,
             detail=None,
             model_info={
                 "did_term": did_col,
-                "weight": weight,
                 "on_support": on_support,
                 "formula": formula,
+                "n_matched_rows": int(len(samp)),
+                "n_regression_rows": n_regression_rows,
                 "n_units_matched": int(samp[id].nunique()),
-                "weight_column": psm_weight_col if weight == "fweight" else None,
+                "weight_column": (psm_weight_col if weight_mode != "none" else None),
                 "support_column": psm_support_col,
                 "feols_result": fres,
+                **weight_regime_info(
+                    weight_mode, samp[psm_weight_col].to_numpy(dtype=float)
+                ),
             },
             _citation_key="matching",
         )
