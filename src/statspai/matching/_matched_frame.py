@@ -185,19 +185,19 @@ def psmatch2_se(
     return float(np.sqrt(var1 / n1 + var0 * wtot / n1**2))
 
 
-def _within_group_self_outcome(
+def _within_group_self_outcome_reference(
     outcome: np.ndarray,
     treated: np.ndarray,
     pscore: np.ndarray,
     n_ai_matches: int,
 ) -> np.ndarray:
-    """psmatch2's ``_self_y``: mean outcome of the J nearest *same-group* units.
+    """Literal O(n^2 log n) definition of ``_self_y``, kept as a test oracle.
 
-    For every unit, the ``n_ai_matches`` nearest neighbours **within its own
-    treatment arm** (by propensity-score distance, ties broken by index) are
-    found and their outcomes averaged.  This is the conditional-mean estimate
-    used by the Abadie-Imbens (2006) variance to gauge the within-cell outcome
-    noise ``σ²(X)``.
+    :func:`_within_group_self_outcome` is the fast implementation actually
+    used.  This one states the rule directly -- for every unit, stably sort
+    the same-arm units by propensity distance and average the first ``J``
+    outcomes -- so the equivalence test has something to compare against
+    that is obviously correct rather than merely fast.
     """
     y = np.asarray(outcome, dtype=float)
     t = np.asarray(treated)
@@ -214,6 +214,130 @@ def _within_group_self_outcome(
             order = np.argsort(np.abs(ps[i] - ps[others]), kind="stable")
             knn = others[order[: min(j, len(others))]]
             self_y[i] = float(np.mean(y[knn]))
+    return self_y
+
+
+def _within_group_self_outcome(
+    outcome: np.ndarray,
+    treated: np.ndarray,
+    pscore: np.ndarray,
+    n_ai_matches: int,
+) -> np.ndarray:
+    """psmatch2's ``_self_y``: mean outcome of the J nearest *same-group* units.
+
+    For every unit, the ``n_ai_matches`` nearest neighbours **within its own
+    treatment arm** (by propensity-score distance) are found and their
+    outcomes averaged.  This is the conditional-mean estimate used by the
+    Abadie-Imbens (2006) variance to gauge the within-cell outcome noise
+    :math:`\\sigma^2(X)`.
+
+    The selection rule is ``(distance ascending, original index ascending)``
+    -- a stable sort of the same-arm units by ``|p_i - p_k|``, ties broken by
+    position in the arm, which is ascending original index.
+
+    Implementation.  Sorting each arm by propensity score once turns the
+    neighbour search into an outward walk from each unit's own rank, because
+    in one dimension sorted order *is* distance order.  The walk proceeds
+    over **groups of equal propensity score**, not individual units: within
+    one distance the rule takes units in ascending original index, and the
+    units tied at a given distance can sit on *both* sides of the origin, so
+    a left/right frontier comparison is not enough.  (Walking outward visits
+    the left-hand ties in *descending* index order, which is what an earlier
+    version of this function got wrong.)  Only the *set* of ``J`` neighbours
+    matters, since their outcomes are averaged.
+
+    This is roughly ``O(m log m + m·J)`` per arm rather than the
+    ``O(m² log m)`` of the literal definition in
+    :func:`_within_group_self_outcome_reference`, against which it is
+    verified bit-identical (``tests/test_matching_self_outcome_equivalence.py``).
+    That matters because it runs on every default ``sp.match`` call: at
+    n = 16,000 the literal version took 12.5 s.
+    """
+    y = np.asarray(outcome, dtype=float)
+    t = np.asarray(treated)
+    ps = np.asarray(pscore, dtype=float)
+    n = len(y)
+    self_y = np.full(n, np.nan)
+    j = max(int(n_ai_matches), 1)
+
+    for g in (0, 1):
+        idx = np.where(t == g)[0]
+        m = len(idx)
+        if m < 2:
+            continue
+        # Stable sort keeps equal propensity scores in ascending original
+        # index order -- the tie-break the rule needs, for free.
+        order = np.argsort(ps[idx], kind="stable")
+        s_idx = idx[order]
+        s_ps = ps[s_idx]
+        s_y = y[s_idx]
+
+        # Collapse to groups of identical propensity score.
+        is_new = np.empty(m, dtype=bool)
+        is_new[0] = True
+        np.not_equal(s_ps[1:], s_ps[:-1], out=is_new[1:])
+        starts = np.flatnonzero(is_new)
+        ends = np.append(starts[1:], m)
+        vals = s_ps[starts]
+        grp_of = np.cumsum(is_new) - 1
+        n_grp = len(starts)
+        take = min(j, m - 1)
+
+        for r in range(m):
+            gi = int(grp_of[r])
+            need = take
+            # Collected in (distance ascending, original index ascending)
+            # order -- the reference's order -- so that the final np.mean
+            # sums in the same sequence and agrees bit for bit.
+            picked: List[np.ndarray] = []
+
+            # Distance 0: the unit's own group, minus itself, already in
+            # ascending original index order.
+            lo_g, hi_g = int(starts[gi]), int(ends[gi])
+            if hi_g - lo_g > 1:
+                own = np.concatenate([s_y[lo_g:r], s_y[r + 1 : hi_g]])
+                use = min(need, own.size)
+                if use:
+                    picked.append(own[:use])
+                    need -= use
+
+            left, right = gi - 1, gi + 1
+            while need > 0:
+                d_left = (vals[gi] - vals[left]) if left >= 0 else np.inf
+                d_right = (vals[right] - vals[gi]) if right < n_grp else np.inf
+                if d_left < d_right:
+                    blocks = [(starts[left], ends[left])]
+                    left -= 1
+                elif d_right < d_left:
+                    blocks = [(starts[right], ends[right])]
+                    right += 1
+                else:
+                    # Tied distance on both sides: the two blocks are ranked
+                    # together by original index, not by side.
+                    blocks = [
+                        (starts[left], ends[left]),
+                        (starts[right], ends[right]),
+                    ]
+                    left -= 1
+                    right += 1
+                if len(blocks) == 1:
+                    a0, b0 = blocks[0]
+                    chunk = slice(int(a0), int(b0))
+                    cand_y = s_y[chunk]
+                else:
+                    (a0, b0), (a1, b1) = blocks
+                    cand_i = np.concatenate(
+                        [s_idx[int(a0) : int(b0)], s_idx[int(a1) : int(b1)]]
+                    )
+                    cand_y = np.concatenate(
+                        [s_y[int(a0) : int(b0)], s_y[int(a1) : int(b1)]]
+                    )
+                    cand_y = cand_y[np.argsort(cand_i, kind="stable")]
+                use = min(need, cand_y.size)
+                picked.append(cand_y[:use])
+                need -= use
+            chosen = picked[0] if len(picked) == 1 else np.concatenate(picked)
+            self_y[s_idx[r]] = float(np.mean(chosen))
     return self_y
 
 
