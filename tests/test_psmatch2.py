@@ -1019,8 +1019,16 @@ def test_psmatch2_registered():
     assert spec is not None
     params = {p["name"]: p for p in spec["params"]}
     assert params["outcome"]["required"] is False
-    assert params["method"]["enum"] == ["neighbor", "kernel", "radius"]
+    assert params["method"]["enum"] == [
+        "neighbor",
+        "kernel",
+        "radius",
+        "llr",
+        "mahalanobis",
+    ]
     assert "kernel" in params
     assert params["bwidth"]["default"] == 0.06
-    assert params["se"]["enum"] == ["psmatch2", "ai", "abadie_imbens"]
+    assert params["se"]["enum"] == ["psmatch2", "ai", "abadie_imbens", "bootstrap"]
+    assert params["bootstrap_reps"]["default"] == 200
+    assert "bootstrap_seed" in params
     assert "ai" in params
