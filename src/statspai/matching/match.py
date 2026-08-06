@@ -265,18 +265,33 @@ def match(
         Kernel bandwidth on the propensity score for ``method='kernel'``
         (Stata's ``bwidth()`` default).  For ``method='radius'`` the
         bandwidth is taken from ``caliper`` instead.
-    se_method : {'auto', 'ai', 'psmatch2', 'abadie_imbens'}, default 'auto'
-        Standard-error estimator. ``'ai'`` is the simple matched-pair SE (the
-        historical default for nearest-neighbour matching). **It is
-        anti-conservative**: it treats matched pairs as independent and ignores
-        the extra variance from reusing controls under matching with
-        replacement (empirically ~0.68x the true sampling SD; ~81% coverage at
-        a nominal 95% level), so for valid inference prefer
-        ``'abadie_imbens'``. ``'psmatch2'`` is Stata psmatch2's homoskedastic
-        analytic ATT SE ``sqrt(var1/N1 + var0*Σw²/N1²)``. ``'abadie_imbens'``
+    se_method : {'auto', 'ai', 'psmatch2', 'abadie_imbens', 'bootstrap'}, default 'auto'
+        Standard-error estimator, measured over 36 designs x 1000
+        replications by ``benchmarks/matching_se_coverage.py`` (the ratios
+        below are reported SE / true sampling SD; 1.00 is correctly sized):
+
+        ==================  ===========  ==================
+        option              SE ratio     coverage (nom. .95)
+        ==================  ===========  ==================
+        ``'ai'``            0.56 - 0.91  0.71 - 0.92
+        ``'psmatch2'``      1.50 - 1.69  0.994 - 1.000
+        ``'abadie_imbens'`` 0.95 - 1.04  0.905 - 0.956
+        ``'bootstrap'``     0.95 - 1.23  0.933 - 1.000
+        ==================  ===========  ==================
+
+        ``'ai'`` is the simple matched-pair SE (the historical default for
+        nearest-neighbour matching). **It is anti-conservative**: it treats
+        matched pairs as independent and ignores the extra variance from
+        reusing controls under matching with replacement, and never reaches
+        nominal coverage on the grid above. ``'psmatch2'`` is Stata
+        psmatch2's homoskedastic analytic ATT SE
+        ``sqrt(var1/N1 + var0*Σw²/N1²)``; it errs the other way, so use it
+        to reproduce Stata rather than to size a test. ``'abadie_imbens'``
         is the Abadie-Imbens (2006) heteroskedasticity-robust SE (Stata
-        ``psmatch2 , ai(J)``), with ``J = ai_matches`` within-arm matches, and
-        is the recommended choice for nearest-neighbour inference.
+        ``psmatch2 , ai(J)``), with ``J = ai_matches`` within-arm matches.
+        It is the only option measured to be correctly sized across the
+        grid and is the recommended choice for nearest-neighbour
+        inference.
         ``'bootstrap'`` is an arm-stratified nonparametric bootstrap that
         re-estimates the propensity score in every replication, so unlike the
         analytic options it accounts for the sampling variability of the
@@ -985,9 +1000,13 @@ class MatchEstimator:
                 "sp.match: the default standard error for nearest-neighbour "
                 "matching is the simple matched-pair SE ('ai'), which ignores "
                 "the extra variance from reusing controls under matching with "
-                "replacement and is anti-conservative (~81% coverage at a "
-                "nominal 95% level). For valid inference pass "
-                "se_method='abadie_imbens' (Abadie & Imbens 2006).",
+                "replacement. Measured over 36 designs x 1000 replications "
+                "(benchmarks/matching_se_coverage.py) it runs 0.56-0.91x the "
+                "true sampling SD and never reaches nominal coverage: 0.71 "
+                "to 0.92 against a nominal 0.95. se_method='abadie_imbens' "
+                "(Abadie & Imbens 2006) is correctly sized over the same "
+                "grid (0.95-1.04x, coverage 0.905-0.956) and is the "
+                "recommended choice.",
                 UserWarning,
                 stacklevel=2,
             )

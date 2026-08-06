@@ -99,6 +99,22 @@ All notable changes to StatsPAI will be documented in this file.
   float path is bit-identical to before. The same buffer pattern was
   hardened in the JIVE estimators, whose public wrappers already cast
   upstream (no numeric change there).
+- **`sp.match` reported an ATT that silently covered only part of the
+  treated sample.** Treated units are dropped when the control pool is
+  exhausted (`replace=False`), when a caliper admits no donor, or by
+  common-support trimming — and the average over the survivors was
+  returned as "the ATT" with no indication. On a 400-row design with
+  `n_matches=4, replace=False` and 209 treated / 191 controls, **161 of
+  209 treated units (77%) got no match at all**; the returned number
+  averaged the remaining 23%, selected by matching order. Even 1:1 on the
+  same data silently dropped 18.
+
+  `sp.match` now warns, names the cause, and gives the arithmetic
+  (`replace=False` needs `n_matches × n_treated ≤ n_control`).
+  `model_info` gains `n_treated_unmatched` and
+  `n_treated_partially_matched`. **No numbers change** — the estimand was
+  undisclosed, not miscomputed.
+
 - **`sp.psmatch2(...).psm_did(weight='fweight')` computed `aweight`
   numbers.** The option handed `_weight` to `sp.feols`, which applies
   Stata *aweight* semantics (`df = n_rows - k`), while the docstring and
@@ -419,6 +435,17 @@ All notable changes to StatsPAI will be documented in this file.
   matches to 1e-9. Notably `pstest` fits its **own probit** — refit on
   the matched sample with `[iw=_weight]` — for the Rubin block, rather
   than reusing psmatch2's logit propensity score.
+
+- **`llr_stata_compat=True`** reproduces Stata's `psmatch2 ..., llr`
+  *substitution* exactly, for reconciling a published psmatch2 number.
+  With its default Epanechnikov kernel psmatch2 does not run LLR: it
+  smooths the outcome with `lpoly, deg(1)` fitted on the on-support
+  controls, then runs nearest-neighbour matching — so a treated unit's
+  **raw** outcome is compared with its match's **smoothed** one. Matches
+  Stata to 6.4e-12 (ATT) and 9.9e-09 (SE). The new `_stata_lpoly` module
+  reproduces Stata's `lpoly` to 2.6e-14; note its Epanechnikov is the
+  unit-variance one (support ±√5), *not* psmatch2's compact `epan`, which
+  would rescale the bandwidth by √5.
 
 - **`method='llr'`: local linear regression matching** (Heckman,
   Ichimura & Todd 1997), matching Stata psmatch2 to ~4e-11 across the
