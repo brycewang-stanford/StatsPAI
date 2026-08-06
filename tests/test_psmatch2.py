@@ -795,10 +795,24 @@ class TestPSMatch2SE:
         assert ai.se != pytest.approx(p.se)  # different SE estimator
         assert p.model_info["se_method"] == "psmatch2"
 
-    def test_default_sp_match_se_is_ai_unchanged(self, psm_data):
-        """sp.match default keeps the historical AI SE (JOSS-safe)."""
+    def test_default_sp_match_se_is_abadie_imbens(self, psm_data):
+        """sp.match's default resolves to the correctly-sized estimator.
+
+        .. versionchanged:: 1.22
+           It resolved to 'ai' before, which the coverage study showed never
+           reaches nominal coverage (0.71-0.92 vs a nominal 0.95 over 36
+           designs). The point estimate is unaffected.
+        """
         default = sp.match(
             psm_data, y="y", treat="d", covariates=["x1", "x2"], method="psm"
+        )
+        aimbens = sp.match(
+            psm_data,
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            method="psm",
+            se_method="abadie_imbens",
         )
         ai = sp.match(
             psm_data,
@@ -808,7 +822,20 @@ class TestPSMatch2SE:
             method="psm",
             se_method="ai",
         )
-        assert default.se == pytest.approx(ai.se)
+        assert default.model_info["se_method"] == "abadie_imbens"
+        assert default.se == pytest.approx(aimbens.se)
+        assert default.se > ai.se
+        # Only the SE moved.
+        assert default.estimate == pytest.approx(ai.estimate, rel=0, abs=0)
+
+    def test_psmatch2_front_door_keeps_the_stata_default(self, psm_data):
+        """sp.psmatch2 exists to reproduce Stata, so its default stays.
+
+        The two front doors deliberately differ: sp.match picks the
+        statistically-motivated estimator, sp.psmatch2 picks Stata's.
+        """
+        m = sp.psmatch2(psm_data, treat="d", outcome="y", covariates=["x1", "x2"])
+        assert m.result.model_info["se_method"] == "psmatch2"
 
     def test_psmatch2_se_formula_matches_helper(self, psm_data):
         from statspai.matching._matched_frame import psmatch2_se

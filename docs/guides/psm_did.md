@@ -112,7 +112,7 @@ that directly — 36 designs (3 control-pool regimes × `replace` × `k`) ×
 
 | `se_method` | SE / true sampling SD | coverage (nominal 0.95) | verdict |
 | --- | :-: | :-: | --- |
-| `'ai'` (current default) | 0.56 – 0.91 | **0.71 – 0.92** | never reaches nominal |
+| `'ai'` | 0.56 – 0.91 | **0.71 – 0.92** | never reaches nominal |
 | `'psmatch2'` (Stata's default) | 1.50 – 1.69 | 0.994 – 1.000 | far too wide |
 | `'abadie_imbens'` | **0.95 – 1.04** | **0.905 – 0.956** | correctly sized |
 | `'bootstrap'` | 0.95 – 1.23 | 0.933 – 1.000 | correct to mildly wide |
@@ -121,10 +121,21 @@ Read over `replace=True`, where the point estimate is nearly unbiased
 (|bias| ≤ 0.029 on a true effect of 2.0) so the numbers isolate SE sizing
 rather than confounding it with the pool-exhaustion bias described above.
 
-**Use `se='abadie_imbens'` (or `ai=J`).** It is the only option measured to
-be correctly sized. `'ai'` remains the default for backward compatibility
-and emits a warning; Stata's own `'psmatch2'` default is conservative
-enough that a null will rarely be rejected.
+**The two front doors default differently, on purpose:**
+
+- `sp.match(...)` — `se_method='auto'` resolves to **`'abadie_imbens'`**
+  for nearest-neighbour matching, the only estimator measured to be
+  correctly sized. This is the statistically-motivated default.
+- `sp.psmatch2(...)` — `se='psmatch2'` stays the default, because this
+  function exists to *reproduce Stata* and that is Stata's number. It is
+  conservative (a null will rarely be rejected), which the table above
+  quantifies. Pass `ai=J` for the correctly-sized one.
+
+> **Changed in 1.22.** `sp.match`'s `'auto'` resolved to `'ai'` before
+> 1.22, so **default nearest-neighbour standard errors change** — they get
+> larger, by roughly 10% to 79%. Point estimates are untouched. Pass
+> `se_method='ai'` to recover the old numbers (it now warns). See
+> [`MIGRATION.md`](../../MIGRATION.md).
 
 Regenerate the table with:
 

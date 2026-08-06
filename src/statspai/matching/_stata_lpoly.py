@@ -25,8 +25,6 @@ Fan, J. and Gijbels, I. (1996). *Local Polynomial Modelling and Its
 
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 
 #: Half-width of Stata's unit-variance Epanechnikov kernel, in bandwidths.

@@ -1347,6 +1347,15 @@
     "name": "match",
     "parameters": {
       "properties": {
+        "bootstrap_reps": {
+          "default": 200,
+          "description": "Replications for se_method='bootstrap'",
+          "type": "integer"
+        },
+        "bootstrap_seed": {
+          "description": "Seed for the bootstrap resampler",
+          "type": "integer"
+        },
         "caliper_scale": {
           "default": "raw",
           "description": "Units of `caliper`: 'raw' on the distance scale (Stata psmatch2) or 'sd' in standard deviations of the propensity score (MatchIt std.caliper=TRUE).",
@@ -1366,6 +1375,11 @@
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
+        },
+        "llr_stata_compat": {
+          "default": false,
+          "description": "method='llr' only: reproduce Stata psmatch2's SUBSTITUTE for LLR (lpoly-smoothed outcome + nearest-neighbour matching) rather than genuine local linear regression.",
+          "type": "boolean"
         },
         "m_order": {
           "default": "smallest_min_dist",
@@ -1391,11 +1405,23 @@
         },
         "method": {
           "default": "nearest",
-          "description": "Matching method",
+          "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant.",
           "enum": [
             "nearest",
-            "caliper",
-            "mahalanobis"
+            "psm",
+            "mahalanobis",
+            "kernel",
+            "radius",
+            "llr",
+            "stratify",
+            "cem",
+            "optimal",
+            "genmatch",
+            "cardinality",
+            "ebalance",
+            "cbps",
+            "sbw",
+            "overlap"
           ],
           "type": "string"
         },
@@ -1405,13 +1431,14 @@
         },
         "se_method": {
           "default": "auto",
-          "description": "Standard error. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()); 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE; 'ai' the simple matched-pair SE.",
+          "description": "Standard error. 'auto' resolves to 'abadie_imbens' for nearest-neighbour, 'psmatch2' for kernel / radius, 'bootstrap' for llr. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()) and the only option measured to be correctly sized (0.95-1.04x the sampling SD, coverage 0.905-0.956 over 36 designs x 1000 reps; see benchmarks/matching_se_coverage.py). 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE (1.50-1.69x, too wide); 'ai' the simple matched-pair SE (0.56-0.91x, never reaches nominal coverage); 'bootstrap' resamples within arm and re-estimates the propensity score each draw.",
           "enum": [
             "auto",
             "ai",
             "psmatch2",
             "abadie_imbens",
-            "abadie_imbens_pop"
+            "abadie_imbens_pop",
+            "bootstrap"
           ],
           "type": "string"
         },

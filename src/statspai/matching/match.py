@@ -300,10 +300,16 @@ def match(
         Stata psmatch2 itself reports no standard error.  Abadie & Imbens
         (2008) show the bootstrap is *not* valid for nearest-neighbour
         matching with a fixed number of matches; requesting it there warns.
-        ``'auto'`` keeps ``'ai'`` for nearest-neighbour matching -- a
-        deliberate JOSS-review-stability default that emits a ``UserWarning``
-        steering you to ``'abadie_imbens'`` -- and uses ``'psmatch2'`` for
-        kernel / radius matching.
+        ``'auto'`` (the default) resolves to ``'abadie_imbens'`` for
+        nearest-neighbour matching, ``'psmatch2'`` for kernel / radius, and
+        ``'bootstrap'`` for ``'llr'`` -- in each case the estimator measured
+        to be correctly sized for that matching scheme.
+
+        .. versionchanged:: 1.22
+           ``'auto'`` resolved to ``'ai'`` before 1.22, so **default
+           nearest-neighbour standard errors change** (they get larger, by
+           roughly 1/0.56 to 1/0.91). Point estimates are untouched. Pass
+           ``se_method='ai'`` to recover the old numbers.
     ai_matches : int, default 1
         Number of within-arm matches ``J`` used by the
         ``se_method='abadie_imbens'`` conditional-variance estimate
@@ -988,25 +994,20 @@ class MatchEstimator:
                 "combination does not produce a unit-level matching weight."
             )
 
-        # The default nearest-neighbour SE ('ai') is the simple matched-pair
-        # SE, which is anti-conservative under matching with replacement
-        # (~81% coverage at a nominal 95% level; Abadie & Imbens 2006). The
-        # default *number* is intentionally left unchanged (matched-frame
-        # parity / JOSS-review stability); we only emit a one-line guidance
-        # warning steering users to the rigorous SE. An explicit
-        # ``se_method='ai'`` is the user's own choice and is not warned.
-        if self.se_method == "auto" and self.method not in ("kernel", "radius", "llr"):
+        # An explicit ``se_method='ai'`` is the caller's own choice, but it
+        # is the one option measured never to reach nominal coverage, so it
+        # does not pass silently.
+        if self.se_method == "ai" and self.method == "nearest":
             warnings.warn(
-                "sp.match: the default standard error for nearest-neighbour "
-                "matching is the simple matched-pair SE ('ai'), which ignores "
-                "the extra variance from reusing controls under matching with "
+                "sp.match: se_method='ai' is the simple matched-pair SE. It "
+                "treats matched pairs as independent and ignores the extra "
+                "variance from reusing controls under matching with "
                 "replacement. Measured over 36 designs x 1000 replications "
                 "(benchmarks/matching_se_coverage.py) it runs 0.56-0.91x the "
                 "true sampling SD and never reaches nominal coverage: 0.71 "
-                "to 0.92 against a nominal 0.95. se_method='abadie_imbens' "
-                "(Abadie & Imbens 2006) is correctly sized over the same "
-                "grid (0.95-1.04x, coverage 0.905-0.956) and is the "
-                "recommended choice.",
+                "to 0.92 against a nominal 0.95. The default "
+                "se_method='auto' now resolves to 'abadie_imbens', which is "
+                "correctly sized over the same grid.",
                 UserWarning,
                 stacklevel=2,
             )
@@ -1410,6 +1411,13 @@ class MatchEstimator:
         """
         if self.se_method != "auto":
             return self.se_method
+        if self.method == "nearest":
+            # Abadie-Imbens (2006) is the only estimator measured to be
+            # correctly sized here (0.95-1.04x the sampling SD, coverage
+            # 0.905-0.956 over 36 designs x 1000 reps; see
+            # benchmarks/matching_se_coverage.py). The historical default
+            # 'ai' never reached nominal coverage on that grid.
+            return "abadie_imbens"
         if self.method == "llr":
             if self.llr_stata_compat:
                 # The compat path is ordinary nearest-neighbour matching on a

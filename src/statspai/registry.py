@@ -2135,8 +2135,25 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "nearest",
-                    "Matching method",
-                    ["nearest", "caliper", "mahalanobis"],
+                    "Matching method. 'caliper' is not a method -- pass "
+                    "caliper= to any nearest-neighbour variant.",
+                    [
+                        "nearest",
+                        "psm",
+                        "mahalanobis",
+                        "kernel",
+                        "radius",
+                        "llr",
+                        "stratify",
+                        "cem",
+                        "optimal",
+                        "genmatch",
+                        "cardinality",
+                        "ebalance",
+                        "cbps",
+                        "sbw",
+                        "overlap",
+                    ],
                 ),
                 ParamSpec(
                     "m_order",
@@ -2215,11 +2232,20 @@ def _build_registry() -> None:
                     False,
                     "auto",
                     (
-                        "Standard error. 'abadie_imbens' is the sample-ATT "
-                        "conditional variance (Stata psmatch2 ai()); "
+                        "Standard error. 'auto' resolves to 'abadie_imbens' "
+                        "for nearest-neighbour, 'psmatch2' for kernel / "
+                        "radius, 'bootstrap' for llr. 'abadie_imbens' is the "
+                        "sample-ATT conditional variance (Stata psmatch2 "
+                        "ai()) and the only option measured to be correctly "
+                        "sized (0.95-1.04x the sampling SD, coverage "
+                        "0.905-0.956 over 36 designs x 1000 reps; see "
+                        "benchmarks/matching_se_coverage.py). "
                         "'abadie_imbens_pop' is the population-ATT variance "
                         "Matching::Match reports; 'psmatch2' the analytic "
-                        "Stata SE; 'ai' the simple matched-pair SE."
+                        "Stata SE (1.50-1.69x, too wide); 'ai' the simple "
+                        "matched-pair SE (0.56-0.91x, never reaches nominal "
+                        "coverage); 'bootstrap' resamples within arm and "
+                        "re-estimates the propensity score each draw."
                     ),
                     [
                         "auto",
@@ -2227,7 +2253,31 @@ def _build_registry() -> None:
                         "psmatch2",
                         "abadie_imbens",
                         "abadie_imbens_pop",
+                        "bootstrap",
                     ],
+                ),
+                ParamSpec(
+                    "bootstrap_reps",
+                    "int",
+                    False,
+                    200,
+                    "Replications for se_method='bootstrap'",
+                ),
+                ParamSpec(
+                    "bootstrap_seed",
+                    "int",
+                    False,
+                    None,
+                    "Seed for the bootstrap resampler",
+                ),
+                ParamSpec(
+                    "llr_stata_compat",
+                    "bool",
+                    False,
+                    False,
+                    "method='llr' only: reproduce Stata psmatch2's SUBSTITUTE "
+                    "for LLR (lpoly-smoothed outcome + nearest-neighbour "
+                    "matching) rather than genuine local linear regression.",
                 ),
             ],
             returns="MatchEstimator result",

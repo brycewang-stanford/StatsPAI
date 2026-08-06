@@ -12601,6 +12601,15 @@
     "description": "Propensity score and covariate matching for treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: greedy nearest-neighbour matching without replacement is order-dependent: the m_order convention can differ across packages and materially moves the estimate (>5x spread on MatchIt::lalonde with Mahalanobis distance). m_order='data' and 'closest' reproduce MatchIt exactly; m_order='farthest' is StatsPAI's own dynamic rule and is not MatchIt-equivalent; bias_correction=True follows a different convention from Matching::Match's BiasAdjust: StatsPAI regresses on the full covariate vector with unweighted OLS over all controls, the reference regresses on the matching variables weighted by match counts, so bias-corrected estimates can differ from it by about 0.1%. The uncorrected estimate and its Abadie-Imbens standard error are exact. Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that. Assumptions: Unconfoundedness / CI...",
     "input_schema": {
       "properties": {
+        "bootstrap_reps": {
+          "default": 200,
+          "description": "Replications for se_method='bootstrap'",
+          "type": "integer"
+        },
+        "bootstrap_seed": {
+          "description": "Seed for the bootstrap resampler",
+          "type": "integer"
+        },
         "caliper_scale": {
           "default": "raw",
           "description": "Units of `caliper`: 'raw' on the distance scale (Stata psmatch2) or 'sd' in standard deviations of the propensity score (MatchIt std.caliper=TRUE).",
@@ -12616,6 +12625,11 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "llr_stata_compat": {
+          "default": false,
+          "description": "method='llr' only: reproduce Stata psmatch2's SUBSTITUTE for LLR (lpoly-smoothed outcome + nearest-neighbour matching) rather than genuine local linear regression.",
+          "type": "boolean"
         },
         "m_order": {
           "default": "smallest_min_dist",
@@ -12641,11 +12655,23 @@
         },
         "method": {
           "default": "nearest",
-          "description": "Matching method",
+          "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant.",
           "enum": [
             "nearest",
-            "caliper",
-            "mahalanobis"
+            "psm",
+            "mahalanobis",
+            "kernel",
+            "radius",
+            "llr",
+            "stratify",
+            "cem",
+            "optimal",
+            "genmatch",
+            "cardinality",
+            "ebalance",
+            "cbps",
+            "sbw",
+            "overlap"
           ],
           "type": "string"
         },
@@ -12655,13 +12681,14 @@
         },
         "se_method": {
           "default": "auto",
-          "description": "Standard error. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()); 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE; 'ai' the simple matched-pair SE.",
+          "description": "Standard error. 'auto' resolves to 'abadie_imbens' for nearest-neighbour, 'psmatch2' for kernel / radius, 'bootstrap' for llr. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()) and the only option measured to be correctly sized (0.95-1.04x the sampling SD, coverage 0.905-0.956 over 36 designs x 1000 reps; see benchmarks/matching_se_coverage.py). 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE (1.50-1.69x, too wide); 'ai' the simple matched-pair SE (0.56-0.91x, never reaches nominal coverage); 'bootstrap' resamples within arm and re-estimates the propensity score each draw.",
           "enum": [
             "auto",
             "ai",
             "psmatch2",
             "abadie_imbens",
-            "abadie_imbens_pop"
+            "abadie_imbens_pop",
+            "bootstrap"
           ],
           "type": "string"
         },
