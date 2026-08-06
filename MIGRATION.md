@@ -5,6 +5,61 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="precision-vocabulary"></a>
+
+## Unreleased — one precision vocabulary for every exporter
+
+**What changed.** Precision used to be spelled differently by every
+exporter, and the ``"auto"`` sentinel only worked in ``sp.regtable``.
+
+| exporter | before | now |
+| --- | --- | --- |
+| ``sp.regtable`` / ``sp.esttab`` / ``sp.modelsummary`` | ``fmt=`` | unchanged, plus ``digits=`` |
+| ``sp.sumstats`` / ``sp.mean_comparison`` | ``fmt="%.3f"`` / ``"%.2f"`` | ``fmt=`` / ``digits=``, adaptive default |
+| ``sp.outreg2`` | ``decimal_places=3`` | ``decimal_places=`` still works, adaptive default |
+| ``sp.fast.etable`` | ``digits=3`` | ``digits=`` / ``fmt=``, adaptive default |
+| ``.to_markdown()`` / ``.to_html()`` | ``digits=4`` | ``digits=`` / ``fmt=``, adaptive default |
+| ``.to_excel()`` | ``digits=6`` | **unchanged** — numeric, for data interchange |
+
+Every one of them now accepts the same spellings, taken from the tools
+people already use:
+
+```python
+sp.sumstats(df, digits=3)      # R modelsummary / stargazer
+sp.sumstats(df, fmt="%.3f")    # Stata esttab's b(%9.3f)
+sp.sumstats(df, fmt="r3")      # R fixest: round to 3 decimals
+sp.sumstats(df, fmt="s3")      # R fixest: 3 significant digits
+sp.sumstats(df, fmt="auto")    # StatsPAI: pair each estimate with its SE
+```
+
+**Two bugs this closes.**
+
+1. ``fmt="auto"`` on ``sp.sumstats`` / ``sp.mean_comparison`` used to fill
+   every cell with the literal word ``auto``. ``"auto" % value`` returns
+   ``"auto"`` unchanged when the template has no conversion specifier, so
+   nothing raised — the table just came out as garbage.
+2. ``sp.etable`` returned bare coefficients with no standard errors on the
+   non-pyfixest path.
+
+**Who is affected.**
+
+- **Called any of these with no precision argument** — output changes where
+  the old fixed default was wrong for the scale. A ``$50,229`` mean printed
+  as ``50228.947`` now prints as ``50,229``.
+- **Passed an explicit ``fmt=`` / ``digits=`` / ``decimal_places=``** —
+  nothing changes.
+
+**How to keep the old output.** Pass the previous default explicitly:
+
+```python
+sp.sumstats(df, fmt="%.3f")             # pre-Unreleased sumstats default
+sp.mean_comparison(..., fmt="%.2f")     # pre-Unreleased default
+sp.outreg2(..., decimal_places=3)       # pre-Unreleased default
+result.to_markdown(digits=4)            # pre-Unreleased default
+```
+
+---
+
 <a id="table-precision-pairing"></a>
 
 ## Unreleased — ⚠️ regression-table decimal places change

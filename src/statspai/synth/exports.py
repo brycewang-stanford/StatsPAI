@@ -25,16 +25,7 @@ with ``NaN`` in those columns rather than silently dropping them.
 
 from __future__ import annotations
 
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -257,20 +248,37 @@ def _stars_md(pvalue: float) -> str:
     return ""
 
 
+def _num(value: Any, digits: Optional[int]) -> str:
+    """Scalar renderer honouring ``digits=None`` as adaptive precision."""
+    from ..output._format import fmt_auto, fmt_fixed
+
+    v = float(value)
+    return fmt_auto(v) if digits is None else fmt_fixed(v, digits)
+
+
 def _format_estimate_se(
     estimate: float,
     se: float,
     pvalue: float,
     *,
     latex: bool = True,
-    digits: int = 4,
+    digits: Optional[int] = None,
 ) -> Tuple[str, str]:
+    """Render one estimate/SE pair at a single shared decimal place.
+
+    Same convention as ``sp.regtable``: the estimate and its own standard
+    error never disagree about precision. ``digits=None`` (the default)
+    picks the count adaptively; pass an int to pin it.
+    """
+    from ..output._format import auto_decimals, fmt_fixed
+
     if np.isnan(estimate):
         return "—", "—"
     star = _stars(pvalue) if latex else _stars_md(pvalue)
+    d = auto_decimals(estimate, se) if digits is None else int(digits)
     if np.isnan(se):
-        return f"{estimate:.{digits}f}{star}", "—"
-    return f"{estimate:.{digits}f}{star}", f"({se:.{digits}f})"
+        return f"{fmt_fixed(estimate, d)}{star}", "—"
+    return f"{fmt_fixed(estimate, d)}{star}", f"({fmt_fixed(se, d)})"
 
 
 def _result_summary_row(
@@ -326,7 +334,7 @@ def synth_to_latex(
     show_ci: bool = True,
     show_weights: bool = False,
     top_n_weights: int = 5,
-    digits: int = 4,
+    digits: Optional[int] = None,
     method_names: Optional[Sequence[str]] = None,
 ) -> str:
     """Formatted LaTeX table for synthetic-control results.
@@ -456,7 +464,7 @@ def synth_to_latex(
             if np.isnan(lo) or np.isnan(hi):
                 ci_cells.append("—")
             else:
-                ci_cells.append(f"[{lo:.{digits}f}, {hi:.{digits}f}]")
+                ci_cells.append(f"[{_num(lo, digits)}, {_num(hi, digits)}]")
         lines.append("95\\% CI & " + " & ".join(ci_cells) + " \\\\")
 
     lines.append(rule_mid)
@@ -467,10 +475,12 @@ def synth_to_latex(
             return "—"
         return str(int(v))
 
-    def _fmt_float(v: Any, d: int = digits) -> str:
+    def _fmt_float(v: Any, d: Optional[int] = digits) -> str:
+        from ..output._format import fmt_auto, fmt_fixed
+
         if v is None or (isinstance(v, float) and np.isnan(v)):
             return "—"
-        return f"{float(v):.{d}f}"
+        return fmt_auto(float(v)) if d is None else fmt_fixed(float(v), d)
 
     lines.append(
         "Pre-RMSPE & "
@@ -535,7 +545,7 @@ def synth_to_latex(
             for top in per_method:
                 if i < len(top):
                     name, w = top[i]
-                    cells.append(f"{_latex_escape(str(name))} ({w:.{digits}f})")
+                    cells.append(f"{_latex_escape(str(name))} ({_num(w, digits)})")
                 else:
                     cells.append("")
             lines.append(" & ".join(cells) + " \\\\")
@@ -585,7 +595,7 @@ def synth_to_markdown(
     show_ci: bool = True,
     show_weights: bool = False,
     top_n_weights: int = 5,
-    digits: int = 4,
+    digits: Optional[int] = None,
     method_names: Optional[Sequence[str]] = None,
 ) -> str:
     """GitHub-flavoured Markdown table for synthetic-control results.
@@ -665,16 +675,16 @@ def synth_to_markdown(
             cells.append(
                 "—"
                 if np.isnan(lo) or np.isnan(hi)
-                else f"[{lo:.{digits}f}, {hi:.{digits}f}]"
+                else f"[{_num(lo, digits)}, {_num(hi, digits)}]"
             )
         lines.append("| " + " | ".join(cells) + " |")
 
-    def _fmt(v: Any, d: int = digits) -> str:
+    def _fmt(v: Any, d: Optional[int] = digits) -> str:
         if v is None or (isinstance(v, float) and np.isnan(v)):
             return "—"
         if isinstance(v, (int, np.integer)):
             return str(int(v))
-        return f"{float(v):.{d}f}"
+        return _num(v, d)
 
     rows: List[Tuple[str, str]] = [
         ("Pre-RMSPE", "pre_rmspe"),
@@ -712,7 +722,7 @@ def synth_to_markdown(
                 key=lambda kv: abs(kv[1]),
                 reverse=True,
             )[:top_n_weights]
-            weight_cells = ", ".join(f"{name} ({w:.{digits}f})" for name, w in top)
+            weight_cells = ", ".join(f"{name} ({_num(w, digits)})" for name, w in top)
             lines.append(f"- *{n}*: {weight_cells}")
 
     lines.append("")

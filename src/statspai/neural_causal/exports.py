@@ -189,7 +189,7 @@ def neural_causal_to_markdown(
     path: Optional[str] = None,
     *,
     effects_head: int = 20,
-    digits: int = 4,
+    digits: Optional[int] = None,
 ) -> str:
     """Render a neural causal result to GitHub-flavoured Markdown.
 
@@ -210,9 +210,12 @@ def neural_causal_to_markdown(
     ...                 epochs=50)  # doctest: +SKIP
     >>> md = sp.neural_causal_to_markdown(res)  # doctest: +SKIP
     """
-    summary = neural_summary_frame(result).round(digits)
-    effects = neural_effects_frame(result).head(effects_head).round(digits)
-    training = neural_training_frame(result).round(digits)
+    from ..output._format import AUTO, format_frame, resolve_digits
+
+    _fmt = resolve_digits(None, digits, default=AUTO)
+    summary = format_frame(neural_summary_frame(result), _fmt)
+    effects = format_frame(neural_effects_frame(result).head(effects_head), _fmt)
+    training = format_frame(neural_training_frame(result), _fmt)
     parts = [
         f"# {result.method}",
         "",
@@ -235,7 +238,7 @@ def neural_causal_to_html(
     path: Optional[str] = None,
     *,
     effects_head: int = 50,
-    digits: int = 4,
+    digits: Optional[int] = None,
 ) -> str:
     """Render a neural causal result to a compact HTML report.
 
@@ -256,9 +259,12 @@ def neural_causal_to_html(
     ...                 epochs=50)  # doctest: +SKIP
     >>> html = sp.neural_causal_to_html(res)  # doctest: +SKIP
     """
-    summary = neural_summary_frame(result).round(digits)
-    effects = neural_effects_frame(result).head(effects_head).round(digits)
-    training = neural_training_frame(result).round(digits)
+    from ..output._format import AUTO, format_frame, resolve_digits
+
+    _fmt = resolve_digits(None, digits, default=AUTO)
+    summary = format_frame(neural_summary_frame(result), _fmt)
+    effects = format_frame(neural_effects_frame(result).head(effects_head), _fmt)
+    training = format_frame(neural_training_frame(result), _fmt)
     blocks = [
         "<html><body>",
         f"<h1>{result.method}</h1>",

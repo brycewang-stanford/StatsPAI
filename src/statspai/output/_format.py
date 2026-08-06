@@ -35,9 +35,13 @@ __all__ = [
     "value_decimals",
     "auto_decimals",
     "normalize_fmt",
+    "resolve_digits",
+    "format_frame",
+    "format_pvalue",
     "is_missing",
     "AUTO",
     "AUTO_PREFIX",
+    "SIG_PREFIX",
     "AUTO_SIG_DIGITS",
     "SUBUNIT_DECIMALS",
     "MAX_AUTO_DECIMALS",
@@ -45,6 +49,10 @@ __all__ = [
 
 #: Sentinel requesting magnitude-adaptive precision.
 AUTO = "auto"
+
+#: Prefix for a *resolved* significant-digit format, ``"sig:<n>"``. Produced by
+#: :func:`normalize_fmt` from R ``fixest``'s compact ``"s3"`` spelling.
+SIG_PREFIX = "sig:"
 
 #: Prefix for a *resolved* auto format, ``"auto:<decimals>"``. Produced by the
 #: renderer once it has decided the precision for a coefficient/SE pair, and
@@ -255,14 +263,19 @@ def fmt_auto(value: float) -> str:
     return fmt_fixed(value, d, sci_fallback=True)
 
 
-def _auto_decimals_from_fmt(fmt: str) -> Optional[int]:
-    """Parse ``"auto:<n>"`` → ``n``; return ``None`` when *fmt* is not one."""
-    if not isinstance(fmt, str) or not fmt.startswith(AUTO_PREFIX):
+def _prefixed_int(fmt: Any, prefix: str) -> Optional[int]:
+    """Parse ``"<prefix><n>"`` → ``n``; ``None`` when *fmt* does not match."""
+    if not isinstance(fmt, str) or not fmt.startswith(prefix):
         return None
     try:
-        return max(0, int(fmt[len(AUTO_PREFIX) :]))
+        return max(0, int(fmt[len(prefix) :]))
     except (TypeError, ValueError):
         return None
+
+
+def _auto_decimals_from_fmt(fmt: str) -> Optional[int]:
+    """Parse ``"auto:<n>"`` → ``n``; return ``None`` when *fmt* is not one."""
+    return _prefixed_int(fmt, AUTO_PREFIX)
 
 
 def fmt_val(value: Any, fmt: str = "%.4f") -> str:
@@ -280,6 +293,10 @@ def fmt_val(value: Any, fmt: str = "%.4f") -> str:
     resolved = _auto_decimals_from_fmt(fmt)
     if resolved is not None:
         return fmt_fixed(value, resolved)
+    sig = _prefixed_int(fmt, SIG_PREFIX)
+    if sig is not None:
+        d = sig_decimals(value, sig=max(1, sig))
+        return fmt_fixed(value, SUBUNIT_DECIMALS if d is None else d, sci_fallback=True)
     try:
         f = float(value)
     except (TypeError, ValueError):
@@ -316,8 +333,20 @@ def normalize_fmt(fmt: Any, param: str = "fmt") -> str:
             )
         return f"%.{n}f"
     if isinstance(fmt, str):
-        if fmt == AUTO or _auto_decimals_from_fmt(fmt) is not None:
+        if (
+            fmt == AUTO
+            or _auto_decimals_from_fmt(fmt) is not None
+            or _prefixed_int(fmt, SIG_PREFIX) is not None
+        ):
             return fmt
+        # R fixest's compact spellings, so muscle memory carries over:
+        # ``"r3"`` rounds to 3 decimals, ``"s3"`` keeps 3 significant digits.
+        rounded = _prefixed_int(fmt, "r")
+        if rounded is not None:
+            return f"%.{rounded}f"
+        significant = _prefixed_int(fmt, "s")
+        if significant is not None:
+            return f"{SIG_PREFIX}{max(1, significant)}"
         # Validate eagerly: a bad template must fail at the call site, not
         # halfway through rendering a 40-row table.
         try:
@@ -339,6 +368,123 @@ def normalize_fmt(fmt: Any, param: str = "fmt") -> str:
         recovery_hint=f"Use {param}=3, {param}='auto', or {param}='%.3f'.",
         diagnostics={param: repr(fmt)},
     )
+
+
+#: Tidy-frame column names carrying an estimate, its standard error, and its
+#: confidence bounds. All four share one decimal place per row, for the same
+#: reason ``sp.regtable`` pairs them.
+ESTIMATE_COLUMNS = ("estimate", "coef", "coefficient", "att", "ate", "effect")
+SE_COLUMNS = ("std_error", "std.error", "se", "stderr", "std_err")
+CI_COLUMNS = (
+    "conf_low",
+    "conf_high",
+    "conf.low",
+    "conf.high",
+    "ci_lower",
+    "ci_upper",
+)
+PVALUE_COLUMNS = ("p_value", "p.value", "pvalue", "pval")
+COUNT_COLUMNS = ("nobs", "n", "n_obs", "n_treated", "n_control", "df", "df_resid")
+
+
+def format_pvalue(value: Any, decimals: int = SUBUNIT_DECIMALS) -> str:
+    """Render a p-value, flooring at ``"<0.001"`` instead of printing ``0.000``.
+
+    A p-value rendered as an exact zero claims certainty no finite sample
+    supports; every journal writes ``< 0.001`` instead.
+    """
+    if is_missing(value):
+        return ""
+    try:
+        p = float(value)
+    except (TypeError, ValueError):
+        return ""
+    if not np.isfinite(p):
+        return ""
+    floor = 10.0**-decimals
+    return f"<{floor:.{decimals}f}" if 0 <= p < floor else f"{p:.{decimals}f}"
+
+
+def format_frame(df: Any, fmt: Any = AUTO) -> Any:
+    """Render a tidy / glance frame's numeric columns as display strings.
+
+    The estimate, its standard error and its confidence bounds are resolved
+    to a single decimal place **per row**, so a result object's
+    ``to_markdown()`` reads like its ``regtable`` counterpart rather than
+    showing ``13386.6`` beside ``843.643`` beside ``11733.1``. Counts render
+    as integers, p-values floor at ``<0.001``, and anything else numeric
+    follows *fmt*.
+
+    Returns a copy; the input frame is untouched.
+    """
+    out = df.copy()
+    lower = {str(c).lower(): c for c in out.columns}
+    est_col = next((lower[c] for c in ESTIMATE_COLUMNS if c in lower), None)
+    se_col = next((lower[c] for c in SE_COLUMNS if c in lower), None)
+    paired = [
+        lower[c] for c in (*ESTIMATE_COLUMNS, *SE_COLUMNS, *CI_COLUMNS) if c in lower
+    ]
+
+    for col in out.columns:
+        key = str(col).lower()
+        if not pd.api.types.is_numeric_dtype(df[col]):
+            continue
+        if key in PVALUE_COLUMNS:
+            out[col] = [format_pvalue(v) for v in df[col]]
+        elif key in COUNT_COLUMNS:
+            out[col] = [fmt_int(v) for v in df[col]]
+        elif col in paired and fmt == AUTO:
+            # One precision per row, driven by that row's estimate/SE pair.
+            decimals = [
+                auto_decimals(
+                    df[est_col].iloc[i] if est_col is not None else None,
+                    df[se_col].iloc[i] if se_col is not None else None,
+                )
+                for i in range(len(df))
+            ]
+            out[col] = [fmt_fixed(v, d) for v, d in zip(df[col], decimals)]
+        else:
+            out[col] = [fmt_val(v, fmt) for v in df[col]]
+    return out
+
+
+def resolve_digits(
+    fmt: Any = None,
+    digits: Optional[int] = None,
+    *,
+    default: Any = AUTO,
+    param: str = "fmt",
+) -> str:
+    """Collapse the ``fmt=`` / ``digits=`` pair into one canonical format.
+
+    Every exporter in the package takes precision the same way, so the
+    "which spelling did the user reach for" question is answered once, here,
+    instead of at a dozen call sites:
+
+    ==================== ==========================================
+    ``digits=3``         decimals — R ``modelsummary`` / ``stargazer``
+    ``fmt=3``            the same, spelled as ``fmt``
+    ``fmt="%.3f"``       printf — Stata ``esttab``'s ``b(%9.3f)``
+    ``fmt="r3"``         round to 3 decimals — R ``fixest``
+    ``fmt="s3"``         3 significant digits — R ``fixest``
+    ``fmt="auto"``       journal-adaptive precision (StatsPAI)
+    ==================== ==========================================
+
+    Passing both ``fmt`` and ``digits`` raises rather than silently
+    preferring one.
+    """
+    if digits is not None:
+        if fmt is not None:
+            raise MethodIncompatibility(
+                f"Pass either {param}= or digits=, not both (got "
+                f"{param}={fmt!r}, digits={digits!r}).",
+                recovery_hint=f"Drop one; digits=3 is shorthand for {param}='%.3f'.",
+                diagnostics={param: repr(fmt), "digits": digits},
+            )
+        return normalize_fmt(digits, "digits")
+    if fmt is None:
+        return normalize_fmt(default, param)
+    return normalize_fmt(fmt, param)
 
 
 def fmt_int(value: Any) -> str:

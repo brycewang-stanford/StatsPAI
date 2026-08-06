@@ -28,6 +28,25 @@ All notable changes to StatsPAI will be documented in this file.
   compares StatsPAI against Stata 18 MP and R `did` on real data; the
   regression guard is `tests/reference_parity/test_aggte_r_did_parity.py`.
 
+- **`fmt="auto"` outside `sp.regtable` rendered the literal string `"auto"`
+  into every cell.** `sp.sumstats` / `sp.mean_comparison` applied the format
+  with a bare `fmt % value`, and `"auto" % value` on a template carrying no
+  conversion specifier returns the template unchanged — so the table filled
+  with the word `auto` instead of raising. Every exporter now resolves
+  precision through the same validator, which rejects unusable input at the
+  call site.
+
+- **`sp.etable` dropped standard errors on the non-pyfixest path.** The
+  fallback returned bare coefficients — no standard errors, no significance
+  markers, no rounding — which reads as a finished table while omitting what
+  a reader needs to judge any estimate. It now reports every term the model
+  exposes (including auxiliary parameters such as Tobit's `sigma`) as
+  `coef*** (se)` at a shared decimal place.
+
+- **p-values printed as an exact `0`.** Result-object exports rendered
+  `p_value` as `0.0000`, claiming certainty no finite sample supports. They
+  now floor at `<0.001`.
+
 - **Table precision is now chosen per coefficient/SE *pair*, not per cell.**
   `fmt="auto"` used to pick decimals from each value's own magnitude
   independently, so a row could render as `-5.22 (45.3)` — an estimate and
@@ -47,6 +66,22 @@ All notable changes to StatsPAI will be documented in this file.
   unaffected.
 
 ### Added
+
+- **One precision vocabulary across every exporter**, borrowed from the
+  spellings Stata and R users already type. `sp.regtable`, `sp.esttab`,
+  `sp.modelsummary`, `sp.sumstats`, `sp.mean_comparison`, `sp.outreg2`,
+  `sp.etable`, `sp.fast.etable` and the result-object exports all accept:
+  `digits=3` (R `modelsummary` / `stargazer`), `fmt="%.3f"` (Stata `esttab`'s
+  `b(%9.3f)`), `fmt="r3"` and `fmt="s3"` (R `fixest`'s round / significant-digit
+  codes), and `fmt="auto"` (StatsPAI's journal-adaptive pairing). Passing both
+  `fmt` and `digits` raises.
+
+- **Tidy / glance frames pair their estimate and standard error.**
+  `.to_markdown()` / `.to_html()` on a result object now resolve one decimal
+  place per row, so a row reads `13,387  844  [11,733, 15,040]` instead of
+  `13386.6  843.643  11733.1`. `.to_excel()` deliberately keeps **numeric**
+  cells at six decimals: a spreadsheet is a data-interchange target that gets
+  sorted, charted and recomputed, not a presentation surface.
 
 - **Decimal-place control across the table family.** `sp.regtable` gains
   `se_fmt=` (precision of the standard-error row alone, for deliberately

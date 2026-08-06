@@ -2685,6 +2685,15 @@ def _build_registry() -> None:
                     True,
                     description="Output file path (.xlsx, .tex, .docx)",
                 ),
+                ParamSpec(
+                    "decimal_places",
+                    "int",
+                    False,
+                    None,
+                    "Decimals for coefficients and SEs. Unset uses adaptive "
+                    "precision (an estimate and its own SE share a decimal "
+                    "place); pass an int for fixed Stata-style rendering",
+                ),
             ],
             returns="None (writes file)",
             example='sp.outreg2(result1, result2, filename="table1.xlsx")',
@@ -3087,6 +3096,24 @@ def _build_registry() -> None:
                     "ttest",
                     "Statistical test",
                     ["ttest", "ranksum", "chi2"],
+                ),
+                ParamSpec(
+                    "fmt",
+                    "str|int",
+                    False,
+                    None,
+                    "Numeric precision, shared vocabulary with sp.regtable: "
+                    "'auto' (default) pairs an estimate with its own SE, an "
+                    "int N or '%.Nf' fixes decimals, 'r3'/'s3' are R fixest's "
+                    "round / significant-digit spellings",
+                ),
+                ParamSpec(
+                    "digits",
+                    "int",
+                    False,
+                    None,
+                    "Int alias for fmt: digits=3 is fmt='%.3f'. "
+                    "Passing both fmt and digits raises",
                 ),
             ],
             returns="MeanComparisonResult",

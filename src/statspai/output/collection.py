@@ -6,16 +6,20 @@ tables, and free-form text in one container, then export the whole
 bundle to a single ``.docx`` / ``.xlsx`` / ``.tex`` / ``.md`` / ``.html``
 file with consistent AER/QJE book-tab styling.
 
-Examples
---------
->>> import statspai as sp
->>> c = sp.collect(title="Wage analysis", template="aer")
->>> c.add_regression(m1, m2, m3, name="main", title="Table 1: Wage equation")
->>> c.add_summary(df, vars=["wage", "educ", "exper"], title="Table 2: Descriptives")
->>> c.add_balance(df, treatment="treat", vars=["age", "female"],
-...               title="Table 3: Balance")
->>> c.save("appendix.docx")
->>> c.save("appendix.xlsx")
+Usage
+-----
+
+.. code-block:: python
+
+    import statspai as sp
+
+    c = sp.collect(title="Wage analysis", template="aer")
+    c.add_regression(m1, m2, m3, name="main", title="Table 1: Wage equation")
+    c.add_summary(df, vars=["wage", "educ", "exper"], title="Table 2: Descriptives")
+    c.add_balance(df, treatment="treat", vars=["age", "female"],
+                  title="Table 3: Balance")
+    c.save("appendix.docx")
+    c.save("appendix.xlsx")
 
 The same collection produces a multi-section Word document, a workbook
 with one sheet per item, and a single LaTeX / Markdown file that drops
@@ -26,7 +30,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Literal, Optional, Sequence
+from typing import Any, Dict, Iterator, List, Literal, Optional, Sequence, Union
 
 import pandas as pd
 
@@ -455,7 +459,7 @@ class Collection:
         test: str = "ttest",
         name: Optional[str] = None,
         title: Optional[str] = None,
-        fmt: str = "%.3f",
+        fmt: Union[str, int, None] = None,
     ) -> "Collection":
         """Add a treatment vs. control balance table (calls ``mean_comparison``)."""
         result = mean_comparison(

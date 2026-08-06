@@ -160,13 +160,32 @@ amount — and `fmt="%.0f"` would have flattened `re75` to `0***`.
 
 To pin precision yourself:
 
-| call                | effect                                                |
-| ------------------- | ----------------------------------------------------- |
-| `fmt=3`             | `"%.3f"` everywhere — the int is shorthand            |
-| `digits=3`          | identical to `fmt=3`; the R/Stata-flavoured spelling  |
-| `fmt="%.4f"`        | any printf template                                   |
-| `se_fmt="%.2f"`     | standard-error row only, deliberately unpaired        |
-| `stats_fmt="%.4f"`  | R² / adj. R² / F rows and `tests=` footer statistics  |
+| call               | effect                                               | borrowed from                 |
+| ------------------ | ---------------------------------------------------- | ----------------------------- |
+| `digits=3`         | 3 decimal places                                     | R `modelsummary`, `stargazer` |
+| `fmt=3`            | identical to `digits=3`                              | —                             |
+| `fmt="%.4f"`       | any printf template                                  | Stata `esttab`'s `b(%9.3f)`   |
+| `fmt="r3"`         | round to 3 decimals                                  | R `fixest::etable`            |
+| `fmt="s3"`         | 3 significant digits                                 | R `fixest::etable`            |
+| `fmt="auto"`       | pair each estimate with its own SE (default)         | StatsPAI                      |
+| `se_fmt="%.2f"`    | standard-error row only, deliberately unpaired       | —                             |
+| `stats_fmt="%.4f"` | R² / adj. R² / F rows and `tests=` footer statistics | —                             |
+
+**The same vocabulary works everywhere.** `sp.regtable`, `sp.esttab`,
+`sp.modelsummary`, `sp.sumstats`, `sp.mean_comparison`, `sp.outreg2`,
+`sp.etable`, `sp.fast.etable`, and the result-object exports
+(`.to_markdown()`, `.to_html()`, `.to_word()`) all take precision the same
+way, so you never have to remember which parameter a given exporter wanted:
+
+```python
+sp.regtable(m1, m2, digits=3)
+sp.sumstats(df, digits=3)
+result.to_markdown(digits=3)
+```
+
+One deliberate exception: `.to_excel()` keeps **numeric** cells rounded to
+six decimals rather than display strings. A spreadsheet gets sorted, charted
+and recomputed — it is a data-interchange target, not a presentation surface.
 
 `fmt` and `digits` are the same knob — passing both raises. Summary statistics
 never follow `fmt`, because they sit on their own scale; `N` is always a

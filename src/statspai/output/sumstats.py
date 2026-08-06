@@ -8,9 +8,14 @@ Provides:
 Equivalent to Stata's ``summarize``, ``tabstat``, ``balancetable``.
 """
 
-from typing import Optional, List, Dict, Any, Union, Callable
+from typing import Any, Callable, Dict, List, Optional, Union
+
 import numpy as np
 import pandas as pd
+
+from ._format import AUTO
+from ._format import fmt_val as _fmt_val
+from ._format import resolve_digits
 
 
 def sumstats(
@@ -20,7 +25,8 @@ def sumstats(
     stats: Optional[List[str]] = None,
     output: str = "text",
     title: str = "Summary Statistics",
-    fmt: str = "%.3f",
+    fmt: Union[str, int, None] = None,
+    digits: Optional[int] = None,
     labels: Optional[Dict[str, str]] = None,
     by_labels: Optional[Dict[Any, str]] = None,
 ) -> Union[str, pd.DataFrame]:
@@ -74,6 +80,8 @@ def sumstats(
     # Select variables
     if vars is None:
         vars = list(data.select_dtypes(include=[np.number]).columns)
+    fmt = resolve_digits(fmt, digits, default=AUTO)
+
     if stats is None:
         stats = ["n", "mean", "sd", "min", "p25", "median", "p75", "max"]
 
@@ -141,7 +149,7 @@ def _compute_stats(
                 if stat == "n":
                     row[label] = str(int(val))
                 else:
-                    row[label] = fmt % val if not np.isnan(val) else ""
+                    row[label] = "" if np.isnan(val) else _fmt_val(val, fmt)
         rows[display] = row
     return pd.DataFrame(rows).T
 
@@ -152,7 +160,8 @@ def balance_table(
     covariates: List[str],
     output: str = "text",
     title: str = "Balance Table",
-    fmt: str = "%.3f",
+    fmt: Union[str, int, None] = None,
+    digits: Optional[int] = None,
     labels: Optional[Dict[str, str]] = None,
     test: str = "ttest",
 ) -> Union[str, pd.DataFrame]:
@@ -207,6 +216,8 @@ def balance_table(
     treated = data[T == 1]
     control = data[T == 0]
 
+    fmt = resolve_digits(fmt, digits, default=AUTO)
+
     rows = []
     for var in covariates:
         if var not in data.columns:
@@ -234,12 +245,12 @@ def balance_table(
         rows.append(
             {
                 "Variable": display,
-                "Treated Mean": fmt % mean_t,
-                "Treated SD": fmt % sd_t,
-                "Control Mean": fmt % mean_c,
-                "Control SD": fmt % sd_c,
-                "Diff": fmt % (mean_t - mean_c),
-                "SMD": fmt % smd,
+                "Treated Mean": _fmt_val(mean_t, fmt),
+                "Treated SD": _fmt_val(sd_t, fmt),
+                "Control Mean": _fmt_val(mean_c, fmt),
+                "Control SD": _fmt_val(sd_c, fmt),
+                "Diff": _fmt_val(mean_t - mean_c, fmt),
+                "SMD": _fmt_val(smd, fmt),
                 "p-value": "%.3f" % pval,
             }
         )
@@ -340,15 +351,12 @@ def _sumstats_to_word(df: pd.DataFrame, filename: str, title: str) -> None:
     """Export to Word (.docx) in AER/QJE book-tab style."""
     try:
         from docx import Document
-        from docx.shared import Pt
         from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.shared import Pt
     except ImportError:
         raise ImportError("python-docx required. Install: pip install python-docx")
 
-    from ._aer_style import (
-        apply_word_document_defaults,
-        render_dataframe_to_word_table,
-    )
+    from ._aer_style import apply_word_document_defaults, render_dataframe_to_word_table
 
     doc = Document()
     apply_word_document_defaults(doc)

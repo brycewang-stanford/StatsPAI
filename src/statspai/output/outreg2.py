@@ -67,10 +67,11 @@ def _build_regtable(
     show_stars: bool,
     show_se: bool,
     show_tstat: bool,
-    decimal_places: int,
+    decimal_places: Optional[int],
     variable_labels: Optional[Dict[str, str]],
 ) -> "RegtableResult":
     """Translate Stata-flavoured outreg2 kwargs into a ``regtable`` call."""
+    from ._format import AUTO, resolve_digits
     from .regression_table import regtable
 
     if not show_se and not show_tstat:
@@ -101,7 +102,7 @@ def _build_regtable(
         notes=notes,
         stars=show_stars,
         se_type=se_type,
-        fmt=f"%.{int(decimal_places)}f",
+        fmt=resolve_digits(None, decimal_places, default=AUTO),
         coef_labels=variable_labels,
     )
 
@@ -179,7 +180,7 @@ class OutReg2:
         show_stars: bool,
         show_se: bool,
         show_tstat: bool,
-        decimal_places: int,
+        decimal_places: Optional[int],
         variable_labels: Optional[Dict[str, str]],
     ) -> "RegtableResult":
         return _build_regtable(
@@ -200,7 +201,7 @@ class OutReg2:
         show_stars: bool = True,
         show_se: bool = True,
         show_tstat: bool = False,
-        decimal_places: int = 3,
+        decimal_places: Optional[int] = None,
         variable_labels: Optional[Dict[str, str]] = None,
         sheet_name: str = "Regression",  # accepted but unused by regtable
     ) -> None:
@@ -221,7 +222,7 @@ class OutReg2:
         show_stars: bool = True,
         show_se: bool = True,
         show_tstat: bool = False,
-        decimal_places: int = 3,
+        decimal_places: Optional[int] = None,
         variable_labels: Optional[Dict[str, str]] = None,
     ) -> None:
         table = self._table(
@@ -240,7 +241,7 @@ class OutReg2:
         show_stars: bool = True,
         show_se: bool = True,
         show_tstat: bool = False,
-        decimal_places: int = 3,
+        decimal_places: Optional[int] = None,
         variable_labels: Optional[Dict[str, str]] = None,
     ) -> str:
         table = self._table(
@@ -268,7 +269,7 @@ def outreg2(
     show_stars: bool = True,
     show_se: bool = True,
     show_tstat: bool = False,
-    decimal_places: int = 3,
+    decimal_places: Optional[int] = None,
     variable_labels: Optional[Dict[str, str]] = None,
     format: str = "auto",
 ) -> Optional[str]:
@@ -306,7 +307,9 @@ def outreg2(
         If ``True``, the parenthesised cell shows the *t*-statistic
         instead of the standard error.
     decimal_places : int, default 3
-        Number of decimal places (mapped to ``fmt='%.<N>f'``).
+        Number of decimal places. Defaults to adaptive precision (the
+        shared ``sp.regtable`` vocabulary); pass an int for the fixed
+        Stata-style rendering.
     variable_labels : dict, optional
         Custom variable labels (mapped to ``regtable.coef_labels``).
     format : str, default "auto"

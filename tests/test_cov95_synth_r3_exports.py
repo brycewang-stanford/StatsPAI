@@ -88,7 +88,9 @@ def test_latex_weights_dataframe_two_columns():
     mi = _gap_mi()
     mi["donor_weights"] = pd.DataFrame({"unit": ["a", "b", "c"], "w": [0.7, 0.2, 0.1]})
     r = _result("df_sc", 1.5, 0.6, 0.2, (0.0, 3.0), mi)
-    out = sp.synth_to_latex(r, show_weights=True)
+    # digits= pinned: this test is about the weights block, not precision.
+    # The default is now adaptive, which would render 1.5 as "1.500".
+    out = sp.synth_to_latex(r, show_weights=True, digits=4)
     # p>0.1 -> no stars on the estimate cell
     assert "1.5000" in out
 

@@ -6,14 +6,18 @@ comparison tables in text, LaTeX, HTML, Markdown, or CSV.
 
 Usage
 -----
->>> import statspai as sp
->>> r1 = sp.regress("y ~ x1", data=df)
->>> r2 = sp.regress("y ~ x1 + x2", data=df)
->>> sp.eststo(r1, name="(1)")
->>> sp.eststo(r2, name="(2)")
->>> sp.esttab()           # print stored models
->>> sp.esttab(r1, r2)     # or pass models directly
->>> sp.estclear()         # clear the global store
+
+.. code-block:: python
+
+    import statspai as sp
+
+    r1 = sp.regress("y ~ x1", data=df)
+    r2 = sp.regress("y ~ x1 + x2", data=df)
+    sp.eststo(r1, name="(1)")
+    sp.eststo(r2, name="(2)")
+    sp.esttab()           # print stored models
+    sp.esttab(r1, r2)     # or pass models directly
+    sp.estclear()         # clear the global store
 """
 
 from __future__ import annotations

@@ -6,13 +6,19 @@ and ``mean_comparison()`` for balance / summary statistics tables.
 
 Usage
 -----
->>> import statspai as sp
->>> m1 = sp.regress("y ~ x1", data=df)
->>> m2 = sp.regress("y ~ x1 + x2", data=df)
->>> sp.regtable(m1, m2)
->>> sp.regtable(m1, m2, output="latex", filename="table1.tex")
->>>
->>> sp.mean_comparison(df, variables=["age", "income"], group="treated")
+
+.. code-block:: python
+
+    import statspai as sp
+
+    m1 = sp.regress("y ~ x1", data=df)
+    m2 = sp.regress("y ~ x1 + x2", data=df)
+    sp.regtable(m1, m2)
+    sp.regtable(m1, m2, output="latex", filename="table1.tex")
+
+    sp.mean_comparison(df, variables=["age", "income"], group="treated")
+
+Runnable examples live on :func:`regtable` and :class:`RegtableResult`.
 """
 
 from __future__ import annotations
@@ -2397,10 +2403,14 @@ class RegtableResult:
         Examples
         --------
         >>> import statspai as sp
-        >>> tbl = sp.regtable(m1, m2, template="aer")
-        >>> payload = tbl.to_dict()
-        >>> payload["models"][0]["coefficients"]["x"]["estimate"]  # doctest: +SKIP
-        2.067
+        >>> df = sp.cps_wage()
+        >>> m1 = sp.regress("log_wage ~ education", data=df)
+        >>> m2 = sp.regress("log_wage ~ education + experience", data=df)
+        >>> payload = sp.regtable(m1, m2, template="aer").to_dict()
+        >>> sorted(payload)[:3]
+        ['coef_labels', 'columns', 'dep_var_labels']
+        >>> isinstance(payload["models"][0]["coefficients"]["education"], dict)
+        True
         """
         df = self.to_dataframe()
         table_rows: List[Dict[str, Any]] = []
@@ -2587,7 +2597,10 @@ class RegtableResult:
         For a table built without exotic options this round-trips exactly:
 
         >>> import statspai as sp
-        >>> t = sp.regtable(m1, m2, template="aer")        # doctest: +SKIP
+        >>> df = sp.cps_wage()
+        >>> m1 = sp.regress("log_wage ~ education", data=df)
+        >>> m2 = sp.regress("log_wage ~ education + experience", data=df)
+        >>> t = sp.regtable(m1, m2, template="aer")
         >>> RegtableResult.from_dict(t.to_dict()).to_latex() == t.to_latex()
         True
 

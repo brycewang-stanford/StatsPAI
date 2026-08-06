@@ -136,7 +136,8 @@ def _string_sequence(
 def etable(
     *fits: Any,
     names: Optional[Sequence[str]] = None,
-    digits: int = 3,
+    digits: Optional[int] = None,
+    fmt: Union[str, int, None] = None,
     keep: Optional[Sequence[str]] = None,
     drop: Optional[Sequence[str]] = None,
     format: str = "dataframe",
@@ -151,8 +152,13 @@ def etable(
         One or more fitted model results.
     names : list of str, optional
         Column names for each model. Default: ``model_1, model_2, ...``.
-    digits : int
-        Decimal precision for coefficients and standard errors.
+    digits : int, optional
+        Decimal precision for coefficients and standard errors. Defaults to
+        adaptive precision; see ``fmt``.
+    fmt : str or int, optional
+        Precision vocabulary shared with :func:`statspai.regtable` —
+        ``"auto"`` (default), an int, a printf template, or R ``fixest``'s
+        ``"r3"`` / ``"s3"``. Mutually exclusive with ``digits``.
     keep, drop : list of str, optional
         Variable filters. ``keep`` retains only the named coefficients;
         ``drop`` removes them.
@@ -175,7 +181,15 @@ def etable(
         raise ValueError(f"format={format!r}; expected dataframe|latex|html|markdown")
     if se_format not in ("paren", "below"):
         raise ValueError(f"se_format={se_format!r}; expected paren|below")
-    digits = _nonnegative_int(digits, name="digits")
+    from ..output._format import (
+        AUTO,
+        AUTO_PREFIX,
+        auto_decimals,
+        fmt_val,
+        resolve_digits,
+    )
+
+    fmt = resolve_digits(fmt, digits, default=AUTO)
 
     col_names: List[str]
     if names is None:
@@ -228,8 +242,6 @@ def etable(
         drop_set = set(drop)
         vars_all = [v for v in vars_all if v not in drop_set]
 
-    fmt_num = "{:." + str(digits) + "f}"
-
     # Build the table row-by-row
     rows: List[List[str]] = []
     row_index: List[str] = []
@@ -251,8 +263,14 @@ def etable(
                         star = "**"
                     elif z > t10:
                         star = "*"
-                est_str = fmt_num.format(est) + star
-                se_str = "(" + fmt_num.format(stderr) + ")"
+                # One precision per coefficient/SE pair, matching
+                # ``sp.regtable``: an estimate and its own standard error
+                # never disagree about decimals.
+                cell_fmt = fmt
+                if fmt == AUTO:
+                    cell_fmt = f"{AUTO_PREFIX}{auto_decimals(est, stderr)}"
+                est_str = fmt_val(est, cell_fmt) + star
+                se_str = "(" + fmt_val(stderr, cell_fmt) + ")"
             else:
                 est_str = ""
                 se_str = ""
@@ -276,7 +294,7 @@ def etable(
     for label, attr in [("R²", "r_squared"), ("Log-Lik.", "log_likelihood")]:
         vals = [_maybe(f, attr) for f in fits]
         if any(v is not None for v in vals):
-            rows.append([fmt_num.format(v) if v is not None else "" for v in vals])
+            rows.append([fmt_val(v, fmt) if v is not None else "" for v in vals])
             row_index.append(label)
 
     df = pd.DataFrame(rows, index=row_index, columns=col_names)

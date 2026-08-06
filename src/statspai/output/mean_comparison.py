@@ -15,14 +15,17 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from ._format import AUTO
+from ._format import fmt_val as _fmt_val
 from ._format import format_stars as _format_stars
-from .estimates import _latex_escape, _html_escape
+from ._format import resolve_digits
+from .estimates import _html_escape, _latex_escape
 
 __all__ = ["MeanComparisonResult", "mean_comparison"]
 
@@ -170,11 +173,11 @@ class MeanComparisonResult:
         lines.append(thin)
 
         for row in self._rows:
-            fmt_mean0 = self.fmt % row["mean0"]
-            fmt_sd0 = self.fmt % row["sd0"]
-            fmt_mean1 = self.fmt % row["mean1"]
-            fmt_sd1 = self.fmt % row["sd1"]
-            fmt_diff = (self.fmt % row["diff"]) + row["stars"]
+            fmt_mean0 = _fmt_val(row["mean0"], self.fmt)
+            fmt_sd0 = _fmt_val(row["sd0"], self.fmt)
+            fmt_mean1 = _fmt_val(row["mean1"], self.fmt)
+            fmt_sd1 = _fmt_val(row["sd1"], self.fmt)
+            fmt_diff = (_fmt_val(row["diff"], self.fmt)) + row["stars"]
             fmt_pval = "%.3f" % row["pvalue"] if not np.isnan(row["pvalue"]) else ""
 
             col0 = f"{fmt_mean0} ({fmt_sd0})"
@@ -234,11 +237,11 @@ class MeanComparisonResult:
         lines.append("<tbody>")
 
         for row in self._rows:
-            fmt_mean0 = self.fmt % row["mean0"]
-            fmt_sd0 = self.fmt % row["sd0"]
-            fmt_mean1 = self.fmt % row["mean1"]
-            fmt_sd1 = self.fmt % row["sd1"]
-            fmt_diff = (self.fmt % row["diff"]) + row["stars"]
+            fmt_mean0 = _fmt_val(row["mean0"], self.fmt)
+            fmt_sd0 = _fmt_val(row["sd0"], self.fmt)
+            fmt_mean1 = _fmt_val(row["mean1"], self.fmt)
+            fmt_sd1 = _fmt_val(row["sd1"], self.fmt)
+            fmt_diff = (_fmt_val(row["diff"], self.fmt)) + row["stars"]
             fmt_pval = "%.3f" % row["pvalue"] if not np.isnan(row["pvalue"]) else ""
 
             lines.append("<tr>")
@@ -307,11 +310,11 @@ class MeanComparisonResult:
         lines.append("\\hline")
 
         for row in self._rows:
-            fmt_mean0 = self.fmt % row["mean0"]
-            fmt_sd0 = self.fmt % row["sd0"]
-            fmt_mean1 = self.fmt % row["mean1"]
-            fmt_sd1 = self.fmt % row["sd1"]
-            diff_str = self.fmt % row["diff"]
+            fmt_mean0 = _fmt_val(row["mean0"], self.fmt)
+            fmt_sd0 = _fmt_val(row["sd0"], self.fmt)
+            fmt_mean1 = _fmt_val(row["mean1"], self.fmt)
+            fmt_sd1 = _fmt_val(row["sd1"], self.fmt)
+            diff_str = _fmt_val(row["diff"], self.fmt)
             stars_str = row["stars"]
             fmt_pval = "%.3f" % row["pvalue"] if not np.isnan(row["pvalue"]) else ""
 
@@ -345,11 +348,11 @@ class MeanComparisonResult:
         lines.append("|---|---:|---:|---:|---:|")
 
         for row in self._rows:
-            fmt_mean0 = self.fmt % row["mean0"]
-            fmt_sd0 = self.fmt % row["sd0"]
-            fmt_mean1 = self.fmt % row["mean1"]
-            fmt_sd1 = self.fmt % row["sd1"]
-            fmt_diff = (self.fmt % row["diff"]) + row["stars"]
+            fmt_mean0 = _fmt_val(row["mean0"], self.fmt)
+            fmt_sd0 = _fmt_val(row["sd0"], self.fmt)
+            fmt_mean1 = _fmt_val(row["mean1"], self.fmt)
+            fmt_sd1 = _fmt_val(row["sd1"], self.fmt)
+            fmt_diff = (_fmt_val(row["diff"], self.fmt)) + row["stars"]
             fmt_pval = "%.3f" % row["pvalue"] if not np.isnan(row["pvalue"]) else ""
 
             lines.append(
@@ -392,7 +395,7 @@ class MeanComparisonResult:
 
         def _format_value(val: Any) -> Any:
             if isinstance(val, (float, np.floating)):
-                return self.fmt % val if not np.isnan(val) else ""
+                return "" if np.isnan(val) else _fmt_val(val, self.fmt)
             return val
 
         return df.apply(lambda col: col.map(_format_value))
@@ -500,7 +503,8 @@ def mean_comparison(
     *,
     weights: Optional[str] = None,
     test: str = "ttest",
-    fmt: str = "%.2f",
+    fmt: Union[str, int, None] = None,
+    digits: Optional[int] = None,
     title: str = "Balance Table",
     group_labels: Optional[Tuple[str, str]] = None,
     output: str = "text",
@@ -557,6 +561,7 @@ def mean_comparison(
     >>> bool("p-value" in result.to_dataframe().columns)
     True
     """
+    fmt = resolve_digits(fmt, digits, default=AUTO)
     if group_labels is None:
         group_labels = ("Control", "Treated")
 

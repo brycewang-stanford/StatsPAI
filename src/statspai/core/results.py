@@ -3,7 +3,7 @@ Unified results class for all econometric models
 """
 
 from html import escape as _html_escape
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -1445,6 +1445,22 @@ class EconometricResults:
         # the real result lets unified_sensitivity honour `term=` and refuse
         # to guess when the fit has several candidate coefficients.
         return unified_sensitivity(self, **kwargs)
+
+
+def _format_frame(frame: Any, fmt: Any) -> Any:
+    """Display-format a tidy/glance frame (lazy import keeps ``core`` light)."""
+    from ..output._format import format_frame
+
+    return format_frame(frame, fmt)
+
+
+def _resolve_digits(fmt: Any, digits: Optional[int], *, default: Any) -> Any:
+    from ..output._format import resolve_digits
+
+    return resolve_digits(fmt, digits, default=default)
+
+
+_AUTO = "auto"
 
 
 class CausalResult:
@@ -3441,7 +3457,12 @@ class CausalResult:
     # Export
     # ------------------------------------------------------------------
 
-    def to_markdown(self, path: Optional[str] = None, digits: int = 4) -> str:
+    def to_markdown(
+        self,
+        path: Optional[str] = None,
+        digits: Optional[int] = None,
+        fmt: Union[str, int, None] = None,
+    ) -> str:
         """Render the causal result as Markdown.
 
         Neural causal results delegate to the richer neural exporter,
@@ -3454,23 +3475,26 @@ class CausalResult:
 
             return neural_causal_to_markdown(self, path=path, digits=digits)
 
-        tidy = self.tidy().round(digits)
-        glance = self.glance().round(digits)
+        fmt = _resolve_digits(fmt, digits, default=_AUTO)
+        tidy = _format_frame(self.tidy(), fmt)
+        glance = _format_frame(self.glance(), fmt)
         parts = [
             f"# {self.method}",
             "",
             "## Estimates",
-            tidy.to_markdown(index=False),
+            tidy.to_markdown(index=False, disable_numparse=True),
             "",
             "## Summary",
-            glance.to_markdown(index=False),
+            glance.to_markdown(index=False, disable_numparse=True),
         ]
         if self.detail is not None and len(self.detail) > 0:
             parts.extend(
                 [
                     "",
                     "## Detail",
-                    self.detail.round(digits).to_markdown(index=False),
+                    _format_frame(self.detail, fmt).to_markdown(
+                        index=False, disable_numparse=True
+                    ),
                 ]
             )
         text = "\n".join(parts) + "\n"
@@ -3480,15 +3504,21 @@ class CausalResult:
             Path(path).write_text(text, encoding="utf-8")
         return text
 
-    def to_html(self, path: Optional[str] = None, digits: int = 4) -> str:
+    def to_html(
+        self,
+        path: Optional[str] = None,
+        digits: Optional[int] = None,
+        fmt: Union[str, int, None] = None,
+    ) -> str:
         """Render the causal result as an HTML report."""
         if self.model_info.get("neural_causal"):
             from ..neural_causal.exports import neural_causal_to_html
 
             return neural_causal_to_html(self, path=path, digits=digits)
 
-        tidy = self.tidy().round(digits)
-        glance = self.glance().round(digits)
+        fmt = _resolve_digits(fmt, digits, default=_AUTO)
+        tidy = _format_frame(self.tidy(), fmt)
+        glance = _format_frame(self.glance(), fmt)
         blocks = [
             "<html><body>",
             f"<h1>{_html_escape(self.method)}</h1>",
@@ -3501,7 +3531,7 @@ class CausalResult:
             blocks.extend(
                 [
                     "<h2>Detail</h2>",
-                    self.detail.round(digits).to_html(index=False),
+                    _format_frame(self.detail, fmt).to_html(index=False),
                 ]
             )
         blocks.append("</body></html>")
@@ -3513,6 +3543,13 @@ class CausalResult:
         return html
 
     def to_excel(self, path: str, digits: int = 6) -> str:
+        """Write the result to ``.xlsx``.
+
+        Unlike the presentation exports, this keeps **numeric** cells rounded
+        to *digits* places rather than display strings: a spreadsheet is a
+        data-interchange target that gets sorted, charted and recomputed, so
+        six decimals of headroom beats a pretty ``1,556``.
+        """
         """Write a multi-sheet Excel workbook for the causal result."""
         if self.model_info.get("neural_causal"):
             from ..neural_causal.exports import neural_causal_to_excel
@@ -3540,7 +3577,8 @@ class CausalResult:
     def to_word(
         self,
         path: str,
-        digits: int = 4,
+        digits: Optional[int] = None,
+        fmt: Union[str, int, None] = None,
         caption: Optional[str] = None,
     ) -> str:
         """Write a Word (``.docx``) report for the causal result.

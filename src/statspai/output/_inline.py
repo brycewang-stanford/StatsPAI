@@ -27,18 +27,19 @@ Output formats
 - ``"markdown"`` — ``"**0.234**\\* (0.041)"`` with the estimate bolded.
 - ``"html"`` — ``"<b>0.234</b><sup>***</sup> (0.041)"``.
 
-Examples
---------
->>> import statspai as sp
->>> m = sp.regress("y ~ x + treat", data=df)
->>> sp.cite(m, "treat")
-'0.234*** (0.041)'
->>> sp.cite(m, "treat", fmt="%.4f")
-'0.2341*** (0.0413)'
->>> sp.cite(m, "treat", second_row="ci")  # show 95% CI instead of SE
-'0.234*** [0.153, 0.315]'
->>> sp.cite(m, "treat", output="latex")
-'0.234^{***}~(0.041)'
+Usage
+-----
+
+.. code-block:: python
+
+    import statspai as sp
+
+    m = sp.regress("y ~ x + treat", data=df)
+
+    sp.cite(m, "treat")                      # '0.234*** (0.041)'
+    sp.cite(m, "treat", fmt="%.4f")          # '0.2341*** (0.0413)'
+    sp.cite(m, "treat", second_row="ci")     # '0.234*** [0.153, 0.315]'
+    sp.cite(m, "treat", output="latex")      # '0.234^{***}~(0.041)'
 """
 
 from __future__ import annotations
@@ -52,7 +53,7 @@ from scipy import stats as _sp_stats
 
 # Reuse the same star/format helpers that drive the table renderer so the
 # inline output and the in-table cell never disagree.
-from .estimates import _format_stars, _fmt_val
+from .estimates import _fmt_val, _format_stars
 
 _VALID_OUTPUTS = {"text", "latex", "markdown", "md", "html"}
 _VALID_SECOND = {"se", "t", "p", "ci", "none"}
