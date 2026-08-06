@@ -860,6 +860,13 @@ class MatchEstimator:
                 np.sum([len(m) > 0 for m in a["matches"]])
             )
 
+            # The reported ATT averages over the treated units that actually
+            # found a match. When some did not, that average is over a
+            # *non-random* subset -- selected by matching order, caliper
+            # width, or an exhausted control pool -- and saying so is the
+            # difference between a documented restriction and a silent one.
+            self._warn_incomplete_treated_coverage(a, model_info)
+
             # Resolve and (optionally) override the SE with the digit-exact
             # Stata psmatch2 analytic / Abadie-Imbens robust standard error.
             se_method = self._resolve_se_method()
@@ -1155,6 +1162,89 @@ class MatchEstimator:
         }
 
         return att, se, balance
+
+    def _warn_incomplete_treated_coverage(
+        self,
+        assignment: dict[str, Any],
+        model_info: dict[str, Any],
+    ) -> None:
+        """Warn when the ATT does not cover every on-support treated unit.
+
+        Three mechanisms drop treated units, and all three are silent
+        without this: a caliper that excludes every donor, common-support
+        trimming, and -- for ``replace=False`` -- an exhausted control pool.
+        The last is the dangerous one, because nothing about the returned
+        number hints that most of the treated sample never entered it.
+        """
+        matches = assignment["matches"]
+        support = np.asarray(assignment["support"], dtype=bool)
+        idx_t = np.asarray(assignment["idx_t"], dtype=int)
+        idx_c = np.asarray(assignment["idx_c"], dtype=int)
+
+        on_support = support[idx_t]
+        n_target = int(np.sum(on_support))
+        if n_target == 0:
+            return
+
+        n_full = 0
+        n_none = 0
+        for i, m in enumerate(matches):
+            if not on_support[i]:
+                continue
+            got = len(m)
+            if got == 0:
+                n_none += 1
+            elif got >= self.n_matches:
+                n_full += 1
+
+        n_partial = n_target - n_full - n_none
+        model_info["n_treated_unmatched"] = n_none
+        model_info["n_treated_partially_matched"] = n_partial
+
+        if n_none == 0 and n_partial == 0:
+            return
+
+        n_control = int(np.sum(support[idx_c]))
+        needed = self.n_matches * n_target
+        pool_exhausted = (not self.replace) and needed > n_control
+
+        parts = []
+        if n_none:
+            parts.append(
+                f"{n_none} of {n_target} on-support treated units found no "
+                f"match at all and are EXCLUDED from the reported ATT "
+                f"({100.0 * n_none / n_target:.0f}% of the treated sample)"
+            )
+        if n_partial:
+            parts.append(
+                f"{n_partial} matched fewer than the requested "
+                f"n_matches={self.n_matches}"
+            )
+        cause = (
+            (
+                f" Cause: replace=False needs n_matches x n_treated = "
+                f"{needed} control units but only {n_control} are on "
+                f"support, so the pool is exhausted and the units matched "
+                f"last get the worst partners (or none). Use replace=True, "
+                f"reduce n_matches, or accept the restricted estimand."
+            )
+            if pool_exhausted
+            else (
+                " Cause: the caliper or common-support rule left those "
+                "treated units without an admissible donor. Widen the "
+                "caliper, or accept the restricted estimand."
+            )
+        )
+        warnings.warn(
+            "sp.match: "
+            + "; ".join(parts)
+            + "."
+            + cause
+            + " The reported effect is an ATT over the matched subset, which "
+            "is selected non-randomly.",
+            UserWarning,
+            stacklevel=3,
+        )
 
     def _bootstrap_se(self, clean: pd.DataFrame) -> Tuple[float, dict[str, Any]]:
         """Arm-stratified nonparametric bootstrap standard error.
