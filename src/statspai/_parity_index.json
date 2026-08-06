@@ -5127,6 +5127,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_matching_parity.py",
+        "tests/reference_parity/test_psmatch2_llr_parity.py",
         "tests/reference_parity/test_psmatch2_parity.py"
       ],
       "also_verified_by": [
@@ -7355,7 +7356,10 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_psmatch2_parity.py"
+        "tests/reference_parity/test_psmatch2_llr_parity.py",
+        "tests/reference_parity/test_psmatch2_parity.py",
+        "tests/reference_parity/test_psmdid_weight_parity.py",
+        "tests/reference_parity/test_pstest_parity.py"
       ],
       "tolerance": ""
     },
