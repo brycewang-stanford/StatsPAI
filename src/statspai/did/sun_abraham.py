@@ -11,10 +11,27 @@ Standard errors are computed from the classical OLS sandwich:
 
     Var(β̂) = (X'X)⁻¹  ( Σ_c  X_c' u_c u_c' X_c )  (X'X)⁻¹
 
-clustered at the unit (or a user-supplied) level.  The IW estimator is
-a linear combination of β̂, so Var(δ̂^IW_ℓ) = w_ℓ' Var(β̂) w_ℓ by the
-delta method (shares treated as estimated but converging at parametric
-rate, following SA 2021 eq. (18)).
+clustered at the unit (or a user-supplied) level.  δ̂^IW_ℓ is a product
+of two estimated objects — the interaction coefficients and the cohort
+shares — so its variance carries two terms (SA 2021, Prop. 3):
+
+    Var(δ̂^IW_ℓ) = w_ℓ' Var(β̂) w_ℓ  +  β_ℓ' Var(ŵ_ℓ) β_ℓ
+
+The second term is the cost of estimating the shares. It is degenerate
+whenever a single cohort is eligible at ℓ (then ŵ ≡ 1), which is why
+omitting it is easy to miss: on ``mpdta`` it changes nothing at
+single-cohort event times and understates the SE by up to 2% where two
+cohorts contribute.
+
+.. warning::
+   The two reference implementations disagree here and StatsPAI cannot
+   match both. Stata ``eventstudyinteract`` (Liyang Sun's own package)
+   carries the share term; R ``fixest::sunab`` treats the shares as
+   fixed and reports the first term only. StatsPAI follows
+   ``eventstudyinteract``, since Prop. 3 derives the share term and
+   dropping it is anti-conservative. Expect StatsPAI SEs to sit slightly
+   *above* ``fixest``'s at multi-cohort event times and to agree with it
+   exactly at single-cohort ones.
 
 References
 ----------
@@ -26,7 +43,7 @@ Sun, L. and Abraham, S. (2021).
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -40,6 +57,167 @@ from ._core import drop_unusable_rows as _drop_unusable_rows
 # ======================================================================
 
 
+def _cohort_share_vcov(shares: np.ndarray, n_obs: int) -> np.ndarray:
+    """Covariance matrix of the estimated cohort shares at one relative time.
+
+    Stata ``eventstudyinteract`` obtains this by regressing each cohort
+    indicator on the full set of relative-time dummies (no constant) and
+    sandwiching the stack with ``avar``. Because those dummies are
+    *mutually exclusive indicators*, the design matrix is orthogonal with
+    ``X'X = diag(N_ℓ)``, and that whole sandwich collapses to the
+    multinomial covariance
+
+        Var(ŵ_ℓ) = (diag(ŵ_ℓ) − ŵ_ℓ ŵ_ℓ') / N_ℓ
+
+    which is what is computed here — same estimator, no SUR machinery.
+    Derivation: the coefficient at ℓ is the within-ℓ mean of the cohort
+    indicator, so its residual is ``1{g_i = g} − ŵ_{g,ℓ}``; the robust
+    meat at ℓ is then ``Σ_i u_ig u_ih / N_ℓ²``, which equals
+    ``ŵ_g(1 − ŵ_g)/N_ℓ`` on the diagonal and ``−ŵ_g ŵ_h / N_ℓ`` off it.
+
+    ``n_obs`` counts *observations* at the relative time, not units,
+    matching eventstudyinteract's panel-level normalization.
+
+    Returns a zero matrix when the shares are degenerate (a single
+    eligible cohort, so ŵ ≡ 1) or when ``n_obs`` is unusable — in both
+    cases there is no share-estimation uncertainty to add.
+    """
+    k = len(shares)
+    if k <= 1 or n_obs <= 0:
+        return np.zeros((k, k))
+    return (np.diag(shares) - np.outer(shares, shares)) / float(n_obs)
+
+
+def _sunab_pretrend_test(
+    event_study: pd.DataFrame,
+    combos: "dict[int, Tuple[np.ndarray, float]]",
+    v_int: np.ndarray,
+    *,
+    pretest: str,
+    pretest_periods: Optional[int],
+) -> Optional[dict]:
+    """Joint test that the pre-treatment IW effects are all zero.
+
+    Sun & Abraham's estimator produced no pre-trend test at all before
+    this: callers had to read the event-study table by eye, which invites
+    the classic error of declaring parallel trends because no single
+    pre-period coefficient reached significance. Individually
+    insignificant leads are routinely jointly significant.
+
+    The test is a Wald statistic on the pre-period IW estimates using
+    their **joint** covariance, not the diagonal:
+
+        Cov(δ̂_ℓ, δ̂_m) = w_ℓ' Var(β̂) w_m          for ℓ ≠ m
+        Var(δ̂_ℓ)       = w_ℓ' Var(β̂) w_ℓ + β_ℓ' Var(ŵ_ℓ) β_ℓ
+
+    The share-variance term appears only on the diagonal because the
+    relative-time dummies are mutually exclusive, so the share estimates
+    at different ℓ are built from disjoint observations and their
+    covariance block is zero off-diagonal (same algebra as
+    :func:`_cohort_share_vcov`).
+
+    ``pretest_periods=k`` keeps the ``k`` **estimated** leads closest to
+    treatment — counted over the leads that exist, since ℓ = −1 is the
+    omitted reference and a literal ``ℓ >= -k`` cutoff would quietly
+    return one fewer than asked for. Distant leads are often estimated on
+    few cohorts and drag the test toward non-rejection.
+
+    Returns ``None`` when disabled or when there are no pre-periods.
+    """
+    if pretest == "none":
+        return None
+
+    pre = sorted(e for e in combos if e < 0)
+    if pretest_periods is not None:
+        # The k nearest *estimated* leads, not literally ℓ >= -k. ℓ = -1 is
+        # the omitted reference here, so the estimated leads start at -2 and
+        # a literal cutoff would silently return k-1 of them (or none).
+        pre = pre[-pretest_periods:]
+    if not pre:
+        return None
+
+    est = np.array(
+        [
+            float(event_study.loc[event_study["relative_time"] == e, "att"].iloc[0])
+            for e in pre
+        ]
+    )
+    k = len(pre)
+    cov = np.empty((k, k), dtype=float)
+    for a, ea in enumerate(pre):
+        wa, share_a = combos[ea]
+        for b, eb in enumerate(pre):
+            wb, _ = combos[eb]
+            cov[a, b] = float(wa @ v_int @ wb)
+        cov[a, a] += share_a
+
+    from ._core import joint_wald as _joint_wald
+
+    out = _joint_wald(est, cov)
+    out["relative_times"] = pre
+    return out
+
+
+def _resolve_control_cohort(
+    df: pd.DataFrame,
+    control_cohort: Any,
+    g: str,
+) -> Tuple[pd.Series, str]:
+    """Turn ``control_cohort=`` into a unit-level boolean reference mask.
+
+    Mirrors Stata ``eventstudyinteract``'s ``control_cohort(varname)``,
+    which takes a *binary variable* marking the control cohort — allowing
+    either never-treated or last-treated units, chosen by the analyst
+    rather than inferred. Two spellings are accepted here:
+
+    - a column name holding a 0/1 (or boolean) indicator, matching the
+      Stata option exactly;
+    - a cohort value, or a sequence of cohort values, from ``g`` — the
+      shorthand that avoids constructing an indicator column by hand.
+
+    Returns ``(mask, label)`` where ``label`` describes the resolved
+    reference group for diagnostics and error messages.
+    """
+    # Column-name spelling. Checked before scalars so that a legitimately
+    # numeric column name still resolves as a column.
+    if isinstance(control_cohort, str):
+        if control_cohort not in df.columns:
+            raise ValueError(
+                f"control_cohort='{control_cohort}' is not a column in the "
+                f"data. Pass the name of a 0/1 indicator column, or a "
+                f"cohort value from '{g}'."
+            )
+        col = df[control_cohort]
+        vals = set(pd.unique(col.dropna()))
+        if not vals <= {0, 1, True, False, 0.0, 1.0}:
+            raise ValueError(
+                f"control_cohort column '{control_cohort}' must be a binary "
+                f"0/1 indicator (Stata eventstudyinteract convention), but "
+                f"it takes values {sorted(vals, key=repr)[:6]}. To select by "
+                f"cohort value instead, pass the value itself, e.g. "
+                f"control_cohort={sorted(vals, key=repr)[0]!r}."
+            )
+        mask = col.fillna(0).astype(bool)
+        return mask, f"column '{control_cohort}'"
+
+    # Cohort-value spelling (scalar or sequence).
+    if isinstance(control_cohort, (list, tuple, set, np.ndarray, pd.Series)):
+        wanted = [int(v) for v in control_cohort]
+    else:
+        wanted = [int(control_cohort)]
+
+    present = set(df[g].unique())
+    missing = [v for v in wanted if v not in present]
+    if missing:
+        raise ValueError(
+            f"control_cohort={control_cohort!r} names cohort value(s) "
+            f"{missing} that do not occur in '{g}'. Available cohorts: "
+            f"{sorted(present)}."
+        )
+    mask = df[g].isin(wanted)
+    return mask, f"{g} in {wanted}"
+
+
 def sun_abraham(
     data: pd.DataFrame,
     y: str,
@@ -48,10 +226,13 @@ def sun_abraham(
     i: str,
     event_window: Optional[Tuple[int, int]] = None,
     control_group: str = "nevertreated",
+    control_cohort: Optional[Any] = None,
     covariates: Optional[List[str]] = None,
     cluster: Optional[str] = None,
     aggregation: str = "event_time",
     alpha: float = 0.05,
+    pretest: str = "joint",
+    pretest_periods: Optional[int] = None,
 ) -> CausalResult:
     """
     Sun & Abraham (2021) interaction-weighted event-study estimator.
@@ -74,7 +255,27 @@ def sun_abraham(
     control_group : str, default 'nevertreated'
         ``'nevertreated'`` or ``'lastcohort'``.  When ``'lastcohort'``,
         the latest treated cohort is used as the reference and dropped
-        from the IW aggregation.
+        from the IW aggregation. Ignored when ``control_cohort`` is given.
+    control_cohort : str, scalar or sequence, optional
+        Nominate the reference cohort explicitly instead of inferring it,
+        mirroring Stata ``eventstudyinteract``'s ``control_cohort(varname)``.
+        Accepts either
+
+        - a **column name** holding a 0/1 indicator of control units (the
+          Stata spelling), or
+        - a **cohort value** — or list of values — drawn from ``g``.
+
+        Whatever it selects becomes the reference group and is removed from
+        the set of estimated cohorts, so no unit sits on both sides of its
+        own comparison. Useful when the never-treated group is unsuitable
+        (contaminated, or absent) and a specific late cohort is the
+        credible control.
+
+        .. note::
+           Sun & Abraham (2021) require the control cohort to be untreated
+           over the estimation window. When using a last-treated cohort,
+           drop the periods in which it turns on — StatsPAI will not do
+           that for you, exactly as ``eventstudyinteract`` will not.
     covariates : list of str, optional
         Additional controls (time-varying; added linearly).
     cluster : str, optional
@@ -88,6 +289,28 @@ def sun_abraham(
         parity on balanced staggered panels.
     alpha : float, default 0.05
         Significance level.
+    pretest : {'joint', 'none'}, default 'joint'
+        Report a joint Wald test that all pre-treatment IW effects are
+        zero, in ``model_info['pretrend_test']``.
+
+        Reading the event-study table by eye is the standard way to get
+        this wrong: leads that are individually insignificant are often
+        jointly significant, and "no star on any lead" is not evidence of
+        parallel trends. The test uses the full covariance across leads,
+        not the diagonal.
+
+        Failing to reject is still weak evidence — it is a statement about
+        power as much as about trends. Pair it with
+        :func:`statspai.honest_did` or :func:`statspai.pretrends_power`.
+    pretest_periods : int, optional
+        Restrict the joint test to the ``pretest_periods`` **estimated**
+        leads nearest treatment, in the spirit of Stata's ``pretrends(k)``.
+        Default uses every estimated lead. Distant leads often rest on few
+        cohorts and pull the statistic toward non-rejection.
+
+        Counted over the leads that exist, not by literal event time:
+        ℓ = −1 is the omitted reference, so on a panel whose leads are
+        −4, −3, −2 the value ``2`` selects ``[-3, -2]``.
 
     Returns
     -------
@@ -128,6 +351,16 @@ def sun_abraham(
         columns=[y, t, i, *(covariates or [])],
         function="sun_abraham",
     )
+    if pretest not in ("joint", "none"):
+        raise ValueError(f"pretest must be 'joint' or 'none', got {pretest!r}.")
+    if pretest_periods is not None:
+        if isinstance(pretest_periods, bool) or not isinstance(pretest_periods, int):
+            raise ValueError(
+                f"pretest_periods must be a positive int or None, got "
+                f"{pretest_periods!r}."
+            )
+        if pretest_periods < 1:
+            raise ValueError(f"pretest_periods must be >= 1, got {pretest_periods}.")
     if control_group not in ("nevertreated", "lastcohort"):
         raise ValueError(
             f"control_group must be 'nevertreated' or 'lastcohort', "
@@ -157,20 +390,43 @@ def sun_abraham(
     if not cohorts_all:
         raise ValueError("No treated cohorts found in the data.")
 
-    # Reference cohort: never-treated (g=0) OR last cohort.
-    if control_group == "lastcohort":
+    # Reference cohort: explicit (control_cohort=), else never-treated
+    # (g=0) or the last cohort.
+    if control_cohort is not None:
+        ref_mask, ref_label = _resolve_control_cohort(df, control_cohort, g)
+        # Anything flagged as control is a reference unit, never an
+        # estimated cohort — otherwise the same unit would appear on both
+        # sides of its own comparison.
+        ref_cohort_vals = set(df.loc[ref_mask, g].unique())
+        cohorts = [c for c in cohorts_all if c not in ref_cohort_vals]
+        control_cohort_label = ref_label
+    elif control_group == "lastcohort":
         ref_cohort = max(cohorts_all)
         cohorts = [c for c in cohorts_all if c != ref_cohort]
         ref_mask = df[g] == ref_cohort
+        control_cohort_label = f"lastcohort={ref_cohort}"
     else:
         cohorts = cohorts_all
         ref_mask = df[g] == 0
+        control_cohort_label = "nevertreated"
 
     if not cohorts:
-        raise ValueError("No non-reference cohorts available for estimation.")
+        raise ValueError(
+            "No non-reference cohorts available for estimation"
+            + (
+                f" — control_cohort ({control_cohort_label}) matched every "
+                "treated cohort, leaving nothing to compare against it."
+                if control_cohort is not None
+                else "."
+            )
+        )
     has_ref = bool(ref_mask.any())
     if not has_ref:
-        raise ValueError(f"Reference group is empty (control_group={control_group!r}).")
+        raise ValueError(
+            f"Reference group is empty (control_cohort={control_cohort_label})."
+            if control_cohort is not None
+            else f"Reference group is empty (control_group={control_group!r})."
+        )
 
     cluster_col = cluster or i
 
@@ -255,7 +511,14 @@ def sun_abraham(
     cohort_counts = unit_cohorts[unit_cohorts > 0].value_counts()
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
+    # Observation counts per relative time over the *estimated* cohorts
+    # only — eventstudyinteract restricts the share regression to
+    # `control_cohort == 0`, so reference units must not inflate N_ℓ.
+    _est_rows = df[df[g].isin(cohorts)]
+    n_obs_at_rel = _est_rows["_rel_time"].value_counts().to_dict()
+
     es_rows = []
+    combos: Dict[int, Tuple[np.ndarray, float]] = {}
     for e in sorted(set(rel_times)):
         eligible = [
             g_val
@@ -279,8 +542,32 @@ def sun_abraham(
             w[idx] = share
 
         est_e = float(w @ beta_int)
-        se_e = float(np.sqrt(max(w @ V_int @ w, 0.0)))
+
+        # Var(δ̂_ℓ) has TWO terms, because δ̂_ℓ = Σ_g ŵ_{g,ℓ} β̂_{g,ℓ} is a
+        # product of two estimated objects (SA 2021, Prop. 3):
+        #
+        #   (1) w' Var(β̂) w          — the interacted-regression term
+        #   (2) β' Var(ŵ) β          — the cohort-share estimation term
+        #
+        # Stata's eventstudyinteract carries both and treats them as
+        # independent (no cross term). Term (2) vanishes when a single
+        # cohort is eligible, since then ŵ ≡ 1 is degenerate — which is
+        # exactly why omitting it looked harmless: on mpdta the SEs agreed
+        # to 0.02% at single-cohort relative times and drifted up to 2%
+        # wherever two cohorts contributed, always downward.
+        beta_e = np.array(
+            [beta_int[interact_meta.index((g_val, e))] for g_val in eligible],
+            dtype=float,
+        )
+        var_share = _cohort_share_vcov(shares, n_obs_at_rel.get(e, 0))
+        var_e = float(w @ V_int @ w) + float(beta_e @ var_share @ beta_e)
+        se_e = float(np.sqrt(max(var_e, 0.0)))
         pval = float(2 * (1 - stats.norm.cdf(abs(est_e / se_e)))) if se_e > 0 else 1.0
+
+        # Keep the linear combination and the share-variance block so the
+        # pre-trend test below can build the JOINT covariance rather than
+        # pretending the event-time estimates are independent.
+        combos[e] = (w, float(beta_e @ var_share @ beta_e))
 
         es_rows.append(
             {
@@ -295,6 +582,10 @@ def sun_abraham(
         )
 
     event_study = pd.DataFrame(es_rows)
+
+    pretrend = _sunab_pretrend_test(
+        event_study, combos, V_int, pretest=pretest, pretest_periods=pretest_periods
+    )
 
     # ----- Overall post-treatment ATT via single linear combinations -----
     post = event_study[event_study["relative_time"] >= 0]
@@ -362,6 +653,10 @@ def sun_abraham(
     model_info = {
         "estimator": "Sun-Abraham IW",
         "control_group": control_group,
+        "control_cohort": control_cohort_label,
+        "pretrend_test": pretrend,
+        "pretest": pretest,
+        "pretest_periods": pretest_periods,
         "event_window": (e_min, e_max),
         "n_cohorts": len(cohorts),
         "cohorts": cohorts,

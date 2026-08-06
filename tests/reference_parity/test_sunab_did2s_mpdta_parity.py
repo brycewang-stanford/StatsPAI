@@ -115,7 +115,23 @@ def test_sunab_event_study_matches_fixest(mpdta):
 
 
 def test_sunab_event_study_ses_match_fixest(mpdta):
-    """Cluster-robust SEs on the event study agree to 1%."""
+    """Cluster-robust SEs on the event study agree to 1%.
+
+    The 1% band is doing real work here, because ``fixest`` and Stata's
+    ``eventstudyinteract`` genuinely disagree and StatsPAI cannot match
+    both. ``sunab`` computes Var(δ̂_ℓ) treating the cohort shares as
+    fixed; ``eventstudyinteract`` adds the share-estimation term
+    ``β' Var(ŵ) β`` from Sun & Abraham (2021) Prop. 3. StatsPAI follows
+    the latter — it is the paper author's own implementation, and
+    dropping the term understates the SE.
+
+    The two agree exactly wherever a single cohort is eligible (Var(ŵ) is
+    degenerate there) and separate where several are: on mpdta the gap to
+    fixest is 0.08% at single-cohort event times and up to 0.63% at
+    multi-cohort ones. Both stay inside 1%, so this test still pins
+    fixest agreement while tolerating the deliberate divergence. A gap
+    beyond 1% means something other than this convention moved.
+    """
     res = sp.sun_abraham(mpdta, y="lemp", g="first_treat", t="year", i="countyreal")
     got = {int(e): s for e, s in zip(res.detail["relative_time"], res.detail["se"])}
     for e, (_, se_r) in R_SUNAB_EVENT.items():
