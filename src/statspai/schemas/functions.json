@@ -1444,13 +1444,22 @@
     }
   },
   {
-    "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance, common-support plotting, and frequency-weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius, local linear regression, Mahalanobis): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance (.pstest() reproduces Stata pstest exactly), common-support plotting, and weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "psmatch2",
     "parameters": {
       "properties": {
         "ai": {
           "default": 0,
           "description": "Abadie-Imbens (2006) robust SE with J within-arm matches (Stata ai(J))",
+          "type": "integer"
+        },
+        "bootstrap_reps": {
+          "default": 200,
+          "description": "Bootstrap replications when se='bootstrap'",
+          "type": "integer"
+        },
+        "bootstrap_seed": {
+          "description": "Seed for the bootstrap resampler (pass for reproducibility)",
           "type": "integer"
         },
         "bwidth": {
@@ -1484,7 +1493,7 @@
         },
         "kernel": {
           "default": "epan",
-          "description": "Kernel type (method='kernel')",
+          "description": "Kernel type (method='kernel' or 'llr'). NOTE: Stata's psmatch2 does not run LLR with kerneltype(epan) -- it substitutes lpoly-smoothed nearest-neighbour matching. Use 'tricube' to reproduce psmatch2's own LLR routine.",
           "enum": [
             "epan",
             "normal",
@@ -1500,7 +1509,9 @@
           "enum": [
             "neighbor",
             "kernel",
-            "radius"
+            "radius",
+            "llr",
+            "mahalanobis"
           ],
           "type": "string"
         },
@@ -1515,11 +1526,12 @@
         },
         "se": {
           "default": "psmatch2",
-          "description": "Standard-error estimator",
+          "description": "Standard-error estimator. 'bootstrap' re-estimates the propensity score each replication and is the only valid choice for method='llr' (Stata reports seatt = . there).",
           "enum": [
             "psmatch2",
             "ai",
-            "abadie_imbens"
+            "abadie_imbens",
+            "bootstrap"
           ],
           "type": "string"
         },
@@ -17716,6 +17728,15 @@
           "default": false,
           "description": "bias_correction parameter (bool).",
           "type": "boolean"
+        },
+        "bootstrap_reps": {
+          "default": 200,
+          "description": "bootstrap_reps parameter (int).",
+          "type": "integer"
+        },
+        "bootstrap_seed": {
+          "description": "bootstrap_seed parameter (Optional[int]).",
+          "type": "integer"
         },
         "bwidth": {
           "default": 0.06,

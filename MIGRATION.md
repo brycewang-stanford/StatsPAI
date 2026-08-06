@@ -286,6 +286,71 @@ implementation of her paper. So StatsPAI SEs now sit slightly *above*
 single-cohort ones. That divergence is deliberate; there is no flag to
 restore the old behaviour.
 
+<a id="psm-did-weight-regimes"></a>
+
+## 1.22.0 — ⚠️ `psm_did(weight=...)` regimes
+
+**What changed.** `sp.psmatch2(...).psm_did()` handed the matching
+`_weight` to `sp.feols`, which applies Stata **aweight** semantics
+(`df_resid = n_rows - k`). But the option was named `'fweight'`, and both
+the docstring and `docs/guides/psm_did.md` advertised the Stata line
+
+```stata
+reg y i.treat##i.post [fweight=_weight] if _support==1
+```
+
+whose residual degrees of freedom are `Σw - k`. The coefficient was
+correct under either reading; the standard error was not the one the
+documentation promised.
+
+| | old `'fweight'` | new `'aweight'` (default) | new `'fweight'` |
+| --- | ---: | ---: | ---: |
+| DiD coefficient | 1.551163 | 1.551163 | 1.551163 |
+| standard error | 0.250051 | **0.250051** | **0.214797** |
+| residual df | 366 | 366 | 496 |
+| Stata equivalent | `[aweight=]` | `[aweight=]` | `[fweight=]` |
+
+**Does my number change?**
+
+- **Default call — no.** The default moved from `'fweight'` to
+  `'aweight'`, and those produce identical numbers. If you never passed
+  `weight=`, nothing moves.
+- **Explicit `weight='fweight'` — yes.** You now get the `fweight`
+  degrees of freedom you were asking for. To keep the old numbers, pass
+  `weight='aweight'` explicitly.
+
+**Which should I use?** `'aweight'`, which is why it is the default. A
+control matched three times is not three independent observations, so the
+`fweight` degrees of freedom overstate the information in the matched
+sample. Reach for `'fweight'` only to reproduce a specific Stata output.
+
+`'fweight'` requires integer weights, exactly as Stata does. Matching with
+`k > 1` neighbours splits weights into `1/k` shares, so `weight='fweight'`
+raises there with a pointer back to `'aweight'`.
+
+Pinned in `tests/reference_parity/test_psmdid_weight_parity.py` against
+Stata 18 MP.
+
+<a id="pstest-vs-balance"></a>
+
+## 1.22.0 — `m.balance()` is not `pstest` (and never was)
+
+`docs/guides/psm_did.md` stated that `m.balance()`'s `smd_weighted` column
+was "exactly what Stata `pstest` reports". It is not. `pstest` keeps the
+**unmatched** pooled standard deviation in the denominator of the
+post-matching standardised bias; `balance()` uses the matched-sample SD.
+
+On the reference fixture, covariate `x1` after matching:
+
+| | value |
+| --- | ---: |
+| `pstest` `%bias` | 13.910 |
+| `balance()` `smd_weighted × 100` | 14.727 |
+
+Both conventions are defensible and neither number changed — only the
+claim that they were the same. If you need Stata's table, use the new
+`m.pstest()`, which reproduces it to 1e-14 per covariate.
+
 ---
 
 <a id="rdrobust-bandwidth-rebuild"></a>

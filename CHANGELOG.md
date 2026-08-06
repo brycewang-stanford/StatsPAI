@@ -99,6 +99,35 @@ All notable changes to StatsPAI will be documented in this file.
   float path is bit-identical to before. The same buffer pattern was
   hardened in the JIVE estimators, whose public wrappers already cast
   upstream (no numeric change there).
+- **`sp.psmatch2(...).psm_did(weight='fweight')` computed `aweight`
+  numbers.** The option handed `_weight` to `sp.feols`, which applies
+  Stata *aweight* semantics (`df = n_rows - k`), while the docstring and
+  `docs/guides/psm_did.md` both advertised the Stata line
+  `reg y i.treat##i.post [fweight=_weight]`, whose `df` is `Σw - k`. The
+  coefficient was right; the standard error belonged to a different
+  recipe than the one documented. On the new reference fixture the DiD SE
+  is **0.250051** under `aweight` and **0.214797** under `fweight` — the
+  advertised interval was ~14% narrower than the code produced.
+
+  `weight=` now takes `'aweight' | 'fweight' | 'none'`, and **the default
+  moved from `'fweight'` to `'aweight'`**. The two are numerically
+  identical to the old default, so *no result from a default call
+  changes*. An explicit `weight='fweight'` now genuinely computes Stata's
+  `fweight` degrees of freedom, implemented by physically replicating
+  rows — which is what a frequency weight means. Verified against Stata
+  18 MP: `expand _weight` + unweighted `regress` reproduces
+  `regress [fweight=_weight]` bit-for-bit, iid and under `cluster()`.
+  Non-integer weights are refused exactly as Stata refuses them. See
+  [`MIGRATION.md`](MIGRATION.md).
+
+- **`docs/guides/psm_did.md` claimed `m.balance()` reported "exactly what
+  Stata `pstest` reports".** It does not: `pstest` keeps the *unmatched*
+  pooled SD in the denominator of the post-matching standardised bias,
+  while `balance()` uses the matched-sample SD. On the reference fixture
+  the post-matching figure for `x1` is 13.91 under `pstest` and 14.73
+  under `balance()`. Both conventions are defensible; presenting one as
+  the other is not. The guide now states the difference, and the new
+  `m.pstest()` reproduces Stata's table exactly.
 
 - **`sp.did_multiplegt_dyn`'s bootstrap used a different switch date than
   its point estimate.** The estimate finds each unit's first treatment
@@ -382,6 +411,44 @@ All notable changes to StatsPAI will be documented in this file.
   described a 64-module R harness and a 61-module Stata bridge; the harness
   had grown to 81 and 68 without the prose following, so the paper was
   understating its own evidence.
+
+- **`sp.psmatch2(...).pstest()` — Stata's `pstest` table, digit for
+  digit.** Per-covariate means, `%bias` before/after, `%reduct |bias|`,
+  t / p and V(T)/V(C) match Stata to 1e-14; the summary block (Ps R2,
+  LR chi2, MeanBias, MedBias, Rubin's B and R with the 2001 flags)
+  matches to 1e-9. Notably `pstest` fits its **own probit** — refit on
+  the matched sample with `[iw=_weight]` — for the Rubin block, rather
+  than reusing psmatch2's logit propensity score.
+
+- **`method='llr'`: local linear regression matching** (Heckman,
+  Ichimura & Todd 1997), matching Stata psmatch2 to ~4e-11 across the
+  tricube / biweight / normal / uniform kernels, with `_weight` and `_y`
+  agreeing row for row. Two psmatch2 behaviours are now documented rather
+  than inherited: Stata reports **no** analytic SE for LLR
+  (`seatt = .`), and `psmatch2 ..., llr` with its *default* Epanechnikov
+  kernel does not run LLR at all — it substitutes nearest-neighbour
+  matching on an `lpoly`-smoothed outcome. StatsPAI runs genuine LLR and
+  warns about the divergence.
+
+- **`se_method='bootstrap'`** on `sp.match` / `se='bootstrap'` on
+  `sp.psmatch2`: arm-stratified resampling that **re-estimates the
+  propensity score every replication**, so unlike every analytic option
+  it accounts for the fitted score's sampling variability. Seeded and
+  reproducible. It is the default for `method='llr'`, and warns for
+  `method='nearest'` per Abadie & Imbens (2008).
+
+- **`matched_data` for `estimand='ATE'`, `method='stratify'` and
+  `method='cem'`.** These three previously returned `None` — the latter
+  two with no explanation at all. ATE emits the Abadie-Imbens weight
+  `1 + K_M(i)` (a *signed*-sum weight, flagged as not a frequency
+  weight); stratification and CEM emit cell weights plus a `_stratum`
+  column. Every frame reproduces its own estimator's point estimate to
+  machine precision.
+
+- **`method='mahalanobis'` through `sp.psmatch2`** now actually uses the
+  Mahalanobis metric; the explicit `distance='propensity'` default was
+  overriding `sp.match`'s legacy alias, so it silently matched on the
+  propensity score.
 
 - **Continuous AI-label measurement-error correction.**
   `sp.llm_annotator_correct` now handles *continuous* LLM scores (e.g.
