@@ -233,3 +233,13 @@ tests/orig_parity/data/*_nhefs_*.csv
 statspai-parity*.js
 
 Paper-DiD-JAE/
+
+# Reproducibility-verifier staging output. verify_reproduce.py and
+# verify_reproduce_stata.py re-derive each committed golden JSON into these
+# directories so the golden artifact is never clobbered by a check run.
+tests/r_parity/results/_repro_check/
+tests/stata_parity/results/_repro_check/
+tests/*/results/_repro_*.log
+
+
+芷涵改进建议/

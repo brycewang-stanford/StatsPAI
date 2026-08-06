@@ -1248,7 +1248,7 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         ],
         "note": (
             "Closed-form identity: mr('ivw') is weighted regression through the "
-            "origin with weights 1/se_outcome^2 — estimate = sum(w bx by)/"
+            "origin with weights 1/se_outcome^2 -- estimate = sum(w bx by)/"
             "sum(w bx^2), se = sqrt(1/sum(w bx^2)), Q = sum(w resid^2) exactly."
         ),
     },
@@ -1627,8 +1627,18 @@ def build_track_a_records(
         def _ok(v: Optional[float]) -> bool:
             return v is None or tol_val is None or v <= tol_val * (1 + 1e-9)
 
-        passes = _ok(rel_vs_R) and _ok(rel_vs_St)
-        if not passes:
+        # A module may carry a *registered* Stata-side convention gap, where
+        # the third language disagrees for a documented, located reason while
+        # py<->R stays inside budget. compare.py::STATA_HEADLINE_GAP_EXCEPTIONS
+        # is where that is declared, with the evidence. Such a module is not
+        # over-claiming: it demotes to `aligned` (never `bit-exact`) and the
+        # gap is recorded in its note rather than warned away, but it is not a
+        # budget violation of the py<->R contract the tolerance governs.
+        stata_gap_documented = module_id in compare.STATA_HEADLINE_GAP_EXCEPTIONS
+        r_passes = _ok(rel_vs_R)
+        stata_passes = _ok(rel_vs_St)
+        passes = r_passes and stata_passes
+        if not passes and not (r_passes and stata_gap_documented):
             worst = max(v for v in (rel_vs_R, rel_vs_St) if v is not None)
             warnings.append(
                 f"{module_id}: headline {metric}={worst:.3g} "
@@ -1811,7 +1821,7 @@ def build_dispatcher_alias_records(
         rec["function"] = alias
         rec["source"] = "track_a_alias"
         rec["notes"] = list(base.get("notes", [])) + [
-            f"Alias of {meta['call']} — same estimator core, certified via "
+            f"Alias of {meta['call']} -- same estimator core, certified via "
             f"Track A module {meta['module']}; the registry validation_status "
             f"independently marks this function certified."
         ]

@@ -1,0 +1,140 @@
+{
+  "module": "78_multiplegt_dyn",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "Stata",
+      "statistic": "Effect_1",
+      "estimate": 1.4633451797794099,
+      "se": 0.0974085251327481,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 149,
+      "extra": {}
+    }
+,
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "Stata",
+      "statistic": "Effect_2",
+      "estimate": 1.3815647774361051,
+      "se": 0.095185798559888901,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 149,
+      "extra": {}
+    }
+,
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "Stata",
+      "statistic": "Effect_3",
+      "estimate": 1.330885416118792,
+      "se": 0.1272402321160343,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 109,
+      "extra": {}
+    }
+,
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "Stata",
+      "statistic": "Effect_4",
+      "estimate": 1.4067241959957639,
+      "se": 0.12652023624105271,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 109,
+      "extra": {}
+    }
+,
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "Stata",
+      "statistic": "Placebo_1",
+      "estimate": -0.047624972416978099,
+      "se": 0.10160654523220471,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 149,
+      "extra": {}
+    }
+,
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "Stata",
+      "statistic": "Placebo_2",
+      "estimate": 0.066331590013619907,
+      "se": 0.12849792162974591,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 89,
+      "extra": {}
+    }
+,
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "Stata",
+      "statistic": "Av_tot_eff",
+      "estimate": 1.3997888204372091,
+      "se": 0.082423911082918994,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1600,
+      "extra": {}
+    }
+,
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "Stata",
+      "statistic": "off_Effect_1",
+      "estimate": 1.269114437987783,
+      "se": 0.086274956663713098,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 126,
+      "extra": {}
+    }
+,
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "Stata",
+      "statistic": "off_Effect_2",
+      "estimate": 0.75856260005344156,
+      "se": 0.10166719072558381,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 119,
+      "extra": {}
+    }
+,
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "Stata",
+      "statistic": "off_Placebo_1",
+      "estimate": -0.088314872492195801,
+      "se": 0.1061610858465642,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 84,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "stata_command": "did_multiplegt_dyn y id t d, effects(4) placebo(2) cluster(id)",
+    "stata_command_off": "did_multiplegt_dyn y id t d, effects(2) placebo(1) cluster(id)",
+    "aggregation": "e(Av_tot_effect) = switcher-weighted; the equal-weight variant has no Stata counterpart",
+    "se_convention": "analytical influence-function SEs; not joined -- py/R emit se=null because sp.did_multiplegt_dyn has only a cluster bootstrap",
+    "stata_bridge_status": "materialized 2026-08-06 with licensed Stata 18"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

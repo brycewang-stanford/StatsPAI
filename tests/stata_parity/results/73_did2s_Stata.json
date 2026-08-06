@@ -1,0 +1,30 @@
+{
+  "module": "73_did2s",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "73_did2s",
+      "side": "Stata",
+      "statistic": "static_ATT",
+      "estimate": -0.035108276608016797,
+      "se": 0.0069036250941193001,
+      "ci_lo": -0.0486391331552576,
+      "ci_hi": -0.021577420060775999,
+      "n": 2500,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "stata_command": "did2s lemp, first_stage(i.countyreal i.year) second_stage(treated) treatment(treated) cluster(countyreal)",
+    "se_convention": "did2s propagates stage-1 estimation error, matching did2s::did2s in R; sp.gardner_did vce='analytic' does not and is the documented gap",
+    "stata_bridge_status": "materialized 2026-08-06 with licensed Stata 18"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

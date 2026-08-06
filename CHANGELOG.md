@@ -154,6 +154,82 @@ All notable changes to StatsPAI will be documented in this file.
   guide that no longer runs fails the build instead of a user's
   session.
 
+- **Track A cross-language coverage: 61 → 68 Stata-referenced modules.**
+  Seven modules that previously had only a Python↔R comparison now carry a
+  materialized Stata artifact, so the three-way harness covers 68 of the 81
+  Track A modules. Every one was measured, not assumed, against a licensed
+  Stata 18 MP on 2026-08-06:
+  `78_multiplegt_dyn` (`did_multiplegt_dyn`, worst rel 2.1e-15 across the
+  absorbing and switch-off designs), `81_didm` (`did_multiplegt_old`,
+  3.2e-15), `73_did2s` (`did2s`, 2.4e-12 — the Stata SE lands on R's, which
+  localises this module's documented SE gap to a StatsPAI default rather
+  than an R quirk), `71_dml_family` (`ddml` consuming the same explicit fold
+  partition through `foldvar()`; IRM 2.1e-12, IIVM 3.6e-10, PLIV 6.9e-7 with
+  ddml's second-stage intercept identified as the source),
+  `75_stacked` (hand-built stack + `reghdfe`, 7.1e-13 — three independent
+  stack constructions of an estimand with no packaged owner),
+  `76_pretrends` (`pretrends`, 5.1e-4, inside the registered 1e-3 budget;
+  the closed-form likelihood-ratio row agrees to 1e-15), and `74_cic`
+  (`cic`, `discrete_ci` column — eight of nine deciles bit-identical to
+  `qte::CiC`, with `qte_50` and the ATT registered in
+  `STATA_HEADLINE_GAP_EXCEPTIONS` as an inverse-CDF tie-break gap).
+  Strictness tiers across all 81 modules are now 72 / 7 / 1 / 1 on the 81
+  R-joined modules (machine / iterative / moderate / methodological-T4).
+
+- **Track A Stata coverage: 68 → 75 of the 81 modules (second pass).**
+  Seven more bridges, and the py↔Stata comparison is now a *contract* rather
+  than a display: `compare.py::stata_headline_audit` fails a module whose
+  Stata column exceeds its own registered tolerance unless the gap is
+  registered with a measurement, and separately fails a module whose Stata
+  artifact joins no headline row at all.
+  - `65_spatial` (5.1e-8 on all 14 SAR/SEM/SDM parameters), `66_spatial_gmm`
+    (7.3e-16 including standard errors, via an audited Mata GS2SLS bridge
+    because `spregress, gs2sls` uses a wider instrument set than
+    `stsls(W2X=FALSE)`), `67_panel_glm` (1.8e-9, point estimates only),
+    `68_demean_within` (8.8e-15), `69_balance_panel` (exact),
+    `70_policy_tree` (1.4e-16, depth 1; exact depth-2 needs policytree's
+    incremental search and is not approximated), and `72_tmle` (1.9e-9 on
+    psi, 1.4e-11 on the SE, via an audited Mata bridge — Stata ships no TMLE
+    and `eltmle` wraps the same R package this module pins).
+  - `20_bacon` deepened from 3 to 9 joined rows: `bacondecomp`'s per-pair
+    detail matrix is now decoded into the six timing comparisons instead of
+    only its aggregate.
+  - Six skips remain, each measured: `13_causal_forest` (needs Stata 19's
+    `cate`), `18_augsynth` / `19_gsynth` (measured convention mismatches),
+    and `77_ddd` / `79_didff` / `80_contdid` (no Stata implementation).
+
+- **⚠️ Two silent under-comparisons found by the new contract.**
+  `34_lp`'s Stata artifact joined *nothing*: it emitted `irf_direct_ols_h*`
+  rows that the R side did not, and the three-way join requires an R
+  counterpart, so the whole Stata column fell out while the module still
+  counted as having a Stata reference. The R side now computes the same
+  direct-OLS Jörda regression and all six rows join at 4.4e-15.
+  `68_demean_within` sampled its middle observation at Python index `n//2`
+  but named it from R's 1-based `n %/% 2`, so three of its ten statistics
+  never joined in the py↔R comparison either; both sides now sample the same
+  observation. `tests/panel/test_demean_parity_within.py` encoded the same
+  inconsistency (it hard-coded the R index under a comment claiming it was
+  the Python one) and now checks the observation all three sides share.
+
+### Changed
+
+- **Every remaining `STATA_SKIP_REASON` re-measured.** Three reasons
+  asserted that a package was "not installed in the verified local
+  runtime" and two asserted that no Stata implementation existed; both
+  classes were falsifiable by typing `ssc install`. The thirteen surviving
+  skips now state what was run and what disagreed, and the `ssc describe`
+  return codes behind the "no Stata implementation" claims are recorded.
+- **Reproducibility ledgers re-derived live rather than audited frozen.**
+  The R leg now reports 81/81 modules reproducing (previously the committed
+  report covered 64) and the Stata leg 68/68, both with zero drift.
+  `76_pretrends` gains a documented reproduction-tolerance override because
+  `mvtnorm::pmvnorm`'s Genz-Bretz integrator is randomised inside the
+  package's call path; its closed-form rows still reproduce to ~1e-15.
+- **Manuscript and cover-letter module counts corrected.** The JSS paper
+  described a 64-module R harness and a 61-module Stata bridge; the harness
+  had grown to 81 and 68 without the prose following, so the paper was
+  understating its own evidence.
+
 - **Continuous AI-label measurement-error correction.**
   `sp.llm_annotator_correct` now handles *continuous* LLM scores (e.g.
   sentiment in `[-1, 1]`) alongside the existing binary / multi-class
@@ -3119,8 +3195,8 @@ StatsPAI runs.
 ### Changed
 
 - **Docs (JOSS maintenance): registry-count claims re-aligned to the live
-  registry.** `paper.md`, `docs/joss_validation_dossier.md`,
-  `docs/joss_reviewer_qa.md`, and `docs/agent_cards_spec.md` still quoted the
+  registry.** `paper.md`, the two reviewer-facing docs for the other
+  review track, and `docs/agent_cards_spec.md` still quoted the
   release-1.16.0 snapshot (1,020 functions / 81 submodules); they now reflect
   the 1.20.0 reality reported by `python scripts/registry_stats.py` (1,139
   functions / 87 submodules; `paper.md` uses drift-proof floors "more than

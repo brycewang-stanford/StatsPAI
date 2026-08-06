@@ -37,10 +37,83 @@
       "n": 2500,
       "extra": {}
     }
+,
+    {
+      "module": "20_bacon",
+      "side": "Stata",
+      "statistic": "pair_2004_vs_2006_est",
+      "estimate": -0.032675080001354197,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "20_bacon",
+      "side": "Stata",
+      "statistic": "pair_2006_vs_2004_est",
+      "estimate": -0.035748232156038298,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "20_bacon",
+      "side": "Stata",
+      "statistic": "pair_2004_vs_2007_est",
+      "estimate": -0.049701400101184803,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "20_bacon",
+      "side": "Stata",
+      "statistic": "pair_2007_vs_2004_est",
+      "estimate": -0.047128383070230498,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "20_bacon",
+      "side": "Stata",
+      "statistic": "pair_2006_vs_2007_est",
+      "estimate": -0.041119165718555499,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "20_bacon",
+      "side": "Stata",
+      "statistic": "pair_2007_vs_2006_est",
+      "estimate": -0.045303389430046102,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
   ],
   "extra": {
     "n_comparisons": "7",
-    "stata_command": "bacondecomp lemp treat, ddetail"
+    "stata_command": "bacondecomp lemp treat, ddetail",
+    "never_treated_rows": "bacondecomp collapses the never-treated comparisons into one Never_v_timing row, so the per-cohort pair_<g>_vs_never_est rows stay py<->R"
   },
   "provenance": {
     "stata_version": 18,

@@ -1,0 +1,34 @@
+{
+  "module": "72_tmle",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "72_tmle",
+      "side": "Stata",
+      "statistic": "psi_tmle_ate",
+      "estimate": 0.26042612335624432,
+      "se": 0.029016768083659501,
+      "ci_lo": 0.2035543029645204,
+      "ci_hi": 0.31729794374796833,
+      "n": 1200,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "epsilon_H1": -0.0082331299997272008,
+    "epsilon_H0": 0.014353748933657399,
+    "stata_bridge_status": "audited Stata/Mata algorithm bridge, materialized 2026-08-06 with licensed Stata 18",
+    "algorithm": "per-arm TMLE fluctuation: glm Y H1 H0, family(binomial) link(logit) offset(logit(QAW)) noconstant; then expit-fluctuate each arm and average the blip",
+    "shared_nuisance": "Q0, Q1 and g1W arrive in the CSV, computed once on the Python side, so only the targeting step differs between engines",
+    "why_not_eltmle": "eltmle wraps the same R package this module pins, so a row built on it would re-measure the R reference through a shell rather than cross-validate it",
+    "se_convention": "efficient influence curve D = H(A,W)*(Y - Q*(A,W)) + (Q1* - Q0*) - psi, se = sd(D)/sqrt(n) with the sample (n-1) variance divisor, matching both other sides"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

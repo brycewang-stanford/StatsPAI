@@ -33,7 +33,7 @@ bytes the R side reads), runs the canonical Stata reference, and
 writes one row per parity statistic to
 `results/NN_<name>_Stata.json` via the helpers in `_common.do`.
 
-## Materialized Stata golden modules (61 of 64 Python modules)
+## Materialized Stata golden modules (75 of 81 Python modules)
 
 | # | Method                       | StatsPAI                       | Stata reference                                              |
 | --- | --- | --- | --- |
@@ -98,27 +98,115 @@ writes one row per parity statistic to
 | 62 | Truncated regression          | `sp.truncreg`                  | `truncreg, ll(0)`                                            |
 | 63 | Zero-inflated Poisson         | `sp.zip_model`                 | `zip, inflate(...)`                                          |
 | 64 | Zero-inflated NB              | `sp.zinb`                      | `zinb, inflate(...) nrtolerance(1e-13)`                      |
+| 65 | Spatial ML (SAR/SEM/SDM)      | `sp.sar`, `sp.sem`, `sp.sdm`   | `spregress, ml dvarlag()/errorlag()/ivarlag()`                |
+| 70 | Policy tree (depth 1)         | `sp.policy_tree(depth=1)`      | audited Mata exhaustive depth-1 welfare search                |
+| 72 | TMLE targeting step           | `sp.tmle(fluctuation='per_arm')` | audited Mata bridge: `glm ..., offset(logit(QAW)) noconstant` |
+| 68 | Within transformation         | `sp.demean(solver='map')`      | `bysort id: egen mean` + subtract                             |
+| 69 | Balanced-panel filter         | `sp.balance_panel`             | distinct-period count per entity, keep the full ones          |
+| 66 | Spatial GMM (SAR-2SLS)        | `sp.sar_gmm`                   | audited Mata GS2SLS bridge: `ivregress 2sls (Wy = WX), small` |
+| 67 | Panel GLM (feglm/fepois)      | `sp.feglm`, `sp.fepois`        | `logit y x1 x2 i.id` / `ppmlhdfe, absorb(id)` (point-only)    |
+| 71 | DML family (IRM/PLIV/IIVM)    | `sp.dml(model=...)`            | `ddml init interactive\|iv\|interactiveiv, foldvar(...)`      |
+| 73 | Gardner two-stage DiD         | `sp.gardner_did`               | `did2s`                                                      |
+| 74 | Changes-in-Changes            | `sp.cic`                       | `cic all ..., at(10(10)90)` (`discrete_ci` column)           |
+| 75 | Stacked DiD                   | `sp.stacked_did`               | hand-built stack + `reghdfe`                                 |
+| 76 | Pre-trends power (Roth 2022)  | `sp.pretrends_power`           | `pretrends` / `pretrends power`                              |
+| 78 | dCDH intertemporal event study| `sp.did_multiplegt_dyn`        | `did_multiplegt_dyn, effects() placebo() cluster()`          |
+| 81 | dCDH 2020 DID_M               | `sp.did_multiplegt`            | `did_multiplegt_old, placebo(1) breps(0)`                    |
 
 ### Modules **without** a materialized Stata JSON
 
-These have no portable materialized Stata JSON yet. `compare.py::STATA_SKIP_REASON`
-records the exact reason and the 3-way table prints it explicitly:
+Thirteen of the 81 Python modules have no Stata artifact.
+`compare.py::STATA_SKIP_REASON` records the exact reason and the 3-way table
+prints it explicitly. Every reason was re-measured on 2026-08-06 against a
+licensed Stata 18 runtime with SSC reachable, so none of them rests on a
+stale "not installed here" claim.
 
-- **13 causal forest** — Stata 19's official `cate` is the candidate
-  causal-forest/AIPW reference, but the verified runtime here is Stata 18 and
-  `which cate` fails.
+**No Stata implementation exists** (verified 2026-08-06 --
+`ssc describe` returns `r(601)` and the command does not resolve locally):
+
+- **77 ddd** — the Ortiz-Villavicencio/Sant'Anna triple-difference estimator
+  ships only as the R package `triplediff`.
+- **79 didff** — the Roth-Sant'Anna functional-form test ships only as the R
+  package `didFF` (GitHub, not CRAN).
+- **80 contdid** — the CGS continuous-treatment estimator ships only as the R
+  package `contdid` (GitHub, not CRAN).
+- **70 policy_tree** — no Stata command, official or user-written, solves the
+  Athey-Wager welfare objective over a supplied doubly-robust score matrix.
+- **72 tmle** — `eltmle` wraps the same R package rather than providing an
+  independent implementation, so a Stata row would re-measure the R reference
+  through a shell rather than cross-validate it.
+
+**Not an external estimator** — these two modules check exact identities
+against a base-R recomputation, so there is nothing for a third language to
+disagree about:
+
+- **68 demean_within** — the within (mean-deviation) transformation.
+- **69 balance_panel** — the `counts == n_periods` row filter.
+
+**Estimator agrees, convention does not** — a Stata command exists and was
+run, but its estimand or variance convention is not like-for-like:
+
+- **67 panel_glm** — `logit y x1 x2 i.id` and `ppmlhdfe y x1 x2, absorb(id)`
+  reproduce the `fixest::feglm` / `fepois` point estimates to rel `1.8e-9`
+  and `1e-16`, but no `vce()` setting reproduces fixest's standard errors:
+  `vce(robust)`, `vce(cluster id)` and `vce(unadjusted)` land 0.6%, 21% and
+  4% away on the logit slopes and 24-42% away on the Poisson ones. The
+  module's registered `rel_se` budget is `1e-6`, so a Stata SE column here
+  would record a variance-convention argument rather than an estimator check.
+  Module 37 already carries the clean `ppmlhdfe` bridge.
+- **65 spatial** / **66 spatial_gmm** — `spregress` and `spregress, gs2sls`
+  are the natural analogs of `spatialreg::lagsarlm`/`errorsarlm` and
+  `stsls`/`GMerrorsar`, but they follow distinct ML and instrument/moment
+  conventions.
 - **18 augsynth** — local `allsynth` is a candidate bias-corrected SCM
   reference, but its ridge de-biaser rejects the Basque outcome-only fixture
   with 16 controls and 15 pre-period predictors because it requires at least
   `K + 2` control units. A feasible California probe also follows a distinct
-  `allsynth` bias-correction convention rather than the R `augsynth` estimand,
-  so no like-for-like bridge is materialized.
-- **19 gsynth** — Xu's `fect_stata` is the candidate generalized-SCM route
-  and can be installed in a temporary Stata 18 ado path, but a two-way IFE
-  probe selects `r=1` and reports ATT `0.679854` under `fect`'s convention,
-  while the R/Python `gsynth` headline is `-0.324171`. An option grid over
-  `force(two-way/unit/time/none)` does not recover the R `gsynth` convention,
-  so no like-for-like Stata bridge is materialized.
+  `allsynth` bias-correction convention rather than the R `augsynth` estimand.
+- **19 gsynth** — Xu's `fect_stata` selects `r=1` and reports ATT `0.679854`
+  under `fect`'s convention while the R/Python `gsynth` headline is
+  `-0.324171`; an option grid over `force(two-way/unit/time/none)` does not
+  recover the R convention.
+
+**Runtime version** — the candidate reference exists but not in this runtime:
+
+- **13 causal_forest** — Stata 19's official `cate` is the candidate
+  causal-forest/AIPW reference; the verified runtime here is Stata 18 and
+  `which cate` fails.
+
+### Modules closed in the second 2026-08-06 pass
+
+Three more, after the py<->Stata budget contract was added and the remaining
+skip reasons were re-measured rather than re-read:
+
+| Module | Stata reference | Worst py-Stata rel | Note |
+| --- | --- | ---: | --- |
+| 66 spatial_gmm | audited Mata GS2SLS bridge | 7.3e-16 | estimates *and* SEs; `spregress, gs2sls` uses a wider instrument set and lands 1.5e-2 away, so the do-file builds the documented `stsls(W2X=FALSE)` estimator directly |
+| 72 tmle | audited Mata bridge | 1.9e-9 est / 1.4e-11 se | Stata ships no TMLE and `eltmle` wraps the same R package, so the do-file implements the published per-arm fluctuation |
+| 70 policy_tree | audited Mata search | 1.4e-16 | **depth 1 only** — exact depth-2 needs policytree's incremental search and a heuristic would be worse evidence than an honest two-sided row |
+| 68 demean_within | `bysort id: egen mean` | 8.8e-15 | the third implementation exposed a naming bug that had kept 3 of 10 statistics out of the py-R join too |
+| 69 balance_panel | distinct-period count | 0 (exact) | |
+| 65 spatial | `spregress, ml` | 5.1e-8 | all 14 SAR/SEM/SDM parameters; the old skip reason claimed a "distinct ML/estimand convention" and was simply wrong |
+| 67 panel_glm | `logit i.id` / `ppmlhdfe` | 1.8e-9 | point estimates only; no `vce()` setting reproduces fixest's absorbed-FE GLM variance |
+
+### Modules closed in the first 2026-08-06 pass
+
+Seven modules that previously appeared in the list above now carry
+materialized artifacts. Three of them had been skipped on the grounds that
+the package was "not installed in the verified local runtime", which stopped
+being true once `did_multiplegt_old`, `did_multiplegt_dyn` and `cic` were
+checked; two more were skipped as "no Stata implementation" when in fact
+`did2s` is on SSC and `pretrends` has a maintained Stata port.
+
+| Module | Stata reference | Worst py-Stata rel | Note |
+| --- | --- | ---: | --- |
+| 78 multiplegt_dyn | `did_multiplegt_dyn` | 2.1e-15 | 10 joined rows across the absorbing and switch-off designs |
+| 81 didm | `did_multiplegt_old` | 3.2e-15 | `dynamic_1` deliberately not joined; see the do-file header |
+| 73 did2s | `did2s` | 2.4e-12 | Stata SE lands on R's, localising the SE gap to a StatsPAI default |
+| 71 dml_family | `ddml` | 6.9e-7 | shared fold partition via `foldvar()`; PLIV gap is ddml's second-stage intercept |
+| 75 stacked | hand-built stack + `reghdfe` | 7.1e-13 | three independent stack constructions agree; SEs differ by a constant dof factor |
+| 76 pretrends | `pretrends` | 5.1e-4 | inside the registered 1e-3 budget; the closed-form LR row agrees to 1e-15 |
+| 74 cic | `cic` (`discrete_ci`) | 6.0e-3 | 8 of 9 deciles bit-identical; `qte_50` and the ATT are a documented tie-break gap |
 
 `08_dml`, `31_dfl`, `32_rif`, `53_cr2`, `54_twoway_cluster`, and
 `56_multiway_cluster` are deliberately labelled audited Stata/Mata algorithm

@@ -65,9 +65,19 @@ def test_demean_y_matches_within_projection():
 @pytest.mark.parametrize("row_offset", [0, "mid", "last"])
 def test_demean_x_matches_within_projection(col, row_offset):
     df = _make_data()
-    # Match the Python harness's emitted statistic names (0-indexed):
-    # row0, row79, row159 — the R script emits the same labels.
-    row_idx = {0: 0, "mid": 79, "last": 159}[row_offset]
+    # Match the Track A harness's emitted statistic names, which are 0-based
+    # row indices: row0, row80, row159.
+    #
+    # This used to say row79, and the comment claiming the Python harness
+    # emitted that label was wrong: 68_demean_within.py samples 0-based
+    # (0, n // 2, n - 1) = (0, 80, 159), while 68_demean_within.R sampled
+    # 1-based n %/% 2 = 80 -- a *different* observation -- and named it
+    # row79. The two names never joined, so those three statistics were
+    # silently excluded from the py<->R comparison, and this test was
+    # checking the R golden against a Python recomputation at the R index.
+    # Both sides now sample the same observation (2026-08-06); the middle
+    # sample point is 0-based index 80.
+    row_idx = {0: 0, "mid": 80, "last": 159}[row_offset]
     X = df[["x1", "x2", "x3"]].to_numpy()
     fe = pd.DataFrame({"id": df["id"].to_numpy()})
     dem_X, _ = demean(X, fe, solver="map")

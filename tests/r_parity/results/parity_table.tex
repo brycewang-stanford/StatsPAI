@@ -21,7 +21,7 @@ Module & Method & Worst headline diff & Verdict \\
 \code{05\_sunab} & Sun--Abraham event study & rel $\le 2.8e-11$ {\footnotesize (fixest agg='att' summary parity)} & \textbf{PASS} \\
 \code{06\_rd} & RD CCT bias-corrected & rel $\le 7.9e-13$ {\footnotesize (R/Stata default-$h$ via CCT delegation)} & \textbf{PASS} \\
 \code{07\_scm} & Classical SCM & rel $\le 0.024$ {\footnotesize (T4 reference disagreement: native tracks Stata; R Synth differs; exact recovery on identified DGP \code{52})} & \textit{GAP} \\
-\code{08\_dml} & DML PLR (LinReg learners) & rel $\le 0$ {\footnotesize (shared explicit fold_id)} & \textbf{PASS} \\
+\code{08\_dml} & DML PLR (LinReg learners) & rel $\le 0$ {\footnotesize (shared explicit fold\_id)} & \textbf{PASS} \\
 \code{09\_rddensity} & RD density (CJM) & rel $\le 3.3e-11$ {\footnotesize (native CJM/rddensity default parity)} & \textbf{PASS} \\
 \code{10\_honest\_did} & Honest DiD bounds & abs $\le 4.88e-15$ {\footnotesize (FLCI via HonestDiD backend; Stata port within 0.0005)} & \textbf{PASS} \\
 \code{11\_psm} & PSM 1:1 NN & rel $\le 1.2e-15$ & \textbf{PASS} \\
@@ -47,7 +47,7 @@ Module & Method & Worst headline diff & Verdict \\
 \code{31\_dfl} & DFL reweighting & rel $\le 1.2e-09$ & \textbf{PASS} \\
 \code{32\_rif} & RIF / UQR (median) & rel $\le 2.2e-15$ & \textbf{PASS} \\
 \code{33\_var} & VAR (vars::VAR) & rel $\le 3.1e-15$ & \textbf{PASS} \\
-\code{34\_lp} & Local projections & rel $\le 5e-15$ {\footnotesize (lpirfs Cholesky/unit-shock path)} & \textbf{PASS} \\
+\code{34\_lp} & Local projections & rel $\le 5e-15$ {\footnotesize (lpirfs Cholesky/unit-shock path (py-R) plus the direct-OLS Jorda regression (3-way); SEs are not joined on the direct rows because sp.local\_projections applies Newey-West while lm/regress report classical OLS)} & \textbf{PASS} \\
 \code{35\_panel} & Panel FE/RE + Hausman & rel $\le 4.7e-14$ {\footnotesize (FE/RE and plm-style Hausman parity; Stata sigmamore diagnostic row)} & \textbf{PASS} \\
 \code{36\_mediation} & Causal mediation (IKT) & rel $\le 6.7e-15$ & \textbf{PASS} \\
 \code{37\_ppmlhdfe} & PPML + HDFE & rel $\le 4.9e-13$ {\footnotesize (post PPML FE-score fix; robust SE within 0.5\% of fixest)} & \textbf{PASS} \\
@@ -82,17 +82,17 @@ Module & Method & Worst headline diff & Verdict \\
 \code{66\_spatial\_gmm} & Spatial GMM (SAR-2SLS/SEM-GMM) & rel $\le 4.6e-08$ {\footnotesize (vs spatialreg::stsls(W2X=F)/GMerrorsar; SEM point-only)} & \textbf{PASS} \\
 \code{67\_panel\_glm} & Panel GLM (feglm / fepois) & rel $\le 9.7e-09$ {\footnotesize (vs fixest::feglm/fepois, absorbed id FE; IWLS SE 1e-5)} & \textbf{PASS} \\
 \code{68\_demean\_within} & Within transformation & rel $\le 3.5e-15$ {\footnotesize (sp.demean(solver='map') vs textbook mean-within)} & \textbf{PASS} \\
-\code{69\_balance\_panel} & Panel balance filter & rel $\le 0$ {\footnotesize (sp.balance_panel vs base R counts == n_periods)} & \textbf{PASS} \\
+\code{69\_balance\_panel} & Panel balance filter & rel $\le 0$ {\footnotesize (sp.balance\_panel vs base R counts == n\_periods)} & \textbf{PASS} \\
 \code{70\_policy\_tree} & Policy tree (exact, depth 1--2) & rel $\le 9.6e-16$ {\footnotesize (shared AIPW scores; exact welfare optimum vs policytree, all 1200 per-row policy decisions identical at both depths)} & \textbf{PASS} \\
-\code{71\_dml\_family} & DML family (IRM / PLIV / IIVM) & rel $\le 9.1e-11$ {\footnotesize (shared explicit fold_id across all three DoubleML model classes; PLIV at the floating-point floor, IRM/IIVM limited by the logistic-MLE optimiser)} & \textbf{PASS} \\
+\code{71\_dml\_family} & DML family (IRM / PLIV / IIVM) & rel $\le 9.1e-11$ {\footnotesize (shared explicit fold\_id across all three DoubleML model classes; PLIV at the floating-point floor, IRM/IIVM limited by the logistic-MLE optimiser)} & \textbf{PASS} \\
 \code{72\_tmle} & TMLE (targeting step) & rel $\le 1.9e-09$ {\footnotesize (shared initial Q / g1W; per-arm fluctuation matching tmle::tmle's submodel)} & \textbf{PASS} \\
-\code{73\_did2s} & Gardner two-stage DiD & rel $\le 4.8e-08$ {\footnotesize (point estimate rel < 1e-6; SE is a documented convention gap (did2s propagates stage-1 estimation error, sp.gardner_did's vce='analytic' does not -- vce='bootstrap' recovers it to ~6\%))} & \textbf{PASS} \\
+\code{73\_did2s} & Gardner two-stage DiD & rel $\le 4.8e-08$ {\footnotesize (point estimate rel < 1e-6; SE is a documented convention gap (did2s propagates stage-1 estimation error, sp.gardner\_did's vce='analytic' does not -- vce='bootstrap' recovers it to ~6\%))} & \textbf{PASS} \\
 \code{74\_cic} & Changes-in-Changes (ATT + QTE) & rel $\le 2.4e-15$ {\footnotesize (machine precision vs qte::CiC (worst 4.4e-15))} & \textbf{PASS} \\
 \code{75\_stacked} & Stacked DiD (never-treated controls) & rel $\le 3.9e-13$ {\footnotesize (rel < 1e-6 vs a hand-written fixest stack)} & \textbf{PASS} \\
 \code{76\_pretrends} & Pre-trends power (Roth 2022) & rel $\le 3.2e-05$ {\footnotesize (rel < 1e-4 vs pretrends::pretrends; the 1e-3 budget covers mvtnorm::pmvnorm's randomised integrator)} & \textbf{PASS} \\
 \code{77\_ddd} & Triple differences ATT(g,t) & rel $\le 5.7e-15$ {\footnotesize (machine precision vs triplediff::ddd (worst 1e-12), estimates and analytic SEs, across dr / ipw / reg)} & \textbf{PASS} \\
 \code{78\_multiplegt\_dyn} & dCDH intertemporal event study & rel $\le 3.3e-15$ {\footnotesize (machine precision vs DIDmultiplegtDYN (worst 5e-15), across absorbing and switch-off designs)} & \textbf{PASS} \\
 \code{79\_didff} & Functional-form test (Roth--Sant'Anna) & rel $\le 1.3e-14$ {\footnotesize (machine precision vs didFF (worst 1.2e-15); the module's 1e-3 budget covers only the simulated p-value)} & \textbf{PASS} \\
-\code{80\_contdid} & Continuous-treatment DiD (CGS) & rel $\le 2.4e-14$ {\footnotesize (machine precision vs contdid::cont_did (worst 1e-12))} & \textbf{PASS} \\
+\code{80\_contdid} & Continuous-treatment DiD (CGS) & rel $\le 2.4e-14$ {\footnotesize (machine precision vs contdid::cont\_did (worst 1e-12))} & \textbf{PASS} \\
 \code{81\_didm} & dCDH 2020 DID_M (on/off switching) & rel $\le 3.9e-15$ {\footnotesize (machine precision vs archived DIDmultiplegt 0.1.4)} & \textbf{PASS} \\
 \end{longtable}

@@ -58,6 +58,33 @@ for (h in 0:H_MAX) {
     n = nrow(df))
 }
 
+# --- direct-OLS path -------------------------------------------------
+# sp.local_projections(identification="direct") and the Stata side both
+# fit the textbook Jorda regression y_{t+h} = a + b x_t + c y_lag + e
+# horizon by horizon. lpirfs has no equivalent entry point, so without
+# these rows the Stata artifact for this module joins nothing: compare.py
+# builds the three-way table by walking the Python rows and requires an R
+# counterpart, so `irf_direct_ols_h*` existed on the Python and Stata
+# sides but was silently dropped from the comparison. This is a plain
+# lm() on the same CSV bytes -- the same estimator all three sides claim
+# to compute -- so it belongs in the table rather than in a footnote.
+for (h in 0:H_MAX) {
+  y_lead <- if (h == 0L) df$y else c(df$y[-seq_len(h)], rep(NA_real_, h))
+  d_h <- data.frame(y_lead = y_lead, x = df$x, y_lag = df$y_lag)
+  fit_h <- stats::lm(y_lead ~ x + y_lag, data = d_h)
+  rows[[length(rows) + 1L]] <- parity_row(
+    module = MODULE,
+    statistic = paste0("irf_direct_ols_h", h),
+    estimate = unname(stats::coef(fit_h)[["x"]]),
+    se = unname(sqrt(diag(stats::vcov(fit_h)))[["x"]]),
+    n = stats::nobs(fit_h))
+}
+
 write_results(MODULE, rows,
               extra = list(method = "lpirfs::lp_lin",
-                           shock_type = "Cholesky"))
+                           shock_type = "Cholesky",
+                           direct_ols = "stats::lm(y_{t+h} ~ x + y_lag)",
+                           direct_ols_se = paste(
+                             "classical OLS; sp.local_projections applies",
+                             "Newey-West on this path, so the Python side",
+                             "emits se = NULL and no SE row is joined")))

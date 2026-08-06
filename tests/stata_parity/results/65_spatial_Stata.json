@@ -1,0 +1,190 @@
+{
+  "module": "65_spatial",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "65_spatial",
+      "side": "Stata",
+      "statistic": "sar_const",
+      "estimate": 0.92339522470701363,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+,
+    {
+      "module": "65_spatial",
+      "side": "Stata",
+      "statistic": "sar_x1",
+      "estimate": 0.8017316950947706,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+,
+    {
+      "module": "65_spatial",
+      "side": "Stata",
+      "statistic": "sar_x2",
+      "estimate": -0.36759300757116131,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+,
+    {
+      "module": "65_spatial",
+      "side": "Stata",
+      "statistic": "sar_rho",
+      "estimate": 0.54869916092942539,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+,
+    {
+      "module": "65_spatial",
+      "side": "Stata",
+      "statistic": "sem_const",
+      "estimate": 1.999199008935802,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+,
+    {
+      "module": "65_spatial",
+      "side": "Stata",
+      "statistic": "sem_x1",
+      "estimate": 0.79056270193602463,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+,
+    {
+      "module": "65_spatial",
+      "side": "Stata",
+      "statistic": "sem_x2",
+      "estimate": -0.3134025988267779,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+,
+    {
+      "module": "65_spatial",
+      "side": "Stata",
+      "statistic": "sem_lambda",
+      "estimate": 0.59834246992461537,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+,
+    {
+      "module": "65_spatial",
+      "side": "Stata",
+      "statistic": "sdm_const",
+      "estimate": 0.89863956495967456,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+,
+    {
+      "module": "65_spatial",
+      "side": "Stata",
+      "statistic": "sdm_x1",
+      "estimate": 0.80473495691001995,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+,
+    {
+      "module": "65_spatial",
+      "side": "Stata",
+      "statistic": "sdm_x2",
+      "estimate": -0.37104736720473708,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+,
+    {
+      "module": "65_spatial",
+      "side": "Stata",
+      "statistic": "sdm_W_x1",
+      "estimate": -0.19482913054143269,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+,
+    {
+      "module": "65_spatial",
+      "side": "Stata",
+      "statistic": "sdm_W_x2",
+      "estimate": -0.28469044993215048,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+,
+    {
+      "module": "65_spatial",
+      "side": "Stata",
+      "statistic": "sdm_rho",
+      "estimate": 0.55489371699361723,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "stata_command_sar": "spregress y x1 x2, ml dvarlag(W)",
+    "stata_command_sem": "spregress y x1 x2, ml errorlag(W)",
+    "stata_command_sdm": "spregress y x1 x2, ml dvarlag(W) ivarlag(W: x1 x2)",
+    "weights": "rook contiguity on (grid_row, grid_col), row-standardised; rebuilt in Mata and loaded with spmatrix spfrommata because spmatrix create contiguity requires a linked shapefile",
+    "se_convention": "point estimates only: spregress and spatialreg report different asymptotic variance estimators for the same fit (4.6e-4 to 2.7e-2 apart), against a registered rel_se budget of 1e-6",
+    "prior_skip_reason_corrected": "the pre-2026-08-06 skip reason claimed spregress follows a distinct ML/estimand convention; measured, it reproduces every spatialreg coefficient to 5e-8",
+    "stata_bridge_status": "materialized 2026-08-06 with licensed Stata 18"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

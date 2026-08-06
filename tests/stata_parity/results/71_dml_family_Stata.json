@@ -1,0 +1,56 @@
+{
+  "module": "71_dml_family",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "71_dml_family",
+      "side": "Stata",
+      "statistic": "theta_DML_IRM",
+      "estimate": 0.70804003880631261,
+      "se": 0.049147351737984603,
+      "ci_lo": 0.61171299946434077,
+      "ci_hi": 0.80436707814828445,
+      "n": 2000,
+      "extra": {}
+    }
+,
+    {
+      "module": "71_dml_family",
+      "side": "Stata",
+      "statistic": "theta_DML_PLIV",
+      "estimate": 0.5104673190535377,
+      "se": 0.030914089948154401,
+      "ci_lo": 0.44987681614032338,
+      "ci_hi": 0.57105782196675203,
+      "n": 2000,
+      "extra": {}
+    }
+,
+    {
+      "module": "71_dml_family",
+      "side": "Stata",
+      "statistic": "theta_DML_IIVM",
+      "estimate": 0.89512221826208838,
+      "se": 0.14670611863252811,
+      "ci_lo": 0.60758350943067274,
+      "ci_hi": 1.182660927093504,
+      "n": 2000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "stata_command": "ddml init interactive|iv|interactiveiv, foldvar(fold1); learners regress / logit; ddml crossfit; ddml estimate, robust",
+    "fold_source": "user -- fold_id + 1 passed to ddml init foldvar(), the same partition DoubleML and sp.dml consume",
+    "learners": "regress for continuous conditional expectations, logit (unpenalised MLE) for binary ones; no stacking, no tuning",
+    "pliv_intercept": "ddml's PLIV second stage carries an intercept that DoubleML's score does not; this is the source of the 6.9e-7 PLIV gap",
+    "stata_bridge_status": "materialized 2026-08-06 with licensed Stata 18 and ddml from SSC"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

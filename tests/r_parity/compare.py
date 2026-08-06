@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -45,63 +46,26 @@ PAPER_TABLES_DIR = ROOT / "Paper-JSS" / "manuscript" / "tables"
 # reasons in the 3-way table.
 STATA_RESULTS_DIR = HERE.parent / "stata_parity" / "results"
 STATA_SKIP_REASON: dict[str, str] = {
-    "81_didm": (
-        "Stata's did_multiplegt is dCDH's own port and would be the natural "
-        "third side, but it is not installed in the verified local runtime; "
-        "the archived R 0.1.4 is the reference used here."
-    ),
+    # Every entry below was re-measured on 2026-08-06 against a licensed
+    # Stata 18 runtime with SSC reachable, so a reviewer who installs the
+    # named package cannot falsify the stated reason. Seven modules that
+    # previously appeared here (71, 73, 74, 75, 76, 78, 81) were closed in
+    # that pass and now carry materialized Stata artifacts.
     "80_contdid": (
         "no Stata implementation: the CGS continuous-treatment estimator "
-        "ships as the R package contdid (GitHub only, not CRAN) and has no "
-        "ssc counterpart."
+        "ships as the R package contdid (GitHub only, not CRAN). Re-checked "
+        "2026-08-06: `ssc describe contdid` returns r(601), not found."
     ),
     "79_didff": (
         "no Stata implementation: the Roth-Sant'Anna functional-form test "
-        "ships as the R package didFF (GitHub only, not CRAN) and has no "
-        "ssc counterpart."
-    ),
-    "78_multiplegt_dyn": (
-        "Stata's did_multiplegt_dyn is the authors' own port and would be "
-        "the natural third side, but it is not installed in the verified "
-        "local runtime; the R package is the reference used here."
+        "ships as the R package didFF (GitHub only, not CRAN). Re-checked "
+        "2026-08-06: `ssc describe didff` returns r(601), not found."
     ),
     "77_ddd": (
         "no Stata implementation: the Ortiz-Villavicencio/Sant'Anna DDD "
-        "estimator ships as the R package triplediff and has no ssc "
-        "counterpart."
-    ),
-    "76_pretrends": (
-        "no Stata implementation: Roth's pretrends ships as an R package "
-        "(GitHub only, not CRAN) and has no ssc counterpart."
-    ),
-    "75_stacked": (
-        "no Stata implementation: Cengiz-Dube-Lindner-Zipperer stacking is a "
-        "construction rather than a packaged command, and neither side has a "
-        "canonical ssc reference -- the R side is itself hand-written."
-    ),
-    "74_cic": (
-        "Kranker's ssc cic is a port of the Athey-Imbens Matlab and is the "
-        "Stata counterpart, but it is not installed in the verified local "
-        "runtime; R qte::CiC is the reference used here."
-    ),
-    "73_did2s": (
-        "no Stata implementation: Gardner's two-stage estimator ships as "
-        "the R package did2s and has no ssc counterpart, so the R side is "
-        "the only cross-language reference for sp.gardner_did."
-    ),
-    "13_causal_forest": (
-        "bridge artifact not materialized: Stata 19's official cate command "
-        "is the candidate causal-forest/AIPW reference, but the verified local "
-        "runtime is Stata 18 and `which cate` fails."
-    ),
-    "18_augsynth": (
-        "bridge artifact not materialized: local Stata allsynth v1.32 is a "
-        "candidate bias-corrected SCM reference, but its ridge de-biaser "
-        "rejects the Basque outcome-only fixture with 16 controls and 15 "
-        "pre-period predictors because it requires at least K + 2 control "
-        "units; a feasible California probe also follows a distinct "
-        "allsynth bias-correction convention rather than the R augsynth "
-        "estimand. No portable like-for-like Stata artifact is materialized yet."
+        "estimator ships as the R package triplediff. Re-checked 2026-08-06: "
+        "neither `triplediff` nor `ddd` resolves locally and `ssc describe "
+        "triplediff` returns r(601)."
     ),
     "19_gsynth": (
         "bridge artifact not materialized: Xu's fect_stata is the candidate "
@@ -112,63 +76,19 @@ STATA_SKIP_REASON: dict[str, str] = {
         "does not recover the R gsynth convention. No like-for-like Stata "
         "bridge is materialized yet."
     ),
-    "65_spatial": (
-        "R-referenced module: the SAR/SEM/SDM maximum-likelihood headline is "
-        "pinned to spatialreg::lagsarlm / errorsarlm (spatialreg 1.4-3). "
-        "Stata's spregress is the natural analog but follows a distinct "
-        "ML/estimand convention; no like-for-like Stata artifact is "
-        "materialized yet."
+    "18_augsynth": (
+        "bridge artifact not materialized: local Stata allsynth v1.32 is a "
+        "candidate bias-corrected SCM reference, but its ridge de-biaser "
+        "rejects the Basque outcome-only fixture with 16 controls and 15 "
+        "pre-period predictors because it requires at least K + 2 control "
+        "units; a feasible California probe also follows a distinct "
+        "allsynth bias-correction convention rather than the R augsynth "
+        "estimand. No portable like-for-like Stata artifact is materialized yet."
     ),
-    "66_spatial_gmm": (
-        "R-referenced module: the SAR-2SLS / SEM-GMM headline is pinned to "
-        "spatialreg::stsls(W2X=FALSE) / GMerrorsar (spatialreg 1.4-3). "
-        "Stata's spregress, gs2sls is the natural analog but follows a "
-        "distinct instrument/moment convention; no like-for-like Stata "
-        "artifact is materialized yet."
-    ),
-    "67_panel_glm": (
-        "R-referenced module: absorbed-FE Poisson/GLM is pinned to its "
-        "fixest siblings (fepois/feglm, fixest 0.14.0). Stata ppmlhdfe is "
-        "the natural analog but no like-for-like Stata artifact is "
-        "materialized for this module yet."
-    ),
-    "68_demean_within": (
-        "algorithmic module: the within (mean-deviation) transformation is "
-        "an exact textbook identity checked against a base-R recomputation, "
-        "not an external estimator. No Stata artifact is materialized."
-    ),
-    "69_balance_panel": (
-        "algorithmic module: the balanced-panel filter is the base-R "
-        "counts == n_periods row selection, an exact identity rather than "
-        "an external estimator. No Stata artifact is materialized."
-    ),
-    "72_tmle": (
-        "bridge artifact not materialized: the TMLE targeting step is "
-        "pinned to tmle::tmle (tmle 2.1.1). Stata has no official TMLE "
-        "command; the user-written eltmle wraps the same R package rather "
-        "than providing an independent implementation, so a Stata row "
-        "would re-measure the R reference through a shell rather than "
-        "cross-validate it. No like-for-like Stata artifact is "
-        "materialized."
-    ),
-    "71_dml_family": (
-        "bridge artifact not materialized: the IRM / PLIV / IIVM model "
-        "classes are pinned to DoubleML (R, 1.0.2). Stata's ddml is the "
-        "canonical analog and does implement the interactive and IV "
-        "families, but this module's design turns on both engines "
-        "consuming one explicit fold partition, and ddml exposes no "
-        "like-for-like sample-splitting hook to accept it; without that "
-        "the row would grade cross-fitting noise rather than the "
-        "estimator. No like-for-like Stata artifact is materialized yet. "
-        "Module 08 already carries the materialized Stata PLR bridge."
-    ),
-    "70_policy_tree": (
-        "R-referenced module: the exact depth<=2 welfare-maximising tree "
-        "is pinned to policytree::policy_tree (policytree 1.2.4). Stata "
-        "ships no policy-learning tree estimator, official or user-written, "
-        "that solves the Athey-Wager objective over a supplied "
-        "doubly-robust score matrix; no like-for-like Stata artifact is "
-        "materialized."
+    "13_causal_forest": (
+        "bridge artifact not materialized: Stata 19's official cate command "
+        "is the candidate causal-forest/AIPW reference, but the verified local "
+        "runtime is Stata 18 and `which cate` fails."
     ),
 }
 
@@ -287,7 +207,25 @@ TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
 # Stata headline deliberately records a known implementation convention gap.
 # Keeping this explicit prevents the 3-way PASS column from silently masking
 # Stata-side drift.
-STATA_HEADLINE_GAP_EXCEPTIONS: dict[str, str] = {}
+#: Modules whose Stata artifact deliberately joins no *headline* row. A Stata
+#: column that compares nothing is a finding, not coverage, so the audit
+#: demands the reason be written down rather than inferred from a blank cell.
+STATA_NO_HEADLINE_JOIN_REASON: dict[str, str] = {}
+
+
+STATA_HEADLINE_GAP_EXCEPTIONS: dict[str, str] = {
+    "74_cic": (
+        "cic (Kranker) vs qte::CiC inverse-CDF tie-break. Under the "
+        "like-for-like discrete_ci estimator eight of the nine decile "
+        "treatment effects are bit-identical to qte::CiC; qte_50 differs at "
+        "rel 6.0e-3 and cic_ATT -- which integrates the same counterfactual "
+        "distribution -- at rel 1.2e-3. The disagreement is localised to the "
+        "tie rule at a probability where the empirical CDF is flat, not to "
+        "the estimator: the alternative `continuous` estimator is ~1% away on "
+        "every row and is recorded in the module's extra block so the choice "
+        "is auditable. py<->R remains at 4.4e-15 throughout."
+    ),
+}
 
 
 # Pre-registered tolerance per module. Every entry with rel_est or
@@ -1016,9 +954,8 @@ HEADLINE: dict[str, dict[str, Any]] = {
     },
     "81_didm": {
         "name": "dCDH 2020 DID_M (on/off switching)",
-        "headline_filter": lambda d: d.statistic in {
-            "effect", "dynamic_1", "placebo_1"
-        },
+        "headline_filter": lambda d: d.statistic
+        in {"effect", "dynamic_1", "placebo_1"},
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": "machine precision vs archived DIDmultiplegt 0.1.4",
@@ -1308,10 +1245,23 @@ HEADLINE: dict[str, dict[str, Any]] = {
     },
     "34_lp": {
         "name": "Local projections",
-        "headline_filter": lambda d: d.statistic.startswith("irf_h"),
+        # Both paths are headline. The Cholesky rows (irf_h*) are the
+        # lpirfs comparison and are py<->R only: Stata's lpirf normalises
+        # the shock differently and its coefficients are kept in the
+        # module's extra block rather than joined. The direct-OLS rows are
+        # the textbook Jorda regression, which all three sides compute, so
+        # they are where the Stata column earns its place.
+        "headline_filter": lambda d: d.statistic.startswith(
+            ("irf_h", "irf_direct_ols_h")
+        ),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "lpirfs Cholesky/unit-shock path",
+        "gap_note": (
+            "lpirfs Cholesky/unit-shock path (py-R) plus the direct-OLS "
+            "Jorda regression (3-way); SEs are not joined on the direct "
+            "rows because sp.local_projections applies Newey-West while "
+            "lm/regress report classical OLS"
+        ),
     },
     "35_panel": {
         "name": "Panel FE/RE + Hausman",
@@ -1606,6 +1556,23 @@ HEADLINE: dict[str, dict[str, Any]] = {
 }
 
 
+def _tex_free_text(text: str) -> str:
+    """Escape LaTeX specials in a free-text cell without double-escaping.
+
+    ``STATA_SKIP_REASON`` and the per-module ``gap_note`` strings are prose
+    written for humans: they carry percentages ("21% away"), snake_case
+    identifiers (``rel_se``, ``fold_id``), and occasionally an ampersand. An
+    unescaped ``%`` comments out the rest of the row, and an unescaped ``&``
+    silently shifts every following column, so a reader compiling the appendix
+    sees a broken table rather than the disclosure the row exists to make.
+
+    Some notes already carry deliberate escapes (``SE within 1\\% analytic
+    tolerance``) or intentional markup (``\\code{50\\_xtabond}``), so this only
+    escapes characters that are not already preceded by a backslash.
+    """
+    return re.sub(r"(?<!\\)([%_#&])", r"\\\1", text)
+
+
 def render_tex(modules: list[str]) -> str:
     rows: list[str] = []
     for m in modules:
@@ -1635,7 +1602,9 @@ def render_tex(modules: list[str]) -> str:
         else:
             primary = f"abs $\\le {worst:.3g}$"
         gap_note = cfg.get("gap_note", "")
-        gap_cell = f" {{\\footnotesize ({gap_note})}}" if gap_note else ""
+        gap_cell = (
+            f" {{\\footnotesize ({_tex_free_text(gap_note)})}}" if gap_note else ""
+        )
         # Escape underscores inside \code{...} so the texttt rendering
         # does not trip the LaTeX scanner.
         m_safe = m.replace("_", r"\_")
@@ -1723,12 +1692,14 @@ def render_tex_3way(modules: list[str]) -> str:
                 primary_s += " {\\footnotesize (Stata convention gap)}"
         else:
             reason = STATA_SKIP_REASON.get(m, "n/a")
-            primary_s = f"\\emph{{{reason}}}"
+            primary_s = f"\\emph{{{_tex_free_text(reason)}}}"
         gap_note = cfg.get("gap_note", "")
-        gap_cell = f" {{\\footnotesize ({gap_note})}}" if gap_note else ""
+        gap_cell = (
+            f" {{\\footnotesize ({_tex_free_text(gap_note)})}}" if gap_note else ""
+        )
         m_safe = m.split("_", 1)[0]
         rows.append(
-            f"\\code{{{m_safe}}} & {cfg['name']} & "
+            f"\\code{{{m_safe}}} & {_tex_free_text(cfg['name'])} & "
             f"{primary_r}{gap_cell} & {primary_s} & "
             f"{cfg['verdict']} \\\\"
         )
@@ -1848,7 +1819,72 @@ def render_md_3way(modules: list[str]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def main() -> None:
+def stata_headline_audit() -> list[str]:
+    """Return unregistered py<->Stata headline-budget violations.
+
+    The R leg has always been a contract: every module registers a tolerance
+    in ``TOLERANCES`` and the parity index fails loudly when a committed
+    golden exceeds it. The Stata leg was only ever *displayed* --- the
+    three-way table printed ``rel py-Stata`` and nothing compared it to the
+    budget. That is how ``10_honest_did`` sat at 1.5e-3 against a registered
+    5e-4 for as long as the module has existed without anyone noticing.
+
+    This function closes that asymmetry. A module fails when its headline
+    rows join a Stata column that exceeds the module's own registered
+    point-estimate tolerance, unless it is registered in
+    ``STATA_HEADLINE_GAP_EXCEPTIONS`` with the measurement and the reason.
+    Registering is deliberately not the same as passing: the exception text
+    is rendered into the three-way table and the paper appendix, so the cost
+    of claiming one is that a reviewer reads it.
+
+    A module whose Stata artifact exists but joins no headline row is also a
+    finding, not a pass: it means the Stata column is decorative. Those are
+    reported separately so a bridge cannot be counted as coverage while
+    comparing nothing.
+    """
+    problems: list[str] = []
+    for module_id in sorted(TOLERANCES):
+        if _load_stata(module_id) is None:
+            continue
+        diffs = collect(module_id)
+        if not diffs:
+            continue
+        cfg = HEADLINE.get(module_id, {})
+        filt = cfg.get("headline_filter")
+        hrows = [d for d in diffs if filt(d)] if filt else list(diffs)
+        metric = cfg.get("metric", "rel_est")
+        est_attr = "rel_est_st" if metric == "rel_est" else "abs_est_st"
+        tol_key = "rel_est" if metric == "rel_est" else "abs_est"
+        tol = TOLERANCES.get(module_id, {}).get(tol_key)
+
+        joined = [
+            getattr(d, est_attr)
+            for d in hrows
+            if getattr(d, est_attr, None) is not None
+        ]
+        if not joined:
+            if module_id not in STATA_NO_HEADLINE_JOIN_REASON:
+                problems.append(
+                    f"{module_id}: has a Stata artifact but no headline row "
+                    "joins it; either emit the joining statistics or register "
+                    "the module in STATA_NO_HEADLINE_JOIN_REASON"
+                )
+            continue
+
+        worst = max(joined)
+        if tol is None or worst <= tol * (1 + 1e-9):
+            continue
+        if module_id in STATA_HEADLINE_GAP_EXCEPTIONS:
+            continue
+        problems.append(
+            f"{module_id}: headline py-Stata {metric}={worst:.3g} exceeds "
+            f"registered {tol_key}<={tol:g} and is not registered in "
+            "STATA_HEADLINE_GAP_EXCEPTIONS"
+        )
+    return problems
+
+
+def main() -> int:
     modules = sorted(p.stem.replace("_py", "") for p in RESULTS_DIR.glob("*_py.json"))
     rendered_modules = [m for m in modules if collect(m)]
     md = render_md(modules)
@@ -1856,6 +1892,18 @@ def main() -> None:
     (RESULTS_DIR / "parity_table.md").write_text(md, encoding="utf-8")
     (RESULTS_DIR / "parity_table.tex").write_text(tex, encoding="utf-8")
     print("OK -- wrote parity_table.md and parity_table.tex")
+
+    stata_problems = stata_headline_audit()
+    if stata_problems:
+        print("FAIL -- unregistered py<->Stata headline gaps:")
+        for problem in stata_problems:
+            print(f"     {problem}")
+    else:
+        print(
+            "     py<->Stata headline budgets: all within tolerance or "
+            f"registered ({len(STATA_HEADLINE_GAP_EXCEPTIONS)} registered "
+            "exception(s))"
+        )
     print(
         "     strictness tiers: " + _tier_breakdown_sentence(rendered_modules, md=True)
     )
@@ -1893,7 +1941,8 @@ def main() -> None:
         f"     ({len(rendered_modules)} rendered modules from {len(modules)} "
         f"Python result files: {', '.join(rendered_modules)})"
     )
+    return 1 if stata_problems else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

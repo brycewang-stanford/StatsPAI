@@ -1,130 +1,139 @@
 {
   "module": "68_demean_within",
-  "side": "R",
+  "side": "Stata",
   "rows": [
     {
       "module": "68_demean_within",
-      "side": "R",
+      "side": "Stata",
       "statistic": "demean_y",
-      "estimate": 0.00405227894906376,
+      "estimate": 0.0040522789490638001,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
       "n": 160,
-      "extra": []
-    },
+      "extra": {}
+    }
+,
     {
       "module": "68_demean_within",
-      "side": "R",
+      "side": "Stata",
       "statistic": "demean_x1_row0",
-      "estimate": 0.615450579627037,
+      "estimate": 0.61545057962703698,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
       "n": 160,
-      "extra": []
-    },
+      "extra": {}
+    }
+,
     {
       "module": "68_demean_within",
-      "side": "R",
+      "side": "Stata",
       "statistic": "demean_x2_row0",
-      "estimate": -1.07372004111638,
+      "estimate": -1.0737200411163821,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
       "n": 160,
-      "extra": []
-    },
+      "extra": {}
+    }
+,
     {
       "module": "68_demean_within",
-      "side": "R",
+      "side": "Stata",
       "statistic": "demean_x3_row0",
-      "estimate": 0.354069993999526,
+      "estimate": 0.3540699939995256,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
       "n": 160,
-      "extra": []
-    },
+      "extra": {}
+    }
+,
     {
       "module": "68_demean_within",
-      "side": "R",
+      "side": "Stata",
       "statistic": "demean_x1_row80",
-      "estimate": 0.721239966351303,
+      "estimate": 0.72123996635130339,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
       "n": 160,
-      "extra": []
-    },
+      "extra": {}
+    }
+,
     {
       "module": "68_demean_within",
-      "side": "R",
+      "side": "Stata",
       "statistic": "demean_x2_row80",
-      "estimate": -0.550117717099235,
+      "estimate": -0.55011771709923485,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
       "n": 160,
-      "extra": []
-    },
+      "extra": {}
+    }
+,
     {
       "module": "68_demean_within",
-      "side": "R",
+      "side": "Stata",
       "statistic": "demean_x3_row80",
-      "estimate": -0.356018579397836,
+      "estimate": -0.35601857939783621,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
       "n": 160,
-      "extra": []
-    },
+      "extra": {}
+    }
+,
     {
       "module": "68_demean_within",
-      "side": "R",
+      "side": "Stata",
       "statistic": "demean_x1_row159",
       "estimate": -1.05768516348248,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
       "n": 160,
-      "extra": []
-    },
+      "extra": {}
+    }
+,
     {
       "module": "68_demean_within",
-      "side": "R",
+      "side": "Stata",
       "statistic": "demean_x2_row159",
-      "estimate": -1.41514702464079,
+      "estimate": -1.415147024640786,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
       "n": 160,
-      "extra": []
-    },
+      "extra": {}
+    }
+,
     {
       "module": "68_demean_within",
-      "side": "R",
+      "side": "Stata",
       "statistic": "demean_x3_row159",
-      "estimate": 2.25932365909374,
+      "estimate": 2.259323659093742,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
       "n": 160,
-      "extra": []
+      "extra": {}
     }
   ],
   "extra": {
-    "transform": ["within (entity-mean projection)"],
-    "note": ["sp.demean(solver='map') vs textbook mean-within; machine tier"]
+    "stata_command": "bysort id (_row): egen double _m = mean(v); gen double dm = v - _m",
+    "transform": "within (entity-mean projection), M = I - P_id",
+    "row_order": "the CSV row order is preserved with an explicit _row index so all three sides sample the same observations",
+    "stata_bridge_status": "materialized 2026-08-06 with licensed Stata 18"
   },
   "provenance": {
-    "r_version": "R version 4.5.2 (2025-10-31)",
-    "platform": "aarch64-apple-darwin20",
-    "running": "macOS Tahoe 26.5.2",
-    "captured_via": "tests/r_parity/_common.R::write_results",
-    "packages": {
-      "compiler": "4.5.2",
-      "jsonlite": "2.0.0"
-    }
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
   }
 }

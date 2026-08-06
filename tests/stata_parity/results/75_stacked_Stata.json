@@ -1,0 +1,188 @@
+{
+  "module": "75_stacked",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "75_stacked",
+      "side": "Stata",
+      "statistic": "never_att_rel_-3",
+      "estimate": -0.062902330294811695,
+      "se": 0.086539124486253394,
+      "ci_lo": -0.23251589754149671,
+      "ci_hi": 0.1067112369518733,
+      "n": 2506,
+      "extra": {}
+    }
+,
+    {
+      "module": "75_stacked",
+      "side": "Stata",
+      "statistic": "never_att_rel_-2",
+      "estimate": -0.050242763421079598,
+      "se": 0.087526755112227198,
+      "ci_lo": -0.22179205112470199,
+      "ci_hi": 0.12130652428254279,
+      "n": 2506,
+      "extra": {}
+    }
+,
+    {
+      "module": "75_stacked",
+      "side": "Stata",
+      "statistic": "never_att_rel_0",
+      "estimate": 1.202080668521794,
+      "se": 0.086424825789703993,
+      "ci_lo": 1.032691122603826,
+      "ci_hi": 1.3714702144397619,
+      "n": 2506,
+      "extra": {}
+    }
+,
+    {
+      "module": "75_stacked",
+      "side": "Stata",
+      "statistic": "never_att_rel_1",
+      "estimate": 1.279474374730931,
+      "se": 0.090474546121654495,
+      "ci_lo": 1.10214752281488,
+      "ci_hi": 1.4568012266469821,
+      "n": 2506,
+      "extra": {}
+    }
+,
+    {
+      "module": "75_stacked",
+      "side": "Stata",
+      "statistic": "never_att_rel_2",
+      "estimate": 1.2688417785971451,
+      "se": 0.077081268004068101,
+      "ci_lo": 1.1177652694264919,
+      "ci_hi": 1.419918287767798,
+      "n": 2506,
+      "extra": {}
+    }
+,
+    {
+      "module": "75_stacked",
+      "side": "Stata",
+      "statistic": "never_att_rel_3",
+      "estimate": 1.201876457656875,
+      "se": 0.088528141030354293,
+      "ci_lo": 1.028364489619098,
+      "ci_hi": 1.375388425694652,
+      "n": 2506,
+      "extra": {}
+    }
+,
+    {
+      "module": "75_stacked",
+      "side": "Stata",
+      "statistic": "never_ATT_post",
+      "estimate": 1.238068319876686,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2506,
+      "extra": {}
+    }
+,
+    {
+      "module": "75_stacked",
+      "side": "Stata",
+      "statistic": "nyt_att_rel_-3",
+      "estimate": -0.047496814178772002,
+      "se": 0.087130258995088403,
+      "ci_lo": -0.21826898377279241,
+      "ci_hi": 0.12327535541524839,
+      "n": 2863,
+      "extra": {}
+    }
+,
+    {
+      "module": "75_stacked",
+      "side": "Stata",
+      "statistic": "nyt_att_rel_-2",
+      "estimate": -0.046975044285474998,
+      "se": 0.083322802071318605,
+      "ci_lo": -0.21028473543621889,
+      "ci_hi": 0.1163346468652689,
+      "n": 2863,
+      "extra": {}
+    }
+,
+    {
+      "module": "75_stacked",
+      "side": "Stata",
+      "statistic": "nyt_att_rel_0",
+      "estimate": 1.2293690099497889,
+      "se": 0.083468170715281897,
+      "ci_lo": 1.065774401492396,
+      "ci_hi": 1.3929636184071821,
+      "n": 2863,
+      "extra": {}
+    }
+,
+    {
+      "module": "75_stacked",
+      "side": "Stata",
+      "statistic": "nyt_att_rel_1",
+      "estimate": 1.314559306244927,
+      "se": 0.088030555435814006,
+      "ci_lo": 1.142022588051675,
+      "ci_hi": 1.487096024438179,
+      "n": 2863,
+      "extra": {}
+    }
+,
+    {
+      "module": "75_stacked",
+      "side": "Stata",
+      "statistic": "nyt_att_rel_2",
+      "estimate": 1.2523736478695,
+      "se": 0.077764525602339096,
+      "ci_lo": 1.0999579784140729,
+      "ci_hi": 1.404789317324928,
+      "n": 2863,
+      "extra": {}
+    }
+,
+    {
+      "module": "75_stacked",
+      "side": "Stata",
+      "statistic": "nyt_att_rel_3",
+      "estimate": 1.226907862401994,
+      "se": 0.088698621841706099,
+      "ci_lo": 1.0530617581139119,
+      "ci_hi": 1.4007539666900759,
+      "n": 2863,
+      "extra": {}
+    }
+,
+    {
+      "module": "75_stacked",
+      "side": "Stata",
+      "statistic": "nyt_ATT_post",
+      "estimate": 1.2558024566165531,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2863,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "stata_command": "reghdfe y <event-time dummies x treated_unit, k=-1 omitted>, absorb(uc tc) vce(cluster id) on a hand-built stack",
+    "reference_type": "hand-written stack; stacking is a construction with no SSC or CRAN owner, so all three sides are independent implementations",
+    "cluster": "original unit id, so a unit appearing in several stack layers is a single cluster",
+    "post_summary": "<spec>_ATT_post is the unweighted mean of the k >= 0 coefficients",
+    "stata_bridge_status": "materialized 2026-08-06 with licensed Stata 18"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

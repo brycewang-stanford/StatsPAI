@@ -558,7 +558,9 @@ def lee_2008_senate(seed: int = 42, simulated: bool = False) -> pd.DataFrame:
     ----------
     seed : int, default 42
         RNG seed for the simulated DGP (ignored when ``simulated=False``).
-    simulated : bool, default True
+    simulated : bool, default False
+        Default False: this dataset ships the real extract and hands back
+        the real extract, so ``lee_2008_senate()`` returns ``x, y``.
         If True, return a deterministic simulated panel (n=6558,
         ``voteshare_next, margin, win``) on a 0-1 vote-share scale,
         calibrated to a 0.08 jump at the cutoff.

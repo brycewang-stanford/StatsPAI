@@ -82,6 +82,18 @@ REPRO_TOL_OVERRIDE: dict[str, float] = {
     "14_ols_cluster": 1e-7,
     "53_cr2": 1e-7,
     "55_hc2_hc3": 1e-7,
+    # pretrends::pretrends gets its rejection probability from
+    # mvtnorm::pmvnorm, whose Genz-Bretz integrator is randomised and is not
+    # reset by an outer set.seed() in the package's call path. Twenty
+    # repeated calls on this fixture spread over ~5e-4 (sd 1.3e-4), so a
+    # 1e-9 reproduction floor would be pinning R's own Monte Carlo noise
+    # rather than detecting drift; the observed re-run gap is 3.5e-4. The
+    # closed-form likelihood-ratio rows in the same module still reproduce
+    # to ~1e-15, which is what localises the spread to the integrator. 1e-3
+    # matches the module's registered cross-language parity budget in
+    # compare.py, so the reproduction floor is no looser than the parity
+    # contract it protects.
+    "76_pretrends": 1e-3,
 }
 
 

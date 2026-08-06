@@ -39,7 +39,14 @@ rows <- list(
   parity_row(MODULE, "demean_y",
              estimate = unname(dem_y[1]), n = n)
 )
-for (k in c(1, n %/% 2, n)) {
+# Sample the same three observations the Python side does. Python uses
+# 0-based k in (0, n %/% 2, n - 1) and names the row after k; R is 1-based,
+# so the middle point is n %/% 2 + 1, not n %/% 2. Before this correction R
+# sampled row 80 (1-based) and named it "row79" while Python sampled 0-based
+# index 80 and named it "row80": the two names never joined, so compare.py
+# silently graded 7 of this module's 10 statistics. The Stata bridge added
+# on 2026-08-06 is what surfaced it.
+for (k in c(1, n %/% 2 + 1, n)) {
   rows <- c(rows, list(
     parity_row(MODULE, sprintf("demean_x1_row%d", k - 1),
                estimate = unname(dem_x1[k]), n = n),

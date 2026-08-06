@@ -1,4 +1,4 @@
-"""Reference parity: ``sp.regress(vce=...)`` vs Stata / R gold standards.
+"""Reference parity: ``sp.regress(vce=...)`` vs Stata / R reference values.
 
 Pins native OLS SE cells:
 

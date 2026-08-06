@@ -1,0 +1,68 @@
+{
+  "module": "67_panel_glm",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "67_panel_glm",
+      "side": "Stata",
+      "statistic": "feglm_logit_x1",
+      "estimate": 0.28547654969023362,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 360,
+      "extra": {}
+    }
+,
+    {
+      "module": "67_panel_glm",
+      "side": "Stata",
+      "statistic": "feglm_logit_x2",
+      "estimate": -0.28481520500432989,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 360,
+      "extra": {}
+    }
+,
+    {
+      "module": "67_panel_glm",
+      "side": "Stata",
+      "statistic": "fepois_x1",
+      "estimate": 0.23196391239724981,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 300,
+      "extra": {}
+    }
+,
+    {
+      "module": "67_panel_glm",
+      "side": "Stata",
+      "statistic": "fepois_x2",
+      "estimate": -0.27425306074276862,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 300,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "stata_command_logit": "logit y x1 x2 i.id",
+    "stata_command_poisson": "ppmlhdfe y x1 x2, absorb(id)",
+    "estimator_note": "unconditional (dummy-variable) logit, matching fixest::feglm(family='logit') with |id; clogit/xtlogit,fe would be a different estimand",
+    "se_convention": "point estimates only: no vce() setting reproduces fixest's absorbed-FE GLM standard errors -- robust/cluster/unadjusted land 0.6%/21%/4% away on the logit slopes and 24-42% away on the Poisson ones, against a registered rel_se budget of 5e-5. Emitting an SE here would compare two different variance objects.",
+    "stata_bridge_status": "materialized 2026-08-06 with licensed Stata 18"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

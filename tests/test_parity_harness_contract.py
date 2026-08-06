@@ -108,6 +108,50 @@ def test_parity_artifact_inventory_has_explicit_contracts():
         assert compare.collect(module), f"{module} has no joined py/R rows"
 
 
+def test_every_stata_artifact_joins_a_headline_row():
+    """A Stata column that compares nothing is not coverage.
+
+    The over-budget guard skips a module when no headline row carries a Stata
+    value, so a bridge could exist, be counted in the "68 of 81 modules have a
+    Stata reference" headline, and silently compare zero statistics. That is
+    what ``34_lp`` did: its Stata artifact emitted ``irf_direct_ols_h*`` rows
+    that the R side did not, and ``compare.collect`` drops any Python row
+    without an R counterpart, so the whole Stata column fell out of the join.
+
+    ``compare.stata_headline_audit`` reports those modules. A module may opt
+    out only by registering a reason in ``STATA_NO_HEADLINE_JOIN_REASON``.
+    """
+    compare = _load_compare()
+    problems = [p for p in compare.stata_headline_audit() if "no headline row" in p]
+    assert not problems, "Stata artifacts that join nothing:\n" + "\n".join(
+        f"  - {p}" for p in problems
+    )
+
+
+def test_registered_stata_gap_exceptions_carry_a_measurement():
+    """An exception must state a number, not just an opinion.
+
+    The register exists so a documented disagreement stays auditable. A row
+    that says "conventions differ" and stops is indistinguishable from a
+    silently widened tolerance, so each entry has to name the module it
+    applies to, quote at least one measured relative error, and say which
+    pair of implementations disagrees.
+    """
+    compare = _load_compare()
+    stata_modules = _module_stems(STATA_RESULTS, "_Stata")
+    for module_id, reason in compare.STATA_HEADLINE_GAP_EXCEPTIONS.items():
+        assert module_id in stata_modules, (
+            f"{module_id} is registered as a Stata gap exception but has no "
+            "Stata artifact"
+        )
+        assert re.search(r"\d\.?\d*e-\d+", reason), (
+            f"{module_id}: gap exception does not quote a measured relative " "error"
+        )
+        assert len(reason) > 200, (
+            f"{module_id}: gap exception is too short to have explained " "anything"
+        )
+
+
 def test_track_a_snapshot_tolerances_match_registered_budget():
     compare = _load_compare()
     special_rows = {"07_scm"}  # displays the T4 reference-disagreement threshold.

@@ -439,7 +439,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 0.0,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 0.0,
         "statistic": [
           "n_obs_balanced",
           "n_units_kept",
@@ -458,7 +458,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 0.0,
-        "Stata": null
+        "Stata": 0.0
       },
       "python_call": "sp.balance_panel",
       "reference": "base R counts == n_periods",
@@ -471,13 +471,15 @@
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/69_balance_panel.py",
-        "tests/r_parity/69_balance_panel.R"
+        "tests/r_parity/69_balance_panel.R",
+        "tests/stata_parity/69_balance_panel.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
@@ -1205,7 +1207,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 2.3509775077537334e-15,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 0.005998184851897099,
         "statistic": [
           "cic_ATT",
           "qte_10",
@@ -1226,7 +1228,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 2.3509775077537334e-15,
-        "Stata": null
+        "Stata": 0.005998184851897099
       },
       "python_call": "sp.cic",
       "reference": "qte::CiC",
@@ -1239,13 +1241,15 @@
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
-      "status": "bit-exact",
+      "status": "aligned",
       "test": [
         "tests/r_parity/74_cic.py",
-        "tests/r_parity/74_cic.R"
+        "tests/r_parity/74_cic.R",
+        "tests/stata_parity/74_cic.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06"
@@ -1935,12 +1939,15 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 3.451924940159949e-15,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 8.7757609247854e-15,
         "statistic": [
           "demean_y",
           "demean_x1_row0",
           "demean_x2_row0",
           "demean_x3_row0",
+          "demean_x1_row80",
+          "demean_x2_row80",
+          "demean_x3_row80",
           "demean_x1_row159",
           "demean_x2_row159",
           "demean_x3_row159"
@@ -1953,7 +1960,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 3.451924940159949e-15,
-        "Stata": null
+        "Stata": 8.7757609247854e-15
       },
       "python_call": "sp.demean",
       "reference": "textbook mean-within (algorithmic)",
@@ -1966,13 +1973,15 @@
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/68_demean_within.py",
-        "tests/r_parity/68_demean_within.R"
+        "tests/r_parity/68_demean_within.R",
+        "tests/stata_parity/68_demean_within.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
@@ -2028,7 +2037,7 @@
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "31_dfl",
       "notes": [
-        "Alias of sp.decompose('dfl') — same estimator core, certified via Track A module 31_dfl; the registry validation_status independently marks this function certified."
+        "Alias of sp.decompose('dfl') -- same estimator core, certified via Track A module 31_dfl; the registry validation_status independently marks this function certified."
       ],
       "point_estimate_rel": {
         "R": 1.1607068888501023e-09,
@@ -2161,7 +2170,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 3.925551208066965e-15,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 3.209316077042112e-15,
         "statistic": [
           "effect",
           "dynamic_1",
@@ -2175,7 +2184,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 3.925551208066965e-15,
-        "Stata": null
+        "Stata": 3.209316077042112e-15
       },
       "python_call": "sp.did_multiplegt",
       "reference": "DIDmultiplegt::did_multiplegt (archived 0.1.4)",
@@ -2188,13 +2197,15 @@
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/81_didm.py",
-        "tests/r_parity/81_didm.R"
+        "tests/r_parity/81_didm.R",
+        "tests/stata_parity/81_didm.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06"
@@ -2210,7 +2221,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 3.3147483470453593e-15,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 2.062153820548313e-15,
         "statistic": [
           "Effect_1",
           "Effect_2",
@@ -2226,7 +2237,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 3.3147483470453593e-15,
-        "Stata": null
+        "Stata": 2.062153820548313e-15
       },
       "python_call": "sp.did_multiplegt_dyn",
       "reference": "DIDmultiplegtDYN::did_multiplegt_dyn",
@@ -2239,13 +2250,15 @@
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/78_multiplegt_dyn.py",
-        "tests/r_parity/78_multiplegt_dyn.R"
+        "tests/r_parity/78_multiplegt_dyn.R",
+        "tests/stata_parity/78_multiplegt_dyn.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06"
@@ -2329,6 +2342,7 @@
       "additional_tests": [
         "tests/r_parity/71_dml_family.py",
         "tests/r_parity/71_dml_family.R",
+        "tests/stata_parity/71_dml_family.do",
         "tests/external_parity/test_causalml_book.py",
         "tests/external_parity/test_dml_python_parity.py",
         "tests/external_parity/test_dml_sensitivity_parity.py",
@@ -2903,7 +2917,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 9.712933277486466e-09,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 1.778602979749374e-09,
         "statistic": [
           "feglm_logit_x1",
           "feglm_logit_x2",
@@ -2918,7 +2932,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 9.712933277486466e-09,
-        "Stata": null
+        "Stata": 1.778602979749374e-09
       },
       "python_call": "sp.feglm / sp.fepois",
       "reference": "fixest::feglm (family=\"logit\") / fixest::fepois",
@@ -2932,13 +2946,15 @@
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/67_panel_glm.py",
-        "tests/r_parity/67_panel_glm.R"
+        "tests/r_parity/67_panel_glm.R",
+        "tests/stata_parity/67_panel_glm.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
@@ -3013,7 +3029,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 9.712933277486466e-09,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 1.778602979749374e-09,
         "statistic": [
           "feglm_logit_x1",
           "feglm_logit_x2",
@@ -3028,7 +3044,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 9.712933277486466e-09,
-        "Stata": null
+        "Stata": 1.778602979749374e-09
       },
       "python_call": "sp.feglm / sp.fepois",
       "reference": "fixest::feglm (family=\"logit\") / fixest::fepois",
@@ -3042,13 +3058,15 @@
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/67_panel_glm.py",
-        "tests/r_parity/67_panel_glm.R"
+        "tests/r_parity/67_panel_glm.R",
+        "tests/stata_parity/67_panel_glm.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
@@ -3394,7 +3412,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 4.815102998304236e-08,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 2.4393059653195163e-12,
         "statistic": [
           "static_ATT"
         ],
@@ -3406,7 +3424,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 4.815102998304236e-08,
-        "Stata": null
+        "Stata": 2.4393059653195163e-12
       },
       "python_call": "sp.gardner_did",
       "reference": "did2s::did2s",
@@ -3415,17 +3433,19 @@
       },
       "se_rel": {
         "R": 0.2586897378901206,
-        "Stata": null
+        "Stata": 0.25868973769145603
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/73_did2s.py",
-        "tests/r_parity/73_did2s.R"
+        "tests/r_parity/73_did2s.R",
+        "tests/stata_parity/73_did2s.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06"
@@ -4706,14 +4726,20 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 4.951666880274136e-15,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 4.402703367537949e-15,
         "statistic": [
           "irf_h0",
           "irf_h1",
           "irf_h2",
           "irf_h3",
           "irf_h4",
-          "irf_h5"
+          "irf_h5",
+          "irf_direct_ols_h0",
+          "irf_direct_ols_h1",
+          "irf_direct_ols_h2",
+          "irf_direct_ols_h3",
+          "irf_direct_ols_h4",
+          "irf_direct_ols_h5"
         ],
         "tolerance": 1e-06
       },
@@ -4723,7 +4749,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 4.951666880274136e-15,
-        "Stata": null
+        "Stata": 4.402703367537949e-15
       },
       "python_call": "sp.local_projections(..., identification=\"lpirfs_cholesky\")",
       "reference": "lpirfs::lp_lin",
@@ -4737,13 +4763,15 @@
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/34_lp.py",
-        "tests/r_parity/34_lp.R"
+        "tests/r_parity/34_lp.R",
+        "tests/stata_parity/34_lp.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
@@ -5166,7 +5194,7 @@
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "36_mediation",
       "notes": [
-        "Alias of sp.mediation — same estimator core, certified via Track A module 36_mediation; the registry validation_status independently marks this function certified."
+        "Alias of sp.mediation -- same estimator core, certified via Track A module 36_mediation; the registry validation_status independently marks this function certified."
       ],
       "point_estimate_rel": {
         "R": 6.69914928633472e-15,
@@ -5591,7 +5619,7 @@
       ],
       "function": "mr",
       "notes": [
-        "Closed-form identity: mr('ivw') is weighted regression through the origin with weights 1/se_outcome^2 — estimate = sum(w bx by)/sum(w bx^2), se = sqrt(1/sum(w bx^2)), Q = sum(w resid^2) exactly."
+        "Closed-form identity: mr('ivw') is weighted regression through the origin with weights 1/se_outcome^2 -- estimate = sum(w bx by)/sum(w bx^2), se = sqrt(1/sum(w bx^2)), Q = sum(w resid^2) exactly."
       ],
       "reference": "inverse-variance-weighted MR closed form (Burgess et al. 2013)",
       "reference_versions": {
@@ -6118,7 +6146,7 @@
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "30_oaxaca",
       "notes": [
-        "Alias of sp.decompose('oaxaca') — same estimator core, certified via Track A module 30_oaxaca; the registry validation_status independently marks this function certified."
+        "Alias of sp.decompose('oaxaca') -- same estimator core, certified via Track A module 30_oaxaca; the registry validation_status independently marks this function certified."
       ],
       "point_estimate_rel": {
         "R": 6.272984425624262e-16,
@@ -6658,7 +6686,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 9.610011207370503e-16,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 1.3728587439100733e-16,
         "statistic": [
           "value_policy_d1",
           "value_policy_d2"
@@ -6671,7 +6699,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 9.610011207370503e-16,
-        "Stata": null
+        "Stata": 1.3728587439100733e-16
       },
       "python_call": "sp.policy_tree",
       "reference": "policytree::policy_tree",
@@ -6685,13 +6713,15 @@
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/70_policy_tree.py",
-        "tests/r_parity/70_policy_tree.R"
+        "tests/r_parity/70_policy_tree.R",
+        "tests/stata_parity/70_policy_tree.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
@@ -7011,7 +7041,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 3.215151159289103e-05,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 0.00014632709101598693,
         "statistic": [
           "power_slope_0p02",
           "power_slope_0p05"
@@ -7024,7 +7054,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 3.215151159289103e-05,
-        "Stata": null
+        "Stata": 0.00014632709101598693
       },
       "python_call": "sp.pretrends_power / sp.pretrends_slope_for_power",
       "reference": "pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN)",
@@ -7037,13 +7067,15 @@
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "aligned",
       "test": [
         "tests/r_parity/76_pretrends.py",
-        "tests/r_parity/76_pretrends.R"
+        "tests/r_parity/76_pretrends.R",
+        "tests/stata_parity/76_pretrends.do"
       ],
       "tier": "iterative",
       "tolerance": "rel_est<=0.001"
@@ -7059,7 +7091,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 3.215151159289103e-05,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 0.00014632709101598693,
         "statistic": [
           "power_slope_0p02",
           "power_slope_0p05"
@@ -7072,7 +7104,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 3.215151159289103e-05,
-        "Stata": null
+        "Stata": 0.00014632709101598693
       },
       "python_call": "sp.pretrends_power / sp.pretrends_slope_for_power",
       "reference": "pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN)",
@@ -7085,13 +7117,15 @@
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "aligned",
       "test": [
         "tests/r_parity/76_pretrends.py",
-        "tests/r_parity/76_pretrends.R"
+        "tests/r_parity/76_pretrends.R",
+        "tests/stata_parity/76_pretrends.do"
       ],
       "tier": "iterative",
       "tolerance": "rel_est<=0.001"
@@ -7998,7 +8032,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 8.288407604807484e-08,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 5.074172683884777e-08,
         "statistic": [
           "sar_const",
           "sar_x1",
@@ -8023,7 +8057,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 8.288407604807484e-08,
-        "Stata": null
+        "Stata": 5.074172683884777e-08
       },
       "python_call": "sp.sar / sp.sem / sp.sdm",
       "reference": "spatialreg::lagsarlm / spatialreg::errorsarlm / spatialreg::lagsarlm(Durbin=TRUE)",
@@ -8037,13 +8071,15 @@
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/65_spatial.py",
-        "tests/r_parity/65_spatial.R"
+        "tests/r_parity/65_spatial.R",
+        "tests/stata_parity/65_spatial.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
@@ -8053,7 +8089,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 4.607208996233022e-08,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 7.322068948338105e-16,
         "statistic": [
           "sar_gmm_const",
           "sar_gmm_x1",
@@ -8072,7 +8108,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 4.607208996233022e-08,
-        "Stata": null
+        "Stata": 7.322068948338105e-16
       },
       "python_call": "sp.sar_gmm / sp.sem_gmm",
       "reference": "spatialreg::stsls(W2X=FALSE) / spatialreg::GMerrorsar",
@@ -8082,17 +8118,19 @@
       },
       "se_rel": {
         "R": 1.7646664423065853e-15,
-        "Stata": null
+        "Stata": 8.144614349107325e-16
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/66_spatial_gmm.py",
-        "tests/r_parity/66_spatial_gmm.R"
+        "tests/r_parity/66_spatial_gmm.R",
+        "tests/stata_parity/66_spatial_gmm.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
@@ -8194,7 +8232,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 8.288407604807484e-08,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 5.074172683884777e-08,
         "statistic": [
           "sar_const",
           "sar_x1",
@@ -8219,7 +8257,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 8.288407604807484e-08,
-        "Stata": null
+        "Stata": 5.074172683884777e-08
       },
       "python_call": "sp.sar / sp.sem / sp.sdm",
       "reference": "spatialreg::lagsarlm / spatialreg::errorsarlm / spatialreg::lagsarlm(Durbin=TRUE)",
@@ -8233,13 +8271,15 @@
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/65_spatial.py",
-        "tests/r_parity/65_spatial.R"
+        "tests/r_parity/65_spatial.R",
+        "tests/stata_parity/65_spatial.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
@@ -8266,7 +8306,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 8.288407604807484e-08,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 5.074172683884777e-08,
         "statistic": [
           "sar_const",
           "sar_x1",
@@ -8291,7 +8331,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 8.288407604807484e-08,
-        "Stata": null
+        "Stata": 5.074172683884777e-08
       },
       "python_call": "sp.sar / sp.sem / sp.sdm",
       "reference": "spatialreg::lagsarlm / spatialreg::errorsarlm / spatialreg::lagsarlm(Durbin=TRUE)",
@@ -8305,13 +8345,15 @@
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/65_spatial.py",
-        "tests/r_parity/65_spatial.R"
+        "tests/r_parity/65_spatial.R",
+        "tests/stata_parity/65_spatial.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
@@ -8321,7 +8363,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 4.607208996233022e-08,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 7.322068948338105e-16,
         "statistic": [
           "sar_gmm_const",
           "sar_gmm_x1",
@@ -8340,7 +8382,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 4.607208996233022e-08,
-        "Stata": null
+        "Stata": 7.322068948338105e-16
       },
       "python_call": "sp.sar_gmm / sp.sem_gmm",
       "reference": "spatialreg::stsls(W2X=FALSE) / spatialreg::GMerrorsar",
@@ -8350,17 +8392,19 @@
       },
       "se_rel": {
         "R": 1.7646664423065853e-15,
-        "Stata": null
+        "Stata": 8.144614349107325e-16
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/66_spatial_gmm.py",
-        "tests/r_parity/66_spatial_gmm.R"
+        "tests/r_parity/66_spatial_gmm.R",
+        "tests/stata_parity/66_spatial_gmm.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
@@ -8662,7 +8706,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 3.937439976034717e-13,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 7.108384271002561e-13,
         "statistic": [
           "never_att_rel_-3",
           "never_att_rel_-2",
@@ -8680,7 +8724,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 3.937439976034717e-13,
-        "Stata": null
+        "Stata": 7.108384271002561e-13
       },
       "python_call": "sp.stacked_did",
       "reference": "hand-written stack + fixest::feols",
@@ -8690,17 +8734,19 @@
       },
       "se_rel": {
         "R": 0.004208857239655125,
-        "Stata": null
+        "Stata": 0.004208857239631583
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/75_stacked.py",
-        "tests/r_parity/75_stacked.R"
+        "tests/r_parity/75_stacked.R",
+        "tests/stata_parity/75_stacked.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06"
@@ -9305,7 +9351,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 1.92364082958906e-09,
-        "rel_vs_Stata": null,
+        "rel_vs_Stata": 1.9236395506585756e-09,
         "statistic": [
           "psi_tmle_ate"
         ],
@@ -9317,7 +9363,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 1.92364082958906e-09,
-        "Stata": null
+        "Stata": 1.9236395506585756e-09
       },
       "python_call": "sp.tmle(fluctuation=\"per_arm\")",
       "reference": "tmle::tmle",
@@ -9327,17 +9373,19 @@
       },
       "se_rel": {
         "R": 1.4128869789684658e-11,
-        "Stata": null
+        "Stata": 1.4128869789684658e-11
       },
       "sides": [
         "py",
-        "R"
+        "R",
+        "Stata"
       ],
       "source": "track_a",
       "status": "bit-exact",
       "test": [
         "tests/r_parity/72_tmle.py",
-        "tests/r_parity/72_tmle.R"
+        "tests/r_parity/72_tmle.R",
+        "tests/stata_parity/72_tmle.do"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
