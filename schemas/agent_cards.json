@@ -75,6 +75,10 @@
               "hac"
             ],
             "type": "string"
+          },
+          "vcov": {
+            "description": "pyfixest/fixest-style variance specification, accepted so one spelling works across sp.regress, sp.ivreg and sp.feols: 'iid' / 'hetero' / 'HC0'-'HC3', or a cluster dict such as {'CRV1': 'firm'} (CRV2 / CRV3 select the matching small-sample correction). Mutually exclusive with robust=/cluster=.",
+            "type": "string"
           }
         },
         "required": [
@@ -282,6 +286,10 @@
           "robust": {
             "default": "nonrobust",
             "description": "Standard error type",
+            "type": "string"
+          },
+          "vcov": {
+            "description": "pyfixest/fixest-style variance specification, accepted so one spelling works across sp.regress, sp.ivreg and sp.feols: 'iid' / 'hetero' / 'HC0'-'HC3', or a cluster dict such as {'CRV1': 'firm'} (CRV2 / CRV3 select the matching small-sample correction). Mutually exclusive with robust=/cluster=.",
             "type": "string"
           }
         },

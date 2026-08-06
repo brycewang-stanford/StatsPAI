@@ -582,6 +582,18 @@ def _build_registry() -> None:
             description="OLS regression with robust/clustered standard errors. The workhorse of econometric analysis.",
             params=[
                 ParamSpec(
+                    "vcov",
+                    "str",
+                    False,
+                    None,
+                    "pyfixest/fixest-style variance specification, accepted "
+                    "so one spelling works across sp.regress, sp.ivreg and "
+                    "sp.feols: 'iid' / 'hetero' / 'HC0'-'HC3', or a cluster "
+                    "dict such as {'CRV1': 'firm'} (CRV2 / CRV3 select the "
+                    "matching small-sample correction). Mutually exclusive "
+                    "with robust=/cluster=.",
+                ),
+                ParamSpec(
                     "formula",
                     "str",
                     True,
@@ -753,6 +765,18 @@ def _build_registry() -> None:
             category="regression",
             description="Two-stage least squares (2SLS) IV regression. Alias for sp.iv(method='2sls').",
             params=[
+                ParamSpec(
+                    "vcov",
+                    "str",
+                    False,
+                    None,
+                    "pyfixest/fixest-style variance specification, accepted "
+                    "so one spelling works across sp.regress, sp.ivreg and "
+                    "sp.feols: 'iid' / 'hetero' / 'HC0'-'HC3', or a cluster "
+                    "dict such as {'CRV1': 'firm'} (CRV2 / CRV3 select the "
+                    "matching small-sample correction). Mutually exclusive "
+                    "with robust=/cluster=.",
+                ),
                 ParamSpec(
                     "formula",
                     "str",
