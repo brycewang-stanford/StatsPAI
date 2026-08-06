@@ -41,32 +41,33 @@ Press. [@rosenbaum1983central]
 from typing import Any, Dict, List, Optional
 
 from ..exceptions import MethodIncompatibility
+from .cbps import cbps
+from .ebalance import ebalance
+from .genmatch import GenMatchResult, genmatch
 
 # Underlying estimators — the dispatcher delegates here.
+from .match import MatchEstimator, balanceplot
 from .match import match as _match_classical
-from .match import MatchEstimator, balanceplot, psplot
-from .ebalance import ebalance
-from .ps_diagnostics import (
-    propensity_score,
-    overlap_plot,
-    trimming,
-    love_plot,
-    ps_balance,
-    PSBalanceResult,
-    balance_diagnostics,
-    BalanceDiagnosticsResult,
-)
+from .match import psplot
 from .optimal import (
-    optimal_match,
-    cardinality_match,
-    OptimalMatchResult,
     CardinalityMatchResult,
+    OptimalMatchResult,
+    cardinality_match,
+    optimal_match,
 )
 from .overlap_weights import overlap_weights
-from .cbps import cbps
-from .genmatch import genmatch, GenMatchResult
-from .sbw import sbw, SBWResult
-from .psmatch2 import psmatch2, PSMatch2Result
+from .ps_diagnostics import (
+    BalanceDiagnosticsResult,
+    PSBalanceResult,
+    balance_diagnostics,
+    love_plot,
+    overlap_plot,
+    propensity_score,
+    ps_balance,
+    trimming,
+)
+from .psmatch2 import PSMatch2Result, psmatch2
+from .sbw import SBWResult, sbw
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Unified dispatcher — sp.match(..., method=...)
@@ -105,6 +106,8 @@ _CLASSICAL_ONLY_KWARGS = frozenset(
         "kernel",
         "bwidth",
         "se_method",
+        "bootstrap_reps",
+        "bootstrap_seed",
     }
 )
 
@@ -117,6 +120,7 @@ _CLASSICAL_METHODS = frozenset(
         "mahalanobis",
         "kernel",
         "radius",
+        "llr",
     }
 )
 
@@ -133,6 +137,10 @@ _MATCH_METHOD_ALIASES: Dict[str, str] = {
     "mahalanobis": "mahalanobis",  # legacy alias for nearest+mahalanobis
     "kernel": "kernel",  # kernel propensity-score matching (psmatch2)
     "radius": "radius",  # radius matching = uniform kernel, bw=caliper
+    # Local linear regression matching (Heckman, Ichimura & Todd 1997).
+    "llr": "llr",
+    "local_linear": "llr",
+    "local_linear_regression": "llr",
     # Weighting
     "ebalance": "ebalance",
     "entropy_balancing": "ebalance",

@@ -46,7 +46,6 @@ from ..core.results import CausalResult, SummaryText
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from . import _matched_frame as _mf
 from ._weight_modes import (
-    WEIGHT_MODES,
     expand_frequency_weights,
     resolve_weight_mode,
     weight_regime_info,
@@ -801,7 +800,9 @@ def psmatch2(
     ai: int = 0,
     replace: bool = True,
     ps_poly: int = 1,
-    distance: str = "propensity",
+    distance: Optional[str] = None,
+    bootstrap_reps: int = 200,
+    bootstrap_seed: Optional[int] = None,
     alpha: float = 0.05,
 ) -> PSMatch2Result:
     """Stata ``psmatch2``-faithful supported propensity-score matching.
@@ -929,14 +930,43 @@ def psmatch2(
         "nn": "psm",
         "kernel": "kernel",
         "radius": "radius",
+        "llr": "llr",
+        "mahalanobis": "mahalanobis",
     }
+    if method == "spline":
+        # psmatch2's spline option delegates to the separate SSC package
+        # -spline-, and it reports seatt = . even when that is installed.
+        # Refusing outright beats shipping something we cannot pin.
+        raise _psmatch2_error(
+            "method='spline' is not implemented. Stata psmatch2 delegates it "
+            "to the separate SSC package -spline- and reports no analytic "
+            "standard error for it (seatt = .), so there is no reference "
+            "path to align against.",
+            diagnostics={"method": method, "valid_methods": list(_method_map)},
+            recovery_hint=(
+                "Use method='llr' for local linear regression matching, "
+                "which targets the same smooth-counterfactual idea and is "
+                "pinned to Stata psmatch2."
+            ),
+        )
     if method not in _method_map:
         raise _psmatch2_error(
-            "method must be 'neighbor', 'kernel', or 'radius', " f"got {method!r}.",
-            diagnostics={"method": method, "valid_methods": list(_method_map)},
-            recovery_hint="Use method='neighbor', 'kernel', or 'radius'.",
+            f"method must be one of {sorted(_method_map)}, got {method!r}.",
+            diagnostics={"method": method, "valid_methods": sorted(_method_map)},
+            recovery_hint=(
+                "Use method='neighbor' (k-NN), 'kernel', 'radius', 'llr' "
+                "(local linear regression), or 'mahalanobis'."
+            ),
         )
     match_method = _method_map[method]
+    # `sp.match` treats 'mahalanobis' as a legacy alias for
+    # (distance='mahalanobis', method='nearest'), but an explicit `distance`
+    # overrides the alias. Resolve the default here so method='mahalanobis'
+    # actually matches on the Mahalanobis metric rather than the propensity
+    # score, while still letting the caller override it.
+    if distance is None:
+        distance = "mahalanobis" if method == "mahalanobis" else "propensity"
+    distance = str(distance).lower()
     if method == "radius" and not caliper:
         raise _psmatch2_error(
             "method='radius' requires caliper=<radius>.",
@@ -944,18 +974,35 @@ def psmatch2(
             recovery_hint="Pass a positive caliper for radius matching.",
         )
     se_key = str(se).lower()
-    if se_key not in {"psmatch2", "stata", "ai", "abadie_imbens", "ai_robust"}:
+    if se_key not in {
+        "psmatch2",
+        "stata",
+        "ai",
+        "abadie_imbens",
+        "ai_robust",
+        "bootstrap",
+    }:
         raise _psmatch2_error(
-            "se must be 'psmatch2' (or 'stata'), 'ai', or 'abadie_imbens'.",
+            "se must be 'psmatch2' (or 'stata'), 'ai', 'abadie_imbens', or "
+            "'bootstrap'.",
             diagnostics={"se": se},
-            recovery_hint="Use se='psmatch2', se='ai', or " "se='abadie_imbens'.",
+            recovery_hint=(
+                "Use se='psmatch2', se='ai', se='abadie_imbens', or " "se='bootstrap'."
+            ),
         )
-    if se_key in ("psmatch2", "stata"):
+    if se_key == "bootstrap":
+        se_method = "bootstrap"
+    elif se_key in ("psmatch2", "stata"):
         se_method = "psmatch2"
     elif se_key in ("abadie_imbens", "ai_robust"):
         se_method = "abadie_imbens"
     else:
         se_method = "ai"
+    if match_method == "llr" and se_method == "psmatch2":
+        # `se='psmatch2'` is this function's default, so an llr caller who
+        # never touched `se` would otherwise hit the sp.match refusal. Stata
+        # reports seatt = . here; we give a real number instead.
+        se_method = "bootstrap"
     # ``ai=J`` (Stata's ai(J)) is shorthand for the Abadie-Imbens robust SE
     # with J within-arm matches; it overrides ``se``.
     ai_matches = 1
@@ -998,6 +1045,8 @@ def psmatch2(
             bwidth=bwidth,
             se_method=se_method,
             ai_matches=ai_matches,
+            bootstrap_reps=bootstrap_reps,
+            bootstrap_seed=bootstrap_seed,
             alpha=alpha,
         )
 
