@@ -21433,10 +21433,10 @@
     "typical_n_min": 50,
     "validation_notes": [
       "tests/reference_parity/test_aggte_mpdta_parity.py",
+      "tests/reference_parity/test_aggte_r_did_parity.py",
+      "tests/reference_parity/test_castle_stata_parity.py",
       "tests/reference_parity/test_cs_base_period_parity.py",
-      "tests/reference_parity/test_cs_rcs_parity.py",
-      "tests/external_parity/test_honest_did_paper_parity.py",
-      "tests/external_parity/test_published_replications.py"
+      "tests/reference_parity/test_cs_rcs_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -21448,7 +21448,7 @@
     "assumptions": [],
     "category": "causal",
     "cost_profile": "",
-    "description": "Export the per-unit influence functions of a Callaway-Sant'Anna fit as a tidy, self-contained DataFrame (optionally written to disk) -- the StatsPAI equivalent of Stata csdid saverif(). Feed the export to sp.aggte_from_influence for post-hoc custom aggregation without refitting or re-loading the data.",
+    "description": "Export the per-unit influence functions of a Callaway-Sant'Anna fit as a tidy, self-contained DataFrame (optionally written to disk) -- the StatsPAI equivalent of Stata csdid saverif(). Feed the export to sp.aggte_from_influence for post-hoc custom aggregation without refitting or re-loading the data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.influence_functions(cs_result, path='cs_rif.csv')",
     "failure_modes": [
       {
@@ -21467,7 +21467,7 @@
     ],
     "reference": "Callaway & Sant'Anna (2021) JoE [@callaway2021difference]",
     "signature": {
-      "description": "Export the per-unit influence functions of a Callaway-Sant'Anna fit as a tidy, self-contained DataFrame (optionally written to disk) -- the StatsPAI equivalent of Stata csdid saverif(). Feed the export to sp.aggte_from_influence for post-hoc custom aggregation without refitting or re-loading the data.",
+      "description": "Export the per-unit influence functions of a Callaway-Sant'Anna fit as a tidy, self-contained DataFrame (optionally written to disk) -- the StatsPAI equivalent of Stata csdid saverif(). Feed the export to sp.aggte_from_influence for post-hoc custom aggregation without refitting or re-loading the data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "influence_functions",
       "parameters": {
         "properties": {
@@ -21490,9 +21490,10 @@
     "typical_n_min": 50,
     "validation_notes": [
       "API/unit contract evidence: tests/test_cs_inference.py",
-      "API/unit contract evidence: tests/test_cs_rcs.py"
+      "API/unit contract evidence: tests/test_cs_rcs.py",
+      "tests/reference_parity/test_aggte_r_did_parity.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -21502,7 +21503,7 @@
     "assumptions": [],
     "category": "causal",
     "cost_profile": "",
-    "description": "Aggregate Callaway-Sant'Anna group-time ATTs directly from an influence-function export (DataFrame or file path from sp.influence_functions) -- event-study, group, calendar, or overall summaries with multiplier-bootstrap inference, no refit and no original data required. The post-hoc half of the Stata csdid saverif() workflow.",
+    "description": "Aggregate Callaway-Sant'Anna group-time ATTs directly from an influence-function export (DataFrame or file path from sp.influence_functions) -- event-study, group, calendar, or overall summaries with multiplier-bootstrap inference, no refit and no original data required. The post-hoc half of the Stata csdid saverif() workflow. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.aggte_from_influence('cs_rif.csv', type='dynamic', min_e=-4, max_e=8)",
     "failure_modes": [
       {
@@ -21521,7 +21522,7 @@
     ],
     "reference": "Callaway & Sant'Anna (2021) JoE [@callaway2021difference]",
     "signature": {
-      "description": "Aggregate Callaway-Sant'Anna group-time ATTs directly from an influence-function export (DataFrame or file path from sp.influence_functions) -- event-study, group, calendar, or overall summaries with multiplier-bootstrap inference, no refit and no original data required. The post-hoc half of the Stata csdid saverif() workflow.",
+      "description": "Aggregate Callaway-Sant'Anna group-time ATTs directly from an influence-function export (DataFrame or file path from sp.influence_functions) -- event-study, group, calendar, or overall summaries with multiplier-bootstrap inference, no refit and no original data required. The post-hoc half of the Stata csdid saverif() workflow. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "aggte_from_influence",
       "parameters": {
         "properties": {
@@ -21551,9 +21552,10 @@
     "typical_n_min": 50,
     "validation_notes": [
       "API/unit contract evidence: tests/test_cs_inference.py",
-      "API/unit contract evidence: tests/test_cs_rcs.py"
+      "API/unit contract evidence: tests/test_cs_rcs.py",
+      "tests/reference_parity/test_aggte_r_did_parity.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [

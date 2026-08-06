@@ -846,3 +846,188 @@ def nhefs(complete_case: bool = False) -> pd.DataFrame:
 
 # Public-health-friendly alias (matches the load_* discovery convention)
 load_nhefs = nhefs
+
+
+# ---------------------------------------------------------------------------
+# Cheng & Hoekstra (2013) — castle-doctrine expansions — staggered DiD
+# ---------------------------------------------------------------------------
+
+
+def _castle_region_year_fe(df: pd.DataFrame) -> pd.DataFrame:
+    """Rebuild Cheng-Hoekstra's ``r20YYQ`` region x year dummies.
+
+    The published extract ships these as 44 pre-baked columns; they are
+    exactly ``region_q * 1{year == YYYY}`` for the four Census regions,
+    so we regenerate rather than bundle 44 columns of zeros and ones.
+    Column order matches the original file (region-major).
+    """
+    built = {}
+    for q, region in enumerate(["northeast", "midwest", "south", "west"], start=1):
+        for year in range(2000, 2011):
+            built[f"r{year}{q}"] = (
+                df[region].to_numpy() * (df["year"].to_numpy() == year)
+            ).astype(float)
+    return pd.DataFrame(built, index=df.index)
+
+
+def _castle_state_trends(df: pd.DataFrame) -> pd.DataFrame:
+    """Rebuild Cheng-Hoekstra's ``trend_1``-``trend_51`` state linear trends.
+
+    ``trend_j = 1{sid == j} * (year - 1999)``, i.e. 1..11 within state
+    ``j`` and 0 elsewhere.  The published file carries 51 columns for 50
+    states: ``sid == 9`` (District of Columbia) is absent from the panel,
+    so ``trend_9`` is identically zero.  We reproduce that column too so
+    the design matrix — and hence the collinearity drops — matches Stata's
+    ``trend_1-trend_51`` varlist exactly.
+    """
+    sid = df["sid"].to_numpy()
+    t = (df["year"].to_numpy() - 1999).astype(float)
+    built = {f"trend_{j}": (sid == j).astype(float) * t for j in range(1, 52)}
+    return pd.DataFrame(built, index=df.index)
+
+
+def castle_doctrine(
+    region_year_fe: bool = False,
+    state_trends: bool = False,
+    event_time: bool = False,
+) -> pd.DataFrame:
+    """Cheng & Hoekstra (2013) castle-doctrine panel — **real** data.
+
+    The canonical staggered difference-in-differences teaching dataset:
+    50 US states x 11 years (2000-2010).  Between 2005 and 2009, 21
+    states expanded "castle doctrine" self-defence law (no duty to
+    retreat); 29 states never did, giving a clean never-treated control
+    group.  Cheng & Hoekstra (2013) find these expansions *raised*
+    homicide by roughly 8 log points rather than deterring crime.
+
+    This is the dataset behind Chapter 9 of Cunningham's *Causal
+    Inference: The Mixtape* [@cunningham2021causal], where it motivates
+    the Goodman-Bacon decomposition and the modern staggered-adoption
+    estimators.
+
+    Parameters
+    ----------
+    region_year_fe : bool, default False
+        Append the 44 ``r20YYQ`` Census-region x year dummies used in
+        the paper's saturated specification.
+    state_trends : bool, default False
+        Append the 51 ``trend_j`` state-specific linear trends used in
+        the paper's saturated specification.
+    event_time : bool, default False
+        Append ``time_til`` (``year - effyear``, NaN for never-treated)
+        and ``gvar`` (adoption cohort with never-treated coded ``0``,
+        the encoding ``sp.callaway_santanna`` and Stata's ``csdid``
+        expect).
+
+    Returns
+    -------
+    pd.DataFrame
+        550 rows x 29 base columns.  Key modelling variables:
+
+        ``state, sid, year``    — panel identifiers (``sid`` is the state code)
+        ``l_homicide``          — log homicide rate per 100,000 (the outcome)
+        ``homicide``            — homicide rate per 100,000 (levels)
+        ``post``                — the paper's treatment dummy (see Notes)
+        ``cdl``                 — fractional castle-doctrine exposure within year
+        ``effyear``             — year the law took effect (NaN = never treated)
+        ``popwt``               — state population weight (Stata ``aweight``)
+        ``l_police, unemployrt, poverty, l_income, l_prisoner,``
+        ``l_lagprisoner, blackm_15_24, whitem_15_24, blackm_25_44,``
+        ``whitem_25_44, l_exp_subsidy, l_exp_pubwelfare``
+                                — the paper's time-varying controls
+
+    Notes
+    -----
+    **``post`` is not ``1{year >= effyear}``.**  Cheng & Hoekstra code
+    ``post = 1{year > effyear}``: the adoption year itself is coded
+    *untreated* because the law was in force for only part of it.  The
+    fractional exposure in that year lives in ``cdl`` (e.g. Alabama 2006
+    = 0.5808).  Reconstructing the treatment as ``year >= effyear``
+    silently changes 21 observations and moves the headline estimate.
+
+    This also makes the adoption cohort ambiguous for group-time
+    estimators: ``gvar = effyear`` keeps a clean pre-treatment base
+    period but counts the partially-exposed adoption year as treated,
+    while ``gvar = effyear + 1`` (consistent with ``post``) pushes that
+    partial year into the base period instead.  On this panel the choice
+    moves the Callaway-Sant'Anna simple ATT from 0.1104 to 0.0194 — see
+    ``sp.replicate('castle_2013')`` for the full discussion.
+
+    Reference values verified against Stata 18 MP (see
+    ``tests/reference_parity/test_castle_stata_parity.py``):
+
+    ==================================== ========== ==========
+    Specification                        beta       SE
+    ==================================== ========== ==========
+    TWFE, unweighted                     0.0693984  0.0558596
+    TWFE, aweight=popwt                  0.0755332  0.0331936
+    TWFE, weighted + controls            0.0796349  0.0308756
+    TWFE, full (region x year + trends)  0.0769490  0.0339377
+    Callaway-Sant'Anna, gvar=effyear     0.1103830  0.0387242
+    ==================================== ========== ==========
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> df = sp.datasets.castle_doctrine()
+    >>> r = sp.feols('l_homicide ~ post | sid + year', data=df,
+    ...              weights='popwt', vcov={'CRV1': 'sid'})
+
+    References
+    ----------
+    Cheng, C. & Hoekstra, M. (2013). Does Strengthening Self-Defense Law
+    Deter Crime or Escalate Violence?: Evidence from Expansions to Castle
+    Doctrine. *Journal of Human Resources*, 48(3), 821-853.
+    [@cheng2013does]
+
+    Cunningham, S. (2021). *Causal Inference: The Mixtape*. Yale
+    University Press. [@cunningham2021causal]
+    """
+    df = _load_bundled_csv("castle_2013.csv")
+
+    extras = []
+    if region_year_fe:
+        extras.append(_castle_region_year_fe(df))
+    if state_trends:
+        extras.append(_castle_state_trends(df))
+    if event_time:
+        gvar = df["effyear"].fillna(0.0)
+        extras.append(
+            pd.DataFrame(
+                {"time_til": df["year"] - df["effyear"], "gvar": gvar},
+                index=df.index,
+            )
+        )
+    if extras:
+        df = pd.concat([df] + extras, axis=1)
+
+    df.attrs["paper"] = (
+        "Cheng, C. & Hoekstra, M. (2013). Does Strengthening Self-Defense "
+        "Law Deter Crime or Escalate Violence?: Evidence from Expansions "
+        "to Castle Doctrine."
+    )
+    df.attrs["doi"] = "10.1353/jhr.2013.0023"
+    df.attrs["data_source"] = "real"
+    df.attrs["simulated"] = False
+    df.attrs["source_origin"] = (
+        "Modelling subset of castle.dta from Scott Cunningham's Causal "
+        "Inference: The Mixtape repository (MIT licensed), which "
+        "redistributes the Cheng-Hoekstra (2013) replication panel.  The "
+        "44 region x year dummies and 51 state trends carried by the "
+        "original file are regenerated on demand rather than bundled."
+    )
+    # Stata 18 MP reference values (mixtape Do/castle_1.do specification).
+    df.attrs["stata_twfe_unweighted"] = (0.069398429, 0.055859635)
+    df.attrs["stata_twfe_weighted"] = (0.075533239, 0.033193606)
+    df.attrs["stata_twfe_weighted_controls"] = (0.079634870, 0.030875590)
+    df.attrs["stata_twfe_full"] = (0.076948986, 0.033937717)
+    df.attrs["stata_csdid_simple_gvar_effyear"] = (0.110383035, 0.038724240)
+    df.attrs["stata_csdid_simple_gvar_effyear_plus1"] = (0.019402808, 0.038388647)
+    df.attrs["stata_bacon_never_treated_weight"] = 0.8988088336
+    df.attrs["notes"] = (
+        "Real Cheng-Hoekstra (2013) panel (50 states x 11 years, "
+        "2000-2010; 21 staggered adopters 2005-2009, 29 never-treated).  "
+        "post = 1{year > effyear} — the adoption year is coded untreated "
+        "and its fractional exposure is in cdl."
+    )
+    return df

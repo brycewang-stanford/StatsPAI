@@ -74,6 +74,7 @@ from ._canonical import (
     _load_bundled_csv,
     angrist_krueger_1991,
     card_1995,
+    castle_doctrine,
     lee_2008_senate,
     load_nhefs,
     mpdta,
@@ -162,6 +163,7 @@ _DEFAULT_SOURCE = {
     "california_prop99": "bundled CSV",
     "nsw_lalonde": "bundled CSV",
     "nhefs": "bundled CSV",
+    "castle_doctrine": "bundled CSV",
 }
 
 
@@ -263,6 +265,14 @@ def list_datasets() -> pd.DataFrame:
             "GDPpc gap ≈ -1,500 on this replica (calibrated)",
         ),
         (
+            "castle_doctrine",
+            "staggered DID (real)",
+            550,
+            "Cheng & Hoekstra (2013), JHR 48(3)",
+            "TWFE log-homicide effect ≈ 0.08 (Table 4, weighted, clustered)",
+            "REAL data: TWFE 0.0769 = Stata to 1e-9; Callaway-Sant'Anna 0.1104",
+        ),
+        (
             "nhefs",
             "g-methods (real)",
             1629,
@@ -293,6 +303,7 @@ __all__ = [
     "nsw_dw",
     "lee_2008_senate",
     "angrist_krueger_1991",
+    "castle_doctrine",
     "california_prop99",
     "basque_terrorism",
     "german_reunification",

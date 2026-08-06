@@ -11902,7 +11902,7 @@
     }
   },
   {
-    "description": "Export the per-unit influence functions of a Callaway-Sant'Anna fit as a tidy, self-contained DataFrame (optionally written to disk) -- the StatsPAI equivalent of Stata csdid saverif(). Feed the export to sp.aggte_from_influence for post-hoc custom aggregation without refitting or re-loading the data.",
+    "description": "Export the per-unit influence functions of a Callaway-Sant'Anna fit as a tidy, self-contained DataFrame (optionally written to disk) -- the StatsPAI equivalent of Stata csdid saverif(). Feed the export to sp.aggte_from_influence for post-hoc custom aggregation without refitting or re-loading the data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "influence_functions",
     "parameters": {
       "properties": {
@@ -11922,7 +11922,7 @@
     }
   },
   {
-    "description": "Aggregate Callaway-Sant'Anna group-time ATTs directly from an influence-function export (DataFrame or file path from sp.influence_functions) -- event-study, group, calendar, or overall summaries with multiplier-bootstrap inference, no refit and no original data required. The post-hoc half of the Stata csdid saverif() workflow.",
+    "description": "Aggregate Callaway-Sant'Anna group-time ATTs directly from an influence-function export (DataFrame or file path from sp.influence_functions) -- event-study, group, calendar, or overall summaries with multiplier-bootstrap inference, no refit and no original data required. The post-hoc half of the Stata csdid saverif() workflow. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "aggte_from_influence",
     "parameters": {
       "properties": {
@@ -38856,7 +38856,7 @@
     }
   },
   {
-    "description": "Load a famous dataset and a step-by-step replication guide.",
+    "description": "Load a famous dataset and a step-by-step replication guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "replicate",
     "parameters": {
       "properties": {
@@ -38876,7 +38876,7 @@
     }
   },
   {
-    "description": "List all available replication datasets and guides.",
+    "description": "List all available replication datasets and guides. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "list_replications",
     "parameters": {
       "properties": {},

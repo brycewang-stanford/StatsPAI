@@ -113,6 +113,7 @@ nav:
       - "Report card: cs_report()": guides/cs_report.md
       - "Repeated cross-sections": guides/repeated_cross_sections.md
       - "Mixtape Ch. 9 DiD — full replication": guides/mixtape_ch09_did.md
+      - "Castle doctrine — real-data staggered DiD": guides/mixtape_castle_replication.md
       - "Sensitivity analysis (Rambachan–Roth)": guides/honest_did.md
       - "Choosing a DID estimator": guides/choosing_did_estimator.md
       - "Choosing an RD estimator": guides/choosing_rd_estimator.md

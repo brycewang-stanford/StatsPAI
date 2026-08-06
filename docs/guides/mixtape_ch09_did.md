@@ -28,9 +28,16 @@ RNG_SEED = 2026
 ```
 
 Mixtape uses the *Kansas* and *Cheng-Hoekstra castle-doctrine* data for
-its worked examples.  Neither is bundled with StatsPAI, so we replicate
-the *pedagogical pattern* — heterogeneous, staggered treatment on a
-panel — using the canonical DGP:
+its worked examples.
+
+> **The castle-doctrine panel now ships with StatsPAI** as
+> `sp.datasets.castle_doctrine()`, checked in CI against Stata 18 MP and
+> R `did`.  For the **real-data** replication — including the
+> Goodman-Bacon decomposition and the cohort-coding trap — see
+> [Castle doctrine — a real-data staggered DiD replication](mixtape_castle_replication.md).
+
+This page keeps a simulated DGP so the chapter's *pedagogical pattern* —
+heterogeneous, staggered treatment on a panel — stays readable and fast:
 
 ```python
 df = sp.dgp_did(

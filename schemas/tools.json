@@ -200,7 +200,7 @@
     "name": "aggte"
   },
   {
-    "description": "Aggregate Callaway-Sant'Anna group-time ATTs directly from an influence-function export (DataFrame or file path from sp.influence_functions) -- event-study, group, calendar, or overall summaries with multiplier-bootstrap inference, no refit and no original data required. The post-hoc half of the Stata csdid saverif() workflow. Pre-conditions: source was produced by sp.influence_functions. Failure modes: influence frame is missing required columns -> Re-export with sp.influence_functions(result, path). Alternatives: sp.aggte, sp.influence_functions. Typical minimum N: 50.",
+    "description": "Aggregate Callaway-Sant'Anna group-time ATTs directly from an influence-function export (DataFrame or file path from sp.influence_functions) -- event-study, group, calendar, or overall summaries with multiplier-bootstrap inference, no refit and no original data required. The post-hoc half of the Stata csdid saverif() workflow. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Pre-conditions: source was produced by sp.influence_functions. Failure modes: influence frame is missing required columns -> Re-export with sp.influence_functions(result, path). Alternatives: sp.aggte, sp.influence_functions. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "source": {
@@ -10240,7 +10240,7 @@
     "name": "inequality_index"
   },
   {
-    "description": "Export the per-unit influence functions of a Callaway-Sant'Anna fit as a tidy, self-contained DataFrame (optionally written to disk) -- the StatsPAI equivalent of Stata csdid saverif(). Feed the export to sp.aggte_from_influence for post-hoc custom aggregation without refitting or re-loading the data. Pre-conditions: result was produced by sp.callaway_santanna. Failure modes: result carries no influence functions -> Fit with sp.callaway_santanna first; other estimators do not store the (g,t) influence-function grid. Alternatives: sp.aggte, sp.aggte_from_influence. Typical minimum N: 50.",
+    "description": "Export the per-unit influence functions of a Callaway-Sant'Anna fit as a tidy, self-contained DataFrame (optionally written to disk) -- the StatsPAI equivalent of Stata csdid saverif(). Feed the export to sp.aggte_from_influence for post-hoc custom aggregation without refitting or re-loading the data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Pre-conditions: result was produced by sp.callaway_santanna. Failure modes: result carries no influence functions -> Fit with sp.callaway_santanna first; other estimators do not store the (g,t) influence-function grid. Alternatives: sp.aggte, sp.aggte_from_influence. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "path": {
@@ -11534,7 +11534,7 @@
     "name": "lingam"
   },
   {
-    "description": "List all available replication datasets and guides.",
+    "description": "List all available replication datasets and guides. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {},
       "required": [],
@@ -20091,7 +20091,7 @@
     "name": "regress"
   },
   {
-    "description": "Load a famous dataset and a step-by-step replication guide.",
+    "description": "Load a famous dataset and a step-by-step replication guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "key": {

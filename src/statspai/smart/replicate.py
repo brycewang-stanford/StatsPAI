@@ -109,7 +109,7 @@ _REPLICATIONS: Dict[str, Dict[str, Any]] = {
                 "    '(educ ~ nearc4)',",
                 "    data=df, robust='hc1')",
                 "",
-                "sp.regtable([ols, iv], column_labels=['OLS', 'IV (nearc4)'])",
+                "sp.regtable([ols, iv], model_labels=['OLS', 'IV (nearc4)'])",
             ],
             # (label, statspai value on real data, paper value, citation)
             "golden_numbers": [
@@ -253,6 +253,180 @@ _REPLICATIONS: Dict[str, Dict[str, Any]] = {
         },
     },
     # ------------------------------------------------------------------
+    # Cheng & Hoekstra (2013) — castle doctrine — staggered DiD
+    # ------------------------------------------------------------------
+    "castle_2013": {
+        "title": "Cheng & Hoekstra (2013) — Castle-doctrine expansions and homicide",
+        "paper": (
+            "Cheng, C. & Hoekstra, M. (2013). Does Strengthening "
+            "Self-Defense Law Deter Crime or Escalate Violence?: "
+            "Evidence from Expansions to Castle Doctrine."
+        ),
+        "paper_bib": "cheng2013does",
+        "journal": "Journal of Human Resources 48(3), 821-853",
+        "year": 2013,
+        "design": "Staggered DiD",
+        "n_obs": 550,
+        "description": (
+            "50 US states x 11 years (2000-2010).  Between 2005 and 2009, "
+            "21 states expanded castle-doctrine self-defence law; 29 never "
+            "did, giving a clean never-treated control group.  Contrary to "
+            "a deterrence story, the expansions *raised* log homicide by "
+            "roughly 8 log points.  This is the Chapter 9 dataset of "
+            "Cunningham's Causal Inference: The Mixtape, where it motivates "
+            "the Goodman-Bacon decomposition and modern staggered-adoption "
+            "estimators."
+        ),
+        "data_loader": "datasets.castle_doctrine",
+        "data_kwargs": {"simulated": False},
+        "data_origin": (
+            "Real Cheng-Hoekstra (2013) replication panel, modelling subset "
+            "bundled in statspai/datasets/data/castle_2013.csv (550 rows x "
+            "29 cols) from the MIT-licensed mixtape repository.  The 44 "
+            "region x year dummies and 51 state trends are regenerated on "
+            "demand via castle_doctrine(region_year_fe=True, "
+            "state_trends=True)."
+        ),
+        "classic": {
+            "name": "Two-way fixed effects (Cheng-Hoekstra Table 4)",
+            "paper_table": "Cheng & Hoekstra (2013) Table 4; Mixtape Ch. 9",
+            "references": ["cheng2013does", "cunningham2021causal"],
+            "tolerance": 1e-5,
+            "code": [
+                "# The paper's ladder of TWFE specifications.  Weights are",
+                "# state population (Stata aweight); SEs cluster on state.",
+                "df = sp.datasets.castle_doctrine(",
+                "    region_year_fe=True, state_trends=True)",
+                "",
+                "xvar = ['l_police', 'unemployrt', 'poverty', 'l_income',",
+                "        'l_prisoner', 'l_lagprisoner', 'blackm_15_24',",
+                "        'whitem_15_24', 'blackm_25_44', 'whitem_25_44',",
+                "        'l_exp_subsidy', 'l_exp_pubwelfare']",
+                "region = [c for c in df.columns if c.startswith('r20')]",
+                "trends = [c for c in df.columns if c.startswith('trend_')]",
+                "",
+                "bare = sp.feols('l_homicide ~ post | sid + year',",
+                "                data=df, vcov={'CRV1': 'sid'})",
+                "wtd  = sp.feols('l_homicide ~ post | sid + year', data=df,",
+                "                weights='popwt', vcov={'CRV1': 'sid'})",
+                "full = sp.feols(",
+                "    'l_homicide ~ post + ' + ' + '.join(xvar + region + trends)",
+                "    + ' | sid + year',",
+                "    data=df, weights='popwt', vcov={'CRV1': 'sid'})",
+                "",
+                "sp.regtable([bare, wtd, full],",
+                "            model_labels=['TWFE', '+ weights', '+ full controls'])",
+            ],
+            "golden_numbers": [
+                (
+                    "TWFE unweighted beta_post",
+                    0.069398429,
+                    0.069398429,
+                    "Stata 18 MP xtreg fe vce(cluster sid)",
+                ),
+                (
+                    "TWFE weighted beta_post",
+                    0.075533239,
+                    0.075533239,
+                    "Stata 18 MP, [aweight=popwt]",
+                ),
+                (
+                    "TWFE weighted + controls",
+                    0.079634870,
+                    0.079634870,
+                    "Stata 18 MP, mixtape Do/castle_1.do covariates",
+                ),
+                (
+                    "TWFE full (region x year + trends)",
+                    0.076948986,
+                    0.076948986,
+                    "Stata 18 MP, mixtape Do/castle_1.do headline spec",
+                ),
+            ],
+        },
+        "modern": {
+            "name": "Goodman-Bacon decomposition + Callaway-Sant'Anna",
+            "rationale": (
+                "With staggered adoption, TWFE is a weighted average of all "
+                "2x2 DiDs, including 'forbidden' comparisons that use "
+                "already-treated units as controls.  The Bacon "
+                "decomposition shows 89.9% of the weight here falls on "
+                "clean never-treated comparisons — unusually benign — yet "
+                "the remaining 10.1% still pulls the estimate down: "
+                "Callaway-Sant'Anna returns 0.110 against TWFE's 0.069.  "
+                "Note the cohort-coding trap documented below."
+            ),
+            "references": [
+                "goodmanbacon2021difference",
+                "callaway2021difference",
+                "cunningham2021causal",
+            ],
+            "tolerance": 1e-5,
+            "code": [
+                "df = sp.datasets.castle_doctrine(event_time=True)",
+                "",
+                "# (a) Why is TWFE what it is?  Decompose it.",
+                "bacon = sp.bacon_decomposition(",
+                "    df, y='l_homicide', treat='post', time='year', id='sid')",
+                "dec = bacon['decomposition']",
+                "clean = dec[dec['type'] == 'Treated vs Untreated']['weight'].sum()",
+                "print(f'TWFE = {bacon[\"beta_twfe\"]:.4f}; '",
+                "      f'never-treated weight = {clean:.1%}')",
+                "",
+                "# (b) Group-time ATT robust to treatment-effect heterogeneity.",
+                "#     gvar codes never-treated as 0 (event_time=True adds it).",
+                "cs = sp.callaway_santanna(",
+                "    df, y='l_homicide', g='gvar', t='year', i='sid',",
+                "    control_group='nevertreated')",
+                "print('CS simple ATT:', float(sp.aggte(cs, type='simple').estimate))",
+                "sp.aggte(cs, type='dynamic').plot()",
+            ],
+            "pinned_numbers": [
+                (
+                    "Bacon TWFE beta",
+                    0.069398429,
+                    "matches Stata bacondecomp; all 25 2x2 cells agree",
+                ),
+                (
+                    "Bacon never-treated weight",
+                    0.898808834,
+                    "share of TWFE from clean never-treated comparisons",
+                ),
+                (
+                    "Callaway-Sant'Anna simple ATT (gvar=effyear)",
+                    0.110383035,
+                    "matches R did::aggte and Stata csdid to 1e-9",
+                ),
+                (
+                    "Callaway-Sant'Anna simple ATT (gvar=effyear+1)",
+                    0.019402808,
+                    "cohort-coding trap — see the note below, NOT a bug",
+                ),
+            ],
+        },
+        "caveats": [
+            "post is NOT 1{year >= effyear}.  Cheng & Hoekstra code "
+            "post = 1{year > effyear}: the adoption year is treated as "
+            "UNTREATED because the law was in force for only part of it, "
+            "and the fractional exposure lives in `cdl` (Alabama 2006 = "
+            "0.5808).  Rebuilding treatment as year >= effyear silently "
+            "changes 21 observations.",
+            "That makes the adoption cohort ambiguous for group-time "
+            "estimators.  gvar = effyear keeps a clean pre-treatment base "
+            "period but counts the partially-exposed adoption year as fully "
+            "treated (ATT = 0.1104).  gvar = effyear + 1 is consistent with "
+            "`post` but pushes that partially-treated year into the BASE "
+            "period, contaminating the baseline (ATT = 0.0194).  Neither is "
+            "unambiguously right; report both, or drop the adoption year.",
+            "This replication is what caught the aggte standard-error bug: "
+            "StatsPAI's Callaway-Sant'Anna SEs were up to 8% smaller than R "
+            "did / Stata csdid because the estimated cohort-share weights "
+            "were treated as fixed.  Fixed as of the current release — SEs "
+            "now match R and Stata exactly.  Numbers quoted from an earlier "
+            "version should be re-run; see MIGRATION.md.",
+        ],
+    },
+    # ------------------------------------------------------------------
     # Legacy single-track entries (kept for backward compatibility)
     # ------------------------------------------------------------------
     "lalonde_1986": {
@@ -306,7 +480,7 @@ _REPLICATIONS: Dict[str, Dict[str, Any]] = {
                 "                'married', 'nodegree', 're74', 're75'],",
                 "    method='nearest')",
                 "",
-                "sp.regtable([naive, adj], column_labels=['Naive OLS', 'Adjusted OLS'])",
+                "sp.regtable([naive, adj], model_labels=['Naive OLS', 'Adjusted OLS'])",
                 "print('1:1 NN PSM ATT:', round(float(psm.estimate), 0))",
             ],
             "golden_numbers": [
@@ -527,7 +701,7 @@ _REPLICATIONS: Dict[str, Dict[str, Any]] = {
             "                   data=df, robust='hc1')",
             "",
             "sp.regtable([ols, iv_strong, iv_weak],",
-            "            column_labels=['OLS', 'IV (wave)', 'IV (wind)'])",
+            "            model_labels=['OLS', 'IV (wave)', 'IV (wind)'])",
             "",
             "# Weak instrument diagnostics",
             "ar = sp.anderson_rubin_test(data=df, y='log_quantity',",
@@ -800,6 +974,20 @@ def _format_guide(
                 )
             lines.append(f"  Pinned tolerance: |Δ| ≤ {tol}")
         lines.append("")
+
+    caveats = info.get("caveats") or []
+    if caveats:
+        lines.append(rule)
+        lines.append("CAVEATS — read before quoting any number from this panel")
+        lines.append(rule)
+        for i, caveat in enumerate(caveats, start=1):
+            wrapped = _wrap(caveat, width=68, indent="     ")
+            if wrapped:
+                # Re-prefix the first line with the item number.
+                first = wrapped[0].lstrip()
+                lines.append(f"  {i}. {first}")
+                lines.extend(wrapped[1:])
+            lines.append("")
 
     lines.append(bar)
     return "\n".join(lines)

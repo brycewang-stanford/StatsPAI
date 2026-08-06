@@ -77,6 +77,30 @@ All notable changes to StatsPAI will be documented in this file.
   where fixed precision was actually wrong: a dollar-magnitude coefficient
   now reads `2,108*** (472)` instead of `2108.412*** (471.938)`.
 
+- **Castle-doctrine replication: `sp.datasets.castle_doctrine()` and
+  `sp.replicate('castle_2013')`.** The real Cheng & Hoekstra (2013)
+  panel (50 states × 11 years, 21 staggered adopters, 29 never-treated)
+  — the Chapter 9 dataset of Cunningham's *Causal Inference: The
+  Mixtape* — bundled as a 550×29 CSV. The 44 region × year dummies and
+  51 state linear trends are regenerated on demand
+  (`region_year_fe=True`, `state_trends=True`) rather than shipped, and
+  `event_time=True` adds `time_til` / `gvar`. Every number is pinned in
+  CI against **Stata 18 MP** and **R `did`** in
+  `tests/reference_parity/test_castle_stata_parity.py`: four TWFE
+  specifications (including `aweight` semantics and the 19 collinear
+  drops in the saturated spec) agree to ≤1e-6; `sp.bacon_decomposition`
+  reproduces Stata `bacondecomp` cell by cell across all 25
+  comparisons; `sp.callaway_santanna` matches R `did::aggte` and Stata
+  `csdid` to 1e-9. New guide:
+  `docs/guides/mixtape_castle_replication.md`. (refs verified via
+  Crossref + doi.org content negotiation)
+
+- **Replication guides are now executed in CI.**
+  `tests/test_replication_guides_execute.py` runs every code block
+  shipped by `sp.replicate(...)` against that entry's own dataset, so a
+  guide that no longer runs fails the build instead of a user's
+  session.
+
 - **Continuous AI-label measurement-error correction.**
   `sp.llm_annotator_correct` now handles *continuous* LLM scores (e.g.
   sentiment in `[-1, 1]`) alongside the existing binary / multi-class
