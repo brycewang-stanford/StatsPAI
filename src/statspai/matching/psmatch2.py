@@ -319,7 +319,8 @@ class PSMatch2Result(ResultProtocolMixin):
         drop_unmatched : bool, default True
             Drop rows with a missing ``_weight`` — i.e. controls never used
             as a match and treated units that found no match.  This is the
-            sample Stata uses for ``[fweight=_weight]`` regressions.
+            estimation sample Stata restricts to before a weighted
+            post-matching regression.
 
         Returns
         -------
@@ -343,16 +344,25 @@ class PSMatch2Result(ResultProtocolMixin):
         *,
         threshold: float = 0.1,
     ) -> BalanceDiagnosticsResult:
-        """Covariate balance before vs after matching (Stata ``pstest``).
+        """Covariate balance before vs after matching (StatsPAI conventions).
 
-        Standardized mean differences are reported two ways, exactly like
-        ``pstest``:
+        Standardized mean differences are reported two ways:
 
         - ``smd_raw``      — *before* matching: unweighted SMD over the full
           treated vs control sample.
         - ``smd_weighted`` — *after* matching: SMD with the ``_weight``
           frequency weights, so a control used twice counts twice and
           unmatched / off-support units drop out (weight 0).
+
+        .. warning::
+
+           This is **not** Stata's ``pstest`` table, despite the family
+           resemblance.  ``pstest`` keeps the *unmatched* pooled standard
+           deviation in the denominator of the post-matching bias; this
+           method uses the matched-sample standard deviation, the
+           convention most non-Stata packages follow.  The two disagree by
+           several percent on real data.  Use :meth:`pstest` when you need
+           to reproduce a printed Stata table.
 
         Parameters
         ----------
