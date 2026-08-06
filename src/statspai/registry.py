@@ -2229,11 +2229,12 @@ def _build_registry() -> None:
             category="causal",
             description=(
                 "Stata psmatch2-faithful supported propensity-score matching paths "
-                "(nearest-neighbour, kernel, radius): returns matched-sample variables "
+                "(nearest-neighbour, kernel, radius, local linear regression, "
+                "Mahalanobis): returns matched-sample variables "
                 "(_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for "
                 "nearest-neighbour), the psmatch2 analytic ATT standard error, plus "
-                "post-matching balance, common-support plotting, and frequency-weighted "
-                "PSM-DID."
+                "post-matching balance (.pstest() reproduces Stata pstest exactly), "
+                "common-support plotting, and weighted PSM-DID."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -2254,7 +2255,7 @@ def _build_registry() -> None:
                     False,
                     "neighbor",
                     "Matching algorithm",
-                    ["neighbor", "kernel", "radius"],
+                    ["neighbor", "kernel", "radius", "llr", "mahalanobis"],
                 ),
                 ParamSpec(
                     "neighbor", "int", False, 1, "Number of nearest neighbours k"
@@ -2271,7 +2272,10 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "epan",
-                    "Kernel type (method='kernel')",
+                    "Kernel type (method='kernel' or 'llr'). NOTE: Stata's "
+                    "psmatch2 does not run LLR with kerneltype(epan) -- it "
+                    "substitutes lpoly-smoothed nearest-neighbour matching. "
+                    "Use 'tricube' to reproduce psmatch2's own LLR routine.",
                     ["epan", "normal", "biweight", "uniform", "tricube"],
                 ),
                 ParamSpec(
@@ -2282,8 +2286,24 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "psmatch2",
-                    "Standard-error estimator",
-                    ["psmatch2", "ai", "abadie_imbens"],
+                    "Standard-error estimator. 'bootstrap' re-estimates the "
+                    "propensity score each replication and is the only valid "
+                    "choice for method='llr' (Stata reports seatt = . there).",
+                    ["psmatch2", "ai", "abadie_imbens", "bootstrap"],
+                ),
+                ParamSpec(
+                    "bootstrap_reps",
+                    "int",
+                    False,
+                    200,
+                    "Bootstrap replications when se='bootstrap'",
+                ),
+                ParamSpec(
+                    "bootstrap_seed",
+                    "int",
+                    False,
+                    None,
+                    "Seed for the bootstrap resampler (pass for reproducibility)",
                 ),
                 ParamSpec(
                     "ai",
@@ -2301,7 +2321,10 @@ def _build_registry() -> None:
                     ["none", "minmax"],
                 ),
             ],
-            returns="PSMatch2Result (.matched_data / .balance() / .psplot() / .psm_did())",
+            returns=(
+                "PSMatch2Result (.matched_data / .pstest() / .balance() / "
+                ".psplot() / .psm_did())"
+            ),
             example=(
                 "sp.psmatch2(df, treat='union', outcome='log_wage', "
                 "covariates=['education','experience','tenure'])"

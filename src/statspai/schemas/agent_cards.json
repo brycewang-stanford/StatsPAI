@@ -2552,6 +2552,7 @@
     "validation_notes": [
       "tests/reference_parity/test_matching_parity.py",
       "tests/reference_parity/test_matching_r_parity.py",
+      "tests/reference_parity/test_psmatch2_llr_parity.py",
       "tests/reference_parity/test_psmatch2_parity.py"
     ],
     "validation_status": "validated"
@@ -2572,7 +2573,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance, common-support plotting, and frequency-weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius, local linear regression, Mahalanobis): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance (.pstest() reproduces Stata pstest exactly), common-support plotting, and weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.psmatch2(df, treat='union', outcome='log_wage', covariates=['education','experience','tenure'])",
     "failure_modes": [
       {
@@ -2600,13 +2601,22 @@
     ],
     "reference": "Leuven & Sianesi (2003) PSMATCH2 (SSC S432001); Rosenbaum & Rubin (1983)",
     "signature": {
-      "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance, common-support plotting, and frequency-weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius, local linear regression, Mahalanobis): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance (.pstest() reproduces Stata pstest exactly), common-support plotting, and weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "psmatch2",
       "parameters": {
         "properties": {
           "ai": {
             "default": 0,
             "description": "Abadie-Imbens (2006) robust SE with J within-arm matches (Stata ai(J))",
+            "type": "integer"
+          },
+          "bootstrap_reps": {
+            "default": 200,
+            "description": "Bootstrap replications when se='bootstrap'",
+            "type": "integer"
+          },
+          "bootstrap_seed": {
+            "description": "Seed for the bootstrap resampler (pass for reproducibility)",
             "type": "integer"
           },
           "bwidth": {
@@ -2640,7 +2650,7 @@
           },
           "kernel": {
             "default": "epan",
-            "description": "Kernel type (method='kernel')",
+            "description": "Kernel type (method='kernel' or 'llr'). NOTE: Stata's psmatch2 does not run LLR with kerneltype(epan) -- it substitutes lpoly-smoothed nearest-neighbour matching. Use 'tricube' to reproduce psmatch2's own LLR routine.",
             "enum": [
               "epan",
               "normal",
@@ -2656,7 +2666,9 @@
             "enum": [
               "neighbor",
               "kernel",
-              "radius"
+              "radius",
+              "llr",
+              "mahalanobis"
             ],
             "type": "string"
           },
@@ -2671,11 +2683,12 @@
           },
           "se": {
             "default": "psmatch2",
-            "description": "Standard-error estimator",
+            "description": "Standard-error estimator. 'bootstrap' re-estimates the propensity score each replication and is the only valid choice for method='llr' (Stata reports seatt = . there).",
             "enum": [
               "psmatch2",
               "ai",
-              "abadie_imbens"
+              "abadie_imbens",
+              "bootstrap"
             ],
             "type": "string"
           },
@@ -2695,7 +2708,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "tests/reference_parity/test_psmatch2_parity.py"
+      "tests/reference_parity/test_psmatch2_llr_parity.py",
+      "tests/reference_parity/test_psmatch2_parity.py",
+      "tests/reference_parity/test_psmdid_weight_parity.py",
+      "tests/reference_parity/test_pstest_parity.py"
     ],
     "validation_status": "validated"
   },
