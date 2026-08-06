@@ -66,7 +66,7 @@ from .ps_diagnostics import (
     ps_balance,
     trimming,
 )
-from .psmatch2 import PSMatch2Result, psmatch2
+from .psmatch2 import PSMatch2Result, PSTestResult, psmatch2
 from .sbw import SBWResult, sbw
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -360,4 +360,5 @@ __all__ = [
     "SBWResult",
     "psmatch2",
     "PSMatch2Result",
+    "PSTestResult",
 ]
