@@ -2780,6 +2780,24 @@ def _build_registry() -> None:
                 ParamSpec(
                     "results", "list", True, description="List of EconometricResults"
                 ),
+                ParamSpec(
+                    "fmt",
+                    "str|int",
+                    False,
+                    None,
+                    "Numeric precision, shared vocabulary with sp.regtable: "
+                    "'auto' (default) pairs an estimate with its own SE, an "
+                    "int N or '%.Nf' fixes decimals, 'r3'/'s3' are R fixest's "
+                    "round / significant-digit spellings",
+                ),
+                ParamSpec(
+                    "digits",
+                    "int",
+                    False,
+                    None,
+                    "Int alias for fmt: digits=3 is fmt='%.3f'. "
+                    "Passing both fmt and digits raises",
+                ),
             ],
             returns="DataFrame",
             example="sp.modelsummary([r1, r2, r3])",
@@ -3061,6 +3079,24 @@ def _build_registry() -> None:
                     "Show confidence intervals instead of SE",
                 ),
                 ParamSpec("alpha", "float", False, 0.05, "CI level when ci=True"),
+                ParamSpec(
+                    "fmt",
+                    "str|int",
+                    False,
+                    None,
+                    "Numeric precision, shared vocabulary with sp.regtable: "
+                    "'auto' (default) pairs an estimate with its own SE, an "
+                    "int N or '%.Nf' fixes decimals, 'r3'/'s3' are R fixest's "
+                    "round / significant-digit spellings",
+                ),
+                ParamSpec(
+                    "digits",
+                    "int",
+                    False,
+                    None,
+                    "Int alias for fmt: digits=3 is fmt='%.3f'. "
+                    "Passing both fmt and digits raises",
+                ),
             ],
             returns="EstimateTableResult",
             example="sp.eststo(m1); sp.eststo(m2); sp.esttab()",

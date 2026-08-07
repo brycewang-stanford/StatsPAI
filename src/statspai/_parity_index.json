@@ -942,6 +942,7 @@
         "tests/reference_parity/test_cs_base_period_parity.py",
         "tests/reference_parity/test_cs_inference_parity.py",
         "tests/reference_parity/test_cs_rcs_parity.py",
+        "tests/reference_parity/test_csdid_conventions_stata_parity.py",
         "tests/reference_parity/test_fect_equivalence_parity.py",
         "tests/reference_parity/test_honest_did_backend_parity.py",
         "tests/reference_parity/test_staggered_rollout_parity.py"
@@ -1935,6 +1936,12 @@
       "tolerance": "centrality 1e-12 abs (observed 0)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_sasp_within_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "demean",
       "headline": {
         "metric": "rel_est",
@@ -2110,6 +2117,8 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_bjs_fe_covariates_parity.py",
+        "tests/reference_parity/test_bjs_project_parity.py",
         "tests/reference_parity/test_did_variants_parity.py"
       ],
       "also_verified_by": [
@@ -2212,6 +2221,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_multiplegt_dyn_options_parity.py",
         "tests/reference_parity/test_multiplegt_dyn_parity.py"
       ],
       "also_verified_by": [
@@ -2965,7 +2975,8 @@
         "tests/r_parity/15_hdfe_cluster.R",
         "tests/stata_parity/15_hdfe_cluster.do",
         "tests/reference_parity/test_castle_stata_parity.py",
-        "tests/reference_parity/test_feols_wild_boottest_parity.py"
+        "tests/reference_parity/test_feols_wild_boottest_parity.py",
+        "tests/reference_parity/test_sasp_within_parity.py"
       ],
       "also_in_modules": [
         "15_hdfe_cluster"
@@ -4712,7 +4723,9 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_castle_stata_parity.py",
-        "tests/reference_parity/test_texas_synth_parity.py"
+        "tests/reference_parity/test_sasp_within_parity.py",
+        "tests/reference_parity/test_texas_synth_parity.py",
+        "tests/reference_parity/test_thornton_ri_parity.py"
       ],
       "tolerance": ""
     },
@@ -4913,6 +4926,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_absorbing_reference.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "lprobust_at_point",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_lprobust_parity.py"
       ],
       "tolerance": ""
     },
@@ -7726,7 +7756,9 @@
         "tests/reference_parity/test_panel_bias_reduced_parity.py",
         "tests/reference_parity/test_postestimation_parity.py",
         "tests/reference_parity/test_recovery_batch2_parity.py",
-        "tests/reference_parity/test_regress_weights_iv_robust_parity.py"
+        "tests/reference_parity/test_regress_weights_iv_robust_parity.py",
+        "tests/reference_parity/test_sasp_within_parity.py",
+        "tests/reference_parity/test_thornton_ri_parity.py"
       ],
       "also_in_modules": [
         "14_ols_cluster",
@@ -7824,7 +7856,9 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_castle_stata_parity.py",
-        "tests/reference_parity/test_texas_synth_parity.py"
+        "tests/reference_parity/test_sasp_within_parity.py",
+        "tests/reference_parity/test_texas_synth_parity.py",
+        "tests/reference_parity/test_thornton_ri_parity.py"
       ],
       "tolerance": ""
     },
@@ -7866,7 +7900,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_recovery_batch2_parity.py"
+        "tests/reference_parity/test_recovery_batch2_parity.py",
+        "tests/reference_parity/test_thornton_ri_parity.py"
       ],
       "tolerance": ""
     },
@@ -8863,6 +8898,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_sunab_control_cohort_parity.py",
         "tests/reference_parity/test_sunab_did2s_mpdta_parity.py"
       ],
       "also_verified_by": [

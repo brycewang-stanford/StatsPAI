@@ -65,6 +65,25 @@ class LProbustPoint:
     Attributes mirror ``lprobust``'s ``e(Result)`` columns so a reader can
     line the two up: ``tau_us`` is column 5, ``tau_bc`` column 6,
     ``se_us`` column 7, ``se_rb`` column 8.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> x = rng.uniform(-1, 1, 500)
+    >>> y = np.sin(2 * x) + rng.normal(0, 0.3, 500)
+    >>> point = sp.lprobust_at_point(x=x, y=y, eval_point=0.0, h=0.5)
+    >>> type(point).__name__
+    'LProbustPoint'
+    >>> point.n_eff                      # observations inside the bandwidth
+    248
+
+    The robust bias-corrected standard error is wider than the conventional
+    one, because it also carries the variance of the estimated bias:
+
+    >>> bool(point.se_rb > point.se_us)
+    True
     """
 
     eval_point: float

@@ -3370,6 +3370,14 @@
       "name": "modelsummary",
       "parameters": {
         "properties": {
+          "digits": {
+            "description": "Int alias for fmt: digits=3 is fmt='%.3f'. Passing both fmt and digits raises",
+            "type": "integer"
+          },
+          "fmt": {
+            "description": "Numeric precision, shared vocabulary with sp.regtable: 'auto' (default) pairs an estimate with its own SE, an int N or '%.Nf' fixes decimals, 'r3'/'s3' are R fixest's round / significant-digit spellings",
+            "type": "integer"
+          },
           "results": {
             "description": "List of EconometricResults",
             "items": {
@@ -3670,6 +3678,14 @@
             "default": false,
             "description": "Show confidence intervals instead of SE",
             "type": "boolean"
+          },
+          "digits": {
+            "description": "Int alias for fmt: digits=3 is fmt='%.3f'. Passing both fmt and digits raises",
+            "type": "integer"
+          },
+          "fmt": {
+            "description": "Numeric precision, shared vocabulary with sp.regtable: 'auto' (default) pairs an estimate with its own SE, an int N or '%.Nf' fixes decimals, 'r3'/'s3' are R fixest's round / significant-digit spellings",
+            "type": "integer"
           },
           "results": {
             "description": "Models; falls back to global eststo store",
