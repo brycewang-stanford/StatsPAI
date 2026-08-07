@@ -125,35 +125,53 @@ def _kernel_weights(u: np.ndarray, kernel: str) -> np.ndarray:
 
 
 def _nn_residuals(x: np.ndarray, y: np.ndarray, n_neighbors: int) -> np.ndarray:
-    """Abadie-Imbens nearest-neighbour residuals.
+    """Abadie-Imbens nearest-neighbour residuals, ties consumed whole.
 
-    ``r_i = sqrt(J/(J+1)) * (y_i - mean of y over i's J nearest x)``.
+    ``r_i = sqrt(J/(J+1)) * (y_i - mean of y over i's J nearest x)``,
+    estimating the conditional variance without fitting a mean function
+    so the variance does not inherit the smoothing bias it describes.
 
-    This estimates the conditional variance without fitting a mean
-    function, so the variance does not inherit the smoothing bias it is
-    meant to describe. The ``sqrt(J/(J+1))`` factor makes ``r_i^2``
-    unbiased for ``sigma^2(x_i)`` under local constancy.
+    **Tied x values are not a corner case here.** In a
+    heterogeneous-adoption design the true stayers all sit at dose
+    exactly 0, so the mass point at the evaluation point is typically the
+    largest group in the sample. A plain k-NN search picks an arbitrary
+    ``J`` of them and gets a different variance than the reference: on
+    the ``did_had`` fixture, 25 tied groups out of 300 moved the standard
+    error by 3-6% while the point estimate was still exact to 2e-9.
 
-    Ties are broken by ``argpartition``'s ordering, matching how the
-    reference walks equally distant neighbours; with duplicated ``x`` the
-    choice among tied neighbours does not change the mean when their
-    outcomes are exchangeable, and does change it otherwise — see the
-    masspoints caveat in the reference's documentation.
+    ``rdrobust``/``nprobust`` instead consume a whole tie group at a
+    time. That algorithm already lives in ``rd/_cct_bandwidth.py``, is
+    pinned against ``rdrobust`` there, and is reused rather than
+    reimplemented (CLAUDE.md §4).
     """
     n = len(x)
-    j = min(n_neighbors, n - 1)
-    if j < 1:
+    if min(n_neighbors, n - 1) < 1:
         raise ValueError(
             "nearest-neighbour residuals need at least two observations "
             f"inside the bandwidth; got {n}."
         )
+    from ..rd._cct_bandwidth import _nn_residuals as _rd_nn_residuals
+
+    order = np.argsort(x, kind="mergesort")
+    xs, ys = x[order], y[order]
+
+    # Run lengths of tied x, and the 1-based position within each run --
+    # the two arrays rdrobust's residual walker needs.
+    dups = np.empty(n, dtype=int)
+    dupsid = np.empty(n, dtype=int)
+    i = 0
+    while i < n:
+        j = i
+        while j + 1 < n and xs[j + 1] == xs[i]:
+            j += 1
+        run = j - i + 1
+        dups[i : j + 1] = run
+        dupsid[i : j + 1] = np.arange(1, run + 1)
+        i = j + 1
+
+    res_sorted = _rd_nn_residuals(xs, ys, dups, dupsid, n_neighbors)
     out = np.empty(n, dtype=float)
-    scale = np.sqrt(j / (j + 1.0))
-    for i in range(n):
-        dist = np.abs(x - x[i])
-        dist[i] = np.inf
-        nb = np.argpartition(dist, j - 1)[:j]
-        out[i] = scale * (y[i] - y[nb].mean())
+    out[order] = res_sorted
     return out
 
 
