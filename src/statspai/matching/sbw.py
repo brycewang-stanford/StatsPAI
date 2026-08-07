@@ -112,6 +112,12 @@ class SBWResult(CausalResult):
         self.weights = np.asarray(weights, dtype=float)
         self.effective_sample_size = float(effective_sample_size)
         self.balance = balance
+        #: ``'optimal'`` when SLSQP converged, otherwise a message naming
+        #: why it did not.  The returned weights are feasible either way --
+        #: ``_solve_sbw`` raises if the balance constraints are violated --
+        #: but a run that only converged after the loosened-ftol retry is
+        #: worth knowing about.  Before v1.22 this field held the *estimand*
+        #: string, which made it useless for its stated purpose.
         self.solver_status = str(solver_status)
 
 
@@ -265,26 +271,29 @@ def sbw(
     # ── Solve weights per estimand ────────────────────────────────────
     if estimand == "att":
         target = X[T == 1].mean(axis=0)
-        w = _solve_sbw(X[T == 0], target, tol_vec, objective, solver_options)
+        w, solver_status = _solve_sbw(
+            X[T == 0], target, tol_vec, objective, solver_options
+        )
         weights_full = np.zeros(n)
         weights_full[T == 0] = w
         weights_full[T == 1] = 1.0 / n_t
-        solver_status = "att"
     elif estimand == "atc":
         target = X[T == 0].mean(axis=0)
-        w = _solve_sbw(X[T == 1], target, tol_vec, objective, solver_options)
+        w, solver_status = _solve_sbw(
+            X[T == 1], target, tol_vec, objective, solver_options
+        )
         weights_full = np.zeros(n)
         weights_full[T == 1] = w
         weights_full[T == 0] = 1.0 / n_c
-        solver_status = "atc"
     else:  # ate
         target = X.mean(axis=0)
-        w_t = _solve_sbw(X[T == 1], target, tol_vec, objective, solver_options)
-        w_c = _solve_sbw(X[T == 0], target, tol_vec, objective, solver_options)
+        w_t, st_t = _solve_sbw(X[T == 1], target, tol_vec, objective, solver_options)
+        w_c, st_c = _solve_sbw(X[T == 0], target, tol_vec, objective, solver_options)
         weights_full = np.zeros(n)
         weights_full[T == 1] = w_t
         weights_full[T == 0] = w_c
-        solver_status = "ate"
+        # Two solves; report the worse of the two.
+        solver_status = st_t if st_t != "optimal" else st_c
 
     # ── Balance diagnostics ───────────────────────────────────────────
     bal = _balance_table(X, T, weights_full, cov_names, estimand)
@@ -448,7 +457,12 @@ def _solve_sbw(
             f"SBW infeasible at delta; max constraint violation = {viol:.4g}. "
             "Loosen `delta` or check for perfect separation in covariates."
         )
-    return w
+    # The weights are feasible either way -- the check above guarantees it --
+    # but whether SLSQP itself converged is worth reporting rather than
+    # discarding: a solution that only became feasible after the loosened-ftol
+    # retry is a weaker one than a clean first-pass solve.
+    status = "optimal" if res.success else f"feasible-not-converged: {res.message}"
+    return w, status
 
 
 # ═══════════════════════════════════════════════════════════════════════
