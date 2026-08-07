@@ -49,6 +49,7 @@ Rubin, D.B. (2001). Health Services and Outcomes Research Methodology,
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -121,10 +122,23 @@ def _probit_index_and_fit(
     Xd = sm.add_constant(np.asarray(X, dtype=float), has_constant="add")
     weights = None if w is None else np.asarray(w, dtype=float)
     fam = sm.families.Binomial(link=sm.families.links.Probit())
+    from statsmodels.tools.sm_exceptions import PerfectSeparationError
+
     try:
         full = sm.GLM(y, Xd, family=fam, freq_weights=weights).fit()
         null = sm.GLM(y, Xd[:, :1], family=fam, freq_weights=weights).fit()
-    except Exception:
+    except (PerfectSeparationError, np.linalg.LinAlgError, ValueError) as exc:
+        # Separation or a singular design means Rubin's B/R are undefined
+        # here. Returning NaN silently would read as "balance not computed"
+        # when the truth is "the balance probit would not fit".
+        warnings.warn(
+            f"pstest: the balance probit did not fit ({type(exc).__name__}: "
+            f"{exc}); Rubin's B, Rubin's R and the pseudo-R2 are reported as "
+            f"NaN. This usually means a covariate perfectly separates the "
+            f"treatment or the design is singular.",
+            UserWarning,
+            stacklevel=3,
+        )
         return empty, nan, nan, nan
 
     def _ll(fit: Any) -> float:
