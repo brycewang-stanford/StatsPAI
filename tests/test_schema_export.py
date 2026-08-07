@@ -29,11 +29,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from statspai._schema_export import (
-    RESULT_AGENT_SCHEMA,
-    build_schemas,
-    render_files,
-)
+from statspai._schema_export import RESULT_AGENT_SCHEMA, build_schemas, render_files
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCHEMAS_DIR = REPO_ROOT / "schemas"
@@ -357,3 +353,27 @@ def test_committed_schemas_dir_is_in_sync():
     assert (
         res.returncode == 0
     ), f"schemas/ is stale:\nstdout={res.stdout!r}\nstderr={res.stderr!r}"
+
+
+def test_packaged_citation_cff_matches_the_root_one():
+    """The wheel ships its own CITATION.cff; it must not drift from the root.
+
+    ``src/statspai/CITATION.cff`` is packaged as ``statspai/CITATION.cff`` and
+    is what a user gets from an installed wheel. It sat at version 1.16.0
+    (dated 2026-05-29) from 2026-05-31 until 2026-08-07, so releases 1.17.0
+    through 1.21.0 each shipped citation metadata naming the wrong version.
+
+    The JSS formal-compliance audit does check citation metadata, but it reads
+    the *root* file, which was being kept current -- so the guard existed and
+    the packaged copy drifted behind it anyway. This test compares the two
+    directly, which is the thing that was never checked.
+    """
+    root = (REPO_ROOT / "CITATION.cff").read_text(encoding="utf-8")
+    packaged = (REPO_ROOT / "src" / "statspai" / "CITATION.cff").read_text(
+        encoding="utf-8"
+    )
+    assert packaged == root, (
+        "src/statspai/CITATION.cff has drifted from the root CITATION.cff; "
+        "copy the root file over it so the wheel ships correct citation "
+        "metadata"
+    )
