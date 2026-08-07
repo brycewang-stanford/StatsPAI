@@ -4711,7 +4711,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_castle_stata_parity.py"
+        "tests/reference_parity/test_castle_stata_parity.py",
+        "tests/reference_parity/test_texas_synth_parity.py"
       ],
       "tolerance": ""
     },
@@ -7822,7 +7823,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_castle_stata_parity.py"
+        "tests/reference_parity/test_castle_stata_parity.py",
+        "tests/reference_parity/test_texas_synth_parity.py"
       ],
       "tolerance": ""
     },
@@ -9140,7 +9142,8 @@
         "tests/stata_parity/07_scm.do",
         "tests/external_parity/test_published_replications.py",
         "tests/reference_parity/test_scm_recovery.py",
-        "tests/reference_parity/test_synth_parity.py"
+        "tests/reference_parity/test_synth_parity.py",
+        "tests/reference_parity/test_texas_synth_parity.py"
       ],
       "also_in_modules": [
         "07_scm"
@@ -9193,6 +9196,23 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "synthdid_estimate",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_texas_synth_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "tF_critical_value",

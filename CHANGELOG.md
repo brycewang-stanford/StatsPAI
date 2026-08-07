@@ -6,6 +6,7 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+
 - **`sp.aggte` and `sp.callaway_santanna` standard errors were too small.**
   The Callaway–Sant'Anna aggregation weights are *estimated* cohort shares
   `p̂_g = P̂(G = g)`, but the variance treated them as fixed — dropping the
@@ -65,7 +66,42 @@ All notable changes to StatsPAI will be documented in this file.
   nonzero estimate as an exact zero. Values at or above `0.001` are
   unaffected.
 
+
+- **`sp.regress` / `sp.ivreg` silently ignored `vcov=`, returning
+  unclustered standard errors.** The pyfixest spelling a user carries
+  over from `sp.feols` — `vcov={"CRV1": "firm"}` or `vcov="hetero"` —
+  fell through `**kwargs` into `fit()` and was dropped on the floor. No
+  warning: the call succeeded and reported default SEs. In a 15-cluster
+  example the reported SE was 0.109 where the clustered value is 0.063,
+  i.e. **1.7× too small**. `vcov=` is now a canonical alias honoured by
+  both functions (`CRV1`/`CRV2`/`CRV3` map to `cluster=` and the
+  matching small-sample correction; `iid`/`hetero`/`HC0`–`HC3` map to
+  `robust=`), and supplying it alongside a conflicting `robust=` /
+  `cluster=` / `vce=` raises instead of silently preferring one.
+  Anyone who passed `vcov=` to `sp.regress` or `sp.ivreg` should re-run:
+  the previously reported standard errors were wrong.
+
+- **`sp.regress` / `sp.ivreg` silently swallowed *any* unrecognised
+  keyword.** A misspelled `robsut="hc1"` produced default standard
+  errors with no error. Both now raise `TypeError`, matching `sp.feols`
+  and `sp.did_2x2`, which already did.
+
+- **Durbin-Wu-Hausman endogeneity test was NaN or silently wrong for
+  integer-typed endogenous regressors.** `_hausman_test` accumulated
+  first-stage residuals into `np.empty_like(X_endog)`, which inherits
+  the *input* dtype. With a 0/1 integer treatment — the common case,
+  and exactly what `sp.ivreg("y ~ (d ~ z)")` receives from a
+  `.astype(int)` column — the residuals truncated to all-zero, the
+  augmented design went singular, and the reported statistic was `NaN`.
+  With integer counts the truncation was partial and produced a
+  **finite but wrong** F (4971.6 against a correct 5316.7) with nothing
+  to signal it. Now computed in float regardless of input dtype; the
+  float path is bit-identical to before. The same buffer pattern was
+  hardened in the JIVE estimators, whose public wrappers already cast
+  upstream (no numeric change there).
+
 ### Added
+
 
 - **One precision vocabulary across every exporter**, borrowed from the
   spellings Stata and R users already type. `sp.regtable`, `sp.esttab`,
@@ -104,6 +140,7 @@ All notable changes to StatsPAI will be documented in this file.
   omitted precision entirely, so agents had no way to discover the knob.
 
 ### Changed
+
 
 - **`sp.regtable` defaults to `fmt="auto"`** (was `"%.3f"`), and
   `sp.esttab` / `sp.modelsummary` follow it (both were `"%.4f"`). For
@@ -211,7 +248,6 @@ All notable changes to StatsPAI will be documented in this file.
   inconsistency (it hard-coded the R index under a comment claiming it was
   the Python one) and now checks the observation all three sides share.
 
-### Changed
 
 - **Every remaining `STATA_SKIP_REASON` re-measured.** Three reasons
   asserted that a package was "not installed in the verified local
@@ -299,42 +335,6 @@ All notable changes to StatsPAI will be documented in this file.
   random-assignment baselines. Accepts raw arrays, CATE-bearing
   results, or fitted forests.
 
-### ⚠️ Correctness
-
-- **`sp.regress` / `sp.ivreg` silently ignored `vcov=`, returning
-  unclustered standard errors.** The pyfixest spelling a user carries
-  over from `sp.feols` — `vcov={"CRV1": "firm"}` or `vcov="hetero"` —
-  fell through `**kwargs` into `fit()` and was dropped on the floor. No
-  warning: the call succeeded and reported default SEs. In a 15-cluster
-  example the reported SE was 0.109 where the clustered value is 0.063,
-  i.e. **1.7× too small**. `vcov=` is now a canonical alias honoured by
-  both functions (`CRV1`/`CRV2`/`CRV3` map to `cluster=` and the
-  matching small-sample correction; `iid`/`hetero`/`HC0`–`HC3` map to
-  `robust=`), and supplying it alongside a conflicting `robust=` /
-  `cluster=` / `vce=` raises instead of silently preferring one.
-  Anyone who passed `vcov=` to `sp.regress` or `sp.ivreg` should re-run:
-  the previously reported standard errors were wrong.
-
-- **`sp.regress` / `sp.ivreg` silently swallowed *any* unrecognised
-  keyword.** A misspelled `robsut="hc1"` produced default standard
-  errors with no error. Both now raise `TypeError`, matching `sp.feols`
-  and `sp.did_2x2`, which already did.
-
-- **Durbin-Wu-Hausman endogeneity test was NaN or silently wrong for
-  integer-typed endogenous regressors.** `_hausman_test` accumulated
-  first-stage residuals into `np.empty_like(X_endog)`, which inherits
-  the *input* dtype. With a 0/1 integer treatment — the common case,
-  and exactly what `sp.ivreg("y ~ (d ~ z)")` receives from a
-  `.astype(int)` column — the residuals truncated to all-zero, the
-  augmented design went singular, and the reported statistic was `NaN`.
-  With integer counts the truncation was partial and produced a
-  **finite but wrong** F (4971.6 against a correct 5316.7) with nothing
-  to signal it. Now computed in float regardless of input dtype; the
-  float path is bit-identical to before. The same buffer pattern was
-  hardened in the JIVE estimators, whose public wrappers already cast
-  upstream (no numeric change there).
-
-### Changed
 
 - **Event-study rows lost their event time in `tidy()`.** Every row of
   a dynamic `sp.aggte(..., type="dynamic")` result was labelled
@@ -376,6 +376,7 @@ All notable changes to StatsPAI will be documented in this file.
   `model_info` keys such as `_pscore` no longer leak into the footer.
 
 ### Fixed
+
 
 - **`sp.rd_honest`'s schema advertised an option the function rejects.**
   The registry listed `opt_criterion` choices as `["mse", "fwer"]`, but the
