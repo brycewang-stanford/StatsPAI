@@ -296,6 +296,25 @@ package — not inferred:
   not reuse psmatch2's logit propensity score; substituting `logit(_pscore)`
   reproduces every per-covariate row while leaving Rubin's B 5.6% out.
 
+**`sp.overlap_weights` — the generalized weighting family**
+(`test_overlap_weights_r_parity.py`). Frozen R fixture from
+`WeightIt::weightit(..., method = "glm", estimand = E)` on a committed
+400-row DGP, covering all four estimands that share one propensity fit:
+ATO 2.5e-14, ATE 4.1e-14, ATT 2.3e-14, ATC 4.1e-14 (relative). The
+propensity score itself matches R's `glm(family = binomial)` to 2.6e-14
+absolute.
+
+The fixture exists because it caught a real inconsistency: `overlap_weights`
+fitted `sklearn.LogisticRegression(C=1e6)` — a *penalised* likelihood however
+large `C` is — while `sp.match` / `sp.psmatch2` had always used the
+unpenalised Newton-Raphson MLE. The same data therefore received two
+different propensity scores depending on which StatsPAI function was called,
+and the overlap-weight theory (Li, Morgan & Zaslavsky 2018) is derived at the
+score equations of the *unpenalised* logit — its exact-balance property does
+not survive regularisation. The penalised fit sat 8.5e-06 from R and pushed
+all four estimands ~1e-6 off `WeightIt`; the MLE agrees to ~1e-14. A test
+pins the size of the old defect so a revert cannot pass silently.
+
 ## What the tests verify
 
 ### Recovery tests

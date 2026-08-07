@@ -208,6 +208,32 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "moment gap ~1e-15) where ebal stops around 1e-7."
         ),
     },
+    "overlap_weights": {
+        "status": "bit-exact",
+        "reference": "WeightIt::weightit 1.7.0 (method='glm'), R 4.5.2",
+        "reference_versions": {"R": "4.5.2", "WeightIt": "1.7.0"},
+        "tolerance": (
+            "All four estimands of the shared-propensity family (Li, Li & "
+            "Li 2019 Table 1) relative to WeightIt: ATO 2.5e-14, ATE "
+            "4.1e-14, ATT 2.3e-14, ATC 4.1e-14. The propensity score itself "
+            "matches R glm(family=binomial) to 2.6e-14 absolute."
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_overlap_weights_r_parity.py",
+            "tests/reference_parity/_fixtures/overlap_weights_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture. Promoting this required fixing the estimator: "
+            "overlap_weights fitted a *penalised* logit "
+            "(sklearn LogisticRegression C=1e6) while the rest of the "
+            "matching module used the unpenalised MLE, so one package gave "
+            "two propensity scores for the same specification. The "
+            "overlap-weight exact-balance property is derived at the "
+            "unpenalised score equations, so this was a theory mismatch, not "
+            "only a parity gap."
+        ),
+    },
     "psmatch2": {
         "status": "bit-exact",
         "reference": (

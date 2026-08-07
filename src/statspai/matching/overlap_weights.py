@@ -180,11 +180,26 @@ def overlap_weights(
 
 
 def _logit_pscore(X: np.ndarray, T: np.ndarray) -> np.ndarray:
-    from sklearn.linear_model import LogisticRegression
+    """Unpenalised logistic propensity score, shared with :func:`sp.match`.
 
-    m = LogisticRegression(max_iter=1000, solver="lbfgs", C=1e6)
-    m.fit(X, T)
-    p = m.predict_proba(X)[:, 1]
+    This used to fit ``sklearn.LogisticRegression(C=1e6)``, which is a
+    *penalised* likelihood however large ``C`` is.  Two consequences, both
+    undesirable: the same data got a different propensity score from
+    ``sp.overlap_weights`` than from ``sp.match`` / ``sp.psmatch2`` (which
+    have always used the Newton-Raphson MLE), and the overlap-weight theory
+    being implemented (Li, Morgan & Zaslavsky 2018) is derived for the
+    maximum-likelihood fit -- its exact-balance property holds at the score
+    equations of the *unpenalised* logit.
+
+    Measured against R's ``glm(family = binomial)`` on the committed
+    fixture: the penalised fit was off by 8.5e-06 on the propensity score
+    and drove the ATO/ATE/ATT/ATC estimates ~1e-6 away from
+    ``WeightIt::weightit``; the MLE agrees to 2.6e-14 and 1e-14
+    respectively.
+    """
+    from .match import MatchEstimator
+
+    p = MatchEstimator._logit_propensity(X, T, poly=1)
     return np.asarray(np.clip(p, 1e-8, 1 - 1e-8), dtype=float)
 
 
