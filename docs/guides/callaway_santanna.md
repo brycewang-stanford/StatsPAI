@@ -85,11 +85,18 @@ Option mapping:
 | `clustervars=['id', 'state']` | `clustervars=c("id", "state")` | `cluster(state)` |
 | `boot_weight_type='mammen'` | — (R draws Rademacher) | `wbtype(mammen)` |
 
-Note StatsPAI defaults to `bstrap=False` (analytic delta-method SEs) so
-existing results are unchanged — pass `bstrap=True` for exact R-default
-behaviour. The default multiplier weights are Rademacher (±1) because
-that is what R `did` actually draws (`BMisc::multiplier_bootstrap`),
-its Mammen citation notwithstanding.
+Note StatsPAI defaults to `bstrap=False`, R `did` to `bstrap=TRUE`. The
+two are different estimators of the same variance, so compare like with
+like: StatsPAI's analytic path reproduces R's **analytic** standard
+errors (`aggte(..., bstrap=FALSE)`) exactly, and `bstrap=True`
+reproduces R's default bootstrap up to the draw. These are
+influence-function standard errors, not a delta-method approximation —
+the aggregation carries both the covariance between ATT(g, t) cells and
+the sampling variability of the estimated cohort-share weights.
+
+The default multiplier weights are Rademacher (±1) because that is what
+R `did` actually draws (`BMisc::multiplier_bootstrap`), its Mammen
+citation notwithstanding.
 
 ### Two-level clustering
 
