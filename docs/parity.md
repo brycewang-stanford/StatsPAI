@@ -27,8 +27,7 @@ sp.parity_summary()           # honest coverage counts
 | --- | ---: |
 | bit-exact | 145 |
 | aligned | 16 |
-| analytical-only | 221 |
-| analytical-only | 215 |
+| analytical-only | 220 |
 | external-replication | 6 |
 | **verified (subtotal)** | **387** |
 | unverified | 774 |
@@ -222,8 +221,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 221 functions
-## analytical-only — 215 functions
+## analytical-only — 220 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
