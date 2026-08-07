@@ -71,6 +71,8 @@ from ..synth.datasets import basque_terrorism
 from ..synth.datasets import california_tobacco as _california_tobacco_simulated
 from ..synth.datasets import german_reunification
 from ._canonical import (
+    SASP_COVARIATES,
+    SASP_TIME_INVARIANT,
     _load_bundled_csv,
     angrist_krueger_1991,
     card_1995,
@@ -81,7 +83,9 @@ from ._canonical import (
     nhefs,
     nsw_dw,
     nsw_lalonde,
+    sasp_panel,
     texas_prison,
+    thornton_hiv,
 )
 
 # Data-source ingestion normalisers (World Bank / FRED / OECD-Eurostat SDMX).
@@ -166,6 +170,8 @@ _DEFAULT_SOURCE = {
     "nhefs": "bundled CSV",
     "castle_doctrine": "bundled CSV",
     "texas_prison": "bundled CSV",
+    "sasp_panel": "bundled CSV",
+    "thornton_hiv": "bundled CSV",
 }
 
 
@@ -283,6 +289,22 @@ def list_datasets() -> pd.DataFrame:
             "REAL data: mean 1994-2000 gap 23,779 vs Stata synth 23,074 (~3%)",
         ),
         (
+            "sasp_panel",
+            "panel FE (real)",
+            1787,
+            "Cunningham & Kendall (2011), JUE 69(3)",
+            "Within-provider unsafe-sex premium; Mixtape Ch. 8",
+            "REAL data: pooled 0.0134 vs within 0.0510 = Stata to ~5e-10",
+        ),
+        (
+            "thornton_hiv",
+            "RCT / randomization inference (real)",
+            4820,
+            "Thornton (2008), AER 98(5)",
+            "Cash incentive raises HIV-result collection by ~45 pts",
+            "REAL data: SDO 0.450552 = Stata exactly; RI p = 0",
+        ),
+        (
             "nhefs",
             "g-methods (real)",
             1629,
@@ -315,6 +337,10 @@ __all__ = [
     "angrist_krueger_1991",
     "castle_doctrine",
     "texas_prison",
+    "sasp_panel",
+    "SASP_COVARIATES",
+    "SASP_TIME_INVARIANT",
+    "thornton_hiv",
     "california_prop99",
     "basque_terrorism",
     "german_reunification",

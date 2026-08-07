@@ -149,6 +149,27 @@ All notable changes to StatsPAI will be documented in this file.
   where fixed precision was actually wrong: a dollar-magnitude coefficient
   now reads `2,108*** (472)` instead of `2108.412*** (471.938)`.
 
+- **SASP within-transformation replication: `sp.datasets.sasp_panel()` and
+  `sp.replicate('sasp_within')`.** The real Survey of Adult Service
+  Providers session panel (Cunningham & Kendall 2011, JUE 69(3)), used in
+  Chapter 8 of the *Mixtape* to teach fixed effects. `analytic_sample=True`
+  applies the book's recipe (complete cases, then providers with exactly
+  four sessions — 1028 rows, 257 providers). All three routes match
+  **Stata 18 MP** to ~5e-10: pooled OLS 0.013407 (HC1 0.028300), within
+  0.051034 (cluster 0.028283), and manual demeaning via `sp.demean`, which
+  reproduces `xtreg, fe` *exactly* — standard error included. Ships
+  `SASP_COVARIATES` and `SASP_TIME_INVARIANT`: twelve provider-level
+  controls have no within variation and are annihilated by demeaning.
+  `tests/reference_parity/test_sasp_within_parity.py`.
+
+- **Thornton (2008) randomization-inference replication:
+  `sp.datasets.thornton_hiv()` and `sp.replicate('thornton_2008')`.** The
+  real Malawi HIV-incentive experiment (AER 98(5)). Group means, the
+  simple difference (0.450551852) and the HC1 OLS standard error
+  (0.020857971) all match **Stata 18 MP** exactly, and `sp.ri_test`
+  returns the same statistic with a permutation p-value.
+  `tests/reference_parity/test_thornton_ri_parity.py`.
+
 - **Texas prison-expansion replication: `sp.datasets.texas_prison()` and
   `sp.replicate('texas_1993')`.** The real 51-state × 16-year panel
   (1985–2000) behind Chapter 10 of Cunningham's *Causal Inference: The
@@ -377,6 +398,15 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **`sp.ri_test` dropped rows with missing values silently.** Passing
+  `cluster=` where the cluster id is itself missing shrank the sample
+  without saying so, and the observed statistic then referred to a
+  different subsample than the unclustered call — which reads as a
+  discrepancy rather than a smaller sample. On Thornton (2008) four of
+  2834 rows have no village id, moving the statistic from 0.450552 to
+  0.451982. It now warns with the counts, matching what
+  `sp.callaway_santanna` already did. No numbers change; the drop was
+  always happening.
 
 - **`sp.rd_honest`'s schema advertised an option the function rejects.**
   The registry listed `opt_criterion` choices as `["mse", "fwer"]`, but the

@@ -24,14 +24,15 @@ Hodges, J.L. and Lehmann, E.L. (1963).
 *Annals of Mathematical Statistics*, 34(2), 598-611. [@hodges1963estimates]
 """
 
+import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..core.results import CausalResult
 from .._result_serialize import ResultProtocolMixin
+from ..core.results import CausalResult
 
 StatFn = Callable[[np.ndarray, np.ndarray], float]
 Permuter = Callable[[], np.ndarray]
@@ -516,7 +517,22 @@ def ri_test(
     df = data[[y, treat]].copy()
     if cluster:
         df["_cluster"] = data[cluster].values
+    n_before = len(df)
     df = df.dropna()
+    n_dropped = n_before - len(df)
+    if n_dropped:
+        cols = [y, treat] + ([cluster] if cluster else [])
+        na_counts = {c: int(data[c].isna().sum()) for c in cols if data[c].isna().any()}
+        warnings.warn(
+            f"ri_test: dropped {n_dropped} of {n_before} rows with NaN in an "
+            f"estimation column (NaN counts by column: {na_counts}). The "
+            "randomization distribution is built on the remaining rows, so "
+            "the observed statistic refers to that subsample — passing "
+            "cluster= can shrink the sample further when the cluster id is "
+            "itself missing.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     Y = df[y].values.astype(float)
     D = df[treat].values.astype(float)

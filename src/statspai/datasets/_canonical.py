@@ -1134,3 +1134,272 @@ def texas_prison() -> pd.DataFrame:
         "estimated effect agrees to ~3%.  See the loader docstring."
     )
     return df
+
+
+# ---------------------------------------------------------------------------
+# SASP — sex-worker session panel — the within transformation
+# ---------------------------------------------------------------------------
+
+#: The book's session-level controls, in the order ``Do/sasp.do`` lists them.
+SASP_COVARIATES = (
+    "age",
+    "asq",
+    "bmi",
+    "hispanic",
+    "black",
+    "other",
+    "asian",
+    "schooling",
+    "cohab",
+    "married",
+    "divorced",
+    "separated",
+    "age_cl",
+    "unsafe",
+    "llength",
+    "reg",
+    "asq_cl",
+    "appearance_cl",
+    "provider_second",
+    "asian_cl",
+    "black_cl",
+    "hispanic_cl",
+    "othrace_cl",
+    "hot",
+    "massage_cl",
+)
+
+#: Provider-level characteristics that the within transformation annihilates —
+#: they do not vary across a provider's four sessions.
+SASP_TIME_INVARIANT = (
+    "age",
+    "asq",
+    "bmi",
+    "hispanic",
+    "black",
+    "other",
+    "asian",
+    "schooling",
+    "cohab",
+    "married",
+    "divorced",
+    "separated",
+)
+
+
+def sasp_panel(analytic_sample: bool = False) -> pd.DataFrame:
+    """SASP sex-worker session panel — **real** data.
+
+    The Survey of Adult Service Providers, collected by Cunningham &
+    Kendall [@cunningham2011prostitution]: sex workers reporting on
+    individual client sessions, with the log hourly wage (``lnw``) and
+    whether the session involved unprotected sex (``unsafe``).  Chapter 8
+    of Cunningham's *Causal Inference: The Mixtape*
+    [@cunningham2021causal] uses it to teach the **within (fixed-effects)
+    transformation**: pooled OLS conflates who a provider *is* with what
+    she *does*, and only within-provider variation identifies the
+    compensating differential for unsafe sex.
+
+    Parameters
+    ----------
+    analytic_sample : bool, default False
+        If False, return the full survey (1787 rows).  If True, apply the
+        book's recipe: drop rows missing any modelling variable, then keep
+        only providers with exactly four sessions — 1028 rows, 257
+        providers, balanced.  Use this to reproduce the published numbers.
+
+    Returns
+    -------
+    pd.DataFrame
+        31 columns.  Key modelling variables:
+
+        ``id, session``      — provider and session identifiers
+        ``lnw``              — log hourly wage (the outcome)
+        ``unsafe``           — session involved unprotected sex
+        ``llength``          — log session length
+        ``age, bmi, schooling, black, hispanic, asian, other, married,``
+        ``cohab, divorced, separated``
+                             — provider characteristics (time-invariant)
+        ``age_cl, asq_cl, appearance_cl, asian_cl, black_cl,``
+        ``hispanic_cl, othrace_cl, reg, hot, massage_cl,``
+        ``provider_second`` — client / session characteristics
+
+    Notes
+    -----
+    **Twelve of the 25 controls are provider-level and drop out of the
+    within estimator** — see :data:`SASP_TIME_INVARIANT`.  Stata's
+    ``xtreg, fe`` omits them silently; StatsPAI raises
+    ``NumericalInstability`` if you hand demeaned constants to
+    ``sp.regress``, which is the intended behaviour: a regressor with no
+    within variation is not identified, and saying so is better than
+    quietly dropping it.
+
+    On the analytic sample, all three routes agree with Stata 18 MP to
+    ~5e-10 (see ``tests/reference_parity/test_sasp_within_parity.py``):
+
+    ============================== =========== ===========
+    specification                  b(unsafe)   SE
+    ============================== =========== ===========
+    pooled OLS, HC1                0.0134074   0.0283001
+    within (FE), cluster by id     0.0510339   0.0282831
+    manual demeaning, cluster id   0.0510339   0.0282831
+    ============================== =========== ===========
+
+    Pooled OLS puts the unsafe-sex premium at 1.3 log points; controlling
+    for the provider raises it to 5.1 — the selection runs the other way
+    from the naive reading, which is the chapter's point.  The manual
+    demeaning row reproduces ``xtreg, fe`` exactly, standard error
+    included, which is the algebraic identity the chapter is teaching.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> df = sp.datasets.sasp_panel(analytic_sample=True)
+    >>> fe = sp.feols('lnw ~ unsafe + llength + reg | id', data=df,
+    ...               vcov={'CRV1': 'id'})
+
+    References
+    ----------
+    Cunningham, S. & Kendall, T. D. (2011). Prostitution 2.0: The changing
+    face of sex work. *Journal of Urban Economics*, 69(3), 273-287.
+    [@cunningham2011prostitution]
+
+    Cunningham, S. (2021). *Causal Inference: The Mixtape*. Yale
+    University Press. [@cunningham2021causal]
+    """
+    df = _load_bundled_csv("sasp_panel.csv")
+
+    if analytic_sample:
+        df = df.dropna(subset=["lnw", *SASP_COVARIATES])
+        sizes = df.groupby("id")["session"].transform("size")
+        df = df[sizes == 4].reset_index(drop=True)
+
+    df.attrs["paper"] = (
+        "Cunningham, S. & Kendall, T. D. (2011). Prostitution 2.0: The "
+        "changing face of sex work. Journal of Urban Economics 69(3)."
+    )
+    df.attrs["doi"] = "10.1016/j.jue.2010.12.001"
+    df.attrs["data_source"] = "real"
+    df.attrs["simulated"] = False
+    df.attrs["analytic_sample"] = analytic_sample
+    df.attrs["source_origin"] = (
+        "sasp_panel.dta from Scott Cunningham's Causal Inference: The "
+        "Mixtape repository (MIT licensed).  Stata value labels are read "
+        "as their underlying numeric codes so the CSV is purely numeric."
+    )
+    # Stata 18 MP on the analytic sample (mixtape Do/sasp.do recipe).
+    df.attrs["stata_pooled_unsafe"] = (0.013407389, 0.028300101)
+    df.attrs["stata_fe_unsafe"] = (0.051033874, 0.028283095)
+    df.attrs["stata_demeaned_unsafe"] = (0.051033874, 0.028283095)
+    df.attrs["notes"] = (
+        "Real SASP session panel.  analytic_sample=True gives the book's "
+        "balanced 1028-row / 257-provider extract.  Twelve provider-level "
+        "controls are annihilated by the within transformation."
+    )
+    return df
+
+
+# ---------------------------------------------------------------------------
+# Thornton (2008) — HIV-status incentives — randomization inference
+# ---------------------------------------------------------------------------
+
+
+def thornton_hiv(complete_case: bool = False) -> pd.DataFrame:
+    """Thornton (2008) HIV-incentive experiment — **real** data.
+
+    A randomized experiment in rural Malawi [@thornton2008demand]:
+    respondents who had been tested for HIV were randomly offered a cash
+    incentive to collect their results at a nearby centre.  The
+    randomization makes this the Mixtape's worked example for
+    **randomization inference** — the Fisherian sharp-null test that
+    needs no asymptotics and no distributional assumption, only the
+    randomization that actually happened.
+
+    Parameters
+    ----------
+    complete_case : bool, default False
+        If False, return all 4820 survey rows.  If True, restrict to rows
+        with both ``got`` and ``any`` observed (n=2834) — the analysis
+        sample for the incentive effect.
+
+    Returns
+    -------
+    pd.DataFrame
+        17 columns, a modelling subset of the 133 in the published file:
+
+        ``got``        — collected HIV results (the outcome)
+        ``any``        — offered any cash incentive (the treatment)
+        ``tinc``       — incentive amount offered
+        ``under, over``— incentive below / above the sample median
+        ``distvct``    — distance to the results centre
+        ``villnum``    — village identifier (the randomization cluster)
+        ``hiv2004, age, male, mar, educ2004, simaverage,``
+        ``followupsurvey, usecondom04, rumphi, balaka``
+                       — respondent characteristics and study arms
+
+    Notes
+    -----
+    Reference values verified against Stata 18 MP on the complete-case
+    sample (see ``tests/reference_parity/test_thornton_ri_parity.py``):
+
+    ========================== ============ ======
+    quantity                   value        n
+    ========================== ============ ======
+    mean ``got`` | ``any`` = 1  0.789235640  2211
+    mean ``got`` | ``any`` = 0  0.338683788   623
+    simple difference (SDO)     0.450551852  2834
+    OLS ``got ~ any``, HC1      0.450551852  SE 0.020857971
+    ========================== ============ ======
+
+    The effect is enormous — a 45-point increase on a 34-point base — so
+    randomization inference returns ``p = 0`` at any practical
+    permutation count: no reassignment of the treatment label comes close
+    to the observed difference.  That is the honest answer, not a
+    rounding artefact, and it makes the dataset a poor place to study
+    borderline p-values but an excellent one for seeing what RI *is*.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> df = sp.datasets.thornton_hiv(complete_case=True)
+    >>> ri = sp.ri_test(df, y='got', treat='any', n_perms=1000, seed=42)
+    >>> round(ri['observed'], 6)
+    0.450552
+
+    References
+    ----------
+    Thornton, R. L. (2008). The Demand for, and Impact of, Learning HIV
+    Status. *American Economic Review*, 98(5), 1829-1863.
+    [@thornton2008demand]
+
+    Cunningham, S. (2021). *Causal Inference: The Mixtape*. Yale
+    University Press. [@cunningham2021causal]
+    """
+    df = _load_bundled_csv("thornton_hiv.csv")
+    if complete_case:
+        df = df.dropna(subset=["got", "any"]).reset_index(drop=True)
+
+    df.attrs["paper"] = (
+        "Thornton, R. L. (2008). The Demand for, and Impact of, Learning "
+        "HIV Status. American Economic Review 98(5), 1829-1863."
+    )
+    df.attrs["doi"] = "10.1257/aer.98.5.1829"
+    df.attrs["data_source"] = "real"
+    df.attrs["simulated"] = False
+    df.attrs["complete_case"] = complete_case
+    df.attrs["source_origin"] = (
+        "Modelling subset of thornton_hiv.dta from Scott Cunningham's "
+        "Causal Inference: The Mixtape repository (MIT licensed); 17 of "
+        "the published file's 133 columns."
+    )
+    df.attrs["stata_treated_mean"] = 0.789235640
+    df.attrs["stata_control_mean"] = 0.338683788
+    df.attrs["stata_sdo"] = 0.450551852
+    df.attrs["stata_ols_any"] = (0.450551852, 0.020857971)
+    df.attrs["notes"] = (
+        "Real Thornton (2008) experiment.  complete_case=True gives the "
+        "n=2834 incentive-analysis sample (2211 offered an incentive, 623 "
+        "not).  The treatment effect is far outside the permutation "
+        "distribution, so RI returns p = 0."
+    )
+    return df

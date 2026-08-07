@@ -586,6 +586,307 @@ _REPLICATIONS: Dict[str, Dict[str, Any]] = {
         ],
     },
     # ------------------------------------------------------------------
+    # SASP — the within transformation (Mixtape Ch. 8)
+    # ------------------------------------------------------------------
+    "sasp_within": {
+        "title": "SASP sex-work panel — the within transformation (Mixtape Ch. 8)",
+        "paper": (
+            "Cunningham, S. & Kendall, T. D. (2011). Prostitution 2.0: "
+            "The changing face of sex work."
+        ),
+        "paper_bib": "cunningham2011prostitution",
+        "journal": "Journal of Urban Economics 69(3), 273-287",
+        "year": 2011,
+        "design": "Panel fixed effects",
+        "n_obs": 1028,
+        "description": (
+            "Sex workers reporting on individual client sessions.  Does "
+            "unprotected sex carry a compensating wage differential?  "
+            "Pooled OLS conflates who a provider is with what she does and "
+            "puts the premium at 1.3 log points; the within estimator, "
+            "which uses only variation across a provider's own sessions, "
+            "puts it at 5.1.  The chapter's teaching device is that three "
+            "different routes to the within estimate agree exactly."
+        ),
+        "data_loader": "datasets.sasp_panel",
+        "data_kwargs": {"simulated": False, "analytic_sample": True},
+        "data_origin": (
+            "Real SASP panel bundled in "
+            "statspai/datasets/data/sasp_panel.csv (1787 rows).  The guide "
+            "loads analytic_sample=True: complete cases on the modelling "
+            "variables, then providers with exactly four sessions — 1028 "
+            "rows, 257 providers, balanced."
+        ),
+        "classic": {
+            "name": "Pooled OLS vs within, three ways (Mixtape Ch. 8)",
+            "paper_table": "Mixtape Ch. 8; Cunningham's sasp.do",
+            "references": ["cunningham2011prostitution", "cunningham2021causal"],
+            "tolerance": 1e-6,
+            "code": [
+                "from statspai.datasets import SASP_COVARIATES",
+                "",
+                "df = sp.datasets.sasp_panel(analytic_sample=True)",
+                "X = list(SASP_COVARIATES)",
+                "",
+                "# (1) Pooled OLS — provider heterogeneity left in the error.",
+                "pooled = sp.regress('lnw ~ ' + ' + '.join(X),",
+                "                    data=df, robust='hc1')",
+                "",
+                "# (2) The within estimator, clustered on the provider.",
+                "fe = sp.feols('lnw ~ ' + ' + '.join(X) + ' | id',",
+                "              data=df, vcov={'CRV1': 'id'})",
+                "",
+                "sp.regtable([pooled, fe], model_labels=['Pooled OLS', 'Within'])",
+                "for label, m in [('pooled', pooled), ('within', fe)]:",
+                "    print(label, 'b(unsafe) =',",
+                "          round(float(m.params['unsafe']), 6))",
+            ],
+            "golden_numbers": [
+                (
+                    "Pooled OLS b(unsafe)",
+                    0.013407389,
+                    0.013407389,
+                    "Stata 18 MP `reg ..., robust`",
+                ),
+                (
+                    "Pooled OLS SE(unsafe)",
+                    0.028300101,
+                    0.028300101,
+                    "Stata 18 MP `reg ..., robust`",
+                ),
+                (
+                    "Within b(unsafe)",
+                    0.051033874,
+                    0.051033874,
+                    "Stata 18 MP `xtreg ..., fe i(id) robust`",
+                ),
+                (
+                    "Within SE(unsafe)",
+                    0.028283095,
+                    0.028283095,
+                    "Stata 18 MP `xtreg ..., fe i(id) robust`",
+                ),
+            ],
+        },
+        "modern": {
+            "name": "Demean by hand and watch the algebra work",
+            "rationale": (
+                "The within estimator is not a black box: subtract each "
+                "provider's own mean from every variable and run OLS on "
+                "what is left.  Doing it by hand with sp.demean reproduces "
+                "sp.feols exactly — coefficient and standard error — which "
+                "is the identity Chapter 8 is teaching.  It also makes "
+                "visible what fixed effects cost you: twelve "
+                "provider-level controls become columns of zeros."
+            ),
+            "references": ["cunningham2021causal"],
+            "tolerance": 1e-6,
+            "code": [
+                "import pandas as pd",
+                "from statspai.datasets import SASP_COVARIATES",
+                "",
+                "df = sp.datasets.sasp_panel(analytic_sample=True)",
+                "cols = ['lnw'] + list(SASP_COVARIATES)",
+                "",
+                "# Subtract each provider's own mean from every column.",
+                "demeaned, _ = sp.demean(df[cols].to_numpy(float), df[['id']])",
+                "w = pd.DataFrame(demeaned, columns=['w_' + c for c in cols],",
+                "                 index=df.index)",
+                "w['id'] = df['id'].values",
+                "",
+                "# Provider-level controls are now identically zero: no within",
+                "# variation, so the within estimator cannot identify them.",
+                "dead = [c for c in SASP_COVARIATES if w['w_' + c].std() < 1e-12]",
+                "print(f'annihilated by demeaning ({len(dead)}):', dead)",
+                "",
+                "alive = [c for c in SASP_COVARIATES if c not in dead]",
+                "by_hand = sp.regress(",
+                "    'w_lnw ~ ' + ' + '.join('w_' + c for c in alive),",
+                "    data=w, vce='cluster', cluster='id')",
+                "print('by hand b(unsafe) =',",
+                "      round(float(by_hand.params['w_unsafe']), 6))",
+            ],
+            "pinned_numbers": [
+                (
+                    "Manual demeaning b(unsafe)",
+                    0.051033874,
+                    "identical to sp.feols and to Stata xtreg, fe",
+                ),
+                (
+                    "Manual demeaning SE(unsafe)",
+                    0.028283095,
+                    "identical too — the algebra is exact, not approximate",
+                ),
+                (
+                    "Controls annihilated by the within transform",
+                    12.0,
+                    "age asq bmi hispanic black other asian schooling cohab "
+                    "married divorced separated",
+                ),
+            ],
+        },
+        "caveats": [
+            "Twelve of the 25 controls are provider-level and have no "
+            "within variation, so the within estimator drops them.  Stata's "
+            "`xtreg, fe` omits them silently; if you hand the demeaned "
+            "constants to sp.regress it raises NumericalInstability "
+            "instead.  That is deliberate — a regressor with no identifying "
+            "variation should be named, not quietly discarded — but it "
+            "means the by-hand route needs an explicit filter, as the "
+            "modern track shows.",
+            "Pooled OLS is not merely noisier here, it points somewhere "
+            "else: 0.0134 against the within estimate's 0.0510.  Providers "
+            "who take more unsafe sessions differ systematically from those "
+            "who do not, and pooling those differences into the error term "
+            "attenuates the premium by roughly four times.",
+            "The within estimate is still only as causal as the assumption "
+            "that session-level unsafe-sex choices are unrelated to "
+            "time-varying shocks to a provider's price.  Fixed effects "
+            "absorb who she is, not what she is responding to that week.",
+        ],
+    },
+    # ------------------------------------------------------------------
+    # Thornton (2008) — randomization inference (Mixtape Ch. 4)
+    # ------------------------------------------------------------------
+    "thornton_2008": {
+        "title": "Thornton (2008) — HIV incentives and randomization inference",
+        "paper": (
+            "Thornton, R. L. (2008). The Demand for, and Impact of, "
+            "Learning HIV Status."
+        ),
+        "paper_bib": "thornton2008demand",
+        "journal": "American Economic Review 98(5), 1829-1863",
+        "year": 2008,
+        "design": "RCT / randomization inference",
+        "n_obs": 2834,
+        "description": (
+            "A randomized cash incentive to collect HIV test results in "
+            "rural Malawi.  Because the assignment mechanism is known "
+            "exactly, the p-value can be computed by re-running the "
+            "randomization rather than by invoking a limiting "
+            "distribution — Fisher's sharp null, with no asymptotics and "
+            "no assumption about the shape of anything."
+        ),
+        "data_loader": "datasets.thornton_hiv",
+        "data_kwargs": {"simulated": False, "complete_case": True},
+        "data_origin": (
+            "Real Thornton (2008) survey, modelling subset bundled in "
+            "statspai/datasets/data/thornton_hiv.csv (4820 rows x 17 of "
+            "the published file's 133 columns).  The guide loads "
+            "complete_case=True: 2834 rows with both `got` and `any` "
+            "observed (2211 offered an incentive, 623 not)."
+        ),
+        "classic": {
+            "name": "Simple difference in outcomes (Mixtape Ch. 4)",
+            "paper_table": "Mixtape Ch. 4; Thornton (2008) Table 3",
+            "references": ["thornton2008demand", "cunningham2021causal"],
+            "tolerance": 1e-6,
+            "code": [
+                "df = sp.datasets.thornton_hiv(complete_case=True)",
+                "",
+                "treated = df.loc[df['any'] == 1, 'got'].mean()",
+                "control = df.loc[df['any'] == 0, 'got'].mean()",
+                "print(f'treated {treated:.6f}  control {control:.6f}')",
+                "print(f'SDO     {treated - control:.6f}')",
+                "",
+                "# The same number as a regression, with a robust SE.",
+                "ols = sp.regress('got ~ any', data=df, robust='hc1')",
+                "print(ols.summary())",
+            ],
+            "golden_numbers": [
+                (
+                    "Mean got | incentive",
+                    0.789235640,
+                    0.789235640,
+                    "Stata 18 MP, n=2211",
+                ),
+                (
+                    "Mean got | no incentive",
+                    0.338683788,
+                    0.338683788,
+                    "Stata 18 MP, n=623",
+                ),
+                (
+                    "Simple difference in outcomes",
+                    0.450551852,
+                    0.450551852,
+                    "Stata 18 MP; identical to the OLS coefficient",
+                ),
+                (
+                    "OLS SE (HC1)",
+                    0.020857971,
+                    0.020857971,
+                    "Stata 18 MP `reg got any, robust`",
+                ),
+            ],
+        },
+        "modern": {
+            "name": "Randomization inference on the sharp null",
+            "rationale": (
+                "The robust standard error above leans on a central limit "
+                "theorem.  Randomization inference does not: it permutes "
+                "the treatment label the way the experiment actually "
+                "randomized it, recomputes the statistic each time, and "
+                "asks where the observed value falls.  With a known "
+                "assignment mechanism that is an exact test, valid in any "
+                "sample size — which is why it is the right tool for small "
+                "or badly behaved experiments, even though this one is "
+                "neither."
+            ),
+            "references": ["cunningham2021causal"],
+            "tolerance": 1e-6,
+            "code": [
+                "df = sp.datasets.thornton_hiv(complete_case=True)",
+                "",
+                "ri = sp.ri_test(df, y='got', treat='any',",
+                "                n_perms=1000, seed=42)",
+                "print(f\"observed  {ri['observed']:.6f}\")",
+                "print(f\"RI p      {ri['p_value']:.4f}\")",
+                "",
+                "# The permutation distribution is what the p-value reads off.",
+                "perm = ri['perm_distribution']",
+                "print(f'permutation range: {min(perm):.4f} to {max(perm):.4f}')",
+                "",
+                "# RI also supports distributional statistics, not just means —",
+                "# a Kolmogorov-Smirnov test on the same randomization.",
+                "ks = sp.ri_test(df, y='got', treat='any', stat='ks',",
+                "                n_perms=1000, seed=42)",
+                "print(f\"KS statistic {ks['observed']:.6f}, p {ks['p_value']:.4f}\")",
+            ],
+            "pinned_numbers": [
+                (
+                    "RI observed statistic",
+                    0.450551852,
+                    "identical to the SDO — RI changes the p-value, not the estimate",
+                ),
+                (
+                    "RI p-value",
+                    0.0,
+                    "no permutation reaches the observed effect; see the caveat",
+                ),
+            ],
+        },
+        "caveats": [
+            "The RI p-value here is exactly 0, and that is the honest "
+            "answer rather than a rounding artefact: a 45-point effect on "
+            "a 34-point base sits far outside anything the permutation "
+            "distribution produces.  Report it as p < 1/n_perms, not as "
+            "p = 0 — with 1000 permutations the most you can say is "
+            "p < 0.001.  This dataset is a fine place to see what RI *is* "
+            "and a poor place to study borderline p-values.",
+            "`any` collapses several incentive amounts into one binary. "
+            "`tinc`, `under` and `over` carry the dose, and Thornton's "
+            "paper is largely about that gradient — the binary comparison "
+            "reproduced here is the Mixtape's teaching simplification, not "
+            "the paper's headline specification.",
+            "Randomization inference is exact only for the randomization "
+            "that actually happened.  Thornton randomized within villages; "
+            "`sp.ri_test(cluster='villnum')` permutes whole villages "
+            "instead of individuals, which is the more faithful test when "
+            "assignment was clustered.",
+        ],
+    },
+    # ------------------------------------------------------------------
     # Legacy single-track entries (kept for backward compatibility)
     # ------------------------------------------------------------------
     "lalonde_1986": {
