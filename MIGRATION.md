@@ -286,6 +286,50 @@ implementation of her paper. So StatsPAI SEs now sit slightly *above*
 single-cohort ones. That divergence is deliberate; there is no flag to
 restore the old behaviour.
 
+<a id="cardinality-match-exact"></a>
+
+## 1.22.0 — ⚠️ `sp.cardinality_match` matched sets change
+
+**What changed.** The estimator relaxed its binary program to a continuous
+LP and rounded the weights. Rounding does not preserve the balance
+constraints, so the returned sample violated the `smd_tolerance` it
+advertises. It is now solved exactly (`scipy.optimize.milp`, HiGHS).
+
+| | old (LP + rounding) | new (exact ILP) |
+| --- | ---: | ---: |
+| infeasible cells (12-cell grid) | **9** | **0** |
+| worst breach against a 0.05 request | 0.0631 | 0.0500 |
+
+**Do my numbers change?** Yes — matched sets, and therefore the ATE and its
+SE, move. That is the point: the previous solutions sat outside the feasible
+region, so they never satisfied the balance guarantee the method is defined
+by. An estimate published before 1.22 should be re-run; the matched sample
+it used was not the one cardinality matching specifies.
+
+New `time_limit` (default 30s) bounds the solve. An infeasible request now
+raises instead of silently returning a breach.
+
+<a id="overlap-weights-mle"></a>
+
+## 1.22.0 — ⚠️ `sp.overlap_weights` estimates move by ~1e-6
+
+**What changed.** The propensity score was fitted with
+`sklearn.LogisticRegression(C=1e6)` — a penalised likelihood however large
+`C` is — while the rest of the matching module uses the unpenalised MLE. It
+now uses that same MLE.
+
+Against R's `glm(family = binomial)` and `WeightIt::weightit`:
+
+| | propensity vs R | ATO / ATE / ATT / ATC vs WeightIt |
+| --- | ---: | ---: |
+| old (penalised) | 8.5e-06 | ~1e-6 |
+| new (MLE) | 2.6e-14 | ~1e-14 |
+
+Estimates shift by ~1e-6 relative, toward the reference. Beyond parity: the
+overlap weights' exact-balance property (Li, Morgan & Zaslavsky 2018) is
+derived at the *unpenalised* score equations, so regularisation broke the
+guarantee the docstring cites.
+
 <a id="matching-default-se"></a>
 
 ## 1.22.0 — ⚠️ `sp.match` default standard errors change
