@@ -4,7 +4,10 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.22.0] — 2026-08-07
+
 ### ⚠️ Correctness
+
 
 - **`sp.cardinality_match` violated its own SMD tolerance.** The estimator
   maximises the number matched *subject to* a standardised-mean-difference
@@ -247,6 +250,7 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+
 - **DiD option depth vs Stata — one campaign, six estimators.** Audited
   against the installed `.ado` help files rather than a summary, which
   overturned two commonly-repeated claims: `csdid`'s `asinr` is a
@@ -290,66 +294,6 @@ All notable changes to StatsPAI will be documented in this file.
   All new paths are pinned against Stata 18 MP with reproducible
   do-files under `tests/stata_parity/` (82-85).
 
-### Fixed
-
-- **128 registry entries hid parameters from `sp.function_schema()`.**
-  The agent-facing schema is built from hand-written `params=` lists that
-  the auto-builder deliberately never overwrites, so adding an argument
-  to a signature left it invisible to agent callers — silently, with no
-  warning. `callaway_santanna`, `sun_abraham`, `did_imputation` and
-  `did_multiplegt_dyn` are now complete (this also surfaced
-  `did_imputation`'s long-missing `vce`, `n_boot`, `boot_seed` and
-  `sun_abraham`'s `aggregation`). The remaining 124 entries — 501 hidden
-  parameters, including `regress`'s `vce` / `weights` / Conley options —
-  are frozen in `scripts/registry_param_drift_baseline.json` and
-  ratcheted by `tests/test_registry_param_drift.py`, so the debt can
-  shrink but not grow.
-
-- **`sp.sbw(...).solver_status` reported the estimand, not the solver.**
-  The field was assigned the literal `"att"` / `"atc"` / `"ate"`, so a
-  caller asking whether the optimiser converged got a string that could
-  never answer, while the actual `scipy.optimize.minimize` outcome was
-  computed and discarded — including whether the loosened-`ftol` retry
-  succeeded, which exists precisely because SLSQP does fail on this
-  problem. It now holds `"optimal"` or a message naming why not (for
-  `estimand='ate'`, which runs two solves, the worse of the two).
-  Diagnostics only — **no weight or estimate changes**, and `_solve_sbw`
-  still raises if the balance constraints are violated, so a returned
-  solution was always feasible. The estimand remains on `result.estimand`
-  and in `result.method`. See
-  [`MIGRATION.md`](MIGRATION.md#sbw-solver-status).
-
-- **`sp.genmatch` advertised a bootstrap standard error it never
-  computed.** The module docstring and `GenMatchResult` both called
-  `att_se` a "bootstrap SE"; the code computes
-  `sd(Y_t - Y_c) / sqrt(n_pairs)`, the matched-pair SE, and there is no
-  bootstrap in the file. The distinction is not cosmetic: genetic matching
-  matches **with replacement** (on the test fixture, 142 matches drew on 81
-  unique controls, one control serving 12 treated units), so the formula
-  treats dependent pairs as independent. The same formula measured on
-  `sp.match` over 36 designs × 1000 replications
-  (`benchmarks/matching_se_coverage.py`) runs 0.56–0.91× the true sampling
-  SD, with coverage 0.71–0.92 against a nominal 0.95. The docstrings are
-  corrected with a warning block stating what `att_se` conditions on, and a
-  `UserWarning` now fires when controls are reused, quoting that run's own
-  reuse count. **No numbers change** — the interval was mislabelled, not
-  miscomputed; treat `att_se` as a lower bound and use
-  `sp.match(se_method='abadie_imbens')` or a bootstrap of the whole
-  pipeline for inference that covers.
-
-- **Two matching exception handlers swallowed everything.** `pstest`'s
-  balance probit caught every exception where only an unfittable fit
-  (singular design, perfect separation once the weights concentrate) should
-  be reported as missing; and `sp.match`'s bootstrap loop counted *any*
-  exception as a degenerate resample, so an `AttributeError` from a
-  refactor would have been absorbed into the failed-replication tally. Both
-  now catch their real cases (`LinAlgError` / `ValueError` /
-  `ZeroDivisionError` / `PerfectSeparationError`, and StatsPAI's typed
-  errors plus linear-algebra failures respectively). **No behaviour change
-  on paths that already worked** — an unexpected exception now surfaces
-  instead of being miscounted.
-
-### Added
 
 
 - **One precision vocabulary across every exporter**, borrowed from the
@@ -389,6 +333,7 @@ All notable changes to StatsPAI will be documented in this file.
   omitted precision entirely, so agents had no way to discover the knob.
 
 ### Changed
+
 
 
 - **`sp.regtable` defaults to `fmt="auto"`** (was `"%.3f"`), and
@@ -695,6 +640,65 @@ All notable changes to StatsPAI will be documented in this file.
   `model_info` keys such as `_pscore` no longer leak into the footer.
 
 ### Fixed
+
+
+- **128 registry entries hid parameters from `sp.function_schema()`.**
+  The agent-facing schema is built from hand-written `params=` lists that
+  the auto-builder deliberately never overwrites, so adding an argument
+  to a signature left it invisible to agent callers — silently, with no
+  warning. `callaway_santanna`, `sun_abraham`, `did_imputation` and
+  `did_multiplegt_dyn` are now complete (this also surfaced
+  `did_imputation`'s long-missing `vce`, `n_boot`, `boot_seed` and
+  `sun_abraham`'s `aggregation`). The remaining 124 entries — 501 hidden
+  parameters, including `regress`'s `vce` / `weights` / Conley options —
+  are frozen in `scripts/registry_param_drift_baseline.json` and
+  ratcheted by `tests/test_registry_param_drift.py`, so the debt can
+  shrink but not grow.
+
+- **`sp.sbw(...).solver_status` reported the estimand, not the solver.**
+  The field was assigned the literal `"att"` / `"atc"` / `"ate"`, so a
+  caller asking whether the optimiser converged got a string that could
+  never answer, while the actual `scipy.optimize.minimize` outcome was
+  computed and discarded — including whether the loosened-`ftol` retry
+  succeeded, which exists precisely because SLSQP does fail on this
+  problem. It now holds `"optimal"` or a message naming why not (for
+  `estimand='ate'`, which runs two solves, the worse of the two).
+  Diagnostics only — **no weight or estimate changes**, and `_solve_sbw`
+  still raises if the balance constraints are violated, so a returned
+  solution was always feasible. The estimand remains on `result.estimand`
+  and in `result.method`. See
+  [`MIGRATION.md`](MIGRATION.md#sbw-solver-status).
+
+- **`sp.genmatch` advertised a bootstrap standard error it never
+  computed.** The module docstring and `GenMatchResult` both called
+  `att_se` a "bootstrap SE"; the code computes
+  `sd(Y_t - Y_c) / sqrt(n_pairs)`, the matched-pair SE, and there is no
+  bootstrap in the file. The distinction is not cosmetic: genetic matching
+  matches **with replacement** (on the test fixture, 142 matches drew on 81
+  unique controls, one control serving 12 treated units), so the formula
+  treats dependent pairs as independent. The same formula measured on
+  `sp.match` over 36 designs × 1000 replications
+  (`benchmarks/matching_se_coverage.py`) runs 0.56–0.91× the true sampling
+  SD, with coverage 0.71–0.92 against a nominal 0.95. The docstrings are
+  corrected with a warning block stating what `att_se` conditions on, and a
+  `UserWarning` now fires when controls are reused, quoting that run's own
+  reuse count. **No numbers change** — the interval was mislabelled, not
+  miscomputed; treat `att_se` as a lower bound and use
+  `sp.match(se_method='abadie_imbens')` or a bootstrap of the whole
+  pipeline for inference that covers.
+
+- **Two matching exception handlers swallowed everything.** `pstest`'s
+  balance probit caught every exception where only an unfittable fit
+  (singular design, perfect separation once the weights concentrate) should
+  be reported as missing; and `sp.match`'s bootstrap loop counted *any*
+  exception as a degenerate resample, so an `AttributeError` from a
+  refactor would have been absorbed into the failed-replication tally. Both
+  now catch their real cases (`LinAlgError` / `ValueError` /
+  `ZeroDivisionError` / `PerfectSeparationError`, and StatsPAI's typed
+  errors plus linear-algebra failures respectively). **No behaviour change
+  on paths that already worked** — an unexpected exception now surfaces
+  instead of being miscounted.
+
 
 - **`sp.ri_test` dropped rows with missing values silently.** Passing
   `cluster=` where the cluster id is itself missing shrank the sample
