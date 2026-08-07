@@ -35573,6 +35573,118 @@
     }
   },
   {
+    "description": "Local polynomial fit at ``eval_point`` with robust bias correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "lprobust_at_point",
+    "parameters": {
+      "properties": {
+        "b": {
+          "description": "Bias bandwidth, for the order-``p+1`` fit that estimates the leading bias. Defaults to ``h`` (``rho = 1``), which is ``lprobust``'s behaviour when only ``h`` is supplied.",
+          "type": "number"
+        },
+        "deriv": {
+          "default": 0,
+          "description": "Order of the derivative to report; 0 is the level.",
+          "type": "integer"
+        },
+        "eval_point": {
+          "description": "Where to evaluate the regression function.",
+          "type": "number"
+        },
+        "h": {
+          "description": "Main bandwidth, for the order-``p`` fit.",
+          "type": "number"
+        },
+        "kernel": {
+          "default": "epanechnikov",
+          "description": "Default epanechnikov, matching ``lprobust``.",
+          "enum": [
+            "epanechnikov",
+            "triangular",
+            "uniform",
+            "gaussian"
+          ],
+          "type": "string"
+        },
+        "n_neighbors": {
+          "default": 3,
+          "description": "Neighbours for the nearest-neighbour variance, matching ``lprobust``'s ``vce(nn)`` default of 3.",
+          "type": "integer"
+        },
+        "p": {
+          "default": 1,
+          "description": "Polynomial order -- 1 is local linear.",
+          "type": "integer"
+        },
+        "x": {
+          "description": "Running variable and outcome, same length.",
+          "type": "string"
+        },
+        "y": {
+          "description": "Running variable and outcome, same length.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "eval_point",
+        "h"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "One evaluation point of :func:`lprobust_at_point`.",
+    "name": "LProbustPoint",
+    "parameters": {
+      "properties": {
+        "b": {
+          "description": "b parameter (float).",
+          "type": "number"
+        },
+        "eval_point": {
+          "description": "eval_point parameter (float).",
+          "type": "number"
+        },
+        "h": {
+          "description": "Bandwidth used for local smoothing or kernel weighting.",
+          "type": "number"
+        },
+        "n_eff": {
+          "description": "Number of eff.",
+          "type": "integer"
+        },
+        "se_rb": {
+          "description": "se_rb parameter (float).",
+          "type": "number"
+        },
+        "se_us": {
+          "description": "se_us parameter (float).",
+          "type": "number"
+        },
+        "tau_bc": {
+          "description": "tau_bc parameter (float).",
+          "type": "number"
+        },
+        "tau_us": {
+          "description": "tau_us parameter (float).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "eval_point",
+        "h",
+        "b",
+        "n_eff",
+        "tau_us",
+        "tau_bc",
+        "se_us",
+        "se_rb"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Estimate a Vector Autoregression (VAR) model. Validation: certified parity evidence.",
     "name": "var",
     "parameters": {

@@ -29,7 +29,7 @@
 
 ```text
 StatsPAI/
-├── src/statspai/          # 主包：87 子模块 / 1,161 函数（实时数 `python scripts/registry_stats.py`）
+├── src/statspai/          # 主包：87 子模块 / 1,163 函数（实时数 `python scripts/registry_stats.py`）
 │   ├── __init__.py          # 对外 API 入口
 │   ├── registry.py          # 函数注册表（sp.help / sp.list_functions 依赖）
 │   ├── help.py              # sp.help / sp.describe_function / sp.function_schema

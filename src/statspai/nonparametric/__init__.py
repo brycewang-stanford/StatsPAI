@@ -5,7 +5,15 @@ Provides local polynomial regression (lpoly), kernel density estimation (kdensit
 and nonparametric regression (npregress).
 """
 
-from .lpoly import lpoly, LPolyResult
-from .kdensity import kdensity, KDensityResult
+from .kdensity import KDensityResult, kdensity
+from .lpoly import LPolyResult, lpoly
+from .lprobust import LProbustPoint, lprobust_at_point
 
-__all__ = ["lpoly", "LPolyResult", "kdensity", "KDensityResult"]
+__all__ = [
+    "lpoly",
+    "LPolyResult",
+    "kdensity",
+    "KDensityResult",
+    "lprobust_at_point",
+    "LProbustPoint",
+]

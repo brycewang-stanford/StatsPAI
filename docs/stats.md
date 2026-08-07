@@ -115,7 +115,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `msm` | 716 | 2 | 3 |
 | `assimilation` | 698 | 3 | 3 |
 | `causal_impact` | 652 | 2 | 3 |
-| `nonparametric` | 630 | 3 | 4 |
+| `nonparametric` | 927 | 4 | 6 |
 | `imputation` | 502 | 2 | 3 |
 | `matrix_completion` | 451 | 2 | 2 |
 | `compat` | 378 | 2 | 0 |
