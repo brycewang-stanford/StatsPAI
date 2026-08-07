@@ -6,6 +6,30 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.cardinality_match` violated its own SMD tolerance.** The estimator
+  maximises the number matched *subject to* a standardised-mean-difference
+  bound on every covariate — the bound is the whole point. It relaxed the
+  binary program to a continuous LP and kept the top `round(Σz)` weights;
+  rounding does not preserve linear constraints, so the returned sample
+  breached the tolerance and the balance table reported the breach as
+  though it were fine. On a 12-cell seed × tolerance grid, **9 were
+  infeasible**, worst 0.0631 against a 0.05 request. Now solved exactly
+  with `scipy.optimize.milp` (HiGHS): 16 of 16 feasible, count equal to an
+  independently-derived optimum in every cell. **Matched sets and effect
+  estimates change** — the old ones were outside the feasible region. New
+  `time_limit` argument; an unsolvable request now raises.
+
+- **`sp.overlap_weights` fitted a penalised logit.** It estimated the
+  propensity score with `sklearn.LogisticRegression(C=1e6)` — penalised
+  however large `C` is — while `sp.match` / `sp.psmatch2` have always used
+  the unpenalised MLE, so one package gave two propensity scores for the
+  same specification. It is also a theory mismatch: the overlap weights'
+  exact-balance property (Li, Morgan & Zaslavsky 2018) holds at the score
+  equations of the *unpenalised* logit. Against R `glm` / `WeightIt`, the
+  penalised fit sat 8.5e-06 from the reference and pushed ATO/ATE/ATT/ATC
+  ~1e-6 off; the MLE agrees to 2.6e-14 and ~1e-14. Estimates move by
+  ~1e-6, toward the reference.
+
 
 - **`sp.aggte` and `sp.callaway_santanna` standard errors were too small.**
   The Callaway–Sant'Anna aggregation weights are *estimated* cohort shares
