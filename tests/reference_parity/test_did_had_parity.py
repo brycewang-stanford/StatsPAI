@@ -289,3 +289,98 @@ class TestDidHadValidation:
         s2 = static.detail[static.detail["relative_time"] == 2]["estimate"].iloc[0]
         d2 = dyn.detail[dyn.detail["relative_time"] == 2]["estimate"].iloc[0]
         assert abs(s2 - d2) > 1e-6
+
+
+@pytest.fixture(scope="module")
+def fitted_yatchew(panel):
+    return sp.did_had(panel, "y", "g", "t", "d", effects=3, placebo=2, yatchew=True)
+
+
+class TestYatchewTest:
+    """Yatchew differencing test, as ``did_had ..., yatchew``.
+
+    Theorem 5 of the paper: with (quasi-)untreated groups, plain OLS of
+    the evolution on the dose is unbiased for the same estimand *iff*
+    that conditional expectation is linear. So a non-rejection licenses
+    the far simpler estimator.
+    """
+
+    @pytest.mark.parametrize("row", REPORT_ORDER)
+    @pytest.mark.parametrize(
+        "field,ref", [("statistic", "yatchew_t"), ("pvalue", "yatchew_p")]
+    )
+    def test_matches_stata(self, fitted_yatchew, golden, row, field, ref):
+        h = ROW_TO_HORIZON[row]
+        got = fitted_yatchew.detail.loc[
+            fitted_yatchew.detail["relative_time"] == h, f"yatchew_{field}"
+        ].iloc[0]
+        assert got == pytest.approx(golden[row][ref], abs=1e-6)
+
+    def test_effects_test_linearity_placebos_test_independence(self, panel):
+        """The reference uses order 1 for effects and order 0 for placebos.
+
+        The placebo null is not "linear in dose" — it is that the
+        pre-period evolution does not depend on the FUTURE dose at all.
+        Using order 1 there would test the wrong thing and still produce
+        a plausible number.
+        """
+        d = panel[panel["t"].isin([3, 4])].sort_values(["g", "t"])
+        dy = d.groupby("g")["y"].diff().dropna().to_numpy()
+        dose = d[d["t"] == 4].sort_values("g")["d"].to_numpy()
+        assert sp.yatchew_linearity_test(dose, dy, order=0)[
+            "statistic"
+        ] != pytest.approx(
+            sp.yatchew_linearity_test(dose, dy, order=1)["statistic"], abs=1e-6
+        )
+
+    def test_absent_unless_requested(self, fitted):
+        assert np.isnan(fitted.detail["yatchew_statistic"]).all()
+
+    def test_truly_linear_data_is_not_rejected(self):
+        rng = np.random.default_rng(5)
+        x = rng.uniform(0, 1, 500)
+        got = sp.yatchew_linearity_test(x, 2.0 * x + rng.normal(0, 0.1, 500))
+        assert got["pvalue"] > 0.05
+
+    def test_strong_curvature_is_rejected(self):
+        """Power: a test that cannot see a quadratic is worthless here."""
+        rng = np.random.default_rng(5)
+        x = rng.uniform(0, 1, 500)
+        got = sp.yatchew_linearity_test(x, 5.0 * x**2 + rng.normal(0, 0.05, 500))
+        assert got["pvalue"] < 0.01
+
+    def test_ties_are_broken_by_y(self):
+        """⚠️ Regression: the differencing is over ADJACENT sorted rows.
+
+        The reference sorts by x THEN y. Sorting by x alone left the
+        statistic 0.36 away from Stata on the did_had fixture, because
+        25 groups share dose exactly 0 and the order within that block
+        changes every first difference through it.
+        """
+        x = np.array([0.0, 0.0, 0.0, 1.0, 2.0, 3.0])
+        y = np.array([5.0, 1.0, 3.0, 4.0, 6.0, 8.0])
+        by_xy = sp.yatchew_linearity_test(x, y, order=1)
+        # same data, tie block presented in a different order
+        perm = [2, 0, 1, 3, 4, 5]
+        shuffled = sp.yatchew_linearity_test(x[perm], y[perm], order=1)
+        assert by_xy["s2_diff"] == pytest.approx(
+            shuffled["s2_diff"], abs=1e-12
+        ), "s2_diff must not depend on the input order of tied x"
+
+    def test_homoskedastic_variant_differs(self):
+        rng = np.random.default_rng(7)
+        x = rng.uniform(0, 1, 300)
+        y = 2 * x + rng.normal(0, 0.2, 300)
+        assert sp.yatchew_linearity_test(x, y, het_robust=True)[
+            "statistic"
+        ] != pytest.approx(
+            sp.yatchew_linearity_test(x, y, het_robust=False)["statistic"], abs=1e-9
+        )
+
+    def test_mismatched_lengths_rejected(self):
+        with pytest.raises(ValueError, match="same length"):
+            sp.yatchew_linearity_test(np.arange(10.0), np.arange(9.0))
+
+    def test_too_few_observations_rejected(self):
+        with pytest.raises(ValueError, match="at least 3"):
+            sp.yatchew_linearity_test([1.0, 2.0], [1.0, 2.0])

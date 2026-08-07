@@ -74,7 +74,7 @@ from scipy import stats
 from ..core.results import CausalResult
 from ..nonparametric.lprobust import lpbwselect_mse_dpi, lprobust_at_point
 
-__all__ = ["did_had", "quasi_untreated_test"]
+__all__ = ["did_had", "quasi_untreated_test", "yatchew_linearity_test"]
 
 
 def quasi_untreated_test(dose: Sequence[float]) -> Dict[str, float]:
@@ -194,6 +194,7 @@ def did_had(
     alpha: float = 0.05,
     dynamic: bool = False,
     trends_lin: bool = False,
+    yatchew: bool = False,
 ) -> CausalResult:
     """Heterogeneous-adoption DiD using quasi-untreateded groups.
 
@@ -225,6 +226,17 @@ def did_had(
         ``F-1+ℓ`` instead of the dose at ``F-1+ℓ``. The current-dose
         normalization is right under a static model, the cumulative one
         under a dynamic model where past treatment still matters.
+    yatchew : bool, default False
+        Report the Yatchew differencing test alongside each horizon.
+        Effects are tested for **linearity** in the dose (order 1),
+        placebos for **mean independence** of the pre-period evolution
+        from the future dose (order 0).
+
+        Theorem 5 of the paper: with (quasi-)untreated groups, plain OLS
+        of the evolution on the dose is unbiased for the same estimand
+        *iff* that conditional expectation is linear. Failing to reject
+        therefore licenses the far simpler estimator; rejecting says the
+        nonparametric machinery is doing real work.
     trends_lin : bool, default False
         Allow group-specific linear trends, estimated from each group's
         ``F-2`` to ``F-1`` evolution and subtracted. Costs one placebo,
@@ -382,6 +394,16 @@ def did_had(
         se = fit.se_rb / mean_dose
         qug = quasi_untreated_test(dose_k)
 
+        yat = None
+        if yatchew:
+            # Effects test LINEARITY (order 1); placebos test mean
+            # INDEPENDENCE of the pre-period evolution from the future
+            # dose (order 0). That asymmetry is the reference's, and it
+            # is the right one: the placebo null is not "linear in dose".
+            yat = yatchew_linearity_test(
+                dose_k, dy_k, order=1 if h_rel > 0 else 0, het_robust=True
+            )
+
         rows.append(
             {
                 "relative_time": h_rel,
@@ -399,6 +421,8 @@ def did_had(
                 "qug_statistic": qug["statistic"],
                 "qug_pvalue": qug["pvalue"],
                 "mean_dose": mean_dose,
+                "yatchew_statistic": yat["statistic"] if yat else np.nan,
+                "yatchew_pvalue": yat["pvalue"] if yat else np.nan,
             }
         )
 
@@ -458,3 +482,110 @@ def _resolve_bandwidths(
         if not np.isfinite(v) or v <= 0:
             raise ValueError(f"each bandwidth must be positive and finite, got {v}")
     return vals
+
+
+def yatchew_linearity_test(
+    x: Sequence[float],
+    y: Sequence[float],
+    *,
+    order: int = 1,
+    het_robust: bool = True,
+) -> Dict[str, float]:
+    """Yatchew differencing test that E[y | x] is a polynomial of ``order``.
+
+    Why ``did_had`` reports it: Theorem 5 of de Chaisemartin et al. says
+    that in a design with (quasi-)untreated groups, the plain OLS
+    coefficient from regressing the outcome evolution on the dose is
+    unbiased for the same estimand **if and only if** that conditional
+    expectation is linear. So a non-rejection licenses the far simpler
+    OLS estimator, and a rejection says the nonparametric machinery is
+    doing real work rather than decorating an OLS number.
+
+    The test compares two variance estimates of the same residual
+    variance:
+
+    * ``s2_lin`` — residual variance from the order-``order`` polynomial
+      fit, consistent **only if** that model is right;
+    * ``s2_diff`` — ``0.5 * mean((y_i − y_{i−1})²)`` over the x-sorted
+      data, consistent whatever the shape.
+
+    Under the null they agree; under the alternative the parametric one
+    is inflated. The test is therefore one-sided.
+
+    ``order=0`` tests mean-independence rather than linearity, which is
+    what the *placebo* horizons need: there the null is that the
+    pre-period evolution does not depend on the future dose.
+
+    Parameters
+    ----------
+    x, y : sequence of float
+        Running variable and outcome, same length.
+    order : int, default 1
+        Polynomial order under the null. 1 = linear, 0 = constant.
+    het_robust : bool, default True
+        Use the heteroskedasticity-robust statistic of the paper's
+        Appendix E. ``did_had`` always does.
+
+    Returns
+    -------
+    dict with ``s2_lin``, ``s2_diff``, ``statistic``, ``pvalue``, ``n``.
+
+    Examples
+    --------
+    >>> import numpy as np, statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> x = rng.uniform(0, 1, 400)
+    >>> lin = sp.yatchew_linearity_test(x, 2 * x + rng.normal(0, .1, 400))
+    >>> bool(lin['pvalue'] > 0.05)      # truly linear: not rejected
+    True
+
+    References
+    ----------
+    yatchew1999elementary, dechaisemartin2024nounit
+    """
+    x = np.asarray(x, dtype=float).ravel()
+    y = np.asarray(y, dtype=float).ravel()
+    if x.shape != y.shape:
+        raise ValueError(f"x and y must have the same length, got {x.shape}, {y.shape}")
+    ok = np.isfinite(x) & np.isfinite(y)
+    x, y = x[ok], y[ok]
+    n = x.size
+    if n < 3:
+        raise ValueError(
+            f"the differencing test needs at least 3 observations, got {n}"
+        )
+    if order < 0:
+        raise ValueError(f"order must be >= 0, got {order}")
+
+    # Parametric fit. order=0 leaves the intercept alone, which makes the
+    # null "y is mean-independent of x" rather than "linear in x".
+    cols = [np.ones(n)] + [x**j for j in range(1, order + 1)]
+    design = np.column_stack(cols)
+    beta, *_ = np.linalg.lstsq(design, y, rcond=None)
+    resid = y - design @ beta
+    s2_lin = float(np.var(resid, ddof=1))
+
+    # Nonparametric benchmark: first differences along sorted x, with
+    # ties in x broken by y ascending -- `sort D_vars_XX Y_XX` in the
+    # reference. Not cosmetic: the differences are taken between
+    # ADJACENT rows, so the order within a tie group changes s2_diff.
+    # With 25 tied zero doses on the did_had fixture, sorting by x alone
+    # moved s2_diff by 3.7e-3 and the statistic by 0.36.
+    srt = np.lexsort((y, x))
+    dy = np.diff(y[srt])
+    s2_diff = float(0.5 * np.mean(dy**2))
+
+    if het_robust:
+        e = resid[srt]
+        denom = float(np.mean((e[1:] * e[:-1]) ** 2))
+        stat = float(np.sqrt(n) * (s2_lin - s2_diff) / np.sqrt(denom))
+    else:
+        stat = float(np.sqrt(n) * (s2_lin / s2_diff - 1.0))
+
+    return {
+        "s2_lin": s2_lin,
+        "s2_diff": s2_diff,
+        "statistic": stat,
+        "pvalue": float(1.0 - stats.norm.cdf(stat)),
+        "n": int(n),
+    }

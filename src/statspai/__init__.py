@@ -631,7 +631,7 @@ from .decomposition import (  # Tier C additions
 # Continuous Treatment DID
 from .did import continuous_did
 from .did.ddd_heterogeneous import ddd_heterogeneous
-from .did.did_had import did_had, quasi_untreated_test
+from .did.did_had import did_had, quasi_untreated_test, yatchew_linearity_test
 from .did.did_multiplegt_dyn import did_multiplegt_dyn
 from .did.lp_did import lp_did
 from .did.timevarying_covariates import did_timevarying_covariates
@@ -1783,6 +1783,7 @@ __all__ = [
     # dCDH (2024) intertemporal event-study DiD (MVP — see RFC)
     "did_had",
     "quasi_untreated_test",
+    "yatchew_linearity_test",
     "did_multiplegt_dyn",
     # === v0.6 Round 2 ===
     "interactive_fe",

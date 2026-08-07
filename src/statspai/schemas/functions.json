@@ -37329,6 +37329,11 @@
         "y": {
           "description": "Column names. ``treat`` is the dose, not an indicator.",
           "type": "string"
+        },
+        "yatchew": {
+          "default": false,
+          "description": "Report the Yatchew differencing test alongside each horizon. Effects are tested for **linearity** in the dose (order 1), placebos for **mean independence** of the pre-period evolution from the future dose (order 0). Theorem 5 of the paper: with (quasi-)untreated groups, plain OLS of the evolution on the dose is unbiased for the same estimand *iff* that conditional expectation is linear. Failing to reject therefore licenses the far simpler estimator; rejecting says the nonparametric machinery is doing real work.",
+          "type": "boolean"
         }
       },
       "required": [
@@ -37356,6 +37361,43 @@
       },
       "required": [
         "dose"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Yatchew differencing test that E[y | x] is a polynomial of ``order``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "yatchew_linearity_test",
+    "parameters": {
+      "properties": {
+        "het_robust": {
+          "default": true,
+          "description": "Use the heteroskedasticity-robust statistic of the paper's Appendix E. ``did_had`` always does.",
+          "type": "boolean"
+        },
+        "order": {
+          "default": 1,
+          "description": "Polynomial order under the null. 1 = linear, 0 = constant.",
+          "type": "integer"
+        },
+        "x": {
+          "description": "Running variable and outcome, same length.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Running variable and outcome, same length.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "x",
+        "y"
       ],
       "type": "object"
     }

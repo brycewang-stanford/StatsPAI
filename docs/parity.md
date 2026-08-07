@@ -27,11 +27,11 @@ sp.parity_summary()           # honest coverage counts
 | --- | ---: |
 | bit-exact | 144 |
 | aligned | 16 |
-| analytical-only | 225 |
+| analytical-only | 226 |
 | external-replication | 6 |
-| **verified (subtotal)** | **391** |
+| **verified (subtotal)** | **392** |
 | unverified | 775 |
-| **total registered** | **1166** |
+| **total registered** | **1167** |
 
 ## bit-exact — 144 functions
 
@@ -220,7 +220,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 225 functions
+## analytical-only — 226 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -451,6 +451,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `xlearner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `xtdpdsys` | [`test_dynpanel_abdata_parity.py`](../tests/reference_parity/test_dynpanel_abdata_parity.py) |
 | `xtlsdvc` | [`test_lsdvc_parity.py`](../tests/reference_parity/test_lsdvc_parity.py) |
+| `yatchew_linearity_test` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) |
 
 ## unverified — 775 functions
 

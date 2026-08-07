@@ -39,7 +39,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
-| `did` | 30,949 | 46 | 73 |
+| `did` | 31,078 | 46 | 74 |
 | `synth` | 22,380 | 31 | 54 |
 | `rd` | 17,929 | 27 | 53 |
 | `regression` | 15,917 | 20 | 37 |
@@ -115,7 +115,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `msm` | 716 | 2 | 3 |
 | `assimilation` | 698 | 3 | 3 |
 | `causal_impact` | 652 | 2 | 3 |
-| `nonparametric` | 1,157 | 4 | 7 |
+| `nonparametric` | 1,196 | 4 | 7 |
 | `imputation` | 502 | 2 | 3 |
 | `matrix_completion` | 451 | 2 | 2 |
 | `compat` | 378 | 2 | 0 |

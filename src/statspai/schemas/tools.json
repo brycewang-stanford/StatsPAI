@@ -5650,6 +5650,11 @@
         "y": {
           "description": "Column names. ``treat`` is the dose, not an indicator.",
           "type": "string"
+        },
+        "yatchew": {
+          "default": false,
+          "description": "Report the Yatchew differencing test alongside each horizon. Effects are tested for **linearity** in the dose (order 1), placebos for **mean independence** of the pre-period evolution from the future dose (order 0). Theorem 5 of the paper: with (quasi-)untreated groups, plain OLS of the evolution on the dose is unbiased for the same estimand *iff* that conditional expectation is linear. Failing to reject therefore licenses the far simpler estimator; rejecting says the nonparametric machinery is doing real work.",
+          "type": "boolean"
         }
       },
       "required": [

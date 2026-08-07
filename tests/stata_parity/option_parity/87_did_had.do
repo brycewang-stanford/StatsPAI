@@ -32,8 +32,10 @@ set more off
 import delimited "data_87_did_had.csv", clear
 recast double d y, force
 
-qui did_had y g t d, effects(3) placebo(2) graph_off
+local effects = 3
+qui did_had y g t d, effects(`effects') placebo(2) yatchew graph_off
 matrix R = e(estimates)
+matrix Y = e(yatchew_res)
 
 tempname fh
 file open `fh' using "results/87_did_had_Stata.json", write replace
@@ -46,6 +48,10 @@ forvalues i = 1/`nr' {
     local comma ","
     if `i' == `nr' local comma ""
     * Stata missing (.) is not valid JSON: placebos carry no QUG test.
+    * e(yatchew_res) is ordered effects-first (display order) while
+    * e(estimates) is placebos-first, so map by relative time, not by row.
+    local rt = R[`i',10]
+    local yrow = cond(`rt' > 0, `rt', `effects' + abs(`rt'))
     local qt = cond(missing(R[`i',8]), "null", string(R[`i',8], "%22.17f"))
     local qp = cond(missing(R[`i',9]), "null", string(R[`i',9], "%22.17f"))
     file write `fh' `"  ""' "`nm'" `"": {"estimate": "' %22.17f (R[`i',1]) ///
@@ -53,9 +59,10 @@ forvalues i = 1/`nr' {
         `", "ci_hi": "' %22.17f (R[`i',4]) `", "n_groups": "' %10.0f (R[`i',5]) ///
         `", "bw": "' %22.17f (R[`i',6]) `", "n_in_bw": "' %10.0f (R[`i',7]) ///
         `", "qug_t": "' "`qt'" `", "qug_p": "' "`qp'" ///
+        `", "yatchew_t": "' %22.17f (Y[`yrow',3]) `", "yatchew_p": "' %22.17f (Y[`yrow',4]) ///
         `", "rel_time": "' %6.0f (R[`i',10]) "}`comma'" _n
 }
-file write `fh' `"  , "_meta": {"cmd": "did_had", "effects": 3, "placebo": 2, "kernel": "epanechnikov", "bw_method": "mse-dpi", "stata": "18 MP"}"' _n
+file write `fh' `"  , "_meta": {"cmd": "did_had", "effects": 3, "placebo": 2, "kernel": "epanechnikov", "bw_method": "mse-dpi", "yatchew": "het_robust", "stata": "18 MP"}"' _n
 file write `fh' "}" _n
 file close `fh'
 
