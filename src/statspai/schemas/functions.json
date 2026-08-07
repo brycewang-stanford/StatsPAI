@@ -46090,7 +46090,7 @@
     }
   },
   {
-    "description": "Cardinality matching -- maximise the number of matched pairs subject",
+    "description": "Cardinality matching -- maximise the number of matched pairs subject Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "cardinality_match",
     "parameters": {
       "properties": {
@@ -46112,6 +46112,11 @@
         "smd_tolerance": {
           "default": 0.1,
           "description": "smd_tolerance parameter (float).",
+          "type": "number"
+        },
+        "time_limit": {
+          "default": 30.0,
+          "description": "time_limit parameter (float).",
           "type": "number"
         },
         "treatment": {

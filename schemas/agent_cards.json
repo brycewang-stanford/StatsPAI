@@ -28640,6 +28640,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "tests/reference_parity/test_matching_parity.py",
+      "tests/reference_parity/test_overlap_weights_r_parity.py",
       "tests/reference_parity/test_recovery_batch_parity.py"
     ],
     "validation_status": "validated"
@@ -36513,7 +36514,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Cardinality matching -- maximise the number of matched pairs subject",
+    "description": "Cardinality matching -- maximise the number of matched pairs subject Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -36540,7 +36541,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Cardinality matching -- maximise the number of matched pairs subject",
+      "description": "Cardinality matching -- maximise the number of matched pairs subject Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "cardinality_match",
       "parameters": {
         "properties": {
@@ -36564,6 +36565,11 @@
             "description": "smd_tolerance parameter (float).",
             "type": "number"
           },
+          "time_limit": {
+            "default": 30.0,
+            "description": "time_limit parameter (float).",
+            "type": "number"
+          },
           "treatment": {
             "description": "Treatment indicator, treatment variable, or treatment array.",
             "type": "string"
@@ -36580,8 +36586,10 @@
     },
     "stability": "stable",
     "typical_n_min": 200,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_cardinality_match_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [
