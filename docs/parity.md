@@ -25,15 +25,16 @@ sp.parity_summary()           # honest coverage counts
 
 | status | functions |
 | --- | ---: |
-| bit-exact | 144 |
+| bit-exact | 145 |
 | aligned | 16 |
-| analytical-only | 222 |
+| analytical-only | 221 |
+| analytical-only | 215 |
 | external-replication | 6 |
-| **verified (subtotal)** | **388** |
-| unverified | 775 |
-| **total registered** | **1163** |
+| **verified (subtotal)** | **387** |
+| unverified | 774 |
+| **total registered** | **1161** |
 
-## bit-exact — 144 functions
+## bit-exact — 145 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -147,6 +148,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `prevalence_ratio` | base-R closed form (Katz-log; = epiR::epi.2by2) | R 4.5.2 | estimate, se_log, CI 1e-12 abs (observed ~2e-16) | — / — | [`test_epi_parity.py`](../tests/reference_parity/test_epi_parity.py) (+1) |
 | `probit` | stats::glm(family=binomial("probit")) | R 4.5.2; stats 4.5.2 | rel_est<=1e-06, rel_se<=0.01 | 3.1e-07 / 1.6e-08 | [`48_probit.py`](../tests/r_parity/48_probit.py) (+2) |
 | `psm` | MatchIt::matchit | R 4.5.2; MatchIt 4.7.2 | rel_est<=1e-06, rel_se<=1e-06 | 1.2e-15 / 2.0e-16 | [`11_psm.py`](../tests/r_parity/11_psm.py) (+2) |
+| `psmatch2` | Stata 18 MP + psmatch2 4.0.12 / pstest 4.2.2 (Leuven & Sianesi 2003) | Stata 18 MP; psmatch2 4.0.12 | Observed py<->Stata relative gaps on the committed fixtures: nearest-neighbour ATT 1.2e-16 and its analytic SE exactly 0 (as is _weight per row); radius ATT 2.8e-16; Abadie-Imbens ai(1)/ai(2) SE 3.0e-15/1.7e-15; PSM-DID across all five weight regimes 2.0e-14; pstest per-covariate rows 1.3e-14; Mahalanobis ATT 1.2e-13; llr ATT 2.1e-10 (worst of four kernels); kernel ATT 9.1e-10; pstest summary block 1.3e-9. The two loosest rows are bounded by fixture precision, not by the estimator: pstest accumulates MeanBias/MedBias in a Stata float (2.6e-9) and r(seatt) for the llr reroute was captured at 8 significant digits (9.9e-9). | — / — | [`test_psmatch2_parity.py`](../tests/reference_parity/test_psmatch2_parity.py) (+3) |
 | `pwcompare` | pairwise-contrast identity (= Stata pwcompare) | R 4.5.2 | pairwise diff == coef difference 1e-12 abs (observed <= 1e-15) | — / — | [`test_contrast_pwcompare_parity.py`](../tests/reference_parity/test_contrast_pwcompare_parity.py) |
 | `qreg` | quantreg::rq | R 4.5.2; quantreg 6.1 | rel_est<=1e-06, rel_se<=0.1 | 3.3e-15 / 4.4e-15 | [`40_qreg.py`](../tests/r_parity/40_qreg.py) (+2) |
 | `rddensity` | rddensity::rddensity | R 4.5.2; rddensity 2.6 | rel_est<=1e-06, rel_se<=1e-06 | 3.3e-11 / 8.9e-11 | [`09_rddensity.py`](../tests/r_parity/09_rddensity.py) (+2) |
@@ -220,7 +222,8 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 222 functions
+## analytical-only — 221 functions
+## analytical-only — 215 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -330,12 +333,11 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `levinsohn_petrin` | [`test_structural_parity.py`](../tests/reference_parity/test_structural_parity.py) |
 | `lincom` | [`test_postestimation_parity.py`](../tests/reference_parity/test_postestimation_parity.py) |
 | `lingam` | [`test_causal_discovery_parity.py`](../tests/reference_parity/test_causal_discovery_parity.py) |
-| `list_replications` | [`test_castle_stata_parity.py`](../tests/reference_parity/test_castle_stata_parity.py) (+3) |
+| `list_replications` | [`test_castle_stata_parity.py`](../tests/reference_parity/test_castle_stata_parity.py) (+1) |
 | `long_term_from_short` | [`test_surrogate_parity.py`](../tests/reference_parity/test_surrogate_parity.py) |
 | `longitudinal_analyze` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
 | `longitudinal_contrast` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
 | `lp_did` | [`test_absorbing_reference.py`](../tests/reference_parity/test_absorbing_reference.py) |
-| `lprobust_at_point` | [`test_lprobust_parity.py`](../tests/reference_parity/test_lprobust_parity.py) |
 | `ltmle` | [`test_ml_causal_recovery_parity_round2.py`](../tests/reference_parity/test_ml_causal_recovery_parity_round2.py) |
 | `ltmle_survival` | [`test_ml_causal_recovery_parity_round2.py`](../tests/reference_parity/test_ml_causal_recovery_parity_round2.py) |
 | `malmquist` | [`test_frontier_efficiency_parity.py`](../tests/reference_parity/test_frontier_efficiency_parity.py) |
@@ -393,7 +395,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `prod_fn` | [`test_structural_parity.py`](../tests/reference_parity/test_structural_parity.py) |
 | `proximal` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
 | `proximal_surrogate_index` | [`test_surrogate_parity.py`](../tests/reference_parity/test_surrogate_parity.py) |
-| `psmatch2` | [`test_psmatch2_llr_parity.py`](../tests/reference_parity/test_psmatch2_llr_parity.py) (+3) |
 | `qte_hd_panel` | [`test_hd_panel_qte.py`](../tests/reference_parity/test_hd_panel_qte.py) |
 | `rate` | [`test_forest_rate_honest_parity.py`](../tests/reference_parity/test_forest_rate_honest_parity.py) |
 | `rd_honest` | [`test_rdhonest_parity.py`](../tests/reference_parity/test_rdhonest_parity.py) |
@@ -402,8 +403,8 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `rdrandinf` | [`test_rdlocrand_parity.py`](../tests/reference_parity/test_rdlocrand_parity.py) |
 | `rdwinselect` | [`test_rdlocrand_parity.py`](../tests/reference_parity/test_rdlocrand_parity.py) |
 | `regime` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
-| `replicate` | [`test_castle_stata_parity.py`](../tests/reference_parity/test_castle_stata_parity.py) (+3) |
-| `ri_test` | [`test_recovery_batch2_parity.py`](../tests/reference_parity/test_recovery_batch2_parity.py) (+1) |
+| `replicate` | [`test_castle_stata_parity.py`](../tests/reference_parity/test_castle_stata_parity.py) (+1) |
+| `ri_test` | [`test_recovery_batch2_parity.py`](../tests/reference_parity/test_recovery_batch2_parity.py) |
 | `rifreg` | [`test_decomposition_family_parity.py`](../tests/reference_parity/test_decomposition_family_parity.py) |
 | `rlasso_effects` | [`test_rlasso_parity.py`](../tests/reference_parity/test_rlasso_parity.py) |
 | `romano_wolf` | [`test_romano_wolf_parity.py`](../tests/reference_parity/test_romano_wolf_parity.py) |
@@ -449,6 +450,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `xtdpdsys` | [`test_dynpanel_abdata_parity.py`](../tests/reference_parity/test_dynpanel_abdata_parity.py) |
 | `xtlsdvc` | [`test_lsdvc_parity.py`](../tests/reference_parity/test_lsdvc_parity.py) |
 
-## unverified — 775 functions
+## unverified — 774 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

@@ -208,6 +208,45 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "moment gap ~1e-15) where ebal stops around 1e-7."
         ),
     },
+    "psmatch2": {
+        "status": "bit-exact",
+        "reference": (
+            "Stata 18 MP + psmatch2 4.0.12 / pstest 4.2.2 (Leuven & Sianesi 2003)"
+        ),
+        "reference_versions": {"Stata": "18 MP", "psmatch2": "4.0.12"},
+        "tolerance": (
+            "Observed py<->Stata relative gaps on the committed fixtures: "
+            "nearest-neighbour ATT 1.2e-16 and its analytic SE exactly 0 "
+            "(as is _weight per row); radius ATT 2.8e-16; Abadie-Imbens "
+            "ai(1)/ai(2) SE 3.0e-15/1.7e-15; PSM-DID across all five weight "
+            "regimes 2.0e-14; pstest per-covariate rows 1.3e-14; "
+            "Mahalanobis ATT 1.2e-13; llr ATT 2.1e-10 (worst of four "
+            "kernels); kernel ATT 9.1e-10; pstest summary block 1.3e-9. "
+            "The two loosest rows are bounded by fixture precision, not by "
+            "the estimator: pstest accumulates MeanBias/MedBias in a Stata "
+            "float (2.6e-9) and r(seatt) for the llr reroute was captured "
+            "at 8 significant digits (9.9e-9)."
+        ),
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_psmatch2_parity.py",
+            "tests/reference_parity/test_psmatch2_llr_parity.py",
+            "tests/reference_parity/test_pstest_parity.py",
+            "tests/reference_parity/test_psmdid_weight_parity.py",
+        ],
+        "note": (
+            "Five frozen Stata fixtures, each regenerable from a committed "
+            ".do file, covering nearest-neighbour / kernel / radius / local "
+            "linear regression / Mahalanobis matching, the psmatch2 and "
+            "Abadie-Imbens standard errors, the full pstest table, and the "
+            "PSM-DID aweight / fweight / unweighted regimes. Reported as "
+            "analytical-only before v1.22 because the promotion table did "
+            "not list it, not because the evidence was missing. The "
+            "fixtures also pin three psmatch2 behaviours that differ from "
+            "what its option names imply -- see "
+            "tests/reference_parity/REFERENCES.md."
+        ),
+    },
     "match": {
         "status": "bit-exact",
         "reference": "MatchIt::matchit 4.7.2 (nearest, glm/logit distance)",

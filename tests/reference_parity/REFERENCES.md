@@ -250,6 +250,52 @@ the OLS Conley menu follows Stata `acreg`'s planar 111-km/degree distance;
 the GLM menu follows conleyreg's spherical distance — each matches the
 reference that exists for its model class.
 
+**`sp.psmatch2` — the full Stata psmatch2 / pstest surface**
+(`test_psmatch2_parity.py`, `test_psmatch2_llr_parity.py`,
+`test_pstest_parity.py`, `test_psmdid_weight_parity.py`). Five frozen
+Stata 18 MP + psmatch2 4.0.12 fixtures, each regenerable from a committed
+`.do` file in `_fixtures/`. Observed py↔Stata relative gaps, measured on the
+committed artifacts (not asserted bounds):
+
+| path | Stata command | observed |
+| --- | --- | ---: |
+| nearest-neighbour ATT | `psmatch2 d x, out(y) n(1) logit` | 1.2e-16 |
+| nearest-neighbour analytic SE | `r(seatt)` | **0** (exact) |
+| `_weight` per row | — | **0** (exact, abs) |
+| kernel (Epanechnikov, bw 0.5) ATT | `..., kernel kerneltype(epan)` | 9.1e-10 |
+| radius ATT | `..., radius caliper(0.1)` | 2.8e-16 |
+| Abadie-Imbens SE, `ai(1)` / `ai(2)` | `..., ai(J)` | 3.0e-15 / 1.7e-15 |
+| local linear regression ATT | `..., llr kerneltype(K)` (4 kernels) | 2.1e-10 |
+| Mahalanobis ATT | `psmatch2 d, mahalanobis(x) n(1)` | 1.2e-13 |
+| `llr_stata_compat` ATT / SE | `..., llr kerneltype(epan)` | 6.4e-12 / 9.9e-9 |
+| `pstest` per-covariate rows | `pstest x, both` | 1.3e-14 |
+| `pstest` summary block (Ps R2, LR χ², Rubin B/R) | `pstest x, both` | 1.3e-9 |
+| `pstest` MeanBias / MedBias | `pstest x, both` | 2.6e-9 |
+| PSM-DID, 5 weight regimes | `reg y d post did [aw=/fw=_weight]` | 2.0e-14 |
+
+Two entries are bounded by *fixture* precision rather than by the estimator.
+`r(seatt)` for the `llr` reroute was captured at 8 significant digits
+(`0.36195584`), and `pstest` accumulates MeanBias/MedBias into a Stata
+**float** variable, so only single precision survives its own reporting.
+
+Three psmatch2 behaviours the fixtures exist to pin, all established by
+reading `psmatch2.ado` / `pstest.ado` and then confirmed against the live
+package — not inferred:
+
+* `psmatch2 ..., llr` with its **default** Epanechnikov kernel does not run
+  local linear regression matching. `psmatch2.ado` rewrites the request as
+  nearest-neighbour matching on an `lpoly`-smoothed outcome, so a treated
+  unit's raw outcome is compared with its match's *smoothed* one
+  (`max|_y − _s_y[match]| = 0` exactly, vs `max|_y − y[match]| = 1.99`).
+  Only a non-Epanechnikov kernel reaches psmatch2's own LLR routine.
+  `llr_stata_compat=True` reproduces the substitution.
+* psmatch2 reports `seatt = .` for genuine LLR — local linear weights can be
+  negative, which its analytic formula assumes away.
+* `pstest` fits its **own probit**, refit on the matched sample with
+  `[iw=_weight]`, for the Ps R2 / LR χ² / Rubin B / Rubin R block. It does
+  not reuse psmatch2's logit propensity score; substituting `logit(_pscore)`
+  reproduces every per-covariate row while leaving Rubin's B 5.6% out.
+
 ## What the tests verify
 
 ### Recovery tests
