@@ -330,6 +330,68 @@ overlap weights' exact-balance property (Li, Morgan & Zaslavsky 2018) is
 derived at the *unpenalised* score equations, so regularisation broke the
 guarantee the docstring cites.
 
+<a id="weighted-ks-exact"></a>
+
+## 1.22.0 — ⚠️ weighted KS balance statistics increase
+
+**What changed.** The weighted Kolmogorov-Smirnov statistic was computed by
+interpolating the cumulative weights linearly between order statistics. An
+empirical CDF is a **step** function — `F(v) = Σ wᵢ·1[xᵢ ≤ v] / Σ w` — so
+the interpolant cuts the corner at every jump and reports a smaller maximum
+gap than exists. It is now evaluated exactly.
+
+**Which numbers.** `ks_stat` in `sp.ps_balance(...).table` and
+`ks_stat_weighted` in `sp.balance_diagnostics(...).table`. Both **increase**.
+
+| | old (interpolated) | new (exact step ECDF) |
+| --- | ---: | ---: |
+| typical n = 30 sample | 0.0919 | **0.1492** |
+| worst understatement, n = 30 | ~0.06 absolute | — |
+| worst understatement, n = 400 | ~0.004 absolute | — |
+| equal weights, deviation from `scipy.stats.ks_2samp` | up to 0.063 | **1.1e-16** |
+
+The unweighted branch always delegated to `scipy.stats.ks_2samp` and is
+unchanged; the point of the fix is that the two branches of one function
+now compute the same statistic.
+
+**Do my estimates change?** No. This is a balance *diagnostic*, not an
+estimator — no treatment effect, standard error, weight, or matched set
+moves. What changes is the reported degree of imbalance, and only upward:
+a covariate you read as "KS = 0.09, fine" may now read 0.15. Re-read any
+balance table published before 1.22 before quoting a KS threshold from it.
+There is no flag to restore the interpolated value; it was not the defined
+statistic.
+
+Zero total weight in either arm now returns `nan` rather than dividing by
+zero.
+
+<a id="sbw-solver-status"></a>
+
+## 1.22.0 — `sp.sbw(...).solver_status` holds the solver outcome
+
+**What changed.** The field was assigned the *estimand* — the literal
+`"att"` / `"atc"` / `"ate"` — while the real `scipy.optimize.minimize`
+outcome was computed and thrown away. It now holds `"optimal"`, or
+`"feasible-not-converged: <message>"` when SLSQP only got there via the
+loosened-`ftol` retry. For `estimand='ate'`, which runs two solves, the
+worse of the two is reported.
+
+```python
+res = sp.sbw(df, treat='d', covariates=['x1', 'x2'], y='y', estimand='att')
+
+res.solver_status   # before 1.22: 'att'      — always, told you nothing
+res.solver_status   # now:         'optimal'  — did the optimiser converge
+res.estimand        # 'ATT'        (unchanged, and always carried this)
+res.method          # 'SBW-ATT (variance)'
+```
+
+**Do my numbers change?** No — weights, estimates and balance are
+untouched, and a returned solution was always feasible (`_solve_sbw` raises
+if the balance constraints are violated). Only code that *read*
+`solver_status` is affected: a test or pipeline asserting
+`solver_status == estimand` will now fail, correctly. Read `result.estimand`
+(or `result.method`) for the estimand.
+
 <a id="matching-default-se"></a>
 
 ## 1.22.0 — ⚠️ `sp.match` default standard errors change
