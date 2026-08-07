@@ -35693,6 +35693,62 @@
     }
   },
   {
+    "description": "MSE-optimal direct-plug-in bandwidths, as ``bwselect('mse-dpi')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "lpbwselect_mse_dpi",
+    "parameters": {
+      "properties": {
+        "bwcheck": {
+          "default": 21,
+          "description": "bwcheck parameter (int).",
+          "type": "integer"
+        },
+        "bwregul": {
+          "default": 1.0,
+          "description": "bwregul parameter (float).",
+          "type": "number"
+        },
+        "deriv": {
+          "default": 0,
+          "description": "deriv parameter (int).",
+          "type": "integer"
+        },
+        "eval_point": {
+          "description": "eval_point parameter (float).",
+          "type": "number"
+        },
+        "kernel": {
+          "default": "epanechnikov",
+          "description": "Kernel function used for weighting or smoothing.",
+          "type": "string"
+        },
+        "n_neighbors": {
+          "default": 3,
+          "description": "Number of neighbors.",
+          "type": "integer"
+        },
+        "p": {
+          "default": 1,
+          "description": "p parameter (int).",
+          "type": "integer"
+        },
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "eval_point"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Estimate a Vector Autoregression (VAR) model. Validation: certified parity evidence.",
     "name": "var",
     "parameters": {
@@ -37206,7 +37262,7 @@
     }
   },
   {
-    "description": "Heterogeneous-adoption DiD using quasi-untreated groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Heterogeneous-adoption DiD using quasi-untreateded groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "did_had",
     "parameters": {
       "properties": {
@@ -37216,6 +37272,7 @@
           "type": "number"
         },
         "bandwidth": {
+          "default": "mse-dpi",
           "description": "Bandwidth for the local polynomial fit at dose zero -- one value, or one per reported horizon (placebos first, then effects). **Required for now.** Stata's default ``bw_method('mse-dpi')`` selector is not yet implemented; see Notes.",
           "items": {
             "type": "string"
@@ -37237,7 +37294,7 @@
           "type": "integer"
         },
         "group": {
-          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+          "description": "Column names. ``treat`` is the dose, not an indicator.",
           "type": "string"
         },
         "kernel": {
@@ -37257,20 +37314,20 @@
           "type": "integer"
         },
         "time": {
-          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+          "description": "Column names. ``treat`` is the dose, not an indicator.",
           "type": "string"
         },
-        "treatment": {
-          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+        "treat": {
+          "description": "Column names. ``treat`` is the dose, not an indicator.",
           "type": "string"
         },
         "trends_lin": {
           "default": false,
-          "description": "Allow group-specific linear trends, estimated from each group's ``F-2`` to ``F-1`` evolution and subtracted. Costs one placebo, and needs at least three pre-treatment periods.",
+          "description": "Allow group-specific linear trends, estimated from each group's ``F-2`` to ``F-1`` evolution and subtracted. Costs one placebo, and needs at least three pre-treat periods.",
           "type": "boolean"
         },
         "y": {
-          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+          "description": "Column names. ``treat`` is the dose, not an indicator.",
           "type": "string"
         }
       },
@@ -37279,13 +37336,13 @@
         "y",
         "group",
         "time",
-        "treatment"
+        "treat"
       ],
       "type": "object"
     }
   },
   {
-    "description": "Test that quasi-untreated groups exist (dCDH et al., Section 3.3). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Test that quasi-untreateded groups exist (dCDH et al., Section 3.3). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "quasi_untreated_test",
     "parameters": {
       "properties": {

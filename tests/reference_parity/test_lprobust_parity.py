@@ -210,3 +210,75 @@ class TestLprobustValidation:
         xn[1] = np.nan
         got = sp.lprobust_at_point(xn, yn, 0.0, h=0.8)
         assert np.isfinite(got.tau_us) and np.isfinite(got.se_rb)
+
+
+class TestBandwidthSelection:
+    """``mse-dpi`` direct-plug-in selection.
+
+    Pinned against **R** ``nprobust::lpbwselect`` rather than Stata,
+    because Stata's ``lprobust`` overrides the selector's ``b`` with
+    ``h/rho`` (``rho`` defaults to 1) and so never reports the ``b`` the
+    selector actually chose. R reports both, which is the stricter check
+    — and R and Stata agree on ``h`` to 4e-9 anyway.
+
+    The Stata implementation is a compiled Mata routine with no readable
+    source; the R package implements the same algorithm in readable R,
+    which is what this port was written from.
+    """
+
+    # nprobust::lpbwselect(y, x, eval=0, kernel="epa", bwselect="mse-dpi")
+    R_H = 0.59287569069430
+    R_B = 1.02131749854371
+    STATA_H = 0.59287568670540
+
+    def test_h_matches_r(self, xy):
+        x, y = xy
+        got = sp.lpbwselect_mse_dpi(x, y, 0.0)
+        assert got["h"] == pytest.approx(self.R_H, abs=1e-10)
+
+    def test_b_matches_r(self, xy):
+        """The selector's own b, which Stata's rho=1 hides."""
+        x, y = xy
+        got = sp.lpbwselect_mse_dpi(x, y, 0.0)
+        assert got["b"] == pytest.approx(self.R_B, abs=1e-10)
+
+    def test_h_matches_stata_too(self, xy):
+        x, y = xy
+        got = sp.lpbwselect_mse_dpi(x, y, 0.0)
+        assert got["h"] == pytest.approx(self.STATA_H, abs=1e-7)
+
+    def test_b_exceeds_h_here(self, xy):
+        """Pins that b and h are genuinely different objects.
+
+        did_had uses h for BOTH, inheriting lprobust's rho=1. If a future
+        change passed the selector's b as the bias bandwidth, every
+        bias-correction window would silently widen.
+        """
+        x, y = xy
+        got = sp.lpbwselect_mse_dpi(x, y, 0.0)
+        assert got["b"] > got["h"]
+
+    def test_selected_bandwidth_reproduces_the_default_fit(self, xy):
+        """Selecting then fitting must equal fitting at the selected h."""
+        x, y = xy
+        bw = sp.lpbwselect_mse_dpi(x, y, 0.0)
+        fit = sp.lprobust_at_point(x, y, 0.0, h=bw["h"], b=bw["h"])
+        assert np.isfinite(fit.tau_us) and fit.se_rb > 0
+
+    def test_even_case_is_rejected_not_approximated(self, xy):
+        """(p - deriv) even needs an optimization step that is not ported."""
+        x, y = xy
+        with pytest.raises(NotImplementedError, match="odd"):
+            sp.lpbwselect_mse_dpi(x, y, 0.0, p=2, deriv=0)
+
+    def test_too_few_observations_for_bwcheck_raises(self):
+        rng = np.random.default_rng(3)
+        x = np.abs(rng.gamma(1.4, 0.6, 10))
+        with pytest.raises(ValueError, match="bwcheck"):
+            sp.lpbwselect_mse_dpi(x, rng.normal(size=10), 0.0)
+
+    @pytest.mark.parametrize("kernel", ["epanechnikov", "triangular", "uniform"])
+    def test_every_kernel_selects_a_usable_bandwidth(self, xy, kernel):
+        x, y = xy
+        got = sp.lpbwselect_mse_dpi(x, y, 0.0, kernel=kernel)
+        assert got["h"] > 0 and np.isfinite(got["h"])

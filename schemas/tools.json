@@ -5588,7 +5588,7 @@
     "name": "did_estimate"
   },
   {
-    "description": "Heterogeneous-adoption DiD using quasi-untreated groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Heterogeneous-adoption DiD using quasi-untreateded groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -5597,6 +5597,7 @@
           "type": "number"
         },
         "bandwidth": {
+          "default": "mse-dpi",
           "description": "Bandwidth for the local polynomial fit at dose zero -- one value, or one per reported horizon (placebos first, then effects). **Required for now.** Stata's default ``bw_method('mse-dpi')`` selector is not yet implemented; see Notes.",
           "items": {
             "type": "string"
@@ -5614,7 +5615,7 @@
           "type": "integer"
         },
         "group": {
-          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+          "description": "Column names. ``treat`` is the dose, not an indicator.",
           "type": "string"
         },
         "kernel": {
@@ -5634,27 +5635,27 @@
           "type": "integer"
         },
         "time": {
-          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+          "description": "Column names. ``treat`` is the dose, not an indicator.",
           "type": "string"
         },
-        "treatment": {
-          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+        "treat": {
+          "description": "Column names. ``treat`` is the dose, not an indicator.",
           "type": "string"
         },
         "trends_lin": {
           "default": false,
-          "description": "Allow group-specific linear trends, estimated from each group's ``F-2`` to ``F-1`` evolution and subtracted. Costs one placebo, and needs at least three pre-treatment periods.",
+          "description": "Allow group-specific linear trends, estimated from each group's ``F-2`` to ``F-1`` evolution and subtracted. Costs one placebo, and needs at least three pre-treat periods.",
           "type": "boolean"
         },
         "y": {
-          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+          "description": "Column names. ``treat`` is the dose, not an indicator.",
           "type": "string"
         }
       },
       "required": [
         "group",
         "time",
-        "treatment",
+        "treat",
         "y"
       ],
       "type": "object"
@@ -17614,7 +17615,7 @@
     "name": "qte_hd_panel"
   },
   {
-    "description": "Test that quasi-untreated groups exist (dCDH et al., Section 3.3). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Test that quasi-untreateded groups exist (dCDH et al., Section 3.3). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "dose": {

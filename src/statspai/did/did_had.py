@@ -1,4 +1,4 @@
-"""Heterogeneous-adoption DiD with quasi-untreated groups (did_had).
+"""Heterogeneous-adoption DiD with quasi-untreateded groups (did_had).
 
 de Chaisemartin, Ciccia, D'Haultfœuille & Knau, "Difference-in-Differences
 Estimators When No Unit Remains Untreated" (arXiv:2405.04465).
@@ -10,9 +10,9 @@ the **same** period F, with heterogeneous dose. Timing does not vary — if
 it does, this is the wrong estimator and ``sp.did_multiplegt_dyn`` is the
 right one.
 
-The problem is that **no group stays untreated**, so there is no control
+The problem is that **no group stays untreateded**, so there is no control
 group to supply the counterfactual outcome evolution. What the design
-does offer, when doses are concentrated near zero, is *quasi-untreated*
+does offer, when doses are concentrated near zero, is *quasi-untreateded*
 groups: groups whose dose is small enough to be treated as effectively
 zero. The counterfactual is then the intercept of a local polynomial
 regression of the outcome evolution on the dose, evaluated at dose 0.
@@ -72,13 +72,13 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
-from ..nonparametric.lprobust import lprobust_at_point
+from ..nonparametric.lprobust import lpbwselect_mse_dpi, lprobust_at_point
 
 __all__ = ["did_had", "quasi_untreated_test"]
 
 
 def quasi_untreated_test(dose: Sequence[float]) -> Dict[str, float]:
-    """Test that quasi-untreated groups exist (dCDH et al., §3.3).
+    """Test that quasi-untreateded groups exist (dCDH et al., §3.3).
 
     The whole design rests on some group having a dose close enough to
     zero to stand in for an untreated one. This checks it, in closed
@@ -91,7 +91,7 @@ def quasi_untreated_test(dose: Sequence[float]) -> Dict[str, float]:
     ``T`` converges to a ratio of two iid Exponential(1) variables, whose
     CDF is ``t/(1+t)`` — hence the p-value. A **large** T means the
     smallest dose is far from zero relative to the spacing, i.e. no
-    credible quasi-untreated group, and drives p toward 0.
+    credible quasi-untreateded group, and drives p toward 0.
 
     Parameters
     ----------
@@ -108,14 +108,14 @@ def quasi_untreated_test(dose: Sequence[float]) -> Dict[str, float]:
     --------
     >>> import statspai as sp
     >>> res = sp.quasi_untreated_test([0.001, 0.9, 1.4, 2.0])
-    >>> res['pvalue'] > 0.5   # tiny smallest dose -> quasi-untreated exist
+    >>> res['pvalue'] > 0.5   # tiny smallest dose -> quasi-untreateded exist
     True
     """
     d = np.asarray(dose, dtype=float)
     d = np.sort(d[np.isfinite(d) & (d > 0)])
     if d.size < 2:
         raise ValueError(
-            "the quasi-untreated test needs at least two distinct positive "
+            "the quasi-untreateded test needs at least two distinct positive "
             f"doses, got {d.size}."
         )
     gap = d[1] - d[0]
@@ -137,24 +137,22 @@ def quasi_untreated_test(dose: Sequence[float]) -> Dict[str, float]:
     }
 
 
-def _panel_matrices(data: pd.DataFrame, y: str, group: str, time: str, treatment: str):
+def _panel_matrices(data: pd.DataFrame, y: str, group: str, time: str, treat: str):
     """Reshape to group x period matrices and locate the common adoption date."""
-    for col in (y, group, time, treatment):
+    for col in (y, group, time, treat):
         if col not in data.columns:
             raise ValueError(f"Column {col!r} not found in data.")
 
-    df = data[[group, time, y, treatment]].copy()
+    df = data[[group, time, y, treat]].copy()
     df = df.sort_values([group, time])
 
     wide_y = df.pivot_table(index=group, columns=time, values=y, aggfunc="first")
-    wide_d = df.pivot_table(
-        index=group, columns=time, values=treatment, aggfunc="first"
-    )
+    wide_d = df.pivot_table(index=group, columns=time, values=treat, aggfunc="first")
     periods = list(wide_y.columns)
 
     # Each group's first treatment CHANGE. Groups that never change are
     # stayers -- dose 0 throughout -- and belong in the estimation as the
-    # most quasi-untreated groups there are, not dropped.
+    # most quasi-untreateded groups there are, not dropped.
     d = wide_d.to_numpy(dtype=float)
     changed = np.diff(d, axis=1) != 0
     first_change = np.full(d.shape[0], np.nan)
@@ -187,24 +185,24 @@ def did_had(
     y: str,
     group: str,
     time: str,
-    treatment: str,
+    treat: str,
     *,
     effects: int = 1,
     placebo: int = 0,
-    bandwidth: Union[float, Sequence[float], None] = None,
+    bandwidth: Union[float, Sequence[float], str] = "mse-dpi",
     kernel: str = "epanechnikov",
     alpha: float = 0.05,
     dynamic: bool = False,
     trends_lin: bool = False,
 ) -> CausalResult:
-    """Heterogeneous-adoption DiD using quasi-untreated groups.
+    """Heterogeneous-adoption DiD using quasi-untreateded groups.
 
     Parameters
     ----------
     data : DataFrame
         Long panel, one row per group-period.
-    y, group, time, treatment : str
-        Column names. ``treatment`` is the dose, not an indicator.
+    y, group, time, treat : str
+        Column names. ``treat`` is the dose, not an indicator.
     effects : int, default 1
         Number of event-study effects. Effect ℓ is the effect at period
         ``F-1+ℓ``, i.e. ℓ periods after adoption.
@@ -230,14 +228,14 @@ def did_had(
     trends_lin : bool, default False
         Allow group-specific linear trends, estimated from each group's
         ``F-2`` to ``F-1`` evolution and subtracted. Costs one placebo,
-        and needs at least three pre-treatment periods.
+        and needs at least three pre-treat periods.
 
     Returns
     -------
     CausalResult
         ``.detail`` has one row per horizon with ``estimate``, ``se``,
         ``ci_lower``, ``ci_upper``, ``bandwidth``, ``n_in_bw`` and the
-        quasi-untreated test. ``.estimate`` is effect 1.
+        quasi-untreateded test. ``.estimate`` is effect 1.
 
     Notes
     -----
@@ -258,7 +256,7 @@ def did_had(
     >>> import statspai as sp
     >>> df = sp.dgp_did(n_units=60, n_periods=6, seed=0)  # doctest: +SKIP
     >>> res = sp.did_had(df, 'y', 'unit', 'time', 'dose',
-    ...                  effects=2, bandwidth=0.5)        # doctest: +SKIP
+    ...                  effects=2)                       # doctest: +SKIP
 
     References
     ----------
@@ -277,7 +275,7 @@ def did_had(
             "want, or the one Stata's did_had reports in its BW column."
         )
 
-    wide_y, wide_d, periods, f_period = _panel_matrices(data, y, group, time, treatment)
+    wide_y, wide_d, periods, f_period = _panel_matrices(data, y, group, time, treat)
     pos = {p: k for k, p in enumerate(periods)}
     if f_period not in pos:
         raise ValueError(f"adoption period {f_period} is absent from {time}.")
@@ -285,7 +283,7 @@ def did_had(
 
     if f_idx < 1:
         raise ValueError(
-            "did_had needs at least one pre-treatment period; adoption "
+            "did_had needs at least one pre-treat period; adoption "
             f"occurs at the first observed period ({f_period})."
         )
 
@@ -297,7 +295,7 @@ def did_had(
     if trends_lin:
         if f_idx < 2:
             raise ValueError(
-                "trends_lin needs at least three pre-treatment periods so "
+                "trends_lin needs at least three pre-treat periods so "
                 "each group's F-2 to F-1 evolution can proxy its trend; "
                 f"adoption at {f_period} leaves too few."
             )
@@ -318,7 +316,19 @@ def did_had(
         )
 
     horizons = [-k for k in range(placebo, 0, -1)] + list(range(1, effects + 1))
-    bws = _resolve_bandwidths(bandwidth, len(horizons))
+    # 'mse-dpi' is selected per horizon, from that horizon's own (dose,
+    # evolution) pair -- exactly as Stata re-runs lprobust for each
+    # effect and placebo, which is why its BW column varies down the table.
+    auto_bw = isinstance(bandwidth, str)
+    if auto_bw:
+        if bandwidth != "mse-dpi":
+            raise ValueError(
+                f"bandwidth must be 'mse-dpi', a float, or one float per "
+                f"horizon; got {bandwidth!r}."
+            )
+        bws: List[Optional[float]] = [None] * len(horizons)
+    else:
+        bws = list(_resolve_bandwidths(bandwidth, len(horizons)))
 
     rows: List[Dict[str, Any]] = []
     z = float(stats.norm.ppf(1 - alpha / 2))
@@ -360,6 +370,12 @@ def did_had(
                 "every group is (quasi-)untreated at this horizon."
             )
 
+        if bw is None:
+            # lprobust's rho defaults to 1, so it sets b = h/rho = h
+            # rather than using the selector's own b. did_had inherits
+            # that, so the bias bandwidth here is h, not the b the
+            # selector would report.
+            bw = lpbwselect_mse_dpi(dose_k, dy_k, 0.0, kernel=kernel)["h"]
         fit = lprobust_at_point(dose_k, dy_k, 0.0, h=bw, b=bw, kernel=kernel)
         beta = (float(dy_k.mean()) - fit.tau_us) / mean_dose
         bias = -fit.bias / mean_dose
@@ -412,7 +428,8 @@ def did_had(
             "kernel": kernel,
             "dynamic": dynamic,
             "trends_lin": trends_lin,
-            "bandwidth": list(map(float, bws)),
+            "bandwidth": [float(r["bandwidth"]) for r in rows],
+            "bandwidth_method": "mse-dpi" if auto_bw else "supplied",
             "n_groups": int(y_mat.shape[0]),
             "quasi_untreated_test": {
                 "statistic": rows[-1]["qug_statistic"],

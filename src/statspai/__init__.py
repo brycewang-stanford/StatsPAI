@@ -1735,6 +1735,7 @@ __all__ = [
     "KDensityResult",
     "lprobust_at_point",
     "LProbustPoint",
+    "lpbwselect_mse_dpi",
     # Time Series
     "var",
     "VARResult",
@@ -2985,6 +2986,7 @@ _register_lazy(
     "KDensityResult",
     "lprobust_at_point",
     "LProbustPoint",
+    "lpbwselect_mse_dpi",
 )
 _register_lazy(
     "multilevel",

@@ -49,11 +49,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import factorial
-from typing import Optional
+from typing import Dict, Optional
 
 import numpy as np
 
-__all__ = ["LProbustPoint", "lprobust_at_point"]
+__all__ = ["LProbustPoint", "lprobust_at_point", "lpbwselect_mse_dpi"]
 
 _KERNELS = ("epanechnikov", "triangular", "uniform", "gaussian")
 
@@ -326,3 +326,251 @@ def lprobust_at_point(
         se_us=float(scale * np.sqrt(max(v_us[deriv, deriv], 0.0))),
         se_rb=float(scale * np.sqrt(max(v_rb[deriv, deriv], 0.0))),
     )
+
+
+# ======================================================================
+# MSE-optimal bandwidth selection (direct plug-in)
+# ======================================================================
+
+#: Rule-of-thumb pilot constant per kernel, from ``nprobust``'s
+#: ``lpbwselect.mse.dpi``. Stata's ``lpbwselect.ado`` carries the same
+#: four numbers.
+_PILOT_CONST = {
+    "epanechnikov": 2.34,
+    "uniform": 1.843,
+    "triangular": 2.576,
+    "gaussian": 1.06,
+}
+
+
+def _bw_pieces(
+    x: np.ndarray,
+    y: np.ndarray,
+    eval_point: float,
+    *,
+    o: int,
+    nu: int,
+    o_b: int,
+    h_v: float,
+    h_b1: float,
+    h_b2: float,
+    scale: float,
+    kernel: str,
+    n_neighbors: int,
+) -> Dict[str, float]:
+    """Port of ``nprobust``'s ``lprobust.bw``.
+
+    Returns the variance constant ``V``, the two bias constants ``B1``
+    and ``B2``, the regularization term ``R``, and the bandwidth ``bw``
+    they imply. Three separate fits are involved and they do NOT share a
+    bandwidth: ``h_v`` drives the variance, ``h_b1``/``h_b2`` the two
+    bias terms.
+
+    Note the variance fit divides its kernel weights by ``h_v`` while the
+    bias fits do not — that scaling is what makes ``V`` comparable across
+    bandwidths, and dropping it silently rescales every selected value.
+    """
+    n = len(x)
+
+    # --- variance piece, weights scaled by 1/h_v ---
+    w = _kernel_weights((x - eval_point) / h_v, kernel) / h_v
+    ind = w > 0
+    ex, ey, ew = x[ind], y[ind], w[ind]
+    dx = ex - eval_point
+    r_v = np.column_stack([dx**j for j in range(o + 1)])
+    inv_g_v = np.linalg.inv(r_v.T @ (r_v * ew[:, None]))
+
+    res_v = _nn_residuals(ex, ey, n_neighbors)
+    rx = r_v * ew[:, None]
+    v_v = (inv_g_v @ _meat(rx, res_v) @ inv_g_v)[nu, nu]
+
+    hp = np.array([h_v**j for j in range(o + 1)])
+    u = dx / h_v
+    v1 = rx.T @ (u ** (o + 1))
+    v2 = rx.T @ (u ** (o + 2))
+    bconst1 = float((hp * (inv_g_v @ v1))[nu])
+    bconst2 = float((hp * (inv_g_v @ v2))[nu])
+
+    # --- first bias piece, unscaled weights ---
+    w = _kernel_weights((x - eval_point) / h_b1, kernel)
+    ind = w > 0
+    ex, ey, ew = x[ind], y[ind], w[ind]
+    dx = ex - eval_point
+    r_b1 = np.column_stack([dx**j for j in range(o_b + 1)])
+    inv_g_b1 = np.linalg.inv(r_b1.T @ (r_b1 * ew[:, None]))
+    beta_b1 = inv_g_b1 @ ((r_b1 * ew[:, None]).T @ ey)
+
+    bwreg = 0.0
+    if scale > 0:
+        res_b = _nn_residuals(ex, ey, n_neighbors)
+        v_b = (inv_g_b1 @ _meat(r_b1 * ew[:, None], res_b) @ inv_g_b1)[o + 1, o + 1]
+        bwreg = 3.0 * bconst1**2 * v_b
+
+    # --- second bias piece ---
+    w = _kernel_weights((x - eval_point) / h_b2, kernel)
+    ind = w > 0
+    ex, ey, ew = x[ind], y[ind], w[ind]
+    dx = ex - eval_point
+    r_b2 = np.column_stack([dx**j for j in range(o_b + 2)])
+    inv_g_b2 = np.linalg.inv(r_b2.T @ (r_b2 * ew[:, None]))
+    beta_b2 = inv_g_b2 @ ((r_b2 * ew[:, None]).T @ ey)
+
+    b1 = bconst1 * beta_b1[o + 1]
+    b2 = bconst2 * beta_b2[o + 2]
+    v = n * h_v ** (2 * nu + 1) * v_v
+    r_exp = 1.0 / (2 * o + 3)
+    r_b = 2 * (o + 1 - nu)
+    r_v_pow = 2 * nu + 1
+    denom = n * r_b * (b1**2 + scale * bwreg)
+    bw = float(((r_v_pow * v) / denom) ** r_exp) if denom > 0 else np.inf
+    return {
+        "V": float(v),
+        "B1": float(b1),
+        "B2": float(b2),
+        "R": float(bwreg),
+        "bw": bw,
+    }
+
+
+def lpbwselect_mse_dpi(
+    x: np.ndarray,
+    y: np.ndarray,
+    eval_point: float,
+    *,
+    kernel: str = "epanechnikov",
+    p: int = 1,
+    deriv: int = 0,
+    n_neighbors: int = 3,
+    bwcheck: int = 21,
+    bwregul: float = 1.0,
+) -> Dict[str, float]:
+    """MSE-optimal direct-plug-in bandwidths, as ``bwselect('mse-dpi')``.
+
+    Port of ``nprobust``'s ``lpbwselect.mse.dpi``. Returns ``{'h', 'b'}``
+    — the main and bias bandwidths that :func:`lprobust_at_point` takes.
+
+    The selector is a ladder: two pilot fits at increasing polynomial
+    order give the bandwidths that a third fit uses to estimate the bias
+    of the fourth, which is the one you asked for. Each rung is clamped
+    into ``[bw_min, bw_max]``, where ``bw_min`` is the distance to the
+    ``bwcheck``-th nearest observation — without it the ladder can select
+    a bandwidth containing too few points to fit.
+
+    Only implemented for the ``(p - deriv)`` odd case, which covers the
+    default local-linear level fit (``p=1, deriv=0``) and everything
+    ``sp.did_had`` needs. The even case additionally requires a 1-D
+    numerical optimization of the MSE expansion, and is rejected rather
+    than approximated.
+
+    Examples
+    --------
+    >>> import numpy as np, statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> x = np.abs(rng.gamma(1.4, 0.6, 400))
+    >>> y = 0.8 + 1.3 * x + rng.normal(0, 0.5, 400)
+    >>> bw = sp.lpbwselect_mse_dpi(x, y, 0.0)
+    >>> bw['h'] > 0 and bw['b'] > 0
+    True
+
+    References
+    ----------
+    calonico2019nprobust, calonico2018effect
+    """
+    x = np.asarray(x, dtype=float).ravel()
+    y = np.asarray(y, dtype=float).ravel()
+    finite = np.isfinite(x) & np.isfinite(y)
+    x, y = x[finite], y[finite]
+
+    if kernel not in _PILOT_CONST:
+        raise ValueError(f"kernel must be one of {tuple(_PILOT_CONST)}, got {kernel!r}")
+    if (p - deriv) % 2 == 0:
+        raise NotImplementedError(
+            f"mse-dpi is implemented for odd (p - deriv); got p={p}, "
+            f"deriv={deriv}. The even case needs a numerical optimization "
+            "of the MSE expansion that is not ported yet, and is rejected "
+            "rather than approximated."
+        )
+
+    n = len(x)
+    q = p + 1
+    x_iqr = float(np.quantile(x, 0.75) - np.quantile(x, 0.25))
+    rng_x = float(x.max() - x.min())
+    bw_max = float(max(abs(eval_point - x.min()), abs(eval_point - x.max())))
+
+    c_bw = _PILOT_CONST[kernel] * min(float(np.std(x, ddof=1)), x_iqr / 1.349)
+    c_bw = min(c_bw * n ** (-1 / 5), bw_max)
+
+    bw_min = None
+    if bwcheck is not None:
+        if n < bwcheck:
+            raise ValueError(
+                f"bwcheck={bwcheck} needs at least that many observations, " f"got {n}."
+            )
+        bw_min = float(np.sort(np.abs(x - eval_point))[bwcheck - 1])
+        c_bw = max(c_bw, bw_min)
+
+    def _clamp(v: float) -> float:
+        v = min(v, bw_max)
+        return max(v, bw_min) if bw_min is not None else v
+
+    common = dict(kernel=kernel, n_neighbors=n_neighbors)
+    d1 = _bw_pieces(
+        x,
+        y,
+        eval_point,
+        o=q + 1,
+        nu=q + 1,
+        o_b=q + 2,
+        h_v=c_bw,
+        h_b1=rng_x,
+        h_b2=rng_x,
+        scale=0.0,
+        **common,
+    )
+    bw_mp2 = _clamp(d1["bw"])
+    d2 = _bw_pieces(
+        x,
+        y,
+        eval_point,
+        o=q + 2,
+        nu=q + 2,
+        o_b=q + 3,
+        h_v=c_bw,
+        h_b1=rng_x,
+        h_b2=rng_x,
+        scale=0.0,
+        **common,
+    )
+    bw_mp3 = _clamp(d2["bw"])
+
+    cb = _bw_pieces(
+        x,
+        y,
+        eval_point,
+        o=q,
+        nu=p + 1,
+        o_b=q + 1,
+        h_v=c_bw,
+        h_b1=bw_mp2,
+        h_b2=bw_mp3,
+        scale=bwregul,
+        **common,
+    )
+    b_mse = _clamp(cb["bw"])
+
+    ch = _bw_pieces(
+        x,
+        y,
+        eval_point,
+        o=p,
+        nu=deriv,
+        o_b=q,
+        h_v=c_bw,
+        h_b1=b_mse,
+        h_b2=bw_mp2,
+        scale=bwregul,
+        **common,
+    )
+    h_mse = _clamp(ch["bw"])
+
+    return {"h": float(h_mse), "b": float(b_mse)}
