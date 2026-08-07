@@ -407,7 +407,6 @@
     ],
     "mean_comparison": [
       "filename",
-      "fmt",
       "group_labels",
       "output",
       "title",
@@ -513,7 +512,6 @@
       "method"
     ],
     "outreg2": [
-      "decimal_places",
       "format",
       "model_names",
       "notes",
@@ -621,7 +619,6 @@
       "coef_labels",
       "dep_var_labels",
       "drop",
-      "fmt",
       "keep",
       "model_labels",
       "notes",

@@ -2861,6 +2861,15 @@ def _build_registry() -> None:
             description="Summary table comparing multiple models side by side.",
             params=[
                 ParamSpec(
+                    "digits",
+                    "int",
+                    False,
+                    None,
+                    "Decimal places for coefficients; SEs follow unless "
+                    "se_fmt overrides them. Shorthand for the paired "
+                    "coefficient/SE precision controls.",
+                ),
+                ParamSpec(
                     "results", "list", True, description="List of EconometricResults"
                 ),
                 ParamSpec(
@@ -3146,6 +3155,15 @@ def _build_registry() -> None:
                 "(or models stored via sp.eststo) into text/LaTeX/HTML/Markdown/CSV."
             ),
             params=[
+                ParamSpec(
+                    "digits",
+                    "int",
+                    False,
+                    None,
+                    "Decimal places for coefficients; SEs follow unless "
+                    "se_fmt overrides them. Shorthand for the paired "
+                    "coefficient/SE precision controls.",
+                ),
                 ParamSpec(
                     "results",
                     "list",

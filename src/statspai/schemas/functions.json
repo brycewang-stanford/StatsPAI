@@ -1347,15 +1347,6 @@
     "name": "match",
     "parameters": {
       "properties": {
-        "bootstrap_reps": {
-          "default": 200,
-          "description": "Replications for se_method='bootstrap'",
-          "type": "integer"
-        },
-        "bootstrap_seed": {
-          "description": "Seed for the bootstrap resampler",
-          "type": "integer"
-        },
         "caliper_scale": {
           "default": "raw",
           "description": "Units of `caliper`: 'raw' on the distance scale (Stata psmatch2) or 'sd' in standard deviations of the propensity score (MatchIt std.caliper=TRUE).",
@@ -1375,11 +1366,6 @@
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
-        },
-        "llr_stata_compat": {
-          "default": false,
-          "description": "method='llr' only: reproduce Stata psmatch2's SUBSTITUTE for LLR (lpoly-smoothed outcome + nearest-neighbour matching) rather than genuine local linear regression.",
-          "type": "boolean"
         },
         "m_order": {
           "default": "smallest_min_dist",
@@ -1405,23 +1391,11 @@
         },
         "method": {
           "default": "nearest",
-          "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant.",
+          "description": "Matching method",
           "enum": [
             "nearest",
-            "psm",
-            "mahalanobis",
-            "kernel",
-            "radius",
-            "llr",
-            "stratify",
-            "cem",
-            "optimal",
-            "genmatch",
-            "cardinality",
-            "ebalance",
-            "cbps",
-            "sbw",
-            "overlap"
+            "caliper",
+            "mahalanobis"
           ],
           "type": "string"
         },
@@ -1431,14 +1405,13 @@
         },
         "se_method": {
           "default": "auto",
-          "description": "Standard error. 'auto' resolves to 'abadie_imbens' for nearest-neighbour, 'psmatch2' for kernel / radius, 'bootstrap' for llr. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()) and the only option measured to be correctly sized (0.95-1.04x the sampling SD, coverage 0.905-0.956 over 36 designs x 1000 reps; see benchmarks/matching_se_coverage.py). 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE (1.50-1.69x, too wide); 'ai' the simple matched-pair SE (0.56-0.91x, never reaches nominal coverage); 'bootstrap' resamples within arm and re-estimates the propensity score each draw.",
+          "description": "Standard error. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()); 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE; 'ai' the simple matched-pair SE.",
           "enum": [
             "auto",
             "ai",
             "psmatch2",
             "abadie_imbens",
-            "abadie_imbens_pop",
-            "bootstrap"
+            "abadie_imbens_pop"
           ],
           "type": "string"
         },
@@ -1471,22 +1444,13 @@
     }
   },
   {
-    "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius, local linear regression, Mahalanobis): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance (.pstest() reproduces Stata pstest exactly), common-support plotting, and weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance, common-support plotting, and frequency-weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "psmatch2",
     "parameters": {
       "properties": {
         "ai": {
           "default": 0,
           "description": "Abadie-Imbens (2006) robust SE with J within-arm matches (Stata ai(J))",
-          "type": "integer"
-        },
-        "bootstrap_reps": {
-          "default": 200,
-          "description": "Bootstrap replications when se='bootstrap'",
-          "type": "integer"
-        },
-        "bootstrap_seed": {
-          "description": "Seed for the bootstrap resampler (pass for reproducibility)",
           "type": "integer"
         },
         "bwidth": {
@@ -1520,7 +1484,7 @@
         },
         "kernel": {
           "default": "epan",
-          "description": "Kernel type (method='kernel' or 'llr'). NOTE: Stata's psmatch2 does not run LLR with kerneltype(epan) -- it substitutes lpoly-smoothed nearest-neighbour matching. Use 'tricube' to reproduce psmatch2's own LLR routine.",
+          "description": "Kernel type (method='kernel')",
           "enum": [
             "epan",
             "normal",
@@ -1530,20 +1494,13 @@
           ],
           "type": "string"
         },
-        "llr_stata_compat": {
-          "default": false,
-          "description": "method='llr' only: reproduce Stata psmatch2's SUBSTITUTE for LLR (lpoly-smoothed outcome + nearest-neighbour matching) instead of genuine local linear regression. Set only to reconcile a published psmatch2 number.",
-          "type": "boolean"
-        },
         "method": {
           "default": "neighbor",
           "description": "Matching algorithm",
           "enum": [
             "neighbor",
             "kernel",
-            "radius",
-            "llr",
-            "mahalanobis"
+            "radius"
           ],
           "type": "string"
         },
@@ -1558,12 +1515,11 @@
         },
         "se": {
           "default": "psmatch2",
-          "description": "Standard-error estimator. 'bootstrap' re-estimates the propensity score each replication and is the only valid choice for method='llr' (Stata reports seatt = . there).",
+          "description": "Standard-error estimator",
           "enum": [
             "psmatch2",
             "ai",
-            "abadie_imbens",
-            "bootstrap"
+            "abadie_imbens"
           ],
           "type": "string"
         },
@@ -1985,11 +1941,7 @@
     "parameters": {
       "properties": {
         "digits": {
-          "description": "Int alias for fmt: digits=3 is fmt='%.3f'. Passing both fmt and digits raises",
-          "type": "integer"
-        },
-        "fmt": {
-          "description": "Numeric precision, shared vocabulary with sp.regtable: 'auto' (default) pairs an estimate with its own SE, an int N or '%.Nf' fixes decimals, 'r3'/'s3' are R fixest's round / significant-digit spellings",
+          "description": "Decimal places for coefficients; SEs follow unless se_fmt overrides them. Shorthand for the paired coefficient/SE precision controls.",
           "type": "integer"
         },
         "results": {
@@ -2192,11 +2144,7 @@
           "type": "boolean"
         },
         "digits": {
-          "description": "Int alias for fmt: digits=3 is fmt='%.3f'. Passing both fmt and digits raises",
-          "type": "integer"
-        },
-        "fmt": {
-          "description": "Numeric precision, shared vocabulary with sp.regtable: 'auto' (default) pairs an estimate with its own SE, an int N or '%.Nf' fixes decimals, 'r3'/'s3' are R fixest's round / significant-digit spellings",
+          "description": "Decimal places for coefficients; SEs follow unless se_fmt overrides them. Shorthand for the paired coefficient/SE precision controls.",
           "type": "integer"
         },
         "results": {
@@ -17761,15 +17709,6 @@
           "description": "bias_correction parameter (bool).",
           "type": "boolean"
         },
-        "bootstrap_reps": {
-          "default": 200,
-          "description": "bootstrap_reps parameter (int).",
-          "type": "integer"
-        },
-        "bootstrap_seed": {
-          "description": "bootstrap_seed parameter (Optional[int]).",
-          "type": "integer"
-        },
         "bwidth": {
           "default": 0.06,
           "description": "bwidth parameter (float).",
@@ -17813,11 +17752,6 @@
           "default": "epan",
           "description": "Kernel function used for weighting or smoothing.",
           "type": "string"
-        },
-        "llr_stata_compat": {
-          "default": false,
-          "description": "llr_stata_compat parameter (bool).",
-          "type": "boolean"
         },
         "m_order": {
           "default": "smallest_min_dist",
@@ -37272,6 +37206,104 @@
     }
   },
   {
+    "description": "Heterogeneous-adoption DiD using quasi-untreated groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "did_had",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - alpha confidence level.",
+          "type": "number"
+        },
+        "bandwidth": {
+          "description": "Bandwidth for the local polynomial fit at dose zero -- one value, or one per reported horizon (placebos first, then effects). **Required for now.** Stata's default ``bw_method('mse-dpi')`` selector is not yet implemented; see Notes.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "data": {
+          "description": "Long panel, one row per group-period.",
+          "type": "string"
+        },
+        "dynamic": {
+          "default": false,
+          "description": "Scale effect l by the average **cumulative** dose from F to ``F-1+l`` instead of the dose at ``F-1+l``. The current-dose normalization is right under a static model, the cumulative one under a dynamic model where past treatment still matters.",
+          "type": "boolean"
+        },
+        "effects": {
+          "default": 1,
+          "description": "Number of event-study effects. Effect l is the effect at period ``F-1+l``, i.e. l periods after adoption.",
+          "type": "integer"
+        },
+        "group": {
+          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+          "type": "string"
+        },
+        "kernel": {
+          "default": "epanechnikov",
+          "description": "Default epanechnikov, matching ``did_had``.",
+          "enum": [
+            "epanechnikov",
+            "triangular",
+            "uniform",
+            "gaussian"
+          ],
+          "type": "string"
+        },
+        "placebo": {
+          "default": 0,
+          "description": "Number of placebo estimates, built symmetrically: the ``F-1`` to ``F-1+l`` evolution is replaced by ``F-1`` to ``F-1-l``, with the dose taken from the matching post period.",
+          "type": "integer"
+        },
+        "time": {
+          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+          "type": "string"
+        },
+        "treatment": {
+          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+          "type": "string"
+        },
+        "trends_lin": {
+          "default": false,
+          "description": "Allow group-specific linear trends, estimated from each group's ``F-2`` to ``F-1`` evolution and subtracted. Costs one placebo, and needs at least three pre-treatment periods.",
+          "type": "boolean"
+        },
+        "y": {
+          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "group",
+        "time",
+        "treatment"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Test that quasi-untreated groups exist (dCDH et al., Section 3.3). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "quasi_untreated_test",
+    "parameters": {
+      "properties": {
+        "dose": {
+          "description": "Doses at the horizon being tested. Non-positive values are",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "dose"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Interactive fixed effects estimator (Bai 2009). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "interactive_fe",
     "parameters": {
@@ -46090,7 +46122,7 @@
     }
   },
   {
-    "description": "Cardinality matching -- maximise the number of matched pairs subject Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Cardinality matching -- maximise the number of matched pairs subject",
     "name": "cardinality_match",
     "parameters": {
       "properties": {
@@ -46112,11 +46144,6 @@
         "smd_tolerance": {
           "default": 0.1,
           "description": "smd_tolerance parameter (float).",
-          "type": "number"
-        },
-        "time_limit": {
-          "default": 30.0,
-          "description": "time_limit parameter (float).",
           "type": "number"
         },
         "treatment": {

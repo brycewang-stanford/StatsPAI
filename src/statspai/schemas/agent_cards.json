@@ -2495,15 +2495,6 @@
       "name": "match",
       "parameters": {
         "properties": {
-          "bootstrap_reps": {
-            "default": 200,
-            "description": "Replications for se_method='bootstrap'",
-            "type": "integer"
-          },
-          "bootstrap_seed": {
-            "description": "Seed for the bootstrap resampler",
-            "type": "integer"
-          },
           "caliper_scale": {
             "default": "raw",
             "description": "Units of `caliper`: 'raw' on the distance scale (Stata psmatch2) or 'sd' in standard deviations of the propensity score (MatchIt std.caliper=TRUE).",
@@ -2523,11 +2514,6 @@
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "string"
-          },
-          "llr_stata_compat": {
-            "default": false,
-            "description": "method='llr' only: reproduce Stata psmatch2's SUBSTITUTE for LLR (lpoly-smoothed outcome + nearest-neighbour matching) rather than genuine local linear regression.",
-            "type": "boolean"
           },
           "m_order": {
             "default": "smallest_min_dist",
@@ -2553,23 +2539,11 @@
           },
           "method": {
             "default": "nearest",
-            "description": "Matching method. 'caliper' is not a method -- pass caliper= to any nearest-neighbour variant.",
+            "description": "Matching method",
             "enum": [
               "nearest",
-              "psm",
-              "mahalanobis",
-              "kernel",
-              "radius",
-              "llr",
-              "stratify",
-              "cem",
-              "optimal",
-              "genmatch",
-              "cardinality",
-              "ebalance",
-              "cbps",
-              "sbw",
-              "overlap"
+              "caliper",
+              "mahalanobis"
             ],
             "type": "string"
           },
@@ -2579,14 +2553,13 @@
           },
           "se_method": {
             "default": "auto",
-            "description": "Standard error. 'auto' resolves to 'abadie_imbens' for nearest-neighbour, 'psmatch2' for kernel / radius, 'bootstrap' for llr. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()) and the only option measured to be correctly sized (0.95-1.04x the sampling SD, coverage 0.905-0.956 over 36 designs x 1000 reps; see benchmarks/matching_se_coverage.py). 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE (1.50-1.69x, too wide); 'ai' the simple matched-pair SE (0.56-0.91x, never reaches nominal coverage); 'bootstrap' resamples within arm and re-estimates the propensity score each draw.",
+            "description": "Standard error. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()); 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE; 'ai' the simple matched-pair SE.",
             "enum": [
               "auto",
               "ai",
               "psmatch2",
               "abadie_imbens",
-              "abadie_imbens_pop",
-              "bootstrap"
+              "abadie_imbens_pop"
             ],
             "type": "string"
           },
@@ -2623,7 +2596,6 @@
     "validation_notes": [
       "tests/reference_parity/test_matching_parity.py",
       "tests/reference_parity/test_matching_r_parity.py",
-      "tests/reference_parity/test_psmatch2_llr_parity.py",
       "tests/reference_parity/test_psmatch2_parity.py"
     ],
     "validation_status": "validated"
@@ -2644,7 +2616,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius, local linear regression, Mahalanobis): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance (.pstest() reproduces Stata pstest exactly), common-support plotting, and weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance, common-support plotting, and frequency-weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.psmatch2(df, treat='union', outcome='log_wage', covariates=['education','experience','tenure'])",
     "failure_modes": [
       {
@@ -2672,22 +2644,13 @@
     ],
     "reference": "Leuven & Sianesi (2003) PSMATCH2 (SSC S432001); Rosenbaum & Rubin (1983)",
     "signature": {
-      "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius, local linear regression, Mahalanobis): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance (.pstest() reproduces Stata pstest exactly), common-support plotting, and weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance, common-support plotting, and frequency-weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "psmatch2",
       "parameters": {
         "properties": {
           "ai": {
             "default": 0,
             "description": "Abadie-Imbens (2006) robust SE with J within-arm matches (Stata ai(J))",
-            "type": "integer"
-          },
-          "bootstrap_reps": {
-            "default": 200,
-            "description": "Bootstrap replications when se='bootstrap'",
-            "type": "integer"
-          },
-          "bootstrap_seed": {
-            "description": "Seed for the bootstrap resampler (pass for reproducibility)",
             "type": "integer"
           },
           "bwidth": {
@@ -2721,7 +2684,7 @@
           },
           "kernel": {
             "default": "epan",
-            "description": "Kernel type (method='kernel' or 'llr'). NOTE: Stata's psmatch2 does not run LLR with kerneltype(epan) -- it substitutes lpoly-smoothed nearest-neighbour matching. Use 'tricube' to reproduce psmatch2's own LLR routine.",
+            "description": "Kernel type (method='kernel')",
             "enum": [
               "epan",
               "normal",
@@ -2731,20 +2694,13 @@
             ],
             "type": "string"
           },
-          "llr_stata_compat": {
-            "default": false,
-            "description": "method='llr' only: reproduce Stata psmatch2's SUBSTITUTE for LLR (lpoly-smoothed outcome + nearest-neighbour matching) instead of genuine local linear regression. Set only to reconcile a published psmatch2 number.",
-            "type": "boolean"
-          },
           "method": {
             "default": "neighbor",
             "description": "Matching algorithm",
             "enum": [
               "neighbor",
               "kernel",
-              "radius",
-              "llr",
-              "mahalanobis"
+              "radius"
             ],
             "type": "string"
           },
@@ -2759,12 +2715,11 @@
           },
           "se": {
             "default": "psmatch2",
-            "description": "Standard-error estimator. 'bootstrap' re-estimates the propensity score each replication and is the only valid choice for method='llr' (Stata reports seatt = . there).",
+            "description": "Standard-error estimator",
             "enum": [
               "psmatch2",
               "ai",
-              "abadie_imbens",
-              "bootstrap"
+              "abadie_imbens"
             ],
             "type": "string"
           },
@@ -2784,10 +2739,7 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "tests/reference_parity/test_psmatch2_llr_parity.py",
-      "tests/reference_parity/test_psmatch2_parity.py",
-      "tests/reference_parity/test_psmdid_weight_parity.py",
-      "tests/reference_parity/test_pstest_parity.py"
+      "tests/reference_parity/test_psmatch2_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -3419,11 +3371,7 @@
       "parameters": {
         "properties": {
           "digits": {
-            "description": "Int alias for fmt: digits=3 is fmt='%.3f'. Passing both fmt and digits raises",
-            "type": "integer"
-          },
-          "fmt": {
-            "description": "Numeric precision, shared vocabulary with sp.regtable: 'auto' (default) pairs an estimate with its own SE, an int N or '%.Nf' fixes decimals, 'r3'/'s3' are R fixest's round / significant-digit spellings",
+            "description": "Decimal places for coefficients; SEs follow unless se_fmt overrides them. Shorthand for the paired coefficient/SE precision controls.",
             "type": "integer"
           },
           "results": {
@@ -3728,11 +3676,7 @@
             "type": "boolean"
           },
           "digits": {
-            "description": "Int alias for fmt: digits=3 is fmt='%.3f'. Passing both fmt and digits raises",
-            "type": "integer"
-          },
-          "fmt": {
-            "description": "Numeric precision, shared vocabulary with sp.regtable: 'auto' (default) pairs an estimate with its own SE, an int N or '%.Nf' fixes decimals, 'r3'/'s3' are R fixest's round / significant-digit spellings",
+            "description": "Decimal places for coefficients; SEs follow unless se_fmt overrides them. Shorthand for the paired coefficient/SE precision controls.",
             "type": "integer"
           },
           "results": {
@@ -28640,7 +28584,6 @@
     "typical_n_min": 200,
     "validation_notes": [
       "tests/reference_parity/test_matching_parity.py",
-      "tests/reference_parity/test_overlap_weights_r_parity.py",
       "tests/reference_parity/test_recovery_batch_parity.py"
     ],
     "validation_status": "validated"
@@ -36514,7 +36457,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Cardinality matching -- maximise the number of matched pairs subject Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Cardinality matching -- maximise the number of matched pairs subject",
     "example": "",
     "failure_modes": [
       {
@@ -36541,7 +36484,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Cardinality matching -- maximise the number of matched pairs subject Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Cardinality matching -- maximise the number of matched pairs subject",
       "name": "cardinality_match",
       "parameters": {
         "properties": {
@@ -36565,11 +36508,6 @@
             "description": "smd_tolerance parameter (float).",
             "type": "number"
           },
-          "time_limit": {
-            "default": 30.0,
-            "description": "time_limit parameter (float).",
-            "type": "number"
-          },
           "treatment": {
             "description": "Treatment indicator, treatment variable, or treatment array.",
             "type": "string"
@@ -36586,10 +36524,8 @@
     },
     "stability": "stable",
     "typical_n_min": 200,
-    "validation_notes": [
-      "tests/reference_parity/test_cardinality_match_parity.py"
-    ],
-    "validation_status": "validated"
+    "validation_notes": [],
+    "validation_status": "api_stable"
   },
   {
     "alternatives": [

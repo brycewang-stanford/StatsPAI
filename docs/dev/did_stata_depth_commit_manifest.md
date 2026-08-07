@@ -195,6 +195,52 @@ one level up fails `test_parity_json_rows_keep_the_joinable_schema` and
 `test_tier_a_parity_fixture_lock_is_current`; both were observed and are
 the reason for the layout. See that directory's `README.md`.
 
+## ⚠️ Never push without checking fast-forward first
+
+This nearly went wrong. `main` in this repo is worked by more than one
+line at a time, and the other line **rewrote history** mid-campaign: the
+two commits this branch was rebased onto (`b6f636e6`, `30cce15f`) ceased
+to exist, replaced by same-message commits at different SHAs
+(`2157e96e`, `42ba3438`) with nine further commits stacked on top.
+
+Pushing `HEAD:main` at that moment would have **deleted eleven commits
+from `origin/main`**, including two ⚠️ correctness fixes:
+
+- `42ba3438 fix(inference): ⚠️ vcov= was silently ignored on sp.regress / sp.ivreg`
+- `6bcefece fix(did): ⚠️ aggte SEs dropped the weight-estimation influence term`
+
+Nothing would have stopped it automatically. The check that caught it was
+explicit.
+
+**Before every push, in this order:**
+
+```sh
+git fetch origin
+git merge-base --is-ancestor origin/main HEAD && echo SAFE || echo REBASE-FIRST
+git rev-list --count HEAD..origin/main    # must be 0
+```
+
+If the second line says REBASE-FIRST, rebase onto `origin/main` — never
+onto `main`, which may itself be stale — and never reach for `--force`.
+
+Same-message commits at different SHAs are the signature of a rewritten
+history. `git log --oneline HEAD..origin/main` is what makes the damage
+visible before it happens.
+
+### What the two lines collided on, and how it resolved
+
+| file | resolution |
+| --- | --- |
+| `src/statspai/did/_core.py` | pure append on both sides — theirs added `weight_influence` (aggte weight-estimation influence), this branch added `normalize_se_method`; both kept |
+| `CHANGELOG.md` | both added `### ⚠️ Correctness` under Unreleased; merged into ONE header, and this branch's `Added`/`Fixed` items folded into the existing sections rather than duplicating them |
+| `MIGRATION.md` | append-only, both entries kept |
+| `schemas/*.json` | regenerated, never merged |
+
+Worth noting the two lines converged on the same class of bug from
+different directions: `6bcefece` fixes aggte treating **estimated
+aggregation weights** as fixed; this branch fixes `sun_abraham` treating
+**estimated cohort shares** as fixed. Complementary, both retained.
+
 ## Pre-push checks
 
 - [ ] Full `pytest -q` (not just the DiD subset)

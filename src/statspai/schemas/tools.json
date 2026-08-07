@@ -5588,6 +5588,80 @@
     "name": "did_estimate"
   },
   {
+    "description": "Heterogeneous-adoption DiD using quasi-untreated groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - alpha confidence level.",
+          "type": "number"
+        },
+        "bandwidth": {
+          "description": "Bandwidth for the local polynomial fit at dose zero -- one value, or one per reported horizon (placebos first, then effects). **Required for now.** Stata's default ``bw_method('mse-dpi')`` selector is not yet implemented; see Notes.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "dynamic": {
+          "default": false,
+          "description": "Scale effect l by the average **cumulative** dose from F to ``F-1+l`` instead of the dose at ``F-1+l``. The current-dose normalization is right under a static model, the cumulative one under a dynamic model where past treatment still matters.",
+          "type": "boolean"
+        },
+        "effects": {
+          "default": 1,
+          "description": "Number of event-study effects. Effect l is the effect at period ``F-1+l``, i.e. l periods after adoption.",
+          "type": "integer"
+        },
+        "group": {
+          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+          "type": "string"
+        },
+        "kernel": {
+          "default": "epanechnikov",
+          "description": "Default epanechnikov, matching ``did_had``.",
+          "enum": [
+            "epanechnikov",
+            "triangular",
+            "uniform",
+            "gaussian"
+          ],
+          "type": "string"
+        },
+        "placebo": {
+          "default": 0,
+          "description": "Number of placebo estimates, built symmetrically: the ``F-1`` to ``F-1+l`` evolution is replaced by ``F-1`` to ``F-1-l``, with the dose taken from the matching post period.",
+          "type": "integer"
+        },
+        "time": {
+          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+          "type": "string"
+        },
+        "treatment": {
+          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+          "type": "string"
+        },
+        "trends_lin": {
+          "default": false,
+          "description": "Allow group-specific linear trends, estimated from each group's ``F-2`` to ``F-1`` evolution and subtracted. Costs one placebo, and needs at least three pre-treatment periods.",
+          "type": "boolean"
+        },
+        "y": {
+          "description": "Column names. ``treatment`` is the dose, not an indicator.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "group",
+        "time",
+        "treatment",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "did_had"
+  },
+  {
     "description": "Borusyak-Jaravel-Spiess (2024) imputation DiD. Fits a TWFE model on untreated observations only, imputes counterfactual Y(0) for treated obs, and averages the imputation residuals. Efficient under no-anticipation + parallel trends; analytical SE via bjs_inference. Validation: certified evidence with scoped limitations. Known limitations: R/Stata parity is for the documented untreated-only TWFE and simple ATT aggregation convention only; event-study and SE rows are backend-specific diagnostics. Do NOT use when: there is no never-treated (or not-yet-treated) group to fit the untreated-potential-outcome model on -- imputation has no estimation sample; the design is a simple 2x2 -- sp.did(method='2x2') is the same estimand and far cheaper; pre-trends are visibly non-parallel -- BJS imputes Y(0) from a two-way model that assumes them away, so violations are absorbed silently rather than surfaced. Cost: Fits the untreated two-way model once, then imputes; cheap in memory. vce='bootstrap' multiplies total runtime by n_boot -- budget accordingly before raising n_boot. Assumptions: Parallel trends in absolute levels; No anticipation (no pre-treatment reaction); SUTVA. Pre-conditions: panel...",
     "input_schema": {
       "properties": {
@@ -17540,6 +17614,25 @@
     "name": "qte_hd_panel"
   },
   {
+    "description": "Test that quasi-untreated groups exist (dCDH et al., Section 3.3). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "input_schema": {
+      "properties": {
+        "dose": {
+          "description": "Doses at the horizon being tested. Non-positive values are",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "dose"
+      ],
+      "type": "object"
+    },
+    "name": "quasi_untreated_test"
+  },
+  {
     "description": "Rank-Average Treatment Effect (Yadlowsky et al. 2023). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap / positivity; Honesty: separate subsamples are used to choose splits and to estimate effects. Pre-conditions: Covariates, treatment, and outcome with enough data to grow an honest forest. Failure modes: Calibration test rejects -- the forest's heterogeneity is not well calibrated -> Increase the sample / number of trees, or fall back to a doubly-robust learner. Alternatives: sp.dml, sp.auto_cate, sp.tmle. Typical minimum N: 1000.",
     "input_schema": {
       "properties": {
@@ -25383,121 +25476,6 @@
       "type": "object"
     },
     "name": "xtabond"
-  },
-  {
-    "description": "Blundell-Bond system GMM for dynamic panels (alias for xtabond with method='system'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
-    "input_schema": {
-      "properties": {
-        "collapse": {
-          "default": false,
-          "description": "Collapse instruments (Roodman 2009) to curb proliferation",
-          "type": "boolean"
-        },
-        "id": {
-          "default": "id",
-          "description": "Unit identifier",
-          "type": "string"
-        },
-        "lags": {
-          "default": 1,
-          "description": "lags parameter (int).",
-          "type": "integer"
-        },
-        "time": {
-          "default": "time",
-          "description": "Time column",
-          "type": "string"
-        },
-        "twostep": {
-          "default": false,
-          "description": "twostep parameter (bool).",
-          "type": "boolean"
-        },
-        "x": {
-          "description": "Exogenous regressors",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "y": {
-          "description": "Dependent variable",
-          "type": "string"
-        }
-      },
-      "required": [
-        "y"
-      ],
-      "type": "object"
-    },
-    "name": "xtdpdsys"
-  },
-  {
-    "description": "Bias-corrected LSDV (LSDVC) estimator for dynamic panels. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
-    "input_schema": {
-      "properties": {
-        "alpha": {
-          "default": 0.05,
-          "description": "Significance level.",
-          "type": "number"
-        },
-        "bias_order": {
-          "default": 2,
-          "description": "How many terms of the Bun-Kiviet expansion to subtract: ``O(1/T)``, ``O(1/NT)``, or ``O(1/NT^2)``. Bun & Kiviet (2003) find diminishing returns beyond the second.",
-          "enum": [
-            "1",
-            "2",
-            "3"
-          ],
-          "type": "integer"
-        },
-        "bootstrap": {
-          "default": 0,
-          "description": "Number of parametric-bootstrap replications for the standard errors. **The reported analytic standard errors are the LSDV ones and do not account for the bias correction**, exactly as in Stata's ``xtlsdvc``; set this to get honest ones. 0 skips the bootstrap and warns.",
-          "type": "integer"
-        },
-        "id": {
-          "default": "id",
-          "description": "Unit and period identifiers.",
-          "type": "string"
-        },
-        "initial": {
-          "default": "ab",
-          "description": "Consistent estimator used to evaluate the bias expression: Arellano-Bond, Anderson-Hsiao, or Blundell-Bond system GMM. The correction is only as good as this input, and the three can disagree materially on a persistent series -- ``'bb'`` is the safer choice there, for the same reason system GMM is.",
-          "enum": [
-            "ab",
-            "ah",
-            "bb"
-          ],
-          "type": "string"
-        },
-        "seed": {
-          "description": "Seed for the bootstrap.",
-          "type": "integer"
-        },
-        "time": {
-          "default": "time",
-          "description": "Unit and period identifiers.",
-          "type": "string"
-        },
-        "x": {
-          "description": "Strictly exogenous regressors. Accepts the same lag-operator syntax",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "y": {
-          "description": "Dependent variable. Its first lag is added automatically -- do **not** pass a hand-built lag in ``x``.",
-          "type": "string"
-        }
-      },
-      "required": [
-        "y"
-      ],
-      "type": "object"
-    },
-    "name": "xtlsdvc"
   },
   {
     "description": "Fit panel negative-binomial regression. Use model='fe' for explicit entity fixed effects via nbreg, or model='re' for a random-intercept NB-2 GLMM via menbreg. Do not use feols for negative-binomial outcomes.",
