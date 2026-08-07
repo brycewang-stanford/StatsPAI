@@ -90,7 +90,7 @@ jobs:
 
       - name: Upload reproducibility report
         if: success() || failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: r-parity-reproducibility-report
           path: tests/r_parity/results/REPRODUCIBILITY_REPORT.md
