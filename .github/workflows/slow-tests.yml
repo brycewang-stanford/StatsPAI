@@ -1,0 +1,50 @@
+name: slow-tests
+
+# The two CI test jobs both run `pytest -m 'not slow'`, so anything marked
+# @pytest.mark.slow was never executed by CI at all — it only ran if a
+# human remembered to ask for it. That is 45 tests, and they are not
+# incidental: the 1000-replication coverage and size/power suites that the
+# JOSS paper's coverage claim rests on (28 tests), and the Texas
+# synthetic-control parity assertions (the full book recipe, a nested V-W
+# optimisation at ~70 s per fit) that are the headline claims of that
+# replication. All were sitting unverified by CI.
+#
+# This job runs exactly the complement: `-m slow`. Scheduled + manual only,
+# so it never blocks a PR; a red scheduled run is the signal to look before
+# the next release.
+#
+# Tests needing R or Stata skip themselves when the binary is absent
+# (tests/test_parity_runtime.py), so a bare runner is fine.
+
+on:
+  schedule:
+    - cron: "41 4 * * 1" # Mondays, 04:41 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  slow:
+    runs-on: ubuntu-latest
+    # Monte Carlo dominates the runtime; generous because nothing blocks on it.
+    timeout-minutes: 120
+    env:
+      STATSPAI_SKIP_RUST: "1"
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Show what is selected
+        run: pytest tests/ -m slow --collect-only -q -o addopts='' | tail -20
+
+      - name: Run the slow suite
+        run: pytest tests/ -m slow -v --durations=15 -o addopts=''

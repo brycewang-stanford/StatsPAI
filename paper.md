@@ -187,13 +187,20 @@ institutions-and-development, and gender-wage-gap applications), and the
 double-machine-learning estimators are checked against `DoubleML`
 [@bach2022doubleml; @bach2024doubleml] on shared data, an independent
 check against those established reference implementations. The second
-track calibrates the simulated teaching datasets in `sp.datasets` so that
-the canonical estimator recovers values near well-known published
-results: returns-to-schooling IV (Card), job-training
-(LaLonde/Dehejia-Wahba), RD elections (Lee), multi-period
-difference-in-differences (Callaway-Sant'Anna), and synthetic control;
-because these datasets are simulated rather than the original study data,
-exact numerical replication is deliberately not claimed. The suite also
+track ships canonical teaching datasets in `sp.datasets`. Where the
+original extract is redistributable it is bundled as real data, so that
+analyses run on the study data rather than on a stand-in:
+returns-to-schooling IV (Card), job-training (LaLonde/Dehejia-Wahba), RD
+elections (Lee), synthetic control (Abadie-Diamond-Hainmueller), and four
+worked examples from Cunningham's *Causal Inference: The Mixtape*
+[@cunningham2021causal]. For the Mixtape examples the point estimates —
+and, where a reference implementation exists, the standard errors — agree
+with Stata 18 and the R `did` package to the tolerances recorded in the
+repository's parity tests. The remaining entries, including the
+multi-period difference-in-differences panel (Callaway-Sant'Anna), are
+deterministic simulated replicas calibrated so that the canonical
+estimator recovers values near the published result; for those, exact
+numerical replication is deliberately not claimed. The suite also
 includes a 1000-replication coverage run for representative OLS,
 difference-in-differences, and strong-instrument IV designs, with
 empirical coverage close to the nominal 95 percent level. A
