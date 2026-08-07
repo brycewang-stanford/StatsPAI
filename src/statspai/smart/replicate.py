@@ -427,6 +427,165 @@ _REPLICATIONS: Dict[str, Dict[str, Any]] = {
         ],
     },
     # ------------------------------------------------------------------
+    # Texas 1993 prison expansion — synthetic control (Mixtape Ch. 10)
+    # ------------------------------------------------------------------
+    "texas_1993": {
+        "title": "Texas 1993 prison expansion — synthetic control (Mixtape Ch. 10)",
+        "paper": (
+            "Cunningham, S. (2021). Causal Inference: The Mixtape, "
+            "Chapter 10 (Synthetic Control)."
+        ),
+        "paper_bib": "cunningham2021causal",
+        "journal": "Yale University Press",
+        "year": 2021,
+        "design": "Synthetic Control",
+        "n_obs": 816,
+        "description": (
+            "Texas roughly doubled prison operational capacity over "
+            "1993-1995 (about +35%/year).  Build a synthetic Texas from "
+            "the other 50 states and read the gap in Black male prisoner "
+            "counts.  Ships as a deliberate *non-parity* case: the book's "
+            "recipe puts four lagged outcomes among the predictors, which "
+            "leaves the predictor-weight matrix V weakly identified and "
+            "the nested V-W problem non-convex, so Stata and StatsPAI "
+            "settle on different donor sets while agreeing on the effect."
+        ),
+        "data_loader": "datasets.texas_prison",
+        "data_kwargs": {"simulated": False},
+        "data_origin": (
+            "Real texas.dta from the MIT-licensed mixtape repository, "
+            "bundled in statspai/datasets/data/texas_prison.csv "
+            "(816 rows x 24 cols; 51 states x 16 years, 1985-2000)."
+        ),
+        "classic": {
+            "name": "Abadie-style SCM on the book's predictor recipe",
+            "paper_table": "Mixtape Ch. 10; Cunningham's texas_synth.do",
+            "references": ["cunningham2021causal", "abadie2010synthetic"],
+            # Loose on purpose: this is a local-optimum comparison across
+            # two optimisers, not a bit-parity claim. See caveats.
+            "tolerance": 1.0,
+            "code": [
+                "df = sp.datasets.texas_prison()",
+                "",
+                "# The book's recipe: period-specific predictors plus three",
+                "# covariates averaged over the pre-period.",
+                "lags = (1988, 1990, 1991, 1992)",
+                "special = ([('bmprison', y, 'mean') for y in lags]",
+                "           + [('alcohol', 1990, 'mean'),",
+                "              ('aidscapita', 1990, 'mean'),",
+                "              ('aidscapita', 1991, 'mean')]",
+                "           + [('black', y, 'mean') for y in (1990, 1991, 1992)]",
+                "           + [('perc1519', 1990, 'mean')])",
+                "",
+                "sc = sp.synth(",
+                "    data=df, outcome='bmprison', unit='state', time='year',",
+                "    treated_unit='Texas', treatment_time=1993,",
+                "    covariates=['income', 'ur', 'poverty'],",
+                "    special_predictors=special,",
+                "    backend='native', placebo=False)",
+                "",
+                "print(sc.weights[sc.weights['weight'] > 1e-3])",
+                "gap = sc.model_info['gap_table']",
+                "print('mean 1994-2000 gap:',",
+                "      round(gap[gap['time'] >= 1994]['gap'].mean(), 1))",
+            ],
+            "golden_numbers": [
+                (
+                    "Mean gap 1994-2000 (Black male prisoners)",
+                    23779.4061,
+                    23073.6984,
+                    "StatsPAI vs Stata 18 MP `synth`: different local "
+                    "optima, ~3% apart",
+                ),
+                (
+                    "Pre-treatment RMSE",
+                    865.3084,
+                    1227.0256,
+                    "StatsPAI attains the better pre-fit on its own objective",
+                ),
+            ],
+        },
+        "modern": {
+            "name": "synthdid + augmented SCM (no V to optimise)",
+            "rationale": (
+                "The classic estimator's fragility here is entirely in the "
+                "predictor-weight matrix V.  synthdid (Arkhangelsky et al. "
+                "2021) and augmented SCM (Ben-Michael et al. 2021) do not "
+                "estimate a V at all — synthdid uses unit and time weights "
+                "on the outcome, ASCM adds a ridge bias correction to an "
+                "outcome-only fit.  Both are reproducible across "
+                "implementations on this panel, which the classic recipe "
+                "is not."
+            ),
+            "references": ["arkhangelsky2021synthetic", "benmichael2021augmented"],
+            "tolerance": 1.0,
+            "code": [
+                "df = sp.datasets.texas_prison()",
+                "",
+                "sdid = sp.synthdid_estimate(",
+                "    data=df, y='bmprison', unit='state', time='year',",
+                "    treat_unit='Texas', treat_time=1993)",
+                "print('synthdid ATT:', round(float(sdid.estimate), 1))",
+                "",
+                "# Outcome-only classic SCM: V is fixed to the identity, so the",
+                "# remaining problem in the donor weights is convex and has a",
+                "# unique solution — the reproducible fallback.",
+                "sc = sp.synth(",
+                "    data=df, outcome='bmprison', unit='state', time='year',",
+                "    treated_unit='Texas', treatment_time=1993, placebo=False)",
+                "print('outcome-only ATT:', round(float(sc.estimate), 1))",
+            ],
+            "pinned_numbers": [
+                (
+                    "synthdid ATT",
+                    19478.6,
+                    "unit + time weights; no V to optimise",
+                ),
+                (
+                    "Outcome-only classic ATT",
+                    21482.1,
+                    "V fixed to identity -> convex in W -> unique solution",
+                ),
+                (
+                    "Outcome-only donor weights",
+                    0.476,
+                    "New York .476, Illinois .340, Florida .184 (reproducible)",
+                ),
+            ],
+        },
+        "caveats": [
+            "This entry is shipped as a NON-PARITY case on purpose.  Stata "
+            "`synth` picks California .408 / Illinois .360 / Louisiana .122 "
+            "/ Florida .109; StatsPAI picks Florida .436 / New York .311 / "
+            "Illinois .253.  Neither is a bug: the book's recipe includes "
+            "four lagged outcomes among the predictors, which per Kaul, "
+            "Klossner, Pfeifer & Schieler (2015) leaves V weakly identified, "
+            "and the nested V-W optimisation is non-convex with several "
+            "local optima.  StatsPAI reaches the LOWER pre-treatment RMSE "
+            "(865.3 vs 1227.0), i.e. the better fit on the stated objective, "
+            "and it is not a lucky draw: raising n_random_starts from 4 to "
+            "40 returns the identical optimum.",
+            "The lesson worth carrying: the estimated effect is far more "
+            "robust than the weights.  Mean 1994-2000 gap is 23074 (Stata, "
+            "book spec), 23343 (Stata, default MSPE window) and 23779 "
+            "(StatsPAI) — a ~3% spread across entirely disjoint donor sets. "
+            "Report the effect; do not interpret the donor weights as a "
+            "finding, and do not tune the recipe until the weights look "
+            "familiar.",
+            "If you need an SCM number that reproduces across software, use "
+            "the modern track, or the outcome-only classic recipe (drop "
+            "covariates and special predictors) where V is fixed to the "
+            "identity and the donor-weight problem becomes convex.",
+            "Attribution: Cunningham's own data readme credits the natural "
+            "experiment to a 'Cornwell and Cunningham (2016)' manuscript "
+            "and to Perkinson (2010), Texas Tough.  Perkinson is "
+            "verifiable; no Cornwell & Cunningham (2016) record exists in "
+            "Crossref, so StatsPAI cites the Mixtape itself and reports "
+            "that attribution as the upstream author's, not as a "
+            "publication we could verify.",
+        ],
+    },
+    # ------------------------------------------------------------------
     # Legacy single-track entries (kept for backward compatibility)
     # ------------------------------------------------------------------
     "lalonde_1986": {

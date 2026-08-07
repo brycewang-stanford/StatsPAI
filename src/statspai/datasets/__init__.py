@@ -81,6 +81,7 @@ from ._canonical import (
     nhefs,
     nsw_dw,
     nsw_lalonde,
+    texas_prison,
 )
 
 # Data-source ingestion normalisers (World Bank / FRED / OECD-Eurostat SDMX).
@@ -164,6 +165,7 @@ _DEFAULT_SOURCE = {
     "nsw_lalonde": "bundled CSV",
     "nhefs": "bundled CSV",
     "castle_doctrine": "bundled CSV",
+    "texas_prison": "bundled CSV",
 }
 
 
@@ -273,6 +275,14 @@ def list_datasets() -> pd.DataFrame:
             "REAL data: TWFE 0.0769 = Stata to 1e-9; Callaway-Sant'Anna 0.1104",
         ),
         (
+            "texas_prison",
+            "synthetic control (real)",
+            816,
+            "Cunningham (2021), Mixtape Ch. 10",
+            "Texas 1993 prison expansion ~doubles Black male incarceration",
+            "REAL data: mean 1994-2000 gap 23,779 vs Stata synth 23,074 (~3%)",
+        ),
+        (
             "nhefs",
             "g-methods (real)",
             1629,
@@ -304,6 +314,7 @@ __all__ = [
     "lee_2008_senate",
     "angrist_krueger_1991",
     "castle_doctrine",
+    "texas_prison",
     "california_prop99",
     "basque_terrorism",
     "german_reunification",

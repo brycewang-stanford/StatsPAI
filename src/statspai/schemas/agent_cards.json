@@ -25931,7 +25931,7 @@
     ],
     "category": "causal",
     "cost_profile": "One constrained optimisation over the donor simplex per fit. placebo=True / inference re-runs the whole fit once per donor, so runtime is roughly (donors + 1) x a single fit -- the usual reason a synth call feels slow.",
-    "description": "R-style alias: ``synthdid::synthdid_estimate``.",
+    "description": "R-style alias: ``synthdid::synthdid_estimate``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -25983,7 +25983,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "R-style alias: ``synthdid::synthdid_estimate``.",
+      "description": "R-style alias: ``synthdid::synthdid_estimate``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "synthdid_estimate",
       "parameters": {
         "properties": {
@@ -26025,8 +26025,10 @@
     },
     "stability": "stable",
     "typical_n_min": 15,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_texas_synth_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [

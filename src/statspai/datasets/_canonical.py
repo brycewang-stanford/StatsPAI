@@ -1031,3 +1031,104 @@ def castle_doctrine(
         "and its fractional exposure is in cdl."
     )
     return df
+
+
+# ---------------------------------------------------------------------------
+# Texas 1993 prison-capacity expansion — synthetic control
+# ---------------------------------------------------------------------------
+
+
+def texas_prison() -> pd.DataFrame:
+    """Texas 1993 prison-capacity expansion panel — **real** data.
+
+    51 US states (50 + DC) x 16 years (1985-2000).  Starting in 1993 Texas
+    expanded operational prison capacity by roughly 35% per year for three
+    years, approximately doubling it — a natural experiment used throughout
+    Chapter 10 of Cunningham's *Causal Inference: The Mixtape*
+    [@cunningham2021causal] to teach the synthetic control method.  The
+    outcome is the count of Black male prisoners (``bmprison``); Texas is
+    ``statefip == 48``.
+
+    Returns
+    -------
+    pd.DataFrame
+        816 rows x 24 columns.  Key modelling variables:
+
+        ``state, statefip, year`` — panel identifiers
+        ``bmprison, wmprison``    — Black / white male prisoner counts
+        ``bmpop, wmpop``          — Black / white male population
+        ``bmprate, wmprate``      — the corresponding rates
+        ``alcohol, aidscapita, income, ur, poverty, black, perc1519``
+                                  — the predictors used by the book's recipe
+
+    Notes
+    -----
+    **Classic SCM does not reproduce across implementations here, and that
+    is the point of shipping it.**  The book's recipe uses four lagged
+    outcomes among its predictors, which leaves the predictor-weight matrix
+    V weakly identified (Kaul et al. 2015).  The resulting nested V-W
+    problem is non-convex, and Stata's ``synth`` and StatsPAI settle on
+    different local optima:
+
+    ===================== ================================== =============
+    implementation        donor weights                      mean gap 1994-2000
+    ===================== ================================== =============
+    Stata ``synth``       CA .408 IL .360 LA .122 FL .109    23073.70
+    StatsPAI ``sp.synth`` FL .436 NY .311 IL .253            23779.41
+    ===================== ================================== =============
+
+    StatsPAI attains the *lower* pre-treatment RMSE (865.3 vs 1227.0), so
+    neither is "wrong" on its own objective.  The estimated effect agrees
+    to about 3% despite entirely different donor sets — the effect is
+    identified far more robustly than the weights are.  Do not read the
+    donor weights as a finding.  See ``sp.replicate('texas_1993')``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> df = sp.datasets.texas_prison()
+    >>> sc = sp.synth(data=df, outcome='bmprison', unit='state', time='year',
+    ...               treated_unit='Texas', treatment_time=1993)
+
+    References
+    ----------
+    Cunningham, S. (2021). *Causal Inference: The Mixtape*. Yale University
+    Press. [@cunningham2021causal]
+
+    Cunningham's data readme attributes the Texas natural experiment to a
+    "Cornwell and Cunningham (2016)" manuscript and to Perkinson (2010),
+    *Texas Tough: The Rise of America's Prison Empire*.  The Perkinson book
+    is verifiable; no "Cornwell and Cunningham (2016)" record could be
+    located in Crossref, so it is reported here as the upstream author's
+    own attribution rather than asserted as a publication.
+    """
+    df = _load_bundled_csv("texas_prison.csv")
+    df.attrs["paper"] = (
+        "Cunningham, S. (2021). Causal Inference: The Mixtape, Ch. 10 "
+        "(synthetic control), Texas 1993 prison-capacity expansion."
+    )
+    df.attrs["data_source"] = "real"
+    df.attrs["simulated"] = False
+    df.attrs["source_origin"] = (
+        "texas.dta from Scott Cunningham's Causal Inference: The Mixtape "
+        "repository (MIT licensed), 51 states x 16 years, 1985-2000."
+    )
+    df.attrs["treated_unit"] = "Texas"
+    df.attrs["treatment_year"] = 1993
+    # Stata 18 MP `synth` on the book's recipe (Do/texas_synth.do).
+    df.attrs["stata_synth_donor_weights"] = {
+        "California": 0.408,
+        "Illinois": 0.360,
+        "Louisiana": 0.122,
+        "Florida": 0.109,
+    }
+    df.attrs["stata_synth_mean_gap_1994_2000"] = 23073.69838170
+    df.attrs["stata_synth_pre_rmspe"] = 1296.27243570
+    df.attrs["statspai_pinned_mean_gap_1994_2000"] = 23779.4061
+    df.attrs["notes"] = (
+        "Real Texas prison panel.  Classic SCM's nested V-W problem is "
+        "non-convex here (four lagged outcomes among the predictors), so "
+        "donor weights differ between Stata and StatsPAI while the "
+        "estimated effect agrees to ~3%.  See the loader docstring."
+    )
+    return df

@@ -112,6 +112,24 @@ All notable changes to StatsPAI will be documented in this file.
   where fixed precision was actually wrong: a dollar-magnitude coefficient
   now reads `2,108*** (472)` instead of `2108.412*** (471.938)`.
 
+- **Texas prison-expansion replication: `sp.datasets.texas_prison()` and
+  `sp.replicate('texas_1993')`.** The real 51-state × 16-year panel
+  (1985–2000) behind Chapter 10 of Cunningham's *Causal Inference: The
+  Mixtape*, where Texas roughly doubled prison capacity from 1993.
+  Shipped deliberately as a **non-parity** case: the book's recipe puts
+  four lagged outcomes among the predictors, which leaves the
+  predictor-weight matrix V weakly identified (Kaul et al. 2015) and
+  makes classic SCM's nested V–W problem non-convex. Stata `synth` and
+  `sp.synth` converge to different local optima — Stata picks
+  CA .408 / IL .360 / LA .122 / FL .109, StatsPAI picks
+  FL .436 / NY .311 / IL .253 — yet the estimated effect agrees to ~3%
+  (23,074 vs 23,779 mean 1994–2000 gap). StatsPAI reaches the *lower*
+  pre-treatment RMSE (865 vs 1227) and returns the identical optimum at
+  4 and 40 random starts. The guide says plainly: report the effect,
+  don't interpret the donor weights, and use the modern track or the
+  outcome-only recipe (convex, unique solution) when a number has to
+  reproduce across software. `tests/reference_parity/test_texas_synth_parity.py`.
+
 - **Castle-doctrine replication: `sp.datasets.castle_doctrine()` and
   `sp.replicate('castle_2013')`.** The real Cheng & Hoekstra (2013)
   panel (50 states × 11 years, 21 staggered adopters, 29 never-treated)

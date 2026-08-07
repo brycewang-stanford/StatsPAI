@@ -17098,7 +17098,7 @@
     }
   },
   {
-    "description": "R-style alias: ``synthdid::synthdid_estimate``.",
+    "description": "R-style alias: ``synthdid::synthdid_estimate``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "synthdid_estimate",
     "parameters": {
       "properties": {

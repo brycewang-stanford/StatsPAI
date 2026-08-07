@@ -23,6 +23,12 @@ from statspai.smart.replicate import _REPLICATIONS
 # Entries with no runnable dataset behind them.
 _NO_DATA = {"angrist_pischke_mhe"}
 
+# (key, track) pairs whose snippet is genuinely expensive.  They still run,
+# but under `-m slow` so the default suite stays quick.  texas_1993's classic
+# track is the book's full predictor recipe: a nested V-W optimisation with
+# 11 special predictors over 50 donors, ~70 s.
+_SLOW = {("texas_1993", "classic")}
+
 _TRACK_KEYS = ("classic", "modern")
 
 
@@ -37,16 +43,19 @@ def _code_blocks(entry):
             yield "legacy", "\n".join(entry["code"])
 
 
+def _case(key, track, src):
+    marks = [pytest.mark.slow] if (key, track) in _SLOW else []
+    return pytest.param(key, track, src, marks=marks, id=f"{key}-{track}")
+
+
 _CASES = [
-    (key, track, src)
+    _case(key, track, src)
     for key, entry in _REPLICATIONS.items()
     for track, src in _code_blocks(entry)
 ]
 
 
-@pytest.mark.parametrize(
-    "key,track,source", _CASES, ids=[f"{k}-{t}" for k, t, _ in _CASES]
-)
+@pytest.mark.parametrize("key,track,source", _CASES)
 def test_guide_code_block_executes(key, track, source):
     if key in _NO_DATA:
         pytest.skip(f"{key} has no runnable dataset")
