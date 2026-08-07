@@ -376,6 +376,7 @@ def cardinality_match(
     outcome: str,
     covariates: List[str],
     smd_tolerance: float = 0.1,
+    time_limit: float = 30.0,
 ) -> CardinalityMatchResult:
     """Cardinality matching — maximise the number of matched pairs subject
     to a standardised-mean-difference tolerance on every covariate.
@@ -387,10 +388,18 @@ def cardinality_match(
                     <= smd_tolerance * SD(X_k)   ∀ k
                    z_j ∈ {0, 1}  for each control j
 
-    Uses a continuous LP relaxation (scipy.optimize.linprog) then rounds
-    weights to 0/1 via a threshold — sufficient in almost all applied
-    work. Matched pair sample is the matched controls each paired
-    sequentially with the nearest treated in covariate space.
+    Solved exactly as a binary integer program (``scipy.optimize.milp``,
+    HiGHS), so the returned set always satisfies the tolerance. Matched
+    pairs are the matched controls each assigned to a treated unit by
+    optimal (Hungarian) assignment on the Mahalanobis distance.
+
+    .. versionchanged:: 1.22
+       Previously relaxed to a continuous LP and rounded the weights by a
+       threshold. Rounding does not preserve the balance constraints, so
+       the returned sample could — and usually did — violate
+       ``smd_tolerance``: on a 12-cell seed x tolerance grid, 9 solutions
+       were infeasible, by up to 26% of the requested tolerance. Matched
+       sets and effect estimates therefore change.
 
     Examples
     --------
@@ -431,32 +440,47 @@ def cardinality_match(
     sd_all = X.std(axis=0) + 1e-12
     tol = smd_tolerance * sd_all
 
-    # LP: maximise sum(z); z in [0, 1]^n_c
-    # constraints:
+    # Integer program: maximise sum(z), z in {0, 1}^n_c, subject to
     #   |mu_t_k * sum(z) - X_c[:, k] @ z| <= tol_k * sum(z)
-    # Rearranged: X_c @ z <= (mu_t + tol) * sum(z) and X_c @ z >= (mu_t - tol) * sum(z)
-    # Sum(z) is itself a variable — use the standard trick of dividing through
-    # by sum(z) and noting sum(z) > 0 ⇒ enforce constraints as:
+    # which is linear in z once written as
     #   (X_c - (mu_t + tol)) @ z <= 0
     #   -(X_c - (mu_t - tol)) @ z <= 0
+    # plus sum(z) <= n_t so the matched control set can be paired 1:1.
+    #
+    # This is solved *exactly* rather than by relaxing to a continuous LP and
+    # rounding.  The relaxation is genuinely wrong here, not merely
+    # approximate: the balance constraints are not preserved by rounding, so
+    # the greedy "keep the top round(sum z) weights" step returned solutions
+    # that violate the tolerance the function exists to enforce -- measured
+    # on 12 seed x tolerance cells, 9 were infeasible, by up to 26% of the
+    # requested tolerance, and in some cells the relaxation matched the exact
+    # optimum's *count* while still breaching balance. See
+    # tests/reference_parity/test_cardinality_match_parity.py.
     A_ub = np.vstack(
         [
             (ctrl - (mu_t + tol)).T,
             -(ctrl - (mu_t - tol)).T,
+            np.ones((1, n_c)),
         ]
-    )  # (2k, n_c)
-    b_ub = np.zeros(2 * k)
+    )  # (2k + 1, n_c)
+    b_ub = np.concatenate([np.zeros(2 * k), [float(n_t)]])
     c = -np.ones(n_c)  # maximise sum(z) = minimise -sum(z)
-    bounds = [(0, 1)] * n_c
-    res = optimize.linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method="highs")
+    res = optimize.milp(
+        c=c,
+        constraints=optimize.LinearConstraint(A_ub, -np.inf, b_ub),
+        integrality=np.ones(n_c),
+        bounds=optimize.Bounds(0, 1),
+        options={"time_limit": float(time_limit)},
+    )
     if not res.success or res.x is None:
-        raise RuntimeError(f"cardinality matching LP failed: {res.message}")
+        raise RuntimeError(
+            "cardinality matching integer program did not solve: "
+            f"{res.message}. Loosen smd_tolerance, drop a covariate, or "
+            "raise time_limit."
+        )
     z = np.asarray(res.x)
 
-    # Round: keep controls with z > 0.5, cap at n_t
-    keep_idx = np.argsort(-z)[: min(n_t, int(np.floor(z.sum() + 0.5)))]
-    kept_z = np.zeros(n_c, dtype=bool)
-    kept_z[keep_idx] = True
+    kept_z = z > 0.5
 
     ctrl_global = np.where(t == 0)[0]
     treat_global = np.where(t == 1)[0]

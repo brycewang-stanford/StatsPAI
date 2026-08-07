@@ -208,6 +208,29 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "moment gap ~1e-15) where ebal stops around 1e-7."
         ),
     },
+    "cardinality_match": {
+        "status": "analytical-only",
+        "reference": (
+            "Exact optimum of the documented integer program, solved "
+            "independently in the test (scipy.optimize.milp / HiGHS)"
+        ),
+        "tolerance": (
+            "Feasibility exact (max |SMD| <= smd_tolerance in 12 of 12 "
+            "seed x tolerance cells) and optimality exact (selected count "
+            "equals the independent optimum in all 12)."
+        ),
+        "sides": ["py"],
+        "test": ["tests/reference_parity/test_cardinality_match_parity.py"],
+        "note": (
+            "Deliberately not a cross-package grade: designmatch::cardmatch "
+            "solves a different program (it selects both arms; this one "
+            "keeps every treated unit and chooses controls), so agreement "
+            "with it would not mean anything. Promoted from 'unverified' "
+            "on the strength of an exact-optimum oracle, which also caught "
+            "the LP-relaxation defect fixed in v1.22 -- the previous "
+            "implementation breached its own tolerance in 9 of 12 cells."
+        ),
+    },
     "overlap_weights": {
         "status": "bit-exact",
         "reference": "WeightIt::weightit 1.7.0 (method='glm'), R 4.5.2",

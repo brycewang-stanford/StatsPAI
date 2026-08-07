@@ -315,6 +315,31 @@ not survive regularisation. The penalised fit sat 8.5e-06 from R and pushed
 all four estimands ~1e-6 off `WeightIt`; the MLE agrees to ~1e-14. A test
 pins the size of the old defect so a revert cannot pass silently.
 
+**`sp.cardinality_match` — exact solution of its own program**
+(`test_cardinality_match_parity.py`). Cardinality matching (Zubizarreta
+2012) maximises the number matched *subject to* an SMD tolerance on every
+covariate; the constraint is what makes the selected sample useful.
+
+There is deliberately no cross-package reference here.
+`designmatch::cardmatch` solves a different program — it selects *both*
+arms, while `sp.cardinality_match` keeps every treated unit and chooses
+controls — so a same-answer comparison would be meaningless. The reference
+is instead the **exact optimum of StatsPAI's own documented program**,
+re-derived and solved independently in the test file. That is a stronger
+check than agreement with another package solving something else: it pins
+feasibility *and* optimality, on a 12-cell seed x tolerance grid, with a
+third test guarding the oracle itself.
+
+This caught a real defect. The implementation relaxed the binary program to
+a continuous LP and kept the top `round(sum z)` weights. Rounding does not
+preserve linear constraints, so the returned sample violated the advertised
+tolerance in **9 of the 12 cells**, by up to 26% of the requested value —
+and the balance table reported the breach as though it were fine. In some
+cells the relaxation even matched the exact optimum's *count* while still
+breaching balance, so it was not a size/feasibility trade-off, just wrong.
+Now solved exactly with `scipy.optimize.milp` (HiGHS): 16 of 16 feasible,
+and the count equals the independent optimum in every cell.
+
 ## What the tests verify
 
 ### Recovery tests
