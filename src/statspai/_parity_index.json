@@ -6405,22 +6405,33 @@
       "tolerance": "OLS inputs 1e-12 abs (observed 0); beta(delta*)=0 at 1e-10"
     },
     {
-      "function": "overlap_weights",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_matching_parity.py",
         "tests/reference_parity/test_recovery_batch_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "overlap_weights",
+      "notes": [
+        "Frozen-R fixture. Promoting this required fixing the estimator: overlap_weights fitted a *penalised* logit (sklearn LogisticRegression C=1e6) while the rest of the matching module used the unpenalised MLE, so one package gave two propensity scores for the same specification. The overlap-weight exact-balance property is derived at the unpenalised score equations, so this was a theory mismatch, not only a parity gap."
+      ],
+      "reference": "WeightIt::weightit 1.7.0 (method='glm'), R 4.5.2",
+      "reference_versions": {
+        "R": "4.5.2",
+        "WeightIt": "1.7.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_overlap_weights_r_parity.py",
+        "tests/reference_parity/_fixtures/overlap_weights_R.json"
+      ],
+      "tolerance": "All four estimands of the shared-propensity family (Li, Li & Li 2019 Table 1) relative to WeightIt: ATO 2.5e-14, ATE 4.1e-14, ATT 2.3e-14, ATC 4.1e-14. The propensity score itself matches R glm(family=binomial) to 2.6e-14 absolute."
     },
     {
       "additional_tests": [
