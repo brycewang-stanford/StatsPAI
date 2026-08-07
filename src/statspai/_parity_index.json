@@ -995,6 +995,26 @@
       "tolerance": "rel_est<=1e-06, rel_se<=0.01"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "cardinality_match",
+      "notes": [
+        "Deliberately not a cross-package grade: designmatch::cardmatch solves a different program (it selects both arms; this one keeps every treated unit and chooses controls), so agreement with it would not mean anything. Promoted from 'unverified' on the strength of an exact-optimum oracle, which also caught the LP-relaxation defect fixed in v1.22 -- the previous implementation breached its own tolerance in 9 of 12 cells."
+      ],
+      "reference": "Exact optimum of the documented integer program, solved independently in the test (scipy.optimize.milp / HiGHS)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_cardinality_match_parity.py"
+      ],
+      "tolerance": "Feasibility exact (max |SMD| <= smd_tolerance in 12 of 12 seed x tolerance cells) and optimality exact (selected count equals the independent optimum in all 12)."
+    },
+    {
       "function": "cate_eval",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
