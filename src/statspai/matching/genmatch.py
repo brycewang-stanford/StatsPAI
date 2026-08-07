@@ -25,7 +25,8 @@ Outputs
 * the optimal weight vector,
 * matched treated-control pair indices,
 * a ``balance`` table of standardised mean differences pre/post match,
-* the ATT estimate + bootstrap SE.
+* the ATT estimate + its matched-pair standard error (see the warning
+  under :class:`GenMatchResult` — it is *not* a bootstrap).
 
 References
 ----------
@@ -36,6 +37,7 @@ and Statistics*, 95(3), 932-945. [@diamond2013genetic]
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Sequence
 
@@ -50,9 +52,27 @@ from .._result_serialize import ResultProtocolMixin
 class GenMatchResult(ResultProtocolMixin):
     """Output of :func:`sp.genmatch` (Diamond-Sekhon genetic matching).
 
-    Holds the ATT estimate and bootstrap SE, the optimal covariate
+    Holds the ATT estimate and its standard error, the optimal covariate
     weight vector, the matched control indices, and a pre/post balance
     table. Call ``.summary()`` for a formatted report.
+
+    .. warning::
+
+       ``att_se`` is the **matched-pair** standard error
+       ``sd(Y_t - Y_c) / sqrt(n_pairs)``, *not* a bootstrap — earlier
+       versions of this docstring said "bootstrap SE", which was never what
+       the code computed. It conditions on the realised match structure and
+       on the fitted covariate weights, and genetic matching matches **with
+       replacement** (on a typical run one control serves a dozen treated
+       units), so it ignores exactly the dependence that makes this
+       estimator's naive SE too small.
+
+       The same formula, measured on ``sp.match`` over 36 designs x 1000
+       replications (``benchmarks/matching_se_coverage.py``), runs
+       0.56-0.91x the true sampling SD and never reaches nominal coverage
+       (0.71-0.92 against a nominal 0.95). Treat ``att_se`` as a lower
+       bound; for inference that covers, bootstrap the whole pipeline or
+       use ``sp.match(se_method='abadie_imbens')``.
 
     Examples
     --------
@@ -304,9 +324,29 @@ def genmatch(
     Y_t = Y[idx_t]
     Y_c_match = Y[idx_c[matches]].mean(axis=1)
     att = float(np.mean(Y_t - Y_c_match))
-    # Abadie-Imbens SE approximation (paired differences)
+    # Matched-pair standard error: sd(Y_t - Y_c) / sqrt(n_pairs). This is
+    # NOT the Abadie-Imbens variance (which adds the reused-control term),
+    # and it is not a bootstrap. It conditions on both the realised match
+    # structure and the fitted covariate weights, and genetic matching
+    # matches with replacement, so it is anti-conservative -- see the
+    # warning on GenMatchResult for the measured coverage.
     diffs = Y_t - Y_c_match
     att_se = float(np.std(diffs, ddof=1) / np.sqrt(len(diffs)))
+
+    n_reused = int(len(matches.ravel()) - len(np.unique(matches)))
+    if n_reused > 0:
+        warnings.warn(
+            f"sp.genmatch: att_se is the matched-pair standard error, not a "
+            f"bootstrap. {n_reused} of {len(matches.ravel())} matches reuse "
+            "a control, and this formula treats the pairs as independent, so "
+            "it is anti-conservative. Measured on the same formula over 36 "
+            "designs x 1000 replications "
+            "(benchmarks/matching_se_coverage.py) it runs 0.56-0.91x the "
+            "true sampling SD, with coverage 0.71-0.92 against a nominal "
+            "0.95. Treat it as a lower bound.",
+            UserWarning,
+            stacklevel=2,
+        )
     z = att / att_se if att_se > 0 else 0.0
     pval = float(2 * stats.norm.sf(abs(z)))
     crit = float(stats.norm.ppf(1 - alpha / 2))
