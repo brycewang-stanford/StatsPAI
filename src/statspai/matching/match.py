@@ -42,7 +42,7 @@ from scipy import stats
 from scipy.spatial.distance import cdist
 
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIError
 from ._matched_frame import (
     COL_WEIGHT,
     abadie_imbens_se,
@@ -1364,10 +1364,14 @@ class MatchEstimator:
                         alpha=self.alpha,
                     ).fit()
                 est = float(rep.estimate)
-            except Exception:
-                # A resample can legitimately be degenerate (e.g. no control
-                # inside the bandwidth). Count it and carry on; a systematic
-                # failure surfaces in the diagnostics below.
+            except (StatsPAIError, np.linalg.LinAlgError, ValueError):
+                # A resample can legitimately be degenerate -- no control
+                # inside the bandwidth, an arm that lost every unit, a
+                # singular propensity design. Those raise StatsPAI's typed
+                # errors or a linear-algebra failure; count them and carry
+                # on, and let the diagnostics below expose a systematic
+                # problem. Anything else is a bug in the estimator and must
+                # not be swallowed by a bootstrap loop.
                 n_failed += 1
                 continue
             if np.isfinite(est):

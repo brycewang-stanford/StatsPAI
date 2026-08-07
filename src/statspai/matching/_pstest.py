@@ -122,15 +122,24 @@ def _probit_index_and_fit(
     Xd = sm.add_constant(np.asarray(X, dtype=float), has_constant="add")
     weights = None if w is None else np.asarray(w, dtype=float)
     fam = sm.families.Binomial(link=sm.families.links.Probit())
-    from statsmodels.tools.sm_exceptions import PerfectSeparationError
+    # A probit on a matched sample can be genuinely unfittable -- a singular
+    # design, or perfect separation once the weights concentrate on a
+    # sub-sample. Those are expected and reported as missing, exactly as
+    # Stata leaves e(r2_p) missing. Anything else is a bug and must surface.
+    fit_errors: tuple = (np.linalg.LinAlgError, ValueError, ZeroDivisionError)
+    try:  # pragma: no cover - statsmodels always ships this symbol
+        from statsmodels.tools.sm_exceptions import PerfectSeparationError
 
+        fit_errors = fit_errors + (PerfectSeparationError,)
+    except ImportError:
+        pass
     try:
         full = sm.GLM(y, Xd, family=fam, freq_weights=weights).fit()
         null = sm.GLM(y, Xd[:, :1], family=fam, freq_weights=weights).fit()
-    except (PerfectSeparationError, np.linalg.LinAlgError, ValueError) as exc:
-        # Separation or a singular design means Rubin's B/R are undefined
-        # here. Returning NaN silently would read as "balance not computed"
-        # when the truth is "the balance probit would not fit".
+    except fit_errors as exc:
+        # Reported as missing, but not in silence: a bare NaN reads as
+        # "balance not computed" when the truth is "the balance probit
+        # would not fit".
         warnings.warn(
             f"pstest: the balance probit did not fit ({type(exc).__name__}: "
             f"{exc}); Rubin's B, Rubin's R and the pseudo-R2 are reported as "
