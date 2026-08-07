@@ -121,10 +121,21 @@ def _probit_index_and_fit(
     Xd = sm.add_constant(np.asarray(X, dtype=float), has_constant="add")
     weights = None if w is None else np.asarray(w, dtype=float)
     fam = sm.families.Binomial(link=sm.families.links.Probit())
+    # A probit on a matched sample can be genuinely unfittable -- a singular
+    # design, or perfect separation once the weights concentrate on a
+    # sub-sample. Those are expected and reported as missing, exactly as
+    # Stata leaves e(r2_p) missing. Anything else is a bug and must surface.
+    fit_errors: tuple = (np.linalg.LinAlgError, ValueError, ZeroDivisionError)
+    try:  # pragma: no cover - statsmodels always ships this symbol
+        from statsmodels.tools.sm_exceptions import PerfectSeparationError
+
+        fit_errors = fit_errors + (PerfectSeparationError,)
+    except ImportError:
+        pass
     try:
         full = sm.GLM(y, Xd, family=fam, freq_weights=weights).fit()
         null = sm.GLM(y, Xd[:, :1], family=fam, freq_weights=weights).fit()
-    except Exception:
+    except fit_errors:
         return empty, nan, nan, nan
 
     def _ll(fit: Any) -> float:
