@@ -45,7 +45,7 @@ def causal_result():
             y = 1.0 + 0.3 * t + 0.5 * tr + 2.0 * tr * t + rng.normal(scale=0.5)
             rows.append({"i": i, "t": t, "treated": tr, "post": t, "y": y})
     df = pd.DataFrame(rows)
-    return sp.did(df, y="y", treat="treated", time="t", post="post")
+    return sp.did(df, y="y", treat="treated", time="t")
 
 
 @pytest.fixture(scope="module")
@@ -68,7 +68,6 @@ def regress_result():
 
 
 class TestCausalDetailLevels:
-
     def test_minimal_has_only_core_keys(self, causal_result):
         d = causal_result.to_dict(detail="minimal")
         for k in (
@@ -158,7 +157,6 @@ class TestCausalDetailLevels:
 
 
 class TestEconometricDetailLevels:
-
     def test_minimal_strips_coefficients(self, regress_result):
         d = regress_result.to_dict(detail="minimal")
         assert "method" in d and "n_obs" in d
@@ -250,7 +248,7 @@ class TestMcpSerializerUsesAgentLevel:
         df = pd.DataFrame(rows)
         out = execute_tool(
             "did",
-            {"y": "y", "treat": "treated", "time": "t", "post": "post"},
+            {"y": "y", "treat": "treated", "time": "t"},
             data=df,
         )
         assert "estimate" in out

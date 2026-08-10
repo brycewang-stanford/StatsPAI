@@ -684,6 +684,10 @@
           "description": "Time period column",
           "type": "string"
         },
+        "weights": {
+          "description": "Unit-level sampling/population weights omega (R did::att_gt(weightsname=), Stata csdid [aweight=]). NOT a precision knob: omega enters the definition of the target parameter. Unweighted answers 'the average effect across treated units'; weighted answers 'across the population those units represent'. The two are different estimands and can differ in sign, so comparing them is not a robustness check. Must be constant within unit.",
+          "type": "string"
+        },
         "x": {
           "description": "Covariates for conditional parallel trends",
           "items": {
@@ -12438,6 +12442,75 @@
         "time",
         "unit",
         "cohort"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Covariate balance for a DiD design, in the shape Baker et al. (2026, Table 4) report it: Imbens-Rubin normalized differences computed twice -- once on baseline covariate LEVELS and once on covariate CHANGES across the treatment date -- optionally weighted and unweighted side by side. The changes panel is the informative half: DiD identifies off trends, so a covariate that is balanced in levels can still be moving differentially, and imbalances routinely flip sign between the two panels. Flags |norm. diff| > 0.25. Evidence about whether UNCONDITIONAL parallel trends is plausible; it cannot test parallel trends itself. Known limitations: pooled multi-cohort balance is not implemented: one table per treated cohort only, because the normalized difference is a two-group statistic; only the reliability-weight variance correction is implemented for the weighted panel; survey-design (replicate-weight) variances are not supported; inference is not implemented: the normalized difference is reported as a descriptive effect size with no standard error or test, by design.",
+    "name": "did_balance",
+    "parameters": {
+      "properties": {
+        "base_period": {
+          "description": "Pre-treatment period for the levels panel (default g-1)",
+          "type": "string"
+        },
+        "cohort": {
+          "description": "Treated cohort to audit (default: the largest)",
+          "type": "string"
+        },
+        "comparison_period": {
+          "description": "Second period for the changes panel (default g)",
+          "type": "string"
+        },
+        "control_group": {
+          "default": "nevertreated",
+          "description": "Must match the comparison group of the estimator you intend to run",
+          "enum": [
+            "nevertreated",
+            "notyettreated"
+          ],
+          "type": "string"
+        },
+        "covariates": {
+          "description": "Columns to audit in levels and in changes",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
+        },
+        "g": {
+          "description": "First-treatment period (0 = never treated)",
+          "type": "string"
+        },
+        "i": {
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "t": {
+          "description": "t parameter (str).",
+          "type": "string"
+        },
+        "threshold": {
+          "default": 0.25,
+          "description": "Imbens & Rubin (2015, p. 277) rule of thumb",
+          "type": "number"
+        },
+        "weights": {
+          "description": "Unit weights; when given, weighted and unweighted statistics are reported side by side because they describe different populations",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "covariates",
+        "g",
+        "t",
+        "i"
       ],
       "type": "object"
     }
@@ -46001,7 +46074,7 @@
     }
   },
   {
-    "description": "One-call staggered-DID workflow: estimate -> aggregate -> sensitivity.",
+    "description": "One-call staggered-DID workflow following Baker et al. (2026).",
     "name": "cs_report",
     "parameters": {
       "properties": {
@@ -46014,6 +46087,11 @@
           "default": 0,
           "description": "anticipation parameter (int).",
           "type": "integer"
+        },
+        "balance": {
+          "default": true,
+          "description": "balance parameter (bool).",
+          "type": "boolean"
         },
         "control_group": {
           "default": "nevertreated",
@@ -46037,6 +46115,11 @@
             "reg"
           ],
           "type": "string"
+        },
+        "functional_form": {
+          "default": true,
+          "description": "functional_form parameter (bool).",
+          "type": "boolean"
         },
         "g": {
           "description": "Outcome / cohort / time / unit id columns (required when ``data_or_result`` is a DataFrame).",
@@ -46083,10 +46166,19 @@
           "description": "Outcome / cohort / time / unit id columns (required when ``data_or_result`` is a DataFrame).",
           "type": "string"
         },
+        "triangulate": {
+          "default": true,
+          "description": "Also fit the other covariate strategies (regression adjustment, IPW, doubly robust) and report them side by side, as in the paper's Table 7 / Figure 4. Only meaningful with covariates.",
+          "type": "boolean"
+        },
         "verbose": {
           "default": true,
           "description": "If ``True``, print the report before returning.",
           "type": "boolean"
+        },
+        "weights": {
+          "description": "Unit weights omega. Changes the target parameter, not just precision -- see :func:`statspai.did.callaway_santanna`.",
+          "type": "string"
         },
         "x": {
           "description": "Covariates for conditional parallel trends.",
@@ -46111,6 +46203,10 @@
     "name": "CSReport",
     "parameters": {
       "properties": {
+        "balance": {
+          "description": "balance parameter (Optional[Any]).",
+          "type": "string"
+        },
         "breakdown": {
           "description": "breakdown parameter (pd.DataFrame).",
           "type": "string"
@@ -46119,9 +46215,27 @@
           "description": "calendar parameter (pd.DataFrame).",
           "type": "string"
         },
+        "degradations": {
+          "default": null,
+          "description": "degradations parameter (List[Dict[str, Any]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "dynamic": {
           "description": "dynamic parameter (pd.DataFrame).",
           "type": "string"
+        },
+        "estimator_comparison": {
+          "default": null,
+          "description": "estimator_comparison parameter (pd.DataFrame).",
+          "type": "string"
+        },
+        "functional_form": {
+          "default": null,
+          "description": "functional_form parameter (Dict[str, Any]).",
+          "type": "object"
         },
         "group": {
           "description": "Group or cohort identifier.",
@@ -46134,6 +46248,11 @@
         },
         "overall": {
           "description": "overall parameter (Dict[str, float]).",
+          "type": "object"
+        },
+        "overlap": {
+          "default": null,
+          "description": "overlap parameter (Dict[str, Any]).",
           "type": "object"
         },
         "pretrend": {

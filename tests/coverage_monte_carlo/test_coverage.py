@@ -117,7 +117,7 @@ def test_did_2x2_ci_coverage():
                 )
                 rows.append({"i": i, "t": t, "treated": treat, "post": t, "y": y})
         df = pd.DataFrame(rows)
-        r = sp.did(df, y="y", treat="treated", time="t", post="post")
+        r = sp.did(df, y="y", treat="treated", time="t")
         if r.ci[0] <= truth <= r.ci[1]:
             covered += 1
     _assert_calibrated(covered, B, "DID 2x2")
@@ -441,3 +441,67 @@ def test_fast_ols_coverage_smoke():
     assert (
         0.84 <= rate <= 1.0
     ), f"OLS smoke coverage = {rate:.3f} outside [0.84, 1.0] (B={B})"
+
+
+# ======================================================================
+# Weighted Callaway-Sant'Anna
+# ======================================================================
+#
+# Unit weights enter the point estimate, both nuisance models, the
+# influence functions, and the cohort shares used to aggregate. A
+# weighted ATT paired with an influence function that forgot omega
+# somewhere would still *move* — so a recovery test cannot catch it —
+# but its confidence interval would be for a different estimator.
+# Coverage is the test that can.
+
+
+def _weighted_cs_draw(seed: int, true_att: float) -> pd.DataFrame:
+    """Homogeneous-effect staggered panel with heavy weight dispersion."""
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(250):
+        g = int(rng.choice([3, 4, 0]))
+        w = float(rng.gamma(1.5, 1.0)) * 20 + 1
+        fe = rng.normal()
+        for t in range(1, 7):
+            te = true_att if (g > 0 and t >= g) else 0.0
+            rows.append(
+                {
+                    "i": i,
+                    "t": t,
+                    "g": g,
+                    "w": w,
+                    "y": fe + 0.2 * t + te + rng.normal(0, 1.0),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+@pytest.mark.parametrize("weighted", [False, True], ids=["unweighted", "omega"])
+def test_callaway_santanna_weighted_coverage(weighted: bool) -> None:
+    """95% CI coverage for the omega-weighted CS ATT.
+
+    The effect is homogeneous, so the weighted and unweighted estimands
+    coincide and the same truth applies to both arms of the test — which
+    isolates the inference machinery from the estimand change.
+    """
+    true_att = 2.0
+    B = min(B_DEFAULT, 120)  # each draw fits a full staggered CS model
+    covered = 0
+    for b in range(B):
+        df = _weighted_cs_draw(b, true_att)
+        fit = sp.callaway_santanna(
+            df,
+            y="y",
+            g="g",
+            t="t",
+            i="i",
+            estimator="reg",
+            weights="w" if weighted else None,
+        )
+        agg = sp.aggte(fit, type="simple", bstrap=False, cband=False)
+        if agg.ci[0] <= true_att <= agg.ci[1]:
+            covered += 1
+    _assert_calibrated(
+        covered, B, f"callaway_santanna weights={'w' if weighted else None}"
+    )

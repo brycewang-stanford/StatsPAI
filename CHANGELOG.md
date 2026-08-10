@@ -4,6 +4,93 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+Aligns the DiD family with Baker, Callaway, Cunningham, Goodman-Bacon &
+Sant'Anna (2026), *Journal of Economic Literature* 64(2), 498–557,
+doi:10.1257/jel.20251650 — the JEL practitioner's guide. Refs verified
+via Crossref and the published PDF.
+
+### ⚠️ Correctness
+
+- **`sp.did(..., weights=)` silently returned the unweighted estimand on
+  every staggered path.** The argument was validated, its column added to
+  the required-column list — and then never forwarded to the
+  Callaway–Sant'Anna, Sun–Abraham, BJS, or SDID branches. No warning
+  fired. This is not a precision bug: ω enters the *definition* of the
+  target parameter (Baker et al. §3.1). The unweighted ATT averages over
+  treated **units**; the ω-weighted ATT averages over the **population
+  those units represent**. They can differ in sign — in the paper's own
+  Medicaid data, +0.1 versus −2.6 deaths per 100,000. Anyone who passed
+  `weights=` to a staggered estimator received an answer to a different
+  question than the one they asked. `sp.callaway_santanna` now implements
+  ω end-to-end (point estimate, propensity/outcome nuisance models,
+  influence functions, cohort shares, all four `sp.aggte` aggregations);
+  methods that do not implement ω now **raise** instead of ignoring it.
+  **Re-run any staggered analysis that passed `weights=`.**
+
+- **Callaway–Sant'Anna `estimator="ipw"` standard errors were up to 89%
+  too large.** The ATT(g,t) influence function centred both arms on the
+  ATT — `(w1 − w0)ΔY − ATT·w1` — where `DRDID` centres each arm on its
+  own Hájek mean, `w1(ΔY − η₁) − w0(ΔY − η₀)`. Both weight vectors are
+  normalised to mean one, so the two agree in expectation and **point
+  estimates were never affected**; the variances differ. `ipw`
+  additionally omitted the propensity-score *estimation* effect, which
+  IPW requires because it is not Neyman-orthogonal in the score. Against
+  `did::att_gt(est_method="ipw")` the SE was 9–11% too large unweighted
+  and up to 89% too large weighted, always upward — conservative, but
+  wrong. After the fix, agreement is 5e−11. The `dr` path moves by <1%;
+  `estimator="reg"` is unaffected (it already carried the full
+  delta-method term). **Re-run every z-statistic, p-value, and confidence
+  interval produced with `estimator="ipw"`.**
+
+- **`sp.did` silently swallowed unknown keyword arguments.** `**kwargs`
+  is only consumed by the `sdid` and `bjs` branches; everywhere else it
+  was dropped. `sp.did(..., post="post")` — an argument that appears in
+  StatsPAI's own older tutorials and, as this change discovered, in seven
+  of its own test modules — was accepted and did nothing. Unknown keywords
+  now raise with a hint naming the common stale spellings.
+
+### Added
+
+- **`sp.did_balance`** — covariate balance in the shape of Baker et al.
+  Table 4: Imbens–Rubin normalized differences computed on baseline
+  covariate **levels** *and* on covariate **changes** across the treatment
+  date, weighted and unweighted side by side, flagged at |·| > 0.25
+  (Imbens & Rubin 2015, p. 277). The changes panel is the informative
+  half: DiD identifies off trends, so a covariate balanced in levels can
+  still be moving differentially. Ships `.summary()` and `.to_latex()`.
+
+- **`model_info["parallel_trends"]`** — every Callaway–Sant'Anna fit now
+  records *which* parallel-trends assumption it imposes (`PT-GT-NEV` /
+  `PT-GT-NYT`, and the conditional `CPT-` variants), with the formal
+  statement, the comparison group, whether pre-trends are restricted, and
+  the trade-off. `.summary()` prints it next to the estimate. Baker et al.
+  §5.2.2: *"we strongly recommend that researchers clearly state the
+  specific parallel trends assumption they are actually imposing."*
+
+- **`sp.cs_report` now runs the eight-step forward-engineering workflow**
+  of Baker et al. §6, not just estimate → aggregate → sensitivity. It adds
+  covariate balance, the Roth–Sant'Anna (2023b) functional-form test, an
+  overlap diagnostic, and RA/IPW/DR triangulation (the paper's Table 7 /
+  Figure 4), and returns
+  `report.forward_engineering_checklist()` as a machine-readable frame.
+  New arguments: `weights`, `balance`, `triangulate`, `functional_form`.
+  Steps that fail are recorded in `report.degradations`, never dropped.
+
+### Changed
+
+- `sp.did(method="twfe")` on a panel with more than two periods now warns
+  that collapsing to a median pre/post split estimates
+  `ATT_avg − (average pre-period differential trend)`, not the average
+  post-treatment ATT (Baker et al. eq. 22; −2.53 vs −0.70 in their data).
+- `sp.did_2x2(..., covariates=[...])` now warns that an additively-entered
+  TWFE covariate yields a possibly non-convex weighted average of
+  covariate-specific effects plus misspecification bias, not the ATT
+  (Caetano & Callaway 2024), and points at `sp.drdid`.
+- `docs/guides/choosing_did_estimator.md` restructured target-parameter
+  first, and stale API examples corrected (`post=`, `max_M=`,
+  `repeated_cs=`, `sp.drdid(d=, post=)`, `sp.ddd(t1=, t2=, t3=)` were all
+  wrong against the shipped signatures).
+
 ## [1.22.0] — 2026-08-07
 
 ### ⚠️ Correctness

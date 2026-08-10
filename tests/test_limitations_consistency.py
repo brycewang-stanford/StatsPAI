@@ -44,6 +44,18 @@ ALLOWED_PHRASES: Tuple[str, ...] = (
 
 
 LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
+    "did_balance": [
+        # Scope statements about what the estimator deliberately does not
+        # compute, not code paths that raise. There is no survey-design
+        # argument to reject, and no inference to switch on: the
+        # normalized difference is reported as a descriptive effect size
+        # by design (Imbens & Rubin 2015, ch. 14 — the whole point of the
+        # statistic is that it does not shrink with n the way a t-test
+        # does, so attaching a test would invite the reading it exists to
+        # avoid).
+        "only the reliability-weight variance correction",
+        "inference is not implemented",
+    ],
     "llm_annotator_correct": [
         # Scope statement about the identification assumption of the
         # continuous regression-calibration path, not a code path that
@@ -192,6 +204,16 @@ def _runtime_map() -> (
     )
 
     return {
+        ("did_balance", "one table per treated cohort"): (
+            # The normalized difference is a two-group statistic, so the
+            # audit is per-cohort. Asking for several at once is rejected
+            # rather than silently pooling them into a comparison whose
+            # treated arm mixes cohorts with different treatment dates.
+            lambda: sp.did_balance(
+                df_panel, ["dose"], g="g", t="t", i="i", cohort=[2, 3]
+            ),
+            MethodIncompatibility,
+        ),
         ("hal_tmle", "variant='projection'"): (
             lambda: sp.hal_tmle(
                 df_cs,

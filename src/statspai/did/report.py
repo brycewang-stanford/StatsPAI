@@ -23,6 +23,7 @@ Rambachan, A. and Roth, J. (2023).
 
 from __future__ import annotations
 
+import textwrap
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union
 
@@ -80,6 +81,138 @@ class CSReport:
     pretrend: Dict[str, Any]
     breakdown: pd.DataFrame
     meta: Dict[str, Any] = field(default_factory=dict)
+
+    # --- Baker et al. (2026) forward-engineering evidence ------------
+    # Step 2 ("state the assumptions and generate evidence about them")
+    # and step 3 ("determine the estimation method") ask for artefacts
+    # the original report did not produce. They are optional so an
+    # existing caller that reads only the aggregations still works.
+    balance: Optional[Any] = None
+    overlap: Dict[str, Any] = field(default_factory=dict)
+    functional_form: Dict[str, Any] = field(default_factory=dict)
+    estimator_comparison: pd.DataFrame = field(default_factory=pd.DataFrame)
+    degradations: List[Dict[str, Any]] = field(default_factory=list)
+
+    # ------------------------------------------------------------------
+    # Forward-engineering checklist
+    # ------------------------------------------------------------------
+    def forward_engineering_checklist(self) -> pd.DataFrame:
+        """The eight steps of Baker et al. (2026, §6), with what was run.
+
+        The paper closes with an eight-step recipe for any DiD study.
+        Steps 1-6 are things this report can execute or record; steps 7-8
+        are judgement calls it can only prompt. Returning them as a frame
+        makes the checklist machine-readable for agent consumers, which
+        is the point of running the workflow rather than eyeballing it.
+        """
+        pt = self.meta.get("parallel_trends") or {}
+        bal = self.balance
+        n_flagged = len(bal.flagged) if bal is not None else None
+        ff = self.functional_form or {}
+        ov = self.overlap or {}
+        cmp_df = self.estimator_comparison
+
+        rows = [
+            {
+                "step": 1,
+                "title": "Define target parameters",
+                "status": "done",
+                "detail": (
+                    f"ATT(g,t) building blocks aggregated to "
+                    f"{'omega-weighted ' if self.meta.get('weighted') else ''}"
+                    f"simple / dynamic / group / calendar summaries."
+                ),
+            },
+            {
+                "step": 2,
+                "title": "State identification assumptions",
+                "status": "done" if pt else "unknown",
+                "detail": (
+                    f"{pt.get('label', '?')}: {pt.get('name', 'not recorded')}"
+                    + (
+                        f" | covariate balance: {n_flagged} covariate(s) "
+                        f"over threshold"
+                        if n_flagged is not None
+                        else " | covariate balance: not run"
+                    )
+                    + (
+                        f" | functional form p = {ff['pvalue']:.3f}"
+                        if ff.get("pvalue") is not None
+                        else ""
+                    )
+                ),
+            },
+            {
+                "step": 3,
+                "title": "Determine the estimation method",
+                "status": "done",
+                "detail": (
+                    f"{self.meta.get('estimator', '?')}"
+                    + (
+                        f"; triangulated across {len(cmp_df)} estimators"
+                        if len(cmp_df)
+                        else "; single estimator (no triangulation)"
+                    )
+                    + (
+                        f"; overlap max p(X) among controls = "
+                        f"{ov['max_pscore_control']:.3f}"
+                        if ov.get("max_pscore_control") is not None
+                        else ""
+                    )
+                ),
+            },
+            {
+                "step": 4,
+                "title": "Discuss sources of uncertainty",
+                "status": "done",
+                "detail": (
+                    "sampling-based; multiplier bootstrap over "
+                    f"{self.meta.get('n_boot')} draws; units resampled, "
+                    "potential outcomes treated as random."
+                ),
+            },
+            {
+                "step": 5,
+                "title": "Estimate",
+                "status": "done",
+                "detail": (
+                    f"overall ATT = {self.overall.get('estimate', float('nan')):.4f} "
+                    f"(se {self.overall.get('se', float('nan')):.4f})"
+                ),
+            },
+            {
+                "step": 6,
+                "title": "Conduct sensitivity analysis",
+                "status": "done" if len(self.breakdown) else "not run",
+                "detail": (
+                    f"Rambachan-Roth breakdown M* at "
+                    f"{len(self.breakdown)} post-treatment event time(s), "
+                    f"method={self.meta.get('rr_method')}"
+                    if len(self.breakdown)
+                    else "no post-treatment event times available"
+                ),
+            },
+            {
+                "step": 7,
+                "title": "Conduct heterogeneity analysis",
+                "status": "user",
+                "detail": (
+                    "Not automatic — the relevant partition is a policy "
+                    "question. Partition the data and re-run, or use "
+                    "sp.cate_by_group / sp.subgroup_analysis."
+                ),
+            },
+            {
+                "step": 8,
+                "title": "Keep learning",
+                "status": "user",
+                "detail": (
+                    "If PT is implausible ex ante or refuted here, DiD may "
+                    "be the wrong design; see sp.recommend / sp.detect_design."
+                ),
+            },
+        ]
+        return pd.DataFrame(rows)
 
     def __repr__(self) -> str:  # pragma: no cover - cosmetic
         return self._format()
@@ -551,6 +684,91 @@ class CSReport:
             f"seed = {m.get('random_state', '—')}"
         )
 
+        # --- Step 2: the identifying assumption, named ----------------
+        pt = m.get("parallel_trends") or {}
+        if pt.get("label"):
+            lines.append("-" * w)
+            lines.append(f"IDENTIFYING ASSUMPTION: {pt['label']} — {pt.get('name','')}")
+            lines.append(f"  {pt.get('statement','')}")
+            lines.append(
+                f"  comparison group: {pt.get('comparison','?')}   |   "
+                f"restricts pre-trends: {pt.get('restricts_pretrends','?')}"
+            )
+            if pt.get("conditional"):
+                lines.append(f"  {pt.get('also_requires','')}")
+            lines.append(f"  trade-off: {pt.get('tradeoff','')}")
+        if m.get("weighted"):
+            lines.append(
+                f"  WEIGHTED by '{m.get('weights')}' — the estimand is the "
+                "omega-weighted ATT."
+            )
+
+        # --- Step 2 evidence: balance / functional form / overlap -----
+        bal = self.balance
+        ff = self.functional_form or {}
+        ov = self.overlap or {}
+        if bal is not None or ff or ov:
+            lines.append("-" * w)
+            lines.append("EVIDENCE ON THE ASSUMPTION")
+            if bal is not None:
+                flagged = bal.flagged
+                if flagged:
+                    lines.append(
+                        f"  Covariate balance: {len(flagged)} over "
+                        f"|norm.diff| > {bal.threshold} -> {', '.join(flagged)}"
+                    )
+                    lines.append(
+                        "    Unconditional PT is doubtful; the conditional "
+                        "(CPT) estimates below are the relevant ones."
+                    )
+                else:
+                    lines.append(
+                        f"  Covariate balance: none over "
+                        f"|norm.diff| > {bal.threshold} (levels and changes)"
+                    )
+                lines.append("    report.balance.summary() for the full table")
+            if ff.get("pvalue") is not None:
+                verdict = (
+                    "REJECTED — parallel trends is sensitive to how the "
+                    "outcome is scaled"
+                    if ff.get("reject")
+                    else "not rejected"
+                )
+                lines.append(
+                    f"  Functional form (Roth–Sant'Anna 2023b): "
+                    f"p = {ff['pvalue']:.3f}, {verdict}"
+                )
+            if ov.get("n_pscore_trimmed") is not None:
+                lines.append(
+                    f"  Overlap: {ov['n_pscore_trimmed']} control unit-cells "
+                    f"trimmed at p(X) >= {ov.get('pscore_trim')}"
+                )
+
+        # --- Step 3: estimator triangulation --------------------------
+        cmp_df = self.estimator_comparison
+        if cmp_df is not None and len(cmp_df):
+            lines.append("-" * w)
+            lines.append(
+                "COVARIATE STRATEGY (paper Table 7: RA / IPW / DR side by side)"
+            )
+            lines.append(f"  {'strategy':<26}{'ATT':>12}{'SE':>12}{'95% CI':>24}")
+            for _, r in cmp_df.iterrows():
+                ci = f"[{r['ci_lower']:.4f}, {r['ci_upper']:.4f}]"
+                lines.append(
+                    f"  {r['label']:<26}{r['att']:>12.4f}{r['se']:>12.4f}{ci:>24}"
+                )
+            spread = float(cmp_df["att"].max() - cmp_df["att"].min())
+            med_se = float(cmp_df["se"].median())
+            if med_se > 0 and spread > med_se:
+                lines.append(
+                    f"  ! spread across strategies ({spread:.4f}) exceeds a "
+                    f"typical SE ({med_se:.4f}):"
+                )
+                lines.append(
+                    "    the nuisance models disagree. Prefer DR (§4.4) and "
+                    "say so explicitly."
+                )
+
         # Overall ATT
         lines.append("-" * w)
         o = self.overall
@@ -591,6 +809,34 @@ class CSReport:
             lines.append(self.breakdown.to_string(index=False, float_format="%.4f"))
         else:
             lines.append("(no post-treatment event times)")
+
+        # --- Forward-engineering checklist ----------------------------
+        lines.append("-" * w)
+        lines.append(
+            " Forward-engineering checklist (Baker et al. 2026, §6) ".center(w, "-")
+        )
+        for _, r in self.forward_engineering_checklist().iterrows():
+            mark = {"done": "[x]", "user": "[ ]", "not run": "[!]"}.get(
+                str(r["status"]), "[?]"
+            )
+            lines.append(f"  {mark} {int(r['step'])}. {r['title']}")
+            lines.extend(
+                textwrap.wrap(
+                    str(r["detail"]),
+                    width=w - 8,
+                    initial_indent="        ",
+                    subsequent_indent="        ",
+                )
+            )
+
+        if self.degradations:
+            lines.append("-" * w)
+            lines.append("DEGRADED STEPS (ran but did not complete):")
+            for d in self.degradations:
+                lines.append(
+                    f"  - {d.get('section')}: {d.get('error_type')} "
+                    f"{str(d.get('message', ''))[:50]}"
+                )
 
         lines.append("=" * w)
         return "\n".join(lines)
@@ -752,6 +998,25 @@ def _df_to_booktabs(df: pd.DataFrame, float_format: str = "%.4f") -> str:
     return "\n".join(lines)
 
 
+def _record_degradation(
+    bucket: List[Dict[str, Any]],
+    *,
+    section: str,
+    exc: BaseException,
+    detail: str,
+) -> None:
+    """Warn + record a best-effort step that failed (CLAUDE.md §3.7).
+
+    ``cs_report`` is an orchestration path: a broken balance table must
+    not abort the estimate. But a step that silently vanishes reads as a
+    step that passed, so every skip is warned about and recorded in
+    ``report.degradations``.
+    """
+    from ..workflow._degradation import record_degradation
+
+    record_degradation(bucket, section=section, exc=exc, detail=detail)
+
+
 # ======================================================================
 # Public entry point
 # ======================================================================
@@ -764,6 +1029,7 @@ def cs_report(
     t: Optional[str] = None,
     i: Optional[str] = None,
     x: Optional[List[str]] = None,
+    weights: Optional[str] = None,
     estimator: str = "dr",
     control_group: str = "nevertreated",
     anticipation: int = 0,
@@ -773,10 +1039,20 @@ def cs_report(
     min_e: float = -np.inf,
     max_e: float = np.inf,
     rr_method: str = "smoothness",
+    balance: bool = True,
+    triangulate: bool = True,
+    functional_form: bool = True,
     verbose: bool = True,
     save_to: Optional[str] = None,
 ) -> CSReport:
-    """One-call staggered-DID workflow: estimate → aggregate → sensitivity.
+    """One-call staggered-DID workflow following Baker et al. (2026).
+
+    Runs the eight-step "forward-engineering" recipe the practitioner's
+    guide closes with (§6): define the target parameter, state the
+    identification assumption *and generate evidence about it*, choose an
+    estimation method, declare the inference frame, estimate, and probe
+    sensitivity. ``report.forward_engineering_checklist()`` returns the
+    steps and what was actually run for each.
 
     Parameters
     ----------
@@ -789,6 +1065,20 @@ def cs_report(
         ``data_or_result`` is a DataFrame).
     x : list of str, optional
         Covariates for conditional parallel trends.
+    weights : str, optional
+        Unit weights ω. Changes the target parameter, not just precision
+        — see :func:`statspai.did.callaway_santanna`.
+    balance : bool, default True
+        Run :func:`did_balance` on ``x`` (step 2 evidence: covariate
+        balance in levels *and* changes). Ignored when ``x`` is empty or
+        when a pre-fitted result is passed without the source panel.
+    triangulate : bool, default True
+        Also fit the other covariate strategies (regression adjustment,
+        IPW, doubly robust) and report them side by side, as in the
+        paper's Table 7 / Figure 4. Only meaningful with covariates.
+    functional_form : bool, default True
+        Run :func:`functional_form_test` (Roth and Sant'Anna 2023b): is
+        parallel trends insensitive to how the outcome is scaled?
     estimator : {'dr', 'ipw', 'reg'}, default 'dr'
     control_group : {'nevertreated', 'notyettreated'}, default 'nevertreated'
     anticipation : int, default 0
@@ -899,11 +1189,135 @@ def cs_report(
             t=t_col,
             i=i_col,
             x=x,
+            weights=weights,
             estimator=estimator,
             control_group=control_group,
             anticipation=anticipation,
             alpha=alpha,
         )
+
+    # ------------------------------------------------------------------
+    # Step 2 / Step 3 evidence (Baker et al. 2026)
+    #
+    # Only reachable when the caller handed us the panel: a pre-fitted
+    # CausalResult does not carry the source data.
+    # ------------------------------------------------------------------
+    _panel = data_or_result if isinstance(data_or_result, pd.DataFrame) else None
+    balance_res: Optional[Any] = None
+    overlap_info: Dict[str, Any] = {}
+    ff_info: Dict[str, Any] = {}
+    triangulation = pd.DataFrame()
+    degradations: List[Dict[str, Any]] = []
+
+    if _panel is not None:
+        if balance and x:
+            try:
+                from .balance import did_balance as _did_balance
+
+                balance_res = _did_balance(
+                    _panel,
+                    x,
+                    g=g_col,
+                    t=t_col,
+                    i=i_col,
+                    weights=weights,
+                    control_group=control_group,
+                )
+            except Exception as exc:
+                _record_degradation(
+                    degradations,
+                    section="covariate balance (step 2)",
+                    exc=exc,
+                    detail="did_balance failed; the report omits the "
+                    "levels/changes balance panels.",
+                )
+
+        if functional_form:
+            try:
+                from .functional_form import functional_form_test as _fft
+
+                ff = _fft(
+                    _panel,
+                    y_col,
+                    g=g_col,
+                    t=t_col,
+                    i=i_col,
+                    x=x,
+                    estimator=estimator,
+                    control_group=control_group,
+                    anticipation=anticipation,
+                    alpha=alpha,
+                )
+                ff_info = {
+                    "pvalue": float(getattr(ff, "pvalue", float("nan"))),
+                    "statistic": float(getattr(ff, "statistic", float("nan"))),
+                    "reject": bool(getattr(ff, "reject", False)),
+                }
+            except Exception as exc:
+                _record_degradation(
+                    degradations,
+                    section="functional-form test (step 2)",
+                    exc=exc,
+                    detail="Roth-Sant'Anna (2023b) test skipped.",
+                )
+
+        if triangulate and x:
+            # The paper reports RA / IPW / DR side by side (Table 7,
+            # Figure 4) precisely because they can disagree: their
+            # unweighted IPW estimate is less than half the RA one. A
+            # single number hides that.
+            rows: List[Dict[str, Any]] = []
+            for est_name, label in (
+                ("reg", "Regression adjustment"),
+                ("ipw", "IPW"),
+                ("dr", "Doubly robust"),
+            ):
+                try:
+                    fit = callaway_santanna(
+                        _panel,
+                        y=y_col,
+                        g=g_col,
+                        t=t_col,
+                        i=i_col,
+                        x=x,
+                        weights=weights,
+                        estimator=est_name,
+                        control_group=control_group,
+                        anticipation=anticipation,
+                        alpha=alpha,
+                    )
+                    agg = aggte(
+                        fit,
+                        type="simple",
+                        alpha=alpha,
+                        n_boot=n_boot,
+                        random_state=random_state,
+                    )
+                    rows.append(
+                        {
+                            "estimator": est_name,
+                            "label": label,
+                            "att": float(agg.estimate),
+                            "se": float(agg.se),
+                            "ci_lower": float(agg.ci[0]),
+                            "ci_upper": float(agg.ci[1]),
+                        }
+                    )
+                except Exception as exc:
+                    _record_degradation(
+                        degradations,
+                        section=f"estimator triangulation ({est_name})",
+                        exc=exc,
+                        detail=f"{label} fit failed; omitted from the "
+                        "comparison table.",
+                    )
+            triangulation = pd.DataFrame(rows)
+
+    # Overlap diagnostic (paper Figure 1) is available from the fit itself.
+    _trimmed = cs.model_info.get("n_pscore_trimmed")
+    if _trimmed is not None:
+        overlap_info["n_pscore_trimmed"] = int(_trimmed)
+        overlap_info["pscore_trim"] = cs.model_info.get("pscore_trim")
 
     # Four aggregations sharing the same seed for internal consistency.
     simple = aggte(
@@ -974,6 +1388,12 @@ def cs_report(
         "n_boot": n_boot,
         "random_state": random_state,
         "rr_method": rr_method,
+        # Step 2 of the forward-engineering recipe: say which assumption
+        # is being imposed, in the report rather than in the reader's head.
+        "parallel_trends": cs.model_info.get("parallel_trends"),
+        "weighted": bool(cs.model_info.get("weighted")),
+        "weights": cs.model_info.get("weights"),
+        "covariates": list(x) if x else [],
     }
 
     report = CSReport(
@@ -985,6 +1405,11 @@ def cs_report(
         pretrend=cs.model_info.get("pretrend_test") or {},
         breakdown=breakdown_df,
         meta=meta,
+        balance=balance_res,
+        overlap=overlap_info,
+        functional_form=ff_info,
+        estimator_comparison=triangulation,
+        degradations=degradations,
     )
 
     if verbose:

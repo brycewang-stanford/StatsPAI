@@ -37,6 +37,7 @@ from ._core import cohort_share_context as _cohort_share_context
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import multiplier_bootstrap as _core_multiplier_bootstrap
 from ._core import normalize_se_method as _normalize_se_method
+from ._core import parallel_trends_block as _pt_block
 from ._core import require_bool as _require_bool
 from ._core import weight_influence as _weight_influence
 
@@ -196,6 +197,7 @@ def callaway_santanna(
     t: str,
     i: str,
     x: Optional[List[str]] = None,
+    weights: Optional[str] = None,
     estimator: str = "dr",
     control_group: str = "nevertreated",
     notyet_cutoff: str = "period",
@@ -231,6 +233,23 @@ def callaway_santanna(
         Unit identifier variable.
     x : list of str, optional
         Covariate names for conditional parallel trends.
+    weights : str, optional
+        Column holding **unit-level sampling / population weights** ω
+        (R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``).
+
+        Weights are *not* a precision knob. They enter the definition of
+        the target parameter itself: the unweighted ATT answers "what was
+        the average effect across treated **counties**", the
+        population-weighted ATT answers "across treated **people**".
+        These are different estimands and can differ in sign
+        [@baker2026difference, §3.1; @solon2015weighting]. Comparing a
+        weighted with an unweighted estimate is therefore *not* a
+        robustness check.
+
+        Must be constant within unit; a time-varying column raises
+        :class:`~statspai.exceptions.MethodIncompatibility`. Weights are
+        renormalised to mean 1 over the estimation sample, matching
+        ``DRDID``/``did``, so the reported ATT is scale-invariant.
     estimator : str, default 'dr'
         Estimation method, one of:
 
@@ -551,8 +570,8 @@ def callaway_santanna(
         )
 
     # 1. Prepare panel data
-    y_wide, unit_info, time_periods, cohorts, n_units = _prepare_panel(
-        data, y, g, t, i, x
+    y_wide, unit_info, time_periods, cohorts, n_units, unit_weights = _prepare_panel(
+        data, y, g, t, i, x, weights
     )
 
     if not cohorts:
@@ -603,6 +622,7 @@ def callaway_santanna(
             n_units,
             notyet_cutoff,
             pscore_trim,
+            unit_weights,
         )
 
         pval = 2 * (1 - stats.norm.cdf(abs(att / se))) if se > 0 else 1.0
@@ -674,8 +694,22 @@ def callaway_santanna(
             detail["cband_lower"] = att_vals - crit * se_new
             detail["cband_upper"] = att_vals + crit * se_new
 
-    # 4. Cohort sizes (for weighting)
-    cohort_sizes = unit_info[g].value_counts()
+    # 4. Cohort sizes (for weighting).
+    #
+    # Under ω these must be ω-weighted cohort *mass*, not head counts:
+    # the event-study/simple aggregations weight each cohort by its share
+    # of the treated population, P_ω(G = g | ...), so a head count would
+    # silently mix a weighted ATT(g,t) with unweighted cohort shares and
+    # target neither estimand [@baker2026difference, §5.2.4].
+    if weights is None:
+        cohort_sizes = unit_info[g].value_counts()
+    else:
+        cohort_sizes = (
+            pd.Series(unit_weights, index=unit_info.index)
+            .groupby(unit_info[g])
+            .sum()
+            .sort_values(ascending=False)
+        )
 
     # 5. Simple aggregation (post-treatment)
     post_mask = detail["relative_time"] >= 0
@@ -692,6 +726,7 @@ def callaway_santanna(
         alpha,
         boot_cfg=boot_cfg,
         unit_cohorts=unit_info[g].to_numpy(),
+        unit_weights=unit_weights,
     )
 
     # 6. Event study aggregation
@@ -734,6 +769,18 @@ def callaway_santanna(
         "n_pscore_trimmed": _TRIM_TALLY.n_trimmed,
         "base_period": base_period,
         "anticipation": anticipation,
+        # Which parallel-trends assumption this fit actually imposes.
+        # CS identifies ATT(g, t) off post-treatment periods only, so the
+        # assumption is NEV or NYT according to the comparison group;
+        # base_period changes which pre-period contrasts get *reported*,
+        # not what is assumed for identification.
+        "parallel_trends": _pt_block(
+            "PT-GT-NEV" if control_group == "nevertreated" else "PT-GT-NYT",
+            conditional=bool(x),
+            extra={"base_period": base_period, "anticipation": anticipation},
+        ),
+        "weights": weights,
+        "weighted": weights is not None,
         "n_units": n_units,
         "n_periods": len(time_periods),
         "n_cohorts": len(cohorts),
@@ -754,6 +801,9 @@ def callaway_santanna(
         "_cluster_ids": cluster_ids,
         "_unit_ids": unit_info.index.to_numpy(),
         "_unit_cohorts": unit_info[g].to_numpy(),
+        # Aggregation weights for sp.aggte: cohort shares must be built
+        # from ω-mass, not head counts, once ω is in play.
+        "_unit_weights": unit_weights,
     }
 
     _result = CausalResult(
@@ -815,7 +865,8 @@ def _prepare_panel(
     t: str,
     i: str,
     x: Optional[List[str]],
-) -> Tuple[pd.DataFrame, pd.DataFrame, list, list, int]:
+    weights_col: Optional[str] = None,
+) -> Tuple[pd.DataFrame, pd.DataFrame, list, list, int, np.ndarray]:
     """Validate and reshape panel data to wide format.
 
     Returns
@@ -873,6 +924,11 @@ def _prepare_panel(
     info_cols = [g] + (x or [])
     unit_info = data.groupby(i)[info_cols].first()
 
+    # Unit-level weights ω.  Normalised to mean 1 over the unit universe so
+    # that the ATT is scale-invariant and every ``np.mean(w * z)`` below
+    # reduces *exactly* to ``np.mean(z)`` in the unweighted path.
+    unit_weights = _prepare_unit_weights(data, i, weights_col, unit_info.index)
+
     # Replace NaN / inf in group variable with 0 (never-treated)
     unit_info[g] = unit_info[g].fillna(0).replace([np.inf, -np.inf], 0)
     # Ensure integer type for group
@@ -886,7 +942,77 @@ def _prepare_panel(
     cohorts = [v for v in g_values if v > 0 and v <= max_time]
 
     n_units = len(unit_info)
-    return y_wide, unit_info, time_periods, cohorts, n_units
+    return y_wide, unit_info, time_periods, cohorts, n_units, unit_weights
+
+
+def _prepare_unit_weights(
+    data: pd.DataFrame,
+    i: str,
+    weights_col: Optional[str],
+    unit_index: pd.Index,
+) -> np.ndarray:
+    """Collapse ω to one weight per unit and renormalise to mean 1.
+
+    ``None`` returns an exact vector of ones, so the whole weighted code
+    path below is bit-identical to the historical unweighted one.
+
+    Weights must be time-invariant: a unit whose ω changes across periods
+    has no well-defined share in the target population, and silently
+    taking the first value would answer a question nobody asked
+    (CLAUDE.md §3.7).
+    """
+    n = len(unit_index)
+    if weights_col is None:
+        return np.ones(n, dtype=float)
+
+    if weights_col not in data.columns:
+        raise MethodIncompatibility(
+            f"weights column {weights_col!r} is not in the data.",
+            recovery_hint="Pass the name of an existing numeric column.",
+            diagnostics={"weights": weights_col},
+        )
+
+    grouped = data.groupby(i)[weights_col]
+    spread = grouped.nunique(dropna=False)
+    varying = spread[spread > 1]
+    if len(varying):
+        raise MethodIncompatibility(
+            f"weights column {weights_col!r} varies within unit for "
+            f"{len(varying)} of {n} units (e.g. "
+            f"{list(varying.index[:3])}). Unit weights define each unit's "
+            "share of the target population, so they must be constant "
+            "within unit.",
+            recovery_hint=(
+                "Use a fixed baseline weight (e.g. base-year population) "
+                "rather than a time-varying one."
+            ),
+            diagnostics={"weights": weights_col, "n_varying": int(len(varying))},
+        )
+
+    w = grouped.first().reindex(unit_index).to_numpy(dtype=float)
+
+    if not np.all(np.isfinite(w)):
+        raise MethodIncompatibility(
+            f"weights column {weights_col!r} contains NaN or infinite "
+            f"values for {int((~np.isfinite(w)).sum())} units.",
+            recovery_hint="Drop or impute those units before estimating.",
+            diagnostics={"weights": weights_col},
+        )
+    if np.any(w < 0):
+        raise MethodIncompatibility(
+            f"weights column {weights_col!r} contains negative values.",
+            recovery_hint="Sampling/population weights must be >= 0.",
+            diagnostics={"weights": weights_col, "min": float(w.min())},
+        )
+    total = float(w.sum())
+    if total <= 0:
+        raise MethodIncompatibility(
+            f"weights column {weights_col!r} sums to {total}; at least one "
+            "unit must carry positive weight.",
+            recovery_hint="Check the weights column for an all-zero slice.",
+            diagnostics={"weights": weights_col},
+        )
+    return w * (n / total)
 
 
 def _get_gt_pairs(
@@ -950,6 +1076,7 @@ def _estimate_single_att(
     n_total: int,
     notyet_cutoff: str = "period",
     pscore_trim: float = _DEFAULT_PSCORE_TRIM,
+    unit_weights: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, np.ndarray]:
     """Estimate a single ATT(g,t) and return (att, se, influence_func)."""
 
@@ -1001,6 +1128,18 @@ def _estimate_single_att(
     n1 = d_sub.sum()
     n0 = n_rel - n1
 
+    # ω on this (g, t) cell, renormalised to mean 1 *within the cell* so
+    # that every weighted mean below collapses to its unweighted form when
+    # ω ≡ 1 and the estimating equations stay Hájek-normalised.
+    if unit_weights is None:
+        w_sub = np.ones(int(n_rel), dtype=float)
+    else:
+        w_sub = np.asarray(unit_weights, dtype=float)[relevant.values]
+        w_mean = w_sub.mean()
+        if w_mean <= 0:
+            return 0.0, np.inf, np.zeros(n_total)
+        w_sub = w_sub / w_mean
+
     if n1 < 1 or n0 < 1:
         return 0.0, np.inf, np.zeros(n_total)
 
@@ -1020,13 +1159,13 @@ def _estimate_single_att(
     # Dispatch. 'ipw' and 'stdipw' are deliberately the same estimator —
     # see _ESTIMATORS.
     if estimator == "dr":
-        att, se, inf_local = _dr_att(dy_sub, d_sub, x_sub, pscore_trim)
+        att, se, inf_local = _dr_att(dy_sub, d_sub, x_sub, pscore_trim, w_sub)
     elif estimator in ("ipw", "stdipw"):
-        att, se, inf_local = _ipw_att(dy_sub, d_sub, x_sub, pscore_trim)
+        att, se, inf_local = _ipw_att(dy_sub, d_sub, x_sub, pscore_trim, w_sub)
     elif estimator == "ipw_abadie":
-        att, se, inf_local = _ipw_abadie_att(dy_sub, d_sub, x_sub, pscore_trim)
+        att, se, inf_local = _ipw_abadie_att(dy_sub, d_sub, x_sub, pscore_trim, w_sub)
     else:  # reg
-        att, se, inf_local = _reg_att(dy_sub, d_sub, x_sub)
+        att, se, inf_local = _reg_att(dy_sub, d_sub, x_sub, w_sub)
 
     # Map the local influence function to the full unit universe.  The
     # ATT(g,t) estimator is computed on the relevant treated/control
@@ -1051,35 +1190,57 @@ def _dr_att(
     d: np.ndarray,
     x: Optional[np.ndarray],
     pscore_trim: float = _DEFAULT_PSCORE_TRIM,
+    w: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, np.ndarray]:
-    """Doubly robust ATT(g,t) estimator (Sant'Anna & Zhao 2020)."""
+    """Doubly robust ATT(g,t) estimator (Sant'Anna & Zhao 2020).
+
+    ``w`` carries the unit weights ω (mean 1). Every ``np.mean(w * z)``
+    reduces exactly to ``np.mean(z)`` at ω ≡ 1, so the unweighted path is
+    numerically untouched.
+    """
     n = len(dy)
     c = 1 - d
+    w = np.ones(n, dtype=float) if w is None else np.asarray(w, dtype=float)
 
     # --- Propensity score ---
-    pscore = _estimate_pscore(d, x, n)
+    pscore = _estimate_pscore(d, x, n, w)
     keep = _pscore_trim_mask(pscore, d, pscore_trim)
     _TRIM_TALLY.record(keep, d)
 
     # --- Outcome regression ---
-    m_hat = _estimate_outcome_reg(dy, c, x, n)
+    m_hat = _estimate_outcome_reg(dy, c, x, n, w)
 
     # --- DR weights ---
-    p_d = np.mean(d)
-    w1 = keep * d / p_d if p_d > 0 else np.zeros(n)
+    p_d = np.mean(w * d)
+    w1 = keep * w * d / p_d if p_d > 0 else np.zeros(n)
 
-    ipw_raw = keep * pscore * c / (1 - pscore)
+    ipw_raw = keep * w * pscore * c / (1 - pscore)
     ipw_denom = np.mean(ipw_raw)
     w0 = ipw_raw / ipw_denom if ipw_denom > 1e-12 else np.zeros(n)
 
-    # ATT
-    att = float(np.mean((w1 - w0) * (dy - m_hat)))
+    # ATT, as the difference of two Hajek-normalised arm means.
+    resid = dy - m_hat
+    eta_t = float(np.mean(w1 * resid))
+    eta_c = float(np.mean(w0 * resid))
+    att = eta_t - eta_c
 
-    # Influence function (treating nuisance as known — asymptotically equivalent)
-    inf_func = (w1 - w0) * (dy - m_hat) - att * w1
+    # ⚠️ correctness fix: de-mean each arm by its own mean.
+    #
+    # The previous form ``(w1 - w0) resid - att w1`` substitutes ``w1``
+    # for ``w0`` in the control arm's centring term. Both weights are
+    # Hajek-normalised to mean one, so the ATT is unaffected, but the
+    # variance is not. See the fuller note in :func:`_ipw_att`.
+    #
+    # Residual gap to R ``DRDID::drdid_panel`` after this fix: <= 0.7%
+    # on the reference fixture, from the nuisance *estimation* effects
+    # (DRDID additionally fits the outcome model by propensity-odds
+    # weighted least squares and propagates both first stages). DR is
+    # Neyman-orthogonal, so those terms are second-order — unlike the
+    # IPW case, where omitting them was a 10-89% error.
+    inf_func = w1 * (resid - eta_t) - w0 * (resid - eta_c)
     se = float(np.sqrt(np.mean(inf_func**2) / n))
 
-    return att, se, inf_func
+    return float(att), se, inf_func
 
 
 # ------------------------------------------------------------------
@@ -1092,6 +1253,7 @@ def _ipw_att(
     d: np.ndarray,
     x: Optional[np.ndarray],
     pscore_trim: float = _DEFAULT_PSCORE_TRIM,
+    w: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, np.ndarray]:
     """Stabilized (Hájek-normalized) IPW ATT(g,t) estimator.
 
@@ -1101,24 +1263,104 @@ def _ipw_att(
     """
     n = len(dy)
     c = 1 - d
+    w = np.ones(n, dtype=float) if w is None else np.asarray(w, dtype=float)
 
-    pscore = _estimate_pscore(d, x, n)
+    pscore = _estimate_pscore(d, x, n, w)
     keep = _pscore_trim_mask(pscore, d, pscore_trim)
     _TRIM_TALLY.record(keep, d)
 
-    p_d = np.mean(d)
-    w1 = keep * d / p_d if p_d > 0 else np.zeros(n)
+    p_d = np.mean(w * d)
+    w1 = keep * w * d / p_d if p_d > 0 else np.zeros(n)
 
-    ipw_raw = keep * pscore * c / (1 - pscore)
+    ipw_raw = keep * w * pscore * c / (1 - pscore)
     ipw_denom = np.mean(ipw_raw)
     w0 = ipw_raw / ipw_denom if ipw_denom > 1e-12 else np.zeros(n)
 
-    att = float(np.mean((w1 - w0) * dy))
+    # ⚠️ correctness fix (two parts), validated against R
+    # ``DRDID::std_ipw_did_panel`` via ``did::att_gt(est_method="ipw")``.
+    #
+    # (1) The influence function must de-mean each arm by *its own* mean,
+    #     not both by the ATT. The old form was
+    #
+    #         (w1 - w0) dY - att w1
+    #       = w1 (dY - eta_t) - w0 dY + w1 eta_c
+    #
+    #     which carries ``+w1 eta_c`` where the correct term is
+    #     ``+w0 eta_c``. Both weight vectors are Hajek-normalised to mean
+    #     one, so the two agree in expectation and the ATT was never
+    #     affected — but they have different variances, so every reported
+    #     IPW standard error was wrong.
+    #
+    # (2) IPW is not Neyman-orthogonal in the propensity score, so the
+    #     score's estimation effect belongs in the influence function.
+    #     Omitting it inflates the SE further.
+    eta_t = float(np.mean(w1 * dy))
+    eta_c = float(np.mean(w0 * dy))
+    att = eta_t - eta_c
 
-    inf_func = (w1 - w0) * dy - att * w1
+    inf_func = w1 * (dy - eta_t) - w0 * (dy - eta_c)
+    if x is not None and x.shape[1] > 0 and ipw_denom > 1e-12:
+        adj = _pscore_estimation_effect(
+            dy=dy,
+            x=x,
+            w=w,
+            d=d,
+            pscore=pscore,
+            arm_weights=ipw_raw,
+            arm_denom=ipw_denom,
+        )
+        if adj is not None:
+            inf_func = inf_func - adj
+
     se = float(np.sqrt(np.mean(inf_func**2) / n))
 
-    return att, se, inf_func
+    return float(att), se, inf_func
+
+
+def _pscore_estimation_effect(
+    *,
+    dy: np.ndarray,
+    d: np.ndarray,
+    x: np.ndarray,
+    w: np.ndarray,
+    pscore: np.ndarray,
+    arm_weights: np.ndarray,
+    arm_denom: float,
+) -> Optional[np.ndarray]:
+    """Asymptotic-linear correction for having *estimated* the logit.
+
+    Port of the ``asy.lin.rep.ps %*% M2`` term in ``DRDID``. Returns
+    ``None`` when the logit information matrix is singular, in which case
+    the caller keeps the uncorrected (conservative) influence function
+    rather than producing a nonsense variance.
+
+    Parameters mirror :func:`_ipw_att`'s locals; ``arm_weights`` is the
+    un-normalised control-arm weight vector and ``arm_denom`` its mean.
+    """
+    try:
+        import statsmodels.api as sm
+
+        xc = sm.add_constant(x)
+    except Exception:  # pragma: no cover - statsmodels is a core dep
+        return None
+
+    # Score of the weighted logit: w (D - p) X.
+    score = (w * (d - pscore))[:, None] * xc
+    # Information matrix: E[w p (1-p) X X'].
+    hess_w = w * pscore * (1.0 - pscore)
+    info = (xc.T * hess_w) @ xc / len(dy)
+    try:
+        info_inv = np.linalg.pinv(info)
+    except np.linalg.LinAlgError:  # pragma: no cover - pinv rarely raises
+        return None
+    if not np.all(np.isfinite(info_inv)):
+        return None
+    asy_lin_ps = score @ info_inv
+
+    eta = float(np.mean(arm_weights * dy) / arm_denom)
+    m2 = np.mean((arm_weights * (dy - eta))[:, None] * xc, axis=0) / arm_denom
+    out = asy_lin_ps @ m2
+    return out if np.all(np.isfinite(out)) else None
 
 
 def _ipw_abadie_att(
@@ -1126,6 +1368,7 @@ def _ipw_abadie_att(
     d: np.ndarray,
     x: Optional[np.ndarray],
     pscore_trim: float = _DEFAULT_PSCORE_TRIM,
+    w: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, np.ndarray]:
     """Abadie (2005) IPW ATT(g,t) — Horvitz-Thompson, *not* normalized.
 
@@ -1138,18 +1381,19 @@ def _ipw_abadie_att(
     """
     n = len(dy)
     c = 1 - d
+    w = np.ones(n, dtype=float) if w is None else np.asarray(w, dtype=float)
 
-    pscore = _estimate_pscore(d, x, n)
+    pscore = _estimate_pscore(d, x, n, w)
     keep = _pscore_trim_mask(pscore, d, pscore_trim)
     _TRIM_TALLY.record(keep, d)
 
-    p_d = np.mean(d)
+    p_d = np.mean(w * d)
     if p_d <= 0:
         return 0.0, np.inf, np.zeros(n)
 
-    # Abadie's single common denominator E[D] for both arms.
-    w1 = keep * d / p_d
-    w0 = keep * pscore * c / ((1 - pscore) * p_d)
+    # Abadie's single common denominator E[ωD] for both arms.
+    w1 = keep * w * d / p_d
+    w0 = keep * w * pscore * c / ((1 - pscore) * p_d)
 
     att = float(np.mean((w1 - w0) * dy))
 
@@ -1168,13 +1412,15 @@ def _reg_att(
     dy: np.ndarray,
     d: np.ndarray,
     x: Optional[np.ndarray],
+    w: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, np.ndarray]:
     """Outcome regression ATT(g,t) estimator."""
     n = len(dy)
     c = 1 - d
+    w = np.ones(n, dtype=float) if w is None else np.asarray(w, dtype=float)
 
-    p_d = np.mean(d)
-    w1 = d / p_d if p_d > 0 else np.zeros(n)
+    p_d = np.mean(w * d)
+    w1 = w * d / p_d if p_d > 0 else np.zeros(n)
 
     c_mask = c.astype(bool)
     c_count = int(c_mask.sum())
@@ -1192,20 +1438,22 @@ def _reg_att(
         use_constant_outcome = c_count <= k + 1
 
     if use_constant_outcome:
-        m0 = np.mean(dy[c_mask]) if c_count > 0 else 0.0
+        m0 = _weighted_control_mean(dy, c_mask, w) if c_count > 0 else 0.0
         m_hat_const = np.full(n, m0, dtype=float)
         resid = dy - m_hat_const
         att = float(np.mean(w1 * resid))
 
-        p_c = np.mean(c)
-        control_adjust = c * resid / p_c if p_c > 0 else np.zeros(n)
+        p_c = np.mean(w * c)
+        control_adjust = w * c * resid / p_c if p_c > 0 else np.zeros(n)
     else:
         assert x_arr is not None
         try:
             import statsmodels.api as sm
 
             x_const_control = sm.add_constant(x_arr[c_mask])
-            ols = sm.OLS(dy[c_mask], x_const_control)
+            # WLS with ω; at ω ≡ 1 the sqrt(w) scaling is exactly 1.0, so
+            # this is bit-identical to the historical OLS call.
+            ols = sm.WLS(dy[c_mask], x_const_control, weights=w[c_mask])
             result = ols.fit()
             x_const = sm.add_constant(x_arr)
             m_hat = np.asarray(result.predict(x_const), dtype=float).reshape(n)
@@ -1213,13 +1461,20 @@ def _reg_att(
             att = float(np.mean(w1 * resid))
 
             # Outcome-regression inference must include the uncertainty in
-            # the control regression used to estimate m0(X).  For the OLS
+            # the control regression used to estimate m0(X).  For the WLS
             # first stage this is the delta-method term:
-            #   - E[D X / p]' (E[C X X'])^{-1} C X_i u_i.
-            a_mat = (x_const_control.T @ x_const_control) / n
+            #   - E[ω D X / p]' (E[ω C X X'])^{-1} ω C X_i u_i.
+            # ω ≡ 1 keeps the original ``A'A`` contraction verbatim: the
+            # weighted form ``(A' diag(ω)) A`` is algebraically identical
+            # but reassociates the BLAS call and shifts the SE by ~2 ULP,
+            # which is enough to move a pinned parity fixture.
+            if np.allclose(w[c_mask], 1.0):
+                a_mat = (x_const_control.T @ x_const_control) / n
+            else:
+                a_mat = (x_const_control.T * w[c_mask]) @ x_const_control / n
             xbar_treat = np.mean(w1[:, None] * x_const, axis=0)
             lever = x_const @ (np.linalg.pinv(a_mat).T @ xbar_treat)
-            control_adjust = c * resid * lever
+            control_adjust = w * c * resid * lever
         except Exception as exc:
             # The user requested a covariate-adjusted outcome regression but
             # the control OLS failed (collinear / degenerate design). Fall
@@ -1235,12 +1490,12 @@ def _reg_att(
                 ConvergenceWarning,
                 stacklevel=2,
             )
-            m0 = np.mean(dy[c_mask]) if c_count > 0 else 0.0
+            m0 = _weighted_control_mean(dy, c_mask, w) if c_count > 0 else 0.0
             m_hat = np.full(n, m0)
             resid = dy - m_hat
             att = float(np.mean(w1 * resid))
-            p_c = np.mean(c)
-            control_adjust = c * resid / p_c if p_c > 0 else np.zeros(n)
+            p_c = np.mean(w * c)
+            control_adjust = w * c * resid / p_c if p_c > 0 else np.zeros(n)
 
     inf_func = w1 * (resid - att) - control_adjust
     se = float(np.sqrt(np.mean(inf_func**2) / n))
@@ -1330,17 +1585,45 @@ def _pscore_trim_mask(
     return keep
 
 
+def _weighted_control_mean(
+    dy: np.ndarray,
+    c_mask: np.ndarray,
+    w: np.ndarray,
+) -> float:
+    """ω-weighted mean of ``dy`` over the control arm (Hájek form).
+
+    At ω ≡ 1 this defers to ``np.mean``. The two are algebraically the
+    same, but ``np.dot`` and ``np.mean`` sum in different orders and the
+    result differs by ~1 ULP — enough to move pinned parity fixtures, so
+    the unweighted path keeps the original call.
+    """
+    w_c = w[c_mask]
+    if np.allclose(w_c, 1.0):
+        return float(np.mean(dy[c_mask]))
+    denom = float(w_c.sum())
+    if denom <= 0:
+        return 0.0
+    return float(np.dot(w_c, dy[c_mask]) / denom)
+
+
 def _estimate_pscore(
     d: np.ndarray,
     x: Optional[np.ndarray],
     n: int,
+    w: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """Estimate propensity score P(D=1 | X) via logit.
+    """Estimate propensity score P(D=1 | X) via (weighted) logit.
 
     Uses statsmodels (core dep) — no sklearn needed.
     Falls back to unconditional probability if logit fails or no covariates.
+
+    With ω supplied the logit is fit by weighted maximum likelihood, which
+    is what R ``DRDID`` does via ``glm(..., weights = i.weights)``. The
+    unweighted branch keeps the original ``sm.Logit`` call verbatim so the
+    existing R/Stata parity fixtures stay bit-identical.
     """
-    p_d = np.mean(d)
+    weighted = w is not None and not np.allclose(w, 1.0)
+    p_d = np.mean(d) if not weighted else float(np.mean(w * d))
     if x is None or x.shape[1] == 0:
         return np.full(n, p_d)
 
@@ -1348,8 +1631,17 @@ def _estimate_pscore(
         import statsmodels.api as sm
 
         x_const = sm.add_constant(x)
-        logit = sm.Logit(d, x_const)
-        result = logit.fit(disp=0, maxiter=500, warn_convergence=False)
+        if weighted:
+            glm = sm.GLM(
+                d,
+                x_const,
+                family=sm.families.Binomial(),
+                freq_weights=np.asarray(w, dtype=float),
+            )
+            result = glm.fit(maxiter=500)
+        else:
+            logit = sm.Logit(d, x_const)
+            result = logit.fit(disp=0, maxiter=500, warn_convergence=False)
         pscore = np.asarray(result.predict(x_const), dtype=float)
     except Exception as exc:
         # Covariates were supplied (checked above) but the logit failed:
@@ -1374,25 +1666,27 @@ def _estimate_outcome_reg(
     c: np.ndarray,
     x: Optional[np.ndarray],
     n: int,
+    w: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """Estimate E[ΔY | X, D=0] via OLS on the control group."""
+    """Estimate E[ΔY | X, D=0] via (weighted) least squares on the controls."""
     c_mask = c.astype(bool)
     c_count = c_mask.sum()
+    w = np.ones(n, dtype=float) if w is None else np.asarray(w, dtype=float)
 
     if x is None or x.shape[1] == 0 or c_count < 2:
-        m0 = np.mean(dy[c_mask]) if c_count > 0 else 0.0
+        m0 = _weighted_control_mean(dy, c_mask, w) if c_count > 0 else 0.0
         return np.full(n, m0)
 
     k = x.shape[1]
     if c_count <= k + 1:
         # Not enough control obs for regression
-        return np.full(n, np.mean(dy[c_mask]))
+        return np.full(n, _weighted_control_mean(dy, c_mask, w))
 
     try:
         import statsmodels.api as sm
 
         x_const = sm.add_constant(x[c_mask])
-        ols = sm.OLS(dy[c_mask], x_const)
+        ols = sm.WLS(dy[c_mask], x_const, weights=w[c_mask])
         result = ols.fit()
         m_hat = np.asarray(result.predict(sm.add_constant(x)), dtype=float)
     except Exception as exc:
@@ -1406,7 +1700,7 @@ def _estimate_outcome_reg(
             ConvergenceWarning,
             stacklevel=2,
         )
-        m_hat = np.full(n, np.mean(dy[c_mask]))
+        m_hat = np.full(n, _weighted_control_mean(dy, c_mask, w))
 
     return m_hat
 
@@ -1424,6 +1718,7 @@ def _aggregate_simple(
     alpha: float,
     boot_cfg: Optional[Dict[str, Any]] = None,
     unit_cohorts: Optional[np.ndarray] = None,
+    unit_weights: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, float, Tuple[float, float]]:
     """Simple aggregation: group-size-weighted average of post-treatment ATTs.
 
@@ -1447,7 +1742,9 @@ def _aggregate_simple(
     if post_inf is not None and post_inf.shape[1] > 0:
         inf_agg = post_inf @ weights
         if unit_cohorts is not None and len(unit_cohorts) == post_inf.shape[0]:
-            pg, ind = _cohort_share_context(post_detail["group"].values, unit_cohorts)
+            pg, ind = _cohort_share_context(
+                post_detail["group"].values, unit_cohorts, unit_weights
+            )
             inf_agg = inf_agg + _weight_influence(pg, ind) @ (
                 post_detail["att"].values.astype(float)
             )

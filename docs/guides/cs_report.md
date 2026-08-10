@@ -1,8 +1,29 @@
 # `cs_report()` — the one-call report card
 
-`sp.cs_report()` runs the full Callaway–Sant'Anna workflow under a
-single random seed and bundles the outputs into a `CSReport`
-dataclass that pretty-prints, plots, and exports.
+`sp.cs_report()` runs the eight-step **forward-engineering** workflow
+that Baker, Callaway, Cunningham, Goodman-Bacon and Sant'Anna (2026,
+*JEL* 64(2), 498–557, §6) close their practitioner's guide with, under a
+single random seed, and bundles the outputs into a `CSReport` dataclass
+that pretty-prints, plots, and exports.
+
+The guide's point is that estimation is step 5 of 8. A report that runs
+only the estimator has skipped the parts that make the estimate
+credible.
+
+| Step | What the guide asks for | What `cs_report` does |
+|------|-------------------------|-----------------------|
+| 1 | Define the target parameter | ATT(g,t) blocks → simple / dynamic / group / calendar, ω-weighted if `weights=` |
+| 2 | State the assumption **and generate evidence** | names the PT assumption; runs `sp.did_balance` (levels *and* ΔX), the Roth–Sant'Anna functional-form test, and an overlap check |
+| 3 | Determine the estimation method | triangulates RA / IPW / DR side by side (the guide's Table 7) |
+| 4 | Discuss sources of uncertainty | records the inference frame and bootstrap configuration |
+| 5 | Estimate | the ATT and its aggregations |
+| 6 | Sensitivity analysis | Rambachan–Roth breakdown M\* per post-treatment event time |
+| 7 | Heterogeneity analysis | flagged as yours: the relevant partition is a policy question |
+| 8 | Keep learning | points at `sp.recommend` / `sp.detect_design` if PT looks implausible |
+
+```python
+rpt.forward_engineering_checklist()   # the table above, as a DataFrame
+```
 
 ## Minimal example
 
@@ -12,16 +33,28 @@ import statspai as sp
 rpt = sp.cs_report(
     df,
     y='y', g='g', t='t', i='id',
+    x=['poverty'],             # enables balance + RA/IPW/DR triangulation
+    weights='pop',             # omega: changes the estimand, not just precision
     n_boot=500,
     random_state=0,
     verbose=True,              # prints the report to stdout
 )
 ```
 
+Turn individual step-2/step-3 evidence off with `balance=False`,
+`triangulate=False`, `functional_form=False` when you only want the
+estimate. Anything that fails is recorded in `rpt.degradations` and
+warned about — never silently skipped.
+
 ## Structured fields
 
 ```python
-rpt.overall      # dict: overall ATT, SE, CI, p
+rpt.overall               # dict: overall ATT, SE, CI, p
+rpt.balance               # DiDBalanceResult (levels + changes panels)
+rpt.estimator_comparison  # DataFrame: RA / IPW / DR side by side
+rpt.functional_form       # dict: Roth-Sant'Anna p-value
+rpt.overlap               # dict: propensity trimming diagnostics
+rpt.degradations          # list: any step that ran but did not complete
 rpt.simple       # DataFrame: simple aggregation
 rpt.dynamic      # DataFrame: event study with uniform bands
 rpt.group        # DataFrame: per-cohort θ(g)

@@ -110,7 +110,7 @@ class TestExecuteToolHappy:
         df = pd.DataFrame(rows)
         out = execute_tool(
             "did",
-            {"y": "y", "treat": "treated", "time": "t", "post": "post"},
+            {"y": "y", "treat": "treated", "time": "t"},
             data=df,
         )
         assert "error" not in out
@@ -280,7 +280,7 @@ class TestCausalResultToDict:
                 y = 1.0 + 0.3 * t + 0.5 * tr + 2.0 * tr * t + rng.normal(scale=0.5)
                 rows.append({"i": i, "t": t, "treated": tr, "post": t, "y": y})
         df = pd.DataFrame(rows)
-        return sp.did(df, y="y", treat="treated", time="t", post="post")
+        return sp.did(df, y="y", treat="treated", time="t")
 
     def test_causal_to_dict_has_required_keys(self, did_result):
         d = did_result.to_dict()
@@ -344,7 +344,7 @@ class TestExecuteToolUsesToDict:
         df = pd.DataFrame(rows)
         out = execute_tool(
             "did",
-            {"y": "y", "treat": "treated", "t": "t", "time": "t", "post": "post"},
+            {"y": "y", "treat": "treated", "time": "t"},
             data=df,
         )
         # Should have the flat to_dict shape, not the legacy shape.

@@ -32,7 +32,7 @@ sp.pretrends_test(r)
 sp.bjs_pretrend_joint(r)    # Borusyak-Jaravel-Spiess
 
 # Honest inference under parallel-trends violations
-sp.honest_did(r, max_M=0.5, method='smoothness')
+sp.honest_did(r, m_grid=[0.0, 0.25, 0.5], method='smoothness')
 
 # Decomposition: which 2x2 cells drive TWFE?
 sp.bacon_decomposition(df, y='y', treat='d', time='t', id='i')

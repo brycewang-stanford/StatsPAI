@@ -1,36 +1,114 @@
 # Choosing a DID estimator
 
-StatsPAI ships 18 DID variants. This guide is a decision tree: read the
-first question, jump to the section it sends you to, and stop when you
-have a recommendation. Every answer is grounded in the published
-literature.
+StatsPAI ships 18 DID variants. Picking one is not the first question.
 
-## 0. TL;DR flowchart
+Baker, Callaway, Cunningham, Goodman-Bacon and Sant'Anna (2026, *JEL*
+64(2), 498–557) call the estimator-first habit **reverse engineering**:
+starting from a familiar regression and asking what it identifies. Their
+alternative is **forward engineering** — fix the target parameter, state
+the assumption, and *derive* the estimator. This guide follows that
+order, because the estimator is the last decision, not the first.
 
+## 0. Four questions before you pick anything
+
+### Q1 — What is the target parameter?
+
+Not "the effect", but *whose* effect, averaged how.
+
+| You want                              | Target                | Call |
+|---------------------------------------|-----------------------|------|
+| One number for all treated units      | overall ATT           | `sp.aggte(cs, type="simple")` |
+| Effects by time since treatment       | ATT(e), event study   | `sp.aggte(cs, type="dynamic")` |
+| Effects by adoption cohort            | θ(g)                  | `sp.aggte(cs, type="group")` |
+| Effects by calendar period            | θ(t)                  | `sp.aggte(cs, type="calendar")` |
+
+**Weights are part of this question, not a robustness check.** The
+unweighted ATT averages over treated *units*; `weights="pop"` averages
+over the *population those units represent*. These are different
+estimands and can differ in sign. Comparing them tells you nothing about
+robustness — it tells you that you have not yet decided what you are
+estimating (§3.1).
+
+```python
+sp.callaway_santanna(df, y="y", g="first_treat", t="year", i="id",
+                     weights="pop")     # mirrors R did::att_gt(weightsname=)
 ```
-Is your panel staggered (units get treated at different times)?
-  NO  -> classic 2x2 DID (sp.did)
-          +-> Optional robustness: sp.honest_did, sp.drdid
-  YES -> Is your treatment effect HOMOGENEOUS across cohorts?
-          UNKNOWN -> sp.bacon_decomposition to find out
-          YES     -> TWFE is fine, but CS/SA/Wooldridge also work
-          NO      -> Do NOT use TWFE. See "Staggered + heterogeneous"
+
+### Q2 — Which parallel-trends assumption are you willing to impose?
+
+In a staggered design the comparison-group option *is* an assumption
+choice. The paper asks you to state which one (§5.2.2); StatsPAI records
+it in `result.model_info["parallel_trends"]` and prints it in
+`.summary()`.
+
+| Label | Comparison group | Restricts pre-trends? | How to get it |
+|-------|------------------|-----------------------|---------------|
+| `PT-GT-NEV` | never-treated only | no | `control_group="nevertreated"` |
+| `PT-GT-NYT` | all not-yet-treated | no | `control_group="notyettreated"` |
+| `PT-GT-ALL` | all groups, all periods | **yes** | imputation/ETWFE estimators (`sp.did_imputation`, `sp.etwfe`, `sp.gardner_did`) |
+
+`PT-GT-ALL` buys precision by assuming parallel *pre*-trends too — so if
+pre-trends are not parallel, those estimators are biased where CS is
+not. The paper's own application prefers `PT-GT-NYT` as the middle
+ground.
+
+### Q3 — Do you need covariates, and how do they enter?
+
+Check first, with balance in **levels and in changes**:
+
+```python
+bal = sp.did_balance(df, ["poverty", "unemp", "median_income"],
+                     g="first_treat", t="year", i="county", weights="pop")
+print(bal.summary())
+```
+
+A covariate can look balanced in levels and still be moving
+differentially — and DiD identifies off trends. If anything is flagged,
+move to a conditional design.
+
+⚠️ **Do not add covariates to a TWFE regression.** Under conditional
+parallel trends the interaction coefficient is a possibly *non-convex*
+weighted average of covariate-specific effects plus misspecification
+bias, and equals the ATT only if effects are constant across covariate
+strata (Caetano & Callaway 2024; §4.3). Use RA / IPW / DR instead — and
+prefer **DR**, which is consistent if *either* nuisance model is right
+(§4.4):
+
+```python
+sp.callaway_santanna(df, ..., x=["poverty"], estimator="dr")   # recommended
+sp.callaway_santanna(df, ..., x=["poverty"], estimator="reg")  # RA
+sp.callaway_santanna(df, ..., x=["poverty"], estimator="ipw")  # IPW
+```
+
+### Q4 — What is random?
+
+Sampling-based (units resampled from a population) vs design-based
+(treatment assignment is the only randomness). StatsPAI's CS path is
+sampling-based with a multiplier bootstrap. Say which you mean; it
+determines what the standard error covers (§3.3).
+
+**One call runs all of this**, and reports the eight-step checklist:
+
+```python
+rpt = sp.cs_report(df, y="y", g="first_treat", t="year", i="county",
+                   x=["poverty"], weights="pop")
+rpt.forward_engineering_checklist()
 ```
 
 ## 1. Two-period, two-group ("2x2 DID")
 
-| Use case                                   | Recommended call                                                |
-|--------------------------------------------|-----------------------------------------------------------------|
-| Standard 2-period 2-group panel            | `sp.did(df, y='y', treat='treated', time='t', post='post')`     |
-| With covariates, doubly-robust             | `sp.drdid(df, y='y', d='d', post='post', covariates=[...])`     |
-| Repeated cross-section (no panel match)    | `sp.drdid(..., panel=False)` or `sp.did(..., repeated_cs=True)` |
-| Unit-by-time cell-level data (DDD)         | `sp.ddd(df, y='y', t1='state', t2='age', t3='year', ...)`       |
+| Use case                                   | Recommended call                                                        |
+|--------------------------------------------|-------------------------------------------------------------------------|
+| Standard 2-period 2-group panel            | `sp.did(df, y='y', treat='treated', time='t')`                          |
+| With covariates, doubly-robust             | `sp.drdid(df, y='y', group='d', time='post', covariates=[...])`         |
+| Repeated cross-section (no panel match)    | `sp.did(..., panel=False)`                                              |
+| Triple differences (DDD)                   | `sp.ddd(df, y='y', treat='d', time='t', subgroup='eligible')`           |
 
 **Minimum viable robustness suite for 2x2 DID:**
 ```python
-r = sp.did(df, y='y', treat='treated', time='t', post='post')
+r = sp.did(df, y='y', treat='treated', time='t')
 r.next_steps()                      # model-specific checklist
-sp.honest_did(r, max_M=0.2)         # Rambachan-Roth sensitivity
+sp.honest_did(r, m_grid=[0.0, 0.1, 0.2])   # Rambachan-Roth sensitivity
 sp.pretrends_test(r)                # pre-treatment placebo
 ```
 
@@ -101,7 +179,7 @@ sp.pretrends_test(r, alpha=0.05)
 
 # 2. Honest DID (Rambachan-Roth): how much pre-trend violation can the
 #    causal conclusion survive?
-hd = sp.honest_did(r, max_M=0.5, method='smoothness')
+hd = sp.honest_did(r, m_grid=[0.0, 0.25, 0.5], method='smoothness')
 
 # 3. Full robustness report: combines pre-trend, placebo, leave-one-cohort-out
 sp.robustness_report(r)

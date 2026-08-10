@@ -84,7 +84,13 @@ GENERIC_RAISE_MAX = 1902
 # (§7: orchestration paths catch broadly and record the degradation rather
 # than crash the draft), alongside one further best-effort orchestration
 # catch in the same release. Ceiling moves 587 -> 590.
-BROAD_EXCEPT_MAX = 590
+# Baker et al. (2026) forward-engineering workflow: cs_report gained three
+# record_degradation-guarded best-effort catches — covariate balance, the
+# Roth-Sant'Anna functional-form test, and the RA/IPW/DR triangulation
+# loop. Each is optional step-2/step-3 *evidence*: a failure there must
+# not abort the estimate, but it must also not vanish, so every one warns
+# and lands in ``report.degradations`` (§7). Ceiling moves 590 -> 593.
+BROAD_EXCEPT_MAX = 593
 TAXONOMY_RAISE_MIN = 42
 
 

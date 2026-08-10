@@ -109,7 +109,7 @@ def test_did_all_treated_raises():
         for t in (0, 1):
             rows.append({"i": i, "t": t, "treated": 1, "post": t, "y": rng.normal()})
     with pytest.raises(MethodIncompatibility):
-        sp.did(pd.DataFrame(rows), y="y", treat="treated", time="t", post="post")
+        sp.did(pd.DataFrame(rows), y="y", treat="treated", time="t")
 
 
 def test_panel_singleton_entities_raises():

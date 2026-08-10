@@ -2919,6 +2919,52 @@ class CausalResult:
         lines.append(f"  P-value:     {self.pvalue:.4f}")
         lines.append("")
 
+        # Identifying assumption, stated rather than implied.
+        #
+        # Baker et al. (2026, §5.2.2) ask practitioners to say which
+        # parallel-trends assumption they impose, because in a staggered
+        # design the comparison-group option *is* an assumption choice
+        # and readers cannot otherwise tell which one was made. The
+        # estimators record it in model_info['parallel_trends']; print it
+        # next to the estimate so it travels with the number.
+        pt = self.model_info.get("parallel_trends")
+        if isinstance(pt, dict) and pt.get("label"):
+            lines.append(
+                f"  Identifying assumption: {pt['label']} — {pt.get('name', '')}"
+            )
+            if pt.get("comparison"):
+                lines.append(f"    comparison group:   {pt['comparison']}")
+            if pt.get("restricts_pretrends") is not None:
+                lines.append(f"    restricts pre-trends: {pt['restricts_pretrends']}")
+            if pt.get("conditional"):
+                lines.append(
+                    "    conditional on covariates; also requires strong "
+                    "overlap (SO)"
+                )
+            lines.append("")
+
+        # ω weights change the estimand, so say so where the number is read.
+        #
+        # Gated on the parallel-trends record, not on ``weighted`` alone:
+        # several DML modules also set ``model_info['weighted']`` for
+        # ``sample_weight``, and this paragraph is specifically about the
+        # DiD estimand ("the population the treated units represent"),
+        # which would be wrong there.
+        if isinstance(pt, dict) and pt.get("label") and self.model_info.get("weighted"):
+            lines.append(
+                f"  Weighted by '{self.model_info.get('weights')}' — this is "
+                "the omega-weighted ATT"
+            )
+            lines.append(
+                "    (the average over the population the treated units "
+                "represent, not over"
+            )
+            lines.append(
+                "     the treated units themselves). A different estimand, "
+                "not a robustness check."
+            )
+            lines.append("")
+
         # Event study coefficients — accept either the (relative_time, att)
         # convention emitted by did_imputation / callaway_santanna or the
         # (rel_time, estimate) convention emitted by wooldridge_did /

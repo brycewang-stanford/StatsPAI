@@ -120,6 +120,7 @@ from .did import (
     did_2stage,
     did_2x2,
     did_analysis,
+    did_balance,
     did_bcf,
     did_imputation,
     did_misclassified,
@@ -1127,6 +1128,7 @@ __all__ = [
     # DID
     "did",
     "did_2x2",
+    "did_balance",
     "ddd",
     "callaway_santanna",
     "sun_abraham",

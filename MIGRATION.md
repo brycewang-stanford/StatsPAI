@@ -5,6 +5,93 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="did-weights-and-ipw-se"></a>
+
+## Unreleased — DiD unit weights, and IPW standard errors
+
+Two output-changing fixes in the DiD family, both prompted by Baker,
+Callaway, Cunningham, Goodman-Bacon & Sant'Anna (2026), *JEL* 64(2),
+498–557 (doi:10.1257/jel.20251650).
+
+### 1. `weights=` was silently dropped on every staggered estimator
+
+**Who is affected.** Anyone who called `sp.did(..., weights="pop")` with
+`method` in `{cs, callaway_santanna, sun_abraham, bjs, sdid}`. The
+argument was accepted, validated, and then never forwarded. You received
+the **unweighted** estimand with no warning.
+
+**Why it matters.** Unit weights are not a precision setting. They enter
+the definition of the target parameter: the unweighted ATT averages over
+treated *units*, the ω-weighted ATT averages over the *population those
+units represent*. These can differ in sign. Comparing a weighted with an
+unweighted estimate is therefore not a robustness check — it is two
+different questions.
+
+**What to do.**
+
+```python
+# Before (silently unweighted):
+r = sp.did(df, y="y", treat="g", time="t", id="i",
+           method="cs", weights="pop")
+
+# Now — same call, and ω is actually applied:
+r = sp.did(df, y="y", treat="g", time="t", id="i",
+           method="cs", weights="pop")
+r.model_info["weighted"]      # True
+r.model_info["weights"]       # 'pop'
+
+# Or directly, mirroring R did::att_gt(weightsname="pop"):
+cs = sp.callaway_santanna(df, y="y", g="g", t="t", i="i", weights="pop")
+sp.aggte(cs, type="dynamic")  # cohort shares are now ω-mass, not counts
+```
+
+Estimators that do not implement ω (`sun_abraham`, `sdid`, `bjs`,
+`gardner_did`, `stacked_did`, `lp_did`) now **raise**
+`MethodIncompatibility` rather than ignoring the argument. Either switch
+to `method="cs"` or drop `weights=` and report the unweighted estimand
+explicitly.
+
+Weights must be constant within unit; a time-varying column now raises.
+
+### 2. `estimator="ipw"` standard errors were up to 89% too large
+
+**Who is affected.** Anyone who reported inference from
+`sp.callaway_santanna(..., estimator="ipw")` or
+`sp.did(..., method="cs", estimator="ipw")`. **Point estimates are
+unchanged**; every SE, z-statistic, p-value, and confidence interval
+moves.
+
+**Why.** The influence function centred both arms on the ATT rather than
+on each arm's own Hájek mean, and omitted the propensity-score estimation
+effect. The errors always went the same way — too wide — so prior
+intervals were conservative, not anti-conservative. Against
+`did::att_gt(est_method="ipw")` the gap was 9–11% unweighted and up to
+89% weighted; it is now 5e−11.
+
+`estimator="reg"` is unaffected. `estimator="dr"` moves by less than 1%.
+
+```python
+# Re-run and compare:
+old_ci = ...                      # from a pre-fix run
+new = sp.callaway_santanna(df, y="y", g="g", t="t", i="i",
+                           x=["x1"], estimator="ipw")
+new.se                            # smaller than before; matches R did
+```
+
+### 3. Unknown keyword arguments now raise
+
+`sp.did` used to swallow anything it did not recognise. These were all
+accepted and did nothing:
+
+| stale | correct |
+| --- | --- |
+| `sp.did(..., post="post")` | the post indicator is inferred from `time=` |
+| `sp.did(..., repeated_cs=True)` | `panel=False` |
+| `sp.did(..., d="treated")` | `treat="treated"` |
+| `sp.honest_did(r, max_M=0.2)` | `m_grid=[0.0, 0.1, 0.2]` |
+
+---
+
 <a id="precision-vocabulary"></a>
 
 ## Unreleased — one precision vocabulary for every exporter

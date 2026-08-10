@@ -17,13 +17,9 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-from statspai.did import (
-    callaway_santanna,
-    sun_abraham,
-    wooldridge_did,
-    did_imputation,
-    did as did_func,
-)
+from statspai.did import callaway_santanna
+from statspai.did import did as did_func
+from statspai.did import did_imputation, sun_abraham, wooldridge_did
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -57,7 +53,7 @@ class TestDID2x2Recovery:
 
     def test_classic_did_recovers_true_att(self, did_2x2_data):
         truth = did_2x2_data.attrs["true_effect"]
-        r = did_func(did_2x2_data, y="y", treat="treated", time="t", post="post")
+        r = did_func(did_2x2_data, y="y", treat="treated", time="t")
         assert _within_3se(r.estimate, truth, r.se), (
             f"Classic DID: estimate={r.estimate:.4f}, truth={truth}, "
             f"se={r.se:.4f} (>3 SE from truth)"
@@ -209,7 +205,7 @@ class TestHeterogeneityBiasDetection:
 
 def test_did_sign_correct_positive_effect(did_2x2_data):
     """Positive DGP effect must produce positive DID estimate."""
-    r = did_func(did_2x2_data, y="y", treat="treated", time="t", post="post")
+    r = did_func(did_2x2_data, y="y", treat="treated", time="t")
     assert r.estimate > 0, f"Expected positive, got {r.estimate}"
 
 
@@ -223,6 +219,6 @@ def test_did_sign_correct_negative_effect():
             y = 1.0 + 0.2 * t - 1.5 * treated * t + rng.normal(scale=0.5)
             rows.append({"i": i, "t": t, "treated": treated, "post": t, "y": y})
     df = pd.DataFrame(rows)
-    r = did_func(df, y="y", treat="treated", time="t", post="post")
+    r = did_func(df, y="y", treat="treated", time="t")
     assert r.estimate < 0, f"Expected negative, got {r.estimate}"
     assert abs(r.estimate - (-1.5)) < 0.3, f"Far from truth: {r.estimate}"

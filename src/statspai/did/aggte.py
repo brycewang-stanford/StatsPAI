@@ -221,11 +221,15 @@ def aggte(
     # once here; every SE below is derived from them so the analytic and
     # bootstrap paths cannot drift apart.
     unit_cohorts = model_info.get("_unit_cohorts")
+    # ω from the underlying fit. The aggregation weights are cohort
+    # *shares* of the target population, so under ω they must be built
+    # from ω-mass — matching R did's ``pg <- mean(weights * (G == g))``.
+    unit_weights = model_info.get("_unit_weights")
     psi_cells: Optional[np.ndarray] = None
     if inf_matrix is not None:
         if unit_cohorts is not None and len(unit_cohorts) == inf_matrix.shape[0]:
             pg_cells, ind_cells = _cohort_share_context(
-                detail["group"].values, unit_cohorts
+                detail["group"].values, unit_cohorts, unit_weights
             )
             psi_cells = _aggregated_influence(
                 W, inf_matrix, att_vec, pg_cells, ind_cells
@@ -345,7 +349,7 @@ def aggte(
             overall_inf = np.asarray(psi_cells @ w_overall, dtype=float)
             if type == "group" and ind_cells is not None:
                 pg_g, ind_g = _cohort_share_context(
-                    np.asarray(labels, dtype=float), unit_cohorts
+                    np.asarray(labels, dtype=float), unit_cohorts, unit_weights
                 )
                 wif_g = _weight_influence(pg_g, ind_g)
                 overall_inf = overall_inf + wif_g @ est_cells

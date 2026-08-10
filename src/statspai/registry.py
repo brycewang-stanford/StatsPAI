@@ -1216,6 +1216,21 @@ def _build_registry() -> None:
                     ["period", "cohort"],
                 ),
                 ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Unit-level sampling/population weights omega (R "
+                    "did::att_gt(weightsname=), Stata csdid [aweight=]). "
+                    "NOT a precision knob: omega enters the definition of "
+                    "the target parameter. Unweighted answers 'the average "
+                    "effect across treated units'; weighted answers 'across "
+                    "the population those units represent'. The two are "
+                    "different estimands and can differ in sign, so "
+                    "comparing them is not a robustness check. Must be "
+                    "constant within unit.",
+                ),
+                ParamSpec(
                     "pscore_trim",
                     "float",
                     False,
@@ -12824,6 +12839,145 @@ def _build_registry() -> None:
             ],
             alternatives=["continuous_did", "callaway_santanna", "dose_response"],
             typical_n_min=500,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="did_balance",
+            category="causal",
+            description=(
+                "Covariate balance for a DiD design, in the shape Baker et "
+                "al. (2026, Table 4) report it: Imbens-Rubin normalized "
+                "differences computed twice — once on baseline covariate "
+                "LEVELS and once on covariate CHANGES across the treatment "
+                "date — optionally weighted and unweighted side by side. "
+                "The changes panel is the informative half: DiD identifies "
+                "off trends, so a covariate that is balanced in levels can "
+                "still be moving differentially, and imbalances routinely "
+                "flip sign between the two panels. Flags |norm. diff| > "
+                "0.25. Evidence about whether UNCONDITIONAL parallel trends "
+                "is plausible; it cannot test parallel trends itself."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    True,
+                    description="Columns to audit in levels and in changes",
+                ),
+                ParamSpec(
+                    "g",
+                    "str",
+                    True,
+                    description="First-treatment period (0 = never treated)",
+                ),
+                ParamSpec("t", "str", True),
+                ParamSpec("i", "str", True, description="Unit identifier"),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Unit weights; when given, weighted and unweighted "
+                    "statistics are reported side by side because they "
+                    "describe different populations",
+                ),
+                ParamSpec(
+                    "base_period",
+                    "Any",
+                    False,
+                    None,
+                    "Pre-treatment period for the levels panel (default g-1)",
+                ),
+                ParamSpec(
+                    "comparison_period",
+                    "Any",
+                    False,
+                    None,
+                    "Second period for the changes panel (default g)",
+                ),
+                ParamSpec(
+                    "cohort",
+                    "Any",
+                    False,
+                    None,
+                    "Treated cohort to audit (default: the largest)",
+                ),
+                ParamSpec(
+                    "control_group",
+                    "str",
+                    False,
+                    "nevertreated",
+                    "Must match the comparison group of the estimator you "
+                    "intend to run",
+                    enum=["nevertreated", "notyettreated"],
+                ),
+                ParamSpec(
+                    "threshold",
+                    "float",
+                    False,
+                    0.25,
+                    "Imbens & Rubin (2015, p. 277) rule of thumb",
+                ),
+            ],
+            returns=(
+                "DiDBalanceResult with .levels / .changes / .table frames, "
+                ".flagged, .summary() and .to_latex()"
+            ),
+            example=(
+                'sp.did_balance(df, ["poverty", "unemp"], g="first_treat", '
+                't="year", i="county", weights="pop")'
+            ),
+            tags=[
+                "did",
+                "balance",
+                "parallel_trends",
+                "covariates",
+                "diagnostics",
+                "causal",
+            ],
+            reference=(
+                "Baker, Callaway, Cunningham, Goodman-Bacon & Sant'Anna "
+                "(2026) *Journal of Economic Literature* 64(2), 498-557, "
+                "Table 4 [@baker2026difference]; normalized difference from "
+                "Imbens & Rubin (2015, ch. 14) [@imbens2015causal]."
+            ),
+            pre_conditions=[
+                "panel with at least one treated cohort and a comparison " "group",
+                "covariates observed at the base and comparison periods",
+            ],
+            assumptions=[
+                "covariates are determinants of untreated potential-outcome " "trends",
+                "for the CHANGES panel to signal a PT violation, the "
+                "covariates must not themselves be affected by treatment; a "
+                "covariate that moves differentially may be a mechanism "
+                "rather than a confounder, and conditioning on it would "
+                "then be a bad control (an institutional judgement, not a "
+                "data question)",
+                "balance is indirect evidence: parallel trends restricts "
+                "UNOBSERVED potential-outcome trends, which no covariate "
+                "table can see",
+            ],
+            limitations=[
+                "pooled multi-cohort balance is not implemented: one table "
+                "per treated cohort only, because the normalized difference "
+                "is a two-group statistic",
+                "only the reliability-weight variance correction is "
+                "implemented for the weighted panel; survey-design "
+                "(replicate-weight) variances are not supported",
+                "inference is not implemented: the normalized difference is "
+                "reported as a descriptive effect size with no standard "
+                "error or test, by design",
+            ],
+            alternatives=[
+                "balance_diagnostics",
+                "love_plot",
+                "functional_form_test",
+                "pretrends_test",
+            ],
+            typical_n_min=50,
         )
     )
 

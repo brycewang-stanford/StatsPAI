@@ -13,6 +13,7 @@ Angrist, J.D. and Pischke, J.-S. (2009).
 Princeton University Press. [@angrist2009mostly]
 """
 
+import warnings
 from typing import Any, List, Optional, cast
 
 import numpy as np
@@ -20,6 +21,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ..exceptions import AssumptionWarning
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import require_bool
 
@@ -263,6 +265,30 @@ def did_2x2(
     X_parts = [np.ones(len(y_arr)), d, t, dt]
     X_names = ["const", treat, time, f"{treat}x{time}"]
 
+    if covariates:
+        # Entering X additively is Baker et al. (2026) eq. (10). Under
+        # conditional parallel trends its coefficient on D x T is NOT the
+        # ATT: Caetano and Callaway (2024) show it equals a possibly
+        # NON-CONVEX weighted average of covariate-specific effects
+        # ATT_X, plus bias terms for functional-form misspecification.
+        # It coincides with the ATT only if treatment effects are
+        # constant across covariate strata — which the specification
+        # implicitly assumes rather than tests, and which can flip the
+        # sign when violated (§4.3).
+        warnings.warn(
+            "did_2x2 is entering covariates additively in a TWFE "
+            "specification. Under conditional parallel trends this "
+            "coefficient is a possibly non-convex weighted average of "
+            "covariate-specific effects plus misspecification bias, not "
+            "the ATT; it equals the ATT only if treatment effects are "
+            "constant across covariate strata (Caetano and Callaway "
+            "2024). For an estimator that targets the ATT under "
+            "conditional parallel trends, use sp.drdid(..., "
+            "covariates=[...]) (doubly robust) — the estimator Baker "
+            "et al. (2026, §4.4) recommend.",
+            AssumptionWarning,
+            stacklevel=3,
+        )
     if covariates:
         for cov in covariates:
             X_parts.append(

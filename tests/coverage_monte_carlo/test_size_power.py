@@ -151,7 +151,7 @@ def _fit_did(seed: int, delta: float) -> bool:
             )
             rows.append({"i": i, "t": t, "treated": treat, "post": t, "y": y})
     df = pd.DataFrame(rows)
-    r = sp.did(df, y="y", treat="treated", time="t", post="post")
+    r = sp.did(df, y="y", treat="treated", time="t")
     return _reject(r.ci)
 
 

@@ -530,16 +530,34 @@ def drop_unusable_rows(
 def cohort_share_context(
     cell_groups: "np.ndarray",
     unit_cohorts: "np.ndarray",
+    unit_weights: "Optional[np.ndarray]" = None,
 ) -> "tuple[np.ndarray, np.ndarray]":
     """Build ``(pg, ind)`` for a vector of per-cell cohort labels.
 
     ``pg[k]`` is the share of **all** units (never-treated included) whose
     cohort equals cell ``k``'s group, matching R ``did``'s
-    ``pg <- mean(weights * (G == g))``.  ``ind[i, k]`` is ``1{G_i == g_k}``.
+    ``pg <- mean(weights * (G == g))``.  ``ind[i, k]`` is
+    ``ω_i · 1{G_i == g_k}``, matching ``did:::wif``'s
+    ``weights.ind * 1*(glist == group[k])``.
+
+    Parameters
+    ----------
+    unit_weights : ndarray, optional
+        Unit weights ω, normalised to mean 1. ``None`` (or an all-ones
+        vector) reproduces the unweighted head-count shares exactly.
     """
     g_units = np.asarray(unit_cohorts, dtype=float)
     g_cells = np.asarray(cell_groups, dtype=float)
     ind = (g_units[:, None] == g_cells[None, :]).astype(float)
+    if unit_weights is not None:
+        w = np.asarray(unit_weights, dtype=float)
+        if w.shape[0] != ind.shape[0]:
+            raise ValueError(
+                f"unit_weights has length {w.shape[0]}, expected "
+                f"{ind.shape[0]} to align with unit_cohorts"
+            )
+        if not np.allclose(w, 1.0):
+            ind = ind * w[:, None]
     return ind.mean(axis=0), ind
 
 
@@ -690,3 +708,153 @@ def normalize_se_method(
             diagnostics={"requested": canonical, "supported": list(supported)},
         )
     return canonical
+
+
+# ----------------------------------------------------------------------
+# Parallel-trends vocabulary
+# ----------------------------------------------------------------------
+#
+# Baker, Callaway, Cunningham, Goodman-Bacon and Sant'Anna (2026) name the
+# distinct parallel-trends assumptions a staggered design can impose, and
+# ask practitioners to say which one they used:
+#
+#   "At the very least, we strongly recommend that researchers clearly
+#    state the specific parallel trends assumption they are actually
+#    imposing in their analysis to allow readers to discuss its
+#    plausibility in a scientifically grounded manner."  (§5.2.2)
+#
+# An estimator choice *is* an assumption choice, but users read
+# ``control_group='notyettreated'`` as a knob rather than as a commitment.
+# Every staggered estimator therefore stamps the assumption it imposes
+# into ``model_info['parallel_trends']`` so that ``.summary()``, the
+# report writers, and agent consumers can surface it verbatim.
+
+PT_ASSUMPTIONS: Dict[str, Dict[str, str]] = {
+    "PT-GT-NEV": {
+        "label": "PT-GT-NEV",
+        "name": "Parallel trends based on never-treated groups",
+        "comparison": "never-treated units only",
+        "restricts_pretrends": "no",
+        "statement": (
+            "For every eventually-treated group g and post-treatment "
+            "period t >= g, the average change in untreated potential "
+            "outcomes is the same for group g and the never-treated group."
+        ),
+        "tradeoff": (
+            "Avoids compositional change in the comparison group and "
+            "leaves pre-trends unrestricted, but discards the "
+            "not-yet-treated units and can be imprecise when few units "
+            "are never treated."
+        ),
+    },
+    "PT-GT-NYT": {
+        "label": "PT-GT-NYT",
+        "name": "Parallel trends based on not-yet-treated groups",
+        "comparison": "all units not yet treated by t",
+        "restricts_pretrends": "no",
+        "statement": (
+            "For every eventually-treated group g, every not-yet-treated "
+            "group g' > t and every t >= g, the average change in "
+            "untreated potential outcomes is the same for g and g'."
+        ),
+        "tradeoff": (
+            "Uses more information than PT-GT-NEV without restricting "
+            "pre-trends; the comparison group's composition changes with "
+            "t, and later-treated units may have selected on outcomes."
+        ),
+    },
+    "PT-GT-ALL": {
+        "label": "PT-GT-ALL",
+        "name": "Parallel trends for every period and group",
+        "comparison": "all groups, all periods (pre and post)",
+        "restricts_pretrends": "yes",
+        "statement": (
+            "For every pair of groups g, g' and every time period t "
+            "(pre-treatment included), the average change in untreated "
+            "potential outcomes is the same."
+        ),
+        "tradeoff": (
+            "Most precise, and makes pre-trends directly testable because "
+            "the model is over-identified; but if pre-trends are not "
+            "parallel the ATT(g, t) estimates are biased."
+        ),
+    },
+    "PT": {
+        "label": "PT",
+        "name": "2x2 parallel trends",
+        "comparison": "the single untreated comparison group",
+        "restricts_pretrends": "n/a (two periods)",
+        "statement": (
+            "The average change in untreated potential outcomes between "
+            "the pre- and post-period is the same in the treated and "
+            "comparison groups."
+        ),
+        "tradeoff": "The canonical two-group two-period assumption.",
+    },
+    "PT-ES": {
+        "label": "PT-ES",
+        "name": "Parallel trends event study (2xT)",
+        "comparison": "the single untreated comparison group",
+        "restricts_pretrends": "no",
+        "statement": (
+            "For every post-treatment period t >= g, the average change "
+            "in untreated potential outcomes from g-1 to t is the same "
+            "in the treated and comparison groups."
+        ),
+        "tradeoff": (
+            "Longer horizons need the assumption to hold in more periods, "
+            "so long-run effects rest on strictly stronger assumptions "
+            "than short-run ones."
+        ),
+    },
+}
+
+
+def parallel_trends_block(
+    label: str,
+    *,
+    conditional: bool = False,
+    extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Build the ``model_info['parallel_trends']`` record for an estimator.
+
+    Parameters
+    ----------
+    label : str
+        One of the keys of :data:`PT_ASSUMPTIONS`.
+    conditional : bool, default False
+        Whether covariates were used, i.e. whether the assumption is the
+        conditional variant (``CPT-GT-NYT`` rather than ``PT-GT-NYT``).
+    extra : dict, optional
+        Estimator-specific annotations merged into the record.
+
+    Returns
+    -------
+    dict
+        ``label`` / ``name`` / ``statement`` / ``comparison`` /
+        ``restricts_pretrends`` / ``tradeoff`` / ``conditional``, plus
+        ``reference``.
+    """
+    if label not in PT_ASSUMPTIONS:
+        raise ValueError(
+            f"unknown parallel-trends label {label!r}; "
+            f"expected one of {sorted(PT_ASSUMPTIONS)}"
+        )
+    block: Dict[str, Any] = dict(PT_ASSUMPTIONS[label])
+    block["conditional"] = bool(conditional)
+    if conditional:
+        block["label"] = "C" + block["label"]
+        block["name"] = block["name"].replace(
+            "Parallel trends", "Conditional parallel trends"
+        )
+        block["statement"] = (
+            block["statement"].rstrip(".") + ", conditional on the covariates X."
+        )
+        block["also_requires"] = (
+            "Strong overlap (SO): the conditional probability of treatment "
+            "given X is bounded away from 0 and 1."
+        )
+    block["reference"] = "baker2026difference"
+    if extra:
+        block.update(extra)
+    return block

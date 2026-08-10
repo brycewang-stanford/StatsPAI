@@ -4527,7 +4527,7 @@
     "name": "cross_validate"
   },
   {
-    "description": "One-call staggered-DID workflow: estimate -> aggregate -> sensitivity.",
+    "description": "One-call staggered-DID workflow following Baker et al. (2026).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -4539,6 +4539,11 @@
           "default": 0,
           "description": "anticipation parameter (int).",
           "type": "integer"
+        },
+        "balance": {
+          "default": true,
+          "description": "balance parameter (bool).",
+          "type": "boolean"
         },
         "control_group": {
           "default": "nevertreated",
@@ -4562,6 +4567,11 @@
             "reg"
           ],
           "type": "string"
+        },
+        "functional_form": {
+          "default": true,
+          "description": "functional_form parameter (bool).",
+          "type": "boolean"
         },
         "g": {
           "description": "Outcome / cohort / time / unit id columns (required when ``data_or_result`` is a DataFrame).",
@@ -4608,10 +4618,19 @@
           "description": "Outcome / cohort / time / unit id columns (required when ``data_or_result`` is a DataFrame).",
           "type": "string"
         },
+        "triangulate": {
+          "default": true,
+          "description": "Also fit the other covariate strategies (regression adjustment, IPW, doubly robust) and report them side by side, as in the paper's Table 7 / Figure 4. Only meaningful with covariates.",
+          "type": "boolean"
+        },
         "verbose": {
           "default": true,
           "description": "If ``True``, print the report before returning.",
           "type": "boolean"
+        },
+        "weights": {
+          "description": "Unit weights omega. Changes the target parameter, not just precision -- see :func:`statspai.did.callaway_santanna`.",
+          "type": "string"
         },
         "x": {
           "description": "Covariates for conditional parallel trends.",
@@ -5498,6 +5517,70 @@
       "type": "object"
     },
     "name": "did_analysis"
+  },
+  {
+    "description": "Covariate balance for a DiD design, in the shape Baker et al. (2026, Table 4) report it: Imbens-Rubin normalized differences computed twice -- once on baseline covariate LEVELS and once on covariate CHANGES across the treatment date -- optionally weighted and unweighted side by side. The changes panel is the informative half: DiD identifies off trends, so a covariate that is balanced in levels can still be moving differentially, and imbalances routinely flip sign between the two panels. Flags |norm. diff| > 0.25. Evidence about whether UNCONDITIONAL parallel trends is plausible; it cannot test parallel trends itself. Known limitations: pooled multi-cohort balance is not implemented: one table per treated cohort only, because the normalized difference is a two-group statistic; only the reliability-weight variance correction is implemented for the weighted panel; survey-design (replicate-weight) variances are not supported; inference is not implemented: the normalized difference is reported as a descriptive effect size with no standard error or test, by design. Assumptions: covariates are determinants of untreated potential-outcome trends; for the CHANGES panel to signal a PT violat...",
+    "input_schema": {
+      "properties": {
+        "base_period": {
+          "description": "Pre-treatment period for the levels panel (default g-1)",
+          "type": "string"
+        },
+        "cohort": {
+          "description": "Treated cohort to audit (default: the largest)",
+          "type": "string"
+        },
+        "comparison_period": {
+          "description": "Second period for the changes panel (default g)",
+          "type": "string"
+        },
+        "control_group": {
+          "default": "nevertreated",
+          "description": "Must match the comparison group of the estimator you intend to run",
+          "enum": [
+            "nevertreated",
+            "notyettreated"
+          ],
+          "type": "string"
+        },
+        "covariates": {
+          "description": "Columns to audit in levels and in changes",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "g": {
+          "description": "First-treatment period (0 = never treated)",
+          "type": "string"
+        },
+        "i": {
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "t": {
+          "description": "t parameter (str).",
+          "type": "string"
+        },
+        "threshold": {
+          "default": 0.25,
+          "description": "Imbens & Rubin (2015, p. 277) rule of thumb",
+          "type": "number"
+        },
+        "weights": {
+          "description": "Unit weights; when given, weighted and unweighted statistics are reported side by side because they describe different populations",
+          "type": "string"
+        }
+      },
+      "required": [
+        "covariates",
+        "g",
+        "i",
+        "t"
+      ],
+      "type": "object"
+    },
+    "name": "did_balance"
   },
   {
     "description": "Bayesian Causal Forests DiD. Fits a BART-style ensemble with treatment and prognostic terms on the DiD residuals, providing heterogeneous treatment-effect posterior draws per unit. Useful for machine-learning DiD with covariates. Assumptions: Parallel trends: treated and control groups would have followed the same trajectory absent treatment; No anticipation: outcomes in pre-treatment periods are unaffected by future treatment; SUTVA: no spillovers between units. Pre-conditions: data is panel or repeated cross-section with a time column; treat column is binary (0/1) for 2x2, or first-treatment-period (int) for staggered; at least one pre-treatment period (>= 2 periods for 2x2; >= 3 recommended for event study). Failure modes: Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna; Staggered treatment timing with TWFE method -> TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation; Pre-trend test underpowered (Roth 2022) -> Check sp.pretrends_power -- if low, report honest CI via sp.sensitivity_rr. Alternatives: sp.did_imputation, sp.drdid, sp.callaway_santanna,...",
@@ -25383,105 +25466,6 @@
       "type": "object"
     },
     "name": "xlearner"
-  },
-  {
-    "description": "Arellano-Bond / Blundell-Bond GMM for dynamic panels (standalone). Validation: certified parity evidence. Assumptions: No second-order serial correlation in differenced errors; Internal instruments are valid and not too numerous. Pre-conditions: Panel data include unit, time, outcome, and lagged dependent variable structure; Number of time periods is moderate relative to units. Failure modes: Instrument proliferation or AR(2) test rejects -> Collapse instruments, reduce lag depth, or compare with fixed-effects estimates. Alternatives: sp.panel, sp.feols. Typical minimum N: 100.",
-    "input_schema": {
-      "properties": {
-        "ah_instrument": {
-          "default": "levels",
-          "description": "Anderson-Hsiao instrument for method='ah'",
-          "enum": [
-            "levels",
-            "differences"
-          ],
-          "type": "string"
-        },
-        "cluster": {
-          "description": "Cluster SEs on a coarser unit than the panel id (must be constant within unit)",
-          "type": "string"
-        },
-        "collapse": {
-          "default": false,
-          "description": "Collapse instruments (Roodman 2009) to curb proliferation",
-          "type": "boolean"
-        },
-        "endogenous": {
-          "description": "Endogenous regressors (own lags 2+ as instruments)",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "id": {
-          "default": "id",
-          "description": "Unit identifier",
-          "type": "string"
-        },
-        "lags": {
-          "default": 1,
-          "description": "lags parameter (int).",
-          "type": "integer"
-        },
-        "method": {
-          "default": "difference",
-          "description": "difference (Arellano-Bond), system (Blundell-Bond) or ah (Anderson-Hsiao IV)",
-          "enum": [
-            "difference",
-            "system",
-            "ah"
-          ],
-          "type": "string"
-        },
-        "orthogonal": {
-          "default": false,
-          "description": "Forward orthogonal deviations instead of first differences",
-          "type": "boolean"
-        },
-        "predetermined": {
-          "description": "Predetermined regressors (own lags 1+ as instruments)",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "steps": {
-          "description": "Number of GMM steps, or 'iterated' / 'cue'",
-          "type": "string"
-        },
-        "time": {
-          "default": "time",
-          "description": "Time column",
-          "type": "string"
-        },
-        "time_dummies": {
-          "default": false,
-          "description": "Add period dummies as regressors and instruments",
-          "type": "boolean"
-        },
-        "twostep": {
-          "default": false,
-          "description": "twostep parameter (bool).",
-          "type": "boolean"
-        },
-        "x": {
-          "description": "Exogenous regressors",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "y": {
-          "description": "Dependent variable",
-          "type": "string"
-        }
-      },
-      "required": [
-        "y"
-      ],
-      "type": "object"
-    },
-    "name": "xtabond"
   },
   {
     "description": "Fit panel negative-binomial regression. Use model='fe' for explicit entity fixed effects via nbreg, or model='re' for a random-intercept NB-2 GLMM via menbreg. Do not use feols for negative-binomial outcomes.",

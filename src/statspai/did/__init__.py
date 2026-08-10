@@ -20,14 +20,15 @@ Provides estimators for:
 
 from __future__ import annotations
 
+import warnings
 from numbers import Real
-from typing import Any, List, Literal, Optional, Sequence, cast
+from typing import Any, Dict, List, Literal, Optional, Sequence, cast
 
 import numpy as np
 import pandas as pd
 
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
 from ._absorbing import AbsorbingCheck, check_absorbing
 from ._core import require_bool as _require_bool
 from ._equivalence import EquivalenceResult, pretrend_equivalence, pretrends_equivalence
@@ -35,6 +36,7 @@ from ._staggered_rollout import StaggeredRolloutResult, staggered_rollout
 from .aggte import aggte
 from .analysis import DIDAnalysis, did_analysis
 from .bacon import bacon_decomposition
+from .balance import DiDBalanceResult, did_balance
 from .bjs_inference import bjs_pretrend_joint
 from .callaway_santanna import callaway_santanna
 from .cgs_continuous import ContinuousDoseResult, cgs_continuous_did
@@ -512,16 +514,92 @@ def did(
     _METHOD_ALIASES = {"did2s": "2x2"}
     method = _METHOD_ALIASES.get(method, method)
 
+    # Methods whose estimator honours unit weights end-to-end (point
+    # estimate, aggregation shares, and influence-function SEs).
+    _WEIGHT_AWARE_METHODS = frozenset(
+        {
+            "2x2",
+            "classic",
+            "twfe",
+            "ddd",
+            "callaway_santanna",
+            "cs",
+        }
+    )
+
     # 'classic' / 'twfe': run 2x2 DID.
     # If time has >2 values, collapse into pre/post using median split.
     if method in ("classic", "twfe"):
         n_time = data[time].nunique()
         if n_time > 2:
+            # This is the static-TWFE shortcut of Baker et al. (2026,
+            # eq. 22), and it does NOT estimate the average post-treatment
+            # ATT. Collapsing to pre/post means and running a 2x2 gives
+            #
+            #     beta_OLS = ATT_avg - (average pre-period differential
+            #                           trend, including the zero at g-1)
+            #
+            # so it silently requires parallel trends in *every*
+            # pre-period, not just post-treatment ones — and the two
+            # summary numbers can be far apart. In the paper's own
+            # Medicaid data: ATT_avg = -0.70 vs beta_OLS = -2.53 (§5.1.3).
+            # Returning that number without saying so lets a user read a
+            # pre-trend as a treatment effect.
             time_mid = data[time].median()
+            warnings.warn(
+                f"sp.did(method={method!r}) collapsed {n_time} periods "
+                f"into pre/post at the median ({time_mid}) and is "
+                "estimating a static 2x2 DID. This is NOT the average "
+                "post-treatment ATT: it equals ATT_avg minus the average "
+                "pre-period differential trend, so it additionally "
+                "assumes parallel trends in every pre-period. Use "
+                "sp.callaway_santanna(...) + sp.aggte(..., type='simple') "
+                "for the average post-treatment ATT, or "
+                "sp.aggte(..., type='dynamic') for the event study.",
+                AssumptionWarning,
+                stacklevel=2,
+            )
             data = data.copy()
             data["_post"] = (data[time] >= time_mid).astype(int)
             time = "_post"
         method = "2x2"
+
+    # ── Reject unknown keyword arguments ───────────────────────────── #
+    #
+    # ``**kwargs`` exists to forward branch-specific options (sdid's
+    # estimator options; bjs's horizon/event_window).  Every other branch
+    # drops it on the floor, so a typo or a stale argument copied from an
+    # old tutorial — ``sp.did(..., post='post')``, ``repeated_cs=True`` —
+    # used to be accepted and silently do nothing.  A no-op argument that
+    # the user believes changed the estimand is exactly the failure mode
+    # §3.7 exists to prevent.
+    if kwargs:
+        _allowed: Dict[str, frozenset] = {
+            "bjs": frozenset({"horizon", "event_window"}),
+            "did_imputation": frozenset({"horizon", "event_window"}),
+            "borusyak_jaravel_spiess": frozenset({"horizon", "event_window"}),
+            "borusyak": frozenset({"horizon", "event_window"}),
+        }
+        permitted = _allowed.get(method, frozenset())
+        # sdid forwards everything it does not recognise to sp.synth's
+        # sdid entry point, which validates on its own behalf.
+        if method != "sdid":
+            unknown = sorted(set(kwargs) - permitted)
+            if unknown:
+                raise MethodIncompatibility(
+                    f"sp.did received unknown keyword argument(s) "
+                    f"{unknown} for method={method!r}. These would be "
+                    "ignored, which looks like they took effect.",
+                    recovery_hint=(
+                        "Check the spelling against `sp.describe_function"
+                        "('did')`. Common stale arguments: `post=` (the "
+                        "post indicator is inferred from `time`), "
+                        "`repeated_cs=` (use `panel=False`), `d=` (use "
+                        "`treat=`), `max_M=` (that is `sp.honest_did`'s "
+                        "`m_grid=`)."
+                    ),
+                    diagnostics={"method": method, "unknown": unknown},
+                )
 
     # ── Dispatch ───────────────────────────────────────────────────── #
 
@@ -540,6 +618,33 @@ def did(
             wild_reps=wild_reps,
             wild_weight_type=wild_weight_type,
             seed=seed,
+        )
+
+    # ── ω guard ────────────────────────────────────────────────────── #
+    #
+    # Unit weights are part of the *estimand*, not a precision knob: the
+    # unweighted ATT averages over treated units, the ω-weighted ATT
+    # averages over the population those units represent, and the two can
+    # differ in sign [@baker2026difference, §3.1].  Historically `weights`
+    # was validated here and then dropped on the way to every staggered
+    # branch, so `sp.did(..., weights='pop')` silently returned the
+    # unweighted estimand.  Refuse instead (CLAUDE.md §3.7).
+    if weights is not None and method not in _WEIGHT_AWARE_METHODS:
+        raise MethodIncompatibility(
+            f"method={method!r} does not implement unit weights, and "
+            f"weights={weights!r} was supplied. Unit weights change the "
+            "target parameter (the average over treated *units* becomes "
+            "the average over the population they represent), so silently "
+            "ignoring them would answer a different question than the one "
+            "asked.",
+            recovery_hint=(
+                "Use a weight-aware estimator — "
+                f"{sorted(_WEIGHT_AWARE_METHODS)} — most commonly "
+                "method='cs' (sp.callaway_santanna, which mirrors R "
+                "did::att_gt(weightsname=)); or drop weights= and report "
+                "the unweighted estimand explicitly."
+            ),
+            diagnostics={"method": method, "weights": weights},
         )
 
     if vce is not None:
@@ -587,6 +692,7 @@ def did(
             t=time,
             i=id,
             x=covariates,
+            weights=weights,
             estimator=estimator,
             control_group=control_group,
             base_period=base_period,
@@ -717,6 +823,8 @@ def did(
 __all__ = [
     "did",
     "did_2x2",
+    "did_balance",
+    "DiDBalanceResult",
     "overlap_weighted_did",
     "dl_propensity_score",
     "ddd",
