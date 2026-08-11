@@ -249,8 +249,8 @@ _CITATIONS: Dict[str, str] = {
         "doi:10.1371/journal.pone.0321874"
     ),
     # Causal decomposition -------------------------------------------
-    "lundberg2021gap": (
-        "Lundberg, I. (2022). The Gap-Closing Estimand: A Causal "
+    "lundberg2024gap": (
+        "Lundberg, I. (2024). The Gap-Closing Estimand: A Causal "
         "Approach to Study Interventions That Close Disparities Across "
         "Social Categories. Sociological Methods & Research, 53(2), "
         "507-570. doi:10.1177/00491241211055769"

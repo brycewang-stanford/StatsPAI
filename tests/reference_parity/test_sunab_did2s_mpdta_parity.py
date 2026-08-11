@@ -37,7 +37,7 @@ References
   event studies with heterogeneous treatment effects." *Journal of
   Econometrics*, 225(2), 175-199. [@sun2021estimating]
 - Gardner, J. (2022). "Two-stage differences in differences."
-  [@gardner2022stage]
+  arXiv:2207.05943. [@gardner2022twostage]
 """
 
 from __future__ import annotations

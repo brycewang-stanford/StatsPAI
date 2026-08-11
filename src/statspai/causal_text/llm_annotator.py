@@ -54,9 +54,10 @@ Two extras lift this:
 
 References
 ----------
-Egami, N., Hinck, M., Stewart, B., & Wei, H. (2024). "Using imperfect
+Egami, N., Hinck, M., Stewart, B.M., & Wei, H. (2023). "Using imperfect
 surrogates for downstream inference: Design-based supervised learning
-for social science applications of large language models."  *NeurIPS*.
+for social science applications of large language models."  *Advances in
+Neural Information Processing Systems 36 (NeurIPS 2023)*.
 arXiv:2306.04746. [@egami2023imperfect]
 
 Hausman, J., Abrevaya, J., & Scott-Morton, F. (1998). "Misclassification

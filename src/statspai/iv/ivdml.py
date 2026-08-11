@@ -12,7 +12,7 @@ Scheidegger, C., Guo, Z. and Bühlmann, P. (2025), arXiv:2503.03530
     (efficient-IV × DML for heterogeneous effects; R package ``IVDML``).
 Belloni, A., Chen, D., Chernozhukov, V. and Hansen, C. (2012).
     "Sparse Models and Methods for Optimal Instruments." *Econometrica*,
-    80(6), 2369-2429. [@belloni2011sparse]
+    80(6), 2369-2429. [@belloni2012sparse]
 Chernozhukov, V., Hansen, C. and Spindler, M. (2016). "hdm:
     High-Dimensional Metrics." *The R Journal*, 8(2), 185-199.
     [@chernozhukov2016hdm] — reference R implementation of the
@@ -27,6 +27,7 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 

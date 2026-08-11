@@ -22,7 +22,7 @@ Angrist, J.D., Imbens, G.W. & Krueger, A.B. (1999).
 
 Belloni, A., Chen, D., Chernozhukov, V. & Hansen, C. (2012).
 "Sparse Models and Methods for Optimal Instruments with an Application
-to Eminent Domain." *Econometrica*, 80(6), 2369-2429. [@belloni2011sparse]
+to Eminent Domain." *Econometrica*, 80(6), 2369-2429. [@belloni2012sparse]
 
 Chernozhukov, V., Hansen, C. & Spindler, M. (2016). "hdm:
 High-Dimensional Metrics." *The R Journal*, 8(2), 185-199.

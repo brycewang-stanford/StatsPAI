@@ -18,10 +18,10 @@ Tolerances:
 References
 ----------
 - Correia, S. (2017). "Linear Models with High-Dimensional Fixed
-  Effects." [@correia2017hdfe]
+  Effects." [@correia2017linear]
 - Bergé, L. (2018). "Efficient estimation of maximum likelihood
   models with multiple high-dimensional fixed effects."
-  [@berge2018fixest]
+  [@berge2018efficient]
 """
 
 from __future__ import annotations

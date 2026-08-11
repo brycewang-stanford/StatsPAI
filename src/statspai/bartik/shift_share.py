@@ -453,13 +453,14 @@ class BartikIV:
 
 # Citation
 CausalResult._CITATIONS["bartik"] = (
-    "@article{goldsmith2020bartik,\n"
+    "@article{goldsmithpinkham2020bartik,\n"
     "  title={Bartik Instruments: What, When, Why, and How},\n"
     "  author={Goldsmith-Pinkham, Paul and Sorkin, Isaac and Swift, Henry},\n"
     "  journal={American Economic Review},\n"
     "  volume={110},\n"
     "  number={8},\n"
     "  pages={2586--2624},\n"
-    "  year={2020}\n"
+    "  year={2020},\n"
+    "  doi={10.1257/aer.20181047}\n"
     "}"
 )

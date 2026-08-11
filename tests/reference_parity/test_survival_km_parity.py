@@ -20,7 +20,7 @@ References
 ----------
 - Kaplan, E.L. & Meier, P. (1958). Nonparametric Estimation from Incomplete
   Observations. *JASA* 53(282), 457-481.
-- Therneau, T. (R ``survival`` package). [@therneau2000survival]
+- Therneau, T. (R ``survival`` package). [@therneau2000modeling]
 """
 
 from __future__ import annotations

@@ -23,11 +23,11 @@ References
 - Borusyak, K., Jaravel, X. and Spiess, J. (2024).
   "Revisiting Event Study Designs: Robust and Efficient Estimation."
   *Review of Economic Studies*. [@borusyak2024revisiting]
-- Gardner, J. (2021). "Two-stage differences in differences."
-  arXiv:2207.05943. [@gardner2021twostage]
+- Gardner, J. (2022). "Two-stage differences in differences."
+  arXiv:2207.05943. [@gardner2022twostage]
 - Wooldridge, J.M. (2021). "Two-way fixed effects, the two-way
   Mundlak regression, and difference-in-differences estimators."
-  SSRN. [@wooldridge2021twoway]
+  SSRN. [@wooldridge2021two]
 """
 
 from __future__ import annotations

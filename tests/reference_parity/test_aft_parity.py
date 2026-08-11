@@ -15,7 +15,7 @@ Tolerance: coefficients & log-scale within 5e-5 absolute (observed ~1e-5).
 
 References
 ----------
-- Therneau, T. (R ``survival`` package). [@therneau2000survival]
+- Therneau, T. (R ``survival`` package). [@therneau2000modeling]
 """
 
 from __future__ import annotations

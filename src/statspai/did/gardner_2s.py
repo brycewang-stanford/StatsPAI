@@ -28,10 +28,10 @@ trivial.
 
 References
 ----------
-Gardner, J. (2021).  "Two-stage differences in differences."
-    *Working paper*, University of Mississippi.  arXiv:2207.05943.
+Gardner, J. (2022).  "Two-stage differences in differences."
+    arXiv:2207.05943. [@gardner2022twostage]
 Butts, K. and Gardner, J. (2022).  "did2s: Two-Stage Difference-in-Differences."
-    *R Journal*, 14(3), 162-173. [@gardner2022stage]
+    *R Journal*, 14(3), 162-173. [@butts2022stage]
 """
 
 from __future__ import annotations
@@ -261,8 +261,8 @@ def gardner_did(
 
     References
     ----------
-    Gardner, J. (2022). Two-stage differences in differences. Working paper.
-    [@gardner2022stage]
+    Gardner, J. (2022). Two-stage differences in differences.
+    arXiv:2207.05943. [@gardner2022twostage]
 
     Examples
     --------

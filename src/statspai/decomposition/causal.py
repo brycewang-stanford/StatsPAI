@@ -14,9 +14,9 @@ Causal decomposition methods.
 
 References
 ----------
-Lundberg, I. (2021). "The Gap-Closing Estimand: A Causal Approach to
+Lundberg, I. (2024). "The Gap-Closing Estimand: A Causal Approach to
 Study Interventions That Close Disparities Across Social Categories."
-*Sociological Methods & Research*. [@lundberg2020closing]
+*Sociological Methods & Research*, 53(2), 507-570. [@lundberg2024gap]
 
 VanderWeele, T.J. (2014). "A Unification of Mediation and Interaction:
 A Four-Way Decomposition." *Epidemiology*, 25(5), 749-761. [@vanderweele2014effect]
@@ -34,7 +34,6 @@ from typing import Any, ClassVar, Dict, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from ._results import DecompResultMixin
 from ._common import (
     add_constant,
     bootstrap_ci,
@@ -44,6 +43,7 @@ from ._common import (
     prepare_frame,
     wls,
 )
+from ._results import DecompResultMixin
 
 # ════════════════════════════════════════════════════════════════════════
 # Gap-closing (Lundberg 2021)
@@ -53,7 +53,7 @@ from ._common import (
 @dataclass
 class GapClosingResult(DecompResultMixin):
     method_name: ClassVar[str] = "Gap-Closing Estimand"
-    bib_keys: ClassVar[Tuple[str, ...]] = ("lundberg2021gap",)
+    bib_keys: ClassVar[Tuple[str, ...]] = ("lundberg2024gap",)
 
     observed_gap: float
     counterfactual_gap: float
@@ -255,7 +255,7 @@ def gap_closing(
 
     References
     ----------
-    lundberg2021gap
+    lundberg2024gap
     """
     cols = [y, group] + list(x)
     df, _ = prepare_frame(data, cols)

@@ -30,7 +30,7 @@ Blundell, R., Chen, X. and Kristensen, D. (2007). "Semi-Nonparametric
     75(6), 1613-1669. [@blundell2007semi]
 
 Darolles, S., Fan, Y., Florens, J.-P. and Renault, E. (2011). "Nonparametric
-    instrumental regression." *Econometrica*, 79(5), 1541-1565. [@darolles2010nonparametric]
+    instrumental regression." *Econometrica*, 79(5), 1541-1565. [@darolles2011nonparametric]
 """
 
 from __future__ import annotations
@@ -40,6 +40,7 @@ from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
+
 from .._result_serialize import ResultProtocolMixin
 
 

@@ -373,6 +373,63 @@ via Crossref and the published PDF.
 
 ### Fixed
 
+- **⚠️ Citation integrity, part 2: five more duplicate groups merged and
+  six broken citations repaired.** Every one of the remaining duplicate
+  pairs was a preprint/working-paper record sitting beside the published
+  one, and in each case the code cited the *preprint* key while its own
+  `References` text printed the *published* reference — the same drift as
+  the Belloni case below. Merged, after two-source verification each:
+  `darolles2010nonparametric` (SSRN) → **`darolles2011nonparametric`**
+  (Econometrica 79(5), 1541–1565, `10.3982/ECTA6539`);
+  `lundberg2020closing` (SocArXiv) → **`lundberg2024gap`** — note the key
+  *and* the year both moved, because the issue year is 2024 (53(2),
+  507–570) while Crossref reports the 2022 online-first date and the old
+  key said 2021, three different years for one paper;
+  `goldsmith2020bartik` (NBER WP 2018) → **`goldsmithpinkham2020bartik`**
+  (AER 110(8), 2586–2624); `egami2024using` → **`egami2023imperfect`**
+  (NeurIPS 2023); `yadlowsky2021evaluating` ("JASA (forthcoming)") →
+  **`yadlowsky2025evaluating`** (JASA 120(549), 38–51). Worst of the set:
+  `bartik/shift_share.py` hard-codes a BibTeX record into
+  `CausalResult._CITATIONS`, and it used the key `goldsmith2020bartik`
+  while holding the *AER 2020* metadata — so `.cite()` and `paper.bib`
+  disagreed under one key. **Six broken bracketed citations** in
+  `tests/reference_parity/` named keys that never existed
+  (`@therneau2000survival` ×2, `@dechaisemartin2020twoway`,
+  `@wooldridge2021twoway`, `@correia2017hdfe`, `@berge2018fixest`); every
+  one of those works was **already in `paper.bib` under another key**, so
+  they were plausible-looking guesses, not missing literature, and no new
+  entry was needed. `paper.bib` 668 → 660 entries (8 duplicates removed across both passes). New guard
+  `tests/test_citation_integrity.py` fails on any unresolvable citation key,
+  any shared DOI, and any shared title. Refs verified via Crossref
+  (`10.3982/ECTA6539`, `10.1177/00491241211055769`,
+  `10.1257/aer.20181047`, `10.1080/01621459.2024.2393466`,
+  `10.52202/075280-3000`), SAGE, AEA, TSE, arXiv (`2306.04746`) and
+  Ingenta.
+
+- **⚠️ Citation integrity: duplicate `paper.bib` entries split three
+  papers across five keys, and three IV docstrings cited a preprint while
+  printing the published reference.** `paper.bib` carried both
+  `belloni2011sparse` (SSRN preprint, `10.2139/ssrn.1910169`) and
+  `belloni2012sparse` (Econometrica 80(6), 2369–2429,
+  `10.3982/ECTA9626`) for the same paper. `statspai/rlasso/*` and
+  `paper.md` cited the published entry; `iv/post_lasso.py`,
+  `iv/ivdml.py` and `regression/advanced_iv.py` cited the preprint one —
+  while their own `References` text read "*Econometrica*, 80(6),
+  2369-2429". Exactly the format drift §10 warns about. Gardner's
+  two-stage DiD had it worse: **three** keys for one paper
+  (`gardner2022twostage` arXiv, `gardner2022stage` misc,
+  `gardner2021two` "Working paper, University of Mississippi"), and
+  `gardner_2s.py` dated it 2021 while carrying the arXiv id, with its
+  single bib key sitting on the *Butts & Gardner* line but pointing at
+  *Gardner*. Additionally `test_did_variants_parity.py` cited
+  `@gardner2021twostage`, a key that **does not exist in `paper.bib`**.
+  All now resolve to one verified entry each; the three duplicate
+  entries were removed and `gardner2022twostage` gained its DataCite DOI. **Every fact re-verified against two independent sources
+  and nothing written from memory, per §10** — refs verified via
+  Crossref (`api.crossref.org/works/10.3982/ECTA9626`,
+  `.../10.32614/rj-2022-048`), RePEc, arXiv (`2207.05943`, `1010.4345`)
+  and DataCite. No new citations were introduced.
+
 - **⚠️ Agent-native gap: `sp.iv` advertised 5 of the 26 methods it
   routes.** `sp.iv` is a callable subpackage and the entry point for the
   entire IV family, but its registry `method` enum listed only `2sls`,
