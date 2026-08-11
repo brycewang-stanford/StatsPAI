@@ -1,14 +1,14 @@
 {
-  "aggregate_sha256": "60771bd3bb3f6631b57f98984a33785a984480ecf6f99570b19c863fe28e701f",
+  "aggregate_sha256": "713b15611cce57cf5a877beb564c629917b8ecf19156a22139eb590e287fa585",
   "counts": {
-    "files": 590,
+    "files": 592,
     "input_csvs": 82,
     "python_golden_jsons": 83,
     "python_scripts": 86,
     "r_golden_jsons": 83,
     "r_scripts": 85,
-    "stata_do_files": 78,
-    "stata_golden_jsons": 76
+    "stata_do_files": 79,
+    "stata_golden_jsons": 77
   },
   "description": "Hash lock for the Track/Tier A parity scripts, fixture inputs, golden outputs, rendered tables, and R/Stata reference environment files.",
   "files": [
@@ -853,9 +853,9 @@
       "sha256": "fac1654ebbb5f8575e7e0ca34ab4b1845ef0365ccb53f2f1d961242103ad478b"
     },
     {
-      "bytes": 13214,
+      "bytes": 13346,
       "path": "tests/r_parity/README.md",
-      "sha256": "f18fd901fc811e0830fb96e88b3245f6094de6e3a4f42fdf8a29c6dc2fdc4470"
+      "sha256": "c80fc4a474c4ce00b8ace596f7c8e356b22fe4e3f594af95569b8e14c4d07101"
     },
     {
       "bytes": 6177,
@@ -878,9 +878,9 @@
       "sha256": "fd04b73dca8dcc0b00dcfdd975ef5616cf7535d293adb61cf9a13470a9477717"
     },
     {
-      "bytes": 83205,
+      "bytes": 84613,
       "path": "tests/r_parity/compare.py",
-      "sha256": "81c6e42d08bbbe3379ec63c11f281d16ad6cbe9999d23c3440ca916b0603dd7a"
+      "sha256": "f52721c11658a8fdedc55a91e06a8cbb91ca04aae60a9f34a4c11dbd5c3e361f"
     },
     {
       "bytes": 104713,
@@ -2138,19 +2138,19 @@
       "sha256": "f39ae82bb1a433c081c34830e4aff50f1f8da7741aab343dd54c8bf2a25fb0f2"
     },
     {
-      "bytes": 12390,
+      "bytes": 12616,
       "path": "tests/r_parity/results/parity_table.tex",
-      "sha256": "7c5b0f4dfd2c4c3bbee8b7cc4404ccb203e2265077e20a376b1f8abccb618f97"
+      "sha256": "0fc29fc1cbe61d3e502834bb5c1d4691da87642ec652baedf696e43fb3b640e3"
     },
     {
-      "bytes": 126483,
+      "bytes": 126806,
       "path": "tests/r_parity/results/parity_table_3way.md",
-      "sha256": "46d8192889b6632f1ee490a01e6209626605687905ed8bf49d7c69e063dfe9ff"
+      "sha256": "94c1d06c2f308cffa829b49e5e5a3b30a8ace78b32e2061e9d3d6e36f8e25abf"
     },
     {
-      "bytes": 15738,
+      "bytes": 15954,
       "path": "tests/r_parity/results/parity_table_3way.tex",
-      "sha256": "60a8ea6fff68dd2803234846d76bfc96bb08a3c05eb424befe2cad6e1417f01d"
+      "sha256": "727a4a3cd13fa991ef3322d7e2515dcc63e433176e0294581bb7bac1871e7760"
     },
     {
       "bytes": 13088,
@@ -2538,14 +2538,19 @@
       "sha256": "f864f4a4b7d618b7f3e92f57e34fb9e04dd5c6ba0efdbe61dee5b23e14f48594"
     },
     {
+      "bytes": 3298,
+      "path": "tests/stata_parity/82_staggered.do",
+      "sha256": "a9f2a9b458527879695f890a15d3958ed74285f89471ffa8806c7e786b407361"
+    },
+    {
       "bytes": 1710,
       "path": "tests/stata_parity/83_lpdid.do",
       "sha256": "9e06c8d5ac13d6f3c009276a2e904a6237f3ecaab17f8be0b6369820889ebab9"
     },
     {
-      "bytes": 21884,
+      "bytes": 22137,
       "path": "tests/stata_parity/README.md",
-      "sha256": "b6b41bd9312d0f2838466fcda73842bb78eea6423ac3b57d7fa17e0246e5d2fb"
+      "sha256": "b63b0a47f6d1b7107c1cab900596cd0cfd4b57c58acbc0e8f88d06f67a8c534c"
     },
     {
       "bytes": 4119,
@@ -2946,6 +2951,11 @@
       "bytes": 1166,
       "path": "tests/stata_parity/results/81_didm_Stata.json",
       "sha256": "9facfc49d3a9d294dae19de4384badee15453e74cb0df8e955511b6624ae6d13"
+    },
+    {
+      "bytes": 8503,
+      "path": "tests/stata_parity/results/82_staggered_Stata.json",
+      "sha256": "094166bbb1a5dd2579508f425e50b73e8be45fa6177c1bcf80af17383b8e2b13"
     },
     {
       "bytes": 1696,

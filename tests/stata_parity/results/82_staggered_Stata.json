@@ -1,0 +1,412 @@
+{
+  "module": "82_staggered",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "simple_efficient",
+      "estimate": 0.48338205949472918,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "simple_efficient_se_neyman",
+      "estimate": 0.061385603830776903,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "simple_efficient_se_adjusted",
+      "estimate": 0.061368888957929697,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "simple_plugin",
+      "estimate": 0.48771542105612881,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "simple_plugin_se_neyman",
+      "estimate": 0.065456950267452699,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "simple_plugin_se_adjusted",
+      "estimate": 0.0654412752976085,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "cohort_efficient",
+      "estimate": 0.46719639204877622,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "cohort_efficient_se_neyman",
+      "estimate": 0.065520600090002698,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "cohort_efficient_se_adjusted",
+      "estimate": 0.065482735200753595,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "cohort_plugin",
+      "estimate": 0.47658017723944451,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "cohort_plugin_se_neyman",
+      "estimate": 0.068457419622502305,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "cohort_plugin_se_adjusted",
+      "estimate": 0.068421180014592894,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "calendar_efficient",
+      "estimate": 0.47369589243994598,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "calendar_efficient_se_neyman",
+      "estimate": 0.057735516150203697,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "calendar_efficient_se_adjusted",
+      "estimate": 0.0576783145006328,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "calendar_plugin",
+      "estimate": 0.47806356648872422,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "calendar_plugin_se_neyman",
+      "estimate": 0.064454790515132504,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "calendar_plugin_se_adjusted",
+      "estimate": 0.0644035570357189,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "eventstudy_e0",
+      "estimate": 0.41785058030612909,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "eventstudy_e0_se_neyman",
+      "estimate": 0.063714363544480193,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "eventstudy_e0_se_adjusted",
+      "estimate": 0.063635807998541599,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "eventstudy_e1",
+      "estimate": 0.5239973995189251,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "eventstudy_e1_se_neyman",
+      "estimate": 0.079313154400931798,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "eventstudy_e1_se_adjusted",
+      "estimate": 0.079231580177506797,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "eventstudy_e2",
+      "estimate": 0.58651692819055556,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "eventstudy_e2_se_neyman",
+      "estimate": 0.10964405272949,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "eventstudy_e2_se_adjusted",
+      "estimate": 0.1095285881266774,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "cs_simple",
+      "estimate": 0.48771542105612881,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "cs_simple_se_neyman",
+      "estimate": 0.065456950267452699,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "cs_simple_se_adjusted",
+      "estimate": 0.0654412752976085,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "sa_simple",
+      "estimate": 0.45279311894839958,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "sa_simple_se_neyman",
+      "estimate": 0.067298374240441106,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+,
+    {
+      "module": "82_staggered",
+      "side": "Stata",
+      "statistic": "sa_simple_se_adjusted",
+      "estimate": 0.067240963361895403,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1440,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "reference": "staggered (SSC)"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

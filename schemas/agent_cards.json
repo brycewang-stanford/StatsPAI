@@ -21873,7 +21873,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Efficient DiD for a randomised staggered rollout (Roth & Sant'Anna 2023). Identifies off random adoption *timing*, not parallel trends, so it is the right estimator for policy lotteries, phased launches and wave-randomised RCTs -- and the wrong one for observational rollouts. Uses the cohort's pre-treatment moments as optimal controls; efficient=False gives the plug-in. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: adoption timing was not randomised -- use a parallel-trends estimator such as sp.callaway_santanna instead.",
+    "description": "Efficient DiD for a randomised staggered rollout (Roth & Sant'Anna 2023). Identifies off random adoption *timing*, not parallel trends, so it is the right estimator for policy lotteries, phased launches and wave-randomised RCTs -- and the wrong one for observational rollouts. Uses the cohort's pre-treatment moments as optimal controls; efficient=False gives the plug-in. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use a parallel-trends estimator such as sp.callaway_santanna instead.",
     "example": "sp.staggered_rollout(df, y=\"y\", i=\"unit\", t=\"time\", g=\"first_treat\")",
     "failure_modes": [],
     "inherits_from": null,
@@ -21888,7 +21888,7 @@
     ],
     "reference": "Roth & Sant'Anna (2023) [@roth2023efficient]",
     "signature": {
-      "description": "Efficient DiD for a randomised staggered rollout (Roth & Sant'Anna 2023). Identifies off random adoption *timing*, not parallel trends, so it is the right estimator for policy lotteries, phased launches and wave-randomised RCTs -- and the wrong one for observational rollouts. Uses the cohort's pre-treatment moments as optimal controls; efficient=False gives the plug-in. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: adoption timing was not randomised -- use a parallel-trends estimator such as sp.callaway_santanna instead.",
+      "description": "Efficient DiD for a randomised staggered rollout (Roth & Sant'Anna 2023). Identifies off random adoption *timing*, not parallel trends, so it is the right estimator for policy lotteries, phased launches and wave-randomised RCTs -- and the wrong one for observational rollouts. Uses the cohort's pre-treatment moments as optimal controls; efficient=False gives the plug-in. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use a parallel-trends estimator such as sp.callaway_santanna instead.",
       "name": "staggered_rollout",
       "parameters": {
         "properties": {
@@ -21988,10 +21988,10 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "tests/reference_parity/test_staggered_extended_parity.py",
-      "tests/reference_parity/test_staggered_rollout_parity.py"
+      "R parity module 82_staggered",
+      "Stata parity module 82_staggered"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [

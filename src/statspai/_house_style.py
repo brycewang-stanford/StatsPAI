@@ -142,6 +142,18 @@ FALSE_FRIENDS: Dict[str, Tuple[str, ...]] = {
         "rate",
         "policy_tree",
     ),
+    # Design-based variance *estimator*, not an SE type in the vce= sense.
+    # In the Roth-Sant'Anna staggered-rollout family the choice is between
+    # the conservative Neyman bound and the randomisation-adjusted variance
+    # that subtracts the part the random adoption timing identifies. Neither
+    # is a robust/cluster option, so spelling it vce= would invite users to
+    # pass vce="cluster" and get a TypeError for a keyword that looks like
+    # every other estimator's.
+    "se_type": (
+        "staggered_rollout",
+        "staggered_cs",
+        "staggered_sa",
+    ),
     # Random-effects covariance *structure*, not an SE type.
     "cov_type": (
         "mixed",

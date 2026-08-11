@@ -185,11 +185,26 @@ def test_strictness_tier_breakdown_matches_current_artifacts():
     # 81_didm joins the machine tier against the ARCHIVED DIDmultiplegt
     # 0.1.4; the 2.x rewrite's mode="old" returns NaN on its own example.
     # 80_contdid joins the machine tier against contdid::cont_did at 1e-12.
+    # 83_lpdid joins the machine tier against the authors' own Stata `lpdid`
+    # (Busch & Girardi, the companion package to Dube-Girardi-Jorda-Taylor
+    # 2025 JAE): all four post-treatment horizons match on both coefficient
+    # and SE at ~1e-15, with identical per-horizon sample sizes. The single
+    # pre-treatment lead is deliberately outside the headline filter -- the
+    # coefficient agrees to 2e-14 but lpdid reports it on a different row
+    # count (990 vs 790), so the placebo sample construction differs and is
+    # recorded rather than tuned away.
+    # 82_staggered joins the machine tier against staggered::staggered /
+    # staggered_cs / staggered_sa (Roth and Sant'Anna's own package): 33 rows
+    # covering the efficient and plug-in estimators across four aggregations
+    # plus the CS/SA comparisons, each with both the Neyman-conservative and
+    # the randomisation-adjusted standard error, worst row 3.5e-15. It is the
+    # only design-based module in the harness -- identification is random
+    # adoption timing, not parallel trends.
     # 79_didff sits in the iterative tier for one row per design -- its
     # p-value is a 100k-draw simulation on each side; the sixteen
     # implied-density bins themselves agree at 1.2e-15.
     assert compare.tier_breakdown(rendered_modules) == {
-        "machine": 72,
+        "machine": 74,
         "iterative": 7,
         "moderate": 1,
         "methodological": 1,

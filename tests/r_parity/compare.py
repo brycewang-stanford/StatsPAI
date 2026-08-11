@@ -252,6 +252,19 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # separates them. The per-horizon sample sizes match exactly, which is the
     # real check on the clean-control window.
     "83_lpdid": {"rel_est": 1e-10, "rel_se": 1e-10},
+    # Design-based staggered rollout, reconciled against staggered::staggered
+    # / staggered_cs / staggered_sa -- Roth and Sant'Anna's own package for
+    # their 2023 JPE Micro paper, and the only module here whose
+    # identification comes from random adoption timing rather than parallel
+    # trends. 33 rows: the efficient and plug-in estimators across the
+    # simple / cohort / calendar / event-study (e0-e2) aggregations, plus the
+    # CS and SA comparisons, each carrying both the conservative Neyman
+    # standard error and the randomisation-adjusted one. Worst row is
+    # 3.5e-15. The standard errors travel as their own statistic rows rather
+    # than in the se columns, so there is no rel_se to budget -- pinning
+    # rel_est alone would leave them unchecked if that ever changed, which is
+    # why they are emitted as estimates.
+    "82_staggered": {"rel_est": 1e-10},
     # CGS continuous treatment: the dose curves at four grid points and
     # both overall quantities, across three spline specifications, match
     # contdid at 1e-12. The curves are compared under
@@ -967,6 +980,18 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": "estimate and SE both rel $<$ 1e-14 vs a direct transcription",
+    },
+    "82_staggered": {
+        "name": "Design-based staggered rollout (Roth-Sant'Anna)",
+        "headline_filter": lambda d: d.statistic
+        in {"simple_efficient", "simple_plugin"},
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": (
+            "machine precision on all 33 rows (worst 3.7e-15) against both "
+            "staggered 1.2.2 in R and the SSC staggered port in Stata, "
+            "including both the Neyman and adjusted standard errors"
+        ),
     },
     "81_didm": {
         "name": "dCDH 2020 DID_M (on/off switching)",

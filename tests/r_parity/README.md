@@ -141,6 +141,7 @@ a shared explicit fold partition.
 | 79 | Functional-form test for parallel trends | `sp.functional_form_test` | `didFF::didFF` |
 | 80 | Continuous-treatment DiD (CGS) | `sp.cgs_continuous_did` | `contdid::cont_did` |
 | 81 | dCDH 2020 DID_M (on/off switching) | `sp.did_multiplegt` | `DIDmultiplegt::did_multiplegt` (archived 0.1.4) |
+| 82 | Design-based staggered rollout | `sp.staggered_rollout` | `staggered::staggered` / `staggered_cs` / `staggered_sa` (1.2.2) |
 | 83 | LP-DiD event study | `sp.lp_did` | direct transcription (no LP-DiD R package installed); Stata side uses the authors' `lpdid` |
 | 71 | DML family (IRM / PLIV / IIVM) | `sp.dml(model="irm")` / `sp.dml(model="pliv")` / `sp.dml(model="iivm")` | `DoubleML::DoubleMLIRM` / `DoubleMLPLIV` / `DoubleMLIIVM` |
 

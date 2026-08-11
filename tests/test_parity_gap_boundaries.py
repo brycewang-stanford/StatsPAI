@@ -279,12 +279,28 @@ def test_rd_default_cct_bandwidth_matches_r_and_stata():
             < 1e-8
         )
 
+    # The "legacy" row is sp.rdrobust() called with no bwselect=, i.e. the
+    # internal mserd default. It used to be a separate code path: a
+    # single-step rule of thumb whose 1/5 exponent only equals CCT's
+    # 1/(2p+3) at p=1, which returned h ~= 0.042 on this fixture -- orders
+    # of magnitude off rdrobust's own mserd -- and drove the headline effect
+    # to 12.39 where R reports 7.41. That selector was rebuilt against
+    # rdrobust 4.0.0 across a bwselect x p x kernel grid (36 cells) in
+    # `fix(rd): sp.rdrobust reported 12.39 where rdrobust reports 7.41`, so
+    # the internal default now lands on the same bandwidth as the explicit
+    # cct path. Pin the convergence, not the historical gap -- if the two
+    # ever diverge again, that is the regression worth catching.
     legacy_h = _estimate("06_rd", "py", "legacy_internal_mserd_bandwidth_h")
-    assert 0.04 <= legacy_h <= 0.05
+    assert _rel_gap(legacy_h, py_h) < 1e-6
 
+    # The forced-bandwidth replicate pins the local-polynomial math apart
+    # from the selector, so both sides hard-code the same constant. That
+    # constant moved from 0.042287 -- which was itself read off the old,
+    # broken internal selector -- to a flat 15 when the selector was rebuilt,
+    # precisely so the statistic name stops depending on any selector.
     for stat in (
-        "forced_h0.042287_conventional_est",
-        "forced_h0.042287_robust_est",
+        "forced_h15_conventional_est",
+        "forced_h15_robust_est",
     ):
         assert (
             _rel_gap(_estimate("06_rd", "py", stat), _estimate("06_rd", "R", stat))
@@ -292,8 +308,8 @@ def test_rd_default_cct_bandwidth_matches_r_and_stata():
         )
 
     se_rel = _rel_gap(
-        _row("06_rd", "py", "forced_h0.042287_conventional_est")["se"],
-        _row("06_rd", "R", "forced_h0.042287_conventional_est")["se"],
+        _row("06_rd", "py", "forced_h15_conventional_est")["se"],
+        _row("06_rd", "R", "forced_h15_conventional_est")["se"],
     )
     assert se_rel <= 0.07
 
