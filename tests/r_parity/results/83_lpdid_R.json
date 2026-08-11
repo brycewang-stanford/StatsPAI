@@ -1,0 +1,82 @@
+{
+  "module": "83_lpdid",
+  "side": "R",
+  "rows": [
+    {
+      "module": "83_lpdid",
+      "side": "R",
+      "statistic": "lpdid_h-2_att",
+      "estimate": 0.0212817995246045,
+      "se": 0.0752199777786863,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 790,
+      "extra": []
+    },
+    {
+      "module": "83_lpdid",
+      "side": "R",
+      "statistic": "lpdid_h0_att",
+      "estimate": 0.864853773641726,
+      "se": 0.0744421311491044,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1190,
+      "extra": []
+    },
+    {
+      "module": "83_lpdid",
+      "side": "R",
+      "statistic": "lpdid_h1_att",
+      "estimate": 1.59970500280072,
+      "se": 0.068946808432188,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 990,
+      "extra": []
+    },
+    {
+      "module": "83_lpdid",
+      "side": "R",
+      "statistic": "lpdid_h2_att",
+      "estimate": 2.39896252071107,
+      "se": 0.0877292301592887,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 790,
+      "extra": []
+    },
+    {
+      "module": "83_lpdid",
+      "side": "R",
+      "statistic": "lpdid_h3_att",
+      "estimate": 3.32276600192711,
+      "se": 0.104506315472558,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 593,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "reference_kind": ["direct_transcription_no_r_package"],
+    "clean_controls": ["not_yet_treated"],
+    "time_fe": [true],
+    "cluster": ["unit"]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "platform": "aarch64-apple-darwin20",
+    "running": "macOS Tahoe 26.5.2",
+    "captured_via": "tests/r_parity/_common.R::write_results",
+    "packages": {
+      "lmtest": "0.9-40",
+      "zoo": "1.8-15",
+      "sandwich": "3.1-1",
+      "compiler": "4.5.2",
+      "grid": "4.5.2",
+      "jsonlite": "2.0.0",
+      "lattice": "0.22-7"
+    }
+  }
+}

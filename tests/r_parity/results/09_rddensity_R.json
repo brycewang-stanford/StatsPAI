@@ -6,66 +6,66 @@
       "module": "09_rddensity",
       "side": "R",
       "statistic": "density_diff",
-      "estimate": 0.0434784467866793,
+      "estimate": -0.00354820731412573,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
-      "n": 6558,
+      "n": 1390,
       "extra": []
     },
     {
       "module": "09_rddensity",
       "side": "R",
       "statistic": "density_left",
-      "estimate": 1.70104176528337,
+      "estimate": 0.0216859145504922,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
-      "n": 6558,
+      "n": 1390,
       "extra": []
     },
     {
       "module": "09_rddensity",
       "side": "R",
       "statistic": "density_right",
-      "estimate": 1.74452021207005,
+      "estimate": 0.0181377072363665,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
-      "n": 6558,
+      "n": 1390,
       "extra": []
     },
     {
       "module": "09_rddensity",
       "side": "R",
       "statistic": "test_pvalue",
-      "estimate": 0.857104380246312,
+      "estimate": 0.381425387620544,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
-      "n": 6558,
+      "n": 1390,
       "extra": []
     },
     {
       "module": "09_rddensity",
       "side": "R",
       "statistic": "bandwidth_left",
-      "estimate": 0.12670043574048,
+      "estimate": 19.8411083545202,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
-      "n": 6558,
+      "n": 1390,
       "extra": []
     },
     {
       "module": "09_rddensity",
       "side": "R",
       "statistic": "bandwidth_right",
-      "estimate": 0.119543024174773,
+      "estimate": 27.118786434123,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
-      "n": 6558,
+      "n": 1390,
       "extra": []
     }
   ],
@@ -76,7 +76,7 @@
   "provenance": {
     "r_version": "R version 4.5.2 (2025-10-31)",
     "platform": "aarch64-apple-darwin20",
-    "running": "macOS Tahoe 26.5",
+    "running": "macOS Tahoe 26.5.2",
     "captured_via": "tests/r_parity/_common.R::write_results",
     "packages": {
       "rddensity": "2.6",
@@ -102,7 +102,7 @@
       "pillar": "1.11.1",
       "jsonlite": "2.0.0",
       "lpdensity": "2.5",
-      "rlang": "1.1.7",
+      "rlang": "1.3.0",
       "MASS": "7.3-65"
     }
   }

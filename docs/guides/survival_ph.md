@@ -119,8 +119,8 @@ idea to time-to-event panel settings.
 import statspai as sp
 
 csf = sp.causal_survival_forest(
-    data=df, duration="time", event="event",
-    treatment="arm", covariates=["age", "sex", "ldl"],
+    data=df, time="time", event="event",
+    treat="arm", covariates=["age", "sex", "ldl"],
 )
 ```
 

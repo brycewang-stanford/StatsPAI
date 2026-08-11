@@ -50,7 +50,7 @@ The source-snapshot evidence audit checks that all 379 certified/validated symbo
 have registry-attached evidence notes and that those notes resolve to source
 files included in the JSS package. The current archive includes 152
 registry-evidence source files.
-The current source snapshot also tracks 320 registry-evidence source files
+The current source snapshot also tracks 334 registry-evidence source files
 in the live validation-note inventory.
 
 ## Reproducible Audit Artifacts

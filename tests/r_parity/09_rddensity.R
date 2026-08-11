@@ -21,7 +21,7 @@ MODULE <- "09_rddensity"
 
 df <- read_csv_strict(MODULE)
 
-fit <- rddensity::rddensity(X = df$margin, c = 0.0)
+fit <- rddensity::rddensity(X = df$x, c = 0.0)
 
 # Density estimates on each side of the cutoff at the cutoff point;
 # rddensity stores them in fit$hat$left / fit$hat$right.

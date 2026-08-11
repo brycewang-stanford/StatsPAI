@@ -80,7 +80,7 @@ These are part of the queryable contract — `sp.translation_coverage()["limitat
   placeholder when the `xtset` / `tsset` declaration is on a different line; pass
   `id=` / `time=` explicitly to the resulting `sp.*` call.
 - **Time series.** `arima` / `var` / `vec` / `granger` are not translated — call
-  `sp.arima` / `sp.var` / `sp.vecm` directly.
+  `sp.arima` / `sp.var` / `sp.johansen` directly.
 - **Estimation tables.** `esttab` / `eststo` / `outreg2` are not translated; use
   `sp.regtable` on the fitted results.
 - **Dropped qualifiers are surfaced, not lost.** A Stata `if`/`in` qualifier or

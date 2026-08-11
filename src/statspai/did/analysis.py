@@ -155,6 +155,14 @@ class DIDAnalysis:
         return self.main_result.plot(**kwargs)
 
 
+# Design-based estimators: identification comes from random adoption *timing*,
+# not parallel trends. They are reachable through this dispatcher, but the
+# parallel-trends diagnostics below (event study, pre-trend test, honest-DiD)
+# do not apply to them and are deliberately skipped rather than reported as
+# passing.
+_DESIGN_BASED_METHODS = ("staggered_rollout", "staggered_cs", "staggered_sa")
+
+
 def did_analysis(
     data: pd.DataFrame,
     y: str,
@@ -300,7 +308,14 @@ def did_analysis(
         steps.append(f"Design set by user: {design} (method={method})")
 
     # ── Step 2: Bacon decomposition (staggered only) ───────────────── #
-    if run_bacon and design == "staggered" and id is not None:
+    if run_bacon and method in _DESIGN_BASED_METHODS:
+        steps.append(
+            "Bacon decomposition skipped: it diagnoses TWFE's "
+            "forbidden comparisons under parallel trends, and its "
+            "'switch to Callaway-Sant'Anna' advice does not apply to a "
+            "design-based estimator."
+        )
+    elif run_bacon and design == "staggered" and id is not None:
         try:
             bacon_data = data.copy()
             bacon_treat = "__statspai_bacon_treat__"
@@ -430,6 +445,25 @@ def did_analysis(
         if bjs_horizon is not None and "event_study" in main_result.model_info:
             es_result = main_result
         method_label = "Borusyak-Jaravel-Spiess (Imputation)"
+    elif method in _DESIGN_BASED_METHODS:
+        if id is None:
+            from statspai.exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                f"'id' is required for {method!r}.",
+                recovery_hint="Pass the unit identifier column via id='...'.",
+                diagnostics={"method": method, "missing": "id"},
+                alternative_functions=["sp.did"],
+            )
+        from ._staggered_rollout import staggered_cs, staggered_rollout, staggered_sa
+
+        fn = {
+            "staggered_rollout": staggered_rollout,
+            "staggered_cs": staggered_cs,
+            "staggered_sa": staggered_sa,
+        }[method]
+        main_result = fn(data, y=y, i=id, t=time, g=treat, alpha=alpha, **kwargs)
+        method_label = main_result.method
     elif method == "sdid":
         from ..synth.sdid import sdid as _sdid
 
@@ -460,7 +494,14 @@ def did_analysis(
 
     # ── Step 4: Event study ────────────────────────────────────────── #
     bjs_methods = ("bjs", "did_imputation", "borusyak_jaravel_spiess")
-    if (
+    if run_event_study and method in _DESIGN_BASED_METHODS:
+        steps.append(
+            "Event study / pre-trend test skipped: this estimator identifies "
+            "off random adoption timing, not parallel trends, so a pre-trend "
+            "test neither supports nor threatens it. Use "
+            "estimand='eventstudy' for the design-based event study."
+        )
+    elif (
         run_event_study
         and design == "staggered"
         and id is not None
@@ -506,7 +547,12 @@ def did_analysis(
         diag["pretrend_pvalue"] = pretrend_p
 
     # ── Step 5: Honest DID sensitivity ─────────────────────────────── #
-    if run_sensitivity and es_result is not None:
+    if run_sensitivity and method in _DESIGN_BASED_METHODS:
+        steps.append(
+            "Honest-DiD sensitivity skipped: it relaxes parallel trends, "
+            "which this estimator does not assume."
+        )
+    elif run_sensitivity and es_result is not None:
         try:
             sens_result = honest_did(es_result, e=0, method="smoothness", alpha=alpha)
             steps.append("Honest DID sensitivity analysis: computed")

@@ -55,11 +55,11 @@ rec = sp.synth_recommend(df, ...)
 rec.recommended_method, rec.reasons
 
 # Power / MDE
-p = sp.synth_power(df, ..., alphas=[0.05], effects=[1, 2, 3, 5])
-mde = sp.synth_mde(df, ..., alpha=0.05, power=0.80)
+p = sp.synth_power(df, ..., alpha=0.05, effect_sizes=[1, 2, 3, 5])
+mde = sp.synth_mde(df, ..., alpha=0.05, power_target=0.80)
 
 # Sensitivity: leave-one-out donor, time placebo, pre-period length
-s = sp.synth_sensitivity(df, ..., n_boot=1000)
+s = sp.synth_sensitivity(df, ..., n_donor_samples=1000)
 
 # Report
 sp.synth_report(rec, format='latex', save_to='report.tex')

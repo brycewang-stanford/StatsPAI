@@ -39,7 +39,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
-| `did` | 32,723 | 47 | 75 |
+| `did` | 34,961 | 47 | 78 |
 | `synth` | 22,380 | 31 | 54 |
 | `rd` | 17,929 | 27 | 53 |
 | `regression` | 15,917 | 20 | 37 |
@@ -126,7 +126,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 152 | 2 | 0 |
 | `causal` | 111 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **372,068** | **737** | **1161** |
+| **Total** | **384,090** | **744** | **1171** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

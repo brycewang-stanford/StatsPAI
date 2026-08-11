@@ -233,6 +233,7 @@ tests/orig_parity/data/*_nhefs_*.csv
 statspai-parity*.js
 
 Paper-DiD-JAE/
+Paper-ML4CI-JAE/
 
 # Reproducibility-verifier staging output. verify_reproduce.py and
 # verify_reproduce_stata.py re-derive each committed golden JSON into these

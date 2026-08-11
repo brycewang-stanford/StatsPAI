@@ -32,7 +32,12 @@ from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibil
 from ._absorbing import AbsorbingCheck, check_absorbing
 from ._core import require_bool as _require_bool
 from ._equivalence import EquivalenceResult, pretrend_equivalence, pretrends_equivalence
-from ._staggered_rollout import StaggeredRolloutResult, staggered_rollout
+from ._staggered_rollout import (
+    StaggeredRolloutResult,
+    staggered_cs,
+    staggered_rollout,
+    staggered_sa,
+)
 from .aggte import aggte
 from .analysis import DIDAnalysis, did_analysis
 from .bacon import bacon_decomposition
@@ -50,7 +55,12 @@ from .did_bcf import did_bcf
 from .did_imputation import did_imputation
 from .did_multiplegt import did_multiplegt
 from .event_study import event_study
-from .functional_form import FunctionalFormResult, functional_form_test
+from .functional_form import (
+    DistributionalDiDResult,
+    FunctionalFormResult,
+    distributional_did,
+    functional_form_test,
+)
 from .gardner_2s import did_2stage, gardner_did
 from .harvest import HarvestDIDResult, harvest_did
 from .honest_did import breakdown_m, honest_did
@@ -226,6 +236,7 @@ def did(
     n_boot: int = 1000,
     random_state: Optional[int] = None,
     panel: bool = True,
+    allow_unbalanced_panel: bool = False,
     anticipation: int = 0,
     vce: Optional[str] = None,
     wild_reps: int = 999,
@@ -321,6 +332,14 @@ def did(
     panel : bool, default True
         Forwarded to :func:`callaway_santanna`; set ``panel=False`` for
         repeated cross-sections.
+    allow_unbalanced_panel : bool, default False
+        Forwarded to :func:`callaway_santanna`. ``True`` keeps units that
+        are missing periods by switching to the repeated-cross-section
+        estimators (R ``did::att_gt(allow_unbalanced_panel = TRUE)``)
+        instead of letting them drop out cell by cell. Only consulted on
+        the staggered (``method='cs'``) path.
+
+        .. versionadded:: 1.23.0
     anticipation : int, default 0
         Forwarded to :func:`callaway_santanna`.
 
@@ -524,6 +543,9 @@ def did(
             "ddd",
             "callaway_santanna",
             "cs",
+            "sun_abraham",
+            "sa",
+            "sunab",
         }
     )
 
@@ -699,6 +721,7 @@ def did(
             alpha=alpha,
             anticipation=anticipation,
             panel=panel,
+            allow_unbalanced_panel=allow_unbalanced_panel,
         )
         if aggregation is not None:
             if aggregation not in ("simple", "dynamic", "group", "calendar"):
@@ -735,6 +758,7 @@ def did(
             t=time,
             i=id,
             covariates=covariates,
+            weights=weights,
             cluster=cluster,
             aggregation=aggregation or "event_time",
             alpha=alpha,
@@ -810,11 +834,30 @@ def did(
             **kwargs,
         )
 
+    if method in ("staggered_rollout", "staggered_cs", "staggered_sa"):
+        # Design-based: identification is random adoption *timing*, not
+        # parallel trends. Routed through did_analysis so the parallel-trends
+        # diagnostics it would otherwise run are explicitly skipped.
+        from .analysis import did_analysis as _did_analysis
+
+        return _did_analysis(
+            data,
+            y=y,
+            treat=treat,
+            time=time,
+            id=id,
+            method=method,
+            alpha=alpha,
+            run_bacon=False,
+            **kwargs,
+        ).main_result
+
     raise MethodIncompatibility(
         f"Unknown DID method: '{method}'. "
         "Available: '2x2' (or 'classic', 'twfe'), 'ddd', "
         "'callaway_santanna' (or 'cs'), 'sun_abraham' (or 'sa'), "
-        "'bjs' (or 'did_imputation'), 'sdid'.",
+        "'bjs' (or 'did_imputation'), 'sdid'; design-based (random adoption "
+        "timing): 'staggered_rollout', 'staggered_cs', 'staggered_sa'.",
         recovery_hint="Choose one of the supported DID method strings.",
         diagnostics={"method": method},
     )
@@ -857,6 +900,8 @@ __all__ = [
     "cic",
     "StaggeredRolloutResult",
     "staggered_rollout",
+    "staggered_cs",
+    "staggered_sa",
     "pretrend_equivalence",
     "pretrends_equivalence",
     # Wooldridge / DR-DID / TWFE decomposition
@@ -879,6 +924,9 @@ __all__ = [
     "cgs_continuous_did",
     "spillover_did",
     "functional_form_test",
+    "distributional_did",
+    "DistributionalDiDResult",
+    "FunctionalFormResult",
     "pretrends_power",
     "pretrends_slope_for_power",
     "sensitivity_rr",

@@ -40,6 +40,25 @@ the new R output still matches the old before overwriting the fixture.
 | `survival` | 3.8.3 |
 | `synthdid` | 0.0.9 |
 
+## Known divergence: `did` 2.3.0 clustered multiplier bootstrap
+
+`did` 2.3.0 aggregates the influence function to cluster **means** over
+`n_clusters` when `clustervars=` is passed with `bstrap=TRUE`
+(`rowsum(inf.func, cluster)/cluster_n`, then `se <- bSigma/sqrt(n_clusters)`).
+That equals the cluster-robust variance only when every cluster is the same
+size; otherwise each cluster enters with weight `1/|c|` and the small clusters
+dominate. Upstream `did` (GitHub master, post-2.3.0) switched to cluster
+**sums** with `se <- bSigma * sqrt(n_clusters)/n`, and the `csdid` Python port
+tracks the corrected form.
+
+**StatsPAI deliberately follows the corrected upstream form, not 2.3.0.** So
+`_generate_cs_gaps_R.R` records only the *unclustered* bootstrap — identical in
+both — and the clustered path is covered by property-based tests in
+`test_cs_gaps_parity.py` instead. Do not "fix" a clustered parity gap against
+2.3.0 by changing StatsPAI; check which convention the installed `did` uses
+first. When `did` releases the master behaviour, a clustered reference can be
+pinned here directly.
+
 ## Regenerating a fixture
 
 ```bash

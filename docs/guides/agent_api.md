@@ -243,7 +243,7 @@ the parser walks every `@type{...}` head in the source string.
 
 ## `sp.session(seed=42)` — reproducible blocks
 
-A standard frustration: an agent reruns `sp.bootstrap_ci(result)`
+A standard frustration: an agent reruns `sp.bootstrap(...)`
 twice and gets different intervals because Python `random` and
 NumPy's legacy global drifted between calls. `sp.session` snapshots
 both, applies the seed for the duration of the block, and restores
@@ -251,8 +251,8 @@ prior state on exit (even when an exception is raised inside):
 
 ```python
 with sp.session(seed=42):
-    boot = sp.bootstrap_ci(result, n_boot=1000)
-    perm = sp.permutation_test(result, n_perm=1000)
+    boot = sp.bootstrap(df, statistic=lambda d: d['y'].mean(), n_boot=1000)
+    perm = sp.ri_test(df, y='y', treat='d', n_perms=1000)
 # state outside the block is byte-identical to before the with
 ```
 

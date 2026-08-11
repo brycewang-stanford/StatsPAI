@@ -45,7 +45,7 @@ as every other result — `.to_latex()` / `.to_html()` / `.to_markdown()` /
 | `DIDmultiplegt::did_multiplegt_dyn(...)`                | `sp.did_multiplegt_dyn(...)` (experimental MVP; not yet R-parity) |
 | `bacondecomp::bacon(...)`                               | `sp.bacon_decomposition(data, y=, time=, treat=, id=)`   |
 | —                                                       | `sp.etwfe(...)` — Wooldridge (2021) explicit API         |
-| `HonestDiD::createSensitivityResults(...)`              | `sp.honest_did(cs_result, Mbar=...)` / `sp.breakdown_m(...)` |
+| `HonestDiD::createSensitivityResults(...)`              | `sp.honest_did(cs_result, m_grid=...)` / `sp.breakdown_m(...)` |
 | `HonestDiD::createSensitivityResults_relativeMagnitudes` | `sp.sensitivity_rr(cs_result, Mbar=...)`                 |
 | `pretrends::pretrends(...)`                             | `sp.pretrends_power(...)` — same pre-test by default; `test="joint"` for the joint Wald version, which `sp.pretrends_test(...)` also reports |
 | `pretrends::slope_for_power(...)`                       | `sp.pretrends_slope_for_power(result, target_power=0.5)` |
@@ -54,7 +54,7 @@ as every other result — `.to_latex()` / `.to_html()` / `.to_markdown()` /
 One-call integrated report:
 
 ```python
-report = sp.cs_report(data, y="y", time="t", first_treat="g", group="id",
+report = sp.cs_report(data, y="y", t="t", g="g", i="id",
                       save_to="output/did_report")
 # Produces .txt + .md + .tex + .xlsx + .png in one call
 ```

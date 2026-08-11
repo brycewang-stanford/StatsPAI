@@ -206,6 +206,7 @@ def callaway_santanna(
     anticipation: int = 0,
     alpha: float = 0.05,
     panel: bool = True,
+    allow_unbalanced_panel: bool = False,
     clustervars: Optional[Sequence[str] | str] = None,
     bstrap: bool = False,
     biters: int = 1000,
@@ -303,10 +304,22 @@ def callaway_santanna(
         its pre-treatment cells always carry the ``long2`` sign.
     anticipation : int, default 0
         Number of pre-treatment periods over which units may anticipate
-        the treatment.  Shifts the base period back by ``anticipation``
-        periods and drops the (g, t) pairs with ``t > g - anticipation - 1``
-        but ``t < g`` from the post-treatment set.  See Callaway &
-        Sant'Anna (2021), Section 3.2.
+        the treatment.  The cohort base period moves back from ``g − 1``
+        to ``g − 1 − anticipation``, and a cohort with no period
+        satisfying ``t + anticipation < g`` is dropped with a warning.
+        See Callaway & Sant'Anna (2021), Section 3.2.
+
+        Following R ``did``, the shift applies to *post-treatment* cells
+        (and to every cell under ``base_period='universal'``). A
+        pre-treatment placebo under ``base_period='varying'`` keeps the
+        period immediately before it as its base, so its value does not
+        move when ``anticipation`` changes.
+
+        .. versionchanged:: 1.23.0
+           ``base_period='varying'`` previously shifted the pre-treatment
+           base by ``anticipation`` too, which moved the placebo cells off
+           R ``did`` / Stata ``csdid`` and dropped the earliest ones.
+           Post-treatment ATT(g, t) are unaffected.
     alpha : float, default 0.05
         Significance level.
     clustervars : str or list of str, optional
@@ -347,9 +360,32 @@ def callaway_santanna(
         If ``False``, treat the data as *repeated cross-sections* —
         observations are not matched across time.  In RCS mode the
         estimator is the unconditional 2×2 cell-mean DID per (g, t)
-        pair (CS2021 §3.2, eqn 2.4, RCS version).  The covariate-free
-        ``estimator='reg'`` path is the only one currently supported
-        for RCS; IPW / DR can be added later.
+        pair (CS2021 §3.2, eqn 2.4, RCS version) for covariate-free
+        ``estimator='reg'``; every other combination routes to the
+        Sant'Anna-Zhao repeated-cross-section estimators
+        (``drdid_rc`` / ``std_ipw_did_rc`` / ``reg_did_rc``), matching R
+        ``did``'s ``panel=FALSE`` path.
+    allow_unbalanced_panel : bool, default False
+        What to do when ``panel=True`` but some units are missing some
+        periods.
+
+        - ``False`` (default) — estimate ATT(g, t) from within-unit
+          differences anyway. A unit missing either the base or the
+          comparison period simply drops out of that cell, so the
+          effective sample varies across cells; a warning names how many
+          units are affected.
+        - ``True`` — switch to the repeated-cross-section estimators,
+          which never difference within unit and so keep every observed
+          row, then fold the influence functions back to the unit level
+          so the SEs still account for within-unit correlation. This is R
+          ``did::att_gt(allow_unbalanced_panel = TRUE)``. If the panel
+          turns out to be balanced the flag is inert and the ordinary
+          panel estimator runs, again matching R.
+
+        The two produce genuinely different estimates on the same
+        unbalanced data — this is an estimator choice, not a tuning knob.
+
+        .. versionadded:: 1.23.0
 
     Returns
     -------
@@ -425,6 +461,18 @@ def callaway_santanna(
     )
     alpha = _require_alpha(alpha)
     panel = _require_bool(panel, argument="panel")
+    allow_unbalanced_panel = _require_bool(
+        allow_unbalanced_panel, argument="allow_unbalanced_panel"
+    )
+    if allow_unbalanced_panel and not panel:
+        warnings.warn(
+            "callaway_santanna: allow_unbalanced_panel=True has no effect "
+            "when panel=False — the data are already treated as repeated "
+            "cross-sections, with observation-level (not unit-level) "
+            "influence functions.",
+            UserWarning,
+            stacklevel=2,
+        )
     bstrap = _require_bool(bstrap, argument="bstrap")
     cband = _require_bool(cband, argument="cband")
 
@@ -540,19 +588,53 @@ def callaway_santanna(
                 },
             )
 
-    # ---- Repeated cross-sections branch --------------------------------
-    if not panel:
+    # ---- Repeated cross-sections / unbalanced-panel branch --------------
+    #
+    # `allow_unbalanced_panel=True` only bites when the panel really is
+    # unbalanced; on a balanced one R resets the flag and runs the ordinary
+    # panel estimator, so the option never silently changes the estimand on
+    # data that does not need it.
+    use_unbalanced = False
+    if panel and allow_unbalanced_panel:
+        _n_units_seen = data[i].nunique()
+        _n_periods_seen = data[t].nunique()
+        use_unbalanced = len(data.dropna(subset=[y, t, i])) != (
+            _n_units_seen * _n_periods_seen
+        )
+
+    if (not panel) or use_unbalanced:
         if clustervars:
             raise CallawayNotImplemented(
-                "panel=False (repeated cross-sections) does not yet support "
-                "clustervars — observations are not nested in units here, so "
-                "the cluster bootstrap needs a separate design.",
+                (
+                    "allow_unbalanced_panel=True"
+                    if use_unbalanced
+                    else "panel=False (repeated cross-sections)"
+                )
+                + " does not yet support clustervars — the influence "
+                "functions are built cell by cell over unmatched "
+                "observations, so the cluster bootstrap needs a separate "
+                "design.",
                 recovery_hint=(
                     "Drop clustervars, or aggregate via "
                     "sp.aggte(result, bstrap=True) which bootstraps the "
-                    "observation-level influence functions."
+                    "influence functions directly."
                 ),
-                diagnostics={"panel": panel, "clustervars": clustervars},
+                diagnostics={
+                    "panel": panel,
+                    "allow_unbalanced_panel": allow_unbalanced_panel,
+                    "clustervars": clustervars,
+                },
+            )
+        if use_unbalanced and weights is not None:
+            raise CallawayNotImplemented(
+                "allow_unbalanced_panel=True does not yet support weights= — "
+                "the repeated-cross-section estimators it routes to take "
+                "unweighted cell moments.",
+                recovery_hint=(
+                    "Balance the panel first (sp.balance_panel) and keep "
+                    "weights, or drop weights."
+                ),
+                diagnostics={"allow_unbalanced_panel": True, "weights": weights},
             )
         return _callaway_santanna_rcs(
             data=data,
@@ -567,6 +649,7 @@ def callaway_santanna(
             control_group=control_group,
             pretest=pretest,
             pretest_periods=pretest_periods,
+            unit_col=i if use_unbalanced else None,
         )
 
     # 1. Prepare panel data
@@ -910,12 +993,13 @@ def _prepare_panel(
             f"({_n_missing}/{_n_cells} unit-period cells absent). ATT(g, t) "
             "is formed from within-unit differences, so units missing "
             "either the base or the comparison period drop out of that "
-            "cell; the effective sample varies across cells. R `did` "
-            "instead handles this with allow_unbalanced_panel=TRUE, which "
-            "switches to the repeated cross-section estimator, so its "
-            "numbers will differ — this is an estimator difference, not a "
-            "bug on either side. Balance the panel first (e.g. "
-            "sp.balance_panel) if you need a single fixed sample.",
+            "cell; the effective sample varies across cells. Pass "
+            "allow_unbalanced_panel=True to switch to the "
+            "repeated-cross-section estimators instead, which keep every "
+            "observed row (R `did`'s allow_unbalanced_panel=TRUE), or "
+            "balance the panel first (sp.balance_panel) if you need a "
+            "single fixed sample. The three give different numbers on the "
+            "same data — that is an estimator choice, not a bug.",
             UserWarning,
             stacklevel=3,
         )
@@ -1023,35 +1107,62 @@ def _get_gt_pairs(
 ) -> List[Tuple[int, int, int]]:
     """Determine all (g, t, base) triples to estimate.
 
-    With ``anticipation = δ > 0`` the base period for cohort g is shifted
-    from g − 1 to g − 1 − δ (CS2021, Section 3.2). For the 'varying' base
-    scheme the per-t base is similarly shifted to ``t − 1 − δ`` when t
-    falls in the pre-treatment region.
+    Mirrors the ``pret`` block of R ``did::compute.att_gt``:
+
+    - the cohort-level base is the last period with ``t + δ < g``
+      (``g − 1 − δ`` on a unit-spaced grid), used for every
+      post-treatment cell and for *all* cells under ``'universal'``;
+    - under ``'varying'`` a pre-treatment cell (``t < g``) instead uses
+      the period immediately before ``t``, **unshifted by δ**. R only
+      applies the anticipation shift once a cell is post-treatment, so
+      shifting the pre-cell base here too would move every placebo off
+      the reference implementation (this is what StatsPAI did before
+      1.23.0).
+
+    Comparisons are strict inequalities on the observed period grid
+    rather than ``t − 1`` arithmetic, so irregularly spaced periods
+    (1990, 1995, 2000, …) resolve to the neighbouring observed period
+    instead of silently dropping the cell.
     """
     pairs = []
     for g_val in cohorts:
-        pre_cutoff = g_val - 1 - anticipation
-        available_pre = [tp for tp in time_periods if tp <= pre_cutoff]
+        # R: pret_g <- tail(which((tlist + anticipation) < glist[g]), 1)
+        available_pre = [tp for tp in time_periods if tp + anticipation < g_val]
         if not available_pre:
+            # R warns and drops the cohort ("There are no pre-treatment
+            # periods for the group first treated at ..."); say so rather
+            # than silently returning a smaller grid (§7).
+            warnings.warn(
+                f"callaway_santanna: cohort g={g_val} has no pre-treatment "
+                f"period once anticipation={anticipation} is accounted for "
+                "(no observed period t with t + anticipation < g). Every "
+                "ATT(g, t) for this cohort is unidentified, so the cohort is "
+                "dropped — matching R `did`. Its units still serve as "
+                "controls where the control group allows.",
+                UserWarning,
+                stacklevel=3,
+            )
             continue
         universal_base = max(available_pre)
 
         for t_val in time_periods:
-            # Under the universal scheme g−1−δ *is* the reference period, so
-            # ATT(g, g−1−δ) is zero by construction and is not reported.
-            # Under 'varying' it is not the reference — its base is the
-            # period before it — so it is a genuine, estimable placebo
-            # (event time e = −1, which R ``did`` / Stata ``csdid`` report).
-            if base_period == "universal" and t_val == universal_base:
-                continue
-
             if base_period == "varying" and t_val < g_val:
-                pre_of_t = [tp for tp in time_periods if tp <= t_val - 1 - anticipation]
+                # R: varying base period => pret <- t (the period right
+                # before the cell), regardless of anticipation.
+                pre_of_t = [tp for tp in time_periods if tp < t_val]
                 if not pre_of_t:
                     continue
                 this_base = max(pre_of_t)
             else:
                 this_base = universal_base
+
+            # R: `if (tlist[pret] == tlist[t + tfac]) next` — a cell whose
+            # base *is* itself is the normalised reference (ATT ≡ 0 by
+            # construction), not an estimable placebo. Under 'varying'
+            # this never fires for a pre-treatment cell, so event time
+            # e = −1 stays a genuine placebo, as R / Stata csdid report.
+            if this_base == t_val:
+                continue
 
             pairs.append((g_val, t_val, this_base))
 
@@ -1224,23 +1335,120 @@ def _dr_att(
     eta_c = float(np.mean(w0 * resid))
     att = eta_t - eta_c
 
-    # ⚠️ correctness fix: de-mean each arm by its own mean.
+    # ⚠️ correctness fix (2): de-mean each arm by its own mean.
     #
     # The previous form ``(w1 - w0) resid - att w1`` substitutes ``w1``
     # for ``w0`` in the control arm's centring term. Both weights are
     # Hajek-normalised to mean one, so the ATT is unaffected, but the
     # variance is not. See the fuller note in :func:`_ipw_att`.
     #
-    # Residual gap to R ``DRDID::drdid_panel`` after this fix: <= 0.7%
-    # on the reference fixture, from the nuisance *estimation* effects
-    # (DRDID additionally fits the outcome model by propensity-odds
-    # weighted least squares and propagates both first stages). DR is
-    # Neyman-orthogonal, so those terms are second-order — unlike the
-    # IPW case, where omitting them was a 10-89% error.
     inf_func = w1 * (resid - eta_t) - w0 * (resid - eta_c)
+
+    # ⚠️ correctness fix (3): propagate both nuisance estimation effects.
+    #
+    # DR is Neyman-orthogonal in each nuisance separately, so these terms
+    # are second-order and the omission cost far less than in
+    # :func:`_ipw_att` — but "second-order" is not "zero", and the gap to
+    # ``DRDID::drdid_panel`` was up to 0.9% on the reference grid. Port
+    # the three remaining pieces (DRDID 1.2.3, read from source):
+    #
+    #     inf.treat.2 = alr_wols @ M1 / E[w_treat]
+    #     inf.cont.2  = alr_ps   @ M2 / E[w_cont]
+    #     inf.cont.3  = alr_wols @ M3 / E[w_cont]
+    #     att.inf = inf.treat.1 - inf.treat.2 - (inf.cont.1 + inf.cont.2 - inf.cont.3)
+    adj = _dr_estimation_effect(
+        dy=dy,
+        d=d,
+        x=x,
+        w=w,
+        keep=keep,
+        pscore=pscore,
+        resid=resid,
+        eta_c=eta_c,
+        p_d=p_d,
+        ipw_denom=ipw_denom,
+    )
+    if adj is not None:
+        inf_func = inf_func + adj
+
     se = float(np.sqrt(np.mean(inf_func**2) / n))
 
     return float(att), se, inf_func
+
+
+def _dr_estimation_effect(
+    *,
+    dy: np.ndarray,
+    d: np.ndarray,
+    x: Optional[np.ndarray],
+    w: np.ndarray,
+    keep: np.ndarray,
+    pscore: np.ndarray,
+    resid: np.ndarray,
+    eta_c: float,
+    p_d: float,
+    ipw_denom: float,
+) -> Optional[np.ndarray]:
+    """Nuisance-estimation correction for the DR influence function.
+
+    Port of ``DRDID::drdid_panel``'s ``inf.treat.2``, ``inf.cont.2`` and
+    ``inf.cont.3``. Returns the signed sum to be *added* to the
+    first-order influence function, or ``None`` when either first-stage
+    design is singular — in which case the caller keeps the uncorrected
+    (slightly conservative) variance rather than emitting a nonsense one.
+
+    ``x`` is the covariate block *without* an intercept; DRDID's
+    ``int.cov`` is the model matrix including one, and the correction is
+    non-trivial even in the no-covariate case, where ``int.cov`` is a
+    single column of ones.
+    """
+    n = len(dy)
+    try:
+        import statsmodels.api as sm
+
+        xc = (
+            np.ones((n, 1), dtype=float)
+            if x is None or x.shape[1] == 0
+            else sm.add_constant(np.asarray(x, dtype=float))
+        )
+    except ImportError:  # pragma: no cover - statsmodels is a core dep
+        return None
+
+    if p_d <= 0 or ipw_denom <= 1e-12:
+        return None
+
+    # DRDID's un-normalised arm weights.
+    w_treat = keep * w * d
+    w_cont = keep * w * pscore * (1.0 - d) / (1.0 - pscore)
+    mw_t, mw_c = float(np.mean(w_treat)), float(np.mean(w_cont))
+    if mw_t <= 0 or mw_c <= 0:
+        return None
+
+    # Asymptotic linear representation of the control-arm WLS.
+    weights_ols = w * (1.0 - d)
+    wols_x = weights_ols[:, None] * xc
+    xpx = (wols_x.T @ xc) / n
+    try:
+        xpx_inv = np.linalg.inv(xpx)
+    except np.linalg.LinAlgError:
+        return None
+    alr_wols = ((weights_ols * resid)[:, None] * xc) @ xpx_inv
+
+    # Asymptotic linear representation of the weighted logit.
+    hess_w = pscore * (1.0 - pscore) * w
+    info = (xc.T * hess_w) @ xc / n
+    try:
+        info_inv = np.linalg.inv(info)
+    except np.linalg.LinAlgError:
+        return None
+    alr_ps = ((w * (d - pscore))[:, None] * xc) @ info_inv
+
+    m1 = np.mean(w_treat[:, None] * xc, axis=0)
+    m2 = np.mean((w_cont * (resid - eta_c))[:, None] * xc, axis=0)
+    m3 = np.mean(w_cont[:, None] * xc, axis=0)
+
+    out = -(alr_wols @ m1) / mw_t - (alr_ps @ m2) / mw_c + (alr_wols @ m3) / mw_c
+    return out if np.all(np.isfinite(out)) else None
 
 
 # ------------------------------------------------------------------
@@ -1326,6 +1534,7 @@ def _pscore_estimation_effect(
     pscore: np.ndarray,
     arm_weights: np.ndarray,
     arm_denom: float,
+    center: bool = True,
 ) -> Optional[np.ndarray]:
     """Asymptotic-linear correction for having *estimated* the logit.
 
@@ -1336,12 +1545,24 @@ def _pscore_estimation_effect(
 
     Parameters mirror :func:`_ipw_att`'s locals; ``arm_weights`` is the
     un-normalised control-arm weight vector and ``arm_denom`` its mean.
+
+    ``center`` selects which of DRDID's two ``mom.logit`` forms to build,
+    and the choice is dictated by what the estimator divides by:
+
+    - ``True`` — ``colMeans(w_cont (ΔY − η_c) X) / E[w_cont]``, the
+      Hájek-normalised form used by ``std_ipw_did_panel``. The estimator
+      divides the control arm by its *own* weight mass, so that mass is
+      itself estimated and the ``η_c`` term is its derivative.
+    - ``False`` — ``colMeans(w_cont ΔY X)``, the form used by
+      ``ipw_did_panel`` (Abadie). Both arms share the fixed denominator
+      ``E[D]``, so there is no control-mass derivative to subtract and
+      de-meaning here would remove a term that belongs in the variance.
     """
     try:
         import statsmodels.api as sm
 
         xc = sm.add_constant(x)
-    except Exception:  # pragma: no cover - statsmodels is a core dep
+    except ImportError:  # pragma: no cover - statsmodels is a core dep
         return None
 
     # Score of the weighted logit: w (D - p) X.
@@ -1357,8 +1578,11 @@ def _pscore_estimation_effect(
         return None
     asy_lin_ps = score @ info_inv
 
-    eta = float(np.mean(arm_weights * dy) / arm_denom)
-    m2 = np.mean((arm_weights * (dy - eta))[:, None] * xc, axis=0) / arm_denom
+    if center:
+        eta = float(np.mean(arm_weights * dy) / arm_denom)
+        m2 = np.mean((arm_weights * (dy - eta))[:, None] * xc, axis=0) / arm_denom
+    else:
+        m2 = np.mean((arm_weights * dy)[:, None] * xc, axis=0) / arm_denom
     out = asy_lin_ps @ m2
     return out if np.all(np.isfinite(out)) else None
 
@@ -1397,7 +1621,32 @@ def _ipw_abadie_att(
 
     att = float(np.mean((w1 - w0) * dy))
 
+    # ⚠️ correctness fix: propagate the propensity-score estimation effect.
+    #
+    # IPW is not Neyman-orthogonal in the score, so treating p̂(X) as known
+    # is not a second-order omission — it inflated this SE by ~34% against
+    # ``DRDID::ipw_did_panel`` on the reference fixture. The sibling
+    # :func:`_ipw_att` (Hájek-normalised) already carried this term; the
+    # Abadie variant did not.
+    #
+    # DRDID builds it un-centred here (``mom.logit <- att.cont * int.cov``)
+    # because both arms are divided by the fixed E[ωD] rather than by the
+    # control weight mass — see :func:`_pscore_estimation_effect`.
     inf_func = (w1 - w0) * dy - att * w1
+    if x is not None and x.shape[1] > 0:
+        adj = _pscore_estimation_effect(
+            dy=dy,
+            x=x,
+            w=w,
+            d=d,
+            pscore=pscore,
+            arm_weights=w0,
+            arm_denom=1.0,
+            center=False,
+        )
+        if adj is not None:
+            inf_func = inf_func - adj
+
     se = float(np.sqrt(np.mean(inf_func**2) / n))
 
     return att, se, inf_func
@@ -2008,6 +2257,7 @@ def _callaway_santanna_rcs(
     control_group: str = "nevertreated",
     pretest: str = "joint",
     pretest_periods: Optional[int] = None,
+    unit_col: Optional[str] = None,
 ) -> CausalResult:
     """Unconditional (or regression-adjusted) 2×2 cell-mean DID for RCS.
 
@@ -2025,9 +2275,21 @@ def _callaway_santanna_rcs(
 
     with ``p_{g,t} = #{i: G_i=g, T_i=t} / n``.  SE(ATT) is the sample
     variance of ψ divided by ``n``, matching CS2021 eqn (2.4) for RCS.
+
+    ``unit_col`` drives the unbalanced-panel route
+    (``allow_unbalanced_panel=True``). The estimators are unchanged —
+    observations are still not matched across time — but the influence
+    functions are folded to the unit level by summation and ``n`` becomes
+    the number of units rather than the number of rows, mirroring R
+    ``did``'s ``.rowid <- idname`` assignment for this case. That fold is
+    what lets the SEs pick up the within-unit correlation that a true
+    repeated cross-section does not have. With ``unit_col=None`` (a true
+    repeated cross-section) the fold is the identity.
     """
     df = data.copy()
     _require_columns(df, (y, g, t, *(x or [])), function="_callaway_santanna_rcs")
+    if unit_col is not None:
+        _require_columns(df, (unit_col,), function="_callaway_santanna_rcs")
 
     df[g] = df[g].fillna(0).replace([np.inf, -np.inf], 0).astype(int)
     drop_cols = [y, t] + (list(x) if x else [])
@@ -2042,6 +2304,40 @@ def _callaway_santanna_rcs(
             ),
             diagnostics={"function": "_callaway_santanna_rcs"},
         )
+
+    # Unbalanced-panel fold. `unit_codes` maps each row to its unit's slot
+    # in the influence-function matrix; `n_scale` is the `n` that scales
+    # every influence function and every SE (R: `n <- length(unique(
+    # data[, idname]))`, with idname = .rowid = the unit id here).
+    if unit_col is not None:
+        unit_codes, unit_uniques = pd.factorize(df[unit_col], sort=True)
+        n_scale = int(len(unit_uniques))
+        if n_scale < 2:
+            raise DataInsufficient(
+                f"allow_unbalanced_panel=True needs at least 2 units, "
+                f"found {n_scale}.",
+                recovery_hint=(
+                    "Check the unit identifier `i`, or pass panel=False to "
+                    "treat the data as true repeated cross-sections."
+                ),
+                diagnostics={"function": "_callaway_santanna_rcs"},
+            )
+    else:
+        unit_codes, unit_uniques = None, None
+        n_scale = n_obs
+
+    def _fold(inf_obs: np.ndarray) -> np.ndarray:
+        """Rows → influence-function slots, summing within unit.
+
+        The per-cell influence function arrives scaled by ``n_obs / n_cell``
+        (the RCS convention); rescaling by ``n_scale / n_obs`` restores R's
+        ``n / n1`` before the ``rowsum`` fold.
+        """
+        if unit_codes is None:
+            return inf_obs
+        out = np.zeros(n_scale, dtype=float)
+        np.add.at(out, unit_codes, inf_obs)
+        return out * (n_scale / n_obs)
 
     # Covariate adjustment: residualise Y on X using the never-treated
     # pool with period fixed effects. Plug-in influence functions treat
@@ -2124,6 +2420,14 @@ def _callaway_santanna_rcs(
                 base_val=base_val,
                 n_obs=n_obs,
             )
+        if unit_codes is not None:
+            # Fold to units, then re-derive the SE from the folded function.
+            # Taking the per-cell RCS SE at face value here would treat a
+            # unit's pre and post rows as independent draws and understate
+            # the variance.
+            inf_func = _fold(inf_func)
+            if np.isfinite(se):
+                se = float(np.sqrt(np.mean(inf_func**2) / n_scale))
         pval = float(2 * (1 - stats.norm.cdf(abs(att / se)))) if se > 0 else 1.0
         gt_results.append(
             {
@@ -2142,40 +2446,55 @@ def _callaway_santanna_rcs(
     detail = pd.DataFrame(gt_results)
     inf_matrix = np.column_stack(inf_funcs_list) if inf_funcs_list else None
 
-    # Cohort sizes for aggregation weights — use observation counts.
-    cohort_sizes = pd.Series({g_val: int((g_arr == g_val).sum()) for g_val in cohorts})
+    # Cohort sizes for aggregation weights, and the cohort label attached to
+    # each influence-function row. Both live in the same space as the
+    # influence functions: units under the unbalanced-panel fold, rows for a
+    # true repeated cross-section (where a "unit" is one observation).
+    if unit_codes is not None:
+        cohort_by_slot = np.zeros(n_scale, dtype=g_arr.dtype)
+        cohort_by_slot[unit_codes] = g_arr
+    else:
+        cohort_by_slot = g_arr
+    cohort_sizes = pd.Series(
+        {g_val: int((cohort_by_slot == g_val).sum()) for g_val in cohorts}
+    )
 
     post_mask = detail["relative_time"] >= 0
     agg_est, agg_se, agg_pval, agg_ci = _aggregate_simple(
         detail[post_mask],
         inf_matrix[:, post_mask.values] if inf_matrix is not None else None,
         cohort_sizes,
-        n_obs,
+        n_scale,
         alpha,
-        unit_cohorts=g_arr,
+        unit_cohorts=cohort_by_slot,
     )
     event_study = _aggregate_event_study(
         detail,
         inf_matrix,
         cohort_sizes,
-        n_obs,
+        n_scale,
         alpha,
     )
     pretrend = _pretrend_test(
-        detail, inf_matrix, n_obs, pretest=pretest, pretest_periods=pretest_periods
+        detail, inf_matrix, n_scale, pretest=pretest, pretest_periods=pretest_periods
     )
 
+    unbalanced = unit_codes is not None
     model_info: Dict[str, Any] = {
         "estimator": (
             f"{estimator.upper()} (RCS, Sant'Anna-Zhao)"
             if use_sz
             else "REG (RCS, cell-mean)" + (" + covariates" if x else "")
-        ),
+        )
+        + (" — unbalanced panel" if unbalanced else ""),
         "control_group": control_group,
         "base_period": base_period,
         "anticipation": anticipation,
-        "panel": False,
-        "n_units": n_obs,  # treated as "n" for aggte bootstrap
+        # An unbalanced panel keeps its panel identity: the estimator is the
+        # RCS one, but the influence functions are indexed by unit.
+        "panel": bool(unbalanced),
+        "allow_unbalanced_panel": unbalanced,
+        "n_units": n_scale,  # the "n" for aggte / the bootstrap
         "n_obs": n_obs,
         "n_periods": len(time_periods),
         "n_cohorts": len(cohorts),
@@ -2183,17 +2502,21 @@ def _callaway_santanna_rcs(
         "event_study": event_study,
         "pretrend_test": pretrend,
         "cohort_sizes": cohort_sizes,
-        # Private plumbing for sp.influence_functions: RCS influence
-        # functions are observation-level, so "units" are row positions.
+        # Private plumbing for sp.influence_functions. Under the unbalanced
+        # fold a row is a unit; for a true RCS it is an observation.
         "_cluster_ids": None,
-        "_unit_ids": df.index.to_numpy(),
-        "_unit_cohorts": g_arr,
+        "_unit_ids": (np.asarray(unit_uniques) if unbalanced else df.index.to_numpy()),
+        "_unit_cohorts": cohort_by_slot,
     }
     if covariate_info is not None:
         model_info.update(covariate_info)
 
     return CausalResult(
-        method="Callaway and Sant'Anna (2021) — repeated cross-sections",
+        method=(
+            "Callaway and Sant'Anna (2021) — unbalanced panel"
+            if unbalanced
+            else "Callaway and Sant'Anna (2021) — repeated cross-sections"
+        ),
         estimand="ATT",
         estimate=agg_est,
         se=agg_se,

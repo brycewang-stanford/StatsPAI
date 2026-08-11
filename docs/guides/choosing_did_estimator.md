@@ -32,7 +32,14 @@ estimating (§3.1).
 ```python
 sp.callaway_santanna(df, y="y", g="first_treat", t="year", i="id",
                      weights="pop")     # mirrors R did::att_gt(weightsname=)
+sp.sun_abraham(df, y="y", g="first_treat", t="year", i="id",
+               weights="pop")           # mirrors fixest sunab(..., weights=)
 ```
+
+Estimators that do **not** implement ω (`sdid`, `bjs`, `gardner_did`,
+`stacked_did`, `lp_did`) raise rather than ignoring the argument. That is
+deliberate: silently dropping ω returns a different estimand under the
+name of the one you asked for.
 
 ### Q2 — Which parallel-trends assumption are you willing to impose?
 
@@ -86,6 +93,37 @@ Sampling-based (units resampled from a population) vs design-based
 (treatment assignment is the only randomness). StatsPAI's CS path is
 sampling-based with a multiplier bootstrap. Say which you mean; it
 determines what the standard error covers (§3.3).
+
+**If adoption *timing* was actually randomised** — a policy lottery, a
+phased launch assigned at random, an RCT rolled out in waves — this is
+not a footnote about standard errors. It changes which estimator is
+correct. Parallel trends is then neither assumed nor needed, and
+imposing it throws away the randomisation you paid for:
+
+| | |
+| --- | --- |
+| `sp.staggered_rollout` | Roth & Sant'Anna's efficient estimator: uses the cohort's pre-treatment moments as optimal controls. `estimand=` picks simple / cohort / calendar / eventstudy |
+| `sp.staggered_cs` | the Callaway–Sant'Anna estimand, design-based inference |
+| `sp.staggered_sa` | the Sun–Abraham estimand, design-based inference |
+| `fisher=True` | randomisation test: permutes adoption dates and needs no asymptotics — the natural inference for a randomised rollout |
+
+Two traps worth naming. First, these answer a **different question**
+from `sp.callaway_santanna`, so the numbers differ and that is not a
+bug: on `did::mpdta`, where timing was *not* randomised, the
+design-based estimate is −0.0471 against CS's −0.0400. Second, R
+`staggered` reports two standard errors and so does StatsPAI —
+`se_type="neyman"` (the default, conservative) and `se_type="adjusted"`
+(what R prints, and never larger, because random timing identifies part
+of the pre-period covariance). Report which one you used.
+
+If timing was *not* randomised, stay on the parallel-trends estimators
+in §2 — a design-based SE does not become valid because the assignment
+looks haphazard.
+
+**Full treatment**: [Randomised rollouts (design-based DiD)](randomized_rollout.md)
+— including which of the two standard errors to report, the randomisation
+test, the design-based event study, and the three diagnostics you should
+*stop* running once you are on this branch.
 
 **One call runs all of this**, and reports the eight-step checklist:
 
@@ -147,10 +185,10 @@ TWFE over them.
 | Two-stage regression (event study + covariate ix)   | `sp.gardner_did(df, y=..., group=..., time=..., first_treat=..., event_study=True)` |
 | One-call harvesting + precision-weighted            | `sp.harvest_did(df, outcome=..., unit=..., time=..., cohort=...)`                   |
 | Two-way Mundlak / ETWFE                             | `sp.wooldridge_did(df, y, group, time, first_treat)`                                |
-| Always-treated + never-treated only                 | `sp.stacked_did(df, y, g, t, i, event_window=6)`                                    |
+| Cohort sub-experiments w/ clean controls (CDLZ)     | `sp.stacked_did(df, y, group, time, first_treat, window=(-5, 5))`                   |
 | Continuous / dose treatment                         | `sp.continuous_did(df, y, d, t, i)`                                                 |
 | Changes-in-changes (CIC, not DID-in-mean)           | `sp.cic(df, y, g, t)`                                                               |
-| de Chaisemartin-D'Haultfoeuille                     | `sp.did_multiplegt(df, y, treat, g, t, i)`                                          |
+| de Chaisemartin-D'Haultfoeuille                     | `sp.did_multiplegt(df, y, group, time, treatment)`                                  |
 
 **Default recommendation when in doubt: `sp.callaway_santanna(..., estimator='dr')`.**
 Doubly-robust CS is the modern "no-regret" default — it's robust to both
@@ -162,11 +200,13 @@ calendar-weighted, and event-study ATT without refitting.
 
 If you **must** use TWFE event studies for a reviewer:
 ```python
-sp.event_study(df, y='y', d='d', t='t', i='i',
-               method='twfe',  # naive; prints warning if staggered
-               pretrend_test=True)
+r = sp.event_study(df, y='y', treat_time='first_treat',
+                   time='t', unit='i', window=(-4, 4))
+sp.pretrends_test(r)   # joint Wald test on the leads
 ```
-Prefer `method='sun_abraham'` or run `sp.sun_abraham` directly.
+`sp.event_study` is the pooled-TWFE event study — under staggered
+adoption with heterogeneous effects its leads are contaminated by other
+cohorts' treated periods. Run `sp.sun_abraham` instead when that applies.
 
 ## 3. Sensitivity and robustness
 
@@ -201,7 +241,25 @@ DID is the **wrong** tool if:
 3. **Treatment is continuous dose, not 0/1 onset:** use
    `sp.continuous_did` or `sp.bunching` (if at a threshold).
 4. **Anticipation effects exist:** use `anticipation=h` parameter in
-   CS2021 to backdate the reference period.
+   CS2021 to backdate the reference period. `h` shifts the base period
+   for post-treatment cells only; under `base_period="varying"` a
+   pre-treatment placebo keeps the period immediately before it, so its
+   value does not move with `h` (this matches R `did`).
+
+## 4.1 Unbalanced panels
+
+If some units are missing some periods, `sp.callaway_santanna` warns and
+you have three genuinely different options — pick one deliberately
+rather than letting the default decide:
+
+| Option | What it estimates |
+| --- | --- |
+| default (`allow_unbalanced_panel=False`) | within-unit differences anyway; a unit missing the base *or* comparison period drops out of **that cell**, so the sample varies cell to cell |
+| `allow_unbalanced_panel=True` | switches to the repeated-cross-section estimators, keeping every observed row, with influence functions folded back to units so the SEs keep within-unit correlation (R `did::att_gt(allow_unbalanced_panel = TRUE)`) |
+| `sp.balance_panel(...)` first | one fixed sample throughout, at the cost of dropping incomplete units entirely |
+
+The three give different numbers on the same data. Report which you
+used. The flag is inert when the panel turns out to be balanced.
 
 ## 4.5 Frontier estimators
 
@@ -217,7 +275,8 @@ and "checked against the reference" are different claims.
 | On/off switching — dCDH 2024 event study | `sp.did_multiplegt_dyn` | effects, placebos and the switcher-weighted aggregate match `DIDmultiplegtDYN` 2.3.4 at 5e-15, switcher counts included (Track A 78) |
 | Triple differences, heterogeneity-robust | `sp.ddd_heterogeneous` | cells and analytic SEs match `triplediff` 0.2.4 at 1e-12 across dr / ipw / reg (Track A 77) |
 | Stacked DiD (CDLZ) | `sp.stacked_did` | matches a hand-written `fixest` stack at 1.3e-13 under both control-group conventions (Track A 75) |
-| Is parallel trends scale-dependent? | `sp.functional_form_test` | matches `didFF` 0.1.0 at 1.2e-15 on both an accepting and a rejecting design (Track A 79) |
+| Is parallel trends scale-dependent? | `sp.functional_form_test` | matches `didFF` 0.1.0 at 2e-15 on an accepting and a rejecting design, weighted and unweighted, across all four aggregations, the dynamic event-time window, and both the automatic and discrete binning rules (Track A 79) |
+| Randomised adoption timing | `sp.staggered_rollout`, `sp.staggered_cs`, `sp.staggered_sa` | matches R `staggered` 1.2.2 at 1e-9 on three panels — every estimand × `beta` × comparison group, both standard errors, every feasible event time and the joint event-study covariance; the randomisation test is pinned draw-for-draw on R-generated permutations |
 | Pre-test power / detectable trend | `sp.pretrends_power`, `sp.pretrends_slope_for_power` | match Roth's `pretrends` 0.1.0 within its own Monte-Carlo noise (Track A 76) |
 | Spatial spillovers, heterogeneity-robust | `sp.spillover_did` | **no reference implementation exists**; design-recovery evidence only |
 | LP-DiD | `sp.lp_did` | implemented, but not verified against the published paper and carries no parity test |

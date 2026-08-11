@@ -124,7 +124,14 @@ def render_agent_block(name: str, *, header: bool = True) -> str:
 
     if alternatives:
         sections.append("**Alternatives (ranked)**")
-        sections.extend(f"- `sp.{alt}`" for alt in alternatives)
+        # A few registry entries spell the alternative with the ``sp.``
+        # prefix already; prepending it unconditionally rendered
+        # ``sp.sp.regress`` into the generated "For Agents" blocks and into
+        # sp.describe_function() output.
+        sections.extend(
+            f"- `sp.{alt[3:] if alt.startswith('sp.') else alt}`"
+            for alt in alternatives
+        )
         sections.append("")
 
     if n_min is not None:

@@ -8,7 +8,7 @@ auditing, and posterior verification.
 ```python
 rec = sp.recommend(
     df,
-    outcome='earnings',
+    y='earnings',
     treatment='training',
     covariates=['age', 'educ', 'prior_earnings'],
     design='observational',          # 'rct' | 'observational' | 'did' | 'rd' | 'iv' | 'synth'
@@ -27,7 +27,7 @@ stability forest:
 
 ```python
 cmp = sp.compare_estimators(
-    df, outcome='y', treatment='d', covariates=[...],
+    df, y='y', treatment='d', covariates=[...],
     methods=['ols', 'psm', 'dml', 'aipw', 'tmle', 'causal_forest'],
 )
 cmp.plot_forest()
@@ -39,7 +39,7 @@ cmp.table()
 One-call audit of the most common identification assumptions:
 
 ```python
-audit = sp.assumption_audit(df, outcome='y', treatment='d', covariates=[...])
+audit = sp.assumption_audit(result, data=df)   # takes a fitted result
 audit.overlap                        # propensity score overlap diagnostic
 audit.covariate_balance              # Love plot of standardised diffs
 audit.placebo_outcomes               # pre-treatment placebos
@@ -56,9 +56,9 @@ three signals into a `verify_score ∈ [0, 100]`:
 ```python
 v = sp.verify(
     rec,
-    n_boot=500,
-    n_subsample=100,
-    subsample_frac=0.8,
+    df,
+    B=500,             # bootstrap replications
+    K_subsample=100,   # 50% subsample splits
     n_placebo=20,
 )
 

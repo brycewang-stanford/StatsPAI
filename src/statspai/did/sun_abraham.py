@@ -228,6 +228,7 @@ def sun_abraham(
     control_group: str = "nevertreated",
     control_cohort: Optional[Any] = None,
     covariates: Optional[List[str]] = None,
+    weights: Optional[str] = None,
     cluster: Optional[str] = None,
     aggregation: str = "event_time",
     alpha: float = 0.05,
@@ -458,10 +459,17 @@ def sun_abraham(
     # Build the panel of y and X, demean, then flatten.
     unit_idx = pd.Categorical(df[i])
     time_idx = pd.Categorical(df[t])
-    y_dm = _two_way_demean(df[y].values.astype(float), unit_idx, time_idx)
+    # Observation weights omega. Unit weights are constant within unit, but
+    # the projection and the solve both work at observation level.
+    w_all = (
+        np.ones(len(df), dtype=float)
+        if weights is None
+        else df[weights].to_numpy(dtype=float)
+    )
+    y_dm = _two_way_demean(df[y].values.astype(float), unit_idx, time_idx, w=w_all)
     X_dm = np.column_stack(
         [
-            _two_way_demean(X_int[:, k], unit_idx, time_idx)
+            _two_way_demean(X_int[:, k], unit_idx, time_idx, w=w_all)
             for k in range(X_int.shape[1])
         ]
     )
@@ -471,27 +479,34 @@ def sun_abraham(
             X_dm = np.column_stack(
                 [
                     X_dm,
-                    _two_way_demean(df[c].values.astype(float), unit_idx, time_idx),
+                    _two_way_demean(
+                        df[c].values.astype(float), unit_idx, time_idx, w=w_all
+                    ),
                 ]
             )
 
     valid = np.isfinite(y_dm) & np.all(np.isfinite(X_dm), axis=1)
     y_v = y_dm[valid]
     X_v = X_dm[valid]
+    w_v = w_all[valid]
     cluster_v = df.loc[valid, cluster_col].values
     k_int = len(interact_meta)
 
-    # ----- OLS with ridge safety -----
-    XtX = X_v.T @ X_v
+    # ----- (W)LS with ridge safety -----
+    # At omega == 1 every product below reduces to the unweighted form.
+    Xw = X_v * w_v[:, None]
+    XtX = Xw.T @ X_v
     try:
         XtX_inv = np.linalg.inv(XtX + 1e-10 * np.eye(X_v.shape[1]))
     except np.linalg.LinAlgError:
         XtX_inv = np.linalg.pinv(XtX)
-    beta = XtX_inv @ (X_v.T @ y_v)
+    beta = XtX_inv @ (Xw.T @ y_v)
 
     # ----- Cluster-robust sandwich SE (Liang-Zeger) -----
+    # The meat is built from the *weighted* score w_i x_i u_i, matching
+    # fixest's weighted cluster-robust variance.
     u = y_v - X_v @ beta
-    Xu = X_v * u[:, None]
+    Xu = Xw * u[:, None]
     clusters = pd.Series(cluster_v)
     Xu_sum = np.zeros_like(XtX)
     for _, idx in clusters.groupby(clusters).indices.items():
@@ -508,7 +523,16 @@ def sun_abraham(
 
     # ----- IW aggregation at each relative time -----
     unit_cohorts = df.groupby(i)[g].first()
-    cohort_counts = unit_cohorts[unit_cohorts > 0].value_counts()
+    if weights is None:
+        cohort_counts = unit_cohorts[unit_cohorts > 0].value_counts()
+    else:
+        # Interaction weights are cohort *shares*; under omega those are
+        # shares of omega-mass, not head counts, or a weighted estimate
+        # would be aggregated with unweighted weights.
+        unit_w = df.groupby(i)[weights].first()
+        cohort_counts = (
+            unit_w[unit_cohorts > 0].groupby(unit_cohorts[unit_cohorts > 0]).sum()
+        )
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
     # Observation counts per relative time over the *estimated* cohorts
@@ -721,11 +745,21 @@ def _two_way_demean(
     time_idx: pd.Categorical,
     max_iter: int = 50,
     tol: float = 1e-10,
+    w: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Iterative within-transformation for unbalanced two-way FE.
 
     Falls back to the identity transformation on a single-unit / single-period
     sample.  Converges in a handful of passes on well-behaved panels.
+
+    ``w`` carries observation weights. The weighted projection subtracts
+    the *weighted* group mean at each pass, which is what makes the
+    residual orthogonal to the fixed effects **in the weighted inner
+    product** -- the orthogonality WLS actually needs. Demeaning by the
+    unweighted mean and then running WLS would leave the fixed effects
+    correlated with the regressors and bias the coefficients, so the
+    weight has to enter the projection, not just the final solve.
+    ``w=None`` reproduces the unweighted path exactly.
     """
     x = x.astype(float).copy()
     n_units = len(unit_idx.categories)
@@ -735,14 +769,27 @@ def _two_way_demean(
 
     u_codes = unit_idx.codes
     t_codes = time_idx.codes
+    weighted = w is not None and not np.allclose(w, 1.0)
+    if weighted:
+        w = np.asarray(w, dtype=float)
+        u_wsum = np.bincount(u_codes, weights=w, minlength=n_units)
+        u_wsum = np.where(u_wsum > 0, u_wsum, 1.0)
+        t_wsum = np.bincount(t_codes, weights=w, minlength=n_times)
+        t_wsum = np.where(t_wsum > 0, t_wsum, 1.0)
 
     for _ in range(max_iter):
-        u_count = np.bincount(u_codes, minlength=n_units).clip(min=1)
-        u_mean = np.bincount(u_codes, weights=x, minlength=n_units) / u_count
-        x = x - u_mean[u_codes]
-        t_count = np.bincount(t_codes, minlength=n_times).clip(min=1)
-        t_mean = np.bincount(t_codes, weights=x, minlength=n_times) / t_count
-        x = x - t_mean[t_codes]
+        if weighted:
+            u_mean = np.bincount(u_codes, weights=w * x, minlength=n_units) / u_wsum
+            x = x - u_mean[u_codes]
+            t_mean = np.bincount(t_codes, weights=w * x, minlength=n_times) / t_wsum
+            x = x - t_mean[t_codes]
+        else:
+            u_count = np.bincount(u_codes, minlength=n_units).clip(min=1)
+            u_mean = np.bincount(u_codes, weights=x, minlength=n_units) / u_count
+            x = x - u_mean[u_codes]
+            t_count = np.bincount(t_codes, minlength=n_times).clip(min=1)
+            t_mean = np.bincount(t_codes, weights=x, minlength=n_times) / t_count
+            x = x - t_mean[t_codes]
         if np.nanmax(np.abs(u_mean)) < tol and np.nanmax(np.abs(t_mean)) < tol:
             break
     return np.asarray(x, dtype=float)

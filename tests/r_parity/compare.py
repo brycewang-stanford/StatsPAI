@@ -247,6 +247,11 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # 2.x rewrite's mode="old" returns NaN even on its own example. No
     # rel_se: the R side runs brep=0.
     "81_didm": {"rel_est": 1e-6},
+    # LP-DiD: the R side is a direct transcription rather than a package, so
+    # both sides solve the same OLS on the same rows and only summation order
+    # separates them. The per-horizon sample sizes match exactly, which is the
+    # real check on the clean-control window.
+    "83_lpdid": {"rel_est": 1e-10, "rel_se": 1e-10},
     # CGS continuous treatment: the dose curves at four grid points and
     # both overall quantities, across three spline specifications, match
     # contdid at 1e-12. The curves are compared under
@@ -311,7 +316,11 @@ TOLERANCES: dict[str, dict[str, float]] = {
     "03_hdfe": {"rel_est": 1e-6, "rel_se": 1e-6},
     # B: analytic IF SE incl. control-regression uncertainty; observed
     # 0.32% vs both did::aggte and csdid (3.1x margin).
-    "04_csdid": {"rel_est": 1e-6, "rel_se": 1e-2},
+    # rel_se was 1e-2 while sp.aggte dropped the cohort-share weight-estimation
+    # term; the simple ATT now reproduces did::aggte to ~4e-16, so a 1% band is
+    # slack a future regression could hide in. Same failure mode the DiD
+    # reconciliation study documents: the tolerance, not the number, was the bug.
+    "04_csdid": {"rel_est": 1e-6, "rel_se": 1e-9},
     # B: event-time IW SEs track Stata eventstudyinteract (<=0.9%);
     # fixest agg='att' clustered delta-method aggregation differs by up
     # to 17.1% on the sparse mpdta cohorts (1.5x margin; fixest-side
@@ -939,7 +948,7 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic == "simple_ATT",
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "SE within 1\\% analytic tolerance",
+        "gap_note": "estimate and SE both rel $<$ 1e-9",
     },
     "73_did2s": {
         "name": "Gardner two-stage DiD",
@@ -951,6 +960,13 @@ HEADLINE: dict[str, dict[str, Any]] = {
             "(did2s propagates stage-1 estimation error, sp.gardner_did's "
             "vce='analytic' does not -- vce='bootstrap' recovers it to ~6\\%)"
         ),
+    },
+    "83_lpdid": {
+        "name": "LP-DiD event study (Dube-Girardi-Jorda-Taylor)",
+        "headline_filter": lambda d: d.statistic in {"lpdid_h0_att", "lpdid_h1_att"},
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "estimate and SE both rel $<$ 1e-14 vs a direct transcription",
     },
     "81_didm": {
         "name": "dCDH 2020 DID_M (on/off switching)",

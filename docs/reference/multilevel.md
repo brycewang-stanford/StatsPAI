@@ -7,10 +7,10 @@ with `lme4` / Stata `mixed` / `meglm` parity, rewritten in v0.9.3.
 
 ```python
 r = sp.mixed(
-    df, y='math_score', x=['ses', 'gender'],
+    df, y='math_score', x_fixed=['ses', 'gender'],
     group='school',                            # two-level
     # group=['school', 'class'],               # three-level nested
-    re_formula='1 + ses',                      # random intercept + random slope
+    x_random=['ses'],                          # random intercept + random slope
     cov_type='unstructured',                   # new default; also 'diagonal', 'identity'
     method='reml',                             # or 'ml'
 )
@@ -43,7 +43,7 @@ sp.meologit(df, 'severity_cat', ['age','sex'], group='site', nAGQ=7)
 
 # Generic GLMM dispatcher
 sp.meglm(df, 'y', ['x'], group='g',
-         family='binomial', link='logit', nAGQ=7)
+         family='binomial', nAGQ=7)   # canonical link per family
 
 r.odds_ratios()                # logit / ordinal
 r.incidence_rate_ratios()      # Poisson / NegBin

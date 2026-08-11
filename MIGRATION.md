@@ -5,6 +5,250 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="functional-form-test-default-binning"></a>
+
+## Unreleased — ⚠️ `sp.functional_form_test` default binning changed
+
+**Who is affected.** Anyone who called `sp.functional_form_test` in
+1.21.0 or 1.22.0 **without** passing `n_bins` or `binpoints`. If you
+passed either one explicitly, nothing moves.
+
+**What changed.** The default went from `n_bins=10` to `n_bins="auto"`.
+`"auto"` is the rule `didFF` 0.1.0 uses:
+
+- fewer than 20 distinct outcome values among untreated observations →
+  the outcome is treated as **discrete**, one bin per value, with a
+  warning;
+- otherwise → cut into `min(20, n_distinct)` equal-width bins.
+
+An explicit integer still always cuts, however few distinct values the
+outcome takes.
+
+**Why.** The binning is not a display choice, it is the test. It fixes
+the resolution at which a negative implied density can be detected, so
+two runs that bin differently answer different questions. Shipping a
+default that differs from the reference implementation meant
+`sp.functional_form_test(df, ...)` and `didFF(data, ...)` returned
+different p-values on the same data with no indication why — the worst
+kind of parity gap, because it looks like a disagreement about the
+method rather than about the grid.
+
+**What to do.** To reproduce a p-value computed under 1.21.0 or 1.22.0,
+pass `n_bins=10` explicitly:
+
+```python
+res = sp.functional_form_test(df, y="lemp", g="first_treat",
+                              t="year", i="countyreal", n_bins=10)
+```
+
+Otherwise re-run and report the new number. Expect the p-value to move
+in either direction: a finer grid has more power against a localised
+violation, and more bins to be uninformative about.
+
+**Two smaller changes ride along.** `binpoints` that stop short of the
+outcome range are now padded (with a warning) rather than silently
+dropping the uncovered mass, and passing both `binpoints` and an
+explicit `n_bins` now raises rather than silently preferring
+`binpoints`. Both match `didFF`.
+
+---
+
+<a id="staggered-rollout-singleton-cohorts"></a>
+
+## Unreleased — `sp.staggered_rollout` no longer raises on singleton cohorts
+
+**Who is affected.** Anyone whose panel has a treatment cohort
+containing exactly one unit.
+
+**What changed.** That case used to raise `DataInsufficient`. It now
+drops the offending cohort, warns, and estimates on the rest — which is
+what R `staggered` 1.2.2 does. The within-cohort covariance of a
+one-unit cohort is not estimable, so the cohort cannot contribute
+either way; the old behaviour just refused to proceed.
+
+**What to do.** Nothing, unless you were catching `DataInsufficient` to
+detect this case. If a dropped cohort matters to your estimand, the
+warning names it.
+
+**No estimate that previously succeeded moves**: panels without
+singleton cohorts take an identical path.
+
+---
+
+<a id="drdid-full-family"></a>
+
+## Unreleased — ⚠️ `sp.drdid` on repeated cross-sections changes
+
+**Who is affected.** Anyone calling `sp.drdid` **without** `id=`. The
+`id=` panel path is unaffected except in its last few digits (see the
+tilting note below).
+
+**What was wrong.** Two things, both silent:
+
+1. `method='imp'` and `method='trad'` computed the *same estimator*. They
+   agreed to 3e-13 — floating-point reassociation, not a real choice. The
+   estimator you actually got was `DRDID::drdid_rc1`, reported under an
+   "Improved" or "Traditional" label picked by an argument that did
+   nothing.
+2. The standard error was a nonparametric bootstrap over `n_boot`
+   resamples, not the Sant'Anna–Zhao influence function. It was random,
+   changed with `n_boot` and `random_state`, and sat 1.5–5.5% off the
+   reference.
+
+There was also a fallback branch that, when a treatment × period cell was
+too small to fit the outcome regression, quietly dropped the covariates
+and returned an unadjusted 2×2 DID under the doubly-robust label.
+
+**What changes.**
+
+| call | before | after |
+|---|---|---|
+| `sp.drdid(...)` (default `method='imp'`) | `drdid_rc1`, bootstrap SE | `DRDID::drdid_imp_rc`, analytic SE |
+| `sp.drdid(..., method='trad')` | `drdid_rc1`, bootstrap SE | `DRDID::drdid_rc`, analytic SE |
+| too-small cells | unadjusted 2×2 DID, no warning | raises `DataInsufficient` |
+
+**Point estimates move** whenever `method='imp'` was used or defaulted to.
+**Standard errors move in every case**, and are now deterministic —
+`n_boot` and `random_state` no longer affect them at all.
+
+**What to do.** Re-run any `sp.drdid` call made without `id=`. Check
+`result.model_info["engine"]`, which now names the exact DRDID function
+that ran, against what you meant to estimate.
+
+```python
+r = sp.drdid(df, y="y", group="d", time="post", covariates=["x1", "x2"])
+r.model_info["engine"]            # 'drdid_imp_rc'
+r.model_info["drdid_reference"]   # 'DRDID::drdid_imp_rc'
+```
+
+**Also new, nothing breaking.** `est_method=` (`'dr'`/`'ipw'`/`'reg'`/
+`'twfe'`), `normalized=`, `locally_efficient=`, `weights=` and
+`trim_level=` open up the rest of the DRDID family — 14 estimators in
+total, all pinned against R `DRDID` 1.2.3. `sp.drdid(..., id=,
+method='trad')` used to raise and now runs `DRDID::drdid_panel`.
+
+**Improved estimators move in the last digits.** The inverse
+probability tilting solver now runs a Newton refinement to a gradient of
+1e-13, where it previously stopped at BFGS's tolerance. Tilting is
+supposed to make the covariate-balance conditions hold *exactly*; a
+1.5e-9 slack was moving `drdid_imp_rc` by 7e-4 in the ATT and 2.9% in the
+SE. Anything with `method='imp'` shifts slightly, toward the reference.
+
+---
+
+<a id="cs-clustered-bootstrap-unequal-clusters"></a>
+
+## Unreleased — ⚠️ clustered CS bootstrap SEs change on unequal clusters
+
+**Who is affected.** Anyone calling
+`sp.callaway_santanna(..., clustervars=<var>, bstrap=True)` — or
+`sp.aggte(..., bstrap=True)` on such a fit — where the clusters are
+**not all the same size**. Clustering counties by state, firms by
+industry, schools by district: the normal case. Equal-sized clusters are
+unaffected, as is every unclustered bootstrap and every analytic SE.
+
+**What changed.** The multiplier bootstrap collapsed the influence
+functions to cluster *means* and divided by `n_clusters`. It now
+collapses to cluster *sums* and divides by `n` (the unit count).
+
+**Why.** The old form is the cluster-robust variance only when all
+clusters are the same size. Otherwise each cluster enters with weight
+`1/|c|`, so the smallest clusters dominate the variance. Concretely, on
+a 500-county panel clustered into 9 states of sizes 3–317, the old SEs
+were 1.5× to 11× too large; on a 1–150 spread, ~5× too large. The
+cluster-sum form reduces to the ordinary `σ²/n` when there is no
+within-cluster correlation, however the units happen to be partitioned;
+the cluster-mean form does not.
+
+**This is a deliberate divergence from CRAN `did` 2.3.0.** StatsPAI's old
+behaviour matched it exactly — this was a faithful port, not a
+transcription error. Upstream `did` (GitHub master, post-2.3.0) has since
+switched to the cluster-sum form, with a source comment stating the old
+aggregation only coincides for equal-sized clusters; the `csdid` Python
+port already tracks the corrected form. If you are reconciling StatsPAI
+against **R `did` 2.3.0** on unequal clusters, the two will now differ,
+and StatsPAI is deliberately following the corrected upstream.
+
+**What to do.** Re-run clustered `bstrap=True` inference. SEs will
+usually **shrink**, so confidence intervals narrow and p-values fall —
+the old numbers were conservative, not wrong in a direction that
+protected you against false positives elsewhere. Point estimates do not
+move.
+
+```python
+# unchanged call; the SEs behind it are now the cluster-robust ones
+fit = sp.callaway_santanna(df, y="lemp", g="first_treat", t="year",
+                           i="countyreal", clustervars="state",
+                           bstrap=True, biters=1000, random_state=0)
+```
+
+---
+
+<a id="cs-anticipation-varying-base"></a>
+
+## Unreleased — ⚠️ `anticipation>0` pre-treatment placebos change
+
+**Who is affected.** Anyone calling `sp.callaway_santanna` (or `sp.did`
+routing to it) with **both** `anticipation > 0` **and**
+`base_period="varying"`. The default is `base_period="universal"`, which
+is unaffected, as is `anticipation=0`.
+
+**What changed.** StatsPAI shifted the base period back by
+`anticipation` for every cell. It now shifts it only for
+*post*-treatment cells, matching R `did`: a pre-treatment placebo keeps
+the period immediately before it as its base, so its value no longer
+moves when you change `anticipation`.
+
+**What moves.** Pre-treatment ATT(g,t) — event-study leads, the joint
+pre-trend test, anything built on placebo cells. The earliest
+pre-treatment cells, previously dropped from the grid, now appear.
+**Post-treatment ATT(g,t) do not move**, so `sp.aggte` overall/simple/
+group/calendar effects and the headline ATT are unchanged.
+
+Separately, cohorts with no period satisfying `t + anticipation < g` are
+now dropped with an explicit warning rather than silently, and the
+period grid is compared with strict inequalities instead of `t − 1`
+arithmetic — so irregularly spaced periods (1990, 1995, 2000, …) resolve
+to the neighbouring observed period instead of losing the cell.
+
+---
+
+<a id="cs-allow-unbalanced-panel"></a>
+
+## Unreleased — `allow_unbalanced_panel` on `sp.callaway_santanna`
+
+**Nothing breaks.** This is a new opt-in argument, defaulting to `False`,
+which is the previous behaviour.
+
+**What it is for.** With `panel=True` and units missing periods, the
+default route still forms within-unit differences, so a unit missing
+either the base or the comparison period drops out of *that cell* and
+the effective sample varies from cell to cell. That is now stated in the
+existing unbalanced-panel warning, which names the option.
+
+```python
+fit = sp.callaway_santanna(df, y="y", g="g", t="t", i="i",
+                           allow_unbalanced_panel=True)
+```
+
+switches to the repeated-cross-section estimators, which never difference
+within unit and therefore keep every observed row, and folds the
+influence functions back to the unit level so standard errors still
+account for within-unit correlation. This mirrors
+`did::att_gt(allow_unbalanced_panel = TRUE)` and agrees with it to
+≤7e−15 on ATT(g,t) and to machine precision on SEs.
+
+The flag is **inert on a balanced panel** (as in R), so turning it on
+cannot quietly change results that did not need it. It does not yet
+combine with `weights=` or `clustervars=`; both raise rather than being
+ignored.
+
+**The two routes are different estimators, not two precisions of one.**
+Expect different numbers on the same unbalanced data, and say which you
+used.
+
+---
+
 <a id="did-weights-and-ipw-se"></a>
 
 ## Unreleased — DiD unit weights, and IPW standard errors
@@ -45,8 +289,9 @@ cs = sp.callaway_santanna(df, y="y", g="g", t="t", i="i", weights="pop")
 sp.aggte(cs, type="dynamic")  # cohort shares are now ω-mass, not counts
 ```
 
-Estimators that do not implement ω (`sun_abraham`, `sdid`, `bjs`,
-`gardner_did`, `stacked_did`, `lp_did`) now **raise**
+`sp.sun_abraham` also implements ω now (projection, solve,
+cluster-robust variance, and interaction weights). Estimators that still
+do not (`sdid`, `bjs`, `gardner_did`, `stacked_did`, `lp_did`) **raise**
 `MethodIncompatibility` rather than ignoring the argument. Either switch
 to `method="cs"` or drop `weights=` and report the unweighted estimand
 explicitly.
@@ -68,7 +313,31 @@ intervals were conservative, not anti-conservative. Against
 `did::att_gt(est_method="ipw")` the gap was 9–11% unweighted and up to
 89% weighted; it is now 5e−11.
 
-`estimator="reg"` is unaffected. `estimator="dr"` moves by less than 1%.
+`estimator="reg"` is unaffected.
+
+### 2b. `estimator="dr"` standard errors move when covariates are supplied
+
+The same change set also completed the DR influence function by
+propagating DRDID's two nuisance estimation effects. DR is
+Neyman-orthogonal in each nuisance separately, so the gap was small
+(≤0.9% against `DRDID::drdid_panel`) — but it was real.
+
+**Who is affected.** Anyone reporting inference from
+`estimator="dr"` **with covariates**. Without covariates the correction
+is identically zero, so covariate-free results are unchanged.
+
+```python
+# Covariate-free: unchanged, correction is exactly zero.
+sp.callaway_santanna(df, y="y", g="g", t="t", i="i", estimator="dr")
+
+# With covariates: SE moves toward the R reference.
+sp.callaway_santanna(df, y="y", g="g", t="t", i="i",
+                     x=["x1"], estimator="dr")
+```
+
+All three covariate strategies now agree with R `did` 2.3.0 to ≤4.6e−11
+across a 72-cell grid (3 strategies × 2 comparison groups × weighted and
+unweighted × with and without covariates × 3 aggregations).
 
 ```python
 # Re-run and compare:

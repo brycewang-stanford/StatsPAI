@@ -23,8 +23,9 @@ out <- list()
 for (est in c("dr", "reg", "ipw")) {
   for (cg in c("nevertreated", "notyettreated")) {
     for (wt in c(FALSE, TRUE)) {
+     for (cov in c(TRUE, FALSE)) {
       a <- att_gt(yname="y", tname="t", idname="i", gname="g",
-                  xformla = ~ x1, data=df,
+                  xformla = if (cov) ~ x1 else NULL, data=df,
                   weightsname = if (wt) "w" else NULL,
                   est_method = est, control_group = cg,
                   bstrap = FALSE, cband = FALSE, base_period = "universal")
@@ -32,10 +33,11 @@ for (est in c("dr", "reg", "ipw")) {
       d <- aggte(a, type="dynamic", bstrap=FALSE, cband=FALSE)
       gg<- aggte(a, type="group",  bstrap=FALSE, cband=FALSE)
       out[[length(out)+1]] <- data.frame(
-        est=est, control_group=cg, weighted=wt,
+        est=est, control_group=cg, weighted=wt, covariates=cov,
         simple_att=s$overall.att, simple_se=s$overall.se,
         dynamic_att=d$overall.att, dynamic_se=d$overall.se,
         group_att=gg$overall.att, group_se=gg$overall.se)
+     }
     }
   }
 }

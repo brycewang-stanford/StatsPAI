@@ -1,7 +1,7 @@
 # StatsPAI
 
 **Validation-tiered Python workflows for causal inference and applied
-econometrics.** One `import statspai as sp` exposes **1,168 registered
+econometrics.** One `import statspai as sp` exposes **1,171 registered
 functions** across 87 submodules (live count: `python
 scripts/registry_stats.py`) spanning classical regression, staggered
 DiD, regression discontinuity,
@@ -69,16 +69,16 @@ quantile regression (`sp.ivqreg`); mixed logit (`sp.mixlogit`).
 **Difference-in-differences (10+ variants).**
 `sp.callaway_santanna` (DR/IPW/REG), `sp.aggte` with Mammen uniform
 bands, `sp.sun_abraham`, `sp.bjs` (Borusyak-Jaravel-Spiess imputation),
-`sp.dcdh` (de Chaisemartin-D'Haultfoeuille), `sp.etwfe`,
-`sp.goodman_bacon`; sensitivity via `sp.honest_did`, `sp.breakdown_m`;
+`sp.did_multiplegt` (de Chaisemartin-D'Haultfoeuille), `sp.etwfe`,
+`sp.bacon_decomposition`; sensitivity via `sp.honest_did`, `sp.breakdown_m`;
 one-call `sp.cs_report` with Markdown / LaTeX / Excel export.
 
 **Regression discontinuity (18+ estimators).**
 `sp.rdrobust` (CCT sharp/fuzzy/kink with bias-corrected robust CI),
 `sp.rd2d` (2D/boundary), `sp.rkd`, `sp.rdit`, multi-cutoff and
-multi-score designs, `sp.rdhonest` (Armstrong-Kolesar), local
+multi-score designs, `sp.rd_honest` (Armstrong-Kolesar), local
 randomization (`sp.rdrandinf`, `sp.rdwinselect`, `sp.rdsensitivity`),
-`sp.cjm_density`, ML-based CATE (`sp.rd_forest`, `sp.rd_boost`,
+`sp.rddensity`, ML-based CATE (`sp.rd_forest`, `sp.rd_boost`,
 `sp.rd_lasso`), Angrist-Rokkanen extrapolation, `sp.rdpower`,
 `sp.rdsampsi`, bundled `sp.rdsummary` dashboard.
 
@@ -143,7 +143,7 @@ Oster bounds; sensemakr; E-values; Rosenbaum bounds; Manski bounds;
 
 ```python
 # Recommend estimators + run posterior verification
-rec  = sp.recommend(df, outcome='y', treatment='d', verify=True)
+rec  = sp.recommend(df, y='y', treatment='d', verify=True)
 rec.summary()                # ranked estimators with verify_score
 rec.plot('verify_radar')     # visual stability check
 ```

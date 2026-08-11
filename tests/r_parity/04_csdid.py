@@ -46,10 +46,12 @@ def main() -> None:
             "method": fit.method,
             "se_note": (
                 "The simple-ATT point estimate matches R did::aggte and "
-                "Stata csdid at rel < 1e-15. The analytic SE also matches "
-                "the R/Stata no-bootstrap reference within the registered "
-                "1% tolerance after including the control-regression "
-                "uncertainty in the outcome-regression IF."
+                "Stata csdid at rel < 1e-15. The analytic SE now matches the "
+                "R/Stata no-bootstrap reference at rel ~ 4e-16, once the "
+                "outcome-regression IF carries the control-regression "
+                "uncertainty AND sp.aggte carries the cohort-share "
+                "weight-estimation term. The registered rel_se tolerance was "
+                "1% while that term was missing; it is now 1e-9."
             ),
         },
     )

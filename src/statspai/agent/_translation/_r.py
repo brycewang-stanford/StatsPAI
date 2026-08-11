@@ -545,6 +545,105 @@ def _h_synth(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]
     )
 
 
+def _h_staggered(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
+    """Roth & Sant'Anna's staggered:: R API -> the design-based estimators.
+
+    ``staggered`` names its columns i / t / g / y directly, and expresses the
+    plug-in as ``beta = 1`` where StatsPAI says ``efficient=False``. The
+    never-treated coding differs too: R demands ``g = Inf`` and silently
+    misreads ``g = 0``, while StatsPAI accepts either — so a translated call
+    is safe even when the R original would not have been.
+    """
+    fn = kw.pop("__fn__", "staggered")
+    y = _strip_quotes(kw.get("y", ""))
+    g = _strip_quotes(kw.get("g", ""))
+    t = _strip_quotes(kw.get("t", ""))
+    i = _strip_quotes(kw.get("i", ""))
+    missing = [n for n, v in (("y", y), ("g", g), ("t", t), ("i", i)) if not v]
+    if missing:
+        return _emit_error(f"R `staggered::{fn}` translation needs {missing} kwargs.")
+
+    target = {
+        "staggered": "staggered_rollout",
+        "staggered_cs": "staggered_cs",
+        "staggered_sa": "staggered_sa",
+    }[fn]
+    args: Dict[str, Any] = {"y": y, "g": g, "t": t, "i": i}
+
+    estimand = _strip_quotes(kw.get("estimand", "simple"))
+    if estimand in {"simple", "cohort", "calendar", "eventstudy"}:
+        args["estimand"] = estimand
+    if estimand == "eventstudy" and "eventTime" in kw:
+        args["event_time"] = kw["eventTime"]
+
+    extra = ""
+    if target == "staggered_rollout":
+        # beta = 1 is the plug-in; beta absent (NULL) is the efficient default.
+        if _strip_quotes(kw.get("beta", "")) == "1":
+            args["efficient"] = False
+            extra += ", efficient=False"
+        if _strip_quotes(kw.get("use_last_treated_only", "")).upper() == "TRUE":
+            args["use_last_treated_only"] = True
+            extra += ", use_last_treated_only=True"
+        if _strip_quotes(kw.get("use_DiD_A0", "")).upper() == "FALSE":
+            args["use_did_a0"] = False
+            extra += ", use_did_a0=False"
+    if _strip_quotes(kw.get("compute_fisher", "")).upper() == "TRUE":
+        args["fisher"] = True
+        extra += ", fisher=True"
+
+    python = (
+        f"sp.{target}(data=df, y={y!r}, g={g!r}, t={t!r}, i={i!r}, "
+        f"estimand={args.get('estimand', 'simple')!r}{extra})"
+    )
+    return _emit(target, args, python)
+
+
+def _h_didff(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
+    """Sant'Anna's didFF:: R API -> sp.functional_form_test / distributional_did."""
+    fn = kw.pop("__fn__", "didFF")
+    yname = _strip_quotes(kw.get("yname", ""))
+    gname = _strip_quotes(kw.get("gname", ""))
+    tname = _strip_quotes(kw.get("tname", ""))
+    idname = _strip_quotes(kw.get("idname", ""))
+    missing = [
+        n
+        for n, v in (
+            ("yname", yname),
+            ("gname", gname),
+            ("tname", tname),
+            ("idname", idname),
+        )
+        if not v
+    ]
+    if missing:
+        return _emit_error(f"R `didFF::{fn}` translation needs {missing} kwargs.")
+
+    distributional = (
+        fn == "distDD" or _strip_quotes(kw.get("distDD", "")).upper() == "TRUE"
+    )
+    target = "distributional_did" if distributional else "functional_form_test"
+    args: Dict[str, Any] = {"y": yname, "g": gname, "t": tname, "i": idname}
+
+    extra = ""
+    if "nbins" in kw:
+        args["n_bins"] = kw["nbins"]
+        extra += f", n_bins={kw['nbins']}"
+    if "weightsname" in kw:
+        args["weights"] = _strip_quotes(kw["weightsname"])
+        extra += f", weights={args['weights']!r}"
+    aggte_type = _strip_quotes(kw.get("aggte_type", ""))
+    if aggte_type in {"simple", "group", "dynamic", "calendar"}:
+        args["aggregation"] = aggte_type
+        extra += f", aggregation={aggte_type!r}"
+
+    python = (
+        f"sp.{target}(data=df, y={yname!r}, g={gname!r}, "
+        f"t={tname!r}, i={idname!r}{extra})"
+    )
+    return _emit(target, args, python)
+
+
 R_FUNCTION_MAP: Dict[
     str, Callable[[List[str], Dict[str, str], List[str]], Dict[str, Any]]
 ] = {
@@ -559,6 +658,11 @@ R_FUNCTION_MAP: Dict[
     "att_gt": _h_did,
     "did": _h_did,
     "synth": _h_synth,
+    "staggered": _h_staggered,
+    "staggered_cs": _h_staggered,
+    "staggered_sa": _h_staggered,
+    "didFF": _h_didff,
+    "distDD": _h_didff,
 }
 
 
@@ -602,6 +706,11 @@ def from_r(line: str) -> Dict[str, Any]:
         return _emit_error(
             f"unsupported R function {fn!r}", command=fn, suggestions=suggestions
         )
+    # A few handlers serve several R entry points that differ only in which
+    # StatsPAI function they map to (staggered / staggered_cs / staggered_sa,
+    # didFF / distDD), so they need to know which name was called.
+    if handler in (_h_staggered, _h_didff):
+        kw = {**kw, "__fn__": fn}
     return handler(pos, kw, [])
 
 

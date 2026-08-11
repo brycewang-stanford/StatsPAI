@@ -8,7 +8,7 @@ Here's how to choose.
 
 ```
 Is your covariate set high-dimensional (p > 20)?
-  YES -> Double ML (sp.dml), meta-learners (sp.S_Learner, etc.)
+  YES -> Double ML (sp.dml), meta-learners (sp.metalearner, sp.xlearner)
   NO  -> continue
 
 Is your target the ATT (effect on the treated)?
@@ -133,10 +133,11 @@ sp.ps_balance(r)     # formal balance statistics
 
 # 2. Overlap / common support
 sp.overlap_plot(r)
-sp.trimming(r, threshold=0.01)
+sp.trimming(df, treatment='d', covariates=['X1', 'X2'], method='crump')
 
 # 3. Sensitivity to unobserved confounding
-sp.sensemakr(r, benchmark_covariates=['X1'])  # Cinelli-Hazlett
+sp.sensemakr(df, y='y', treat='d', controls=['X1', 'X2'],
+             benchmark=['X1'])                 # Cinelli-Hazlett
 sp.oster_bounds(r)                             # Oster 2019
 sp.evalue(r)                                   # VanderWeele-Ding E-value
 ```

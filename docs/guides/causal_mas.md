@@ -183,7 +183,7 @@ Explicit kwargs always win over the name heuristic.
 - **Very large variable sets (≥ 50 nodes).**  Token budgets and
   combinatorial explosion of edge proposals degrade quality; cluster
   the variables first or use a structured DAG-learning algorithm
-  like `sp.pcalg` or `sp.ges`.
+  like `sp.pc_algorithm` or `sp.ges`.
 - **Quantitative effect estimation.**  Causal MAS only produces a DAG.
   For effect magnitudes pipe the DAG into `sp.dml`, `sp.causal_forest`,
   `sp.metalearner`, etc.

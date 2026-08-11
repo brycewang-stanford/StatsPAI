@@ -209,9 +209,9 @@ edge looks spurious.
 | Returned graph violates required or forbidden edge constraints | `ValueError` | Tighten constraints and validate the returned graph before estimation. | `sp.llm_dag_validate` |
 
 **Alternatives (ranked)**
-- `sp.sp.llm_dag_propose: single-shot LLM proposal without CI loop`
-- `sp.sp.pc_algorithm: data-only PC (no LLM)`
-- `sp.sp.causal_mas: multi-agent LLM consensus`
+- `sp.llm_dag_propose: single-shot LLM proposal without CI loop`
+- `sp.pc_algorithm: data-only PC (no LLM)`
+- `sp.causal_mas: multi-agent LLM consensus`
 - `sp.dag`
 - `sp.causal_mas`
 

@@ -36,6 +36,7 @@ de Chaisemartin, C. and D'Haultfoeuille, X. (2020).
     *American Economic Review*, 110(9), 2964–2996. [@dechaisemartin2020two]
 """
 
+import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -1719,6 +1720,12 @@ def drdid(
     random_state: Optional[int] = None,
     seed: Optional[int] = None,
     id: Optional[str] = None,
+    *,
+    est_method: str = "dr",
+    normalized: bool = True,
+    locally_efficient: bool = True,
+    weights: Optional[str] = None,
+    trim_level: float = 0.995,
 ) -> CausalResult:
     """
     Doubly Robust Difference-in-Differences (Sant'Anna & Zhao 2020).
@@ -1740,8 +1747,67 @@ def drdid(
     covariates : list of str, optional
         Covariate names.  If ``None``, runs a simple (un-adjusted) DID.
     method : str, default ``'imp'``
-        ``'imp'`` for the improved estimator (locally efficient);
-        ``'trad'`` for the traditional DR-DID.
+        Which nuisance estimators the DR variants use, following R
+        ``DRDID::drdid(estMethod=)``:
+
+        - ``'imp'`` — "improved": inverse probability tilting for the
+          propensity score and propensity-odds-weighted least squares for
+          the outcome model, so the DR moment is Neyman-orthogonal by
+          construction and the influence function carries no
+          nuisance-estimation terms.
+        - ``'trad'`` — plain logit + OLS, with the estimation effects
+          propagated explicitly.
+
+        Only consulted when ``est_method='dr'``.
+
+        .. versionchanged:: 1.23.0
+           On repeated cross-sections this argument used to do nothing:
+           both settings returned ``DRDID::drdid_rc1`` regardless. It now
+           selects ``drdid_imp_rc`` / ``drdid_rc`` as documented.
+    est_method : {'dr', 'ipw', 'reg', 'twfe'}, default ``'dr'``
+        Which estimator family to use. With ``method`` and the two flags
+        below this reaches all 14 estimators of R ``DRDID`` 1.2.3:
+
+        ============  =======================  ==========================
+        est_method    panel (``id=`` given)    repeated cross-sections
+        ============  =======================  ==========================
+        ``'dr'``      ``drdid_[imp_]panel``    ``drdid_[imp_]rc[1]``
+        ``'ipw'``     ``[std_]ipw_did_panel``  ``[std_]ipw_did_rc``
+        ``'reg'``     ``reg_did_panel``        ``reg_did_rc``
+        ``'twfe'``    ``twfe_did_panel``       ``twfe_did_rc``
+        ============  =======================  ==========================
+
+        ``'twfe'`` is included for comparison, not as a recommendation:
+        with covariates it is exactly the specification Sant'Anna & Zhao
+        (2020) and Caetano & Callaway (2024) warn about.
+
+        .. versionadded:: 1.23.0
+    normalized : bool, default True
+        Only for ``est_method='ipw'``. ``True`` gives the Hájek-normalised
+        estimator (``std_ipw_did_*``), where the control arm is divided by
+        its own realised weight mass. ``False`` gives Abadie (2005)
+        (``ipw_did_*``), where both arms share the denominator ``E[D]``.
+
+        .. versionadded:: 1.23.0
+    locally_efficient : bool, default True
+        Only for ``est_method='dr'`` on repeated cross-sections. ``False``
+        drops the terms that attain the semiparametric efficiency bound,
+        giving ``drdid_rc1`` / ``drdid_imp_rc1``. Both are consistent;
+        the ``rc1`` variants avoid fitting outcome regressions on the
+        treated cells.
+
+        .. versionadded:: 1.23.0
+    weights : str, optional
+        Column of observation weights (R ``DRDID``'s ``i.weights``),
+        renormalised to mean one.
+
+        .. versionadded:: 1.23.0
+    trim_level : float, default 0.995
+        Drop control units whose estimated propensity score reaches this
+        cutoff, matching ``DRDID``'s ``trim.level``. Pass ``1.0`` to
+        disable.
+
+        .. versionadded:: 1.23.0
     alpha : float, default 0.05
         Significance level.
     n_boot : int, default 500
@@ -1777,7 +1843,6 @@ def drdid(
     True
     """
     df = data.copy()
-    rng = np.random.default_rng(random_state if random_state is not None else seed)
 
     # ── Validate method ─────────────────────────────────────────────
     # Only the improved (locally-efficient) and traditional DR-DID
@@ -1788,6 +1853,48 @@ def drdid(
             f"method must be 'imp' (improved, locally efficient) or 'trad' "
             f"(traditional DR-DID); got {method!r}."
         )
+    if est_method not in ("dr", "ipw", "reg", "twfe"):
+        raise MethodIncompatibility(
+            f"est_method must be 'dr', 'ipw', 'reg' or 'twfe'; got " f"{est_method!r}."
+        )
+    if not (0.0 < float(trim_level) <= 1.0):
+        raise MethodIncompatibility(
+            f"trim_level must be in (0, 1]; got {trim_level!r}."
+        )
+    # Say so when a flag cannot bite, rather than letting the caller
+    # believe it took effect (§7).
+    if est_method != "ipw" and not normalized:
+        warnings.warn(
+            f"drdid: normalized=False only affects est_method='ipw' "
+            f"(it selects the Abadie 2005 estimator over the Hajek-"
+            f"normalised one), but est_method={est_method!r} was "
+            "requested, so it has no effect.",
+            UserWarning,
+            stacklevel=2,
+        )
+    if est_method != "dr" and not locally_efficient:
+        warnings.warn(
+            f"drdid: locally_efficient=False only affects est_method='dr', "
+            f"but est_method={est_method!r} was requested, so it has no "
+            "effect.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    # ── Observation weights (DRDID's i.weights) ─────────────────────
+    if weights is not None:
+        if weights not in df.columns:
+            raise MethodIncompatibility(
+                f"weights column {weights!r} is not in data.",
+                recovery_hint="Pass an existing column name, or weights=None.",
+                diagnostics={"weights": weights},
+            )
+        if (df[weights] < 0).any():
+            raise MethodIncompatibility(
+                "weights must be non-negative.",
+                recovery_hint="Repair or drop the negative weights.",
+                diagnostics={"weights": weights},
+            )
 
     # ── Validate 2×2 design ─────────────────────────────────────────
     g_vals = sorted(df[group].dropna().unique())
@@ -1800,13 +1907,10 @@ def drdid(
     if id is not None:
         if id not in df.columns:
             raise MethodIncompatibility(f"'{id}' must be a column in data")
-        if method != "imp":
-            raise MethodIncompatibility(
-                "id= panel DR-DID currently supports method='imp'"
-            )
-
         covariates_list = covariates or []
         needed = [id, y, group, time] + covariates_list
+        if weights is not None:
+            needed.append(weights)
         missing = [col for col in needed if col not in df.columns]
         if missing:
             raise MethodIncompatibility(f"Missing columns for panel DR-DID: {missing}")
@@ -1836,12 +1940,69 @@ def drdid(
         else:
             X_panel = np.ones((len(wide), 1))
 
-        att_hat, att_se, ci, ps_fit, ps_flag = _drdid_imp_panel_core(
-            delta_y,
-            D_panel,
-            X_panel,
-            alpha=alpha,
+        w_panel = (
+            wide[weights].astype(float).to_numpy()
+            if weights is not None and weights in wide.columns
+            else np.ones(len(wide), dtype=float)
         )
+        w_panel = w_panel / w_panel.mean()
+
+        z_crit_panel = stats.norm.ppf(1 - alpha / 2)
+        if est_method == "dr" and method == "imp":
+            att_hat, att_se, ci, ps_fit, ps_flag = _drdid_imp_panel_core(
+                delta_y,
+                D_panel,
+                X_panel,
+                alpha=alpha,
+                trim_level=trim_level,
+            )
+            engine_name = "drdid_imp_panel"
+        else:
+            # The remaining panel estimators are exactly the 2x2 engines
+            # `callaway_santanna` runs per (g, t) cell, verified against
+            # DRDID 1.2.3 to machine precision. Reuse them rather than
+            # keeping a second implementation of the same algebra.
+            from .callaway_santanna import _dr_att, _ipw_abadie_att, _ipw_att, _reg_att
+
+            x_panel = X_panel[:, 1:] if X_panel.shape[1] > 1 else None
+            if est_method == "dr":
+                att_hat, att_se, _inf = _dr_att(
+                    delta_y, D_panel, x_panel, trim_level, w_panel
+                )
+                engine_name = "drdid_panel"
+            elif est_method == "ipw":
+                fn = _ipw_att if normalized else _ipw_abadie_att
+                att_hat, att_se, _inf = fn(
+                    delta_y, D_panel, x_panel, trim_level, w_panel
+                )
+                engine_name = "std_ipw_did_panel" if normalized else "ipw_did_panel"
+            elif est_method == "reg":
+                att_hat, att_se, _inf = _reg_att(delta_y, D_panel, x_panel, w_panel)
+                engine_name = "reg_did_panel"
+            else:  # twfe
+                from ._rcs import twfe_did_rc as _twfe
+
+                # DRDID's twfe_did_panel stacks the two periods and runs
+                # the same regression, so the RC engine on the long form
+                # is the identical estimator (verified: both give
+                # 1.696871155 / 0.11277800 on the reference fixture).
+                _res = _twfe(
+                    np.concatenate([y0, y1]),
+                    np.concatenate([np.zeros(len(y0)), np.ones(len(y1))]),
+                    np.concatenate([D_panel, D_panel]),
+                    (
+                        np.concatenate([x_panel, x_panel])
+                        if x_panel is not None
+                        else None
+                    ),
+                    weights=np.concatenate([w_panel, w_panel]),
+                )
+                att_hat, att_se = float(_res.att), float(_res.se)
+                engine_name = "twfe_did_panel"
+            ci = (att_hat - z_crit_panel * att_se, att_hat + z_crit_panel * att_se)
+            ps_fit = _logistic_fit(X_panel, D_panel)
+            ps_flag = 0
+
         t_stat = att_hat / att_se if att_se > 0 else np.nan
         pvalue = float(2 * (1 - stats.norm.cdf(abs(t_stat))))
         detail = pd.DataFrame(
@@ -1859,7 +2020,10 @@ def drdid(
             }
         )
         panel_model_info: Dict[str, Any] = {
-            "method": "improved",
+            "method": "improved" if method == "imp" else "traditional",
+            "est_method": est_method,
+            "engine": engine_name,
+            "drdid_reference": f"DRDID::{engine_name}",
             "panel": True,
             "id": id,
             "n_units": int(len(wide)),
@@ -1876,7 +2040,7 @@ def drdid(
         }
 
         _result = CausalResult(
-            method="Doubly Robust DID (Improved Panel, Sant'Anna & Zhao 2020)",
+            method=(f"DID panel via DRDID::{engine_name} " "(Sant'Anna & Zhao 2020)"),
             estimand="ATT",
             estimate=att_hat,
             se=att_se,
@@ -1916,6 +2080,11 @@ def drdid(
     G = (df[group] == g_vals[1]).astype(float).values
     T = (df[time] == t_vals[1]).astype(float).values
     Y = df[y].astype(float).values
+    w_vec = (
+        df[weights].astype(float).to_numpy()
+        if weights is not None
+        else np.ones(len(df), dtype=float)
+    )
 
     # Covariates
     if covariates and len(covariates) > 0:
@@ -1926,10 +2095,10 @@ def drdid(
         X = np.ones((len(Y), 1))
 
     # Drop NaN rows
-    valid = np.isfinite(Y)
+    valid = np.isfinite(Y) & np.isfinite(w_vec)
     for j in range(X.shape[1]):
         valid &= np.isfinite(X[:, j])
-    G, T, Y, X = G[valid], T[valid], Y[valid], X[valid]
+    G, T, Y, X, w_vec = G[valid], T[valid], Y[valid], X[valid], w_vec[valid]
     n = len(Y)
 
     def _estimate_att(
@@ -2032,17 +2201,60 @@ def drdid(
 
         return float(att)
 
-    # ── Point estimate ──────────────────────────────────────────────
-    att_hat = _estimate_att(G, T, Y, X)
+    # ── Estimation ──────────────────────────────────────────────────
+    #
+    # ⚠️ correctness fix. This branch used to run a bespoke DR estimator
+    # with a nonparametric bootstrap standard error, and two things were
+    # wrong with it:
+    #
+    #   1. ``method='imp'`` and ``method='trad'`` computed *the same
+    #      number* — the argument was silently inert here (they agreed to
+    #      3e-13, i.e. floating-point reassociation). Whatever the caller
+    #      asked for, they got ``DRDID::drdid_rc1``, labelled "improved"
+    #      or "traditional" according to an argument that did nothing.
+    #   2. The SE came from resampling rather than from the Sant'Anna-Zhao
+    #      influence function, so it was random, ``n_boot``-dependent, and
+    #      off the reference by 1.5-5.5%.
+    #
+    # Both are now routed to the same verified engines the repeated
+    # cross-section path in ``callaway_santanna`` uses, which reproduce
+    # ``DRDID`` 1.2.3 to machine precision. The R wrapper's own mapping is
+    # followed exactly: ``estMethod='imp' -> drdid_imp_rc``,
+    # ``'trad' -> drdid_rc``.
+    from ._rcs import drdid_imp_rc as _drdid_imp_rc
+    from ._rcs import drdid_rc as _drdid_rc
+    from ._rcs import ipw_did_rc as _ipw_did_rc
+    from ._rcs import reg_did_rc as _reg_did_rc
+    from ._rcs import std_ipw_did_rc as _std_ipw_did_rc
+    from ._rcs import twfe_did_rc as _twfe_did_rc
 
-    # ── Bootstrap SE ────────────────────────────────────────────────
-    boot_atts = np.empty(n_boot)
-    for b in range(n_boot):
-        idx = rng.choice(n, size=n, replace=True)
-        boot_atts[b] = _estimate_att(G[idx], T[idx], Y[idx], X[idx])
+    x_rc = X[:, 1:] if X.shape[1] > 1 else None
+    if est_method == "dr":
+        engine = _drdid_imp_rc if method == "imp" else _drdid_rc
+        res = engine(
+            Y,
+            T,
+            G,
+            x_rc,
+            weights=w_vec,
+            trim_level=trim_level,
+            locally_efficient=locally_efficient,
+        )
+        _eff = "" if locally_efficient else "1"
+        engine_name = f"drdid_imp_rc{_eff}" if method == "imp" else f"drdid_rc{_eff}"
+    elif est_method == "ipw":
+        engine = _std_ipw_did_rc if normalized else _ipw_did_rc
+        res = engine(Y, T, G, x_rc, weights=w_vec, trim_level=trim_level)
+        engine_name = "std_ipw_did_rc" if normalized else "ipw_did_rc"
+    elif est_method == "reg":
+        res = _reg_did_rc(Y, T, G, x_rc, weights=w_vec)
+        engine_name = "reg_did_rc"
+    else:  # "twfe"
+        res = _twfe_did_rc(Y, T, G, x_rc, weights=w_vec)
+        engine_name = "twfe_did_rc"
 
-    boot_valid = boot_atts[np.isfinite(boot_atts)]
-    att_se = float(np.std(boot_valid, ddof=1)) if len(boot_valid) > 1 else np.nan
+    att_hat, att_se = float(res.att), float(res.se)
+    influence = res.influence
 
     t_stat = att_hat / att_se if att_se > 0 else np.nan
     pvalue = float(2 * (1 - stats.norm.cdf(abs(t_stat))))
@@ -2054,14 +2266,14 @@ def drdid(
         {
             "statistic": [
                 "ATT",
-                "SE (bootstrap)",
+                "SE (influence function)",
                 "z-stat",
                 "p-value",
                 "CI lower",
                 "CI upper",
-                "N boot valid",
+                "N obs",
             ],
-            "value": [att_hat, att_se, t_stat, pvalue, ci[0], ci[1], len(boot_valid)],
+            "value": [att_hat, att_se, t_stat, pvalue, ci[0], ci[1], n],
         }
     )
 
@@ -2072,20 +2284,25 @@ def drdid(
 
     rcs_model_info: Dict[str, Any] = {
         "method": "improved" if method == "imp" else "traditional",
+        "est_method": est_method,
+        "engine": engine_name,
+        "drdid_reference": f"DRDID::{engine_name}",
+        "panel": False,
+        "se_method": "influence_function",
         "n_treated": n_treated,
         "n_control": n_control,
         "n_post": int(T.sum()),
         "n_pre": int((1 - T).sum()),
         "ps_mean_treated": float(ps_full[G == 1].mean()),
         "ps_mean_control": float(ps_full[G == 0].mean()),
-        "n_boot": n_boot,
-        "n_boot_valid": len(boot_valid),
         "covariates": covariates or [],
     }
 
-    method_label = "Improved" if method == "imp" else "Traditional"
     _result = CausalResult(
-        method=f"Doubly Robust DID ({method_label}, Sant'Anna & Zhao 2020)",
+        method=(
+            f"DID repeated cross-sections via DRDID::{engine_name} "
+            "(Sant'Anna & Zhao 2020)"
+        ),
         estimand="ATT",
         estimate=att_hat,
         se=att_se,
@@ -2095,6 +2312,7 @@ def drdid(
         n_obs=n,
         detail=detail,
         model_info=rcs_model_info,
+        _influence_funcs=influence[:, None],
         _citation_key="drdid",
     )
     try:
@@ -2208,6 +2426,42 @@ def _calibrated_pscore(
     )
     gamma = opt.x if opt.success else init
     flag = 0 if opt.success else 2
+
+    # Newton refinement. The tilting loss is convex with a closed-form
+    # Hessian, and R's `pscore.cal` solves it with a trust-region Newton
+    # method; quasi-Newton stops a few orders of magnitude short of that.
+    #
+    # The extra precision is not cosmetic. Inverse probability tilting
+    # earns its name by making the covariate-balance conditions hold
+    # *exactly* at the optimum, which is what kills the first-order
+    # nuisance terms in the improved DR estimators. A γ that is merely
+    # close leaves those terms alive: a 1.5e-9 discrepancy in p̂(X) moved
+    # `drdid_imp_rc` by 7e-4 in the ATT and 2.9% in the SE — five orders
+    # of magnitude of amplification, because the odds weights p/(1-p)
+    # multiply the imbalance back in.
+    def _hessian(g: np.ndarray) -> np.ndarray:
+        eta = _eta(g)
+        h_w = iw * (1.0 - D) * np.exp(eta)
+        return np.asarray((X.T * h_w) @ X / n, dtype=float)
+
+    for _ in range(50):
+        grad = gradient(gamma)
+        if not np.all(np.isfinite(grad)) or np.max(np.abs(grad)) < 1e-13:
+            break
+        hess = _hessian(gamma)
+        try:
+            step = np.linalg.solve(hess, grad)
+        except np.linalg.LinAlgError:
+            break
+        if not np.all(np.isfinite(step)):
+            break
+        candidate = gamma - step
+        # Convex problem, but guard the step anyway: a bad Hessian near a
+        # boundary should not move us to a worse point.
+        if objective(candidate) > objective(gamma):
+            break
+        gamma = candidate
+
     ps = 1.0 / (1.0 + np.exp(-np.clip(X @ gamma, -700, 700)))
     return np.minimum(ps, 1.0 - 1e-6), flag
 

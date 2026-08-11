@@ -17,6 +17,7 @@ import pandas as pd
 import pytest
 
 import statspai as sp
+from statspai.exceptions import DataInsufficient
 
 
 # ----------------------------------------------------------------------
@@ -369,28 +370,36 @@ def test_drdid_nonbinary_time_raises(twobytwo):
         sp.drdid(df, y="y", group="treated", time="post", n_boot=10)
 
 
-def test_drdid_simple_fallback_path(twobytwo):
-    # Tiny control cells force the "not enough data -> simple DID" fallback
-    # inside _estimate_att (with many covariates relative to control cells).
+def test_drdid_raises_when_the_outcome_regressions_are_not_identified(twobytwo):
+    """Too few controls per cell must fail loudly, not degrade silently.
+
+    Before 1.23.0 this configuration hit a "not enough data -> simple DID"
+    fallback inside the bespoke pooled estimator: the covariates were
+    dropped and an unadjusted 2x2 DID returned under the doubly-robust
+    label, with no warning. That is exactly the silent degradation
+    CLAUDE.md §7 forbids — the caller asked for a covariate-adjusted DR
+    estimate and got something else.
+
+    The pooled path now runs the DRDID engines, which check that all four
+    treatment x period cells can support the outcome regressions and
+    raise otherwise.
+    """
     df = twobytwo.copy()
     rng = np.random.default_rng(0)
     for j in range(6):
         df[f"x{j}"] = rng.normal(size=len(df))
     covs = ["x"] + [f"x{j}" for j in range(6)]
-    # restrict controls to a handful of rows so ctrl cells < n covariates
     keep = df[df["treated"] == 1].copy()
     ctrl = df[df["treated"] == 0].head(8).copy()
     small = pd.concat([keep, ctrl], ignore_index=True)
-    r = sp.drdid(
-        small,
-        y="y",
-        group="treated",
-        time="post",
-        covariates=covs,
-        n_boot=20,
-        random_state=5,
-    )
-    assert np.isfinite(r.estimate) or np.isnan(r.estimate)
+    with pytest.raises(DataInsufficient, match="four treatment x period cells"):
+        sp.drdid(
+            small,
+            y="y",
+            group="treated",
+            time="post",
+            covariates=covs,
+        )
 
 
 # ----------------------------------------------------------------------

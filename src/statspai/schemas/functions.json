@@ -42,7 +42,7 @@
     }
   },
   {
-    "description": "Unified IV estimation: 2SLS, LIML, Fuller, GMM, JIVE. Includes first-stage F, Sargan/Hansen J, and Hausman diagnostics. Validation: certified parity evidence.",
+    "description": "Unified IV estimation and the entry point for the whole IV family: k-class (2SLS, LIML, Fuller, GMM, JIVE) plus the many-weak-instrument jackknife variants (jive1, ujive, ijive, rjive, jive_mw), rigorous/post-Lasso instrument selection (lasso, rlasso, post_lasso), marginal treatment effects (mte) and their MST sharp bounds (ivmte_bounds), plausibly-exogenous sensitivity (plausibly_exog_ltz / plausibly_exog_uci), nonparametric and ML variants (npiv, kernel, ivdml, deepiv), quantile IV (ivqreg), Bayesian IV (bayes), continuous-instrument LATE (continuous_late), many-weak-IV Anderson-Rubin (many_weak_ar) and shift-share (shift_share). Includes first-stage F, Sargan/Hansen J, Kleibergen-Paap rk, Sanderson-Windmeijer per-endog F and Hausman diagnostics. Validation: certified parity evidence.",
     "name": "iv",
     "parameters": {
       "properties": {
@@ -65,13 +65,34 @@
         },
         "method": {
           "default": "2sls",
-          "description": "Estimation method",
+          "description": "Estimation method. The k-class methods (2sls, liml, fuller, gmm, jive) take `formula` + `data`; the rest take their own explicit arguments -- see the target function's docstring. Aliases are case-insensitive and -/_ interchangeable.",
           "enum": [
             "2sls",
             "liml",
             "fuller",
             "gmm",
-            "jive"
+            "jive",
+            "jive1",
+            "ujive",
+            "ijive",
+            "rjive",
+            "jive_mw",
+            "many_weak_ar",
+            "lasso",
+            "rlasso",
+            "post_lasso",
+            "mte",
+            "ivmte_bounds",
+            "plausibly_exog_ltz",
+            "plausibly_exog_uci",
+            "npiv",
+            "kernel",
+            "ivdml",
+            "deepiv",
+            "ivqreg",
+            "bayes",
+            "continuous_late",
+            "shift_share"
           ],
           "type": "string"
         },
@@ -376,6 +397,11 @@
     "name": "did",
     "parameters": {
       "properties": {
+        "allow_unbalanced_panel": {
+          "default": false,
+          "description": "Staggered (method='cs') only. False lets units missing a period drop out of the affected ATT(g,t) cells; True keeps every observed row by switching to the repeated-cross-section estimators, with influence functions folded back to the unit level (R did::att_gt(allow_unbalanced_panel=TRUE)). Inert on a balanced panel. The two are different estimators.",
+          "type": "boolean"
+        },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
@@ -386,7 +412,7 @@
         },
         "method": {
           "default": "auto",
-          "description": "Estimator: 'auto', '2x2', 'ddd', 'cs', 'sa', 'sdid'",
+          "description": "Estimator. Parallel-trends: 'auto', '2x2', 'ddd', 'cs', 'sa', 'sdid'. Design-based (random adoption timing, NOT parallel trends): 'staggered_rollout', 'staggered_cs', 'staggered_sa' -- these skip the pre-trend test, honest-DiD and Bacon decomposition, which do not apply to them",
           "enum": [
             "auto",
             "2x2",
@@ -395,7 +421,10 @@
             "cs",
             "sun_abraham",
             "sa",
-            "sdid"
+            "sdid",
+            "staggered_rollout",
+            "staggered_cs",
+            "staggered_sa"
           ],
           "type": "string"
         },
@@ -554,6 +583,11 @@
     "name": "callaway_santanna",
     "parameters": {
       "properties": {
+        "allow_unbalanced_panel": {
+          "default": false,
+          "description": "How to handle units missing some periods when panel=True. False differences within unit anyway, so a unit missing the base or comparison period drops out of that cell. True switches to the repeated-cross-section estimators, keeping every observed row and folding the influence functions back to the unit level (R did::att_gt(allow_unbalanced_panel=TRUE)); inert when the panel is in fact balanced. The two give different estimates on the same data -- an estimator choice, not a tuning knob.",
+          "type": "boolean"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
@@ -10143,6 +10177,17 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
+        "est_method": {
+          "default": "dr",
+          "description": "Estimator family. With method/normalized/locally_efficient and id=, this reaches all 14 R DRDID 1.2.3 estimators: dr -> drdid_[imp_]panel / drdid_[imp_]rc[1]; ipw -> [std_]ipw_did_panel|rc; reg -> reg_did_panel|rc; twfe -> twfe_did_panel|rc. 'twfe' is for comparison, not recommendation: with covariates it is the specification Sant'Anna-Zhao and Caetano-Callaway warn about.",
+          "enum": [
+            "dr",
+            "ipw",
+            "reg",
+            "twfe"
+          ],
+          "type": "string"
+        },
         "group": {
           "description": "Unit-level treatment indicator (0/1)",
           "type": "string"
@@ -10151,9 +10196,14 @@
           "description": "Unit identifier for true two-period panel DR-DID",
           "type": "string"
         },
+        "locally_efficient": {
+          "default": true,
+          "description": "est_method='dr' on repeated cross-sections only. False drops the semiparametric-efficiency terms, giving drdid_rc1 / drdid_imp_rc1, which avoid fitting outcome regressions on the treated cells. Both are consistent.",
+          "type": "boolean"
+        },
         "method": {
           "default": "imp",
-          "description": "Estimation method: 'imp' (improved, locally efficient) or 'trad'",
+          "description": "Nuisance estimators for est_method='dr' (R DRDID::drdid(estMethod=)): 'imp' uses inverse probability tilting + odds-weighted least squares so the DR moment is Neyman-orthogonal by construction; 'trad' uses plain logit + OLS with the estimation effects propagated. Ignored unless est_method='dr'.",
           "enum": [
             "imp",
             "trad"
@@ -10161,8 +10211,13 @@
           "type": "string"
         },
         "n_boot": {
-          "description": "Bootstrap replications (None -> analytical SE)",
+          "description": "Deprecated / inert: standard errors come from the Sant'Anna-Zhao influence function on every path.",
           "type": "integer"
+        },
+        "normalized": {
+          "default": true,
+          "description": "est_method='ipw' only. True = Hajek-normalised (std_ipw_did_*), control arm divided by its own weight mass. False = Abadie (2005) (ipw_did_*), both arms sharing the denominator E[D].",
+          "type": "boolean"
         },
         "seed": {
           "description": "Random seed for reproducible stochastic steps.",
@@ -10170,6 +10225,15 @@
         },
         "time": {
           "description": "Time period column",
+          "type": "string"
+        },
+        "trim_level": {
+          "default": 0.995,
+          "description": "Drop control units whose propensity score reaches this cutoff (DRDID trim.level). 1.0 disables.",
+          "type": "number"
+        },
+        "weights": {
+          "description": "Observation weights column (R DRDID i.weights), renormalised to mean one.",
           "type": "string"
         },
         "y": {
@@ -10263,6 +10327,10 @@
         },
         "t": {
           "description": "Time period column",
+          "type": "string"
+        },
+        "weights": {
+          "description": "Unit-level sampling/population weights omega. Enters the fixed-effect projection, the least-squares solve, the cluster-robust variance, and the interaction weights (which become shares of omega-mass). Changes the target parameter, not the precision.",
           "type": "string"
         },
         "y": {
@@ -12184,18 +12252,32 @@
         },
         "efficient": {
           "default": true,
-          "description": "Use the optimal pre-period control weights; False gives the plug-in estimator",
+          "description": "Use the optimal pre-period control weights; False gives the plug-in estimator (R's beta=1)",
           "type": "boolean"
         },
         "estimand": {
           "default": "simple",
-          "description": "Weighting: 'simple' (per treated cell), 'cohort' (within-cohort average first), 'calendar' (within-period average first)",
+          "description": "Weighting: 'simple' (per treated cell), 'cohort' (within-cohort average first), 'calendar' (within-period average first), 'eventstudy' (ATT event_time periods after adoption)",
           "enum": [
             "simple",
             "cohort",
-            "calendar"
+            "calendar",
+            "eventstudy"
           ],
           "type": "string"
+        },
+        "event_time": {
+          "default": 0,
+          "description": "Only read when estimand='eventstudy'. A list returns one row per event time in .detail with the joint covariance in model_info['vcov']",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fisher": {
+          "default": false,
+          "description": "Run a Fisher randomisation test by permuting adoption dates across units; p-value in model_info['fisher_pvalue']",
+          "type": "boolean"
         },
         "g": {
           "description": "First-treatment period; never-treated may be 0, NaN or inf",
@@ -12203,6 +12285,200 @@
         },
         "i": {
           "description": "Unit identifier",
+          "type": "string"
+        },
+        "n_fisher": {
+          "default": 500,
+          "description": "Permutation draws for the randomisation test",
+          "type": "integer"
+        },
+        "random_state": {
+          "description": "Seed for the permutation draws",
+          "type": "integer"
+        },
+        "se_type": {
+          "default": "neyman",
+          "description": "Which SE lands in .se: 'neyman' is the conservative bound; 'adjusted' subtracts the variance the randomisation identifies and is what R staggered prints. Both are always in model_info",
+          "enum": [
+            "neyman",
+            "adjusted"
+          ],
+          "type": "string"
+        },
+        "t": {
+          "description": "Time period",
+          "type": "string"
+        },
+        "use_did_a0": {
+          "default": true,
+          "description": "Which controls the efficient weights are chosen over. True uses the single DiD contrast at g-1; False uses every pre-period as a separate control (the general form, weakly more efficient). False requires efficient=True",
+          "type": "boolean"
+        },
+        "use_last_treated_only": {
+          "default": false,
+          "description": "Restrict controls to the last-treated cohort (the Sun-Abraham comparison group) instead of every not-yet-treated cohort",
+          "type": "boolean"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "i",
+        "t",
+        "g"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Callaway-Sant'Anna's estimand with **design-based** inference (Roth & Sant'Anna 2023). Same weights as sp.callaway_santanna -- every not-yet-treated cohort is a control -- but the standard error comes from random adoption timing rather than parallel trends. Use when timing was randomised and you want the familiar CS estimand; use sp.callaway_santanna when it was not. Units already treated in the first period are dropped, since ATT(g,t) is not identified for them. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: adoption timing was not randomised -- use sp.callaway_santanna, whose inference rests on parallel trends instead.",
+    "name": "staggered_cs",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
+        },
+        "estimand": {
+          "default": "simple",
+          "description": "Weighting scheme, as in sp.staggered_rollout",
+          "enum": [
+            "simple",
+            "cohort",
+            "calendar",
+            "eventstudy"
+          ],
+          "type": "string"
+        },
+        "event_time": {
+          "default": 0,
+          "description": "event_time parameter (float or list).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fisher": {
+          "default": false,
+          "description": "fisher parameter (bool).",
+          "type": "boolean"
+        },
+        "g": {
+          "description": "First-treatment period; never-treated may be 0, NaN or inf",
+          "type": "string"
+        },
+        "i": {
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "n_fisher": {
+          "default": 500,
+          "description": "Number of fisher.",
+          "type": "integer"
+        },
+        "random_state": {
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "se_type": {
+          "default": "neyman",
+          "description": "Conservative bound, or the adjusted SE R staggered prints",
+          "enum": [
+            "neyman",
+            "adjusted"
+          ],
+          "type": "string"
+        },
+        "t": {
+          "description": "Time period",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "i",
+        "t",
+        "g"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Sun-Abraham's estimand with **design-based** inference (Roth & Sant'Anna 2023). Identical to sp.staggered_cs except that only the last-treated cohort serves as control, which is what Sun & Abraham's interaction-weighted estimator does. Inference identifies off random adoption timing, not parallel trends. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: adoption timing was not randomised -- use sp.sun_abraham, whose inference rests on parallel trends instead.",
+    "name": "staggered_sa",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
+        },
+        "estimand": {
+          "default": "simple",
+          "description": "Weighting scheme, as in sp.staggered_rollout",
+          "enum": [
+            "simple",
+            "cohort",
+            "calendar",
+            "eventstudy"
+          ],
+          "type": "string"
+        },
+        "event_time": {
+          "default": 0,
+          "description": "event_time parameter (float or list).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fisher": {
+          "default": false,
+          "description": "fisher parameter (bool).",
+          "type": "boolean"
+        },
+        "g": {
+          "description": "First-treatment period; never-treated may be 0, NaN or inf",
+          "type": "string"
+        },
+        "i": {
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "n_fisher": {
+          "default": 500,
+          "description": "Number of fisher.",
+          "type": "integer"
+        },
+        "random_state": {
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "se_type": {
+          "default": "neyman",
+          "description": "Conservative bound, or the adjusted SE R staggered prints",
+          "enum": [
+            "neyman",
+            "adjusted"
+          ],
           "type": "string"
         },
         "t": {
@@ -12447,7 +12723,7 @@
     }
   },
   {
-    "description": "Covariate balance for a DiD design, in the shape Baker et al. (2026, Table 4) report it: Imbens-Rubin normalized differences computed twice -- once on baseline covariate LEVELS and once on covariate CHANGES across the treatment date -- optionally weighted and unweighted side by side. The changes panel is the informative half: DiD identifies off trends, so a covariate that is balanced in levels can still be moving differentially, and imbalances routinely flip sign between the two panels. Flags |norm. diff| > 0.25. Evidence about whether UNCONDITIONAL parallel trends is plausible; it cannot test parallel trends itself. Known limitations: pooled multi-cohort balance is not implemented: one table per treated cohort only, because the normalized difference is a two-group statistic; only the reliability-weight variance correction is implemented for the weighted panel; survey-design (replicate-weight) variances are not supported; inference is not implemented: the normalized difference is reported as a descriptive effect size with no standard error or test, by design.",
+    "description": "Covariate balance for a DiD design, in the shape Baker et al. (2026, Table 4) report it: Imbens-Rubin normalized differences computed twice -- once on baseline covariate LEVELS and once on covariate CHANGES across the treatment date -- optionally weighted and unweighted side by side. The changes panel is the informative half: DiD identifies off trends, so a covariate that is balanced in levels can still be moving differentially, and imbalances routinely flip sign between the two panels. Flags |norm. diff| > 0.25. Evidence about whether UNCONDITIONAL parallel trends is plausible; it cannot test parallel trends itself. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: pooled multi-cohort balance is not implemented: one table per treated cohort only, because the normalized difference is a two-group statistic; only the reliability-weight variance correction is implemented for the weighted panel; survey-design (replicate-weight) variances are not supported; inference is not implemented: the normalized difference is reported as a descriptive effect size with no standard error or test, by design; the weighted denominator convention differs from cobalt::col_w_smd, which holds the pooled SD at its unweighted value; this follows Baker et al. (2026) instead, and the two coincide when unweighted.",
     "name": "did_balance",
     "parameters": {
       "properties": {
@@ -12516,13 +12792,13 @@
     }
   },
   {
-    "description": "Roth & Sant'Anna (2023) test of whether parallel trends can hold for EVERY strictly monotonic transformation of the outcome. Bins the outcome, recovers the counterfactual probability mass the design implies for the treated group in each bin via Callaway-Sant'Anna, and tests the moment inequalities that mass must satisfy to be a density. Rejection means levels and logs are answering different questions, so the functional form is doing identifying work. Validation: certified evidence with scoped limitations. Known limitations: a large p-value is only a failure to reject, not evidence FOR functional-form insensitivity: the test has little power with few units or coarse bins; standard errors and the critical value are asymptotic; a bootstrap variant is not implemented.",
-    "name": "functional_form_test",
+    "description": "Treatment effect on the *distribution* of the outcome, bin by bin. Bins the outcome, runs Callaway-Sant'Anna on each bin indicator, and reports the effect on P(Y in bin). The per-bin effects sum to zero by construction -- treatment redistributes probability mass, it does not create it -- so the content is the SHAPE: which parts of the outcome distribution gained and which lost. A mean ATT of zero is perfectly consistent with large offsetting movements in the tails, and this is what shows them. R didFF::distDD. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: reports point estimates and standard errors only; the reference runs no test here and neither does this; the per-bin effects are not simultaneously valid -- the standard errors are pointwise.",
+    "name": "distributional_did",
     "parameters": {
       "properties": {
         "aggregation": {
           "default": "group",
-          "description": "Which aggte aggregation defines the implied density",
+          "description": "Which aggte aggregation defines the per-bin effect",
           "enum": [
             "group",
             "simple",
@@ -12530,6 +12806,11 @@
             "calendar"
           ],
           "type": "string"
+        },
+        "allow_unbalanced_panel": {
+          "default": false,
+          "description": "allow_unbalanced_panel parameter (bool).",
+          "type": "boolean"
         },
         "alpha": {
           "default": 0.05,
@@ -12539,6 +12820,10 @@
         "anticipation": {
           "default": 0,
           "description": "anticipation parameter (int).",
+          "type": "integer"
+        },
+        "balance_e": {
+          "description": "balance_e parameter (int).",
           "type": "integer"
         },
         "binpoints": {
@@ -12570,15 +12855,140 @@
           "description": "Unit identifier",
           "type": "string"
         },
+        "max_e": {
+          "description": "max_e parameter (float).",
+          "type": "number"
+        },
+        "min_e": {
+          "description": "min_e parameter (float).",
+          "type": "number"
+        },
         "n_bins": {
-          "default": 10,
-          "description": "Equal-width outcome bins; too coarse a grid buys a large p-value for nothing",
+          "default": "auto",
+          "description": "Equal-width bins, or 'auto' for the didFF rule. Bins span the WHOLE panel here (unlike functional_form_test, which bins untreated rows only): the estimand is about where treated mass ended up",
+          "type": "integer"
+        },
+        "panel": {
+          "default": true,
+          "description": "panel parameter (bool).",
+          "type": "boolean"
+        },
+        "t": {
+          "description": "t parameter (str).",
+          "type": "string"
+        },
+        "weights": {
+          "description": "Sampling-weight column",
+          "type": "string"
+        },
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "g",
+        "t",
+        "i"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Roth & Sant'Anna (2023) test of whether parallel trends can hold for EVERY strictly monotonic transformation of the outcome. Bins the outcome, recovers the counterfactual probability mass the design implies for the treated group in each bin via Callaway-Sant'Anna, and tests the moment inequalities that mass must satisfy to be a density. Rejection means levels and logs are answering different questions, so the functional form is doing identifying work. Validation: certified evidence with scoped limitations. Known limitations: a large p-value is only a failure to reject, not evidence FOR functional-form insensitivity: the test has little power with few units or coarse bins; standard errors and the critical value are asymptotic; a bootstrap variant is not implemented.",
+    "name": "functional_form_test",
+    "parameters": {
+      "properties": {
+        "aggregation": {
+          "default": "group",
+          "description": "Which aggte aggregation defines the implied density",
+          "enum": [
+            "group",
+            "simple",
+            "dynamic",
+            "calendar"
+          ],
+          "type": "string"
+        },
+        "allow_unbalanced_panel": {
+          "default": false,
+          "description": "allow_unbalanced_panel parameter (bool).",
+          "type": "boolean"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "anticipation": {
+          "default": 0,
+          "description": "anticipation parameter (int).",
+          "type": "integer"
+        },
+        "balance_e": {
+          "description": "Only bites under aggregation='dynamic': keep cohorts observed for this many event times",
+          "type": "integer"
+        },
+        "binpoints": {
+          "description": "Explicit bin edges, padded to cover the outcome range if they fall short; cannot be combined with n_bins",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "control_group": {
+          "default": "nevertreated",
+          "description": "control_group parameter (str).",
+          "type": "string"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
+        },
+        "estimator": {
+          "default": "dr",
+          "description": "estimator parameter (str).",
+          "type": "string"
+        },
+        "g": {
+          "description": "First-treatment period (0 = never treated)",
+          "type": "string"
+        },
+        "i": {
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "max_e": {
+          "description": "Only bites under aggregation='dynamic': latest event time entering the aggregate",
+          "type": "number"
+        },
+        "min_e": {
+          "description": "Only bites under aggregation='dynamic': earliest event time entering the aggregate",
+          "type": "number"
+        },
+        "n_bins": {
+          "default": "auto",
+          "description": "Equal-width outcome bins; too coarse a grid buys a large p-value for nothing. 'auto' follows didFF: an outcome with fewer than 20 distinct untreated values is treated as discrete (one bin per value), otherwise it is cut into min(20, n_distinct) bins",
           "type": "integer"
         },
         "n_sims": {
           "default": 100000,
           "description": "Draws behind the least-favourable critical value",
           "type": "integer"
+        },
+        "panel": {
+          "default": true,
+          "description": "panel parameter (bool).",
+          "type": "boolean"
         },
         "random_state": {
           "default": 0,
@@ -12587,6 +12997,10 @@
         },
         "t": {
           "description": "t parameter (str).",
+          "type": "string"
+        },
+        "weights": {
+          "description": "Sampling-weight column; unset weights every unit equally",
           "type": "string"
         },
         "x": {

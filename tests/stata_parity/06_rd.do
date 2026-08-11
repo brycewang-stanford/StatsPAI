@@ -18,7 +18,7 @@ stata_parity_open, module(06_rd)
 import delimited "${STATA_PARITY_DATA}/06_rd.csv", clear case(preserve)
 
 * Default mserd bandwidth selector.
-rdrobust voteshare_next margin, c(0)
+rdrobust y x, c(0)
 
 local n = e(N)
 * e(tau_cl) = conventional point estimate.
@@ -42,9 +42,9 @@ stata_parity_row, stat(default_robust_est) est(`bc_est') std(`rb_se') cilo(`lo')
 stata_parity_row, stat(default_bandwidth_h) est(`h_l') nob(`n')
 stata_parity_row, stat(default_bandwidth_b) est(`b_l') nob(`n')
 
-* Forced bandwidth replicate at h = b = 0.042287 (matches r_parity).
-local H_FORCED = 0.042287
-rdrobust voteshare_next margin, c(0) h(`H_FORCED') b(`H_FORCED')
+* Forced bandwidth replicate at h = b = 15 (matches r_parity FORCED_BANDWIDTH).
+local H_FORCED = 15
+rdrobust y x, c(0) h(`H_FORCED') b(`H_FORCED')
 
 local n = e(N)
 local conv_est = e(tau_cl)
@@ -54,11 +54,11 @@ local rb_se    = e(se_tau_rb)
 
 local lo = `conv_est' - ${STATA_PARITY_Z95} * `conv_se'
 local hi = `conv_est' + ${STATA_PARITY_Z95} * `conv_se'
-stata_parity_row, stat(forced_h0.042287_conventional_est) est(`conv_est') std(`conv_se') cilo(`lo') cihi(`hi') nob(`n')
+stata_parity_row, stat(forced_h15_conventional_est) est(`conv_est') std(`conv_se') cilo(`lo') cihi(`hi') nob(`n')
 
 local lo = `bc_est' - ${STATA_PARITY_Z95} * `rb_se'
 local hi = `bc_est' + ${STATA_PARITY_Z95} * `rb_se'
-stata_parity_row, stat(forced_h0.042287_robust_est) est(`bc_est') std(`rb_se') cilo(`lo') cihi(`hi') nob(`n')
+stata_parity_row, stat(forced_h15_robust_est) est(`bc_est') std(`rb_se') cilo(`lo') cihi(`hi') nob(`n')
 
 stata_parity_extra, key(kernel) val(triangular)
 stata_parity_extra, key(p) val(1)

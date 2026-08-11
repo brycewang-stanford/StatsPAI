@@ -1,0 +1,72 @@
+{
+  "module": "83_lpdid",
+  "side": "py",
+  "rows": [
+    {
+      "module": "83_lpdid",
+      "side": "py",
+      "statistic": "lpdid_h-2_att",
+      "estimate": 0.021281799524604073,
+      "se": 0.07521997777868647,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 790,
+      "extra": {}
+    },
+    {
+      "module": "83_lpdid",
+      "side": "py",
+      "statistic": "lpdid_h0_att",
+      "estimate": 0.8648537736417238,
+      "se": 0.07444213114910427,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1190,
+      "extra": {}
+    },
+    {
+      "module": "83_lpdid",
+      "side": "py",
+      "statistic": "lpdid_h1_att",
+      "estimate": 1.599705002800728,
+      "se": 0.06894680843218817,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 990,
+      "extra": {}
+    },
+    {
+      "module": "83_lpdid",
+      "side": "py",
+      "statistic": "lpdid_h2_att",
+      "estimate": 2.3989625207110747,
+      "se": 0.08772923015928898,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 790,
+      "extra": {}
+    },
+    {
+      "module": "83_lpdid",
+      "side": "py",
+      "statistic": "lpdid_h3_att",
+      "estimate": 3.3227660019271177,
+      "se": 0.10450631547255819,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 593,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "clean_controls": "not_yet_treated",
+    "time_fe": true,
+    "cluster": "unit",
+    "horizons": [
+      -2,
+      3
+    ],
+    "reference_kind": "direct_transcription_no_r_package",
+    "note": "Fixture has only 0->1 transitions; sp.lp_did documents its switch-off handling as not verified against the published paper, so that branch is deliberately not pinned here."
+  }
+}

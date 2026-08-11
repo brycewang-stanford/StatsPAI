@@ -196,8 +196,8 @@ and human labels exist, then divide:
 | ImportError on embedder='sbert' | `ImportError` | Install sentence-transformers: `pip install sentence-transformers` or use embedder='hash' |  |
 
 **Alternatives (ranked)**
-- `sp.sp.regress: plain OLS without text adjustment`
-- `sp.sp.dml: double machine learning with manual text features`
+- `sp.regress: plain OLS without text adjustment`
+- `sp.dml: double machine learning with manual text features`
 
 **Typical minimum N**: 200
 
@@ -226,7 +226,7 @@ and human labels exist, then divide:
 | DataInsufficient: 'Bootstrap produced only N valid draws' | `statspai.DataInsufficient` | Increase n_bootstrap, or fall back to the first-order SE; resampling is too unstable when the validation set is very small |  |
 
 **Alternatives (ranked)**
-- `sp.sp.regress with raw LLM label (biased — for comparison only)`
+- `sp.regress with raw LLM label (biased — for comparison only)`
 
 **Typical minimum N**: 300
 

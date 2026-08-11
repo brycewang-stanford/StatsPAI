@@ -34,7 +34,7 @@ make_row <- function(stat_name, fit, label) {
 }
 
 # Default mserd bandwidth selector.
-fit <- rdrobust::rdrobust(y = df$voteshare_next, x = df$margin, c = 0.0)
+fit <- rdrobust::rdrobust(y = df$y, x = df$x, c = 0.0)
 
 # rdrobust returns coef and se as 3-row matrices: Conventional /
 # Bias-Corrected / Robust. The "robust_est" row pairs the bias-
@@ -76,9 +76,9 @@ rows <- list(
 # Forced-bandwidth replicate at h = b = 0.042287 so the bandwidth-
 # selector convention difference is isolated from the local-
 # polynomial estimator math.
-H_FORCED <- 0.042287
+H_FORCED <- 15.0
 fit_forced <- rdrobust::rdrobust(
-  y = df$voteshare_next, x = df$margin, c = 0.0,
+  y = df$y, x = df$x, c = 0.0,
   h = H_FORCED, b = H_FORCED
 )
 rows[[length(rows) + 1L]] <- parity_row(

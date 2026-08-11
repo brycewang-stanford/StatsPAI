@@ -112,6 +112,7 @@ nav:
       - "Staggered DiD (Callaway–Sant'Anna)": guides/callaway_santanna.md
       - "Report card: cs_report()": guides/cs_report.md
       - "Repeated cross-sections": guides/repeated_cross_sections.md
+      - "Randomised rollouts (design-based DiD)": guides/randomized_rollout.md
       - "Mixtape replication suite — overview": guides/mixtape_replications.md
       - "Mixtape Ch. 9 DiD — full replication": guides/mixtape_ch09_did.md
       - "Castle doctrine — real-data staggered DiD": guides/mixtape_castle_replication.md

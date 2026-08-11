@@ -29,7 +29,7 @@ r_ebal = sp.match(df, y="earnings", treat="training",
 # ...or as standalone functions with estimator-specific options.
 w = sp.overlap_weights(df, treat="training",
                        covariates=["age", "education", "earnings_pre"])
-diag = sp.balance_diagnostics(df, treat="training",
+diag = sp.balance_diagnostics(df, treatment="training",
                               covariates=["age", "education"],
                               weights=w.weights)
 ```

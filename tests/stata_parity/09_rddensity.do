@@ -16,7 +16,7 @@ stata_parity_open, module(09_rddensity)
 
 import delimited "${STATA_PARITY_DATA}/09_rddensity.csv", clear case(preserve)
 
-rddensity margin, c(0)
+rddensity x, c(0)
 
 count
 local n = r(N)
@@ -40,6 +40,6 @@ stata_parity_row, stat(bandwidth_left) est(`hl')   nob(`n')
 stata_parity_row, stat(bandwidth_right)est(`hr')   nob(`n')
 
 stata_parity_extra, key(test_kind) val("Cattaneo-Jansson-Ma (2020)")
-stata_parity_extra, key(stata_command) val("rddensity margin, c(0)")
+stata_parity_extra, key(stata_command) val("rddensity x, c(0)")
 
 stata_parity_close, module(09_rddensity)

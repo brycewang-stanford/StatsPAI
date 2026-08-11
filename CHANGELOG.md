@@ -27,6 +27,19 @@ via Crossref and the published PDF.
   methods that do not implement ω now **raise** instead of ignoring it.
   **Re-run any staggered analysis that passed `weights=`.**
 
+- **Callaway–Sant'Anna `estimator="dr"` standard errors omitted both
+  nuisance estimation effects.** DR is Neyman-orthogonal in each nuisance
+  separately, so the terms are second-order and the cost was far smaller
+  than in the `ipw` case — but second-order is not zero: the gap to
+  `DRDID::drdid_panel` reached 0.9% on the reference grid. The three
+  remaining pieces (`inf.treat.2`, `inf.cont.2`, `inf.cont.3`, read from
+  DRDID 1.2.3 source) are now propagated. **`dr` standard errors change
+  whenever covariates are supplied**; without covariates the correction
+  is identically zero (the two outcome-regression terms cancel and the
+  score term vanishes at a constant propensity), so no covariate-free
+  result moves. After the fix all three covariate strategies agree with
+  R `did` 2.3.0 to ≤4.6e−11 across a 72-cell grid.
+
 - **Callaway–Sant'Anna `estimator="ipw"` standard errors were up to 89%
   too large.** The ATT(g,t) influence function centred both arms on the
   ATT — `(w1 − w0)ΔY − ATT·w1` — where `DRDID` centres each arm on its
@@ -40,7 +53,73 @@ via Crossref and the published PDF.
   wrong. After the fix, agreement is 5e−11. The `dr` path moves by <1%;
   `estimator="reg"` is unaffected (it already carried the full
   delta-method term). **Re-run every z-statistic, p-value, and confidence
-  interval produced with `estimator="ipw"`.**
+  interval produced with `estimator="ipw"`.** One `ipw` point estimate
+  moves by a single ULP on `mpdta` (…374 → …373) because the corrected
+  form reassociates an algebraically identical expression; that is
+  rounding, not a change of estimand.
+
+- **`sp.drdid`'s `method=` argument did nothing on repeated cross
+  sections, and its standard error was a bootstrap.** On the pooled path
+  (no `id=`), `method='imp'` and `method='trad'` returned *the same
+  number* — they agreed to 3e-13, i.e. floating-point reassociation.
+  Whatever the caller asked for, they got `DRDID::drdid_rc1`, reported
+  under an "Improved"/"Traditional" label chosen by an argument that had
+  no effect. The standard error came from resampling rather than from the
+  Sant'Anna–Zhao influence function, so it was random, `n_boot`-dependent
+  and 1.5–5.5% off the reference. Both are fixed: `method=` now selects
+  `drdid_imp_rc` / `drdid_rc` exactly as R
+  `DRDID::drdid(estMethod=)` does, and every path reports the analytic
+  influence-function SE. **Re-run any `sp.drdid` call made without
+  `id=`.** The point estimate moves whenever `method='imp'` was used
+  (or defaulted to); the SE moves in every case.
+
+  The same path also had a silent-degradation branch: when a
+  treatment × period cell was too small to fit the outcome regression it
+  quietly dropped the covariates and returned an unadjusted 2×2 DID under
+  the doubly-robust label. It now raises `DataInsufficient`.
+
+- **Callaway–Sant'Anna `estimator='ipw_abadie'` standard errors were ~34%
+  too large.** The influence function omitted the propensity-score
+  estimation effect. IPW is not Neyman-orthogonal in the score, so this
+  is not a second-order omission — the sibling `estimator='ipw'`
+  (Hájek-normalised) already carried the term; the Abadie (2005) variant
+  did not. Now matches `DRDID::ipw_did_panel` to 3e-13. Point estimates
+  were never affected. **Re-run every z-statistic, p-value and confidence
+  interval produced with `estimator='ipw_abadie'`.**
+
+- **Callaway–Sant'Anna clustered multiplier-bootstrap standard errors
+  were wrong whenever cluster sizes were unequal.**
+  `callaway_santanna(clustervars=..., bstrap=True)` collapsed the
+  influence functions to cluster **means** over `n_clusters`
+  (`se = bSigma / sqrt(n_clusters)`). That is exactly what CRAN `did`
+  2.3.0 does, so it was a faithful port — but it is only the
+  cluster-robust variance when every cluster has the same size. A cluster
+  enters with weight `1/|c|`, so small clusters dominate: on a county
+  panel clustered by state with sizes 1–150, the SEs came out ~5x too
+  large; on a milder 3–317 spread, 1.5–11x. Upstream `did` (GitHub
+  master, post-2.3.0) switched to cluster **sums** with
+  `se = bSigma·sqrt(n_clusters)/n` for this reason, and `csdid` tracks
+  the corrected form. StatsPAI now does too, matching `csdid` to within
+  Monte-Carlo error. Equal-sized clusters are unaffected — the two
+  formulas coincide there — as is the unclustered bootstrap, which was
+  always correct. **Re-run any clustered `bstrap=True` inference on
+  unbalanced clusters; note this now differs from CRAN `did` 2.3.0
+  output, deliberately.**
+
+- **`anticipation > 0` moved the pre-treatment placebos under
+  `base_period="varying"`.** StatsPAI shifted the base period back by
+  `anticipation` for *every* cell. R `did` shifts it only once a cell is
+  post-treatment (`compute.att_gt.R`, the `pret` block); a pre-treatment
+  placebo keeps the period immediately before it, so its value does not
+  move with `anticipation` at all. StatsPAI's version changed every
+  pre-treatment ATT(g,t) and dropped the earliest ones from the grid
+  entirely. **Post-treatment ATT(g,t), and therefore every aggregation,
+  were never affected** — this changes pre-trend tests and event-study
+  leads. Cohorts with no period satisfying `t + anticipation < g` are now
+  dropped with a warning instead of silently. The period grid is also
+  compared with strict inequalities rather than `t − 1` arithmetic, so
+  irregularly spaced periods (1990, 1995, 2000, …) resolve to the
+  neighbouring observed period instead of dropping the cell.
 
 - **`sp.did` silently swallowed unknown keyword arguments.** `**kwargs`
   is only consumed by the `sdid` and `bjs` branches; everywhere else it
@@ -50,6 +129,189 @@ via Crossref and the published PDF.
   now raise with a hint naming the common stale spellings.
 
 ### Added
+
+- **`sp.staggered_rollout` now covers the whole of R `staggered` 1.2.2**
+  (Roth & Sant'Anna 2023 [@roth2023efficient]). Five additions, each
+  pinned against the reference implementation to ≤1e−9 on three panels —
+  `did::mpdta`, a randomised rollout with *no* never-treated units (so
+  `max(g)` is finite, a branch mpdta never reaches), and the same design
+  with the effect switched off:
+  - **The adjusted standard error.** R reports two SEs and StatsPAI
+    implemented only the conservative one. Under random adoption timing
+    part of the pre-period covariance is *identified*, so the Neyman
+    bound can be tightened; `se_type="adjusted"` reports the tightened
+    version, which is what R prints as its primary `se`. Both are always
+    in `model_info`. **The default stays `"neyman"`, so no existing
+    number moves** — the adjusted SE is never larger, making the default
+    the cautious one.
+  - **`estimand="eventstudy"`** with a scalar or a vector `event_time`.
+    A vector returns one row per event time in `.detail` *and* the joint
+    covariance in `model_info["vcov"]`, so the summary `.estimate`
+    averages post-adoption event times with a correct SE rather than
+    pretending they are independent.
+  - **Fisher randomisation inference** (`fisher=True`). Adoption dates
+    are permuted across units — the null the design actually licenses —
+    and the studentised statistic recomputed. No asymptotics, which is
+    the point of a randomised rollout. Both p-values (conservative and
+    adjusted) are reported.
+  - **`use_last_treated_only`**, the Sun-Abraham comparison group.
+  - **Singleton cohorts are dropped with a warning** instead of raising,
+    matching R: a lone unit in one cohort no longer sinks the design.
+
+- **`sp.staggered_rollout(..., use_did_a0=False)`** — the *general* form of
+  the efficient estimator, which uses **every** pre-period as a control
+  instead of the single DiD contrast at `g − 1`. `beta` becomes a vector and
+  the estimator is weakly more efficient, at the cost of estimating more
+  nuisance weights. Requires `efficient=True` and says so: the plug-in fixes
+  `beta = 1`, which is a single contrast and has no meaning against a vector
+  control set — R errors there too, and computing something anyway would
+  invent an estimator with no reference behind it.
+
+- **`sp.distributional_did`** — the treatment effect on the *distribution* of
+  the outcome, bin by bin (R `didFF::distDD`). Where
+  `sp.functional_form_test` asks whether the design's implied counterfactual
+  density is a density at all, this asks where treatment moved probability
+  mass. The per-bin effects sum to zero by construction, so the content is the
+  shape: a mean ATT of zero is perfectly consistent with large offsetting
+  movements in the tails, and this is what shows them. Pinned against `distDD`
+  to 4e-16 **including standard errors**, which the reference exposes on this
+  path and not on the functional-form one.
+
+  It also survives a case the reference does not: with automatic binning on
+  `mpdta` one bin comes out empty, and `didFF` 0.1.0 then builds its table
+  from `levels(droplevels(bins))` (19 entries) alongside 20 point estimates
+  and dies with *"arguments imply differing number of rows: 20, 19"*.
+  StatsPAI reports all 20 bins and flags the empty one.
+
+- **Agent-facing routing for the design-based family.**
+  `sp.did(method="staggered_rollout" | "staggered_cs" | "staggered_sa")` now
+  works, and **deliberately skips the Bacon decomposition, the pre-trend test
+  and honest-DiD sensitivity**, logging why. All three are about parallel
+  trends: a pre-trend test neither supports nor threatens an assumption you
+  are not making, honest-DiD relaxes one you did not assume, and Bacon's
+  "switch to Callaway-Sant'Anna" advice does not apply. Reporting a passing
+  pre-trend test beside a design-based estimate is a category error that
+  invites the reader to think the estimate rests on an assumption it does not.
+  `sp.recommend` now surfaces the branch as well — but never selects it,
+  because whether adoption timing was randomised is a claim about how the data
+  came to be and no test on the data can settle it.
+
+- **R migration**: `sp.from_r` now translates `staggered::staggered`,
+  `staggered_cs`, `staggered_sa`, `didFF::didFF` and `distDD`, mapping R's
+  `beta = 1` to `efficient=False`, `use_DiD_A0 = FALSE` to `use_did_a0=False`,
+  `compute_fisher` to `fisher`, `weightsname` to `weights`, and routing
+  `distDD` to `sp.distributional_did`.
+
+- **`docs/guides/randomized_rollout.md`** — a guide for the whole branch: the
+  one question that decides it, which of the two standard errors to report,
+  the randomisation test, the design-based event study, the general control
+  set, and the three diagnostics to stop running once you are on it.
+
+- **`sp.staggered_cs` and `sp.staggered_sa`** — the Callaway-Sant'Anna
+  and Sun-Abraham *estimands* with **design-based** inference, mirroring
+  R `staggered::staggered_cs` / `staggered_sa`. Same weights as
+  `sp.callaway_santanna` / `sp.sun_abraham`, but the standard error comes
+  from random adoption timing rather than parallel trends; units already
+  treated in the first period are dropped, since ATT(g,t) is not
+  identified for them. Use these when timing was randomised and the
+  familiar estimand is wanted; use the parallel-trends versions when it
+  was not.
+
+- **`sp.functional_form_test(..., weights=)`** — sampling weights, which
+  reach the implied density *and* the test statistic. Pinned against
+  `didFF(weightsname=)` to 2e−15, including on the rejection panel where
+  the p-value is 0 rather than 1, so weights are verified through the
+  critical value and not merely through the point estimates.
+
+- **`sp.functional_form_test` gains `panel`, `allow_unbalanced_panel`,
+  `balance_e`, `min_e` and `max_e`**, completing the passthrough to
+  `sp.callaway_santanna` and `sp.aggte`. The last three restrict which
+  event times enter a `aggregation="dynamic"` aggregate, matching
+  `didFF`'s arguments of the same names.
+
+- **`FunctionalFormResult.plot()`** — the implied-density bar chart, with
+  negative bins in their own colour and `lb` / `ub` to window the outcome
+  range (`didFF`'s `lb_graph` / `ub_graph`). This is the figure the test
+  is really about: the p-value compresses into one number what the bars
+  show directly, which is whether the distribution the design implies for
+  the treated group is a distribution at all.
+
+- **`sp.drdid` now reaches all 14 estimators of R `DRDID` 1.2.3**, each
+  matching to machine precision. New keyword-only arguments
+  `est_method` (`'dr'`/`'ipw'`/`'reg'`/`'twfe'`), `normalized`,
+  `locally_efficient`, `weights` (DRDID's `i.weights`) and `trim_level`
+  combine with the existing `method` and `id=` to select:
+
+  | | panel (`id=`) | repeated cross-sections |
+  |---|---|---|
+  | `dr` | `drdid_panel`, `drdid_imp_panel` | `drdid_rc`, `drdid_imp_rc`, `drdid_rc1`, `drdid_imp_rc1` |
+  | `ipw` | `std_ipw_did_panel`, `ipw_did_panel` | `std_ipw_did_rc`, `ipw_did_rc` |
+  | `reg` | `reg_did_panel` | `reg_did_rc` |
+  | `twfe` | `twfe_did_panel` | `twfe_did_rc` |
+
+  Six of these had no implementation anywhere in StatsPAI before
+  (`drdid_rc1`, `drdid_imp_rc`, `drdid_imp_rc1`, `ipw_did_rc`,
+  `twfe_did_rc`, plus `drdid_panel` on the `id=` path, which used to
+  raise); three more existed only as private helpers behind
+  `callaway_santanna`'s repeated-cross-section branch. For scale, the
+  `d2cml-ai/DRDIDpy` port ships 6 of the 14 and returns bare
+  `(att, influence_function)` tuples with no standard error, CI or
+  p-value. `result.model_info["engine"]` names the DRDID function that
+  ran, so a migration can be checked line by line.
+
+  `'twfe'` is provided for comparison, not as a recommendation: with
+  covariates it is exactly the specification Sant'Anna & Zhao (2020) and
+  Caetano & Callaway (2024) warn about.
+
+- **Inverse probability tilting is now solved to convergence.**
+  `_calibrated_pscore` (the `DRDID::pscore.cal` port behind every
+  `method='imp'` estimator) stopped at BFGS's tolerance where R uses a
+  trust-region Newton method. Tilting earns its name by making the
+  covariate-balance conditions hold *exactly* at the optimum, which is
+  what kills the first-order nuisance terms in the improved estimators —
+  so "close" is not good enough: a 1.5e-9 slack in p̂(X) moved
+  `drdid_imp_rc` by 7e-4 in the ATT and 2.9% in the SE. A Newton
+  refinement pass now drives the gradient to 1e-13. Improved-estimator
+  results move in the last few digits.
+
+- **`sp.callaway_santanna(..., allow_unbalanced_panel=True)`** — the
+  missing counterpart to R `did::att_gt(allow_unbalanced_panel = TRUE)`.
+  With `panel=True` and units missing periods, the default route forms
+  within-unit differences anyway, so a unit missing either the base or
+  the comparison period silently drops out of *that cell* and the
+  effective sample varies across cells. The new option switches to the
+  repeated-cross-section estimators, which never difference within unit
+  and so keep every observed row, then folds the influence functions back
+  to the unit level (R's `.rowid <- idname`) so `n` stays the unit count
+  and the SEs still carry within-unit correlation. Skipping that fold
+  would treat a unit's pre and post rows as independent draws and
+  understate every SE — invisible in the point estimate. Matches R `did`
+  2.3.0 to ≤7e−15 on ATT(g,t) and to machine precision on standard
+  errors, across `dr`/`ipw`/`reg` with and without covariates, and
+  through all four `sp.aggte` aggregations. Inert when the panel turns
+  out to be balanced, matching R. Not yet supported alongside
+  `weights=` or `clustervars=`, which raise rather than being ignored.
+
+- **ω weights on `sp.sun_abraham`.** The weight enters the two-way
+  fixed-effect projection (weighted alternating projections — demeaning
+  by the *unweighted* mean and then solving by WLS would leave the fixed
+  effects correlated with the regressors), the least-squares solve, the
+  cluster-robust variance, and the interaction weights, which become
+  shares of ω-mass rather than head counts. Event-study point estimates
+  match `fixest::sunab(..., weights=)` to 1.6e−9 weighted and 3e−8
+  unweighted. Standard errors are **not** claimed at parity: StatsPAI and
+  `fixest` differ on the interaction-weighted aggregation variance by
+  ~0.7% unweighted and ~2.2% weighted. That gap predates this work, is
+  largest where several cohorts are aggregated, and is now pinned as a
+  documented open item rather than asserted as a pass.
+
+- **`sp.did_balance`** — pinned against R `cobalt` 4.6.2 and an
+  independent transcription of the formula. Unweighted, all three agree
+  to ~1e−14. Weighted, StatsPAI follows Baker et al. §4.1 (weighted
+  variances in the denominator) while `cobalt` deliberately holds the
+  denominator at the unweighted pooled SD so balance stays comparable
+  across reweightings; the two differ by a few percent and the test suite
+  proves the gap is exactly that denominator choice.
 
 - **`sp.did_balance`** — covariate balance in the shape of Baker et al.
   Table 4: Imbens–Rubin normalized differences computed on baseline
@@ -78,6 +340,24 @@ via Crossref and the published PDF.
 
 ### Changed
 
+- **⚠️ `sp.functional_form_test(n_bins=)` now defaults to `"auto"`, not
+  `10`, and the p-value moves.** The binning *is* the test — it decides
+  the resolution at which a negative implied density can be seen — so a
+  default that differs from the reference implementation makes the two
+  packages' p-values non-comparable while looking like they should be.
+  `"auto"` is `didFF`'s rule: an outcome with fewer than 20 distinct
+  untreated values is treated as **discrete** (one bin per value, with a
+  warning), otherwise it is cut into `min(20, n_distinct)` equal-width
+  bins. **To reproduce results computed under 1.21.0/1.22.0, pass
+  `n_bins=10` explicitly.** An explicit integer always cuts, however few
+  distinct values the outcome takes. See MIGRATION.md.
+- `sp.functional_form_test(binpoints=)` now pads cut points that stop
+  short of the outcome range, with a warning, instead of silently
+  dropping the uncovered mass out of the density being tested — again
+  matching `didFF`. Passing both `binpoints` and an explicit `n_bins`
+  now raises instead of silently preferring `binpoints`.
+- `sp.functional_form_test(...).table` gains a `level` column (the bin's
+  upper endpoint), which is what `didFF` tabulates and plots against.
 - `sp.did(method="twfe")` on a panel with more than two periods now warns
   that collapsing to a median pre/post split estimates
   `ATT_avg − (average pre-period differential trend)`, not the average
@@ -90,6 +370,156 @@ via Crossref and the published PDF.
   first, and stale API examples corrected (`post=`, `max_M=`,
   `repeated_cs=`, `sp.drdid(d=, post=)`, `sp.ddd(t1=, t2=, t3=)` were all
   wrong against the shipped signatures).
+
+### Fixed
+
+- **⚠️ Agent-native gap: `sp.iv` advertised 5 of the 26 methods it
+  routes.** `sp.iv` is a callable subpackage and the entry point for the
+  entire IV family, but its registry `method` enum listed only `2sls`,
+  `liml`, `fuller`, `gmm`, `jive`. Since `sp.describe_function('iv')` and
+  `sp.function_schema('iv')` are *how an agent discovers what a function
+  can do*, 21 working, tested estimators were invisible: an agent reading
+  the schema would conclude StatsPAI has no marginal treatment effects
+  (`method='mte'`), no Mogstad–Santos–Torgovitsky sharp bounds
+  (`'ivmte_bounds'`), no Conley–Hansen–Rossi plausibly-exogenous
+  sensitivity (`'plausibly_exog_ltz'` / `'plausibly_exog_uci'`), no
+  rigorous/post-Lasso instrument selection (`'post_lasso'`, `'rlasso'`,
+  `'lasso'`), none of the many-weak-instrument jackknife variants
+  (`'jive1'`, `'ujive'`, `'ijive'`, `'rjive'`, `'jive_mw'`,
+  `'many_weak_ar'`), and no `'npiv'` / `'kernel'` / `'ivdml'` /
+  `'deepiv'` / `'ivqreg'` / `'bayes'` / `'continuous_late'` /
+  `'shift_share'`. The enum and the description now cover all 26, so the
+  family stays discoverable through the documented dispatcher rather than
+  through 26 separate top-level symbols — the house pattern of CLAUDE.md
+  §3 rule 4. **No new public functions; the registered count is
+  unchanged at 1,171**, so no README / `docs/stats.md` / JSS figure
+  moves. New guard `tests/test_iv_dispatcher_registry_sync.py` pins the
+  enum against `statspai.iv._METHOD_ALIASES` in both directions — a
+  method that routes must be advertised, and an advertised method must
+  route.
+
+- **`docs/guides/robustness_workflow.md` documented a return value that
+  does not exist.** Two blocks called `sp.robustness_report(r)` on a
+  fitted `CausalResult` — the signature is `(data, formula, x, ...)` —
+  and described the return as a dict with `identification` /
+  `specification` / `sensitivity` keys and a
+  `verdict: 'ROBUST' | 'MARGINAL' | 'FRAGILE'`. It actually returns a
+  `RobustnessResult` (`.summary()`, `.results_df`, `.plot()`,
+  `.baseline_estimate`, `.n_checks`) and covers Layer-2 specification
+  robustness for a regression design only. Rewritten to the real API,
+  with the "one call returns a verdict" claim removed.
+
+- **Three documented calls did not exist against the shipped signatures.**
+  `docs/guides/choosing_did_estimator.md` advertised
+  `sp.stacked_did(df, y, g, t, i, event_window=6)` — there is no
+  `event_window` parameter (the name was copied from the neighbouring
+  `sp.sun_abraham` row) and the positional order was that of
+  `callaway_santanna`, not `stacked_did`; the correct call is
+  `sp.stacked_did(df, y, group, time, first_treat, window=(-5, 5))`. The
+  same table mapped de Chaisemartin–D'Haultfœuille to
+  `sp.did_multiplegt(df, y, treat, g, t, i)`, whose positional order
+  silently binds `group=treat`, `time=g`, `treatment=t`. And
+  `docs/guides/migration-from-r.md` mapped
+  `HonestDiD::createSensitivityResults` to
+  `sp.honest_did(cs_result, Mbar=...)`; `Mbar` belongs to
+  `sp.sensitivity_rr` on the following row, while `honest_did` takes
+  `m_grid`. New guard `tests/test_docs_call_signatures.py` parses every
+  inline `sp.*(...)` span in `docs/guides/` (278 of them) and fails when a
+  documented keyword names no real parameter, or when positional arguments
+  overflow the signature. Argument elision (`sp.dml(...)`,
+  `sp.callaway_santanna(..., estimator='dr')`) stays legal.
+
+- **Fourteen guides recommended `sp.*` functions that do not exist, and
+  six of those were real estimators reachable only through the family
+  dispatcher.** `choosing_iv_estimator.md` told readers to call
+  `sp.weak_iv_ci`, `sp.post_lasso`, `sp.jive_variants`,
+  `sp.plausibly_exogenous`, `sp.mte` and `sp.ivmte_lp` — every one raises
+  `AttributeError`. The estimators all ship and are tested; the correct
+  entry point is `sp.iv(..., method=...)`, which routes 26 methods
+  (see the separate entry below). The guides now use
+  `sp.anderson_rubin_ci` / `sp.jive` / `sp.rlasso_iv` where a top-level
+  export exists, and `sp.iv(method='post_lasso'|'ltz'|'uci'|'mte'|
+  'ivmte_bounds'|'ujive')` for the rest.
+  Also fixed: `sp.rdmulti` → `sp.rdmc`, `sp.pcalg` → `sp.pc_algorithm`,
+  `sp.S_Learner` → `sp.metalearner`, `sp.bootstrap_ci` → `sp.bootstrap`,
+  `sp.permutation_test` → `sp.ri_test`, `sp.audit_result` → `sp.audit`,
+  `sp.sensitivity` → `sp.unified_sensitivity`, `sp.bounds(...)` (a
+  module, not a callable) → `sp.partial_identification`, `sp.vecm` →
+  `sp.johansen`, and a doubled `sp.sp.` prefix in two family guides.
+  The same sweep over the published reference pages replaced
+  `sp.moran_i` / `sp.geary_c` / `sp.local_moran` / `sp.join_count` /
+  `sp.spatial_weights` / `sp.sarar` with their real names, mapped
+  `sp.cointegration` and `sp.chow_test` / `sp.quandt_andrews` /
+  `sp.bai_perron` onto `sp.engle_granger` / `sp.johansen` /
+  `sp.structural_break(method=...)`, replaced the five
+  `sp.<x>_learner` entries with `sp.metalearner(..., learner=...)`, and
+  **dropped** the `sp.nelson_aalen`, `sp.aft_frailty` and `sp.sdem`
+  snippets, which documented estimators StatsPAI does not implement.
+
+- **Thirty-one more wrong keywords across nine guides.** Same class as
+  the `event_window` bug: `sp.kitagawa_test(d=, z=)` (really
+  `treatment=` / `instrument=`), `sp.sensemakr(r, benchmark_covariates=)`
+  (takes `data` and `benchmark=`, not a fitted result),
+  `sp.spec_curve(treat=, covariate_sets=, estimators=)` (really `x=` /
+  `controls=` / `se_types=`), `sp.rdbalance(covariates=)` → `covs=`,
+  `sp.rdplacebo(true_cutoff=)` → `c=`, `sp.trimming(r, threshold=)`,
+  `sp.cs_report(group=, time=, first_treat=)` → `i=` / `t=` / `g=`,
+  `sp.causal_survival_forest(duration=, treatment=)` → `time=` /
+  `treat=`, `sp.bartik(unit=, time=)`, `sp.regtable(robustness=)`, and
+  an `sp.event_study(d=, t=, i=, method=, pretrend_test=)` block in the
+  DiD guide where none of the five keywords exist. `docs/guides/` is now
+  clean: zero unresolvable names, zero wrong keywords, across 713
+  documented calls.
+
+- **The registry's test-evidence ledger cited ten test files that never
+  exercise the function they were attached to.**
+  `sp.describe_function(name)['validation_notes']` reports these paths as
+  `"API/unit contract evidence: <path>"`, so an agent or referee reads
+  them as the place the estimator is covered. `stacked_did` pointed at
+  `tests/test_did.py`, which contains no stacked-DiD test at all; `cic`,
+  `ddd`, `did_analysis`, `pretrends_test`, `breslow_day_test`,
+  `mr_clust` and `target_trial_protocol` pointed at files they had been
+  split or renamed out of. All ten now cite files that call them (verified
+  by direct-call count). No validation *tier* changes — `stacked_did`
+  remains `certified` on the Track A 75 parity evidence — only the cited
+  evidence. New guard `tests/test_registry_validation_evidence.py`
+  parametrises over all 220 ledger entries and fails on a path that is
+  missing or that never mentions its function.
+
+- **The "Alternatives (ranked)" renderer double-prefixed `sp.`.**
+  `_agent_docs.py` prepends `sp.` to every entry in a spec's
+  `alternatives`, but six registry entries (`text_treatment_effect`,
+  `llm_annotator_correct`, `llm_dag_constrained`) already spelled theirs
+  with the prefix — so the generated "## For Agents" blocks, and
+  `sp.describe_function(...)["alternatives"]`, told agents to call
+  `sp.sp.regress` and `sp.sp.pc_algorithm`. The six entries now hold bare
+  names, matching every other entry, and the renderer strips a leading
+  `sp.` defensively so a future entry cannot reintroduce it.
+  `schemas/agent_cards.json` regenerated.
+
+- **87 wrong keywords across the 13 published API-reference pages.**
+  These were written against an older API and never re-verified, so the
+  reference — the page a reader trusts most — was the least accurate
+  surface in the repo. `sp.sar` / `sp.sem` / `sp.sdm` / `sp.slx` were
+  documented as `(df, y=, x=, W=)` when every one is `(W, data, formula)`;
+  `sp.gwr` / `sp.mgwr` were shown with a DataFrame API when they take
+  `(coords, y, X, bw=)` arrays; `sp.spatial_panel(y=, x=, i=, t=, fe=)`
+  is really `(data, formula, entity=, time=, effects=)`;
+  `sp.cox(time=, vce=)` is `(duration=, robust=)`; `sp.aft(time=, event=,
+  x=, dist=)` is formula-based with `family=`; `sp.assumption_audit` takes
+  a fitted result, not `(df, outcome=, treatment=)`; plus `spec_curve`,
+  `robustness_report`, `verify`, `evalue`, `sensemakr`, `manski_bounds`,
+  `honest_did`, six RD entry points, five neural/BART estimators,
+  `notears`, `ges`, the three `panel_*` models, `mixed`, `meglm`,
+  `xtfrontier`, `balance_diagnostics`, `var`, `bvar`, and the three
+  `synth_*` power helpers. Four documented *parameters* turned out never
+  to have been implemented at all — `sp.cox`'s counting-process
+  `time_start`/`time_stop` (its whole "Time-varying covariates" section),
+  `sp.garch(model='egarch'|'gjrgarch')`, and `sp.aft(dist='gamma')` — and
+  those claims were removed rather than rewritten. All 53 rewritten calls
+  were bind-checked against `inspect.signature`. The reference pages are
+  now held to the same zero-tolerance guard as the guides: one sweep over
+  both surfaces, no baseline, no allowance.
 
 ## [1.22.0] — 2026-08-07
 

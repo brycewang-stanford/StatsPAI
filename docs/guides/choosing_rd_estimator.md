@@ -14,7 +14,7 @@ What is the running variable behaviour at the cutoff?
   Discrete (time-based)        -> RDiT (sp.rdit)
   Kink (derivative jump)       -> RKD (sp.rkd)
   Two running variables        -> sp.rd2d
-  Multiple cutoffs             -> sp.rdmulti
+  Multiple cutoffs             -> sp.rdmc
   Randomisation (near cutoff)  -> Local randomization (sp.rdrandinf)
 ```
 
@@ -53,7 +53,7 @@ Fuzzy RD identifies a LATE for compliers. Also report:
 | Discrete running variable (e.g., date)      | `sp.rdit`                       |
 | Kink design (slope jump, not level)         | `sp.rkd`                        |
 | Two-dimensional cutoff                      | `sp.rd2d`                       |
-| Multiple cutoffs (school-district boundaries)| `sp.rdmulti`                    |
+| Multiple cutoffs (school-district boundaries)| `sp.rdmc`                       |
 | Near-cutoff local randomization             | `sp.rdrandinf`                  |
 | Heterogeneous effects                       | `sp.rdhte`, `sp.rd_forest`      |
 | ML-based extrapolation beyond cutoff        | `sp.rd_extrapolate`             |
@@ -70,11 +70,11 @@ sp.rddensity(df, x='running_var', c=0.0)
 sp.mccrary_test(df, x='running_var', c=0.0)
 
 # 2. Covariate balance across the cutoff
-sp.rdbalance(df, x='running_var', c=0.0, covariates=[...])
+sp.rdbalance(df, x='running_var', c=0.0, covs=['X1', 'X2'])
 
 # 3. Placebo cutoffs
 sp.rdplacebo(df, y='y', x='running_var',
-             true_cutoff=0.0, placebo_cutoffs=[-0.5, 0.5])
+             c=0.0, placebo_cutoffs=[-0.5, 0.5])
 
 # 4. Bandwidth sensitivity
 sp.rdbwsensitivity(df, y='y', x='running_var', c=0.0)

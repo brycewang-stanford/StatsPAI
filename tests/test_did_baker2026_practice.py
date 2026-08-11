@@ -101,7 +101,7 @@ class TestWeightsChangeTheEstimand:
         )
         assert abs(wtd.estimate - unw.estimate) > 1.0
 
-    @pytest.mark.parametrize("method", ["sun_abraham", "sdid", "bjs"])
+    @pytest.mark.parametrize("method", ["sdid", "bjs"])
     def test_weight_unaware_methods_refuse_rather_than_ignore(self, panel, method):
         """Silently dropping ω answers a different question (§3.7)."""
         with pytest.raises(MethodIncompatibility, match="does not implement unit"):
@@ -114,6 +114,20 @@ class TestWeightsChangeTheEstimand:
                 method=method,
                 weights="w",
             )
+
+    def test_sun_abraham_honours_weights(self, panel):
+        """Sun-Abraham gained omega after the first pass of this work.
+
+        It is listed separately from the estimators that still refuse,
+        so that promoting an estimator from "refuses" to "honours" has
+        to be a deliberate edit here rather than a silent behaviour
+        change.
+        """
+        unw = sp.did(panel, y="y", treat="g", time="t", id="i", method="sa")
+        wtd = sp.did(
+            panel, y="y", treat="g", time="t", id="i", method="sa", weights="w"
+        )
+        assert abs(wtd.estimate - unw.estimate) > 1.0
 
     def test_constant_weights_reduce_to_unweighted(self, panel):
         """ω ≡ c must be a no-op, or the normalisation is wrong."""

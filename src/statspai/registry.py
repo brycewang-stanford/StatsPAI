@@ -664,7 +664,22 @@ def _build_registry() -> None:
         FunctionSpec(
             name="iv",
             category="regression",
-            description="Unified IV estimation: 2SLS, LIML, Fuller, GMM, JIVE. Includes first-stage F, Sargan/Hansen J, and Hausman diagnostics.",
+            description=(
+                "Unified IV estimation and the entry point for the whole IV "
+                "family: k-class (2SLS, LIML, Fuller, GMM, JIVE) plus the "
+                "many-weak-instrument jackknife variants (jive1, ujive, "
+                "ijive, rjive, jive_mw), rigorous/post-Lasso instrument "
+                "selection (lasso, rlasso, post_lasso), marginal treatment "
+                "effects (mte) and their MST sharp bounds (ivmte_bounds), "
+                "plausibly-exogenous sensitivity (plausibly_exog_ltz / "
+                "plausibly_exog_uci), nonparametric and ML variants (npiv, "
+                "kernel, ivdml, deepiv), quantile IV (ivqreg), Bayesian IV "
+                "(bayes), continuous-instrument LATE (continuous_late), "
+                "many-weak-IV Anderson-Rubin (many_weak_ar) and shift-share "
+                "(shift_share). Includes first-stage F, Sargan/Hansen J, "
+                "Kleibergen-Paap rk, Sanderson-Windmeijer per-endog F and "
+                "Hausman diagnostics."
+            ),
             params=[
                 ParamSpec(
                     "formula",
@@ -678,8 +693,41 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "2sls",
-                    "Estimation method",
-                    ["2sls", "liml", "fuller", "gmm", "jive"],
+                    (
+                        "Estimation method. The k-class methods (2sls, liml, "
+                        "fuller, gmm, jive) take `formula` + `data`; the rest "
+                        "take their own explicit arguments — see the target "
+                        "function's docstring. Aliases are case-insensitive "
+                        "and -/_ interchangeable."
+                    ),
+                    [
+                        "2sls",
+                        "liml",
+                        "fuller",
+                        "gmm",
+                        "jive",
+                        "jive1",
+                        "ujive",
+                        "ijive",
+                        "rjive",
+                        "jive_mw",
+                        "many_weak_ar",
+                        "lasso",
+                        "rlasso",
+                        "post_lasso",
+                        "mte",
+                        "ivmte_bounds",
+                        "plausibly_exog_ltz",
+                        "plausibly_exog_uci",
+                        "npiv",
+                        "kernel",
+                        "ivdml",
+                        "deepiv",
+                        "ivqreg",
+                        "bayes",
+                        "continuous_late",
+                        "shift_share",
+                    ],
                 ),
                 ParamSpec(
                     "robust",
@@ -1029,7 +1077,12 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "auto",
-                    "Estimator: 'auto', '2x2', 'ddd', 'cs', 'sa', 'sdid'",
+                    "Estimator. Parallel-trends: 'auto', '2x2', 'ddd', "
+                    "'cs', 'sa', 'sdid'. Design-based (random adoption "
+                    "timing, NOT parallel trends): 'staggered_rollout', "
+                    "'staggered_cs', 'staggered_sa' — these skip the "
+                    "pre-trend test, honest-DiD and Bacon decomposition, "
+                    "which do not apply to them",
                     [
                         "auto",
                         "2x2",
@@ -1039,10 +1092,26 @@ def _build_registry() -> None:
                         "sun_abraham",
                         "sa",
                         "sdid",
+                        "staggered_rollout",
+                        "staggered_cs",
+                        "staggered_sa",
                     ],
                 ),
                 ParamSpec(
                     "subgroup", "str", False, None, "Affected-subgroup column for DDD"
+                ),
+                ParamSpec(
+                    "allow_unbalanced_panel",
+                    "bool",
+                    False,
+                    False,
+                    "Staggered (method='cs') only. False lets units missing "
+                    "a period drop out of the affected ATT(g,t) cells; True "
+                    "keeps every observed row by switching to the "
+                    "repeated-cross-section estimators, with influence "
+                    "functions folded back to the unit level (R "
+                    "did::att_gt(allow_unbalanced_panel=TRUE)). Inert on a "
+                    "balanced panel. The two are different estimators.",
                 ),
             ],
             returns="CausalResult",
@@ -1312,6 +1381,22 @@ def _build_registry() -> None:
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec(
                     "panel", "bool", False, True, "False means repeated cross-sections"
+                ),
+                ParamSpec(
+                    "allow_unbalanced_panel",
+                    "bool",
+                    False,
+                    False,
+                    "How to handle units missing some periods when panel=True. "
+                    "False differences within unit anyway, so a unit missing "
+                    "the base or comparison period drops out of that cell. "
+                    "True switches to the repeated-cross-section estimators, "
+                    "keeping every observed row and folding the influence "
+                    "functions back to the unit level (R "
+                    "did::att_gt(allow_unbalanced_panel=TRUE)); inert when "
+                    "the panel is in fact balanced. The two give different "
+                    "estimates on the same data — an estimator choice, not a "
+                    "tuning knob.",
                 ),
                 ParamSpec(
                     "clustervars",
@@ -8009,8 +8094,8 @@ def _build_registry() -> None:
                 ),
             ],
             alternatives=[
-                "sp.regress: plain OLS without text adjustment",
-                "sp.dml: double machine learning with manual text features",
+                "regress: plain OLS without text adjustment",
+                "dml: double machine learning with manual text features",
             ],
             typical_n_min=200,
         )
@@ -8167,7 +8252,7 @@ def _build_registry() -> None:
                 ),
             ],
             alternatives=[
-                "sp.regress with raw LLM label (biased — for comparison only)",
+                "regress with raw LLM label (biased — for comparison only)",
             ],
             typical_n_min=300,
         )
@@ -8255,9 +8340,9 @@ def _build_registry() -> None:
                 ),
             ],
             alternatives=[
-                "sp.llm_dag_propose: single-shot LLM proposal without CI loop",
-                "sp.pc_algorithm: data-only PC (no LLM)",
-                "sp.causal_mas: multi-agent LLM consensus",
+                "llm_dag_propose: single-shot LLM proposal without CI loop",
+                "pc_algorithm: data-only PC (no LLM)",
+                "causal_mas: multi-agent LLM consensus",
             ],
             typical_n_min=200,
         )
@@ -9978,8 +10063,65 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "imp",
-                    "Estimation method: 'imp' (improved, locally efficient) or 'trad'",
+                    "Nuisance estimators for est_method='dr' (R "
+                    "DRDID::drdid(estMethod=)): 'imp' uses inverse "
+                    "probability tilting + odds-weighted least squares so "
+                    "the DR moment is Neyman-orthogonal by construction; "
+                    "'trad' uses plain logit + OLS with the estimation "
+                    "effects propagated. Ignored unless est_method='dr'.",
                     ["imp", "trad"],
+                ),
+                ParamSpec(
+                    "est_method",
+                    "str",
+                    False,
+                    "dr",
+                    "Estimator family. With method/normalized/"
+                    "locally_efficient and id=, this reaches all 14 R "
+                    "DRDID 1.2.3 estimators: dr -> drdid_[imp_]panel / "
+                    "drdid_[imp_]rc[1]; ipw -> [std_]ipw_did_panel|rc; "
+                    "reg -> reg_did_panel|rc; twfe -> twfe_did_panel|rc. "
+                    "'twfe' is for comparison, not recommendation: with "
+                    "covariates it is the specification Sant'Anna-Zhao and "
+                    "Caetano-Callaway warn about.",
+                    ["dr", "ipw", "reg", "twfe"],
+                ),
+                ParamSpec(
+                    "normalized",
+                    "bool",
+                    False,
+                    True,
+                    "est_method='ipw' only. True = Hajek-normalised "
+                    "(std_ipw_did_*), control arm divided by its own "
+                    "weight mass. False = Abadie (2005) (ipw_did_*), both "
+                    "arms sharing the denominator E[D].",
+                ),
+                ParamSpec(
+                    "locally_efficient",
+                    "bool",
+                    False,
+                    True,
+                    "est_method='dr' on repeated cross-sections only. "
+                    "False drops the semiparametric-efficiency terms, "
+                    "giving drdid_rc1 / drdid_imp_rc1, which avoid fitting "
+                    "outcome regressions on the treated cells. Both are "
+                    "consistent.",
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Observation weights column (R DRDID i.weights), "
+                    "renormalised to mean one.",
+                ),
+                ParamSpec(
+                    "trim_level",
+                    "float",
+                    False,
+                    0.995,
+                    "Drop control units whose propensity score reaches "
+                    "this cutoff (DRDID trim.level). 1.0 disables.",
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec(
@@ -9987,7 +10129,8 @@ def _build_registry() -> None:
                     "int",
                     False,
                     None,
-                    "Bootstrap replications (None → analytical SE)",
+                    "Deprecated / inert: standard errors come from the "
+                    "Sant'Anna-Zhao influence function on every path.",
                 ),
                 ParamSpec("seed", "int", False, None),
             ],
@@ -10035,6 +10178,17 @@ def _build_registry() -> None:
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Unit-level sampling/population weights omega. Enters "
+                    "the fixed-effect projection, the least-squares solve, "
+                    "the cluster-robust variance, and the interaction "
+                    "weights (which become shares of omega-mass). Changes "
+                    "the target parameter, not the precision.",
+                ),
                 ParamSpec(
                     "control_cohort",
                     "str",
@@ -12411,8 +12565,9 @@ def _build_registry() -> None:
                     "simple",
                     "Weighting: 'simple' (per treated cell), 'cohort' "
                     "(within-cohort average first), 'calendar' (within-period "
-                    "average first)",
-                    ["simple", "cohort", "calendar"],
+                    "average first), 'eventstudy' (ATT event_time periods "
+                    "after adoption)",
+                    ["simple", "cohort", "calendar", "eventstudy"],
                 ),
                 ParamSpec(
                     "efficient",
@@ -12420,11 +12575,77 @@ def _build_registry() -> None:
                     False,
                     True,
                     "Use the optimal pre-period control weights; False gives "
-                    "the plug-in estimator",
+                    "the plug-in estimator (R's beta=1)",
+                ),
+                ParamSpec(
+                    "event_time",
+                    "float or list",
+                    False,
+                    0,
+                    "Only read when estimand='eventstudy'. A list returns one "
+                    "row per event time in .detail with the joint covariance "
+                    "in model_info['vcov']",
+                ),
+                ParamSpec(
+                    "use_last_treated_only",
+                    "bool",
+                    False,
+                    False,
+                    "Restrict controls to the last-treated cohort (the "
+                    "Sun-Abraham comparison group) instead of every "
+                    "not-yet-treated cohort",
+                ),
+                ParamSpec(
+                    "use_did_a0",
+                    "bool",
+                    False,
+                    True,
+                    "Which controls the efficient weights are chosen over. "
+                    "True uses the single DiD contrast at g-1; False uses "
+                    "every pre-period as a separate control (the general "
+                    "form, weakly more efficient). False requires "
+                    "efficient=True",
+                ),
+                ParamSpec(
+                    "se_type",
+                    "str",
+                    False,
+                    "neyman",
+                    "Which SE lands in .se: 'neyman' is the conservative "
+                    "bound; 'adjusted' subtracts the variance the "
+                    "randomisation identifies and is what R staggered prints. "
+                    "Both are always in model_info",
+                    ["neyman", "adjusted"],
+                ),
+                ParamSpec(
+                    "fisher",
+                    "bool",
+                    False,
+                    False,
+                    "Run a Fisher randomisation test by permuting adoption "
+                    "dates across units; p-value in "
+                    "model_info['fisher_pvalue']",
+                ),
+                ParamSpec(
+                    "n_fisher",
+                    "int",
+                    False,
+                    500,
+                    "Permutation draws for the randomisation test",
+                ),
+                ParamSpec(
+                    "random_state",
+                    "int",
+                    False,
+                    None,
+                    "Seed for the permutation draws",
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
             ],
-            returns="CausalResult (conservative Neyman SE)",
+            returns=(
+                "CausalResult (conservative Neyman SE by default; "
+                "model_info carries both SEs and any randomisation p-values)"
+            ),
             example=(
                 'sp.staggered_rollout(df, y="y", i="unit", t="time", '
                 'g="first_treat")'
@@ -12451,9 +12672,123 @@ def _build_registry() -> None:
             ],
             pre_conditions=[
                 "balanced panel with at least two cohorts",
-                "each cohort has at least two units so the within-cohort "
-                "covariance is estimable",
+                "single-unit cohorts are dropped with a warning, matching R "
+                "staggered: their within-cohort covariance is not estimable",
             ],
+            typical_n_min=50,
+        )
+    )
+
+    _staggered_wrapper_params = [
+        ParamSpec("data", "DataFrame", True),
+        ParamSpec("y", "str", True),
+        ParamSpec("i", "str", True, description="Unit identifier"),
+        ParamSpec("t", "str", True, description="Time period"),
+        ParamSpec(
+            "g",
+            "str",
+            True,
+            description="First-treatment period; never-treated may be 0, NaN or inf",
+        ),
+        ParamSpec(
+            "estimand",
+            "str",
+            False,
+            "simple",
+            "Weighting scheme, as in sp.staggered_rollout",
+            ["simple", "cohort", "calendar", "eventstudy"],
+        ),
+        ParamSpec("event_time", "float or list", False, 0),
+        ParamSpec(
+            "se_type",
+            "str",
+            False,
+            "neyman",
+            "Conservative bound, or the adjusted SE R staggered prints",
+            ["neyman", "adjusted"],
+        ),
+        ParamSpec("fisher", "bool", False, False),
+        ParamSpec("n_fisher", "int", False, 500),
+        ParamSpec("random_state", "int", False, None),
+        ParamSpec("alpha", "float", False, 0.05),
+    ]
+
+    register(
+        FunctionSpec(
+            name="staggered_cs",
+            category="causal",
+            description=(
+                "Callaway-Sant'Anna's estimand with **design-based** "
+                "inference (Roth & Sant'Anna 2023). Same weights as "
+                "sp.callaway_santanna — every not-yet-treated cohort is a "
+                "control — but the standard error comes from random adoption "
+                "timing rather than parallel trends. Use when timing was "
+                "randomised and you want the familiar CS estimand; use "
+                "sp.callaway_santanna when it was not. Units already treated "
+                "in the first period are dropped, since ATT(g,t) is not "
+                "identified for them."
+            ),
+            params=list(_staggered_wrapper_params),
+            returns="CausalResult (design-based SE)",
+            example=('sp.staggered_cs(df, y="y", i="unit", t="time", g="first_treat")'),
+            tags=[
+                "did",
+                "staggered",
+                "design-based",
+                "randomization",
+                "causal",
+                "r_parity",
+            ],
+            reference="Roth & Sant'Anna (2023) [@roth2023efficient]",
+            alternatives=["staggered_rollout", "staggered_sa", "callaway_santanna"],
+            assumptions=[
+                "treatment timing is randomly assigned",
+                "balanced panel",
+            ],
+            not_recommended_when=[
+                "adoption timing was not randomised — use "
+                "sp.callaway_santanna, whose inference rests on parallel "
+                "trends instead",
+            ],
+            pre_conditions=["balanced panel with at least two cohorts"],
+            typical_n_min=50,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="staggered_sa",
+            category="causal",
+            description=(
+                "Sun-Abraham's estimand with **design-based** inference "
+                "(Roth & Sant'Anna 2023). Identical to sp.staggered_cs "
+                "except that only the last-treated cohort serves as control, "
+                "which is what Sun & Abraham's interaction-weighted "
+                "estimator does. Inference identifies off random adoption "
+                "timing, not parallel trends."
+            ),
+            params=list(_staggered_wrapper_params),
+            returns="CausalResult (design-based SE)",
+            example=('sp.staggered_sa(df, y="y", i="unit", t="time", g="first_treat")'),
+            tags=[
+                "did",
+                "staggered",
+                "design-based",
+                "randomization",
+                "causal",
+                "r_parity",
+            ],
+            reference="Roth & Sant'Anna (2023) [@roth2023efficient]",
+            alternatives=["staggered_rollout", "staggered_cs", "sun_abraham"],
+            assumptions=[
+                "treatment timing is randomly assigned",
+                "balanced panel",
+            ],
+            not_recommended_when=[
+                "adoption timing was not randomised — use sp.sun_abraham, "
+                "whose inference rests on parallel trends instead",
+            ],
+            pre_conditions=["balanced panel with at least two cohorts"],
             typical_n_min=50,
         )
     )
@@ -12970,6 +13305,10 @@ def _build_registry() -> None:
                 "inference is not implemented: the normalized difference is "
                 "reported as a descriptive effect size with no standard "
                 "error or test, by design",
+                "the weighted denominator convention differs from "
+                "cobalt::col_w_smd, which holds the pooled SD at its "
+                "unweighted value; this follows Baker et al. (2026) "
+                "instead, and the two coincide when unweighted",
             ],
             alternatives=[
                 "balance_diagnostics",
@@ -12978,6 +13317,102 @@ def _build_registry() -> None:
                 "pretrends_test",
             ],
             typical_n_min=50,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="distributional_did",
+            category="causal",
+            description=(
+                "Treatment effect on the *distribution* of the outcome, bin "
+                "by bin. Bins the outcome, runs Callaway-Sant'Anna on each "
+                "bin indicator, and reports the effect on P(Y in bin). The "
+                "per-bin effects sum to zero by construction — treatment "
+                "redistributes probability mass, it does not create it — so "
+                "the content is the SHAPE: which parts of the outcome "
+                "distribution gained and which lost. A mean ATT of zero is "
+                "perfectly consistent with large offsetting movements in the "
+                "tails, and this is what shows them. R didFF::distDD."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True),
+                ParamSpec(
+                    "g",
+                    "str",
+                    True,
+                    description="First-treatment period (0 = never treated)",
+                ),
+                ParamSpec("t", "str", True),
+                ParamSpec("i", "str", True, description="Unit identifier"),
+                ParamSpec(
+                    "n_bins",
+                    "int",
+                    False,
+                    "auto",
+                    "Equal-width bins, or 'auto' for the didFF rule. Bins "
+                    "span the WHOLE panel here (unlike functional_form_test, "
+                    "which bins untreated rows only): the estimand is about "
+                    "where treated mass ended up",
+                ),
+                ParamSpec("binpoints", "list", False, None, "Explicit bin edges"),
+                ParamSpec(
+                    "aggregation",
+                    "str",
+                    False,
+                    "group",
+                    "Which aggte aggregation defines the per-bin effect",
+                    enum=["group", "simple", "dynamic", "calendar"],
+                ),
+                ParamSpec("estimator", "str", False, "dr"),
+                ParamSpec("control_group", "str", False, "nevertreated"),
+                ParamSpec("x", "list", False, None),
+                ParamSpec("weights", "str", False, None, "Sampling-weight column"),
+                ParamSpec("anticipation", "int", False, 0),
+                ParamSpec("panel", "bool", False, True),
+                ParamSpec("allow_unbalanced_panel", "bool", False, False),
+                ParamSpec("balance_e", "int", False, None),
+                ParamSpec("min_e", "float", False, None),
+                ParamSpec("max_e", "float", False, None),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns=(
+                "DistributionalDiDResult with the per-bin effect table, "
+                "standard errors, and .plot()"
+            ),
+            example=(
+                'sp.distributional_did(df, y="lemp", g="first_treat", '
+                't="year", i="countyreal", n_bins=6)'
+            ),
+            tags=[
+                "did",
+                "distributional",
+                "heterogeneity",
+                "causal",
+                "r_parity",
+            ],
+            reference=(
+                "Roth & Sant'Anna (2023) *Econometrica* 91(2), 737-747 "
+                "[@roth2023when]; pinned against the authors' didFF 0.1.0 "
+                "distDD, including standard errors."
+            ),
+            alternatives=["functional_form_test", "qdid", "cic", "panel_qtet"],
+            assumptions=[
+                "parallel trends for each bin indicator",
+                "no anticipation",
+            ],
+            limitations=[
+                "reports point estimates and standard errors only; the "
+                "reference runs no test here and neither does this",
+                "the per-bin effects are not simultaneously valid — the "
+                "standard errors are pointwise",
+            ],
+            pre_conditions=[
+                "panel with at least one treated cohort and a comparison group",
+                "outcome takes at least two distinct values",
+            ],
+            typical_n_min=100,
         )
     )
 
@@ -13010,11 +13445,21 @@ def _build_registry() -> None:
                     "n_bins",
                     "int",
                     False,
-                    10,
+                    "auto",
                     "Equal-width outcome bins; too coarse a grid buys a large "
-                    "p-value for nothing",
+                    "p-value for nothing. 'auto' follows didFF: an outcome "
+                    "with fewer than 20 distinct untreated values is treated "
+                    "as discrete (one bin per value), otherwise it is cut "
+                    "into min(20, n_distinct) bins",
                 ),
-                ParamSpec("binpoints", "list", False, None, "Explicit bin edges"),
+                ParamSpec(
+                    "binpoints",
+                    "list",
+                    False,
+                    None,
+                    "Explicit bin edges, padded to cover the outcome range "
+                    "if they fall short; cannot be combined with n_bins",
+                ),
                 ParamSpec(
                     "aggregation",
                     "str",
@@ -13026,7 +13471,40 @@ def _build_registry() -> None:
                 ParamSpec("estimator", "str", False, "dr"),
                 ParamSpec("control_group", "str", False, "nevertreated"),
                 ParamSpec("x", "list", False, None),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Sampling-weight column; unset weights every unit equally",
+                ),
                 ParamSpec("anticipation", "int", False, 0),
+                ParamSpec("panel", "bool", False, True),
+                ParamSpec("allow_unbalanced_panel", "bool", False, False),
+                ParamSpec(
+                    "balance_e",
+                    "int",
+                    False,
+                    None,
+                    "Only bites under aggregation='dynamic': keep cohorts "
+                    "observed for this many event times",
+                ),
+                ParamSpec(
+                    "min_e",
+                    "float",
+                    False,
+                    None,
+                    "Only bites under aggregation='dynamic': earliest event "
+                    "time entering the aggregate",
+                ),
+                ParamSpec(
+                    "max_e",
+                    "float",
+                    False,
+                    None,
+                    "Only bites under aggregation='dynamic': latest event "
+                    "time entering the aggregate",
+                ),
                 ParamSpec(
                     "n_sims",
                     "int",
@@ -13039,7 +13517,8 @@ def _build_registry() -> None:
             ],
             returns=(
                 "FunctionalFormResult with pvalue, the per-bin implied "
-                "density table, and the max-t statistic"
+                "density table, the max-t statistic, and .plot() for the "
+                "implied-density bar chart"
             ),
             example=(
                 'sp.functional_form_test(df, y="lemp", g="first_treat", '
@@ -13836,11 +14315,14 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
         "tests/test_continuous_did_heuristics.py",
         "tests/test_continuous_did_cgs.py",
     ],
-    "cic": ["tests/test_did_frontiers.py"],
-    "ddd": ["tests/test_did.py", "tests/test_did_frontiers.py"],
+    "cic": ["tests/test_cov95_did_cic.py", "tests/test_cic_covariates.py"],
+    "ddd": ["tests/test_cov95_did_ddd.py"],
     "ddd_heterogeneous": ["tests/test_ddd_heterogeneous.py"],
     "event_study": ["tests/test_did.py", "tests/test_fast_event_study.py"],
-    "did_analysis": ["tests/test_did.py", "tests/test_did_imputation_branches.py"],
+    "did_analysis": [
+        "tests/test_cov95_did_analysis.py",
+        "tests/test_did_imputation_branches.py",
+    ],
     "did_bcf": ["tests/test_did_frontiers.py"],
     "did_misclassified": ["tests/test_did_frontiers.py"],
     "did_timevarying_covariates": ["tests/test_did_timevarying_covariates.py"],
@@ -13848,8 +14330,14 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "design_robust_event_study": ["tests/test_did_frontiers.py"],
     "harvest_did": ["tests/test_harvest_did.py"],
     "lp_did": ["tests/test_lp_did.py"],
-    "stacked_did": ["tests/test_did.py"],
-    "pretrends_test": ["tests/test_did.py", "tests/test_did_advanced.py"],
+    "stacked_did": [
+        "tests/test_cov95_did_r3_stacked.py",
+        "tests/test_cov95_did_estimators_extra.py",
+    ],
+    "pretrends_test": [
+        "tests/test_cov95_did_pretrends.py",
+        "tests/test_cov95_did_r3_pretrends.py",
+    ],
     # Reporting / publication-output layer.
     "cite": ["tests/test_cite_inline.py"],
     "collect": ["tests/test_collection.py"],
@@ -13880,7 +14368,10 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "attributable_risk": ["tests/test_epi.py"],
     "incidence_rate_ratio": ["tests/test_epi.py"],
     "mantel_haenszel": ["tests/test_epi.py"],
-    "breslow_day_test": ["tests/test_epi.py", "tests/test_epi_diagnostic.py"],
+    "breslow_day_test": [
+        "tests/test_epi.py",
+        "tests/test_tierD_p2_epi_analytic.py",
+    ],
     "cohen_kappa": ["tests/test_epi_diagnostic.py"],
     "sensitivity_specificity": ["tests/test_epi_diagnostic.py"],
     "roc_curve": ["tests/test_epi_diagnostic.py"],
@@ -13982,7 +14473,7 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     # MR and IV diagnostics not already covered by Track A seeds.
     "mr": ["tests/test_mr_frontier.py", "tests/test_dispatchers_v150.py"],
     "mr_bma": ["tests/test_mr_extensions.py"],
-    "mr_clust": ["tests/test_mr_extensions.py"],
+    "mr_clust": ["tests/test_mr_frontier.py"],
     "mr_cml": ["tests/test_mr_frontier.py"],
     "mr_f_statistic": ["tests/test_mr_extras.py"],
     "mr_heterogeneity": ["tests/test_mr_diagnostics.py"],
@@ -14046,7 +14537,10 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "mediate_interventional": ["tests/test_mediate_interventional.py"],
     "regime": ["tests/test_longitudinal.py"],
     "svydesign": ["tests/test_survey.py"],
-    "target_trial_protocol": ["tests/test_target_trial.py"],
+    "target_trial_protocol": [
+        "tests/test_tierD_p2_target_trial_analytic.py",
+        "tests/test_v100_integration.py",
+    ],
     "unified_sensitivity": ["tests/test_unified_sensitivity.py"],
 }
 

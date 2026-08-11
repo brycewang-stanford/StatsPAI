@@ -18,25 +18,26 @@ r.subgroup_test(by='age_bin')  # test heterogeneity
 
 | Learner | Description | Reference |
 | --- | --- | --- |
-| `sp.s_learner` | Single-learner on `(X, D)` | Künzel et al. (2019) |
-| `sp.t_learner` | Two-learner — separate treated/control | Künzel et al. (2019) |
-| `sp.x_learner` | Cross-learner combining S and T | Künzel et al. (2019) |
-| `sp.r_learner` | Residualised (Robinson-style) | Nie & Wager (2021) |
-| `sp.dr_learner` | Doubly-robust — combines outcome and propensity | Kennedy (2023) |
+| `sp.metalearner(..., learner='s')` | Single-learner on `(X, D)` | Künzel et al. (2019) |
+| `sp.metalearner(..., learner='t')` | Two-learner — separate treated/control | Künzel et al. (2019) |
+| `sp.metalearner(..., learner='x')` | Cross-learner combining S and T | Künzel et al. (2019) |
+| `sp.metalearner(..., learner='r')` | Residualised (Robinson-style) | Nie & Wager (2021) |
+| `sp.metalearner(..., learner='dr')` | Doubly-robust — outcome + propensity | Kennedy (2023) |
 
 ```python
-r = sp.x_learner(df, y='y', treat='d', covariates=[...],
-                 ml_model='rf')
+r = sp.metalearner(df, y='y', treat='d', covariates=[...], learner='x',
+                   outcome_model=RandomForestRegressor())
 r.cate(new_X)
 ```
 
-Plus `sp.cate_diagnostics(r)` for overlap, calibration, and CATE QQ plots.
+Plus `sp.cate_eval(...)` for overlap, calibration, and CATE QQ plots.
 
 ## TMLE
 
 ```python
 r = sp.tmle(df, y='y', treat='d', covariates=[...],
-            sl_library=['rf','lasso','xgb'])    # Super Learner ensemble
+            outcome_library=['rf', 'lasso'],     # Super Learner ensemble
+            propensity_library=['rf', 'logistic'])
 r.ate, r.ci
 ```
 
@@ -44,21 +45,22 @@ r.ate, r.ci
 
 ```python
 sp.tarnet(df, y='y', treat='d', covariates=[...],
-          epochs=100, hidden=[200,100])          # Shalit, Johansson, Sontag (2017)
-sp.cfrnet(df, ..., imbalance='wass',            # Counterfactual Regression Net
-          alpha=1.0)
-sp.dragonnet(df, ..., targeted_regularization=True)  # Shi, Blei, Veitch (2019)
-sp.deepiv(df, y='y', treat='d', instrument='z',     # Hartford et al. (2017)
+          epochs=100, repr_layers=[200, 100])    # Shalit, Johansson, Sontag (2017)
+sp.cfrnet(df, y='y', treat='d', covariates=[...],  # Counterfactual Regression Net
+          ipm_weight=1.0)
+sp.dragonnet(df, y='y', treat='d', covariates=[...],  # Shi, Blei, Veitch (2019)
+             targeted_reg_weight=1.0)
+sp.deepiv(df, y='y', treat='d', instruments='z',    # Hartford et al. (2017)
           covariates=[...])
 ```
 
 ## Causal discovery
 
 ```python
-sp.notears(df, threshold=0.3, lambda1=0.1)          # Zheng et al. 2018
+sp.notears(df, w_threshold=0.3, lambda1=0.1)        # Zheng et al. 2018
 sp.pc_algorithm(df, alpha=0.05)                     # Spirtes-Glymour-Scheines
 sp.lingam(df)                                       # Shimizu 2006
-sp.ges(df, score='bic')                             # Chickering 2002
+sp.ges(df)                                          # Chickering 2002
 ```
 
 ## Policy learning
@@ -73,12 +75,12 @@ sp.policy_value(tree, df_test)
 
 ```python
 sp.bcf(df, y='y', treat='d', covariates=[...],
-       n_mcmc=2000, n_burn=1000)                     # Hahn, Murray, Carvalho 2020
+       n_trees_mu=200, n_trees_tau=50)               # Hahn, Murray, Carvalho 2020
 ```
 
 ## Conformal causal inference + matrix completion
 
 ```python
 sp.conformal_cate(df, ...)                          # distribution-free CATE intervals
-sp.mc_nnm(df, ...)                                  # Athey et al. 2021 MC-NNM
+sp.mc_panel(df, ...)                                # Athey et al. 2021 MC-NNM
 ```

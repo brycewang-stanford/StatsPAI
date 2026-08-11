@@ -44,21 +44,21 @@ _REFERENCE = _FIXTURES / "cs_weighted_reference.csv"
 # observed worst case across all 36 cells is 1.6e-11.
 _RTOL = 1e-8
 
-# Standard errors are pinned per estimator, because the three differ in
-# how completely StatsPAI reproduces DRDID's influence function:
+# Standard errors now match to machine precision for all three covariate
+# strategies. Each reached that point differently:
 #
-#   reg  — exact. The delta-method term for the control regression is
-#          implemented, so this matches to machine precision.
-#   ipw  — exact as of the influence-function fix in this change set
-#          (arm-specific centring + propensity-score estimation effect).
-#          Before the fix this path was 9-89% off.
-#   dr   — within 1%. The arm centring is now DRDID's, but the nuisance
-#          *estimation* effects (``inf.treat.2``, ``inf.cont.2``,
-#          ``inf.cont.3``) are not yet propagated. DR is
-#          Neyman-orthogonal so these are second-order, which is why the
-#          residual is small; it is a known gap, pinned here so it
-#          cannot silently grow.
-_SE_RTOL = {"reg": 1e-10, "ipw": 1e-6, "dr": 1.0e-2}
+#   reg  — always exact; the control-regression delta-method term was
+#          already implemented.
+#   ipw  — required arm-specific centring plus the propensity-score
+#          estimation effect. Was 9-89% off.
+#   dr   — required the same centring plus DRDID's three nuisance
+#          estimation terms (``inf.treat.2``, ``inf.cont.2``,
+#          ``inf.cont.3``). Was up to 0.9% off.
+#
+# The budget is 1e-8 rather than 0: both sides run an iterative logit and
+# a least-squares solve, so agreement is bounded by solver tolerances.
+# Observed worst case across all 72 cells is 4.6e-11.
+_SE_RTOL = 1e-8
 
 
 @pytest.fixture(scope="module")
@@ -79,19 +79,23 @@ def _cases():
                 row["est"],
                 row["control_group"],
                 bool(row["weighted"]),
+                bool(row["covariates"]),
                 agg,
                 float(row[f"{agg}_att"]),
                 float(row[f"{agg}_se"]),
                 id=(
                     f"{row['est']}-{row['control_group']}"
-                    f"-{'w' if row['weighted'] else 'unw'}-{agg}"
+                    f"-{'w' if row['weighted'] else 'unw'}"
+                    f"-{'x' if row['covariates'] else 'nox'}-{agg}"
                 ),
             )
 
 
-@pytest.mark.parametrize("est,control_group,weighted,agg,r_att,r_se", list(_cases()))
+@pytest.mark.parametrize(
+    "est,control_group,weighted,covariates,agg,r_att,r_se", list(_cases())
+)
 def test_weighted_cs_matches_r_did(
-    panel, est, control_group, weighted, agg, r_att, r_se
+    panel, est, control_group, weighted, covariates, agg, r_att, r_se
 ):
     fit = sp.callaway_santanna(
         panel,
@@ -99,7 +103,7 @@ def test_weighted_cs_matches_r_did(
         g="g",
         t="t",
         i="i",
-        x=["x1"],
+        x=["x1"] if covariates else None,
         weights="w" if weighted else None,
         estimator=est,
         control_group=control_group,
@@ -109,9 +113,11 @@ def test_weighted_cs_matches_r_did(
     assert out.estimate == pytest.approx(r_att, rel=_RTOL)
 
 
-@pytest.mark.parametrize("est,control_group,weighted,agg,r_att,r_se", list(_cases()))
+@pytest.mark.parametrize(
+    "est,control_group,weighted,covariates,agg,r_att,r_se", list(_cases())
+)
 def test_weighted_cs_se_matches_r_did(
-    panel, est, control_group, weighted, agg, r_att, r_se
+    panel, est, control_group, weighted, covariates, agg, r_att, r_se
 ):
     """The influence functions must carry ω too, not just the point estimate.
 
@@ -125,14 +131,14 @@ def test_weighted_cs_se_matches_r_did(
         g="g",
         t="t",
         i="i",
-        x=["x1"],
+        x=["x1"] if covariates else None,
         weights="w" if weighted else None,
         estimator=est,
         control_group=control_group,
         base_period="universal",
     )
     out = sp.aggte(fit, type=agg, bstrap=False, cband=False)
-    assert out.se == pytest.approx(r_se, rel=_SE_RTOL[est])
+    assert out.se == pytest.approx(r_se, rel=_SE_RTOL)
 
 
 def test_weighting_actually_moves_the_estimate(panel, reference):
@@ -149,3 +155,52 @@ def test_weighting_actually_moves_the_estimate(panel, reference):
     a = sp.callaway_santanna(panel, y="y", g="g", t="t", i="i", x=["x1"])
     b = sp.callaway_santanna(panel, y="y", g="g", t="t", i="i", x=["x1"], weights="w")
     assert abs(b.estimate - a.estimate) > 1.0
+
+
+def test_dr_nuisance_correction_vanishes_without_covariates():
+    """The DR estimation-effect correction is identically zero at X = 1.
+
+    This is the basis of the migration note's claim that no
+    covariate-free ``estimator="dr"`` result moved. With an
+    intercept-only design the two outcome-regression terms
+    (``inf.treat.2`` and ``inf.cont.3``) cancel, and the score term
+    vanishes because a constant propensity makes the control-arm
+    residual mean exactly zero. Asserted numerically rather than argued,
+    so the claim cannot rot.
+    """
+    import importlib
+
+    import numpy as np
+
+    cs = importlib.import_module("statspai.did.callaway_santanna")
+    rng = np.random.default_rng(0)
+    for _ in range(4):
+        n = 400
+        d = (rng.random(n) < 0.4).astype(float)
+        w = rng.gamma(2, 1, n) * 5
+        w = w / w.mean()  # the invariant _estimate_single_att enforces
+        dy = 1.0 + 2.0 * d + rng.normal(0, 1, n)
+
+        pscore = cs._estimate_pscore(d, None, n, w)
+        keep = cs._pscore_trim_mask(pscore, d, 0.995)
+        m_hat = cs._estimate_outcome_reg(dy, 1 - d, None, n, w)
+        resid = dy - m_hat
+        p_d = float(np.mean(w * d))
+        ipw_raw = keep * w * pscore * (1 - d) / (1 - pscore)
+        ipw_denom = float(ipw_raw.mean())
+        eta_c = float(np.mean((ipw_raw / ipw_denom) * resid))
+
+        adj = cs._dr_estimation_effect(
+            dy=dy,
+            d=d,
+            x=None,
+            w=w,
+            keep=keep,
+            pscore=pscore,
+            resid=resid,
+            eta_c=eta_c,
+            p_d=p_d,
+            ipw_denom=ipw_denom,
+        )
+        assert adj is not None
+        assert np.max(np.abs(adj)) < 1e-12

@@ -12,7 +12,7 @@ m = sp.arima(y, order=(1,1,1), seasonal_order=(1,1,1,12))
 m.forecast(steps=24); m.plot()
 
 # GARCH family
-m = sp.garch(ret, p=1, q=1, model='garch')          # 'garch'|'egarch'|'gjrgarch'
+m = sp.garch(ret, p=1, q=1)                         # GARCH(p, q)
 m.volatility; m.plot('conditional_volatility')
 ```
 
@@ -20,14 +20,13 @@ m.volatility; m.plot('conditional_volatility')
 
 ```python
 # Vector Autoregression
-m = sp.var(df, columns=['gdp','infl','r'], lags=4)
+m = sp.var(df, variables=['gdp','infl','r'], lags=4)
 m.impulse_response(shock='r', h=40, identification='cholesky')
 m.variance_decomposition(h=40)
 m.granger_causality(cause='r', effect='gdp')
 
 # Bayesian VAR with Minnesota prior
-m = sp.bvar(df, columns=['gdp','infl','r'], lags=4,
-            prior='minnesota',
+m = sp.bvar(df, lags=4,                     # Minnesota prior
             lambda1=0.2, lambda2=0.5)
 ```
 
@@ -35,13 +34,11 @@ m = sp.bvar(df, columns=['gdp','infl','r'], lags=4,
 
 ```python
 # Engle-Granger two-step
-sp.cointegration(df[['y','x']], method='engle_granger')
+sp.engle_granger(df, variables=['y', 'x'])
 
 # Johansen trace and max-eigenvalue
-sp.cointegration(df[['y','x','z']], method='johansen', trend='c', k_ar_diff=2)
-
-# Phillips-Ouliaris, Hansen
-sp.cointegration(..., method='phillips_ouliaris')
+sp.johansen(df, variables=['y', 'x', 'z'], trend='c', lags=2)
+sp.johansen(df, variables=['y', 'x', 'z'], test='maxeig')
 ```
 
 ## Local projections (Jordà 2005)
@@ -66,9 +63,10 @@ sp.local_projections(
 ## Structural break
 
 ```python
-sp.chow_test(y, x, break_point=t_star)              # known break
-sp.quandt_andrews(y, x)                              # unknown break, sup-F
-sp.bai_perron(y, x, n_breaks=3)                      # multiple breaks
+sp.structural_break(df, y='y', x=['x'], method='chow')        # known break
+sp.structural_break(df, y='y', x=['x'], method='sup-f')       # unknown, sup-F
+sp.structural_break(df, y='y', x=['x'], method='bai-perron',  # multiple
+                    max_breaks=3)
 ```
 
 ## Result objects

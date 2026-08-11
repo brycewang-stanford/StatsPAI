@@ -17,12 +17,12 @@ Module & Method & Worst headline diff & Verdict \\
 \code{01\_ols} & OLS + HC1 SE & rel $\le 1.1e-12$ & \textbf{PASS} \\
 \code{02\_iv} & 2SLS + HC1 SE & rel $\le 1.1e-11$ & \textbf{PASS} \\
 \code{03\_hdfe} & HDFE 2-way FE & rel $\le 5.2e-15$ {\footnotesize (fixest/reghdfe small-sample correction)} & \textbf{PASS} \\
-\code{04\_csdid} & CS-DiD simple ATT & rel $\le 1.3e-15$ {\footnotesize (SE within 1\% analytic tolerance)} & \textbf{PASS} \\
+\code{04\_csdid} & CS-DiD simple ATT & rel $\le 1.3e-15$ {\footnotesize (estimate and SE both rel $<$ 1e-9)} & \textbf{PASS} \\
 \code{05\_sunab} & Sun--Abraham event study & rel $\le 2.8e-11$ {\footnotesize (fixest agg='att' summary parity)} & \textbf{PASS} \\
-\code{06\_rd} & RD CCT bias-corrected & rel $\le 7.9e-13$ {\footnotesize (R/Stata default-$h$ via CCT delegation)} & \textbf{PASS} \\
+\code{06\_rd} & RD CCT bias-corrected & rel $\le 2.5e-14$ {\footnotesize (R/Stata default-$h$ via CCT delegation)} & \textbf{PASS} \\
 \code{07\_scm} & Classical SCM & rel $\le 0.024$ {\footnotesize (T4 reference disagreement: native tracks Stata; R Synth differs; exact recovery on identified DGP \code{52})} & \textit{GAP} \\
 \code{08\_dml} & DML PLR (LinReg learners) & rel $\le 0$ {\footnotesize (shared explicit fold\_id)} & \textbf{PASS} \\
-\code{09\_rddensity} & RD density (CJM) & rel $\le 3.3e-11$ {\footnotesize (native CJM/rddensity default parity)} & \textbf{PASS} \\
+\code{09\_rddensity} & RD density (CJM) & rel $\le 9.3e-12$ {\footnotesize (native CJM/rddensity default parity)} & \textbf{PASS} \\
 \code{10\_honest\_did} & Honest DiD bounds & abs $\le 4.88e-15$ {\footnotesize (FLCI via HonestDiD backend; Stata port within 0.0005)} & \textbf{PASS} \\
 \code{11\_psm} & PSM 1:1 NN & rel $\le 1.2e-15$ & \textbf{PASS} \\
 \code{12\_sdid} & Synthetic DID & rel $\le 2.6e-15$ {\footnotesize (native Frank-Wolfe/zeta ATT parity; backend-native placebo SE diagnostics)} & \textbf{PASS} \\
@@ -64,7 +64,7 @@ Module & Method & Worst headline diff & Verdict \\
 \code{48\_probit} & Binary probit & rel $\le 3.1e-07$ & \textbf{PASS} \\
 \code{49\_oprobit} & Ordered probit & rel $\le 3.4e-07$ & \textbf{PASS} \\
 \code{50\_xtabond} & Arellano-Bond GMM & rel $\le 9e-16$ {\footnotesize (R/Stata dynamic-panel fixture; block-diagonal instruments and one-step GMM weights match)} & \textbf{PASS} \\
-\code{51\_newey} & Newey-West HAC OLS & rel $\le 1.8e-15$ {\footnotesize (post HAC sandwich sqrt(n) scaling fix)} & \textbf{PASS} \\
+\code{51\_newey} & Newey-West HAC OLS & rel $\le 1.4e-15$ {\footnotesize (post HAC sandwich sqrt(n) scaling fix)} & \textbf{PASS} \\
 \code{52\_scm\_unique} & Classical SCM (unique solution) & rel $\le 7.8e-08$ {\footnotesize (identified convex SCM; sp and Stata synth recover exact weights+gap)} & \textbf{PASS} \\
 \code{53\_cr2} & Cluster-robust CR2 / CR3 SE & abs $\le 1.84e-08$ {\footnotesize (CR2 and analytic CR3 match clubSandwich)} & \textbf{PASS} \\
 \code{54\_twoway\_cluster} & Two-way cluster-robust SE & abs $\le 7.84e-16$ {\footnotesize (matches sandwich::vcovCL(HC1,cadjust); fixest min-G df convention differs $\sim10^{-3}$)} & \textbf{PASS} \\
@@ -89,10 +89,12 @@ Module & Method & Worst headline diff & Verdict \\
 \code{73\_did2s} & Gardner two-stage DiD & rel $\le 4.8e-08$ {\footnotesize (point estimate rel < 1e-6; SE is a documented convention gap (did2s propagates stage-1 estimation error, sp.gardner\_did's vce='analytic' does not -- vce='bootstrap' recovers it to ~6\%))} & \textbf{PASS} \\
 \code{74\_cic} & Changes-in-Changes (ATT + QTE) & rel $\le 2.4e-15$ {\footnotesize (machine precision vs qte::CiC (worst 4.4e-15))} & \textbf{PASS} \\
 \code{75\_stacked} & Stacked DiD (never-treated controls) & rel $\le 3.9e-13$ {\footnotesize (rel < 1e-6 vs a hand-written fixest stack)} & \textbf{PASS} \\
-\code{76\_pretrends} & Pre-trends power (Roth 2022) & rel $\le 3.2e-05$ {\footnotesize (rel < 1e-4 vs pretrends::pretrends; the 1e-3 budget covers mvtnorm::pmvnorm's randomised integrator)} & \textbf{PASS} \\
+\code{76\_pretrends} & Pre-trends power (Roth 2022) & rel $\le 4e-05$ {\footnotesize (rel < 1e-4 vs pretrends::pretrends; the 1e-3 budget covers mvtnorm::pmvnorm's randomised integrator)} & \textbf{PASS} \\
 \code{77\_ddd} & Triple differences ATT(g,t) & rel $\le 5.7e-15$ {\footnotesize (machine precision vs triplediff::ddd (worst 1e-12), estimates and analytic SEs, across dr / ipw / reg)} & \textbf{PASS} \\
 \code{78\_multiplegt\_dyn} & dCDH intertemporal event study & rel $\le 3.3e-15$ {\footnotesize (machine precision vs DIDmultiplegtDYN (worst 5e-15), across absorbing and switch-off designs)} & \textbf{PASS} \\
 \code{79\_didff} & Functional-form test (Roth--Sant'Anna) & rel $\le 1.3e-14$ {\footnotesize (machine precision vs didFF (worst 1.2e-15); the module's 1e-3 budget covers only the simulated p-value)} & \textbf{PASS} \\
 \code{80\_contdid} & Continuous-treatment DiD (CGS) & rel $\le 2.4e-14$ {\footnotesize (machine precision vs contdid::cont\_did (worst 1e-12))} & \textbf{PASS} \\
 \code{81\_didm} & dCDH 2020 DID_M (on/off switching) & rel $\le 3.9e-15$ {\footnotesize (machine precision vs archived DIDmultiplegt 0.1.4)} & \textbf{PASS} \\
+\code{82\_staggered} & 82_staggered & rel $\le 3.5e-15$ & \textit{review} \\
+\code{83\_lpdid} & LP-DiD event study (Dube-Girardi-Jorda-Taylor) & rel $\le 5e-15$ {\footnotesize (estimate and SE both rel $<$ 1e-14 vs a direct transcription)} & \textbf{PASS} \\
 \end{longtable}

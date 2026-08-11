@@ -45,11 +45,11 @@ sp.rddensity(df, x='running_var', c=0.0)
 sp.mccrary_test(df, x='running_var', c=0.0)
 
 # Covariate balance
-sp.rdbalance(df, x='running_var', c=0.0, covariates=[...])
+sp.rdbalance(df, x='running_var', c=0.0, covs=['X1', 'X2'])
 
 # Placebo cutoffs
 sp.rdplacebo(df, y='y', x='running_var',
-             true_cutoff=0.0, placebo_cutoffs=[-0.5, 0.5])
+             c=0.0, placebo_cutoffs=[-0.5, 0.5])
 ```
 
 ### IV
@@ -58,11 +58,11 @@ sp.rdplacebo(df, y='y', x='running_var',
 r.diagnostics['First-stage F (d)']   # > 10 rule; > 30 comfortable
 
 # Exclusion sensitivity
-sp.plausibly_exogenous(df, y='y', d='d', z='z',
-                       gamma_range=(-0.1, 0.1))
+sp.iv(method='ltz', y='y', endog='d', instruments='z',
+      gamma_mean=0.0, gamma_var=0.01, data=df)
 
 # Monotonicity (Imbens-Rubin / Kitagawa)
-sp.kitagawa_test(df, y='y', d='d', z='z')
+sp.kitagawa_test(df, y='y', treatment='d', instrument='z')
 
 # Reduced form
 sp.regress('y ~ z', data=df).tidy()
@@ -82,7 +82,7 @@ sp.evalue_from_result(r)
 sp.oster_bounds(r, delta=1.0)
 
 # Sensemakr (Cinelli-Hazlett)
-sp.sensemakr(r, benchmark_covariates=['X1'])
+sp.sensemakr(df, y='y', treat='d', controls=['X1', 'X2'], benchmark=['X1'])
 ```
 
 ## Layer 2 — Specification robustness
@@ -90,12 +90,12 @@ sp.sensemakr(r, benchmark_covariates=['X1'])
 ### Specification curve / multiverse
 ```python
 spec = sp.spec_curve(
-    df, y='y', treat='d',
-    covariate_sets=[
+    df, y='y', x='d',
+    controls=[
         ['X1'], ['X1', 'X2'], ['X1', 'X2', 'X3'],
         ['X1', 'X2', 'X3', 'X4'],
     ],
-    estimators=['regress', 'ebalance', 'aipw'],
+    se_types=['nonrobust', 'HC1'],
 )
 spec.plot()   # classic Simonsohn-Simmons-Nelson spec curve
 ```
@@ -107,10 +107,13 @@ sp.rdbwsensitivity(df, y='y', x='running_var', c=0.0)
 
 ### Subsample stability
 ```python
-sp.robustness_report(r)
+sp.robustness_report(df, formula='y ~ d + x1 + x2', x='d',
+                     subsets={'male': 'sex == 1'},
+                     winsor_levels=[0.01], trim_pct=0.01)
 ```
-This runs: leave-one-cohort-out (DID), leave-one-unit-out (synth),
-subsample reruns, and produces a single report.
+This re-estimates the baseline OLS specification across added/dropped
+controls, winsorisation and trimming levels, alternative clustering and
+user-supplied subsets, and collects every variant in one table.
 
 ## Layer 3 — Sensitivity to unobserved confounding
 
@@ -156,7 +159,8 @@ interval, the effect is not robust.
 
 ### Sensemakr (Cinelli-Hazlett 2020)
 ```python
-s = sp.sensemakr(r, benchmark_covariates=['X1', 'X2'])
+s = sp.sensemakr(df, y='y', treat='d', controls=['X1', 'X2', 'X3'],
+                 benchmark=['X1', 'X2'])
 s.summary()
 s.plot()    # contour plot: partial R^2 of U with T and Y
 ```
@@ -164,25 +168,28 @@ s.plot()    # contour plot: partial R^2 of U with T and Y
 ### Bounds (Manski-style)
 When no assumption feels credible, compute worst-case bounds:
 ```python
-sp.bounds(df, y='y', treat='d', method='manski')
+sp.partial_identification(df, y='y', d='d', method='manski')
 ```
 
 ## Full robustness report in one call
 
 ```python
-r = sp.callaway_santanna(df, y='y', g='g', t='t', i='i')
-sp.robustness_report(r)   # prints the full layered check
+report = sp.robustness_report(
+    df, formula='y ~ d + x1 + x2', x='d',
+    cluster_var='state',
+    extra_controls=['x3'], drop_controls=['x2'],
+    winsor_levels=[0.01, 0.05],
+)
+report.summary()        # every variant, side by side
+report.results_df       # tidy DataFrame, one row per specification
+report.plot(); report.to_latex()
 ```
 
-Returns a dict with:
-```
-{
-  'identification': {'pretrends_pvalue': 0.23, 'honest_did_M_breakdown': 0.34, ...},
-  'specification':  {'spec_curve_sign_stability': 0.95, ...},
-  'sensitivity':    {'evalue': 2.1, 'oster_upper': 0.42, 'oster_lower': 0.08, ...},
-  'verdict':        'ROBUST',  # one of: ROBUST | MARGINAL | FRAGILE
-}
-```
+`report.baseline_estimate` / `.baseline_se` pin the reference specification and `.n_checks` counts the variants run.
+
+This covers Layer 2 for a regression-style design. The Layer 1 and
+Layer 3 checks above are separate calls — there is no single function
+that returns a `verdict`.
 
 ## Reporting template
 
@@ -197,7 +204,7 @@ For the final paper, present:
 
 `sp.regtable()` auto-formats this for LaTeX/Word:
 ```python
-sp.regtable([r1, r2, r3],
+sp.regtable(r1, r2, r3,
             filename='table1.tex',
-            robustness=True)
+            model_labels=['Baseline', '+ controls', '+ FE'])
 ```

@@ -17,39 +17,39 @@ r = sp.rdrobust(df, y='earnings', x='score', c=0,
 )
 
 # 2D / boundary RD
-r = sp.rd2d(df, y='y', x1='lon', x2='lat', boundary_coords=...)
+r = sp.rd2d(df, y='y', x1='lon', x2='lat', treatment='treated')
 
 # Regression Kink Design (Card, Lee, Pei, Weber 2015)
 r = sp.rkd(df, y='ui_benefits', x='earnings', c=cutoff)
 
 # Intent-to-treat at running variable (RDIT)
-r = sp.rdit(df, y='y', x='x', c=0, covs=['z'])
+r = sp.rdit(df, y='y', time='date', cutoff='2020-03-01')
 ```
 
 ## Honest inference and local randomisation
 
 ```python
 # Armstrong-Kolesar honest CIs under smoothness bounds
-sp.rdhonest(df, y='y', x='x', c=0, M=0.1, kernel='triangular')
+sp.rd_honest(df, y='y', x='x', c=0, M=0.1, kernel='triangular')
 
 # Local randomisation (Cattaneo-Titiunik-Vazquez-Bare)
 sp.rdrandinf(df, y='y', x='x', c=0, wl=-2, wr=2)
-sp.rdwinselect(df, y='y', x='x', c=0)      # window selection
+sp.rdwinselect(df, x='x', c=0, covs=['z1'])  # window selection
 sp.rdsensitivity(df, y='y', x='x', c=0)    # sensitivity to window
 ```
 
 ## Diagnostics
 
 ```python
-sp.cjm_density(df, x='score', c=0)          # Cattaneo-Jansson-Ma density
-sp.mccrary_density(df, x='score', c=0)      # McCrary legacy
+sp.rddensity(df, x='score', c=0)            # Cattaneo-Jansson-Ma density
+sp.mccrary_test(df, x='score', c=0)         # McCrary legacy
 sp.rdplot(df, y='y', x='x', c=0)            # binned-scatter RD plot
 ```
 
 ## Heterogeneous treatment effects
 
 ```python
-sp.rdhte(df, y='y', x='x', c=0, by='group')    # by-subgroup CATE
+sp.rdhte(df, y='y', x='x', z='group', c=0)     # by-subgroup CATE
 sp.rd_forest(df, y='y', x='x', c=0, covs=[...])
 sp.rd_boost(df, y='y', x='x', c=0, covs=[...])
 sp.rd_lasso(df, y='y', x='x', c=0, covs=[...])
@@ -59,14 +59,14 @@ sp.rd_lasso(df, y='y', x='x', c=0, covs=[...])
 
 ```python
 sp.rd_extrapolate(df, y='y', x='x', c=0,
-                  conditioning=['z1','z2'])     # conditioning on covariates
+                  covs=['z1', 'z2'])           # conditioning on covariates
 ```
 
 ## Power analysis
 
 ```python
 sp.rdpower(df, y='y', x='x', c=0, tau=1.5)
-sp.rdsampsi(df, y='y', x='x', c=0, tau=1.5, power=0.80)
+sp.rdsampsi(tau=1.5, target_power=0.80)   # design-stage: no data needed
 ```
 
 ## Single-call dashboard

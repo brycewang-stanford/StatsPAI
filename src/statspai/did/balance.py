@@ -383,6 +383,17 @@ def did_balance(
         alongside the unweighted ones, exactly as the paper does — the
         two answer different questions and neither is a check on the
         other.
+
+        .. note::
+           The weighted statistic uses **weighted variances** in the
+           denominator, following Baker et al. (2026, §4.1): "S²_ω,T and
+           S²_ω,C are the sample weighted or unweighted variances". This
+           differs from ``cobalt::col_w_smd``, which deliberately holds
+           the denominator at the *unweighted* pooled SD so that balance
+           can be compared before and after reweighting. Both are
+           defensible for their own purpose and they disagree by a few
+           percent; unweighted, the two conventions coincide exactly.
+           Pinned in ``tests/reference_parity/test_did_balance_parity.py``.
     base_period : optional
         Pre-treatment period for the levels panel. Defaults to ``g-1``
         for the cohort under audit.

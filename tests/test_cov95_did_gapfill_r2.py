@@ -243,10 +243,19 @@ def test_drdid_id_not_a_column_raises():
         sp.drdid(df, y="y", group="treated", time="post", id="nope")
 
 
-def test_drdid_id_requires_improved_method():
+def test_drdid_id_supports_both_nuisance_methods():
+    """``method='trad'`` on a panel used to raise; since 1.23.0 it runs.
+
+    It dispatches to ``DRDID::drdid_panel`` (plain logit + OLS) where
+    ``'imp'`` dispatches to ``drdid_imp_panel`` (tilting + weighted OLS),
+    so the two must produce genuinely different numbers.
+    """
     df = _drdid_panel(60)
-    with pytest.raises(MethodIncompatibility, match="method='imp'"):
-        sp.drdid(df, y="y", group="treated", time="post", id="id", method="trad")
+    imp = sp.drdid(df, y="y", group="treated", time="post", id="id", method="imp")
+    trad = sp.drdid(df, y="y", group="treated", time="post", id="id", method="trad")
+    assert imp.model_info["engine"] == "drdid_imp_panel"
+    assert trad.model_info["engine"] == "drdid_panel"
+    assert imp.estimate != trad.estimate
 
 
 def test_drdid_id_missing_covariate_raises():

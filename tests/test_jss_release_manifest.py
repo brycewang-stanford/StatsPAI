@@ -599,7 +599,16 @@ def test_coverage_findings_track_b1000_artifacts() -> None:
     _require_paper_jss()
     findings = COVERAGE_FINDINGS.read_text()
     parity_long = PARITY_SECTION.read_text()
-    parity_compact = PARITY_COMPACT_SECTION.read_text()
+    parity_compact = (
+        PARITY_COMPACT_SECTION.read_text()
+        + (
+            REPO_ROOT
+            / "Paper-JSS"
+            / "manuscript"
+            / "tables"
+            / "track_b_monte_carlo.tex"
+        ).read_text()
+    )
     computational_details = COMPUTATIONAL_DETAILS_SECTION.read_text()
     root_readme = ROOT_README.read_text()
     root_readme_cn = ROOT_README_CN.read_text()

@@ -8,27 +8,23 @@ risks.
 
 ```python
 # Kaplan-Meier
-km = sp.kaplan_meier(df, time='t', event='d', group='arm')
+km = sp.kaplan_meier(df, duration='t', event='d', group='arm')
 km.plot(ci=True, at_risk_table=True)
 km.median_survival
 
-# Nelson-Aalen cumulative hazard
-sp.nelson_aalen(df, time='t', event='d')
-
-# Log-rank and stratified log-rank
-sp.log_rank_test(df, time='t', event='d', group='arm')
-sp.log_rank_test(..., strata='centre')
+# Log-rank test
+sp.logrank_test(df, duration='t', event='d', group='arm')
 ```
 
 ## Cox proportional hazards
 
 ```python
 r = sp.cox(
-    df, time='t', event='d',
+    data=df, duration='t', event='d',
     x=['age','sex','treatment'],
     strata='centre',
     ties='efron',                    # or 'breslow' | 'exact'
-    vce='robust',                    # or 'cluster'
+    robust='hc0',                    # sandwich SE
     cluster='patient_id',
 )
 r.hazard_ratios()                    # HR + 95% CI
@@ -37,39 +33,28 @@ r.plot(kind='survival')              # adjusted survival curves
 r.predict_survival(new_df, times=[30, 60, 90])
 ```
 
-### Time-varying covariates
-
-```python
-sp.cox(df, time_start='t0', time_stop='t1', event='d', x=[...])
-```
-
 ## Accelerated Failure Time
 
 ```python
-sp.aft(df, time='t', event='d', x=[...],
-       dist='weibull')              # 'weibull' | 'exponential' | 'lognormal' | 'loglogistic' | 'gamma'
+sp.aft('t + d ~ age + sex', df,
+       family='weibull')            # 'weibull' | 'exponential' | 'lognormal' | 'loglogistic'
 ```
 
 ## Frailty models
 
 ```python
-sp.cox_frailty(df, time='t', event='d', x=[...],
-               cluster='family_id',
-               frailty_dist='gamma')     # shared gamma frailty
-sp.aft_frailty(df, ..., frailty_dist='log_normal')
+sp.cox_frailty('t + d ~ age + sex', df,
+               cluster='family_id')      # shared gamma frailty
 ```
 
 ## Competing risks
 
 ```python
 # Fine-Gray subdistribution hazard
-sp.competing_risks(df, time='t', event='d_type',
-                   x=[...],
-                   event_of_interest=1,
-                   method='fine_gray')
+sp.finegray(df, duration='t', event='d_type', x=['age', 'sex'], cause=1)
 
-# Cause-specific hazard
-sp.competing_risks(..., method='cause_specific')
+# Cumulative incidence by group
+sp.cuminc(df, duration='t', event='d_type', group='arm')
 ```
 
 ## Validation and diagnostics

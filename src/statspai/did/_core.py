@@ -256,8 +256,16 @@ def multiplier_bootstrap(
         CS2021 §4.2, available in Stata ``csdid`` via ``wbtype(mammen)``.
     cluster_ids : ndarray of shape (n,), optional
         Cluster membership per row. When given, rows are collapsed to
-        cluster *means* and the bootstrap runs over ``n_clusters`` rows —
-        exactly the R ``did::mboot`` clustering convention.
+        cluster **sums** (``rowsum(inf.func, cluster)``) and one multiplier
+        is drawn per cluster, keeping the ``1/n`` scaling of the estimator
+        — the R ``did::mboot`` convention (CS2021, Remark 10).
+
+        .. warning::
+           Collapsing to cluster *means* instead — which StatsPAI did
+           before 1.23.0, mirroring an older R ``did`` — coincides with
+           this only when every cluster has the same size. With unbalanced
+           clusters it silently rescales each cluster's contribution by
+           ``1/|c|`` and can inflate the SEs several-fold.
 
     Returns
     -------
@@ -286,8 +294,19 @@ def multiplier_bootstrap(
             f"weight_type must be 'mammen' or 'rademacher', got {weight_type!r}"
         )
 
-    # Collapse to cluster means (R did::mboot: rowsum(if)/cluster_n) so the
-    # bootstrap resamples clusters, not units.
+    # Collapse to cluster *sums* (R did::mboot: `rowsum(inf.func, cluster)`)
+    # so the bootstrap resamples clusters, not units.
+    #
+    # The divisor stays `n` (rows), not `n_clusters`: the estimator is the
+    # 1/n empirical average of ψ, so the bootstrap analogue of θ̂ − θ is
+    # (1/n) Σ_c V_c Σ_{i∈c} ψ_i.  R writes the same thing as
+    # `bres = sqrt(n_clusters) * mean_c(V_c · S_c)` rescaled by
+    # `sqrt(n_clusters)/n`, which reduces to dividing the cluster-sum
+    # bootstrap draws by n.  Collapsing to cluster means and dividing by
+    # n_clusters instead — the pre-1.23.0 path — only agrees when all
+    # clusters are the same size; with unbalanced clusters (the usual case,
+    # e.g. counties within states) it reweights each cluster by 1/|c| and
+    # blows the SEs up.
     if cluster_ids is not None:
         cluster_ids = np.asarray(cluster_ids)
         if cluster_ids.shape[0] != psi.shape[0]:
@@ -299,9 +318,8 @@ def multiplier_bootstrap(
         n_clusters = len(uniq)
         sums = np.zeros((n_clusters, psi.shape[1]))
         np.add.at(sums, codes, psi)
-        counts = np.bincount(codes, minlength=n_clusters).astype(float)
-        psi_boot = sums / counts[:, None]
-        n_eff = n_clusters
+        psi_boot = sums
+        n_eff = int(n_units)
     else:
         psi_boot = psi
         n_eff = int(n_units)

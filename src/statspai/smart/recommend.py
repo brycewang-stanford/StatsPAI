@@ -824,6 +824,49 @@ def recommend(
                     "raw_treat": treatment,
                 }
             )
+            # Whether adoption timing was *randomised* is an identification
+            # claim about how the data came to be, not a property any test on
+            # the data can settle — so this is surfaced as a branch the user
+            # must decide, never auto-selected. Getting it wrong in either
+            # direction is costly: imposing parallel trends on a randomised
+            # rollout throws away the randomisation, and claiming design-based
+            # inference on an observational one asserts something false.
+            recommendations.append(
+                {
+                    "method": (
+                        "Roth-Sant'Anna (2023) — design-based, IF timing "
+                        "was randomised"
+                    ),
+                    "function": "staggered_rollout",
+                    "reason": (
+                        "ONLY if adoption timing was randomly assigned (policy "
+                        "lottery, phased launch, wave-randomised RCT). Then "
+                        "parallel trends is neither needed nor sufficient, and "
+                        "imposing it discards the randomisation. No test on "
+                        "these data can tell you whether it applies — you have "
+                        "to know how treatment was assigned."
+                    ),
+                    "assumptions": ["Random adoption timing", "Balanced panel"],
+                    "robustness": (
+                        "fisher=True for a randomisation test that needs no "
+                        "asymptotics; se_type='adjusted' for the tighter "
+                        "standard error the randomisation identifies."
+                    ),
+                    "code": f"# only if timing was randomly assigned\n"
+                    f"sp.staggered_rollout(df, y='{y}', g='{cohort_col}', "
+                    f"t='{time}', i='{id}', fisher=True)",
+                    "params": {
+                        "data": did_data,
+                        "y": y,
+                        "g": cohort_col,
+                        "t": time,
+                        "i": id,
+                    },
+                    "prep": _derive_cohort,
+                    "raw_treat": treatment,
+                    "conditional_on": "randomised adoption timing",
+                }
+            )
             recommendations.append(
                 {
                     "method": "Event-study (dynamic treatment effects)",

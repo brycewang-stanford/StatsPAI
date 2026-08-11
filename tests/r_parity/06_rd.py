@@ -16,6 +16,9 @@ from _common import ParityRecord, dump_csv, write_results
 
 
 MODULE = "06_rd"
+# Shared with 06_rd.R. Near the CCT bandwidth (~17.8) on the rdrobust
+# senate data, whose running variable is in percentage points.
+FORCED_BANDWIDTH = 15.0
 
 
 def main() -> None:
@@ -24,7 +27,7 @@ def main() -> None:
 
     # Canonical R/Stata rdrobust bandwidth selector via the official
     # rdrobust Python port.
-    fit = sp.rdrobust(df, y="voteshare_next", x="margin", c=0.0, bwselect="cct")
+    fit = sp.rdrobust(df, y="y", x="x", c=0.0, bwselect="cct")
 
     rows: list[ParityRecord] = []
     for label in ("conventional", "robust"):
@@ -55,7 +58,7 @@ def main() -> None:
 
     # Legacy internal-selector diagnostic.  This keeps the old default
     # visible without mixing it with the R/Stata default-h parity rows.
-    legacy = sp.rdrobust(df, y="voteshare_next", x="margin", c=0.0)
+    legacy = sp.rdrobust(df, y="y", x="x", c=0.0)
     rows.append(
         ParityRecord(
             module=MODULE, side="py",
@@ -75,17 +78,20 @@ def main() -> None:
         )
     )
 
-    # Forced-bandwidth replicate at the legacy h = b = 0.042287 so the
-    # local-polynomial estimator math remains separately pinned.
-    H_FORCED = float(legacy.model_info["bandwidth_h"])
-    fit_forced = sp.rdrobust(df, y="voteshare_next", x="margin", c=0.0,
+    # Forced-bandwidth replicate so the local-polynomial estimator math stays
+    # pinned separately from the bandwidth selector. Both sides hard-code the
+    # SAME constant: deriving it from a selector on one side only (as this did)
+    # makes the statistic name depend on that selector, so the two sides stop
+    # joining as soon as either selector moves.
+    H_FORCED = FORCED_BANDWIDTH
+    fit_forced = sp.rdrobust(df, y="y", x="x", c=0.0,
                               h=H_FORCED, b=H_FORCED)
     for label in ("conventional", "robust"):
         d = fit_forced.model_info[label]
         rows.append(
             ParityRecord(
                 module=MODULE, side="py",
-                statistic=f"forced_h{H_FORCED}_{label}_est",
+                statistic=f"forced_h{H_FORCED:g}_{label}_est",
                 estimate=float(d["estimate"]),
                 se=float(d["se"]),
                 ci_lo=float(d["ci"][0]),

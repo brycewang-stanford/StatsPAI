@@ -55,6 +55,12 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         # avoid).
         "only the reliability-weight variance correction",
         "inference is not implemented",
+        # Documented convention divergence, not a code path that raises:
+        # cobalt fixes the denominator at the unweighted pooled SD so
+        # balance is comparable before/after reweighting; this follows
+        # Baker et al. (2026) §4.1 instead. Pinned in
+        # tests/reference_parity/test_did_balance_parity.py.
+        "the weighted denominator convention differs from",
     ],
     "llm_annotator_correct": [
         # Scope statement about the identification assumption of the

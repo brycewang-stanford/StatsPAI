@@ -2,8 +2,8 @@
 
 Each benchmark runs an estimator at a series of sample sizes, records
 wall-clock time and peak memory across `n_reps` repetitions, and
-writes a JSON record under results/. The companion R scripts run the
-canonical R reference at the same sample sizes; compare_perf.py then
+writes a JSON record under results/. Companion reference scripts run the
+declared R or Python implementation at the same sample sizes; compare_perf.py then
 emits a Markdown rollup and a log-log scaling figure.
 
 Hardware reported in results/_hardware.json so cross-machine

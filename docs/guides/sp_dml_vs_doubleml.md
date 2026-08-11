@@ -289,7 +289,7 @@ Beyond the four estimator classes that mirror DoubleML one-to-one,
   [@ahrens2025model].
 - **Unified result object** — every `sp.dml` call returns a
   `CausalResult`, so `.summary()`, `.to_latex()`, `.cite()` and the
-  agent-side audit chain (`sp.audit_result`) work the same as for every
+  agent-side audit chain (`sp.audit`) work the same as for every
   other StatsPAI estimator.
 
 ## Extending `sp.dml` with a custom score

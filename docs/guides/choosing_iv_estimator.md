@@ -6,16 +6,16 @@
 How strong is your instrument?
   Strong (F > 10)    -> 2SLS (sp.ivreg)
   Weak   (F < 10)    -> LIML / Fuller (more robust to weak instruments)
-  Very weak          -> Anderson-Rubin / weak-IV CIs (sp.weak_iv_ci)
+  Very weak          -> Anderson-Rubin / weak-IV CIs (sp.anderson_rubin_ci)
 
 Do you have MANY instruments?
   Few (1-3)           -> 2SLS / LIML
-  Many                -> JIVE / Post-Lasso IV (sp.post_lasso, sp.jive_variants)
+  Many                -> JIVE / Post-Lasso IV (sp.iv method='ujive'|'post_lasso')
 
 Do you have concerns about INSTRUMENT EXOGENEITY?
   Tight exogeneity    -> 2SLS
-  Plausibly exogenous -> sp.plausibly_exogenous (Conley-Hansen-Rossi)
-  Untestable          -> sp.bounds (bounds analysis)
+  Plausibly exogenous -> sp.iv method='ltz' (Conley-Hansen-Rossi)
+  Untestable          -> sp.partial_identification (bounds analysis)
 ```
 
 > **For an integrated post-2022 reporting bundle in a single call** —
@@ -49,7 +49,7 @@ If first-stage F < 10:
 | LIML (less biased than 2SLS) | `sp.liml(df, y, x_endog=[...], z=[...])`      |
 | Fuller (finite-sample adj.)   | `sp.liml(..., fuller=1)`                      |
 | Anderson-Rubin test           | `sp.anderson_rubin_test(r)`                   |
-| Weak-IV robust CI             | `sp.weak_iv_ci(r, method='ar')`               |
+| Weak-IV robust CI             | `sp.anderson_rubin_ci(y, endog, instruments)` |
 | tF critical values (Lee 2022) | `sp.tF_critical_value(first_stage_F=F)`       |
 | Effective F (Montiel-Pflueger)| `sp.effective_f_test(r)`                      |
 
@@ -63,9 +63,10 @@ With more than 5-10 instruments relative to sample size, 2SLS has
 many-weak-instrument bias. Use:
 
 ```python
-r = sp.post_lasso(df, y='y', d='d', z=['z1', 'z2', ..., 'z50'])
-# Or JIVE (jackknife IV)
-r = sp.jive_variants(df, y='y', d='d', z=[...], variant='jive2')
+r = sp.iv(method='post_lasso', y='y', endog='d',
+          instruments=['z1', 'z2', 'z50'], data=df)   # BCH rigorous penalty
+# Or a jackknife variant: 'jive1' | 'ujive' | 'ijive' | 'rjive'
+r = sp.iv('y ~ (d ~ z1 + z2)', data=df, method='ujive')
 ```
 
 ## 4. Plausibly exogenous instruments
@@ -73,10 +74,11 @@ r = sp.jive_variants(df, y='y', d='d', z=[...], variant='jive2')
 If the exclusion restriction is not dead-certain, use Conley-Hansen-Rossi:
 
 ```python
-r = sp.plausibly_exogenous(df, y='y', d='d', z='z',
-                           gamma_range=(-0.1, 0.1))
+r = sp.iv(method='ltz', y='y', endog='d', instruments='z',
+          gamma_mean=0.0, gamma_var=0.01, data=df)
 # Shows the sensitivity of the causal conclusion to
-# a direct Z -> Y channel of size gamma.
+# a direct Z -> Y channel of size gamma.  For the union-of-CIs variant
+# over an explicit grid, use method='uci' with gamma_grid=...
 ```
 
 ## 5. Marginal treatment effects (MTE)
@@ -85,7 +87,8 @@ If you want **more than the LATE** — e.g., ATE, ATT, PRTE — estimate
 the MTE curve:
 
 ```python
-r = sp.mte(df, y='y', d='d', z='z', covariates=[...])
+r = sp.iv(method='mte', y='y', treatment='d', instruments='z',
+          exog=['x1', 'x2'], data=df)
 r.plot()        # MTE curve over unobserved heterogeneity
 r.summary()     # ATE, ATT, LATE all derived from the MTE
 ```
@@ -93,8 +96,8 @@ r.summary()     # ATE, ATT, LATE all derived from the MTE
 Or the Mogstad-Santos-Torgovitsky linear program:
 
 ```python
-r = sp.ivmte_lp(df, y='y', d='d', z='z',
-                target='ATE', bounds=True)
+r = sp.iv(method='ivmte_bounds', y='y', treatment='d', instruments='z',
+          data=df, target='ate')
 ```
 
 ## 6. Fuzzy / discrete treatments
@@ -112,14 +115,15 @@ sp.ivreg('y ~ (d ~ z)', data=df).params['d']
 
 Validate the LATE interpretation:
 ```python
-sp.kitagawa_test(df, y='y', d='d', z='z')  # Imbens-Rubin test
+sp.kitagawa_test(df, y='y', treatment='d', instrument='z')  # Imbens-Rubin test
 ```
 
 ## 7. Shift-share / Bartik IV
 
 ```python
-r = sp.bartik(df, y='y_growth', shares='industry_shares_t0',
-              shocks='industry_shocks', unit='region', time='year')
+r = sp.bartik(df, y='y_growth', endog='emp_growth',
+              shares=industry_shares_t0,   # n_regions x n_industries frame
+              shocks=industry_shocks)      # Series indexed by industry
 ```
 
 With proper inference via Adao-Kolesar-Morales (2019) shift-share SE:

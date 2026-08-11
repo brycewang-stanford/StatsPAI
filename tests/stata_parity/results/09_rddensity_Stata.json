@@ -6,11 +6,11 @@
       "module": "09_rddensity",
       "side": "Stata",
       "statistic": "density_diff",
-      "estimate": 0.043478446820586901,
+      "estimate": -0.0035482073142291998,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
-      "n": 6558,
+      "n": 1390,
       "extra": {}
     }
 ,
@@ -18,11 +18,11 @@
       "module": "09_rddensity",
       "side": "Stata",
       "statistic": "density_left",
-      "estimate": 1.7010417652803651,
+      "estimate": 0.021685914550631801,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
-      "n": 6558,
+      "n": 1390,
       "extra": {}
     }
 ,
@@ -30,11 +30,11 @@
       "module": "09_rddensity",
       "side": "Stata",
       "statistic": "density_right",
-      "estimate": 1.744520212100952,
+      "estimate": 0.018137707236402598,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
-      "n": 6558,
+      "n": 1390,
       "extra": {}
     }
 ,
@@ -42,11 +42,11 @@
       "module": "09_rddensity",
       "side": "Stata",
       "statistic": "test_pvalue",
-      "estimate": 0.85710438014171819,
+      "estimate": 0.38142538761741712,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
-      "n": 6558,
+      "n": 1390,
       "extra": {}
     }
 ,
@@ -54,11 +54,11 @@
       "module": "09_rddensity",
       "side": "Stata",
       "statistic": "bandwidth_left",
-      "estimate": 0.1267004357419608,
+      "estimate": 19.841108354730721,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
-      "n": 6558,
+      "n": 1390,
       "extra": {}
     }
 ,
@@ -66,17 +66,17 @@
       "module": "09_rddensity",
       "side": "Stata",
       "statistic": "bandwidth_right",
-      "estimate": 0.119543024171245,
+      "estimate": 27.11878643440933,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
-      "n": 6558,
+      "n": 1390,
       "extra": {}
     }
   ],
   "extra": {
     "test_kind": "Cattaneo-Jansson-Ma (2020)",
-    "stata_command": "rddensity margin, c(0)"
+    "stata_command": "rddensity x, c(0)"
   },
   "provenance": {
     "stata_version": 18,

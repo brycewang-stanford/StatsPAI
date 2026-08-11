@@ -27,7 +27,7 @@ def main() -> None:
     df = sp.datasets.lee_2008_senate()
     dump_csv(df, MODULE)
 
-    fit = sp.rddensity(df, x="margin", c=0.0, backend="native")
+    fit = sp.rddensity(df, x="x", c=0.0, backend="native")
     mi = fit.model_info
 
     rows: list[ParityRecord] = [

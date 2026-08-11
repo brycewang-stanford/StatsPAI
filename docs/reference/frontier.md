@@ -33,7 +33,7 @@ r.lr_test_no_inefficiency()        # Kodde-Palm mixed χ̄² one-sided LR
 
 ```python
 r = sp.xtfrontier(
-    df, y='log_output', x=['log_k', 'log_l'], i='firm', t='year',
+    df, y='log_output', x=['log_k', 'log_l'], id='firm', time='year',
     model='ti',          # Pitt-Lee 1981 time-invariant
     # model='tvd',       # Battese-Coelli 1992 time-decay: u_it = exp(-η(t-T_i))·u_i
     # model='bc95',      # Battese-Coelli 1995 w/ z_it' δ
@@ -48,9 +48,9 @@ r = sp.xtfrontier(
 | Function | Method |
 | --- | --- |
 | `sp.zisf(df, ...)` | Zero-Inefficiency SFA mixture (Kumbhakar-Parmeter-Tsionas 2013) |
-| `sp.lcsf(df, ..., n_classes=2)` | Latent-Class SFA (Orea-Kumbhakar 2004 / Greene 2005) |
+| `sp.lcsf(df, y, x, z_class=[...])` | Latent-Class SFA (Orea-Kumbhakar 2004 / Greene 2005) |
 | `sp.malmquist(df, ..., period_col='year')` | Färe-Grosskopf-Lindgren-Roos 1994 Malmquist TFP: M = EC × TC |
-| `sp.translog_design(df, x=[...])` | Cobb-Douglas → translog design matrix helper |
+| `sp.translog_design(df, inputs=[...])` | Cobb-Douglas → translog design matrix helper |
 | `sp.metafrontier(group_fits)` | Cross-group metafrontier (Battese-Rao-O'Donnell 2004) |
 
 ## Post-estimation helpers

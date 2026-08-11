@@ -1,0 +1,372 @@
+{
+  "module": "82_staggered",
+  "side": "py",
+  "rows": [
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "simple_efficient",
+      "estimate": 0.48338205949472896,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "simple_efficient_se_neyman",
+      "estimate": 0.06138560383077695,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "simple_efficient_se_adjusted",
+      "estimate": 0.06136888895792974,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "simple_plugin",
+      "estimate": 0.48771542105612853,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "simple_plugin_se_neyman",
+      "estimate": 0.06545695026745266,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "simple_plugin_se_adjusted",
+      "estimate": 0.0654412752976085,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "cohort_efficient",
+      "estimate": 0.4671963920487757,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "cohort_efficient_se_neyman",
+      "estimate": 0.0655206000900027,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "cohort_efficient_se_adjusted",
+      "estimate": 0.06548273520075364,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "cohort_plugin",
+      "estimate": 0.476580177239444,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "cohort_plugin_se_neyman",
+      "estimate": 0.0684574196225023,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "cohort_plugin_se_adjusted",
+      "estimate": 0.06842118001459287,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "calendar_efficient",
+      "estimate": 0.47369589243994553,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "calendar_efficient_se_neyman",
+      "estimate": 0.0577355161502037,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "calendar_efficient_se_adjusted",
+      "estimate": 0.057678314500632835,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "calendar_plugin",
+      "estimate": 0.4780635664887237,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "calendar_plugin_se_neyman",
+      "estimate": 0.06445479051513252,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "calendar_plugin_se_adjusted",
+      "estimate": 0.0644035570357189,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "eventstudy_e0",
+      "estimate": 0.4178505803061287,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "eventstudy_e0_se_neyman",
+      "estimate": 0.06371436354448017,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "eventstudy_e0_se_adjusted",
+      "estimate": 0.06363580799854164,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "eventstudy_e1",
+      "estimate": 0.5239973995189252,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "eventstudy_e1_se_neyman",
+      "estimate": 0.07931315440093185,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "eventstudy_e1_se_adjusted",
+      "estimate": 0.07923158017750687,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "eventstudy_e2",
+      "estimate": 0.5865169281905555,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "eventstudy_e2_se_neyman",
+      "estimate": 0.10964405272949,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "eventstudy_e2_se_adjusted",
+      "estimate": 0.10952858812667739,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "cs_simple",
+      "estimate": 0.48771542105612853,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "cs_simple_se_neyman",
+      "estimate": 0.06545695026745266,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "cs_simple_se_adjusted",
+      "estimate": 0.0654412752976085,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "sa_simple",
+      "estimate": 0.4527931189483995,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "sa_simple_se_neyman",
+      "estimate": 0.06729837424044112,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    },
+    {
+      "module": "82_staggered",
+      "side": "py",
+      "statistic": "sa_simple_se_adjusted",
+      "estimate": 0.0672409633618954,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 240,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "estimator": "staggered_rollout"
+  }
+}

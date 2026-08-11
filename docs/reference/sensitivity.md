@@ -7,21 +7,20 @@ confounding, model specification, and sampling variation.
 
 ```python
 # Oster (2019) — coefficient stability and δ-bound
-sp.oster(model_short, model_long, rmax=1.3 * R2_long)
+sp.oster_bounds(df, y='y', treat='d', controls=[...], r_max=1.3 * r2_long)
 
 # Cinelli & Hazlett (2020) sensemakr — RV, extreme scenarios, benchmarks
-sp.sensemakr(df, y='y', treat='d', covariates=[...],
-             benchmark_covariates=['educ', 'experience'],
-             kd=[1, 2, 3])
+sp.sensemakr(df, y='y', treat='d', controls=['educ', 'experience', 'age'],
+             benchmark=['educ', 'experience'])
 
 # VanderWeele & Ding (2017) E-values
-sp.e_value(rr=1.8, rr_ci_lb=1.3)
+sp.evalue(estimate=1.8, ci=(1.3, 2.5), measure='RR')
 
 # Rosenbaum (2002) bounds — matched pairs
 sp.rosenbaum_bounds(paired_diff, gamma_grid=[1.1, 1.25, 1.5, 2.0])
 
 # Manski (1990) worst-case bounds
-sp.manski_bounds(df, y='y', treat='d', covariates=[...])
+sp.manski_bounds(df, y='y', treat='d', y_lower=0.0, y_upper=1.0)
 ```
 
 ## Specification curve analysis
@@ -29,11 +28,10 @@ sp.manski_bounds(df, y='y', treat='d', covariates=[...])
 ```python
 # Simonsohn-Simmons-Nelson (2020) spec curve
 sc = sp.spec_curve(
-    df, y='wage', treat='union',
-    covariate_grid={'age':[None,'age'], 'edu':[None,'edu','edu+edu²']},
-    fe_grid=['none','year','year+state'],
-    sample_grid={'full':None, 'male':'sex==1'},
-    se_grid=['hc3','cluster:state'],
+    df, y='wage', x='union',
+    controls=[[], ['age'], ['age', 'edu']],
+    subsets={'full': None, 'male': 'sex == 1'},
+    se_types=['hc3', 'cluster'], cluster_var='state',
 )
 sc.plot(kind='curve')               # full specification universe
 sc.median_effect                    # across specs
@@ -44,8 +42,10 @@ sc.share_positive_significant       # share of specs with p<0.05 & +sign
 
 ```python
 report = sp.robustness_report(
-    base_result,
-    checks=['alt_specs','alt_samples','alt_se','placebos','leave_one_out'],
+    df, formula='y ~ d + x1 + x2', x='d',
+    cluster_var='state',
+    extra_controls=['x3'], drop_controls=['x2'],
+    winsor_levels=[0.01, 0.05],
 )
 report.summary(); report.plot(); report.to_latex()
 ```
@@ -54,7 +54,7 @@ report.summary(); report.plot(); report.to_latex()
 
 ```python
 # Rambachan & Roth (2023) — relative-magnitude and smoothness restrictions
-sp.honest_did(cs_result, type='relative_magnitude', Mbar_grid=[0.5,1,1.5,2])
+sp.honest_did(cs_result, method='relative_magnitude', m_grid=[0.5, 1, 1.5, 2])
 sp.breakdown_m(cs_result)           # smallest M̄ that nullifies the effect
 ```
 
@@ -69,7 +69,7 @@ r.efficiency_ci(alpha=0.05, B=500)  # parametric-bootstrap unit CIs
 
 ```python
 rec = sp.recommend(df, ...)
-v = sp.verify(rec, B=500, subsample_frac=0.8)
+v = sp.verify(rec, df, B=500, K_subsample=20)
 v.verify_score                      # 0–100 stability score
 v.components                        # bootstrap / placebo / subsample breakdown
 ```

@@ -72,11 +72,11 @@ r = sp.interactive_fe(df, y="y", x=["x1", "x2"], id="firm", time="year",
 
 ```python
 # Feasible GLS for panels with heteroskedastic / correlated errors:
-r = sp.panel_fgls(df, "y ~ x1 + x2", entity="firm", time="year")
+r = sp.panel_fgls(df, y="y", x=["x1", "x2"], id="firm", time="year")
 
 # Panel limited-dependent models:
-r = sp.panel_logit(df, "d ~ x1 + x2", entity="firm", time="year")
-r = sp.panel_probit(df, "d ~ x1 + x2", entity="firm", time="year")
+r = sp.panel_logit(df, y="d", x=["x1", "x2"], id="firm", time="year")
+r = sp.panel_probit(df, y="d", x=["x1", "x2"], id="firm", time="year")
 
 # Panel unit-root tests (Im–Pesaran–Shin default; also LLC, Fisher):
 ur = sp.panel_unitroot(df, variable="gdp", id="country", time="year", test="ips")

@@ -8,9 +8,10 @@ difference-in-differences with local spillovers.
 ## Weights
 
 ```python
-W = sp.spatial_weights(gdf, method='queen')            # contiguity
-W = sp.spatial_weights(gdf, method='knn', k=8)         # k-nearest neighbors
-W = sp.spatial_weights(gdf, method='distance', band=50_000)
+W = sp.queen_weights(gdf)                              # contiguity (queen)
+W = sp.rook_weights(gdf)                               # contiguity (rook)
+W = sp.knn_weights(coords, k=8)                        # k-nearest neighbors
+W = sp.kernel_weights(coords, bandwidth=50_000)        # distance kernel
 W.row_standardise()
 W.transform                                            # 'r' | 'b' | 'v'
 ```
@@ -18,45 +19,42 @@ W.transform                                            # 'r' | 'b' | 'v'
 ## ESDA — Exploratory Spatial Data Analysis
 
 ```python
-sp.moran_i(y, W, permutations=999)        # global Moran's I
-sp.geary_c(y, W, permutations=999)        # global Geary's C
+sp.moran(y, W, permutations=999)          # global Moran's I
+sp.geary(y, W, permutations=999)          # global Geary's C
 sp.getis_ord_g(y, W)                      # Getis-Ord G
-sp.local_moran(y, W)                      # LISA — local Moran
-sp.local_geary(y, W)
-sp.join_count(y_bin, W)                   # categorical autocorrelation
+sp.moran_local(y, W)                      # LISA — local Moran
+sp.join_counts(y_bin, W)                  # categorical autocorrelation
 ```
 
 ## Spatial regression (cross-section)
 
 ```python
 # Maximum likelihood
-sp.sar(df, y='price', x=[...], W=W)                  # spatial autoregressive
-sp.sem(df, y='price', x=[...], W=W)                  # spatial error
-sp.sdm(df, y='price', x=[...], W=W)                  # Durbin (lag + lagged X)
-sp.slx(df, y='price', x=[...], W=W)                  # Spatially-lagged X only
-sp.sarar(df, y='price', x=[...], W1=W1, W2=W2)       # combo SAR+SEM
-sp.sdem(df, y='price', x=[...], W=W)                 # Durbin error
+sp.sar(W, df, 'price ~ rooms + age')       # spatial autoregressive
+sp.sem(W, df, 'price ~ rooms + age')       # spatial error
+sp.sdm(W, df, 'price ~ rooms + age')       # Durbin (lag + lagged X)
+sp.slx(W, df, 'price ~ rooms + age')       # Spatially-lagged X only
+sp.sarar_gmm(W, df, 'price ~ rooms + age') # combo SAR+SEM (GMM)
 
 # GMM / IV
-sp.sar_gmm(df, ..., W=W)
-sp.sem_gmm(df, ..., W=W)
+sp.sar_gmm(W, df, 'price ~ rooms + age')
+sp.sem_gmm(W, df, 'price ~ rooms + age')
 ```
 
 ## GWR / MGWR — locally varying coefficients
 
 ```python
-sp.gwr(df, y='price', x=['income','crime'], coords=('lon','lat'),
-       kernel='bisquare', bandwidth='aic')
-sp.mgwr(df, y='price', x=['income','crime'], coords=('lon','lat'))
+# Array API: projected coords (UTM), y vector, X design matrix.
+sp.gwr(coords, y, X, bw=40, kernel='bisquare')   # bw = n neighbours
+sp.mgwr(coords, y, X, kernel='bisquare')         # per-covariate bandwidths
 ```
 
 ## Spatial panel
 
 ```python
-sp.spatial_panel(df, y='gdp', x=['k','l'], W=W,
-                 i='country', t='year',
-                 model='within_sar',     # 'pooled_sar' | 'within_sem' | ...
-                 fe='two-way')
+sp.spatial_panel(df, 'gdp ~ k + l', entity='country', time='year', W=W,
+                 model='sar',            # 'sar' | 'sem' | 'sdm'
+                 effects='twoways')      # 'fe' | 'twoways'
 ```
 
 ## Spatial DiD

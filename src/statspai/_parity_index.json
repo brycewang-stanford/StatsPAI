@@ -73,7 +73,8 @@
         "tests/reference_parity/test_aggte_r_did_parity.py",
         "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_cs_base_period_parity.py",
-        "tests/reference_parity/test_cs_rcs_parity.py"
+        "tests/reference_parity/test_cs_rcs_parity.py",
+        "tests/reference_parity/test_cs_weighted_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -940,8 +941,10 @@
         "tests/reference_parity/test_callaway_santanna_parity.py",
         "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_cs_base_period_parity.py",
+        "tests/reference_parity/test_cs_gaps_parity.py",
         "tests/reference_parity/test_cs_inference_parity.py",
         "tests/reference_parity/test_cs_rcs_parity.py",
+        "tests/reference_parity/test_cs_weighted_parity.py",
         "tests/reference_parity/test_csdid_conventions_stata_parity.py",
         "tests/reference_parity/test_fect_equivalence_parity.py",
         "tests/reference_parity/test_honest_did_backend_parity.py",
@@ -976,8 +979,8 @@
         "did": "2.3.0"
       },
       "se_rel": {
-        "R": 0.003203341863034817,
-        "Stata": 0.003203341863038714
+        "R": 4.468321135493086e-16,
+        "Stata": 4.356613107105742e-15
       },
       "sides": [
         "py",
@@ -992,7 +995,7 @@
         "tests/stata_parity/04_csdid.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.01"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-09"
     },
     {
       "also_verified_by": [
@@ -2108,7 +2111,9 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_did2x2_wild_parity.py"
+        "tests/reference_parity/test_cs_weighted_parity.py",
+        "tests/reference_parity/test_did2x2_wild_parity.py",
+        "tests/reference_parity/test_sunab_weighted_parity.py"
       ],
       "tolerance": ""
     },
@@ -2134,6 +2139,23 @@
         "tests/reference_parity/test_did2x2_ddd_weighted_robust_parity.py"
       ],
       "tolerance": "b / se 1e-12 abs (observed <= 3e-16)"
+    },
+    {
+      "function": "did_balance",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_did_balance_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "did_had",
@@ -2368,6 +2390,23 @@
       "tolerance": ""
     },
     {
+      "function": "distributional_did",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_functional_form_extended_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "distributional_te",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -2505,6 +2544,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_drdid_family_parity.py",
         "tests/reference_parity/test_drdid_rc_parity.py"
       ],
       "also_verified_by": [
@@ -3327,6 +3367,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_functional_form_extended_parity.py",
         "tests/reference_parity/test_functional_form_parity.py"
       ],
       "also_verified_by": [
@@ -7138,8 +7179,8 @@
       "function": "pretrends_power",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 3.215151159289103e-05,
-        "rel_vs_Stata": 0.00014632709101598693,
+        "rel_vs_R": 3.981221250286203e-05,
+        "rel_vs_Stata": 0.0001386677573332509,
         "statistic": [
           "power_slope_0p02",
           "power_slope_0p05"
@@ -7151,8 +7192,8 @@
       "module_id": "76_pretrends",
       "notes": [],
       "point_estimate_rel": {
-        "R": 3.215151159289103e-05,
-        "Stata": 0.00014632709101598693
+        "R": 3.981221250286203e-05,
+        "Stata": 0.0001386677573332509
       },
       "python_call": "sp.pretrends_power / sp.pretrends_slope_for_power",
       "reference": "pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN)",
@@ -7188,8 +7229,8 @@
       "function": "pretrends_slope_for_power",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 3.215151159289103e-05,
-        "rel_vs_Stata": 0.00014632709101598693,
+        "rel_vs_R": 3.981221250286203e-05,
+        "rel_vs_Stata": 0.0001386677573332509,
         "statistic": [
           "power_slope_0p02",
           "power_slope_0p05"
@@ -7201,8 +7242,8 @@
       "module_id": "76_pretrends",
       "notes": [],
       "point_estimate_rel": {
-        "R": 3.215151159289103e-05,
-        "Stata": 0.00014632709101598693
+        "R": 3.981221250286203e-05,
+        "Stata": 0.0001386677573332509
       },
       "python_call": "sp.pretrends_power / sp.pretrends_slope_for_power",
       "reference": "pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN)",
@@ -7640,8 +7681,8 @@
       "function": "rddensity",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 3.330742724719231e-11,
-        "rel_vs_Stata": 8.872412515515427e-11,
+        "rel_vs_R": 9.348654877788263e-12,
+        "rel_vs_Stata": 0.5549837377321034,
         "statistic": [
           "test_pvalue"
         ],
@@ -7652,8 +7693,8 @@
       "module_id": "09_rddensity",
       "notes": [],
       "point_estimate_rel": {
-        "R": 3.330742724719231e-11,
-        "Stata": 8.872412515515427e-11
+        "R": 9.348654877788263e-12,
+        "Stata": 0.5549837377321034
       },
       "python_call": "sp.rddensity(backend=\"native\")",
       "reference": "rddensity::rddensity",
@@ -7671,7 +7712,7 @@
         "Stata"
       ],
       "source": "track_a",
-      "status": "bit-exact",
+      "status": "aligned",
       "test": [
         "tests/r_parity/09_rddensity.py",
         "tests/r_parity/09_rddensity.R",
@@ -7748,8 +7789,8 @@
       "function": "rdrobust",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 7.882489506242041e-13,
-        "rel_vs_Stata": 2.4363146203957614e-10,
+        "rel_vs_R": 2.4847453064359826e-14,
+        "rel_vs_Stata": 9.444860042150157e-11,
         "statistic": [
           "default_conventional_est",
           "default_robust_est"
@@ -7761,8 +7802,8 @@
       "module_id": "06_rd",
       "notes": [],
       "point_estimate_rel": {
-        "R": 7.882489506242041e-13,
-        "Stata": 2.4363146203957614e-10
+        "R": 2.4847453064359826e-14,
+        "Stata": 9.444860042150157e-11
       },
       "python_call": "sp.rdrobust",
       "reference": "rdrobust::rdrobust",
@@ -7771,8 +7812,8 @@
         "rdrobust": "3.0.0"
       },
       "se_rel": {
-        "R": 1.2281206810660725e-12,
-        "Stata": 4.0549264088238177e-10
+        "R": 3.4553761368861975e-14,
+        "Stata": 1.605410374834779e-10
       },
       "sides": [
         "py",
@@ -8883,6 +8924,23 @@
       "tolerance": "rel_est<=1e-06"
     },
     {
+      "function": "staggered_cs",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_staggered_extended_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "staggered_rollout",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -8895,7 +8953,25 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_staggered_extended_parity.py",
         "tests/reference_parity/test_staggered_rollout_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "staggered_sa",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_staggered_extended_parity.py"
       ],
       "tolerance": ""
     },
@@ -8993,7 +9069,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_sunab_control_cohort_parity.py",
-        "tests/reference_parity/test_sunab_did2s_mpdta_parity.py"
+        "tests/reference_parity/test_sunab_did2s_mpdta_parity.py",
+        "tests/reference_parity/test_sunab_weighted_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -9030,8 +9107,8 @@
         "fixest": "0.14.0"
       },
       "se_rel": {
-        "R": 0.17050321602357027,
-        "Stata": 0.008377993490838022
+        "R": 0.16503036407593208,
+        "Stata": 0.0008064517374465641
       },
       "sides": [
         "py",

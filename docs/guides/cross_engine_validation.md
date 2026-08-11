@@ -118,8 +118,8 @@ engines both fit a two-way fixed-effects DiD with a contaminated comparison,
 they will agree on the *same biased number*. `cross_validate` answers "did I
 implement the estimator I think I did, the same way the rest of the field
 would?" — a different and complementary question from "is this estimator
-identified?", which is what `sp.audit_result` / `sp.honest_did` /
-`sp.sensitivity` address. Use both.
+identified?", which is what `sp.audit` / `sp.honest_did` /
+`sp.unified_sensitivity` address. Use both.
 
 ## Worked example: Cunningham's experiment, reproduced
 
