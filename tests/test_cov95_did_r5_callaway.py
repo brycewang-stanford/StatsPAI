@@ -90,8 +90,19 @@ def test_validation_errors_expose_taxonomy_and_scalar_x():
     assert np.isfinite(r.estimate)
     with pytest.raises(MethodIncompatibility, match="estimator must be"):
         callaway_santanna(df, y="y", g="g", t="t", i="i", estimator="bogus")
-    with pytest.raises(CallawayNotImplemented, match="clustervars"):
-        callaway_santanna(df, y="y", g="g", t="t", i="i", panel=False, clustervars="i")
+    # clustervars under panel=False is supported now; what still raises is
+    # clustering beyond the unit without the multiplier bootstrap.
+    with pytest.raises(MethodIncompatibility, match="requires bstrap=True"):
+        callaway_santanna(
+            df,
+            y="y",
+            g="g",
+            t="t",
+            i="i",
+            panel=False,
+            clustervars=["i", "g"],
+            bstrap=False,
+        )
 
 
 def test_no_cohorts_raises():

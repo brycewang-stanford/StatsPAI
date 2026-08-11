@@ -170,8 +170,14 @@ class TestBstrap:
         )
         assert r.se > 0
 
-    def test_rcs_clustervars_still_raises(self, panel):
-        with pytest.raises(NotImplementedError, match="clustervars"):
+    def test_rcs_supports_the_clustered_bootstrap(self, panel):
+        """Repeated cross-sections used to refuse clustervars; now they run.
+
+        Clustering beyond the unit still requires bstrap=True: the
+        analytic per-cell SEs cannot express within-cluster dependence, so
+        reporting them under clustervars would understate uncertainty.
+        """
+        with pytest.raises(MethodIncompatibility, match="requires bstrap=True"):
             sp.callaway_santanna(
                 panel,
                 y="y",
@@ -180,8 +186,23 @@ class TestBstrap:
                 i="i",
                 panel=False,
                 estimator="reg",
-                clustervars="i",
+                clustervars=["i", "cl"],
             )
+        r = sp.callaway_santanna(
+            panel,
+            y="y",
+            g="g",
+            t="t",
+            i="i",
+            panel=False,
+            estimator="reg",
+            clustervars=["i", "cl"],
+            bstrap=True,
+            biters=299,
+            random_state=3,
+        )
+        assert r.model_info["se_method"] == "multiplier"
+        assert np.all(np.isfinite(r.detail["se"].to_numpy()))
 
 
 # ----------------------------------------------------------------------

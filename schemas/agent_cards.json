@@ -1093,7 +1093,7 @@
     ],
     "category": "causal",
     "cost_profile": "Runtime scales with (number of cohorts x number of periods): one doubly-robust 2x2 estimate plus an influence function per (g,t) cell. Memory is O(n) -- the hazard is wall-clock on many-cohort panels, not RAM.",
-    "description": "Callaway-Sant'Anna (2021) staggered DID with group-time ATTs. Robust to heterogeneous treatment effects and staggered adoption. Validation: certified evidence with scoped limitations. Known limitations: clustervars is not yet supported when panel=False (repeated cross-sections); observations are not nested in units there, so the cluster bootstrap needs a separate design. Do NOT use when: all treated units adopt in the same period (a plain 2x2 or block design) -- CS reduces to the same estimand at much higher cost; use sp.did(method='2x2'); there is neither a never-treated group nor a not-yet-treated cohort -- no valid comparison group exists for ATT(g,t); only one pre-treatment period per cohort -- no pre-trend evidence and no event-study leads are estimable. Cost: Runtime scales with (number of cohorts x number of periods): one doubly-robust 2x2 estimate plus an influence function per (g,t) cell. Memory is O(n) -- the hazard is wall-clock on many-cohort panels, not RAM.",
+    "description": "Callaway-Sant'Anna (2021) staggered DID with group-time ATTs. Robust to heterogeneous treatment effects and staggered adoption. Validation: certified evidence with scoped limitations. Known limitations: clustervars is not yet supported with bstrap=False; the analytic standard errors do not account for within-cluster dependence, so the multiplier bootstrap is required. Do NOT use when: all treated units adopt in the same period (a plain 2x2 or block design) -- CS reduces to the same estimand at much higher cost; use sp.did(method='2x2'); there is neither a never-treated group nor a not-yet-treated cohort -- no valid comparison group exists for ATT(g,t); only one pre-treatment period per cohort -- no pre-trend evidence and no event-study leads are estimable. Cost: Runtime scales with (number of cohorts x number of periods): one doubly-robust 2x2 estimate plus an influence function per (g,t) cell. Memory is O(n) -- the hazard is wall-clock on many-cohort panels, not RAM.",
     "example": "sp.callaway_santanna(df, y=\"earnings\", g=\"first_treat\", t=\"year\", i=\"worker\")",
     "failure_modes": [
       {
@@ -1141,7 +1141,7 @@
     ],
     "inherits_from": "did",
     "limitations": [
-      "clustervars is not yet supported when panel=False (repeated cross-sections); observations are not nested in units there, so the cluster bootstrap needs a separate design"
+      "clustervars is not yet supported with bstrap=False; the analytic standard errors do not account for within-cluster dependence, so the multiplier bootstrap is required"
     ],
     "name": "callaway_santanna",
     "not_recommended_when": [
@@ -1164,7 +1164,7 @@
     ],
     "reference": "Callaway & Sant'Anna (2021) J. Econometrics",
     "signature": {
-      "description": "Callaway-Sant'Anna (2021) staggered DID with group-time ATTs. Robust to heterogeneous treatment effects and staggered adoption. Validation: certified evidence with scoped limitations. Known limitations: clustervars is not yet supported when panel=False (repeated cross-sections); observations are not nested in units there, so the cluster bootstrap needs a separate design. Do NOT use when: all treated units adopt in the same period (a plain 2x2 or block design) -- CS reduces to the same estimand at much higher cost; use sp.did(method='2x2'); there is neither a never-treated group nor a not-yet-treated cohort -- no valid comparison group exists for ATT(g,t); only one pre-treatment period per cohort -- no pre-trend evidence and no event-study leads are estimable. Cost: Runtime scales with (number of cohorts x number of periods): one doubly-robust 2x2 estimate plus an influence function per (g,t) cell. Memory is O(n) -- the hazard is wall-clock on many-cohort panels, not RAM.",
+      "description": "Callaway-Sant'Anna (2021) staggered DID with group-time ATTs. Robust to heterogeneous treatment effects and staggered adoption. Validation: certified evidence with scoped limitations. Known limitations: clustervars is not yet supported with bstrap=False; the analytic standard errors do not account for within-cluster dependence, so the multiplier bootstrap is required. Do NOT use when: all treated units adopt in the same period (a plain 2x2 or block design) -- CS reduces to the same estimand at much higher cost; use sp.did(method='2x2'); there is neither a never-treated group nor a not-yet-treated cohort -- no valid comparison group exists for ATT(g,t); only one pre-treatment period per cohort -- no pre-trend evidence and no event-study leads are estimable. Cost: Runtime scales with (number of cohorts x number of periods): one doubly-robust 2x2 estimate plus an influence function per (g,t) cell. Memory is O(n) -- the hazard is wall-clock on many-cohort panels, not RAM.",
       "name": "callaway_santanna",
       "parameters": {
         "properties": {
@@ -1308,7 +1308,7 @@
             "type": "string"
           },
           "x": {
-            "description": "Covariates for conditional parallel trends",
+            "description": "Covariates for conditional parallel trends. Either column names ['lpop'] or an R-style one-sided formula '~ lpop + I(lpop**2)' (R did/csdid xformla; a left-hand side is accepted and ignored). Inside I() the expression is Python, so powers are I(x**2); I(x^2) is rejected rather than read as bitwise XOR.",
             "items": {
               "type": "string"
             },

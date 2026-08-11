@@ -2504,7 +2504,7 @@
     "name": "california_tobacco"
   },
   {
-    "description": "Staggered DID (Callaway-Sant'Anna 2021): group-time ATT with doubly-robust, IPW, or regression-adjusted estimators. Robust to heterogeneous treatment effects where TWFE fails. Requires a cohort column g (first-treatment period; 0 = never-treated). Validation: certified evidence with scoped limitations. Known limitations: clustervars is not yet supported when panel=False (repeated cross-sections); observations are not nested in units there, so the cluster bootstrap needs a separate design.",
+    "description": "Staggered DID (Callaway-Sant'Anna 2021): group-time ATT with doubly-robust, IPW, or regression-adjusted estimators. Robust to heterogeneous treatment effects where TWFE fails. Requires a cohort column g (first-treatment period; 0 = never-treated). Validation: certified evidence with scoped limitations. Known limitations: clustervars is not yet supported with bstrap=False; the analytic standard errors do not account for within-cluster dependence, so the multiplier bootstrap is required.",
     "input_schema": {
       "properties": {
         "control_group": {

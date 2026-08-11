@@ -106,8 +106,9 @@ def test_cs_input_validation():
     with pytest.raises(ValueError, match="anticipation"):
         sp.callaway_santanna(df, y="y", g="g", t="time", i="unit", anticipation=-1)
     # panel=False now supports all three estimators and both control groups;
-    # clustervars is the remaining gap and must still fail loudly.
-    with pytest.raises((ValueError, NotImplementedError), match="clustervars"):
+    # clustervars now works under panel=False, but only with bstrap=True:
+    # the analytic SEs cannot express within-cluster dependence.
+    with pytest.raises((ValueError, NotImplementedError), match="bstrap=True"):
         sp.callaway_santanna(
             df,
             y="y",
@@ -116,5 +117,5 @@ def test_cs_input_validation():
             i="unit",
             panel=False,
             estimator="dr",
-            clustervars="unit",
+            clustervars=["unit", "g"],
         )

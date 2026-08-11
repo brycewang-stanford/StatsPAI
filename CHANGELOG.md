@@ -130,6 +130,53 @@ via Crossref and the published PDF.
 
 ### Added
 
+- **R-style covariate formulas on `sp.callaway_santanna` and
+  `sp.drdid`.** `x=` / `covariates=` now accept a one-sided formula as
+  well as a list of column names, so an `xformla` copied out of R `did`
+  / `csdid` / `DRDID` works as written:
+
+  ```python
+  sp.callaway_santanna(df, y="lemp", g="first_treat", t="year",
+                       i="countyreal", x="~ lpop + I(lpop**2)")
+  ```
+
+  A left-hand side is accepted and ignored (R's `xformla` carries one),
+  `~ 1` means no covariates, and a plain string without `~` is still a
+  single column name. Terms are materialised with patsy, so
+  transformations and interactions that have no column behind them —
+  `I(x**2)`, `np.log(x)`, `x1:x2`, `x1*x2` — no longer have to be
+  hand-expanded first. Matches `csdid`'s `xformla` exactly, including
+  the quadratic case (ATT to 1.8e-15).
+
+  Inside `I(...)` the expression is Python, where `^` is bitwise XOR
+  rather than exponentiation, so an unconverted R `I(x^2)` is **rejected
+  with an explanation** instead of quietly computing something else.
+
+- **`sp.callaway_santanna` repeated-cross-section and unbalanced-panel
+  paths gained `weights=`, `clustervars=`, `bstrap=`, `cband=` and
+  `boot_weight_type=`.** Until now those paths reported analytic per-cell
+  standard errors only, and `weights=` / `clustervars=` raised rather
+  than being ignored — honest, but a real capability gap against R `did`
+  and `csdid`, both of which support all of it under `panel=FALSE`.
+
+  - Weights enter the cell moments, the propensity/outcome nuisances and
+    the influence functions, and cohort shares become shares of weight
+    mass rather than head counts, so `sp.aggte` weights cohorts
+    consistently with what the cells estimate. Matches `csdid` exactly
+    (ATT to 3e-15, standard errors to machine precision) for
+    `dr`/`ipw`/`reg`, on both the repeated-cross-section and the
+    unbalanced-panel route.
+  - Under `allow_unbalanced_panel=True` the weight and the cluster label
+    must be time-invariant within unit: the fold sums a unit's
+    contributions, so a within-unit-varying weight would silently
+    reweight its own periods against each other. Both are checked and
+    raise.
+  - Clustering beyond the unit still requires `bstrap=True`, as on the
+    panel path. The analytic standard errors cannot express
+    within-cluster dependence, so reporting them under `clustervars`
+    would understate uncertainty.
+
+
 - **`sp.staggered_rollout` now covers the whole of R `staggered` 1.2.2**
   (Roth & Sant'Anna 2023 [@roth2023efficient]). Five additions, each
   pinned against the reference implementation to ≤1e−9 on three panels —

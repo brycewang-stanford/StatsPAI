@@ -1844,6 +1844,14 @@ def drdid(
     """
     df = data.copy()
 
+    # R-style covariate formula (DRDID::drdid(xformla = ~ x1 + I(x1**2))).
+    if isinstance(covariates, str) and "~" in covariates:
+        from ._core import covariates_from_formula as _covariates_from_formula
+
+        df, covariates = _covariates_from_formula(df, covariates, function="drdid")
+        covariates = covariates or None
+        data = df
+
     # ── Validate method ─────────────────────────────────────────────
     # Only the improved (locally-efficient) and traditional DR-DID
     # estimators are implemented. Previously any other string silently

@@ -72,7 +72,11 @@ class TestStabilityFlowsThroughRegistry:
     @pytest.mark.parametrize(
         ("name", "needle"),
         [
-            ("callaway_santanna", "panel=False"),
+            # panel=False used to be the advertised gap (no clustervars,
+            # no weights, no bootstrap there). Those are implemented as of
+            # 1.23.0; what remains is that clustering beyond the unit
+            # needs the multiplier bootstrap.
+            ("callaway_santanna", "bstrap=False"),
             ("rdrobust", "weights"),
             ("network_exposure", "design='complete'"),
             ("continuous_did", "method='cgs'"),

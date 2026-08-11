@@ -204,6 +204,8 @@ def _runtime_map() -> (
             "g": np.repeat(rng.choice([0, 2, 3], size=n // 4), 4),
             "d": rng.binomial(1, 0.4, size=n),
             "dose": rng.uniform(0, 1, size=n),
+            # time-invariant cluster label, for the clustervars limitation
+            "cl": np.repeat(rng.integers(0, 5, size=n // 4), 4),
         }
     )
 
@@ -243,8 +245,10 @@ def _runtime_map() -> (
             NotImplementedError,
         ),
         ("callaway_santanna", "clustervars"): (
-            # estimator='dr' / control_group='notyettreated' are now supported
-            # under panel=False; clustervars is the remaining gap.
+            # panel=False now supports clustervars, weights and the
+            # multiplier bootstrap. What remains is that clustering beyond
+            # the unit needs bstrap=True: the analytic per-cell SEs cannot
+            # express within-cluster dependence.
             lambda: sp.callaway_santanna(
                 df_panel,
                 y="y",
@@ -253,9 +257,10 @@ def _runtime_map() -> (
                 i="i",
                 panel=False,
                 estimator="dr",
-                clustervars="i",
+                clustervars=["i", "cl"],
+                bstrap=False,
             ),
-            NotImplementedError,
+            MethodIncompatibility,
         ),
         ("etwfe", "cgroup='nevertreated' combined with panel=False"): (
             lambda: sp.etwfe(

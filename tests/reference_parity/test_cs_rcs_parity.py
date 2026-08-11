@@ -46,6 +46,7 @@ import pandas as pd
 import pytest
 
 import statspai as sp
+from statspai.exceptions import MethodIncompatibility
 
 _MPDTA = (
     pathlib.Path(__file__).resolve().parents[1]
@@ -172,9 +173,16 @@ def test_unconditional_reg_rcs_matches_the_panel_simple_att(mpdta):
     assert agg.estimate == pytest.approx(-0.0399512752, abs=1e-6)
 
 
-def test_clustervars_still_raises_under_rcs(mpdta):
-    """Observations are not nested in units here — fail loudly, not silently."""
-    from statspai.did.callaway_santanna import CallawayNotImplemented
+def test_clustervars_under_rcs_requires_the_bootstrap(mpdta):
+    """RCS now clusters, but only with the multiplier bootstrap.
 
-    with pytest.raises(CallawayNotImplemented, match="clustervars"):
-        _rcs_fit(mpdta, "dr", "nevertreated", clustervars="countyreal")
+    The analytic per-cell SEs cannot express within-cluster dependence,
+    so reporting them under clustervars would understate uncertainty.
+    """
+    with pytest.raises(MethodIncompatibility, match="requires bstrap=True"):
+        _rcs_fit(
+            mpdta,
+            "dr",
+            "nevertreated",
+            clustervars=["countyreal", "first_treat"],
+        )

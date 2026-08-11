@@ -84,6 +84,33 @@ All other paths raise `NotImplementedError` with an actionable message.
 - SUTVA: no spillovers between units
 - For staggered / heterogeneous effects: use CS or SA — TWFE can produce negative weights (Goodman-Bacon)
 
+**Inference and weighting options (parity with R `did` / `csdid`)**
+
+Since 1.23.0 the repeated-cross-section route takes the same options as
+the panel route, so a `panel = FALSE` script from R ports across without
+dropping anything:
+
+```python
+sp.callaway_santanna(
+    df, y="y", g="g", t="t", i="i",
+    panel=False,
+    x="~ lpop + I(lpop**2)",     # R xformla; I(x^2) is rejected, use **
+    weights="pop",               # part of the estimand, not a precision knob
+    clustervars=["i", "state"],  # requires bstrap=True
+    bstrap=True, cband=True, biters=1000, random_state=0,
+)
+```
+
+Two rules carry over from the panel path and are enforced, not assumed:
+
+- **Clustering beyond the unit requires `bstrap=True`.** The analytic
+  per-cell standard errors cannot express within-cluster dependence, so
+  reporting them under `clustervars` would understate uncertainty.
+- **Under `allow_unbalanced_panel=True`, weights and cluster labels must
+  be time-invariant within unit.** That route folds a unit's influence
+  contributions together, so a within-unit-varying weight would silently
+  reweight that unit's own periods against each other.
+
 **Failure modes → recovery**
 
 | Symptom | Exception | Remedy | Try next |

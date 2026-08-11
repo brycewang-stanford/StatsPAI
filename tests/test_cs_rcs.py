@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from statspai.did import aggte, callaway_santanna, cs_report, honest_did
+from statspai.exceptions import MethodIncompatibility
 
 
 def _rcs_panel(
@@ -171,10 +172,11 @@ def test_rcs_accepts_notyettreated_control():
     assert np.isfinite(r.estimate)
 
 
-def test_rcs_rejects_clustervars():
-    """clustervars is still unsupported under panel=False — fail loudly."""
+def test_rcs_clustervars_requires_the_bootstrap():
+    """Repeated cross-sections now cluster — but only with bstrap=True."""
     df = _rcs_panel(seed=3)
-    with pytest.raises(NotImplementedError, match="clustervars"):
+    df["cl"] = df["obs"] % 7
+    with pytest.raises(MethodIncompatibility, match="requires bstrap=True"):
         callaway_santanna(
             df,
             y="y",
@@ -183,8 +185,22 @@ def test_rcs_rejects_clustervars():
             i="obs",
             estimator="reg",
             panel=False,
-            clustervars="obs",
+            clustervars=["obs", "cl"],
         )
+    r = callaway_santanna(
+        df,
+        y="y",
+        g="g",
+        t="t",
+        i="obs",
+        estimator="reg",
+        panel=False,
+        clustervars=["obs", "cl"],
+        bstrap=True,
+        biters=299,
+        random_state=1,
+    )
+    assert r.model_info["se_method"] == "multiplier"
 
 
 # --------------------------------------------------------------------------- #

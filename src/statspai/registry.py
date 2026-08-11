@@ -1349,7 +1349,12 @@ def _build_registry() -> None:
                     "list",
                     False,
                     None,
-                    "Covariates for conditional parallel trends",
+                    "Covariates for conditional parallel trends. Either "
+                    "column names ['lpop'] or an R-style one-sided formula "
+                    "'~ lpop + I(lpop**2)' (R did/csdid xformla; a "
+                    "left-hand side is accepted and ignored). Inside I() "
+                    "the expression is Python, so powers are I(x**2); "
+                    "I(x^2) is rejected rather than read as bitwise XOR.",
                 ),
                 ParamSpec(
                     "estimator",
@@ -1479,9 +1484,9 @@ def _build_registry() -> None:
             ],
             typical_n_min=50,
             limitations=[
-                "clustervars is not yet supported when panel=False (repeated "
-                "cross-sections); observations are not nested in units there, "
-                "so the cluster bootstrap needs a separate design",
+                "clustervars is not yet supported with bstrap=False; the "
+                "analytic standard errors do not account for within-cluster "
+                "dependence, so the multiplier bootstrap is required",
             ],
         )
     )

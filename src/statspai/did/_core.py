@@ -876,3 +876,139 @@ def parallel_trends_block(
     if extra:
         block.update(extra)
     return block
+
+
+# ----------------------------------------------------------------------
+# R-style covariate formulas
+# ----------------------------------------------------------------------
+
+
+def covariates_from_formula(
+    data: pd.DataFrame,
+    formula: str,
+    *,
+    function: str = "callaway_santanna",
+) -> Tuple[pd.DataFrame, List[str]]:
+    """Materialise an R ``xformla`` into concrete covariate columns.
+
+    R's DiD packages take covariates as a one-sided formula —
+    ``att_gt(xformla = ~ lpop + I(lpop^2))`` — while StatsPAI takes a list
+    of column names. Migrating a script therefore meant hand-expanding
+    every transformation into a new column first, which is exactly the
+    kind of busywork that produces silent mistakes.
+
+    This evaluates the right-hand side with patsy and returns the frame
+    extended with the resulting columns, plus their names.
+
+    Two conventions are worth stating because they bite:
+
+    - The intercept is dropped. Every DiD estimator here adds its own,
+      and passing a constant column would make the design singular.
+    - Inside ``I(...)``, patsy evaluates **Python**, so a power is
+      ``I(x**2)``, not R's ``I(x^2)``. In Python ``^`` is bitwise XOR, so
+      an unconverted R formula would either raise deep inside patsy or —
+      on integer columns — quietly compute something else entirely. That
+      case is detected and rejected up front.
+
+    Rows with missing values in a referenced variable are kept, with NaN
+    in the materialised columns, so the caller's own missing-data policy
+    still applies rather than this function silently shrinking the sample.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        Source frame.
+    formula : str
+        ``"~ x1 + x2"``, or ``"y ~ x1 + x2"`` (the left-hand side is
+        ignored — R's ``xformla`` carries one for historical reasons).
+    function : str
+        Caller name, for error diagnostics.
+
+    Returns
+    -------
+    (pd.DataFrame, list of str)
+        The frame with materialised columns appended, and their names.
+        ``~ 1`` (or an empty right-hand side) yields ``(data, [])``.
+    """
+    rhs = formula.split("~", 1)[1] if "~" in formula else formula
+    rhs = rhs.strip()
+    if rhs in ("", "1"):
+        return data, []
+
+    if "^" in rhs:
+        raise MethodIncompatibility(
+            f"{function}: '^' in a covariate formula is ambiguous. patsy "
+            "evaluates the inside of I(...) as Python, where '^' is bitwise "
+            "XOR, not exponentiation — so an R formula copied verbatim would "
+            f"not mean what it says. Got: {formula!r}.",
+            recovery_hint=(
+                "Write powers as I(x**2) rather than I(x^2); for an "
+                "interaction use x1:x2 or x1*x2."
+            ),
+            diagnostics={"formula": formula},
+        )
+
+    try:
+        import patsy
+    except ImportError as exc:  # pragma: no cover - patsy is a core dep
+        raise MethodIncompatibility(
+            f"{function}: covariate formulas need patsy, which is a core "
+            "StatsPAI dependency but is not importable here.",
+            recovery_hint="Reinstall statspai, or pass x=['col', ...].",
+            diagnostics={"formula": formula},
+        ) from exc
+
+    try:
+        design = patsy.dmatrix(rhs, data, return_type="dataframe", NA_action="drop")
+    except Exception as exc:
+        raise MethodIncompatibility(
+            f"{function}: could not evaluate the covariate formula "
+            f"{formula!r}: {type(exc).__name__}: {exc}",
+            recovery_hint=(
+                "Check that every name exists in the data and that "
+                "transformations use Python syntax (I(x**2), np.log(x))."
+            ),
+            diagnostics={"formula": formula},
+        ) from exc
+
+    cols = [c for c in design.columns if c != "Intercept"]
+    if not cols:
+        return data, []
+
+    # patsy drops incomplete rows; reindex so the caller sees the original
+    # row set with NaN where a covariate could not be built.
+    design = design[cols].reindex(data.index)
+
+    # A plain term like `~ lpop` yields a column named `lpop` that already
+    # exists and holds the same values — that is the ordinary case, not a
+    # clash, and the existing column is reused untouched. A same-named
+    # column holding *different* values would silently redefine the
+    # caller's data, so that is rejected.
+    out = data.copy()
+    clashes = []
+    for c in cols:
+        new_vals = design[c].to_numpy(dtype=float)
+        if c in data.columns:
+            try:
+                old_vals = data[c].to_numpy(dtype=float)
+            except (TypeError, ValueError):
+                clashes.append(c)
+                continue
+            if np.allclose(old_vals, new_vals, equal_nan=True):
+                continue  # identical passthrough term; leave the column be
+            clashes.append(c)
+            continue
+        out[c] = new_vals
+    if clashes:
+        raise MethodIncompatibility(
+            f"{function}: covariate formula {formula!r} builds column(s) "
+            f"{clashes} that already exist in the data with different "
+            "values, so materialising them would redefine the caller's "
+            "own columns.",
+            recovery_hint=(
+                "Rename the existing column, or pass x=['col', ...] "
+                "directly instead of a formula."
+            ),
+            diagnostics={"formula": formula, "clashes": clashes},
+        )
+    return out, cols
