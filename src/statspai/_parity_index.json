@@ -4991,21 +4991,54 @@
       "tolerance": ""
     },
     {
-      "function": "lp_did",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_absorbing_reference.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "lp_did",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 4.996924910096636e-15,
+        "rel_vs_Stata": 2.4984624550483117e-15,
+        "statistic": [
+          "lpdid_h0_att",
+          "lpdid_h1_att"
+        ],
+        "tolerance": 1e-10
+      },
+      "label": "LP-DiD event study",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "83_lpdid",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 4.996924910096636e-15,
+        "Stata": 2.4984624550483117e-15
+      },
+      "python_call": "sp.lp_did",
+      "reference": "direct transcription (no LP-DiD R package installed); Stata side uses the authors' lpdid",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": 2.415390320170743e-15,
+        "Stata": 1.0064126334044748e-15
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/83_lpdid.py",
+        "tests/r_parity/83_lpdid.R",
+        "tests/stata_parity/83_lpdid.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-10, rel_se<=1e-10"
     },
     {
       "function": "lpbwselect_mse_dpi",
@@ -7682,7 +7715,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 9.348654877788263e-12,
-        "rel_vs_Stata": 0.5549837377321034,
+        "rel_vs_Stata": 1.7546556064353042e-11,
         "statistic": [
           "test_pvalue"
         ],
@@ -7694,7 +7727,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 9.348654877788263e-12,
-        "Stata": 0.5549837377321034
+        "Stata": 1.7546556064353042e-11
       },
       "python_call": "sp.rddensity(backend=\"native\")",
       "reference": "rddensity::rddensity",
@@ -7712,7 +7745,7 @@
         "Stata"
       ],
       "source": "track_a",
-      "status": "aligned",
+      "status": "bit-exact",
       "test": [
         "tests/r_parity/09_rddensity.py",
         "tests/r_parity/09_rddensity.R",

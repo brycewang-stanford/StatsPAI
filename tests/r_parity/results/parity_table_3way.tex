@@ -99,6 +99,6 @@ ID & Method & Worst diff vs \proglang{R} & Worst diff vs \proglang{Stata} & Verd
 \code{80} & Continuous-treatment DiD (CGS) & rel $\le 2.4e-14$ {\footnotesize (machine precision vs contdid::cont\_did (worst 1e-12))} & \emph{no Stata implementation: the CGS continuous-treatment estimator ships as the R package contdid (GitHub only, not CRAN). Re-checked 2026-08-06: `ssc describe contdid` returns r(601), not found.} & \textbf{PASS} \\
 \code{81} & dCDH 2020 DID\_M (on/off switching) & rel $\le 3.9e-15$ {\footnotesize (machine precision vs archived DIDmultiplegt 0.1.4)} & rel $\le 3.2e-15$ & \textbf{PASS} \\
 \code{82} & 82\_staggered & rel $\le 3.5e-15$ & \emph{n/a} & \textit{review} \\
-\code{83} & LP-DiD event study (Dube-Girardi-Jorda-Taylor) & rel $\le 5e-15$ {\footnotesize (estimate and SE both rel $<$ 1e-14 vs a direct transcription)} & \emph{n/a} & \textbf{PASS} \\
+\code{83} & LP-DiD event study (Dube-Girardi-Jorda-Taylor) & rel $\le 5e-15$ {\footnotesize (estimate and SE both rel $<$ 1e-14 vs a direct transcription)} & rel $\le 2.5e-15$ & \textbf{PASS} \\
 \end{longtable}
 \endgroup

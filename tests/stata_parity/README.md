@@ -112,6 +112,7 @@ writes one row per parity statistic to
 | 76 | Pre-trends power (Roth 2022)  | `sp.pretrends_power`           | `pretrends` / `pretrends power`                              |
 | 78 | dCDH intertemporal event study| `sp.did_multiplegt_dyn`        | `did_multiplegt_dyn, effects() placebo() cluster()`          |
 | 81 | dCDH 2020 DID_M               | `sp.did_multiplegt`            | `did_multiplegt_old, placebo(1) breps(0)`                    |
+| 83 | LP-DiD event study            | `sp.lp_did`                    | `lpdid, unit() time() treat() pre_window(2) post_window(3)`  |
 
 ### Modules **without** a materialized Stata JSON
 

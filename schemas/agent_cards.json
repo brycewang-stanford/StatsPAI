@@ -20167,7 +20167,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Local-Projections DiD (Dube-Girardi-Jorda-Taylor 2023). At each event-time horizon h in {-P, ..., H}, runs a separate OLS of Y_{t+h} - Y_{t-1} on the treatment change Deltad_{t} with time FE and cluster-robust SE, using 'not-yet-treated' or 'never-treated' units as controls. Event-study beta_h paths are returned in ``model_info['event_study']``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Local-Projections DiD (Dube-Girardi-Jorda-Taylor 2023). At each event-time horizon h in {-P, ..., H}, runs a separate OLS of Y_{t+h} - Y_{t-1} on the treatment change Deltad_{t} with time FE and cluster-robust SE, using 'not-yet-treated' or 'never-treated' units as controls. Event-study beta_h paths are returned in ``model_info['event_study']``. Validation: certified parity evidence.",
     "example": "sp.lp_did(df, y=\"y\", unit=\"i\", time=\"t\", treatment=\"d\", horizons=(-3, 5))",
     "failure_modes": [
       {
@@ -20194,7 +20194,7 @@
     ],
     "reference": "Dube, Girardi, Jorda & Taylor (2023) NBER Working Paper [pending verification -- NBER WP ID + arXiv ID not yet added to paper.bib]. Jorda (2005) AER on local projections more broadly.",
     "signature": {
-      "description": "Local-Projections DiD (Dube-Girardi-Jorda-Taylor 2023). At each event-time horizon h in {-P, ..., H}, runs a separate OLS of Y_{t+h} - Y_{t-1} on the treatment change Deltad_{t} with time FE and cluster-robust SE, using 'not-yet-treated' or 'never-treated' units as controls. Event-study beta_h paths are returned in ``model_info['event_study']``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Local-Projections DiD (Dube-Girardi-Jorda-Taylor 2023). At each event-time horizon h in {-P, ..., H}, runs a separate OLS of Y_{t+h} - Y_{t-1} on the treatment change Deltad_{t} with time FE and cluster-robust SE, using 'not-yet-treated' or 'never-treated' units as controls. Event-study beta_h paths are returned in ``model_info['event_study']``. Validation: certified parity evidence.",
       "name": "lp_did",
       "parameters": {
         "properties": {
@@ -20273,10 +20273,11 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "tests/reference_parity/test_absorbing_reference.py",
+      "R parity module 83_lpdid",
+      "Stata parity module 83_lpdid",
       "API/unit contract evidence: tests/test_lp_did.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
