@@ -68,22 +68,6 @@ IF augmentation is planned.
 
 All other paths raise `NotImplementedError` with an actionable message.
 
-<!-- AGENT-BLOCK-START: did -->
-
-## For Agents
-
-**Pre-conditions**
-- data is panel or repeated cross-section with a time column
-- treat column is binary (0/1) for 2x2, or first-treatment-period (int) for staggered
-- at least one pre-treatment period (≥ 2 periods for 2x2; ≥ 3 recommended for event study)
-- for staggered designs: id column identifying units across time
-
-**Identifying assumptions**
-- Parallel trends: treated and control groups would have followed the same trajectory absent treatment
-- No anticipation: outcomes in pre-treatment periods are unaffected by future treatment
-- SUTVA: no spillovers between units
-- For staggered / heterogeneous effects: use CS or SA — TWFE can produce negative weights (Goodman-Bacon)
-
 **Inference and weighting options (parity with R `did` / `csdid`)**
 
 Since 1.23.0 the repeated-cross-section route takes the same options as
@@ -110,6 +94,22 @@ Two rules carry over from the panel path and are enforced, not assumed:
   be time-invariant within unit.** That route folds a unit's influence
   contributions together, so a within-unit-varying weight would silently
   reweight that unit's own periods against each other.
+
+<!-- AGENT-BLOCK-START: did -->
+
+## For Agents
+
+**Pre-conditions**
+- data is panel or repeated cross-section with a time column
+- treat column is binary (0/1) for 2x2, or first-treatment-period (int) for staggered
+- at least one pre-treatment period (≥ 2 periods for 2x2; ≥ 3 recommended for event study)
+- for staggered designs: id column identifying units across time
+
+**Identifying assumptions**
+- Parallel trends: treated and control groups would have followed the same trajectory absent treatment
+- No anticipation: outcomes in pre-treatment periods are unaffected by future treatment
+- SUTVA: no spillovers between units
+- For staggered / heterogeneous effects: use CS or SA — TWFE can produce negative weights (Goodman-Bacon)
 
 **Failure modes → recovery**
 
