@@ -22721,13 +22721,13 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Treatment effect on the *distribution* of the outcome, bin by bin. Bins the outcome, runs Callaway-Sant'Anna on each bin indicator, and reports the effect on P(Y in bin). The per-bin effects sum to zero by construction -- treatment redistributes probability mass, it does not create it -- so the content is the SHAPE: which parts of the outcome distribution gained and which lost. A mean ATT of zero is perfectly consistent with large offsetting movements in the tails, and this is what shows them. R didFF::distDD. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: reports point estimates and standard errors only; the reference runs no test here and neither does this; the per-bin effects are not simultaneously valid -- the standard errors are pointwise.",
+    "description": "Treatment effect on the *distribution* of the outcome, bin by bin. Bins the outcome, runs Callaway-Sant'Anna on each bin indicator, and reports the effect on P(Y in bin). The per-bin effects sum to zero by construction -- treatment redistributes probability mass, it does not create it -- so the content is the SHAPE: which parts of the outcome distribution gained and which lost. A mean ATT of zero is perfectly consistent with large offsetting movements in the tails, and this is what shows them. R didFF::distDD. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: reports point estimates and standard errors only; the reference runs no test here and neither does this; simultaneous (uniform) confidence bands over bins are not implemented; the standard errors are pointwise only, so reading several bins at once overstates joint confidence.",
     "example": "sp.distributional_did(df, y=\"lemp\", g=\"first_treat\", t=\"year\", i=\"countyreal\", n_bins=6)",
     "failure_modes": [],
     "inherits_from": null,
     "limitations": [
       "reports point estimates and standard errors only; the reference runs no test here and neither does this",
-      "the per-bin effects are not simultaneously valid -- the standard errors are pointwise"
+      "simultaneous (uniform) confidence bands over bins are not implemented; the standard errors are pointwise only, so reading several bins at once overstates joint confidence"
     ],
     "name": "distributional_did",
     "not_recommended_when": [],
@@ -22737,7 +22737,7 @@
     ],
     "reference": "Roth & Sant'Anna (2023) *Econometrica* 91(2), 737-747 [@roth2023when]; pinned against the authors' didFF 0.1.0 distDD, including standard errors.",
     "signature": {
-      "description": "Treatment effect on the *distribution* of the outcome, bin by bin. Bins the outcome, runs Callaway-Sant'Anna on each bin indicator, and reports the effect on P(Y in bin). The per-bin effects sum to zero by construction -- treatment redistributes probability mass, it does not create it -- so the content is the SHAPE: which parts of the outcome distribution gained and which lost. A mean ATT of zero is perfectly consistent with large offsetting movements in the tails, and this is what shows them. R didFF::distDD. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: reports point estimates and standard errors only; the reference runs no test here and neither does this; the per-bin effects are not simultaneously valid -- the standard errors are pointwise.",
+      "description": "Treatment effect on the *distribution* of the outcome, bin by bin. Bins the outcome, runs Callaway-Sant'Anna on each bin indicator, and reports the effect on P(Y in bin). The per-bin effects sum to zero by construction -- treatment redistributes probability mass, it does not create it -- so the content is the SHAPE: which parts of the outcome distribution gained and which lost. A mean ATT of zero is perfectly consistent with large offsetting movements in the tails, and this is what shows them. R didFF::distDD. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: reports point estimates and standard errors only; the reference runs no test here and neither does this; simultaneous (uniform) confidence bands over bins are not implemented; the standard errors are pointwise only, so reading several bins at once overstates joint confidence.",
       "name": "distributional_did",
       "parameters": {
         "properties": {

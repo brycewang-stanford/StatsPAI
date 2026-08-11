@@ -13405,8 +13405,9 @@ def _build_registry() -> None:
             limitations=[
                 "reports point estimates and standard errors only; the "
                 "reference runs no test here and neither does this",
-                "the per-bin effects are not simultaneously valid — the "
-                "standard errors are pointwise",
+                "simultaneous (uniform) confidence bands over bins are not "
+                "implemented; the standard errors are pointwise only, so "
+                "reading several bins at once overstates joint confidence",
             ],
             pre_conditions=[
                 "panel with at least one treated cohort and a comparison group",

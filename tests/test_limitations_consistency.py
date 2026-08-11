@@ -44,6 +44,18 @@ ALLOWED_PHRASES: Tuple[str, ...] = (
 
 
 LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
+    "distributional_did": [
+        # Scope statements, not code paths that raise. The reference
+        # (didFF::distDD) reports point estimates and standard errors and runs
+        # no test; matching that is the design, not a gap to be closed by
+        # inventing a test the paper does not define.
+        "reports point estimates and standard errors only",
+        # Pointwise standard errors are what the per-bin influence functions
+        # deliver. Simultaneous bands would need a multiplier bootstrap over
+        # bins; the honest disclosure is that reading several bins at once
+        # overstates joint confidence, not that the function refuses to run.
+        "simultaneous (uniform) confidence bands over bins are not",
+    ],
     "did_balance": [
         # Scope statements about what the estimator deliberately does not
         # compute, not code paths that raise. There is no survey-design
