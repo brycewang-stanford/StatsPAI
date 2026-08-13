@@ -5,6 +5,66 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="did-imputation-pretrend-method"></a>
+
+## Unreleased — ⚠️ `sp.did_imputation` pre-trend coefficients changed
+
+**Who is affected.** Anyone who read the **pre-treatment** rows of
+`sp.did_imputation(...).model_info['event_study']`, or the
+`model_info['pretrend_test']` built from them, in 1.22.0 or earlier.
+Post-treatment coefficients, the overall ATT, its standard error, and
+every `hetby` / `project` / `saveweights` output are **unchanged**.
+
+**What changed.** The default construction of the leads. Before, the leads
+were means of the imputation residual `Y − Ŷ(0)` at pre-treatment
+relative times. Now they come from the auxiliary dynamic TWFE regression
+on untreated observations that Stata `did_imputation, pretrends(k)` runs,
+with all earlier relative times pooled into the omitted category.
+
+**Why this is a correctness fix and not a preference.** The old leads are
+*in-sample* prediction errors: the pre-treatment outcomes of
+eventually-treated units are themselves part of what fits `Ŷ(0)`. Li and
+Strezhnev (2025), restated in Roth (2026, appendix A), show that in a
+non-staggered design this makes them exactly `N0/N` times the symmetric
+benchmark, where `N0` counts never-treated units. StatsPAI reproduces
+that identity to 1e-10. The attenuation runs toward zero, so the reported
+pre-trends understate the violation — severely when most units are
+treated — and a joint Wald test built on them under-rejects. The
+docstring meanwhile advertised the Stata option. Both could not be true.
+
+**How to restore the old numbers.**
+
+```python
+sp.did_imputation(..., pretrend_method="in-sample")
+```
+
+This is a supported option, not a deprecated shim: it is what R `fect`
+and `did2s` report, so it is the right choice when reconciling against
+those packages. It carries the attenuation caveat in
+`model_info['event_study_convention']`.
+
+**What to use for a plot.** Neither default is directly comparable to a
+dynamic TWFE event study, because both build the two halves of the path
+against different reference periods. For a path you can read with the
+usual visual heuristics, use `pretrend_method="symmetric"` (Roth's
+`β̂^{BJS,new}`; non-staggered balanced designs) or
+`sp.callaway_santanna(..., base_period="universal")`, which is symmetric
+by construction in staggered designs too and is StatsPAI's default.
+`sp.compare_event_study_conventions()` quantifies the difference on your
+own panel.
+
+**One new refusal.** Requesting leads that cover *every* pre-treatment
+period of a cohort now raises `MethodIncompatibility`: those lead
+indicators are collinear with that cohort's unit fixed effects, and the
+old path returned numbers for the rank-deficient system. Request at most
+`(shortest pre-treatment history − 1)` leads.
+
+**Not yet changed.** `sp.gardner_did` builds its leads the same in-sample
+way. It is documented in `sp.event_study_convention()` and left alone
+pending a matched reference run against R `did2s`.
+
+---
+
 <a id="functional-form-test-default-binning"></a>
 
 ## Unreleased — ⚠️ `sp.functional_form_test` default binning changed

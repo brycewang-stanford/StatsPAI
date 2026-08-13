@@ -1,0 +1,1117 @@
+{
+  "generator": "scripts/audit_reference_claims.py",
+  "statspai_version": "1.22.0",
+  "n_functions_probed": 9,
+  "probe_failures": {},
+  "n_reported_objects": 61,
+  "n_pinned": 22,
+  "n_unpinned": 39,
+  "n_unpinned_in_documented_functions": 34,
+  "unclassified_statistics": {
+    "06_rd": [
+      "default_bandwidth_b",
+      "default_bandwidth_h",
+      "default_conventional_est",
+      "default_robust_est",
+      "legacy_internal_mserd_bandwidth_h",
+      "legacy_internal_mserd_robust_est"
+    ],
+    "07_scm": [
+      "avg_post_gap",
+      "weight_Andalucia",
+      "weight_Aragon",
+      "weight_Asturias",
+      "weight_Baleares",
+      "weight_Canarias",
+      "weight_Cantabria",
+      "weight_Castilla y Leon",
+      "weight_Castilla-La Mancha",
+      "weight_Cataluna",
+      "weight_Extremadura",
+      "weight_Galicia",
+      "weight_Madrid",
+      "weight_Murcia",
+      "weight_Navarra",
+      "weight_Rioja",
+      "weight_Valencia"
+    ],
+    "08_dml": [
+      "theta_DML_PLR"
+    ],
+    "09_rddensity": [
+      "bandwidth_left",
+      "bandwidth_right",
+      "density_diff",
+      "density_left",
+      "density_right",
+      "test_pvalue"
+    ],
+    "10_honest_did": [
+      "ci_lower_M_0",
+      "ci_lower_M_0.05",
+      "ci_lower_M_0.1",
+      "ci_lower_M_0.2",
+      "ci_lower_M_0.5",
+      "ci_upper_M_0",
+      "ci_upper_M_0.05",
+      "ci_upper_M_0.1",
+      "ci_upper_M_0.2",
+      "ci_upper_M_0.5"
+    ],
+    "11_psm": [
+      "n_control_full",
+      "n_control_matched",
+      "n_treated"
+    ],
+    "13_causal_forest": [
+      "ate_causal_forest"
+    ],
+    "19_gsynth": [
+      "n_factors"
+    ],
+    "20_bacon": [
+      "negative_weight_share",
+      "pair_2004_vs_2006_est",
+      "pair_2004_vs_2007_est",
+      "pair_2004_vs_never_est",
+      "pair_2006_vs_2004_est",
+      "pair_2006_vs_2007_est",
+      "pair_2006_vs_never_est",
+      "pair_2007_vs_2004_est",
+      "pair_2007_vs_2006_est",
+      "pair_2007_vs_never_est",
+      "weighted_sum"
+    ],
+    "21_honest_relmags": [
+      "ci_lower_Mbar_0",
+      "ci_lower_Mbar_0.5",
+      "ci_lower_Mbar_1",
+      "ci_lower_Mbar_1.5",
+      "ci_lower_Mbar_2",
+      "ci_upper_Mbar_0",
+      "ci_upper_Mbar_0.5",
+      "ci_upper_Mbar_1",
+      "ci_upper_Mbar_1.5",
+      "ci_upper_Mbar_2"
+    ],
+    "22_sensemakr": [
+      "benchmark_re74_partial_r2_D",
+      "benchmark_re74_partial_r2_Y",
+      "partial_r2_yd",
+      "rv_q",
+      "rv_q_alpha",
+      "t_treat"
+    ],
+    "23_evalue": [
+      "evalue_ci_borderline",
+      "evalue_ci_hr_common",
+      "evalue_ci_hr_rare",
+      "evalue_ci_md",
+      "evalue_ci_moderate",
+      "evalue_ci_ols",
+      "evalue_ci_or_common",
+      "evalue_ci_or_rare",
+      "evalue_ci_rd",
+      "evalue_ci_rr_crossnull",
+      "evalue_ci_rr_nonnull",
+      "evalue_ci_rr_protective",
+      "evalue_ci_strong",
+      "evalue_est_borderline",
+      "evalue_est_hr_common",
+      "evalue_est_hr_rare",
+      "evalue_est_md",
+      "evalue_est_moderate",
+      "evalue_est_ols",
+      "evalue_est_or_common",
+      "evalue_est_or_rare",
+      "evalue_est_rd",
+      "evalue_est_rr_crossnull",
+      "evalue_est_rr_nonnull",
+      "evalue_est_rr_protective",
+      "evalue_est_strong"
+    ],
+    "24_coxph": [
+      "concordance"
+    ],
+    "25_lmm": [
+      "icc",
+      "logLik"
+    ],
+    "26_glmm_logit": [
+      "logLik"
+    ],
+    "27_glmm_aghq": [
+      "logLik"
+    ],
+    "28_frontier": [
+      "lambda",
+      "mean_efficiency_bc",
+      "mean_efficiency_jlms",
+      "sigma_u",
+      "sigma_v"
+    ],
+    "29_panel_sfa": [
+      "sigma_u",
+      "sigma_v"
+    ],
+    "30_oaxaca": [
+      "explained_threefold_endowments",
+      "explained_threefold_endowments_educ",
+      "explained_threefold_endowments_exper",
+      "explained_twofold",
+      "explained_twofold_educ",
+      "explained_twofold_exper",
+      "gap",
+      "interaction_threefold",
+      "mean_y_a",
+      "mean_y_b",
+      "unexplained"
+    ],
+    "31_dfl": [
+      "composition",
+      "gap",
+      "stat_a",
+      "stat_b",
+      "stat_cf",
+      "structure"
+    ],
+    "32_rif": [
+      "explained",
+      "explained_Intercept",
+      "explained_educ",
+      "explained_exper",
+      "total_diff",
+      "unexplained"
+    ],
+    "33_var": [
+      "eq_y1__L1.y1",
+      "eq_y1__L1.y2",
+      "eq_y1__L2.y1",
+      "eq_y1__L2.y2",
+      "eq_y1___cons",
+      "eq_y2__L1.y1",
+      "eq_y2__L1.y2",
+      "eq_y2__L2.y1",
+      "eq_y2__L2.y2",
+      "eq_y2___cons",
+      "logLik"
+    ],
+    "35_panel": [
+      "hausman_chi2",
+      "hausman_chi2_stata_sigmamore",
+      "hausman_pvalue",
+      "hausman_pvalue_stata_sigmamore"
+    ],
+    "36_mediation": [
+      "acme",
+      "ade",
+      "prop_mediated"
+    ],
+    "38_drdid": [
+      "ci_lower",
+      "ci_upper"
+    ],
+    "39_arima": [
+      "ar1",
+      "ar2",
+      "logLik",
+      "sigma2"
+    ],
+    "41_tobit": [
+      "sigma"
+    ],
+    "43_heckman": [
+      "lambda_imr"
+    ],
+    "44_mlogit": [
+      "class1_intercept",
+      "class1_x1",
+      "class1_x2",
+      "class2_intercept",
+      "class2_x1",
+      "class2_x2"
+    ],
+    "52_scm_unique": [
+      "avg_post_gap",
+      "weight_donor0",
+      "weight_donor1",
+      "weight_donor2",
+      "weight_donor3",
+      "weight_donor4"
+    ],
+    "53_cr2": [
+      "cr2_(Intercept)",
+      "cr2_treat",
+      "cr2_year",
+      "cr3_(Intercept)",
+      "cr3_treat",
+      "cr3_year"
+    ],
+    "55_hc2_hc3": [
+      "hc2_(Intercept)",
+      "hc2_treat",
+      "hc2_year",
+      "hc3_(Intercept)",
+      "hc3_treat",
+      "hc3_year"
+    ],
+    "59_liml": [
+      "kappa"
+    ],
+    "61_betareg": [
+      "ln_phi"
+    ],
+    "62_truncreg": [
+      "sigma"
+    ],
+    "64_zinb": [
+      "alpha"
+    ],
+    "65_spatial": [
+      "sar_const",
+      "sar_rho",
+      "sar_x1",
+      "sar_x2",
+      "sdm_W_x1",
+      "sdm_W_x2",
+      "sdm_const",
+      "sdm_rho",
+      "sdm_x1",
+      "sdm_x2",
+      "sem_const",
+      "sem_lambda",
+      "sem_x1",
+      "sem_x2"
+    ],
+    "66_spatial_gmm": [
+      "sar_gmm_const",
+      "sar_gmm_rho",
+      "sar_gmm_x1",
+      "sar_gmm_x2",
+      "sem_gmm_const",
+      "sem_gmm_lambda",
+      "sem_gmm_x1",
+      "sem_gmm_x2"
+    ],
+    "67_panel_glm": [
+      "feglm_logit_x1",
+      "feglm_logit_x2",
+      "fepois_x1",
+      "fepois_x2"
+    ],
+    "68_demean_within": [
+      "demean_x1_row0",
+      "demean_x1_row159",
+      "demean_x1_row80",
+      "demean_x2_row0",
+      "demean_x2_row159",
+      "demean_x2_row80",
+      "demean_x3_row0",
+      "demean_x3_row159",
+      "demean_x3_row80",
+      "demean_y"
+    ],
+    "69_balance_panel": [
+      "n_obs_balanced",
+      "n_units_kept",
+      "row0_id",
+      "row0_year",
+      "row15_id",
+      "row15_year",
+      "row8_id",
+      "row8_year"
+    ],
+    "70_policy_tree": [
+      "fraction_treated_d1",
+      "fraction_treated_d2",
+      "root_split_value_d1",
+      "root_split_value_d2",
+      "root_split_variable_d1",
+      "root_split_variable_d2",
+      "value_policy_d1",
+      "value_policy_d2"
+    ],
+    "71_dml_family": [
+      "theta_DML_IIVM",
+      "theta_DML_IRM",
+      "theta_DML_PLIV"
+    ],
+    "72_tmle": [
+      "psi_tmle_ate"
+    ],
+    "74_cic": [
+      "qte_10",
+      "qte_20",
+      "qte_30",
+      "qte_40",
+      "qte_50",
+      "qte_60",
+      "qte_70",
+      "qte_80",
+      "qte_90"
+    ],
+    "76_pretrends": [
+      "bayes_factor_slope_0p02",
+      "bayes_factor_slope_0p05",
+      "likelihood_ratio_slope_0p02",
+      "likelihood_ratio_slope_0p05",
+      "power_slope_0p02",
+      "power_slope_0p05",
+      "slope_for_power_0p5",
+      "slope_for_power_0p8"
+    ],
+    "78_multiplegt_dyn": [
+      "Av_tot_eff",
+      "Av_tot_eff_simple_weights",
+      "off_Placebo_1"
+    ],
+    "79_didff": [
+      "pt_density_1",
+      "pt_density_2",
+      "pt_density_3",
+      "pt_density_4",
+      "pt_density_5",
+      "pt_density_6",
+      "pt_density_7",
+      "pt_density_8",
+      "pt_pvalue",
+      "rej_density_1",
+      "rej_density_2",
+      "rej_density_3",
+      "rej_density_4",
+      "rej_density_5",
+      "rej_density_6",
+      "rej_density_7",
+      "rej_density_8",
+      "rej_pvalue"
+    ],
+    "80_contdid": [
+      "d1k0_acrt_d_0",
+      "d1k0_acrt_d_30",
+      "d1k0_acrt_d_60",
+      "d1k0_acrt_d_89",
+      "d1k0_overall_acrt",
+      "d3k0_acrt_d_0",
+      "d3k0_acrt_d_30",
+      "d3k0_acrt_d_60",
+      "d3k0_acrt_d_89",
+      "d3k0_overall_acrt",
+      "d3k2_acrt_d_0",
+      "d3k2_acrt_d_30",
+      "d3k2_acrt_d_60",
+      "d3k2_acrt_d_89",
+      "d3k2_overall_acrt"
+    ],
+    "81_didm": [
+      "dynamic_1"
+    ],
+    "82_staggered": [
+      "calendar_efficient",
+      "calendar_plugin",
+      "cohort_efficient",
+      "cohort_plugin",
+      "cs_simple",
+      "sa_simple",
+      "simple_efficient",
+      "simple_plugin"
+    ]
+  },
+  "rows": [
+    {
+      "function": "callaway_santanna",
+      "object": "headline_att",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "(R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``). Weights",
+      "verdict": "pinned"
+    },
+    {
+      "function": "callaway_santanna",
+      "object": "headline_se",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "(R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``). Weights",
+      "verdict": "pinned"
+    },
+    {
+      "function": "callaway_santanna",
+      "object": "event_study_att",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "(R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``). Weights",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "callaway_santanna",
+      "object": "event_study_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "(R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``). Weights",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "callaway_santanna",
+      "object": "pretrend_att",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "(R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``). Weights",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "callaway_santanna",
+      "object": "pretrend_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "(R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``). Weights",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "callaway_santanna",
+      "object": "pretrend_test",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "(R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``). Weights",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "sun_abraham",
+      "object": "headline_att",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "tead of inferring it, mirroring Stata ``eventstudyinteract``'s ``control_coho",
+      "verdict": "pinned"
+    },
+    {
+      "function": "sun_abraham",
+      "object": "headline_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "tead of inferring it, mirroring Stata ``eventstudyinteract``'s ``control_coho",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "sun_abraham",
+      "object": "event_study_att",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "tead of inferring it, mirroring Stata ``eventstudyinteract``'s ``control_coho",
+      "verdict": "pinned"
+    },
+    {
+      "function": "sun_abraham",
+      "object": "event_study_se",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "tead of inferring it, mirroring Stata ``eventstudyinteract``'s ``control_coho",
+      "verdict": "pinned"
+    },
+    {
+      "function": "sun_abraham",
+      "object": "pretrend_att",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "tead of inferring it, mirroring Stata ``eventstudyinteract``'s ``control_coho",
+      "verdict": "pinned"
+    },
+    {
+      "function": "sun_abraham",
+      "object": "pretrend_se",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "tead of inferring it, mirroring Stata ``eventstudyinteract``'s ``control_coho",
+      "verdict": "pinned"
+    },
+    {
+      "function": "sun_abraham",
+      "object": "pretrend_test",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "tead of inferring it, mirroring Stata ``eventstudyinteract``'s ``control_coho",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "did_imputation",
+      "object": "headline_att",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ring the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
+      "verdict": "pinned"
+    },
+    {
+      "function": "did_imputation",
+      "object": "headline_se",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ring the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
+      "verdict": "pinned"
+    },
+    {
+      "function": "did_imputation",
+      "object": "event_study_att",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ring the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "did_imputation",
+      "object": "event_study_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ring the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "did_imputation",
+      "object": "pretrend_att",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ring the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "did_imputation",
+      "object": "pretrend_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ring the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "did_imputation",
+      "object": "pretrend_test",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ring the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "gardner_did",
+      "object": "headline_att",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "did2s",
+      "reference_evidence": "tep procedure (Gardner 2021 / ``did2s``), substantially improving coverage",
+      "verdict": "pinned"
+    },
+    {
+      "function": "gardner_did",
+      "object": "headline_se",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "did2s",
+      "reference_evidence": "tep procedure (Gardner 2021 / ``did2s``), substantially improving coverage",
+      "verdict": "pinned"
+    },
+    {
+      "function": "gardner_did",
+      "object": "event_study_att",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "did2s",
+      "reference_evidence": "tep procedure (Gardner 2021 / ``did2s``), substantially improving coverage",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "gardner_did",
+      "object": "event_study_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "did2s",
+      "reference_evidence": "tep procedure (Gardner 2021 / ``did2s``), substantially improving coverage",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "gardner_did",
+      "object": "pretrend_att",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "did2s",
+      "reference_evidence": "tep procedure (Gardner 2021 / ``did2s``), substantially improving coverage",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "gardner_did",
+      "object": "pretrend_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "did2s",
+      "reference_evidence": "tep procedure (Gardner 2021 / ``did2s``), substantially improving coverage",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "gardner_did",
+      "object": "pretrend_test",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "did2s",
+      "reference_evidence": "tep procedure (Gardner 2021 / ``did2s``), substantially improving coverage",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "wooldridge_did",
+      "object": "headline_att",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "etwfe",
+      "reference_evidence": "@wooldridge2021two]; McDermott (2023) R etwfe package",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "wooldridge_did",
+      "object": "headline_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "etwfe",
+      "reference_evidence": "@wooldridge2021two]; McDermott (2023) R etwfe package",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "wooldridge_did",
+      "object": "event_study_att",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "etwfe",
+      "reference_evidence": "@wooldridge2021two]; McDermott (2023) R etwfe package",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "wooldridge_did",
+      "object": "event_study_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "etwfe",
+      "reference_evidence": "@wooldridge2021two]; McDermott (2023) R etwfe package",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "wooldridge_did",
+      "object": "pretrend_att",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "etwfe",
+      "reference_evidence": "@wooldridge2021two]; McDermott (2023) R etwfe package",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "wooldridge_did",
+      "object": "pretrend_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "etwfe",
+      "reference_evidence": "@wooldridge2021two]; McDermott (2023) R etwfe package",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "wooldridge_did",
+      "object": "pretrend_test",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "etwfe",
+      "reference_evidence": "@wooldridge2021two]; McDermott (2023) R etwfe package",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "etwfe",
+      "object": "headline_att",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "e ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-tr",
+      "verdict": "pinned"
+    },
+    {
+      "function": "etwfe",
+      "object": "headline_se",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "e ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-tr",
+      "verdict": "pinned"
+    },
+    {
+      "function": "etwfe",
+      "object": "event_study_att",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "e ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-tr",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "etwfe",
+      "object": "event_study_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "e ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-tr",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "etwfe",
+      "object": "pretrend_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "e ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-tr",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "etwfe",
+      "object": "pretrend_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "e ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-tr",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "etwfe",
+      "object": "pretrend_test",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "e ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-tr",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "stacked_did",
+      "object": "headline_att",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "pinned"
+    },
+    {
+      "function": "stacked_did",
+      "object": "headline_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "stacked_did",
+      "object": "event_study_att",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "pinned"
+    },
+    {
+      "function": "stacked_did",
+      "object": "event_study_se",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "pinned"
+    },
+    {
+      "function": "stacked_did",
+      "object": "pretrend_att",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "pinned"
+    },
+    {
+      "function": "stacked_did",
+      "object": "pretrend_se",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "pinned"
+    },
+    {
+      "function": "stacked_did",
+      "object": "pretrend_test",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "lp_did",
+      "object": "headline_att",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "lp_did",
+      "object": "headline_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "lp_did",
+      "object": "event_study_att",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "pinned"
+    },
+    {
+      "function": "lp_did",
+      "object": "event_study_se",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "pinned"
+    },
+    {
+      "function": "lp_did",
+      "object": "pretrend_att",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "pinned"
+    },
+    {
+      "function": "lp_did",
+      "object": "pretrend_se",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "pinned"
+    },
+    {
+      "function": "lp_did",
+      "object": "pretrend_test",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "event_study",
+      "object": "headline_att",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "event_study",
+      "object": "headline_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "event_study",
+      "object": "event_study_att",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "event_study",
+      "object": "event_study_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "event_study",
+      "object": "pretrend_att",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "event_study",
+      "object": "pretrend_se",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
+      "verdict": "unpinned"
+    },
+    {
+      "function": "event_study",
+      "object": "pretrend_test",
+      "reported": true,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
+      "verdict": "unpinned"
+    }
+  ]
+}

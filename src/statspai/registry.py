@@ -10402,6 +10402,19 @@ def _build_registry() -> None:
                     "report their joint Wald test (Stata: pretrends(k))",
                 ),
                 ParamSpec(
+                    "pretrend_method",
+                    "str",
+                    False,
+                    "bjs",
+                    "Reference convention for the PRE-treatment event-study "
+                    "coefficients. 'bjs' matches Stata did_imputation, "
+                    "'in-sample' is the fect/did2s residual average "
+                    "(attenuated by N0/N), 'symmetric' is Roth's (2026) "
+                    "TWFE-comparable repair for non-staggered designs. Post-"
+                    "treatment coefficients are identical under all three.",
+                    ["bjs", "in-sample", "symmetric"],
+                ),
+                ParamSpec(
                     "balanced",
                     "bool",
                     False,
@@ -10474,6 +10487,280 @@ def _build_registry() -> None:
                 "gardner_did",
                 "wooldridge_did",
             ],
+            typical_n_min=50,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="did_cluster_diagnostics",
+            validation_notes=[
+                "API/unit contract evidence: tests/test_did_design_audit.py "
+                "-- the grid boundaries (30/50/100) are pinned by a "
+                "parametrised test against what Ulloa-Perez et al. (2025) "
+                "actually ran, so moving the threshold moves a test.",
+            ],
+            category="causal",
+            description=(
+                "Count the clusters treatment is assigned at and grade the "
+                "count against the simulation grid of Ulloa-Perez et al. "
+                "(2025), who found that at 30 clusters every modern "
+                "staggered DiD estimator they evaluated under-covered a "
+                "nominal 95% interval, with coverage improving as clusters "
+                "accumulated. Thirty is the smallest cell they ran, so "
+                "fewer clusters is reported as outside their evidence "
+                "rather than as merely worse. Also reports clusters per "
+                "cohort, since a group-time effect rests on the clusters "
+                "in its own cohort."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("unit", "str", True, description="Unit identifier"),
+                ParamSpec(
+                    "first_treat",
+                    "str",
+                    True,
+                    description="First-treatment period; 0 = never-treated",
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Level treatment is assigned at (state, provider group, "
+                    "district). Defaults to unit with a warning: the two "
+                    "coincide only under independent unit-level assignment, "
+                    "and assuming so is the optimistic error.",
+                ),
+                ParamSpec(
+                    "warn",
+                    "bool",
+                    False,
+                    True,
+                    "Warn when the design sits in or below the weakest cell "
+                    "of the reference grid.",
+                ),
+            ],
+            returns="DiDClusterDiagnostics",
+            example=(
+                'sp.did_cluster_diagnostics(df, unit="county", '
+                'first_treat="g", cluster="state")'
+            ),
+            tags=["did", "diagnostics", "inference", "clustering", "causal"],
+            reference="Ulloa-Perez, Bair, Navathe & Linn (2025) "
+            "arXiv:2508.14365 [@ulloaperez2025comparative]",
+            pre_conditions=["panel with unit and cohort columns"],
+            assumptions=[
+                "The grading reports what published simulation evidence "
+                "exists at this cluster count; it is not a power "
+                "calculation for this design or estimator.",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Cluster column empty or absent",
+                    exception="DataInsufficient",
+                    remedy="Check that the cluster column is populated.",
+                ),
+            ],
+            alternatives=["wild_cluster_bootstrap", "ri_test", "conley"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="did_design_contract",
+            validation_notes=[
+                "API/unit contract evidence: tests/test_did_design_audit.py "
+                "-- a bare result object must score zero determined slots, "
+                "so no slot can be filled by a default.",
+            ],
+            category="causal",
+            description=(
+                "Report which of Baker, Callaway, Cunningham, Goodman-Bacon "
+                "& Sant'Anna's (2026) eight forward-engineering steps a "
+                "fitted DiD result actually pins down: target parameter, "
+                "identifying assumption, estimation strategy, inference "
+                "frame, estimate, sensitivity, heterogeneity. A slot the "
+                "result cannot determine is reported as undetermined rather "
+                "than filled with a default, because an unstated choice is "
+                "still a choice the write-up owes the reader."
+            ),
+            params=[
+                ParamSpec(
+                    "result",
+                    "CausalResult",
+                    True,
+                    description="Output of a DiD estimator",
+                ),
+            ],
+            returns="DiDDesignContract",
+            example="sp.did_design_contract(sp.aggte(fit, type='dynamic'))",
+            tags=["did", "diagnostics", "reporting", "agent", "causal"],
+            reference="Baker, Callaway, Cunningham, Goodman-Bacon & "
+            "Sant'Anna (2026) JEL 64(2) [@baker2026difference]",
+            pre_conditions=["a fitted DiD result object"],
+            assumptions=[
+                "Reports what the result object records; it cannot verify "
+                "that a recorded assumption is true of the data.",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Result carries no model_info",
+                    exception="None",
+                    remedy=(
+                        "Every step is reported undetermined, which is the "
+                        "informative answer."
+                    ),
+                ),
+            ],
+            alternatives=["audit_result", "assumption_audit", "cs_report"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="event_study_convention",
+            validation_notes=[
+                "API/unit contract evidence: "
+                "tests/test_did_event_study_conventions.py -- every "
+                "twfe_comparable claim in the registry is checked "
+                "numerically on Roth (2026) figure-1 design.",
+            ],
+            category="causal",
+            description=(
+                "Report how each DiD estimator builds its event-study "
+                "reference periods. Two implementations can agree on every "
+                "post-treatment coefficient and still plot different "
+                "pre-trends, because the leads are a separate construction "
+                "(Roth 2026). Returns the convention registry: what each "
+                "half of the path is differenced against, whether the two "
+                "halves are symmetric, and whether the path coincides with "
+                "a dynamic TWFE event study in a non-staggered design."
+            ),
+            params=[
+                ParamSpec(
+                    "estimator",
+                    "str",
+                    False,
+                    None,
+                    "Registry key such as "
+                    "'callaway_santanna[base_period=varying]', or a bare "
+                    "estimator name for all of its option-specific rows. "
+                    "None returns the whole registry.",
+                ),
+            ],
+            returns="DataFrame | dict",
+            example='sp.event_study_convention("did_imputation")',
+            tags=["did", "event_study", "diagnostics", "conventions", "causal"],
+            reference="Roth (2026) arXiv:2401.12309 [@roth2026interpreting]",
+            pre_conditions=[],
+            assumptions=[],
+            failure_modes=[
+                FailureMode(
+                    symptom="Estimator name not in the convention registry",
+                    exception="KeyError",
+                    remedy=(
+                        "Call sp.event_study_convention() with no argument to "
+                        "list the recorded estimators."
+                    ),
+                ),
+            ],
+            alternatives=["compare_event_study_conventions", "event_study"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="compare_event_study_conventions",
+            validation_notes=[
+                "Reference evidence: tests/test_did_event_study_conventions.py "
+                "-- Stata did_imputation and R did2s reference vectors, plus "
+                "the analytic identities of Roth (2026).",
+            ],
+            category="causal",
+            description=(
+                "Run several DiD estimators on one non-staggered panel and "
+                "measure how far each event-study path departs from the "
+                "dynamic TWFE benchmark. Splits the difference into a common "
+                "vertical shift within each half of the path and a residual, "
+                "so a symmetric estimator scores zero asymmetry while the "
+                "kink (Callaway-Sant'Anna varying base period), the jump "
+                "(BJS pre-trend convention) and the N0/N attenuation "
+                "(fect / did2s in-sample residuals) each get their own "
+                "signature. Warns when the recorded convention disagrees "
+                "with what the data show."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True),
+                ParamSpec("unit", "str", True, description="Unit identifier"),
+                ParamSpec("time", "str", True, description="Time period column"),
+                ParamSpec(
+                    "first_treat",
+                    "str",
+                    True,
+                    description="First-treatment period; 0 = never-treated",
+                ),
+                ParamSpec(
+                    "estimators",
+                    "list",
+                    False,
+                    None,
+                    "Registry keys to run; defaults to every estimator with "
+                    "a runner.",
+                ),
+                ParamSpec(
+                    "window",
+                    "tuple",
+                    False,
+                    None,
+                    "Relative-time window; defaults to the widest the panel "
+                    "supports.",
+                ),
+                ParamSpec("cluster", "str", False, None),
+                ParamSpec(
+                    "tolerance",
+                    "float",
+                    False,
+                    None,
+                    "Threshold for the matches_twfe verdict; defaults to a "
+                    "scale-free 1e-6 * max(1, max|beta_twfe|).",
+                ),
+            ],
+            returns="EventStudyConventionResult",
+            example=(
+                'sp.compare_event_study_conventions(df, y="y", unit="i", '
+                'time="t", first_treat="g")'
+            ),
+            tags=["did", "event_study", "diagnostics", "conventions", "causal"],
+            reference="Roth (2026) arXiv:2401.12309 [@roth2026interpreting]",
+            pre_conditions=[
+                "panel with unit x time x outcome",
+                "exactly one treated cohort (non-staggered design)",
+                "at least one never-treated unit",
+            ],
+            assumptions=[
+                "The comparison is descriptive: it measures construction "
+                "differences, not which estimator is correct.",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Staggered adoption (more than one treated cohort)",
+                    exception="MethodIncompatibility",
+                    remedy=(
+                        "Restrict to one cohort plus never-treated units; "
+                        "with staggered timing a gap against TWFE mixes the "
+                        "reference convention with forbidden comparisons."
+                    ),
+                    alternative="event_study_convention",
+                ),
+                FailureMode(
+                    symptom="No never-treated units",
+                    exception="MethodIncompatibility",
+                    remedy="The TWFE benchmark path needs untreated units.",
+                ),
+            ],
+            alternatives=["event_study_convention", "bacon_decomposition"],
             typical_n_min=50,
         )
     )

@@ -18710,6 +18710,16 @@
             "description": "Cluster-bootstrap replications when vce='bootstrap'.",
             "type": "integer"
           },
+          "pretrend_method": {
+            "default": "bjs",
+            "description": "Reference convention for the PRE-treatment event-study coefficients. 'bjs' matches Stata did_imputation, 'in-sample' is the fect/did2s residual average (attenuated by N0/N), 'symmetric' is Roth's (2026) TWFE-comparable repair for non-staggered designs. Post-treatment coefficients are identical under all three.",
+            "enum": [
+              "bjs",
+              "in-sample",
+              "symmetric"
+            ],
+            "type": "string"
+          },
           "pretrends": {
             "description": "Estimate k placebo pre-trend coefficients (-k..-1) and report their joint Wald test (Stata: pretrends(k))",
             "type": "integer"
@@ -18791,6 +18801,275 @@
       "BJS certification is convention-specific; the parity harness keeps R's 0-for-never input and Stata's missing-Ei input explicit."
     ],
     "validation_status": "certified"
+  },
+  {
+    "alternatives": [
+      "wild_cluster_bootstrap",
+      "ri_test",
+      "conley"
+    ],
+    "assumptions": [
+      "The grading reports what published simulation evidence exists at this cluster count; it is not a power calculation for this design or estimator."
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Count the clusters treatment is assigned at and grade the count against the simulation grid of Ulloa-Perez et al. (2025), who found that at 30 clusters every modern staggered DiD estimator they evaluated under-covered a nominal 95% interval, with coverage improving as clusters accumulated. Thirty is the smallest cell they ran, so fewer clusters is reported as outside their evidence rather than as merely worse. Also reports clusters per cohort, since a group-time effect rests on the clusters in its own cohort.",
+    "example": "sp.did_cluster_diagnostics(df, unit=\"county\", first_treat=\"g\", cluster=\"state\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "DataInsufficient",
+        "remedy": "Check that the cluster column is populated.",
+        "symptom": "Cluster column empty or absent"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "did_cluster_diagnostics",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "panel with unit and cohort columns"
+    ],
+    "reference": "Ulloa-Perez, Bair, Navathe & Linn (2025) arXiv:2508.14365 [@ulloaperez2025comparative]",
+    "signature": {
+      "description": "Count the clusters treatment is assigned at and grade the count against the simulation grid of Ulloa-Perez et al. (2025), who found that at 30 clusters every modern staggered DiD estimator they evaluated under-covered a nominal 95% interval, with coverage improving as clusters accumulated. Thirty is the smallest cell they ran, so fewer clusters is reported as outside their evidence rather than as merely worse. Also reports clusters per cohort, since a group-time effect rests on the clusters in its own cohort.",
+      "name": "did_cluster_diagnostics",
+      "parameters": {
+        "properties": {
+          "cluster": {
+            "description": "Level treatment is assigned at (state, provider group, district). Defaults to unit with a warning: the two coincide only under independent unit-level assignment, and assuming so is the optimistic error.",
+            "type": "string"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "first_treat": {
+            "description": "First-treatment period; 0 = never-treated",
+            "type": "string"
+          },
+          "unit": {
+            "description": "Unit identifier",
+            "type": "string"
+          },
+          "warn": {
+            "default": true,
+            "description": "Warn when the design sits in or below the weakest cell of the reference grid.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data",
+          "unit",
+          "first_treat"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_did_design_audit.py -- the grid boundaries (30/50/100) are pinned by a parametrised test against what Ulloa-Perez et al. (2025) actually ran, so moving the threshold moves a test."
+    ],
+    "validation_status": "api_stable"
+  },
+  {
+    "alternatives": [
+      "audit_result",
+      "assumption_audit",
+      "cs_report"
+    ],
+    "assumptions": [
+      "Reports what the result object records; it cannot verify that a recorded assumption is true of the data."
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Report which of Baker, Callaway, Cunningham, Goodman-Bacon & Sant'Anna's (2026) eight forward-engineering steps a fitted DiD result actually pins down: target parameter, identifying assumption, estimation strategy, inference frame, estimate, sensitivity, heterogeneity. A slot the result cannot determine is reported as undetermined rather than filled with a default, because an unstated choice is still a choice the write-up owes the reader.",
+    "example": "sp.did_design_contract(sp.aggte(fit, type='dynamic'))",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "None",
+        "remedy": "Every step is reported undetermined, which is the informative answer.",
+        "symptom": "Result carries no model_info"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "did_design_contract",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "a fitted DiD result object"
+    ],
+    "reference": "Baker, Callaway, Cunningham, Goodman-Bacon & Sant'Anna (2026) JEL 64(2) [@baker2026difference]",
+    "signature": {
+      "description": "Report which of Baker, Callaway, Cunningham, Goodman-Bacon & Sant'Anna's (2026) eight forward-engineering steps a fitted DiD result actually pins down: target parameter, identifying assumption, estimation strategy, inference frame, estimate, sensitivity, heterogeneity. A slot the result cannot determine is reported as undetermined rather than filled with a default, because an unstated choice is still a choice the write-up owes the reader.",
+      "name": "did_design_contract",
+      "parameters": {
+        "properties": {
+          "result": {
+            "description": "Output of a DiD estimator",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_did_design_audit.py -- a bare result object must score zero determined slots, so no slot can be filled by a default."
+    ],
+    "validation_status": "api_stable"
+  },
+  {
+    "alternatives": [
+      "compare_event_study_conventions",
+      "event_study"
+    ],
+    "assumptions": [],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Report how each DiD estimator builds its event-study reference periods. Two implementations can agree on every post-treatment coefficient and still plot different pre-trends, because the leads are a separate construction (Roth 2026). Returns the convention registry: what each half of the path is differenced against, whether the two halves are symmetric, and whether the path coincides with a dynamic TWFE event study in a non-staggered design.",
+    "example": "sp.event_study_convention(\"did_imputation\")",
+    "failure_modes": [
+      {
+        "alternative": "",
+        "exception": "KeyError",
+        "remedy": "Call sp.event_study_convention() with no argument to list the recorded estimators.",
+        "symptom": "Estimator name not in the convention registry"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "event_study_convention",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "reference": "Roth (2026) arXiv:2401.12309 [@roth2026interpreting]",
+    "signature": {
+      "description": "Report how each DiD estimator builds its event-study reference periods. Two implementations can agree on every post-treatment coefficient and still plot different pre-trends, because the leads are a separate construction (Roth 2026). Returns the convention registry: what each half of the path is differenced against, whether the two halves are symmetric, and whether the path coincides with a dynamic TWFE event study in a non-staggered design.",
+      "name": "event_study_convention",
+      "parameters": {
+        "properties": {
+          "estimator": {
+            "description": "Registry key such as 'callaway_santanna[base_period=varying]', or a bare estimator name for all of its option-specific rows. None returns the whole registry.",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_did_event_study_conventions.py -- every twfe_comparable claim in the registry is checked numerically on Roth (2026) figure-1 design."
+    ],
+    "validation_status": "api_stable"
+  },
+  {
+    "alternatives": [
+      "event_study_convention",
+      "bacon_decomposition"
+    ],
+    "assumptions": [
+      "The comparison is descriptive: it measures construction differences, not which estimator is correct."
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Run several DiD estimators on one non-staggered panel and measure how far each event-study path departs from the dynamic TWFE benchmark. Splits the difference into a common vertical shift within each half of the path and a residual, so a symmetric estimator scores zero asymmetry while the kink (Callaway-Sant'Anna varying base period), the jump (BJS pre-trend convention) and the N0/N attenuation (fect / did2s in-sample residuals) each get their own signature. Warns when the recorded convention disagrees with what the data show.",
+    "example": "sp.compare_event_study_conventions(df, y=\"y\", unit=\"i\", time=\"t\", first_treat=\"g\")",
+    "failure_modes": [
+      {
+        "alternative": "event_study_convention",
+        "exception": "MethodIncompatibility",
+        "remedy": "Restrict to one cohort plus never-treated units; with staggered timing a gap against TWFE mixes the reference convention with forbidden comparisons.",
+        "symptom": "Staggered adoption (more than one treated cohort)"
+      },
+      {
+        "alternative": "",
+        "exception": "MethodIncompatibility",
+        "remedy": "The TWFE benchmark path needs untreated units.",
+        "symptom": "No never-treated units"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "compare_event_study_conventions",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "panel with unit x time x outcome",
+      "exactly one treated cohort (non-staggered design)",
+      "at least one never-treated unit"
+    ],
+    "reference": "Roth (2026) arXiv:2401.12309 [@roth2026interpreting]",
+    "signature": {
+      "description": "Run several DiD estimators on one non-staggered panel and measure how far each event-study path departs from the dynamic TWFE benchmark. Splits the difference into a common vertical shift within each half of the path and a residual, so a symmetric estimator scores zero asymmetry while the kink (Callaway-Sant'Anna varying base period), the jump (BJS pre-trend convention) and the N0/N attenuation (fect / did2s in-sample residuals) each get their own signature. Warns when the recorded convention disagrees with what the data show.",
+      "name": "compare_event_study_conventions",
+      "parameters": {
+        "properties": {
+          "cluster": {
+            "description": "Cluster identifier column for clustered standard errors.",
+            "type": "string"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "estimators": {
+            "description": "Registry keys to run; defaults to every estimator with a runner.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "first_treat": {
+            "description": "First-treatment period; 0 = never-treated",
+            "type": "string"
+          },
+          "time": {
+            "description": "Time period column",
+            "type": "string"
+          },
+          "tolerance": {
+            "description": "Threshold for the matches_twfe verdict; defaults to a scale-free 1e-6 * max(1, max|beta_twfe|).",
+            "type": "number"
+          },
+          "unit": {
+            "description": "Unit identifier",
+            "type": "string"
+          },
+          "window": {
+            "description": "Relative-time window; defaults to the widest the panel supports.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Outcome variable column name or outcome array.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "unit",
+          "time",
+          "first_treat"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 50,
+    "validation_notes": [
+      "Reference evidence: tests/test_did_event_study_conventions.py -- Stata did_imputation and R did2s reference vectors, plus the analytic identities of Roth (2026)."
+    ],
+    "validation_status": "api_stable"
   },
   {
     "alternatives": [
@@ -24306,8 +24585,18 @@
             "description": "Number of cluster-bootstrap replications when ``vce='bootstrap'``.",
             "type": "integer"
           },
+          "pretrend_method": {
+            "default": "bjs",
+            "description": "How the **pre-treatment** event-study coefficients are built. The post-treatment coefficients are imputation residuals either way; only the leads differ, and the difference is visible in the plot rather than in the ATT. - ``'bjs'`` -- the convention of Stata ``did_imputation, pretrends(k)``: an auxiliary dynamic TWFE regression on the untreated observations, with all relative times earlier than the requested leads pooled into the omitted category. Reproduces Stata's coefficients and standard errors. Not available with ``fe=``, ``unit_covariates=`` or ``time_covariates=``. - ``'in-sample'`` -- average the imputation residuals at pre-treatment relative times, as ``fect`` and ``did2s`` do. These are in-sample prediction errors: in a non-staggered design they equal the symmetric benchmark times the untreated unit share ``N0/N``, so they understate pre-trends, severely when most units are treated. This was StatsPAI's behaviour before v1.23.0. - ``'symmetric'`` -- Roth's (2026) repair, which uses the average of the pre-treatment periods as the reference for both halves of the path, so the plot matches a dynamic TWFE event study up to a common vertical shift and the usual visual heuristics apply. Non-staggered balanced designs without covariates only; raises otherwise rather than applying an unverified factor. The chosen convention and its caveat are recorded in ``model_info['pretrend_method']`` and ``model_info['event_study_convention']``.",
+            "enum": [
+              "bjs",
+              "in-sample",
+              "symmetric"
+            ],
+            "type": "string"
+          },
           "pretrends": {
-            "description": "Stata ``did_imputation, pretrends(k)``: estimate the ``k`` pre-treatment placebo coefficients (horizons ``-k .. -1``, added to ``horizon`` if not already requested) and report their joint Wald test in ``model_info['pretrend_test']``. The in-fit test assumes the pre-period estimates are uncorrelated (valid but conservative); for the covariance-aware cluster-bootstrap version use :func:`statspai.bjs_pretrend_joint`.",
+            "description": "Stata ``did_imputation, pretrends(k)``: estimate the ``k`` pre-treatment placebo coefficients (horizons ``-k .. -1``, added to ``horizon`` if not already requested) and report their joint Wald test in ``model_info['pretrend_test']``. Under the default ``pretrend_method='bjs'`` the test uses the full cluster-robust covariance of the auxiliary lead regression; under the other conventions it assumes the lead estimates are uncorrelated (valid but conservative), and :func:`statspai.bjs_pretrend_joint` gives the covariance-aware cluster-bootstrap version.",
             "type": "integer"
           },
           "project": {
@@ -24529,8 +24818,18 @@
             "description": "Number of cluster-bootstrap replications when ``vce='bootstrap'``.",
             "type": "integer"
           },
+          "pretrend_method": {
+            "default": "bjs",
+            "description": "How the **pre-treatment** event-study coefficients are built. The post-treatment coefficients are imputation residuals either way; only the leads differ, and the difference is visible in the plot rather than in the ATT. - ``'bjs'`` -- the convention of Stata ``did_imputation, pretrends(k)``: an auxiliary dynamic TWFE regression on the untreated observations, with all relative times earlier than the requested leads pooled into the omitted category. Reproduces Stata's coefficients and standard errors. Not available with ``fe=``, ``unit_covariates=`` or ``time_covariates=``. - ``'in-sample'`` -- average the imputation residuals at pre-treatment relative times, as ``fect`` and ``did2s`` do. These are in-sample prediction errors: in a non-staggered design they equal the symmetric benchmark times the untreated unit share ``N0/N``, so they understate pre-trends, severely when most units are treated. This was StatsPAI's behaviour before v1.23.0. - ``'symmetric'`` -- Roth's (2026) repair, which uses the average of the pre-treatment periods as the reference for both halves of the path, so the plot matches a dynamic TWFE event study up to a common vertical shift and the usual visual heuristics apply. Non-staggered balanced designs without covariates only; raises otherwise rather than applying an unverified factor. The chosen convention and its caveat are recorded in ``model_info['pretrend_method']`` and ``model_info['event_study_convention']``.",
+            "enum": [
+              "bjs",
+              "in-sample",
+              "symmetric"
+            ],
+            "type": "string"
+          },
           "pretrends": {
-            "description": "Stata ``did_imputation, pretrends(k)``: estimate the ``k`` pre-treatment placebo coefficients (horizons ``-k .. -1``, added to ``horizon`` if not already requested) and report their joint Wald test in ``model_info['pretrend_test']``. The in-fit test assumes the pre-period estimates are uncorrelated (valid but conservative); for the covariance-aware cluster-bootstrap version use :func:`statspai.bjs_pretrend_joint`.",
+            "description": "Stata ``did_imputation, pretrends(k)``: estimate the ``k`` pre-treatment placebo coefficients (horizons ``-k .. -1``, added to ``horizon`` if not already requested) and report their joint Wald test in ``model_info['pretrend_test']``. Under the default ``pretrend_method='bjs'`` the test uses the full cluster-robust covariance of the auxiliary lead regression; under the other conventions it assumes the lead estimates are uncorrelated (valid but conservative), and :func:`statspai.bjs_pretrend_joint` gives the covariance-aware cluster-bootstrap version.",
             "type": "integer"
           },
           "project": {

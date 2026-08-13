@@ -1758,8 +1758,18 @@
           "description": "Number of cluster-bootstrap replications when ``vce='bootstrap'``.",
           "type": "integer"
         },
+        "pretrend_method": {
+          "default": "bjs",
+          "description": "How the **pre-treatment** event-study coefficients are built. The post-treatment coefficients are imputation residuals either way; only the leads differ, and the difference is visible in the plot rather than in the ATT. - ``'bjs'`` -- the convention of Stata ``did_imputation, pretrends(k)``: an auxiliary dynamic TWFE regression on the untreated observations, with all relative times earlier than the requested leads pooled into the omitted category. Reproduces Stata's coefficients and standard errors. Not available with ``fe=``, ``unit_covariates=`` or ``time_covariates=``. - ``'in-sample'`` -- average the imputation residuals at pre-treatment relative times, as ``fect`` and ``did2s`` do. These are in-sample prediction errors: in a non-staggered design they equal the symmetric benchmark times the untreated unit share ``N0/N``, so they understate pre-trends, severely when most units are treated. This was StatsPAI's behaviour before v1.23.0. - ``'symmetric'`` -- Roth's (2026) repair, which uses the average of the pre-treatment periods as the reference for both halves of the path, so the plot matches a dynamic TWFE event study up to a common vertical shift and the usual visual heuristics apply. Non-staggered balanced designs without covariates only; raises otherwise rather than applying an unverified factor. The chosen convention and its caveat are recorded in ``model_info['pretrend_method']`` and ``model_info['event_study_convention']``.",
+          "enum": [
+            "bjs",
+            "in-sample",
+            "symmetric"
+          ],
+          "type": "string"
+        },
         "pretrends": {
-          "description": "Stata ``did_imputation, pretrends(k)``: estimate the ``k`` pre-treatment placebo coefficients (horizons ``-k .. -1``, added to ``horizon`` if not already requested) and report their joint Wald test in ``model_info['pretrend_test']``. The in-fit test assumes the pre-period estimates are uncorrelated (valid but conservative); for the covariance-aware cluster-bootstrap version use :func:`statspai.bjs_pretrend_joint`.",
+          "description": "Stata ``did_imputation, pretrends(k)``: estimate the ``k`` pre-treatment placebo coefficients (horizons ``-k .. -1``, added to ``horizon`` if not already requested) and report their joint Wald test in ``model_info['pretrend_test']``. Under the default ``pretrend_method='bjs'`` the test uses the full cluster-robust covariance of the auxiliary lead regression; under the other conventions it assumes the lead estimates are uncorrelated (valid but conservative), and :func:`statspai.bjs_pretrend_joint` gives the covariance-aware cluster-bootstrap version.",
           "type": "integer"
         },
         "project": {
@@ -2048,8 +2058,18 @@
           "description": "Number of cluster-bootstrap replications when ``vce='bootstrap'``.",
           "type": "integer"
         },
+        "pretrend_method": {
+          "default": "bjs",
+          "description": "How the **pre-treatment** event-study coefficients are built. The post-treatment coefficients are imputation residuals either way; only the leads differ, and the difference is visible in the plot rather than in the ATT. - ``'bjs'`` -- the convention of Stata ``did_imputation, pretrends(k)``: an auxiliary dynamic TWFE regression on the untreated observations, with all relative times earlier than the requested leads pooled into the omitted category. Reproduces Stata's coefficients and standard errors. Not available with ``fe=``, ``unit_covariates=`` or ``time_covariates=``. - ``'in-sample'`` -- average the imputation residuals at pre-treatment relative times, as ``fect`` and ``did2s`` do. These are in-sample prediction errors: in a non-staggered design they equal the symmetric benchmark times the untreated unit share ``N0/N``, so they understate pre-trends, severely when most units are treated. This was StatsPAI's behaviour before v1.23.0. - ``'symmetric'`` -- Roth's (2026) repair, which uses the average of the pre-treatment periods as the reference for both halves of the path, so the plot matches a dynamic TWFE event study up to a common vertical shift and the usual visual heuristics apply. Non-staggered balanced designs without covariates only; raises otherwise rather than applying an unverified factor. The chosen convention and its caveat are recorded in ``model_info['pretrend_method']`` and ``model_info['event_study_convention']``.",
+          "enum": [
+            "bjs",
+            "in-sample",
+            "symmetric"
+          ],
+          "type": "string"
+        },
         "pretrends": {
-          "description": "Stata ``did_imputation, pretrends(k)``: estimate the ``k`` pre-treatment placebo coefficients (horizons ``-k .. -1``, added to ``horizon`` if not already requested) and report their joint Wald test in ``model_info['pretrend_test']``. The in-fit test assumes the pre-period estimates are uncorrelated (valid but conservative); for the covariance-aware cluster-bootstrap version use :func:`statspai.bjs_pretrend_joint`.",
+          "description": "Stata ``did_imputation, pretrends(k)``: estimate the ``k`` pre-treatment placebo coefficients (horizons ``-k .. -1``, added to ``horizon`` if not already requested) and report their joint Wald test in ``model_info['pretrend_test']``. Under the default ``pretrend_method='bjs'`` the test uses the full cluster-robust covariance of the auxiliary lead regression; under the other conventions it assumes the lead estimates are uncorrelated (valid but conservative), and :func:`statspai.bjs_pretrend_joint` gives the covariance-aware cluster-bootstrap version.",
           "type": "integer"
         },
         "project": {
@@ -3756,6 +3776,59 @@
       "type": "object"
     },
     "name": "compare_estimators"
+  },
+  {
+    "description": "Run several DiD estimators on one non-staggered panel and measure how far each event-study path departs from the dynamic TWFE benchmark. Splits the difference into a common vertical shift within each half of the path and a residual, so a symmetric estimator scores zero asymmetry while the kink (Callaway-Sant'Anna varying base period), the jump (BJS pre-trend convention) and the N0/N attenuation (fect / did2s in-sample residuals) each get their own signature. Warns when the recorded convention disagrees with what the data show. Assumptions: The comparison is descriptive: it measures construction differences, not which estimator is correct. Pre-conditions: panel with unit x time x outcome; exactly one treated cohort (non-staggered design); at least one never-treated unit. Failure modes: Staggered adoption (more than one treated cohort) -> Restrict to one cohort plus never-treated units; with staggered timing a gap against TWFE mixes the reference convention with forbidden comparisons; No never-treated units -> The TWFE benchmark path needs untreated units. Alternatives: sp.event_study_convention, sp.bacon_decomposition. Typical minimum N: 50.",
+    "input_schema": {
+      "properties": {
+        "cluster": {
+          "description": "Cluster identifier column for clustered standard errors.",
+          "type": "string"
+        },
+        "estimators": {
+          "description": "Registry keys to run; defaults to every estimator with a runner.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "first_treat": {
+          "description": "First-treatment period; 0 = never-treated",
+          "type": "string"
+        },
+        "time": {
+          "description": "Time period column",
+          "type": "string"
+        },
+        "tolerance": {
+          "description": "Threshold for the matches_twfe verdict; defaults to a scale-free 1e-6 * max(1, max|beta_twfe|).",
+          "type": "number"
+        },
+        "unit": {
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "window": {
+          "description": "Relative-time window; defaults to the widest the panel supports.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "first_treat",
+        "time",
+        "unit",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "compare_event_study_conventions"
   },
   {
     "description": "Fit multiple meta-learners and compare their ATE estimates. Assumptions: Unconfoundedness given the covariates; Overlap / positivity across the covariate space; Nuisance functions are estimated consistently; cross-fitting controls overfitting bias. Pre-conditions: Covariates, a treatment indicator, and an outcome for each unit; Enough data to fit flexible nuisance models with sample-splitting / cross-fitting. Failure modes: CATE estimates are unstable or extrapolate beyond the covariate support -> Restrict to the overlap region, increase data, or use a doubly-robust learner (DR-/R-learner). Alternatives: sp.dml, sp.causal_forest, sp.tmle. Typical minimum N: 500.",
@@ -5635,6 +5708,52 @@
     "name": "did_bcf"
   },
   {
+    "description": "Count the clusters treatment is assigned at and grade the count against the simulation grid of Ulloa-Perez et al. (2025), who found that at 30 clusters every modern staggered DiD estimator they evaluated under-covered a nominal 95% interval, with coverage improving as clusters accumulated. Thirty is the smallest cell they ran, so fewer clusters is reported as outside their evidence rather than as merely worse. Also reports clusters per cohort, since a group-time effect rests on the clusters in its own cohort. Assumptions: The grading reports what published simulation evidence exists at this cluster count; it is not a power calculation for this design or estimator. Pre-conditions: panel with unit and cohort columns. Failure modes: Cluster column empty or absent -> Check that the cluster column is populated. Alternatives: sp.wild_cluster_bootstrap, sp.ri_test, sp.conley.",
+    "input_schema": {
+      "properties": {
+        "cluster": {
+          "description": "Level treatment is assigned at (state, provider group, district). Defaults to unit with a warning: the two coincide only under independent unit-level assignment, and assuming so is the optimistic error.",
+          "type": "string"
+        },
+        "first_treat": {
+          "description": "First-treatment period; 0 = never-treated",
+          "type": "string"
+        },
+        "unit": {
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "warn": {
+          "default": true,
+          "description": "Warn when the design sits in or below the weakest cell of the reference grid.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "first_treat",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "name": "did_cluster_diagnostics"
+  },
+  {
+    "description": "Report which of Baker, Callaway, Cunningham, Goodman-Bacon & Sant'Anna's (2026) eight forward-engineering steps a fitted DiD result actually pins down: target parameter, identifying assumption, estimation strategy, inference frame, estimate, sensitivity, heterogeneity. A slot the result cannot determine is reported as undetermined rather than filled with a default, because an unstated choice is still a choice the write-up owes the reader. Assumptions: Reports what the result object records; it cannot verify that a recorded assumption is true of the data. Pre-conditions: a fitted DiD result object. Failure modes: Result carries no model_info -> Every step is reported undetermined, which is the informative answer. Alternatives: sp.audit_result, sp.assumption_audit, sp.cs_report.",
+    "input_schema": {
+      "properties": {
+        "result": {
+          "description": "Output of a DiD estimator",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    },
+    "name": "did_design_contract"
+  },
+  {
     "description": "R-style alias: ``synthdid::did_estimate``. Assumptions: Parallel trends in the absence of treatment, after the synthetic/DiD weighting; No anticipation and no interference between units (SUTVA); The control pool's outcome process is stable around the intervention. Pre-conditions: Panel with treated and control units and a clear treatment date; Pre-treatment periods available to assess comparability of trends. Failure modes: Weighted pre-treatment trends still diverge between treated and synthetic control -> Inspect the unit/time weights and pre-trend fit; consider event-study DiD with honest bounds. Alternatives: sp.synth, sp.augsynth, sp.callaway_santanna, sp.gardner_did. Typical minimum N: 15.",
     "input_schema": {
       "properties": {
@@ -5814,6 +5933,16 @@
           "default": 199,
           "description": "Cluster-bootstrap replications when vce='bootstrap'.",
           "type": "integer"
+        },
+        "pretrend_method": {
+          "default": "bjs",
+          "description": "Reference convention for the PRE-treatment event-study coefficients. 'bjs' matches Stata did_imputation, 'in-sample' is the fect/did2s residual average (attenuated by N0/N), 'symmetric' is Roth's (2026) TWFE-comparable repair for non-staggered designs. Post-treatment coefficients are identical under all three.",
+          "enum": [
+            "bjs",
+            "in-sample",
+            "symmetric"
+          ],
+          "type": "string"
         },
         "pretrends": {
           "description": "Estimate k placebo pre-trend coefficients (-k..-1) and report their joint Wald test (Stata: pretrends(k))",
@@ -8192,6 +8321,20 @@
       "type": "object"
     },
     "name": "event_study"
+  },
+  {
+    "description": "Report how each DiD estimator builds its event-study reference periods. Two implementations can agree on every post-treatment coefficient and still plot different pre-trends, because the leads are a separate construction (Roth 2026). Returns the convention registry: what each half of the path is differenced against, whether the two halves are symmetric, and whether the path coincides with a dynamic TWFE event study in a non-staggered design. Failure modes: Estimator name not in the convention registry -> Call sp.event_study_convention() with no argument to list the recorded estimators. Alternatives: sp.compare_event_study_conventions, sp.event_study.",
+    "input_schema": {
+      "properties": {
+        "estimator": {
+          "description": "Registry key such as 'callaway_santanna[base_period=varying]', or a bare estimator name for all of its option-specific rows. None returns the whole registry.",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "event_study_convention"
   },
   {
     "description": "Adapter that turns an event-study fit into a regtable input.",
@@ -25507,213 +25650,6 @@
       "type": "object"
     },
     "name": "verify_recommendation"
-  },
-  {
-    "description": "Variance Inflation Factors for multicollinearity detection.",
-    "input_schema": {
-      "properties": {
-        "x": {
-          "description": "Independent variables.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        }
-      },
-      "required": [
-        "x"
-      ],
-      "type": "object"
-    },
-    "name": "vif"
-  },
-  {
-    "description": "Stata-style unified weak-instrument-robust diagnostic panel.",
-    "input_schema": {
-      "properties": {
-        "alpha": {
-          "default": 0.05,
-          "description": "Significance level for the robust confidence sets.",
-          "type": "number"
-        },
-        "clr_simulations": {
-          "default": 20000,
-          "description": "Monte-Carlo draws for the CLR null distribution.",
-          "type": "integer"
-        },
-        "endog": {
-          "description": "Outcome and single endogenous regressor (column names in ``data``).",
-          "type": "string"
-        },
-        "exog": {
-          "description": "Included exogenous controls. An intercept is always added.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "grid_size": {
-          "default": 401,
-          "description": "Grid resolution used by AR/CLR/K confidence-set inversion.",
-          "type": "integer"
-        },
-        "h0": {
-          "default": 0.0,
-          "description": "Null value for the endogenous coefficient. All under-H0 tests (AR, CLR, K) are evaluated at ``beta = h0``.",
-          "type": "number"
-        },
-        "include_clr": {
-          "default": true,
-          "description": "Also run the CLR test and invert it for a CLR confidence set.",
-          "type": "boolean"
-        },
-        "include_k": {
-          "default": true,
-          "description": "Also run the Kleibergen K score test and K confidence set.",
-          "type": "boolean"
-        },
-        "instruments": {
-          "description": "Excluded instruments.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "random_state": {
-          "description": "Random seed or RandomState for reproducible stochastic steps.",
-          "type": "integer"
-        },
-        "vcov": {
-          "default": "HC1",
-          "description": "Used by the Olea-Pflueger effective F.",
-          "enum": [
-            "HC0",
-            "HC1",
-            "classic"
-          ],
-          "type": "string"
-        },
-        "y": {
-          "description": "Outcome and single endogenous regressor (column names in ``data``).",
-          "type": "string"
-        }
-      },
-      "required": [
-        "endog",
-        "instruments",
-        "y"
-      ],
-      "type": "object"
-    },
-    "name": "weakrobust"
-  },
-  {
-    "description": "Wild cluster bootstrap t-test for a single coefficient.",
-    "input_schema": {
-      "properties": {
-        "alpha": {
-          "default": 0.05,
-          "description": "Significance level for confidence interval.",
-          "type": "number"
-        },
-        "cluster": {
-          "description": "Name of the cluster variable.",
-          "type": "string"
-        },
-        "n_boot": {
-          "default": 999,
-          "description": "Number of bootstrap replications (use odd number).",
-          "type": "integer"
-        },
-        "result": {
-          "description": "A fitted regression result from ``sp.regress()``.",
-          "type": "string"
-        },
-        "seed": {
-          "description": "Random seed for reproducibility.",
-          "type": "integer"
-        },
-        "variable": {
-          "description": "Name of the coefficient to test (H0: beta = 0).",
-          "type": "string"
-        },
-        "weight_type": {
-          "default": "rademacher",
-          "description": "Bootstrap weight distribution: - ``'rademacher'``: +/-1 with equal probability. - ``'webb'``: Webb (2014) 6-point distribution for G < 12. - ``'mammen'``: Mammen (1993) 2-point distribution.",
-          "type": "string"
-        }
-      },
-      "required": [
-        "cluster",
-        "result",
-        "variable"
-      ],
-      "type": "object"
-    },
-    "name": "wild_cluster_boot"
-  },
-  {
-    "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the number of clusters is large (say > 50) -- ordinary CRV1 standard errors are already reliable and much cheaper. Cost: Runtime is roughly n_boot x (one restricted refit). This is the intended trade for few-cluster validity -- do not raise n_boot inside an outer search loop. Assumptions: Errors are exchangeable within clusters (Rademacher weights are robust to most departures); Number of clusters G >= 5 for finite-sample validity. Pre-conditions: long-format dataset with a cluster identifier present; treatment / test variable varies within at least some clusters; test_var (or first column of x) is the coefficient under test. Failure modes: Multi-way clustering requested -> Multi-way wild cluster bootstrap is not yet supported; see sp.subcluster_wild_bootstrap...",
-    "input_schema": {
-      "properties": {
-        "alpha": {
-          "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
-          "type": "number"
-        },
-        "cluster": {
-          "description": "Cluster identifier",
-          "type": "string"
-        },
-        "h0": {
-          "default": 0.0,
-          "description": "Null value of the coefficient",
-          "type": "number"
-        },
-        "n_boot": {
-          "default": 999,
-          "description": "Number of bootstrap replications.",
-          "type": "integer"
-        },
-        "seed": {
-          "description": "Random seed for reproducible stochastic steps.",
-          "type": "integer"
-        },
-        "test_var": {
-          "description": "Variable being tested; defaults to first in x",
-          "type": "string"
-        },
-        "weight_type": {
-          "default": "rademacher",
-          "description": "Bootstrap weight distribution",
-          "enum": [
-            "rademacher",
-            "mammen",
-            "webb",
-            "normal"
-          ],
-          "type": "string"
-        },
-        "x": {
-          "description": "Right-hand-side variables",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "y": {
-          "description": "Outcome variable",
-          "type": "string"
-        }
-      },
-      "required": [
-        "cluster",
-        "x",
-        "y"
-      ],
-      "type": "object"
-    },
-    "name": "wild_cluster_bootstrap"
   },
   {
     "description": "Fit panel negative-binomial regression. Use model='fe' for explicit entity fixed effects via nbreg, or model='re' for a random-intercept NB-2 GLMM via menbreg. Do not use feols for negative-binomial outcomes.",

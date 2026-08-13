@@ -24,6 +24,13 @@ from scipy.sparse.linalg import lsqr
 
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
+from ..exceptions import MethodIncompatibility
+from ._bjs_pretrends import EVENT_STUDY_CONVENTION as _EVENT_STUDY_CONVENTION
+from ._bjs_pretrends import (
+    PRETREND_METHODS,
+    bjs_pretrend_path,
+    symmetric_pretrend_scale,
+)
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import normalize_se_method as _normalize_se_method
 
@@ -100,6 +107,7 @@ def did_imputation(
     n_boot: int = 199,
     boot_seed: int = 0,
     pretrends: Optional[int] = None,
+    pretrend_method: str = "bjs",
     balanced: bool = False,
     min_n: Optional[int] = None,
     hetby: Optional[str] = None,
@@ -189,10 +197,41 @@ def did_imputation(
         Stata ``did_imputation, pretrends(k)``: estimate the ``k``
         pre-treatment placebo coefficients (horizons ``-k .. -1``, added
         to ``horizon`` if not already requested) and report their joint
-        Wald test in ``model_info['pretrend_test']``.  The in-fit test
-        assumes the pre-period estimates are uncorrelated (valid but
-        conservative); for the covariance-aware cluster-bootstrap
-        version use :func:`statspai.bjs_pretrend_joint`.
+        Wald test in ``model_info['pretrend_test']``.  Under the default
+        ``pretrend_method='bjs'`` the test uses the full cluster-robust
+        covariance of the auxiliary lead regression; under the other
+        conventions it assumes the lead estimates are uncorrelated (valid
+        but conservative), and :func:`statspai.bjs_pretrend_joint` gives
+        the covariance-aware cluster-bootstrap version.
+    pretrend_method : {'bjs', 'in-sample', 'symmetric'}, default 'bjs'
+        How the **pre-treatment** event-study coefficients are built.  The
+        post-treatment coefficients are imputation residuals either way;
+        only the leads differ, and the difference is visible in the plot
+        rather than in the ATT.
+
+        - ``'bjs'`` — the convention of Stata ``did_imputation,
+          pretrends(k)``: an auxiliary dynamic TWFE regression on the
+          untreated observations, with all relative times earlier than the
+          requested leads pooled into the omitted category.  Reproduces
+          Stata's coefficients and standard errors.  Not available with
+          ``fe=``, ``unit_covariates=`` or ``time_covariates=``.
+        - ``'in-sample'`` — average the imputation residuals at
+          pre-treatment relative times, as ``fect`` and ``did2s`` do.
+          These are in-sample prediction errors: in a non-staggered design
+          they equal the symmetric benchmark times the untreated unit
+          share ``N0/N``, so they understate pre-trends, severely when
+          most units are treated.  This was StatsPAI's behaviour before
+          v1.23.0.
+        - ``'symmetric'`` — Roth's (2026) repair, which uses the average
+          of the pre-treatment periods as the reference for both halves of
+          the path, so the plot matches a dynamic TWFE event study up to a
+          common vertical shift and the usual visual heuristics apply.
+          Non-staggered balanced designs without covariates only; raises
+          otherwise rather than applying an unverified factor.
+
+        The chosen convention and its caveat are recorded in
+        ``model_info['pretrend_method']`` and
+        ``model_info['event_study_convention']``.
     balanced : bool, default False
         Stata ``did_imputation, hbalance``: keep only eventually-treated
         units observed at *every* requested horizon, so the event-study
@@ -335,6 +374,14 @@ def did_imputation(
         raise ValueError(f"vce must be 'analytic', 'bootstrap', or 'none'; got {vce!r}")
     if cluster is None:
         cluster = group
+
+    if pretrend_method not in PRETREND_METHODS:
+        raise ValueError(
+            f"pretrend_method must be one of {list(PRETREND_METHODS)}; got "
+            f"{pretrend_method!r}. 'bjs' reproduces Stata did_imputation, "
+            "'in-sample' is the fect/did2s residual-average convention, and "
+            "'symmetric' is Roth's (2026) repair for non-staggered designs."
+        )
 
     if pretrends is not None:
         if isinstance(pretrends, bool) or int(pretrends) < 1:
@@ -610,7 +657,18 @@ def did_imputation(
         eventually_treated = ~np.isinf(df["_ft"].values)
         rel_time_rounded = np.round(df["_rel_time"].values)
 
-        for k in sorted(horizon):
+        # Which relative times does the residual-average loop own?  Under
+        # pretrend_method='bjs' the leads come from a separate auxiliary
+        # regression instead, so they are skipped here rather than computed
+        # twice; 'in-sample' and 'symmetric' both start from the residual
+        # averages and 'symmetric' rescales them afterwards.
+        residual_horizons = (
+            [k for k in sorted(horizon) if k >= 0]
+            if pretrend_method == "bjs"
+            else sorted(horizon)
+        )
+
+        for k in residual_horizons:
             # Observations of eventually-treated units at relative time k
             mask_k = eventually_treated & (rel_time_rounded == k)
             n_k = int(mask_k.sum())
@@ -669,16 +727,87 @@ def did_imputation(
                 )
                 event_study_df = event_study_df.loc[~thin].reset_index(drop=True)
 
+        # ── Pre-treatment reference convention ─────────────────── #
+        # Post-treatment coefficients are imputation residuals under every
+        # convention; only the leads differ.  See did/_bjs_pretrends.py
+        # for what each option constructs and why the choice is visible
+        # in the plotted event study (Roth 2026).
+        requested_leads = [int(k) for k in sorted(horizon) if k < 0]
+        bjs_joint: Optional[Dict[str, float]] = None
+
+        if requested_leads and pretrend_method == "bjs":
+            if fe is not None or unit_cov_names or time_cov_names:
+                raise MethodIncompatibility(
+                    "pretrend_method='bjs' runs the lead regression on the "
+                    "same Y(0) design the imputation step uses, and the "
+                    "degrees-of-freedom convention it inherits from Stata "
+                    "did_imputation is only pinned for the default "
+                    "unit+time model. It is not pinned with fe=, "
+                    "unit_covariates= or time_covariates=.",
+                    remedy=(
+                        "Pass pretrend_method='in-sample' to keep the "
+                        "residual-average leads, or drop the non-default "
+                        "fixed-effect structure for the pre-trend run."
+                    ),
+                )
+            rel_untreated = np.round(
+                untreated[time].to_numpy(dtype=float)
+                - untreated["_ft"].to_numpy(dtype=float)
+            )
+            pre_frame, bjs_joint = bjs_pretrend_path(
+                design_untreated=X_u_design,
+                y_untreated=untreated[y].to_numpy(dtype=float),
+                rel_time_untreated=rel_untreated,
+                cluster_untreated=untreated[cluster].to_numpy(),
+                n_unit_columns=int(len(np.unique(uid_u)) - 1),
+                leads=requested_leads,
+                alpha=alpha,
+            )
+            event_study_df = (
+                pd.concat([pre_frame, event_study_df], ignore_index=True)
+                .sort_values("relative_time")
+                .reset_index(drop=True)
+            )
+        elif requested_leads and pretrend_method == "symmetric":
+            ft_by_unit = df.groupby("_uid")["_ft"].first()
+            treated_cohorts = sorted(
+                {float(v) for v in ft_by_unit.to_numpy() if np.isfinite(v)}
+            )
+            obs_per_unit = df.groupby("_uid").size().to_numpy()
+            factor = symmetric_pretrend_scale(
+                n_units_total=int(n_units),
+                n_units_untreated=int((~np.isfinite(ft_by_unit.to_numpy())).sum()),
+                n_cohorts_treated=len(treated_cohorts),
+                balanced=bool(np.all(obs_per_unit == obs_per_unit[0])),
+                has_covariates=bool(
+                    control_names or unit_cov_names or time_cov_names or fe is not None
+                ),
+            )
+            pre_mask = event_study_df["relative_time"] < 0
+            for col in ("att", "se", "ci_lower", "ci_upper"):
+                event_study_df.loc[pre_mask, col] = (
+                    event_study_df.loc[pre_mask, col] * factor
+                )
+            # The z-statistic is scale-invariant, so p-values are unchanged.
+
         # Pre-trend joint test (Wald chi-squared, independence
         # approximation — conservative; see sp.bjs_pretrend_joint for the
         # covariance-aware cluster-bootstrap version). With pretrends=k
         # the test uses exactly the k requested placebo horizons.
+        # Under pretrend_method='bjs' the auxiliary regression supplies the
+        # full cluster-robust covariance, so that test is used instead.
         pre_rows = event_study_df[
             (event_study_df["relative_time"] < 0) & (event_study_df["se"] > 0)
         ]
         if pretrends is not None:
             pre_rows = pre_rows[pre_rows["relative_time"] >= -pretrends]
-        if len(pre_rows) > 0:
+        if bjs_joint and pretrends is None:
+            pretrend_test = dict(bjs_joint)
+            pretrend_test["periods"] = requested_leads
+        elif bjs_joint and pretrends is not None and len(requested_leads) == pretrends:
+            pretrend_test = dict(bjs_joint)
+            pretrend_test["periods"] = requested_leads
+        elif len(pre_rows) > 0:
             pre_atts = pre_rows["att"].to_numpy(dtype=float)
             pre_ses = pre_rows["se"].to_numpy(dtype=float)
             chi2_stat = float(np.sum((pre_atts / pre_ses) ** 2))
@@ -809,6 +938,11 @@ def did_imputation(
 
     if event_study_df is not None and len(event_study_df) > 0:
         model_info["event_study"] = event_study_df
+        # The reference convention is part of what the event study *is*,
+        # not a tuning note: two packages can agree on every post-treatment
+        # coefficient and still plot different pre-trends (Roth 2026).
+        model_info["pretrend_method"] = pretrend_method
+        model_info["event_study_convention"] = _EVENT_STUDY_CONVENTION[pretrend_method]
 
     if pretrend_test is not None:
         model_info["pretrend_test"] = pretrend_test

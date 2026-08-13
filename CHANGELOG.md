@@ -11,6 +11,32 @@ via Crossref and the published PDF.
 
 ### ⚠️ Correctness
 
+- **`sp.did_imputation` pre-treatment event-study coefficients were the
+  `fect`/`did2s` in-sample residual averages, not the BJS ones the
+  docstring advertised — and they are attenuated toward zero.** The lags
+  were and remain imputation residuals; the *leads* were means of
+  `Y − Ŷ(0)` at pre-treatment relative times. Those are in-sample
+  prediction errors, because the pre-treatment outcomes of
+  eventually-treated units are part of the training data. Li & Strezhnev
+  (2025), restated in Roth (2026, appendix A), show that in a
+  non-staggered design this equals the symmetric benchmark multiplied by
+  `N0/N`, the untreated share of units. We reproduce that identity to
+  1e-10. The direction is the dangerous one: with 90% of units treated
+  the reported leads are one tenth of the truth, so a violated
+  parallel-trends assumption looks satisfied, and
+  `model_info['pretrend_test']` inherits the attenuation. The new
+  `pretrend_method=` selects the convention and **defaults to `'bjs'`**,
+  which reproduces Stata `did_imputation, pretrends(k)` coefficients and
+  standard errors to 1e-12 / 1e-13 relative on two designs. Post-treatment
+  coefficients and the overall ATT are unchanged under every option.
+  **Re-read any pre-trend evidence taken from `sp.did_imputation`'s event
+  study**; see [MIGRATION.md](MIGRATION.md#did-imputation-pretrend-method).
+  `sp.gardner_did` uses the same in-sample construction and is **not**
+  affected: did2s is the reference it documents, and its coefficients
+  reproduce R `did2s` 1.2.1 to 3.5e-14 at all 26 horizons of the same
+  fixture. A convention is a defect only when it is not the one the
+  function claims.
+
 - **`sp.did(..., weights=)` silently returned the unweighted estimand on
   every staggered path.** The argument was validated, its column added to
   the required-column list — and then never forwarded to the
@@ -176,6 +202,92 @@ via Crossref and the published PDF.
     within-cluster dependence, so reporting them under `clustervars`
     would understate uncertainty.
 
+- **`sp.did_design_contract` — the forward-engineering recipe as an
+  object.** \citet-style prose is not a contract; a field is.
+  Baker et al. (2026, §6) argue a DiD study should fix its target
+  parameter, state its identifying assumption, choose an estimator and
+  declare an inference frame *before* reading a coefficient. This reports
+  which of those eight steps a fitted result actually pins down. It never
+  fills a slot with a default: a comparison group the result does not
+  record is reported `undetermined`, because never-treated,
+  not-yet-treated and all-periods parallel trends are three different
+  assumptions and choosing one by omission is still choosing. Step 8
+  ("keep learning") is reported `not-evidenced` rather than given a
+  fabricated status.
+
+- **`sp.did_cluster_diagnostics` — the cluster count, graded against
+  published evidence.** Ulloa-Perez et al. (2025) ran a 1,000-replication
+  grid at 30, 50 and 100 clusters and found that at 30 *every* modern
+  staggered estimator they evaluated under-covered a nominal 95%
+  interval — two-way Mundlak between 60% and 85% — with coverage
+  improving as clusters accumulated. This counts the clusters treatment
+  is assigned at, reports clusters per cohort, and grades the design
+  against that grid. Below 30 it reports `below-evidence` rather than
+  extrapolating: their result is the closest evidence available and it
+  does not extend downward. Defaulting the cluster level to the unit id
+  warns, because the two coincide only under independent unit-level
+  assignment and assuming so is the optimistic error.
+
+- **`scripts/audit_reference_claims.py` — object-level parity coverage.**
+  A parity archive answers "does this function agree with its reference?"
+  The answerable question is narrower: a function reports a headline
+  estimate, its standard error, an event-study vector, the pre-treatment
+  half of that vector, and diagnostics, and a parity module pins *some* of
+  them. The script runs each estimator, records which objects it actually
+  hands back, and cross-references the committed parity result JSONs for
+  which of those objects carry a pinned reference value. On the nine core
+  staggered DiD estimators it reports **61 reported objects, 22 pinned,
+  39 unpinned** — including the Callaway–Sant'Anna event-study vector,
+  whose Track A module pins only the simple ATT. The defect above lived
+  in exactly that gap. Output is committed at
+  `docs/parity_object_coverage.md`; `--check N` fails a build when the
+  unpinned count grows.
+
+  The script deliberately keeps its headline free of judgement calls: it
+  reports reported-vs-pinned, and separately flags whether a function's
+  documentation names a runnable reference anywhere, with the matched
+  string attached so the flag can be checked. An earlier revision folded
+  the two together and matched the R package `fect` inside the word
+  "effects", which inflated the count.
+
+- **New R `did2s` 1.2.1 reference pins.** `sp.gardner_did`'s event study
+  and `sp.did_imputation(pretrend_method="in-sample")` both reproduce
+  `did2s` coefficients (3.5e-14 and 1.4e-12), confirming that the
+  in-sample lead construction is did2s's rather than an approximation of
+  it. `sp.gardner_did`'s *analytic* event-study standard errors are
+  measured against the same reference for the first time: a median of
+  0.71x the did2s value across horizons, which prices the existing
+  runtime warning that the analytic SE ignores stage-one estimation.
+  The direction is not uniform (one horizon reaches 1.52x), so an omitted
+  positive variance term is not the whole story.
+
+- **`sp.event_study_convention` and `sp.compare_event_study_conventions`
+  — the reference-period convention as an inspectable object.** Roth
+  (2026) shows that recent DiD methods build their pre-treatment
+  event-study coefficients differently from their post-treatment ones, so
+  on the *same* non-staggered panel with no treatment effect and a linear
+  parallel-trends violation, dynamic TWFE draws a straight line,
+  Callaway–Sant'Anna with a varying base period draws a kink, and the BJS
+  imputation default draws a jump. `sp.event_study_convention()` returns
+  what each estimator differences against and whether the two halves of
+  the path are symmetric; `sp.compare_event_study_conventions()` runs
+  them on one panel and splits the gap against the TWFE benchmark into a
+  harmless common shift and an asymmetry, so the kink, the jump and the
+  `N0/N` attenuation each get a separate numerical signature. It warns
+  when the recorded convention disagrees with what the data show, so the
+  registry cannot drift away from the code.
+
+- **`sp.did_imputation(..., pretrend_method=)`** — `'bjs'` (new default,
+  matches Stata `did_imputation, pretrends(k)` to 1e-12), `'in-sample'`
+  (the previous behaviour, and what R `fect` / `did2s` report), and
+  `'symmetric'` (Roth's `β̂^{BJS,new}`, which equals the dynamic TWFE
+  event study up to a common vertical shift and so restores the usual
+  visual heuristics; non-staggered balanced designs only, and it raises
+  rather than extrapolating the `N/N0` factor beyond where Roth derives
+  it). `model_info` now carries `pretrend_method` and
+  `event_study_convention`. Under `'bjs'` the joint pre-trend test uses
+  the auxiliary regression's full cluster-robust covariance instead of
+  the diagonal approximation.
 
 - **`sp.staggered_rollout` now covers the whole of R `staggered` 1.2.2**
   (Roth & Sant'Anna 2023 [@roth2023efficient]). Five additions, each

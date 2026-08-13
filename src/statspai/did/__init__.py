@@ -49,11 +49,22 @@ from .cic import cic
 from .cohort_anchored import cohort_anchored_event_study
 from .continuous_did import continuous_did
 from .ddd import ddd
+from .design_audit import (
+    DiDClusterDiagnostics,
+    DiDDesignContract,
+    did_cluster_diagnostics,
+    did_design_contract,
+)
 from .design_robust import design_robust_event_study
 from .did_2x2 import did_2x2
 from .did_bcf import did_bcf
 from .did_imputation import did_imputation
 from .did_multiplegt import did_multiplegt
+from .es_convention import (
+    EventStudyConventionResult,
+    compare_event_study_conventions,
+    event_study_convention,
+)
 from .event_study import event_study
 from .functional_form import (
     DistributionalDiDResult,
@@ -596,11 +607,18 @@ def did(
     # the user believes changed the estimand is exactly the failure mode
     # §3.7 exists to prevent.
     if kwargs:
+        _BJS_FORWARDED = frozenset(
+            {"horizon", "event_window", "pretrends", "pretrend_method"}
+        )
         _allowed: Dict[str, frozenset] = {
-            "bjs": frozenset({"horizon", "event_window"}),
-            "did_imputation": frozenset({"horizon", "event_window"}),
-            "borusyak_jaravel_spiess": frozenset({"horizon", "event_window"}),
-            "borusyak": frozenset({"horizon", "event_window"}),
+            # pretrends / pretrend_method belong here because the leads are
+            # the object the reference convention changes (Roth 2026); a
+            # user who cannot reach the option through sp.did() gets the
+            # default silently.
+            "bjs": _BJS_FORWARDED,
+            "did_imputation": _BJS_FORWARDED,
+            "borusyak_jaravel_spiess": _BJS_FORWARDED,
+            "borusyak": _BJS_FORWARDED,
         }
         permitted = _allowed.get(method, frozenset())
         # sdid forwards everything it does not recognise to sp.synth's
@@ -781,6 +799,14 @@ def did(
         if horizon is None and event_window is not None:
             lo, hi = int(event_window[0]), int(event_window[1])
             horizon = list(range(lo, hi + 1))
+        # Forwarded, not merely accepted: an argument the allowlist admits
+        # and the call then drops is the failure mode the allowlist exists
+        # to prevent.
+        forwarded: Dict[str, Any] = {}
+        if "pretrends" in kwargs:
+            forwarded["pretrends"] = kwargs.pop("pretrends")
+        if "pretrend_method" in kwargs:
+            forwarded["pretrend_method"] = kwargs.pop("pretrend_method")
         return did_imputation(
             data,
             y=y,
@@ -791,6 +817,7 @@ def did(
             horizon=horizon,
             cluster=cluster,
             alpha=alpha,
+            **forwarded,
         )
 
     if method == "sdid":
@@ -882,7 +909,14 @@ __all__ = [
     "bacon_decomposition",
     "honest_did",
     "breakdown_m",
+    "DiDClusterDiagnostics",
+    "DiDDesignContract",
+    "EventStudyConventionResult",
+    "did_cluster_diagnostics",
+    "did_design_contract",
+    "compare_event_study_conventions",
     "event_study",
+    "event_study_convention",
     "did_analysis",
     "DIDAnalysis",
     "did_multiplegt",
