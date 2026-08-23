@@ -18900,7 +18900,7 @@
     "failure_modes": [
       {
         "alternative": "",
-        "exception": "None",
+        "exception": "(none -- every step reported undetermined)",
         "remedy": "Every step is reported undetermined, which is the informative answer.",
         "symptom": "Result carries no model_info"
       }

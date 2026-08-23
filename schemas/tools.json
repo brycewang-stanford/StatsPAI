@@ -25703,6 +25703,606 @@
     "name": "verify_benchmark"
   },
   {
+    "description": "Empirically verify a single recommendation.",
+    "input_schema": {
+      "properties": {
+        "B": {
+          "default": 50,
+          "description": "Number of bootstrap replications (auto-reduced if over budget).",
+          "type": "integer"
+        },
+        "K_subsample": {
+          "default": 5,
+          "description": "Number of 50% subsample splits.",
+          "type": "integer"
+        },
+        "budget_s": {
+          "default": 30.0,
+          "description": "Wall-clock budget per recommendation (seconds).",
+          "type": "number"
+        },
+        "n_placebo": {
+          "default": 5,
+          "description": "Number of permutation placebo runs.",
+          "type": "integer"
+        },
+        "rec": {
+          "description": "A single entry from ``RecommendationResult.recommendations``.",
+          "type": "object"
+        },
+        "seed": {
+          "default": 42,
+          "description": "RNG seed for reproducibility.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rec"
+      ],
+      "type": "object"
+    },
+    "name": "verify_recommendation"
+  },
+  {
+    "description": "Variance Inflation Factors for multicollinearity detection.",
+    "input_schema": {
+      "properties": {
+        "x": {
+          "description": "Independent variables.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "x"
+      ],
+      "type": "object"
+    },
+    "name": "vif"
+  },
+  {
+    "description": "Stata-style unified weak-instrument-robust diagnostic panel.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for the robust confidence sets.",
+          "type": "number"
+        },
+        "clr_simulations": {
+          "default": 20000,
+          "description": "Monte-Carlo draws for the CLR null distribution.",
+          "type": "integer"
+        },
+        "endog": {
+          "description": "Outcome and single endogenous regressor (column names in ``data``).",
+          "type": "string"
+        },
+        "exog": {
+          "description": "Included exogenous controls. An intercept is always added.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "grid_size": {
+          "default": 401,
+          "description": "Grid resolution used by AR/CLR/K confidence-set inversion.",
+          "type": "integer"
+        },
+        "h0": {
+          "default": 0.0,
+          "description": "Null value for the endogenous coefficient. All under-H0 tests (AR, CLR, K) are evaluated at ``beta = h0``.",
+          "type": "number"
+        },
+        "include_clr": {
+          "default": true,
+          "description": "Also run the CLR test and invert it for a CLR confidence set.",
+          "type": "boolean"
+        },
+        "include_k": {
+          "default": true,
+          "description": "Also run the Kleibergen K score test and K confidence set.",
+          "type": "boolean"
+        },
+        "instruments": {
+          "description": "Excluded instruments.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "random_state": {
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "vcov": {
+          "default": "HC1",
+          "description": "Used by the Olea-Pflueger effective F.",
+          "enum": [
+            "HC0",
+            "HC1",
+            "classic"
+          ],
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome and single endogenous regressor (column names in ``data``).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "endog",
+        "instruments",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "weakrobust"
+  },
+  {
+    "description": "Wild cluster bootstrap t-test for a single coefficient.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence interval.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Name of the cluster variable.",
+          "type": "string"
+        },
+        "n_boot": {
+          "default": 999,
+          "description": "Number of bootstrap replications (use odd number).",
+          "type": "integer"
+        },
+        "result": {
+          "description": "A fitted regression result from ``sp.regress()``.",
+          "type": "string"
+        },
+        "seed": {
+          "description": "Random seed for reproducibility.",
+          "type": "integer"
+        },
+        "variable": {
+          "description": "Name of the coefficient to test (H0: beta = 0).",
+          "type": "string"
+        },
+        "weight_type": {
+          "default": "rademacher",
+          "description": "Bootstrap weight distribution: - ``'rademacher'``: +/-1 with equal probability. - ``'webb'``: Webb (2014) 6-point distribution for G < 12. - ``'mammen'``: Mammen (1993) 2-point distribution.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cluster",
+        "result",
+        "variable"
+      ],
+      "type": "object"
+    },
+    "name": "wild_cluster_boot"
+  },
+  {
+    "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the number of clusters is large (say > 50) -- ordinary CRV1 standard errors are already reliable and much cheaper. Cost: Runtime is roughly n_boot x (one restricted refit). This is the intended trade for few-cluster validity -- do not raise n_boot inside an outer search loop. Assumptions: Errors are exchangeable within clusters (Rademacher weights are robust to most departures); Number of clusters G >= 5 for finite-sample validity. Pre-conditions: long-format dataset with a cluster identifier present; treatment / test variable varies within at least some clusters; test_var (or first column of x) is the coefficient under test. Failure modes: Multi-way clustering requested -> Multi-way wild cluster bootstrap is not yet supported; see sp.subcluster_wild_bootstrap...",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster identifier",
+          "type": "string"
+        },
+        "h0": {
+          "default": 0.0,
+          "description": "Null value of the coefficient",
+          "type": "number"
+        },
+        "n_boot": {
+          "default": 999,
+          "description": "Number of bootstrap replications.",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "test_var": {
+          "description": "Variable being tested; defaults to first in x",
+          "type": "string"
+        },
+        "weight_type": {
+          "default": "rademacher",
+          "description": "Bootstrap weight distribution",
+          "enum": [
+            "rademacher",
+            "mammen",
+            "webb",
+            "normal"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "description": "Right-hand-side variables",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome variable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cluster",
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "wild_cluster_bootstrap"
+  },
+  {
+    "description": "Confidence interval via bootstrap p-value inversion. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster identifier column for clustered standard errors.",
+          "type": "string"
+        },
+        "grid_size": {
+          "default": 41,
+          "description": "Number of null-value grid points to evaluate (odd preferred).",
+          "type": "integer"
+        },
+        "grid_span": {
+          "default": 6.0,
+          "description": "Half-width of the search grid in units of cluster-robust SE.",
+          "type": "number"
+        },
+        "n_boot": {
+          "default": 999,
+          "description": "Number of bootstrap replications.",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "test_var": {
+          "description": "test_var parameter (Optional[str]).",
+          "type": "string"
+        },
+        "weight_type": {
+          "default": "webb",
+          "description": "weight_type parameter (str).",
+          "type": "string"
+        },
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cluster",
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "wild_cluster_ci_inv"
+  },
+  {
+    "description": "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE regression with cohort x post interactions; recovers cohort-specific ATTs. Numerically equivalent to CS / SA / BJS under the saturated specification. Validation: certified parity evidence. Do NOT use when: treatment timing is not staggered -- the extended TWFE saturation buys nothing over sp.did(method='2x2'). Cost: Like sp.etwfe: regressor count grows as O(cohorts x periods) from the saturated interactions, so the design matrix -- not the sample size -- is the binding cost. Assumptions: Parallel trends per cohort; No anticipation; SUTVA. Pre-conditions: panel with unit x time x outcome; first_treat cohort column (first period treated, 0 = never). Failure modes: Singleton cohorts with one unit -> Aggregate small cohorts or drop them. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation, sp.etwfe. Typical minimum N: 50.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster identifier column for clustered standard errors.",
+          "type": "string"
+        },
+        "controls": {
+          "description": "Control-variable column names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "first_treat": {
+          "description": "First-treatment period; 0 = never-treated",
+          "type": "string"
+        },
+        "group": {
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "time": {
+          "description": "Time period column.",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "first_treat",
+        "group",
+        "time",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "wooldridge_did"
+  },
+  {
+    "description": "X-Learner CATE -- article alias for :func:`metalearner(learner='x')`. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "input_schema": {
+      "properties": {
+        "X": {
+          "description": "Feature matrix or covariate DataFrame.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "d": {
+          "description": "d parameter (str).",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "X",
+        "d",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "xlearner"
+  },
+  {
+    "description": "Arellano-Bond / Blundell-Bond GMM for dynamic panels (standalone). Validation: certified parity evidence. Assumptions: No second-order serial correlation in differenced errors; Internal instruments are valid and not too numerous. Pre-conditions: Panel data include unit, time, outcome, and lagged dependent variable structure; Number of time periods is moderate relative to units. Failure modes: Instrument proliferation or AR(2) test rejects -> Collapse instruments, reduce lag depth, or compare with fixed-effects estimates. Alternatives: sp.panel, sp.feols. Typical minimum N: 100.",
+    "input_schema": {
+      "properties": {
+        "ah_instrument": {
+          "default": "levels",
+          "description": "Anderson-Hsiao instrument for method='ah'",
+          "enum": [
+            "levels",
+            "differences"
+          ],
+          "type": "string"
+        },
+        "cluster": {
+          "description": "Cluster SEs on a coarser unit than the panel id (must be constant within unit)",
+          "type": "string"
+        },
+        "collapse": {
+          "default": false,
+          "description": "Collapse instruments (Roodman 2009) to curb proliferation",
+          "type": "boolean"
+        },
+        "endogenous": {
+          "description": "Endogenous regressors (own lags 2+ as instruments)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "default": "id",
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "lags": {
+          "default": 1,
+          "description": "lags parameter (int).",
+          "type": "integer"
+        },
+        "method": {
+          "default": "difference",
+          "description": "difference (Arellano-Bond), system (Blundell-Bond) or ah (Anderson-Hsiao IV)",
+          "enum": [
+            "difference",
+            "system",
+            "ah"
+          ],
+          "type": "string"
+        },
+        "orthogonal": {
+          "default": false,
+          "description": "Forward orthogonal deviations instead of first differences",
+          "type": "boolean"
+        },
+        "predetermined": {
+          "description": "Predetermined regressors (own lags 1+ as instruments)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "steps": {
+          "description": "Number of GMM steps, or 'iterated' / 'cue'",
+          "type": "string"
+        },
+        "time": {
+          "default": "time",
+          "description": "Time column",
+          "type": "string"
+        },
+        "time_dummies": {
+          "default": false,
+          "description": "Add period dummies as regressors and instruments",
+          "type": "boolean"
+        },
+        "twostep": {
+          "default": false,
+          "description": "twostep parameter (bool).",
+          "type": "boolean"
+        },
+        "x": {
+          "description": "Exogenous regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Dependent variable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "xtabond"
+  },
+  {
+    "description": "Blundell-Bond system GMM for dynamic panels (alias for xtabond with method='system'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "input_schema": {
+      "properties": {
+        "collapse": {
+          "default": false,
+          "description": "Collapse instruments (Roodman 2009) to curb proliferation",
+          "type": "boolean"
+        },
+        "id": {
+          "default": "id",
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "lags": {
+          "default": 1,
+          "description": "lags parameter (int).",
+          "type": "integer"
+        },
+        "time": {
+          "default": "time",
+          "description": "Time column",
+          "type": "string"
+        },
+        "twostep": {
+          "default": false,
+          "description": "twostep parameter (bool).",
+          "type": "boolean"
+        },
+        "x": {
+          "description": "Exogenous regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Dependent variable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "xtdpdsys"
+  },
+  {
+    "description": "Bias-corrected LSDV (LSDVC) estimator for dynamic panels. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number"
+        },
+        "bias_order": {
+          "default": 2,
+          "description": "How many terms of the Bun-Kiviet expansion to subtract: ``O(1/T)``, ``O(1/NT)``, or ``O(1/NT^2)``. Bun & Kiviet (2003) find diminishing returns beyond the second.",
+          "enum": [
+            "1",
+            "2",
+            "3"
+          ],
+          "type": "integer"
+        },
+        "bootstrap": {
+          "default": 0,
+          "description": "Number of parametric-bootstrap replications for the standard errors. **The reported analytic standard errors are the LSDV ones and do not account for the bias correction**, exactly as in Stata's ``xtlsdvc``; set this to get honest ones. 0 skips the bootstrap and warns.",
+          "type": "integer"
+        },
+        "id": {
+          "default": "id",
+          "description": "Unit and period identifiers.",
+          "type": "string"
+        },
+        "initial": {
+          "default": "ab",
+          "description": "Consistent estimator used to evaluate the bias expression: Arellano-Bond, Anderson-Hsiao, or Blundell-Bond system GMM. The correction is only as good as this input, and the three can disagree materially on a persistent series -- ``'bb'`` is the safer choice there, for the same reason system GMM is.",
+          "enum": [
+            "ab",
+            "ah",
+            "bb"
+          ],
+          "type": "string"
+        },
+        "seed": {
+          "description": "Seed for the bootstrap.",
+          "type": "integer"
+        },
+        "time": {
+          "default": "time",
+          "description": "Unit and period identifiers.",
+          "type": "string"
+        },
+        "x": {
+          "description": "Strictly exogenous regressors. Accepts the same lag-operator syntax",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Dependent variable. Its first lag is added automatically -- do **not** pass a hand-built lag in ``x``.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "xtlsdvc"
+  },
+  {
     "description": "Fit panel negative-binomial regression. Use model='fe' for explicit entity fixed effects via nbreg, or model='re' for a random-intercept NB-2 GLMM via menbreg. Do not use feols for negative-binomial outcomes.",
     "input_schema": {
       "properties": {
@@ -25754,5 +26354,344 @@
       "type": "object"
     },
     "name": "xtnbreg"
+  },
+  {
+    "description": "Yatchew differencing test that E[y | x] is a polynomial of ``order``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "input_schema": {
+      "properties": {
+        "het_robust": {
+          "default": true,
+          "description": "Use the heteroskedasticity-robust statistic of the paper's Appendix E. ``did_had`` always does.",
+          "type": "boolean"
+        },
+        "order": {
+          "default": 1,
+          "description": "Polynomial order under the null. 1 = linear, 0 = constant.",
+          "type": "integer"
+        },
+        "x": {
+          "description": "Running variable and outcome, same length.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Running variable and outcome, same length.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "yatchew_linearity_test"
+  },
+  {
+    "description": "Nonparametric causal decomposition of a group disparity.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Two-sided coverage level.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Column name to use for cluster bootstrap.",
+          "type": "string"
+        },
+        "group": {
+          "description": "Binary group indicator (0/1) -- ``1`` = advantaged / index group.",
+          "type": "string"
+        },
+        "inference": {
+          "default": "bootstrap",
+          "description": "``\"bootstrap\"`` returns SEs and percentile CIs from the non-parametric (cluster-aware) bootstrap. ``\"none\"`` skips inference.",
+          "type": "string"
+        },
+        "method": {
+          "default": "plugin",
+          "description": "``\"plugin\"`` uses within-cell OLS for outcomes and within-group logit for the propensity and computes plug-in expectations (Yu-Elwert 2025, Section 4.1). ``\"efficient\"`` augments each moment with the doubly-robust correction term -- recommended when nuisance functions might be misspecified.",
+          "enum": [
+            "plugin",
+            "efficient"
+          ],
+          "type": "string"
+        },
+        "n_boot": {
+          "default": 499,
+          "description": "Number of bootstrap replications.",
+          "type": "integer"
+        },
+        "seed": {
+          "default": 12345,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "treatment": {
+          "description": "Binary treatment indicator (0/1).",
+          "type": "string"
+        },
+        "trim": {
+          "default": 0.005,
+          "description": "Lower/upper clip for fitted propensities (only used in ``method=\"efficient\"``).",
+          "type": "number"
+        },
+        "x": {
+          "description": "Adjustment covariates (used to identify within-group CATEs).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Name of the (continuous) outcome column.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "group",
+        "treatment",
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "yu_elwert_decompose"
+  },
+  {
+    "description": "Bauer-Sinning (2008) nonlinear Oaxaca-Blinder decomposition with",
+    "input_schema": {
+      "properties": {
+        "group": {
+          "description": "Group or cohort identifier.",
+          "type": "string"
+        },
+        "model": {
+          "default": "logit",
+          "description": "Model variant or parameterisation to fit.",
+          "enum": [
+            "logit",
+            "probit"
+          ],
+          "type": "string"
+        },
+        "reference": {
+          "default": 0,
+          "description": "reference parameter (int).",
+          "enum": [
+            "0",
+            "1"
+          ],
+          "type": "integer"
+        },
+        "variant": {
+          "default": "yun",
+          "description": "variant parameter (str).",
+          "type": "string"
+        },
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "group",
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "yun_nonlinear"
+  },
+  {
+    "description": "Zero-first-stage (ZFS) test of the exclusion restriction, plus van Kippersluis-Rietveld (2018) pleiotropy-robust correction. Estimates the instrument's direct effect on the outcome in a subsample where it has no first stage, reports the implied bias in the main-sample IV estimate, and returns the corrected point estimate with a cluster-bootstrap interval. Accepts the same exog / absorb / cluster spec as sp.iv, so the test runs on the specification actually fitted.",
+    "input_schema": {
+      "properties": {
+        "absorb": {
+          "description": "Fixed effects absorbed in every component regression",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster identifier column for clustered standard errors.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "endog": {
+          "description": "Endogenous regressor",
+          "type": "string"
+        },
+        "exog": {
+          "description": "exog parameter (list[str] | str).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "instrument": {
+          "description": "The single excluded instrument being tested",
+          "type": "string"
+        },
+        "n_boot": {
+          "default": 999,
+          "description": "Bootstrap reps for the corrected estimate (0 to skip)",
+          "type": "integer"
+        },
+        "random_state": {
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "y": {
+          "description": "Outcome column",
+          "type": "string"
+        },
+        "zfs": {
+          "description": "Boolean column/mask marking the zero-first-stage subsample where the instrument is believed inert",
+          "type": "string"
+        }
+      },
+      "required": [
+        "endog",
+        "instrument",
+        "y",
+        "zfs"
+      ],
+      "type": "object"
+    },
+    "name": "zero_first_stage"
+  },
+  {
+    "description": "Zero-Inflated Negative Binomial (ZINB) regression via MLE. Validation: certified parity evidence.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster variable name.",
+          "type": "string"
+        },
+        "formula": {
+          "description": "Patsy-style formula for the count equation.",
+          "type": "string"
+        },
+        "inflate": {
+          "description": "Inflation-equation regressors. Default: same as count regressors.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "maxiter": {
+          "default": 200,
+          "description": "maxiter parameter (int).",
+          "type": "integer"
+        },
+        "robust": {
+          "default": "nonrobust",
+          "description": "Standard error type.",
+          "type": "string"
+        },
+        "tol": {
+          "default": 1e-08,
+          "description": "Numerical convergence tolerance.",
+          "type": "number"
+        },
+        "x": {
+          "description": "Count-equation regressors.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Dependent variable name.",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "zinb"
+  },
+  {
+    "description": "Zero-Inflated Poisson (ZIP) regression via MLE. Validation: certified parity evidence.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster variable name for clustered standard errors.",
+          "type": "string"
+        },
+        "formula": {
+          "description": "Patsy-style formula for the count equation, e.g. \"y ~ x1 + x2\".",
+          "type": "string"
+        },
+        "inflate": {
+          "description": "Inflation-equation regressors. Default: same as count regressors.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "maxiter": {
+          "default": 200,
+          "description": "Maximum iterations for optimizer.",
+          "type": "integer"
+        },
+        "robust": {
+          "default": "nonrobust",
+          "description": "\"nonrobust\", \"HC0\", \"HC1\", etc.",
+          "type": "string"
+        },
+        "tol": {
+          "default": 1e-08,
+          "description": "Convergence tolerance.",
+          "type": "number"
+        },
+        "x": {
+          "description": "Count-equation regressors (alternative to formula).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Dependent variable name (alternative to formula).",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "zip_model"
   }
 ]

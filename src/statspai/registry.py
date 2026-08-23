@@ -10762,7 +10762,10 @@ def _build_registry() -> None:
             failure_modes=[
                 FailureMode(
                     symptom="Result carries no model_info",
-                    exception="None",
+                    # No exception is raised here, and the bare string "None"
+                    # reads to an agent as a class to `except` on. Use the
+                    # documented sentinel the contract test accepts.
+                    exception="(none — every step reported undetermined)",
                     remedy=(
                         "Every step is reported undetermined, which is the "
                         "informative answer."

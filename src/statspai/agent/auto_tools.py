@@ -253,7 +253,7 @@ def auto_tool_manifest(
     categories: Optional[Iterable[str]] = None,
     exclude: Optional[Iterable[str]] = None,
     *,
-    max_tools: int = 512,
+    max_tools: int = 640,
     warn_on_truncate: bool = True,
 ) -> List[Dict[str, Any]]:
     """Return MCP tool specs for every agent-safe registered function.
@@ -265,12 +265,18 @@ def auto_tool_manifest(
         :data:`DEFAULT_WHITELIST`.
     exclude : iterable of str, optional
         Extra names to skip in addition to :data:`DEFAULT_EXCLUDE`.
-    max_tools : int, default 512
+    max_tools : int, default 640
         Cap on output size.  Keeps the manifest under Anthropic/OpenAI
         tool-list payload limits while giving headroom above the current
         eligible-tool count (so no agent-safe estimator — e.g. the
         ``zip_model`` recommended by the ``excess_zeros`` recovery hint —
-        is silently dropped from the MCP surface). A warning fires when
+        is silently dropped from the MCP surface). **The headroom is the
+        point**: truncation drops alphabetically-last tools, so once the
+        eligible count reaches the cap the surface starts losing tools by
+        spelling — ``vif``, ``xtabond``, ``wild_cluster_boot`` — while the
+        enrichment tables keep recommending them. Raise this whenever the
+        eligible count approaches it; at ~530 eligible the whole manifest
+        is ~0.8 MB, so the headroom is nearly free. A warning fires when
         more eligible tools exist than the cap admits — see
         ``warn_on_truncate``; when that happens the truncation is
         deterministic (alphabetically-last eligible tools drop first), so
