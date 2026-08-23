@@ -14,6 +14,7 @@ authors:
     corresponding: true
     affiliation: "1, 2"
   - name: Scott Rozelle
+    orcid: 0000-0001-5053-0243
     email: rozelle@stanford.edu
     affiliation: "1, 2"
 affiliations:
