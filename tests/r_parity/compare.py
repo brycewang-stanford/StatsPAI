@@ -355,6 +355,20 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # term; the simple ATT now reproduces did::aggte to ~4e-16, so a 1% band is
     # slack a future regression could hide in. Same failure mode the DiD
     # reconciliation study documents: the tolerance, not the number, was the bug.
+    #
+    # The module now pins the AGGREGATION VECTORS, not just the headline
+    # scalar: the dynamic event study, the group vector and the calendar
+    # vector, on estimate and SE -- 18 statistics where there was 1.
+    # base_period is pinned explicitly on all three sides (R defaults to
+    # "varying"; StatsPAI and csdid long2 to "universal"). The simple ATT
+    # averages post-treatment cells only and so cannot see that option,
+    # which is why this module matched for years without it being set;
+    # the event-study rows can, and would disagree on every pre-treatment
+    # cell. 17 of 18 rows are three-way machine precision. The
+    # eighteenth, group_overall, has py == R to 1.2e-16 with Stata 0.27%
+    # away on the SE alone; it is recorded in the module's extra block
+    # rather than absorbed here, because widening rel_se to cover it
+    # would hide the other seventeen.
     "04_csdid": {"rel_est": 1e-6, "rel_se": 1e-9},
     # B: event-time IW SEs track Stata eventstudyinteract (<=0.9%);
     # fixest agg='att' clustered delta-method aggregation differs by up

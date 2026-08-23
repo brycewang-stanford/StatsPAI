@@ -4,10 +4,22 @@
   "n_functions_probed": 9,
   "probe_failures": {},
   "n_reported_objects": 61,
-  "n_pinned": 26,
-  "n_unpinned": 35,
-  "n_unpinned_in_documented_functions": 30,
+  "n_pinned": 30,
+  "n_unpinned": 31,
+  "n_unpinned_in_documented_functions": 26,
   "unclassified_statistics": {
+    "04_csdid": [
+      "calendar_2004",
+      "calendar_2005",
+      "calendar_2006",
+      "calendar_2007",
+      "calendar_overall",
+      "event_overall",
+      "group_2004",
+      "group_2006",
+      "group_2007",
+      "group_overall"
+    ],
     "06_rd": [
       "default_bandwidth_b",
       "default_bandwidth_h",
@@ -447,41 +459,53 @@
       "function": "callaway_santanna",
       "object": "event_study_att",
       "reported": true,
-      "pinned_sides": [],
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
       "documents_reference": true,
       "reference_token": "Stata",
       "reference_evidence": "(R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``). Weights",
-      "verdict": "unpinned"
+      "verdict": "pinned"
     },
     {
       "function": "callaway_santanna",
       "object": "event_study_se",
       "reported": true,
-      "pinned_sides": [],
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
       "documents_reference": true,
       "reference_token": "Stata",
       "reference_evidence": "(R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``). Weights",
-      "verdict": "unpinned"
+      "verdict": "pinned"
     },
     {
       "function": "callaway_santanna",
       "object": "pretrend_att",
       "reported": true,
-      "pinned_sides": [],
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
       "documents_reference": true,
       "reference_token": "Stata",
       "reference_evidence": "(R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``). Weights",
-      "verdict": "unpinned"
+      "verdict": "pinned"
     },
     {
       "function": "callaway_santanna",
       "object": "pretrend_se",
       "reported": true,
-      "pinned_sides": [],
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
       "documents_reference": true,
       "reference_token": "Stata",
       "reference_evidence": "(R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``). Weights",
-      "verdict": "unpinned"
+      "verdict": "pinned"
     },
     {
       "function": "callaway_santanna",

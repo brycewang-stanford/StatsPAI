@@ -13,11 +13,216 @@
       "n": 2500,
       "extra": {}
     }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "event_overall",
+      "estimate": -0.033782519054830699,
+      "se": 0.0089964998505781997,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "event_-4",
+      "estimate": -0.0049030822597451998,
+      "se": 0.0145366374024293,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "event_-3",
+      "estimate": 0.0098834548851391008,
+      "se": 0.0108673301732047,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "event_-2",
+      "estimate": 0.0075553737765173996,
+      "se": 0.0087131716238119002,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "event_+0",
+      "estimate": -0.033837189915896397,
+      "se": 0.0074583382479637,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "event_+1",
+      "estimate": -0.0280311406164604,
+      "se": 0.0088920958343530008,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "event_+2",
+      "estimate": -0.045527906359859198,
+      "se": 0.0147805595445705,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "event_+3",
+      "estimate": -0.0277338393271068,
+      "se": 0.0143663132532688,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "group_overall",
+      "estimate": -0.029513654469371799,
+      "se": 0.0072333907925403,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "group_2004",
+      "estimate": -0.0419087874472127,
+      "se": 0.011738622905890299,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "group_2006",
+      "estimate": -0.016568270917822699,
+      "se": 0.013134527126041099,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "group_2007",
+      "estimate": -0.0300639050430801,
+      "se": 0.0137997823721876,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "calendar_overall",
+      "estimate": -0.037870030368891999,
+      "se": 0.0086208554284417007,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "calendar_2004",
+      "estimate": -0.0472596519537525,
+      "se": 0.0141766828064907,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "calendar_2005",
+      "estimate": -0.0471137521481323,
+      "se": 0.0149970338161517,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "calendar_2006",
+      "estimate": -0.034857959555357899,
+      "se": 0.011601100134269401,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "04_csdid",
+      "side": "Stata",
+      "statistic": "calendar_2007",
+      "estimate": -0.0222487578183252,
+      "se": 0.0099432420504817001,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
   ],
   "extra": {
+    "base_period": "universal (csdid long2)",
     "estimator": "reg",
     "control_group": "nevertreated",
-    "stata_command": "csdid, ivar(countyreal) time(year) gvar(first_treat) method(reg) | estat simple"
+    "stata_command": "csdid ... method(reg) long2 | estat simple/event/group/calendar"
   },
   "provenance": {
     "stata_version": 18,

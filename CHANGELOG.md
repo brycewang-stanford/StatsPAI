@@ -273,6 +273,34 @@ via Crossref and the published PDF.
 
 ### Added
 
+- **Parity module 04 now pins Callaway--Sant'Anna's aggregation vectors,
+  not one scalar.** The most-used estimator in the family had exactly one
+  pinned number — the simple ATT — while its event-study path, group
+  vector and calendar vector carried no reference value at all. It now
+  pins 18 statistics across all three: estimate and standard error, on
+  the dynamic event study, the group vector and the calendar vector.
+  Seventeen of the eighteen are three-way machine precision (worst
+  2.5e-15 py–R, 1.0e-14 py–Stata).
+
+  `base_period` is now pinned explicitly on all three sides. StatsPAI and
+  Stata `csdid long2` use the universal base period; R `did` defaults to
+  `varying`. The simple ATT averages post-treatment cells only and cannot
+  see that option, which is why this module matched for years without it
+  being set — and why extending it to the event study would have reported
+  a spurious disagreement on every pre-treatment cell.
+
+  One row is not a three-way match and is recorded rather than absorbed:
+  `group_overall`, where StatsPAI equals R `did::aggte` to 1.2e-16 and
+  Stata `csdid` differs by 0.27% on the standard error alone. It is
+  **not** labelled a convention: this project's bar is reconstructing the
+  other package's number, and the obvious candidate (csdid treating
+  cohort shares as fixed) does not fit — `mpdta`'s treated cohorts are
+  exactly equal in size and a fixed-weight reconstruction overshoots both
+  values.
+
+  Object coverage moves from 26 pinned / 35 unpinned to **30 / 31**.
+
+
 - **Parity module 84: the BJS pre-treatment lead vector.** Module 16 pins
   the pooled ATT; this pins the object the v1.23.0 correctness fix
   actually lived in. The three leads reproduce Stata `did_imputation,

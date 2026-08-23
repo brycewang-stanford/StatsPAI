@@ -95,6 +95,11 @@ OBJECTS: Tuple[str, ...] = (
     "pretrend_test",
 )
 
+# Known vocabulary gap, stated rather than hidden: the group and
+# calendar aggregations have no slot here. Module 04 pins both vectors
+# against R and Stata, and this audit does not count them -- they surface
+# in ``unclassified_statistics`` instead. Adding them would change the
+# denominator, so it is a deliberate follow-up rather than a quiet edit.
 OBJECT_LABEL = {
     "headline_att": "headline ATT",
     "headline_se": "headline SE",
@@ -127,12 +132,15 @@ def _classify_statistic(name: str) -> Optional[Tuple[str, ...]]:
         # match "tau0" (the next character is a letter), so without this
         # the horizon rows fall through to the headline class and credit
         # coverage the archive does not have.
-        rel = re.search(r"(?:^|_)(?:tau|lead|lag|horizon|pre|e|t|h)[_ ]?(-?\d+)", low)
+        rel = re.search(
+            r"(?:^|_)(?:event|tau|lead|lag|horizon|pre|e|t|h)[_ ]?([+-]?\d+)",
+            low,
+        )
     is_se = low.startswith("se_") or low.endswith("_se") or "_se_" in low
     is_pre = low.startswith("pre") or low.startswith("placebo")
     if rel is not None:
         try:
-            k = int(rel.group(1))
+            k = int(rel.group(1).lstrip("+"))
         except ValueError:  # pragma: no cover - regex guarantees digits
             k = 0
         if k < 0 or is_pre:

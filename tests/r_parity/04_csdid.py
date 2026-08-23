@@ -8,12 +8,14 @@ Tolerance: rel < 1e-3 (iterative estimator). The replica is a
 deterministic seed=42 simulation calibrated to the published
 mpdta neighbourhood.
 """
+
 from __future__ import annotations
+
+import re
 
 import statspai as sp
 
 from _common import ParityRecord, dump_csv, write_results
-
 
 MODULE = "04_csdid"
 
@@ -23,13 +25,21 @@ def main() -> None:
     dump_csv(df, MODULE)
 
     fit = sp.callaway_santanna(
-        df, y="lemp", g="first_treat", t="year", i="countyreal",
-        estimator="reg", control_group="nevertreated",
+        df,
+        y="lemp",
+        g="first_treat",
+        t="year",
+        i="countyreal",
+        estimator="reg",
+        control_group="nevertreated",
+        base_period="universal",
     )
 
     rows: list[ParityRecord] = [
         ParityRecord(
-            module=MODULE, side="py", statistic="simple_ATT",
+            module=MODULE,
+            side="py",
+            statistic="simple_ATT",
             estimate=float(fit.estimate),
             se=float(fit.se),
             ci_lo=float(fit.ci[0]) if fit.ci is not None else None,
@@ -38,12 +48,76 @@ def main() -> None:
         )
     ]
 
+    # Aggregation VECTORS, not just the headline scalar. The event study
+    # is the object a parallel-trends claim is read off, and until now
+    # this module pinned one number and left the whole path unpinned.
+    for agg_type, label in (
+        ("dynamic", "event"),
+        ("group", "group"),
+        ("calendar", "calendar"),
+    ):
+        agg = sp.aggte(fit, type=agg_type, bstrap=False, cband=False)
+        tidy = agg.tidy()
+        # dynamic exposes its cells as type="event_study" with terms
+        # "event_+1"; group and calendar as type="group_time" with terms
+        # "att(g=2004.0)" / "att(t=2005.0)".
+        cells = tidy[tidy["type"].isin(("event_study", "group_time"))]
+        for term, est, se in zip(cells["term"], cells["estimate"], cells["std_error"]):
+            key = re.sub(r"^att\((?:g|t)=", "", str(term)).rstrip(")")
+            key = key.replace("event_", "")
+            if key.endswith(".0"):
+                key = key[:-2]
+            rows.append(
+                ParityRecord(
+                    module=MODULE,
+                    side="py",
+                    statistic=f"{label}_{key}",
+                    estimate=float(est),
+                    se=float(se),
+                )
+            )
+        rows.append(
+            ParityRecord(
+                module=MODULE,
+                side="py",
+                statistic=f"{label}_overall",
+                estimate=float(agg.estimate),
+                se=float(agg.se),
+            )
+        )
+
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "estimator": "reg",
             "control_group": "nevertreated",
+            "base_period": "universal",
             "method": fit.method,
+            "group_overall_stata_gap": (
+                "One row is not a three-way match. group_overall: StatsPAI "
+                "and R did::aggte agree to 1.2e-16; Stata csdid's estat "
+                "group GAverage standard error differs by 2.7e-3 (0.27%). "
+                "The point estimate matches all three. This is recorded, "
+                "not labelled: this project's bar for calling a gap a "
+                "convention is reconstructing the other package's number "
+                "from ours, and that has not been done here. The obvious "
+                "candidate -- csdid treating the cohort shares as fixed -- "
+                "does not fit: mpdta's treated cohorts are exactly equal in "
+                "size (shares 1/3, 1/3, 1/3) and a fixed-weight, "
+                "independent-cell reconstruction gives 0.00746 against "
+                "csdid's 0.00723 and our 0.00725, overshooting both."
+            ),
+            "base_period_note": (
+                "base_period is pinned explicitly on BOTH sides. StatsPAI "
+                "defaults to 'universal' and R did defaults to 'varying'. "
+                "The simple ATT cannot see the difference -- it averages "
+                "post-treatment cells only -- so this module passed for "
+                "years without the option being matched. The event-study "
+                "path can see it, and would have reported a spurious "
+                "disagreement on every pre-treatment cell."
+            ),
             "se_note": (
                 "The simple-ATT point estimate matches R did::aggte and "
                 "Stata csdid at rel < 1e-15. The analytic SE now matches the "

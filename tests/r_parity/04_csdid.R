@@ -39,6 +39,7 @@ att_gt_fit <- did::att_gt(
   data     = df,
   control_group = "nevertreated",
   est_method    = "reg",
+  base_period   = "universal",
   bstrap        = FALSE,
   cband         = FALSE
 )
@@ -58,7 +59,33 @@ rows <- list(
   )
 )
 
+# Aggregation vectors. did::aggte returns the cells in $egt with
+# $att.egt / $se.egt, and the summary in $overall.att / $overall.se.
+for (spec in list(list(type = "dynamic",  label = "event"),
+                  list(type = "group",    label = "group"),
+                  list(type = "calendar", label = "calendar"))) {
+  agg <- did::aggte(att_gt_fit, type = spec$type, bstrap = FALSE, cband = FALSE)
+  keys <- agg$egt
+  for (i in seq_along(keys)) {
+    k <- keys[i]
+    key <- if (spec$label == "event" && k >= 0) sprintf("+%d", k) else as.character(k)
+    rows[[length(rows) + 1L]] <- parity_row(
+      module    = MODULE,
+      statistic = sprintf("%s_%s", spec$label, key),
+      estimate  = agg$att.egt[i],
+      se        = agg$se.egt[i]
+    )
+  }
+  rows[[length(rows) + 1L]] <- parity_row(
+    module    = MODULE,
+    statistic = sprintf("%s_overall", spec$label),
+    estimate  = agg$overall.att,
+    se        = agg$overall.se
+  )
+}
+
 write_results(MODULE, rows,
               extra = list(estimator = "reg",
+                           base_period = "universal",
                            control_group = "nevertreated",
                            bstrap = FALSE))
