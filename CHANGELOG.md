@@ -156,6 +156,46 @@ via Crossref and the published PDF.
 
 ### Added
 
+- **Parity module 84: the BJS pre-treatment lead vector.** Module 16 pins
+  the pooled ATT; this pins the object the v1.23.0 correctness fix
+  actually lived in. The three leads reproduce Stata `did_imputation,
+  pretrends(3)` at rel < 1e-14 on **both** estimate and standard error.
+  The four horizons reproduce R `didimputation` 0.5.1 *and* Stata at
+  ~1e-8 on the point estimate.
+
+  Two things the module records rather than smooths over. First, R and
+  Stata implement **different** pre-trend normalisations and neither
+  exposes the other's: R takes `pretrends` as a flag and omits relative
+  time -1, Stata takes a count and pools earlier periods, so the leads
+  are a py-Stata pin and the R side stays on the horizons. Second,
+  StatsPAI's analytic **horizon** standard errors differ from the
+  references by 4.9-13% with non-uniform sign, while R and Stata agree
+  with each other to ~3e-9. Two independent implementations agreeing
+  against a third does not meet this project's bar for a "convention"
+  label, which requires reconstructing the other package's number. It is
+  registered as an open defect, outside the tolerance budget, on an
+  object nothing previously compared.
+
+### Fixed
+
+- **The parity comparator silently discarded every statistic the R side
+  did not emit.** `compare.py::collect()` skipped any Python row without
+  an R counterpart, which threw away real py-Stata evidence in four
+  modules — `31_dfl` (3 rows), `59_liml` (2), `28_frontier` (1) and the
+  new `84_bjs_pretrends` (3) — nine rows in total, every one of which
+  agrees at machine precision. Rows are now kept whenever *either*
+  reference carries the statistic, and rows neither carries are recorded
+  in `UNMATCHED_ROWS` instead of vanishing. "Emitted and never compared"
+  is exactly how an unpinned object hides, which is the subject of this
+  release.
+
+- **`scripts/audit_reference_claims.py` mis-filed `tau<k>` horizons as
+  the headline statistic**, because the relative-time pattern matched a
+  bare `t` before `tau`. Horizon rows were crediting coverage the
+  archive did not have. Object coverage is now 61 reported / 26 with a
+  reference value / 35 without.
+
+
 - **R-style covariate formulas on `sp.callaway_santanna` and
   `sp.drdid`.** `x=` / `covariates=` now accept a one-sided formula as
   well as a list of column names, so an `xformla` copied out of R `did`

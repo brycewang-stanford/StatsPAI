@@ -2177,9 +2177,15 @@
     },
     {
       "additional_tests": [
+        "tests/r_parity/84_bjs_pretrends.py",
+        "tests/r_parity/84_bjs_pretrends.R",
+        "tests/stata_parity/84_bjs_pretrends.do",
         "tests/reference_parity/test_bjs_fe_covariates_parity.py",
         "tests/reference_parity/test_bjs_project_parity.py",
         "tests/reference_parity/test_did_variants_parity.py"
+      ],
+      "also_in_modules": [
+        "84_bjs_pretrends"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -4716,9 +4722,11 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 1.6586501143496775e-15,
-        "rel_vs_Stata": 3.0157274806357716e-16,
+        "rel_vs_Stata": 9.749801278145574e-16,
         "statistic": [
-          "beta_x"
+          "beta_x",
+          "beta_w",
+          "beta_intercept"
         ],
         "tolerance": 1e-06
       },
@@ -4728,7 +4736,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 1.6586501143496775e-15,
-        "Stata": 3.0157274806357716e-16
+        "Stata": 9.749801278145574e-16
       },
       "python_call": "sp.liml",
       "reference": "ivmodel::LIML",

@@ -106,7 +106,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `kdensity` | Gaussian KDE closed form (= stats::density / sklearn) | R 4.5.2 | density 1e-12 abs (observed ~3e-18 / 0) | — / — | [`test_kdensity_parity.py`](../tests/reference_parity/test_kdensity_parity.py) |
 | `kitagawa_decompose` | Kitagawa (1955) two-factor rate decomposition identity | R 4.5.2 | gap = rate + composition + interaction 1e-12 abs (observed 0) | — / — | [`test_kitagawa_decompose_parity.py`](../tests/reference_parity/test_kitagawa_decompose_parity.py) |
 | `lee_bounds` | Lee (2009) trimming-bound closed form (lee2009training) | R 4.5.2 | bounds / trim fraction / retention 1e-12 abs (observed <= 1e-16) | — / — | [`test_lee_bounds_parity.py`](../tests/reference_parity/test_lee_bounds_parity.py) |
-| `liml` | ivmodel::LIML | R 4.5.2; ivmodel 1.9.1 | rel_est<=1e-06, rel_se<=1e-06 | 1.7e-15 / 3.0e-16 | [`59_liml.py`](../tests/r_parity/59_liml.py) (+2) |
+| `liml` | ivmodel::LIML | R 4.5.2; ivmodel 1.9.1 | rel_est<=1e-06, rel_se<=1e-06 | 1.7e-15 / 9.7e-16 | [`59_liml.py`](../tests/r_parity/59_liml.py) (+2) |
 | `local_projections` | lpirfs::lp_lin | R 4.5.2; lpirfs 0.2.5 | rel_est<=1e-06, rel_se<=1e-06 | 5.0e-15 / 4.4e-15 | [`34_lp.py`](../tests/r_parity/34_lp.py) (+2) |
 | `logit` | stats::glm(family=binomial("logit")) | R 4.5.2; stats 4.5.2 | rel_est<=1e-06, rel_se<=1e-06 | 2.7e-11 / 2.7e-11 | [`57_logit.py`](../tests/r_parity/57_logit.py) (+2) |
 | `logrank_test` | survival::survdiff | R 4.5.2; survival 3.8.3 | chi-square 1e-10 rel (observed ~8e-16); p-value 1e-10 abs | — / — | [`test_survival_km_parity.py`](../tests/reference_parity/test_survival_km_parity.py) (+1) |

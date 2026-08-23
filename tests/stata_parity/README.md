@@ -114,6 +114,7 @@ writes one row per parity statistic to
 | 81 | dCDH 2020 DID_M               | `sp.did_multiplegt`            | `did_multiplegt_old, placebo(1) breps(0)`                    |
 | 82 | Design-based staggered rollout| `sp.staggered_rollout`         | `staggered, i() t() g() estimand(simple cohort calendar eventstudy)` |
 | 83 | LP-DiD event study            | `sp.lp_did`                    | `lpdid, unit() time() treat() pre_window(2) post_window(3)`  |
+| 84 | BJS pre-treatment leads       | `sp.did_imputation`            | `did_imputation y unit time g, pretrends(3) horizons(0/3) cluster(unit)` |
 
 ### Modules **without** a materialized Stata JSON
 

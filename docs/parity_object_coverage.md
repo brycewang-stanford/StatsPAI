@@ -3,8 +3,8 @@
 StatsPAI 1.22.0. 9 estimators probed on `sp.datasets.mpdta()`.
 
 - reported objects: **61**
-- of those, pinned against a reference implementation: **22**
-- unpinned: **39**, of which **34** belong to a function whose documentation names a runnable reference somewhere
+- of those, carrying a reference value to compare against: **26**  ("pinned" = the archive has a number for this object; whether it *agrees* is the tolerance registry's question, not this table's)
+- unpinned: **35**, of which **30** belong to a function whose documentation names a runnable reference somewhere
 
 The second count is the softer one and is reported as such: naming a reference in a docstring is not the same as promising parity on the particular object in the row. The first two counts need no such judgement, which is why the headline rests on them.
 
@@ -26,10 +26,10 @@ The second count is the softer one and is reported as such: naming a reference i
 | `sun_abraham` | joint pre-trend test | -- | unpinned | Stata |
 | `did_imputation` | headline ATT | R, Stata | pinned | Stata |
 | `did_imputation` | headline SE | R, Stata | pinned | Stata |
-| `did_imputation` | event-study coefficients (post) | -- | unpinned | Stata |
-| `did_imputation` | event-study SEs (post) | -- | unpinned | Stata |
-| `did_imputation` | pre-treatment leads | -- | unpinned | Stata |
-| `did_imputation` | pre-treatment lead SEs | -- | unpinned | Stata |
+| `did_imputation` | event-study coefficients (post) | R, Stata | pinned | Stata |
+| `did_imputation` | event-study SEs (post) | R, Stata | pinned | Stata |
+| `did_imputation` | pre-treatment leads | Stata | pinned | Stata |
+| `did_imputation` | pre-treatment lead SEs | Stata | pinned | Stata |
 | `did_imputation` | joint pre-trend test | -- | unpinned | Stata |
 | `gardner_did` | headline ATT | R, Stata | pinned | did2s |
 | `gardner_did` | headline SE | R, Stata | pinned | did2s |

@@ -18797,7 +18797,9 @@
     "validation_notes": [
       "Track A parity seed",
       "R parity module 16_bjs",
+      "R parity module 84_bjs_pretrends",
       "Stata parity module 16_bjs",
+      "Stata parity module 84_bjs_pretrends",
       "BJS certification is convention-specific; the parity harness keeps R's 0-for-never input and Stata's missing-Ei input explicit."
     ],
     "validation_status": "certified"

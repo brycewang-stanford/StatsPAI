@@ -4,9 +4,9 @@
   "n_functions_probed": 9,
   "probe_failures": {},
   "n_reported_objects": 61,
-  "n_pinned": 22,
-  "n_unpinned": 39,
-  "n_unpinned_in_documented_functions": 34,
+  "n_pinned": 26,
+  "n_unpinned": 35,
+  "n_unpinned_in_documented_functions": 30,
   "unclassified_statistics": {
     "06_rd": [
       "default_bandwidth_b",
@@ -608,41 +608,51 @@
       "function": "did_imputation",
       "object": "event_study_att",
       "reported": true,
-      "pinned_sides": [],
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
       "documents_reference": true,
       "reference_token": "Stata",
       "reference_evidence": "ring the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
-      "verdict": "unpinned"
+      "verdict": "pinned"
     },
     {
       "function": "did_imputation",
       "object": "event_study_se",
       "reported": true,
-      "pinned_sides": [],
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
       "documents_reference": true,
       "reference_token": "Stata",
       "reference_evidence": "ring the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
-      "verdict": "unpinned"
+      "verdict": "pinned"
     },
     {
       "function": "did_imputation",
       "object": "pretrend_att",
       "reported": true,
-      "pinned_sides": [],
+      "pinned_sides": [
+        "Stata"
+      ],
       "documents_reference": true,
       "reference_token": "Stata",
       "reference_evidence": "ring the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
-      "verdict": "unpinned"
+      "verdict": "pinned"
     },
     {
       "function": "did_imputation",
       "object": "pretrend_se",
       "reported": true,
-      "pinned_sides": [],
+      "pinned_sides": [
+        "Stata"
+      ],
       "documents_reference": true,
       "reference_token": "Stata",
       "reference_evidence": "ring the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
-      "verdict": "unpinned"
+      "verdict": "pinned"
     },
     {
       "function": "did_imputation",

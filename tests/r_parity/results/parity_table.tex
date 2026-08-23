@@ -97,4 +97,5 @@ Module & Method & Worst headline diff & Verdict \\
 \code{81\_didm} & dCDH 2020 DID_M (on/off switching) & rel $\le 3.9e-15$ {\footnotesize (machine precision vs archived DIDmultiplegt 0.1.4)} & \textbf{PASS} \\
 \code{82\_staggered} & Design-based staggered rollout (Roth-Sant'Anna) & rel $\le 9.1e-16$ {\footnotesize (machine precision on all 33 rows (worst 3.7e-15) against both staggered 1.2.2 in R and the SSC staggered port in Stata, including both the Neyman and adjusted standard errors)} & \textbf{PASS} \\
 \code{83\_lpdid} & LP-DiD event study (Dube-Girardi-Jorda-Taylor) & rel $\le 5e-15$ {\footnotesize (estimate and SE both rel $<$ 1e-14 vs a direct transcription)} & \textbf{PASS} \\
+\code{84\_bjs\_pretrends} & BJS pre-treatment lead vector (Borusyak-Jaravel-Spiess) & rel $\le 5.1e-08$ {\footnotesize (point estimates rel $<$ 1e-7 against both references; the three leads match Stata \texttt{pretrends(3)} at rel $<$ 1e-14 on estimate and SE, and are a py$\leftrightarrow$Stata pin because R exposes no equivalent option; horizon SEs are an open gap)} & \textbf{PASS} \\
 \end{longtable}

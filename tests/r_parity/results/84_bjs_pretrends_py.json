@@ -1,0 +1,100 @@
+{
+  "module": "84_bjs_pretrends",
+  "side": "py",
+  "rows": [
+    {
+      "module": "84_bjs_pretrends",
+      "side": "py",
+      "statistic": "pre3_att",
+      "estimate": 0.36475745934284554,
+      "se": 0.061855323420351466,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 134,
+      "extra": {}
+    },
+    {
+      "module": "84_bjs_pretrends",
+      "side": "py",
+      "statistic": "pre2_att",
+      "estimate": 0.5821133704049779,
+      "se": 0.07025053245905431,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 134,
+      "extra": {}
+    },
+    {
+      "module": "84_bjs_pretrends",
+      "side": "py",
+      "statistic": "pre1_att",
+      "estimate": 0.8122770851655338,
+      "se": 0.06778760422022842,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 134,
+      "extra": {}
+    },
+    {
+      "module": "84_bjs_pretrends",
+      "side": "py",
+      "statistic": "tau0_att",
+      "estimate": 1.9607521283874443,
+      "se": 0.06575465522241163,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 134,
+      "extra": {}
+    },
+    {
+      "module": "84_bjs_pretrends",
+      "side": "py",
+      "statistic": "tau1_att",
+      "estimate": 2.552473063557515,
+      "se": 0.07357918931373879,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 134,
+      "extra": {}
+    },
+    {
+      "module": "84_bjs_pretrends",
+      "side": "py",
+      "statistic": "tau2_att",
+      "estimate": 3.4774494247621184,
+      "se": 0.06199715141632416,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 134,
+      "extra": {}
+    },
+    {
+      "module": "84_bjs_pretrends",
+      "side": "py",
+      "statistic": "tau3_att",
+      "estimate": 4.056591172417559,
+      "se": 0.06495237322442476,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 134,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "pretrend_method": "bjs",
+    "cluster": "unit",
+    "leads": [
+      -3,
+      -2,
+      -1
+    ],
+    "horizons": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "statspai_version": "1.22.0",
+    "note": "Pins the pre-treatment lead vector, not just the pooled ATT of module 16. pre<k>_att is relative time -k."
+  }
+}

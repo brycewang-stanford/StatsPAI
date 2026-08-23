@@ -101,33 +101,39 @@ direction is not uniform (one horizon reaches 1.52x), so an omitted
 positive variance term is not the whole story. Pinned as a measurement,
 not fixed.
 
-### 1.4 Remaining Month-1 items (**deliberately deferred**)
+### 1.4 Parity-module packaging (**done**)
 
-**Why the parity modules are not in this round.** Packaging the new Stata
-and R references as archive modules requires editing
-`tests/r_parity/compare.py::TOLERANCES`, `TIER_A_FIXTURE_LOCK.json` and
-both parity READMEs. A file-level diff against the other work line shows
-those are exactly the files it has been changing (`ea43cd66`,
-`beec38d4`), and this branch is three commits behind them. §9.2's
-recorded cost for editing a contended file from a stale branch point is
-permanent conflict, so the sequencing is: rebase onto `a98b6743` first,
-then add the modules. The reference numbers are already captured and
-tested; only the packaging waits.
+Deferred in the previous round because packaging required editing
+`compare.py`, `TIER_A_FIXTURE_LOCK.json` and both parity READMEs, which
+were then the other line's most active files while this branch was three
+commits behind. That reason expired: those files were last touched 12
+days ago and a sweep of all eight worktrees found none of them holding
+the parity harness. Done now, on a current base.
 
-The overlap between this branch and theirs is currently the eight files
-§9.2 predicts — `CHANGELOG.md`, `registry.py`, and the six generated
-`schemas/*` — all append-only or regenerable. No source file collides:
-they hold `did/callaway_santanna.py` and `did/wooldridge_did.py`, this
-branch holds `did/did_imputation.py` and four new files.
+`84_bjs_pretrends` pins the lead vector against Stata at rel < 1e-14
+(estimate and SE) and the horizons against R and Stata at ~1e-8.
+
+Two findings came out of the packaging itself, which is the argument for
+doing it rather than leaving the numbers in a test file:
+
+- **The comparator was silently dropping evidence.** `collect()` skipped
+  any Python statistic the R side did not emit, discarding nine py-Stata
+  rows across four modules (`31_dfl`, `59_liml`, `28_frontier`,
+  `84_bjs_pretrends`) — all of which agree at machine precision. Fixed,
+  with unmatched rows now reported instead of vanishing.
+- **The imputation estimator's horizon standard errors are wrong, and
+  this is new.** StatsPAI differs from the references by 4.9-13% with
+  non-uniform sign; R `didimputation` and Stata agree with each other to
+  ~3e-9. The existing runtime warning (analytic SE under-counts
+  fixed-effect estimation variance) predicts a uniform direction and this
+  gap does not have one, so the warning does not explain it. Registered
+  as an open defect outside the tolerance budget, **not** diagnosed.
+  This is the top remaining technical item.
 
 - **Staggered `symmetric`.** Currently refuses outside non-staggered
   balanced designs, because the `N/N0` factor is only derived there. The
   generalisation is Liu (2025)'s block bias; implementing it needs a
   reference to check against.
-- **A Stata parity module** (`tests/stata_parity/NN_bjs_pretrends.do`
-  plus its Python side) so the pre-trend vector joins the committed Track
-  A archive rather than living as literals in a test file and a paper
-  build script. The numbers are already captured; this is packaging.
 
 ### 1.5 Baker et al. (2026) forward-engineering contract (**done**)
 

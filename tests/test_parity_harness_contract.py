@@ -203,8 +203,15 @@ def test_strictness_tier_breakdown_matches_current_artifacts():
     # 79_didff sits in the iterative tier for one row per design -- its
     # p-value is a 100k-draw simulation on each side; the sixteen
     # implied-density bins themselves agree at 1.2e-15.
+    # 84_bjs_pretrends joins the machine tier on point estimates: the three
+    # leads reproduce Stata did_imputation, pretrends(3) at ~1e-15 on both
+    # coefficient and SE, and the four horizons reproduce both references
+    # at ~1e-8. Its horizon standard errors are NOT in the tolerance budget
+    # and are recorded as an open defect: StatsPAI differs from the
+    # references by 4.9-13% with non-uniform sign while R didimputation and
+    # Stata agree with each other to ~3e-9.
     assert compare.tier_breakdown(rendered_modules) == {
-        "machine": 74,
+        "machine": 75,
         "iterative": 7,
         "moderate": 1,
         "methodological": 1,

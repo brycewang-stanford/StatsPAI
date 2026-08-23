@@ -26,8 +26,17 @@ For every probed estimator, one row per reported object:
     The object exists in the result --- established by running the
     estimator, not by reading its docstring.
 ``pinned_sides``
-    Which reference languages carry a pinned value for *that object*, read
-    from the committed parity result JSONs rather than asserted.
+    Which reference languages carry a value for *that object* in the
+    committed parity result JSONs.
+
+    ``pinned`` means the archive **has a reference number to compare
+    against** -- not that the two agree. Agreement is the tolerance
+    registry's job (``tests/r_parity/compare.py::TOLERANCES``), and the
+    two questions must stay separate: module 84 pins
+    ``did_imputation``'s horizon standard errors against both R and
+    Stata *and* records that StatsPAI differs from them by 4.9-13%.
+    Counting that row as unpinned would hide the evidence; counting it
+    as agreement would misreport it. It is pinned, and it disagrees.
 ``claimed_reference``
     What the registry says the function is aligned with.
 ``verdict``
@@ -113,7 +122,12 @@ def _classify_statistic(name: str) -> Optional[Tuple[str, ...]]:
 
     rel = re.search(r"rel(?:ative)?[_ ]?(-?\d+)", low)
     if rel is None:
-        rel = re.search(r"(?:^|_)(?:e|t|h|horizon|pre|lead|lag)[_ ]?(-?\d+)", low)
+        # ``tau`` must precede the bare ``t`` alternative: BJS-family
+        # modules label horizons tau0..tauK, and a bare ``t`` does not
+        # match "tau0" (the next character is a letter), so without this
+        # the horizon rows fall through to the headline class and credit
+        # coverage the archive does not have.
+        rel = re.search(r"(?:^|_)(?:tau|lead|lag|horizon|pre|e|t|h)[_ ]?(-?\d+)", low)
     is_se = low.startswith("se_") or low.endswith("_se") or "_se_" in low
     is_pre = low.startswith("pre") or low.startswith("placebo")
     if rel is not None:
@@ -530,8 +544,10 @@ def to_markdown(payload: Dict[str, Any]) -> str:
         "`sp.datasets.mpdta()`.",
         "",
         f"- reported objects: **{payload['n_reported_objects']}**",
-        f"- of those, pinned against a reference implementation: "
-        f"**{payload['n_pinned']}**",
+        f"- of those, carrying a reference value to compare against: "
+        f"**{payload['n_pinned']}**  (\"pinned\" = the archive has a number "
+        "for this object; whether it *agrees* is the tolerance registry's "
+        "question, not this table's)",
         f"- unpinned: **{payload['n_unpinned']}**, of which "
         f"**{payload['n_unpinned_in_documented_functions']}** belong to a "
         "function whose documentation names a runnable reference somewhere",

@@ -212,6 +212,12 @@ TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
 #: demands the reason be written down rather than inferred from a blank cell.
 STATA_NO_HEADLINE_JOIN_REASON: dict[str, str] = {}
 
+#: Python statistics with no counterpart on either reference side. Not an
+#: error -- some are Python-only diagnostics -- but they must be visible,
+#: because "emitted and never compared" is precisely how an unpinned
+#: object hides.
+UNMATCHED_ROWS: dict[str, list[str]] = {}
+
 
 STATA_HEADLINE_GAP_EXCEPTIONS: dict[str, str] = {
     "74_cic": (
@@ -252,6 +258,24 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # separates them. The per-horizon sample sizes match exactly, which is the
     # real check on the clean-control window.
     "83_lpdid": {"rel_est": 1e-10, "rel_se": 1e-10},
+    # BJS pre-trend vector. The three leads reproduce Stata
+    # did_imputation, pretrends(3) to ~1e-12 on both estimate and SE --
+    # that path is the v1.23.0 fix and it is exact. The four post-treatment
+    # horizons reproduce BOTH references on the point estimate to ~1e-8
+    # (iterative sparse solve).
+    #
+    # No rel_se, and the reason is a finding rather than a convention.
+    # StatsPAI's analytic horizon SEs differ from the references by 5-13%
+    # with NON-UNIFORM sign, while R didimputation 0.5.1 and Stata agree
+    # with each other to ~3e-9. Two independent implementations agreeing
+    # against a third is not a convention gap; by this project's own bar a
+    # convention label has to reconstruct the other package's number, and
+    # nothing here does. It is an open defect on an object module 16 never
+    # pinned, recorded so it cannot be forgotten. The estimator already
+    # warns at runtime that its analytic SE under-counts fixed-effect
+    # estimation variance, but that story predicts a uniform direction and
+    # this gap does not have one.
+    "84_bjs_pretrends": {"rel_est": 1e-6},
     # Design-based staggered rollout, reconciled against staggered::staggered
     # / staggered_cs / staggered_sa -- Roth and Sant'Anna's own package for
     # their 2023 JPE Micro paper, and the only module here whose
@@ -770,11 +794,20 @@ def collect(module: str) -> list[RowDiff]:
     out: list[RowDiff] = []
     for pr in py["rows"]:
         rr = R_by.get(pr["statistic"])
-        if rr is None:
-            continue
-        abs_e, rel_e = _diff(pr["estimate"], rr["estimate"])
-        abs_s, rel_s = _diff(pr.get("se"), rr.get("se"))
         sr = Stata_by.get(pr["statistic"])
+        # A statistic the R side does not emit used to be dropped here
+        # without a word, which silently discarded every py-vs-Stata pin
+        # whose R package cannot express the same option. That threw away
+        # real cross-software evidence in four modules (31_dfl, 59_liml,
+        # 28_frontier, 84_bjs_pretrends -- nine rows, all of which agree
+        # at machine precision). Keep the row whenever *either* reference
+        # carries the statistic; skip only when neither does, and report
+        # those as unmatched rather than dropping them in silence.
+        if rr is None and sr is None:
+            UNMATCHED_ROWS.setdefault(module, []).append(pr["statistic"])
+            continue
+        abs_e, rel_e = _diff(pr["estimate"], rr["estimate"] if rr else None)
+        abs_s, rel_s = _diff(pr.get("se"), rr.get("se") if rr else None)
         Stata_est = sr.get("estimate") if sr else None
         Stata_se = sr.get("se") if sr else None
         abs_est_st, rel_est_st = _diff(pr["estimate"], Stata_est)
@@ -784,11 +817,11 @@ def collect(module: str) -> list[RowDiff]:
                 module=module,
                 statistic=pr["statistic"],
                 py_est=pr["estimate"],
-                R_est=rr["estimate"],
+                R_est=rr["estimate"] if rr else None,
                 abs_est=abs_e,
                 rel_est=rel_e,
                 py_se=pr.get("se"),
-                R_se=rr.get("se"),
+                R_se=rr.get("se") if rr else None,
                 abs_se=abs_s,
                 rel_se=rel_s,
                 Stata_est=Stata_est,
@@ -972,6 +1005,18 @@ HEADLINE: dict[str, dict[str, Any]] = {
             "point estimate rel < 1e-6; SE is a documented convention gap "
             "(did2s propagates stage-1 estimation error, sp.gardner_did's "
             "vce='analytic' does not -- vce='bootstrap' recovers it to ~6\\%)"
+        ),
+    },
+    "84_bjs_pretrends": {
+        "name": "BJS pre-treatment lead vector (Borusyak-Jaravel-Spiess)",
+        "headline_filter": lambda d: d.statistic in {"tau0_att", "tau1_att"},
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": (
+            "point estimates rel $<$ 1e-7 against both references; the three "
+            "leads match Stata \\texttt{pretrends(3)} at rel $<$ 1e-14 on "
+            "estimate and SE, and are a py$\\leftrightarrow$Stata pin because "
+            "R exposes no equivalent option; horizon SEs are an open gap"
         ),
     },
     "83_lpdid": {
