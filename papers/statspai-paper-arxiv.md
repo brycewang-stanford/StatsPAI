@@ -16,6 +16,9 @@ authors:
     orcid: 0000-0002-1828-2208
     corresponding: true
     affiliation: "1, 2"
+  - name: Scott Rozelle
+    orcid: 0000-0001-5053-0243
+    affiliation: "1, 2"
 affiliations:
   - name: StatsPAI
     index: 1
@@ -284,10 +287,21 @@ The built-in robustness tools (`spec_curve()`, `robustness_report()`, `assumptio
 
 # AI Usage Disclosure
 
-Portions of the code, documentation, and test suite were generated with assistance from Claude (Anthropic). All generated content was reviewed and validated by the author. The statistical implementations were written and verified against published methodological references and validated using known benchmark datasets and cross-package parity tests.
+Portions of the code, documentation, and test suite were generated with assistance from Claude (Anthropic). All generated content was reviewed and validated by the authors. The statistical implementations were written and verified against published methodological references and validated using known benchmark datasets and cross-package parity tests.
+
+# Author Contributions
+
+**Biaoyue Wang** conceived and designed the package, implemented the
+estimators, registry, schema layer, and result objects, wrote the
+documentation, tests, and validation suites, and led the drafting of
+this paper. **Scott Rozelle** provided guidance on the package's design
+direction and target research workflows, and contributed to the
+writing, review, and revision of this paper. Both authors reviewed and
+approved the final manuscript and take responsibility for the
+correctness of the package and this paper.
 
 # Acknowledgements
 
-The author thanks the Stanford REAP Program for institutional support and the CoPaper.AI team for feedback on early versions of the package. The author is grateful to the developers of the open-source packages on which `StatsPAI` builds, including statsmodels, scikit-learn, linearmodels, and PyTorch.
+The authors thank the Stanford REAP Program for institutional support and the CoPaper.AI team for feedback on early versions of the package. The authors are grateful to the developers of the open-source packages on which `StatsPAI` builds, including statsmodels, scikit-learn, linearmodels, and PyTorch.
 
 # References
