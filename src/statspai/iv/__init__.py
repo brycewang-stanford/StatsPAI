@@ -102,76 +102,75 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 
-# ─── Core estimators (re-exports) ───────────────────────────────────────
-from ..regression.iv import iv, ivreg, IVRegression
-from ..regression.advanced_iv import liml, jive as jive_legacy, lasso_iv
-
 # ─── Weak-identification diagnostics ────────────────────────────────────
 from ..diagnostics.weak_iv import (
     anderson_rubin_test,
     effective_f_test,
     tF_critical_value,
 )
-from .weak_identification import (
-    kleibergen_paap_rk,
-    sanderson_windmeijer,
-    conditional_lr_test,
-    KleibergenPaapResult,
-    SandersonWindmeijerResult,
-    CLRResult,
-)
+from ..regression.advanced_iv import jive as jive_legacy
+from ..regression.advanced_iv import lasso_iv, liml
 
-# ─── Plausibly exogenous ────────────────────────────────────────────────
-from .plausibly_exogenous import (
-    plausibly_exogenous_uci,
-    plausibly_exogenous_ltz,
-    PlausiblyExogenousResult,
-)
-
-# ─── JIVE variants ──────────────────────────────────────────────────────
-from .jive_variants import jive1, ujive, ijive, rjive, JIVEResult
-
-# ─── Marginal Treatment Effects ─────────────────────────────────────────
-from .mte import mte, MTEResult
-
-# ─── MST sharp identified bounds (LP-based) ─────────────────────────────
-from .ivmte_lp import ivmte_bounds, IVMTEBounds
-
-# ─── Weak-IV-robust CIs by grid inversion ───────────────────────────────
-from .weak_iv_ci import (
-    anderson_rubin_ci,
-    conditional_lr_ci,
-    k_test_ci,
-    WeakIVConfidenceSet,
-)
-
-# ─── Post-Lasso IV (Belloni-Chen-Chernozhukov-Hansen 2012) ──────────────
-from .post_lasso import (
-    bch_post_lasso_iv,
-    bch_lambda,
-    bch_selected,
-    PostLassoResult,
-)
+# ─── Core estimators (re-exports) ───────────────────────────────────────
+from ..regression.iv import IVRegression, iv, ivreg
 
 # ─── Plot module (matplotlib imported lazily) ───────────────────────────
 from . import plot  # noqa: F401
 
 # ─── Bayesian IV (Chernozhukov-Hong 2003) ────────────────────────────────
-from .bayesian_iv import bayesian_iv, BayesianIVResult
-
-# ─── Non-parametric IV (Newey-Powell 2003) ───────────────────────────────
-from .npiv import npiv, NPIVResult
-
-# ─── Many-weak-instrument inference (Mikusheva-Sun 2024) ────────────────
-from .many_weak import jive as jive_mw, many_weak_ar, ManyWeakIVResult
-
-# ─── v0.10 IV frontier: Kernel IV / Continuous LATE / IVDML ─────────────
-from .kernel_iv import kernel_iv, KernelIVResult
-from .continuous_late import continuous_iv_late, ContinuousLATEResult
-from .ivdml import ivdml, IVDMLResult
+from .bayesian_iv import BayesianIVResult, bayesian_iv
+from .continuous_late import ContinuousLATEResult, continuous_iv_late
 
 # ─── v1.14 modern reporting bundle (R `ivDiag` analogue) ─────────────────
-from .iv_diag import iv_diag, iv_compare, IVDiagResult
+from .iv_diag import IVDiagResult, iv_compare, iv_diag
+from .ivdml import IVDMLResult, ivdml
+
+# ─── MST sharp identified bounds (LP-based) ─────────────────────────────
+from .ivmte_lp import IVMTEBounds, ivmte_bounds
+
+# ─── JIVE variants ──────────────────────────────────────────────────────
+from .jive_variants import JIVEResult, ijive, jive1, rjive, ujive
+
+# ─── v0.10 IV frontier: Kernel IV / Continuous LATE / IVDML ─────────────
+from .kernel_iv import KernelIVResult, kernel_iv
+
+# ─── Many-weak-instrument inference (Mikusheva-Sun 2024) ────────────────
+from .many_weak import ManyWeakIVResult
+from .many_weak import jive as jive_mw
+from .many_weak import many_weak_ar
+
+# ─── Marginal Treatment Effects ─────────────────────────────────────────
+from .mte import MTEResult, mte
+
+# ─── Non-parametric IV (Newey-Powell 2003) ───────────────────────────────
+from .npiv import NPIVResult, npiv
+
+# ─── Plausibly exogenous ────────────────────────────────────────────────
+from .plausibly_exogenous import (
+    PlausiblyExogenousResult,
+    plausibly_exogenous_ltz,
+    plausibly_exogenous_uci,
+)
+
+# ─── Post-Lasso IV (Belloni-Chen-Chernozhukov-Hansen 2012) ──────────────
+from .post_lasso import PostLassoResult, bch_lambda, bch_post_lasso_iv, bch_selected
+from .weak_identification import (
+    CLRResult,
+    KleibergenPaapResult,
+    SandersonWindmeijerResult,
+    conditional_lr_test,
+    kleibergen_paap_rk,
+    sanderson_windmeijer,
+)
+
+# ─── Weak-IV-robust CIs by grid inversion ───────────────────────────────
+from .weak_iv_ci import (
+    WeakIVConfidenceSet,
+    anderson_rubin_ci,
+    conditional_lr_ci,
+    k_test_ci,
+)
+from .zero_first_stage import ZeroFirstStageResult, zero_first_stage
 
 # ─── Shift-share / DeepIV re-exports ────────────────────────────────────
 # These stay lazy on purpose.  Importing them eagerly here pollutes the
@@ -345,7 +344,7 @@ def _dispatch(
         cluster = kwargs.pop("cluster", None)
         absorb = kwargs.pop("absorb", None)
 
-        from ..regression.iv import _normalise_absorb, _iv_absorb_run
+        from ..regression.iv import _iv_absorb_run, _normalise_absorb
 
         absorb_terms = _normalise_absorb(absorb)
         if absorb_terms:
@@ -356,6 +355,7 @@ def _dispatch(
                 method=canon,
                 robust=robust,
                 cluster=cluster,
+                fuller_alpha=fuller_alpha,
                 **kwargs,
             )
         else:
@@ -617,6 +617,31 @@ def _formula_to_parts(formula: str, data: Any) -> tuple[Any, Any, Any, Any]:
     )
 
 
+def _rank_test_cov_spec(model: Any, result: Any) -> Any:
+    """(cov_type, cluster_values) for the Kleibergen-Paap rank test.
+
+    Mirrors the fitted model's own vcov choice so the reported rk
+    statistics are the ones ``ivreg2`` prints for that specification.
+    Returns ``cluster_values`` as an ``(n, d)`` array for multiway
+    clustering, or ``None``.
+    """
+    info = result.model_info or {}
+    cluster_spec = info.get("cluster")
+    if cluster_spec is not None:
+        names = [cluster_spec] if isinstance(cluster_spec, str) else list(cluster_spec)
+        for src in (getattr(model, "_clean_data", None), getattr(model, "data", None)):
+            if src is None:
+                continue
+            cols = list(getattr(src, "columns", []))
+            if all(nm in cols for nm in names):
+                return "cluster", src.loc[:, names].to_numpy()
+        return "robust", None
+    robust = str(info.get("robust", "nonrobust")).lower()
+    if robust in ("nonrobust", "none", "false"):
+        return "nonrobust", None
+    return "robust", None
+
+
 def _attach_augmented_diagnostics(model: Any, result: Any) -> None:
     """Attach KP rk, SW per-endog F, MOP effective F on top of the standard
     EconometricResults.diagnostics dict.  Failures are swallowed into a
@@ -628,15 +653,41 @@ def _attach_augmented_diagnostics(model: Any, result: Any) -> None:
         Z = model.Z
         W = model.X_exog
 
+        # Match the rank test's covariance to the estimator's own vcov --
+        # ivreg2 reports the cluster-robust rk statistics when the fit is
+        # clustered, and charges absorbed FE degrees of freedom through
+        # e(sdofminus). Reporting a heteroskedasticity-only rk F next to
+        # cluster-robust coefficients was overstating instrument strength
+        # exactly where clustering matters most.
+        cov_type, cluster_values = _rank_test_cov_spec(model, result)
+        _cl = (result.model_info or {}).get("cluster")
+        cluster_names_for_of = (
+            [_cl] if isinstance(_cl, str) else list(_cl) if _cl else []
+        )
+        # The effective F should describe the same specification as the
+        # coefficients next to it: classical when the fit is i.i.d.,
+        # HC1 when robust, cluster-robust when clustered. With a single
+        # instrument it then coincides with the KP rk Wald F, which is
+        # exactly the cross-check a reader expects to hold.
+        _of_vcov = "classic" if cov_type == "nonrobust" else "HC1"
+        # Only strip the leading column when it really is the intercept.
+        # Under absorb= the FE block spans the constant and X_exog carries
+        # no intercept, so the old unconditional ``W[:, 1:]`` silently
+        # dropped a genuine control from the reduced form.
+        has_const = W.shape[1] >= 1 and np.allclose(W[:, 0], 1.0)
+        exog_rf = W[:, 1:] if has_const else W
+        if exog_rf.shape[1] == 0:
+            exog_rf = None
         kp = kleibergen_paap_rk(
             endog=D,
             instruments=Z,
-            exog=W[:, 1:] if W.shape[1] > 1 else None,
-            add_const=(
-                W.shape[1] >= 1 and np.allclose(W[:, 0], 1.0) if W.shape[1] else True
-            ),
-            cov_type="robust",
+            exog=exog_rf,
+            add_const=has_const,
+            cov_type=cov_type,
+            cluster=cluster_values,
+            n_absorbed=int((result.model_info or {}).get("fe_dof_charged", 0) or 0),
         )
+        result.diagnostics["KP rk cov type"] = kp.cov_type
         result.diagnostics["KP rk LM"] = kp.rk_lm
         result.diagnostics["KP rk LM p-value"] = kp.rk_lm_pvalue
         result.diagnostics["KP rk Wald F"] = kp.rk_f
@@ -645,22 +696,43 @@ def _attach_augmented_diagnostics(model: Any, result: Any) -> None:
             sw = sanderson_windmeijer(
                 endog=D,
                 instruments=Z,
-                exog=W[:, 1:] if W.shape[1] > 1 else None,
-                add_const=False,  # constant already in W
+                exog=exog_rf,
+                add_const=False,  # constant, if any, already stripped above
                 endog_names=getattr(model, "_endog_names", None),
             )
             for name, f in sw.sw_f.items():
                 result.diagnostics[f"SW conditional F ({name})"] = f
 
         # Olea-Pflueger effective F (single-endogenous case only).
-        if D.shape[1] == 1 and getattr(model, "data", None) is not None:
+        absorb_ctx = getattr(model, "_absorb_context", None)
+        if D.shape[1] == 1 and (
+            absorb_ctx is not None or getattr(model, "data", None) is not None
+        ):
             try:
-                ep = effective_f_test(
-                    data=getattr(model, "_clean_data", model.data),
-                    endog=model._endog_names[0],
-                    instruments=list(model._instrument_names),
-                    exog=[e for e in model._exog_names if e != "Intercept"] or None,
-                )
+                if absorb_ctx is not None:
+                    # Absorbed fits: re-run on the source frame so the
+                    # effective F describes the same residualised design,
+                    # with the same FE absorption and clustering.
+                    ep = effective_f_test(
+                        data=absorb_ctx["data"],
+                        endog=absorb_ctx["endog"][0],
+                        instruments=list(absorb_ctx["instruments"]),
+                        exog=list(absorb_ctx["exog"]) or None,
+                        absorb=list(absorb_ctx["absorb"]),
+                        cluster=list(absorb_ctx["cluster"]) or None,
+                        vcov=_of_vcov,
+                    )
+                else:
+                    ep = effective_f_test(
+                        data=getattr(model, "_clean_data", model.data),
+                        endog=model._endog_names[0],
+                        instruments=list(model._instrument_names),
+                        exog=[e for e in model._exog_names if e != "Intercept"] or None,
+                        cluster=(
+                            list(cluster_names_for_of) if cluster_names_for_of else None
+                        ),
+                        vcov=_of_vcov,
+                    )
                 if isinstance(ep, dict):
                     stat = (
                         ep.get("F_eff") or ep.get("statistic") or ep.get("effective_F")
@@ -715,6 +787,8 @@ sys.modules[__name__].__class__ = _CallableIVModule
 __all__ = [
     # callable + alias
     "fit",
+    "zero_first_stage",
+    "ZeroFirstStageResult",
     # core estimators
     "iv",
     "ivreg",

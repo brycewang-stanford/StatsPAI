@@ -7341,10 +7341,151 @@
     }
   },
   {
+    "description": "Species-diversity indices from record-level or count data: Shannon entropy, species richness, Pielou evenness, the Simpson family (concentration / Gini-Simpson / inverse) and Hill numbers of any order. Accepts long-format sighting records or a site-by-species matrix and groups straight onto a panel index, so an ecological outcome can be built inside the same pipeline that estimates on it. min_records makes the small-sample filter explicit rather than a footnote.",
+    "name": "diversity_index",
+    "parameters": {
+      "properties": {
+        "base": {
+          "description": "Log base for Shannon",
+          "type": "number"
+        },
+        "by": {
+          "description": "Grouping keys, typically the panel index",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "count": {
+          "description": "Abundance column; omit when one row is one record",
+          "type": "string"
+        },
+        "data": {
+          "description": "Long-format records or a site-by-species matrix",
+          "type": "string"
+        },
+        "index": {
+          "default": "shannon",
+          "description": "Index/indices to compute, or 'all'",
+          "enum": [
+            "shannon",
+            "richness",
+            "pielou",
+            "simpson",
+            "gini_simpson",
+            "inv_simpson",
+            "hill",
+            "all"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "min_records": {
+          "default": 0,
+          "description": "Groups below this many records return NaN",
+          "type": "integer"
+        },
+        "q": {
+          "default": 1.0,
+          "description": "Hill number order",
+          "type": "number"
+        },
+        "species": {
+          "description": "Species column (required for long-format input)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Zero-first-stage (ZFS) test of the exclusion restriction, plus van Kippersluis-Rietveld (2018) pleiotropy-robust correction. Estimates the instrument's direct effect on the outcome in a subsample where it has no first stage, reports the implied bias in the main-sample IV estimate, and returns the corrected point estimate with a cluster-bootstrap interval. Accepts the same exog / absorb / cluster spec as sp.iv, so the test runs on the specification actually fitted.",
+    "name": "zero_first_stage",
+    "parameters": {
+      "properties": {
+        "absorb": {
+          "description": "Fixed effects absorbed in every component regression",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster identifier column for clustered standard errors.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
+        },
+        "endog": {
+          "description": "Endogenous regressor",
+          "type": "string"
+        },
+        "exog": {
+          "description": "exog parameter (list[str] | str).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "instrument": {
+          "description": "The single excluded instrument being tested",
+          "type": "string"
+        },
+        "n_boot": {
+          "default": 999,
+          "description": "Bootstrap reps for the corrected estimate (0 to skip)",
+          "type": "integer"
+        },
+        "random_state": {
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "y": {
+          "description": "Outcome column",
+          "type": "string"
+        },
+        "zfs": {
+          "description": "Boolean column/mask marking the zero-first-stage subsample where the instrument is believed inert",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "endog",
+        "instrument",
+        "zfs"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "iv_diag",
     "parameters": {
       "properties": {
+        "absorb": {
+          "description": "High-dimensional fixed effects to partial out before the bundle is computed, so every statistic describes the absorbed specification (ivreghdfe-equivalent)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
@@ -25366,10 +25507,24 @@
     "name": "anderson_rubin_test",
     "parameters": {
       "properties": {
+        "absorb": {
+          "description": "High-dimensional fixed effects to partial out of ``y``, the endogenous regressor, the instruments and the controls before the test -- the same residualisation ``sp.iv(absorb=...)`` performs.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level.",
           "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster the AR statistic. Switches from the homoskedastic F-form to the (multiway) cluster-robust quadratic form ``(Z'e)' Omega^-1 (Z'e)`` with ``Omega`` the cluster-sum variance of the moment vector, referred to ``F(k_z, G-1)``. Without this, a panel AR test over-rejects exactly as a homoskedastic t-test",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -25427,6 +25582,20 @@
     "name": "effective_f_test",
     "parameters": {
       "properties": {
+        "absorb": {
+          "description": "High-dimensional fixed effects to partial out of the endogenous regressor, the instruments and the controls before the first stage -- the same residualisation ``sp.iv(absorb=...)`` performs, so the effective F describes the specification actually fitted. The absorbed degrees of freedom are charged to ``df_resid``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "cluster": {
+          "description": "Cluster the first-stage moment variance. ``Omega`` becomes the (multiway, Cameron-Gelbach-Miller) cluster-sum meat with the ``ivreg2`` finite-sample factor ``G_min/(G_min-1) * (n-1)/(n-K)``. This is the right diagnostic whenever the second stage is",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
@@ -25451,7 +25620,7 @@
         },
         "vcov": {
           "default": "HC1",
-          "description": "Variance estimator for the first-stage residuals: - ``'classic'`` -- homoskedastic; F_eff equals first-stage F. - ``'HC0'`` -- White heteroskedasticity-robust. - ``'HC1'`` -- HC0 with small-sample correction ``n/(n-k)``.",
+          "description": "Variance estimator for the first-stage residuals: - ``'classic'`` -- homoskedastic; F_eff equals first-stage F. - ``'HC0'`` -- White heteroskedasticity-robust. - ``'HC1'`` -- HC0 with small-sample correction ``n/(n-k)``. Ignored when ``cluster`` is given.",
           "enum": [
             "HC0",
             "HC1",
@@ -47903,6 +48072,136 @@
         }
       },
       "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Output of :func:`zero_first_stage`.",
+    "name": "ZeroFirstStageResult",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "beta_iv": {
+          "description": "beta_iv parameter (float).",
+          "type": "number"
+        },
+        "beta_iv_se": {
+          "description": "beta_iv_se parameter (float).",
+          "type": "number"
+        },
+        "beta_zfs_corrected": {
+          "description": "beta_zfs_corrected parameter (float).",
+          "type": "number"
+        },
+        "beta_zfs_corrected_ci": {
+          "description": "beta_zfs_corrected_ci parameter (tuple).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "beta_zfs_corrected_se": {
+          "description": "beta_zfs_corrected_se parameter (float).",
+          "type": "number"
+        },
+        "diagnostics": {
+          "default": null,
+          "description": "diagnostics parameter (Dict[str, Any]).",
+          "type": "object"
+        },
+        "first_stage_main": {
+          "description": "first_stage_main parameter (float).",
+          "type": "number"
+        },
+        "first_stage_main_se": {
+          "description": "first_stage_main_se parameter (float).",
+          "type": "number"
+        },
+        "first_stage_zfs": {
+          "description": "first_stage_zfs parameter (float).",
+          "type": "number"
+        },
+        "first_stage_zfs_ci": {
+          "description": "first_stage_zfs_ci parameter (tuple).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "first_stage_zfs_pvalue": {
+          "description": "first_stage_zfs_pvalue parameter (float).",
+          "type": "number"
+        },
+        "first_stage_zfs_se": {
+          "description": "first_stage_zfs_se parameter (float).",
+          "type": "number"
+        },
+        "implied_bias": {
+          "description": "implied_bias parameter (float).",
+          "type": "number"
+        },
+        "instrument": {
+          "description": "instrument parameter (str).",
+          "type": "string"
+        },
+        "n_boot": {
+          "description": "Number of bootstrap replications.",
+          "type": "integer"
+        },
+        "n_main": {
+          "description": "Number of main.",
+          "type": "integer"
+        },
+        "n_zfs": {
+          "description": "Number of zfs.",
+          "type": "integer"
+        },
+        "reduced_form_zfs": {
+          "description": "reduced_form_zfs parameter (float).",
+          "type": "number"
+        },
+        "reduced_form_zfs_ci": {
+          "description": "reduced_form_zfs_ci parameter (tuple).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "reduced_form_zfs_pvalue": {
+          "description": "reduced_form_zfs_pvalue parameter (float).",
+          "type": "number"
+        },
+        "reduced_form_zfs_se": {
+          "description": "reduced_form_zfs_se parameter (float).",
+          "type": "number"
+        }
+      },
+      "required": [
+        "first_stage_zfs",
+        "first_stage_zfs_se",
+        "first_stage_zfs_ci",
+        "first_stage_zfs_pvalue",
+        "reduced_form_zfs",
+        "reduced_form_zfs_se",
+        "reduced_form_zfs_ci",
+        "reduced_form_zfs_pvalue",
+        "first_stage_main",
+        "first_stage_main_se",
+        "beta_iv",
+        "beta_iv_se",
+        "beta_zfs_corrected",
+        "beta_zfs_corrected_se",
+        "beta_zfs_corrected_ci",
+        "implied_bias",
+        "n_main",
+        "n_zfs",
+        "n_boot",
+        "instrument",
+        "alpha"
+      ],
       "type": "object"
     }
   },

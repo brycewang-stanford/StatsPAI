@@ -30,8 +30,8 @@ sp.parity_summary()           # honest coverage counts
 | analytical-only | 227 |
 | external-replication | 6 |
 | **verified (subtotal)** | **397** |
-| unverified | 778 |
-| **total registered** | **1175** |
+| unverified | 781 |
+| **total registered** | **1178** |
 
 ## bit-exact — 148 functions
 
@@ -266,7 +266,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `conformal_fair_ite` | [`test_conformal_fair_ite_parity.py`](../tests/reference_parity/test_conformal_fair_ite_parity.py) |
 | `conformal_ite` | [`test_conformal_ite_parity.py`](../tests/reference_parity/test_conformal_ite_parity.py) |
 | `conformal_ite_interval` | [`test_conformal_causal_parity.py`](../tests/reference_parity/test_conformal_causal_parity.py) |
-| `conley` | [`test_conley_acreg_spacetime_parity.py`](../tests/reference_parity/test_conley_acreg_spacetime_parity.py) (+1) |
+| `conley` | [`test_conley_acreg_spacetime_parity.py`](../tests/reference_parity/test_conley_acreg_spacetime_parity.py) (+2) |
 | `continuous_did` | [`test_dose_response_parity.py`](../tests/reference_parity/test_dose_response_parity.py) |
 | `continuous_iv_late` | [`test_continuous_iv_late_parity.py`](../tests/reference_parity/test_continuous_iv_late_parity.py) |
 | `counterfactual_fairness` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
@@ -285,7 +285,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `distributional_te` | [`test_distributional_te_inference.py`](../tests/reference_parity/test_distributional_te_inference.py) (+1) |
 | `dml_panel` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `dose_response` | [`test_dose_response_parity.py`](../tests/reference_parity/test_dose_response_parity.py) |
-| `effective_f_test` | [`test_anderson_rubin_parity.py`](../tests/reference_parity/test_anderson_rubin_parity.py) |
+| `effective_f_test` | [`test_anderson_rubin_parity.py`](../tests/reference_parity/test_anderson_rubin_parity.py) (+1) |
 | `engle_granger` | [`test_engle_granger_parity.py`](../tests/reference_parity/test_engle_granger_parity.py) |
 | `equalized_odds` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `etregress` | [`test_etregress_parity.py`](../tests/reference_parity/test_etregress_parity.py) |
@@ -324,8 +324,8 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `ipcw` | [`test_ipcw_parity.py`](../tests/reference_parity/test_ipcw_parity.py) |
 | `irf` | [`test_timeseries_parity.py`](../tests/reference_parity/test_timeseries_parity.py) |
 | `its` | [`test_timeseries_parity.py`](../tests/reference_parity/test_timeseries_parity.py) |
-| `iv` | [`test_regress_weights_iv_robust_parity.py`](../tests/reference_parity/test_regress_weights_iv_robust_parity.py) |
-| `iv_diag` | [`test_diag_recovery_parity.py`](../tests/reference_parity/test_diag_recovery_parity.py) |
+| `iv` | [`test_iv_hdfe_stata_parity.py`](../tests/reference_parity/test_iv_hdfe_stata_parity.py) (+1) |
+| `iv_diag` | [`test_diag_recovery_parity.py`](../tests/reference_parity/test_diag_recovery_parity.py) (+1) |
 | `ivqreg` | [`test_ivqreg_parity.py`](../tests/reference_parity/test_ivqreg_parity.py) |
 | `jackknife_se` | [`test_recovery_batch2_parity.py`](../tests/reference_parity/test_recovery_batch2_parity.py) |
 | `jive` | [`test_jive_parity.py`](../tests/reference_parity/test_jive_parity.py) |
@@ -458,6 +458,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `xtlsdvc` | [`test_lsdvc_parity.py`](../tests/reference_parity/test_lsdvc_parity.py) |
 | `yatchew_linearity_test` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) |
 
-## unverified — 778 functions
+## unverified — 781 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

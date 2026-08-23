@@ -120,6 +120,7 @@ nav:
       - "Choosing a DID estimator": guides/choosing_did_estimator.md
       - "Choosing an RD estimator": guides/choosing_rd_estimator.md
       - "Choosing an IV estimator": guides/choosing_iv_estimator.md
+      - "Policy-intensity panels: HDFE-IV end to end": guides/policy_index_hdfe_iv.md
       - "Choosing a matching estimator": guides/choosing_matching_estimator.md
       - "Choosing a dynamic panel estimator (Arellano-Bond / Blundell-Bond)": guides/choosing_dynamic_panel_estimator.md
       - "PSM-DID and the Stata psmatch2 workflow": guides/psm_did.md

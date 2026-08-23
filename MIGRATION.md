@@ -111,6 +111,46 @@ old path returned numbers for the rank-deficient system. Request at most
 **Not yet changed.** `sp.gardner_did` builds its leads the same in-sample
 way. It is documented in `sp.event_study_convention()` and left alone
 pending a matched reference run against R `did2s`.
+<a id="hdfe-iv-inference"></a>
+
+## Unreleased — ⚠️ HDFE-IV standard errors and diagnostics realigned to `ivreghdfe`
+
+**Who is affected.** Anyone who ran `sp.iv(absorb=...)`, or who quoted a
+`Kleibergen–Paap rk LM`, a first-stage `KP rk Wald F`, a Sargan statistic
+from a clustered 2SLS fit, or a cluster-robust GMM standard error.
+
+**What changed, and by how much.**
+
+| Quantity | Before | Now | Typical size of the move |
+| --- | --- | --- | --- |
+| `sp.iv(absorb=, cluster=)` where the cluster is an absorbed FE | raised `ValueError` | runs, matches `ivreghdfe` | n/a — it did not work |
+| Absorbed IV SE, cluster nested in an absorbed FE | FE DOF charged | nested FE DOF dropped, constant charged | SE falls ~5% at 120 clusters |
+| Cluster-robust GMM SE | heteroskedastic meat, no finite-sample factor | cluster meat + CR1 factor | SE rises with within-cluster correlation |
+| Over-id test under `robust=`/`cluster=` | Sargan | Hansen J | different statistic, same role |
+| `KP rk Wald F` on a clustered fit | heteroskedasticity-only | cluster-robust | usually falls |
+| `KP rk LM` | inflated by a factor of `n` | correct | millions → tens |
+| `KP rk` / effective F on an absorbed fit | one control silently dropped | full reduced form | specification-dependent |
+
+**What you should do.**
+
+1. Re-run any absorbed-IV specification whose standard errors appear in a
+   draft. The point estimates do not move — only the variance and the
+   degrees-of-freedom bookkeeping.
+2. Delete any reported `KP rk LM` value produced by an earlier version;
+   it was not on the χ² scale it was compared against.
+3. If a table reports a Sargan statistic next to clustered standard
+   errors, it now reports Hansen's J instead. That is the correct test
+   for that variance assumption; the numbers are not comparable.
+
+**Opting out.** There is no flag to restore the old behaviour: each item
+above was a defect relative to the reference implementation the docstrings
+already claimed parity with. To reproduce `ivreg2 gmm2s`'s *variance
+formula* (as opposed to StatsPAI's more agnostic sandwich) pass
+`gmm_vcov="efficient"`.
+
+**Verification.** `tests/reference_parity/test_iv_hdfe_stata_parity.py`
+pins 30 quantities against Stata 18 MP (`ivreghdfe` 1.1.4, `ivreg2`
+4.1.12, `reghdfe` 6.13.1, `ranktest` 2.0.04, `acreg` 1.1.0).
 
 ---
 

@@ -131,6 +131,52 @@ With proper inference via Adao-Kolesar-Morales (2019) shift-share SE:
 r_se = sp.shift_share_se(r)
 ```
 
+## 7b. Panel IV with high-dimensional fixed effects
+
+`absorb=` partials the fixed effects out of the outcome, the controls, the
+endogenous regressor *and* the instrument before estimating — `ivreghdfe`,
+not a wall of dummies. It works for every `method`, and takes one-way or
+multiway clustering:
+
+```python
+r = sp.iv("y ~ (d ~ z) + x", data=df,
+          absorb=["county", "ym"], cluster="county")
+r = sp.iv("y ~ (d ~ z) + x", data=df,
+          absorb=["county", "ym"], cluster=["county", "ym"])
+```
+
+Clustering on a dimension you also absorb is the normal case, and the
+degrees-of-freedom rule is not obvious: a fixed effect nested inside a
+clustering dimension is redundant and costs nothing, which is why
+`reghdfe`, `fixest` and `ivreg2` all drop it. `r.model_info` reports
+`fe_nested_in_cluster` and `fe_dof_charged` so the arithmetic is visible.
+
+Spatial and serial dependence go on top of the fitted result:
+
+```python
+sp.conley(r, df, lat="lat", lon="lon", dist_cutoff=200,
+          time="ym", lag_cutoff=12, unit="county")
+```
+
+Full walk-through: [Policy-intensity panels: HDFE-IV end to end](policy_index_hdfe_iv.md).
+
+## 7c. Testing the exclusion restriction
+
+Exclusion is untestable in the estimation sample but testable in a subsample
+where the instrument has no first stage — if `z` still moves `y` there, it is
+moving it through some channel other than `d`:
+
+```python
+sp.zero_first_stage(df, y="y", endog="d", instrument="z",
+                    zfs="is_desert", absorb=["county", "ym"], cluster="county")
+```
+
+The result reports the premise (is the first stage really zero there?), the
+direct effect with an interval, the implied bias in the IV estimate, and the
+van Kippersluis-Rietveld corrected estimate. Where no such subsample exists,
+`sp.iv(method="plausibly_exog_ltz", ...)` puts a prior on the direct effect
+instead.
+
 ## 8. Reading the output
 
 ```python

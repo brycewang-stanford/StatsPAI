@@ -203,6 +203,68 @@ via Crossref and the published PDF.
   of its own test modules — was accepted and did nothing. Unknown keywords
   now raise with a hint naming the common stale spellings.
 
+- **`sp.iv(absorb=..., cluster=...)` crashed whenever the clustering
+  variable was also an absorbed fixed effect** — that is, on the single
+  most common panel specification there is (`absorb="county"`,
+  `cluster="county"`). The working frame selected the shared column
+  twice, so the cluster series came back as a two-column DataFrame and
+  pandas raised `ValueError: If using all scalar values, you must pass an
+  index`. Fixed; the case is now covered by Stata parity tests.
+
+- **Absorbed IV standard errors charged degrees of freedom for fixed
+  effects nested inside the clustering dimension.** A fixed effect nested
+  within a cluster is annihilated by the cluster sums and costs no
+  residual DOF — `reghdfe`'s `dofadjustments(clusters)` and `fixest`'s
+  `fixef.K="nested"` both drop it, and `ivreg2` reports the charge as
+  `e(sdofminus)`. StatsPAI charged it anyway, and separately failed to
+  charge the constant the absorbed block spans. Net effect on the
+  canonical unit-FE / cluster-by-unit panel: standard errors inflated by
+  roughly `sqrt((N-k)/(N-k-G_unit))` — about 5% at 120 clusters, always
+  in the conservative direction, but not the number `ivreghdfe` prints.
+  `sp.iv(absorb=..., cluster=...)` now matches `ivreghdfe` to machine
+  precision and reports `model_info["fe_dof_charged"]` and
+  `model_info["fe_nested_in_cluster"]`. **Re-run absorbed IV
+  specifications whose standard errors you quoted.**
+
+- **Cluster-robust GMM used a heteroskedasticity-only meat.** With
+  `method="gmm", cluster=...`, the optimal weight matrix clustered but
+  the reported sandwich variance did not: `Omega` was rebuilt as
+  `sum_i w_i w_i' e_i^2`, ignoring within-cluster correlation entirely.
+  Standard errors were therefore too small whenever moments correlate
+  within cluster — the situation clustering exists to handle. The meat is
+  now the cluster-sum form, and the standard finite-sample factor is
+  applied (previously the GMM path applied none at all).
+
+- **Over-identification tests ignored the variance assumption.** 2SLS
+  reported the Sargan statistic no matter what: under `robust=` or
+  `cluster=` that is a test whose null distribution assumes away the very
+  correlation being corrected for. Following `ivreg2`, StatsPAI now
+  reports **Sargan** under i.i.d. errors and **Hansen's J** as soon as
+  the vcov is robust or clustered (multiway included), matching
+  `ivreghdfe` exactly.
+
+- **Kleibergen–Paap rk statistics were not robust to the fitted vcov, and
+  the rk LM was off by a factor of `n`.** Three separate defects: (i)
+  `sp.iv` always requested `cov_type="robust"`, so a cluster-robust fit
+  was reported alongside a heteroskedasticity-only instrument-strength
+  test — biased toward looking strong; (ii) the small-sample factors
+  `ivreg2` applies were missing, and absorbed FE degrees of freedom were
+  not charged; (iii) `rk_lm` scaled the whitened reduced form by
+  `sqrt(n)` instead of `n`, inflating the underidentification statistic
+  by a factor of `n` (millions, where `ivreg2` prints tens). All three
+  are fixed: `KP rk LM` and `KP rk Wald F` now reproduce
+  `ranktest`/`ivreg2` to machine precision under i.i.d., HC-robust,
+  one-way and multiway clustering, with or without absorbed FE.
+  **Any reported KP rk LM statistic from an earlier version was wrong.**
+
+- **The augmented-diagnostics path dropped a control from the reduced
+  form.** It stripped `X_exog[:, 0]` unconditionally as "the intercept",
+  which is right only when there *is* an intercept — under `absorb=` the
+  FE block spans the constant and column 0 is a genuine covariate. The
+  first-stage rank tests were therefore computed on the wrong
+  specification for every absorbed fit. Now conditional on the column
+  actually being constant.
+
 ### Added
 
 - **Parity module 84: the BJS pre-treatment lead vector.** Module 16 pins
@@ -220,6 +282,67 @@ via Crossref and the published PDF.
   Packaging this module is what exposed the variance defect fixed below.
   Both estimate and SE are now inside the tolerance budget.
 
+- **HDFE-IV parity with Stata `ivreghdfe`, end to end.** `sp.iv(absorb=)`
+  grew from a 2SLS-only prototype into the full estimator surface, pinned
+  against Stata 18 in `tests/reference_parity/test_iv_hdfe_stata_parity.py`:
+
+  - every estimator absorbs — `2sls`, `liml`, `fuller`, `gmm`, `jive` all
+    run in residualised space (previously LIML/Fuller/GMM/JIVE raised
+    `NotImplementedError`);
+  - **multiway clustering** on any path, `cluster=["county", "ym"]` or
+    `cluster="county + ym"`, using the Cameron–Gelbach–Miller
+    inclusion–exclusion estimator with `ivreg2`'s single `G_min`
+    finite-sample factor and a PSD projection;
+  - `gmm_vcov="efficient"` reports the textbook efficient-GMM variance
+    that `ivreg2 gmm2s` prints, alongside the default (more agnostic)
+    sandwich;
+  - **interacted fixed effects** in the fixest spelling,
+    `absorb=["county", "prov^year"]`, materialised into a single factor
+    rather than left for the caller to precompute.
+
+- **`sp.conley()` accepts IV results.** Spatial and spatio-temporal HAC
+  variances now work on 2SLS fits — including absorbed ones — by building
+  the meat from the projected scores `X_hat * u` rather than the OLS
+  design, which previously failed with `KeyError: 'X'`. Matches Stata
+  `acreg ... spatial pfe1() pfe2()` to machine precision with
+  `distance="planar"`.
+
+- **`absorb=` and `cluster=` on the weak-IV toolkit.**
+  `sp.effective_f_test`, `sp.anderson_rubin_test` and `sp.iv_diag` all
+  take the same fixed-effect and clustering spec as the estimator, so the
+  diagnostics describe the specification actually fitted. The AR
+  statistic gains a genuine cluster-robust form (referred to
+  `F(k_z, G-1)`) instead of the homoskedastic F, and reports
+  `ar_ci_disjoint` when the confidence set is a union of intervals rather
+  than one.
+
+- **`sp.zero_first_stage`** — the zero-first-stage exclusion test, plus
+  van Kippersluis–Rietveld's pleiotropy-robust corrected estimate. Give it
+  the subsample where the instrument is inert and it reports the premise
+  (is the first stage actually zero there?), the test (the reduced form
+  there *is* the direct effect), and the consequence (implied bias in the
+  main-sample IV estimate, and the corrected point estimate with a
+  cluster-bootstrap interval). Takes the same `exog` / `absorb` /
+  `cluster` spec as the estimator. Ref verified via Oxford Academic and
+  PubMed: van Kippersluis & Rietveld (2018), *IJE* 47(4), 1279-1288,
+  doi:10.1093/ije/dyx002.
+
+- **`sp.diversity_index`** — Shannon, species richness, Pielou evenness,
+  Simpson (concentration / Gini–Simpson / inverse) and Hill numbers of
+  any order, from long-format sighting records or a site-by-species
+  matrix, grouped straight onto a panel index. `min_records=` makes the
+  small-sample filter explicit rather than a footnote. Refs verified via
+  Wiley/Nature/ScienceDirect/ESA and a second independent index for each:
+  Shannon (1948) doi:10.1002/j.1538-7305.1948.tb01338.x, Simpson (1949)
+  doi:10.1038/163688a0, Pielou (1966) doi:10.1016/0022-5193(66)90013-0,
+  Hill (1973) doi:10.2307/1934352.
+
+- **Guide + runnable example: policy-intensity panels.**
+  `docs/guides/policy_index_hdfe_iv.md` and
+  `examples/policy_index_hdfe_iv.py` walk the whole design — build the
+  outcome, absorb two-way FE, instrument, read the identification panel,
+  swap in spatial/serial variances, split subsamples, test mechanisms —
+  with a table of exactly which Stata command each call reproduces.
 ### Fixed
 
 - **The parity comparator silently discarded every statistic the R side

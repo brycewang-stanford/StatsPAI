@@ -548,9 +548,29 @@ def conley(
         )
 
     # --- Extract estimation objects ---
-    X = np.asarray(result.data_info["X"])
-    residuals = np.asarray(result.data_info["residuals"])
+    # IV results carry their design under ``data_info['iv']`` instead of the
+    # plain-OLS ``'X'``/``'residuals'`` keys, precisely so that OLS-only SE
+    # helpers cannot silently treat the structural design as exogenous. The
+    # Conley meat generalises to 2SLS by swapping the score: the influence
+    # function is ``(X̂'X)^{-1} X̂' u`` with ``X̂ = P_W X``, so feeding
+    # ``X̂`` and the *structural* residuals through the same kernel machinery
+    # is the correct spatial-HAC estimator for IV.
+    iv_info = (result.data_info or {}).get("iv")
+    if iv_info is not None:
+        X_struct = np.asarray(iv_info["X"], dtype=float)
+        W_inst = np.asarray(iv_info["W"], dtype=float)
+        y_iv = np.asarray(iv_info["y"], dtype=float)
+        X = W_inst @ np.linalg.solve(W_inst.T @ W_inst, W_inst.T @ X_struct)
+        beta = np.linalg.solve(X.T @ X_struct, X.T @ y_iv)
+        residuals = y_iv - X_struct @ beta
+    else:
+        X = np.asarray(result.data_info["X"])
+        residuals = np.asarray(result.data_info["residuals"])
     n, k = X.shape
+    # Absorbed fixed effects cost residual degrees of freedom; carry the
+    # charge the estimator already computed so the t critical value matches
+    # the clustered/robust paths on the same specification.
+    k += int((result.model_info or {}).get("fe_dof_charged", 0) or 0)
 
     for col in (lat, lon, time, unit):
         if col is not None and col not in data.columns:

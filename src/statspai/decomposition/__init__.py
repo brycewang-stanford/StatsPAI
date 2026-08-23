@@ -63,67 +63,53 @@ Plots share a common palette and minimalist style via
 Yu-Elwert mechanism plot, RIF heatmap, …).
 """
 
-# Existing (backward-compatible) imports
-from .oaxaca import oaxaca, gelbach, OaxacaResult, GelbachResult
-from .rif import (
-    rifreg,
-    rif_decomposition,
-    rif_values,
-    RIFResult,
-    RIFDecompositionResult,
-)
-
-# New tier-C imports
-from .dfl import dfl_decompose, DFLResult
-from .ffl import ffl_decompose, FFLResult
-from .machado_mata import machado_mata, MachadoMataResult
-from .melly import melly_decompose, MellyResult
-from .cfm import cfm_decompose, CFMResult
-from .nonlinear import (
-    fairlie,
-    bauer_sinning,
-    yun_nonlinear,
-    NonlinearDecompResult,
-)
-from .inequality import (
-    inequality_index,
-    subgroup_decompose,
-    source_decompose,
-    shapley_inequality,
-    SubgroupDecompResult,
-    SourceDecompResult,
-    ShapleyInequalityResult,
-)
-from .kitagawa import (
-    kitagawa_decompose,
-    das_gupta,
-    KitagawaResult,
-    DasGuptaResult,
-)
+# Plots and datasets — imported for their registration side effect only.
+from . import datasets as _datasets_module  # noqa: F401
+from . import plots as _plots_module  # noqa: F401
 from .causal import (
-    gap_closing,
-    mediation_decompose,
-    disparity_decompose,
+    DisparityDecompResult,
     GapClosingResult,
     MediationDecompResult,
-    DisparityDecompResult,
+    disparity_decompose,
+    gap_closing,
+    mediation_decompose,
 )
-from .yu_elwert import yu_elwert_decompose, YuElwertResult
-
-# Unified dispatcher
-from .dispatcher import decompose, available_methods
-
-# Plots and datasets — imported for their registration side effect only.
-from . import plots as _plots_module  # noqa: F401
-from . import datasets as _datasets_module  # noqa: F401
+from .cfm import CFMResult, cfm_decompose
 
 # Convenience exports
-from .datasets import (
-    cps_wage,
-    chilean_households,
-    mincer_wage_panel,
-    disparity_panel,
+from .datasets import chilean_households, cps_wage, disparity_panel, mincer_wage_panel
+
+# New tier-C imports
+from .dfl import DFLResult, dfl_decompose
+
+# Unified dispatcher
+from .dispatcher import available_methods, decompose
+from .diversity import diversity_index
+from .ffl import FFLResult, ffl_decompose
+from .inequality import (
+    ShapleyInequalityResult,
+    SourceDecompResult,
+    SubgroupDecompResult,
+    inequality_index,
+    shapley_inequality,
+    source_decompose,
+    subgroup_decompose,
 )
+from .kitagawa import DasGuptaResult, KitagawaResult, das_gupta, kitagawa_decompose
+from .machado_mata import MachadoMataResult, machado_mata
+from .melly import MellyResult, melly_decompose
+from .nonlinear import NonlinearDecompResult, bauer_sinning, fairlie, yun_nonlinear
+
+# Existing (backward-compatible) imports
+from .oaxaca import GelbachResult, OaxacaResult, gelbach, oaxaca
+from .rif import (
+    RIFDecompositionResult,
+    RIFResult,
+    rif_decomposition,
+    rif_values,
+    rifreg,
+)
+from .yu_elwert import YuElwertResult, yu_elwert_decompose
 
 __all__ = [
     # Existing (backward compat)
@@ -155,6 +141,7 @@ __all__ = [
     "yun_nonlinear",
     "NonlinearDecompResult",
     # Inequality
+    "diversity_index",
     "inequality_index",
     "subgroup_decompose",
     "source_decompose",

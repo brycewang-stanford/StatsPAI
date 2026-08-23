@@ -43,8 +43,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import IdentificationFailure
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import IdentificationFailure
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Data containers
@@ -191,6 +191,75 @@ def _extract_exog(
 # ═══════════════════════════════════════════════════════════════════════
 
 
+def _reduced_form_cov(
+    Z_tilde: np.ndarray,
+    V: np.ndarray,
+    ZZ_inv: np.ndarray,
+    cov_type: str,
+    cluster: Optional[Union[np.ndarray, pd.Series]],
+    *,
+    n: int,
+    k: int,
+    p: int,
+    denom: float,
+    ssc: float,
+    cluster_ssc: bool,
+) -> np.ndarray:
+    """Covariance of ``vec(Pi)`` for the multivariate reduced form.
+
+    ``V`` is whatever residual the caller wants the score variance built
+    from: the unrestricted reduced-form residual for the Wald statistic,
+    or the endogenous regressor itself for the ``Pi = 0`` LM statistic.
+    ``ssc`` is the finite-sample factor applied to the meat (1.0 for LM).
+    """
+    if cov_type == "nonrobust":
+        Sigma = (V.T @ V) / denom
+        return np.asarray(np.kron(Sigma, ZZ_inv), dtype=float)
+
+    if cov_type == "robust":
+        # Meat: sum_i kron(z_i z_i', v_i v_i') -- KP (2006) eq. 13.
+        meat = np.zeros((k * p, k * p))
+        for i in range(n):
+            meat += np.kron(np.outer(Z_tilde[i], Z_tilde[i]), np.outer(V[i], V[i]))
+        meat *= ssc
+    else:  # cluster
+        from itertools import combinations
+
+        frame = pd.DataFrame(np.asarray(cluster))
+        if frame.shape[0] != n and frame.shape[1] == n:  # pragma: no cover
+            frame = frame.T
+        d = frame.shape[1]
+        # vec() stacks columns of the (k, p) score block, so transpose to
+        # (p, k) before the row-major flatten.
+        outer = (
+            (Z_tilde[:, :, None] * V[:, None, :]).transpose(0, 2, 1).reshape(n, k * p)
+        )
+        meat = np.zeros((k * p, k * p))
+        g_min = None
+        for size in range(1, d + 1):
+            sign = 1.0 if size % 2 == 1 else -1.0
+            for cols in combinations(range(d), size):
+                sub = frame.iloc[:, list(cols)]
+                keys = (
+                    sub.iloc[:, 0]
+                    if size == 1
+                    else pd.MultiIndex.from_frame(sub.astype(object))
+                )
+                codes, uniques = pd.factorize(keys, sort=False)
+                G = len(uniques)
+                if size == 1:
+                    g_min = G if g_min is None else min(g_min, G)
+                sums = np.zeros((G, k * p))
+                np.add.at(sums, codes, outer)
+                meat += sign * (sums.T @ sums)
+        if cluster_ssc and g_min is not None:
+            meat *= g_min / max(g_min - 1, 1)
+        meat *= ssc
+
+    bread = np.kron(ZZ_inv, np.eye(p))
+    return np.asarray(bread @ meat @ bread, dtype=float)
+
+
 def kleibergen_paap_rk(
     endog: Union[np.ndarray, pd.DataFrame],
     instruments: Union[np.ndarray, pd.DataFrame],
@@ -199,6 +268,8 @@ def kleibergen_paap_rk(
     cov_type: str = "robust",
     cluster: Optional[Union[np.ndarray, pd.Series]] = None,
     add_const: bool = True,
+    n_absorbed: int = 0,
+    small: bool = True,
 ) -> KleibergenPaapResult:
     """
     Kleibergen-Paap (2006) rk Wald / LM statistic.
@@ -228,10 +299,32 @@ def kleibergen_paap_rk(
         Required when ``cov_type='cluster'``.
     add_const : bool, default True
         Prepend a constant to the exogenous block.
+    n_absorbed : int, default 0
+        Degrees of freedom consumed by absorbed fixed effects. Enters the
+        finite-sample factor exactly as ``ivreg2``'s ``e(sdofminus)`` does:
+        ``K = n_exog + n_instruments + n_absorbed``. Leave at 0 unless the
+        reduced form was estimated on FE-residualised data.
+    small : bool, default True
+        Apply ``ivreg2``'s finite-sample factor to the rk **Wald**
+        covariance: ``(n-K)`` in the denominator for the classical
+        variance, ``n/(n-K)`` for HC-robust, and
+        ``G/(G-1) * (n-1)/(n-K)`` for cluster-robust. The rk **LM**
+        statistic never takes one, matching ``ranktest``.
 
     Returns
     -------
     KleibergenPaapResult
+
+    Notes
+    -----
+    With a single endogenous regressor both statistics reproduce
+    ``ivreg2``/``ranktest`` exactly: ``rk_wald`` is the Wald form built
+    from the unrestricted reduced-form residuals, and ``rk_lm`` is the
+    same quadratic form evaluated under the null ``Pi = 0`` (so the score
+    variance uses the *unexplained* endogenous regressor) with no
+    finite-sample factor. With two or more endogenous regressors the LM
+    statistic falls back to the singular-value form, which is the right
+    test but not digit-for-digit ``ranktest``.
     """
     D = _as_matrix(endog)  # n x p
     Z = _as_matrix(instruments)  # n x k
@@ -260,44 +353,43 @@ def kleibergen_paap_rk(
 
     # Covariance of vec(Pi) — GLS form
     # Var(vec(Pi_hat)) = (Sigma_VV ⊗ (Z'Z)^{-1}) with appropriate robust mod
-    if cov_type == "nonrobust":
-        Sigma = (V.T @ V) / (n - n_W - k)
-        cov_vec = np.kron(Sigma, ZZ_inv)
-        cov_label = "nonrobust"
-    elif cov_type == "robust":
-        # Meat: Σ_i  kron(z_i z_i', v_i v_i')  — KP (2006) eq. 13
-        # Convention: vec(Pi) stacks columns of Pi (k×p), so Var is (kp × kp)
-        # with blocks (Z'Z)^{-1} ⊗ Σ_VV under homoskedasticity.
-        # Robust sandwich: bread = kron(ZZ_inv, I_p) on both sides.
-        meat = np.zeros((k * p, k * p))
-        for i in range(n):
-            zi = Z_tilde[i]  # (k,)
-            vi = V[i]  # (p,)
-            meat += np.kron(np.outer(zi, zi), np.outer(vi, vi))
-        bread = np.kron(ZZ_inv, np.eye(p))
-        cov_vec = bread @ meat @ bread
-        cov_label = "HC robust"
-    elif cov_type == "cluster":
-        if cluster is None:
-            raise ValueError("cov_type='cluster' requires `cluster`.")
-        g = pd.Series(np.asarray(cluster))
-        groups = g.unique()
-        G = len(groups)
-        meat = np.zeros((k * p, k * p))
-        for cid in groups:
-            idx = np.where((g == cid).values)[0]
-            # Cluster score: Σ_{t∈cluster} kron(z_t, v_t) → vectorised form
-            score_mat = np.zeros((k, p))
-            for t in idx:
-                score_mat += np.outer(Z_tilde[t], V[t])
-            v = score_mat.flatten(order="F")  # vec(score) with col-stacking
-            meat += np.outer(v, v)
-        meat *= G / max(G - 1, 1)
-        bread = np.kron(ZZ_inv, np.eye(p))
-        cov_vec = bread @ meat @ bread
-        cov_label = f"cluster ({G} groups)"
-    else:
+    # ivreg2's regressor count for the reduced form: included exogenous,
+    # excluded instruments, and any absorbed fixed-effect DOF.
+    K_rf = n_W + k + int(n_absorbed)
+    denom_rf = max(n - K_rf, 1) if small else n
+    if cov_type == "cluster" and cluster is None:
+        raise ValueError("cov_type='cluster' requires `cluster`.")
+    if cov_type not in ("nonrobust", "robust", "cluster"):
         raise ValueError(f"Unknown cov_type: {cov_type}")
+
+    if cov_type == "robust":
+        ssc = (n / max(n - K_rf, 1)) if small else 1.0
+    elif cov_type == "cluster":
+        ssc = ((n - 1) / max(n - K_rf, 1)) if small else 1.0
+    else:
+        ssc = 1.0
+
+    cov_vec = _reduced_form_cov(
+        Z_tilde,
+        V,
+        ZZ_inv,
+        cov_type,
+        cluster,
+        n=n,
+        k=k,
+        p=p,
+        denom=denom_rf,
+        ssc=ssc,
+        cluster_ssc=True,
+    )
+    if cov_type == "cluster":
+        _cf = pd.DataFrame(np.asarray(cluster))
+        _counts = [int(_cf.iloc[:, j].nunique()) for j in range(_cf.shape[1])]
+        cov_label = "cluster (" + " x ".join(f"{g} groups" for g in _counts) + ")"
+    elif cov_type == "robust":
+        cov_label = "HC robust"
+    else:
+        cov_label = "nonrobust"
 
     # KP rk Wald: vec(Pi)' cov_vec^{-1} vec(Pi)
     vec_Pi = Pi.flatten(order="F")
@@ -306,29 +398,56 @@ def kleibergen_paap_rk(
 
     # For F version divide by (k*p) and nominal denom
     df_num = k * p  # number of excluded restrictions on reduced form
-    df_denom = n - n_W - k
+    df_denom = max(n - K_rf, 1)
     rk_f = rk_wald / df_num
     rk_wald_pvalue = float(1 - stats.chi2.cdf(rk_wald, df=k - p + 1))
 
     # KP rk LM statistic (Kleibergen-Paap 2006, Theorem 1)
     # Tests H0: rank(Pi) <= p-1 vs H1: rank(Pi) = p.
-    # The rk LM is based on the *smallest* canonical correlation /
-    # singular value of the whitened reduced-form matrix A = Zs' Ds.
-    # Under H0, rk_lm ~ chi²((k - p + 1)).
-    Sigma = (V.T @ V) / n
-    try:
-        Sigma_half_inv = np.linalg.inv(np.linalg.cholesky(Sigma))
-    except np.linalg.LinAlgError:  # pragma: no cover
-        Sigma_half_inv = np.linalg.pinv(_sqrtm_sym(Sigma))
-    try:
-        ZZ_chol = np.linalg.cholesky(Z_tilde.T @ Z_tilde / n)
-        Zs = Z_tilde @ np.linalg.inv(ZZ_chol.T)  # orthonormalised instruments
-    except np.linalg.LinAlgError:  # pragma: no cover
-        Zs = Z_tilde
-    Ds = D_tilde @ Sigma_half_inv.T  # whitened endog
-    A = Zs.T @ Ds / np.sqrt(n)  # k x p
-    sv = np.linalg.svd(A, compute_uv=False)
-    rk_lm = float(n * sv[-1] ** 2)  # smallest sv², scaled by n
+    if p == 1:
+        # Single endogenous regressor: H0 is Pi = 0, so the rank test is
+        # the score test of that restriction. The LM principle evaluates
+        # the score variance at the *restricted* estimate, which means the
+        # reduced-form "residual" is the endogenous regressor itself
+        # rather than V. ranktest applies no finite-sample factor here --
+        # neither G/(G-1) nor (n-1)/(n-K).
+        cov_null = _reduced_form_cov(
+            Z_tilde,
+            D_tilde,
+            ZZ_inv,
+            cov_type,
+            cluster,
+            n=n,
+            k=k,
+            p=p,
+            denom=n,
+            ssc=1.0,
+            cluster_ssc=False,
+        )
+        rk_lm = float(vec_Pi @ np.linalg.pinv(cov_null) @ vec_Pi)
+    else:
+        # Two or more endogenous regressors: the rank-(p-1) null is not a
+        # zero restriction, so fall back to the smallest singular value of
+        # the whitened reduced form. Correct test, but not digit-for-digit
+        # ranktest -- that needs the full KP (2006) A_perp/B_perp machinery.
+        Sigma_lm = (V.T @ V) / n
+        try:
+            Sigma_half_inv = np.linalg.inv(np.linalg.cholesky(Sigma_lm))
+        except np.linalg.LinAlgError:  # pragma: no cover
+            Sigma_half_inv = np.linalg.pinv(_sqrtm_sym(Sigma_lm))
+        try:
+            ZZ_chol = np.linalg.cholesky(Z_tilde.T @ Z_tilde / n)
+            Zs = Z_tilde @ np.linalg.inv(ZZ_chol.T)  # orthonormal instruments
+        except np.linalg.LinAlgError:  # pragma: no cover
+            Zs = Z_tilde
+        Ds = D_tilde @ Sigma_half_inv.T  # whitened endog
+        # A is O(1): Zs'Zs / n == I, so the sample average -- not the sum --
+        # is the object whose smallest singular value carries the rank
+        # information. Scaling by sqrt(n) instead of n inflated rk_lm by a
+        # factor of n.
+        A = Zs.T @ Ds / n
+        sv = np.linalg.svd(A, compute_uv=False)
+        rk_lm = float(n * sv[-1] ** 2)  # smallest sv², scaled by n
     rk_lm_pvalue = float(1 - stats.chi2.cdf(rk_lm, df=(k - p + 1)))
 
     return KleibergenPaapResult(

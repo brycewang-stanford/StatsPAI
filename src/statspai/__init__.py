@@ -616,6 +616,7 @@ from .decomposition import (  # Tier C additions
     dfl_decompose,
     disparity_decompose,
     disparity_panel,
+    diversity_index,
     fairlie,
     ffl_decompose,
     gap_closing,
@@ -710,6 +711,9 @@ from .iv.iv_diag import IVDiagResult, iv_compare, iv_diag
 
 # Expose Kernel IV / Continuous-LATE at top level for agent discoverability.
 from .iv.kernel_iv import KernelIVResult, kernel_iv
+
+# Zero-first-stage exclusion test (van Kippersluis-Rietveld 2018).
+from .iv.zero_first_stage import ZeroFirstStageResult, zero_first_stage
 from .matrix_completion import MCPanel, mc_panel
 from .metalearners import (
     AutoCATEResult,
@@ -1999,6 +2003,7 @@ __all__ = [
     "mediation_decompose",
     "yu_elwert_decompose",
     "YuElwertResult",
+    "diversity_index",
     "inequality_index",
     "shapley_inequality",
     # Panel / DID extras
@@ -2040,6 +2045,8 @@ __all__ = [
     "chilean_households",
     # IV frontier (v1.1)
     "kernel_iv",
+    "zero_first_stage",
+    "ZeroFirstStageResult",
     "KernelIVResult",
     "continuous_iv_late",
     "ContinuousLATEResult",

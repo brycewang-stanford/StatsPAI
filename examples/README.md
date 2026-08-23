@@ -15,6 +15,7 @@ python examples/synth_prop99.py
 python examples/gmethods_timevarying.py
 python examples/nhefs_whatif.py
 python examples/dml_card.py
+python examples/policy_index_hdfe_iv.py
 ```
 
 Or after installing the released package:

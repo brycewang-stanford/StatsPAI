@@ -40,7 +40,7 @@ Andrews, I., Stock, J.H. and Sun, L. (2019).
 Practice." *Annual Review of Economics*, 11, 727-753. [@andrews2019weak]
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -90,6 +90,46 @@ def _prep_matrices(
 # ═══════════════════════════════════════════════════════════════════════
 
 
+def _as_name_list(spec: Optional[Union[str, List[str]]]) -> List[str]:
+    """Normalise ``"a"`` / ``"a + b"`` / ``["a", "b"]`` to a list of names."""
+    if spec is None:
+        return []
+    if isinstance(spec, str):
+        return [t.strip() for t in spec.split("+") if t.strip()]
+    return [str(t) for t in spec]
+
+
+def _cluster_meat_multiway(
+    Z: np.ndarray, resid: np.ndarray, frame: pd.DataFrame
+) -> np.ndarray:
+    """Cameron-Gelbach-Miller cluster meat ``sum_g s_g s_g'`` for scores ``Z*e``."""
+    from itertools import combinations
+
+    n, k = Z.shape
+    scores = Z * resid[:, None]
+    d = frame.shape[1]
+    meat = np.zeros((k, k))
+    for size in range(1, d + 1):
+        sign = 1.0 if size % 2 == 1 else -1.0
+        for cols in combinations(range(d), size):
+            sub = frame.iloc[:, list(cols)]
+            keys = (
+                sub.iloc[:, 0]
+                if size == 1
+                else pd.MultiIndex.from_frame(sub.astype(object))
+            )
+            codes, uniques = pd.factorize(keys, sort=False)
+            sums = np.zeros((len(uniques), k))
+            np.add.at(sums, codes, scores)
+            meat += sign * (sums.T @ sums)
+    if d > 1:
+        meat = 0.5 * (meat + meat.T)
+        evals, evecs = np.linalg.eigh(meat)
+        if np.any(evals < 0):
+            meat = evecs @ np.diag(np.maximum(evals, 0.0)) @ evecs.T
+    return meat
+
+
 @accepts_aliases(vce="vcov")
 def effective_f_test(
     data: pd.DataFrame,
@@ -97,6 +137,8 @@ def effective_f_test(
     instruments: List[str],
     exog: Optional[List[str]] = None,
     vcov: str = "HC1",
+    absorb: Optional[Union[str, List[str]]] = None,
+    cluster: Optional[Union[str, List[str]]] = None,
 ) -> Dict[str, Any]:
     """
     Olea-Pflueger (2013) robust effective F statistic for weak instruments.
@@ -121,6 +163,21 @@ def effective_f_test(
         - ``'classic'`` — homoskedastic; F_eff equals first-stage F.
         - ``'HC0'`` — White heteroskedasticity-robust.
         - ``'HC1'`` — HC0 with small-sample correction ``n/(n-k)``.
+
+        Ignored when ``cluster`` is given.
+    absorb : str or list of str, optional
+        High-dimensional fixed effects to partial out of the endogenous
+        regressor, the instruments and the controls before the first
+        stage — the same residualisation ``sp.iv(absorb=...)`` performs,
+        so the effective F describes the specification actually fitted.
+        The absorbed degrees of freedom are charged to ``df_resid``.
+    cluster : str or list of str, optional
+        Cluster the first-stage moment variance. ``Omega`` becomes the
+        (multiway, Cameron-Gelbach-Miller) cluster-sum meat with the
+        ``ivreg2`` finite-sample factor ``G_min/(G_min-1) * (n-1)/(n-K)``.
+        This is the right diagnostic whenever the second stage is
+        clustered: heteroskedasticity-only F_eff routinely overstates
+        instrument strength under within-cluster correlation.
 
     Returns
     -------
@@ -173,7 +230,12 @@ def effective_f_test(
     # effective F does not need y; reuse prep helper with endog as both slots
     # but then extract D only (avoid duplicate-column pitfall by using a
     # dedicated path).
-    cols = [endog] + instruments + (exog or [])
+    absorb_terms = _as_name_list(absorb)
+    cluster_names = _as_name_list(cluster)
+    cols = [endog] + list(instruments) + list(exog or [])
+    cols += absorb_terms + cluster_names
+    seen: set = set()
+    cols = [c for c in cols if not (c in seen or seen.add(c))]
     df = data[cols].dropna()
     n = len(df)
     D = df[endog].values.astype(float)
@@ -187,9 +249,40 @@ def effective_f_test(
     k_z = Z.shape[1]
     k_w = W.shape[1]
 
+    fe_dof = 0
+    cluster_frame = df.loc[:, cluster_names] if cluster_names else None
+    if absorb_terms:
+        from ..fast.demean import demean as _demean
+
+        stacked = np.column_stack([D.reshape(-1, 1), Z, W[:, 1:]])
+        stacked, info = _demean(stacked, df[absorb_terms], drop_singletons=True)
+        keep = info.keep_mask
+        n = int(info.n_kept)
+        D = stacked[:, 0]
+        Z = stacked[:, 1 : 1 + k_z]
+        W = stacked[:, 1 + k_z :]
+        if W.shape[1] == 0:
+            W = np.zeros((n, 0))
+        k_w = W.shape[1]
+        if cluster_frame is not None:
+            cluster_frame = cluster_frame.iloc[keep].reset_index(drop=True)
+        # Same charge the estimator applies: fixed effects nested within a
+        # clustering dimension are redundant, plus one for the constant.
+        from ..inference._dof import absorbed_dof_charge
+
+        fe_dof, _nested = absorbed_dof_charge(
+            df[absorb_terms].iloc[keep].reset_index(drop=True),
+            absorb_terms,
+            list(info.n_fe),
+            cluster_frame,
+        )
+
     # Partial out controls from D and Z
-    D_t = _partial_out(D, W)
-    Z_t = _partial_out(Z, W)
+    if k_w:
+        D_t = _partial_out(D, W)
+        Z_t = _partial_out(Z, W)
+    else:
+        D_t, Z_t = D, Z
 
     # First-stage OLS on residualized variables
     ZtZt = Z_t.T @ Z_t
@@ -203,14 +296,23 @@ def effective_f_test(
 
     # Classical first-stage F (for comparison + classic path)
     rss_u = float(eta_hat @ eta_hat)
-    df_resid = n - k_w - k_z
+    df_resid = n - k_w - k_z - fe_dof
     sigma2_eta = rss_u / df_resid if df_resid > 0 else np.nan
     # Test H0: pi=0 via Wald form: F = pi' (Z_t'Z_t) pi / (k_z * sigma2)
     num = float(pi_hat @ ZtZt @ pi_hat)
     f_first = num / (k_z * sigma2_eta) if sigma2_eta > 0 else np.nan
 
     # HC meat: Omega_hat = sum_i eta_i^2 * z_i z_i'
-    if vcov == "classic":
+    if cluster_frame is not None:
+        omega_hat = _cluster_meat_multiway(Z_t, eta_hat, cluster_frame)
+        g_min = min(
+            int(cluster_frame.iloc[:, j].nunique())
+            for j in range(cluster_frame.shape[1])
+        )
+        if df_resid > 0:
+            omega_hat = omega_hat * ((g_min / max(g_min - 1, 1)) * ((n - 1) / df_resid))
+        vcov = f"cluster({', '.join(cluster_names)})"
+    elif vcov == "classic":
         omega_hat = sigma2_eta * ZtZt
     elif vcov in ("HC0", "HC1"):
         # Σ η̂_i² z_i z_i' = Z' diag(η̂²) Z
@@ -240,6 +342,7 @@ def effective_f_test(
         "n_instruments": int(k_z),
         "n_obs": int(n),
         "vcov": vcov,
+        "fe_dof": int(fe_dof),
         "strength": strength,
         "stock_yogo_10pct": 23.1,
     }
@@ -349,6 +452,116 @@ def tF_critical_value(first_stage_F: float, alpha: float = 0.05) -> float:
 # ═══════════════════════════════════════════════════════════════════════
 
 
+def _bisect_ar(
+    ar_f: Any, f_crit: float, reject_at: float, accept_at: float, iters: int = 60
+) -> float:
+    """Locate the AR-set boundary between a rejected and an accepted point."""
+    lo, hi = reject_at, accept_at
+    for _ in range(iters):
+        mid = 0.5 * (lo + hi)
+        val = ar_f(mid)
+        if np.isfinite(val) and val < f_crit:
+            hi = mid
+        else:
+            lo = mid
+    return float(hi)
+
+
+def _beta_se_scale(
+    Y_t: np.ndarray,
+    D_t: np.ndarray,
+    Z_t: np.ndarray,
+    ZtZt_inv: np.ndarray,
+    beta: float,
+    cluster_frame: Optional[pd.DataFrame],
+    n: int,
+) -> float:
+    """A robust standard error for the 2SLS coefficient, for grid scaling.
+
+    Only used to size the AR search window, so an approximation is fine;
+    it falls back to the outcome's own scale if the first stage is
+    degenerate.
+    """
+    if np.isnan(beta):
+        return float(np.std(Y_t)) or 1.0
+    d_hat = Z_t @ (ZtZt_inv @ (Z_t.T @ D_t))
+    denom = float(d_hat @ D_t)
+    if abs(denom) < 1e-12:
+        return float(np.std(Y_t)) or 1.0
+    resid = Y_t - beta * D_t
+    if cluster_frame is not None:
+        meat = _cluster_meat_multiway(d_hat.reshape(-1, 1), resid, cluster_frame)
+        var = float(meat[0, 0]) / denom**2
+    else:
+        var = float(np.sum((d_hat * resid) ** 2)) / denom**2
+    return float(np.sqrt(max(var, 0.0))) or 1.0
+
+
+def _prep_matrices_absorbed(
+    data: pd.DataFrame,
+    y: str,
+    endog: str,
+    instruments: List[str],
+    exog: Optional[List[str]],
+    absorb_terms: List[str],
+    cluster_names: List[str],
+) -> Tuple[
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, int, Optional[pd.DataFrame], int
+]:
+    """``_prep_matrices`` plus optional FE absorption and a cluster frame.
+
+    Returns ``(Y, D, Z, W, n, cluster_frame, fe_dof)``. With ``absorb_terms``
+    the constant is dropped (the FE block spans it) and ``W`` holds only the
+    residualised controls.
+    """
+    cols = [y, endog] + list(instruments) + list(exog or [])
+    cols += list(absorb_terms) + list(cluster_names)
+    seen: set = set()
+    cols = [c for c in cols if not (c in seen or seen.add(c))]
+    df = data[cols].dropna()
+    n = len(df)
+    Y = df[y].to_numpy(dtype=float)
+    D = df[endog].to_numpy(dtype=float)
+    Z = df[list(instruments)].to_numpy(dtype=float)
+    if Z.ndim == 1:
+        Z = Z.reshape(-1, 1)
+    n_x = len(exog or [])
+    X = (
+        df[list(exog)].to_numpy(dtype=float).reshape(n, n_x)
+        if exog
+        else np.zeros((n, 0))
+    )
+    cluster_frame = df.loc[:, cluster_names] if cluster_names else None
+
+    if not absorb_terms:
+        W = np.column_stack([np.ones(n), X]) if n_x else np.ones((n, 1))
+        return Y, D, Z, W, n, cluster_frame, 0
+
+    from ..fast.demean import demean as _demean
+
+    stacked = np.column_stack([Y.reshape(-1, 1), D.reshape(-1, 1), Z, X])
+    stacked, info = _demean(stacked, df[absorb_terms], drop_singletons=True)
+    keep = info.keep_mask
+    n = int(info.n_kept)
+    k_z = Z.shape[1]
+    Y = stacked[:, 0]
+    D = stacked[:, 1]
+    Z = stacked[:, 2 : 2 + k_z]
+    W = stacked[:, 2 + k_z :]
+    if cluster_frame is not None:
+        cluster_frame = cluster_frame.iloc[keep].reset_index(drop=True)
+
+    from ..inference._dof import absorbed_dof_charge
+
+    fe_dof, _nested = absorbed_dof_charge(
+        df[absorb_terms].iloc[keep].reset_index(drop=True),
+        absorb_terms,
+        list(info.n_fe),
+        cluster_frame,
+    )
+    return Y, D, Z, W, n, cluster_frame, fe_dof
+
+
 @accepts_aliases(vce="vcov")
 def anderson_rubin_test(
     data: pd.DataFrame,
@@ -359,6 +572,8 @@ def anderson_rubin_test(
     h0: float = 0,
     alpha: float = 0.05,
     vcov: str = "HC1",
+    absorb: Optional[Union[str, List[str]]] = None,
+    cluster: Optional[Union[str, List[str]]] = None,
 ) -> Dict[str, Any]:
     """
     Anderson-Rubin (1949) test — size-correct under weak instruments.
@@ -386,6 +601,18 @@ def anderson_rubin_test(
     vcov : {'HC0', 'HC1', 'classic'}, default 'HC1'
         Variance estimator used for the Olea-Pflueger effective F
         reported alongside AR.
+    absorb : str or list of str, optional
+        High-dimensional fixed effects to partial out of ``y``, the
+        endogenous regressor, the instruments and the controls before the
+        test — the same residualisation ``sp.iv(absorb=...)`` performs.
+    cluster : str or list of str, optional
+        Cluster the AR statistic. Switches from the homoskedastic
+        F-form to the (multiway) cluster-robust quadratic form
+        ``(Z'e)' Omega^-1 (Z'e)`` with ``Omega`` the cluster-sum variance
+        of the moment vector, referred to ``F(k_z, G-1)``. Without this,
+        a panel AR test over-rejects exactly as a homoskedastic t-test
+        would: the AR set is *not* automatically robust to serial
+        correlation just because it is robust to weak instruments.
 
     Returns
     -------
@@ -430,12 +657,24 @@ def anderson_rubin_test(
     ``alpha``. If the AR set is unbounded on one or both sides, the
     returned ``(low, high)`` will be ``±inf`` accordingly.
     """
-    Y, D, Z, W, n = _prep_matrices(data, y, endog, instruments, exog)
+    absorb_terms = _as_name_list(absorb)
+    cluster_names = _as_name_list(cluster)
+    Y, D, Z, W, n, cluster_frame, fe_dof = _prep_matrices_absorbed(
+        data, y, endog, instruments, exog, absorb_terms, cluster_names
+    )
     k_z = Z.shape[1]
     k_w = W.shape[1]
 
     # ── Effective F (robust) ────────────────────────────────────────
-    f_result = effective_f_test(data, endog, instruments, exog, vcov=vcov)
+    f_result = effective_f_test(
+        data,
+        endog,
+        instruments,
+        exog,
+        vcov=vcov,
+        absorb=absorb_terms or None,
+        cluster=cluster_names or None,
+    )
     f_first = f_result["first_stage_F"]
     f_eff = f_result["F_eff"]
 
@@ -455,11 +694,31 @@ def anderson_rubin_test(
 
     # ── AR statistic at h0 ──────────────────────────────────────────
     df1 = k_z
-    df2 = n - k_w - k_z
+    df2 = n - k_w - k_z - fe_dof
+    g_min = None
+    if cluster_frame is not None:
+        g_min = min(
+            int(cluster_frame.iloc[:, j].nunique())
+            for j in range(cluster_frame.shape[1])
+        )
+        # Cluster-robust AR is referred to F(k_z, G-1), the usual
+        # cluster-count-driven reference distribution.
+        df2 = g_min - 1
 
     def _ar_f(b0: float) -> float:
-        """AR F statistic at candidate beta = b0."""
+        """AR statistic at candidate beta = b0, as an F-form."""
         Y_adj = Y_t - b0 * D_t
+        if cluster_frame is not None:
+            moment = Z_t.T @ Y_adj
+            omega = _cluster_meat_multiway(Z_t, Y_adj, cluster_frame)
+            omega = omega * (
+                (g_min / max(g_min - 1, 1)) * ((n - 1) / max(n - k_w - k_z - fe_dof, 1))
+            )
+            try:
+                stat = float(moment @ np.linalg.solve(omega, moment))
+            except np.linalg.LinAlgError:  # pragma: no cover - defensive
+                return np.nan
+            return stat / df1
         # Regress Y_adj on Z_t; F test coefficients = 0
         # Numerator SS: Y_adj' P_Z_t Y_adj
         proj = Z_t @ (ZtZt_inv @ (Z_t.T @ Y_adj))
@@ -475,30 +734,40 @@ def anderson_rubin_test(
 
     # ── AR confidence set via grid inversion ────────────────────────
     f_crit = stats.f.ppf(1 - alpha, df1, max(df2, 1))
-    # Adaptive grid centered on 2SLS
+    # Scale the search to the coefficient's own standard error. A fixed
+    # +/-5 span with 401 nodes quantises the endpoints at 0.025, which is
+    # larger than the entire estimate in a policy-index regression -- the
+    # returned "confidence set" was then pure grid artefact.
+    se_scale = _beta_se_scale(Y_t, D_t, Z_t, ZtZt_inv, beta_2sls, cluster_frame, n)
     if not np.isnan(beta_2sls):
         center = beta_2sls
-        spread = max(10 * abs(beta_2sls), 5.0)
+        spread = max(200.0 * se_scale, 10.0 * abs(beta_2sls), 1e-8)
     else:
-        center, spread = 0.0, 10.0
-    grid = np.linspace(center - spread, center + spread, 401)
-    keep = []
-    for b0 in grid:
-        fval = _ar_f(b0)
-        if not np.isnan(fval) and fval < f_crit:
-            keep.append(b0)
-    if keep:
-        ar_ci = (float(min(keep)), float(max(keep)))
-        # Flag potentially unbounded sets (hits the grid edge)
-        edge_tol = 1e-6 * spread
-        lo_edge = abs(ar_ci[0] - (center - spread)) < edge_tol
-        hi_edge = abs(ar_ci[1] - (center + spread)) < edge_tol
-        if lo_edge:
-            ar_ci = (-np.inf, ar_ci[1])
-        if hi_edge:
-            ar_ci = (ar_ci[0], np.inf)
+        center, spread = 0.0, max(200.0 * se_scale, 10.0)
+
+    grid = np.linspace(center - spread, center + spread, 2001)
+    fvals = np.array([_ar_f(b) for b in grid])
+    accept = np.isfinite(fvals) & (fvals < f_crit)
+    if accept.any():
+        idx = np.flatnonzero(accept)
+        lo_edge = idx[0] == 0
+        hi_edge = idx[-1] == len(grid) - 1
+        lo, hi = float(grid[idx[0]]), float(grid[idx[-1]])
+        # Refine each endpoint by bisection between the last rejected and
+        # the first accepted node, so the reported bound is exact to ~1e-4
+        # of a standard error rather than to one grid step.
+        if not lo_edge:
+            lo = _bisect_ar(_ar_f, f_crit, float(grid[idx[0] - 1]), lo)
+        if not hi_edge:
+            hi = _bisect_ar(_ar_f, f_crit, float(grid[idx[-1] + 1]), hi)
+        ar_ci = (-np.inf if lo_edge else lo, np.inf if hi_edge else hi)
+        # A gap inside the accepted region means the AR set is a union of
+        # intervals (or the complement of one) -- report it rather than
+        # silently returning the convex hull.
+        ar_disjoint = bool(np.any(np.diff(idx) > 1))
     else:
         ar_ci = (np.nan, np.nan)
+        ar_disjoint = False
 
     # ── tF critical value (only meaningful at alpha=0.05) ───────────
     if np.isclose(alpha, 0.05) and not np.isnan(f_first):
@@ -511,6 +780,7 @@ def anderson_rubin_test(
         "ar_df": (df1, df2),
         "ar_pvalue": ar_p,
         "ar_ci": ar_ci,
+        "ar_ci_disjoint": ar_disjoint,
         "beta_2sls": beta_2sls,
         "first_stage_F": f_first,
         "first_stage_f": f_first,

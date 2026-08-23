@@ -1544,7 +1544,8 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_conley_acreg_spacetime_parity.py",
-        "tests/reference_parity/test_conley_parity.py"
+        "tests/reference_parity/test_conley_parity.py",
+        "tests/reference_parity/test_iv_hdfe_stata_parity.py"
       ],
       "tolerance": ""
     },
@@ -2640,7 +2641,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_anderson_rubin_parity.py"
+        "tests/reference_parity/test_anderson_rubin_parity.py",
+        "tests/reference_parity/test_iv_hdfe_stata_parity.py"
       ],
       "tolerance": ""
     },
@@ -3061,6 +3063,7 @@
         "tests/stata_parity/15_hdfe_cluster.do",
         "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_feols_wild_boottest_parity.py",
+        "tests/reference_parity/test_iv_hdfe_stata_parity.py",
         "tests/reference_parity/test_sasp_within_parity.py"
       ],
       "also_in_modules": [
@@ -4359,6 +4362,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_iv_hdfe_stata_parity.py",
         "tests/reference_parity/test_regress_weights_iv_robust_parity.py"
       ],
       "tolerance": ""
@@ -4376,7 +4380,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_diag_recovery_parity.py"
+        "tests/reference_parity/test_diag_recovery_parity.py",
+        "tests/reference_parity/test_iv_hdfe_stata_parity.py"
       ],
       "tolerance": ""
     },

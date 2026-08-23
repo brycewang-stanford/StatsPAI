@@ -7127,6 +7127,151 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="diversity_index",
+            category="decomposition",
+            description=(
+                "Species-diversity indices from record-level or count data: "
+                "Shannon entropy, species richness, Pielou evenness, the "
+                "Simpson family (concentration / Gini-Simpson / inverse) and "
+                "Hill numbers of any order. Accepts long-format sighting "
+                "records or a site-by-species matrix and groups straight onto "
+                "a panel index, so an ecological outcome can be built inside "
+                "the same pipeline that estimates on it. min_records makes the "
+                "small-sample filter explicit rather than a footnote."
+            ),
+            params=[
+                ParamSpec(
+                    "data",
+                    "DataFrame | ndarray",
+                    True,
+                    description="Long-format records or a site-by-species matrix",
+                ),
+                ParamSpec(
+                    "species",
+                    "str",
+                    False,
+                    None,
+                    description="Species column (required for long-format input)",
+                ),
+                ParamSpec(
+                    "count",
+                    "str",
+                    False,
+                    None,
+                    description="Abundance column; omit when one row is one record",
+                ),
+                ParamSpec(
+                    "by",
+                    "list[str] | str",
+                    False,
+                    None,
+                    description="Grouping keys, typically the panel index",
+                ),
+                ParamSpec(
+                    "index",
+                    "list[str] | str",
+                    False,
+                    "shannon",
+                    description="Index/indices to compute, or 'all'",
+                    enum=[
+                        "shannon",
+                        "richness",
+                        "pielou",
+                        "simpson",
+                        "gini_simpson",
+                        "inv_simpson",
+                        "hill",
+                        "all",
+                    ],
+                ),
+                ParamSpec("q", "float", False, 1.0, description="Hill number order"),
+                ParamSpec(
+                    "base", "float", False, None, description="Log base for Shannon"
+                ),
+                ParamSpec(
+                    "min_records",
+                    "int",
+                    False,
+                    0,
+                    description="Groups below this many records return NaN",
+                ),
+            ],
+            returns="float | Series | DataFrame",
+            example=(
+                'sp.diversity_index(records, species="species", '
+                'by=["county", "ym"], index=["shannon", "richness"], '
+                "min_records=5)"
+            ),
+            tags=["diversity", "ecology", "entropy", "outcome-construction"],
+            reference="Shannon (1948); Simpson (1949); Pielou (1966); Hill (1973).",
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="zero_first_stage",
+            category="causal",
+            description=(
+                "Zero-first-stage (ZFS) test of the exclusion restriction, "
+                "plus van Kippersluis-Rietveld (2018) pleiotropy-robust "
+                "correction. Estimates the instrument's direct effect on the "
+                "outcome in a subsample where it has no first stage, reports "
+                "the implied bias in the main-sample IV estimate, and returns "
+                "the corrected point estimate with a cluster-bootstrap "
+                "interval. Accepts the same exog / absorb / cluster spec as "
+                "sp.iv, so the test runs on the specification actually fitted."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Outcome column"),
+                ParamSpec("endog", "str", True, description="Endogenous regressor"),
+                ParamSpec(
+                    "instrument",
+                    "str",
+                    True,
+                    description="The single excluded instrument being tested",
+                ),
+                ParamSpec(
+                    "zfs",
+                    "str | array",
+                    True,
+                    description=(
+                        "Boolean column/mask marking the zero-first-stage "
+                        "subsample where the instrument is believed inert"
+                    ),
+                ),
+                ParamSpec("exog", "list[str] | str", False, None),
+                ParamSpec(
+                    "absorb",
+                    "list[str] | str",
+                    False,
+                    None,
+                    description="Fixed effects absorbed in every component regression",
+                ),
+                ParamSpec("cluster", "list[str] | str", False, None),
+                ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "n_boot",
+                    "int",
+                    False,
+                    999,
+                    description="Bootstrap reps for the corrected estimate (0 to skip)",
+                ),
+                ParamSpec("random_state", "int", False, None),
+            ],
+            returns="ZeroFirstStageResult",
+            example=(
+                'sp.zero_first_stage(df, y="shannon", endog="policy", '
+                'instrument="z", zfs="is_desert", absorb=["county", "ym"], '
+                'cluster="county")'
+            ),
+            tags=["iv", "exclusion", "sensitivity", "pleiotropy", "diagnostic"],
+            reference="van Kippersluis & Rietveld (2018). IJE 47(4), 1279-1288.",
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="iv_diag",
             category="causal",
             description=(
@@ -7152,6 +7297,17 @@ def _build_registry() -> None:
                     False,
                     None,
                     description="Optional included exogenous controls",
+                ),
+                ParamSpec(
+                    "absorb",
+                    "list[str] | str",
+                    False,
+                    None,
+                    description=(
+                        "High-dimensional fixed effects to partial out before "
+                        "the bundle is computed, so every statistic describes "
+                        "the absorbed specification (ivreghdfe-equivalent)"
+                    ),
                 ),
                 ParamSpec(
                     "cluster",
@@ -14681,7 +14837,12 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "front_door": ["tests/test_front_door.py", "tests/test_review_fixes_round2.py"],
     "g_computation": ["tests/test_g_computation.py"],
     "ipw": ["tests/test_new_features.py"],
-    "iv_diag": ["tests/iv/test_iv_diag.py"],
+    "iv_diag": [
+        "tests/iv/test_iv_diag.py",
+        "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+    ],
+    "zero_first_stage": ["tests/test_zero_first_stage.py"],
+    "diversity_index": ["tests/test_diversity_index.py"],
     "iv_compare": ["tests/iv/test_iv_diag.py"],
     "kernel_iv": ["tests/test_kernel_iv.py", "tests/test_iv_frontiers.py"],
     "continuous_iv_late": ["tests/test_continuous_iv_late.py"],

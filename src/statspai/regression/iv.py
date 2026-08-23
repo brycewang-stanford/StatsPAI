@@ -186,8 +186,11 @@ def _k_class_fit(
     rss = np.sum(residuals**2)
     r_squared = 1 - rss / tss
 
-    # Sargan/Hansen overidentification test (if over-identified)
+    # Over-identification test. Sargan under i.i.d. errors; Hansen's J
+    # (the ivreg2 convention) once the vcov is robust or clustered, where
+    # Sargan is no longer valid.
     sargan = _sargan_test(residuals, W, m, k2) if m > k2 else None
+    hansen = _hansen_j(y, X_actual, W, residuals, robust, cluster)
 
     # Durbin-Wu-Hausman endogeneity test
     hausman = _hausman_test(y, X_exog, X_endog, W)
@@ -206,6 +209,7 @@ def _k_class_fit(
         "tss": tss,
         "first_stage": first_stage_results,
         "sargan": sargan,
+        "hansen": hansen,
         "hausman": hausman,
         "n_instruments": m,
         "n_endogenous": k2,
@@ -296,6 +300,7 @@ def _gmm_fit(
     Z: np.ndarray,
     robust: str = "nonrobust",
     cluster: Optional[pd.Series] = None,
+    gmm_vcov: str = "sandwich",
 ) -> Dict[str, Any]:
     """
     Efficient two-step GMM estimator for IV.
@@ -341,13 +346,13 @@ def _gmm_fit(
     # Step 2: Optimal weighting matrix
     # S = (1/n) sum_i (Z_i * e_i)(Z_i * e_i)' for heteroskedastic case
     if cluster is not None:
-        # Cluster-robust weighting matrix
-        clusters = cluster.unique()
-        S = np.zeros((W.shape[1], W.shape[1]))
-        for cid in clusters:
-            idx = cluster == cid
-            moments_c = (W[idx] * resid_init[idx, np.newaxis]).sum(axis=0)
-            S += np.outer(moments_c, moments_c)
+        # Cluster-robust weighting matrix. With multiway clustering the
+        # inclusion-exclusion matrix is not guaranteed PSD, so it cannot
+        # serve as a GMM weight; ``ivreg2`` uses the first clustering
+        # dimension for W and the multiway estimator only for the VCE.
+        # We follow that convention.
+        _frame = _as_cluster_frame(cluster)
+        S, _ = _cluster_meat(W, resid_init, _cluster_codes(_frame, (0,)))
         S /= n
     elif robust != "nonrobust":
         # Heteroskedasticity-robust weighting matrix
@@ -371,18 +376,44 @@ def _gmm_fit(
     fitted_values = X_actual @ params
     residuals = y - fitted_values
 
-    # GMM variance: full sandwich
-    # V = (1/n) * (Q_xw S^{-1} Q_wx)^{-1} Q_xw S^{-1} Omega S^{-1} Q_wx (Q_xw S^{-1} Q_wx)^{-1}
-    # where Q_xw = X'W/n, Omega = E[W'ee'W]/n
-    # Re-estimate Omega with final residuals
-    We = W * residuals[:, np.newaxis]
-    Omega = We.T @ We / n
+    # --- GMM variance -------------------------------------------------
+    # ``gmm_vcov="efficient"`` reports the textbook efficient-GMM variance
+    #     V = q * (X'W S^{-1} W'X)^{-1},
+    # which is what ``ivreg2``/``ivreghdfe`` print. ``"sandwich"`` (the
+    # StatsPAI default) keeps the full sandwich with Omega re-estimated at
+    # the final residuals, which stays valid if the weight matrix is not
+    # the efficient one. Both carry the same finite-sample factor q as the
+    # k-class path: G/(G-1) * (n-1)/(n-k) when clustered, n/(n-k) for HC1,
+    # 1 otherwise.
+    if cluster is not None:
+        _frame = _as_cluster_frame(cluster)
+        _codes = _cluster_codes(_frame, (0,))
+        _g = int(_codes.max()) + 1
+        ssc = (_g / (_g - 1)) * ((n - 1) / max(n - k, 1))
+    elif robust != "nonrobust":
+        ssc = n / max(n - k, 1)
+    else:
+        ssc = 1.0
 
-    Q_xw = XW / n
-    Q_xw_Sinv = Q_xw @ S_inv
-    bread_n = np.linalg.inv(Q_xw_Sinv @ Q_xw.T)
-    meat_n = Q_xw_Sinv @ Omega @ S_inv @ Q_xw.T
-    var_cov = (bread_n @ meat_n @ bread_n) / n
+    if gmm_vcov == "efficient":
+        # bread == (1/n) (X'W Sigma^{-1} W'X)^{-1} because S == Sigma / n.
+        var_cov = ssc * n * bread
+    else:
+        # Omega must match the clustering structure of the weight matrix;
+        # using the heteroskedasticity form under cluster= understates the
+        # variance whenever moments are correlated within cluster.
+        if cluster is not None:
+            Omega, _ = _cluster_meat(W, residuals, _codes)
+            Omega = Omega / n
+        else:
+            We = W * residuals[:, np.newaxis]
+            Omega = We.T @ We / n
+
+        Q_xw = XW / n
+        Q_xw_Sinv = Q_xw @ S_inv
+        bread_n = np.linalg.inv(Q_xw_Sinv @ Q_xw.T)
+        meat_n = Q_xw_Sinv @ Omega @ S_inv @ Q_xw.T
+        var_cov = ssc * (bread_n @ meat_n @ bread_n) / n
 
     std_errors = np.sqrt(np.maximum(np.diag(var_cov), 0))
 
@@ -645,28 +676,203 @@ def _robust_cov(
     return _as_float_array(bread @ meat @ bread)
 
 
+def _normalise_cluster(cluster: Any) -> Optional[Tuple[str, ...]]:
+    """Return cluster column names when ``cluster`` names columns.
+
+    Accepts ``"county"``, ``"county + ym"`` (Stata/fixest spelling) and
+    ``["county", "ym"]``. Returns ``None`` for array-likes, which are
+    handled as data rather than as column references.
+    """
+    if cluster is None:
+        return None
+    if isinstance(cluster, str):
+        return tuple(t.strip() for t in cluster.split("+") if t.strip())
+    if isinstance(cluster, (list, tuple)) and all(isinstance(c, str) for c in cluster):
+        return tuple(cluster)
+    return None
+
+
+def _as_cluster_frame(cluster: Any) -> pd.DataFrame:
+    """Normalise any cluster specification to a ``(n, d)`` DataFrame.
+
+    Accepts a Series, a DataFrame (one column per clustering dimension),
+    a 1-D array, or a 2-D array. Multiway clustering is signalled by
+    ``d > 1``.
+    """
+    if isinstance(cluster, pd.DataFrame):
+        return cluster.reset_index(drop=True)
+    if isinstance(cluster, pd.Series):
+        return cluster.to_frame().reset_index(drop=True)
+    arr = np.asarray(cluster)
+    if arr.ndim == 1:
+        arr = arr.reshape(-1, 1)
+    return pd.DataFrame(arr, columns=[f"cluster{i}" for i in range(arr.shape[1])])
+
+
+def _cluster_codes(frame: pd.DataFrame, cols: Tuple[int, ...]) -> np.ndarray:
+    """Integer group codes for the intersection of ``cols`` in ``frame``."""
+    sub = frame.iloc[:, list(cols)]
+    if len(cols) == 1:
+        return pd.factorize(sub.iloc[:, 0], sort=False)[0]
+    keys = pd.MultiIndex.from_frame(sub.astype(object))
+    return pd.factorize(keys, sort=False)[0]
+
+
+def _cluster_meat(
+    X_hat: np.ndarray,
+    residuals: np.ndarray,
+    codes: np.ndarray,
+) -> Tuple[np.ndarray, int]:
+    """Sum of outer products of within-cluster score sums.
+
+    Vectorised: scores are summed per cluster with ``np.add.at`` rather
+    than looping over cluster ids, which matters for county-month panels
+    with thousands of clusters.
+    """
+    scores = X_hat * residuals[:, np.newaxis]
+    n_clusters = int(codes.max()) + 1 if codes.size else 0
+    sums = np.zeros((n_clusters, X_hat.shape[1]), dtype=float)
+    np.add.at(sums, codes, scores)
+    return sums.T @ sums, n_clusters
+
+
+def _psd_project(V: np.ndarray) -> np.ndarray:
+    """Project a symmetric matrix onto the PSD cone (Cameron-Gelbach-Miller).
+
+    The multiway inclusion-exclusion variance is not guaranteed PSD in
+    finite samples; the standard fix (and what ``ivreg2``/``reghdfe`` do)
+    is to zero out negative eigenvalues.
+    """
+    V = 0.5 * (V + V.T)
+    evals, evecs = np.linalg.eigh(V)
+    if np.all(evals >= 0):
+        return V
+    evals = np.maximum(evals, 0.0)
+    return evecs @ np.diag(evals) @ evecs.T
+
+
+def _hansen_j(
+    y: np.ndarray,
+    X: np.ndarray,
+    W: np.ndarray,
+    resid: np.ndarray,
+    robust: str,
+    cluster: Any,
+) -> Optional[Dict[str, float]]:
+    """Hansen's J for a k-class fit under heteroskedasticity/clustering.
+
+    The Sargan statistic assumes i.i.d. errors and is not valid once the
+    vcov is robust or clustered; ``ivreg2`` therefore switches its
+    over-identification test to Hansen's J, evaluated at the efficient
+    two-step GMM estimate whose weight matrix is built from the k-class
+    residuals. This reproduces that number.
+
+    Returns ``None`` when the model is exactly identified.
+    """
+    n, k = X.shape
+    m = W.shape[1]
+    df = m - k
+    if df <= 0:
+        return None
+
+    if cluster is not None:
+        frame = _as_cluster_frame(cluster)
+        from itertools import combinations
+
+        d = frame.shape[1]
+        S = np.zeros((m, m))
+        for size in range(1, d + 1):
+            sign = 1.0 if size % 2 == 1 else -1.0
+            for cols in combinations(range(d), size):
+                meat, _ = _cluster_meat(W, resid, _cluster_codes(frame, cols))
+                S += sign * meat
+        if d > 1:
+            S = _psd_project(S)
+    elif robust != "nonrobust":
+        Wu = W * resid[:, np.newaxis]
+        S = Wu.T @ Wu
+    else:
+        return None  # caller keeps the Sargan statistic
+
+    try:
+        S_inv = np.linalg.inv(S)
+    except np.linalg.LinAlgError:  # pragma: no cover - defensive
+        return None
+
+    # Efficient two-step GMM estimate under this S, then J at that point.
+    XW = X.T @ W
+    try:
+        beta_gmm = np.linalg.solve(XW @ S_inv @ XW.T, XW @ S_inv @ (W.T @ y))
+    except np.linalg.LinAlgError:  # pragma: no cover - defensive
+        return None
+    g = W.T @ (y - X @ beta_gmm)
+    stat = float(g @ S_inv @ g)
+    return {
+        "statistic": stat,
+        "pvalue": float(1 - stats.chi2.cdf(stat, df)),
+        "df": int(df),
+    }
+
+
 def _cluster_cov(
     X_hat: np.ndarray,
     A: np.ndarray,
     residuals: np.ndarray,
     bread: np.ndarray,
-    cluster: pd.Series,
+    cluster: Any,
 ) -> np.ndarray:
-    """Clustered standard errors."""
+    r"""Cluster-robust (one-way or multiway) IV variance.
+
+    One-way reproduces Stata ``ivregress 2sls, cluster()``. With ``d > 1``
+    clustering dimensions this is the Cameron, Gelbach & Miller (2011)
+    inclusion-exclusion estimator
+
+    .. math:: V = \sum_{\emptyset \ne S \subseteq \{1..d\}}
+              (-1)^{|S|+1} V_S,
+
+    with a single ``ivreg2``-style finite-sample factor
+    ``G_min/(G_min-1) * (n-1)/(n-k)`` and a PSD projection at the end.
+
+    Absorbed-FE degrees of freedom are *not* handled here: the absorb
+    path rescales the whole variance once via ``_scale_vcov_for_fe_dof``.
+    """
+    from itertools import combinations
+
     n, k = X_hat.shape
-    clusters = cluster.unique()
-    n_clusters = len(clusters)
+    frame = _as_cluster_frame(cluster)
+    d = frame.shape[1]
 
-    meat = np.zeros((k, k))
-    for cid in clusters:
-        idx = cluster == cid
-        Xh_c = X_hat[idx]
-        resid_c = residuals[idx]
-        moments_c = (Xh_c * resid_c[:, np.newaxis]).sum(axis=0)
-        meat += np.outer(moments_c, moments_c)
+    V = np.zeros((k, k))
+    g_min: Optional[int] = None
+    for size in range(1, d + 1):
+        sign = 1.0 if size % 2 == 1 else -1.0
+        for cols in combinations(range(d), size):
+            codes = _cluster_codes(frame, cols)
+            meat, n_clusters = _cluster_meat(X_hat, residuals, codes)
+            if n_clusters <= 1:
+                raise DataInsufficient(
+                    "Clustered IV inference needs at least two clusters in "
+                    f"every dimension; dimension {cols} has {n_clusters}.",
+                    recovery_hint=(
+                        "Drop the degenerate clustering dimension, or use "
+                        "sp.wild_cluster_boot / sp.cr2_se for few-cluster "
+                        "inference."
+                    ),
+                    diagnostics={"dimension": cols, "n_clusters": n_clusters},
+                )
+            if size == 1:
+                g_min = n_clusters if g_min is None else min(g_min, n_clusters)
+            V += sign * (bread @ meat @ bread)
 
-    correction = (n_clusters / (n_clusters - 1)) * ((n - 1) / (n - k))
-    return _as_float_array(correction * bread @ meat @ bread)
+    # ivreg2 convention: ONE finite-sample factor, built from the smallest
+    # cluster count, applied to the assembled matrix. (fixest instead
+    # corrects each inclusion-exclusion component separately; the two agree
+    # to about three digits.)
+    assert g_min is not None  # d >= 1 always makes a one-way pass
+    V = (g_min / (g_min - 1)) * ((n - 1) / max(n - k, 1)) * V
+    if d > 1:
+        V = _psd_project(V)
+    return _as_float_array(V)
 
 
 def _sargan_test(
@@ -997,8 +1203,9 @@ class IVRegression(BaseModel):
             (≡ HC1, matching Stata) and ``'white'`` (≡ HC0). Classical and
             robust SEs match ``ivregress 2sls, small`` / ``..., robust small``
             (the finite-sample t convention).
-        cluster : str, optional
-            Variable name for clustering.
+        cluster : str, list of str, Series or DataFrame, optional
+            Clustering dimension(s). More than one selects multiway
+            (Cameron-Gelbach-Miller) clustering.
 
         Returns
         -------
@@ -1104,23 +1311,28 @@ class IVRegression(BaseModel):
         # signature documents ``cluster`` as a ``pd.Series``.
         cluster_var = None
         if cluster is not None:
-            if isinstance(cluster, str):
+            cluster_spec = _normalise_cluster(cluster)
+            if cluster_spec is not None and all(
+                isinstance(c, str) for c in cluster_spec
+            ):
                 src = getattr(self, "_clean_data", None)
                 if src is None:
                     src = self.data
-                if src is None or cluster not in getattr(src, "columns", []):
+                cols = list(getattr(src, "columns", []))
+                missing = [c for c in cluster_spec if c not in cols]
+                if src is None or missing:
                     raise MethodIncompatibility(
-                        f"Cluster variable not found in data: {cluster!r}",
+                        f"Cluster variable not found in data: {missing or cluster!r}",
                         recovery_hint=(
-                            "Pass a cluster column present in the model data, "
+                            "Pass cluster column(s) present in the model data, "
                             "or an array/Series aligned with the sample."
                         ),
-                        diagnostics={"cluster": cluster},
+                        diagnostics={"cluster": cluster, "missing": missing},
                     )
-                cluster_var = src[cluster]
+                cluster_var = src.loc[:, list(cluster_spec)]
             else:
-                # Array-like / Series passed directly (one entry per obs).
-                cluster_var = pd.Series(np.asarray(cluster).reshape(-1))
+                # Array-like / Series / DataFrame passed directly.
+                cluster_var = _as_cluster_frame(cluster)
                 if len(cluster_var) != len(y_fit):
                     raise MethodIncompatibility(
                         "Cluster vector length does not match the estimation "
@@ -1172,6 +1384,7 @@ class IVRegression(BaseModel):
                 Z_fit,
                 robust=robust,
                 cluster=cluster_var,
+                gmm_vcov=str(kwargs.get("gmm_vcov", "sandwich")).lower(),
             )
 
         elif method == "jive":
@@ -1200,9 +1413,11 @@ class IVRegression(BaseModel):
         }
         if cluster_var is not None:
             try:
-                _cv = np.asarray(cluster_var)
-                if _cv.ndim == 1:
-                    model_info["n_clusters"] = int(pd.Series(_cv).nunique())
+                _cf = _as_cluster_frame(cluster_var)
+                _counts = [int(_cf.iloc[:, j].nunique()) for j in range(_cf.shape[1])]
+                model_info["n_clusters"] = _counts[0] if len(_counts) == 1 else _counts
+                if _cf.shape[1] > 1:
+                    model_info["cluster_dims"] = list(_cf.columns)
             except (TypeError, ValueError):  # pragma: no cover - defensive
                 pass
         if results.get("kappa") is not None:
@@ -1304,11 +1519,18 @@ class IVRegression(BaseModel):
                     stacklevel=2,
                 )
 
-        if results["sargan"] is not None:
-            test_name = "Hansen J" if method == "gmm" else "Sargan"
-            diagnostics[f"{test_name} statistic"] = results["sargan"]["statistic"]
-            diagnostics[f"{test_name} p-value"] = results["sargan"]["pvalue"]
-            diagnostics[f"{test_name} df"] = results["sargan"]["df"]
+        # ivreg2 convention: report Sargan under i.i.d. errors and Hansen's
+        # J once the vcov is robust or clustered (where Sargan is invalid).
+        overid = results.get("hansen") or results["sargan"]
+        if overid is not None:
+            test_name = (
+                "Hansen J"
+                if (method == "gmm" or results.get("hansen") is not None)
+                else "Sargan"
+            )
+            diagnostics[f"{test_name} statistic"] = overid["statistic"]
+            diagnostics[f"{test_name} p-value"] = overid["pvalue"]
+            diagnostics[f"{test_name} df"] = overid["df"]
 
         if results["hausman"] is not None:
             diagnostics["Hausman F-stat"] = results["hausman"]["statistic"]
@@ -1316,9 +1538,7 @@ class IVRegression(BaseModel):
 
         # Store for programmatic access
         self._first_stage = [dict(fs) for fs in results["first_stage"]]
-        self._sargan = (
-            dict(results["sargan"]) if results["sargan"] is not None else None
-        )
+        self._sargan = dict(overid) if overid is not None else None
         self._hausman = dict(results["hausman"])
         self._instruments = self._instrument_names
         self._raw_results = results
@@ -1478,11 +1698,51 @@ def _normalise_absorb(absorb: Optional[Union[str, List[str]]]) -> List[str]:
     return [str(t) for t in absorb]
 
 
+def _materialise_interacted_fe(
+    data: pd.DataFrame, absorb_terms: List[str]
+) -> Tuple[pd.DataFrame, List[str]]:
+    """Expand ``a^b`` absorb terms into a real interacted-factor column.
+
+    ``fixest`` writes an interacted fixed effect as ``prov^year``; the HDFE
+    kernel wants one categorical column per dimension, so the interaction
+    is built here rather than left for the caller to precompute. Returns a
+    (possibly copied) frame plus the rewritten term list; frames without
+    any ``^`` term are passed through untouched.
+    """
+    if not any("^" in t for t in absorb_terms):
+        return data, absorb_terms
+
+    out = data.copy()
+    rewritten: List[str] = []
+    for term in absorb_terms:
+        if "^" not in term:
+            rewritten.append(term)
+            continue
+        parts = [p.strip() for p in term.split("^") if p.strip()]
+        missing = [p for p in parts if p not in out.columns]
+        if missing:
+            raise MethodIncompatibility(
+                f"absorb term {term!r} references missing column(s): {missing}",
+                recovery_hint=(
+                    "Interacted fixed effects use the fixest spelling "
+                    '"a^b"; every component must be a column in `data`.'
+                ),
+                diagnostics={"term": term, "missing_columns": missing},
+            )
+        name = "__fe_" + "_x_".join(parts)
+        codes = out[parts[0]].astype(str)
+        for extra in parts[1:]:
+            codes = codes + "\x1f" + out[extra].astype(str)
+        out[name] = codes
+        rewritten.append(name)
+    return out, rewritten
+
+
 def _iv_absorb_preprocess(
     formula: str,
     data: pd.DataFrame,
     absorb_terms: List[str],
-    cluster_name: Optional[str] = None,
+    cluster_names: Optional[List[str]] = None,
     fe_tol: float = 1e-10,
     fe_maxiter: int = 1_000,
 ) -> Dict[str, Any]:
@@ -1498,6 +1758,8 @@ def _iv_absorb_preprocess(
     # at module import time.
     from ..fast.demean import demean as _demean
 
+    cluster_names = list(cluster_names or [])
+
     parsed = parse_formula(formula)
     if not parsed["endogenous"] or not parsed["instruments"]:
         raise MethodIncompatibility(
@@ -1512,10 +1774,20 @@ def _iv_absorb_preprocess(
     endog_names = parsed["endogenous"]
     instrument_names = parsed["instruments"]
 
+    # ``prov^year`` (the fixest spelling) means the interacted fixed effect.
+    # Materialise it as a column so the HDFE kernel sees a single factor.
+    data, absorb_terms = _materialise_interacted_fe(data, absorb_terms)
+
     needed = [dependent] + exog_names + endog_names + instrument_names
     needed += list(absorb_terms)
-    if cluster_name is not None:
-        needed.append(cluster_name)
+    needed += list(cluster_names)
+    # De-duplicate while preserving order. A column can legitimately appear
+    # twice — clustering on an absorbed FE dimension (``absorb="county"`` with
+    # ``cluster="county"``) is the single most common panel spec — and
+    # ``data[needed]`` would otherwise return duplicated columns, so that
+    # ``clean[cluster_name]`` yields a DataFrame instead of a Series.
+    seen: set = set()
+    needed = [c for c in needed if not (c in seen or seen.add(c))]
     missing = [v for v in needed if v not in data.columns]
     if missing:
         raise MethodIncompatibility(
@@ -1592,10 +1864,12 @@ def _iv_absorb_preprocess(
     col += n_endog
     Z_dem = stacked_dem[:, col : col + n_z]
 
-    # Subset cluster column to kept rows so downstream ``_cluster_cov``
+    # Subset cluster columns to kept rows so downstream ``_cluster_cov``
     # sees aligned data.
-    if cluster_name is not None:
-        cluster_kept = clean[cluster_name].iloc[keep_mask].reset_index(drop=True)
+    if cluster_names:
+        cluster_kept = (
+            clean.loc[:, cluster_names].iloc[keep_mask].reset_index(drop=True)
+        )
     else:
         cluster_kept = None
 
@@ -1614,7 +1888,9 @@ def _iv_absorb_preprocess(
         "X_exog": X_exog_dem,
         "X_endog": X_endog_dem,
         "Z": Z_dem,
-        "cluster_series": cluster_kept,
+        "fe_frame": fe_df.iloc[keep_mask].reset_index(drop=True),
+        "cluster_frame": cluster_kept,
+        "cluster_names": list(cluster_names),
         "var_names": var_names,
         "n_obs": int(n_obs),
         "n_kept": n_kept,
@@ -1631,7 +1907,8 @@ def _iv_absorb_run(
     absorb_terms: List[str],
     method: str,
     robust: str,
-    cluster: Optional[str],
+    cluster: Optional[Union[str, List[str]]],
+    fuller_alpha: float = 1.0,
     **kwargs: Any,
 ) -> Tuple[EconometricResults, IVRegression, Dict[str, Any]]:
     """Internal helper: run 2SLS with HDFE absorption.
@@ -1641,30 +1918,35 @@ def _iv_absorb_run(
     attach Kleibergen-Paap / Sanderson-Windmeijer / effective-F
     diagnostics in residualised space.
 
-    Restricted to ``method='2sls'`` for now — LIML/Fuller/GMM/JIVE need
-    their kappa / weighting reformulated in residualised space (Phase 3b).
+    All estimators run in residualised space, matching ``ivreghdfe``: the
+    FE block is partialled out of ``y``, the controls, the endogenous
+    regressors and the instruments first, and the k-class kappa / GMM
+    weighting matrix is computed on the residualised data.
     """
-    if method != "2sls":
-        raise NotImplementedError(
-            f"absorb= is currently only wired for method='2sls'; got "
-            f"method={method!r}. LIML/Fuller/GMM/JIVE need a kappa / "
-            "weighting reformulation in residualised space — track in "
-            "Phase 3b."
-        )
 
+    cluster_names = _normalise_cluster(cluster)
+    if cluster is not None and cluster_names is None:
+        raise MethodIncompatibility(
+            "absorb= requires cluster to name column(s) in `data`; an "
+            "array-like cluster vector cannot be aligned after singleton "
+            "dropping.",
+            recovery_hint=(
+                "Add the cluster variable as a column and pass its name, "
+                'e.g. cluster="county" or cluster=["county", "ym"].'
+            ),
+            diagnostics={"cluster": type(cluster).__name__},
+        )
     pre = _iv_absorb_preprocess(
         formula=formula,
         data=data,
         absorb_terms=absorb_terms,
-        cluster_name=cluster,
+        cluster_names=list(cluster_names or []),
     )
-    if pre["cluster_series"] is not None:
-        cluster_df = pd.DataFrame({cluster: pre["cluster_series"]})
-    else:
-        cluster_df = None
+    cluster_df = pre["cluster_frame"]
 
     model = IVRegression(
-        method="2sls",
+        method=method,
+        fuller_alpha=fuller_alpha,
         y=pre["y"],
         X_exog=pre["X_exog"],
         X_endog=pre["X_endog"],
@@ -1674,20 +1956,50 @@ def _iv_absorb_run(
     # Inject cluster_df so fit()'s ``cluster_var = self.data[cluster]``
     # branch finds the kept-rows cluster series.
     model.data = cluster_df
-    result = model.fit(robust=robust, cluster=cluster, **kwargs)
+    result = model.fit(
+        robust=robust,
+        cluster=list(cluster_names) if cluster_names else None,
+        **kwargs,
+    )
 
     k_total = pre["X_exog"].shape[1] + pre["X_endog"].shape[1]
+    # Fixed effects nested within a clustering dimension are redundant for
+    # cluster-robust inference and must not be charged against the residual
+    # DOF (reghdfe ``dofadjustments(clusters)``, fixest ``fixef.K="nested"``).
+    from ..inference._dof import absorbed_dof_charge
+
+    fe_dof_charged, nested_fe = absorbed_dof_charge(
+        pre["fe_frame"],
+        pre["absorb_terms"],
+        pre["fe_cardinality"],
+        cluster_df,
+    )
     _scale_vcov_for_fe_dof(
         result,
-        fe_dof=pre["fe_dof"],
+        fe_dof=fe_dof_charged,
         n_kept=pre["n_kept"],
         k=k_total,
     )
+
+    # Context the diagnostics layer needs to re-run column-name-based
+    # helpers (Olea-Pflueger effective F) on the same specification: the
+    # fitted model only carries residualised matrices plus the cluster
+    # frame, so the original data and the variable roles must travel too.
+    model._absorb_context = {
+        "data": data,
+        "absorb": list(absorb_terms),
+        "cluster": list(cluster_names or []),
+        "endog": list(pre["var_names"]["endog"]),
+        "instruments": list(pre["var_names"]["instruments"]),
+        "exog": list(pre["var_names"]["exog"]),
+    }
 
     if hasattr(result, "model_info") and isinstance(result.model_info, dict):
         result.model_info["absorb"] = list(absorb_terms)
         result.model_info["fe_cardinality"] = list(pre["fe_cardinality"])
         result.model_info["fe_dof"] = int(pre["fe_dof"])
+        result.model_info["fe_dof_charged"] = int(fe_dof_charged)
+        result.model_info["fe_nested_in_cluster"] = list(nested_fe)
         result.model_info["n_dropped_singletons"] = int(pre["n_dropped"])
 
     return result, model, pre
@@ -1766,22 +2078,33 @@ def iv(
         Estimation method: '2sls', 'liml', 'fuller', 'gmm', 'jive'.
     robust : str, default 'nonrobust'
         Standard-error type ('nonrobust', 'hc0', 'hc1', 'hc2', 'hc3').
-    cluster : str, optional
-        Variable name for clustered standard errors.
+    cluster : str or list of str, optional
+        Variable name(s) for clustered standard errors. Several names —
+        ``["county", "ym"]`` or the fixest spelling ``"county + ym"`` —
+        select multiway clustering (Cameron, Gelbach & Miller 2011), with
+        ``ivreg2``'s single ``G_min`` finite-sample factor and a PSD
+        projection.
     fuller_alpha : float, default 1.0
         Fuller modification constant (only used when ``method='fuller'``).
+    gmm_vcov : {'sandwich', 'efficient'}, default 'sandwich'
+        Variance formula for ``method='gmm'``. ``'sandwich'`` re-estimates
+        the moment variance at the final residuals and stays valid when the
+        weight matrix is not the efficient one. ``'efficient'`` reports the
+        textbook efficient-GMM variance ``q (X'W S^-1 W'X)^-1``, which is
+        what ``ivreg2 gmm2s`` prints.
     absorb : str or list of str, optional
         Column name(s) of high-dimensional fixed effects to **partial out**
         before fitting (e.g. ``absorb="firm"`` or
         ``absorb=["firm", "year"]``). Routes ``y``, exogenous controls,
         endogenous regressors, and instruments through
         :func:`sp.fast.demean` (Rust HDFE backend) and drops singletons,
-        then runs 2SLS in residualised space. The intercept is dropped
-        because the absorbed FEs span the constant. The residual DOF is
-        adjusted by ``sum(G_k - 1)``, mirroring
-        :func:`sp.fast.feols(absorb=...)`. Currently only wired for
-        ``method='2sls'``; LIML / Fuller / GMM / JIVE raise
-        ``NotImplementedError`` (Phase 3b).
+        then runs the requested estimator in residualised space. The
+        intercept is dropped because the absorbed FEs span the constant.
+        Works for every ``method`` (2SLS / LIML / Fuller / GMM / JIVE),
+        matching ``ivreghdfe``. The residual DOF charge follows
+        ``reghdfe``: ``sum(G_k - 1)`` over fixed effects *not* nested
+        within a clustering dimension, plus one for the absorbed
+        constant.
 
     Returns
     -------
@@ -1862,6 +2185,7 @@ def iv(
             method=method,
             robust=robust,
             cluster=cluster,
+            fuller_alpha=fuller_alpha,
             **kwargs,
         )
     else:

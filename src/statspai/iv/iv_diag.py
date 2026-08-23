@@ -508,6 +508,7 @@ def _prep_inputs(
     instruments: Sequence[str],
     exog: Optional[Sequence[str]] = None,
     cluster: Optional[Union[str, np.ndarray]] = None,
+    absorb: Optional[Sequence[str]] = None,
 ) -> Tuple[
     pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]
 ]:
@@ -518,6 +519,9 @@ def _prep_inputs(
     cols = [y, endog] + instruments + exog_l
     if cluster_col is not None:
         cols = cols + [cluster_col]
+    cols = cols + list(absorb or [])
+    seen: set = set()
+    cols = [c for c in cols if not (c in seen or seen.add(c))]
     df_raw = data[cols].copy().dropna()
     # Save the surviving rows' positions (Int64Index) BEFORE we reset
     # the index — needed to align an external cluster array with the
@@ -587,8 +591,13 @@ def _se_2sls_robust(
     beta: float,
     cluster: Optional[np.ndarray] = None,
     vcov: str = "HC1",
+    n_absorbed: int = 0,
 ) -> float:
-    """Heteroskedasticity-/cluster-robust 2SLS SE for the endog coefficient."""
+    """Heteroskedasticity-/cluster-robust 2SLS SE for the endog coefficient.
+
+    ``n_absorbed`` adds absorbed fixed-effect degrees of freedom to the
+    regressor count in the finite-sample factor, as ``ivreghdfe`` does.
+    """
     n = len(Y)
     Z_full = np.column_stack([Z, W])
     X = np.column_stack([D.reshape(-1, 1), W])
@@ -599,7 +608,7 @@ def _se_2sls_robust(
     resid = Y - X @ coef
     # ── Classical homoskedastic 2SLS SE ───────────────────────────────
     if cluster is None and vcov == "classic":
-        k = X.shape[1]
+        k = X.shape[1] + n_absorbed
         sigma2 = float(resid @ resid) / max(n - k, 1)
         XhX_only_inv = np.linalg.pinv(X_hat.T @ X_hat)
         return float(np.sqrt(max(sigma2 * XhX_only_inv[0, 0], 0.0)))
@@ -607,7 +616,7 @@ def _se_2sls_robust(
         if vcov == "HC0":
             scale = 1.0  # pragma: no cover
         elif vcov == "HC1":
-            scale = n / max(n - X.shape[1], 1)
+            scale = n / max(n - X.shape[1] - n_absorbed, 1)
         else:
             scale = 1.0  # pragma: no cover
         meat = (X_hat * resid[:, None]).T @ (X_hat * resid[:, None]) * scale
@@ -619,7 +628,7 @@ def _se_2sls_robust(
             idx = cluster == g
             sg = (X_hat[idx] * resid[idx, None]).sum(axis=0)
             meat += np.outer(sg, sg)
-        meat *= G / max(G - 1, 1) * (n - 1) / max(n - X.shape[1], 1)
+        meat *= G / max(G - 1, 1) * (n - 1) / max(n - X.shape[1] - n_absorbed, 1)
     cov = XhX_inv @ meat @ XhX_inv.T
     return float(np.sqrt(max(cov[0, 0], 0.0)))
 
@@ -746,6 +755,7 @@ def iv_diag(
     instruments: Union[str, Sequence[str]],
     exog: Optional[Union[str, Sequence[str]]] = None,
     *,
+    absorb: Optional[Union[str, Sequence[str]]] = None,
     cluster: Optional[Union[str, np.ndarray]] = None,
     h0: float = 0.0,
     alpha: float = 0.05,
@@ -854,16 +864,50 @@ def iv_diag(
         exog = [exog]
     exog_l = list(exog) if exog else []
 
-    df_clean, Y, D, Z, W, cluster_arr = _prep_inputs(
-        data, y, endog, instruments, exog_l, cluster
+    absorb_l = (
+        [t.strip() for t in absorb.split("+") if t.strip()]
+        if isinstance(absorb, str)
+        else list(absorb or [])
     )
-    n = len(df_clean)
+    df_clean, Y, D, Z, W, cluster_arr = _prep_inputs(
+        data, y, endog, instruments, exog_l, cluster, absorb_l
+    )
+    fe_dof = 0
+    if absorb_l:
+        from ..fast.demean import demean as _demean
+        from ..inference._dof import absorbed_dof_charge
+
+        k_z_pre = Z.shape[1]
+        stacked = np.column_stack([Y.reshape(-1, 1), D.reshape(-1, 1), Z, W[:, 1:]])
+        stacked, info = _demean(stacked, df_clean[absorb_l], drop_singletons=True)
+        keep = info.keep_mask
+        Y = stacked[:, 0]
+        D = stacked[:, 1]
+        Z = stacked[:, 2 : 2 + k_z_pre]
+        # No constant: the absorbed fixed-effect block already spans it.
+        W = stacked[:, 2 + k_z_pre :]
+        if cluster_arr is not None:
+            cluster_arr = np.asarray(cluster_arr)[keep]
+        cl_frame = (
+            pd.DataFrame({"__cl": cluster_arr}) if cluster_arr is not None else None
+        )
+        fe_dof, _nested = absorbed_dof_charge(
+            df_clean[absorb_l].iloc[keep].reset_index(drop=True),
+            absorb_l,
+            list(info.n_fe),
+            cl_frame,
+        )
+        df_clean = df_clean.iloc[keep].reset_index(drop=True)
+
+    n = len(Y)
     k_z = Z.shape[1]
-    k_w = W.shape[1] - 1  # exclude constant
+    k_w = W.shape[1] - (0 if absorb_l else 1)  # exclude constant when present
 
     # ── 2SLS point + analytic SE ──────────────────────────────────────
     beta_2sls, _coef_2sls, resid_2sls = _two_sls_point(Y, D, Z, W)
-    se_2sls = _se_2sls_robust(Y, D, Z, W, beta_2sls, cluster=cluster_arr, vcov=vcov)
+    se_2sls = _se_2sls_robust(
+        Y, D, Z, W, beta_2sls, cluster=cluster_arr, vcov=vcov, n_absorbed=fe_dof
+    )
     from scipy import stats
 
     t_2sls = beta_2sls / se_2sls if se_2sls > 0 else np.nan
@@ -891,6 +935,8 @@ def iv_diag(
         h0=h0,
         alpha=alpha,
         vcov=vcov,
+        absorb=absorb_l or None,
+        cluster=cluster if isinstance(cluster, str) else None,
     )
     first_stage_F = float(ar["first_stage_F"])
     effective_F = float(ar["effective_F"])
@@ -913,13 +959,18 @@ def iv_diag(
     try:
         from .weak_identification import kleibergen_paap_rk
 
+        _has_const = not absorb_l
+        _exog_rf = (W[:, 1:] if _has_const else W) if W.shape[1] else None
+        if _exog_rf is not None and _exog_rf.shape[1] == 0:
+            _exog_rf = None
         kp = kleibergen_paap_rk(
             endog=D.reshape(-1, 1),
             instruments=Z,
-            exog=W[:, 1:] if W.shape[1] > 1 else None,
-            add_const=True,
+            exog=_exog_rf,
+            add_const=_has_const,
             cov_type="cluster" if cluster_arr is not None else "robust",
             cluster=cluster_arr if cluster_arr is not None else None,
+            n_absorbed=fe_dof,
         )
         kp_rk_lm = float(kp.rk_lm)
         kp_rk_lm_pvalue = float(kp.rk_lm_pvalue)

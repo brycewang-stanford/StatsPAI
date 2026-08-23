@@ -126,7 +126,16 @@ def test_absorb_iid_se_matches_dummy_control():
     )
 
 
-def test_absorb_cluster_se_matches_dummy_control():
+def test_absorb_cluster_se_drops_nested_fe_dof():
+    """Clustering on the absorbed dimension makes that FE redundant.
+
+    The dummy-variable path charges all ``G - 1`` FE coefficients against
+    the residual DOF; the absorb path must not, because a fixed effect
+    nested within the clustering dimension is annihilated by the cluster
+    sums. ``reghdfe``/``ivreghdfe`` (``dofadjustments(clusters)``) and
+    ``fixest`` (``fixef.K="nested"``) both drop it, so the absorbed SE is
+    strictly *smaller* than the naive dummy SE by exactly the DOF ratio.
+    """
     df = _make_iv_panel(seed=5)
     r_absorb = sp.iv(
         "y ~ (d ~ z1 + z2) + x1",
@@ -139,13 +148,19 @@ def test_absorb_cluster_se_matches_dummy_control():
     formula_dummy = f"y ~ (d ~ z1 + z2) + x1 + {' + '.join(dummies)}"
     r_dummy = sp.iv(formula_dummy, data=df2, cluster="cluster")
 
-    # Cluster SE: small-sample factor uses (n-k) which absorb path
-    # rescales to (n-k-fe_dof). Both should match to ~3 decimals.
+    assert r_absorb.model_info["fe_nested_in_cluster"] == ["firm"]
+    assert r_absorb.model_info["fe_dof_charged"] == 1
+
+    n = len(df)
+    k_dummy = 2 + (30 - 1) + 1  # d + x1 + firm dummies + intercept
+    k_absorb = 2 + 1  # d + x1, plus the one charged (constant) DOF
+    ratio = np.sqrt((n - k_absorb) ** -1.0 / (n - k_dummy) ** -1.0)
     np.testing.assert_allclose(
-        r_absorb.std_errors["d"],
-        r_dummy.std_errors["d"],
-        rtol=1e-2,
+        r_absorb.std_errors["d"] / r_dummy.std_errors["d"],
+        ratio,
+        rtol=1e-10,
     )
+    assert r_absorb.std_errors["d"] < r_dummy.std_errors["d"]
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +175,10 @@ def test_absorb_df_resid_charges_fe_dof():
     k = 2  # x1 + d (no intercept under absorb)
     fe_dof = r.model_info["fe_dof"]
     assert fe_dof == 30 - 1  # 30 firms in DGP
-    assert r.data_info["df_resid"] == n - k - fe_dof
+    # Unclustered: the absorbed block also spans the constant, so the
+    # charge is ``sum(G_k - 1) + 1`` -- ivreg2's ``e(sdofminus)``.
+    assert r.model_info["fe_dof_charged"] == fe_dof + 1
+    assert r.data_info["df_resid"] == n - k - fe_dof - 1
 
 
 def test_absorb_metadata_attached():
@@ -192,15 +210,25 @@ def test_absorb_none_matches_no_absorb_call():
 
 
 @pytest.mark.parametrize("method", ["liml", "fuller", "gmm", "jive"])
-def test_absorb_with_unsupported_method_raises(method):
+def test_absorb_runs_for_every_method(method):
+    """Every estimator absorbs, and lands near the 2SLS answer.
+
+    The DGP is strongly identified and only mildly over-identified, so
+    the k-class family and GMM should agree with 2SLS to a few percent;
+    the point of the test is that the residualised-space wiring works at
+    all, which it did not before (it raised ``NotImplementedError``).
+    """
     df = _make_iv_panel(seed=9)
-    with pytest.raises(NotImplementedError, match="Phase 3b"):
-        sp.iv(
-            "y ~ (d ~ z1 + z2) + x1",
-            data=df,
-            method=method,
-            absorb="firm",
-        )
+    base = sp.iv("y ~ (d ~ z1 + z2) + x1", data=df, absorb="firm")
+    r = sp.iv(
+        "y ~ (d ~ z1 + z2) + x1",
+        data=df,
+        method=method,
+        absorb="firm",
+    )
+    assert np.isfinite(r.params["d"])
+    assert np.isfinite(r.std_errors["d"])
+    np.testing.assert_allclose(r.params["d"], base.params["d"], rtol=0.05)
 
 
 def test_absorb_missing_column_raises():

@@ -338,10 +338,24 @@
     "description": "Anderson-Rubin (1949) test -- size-correct under weak instruments. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
+        "absorb": {
+          "description": "High-dimensional fixed effects to partial out of ``y``, the endogenous regressor, the instruments and the controls before the test -- the same residualisation ``sp.iv(absorb=...)`` performs.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level.",
           "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster the AR statistic. Switches from the homoskedastic F-form to the (multiway) cluster-robust quadratic form ``(Z'e)' Omega^-1 (Z'e)`` with ``Omega`` the cluster-sum variance of the moment vector, referred to ``F(k_z, G-1)``. Without this, a panel AR test over-rejects exactly as a homoskedastic t-test",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "endog": {
           "description": "Endogenous regressor (single).",
@@ -7120,6 +7134,63 @@
     "name": "distributional_te"
   },
   {
+    "description": "Species-diversity indices from record-level or count data: Shannon entropy, species richness, Pielou evenness, the Simpson family (concentration / Gini-Simpson / inverse) and Hill numbers of any order. Accepts long-format sighting records or a site-by-species matrix and groups straight onto a panel index, so an ecological outcome can be built inside the same pipeline that estimates on it. min_records makes the small-sample filter explicit rather than a footnote.",
+    "input_schema": {
+      "properties": {
+        "base": {
+          "description": "Log base for Shannon",
+          "type": "number"
+        },
+        "by": {
+          "description": "Grouping keys, typically the panel index",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "count": {
+          "description": "Abundance column; omit when one row is one record",
+          "type": "string"
+        },
+        "index": {
+          "default": "shannon",
+          "description": "Index/indices to compute, or 'all'",
+          "enum": [
+            "shannon",
+            "richness",
+            "pielou",
+            "simpson",
+            "gini_simpson",
+            "inv_simpson",
+            "hill",
+            "all"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "min_records": {
+          "default": 0,
+          "description": "Groups below this many records return NaN",
+          "type": "integer"
+        },
+        "q": {
+          "default": 1.0,
+          "description": "Hill number order",
+          "type": "number"
+        },
+        "species": {
+          "description": "Species column (required for long-format input)",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "diversity_index"
+  },
+  {
     "description": "Neural-net propensity score estimator (arXiv:2404.04794, 2024). Assumptions: Unconfoundedness / selection on observables: treatment is conditionally independent of potential outcomes given covariates; Overlap (positivity): 0 < e(X) < 1 for all units (scores are clipped to [0.02, 0.98]); Covariates are pre-treatment and the MLP correctly approximates e(X) = P(T=1 | X). Pre-conditions: Cross-sectional or pooled DataFrame with a binary treatment column and numeric covariate columns; No missing values in the covariate matrix passed to the network; Enough observations per treatment arm to fit a small MLP without overfitting. Failure modes: Heavy clipping at 0.02/0.98 indicates near-deterministic treatment and positivity violation -> Trim or restrict to the region of common support before using the scores in a weighted estimator; torch absent and sklearn MLP fails to converge in max_iter with lbfgs -> Increase max_iter, scale covariates, or shrink hidden_sizes for a simpler network. Alternatives: sp.overlap_weighted_did, sp.drdid, sp.did. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
@@ -7686,6 +7757,20 @@
     "description": "Olea-Pflueger (2013) robust effective F statistic for weak instruments. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
+        "absorb": {
+          "description": "High-dimensional fixed effects to partial out of the endogenous regressor, the instruments and the controls before the first stage -- the same residualisation ``sp.iv(absorb=...)`` performs, so the effective F describes the specification actually fitted. The absorbed degrees of freedom are charged to ``df_resid``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "cluster": {
+          "description": "Cluster the first-stage moment variance. ``Omega`` becomes the (multiway, Cameron-Gelbach-Miller) cluster-sum meat with the ``ivreg2`` finite-sample factor ``G_min/(G_min-1) * (n-1)/(n-K)``. This is the right diagnostic whenever the second stage is",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "endog": {
           "description": "Endogenous regressor (single endogenous variable).",
           "type": "string"
@@ -7706,7 +7791,7 @@
         },
         "vcov": {
           "default": "HC1",
-          "description": "Variance estimator for the first-stage residuals: - ``'classic'`` -- homoskedastic; F_eff equals first-stage F. - ``'HC0'`` -- White heteroskedasticity-robust. - ``'HC1'`` -- HC0 with small-sample correction ``n/(n-k)``.",
+          "description": "Variance estimator for the first-stage residuals: - ``'classic'`` -- homoskedastic; F_eff equals first-stage F. - ``'HC0'`` -- White heteroskedasticity-robust. - ``'HC1'`` -- HC0 with small-sample correction ``n/(n-k)``. Ignored when ``cluster`` is given.",
           "enum": [
             "HC0",
             "HC1",
@@ -11311,6 +11396,13 @@
     "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Instrument relevance (non-zero first stage); Exclusion restriction: the instrument affects the outcome only through the treatment; Independence/exogeneity of the instrument; for LATE, monotonicity (no defiers). Pre-conditions: An instrument plausibly affecting treatment, an endogenous treatment, and an outcome; A strong first stage (assess instrument strength before interpreting estimates). Failure modes: Weak first stage -- biased point estimates and unreliable conventional SEs -> Report first-stage F / effective F and use weak-IV-robust inference (Anderson-Rubin). Alternatives: sp.iv, sp.anderson_ru...",
     "input_schema": {
       "properties": {
+        "absorb": {
+          "description": "High-dimensional fixed effects to partial out before the bundle is computed, so every statistic describes the absorbed specification (ivreghdfe-equivalent)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
@@ -25609,47 +25701,6 @@
       "type": "object"
     },
     "name": "verify_benchmark"
-  },
-  {
-    "description": "Empirically verify a single recommendation.",
-    "input_schema": {
-      "properties": {
-        "B": {
-          "default": 50,
-          "description": "Number of bootstrap replications (auto-reduced if over budget).",
-          "type": "integer"
-        },
-        "K_subsample": {
-          "default": 5,
-          "description": "Number of 50% subsample splits.",
-          "type": "integer"
-        },
-        "budget_s": {
-          "default": 30.0,
-          "description": "Wall-clock budget per recommendation (seconds).",
-          "type": "number"
-        },
-        "n_placebo": {
-          "default": 5,
-          "description": "Number of permutation placebo runs.",
-          "type": "integer"
-        },
-        "rec": {
-          "description": "A single entry from ``RecommendationResult.recommendations``.",
-          "type": "object"
-        },
-        "seed": {
-          "default": 42,
-          "description": "RNG seed for reproducibility.",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "rec"
-      ],
-      "type": "object"
-    },
-    "name": "verify_recommendation"
   },
   {
     "description": "Fit panel negative-binomial regression. Use model='fe' for explicit entity fixed effects via nbreg, or model='re' for a random-intercept NB-2 GLMM via menbreg. Do not use feols for negative-binomial outcomes.",

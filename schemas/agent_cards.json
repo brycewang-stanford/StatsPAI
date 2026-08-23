@@ -13952,6 +13952,13 @@
       "name": "iv_diag",
       "parameters": {
         "properties": {
+          "absorb": {
+            "description": "High-dimensional fixed effects to partial out before the bundle is computed, so every statistic describes the absorbed specification (ivreghdfe-equivalent)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "alpha": {
             "default": 0.05,
             "description": "Significance level for confidence intervals and tests.",
@@ -14049,7 +14056,9 @@
     "typical_n_min": 200,
     "validation_notes": [
       "tests/reference_parity/test_diag_recovery_parity.py",
-      "API/unit contract evidence: tests/iv/test_iv_diag.py"
+      "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+      "API/unit contract evidence: tests/iv/test_iv_diag.py",
+      "API/unit contract evidence: tests/reference_parity/test_iv_hdfe_stata_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -30370,7 +30379,8 @@
     "typical_n_min": null,
     "validation_notes": [
       "tests/reference_parity/test_conley_acreg_spacetime_parity.py",
-      "tests/reference_parity/test_conley_parity.py"
+      "tests/reference_parity/test_conley_parity.py",
+      "tests/reference_parity/test_iv_hdfe_stata_parity.py"
     ],
     "validation_status": "validated"
   },
