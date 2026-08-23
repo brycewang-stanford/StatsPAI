@@ -11,6 +11,42 @@ via Crossref and the published PDF.
 
 ### ⚠️ Correctness
 
+- **`sp.did_imputation`'s analytic standard errors were built from an
+  approximation and were materially too small.** Every quantity this
+  estimator reports is linear in the outcome, so the weights `v` with
+  `tau = v'y` are computable; StatsPAI instead approximated the
+  fixed-effect projection with balanced-panel unit/time shares, and
+  centred treated residuals on the global horizon mean rather than the
+  `v²`-weighted mean within each (cohort, relative-time) block. Both
+  reference implementations — Stata `did_imputation` and R
+  `didimputation::se_inner` — use the exact form and agree with each
+  other to ~3e-9.
+
+  The cost: the **headline ATT** standard error was 36% too small on the
+  module-84 fixture and 18% too small on `mpdta`; **event-study horizon**
+  standard errors were 4.9–13% off with non-uniform sign. The direction
+  on the headline is the dangerous one. `hetby` and `project` standard
+  errors used the same approximation and are also fixed.
+
+  `did/_bjs_variance.py` now computes the exact variance. All of it
+  reproduces Stata to ~5e-8. On a 600-replication check the fixed
+  analytic interval covers **0.932** at a nominal 0.95 with the mean SE
+  at 0.94 of the empirical SD, against roughly **0.87** for the
+  approximation — better, and still short of nominal at 60 clusters, so
+  `vce='bootstrap'` remains the better choice in small designs.
+
+  **The runtime warning that called this path "anti-conservative (~0.87
+  coverage)" has been removed**, because it described the approximation
+  rather than the estimator. **Re-run any `sp.did_imputation` inference.**
+  See [MIGRATION.md](MIGRATION.md#did-imputation-analytic-se).
+
+  How it hid: module 16 emitted StatsPAI's SE as `se_cluster_if` while R
+  emitted `se_didimputation` and Stata `se_stata_did_imputation`, so the
+  row never joined and the 18% gap sat in the archive uncompared by
+  construction, documented as "SE rows are side-specific". All three now
+  emit `se_att` and the comparison is live.
+
+
 - **`sp.did_imputation` pre-treatment event-study coefficients were the
   `fect`/`did2s` in-sample residual averages, not the BJS ones the
   docstring advertised — and they are attenuated toward zero.** The lags
@@ -22,9 +58,22 @@ via Crossref and the published PDF.
   non-staggered design this equals the symmetric benchmark multiplied by
   `N0/N`, the untreated share of units. We reproduce that identity to
   1e-10. The direction is the dangerous one: with 90% of units treated
-  the reported leads are one tenth of the truth, so a violated
-  parallel-trends assumption looks satisfied, and
-  `model_info['pretrend_test']` inherits the attenuation. The new
+  the reported leads are one tenth of the truth.
+
+  **Correction to an earlier wording of this entry**, which said that
+  made a violated assumption "look satisfied" and that the joint
+  pre-trend test inherited the attenuation. Measured against the exact
+  variance (see the entry above), it does not: the standard error
+  attenuates by the *same* N0/N factor, so every t-statistic and the
+  joint test are unchanged — verified at 50% and 90% treated, where the
+  coefficients shrink 2x and 10x and the t-statistics do not move. What
+  the attenuation damages is magnitude-based reasoning: the plotted path,
+  and Rambachan-Roth sensitivity, which asks how large a violation would
+  overturn a result. Against the **BJS** convention the difference is a
+  different shape rather than a rescaling, and there the tests do move —
+  on the module-84 fixture the rel-3 lead runs from t = +5.9 to t = -0.27.
+
+  The new
   `pretrend_method=` selects the convention and **defaults to `'bjs'`**,
   which reproduces Stata `did_imputation, pretrends(k)` coefficients and
   standard errors to 1e-12 / 1e-13 relative on two designs. Post-treatment
@@ -163,18 +212,13 @@ via Crossref and the published PDF.
   The four horizons reproduce R `didimputation` 0.5.1 *and* Stata at
   ~1e-8 on the point estimate.
 
-  Two things the module records rather than smooths over. First, R and
-  Stata implement **different** pre-trend normalisations and neither
-  exposes the other's: R takes `pretrends` as a flag and omits relative
-  time -1, Stata takes a count and pools earlier periods, so the leads
-  are a py-Stata pin and the R side stays on the horizons. Second,
-  StatsPAI's analytic **horizon** standard errors differ from the
-  references by 4.9-13% with non-uniform sign, while R and Stata agree
-  with each other to ~3e-9. Two independent implementations agreeing
-  against a third does not meet this project's bar for a "convention"
-  label, which requires reconstructing the other package's number. It is
-  registered as an open defect, outside the tolerance budget, on an
-  object nothing previously compared.
+  R and Stata implement **different** pre-trend normalisations and
+  neither exposes the other's: R takes `pretrends` as a flag and omits
+  relative time -1, Stata takes a count and pools earlier periods, so the
+  leads are a py-Stata pin and the R side stays on the horizons.
+
+  Packaging this module is what exposed the variance defect fixed below.
+  Both estimate and SE are now inside the tolerance budget.
 
 ### Fixed
 

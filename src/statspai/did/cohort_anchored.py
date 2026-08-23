@@ -1,13 +1,31 @@
 """
-Cohort-Anchored Robust Event Study (Liu 2025, arXiv 2509.01829). [@cohort_anchored2025]
+Cohort-anchored event-study estimator.
 
 Standard event-study TWFE with leads/lags is fragile under staggered
 adoption because untreated leads/lags from later cohorts contaminate
-earlier cohorts' coefficients. The cohort-anchored estimator computes
-event-time effects *separately within each treatment cohort* (the
-"anchor"), then averages with cohort weights, producing event-study
-coefficients that are robust to staggered timing without requiring
-the user to choose between CS / SA / BJS.
+earlier cohorts' coefficients. This estimator computes event-time
+effects *separately within each treatment cohort* (the "anchor"), then
+averages with cohort weights, so the reported path does not mix cohorts
+at a given relative time.
+
+**What this is not.** Earlier releases presented this module as an
+implementation of Liu (2025) [@liu2025cohort], "Cohort-Anchored Robust
+Inference for Event-Study with Staggered Adoption", and described it as
+a successor to Rambachan-Roth. That overstated it in a specific way.
+Liu's contribution is an *inference* procedure: it defines the **block
+bias** --- the parallel-trends violation for one cohort against its
+fixed control group --- decomposes estimator bias into block biases, and
+imposes transparent restrictions on them to obtain robust confidence
+sets. None of that is implemented here. What is implemented is the
+cohort-anchored *estimator* the decomposition starts from, with ordinary
+cluster-robust standard errors, which are not robust to
+parallel-trends violations at all.
+
+The citation is retained because the cohort-anchoring is the same
+construction, and because a reader who arrives from the paper should
+find out immediately which half of it this function provides. For
+sensitivity to parallel-trends violations use :func:`statspai.honest_did`
+(Rambachan and Roth 2023), which is implemented.
 """
 
 from __future__ import annotations
@@ -34,7 +52,12 @@ def cohort_anchored_event_study(
     alpha: float = 0.05,
 ) -> CausalResult:
     """
-    Cohort-anchored event-study estimator (Rambachan-Roth successor).
+    Cohort-anchored event-study estimator.
+
+    Reports per-cohort event-time effects averaged with cohort weights.
+    Standard errors are cluster-robust and carry **no** protection
+    against violations of parallel trends; the robust-inference half of
+    Liu (2025) is not implemented here. See the module docstring.
 
     Parameters
     ----------
@@ -61,8 +84,10 @@ def cohort_anchored_event_study(
 
     References
     ----------
-    arXiv 2509.01829, *Cohort-Anchored Robust Inference for
-    Event-Study with Staggered Adoption* (2025).
+    Liu, Z. (2025). "Cohort-Anchored Robust Inference for Event-Study
+    with Staggered Adoption." arXiv:2509.01829. [@liu2025cohort]
+    This function implements the cohort-anchored estimator, not that
+    paper's block-bias robust-inference procedure.
 
     Examples
     --------
@@ -292,7 +317,7 @@ def cohort_anchored_event_study(
 
 
 CausalResult._CITATIONS["cohort_anchored"] = (
-    "@article{cohort_anchored2025,\n"
+    "@misc{liu2025cohort,\n"
     "  title={Cohort-Anchored Robust Inference for Event-Study with "
     "Staggered Adoption},\n"
     "  author={Anonymous},\n"

@@ -11276,9 +11276,8 @@ def _build_registry() -> None:
             tags=["did", "workflow", "analysis", "bacon", "event_study", "sensitivity"],
             reference=(
                 "DiD workflow synthesis; Roth, Sant'Anna, Bilinski & Poe "
-                "(2023) survey cited throughout [待核验 — bib key for "
-                "the 2023 DiD-what's-trending survey not yet added to "
-                "paper.bib]."
+                "(2023) Journal of Econometrics 235(2), 2218-2244 "
+                "[@roth2023whats], cited throughout."
             ),
             alternatives=["callaway_santanna", "harvest_did"],
             typical_n_min=50,
@@ -11398,8 +11397,12 @@ def _build_registry() -> None:
                 "cohorts at each relative-time bin (which can contaminate "
                 "leads / lags with other cohorts' dynamics), estimates "
                 "separate event-study paths per cohort and then aggregates "
-                "with cohort weights. Successor to the Rambachan-Roth "
-                "sensitivity-friendly specification."
+                "with cohort weights. Standard errors are cluster-robust "
+                "and carry no protection against parallel-trends "
+                "violations: this is the cohort-anchored estimator Liu "
+                "(2025) starts from, NOT that paper's block-bias "
+                "robust-inference procedure, which is not implemented. "
+                "For parallel-trends sensitivity use sp.honest_did."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -11418,9 +11421,11 @@ def _build_registry() -> None:
                 'time="t", id="i", leads=3, lags=5)'
             ),
             tags=["did", "event_study", "cohort_anchored", "staggered", "causal"],
-            reference="Rambachan & Roth (2023) ReStud "
-            "[@rambachan2023more]; design-robust extensions [待核验 "
-            "— specific citation to be confirmed].",
+            reference="Liu (2025) arXiv:2509.01829 [@liu2025cohort] for "
+            "the cohort-anchored construction; this function implements "
+            "the estimator only, not that paper's robust-inference "
+            "procedure. Verified via arXiv abstract page and the "
+            "reference list of Roth (2026) JER 77(2).",
             alternatives=["sun_abraham", "callaway_santanna", "event_study"],
             typical_n_min=80,
         )
@@ -12050,9 +12055,9 @@ def _build_registry() -> None:
                 "causal",
             ],
             reference=(
-                "Dube, Girardi, Jordà & Taylor (2023) NBER Working Paper "
-                "[待核验 — NBER WP ID + arXiv ID not yet added to "
-                "paper.bib]. Jordà (2005) AER on local projections more "
+                "Dube, Girardi, Jordà & Taylor (2025) Journal of Applied "
+                "Econometrics 40(7), 741-758 [@dube2025local]. "
+                "Jordà (2005) AER on local projections more "
                 "broadly."
             ),
             pre_conditions=[

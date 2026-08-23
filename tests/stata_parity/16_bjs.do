@@ -40,7 +40,7 @@ local nm : word 1 of `rownames'
 local bv = B[1, "`nm'"]
 local sv = sqrt(V["`nm'", "`nm'"])
 stata_parity_row, stat(att_bjs) est(`bv') nob(`n')
-stata_parity_row, stat(se_stata_did_imputation) est(`sv') nob(`n')
+stata_parity_row, stat(se_att) est(`sv') nob(`n')
 
 stata_parity_extra, key(method) val(did_imputation)
 stata_parity_extra, key(never_treated_coding) val("replace first_treat = . if first_treat == 0")

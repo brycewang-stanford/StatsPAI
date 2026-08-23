@@ -101,39 +101,39 @@ direction is not uniform (one horizon reaches 1.52x), so an omitted
 positive variance term is not the whole story. Pinned as a measurement,
 not fixed.
 
-### 1.4 Parity-module packaging (**done**)
+### 1.4 Parity-module packaging (**done**), and what it exposed
 
-Deferred in the previous round because packaging required editing
-`compare.py`, `TIER_A_FIXTURE_LOCK.json` and both parity READMEs, which
-were then the other line's most active files while this branch was three
-commits behind. That reason expired: those files were last touched 12
-days ago and a sweep of all eight worktrees found none of them holding
-the parity harness. Done now, on a current base.
+`84_bjs_pretrends` pins the lead vector against Stata at rel < 1e-14 and
+the horizons against R and Stata at ~1e-8, on estimate and SE.
 
-`84_bjs_pretrends` pins the lead vector against Stata at rel < 1e-14
-(estimate and SE) and the horizons against R and Stata at ~1e-8.
-
-Two findings came out of the packaging itself, which is the argument for
-doing it rather than leaving the numbers in a test file:
+Packaging it was worth far more than the module. Three things fell out:
 
 - **The comparator was silently dropping evidence.** `collect()` skipped
   any Python statistic the R side did not emit, discarding nine py-Stata
-  rows across four modules (`31_dfl`, `59_liml`, `28_frontier`,
-  `84_bjs_pretrends`) — all of which agree at machine precision. Fixed,
-  with unmatched rows now reported instead of vanishing.
-- **The imputation estimator's horizon standard errors are wrong, and
-  this is new.** StatsPAI differs from the references by 4.9-13% with
-  non-uniform sign; R `didimputation` and Stata agree with each other to
-  ~3e-9. The existing runtime warning (analytic SE under-counts
-  fixed-effect estimation variance) predicts a uniform direction and this
-  gap does not have one, so the warning does not explain it. Registered
-  as an open defect outside the tolerance budget, **not** diagnosed.
-  This is the top remaining technical item.
+  rows across four modules. Fixed; unmatched rows are now reported.
+- **`sp.did_imputation`'s analytic variance was an approximation, and a
+  bad one.** Balanced-panel shares stood in for the exact least-squares
+  projection, and treated residuals were centred globally rather than
+  within cohort-by-relative-time blocks. The headline standard error was
+  36% too small on the fixture and 18% on `mpdta`; horizons were 4.9-13%
+  off with non-uniform sign. `did/_bjs_variance.py` now computes the
+  exact weights, matching Stata and R to ~5e-8. Measured coverage moves
+  from ~0.87 to 0.932. The `hetby` and `project` paths shared the
+  approximation and are fixed too.
+- **The archive could not have caught it.** Module 16 emitted StatsPAI's
+  SE as `se_cluster_if` while R emitted `se_didimputation` and Stata
+  `se_stata_did_imputation`. Three names, no join, and a note recording
+  that "SE rows are side-specific" — the non-comparison was documented
+  and mistaken for an explanation. All three now emit `se_att`.
 
-- **Staggered `symmetric`.** Currently refuses outside non-staggered
-  balanced designs, because the `N/N0` factor is only derived there. The
-  generalisation is Liu (2025)'s block bias; implementing it needs a
-  reference to check against.
+**A claim of ours that this falsified.** The v1.23.0 notes said the
+in-sample lead attenuation made a violated assumption "read as satisfied"
+and that the joint pre-trend test inherited it. With the variance
+computed correctly, it does not: the standard error attenuates by the
+same N0/N factor, so t-statistics and the joint test are unchanged at
+50% and at 90% treated. The damage is to magnitude-based reasoning —
+plots, and Rambachan-Roth sensitivity — not to significance. Corrected
+in CHANGELOG, MIGRATION and the JAE manuscript.
 
 ### 1.5 Baker et al. (2026) forward-engineering contract (**done**)
 

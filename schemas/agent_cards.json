@@ -1000,7 +1000,7 @@
       "treat is binary 0/1 for 2x2, or first-treatment period (0 = never-treated) for staggered",
       "event_window within observed periods when run_event_study is enabled"
     ],
-    "reference": "DiD workflow synthesis; Roth, Sant'Anna, Bilinski & Poe (2023) survey cited throughout [pending verification -- bib key for the 2023 DiD-what's-trending survey not yet added to paper.bib].",
+    "reference": "DiD workflow synthesis; Roth, Sant'Anna, Bilinski & Poe (2023) Journal of Econometrics 235(2), 2218-2244 [@roth2023whats], cited throughout.",
     "signature": {
       "description": "Workflow wrapper that runs a full DiD pipeline: auto-detects 2x2 vs. staggered, runs the right estimator (CS by default), optionally runs Bacon decomposition, event study, and Rambachan-Roth sensitivity, and aggregates into a DIDAnalysis report object.",
       "name": "did_analysis",
@@ -19606,7 +19606,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Cohort-anchored event study. Instead of averaging across cohorts at each relative-time bin (which can contaminate leads / lags with other cohorts' dynamics), estimates separate event-study paths per cohort and then aggregates with cohort weights. Successor to the Rambachan-Roth sensitivity-friendly specification.",
+    "description": "Cohort-anchored event study. Instead of averaging across cohorts at each relative-time bin (which can contaminate leads / lags with other cohorts' dynamics), estimates separate event-study paths per cohort and then aggregates with cohort weights. Standard errors are cluster-robust and carry no protection against parallel-trends violations: this is the cohort-anchored estimator Liu (2025) starts from, NOT that paper's block-bias robust-inference procedure, which is not implemented. For parallel-trends sensitivity use sp.honest_did.",
     "example": "sp.cohort_anchored_event_study(df, y=\"y\", treat=\"d\", time=\"t\", id=\"i\", leads=3, lags=5)",
     "failure_modes": [
       {
@@ -19631,9 +19631,9 @@
       "treat column gives first-treatment period per unit (0 = never-treated), with at least one never-treated cohort",
       "Enough pre/post periods to fill the requested leads/lags event-time window"
     ],
-    "reference": "Rambachan & Roth (2023) ReStud [@rambachan2023more]; design-robust extensions [pending verification -- specific citation to be confirmed].",
+    "reference": "Liu (2025) arXiv:2509.01829 [@liu2025cohort] for the cohort-anchored construction; this function implements the estimator only, not that paper's robust-inference procedure. Verified via arXiv abstract page and the reference list of Roth (2026) JER 77(2).",
     "signature": {
-      "description": "Cohort-anchored event study. Instead of averaging across cohorts at each relative-time bin (which can contaminate leads / lags with other cohorts' dynamics), estimates separate event-study paths per cohort and then aggregates with cohort weights. Successor to the Rambachan-Roth sensitivity-friendly specification.",
+      "description": "Cohort-anchored event study. Instead of averaging across cohorts at each relative-time bin (which can contaminate leads / lags with other cohorts' dynamics), estimates separate event-study paths per cohort and then aggregates with cohort weights. Standard errors are cluster-robust and carry no protection against parallel-trends violations: this is the cohort-anchored estimator Liu (2025) starts from, NOT that paper's block-bias robust-inference procedure, which is not implemented. For parallel-trends sensitivity use sp.honest_did.",
       "name": "cohort_anchored_event_study",
       "parameters": {
         "properties": {
@@ -20473,7 +20473,7 @@
       "treatment is binary 0/1 and time-varying",
       "horizons feasible: enough periods for Y_{t-1} and Y_{t+H}"
     ],
-    "reference": "Dube, Girardi, Jorda & Taylor (2023) NBER Working Paper [pending verification -- NBER WP ID + arXiv ID not yet added to paper.bib]. Jorda (2005) AER on local projections more broadly.",
+    "reference": "Dube, Girardi, Jorda & Taylor (2025) Journal of Applied Econometrics 40(7), 741-758 [@dube2025local]. Jorda (2005) AER on local projections more broadly.",
     "signature": {
       "description": "Local-Projections DiD (Dube-Girardi-Jorda-Taylor 2023). At each event-time horizon h in {-P, ..., H}, runs a separate OLS of Y_{t+h} - Y_{t-1} on the treatment change Deltad_{t} with time FE and cluster-robust SE, using 'not-yet-treated' or 'never-treated' units as controls. Event-study beta_h paths are returned in ``model_info['event_study']``. Validation: certified parity evidence.",
       "name": "lp_did",
@@ -24619,7 +24619,7 @@
             "type": "boolean"
           },
           "se_method": {
-            "description": "Shared DiD spelling for ``vce=`` -- ``'analytic'``, ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``. Passing both raises. ``'auto'`` picks the cluster bootstrap when the design has at most 30 clusters (Cameron, Gelbach & Miller 2008) and the analytic influence-function SE otherwise -- which for this estimator is the anti-conservative one, so ``'auto'`` errs toward the bootstrap exactly where it matters most.",
+            "description": "Shared DiD spelling for ``vce=`` -- ``'analytic'``, ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``. Passing both raises. ``'auto'`` picks the cluster bootstrap when the design has at most 30 clusters (Cameron, Gelbach & Miller 2008) and the analytic BJS variance otherwise: with few clusters the cluster-score sum behind any sandwich is itself noisy, which is a small-cluster problem rather than a defect in the formula.",
             "type": "string"
           },
           "time": {
@@ -24642,7 +24642,7 @@
           },
           "vce": {
             "default": "analytic",
-            "description": "Standard-error mode for the overall ATT. ``'analytic'`` uses the influence-function cluster SE (fast) but under-counts the variance from estimating the unit/time fixed effects and is **anti-conservative** (~0.87 coverage at a nominal 95% level); a ``UserWarning`` recommends ``'bootstrap'``. ``'bootstrap'`` resamples whole clusters and re-runs the full imputation estimator. Point estimates are identical either way; per-horizon event-study SEs are unaffected.",
+            "description": "Standard-error mode for the overall ATT. ``'analytic'`` is the exact Borusyak--Jaravel--Spiess variance: the estimator is linear in the outcome, so its weights are computed rather than approximated, and the result reproduces Stata ``did_imputation`` and R ``didimputation`` to ~5e-8. Before v1.23.0 this path used an approximation that was materially anti-conservative (18-36% too small on the harness fixtures); see MIGRATION.md. Measured, not asserted: on a 60-unit homogeneous-effect design over 600 replications the fixed analytic interval covers 0.932 at a nominal 0.95, with the mean standard error at 0.94 of the empirical standard deviation and negligible bias. That is a large improvement on the ~0.87 the approximation delivered, and it is still short of nominal at this cluster count, so ``'bootstrap'`` remains the better choice in small designs. ``'bootstrap'`` resamples whole clusters and re-runs the full imputation estimator. Point estimates are identical either way; per-horizon event-study SEs are unaffected.",
             "enum": [
               "analytic",
               "bootstrap"
@@ -24852,7 +24852,7 @@
             "type": "boolean"
           },
           "se_method": {
-            "description": "Shared DiD spelling for ``vce=`` -- ``'analytic'``, ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``. Passing both raises. ``'auto'`` picks the cluster bootstrap when the design has at most 30 clusters (Cameron, Gelbach & Miller 2008) and the analytic influence-function SE otherwise -- which for this estimator is the anti-conservative one, so ``'auto'`` errs toward the bootstrap exactly where it matters most.",
+            "description": "Shared DiD spelling for ``vce=`` -- ``'analytic'``, ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``. Passing both raises. ``'auto'`` picks the cluster bootstrap when the design has at most 30 clusters (Cameron, Gelbach & Miller 2008) and the analytic BJS variance otherwise: with few clusters the cluster-score sum behind any sandwich is itself noisy, which is a small-cluster problem rather than a defect in the formula.",
             "type": "string"
           },
           "time": {
@@ -24875,7 +24875,7 @@
           },
           "vce": {
             "default": "analytic",
-            "description": "Standard-error mode for the overall ATT. ``'analytic'`` uses the influence-function cluster SE (fast) but under-counts the variance from estimating the unit/time fixed effects and is **anti-conservative** (~0.87 coverage at a nominal 95% level); a ``UserWarning`` recommends ``'bootstrap'``. ``'bootstrap'`` resamples whole clusters and re-runs the full imputation estimator. Point estimates are identical either way; per-horizon event-study SEs are unaffected.",
+            "description": "Standard-error mode for the overall ATT. ``'analytic'`` is the exact Borusyak--Jaravel--Spiess variance: the estimator is linear in the outcome, so its weights are computed rather than approximated, and the result reproduces Stata ``did_imputation`` and R ``didimputation`` to ~5e-8. Before v1.23.0 this path used an approximation that was materially anti-conservative (18-36% too small on the harness fixtures); see MIGRATION.md. Measured, not asserted: on a 60-unit homogeneous-effect design over 600 replications the fixed analytic interval covers 0.932 at a nominal 0.95, with the mean standard error at 0.94 of the empirical standard deviation and negligible bias. That is a large improvement on the ~0.87 the approximation delivered, and it is still short of nominal at this cluster count, so ``'bootstrap'`` remains the better choice in small designs. ``'bootstrap'`` resamples whole clusters and re-runs the full imputation estimator. Point estimates are identical either way; per-horizon event-study SEs are unaffected.",
             "enum": [
               "analytic",
               "bootstrap"

@@ -25,7 +25,9 @@ pre-history are collinear with its unit effects, and Stata's
 ``autosample`` would silently drop rows to cope. Here it has nothing to
 do, so all three sides estimate on identical rows.
 
-Tolerance: rel < 1e-6 for both estimate and SE.
+Tolerance: rel < 1e-6 for both estimate and SE. The SE agreement is
+not incidental -- building this module is what surfaced the variance
+approximation that v1.23.0 replaced with the exact BJS weights.
 """
 from __future__ import annotations
 

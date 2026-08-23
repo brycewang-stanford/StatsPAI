@@ -432,9 +432,16 @@ def test_did_aggregation_convention_rows_keep_point_parity():
         < 1e-6
     )
     assert _payload("16_bjs", "py")["rows"][0]["se"] is None
-    assert _estimate("16_bjs", "py", "se_cluster_if") > 0
-    assert _estimate("16_bjs", "R", "se_didimputation") > 0
-    assert _estimate("16_bjs", "Stata", "se_stata_did_imputation") > 0
+    # One shared statistic name on all three sides, so the SE row joins.
+    # The old side-specific names (se_cluster_if / se_didimputation /
+    # se_stata_did_imputation) kept an 18% gap out of the comparison
+    # entirely; it closed once StatsPAI used the exact BJS variance.
+    for side in ("py", "R", "Stata"):
+        assert _estimate("16_bjs", side, "se_att") > 0
+    py_se = _estimate("16_bjs", "py", "se_att")
+    for side in ("R", "Stata"):
+        ref = _estimate("16_bjs", side, "se_att")
+        assert abs(py_se - ref) / ref < 1e-6
 
     etwfe_note = _extra("17_etwfe")["aggregation_note"]
     assert "weighting='treated'" in etwfe_note

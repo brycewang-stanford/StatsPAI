@@ -995,9 +995,18 @@ def test_bjs_stata_never_treated_coding_matches_r_path():
     assert py_rows["att_bjs"]["se"] is None
     assert r_rows["att_bjs"]["se"] is None
     assert stata_rows["att_bjs"]["se"] is None
-    assert py_rows["se_cluster_if"]["estimate"] > 0
-    assert r_rows["se_didimputation"]["estimate"] > 0
-    assert stata_rows["se_stata_did_imputation"]["estimate"] > 0
+    # All three sides report the overall ATT standard error under the SAME
+    # statistic name, so the comparator actually joins it. Until v1.23.0
+    # they were se_cluster_if / se_didimputation / se_stata_did_imputation,
+    # which meant the row never joined and an 18% gap sat in the archive
+    # uncompared by construction. Asserting the shared name is what stops
+    # that from being reintroduced.
+    assert py_rows["se_att"]["estimate"] > 0
+    assert r_rows["se_att"]["estimate"] > 0
+    assert stata_rows["se_att"]["estimate"] > 0
+    se_row = {diff.statistic: diff for diff in compare.collect("16_bjs")}["se_att"]
+    assert se_row.rel_est < 1e-6
+    assert se_row.rel_est_st < 1e-6
     assert row.rel_est_st < 1e-6
     assert "stata_never_treated_coding" in py_payload["extra"]
     assert "never_treated_coding" in stata_payload["extra"]

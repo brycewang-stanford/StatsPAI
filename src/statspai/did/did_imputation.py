@@ -31,6 +31,7 @@ from ._bjs_pretrends import (
     bjs_pretrend_path,
     symmetric_pretrend_scale,
 )
+from ._bjs_variance import bjs_se_for_target as _bjs_se
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import normalize_se_method as _normalize_se_method
 
@@ -178,15 +179,26 @@ def did_imputation(
         ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``.
         Passing both raises. ``'auto'`` picks the cluster bootstrap when
         the design has at most 30 clusters (Cameron, Gelbach & Miller
-        2008) and the analytic influence-function SE otherwise — which
-        for this estimator is the anti-conservative one, so ``'auto'``
-        errs toward the bootstrap exactly where it matters most.
+        2008) and the analytic BJS variance otherwise: with few clusters
+        the cluster-score sum behind any sandwich is itself noisy, which
+        is a small-cluster problem rather than a defect in the formula.
     vce : {'analytic', 'bootstrap'}, default 'analytic'
-        Standard-error mode for the overall ATT. ``'analytic'`` uses the
-        influence-function cluster SE (fast) but under-counts the variance
-        from estimating the unit/time fixed effects and is **anti-conservative**
-        (≈0.87 coverage at a nominal 95% level); a ``UserWarning`` recommends
-        ``'bootstrap'``. ``'bootstrap'`` resamples whole clusters and re-runs
+        Standard-error mode for the overall ATT. ``'analytic'`` is the
+        exact Borusyak--Jaravel--Spiess variance: the estimator is linear
+        in the outcome, so its weights are computed rather than
+        approximated, and the result reproduces Stata ``did_imputation``
+        and R ``didimputation`` to ~5e-8. Before v1.23.0 this path used an
+        approximation that was materially anti-conservative (18-36% too
+        small on the harness fixtures); see MIGRATION.md.
+
+        Measured, not asserted: on a 60-unit homogeneous-effect design
+        over 600 replications the fixed analytic interval covers 0.932 at
+        a nominal 0.95, with the mean standard error at 0.94 of the
+        empirical standard deviation and negligible bias. That is a large
+        improvement on the ~0.87 the approximation delivered, and it is
+        still short of nominal at this cluster count, so ``'bootstrap'``
+        remains the better choice in small designs.
+        ``'bootstrap'`` resamples whole clusters and re-runs
         the full imputation estimator. Point estimates are identical either
         way; per-horizon event-study SEs are unaffected.
     n_boot : int, default 199
@@ -568,8 +580,6 @@ def did_imputation(
     # These arguments are retained for the existing SE helper API.  The
     # helper only needs the untreated counts and residuals; fitted values
     # now come from the exact sparse TWFE solve above.
-    alpha_hat = np.zeros(n_units)
-    lambda_hat = np.zeros(n_times)
 
     # ── Step 3: Impute counterfactual for treated observations ── #
     y_all = df[y].values.astype(float)
@@ -596,27 +606,37 @@ def did_imputation(
     resid_u = np.zeros(len(df))
     resid_u[~treated_mask] = y_all[~treated_mask] - y0_hat[~treated_mask]
 
-    se_att, psi_clusters = _cluster_se_imputation(
-        df=df,
-        tau_hat=tau_hat,
+    # Exact BJS variance. The estimator is linear in y, so the weights
+    # v with tau_hat = v'y are computable rather than approximable, and
+    # both reference implementations use them. See did/_bjs_variance.py
+    # for what the previous approximation got wrong.
+    _cluster_vals = df[cluster].to_numpy()
+    _cohort_vals = df["_ft"].to_numpy()
+    _rel_vals = np.round(
+        df[time].to_numpy(dtype=float) - df["_ft"].to_numpy(dtype=float)
+    )
+    _n_treated_obs = int(treated_mask.sum())
+    _w_overall = np.zeros(len(df), dtype=float)
+    if _n_treated_obs > 0:
+        _w_overall[treated_mask] = 1.0 / _n_treated_obs
+    se_att = _bjs_se(
+        design_all=X_all,
+        design_untreated=X_u_design,
         treated_mask=treated_mask,
-        resid_untreated=resid_u,
-        cluster_col=cluster,
-        uid_col="_uid",
-        tid_col="_tid",
-        alpha_hat=alpha_hat,
-        lambda_hat=lambda_hat,
-        unit_adj_count=unit_adj_count,
-        time_resid_count=time_resid_count,
-        n_units=n_units,
-        n_times=n_times,
+        target_weights=_w_overall,
+        adjusted=tau_hat,
+        cluster=_cluster_vals,
+        cohort=_cohort_vals,
+        relative_time=_rel_vals,
     )
 
-    # Standard-error mode for the overall ATT. The analytic influence-function
-    # SE under-counts the variance from estimating the unit/time fixed effects
-    # (≈0.87 coverage at a nominal 95% level); 'bootstrap' resamples whole
-    # clusters and re-runs the full imputation estimator. 'none' is internal
-    # (used by the bootstrap to avoid recursion / the warning).
+    # Standard-error mode for the overall ATT. The analytic route is now
+    # the exact BJS variance and reproduces Stata did_imputation and R
+    # didimputation to ~5e-8, so the anti-conservatism warning that used
+    # to fire here has been removed along with the approximation that
+    # justified it. 'bootstrap' resamples whole clusters and re-runs the
+    # estimator; 'none' is internal (used by the bootstrap to avoid
+    # recursion).
     if vce == "bootstrap":
         # Resample the estimation sample (post-hbalance if balanced=True),
         # not the raw input — otherwise replicates would refit on units
@@ -627,17 +647,6 @@ def did_imputation(
         )
         if np.isfinite(se_boot):
             se_att = se_boot
-    elif vce == "analytic":
-        warnings.warn(
-            "did_imputation: the default analytic standard error for the "
-            "overall ATT under-counts the variance from estimating the "
-            "unit/time fixed effects, so it is anti-conservative (~0.87 "
-            "coverage at a nominal 95% level). For valid inference on the "
-            "overall ATT pass vce='bootstrap' (a cluster bootstrap of the "
-            "full imputation estimator).",
-            UserWarning,
-            stacklevel=2,
-        )
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
     pvalue_att = (
@@ -678,21 +687,17 @@ def did_imputation(
             att_k = float(tau_hat[mask_k].mean())
 
             # Cluster SE for this horizon
-            se_k = _cluster_se_horizon(
-                df=df,
-                tau_hat=tau_hat,
-                mask_k=mask_k,
+            _w_k = np.zeros(len(df), dtype=float)
+            _w_k[mask_k] = 1.0 / n_k
+            se_k = _bjs_se(
+                design_all=X_all,
+                design_untreated=X_u_design,
                 treated_mask=treated_mask,
-                resid_untreated=resid_u,
-                cluster_col=cluster,
-                uid_col="_uid",
-                tid_col="_tid",
-                alpha_hat=alpha_hat,
-                lambda_hat=lambda_hat,
-                unit_adj_count=unit_adj_count,
-                time_resid_count=time_resid_count,
-                n_units=n_units,
-                n_times=n_times,
+                target_weights=_w_k,
+                adjusted=tau_hat,
+                cluster=_cluster_vals,
+                cohort=_cohort_vals,
+                relative_time=_rel_vals,
             )
 
             pval_k = (
@@ -844,10 +849,9 @@ def did_imputation(
             resid_untreated=resid_u,
             project_vars=project_names,
             cluster_col=cluster,
-            uid_col="_uid",
-            tid_col="_tid",
-            unit_adj_count=unit_adj_count,
-            time_resid_count=time_resid_count,
+            time_col=time,
+            design_all=X_all,
+            design_untreated=X_u_design,
             alpha=alpha,
         )
 
@@ -864,21 +868,17 @@ def did_imputation(
             if n_level == 0:
                 continue
             att_h = float(tau_hat[level_mask].mean())
-            se_h = _cluster_se_horizon(
-                df=df,
-                tau_hat=tau_hat,
-                mask_k=level_mask,
+            _w_h = np.zeros(len(df), dtype=float)
+            _w_h[level_mask] = 1.0 / n_level
+            se_h = _bjs_se(
+                design_all=X_all,
+                design_untreated=X_u_design,
                 treated_mask=treated_mask,
-                resid_untreated=resid_u,
-                cluster_col=cluster,
-                uid_col="_uid",
-                tid_col="_tid",
-                alpha_hat=alpha_hat,
-                lambda_hat=lambda_hat,
-                unit_adj_count=unit_adj_count,
-                time_resid_count=time_resid_count,
-                n_units=n_units,
-                n_times=n_times,
+                target_weights=_w_h,
+                adjusted=tau_hat,
+                cluster=_cluster_vals,
+                cohort=_cohort_vals,
+                relative_time=_rel_vals,
             )
             pval_h = (
                 float(2 * (1 - stats.norm.cdf(abs(att_h / se_h)))) if se_h > 0 else 1.0
@@ -1245,178 +1245,6 @@ def _fit_untreated_twfe_sparse(
     return y0_hat, np.asarray(beta, dtype=float), X_u, X_all
 
 
-def _cluster_se_imputation(
-    df: pd.DataFrame,
-    tau_hat: np.ndarray,
-    treated_mask: np.ndarray,
-    resid_untreated: np.ndarray,
-    cluster_col: str,
-    uid_col: str,
-    tid_col: str,
-    alpha_hat: np.ndarray,
-    lambda_hat: np.ndarray,
-    unit_adj_count: np.ndarray,
-    time_resid_count: np.ndarray,
-    n_units: int,
-    n_times: int,
-) -> Tuple[float, Dict]:
-    """
-    Cluster-robust SE for the overall ATT with two-step correction.
-
-    The influence function for cluster c is:
-
-        psi_c = (1/N1) * sum_{(i,t) in treated, i in c} [tau_hat_it - ATT]
-              + adjustment for estimation error in alpha_hat, lambda_hat
-
-    The adjustment term propagates the uncertainty from estimating FEs
-    on untreated data into the treated-observation imputation.
-    """
-    N1 = treated_mask.sum()
-    att = float(tau_hat[treated_mask].mean())
-
-    clusters = df[cluster_col].values
-    unique_clusters = np.unique(clusters)
-    n_clusters = len(unique_clusters)
-
-    uid = df[uid_col].values
-    tid = df[tid_col].values
-
-    psi_values = np.zeros(n_clusters)
-
-    for c_idx, c_val in enumerate(unique_clusters):
-        c_mask = clusters == c_val
-
-        # ── Direct term: treated obs in this cluster ──
-        c_treated = c_mask & treated_mask
-        if c_treated.any():
-            direct = np.sum(tau_hat[c_treated] - att) / N1
-        else:
-            direct = 0.0
-
-        # ── Adjustment term: untreated obs in this cluster ──
-        # The estimation error in alpha_hat_i and lambda_hat_t affects
-        # the imputation for treated obs.
-        c_untreated = c_mask & (~treated_mask)
-        adjustment = 0.0
-
-        if c_untreated.any():
-            uids_c = uid[c_untreated]
-            tids_c = tid[c_untreated]
-            resids_c = resid_untreated[c_untreated]
-
-            # How many treated obs use each unit FE / time FE
-            # from this cluster's untreated observations?
-            for idx in range(len(resids_c)):
-                u_i = uids_c[idx]
-                t_i = tids_c[idx]
-                eps_it = resids_c[idx]
-
-                # Count how many treated obs share unit u_i
-                n_treated_unit = np.sum(treated_mask & (uid == u_i))
-                # Count how many treated obs share time t_i
-                n_treated_time = np.sum(treated_mask & (tid == t_i))
-
-                # Influence via unit FE
-                if unit_adj_count[u_i] > 0:
-                    adjustment += eps_it * n_treated_unit / (unit_adj_count[u_i] * N1)
-                # Influence via time FE
-                if time_resid_count[t_i] > 0:
-                    adjustment += eps_it * n_treated_time / (time_resid_count[t_i] * N1)
-
-        psi_values[c_idx] = direct + adjustment
-
-    # Clustered variance: V = sum(psi_c^2)
-    variance = float(np.sum(psi_values**2))
-    se = float(np.sqrt(variance))
-
-    # Small-sample correction: G/(G-1)
-    if n_clusters > 1:
-        se *= np.sqrt(n_clusters / (n_clusters - 1))
-
-    return se, {c: psi_values[i] for i, c in enumerate(unique_clusters)}
-
-
-def _cluster_se_horizon(
-    df: pd.DataFrame,
-    tau_hat: np.ndarray,
-    mask_k: np.ndarray,
-    treated_mask: np.ndarray,
-    resid_untreated: np.ndarray,
-    cluster_col: str,
-    uid_col: str,
-    tid_col: str,
-    alpha_hat: np.ndarray,
-    lambda_hat: np.ndarray,
-    unit_adj_count: np.ndarray,
-    time_resid_count: np.ndarray,
-    n_units: int,
-    n_times: int,
-) -> float:
-    """
-    Cluster-robust SE for ATT at a specific horizon k.
-
-    Same influence-function approach as the overall ATT but restricted
-    to treated observations at relative time k.
-    """
-    N_k = mask_k.sum()
-    if N_k == 0:
-        return np.inf
-
-    att_k = float(tau_hat[mask_k].mean())
-
-    clusters = df[cluster_col].values
-    unique_clusters = np.unique(clusters)
-    n_clusters = len(unique_clusters)
-
-    uid = df[uid_col].values
-    tid = df[tid_col].values
-
-    psi_values = np.zeros(n_clusters)
-
-    for c_idx, c_val in enumerate(unique_clusters):
-        c_mask = clusters == c_val
-
-        # Direct term
-        c_k = c_mask & mask_k
-        if c_k.any():
-            direct = np.sum(tau_hat[c_k] - att_k) / N_k
-        else:
-            direct = 0.0
-
-        # Adjustment term (untreated obs)
-        c_untreated = c_mask & (~treated_mask)
-        adjustment = 0.0
-
-        if c_untreated.any():
-            uids_c = uid[c_untreated]
-            tids_c = tid[c_untreated]
-            resids_c = resid_untreated[c_untreated]
-
-            for idx in range(len(resids_c)):
-                u_i = uids_c[idx]
-                t_i = tids_c[idx]
-                eps_it = resids_c[idx]
-
-                # Count how many horizon-k treated obs share this unit/time
-                n_k_unit = np.sum(mask_k & (uid == u_i))
-                n_k_time = np.sum(mask_k & (tid == t_i))
-
-                if unit_adj_count[u_i] > 0:
-                    adjustment += eps_it * n_k_unit / (unit_adj_count[u_i] * N_k)
-                if time_resid_count[t_i] > 0:
-                    adjustment += eps_it * n_k_time / (time_resid_count[t_i] * N_k)
-
-        psi_values[c_idx] = direct + adjustment
-
-    variance = float(np.sum(psi_values**2))
-    se = float(np.sqrt(variance))
-
-    if n_clusters > 1:
-        se *= np.sqrt(n_clusters / (n_clusters - 1))
-
-    return se
-
-
 def _project_treatment_effects(
     df: pd.DataFrame,
     tau_hat: np.ndarray,
@@ -1424,10 +1252,9 @@ def _project_treatment_effects(
     resid_untreated: np.ndarray,
     project_vars: List[str],
     cluster_col: str,
-    uid_col: str,
-    tid_col: str,
-    unit_adj_count: np.ndarray,
-    time_resid_count: np.ndarray,
+    time_col: str,
+    design_all: "sparse.csr_matrix",
+    design_untreated: "sparse.csr_matrix",
     alpha: float,
 ) -> pd.DataFrame:
     """Regress the imputed treatment effects on covariates.
@@ -1437,18 +1264,13 @@ def _project_treatment_effects(
     ``[1, Z_it]`` and report the constant and slopes. This is the
     continuous counterpart of ``hetby``, which splits into cells.
 
-    Inference reuses the estimator's own influence function rather than a
-    separate regression sandwich. The ATT is the special case where the
-    weight matrix is a single row of 1/N, and the two terms below reduce
-    exactly to :func:`_cluster_se_horizon`'s ``direct`` and ``adjustment``
-    — a property the test suite pins directly.
-
-    ψ_c = Σ_{i∈c, treated} a_i (τ̂_i − Z_i'θ̂)          (direct)
-        + Σ_{i∈c, untreated} ε̂_i [ ā_unit(i)/n_unit(i)
-                                  + ā_time(i)/n_time(i) ]   (FE estimation)
-
-    where ``a_i`` is the row of (Z'Z)⁻¹Z' belonging to the coefficient and
-    ``ā_unit(u)`` sums the weights of treated observations in unit ``u``.
+    Each coefficient is linear in the outcome, exactly as the ATT is:
+    θ̂_j = Σ_i a_ji τ̂_i over treated observations, where ``a_ji`` is the
+    row of (Z'Z)⁻¹Z'. Inference therefore reuses the estimator's exact
+    BJS variance (:mod:`statspai.did._bjs_variance`) with ``a_j`` as the
+    treated-row weight vector. The ATT is the special case ``a_j = 1/N``,
+    and the test suite pins that the projection constant's standard error
+    reduces to the ATT's.
     """
     z_crit = stats.norm.ppf(1 - alpha / 2)
     t_idx = np.flatnonzero(treated_mask)
@@ -1470,55 +1292,30 @@ def _project_treatment_effects(
         )
     zz_inv = np.linalg.inv(zz)
     theta = zz_inv @ (Z.T @ tau_hat[t_idx])
-    resid_proj = tau_hat[t_idx] - Z @ theta
 
     # A[j, i]: weight of treated observation i in coefficient j.
     A = zz_inv @ Z.T
 
-    uid = df[uid_col].values
-    tid = df[tid_col].values
-    n_units = len(unit_adj_count)
-    n_times = len(time_resid_count)
+    cluster_vals = df[cluster_col].to_numpy()
+    cohort_vals = df["_ft"].to_numpy()
+    rel_vals = np.round(
+        df[time_col].to_numpy(dtype=float) - df["_ft"].to_numpy(dtype=float)
+    )
 
-    # Per-unit / per-time weight totals over treated observations.
-    a_unit = np.zeros((p, n_units))
-    a_time = np.zeros((p, n_times))
+    se = np.empty(p, dtype=float)
     for j in range(p):
-        np.add.at(a_unit[j], uid[t_idx], A[j])
-        np.add.at(a_time[j], tid[t_idx], A[j])
-
-    clusters = df[cluster_col].values
-    unique_clusters = np.unique(clusters)
-    n_clusters = len(unique_clusters)
-    psi = np.zeros((n_clusters, p))
-
-    treated_pos = np.full(len(df), -1, dtype=int)
-    treated_pos[t_idx] = np.arange(n_t)
-
-    safe_unit = np.where(unit_adj_count > 0, unit_adj_count, 1.0)
-    safe_time = np.where(time_resid_count > 0, time_resid_count, 1.0)
-
-    for c_idx, c_val in enumerate(unique_clusters):
-        c_mask = clusters == c_val
-
-        c_t = np.flatnonzero(c_mask & treated_mask)
-        if c_t.size:
-            pos = treated_pos[c_t]
-            psi[c_idx] += A[:, pos] @ resid_proj[pos]
-
-        c_u = np.flatnonzero(c_mask & (~treated_mask))
-        if c_u.size:
-            eps = resid_untreated[c_u]
-            u_of = uid[c_u]
-            t_of = tid[c_u]
-            w_unit = a_unit[:, u_of] / safe_unit[u_of]
-            w_time = a_time[:, t_of] / safe_time[t_of]
-            psi[c_idx] += (w_unit + w_time) @ eps
-
-    vcov = psi.T @ psi
-    if n_clusters > 1:
-        vcov *= n_clusters / (n_clusters - 1)
-    se = np.sqrt(np.clip(np.diag(vcov), 0.0, None))
+        w_j = np.zeros(len(df), dtype=float)
+        w_j[t_idx] = A[j]
+        se[j] = _bjs_se(
+            design_all=design_all,
+            design_untreated=design_untreated,
+            treated_mask=treated_mask,
+            target_weights=w_j,
+            adjusted=tau_hat,
+            cluster=cluster_vals,
+            cohort=cohort_vals,
+            relative_time=rel_vals,
+        )
 
     with np.errstate(divide="ignore", invalid="ignore"):
         zstat = np.where(se > 0, theta / se, 0.0)

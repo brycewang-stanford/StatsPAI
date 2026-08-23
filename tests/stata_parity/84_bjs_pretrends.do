@@ -15,8 +15,9 @@
 * treated cohort strictly more pre-periods than that, so `autosample` has
 * nothing to drop and all three sides estimate on identical rows.
 *
-* Tolerance: rel_est < 1e-6. See compare.py::TOLERANCES for why the
-* post-treatment standard errors are not inside the budget.
+* Tolerance: rel_est < 1e-6, rel_se < 1e-6. This module is what exposed
+* the analytic-variance defect fixed in v1.23.0; both are now inside the
+* budget. See compare.py::TOLERANCES.
 
 version 18
 clear all

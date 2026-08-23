@@ -16,18 +16,12 @@ default ATT path; this file adds:
 
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 import pandas as pd
 import pytest
 
 import statspai as sp
-from statspai.did.did_imputation import (
-    _cluster_se_horizon,
-    _ols_coef,
-    did_imputation,
-)
+from statspai.did.did_imputation import _ols_coef, did_imputation
 
 # --------------------------------------------------------------------- #
 #  Fixtures
@@ -291,43 +285,6 @@ def test_ols_coef_recovers_known_beta():
     y = X @ beta + 0.001 * rng.normal(size=n)
     out = _ols_coef(X, y)
     np.testing.assert_allclose(out, beta, atol=1e-2)
-
-
-def test_cluster_se_horizon_zero_mask_returns_inf():
-    """``mask_k.sum() == 0`` short-circuits to ``np.inf`` (no obs at horizon)."""
-    rng = np.random.default_rng(0)
-    n = 40
-    df = pd.DataFrame(
-        {
-            "cluster": rng.integers(0, 5, size=n),
-            "_uid": np.arange(n),
-            "_tid": np.arange(n),
-        }
-    )
-    mask_k = np.zeros(n, dtype=bool)  # nothing at this horizon
-    treated_mask = np.zeros(n, dtype=bool)
-    out = _cluster_se_horizon(
-        df=df,
-        tau_hat=np.zeros(n),
-        mask_k=mask_k,
-        treated_mask=treated_mask,
-        resid_untreated=np.zeros(n),
-        cluster_col="cluster",
-        uid_col="_uid",
-        tid_col="_tid",
-        alpha_hat=np.zeros(n),
-        lambda_hat=np.zeros(n),
-        unit_adj_count=np.ones(n),
-        time_resid_count=np.ones(n),
-        n_units=n,
-        n_times=n,
-    )
-    assert np.isinf(out)
-
-
-# --------------------------------------------------------------------- #
-#  Citation registration is idempotent
-# --------------------------------------------------------------------- #
 
 
 def test_did_imputation_cite_returns_registered_bibtex(staggered_panel):

@@ -17,7 +17,7 @@
     {
       "module": "16_bjs",
       "side": "Stata",
-      "statistic": "se_stata_did_imputation",
+      "statistic": "se_att",
       "estimate": 0.0068987572814019002,
       "se": null,
       "ci_lo": null,

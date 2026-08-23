@@ -25,8 +25,12 @@
 # pinned against Stata in 84_bjs_pretrends.do and the R side stays on the
 # horizons where all three implementations answer the same question.
 #
-# Tolerance: rel_est < 1e-6. Standard errors are deliberately NOT within
-# the tolerance budget -- see the note in compare.py::TOLERANCES.
+# Tolerance: rel_est < 1e-6, rel_se < 1e-6. Packaging this module is
+# what exposed the variance defect fixed in v1.23.0: StatsPAI's analytic
+# standard errors came from a balanced-panel approximation to the
+# fixed-effect projection and were 4.9-13% away here (36% on the headline)
+# while this R side and the Stata side agreed with each other to ~3e-9.
+# Both are now inside the budget.
 
 .args <- commandArgs(trailingOnly = FALSE)
 .file_arg <- grep("^--file=", .args, value = TRUE)

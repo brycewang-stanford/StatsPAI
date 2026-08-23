@@ -35,7 +35,7 @@ def main() -> None:
             n=int(len(df)),
         ),
         ParityRecord(
-            module=MODULE, side="py", statistic="se_cluster_if",
+            module=MODULE, side="py", statistic="se_att",
             estimate=float(fit.se),
             n=int(len(df)),
         ),
@@ -59,9 +59,14 @@ def main() -> None:
                 "before estimation."
             ),
             "se_reference": (
-                "SE rows are side-specific: StatsPAI reports "
-                "se_cluster_if, R reports se_didimputation, and Stata "
-                "reports se_stata_did_imputation."
+                "All three sides report the overall ATT standard error as "
+                "se_att and it is compared. Until v1.23.0 each side used a "
+                "different statistic name, so the row never joined and a "
+                "18% gap sat in the archive uncompared by construction -- "
+                "StatsPAI's analytic SE used an approximation to the BJS "
+                "variance. The exact variance now agrees with both "
+                "references, so the names converge and the comparison is "
+                "live."
             ),
         },
     )

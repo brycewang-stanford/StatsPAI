@@ -2193,8 +2193,8 @@
       "function": "did_imputation",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 4.8152801849589737e-08,
-        "rel_vs_Stata": 3.5176448029765973e-07,
+        "rel_vs_R": 4.815551508817987e-08,
+        "rel_vs_Stata": 3.517617670579845e-07,
         "statistic": [
           "att_bjs"
         ],
@@ -2205,8 +2205,8 @@
       "module_id": "16_bjs",
       "notes": [],
       "point_estimate_rel": {
-        "R": 4.8152801849589737e-08,
-        "Stata": 3.5176448029765973e-07
+        "R": 4.815551508817987e-08,
+        "Stata": 3.517617670579845e-07
       },
       "python_call": "sp.did_imputation",
       "reference": "didimputation::did_imputation",

@@ -10937,7 +10937,7 @@
     }
   },
   {
-    "description": "Cohort-anchored event study. Instead of averaging across cohorts at each relative-time bin (which can contaminate leads / lags with other cohorts' dynamics), estimates separate event-study paths per cohort and then aggregates with cohort weights. Successor to the Rambachan-Roth sensitivity-friendly specification.",
+    "description": "Cohort-anchored event study. Instead of averaging across cohorts at each relative-time bin (which can contaminate leads / lags with other cohorts' dynamics), estimates separate event-study paths per cohort and then aggregates with cohort weights. Standard errors are cluster-robust and carry no protection against parallel-trends violations: this is the cohort-anchored estimator Liu (2025) starts from, NOT that paper's block-bias robust-inference procedure, which is not implemented. For parallel-trends sensitivity use sp.honest_did.",
     "name": "cohort_anchored_event_study",
     "parameters": {
       "properties": {
@@ -14480,7 +14480,7 @@
           "type": "boolean"
         },
         "se_method": {
-          "description": "Shared DiD spelling for ``vce=`` -- ``'analytic'``, ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``. Passing both raises. ``'auto'`` picks the cluster bootstrap when the design has at most 30 clusters (Cameron, Gelbach & Miller 2008) and the analytic influence-function SE otherwise -- which for this estimator is the anti-conservative one, so ``'auto'`` errs toward the bootstrap exactly where it matters most.",
+          "description": "Shared DiD spelling for ``vce=`` -- ``'analytic'``, ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``. Passing both raises. ``'auto'`` picks the cluster bootstrap when the design has at most 30 clusters (Cameron, Gelbach & Miller 2008) and the analytic BJS variance otherwise: with few clusters the cluster-score sum behind any sandwich is itself noisy, which is a small-cluster problem rather than a defect in the formula.",
           "type": "string"
         },
         "time": {
@@ -14503,7 +14503,7 @@
         },
         "vce": {
           "default": "analytic",
-          "description": "Standard-error mode for the overall ATT. ``'analytic'`` uses the influence-function cluster SE (fast) but under-counts the variance from estimating the unit/time fixed effects and is **anti-conservative** (~0.87 coverage at a nominal 95% level); a ``UserWarning`` recommends ``'bootstrap'``. ``'bootstrap'`` resamples whole clusters and re-runs the full imputation estimator. Point estimates are identical either way; per-horizon event-study SEs are unaffected.",
+          "description": "Standard-error mode for the overall ATT. ``'analytic'`` is the exact Borusyak--Jaravel--Spiess variance: the estimator is linear in the outcome, so its weights are computed rather than approximated, and the result reproduces Stata ``did_imputation`` and R ``didimputation`` to ~5e-8. Before v1.23.0 this path used an approximation that was materially anti-conservative (18-36% too small on the harness fixtures); see MIGRATION.md. Measured, not asserted: on a 60-unit homogeneous-effect design over 600 replications the fixed analytic interval covers 0.932 at a nominal 0.95, with the mean standard error at 0.94 of the empirical standard deviation and negligible bias. That is a large improvement on the ~0.87 the approximation delivered, and it is still short of nominal at this cluster count, so ``'bootstrap'`` remains the better choice in small designs. ``'bootstrap'`` resamples whole clusters and re-runs the full imputation estimator. Point estimates are identical either way; per-horizon event-study SEs are unaffected.",
           "enum": [
             "analytic",
             "bootstrap"
@@ -14627,7 +14627,7 @@
           "type": "boolean"
         },
         "se_method": {
-          "description": "Shared DiD spelling for ``vce=`` -- ``'analytic'``, ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``. Passing both raises. ``'auto'`` picks the cluster bootstrap when the design has at most 30 clusters (Cameron, Gelbach & Miller 2008) and the analytic influence-function SE otherwise -- which for this estimator is the anti-conservative one, so ``'auto'`` errs toward the bootstrap exactly where it matters most.",
+          "description": "Shared DiD spelling for ``vce=`` -- ``'analytic'``, ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``. Passing both raises. ``'auto'`` picks the cluster bootstrap when the design has at most 30 clusters (Cameron, Gelbach & Miller 2008) and the analytic BJS variance otherwise: with few clusters the cluster-score sum behind any sandwich is itself noisy, which is a small-cluster problem rather than a defect in the formula.",
           "type": "string"
         },
         "time": {
@@ -14650,7 +14650,7 @@
         },
         "vce": {
           "default": "analytic",
-          "description": "Standard-error mode for the overall ATT. ``'analytic'`` uses the influence-function cluster SE (fast) but under-counts the variance from estimating the unit/time fixed effects and is **anti-conservative** (~0.87 coverage at a nominal 95% level); a ``UserWarning`` recommends ``'bootstrap'``. ``'bootstrap'`` resamples whole clusters and re-runs the full imputation estimator. Point estimates are identical either way; per-horizon event-study SEs are unaffected.",
+          "description": "Standard-error mode for the overall ATT. ``'analytic'`` is the exact Borusyak--Jaravel--Spiess variance: the estimator is linear in the outcome, so its weights are computed rather than approximated, and the result reproduces Stata ``did_imputation`` and R ``didimputation`` to ~5e-8. Before v1.23.0 this path used an approximation that was materially anti-conservative (18-36% too small on the harness fixtures); see MIGRATION.md. Measured, not asserted: on a 60-unit homogeneous-effect design over 600 replications the fixed analytic interval covers 0.932 at a nominal 0.95, with the mean standard error at 0.94 of the empirical standard deviation and negligible bias. That is a large improvement on the ~0.87 the approximation delivered, and it is still short of nominal at this cluster count, so ``'bootstrap'`` remains the better choice in small designs. ``'bootstrap'`` resamples whole clusters and re-runs the full imputation estimator. Point estimates are identical either way; per-horizon event-study SEs are unaffected.",
           "enum": [
             "analytic",
             "bootstrap"

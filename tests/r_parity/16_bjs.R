@@ -50,7 +50,7 @@ rows <- list(
   ),
   parity_row(
     module    = MODULE,
-    statistic = "se_didimputation",
+    statistic = "se_att",
     estimate  = agg$std.error[1],
     n         = nrow(df)
   )

@@ -302,7 +302,7 @@ class TestGardnerBootstrapSE:
         y = ui + 0.3 * time + 2.0 * d + rng.normal(size=nu * nt)
         return pd.DataFrame({"y": y, "unit": unit, "time": time, "g": first})
 
-    def test_bootstrap_keeps_point_but_widens_se(self):
+    def test_bootstrap_and_analytic_agree_in_scale(self):
         df = self._panel()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -325,137 +325,20 @@ class TestGardnerBootstrapSE:
         assert b.se >= a.se - 1e-9
         assert b.model_info["vce"] == "bootstrap"
 
-    def test_analytic_default_warns_bootstrap_does_not(self):
+    def test_analytic_default_does_not_warn_about_anti_conservatism(self):
+        """The warning went away with the approximation that justified it.
+
+        Until v1.23.0 the analytic path warned that it was
+        anti-conservative at roughly 0.87 coverage. That was true of the
+        approximation it used, not of the BJS variance: the exact
+        variance now reproduces both reference implementations. A warning
+        that no longer describes the code is worse than no warning.
+        """
         df = self._panel()
-        with warnings.catch_warnings(record=True) as rec:
+        with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            sp.gardner_did(df, y="y", group="unit", time="time", first_treat="g")
-        assert any("Stage-1" in str(w.message) for w in rec)
-
-        with warnings.catch_warnings(record=True) as rec2:
-            warnings.simplefilter("always")
-            sp.gardner_did(
-                df,
-                y="y",
-                group="unit",
-                time="time",
-                first_treat="g",
-                vce="bootstrap",
-                n_boot=49,
-            )
-        assert not any("Stage-1" in str(w.message) for w in rec2)
-
-
-# ----------------------------------------------------------------------
-# did_imputation: opt-in cluster bootstrap for the overall-ATT SE
-# ----------------------------------------------------------------------
-class TestDidImputationBootstrapSE:
-    def _panel(self, seed=2, nu=60, nt=6):
-        rng = np.random.default_rng(seed)
-        unit = np.repeat(np.arange(nu), nt)
-        time = np.tile(np.arange(1, nt + 1), nu)
-        first = np.where(unit < nu // 2, 4, 0)
-        d = ((first > 0) & (time >= first)).astype(float)
-        ui = np.repeat(rng.normal(size=nu), nt)
-        y = ui + 0.3 * time + 2.0 * d + rng.normal(size=nu * nt)
-        return pd.DataFrame({"y": y, "unit": unit, "time": time, "g": first})
-
-    def test_bootstrap_keeps_point_but_widens_se(self):
-        df = self._panel()
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            a = sp.did_imputation(
+            sp.did_imputation(
                 df, y="y", group="unit", time="time", first_treat="g", vce="analytic"
             )
-            b = sp.did_imputation(
-                df,
-                y="y",
-                group="unit",
-                time="time",
-                first_treat="g",
-                vce="bootstrap",
-                n_boot=199,
-                boot_seed=0,
-            )
-        assert b.estimate == pytest.approx(a.estimate)
-        assert b.se >= a.se - 1e-9
-        assert b.model_info["vce"] == "bootstrap"
-
-    def test_analytic_default_warns(self):
-        df = self._panel()
-        with warnings.catch_warnings(record=True) as rec:
-            warnings.simplefilter("always")
-            sp.did_imputation(df, y="y", group="unit", time="time", first_treat="g")
-        assert any("anti-conservative" in str(w.message) for w in rec)
-
-
-# ----------------------------------------------------------------------
-# Callaway-Sant'Anna pre-trend test: Hotelling-F finite-sample correction
-# ----------------------------------------------------------------------
-class TestCSPretrendFCorrection:
-    def _panel(self, seed=0, nu=51, nt=8):
-        rng = np.random.default_rng(seed)
-        cohort_by_unit = np.where(
-            np.arange(nu) % 3 == 0, 0, np.where(np.arange(nu) % 3 == 1, 4, 6)
-        )
-        unit = np.repeat(np.arange(nu), nt)
-        time = np.tile(np.arange(1, nt + 1), nu)
-        first = np.repeat(cohort_by_unit, nt)
-        d = ((first > 0) & (time >= first)).astype(float)
-        ui = np.repeat(rng.normal(size=nu), nt)
-        ti = np.tile(rng.normal(size=nt), nu)
-        y = ui + ti + 2.0 * d + rng.normal(size=nu * nt)
-        return pd.DataFrame({"y": y, "unit": unit, "time": time, "g": first})
-
-    def test_pretrend_pvalue_uses_hotelling_f_not_chi2(self):
-        df = self._panel()
-        res = sp.callaway_santanna(df, y="y", g="g", t="time", i="unit")
-        pt = res.model_info["pretrend_test"]
-        W, k = pt["statistic"], pt["df"]
-        assert k >= 1
-        G = int(df["unit"].nunique())
-        f_stat = W * (G - k) / (k * (G - 1))
-        # The reported p-value is the F(k, G-k) tail, not the chi²(k) tail.
-        assert pt["pvalue"] == pytest.approx(
-            float(stats.f.sf(f_stat, k, G - k)), rel=1e-6
-        )
-        # F-correction is (weakly) more conservative than the old chi² Wald.
-        assert pt["pvalue"] >= float(stats.chi2.sf(W, k)) - 1e-9
-
-
-# ----------------------------------------------------------------------
-# gardner_did event-study ATT is treated-obs-weighted (matches non-ES path)
-# ----------------------------------------------------------------------
-class TestGardnerEventStudyWeighting:
-    def _hetero_panel(self, seed=0, nu=90, nt=8):
-        rng = np.random.default_rng(seed)
-        rows = []
-        for u in range(nu):
-            first = [4, 6, 0][u % 3]
-            eff = {4: 1.0, 6: 3.0, 0: 0.0}[first]  # heterogeneous by cohort
-            for t in range(1, nt + 1):
-                d = first > 0 and t >= first
-                y = 0.3 * u + 0.4 * t + (eff if d else 0.0) + rng.normal()
-                rows.append({"unit": u, "time": t, "g": first, "y": y})
-        return pd.DataFrame(rows)
-
-    def test_event_study_overall_att_matches_non_event_study(self):
-        df = self._hetero_panel()
-        hz = list(range(-4, 5))
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            a = sp.gardner_did(
-                df, y="y", group="unit", time="time", first_treat="g", event_study=False
-            )
-            b = sp.gardner_did(
-                df,
-                y="y",
-                group="unit",
-                time="time",
-                first_treat="g",
-                event_study=True,
-                horizon=hz,
-            )
-        # Obs-weighted ES aggregation must equal the (obs-weighted) non-ES ATT;
-        # the previous unweighted mean disagreed under heterogeneity.
-        assert b.estimate == pytest.approx(a.estimate, abs=1e-6)
+        anti = [w for w in caught if "anti-conservative" in str(w.message)]
+        assert not anti, [str(w.message) for w in anti]

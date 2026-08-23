@@ -258,24 +258,22 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # separates them. The per-horizon sample sizes match exactly, which is the
     # real check on the clean-control window.
     "83_lpdid": {"rel_est": 1e-10, "rel_se": 1e-10},
-    # BJS pre-trend vector. The three leads reproduce Stata
-    # did_imputation, pretrends(3) to ~1e-12 on both estimate and SE --
-    # that path is the v1.23.0 fix and it is exact. The four post-treatment
-    # horizons reproduce BOTH references on the point estimate to ~1e-8
-    # (iterative sparse solve).
+    # BJS pre-trend vector, and the estimator's whole variance path.
+    # The three leads reproduce Stata did_imputation, pretrends(3) at
+    # ~1e-14 on estimate and SE. The four horizons reproduce BOTH
+    # references at ~1e-8 on the estimate and ~3e-8 on the SE.
     #
-    # No rel_se, and the reason is a finding rather than a convention.
-    # StatsPAI's analytic horizon SEs differ from the references by 5-13%
-    # with NON-UNIFORM sign, while R didimputation 0.5.1 and Stata agree
-    # with each other to ~3e-9. Two independent implementations agreeing
-    # against a third is not a convention gap; by this project's own bar a
-    # convention label has to reconstruct the other package's number, and
-    # nothing here does. It is an open defect on an object module 16 never
-    # pinned, recorded so it cannot be forgotten. The estimator already
-    # warns at runtime that its analytic SE under-counts fixed-effect
-    # estimation variance, but that story predicts a uniform direction and
-    # this gap does not have one.
-    "84_bjs_pretrends": {"rel_est": 1e-6},
+    # That SE agreement is new. Packaging this module is what exposed the
+    # gap: StatsPAI's analytic standard errors were built from a
+    # balanced-panel approximation to the fixed-effect projection and a
+    # global rather than within-cell centring, which put the headline 36%
+    # low here and 18% low on mpdta, and moved the horizons 4.9-13% with
+    # non-uniform sign. R didimputation and Stata agreed with each other
+    # throughout, which is what made it diagnosable. did/_bjs_variance.py
+    # now computes the exact weights v with tau = v'y, as both references
+    # do. rel_se is 1e-6 rather than machine because the y0 fit reaches
+    # the weights through an iterative sparse solve.
+    "84_bjs_pretrends": {"rel_est": 1e-6, "rel_se": 1e-6},
     # Design-based staggered rollout, reconciled against staggered::staggered
     # / staggered_cs / staggered_sa -- Roth and Sant'Anna's own package for
     # their 2023 JPE Micro paper, and the only module here whose

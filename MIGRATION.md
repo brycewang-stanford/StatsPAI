@@ -5,6 +5,47 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="did-imputation-analytic-se"></a>
+
+## Unreleased — ⚠️ `sp.did_imputation` analytic standard errors changed
+
+**Who is affected.** Anyone who used `sp.did_imputation` (or its aliases
+`sp.bjs` / `sp.borusyak_jaravel_spiess`) with the default
+`vce="analytic"`. Point estimates are **unchanged** everywhere. Standard
+errors, confidence intervals and p-values change for the overall ATT,
+every event-study horizon, and the `hetby` and `project` outputs.
+
+**What changed.** The estimator is linear in the outcome, so the weight
+vector `v` with `tau = v'y` is computable exactly. StatsPAI approximated
+it: it used balanced-panel unit/time shares in place of the least-squares
+projection `v* = -Z(Z0'Z0)^-1 Z1'w`, and centred treated residuals on the
+global mean effect at a horizon instead of the `v²`-weighted mean within
+each (cohort, relative-time) block. Both reference implementations use
+the exact form.
+
+**Direction and size.** Too small, on the headline. 36% too small on the
+harness fixture, 18% on `mpdta`. Horizons moved 4.9–13% with non-uniform
+sign. After the fix everything reproduces Stata `did_imputation` and R
+`didimputation` to ~5e-8.
+
+**Coverage.** Measured over 600 replications on a 60-unit
+homogeneous-effect design: 0.932 at a nominal 0.95, mean SE 0.94 of the
+empirical SD. The approximation gave roughly 0.87. Still short of
+nominal at this cluster count — prefer `vce="bootstrap"` in small
+designs.
+
+**The warning is gone.** The path used to emit a `UserWarning` calling
+itself anti-conservative at ~0.87 coverage. That described the
+approximation, not the estimator, so it went with it. If you were
+suppressing that warning, you can stop.
+
+**If you need the old numbers** for a reproduction, pin StatsPAI
+`<=1.22.0`. There is no option to restore the approximation: it has no
+reference implementation behind it and no setting in which it is the
+right answer.
+
+---
+
 <a id="did-imputation-pretrend-method"></a>
 
 ## Unreleased — ⚠️ `sp.did_imputation` pre-trend coefficients changed
@@ -27,10 +68,18 @@ eventually-treated units are themselves part of what fits `Ŷ(0)`. Li and
 Strezhnev (2025), restated in Roth (2026, appendix A), show that in a
 non-staggered design this makes them exactly `N0/N` times the symmetric
 benchmark, where `N0` counts never-treated units. StatsPAI reproduces
-that identity to 1e-10. The attenuation runs toward zero, so the reported
-pre-trends understate the violation — severely when most units are
-treated — and a joint Wald test built on them under-rejects. The
-docstring meanwhile advertised the Stata option. Both could not be true.
+that identity to 1e-10. The docstring meanwhile advertised the Stata
+option.
+
+**What the attenuation does and does not cost.** An earlier version of
+this note said a Wald test built on the attenuated leads under-rejects.
+With the variance computed exactly (see the entry above) it does not:
+the standard error attenuates by the same `N0/N` factor, so t-statistics
+and the joint test are unchanged — checked at 50% and 90% treated. The
+damage is to magnitude-based reasoning, which is most of what a
+pre-trend plot is for, and to sensitivity analyses asking how large a
+violation would overturn the result. Against the BJS convention, a
+different construction rather than a rescaling, the tests do move. Both could not be true.
 
 **How to restore the old numbers.**
 
