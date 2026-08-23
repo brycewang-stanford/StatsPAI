@@ -29,11 +29,17 @@ via Crossref and the published PDF.
   errors used the same approximation and are also fixed.
 
   `did/_bjs_variance.py` now computes the exact variance. All of it
-  reproduces Stata to ~5e-8. On a 600-replication check the fixed
-  analytic interval covers **0.932** at a nominal 0.95 with the mean SE
-  at 0.94 of the empirical SD, against roughly **0.87** for the
-  approximation — better, and still short of nominal at 60 clusters, so
-  `vce='bootstrap'` remains the better choice in small designs.
+  reproduces Stata to ~5e-8. A cluster-scaling study (400-800 reps per
+  cell) shows the fix is complete rather than merely better: mean SE over
+  empirical SD sits at 1 at every size (0.94-1.01), and coverage reaches
+  **0.950** at 480 clusters. The residual shortfall at 60 clusters
+  (0.938) is a small-cluster effect, not a missing term — the standard
+  error is noisy there (dispersion 9.2% against 3.2% at 480), which
+  fattens the studentised distribution. A t(G-1) critical value barely
+  helps (0.938 to 0.941), because the problem is the variability of the
+  standard error rather than the degrees of freedom; `vce='bootstrap'`
+  is the remedy, and `se_method='auto'` selects it below 30 clusters.
+  The approximation this replaced delivered roughly **0.87**.
 
   **The runtime warning that called this path "anti-conservative (~0.87
   coverage)" has been removed**, because it described the approximation
