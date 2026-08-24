@@ -559,7 +559,7 @@ _REPLICATIONS: Dict[str, Dict[str, Any]] = {
             "/ Florida .109; StatsPAI picks Florida .436 / New York .311 / "
             "Illinois .253.  Neither is a bug: the book's recipe includes "
             "four lagged outcomes among the predictors, which per Kaul, "
-            "Klossner, Pfeifer & Schieler (2015) leaves V weakly identified, "
+            "Klossner, Pfeifer & Schieler (2022) leaves V weakly identified, "
             "and the nested V-W optimisation is non-convex with several "
             "local optima.  StatsPAI reaches the LOWER pre-treatment RMSE "
             "(865.3 vs 1227.0), i.e. the better fit on the stated objective, "

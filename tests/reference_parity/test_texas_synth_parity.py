@@ -4,7 +4,7 @@ Unlike the other files in this directory, this one does **not** assert
 bit-parity with Stata, and that is deliberate.
 
 The Mixtape's recipe (``Do/texas_synth.do``) puts four lagged outcomes
-among the predictors.  Per Kaul, Klossner, Pfeifer & Schieler (2015) that
+among the predictors.  Per Kaul, Klossner, Pfeifer & Schieler (2022) that
 leaves the predictor-weight matrix V weakly identified, and the nested
 V-W problem classic SCM solves is non-convex.  Stata's ``synth`` and
 StatsPAI therefore converge to *different local optima*:

@@ -29,9 +29,10 @@ References
 Abadie, A., Diamond, A. & Hainmueller, J. (2010). Synthetic control
 methods for comparative case studies. *JASA* 105(490), 493-505. [@abadie2010synthetic]
 
-Kaul, A., Klößner, S., Pfeifer, G. & Schieler, M. (2015). Synthetic
-control methods: Never use all pre-intervention outcomes together with
-covariates.  *MPRA Working Paper*.
+Kaul, A., Klößner, S., Pfeifer, G. & Schieler, M. (2022). Standard
+synthetic control methods: the case of using all preintervention
+outcomes together with covariates.  *JBES* 40(3), 1362-1376.
+[@kaul2022standard]
 
 Abadie, A. (2021). Using synthetic controls: feasibility, data
 requirements, and methodological aspects.  *Journal of Economic

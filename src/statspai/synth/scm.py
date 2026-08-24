@@ -1113,12 +1113,12 @@ class SyntheticControl:
         and ``op`` is ``'mean'`` or ``'sum'``. When omitted together with
         ``covariates``, the pre-treatment outcome vector itself is used as
         the predictor (V has no identifying power and is fixed to the
-        identity, following Kaul et al. 2015).
+        identity, following Kaul et al. 2022).
     v_method : {'auto', 'nested', 'equal'}, default 'auto'
         ``'auto'`` → nested V-W when covariates / special predictors are
         supplied, equal V otherwise. ``'nested'`` forces the outer V
         optimisation even when only Y lags are used (note: the outer
-        problem is then under-identified, per Kaul et al. 2015). Equal
+        problem is then under-identified, per Kaul et al. 2022). Equal
         V reduces to the outcome-only simplex LS estimator.
     standardize_predictors : bool, default True
         Rescale predictors to unit range before the V optimization.
@@ -1349,7 +1349,7 @@ class SyntheticControl:
         else:
             # No covariates / special predictors → use pre-period Y
             # as predictors.  V optimisation is under-identified here
-            # (Kaul et al. 2015), so we'll fix V = I in _solve_weights.
+            # (Kaul et al. 2022), so we'll fix V = I in _solve_weights.
             self.X_treated = self.Y_treated[self.pre_mask].copy()
             self.X_donors = self.Y_donors[self.pre_mask].copy()
             self._predictor_names = [
@@ -1386,7 +1386,7 @@ class SyntheticControl:
         * ``run_nested=True`` — full ADH(2010) outer V + inner W loop.
         * ``run_nested=False`` — equal V, solve inner W once.  Used when
           predictors are just the pre-period outcomes (V unidentified,
-          per Kaul et al. 2015).
+          per Kaul et al. 2022).
 
         Returns dict with keys ``w``, ``v``, ``loss``, ``inner_loss``,
         ``scale``, ``n_starts``, ``converged``.

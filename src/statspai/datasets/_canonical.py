@@ -1068,7 +1068,7 @@ def texas_prison() -> pd.DataFrame:
     **Classic SCM does not reproduce across implementations here, and that
     is the point of shipping it.**  The book's recipe uses four lagged
     outcomes among its predictors, which leaves the predictor-weight matrix
-    V weakly identified (Kaul et al. 2015).  The resulting nested V-W
+    V weakly identified (Kaul et al. 2022).  The resulting nested V-W
     problem is non-convex, and Stata's ``synth`` and StatsPAI settle on
     different local optima:
 

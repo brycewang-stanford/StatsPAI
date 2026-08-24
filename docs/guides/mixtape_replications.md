@@ -44,7 +44,7 @@ Read this column before quoting anything.
 
 The book's SCM recipe puts four lagged outcomes among the predictors,
 which leaves the predictor-weight matrix V weakly identified (Kaul et al.
-2015) and makes the nested V–W problem non-convex. Stata `synth` and
+2022) and makes the nested V–W problem non-convex. Stata `synth` and
 `sp.synth` converge to different local optima:
 
 | | donors | mean 1994–2000 gap | pre-RMSE |

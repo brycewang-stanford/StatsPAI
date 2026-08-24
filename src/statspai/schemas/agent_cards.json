@@ -26325,7 +26325,7 @@
             "type": "number"
           },
           "special_predictors": {
-            "description": "R/Stata ``Synth``-style predictor specifications. Each entry is ``(column, period_spec, op)`` where ``period_spec`` is a scalar year, a list of years, or a ``slice(start, stop)`` (inclusive), and ``op`` is ``'mean'`` or ``'sum'``. When omitted together with ``covariates``, the pre-treatment outcome vector itself is used as the predictor (V has no identifying power and is fixed to the identity, following Kaul et al. 2015).",
+            "description": "R/Stata ``Synth``-style predictor specifications. Each entry is ``(column, period_spec, op)`` where ``period_spec`` is a scalar year, a list of years, or a ``slice(start, stop)`` (inclusive), and ``op`` is ``'mean'`` or ``'sum'``. When omitted together with ``covariates``, the pre-treatment outcome vector itself is used as the predictor (V has no identifying power and is fixed to the identity, following Kaul et al. 2022).",
             "items": {
               "type": "string"
             },
@@ -26354,7 +26354,7 @@
           },
           "v_method": {
             "default": "auto",
-            "description": "``'auto'`` -> nested V-W when covariates / special predictors are supplied, equal V otherwise. ``'nested'`` forces the outer V optimisation even when only Y lags are used (note: the outer problem is then under-identified, per Kaul et al. 2015). Equal V reduces to the outcome-only simplex LS estimator.",
+            "description": "``'auto'`` -> nested V-W when covariates / special predictors are supplied, equal V otherwise. ``'nested'`` forces the outer V optimisation even when only Y lags are used (note: the outer problem is then under-identified, per Kaul et al. 2022). Equal V reduces to the outcome-only simplex LS estimator.",
             "enum": [
               "auto",
               "nested",
