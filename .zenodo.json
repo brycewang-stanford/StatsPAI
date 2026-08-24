@@ -1,5 +1,5 @@
 {
-  "title": "StatsPAI: The Agent-Native Causal Inference & Econometrics Toolkit for Python",
+  "title": "StatsPAI: A Unified, Agent-Native Python Toolkit for Causal Inference and Applied Econometrics",
   "description": "A unified, agent-native Python toolkit for causal inference and econometrics — DiD, IV, RD, synthetic control, double ML, meta-learners, BCF, causal discovery, structural, panel, spatial, and time-series — exposed through a single `import statspai as sp` entry point with a unified `CausalResult` interface.",
   "creators": [
     {

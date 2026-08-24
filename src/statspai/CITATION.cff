@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use StatsPAI in your research, please cite it using the metadata below."
-title: "StatsPAI: Validation-Tiered Causal Inference and Econometrics Workflows for Python"
+title: "StatsPAI: A Unified, Agent-Native Python Toolkit for Causal Inference and Applied Econometrics"
 abstract: >-
   StatsPAI is a validation-tiered Python toolkit for applied econometrics and
   causal inference covering difference-in-differences, instrumental variables,
