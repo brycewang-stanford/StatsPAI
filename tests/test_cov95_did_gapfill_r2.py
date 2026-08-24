@@ -555,6 +555,12 @@ def test_honest_r_backend_without_rscript_raises(cs_result, monkeypatch):
         sp.honest_did(cs_result, backend="honestdid")
 
 
+_STUB_JSON = (
+    '[{"M":0.0,"ci_lower":1.0,"ci_upper":3.0},'
+    '{"M":1.0,"ci_lower":-0.5,"ci_upper":4.0}]'
+)
+
+
 @pytest.fixture()
 def rscript_stub(tmp_path, monkeypatch):
     """Put a controllable ``Rscript`` stub first on PATH.
@@ -562,17 +568,39 @@ def rscript_stub(tmp_path, monkeypatch):
     Only the Python-side plumbing (validation, CSV/arg passing, JSON
     parsing, error propagation) is asserted against this stub; HonestDiD
     numeric parity is tested elsewhere with the real R package.
+
+    The stub is written in the platform's own script format. A ``#!/bin/sh``
+    file named ``Rscript`` is invisible to ``shutil.which`` on Windows (which
+    only considers PATHEXT suffixes), so the GitHub Windows runner — where R
+    *is* preinstalled — silently resolved the real ``Rscript`` instead and the
+    tests failed with "R package 'HonestDiD' is not installed". Emitting a
+    ``.bat`` there keeps the same subprocess path under test on every OS
+    instead of skipping Windows.
     """
-    stub = tmp_path / "Rscript"
+    windows = os.name == "nt"
+    stub = tmp_path / ("Rscript.bat" if windows else "Rscript")
 
-    def program(body):
-        stub.write_text("#!/bin/sh\n" + body + "\n", encoding="utf-8")
-        os.chmod(stub, 0o755)
+    def program(stdout="", stderr="", returncode=0):
+        """Install a stub that emits *stdout* / *stderr* and exits *returncode*."""
+        if windows:
+            lines = ["@echo off"]
+            if stdout:
+                lines.append(f"echo {stdout}")
+            if stderr:
+                lines.append(f"echo {stderr} 1>&2")
+            lines.append(f"exit /b {returncode}")
+            stub.write_text("\r\n".join(lines) + "\r\n", encoding="ascii")
+        else:
+            lines = ["#!/bin/sh"]
+            if stdout:
+                lines.append(f"echo '{stdout}'")
+            if stderr:
+                lines.append(f'echo "{stderr}" >&2')
+            lines.append(f"exit {returncode}")
+            stub.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            os.chmod(stub, 0o755)
 
-    program(
-        'echo \'[{"M":0.0,"ci_lower":1.0,"ci_upper":3.0},'
-        '{"M":1.0,"ci_lower":-0.5,"ci_upper":4.0}]\''
-    )
+    program(stdout=_STUB_JSON)
     monkeypatch.setenv("PATH", str(tmp_path) + os.pathsep + os.environ["PATH"])
     return program
 
@@ -602,7 +630,7 @@ def test_honest_r_backend_parses_stub_output(cs_result, rscript_stub):
 
 
 def test_honest_r_backend_propagates_r_failure(cs_result, rscript_stub):
-    rscript_stub('echo "boom from R" >&2\nexit 1')
+    rscript_stub(stderr="boom from R", returncode=1)
     with pytest.raises(ConvergenceFailure, match="boom from R"):
         sp.honest_did(cs_result, e=0, backend="honestdid")
 
