@@ -430,7 +430,8 @@ StatsPAI 正在 JOSS 审稿中。审稿人可从这里开始：
   year    = {2026},
   version = {1.23.0},
   doi     = {10.5281/zenodo.19933900},
-  url     = {https://github.com/brycewang-stanford/StatsPAI}
+  url     = {https://doi.org/10.5281/zenodo.19933900},
+  license = {MIT}
 }
 ```
 
