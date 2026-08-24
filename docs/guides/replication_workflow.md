@@ -304,8 +304,16 @@ For finer control, build the bib yourself:
 sp.write_bib([
     "Callaway B, Sant'Anna PHC. (2021). DiD with multiple time periods. JoE.",
     "Imbens GW (2004). Nonparametric estimation of ATEs.",
-], "paper.bib")
+], "out/references.bib")
 ```
+
+!!! warning "`write_bib` overwrites its target"
+
+    The second argument is truncated and rewritten (pass `append=True` to
+    add instead). Point it at a generated-output path, never at a `.bib`
+    file you maintain by hand — running this snippet from a project root
+    with the target set to `"paper.bib"` will replace that file with the
+    two entries above.
 
 ## Numerical lineage / Provenance
 
