@@ -66,8 +66,9 @@ class ScalarEffect(float):
 
     Examples
     --------
-    >>> e = ScalarEffect(1.25, estimand="ATE", se=0.5,
-    ...                  ci=(0.27, 2.23), pvalue=0.012)
+    >>> import statspai as sp
+    >>> e = sp.ScalarEffect(1.25, estimand="ATE", se=0.5,
+    ...                     ci=(0.27, 2.23), pvalue=0.012)
     >>> float(e)
     1.25
     >>> e + 1

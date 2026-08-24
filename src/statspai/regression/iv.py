@@ -2086,12 +2086,6 @@ def iv(
         projection.
     fuller_alpha : float, default 1.0
         Fuller modification constant (only used when ``method='fuller'``).
-    gmm_vcov : {'sandwich', 'efficient'}, default 'sandwich'
-        Variance formula for ``method='gmm'``. ``'sandwich'`` re-estimates
-        the moment variance at the final residuals and stays valid when the
-        weight matrix is not the efficient one. ``'efficient'`` reports the
-        textbook efficient-GMM variance ``q (X'W S^-1 W'X)^-1``, which is
-        what ``ivreg2 gmm2s`` prints.
     absorb : str or list of str, optional
         Column name(s) of high-dimensional fixed effects to **partial out**
         before fitting (e.g. ``absorb="firm"`` or
@@ -2105,6 +2099,15 @@ def iv(
         ``reghdfe``: ``sum(G_k - 1)`` over fixed effects *not* nested
         within a clustering dimension, plus one for the absorbed
         constant.
+    **kwargs
+        Estimator-specific options forwarded to the underlying fitter.
+        The one most users reach for is ``gmm_vcov``
+        ({'sandwich', 'efficient'}, default ``'sandwich'``) — the variance
+        formula for ``method='gmm'``. ``'sandwich'`` re-estimates the moment
+        variance at the final residuals and stays valid when the weight
+        matrix is not the efficient one; ``'efficient'`` reports the
+        textbook efficient-GMM variance ``q (X'W S^-1 W'X)^-1``, which is
+        what ``ivreg2 gmm2s`` prints.
 
     Returns
     -------

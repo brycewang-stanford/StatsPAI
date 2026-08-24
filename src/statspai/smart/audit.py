@@ -739,10 +739,9 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> Dict[str, Any]:
     ...     for t in (0, 1):
     ...         y = (1.0 + 0.3 * t + 0.5 * tr + 2.0 * tr * t
     ...              + rng.normal(scale=0.5))
-    ...         rows.append({'i': i, 't': t, 'treated': tr,
-    ...                      'post': t, 'wage': y})
+    ...         rows.append({'i': i, 't': t, 'treated': tr, 'wage': y})
     >>> df = pd.DataFrame(rows)
-    >>> r = sp.did(df, y='wage', treat='treated', time='t', post='post')
+    >>> r = sp.did(df, y='wage', treat='treated', time='t')
     >>> audit_card = sp.audit(r)
     >>> for c in audit_card['checks']:
     ...     if c['status'] == 'missing' and c['importance'] == 'high':
