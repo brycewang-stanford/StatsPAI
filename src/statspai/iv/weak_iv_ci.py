@@ -44,6 +44,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..exceptions import IdentificationFailure
+
 
 @dataclass
 class WeakIVConfidenceSet:
@@ -119,6 +121,44 @@ def _residualize(M: np.ndarray, W: np.ndarray) -> np.ndarray:
     return np.asarray(M - W @ b)
 
 
+def _check_instrument_rank(Zt: np.ndarray, instruments: Any) -> None:
+    """Refuse a rank-deficient instrument matrix instead of inverting it.
+
+    Every weak-IV routine in this module forms ``(Z'Z)^-1`` — via
+    ``np.linalg.solve`` or a Cholesky factor. When the (residualised)
+    instruments are collinear that Gram matrix is singular, and what happens
+    next is decided by the BLAS build rather than by the data: some LAPACK
+    implementations raise ``LinAlgError: Singular matrix`` while others return
+    a garbage inverse and the routine reports a confidence set computed from
+    it. Neither is acceptable — one is an opaque crash, the other is a silently
+    wrong answer — so detect the condition here and say what to do about it.
+    """
+    if Zt.size == 0 or Zt.shape[1] == 0:
+        return
+    rank = int(np.linalg.matrix_rank(Zt))
+    k = int(Zt.shape[1])
+    if rank >= k:
+        return
+    if isinstance(instruments, list) and all(isinstance(c, str) for c in instruments):
+        names = list(instruments)
+    elif isinstance(instruments, str):
+        names = [instruments]
+    else:
+        names = [f"z{i}" for i in range(k)]
+    raise IdentificationFailure(
+        f"the instrument matrix is rank deficient: {k} instruments "
+        f"({', '.join(names)}) span only {rank} dimension(s) after "
+        "partialling out the exogenous regressors, so Z'Z is singular and "
+        "the Anderson-Rubin / CLR statistics are not defined.",
+        recovery_hint=(
+            "Drop the redundant instrument(s) — one is an exact linear "
+            "combination of the others (or of the exogenous controls) — and "
+            "re-run."
+        ),
+        diagnostics={"n_instruments": k, "rank": rank, "instruments": names},
+    )
+
+
 def _prep(
     y: Any, endog: Any, instruments: Any, exog: Any, data: Any, add_const: Any
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, int, int]:
@@ -138,6 +178,7 @@ def _prep(
     Yt = _residualize(Y.reshape(-1, 1), W).ravel()
     Dt = _residualize(D.reshape(-1, 1), W).ravel()
     Zt = _residualize(Z, W)
+    _check_instrument_rank(Zt, instruments)
     return Yt, Dt, Zt, W.shape[1], n
 
 

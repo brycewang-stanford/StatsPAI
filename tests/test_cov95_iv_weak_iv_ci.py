@@ -64,7 +64,13 @@ def test_ar_ci_weak_instrument_unbounded_summary():
 
 def test_ar_ci_with_exog_and_multi_instruments():
     df = _iv_df(seed=5, strong=True).copy()
-    rng = np.random.default_rng(5)
+    # Seed the second instrument OFF the fixture's seed. Reusing seed=5 here
+    # replays the very first draw ``_iv_df`` made — which is ``z`` itself — so
+    # ``z2`` came out as exactly ``1.6 * z``: two perfectly collinear
+    # instruments, a singular Z'Z, and a "multi-instrument" test that never had
+    # two instruments. Linux/macOS LAPACK inverted the singular Gram anyway and
+    # the test passed on garbage; Windows raised LinAlgError.
+    rng = np.random.default_rng(105)
     df["z2"] = 0.6 * df["z"] + rng.normal(size=len(df))
     cs = sp.iv.anderson_rubin_ci(
         y="y", endog="d", instruments=["z", "z2"], exog="x", data=df, n_grid=121
