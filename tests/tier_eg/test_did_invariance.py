@@ -36,8 +36,16 @@ from ._helpers import (
 pytestmark = pytest.mark.filterwarnings("ignore")
 
 
+# ``make_did_2x2`` ships both the treatment-group indicator (``group``) and the
+# already-interacted post x group dummy (``treat``). ``sp.did_2x2`` wants the
+# GROUP indicator and forms the interaction itself, so passing ``treat`` here
+# made the D and D x T design columns identical — a rank-deficient design whose
+# reported ATT was a minimum-norm pseudo-inverse artefact (1.34 against a true
+# ATT of 2.0) on Linux/macOS and numerical garbage (~-5e16) on Windows. The
+# estimator now refuses such a design outright; pass ``group``, as the API
+# documents, so these invariances are pinned on an identified estimate.
 def _fit(d, **kw):
-    return sp.did_2x2(d, y="y", treat="treat", time="time", **kw)
+    return sp.did_2x2(d, y="y", treat="group", time="time", **kw)
 
 
 @pytest.fixture(scope="module")

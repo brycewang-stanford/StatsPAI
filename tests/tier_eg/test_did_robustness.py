@@ -19,8 +19,12 @@ import statspai as sp
 from ._helpers import assert_raises_clean, coef, make_did_2x2, make_staggered_did
 
 
+# Pass the treatment-GROUP indicator, not the already-interacted ``treat``
+# column: ``sp.did_2x2`` forms the interaction itself, so handing it ``treat``
+# made the design rank deficient and the estimator now refuses it. See the
+# note in test_did_invariance.py for what that used to report.
 def _fit(d, **kw):
-    return sp.did_2x2(d, y="y", treat="treat", time="time", **kw)
+    return sp.did_2x2(d, y="y", treat="group", time="time", **kw)
 
 
 @pytest.fixture(scope="module")
@@ -33,14 +37,14 @@ def base_df():
 # --------------------------------------------------------------------------- #
 def test_did_no_treated_units_raises(base_df):
     assert_raises_clean(
-        lambda: _fit(base_df.assign(treat=0)),
+        lambda: _fit(base_df.assign(group=0)),
         Exception,
         match="2 values|treat|group",
     )
 
 
 def test_did_all_treated_raises(base_df):
-    assert_raises_clean(lambda: _fit(base_df.assign(treat=1)), Exception)
+    assert_raises_clean(lambda: _fit(base_df.assign(group=1)), Exception)
 
 
 # --------------------------------------------------------------------------- #
@@ -57,7 +61,7 @@ def test_did_single_period_raises(base_df):
 def test_did_missing_outcome_raises(base_df):
     # call the estimator directly (the _fit helper fixes y="y")
     assert_raises_clean(
-        lambda: sp.did_2x2(base_df, y="qqq", treat="treat", time="time"),
+        lambda: sp.did_2x2(base_df, y="qqq", treat="group", time="time"),
         KeyError,
         ValueError,
     )
