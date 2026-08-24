@@ -85,6 +85,9 @@ def test_pooled_ols_matches_stata(sasp):
 
 def test_within_estimator_matches_stata(sasp):
     """`xtreg, fe robust` is cluster-robust on the panel id, not plain HC1."""
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     r = sp.feols("lnw ~ " + " + ".join(X) + " | id", data=sasp, vcov={"CRV1": "id"})
     assert float(r.params["unsafe"]) == pytest.approx(STATA_WITHIN[0], abs=ATOL)
     assert float(r.std_errors["unsafe"]) == pytest.approx(STATA_WITHIN[1], abs=ATOL)
@@ -92,6 +95,9 @@ def test_within_estimator_matches_stata(sasp):
 
 def test_manual_demeaning_reproduces_the_within_estimator(sasp, demeaned):
     """The identity Chapter 8 exists to teach — exact, not approximate."""
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     alive = [c for c in X if c not in SASP_TIME_INVARIANT]
     by_hand = sp.regress(
         "w_lnw ~ " + " + ".join("w_" + c for c in alive),
@@ -142,6 +148,9 @@ def test_regress_refuses_a_constant_regressor_instead_of_dropping_it(demeaned):
 
 def test_pooled_and_within_disagree_substantively(sasp):
     """Not a precision story — pooling points somewhere else entirely."""
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     pooled = sp.regress("lnw ~ " + " + ".join(X), data=sasp, robust="hc1")
     fe = sp.feols("lnw ~ " + " + ".join(X) + " | id", data=sasp, vcov={"CRV1": "id"})
     b_pooled = float(pooled.params["unsafe"])

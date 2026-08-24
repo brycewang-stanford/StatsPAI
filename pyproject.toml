@@ -91,7 +91,12 @@ neural = [
     "torch>=2.0.0",
 ]
 fixest = [
-    "pyfixest>=0.25.0",
+    # pyfixest >= 0.25 requires Python >= 3.10, so an unmarked pin makes
+    # ``pip install statspai[fixest]`` unresolvable on the 3.9 leg we still
+    # support. Mark it: on 3.9 the extra installs nothing and every
+    # pyfixest-backed test skips via ``pytest.importorskip``; on 3.10+ it
+    # installs normally and those tests run.
+    "pyfixest>=0.25.0; python_version >= '3.10'",
 ]
 plotting = [
     "matplotlib>=3.5.0",

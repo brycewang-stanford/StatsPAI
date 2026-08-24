@@ -25,7 +25,10 @@ import os
 from pathlib import Path
 
 import pytest
-from _cases import compute_all  # noqa: E402  (tests/golden_master on sys.path)
+from _cases import (  # noqa: E402  (tests/golden_master on sys.path)
+    compute_all,
+    unavailable_cases,
+)
 
 _GOLDEN = Path(__file__).resolve().parent / "golden_values.json"
 
@@ -42,9 +45,23 @@ def _load_golden() -> dict:
 
 
 def test_golden_master_no_silent_drift():
+    # Cases behind an opt-in extra (e.g. ``feols_twoway`` needs pyfixest, which
+    # has no Python 3.9 wheel and is absent from the lean ``.[dev]`` install)
+    # cannot be computed here. They are reported as *unavailable*, never as
+    # drifted or missing — but every other case is still checked, so a real
+    # numerical regression cannot hide behind a dependency gap.
+    unavailable = unavailable_cases()
     current = compute_all()
 
     if os.environ.get("STATSPAI_UPDATE_GOLDEN") == "1":
+        # Re-pinning from an incomplete environment would silently DELETE the
+        # pins for the unavailable cases, permanently losing the guarantee.
+        assert not unavailable, (
+            "refusing to re-pin the golden master: "
+            + ", ".join(f"{c} needs {m}" for c, m in sorted(unavailable.items()))
+            + " — install the missing extras (`pip install -e '.[dev,fixest]'`) "
+            "and re-run, or the pins for those cases would be dropped."
+        )
         _GOLDEN.write_text(
             json.dumps(current, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
@@ -64,6 +81,8 @@ def test_golden_master_no_silent_drift():
 
     drifted = []
     for case, metrics in golden.items():
+        if case in unavailable:
+            continue
         assert case in current, f"golden case '{case}' no longer produced"
         for metric, want in metrics.items():
             got = current[case].get(metric)

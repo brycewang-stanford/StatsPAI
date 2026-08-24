@@ -270,6 +270,9 @@ def test_absorbed_iv_conley_matches_acreg(panel):
 
 def test_ols_is_confounded_but_iv_is_not(panel):
     """The fixture has a real endogeneity problem, so the test has teeth."""
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     ols = sp.feols(
         "shannon ~ policy + temp + wind | county + ym",
         data=panel,

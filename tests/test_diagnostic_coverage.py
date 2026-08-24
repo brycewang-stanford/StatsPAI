@@ -137,6 +137,10 @@ _CLUSTER_ESTIMATORS = [
     ids=[e[0] for e in _CLUSTER_ESTIMATORS],
 )
 def test_cluster_estimator_records_n_clusters_and_flags_few(name, fit, kind):
+    if name == "feols":
+        pytest.importorskip(
+            "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+        )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         few = fit(_clustered_df(12, kind=kind))

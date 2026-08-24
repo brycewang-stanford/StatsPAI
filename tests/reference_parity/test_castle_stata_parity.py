@@ -143,6 +143,9 @@ def test_reconstructed_design_matrix_columns(castle):
 
 
 def test_twfe_unweighted_matches_stata(castle):
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     b, se = _post(
         sp.feols("l_homicide ~ post | sid + year", data=castle, vcov={"CRV1": "sid"})
     )
@@ -152,6 +155,9 @@ def test_twfe_unweighted_matches_stata(castle):
 
 def test_twfe_weighted_matches_stata(castle):
     """Exercises Stata `aweight` semantics, not just the point estimate."""
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     b, se = _post(
         sp.feols(
             "l_homicide ~ post | sid + year",
@@ -165,6 +171,9 @@ def test_twfe_weighted_matches_stata(castle):
 
 
 def test_twfe_weighted_with_controls_matches_stata(castle):
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     fml = "l_homicide ~ post + " + " + ".join(XVAR) + " | sid + year"
     b, se = _post(sp.feols(fml, data=castle, weights="popwt", vcov={"CRV1": "sid"}))
     assert b == pytest.approx(STATA_TWFE_WEIGHTED_CONTROLS[0], abs=ATOL)
@@ -177,6 +186,9 @@ def test_twfe_full_specification_matches_stata(castle):
     This is the strongest of the four checks — it only passes if StatsPAI
     drops exactly the same collinear columns Stata does.
     """
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     region = [c for c in castle.columns if c.startswith("r20")]
     trends = [c for c in castle.columns if c.startswith("trend_")]
     fml = "l_homicide ~ post + " + " + ".join(XVAR + region + trends) + " | sid + year"
@@ -253,6 +265,9 @@ def test_cohort_coding_changes_the_answer(castle):
 
 def test_twfe_understates_relative_to_callaway_santanna(castle):
     """The teaching payload: heterogeneity-robust ATT exceeds TWFE here."""
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     twfe, _ = _post(
         sp.feols("l_homicide ~ post | sid + year", data=castle, vcov={"CRV1": "sid"})
     )

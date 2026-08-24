@@ -21,6 +21,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
@@ -97,6 +98,9 @@ def test_reroute_byte_identical_to_reparse_on_regress() -> None:
 
 
 def test_feols_stores_within_design() -> None:
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     df = _panel()
     f = sp.feols("y ~ x + z | firm", data=df)
     di = f.data_info
@@ -109,6 +113,9 @@ def test_feols_stores_within_design() -> None:
 
 
 def test_feols_no_fe_matches_regress_cr2_and_conley_and_twoway() -> None:
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     df = _panel()
     r = sp.regress("y ~ x + z", df)
     f0 = sp.feols("y ~ x + z", data=df)
@@ -127,6 +134,9 @@ def test_feols_no_fe_matches_regress_cr2_and_conley_and_twoway() -> None:
 
 
 def test_feols_no_fe_wild_identical_to_regress() -> None:
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     df = _panel()
     r = sp.regress("y ~ x + z", df)
     f0 = sp.feols("y ~ x + z", data=df)
@@ -140,6 +150,9 @@ def test_feols_no_fe_wild_identical_to_regress() -> None:
 
 
 def test_feols_fe_wild_matches_within_demeaned_regress() -> None:
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     df = _panel()
     f1 = sp.feols("y ~ x + z | firm", data=df)
     wb_fe = sp.wild_cluster_boot(f1, df, "firm", "x", n_boot=999, seed=42)
@@ -158,6 +171,9 @@ def test_feols_fe_wild_matches_within_demeaned_regress() -> None:
 
 def test_feols_fe_standalone_helpers_run() -> None:
     """Previously KeyError: 'X' on feols — now they execute."""
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     df = _panel()
     f1 = sp.feols("y ~ x + z | firm", data=df)
     assert np.isfinite(_se(sp.conley(f1, df, "lat", "lon", dist_cutoff=3.0), "x"))

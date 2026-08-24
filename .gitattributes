@@ -1,0 +1,27 @@
+# Line-ending policy.
+#
+# The GitHub Actions Windows runner checks out with `core.autocrlf=true`, which
+# rewrites LF -> CRLF in the working tree. That is invisible for source code but
+# fatal for the reference-parity suite: several modules pin the SHA-256 of
+# `tests/orig_parity/data/02_mpdta_original.csv` so the R/Stata golden numbers
+# can never be silently re-locked against a different dataset. Under CRLF
+# translation the digest changes and 63 tests error out with "mpdta fixture
+# changed" — a checkout artefact reported as a provenance breach.
+#
+# Pinning `eol=lf` keeps every text file byte-identical across platforms, so the
+# digests hold everywhere. `text` (rather than `-text`) is deliberate: git still
+# treats these as text, so diffs and merges stay readable.
+
+* text=auto eol=lf
+
+# Data fixtures are byte-pinned and/or numerically parsed — never translate.
+*.csv text eol=lf
+*.json text eol=lf
+*.dta binary
+*.rds binary
+*.parquet binary
+*.xlsx binary
+*.docx binary
+*.png binary
+*.jpg binary
+*.pdf binary

@@ -31,6 +31,25 @@ _SLOW = {("texas_1993", "classic")}
 
 _TRACK_KEYS = ("classic", "modern")
 
+# Optional-extra sniffing.  A handful of guides route through an estimator that
+# is only available with an opt-in extra (``sp.feols``/``sp.feglm``/``sp.fepois``
+# wrap pyfixest; ``bwselect='cct'`` delegates to the official rdrobust port).
+# Without the extra those snippets raise ``ImportError`` — a dependency gap, not
+# a broken guide — so skip them rather than report a red test.  The canonical
+# CI env installs both, so the guides are still executed there.
+_OPTIONAL_MARKERS = (
+    (("sp.feols(", "sp.feglm(", "sp.fepois(", "sp.ppmlhdfe("), "pyfixest", "fixest"),
+    (("bwselect='cct'", 'bwselect="cct"'), "rdrobust", "rd-cct"),
+)
+
+
+def _skip_if_extra_missing(source):
+    for needles, module, extra in _OPTIONAL_MARKERS:
+        if any(n in source for n in needles):
+            pytest.importorskip(
+                module, reason=f"guide needs the optional [{extra}] extra"
+            )
+
 
 def _code_blocks(entry):
     """Yield (track_name, source) for every code block in an entry."""
@@ -59,6 +78,8 @@ _CASES = [
 def test_guide_code_block_executes(key, track, source):
     if key in _NO_DATA:
         pytest.skip(f"{key} has no runnable dataset")
+
+    _skip_if_extra_missing(source)
 
     data, _guide = sp.replicate(key)
     namespace = {"sp": sp, "df": data, "data": data}

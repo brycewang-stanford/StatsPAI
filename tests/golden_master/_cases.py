@@ -13,6 +13,7 @@ A case function must be pure and deterministic: same seed in, same numbers out.
 """
 from __future__ import annotations
 
+import importlib.util
 import warnings
 from typing import Callable, Dict
 
@@ -105,10 +106,31 @@ CASES: Dict[str, Callable[[], Dict[str, float]]] = {
     "logit": case_logit,
 }
 
+#: Cases that cannot run without an opt-in extra. ``sp.feols`` wraps pyfixest,
+#: which is unavailable on Python 3.9 and absent from the lean ``.[dev]``
+#: install, so that one case is *unavailable* rather than *drifted* there. Every
+#: other case still runs, so the reproducibility gate keeps its teeth — a
+#: missing dependency must never be able to mask a real numerical change.
+CASE_REQUIRES: Dict[str, str] = {
+    "feols_twoway": "pyfixest",
+}
+
+
+def unavailable_cases() -> Dict[str, str]:
+    """Map case name -> missing module, for cases whose extra is not installed."""
+    missing: Dict[str, str] = {}
+    for name, module in CASE_REQUIRES.items():
+        if importlib.util.find_spec(module) is None:
+            missing[name] = module
+    return missing
+
 
 def compute_all() -> Dict[str, Dict[str, float]]:
+    skip = set(unavailable_cases())
     out: Dict[str, Dict[str, float]] = {}
     for name, fn in CASES.items():
+        if name in skip:
+            continue
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             out[name] = fn()

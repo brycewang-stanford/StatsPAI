@@ -8,6 +8,8 @@ dispatch tables (so it cannot drift from what the translators actually do).
 
 from __future__ import annotations
 
+import pytest
+
 import statspai as sp
 
 
@@ -108,6 +110,9 @@ def _assert_executes(payload, df, label):
 
 
 def test_from_stata_hdfe_translations_execute():
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     df = _exec_df()
     for cmd in (
         "reghdfe y x x2, absorb(id year) vce(cluster id)",
@@ -118,6 +123,9 @@ def test_from_stata_hdfe_translations_execute():
 
 
 def test_from_r_feols_translations_execute():
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     df = _exec_df()
     for cmd in (
         "feols(y ~ x | id, data = df, cluster = ~id)",

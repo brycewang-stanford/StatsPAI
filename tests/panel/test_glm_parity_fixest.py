@@ -22,6 +22,12 @@ import pytest
 
 from statspai import feglm, fepois
 
+# ``sp.feglm`` / ``sp.fepois`` are pyfixest-backed; without the optional
+# [fixest] extra (unavailable on Python 3.9) there is nothing to compare
+# against fixest, so skip rather than report a dependency gap as a
+# numerical-parity failure.
+pytest.importorskip("pyfixest", reason="sp.feglm/sp.fepois need the [fixest] extra")
+
 _R_GOLDEN = (
     Path(__file__).resolve().parents[2]
     / "tests"

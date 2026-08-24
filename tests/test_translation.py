@@ -1004,6 +1004,10 @@ _NUMERIC_CASES = [
     ids=[c[0][:32] for c in _NUMERIC_CASES],
 )
 def test_translation_fits_the_right_model(command, channel, reference):
+    if reference[0] == "feols":
+        pytest.importorskip(
+            "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+        )
     df = _num_df()
     translate = from_stata if channel == "stata" else from_r
     out = translate(command)
@@ -1016,6 +1020,9 @@ def test_cross_translator_hdfe_agrees_numerically():
     model: Stata ``reghdfe`` and R ``feols`` of an identical HDFE spec produce
     the same coefficients. A bug in either reassembly path shows up as a
     divergence here."""
+    pytest.importorskip(
+        "pyfixest", reason="sp.feols is backed by the optional [fixest] extra"
+    )
     df = _num_df()
     s = from_stata("reghdfe y x1 x2, absorb(firm year) cluster(firm)")
     r = from_r("feols(y ~ x1 + x2 | firm + year, data=df, cluster=~firm)")
