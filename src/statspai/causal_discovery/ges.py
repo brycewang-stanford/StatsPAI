@@ -20,6 +20,7 @@ from typing import List, Tuple, Union
 
 import numpy as np
 import pandas as pd
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -216,9 +217,27 @@ def ges(
 
     best_bic = _score()
 
+    def _tie_tol(bic: float) -> float:
+        """Gain below which two candidate edges count as exactly tied.
+
+        BIC cannot distinguish ``i -> j`` from ``j -> i`` for an isolated pair:
+        both encode the same Markov equivalence class, so their scores are
+        equal in exact arithmetic. Comparing raw gains with ``>`` therefore let
+        last-bit LAPACK rounding — which differs between BLAS builds — decide
+        the orientation of the first edge added, and that choice cascades: pick
+        the reverse edge on a collider ``X -> Z <- Y`` and conditioning on Z
+        makes the spurious ``X -- Y`` explaining-away edge score *better*, so
+        the search converges on a complete undirected graph instead of the
+        v-structure. That is exactly what the Windows CI leg produced while
+        Linux/macOS passed. Requiring a candidate to beat the incumbent by more
+        than this tolerance makes the deterministic scan order — not float
+        noise — the tie-break, so every platform returns the same CPDAG.
+        """
+        return 1e-9 * max(1.0, abs(bic))
+
     # Forward phase: greedily add the edge that most improves BIC
     for _ in range(max_iter):
-        best_gain = 0.0
+        best_gain = _tie_tol(best_bic)
         best_edge = None
         best_new_bic = best_bic
         for i in range(p):
@@ -235,14 +254,14 @@ def ges(
                     best_edge = (i, j)
                     best_new_bic = new_bic
                 adj[i, j] = 0
-        if best_edge is None or best_gain <= 0:
+        if best_edge is None:
             break
         adj[best_edge[0], best_edge[1]] = 1
         best_bic = best_new_bic
 
     # Backward phase: greedily remove edges that improve BIC
     for _ in range(max_iter):
-        best_gain = 0.0
+        best_gain = _tie_tol(best_bic)
         best_edge = None
         best_new_bic = best_bic
         for i in range(p):
@@ -257,7 +276,7 @@ def ges(
                     best_edge = (i, j)
                     best_new_bic = new_bic
                 adj[i, j] = 1
-        if best_edge is None or best_gain <= 0:
+        if best_edge is None:
             break
         adj[best_edge[0], best_edge[1]] = 0
         best_bic = best_new_bic
