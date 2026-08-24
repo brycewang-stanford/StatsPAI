@@ -276,7 +276,10 @@ def check_attributes(failures: list[str]) -> None:
             isinstance(aft.params, pd.Series)  # NEW in 1.19.0
             and hasattr(aft, "std_errors")
             and _silent_ok(lambda: sp.regtable(aft, output="text"))
-            and not hasattr(aft, "to_word")  # still goes via regtable
+            # Since the universal export protocol (v1.21.0), AFTResult
+            # carries .to_word/.to_excel/... directly as well; regtable
+            # stays the multi-model path.
+            and hasattr(aft, "to_word")
             and all(
                 hasattr(aft, a)
                 for a in ("beta", "se", "var_names", "n", "n_events", "aic", "family")
