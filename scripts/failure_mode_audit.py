@@ -36,6 +36,7 @@ Usage
     python scripts/failure_mode_audit.py --check     # exit 1 on any hard error
     python scripts/failure_mode_audit.py --markdown out.md
 """
+
 from __future__ import annotations
 
 import argparse
@@ -46,6 +47,17 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+# Windows consoles default to cp1252, which cannot encode the status glyphs
+# this script prints -- so it used to die with UnicodeEncodeError while
+# reporting its own verdict, and a gate that exits non-zero for its output
+# encoding is indistinguishable from a gate that found a real problem.
+# Inlined rather than shared: ``scripts/`` is only on sys.path when a script is
+# run directly, and the tests import some of these as ``scripts.<name>``.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8")
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC = REPO_ROOT / "src" / "statspai"

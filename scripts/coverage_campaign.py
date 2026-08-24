@@ -35,8 +35,20 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 import xml.etree.ElementTree as ET
 from collections import defaultdict
+
+# Windows consoles default to cp1252, which cannot encode the status glyphs
+# this script prints -- so it used to die with UnicodeEncodeError while
+# reporting its own verdict, and a gate that exits non-zero for its output
+# encoding is indistinguishable from a gate that found a real problem.
+# Inlined rather than shared: ``scripts/`` is only on sys.path when a script is
+# run directly, and the tests import some of these as ``scripts.<name>``.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8")
+
 
 CORE_MODULES = ("did", "iv", "rd", "synth", "dml", "panel")
 TARGET = 95.0
@@ -98,8 +110,7 @@ def cmd_report(args) -> int:
         if below:
             print(
                 "\nFAIL: core-module coverage ratchet — below "
-                f"{threshold:.1f}%: "
-                + ", ".join(f"{m} ({p:.1f}%)" for m, p in below)
+                f"{threshold:.1f}%: " + ", ".join(f"{m} ({p:.1f}%)" for m, p in below)
             )
             return 1
         print(f"\nOK: all {len(CORE_MODULES)} core modules ≥ {threshold:.1f}%")

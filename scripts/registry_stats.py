@@ -20,6 +20,7 @@ registered-function counts + the README floors) exactly, but treats
 LOC is only flagged once it drifts past ``LOC_DRIFT_TOLERANCE``, so
 routine source churn (a refactor, a dead-code removal) never reds CI.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -30,6 +31,16 @@ import sys
 from collections import Counter
 from pathlib import Path
 from typing import Dict, Tuple
+
+# Windows consoles default to cp1252, which cannot encode the status glyphs
+# this script prints -- so it used to die with UnicodeEncodeError while
+# reporting its own verdict, and a gate that exits non-zero for its output
+# encoding is indistinguishable from a gate that found a real problem.
+# Inlined rather than shared: ``scripts/`` is only on sys.path when a script is
+# run directly, and the tests import some of these as ``scripts.<name>``.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8")
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -74,6 +85,7 @@ def _registered_per_module() -> Tuple[Counter, int]:
     """Map top-level submodule → number of registered ``sp.*`` symbols."""
     sys.path.insert(0, str(REPO_ROOT / "src"))
     import statspai as sp  # noqa: WPS433  (side-effect import is the point)
+
     sp.list_functions()  # force full registry build
     from statspai.registry import _REGISTRY  # noqa: WPS433
 
@@ -97,6 +109,7 @@ def collect() -> dict:
 
     cat_counts: Counter = Counter()
     from statspai.registry import _REGISTRY  # noqa: WPS433
+
     for spec in _REGISTRY.values():
         cat_counts[spec.category] += 1
 
@@ -123,6 +136,7 @@ def collect() -> dict:
 # ----------------------------------------------------------------------- #
 #  Renderers
 # ----------------------------------------------------------------------- #
+
 
 def render_summary(stats: dict) -> str:
     lines = [
@@ -169,9 +183,9 @@ def render_table(stats: dict) -> str:
 # Loose floors we expect README.md to quote. The check passes as long as
 # the live count is at or above the floor and within ``DRIFT_TOLERANCE``
 # of it; otherwise the docs need refreshing.
-README_FLOOR = 1100         # README.md says "1,000+ functions"
-SUBMODULE_FLOOR = 80        # README.md says "80 submodules"
-DRIFT_TOLERANCE = 100       # bump the floor once we're > floor + tolerance
+README_FLOOR = 1100  # README.md says "1,000+ functions"
+SUBMODULE_FLOOR = 80  # README.md says "80 submodules"
+DRIFT_TOLERANCE = 100  # bump the floor once we're > floor + tolerance
 # LOC is a vanity metric (docs/stats.md §5) that moves on every commit, so
 # we only flag it once the docs lag the live tree by more than this many
 # lines — a new module / large deletion trips it; a refactor does not.
@@ -238,13 +252,13 @@ def check_drift(stats: dict) -> int:
         # API surface: every module's registered-function count must match
         # the live registry exactly (LOC/file columns are ignored).
         expected_fns = {
-            name: info["registered"]
-            for name, info in stats["per_module"].items()
+            name: info["registered"] for name, info in stats["per_module"].items()
         }
         actual_fns = _module_fn_counts(stats_doc)
         if actual_fns != expected_fns:
             drifted = sorted(
-                name for name in set(expected_fns) | set(actual_fns)
+                name
+                for name in set(expected_fns) | set(actual_fns)
                 if expected_fns.get(name) != actual_fns.get(name)
             )
             issues.append(
@@ -296,9 +310,7 @@ def check_drift(stats: dict) -> int:
             f"{fns_text} registered functions",
             f"across {mods} submodules",
         ),
-        DOCS_REFERENCE_INDEX: (
-            f"{fns_text} registered public functions",
-        ),
+        DOCS_REFERENCE_INDEX: (f"{fns_text} registered public functions",),
     }
     for path, snippets in readme_expectations.items():
         try:
@@ -308,9 +320,9 @@ def check_drift(stats: dict) -> int:
             continue
         text_norm = re.sub(r"\s+", " ", text)
         missing = [
-            snippet for snippet in snippets
-            if snippet not in text
-            and re.sub(r"\s+", " ", snippet) not in text_norm
+            snippet
+            for snippet in snippets
+            if snippet not in text and re.sub(r"\s+", " ", snippet) not in text_norm
         ]
         if missing:
             issues.append(
@@ -342,8 +354,10 @@ def check_drift(stats: dict) -> int:
             continue
         written_core = int(m.group(1)) * 1000
         written_test = int(m.group(2)) * 1000
-        if (abs(written_core - stats["src_loc"]) > LOC_DRIFT_TOLERANCE
-                or abs(written_test - stats["tests_loc"]) > LOC_DRIFT_TOLERANCE):
+        if (
+            abs(written_core - stats["src_loc"]) > LOC_DRIFT_TOLERANCE
+            or abs(written_test - stats["tests_loc"]) > LOC_DRIFT_TOLERANCE
+        ):
             issues.append(
                 f"{path.relative_to(REPO_ROOT)} at-a-glance LOC "
                 f"({m.group(1)}k core / {m.group(2)}k tests) drifts from live "
@@ -364,14 +378,20 @@ def check_drift(stats: dict) -> int:
 #  CLI
 # ----------------------------------------------------------------------- #
 
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--table", action="store_true",
-                        help="print the docs/stats.md per-module table")
-    parser.add_argument("--json", action="store_true",
-                        help="print machine-readable JSON")
-    parser.add_argument("--check", action="store_true",
-                        help="exit non-zero if README quotes drift from reality")
+    parser.add_argument(
+        "--table", action="store_true", help="print the docs/stats.md per-module table"
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="print machine-readable JSON"
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="exit non-zero if README quotes drift from reality",
+    )
     args = parser.parse_args(argv)
 
     stats = collect()

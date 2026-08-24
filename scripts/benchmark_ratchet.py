@@ -31,6 +31,7 @@ Usage::
     python scripts/benchmark_ratchet.py --check [--threshold 1.5]
     python scripts/benchmark_ratchet.py --update-baseline
 """
+
 from __future__ import annotations
 
 import argparse
@@ -40,6 +41,17 @@ import shutil
 import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
+
+# Windows consoles default to cp1252, which cannot encode the status glyphs
+# this script prints -- so it used to die with UnicodeEncodeError while
+# reporting its own verdict, and a gate that exits non-zero for its output
+# encoding is indistinguishable from a gate that found a real problem.
+# Inlined rather than shared: ``scripts/`` is only on sys.path when a script is
+# run directly, and the tests import some of these as ``scripts.<name>``.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8")
+
 
 REPO = Path(__file__).resolve().parent.parent
 DEFAULT_BASELINE = REPO / "benchmarks" / "baseline.json"
@@ -81,9 +93,7 @@ def _row_key(row: Dict) -> Tuple:
         sorted(
             (k, v)
             for k, v in row.items()
-            if not k.endswith("_s")
-            and isinstance(v, int)
-            and not isinstance(v, bool)
+            if not k.endswith("_s") and isinstance(v, int) and not isinstance(v, bool)
         )
     )
 
@@ -103,17 +113,13 @@ def compare(
     min_seconds: float,
 ) -> Tuple[List[str], List[str]]:
     """Return (failures, report_lines)."""
-    threshold = _validate_float(
-        threshold, name="threshold", strictly_positive=True
-    )
+    threshold = _validate_float(threshold, name="threshold", strictly_positive=True)
     min_seconds = _validate_float(
         min_seconds, name="min_seconds", strictly_positive=False
     )
     failures: List[str] = []
     lines: List[str] = []
-    sections = [
-        k for k, v in baseline.items() if isinstance(v, dict) and "rows" in v
-    ]
+    sections = [k for k, v in baseline.items() if isinstance(v, dict) and "rows" in v]
     for section in sections:
         cur_section = current.get(section)
         if not isinstance(cur_section, dict) or "rows" not in cur_section:

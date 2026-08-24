@@ -15,10 +15,15 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 
 def _run(args: list[str]) -> subprocess.CompletedProcess[str]:
+    # Decode as UTF-8 explicitly: the script forces UTF-8 on its own stdout
+    # (scripts/_stdio.py) so its status glyphs survive a cp1252 console, and
+    # without this the parent would decode those bytes with the Windows locale
+    # codec and hand back mojibake.
     return subprocess.run(
         [sys.executable, str(SCRIPT), *args],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         cwd=REPO_ROOT,
     )
 
