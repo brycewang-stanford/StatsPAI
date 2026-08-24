@@ -46,9 +46,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-parity-pip-
       - name: Install
+        # The `fixest` extra (pyfixest) is NOT optional for this job: nine
+        # Stata/R alignment tests in tests/reference_parity/ route their HDFE
+        # fits through pyfixest and raise ImportError without it, so the
+        # cross-software evidence they pin never actually ran here.
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[dev,fixest]"
       - name: Run reference_parity suite
         run: |
           pytest tests/reference_parity/ -q --no-header
