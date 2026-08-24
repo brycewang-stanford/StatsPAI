@@ -842,7 +842,7 @@ def lasso_select(
         )
 
     if verbose:
-        print(f"LASSO ({method.upper()}): λ = {best_lambda:.6f}")
+        print(f"LASSO ({method.upper()}): lambda = {best_lambda:.6f}")
         print(
             f"  Selected ({len(selected)}): "
             f"{', '.join(selected) if selected else '(none)'}"

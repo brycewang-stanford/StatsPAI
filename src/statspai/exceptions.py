@@ -103,7 +103,7 @@ class StatsPAIError(Exception):
 
     def __str__(self) -> str:  # pragma: no cover - trivial
         if self.recovery_hint:
-            return f"{self.message}\n  ↳ recovery: {self.recovery_hint}"
+            return f"{self.message}\n  -> recovery: {self.recovery_hint}"
         return self.message
 
     def to_dict(self) -> Dict[str, Any]:

@@ -1274,7 +1274,7 @@ def _print_battery(output: Dict[str, Any]) -> None:
                 print(f"         {k}: {chk[k]}")
 
         if interp:
-            print(f"         → {interp}")
+            print(f"         -> {interp}")
 
     n_pass = sum(1 for c in checks if c.get("pass") is True)
     n_warn = sum(1 for c in checks if c.get("pass") is False)
@@ -1293,6 +1293,6 @@ def _print_battery(output: Dict[str, Any]) -> None:
             hint = v.get("recovery_hint", "")
             print(f"  [{sev}] {test}: {msg}")
             if hint:
-                print(f"         ↳ {hint}")
+                print(f"         -> {hint}")
 
     print("=" * 65)
