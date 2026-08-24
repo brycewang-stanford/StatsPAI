@@ -5,6 +5,48 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="weak-iv-rank-deficient"></a>
+
+## Unreleased — ⚠️ weak-IV confidence sets refuse collinear instruments
+
+**Who is affected.** Callers of `sp.iv.anderson_rubin_ci` and
+`sp.iv.clr_ci` whose instruments are collinear after the exogenous
+regressors are partialled out. Full-rank instrument sets are unaffected.
+
+**What changed.** These routines form `(Z'Z)⁻¹`. With a singular `Z'Z`, some
+LAPACK builds raised a bare `LinAlgError: Singular matrix` from inside NumPy
+while others returned an inverse and the routine reported a confidence set
+computed from it. The instrument matrix is now rank-checked once in `_prep`,
+so every entry point raises `IdentificationFailure` naming the redundant
+instruments, with `diagnostics = {"n_instruments", "rank", "instruments"}`.
+
+**What to do.** Drop the redundant instrument — one is an exact linear
+combination of the others or of the exogenous controls.
+
+---
+
+<a id="ges-tie-break"></a>
+
+## Unreleased — ⚠️ `sp.ges` edge orientation is now deterministic
+
+**Who is affected.** Anyone comparing `sp.ges` output across machines, or who
+observed an implausible complete undirected graph.
+
+**What changed.** BIC assigns `i → j` and `j → i` the *same* score for an
+isolated pair — they are the same Markov equivalence class. The greedy search
+compared raw score gains with `>`, so the orientation of the first edge was
+decided by last-bit LAPACK rounding, which differs between BLAS builds. The
+choice cascades: on a collider `X → Z ← Y`, taking the reverse edge makes the
+spurious explaining-away edge `X — Y` score better, and the search converges
+on a complete undirected graph. Candidates must now beat the incumbent by more
+than a relative tolerance, so the deterministic scan order breaks exact ties.
+
+**What to do.** Nothing, unless you pinned a CPDAG that was produced by the
+old tie-break on a platform where it went the wrong way. `sp.ges` now returns
+the same graph everywhere; re-run and re-pin if so.
+
+---
+
 <a id="did-imputation-analytic-se"></a>
 
 ## Unreleased — ⚠️ `sp.did_imputation` analytic standard errors changed

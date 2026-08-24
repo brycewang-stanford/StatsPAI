@@ -2,6 +2,121 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+First full CI matrix run after v1.23.0 (13 legs: Linux / macOS / Windows ×
+Python 3.9–3.13) came back 12 red. Triaging it turned up three defects that
+were real, not runner noise: two estimators whose answer depended on which
+BLAS the platform shipped, and a byte-pinned data fixture that Windows'
+checkout silently rewrote. Details below.
+
+### ⚠️ Correctness
+
+- **`sp.iv.anderson_rubin_ci` / `clr_ci` computed confidence sets from a
+  singular instrument Gram matrix.** Every weak-IV routine in
+  `iv/weak_iv_ci.py` forms `(Z'Z)⁻¹`. With collinear instruments that matrix
+  is singular, and the outcome depended on the BLAS build: some raised
+  a bare `LinAlgError: Singular matrix` from inside NumPy, others returned an
+  inverse and the routine reported a confidence set built on it. The
+  instrument matrix is now rank-checked in `_prep`, so all entry points raise
+  `IdentificationFailure` naming the redundant instruments.
+
+- **`sp.ges` oriented its first edge on floating-point noise.** BIC cannot
+  distinguish `i → j` from `j → i` for an isolated pair — both encode the same
+  Markov equivalence class, so the scores are equal in exact arithmetic. The
+  greedy search compared raw gains with `>`, so last-bit LAPACK rounding
+  decided the orientation, and that choice cascades: take the reverse edge on a
+  collider `X → Z ← Y` and conditioning on `Z` makes the spurious `X — Y`
+  explaining-away edge score *better*, so the search converges on a complete
+  undirected graph instead of the v-structure. Linux and macOS recovered the
+  collider; Windows returned `{X—Y, X—Z, Y—Z}`. Candidates must now beat the
+  incumbent by more than a relative tolerance, which hands the tie-break to the
+  deterministic scan order. Verified to recover the correct CPDAG on the
+  collider and chain DGPs across seeds 0–3.
+
+### Fixed
+
+- **Windows: the `mpdta` reference fixture was rewritten at checkout.** Five
+  `tests/reference_parity/` modules pin the SHA-256 of
+  `tests/orig_parity/data/02_mpdta_original.csv` so the R/Stata golden numbers
+  can never be silently re-locked against different data. The GitHub Windows
+  runner checks out with `core.autocrlf=true`, which rewrote LF to CRLF and
+  changed the digest — 63 tests errored with "mpdta fixture changed", a
+  checkout artefact reported as a provenance breach. A new `.gitattributes`
+  marks the data fixtures `-text` so their bytes are identical on every
+  platform. It also freezes the NIST StRD certified datasets, which ship from
+  NIST with CRLF and must not be normalised either.
+
+- **Windows: gate scripts crashed printing their own verdict.** Eight scripts
+  in `scripts/` emit status glyphs (`✓`, `⚠`, `≥`, CJK) that cp1252 cannot
+  encode, so on a redirected Windows stream they died with
+  `UnicodeEncodeError` — a gate exiting non-zero for its output encoding is
+  indistinguishable from a gate that found a real problem. They now route
+  through `scripts/_stdio.force_utf8_stdio()`. Complements the v1.23.0 fix
+  that covered the shipped package (`StatsPAIError.__str__` and friends);
+  this covers the tooling.
+
+- **Windows: the `Rscript` test stub was never used.** `tests/`'s HonestDiD
+  backend tests install a `#!/bin/sh` stub named `Rscript` on `PATH`, which
+  `shutil.which` cannot see on Windows (it only considers PATHEXT suffixes).
+  The runner resolved the *real* preinstalled `Rscript` instead and the tests
+  failed with "R package 'HonestDiD' is not installed". The fixture now emits a
+  `.bat` on Windows, so the same subprocess path is exercised on every OS
+  rather than skipped.
+
+- **`pip install statspai[fixest]` was unresolvable on Python 3.9.**
+  `pyfixest>=0.25` requires Python ≥ 3.10 and the pin carried no environment
+  marker. It is now `pyfixest>=0.25.0; python_version >= '3.10'`, so the extra
+  resolves to nothing on 3.9 instead of failing to install.
+
+- **A `.[dev]`-only checkout could not run the test suite green.** 29 tests
+  failed with `ImportError: pyfixest is required…` / the rdrobust equivalent
+  rather than skipping, so anyone following the documented
+  `pip install -e ".[dev]" && pytest` — a reviewer, say — saw a red suite
+  caused entirely by optional extras. Those tests now skip when the extra is
+  absent. The golden-master gate reports such cases as *unavailable* and still
+  checks every other case, and refuses to re-pin from an incomplete
+  environment so the missing pins cannot be silently dropped.
+
+### Known issue (not fixed here)
+
+- **`sp.did_2x2` does not refuse a rank-deficient design, and `sp.did(method='twfe')`
+  can hand it one.** When the treatment column passed as `treat` is already the
+  `group × post` interaction — which is how `sp.dgp_did` and most event-study
+  panels encode treatment — the `D` and `D×T` design columns are identical. The
+  estimator inverts `Xw'Xw` and falls back to `np.linalg.pinv` on `LinAlgError`,
+  so the reported ATT is the minimum-norm solution, which splits the identified
+  coefficient evenly across the two duplicate columns: **roughly half the true
+  effect** (0.48 / 0.34 / 0.50 against a true 1.0 on three `dgp_did` seeds), with
+  no warning, and a different number again on a BLAS that does not detect the
+  singularity. A fix — refuse the design in `did_2x2`, and collapse a
+  time-varying `treat` to the ever-treated group indicator in `sp.did` — restores
+  0.96 / 1.02 / 0.94 on those seeds, but it also fires on the `sp.paper` /
+  `sp.recommend` paths, so landing it needs an audit of every internal
+  `did_2x2` caller and moves headline DiD numbers. Held for a deliberate
+  decision rather than shipped half-done.
+
+### Changed
+
+- CI installs `.[dev,fixest]` on every matrix leg rather than `.[dev]`, so the
+  HDFE surface is exercised cross-platform instead of skipped. The 3.9 leg
+  resolves the extra to nothing (see above) and skips those tests.
+
+### Testing
+
+- `tests/tier_eg/test_did_invariance.py` and `test_did_robustness.py` passed the
+  already-interacted `treat` column to `sp.did_2x2`, which wants the treatment
+  GROUP indicator and forms the interaction itself. That made the `D` and `D×T`
+  design columns identical, so every invariance in both modules was pinned on a
+  rank-deficient pseudo-inverse artefact: 1.34 against a true ATT of 2.0. They
+  now pass the `group` indicator the API documents, the estimate becomes 2.076,
+  and covariate-reorder invariance holds exactly. **The estimator-side guard for
+  this class of design is not in this release** — see the note below.
+- `test_ar_ci_with_exog_and_multi_instruments` seeded its second instrument
+  with the same seed as the fixture, replaying the fixture's first draw. `z2`
+  came out as exactly `1.6 * z`, so the "multi-instrument" test never had two
+  instruments. Reseeded.
+
 ## [1.23.0] — 2026-08-24
 
 Aligns the DiD family with Baker, Callaway, Cunningham, Goodman-Bacon &
