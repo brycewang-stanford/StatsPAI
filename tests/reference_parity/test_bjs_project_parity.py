@@ -96,7 +96,17 @@ class TestProjectParity:
             sp.did_imputation(mpdta, **KEYS, project=[]).diagnostics["project"].iloc[0]
         )
         assert row.term == "_cons"
-        assert row.coef == base.estimate, "projection constant must BE the ATT"
+        # ``abs=1e-15`` on an ATT of order 5e-2, i.e. ~2e-14 relative — the
+        # same "floating-point noise" band the SE assertion below uses, and
+        # the one the module docstring claims. Bitwise ``==`` was flaky: the
+        # projection and the estimator reach the same number by different
+        # summation orders, and a BLAS/pandas build that reassociates one of
+        # them lands 1 ULP away (observed on the pandas 3.x CI leg:
+        # -0.04770991827842726 vs -0.047709918278427264). Any *real* drift in
+        # the shared influence function moves this far more than 1e-15.
+        assert row.coef == pytest.approx(
+            base.estimate, abs=1e-15
+        ), "projection constant must BE the ATT"
         assert row.se == pytest.approx(
             base.se, abs=1e-15
         ), "projection SE on a constant must reduce to the ATT's analytic SE"
