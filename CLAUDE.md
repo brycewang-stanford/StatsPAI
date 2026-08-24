@@ -308,4 +308,4 @@ python scripts/registry_stats.py --table        # 重生 docs/stats.md 的按模
 - **提交闸门（同 §9 顶部"提交闸门"，二者是同一条规则、最高优先级）**：默认**禁止** commit / push，必须等用户在本会话明确授权才放行；每次会话结束也**不自动提交**，先用中文总结、与用户讨论，等用户指示。
 
 
-- Please think and talk with me in English.
+- Please think in Egnlish but summarize the coversation and discuss with me in Chinese.
