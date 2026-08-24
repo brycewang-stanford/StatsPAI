@@ -18,6 +18,7 @@ When a change here fails:
 Never re-pin to make a red build green without understanding *why* the number
 moved — that is exactly the silent regression this gate exists to catch.
 """
+
 from __future__ import annotations
 
 import json

@@ -98,9 +98,16 @@ jobs:
           ${{ runner.os }}-pip-
 
     - name: Install dependencies
+      # ``fixest`` (pyfixest) is pulled in on every matrix entry so the
+      # HDFE surface — sp.feols / sp.feglm / sp.fepois, the Stata/R
+      # translators that target them, and the castle / SASP / iv-hdfe
+      # parity pins — is actually EXERCISED cross-platform rather than
+      # skipped. It is environment-marked to python>=3.10 in pyproject
+      # (pyfixest ships no 3.9 wheel), so the 3.9 leg resolves the extra
+      # to nothing and those tests skip there; every other leg runs them.
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev]"
+        pip install -e ".[dev,fixest]"
 
     - name: Install exact-parity extras (canonical env — runs DoubleML + CCT pins)
       # doubleml and rdrobust are opt-in extras (not in `dev`). Installing them

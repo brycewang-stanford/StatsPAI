@@ -11,6 +11,7 @@ selves* across versions.
 
 A case function must be pure and deterministic: same seed in, same numbers out.
 """
+
 from __future__ import annotations
 
 import importlib.util

@@ -38,7 +38,7 @@ _TRACK_KEYS = ("classic", "modern")
 # a broken guide — so skip them rather than report a red test.  The canonical
 # CI env installs both, so the guides are still executed there.
 _OPTIONAL_MARKERS = (
-    (("sp.feols(", "sp.feglm(", "sp.fepois(", "sp.ppmlhdfe("), "pyfixest", "fixest"),
+    (("sp.feols(", "sp.feglm(", "sp.fepois("), "pyfixest", "fixest"),
     (("bwselect='cct'", 'bwselect="cct"'), "rdrobust", "rd-cct"),
 )
 
