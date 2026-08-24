@@ -25,20 +25,14 @@ References
 ----------
 - Veitch, V., Sridhar, D., & Blei, D. M. (2019). "Adapting text embeddings
   for causal inference."  *UAI*.  arXiv:1905.12741.
-- Egami, N., Hinck, M., Stewart, B., & Wei, H. (2024). "Using
+- Egami, N., Hinck, M., Stewart, B., & Wei, H. (2023). "Using
   imperfect surrogates for downstream inference: Design-based
   supervised learning for social science applications of large
   language models."  *NeurIPS*.  arXiv:2306.04746.
 """
 
-from .text_treatment import (
-    text_treatment_effect,
-    TextTreatmentResult,
-)
-from .llm_annotator import (
-    llm_annotator_correct,
-    LLMAnnotatorResult,
-)
+from .llm_annotator import LLMAnnotatorResult, llm_annotator_correct
+from .text_treatment import TextTreatmentResult, text_treatment_effect
 
 __all__ = [
     "text_treatment_effect",

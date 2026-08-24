@@ -7948,7 +7948,7 @@ latent Callaway–Sant'Anna REG inference scaling bug — discovered
 
 ML-routing for the estimand-first DSL (`sp.causal_question`) plus a
 shared robustness battery so `sp.paper(...)` renders the same audit
-section regardless of entry point. The Egami et al. (2024) LLM-label
+section regardless of entry point. The Egami et al. (2023) LLM-label
 corrector graduates from binary-only to multi-class with a
 bias-corrected bootstrap, and DML's IV variants (`sp.dml(model='pliv')`,
 `sp.dml(model='iivm')`) now honour `sample_weight` end-to-end.
@@ -7958,7 +7958,7 @@ no estimator output changes.
 ### Added
 
 - `sp.llm_annotator_correct` (`causal_text/llm_annotator.py`) — three
-  v1.7-deferred upgrades to the Egami et al. (2024) measurement-error
+  v1.7-deferred upgrades to the Egami et al. (2023) measurement-error
   correction for LLM-derived treatment labels. Backward compatible:
   the binary-T numerical path is unchanged, every existing kwarg keeps
   its default behaviour, and existing diagnostics retain their keys.

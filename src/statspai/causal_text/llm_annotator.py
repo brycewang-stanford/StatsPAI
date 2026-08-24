@@ -1,4 +1,4 @@
-"""LLM-annotator measurement-error correction (Egami et al. 2024).
+"""LLM-annotator measurement-error correction (Egami et al. 2023).
 
 When a downstream causal estimate uses a *treatment* indicator that
 came from an LLM (or any imperfect classifier) rather than from a
@@ -1050,13 +1050,15 @@ def llm_annotator_correct(
 
     References
     ----------
-    Egami, Hinck, Stewart & Wei (NeurIPS 2024) — arXiv:2306.04746.
+    Egami, Hinck, Stewart & Wei (NeurIPS 2023) — arXiv:2306.04746.
+    [@egami2023imperfect]
     Hausman, Abrevaya & Scott-Morton (J. Econometrics 1998).
+    [@hausman1998misclassification]
     Fuller (1987), *Measurement Error Models*, Wiley —
-    doi:10.1002/9780470316665.
+    doi:10.1002/9780470316665. [@fuller1987measurement]
     Carroll, Ruppert, Stefanski & Crainiceanu (2006), *Measurement
     Error in Nonlinear Models* (2nd ed.), Chapman & Hall/CRC —
-    doi:10.1201/9781420010138.
+    doi:10.1201/9781420010138. [@carroll2006measurement]
     """
     if method not in {"auto", "hausman", "reliability"}:
         raise ValueError(
@@ -1138,7 +1140,7 @@ def llm_annotator_correct(
     diag["method_family"] = (
         "regression-calibration (Fuller 1987; Carroll et al. 2006)"
         if continuous
-        else "llm-annotator-mec (Egami et al. 2024)"
+        else "llm-annotator-mec (Egami et al. 2023)"
     )
     diag["first_order_se"] = first_order_se
     diag["first_order_ci"] = (float(fo_ci_lo), float(fo_ci_hi))

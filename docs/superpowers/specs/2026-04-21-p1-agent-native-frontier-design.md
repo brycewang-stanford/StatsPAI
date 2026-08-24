@@ -201,7 +201,7 @@ class PaperDraft:
 causal_text/
     __init__.py
     text_treatment.py      # Veitch et al. (2020) text-as-treatment
-    llm_annotator.py       # Egami et al. (2024) LLM-annotator MEC
+    llm_annotator.py       # Egami et al. (2023) LLM-annotator MEC
     _common.py             # shared embedding + utility helpers
 ```
 

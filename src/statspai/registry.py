@@ -8272,7 +8272,7 @@ def _build_registry() -> None:
                 "Binary T uses Hausman (1998) 1/(1 - p_01 - p_10) "
                 "inflation; multi-class T (K>=3) uses the "
                 "inverse-confusion-matrix transform built from the "
-                "validation-set Bayes posterior (Egami et al. 2024); "
+                "validation-set Bayes posterior (Egami et al. 2023); "
                 "continuous scores (e.g. LLM sentiment) use regression "
                 "calibration on the human-audited subsample (Fuller "
                 "1987; Carroll et al. 2006) — the classical "
@@ -8352,7 +8352,7 @@ def _build_registry() -> None:
                 "agent-native",
             ],
             reference=(
-                "Egami, Hinck, Stewart & Wei (NeurIPS 2024); "
+                "Egami, Hinck, Stewart & Wei (NeurIPS 2023); "
                 "arXiv:2306.04746. Hausman et al. (1998). Fuller "
                 "(1987) doi:10.1002/9780470316665; Carroll et al. "
                 "(2006) doi:10.1201/9781420010138."
@@ -8361,7 +8361,7 @@ def _build_registry() -> None:
             limitations=[
                 "discrete corrections cover Hausman (binary) and the "
                 "inverse-confusion-matrix transform (K>=3); the "
-                "logistic and Bayesian variants from Egami et al. (2024) "
+                "logistic and Bayesian variants from Egami et al. (2023) "
                 "are not yet implemented",
                 "continuous correction assumes non-differential "
                 "(classical) measurement error; differential "

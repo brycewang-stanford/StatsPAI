@@ -523,6 +523,25 @@ SURNAME_STOPWORDS = {
     "structural",
     "constancy",
     "unknown",
+    # Publisher / imprint / platform names. A full book citation carries
+    # its publisher ("New York: John Wiley & Sons", "Chapman and
+    # Hall/CRC") and a §10 verification note carries the platform it was
+    # checked on ("verified via Oxford Academic and PubMed"). Both sit
+    # inside the citation's text window and read as capitalised surnames.
+    # None of these is an author surname anywhere in our corpus — checked
+    # against every author list in paper.bib.
+    "wiley",
+    "sons",
+    "chapman",
+    "crc",
+    "springer",
+    "elsevier",
+    "routledge",
+    "blackwell",
+    "pergamon",
+    "academic",
+    "pubmed",
+    "worldcat",
 }
 
 
