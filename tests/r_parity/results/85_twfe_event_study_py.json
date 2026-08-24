@@ -1,0 +1,105 @@
+{
+  "module": "85_twfe_event_study",
+  "side": "py",
+  "rows": [
+    {
+      "module": "85_twfe_event_study",
+      "side": "py",
+      "statistic": "es_-4",
+      "estimate": -0.5606130975889676,
+      "se": 0.11926669947516623,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": null,
+      "extra": {}
+    },
+    {
+      "module": "85_twfe_event_study",
+      "side": "py",
+      "statistic": "es_-3",
+      "estimate": -0.3071104211997577,
+      "se": 0.11616528129589955,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": null,
+      "extra": {}
+    },
+    {
+      "module": "85_twfe_event_study",
+      "side": "py",
+      "statistic": "es_-2",
+      "estimate": -0.291472086378297,
+      "se": 0.11668292157102096,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": null,
+      "extra": {}
+    },
+    {
+      "module": "85_twfe_event_study",
+      "side": "py",
+      "statistic": "es_+0",
+      "estimate": 0.9615631779090592,
+      "se": 0.11193992814886362,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": null,
+      "extra": {}
+    },
+    {
+      "module": "85_twfe_event_study",
+      "side": "py",
+      "statistic": "es_+1",
+      "estimate": 2.2406723605405094,
+      "se": 0.13019910500853799,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": null,
+      "extra": {}
+    },
+    {
+      "module": "85_twfe_event_study",
+      "side": "py",
+      "statistic": "es_+2",
+      "estimate": 3.3250978669163365,
+      "se": 0.13122694378422267,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": null,
+      "extra": {}
+    },
+    {
+      "module": "85_twfe_event_study",
+      "side": "py",
+      "statistic": "es_+3",
+      "estimate": 4.248691181364965,
+      "se": 0.1211825359757295,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": null,
+      "extra": {}
+    },
+    {
+      "module": "85_twfe_event_study",
+      "side": "py",
+      "statistic": "es_+4",
+      "estimate": 5.378821649883247,
+      "se": 0.12229567174260711,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": null,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "reference": "fixest::feols(y ~ i(rel, ref=-1) | unit + time)",
+    "window": [
+      -4,
+      4
+    ],
+    "ref_period": -1,
+    "cluster": "unit",
+    "design": "non-staggered: one treated cohort plus never-treated",
+    "window_note": "The window covers every realised relative time (-4..+4), so every observation carries its own relative-time dummy and neither side has to decide what to do with out-of-window rows. sp.event_study reports single-point bins and leaves out-of-window rows in the reference category."
+  }
+}

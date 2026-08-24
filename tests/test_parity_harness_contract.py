@@ -210,8 +210,14 @@ def test_strictness_tier_breakdown_matches_current_artifacts():
     # and are recorded as an open defect: StatsPAI differs from the
     # references by 4.9-13% with non-uniform sign while R didimputation and
     # Stata agree with each other to ~3e-9.
+    # 85_twfe_event_study joins the machine tier: the dynamic TWFE
+    # benchmark specification against fixest::feols, estimate and SE both
+    # at ~1e-12, once fixest's absorbed-FE degrees-of-freedom convention
+    # is matched with ssc(fixef.K = "none"). Non-staggered by design --
+    # the saturated specification is under-identified with few cohorts
+    # and is the contaminated object Sun-Abraham describes when it is not.
     assert compare.tier_breakdown(rendered_modules) == {
-        "machine": 75,
+        "machine": 76,
         "iterative": 7,
         "moderate": 1,
         "methodological": 1,
@@ -1068,3 +1074,67 @@ def test_parity_readmes_match_current_artifact_inventory():
     assert "Modules (36)" not in r_readme.read_text(encoding="utf-8")
     assert "21 of 36" not in stata_readme.read_text(encoding="utf-8")
     assert (R_PARITY / "50_xtabond.R").exists()
+
+
+def test_twfe_event_study_stata_se_gap_is_the_derived_df_scalar():
+    """Module 85's Stata SE gap must be reproduced, not merely labelled.
+
+    reghdfe agrees with sp.event_study on all eight event-time estimates
+    but not on their standard errors, because it counts the absorbed time
+    effects and the constant in the small-sample degrees-of-freedom
+    correction and sp.event_study counts only the non-absorbed
+    coefficients. fixest exposes the same choice as ssc(fixef.K=), which
+    is why the R side matches to 9e-14; reghdfe exposes no equivalent.
+
+    That is a convention claim, and a convention claim is only worth
+    anything if the other package's number falls out of ours. So rather
+    than widening rel_se to admit the gap -- which would stop checking
+    the py<->R agreement the module exists to pin -- this test rebuilds
+    every reghdfe standard error from the StatsPAI one via
+
+        se_Stata = se_py * sqrt((N - K_py) / (N - K_Stata))
+
+    using K values read off the Stata artifact itself. If either side
+    ever changes its d.f. accounting, the reconstruction breaks here
+    instead of drifting silently past a headline metric that only looks
+    at rel_est.
+    """
+    stata = _read_json(STATA_RESULTS / "85_twfe_event_study_Stata.json")
+    py = _read_json(R_RESULTS / "85_twfe_event_study_py.json")
+
+    extra = stata["extra"]
+    k_py = extra["statspai_K"]
+    k_stata = extra["stata_K"]
+    # 8 event-time coefficients; reghdfe adds 8 non-redundant time
+    # effects and the constant on top of them.
+    assert k_py == 8
+    assert k_stata == k_py + extra["stata_df_a"] + 1 == 17
+
+    py_rows = {row["statistic"]: row for row in py["rows"]}
+    stata_rows = {row["statistic"]: row for row in stata["rows"]}
+    assert set(stata_rows) == set(py_rows)
+    assert len(stata_rows) == 8
+
+    n_obs = {row["n"] for row in stata["rows"]}
+    assert n_obs == {1620}
+    n = n_obs.pop()
+
+    scale = math.sqrt((n - k_py) / (n - k_stata))
+    # The gap is a constant factor, so it is worth stating its size once:
+    # anything that made it row-dependent would not be a d.f. convention.
+    assert scale == pytest.approx(1.0028033, rel=1e-6)
+
+    for statistic, stata_row in stata_rows.items():
+        py_row = py_rows[statistic]
+        # Estimates are convention-free and must agree outright.
+        assert stata_row["estimate"] == pytest.approx(
+            py_row["estimate"], rel=1e-9
+        ), statistic
+        # Standard errors differ only by the derived scalar.
+        assert stata_row["se"] == pytest.approx(
+            py_row["se"] * scale, rel=1e-12
+        ), statistic
+        # ... and the raw gap really is the thing the tolerance comment
+        # says it is, so the comment cannot go stale unnoticed.
+        raw_gap = abs(stata_row["se"] - py_row["se"]) / abs(py_row["se"])
+        assert raw_gap == pytest.approx(2.803e-3, rel=1e-3), statistic

@@ -2595,7 +2595,7 @@
     }
   },
   {
-    "description": "Traditional OLS event-study with entity and time FEs. Generates relative-time dummies around the treatment date, omits a reference period, and estimates via TWFE + optional clustered SE. Exposed for users who want the classical specification alongside CS / SA / BJS; not robust to staggered-effect heterogeneity -- use sp.sun_abraham for that. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: only one pre-treatment period is available -- there are no leads to test parallel trends with, so the plot cannot support a pre-trend claim; treatment timing is staggered and heterogeneous -- a pooled TWFE event study contaminates leads with other cohorts' treated periods; use sp.sun_abraham or sp.callaway_santanna.",
+    "description": "Traditional OLS event-study with entity and time FEs. Generates relative-time dummies around the treatment date, omits a reference period, and estimates via TWFE + optional clustered SE. Exposed for users who want the classical specification alongside CS / SA / BJS; not robust to staggered-effect heterogeneity -- use sp.sun_abraham for that. Validation: certified parity evidence. Do NOT use when: only one pre-treatment period is available -- there are no leads to test parallel trends with, so the plot cannot support a pre-trend claim; treatment timing is staggered and heterogeneous -- a pooled TWFE event study contaminates leads with other cohorts' treated periods; use sp.sun_abraham or sp.callaway_santanna.",
     "name": "event_study",
     "parameters": {
       "properties": {

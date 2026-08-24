@@ -3,22 +3,13 @@
   "statspai_version": "1.22.0",
   "n_functions_probed": 9,
   "probe_failures": {},
-  "n_reported_objects": 61,
-  "n_pinned": 30,
-  "n_unpinned": 31,
-  "n_unpinned_in_documented_functions": 26,
+  "n_reported_objects": 65,
+  "n_pinned": 38,
+  "n_unpinned": 27,
+  "n_unpinned_in_documented_functions": 22,
   "unclassified_statistics": {
     "04_csdid": [
-      "calendar_2004",
-      "calendar_2005",
-      "calendar_2006",
-      "calendar_2007",
-      "calendar_overall",
-      "event_overall",
-      "group_2004",
-      "group_2006",
-      "group_2007",
-      "group_overall"
+      "event_overall"
     ],
     "06_rd": [
       "default_bandwidth_b",
@@ -418,8 +409,6 @@
       "dynamic_1"
     ],
     "82_staggered": [
-      "calendar_efficient",
-      "calendar_plugin",
       "cohort_efficient",
       "cohort_plugin",
       "cs_simple",
@@ -518,6 +507,58 @@
       "verdict": "unpinned"
     },
     {
+      "function": "callaway_santanna",
+      "object": "group_att",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "(R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``). Weights",
+      "verdict": "pinned"
+    },
+    {
+      "function": "callaway_santanna",
+      "object": "group_se",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "(R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``). Weights",
+      "verdict": "pinned"
+    },
+    {
+      "function": "callaway_santanna",
+      "object": "calendar_att",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "(R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``). Weights",
+      "verdict": "pinned"
+    },
+    {
+      "function": "callaway_santanna",
+      "object": "calendar_se",
+      "reported": true,
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "(R ``did::att_gt(weightsname=)``, Stata ``csdid [aweight=]``). Weights",
+      "verdict": "pinned"
+    },
+    {
       "function": "sun_abraham",
       "object": "headline_att",
       "reported": true,
@@ -603,6 +644,46 @@
       "verdict": "unpinned"
     },
     {
+      "function": "sun_abraham",
+      "object": "group_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "tead of inferring it, mirroring Stata ``eventstudyinteract``'s ``control_coho",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "sun_abraham",
+      "object": "group_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "tead of inferring it, mirroring Stata ``eventstudyinteract``'s ``control_coho",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "sun_abraham",
+      "object": "calendar_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "tead of inferring it, mirroring Stata ``eventstudyinteract``'s ``control_coho",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "sun_abraham",
+      "object": "calendar_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "tead of inferring it, mirroring Stata ``eventstudyinteract``'s ``control_coho",
+      "verdict": "not-reported"
+    },
+    {
       "function": "did_imputation",
       "object": "headline_att",
       "reported": true,
@@ -689,6 +770,46 @@
       "verdict": "unpinned"
     },
     {
+      "function": "did_imputation",
+      "object": "group_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ring the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "did_imputation",
+      "object": "group_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ring the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "did_imputation",
+      "object": "calendar_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ring the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "did_imputation",
+      "object": "calendar_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ring the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
+      "verdict": "not-reported"
+    },
+    {
       "function": "gardner_did",
       "object": "headline_att",
       "reported": true,
@@ -765,6 +886,46 @@
       "verdict": "unpinned"
     },
     {
+      "function": "gardner_did",
+      "object": "group_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "did2s",
+      "reference_evidence": "tep procedure (Gardner 2021 / ``did2s``), substantially improving coverage",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "gardner_did",
+      "object": "group_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "did2s",
+      "reference_evidence": "tep procedure (Gardner 2021 / ``did2s``), substantially improving coverage",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "gardner_did",
+      "object": "calendar_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "did2s",
+      "reference_evidence": "tep procedure (Gardner 2021 / ``did2s``), substantially improving coverage",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "gardner_did",
+      "object": "calendar_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "did2s",
+      "reference_evidence": "tep procedure (Gardner 2021 / ``did2s``), substantially improving coverage",
+      "verdict": "not-reported"
+    },
+    {
       "function": "wooldridge_did",
       "object": "headline_att",
       "reported": true,
@@ -833,6 +994,46 @@
       "reference_token": "etwfe",
       "reference_evidence": "@wooldridge2021two]; McDermott (2023) R etwfe package",
       "verdict": "unpinned"
+    },
+    {
+      "function": "wooldridge_did",
+      "object": "group_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "etwfe",
+      "reference_evidence": "@wooldridge2021two]; McDermott (2023) R etwfe package",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "wooldridge_did",
+      "object": "group_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "etwfe",
+      "reference_evidence": "@wooldridge2021two]; McDermott (2023) R etwfe package",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "wooldridge_did",
+      "object": "calendar_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "etwfe",
+      "reference_evidence": "@wooldridge2021two]; McDermott (2023) R etwfe package",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "wooldridge_did",
+      "object": "calendar_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "etwfe",
+      "reference_evidence": "@wooldridge2021two]; McDermott (2023) R etwfe package",
+      "verdict": "not-reported"
     },
     {
       "function": "etwfe",
@@ -911,6 +1112,46 @@
       "verdict": "unpinned"
     },
     {
+      "function": "etwfe",
+      "object": "group_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "e ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-tr",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "etwfe",
+      "object": "group_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "e ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-tr",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "etwfe",
+      "object": "calendar_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "e ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-tr",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "etwfe",
+      "object": "calendar_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "e ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-tr",
+      "verdict": "not-reported"
+    },
+    {
       "function": "stacked_did",
       "object": "headline_att",
       "reported": true,
@@ -996,6 +1237,46 @@
       "verdict": "unpinned"
     },
     {
+      "function": "stacked_did",
+      "object": "group_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "stacked_did",
+      "object": "group_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "stacked_did",
+      "object": "calendar_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "stacked_did",
+      "object": "calendar_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "not-reported"
+    },
+    {
       "function": "lp_did",
       "object": "headline_att",
       "reported": true,
@@ -1078,6 +1359,46 @@
       "verdict": "unpinned"
     },
     {
+      "function": "lp_did",
+      "object": "group_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "lp_did",
+      "object": "group_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "lp_did",
+      "object": "calendar_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "lp_did",
+      "object": "calendar_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": false,
+      "reference_token": "",
+      "reference_evidence": "",
+      "verdict": "not-reported"
+    },
+    {
       "function": "event_study",
       "object": "headline_att",
       "reported": true,
@@ -1101,41 +1422,53 @@
       "function": "event_study",
       "object": "event_study_att",
       "reported": true,
-      "pinned_sides": [],
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
       "documents_reference": true,
       "reference_token": "Stata",
       "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
-      "verdict": "unpinned"
+      "verdict": "pinned"
     },
     {
       "function": "event_study",
       "object": "event_study_se",
       "reported": true,
-      "pinned_sides": [],
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
       "documents_reference": true,
       "reference_token": "Stata",
       "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
-      "verdict": "unpinned"
+      "verdict": "pinned"
     },
     {
       "function": "event_study",
       "object": "pretrend_att",
       "reported": true,
-      "pinned_sides": [],
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
       "documents_reference": true,
       "reference_token": "Stata",
       "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
-      "verdict": "unpinned"
+      "verdict": "pinned"
     },
     {
       "function": "event_study",
       "object": "pretrend_se",
       "reported": true,
-      "pinned_sides": [],
+      "pinned_sides": [
+        "R",
+        "Stata"
+      ],
       "documents_reference": true,
       "reference_token": "Stata",
       "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
-      "verdict": "unpinned"
+      "verdict": "pinned"
     },
     {
       "function": "event_study",
@@ -1146,6 +1479,46 @@
       "reference_token": "Stata",
       "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
       "verdict": "unpinned"
+    },
+    {
+      "function": "event_study",
+      "object": "group_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "event_study",
+      "object": "group_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "event_study",
+      "object": "calendar_att",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
+      "verdict": "not-reported"
+    },
+    {
+      "function": "event_study",
+      "object": "calendar_se",
+      "reported": false,
+      "pinned_sides": [],
+      "documents_reference": true,
+      "reference_token": "Stata",
+      "reference_evidence": "ulation weights). Equivalent to Stata's ``[aweight=...]``. expose_pre_vco",
+      "verdict": "not-reported"
     }
   ]
 }

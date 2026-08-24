@@ -274,6 +274,44 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # do. rel_se is 1e-6 rather than machine because the y0 fit reaches
     # the weights through an iterative sparse solve.
     "84_bjs_pretrends": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Dynamic TWFE event study. The benchmark every other event study is
+    # read AGAINST -- "TWFE-comparable" is defined in terms of it -- and
+    # it had no pinned reference value of any kind.
+    #
+    # Non-staggered by construction, and that is a scope statement. A
+    # saturated dynamic TWFE event study on a staggered panel is the
+    # object Sun-Abraham says is contaminated by already-treated
+    # comparisons, and with few cohorts fixest drops the extreme leads
+    # and lags to collinearity outright. Non-staggered is where this
+    # specification is a benchmark rather than a casualty.
+    #
+    # The R side needs ssc(fixef.K = "none"): fixest's default counts the
+    # absorbed fixed effects in the d.f. adjustment and sp.event_study
+    # does not. Reconstructed rather than asserted -- with the default the
+    # two differ by a constant variance factor of 1.005614 on every
+    # coefficient, and fixef.K = "none" reproduces sp bit for bit.
+    # Dynamic TWFE event study: the benchmark specification the modern
+    # DiD literature states its "TWFE-comparable" claims against, and
+    # previously the largest block of unpinned objects in the audit.
+    # py<->R is machine-exact on estimate AND SE (1.1e-12 / 9.3e-14)
+    # once fixest is told not to count absorbed effects in the
+    # small-sample K -- ssc(fixef.K="none"); fixest's default counts
+    # them and StatsPAI does not.
+    #
+    # Stata reghdfe reproduces all eight ESTIMATES at 5.7e-14 but its
+    # SE is a uniform 2.803e-03 away, because reghdfe offers no
+    # equivalent of fixef.K="none": its K counts the 8 event-time
+    # coefficients + 8 non-redundant time effects + the constant.
+    # rel_se stays at 1e-9 rather than being widened to 3e-3 to admit
+    # Stata -- widening it would stop checking the py<->R agreement
+    # that is the point of the module. The Stata SE is not left
+    # unchecked either: it is pinned to the exact d.f. scalar
+    #     var_Stata / var_py = (N - K_py) / (N - K_Stata)
+    # by test_twfe_event_study_stata_se_gap_is_the_derived_df_scalar,
+    # which reconstructs reghdfe's SE from StatsPAI's to 1e-12. A
+    # convention label is earned by reproducing the other package's
+    # number, not by naming the convention.
+    "85_twfe_event_study": {"rel_est": 1e-9, "rel_se": 1e-9},
     # Design-based staggered rollout, reconciled against staggered::staggered
     # / staggered_cs / staggered_sa -- Roth and Sant'Anna's own package for
     # their 2023 JPE Micro paper, and the only module here whose
@@ -980,6 +1018,18 @@ def render_md(modules: list[str]) -> str:
 # expected to pass, not the worst-case row -- so a documented
 # convention gap doesn't shadow the bit-equal point-estimate result.
 HEADLINE: dict[str, dict[str, Any]] = {
+    "85_twfe_event_study": {
+        "name": "Dynamic TWFE event study (benchmark specification)",
+        "headline_filter": lambda d: d.statistic in {"es_+0", "es_+1"},
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": (
+            "estimates three-way to 5.7e-14; SE matches "
+            "\\code{fixest} to 9.3e-14 under \\code{ssc(fixef.K=\"none\")}, "
+            "and \\code{reghdfe}'s SE is reproduced from it by the exact "
+            "$(N-K_{py})/(N-K_{St})$ d.f. scalar"
+        ),
+    },
     "01_ols": {
         "name": "OLS + HC1 SE",
         "headline_filter": lambda d: d.statistic.startswith("beta_"),

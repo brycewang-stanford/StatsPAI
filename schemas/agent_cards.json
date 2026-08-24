@@ -4512,7 +4512,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Traditional OLS event-study with entity and time FEs. Generates relative-time dummies around the treatment date, omits a reference period, and estimates via TWFE + optional clustered SE. Exposed for users who want the classical specification alongside CS / SA / BJS; not robust to staggered-effect heterogeneity -- use sp.sun_abraham for that. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: only one pre-treatment period is available -- there are no leads to test parallel trends with, so the plot cannot support a pre-trend claim; treatment timing is staggered and heterogeneous -- a pooled TWFE event study contaminates leads with other cohorts' treated periods; use sp.sun_abraham or sp.callaway_santanna.",
+    "description": "Traditional OLS event-study with entity and time FEs. Generates relative-time dummies around the treatment date, omits a reference period, and estimates via TWFE + optional clustered SE. Exposed for users who want the classical specification alongside CS / SA / BJS; not robust to staggered-effect heterogeneity -- use sp.sun_abraham for that. Validation: certified parity evidence. Do NOT use when: only one pre-treatment period is available -- there are no leads to test parallel trends with, so the plot cannot support a pre-trend claim; treatment timing is staggered and heterogeneous -- a pooled TWFE event study contaminates leads with other cohorts' treated periods; use sp.sun_abraham or sp.callaway_santanna.",
     "example": "sp.event_study(df, y=\"y\", treat_time=\"g\", time=\"t\", unit=\"i\", window=(-3, 3))",
     "failure_modes": [
       {
@@ -4535,7 +4535,7 @@
     ],
     "reference": "Standard event-study; Roth (2022) on pre-test bias; Sun & Abraham (2021) on dynamic contamination.",
     "signature": {
-      "description": "Traditional OLS event-study with entity and time FEs. Generates relative-time dummies around the treatment date, omits a reference period, and estimates via TWFE + optional clustered SE. Exposed for users who want the classical specification alongside CS / SA / BJS; not robust to staggered-effect heterogeneity -- use sp.sun_abraham for that. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: only one pre-treatment period is available -- there are no leads to test parallel trends with, so the plot cannot support a pre-trend claim; treatment timing is staggered and heterogeneous -- a pooled TWFE event study contaminates leads with other cohorts' treated periods; use sp.sun_abraham or sp.callaway_santanna.",
+      "description": "Traditional OLS event-study with entity and time FEs. Generates relative-time dummies around the treatment date, omits a reference period, and estimates via TWFE + optional clustered SE. Exposed for users who want the classical specification alongside CS / SA / BJS; not robust to staggered-effect heterogeneity -- use sp.sun_abraham for that. Validation: certified parity evidence. Do NOT use when: only one pre-treatment period is available -- there are no leads to test parallel trends with, so the plot cannot support a pre-trend claim; treatment timing is staggered and heterogeneous -- a pooled TWFE event study contaminates leads with other cohorts' treated periods; use sp.sun_abraham or sp.callaway_santanna.",
       "name": "event_study",
       "parameters": {
         "properties": {
@@ -4605,11 +4605,12 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "tests/external_parity/test_rebel_canal_published.py",
+      "R parity module 85_twfe_event_study",
+      "Stata parity module 85_twfe_event_study",
       "API/unit contract evidence: tests/test_did.py",
       "API/unit contract evidence: tests/test_fast_event_study.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [

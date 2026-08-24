@@ -93,13 +93,19 @@ OBJECTS: Tuple[str, ...] = (
     "pretrend_att",
     "pretrend_se",
     "pretrend_test",
+    "group_att",
+    "group_se",
+    "calendar_att",
+    "calendar_se",
 )
 
-# Known vocabulary gap, stated rather than hidden: the group and
-# calendar aggregations have no slot here. Module 04 pins both vectors
-# against R and Stata, and this audit does not count them -- they surface
-# in ``unclassified_statistics`` instead. Adding them would change the
-# denominator, so it is a deliberate follow-up rather than a quiet edit.
+# The group and calendar aggregations were a stated vocabulary gap until
+# 2026-08-24: module 04 pinned both vectors three ways and this audit did
+# not count them, so they surfaced as ``unclassified_statistics``. They
+# now have slots, which raises the denominator by four slots per probed
+# function -- an audit that grows its own denominator is the point, since
+# the alternative is a coverage ratio that looks better because it asks
+# less.
 OBJECT_LABEL = {
     "headline_att": "headline ATT",
     "headline_se": "headline SE",
@@ -108,6 +114,10 @@ OBJECT_LABEL = {
     "pretrend_att": "pre-treatment leads",
     "pretrend_se": "pre-treatment lead SEs",
     "pretrend_test": "joint pre-trend test",
+    "group_att": "cohort (group) ATT vector",
+    "group_se": "cohort (group) ATT SEs",
+    "calendar_att": "calendar-time ATT vector",
+    "calendar_se": "calendar-time ATT SEs",
 }
 
 
@@ -125,15 +135,28 @@ def _classify_statistic(name: str) -> Optional[Tuple[str, ...]]:
     n = name.strip()
     low = n.lower()
 
+    is_se_name = low.startswith("se_") or low.endswith("_se") or "_se_" in low
+    # Group / calendar aggregation rows are labelled group_<cohort> and
+    # calendar_<period> by the parity harness (plus a *_overall row). They
+    # are matched before the relative-time regex because a cohort label is
+    # a calendar year, not an event time, and folding 2004 into the
+    # event-study class would credit coverage that does not exist.
+    for prefix, family in (("group", "group"), ("calendar", "calendar")):
+        if low == prefix or low.startswith(prefix + "_"):
+            return (f"{family}_se",) if is_se_name else (f"{family}_att",)
+
     rel = re.search(r"rel(?:ative)?[_ ]?(-?\d+)", low)
     if rel is None:
-        # ``tau`` must precede the bare ``t`` alternative: BJS-family
-        # modules label horizons tau0..tauK, and a bare ``t`` does not
-        # match "tau0" (the next character is a letter), so without this
-        # the horizon rows fall through to the headline class and credit
-        # coverage the archive does not have.
+        # Longer tokens must precede their own prefixes: ``tau`` before
+        # ``t`` and ``es`` before ``e``. BJS-family modules label
+        # horizons tau0..tauK and the TWFE event study labels its
+        # coefficients es_-4..es_+4; a bare ``t`` does not match "tau0"
+        # and a bare ``e`` does not match "es_+0" (the next character is a
+        # letter in both cases), so without the longer alternatives those
+        # rows fall through to the headline class -- or, worse, to
+        # unclassified -- and the audit under-reports its own pins.
         rel = re.search(
-            r"(?:^|_)(?:event|tau|lead|lag|horizon|pre|e|t|h)[_ ]?([+-]?\d+)",
+            r"(?:^|_)(?:event|tau|lead|lag|horizon|pre|es|e|t|h)[_ ]?([+-]?\d+)",
             low,
         )
     is_se = low.startswith("se_") or low.endswith("_se") or "_se_" in low
@@ -317,11 +340,33 @@ def _coerce_relative_time(value: Any) -> Optional[float]:
     return float(m.group(1)) if m else None
 
 
+# Set once by run_audit so the aggregation probe can call sp.aggte without
+# importing statspai at module scope (the script is imported by tests).
+_AGGTE: List[Any] = [None]
+
+
 def probe_reported_objects(fn: Callable[[], Any]) -> Dict[str, bool]:
-    """Run an estimator and record which objects it hands back."""
+    """Run an estimator and record which objects it hands back.
+
+    A runner may return a single result or several. Several is the
+    honest shape for an estimator whose aggregations are separate calls:
+    sp.callaway_santanna hands back cohort and calendar vectors through
+    sp.aggte, and probing only the dynamic aggregate would report those
+    objects as absent when what is actually absent is the second call.
+    Objects are unioned across whatever the runner returns.
+    """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        result = fn()
+        returned = fn()
+    results = list(returned) if isinstance(returned, (list, tuple)) else [returned]
+    reported = {obj: False for obj in OBJECTS}
+    for result in results:
+        for obj, flag in _probe_one(result).items():
+            reported[obj] = reported[obj] or flag
+    return reported
+
+
+def _probe_one(result: Any) -> Dict[str, bool]:
     model_info = getattr(result, "model_info", None) or {}
     reported = {obj: False for obj in OBJECTS}
     reported["headline_att"] = getattr(result, "estimate", None) is not None
@@ -340,7 +385,72 @@ def probe_reported_objects(fn: Callable[[], Any]) -> Dict[str, bool]:
     reported["pretrend_test"] = bool(
         model_info.get("pretrend_test") or getattr(result, "pretrend_test", None)
     )
+
+    for family in ("group", "calendar"):
+        att, se = _aggregation_support(result, family)
+        reported[f"{family}_att"] = att
+        reported[f"{family}_se"] = se
     return reported
+
+
+def _aggregation_support(result: Any, family: str) -> Tuple[bool, bool]:
+    """Does this result hand back a `family` aggregation vector?
+
+    Discovered, not declared. Hand-maintaining a list of which estimators
+    support cohort and calendar aggregation would make a "not-reported"
+    verdict a statement about the list rather than about the package, and
+    a stale list would understate coverage exactly as silently as a loose
+    tolerance overstates it. So the probe actually tries: first the
+    result's own tidy frame, then `sp.aggte`, and reports False only
+    after both have failed.
+    """
+    term_tag = "att(g=" if family == "group" else "att(t="
+    candidates = [result]
+    aggte = _AGGTE[0]
+    if aggte is not None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                candidates.append(aggte(result, type=family))
+            except Exception:
+                # An estimator that cannot be re-aggregated is a real
+                # negative, not an error to report -- but it is only
+                # recorded as such after the attempt above was made.
+                pass
+    for candidate in candidates:
+        tidy = getattr(candidate, "tidy", None)
+        if tidy is None:
+            continue
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                frame = tidy()
+            except Exception:
+                continue
+        if frame is None or not len(frame) or "term" not in frame.columns:
+            continue
+        cells = frame[frame["term"].astype(str).str.startswith(term_tag)]
+        if not len(cells):
+            continue
+        se_col = next(
+            (c for c in ("std_error", "se", "stderr") if c in cells.columns), None
+        )
+        has_se = bool(se_col and cells[se_col].notna().any())
+        return True, has_se
+    return False, False
+
+
+def _cs_aggregations(
+    sp: Any, df: Any, *, y: str, cohort: str, time: str, unit: str
+) -> List[Any]:
+    fit = sp.callaway_santanna(df, y=y, g=cohort, t=time, i=unit, estimator="reg")
+    out = []
+    for agg_type in ("dynamic", "group", "calendar"):
+        try:
+            out.append(sp.aggte(fit, type=agg_type))
+        except Exception:
+            continue
+    return out
 
 
 def build_runners(sp_module: Any) -> Dict[str, Callable[[], Any]]:
@@ -356,9 +466,12 @@ def build_runners(sp_module: Any) -> Dict[str, Callable[[], Any]]:
     horizon = [-3, -2, -1, 0, 1, 2, 3]
 
     return {
-        "callaway_santanna": lambda: sp.aggte(
-            sp.callaway_santanna(df, y=y, g=cohort, t=time, i=unit, estimator="reg"),
-            type="dynamic",
+        # All three aggregations of one fit: the dynamic path is what the
+        # parallel-trends claim is read off, and the cohort and calendar
+        # vectors are separate sp.aggte calls that the audit would
+        # otherwise score as not-reported.
+        "callaway_santanna": lambda: _cs_aggregations(
+            sp, df, y=y, cohort=cohort, time=time, unit=unit
         ),
         "sun_abraham": lambda: sp.sun_abraham(df, y=y, g=cohort, t=time, i=unit),
         "did_imputation": lambda: sp.did_imputation(
@@ -486,6 +599,8 @@ def claimed_reference(sp_module: Any, name: str) -> Tuple[str, str]:
 def run_audit(root: str) -> Dict[str, Any]:
     sys.path.insert(0, os.path.join(root, "src"))
     import statspai as sp
+
+    _AGGTE[0] = getattr(sp, "aggte", None)
 
     pinned, unclassified = read_parity_archive(root)
     module_map = map_modules_to_functions(root)

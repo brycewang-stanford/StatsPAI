@@ -273,6 +273,51 @@ via Crossref and the published PDF.
 
 ### Added
 
+- **Parity module 85 pins the dynamic TWFE event study — the benchmark
+  every "TWFE-comparable" claim is stated against.** It was the largest
+  block of unpinned objects in the reference-claim audit: the
+  specification the literature compares its estimators *to* carried no
+  reference value of its own. All eight event-time coefficients now
+  agree three ways, worst 5.7e-14.
+
+  Two conventions had to be matched rather than tolerated. `fixest`
+  counts absorbed fixed effects in the small-sample degrees-of-freedom
+  correction and `sp.event_study` does not, so the R side runs under
+  `ssc(fixef.K = "none")` and then matches the standard errors to
+  9.3e-14. Stata `reghdfe` offers no equivalent setting — its K counts
+  the 8 event-time coefficients plus 8 non-redundant time effects plus
+  the constant — so its standard error sits a uniform 2.803e-03 away.
+
+  That gap is **reconstructed, not tolerated**: `rel_se` stays at 1e-9
+  (widening it to 3e-3 would stop checking the py↔R agreement the
+  module exists to pin) and a dedicated contract test rebuilds every
+  `reghdfe` standard error from the StatsPAI one via
+  `sqrt((N − K_py) / (N − K_Stata))`, matching to 1e-12. The module's
+  headline metric is `rel_est`, which would never have inspected the
+  standard errors at all — a convention label is earned by reproducing
+  the other package's number, not by naming the convention.
+
+- **The reference-claim audit counts the group and calendar
+  aggregations.** They had been a *stated* vocabulary gap: module 04
+  pinned both vectors three ways and
+  `scripts/audit_reference_claims.py` did not score them, so they
+  surfaced only as unclassified statistics. They now have slots, and the
+  probe **discovers** support by calling `sp.aggte` rather than
+  consulting a hand-maintained list of which estimators aggregate —
+  a stale list would understate coverage as silently as a loose
+  tolerance overstates it.
+
+  Two classifier fixes came with it: a runner may now return several
+  results (probing only Callaway--Sant'Anna's *dynamic* aggregate had
+  reported its cohort and calendar vectors as absent, when what was
+  absent was the second `sp.aggte` call), and `es_+0`-style labels no
+  longer fall through to unclassified — the bare `e` alternative could
+  not match them, so module 85's own pins went uncounted.
+
+  Object coverage moves from **30 pinned / 61 reported** to **38 / 65**.
+  The denominator grew on purpose; an audit that only ever shrinks its
+  own denominator is measuring the wrong thing.
+
 - **Parity module 04 now pins Callaway--Sant'Anna's aggregation vectors,
   not one scalar.** The most-used estimator in the family had exactly one
   pinned number — the simple ATT — while its event-study path, group
