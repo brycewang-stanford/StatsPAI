@@ -1,22 +1,34 @@
-# Line-ending policy.
+# Line-ending policy — exists to protect byte-pinned data fixtures.
 #
 # The GitHub Actions Windows runner checks out with `core.autocrlf=true`, which
-# rewrites LF -> CRLF in the working tree. That is invisible for source code but
-# fatal for the reference-parity suite: several modules pin the SHA-256 of
+# rewrites LF -> CRLF in the working tree. Invisible for source code, fatal for
+# the reference-parity suite: five modules pin the SHA-256 of
 # `tests/orig_parity/data/02_mpdta_original.csv` so the R/Stata golden numbers
 # can never be silently re-locked against a different dataset. Under CRLF
-# translation the digest changes and 63 tests error out with "mpdta fixture
+# translation that digest changes and 63 tests error out with "mpdta fixture
 # changed" — a checkout artefact reported as a provenance breach.
 #
-# Pinning `eol=lf` keeps every text file byte-identical across platforms, so the
-# digests hold everywhere. `text` (rather than `-text`) is deliberate: git still
-# treats these as text, so diffs and merges stay readable.
+# Rules below, in order (later patterns win):
+#   1. Text is normalised to LF in the repo and checked out as LF everywhere.
+#      Nothing is renormalised by this: every tracked source file is already LF
+#      in the index (`git ls-files --eol`).
+#   2. Data fixtures are marked `-text`: git performs NO eol conversion in
+#      either direction, so the bytes on disk always equal the bytes in the
+#      index. That is exactly the guarantee a SHA-256 pin needs. It also
+#      preserves the NIST StRD certified datasets verbatim — those ship from
+#      NIST with CRLF, and rewriting them would alter reference data we cite.
 
 * text=auto eol=lf
 
-# Data fixtures are byte-pinned and/or numerically parsed — never translate.
-*.csv text eol=lf
-*.json text eol=lf
+# Byte-pinned / provenance-locked data fixtures — never translate.
+tests/orig_parity/data/** -text
+tests/fixtures/** -text
+tests/numerical_accuracy/_fixtures/** -text
+tests/agent_bench/results/** -text
+tests/r_parity/results/** -text
+src/statspai/datasets/data/** -text
+
+# Binary formats.
 *.dta binary
 *.rds binary
 *.parquet binary
