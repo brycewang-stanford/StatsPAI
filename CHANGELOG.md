@@ -2,7 +2,7 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.23.0] — 2026-08-24
 
 Aligns the DiD family with Baker, Callaway, Cunningham, Goodman-Bacon &
 Sant'Anna (2026), *Journal of Economic Literature* 64(2), 498–557,

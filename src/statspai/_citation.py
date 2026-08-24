@@ -29,8 +29,8 @@ _CONCEPT_DOI = "10.5281/zenodo.19933900"
 _BIBTEX_TEMPLATE = (
     "@software{{wang{year}statspai,\n"
     "  author       = {{Wang, Biaoyue and Rozelle, Scott}},\n"
-    "  title        = {{StatsPAI: Validation-Tiered Causal Inference"
-    " and Econometrics Workflows for Python}},\n"
+    "  title        = {{StatsPAI: A Unified, Agent-Native Python Toolkit"
+    " for Causal Inference and Applied Econometrics}},\n"
     "  year         = {{{year}}},\n"
     "  version      = {{{version}}},\n"
     "  doi          = {{{doi}}},\n"
@@ -40,14 +40,16 @@ _BIBTEX_TEMPLATE = (
 )
 
 _APA_TEMPLATE = (
-    "Wang, B., & Rozelle, S. ({year}). StatsPAI: Validation-Tiered Causal "
-    "Inference and Econometrics Workflows for Python (Version {version}) [Computer software]. "
+    "Wang, B., & Rozelle, S. ({year}). StatsPAI: A Unified, Agent-Native "
+    "Python Toolkit for Causal Inference and Applied Econometrics "
+    "(Version {version}) [Computer software]. "
     "Zenodo. https://doi.org/{doi}"
 )
 
 _PLAIN_TEMPLATE = (
-    "Biaoyue Wang and Scott Rozelle ({year}). StatsPAI: Validation-Tiered Causal "
-    "Inference and Econometrics Workflows for Python, version {version}. "
+    "Biaoyue Wang and Scott Rozelle ({year}). StatsPAI: A Unified, "
+    "Agent-Native Python Toolkit for Causal Inference and Applied "
+    "Econometrics, version {version}. "
     "https://doi.org/{doi}"
 )
 

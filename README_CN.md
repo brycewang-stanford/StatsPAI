@@ -425,10 +425,11 @@ StatsPAI 正在 JOSS 审稿中。审稿人可从这里开始：
 ```bibtex
 @software{wang2026statspai,
   author  = {Wang, Biaoyue and Rozelle, Scott},
-  title   = {StatsPAI: Validation-Tiered Causal Inference and
-             Econometrics Workflows for Python},
+  title   = {StatsPAI: A Unified, Agent-Native Python Toolkit for
+             Causal Inference and Applied Econometrics},
   year    = {2026},
-  version = {1.21.0},
+  version = {1.23.0},
+  doi     = {10.5281/zenodo.19933900},
   url     = {https://github.com/brycewang-stanford/StatsPAI}
 }
 ```
