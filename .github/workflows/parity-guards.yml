@@ -31,7 +31,11 @@ jobs:
   reference-parity:
     name: Numerical reference parity
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 30 was sized when nine HDFE alignment tests aborted on a missing
+    # pyfixest instead of running. With the `fixest` extra installed the
+    # suite does the real Stata/R comparison work and the run reached 92%
+    # at the old wall (run 32722544873, cancelled with zero failures).
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python
