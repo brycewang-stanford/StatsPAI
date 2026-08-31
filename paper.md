@@ -45,7 +45,7 @@ documentation rather than here.
 
 Results from the mature estimators share a common reporting surface, so
 the same calls produce a summary, a figure, a LaTeX or Word table, or a
-citation. `StatsPAI` is also agent-native: every registered function
+citation. `StatsPAI` is also agent-native. Every registered function
 exposes a machine-readable schema, a structured description of its
 arguments and outputs that a program can parse directly, together with
 structured failure metadata. Such schemas let LLM-driven research
@@ -78,7 +78,7 @@ robustness, and publication output.
 policy researchers, and data scientists who want a Python-native
 workflow without giving up the breadth of Stata or the methodological
 depth of R. Its goal is not to replace every specialized implementation,
-but to provide a coherent empirical workspace: shared formula
+but to provide a coherent empirical workspace built on shared formula
 conventions, compatible result surfaces for mature estimators, export
 methods where supported, citations attached to estimators, and
 validation metadata that make the relationship between methods,
@@ -97,7 +97,7 @@ learning [@chernozhukov2018double], causal forests
 [@wager2018estimation], and meta-learners [@kunzel2019metalearners]. In
 the high-dimensional and double machine-learning tradition specifically,
 `StatsPAI` builds on established reference implementations rather than
-around them: it provides a faithful Python port of the rigorous
+around them. It provides a faithful Python port of the rigorous
 (data-driven) Lasso and post-double-selection estimators of the `hdm`
 package [@chernozhukov2016hdm; @belloni2012sparse; @belloni2014inference],
 validated for numerical agreement with `hdm`, and orthogonal-score
@@ -110,10 +110,10 @@ The general-purpose regression toolkits applied economists already rely
 on, such as `statsmodels` and `linearmodels` in Python or `fixest` in R,
 sit at a different layer, supplying core regression machinery that
 `StatsPAI` builds on rather than competes with. Its contribution is
-therefore the integration layer itself, not a single better estimator:
-contributing one more estimator to each existing project would still
-leave users with
-incompatible result classes, separate diagnostic conventions, and no
+therefore the integration layer itself, not a single better estimator.
+Contributing one more estimator to each existing project would still
+leave users with incompatible result classes, separate diagnostic
+conventions, and no
 unified agent-facing schema. `StatsPAI` earns a standalone existence by
 being the layer that makes a heterogeneous collection of estimators
 (classical and machine-learning, Python-native and R/Stata-aligned)
@@ -135,10 +135,10 @@ valid for a detected design, invoke one, read back structured diagnostics
 and assumption violations, and decide the next step through typed schemas
 rather than free-form prompts.
 
-The central design choice is a shared result interface: estimators
-return structured objects that store coefficients, uncertainty
-estimates, diagnostics, fitted values, plots, and exporter hooks in
-predictable locations. This lowers the switching cost between classical
+The central design choice is a shared result interface, in which
+estimators return structured objects that store coefficients,
+uncertainty estimates, diagnostics, fitted values, plots, and exporter
+hooks in predictable locations. This lowers the switching cost between classical
 econometric and modern machine-learning estimators, and makes validation
 easier because tests can compare common fields across implementations.
 
@@ -155,36 +155,35 @@ interface means adding or upgrading an estimator is never purely local,
 and the reporting and export hooks are guaranteed only for the mature
 estimators, which is why auxiliary helpers advertise narrower
 capabilities through the registry rather than claiming a uniformity they
-do not have. Favouring breadth also trades against depth: for any single
-design, a dedicated package may expose more edge-case options than
-`StatsPAI` does today. Performance is likewise not the first priority of
+do not have. Favouring breadth also trades against depth. For any
+single design, a dedicated package may expose more edge-case options
+than `StatsPAI` does today. Performance is likewise not the first priority of
 the default install, which runs on a pure-Python NumPy/SciPy stack and
 reaches for the PyTorch, JAX, or Rust backends only when present, holding
 those accelerated paths to the same documented numerical tolerances as
 the fallbacks. The Rust/PyO3 kernel in particular carries a
-compiled-language build cost: platform-specific wheels or a Rust
-toolchain, plus a separately maintained crate. We contain this by
+compiled-language build cost, in the form of platform-specific wheels
+or a Rust toolchain plus a separately maintained crate. We contain this by
 keeping the kernel optional, with transparent pure-Python fallback. We
-accept these costs deliberately: for researchers who must compare
-estimators, switch
-designs, and produce reproducible output within one project, a single
-coherent, agent-addressable interface outweighs the loss of per-method
-specialization.
+accept these costs deliberately — for researchers who must compare
+estimators, switch designs, and produce reproducible output within one
+project, a single coherent, agent-addressable interface outweighs the
+loss of per-method specialization.
 
 # Research Impact Statement
 
 `StatsPAI` ships a concrete validation and community-readiness dossier
-built from two complementary tracks. The first is a cross-language parity
-harness: `StatsPAI`, R, and Stata are run on the same input bytes and
-their numerical output compared directly. The harness checks more than
+built from two complementary tracks. The first is a cross-language
+parity harness in which `StatsPAI`, R, and Stata are run on the same
+input bytes and their numerical output compared directly. The harness checks more than
 sixty estimator modules against a reference R implementation, the large
 majority also against Stata. Closed-form estimators
 agree to machine precision; iterative and machine-learning estimators
 agree within pre-registered, documented tolerances, and the few remaining
 convention gaps are disclosed rather than hidden. Within this harness,
-the high-dimensional methods reproduce the published worked examples of
-the `hdm` package [@chernozhukov2016hdm] (its growth-convergence,
-institutions-and-development, and gender-wage-gap applications), and the
+the high-dimensional methods reproduce the growth-convergence,
+institutions-and-development, and gender-wage-gap applications published
+with the `hdm` package [@chernozhukov2016hdm], and the
 double-machine-learning estimators are checked against `DoubleML`
 [@bach2022doubleml; @bach2024doubleml] on shared data, an independent
 check against those established reference implementations. The second
@@ -197,7 +196,16 @@ worked examples from Cunningham's *Causal Inference: The Mixtape*
 [@cunningham2021causal]. For the Mixtape examples the point estimates —
 and, where a reference implementation exists, the standard errors — agree
 with Stata 18 and the R `did` package to the tolerances recorded in the
-repository's parity tests. The remaining entries, including the
+repository's parity tests. The one deliberate exception is the Texas
+prison-expansion synthetic control, where the Mixtape's recipe places
+lagged outcomes among the predictors and leaves the nested predictor-
+and donor-weight problem non-convex. Stata's `synth` and `StatsPAI`
+therefore settle on different local optima with different donor
+weights, and the estimated effect agrees only to about three percent. `StatsPAI` attains
+the lower pre-treatment fit error there, so neither answer is wrong on
+its own objective, and the parity test records the disagreement instead
+of asserting a tolerance the design cannot support. The remaining
+entries, including the
 multi-period difference-in-differences panel (Callaway-Sant'Anna), are
 deterministic simulated replicas calibrated so that the canonical
 estimator recovers values near the published result; for those, exact
@@ -209,8 +217,8 @@ reviewer-facing validation dossier and short reviewer guide ship with the
 repository documentation.
 
 The near-term impact is a more reproducible workflow for applied policy
-evaluation: sharing one interface, researchers can compare estimators on
-the same data, export tables with the same metadata, and record the
+evaluation. Sharing one interface, researchers can compare estimators
+on the same data, export tables with the same metadata, and record the
 citations and assumptions attached to each analysis. `StatsPAI` is
 currently being used in an ongoing working
 paper connected to the Rural Education Action Program at Stanford
@@ -244,8 +252,7 @@ documentation, tests, and validation suites, and led the drafting of
 this paper. **Scott Rozelle** provided guidance on the package's design
 direction and target research workflows, and contributed to the
 writing, review, and revision of this paper. Both authors reviewed and
-approved the final manuscript and take responsibility for the
-correctness of the package and this paper.
+approved the final manuscript.
 
 # Acknowledgements
 

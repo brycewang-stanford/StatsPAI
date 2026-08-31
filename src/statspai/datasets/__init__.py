@@ -189,10 +189,14 @@ def list_datasets() -> pd.DataFrame:
 
     - ``paper_original`` is the headline number from the published paper on the
       ORIGINAL data (what readers expect to see).
-    - ``expected_main`` is what the canonical estimator recovers on this
-      simulated replica (what users will actually observe). The two differ
-      because the bundled replicas are deterministic DGPs calibrated to the
-      neighbourhood of the published values, not the original data.
+    - ``expected_main`` is what the canonical estimator recovers from the
+      variant a bare ``name()`` call returns (what users will actually
+      observe), and it is prefixed ``REAL data:`` wherever that default is
+      the bundled extract rather than a replica. For a ``"simulated"`` row
+      the two columns differ because the replica is a deterministic DGP
+      calibrated to the neighbourhood of the published value, not the
+      original data. For a ``"bundled CSV"`` row any gap is an estimator or
+      extract difference and is named as such.
 
     For the strict numerical neighbourhood proofs see
     ``tests/external_parity/test_published_replications.py`` and
@@ -238,7 +242,7 @@ def list_datasets() -> pd.DataFrame:
             1390,
             "Lee (2008)",
             "Incumbent advantage ≈ 0.077 voteshare pts (Table 4)",
-            "Conventional ≈ 0.073, CCT robust ≈ 0.062 on this replica",
+            "REAL data: conventional 7.414, robust 7.507 pp = R rdrobust to ~1e-12",
         ),
         (
             "angrist_krueger_1991",
@@ -254,7 +258,7 @@ def list_datasets() -> pd.DataFrame:
             1209,
             "Abadie-Diamond-Hainmueller (2010)",
             "Mean 1989-2000 ATT ≈ -19 packs/capita (JASA Fig. 2)",
-            "Classic ADH ≈ -13.1, ASCM ≈ -13.3 packs/capita on this replica",
+            "REAL data: SDID -17.90 = R synthdid to 1e-6; classic SCM -22.4 (non-unique V/W)",
         ),
         (
             "basque_terrorism",
