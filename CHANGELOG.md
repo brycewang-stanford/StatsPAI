@@ -78,6 +78,24 @@ checkout silently rewrote. Details below.
   checks every other case, and refuses to re-pin from an incomplete
   environment so the missing pins cannot be silently dropped.
 
+- **`sp.callaway_santanna`: a non-converged propensity logit degraded
+  silently on statsmodels >= 0.15.** With a separated or collinear covariate
+  the `x=` propensity fit cannot settle. Through statsmodels 0.14 the Newton
+  step raised `LinAlgError` out of the singular Hessian, which
+  `_estimate_pscore` caught, announced, and replaced with the unconditional
+  propensity. statsmodels 0.15 walks that same step instead and returns
+  diverging coefficients (`converged=False` after 500 iterations), so the
+  `except` branch never fired — and the fit already passes
+  `warn_convergence=False`, suppressing statsmodels' own notice. The result
+  was a p(X) pinned at the clipping bounds by coefficients that never settled,
+  feeding the IPW/DR weights with nothing said to the caller. The fit's
+  convergence flag is now checked directly and a `ConvergenceWarning` names
+  the unreliable weights. The fitted p(X) is still what the estimate uses:
+  substituting the constant here would move the point estimate of every
+  non-converged fit, and a diverged logit is not evidence that the
+  unconditional propensity is the better answer. **No numerical change** on
+  any converged fit.
+
 ### Known issue (not fixed here)
 
 - **`sp.did_2x2` does not refuse a rank-deficient design, and `sp.did(method='twfe')`
@@ -112,6 +130,15 @@ checkout silently rewrote. Details below.
   now pass the `group` indicator the API documents, the estimate becomes 2.076,
   and covariate-reorder invariance holds exactly. **The estimator-side guard for
   this class of design is not in this release** — see the note below.
+- `test_callaway_santanna_warns_when_pscore_logit_degrades` provoked the
+  propensity failure with a perfectly separated covariate and asserted the
+  fallback warning — so it was pinned on *statsmodels* raising, not on
+  StatsPAI warning. The pandas-3 canary lane, which resolves the newest
+  dependencies, went red on it the moment statsmodels 0.15 stopped raising
+  (1 failed of 16,653). It now injects the failure via `monkeypatch` like
+  every other test in that module, and a second test keeps the separated
+  design but accepts either loud path, so whichever way a future statsmodels
+  degrades, the "propensity-score logit" complaint has to appear.
 - `test_ar_ci_with_exog_and_multi_instruments` seeded its second instrument
   with the same seed as the fixture, replaying the fixture's first draw. `z2`
   came out as exactly `1.6 * z`, so the "multi-instrument" test never had two

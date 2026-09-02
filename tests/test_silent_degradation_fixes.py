@@ -211,14 +211,44 @@ def _cs_panel(n_units=60, seed=0):
     return pd.DataFrame(rows)
 
 
-def test_callaway_santanna_warns_when_pscore_logit_degrades():
-    """A covariate perfectly separated in the control group makes the
-    propensity logit fail; CS must warn that the ATT(g,t) reverts to a
-    constant (unconditional) propensity rather than silently doing so."""
+def test_callaway_santanna_warns_when_pscore_logit_degrades(monkeypatch):
+    """When the propensity logit raises, CS must warn that the ATT(g,t)
+    reverts to a constant (unconditional) propensity rather than silently
+    doing so.
+
+    The failure is injected rather than provoked with a separated design:
+    ``_estimate_pscore`` resolves ``sm.Logit`` at call time, and *whether* a
+    separated design raises is a statsmodels implementation detail that
+    changed under us (<= 0.14 raised ``LinAlgError`` from the Newton step;
+    >= 0.15 returns diverging coefficients instead). The contract under test
+    is StatsPAI's — a failed sub-fit is announced — so it is pinned
+    independently of that.
+    """
+
+    def _raise_singular(*_args, **_kwargs):
+        raise np.linalg.LinAlgError("Singular matrix")
+
+    monkeypatch.setattr("statsmodels.api.Logit", _raise_singular)
+
+    df = _cs_panel()
+    with pytest.warns(sp.ConvergenceWarning, match="no longer covariate-adjusted"):
+        sp.callaway_santanna(df, y="y", t="t", i="id", g="g", x=["x"], estimator="dr")
+
+
+def test_callaway_santanna_separated_covariate_is_loud_on_any_stack():
+    """A perfectly separated covariate must produce a loud propensity-score
+    complaint on every supported statsmodels release.
+
+    Old releases raise out of the Newton step and take the "logit failed"
+    branch; statsmodels >= 0.15 returns a non-converged fit with diverging
+    coefficients and takes the "did not converge" branch. Both messages name
+    the propensity-score logit, which is what a caller needs to see — the
+    thing that must never happen is neither firing.
+    """
     df = _cs_panel()
     # Covariate constant within the never/not-yet-treated control -> separation.
     df["xbad"] = (df["g"] > 0).astype(float)
-    with pytest.warns(sp.ConvergenceWarning, match="no longer covariate-adjusted"):
+    with pytest.warns(sp.ConvergenceWarning, match="propensity-score logit"):
         sp.callaway_santanna(
             df, y="y", t="t", i="id", g="g", x=["xbad"], estimator="dr"
         )

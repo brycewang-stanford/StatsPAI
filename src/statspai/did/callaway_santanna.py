@@ -1869,6 +1869,26 @@ def _weighted_control_mean(
     return float(np.dot(w_c, dy[c_mask]) / denom)
 
 
+def _fit_converged(result: Any) -> Optional[bool]:
+    """Return a fitter's convergence flag, or ``None`` when it has none.
+
+    ``sm.Logit`` records it under ``mle_retvals['converged']``; ``sm.GLM``'s
+    IRLS exposes a ``converged`` attribute instead. Neither is a contractual
+    part of the statsmodels API, so a missing or non-boolean flag is
+    reported as *unknown* rather than as *diverged*: this must never
+    manufacture a warning on the happy path.
+    """
+    retvals = getattr(result, "mle_retvals", None)
+    if isinstance(retvals, dict) and isinstance(
+        retvals.get("converged"), (bool, np.bool_)
+    ):
+        return bool(retvals["converged"])
+    converged = getattr(result, "converged", None)
+    if isinstance(converged, (bool, np.bool_)):
+        return bool(converged)
+    return None
+
+
 def _estimate_pscore(
     d: np.ndarray,
     x: Optional[np.ndarray],
@@ -1878,7 +1898,9 @@ def _estimate_pscore(
     """Estimate propensity score P(D=1 | X) via (weighted) logit.
 
     Uses statsmodels (core dep) — no sklearn needed.
-    Falls back to unconditional probability if logit fails or no covariates.
+    Falls back to unconditional probability if logit fails or no covariates,
+    and warns when the fit merely fails to converge (see below): either way
+    the caller is told that p(X) is not the object they asked for.
 
     With ω supplied the logit is fit by weighted maximum likelihood, which
     is what R ``DRDID`` does via ``glm(..., weights = i.weights)``. The
@@ -1890,6 +1912,7 @@ def _estimate_pscore(
     if x is None or x.shape[1] == 0:
         return np.full(n, p_d)
 
+    result = None
     try:
         import statsmodels.api as sm
 
@@ -1919,7 +1942,31 @@ def _estimate_pscore(
             ConvergenceWarning,
             stacklevel=2,
         )
+        result = None
         pscore = np.full(n, p_d)
+
+    # A separated or collinear design does not always *raise*: statsmodels
+    # >= 0.15 walks the Newton step that older releases turned into a
+    # ``LinAlgError`` and returns diverging coefficients instead, and
+    # ``warn_convergence=False`` above suppresses its own notice. Without
+    # this branch the resulting p(X) — pinned at the clipping bounds by
+    # coefficients that never settled — would feed the IPW/DR weights with
+    # no signal to the caller, which is exactly the silent degradation
+    # CLAUDE.md §7 forbids. The fitted p(X) is kept rather than replaced:
+    # swapping in the constant here would move the point estimate of every
+    # non-converged fit, and a diverged logit is not evidence that the
+    # unconditional propensity is the better answer.
+    if result is not None and _fit_converged(result) is False:
+        warnings.warn(
+            "callaway_santanna: the covariate propensity-score logit did "
+            "not converge (typically perfect separation or a collinear "
+            "covariate). The fitted p(X) is used as reported, but it rests "
+            "on coefficients that never settled, so the IPW/DR weights for "
+            "this ATT(g,t) are unreliable. Inspect overlap, drop the "
+            "separated covariate, or use estimator='reg'.",
+            ConvergenceWarning,
+            stacklevel=2,
+        )
 
     return np.clip(pscore, 1e-6, 1 - 1e-6)
 
