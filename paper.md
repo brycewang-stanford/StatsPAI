@@ -48,7 +48,7 @@ the same calls produce a summary, a figure, a LaTeX or Word table, or a
 citation. `StatsPAI` is also agent-native. Every registered function
 exposes a machine-readable schema, a structured description of its
 arguments and outputs that a program can parse directly, together with
-structured failure metadata. Such schemas let LLM-driven research
+structured failure metadata. Such schemas let large language model (LLM)-driven research
 assistants discover estimators, choose among alternatives, and surface a
 method's assumptions without parsing free-form prose, the capability that
 most distinguishes `StatsPAI` from a conventional estimator library. The
@@ -176,8 +176,8 @@ loss of per-method specialization.
 built from two complementary tracks. The first is a cross-language
 parity harness in which `StatsPAI`, R, and Stata are run on the same
 input bytes and their numerical output compared directly. The harness checks more than
-sixty estimator modules against a reference R implementation, the large
-majority also against Stata. Closed-form estimators
+sixty estimator modules against a reference R implementation, with the large
+majority also checked against Stata. Closed-form estimators
 agree to machine precision; iterative and machine-learning estimators
 agree within pre-registered, documented tolerances, and the few remaining
 convention gaps are disclosed rather than hidden. Within this harness,
@@ -190,8 +190,9 @@ check against those established reference implementations. The second
 track ships canonical teaching datasets in `sp.datasets`. Where the
 original extract is redistributable it is bundled as real data, so that
 analyses run on the study data rather than on a stand-in:
-returns-to-schooling IV (Card), job-training (LaLonde/Dehejia-Wahba), RD
-elections (Lee), synthetic control (Abadie-Diamond-Hainmueller), and four
+returns-to-schooling IV [@card1995using], job-training
+[@lalonde1986evaluating; @dehejia1999causal], RD elections
+[@lee2008randomized], synthetic control [@abadie2010synthetic], and four
 worked examples from Cunningham's *Causal Inference: The Mixtape*
 [@cunningham2021causal]. For the Mixtape examples the point estimates —
 and, where a reference implementation exists, the standard errors — agree
@@ -206,7 +207,7 @@ the lower pre-treatment fit error there, so neither answer is wrong on
 its own objective, and the parity test records the disagreement instead
 of asserting a tolerance the design cannot support. The remaining
 entries, including the
-multi-period difference-in-differences panel (Callaway-Sant'Anna), are
+multi-period difference-in-differences panel [@callaway2021difference], are
 deterministic simulated replicas calibrated so that the canonical
 estimator recovers values near the published result; for those, exact
 numerical replication is deliberately not claimed. The suite also
@@ -220,12 +221,12 @@ The near-term impact is a more reproducible workflow for applied policy
 evaluation. Sharing one interface, researchers can compare estimators
 on the same data, export tables with the same metadata, and record the
 citations and assumptions attached to each analysis. `StatsPAI` is
-currently being used in an ongoing working
-paper connected to the Rural Education Action Program at Stanford
-University, *Family contagion of screen time? Within-person evidence from
-six waves in China* (Wang, Zhang, and Hou, in preparation), which relies
-on the package for its panel and within-person estimation; no
-peer-reviewed research article using the package has yet been published.
+currently being used in an ongoing working paper connected to the Rural
+Education Action Program at Stanford University, a within-person panel
+study of family screen-time contagion across six survey waves in China,
+which relies on the package for its panel and within-person estimation;
+no peer-reviewed research article using the package has yet been
+published.
 The impact claim therefore rests on three things a reviewer can check
 directly: active use in an ongoing working paper, public distribution on
 PyPI, and the reproducible validation materials and worked examples
