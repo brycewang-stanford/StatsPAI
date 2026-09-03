@@ -214,8 +214,8 @@ numerical replication is deliberately not claimed. The suite also
 includes a 1000-replication coverage run for representative OLS,
 difference-in-differences, and strong-instrument IV designs, with
 empirical coverage close to the nominal 95 percent level. A
-reviewer-facing validation dossier and short reviewer guide ship with the
-repository documentation.
+reviewer-facing validation dossier and reviewer guide ship with the
+repository.
 
 The near-term impact is a more reproducible workflow for applied policy
 evaluation. Sharing one interface, researchers can compare estimators
