@@ -224,13 +224,11 @@ citations and assumptions attached to each analysis. `StatsPAI` is
 currently being used in an ongoing working paper connected to the Rural
 Education Action Program at Stanford University, a within-person panel
 study of family screen-time contagion across six survey waves in China,
-which relies on the package for its panel and within-person estimation;
-no peer-reviewed research article using the package has yet been
-published.
-The impact claim therefore rests on three things a reviewer can check
-directly: active use in an ongoing working paper, public distribution on
-PyPI, and the reproducible validation materials and worked examples
-bundled with the repository.
+which relies on the package for its panel and within-person estimation.
+The impact claim rests on three things a reviewer can check directly:
+active use in an ongoing working paper, public distribution on PyPI, and
+the reproducible validation materials and worked examples bundled with
+the repository.
 
 # AI Usage Disclosure
 
