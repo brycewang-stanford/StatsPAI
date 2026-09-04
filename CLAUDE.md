@@ -303,7 +303,8 @@ python scripts/registry_stats.py --table        # 重生 docs/stats.md 的按模
 *最后更新：2026-07-15。过期信息会蔓延到每一次 agent 会话——持续维护本文件。*
 
 ## 其它关键事项
-- 目前的修改，默认不要影响到 joss 论文的审稿：https://github.com/openjournals/joss-reviews/issues/10604。万一有影响到，千万一定要特别提醒。
+- **JOSS 论文已发表（2026-09-03）**：Wang & Rozelle, *Journal of Open Source Software* 11(125), 10604, DOI `10.21105/joss.10604`（review issue：https://github.com/openjournals/joss-reviews/issues/10604，已 `accepted` + `published`）。审稿阶段的"不要影响审稿"约束**解除**；`paper.md` / `paper.bib` 现在是已发表版本的存档，**不要再改动其内容**（勘误走 JOSS 的 erratum 流程）。对外引用一律用 `sp.citation()` / `CITATION.cff` 的 `preferred-citation`（JOSS 文章），软件条目用 `sp.citation(which="software")`。
+- **下一篇：JSS**（Journal of Statistical Software），核心是 **Stata / R 数值 parity**（`tests/reference_parity/`），拟邀 Yiqing Xu 合作（2026-09-04 已邮件征询 Scott 意见）。
 - **Zenodo 归档：只有 "Publish 一个 GitHub Release" 会触发。** commit / push / 打 tag / 发 PyPI 新版都**不触发**归档。Publish Release 会同时触发 GitHub↔Zenodo 自动归档（铸出**永久不可删的 version DOI**）和 `ci-cd.yml` 的 `publish-prod`（上传 PyPI），一次两个不可逆动作——发之前务必先手动跑一轮 `ci-cd.yml` 的 `test_scope=full`，并核对 `.zenodo.json` / `CITATION.cff` 的标题、作者、ORCID、单位、license 与 `paper.md` 逐项一致。
 - **JOSS #10604 的归档已完成（2026-08-24）。** 时序上要注意：JOSS 要求**在 `recommend-accept` 之前**交出 archive DOI，不是接收之后——编辑 8/18 的 post-review checklist 明确索要 DOI 和版本号。本次交付的是 **v1.23.0**，version DOI `10.5281/zenodo.22085759`；concept DOI 仍是 `10.5281/zenodo.19933900`（永远指向最新归档）。此后再发 Release 会继续铸新的 version DOI，**不影响本次投稿**（JOSS 锚的是已提交的那一个）。
 - **提交闸门（同 §9 顶部"提交闸门"，二者是同一条规则、最高优先级）**：默认**禁止** commit / push，必须等用户在本会话明确授权才放行；每次会话结束也**不自动提交**，先用中文总结、与用户讨论，等用户指示。

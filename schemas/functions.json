@@ -22637,18 +22637,28 @@
     }
   },
   {
-    "description": "Return a citation string for the StatsPAI package.",
+    "description": "Return a citation string for StatsPAI.",
     "name": "citation",
     "parameters": {
       "properties": {
         "format": {
           "default": "bibtex",
-          "description": "- ``\"bibtex\"`` -- BibTeX entry suitable for LaTeX bibliographies. - ``\"apa\"`` -- APA-style human-readable string. - ``\"plain\"`` -- Minimal plain-text string. - ``\"cff\"`` -- Raw contents of the repository ``CITATION.cff`` file (only available in editable / source installs that ship the file).",
+          "description": "- ``\"bibtex\"`` -- BibTeX entry suitable for LaTeX bibliographies. - ``\"apa\"`` -- APA-style human-readable string. - ``\"plain\"`` -- Minimal plain-text string. - ``\"cff\"`` -- Raw contents of the repository ``CITATION.cff`` file (ships with the package; ``which`` is ignored).",
           "enum": [
             "bibtex",
             "apa",
             "plain",
             "cff"
+          ],
+          "type": "string"
+        },
+        "which": {
+          "default": "paper",
+          "description": "- ``\"paper\"`` -- the peer-reviewed JOSS article (Wang & Rozelle, 2026, *J. Open Source Softw.* 11(125), 10604). This is the preferred citation. - ``\"software\"`` -- the versioned software entry (Zenodo concept DOI plus the installed ``__version__``); use it when the exact release matters, e.g. in a replication package. - ``\"both\"`` -- the two entries separated by a blank line.",
+          "enum": [
+            "paper",
+            "software",
+            "both"
           ],
           "type": "string"
         }

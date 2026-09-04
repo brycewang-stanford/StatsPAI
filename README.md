@@ -12,7 +12,7 @@
 [![Tests](https://github.com/brycewang-stanford/statspai/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/brycewang-stanford/statspai/actions)
 [![Docs](https://img.shields.io/badge/docs-mkdocs--material-blue.svg)](https://brycewang-stanford.github.io/StatsPAI/)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
-[![status](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332/status.svg)](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332)
+[![JOSS](https://joss.theoj.org/papers/10.21105/joss.10604/status.svg)](https://doi.org/10.21105/joss.10604)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19933900-blue.svg)](https://doi.org/10.5281/zenodo.19933900)
 
 StatsPAI is for empirical researchers who would normally jump between Stata, R,
@@ -456,9 +456,12 @@ The README is intentionally focused on first-time users.
 
 ---
 
-## Reviewers
+## Paper
 
-StatsPAI is under JOSS review. Reviewers can start with:
+StatsPAI is described in a peer-reviewed paper in the *Journal of Open Source
+Software* (2026, 11(125), 10604): <https://doi.org/10.21105/joss.10604>.
+The reviewer-facing material prepared for that review remains the quickest
+way to audit the package:
 
 - [JOSS reviewer guide](docs/joss_reviewer_guide.md)
 - [JOSS validation dossier](docs/joss_validation_dossier.md)
@@ -471,11 +474,25 @@ StatsPAI is under JOSS review. Reviewers can start with:
 
 ## Citation
 
-If you use StatsPAI in research, cite the package and the underlying method
-papers for each estimator. `sp.citation()` returns the package citation, and
+If you use StatsPAI in research, cite the JOSS paper (preferred) and the
+underlying method papers for each estimator. `sp.citation()` returns the paper
+citation, `sp.citation(which="software")` the versioned software entry, and
 many result objects expose estimator-level citation helpers.
 
 ```bibtex
+@article{wang2026statspaijoss,
+  author  = {Wang, Biaoyue and Rozelle, Scott},
+  title   = {StatsPAI: A Unified, Agent-Native Python Toolkit for
+             Causal Inference and Applied Econometrics},
+  journal = {Journal of Open Source Software},
+  year    = {2026},
+  volume  = {11},
+  number  = {125},
+  pages   = {10604},
+  doi     = {10.21105/joss.10604},
+  url     = {https://doi.org/10.21105/joss.10604}
+}
+
 @software{wang2026statspai,
   author  = {Wang, Biaoyue and Rozelle, Scott},
   title   = {StatsPAI: A Unified, Agent-Native Python Toolkit for

@@ -12,7 +12,7 @@
 [![Tests](https://github.com/brycewang-stanford/statspai/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/brycewang-stanford/statspai/actions)
 [![Docs](https://img.shields.io/badge/docs-mkdocs--material-blue.svg)](https://brycewang-stanford.github.io/StatsPAI/)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
-[![status](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332/status.svg)](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332)
+[![JOSS](https://joss.theoj.org/papers/10.21105/joss.10604/status.svg)](https://doi.org/10.21105/joss.10604)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19933900-blue.svg)](https://doi.org/10.5281/zenodo.19933900)
 
 StatsPAI 面向那些原本需要在 Stata、R 和 Python 之间来回切换的实证研究者。它的目标很直接：把常见的计量经济学、因果推断、诊断、稳健性、表格导出和 Agent 可读元数据，放到一个 Python-native API 里。
@@ -405,9 +405,10 @@ README 首页只保留新手上路所需信息。
 
 ---
 
-## 审稿人入口
+## 论文
 
-StatsPAI 正在 JOSS 审稿中。审稿人可从这里开始：
+StatsPAI 的同行评审论文已发表于 *Journal of Open Source Software*（2026, 11(125), 10604）：<https://doi.org/10.21105/joss.10604>。
+当时为审稿准备的材料仍是审视这个包最快的入口：
 
 - [JOSS reviewer guide](docs/joss_reviewer_guide.md)
 - [JOSS validation dossier](docs/joss_validation_dossier.md)
@@ -420,9 +421,22 @@ StatsPAI 正在 JOSS 审稿中。审稿人可从这里开始：
 
 ## 引用
 
-如果在研究中使用 StatsPAI，请同时引用 StatsPAI 和具体估计器背后的方法论文。`sp.citation()` 会返回包引用，许多结果对象也提供 estimator-level citation helpers。
+如果在研究中使用 StatsPAI，请优先引用 JOSS 论文，并同时引用具体估计器背后的方法论文。`sp.citation()` 返回论文引用，`sp.citation(which="software")` 返回带版本号的软件引用，许多结果对象也提供 estimator-level citation helpers。
 
 ```bibtex
+@article{wang2026statspaijoss,
+  author  = {Wang, Biaoyue and Rozelle, Scott},
+  title   = {StatsPAI: A Unified, Agent-Native Python Toolkit for
+             Causal Inference and Applied Econometrics},
+  journal = {Journal of Open Source Software},
+  year    = {2026},
+  volume  = {11},
+  number  = {125},
+  pages   = {10604},
+  doi     = {10.21105/joss.10604},
+  url     = {https://doi.org/10.21105/joss.10604}
+}
+
 @software{wang2026statspai,
   author  = {Wang, Biaoyue and Rozelle, Scott},
   title   = {StatsPAI: A Unified, Agent-Native Python Toolkit for

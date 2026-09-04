@@ -116,6 +116,16 @@ checkout silently rewrote. Details below.
 
 ### Changed
 
+- **The JOSS paper is published** — Wang & Rozelle (2026), *Journal of Open
+  Source Software* 11(125), 10604, <https://doi.org/10.21105/joss.10604>
+  (review: openjournals/joss-reviews#10604). `sp.citation()` now returns the
+  article as the preferred citation; the versioned software entry moved to
+  `sp.citation(which="software")`, and `which="both"` returns the pair.
+  `CITATION.cff` gained the matching `preferred-citation` block, `.zenodo.json`
+  links future deposits to the article (`isDescribedBy`), and the README /
+  docs citation blocks and JOSS badge point at the DOI. `paper.md` /
+  `paper.bib` are now the archived published text and are not edited further.
+
 - CI installs `.[dev,fixest]` on every matrix leg rather than `.[dev]`, so the
   HDFE surface is exercised cross-platform instead of skipped. The 3.9 leg
   resolves the extra to nothing (see above) and skips those tests.

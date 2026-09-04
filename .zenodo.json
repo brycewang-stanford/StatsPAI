@@ -44,6 +44,12 @@
       "identifier": "https://pypi.org/project/StatsPAI/",
       "relation": "isPublishedIn",
       "resource_type": "software"
+    },
+    {
+      "scheme": "doi",
+      "identifier": "10.21105/joss.10604",
+      "relation": "isDescribedBy",
+      "resource_type": "publication-article"
     }
   ]
 }

@@ -54,24 +54,34 @@ keywords:
   - tmle
   - python
   - agent-facing
-# When the JOSS paper is accepted, fill in DOI / volume / pages and uncomment.
-# Until then, cite the software entry above (versioned Zenodo DOI is
-# preferable once the GitHub-Zenodo integration mints one for a release).
-#
-# preferred-citation:
-#   type: article
-#   authors:
-#     - family-names: "Wang"
-#       given-names: "Biaoyue"
-#       affiliation: "Rural Education Action Program, Stanford Center on China's Economy and Institutions, Stanford University, United States; StatsPAI Inc., United States"
-#       email: "brycew6m@stanford.edu"
-#       orcid: "https://orcid.org/0000-0002-1828-2208"
-#     - family-names: "Rozelle"
-#       given-names: "Scott"
-#       affiliation: "Rural Education Action Program, Stanford Center on China's Economy and Institutions, Stanford University, United States; StatsPAI Inc., United States"
-#       email: "rozelle@stanford.edu"
-#       orcid: "https://orcid.org/0000-0001-5053-0243"
-#   title: "StatsPAI: A Unified, Agent-Native Python Toolkit for Causal Inference and Applied Econometrics"
-#   journal: "Journal of Open Source Software"
-#   year: 2026
-#   doi: "TBD"
+# JOSS paper — preferred citation. Published 2026-09-03 in the Journal of Open
+# Source Software 11(125), 10604. Verified against the Crossref deposit in
+# openjournals/joss-papers (joss.10604/10.21105.joss.10604.crossref.xml) and
+# the review issue openjournals/joss-reviews#10604 (accepted + published).
+# The software entry above (Zenodo concept DOI) remains the citation for a
+# specific release.
+preferred-citation:
+  type: article
+  authors:
+    - family-names: "Wang"
+      given-names: "Biaoyue"
+      affiliation: "Rural Education Action Program, Stanford Center on China's Economy and Institutions, Stanford University, United States; StatsPAI Inc., United States"
+      email: "brycew6m@stanford.edu"
+      orcid: "https://orcid.org/0000-0002-1828-2208"
+    - family-names: "Rozelle"
+      given-names: "Scott"
+      affiliation: "Rural Education Action Program, Stanford Center on China's Economy and Institutions, Stanford University, United States; StatsPAI Inc., United States"
+      email: "rozelle@stanford.edu"
+      orcid: "https://orcid.org/0000-0001-5053-0243"
+  title: "StatsPAI: A Unified, Agent-Native Python Toolkit for Causal Inference and Applied Econometrics"
+  journal: "Journal of Open Source Software"
+  publisher:
+    name: "The Open Journal"
+  year: 2026
+  month: 9
+  volume: 11
+  issue: 125
+  start: 10604
+  date-published: "2026-09-03"
+  doi: "10.21105/joss.10604"
+  url: "https://doi.org/10.21105/joss.10604"

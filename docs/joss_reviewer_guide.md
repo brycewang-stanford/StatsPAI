@@ -1,5 +1,9 @@
 # JOSS Reviewer Guide
 
+> **Status:** the JOSS review concluded and the paper is published —
+> <https://doi.org/10.21105/joss.10604>. This guide is kept as the shortest
+> path to auditing the package.
+
 This page gives JOSS reviewers a short path for installing StatsPAI and
 checking representative functionality without running the full test suite.
 

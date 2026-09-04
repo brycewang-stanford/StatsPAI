@@ -5,6 +5,7 @@ research software. It is intentionally factual and reproducible.
 
 ## Project Status
 
+- JOSS paper: <https://doi.org/10.21105/joss.10604> (published 2026-09-03)
 - Repository: <https://github.com/brycewang-stanford/StatsPAI>
 - Package archive: <https://doi.org/10.5281/zenodo.19933900>
 - PyPI: <https://pypi.org/project/StatsPAI/>
