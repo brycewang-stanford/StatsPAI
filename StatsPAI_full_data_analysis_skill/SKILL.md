@@ -88,7 +88,7 @@ This skill drives StatsPAI through the **canonical pipeline of an applied AER em
 
 - **Source**: https://github.com/brycewang-stanford/StatsPAI
 - **Install**: `pip install "statspai[fixest,plotting]"` (API surface re-validated against **statspai 1.19.0** — every `sp.*` reference, signature, and result-object attribute claim in this skill is checked by `validate_api_claims.py` in this folder). The bare `pip install statspai` is **not enough** for the default pipeline — see the dependency matrix below.
-- **Paper**: JOSS submission under review; JSS materials in `Paper-JSS/README.md` and `docs/jss_source_audit_dossier.md`
+- **Paper**: Wang & Rozelle (2026), *Journal of Open Source Software* 11(125), 10604, <https://doi.org/10.21105/joss.10604>; JSS materials in `Paper-JSS/README.md` and `docs/jss_source_audit_dossier.md`
 
 > **Install the right extras or the documented calls will raise `ImportError`.** Several core functions live behind optional dependency groups (verified from `pyproject.toml`):
 >

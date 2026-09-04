@@ -75,6 +75,7 @@ preferred-citation:
       orcid: "https://orcid.org/0000-0001-5053-0243"
   title: "StatsPAI: A Unified, Agent-Native Python Toolkit for Causal Inference and Applied Econometrics"
   journal: "Journal of Open Source Software"
+  issn: "2475-9066"
   publisher:
     name: "The Open Journal"
   year: 2026
