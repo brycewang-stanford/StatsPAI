@@ -181,18 +181,15 @@ def _default_corpus_path() -> Optional[Path]:
 
 
 def _verified_bib_keys() -> set:
-    """bib keys present in paper.bib, when running from a source checkout."""
-    here = Path(__file__).resolve()
-    for parent in here.parents:
-        bib = parent / "paper.bib"
-        if bib.exists():
-            keys = set()
-            for line in bib.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if line.startswith("@") and "{" in line:
-                    keys.add(line.split("{", 1)[1].rstrip(",").strip())
-            return keys
-    return set()  # installed wheel has no paper.bib; skip the §10 cross-check
+    """bib keys present in the master paper.bib (source checkout or wheel copy)."""
+    from .._bibpath import read_master_bib
+
+    keys = set()
+    for line in read_master_bib().splitlines():
+        line = line.strip()
+        if line.startswith("@") and "{" in line:
+            keys.add(line.split("{", 1)[1].rstrip(",").strip())
+    return keys
 
 
 def _load_df(loader: str, sp: Any) -> Any:

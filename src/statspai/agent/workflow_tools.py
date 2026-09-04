@@ -1539,35 +1539,21 @@ def _load_bibtex_index() -> Dict[str, str]:
     The parser is intentionally simple — paper.bib uses standard
     ``@article{key, ...}`` syntax with balanced braces. A heavyweight
     bibtex parser would add a dependency; this hand-rolled version
-    handles every entry in the project's bib file.
+    handles every entry in the project's bib file. ``tools/bib_subset.py``
+    mirrors the same brace-matching rules for the per-paper subsets.
     """
     global _BIBTEX_CACHE
     if _BIBTEX_CACHE is not None:
         return _BIBTEX_CACHE
 
-    from pathlib import Path
+    # Resolved via statspai._bibpath: the repo-root paper.bib under a
+    # source checkout, else the byte-identical copy shipped inside the
+    # wheel. Raises FileNotFoundError (never returns an empty index) when
+    # neither exists — an empty bibliography would let a key "resolve" to
+    # nothing and invite a fabricated citation (CLAUDE.md §10).
+    from .._bibpath import read_master_bib
 
-    candidates = []
-    try:
-        import statspai as sp
-
-        sp_dir = Path(sp.__file__).resolve().parent
-        candidates.append(sp_dir.parent.parent / "paper.bib")
-    except Exception:
-        pass
-    candidates.append(Path.cwd() / "paper.bib")
-
-    bib_path: Optional[Path] = None
-    for cand in candidates:
-        if cand.exists():
-            bib_path = cand
-            break
-
-    if bib_path is None:
-        _BIBTEX_CACHE = {}
-        return _BIBTEX_CACHE
-
-    text = bib_path.read_text(encoding="utf-8")
+    text = read_master_bib()
     entries: Dict[str, str] = {}
     i = 0
     while i < len(text):

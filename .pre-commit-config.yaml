@@ -133,6 +133,28 @@ repos:
   # ---------------------------------------------------------------------------
   - repo: local
     hooks:
+      - id: bib-packaged-sync
+        name: bib_subset packaged --check (wheel copy of paper.bib in sync)
+        # The wheel ships src/statspai/paper.bib so sp.bibtex() resolves on a
+        # pip install; it must stay byte-identical to the root master. Fix
+        # with: python3 tools/bib_subset.py packaged --sync
+        entry: python3 tools/bib_subset.py packaged --check
+        language: system
+        pass_filenames: false
+        files: ^(paper\.bib|src/statspai/paper\.bib)$
+        stages: [pre-commit]
+
+      - id: bib-subset-jss
+        name: bib_subset check (JSS jss-bib.bib derived from paper.bib)
+        # Paper-JSS/ is git-ignored, so this only runs where the manuscript
+        # exists (--skip-missing); CI cannot see it. Regenerate with
+        # `make -C Paper-JSS bib-split`.
+        entry: python3 tools/bib_subset.py check --skip-missing --roots Paper-JSS/manuscript/main.tex --out Paper-JSS/manuscript/jss-bib.bib --keep brown2020language rios2022csdid
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       - id: registry-drift
         name: registry_stats --check (public-function / submodule drift)
         entry: python3 scripts/registry_stats.py --check

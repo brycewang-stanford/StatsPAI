@@ -100,8 +100,11 @@ pytest                                        # 全量
 pytest tests/test_did.py -q                   # 单文件
 pytest -k bayes_iv                            # 关键字筛选
 pytest --cov=statspai --cov-report=term-missing
-pytest tests/reference_parity/ -q             # R/Stata 对齐
+pytest tests/reference_parity/ -q             # 纯 Python 已知真值 / 解析 DGP 回收
 pytest tests/external_parity/ -q              # 论文数字对齐
+python tests/r_parity/compare.py              # Track A：R / Stata 同字节 parity 汇总表
+python tests/r_parity/verify_reproduce.py     # R 侧 golden 重推导（需 R）
+python tests/stata_parity/verify_reproduce_stata.py   # Stata 侧 golden 重推导（需 Stata 许可）
 ```
 
 ### 新代码要求
@@ -110,6 +113,18 @@ pytest tests/external_parity/ -q              # 论文数字对齐
 - 新估计器：**有参考实现走对齐，没有走解析/仿真**，容差 `atol` / `rtol` 就地标注并说明理由。
 - 核心估计器（`did iv rd synth dml panel`）目标覆盖率 **≥ 95%**；整仓目标 **≥ 85%**。
 - **Windows CI 注意**：`Path.read_text()` 必须传 `encoding="utf-8"`（cp1252 默认会挂，见 commit `8755996`）。
+
+### 5.1 Parity 规则（JSS 论文的核心断言，改动前必读）
+
+规则全文在 `tests/r_parity/compare.py` 顶部 docstring、[`docs/dev/r_parity_tolerances.md`](docs/dev/r_parity_tolerances.md)、[`docs/guides/stability.md`](docs/guides/stability.md)；这里只列硬约束。
+
+- **默认门槛**：同一份 CSV 字节、同一估计量，StatsPAI 与 R / Stata 参考的相对误差 **≤ 1e-6**（点估计与 SE 各自计）。这是 T2「同字节严格 parity」的定义，85 个 Track A 模块里绝大多数实际落在 1e-15 到 1e-9。
+- **四个证据等级**：T1 已知真值回收（解析 DGP，无外部参考）；T2 严格跨语言 parity；T3 随机估计器在合并 Monte Carlo 误差内一致（forest / bootstrap）；T4 有记录的约定差异或参考实现之间自身分歧（如 Basque SCM，R `Synth` 与 Stata `synth` 自己就不一致）。**只有 T2 可以写成「对齐 R / Stata」**，T3 / T4 必须按原等级表述，不得记为 parity 胜利。
+- **放宽只有两种合法理由**：两边计算的是有文档的不同量（自由度除数、ssc 小样本簇修正、解析 SE 对影响函数 SE），或方法论上不可能确定性一致。「算法相同但对不上」不是理由，是 bug。
+- **放宽必须登记**：容差写入 `tests/r_parity/compare.py::TOLERANCES`（预注册预算，按模块一条）；≥ 5e-2 的条目在 `docs/dev/r_parity_tolerances.md` 打 A（机制明确）/ B（经验）/ C（未能解释）等级并写明机制；Stata 侧超预算的模块登记到 `compare.py::STATA_HEADLINE_GAP_EXCEPTIONS`；没有 Stata 参考的模块在 `STATA_SKIP_REASON` 写实测过的原因。**禁止**为了让某个测试通过而单独放宽一个模块。
+- **Stata 与 R 共用一个预算**，不为 Stata 另设更松的门槛。
+- **golden 文件不得手改**：`tests/r_parity/results/*_R.json` 与 `tests/stata_parity/results/*_Stata.json` 由 `tests/r_parity/TIER_A_FIXTURE_LOCK.json` 哈希锁定，只能通过 `verify_reproduce.py` / `verify_reproduce_stata.py` 实跑重生成；复现性容差为 **1e-9**，与 parity 容差无关，parity 容差从不豁免复现性漂移。
+- **新增 Track A 模块的完整清单**（缺任一项 `cd Paper-JSS && make audit` 会 FAIL）：`NN_<method>.py` + `.R`（有 Stata 参考再加 `tests/stata_parity/NN_<method>.do`）；CSV 入 `tests/r_parity/data/`；`TOLERANCES` 登记；两侧 reproducibility report 各补一行（`REPRODUCIBILITY_REPORT.md` / `REPRODUCIBILITY_REPORT_STATA.md`）；registry 证据备注指向模块；`python scripts/build_parity_index.py` 重生 `docs/parity.md`。2026-08 新增的 82 到 85 号模块正是漏了 Stata report 这一步，导致 JSS 审计整体变红。
 
 ---
 
@@ -234,6 +249,13 @@ PYTHONPATH="$(pwd)/src" python3 scripts/dump_schemas.py
 - 核验通过的引用一律落到 [`paper.bib`](paper.bib)，bib key 用 `lastnameYEARkeyword` 规范（例：`abadie2003economic`、`callaway2021difference`、`chernozhukov2018double`）。
 - docstring 的 `References` 段、`docs/` 教程、`paper.md` 正文**只引 bib key 或引用一份规范字符串**；禁止在多处手写同一条引用，避免格式漂移。
 - 发现 `paper.bib` 已有条目信息错漏 → 修一处全仓受益；同时 `git grep` 扫手写副本一并修正，防止旧字符串残留。
+
+### master 与派生子集（2026-09-04 起）
+
+- 根目录 `paper.bib` 是 **master**：全仓唯一可手工编辑的 bib。JOSS 论文（`paper.md`）直接引用它；docstring、`sp.bibtex()`、MCP `bibtex` 工具也读它。
+- **各篇论文的 bib 一律是派生子集，禁止手改**。JSS 手稿的 `Paper-JSS/manuscript/jss-bib.bib` 由 `python tools/bib_subset.py extract --roots Paper-JSS/manuscript/main.tex --out Paper-JSS/manuscript/jss-bib.bib --keep ...` 从 master 抽取（`make -C Paper-JSS bib-split`）；手稿要引新文献，先按四要素核验加进 master，再重新抽取。`bib_subset.py check` 是漂移闸门（pre-push hook `bib-subset-jss`）。
+- **wheel 里带一份 master 副本** `src/statspai/paper.bib`，必须与根目录字节一致（`python tools/bib_subset.py packaged --sync` 同步；pre-commit hook `bib-packaged-sync` 和 citation-audit 的 Gate 1b 校验）。运行时通过 `statspai._bibpath.master_bib_path()` 解析：源码树优先，其次包内副本，两者都没有则抛 `FileNotFoundError`——**不再**回退到当前目录的 `paper.bib`。
+- 同一文献只能有一个 key。发现某篇论文用了不同 key 引同一文献，改论文的 key，不加重复条目（`audit_bib_duplicates.py --strict` 会挡）。
 
 ### 交付前自检
 

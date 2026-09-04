@@ -116,6 +116,29 @@ checkout silently rewrote. Details below.
 
 ### Changed
 
+- **Bibliography: one master, derived per-paper subsets, shipped in the wheel.**
+  The root `paper.bib` (now 689 entries) is the single verified source of
+  truth; per-paper bibliographies are extracted from it by the new
+  `tools/bib_subset.py` (`extract` / `check` / `packaged`) instead of being
+  hand-curated. The JSS manuscript's `jss-bib.bib` is now such a derived
+  file: its 16 references that were absent from the master were re-verified
+  (Crossref, doi.org, jstatsoft.org, the arXiv API, proceedings.neurips.cc)
+  and promoted, and five keys that duplicated existing master entries were
+  re-keyed in the manuscript (`athey2019grf` → `athey2019generalized`,
+  `liu2024fect` → `liu2024practical`, `bach2024doublemlr` → `bach2024doubleml`,
+  `kaul2015synthetic` → `kaul2022standard`, `lundberg2020closing` →
+  `lundberg2024gap`). New gates: pre-commit `bib-packaged-sync`, pre-push
+  `bib-subset-jss`, citation-audit Gate 1b.
+- **`sp.bibtex()` now works on a pip install.** The wheel ships a
+  byte-identical copy of the master at `statspai/paper.bib` (package data +
+  `MANIFEST.in`), and both runtime readers (`sp.bibtex` / the MCP `bibtex`
+  tool, and `sp.recommend_benchmark`'s §10 cross-check) resolve it through
+  `statspai._bibpath.master_bib_path()`. Previously the wheel carried no
+  bibliography, so installed users silently received an empty index.
+  ⚠️ Behaviour change: the resolver no longer falls back to `./paper.bib`
+  in the current working directory, and raises `FileNotFoundError` instead
+  of returning an empty index when no bibliography can be found.
+
 - **The JOSS paper is published** — Wang & Rozelle (2026), *Journal of Open
   Source Software* 11(125), 10604, <https://doi.org/10.21105/joss.10604>
   (review: openjournals/joss-reviews#10604). `sp.citation()` now returns the

@@ -1,0 +1,322 @@
+"""Tests for ``tools/bib_subset.py`` and ``statspai._bibpath``.
+
+CLAUDE.md §10: the root ``paper.bib`` is the single verified source of
+truth; per-paper ``.bib`` files are derived subsets, and the wheel ships a
+byte-identical copy so ``sp.bibtex()`` resolves on a pip install. These
+tests pin (a) the parser / citation extraction the derivation relies on,
+(b) the drift ``check`` that gates CI, and (c) the packaged-copy contract.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import sys
+from pathlib import Path
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+TOOL = REPO_ROOT / "tools" / "bib_subset.py"
+
+
+def _load_tool():
+    spec = importlib.util.spec_from_file_location("bib_subset", TOOL)
+    mod = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(mod)
+    return mod
+
+
+bib_subset = _load_tool()
+
+MASTER = """\
+% a comment line; the next token must not be parsed as an entry: @article{ghost,
+@article{alpha2020one,
+  title={One {Nested} Title},
+  author={Alpha, A.},
+  year={2020}
+}
+
+@misc{beta2021two,
+  title={Two},
+  author={Beta, B.},
+  year={2021},
+  note={braces {inside {nested}} ok}
+}
+
+@string{jss = "Journal of Statistical Software"}
+
+@inproceedings{gamma2022three,
+  title={Three},
+  author={Gamma, C.},
+  year={2022}
+}
+"""
+
+
+# ---------------------------------------------------------------------------
+# parser
+# ---------------------------------------------------------------------------
+def test_parse_bib_returns_keys_in_order_and_skips_non_entries():
+    entries = bib_subset.parse_bib(MASTER)
+    assert list(entries) == ["alpha2020one", "beta2021two", "gamma2022three"]
+    assert entries["beta2021two"].startswith("@misc{beta2021two,")
+    assert entries["beta2021two"].endswith("}")
+    assert "ghost" not in entries  # commented-out "@" is not an entry
+
+
+def test_parse_bib_rejects_duplicate_keys():
+    with pytest.raises(ValueError, match="duplicate key"):
+        bib_subset.parse_bib(MASTER + "\n@misc{alpha2020one, title={dup}}\n")
+
+
+def test_parse_bib_agrees_with_runtime_parser_on_the_real_master():
+    """The tool and ``statspai.agent.workflow_tools`` must agree on keys."""
+    from statspai.agent.workflow_tools import _load_bibtex_index
+
+    tool_keys = set(bib_subset.parse_bib((REPO_ROOT / "paper.bib").read_text("utf-8")))
+    runtime_keys = set(_load_bibtex_index())
+    assert tool_keys == runtime_keys
+    assert len(tool_keys) > 600
+
+
+# ---------------------------------------------------------------------------
+# citation extraction
+# ---------------------------------------------------------------------------
+def test_tex_citations_follow_inputs_and_ignore_comments(tmp_path: Path):
+    (tmp_path / "sections").mkdir()
+    (tmp_path / "main.tex").write_text(
+        "\\citep{alpha2020one}\n"
+        "% \\cite{commented_out}\n"
+        "\\input{sections/one}\n"
+        "\\include{sections/two.tex}\n"
+        "text \\citet[see][p.~3]{beta2021two, gamma2022three} more\n"
+        "\\nocite{*}\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "sections" / "one.tex").write_text(
+        "\\citealp{from_one}", encoding="utf-8"
+    )
+    (tmp_path / "sections" / "two.tex").write_text(
+        "\\citeauthor*{from_two} 50\\% \\cite{after_escaped_percent}", encoding="utf-8"
+    )
+    keys = bib_subset.cited_keys([tmp_path / "main.tex"])
+    assert set(keys) == {
+        "alpha2020one",
+        "beta2021two",
+        "gamma2022three",
+        "from_one",
+        "from_two",
+        "after_escaped_percent",
+    }
+    assert "commented_out" not in keys
+
+
+def test_markdown_citations_do_not_match_email_addresses(tmp_path: Path):
+    md = tmp_path / "paper.md"
+    md.write_text(
+        "email: brycew6m@stanford.edu\n"
+        "As shown [@alpha2020one; @beta2021two] and by @gamma2022three, "
+        "also [-@alpha2020one].\n",
+        encoding="utf-8",
+    )
+    keys = bib_subset.cited_keys([md])
+    assert set(keys) == {"alpha2020one", "beta2021two", "gamma2022three"}
+    assert "stanford.edu" not in keys
+
+
+# ---------------------------------------------------------------------------
+# extract / check
+# ---------------------------------------------------------------------------
+def _fixture(tmp_path: Path):
+    master = tmp_path / "paper.bib"
+    master.write_text(MASTER, encoding="utf-8")
+    tex = tmp_path / "main.tex"
+    tex.write_text("\\cite{gamma2022three} \\citep{alpha2020one}", encoding="utf-8")
+    out = tmp_path / "sub" / "derived.bib"
+    return master, tex, out
+
+
+def test_extract_writes_sorted_subset_and_check_passes(tmp_path: Path, capsys):
+    master, tex, out = _fixture(tmp_path)
+    args = ["--master", str(master), "--roots", str(tex), "--out", str(out)]
+    assert bib_subset.main(["extract", *args]) == 0
+    text = out.read_text(encoding="utf-8")
+    assert text.startswith("%% AUTO-GENERATED by tools/bib_subset.py")
+    assert text.index("@article{alpha2020one") < text.index(
+        "@inproceedings{gamma2022three"
+    )
+    assert "beta2021two" not in text
+    assert bib_subset.main(["check", *args]) == 0
+    # deterministic: a second extract is a byte-for-byte no-op
+    assert bib_subset.main(["extract", *args]) == 0
+    assert out.read_text(encoding="utf-8") == text
+
+
+def test_keep_adds_uncited_keys(tmp_path: Path):
+    master, tex, out = _fixture(tmp_path)
+    args = [
+        "--master",
+        str(master),
+        "--roots",
+        str(tex),
+        "--out",
+        str(out),
+        "--keep",
+        "beta2021two",
+    ]
+    assert bib_subset.main(["extract", *args]) == 0
+    assert "@misc{beta2021two" in out.read_text(encoding="utf-8")
+
+
+def test_check_detects_stale_subset_and_master_edits(tmp_path: Path, capsys):
+    master, tex, out = _fixture(tmp_path)
+    args = ["--master", str(master), "--roots", str(tex), "--out", str(out)]
+    assert bib_subset.main(["extract", *args]) == 0
+    # a new citation in the manuscript -> subset stale
+    tex.write_text(tex.read_text("utf-8") + " \\cite{beta2021two}", encoding="utf-8")
+    assert bib_subset.main(["check", *args]) == 1
+    assert "beta2021two" in capsys.readouterr().out
+    assert bib_subset.main(["extract", *args]) == 0
+    # an edit to a master entry that is in the subset -> subset stale too
+    master.write_text(
+        MASTER.replace("author={Alpha, A.}", "author={Alpha, A. B.}"), encoding="utf-8"
+    )
+    assert bib_subset.main(["check", *args]) == 1
+    assert "entry text differs" in capsys.readouterr().out
+
+
+def test_cited_key_missing_from_master_fails_loudly(tmp_path: Path, capsys):
+    master, tex, out = _fixture(tmp_path)
+    tex.write_text("\\cite{not_in_master}", encoding="utf-8")
+    args = ["--master", str(master), "--roots", str(tex), "--out", str(out)]
+    assert bib_subset.main(["extract", *args]) == 1
+    assert "not_in_master" in capsys.readouterr().out
+    assert not out.exists()  # never writes a subset with unresolved keys
+
+
+def test_skip_missing_root_exits_zero(tmp_path: Path, capsys):
+    master, _, out = _fixture(tmp_path)
+    args = [
+        "--master",
+        str(master),
+        "--roots",
+        str(tmp_path / "absent.tex"),
+        "--out",
+        str(out),
+    ]
+    assert bib_subset.main(["check", *args, "--skip-missing"]) == 0
+    assert "SKIP" in capsys.readouterr().out
+    with pytest.raises(SystemExit):
+        bib_subset.main(["check", *args])
+
+
+# ---------------------------------------------------------------------------
+# packaged copy contract
+# ---------------------------------------------------------------------------
+def test_packaged_bib_is_byte_identical_to_the_root_master():
+    """The wheel ships ``statspai/paper.bib``; it must never drift from the root."""
+    root = (REPO_ROOT / "paper.bib").read_bytes()
+    packaged = (REPO_ROOT / "src" / "statspai" / "paper.bib").read_bytes()
+    assert packaged == root, (
+        "src/statspai/paper.bib has drifted from the root paper.bib; run "
+        "`python tools/bib_subset.py packaged --sync`"
+    )
+    assert bib_subset.main(["packaged", "--check"]) == 0
+
+
+def test_packaged_check_detects_drift(tmp_path: Path, capsys):
+    root = tmp_path / "paper.bib"
+    pk = tmp_path / "pkg" / "paper.bib"
+    root.write_text(MASTER, encoding="utf-8")
+    assert (
+        bib_subset.main(
+            ["packaged", "--check", "--master", str(root), "--packaged", str(pk)]
+        )
+        == 1
+    )
+    assert (
+        bib_subset.main(
+            ["packaged", "--sync", "--master", str(root), "--packaged", str(pk)]
+        )
+        == 0
+    )
+    assert (
+        bib_subset.main(
+            ["packaged", "--check", "--master", str(root), "--packaged", str(pk)]
+        )
+        == 0
+    )
+    pk.write_text(MASTER + "\n@misc{extra2030x, title={x}}\n", encoding="utf-8")
+    assert (
+        bib_subset.main(
+            ["packaged", "--check", "--master", str(root), "--packaged", str(pk)]
+        )
+        == 1
+    )
+    assert "stale citations" in capsys.readouterr().out
+
+
+def test_pyproject_and_manifest_ship_the_bib():
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    manifest = (REPO_ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    section = pyproject.split("[tool.setuptools.package-data]", 1)[1]
+    section = section.split("\n[", 1)[0]  # up to the next TOML table header
+    assert '"paper.bib"' in section
+    assert "include src/statspai/paper.bib" in manifest
+
+
+# ---------------------------------------------------------------------------
+# runtime resolver
+# ---------------------------------------------------------------------------
+def test_master_bib_path_prefers_repo_root_under_a_source_checkout():
+    from statspai import _bibpath
+
+    assert _bibpath.master_bib_path() == REPO_ROOT / "paper.bib"
+
+
+def test_master_bib_path_falls_back_to_the_packaged_copy(monkeypatch, tmp_path: Path):
+    from statspai import _bibpath
+
+    fake_pkg = tmp_path / "site" / "statspai"
+    fake_pkg.mkdir(parents=True)
+    (fake_pkg / "paper.bib").write_text(MASTER, encoding="utf-8")
+    monkeypatch.setattr(_bibpath, "_PACKAGE_DIR", fake_pkg)
+    assert _bibpath.master_bib_path() == fake_pkg / "paper.bib"
+    assert "alpha2020one" in _bibpath.read_master_bib()
+
+
+def test_master_bib_path_raises_instead_of_returning_an_empty_bibliography(
+    monkeypatch, tmp_path: Path
+):
+    """No cwd fallback and no silent empty index (CLAUDE.md §3.7 'fail loud')."""
+    from statspai import _bibpath
+    from statspai.agent import workflow_tools
+
+    empty_pkg = tmp_path / "site" / "statspai"
+    empty_pkg.mkdir(parents=True)
+    (tmp_path / "paper.bib").write_text(
+        MASTER, encoding="utf-8"
+    )  # a user's own bib in cwd
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(_bibpath, "_PACKAGE_DIR", empty_pkg)
+    with pytest.raises(FileNotFoundError, match="paper.bib"):
+        _bibpath.master_bib_path()
+    monkeypatch.setattr(workflow_tools, "_BIBTEX_CACHE", None)
+    with pytest.raises(FileNotFoundError):
+        workflow_tools._load_bibtex_index()
+    assert _bibpath.master_bib_path_or_none() is None
+
+
+def test_sp_bibtex_resolves_the_synced_jss_entries():
+    """Entries promoted from the JSS manuscript resolve through the public API."""
+    import statspai as sp
+
+    entry = sp.bibtex("ho2011matchit")
+    assert "10.18637/jss.v042.i08" in entry
+    with pytest.raises(KeyError):
+        sp.bibtex("athey2019grf")  # retired duplicate key; use athey2019generalized
+
+
+if __name__ == "__main__":  # pragma: no cover
+    sys.exit(pytest.main([__file__, "-q"]))

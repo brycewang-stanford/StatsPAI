@@ -34,7 +34,7 @@ tests/r_parity/
 Historical verification worklog (not the current source-snapshot audit):
 [`PARITY_TEST_WORKLOG_2026-05-29.md`](PARITY_TEST_WORKLOG_2026-05-29.md).
 
-## Modules (72 materialized StatsPAI--R rows)
+## Modules (85 materialized StatsPAI--R rows; 79 carry a Stata artifact)
 
 Module `50_xtabond` is now materialized on the R side through
 `plm::pgmm`, so all modules 01--64 have committed StatsPAI--R rows.

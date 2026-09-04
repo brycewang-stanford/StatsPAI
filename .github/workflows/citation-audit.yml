@@ -126,6 +126,14 @@ jobs:
         # downstream checks.
         run: python tools/audit_bib_duplicates.py --strict
 
+      - name: Gate 1b — packaged paper.bib in sync with the root master
+        id: packaged_bib
+        # The wheel ships src/statspai/paper.bib (sp.bibtex() on a pip
+        # install reads it). A stale copy would ship citations that the
+        # root master has since corrected. Fix locally with
+        # `python tools/bib_subset.py packaged --sync`.
+        run: python tools/bib_subset.py packaged --check
+
       - name: Gate 2 — paper.bib coverage auditor (strict-dangling)
         id: coverage_audit
         # Stdlib only. Every ``[@bibkey]`` in src/ / docs/ / paper.md
