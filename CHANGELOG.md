@@ -2,7 +2,7 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.24.0] — 2026-09-05
 
 ### ⚠️ Correctness — standard-error conventions pinned to the reference implementations (JSS parity closure)
 
