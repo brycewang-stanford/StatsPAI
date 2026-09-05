@@ -838,11 +838,11 @@ def test_submission_package_verifier_pins_page_and_claim_guards() -> None:
 
     verifier_source = VERIFY_PACKAGE.read_text()
     for snippet in (
-        "JSS 30-page slow-review warning threshold",
+        "local conservative 35-page screening ceiling",
         "does not report the live main.pdf page count",
         "claim_lint.json validation-status tier counts do not sum to registry",
         "certified + validated does not equal",
-        "cover letter date does not match the source-snapshot audit date",
+        "cover letter lacks a complete 2026 submission date",
         "formal compliance audit did not inspect the final archive",
         "formal compliance install/import probe is not passing",
         "extracted archive pip install failed",
@@ -861,7 +861,6 @@ def test_submission_package_verifier_pins_page_and_claim_guards() -> None:
         "ACTIVE_COMPARATIVE_SCOPE_SNIPPETS",
         "active manuscript lacks reviewer-facing comparative scope evidence",
         "related-software table",
-        "StatsPAI advantages and disadvantages",
         "manifest JSS archive generated files do not match verifier allow-list",
         "manifest active external-review exclusions do not match verifier allow-list",
         "manifest active external-review exclusion reasons do not match verifier",
@@ -894,7 +893,7 @@ def test_submission_package_verifier_pins_page_and_claim_guards() -> None:
         "CITATION.cff lacks",
         "root and package CITATION.cff metadata differ",
         "CITATION.cff version does not match pyproject.toml",
-        "CITATION.cff includes active external-review preferred-citation metadata",
+        "CITATION.cff still carries review-stage placeholder wording",
         "pyproject.toml still declares an Alpha development classifier",
         "pyproject.toml does not declare the reviewer-facing Beta classifier",
         "scoped validation-tiered description",
@@ -1069,4 +1068,11 @@ def test_submission_package_verifier_pins_page_and_claim_guards() -> None:
         "Paper-JSS/parity/",
         "Paper-JSS/references/",
     ):
-        assert not any(name.startswith(forbidden_prefix) for name in names)
+        # parity/replacement-table.md is the one generated, drift-checked
+        # member the verifier admits from that directory (see
+        # verify_submission_package.py FORBIDDEN member patterns).
+        assert not any(
+            name.startswith(forbidden_prefix)
+            and name != "Paper-JSS/parity/replacement-table.md"
+            for name in names
+        )

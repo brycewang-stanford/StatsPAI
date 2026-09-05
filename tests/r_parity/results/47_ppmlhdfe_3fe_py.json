@@ -7,7 +7,7 @@
       "side": "py",
       "statistic": "beta_log_dist",
       "estimate": -0.807182046534623,
-      "se": 0.10988643065644557,
+      "se": 0.10977626879350844,
       "ci_lo": null,
       "ci_hi": null,
       "n": 500,
@@ -18,7 +18,29 @@
       "side": "py",
       "statistic": "beta_contig",
       "estimate": 0.44900644504179865,
-      "se": 0.11544448837369368,
+      "se": 0.1153287545216694,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    },
+    {
+      "module": "47_ppmlhdfe_3fe",
+      "side": "py",
+      "statistic": "beta_log_dist__fixestK",
+      "estimate": -0.807182046534623,
+      "se": 0.11192783915989953,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 500,
+      "extra": {}
+    },
+    {
+      "module": "47_ppmlhdfe_3fe",
+      "side": "py",
+      "statistic": "beta_contig__fixestK",
+      "estimate": 0.44900644504179865,
+      "se": 0.11758915135742239,
       "ci_lo": null,
       "ci_hi": null,
       "n": 500,
@@ -26,6 +48,7 @@
     }
   ],
   "extra": {
+    "ssc_rows": "beta_* = stata N/(N-1); beta_*__fixestK = fixest N/(N-K)",
     "fe": "origin + dest + year",
     "vcov": "HC1",
     "n_obs": 500

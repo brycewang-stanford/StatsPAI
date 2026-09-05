@@ -16,7 +16,7 @@
 
 | | |
 | --- | --- |
-| 版本 | `1.21.0`（见 [`pyproject.toml`](pyproject.toml)） |
+| 版本 | `1.24.0`（见 [`pyproject.toml`](pyproject.toml)） |
 | Python | 3.9 – 3.13 |
 | License | MIT |
 | 作者 | Biaoyue (Bryce) Wang · <brycew6m@stanford.edu> · CoPaper.AI / Stanford REAP |
@@ -118,13 +118,33 @@ python tests/stata_parity/verify_reproduce_stata.py   # Stata 侧 golden 重推�
 
 规则全文在 `tests/r_parity/compare.py` 顶部 docstring、[`docs/dev/r_parity_tolerances.md`](docs/dev/r_parity_tolerances.md)、[`docs/guides/stability.md`](docs/guides/stability.md)；这里只列硬约束。
 
-- **默认门槛**：同一份 CSV 字节、同一估计量，StatsPAI 与 R / Stata 参考的相对误差 **≤ 1e-6**（点估计与 SE 各自计）。这是 T2「同字节严格 parity」的定义，85 个 Track A 模块里绝大多数实际落在 1e-15 到 1e-9。
+- **默认门槛**：同一份 CSV 字节、同一估计量，StatsPAI 与 R / Stata 参考的相对误差 **≤ 1e-6**（点估计与 SE 各自计）。这是 T2「同字节严格 parity」的定义，87 个 Track A 模块里绝大多数实际落在 1e-15 到 1e-9。
 - **四个证据等级**：T1 已知真值回收（解析 DGP，无外部参考）；T2 严格跨语言 parity；T3 随机估计器在合并 Monte Carlo 误差内一致（forest / bootstrap）；T4 有记录的约定差异或参考实现之间自身分歧（如 Basque SCM，R `Synth` 与 Stata `synth` 自己就不一致）。**只有 T2 可以写成「对齐 R / Stata」**，T3 / T4 必须按原等级表述，不得记为 parity 胜利。
 - **放宽只有两种合法理由**：两边计算的是有文档的不同量（自由度除数、ssc 小样本簇修正、解析 SE 对影响函数 SE），或方法论上不可能确定性一致。「算法相同但对不上」不是理由，是 bug。
 - **放宽必须登记**：容差写入 `tests/r_parity/compare.py::TOLERANCES`（预注册预算，按模块一条）；≥ 5e-2 的条目在 `docs/dev/r_parity_tolerances.md` 打 A（机制明确）/ B（经验）/ C（未能解释）等级并写明机制；Stata 侧超预算的模块登记到 `compare.py::STATA_HEADLINE_GAP_EXCEPTIONS`；没有 Stata 参考的模块在 `STATA_SKIP_REASON` 写实测过的原因。**禁止**为了让某个测试通过而单独放宽一个模块。
 - **Stata 与 R 共用一个预算**，不为 Stata 另设更松的门槛。
+- **每一行 SE 都被闸门盯着**：`tests/test_parity_harness_contract.py::test_every_r_se_row_is_inside_budget` 对每个 PASS 模块的**所有** R 侧 SE 行按注册预算门控；Stata 侧超预算的 SE 行必须在 `compare.py::STATA_SE_GAP_NOTES` 登记机制（且要能从我们自己的量重建出对方的数字）。GitHub-only 的 Stata 参考（如 `fect_stata`）在 do 文件里 `net install` 到 `tests/stata_parity/_ado_fect/`（已 gitignore），不要装进用户的 PLUS。
 - **golden 文件不得手改**：`tests/r_parity/results/*_R.json` 与 `tests/stata_parity/results/*_Stata.json` 由 `tests/r_parity/TIER_A_FIXTURE_LOCK.json` 哈希锁定，只能通过 `verify_reproduce.py` / `verify_reproduce_stata.py` 实跑重生成；复现性容差为 **1e-9**，与 parity 容差无关，parity 容差从不豁免复现性漂移。
 - **新增 Track A 模块的完整清单**（缺任一项 `cd Paper-JSS && make audit` 会 FAIL）：`NN_<method>.py` + `.R`（有 Stata 参考再加 `tests/stata_parity/NN_<method>.do`）；CSV 入 `tests/r_parity/data/`；`TOLERANCES` 登记；两侧 reproducibility report 各补一行（`REPRODUCIBILITY_REPORT.md` / `REPRODUCIBILITY_REPORT_STATA.md`）；registry 证据备注指向模块；`python scripts/build_parity_index.py` 重生 `docs/parity.md`。2026-08 新增的 82 到 85 号模块正是漏了 Stata report 这一步，导致 JSS 审计整体变红。
+
+#### 对不上怎么办：决策树（按顺序走，不得跳步）
+
+StatsPAI 承诺的不是「和 Stata / R 数字一样」，而是**每一个数字要么对上参考实现，要么对上已知真值，要么带一份写清楚为什么对不上的说明**。「对不上又说不清」是唯一不被允许的状态。
+
+1. **先假定是我们错了。** 同一份 CSV 字节做二分：设计矩阵、权重、残差、meat 矩阵逐个对照，定位第一个分叉点。绝大多数「对不上」在这一步终结于修 bug，走 CHANGELOG / MIGRATION 的 ⚠️ correctness fix。CS-DiD 的 `weights=` 从未传进 staggered 分支、静默返回未加权估计量，就是靠 `did::att_gt(weightsname=)` 对照抓出来的，单元测试没抓到。
+2. **定位到了，是约定差异**（自由度除数、ssc 小样本簇修正、解析 SE 对影响函数 SE）。两边都对。处理：默认值跟随原方法作者的实现，能便宜暴露的加参数让用户切换，docstring 写明，`TOLERANCES` 登记为约定差异档并写出机制，差距大小必须被容差限住。
+3. **定位到了，是参考实现自身有问题或解不唯一。** 不复制别人的 bug。保留我们的实现，记 T4「参考分歧」，**必须附独立证据**证明我们是对的（第二个参考、解析恒等式、或唯一识别的 DGP，如 `52_scm_unique` 之于 `07_scm`；`74_cic` 的分位数 tie-break 亦属此类）。Stata 侧登记到 `STATA_HEADLINE_GAP_EXCEPTIONS`，理想上向上游报告。
+4. **方法论上不可能确定性一致**（forest 随机数、bootstrap、placebo）。走 T3：报合并 Monte Carlo 误差量级，不写成 parity。
+5. **定位不到。** 不允许称为 aligned / certified。`docs/dev/r_parity_tolerances.md` 打 C 级「未能解释」，论文里以 open item 出现，证据等级停在 `validated`（已知真值回收）或更低。Sun-Abraham 聚合方差与 `fixest` 差 0.7% 到 2.2% 曾经就是这么处理的：点估计对到 1.6e-9，方差钉住并标为未决，不把容差放宽到 3e-3 让它变绿。2026-09 回到第 1 步二分后发现是我们的 bug（设计矩阵含 9 个全零的幽灵 cohort×event 列、时间固定效应没按 nested 规则计入 K），修掉后与 Stata `eventstudyinteract` 对到 8e-12，与 `fixest` 只差有文档的 Prop. 3 份额方差项（`share_variance=False` 可复现 fixest 到 1e-9）——「未决」是诚实的中间状态，不是终点。
+
+任何一格里都禁止：为了变绿悄悄放宽容差、手改 golden JSON、删掉模块让问题消失。
+
+#### R 与 Stata 自己不一致时跟谁
+
+- **跟原方法作者维护的实现**，那个是 canonical reference；移植版是 bridge。CS-DiD 跟 R `did`（Callaway & Sant'Anna 自己写的），Stata `csdid` 是移植；HonestDiD 跟 Rambachan & Roth 的 R 包；DoubleML 跟 R / Python `DoubleML`，Stata `ddml` 是 bridge；`rdrobust` / `rddensity` 两边都是 Cattaneo 团队维护，两边都必须对。
+- 实践中 R 侧是主参考（`compare.py` 称 "canonical R reference"），Stata 侧是 "canonical or audited bridge"；两侧共用同一个 `TOLERANCES` 预算。
+- 两个参考彼此都超预算时（如 Basque SCM 的 R `Synth` 对 Stata `synth`），该行自动降为 T4，`methodological_gap_ledger` 会要求给出分类和晋升路径；不得挑对得上的那一边写成 T2。
+- 只有 Stata 实现、没有 R 实现的方法，Stata 就是 canonical；只有一侧实现的模块在 `STATA_SKIP_REASON` 写实测理由（`ssc describe` 返回码、目标估计量不同等），不得写「未安装」这类未经核实的理由（2026-08-06 曾因此错过 5 个可对的模块）。
 
 ---
 
@@ -253,8 +273,9 @@ PYTHONPATH="$(pwd)/src" python3 scripts/dump_schemas.py
 ### master 与派生子集（2026-09-04 起）
 
 - 根目录 `paper.bib` 是 **master**：全仓唯一可手工编辑的 bib。JOSS 论文（`paper.md`）直接引用它；docstring、`sp.bibtex()`、MCP `bibtex` 工具也读它。
-- **各篇论文的 bib 一律是派生子集，禁止手改**。JSS 手稿的 `Paper-JSS/manuscript/jss-bib.bib` 由 `python tools/bib_subset.py extract --roots Paper-JSS/manuscript/main.tex --out Paper-JSS/manuscript/jss-bib.bib --keep ...` 从 master 抽取（`make -C Paper-JSS bib-split`）；手稿要引新文献，先按四要素核验加进 master，再重新抽取。`bib_subset.py check` 是漂移闸门（pre-push hook `bib-subset-jss`）。
+- **各篇论文的 bib 一律是派生子集，禁止手改**。JSS 手稿的 `Paper-JSS/manuscript/jss-bib.bib` 由 `python tools/bib_subset.py extract --roots Paper-JSS/manuscript/main.tex --out Paper-JSS/manuscript/jss-bib.bib --keep ...` 从 master 抽取（`make -C Paper-JSS bib-split`）；手稿要引新文献，先按四要素核验加进 master，再重新抽取。长版章节独占的引用走第二个派生文件 `jss-bib-archival.bib`（`--roots main.tex sections/*.tex --minus jss-bib.bib`）。`bib_subset.py check` 是漂移闸门（pre-push hook `bib-subset-jss` / `bib-subset-jss-archival`）。
 - **wheel 里带一份 master 副本** `src/statspai/paper.bib`，必须与根目录字节一致（`python tools/bib_subset.py packaged --sync` 同步；pre-commit hook `bib-packaged-sync` 和 citation-audit 的 Gate 1b 校验）。运行时通过 `statspai._bibpath.master_bib_path()` 解析：源码树优先，其次包内副本，两者都没有则抛 `FileNotFoundError`——**不再**回退到当前目录的 `paper.bib`。
+- **条目必须 BibTeX 安全**：字段内**禁止原始非 ASCII 字符**（`Ørregaard` 要写 `{\O}rregaard`，`é` 写 `{\'e}`，破折号写 `--`，`R²` 写 `$R^2$`），否则 BibTeX 做姓名缩写会切断多字节序列，PDF 里出现乱码。**核验记录写在 `annote`**（所有 .bst 样式都忽略它），`note` 只放读者可见的短句（如 "arXiv preprint, first posted 2025-06-21"），因为 `note` 会被打印进参考文献，而且里面的 `_` `&` `%` 会直接让 LaTeX 报错。`tests/test_bib_subset.py` 有守卫测试。
 - 同一文献只能有一个 key。发现某篇论文用了不同 key 引同一文献，改论文的 key，不加重复条目（`audit_bib_duplicates.py --strict` 会挡）。
 
 ### 交付前自检

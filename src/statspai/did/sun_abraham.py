@@ -51,6 +51,7 @@ from scipy import stats
 
 from ..core.results import CausalResult
 from ._core import drop_unusable_rows as _drop_unusable_rows
+from ._core import fe_dof_not_nested as _fe_dof_not_nested
 
 # ======================================================================
 # Public API
@@ -231,6 +232,7 @@ def sun_abraham(
     weights: Optional[str] = None,
     cluster: Optional[str] = None,
     aggregation: str = "event_time",
+    share_variance: bool = True,
     alpha: float = 0.05,
     pretest: str = "joint",
     pretest_periods: Optional[int] = None,
@@ -288,6 +290,23 @@ def sun_abraham(
         cohort-time cell by its treated cohort size, matching
         ``fixest::summary(..., agg='att')`` and Stata/R default ATT
         parity on balanced staggered panels.
+    share_variance : bool, default True
+        Whether Var(δ̂_ℓ) carries the cohort-share estimation term
+        ``β' Var(ŵ) β`` of Sun & Abraham (2021, Prop. 3). ``True`` is the
+        authors' own Stata ``eventstudyinteract`` convention and is what
+        the Stata parity module pins at machine precision. ``False``
+        treats the interaction weights as fixed, which is what
+        ``fixest::sunab`` does; the two coincide wherever a single cohort
+        is eligible at a relative time and differ by the (positive
+        semi-definite) share term wherever several are. Point estimates
+        do not depend on this switch.
+
+        Degrees of freedom follow the ``fixest`` / ``reghdfe`` "nested"
+        rule on both settings: the small-sample factor is
+        ``(N-1)/(N-K) * G/(G-1)`` with ``K`` counting the estimated
+        cohort-by-relative-time cells, the covariates, and the levels of
+        every fixed effect that is *not* nested in the cluster variable
+        (with the default ``cluster=i`` that is the time effects only).
     alpha : float, default 0.05
         Significance level.
     pretest : {'joint', 'none'}, default 'joint'
@@ -450,7 +469,16 @@ def sun_abraham(
     for g_val in cohorts:
         in_cohort = (df[g] == g_val).values
         for e in rel_times:
-            X_cols.append((in_cohort & (df["_rel_time"].values == e)).astype(float))
+            col = (in_cohort & (df["_rel_time"].values == e)).astype(float)
+            # Only cells that exist in the data are parameters. A cohort
+            # first treated late has no observations at the most negative
+            # relative times (and vice versa); an all-zero column is not an
+            # estimated coefficient, and counting it in K would inflate the
+            # small-sample degrees-of-freedom factor relative to fixest and
+            # reghdfe, which only ever see the observed cells.
+            if not col.any():
+                continue
+            X_cols.append(col)
             interact_meta.append((g_val, e))
 
     X_int = np.column_stack(X_cols)
@@ -514,7 +542,16 @@ def sun_abraham(
         Xu_sum += np.outer(s, s)
     n_clust = clusters.nunique()
     n, k = X_v.shape
-    df_adj = (n_clust / max(n_clust - 1, 1)) * ((n - 1) / max(n - k, 1))
+    # Small-sample factor: fixest / reghdfe "nested" convention. K counts
+    # the slope parameters plus the levels of every fixed effect that is
+    # not nested inside the cluster variable; a fixed effect nested in the
+    # cluster (unit FE under cluster=unit) contributes nothing, because
+    # the cluster-robust meat already absorbs it. With several non-nested
+    # fixed effects, one level per additional effect is collinear and is
+    # not counted (fixest's "levels minus (Q - 1)" rule).
+    k_fe = _fe_dof_not_nested(df.loc[valid], [i, t], cluster_col)
+    K = k + k_fe
+    df_adj = (n_clust / max(n_clust - 1, 1)) * ((n - 1) / max(n - K, 1))
     V_beta = df_adj * XtX_inv @ Xu_sum @ XtX_inv
 
     # Slice to interaction block (drop covariate rows/cols for IW weights).
@@ -583,7 +620,11 @@ def sun_abraham(
             [beta_int[interact_meta.index((g_val, e))] for g_val in eligible],
             dtype=float,
         )
-        var_share = _cohort_share_vcov(shares, n_obs_at_rel.get(e, 0))
+        var_share = (
+            _cohort_share_vcov(shares, n_obs_at_rel.get(e, 0))
+            if share_variance
+            else np.zeros((len(eligible), len(eligible)))
+        )
         var_e = float(w @ V_int @ w) + float(beta_e @ var_share @ beta_e)
         se_e = float(np.sqrt(max(var_e, 0.0)))
         pval = float(2 * (1 - stats.norm.cdf(abs(est_e / se_e)))) if se_e > 0 else 1.0
@@ -693,6 +734,10 @@ def sun_abraham(
         "se_type": f"cluster-robust on {cluster_col}",
         "n_clusters": int(n_clust),
         "n_coeffs": int(k_int),
+        "share_variance": bool(share_variance),
+        "dof_K": int(K),
+        "dof_fe_not_nested": int(k_fe),
+        "dof_convention": "fixest/reghdfe nested: (N-1)/(N-K) * G/(G-1)",
     }
 
     _result = CausalResult(
@@ -724,6 +769,7 @@ def sun_abraham(
                 "covariates": list(covariates) if covariates else None,
                 "cluster": cluster,
                 "aggregation": aggregation,
+                "share_variance": share_variance,
                 "alpha": alpha,
             },
             data=data,

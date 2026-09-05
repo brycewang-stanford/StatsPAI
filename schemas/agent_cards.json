@@ -18540,6 +18540,11 @@
             "description": "Restrict the pre-trend test to the k estimated leads closest to treatment.",
             "type": "integer"
           },
+          "share_variance": {
+            "default": true,
+            "description": "Carry the cohort-share estimation term of Sun & Abraham (2021, Prop. 3) in the event-study variance (True: Stata eventstudyinteract convention) or treat the interaction weights as fixed (False: fixest::sunab convention). The two coincide at single-cohort relative times; point estimates are unaffected.",
+            "type": "boolean"
+          },
           "t": {
             "description": "Time period column",
             "type": "string"
@@ -18569,6 +18574,168 @@
       "Track A parity seed",
       "R parity module 05_sunab",
       "Stata parity module 05_sunab"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alternatives": [
+      "did_imputation",
+      "gsynth",
+      "mc_synth",
+      "callaway_santanna",
+      "sun_abraham"
+    ],
+    "assumptions": [
+      "Y(0) follows the chosen model (two-way FE / low-rank factors / low nuclear norm) on untreated cells",
+      "No anticipation and no carryover after treatment ends",
+      "Strict exogeneity of treatment status conditional on the fixed effects / factors",
+      "SUTVA"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Counterfactual estimators for time-series cross-sectional data (Liu, Wang and Xu 2024): impute the untreated potential outcome of every treated unit-period from a model fitted on untreated cells only -- two-way fixed effects ('fe', the imputation estimator), interactive fixed effects with r factors ('ife'), or nuclear-norm matrix completion ('mc') -- and average Y - Y(0) over treated cells, with the ATT path by relative period. Native port of the R package fect; handles staggered adoption, many treated units, unbalanced panels and treatment reversals. Validation: certified evidence with scoped limitations. Known limitations: Inference is resampling-only (unit bootstrap or jackknife on request); the default returns point estimates only; r and lam are user-supplied; fect's cross-validated choice of r / lambda is not yet supported.",
+    "example": "sp.fect(df, y=\"y\", treat=\"d\", unit=\"id\", time=\"t\", method=\"ife\", r=2, vce=\"bootstrap\", seed=0)",
+    "failure_modes": [
+      {
+        "alternative": "did_imputation",
+        "exception": "DataInsufficient",
+        "remedy": "Lower min_t0 or use method='fe', which needs a single untreated period per unit.",
+        "symptom": "All treated units dropped for having fewer than min_t0 untreated periods"
+      },
+      {
+        "alternative": "honest_did",
+        "exception": null,
+        "remedy": "Increase r (ife) or lower lam (mc); run the placebo / equivalence checks before trusting the ATT.",
+        "symptom": "Pre-treatment ATT path far from zero (large pre_treatment_rmse)"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [
+      "Inference is resampling-only (unit bootstrap or jackknife on request); the default returns point estimates only.",
+      "r and lam are user-supplied; fect's cross-validated choice of r / lambda is not yet supported."
+    ],
+    "name": "fect",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "long panel with unit x time x outcome and a 0/1 treatment status",
+      "every retained unit has at least min_t0 untreated periods",
+      "at least one never-treated or not-yet-treated cell in every period used for imputation"
+    ],
+    "reference": "Liu, Wang & Xu (2024) AJPS [@liu2024practical]; Xu (2017) [@xu2017generalized]; Athey et al. (2021) [@athey2021matrix]",
+    "signature": {
+      "description": "Counterfactual estimators for time-series cross-sectional data (Liu, Wang and Xu 2024): impute the untreated potential outcome of every treated unit-period from a model fitted on untreated cells only -- two-way fixed effects ('fe', the imputation estimator), interactive fixed effects with r factors ('ife'), or nuclear-norm matrix completion ('mc') -- and average Y - Y(0) over treated cells, with the ATT path by relative period. Native port of the R package fect; handles staggered adoption, many treated units, unbalanced panels and treatment reversals. Validation: certified evidence with scoped limitations. Known limitations: Inference is resampling-only (unit bootstrap or jackknife on request); the default returns point estimates only; r and lam are user-supplied; fect's cross-validated choice of r / lambda is not yet supported.",
+      "name": "fect",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "covariates": {
+            "description": "Time-varying covariates entering the Y(0) model linearly",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "force": {
+            "default": "two-way",
+            "description": "Additive fixed effects in the Y(0) model.",
+            "enum": [
+              "none",
+              "unit",
+              "time",
+              "two-way"
+            ],
+            "type": "string"
+          },
+          "lam": {
+            "description": "Nuclear-norm penalty on fect's raw scale (method='mc'); the result records lambda_norm = lam / largest singular value.",
+            "type": "number"
+          },
+          "max_iter": {
+            "default": 1000,
+            "description": "Maximum EM iterations",
+            "type": "integer"
+          },
+          "method": {
+            "default": "fe",
+            "description": "Y(0) model: 'fe' two-way fixed effects, 'ife' interactive fixed effects with r factors, 'mc' matrix completion with penalty lam.",
+            "enum": [
+              "fe",
+              "ife",
+              "mc"
+            ],
+            "type": "string"
+          },
+          "min_t0": {
+            "description": "Drop units with fewer untreated periods (fect: 1 for 'fe', 5 otherwise)",
+            "type": "integer"
+          },
+          "n_boot": {
+            "default": 200,
+            "description": "Bootstrap replications",
+            "type": "integer"
+          },
+          "r": {
+            "default": 0,
+            "description": "Number of latent factors (method='ife')",
+            "type": "integer"
+          },
+          "seed": {
+            "description": "Bootstrap seed",
+            "type": "integer"
+          },
+          "time": {
+            "description": "Time period column",
+            "type": "string"
+          },
+          "tol": {
+            "default": 0.001,
+            "description": "EM relative convergence tolerance (fect default)",
+            "type": "number"
+          },
+          "treat": {
+            "description": "0/1 treatment status in each unit-period (1 = treated)",
+            "type": "string"
+          },
+          "unit": {
+            "description": "Unit identifier",
+            "type": "string"
+          },
+          "vce": {
+            "description": "Resampling standard errors over units; None reports point estimates only.",
+            "enum": [
+              "bootstrap",
+              "jackknife"
+            ],
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome column",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "treat",
+          "unit",
+          "time"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "R parity module 86_fect",
+      "Stata parity module 86_fect"
     ],
     "validation_status": "certified"
   },
@@ -30020,7 +30187,7 @@
           },
           "robust": {
             "default": "robust",
-            "description": "Default is robust SE (as in Stata's ppmlhdfe). Options: \"robust\"/\"hc0\", \"hc1\", \"nonrobust\".",
+            "description": "Default is robust SE (as in Stata's ppmlhdfe). Options: \"robust\"/\"hc1\" (sandwich with the ``ssc`` small-sample factor), \"hc0\" (sandwich, no factor), \"nonrobust\".",
             "type": "string"
           },
           "seed": {
@@ -30031,6 +30198,15 @@
             "default": true,
             "description": "If True, check for separation (perfect prediction of zeros) and warn. Observations causing separation are not dropped automatically.",
             "type": "boolean"
+          },
+          "ssc": {
+            "default": "stata",
+            "description": "Small-sample factor applied to the heteroskedasticity-robust sandwich. ``\"stata\"`` multiplies by ``N/(N-1)``, the Stata ``glm``/``ppmlhdfe vce(robust)`` convention (matches ``ppmlhdfe`` at machine precision). ``\"fixest\"`` multiplies by ``(N-1)/(N-K)`` with ``K`` counting the slopes plus the absorbed fixed-effect levels (minus one per additional fixed-effect dimension for collinearity), the ``fixest::fepois`` default ``ssc(adj = TRUE, fixef.K = \"full\")``. ``\"none\"`` applies no factor. The three differ by less than ``sqrt(N/(N-K))`` and are documented, not competing, conventions; point estimates are unaffected. Clustered variances keep the ``G/(G-1)`` factor.",
+            "enum": [
+              "stata",
+              "fixest"
+            ],
+            "type": "string"
           },
           "tol": {
             "default": 1e-08,

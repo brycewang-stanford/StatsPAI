@@ -102,10 +102,9 @@
     "stata_df_m": 8,
     "stata_df_a": 8,
     "stata_K": 17,
-    "statspai_K": 8,
-    "implied_var_ratio": 1.0056144728633809,
+    "statspai_K": 17,
     "method": "reghdfe",
-    "se_convention": "reghdfe counts absorbed time effects and the constant in the small-sample K; sp.event_study and fixest ssc(fixef.K=none) count only non-absorbed coefficients",
+    "se_convention": "reghdfe, fixest (default ssc) and sp.event_study all count the absorbed time effects (not nested in the unit cluster) in the small-sample K = 17",
     "stata_command": "reghdfe y d_m4 d_m3 d_m2 d_p0 d_p1 d_p2 d_p3 d_p4, absorb(unit time) vce(cluster unit)"
   },
   "provenance": {

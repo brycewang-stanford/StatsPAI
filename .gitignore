@@ -244,3 +244,6 @@ tests/*/results/_repro_*.log
 
 
 芷涵改进建议/
+
+# Local ado path for GitHub-only Stata bridges (installed at run time by the do-files)
+tests/stata_parity/_ado_fect/

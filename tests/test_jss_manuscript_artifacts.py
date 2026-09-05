@@ -47,7 +47,7 @@ def test_active_manuscript_artifacts_have_generators_and_hash_guards() -> None:
 
     assert payload["status"] == "PASS"
     assert len(payload["active_sections"]) == 9
-    assert payload["artifact_count"] == 8
+    assert payload["artifact_count"] == 9
     assert payload["hash_mismatches"] == 0
     compact_coverage = payload["compact_section_coverage"]
     assert compact_coverage["ok"] is True
@@ -71,6 +71,7 @@ def test_active_manuscript_artifacts_have_generators_and_hash_guards() -> None:
         "Paper-JSS/manuscript/tables/track_b_monte_carlo.tex",
         "Paper-JSS/manuscript/tables/track_c_perf.tex",
         "Paper-JSS/replication/tables/ex07_agent_trace.tex",
+        "Paper-JSS/replication/tables/ex08_three_way.tex",
         "Paper-JSS/manuscript/figures/ex02_basque_gap.pdf",
         "Paper-JSS/manuscript/figures/ex03_mpdta_event_study.pdf",
         "Paper-JSS/manuscript/figures/track_c_loglog.pdf",

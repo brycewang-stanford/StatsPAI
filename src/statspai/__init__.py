@@ -22,7 +22,7 @@ Unified API for causal inference and econometrics:
 >>> sp.outreg2(result, filename="results.xlsx")
 """
 
-__version__ = "1.23.0"
+__version__ = "1.24.0"
 __author__ = "Biaoyue Wang and Scott Rozelle"
 __email__ = "brycew6m@stanford.edu"
 
@@ -150,6 +150,7 @@ from .did import (
     honest_did,
     influence_functions,
     overlap_weighted_did,
+    panel_view,
     parallel_trends_plot,
     parallel_trends_robustness,
     pretrends_equivalence,
@@ -405,6 +406,7 @@ from .rd import (  # v1.15 polish
 # below), which dispatches ``method=``/2sls/liml/fuller/gmm/jive/kernel/...
 # Importing the function at the top level would shadow the subpackage and
 # break ``sp.iv("y ~ (d ~ z)", data=df)``.
+from .regression.interflex import interflex, interflex_plot
 from .regression.iv import IVRegression, ivreg
 from .regression.ols import regress
 from .synth import (
@@ -420,6 +422,7 @@ from .synth import (
     discos,
     discos_plot,
     discos_test,
+    fect,
     german_reunification,
     gsynth,
     mc_synth,
@@ -1133,6 +1136,8 @@ __all__ = [
     "AssumptionWarning",
     # Regression
     "regress",
+    "interflex",
+    "interflex_plot",
     "iv",
     "ivreg",
     "IVRegression",
@@ -1184,6 +1189,7 @@ __all__ = [
     "did_plot",
     "enhanced_event_study_plot",
     "treatment_rollout_plot",
+    "panel_view",
     "sensitivity_plot",
     "cohort_event_study_plot",
     "did_summary_plot",
@@ -1229,6 +1235,7 @@ __all__ = [
     "demeaned_synth",
     "robust_synth",
     "gsynth",
+    "fect",
     "staggered_synth",
     "conformal_synth",
     "sdid",

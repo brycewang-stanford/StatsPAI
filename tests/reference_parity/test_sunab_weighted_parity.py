@@ -9,15 +9,19 @@ under omega the fixed-effect projection has to be carried out in the
 weighted inner product, and a wrong weighted demeaning shows up
 immediately in the coefficients.
 
-It does **not** claim standard-error parity. StatsPAI and ``fixest``
-differ on the interaction-weighted aggregation variance, and the gap is
-present in the unweighted path too (it predates this work): the
-per-event-time SEs agree to ~0.7% unweighted and ~2.2% weighted, and the
-disagreement is smallest at event times served by a single cohort and
-largest where several cohorts are aggregated. That pattern points at the
-cohort-share covariance term rather than at a scalar degrees-of-freedom
-factor. The measured gaps are pinned below so the convention cannot
-drift unnoticed, but they are a documented open item, not a pass.
+It also claims **standard-error** parity under the fixest convention.
+``fixest::sunab`` treats the cohort shares as fixed when it aggregates
+cohort-by-relative-time coefficients; Sun & Abraham (2021, Prop. 3) and
+Stata ``eventstudyinteract`` add the share-estimation term
+``β' Var(ŵ) β``. StatsPAI's default ``share_variance=True`` follows the
+authors' implementation (pinned to Stata at 8e-12 by parity module 05);
+``share_variance=False`` reproduces ``fixest`` at machine level, weighted
+and unweighted, which is what is asserted here. Before 1.24.0 the
+degrees-of-freedom factor counted unobserved cohort-by-relative-time
+cells and omitted the non-nested time effects, which is why the two
+implementations appeared to differ by 0.7% (unweighted) to 2.2%
+(weighted) even at single-cohort relative times; both defects are fixed
+and the only remaining difference is the documented share term.
 
 Reference command::
 
@@ -68,9 +72,14 @@ _FIXEST = {
 # alternating-projection tolerance. Observed worst case 3e-8.
 _ATT_RTOL = 1e-6
 
-# Standard errors: documented convention gap, pinned at the measured
-# ceiling rather than asserted as parity. See the module docstring.
-_SE_RTOL = {False: 2e-2, True: 5e-2}
+# Standard errors under share_variance=False: same sandwich, same
+# nested-K small-sample factor, so agreement is again bounded by the
+# projection tolerance. Observed worst case 1.2e-9.
+_SE_RTOL = 1e-7
+# The default share_variance=True adds a positive semi-definite term at
+# multi-cohort relative times; on this fixture it is at most 0.76%
+# (unweighted) / 2.2% (weighted) of the SE.
+_SHARE_TERM_CEIL = {False: 1e-2, True: 2.5e-2}
 
 
 @pytest.fixture(scope="module")
@@ -99,18 +108,40 @@ def test_event_study_point_estimates_match_fixest(panel, weighted):
 
 
 @pytest.mark.parametrize("weighted", [False, True], ids=["unweighted", "omega"])
-def test_event_study_standard_errors_stay_within_the_known_gap(panel, weighted):
-    """Pin the documented SE convention gap so it cannot widen silently."""
+def test_event_study_standard_errors_match_fixest_under_fixed_shares(panel, weighted):
+    """share_variance=False reproduces fixest's SEs at machine level."""
     r = sp.sun_abraham(
-        panel, y="y", g="g", t="t", i="i", weights="w" if weighted else None
+        panel,
+        y="y",
+        g="g",
+        t="t",
+        i="i",
+        weights="w" if weighted else None,
+        share_variance=False,
     )
     got = _event_study(r)
     for e, (_, ref_se) in _FIXEST[weighted].items():
-        rel = abs(got[e][1] - ref_se) / ref_se
-        assert rel <= _SE_RTOL[weighted], (
-            f"e={e}: SE gap {rel:.3e} exceeds the pinned convention "
-            f"ceiling {_SE_RTOL[weighted]}"
-        )
+        assert got[e][1] == pytest.approx(
+            ref_se, rel=_SE_RTOL
+        ), f"e={e}: fixed-share SE {got[e][1]:.10f} vs fixest {ref_se:.10f}"
+
+
+@pytest.mark.parametrize("weighted", [False, True], ids=["unweighted", "omega"])
+def test_default_share_term_is_positive_and_bounded(panel, weighted):
+    """The Prop. 3 share term only ever adds variance, and stays small."""
+    r = sp.sun_abraham(
+        panel, y="y", g="g", t="t", i="i", weights="w" if weighted else None
+    )
+    es = r.detail
+    for _, row in es.iterrows():
+        e = int(row["relative_time"])
+        ref_se = _FIXEST[weighted][e][1]
+        if int(row["n_cohorts"]) == 1:
+            assert row["se"] == pytest.approx(ref_se, rel=_SE_RTOL), f"e={e}"
+        else:
+            assert (
+                ref_se < row["se"] <= ref_se * (1 + _SHARE_TERM_CEIL[weighted])
+            ), f"e={e}: default SE {row['se']:.10f} vs fixest {ref_se:.10f}"
 
 
 def test_weighting_moves_the_estimates(panel):

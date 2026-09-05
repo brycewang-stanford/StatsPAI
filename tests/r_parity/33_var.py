@@ -3,8 +3,15 @@
 Generates a deterministic 2-variable VAR(2) and runs sp.var. The
 companion 33_var.R uses vars::VAR.
 
-Tolerance: rel < 1e-3 on the coefficient matrix entries (closed-
-form OLS-by-equation; both implementations compute the same thing).
+Rows: eq_<eq>__<term> use sp.var(..., se_df="stata") (conditional-MLE
+denominator T, Stata `var`); eq_<eq>__<term>__Tk use se_df="r" (the
+equation-by-equation lm() denominator T-k inside R vars::VAR). Each
+reference side emits only the rows in its own convention, so every
+compared SE is a like-for-like machine-level row and the sqrt(T/(T-k))
+convention difference is demonstrated by the two Python rows rather than
+absorbed into a tolerance.
+
+Tolerance: rel_est 1e-6 and rel_se 1e-6 (closed-form OLS-by-equation).
 """
 from __future__ import annotations
 
@@ -34,17 +41,19 @@ def main() -> None:
     dump_csv(df, MODULE)
 
     fit = sp.var(data=df, variables=["y1", "y2"], lags=LAGS, se_df="stata")
+    fit_r = sp.var(data=df, variables=["y1", "y2"], lags=LAGS, se_df="r")
 
     rows: list[ParityRecord] = []
-    for eq in ["y1", "y2"]:
-        coefs = fit.coefs[eq]
-        for term in coefs.index:
-            beta = float(coefs.loc[term, "coef"])
-            se = float(coefs.loc[term, "se"])
-            rows.append(ParityRecord(
-                module=MODULE, side="py",
-                statistic=f"eq_{eq}__{term}",
-                estimate=beta, se=se, n=int(fit.n_obs)))
+    for label, model in (("", fit), ("__Tk", fit_r)):
+        for eq in ["y1", "y2"]:
+            coefs = model.coefs[eq]
+            for term in coefs.index:
+                beta = float(coefs.loc[term, "coef"])
+                se = float(coefs.loc[term, "se"])
+                rows.append(ParityRecord(
+                    module=MODULE, side="py",
+                    statistic=f"eq_{eq}__{term}{label}",
+                    estimate=beta, se=se, n=int(model.n_obs)))
 
     rows.append(ParityRecord(
         module=MODULE, side="py", statistic="logLik",
@@ -56,11 +65,12 @@ def main() -> None:
                       "n_obs": int(fit.n_obs),
                       "se_df": "stata",
                       "se_note": (
-                          "Default coefficient SEs use Stata var's "
-                          "conditional-MLE denominator T. Use "
-                          "sp.var(..., se_df='r') to reproduce the "
-                          "equation-by-equation lm() denominator T-k used "
-                          "inside R vars::VAR()."
+                          "eq_* rows: se_df='stata' (conditional-MLE "
+                          "denominator T, matches Stata var). eq_*__Tk rows: "
+                          "se_df='r' (equation-by-equation lm() denominator "
+                          "T-k, matches R vars::VAR). Point estimates are "
+                          "identical across the two; the SE ratio is exactly "
+                          "sqrt(T/(T-k)) = sqrt(198/193)."
                       ),
                   })
 

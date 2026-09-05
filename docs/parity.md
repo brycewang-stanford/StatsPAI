@@ -25,15 +25,15 @@ sp.parity_summary()           # honest coverage counts
 
 | status | functions |
 | --- | ---: |
-| bit-exact | 149 |
+| bit-exact | 151 |
 | aligned | 16 |
 | analytical-only | 227 |
 | external-replication | 5 |
-| **verified (subtotal)** | **397** |
-| unverified | 781 |
-| **total registered** | **1178** |
+| **verified (subtotal)** | **399** |
+| unverified | 783 |
+| **total registered** | **1182** |
 
-## bit-exact — 149 functions
+## bit-exact — 151 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -82,6 +82,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `evalue` | EValue::evalues.RR | R 4.2.3; EValue 4.1.4 | rel_est<=1e-06, rel_se<=1e-06 | 5.8e-14 / 1.2e-16 | [`23_evalue.py`](../tests/r_parity/23_evalue.py) (+2) |
 | `evalue_rr` | VanderWeele-Ding closed form (= R EValue package) | R 4.5.2 | point + CI E-value 1e-12 abs (observed 0) | — / — | [`test_evalue_rr_parity.py`](../tests/reference_parity/test_evalue_rr_parity.py) |
 | `event_study` | fixest::feols(y ~ i(rel, treat, ref=-1) | R 4.5.2; fixest 0.14.0 | rel_est<=1e-09, rel_se<=1e-09 | 3.2e-13 / 1.5e-14 | [`85_twfe_event_study.py`](../tests/r_parity/85_twfe_event_study.py) (+2) |
+| `fect` | fect::fect(Y ~ D + X1 + X2, method=, force="two-way", se=FALSE, CV=FALSE, tol=1e-12, max.iteration=20000); Stata side uses the authors' fect_stata (GitHub, installed into a local ado path) | R 4.5.2; fect 2.4.1 | rel_est<=1e-06, rel_se<=1e-06 | 1.8e-13 / 9.8e-10 | [`86_fect.py`](../tests/r_parity/86_fect.py) (+2) |
 | `feglm` | fixest::feglm (family="logit") / fixest::fepois | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=5e-05 | 9.7e-09 / 1.8e-09 | [`67_panel_glm.py`](../tests/r_parity/67_panel_glm.py) (+2) |
 | `feols` | fixest::feols | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=1e-06 | 5.2e-15 / 2.9e-15 | [`03_hdfe.py`](../tests/r_parity/03_hdfe.py) (+2) |
 | `fepois` | fixest::feglm (family="logit") / fixest::fepois | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=5e-05 | 9.7e-09 / 1.8e-09 | [`67_panel_glm.py`](../tests/r_parity/67_panel_glm.py) (+2) |
@@ -101,6 +102,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `incidence_rate_ratio` | base-R closed form (rate ratio + conditional-binomial exact CI) | R 4.5.2 | estimate 1e-12; exact CI 1e-10 abs (observed ~3e-15) | — / — | [`test_epi_parity.py`](../tests/reference_parity/test_epi_parity.py) (+1) |
 | `indirect_standardize` | base closed form (SMR / indirect std.; = Stata istdize) | R 4.5.2 | expected + SMR 1e-12 abs (observed 0) | — / — | [`test_standardize_parity.py`](../tests/reference_parity/test_standardize_parity.py) |
 | `inequality_index` | base-R closed form (Gini/Theil-T/Theil-L/Atkinson; = ineq) | R 4.5.2 | all indices 1e-12 abs (observed ~2e-16) | — / — | [`test_inequality_parity.py`](../tests/reference_parity/test_inequality_parity.py) (+1) |
+| `interflex` | interflex::interflex(vartype="delta", vcov.type="robust", neval=5, nbins=3, bw=1); Stata side uses the SSC interflex command | R 4.5.2 | rel_est<=1e-06, rel_se<=1e-06 | 4.0e-15 / 1.5e-14 | [`87_interflex.py`](../tests/r_parity/87_interflex.py) (+2) |
 | `ipw` | base R stats::glm(binomial) + hand-rolled Hajek weighted means | — | Hajek ATE/ATT estimate 1e-9 (observed <= 2e-15; SE not pinned) | — / — | [`test_ipw_parity.py`](../tests/reference_parity/test_ipw_parity.py) (+1) |
 | `ivreg` | AER::ivreg | R 4.5.2; AER 1.2.16 | rel_est<=1e-06, rel_se<=1e-06 | 1.1e-11 / 1.1e-11 | [`02_iv.py`](../tests/r_parity/02_iv.py) (+2) |
 | `kaplan_meier` | survival::survfit | R 4.5.2; survival 3.8.3 | S(t) at every event time 1e-12 (observed ~3e-17); median exact | — / — | [`test_survival_km_parity.py`](../tests/reference_parity/test_survival_km_parity.py) (+1) |
@@ -122,7 +124,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `mediate_interventional` | interventional effects telescoping identity (VanderWeele Vansteelandt Robins 2014) | R 4.5.2 | total = IIE + IDE 1e-12 abs (observed 0) | — / — | [`test_mediate_interventional_parity.py`](../tests/reference_parity/test_mediate_interventional_parity.py) |
 | `mediation` | mediation::mediate | R 4.5.2; mediation 4.5.1 | rel_est<=1e-06, rel_se<=0.1 | 6.7e-15 / 3.6e-15 | [`36_mediation.py`](../tests/r_parity/36_mediation.py) (+2) |
 | `mediation_decompose` | natural-effects mediation (Pearl 2001; VanderWeele 2015) | R 4.5.2 | total = NDE + NIE 1e-12 abs (observed 0) | — / — | [`test_mediation_decompose_parity.py`](../tests/reference_parity/test_mediation_decompose_parity.py) |
-| `melogit` | lme4::glmer(nAGQ=8) | R 4.5.2; lme4 2.0.1 | rel_est<=1e-06, rel_se<=0.05 | 2.4e-07 / 8.4e-07 | [`27_glmm_aghq.py`](../tests/r_parity/27_glmm_aghq.py) (+2) |
+| `melogit` | lme4::glmer(nAGQ=8) | R 4.5.2; lme4 2.0.1 | rel_est<=1e-06, rel_se<=2e-05 | 2.4e-07 / 8.4e-07 | [`27_glmm_aghq.py`](../tests/r_parity/27_glmm_aghq.py) (+2) |
 | `metalearner` | econml.metalearners SLearner / TLearner / XLearner | — | S / T / X conditional-average-treatment-effect vectors match econml elementwise to 1e-12 absolute (observed <= 1.1e-15) when both fitting stages use the same base learner | — / — | [`test_metalearner_econml_parity.py`](../tests/external_parity/test_metalearner_econml_parity.py) |
 | `mixed` | lme4::lmer | R 4.5.2; lme4 2.0.1 | rel_est<=1e-06, rel_se<=1e-06 | 1.3e-10 / 4.9e-11 | [`25_lmm.py`](../tests/r_parity/25_lmm.py) (+2) |
 | `mlogit` | nnet::multinom | R 4.5.2; nnet 7.3.20 | rel_est<=1e-06, rel_se<=5e-05 | 2.6e-07 / 7.4e-09 | [`44_mlogit.py`](../tests/r_parity/44_mlogit.py) (+2) |
@@ -146,7 +148,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `power_logrank` | base-R closed form (Schoenfeld log-rank power) | R 4.5.2 | power 1e-12 abs (observed ~2e-16) | — / — | [`test_power_parity.py`](../tests/reference_parity/test_power_parity.py) (+1) |
 | `power_rct` | base-R closed form (two-sample pooled-sigma z-approx power) | R 4.5.2 | power 1e-12 abs (observed ~2e-16) | — / — | [`test_power_parity.py`](../tests/reference_parity/test_power_parity.py) (+1) |
 | `power_two_proportions` | base-R closed form (unpooled Wald two-proportion z-approx) | R 4.5.2 | power 1e-12 abs (observed ~2e-16) | — / — | [`test_power_parity.py`](../tests/reference_parity/test_power_parity.py) (+1) |
-| `ppmlhdfe` | fixest::fepois | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=0.01 | 4.9e-13 / 2.2e-15 | [`37_ppmlhdfe.py`](../tests/r_parity/37_ppmlhdfe.py) (+2) |
+| `ppmlhdfe` | fixest::fepois | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=2e-06 | 4.9e-13 / 2.2e-15 | [`37_ppmlhdfe.py`](../tests/r_parity/37_ppmlhdfe.py) (+2) |
 | `prevalence_ratio` | base-R closed form (Katz-log; = epiR::epi.2by2) | R 4.5.2 | estimate, se_log, CI 1e-12 abs (observed ~2e-16) | — / — | [`test_epi_parity.py`](../tests/reference_parity/test_epi_parity.py) (+1) |
 | `probit` | stats::glm(family=binomial("probit")) | R 4.5.2; stats 4.5.2 | rel_est<=1e-06, rel_se<=0.01 | 3.1e-07 / 1.6e-08 | [`48_probit.py`](../tests/r_parity/48_probit.py) (+2) |
 | `psm` | MatchIt::matchit | R 4.5.2; MatchIt 4.7.2 | rel_est<=1e-06, rel_se<=1e-06 | 1.2e-15 / 2.0e-16 | [`11_psm.py`](../tests/r_parity/11_psm.py) (+2) |
@@ -174,7 +176,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `stacked_did` | hand-written stack + fixest::feols | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06 | 3.9e-13 / 7.1e-13 | [`75_stacked.py`](../tests/r_parity/75_stacked.py) (+2) |
 | `staggered_rollout` | staggered::staggered / staggered_cs / staggered_sa (1.2.2) | R 4.5.2 | rel_est<=1e-10 | 9.1e-16 / 5.7e-16 | [`82_staggered.py`](../tests/r_parity/82_staggered.py) (+2) |
 | `subgroup_decompose` | Theil within+between exact additive identity (Shorrocks 1980) | R 4.5.2 | total == within + between 1e-12 abs (observed 0) | — / — | [`test_subgroup_decompose_parity.py`](../tests/reference_parity/test_subgroup_decompose_parity.py) |
-| `sun_abraham` | fixest::sunab | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=0.25 | 2.8e-11 / 2.7e-11 | [`05_sunab.py`](../tests/r_parity/05_sunab.py) (+2) |
+| `sun_abraham` | fixest::sunab | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=0.03 | 2.8e-11 / 2.7e-11 | [`05_sunab.py`](../tests/r_parity/05_sunab.py) (+2) |
 | `sureg` | systemfit::systemfit(method="SUR", noDfCor) | R 4.5.2; systemfit 1.1.30 | rel_est<=1e-06, rel_se<=1e-06 | 1.5e-14 / 1.5e-15 | [`60_sureg.py`](../tests/r_parity/60_sureg.py) (+2) |
 | `svyglm` | survey::svyglm (design-based GLM + linearization SE) | R 4.5.2 | coefficients + SE 1e-10 abs (observed ~2e-15 / 6e-15) | — / — | [`test_survey_parity.py`](../tests/reference_parity/test_survey_parity.py) (+1) |
 | `svymean` | survey::svymean (Horvitz-Thompson/Hajek + Taylor SE) | R 4.5.2 | estimate + SE 1e-10 abs (observed ~5e-15 / 8e-17) | — / — | [`test_survey_parity.py`](../tests/reference_parity/test_survey_parity.py) (+1) |
@@ -185,7 +187,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `tobit` | censReg::censReg | R 4.5.2; censReg 0.5.38 | rel_est<=1e-06, rel_se<=1e-05 | 2.8e-08 / 2.8e-08 | [`41_tobit.py`](../tests/r_parity/41_tobit.py) (+2) |
 | `truncreg` | truncreg::truncreg(method="NR") | R 4.5.2; truncreg 0.2.5 | rel_est<=1e-06, rel_se<=0.0001 | 3.3e-08 / 9.5e-08 | [`62_truncreg.py`](../tests/r_parity/62_truncreg.py) (+2) |
 | `twoway_cluster` | sandwich::vcovCL(cluster=~g1+g2) | R 4.5.2; sandwich 3.1.1 | rel_est<=1e-06, rel_se<=1e-06 | 7.8e-16 / 7.8e-16 | [`54_twoway_cluster.py`](../tests/r_parity/54_twoway_cluster.py) (+2) |
-| `var` | vars::VAR | R 4.5.2; vars 1.6.1 | rel_est<=1e-06, rel_se<=0.001 | 3.1e-15 / 6.6e-15 | [`33_var.py`](../tests/r_parity/33_var.py) (+2) |
+| `var` | vars::VAR | R 4.5.2; vars 1.6.1 | rel_est<=1e-06, rel_se<=1e-06 | 3.1e-15 / 6.6e-15 | [`33_var.py`](../tests/r_parity/33_var.py) (+2) |
 | `xtabond` | plm::pgmm | R 4.5.2; plm 2.6.7 | rel_est<=1e-06, rel_se<=1e-06 | 9.0e-16 / 1.4e-15 | [`50_xtabond.py`](../tests/r_parity/50_xtabond.py) (+2) |
 | `zip_model` | pscl::zeroinfl(dist="poisson") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-06, rel_se<=0.0001 | 7.7e-08 / 1.1e-07 | [`63_zip.py`](../tests/r_parity/63_zip.py) (+2) |
 
@@ -209,7 +211,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `qdid` | qte::QDiD 1.3.1 | — | max deviation / scale < 0.08, sign agreement on the large effects and correlation > 0.999. R's quantiles come from BMisc::weighted_quantile (stats::optimize on a piecewise-linear check function, which has plateaus where every point is a minimiser) while sp.qdid interpolates the empirical inverse CDF; on this fixture the gap is at most ~152 currency units against effects running to ~8900. | — / — | [`test_qdid_parity.py`](../tests/reference_parity/test_qdid_parity.py) (+1) |
 | `qte` | qte::ci.qte / qte::ci.qtet 1.3.1 (Firpo 2007) | — | max relative deviation < 0.01 on lalonde.exp / lalonde.psid. Both sides minimise the same weighted check function; R's BMisc::weighted_quantile uses a golden-section search whose answer on a plateau is an optimiser artifact, so point-value equality is not asserted. | — / — | [`test_firpo_qte_parity.py`](../tests/reference_parity/test_firpo_qte_parity.py) (+1) |
 | `survreg` | survival::survreg (Weibull AFT) | R 4.5.2; survival 3.8.3 | coefficients & log-scale 5e-5 abs (observed ~1e-5) | — / — | [`test_aft_parity.py`](../tests/reference_parity/test_aft_parity.py) (+1) |
-| `xtfrontier` | frontier::sfa | R 4.5.2; frontier 1.1.8 | rel_est<=0.001, rel_se<=0.001 | 2.8e-06 / 8.6e-04 | [`29_panel_sfa.py`](../tests/r_parity/29_panel_sfa.py) (+2) |
+| `xtfrontier` | frontier::sfa | R 4.5.2; frontier 1.1.8 | rel_est<=0.001, rel_se<=0.05 | 2.8e-06 / 1.8e-06 | [`29_panel_sfa.py`](../tests/r_parity/29_panel_sfa.py) (+2) |
 | `zinb` | pscl::zeroinfl(dist="negbin") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-05, rel_se<=0.001 | 1.1e-06 / 2.1e-07 | [`64_zinb.py`](../tests/r_parity/64_zinb.py) (+2) |
 
 ## external-replication — 5 functions
@@ -458,6 +460,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `xtlsdvc` | [`test_lsdvc_parity.py`](../tests/reference_parity/test_lsdvc_parity.py) |
 | `yatchew_linearity_test` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) |
 
-## unverified — 781 functions
+## unverified — 783 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

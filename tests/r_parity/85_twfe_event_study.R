@@ -36,18 +36,15 @@ df$treat <- as.integer(df$g > 0)
 # treated indicator keeps them in with no dummy of their own.
 df$rel_f <- ifelse(is.na(df$rel), -1L, df$rel)
 
-# ssc(fixef.K = "none"): fixest's DEFAULT counts the absorbed unit and
-# time effects in the degrees-of-freedom adjustment; sp.event_study does
-# not. That is a named convention, not a discrepancy, and it is pinned
-# here by reconstruction rather than by assertion: with the default the
-# two sides differ by a constant variance factor of 1.005614 on every
-# coefficient, and setting fixef.K = "none" reproduces sp.event_study's
-# standard errors bit for bit. Enumerating fixest's ssc() toggles is what
-# identified it -- cluster.adj = FALSE lands nearby (0.1192684 against
-# 0.1192667) and is the wrong answer.
+# fixest's default ssc (adj = TRUE, fixef.K = "nested", cluster.adj = TRUE)
+# counts the absorbed time effects, which are not nested in the unit
+# cluster, in K; reghdfe does the same. sp.event_study follows the same
+# nested rule since 1.24.0, so all three sides agree at machine level
+# with default settings (before, sp.event_study counted only the eight
+# event-time coefficients and the R side had to pass fixef.K = "none").
 fit <- fixest::feols(
   y ~ i(rel_f, treat, ref = -1) | unit + time,
-  data = df, cluster = ~unit, ssc = fixest::ssc(fixef.K = "none")
+  data = df, cluster = ~unit
 )
 ct <- summary(fit)$coeftable
 
@@ -69,5 +66,5 @@ write_results(MODULE, rows,
                            cluster = "unit",
                            ref_period = -1,
                            window_covers_all_relative_times = TRUE,
-                           ssc = "fixef.K=none (fixest default counts absorbed FE; sp does not)",
+                           ssc = "fixest default (adj=TRUE, fixef.K=nested, cluster.adj=TRUE); K = 8 + 9 time effects = 17",
                            fixest_version = as.character(packageVersion("fixest"))))

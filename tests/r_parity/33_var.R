@@ -42,9 +42,14 @@ for (eq in c("y1", "y2")) {
       var <- sub("\\.l\\d+$", "", nm)
       py_name <- paste0("L", lag, ".", var)
     }
+    # vars::VAR fits each equation by lm(), so its SEs use the T-k
+    # denominator; the Python side emits these rows under the same
+    # "__Tk" suffix (se_df = "r") so the comparison is like-for-like,
+    # and keeps the Stata-convention (denominator T) rows without the
+    # suffix for the Stata side.
     rows[[length(rows) + 1L]] <- parity_row(
       module = MODULE,
-      statistic = paste0("eq_", eq, "__", py_name),
+      statistic = paste0("eq_", eq, "__", py_name, "__Tk"),
       estimate = unname(co[nm]),
       se = unname(se[nm]),
       n = nrow(df) - 2L

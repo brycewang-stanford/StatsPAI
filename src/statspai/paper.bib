@@ -344,7 +344,7 @@
   volume={7},
   pages={2003--2030},
   year={2006},
-  note={No DOI: JMLR issues none, and no arXiv version of this paper exists (searched 2026-08-24).}
+  annote={No DOI: JMLR issues none, and no arXiv version of this paper exists (searched 2026-08-24).}
 }
 
 @article{chickering2002optimal,
@@ -354,7 +354,7 @@
   volume={3},
   pages={507--554},
   year={2002},
-  note={No usable DOI, and for a different reason than the other DOI-less entries here: this one was registered and then withdrawn, rather than never assigned. The MIT Press DOI 10.1162/153244303321897717 that this entry previously carried was deleted by the registrant: Crossref files it under "CrossRef Listing of Deleted DOIs" with publisher "Unmaintained records", and doi.org redirects it to crossref.org/deleted_DOI.html. No replacement was registered (update-to and updated-by are both empty) and JMLR issues no DOIs of its own. Removed 2026-08-24 after that check.}
+  annote={No usable DOI, and for a different reason than the other DOI-less entries here: this one was registered and then withdrawn, rather than never assigned. The MIT Press DOI 10.1162/153244303321897717 that this entry previously carried was deleted by the registrant: Crossref files it under "CrossRef Listing of Deleted DOIs" with publisher "Unmaintained records", and doi.org redirects it to crossref.org/deleted_DOI.html. No replacement was registered (update-to and updated-by are both empty) and JMLR issues no DOIs of its own. Removed 2026-08-24 after that check.}
 }
 
 @article{jorda2005estimation,
@@ -401,7 +401,7 @@
   eprint={1906.00232},
   archivePrefix={arXiv},
   doi={10.48550/arXiv.1906.00232},
-  note={NeurIPS proceedings carry no DOI; the DOI above is the arXiv preprint of this paper (title and all three authors verified identical via the arXiv API and doi.org, 2026-08-24).}
+  annote={NeurIPS proceedings carry no DOI; the DOI above is the arXiv preprint of this paper (title and all three authors verified identical via the arXiv API and doi.org, 2026-08-24).}
 }
 
 @article{gardner2022twostage,
@@ -457,7 +457,7 @@
   pages={319--323},
   year={1990},
   publisher={American Economic Association},
-  note={No DOI: AEA's Crossref deposits for the American Economic Review begin at volume 89 (1999) -- a query on the journal's ISSN returns zero records before then. Verified 2026-08-24.}
+  annote={No DOI: AEA's Crossref deposits for the American Economic Review begin at volume 89 (1999) -- a query on the journal's ISSN returns zero records before then. Verified 2026-08-24.}
 }
 
 @article{hudgens2008toward,
@@ -630,10 +630,16 @@
   title={Deep {IV}: A flexible approach for counterfactual prediction},
   author={Hartford, Jason and Lewis, Greg and Leyton-Brown, Kevin and Taddy, Matt},
   booktitle={Proceedings of the 34th International Conference on Machine Learning},
+  editor={Precup, Doina and Teh, Yee Whye},
+  series={Proceedings of Machine Learning Research},
+  volume={70},
   pages={1414--1423},
   year={2017},
-  doi={10.48550/arXiv.1612.09596},
-  note={PMLR proceedings carry no DOI. The DOI above is this paper's arXiv preprint, which was posted under the earlier title "Counterfactual Prediction with Deep Instrumental Variables Networks" (arXiv:1612.09596, 2016-12-30) and retitled for ICML; all four authors are identical and it is the only arXiv record by these authors on this topic. Verified 2026-08-24 via the arXiv API.}
+  publisher={PMLR},
+  url={https://proceedings.mlr.press/v70/hartford17a.html},
+  eprint={1612.09596},
+  archivePrefix={arXiv},
+  annote={PMLR proceedings carry no DOI, so the entry records the proceedings URL and the arXiv eprint rather than attaching the preprint DOI to the venue record (until 2026-09-05 the doi field held 10.48550/arXiv.1612.09596, which identifies the preprint, not this ICML paper). The preprint was posted under the earlier title "Counterfactual Prediction with Deep Instrumental Variables Networks" (arXiv:1612.09596, 2016-12-30) and retitled for ICML; all four authors are identical. Venue record (editors, series, volume 70, pages, year, publisher) verified 2026-09-05 via the PMLR abstract page and DBLP; arXiv identity verified 2026-08-24 via the arXiv API.}
 }
 
 @article{kennedy2023towards,
@@ -694,7 +700,7 @@
   author={Battocchi, Keith and Dillon, Eleanor and Hei, Maggie and Lewis, Greg and Oka, Paul and Oprescu, Miruna and Syrgkanis, Vasilis},
   year={2019},
   url={https://github.com/py-why/EconML},
-  note={Version 0.x. No DOI: the package is not registered with Crossref and has no Zenodo or other DataCite archive (both searched 2026-08-24). Cite by URL.}
+  annote={Version 0.x. No DOI: the package is not registered with Crossref and has no Zenodo or other DataCite archive (both searched 2026-08-24). Cite by URL.}
 }
 
 @misc{chen2020causalml,
@@ -717,7 +723,7 @@
   pages={1--6},
   year={2022},
   url={https://jmlr.org/papers/v23/21-0862.html},
-  note={JMLR does not register DOIs, so this record carries the journal's canonical URL and no DOI; the arXiv preprint (arXiv:2104.03220) is deliberately not attached as a DOI so that the record and identifier refer to the same publication. Do not attach 10.18637/jss.v108.i03 -- that is the Journal of Statistical Software paper on the R package, recorded under bach2024doubleml. Verified 2026-08-24 via the arXiv API and doi.org; JMLR URL and metadata re-verified 2026-09-04 via jmlr.org.}
+  annote={JMLR does not register DOIs, so this record carries the journal's canonical URL and no DOI; the arXiv preprint (arXiv:2104.03220) is deliberately not attached as a DOI so that the record and identifier refer to the same publication. Do not attach 10.18637/jss.v108.i03 -- that is the Journal of Statistical Software paper on the R package, recorded under bach2024doubleml. Verified 2026-08-24 via the arXiv API and doi.org; JMLR URL and metadata re-verified 2026-09-04 via jmlr.org.}
 }
 
 @article{bates2015lme4,
@@ -735,6 +741,9 @@
   title={Bootstrap-Based Improvements for Inference with Clustered Errors},
   author={Cameron, A. Colin and Gelbach, Jonah B. and Miller, Douglas L.},
   journal={Review of Economics and Statistics},
+  volume={90},
+  number={3},
+  pages={414--427},
   year={2008},
   doi={10.1162/rest.90.3.414}
 }
@@ -828,6 +837,9 @@
   title={The Economic Costs of Conflict: A Case Study of the Basque Country},
   author={Abadie, Alberto and Gardeazabal, Javier},
   journal={American Economic Review},
+  volume={93},
+  number={1},
+  pages={113--132},
   year={2003},
   doi={10.1257/000282803321455188}
 }
@@ -861,7 +873,7 @@
 
 @article{albrecht2003there,
   title={Is There a Glass Ceiling in Sweden?},
-  author={Albrecht, James and Björklund, Anders and Vroman, Susan},
+  author={Albrecht, James and Bj{\"o}rklund, Anders and Vroman, Susan},
   journal={Journal of Labor Economics},
   year={2003},
   doi={10.1086/344126}
@@ -887,6 +899,9 @@
   title={Does Compulsory School Attendance Affect Schooling and Earnings?},
   author={Angrist, Joshua D. and Krueger, Alan B.},
   journal={The Quarterly Journal of Economics},
+  volume={106},
+  number={4},
+  pages={979--1014},
   year={1991},
   doi={10.2307/2937954}
 }
@@ -909,7 +924,7 @@
 
 @article{armstrong2018optimal,
   title={Optimal Inference in a Class of Regression Models},
-  author={Armstrong, Timothy B. and Kolesár, Michal},
+  author={Armstrong, Timothy B. and Koles{\'a}r, Michal},
   journal={Econometrica},
   year={2018},
   doi={10.3982/ecta14434}
@@ -917,7 +932,7 @@
 
 @article{armstrong2020simple,
   title={Simple and honest confidence intervals in nonparametric regression},
-  author={Armstrong, Timothy B. and Kolesár, Michal},
+  author={Armstrong, Timothy B. and Koles{\'a}r, Michal},
   journal={Quantitative Economics},
   year={2020},
   doi={10.3982/qe1199}
@@ -940,7 +955,7 @@
 }
 
 @article{baron1986moderator,
-  title={The moderator–mediator variable distinction in social psychological research: Conceptual, strategic, and statistical considerations.},
+  title={The moderator--mediator variable distinction in social psychological research: Conceptual, strategic, and statistical considerations.},
   author={Baron, Reuben M. and Kenny, David A.},
   journal={Journal of Personality and Social Psychology},
   year={1986},
@@ -951,6 +966,9 @@
   title={Prediction of firm-level technical efficiencies with a generalized frontier production function and panel data},
   author={Battese, George E. and Coelli, Tim J.},
   journal={Journal of Econometrics},
+  volume={38},
+  number={3},
+  pages={387--399},
   year={1988},
   doi={10.1016/0304-4076(88)90053-x}
 }
@@ -959,6 +977,9 @@
   title={Frontier production functions, technical efficiency and panel data: With application to paddy farmers in India},
   author={Battese, G. E. and Coelli, T. J.},
   journal={Journal of Productivity Analysis},
+  volume={3},
+  number={1-2},
+  pages={153--169},
   year={1992},
   doi={10.1007/bf00158774}
 }
@@ -967,6 +988,9 @@
   title={A model for technical inefficiency effects in a stochastic frontier production function for panel data},
   author={Battese, G. E. and Coelli, T. J.},
   journal={Empirical Economics},
+  volume={20},
+  number={2},
+  pages={325--332},
   year={1995},
   doi={10.1007/bf01205442}
 }
@@ -980,9 +1004,12 @@
 }
 
 @article{bauer2008extension,
-  title={An extension of the Blinder–Oaxaca decomposition to nonlinear models},
+  title={An extension of the Blinder--Oaxaca decomposition to nonlinear models},
   author={Bauer, Thomas K. and Sinning, Mathias},
   journal={AStA Advances in Statistical Analysis},
+  volume={92},
+  number={2},
+  pages={197--206},
   year={2008},
   doi={10.1007/s10182-008-0056-3}
 }
@@ -1056,7 +1083,7 @@
 
 @article{bramoull2009identification,
   title={Identification of peer effects through social networks},
-  author={Bramoullé, Yann and Djebbari, Habiba and Fortin, Bernard},
+  author={Bramoull{\'e}, Yann and Djebbari, Habiba and Fortin, Bernard},
   journal={Journal of Econometrics},
   year={2009},
   doi={10.1016/j.jeconom.2008.12.021}
@@ -1123,7 +1150,7 @@
 
 @article{cain2010when,
   title={When to Start Treatment? A Systematic Approach to the Comparison of Dynamic Regimes Using Observational Data},
-  author={Cain, Lauren E. and Robins, James M. and Lanoy, Emilie and Logan, Roger and Costagliola, Dominique and Hernán, Miguel A.},
+  author={Cain, Lauren E. and Robins, James M. and Lanoy, Emilie and Logan, Roger and Costagliola, Dominique and Hern{\'a}n, Miguel A.},
   journal={The International Journal of Biostatistics},
   year={2010},
   doi={10.2202/1557-4679.1212}
@@ -1139,12 +1166,33 @@
   doi={10.3386/w32117}
 }
 
-@article{calonico2025rdhte,
-  title={rdhte: Heterogeneous Treatment Effects in Regression Discontinuity Designs},
-  author={Calonico, Sebastian and Cattaneo, Matias D. and Farrell, Max H. and Palomba, Filippo and Titiunik, Rocio},
-  journal={CRAN: Contributed Packages},
+@misc{calonico2025rdhte,
+  title={{rdhte}: Conditional Average Treatment Effects in {RD} Designs},
+  author={Calonico, Sebastian and Cattaneo, Matias D. and Farrell, Max H. and Palomba, Filippo and Titiunik, Roc{\'\i}o},
   year={2025},
-  doi={10.32614/cran.package.rdhte}
+  eprint={2507.01128},
+  archivePrefix={arXiv},
+  note={arXiv preprint, first posted 2025-07-01},
+  annote={Software paper for the rdhte package; no journal publication as of verification 2026-09-04 (arXiv API). The CRAN package itself is calonico2025rdhtepackage; the methods paper is calonico2025treatment.}
+}
+
+@misc{calonico2025treatment,
+  title={Treatment Effect Heterogeneity in Regression Discontinuity Designs},
+  author={Calonico, Sebastian and Cattaneo, Matias D. and Farrell, Max H. and Palomba, Filippo and Titiunik, Roc{\'\i}o},
+  year={2025},
+  eprint={2503.13696},
+  archivePrefix={arXiv},
+  note={arXiv preprint, first posted 2025-03-17},
+  annote={Methods paper behind sp.rdhte; no journal publication as of verification 2026-09-04 (arXiv API).}
+}
+
+@misc{calonico2025rdhtepackage,
+  title={{rdhte}: Heterogeneous Treatment Effects in Regression Discontinuity Designs},
+  author={Calonico, Sebastian and Cattaneo, Matias D. and Farrell, Max H. and Palomba, Filippo and Titiunik, Roc{\'\i}o},
+  year={2025},
+  howpublished={CRAN package},
+  doi={10.32614/cran.package.rdhte},
+  annote={CRAN package record (Crossref type dataset, 2025-03-25). Software paper: calonico2025rdhte; methods paper: calonico2025treatment.}
 }
 
 @article{card2015inference,
@@ -1188,7 +1236,7 @@
 
 @article{cattaneo2019power,
   title={Power calculations for regression-discontinuity designs},
-  author={Cattaneo, Matias D. and Titiunik, Rocío and Vazquez-Bare, Gonzalo},
+  author={Cattaneo, Matias D. and Titiunik, Roc{\'i}o and Vazquez-Bare, Gonzalo},
   journal={The Stata Journal: Promoting communications on statistics and Stata},
   year={2019},
   doi={10.1177/1536867x19830919}
@@ -1214,6 +1262,9 @@
   title={Frontier Estimation and Firm-Specific Inefficiency Measures in the Presence of Heteroscedasticity},
   author={Caudill, Steven B. and Ford, Jon M. and Gropper, Daniel M.},
   journal={Journal of Business \& Economic Statistics},
+  volume={13},
+  number={1},
+  pages={105--111},
   year={1995},
   doi={10.1080/07350015.1995.10524583}
 }
@@ -1231,7 +1282,7 @@
 
 @article{dechaisemartin2018fuzzy,
   title={Fuzzy Differences-in-Differences},
-  author={de Chaisemartin, C and D’HaultfŒuille, X},
+  author={de Chaisemartin, C and D'Haultf{\oe}uille, X},
   journal={The Review of Economic Studies},
   year={2018},
   doi={10.1093/restud/rdx049}
@@ -1251,7 +1302,7 @@
 
 @article{dechaisemartin2024difference,
   title={Difference-in-Differences Estimators of Intertemporal Treatment Effects},
-  author={de Chaisemartin, Clément and D'Haultfœuille, Xavier},
+  author={de Chaisemartin, Cl{\'e}ment and D'Haultf{\oe}uille, Xavier},
   journal={Review of Economics and Statistics},
   year={2024},
   doi={10.1162/rest_a_01414}
@@ -1298,7 +1349,7 @@
 }
 
 @article{clarke2020romano,
-  title={The Romano–Wolf multiple-hypothesis correction in Stata},
+  title={The Romano--Wolf multiple-hypothesis correction in Stata},
   author={Clarke, Damian and Romano, Joseph P. and Wolf, Michael},
   journal={The Stata Journal: Promoting communications on statistics and Stata},
   year={2020},
@@ -1306,7 +1357,7 @@
 }
 
 @article{coelli2005total,
-  title={Total factor productivity growth in agriculture: a Malmquist index analysis of 93 countries, 1980–2000},
+  title={Total factor productivity growth in agriculture: a Malmquist index analysis of 93 countries, 1980--2000},
   author={Coelli, Tim J. and Rao, D. S. Prasada},
   journal={Agricultural Economics},
   year={2005},
@@ -1333,6 +1384,9 @@
   title={GMM estimation with cross sectional dependence},
   author={Conley, T.G.},
   journal={Journal of Econometrics},
+  volume={92},
+  number={1},
+  pages={1--45},
   year={1999},
   doi={10.1016/s0304-4076(98)00084-0}
 }
@@ -1387,7 +1441,7 @@
 
 @article{dahabreh2019generalizing,
   title={Generalizing Causal Inferences from Individuals in Randomized Trials to All Trial-Eligible Individuals},
-  author={Dahabreh, Issa J. and Robertson, Sarah E. and Tchetgen, Eric J. and Stuart, Elizabeth A. and Hernán, Miguel A.},
+  author={Dahabreh, Issa J. and Robertson, Sarah E. and Tchetgen, Eric J. and Stuart, Elizabeth A. and Hern{\'a}n, Miguel A.},
   journal={Biometrics},
   year={2019},
   doi={10.1111/biom.13009}
@@ -1465,6 +1519,8 @@
   title={Labor Market Institutions and the Distribution of Wages, 1973-1992: A Semiparametric Approach},
   author={DiNardo, John and Fortin, Nicole M. and Lemieux, Thomas},
   journal={Econometrica},
+  volume={64},
+  number={5},
   year={1996},
   doi={10.2307/2171954}
 }
@@ -1503,7 +1559,7 @@
 
 @article{dube2014spatial,
   title={A spatial Difference-in-Differences estimator to evaluate the effect of change in public mass transit systems on house prices},
-  author={Dubé, Jean and Legros, Diègo and Thériault, Marius and Des Rosiers, François},
+  author={Dub{\'e}, Jean and Legros, Di{\`e}go and Th{\'e}riault, Marius and Des Rosiers, Fran{\c{c}}ois},
   journal={Transportation Research Part B: Methodological},
   volume={64},
   pages={24--40},
@@ -1542,6 +1598,9 @@
   title={An extension of the Blinder-Oaxaca decomposition technique to logit and probit models},
   author={Fairlie, Robert W.},
   journal={Journal of Economic and Social Measurement},
+  volume={30},
+  number={4},
+  pages={305--316},
   year={2005},
   doi={10.3233/jem-2005-0259}
 }
@@ -1639,7 +1698,7 @@
 
 @article{guimares2010simple,
   title={A Simple Feasible Procedure to fit Models with High-dimensional Fixed                     Effects},
-  author={Guimarães, Paulo and Portugal, Pedro},
+  author={Guimar{\~a}es, Paulo and Portugal, Pedro},
   journal={The Stata Journal: Promoting communications on statistics and Stata},
   year={2010},
   doi={10.1177/1536867x1101000406}
@@ -1808,6 +1867,9 @@
   title={Regression discontinuity designs: A guide to practice},
   author={Imbens, Guido W. and Lemieux, Thomas},
   journal={Journal of Econometrics},
+  volume={142},
+  number={2},
+  pages={615--635},
   year={2008},
   doi={10.1016/j.jeconom.2007.05.001}
 }
@@ -1832,6 +1894,9 @@
   title={On the estimation of technical inefficiency in the stochastic frontier production function model},
   author={Jondrow, James and Knox Lovell, C.A. and Materov, Ivan S. and Schmidt, Peter},
   journal={Journal of Econometrics},
+  volume={19},
+  number={2-3},
+  pages={233--238},
   year={1982},
   doi={10.1016/0304-4076(82)90004-5}
 }
@@ -1854,7 +1919,7 @@
 
 @misc{kilian2017structural,
   title={Structural Vector Autoregressive Analysis},
-  author={Kilian, Lutz and Lütkepohl, Helmut},
+  author={Kilian, Lutz and L{\"u}tkepohl, Helmut},
   year={2017},
   doi={10.1017/9781108164818}
 }
@@ -1871,6 +1936,7 @@
   title={Components of a Difference Between Two Rates},
   author={Kitagawa, Evelyn M.},
   journal={Journal of the American Statistical Association},
+  pages={1168--1194},
   year={1955},
   doi={10.2307/2281213}
 }
@@ -1911,6 +1977,9 @@
   title={A zero inefficiency stochastic frontier model},
   author={Kumbhakar, Subal C. and Parmeter, Christopher F. and Tsionas, Efthymios G.},
   journal={Journal of Econometrics},
+  volume={172},
+  number={1},
+  pages={66--76},
   year={2013},
   doi={10.1016/j.jeconom.2012.08.021}
 }
@@ -2030,12 +2099,15 @@
   title={Longitudinal data analysis using generalized linear models},
   author={LIANG, KUNG-YEE and ZEGER, SCOTT L.},
   journal={Biometrika},
+  volume={73},
+  number={1},
+  pages={13--22},
   year={1986},
   doi={10.1093/biomet/73.1.13}
 }
 
 @article{litterman1986forecasting,
-  title={Forecasting with Bayesian vector autoregressions — Five years of experience},
+  title={Forecasting with Bayesian vector autoregressions --- Five years of experience},
   author={Litterman, Robert},
   journal={International Journal of Forecasting},
   year={1986},
@@ -2044,8 +2116,11 @@
 
 @article{machado2005counterfactual,
   title={Counterfactual decomposition of changes in wage distributions using quantile regression},
-  author={Machado, José A. F. and Mata, José},
+  author={Machado, Jos{\'e} A. F. and Mata, Jos{\'e}},
   journal={Journal of Applied Econometrics},
+  volume={20},
+  number={4},
+  pages={445--465},
   year={2005},
   doi={10.1002/jae.788}
 }
@@ -2124,6 +2199,9 @@
   title={Decomposition of differences in distribution using quantile regression},
   author={Melly, Blaise},
   journal={Labour Economics},
+  volume={12},
+  number={4},
+  pages={577--590},
   year={2005},
   doi={10.1016/j.labeco.2005.05.006}
 }
@@ -2173,7 +2251,7 @@
 
 @article{nielsen2010estimating,
   title={Estimating the Effect of Student Aid on College Enrollment: Evidence from a Government Grant Policy Reform},
-  author={Nielsen, Helena Skyt and Sørensen, Torben and Taber, Christopher},
+  author={Nielsen, Helena Skyt and S{\o}rensen, Torben and Taber, Christopher},
   journal={American Economic Journal: Economic Policy},
   year={2010},
   doi={10.1257/pol.2.2.185}
@@ -2181,7 +2259,7 @@
 
 @article{olden2022triple,
   title={The triple difference estimator},
-  author={Olden, Andreas and Møen, Jarle},
+  author={Olden, Andreas and M{\o}en, Jarle},
   journal={The Econometrics Journal},
   year={2022},
   doi={10.1093/ectj/utac010}
@@ -2189,7 +2267,7 @@
 
 @article{olea2013robust,
   title={A Robust Test for Weak Instruments},
-  author={Olea, José Luis Montiel and Pflueger, Carolin},
+  author={Olea, Jos{\'e} Luis Montiel and Pflueger, Carolin},
   journal={Journal of Business \& Economic Statistics},
   year={2013},
   doi={10.1080/00401706.2013.806694}
@@ -2231,6 +2309,9 @@
   title={The measurement and sources of technical inefficiency in the Indonesian weaving industry},
   author={Pitt, Mark M and Lee, Lung-Fei},
   journal={Journal of Development Economics},
+  volume={9},
+  number={1},
+  pages={43--64},
   year={1981},
   doi={10.1016/0304-3878(81)90004-3}
 }
@@ -2367,6 +2448,9 @@
   title={Likelihood functions for generalized stochastic frontier estimation},
   author={Stevenson, Rodney E.},
   journal={Journal of Econometrics},
+  volume={13},
+  number={1},
+  pages={57--66},
   year={1980},
   doi={10.1016/0304-4076(80)90042-1}
 }
@@ -2500,14 +2584,14 @@
 
 @article{yun2005simple,
   title={A SIMPLE SOLUTION TO THE IDENTIFICATION PROBLEM IN DETAILED WAGE DECOMPOSITIONS},
-  author={Yun, Myeong‐Su},
+  author={Yun, Myeong-Su},
   journal={Economic Inquiry},
   year={2005},
   doi={10.1093/ei/cbi053}
 }
 
 @article{zhang2003estimation,
-  title={Estimation of Causal Effects via Principal Stratification When Some Outcomes are Truncated by “Death”},
+  title={Estimation of Causal Effects via Principal Stratification When Some Outcomes are Truncated by ``Death''},
   author={Zhang, Junni L. and Rubin, Donald B.},
   journal={Journal of Educational and Behavioral Statistics},
   year={2003},
@@ -2548,7 +2632,7 @@
 
 @article{zubizarreta2015stable,
   title={Stable Weights that Balance Covariates for Estimation With Incomplete Outcome Data},
-  author={Zubizarreta, José R.},
+  author={Zubizarreta, Jos{\'e} R.},
   journal={Journal of the American Statistical Association},
   year={2015},
   doi={10.1080/01621459.2015.1023805}
@@ -2571,7 +2655,7 @@
 }
 
 @article{cai2020step,
-  title={One‐step targeted maximum likelihood estimation for time‐to‐event outcomes},
+  title={One-step targeted maximum likelihood estimation for time-to-event outcomes},
   author={Cai, Weixin and van der Laan, Mark J.},
   journal={Biometrics},
   year={2020},
@@ -2588,7 +2672,7 @@
 
 @article{mackinnon2023cluster,
   title={Cluster-robust inference: A guide to empirical practice},
-  author={MacKinnon, James G. and Nielsen, Morten Ørregaard and Webb, Matthew D.},
+  author={MacKinnon, James G. and Nielsen, Morten {\O}rregaard and Webb, Matthew D.},
   journal={Journal of Econometrics},
   year={2023},
   doi={10.1016/j.jeconom.2022.04.001}
@@ -2624,13 +2708,16 @@
   title={Comparative Politics and the Synthetic Control Method},
   author={Abadie, Alberto and Diamond, Alexis and Hainmueller, Jens},
   journal={American Journal of Political Science},
+  volume={59},
+  number={2},
+  pages={495--510},
   year={2015},
   doi={10.1111/ajps.12116}
 }
 
 @article{ado2019shift,
   title={Shift-Share Designs: Theory and Inference},
-  author={Adão, Rodrigo and Kolesár, Michal and Morales, Eduardo},
+  author={Ad{\~a}o, Rodrigo and Koles{\'a}r, Michal and Morales, Eduardo},
   journal={The Quarterly Journal of Economics},
   year={2019},
   doi={10.1093/qje/qjz025}
@@ -2677,7 +2764,7 @@
   pages={608--650},
   year={2014},
   doi={10.1093/restud/rdt044},
-  note={Volume 81(2):608-650 confirmed 2026-08-31 via the Crossref API and doi.org content negotiation, which agree on published-print 2014-04-01 (published-online 2013-11-24). OUP deposited the authors as initials only; the full given names are confirmed by three independent records of the same author team -- cemmap CWP 26/13 (10.1920/wp.cem.2013.2613) and SSRN 2051129 (10.2139/ssrn.2051129), both being this article's working-paper and preprint versions, plus JEP 28(2) (10.1257/jep.28.2.29). Full given names are required here rather than initials: the APA CSL used by JOSS sets givenname-disambiguation-rule="primary-name", so an initials-only form makes citeproc read this Belloni as a different person from belloni2012sparse and expand that entry to "Alexandre Belloni et al." in running text.}
+  annote={Volume 81(2):608-650 confirmed 2026-08-31 via the Crossref API and doi.org content negotiation, which agree on published-print 2014-04-01 (published-online 2013-11-24). OUP deposited the authors as initials only; the full given names are confirmed by three independent records of the same author team -- cemmap CWP 26/13 (10.1920/wp.cem.2013.2613) and SSRN 2051129 (10.2139/ssrn.2051129), both being this article's working-paper and preprint versions, plus JEP 28(2) (10.1257/jep.28.2.29). Full given names are required here rather than initials: the APA CSL used by JOSS sets givenname-disambiguation-rule="primary-name", so an initials-only form makes citeproc read this Belloni as a different person from belloni2012sparse and expand that entry to "Alexandre Belloni et al." in running text.}
 }
 
 @article{belloni2016post,
@@ -2736,7 +2823,7 @@
 
 @article{chernozhukov2021exact,
   title={An Exact and Robust Conformal Inference Method for Counterfactual and Synthetic Controls},
-  author={Chernozhukov, Victor and Wüthrich, Kaspar and Zhu, Yinchu},
+  author={Chernozhukov, Victor and W{\"u}thrich, Kaspar and Zhu, Yinchu},
   journal={Journal of the American Statistical Association},
   year={2021},
   doi={10.1080/01621459.2021.1920957}
@@ -2790,6 +2877,7 @@
   title={Decomposition Methods in Economics},
   author={Fortin, Nicole and Lemieux, Thomas and Firpo, Sergio},
   journal={Handbook of Labor Economics},
+  pages={1--102},
   year={2011},
   doi={10.1016/s0169-7218(11)00407-2}
 }
@@ -2817,6 +2905,9 @@
   title={Difference-in-differences with variation in treatment timing},
   author={Goodman-Bacon, Andrew},
   journal={Journal of Econometrics},
+  volume={225},
+  number={2},
+  pages={254--277},
   year={2021},
   doi={10.1016/j.jeconom.2021.03.014}
 }
@@ -2930,8 +3021,11 @@
 
 @article{roodman2019fast,
   title={Fast and wild: Bootstrap inference in Stata using boottest},
-  author={Roodman, David and Nielsen, Morten Ørregaard and MacKinnon, James G. and Webb, Matthew D.},
-  journal={The Stata Journal: Promoting communications on statistics and Stata},
+  author={Roodman, David and Nielsen, Morten {\O}rregaard and MacKinnon, James G. and Webb, Matthew D.},
+  journal={The Stata Journal},
+  volume={19},
+  number={1},
+  pages={4--60},
   year={2019},
   doi={10.1177/1536867x19830877}
 }
@@ -2979,7 +3073,7 @@
 
 @article{abadie2021penalized,
   title={A Penalized Synthetic Control Estimator for Disaggregated Data},
-  author={Abadie, Alberto and L’Hour, Jérémy},
+  author={Abadie, Alberto and L'Hour, J{\'e}r{\'e}my},
   journal={Journal of the American Statistical Association},
   volume={116},
   number={536},
@@ -3047,7 +3141,7 @@
 
 @article{clarke2024synthetic,
   title={On synthetic difference-in-differences and related estimation methods in {Stata}},
-  author={Clarke, Damian and Pailañir, Daniel and Athey, Susan and Imbens, Guido},
+  author={Clarke, Damian and Paila{\~n}ir, Daniel and Athey, Susan and Imbens, Guido},
   journal={The Stata Journal},
   volume={24},
   number={4},
@@ -3136,7 +3230,7 @@
 
 @article{cattaneo2016interpreting,
   title={Interpreting Regression Discontinuity Designs with Multiple Cutoffs},
-  author={Cattaneo, Matias D. and Keele, Luke and Titiunik, Rocío and Vazquez-Bare, Gonzalo},
+  author={Cattaneo, Matias D. and Keele, Luke and Titiunik, Roc{\'i}o and Vazquez-Bare, Gonzalo},
   journal={The Journal of Politics},
   year={2016},
   doi={10.1086/686802}
@@ -3144,7 +3238,7 @@
 
 @article{cattaneo2016inference,
   title={Inference in Regression Discontinuity Designs under Local Randomization},
-  author={Cattaneo, Matias D. and Titiunik, Rocío and Vazquez-Bare, Gonzalo},
+  author={Cattaneo, Matias D. and Titiunik, Roc{\'i}o and Vazquez-Bare, Gonzalo},
   journal={The Stata Journal: Promoting communications on statistics and Stata},
   year={2016},
   doi={10.1177/1536867x1601600205}
@@ -3152,7 +3246,7 @@
 
 @misc{cattaneo2019practical,
   title={A Practical Introduction to Regression Discontinuity Designs},
-  author={Cattaneo, Matias D. and Idrobo, Nicolás and Titiunik, Rocío},
+  author={Cattaneo, Matias D. and Idrobo, Nicol{\'a}s and Titiunik, Roc{\'i}o},
   year={2019},
   doi={10.1017/9781108684606}
 }
@@ -3161,13 +3255,16 @@
   title={Simple Local Polynomial Density Estimators},
   author={Cattaneo, Matias D. and Jansson, Michael and Ma, Xinwei},
   journal={Journal of the American Statistical Association},
+  volume={115},
+  number={531},
+  pages={1449--1455},
   year={2020},
   doi={10.1080/01621459.2019.1635480}
 }
 
 @article{chernozhukov2020generic,
   title={Generic Inference on Quantile and Quantile Effect Functions for Discrete Outcomes},
-  author={Chernozhukov, Victor and Fernández-Val, Iván and Melly, Blaise and Wüthrich, Kaspar},
+  author={Chernozhukov, Victor and Fern{\'a}ndez-Val, Iv{\'a}n and Melly, Blaise and W{\"u}thrich, Kaspar},
   journal={Journal of the American Statistical Association},
   year={2020},
   doi={10.1080/01621459.2019.1611581}
@@ -3193,6 +3290,9 @@
   title={Decomposing Wage Distributions Using Recentered Influence Function Regressions},
   author={Firpo, Sergio P. and Fortin, Nicole M. and Lemieux, Thomas},
   journal={Econometrics},
+  volume={6},
+  number={2},
+  pages={28},
   year={2018},
   doi={10.3390/econometrics6020028}
 }
@@ -3209,6 +3309,9 @@
   title={Entropy Balancing for Causal Effects: A Multivariate Reweighting Method to Produce Balanced Samples in Observational Studies},
   author={Hainmueller, Jens},
   journal={Political Analysis},
+  volume={20},
+  number={1},
+  pages={25--46},
   year={2012},
   doi={10.1093/pan/mpr025}
 }
@@ -3316,7 +3419,7 @@
 }
 
 @article{robins2000correcting,
-  title={Correcting for Noncompliance and Dependent Censoring in an AIDS Clinical Trial with Inverse Probability of Censoring Weighted (IPCW) Log‐Rank Tests},
+  title={Correcting for Noncompliance and Dependent Censoring in an AIDS Clinical Trial with Inverse Probability of Censoring Weighted (IPCW) Log-Rank Tests},
   author={Robins, James M. and Finkelstein, Dianne M.},
   journal={Biometrics},
   year={2000},
@@ -3325,7 +3428,7 @@
 
 @article{robins2000marginal,
   title={Marginal Structural Models and Causal Inference in Epidemiology},
-  author={Robins, James M. and Hernán, Miguel Ángel and Brumback, Babette},
+  author={Robins, James M. and Hern{\'a}n, Miguel {\'A}ngel and Brumback, Babette},
   journal={Epidemiology},
   year={2000},
   doi={10.1097/00001648-200009000-00011}
@@ -3435,7 +3538,7 @@
 }
 
 @article{robins1986new,
-  title={A new approach to causal inference in mortality studies with a sustained exposure period—application to control of the healthy worker survivor effect},
+  title={A new approach to causal inference in mortality studies with a sustained exposure period---application to control of the healthy worker survivor effect},
   author={Robins, James},
   journal={Mathematical Modelling},
   volume={7},
@@ -3544,7 +3647,7 @@
   number={2},
   pages={169--181},
   year={2002},
-  note={No DOI: Statistics Canada's Survey Methodology is not deposited with Crossref (searched 2026-08-24).}
+  annote={No DOI: Statistics Canada's Survey Methodology is not deposited with Crossref (searched 2026-08-24).}
 }
 
 @article{min2025regression,
@@ -3578,7 +3681,7 @@
   publisher={Cambridge University Press},
   edition={2nd},
   doi={10.1017/CBO9780511805271},
-  note={This DOI is the second edition: its Crossref record carries edition-number 2 and the 2009 ISBNs 9780521766555 / 9780521747387. Crossref reports an issued date of 2001 for it, which is a Cambridge metadata artifact; 10.1017/CBO9780511753930 is the first edition. Verified 2026-08-24.}
+  annote={This DOI is the second edition: its Crossref record carries edition-number 2 and the 2009 ISBNs 9780521766555 / 9780521747387. Crossref reports an issued date of 2001 for it, which is a Cambridge metadata artifact; 10.1017/CBO9780511753930 is the first edition. Verified 2026-08-24.}
 }
 
 @article{souto2025forests,
@@ -3617,15 +3720,16 @@
   edition={2nd},
   publisher={Wiley},
   year={2008},
-  note={No DOI: the second edition is not registered. Crossref holds only the first edition (10.1002/0471722073, McCulloch \& Searle, 2000/2001, two authors), which is a different edition and a different author list. 10.1002/9780470057339.vag009 is an Encyclopedia of Environmetrics article, not this book. Verified 2026-08-24.}
+  annote={No DOI: the second edition is not registered. Crossref holds only the first edition (10.1002/0471722073, McCulloch \& Searle, 2000/2001, two authors), which is a different edition and a different author list. 10.1002/9780470057339.vag009 is an Encyclopedia of Environmetrics article, not this book. Verified 2026-08-24.}
 }
 
 @article{nakagawa2013,
-  title={A general and simple method for obtaining R² from generalized linear mixed-effects models},
+  title={A general and simple method for obtaining $R^2$ from generalized linear mixed-effects models},
   author={Nakagawa, Shinichi and Schielzeth, Holger},
   journal={Methods in Ecology and Evolution},
   volume={4},
   pages={133--142},
+  number={2},
   year={2013},
   doi={10.1111/j.2041-210x.2012.00261.x}
 }
@@ -3659,7 +3763,7 @@
   year={2002},
   isbn={978-0-262-19475-4},
   doi={10.7551/mitpress/4175.001.0001},
-  note={MIT Press registers this book under its main title "Learning with Kernels" and dates it 2001; this entry cites the 2002 printing. Both authors match exactly on Crossref and doi.org. Verified 2026-08-24.}
+  annote={MIT Press registers this book under its main title "Learning with Kernels" and dates it 2001; this entry cites the 2002 printing. Both authors match exactly on Crossref and doi.org. Verified 2026-08-24.}
 }
 
 @inproceedings{dudik2011doubly,
@@ -3695,7 +3799,7 @@
   institution={DEM Discussion Paper, Department of Economics, University of Luxembourg},
   number={18-13},
   year={2018},
-  note={No DOI: this DEM Discussion Paper is not registered with Crossref. Do not attach 10.32614/cran.package.fenmlm -- that is the CRAN DOI of the FENmlm package itself, a different artifact from this paper about it. Verified 2026-08-24.}
+  annote={No DOI: this DEM Discussion Paper is not registered with Crossref. Do not attach 10.32614/cran.package.fenmlm -- that is the CRAN DOI of the FENmlm package itself, a different artifact from this paper about it. Verified 2026-08-24.}
 }
 
 @article{jo2009use,
@@ -3834,7 +3938,7 @@
   howpublished={Stata Journal preprint},
   year={2024},
   url={https://jgreathouse9.github.io/publications/FDIDSJ.pdf},
-  note={No DOI: this Stata Journal preprint is not registered with Crossref, and a search of the journal itself returns no published version (2026-08-24). The title and the full three-author list were corrected 2026-08-24 against the preprint's own title page at the URL below, whose author block carries the matching Georgia State addresses jgreathouse3@student.gsu.edu, jcoupet@gsu.edu and esevigny@gsu.edu. Cite by URL.}
+  annote={No DOI: this Stata Journal preprint is not registered with Crossref, and a search of the journal itself returns no published version (2026-08-24). The title and the full three-author list were corrected 2026-08-24 against the preprint's own title page at the URL below, whose author block carries the matching Georgia State addresses jgreathouse3@student.gsu.edu, jcoupet@gsu.edu and esevigny@gsu.edu. Cite by URL.}
 }
 
 @misc{stepner2013binscatter,
@@ -3842,7 +3946,7 @@
   author={Stepner, Michael},
   howpublished={Statistical Software Components, Boston College},
   year={2013},
-  note={No DOI: SSC modules distributed through Boston College's RePEc archive carry none (searched 2026-08-24).}
+  annote={No DOI: SSC modules distributed through Boston College's RePEc archive carry none (searched 2026-08-24).}
 }
 
 @article{abadie2011bias,
@@ -3863,7 +3967,7 @@
   year={2021},
   isbn={978-0-300-25168-5},
   doi={10.2307/j.ctv1c29t27},
-  note={Yale University Press registers this book under its main title "Causal Inference"; author, publisher and year match exactly on Crossref and doi.org. Verified 2026-08-24.}
+  annote={Yale University Press registers this book under its main title "Causal Inference"; author, publisher and year match exactly on Crossref and doi.org. Verified 2026-08-24.}
 }
 
 @book{wooldridge2010econometric,
@@ -3873,7 +3977,7 @@
   edition={2nd},
   year={2010},
   isbn={978-0-262-23258-6},
-  note={No DOI: MIT Press has not registered this book with Crossref (searched by title and author, 2026-08-24). Cite by ISBN.}
+  annote={No DOI: MIT Press has not registered this book with Crossref (searched by title and author, 2026-08-24). Cite by ISBN.}
 }
 
 @book{cameron2005microeconometrics,
@@ -3883,7 +3987,7 @@
   year={2005},
   isbn={978-0-521-84805-3},
   doi={10.1017/cbo9780511811241},
-  note={Cambridge registers this book under its main title "Microeconometrics"; both authors, publisher and year match exactly on Crossref and doi.org. Verified 2026-08-24.}
+  annote={Cambridge registers this book under its main title "Microeconometrics"; both authors, publisher and year match exactly on Crossref and doi.org. Verified 2026-08-24.}
 }
 
 @book{pearl2009causality,
@@ -4070,7 +4174,7 @@
   publisher={IARC Scientific Publications No.~32, International Agency for Research on Cancer, Lyon},
   year={1980},
   isbn={978-92-832-0132-3},
-  note={No DOI: IARC has not registered this volume with Crossref. The records a title search returns (10.2307/2981542, 10.2307/2530192, 10.2307/2290308) are JSTOR-hosted reviews of the book, not the book. Verified 2026-08-24.}
+  annote={No DOI: IARC has not registered this volume with Crossref. The records a title search returns (10.2307/2981542, 10.2307/2530192, 10.2307/2290308) are JSTOR-hosted reviews of the book, not the book. Verified 2026-08-24.}
 }
 
 @article{breusch1978testing,
@@ -4095,14 +4199,17 @@
   doi={10.3368/jhr.50.2.317}
 }
 
-@techreport{card1995using,
+@incollection{card1995using,
   title={Using Geographic Variation in College Proximity to Estimate the Return to Schooling},
   author={Card, David},
-  institution={National Bureau of Economic Research},
-  type={NBER Working Paper},
-  number={4483},
-  year={1993},
-  doi={10.3386/w4483}
+  booktitle={Aspects of Labour Market Behaviour: Essays in Honour of {John Vanderkamp}},
+  editor={Christofides, Louis N. and Grant, E. Kenneth and Swidinsky, Robert},
+  publisher={University of Toronto Press},
+  address={Toronto},
+  pages={201--222},
+  year={1995},
+  isbn={0802028640},
+  annote={Published version of NBER Working Paper 4483 (doi 10.3386/w4483), which is deliberately not kept as a separate entry (one record per work, tests/test_citation_integrity.py). Volume record (title, editors, publisher, year, ISBN) verified 2026-09-04 via OpenLibrary and the NBER w4483 "Published Versions" note; chapter page range from the previously verified JSS manuscript bibliography. No DOI exists for this chapter.}
 }
 
 @article{cardkrueger1994minimum,
@@ -4113,7 +4220,7 @@
   number={4},
   pages={772--793},
   year={1994},
-  note={NBER Working Paper 4509. The published version has no DOI: AEA's Crossref deposits for the American Economic Review begin at vol. 89 (1999), and JSTOR 10.2307/2118030 does not resolve on doi.org or Crossref. 10.3386/w4509 is the 1993 working paper (type: report) and 10.1257/aer.90.5.1397 is the 2000 Reply -- neither is this article. Refs verified 2026-08-24 via Crossref API and doi.org; earlier via aeaweb.org and ideas.repec.org (RePEc:aea:aecrev:v:84:y:1994:i:4:p:772-93).}
+  annote={NBER Working Paper 4509. The published version has no DOI: AEA's Crossref deposits for the American Economic Review begin at vol. 89 (1999), and JSTOR 10.2307/2118030 does not resolve on doi.org or Crossref. 10.3386/w4509 is the 1993 working paper (type: report) and 10.1257/aer.90.5.1397 is the 2000 Reply -- neither is this article. Refs verified 2026-08-24 via Crossref API and doi.org; earlier via aeaweb.org and ideas.repec.org (RePEc:aea:aecrev:v:84:y:1994:i:4:p:772-93).}
 }
 
 @article{angrist1990lifetime,
@@ -4124,7 +4231,7 @@
   number={3},
   pages={313--336},
   year={1990},
-  note={Refs verified via ideas.repec.org (RePEc:aea:aecrev:v:80:y:1990:i:3:p:313-36) and economics.mit.edu. No DOI: AEA's Crossref deposits for the American Economic Review begin at volume 89 (1999) -- a query on the journal's ISSN returns zero records before then. Verified 2026-08-24.}
+  annote={Refs verified via ideas.repec.org (RePEc:aea:aecrev:v:80:y:1990:i:3:p:313-36) and economics.mit.edu. No DOI: AEA's Crossref deposits for the American Economic Review begin at volume 89 (1999) -- a query on the journal's ISSN returns zero records before then. Verified 2026-08-24.}
 }
 
 @article{acemoglu2001colonial,
@@ -4201,7 +4308,7 @@
   number={3},
   pages={322--340},
   year={1995},
-  note={NBER Working Paper 3494. The published version has no DOI: AEA's Crossref deposits for the American Economic Review begin at vol. 89 (1999). 10.3386/w3494 is the 1990 working paper (type: report), not this article. Refs verified 2026-08-24 via Crossref and doi.org; earlier via ideas.repec.org (RePEc:aea:aecrev:v:85:y:1995:i:3:p:322-40) and nber.org.}
+  annote={NBER Working Paper 3494. The published version has no DOI: AEA's Crossref deposits for the American Economic Review begin at vol. 89 (1999). 10.3386/w3494 is the 1990 working paper (type: report), not this article. Refs verified 2026-08-24 via Crossref and doi.org; earlier via ideas.repec.org (RePEc:aea:aecrev:v:85:y:1995:i:3:p:322-40) and nber.org.}
 }
 
 @article{ludwig2007head,
@@ -4278,7 +4385,7 @@
   number={3},
   pages={450--477},
   year={1998},
-  note={NBER Working Paper 5778. The published version has no DOI: AEA's Crossref deposits for the American Economic Review begin at vol. 89 (1999), and JSTOR 10.2307/116844 does not resolve on doi.org or Crossref. 10.3386/w5778 is the 1996 working paper (type: report), not this article. Refs verified 2026-08-24 via Crossref API and doi.org; earlier via ideas.repec.org (RePEc:aea:aecrev:v:88:y:1998:i:3:p:450-77) and nber.org.}
+  annote={NBER Working Paper 5778. The published version has no DOI: AEA's Crossref deposits for the American Economic Review begin at vol. 89 (1999), and JSTOR 10.2307/116844 does not resolve on doi.org or Crossref. 10.3386/w5778 is the 1996 working paper (type: report), not this article. Refs verified 2026-08-24 via Crossref API and doi.org; earlier via ideas.repec.org (RePEc:aea:aecrev:v:88:y:1998:i:3:p:450-77) and nber.org.}
 }
 
 @article{imbens2001estimating,
@@ -4356,7 +4463,7 @@
   pages={73--117},
   year={2007},
   doi={10.1162/qjec.121.1.73},
-  note={The DOI string contains "121" but the registered metadata resolves to volume 122, issue 1, pages 73-117 (2007), matching this entry on both Crossref and doi.org -- an MIT Press numbering quirk, not a mismatched record. Recorded 2026-08-24 after that resolution check; previously omitted because the string alone looked inconsistent. Also verified via academic.oup.com and ideas.repec.org (RePEc:oup:qjecon:v:122:y:2007:i:1).}
+  annote={The DOI string contains "121" but the registered metadata resolves to volume 122, issue 1, pages 73-117 (2007), matching this entry on both Crossref and doi.org -- an MIT Press numbering quirk, not a mismatched record. Recorded 2026-08-24 after that resolution check; previously omitted because the string alone looked inconsistent. Also verified via academic.oup.com and ideas.repec.org (RePEc:oup:qjecon:v:122:y:2007:i:1).}
 }
 
 @article{black1999schools,
@@ -4419,7 +4526,7 @@
   institution={Working paper, scorreia.com},
   year={2015},
   url={https://scorreia.com/research/singletons.pdf},
-  note={No DOI: a self-published working paper with no Crossref registration (searched 2026-08-24). Cite by URL.}
+  annote={No DOI: a self-published working paper with no Crossref registration (searched 2026-08-24). Cite by URL.}
 }
 
 @techreport{correia2017linear,
@@ -4428,7 +4535,7 @@
   institution={Working paper, scorreia.com},
   year={2017},
   url={https://scorreia.com/research/hdfe.pdf},
-  note={No DOI: a self-published working paper with no Crossref registration (searched 2026-08-24). Cite by URL.}
+  annote={No DOI: a self-published working paper with no Crossref registration (searched 2026-08-24). Cite by URL.}
 }
 
 @article{dahabreh2020extending,
@@ -4468,7 +4575,7 @@
   number={P23-186},
   year={1993},
   url={https://www.census.gov/library/publications/1993/demo/p23-186.html},
-  note={No DOI: US Census Bureau report P23-186 is not registered with Crossref (searched 2026-08-24). Cite by URL.}
+  annote={No DOI: US Census Bureau report P23-186 is not registered with Crossref (searched 2026-08-24). Cite by URL.}
 }
 
 @book{duchateau2008frailty,
@@ -4500,7 +4607,7 @@
   year={1996},
   isbn={978-0-412-98321-4},
   doi={10.1201/9780203748725},
-  note={DOI is CRC/Routledge's registration of this monograph; its Crossref record gives 2018 (the imprint transfer), while this entry cites the original 1996 Chapman \& Hall printing. Title and both authors verified identical on Crossref and doi.org, 2026-08-24.}
+  annote={DOI is CRC/Routledge's registration of this monograph; its Crossref record gives 2018 (the imprint transfer), while this entry cites the original 1996 Chapman \& Hall printing. Title and both authors verified identical on Crossref and doi.org, 2026-08-24.}
 }
 
 @article{fare1992productivity,
@@ -4531,7 +4638,7 @@
   author={Fisher, Ronald A.},
   publisher={Oliver and Boyd, Edinburgh},
   year={1935},
-  note={No DOI: 10.2307/2343406 is a Journal of the Royal Statistical Society review of a later edition, not the book. Verified 2026-08-24 via Crossref and doi.org.}
+  annote={No DOI: 10.2307/2343406 is a Journal of the Royal Statistical Society review of a later edition, not the book. Verified 2026-08-24 via Crossref and doi.org.}
 }
 
 @article{imai2014covariate,
@@ -4581,7 +4688,7 @@
   number={3},
   pages={622--641},
   year={1994},
-  note={No DOI: AEA's Crossref deposits for the American Economic Review begin at volume 89 (1999) -- a query on the journal's ISSN returns zero records before then. Verified 2026-08-24.}
+  annote={No DOI: AEA's Crossref deposits for the American Economic Review begin at volume 89 (1999) -- a query on the journal's ISSN returns zero records before then. Verified 2026-08-24.}
 }
 
 @book{hardin2007generalized,
@@ -4591,7 +4698,7 @@
   edition={2nd},
   year={2007},
   isbn={978-1-59718-014-6},
-  note={No DOI: Stata Press has not registered this book with Crossref (searched 2026-08-24). Cite by ISBN.}
+  annote={No DOI: Stata Press has not registered this book with Crossref (searched 2026-08-24). Cite by ISBN.}
 }
 
 @inproceedings{hardt2016equality,
@@ -4609,7 +4716,7 @@
   publisher={Chapman \& Hall/CRC},
   year={2020},
   isbn={978-1-4200-7616-5},
-  note={No DOI: neither Chapman \& Hall/CRC nor the authors have registered this book with Crossref (searched by title and both authors, 2026-08-24). Cite by ISBN.}
+  annote={No DOI: neither Chapman \& Hall/CRC nor the authors have registered this book with Crossref (searched by title and both authors, 2026-08-24). Cite by ISBN.}
 }
 
 @article{holm1979simple,
@@ -4620,7 +4727,7 @@
   number={2},
   pages={65--70},
   year={1979},
-  note={No DOI: Crossref deposits for the Scandinavian Journal of Statistics begin in 1997, so the 1979 volume carries none. Verified 2026-08-24.}
+  annote={No DOI: Crossref deposits for the Scandinavian Journal of Statistics begin in 1997, so the 1979 volume carries none. Verified 2026-08-24.}
 }
 
 @misc{balgi2025sensitivity,
@@ -4669,7 +4776,7 @@
   institution={Princeton University, Department of Economics Working Paper},
   number={2013-2},
   year={2013},
-  note={No DOI: no Crossref registration for this working paper (searched 2026-08-24).}
+  annote={No DOI: no Crossref registration for this working paper (searched 2026-08-24).}
 }
 
 @article{lalonde1986evaluating,
@@ -4680,7 +4787,7 @@
   number={4},
   pages={604--620},
   year={1986},
-  note={No DOI: AEA's Crossref deposits for the American Economic Review begin at volume 89 (1999) -- a query on the journal's ISSN returns zero records before then. Verified 2026-08-24.}
+  annote={No DOI: AEA's Crossref deposits for the American Economic Review begin at volume 89 (1999) -- a query on the journal's ISSN returns zero records before then. Verified 2026-08-24.}
 }
 
 @article{lipsitch2010negative,
@@ -4781,7 +4888,7 @@
   publisher={Academic Press},
   pages={105--142},
   year={1974},
-  note={No DOI: the Academic Press volume Frontiers in Econometrics is not registered with Crossref (searched 2026-08-24).}
+  annote={No DOI: the Academic Press volume Frontiers in Econometrics is not registered with Crossref (searched 2026-08-24).}
 }
 
 @book{rothman2008modern,
@@ -4791,7 +4898,7 @@
   edition={3rd},
   year={2008},
   isbn={978-0-7817-5564-1},
-  note={No DOI: Lippincott Williams \& Wilkins has not registered this edition with Crossref (searched 2026-08-24). Cite by ISBN.}
+  annote={No DOI: Lippincott Williams \& Wilkins has not registered this edition with Crossref (searched 2026-08-24). Cite by ISBN.}
 }
 
 @book{silverman1986density,
@@ -4802,7 +4909,7 @@
   year={1986},
   isbn={978-0-412-24620-3},
   doi={10.1201/9781315140919},
-  note={DOI is CRC/Routledge's registration of this monograph; its Crossref record gives 2018 (the imprint transfer), while this entry cites the original 1986 Chapman \& Hall printing. Title and author verified identical on Crossref and doi.org, 2026-08-24.}
+  annote={DOI is CRC/Routledge's registration of this monograph; its Crossref record gives 2018 (the imprint transfer), while this entry cites the original 1986 Chapman \& Hall printing. Title and author verified identical on Crossref and doi.org, 2026-08-24.}
 }
 
 @book{westfall1993resampling,
@@ -4811,7 +4918,7 @@
   publisher={Wiley-Interscience},
   year={1993},
   isbn={978-0-471-55761-6},
-  note={No DOI is registered for the book itself (verified 2026-08-24 via Crossref API and doi.org). 10.2307/2533464 is Martin's Biometrics 50(4):1226 book review; Crossref indexes four separate reviews of this book (10.2307/2533464, 10.2307/1270279, 10.2307/2348369, 10.2307/2291234) but no record for the Wiley monograph.}
+  annote={No DOI is registered for the book itself (verified 2026-08-24 via Crossref API and doi.org). 10.2307/2533464 is Martin's Biometrics 50(4):1226 book review; Crossref indexes four separate reviews of this book (10.2307/2533464, 10.2307/1270279, 10.2307/2348369, 10.2307/2291234) but no record for the Wiley monograph.}
 }
 
 @book{greene2018econometric,
@@ -4821,7 +4928,7 @@
   edition={8th},
   year={2018},
   isbn={978-0-13-446136-6},
-  note={No DOI: Pearson has not registered this textbook with Crossref (searched by title and author, 2026-08-24). Cite by ISBN.}
+  annote={No DOI: Pearson has not registered this textbook with Crossref (searched by title and author, 2026-08-24). Cite by ISBN.}
 }
 
 @article{melly2006estimation,
@@ -4829,7 +4936,7 @@
   author={Melly, Blaise},
   journal={Swiss Institute for International Economics and Applied Economic Research (SIAW) working paper},
   year={2006},
-  note={No DOI: this SIAW working paper is not registered with Crossref. 10.1016/j.labeco.2005.05.006 is Melly's separate 2005 Labour Economics article "Decomposition of differences in distribution using quantile regression", not this paper. Verified 2026-08-24.}
+  annote={No DOI: this SIAW working paper is not registered with Crossref. 10.1016/j.labeco.2005.05.006 is Melly's separate 2005 Labour Economics article "Decomposition of differences in distribution using quantile regression", not this paper. Verified 2026-08-24.}
 }
 
 @article{murphy2005generalization,
@@ -4839,7 +4946,7 @@
   volume={6},
   pages={1073--1097},
   year={2005},
-  note={No DOI: JMLR issues none, and no arXiv version of this paper exists (searched 2026-08-24).}
+  annote={No DOI: JMLR issues none, and no arXiv version of this paper exists (searched 2026-08-24).}
 }
 
 @article{webb2014reworking,
@@ -4871,7 +4978,7 @@
   year={2022},
   publisher={Taylor \& Francis},
   doi={10.1080/07350015.2021.1930012},
-  note={Version of record. Published online 2021-07-06; issue 40(3) dated 2022. Supersedes and retitles the widely circulated working paper ``Synthetic Control Methods: Never Use All Pre-Intervention Outcomes Together with Covariates'' (MPRA Paper No.\ 83790, first version 2015), which carries no DOI. Cite this published version. Verified 2026-08-24 via the Crossref DOI record, a Crossref bibliographic search, doi.org resolution to tandfonline.com, and OpenAlex.}
+  annote={Version of record. Published online 2021-07-06; issue 40(3) dated 2022. Supersedes and retitles the widely circulated working paper ``Synthetic Control Methods: Never Use All Pre-Intervention Outcomes Together with Covariates'' (MPRA Paper No.\ 83790, first version 2015), which carries no DOI. Cite this published version. Verified 2026-08-24 via the Crossref DOI record, a Crossref bibliographic search, doi.org resolution to tandfonline.com, and OpenAlex.}
 }
 
 @misc{hernan2025target,
@@ -4883,7 +4990,7 @@
   pages={1084},
   year={2025},
   doi={10.1001/jama.2025.13350},
-  note={Reporting guideline consensus statement, published simultaneously in JAMA 334(12):1084 (DOI above) and BMJ 390:e087179 (10.1136/bmj-2025-087179). The first author is Cashin, not Hernan -- the bib key predates verification and is retained only for stability. Author order and venue verified 2026-08-24 on Crossref and doi.org.}
+  annote={Reporting guideline consensus statement, published simultaneously in JAMA 334(12):1084 (DOI above) and BMJ 390:e087179 (10.1136/bmj-2025-087179). The first author is Cashin, not Hernan -- the bib key predates verification and is retained only for stability. Author order and venue verified 2026-08-24 on Crossref and doi.org.}
 }
 
 @article{schweisthal2024metalearners,
@@ -4901,7 +5008,7 @@
   author={Phillips, Garry D. A. and Hale, C.},
   journal={Cardiff Economics Working Papers},
   year={2018},
-  note={No DOI: the Cardiff Economics Working Paper is not registered with Crossref (searched 2026-08-24).}
+  annote={No DOI: the Cardiff Economics Working Paper is not registered with Crossref (searched 2026-08-24).}
 }
 
 @article{rho2025clustersc,
@@ -4918,7 +5025,7 @@
   journal={Center for Statistics and the Social Sciences, University of Washington Series Working Paper},
   number={128},
   year={2013},
-  note={No DOI: the CSSS working paper is not registered with Crossref. 10.1093/aje/kwae353 is a 2024 American Journal of Epidemiology article about SWIGs by different authors, not this paper. Verified 2026-08-24.}
+  annote={No DOI: the CSSS working paper is not registered with Crossref. 10.1093/aje/kwae353 is a 2024 American Journal of Epidemiology article about SWIGs by different authors, not this paper. Verified 2026-08-24.}
 }
 
 @inproceedings{robins1998marginal,
@@ -4927,7 +5034,7 @@
   booktitle={Proceedings of the American Statistical Association, Section on Bayesian Statistical Science},
   pages={1--10},
   year={1998},
-  note={No DOI: the ASA Proceedings carry none and no arXiv version exists (searched 2026-08-24).}
+  annote={No DOI: the ASA Proceedings carry none and no arXiv version exists (searched 2026-08-24).}
 }
 
 @article{runge2020discovering,
@@ -4946,7 +5053,7 @@
   booktitle={Proceedings of the 41st International Conference on Machine Learning (ICML)},
   year={2024},
   doi={10.48550/arXiv.2311.08527},
-  note={Venue corrected 2026-08-24: this entry previously read "40th ICML, 2023". The paper appeared at ICML 2024, the 41st -- the arXiv record is annotated "Accepted into ICML 2024" and DBLP indexes it under ICML 2024. PMLR carries no DOI, so the DOI above is the arXiv preprint (arXiv:2311.08527, v1 2023-11-14); title and all three authors verified identical via the arXiv API. The bib key keeps its original year for stability.}
+  annote={Venue corrected 2026-08-24: this entry previously read "40th ICML, 2023". The paper appeared at ICML 2024, the 41st -- the arXiv record is annotated "Accepted into ICML 2024" and DBLP indexes it under ICML 2024. PMLR carries no DOI, so the DOI above is the arXiv preprint (arXiv:2311.08527, v1 2023-11-14); title and all three authors verified identical via the arXiv API. The bib key keeps its original year for stability.}
 }
 
 @misc{jiralerspong2024efficient,
@@ -4962,7 +5069,7 @@
   author={Goodman-Bacon, Andrew and Goldring, Thomas and Nichols, Austin},
   year={2019},
   howpublished={Statistical Software Components, Boston College},
-  note={No DOI: SSC modules distributed through Boston College's RePEc archive carry none. Do not attach 10.32614/cran.package.bacondecomp -- that is the CRAN DOI of the separate R package bacondecomp by Flack and Jee (2020), not this Stata module by Goodman-Bacon, Goldring and Nichols; the two titles are close enough that an automated title match lands on the wrong one. Verified 2026-08-24.}
+  annote={No DOI: SSC modules distributed through Boston College's RePEc archive carry none. Do not attach 10.32614/cran.package.bacondecomp -- that is the CRAN DOI of the separate R package bacondecomp by Flack and Jee (2020), not this Stata module by Goodman-Bacon, Goldring and Nichols; the two titles are close enough that an automated title match lands on the wrong one. Verified 2026-08-24.}
 }
 
 @misc{fong2022cbps,
@@ -4971,7 +5078,7 @@
   year={2022},
   howpublished={CRAN R package, see \url{https://github.com/kosukeimai/CBPS}; paper Imai \& Ratkovic 2014 JRSS-B},
   doi={10.32614/cran.package.cbps},
-  note={CRAN package DOI; all three authors match. Crossref dates it 2012, the package's first CRAN release, whereas this entry cites the 2022 version. Verified 2026-08-24.}
+  annote={CRAN package DOI; all three authors match. Crossref dates it 2012, the package's first CRAN release, whereas this entry cites the 2022 version. Verified 2026-08-24.}
 }
 
 @article{kloft2011local,
@@ -4980,7 +5087,7 @@
   journal={Advances in Neural Information Processing Systems 24 (NeurIPS)},
   year={2011},
   doi={10.48550/arXiv.1103.0790},
-  note={NeurIPS proceedings carry no DOI; the DOI above is this paper's arXiv preprint (arXiv:1103.0790, 2011-03-03). Title and both authors verified identical via the arXiv API. Verified 2026-08-24.}
+  annote={NeurIPS proceedings carry no DOI; the DOI above is this paper's arXiv preprint (arXiv:1103.0790, 2011-03-03). Title and both authors verified identical via the arXiv API. Verified 2026-08-24.}
 }
 
 @article{lundberg2024gap,
@@ -5012,7 +5119,7 @@
   volume={23},
   year={2022},
   doi={10.48550/arXiv.2003.12659},
-  note={JMLR issues no DOIs; the DOI above is this paper's arXiv preprint (arXiv:2003.12659, v1 2020-03-27, last revised 2022-10-13). Title and all three authors verified identical via the arXiv API. Verified 2026-08-24.}
+  annote={JMLR issues no DOIs; the DOI above is this paper's arXiv preprint (arXiv:2003.12659, v1 2020-03-27, last revised 2022-10-13). Title and all three authors verified identical via the arXiv API. Verified 2026-08-24.}
 }
 
 @techreport{abadie2025harvesting,
@@ -5252,7 +5359,7 @@
   pages={3901--3914},
   year={2022},
   doi={10.48550/arXiv.2110.03031},
-  note={PMLR proceedings carry no DOI; the DOI above is the arXiv preprint (arXiv:2110.03031, posted 2021-10-06) of this paper -- title and all four authors verified identical via the arXiv API and doi.org, 2026-08-24.}
+  annote={PMLR proceedings carry no DOI; the DOI above is the arXiv preprint (arXiv:2110.03031, posted 2021-10-06) of this paper -- title and all four authors verified identical via the arXiv API and doi.org, 2026-08-24.}
 }
 
 @misc{bennett2023minimax,
@@ -5599,7 +5706,21 @@
   doi={10.5281/zenodo.22085759},
   url={https://doi.org/10.5281/zenodo.22085759},
   license={MIT},
-  note={This is the Zenodo VERSION DOI for v1.23.0, deliberately not the concept DOI 10.5281/zenodo.19933900. A concept DOI always redirects to the newest deposit, so pairing it with a fixed version string would silently retarget this citation at the next release; today both resolve to zenodo.org/records/22085759 only because v1.23.0 happens to be the newest. Confirmed 2026-08-31 via doi.org (HTTP 200) and the DataCite API, which reports version "v1.23.0", issued 2026-08-24, creators Wang and Rozelle, and IsVersionOf 10.5281/zenodo.19933900. CITATION.cff intentionally keeps the concept DOI: that file should always point at the latest archive.}
+  annote={This is the Zenodo VERSION DOI for v1.23.0, deliberately not the concept DOI 10.5281/zenodo.19933900. A concept DOI always redirects to the newest deposit, so pairing it with a fixed version string would silently retarget this citation at the next release; today both resolve to zenodo.org/records/22085759 only because v1.23.0 happens to be the newest. Confirmed 2026-08-31 via doi.org (HTTP 200) and the DataCite API, which reports version "v1.23.0", issued 2026-08-24, creators Wang and Rozelle, and IsVersionOf 10.5281/zenodo.19933900. CITATION.cff intentionally keeps the concept DOI: that file should always point at the latest archive.}
+}
+
+@article{wang2026statspaijoss,
+  title={{StatsPAI}: A Unified, Agent-Native {Python} Toolkit for Causal Inference and Applied Econometrics},
+  author={Wang, Biaoyue and Rozelle, Scott},
+  journal={Journal of Open Source Software},
+  year={2026},
+  volume={11},
+  number={125},
+  pages={10604},
+  publisher={The Open Journal},
+  doi={10.21105/joss.10604},
+  url={https://doi.org/10.21105/joss.10604},
+  annote={The published JOSS article (CITATION.cff preferred-citation); wang2026statspai is the Zenodo software deposit of the same project and deliberately stays a separate record because the two DOIs identify different objects (paper vs. code archive). Verified 2026-09-05 via api.crossref.org/works/10.21105/joss.10604 (volume 11, issue 125, article 10604, published 2026-09-03, ISSN 2475-9066, publisher The Open Journal) and CITATION.cff, which was written from the joss.theoj.org record on 2026-09-04.}
 }
 
 @article{moran1950notes,
@@ -5729,45 +5850,45 @@
 % ERGM, and canonical reference networks.
 % ====================================================================
 
-@article{freeman1978centrality, title={Centrality in social networks conceptual clarification}, volume={1}, ISSN={0378-8733}, url={http://dx.doi.org/10.1016/0378-8733(78)90021-7}, DOI={10.1016/0378-8733(78)90021-7}, number={3}, journal={Social Networks}, publisher={Elsevier BV}, author={Freeman, Linton C.}, year={1978}, month=Jan, pages={215–239} }
+@article{freeman1978centrality, title={Centrality in social networks conceptual clarification}, volume={1}, ISSN={0378-8733}, url={http://dx.doi.org/10.1016/0378-8733(78)90021-7}, DOI={10.1016/0378-8733(78)90021-7}, number={3}, journal={Social Networks}, publisher={Elsevier BV}, author={Freeman, Linton C.}, year={1978}, month=Jan, pages={215--239} }
 
-@article{brandes2001faster, title={A faster algorithm for betweenness centrality}, volume={25}, ISSN={1545-5874}, url={http://dx.doi.org/10.1080/0022250X.2001.9990249}, DOI={10.1080/0022250x.2001.9990249}, number={2}, journal={The Journal of Mathematical Sociology}, publisher={Informa UK Limited}, author={Brandes, Ulrik}, year={2001}, month=June, pages={163–177} }
+@article{brandes2001faster, title={A faster algorithm for betweenness centrality}, volume={25}, ISSN={1545-5874}, url={http://dx.doi.org/10.1080/0022250X.2001.9990249}, DOI={10.1080/0022250x.2001.9990249}, number={2}, journal={The Journal of Mathematical Sociology}, publisher={Informa UK Limited}, author={Brandes, Ulrik}, year={2001}, month=June, pages={163--177} }
 
-@article{bonacich1987power, title={Power and Centrality: A Family of Measures}, volume={92}, ISSN={1537-5390}, url={http://dx.doi.org/10.1086/228631}, DOI={10.1086/228631}, number={5}, journal={American Journal of Sociology}, publisher={University of Chicago Press}, author={Bonacich, Phillip}, year={1987}, month=Mar, pages={1170–1182} }
+@article{bonacich1987power, title={Power and Centrality: A Family of Measures}, volume={92}, ISSN={1537-5390}, url={http://dx.doi.org/10.1086/228631}, DOI={10.1086/228631}, number={5}, journal={American Journal of Sociology}, publisher={University of Chicago Press}, author={Bonacich, Phillip}, year={1987}, month=Mar, pages={1170--1182} }
 
-@article{newman2006modularity, title={Modularity and community structure in networks}, volume={103}, ISSN={1091-6490}, url={http://dx.doi.org/10.1073/pnas.0601602103}, DOI={10.1073/pnas.0601602103}, number={23}, journal={Proceedings of the National Academy of Sciences}, publisher={National Academy of Sciences}, author={Newman, M. E. J.}, year={2006}, month=June, pages={8577–8582} }
+@article{newman2006modularity, title={Modularity and community structure in networks}, volume={103}, ISSN={1091-6490}, url={http://dx.doi.org/10.1073/pnas.0601602103}, DOI={10.1073/pnas.0601602103}, number={23}, journal={Proceedings of the National Academy of Sciences}, publisher={National Academy of Sciences}, author={Newman, M. E. J.}, year={2006}, month=June, pages={8577--8582} }
 
 @article{blondel2008fast, title={Fast unfolding of communities in large networks}, volume={2008}, ISSN={1742-5468}, url={http://dx.doi.org/10.1088/1742-5468/2008/10/P10008}, DOI={10.1088/1742-5468/2008/10/p10008}, number={10}, journal={Journal of Statistical Mechanics: Theory and Experiment}, publisher={IOP Publishing}, author={Blondel, Vincent D and Guillaume, Jean-Loup and Lambiotte, Renaud and Lefebvre, Etienne}, year={2008}, month=Oct, pages={P10008} }
 
 @article{clauset2004finding, title={Finding community structure in very large networks}, volume={70}, ISSN={1550-2376}, url={http://dx.doi.org/10.1103/PhysRevE.70.066111}, DOI={10.1103/physreve.70.066111}, number={6}, journal={Physical Review E}, publisher={American Physical Society (APS)}, author={Clauset, Aaron and Newman, M. E. J. and Moore, Cristopher}, year={2004}, month=Dec }
 
-@article{raghavan2007near, title={Near linear time algorithm to detect community structures in large-scale networks}, volume={76}, ISSN={1550-2376}, url={http://dx.doi.org/10.1103/PhysRevE.76.036106}, DOI={10.1103/physreve.76.036106}, number={3}, journal={Physical Review E}, publisher={American Physical Society (APS)}, author={Raghavan, Usha Nandini and Albert, Réka and Kumara, Soundar}, year={2007}, month=Sept }
+@article{raghavan2007near, title={Near linear time algorithm to detect community structures in large-scale networks}, volume={76}, ISSN={1550-2376}, url={http://dx.doi.org/10.1103/PhysRevE.76.036106}, DOI={10.1103/physreve.76.036106}, number={3}, journal={Physical Review E}, publisher={American Physical Society (APS)}, author={Raghavan, Usha Nandini and Albert, R{\'e}ka and Kumara, Soundar}, year={2007}, month=Sept }
 
-@article{zachary1977information, title={An Information Flow Model for Conflict and Fission in Small Groups}, volume={33}, ISSN={2153-3806}, url={http://dx.doi.org/10.1086/jar.33.4.3629752}, DOI={10.1086/jar.33.4.3629752}, number={4}, journal={Journal of Anthropological Research}, publisher={University of Chicago Press}, author={Zachary, Wayne W.}, year={1977}, month=Dec, pages={452–473} }
+@article{zachary1977information, title={An Information Flow Model for Conflict and Fission in Small Groups}, volume={33}, ISSN={2153-3806}, url={http://dx.doi.org/10.1086/jar.33.4.3629752}, DOI={10.1086/jar.33.4.3629752}, number={4}, journal={Journal of Anthropological Research}, publisher={University of Chicago Press}, author={Zachary, Wayne W.}, year={1977}, month=Dec, pages={452--473} }
 
-@article{padgett1993robust, title={Robust Action and the Rise of the Medici, 1400-1434}, volume={98}, ISSN={1537-5390}, url={http://dx.doi.org/10.1086/230190}, DOI={10.1086/230190}, number={6}, journal={American Journal of Sociology}, publisher={University of Chicago Press}, author={Padgett, John F. and Ansell, Christopher K.}, year={1993}, month=May, pages={1259–1319} }
+@article{padgett1993robust, title={Robust Action and the Rise of the Medici, 1400-1434}, volume={98}, ISSN={1537-5390}, url={http://dx.doi.org/10.1086/230190}, DOI={10.1086/230190}, number={6}, journal={American Journal of Sociology}, publisher={University of Chicago Press}, author={Padgett, John F. and Ansell, Christopher K.}, year={1993}, month=May, pages={1259--1319} }
 
-@article{katz1953new, title={A New Status Index Derived from Sociometric Analysis}, volume={18}, ISSN={1860-0980}, url={http://dx.doi.org/10.1007/BF02289026}, DOI={10.1007/bf02289026}, number={1}, journal={Psychometrika}, publisher={Cambridge University Press (CUP)}, author={Katz, Leo}, year={1953}, month=Mar, pages={39–43} }
+@article{katz1953new, title={A New Status Index Derived from Sociometric Analysis}, volume={18}, ISSN={1860-0980}, url={http://dx.doi.org/10.1007/BF02289026}, DOI={10.1007/bf02289026}, number={1}, journal={Psychometrika}, publisher={Cambridge University Press (CUP)}, author={Katz, Leo}, year={1953}, month=Mar, pages={39--43} }
 
-@article{kleinberg1999authoritative, title={Authoritative sources in a hyperlinked environment}, volume={46}, ISSN={1557-735X}, url={http://dx.doi.org/10.1145/324133.324140}, DOI={10.1145/324133.324140}, number={5}, journal={Journal of the ACM}, publisher={Association for Computing Machinery (ACM)}, author={Kleinberg, Jon M.}, year={1999}, month=Sept, pages={604–632} }
+@article{kleinberg1999authoritative, title={Authoritative sources in a hyperlinked environment}, volume={46}, ISSN={1557-735X}, url={http://dx.doi.org/10.1145/324133.324140}, DOI={10.1145/324133.324140}, number={5}, journal={Journal of the ACM}, publisher={Association for Computing Machinery (ACM)}, author={Kleinberg, Jon M.}, year={1999}, month=Sept, pages={604--632} }
 
-@article{dekker2007sensitivity, title={Sensitivity of MRQAP Tests to Collinearity and Autocorrelation Conditions}, volume={72}, ISSN={1860-0980}, url={http://dx.doi.org/10.1007/s11336-007-9016-1}, DOI={10.1007/s11336-007-9016-1}, number={4}, journal={Psychometrika}, publisher={Cambridge University Press (CUP)}, author={Dekker, David and Krackhardt, David and Snijders, Tom A. B.}, year={2007}, month=Dec, pages={563–581} }
+@article{dekker2007sensitivity, title={Sensitivity of MRQAP Tests to Collinearity and Autocorrelation Conditions}, volume={72}, ISSN={1860-0980}, url={http://dx.doi.org/10.1007/s11336-007-9016-1}, DOI={10.1007/s11336-007-9016-1}, number={4}, journal={Psychometrika}, publisher={Cambridge University Press (CUP)}, author={Dekker, David and Krackhardt, David and Snijders, Tom A. B.}, year={2007}, month=Dec, pages={563--581} }
 
-@article{krackhardt1988predicting, title={Predicting with networks: Nonparametric multiple regression analysis of dyadic data}, volume={10}, ISSN={0378-8733}, url={http://dx.doi.org/10.1016/0378-8733(88)90004-4}, DOI={10.1016/0378-8733(88)90004-4}, number={4}, journal={Social Networks}, publisher={Elsevier BV}, author={Krackhardt, David}, year={1988}, month=Dec, pages={359–381} }
+@article{krackhardt1988predicting, title={Predicting with networks: Nonparametric multiple regression analysis of dyadic data}, volume={10}, ISSN={0378-8733}, url={http://dx.doi.org/10.1016/0378-8733(88)90004-4}, DOI={10.1016/0378-8733(88)90004-4}, number={4}, journal={Social Networks}, publisher={Elsevier BV}, author={Krackhardt, David}, year={1988}, month=Dec, pages={359--381} }
 
-@article{fafchamps2007formation, title={The formation of risk sharing networks}, volume={83}, ISSN={0304-3878}, url={http://dx.doi.org/10.1016/j.jdeveco.2006.05.005}, DOI={10.1016/j.jdeveco.2006.05.005}, number={2}, journal={Journal of Development Economics}, publisher={Elsevier BV}, author={Fafchamps, Marcel and Gubert, Flore}, year={2007}, month=July, pages={326–350} }
+@article{fafchamps2007formation, title={The formation of risk sharing networks}, volume={83}, ISSN={0304-3878}, url={http://dx.doi.org/10.1016/j.jdeveco.2006.05.005}, DOI={10.1016/j.jdeveco.2006.05.005}, number={2}, journal={Journal of Development Economics}, publisher={Elsevier BV}, author={Fafchamps, Marcel and Gubert, Flore}, year={2007}, month=July, pages={326--350} }
 
-@article{aronow2015cluster, title={Cluster–Robust Variance Estimation for Dyadic Data}, volume={23}, ISSN={1476-4989}, url={http://dx.doi.org/10.1093/pan/mpv018}, DOI={10.1093/pan/mpv018}, number={4}, journal={Political Analysis}, publisher={Cambridge University Press (CUP)}, author={Aronow, Peter M. and Samii, Cyrus and Assenova, Valentina A.}, year={2015}, pages={564–577} }
+@article{aronow2015cluster, title={Cluster--Robust Variance Estimation for Dyadic Data}, volume={23}, ISSN={1476-4989}, url={http://dx.doi.org/10.1093/pan/mpv018}, DOI={10.1093/pan/mpv018}, number={4}, journal={Political Analysis}, publisher={Cambridge University Press (CUP)}, author={Aronow, Peter M. and Samii, Cyrus and Assenova, Valentina A.}, year={2015}, pages={564--577} }
 
-@article{strauss1990pseudolikelihood, title={Pseudolikelihood Estimation for Social Networks}, volume={85}, ISSN={1537-274X}, url={http://dx.doi.org/10.1080/01621459.1990.10475327}, DOI={10.1080/01621459.1990.10475327}, number={409}, journal={Journal of the American Statistical Association}, publisher={Informa UK Limited}, author={Strauss, David and Ikeda, Michael}, year={1990}, month=Mar, pages={204–212} }
+@article{strauss1990pseudolikelihood, title={Pseudolikelihood Estimation for Social Networks}, volume={85}, ISSN={1537-274X}, url={http://dx.doi.org/10.1080/01621459.1990.10475327}, DOI={10.1080/01621459.1990.10475327}, number={409}, journal={Journal of the American Statistical Association}, publisher={Informa UK Limited}, author={Strauss, David and Ikeda, Michael}, year={1990}, month=Mar, pages={204--212} }
 
-@article{robins2007introduction, title={An introduction to exponential random graph (p*) models for social networks}, volume={29}, ISSN={0378-8733}, url={http://dx.doi.org/10.1016/j.socnet.2006.08.002}, DOI={10.1016/j.socnet.2006.08.002}, number={2}, journal={Social Networks}, publisher={Elsevier BV}, author={Robins, Garry and Pattison, Pip and Kalish, Yuval and Lusher, Dean}, year={2007}, month=May, pages={173–191} }
+@article{robins2007introduction, title={An introduction to exponential random graph (p*) models for social networks}, volume={29}, ISSN={0378-8733}, url={http://dx.doi.org/10.1016/j.socnet.2006.08.002}, DOI={10.1016/j.socnet.2006.08.002}, number={2}, journal={Social Networks}, publisher={Elsevier BV}, author={Robins, Garry and Pattison, Pip and Kalish, Yuval and Lusher, Dean}, year={2007}, month=May, pages={173--191} }
 
 @article{newman2002assortative, title={Assortative Mixing in Networks}, volume={89}, ISSN={1079-7114}, url={http://dx.doi.org/10.1103/PhysRevLett.89.208701}, DOI={10.1103/physrevlett.89.208701}, number={20}, journal={Physical Review Letters}, publisher={American Physical Society (APS)}, author={Newman, M. E. J.}, year={2002}, month=Oct }
 
-@article{watts1998collective, title={Collective dynamics of ‘small-world’ networks}, volume={393}, ISSN={1476-4687}, url={http://dx.doi.org/10.1038/30918}, DOI={10.1038/30918}, number={6684}, journal={Nature}, publisher={Springer Science and Business Media LLC}, author={Watts, Duncan J. and Strogatz, Steven H.}, year={1998}, month=June, pages={440–442} }
+@article{watts1998collective, title={Collective dynamics of `small-world' networks}, volume={393}, ISSN={1476-4687}, url={http://dx.doi.org/10.1038/30918}, DOI={10.1038/30918}, number={6684}, journal={Nature}, publisher={Springer Science and Business Media LLC}, author={Watts, Duncan J. and Strogatz, Steven H.}, year={1998}, month=June, pages={440--442} }
 
-@article{brin1998anatomy, title={The anatomy of a large-scale hypertextual Web search engine}, volume={30}, ISSN={0169-7552}, url={http://dx.doi.org/10.1016/S0169-7552(98)00110-X}, DOI={10.1016/s0169-7552(98)00110-x}, number={1-7}, journal={Computer Networks and ISDN Systems}, publisher={Elsevier BV}, author={Brin, Sergey and Page, Lawrence}, year={1998}, month=Apr, pages={107–117} }
+@article{brin1998anatomy, title={The anatomy of a large-scale hypertextual Web search engine}, volume={30}, ISSN={0169-7552}, url={http://dx.doi.org/10.1016/S0169-7552(98)00110-X}, DOI={10.1016/s0169-7552(98)00110-x}, number={1-7}, journal={Computer Networks and ISDN Systems}, publisher={Elsevier BV}, author={Brin, Sergey and Page, Lawrence}, year={1998}, month=Apr, pages={107--117} }
 
 @book{wasserman1994social, title={Social Network Analysis: Methods and Applications}, ISBN={9780511815478}, url={http://dx.doi.org/10.1017/CBO9780511815478}, DOI={10.1017/cbo9780511815478}, publisher={Cambridge University Press}, author={Wasserman, Stanley and Faust, Katherine}, year={1994}, month=Nov }
 
@@ -6037,7 +6158,8 @@
   author={Li, Zikai and Strezhnev, Anton},
   year={2025},
   doi={10.31235/osf.io/ngr3d_v1},
-  note={Working paper; revise and resubmit, Political Analysis -- no journal DOI exists. SocArXiv has since issued version DOIs; the one above pins v1 (2025-07-11), the version whose year this entry declares. v2 (2026-03-16) and v3 (2026-07-13) also resolve. Verified 2026-08-24.}
+  note={Working paper; revise and resubmit, Political Analysis},
+  annote={Working paper; revise and resubmit, Political Analysis -- no journal DOI exists. SocArXiv has since issued version DOIs; the one above pins v1 (2025-07-11), the version whose year this entry declares. v2 (2026-03-16) and v3 (2026-07-13) also resolve. Verified 2026-08-24.}
 }
 
 @misc{dechaisemartin2025complex,
@@ -6225,7 +6347,7 @@
   url={https://proceedings.neurips.cc/paper_files/paper/2020/hash/1457c0d6bfcb4967418bfb8ac142f64a-Abstract.html},
   eprint={2005.14165},
   archivePrefix={arXiv},
-  note={Full 31-author list from the arXiv record; pages from the NeurIPS proceedings BibTeX. NeurIPS proceedings carry no DOI.}
+  annote={Full 31-author list from the arXiv record; pages from the NeurIPS proceedings BibTeX. NeurIPS proceedings carry no DOI, so the entry records the proceedings URL and the arXiv eprint rather than attaching the preprint DOI to the venue record.}
 }
 
 @misc{chen2025efficient,
@@ -6234,7 +6356,8 @@
   year={2025},
   eprint={2506.17729},
   archivePrefix={arXiv},
-  note={arXiv preprint, first posted 2025-06-21; no journal publication as of verification 2026-09-04}
+  note={arXiv preprint, first posted 2025-06-21},
+  annote={No journal publication as of verification 2026-09-04 (arXiv API).}
 }
 
 @misc{ghanem2026selection,
@@ -6243,7 +6366,8 @@
   year={2026},
   eprint={2203.09001},
   archivePrefix={arXiv},
-  note={arXiv preprint; cites v15 dated 2026-07-24 (first posted 2022-03-17). No journal publication as of verification 2026-09-04}
+  note={arXiv preprint, v15 dated 2026-07-24 (first posted 2022-03-17)},
+  annote={No journal publication as of verification 2026-09-04 (arXiv API).}
 }
 
 @article{ho2011matchit,
@@ -6264,7 +6388,7 @@
   year={2023},
   eprint={2211.09110},
   archivePrefix={arXiv},
-  note={Full 50-author list and the TMLR journal reference from the arXiv record (journal\_ref: ``Published in Transactions on Machine Learning Research (TMLR), 2023''). TMLR issues no DOI.}
+  annote={Full 50-author list and the TMLR journal reference from the arXiv record (journal_ref: Published in Transactions on Machine Learning Research (TMLR), 2023). TMLR issues no DOI.}
 }
 
 @misc{patil2023gorilla,
@@ -6324,7 +6448,7 @@
   pages={397--447},
   year={2025},
   doi={10.1177/00491241241234866},
-  note={Issue 54(2) dated May 2025; published online 2024-08-16 (Crossref)}
+  annote={Issue 54(2) dated May 2025; published online 2024-08-16 (Crossref)}
 }
 
 @inproceedings{louizos2017causal,
@@ -6336,7 +6460,7 @@
   url={https://proceedings.neurips.cc/paper_files/paper/2017/hash/94b5bde6de888ddf9cde6748ad2523d1-Abstract.html},
   eprint={1705.08821},
   archivePrefix={arXiv},
-  note={NeurIPS proceedings carry no DOI and list no page range for this volume}
+  annote={NeurIPS proceedings carry no DOI and list no page range for this volume; entry records the proceedings URL and the arXiv eprint.}
 }
 
 @misc{papakostas2024deepcausal,
@@ -6357,4 +6481,28 @@
   pages={2584--2589},
   year={2018},
   doi={10.1073/pnas.1708290115}
+}
+
+@article{hainmueller2019much,
+  title={How Much Should We Trust Estimates from Multiplicative Interaction Models? Simple Tools to Improve Empirical Practice},
+  author={Hainmueller, Jens and Mummolo, Jonathan and Xu, Yiqing},
+  journal={Political Analysis},
+  volume={27},
+  number={2},
+  pages={163--192},
+  year={2019},
+  doi={10.1017/pan.2018.46},
+  annote={Verified 2026-09-05 via api.crossref.org/works/10.1017/pan.2018.46 and the Cambridge Core landing page (doi.org redirect): authors, title, journal, volume 27(2), pages 163-192, year 2019 all agree. Used by sp.interflex (Track A module 87).}
+}
+
+@article{mou2023panel,
+  title={Panel Data Visualization in {R} ({panelView}) and {Stata} ({panelview})},
+  author={Mou, Hongyu and Liu, Licheng and Xu, Yiqing},
+  journal={Journal of Statistical Software},
+  volume={107},
+  number={7},
+  pages={1--20},
+  year={2023},
+  doi={10.18637/jss.v107.i07},
+  annote={Verified 2026-09-05 via api.crossref.org/works/10.18637/jss.v107.i07 and www.jstatsoft.org/article/view/v107i07 (authors, title, JSS 107(7), 2023, DOI agree; page range 1-20 from the JSS article page). Used by sp.panel_view.}
 }

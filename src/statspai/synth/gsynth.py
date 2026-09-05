@@ -667,3 +667,17 @@ CausalResult._CITATIONS["gsynth"] = (
     "  publisher={Cambridge University Press}\n"
     "}"
 )
+
+CausalResult._CITATIONS["fect"] = (
+    "@article{liu2024practical,\n"
+    "  title={A Practical Guide to Counterfactual Estimators for Causal "
+    "Inference with Time-Series Cross-Sectional Data},\n"
+    "  author={Liu, Licheng and Wang, Ye and Xu, Yiqing},\n"
+    "  journal={American Journal of Political Science},\n"
+    "  volume={68},\n"
+    "  number={1},\n"
+    "  pages={160--176},\n"
+    "  year={2024},\n"
+    "  doi={10.1111/ajps.12723}\n"
+    "}"
+)

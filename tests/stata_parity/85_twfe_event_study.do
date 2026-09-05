@@ -81,16 +81,18 @@ forvalues k = -4/4 {
 }
 
 * Record the degrees-of-freedom accounting so a reviewer can verify the
-* documented SE gap from the artifact alone, without rerunning Stata.
+* K convention from the artifact alone, without rerunning Stata. Since
+* StatsPAI 1.24.0 sp.event_study applies the same nested rule as reghdfe
+* and fixest (K = 8 event-time coefficients + 9 absorbed time effects,
+* which are not nested in the unit cluster), so all three sides agree
+* at machine level with default settings.
 local K_stata = e(df_m) + e(df_a) + 1
-local K_py    = e(df_m)
 stata_parity_extra_num, key(stata_df_m) val(`=e(df_m)')
 stata_parity_extra_num, key(stata_df_a) val(`=e(df_a)')
 stata_parity_extra_num, key(stata_K) val(`K_stata')
-stata_parity_extra_num, key(statspai_K) val(`K_py')
-stata_parity_extra_num, key(implied_var_ratio) val(`=(`n' - `K_py') / (`n' - `K_stata')')
+stata_parity_extra_num, key(statspai_K) val(`K_stata')
 stata_parity_extra, key(method) val(reghdfe)
-stata_parity_extra, key(se_convention) val("reghdfe counts absorbed time effects and the constant in the small-sample K; sp.event_study and fixest ssc(fixef.K=none) count only non-absorbed coefficients")
+stata_parity_extra, key(se_convention) val("reghdfe, fixest (default ssc) and sp.event_study all count the absorbed time effects (not nested in the unit cluster) in the small-sample K = 17")
 stata_parity_extra, key(stata_command) val("reghdfe y d_m4 d_m3 d_m2 d_p0 d_p1 d_p2 d_p3 d_p4, absorb(unit time) vce(cluster unit)")
 
 stata_parity_close, module(85_twfe_event_study)

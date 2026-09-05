@@ -155,6 +155,14 @@ repos:
         always_run: true
         stages: [pre-push]
 
+      - id: bib-subset-jss-archival
+        name: bib_subset check (JSS jss-bib-archival.bib = cited anywhere minus jss-bib.bib)
+        entry: bash -c 'python3 tools/bib_subset.py check --skip-missing --roots Paper-JSS/manuscript/main.tex Paper-JSS/manuscript/sections/*.tex --minus Paper-JSS/manuscript/jss-bib.bib --out Paper-JSS/manuscript/jss-bib-archival.bib'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       - id: registry-drift
         name: registry_stats --check (public-function / submodule drift)
         entry: python3 scripts/registry_stats.py --check

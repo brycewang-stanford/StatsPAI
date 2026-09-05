@@ -12,6 +12,7 @@ Variants (20 methods)
 - **augmented / ascm** — Ben-Michael, Feller & Rothstein (2021)
 - **sdid** — Arkhangelsky, Athey, Hirshberg, Imbens & Wager (2021)
 - **factor / gsynth** — Xu (2017)
+- **fect** — Liu, Wang & Xu (2024) counterfactual estimators (fe / ife / mc) for staggered, multi-unit panels
 - **staggered** — Ben-Michael, Feller & Rothstein (2022)
 - **mc / matrix_completion** — Athey, Bayati et al. (2021)
 - **discos / distributional** — Gunsilius (2023)
@@ -43,100 +44,97 @@ Diagnostics
 - **synth_rmspe_filter()** — pre-RMSPE robustness
 """
 
-# Unified dispatcher + classic SCM
-from .scm import synth, SyntheticControl
-
-# Unified plotting (replaces old synthplot with full-variant support)
-from .plots import synthplot
-
 # Variant shortcuts
 from .augsynth import augsynth
-from .demeaned import demeaned_synth
-from .robust import robust_synth
-from .gsynth import gsynth
-from .staggered import staggered_synth
-from .conformal import conformal_synth
-from .scpi import scpi, scest, scdata
-from .mc import mc_synth
-from .multi_outcome import multi_outcome_synth
-
-# Distributional Synthetic Controls
-from .discos import discos, qqsynth, discos_test, discos_plot, stochastic_dominance
 
 # Bayesian SCM
 from .bayesian import bayesian_synth
 
 # BSTS / CausalImpact
-from .bsts import causal_impact, bsts_synth
-
-# Penalized SCM (Abadie & L'Hour 2021)
-from .penscm import penalized_synth
-
-# Forward DID
-from .fdid import fdid
+from .bsts import bsts_synth, causal_impact
 
 # Cluster SCM
 from .cluster import cluster_synth
 
-# Sparse SCM
-from .sparse import sparse_synth
-
-# Kernel / Nonlinear SCM
-from .kernel import kernel_synth, kernel_ridge_synth
-
 # Multi-method comparison & auto-recommendation
-from .compare import synth_compare, synth_recommend, SynthComparison
+from .compare import SynthComparison, synth_compare, synth_recommend
+from .conformal import conformal_synth
 
-# Power analysis & sample size planning
-from .power import synth_power, synth_mde, synth_power_plot
+# Canonical SCM datasets
+from .datasets import basque_terrorism, california_tobacco, german_reunification
+from .demeaned import demeaned_synth
 
-# Report generator
-from .report import synth_report, synth_report_to_file
-
-# Formatted table exports (LaTeX / Markdown / Excel)
-from .exports import synth_to_latex, synth_to_markdown, synth_to_excel
-
-# Sensitivity & robustness diagnostics
-from .sensitivity import (
-    synth_loo,
-    synth_time_placebo,
-    synth_donor_sensitivity,
-    synth_rmspe_filter,
-    synth_sensitivity,
-    synth_sensitivity_plot,
-)
-
-# Sequential SDID (Arkhangelsky & Samkov 2024)
-from .sequential_sdid import sequential_sdid, SequentialSDIDResult
-
-# Synthetic Survival Control (Han & Shah 2025, arXiv:2511.14133)
-from .survival import synth_survival, SyntheticSurvivalResult
+# Distributional Synthetic Controls
+from .discos import discos, discos_plot, discos_test, qqsynth, stochastic_dominance
 
 # Experimental design via synthetic controls (Abadie & Zhao 2025/2026)
 from .experimental_design import (
-    synth_experimental_design,
     SynthExperimentalDesignResult,
+    synth_experimental_design,
 )
+
+# Formatted table exports (LaTeX / Markdown / Excel)
+from .exports import synth_to_excel, synth_to_latex, synth_to_markdown
+
+# Forward DID
+from .fdid import fdid
+from .fect import fect
+from .gsynth import gsynth
+
+# Kernel / Nonlinear SCM
+from .kernel import kernel_ridge_synth, kernel_synth
+from .mc import mc_synth
+from .multi_outcome import multi_outcome_synth
+
+# Penalized SCM (Abadie & L'Hour 2021)
+from .penscm import penalized_synth
+
+# Unified plotting (replaces old synthplot with full-variant support)
+from .plots import synthplot
+
+# Power analysis & sample size planning
+from .power import synth_mde, synth_power, synth_power_plot
+
+# Report generator
+from .report import synth_report, synth_report_to_file
+from .robust import robust_synth
+
+# Unified dispatcher + classic SCM
+from .scm import SyntheticControl, synth
+from .scpi import scdata, scest, scpi
 
 # SDID framework
 from .sdid import (
+    california_prop99,
+    did_estimate,
+    sc_estimate,
     sdid,
     synthdid_estimate,
-    sc_estimate,
-    did_estimate,
     synthdid_placebo,
     synthdid_plot,
-    synthdid_units_plot,
     synthdid_rmse_plot,
-    california_prop99,
+    synthdid_units_plot,
 )
 
-# Canonical SCM datasets
-from .datasets import (
-    german_reunification,
-    basque_terrorism,
-    california_tobacco,
+# Sensitivity & robustness diagnostics
+from .sensitivity import (
+    synth_donor_sensitivity,
+    synth_loo,
+    synth_rmspe_filter,
+    synth_sensitivity,
+    synth_sensitivity_plot,
+    synth_time_placebo,
 )
+
+# Sequential SDID (Arkhangelsky & Samkov 2024)
+from .sequential_sdid import SequentialSDIDResult, sequential_sdid
+
+# Sparse SCM
+from .sparse import sparse_synth
+from .staggered import staggered_synth
+
+# Synthetic Survival Control (Han & Shah 2025, arXiv:2511.14133)
+from .survival import SyntheticSurvivalResult, synth_survival
 
 __all__ = [
     # Unified entry point
@@ -146,6 +144,7 @@ __all__ = [
     "demeaned_synth",
     "robust_synth",
     "gsynth",
+    "fect",
     "staggered_synth",
     "conformal_synth",
     "augsynth",

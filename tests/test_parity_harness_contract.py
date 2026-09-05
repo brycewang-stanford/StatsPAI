@@ -217,7 +217,7 @@ def test_strictness_tier_breakdown_matches_current_artifacts():
     # the saturated specification is under-identified with few cohorts
     # and is the contaminated object Sun-Abraham describes when it is not.
     assert compare.tier_breakdown(rendered_modules) == {
-        "machine": 76,
+        "machine": 78,
         "iterative": 7,
         "moderate": 1,
         "methodological": 1,
@@ -408,7 +408,7 @@ def test_glmm_parity_uses_tight_optimizer_solution_with_se_convention_guard():
         rows = {row.statistic: row for row in compare.collect(module)}
 
         assert compare.TOLERANCES[module]["rel_est"] == rel_tol
-        assert compare.TOLERANCES[module]["rel_se"] == 5e-2
+        assert compare.TOLERANCES[module]["rel_se"] == 1e-2
         assert compare.tolerance_tier(module) == "iterative"
         assert py_payload["extra"]["optimizer_tol"] == 1e-8
         assert (
@@ -418,14 +418,17 @@ def test_glmm_parity_uses_tight_optimizer_solution_with_se_convention_guard():
         for statistic in ("beta_intercept", "beta_x1"):
             assert rows[statistic].rel_est < rel_tol
             assert rows[statistic].rel_est_st < rel_tol
-            assert rows[statistic].rel_se < 5e-2
-            assert rows[statistic].rel_se_st < 5e-2
+            # Full observed-information covariance (1.24.0): Stata
+            # melogit vce(oim) at machine level, lme4 within its own
+            # Laplace-optimum offset.
+            assert rows[statistic].rel_se < 1e-2
+            assert rows[statistic].rel_se_st < 1e-5
 
     py_payload = _read_json(R_RESULTS / "27_glmm_aghq_py.json")
     rows = {row.statistic: row for row in compare.collect("27_glmm_aghq")}
 
     assert compare.TOLERANCES["27_glmm_aghq"]["rel_est"] == 1e-6
-    assert compare.TOLERANCES["27_glmm_aghq"]["rel_se"] == 5e-2
+    assert compare.TOLERANCES["27_glmm_aghq"]["rel_se"] == 2e-5
     assert compare.tolerance_tier("27_glmm_aghq") == "machine"
     assert py_payload["extra"]["optimizer_tol"] == 1e-12
     assert py_payload["extra"]["optimizer_maxiter"] == 5000
@@ -908,6 +911,115 @@ def test_headline_passes_are_inside_registered_r_tolerance():
         ), f"{module} R headline {metric}={max(values):.6g} exceeds {tolerance}"
 
 
+def test_csdid_group_overall_stata_se_is_the_fixed_share_aggregation():
+    """Module 04's one non-three-way row is reproduced, not just recorded.
+
+    csdid's `estat group` GAverage standard error differs from R
+    did::aggte(type="group") and sp.aggte by 0.27%. The mechanism is that
+    csdid aggregates the per-cohort influence functions with the cohort
+    shares held *fixed*, whereas did (and StatsPAI) add the
+    share-estimation term (did:::wif). Rebuilding the fixed-share
+    aggregate from StatsPAI's own joint cell influence functions returns
+    csdid's number to 1e-8; the earlier independent-cell reconstruction
+    overshot because it dropped the cross-cell covariance.
+    """
+    import numpy as np
+    import pandas as pd
+
+    import statspai as sp
+
+    stata = _read_json(STATA_RESULTS / "04_csdid_Stata.json")
+    se_csdid = next(
+        row["se"] for row in stata["rows"] if row["statistic"] == "group_overall"
+    )
+    df = pd.read_csv(R_RESULTS.parent / "data" / "04_csdid.csv")
+    cs = sp.callaway_santanna(
+        df,
+        y="lemp",
+        t="year",
+        i="countyreal",
+        g="first_treat",
+        control_group="nevertreated",
+        estimator="reg",
+        base_period="universal",
+    )
+    ag = sp.aggte(cs, type="group", bstrap=False, cband=False)
+    inf = np.asarray(cs._influence_funcs)
+    det = cs.detail
+    n = inf.shape[0]
+    sizes = cs.model_info["cohort_sizes"]
+    groups = sorted(det["group"].unique())
+    w = np.array([float(sizes[g]) for g in groups])
+    w /= w.sum()
+    psi_fixed = np.zeros(n)
+    for wg, g in zip(w, groups):
+        cells = np.where(((det["group"] == g) & (det["time"] >= g)).values)[0]
+        psi_fixed += wg * inf[:, cells].mean(axis=1)
+    se_fixed = float(np.sqrt(np.mean(psi_fixed**2) / n))
+    assert abs(se_fixed / se_csdid - 1.0) < 1e-8, (se_fixed, se_csdid)
+    # And the share-estimation term is what separates it from did/StatsPAI.
+    assert ag.se > se_fixed
+    assert abs(ag.se / se_csdid - 1.0) < 3e-3
+
+
+def test_every_r_se_row_is_inside_budget():
+    """Every SE row of a PASS module, headline or not, is inside rel_se.
+
+    The headline check gates one metric on the headline rows; this test
+    closes the "headline-only enforcement" weak spot by gating the
+    registered rel_se budget on *all* R-joined rows with an SE on both
+    sides. Point-only modules register a sentinel rel_se and have no
+    SE rows, so they pass vacuously.
+    """
+    compare = _load_compare()
+    for module in sorted(_module_stems(R_RESULTS, "_R")):
+        cfg = compare.HEADLINE[module]
+        if "PASS" not in cfg["verdict"]:
+            continue
+        budget = compare.TOLERANCES[module].get("rel_se")
+        if budget is None:
+            continue
+        values = [
+            (row.statistic, row.rel_se)
+            for row in compare.collect(module)
+            if row.rel_se is not None
+        ]
+        over = [(s, v) for s, v in values if v > budget]
+        assert not over, f"{module}: R SE rows over rel_se={budget:g}: {over}"
+
+
+def test_every_stata_se_row_is_inside_budget_or_registered():
+    """Stata SE rows over budget must be registered with a mechanism."""
+    compare = _load_compare()
+    for module in sorted(_module_stems(STATA_RESULTS, "_Stata")):
+        rows = compare.collect(module)
+        if not rows:
+            continue
+        cfg = compare.HEADLINE[module]
+        if "PASS" not in cfg["verdict"]:
+            continue
+        budget = compare.TOLERANCES[module].get("rel_se")
+        if budget is None:
+            continue
+        over = [
+            (row.statistic, row.rel_se_st)
+            for row in rows
+            if row.rel_se_st is not None and row.rel_se_st > budget
+        ]
+        registered = (
+            module in compare.STATA_HEADLINE_GAP_EXCEPTIONS
+            or module in compare.STATA_SE_GAP_NOTES
+        )
+        assert not over or registered, (
+            f"{module}: Stata SE rows over rel_se={budget:g} without a "
+            f"STATA_SE_GAP_NOTES entry: {over}"
+        )
+        if module in compare.STATA_SE_GAP_NOTES:
+            assert (
+                over
+            ), f"{module}: STATA_SE_GAP_NOTES entry is stale (no row over budget)"
+
+
 def test_stata_headline_over_budget_modules_are_explicitly_registered():
     compare = _load_compare()
     stata_modules = _module_stems(STATA_RESULTS, "_Stata")
@@ -1019,17 +1131,27 @@ def test_bjs_stata_never_treated_coding_matches_r_path():
     assert "16_bjs" not in compare.STATA_HEADLINE_GAP_EXCEPTIONS
 
 
-def test_panel_sfa_stata_gap_is_parameterisation_not_slope_drift():
+def test_panel_sfa_three_sides_share_the_half_normal_likelihood():
+    """Stata xtfrontier is run with [mu]_cons = 0 (2026-09), so its rows
+    are the same Pitt-Lee half-normal model as StatsPAI and frontier::sfa;
+    Stata's analytic-Hessian SEs pin the StatsPAI OIM, frontier's mleCov
+    is the loose side."""
     compare = _load_compare()
     cfg, headline_rows = _headline_rows(compare, "29_panel_sfa")
     rows = {diff.statistic: diff for diff in compare.collect("29_panel_sfa")}
+    stata_payload = _read_json(STATA_RESULTS / "29_panel_sfa_Stata.json")
 
     assert cfg["metric"] == "rel_est"
     assert {row.statistic for row in headline_rows} == {"beta_lnk", "beta_lnl"}
-    assert rows["beta_lnk"].rel_est_st < 1e-3
-    assert rows["beta_lnl"].rel_est_st < 1e-3
-    assert 0.015 < rows["beta_intercept"].rel_est_st < 0.02
-    assert rows["sigma_u"].rel_est_st > 0.25
+    assert "constraints(1)" in stata_payload["extra"]["stata_command"]
+    for statistic in ("beta_intercept", "beta_lnk", "beta_lnl"):
+        # Iterative ML on both sides: Stata's ml converges to ~1e-6.
+        assert rows[statistic].rel_est_st < 1e-5
+        assert rows[statistic].rel_se_st < 1e-5
+        assert rows[statistic].rel_est < 1e-5
+        assert rows[statistic].rel_se < 5e-2
+    assert rows["sigma_u"].rel_est_st < 1e-5
+    assert rows["sigma_v"].rel_est_st < 1e-5
     assert "29_panel_sfa" not in compare.STATA_HEADLINE_GAP_EXCEPTIONS
 
 
@@ -1076,65 +1198,27 @@ def test_parity_readmes_match_current_artifact_inventory():
     assert (R_PARITY / "50_xtabond.R").exists()
 
 
-def test_twfe_event_study_stata_se_gap_is_the_derived_df_scalar():
-    """Module 85's Stata SE gap must be reproduced, not merely labelled.
+def test_twfe_event_study_is_three_way_machine_level_with_default_dof():
+    """Module 85: sp.event_study, fixest::feols and reghdfe agree on every
+    event-time SE at machine level with *default* settings.
 
-    reghdfe agrees with sp.event_study on all eight event-time estimates
-    but not on their standard errors, because it counts the absorbed time
-    effects and the constant in the small-sample degrees-of-freedom
-    correction and sp.event_study counts only the non-absorbed
-    coefficients. fixest exposes the same choice as ssc(fixef.K=), which
-    is why the R side matches to 9e-14; reghdfe exposes no equivalent.
-
-    That is a convention claim, and a convention claim is only worth
-    anything if the other package's number falls out of ours. So rather
-    than widening rel_se to admit the gap -- which would stop checking
-    the py<->R agreement the module exists to pin -- this test rebuilds
-    every reghdfe standard error from the StatsPAI one via
-
-        se_Stata = se_py * sqrt((N - K_py) / (N - K_Stata))
-
-    using K values read off the Stata artifact itself. If either side
-    ever changes its d.f. accounting, the reconstruction breaks here
-    instead of drifting silently past a headline metric that only looks
-    at rel_est.
+    Until 1.24.0 sp.event_study counted only the eight event-time
+    coefficients in the cluster-robust small-sample factor, so the R side
+    had to be run with ssc(fixef.K = "none") and reghdfe sat a uniform
+    0.28% away; the gap was reconstructed from the two K values. Both
+    references count the absorbed time effects, which are not nested in
+    the unit cluster (K = 8 + 9 = 17), and sp.event_study now applies the
+    same nested rule, so the reconstruction is no longer needed and any
+    d.f. drift on either side shows up here directly.
     """
+    compare = _load_compare()
     stata = _read_json(STATA_RESULTS / "85_twfe_event_study_Stata.json")
-    py = _read_json(R_RESULTS / "85_twfe_event_study_py.json")
-
-    extra = stata["extra"]
-    k_py = extra["statspai_K"]
-    k_stata = extra["stata_K"]
-    # 8 event-time coefficients; reghdfe adds 8 non-redundant time
-    # effects and the constant on top of them.
-    assert k_py == 8
-    assert k_stata == k_py + extra["stata_df_a"] + 1 == 17
-
-    py_rows = {row["statistic"]: row for row in py["rows"]}
-    stata_rows = {row["statistic"]: row for row in stata["rows"]}
-    assert set(stata_rows) == set(py_rows)
-    assert len(stata_rows) == 8
-
-    n_obs = {row["n"] for row in stata["rows"]}
-    assert n_obs == {1620}
-    n = n_obs.pop()
-
-    scale = math.sqrt((n - k_py) / (n - k_stata))
-    # The gap is a constant factor, so it is worth stating its size once:
-    # anything that made it row-dependent would not be a d.f. convention.
-    assert scale == pytest.approx(1.0028033, rel=1e-6)
-
-    for statistic, stata_row in stata_rows.items():
-        py_row = py_rows[statistic]
-        # Estimates are convention-free and must agree outright.
-        assert stata_row["estimate"] == pytest.approx(
-            py_row["estimate"], rel=1e-9
-        ), statistic
-        # Standard errors differ only by the derived scalar.
-        assert stata_row["se"] == pytest.approx(
-            py_row["se"] * scale, rel=1e-12
-        ), statistic
-        # ... and the raw gap really is the thing the tolerance comment
-        # says it is, so the comment cannot go stale unnoticed.
-        raw_gap = abs(stata_row["se"] - py_row["se"]) / abs(py_row["se"])
-        assert raw_gap == pytest.approx(2.803e-3, rel=1e-3), statistic
+    r_payload = _read_json(R_RESULTS / "85_twfe_event_study_R.json")
+    assert stata["extra"]["stata_K"] == 17
+    assert stata["extra"]["statspai_K"] == 17
+    assert "fixef.K=none" not in r_payload["extra"].get("ssc", "")
+    rows = {row.statistic: row for row in compare.collect("85_twfe_event_study")}
+    assert len(rows) == 8
+    for row in rows.values():
+        assert row.rel_est < 1e-9 and row.rel_se < 1e-9, row.statistic
+        assert row.rel_est_st < 1e-9 and row.rel_se_st < 1e-9, row.statistic

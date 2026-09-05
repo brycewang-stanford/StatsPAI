@@ -36,6 +36,7 @@ from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
+from ._core import fe_dof_not_nested as _fe_dof_not_nested
 
 RefPeriodSpec = Union[int, Tuple[str, int], Sequence[int]]
 
@@ -499,7 +500,13 @@ def event_study(
     # --- Standard errors (clustered by default) ---
     cluster_var = cluster or unit
     cluster_ids = df_clean[cluster_var].values
-    se, vcov = _cluster_se(Xw, resid, XtX_inv, cluster_ids, w=w_arr)
+    # Small-sample K follows the fixest / reghdfe "nested" rule: the
+    # absorbed unit and time effects count unless nested in the cluster
+    # (unit effects are, under the default cluster=unit; time effects are
+    # not). This is what makes the default output match both
+    # fixest::feols and reghdfe at machine precision (parity module 85).
+    k_fe = _fe_dof_not_nested(df_clean, ["__unit__", "__time_num__"], cluster_var)
+    se, vcov = _cluster_se(Xw, resid, XtX_inv, cluster_ids, w=w_arr, k_fe=k_fe)
 
     # --- Build event study table ---
     def _bin_label(start: int, end: int) -> str:
@@ -758,8 +765,13 @@ def _cluster_se(
     XtX_inv: np.ndarray,
     cluster_ids: np.ndarray,
     w: Optional[np.ndarray] = None,
+    k_fe: int = 0,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Cluster-robust standard errors **and** the full covariance matrix.
+
+    ``k_fe`` is the number of absorbed fixed-effect parameters that are
+    not nested in the cluster and therefore enter ``K`` in the
+    ``(N-1)/(N-K)`` factor (see ``did._core.fe_dof_not_nested``).
 
     *X* should already be the weighted design matrix (Xw) if weights are used.
     *resid* should be unweighted residuals; weighting is applied here via *w*.
@@ -788,7 +800,7 @@ def _cluster_se(
             score_c = (X[mask] * resid[mask, None]).sum(axis=0)
         meat += np.outer(score_c, score_c)
 
-    correction = (G / (G - 1)) * ((n - 1) / (n - k))
+    correction = (G / (G - 1)) * ((n - 1) / max(n - k - k_fe, 1))
     vcov = correction * XtX_inv @ meat @ XtX_inv
     # Symmetrise: the sandwich is symmetric in exact arithmetic, but the
     # matrix products introduce O(1e-16) asymmetry that makes downstream

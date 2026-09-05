@@ -129,6 +129,14 @@ def test_no_two_entries_share_a_doi():
     )
 
 
+# The only same-title pair that is two distinct works, not a preprint beside
+# its published version: the Zenodo software deposit and the JOSS paper about
+# it carry the same title but different DOIs (code archive vs. article).
+_SAME_TITLE_DISTINCT_WORKS = {
+    frozenset({"wang2026statspai", "wang2026statspaijoss"}),
+}
+
+
 def test_no_two_entries_share_a_title():
     """A preprint and its published version are the same work: one entry."""
     by_title: dict = {}
@@ -136,7 +144,11 @@ def test_no_two_entries_share_a_title():
         title = re.sub(r"[^a-z0-9]", "", _field(body, "title").lower())
         if title:
             by_title.setdefault(title, []).append(k)
-    dupes = {t: ks for t, ks in by_title.items() if len(ks) > 1}
+    dupes = {
+        t: ks
+        for t, ks in by_title.items()
+        if len(ks) > 1 and frozenset(ks) not in _SAME_TITLE_DISTINCT_WORKS
+    }
     assert not dupes, (
         "the same title appears under multiple keys -- keep the published "
         "record and point every citation at it:\n  "

@@ -23,7 +23,14 @@ local n = _N
 
 * xtfrontier with `ti` = time-invariant Pitt-Lee.
 * Default distribution is half-normal.
-xtfrontier lny lnk lnl, ti
+* xtfrontier's ti model is Battese-Coelli (1988) with a truncated-normal
+* u_i (free /mu). StatsPAI xtfrontier(model="ti") and R frontier::sfa
+* (truncNorm = FALSE) fit the half-normal Pitt-Lee (1981) model, so the
+* like-for-like Stata reference constrains mu = 0. Without it the
+* intercept, sigma_u, and their SEs answer a different question (the old
+* "xtfrontier scale" diagnostic rows).
+constraint 1 [mu]_cons = 0
+xtfrontier lny lnk lnl, ti constraints(1)
 
 local b0  = _b[lny:_cons]
 local se0 = _se[lny:_cons]
@@ -54,6 +61,7 @@ stata_parity_row, stat(sigma_v)        est(`sigma_v') nob(`n')
 
 stata_parity_extra, key(distribution) val("half-normal")
 stata_parity_extra, key(timeinvariant) val("true")
-stata_parity_extra, key(stata_command) val("xtfrontier lny lnk lnl, ti")
+stata_parity_extra, key(stata_command) val("constraint 1 [mu]_cons = 0; xtfrontier lny lnk lnl, ti constraints(1)")
+stata_parity_extra, key(model_note) val("half-normal Pitt-Lee via mu = 0 constraint on the Battese-Coelli ti model; ml_method d2 (analytic Hessian)")
 
 stata_parity_close, module(29_panel_sfa)

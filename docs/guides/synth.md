@@ -39,6 +39,7 @@ of the 20 variants with the same API and return type.
 | `augmented` / `ascm` | Ben-Michael, Feller & Rothstein (2021) | When no exact pre-treatment fit exists; bias-corrects classic SCM. |
 | `sdid` | Arkhangelsky et al. (2021) | Combines DID & SCM; robust to effect heterogeneity. |
 | `factor` / `gsynth` | Xu (2017) | Multiple treated units + interactive fixed effects. |
+| (`sp.fect`, not a `method=` value) | Liu, Wang & Xu (2024) | Staggered / reversible treatment with many treated units: untreated-cell imputation under two-way FE, interactive FE (`r` factors) or matrix completion (`lam`); by-period ATT path, unit bootstrap / jackknife SEs. |
 | `staggered` | Ben-Michael, Feller & Rothstein (2022) | Heterogeneous adoption times. |
 | `mc` | Athey et al. (2021) | Many missing cells; matrix completion via nuclear norm. |
 | `discos` | Gunsilius (2023) | When treatment affects the whole distribution, not just the mean. |

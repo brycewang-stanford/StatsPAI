@@ -61,7 +61,7 @@
   "extra": {
     "distribution": "half-normal",
     "panel_model": "Pitt-Lee 1981 (ti)",
-    "stata_scale_reference": "Headline parity uses beta_lnk and beta_lnl. Stata xtfrontier reports the intercept and sigma_u on its xtfrontier scale, so those rows are retained as diagnostics.",
+    "reference_note": "Stata xtfrontier, ti is fit with the constraint [mu]_cons = 0 so all three sides share the half-normal likelihood; Stata's analytic-Hessian SEs match StatsPAI to ~3e-6, R frontier::sfa's mleCov differs by 0.1%-1.8%.",
     "n_units": 50,
     "T": 6
   }

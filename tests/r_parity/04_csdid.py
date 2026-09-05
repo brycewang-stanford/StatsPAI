@@ -97,17 +97,17 @@ def main() -> None:
             "method": fit.method,
             "group_overall_stata_gap": (
                 "One row is not a three-way match. group_overall: StatsPAI "
-                "and R did::aggte agree to 1.2e-16; Stata csdid's estat "
-                "group GAverage standard error differs by 2.7e-3 (0.27%). "
-                "The point estimate matches all three. This is recorded, "
-                "not labelled: this project's bar for calling a gap a "
-                "convention is reconstructing the other package's number "
-                "from ours, and that has not been done here. The obvious "
-                "candidate -- csdid treating the cohort shares as fixed -- "
-                "does not fit: mpdta's treated cohorts are exactly equal in "
-                "size (shares 1/3, 1/3, 1/3) and a fixed-weight, "
-                "independent-cell reconstruction gives 0.00746 against "
-                "csdid's 0.00723 and our 0.00725, overshooting both."
+                "and R did::aggte agree to 1.2e-16; Stata csdid's estat group "
+                "GAverage standard error differs by 2.7e-3 (0.27%). The point "
+                "estimate matches all three. Mechanism (reconstructed, "
+                "2026-09-05): csdid aggregates the per-cohort influence "
+                "functions with the cohort shares held fixed, whereas did and "
+                "StatsPAI add the share-estimation term (did:::wif). Rebuilding "
+                "the fixed-share aggregate from StatsPAI's joint cell "
+                "influence functions returns csdid's SE to 1e-8; an earlier "
+                "independent-cell reconstruction overshot (0.00746) because "
+                "it dropped the covariance between cells that share control "
+                "units."
             ),
             "base_period_note": (
                 "base_period is pinned explicitly on BOTH sides. StatsPAI "

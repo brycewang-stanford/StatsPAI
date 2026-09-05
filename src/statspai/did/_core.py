@@ -372,6 +372,32 @@ def multiplier_bootstrap(
 # ----------------------------------------------------------------------
 
 
+def fe_dof_not_nested(
+    df: pd.DataFrame, fe_cols: Sequence[str], cluster_col: str
+) -> int:
+    """Fixed-effect parameters counted in ``K`` under the "nested" rule.
+
+    ``fixest::ssc(fixef.K = "nested")`` and ``reghdfe``'s default both
+    count, in the small-sample factor ``(N-1)/(N-K)``, the levels of every
+    absorbed fixed effect that is *not* nested inside the cluster
+    variable (a fixed effect is nested when each of its levels maps to a
+    single cluster, e.g. unit effects under ``cluster=unit``), and remove
+    one collinear level per additional non-nested effect. Nested effects
+    contribute nothing because the cluster-robust meat already absorbs
+    them. Returns the number of such parameters; add it to the slope
+    count to reproduce the reference degrees of freedom.
+    """
+    levels: List[int] = []
+    for col in fe_cols:
+        per_level = df.groupby(col, sort=False)[cluster_col].nunique()
+        if per_level.max() <= 1:
+            continue
+        levels.append(int(per_level.shape[0]))
+    if not levels:
+        return 0
+    return int(sum(levels) - (len(levels) - 1))
+
+
 def joint_wald(
     estimates: np.ndarray,
     covariance: np.ndarray,

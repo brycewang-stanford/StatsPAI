@@ -2029,6 +2029,7 @@ def ppmlhdfe(
     conley_lat: Optional[str] = None,
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
+    ssc: str = "stata",
 ) -> EconometricResults:
     """
     Pseudo-Poisson Maximum Likelihood with high-dimensional fixed effects.
@@ -2055,7 +2056,20 @@ def ppmlhdfe(
         Overrides any FE specification in the formula.
     robust : str, default "robust"
         Default is robust SE (as in Stata's ppmlhdfe). Options:
-        "robust"/"hc0", "hc1", "nonrobust".
+        "robust"/"hc1" (sandwich with the ``ssc`` small-sample factor),
+        "hc0" (sandwich, no factor), "nonrobust".
+    ssc : {"stata", "fixest", "none"}, default "stata"
+        Small-sample factor applied to the heteroskedasticity-robust
+        sandwich. ``"stata"`` multiplies by ``N/(N-1)``, the Stata
+        ``glm``/``ppmlhdfe vce(robust)`` convention (matches
+        ``ppmlhdfe`` at machine precision). ``"fixest"`` multiplies by
+        ``(N-1)/(N-K)`` with ``K`` counting the slopes plus the absorbed
+        fixed-effect levels (minus one per additional fixed-effect
+        dimension for collinearity), the ``fixest::fepois`` default
+        ``ssc(adj = TRUE, fixef.K = "full")``. ``"none"`` applies no
+        factor. The three differ by less than ``sqrt(N/(N-K))`` and
+        are documented, not competing, conventions; point estimates are
+        unaffected. Clustered variances keep the ``G/(G-1)`` factor.
     cluster : str, optional
         Variable name for clustered standard errors (recommended for
         gravity models, e.g. cluster on country-pair). A pair
@@ -2282,10 +2296,30 @@ def ppmlhdfe(
     # variability than is identifying β), yielding HC1 SE 50% larger
     # than fixest::fepois / Stata ppmlhdfe (parity finding #6).
     X_for_vcov = X_dm if (X_dm is not None) else X
+    ssc_key = str(ssc).lower()
+    if ssc_key not in {"stata", "fixest", "none"}:
+        raise ValueError("ssc must be one of 'stata', 'fixest', 'none'")
+    # K under the fixest convention: slopes + absorbed FE levels, minus
+    # one level per additional FE dimension (the collinear level fixest
+    # removes; fixest ssc() documentation, fixef.K = "full").
+    fe_levels = [int(len(np.unique(codes))) for codes in fe_indices_list]
+    k_fe_fixest = (sum(fe_levels) - (len(fe_levels) - 1)) if fe_levels else 0
+    ssc_factor = 1.0
     if cluster_pair is not None:
         vcov = _twoway_cluster_vcov(
             X_for_vcov, mu, residuals, cluster_pair[0], cluster_pair[1]
         )
+    elif cluster_arr is None and robust.lower() in ("robust", "hc1"):
+        # Plain sandwich, then the documented small-sample convention.
+        vcov = _poisson_vcov(X_for_vcov, mu, residuals, "hc0", None)
+        n_v, k_v = X_for_vcov.shape
+        if ssc_key == "stata":
+            ssc_factor = n_v / (n_v - 1.0)
+        elif ssc_key == "fixest":
+            # fixest::fepois applies N/(N-K) to the GLM sandwich (the
+            # (N-1)/(N-K) form is its OLS convention).
+            ssc_factor = n_v / max(n_v - (k_v + k_fe_fixest), 1.0)
+        vcov = vcov * ssc_factor
     else:
         vcov = _poisson_vcov(X_for_vcov, mu, residuals, robust, cluster_arr)
     se = np.sqrt(np.diag(vcov))

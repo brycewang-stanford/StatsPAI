@@ -52,21 +52,34 @@ def main() -> None:
     res = sp.ppmlhdfe(
         formula="trade ~ log_dist + contig | origin + dest + year",
         data=df,
-        robust="hc1",
+        robust="robust",
+    )
+    res_fixest = sp.ppmlhdfe(
+        formula="trade ~ log_dist + contig | origin + dest + year",
+        data=df,
+        robust="robust",
+        ssc="fixest",
     )
 
     rows: list[ParityRecord] = []
-    for name in ["log_dist", "contig"]:
-        rows.append(ParityRecord(
-            module=MODULE, side="py",
-            statistic=f"beta_{name}",
-            estimate=float(res.params[name]),
-            se=float(res.std_errors[name]),
-            n=int(len(df))))
+    # beta_<x>: ssc="stata" (N/(N-1), the Stata ppmlhdfe vce(robust)
+    # convention, compared with the Stata side). beta_<x>__fixestK:
+    # ssc="fixest" (N/(N-K) with K counting slopes and absorbed FE
+    # levels, the fixest::fepois default, compared with the R side).
+    # Both are machine-level like-for-like rows; the convention gap is
+    # demonstrated by the two Python rows, not absorbed into a tolerance.
+    for label, fit in (("", res), ("__fixestK", res_fixest)):
+        for name in ["log_dist", "contig"]:
+            rows.append(ParityRecord(
+                module=MODULE, side="py",
+                statistic=f"beta_{name}{label}",
+                estimate=float(fit.params[name]),
+                se=float(fit.std_errors[name]),
+                n=int(len(df))))
 
     write_results(
         MODULE, "py", rows,
-        extra={"fe": "origin + dest + year", "vcov": "HC1",
+        extra={"ssc_rows": "beta_* = stata N/(N-1); beta_*__fixestK = fixest N/(N-K)", "fe": "origin + dest + year", "vcov": "HC1",
                "n_obs": int(len(df))},
     )
 

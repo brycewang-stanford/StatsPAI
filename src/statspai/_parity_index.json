@@ -2951,8 +2951,8 @@
         "fixest": "0.14.0"
       },
       "se_rel": {
-        "R": 9.273353531583119e-14,
-        "Stata": 0.0027954706033805252
+        "R": 8.555109171014025e-14,
+        "Stata": 2.5509839611970175e-15
       },
       "sides": [
         "py",
@@ -3036,6 +3036,52 @@
         "tests/reference_parity/test_fci_parity.py"
       ],
       "tolerance": ""
+    },
+    {
+      "function": "fect",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.7887160008294438e-13,
+        "rel_vs_Stata": 9.835703451444772e-10,
+        "statistic": [
+          "fe_att_avg",
+          "ife_att_avg",
+          "mc_att_avg"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "fect counterfactual estimators (fe / ife / mc)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "86_fect",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.7887160008294438e-13,
+        "Stata": 9.835703451444772e-10
+      },
+      "python_call": "sp.fect(method=\"fe\" / \"ife\" / \"mc\")",
+      "reference": "fect::fect(Y ~ D + X1 + X2, method=, force=\"two-way\", se=FALSE, CV=FALSE, tol=1e-12, max.iteration=20000); Stata side uses the authors' fect_stata (GitHub, installed into a local ado path)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "fect": "2.4.1"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/86_fect.py",
+        "tests/r_parity/86_fect.R",
+        "tests/stata_parity/86_fect.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -4307,6 +4353,56 @@
       "tolerance": ""
     },
     {
+      "function": "interflex",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.9545085154003555e-15,
+        "rel_vs_Stata": 1.532648831545664e-14,
+        "statistic": [
+          "linear_me_1",
+          "linear_me_2",
+          "linear_me_3",
+          "linear_me_4",
+          "linear_me_5",
+          "binning_me_1",
+          "binning_me_2",
+          "binning_me_3"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "interflex marginal effects (linear / binning / kernel)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "87_interflex",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.9545085154003555e-15,
+        "Stata": 1.532648831545664e-14
+      },
+      "python_call": "sp.interflex(estimator=\"linear\" / \"binning\" / \"kernel\")",
+      "reference": "interflex::interflex(vartype=\"delta\", vcov.type=\"robust\", neval=5, nbins=3, bw=1); Stata side uses the SSC interflex command",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": 3.901143440433245e-15,
+        "Stata": 1.3560341255220962e-14
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/87_interflex.py",
+        "tests/r_parity/87_interflex.R",
+        "tests/stata_parity/87_interflex.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
       "function": "ipcw",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -5562,8 +5658,8 @@
         "lme4": "2.0.1"
       },
       "se_rel": {
-        "R": 0.01873243851490907,
-        "Stata": 0.01873256478175726
+        "R": 4.826967846151281e-07,
+        "Stata": 4.238304533841919e-06
       },
       "sides": [
         "py",
@@ -5578,7 +5674,7 @@
         "tests/stata_parity/27_glmm_aghq.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.05"
+      "tolerance": "rel_est<=1e-06, rel_se<=2e-05"
     },
     {
       "function": "meta_analysis",
@@ -7197,7 +7293,9 @@
         "rel_vs_Stata": 2.1987194400149356e-15,
         "statistic": [
           "beta_x1",
-          "beta_x2"
+          "beta_x2",
+          "beta_x1__fixestK",
+          "beta_x2__fixestK"
         ],
         "tolerance": 1e-06
       },
@@ -7216,8 +7314,8 @@
         "fixest": "0.14.0"
       },
       "se_rel": {
-        "R": 0.005032299596820668,
-        "Stata": 0.0010035125587303819
+        "R": 4.595534055400899e-07,
+        "Stata": 1.317456747458021e-11
       },
       "sides": [
         "py",
@@ -7232,7 +7330,7 @@
         "tests/stata_parity/37_ppmlhdfe.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.01"
+      "tolerance": "rel_est<=1e-06, rel_se<=2e-06"
     },
     {
       "function": "pretrends_equivalence",
@@ -9193,8 +9291,8 @@
       "function": "sun_abraham",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 2.765852183390052e-11,
-        "rel_vs_Stata": 2.7146569405442052e-11,
+        "rel_vs_R": 2.7668428307982374e-11,
+        "rel_vs_Stata": 2.7156475879523904e-11,
         "statistic": [
           "weighted_avg_ATT",
           "att_rel_-4",
@@ -9203,7 +9301,14 @@
           "att_rel_0",
           "att_rel_1",
           "att_rel_2",
-          "att_rel_3"
+          "att_rel_3",
+          "att_rel_-4_fixedshare",
+          "att_rel_-3_fixedshare",
+          "att_rel_-2_fixedshare",
+          "att_rel_0_fixedshare",
+          "att_rel_1_fixedshare",
+          "att_rel_2_fixedshare",
+          "att_rel_3_fixedshare"
         ],
         "tolerance": 1e-06
       },
@@ -9212,8 +9317,8 @@
       "module_id": "05_sunab",
       "notes": [],
       "point_estimate_rel": {
-        "R": 2.765852183390052e-11,
-        "Stata": 2.7146569405442052e-11
+        "R": 2.7668428307982374e-11,
+        "Stata": 2.7156475879523904e-11
       },
       "python_call": "sp.sun_abraham",
       "reference": "fixest::sunab",
@@ -9222,8 +9327,8 @@
         "fixest": "0.14.0"
       },
       "se_rel": {
-        "R": 0.16503036407593208,
-        "Stata": 0.0008064517374465641
+        "R": 0.009262042556451192,
+        "Stata": 7.511353179337795e-12
       },
       "sides": [
         "py",
@@ -9238,7 +9343,7 @@
         "tests/stata_parity/05_sunab.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.25"
+      "tolerance": "rel_est<=1e-06, rel_se<=0.03"
     },
     {
       "function": "super_learner",
@@ -9931,7 +10036,17 @@
           "eq_y2__L1.y2",
           "eq_y2__L2.y1",
           "eq_y2__L2.y2",
-          "eq_y2___cons"
+          "eq_y2___cons",
+          "eq_y1__L1.y1__Tk",
+          "eq_y1__L1.y2__Tk",
+          "eq_y1__L2.y1__Tk",
+          "eq_y1__L2.y2__Tk",
+          "eq_y1___cons__Tk",
+          "eq_y2__L1.y1__Tk",
+          "eq_y2__L1.y2__Tk",
+          "eq_y2__L2.y1__Tk",
+          "eq_y2__L2.y2__Tk",
+          "eq_y2___cons__Tk"
         ],
         "tolerance": 1e-06
       },
@@ -9950,7 +10065,7 @@
         "vars": "1.6.1"
       },
       "se_rel": {
-        "R": 0.012706996506370109,
+        "R": 1.0595097538367463e-15,
         "Stata": 1.2877754629123098e-15
       },
       "sides": [
@@ -9966,7 +10081,7 @@
         "tests/stata_parity/33_var.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.001"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "function": "weighted_conformal_prediction",
@@ -10145,7 +10260,7 @@
       "headline": {
         "metric": "rel_est",
         "rel_vs_R": 2.7751828581190894e-06,
-        "rel_vs_Stata": 0.000863925828211185,
+        "rel_vs_Stata": 1.8062106880297192e-06,
         "statistic": [
           "beta_lnk",
           "beta_lnl"
@@ -10158,7 +10273,7 @@
       "notes": [],
       "point_estimate_rel": {
         "R": 2.7751828581190894e-06,
-        "Stata": 0.000863925828211185
+        "Stata": 1.8062106880297192e-06
       },
       "python_call": "sp.xtfrontier",
       "reference": "frontier::sfa",
@@ -10168,7 +10283,7 @@
       },
       "se_rel": {
         "R": 0.009844970892137693,
-        "Stata": 0.0016787905040314005
+        "Stata": 2.9612305739601393e-06
       },
       "sides": [
         "py",
@@ -10183,7 +10298,7 @@
         "tests/stata_parity/29_panel_sfa.do"
       ],
       "tier": "iterative",
-      "tolerance": "rel_est<=0.001, rel_se<=0.001"
+      "tolerance": "rel_est<=0.001, rel_se<=0.05"
     },
     {
       "function": "xtlsdvc",

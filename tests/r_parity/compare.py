@@ -234,6 +234,40 @@ STATA_HEADLINE_GAP_EXCEPTIONS: dict[str, str] = {
 }
 
 
+# Stata-side standard-error gaps on rows whose *point estimates* are the
+# headline metric. The R side of every PASS module is inside its rel_se
+# budget on every row; these are the Stata rows that are not, each with
+# the reconstruction that earns it a convention label rather than a
+# widened budget. Enforced by tests/test_parity_harness_contract.py::
+# test_every_stata_se_row_is_inside_budget_or_registered.
+STATA_SE_GAP_NOTES: dict[str, str] = {
+    "04_csdid": (
+        "group_overall only (0.27%): csdid's `estat group` GAverage "
+        "aggregates the per-cohort influence functions with the cohort "
+        "shares held fixed, while did::aggte(type='group') and sp.aggte "
+        "add the share-estimation term (did:::wif). Rebuilding the "
+        "fixed-share aggregate from StatsPAI's joint cell influence "
+        "functions reproduces csdid's SE to 1e-8 "
+        "(test_csdid_group_overall_stata_se_is_the_fixed_share_aggregation); "
+        "the other 18 rows are three-way machine level."
+    ),
+    "71_dml_family": (
+        "theta_DML_PLIV only (5.0e-4): ddml's PLIV final stage runs "
+        "`ivreg ..., robust`, whose sandwich carries Stata's N/(N-K) "
+        "small-sample factor (N=1000, K=1: sqrt(1000/999) = 1.00050), while "
+        "DoubleML Python/R and StatsPAI report the HC0 sandwich; IRM and "
+        "IIVM are at 4e-10 because ddml's `regress` final stage on the "
+        "orthogonalised score has no such factor."
+    ),
+    "83_lpdid": (
+        "non-headline horizon rows (3.9e-4): lpdid's per-horizon regressions "
+        "run through reghdfe, whose K counts the absorbed time effects; the "
+        "LP-DiD estimator itself is pinned on both sides at 1e-12 by the "
+        "point estimates and the R transcription."
+    ),
+}
+
+
 # Pre-registered tolerance per module. Every entry with rel_est or
 # rel_se >= 5e-2 carries a graded justification (A mechanistic /
 # B empirical / C unjustified) in docs/dev/r_parity_tolerances.md,
@@ -293,25 +327,37 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # Dynamic TWFE event study: the benchmark specification the modern
     # DiD literature states its "TWFE-comparable" claims against, and
     # previously the largest block of unpinned objects in the audit.
-    # py<->R is machine-exact on estimate AND SE (1.1e-12 / 9.3e-14)
-    # once fixest is told not to count absorbed effects in the
-    # small-sample K -- ssc(fixef.K="none"); fixest's default counts
-    # them and StatsPAI does not.
-    #
-    # Stata reghdfe reproduces all eight ESTIMATES at 5.7e-14 but its
-    # SE is a uniform 2.803e-03 away, because reghdfe offers no
-    # equivalent of fixef.K="none": its K counts the 8 event-time
-    # coefficients + 8 non-redundant time effects + the constant.
-    # rel_se stays at 1e-9 rather than being widened to 3e-3 to admit
-    # Stata -- widening it would stop checking the py<->R agreement
-    # that is the point of the module. The Stata SE is not left
-    # unchecked either: it is pinned to the exact d.f. scalar
-    #     var_Stata / var_py = (N - K_py) / (N - K_Stata)
-    # by test_twfe_event_study_stata_se_gap_is_the_derived_df_scalar,
-    # which reconstructs reghdfe's SE from StatsPAI's to 1e-12. A
-    # convention label is earned by reproducing the other package's
-    # number, not by naming the convention.
+    # Three-way machine level with DEFAULT settings on every side since
+    # 1.24.0: sp.event_study applies the fixest/reghdfe nested rule to
+    # the small-sample K (8 event-time coefficients + 9 absorbed time
+    # effects not nested in the unit cluster = 17), which is what both
+    # references count. Before that the R side had to be run with
+    # ssc(fixef.K = "none") and reghdfe sat a uniform 2.8e-3 away on
+    # every SE, reconstructed from the two K values by a contract test.
+    # Observed: 9e-14 (R) / 2.4e-15 (Stata) on estimates and SEs.
     "85_twfe_event_study": {"rel_est": 1e-9, "rel_se": 1e-9},
+    # fect counterfactual estimators (Liu, Wang and Xu 2024) -- fe / ife
+    # (r = 2) / mc (lambda = 0.002) on a staggered two-factor panel, all
+    # three specifications with se = FALSE, CV = FALSE, tol = 1e-8. The
+    # Python port runs fect's EM map (fixest two-way initial fit, E-step
+    # fill, two-way demeaning, panel_factor SVD with the sqrt(T)/sqrt(N)
+    # normalisation or the soft-threshold on E/(T*N), relative
+    # convergence on the fitted surface and on the interactive component)
+    # step for step, so both sides stop at the same iteration (490 for
+    # ife, 204 for mc) and agree at 1e-12 on all 33 rows per method. The
+    # fe rows are at ~1e-9 absolute because fect's one-pass fe path
+    # inherits fixest's fixef.tol = 1e-6 demeaning while the Python
+    # initial fit is an exact least-squares solve. No SE rows: fect's
+    # inference is resampling-based and optional.
+    "86_fect": {"rel_est": 1e-6, "rel_se": 1e-6},  # rel_se sentinel: no SE row
+    # interflex (Hainmueller, Mummolo and Xu 2019): linear, binning and
+    # kernel marginal effects of a binary treatment across a moderator on
+    # one simulated sample. Closed-form (W)LS with HC1 delta-method SEs on
+    # the linear and binning rows; the kernel rows port R's density()
+    # grid conventions (bw.nrd0, n = 512, cut = 3, linear binning + FFT,
+    # old.coords = FALSE) so the adaptive bandwidth is bit-identical.
+    # Observed 6.5e-14 (est) / 5.3e-15 (SE) on all 20 rows.
+    "87_interflex": {"rel_est": 1e-6, "rel_se": 1e-6},
     # Design-based staggered rollout, reconciled against staggered::staggered
     # / staggered_cs / staggered_sa -- Roth and Sant'Anna's own package for
     # their 2023 JPE Micro paper, and the only module here whose
@@ -408,11 +454,17 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # rather than absorbed here, because widening rel_se to cover it
     # would hide the other seventeen.
     "04_csdid": {"rel_est": 1e-6, "rel_se": 1e-9},
-    # B: event-time IW SEs track Stata eventstudyinteract (<=0.9%);
-    # fixest agg='att' clustered delta-method aggregation differs by up
-    # to 17.1% on the sparse mpdta cohorts (1.5x margin; fixest-side
-    # mechanism not yet pinned term-by-term) -- see doc.
-    "05_sunab": {"rel_est": 1e-6, "rel_se": 0.25},
+    # A: the default att_rel_<e> rows carry the Sun & Abraham (2021,
+    # Prop. 3) cohort-share term (Stata eventstudyinteract convention;
+    # py == Stata to 8e-12 on every row) while fixest::sunab treats the
+    # shares as fixed, so R differs by exactly that positive term at the
+    # multi-cohort relative times (worst 0.93% at e=1 on mpdta; zero at
+    # single-cohort times and on the agg='att' ATT, both 8e-12). The
+    # att_rel_<e>_fixedshare rows re-run with share_variance=False and
+    # pin the fixest convention itself to 8e-12, which is what closes the
+    # mechanism. Degrees of freedom follow the fixest/reghdfe nested K
+    # rule on both sides. Budget = ~3x the worst share-term gap.
+    "05_sunab": {"rel_est": 1e-6, "rel_se": 3e-2},
     "06_rd": {
         "rel_est": 1e-6,
         "rel_se": 0.10,
@@ -499,22 +551,35 @@ TOLERANCES: dict[str, dict[str, float]] = {
         "rel_est": 1e-6,
         "rel_se": 1e-6,
     },  # REML criterion + tight optimiser parity
-    # B: SE information-matrix convention at the (tight) Laplace/AGHQ
-    # optimum differs across implementations; observed worst 1.9% incl.
-    # Stata (2.7x margin). Value frozen by the contract test.
-    "26_glmm_logit": {"rel_est": 2e-4, "rel_se": 5e-2},  # tightened GLMM optimiser tol
+    # B: since 1.24.0 the fixed-effect covariance is the beta block of the
+    # inverse observed-information Hessian of the marginal (Laplace)
+    # log-likelihood, the Stata melogit vce(oim) construction; py == Stata
+    # to 3.5e-6 on both SE rows. lme4's nAGQ=1 optimum sits 1.5e-4 away in
+    # beta (logLik 2.8e-7 higher on the Python/Stata side) and its SEs are
+    # 0.12%-0.27% off that optimum; 3.7x margin on the R side.
+    "26_glmm_logit": {"rel_est": 2e-4, "rel_se": 1e-2},  # tightened GLMM optimiser tol
+    # A (machine): same OIM construction as above at the tight AGHQ
+    # optimum; observed 4.8e-7 (R) / 4.2e-6 (Stata) SE, ~5x margin. Was
+    # 5e-2 with a 1.9% "information-matrix convention" gap that turned
+    # out to be the missing variance-component uncertainty on the
+    # StatsPAI side, not a convention.
     "27_glmm_aghq": {
         "rel_est": 1e-6,
-        "rel_se": 5e-2,
-    },  # AGHQ tight optimiser, SE convention gap
+        "rel_se": 2e-5,
+    },  # AGHQ tight optimiser, full OIM covariance
     "28_frontier": {
         "rel_est": 1e-6,
         "rel_se": 5e-5,
     },  # obs worst 1.3e-5, ~4x margin; 2026-06 tighten
-    # C (known weak spot, see doc): non-headline SE rows exceed this
-    # budget (slope SE up to 0.98% vs frontier::sfa; intercept/sigma are
-    # documented Stata-scale diagnostics). Headline = slope rel_est.
-    "29_panel_sfa": {"rel_est": 1e-3, "rel_se": 1e-3},
+    # B: all three sides now fit the same half-normal Pitt-Lee model
+    # (the Stata do-file constrains xtfrontier's truncated-normal mu to
+    # 0; before 2026-09 the Stata rows were a different likelihood and
+    # were mislabelled as a "scale" difference). Stata's analytic-Hessian
+    # OIM matches the StatsPAI central-difference OIM to 3e-6 on every SE
+    # row, which pins the Python Hessian; frontier::sfa's mleCov (Coelli's
+    # FRONTIER 4.1 routine) is 0.1%-1.8% off on the R side (worst: the
+    # intercept). Budget = ~3x the worst R-side row.
+    "29_panel_sfa": {"rel_est": 1e-3, "rel_se": 5e-2},
     # A (tightened 2026-06-10 from 1.0): sp reports closed-form
     # delta-method SEs while oaxaca::oaxaca reports seeded R=100
     # bootstrap SEs; observed 1.25% (R) / 1.22% (Stata), 4x margin.
@@ -525,11 +590,11 @@ TOLERANCES: dict[str, dict[str, float]] = {
         "rel_est": 1e-6,
         "rel_se": 1e-6,
     },  # dineq/Hmisc + stats::density convention
-    # A on the Stata side (machine match, conditional-MLE divisor T);
-    # NOTE: every R-side SE row differs by exactly sqrt(T/(T-k))-1 =
-    # 1.29% because vars::VAR uses the per-equation lm() divisor T-k --
-    # over this budget, disclosed as a weak spot in the doc.
-    "33_var": {"rel_est": 1e-6, "rel_se": 1e-3},
+    # A (machine on both sides): the eq_* rows use the conditional-MLE
+    # divisor T (Stata var) and the eq_*__Tk rows use the per-equation
+    # lm() divisor T-k (R vars::VAR); each reference side emits only its
+    # own convention, so every compared SE is like-for-like (obs 1e-15).
+    "33_var": {"rel_est": 1e-6, "rel_se": 1e-6},
     "34_lp": {"rel_est": 1e-6, "rel_se": 1e-6},  # lpirfs Cholesky/unit shock
     "35_panel": {"rel_est": 1e-6, "rel_se": 1e-3},  # FE/RE + plm-style Hausman
     # A: sp bootstrap B=1000 vs mediate's quasi-Bayesian MC (sims=200,
@@ -540,7 +605,11 @@ TOLERANCES: dict[str, dict[str, float]] = {
         "rel_se": 0.10,
     },  # point exact; bootstrap/delta SE convention
     # Modules added in the 2026-05-28 parity expansion session.
-    "37_ppmlhdfe": {"rel_est": 1e-6, "rel_se": 1e-2},  # post FE-score fix
+    # A (machine on both sides): beta_* rows use ssc="stata" (N/(N-1),
+    # Stata glm/ppmlhdfe vce(robust)) against Stata; beta_*__fixestK rows
+    # use ssc="fixest" (N/(N-K), K = slopes + absorbed FE levels) against
+    # fixest::fepois. Obs 1.3e-11 (Stata) / 4.6e-7 (R).
+    "37_ppmlhdfe": {"rel_est": 1e-6, "rel_se": 2e-6},
     "38_drdid": {"rel_est": 1e-6, "rel_se": 1e-6},  # panel DRDID calibrated PS
     # rel_se sentinel (was 1e-2): no SE row joins on this fixture.
     "39_arima": {"rel_est": 1e-6, "rel_se": 1e-6},  # innovations-MLE exact convention
@@ -575,9 +644,11 @@ TOLERANCES: dict[str, dict[str, float]] = {
         "rel_se": 1e-6,
     },  # obs worst 2.7e-9 (machine); 2026-06 tighten
     # Modules added in the second 2026-05-28 fix-and-extend pass.
-    # B: HC1 sandwich after the Gauss-Seidel multi-FE fix; observed
-    # 1.8% (R) / 0.10% (Stata), 2.7x margin.
-    "47_ppmlhdfe_3fe": {"rel_est": 1e-6, "rel_se": 5e-2},  # post Gauss-Seidel
+    # A (machine on both sides): same two-convention row design as 37;
+    # fixest's K here is 2 + (5 + 5 + 10 - 2) = 20. Obs 2.5e-12 (Stata)
+    # / 1.1e-8 (R). The old 1.8% (R) / 0.10% (Stata) gaps were StatsPAI
+    # applying (N-1)/(N-k) with k = slopes only, matching neither.
+    "47_ppmlhdfe_3fe": {"rel_est": 1e-6, "rel_se": 1e-6},
     "48_probit": {"rel_est": 1e-6, "rel_se": 1e-2},
     "49_oprobit": {
         "rel_est": 1e-6,
@@ -1322,6 +1393,22 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": "native centered Ridge+SCM parity; backend='augsynth' is a migration bridge",
+    },
+    "87_interflex": {
+        "name": "interflex marginal effects (linear / binning / kernel)",
+        "headline_filter": lambda d: (
+            d.statistic.startswith("linear_me_") or d.statistic.startswith("binning_me_")
+        ),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "native port incl. R's density() grid for the adaptive kernel bandwidth",
+    },
+    "86_fect": {
+        "name": "fect counterfactual estimators (fe / ife / mc)",
+        "headline_filter": lambda d: d.statistic.endswith("_att_avg"),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "native port of fect's EM map; three outcome models on one staggered panel",
     },
     "19_gsynth": {
         "name": "Generalized SCM (Xu 2017)",

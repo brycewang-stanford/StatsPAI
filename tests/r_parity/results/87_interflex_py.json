@@ -1,0 +1,306 @@
+{
+  "module": "87_interflex",
+  "side": "py",
+  "rows": [
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "linear_me_1",
+      "estimate": 0.36219093433996963,
+      "se": 0.3561466534081558,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "linear_me_2",
+      "estimate": 1.7081354978499685,
+      "se": 0.1930444949255551,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "linear_me_3",
+      "estimate": 3.0540800613599672,
+      "se": 0.11383565270820756,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "linear_me_4",
+      "estimate": 4.400024624869966,
+      "se": 0.23220158301172708,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "linear_me_5",
+      "estimate": 5.745969188379965,
+      "se": 0.40017900369460624,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "linear_ate",
+      "estimate": 2.982119797445836,
+      "se": 0.11227959411824853,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "binning_x0_1",
+      "estimate": -0.2725702963027834,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 110,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "binning_me_1",
+      "estimate": 1.516042843156924,
+      "se": 0.20665845325761714,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 110,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "binning_x0_2",
+      "estimate": 1.0633732875604665,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 188,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "binning_me_2",
+      "estimate": 3.1821210144886294,
+      "se": 0.16413958180760052,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 188,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "binning_x0_3",
+      "estimate": 2.247217629164483,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 102,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "binning_me_3",
+      "estimate": 4.108384342080312,
+      "se": 0.203174521248775,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 102,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "lkurtosis",
+      "estimate": 0.12873039528840738,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "p_wald",
+      "estimate": 7.120994253417025e-07,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "p_lr",
+      "estimate": 5.416786380394819e-06,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "p_wald_stata",
+      "estimate": 2.248679373895708e-07,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "kernel_me_1",
+      "estimate": -0.8801136214117474,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "kernel_me_2",
+      "estimate": 1.0040979397043777,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "kernel_me_3",
+      "estimate": 3.3410838689161655,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "kernel_me_4",
+      "estimate": 3.9374811121085016,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "kernel_me_5",
+      "estimate": 4.597882129435269,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "kernel_fixed_me_1",
+      "estimate": -1.3251121211863934,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "kernel_fixed_me_2",
+      "estimate": 1.2091633604284084,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "kernel_fixed_me_3",
+      "estimate": 3.2776476869044235,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "kernel_fixed_me_4",
+      "estimate": 3.9669669537070993,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "87_interflex",
+      "side": "py",
+      "statistic": "kernel_fixed_me_5",
+      "estimate": 3.3614291202101123,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "neval": 5,
+    "x_eval": "linspace(min(X), max(X), 5)",
+    "cutoffs": [
+      0.3,
+      1.7
+    ],
+    "bw_kernel": 1.0,
+    "vcov": "HC1 (interflex vcov.type='robust')",
+    "density_port": "kernel bandwidth adapts with R's stats::density (bw.nrd0, n = 512, cut = 3, linear binning + FFT, old.coords = FALSE), ported exactly",
+    "wald_df": 12,
+    "p_wald_rows": "p_wald: R interflex (covariates interacted with the bins, chi-square); p_wald_stata: Stata interflex (covariates not interacted, F reference), reproduced by wald_full_moderate=False, wald_test='F'",
+    "kernel_rows": "kernel_me_<k>: adaptive bandwidth (R interflex); kernel_fixed_me_<k>: fixed Gaussian kernel (Stata interflex, adaptive=False)"
+  }
+}

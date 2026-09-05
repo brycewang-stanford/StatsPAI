@@ -140,7 +140,7 @@ class TestCovarianceExport:
 
             Roth (2022) power   0.1349  ->  0.1058   (-22%)
             non-centrality      1.2623  ->  0.8614   (-32%)
-            joint Wald stat     1.2527  ->  1.1386   (-9%)
+            joint Wald stat     1.2368  ->  1.1242   (-9%)
             Wald p-value        0.7404  ->  0.7678
 
         Power falls because the positively-correlated pre-period
@@ -171,8 +171,12 @@ class TestCovarianceExport:
         assert p_diag["power_joint"] == pytest.approx(0.134911, abs=1e-4)
         assert p_true["noncentrality"] == pytest.approx(0.861402, abs=1e-4)
         assert p_diag["noncentrality"] == pytest.approx(1.262342, abs=1e-4)
-        assert t_true["statistic"] == pytest.approx(1.138589, abs=1e-4)
-        assert t_diag["statistic"] == pytest.approx(1.252683, abs=1e-4)
+        # Pinned after the 1.24.0 nested-K small-sample rule (the absorbed
+        # time effects now count in K, as in fixest / reghdfe); the power and
+        # non-centrality numbers are unchanged because they use the covariance
+        # shape, not its scale.
+        assert t_true["statistic"] == pytest.approx(1.124197, abs=1e-4)
+        assert t_diag["statistic"] == pytest.approx(1.236848, abs=1e-4)
         # The direction of the power bias is the point, not just that it moves.
         assert p_true["power_joint"] < p_diag["power_joint"]
         assert p_true["power"] < p_diag["power"]
@@ -221,8 +225,9 @@ class TestCovarianceExport:
         assert s_true.breakdown_mbar != s_diag.breakdown_mbar
         assert s_true.breakdown_mbar == pytest.approx(0.485, abs=2e-3)
         assert s_diag.breakdown_mbar == pytest.approx(0.481, abs=2e-3)
-        assert t_true["statistic"] == pytest.approx(38.742, abs=0.05)
-        assert t_diag["statistic"] == pytest.approx(64.975, abs=0.05)
+        # Pinned after the 1.24.0 nested-K small-sample rule.
+        assert t_true["statistic"] == pytest.approx(38.417, abs=0.05)
+        assert t_diag["statistic"] == pytest.approx(64.430, abs=0.05)
         assert t_diag["statistic"] > t_true["statistic"]
 
     def test_diagonal_fallback_warns_loudly(self, es_result):

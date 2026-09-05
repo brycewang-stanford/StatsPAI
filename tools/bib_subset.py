@@ -23,6 +23,14 @@ Three sub-commands::
     # Same arguments; exit 1 if --out is stale or cites unknown keys.
     python tools/bib_subset.py check --roots ... --out ...
 
+    # A second derived file for keys cited only by non-compiled sources
+    # (archival long-form sections): everything cited anywhere, minus
+    # what the submission bib already carries.
+    python tools/bib_subset.py extract \
+        --roots Paper-JSS/manuscript/main.tex Paper-JSS/manuscript/sections/*.tex \
+        --minus Paper-JSS/manuscript/jss-bib.bib \
+        --out   Paper-JSS/manuscript/jss-bib-archival.bib
+
     # The wheel ships a copy of the master at src/statspai/paper.bib so
     # that pip users get the same verified entries. Keep it in sync.
     python tools/bib_subset.py packaged --check      # CI / pre-commit
@@ -179,15 +187,21 @@ def render_subset(
         f"%% keys cited by: {roots_label}\n"
         "%% Add or fix references in the master file, then re-run\n"
         "%%   python tools/bib_subset.py extract ...\n"
-        "%% (CLAUDE.md section 10: one verified source of truth, derived per-paper\n"
-        f"%% bibliographies). {len(wanted)} entries, sorted by key.\n"
+        "%% (project citation policy: one verified source of truth, derived\n"
+        f"%% per-paper bibliographies). {len(wanted)} entries, sorted by key.\n"
     )
+    # The banner ships inside the JSS submission archive, whose verifier
+    # rejects internal markers such as the CLAUDE.md file name; keep it
+    # reader-facing.
     body = "\n\n".join(master[k] for k in wanted)
     return banner + "\n" + body + "\n"
 
 
 def build_subset(
-    master_path: Path, roots: Sequence[Path], keep: Sequence[str]
+    master_path: Path,
+    roots: Sequence[Path],
+    keep: Sequence[str],
+    minus: Sequence[Path] = (),
 ) -> Tuple[str, Dict[str, List[str]]]:
     """Return ``(rendered_text, missing)``.
 
@@ -198,12 +212,18 @@ def build_subset(
     for k in keep:
         cited.setdefault(k, ["--keep"])
     missing = {k: v for k, v in cited.items() if k not in master}
-    present = [k for k in cited if k in master]
+    excluded: Set[str] = set()
+    for other in minus:
+        excluded |= set(parse_bib(Path(other).read_text(encoding="utf-8")))
+    present = [k for k in cited if k in master and k not in excluded]
+    roots_label = ", ".join(_rel(Path(r)) for r in roots)
+    if minus:
+        roots_label += " minus " + ", ".join(_rel(Path(m)) for m in minus)
     text = render_subset(
         master,
         present,
         master_label=_rel(master_path),
-        roots_label=", ".join(_rel(Path(r)) for r in roots),
+        roots_label=roots_label,
     )
     return text, missing
 
@@ -229,7 +249,13 @@ def cmd_extract(args: argparse.Namespace, *, check: bool) -> int:
             return 0
         raise SystemExit(f"manuscript root not found: {absent_roots[0]}")
 
-    text, missing = build_subset(master_path, roots, args.keep)
+    minus = [Path(m) for m in args.minus]
+    absent_minus = [m for m in minus if not m.exists()]
+    if absent_minus:
+        raise SystemExit(
+            f"--minus file not found (extract it first): {absent_minus[0]}"
+        )
+    text, missing = build_subset(master_path, roots, args.keep, minus=minus)
     if missing:
         print(
             "FATAL: cited keys absent from the master bib "
@@ -317,6 +343,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         sp.add_argument("--out", required=True, help="derived .bib to write / check")
         sp.add_argument(
             "--keep", nargs="*", default=[], help="extra keys to keep even if not cited"
+        )
+        sp.add_argument(
+            "--minus",
+            nargs="*",
+            default=[],
+            help=(
+                "derived .bib file(s) whose keys are excluded from this subset "
+                "(e.g. an archival bib = everything cited anywhere minus the "
+                "submission bib)"
+            ),
         )
         sp.add_argument(
             "--skip-missing",

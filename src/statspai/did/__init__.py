@@ -83,6 +83,7 @@ from .plots import event_study_plot as enhanced_event_study_plot
 from .plots import (
     ggdid,
     group_time_plot,
+    panel_view,
     parallel_trends_plot,
     sensitivity_plot,
     treatment_rollout_plot,
@@ -975,6 +976,7 @@ __all__ = [
     "did_plot",
     "enhanced_event_study_plot",
     "treatment_rollout_plot",
+    "panel_view",
     "sensitivity_plot",
     "cohort_event_study_plot",
     "ggdid",

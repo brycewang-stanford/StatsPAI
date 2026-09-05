@@ -4,6 +4,156 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness — standard-error conventions pinned to the reference implementations (JSS parity closure)
+
+Four Track A modules carried standard-error gaps that the tolerance audit
+graded "unexplained" or "budget bounds nothing". Each has been traced to a
+specific construction on the StatsPAI side, fixed, and pinned to *both*
+references at machine level where a like-for-like row exists. Point
+estimates are unchanged throughout; standard errors move as described.
+
+- **`sp.sun_abraham` degrees of freedom counted cells that do not exist.**
+  The saturated cohort × relative-time design built one column for every
+  pair on the full event window, including pairs no cohort ever occupies
+  (nine of 21 columns on `mpdta` were identically zero and survived only
+  through the ridge safeguard). Those phantom columns entered `K` in the
+  cluster-robust small-sample factor, and the time fixed effects, which
+  are *not* nested in the unit cluster, did not. Only observed cells are
+  now parameters and `K` follows the `fixest`/`reghdfe` nested rule (`12`
+  cells + `5` year effects = `17` on `mpdta`). Effect: event-study and
+  aggregate SEs change by about 0.08% on `mpdta` (0.7%–2.2% on the
+  weighted fixture). `sp.sun_abraham` now reproduces Stata
+  `eventstudyinteract` to `8e-12` on every event time and `fixest::sunab`
+  to `8e-12` on the `agg = "att"` ATT and at every single-cohort event
+  time. New `share_variance=` keyword: `True` (default) carries the
+  Sun–Abraham (2021, Prop. 3) cohort-share term as `eventstudyinteract`
+  does; `False` reproduces `fixest::sunab`, which treats the shares as
+  fixed, to `1e-9` weighted and unweighted. The former "0.7–2.2%
+  aggregation-variance open item" is closed: the only remaining
+  difference between the two references is that documented, positive
+  semi-definite term.
+
+- **`sp.melogit` / `sp.meglm` fixed-effect standard errors omitted the
+  variance-component uncertainty.** The covariance was the conditional
+  (Schur-complement) information with the random-effect variance held at
+  its estimate, which understated fixed-effect SEs by up to 1.9% on the
+  parity fixtures. It is now the fixed-effect block of the inverse
+  observed-information Hessian of the marginal (Laplace / AGHQ)
+  log-likelihood over all parameters, the construction behind Stata
+  `melogit`'s default `vce(oim)`. AGHQ fixed-effect SEs match `lme4` and
+  Stata to `5e-7` / `4e-6` (module 27); Laplace matches Stata to `4e-6`
+  (module 26). The conditional matrix is kept as
+  `result._cov_fixed_conditional`; if the numerical Hessian is not
+  positive definite the estimator falls back to it and warns.
+
+- **`sp.ppmlhdfe` robust standard errors matched neither `ppmlhdfe` nor
+  `fixest::fepois`.** The sandwich was scaled by `(N-1)/(N-k)` with `k`
+  the slopes only. New `ssc=` keyword: `"stata"` (default) applies
+  `N/(N-1)`, the Stata `glm`/`ppmlhdfe vce(robust)` convention, and
+  matches `ppmlhdfe` to `1e-11`; `"fixest"` applies `N/(N-K)` with `K` the
+  slopes plus absorbed fixed-effect levels (minus one per additional
+  dimension) and matches `fixest::fepois` to `1e-8`; `"none"` applies no
+  factor. `robust="robust"` now means the sandwich *with* the `ssc`
+  factor (it was HC0); use `robust="hc0"` for the bare sandwich. Effect
+  on the gravity fixture: SEs move by 0.1%–0.2%.
+
+- **`sp.xtfrontier(model="ti")` Stata reference was a different model.**
+  Not a code change, but a parity-ledger correction: Stata's
+  `xtfrontier, ti` estimates the Battese–Coelli (1988) truncated-normal
+  model with a free `mu`, whereas StatsPAI and R `frontier::sfa` fit the
+  Pitt–Lee half-normal model. The Stata module now imposes
+  `constraint [mu]_cons = 0`; the intercept and `sigma_u` rows that were
+  previously excused as "Stata-scale diagnostics" (1.7% and 29% off) now
+  agree to `1e-6`, and Stata's analytic-Hessian standard errors match the
+  StatsPAI numerical observed-information SEs to `3e-6` on every row,
+  which pins the StatsPAI Hessian as exact; `frontier`'s covariance is
+  the loose side (0.1%–1.8%).
+
+### Added
+
+- **`sp.fect` — counterfactual estimators for TSCS data (Liu, Wang and
+  Xu 2024).** A native port of the estimation core of the R package
+  `fect`: the untreated potential outcome of every treated unit-period is
+  imputed from a model fitted on the untreated cells only — two-way fixed
+  effects (`method="fe"`), interactive fixed effects with `r` factors
+  (`"ife"`), or nuclear-norm matrix completion (`"mc"`) — and the ATT is
+  the mean of `Y - Y(0)` over treated cells, with the by-relative-period
+  path in fect's coding (`fect_time`: 0 = last untreated period, 1 =
+  first treated period; `relative_time = fect_time - 1` in the StatsPAI
+  convention). Handles staggered adoption, multiple treated units,
+  unbalanced panels and treatment reversals; optional unit bootstrap or
+  jackknife standard errors. The port follows fect's EM map step for step
+  (fixest two-way initial fit, E-step fill, two-way demeaning,
+  `panel_factor` SVD with the `sqrt(T)`/`sqrt(N)` normalisation or the
+  soft-threshold on `E/(T*N)`, relative convergence on the fitted surface
+  and on the interactive component), so **Track A module 86** pins all
+  three outcome models on one staggered two-factor panel against
+  `fect::fect` at `1e-10` (same iteration count on both sides) and
+  against the authors' Stata port `fect_stata` (installed from GitHub
+  into a local ado path; `ssc describe fect` returns r(601)) at `1e-9`
+  for fe/mc and `1.5e-7` for ife, where the Stata port's own EM stopping
+  rule sets the floor. `sp.fect(method="fe")` equals `sp.did_imputation`
+  on a staggered panel without reversals (pinned by test).
+
+- **`sp.interflex` — multiplicative interaction models with diagnostics
+  (Hainmueller, Mummolo and Xu 2019).** Conditional marginal effects of a
+  binary or continuous treatment across a moderator by the linear,
+  binning (quantile or explicit cutoffs, bin-median centring) and kernel
+  (local linear, Gaussian, density-adaptive bandwidth) estimators, with
+  HC1 delta-method standard errors (`vce="robust"`, or
+  `"homoscedastic"`; `vce="bootstrap"` for the kernel estimator), the
+  average treatment / marginal effect, the L-kurtosis of the moderator
+  and the Wald / LR tests of the linear-interaction restriction, plus
+  `sp.interflex_plot`. The port
+  follows the R package's conventions to the bit — including R's
+  `stats::density()` linear-binning + FFT grid (`old.coords = FALSE`) for
+  the adaptive bandwidth — so **Track A module 87** pins all 20 rows
+  against R `interflex` at `6e-14`; the SSC Stata `interflex` command
+  matches the linear and binning rows at `1e-14` and its fixed Gaussian
+  kernel is reproduced by `adaptive=False`. Reference
+  `hainmueller2019much` verified via Crossref and Cambridge Core.
+
+- **`sp.panel_view` — panelView-style panel display and summary (Mou,
+  Liu and Xu 2023).** Treatment-status tiles (`type="treat"`, through
+  `sp.treatment_rollout_plot`) or outcome trajectories by treatment
+  status with the never-treated mean (`type="outcome"`), returning a
+  summary of the facts that decide between a two-way FE, a staggered DiD
+  and a counterfactual design: adoption periods, `staggered`,
+  `has_reversals`, `n_never_treated`, `n_missing_cells`. Reference
+  `mou2023panel` (JSS 107(7)) verified via Crossref and the JSS article
+  page.
+
+### Changed
+
+- **Track A parity rows are now like-for-like per reference.** Modules 05
+  (Sun–Abraham), 33 (VAR), 37 and 47 (PPML-HDFE) emit one row per
+  documented convention (`att_rel_<e>_fixedshare`, `eq_*__Tk`,
+  `beta_*__fixestK`) and each reference side emits only the rows in its
+  own convention, so every compared standard error is a machine-level row
+  and the convention difference is *demonstrated* by two StatsPAI rows
+  rather than absorbed into a tolerance. Registered `rel_se` budgets
+  tightened accordingly: 05 `0.25 → 3e-2`, 26 `5e-2 → 1e-2`, 27
+  `5e-2 → 2e-5`, 33 `1e-3 → 1e-6`, 37 `1e-2 → 2e-6`, 47 `5e-2 → 1e-6`;
+  29 re-registered at `5e-2` with its mechanism (was `1e-3` and bounded
+  no gated row).
+- **Every Stata-side standard-error gap now has a reconstruction.**
+  `csdid`'s `estat group` GAverage SE (0.27% from `did::aggte` and
+  StatsPAI on `mpdta`) is the fixed-cohort-share aggregation of the joint
+  cell influence functions and is rebuilt from StatsPAI's own influence
+  functions to 1e-14; `ddml`'s PLIV SE is `ivreg`'s `N/(N-K)` factor;
+  `lpdid`'s horizon SEs carry `reghdfe`'s K. Two new contract tests gate
+  the registered `rel_se` budget on *every* R-joined SE row (all 85
+  modules pass) and require any Stata SE row over budget to be
+  registered in `compare.py::STATA_SE_GAP_NOTES` with its mechanism.
+- **`sp.event_study` follows the `fixest`/`reghdfe` nested
+  degrees-of-freedom rule.** The cluster-robust small-sample factor now
+  counts the absorbed time effects (not nested in the unit cluster), so
+  module 85's eight event-time SEs are three-way machine level
+  (`9e-14` R, `2e-15` Stata) with default settings on every side; the R
+  script no longer needs `ssc(fixef.K = "none")`. SEs move by 0.28% on
+  that fixture.
+
+
 First full CI matrix run after v1.23.0 (13 legs: Linux / macOS / Windows ×
 Python 3.9–3.13) came back 12 red. Triaging it turned up three defects that
 were real, not runner noise: two estimators whose answer depended on which
@@ -127,8 +277,52 @@ checkout silently rewrote. Details below.
   re-keyed in the manuscript (`athey2019grf` → `athey2019generalized`,
   `liu2024fect` → `liu2024practical`, `bach2024doublemlr` → `bach2024doubleml`,
   `kaul2015synthetic` → `kaul2022standard`, `lundberg2020closing` →
-  `lundberg2024gap`). New gates: pre-commit `bib-packaged-sync`, pre-push
-  `bib-subset-jss`, citation-audit Gate 1b.
+  `lundberg2024gap`). The archival bib for the non-compiled long-form sections is
+  derived the same way (`--minus jss-bib.bib`). New gates: pre-commit
+  `bib-packaged-sync`, pre-push `bib-subset-jss` / `bib-subset-jss-archival`,
+  citation-audit Gate 1b.
+- **Master bibliography corrections surfaced by the derivation** (refs
+  verified via Crossref, doi.org, OpenAlex, Semantic Scholar, the arXiv API,
+  OpenLibrary and the NBER catalogue):
+  - `card1995using` now records the work every consumer of the key means
+    (the 1995 University of Toronto Press chapter that `sp.datasets.card_1995`,
+    `sp.replicate("card_1995")` and the JSS manuscript cite as "Card (1995)").
+    It previously held the 1993 NBER working paper, which is dropped as a
+    separate record (one entry per work). ⚠️ The archived JOSS `paper.md`
+    cites this key; the published JOSS PDF shows the NBER record, so a
+    regenerated `paper.md` would now render the chapter instead.
+  - `calonico2025rdhte` now records the rdhte *software paper*
+    (arXiv:2507.01128) that the JSS manuscript cites; the CRAN package record
+    it used to hold moved to `calonico2025rdhtepackage`, and the *methods*
+    paper the `sp.rdhte` docstring describes (arXiv:2503.13696) is the new
+    `calonico2025treatment`, which the docstring and the inline
+    `CausalResult._CITATIONS["rdhte"]` text now cite verbatim.
+  - `hartford2017deep` (Deep IV, ICML 2017) no longer attaches the arXiv
+    preprint's DOI (`10.48550/arXiv.1612.09596`) to the PMLR proceedings
+    record, the mismatch the JOSS editors flagged for this style of entry.
+    PMLR issues no DOI, so the entry now carries the proceedings URL,
+    `editor` / `series` / `volume` / `publisher`, and the arXiv `eprint`,
+    following the `brown2020language` convention; the inline
+    `CausalResult._CITATIONS["deepiv"]` copies in `core/results.py` and
+    `deepiv/deep_iv.py` match the master field for field (refs verified via
+    the PMLR abstract page and DBLP).
+  - Volume / issue / page fields backfilled on 26 journal entries where the
+    previously hand-curated JSS bibliography and the Crossref record agree
+    (e.g. `abadie2003economic`, `angrist1991does`, `goodmanbacon2021difference`,
+    `imbens2008regression`); `kitagawa1955components` pages from the Taylor &
+    Francis record; `roodman2019fast` journal name normalised to
+    "The Stata Journal".
+- **Master bibliography is now BibTeX-safe end to end.** Deriving the JSS
+  bibliography exposed two latent defects in `paper.bib`: (1) 56 entries
+  carried raw non-ASCII characters (`Ørregaard`, `Dubé`, `’`, `–`, `R²`),
+  which BibTeX's name abbreviation splits mid-byte — the compiled JSS
+  reference list literally read "Nielsen M�" — so every entry now uses
+  LaTeX escapes (`{\O}rregaard`, `{\'e}`, `--`, `$R^2$`); (2) 56 verification
+  blurbs lived in `note`, which `.bst` styles print, so the JSS reference
+  list would have carried "Verified 2026-08-24 via Crossref…" text and
+  underscores that broke the build. Provenance now lives in `annote`
+  (ignored by every bibliography style); `note` is reserved for reader-facing
+  text such as "arXiv preprint, first posted 2025-06-21".
 - **`sp.bibtex()` now works on a pip install.** The wheel ships a
   byte-identical copy of the master at `statspai/paper.bib` (package data +
   `MANIFEST.in`), and both runtime readers (`sp.bibtex` / the MCP `bibtex`

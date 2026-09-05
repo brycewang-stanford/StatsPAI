@@ -182,6 +182,7 @@ TWFE over them.
 | Heavy-weight covariates                             | `sp.callaway_santanna(..., x=[...], estimator='dr')`                                |
 | Sun-Abraham interaction-weighted event              | `sp.sun_abraham(df, y, g, t, i)`                                                    |
 | Imputation-style (BJS untreated-only TWFE)          | `sp.did(df, y='y', treat='first_treat', time='t', id='i', method='bjs')`             |
+| Counterfactual estimators with a factor / low-rank Y(0) model (Liu, Wang & Xu 2024): fe = imputation, ife = interactive FE, mc = matrix completion; reversals allowed | `sp.fect(df, y='y', treat='d', unit='i', time='t', method='ife', r=2)` (Track A module 86 vs R `fect` and Stata `fect`) |
 | Two-stage regression (event study + covariate ix)   | `sp.gardner_did(df, y=..., group=..., time=..., first_treat=..., event_study=True)` |
 | One-call harvesting + precision-weighted            | `sp.harvest_did(df, outcome=..., unit=..., time=..., cohort=...)`                   |
 | Two-way Mundlak / ETWFE                             | `sp.wooldridge_did(df, y, group, time, first_treat)`                                |

@@ -144,6 +144,8 @@ nav:
       - "v1.2 frontier estimators (Gardner / Model-Averaging DML / Kernel IV / HAL-TMLE / Synth Survival)": guides/v1_2_frontier.md
       - "Bridging theorems — when two methods target the same estimand (2025-2026)": guides/bridging_theorems.md
       - "Synthetic control — 20 methods, one package": guides/synth.md
+      - "Counterfactual estimators for panels (fect)": guides/fect.md
+      - "Interaction effects with diagnostics (interflex)": guides/interflex.md
       - "Quasi-experiments, one contract: counterfactuals / decisions / Bayesian-OLS switch": guides/unified_quasi_experiments.md
       - "v1.3 frontier: Synthetic controls for experimental design (Abadie-Zhao 2025/2026)": guides/synth_experimental.md
       - "v1.3 frontier: Harvesting DID + event-study designs (Borusyak et al. 2025)": guides/harvest_did.md

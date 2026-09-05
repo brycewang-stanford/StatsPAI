@@ -4,8 +4,17 @@ Generates a deterministic time-invariant-inefficiency panel and
 runs sp.xtfrontier(model='ti'). The companion 29_panel_sfa.R uses
 sfaR::sfacross with id_var (Pitt-Lee 1981 time-invariant model).
 
-Tolerance: rel < 1e-3 on the headline production-frontier slopes; the
-intercept and sigma rows are retained as Stata scale diagnostics.
+All three sides fit the same half-normal Pitt-Lee (1981) model: R
+frontier::sfa (truncNorm = FALSE) and Stata xtfrontier, ti with the
+constraint [mu]_cons = 0 (its unconstrained ti model is the
+truncated-normal Battese-Coelli 1988 model, a different likelihood).
+
+Tolerance: rel_est 1e-3 (iterative). Standard errors: StatsPAI takes the
+inverse of the central-difference observed-information Hessian; Stata's
+xtfrontier uses an analytic Hessian (ml method d2) and agrees with it to
+~3e-6 on every row, which pins the Python Hessian as exact. frontier's
+mleCov (Coelli's FRONTIER 4.1 Fortran routine) differs by 0.1%-1.8%
+across rows and is the loose side of the registered rel_se budget.
 """
 from __future__ import annotations
 
@@ -69,11 +78,12 @@ def main() -> None:
     write_results(MODULE, "py", rows,
                   extra={"distribution": "half-normal",
                          "panel_model": "Pitt-Lee 1981 (ti)",
-                         "stata_scale_reference": (
-                             "Headline parity uses beta_lnk and beta_lnl. "
-                             "Stata xtfrontier reports the intercept and "
-                             "sigma_u on its xtfrontier scale, so those "
-                             "rows are retained as diagnostics."
+                         "reference_note": (
+                             "Stata xtfrontier, ti is fit with the "
+                             "constraint [mu]_cons = 0 so all three sides "
+                             "share the half-normal likelihood; Stata's "
+                             "analytic-Hessian SEs match StatsPAI to ~3e-6, "
+                             "R frontier::sfa's mleCov differs by 0.1%-1.8%."
                          ),
                          "n_units": int(df["unit"].nunique()),
                          "T": int(df["year"].nunique())})

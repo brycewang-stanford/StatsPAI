@@ -30,8 +30,8 @@ import pandas as pd
 
 def _ensure_mpl() -> Tuple[Any, Any]:
     try:
-        import matplotlib.pyplot as plt
         import matplotlib
+        import matplotlib.pyplot as plt
 
         return plt, matplotlib
     except ImportError:
@@ -1794,3 +1794,153 @@ def did_summary_plot(
     _style_ax(ax)
     fig.tight_layout()
     return fig, ax
+
+
+def panel_view(
+    data: pd.DataFrame,
+    unit: str,
+    time: str,
+    treat: str,
+    y: Optional[str] = None,
+    type: str = "treat",
+    ax: Any = None,
+    figsize: Tuple[float, float] = (10, 6),
+    **kwargs: Any,
+) -> Tuple[Any, Any, Dict[str, Any]]:
+    """
+    panelView-style display of a panel's treatment status and outcomes.
+
+    A thin, dependency-light counterpart of Mou, Liu and Xu's ``panelView``
+    (R and Stata) for the three questions it answers before any panel
+    causal estimator is fitted: which units are treated when (and whether
+    treatment ever switches off), how outcomes move over time by treatment
+    status, and how many cells are missing.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        Long panel.
+    unit, time : str
+        Unit and time identifiers.
+    treat : str
+        0/1 treatment status in each unit-period.
+    y : str, optional
+        Outcome column, required for ``type="outcome"``.
+    type : {'treat', 'outcome'}, default 'treat'
+        ``'treat'`` draws the unit-by-period treatment-status tiles
+        (``sp.treatment_rollout_plot``); ``'outcome'`` draws every unit's
+        outcome path, treated periods highlighted, with the mean path of
+        the never-treated units.
+    ax : matplotlib axis, optional
+    figsize : tuple, default (10, 6)
+
+    Returns
+    -------
+    (fig, ax, summary)
+        ``summary`` reports ``n_units``, ``n_periods``, ``n_treated_units``,
+        ``n_never_treated``, ``first_treat`` (per unit), ``staggered``,
+        ``has_reversals``, ``n_missing_cells`` and ``share_treated_cells``,
+        the facts that decide between a two-way FE, a staggered DiD, and a
+        counterfactual (``sp.fect``) design.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> fig, ax, info = sp.panel_view(df, unit="id", time="t", treat="d")  # doctest: +SKIP
+    >>> info["staggered"], info["has_reversals"]  # doctest: +SKIP
+
+    References
+    ----------
+    [@mou2023panel]
+    """
+    import matplotlib.pyplot as plt
+
+    if type not in {"treat", "outcome"}:
+        raise ValueError("type must be 'treat' or 'outcome'")
+    if type == "outcome" and y is None:
+        raise ValueError("type='outcome' needs the outcome column y=")
+    cols = [unit, time, treat] + ([y] if y else [])
+    for c in cols:
+        if c not in data.columns:
+            raise ValueError(f"column {c!r} not in data")
+    df = data[cols].copy()
+    times = np.sort(df[time].unique())
+    wide = df.pivot_table(index=unit, columns=time, values=treat, aggfunc="first")
+    n_units, n_periods = wide.shape
+    observed = wide.notna()
+    d = wide.fillna(0.0).to_numpy(dtype=float)
+    ever = (d > 0).any(axis=1)
+    first_idx = np.where(ever, np.argmax(d > 0, axis=1), -1)
+    first_treat = {
+        u: (times[i] if i >= 0 else None) for u, i in zip(wide.index, first_idx)
+    }
+    # reversal: a treated period followed later by an untreated observed period
+    has_rev = False
+    for i in range(n_units):
+        on = np.where((d[i] > 0) & observed.to_numpy()[i])[0]
+        off_after = np.where((d[i] == 0) & observed.to_numpy()[i])[0]
+        if on.size and off_after.size and off_after.max() > on.min():
+            has_rev = True
+            break
+    first_treat = {
+        u: (None if v is None else (int(v) if isinstance(v, (np.integer, int)) else v))
+        for u, v in first_treat.items()
+    }
+    starts = sorted({v for v in first_treat.values() if v is not None})
+    summary: Dict[str, Any] = {
+        "n_units": int(n_units),
+        "n_periods": int(n_periods),
+        "n_treated_units": int(ever.sum()),
+        "n_never_treated": int((~ever).sum()),
+        "first_treat": first_treat,
+        "adoption_periods": starts,
+        "staggered": len(starts) > 1,
+        "has_reversals": bool(has_rev),
+        "n_missing_cells": int((~observed).to_numpy().sum()),
+        "share_treated_cells": float(d[observed.to_numpy()].mean())
+        if observed.to_numpy().any()
+        else float("nan"),
+    }
+
+    if type == "treat":
+        ft = pd.Series({u: (v if v is not None else 0) for u, v in first_treat.items()})
+        plot_df = df.copy()
+        plot_df["_first_treat_"] = plot_df[unit].map(ft)
+        fig, ax = treatment_rollout_plot(
+            plot_df,
+            time=time,
+            treat="_first_treat_",
+            id=unit,
+            ax=ax,
+            figsize=figsize,
+            **kwargs,
+        )
+        return fig, ax, summary
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=figsize)
+    else:
+        fig = ax.figure
+    ywide = df.pivot_table(index=unit, columns=time, values=y, aggfunc="first")
+    for u in ywide.index:
+        yv = ywide.loc[u].to_numpy(dtype=float)
+        tv = ywide.columns.to_numpy()
+        dv = wide.loc[u].fillna(0.0).to_numpy(dtype=float)
+        color = "#E74C3C" if ever[list(wide.index).index(u)] else "#95A5A6"
+        ax.plot(tv, yv, color=color, alpha=0.35, linewidth=0.8)
+        if (dv > 0).any():
+            ax.plot(tv[dv > 0], yv[dv > 0], color="#C0392B", alpha=0.9, linewidth=1.2)
+    never = ywide.loc[[u for u, e in zip(wide.index, ever) if not e]]
+    if len(never):
+        ax.plot(
+            ywide.columns.to_numpy(),
+            never.mean(axis=0).to_numpy(),
+            color="black",
+            linewidth=2.2,
+            label="never-treated mean",
+        )
+        ax.legend(loc="best")
+    ax.set_xlabel(time)
+    ax.set_ylabel(y)
+    ax.set_title(kwargs.get("title", "Outcome trajectories by treatment status"))
+    return fig, ax, summary

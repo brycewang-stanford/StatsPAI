@@ -10,7 +10,7 @@ this document grades every loose entry, records the gap actually
 observed in the committed `results/*.json` artifacts, and lists —
 honestly — the entries we cannot yet justify.
 
-Audited 2026-06-10 at 64 materialized modules. The budget is enforced by
+Audited 2026-06-10 at 64 materialized modules; re-audited 2026-09-05 at 87 modules after the JSS parity-closure pass (Sun–Abraham, GLMM, PPML-HDFE, panel SFA, VAR, TWFE event study) and the addition of modules 86 (fect) and 87 (interflex). The budget is enforced by
 `tests/test_parity_harness_contract.py::test_headline_passes_are_inside_registered_r_tolerance`
 (R side) and
 `test_stata_headline_over_budget_modules_are_explicitly_registered`
@@ -28,7 +28,7 @@ the regime explicitly:
    convention, closed form or tightly converged optimizer. The
    residual is floating-point noise (typically `1e-15` to `1e-9`;
    cross-BLAS reassociation in sandwich "meat" sums can reach `~1e-8`,
-   see `verify_reproduce.py::REPRO_TOL_OVERRIDE`). 57 of 64 modules
+   see `verify_reproduce.py::REPRO_TOL_OVERRIDE`). 78 of 87 modules
    register here on the point estimate.
 2. **Convention gap (`1e-4` to `5e-2`).** Both implementations are
    correct, but they compute a *documented* different quantity:
@@ -144,24 +144,22 @@ R side / Stata side). "Margin" is tolerance ÷ worst observed gap.
 
 | Module | Quantity | Tolerance | Grade | Observed gap (R / Stata) | Justification |
 |---|---|---:|:---:|---|---|
-| `05_sunab` | `rel_se` | 0.25 | B | 0.171 / 0.0084 | Sun–Abraham (`sun2021estimating`) event-time IW SEs. StatsPAI tracks the Stata `eventstudyinteract` clustered convention (≤0.9%); `fixest::sunab` with `agg="att"` aggregates cohort×period cells via a clustered delta method that differs by up to 17.1% on the sparse `mpdta` cohorts. Margin 1.5×. The fixest-side variance construction is not yet pinned line-by-line — also listed under weak spots. |
+| `05_sunab` | `rel_se` | 3e-2 | A | 0.0093 / 8e-12 | Sun–Abraham (`sun2021estimating`) event-time IW SEs. The default `att_rel_<e>` rows carry the Prop. 3 cohort-share term (Stata `eventstudyinteract` convention; py == Stata to 8e-12 on every row), while `fixest::sunab` treats the shares as fixed, so R differs by exactly that positive term at multi-cohort relative times (worst 0.93% at e=1) and by 8e-12 at single-cohort times and on the `agg="att"` ATT. The `att_rel_<e>_fixedshare` rows (`share_variance=False`) pin the fixest convention itself to 8e-12. Both sides use the fixest/reghdfe nested-K rule (12 observed cells + 5 year effects = 17 on mpdta); before 1.24.0 StatsPAI counted 9 unobserved cells and no time effects, which was the whole of the old "unpinned" 0.08% base gap. Margin 3.2×. |
 | `06_rd` | `rel_se` | 0.10 | A | 0.0671 / 0.0671 | Default-bandwidth rows delegate to the official CCT port (`calonico2014robust`) and match R/Stata `rdrobust` at ~1e-12. The budget is bound only by the deliberately retained *legacy internal* SE rows at a forced common `h` (`forced_h*` diagnostics, observed 6.7%), kept to document the pre-delegation convention. Margin 1.5×. |
 | `07_scm` | `rel_est` | 1.0 | A (T4) | headline 0.0239 vs R; donor weights up to 1.78 vs R, 0.0072 vs Stata | Classical SCM on the Basque fixture (`abadie2003economic`; method `abadie2010synthetic`). The donor-weight solution is *not unique* under the ADH nested-V specification: multi-start diagnostics find multiple near-best weight classes, and R `Synth::synth` and Stata `synth` land on measurably different local optima. StatsPAI's native solver tracks Stata. Verdict is GAP (T4 reference-disagreement disclosure), not PASS; module `52_scm_unique` certifies exact recovery on an identified DGP. |
 | `13_causal_forest` | `rel_est` | 0.01 | B (T3) | 0.0047 / — | AIPW doubly robust ATE/ATT on both sides (`sp.causal_forest` vs `grf::causal_forest` + `average_treatment_effect`; `wager2018estimation`, `athey2019generalized`). The two forests cannot share RNG, so the row is graded against *combined Monte Carlo error* (~0.05 combined SE on the clean-overlap DGP); a multi-seed truth-recovery pytest guard backs it. Widened from 0.005 when the ATT row moved onto grf's own plug-in + Hajek-correction estimator: both sides now run the *same* estimator, so the residual 0.47% is pure forest MC, and 0.005 left only 1.07× margin against machine-to-machine drift. The ATE headline sits at 0.19%. Margin 2.1×. |
 | `13_causal_forest` | `rel_se` | 0.25 | B | 0.077 / — | The AIPW *operator* is now pinned exactly — fed grf's own forest outputs, StatsPAI reproduces `grf::get_scores` elementwise to 2.3e-14 and grf's ATE/ATT estimate and `std.err` to 1e-15 (`tests/reference_parity/test_grf_aipw_operator_parity.py`) — so this budget covers forest RNG only, not an unresolved formula difference. Tightened from 0.50 after the ATT convention fix removed the historical 14.6% ATT row (now 0.087%); the remaining worst is the ATE row at 7.7%, whose SE depends on the forest's own `tau.hat` dispersion. Margin 3.2×. |
-| `26_glmm_logit` | `rel_se` | 5e-2 | B | 0.0164 / 0.0190 | GLMM logit (Laplace), tight optimizer (`tol=1e-8`) so all sides sit on the same optimum (point gap ≤2e-4). SE gap ≤1.9% from differing information-matrix conventions at the optimum across `sp.melogit`, `lme4::glmer`, and Stata `melogit`. Margin 2.6×. Value frozen by the contract test. Mechanism not fully derived — see weak spots. |
-| `27_glmm_aghq` | `rel_se` | 5e-2 | B | 0.0187 / 0.0187 | Same as module 26 with AGHQ (nAGQ=8) and the reference optimizer budget (`tol=1e-12`, point gap ≤2.4e-7). Margin 2.7×. Frozen by the contract test. |
+| `29_panel_sfa` | `rel_se` | 5e-2 | B | 0.0184 / 2.9e-6 | Half-normal Pitt–Lee panel SFA (`pitt1981measurement`). All three sides now fit the same likelihood: the Stata do-file constrains `xtfrontier, ti`'s truncated-normal `mu` to 0 (before 2026-09 the Stata rows were a different model, mislabelled as a "scale" difference; the intercept and `sigma_u` now agree to 1e-6). Stata's analytic-Hessian OIM (`ml` method `d2`) matches StatsPAI's central-difference OIM to 3e-6 on every SE row, which pins the Python Hessian as exact; `frontier::sfa`'s `mleCov` (Coelli's FRONTIER 4.1 routine) is 0.1%–1.8% off, worst on the intercept. Budget = 3× the worst R-side row; margin 2.7×. |
 | `30_oaxaca` | `rel_se` | 0.05 | A | 0.0125 / 0.0122 | Blinder–Oaxaca (`blinder1973wage`, `oaxaca1973male`; cf. `jann2008blinder`). StatsPAI reports closed-form delta-method SEs (`src/statspai/decomposition/oaxaca.py`); `oaxaca::oaxaca` reports seeded bootstrap SEs with `R=100` replications, whose own Monte Carlo noise is ~`(2R)^{-1/2}` ≈ 7% of the SE. Tightened 2026-06-10 from 1.0 (4× margin); a future regeneration that changes the bootstrap RNG stream may legitimately require re-registration. |
 | `36_mediation` | `rel_se` | 0.10 | A | 0.0701 / 0.0321 | Causal mediation (`imai2010general`). StatsPAI uses bootstrap inference (B=1000); `mediation::mediate` uses quasi-Bayesian Monte Carlo with `sims=200` (~5% MC noise by itself); the Stata bridge uses delta-method SEs. Different inference algorithms by construction; point effects match at 1e-15. Margin 1.4×. Frozen by the contract test. |
 | `40_qreg` | `rel_se` | 0.10 | A | 0.0734 / 0.0302 | Median regression (`koenker2005quantile`). StatsPAI uses the Powell-type iid kernel sandwich (`src/statspai/regression/quantile.py`, kernel estimate of the residual density at zero); the R fixture deliberately reports `summary(rq, se="nid")` — the Hendricks–Koenker difference-quotient sandwich — chosen to match Stata `qreg`'s default. Different sparsity estimators by construction. Margin 1.4×. |
-| `47_ppmlhdfe_3fe` | `rel_se` | 5e-2 | B | 0.0182 / 0.0010 | PPML + 3-way HDFE, HC1 sandwich after the Gauss–Seidel multi-FE fix (point estimates at 1e-15). StatsPAI agrees with Stata `ppmlhdfe` to 0.10%; the residual 1.8% gap vs `fixest::fepois` HC1 is unpinned (weak spot). Margin 2.7×. |
 
-All remaining entries are at `1e-2` or tighter; the larger ones are
-either graded inline in `compare.py` (`04_csdid` analytic
-influence-function SE, observed 0.32%, 3.1× margin,
-`callaway2021difference`; `17_etwfe` observed 6.0e-4 on the Stata side,
-1.7× margin; `61_betareg` expected- vs observed-information SEs) or are
-flagged below as weak spots (`29_panel_sfa`, `33_var`).
+All remaining entries are at `3e-2` or tighter and are graded inline in
+`compare.py`. Modules `26_glmm_logit`, `27_glmm_aghq` and
+`47_ppmlhdfe_3fe` left this table on 2026-09-05: their 1.9% / 1.9% /
+1.8% "convention" gaps were StatsPAI defects (fixed-effect covariance
+conditional on the variance components; a small-sample factor matching
+neither reference) and are now at `1e-2` / `2e-5` / `1e-6`.
 
 ## Tightenings applied 2026-06-10
 
@@ -258,52 +256,70 @@ of the max-normalised 0.0127 gap recorded for every `33_var` SE row in
 
 ## Known weak spots
 
-The honest list. Everything here either carries grade C, exceeds its
-registered budget on rows the headline check does not gate, or rests on
-a mechanism we have not pinned.
+The honest list, re-audited 2026-09-05. Every entry that used to sit
+here as grade C or "budget bounds nothing" has been closed by locating
+the mechanism on the StatsPAI side and, where a like-for-like row
+exists, pinning both references at machine level. The closures are kept
+below (struck through) because the *pattern* is the lesson; the open
+items follow.
 
-1. **`29_panel_sfa` (`rel_se` 1e-3) — grade C.** The budget is
-   exceeded by every non-headline SE row: slope SEs differ by up to
-   0.98% vs `frontier::sfa`, the intercept SE by 1.8% (R) and 19.5%
-   (Stata, a documented `xtfrontier`-scale diagnostic;
-   `pitt1981measurement`), and the `sigma_u` point row differs by 28.6%
-   vs Stata. The headline (slope `rel_est`) passes, but the registered
-   `rel_se` number bounds nothing as written. Needs a re-registered
-   per-row budget or an explicit point-only restructure.
-2. **`33_var` (`rel_se` 1e-3) — mechanism A, budget mis-keyed.** The
-   `T` vs `T−k` divisor gap is fully explained (see above) and the
-   Stata side matches at machine level, but every R-side SE row sits at
-   1.287% — above the registered budget. The budget is implicitly keyed
-   to the Stata convention only; it should be re-registered per side.
-3. **`05_sunab` — fixest-side mechanism unpinned.** The 17.1% gap vs
-   `fixest::sunab` per-event-time SEs is attributed to the clustered
-   delta-method aggregation but has not been reproduced term-by-term.
-   Margin is only 1.5×.
-4. **`26_glmm_logit` / `27_glmm_aghq` — SE convention not derived.**
-   The ≤1.9% SE gap at a tight common optimum is labelled an
-   information-matrix convention difference across `sp.melogit`,
-   `lme4::glmer`, and Stata `melogit`, but the precise difference has
-   not been written down.
-5. **`47_ppmlhdfe_3fe` — R-side residual unpinned.** StatsPAI matches
-   Stata `ppmlhdfe` HC1 to 0.10% but `fixest::fepois` HC1 differs by
-   1.8%; the score/df detail responsible has not been identified.
-6. **`13_causal_forest` `rel_se` 0.25.** Tightened from 0.50 once the
-   AIPW operator was pinned exactly and the ATT convention gap was
-   closed (14.6% → 0.087%). The residual is the ATE row at 7.7%
-   (3.2× margin), which is forest-RNG dispersion in `tau.hat` and is
-   not tightenable by any change to StatsPAI; the binding evidence for
-   this SE is the operator pin plus the Track B coverage sweep, not the
-   relative band.
-7. **Headline-only enforcement.** The contract test gates each
-   module's *headline* rows and metric. Non-headline rows are reported
-   in the Markdown tables but not gated — e.g. `07_scm` donor-weight
-   rows reach rel 1.78 (above even its T4 budget; that is the
-   documented reference disagreement itself) and `52_scm_unique`'s
-   distractor-weight rows show `rel_est = 1` purely because
-   `Synth::synth` leaves ~1e-9 residual weights against StatsPAI's
-   exact zeros (a near-zero-denominator artifact of the relative-diff
-   definition, documented in the module's `certification_note`).
-8. **Contract-frozen values.** `tests/test_parity_harness_contract.py`
+1. ~~**`29_panel_sfa` (`rel_se` 1e-3) — grade C.**~~ **Closed.** The Stata
+   reference was a different likelihood (truncated-normal
+   Battese–Coelli `ti` with free `mu`); constrained to `mu = 0` it agrees
+   with StatsPAI to 3e-6 on every SE and 1e-6 on every point row, so the
+   registered 5e-2 now bounds only `frontier`'s approximate covariance
+   (graded B above).
+2. ~~**`33_var` (`rel_se` 1e-3) — budget mis-keyed.**~~ **Closed.** The
+   Python side emits `eq_*` (divisor `T`, Stata) and `eq_*__Tk`
+   (divisor `T-k`, R `vars::VAR`) rows and each reference side emits
+   only its own convention; every compared SE is at 1e-15 and the budget
+   is 1e-6.
+3. ~~**`05_sunab` — fixest-side mechanism unpinned.**~~ **Closed.** The
+   17.1% figure came from the old R script re-aggregating cohort×period
+   cells by hand without their covariance; the native `fixest`
+   aggregation is now used. The residual 0.08% at single-cohort times
+   was a StatsPAI degrees-of-freedom defect (nine all-zero
+   cohort×relative-time columns counted in K, time effects not counted),
+   fixed in 1.24.0. What remains is the documented Sun–Abraham Prop. 3
+   share term (mechanism A), demonstrated by the `att_rel_<e>_fixedshare`
+   rows matching `fixest` to 8e-12 and the default rows matching Stata
+   `eventstudyinteract` to 8e-12.
+4. ~~**`26_glmm_logit` / `27_glmm_aghq` — SE convention not derived.**~~
+   **Closed.** Not a convention: the fixed-effect covariance omitted the
+   variance-component uncertainty. The full observed-information
+   Hessian of the marginal log-likelihood (Stata `vce(oim)`) puts AGHQ at
+   5e-7 (R) / 4e-6 (Stata) and Laplace at 4e-6 (Stata); the remaining
+   0.27% on the Laplace R side is `lme4`'s own optimum sitting 1.5e-4
+   away in β (its `logLik` is 2.8e-7 lower).
+5. ~~**`47_ppmlhdfe_3fe` — R-side residual unpinned.**~~ **Closed.**
+   StatsPAI applied `(N-1)/(N-k)` with `k` = slopes only, matching
+   neither reference. `ssc="stata"` (`N/(N-1)`) matches `ppmlhdfe` to
+   1e-11 and `ssc="fixest"` (`N/(N-K)`, K counting absorbed FE levels)
+   matches `fixest::fepois` to 1e-8; modules 37 and 47 emit one row per
+   convention.
+6. **`13_causal_forest` `rel_se` 0.25 — open by construction (T3).** The
+   residual is forest-RNG dispersion in `tau.hat` and is not
+   tightenable; the binding evidence is the exact AIPW-operator pin plus
+   the Track B coverage sweep, not the relative band.
+7. ~~**Headline-only enforcement.**~~ **Closed.**
+   `test_every_r_se_row_is_inside_budget` gates the registered `rel_se`
+   on *every* R-joined SE row of every PASS module (all 87 pass), and
+   `test_every_stata_se_row_is_inside_budget_or_registered` requires any
+   Stata SE row over budget to carry a mechanism in
+   `compare.py::STATA_SE_GAP_NOTES` (three entries: `04_csdid`
+   `group_overall` 0.27%, fixed-share aggregation; `71_dml_family`
+   PLIV, `ivreg`'s `N/(N-K)`; `83_lpdid` horizons, `reghdfe`'s K).
+8. ~~**`04_csdid` `group_overall` Stata SE (0.27%) — open.**~~ **Closed
+   (2026-09-05).** `csdid`'s `estat group` GAverage aggregates the
+   per-cohort influence functions with the cohort shares held fixed;
+   `did::aggte(type = "group")` and `sp.aggte` add the share-estimation
+   term (`did:::wif`). Rebuilding the fixed-share aggregate from
+   StatsPAI's *joint* cell influence functions reproduces `csdid`'s SE to
+   1e-14 (the earlier independent-cell attempt overshot because it
+   dropped the cross-cell covariance). Mechanism A, registered in
+   `STATA_SE_GAP_NOTES` and pinned by
+   `test_csdid_group_overall_stata_se_is_the_fixed_share_aggregation`.
+9. **Contract-frozen values.** `tests/test_parity_harness_contract.py`
    asserts exact equality for several budgets (e.g. `26_glmm_logit`,
    `27_glmm_aghq`, `36_mediation`, `38_drdid`, `10_honest_did`,
    `11_psm` `rel_est`). Any future change must touch both files in the
@@ -311,6 +327,6 @@ a mechanism we have not pinned.
 
 ---
 
-*Last audited: 2026-06-10 (StatsPAI 1.16.1, 64 parity modules). Re-run
+*Last audited: 2026-09-05 (StatsPAI 1.24.0 source snapshot, 87 parity modules). Re-run
 the snippet above and refresh this document whenever a `TOLERANCES`
 entry changes.*

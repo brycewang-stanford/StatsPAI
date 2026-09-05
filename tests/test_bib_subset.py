@@ -169,6 +169,44 @@ def test_keep_adds_uncited_keys(tmp_path: Path):
     assert "@misc{beta2021two" in out.read_text(encoding="utf-8")
 
 
+def test_minus_excludes_keys_already_in_another_derived_file(tmp_path: Path):
+    """archival = everything cited anywhere minus the submission subset."""
+    master, tex, out = _fixture(tmp_path)
+    args = ["--master", str(master), "--roots", str(tex), "--out", str(out)]
+    assert bib_subset.main(["extract", *args]) == 0  # alpha + gamma
+    longform = tmp_path / "longform.tex"
+    longform.write_text("\\cite{beta2021two} \\cite{alpha2020one}", encoding="utf-8")
+    archival = tmp_path / "archival.bib"
+    arch_args = [
+        "--master",
+        str(master),
+        "--roots",
+        str(tex),
+        str(longform),
+        "--minus",
+        str(out),
+        "--out",
+        str(archival),
+    ]
+    assert bib_subset.main(["extract", *arch_args]) == 0
+    keys = set(bib_subset.parse_bib(archival.read_text("utf-8")))
+    assert keys == {"beta2021two"}
+    assert "minus" in archival.read_text("utf-8").splitlines()[2]
+    assert bib_subset.main(["check", *arch_args]) == 0
+    # a --minus file that does not exist yet is an error, not an empty exclusion
+    with pytest.raises(SystemExit, match="--minus"):
+        bib_subset.main(
+            [
+                "extract",
+                *arch_args[:-4],
+                "--minus",
+                str(tmp_path / "nope.bib"),
+                "--out",
+                str(archival),
+            ]
+        )
+
+
 def test_check_detects_stale_subset_and_master_edits(tmp_path: Path, capsys):
     master, tex, out = _fixture(tmp_path)
     args = ["--master", str(master), "--roots", str(tex), "--out", str(out)]
@@ -264,6 +302,45 @@ def test_pyproject_and_manifest_ship_the_bib():
     section = section.split("\n[", 1)[0]  # up to the next TOML table header
     assert '"paper.bib"' in section
     assert "include src/statspai/paper.bib" in manifest
+
+
+# ---------------------------------------------------------------------------
+# master hygiene guards (BibTeX-safety of the single source of truth)
+# ---------------------------------------------------------------------------
+def _master_entries():
+    return bib_subset.parse_bib((REPO_ROOT / "paper.bib").read_text("utf-8"))
+
+
+def test_master_entries_contain_no_raw_non_ascii():
+    """BibTeX name abbreviation splits multi-byte characters: 'Ørregaard' came
+    out as 'M\ufffd' in the compiled JSS reference list. Entries must use LaTeX
+    escapes ({\\O}, {\\'e}, --, $R^2$); comment lines outside entries are free."""
+    offenders = {
+        k: sorted({c for c in body if ord(c) > 127})
+        for k, body in _master_entries().items()
+        if any(ord(c) > 127 for c in body)
+    }
+    assert not offenders, f"raw non-ASCII inside paper.bib entries: {offenders}"
+
+
+def test_master_notes_are_reader_facing_and_latex_safe():
+    """`note` is printed by .bst styles (jss.bst, plainnat); provenance goes in
+    `annote`, which every style ignores. A note with an unescaped _ & % # ^
+    breaks the LaTeX build; a note that reads 'Verified ... via Crossref' leaks
+    audit trail into a published reference list."""
+    import re
+
+    bad = {}
+    for k, body in _master_entries().items():
+        m = re.search(r"^\s*note\s*=\s*\{((?:[^{}]|\{[^{}]*\})*)\}", body, re.M | re.S)
+        if not m:
+            continue
+        note = m.group(1)
+        if re.search(r"(?<!\\)[_&%#^]", note):
+            bad[k] = "unescaped LaTeX special character"
+        elif re.search(r"verified|crossref|openalex|doi\.org|arxiv api", note, re.I):
+            bad[k] = "provenance text belongs in annote"
+    assert not bad, bad
 
 
 # ---------------------------------------------------------------------------

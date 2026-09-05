@@ -13,10 +13,10 @@ References
 ----------
 Calonico, S., Cattaneo, M.D., Farrell, M.H., Palomba, F. and Titiunik, R.
 (2025). "Treatment Effect Heterogeneity in Regression Discontinuity Designs."
-Working Paper. [@calonico2025rdhte]
+arXiv preprint arXiv:2503.13696. [@calonico2025treatment]
 """
 
-from typing import Optional, List, Union, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -30,14 +30,17 @@ from .rdrobust import _select_bandwidth
 # Citation
 # ======================================================================
 
+# Same identifiers as the verified master entry ``calonico2025treatment`` in
+# paper.bib (CLAUDE.md §10); ``sp.bibtex("calonico2025treatment")`` returns the
+# canonical text.
 CausalResult._CITATIONS["rdhte"] = (
-    "@article{calonico2025rdhte,\n"
-    "  title={Treatment Effect Heterogeneity in Regression\n"
-    "  Discontinuity Designs},\n"
-    "  author={Calonico, Sebastian and Cattaneo, Matias D and\n"
-    "  Farrell, Max H and Palomba, Filippo and Titiunik, Roc{\\'\\i}o},\n"
+    "@misc{calonico2025treatment,\n"
+    "  title={Treatment Effect Heterogeneity in Regression Discontinuity Designs},\n"
+    "  author={Calonico, Sebastian and Cattaneo, Matias D. and Farrell, Max H. "
+    "and Palomba, Filippo and Titiunik, Roc{\\'\\i}o},\n"
     "  year={2025},\n"
-    "  journal={Working Paper}\n"
+    "  eprint={2503.13696},\n"
+    "  archivePrefix={arXiv}\n"
     "}"
 )
 

@@ -7,6 +7,11 @@ source(file.path(.script_dir, "_common.R"))
 
 suppressPackageStartupMessages({ library(fixest) })
 
+# Rows are named beta_<x>__fixestK: fixest::fepois's heteroskedasticity-
+# robust vcov applies N/(N-K) with K = slopes + absorbed FE levels
+# (minus one per additional FE dimension); the Python side emits the
+# same-convention rows under this suffix (ssc = "fixest") and keeps the
+# Stata ppmlhdfe N/(N-1) rows unsuffixed for the Stata side.
 MODULE <- "47_ppmlhdfe_3fe"
 df <- read_csv_strict(MODULE)
 
@@ -18,9 +23,9 @@ fit <- fixest::fepois(
 co <- coef(fit); se <- sqrt(diag(vcov(fit)))
 
 rows <- list(
-  parity_row(MODULE, "beta_log_dist", estimate = unname(co["log_dist"]),
+  parity_row(MODULE, "beta_log_dist__fixestK", estimate = unname(co["log_dist"]),
              se = unname(se["log_dist"]), n = nrow(df)),
-  parity_row(MODULE, "beta_contig",   estimate = unname(co["contig"]),
+  parity_row(MODULE, "beta_contig__fixestK",   estimate = unname(co["contig"]),
              se = unname(se["contig"]), n = nrow(df))
 )
 write_results(MODULE, rows, extra = list(fe = "origin + dest + year",

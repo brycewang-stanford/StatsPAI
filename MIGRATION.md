@@ -7,6 +7,23 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="weak-iv-rank-deficient"></a>
 
+## Unreleased — ⚠️ Sun–Abraham, GLMM, and PPML-HDFE standard errors realigned to their references
+
+Point estimates do not change. Standard errors move by 0.1%–2% because
+each estimator now reproduces the reference implementation's variance
+construction exactly (parity modules 05, 26, 27, 37, 47).
+
+| Function | What changed | New keyword |
+|---|---|---|
+| `sp.sun_abraham` | `K` in the cluster-robust small-sample factor counts only observed cohort × relative-time cells plus the fixed effects not nested in the cluster (fixest/reghdfe nested rule). Matches Stata `eventstudyinteract` to `8e-12`. | `share_variance=True` (default, Sun–Abraham Prop. 3 / Stata) or `False` (`fixest::sunab`, shares fixed). |
+| `sp.melogit`, `sp.meglm`, `sp.mepoisson`, … | Fixed-effect covariance is the observed-information block of the marginal log-likelihood over all parameters (Stata `vce(oim)`, lme4), not the conditional information with the variance components held fixed. SEs grow by up to ~2%. | `result._cov_fixed_conditional` keeps the old matrix. |
+| `sp.ppmlhdfe` | Robust sandwich factor is `N/(N-1)` (Stata `ppmlhdfe`) instead of `(N-1)/(N-k)`; `robust="robust"` includes the factor (was HC0). | `ssc="stata"` (default), `"fixest"` (`N/(N-K)`), `"none"`. |
+| `sp.event_study` | The cluster-robust small-sample factor counts the absorbed time effects that are not nested in the cluster (fixest/reghdfe nested rule), so the event-time SEs match `fixest::feols` and `reghdfe` with default settings; SEs grow by ~0.3% on the module-85 fixture. | none (convention now matches both references). |
+
+To reproduce pre-1.24.0 numbers: `sp.ppmlhdfe(..., robust="hc0")` gives the
+bare sandwich; the old Sun–Abraham and GLMM variances are not reproducible
+because they were not a documented convention.
+
 ## Unreleased — ⚠️ weak-IV confidence sets refuse collinear instruments
 
 **Who is affected.** Callers of `sp.iv.anderson_rubin_ci` and

@@ -24,7 +24,7 @@ authors:
     affiliation: "Rural Education Action Program, Stanford Center on China's Economy and Institutions, Stanford University, United States; StatsPAI Inc., United States"
     email: "rozelle@stanford.edu"
     orcid: "https://orcid.org/0000-0001-5053-0243"
-version: "1.23.0"
+version: "1.24.0"
 date-released: "2026-08-24"
 license: MIT
 # Zenodo concept DOI; always resolves to the latest archived version.

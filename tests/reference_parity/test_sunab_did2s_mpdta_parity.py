@@ -115,29 +115,54 @@ def test_sunab_event_study_matches_fixest(mpdta):
 
 
 def test_sunab_event_study_ses_match_fixest(mpdta):
-    """Cluster-robust SEs on the event study agree to 1%.
+    """Cluster-robust SEs on the event study reproduce fixest exactly.
 
-    The 1% band is doing real work here, because ``fixest`` and Stata's
-    ``eventstudyinteract`` genuinely disagree and StatsPAI cannot match
-    both. ``sunab`` computes Var(δ̂_ℓ) treating the cohort shares as
-    fixed; ``eventstudyinteract`` adds the share-estimation term
-    ``β' Var(ŵ) β`` from Sun & Abraham (2021) Prop. 3. StatsPAI follows
-    the latter — it is the paper author's own implementation, and
-    dropping the term understates the SE.
-
-    The two agree exactly wherever a single cohort is eligible (Var(ŵ) is
-    degenerate there) and separate where several are: on mpdta the gap to
-    fixest is 0.08% at single-cohort event times and up to 0.63% at
-    multi-cohort ones. Both stay inside 1%, so this test still pins
-    fixest agreement while tolerating the deliberate divergence. A gap
-    beyond 1% means something other than this convention moved.
+    ``fixest::sunab`` treats the cohort shares as fixed when it
+    aggregates cohort-by-relative-time coefficients; Sun & Abraham
+    (2021, Prop. 3) and Stata's ``eventstudyinteract`` add the
+    share-estimation term ``β' Var(ŵ) β``. StatsPAI's default
+    (``share_variance=True``) follows the authors' own implementation and
+    is pinned to Stata at 8e-12 by parity module 05; ``share_variance=False``
+    is the fixest convention and must match ``fixest`` at machine level
+    on every relative time. Both use the fixest/reghdfe nested
+    degrees-of-freedom rule, so the default also matches fixest exactly
+    wherever a single cohort is eligible (Var(ŵ) is degenerate there)
+    and exceeds it, by the positive share term, wherever several are.
     """
-    res = sp.sun_abraham(mpdta, y="lemp", g="first_treat", t="year", i="countyreal")
-    got = {int(e): s for e, s in zip(res.detail["relative_time"], res.detail["se"])}
+    fixed = sp.sun_abraham(
+        mpdta,
+        y="lemp",
+        g="first_treat",
+        t="year",
+        i="countyreal",
+        share_variance=False,
+    )
+    got_fixed = {
+        int(e): s for e, s in zip(fixed.detail["relative_time"], fixed.detail["se"])
+    }
     for e, (_, se_r) in R_SUNAB_EVENT.items():
-        assert got[e] == pytest.approx(
-            se_r, rel=0.01
-        ), f"e={e}: SE {got[e]:.8f} vs fixest {se_r:.8f}"
+        # R_SUNAB_EVENT is transcribed to 8 decimals, so 1e-8 absolute is
+        # the transcription precision, not a parity budget.
+        assert got_fixed[e] == pytest.approx(
+            se_r, abs=1e-8
+        ), f"e={e}: fixed-share SE {got_fixed[e]:.10f} vs fixest {se_r:.10f}"
+
+    default = sp.sun_abraham(mpdta, y="lemp", g="first_treat", t="year", i="countyreal")
+    es = default.detail
+    got = {int(e): s for e, s in zip(es["relative_time"], es["se"])}
+    n_cohorts = {int(e): int(k) for e, k in zip(es["relative_time"], es["n_cohorts"])}
+    for e, (_, se_r) in R_SUNAB_EVENT.items():
+        if n_cohorts[e] == 1:
+            assert got[e] == pytest.approx(
+                se_r, abs=1e-8
+            ), f"e={e}: single-cohort SE {got[e]:.10f} vs fixest {se_r:.10f}"
+        else:
+            # Share term is positive semi-definite and, on mpdta, at most
+            # 0.93% of the SE (e=1).
+            assert (
+                se_r < got[e] <= se_r * 1.01
+            ), f"e={e}: default SE {got[e]:.10f} vs fixest {se_r:.10f}"
+    assert default.model_info["dof_K"] == 17  # 12 observed cells + 5 year effects
 
 
 def test_sunab_fixest_att_aggregation_matches_r(mpdta):

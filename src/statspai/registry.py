@@ -10370,6 +10370,18 @@ def _build_registry() -> None:
                     ["event_time", "fixest_att"],
                 ),
                 ParamSpec(
+                    "share_variance",
+                    "bool",
+                    False,
+                    True,
+                    "Carry the cohort-share estimation term of Sun & Abraham "
+                    "(2021, Prop. 3) in the event-study variance (True: Stata "
+                    "eventstudyinteract convention) or treat the interaction "
+                    "weights as fixed (False: fixest::sunab convention). The "
+                    "two coincide at single-cohort relative times; point "
+                    "estimates are unaffected.",
+                ),
+                ParamSpec(
                     "pretest",
                     "str",
                     False,
@@ -10449,6 +10461,150 @@ def _build_registry() -> None:
         )
     )
 
+    register(
+        FunctionSpec(
+            name="fect",
+            category="causal",
+            description=(
+                "Counterfactual estimators for time-series cross-sectional "
+                "data (Liu, Wang and Xu 2024): impute the untreated potential "
+                "outcome of every treated unit-period from a model fitted on "
+                "untreated cells only -- two-way fixed effects ('fe', the "
+                "imputation estimator), interactive fixed effects with r "
+                "factors ('ife'), or nuclear-norm matrix completion ('mc') -- "
+                "and average Y - Y(0) over treated cells, with the ATT path "
+                "by relative period. Native port of the R package fect; "
+                "handles staggered adoption, many treated units, unbalanced "
+                "panels and treatment reversals."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Outcome column"),
+                ParamSpec(
+                    "treat",
+                    "str",
+                    True,
+                    description="0/1 treatment status in each unit-period (1 = treated)",
+                ),
+                ParamSpec("unit", "str", True, description="Unit identifier"),
+                ParamSpec("time", "str", True, description="Time period column"),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    False,
+                    None,
+                    "Time-varying covariates entering the Y(0) model linearly",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "fe",
+                    "Y(0) model: 'fe' two-way fixed effects, 'ife' interactive "
+                    "fixed effects with r factors, 'mc' matrix completion with "
+                    "penalty lam.",
+                    ["fe", "ife", "mc"],
+                ),
+                ParamSpec(
+                    "r", "int", False, 0, "Number of latent factors (method='ife')"
+                ),
+                ParamSpec(
+                    "lam",
+                    "float",
+                    False,
+                    None,
+                    "Nuclear-norm penalty on fect's raw scale (method='mc'); the "
+                    "result records lambda_norm = lam / largest singular value.",
+                ),
+                ParamSpec(
+                    "force",
+                    "str",
+                    False,
+                    "two-way",
+                    "Additive fixed effects in the Y(0) model.",
+                    ["none", "unit", "time", "two-way"],
+                ),
+                ParamSpec(
+                    "min_t0",
+                    "int",
+                    False,
+                    None,
+                    "Drop units with fewer untreated periods (fect: 1 for 'fe', 5 otherwise)",
+                ),
+                ParamSpec(
+                    "tol",
+                    "float",
+                    False,
+                    1e-3,
+                    "EM relative convergence tolerance (fect default)",
+                ),
+                ParamSpec("max_iter", "int", False, 1000, "Maximum EM iterations"),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "Resampling standard errors over units; None reports point estimates only.",
+                    ["bootstrap", "jackknife"],
+                ),
+                ParamSpec("n_boot", "int", False, 200, "Bootstrap replications"),
+                ParamSpec("seed", "int", False, None, "Bootstrap seed"),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="CausalResult",
+            example=(
+                'sp.fect(df, y="y", treat="d", unit="id", time="t", '
+                'method="ife", r=2, vce="bootstrap", seed=0)'
+            ),
+            tags=[
+                "did",
+                "panel",
+                "counterfactual",
+                "imputation",
+                "factor",
+                "matrix_completion",
+                "causal",
+            ],
+            reference="Liu, Wang & Xu (2024) AJPS [@liu2024practical]; "
+            "Xu (2017) [@xu2017generalized]; Athey et al. (2021) [@athey2021matrix]",
+            pre_conditions=[
+                "long panel with unit x time x outcome and a 0/1 treatment status",
+                "every retained unit has at least min_t0 untreated periods",
+                "at least one never-treated or not-yet-treated cell in every period used for imputation",
+            ],
+            assumptions=[
+                "Y(0) follows the chosen model (two-way FE / low-rank factors / low nuclear norm) on untreated cells",
+                "No anticipation and no carryover after treatment ends",
+                "Strict exogeneity of treatment status conditional on the fixed effects / factors",
+                "SUTVA",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="All treated units dropped for having fewer than min_t0 untreated periods",
+                    exception="DataInsufficient",
+                    remedy="Lower min_t0 or use method='fe', which needs a single untreated period per unit.",
+                    alternative="did_imputation",
+                ),
+                FailureMode(
+                    symptom="Pre-treatment ATT path far from zero (large pre_treatment_rmse)",
+                    exception=None,
+                    remedy="Increase r (ife) or lower lam (mc); run the placebo / equivalence checks before trusting the ATT.",
+                    alternative="honest_did",
+                ),
+            ],
+            alternatives=[
+                "did_imputation",
+                "gsynth",
+                "mc_synth",
+                "callaway_santanna",
+                "sun_abraham",
+            ],
+            limitations=[
+                "Inference is resampling-only (unit bootstrap or jackknife on request); the default returns point estimates only.",
+                "r and lam are user-supplied; fect's cross-validated choice of r / lambda is not yet supported.",
+            ],
+        ),
+    )
     register(
         FunctionSpec(
             name="did_imputation",
@@ -16427,6 +16583,8 @@ _TRACK_A_MODULE_ALIASES: Dict[str, Tuple[str, ...]] = {
     "17_etwfe": ("wooldridge_did",),
     "18_augsynth": ("augsynth",),
     "19_gsynth": ("gsynth",),
+    "86_fect": ("fect",),
+    "87_interflex": ("interflex",),
     "30_oaxaca": ("oaxaca",),
     "31_dfl": ("dfl_decompose",),
     "36_mediation": ("mediate",),

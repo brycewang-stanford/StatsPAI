@@ -33,7 +33,7 @@ bytes the R side reads), runs the canonical Stata reference, and
 writes one row per parity statistic to
 `results/NN_<name>_Stata.json` via the helpers in `_common.do`.
 
-## Materialized Stata golden modules (75 of 81 Python modules)
+## Materialized Stata golden modules (81 of 87 Python modules)
 
 | # | Method                       | StatsPAI                       | Stata reference                                              |
 | --- | --- | --- | --- |
@@ -116,6 +116,8 @@ writes one row per parity statistic to
 | 83 | LP-DiD event study            | `sp.lp_did`                    | `lpdid, unit() time() treat() pre_window(2) post_window(3)`  |
 | 84 | BJS pre-treatment leads       | `sp.did_imputation`            | `did_imputation y unit time g, pretrends(3) horizons(0/3) cluster(unit)` |
 | 85 | Dynamic TWFE event study      | `sp.event_study`               | `reghdfe y <rel-time dummies>, absorb(unit time) vce(cluster unit)`      |
+| 86 | fect counterfactual estimators | `sp.fect(method="fe"/"ife"/"mc")` | `fect Y, treat(D) unit(id) time(time) cov(X1 X2) method() force(two-way) tol(1e-12) maxiterations(20000)` (fect_stata from GitHub, local ado path) |
+| 87 | interflex marginal effects     | `sp.interflex(estimator=...)`  | `interflex Y D X Z1, type(linear|binning|kernel) vce(robust) neval(5) nbins(3) bw(1)` (SSC) |
 
 ### Modules **without** a materialized Stata JSON
 
@@ -207,7 +209,8 @@ checked; two more were skipped as "no Stata implementation" when in fact
 | 78 multiplegt_dyn | `did_multiplegt_dyn` | 2.1e-15 | 10 joined rows across the absorbing and switch-off designs |
 | 81 didm | `did_multiplegt_old` | 3.2e-15 | `dynamic_1` deliberately not joined; see the do-file header |
 | 82 staggered | `staggered` (SSC) | 3.7e-15 | all 33 rows join, including both the Neyman and adjusted SEs |
-| 85 twfe_event_study | `reghdfe` | 5.7e-14 | estimates only; the SE gap is a dof convention reconstructed exactly, not a tolerance |
+| 85 twfe_event_study | `reghdfe` | 5.7e-14 | estimates and SEs three-way machine level since 1.24.0 (sp.event_study applies the same nested-K rule) |
+| 86 fect | `fect` (fect_stata, GitHub) | 1e-9 (fe / mc headline), 1.5e-7 (ife headline) | all three outcome models on one staggered panel; fect_stata's own EM stopping rule leaves the ife fixed point at ~1e-7 while R/Python run the same iteration path to 1e-10 |
 | 73 did2s | `did2s` | 2.4e-12 | Stata SE lands on R's, localising the SE gap to a StatsPAI default |
 | 71 dml_family | `ddml` | 6.9e-7 | shared fold partition via `foldvar()`; PLIV gap is ddml's second-stage intercept |
 | 75 stacked | hand-built stack + `reghdfe` | 7.1e-13 | three independent stack constructions agree; SEs differ by a constant dof factor |

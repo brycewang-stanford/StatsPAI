@@ -115,6 +115,116 @@
     {
       "module": "33_var",
       "side": "py",
+      "statistic": "eq_y1__L1.y1__Tk",
+      "estimate": 0.43249790885604766,
+      "se": 0.07163678592926483,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y1__L1.y2__Tk",
+      "estimate": 0.2918477583096092,
+      "se": 0.07717764480038916,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y1__L2.y1__Tk",
+      "estimate": 0.030923198437182903,
+      "se": 0.07458331036240053,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y1__L2.y2__Tk",
+      "estimate": -0.1295454497468629,
+      "se": 0.07497600475404166,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y1___cons__Tk",
+      "estimate": 0.006972863199670557,
+      "se": 0.03534695239153881,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y2__L1.y1__Tk",
+      "estimate": -0.2780035057435152,
+      "se": 0.06636504754018085,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y2__L1.y2__Tk",
+      "estimate": 0.551309444228225,
+      "se": 0.0714981555883098,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y2__L2.y1__Tk",
+      "estimate": -0.07594984337526346,
+      "se": 0.06909473776213527,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y2__L2.y2__Tk",
+      "estimate": -0.05981752518905232,
+      "se": 0.06945853384304486,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
+      "statistic": "eq_y2___cons__Tk",
+      "estimate": -0.016748671734659066,
+      "se": 0.03274577642527487,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 198,
+      "extra": {}
+    },
+    {
+      "module": "33_var",
+      "side": "py",
       "statistic": "logLik",
       "estimate": -263.25663607246616,
       "se": null,
@@ -128,6 +238,6 @@
     "lags": 2,
     "n_obs": 198,
     "se_df": "stata",
-    "se_note": "Default coefficient SEs use Stata var's conditional-MLE denominator T. Use sp.var(..., se_df='r') to reproduce the equation-by-equation lm() denominator T-k used inside R vars::VAR()."
+    "se_note": "eq_* rows: se_df='stata' (conditional-MLE denominator T, matches Stata var). eq_*__Tk rows: se_df='r' (equation-by-equation lm() denominator T-k, matches R vars::VAR). Point estimates are identical across the two; the SE ratio is exactly sqrt(T/(T-k)) = sqrt(198/193)."
   }
 }

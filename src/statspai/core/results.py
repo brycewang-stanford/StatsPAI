@@ -2067,15 +2067,20 @@ class CausalResult:
         #     via paper.bib) ---
         "deepiv": (
             "@inproceedings{hartford2017deep,\n"
-            "  title={Deep IV: A flexible approach for "
-            "counterfactual prediction},\n"
-            "  author={Hartford, Jason and Lewis, Greg and "
-            "Leyton-Brown, Kevin and Taddy, Matt},\n"
-            "  booktitle={Proceedings of the 34th International "
-            "Conference on Machine Learning},\n"
+            "  title={Deep {IV}: A flexible approach for counterfactual prediction},\n"
+            "  author={Hartford, Jason and Lewis, Greg and Leyton-Brown, Kevin "
+            "and Taddy, Matt},\n"
+            "  booktitle={Proceedings of the 34th International Conference on "
+            "Machine Learning},\n"
+            "  editor={Precup, Doina and Teh, Yee Whye},\n"
+            "  series={Proceedings of Machine Learning Research},\n"
+            "  volume={70},\n"
             "  pages={1414--1423},\n"
             "  year={2017},\n"
-            "  doi={10.48550/arXiv.1612.09596}\n"
+            "  publisher={PMLR},\n"
+            "  url={https://proceedings.mlr.press/v70/hartford17a.html},\n"
+            "  eprint={1612.09596},\n"
+            "  archivePrefix={arXiv}\n"
             "}"
         ),
         "interference": (
