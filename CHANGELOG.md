@@ -9184,7 +9184,12 @@ discovery / orchestration / output layer.
 - `src/statspai/agent/_enrichment.py` — `next_calls` + `citations` +
   `narrative` builder.
 
-## [Unreleased]
+## [1.11.2] — 2026-04-29 (addendum)
+
+> These entries were recorded under an `[Unreleased]` heading that was never
+> retitled when later releases were prepended above it. They shipped in
+> v1.11.2, the first tagged release containing their commit (`5388ff90`).
+> Retitled 2026-09-06; content unchanged.
 
 ### Changed — output module PR-B (continuation of v1.11.x cleanup)
 
