@@ -131,7 +131,7 @@ def _r_cut_groups(x: np.ndarray, cuts: np.ndarray) -> np.ndarray:
 
 
 def _ols(X: np.ndarray, y: np.ndarray, w: Optional[np.ndarray], cov_type: str):
-    """(W)LS with HC1 or homoscedastic covariance, R ``lm`` + ``sandwich`` conventions."""
+    """(W)LS with HC1 or homoscedastic covariance (R ``lm`` + ``sandwich``)."""
     n, k = X.shape
     if w is None:
         XtX = X.T @ X
@@ -570,8 +570,15 @@ def interflex_plot(
 
     Examples
     --------
-    >>> import statspai as sp
-    >>> res = sp.interflex(df, y="Y", d="D", x="X", z=["Z1"], estimator="kernel", bw=1.0)
+    >>> import numpy as np, pandas as pd, statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> X, Z1 = rng.normal(size=n), rng.normal(size=n)
+    >>> D = rng.binomial(1, 0.5, n).astype(float)
+    >>> Y = 0.5 + 0.3 * X + D * (1.0 + 0.8 * X) + 0.4 * Z1 + rng.normal(size=n)
+    >>> df = pd.DataFrame({"Y": Y, "D": D, "X": X, "Z1": Z1})
+    >>> res = sp.interflex(df, y="Y", d="D", x="X", z=["Z1"],
+    ...                    estimator="kernel", bw=1.0)
     >>> fig = sp.interflex_plot(res)
     """
     import matplotlib.pyplot as plt

@@ -37,6 +37,19 @@ from typing import Any
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
+
+
+def _release_version() -> str:
+    """Package version from pyproject.toml, for the generated table captions.
+
+    Read by regex rather than imported so this comparison script stays
+    importable without the package on ``sys.path``.
+    """
+    text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    m = re.search(r'^version\s*=\s*"([^"]+)"', text, flags=re.MULTILINE)
+    return m.group(1) if m else "unknown"
+
+
 RESULTS_DIR = HERE / "results"
 PAPER_TABLES_DIR = ROOT / "Paper-JSS" / "manuscript" / "tables"
 # The sister Stata-side harness lives at tests/stata_parity/. Stata
@@ -638,7 +651,8 @@ TOLERANCES: dict[str, dict[str, float]] = {
     "45_ologit": {
         "rel_est": 1e-6,
         "rel_se": 1e-5,
-    },  # polr tight optimiser + observed-info Hessian; obs 2.0e-6, 5.1x (at rule boundary)
+    },  # polr tight optimiser + observed-info Hessian; obs 2.0e-6, 5.1x
+    #     (at rule boundary)
     "46_clogit": {
         "rel_est": 1e-6,
         "rel_se": 1e-6,
@@ -815,7 +829,8 @@ def _display_meta_value(module: str, key: str, value: Any) -> Any:
         and "must agree within combined Monte Carlo error" in value
     ):
         return value.replace(
-            "so they are like-for-like and must agree within combined Monte Carlo error",
+            "so they are like-for-like and must agree within combined "
+            "Monte Carlo error",
             "so they agree within combined Monte Carlo error "
             "(worst rel gap below 0.3%, ~0.05 combined SE on the clean DGP), "
             "the multi-seed truth-recovery guard passes, and the row is graded T3 "
@@ -1091,7 +1106,8 @@ def render_md(modules: list[str]) -> str:
                     lines.append(f"- **{k}**: `{v}`")
         lines.append("")
         lines.append(
-            "| stat | py est | R est | abs Δ | rel Δ | py SE | R SE | abs Δ SE | rel Δ SE |"
+            "| stat | py est | R est | abs Δ | rel Δ "
+            "| py SE | R SE | abs Δ SE | rel Δ SE |"
         )
         lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
         for d in diffs:
@@ -1119,7 +1135,7 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "verdict": "\\textbf{PASS}",
         "gap_note": (
             "estimates three-way to 5.7e-14; SE matches "
-            "\\code{fixest} to 9.3e-14 under \\code{ssc(fixef.K=\"none\")}, "
+            '\\code{fixest} to 9.3e-14 under \\code{ssc(fixef.K="none")}, '
             "and \\code{reghdfe}'s SE is reproduced from it by the exact "
             "$(N-K_{py})/(N-K_{St})$ d.f. scalar"
         ),
@@ -1296,7 +1312,10 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic == "avg_post_gap",
         "metric": "rel_est",
         "verdict": "\\textit{GAP}",
-        "gap_note": "T4 reference disagreement: native tracks Stata; R Synth differs; exact recovery on identified DGP \\code{52}",
+        "gap_note": (
+            "T4 reference disagreement: native tracks Stata; R Synth differs; "
+            "exact recovery on identified DGP \\code{52}"
+        ),
     },
     "08_dml": {
         "name": "DML PLR (LinReg learners)",
@@ -1331,14 +1350,20 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic == "att_sdid",
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "native Frank-Wolfe/zeta ATT parity; backend-native placebo SE diagnostics",
+        "gap_note": (
+            "native Frank-Wolfe/zeta ATT parity; "
+            "backend-native placebo SE diagnostics"
+        ),
     },
     "13_causal_forest": {
         "name": "Causal forest (AIPW)",
         "headline_filter": lambda d: d.statistic == "ate_causal_forest",
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "T3 combined-MC-error pass; like-for-like AIPW vs grf within $\\sim 0.05$ combined SE on clean-overlap DGP",
+        "gap_note": (
+            "T3 combined-MC-error pass; like-for-like AIPW vs grf within "
+            "$\\sim 0.05$ combined SE on clean-overlap DGP"
+        ),
     },
     "14_ols_cluster": {
         "name": "OLS + cluster-robust SE",
@@ -1415,23 +1440,31 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic == "att_augmented",
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "native centered Ridge+SCM parity; backend='augsynth' is a migration bridge",
+        "gap_note": (
+            "native centered Ridge+SCM parity; "
+            "backend='augsynth' is a migration bridge"
+        ),
     },
     "87_interflex": {
         "name": "interflex marginal effects (linear / binning / kernel)",
         "headline_filter": lambda d: (
-            d.statistic.startswith("linear_me_") or d.statistic.startswith("binning_me_")
+            d.statistic.startswith("linear_me_")
+            or d.statistic.startswith("binning_me_")
         ),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "native port incl. R's density() grid for the adaptive kernel bandwidth",
+        "gap_note": (
+            "native port incl. R's density() grid for the adaptive kernel bandwidth"
+        ),
     },
     "86_fect": {
         "name": "fect counterfactual estimators (fe / ife / mc)",
         "headline_filter": lambda d: d.statistic.endswith("_att_avg"),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "native port of fect's EM map; three outcome models on one staggered panel",
+        "gap_note": (
+            "native port of fect's EM map; three outcome models on one staggered panel"
+        ),
     },
     "19_gsynth": {
         "name": "Generalized SCM (Xu 2017)",
@@ -1528,7 +1561,9 @@ HEADLINE: dict[str, dict[str, Any]] = {
         ),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "FE/RE and plm-style Hausman parity; Stata sigmamore diagnostic row",
+        "gap_note": (
+            "FE/RE and plm-style Hausman parity; Stata sigmamore diagnostic row"
+        ),
     },
     "36_mediation": {
         "name": "Causal mediation (IKT)",
@@ -1634,7 +1669,10 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic.startswith("beta_"),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "R/Stata dynamic-panel fixture; block-diagonal instruments and one-step GMM weights match",
+        "gap_note": (
+            "R/Stata dynamic-panel fixture; block-diagonal instruments and "
+            "one-step GMM weights match"
+        ),
     },
     "51_newey": {
         "name": "Newey-West HAC OLS",
@@ -1648,7 +1686,9 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic == "avg_post_gap",
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "identified convex SCM; sp and Stata synth recover exact weights+gap",
+        "gap_note": (
+            "identified convex SCM; sp and Stata synth recover exact weights+gap"
+        ),
     },
     "53_cr2": {
         "name": "Cluster-robust CR2 / CR3 SE",
@@ -1664,7 +1704,10 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic.startswith("beta_"),
         "metric": "rel_se",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "matches sandwich::vcovCL(HC1,cadjust); fixest min-G df convention differs $\\sim10^{-3}$",
+        "gap_note": (
+            "matches sandwich::vcovCL(HC1,cadjust); "
+            "fixest min-G df convention differs $\\sim10^{-3}$"
+        ),
     },
     "55_hc2_hc3": {
         "name": "HC2 / HC3 robust SE",
@@ -1875,8 +1918,9 @@ def render_tex(modules: list[str]) -> str:
     return (
         "% AUTO-GENERATED by tests/r_parity/compare.py\n"
         "% Re-run after any module change to refresh.\n"
-        "\\begin{longtable}{p{0.10\\linewidth}p{0.27\\linewidth}p{0.40\\linewidth}p{0.16\\linewidth}}\n"
-        "\\caption{Track A parity headline for the \\statspai{} 1.20.0 source snapshot vs the "
+        "\\begin{longtable}{p{0.10\\linewidth}p{0.27\\linewidth}"
+        "p{0.40\\linewidth}p{0.16\\linewidth}}\n"
+        f"\\caption{{Track A parity headline for \\statspai{{}} {_release_version()} vs the "
         "canonical \\proglang{R} reference on the calibrated replicas. The "
         "``Worst diff'' column reports the worst residual gap across the "
         "module's headline rows (point estimates only; per-row SE diffs "
@@ -1969,13 +2013,18 @@ def render_tex_3way(modules: list[str]) -> str:
         "\\begingroup\n"
         "\\small\n"
         "\\setlength{\\tabcolsep}{2pt}\n"
-        "\\begin{longtable}{@{}p{0.055\\linewidth}p{0.205\\linewidth}p{0.30\\linewidth}p{0.30\\linewidth}p{0.10\\linewidth}@{}}\n"
-        "\\caption{Track A parity headline for the \\statspai{} 1.20.0 source snapshot against the canonical "
+        "\\begin{longtable}{@{}p{0.055\\linewidth}p{0.205\\linewidth}"
+        "p{0.30\\linewidth}p{0.30\\linewidth}p{0.10\\linewidth}@{}}\n"
+        f"\\caption{{Track A parity headline for \\statspai{{}} {_release_version()} "
+        "against the canonical "
         "\\proglang{R} reference \\emph{and} (where one exists) a canonical or audited "
-        "\\proglang{Stata} bridge reference, on the calibrated replicas. The ID column is the two-digit module prefix; "
+        "\\proglang{Stata} bridge reference, on the calibrated replicas. "
+        "The ID column is the two-digit module prefix; "
         "the two diff columns report the worst residual "
-        "gap across each module's headline rows (point estimates only; per-row SE diffs and "
-        "documented gap rows are reported in \\code{tests/r\\_parity/results/parity\\_table\\_3way.md}). "
+        "gap across each module's headline rows (point estimates only; "
+        "per-row SE diffs and "
+        "documented gap rows are reported in "
+        "\\code{tests/r\\_parity/results/parity\\_table\\_3way.md}). "
         "Italic text in the \\proglang{Stata} column records the explicit "
         "non-materialized bridge or no-canonical-reference reason when no "
         "portable \\proglang{Stata} artifact is available. Verdicts use PASS "
@@ -1987,12 +2036,14 @@ def render_tex_3way(modules: list[str]) -> str:
         f"{tier_sentence}.}}\n"
         "\\label{tab:track-a-parity}\\\\\n"
         "\\toprule\n"
-        "ID & Method & Worst diff vs \\proglang{R} & Worst diff vs \\proglang{Stata} & Verdict \\\\\n"
+        "ID & Method & Worst diff vs \\proglang{R} & "
+        "Worst diff vs \\proglang{Stata} & Verdict \\\\\n"
         "\\midrule\n"
         "\\endfirsthead\n"
         "\\multicolumn{5}{c}{\\textit{(continued)}}\\\\\n"
         "\\toprule\n"
-        "ID & Method & Worst diff vs \\proglang{R} & Worst diff vs \\proglang{Stata} & Verdict \\\\\n"
+        "ID & Method & Worst diff vs \\proglang{R} & "
+        "Worst diff vs \\proglang{Stata} & Verdict \\\\\n"
         "\\midrule\n"
         "\\endhead\n"
         "\\bottomrule\n"
@@ -2062,7 +2113,8 @@ def render_md_3way(modules: list[str]) -> str:
             lines.append(f"- **stata_gap_note**: {STATA_HEADLINE_GAP_EXCEPTIONS[m]}")
         lines.append("")
         lines.append(
-            "| stat | py est | R est | Stata est | rel py-R | rel py-Stata | py SE | R SE | Stata SE | rel SE py-R | rel SE py-Stata |"
+            "| stat | py est | R est | Stata est | rel py-R | rel py-Stata "
+            "| py SE | R SE | Stata SE | rel SE py-R | rel SE py-Stata |"
         )
         lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
         for d in diffs:

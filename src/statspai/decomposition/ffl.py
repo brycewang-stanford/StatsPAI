@@ -34,7 +34,6 @@ from typing import Any, ClassVar, Dict, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from ._results import DecompResultMixin
 from ._common import (
     add_constant,
     bootstrap_ci,
@@ -43,9 +42,10 @@ from ._common import (
     logit_fit,
     logit_predict,
     prepare_frame,
-    statistic_value as _statistic_value,
-    wls,
 )
+from ._common import statistic_value as _statistic_value
+from ._common import wls
+from ._results import DecompResultMixin
 
 # ════════════════════════════════════════════════════════════════════════
 # Result container
@@ -315,10 +315,14 @@ def ffl_decompose(
 
     # Detailed FFL decomposition per Firpo-Fortin-Lemieux 2018.
     # When reference = 0, cf is "B reweighted to match A's X":
-    #   Composition (X effect)  = (mean_Xcf − mean_Xb)' · β_B     [actual X change under B's structure]
-    #   Structure (β effect)    = mean_Xa' · (β_A − β_cf)          [A's structure vs reweighted-B's]
-    #   Spec error              = (mean_Xa − mean_Xcf)' · β_cf     [DFL reweighting residual → ~0 if logit OK]
-    #   RW error                = mean_Xcf' · (β_cf − β_B)         [RIF linearisation under new weights]
+    #   Composition (X effect)  = (mean_Xcf − mean_Xb)' · β_B     [actual X change
+    #   under B's structure]
+    #   Structure (β effect)    = mean_Xa' · (β_A − β_cf)          [A's structure vs
+    #   reweighted-B's]
+    #   Spec error              = (mean_Xa − mean_Xcf)' · β_cf     [DFL reweighting
+    #   residual → ~0 if logit OK]
+    #   RW error                = mean_Xcf' · (β_cf − β_B)         [RIF linearisation
+    #   under new weights]
     if reference == 0:
         composition_vec = (mean_Xcf - mean_Xb) * beta_b
         structure_vec = mean_Xa * (beta_a - beta_cf)

@@ -15,8 +15,8 @@ import pandas as pd
 from scipy import optimize, stats
 
 from .._aliases import accepts_aliases
-from ..core.results import EconometricResults
 from .._result_serialize import ResultProtocolMixin
+from ..core.results import EconometricResults
 
 # ---------------------------------------------------------------------------
 # Formula parser (local)
@@ -838,7 +838,8 @@ def _cox_score_individual(
 
     # Use the efficient approach: score_i = d l_i / d beta
     # For Cox, l_i = delta_i * [x_i'b - log(sum_j in R_i exp(x_j'b))]
-    #             - sum_{k: t_k <= t_i, delta_k=1} exp(x_i'b) / sum_{j in R_k} exp(x_j'b) * ...
+    #             - sum_{k: t_k <= t_i, delta_k=1} exp(x_i'b) / sum_{j in R_k}
+    #             exp(x_j'b) * ...
     # This is complex with Efron ties. Use the simple Breslow approximation for score_i:
     scores = np.zeros((n, p))
     for s in np.unique(strata_arr):

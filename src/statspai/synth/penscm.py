@@ -581,7 +581,8 @@ def _cv_lambda(
         ]
     )
 
-    # Rolling-origin splits: train on [0, split_end), validate on [split_end, split_end + h)
+    # Rolling-origin splits: train on [0, split_end), validate on [split_end, split_end
+    # + h)
     min_train = max(3, T0 // 3)
     h = max(1, T0 // (n_folds + 2))  # hold-out window size
     splits: List[Tuple[int, int]] = []

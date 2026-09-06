@@ -467,7 +467,9 @@ def _rule_chars(mode: str) -> Dict[str, str]:
     if mode not in _RULE_SETS and mode != "auto":
         raise MethodIncompatibility(
             f"rules must be 'auto', 'unicode', or 'ascii', got {mode!r}",
-            recovery_hint="Pass rules='ascii' for output that is safe on any code page.",
+            recovery_hint=(
+                "Pass rules='ascii' for output that is safe on any code page."
+            ),
             diagnostics={"rules": mode},
         )
     if mode == "auto":

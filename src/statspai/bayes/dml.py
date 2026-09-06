@@ -23,6 +23,7 @@ from typing import Any, Optional, Sequence
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = ["bayes_dml", "BayesianDMLResult"]
@@ -231,7 +232,8 @@ def bayes_dml(
         )
     psi_a = np.asarray(dml_res.psi_a, dtype=float).ravel()
     psi_b = np.asarray(dml_res.psi_b, dtype=float).ravel()
-    # Orthogonal moment: theta solves E[psi_a * theta + psi_b] = 0 → theta = -E[psi_b]/E[psi_a]
+    # Orthogonal moment: theta solves E[psi_a * theta + psi_b] = 0 → theta =
+    # -E[psi_b]/E[psi_a]
     with pm.Model():
         theta = pm.Normal("theta", mu=prior_mean, sigma=prior_sd)
         sigma = pm.HalfNormal("sigma", sigma=1.0)

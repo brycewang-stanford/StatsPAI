@@ -190,9 +190,12 @@ def loglik_truncated_normal(
 
     sigma2 = sigma_v**2 + sigma_u**2
     sigma = np.sqrt(sigma2)
-    # Density of eps is (1/sigma) * phi((eps - sign*mu)/sigma) * Phi(mu*/sigma*) / Phi(mu/sigma_u).
-    # For production (sign=-1): (eps - (-1)*mu) = eps + mu (composed error centred at -mu).
-    # For cost       (sign=+1): (eps -  1 *mu) = eps - mu (composed error centred at +mu).
+    # Density of eps is (1/sigma) * phi((eps - sign*mu)/sigma) * Phi(mu*/sigma*) /
+    # Phi(mu/sigma_u).
+    # For production (sign=-1): (eps - (-1)*mu) = eps + mu (composed error centred at
+    # -mu).
+    # For cost       (sign=+1): (eps -  1 *mu) = eps - mu (composed error centred at
+    # +mu).
     centered = (eps - sign * mu) / sigma
 
     mu_star = (mu * sigma_v**2 + sign * eps * sigma_u**2) / sigma2

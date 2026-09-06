@@ -11,8 +11,8 @@ All estimation uses numpy/scipy only (no statsmodels dependency).
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Union
 import warnings
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -666,7 +666,8 @@ def oaxaca(
     var_explained = diff_X @ vcov_star @ diff_X
 
     # Var(unexplained): depends on reference
-    # For reference=0 (beta*=beta_a): unexplained = X_a'(beta_a - beta_a) + X_b'(beta_a - beta_b)
+    # For reference=0 (beta*=beta_a): unexplained = X_a'(beta_a - beta_a) + X_b'(beta_a
+    # - beta_b)
     #   = X_b'(beta_a - beta_b) → Var = X_b' (Vcov_a + Vcov_b) X_b
     # General approximation: use combined variance
     if reference == 0:
@@ -885,7 +886,9 @@ def gelbach(
         var_beta_full_j = vcov_full[av_idx_full, av_idx_full]
         var_gamma_j = vcov_gamma_j[voi_idx_base, voi_idx_base]
 
-        var_delta_j = gamma_tilde_j**2 * var_beta_full_j + beta_full_j**2 * var_gamma_j
+        var_delta_j = (
+            gamma_tilde_j**2 * var_beta_full_j + beta_full_j**2 * var_gamma_j
+        )
         se_delta_j = np.sqrt(max(var_delta_j, 0.0))
         delta_var[j] = var_delta_j
 

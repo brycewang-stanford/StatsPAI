@@ -22,9 +22,9 @@ from typing import Any, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
-from .regime import Regime, regime as _regime
-
 from .._result_serialize import ResultProtocolMixin
+from .regime import Regime
+from .regime import regime as _regime
 
 __all__ = [
     "LongitudinalResult",
@@ -501,7 +501,8 @@ def _run_ipw(
     ps = np.clip(ps, trim, 1 - trim)
     w = np.where(a == 1, 1 / ps, 1 / (1 - ps))
 
-    # Apply regime: if regime is static [1, ...] we estimate E[Y(1)]; if [0, ...] E[Y(0)].
+    # Apply regime: if regime is static [1, ...] we estimate E[Y(1)]; if [0, ...]
+    # E[Y(0)].
     # For dynamic or mixed regimes, fall back to the contrast of observed arms.
     if regime.kind == "static":
         assert not callable(regime.rule)

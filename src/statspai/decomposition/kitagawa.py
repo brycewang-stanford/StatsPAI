@@ -399,7 +399,8 @@ def das_gupta(
 
     # Das Gupta effect for factor j:
     # Δ_j = mean over all orderings ρ:
-    #   ∏_{k such that σ(k) < σ(j)} vA_k · (vA_j - vB_j) · ∏_{k such that σ(k) > σ(j)} vB_k
+    #   ∏_{k such that σ(k) < σ(j)} vA_k · (vA_j - vB_j) · ∏_{k such that σ(k) > σ(j)}
+    #   vB_k
     effects: np.ndarray = np.zeros(m)
     count = 0
     for perm in permutations(range(m)):

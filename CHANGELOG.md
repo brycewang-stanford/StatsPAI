@@ -2,6 +2,30 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- `sp.interflex_plot`'s docstring example referenced an undefined `df`, so
+  the docstring-example execution ratchet
+  (`scripts/check_example_execution.py --max-failures 0`, the Parity-guards
+  CI job) failed on the 1.24.1 and 1.25.0 tags. The example now builds its
+  own 400-row frame; the ratchet reports 1,157 examples run, 0 failures.
+- The generated Track A tables `tests/r_parity/results/parity_table.tex` and
+  `parity_table_3way.tex` captioned themselves "1.20.0 source snapshot";
+  the caption now reads the release version from `pyproject.toml`.
+
+### Changed
+
+- Line-length hygiene only, no behaviour change: 35 over-long comment and
+  plain-string lines under `src/statspai` were wrapped (string literals
+  split into adjacent literals, checked byte-identical) so the CI flake8
+  count ratchet (`scripts/quality_gate.py flake8`, baseline 1,000) passes
+  again at 988. `tests/r_parity/compare.py` and `tests/perf/compare_perf.py`
+  were wrapped the same way; `tests/r_parity/TIER_A_FIXTURE_LOCK.json` was
+  refreshed for the presentation-only `compare.py` change and
+  `tests/test_parity_harness_contract.py` still passes.
+
 ## [1.25.0] — 2026-09-06
 
 ### Added

@@ -659,7 +659,8 @@ def _ordered_model(
                 continue
             p_i = P[mask, i_j]  # (n_j,)
 
-            # d log P(Y=j) / d beta = (-f(kappa_{j}-xb) + f(kappa_{j-1}-xb)) / P(Y=j) * (-x)
+            # d log P(Y=j) / d beta = (-f(kappa_{j}-xb) + f(kappa_{j-1}-xb)) / P(Y=j) *
+            # (-x)
             # boundary: kappa_{-1} = -inf => f=0, kappa_{J-1+1} = +inf => f=0
             if i_j < n_cuts:
                 f_upper = pdf(kappa[i_j] - xb[mask])
