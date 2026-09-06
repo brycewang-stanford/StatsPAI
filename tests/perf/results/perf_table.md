@@ -15,7 +15,7 @@ Each row reports the median wall-clock time across 3 or 5 reps after a warmup. T
 
 ## 02_csdid: CS-DiD simple ATT
 
-| n | sp (s) | did::att\_gt (s) | ratio ref/sp |
+| n | sp (s) | did::att_gt (s) | ratio ref/sp |
 |---:|---:|---:|---:|
 | 5000 | 0.0089 | 0.0326 | 3.65 |
 | 25000 | 0.0117 | 0.0703 | 6.00 |

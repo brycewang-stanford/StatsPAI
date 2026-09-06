@@ -15,7 +15,7 @@ replication support:
 from typing import Any
 
 from .assumptions import AssumptionResult, assumption_audit
-from .audit import audit
+from .audit import AuditReport, audit
 from .brief import brief
 from .citations import bib_for, bibtex, render_citation
 from .compare import ComparisonResult, compare_estimators
@@ -48,6 +48,7 @@ __all__ = [
     "ComparisonResult",
     "assumption_audit",
     "AssumptionResult",
+    "AuditReport",
     "audit",
     "bib_for",
     "bibtex",

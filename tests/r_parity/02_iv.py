@@ -15,7 +15,14 @@ FORMULA = "lwage ~ exper + expersq + black + south + smsa + (educ ~ nearc4)"
 
 
 def main() -> None:
-    df = sp.datasets.card_1995()
+    # simulated=True is load-bearing, not decoration. This module *writes*
+    # data/02_iv.csv, and the committed fixture -- together with the R and
+    # Stata goldens computed on it -- is the calibrated replica. The
+    # loader's default later became the real extract, so a bare
+    # card_1995() call silently regenerates the fixture from different
+    # data and breaks the same-byte premise of the row. Original-data
+    # Card parity is a separate ledger (tests/orig_parity/01_card_original).
+    df = sp.datasets.card_1995(simulated=True)
     dump_csv(df, MODULE)
 
     fit = sp.ivreg(FORMULA, data=df, robust="hc1")

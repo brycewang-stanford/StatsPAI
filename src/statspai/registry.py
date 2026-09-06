@@ -3124,6 +3124,19 @@ def _build_registry() -> None:
                     "Warn when sample sizes differ across columns",
                 ),
                 ParamSpec(
+                    "rules",
+                    "str",
+                    False,
+                    "auto",
+                    "Horizontal-rule characters of the plain-text table. "
+                    "'auto' uses box-drawing rules where stdout can encode "
+                    "them and folds to ASCII where it cannot (a Windows "
+                    "cp1252 console raises UnicodeEncodeError on the "
+                    "box-drawing glyphs); 'unicode' and 'ascii' pin the "
+                    "choice for reproducible output",
+                    ["auto", "unicode", "ascii"],
+                ),
+                ParamSpec(
                     "estimate",
                     "str",
                     False,

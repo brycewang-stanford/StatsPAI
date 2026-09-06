@@ -734,3 +734,91 @@ class TestFewClustersCuratedCheck:
         # Same constant; both surface as failed on G=12.
         assert "few_clusters" in {v["test"] for v in fit.violations()}
         assert fc["status"] == "failed"
+
+
+class TestAuditReportRendering:
+    """``sp.audit`` returns a readable report that is still a plain dict.
+
+    The rendering exists because the audit is meant to be read before a
+    result is trusted; a raw nested dict is complete and unread. The dict
+    contract is asserted alongside it because every agent-side consumer
+    (MCP payloads, ``json.dumps``, ``report["checks"]``) predates the
+    rendering and must not notice it.
+    """
+
+    @staticmethod
+    def _fitted():
+        import numpy as np
+        import pandas as pd
+
+        rng = np.random.default_rng(11)
+        rows = []
+        for i in range(150):
+            tr = 1 if i < 75 else 0
+            for t in (0, 1):
+                rows.append(
+                    {
+                        "i": i,
+                        "t": t,
+                        "treated": tr,
+                        "y": 1.0
+                        + 0.3 * t
+                        + 0.5 * tr
+                        + 2.0 * tr * t
+                        + rng.normal(0, 0.4),
+                    }
+                )
+        return sp.did(pd.DataFrame(rows), y="y", treat="treated", time="t")
+
+    def test_report_is_a_dict_with_the_documented_payload(self):
+        report = sp.audit(self._fitted())
+        assert isinstance(report, dict)
+        assert report == dict(report)
+        assert set(report) == {
+            "method",
+            "method_family",
+            "checks",
+            "summary",
+            "coverage",
+        }
+        # JSON-safe: the MCP layer serialises this object directly.
+        assert json.loads(json.dumps(report))["coverage"] == report["coverage"]
+
+    def test_printing_renders_the_checklist_not_a_dict_literal(self):
+        report = sp.audit(self._fitted())
+        text = str(report)
+        assert text == report.summary()
+        assert text.startswith("Reviewer audit:")
+        assert "checks satisfied" in text
+        # The failure this replaced: a single line of nested literals.
+        assert "'suggest_function':" not in text
+        assert text.count("\n") >= 3
+        for check in report["checks"]:
+            assert check["name"][:22] in text
+
+    def test_missing_and_failed_views_partition_the_checklist(self):
+        report = sp.audit(self._fitted())
+        grouped = report.checks_by_status
+        assert sum(len(v) for v in grouped.values()) == len(report["checks"])
+        assert report.missing == grouped["missing"]
+        assert report.failed == grouped["failed"]
+        for check in report.missing:
+            assert check["status"] == "missing"
+
+    def test_to_frame_has_one_row_per_check(self):
+        report = sp.audit(self._fitted())
+        frame = report.to_frame()
+        assert len(frame) == len(report["checks"])
+        assert "suggest_function" in frame.columns
+
+    def test_empty_checklist_still_renders(self):
+        empty = sp.smart.AuditReport(
+            {
+                "method": "nothing",
+                "method_family": "generic",
+                "checks": [],
+                "summary": {"passed": 0, "failed": 0, "missing": 0, "n_total": 0},
+                "coverage": 0.0,
+            }
+        )
+        assert "no checks apply" in str(empty)

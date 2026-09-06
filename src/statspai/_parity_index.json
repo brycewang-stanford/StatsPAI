@@ -1706,8 +1706,8 @@
       "module_id": "53_cr2",
       "notes": [],
       "point_estimate_rel": {
-        "R": 3.1581460303540845e-14,
-        "Stata": 3.2148809694035606e-10
+        "R": 3.004090126434373e-14,
+        "Stata": 3.2148655638131635e-10
       },
       "python_call": "sp.cr2_se",
       "reference": "clubSandwich::vcovCR(type=\"CR2\"/\"CR3\")",

@@ -20,8 +20,10 @@ The agent's mental model: ``audit`` answers "what evidence is missing
 for a reviewer to trust this estimate?"; ``assumption_audit`` answers
 "given the data, do the assumptions actually hold?".
 
-Returns a JSON-safe ``dict`` so MCP-mediated agents can branch on the
-``status`` field of each check without parsing prose.
+Returns an :class:`AuditReport`, a ``dict`` subclass, so MCP-mediated
+agents can branch on the ``status`` field of each check without parsing
+prose while a human at a prompt still gets a readable checklist instead
+of a screenful of nested Python literals.
 """
 
 from __future__ import annotations
@@ -665,6 +667,114 @@ def _evaluate(check: _Check, model_info: Dict[str, Any]) -> Tuple[str, Any]:
 
 
 # ====================================================================== #
+#  Report object
+# ====================================================================== #
+
+
+class AuditReport(dict):
+    """The missing-evidence checklist, readable at a prompt and typed for agents.
+
+    A ``dict`` subclass rather than a new class: every existing consumer
+    -- ``json.dumps``, ``report["checks"]``, the MCP tool payloads, and
+    equality against a plain dict -- keeps working unchanged, while
+    ``print(sp.audit(r))`` renders the checklist instead of one long line
+    of nested literals. The dict *is* the payload; the rendering is a
+    view of it.
+
+    The audit's whole purpose is to be read before a result is trusted,
+    so the default rendering has to be legible: an unformatted dict is
+    technically complete and practically unread.
+    """
+
+    __slots__ = ()
+
+    #: Column width of the check-name column in the rendered table.
+    _NAME_WIDTH = 22
+
+    @property
+    def checks_by_status(self) -> Dict[str, List[Dict[str, Any]]]:
+        """Checks grouped into ``passed`` / ``failed`` / ``missing``."""
+        grouped: Dict[str, List[Dict[str, Any]]] = {
+            "passed": [],
+            "failed": [],
+            "missing": [],
+        }
+        for check in self.get("checks", []):
+            grouped.setdefault(str(check.get("status")), []).append(check)
+        return grouped
+
+    @property
+    def missing(self) -> List[Dict[str, Any]]:
+        """Checks a reviewer will ask for that have not been run."""
+        return self.checks_by_status["missing"]
+
+    @property
+    def failed(self) -> List[Dict[str, Any]]:
+        """Checks that were run and did not meet their threshold."""
+        return self.checks_by_status["failed"]
+
+    def to_frame(self):
+        """The checklist as a :class:`pandas.DataFrame`, one row per check."""
+        import pandas as pd  # noqa: PLC0415 - keep pandas off the import path
+
+        return pd.DataFrame(self.get("checks", []))
+
+    def summary(self) -> str:
+        """The rendered checklist (same text as ``print(report)``)."""
+        return self._render()
+
+    def _render(self) -> str:
+        counts = self.get("summary", {}) or {}
+        n_total = int(counts.get("n_total", 0) or 0)
+        n_passed = int(counts.get("passed", 0) or 0)
+        head = f"Reviewer audit: {self.get('method', '')}".rstrip()
+        family = self.get("method_family")
+        if family:
+            head += f" [{family}]"
+        lines = [
+            head,
+            f"{n_passed} of {n_total} checks satisfied "
+            f"(passed {n_passed}, failed {int(counts.get('failed', 0) or 0)}, "
+            f"missing {int(counts.get('missing', 0) or 0)})",
+            "",
+        ]
+        for check in self.get("checks", []):
+            status = str(check.get("status", ""))
+            name = str(check.get("name", ""))[: self._NAME_WIDTH]
+            if status == "missing":
+                note = f"run {check.get('suggest_function') or '(no suggestion)'}"
+            else:
+                value, threshold = check.get("value"), check.get("threshold")
+                note = (
+                    f"value {_fmt_scalar(value)} vs threshold {_fmt_scalar(threshold)}"
+                    if value is not None or threshold is not None
+                    else str(check.get("question", ""))
+                )
+            lines.append(f"  {status:<8}{name:<{self._NAME_WIDTH + 2}}{note}")
+        if not self.get("checks"):
+            lines.append("  (no checks apply to this result)")
+        lines += [
+            "",
+            "Missing checks are evidence a reviewer will expect, not errors.",
+        ]
+        return "\n".join(lines)
+
+    __str__ = _render
+    __repr__ = _render
+
+
+def _fmt_scalar(value: Any) -> str:
+    """Compact fixed-width rendering of a check value or threshold."""
+    if value is None:
+        return "-"
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, (int, float)):
+        return f"{value:.4g}"
+    return str(value)
+
+
+# ====================================================================== #
 #  Public API
 # ====================================================================== #
 
@@ -684,7 +794,7 @@ _OBSERVATIONAL_TREATMENT_CHECKS: Tuple[_Check, ...] = tuple(
 )
 
 
-def audit(result: Any, *, treatment: Optional[str] = None) -> Dict[str, Any]:
+def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
     """Reviewer-checklist audit of a fitted StatsPAI result.
 
     Returns the *missing-evidence* view: which robustness / sensitivity /
@@ -712,8 +822,9 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> Dict[str, Any]:
 
     Returns
     -------
-    dict
-        JSON-safe payload with keys:
+    AuditReport
+        A ``dict`` subclass -- JSON-safe and indexable exactly as before,
+        but rendering as a readable checklist when printed -- with keys:
 
         - ``method`` (str) — the estimator's name
         - ``method_family`` (str) — one of ``"did"`` / ``"rd"`` / ``"iv"``
@@ -923,18 +1034,20 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> Dict[str, Any]:
     n_total = len(checks)
     coverage = (n_passed / n_total) if n_total else 0.0
 
-    return {
-        "method": method_label,
-        "method_family": family,
-        "checks": checks,
-        "summary": {
-            "passed": n_passed,
-            "failed": n_failed,
-            "missing": n_missing,
-            "n_total": n_total,
-        },
-        "coverage": round(coverage, 3),
-    }
+    return AuditReport(
+        {
+            "method": method_label,
+            "method_family": family,
+            "checks": checks,
+            "summary": {
+                "passed": n_passed,
+                "failed": n_failed,
+                "missing": n_missing,
+                "n_total": n_total,
+            },
+            "coverage": round(coverage, 3),
+        }
+    )
 
 
-__all__ = ["audit"]
+__all__ = ["AuditReport", "audit"]

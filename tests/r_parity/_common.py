@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
@@ -30,11 +31,27 @@ import pandas as pd
 
 
 HERE = Path(__file__).resolve().parent
-DATA_DIR = HERE / "data"
-RESULTS_DIR = HERE / "results"
+
+# Both output roots are redirectable so a module can be re-executed
+# without touching the committed fixture. ``verify_reproduce_py.py``
+# stages a run this way and then diffs the regenerated CSV and JSON
+# against the committed ones; the R side has had the same escape hatch
+# (``STATSPAI_R_PARITY_RESULTS_DIR``) since the golden JSONs were frozen.
+# Without the data-dir override, re-running a module *is* the overwrite,
+# so the only way to check that a fixture is still reproducible would be
+# to destroy it first.
+DATA_DIR = Path(os.environ.get("STATSPAI_R_PARITY_DATA_DIR") or (HERE / "data"))
+RESULTS_DIR = Path(
+    os.environ.get("STATSPAI_R_PARITY_RESULTS_DIR") or (HERE / "results")
+)
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+
+#: Where fixtures are read from when a module consumes an already-frozen
+#: CSV rather than dumping one. A staged run must read the *committed*
+#: inputs, so this never follows the override.
+COMMITTED_DATA_DIR = HERE / "data"
 
 
 # Fixed seed for any cross-fit / bootstrap path so Python and R land on

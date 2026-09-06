@@ -16,8 +16,8 @@
     {
       "module": "11_psm",
       "side": "py",
-      "statistic": "se_pair_effect",
-      "estimate": 436.4908554668726,
+      "statistic": "se_abadie_imbens",
+      "estimate": 643.3456988917197,
       "se": null,
       "ci_lo": null,
       "ci_hi": null,
@@ -53,6 +53,6 @@
     "replace": true,
     "bias_correction": false,
     "count_note": "n_control_full is the full untreated sample; MatchIt's matched-data control count is a post-matching support diagnostic and is not the same estimand when matching with replacement.",
-    "se_reference": "The att_psm row compares point estimates only. StatsPAI reports se_pair_effect from the matched-pair effect dispersion, MatchIt does not define a canonical analytical SE and the R fixture records se_matchit_lm, while Stata teffects reports se_teffects_ai."
+    "se_reference": "The att_psm row compares point estimates only; the three SE rows are side-specific diagnostics that never join. StatsPAI's default for nearest-neighbour matching is the Abadie-Imbens (2006, eq. 14) sample-ATT SE, the estimator Stata psmatch2 reports under ai(J) (se_abadie_imbens = 643.35 here). MatchIt documents no canonical analytic SE for matching with replacement, so the R fixture records a weighted-lm-on-matched-data diagnostic (se_matchit_lm). Stata teffects psmatch reports its own Abadie-Imbens variant (se_teffects_ai = 621.79), 3.4% below ours; the two Stata commands implement different AI variances and the gap is NOT yet localised to a specific term, so it is recorded as an open item rather than claimed as a convention."
   }
 }

@@ -359,7 +359,7 @@ def test_psm_control_count_rows_use_explicit_support_definitions():
     assert py_rows["att_psm"]["se"] is None
     assert r_rows["att_psm"]["se"] is None
     assert stata_rows["att_psm"]["se"] is None
-    assert "se_pair_effect" in py_stats
+    assert "se_abadie_imbens" in py_stats
     assert "se_matchit_lm" in r_stats
     assert "se_teffects_ai" in stata_stats
     assert "se_reference" in py_payload["extra"]

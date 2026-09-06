@@ -23,6 +23,7 @@ Runnable examples live on :func:`regtable` and :class:`RegtableResult`.
 
 from __future__ import annotations
 
+import sys
 import warnings
 from collections import OrderedDict
 from pathlib import Path
@@ -417,6 +418,70 @@ def _resolve_multi_se(
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+#: Horizontal rules of the plain-text table. The box-drawing glyphs read
+#: better in a modern terminal, but they are outside every 8-bit code page:
+#: ``print(sp.regtable(m))`` on a Windows console running cp1252 raises
+#: ``UnicodeEncodeError`` before a single row is shown. The rule set is
+#: therefore chosen at render time -- see :func:`_rule_chars`.
+_RULE_SETS = {
+    "unicode": {"thick": "\u2501", "thin": "\u2500"},
+    "ascii": {"thick": "=", "thin": "-"},
+}
+
+
+def _stdout_encodes_box_drawing() -> bool:
+    """Whether the interpreter's stdout can represent the box-drawing rules."""
+    encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+    try:
+        "\u2501\u2500".encode(encoding)
+    except (LookupError, UnicodeEncodeError):
+        return False
+    return True
+
+
+#: Characters the ASCII rule set also has to fold away. The box-drawing
+#: rules are the glyphs that break cp1252, but a pure-ASCII stream (a
+#: pipe under ``PYTHONIOENCODING=ascii``, say) additionally cannot take
+#: the superscript two of the R-squared labels.
+_ASCII_FOLD = str.maketrans({"\u00b2": "2", "\u03c7": "chi"})
+
+
+def _fold_to_ascii(text: str) -> str:
+    """Replace the renderer's remaining non-ASCII glyphs with ASCII spellings.
+
+    Applied only when the ASCII rule set is in force, and length-preserving
+    for the superscript so the fixed-width columns stay aligned.
+    """
+    return text.translate(_ASCII_FOLD)
+
+
+def _rule_chars(mode: str) -> Dict[str, str]:
+    """Resolve ``rules=`` to the thick/thin characters the renderer uses.
+
+    ``"auto"`` keeps the box-drawing rules wherever they can actually be
+    written and silently degrades to ASCII where they cannot, so the
+    default behaviour is unchanged on a UTF-8 terminal and stops being a
+    crash on a legacy one. ``"unicode"`` and ``"ascii"`` pin the choice
+    for callers who need byte-identical output across machines.
+    """
+    if mode not in _RULE_SETS and mode != "auto":
+        raise MethodIncompatibility(
+            f"rules must be 'auto', 'unicode', or 'ascii', got {mode!r}",
+            recovery_hint="Pass rules='ascii' for output that is safe on any code page.",
+            diagnostics={"rules": mode},
+        )
+    if mode == "auto":
+        mode = "unicode" if _stdout_encodes_box_drawing() else "ascii"
+    return _RULE_SETS[mode]
+
+
+def _resolved_rule_mode(mode: str) -> str:
+    """``rules=`` after ``"auto"`` is resolved against the live stdout."""
+    if mode == "auto":
+        return "unicode" if _stdout_encodes_box_drawing() else "ascii"
+    return mode
+
+
 class RegtableResult:
     """Rich result object for regression tables with multi-format export.
 
@@ -477,6 +542,7 @@ class RegtableResult:
         escape: bool = True,
         tests_rows: Optional[List[Tuple[str, List[str]]]] = None,
         transpose: bool = False,
+        rules: str = "auto",
     ):
         if not 0.0 < alpha < 1.0:
             raise MethodIncompatibility(
@@ -484,6 +550,10 @@ class RegtableResult:
                 recovery_hint="Use an alpha value such as 0.05.",
                 diagnostics={"alpha": alpha},
             )
+        self.rules = rules
+        _rule_chars(
+            rules
+        )  # validate eagerly: a bad value should not wait for to_text()
         self.panels = panels
         self.panel_labels = panel_labels
         self.model_labels = model_labels
@@ -1184,6 +1254,10 @@ class RegtableResult:
             lines.append("")  # blank between vars
         return lines
 
+    def _ascii_mode(self) -> bool:
+        """Whether the plain-text render must stay inside ASCII."""
+        return _resolved_rule_mode(self.rules) == "ascii"
+
     def to_text(self) -> str:
         if self.transpose:
             return self._to_text_transposed()
@@ -1202,8 +1276,9 @@ class RegtableResult:
         label_w = max(max_label + 2, 18)
         total_w = label_w + col_w * len(all_models) + 2
 
-        thick = "\u2501" * total_w
-        thin = "\u2500" * total_w
+        _chars = _rule_chars(self.rules)
+        thick = _chars["thick"] * total_w
+        thin = _chars["thin"] * total_w
         lines: List[str] = []
 
         if self.title:
@@ -1224,7 +1299,7 @@ class RegtableResult:
             rule_row = " " * label_w
             for _, span in self.column_spanners:
                 block_w = col_w * span
-                rule_row += " " + "─" * (block_w - 2) + " "
+                rule_row += " " + _chars["thin"] * (block_w - 2) + " "
             lines.append(rule_row)
 
         # Header: model labels
@@ -1304,7 +1379,8 @@ class RegtableResult:
         for note in self.notes:
             lines.append(note)
 
-        return "\n".join(lines)
+        text = "\n".join(lines)
+        return _fold_to_ascii(text) if self._ascii_mode() else text
 
     def summary(self) -> str:
         """Return the configured human-readable regression table render.
@@ -1342,7 +1418,8 @@ class RegtableResult:
         label_w = max(label_w + 2, 8)
 
         total_w = label_w + col_w * len(var_list) + 4
-        thick = "━" * total_w
+        _chars = _rule_chars(self.rules)
+        thick = _chars["thick"] * total_w
         lines: List[str] = []
         if self.title:
             lines.append(f"  {self.title}")
@@ -1383,7 +1460,7 @@ class RegtableResult:
                 lines.append(f"  {self.title}")
                 lines.append("")
             total_w_full = label_w + col_w * (len(var_list) + len(self._stat_keys))
-            thick = "━" * total_w_full
+            thick = _chars["thick"] * total_w_full
             lines.append(thick)
             # Combined header
             hdr = " " * label_w
@@ -1416,7 +1493,8 @@ class RegtableResult:
             lines.append(self._star_note())
         for note in self.notes:
             lines.append(note)
-        return "\n".join(lines)
+        text = "\n".join(lines)
+        return _fold_to_ascii(text) if self._ascii_mode() else text
 
     def _to_html_transposed(self) -> str:
         panel = self.panels[0]
@@ -2999,6 +3077,7 @@ def regtable(
     fixef_sizes: bool = False,
     vcov: Optional[str] = None,
     transpose: bool = False,
+    rules: str = "auto",
 ) -> RegtableResult:
     """
     Unified publication-quality regression table.
@@ -3634,6 +3713,7 @@ def regtable(
         escape=escape,
         tests_rows=tests_rows_norm,
         transpose=transpose,
+        rules=rules,
     )
 
     # --- Output handling ---

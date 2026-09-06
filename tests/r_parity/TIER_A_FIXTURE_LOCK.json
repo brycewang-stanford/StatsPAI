@@ -1,5 +1,5 @@
 {
-  "aggregate_sha256": "6f61ae758cffa7b3ce33e32cafd42cc789cd16c0b72c91a34977ed09132f11ae",
+  "aggregate_sha256": "2fd90ae90d7abbde8f346ee180fadfc41e1d8c83e5014d2362eeead522c50d23",
   "counts": {
     "files": 620,
     "input_csvs": 86,
@@ -28,9 +28,9 @@
       "sha256": "78faf2aa426f21f35e0709cfa43dcdbbb2dcab96704ed4767208443608a3cadf"
     },
     {
-      "bytes": 1479,
+      "bytes": 2009,
       "path": "tests/r_parity/01_ols.py",
-      "sha256": "66e51460915bd1b18a4792987edaad54d7fb2f91c0de959677c76f51b28c652c"
+      "sha256": "a3f49b180fc45900b551754a234da162e63fe5c2fc7302cd8c698e57f935d5cd"
     },
     {
       "bytes": 1349,
@@ -38,9 +38,9 @@
       "sha256": "91b76df78daf077773034098ee4f363dfa404e77a9952594a5d51a5da5d5d17f"
     },
     {
-      "bytes": 1235,
+      "bytes": 1750,
       "path": "tests/r_parity/02_iv.py",
-      "sha256": "000939968f3694777ba0c475da78dae68464e45ab8248729d957fddb3a2ffe5e"
+      "sha256": "989111a2bbb29426cf5109d0c7d22c9b993d8e898586377052c13bd78ead3602"
     },
     {
       "bytes": 1276,
@@ -98,9 +98,9 @@
       "sha256": "0b959e58778a805b19f0f26d46379326925e72004b03abadf2d75c2fbd6b5944"
     },
     {
-      "bytes": 2280,
+      "bytes": 2796,
       "path": "tests/r_parity/08_dml.py",
-      "sha256": "b8aae32f89e9a4b8cfbb015d9fd60dff00ba3cee4a330e543afa5741db657ec8"
+      "sha256": "abfa81f2491547d8982d8fda0008f3e2bd6ec6f3e492e2389b28c27048b8067d"
     },
     {
       "bytes": 1774,
@@ -128,9 +128,9 @@
       "sha256": "816b0f8e5b7cc846d41739f47cb8f34d762fc94c34feed9fac37d1b12194325f"
     },
     {
-      "bytes": 2985,
+      "bytes": 3926,
       "path": "tests/r_parity/11_psm.py",
-      "sha256": "5100a87335f123efcad5bd0be8f47dab63bb21742aed03fc1c3f1ab27aaf1254"
+      "sha256": "ccf0f6b8dbc69f4b6eddae939802465615b253421f4e17ccd626542fce254a32"
     },
     {
       "bytes": 1849,
@@ -138,9 +138,9 @@
       "sha256": "39f7b0dbbedba736af7cdb653a95840b278cecb02515168adb85078f8077ce40"
     },
     {
-      "bytes": 2913,
+      "bytes": 3300,
       "path": "tests/r_parity/12_sdid.py",
-      "sha256": "9f8dca5eeee132895de7af02f83cd20903f0667072b77c2777b5e40cd90c2fed"
+      "sha256": "cd85fffdacf17b0e96a48b51ce445c86c21571fc6f6ef601de55e5e8055517c1"
     },
     {
       "bytes": 2187,
@@ -908,9 +908,9 @@
       "sha256": "2e5c9f9b93c972e4cecb1a0ef20b9d62cfd2316e4cc02474057fdf57c3f1a182"
     },
     {
-      "bytes": 3295,
+      "bytes": 4173,
       "path": "tests/r_parity/_common.py",
-      "sha256": "f5223ef586f245f3002780ed1893e2457a04a08a53aa29de93747f31d25bc2d2"
+      "sha256": "e9553767079aed8fbc7182d702736d1cca898b78b66a988f6f7011a42797d89f"
     },
     {
       "bytes": 4464,
@@ -918,9 +918,9 @@
       "sha256": "fd04b73dca8dcc0b00dcfdd975ef5616cf7535d293adb61cf9a13470a9477717"
     },
     {
-      "bytes": 96283,
+      "bytes": 97704,
       "path": "tests/r_parity/compare.py",
-      "sha256": "cfe7885c05d27171202932598f107d0dc300a382a6e19786222ed90eef08c4d8"
+      "sha256": "7149d759d115a47789e64ca36ddf7c45a0c2944f39f5e3a619f1f42da8f9edae"
     },
     {
       "bytes": 104713,
@@ -1463,9 +1463,9 @@
       "sha256": "f0121622d3c1d01c6318ca41f82600d54a15d92a65e7ca5a5b91d6361f8b6192"
     },
     {
-      "bytes": 1538,
+      "bytes": 2022,
       "path": "tests/r_parity/results/11_psm_py.json",
-      "sha256": "26feeb8defda867b0e80f003baad5a13edaaefde034267efcd3c9dc43e474e8b"
+      "sha256": "6428900af250b0600f284cad9da5cd44c771a85ed2ef91b996387d0909ab47c3"
     },
     {
       "bytes": 1084,
@@ -1493,9 +1493,9 @@
       "sha256": "868ef18c05d4c1e2172c2b60edc0b0a68dae79f33156be8907293e7392f12c0a"
     },
     {
-      "bytes": 1019,
+      "bytes": 1022,
       "path": "tests/r_parity/results/14_ols_cluster_py.json",
-      "sha256": "86821dff6e119916af212a4426d9e60db61d6b0b9f85e5f9ac7156aee25427bf"
+      "sha256": "ee2708a9ac465c6cf4706839aa09574c2cf3b7907fc5e0517227b8583d1798bc"
     },
     {
       "bytes": 1327,
@@ -1883,9 +1883,9 @@
       "sha256": "2d54e87763e77f4d80d5dc3d1edc46f8934efc6252fbb09e999df95696d9c2e7"
     },
     {
-      "bytes": 1850,
+      "bytes": 1854,
       "path": "tests/r_parity/results/53_cr2_py.json",
-      "sha256": "6320dbdbba238af1b7fd0f019f5451e21283061197e0eef5cfb99789a7ded724"
+      "sha256": "2677e5ac5cf47c45ad53a22c14cfeb3e27bb1165345dfb9eb2fc076d66ed4605"
     },
     {
       "bytes": 1144,
@@ -1903,9 +1903,9 @@
       "sha256": "0a9b7c5ccbf6f7140c55be8a0d4fcd29cc69dbd227b6951c82cd5d48189fefde"
     },
     {
-      "bytes": 1691,
+      "bytes": 1697,
       "path": "tests/r_parity/results/55_hc2_hc3_py.json",
-      "sha256": "6a2a280a51831ee111d5da1a4eeb2395a18c43997b9b34a1714d4cf2cf3c92db"
+      "sha256": "b7eb48cd9d4d25b5fd3ea359823ad2dd309b90dc453ec7c273a683952f08f0b1"
     },
     {
       "bytes": 1156,
@@ -2233,24 +2233,24 @@
       "sha256": "3a73a1149c88a55165b3d5a9e05f7137d52ad675fa82e2818ed2c0cfd1de4077"
     },
     {
-      "bytes": 118190,
+      "bytes": 118656,
       "path": "tests/r_parity/results/parity_table.md",
-      "sha256": "e82e30ea2d8f1bc603ff6fe511a0329709e1d11c232cba39b60c753e29d863ac"
+      "sha256": "e68d1adc3c46d4bebe4b90ec355a8b72dea3af9ed93e1ca5d8a2d4de62c8946a"
     },
     {
-      "bytes": 13744,
+      "bytes": 13742,
       "path": "tests/r_parity/results/parity_table.tex",
-      "sha256": "fbf914a855141821551df222675208cdd3094a7cd792b8190869b7829f8a603d"
+      "sha256": "dca9c0f2d75cefae021a86bf0c663b029d9f11a1e8cd33879f35df6e4956a4f9"
     },
     {
-      "bytes": 153353,
+      "bytes": 153816,
       "path": "tests/r_parity/results/parity_table_3way.md",
-      "sha256": "4e98d6d7de93192983460da6e07e8009f4803b424b739ea601fd2f1fbdce01d8"
+      "sha256": "83e5a1db2a7f00e6ee011fb93ed239820770f49bac8ea613d14e4f2e3a87fafb"
     },
     {
-      "bytes": 17111,
+      "bytes": 17109,
       "path": "tests/r_parity/results/parity_table_3way.tex",
-      "sha256": "5cf8aff8ee7061c90bd834f4c9126b7ad920927f3f60d186ce469ad37da76aaa"
+      "sha256": "6a7e6d7b1430d65b02b0b4fff38007c4220e415484d1a78dec36484895fe934e"
     },
     {
       "bytes": 13088,

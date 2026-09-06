@@ -5,6 +5,49 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="forest-continuous-treatment-ate"></a>
+
+## 1.25.0 — ⚠️ Causal-forest ATE/ATT no longer report an AIPW score for a continuous treatment
+
+**Who is affected.** Callers of `CausalForest.ate()`, `.att()`, or
+`.average_treatment_effect()` on a forest fitted with
+`discrete_treatment=False`, or with any treatment that is not 0/1.
+Binary-treatment results are **unchanged**, including every Track A and
+Track B row, all of which fit a binary treatment.
+
+**What changed.** The doubly-robust score
+
+```
+psi_i = tau_i + (T_i - e_i) / (e_i (1 - e_i)) * (Y_i - m_i - (T_i - e_i) tau_i)
+```
+
+divides by `e(1 - e)` and is defined only when `e` is a propensity — that
+is, only for a binary treatment. With a continuous treatment the same
+nuisance slot holds `E[T | X]` on the treatment's own scale, and the
+propensity clip mapped it into `[0.01, 0.99]`. On the Card
+returns-to-schooling design `E[educ | X]` is about 13 years, which clipped
+to 0.99 and made the weight about 1,200; the reported "ATE" was −1266.6
+against a mean conditional effect of 0.086, with `p = 0.0000` attached.
+
+The aggregation now detects a non-binary treatment, emits an
+`AssumptionWarning`, and returns the plug-in average of the fitted
+effects with `method="plug_in"` and
+`plug_in_reason="non_binary_treatment"`. R's `grf` draws the same
+boundary by refusing the aggregation outright for non-binary treatment;
+StatsPAI reports the quantity that is defined rather than raising on a
+fitted forest a user may only want a descriptive average from.
+`ScalarEffect` additionally prints `descriptive SE` rather than `SE`
+whenever the attached inference is a plug-in aggregation.
+
+**What to do.** If you reported an ATE, ATT, standard error, confidence
+interval, or p-value from a continuous-treatment causal forest, re-run:
+the point value was the plug-in mean all along (the float has not moved),
+but the inference attached to it was not. For doubly-robust inference,
+fit with a binary treatment. For a continuous treatment, the printed
+value is the average of `tau(x)` and its standard error is descriptive.
+
+---
+
 <a id="weak-iv-rank-deficient"></a>
 
 ## Unreleased — ⚠️ Sun–Abraham, GLMM, and PPML-HDFE standard errors realigned to their references

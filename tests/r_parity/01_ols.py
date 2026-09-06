@@ -1,6 +1,7 @@
 """StatsPAI OLS parity (Python side) -- Module 01.
 
-Dumps sp.datasets.card_1995() to data/01_ols.csv and runs sp.regress
+Dumps sp.datasets.card_1995(simulated=True) to data/01_ols.csv and
+runs sp.regress
 with HC1 robust SEs. The companion 01_ols.R reads the same CSV and
 runs lm() + sandwich::vcovHC(type="HC1"). Tolerance: rel < 1e-6
 (closed-form estimator).
@@ -17,7 +18,14 @@ FORMULA = "lwage ~ educ + exper + expersq + black + south + smsa"
 
 
 def main() -> None:
-    df = sp.datasets.card_1995()
+    # simulated=True is load-bearing, not decoration. This module *writes*
+    # data/01_ols.csv, and the committed fixture -- together with the R and
+    # Stata goldens computed on it -- is the calibrated replica. The
+    # loader's default later became the real extract, so a bare
+    # card_1995() call silently regenerates the fixture from different
+    # data and breaks the same-byte premise of the row. Original-data
+    # Card parity is a separate ledger (tests/orig_parity/01_card_original).
+    df = sp.datasets.card_1995(simulated=True)
     dump_csv(df, MODULE)
 
     fit = sp.regress(FORMULA, data=df, robust="hc1")

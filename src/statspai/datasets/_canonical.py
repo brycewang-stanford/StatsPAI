@@ -159,7 +159,7 @@ def card_1995(seed: int = 42, simulated: bool = False) -> pd.DataFrame:
     ----------
     seed : int, default 42
         RNG seed for the simulated DGP (ignored when ``simulated=False``).
-    simulated : bool, default True
+    simulated : bool, default False
         If True, return a deterministic simulated replica calibrated so
         StatsPAI estimators recover OLS ≈ 0.11 and IV ≈ 0.142.
         If False, load the real NLSYM extract bundled in

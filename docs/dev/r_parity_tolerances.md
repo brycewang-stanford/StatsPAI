@@ -200,12 +200,18 @@ Several modules are *point-only* by design: their SE estimators differ
 by construction, so the harness stores them as side-specific diagnostic
 rows with distinct statistic names that never join, and the headline
 row carries `se=None`. Example — module `11_psm`: StatsPAI reports the
-matched-pair effect dispersion (`se_pair_effect`); `MatchIt::matchit`
+Abadie–Imbens (2006, eq. 14) sample-ATT SE (`se_abadie_imbens` = 643.35),
+the estimator Stata `psmatch2, ai(J)` reports; `MatchIt::matchit`
 documents no canonical analytic SE for nearest-neighbor matching with
 replacement, so the R fixture records a weighted-`lm`-on-matched-data
-diagnostic (`se_matchit_lm`); Stata `teffects psmatch` reports the
-Abadie–Imbens robust SE (`abadie2006large`, `abadie2011bias`,
-`se_teffects_ai`).
+diagnostic (`se_matchit_lm`); Stata `teffects psmatch` reports its own
+Abadie–Imbens variant (`abadie2006large`, `abadie2011bias`,
+`se_teffects_ai` = 621.79), 3.4% below ours. That last gap is between two
+Abadie–Imbens variances rather than between unrelated estimators, so it
+is a candidate for promotion to a joining row — but the diverging term
+has **not** been localised, so under the §5 adjudication rule it stays an
+open item and the rows stay side-specific rather than being joined under
+a 5% tolerance.
 
 For such modules the `rel_se` budget is **vacuous** — no value, loose
 or tight, is ever exercised. The previous loose values (up to 5.0 for

@@ -2149,6 +2149,16 @@
           },
           "type": "array"
         },
+        "rules": {
+          "default": "auto",
+          "description": "Horizontal-rule characters of the plain-text table. 'auto' uses box-drawing rules where stdout can encode them and folds to ASCII where it cannot (a Windows cp1252 console raises UnicodeEncodeError on the box-drawing glyphs); 'unicode' and 'ascii' pin the choice for reproducible output",
+          "enum": [
+            "auto",
+            "unicode",
+            "ascii"
+          ],
+          "type": "string"
+        },
         "se_fmt": {
           "description": "Override precision of the SE row alone; defaults to fmt so a coefficient and its SE stay paired",
           "type": "integer"
@@ -22733,6 +22743,11 @@
         },
         "quarto_label": {
           "description": "quarto_label parameter (Optional[str]).",
+          "type": "string"
+        },
+        "rules": {
+          "default": "auto",
+          "description": "rules parameter (str).",
           "type": "string"
         },
         "se_fmt": {

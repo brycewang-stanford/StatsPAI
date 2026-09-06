@@ -22,7 +22,12 @@ MODULE = "12_sdid"
 
 
 def main() -> None:
-    df = sp.datasets.california_prop99()
+    # simulated=True is load-bearing: this module *writes* data/12_sdid.csv,
+    # and the committed fixture (with the R and Stata goldens computed on
+    # it) is the covariate-rich replica. The loader's default later became
+    # the real ADH panel, so a bare california_prop99() call regenerates
+    # the fixture from different bytes and the row stops being same-byte.
+    df = sp.datasets.california_prop99(simulated=True)
     dump_csv(df, MODULE)
 
     fit = sp.sdid(

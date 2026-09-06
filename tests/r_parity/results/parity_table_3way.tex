@@ -30,7 +30,7 @@ ID & Method & Worst diff vs \proglang{R} & Worst diff vs \proglang{Stata} & Verd
 \code{11} & PSM 1:1 NN & rel $\le 1.2e-15$ & rel $\le 2e-16$ & \textbf{PASS} \\
 \code{12} & Synthetic DID & rel $\le 2.6e-15$ {\footnotesize (native Frank-Wolfe/zeta ATT parity; backend-native placebo SE diagnostics)} & rel $\le 7.2e-08$ & \textbf{PASS} \\
 \code{13} & Causal forest (AIPW) & rel $\le 0.0019$ {\footnotesize (T3 combined-MC-error pass; like-for-like AIPW vs grf within $\sim 0.05$ combined SE on clean-overlap DGP)} & \emph{bridge artifact not materialized: Stata 19's official cate command is the candidate causal-forest/AIPW reference, but the verified local runtime is Stata 18 and `which cate` fails.} & \textbf{PASS} \\
-\code{14} & OLS + cluster-robust SE & rel $\le 1.2e-09$ & rel $\le 1.2e-09$ & \textbf{PASS} \\
+\code{14} & OLS + cluster-robust SE & rel $\le 3e-14$ & rel $\le 2.2e-14$ & \textbf{PASS} \\
 \code{15} & HDFE + cluster SE & rel $\le 5.2e-15$ {\footnotesize (fixest/reghdfe nested-FE cluster correction)} & rel $\le 2.9e-15$ & \textbf{PASS} \\
 \code{16} & BJS imputation & rel $\le 4.8e-08$ {\footnotesize (R/Stata simple-ATT point parity; SE rows side-specific)} & rel $\le 3.5e-07$ & \textbf{PASS} \\
 \code{17} & Wooldridge ETWFE & rel $\le 1.8e-13$ {\footnotesize (emfx aggregation and cluster SE matched)} & rel $\le 3.9e-14$ & \textbf{PASS} \\
@@ -71,7 +71,7 @@ ID & Method & Worst diff vs \proglang{R} & Worst diff vs \proglang{Stata} & Verd
 \code{52} & Classical SCM (unique solution) & rel $\le 7.8e-08$ {\footnotesize (identified convex SCM; sp and Stata synth recover exact weights+gap)} & rel $\le 7.7e-08$ & \textbf{PASS} \\
 \code{53} & Cluster-robust CR2 / CR3 SE & abs $\le 1.84e-08$ {\footnotesize (CR2 and analytic CR3 match clubSandwich)} & abs $\le 5.93e-09$ & \textbf{PASS} \\
 \code{54} & Two-way cluster-robust SE & abs $\le 7.84e-16$ {\footnotesize (matches sandwich::vcovCL(HC1,cadjust); fixest min-G df convention differs $\sim10^{-3}$)} & abs $\le 1.33e-15$ & \textbf{PASS} \\
-\code{55} & HC2 / HC3 robust SE & abs $\le 2.49e-09$ & abs $\le 2.16e-08$ & \textbf{PASS} \\
+\code{55} & HC2 / HC3 robust SE & abs $\le 6.39e-09$ & abs $\le 4.01e-13$ & \textbf{PASS} \\
 \code{56} & Three-way cluster-robust SE & abs $\le 2.09e-15$ & abs $\le 7.77e-16$ & \textbf{PASS} \\
 \code{57} & Binary logit ML & rel $\le 2.7e-11$ & rel $\le 2.7e-11$ & \textbf{PASS} \\
 \code{58} & Poisson ML & rel $\le 9.2e-15$ & rel $\le 8.7e-12$ & \textbf{PASS} \\

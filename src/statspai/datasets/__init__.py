@@ -99,10 +99,10 @@ def california_prop99(simulated: bool = False) -> pd.DataFrame:
 
     Parameters
     ----------
-    simulated : bool, default True
+    simulated : bool, default False
         If True, return the simulated covariate-rich replica from
         ``synth.california_tobacco`` (39 states × 31 years, 1970-2000,
-        ADH-shaped DGP).  Default for backward compatibility.
+        ADH-shaped DGP).
         If False, load the real ADH (2010) panel bundled in
         ``statspai/datasets/data/california_prop99.csv`` (39 states ×
         31 years, with covariates ``cigsale, retprice, lnincome,

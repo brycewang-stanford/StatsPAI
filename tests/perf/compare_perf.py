@@ -10,17 +10,20 @@ from __future__ import annotations
 import json
 import math
 import shutil
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # _figstyle.py sits here
 
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from _figstyle import TEXT_WIDTH_IN
+from _figstyle import apply as _apply_figstyle
+from matplotlib.ticker import FixedLocator, FuncFormatter, LogLocator, NullFormatter
 
-# ASCII hyphen-minus in tick labels: the Unicode minus glyph is dropped
-# by some PDF text extractors, which makes negative ticks unreadable in
-# review tooling.
-plt.rcParams["axes.unicode_minus"] = False
+_apply_figstyle(plt)
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -43,7 +46,7 @@ ESTIMATORS = {
     },
     "02_csdid": {
         "name": "CS-DiD simple ATT",
-        "ref": "did::att\\_gt",
+        "ref": "did::att_gt",
         "ref_side": "R",
         "x_label": "N (observations)",
     },
@@ -51,7 +54,7 @@ ESTIMATORS = {
         "name": "Classical SCM",
         "ref": "Synth::synth",
         "ref_side": "R",
-        "x_label": "n\\_donors",
+        "x_label": "n_donors",
     },
     "04_dml": {
         "name": "DML PLR (lin. learners)",
@@ -106,11 +109,22 @@ def render_md() -> str:
     return "\n".join(lines) + "\n"
 
 
+def _tex(text: str) -> str:
+    """Escape a display label for LaTeX.
+
+    ``ESTIMATORS`` holds plain text because the same strings are drawn by
+    Matplotlib, which prints a backslash literally: pre-escaping them put
+    ``did::att\\_gt`` and ``n\\_donors`` into the published Figure 3 axes.
+    Escaping happens here, at the one boundary that needs it.
+    """
+    return text.replace("\\", "\\textbackslash{}").replace("_", "\\_")
+
+
 def render_tex() -> str:
     rows: list[str] = []
     ref_tex = {
         "fixest::feols": "\\pkg{fixest}",
-        "did::att\\_gt": "\\pkg{did}",
+        "did::att_gt": "\\pkg{did}",
         "Synth::synth": "\\pkg{Synth}",
         "DoubleML::DoubleMLPLR": "\\pkg{DoubleML}",
         "doubleml-for-py": "\\pkg{DoubleML} Python",
@@ -143,11 +157,11 @@ def render_tex() -> str:
                 else f"tie ${ratio_max:.2f}\\times$"
             )
         )
-        est_tex = est.replace("_", "\\_")
+        est_tex = _tex(est)
         max_n_tex = f"{max_n:,}".replace(",", "{,}")
         rows.append(
             f"\\code{{{est_tex}}} & {cfg['name']} & "
-            f"{ref_tex.get(cfg['ref'], cfg['ref'])} & {max_n_tex} & "
+            f"{ref_tex.get(cfg['ref'], _tex(cfg['ref']))} & {max_n_tex} & "
             f"{last['median_time_s']:.3f} & {last_r:.3f} & {ratio_str} \\\\"
         )
     body = "\n".join(rows)
@@ -178,7 +192,9 @@ def render_tex() -> str:
 
 
 def render_figure() -> Path:
-    fig, axes = plt.subplots(2, 2, figsize=(11, 8))
+    # Drawn at the printed width so the point sizes in _figstyle are the
+    # point sizes on the page; \includegraphics uses width=\textwidth.
+    fig, axes = plt.subplots(2, 2, figsize=(TEXT_WIDTH_IN, 0.78 * TEXT_WIDTH_IN))
     for ax, (est, cfg) in zip(axes.flat, ESTIMATORS.items()):
         py = load(est, "py")
         r = load(est, cfg["ref_side"])
@@ -197,16 +213,30 @@ def render_figure() -> Path:
         lo = min(py_t + r_t)
         hi = max(py_t + r_t)
         ax.set_ylim(10 ** math.floor(math.log10(lo)), 10 ** math.ceil(math.log10(hi)))
+        # Decade ticks on the time axis. Left to itself, Matplotlib
+        # labels minor ticks whenever a log axis spans few decades, so
+        # the DML panel printed 2x10^-3 ... 6x10^-3 while its three
+        # neighbours printed 10^-3 ... 10^0: four panels under one
+        # "log-log" heading with two different tick vocabularies.
+        ax.yaxis.set_major_locator(LogLocator(base=10.0))
+        ax.yaxis.set_minor_formatter(NullFormatter())
+        # The size axis is ticked at the measured design points rather
+        # than at decades. Two of the four benchmarks are sampled off
+        # the decade grid (N = 5,000/25,000/125,000 and n = 20/50/100),
+        # and decade-only ticks left the SCM panel with a single labelled
+        # x value -- an axis a reader cannot read a size off.
+        sizes = sorted({row["n"] for row in py} | {row["n"] for row in r})
+        ax.xaxis.set_major_locator(FixedLocator(sizes))
+        ax.xaxis.set_minor_locator(FixedLocator([]))
+        ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _pos: f"{int(v):,}"))
         ax.set_xlabel(cfg["x_label"])
         ax.set_ylabel("median wall-clock (s)")
         ax.set_title(f"{est}: {cfg['name']}")
-        ax.grid(True, which="both", alpha=0.3)
+        ax.grid(True, which="both", alpha=0.3, linewidth=0.4)
         ax.legend()
-    fig.suptitle(
-        "Track C: log-log scaling, StatsPAI vs declared reference\n"
-        "(Apple Silicon arm64 / 8 cores / 24 GB / macOS 26)",
-        y=1.0,
-    )
+    # No suptitle: the hardware line and the "log-log scaling" framing
+    # both live in the LaTeX caption, and repeating them inside the
+    # graphic wastes two lines of the panel area at print size.
     fig.tight_layout()
     out = FIGURES_DIR / "track_c_loglog.pdf"
     fig.savefig(out, bbox_inches="tight", metadata=PDF_METADATA)

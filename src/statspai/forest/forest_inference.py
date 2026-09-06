@@ -47,13 +47,14 @@ Forests." Annals of Statistics, 47(2), 1148-1178. [@athey2019surrogate]
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
 
 if TYPE_CHECKING:
     from .causal_forest import CausalForest
@@ -1047,11 +1048,48 @@ def average_treatment_effect(
         m_hat, e_hat = _get_nuisances(forest, X_, Y_, T_)
         m_hat = np.asarray(m_hat, dtype=np.float64).ravel()
         e_hat = np.asarray(e_hat, dtype=np.float64).ravel()
+    # The AIPW score divides by e(1-e), so it is defined only when e is a
+    # propensity -- that is, only when T is binary. With a continuous
+    # treatment the same nuisance slot holds E[T | X], a conditional mean
+    # on the treatment's own scale, and the clip below silently maps it
+    # into [clip, 1-clip]: on the Card design E[educ | X] is about 13
+    # years, which clips to 0.99 and makes (T - e) / (e(1 - e)) about
+    # 1{,}200. The score then returned an "ATE" of -1266 against a mean
+    # CATE of 0.086, with a p-value of 0.0000 attached. grf refuses the
+    # aggregation outright for non-binary treatment; StatsPAI reports the
+    # quantity that *is* defined -- the average of the fitted tau(x) --
+    # and says so, rather than raising on a fitted forest a user may only
+    # want a descriptive average from.
+    binary_treatment = bool(np.all(np.isin(np.unique(T_), (0.0, 1.0))))
+    if not binary_treatment:
+        warnings.warn(
+            "average_treatment_effect: the doubly-robust (AIPW) score "
+            "requires a binary treatment, because it divides by "
+            "e(1-e) for a propensity e. This forest's treatment takes "
+            f"{len(np.unique(T_))} distinct values, so the reported "
+            "estimate is the plug-in average of the fitted CATE "
+            "predictions and its standard error is descriptive, not a "
+            "doubly-robust influence-function SE. Fit with a binary "
+            "treatment for AIPW inference.",
+            AssumptionWarning,
+            stacklevel=3,
+        )
+        return _plug_in_average(
+            tau,
+            T_,
+            e_hat,
+            target,
+            alpha,
+            reason="non_binary_treatment",
+        )
+
     e_hat = np.clip(e_hat, clip_value, 1.0 - clip_value)
     if len(e_hat) != len(tau) or len(m_hat) != len(tau) or len(Y_) != len(tau):
         # AIPW score is unavailable (out-of-sample without nuisances or a
         # length mismatch); fall back to the plug-in CATE average and flag it.
-        return _plug_in_average(tau, T_, e_hat, target, alpha)
+        return _plug_in_average(
+            tau, T_, e_hat, target, alpha, reason="nuisances_unavailable"
+        )
 
     n = int(len(tau))
     z = float(stats.norm.ppf(1 - alpha_value / 2))
@@ -1105,11 +1143,14 @@ def _plug_in_average(
     e_hat: np.ndarray,
     target: str,
     alpha: float,
+    reason: str = "unspecified",
 ) -> Dict[str, Any]:
     """Fallback weighted average of CATE predictions (no AIPW score).
 
-    Used only when the doubly-robust influence function cannot be formed
-    (out-of-sample ``X`` with no stored nuisances, or a length mismatch).
+    Used when the doubly-robust influence function cannot be formed: a
+    non-binary treatment (no propensity exists), out-of-sample ``X`` with
+    no stored nuisances, or a length mismatch. ``reason`` is carried into
+    the payload so a caller can tell *which* of those it got.
     """
     if target == "all":
         weights = np.ones_like(tau)
@@ -1141,6 +1182,7 @@ def _plug_in_average(
         "target_sample": target,
         "estimand": estimand,
         "method": "plug_in",
+        "plug_in_reason": reason,
         "effective_sample_size": ess,
         "n": int(len(tau)),
         "alpha": float(alpha),

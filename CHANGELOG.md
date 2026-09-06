@@ -2,7 +2,7 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.25.0] — 2026-09-06
 
 ### Added
 
@@ -21,6 +21,28 @@ All notable changes to StatsPAI will be documented in this file.
   to the committed one and that the regenerated `_py.json` reproduces the
   committed golden to 1e-9. Both sides of every parity row are now
   re-derivable, not just the R side.
+
+### ⚠️ Correctness — causal-forest aggregates on a non-binary treatment
+
+Output-changing; see `MIGRATION.md` (1.25.0) for the re-run recipe. Binary-
+treatment results are unchanged.
+
+- **`sp.causal_forest(..., discrete_treatment=False).ate()` returned a
+  nonsense doubly-robust estimate.** The AIPW score divides by `e(1-e)`
+  for a propensity `e`, so it is defined only for a binary treatment;
+  with a continuous one the same nuisance slot holds `E[T|X]` on the
+  treatment's own scale, and the clip into `[0.01, 0.99]` turned it into
+  a ~1,200x multiplier. On the Card returns-to-schooling design the
+  reported ATE was −1266.6 against a mean CATE of 0.086, carrying
+  `p = 0.0000`. `average_treatment_effect` now detects a non-binary
+  treatment, warns (`AssumptionWarning`), and returns the plug-in average
+  of the fitted effects with `method="plug_in"` and
+  `plug_in_reason="non_binary_treatment"`; `grf` refuses the aggregation
+  outright for the same reason. Binary-treatment results are unchanged.
+- `ScalarEffect` prints `descriptive SE` instead of `SE` when the
+  attached inference is a plug-in aggregation rather than a
+  doubly-robust score, so the weaker quantity is not read as the
+  stronger one.
 
 ### Fixed
 
@@ -51,16 +73,6 @@ All notable changes to StatsPAI will be documented in this file.
   likewise refreshed to the current output.
 
 ## [1.24.1] — 2026-09-06
-
-### Known issues
-
-- Track A modules 01/02/08/12 call `sp.datasets.card_1995()` /
-  `california_prop99()` without pinning `simulated=`, whose default
-  changed in 1.21.0 — re-running those module scripts would regenerate
-  their fixture CSVs with different bytes. The committed fixtures and
-  goldens are unchanged and internally consistent, and the R-side
-  reproduction path is unaffected; a Python-side regeneration gate
-  (`tests/r_parity/verify_reproduce_py.py`) lands in the next release.
 
 ### Added
 

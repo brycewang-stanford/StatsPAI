@@ -119,7 +119,14 @@ class ScalarEffect(float):
             method = str(self.detail.get("method", "inference"))
             method = {"aipw": "AIPW", "plug_in": "plug-in"}.get(method, method)
             parts.append(f"{method} estimate = {float(inf_point):.4f}")
-        parts.append(f"SE = {self.se:.4f}")
+        # A plug-in aggregation's SE is the dispersion of the fitted
+        # effects, not a doubly-robust influence-function SE, and the two
+        # are not interchangeable for inference. Say which one is printed:
+        # an unlabelled "SE = 0.0026, p = 0.0000" reads as the strong one.
+        se_label = (
+            "descriptive SE" if str(self.detail.get("method")) == "plug_in" else "SE"
+        )
+        parts.append(f"{se_label} = {self.se:.4f}")
         if self.ci is not None:
             parts.append(f"{level:.0f}% CI [{self.ci[0]:.4f}, {self.ci[1]:.4f}]")
         if self.pvalue is not None:

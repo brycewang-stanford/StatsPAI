@@ -39,7 +39,7 @@ Outcome Data." *Journal of the American Statistical Association*,
 
 Wang, Y. and Zubizarreta, J.R. (2020). "Minimal dispersion approximately
 balancing weights: asymptotic properties and practical considerations."
-*Biometrika*, 107(1), 93-105. [@wang2019minimal]
+*Biometrika*, 107(1), 93-105. [@wang2020minimal]
 """
 
 from __future__ import annotations
