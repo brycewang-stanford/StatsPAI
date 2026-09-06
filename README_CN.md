@@ -387,9 +387,12 @@ sp.parity_matrix(status="bit-exact")
 矩阵发布在 [docs/parity.md](https://brycewang-stanford.github.io/StatsPAI/parity/)。
 
 除了点估计对齐，Track-B 覆盖研究对每个估计量跑 `B=1000` 次蒙特卡洛重复，检查 95%
-置信区间在已知真值 DGP 上是否达到名义覆盖率。7 个已物化 nominal 行——RCT 上的 OLS
-(0.952)、2×2 DiD (0.955)、强工具 IV (0.962)、Callaway–Sant'Anna 交错 ATT (0.946)、
-熵平衡 (1.000)、DML IRM ATE (0.969)、以及 causal-forest AIPW ATE (0.977)——都落在名义
+置信区间在已知真值 DGP 上是否达到名义覆盖率。11 个已物化 nominal 行——RCT 上的 OLS
+(0.952)、2×2 DiD (0.955)、强工具 IV (0.962)、Callaway–Sant'Anna 交错 ATT (0.947)、
+Sun–Abraham 总体 ATT (0.950)、双向固定效应面板 (0.948)、sharp RD robust CI（0.934，
+在弯曲 DGP 上略低于接受带、如实披露）、SDID 安慰剂 SE (0.939)、
+熵平衡 (1.000)、DML IRM ATE (0.968)、以及 causal-forest AIPW ATE (0.977)——除已披露的
+RD 行外都落在名义
 0.95 的接受带之内或之上；已提交的工件在 `tests/coverage_monte_carlo/results_b1000/`。
 
 ---

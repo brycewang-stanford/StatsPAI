@@ -317,19 +317,86 @@ def coverage_sdid() -> dict:
     }
 
 
+def coverage_rd() -> dict:
+    """Sharp RD robust bias-corrected CI on the known-jump DGP.
+
+    Same DGP as ``test_rd_sharp_ci_coverage``; materialised at B=1000 so
+    the twelve-estimator suite's RD member carries a direct coverage row
+    rather than only the slow-suite pytest check.
+    """
+    truth = 1.0
+    covered = 0
+    for seed in range(B):
+        rng = np.random.default_rng(seed)
+        n = 1000
+        x = rng.uniform(-1, 1, n)
+        y = (
+            2
+            + 3 * x
+            + x**2
+            + truth * (x >= 0).astype(int)
+            + rng.normal(scale=0.4, size=n)
+        )
+        df = pd.DataFrame({"y": y, "x": x})
+        r = sp.rdrobust(df, y="y", x="x", c=0.0)
+        if r.ci[0] <= truth <= r.ci[1]:
+            covered += 1
+    return {
+        "name": "sp.rdrobust sharp (robust CI)",
+        "B": B,
+        "covered": covered,
+        "rate": covered / B,
+    }
+
+
+def coverage_sun_abraham() -> dict:
+    """Sun--Abraham overall ATT on the homogeneous staggered DGP.
+
+    Same DGP as ``coverage_cs`` (cohorts {3,5,7,never}, homogeneous
+    truth), so the interaction-weighted aggregation is checked directly
+    rather than only through cross-estimator agreement.
+    """
+    truth = 1.5
+    covered = 0
+    cohorts = [3, 5, 7, 0]
+    for seed in range(B):
+        rng = np.random.default_rng(seed)
+        n_units = 200
+        rows = []
+        for i in range(n_units):
+            g = cohorts[i % 4]
+            ui = rng.normal(scale=0.5)
+            for t in range(1, 9):
+                post = 1 if (g > 0 and t >= g) else 0
+                y = 0.2 * t + truth * post + ui + rng.normal(scale=0.8)
+                rows.append({"i": i, "t": t, "g": g, "y": y})
+        df = pd.DataFrame(rows)
+        r = sp.sun_abraham(df, y="y", g="g", t="t", i="i")
+        if r.ci[0] <= truth <= r.ci[1]:
+            covered += 1
+    return {
+        "name": "sp.sun_abraham overall ATT (staggered)",
+        "B": B,
+        "covered": covered,
+        "rate": covered / B,
+    }
+
+
 def main() -> None:
     out: list[dict] = []
-    # The canonical Track-B artifact is frozen at the published seven DGPs
-    # while JOSS #10604 is in review (the manuscript narrative pins "seven").
-    # ``coverage_panel_fe`` and ``coverage_sdid`` are kept available for a
-    # post-review expansion but are intentionally NOT in the canonical list;
-    # panel/sdid coverage is still exercised by the pytest rows in
-    # ``test_coverage.py``.
+    # JOSS #10604 is published, so the artifact is no longer frozen at the
+    # seven-DGP set: the HDFE/panel-FE, SDID, sharp-RD, and Sun--Abraham
+    # members of the twelve-estimator suite now carry materialised
+    # B=1,000 rows too, answering the "seven of twelve" coverage gap.
     fns = [
         coverage_ols,
         coverage_did_2x2,
         coverage_iv,
         coverage_cs,
+        coverage_sun_abraham,
+        coverage_panel_fe,
+        coverage_rd,
+        coverage_sdid,
         coverage_ebalance,
         coverage_dml,
         coverage_causal_forest,

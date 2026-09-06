@@ -9,8 +9,19 @@
       "estimate": -0.0399512751551772,
       "se": 0.0120340127701854,
       "n": 2500,
-      "published": -0.0454,
-      "citation": "Callaway-Sant'Anna (2021), R 'did' vignette aggte simple",
+      "published": null,
+      "citation": "did::aggte(type='simple') on the same bytes; no printed vignette anchor",
+      "extra": []
+    },
+    {
+      "module": "02_mpdta_original",
+      "side": "R",
+      "statistic": "dynamic_overall_ATT",
+      "estimate": -0.0772398214573161,
+      "se": 0.0199649890618493,
+      "n": 2500,
+      "published": -0.0772,
+      "citation": "Callaway-Sant'Anna 'did' vignette (did-basics), overall dynamic ATT, xformla=~1",
       "extra": []
     }
   ],

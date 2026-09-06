@@ -2,6 +2,36 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- `sp.modelsummary` now also accepts a single list (or tuple) of fitted
+  models, matching R `modelsummary`'s calling convention:
+  `sp.modelsummary([m1, m2])` ≡ `sp.modelsummary(m1, m2)`.
+- Original-data parity module `02_mpdta_original` gains a second row: the
+  overall dynamic/event-study ATT (−0.07724 on both sides, anchored to the
+  did vignette's printed −0.0772 with `xformla = ~1`).
+- Original-data parity module `03_basque_original` gains a Stata side
+  (`03_basque_original.do` + JSON): on the *original* `Synth::basque`
+  bytes, Stata `synth` returns −0.894257 under the same ADH nested
+  specification, within 4e-4 of both StatsPAI (−0.894589) and R `Synth`
+  (−0.894427) — the 2.3e-2 R/Stata split exists only on the calibrated
+  replica.
+- The B=1,000 Track-B materialization now also covers `sp.panel` two-way
+  FE, `sp.sun_abraham` overall ATT, `sp.rdrobust` sharp robust CI, and
+  `sp.sdid` placebo-SE rows (eleven materialized rows in total).
+
+### Fixed
+
+- The `sp.datasets.mpdta()` metadata advertised a "published simple ATT
+  −0.0454 (R did::att_gt on original mpdta)" that no `did` specification
+  reproduces and that could not be verified against the did vignette. The
+  attribute and docstring now carry the value R `did` actually returns on
+  the original bytes: −0.03995 (`est_method='reg'`, never-treated,
+  analytic SEs; see `tests/orig_parity/02_mpdta_original`). Estimator
+  outputs are unaffected — this was dataset metadata only.
+
 ## [1.24.0] — 2026-09-05
 
 ### ⚠️ Correctness — standard-error conventions pinned to the reference implementations (JSS parity closure)

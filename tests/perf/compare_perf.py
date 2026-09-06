@@ -8,6 +8,7 @@ log-log scaling figure.
 from __future__ import annotations
 
 import json
+import math
 import shutil
 from pathlib import Path
 
@@ -15,6 +16,11 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+# ASCII hyphen-minus in tick labels: the Unicode minus glyph is dropped
+# by some PDF text extractors, which makes negative ticks unreadable in
+# review tooling.
+plt.rcParams["axes.unicode_minus"] = False
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -185,6 +191,12 @@ def render_figure() -> Path:
         r_t = [row["median_time_s"] for row in r]
         ax.loglog(py_n, py_t, "o-", label="StatsPAI", linewidth=2, markersize=8)
         ax.loglog(r_n, r_t, "s--", label=cfg["ref"], linewidth=2, markersize=7)
+        # Pad every y-range out to full decades so each panel shows the
+        # same 10^k tick style (a sub-decade range otherwise falls back
+        # to linear-looking minor labels under a log-log title).
+        lo = min(py_t + r_t)
+        hi = max(py_t + r_t)
+        ax.set_ylim(10 ** math.floor(math.log10(lo)), 10 ** math.ceil(math.log10(hi)))
         ax.set_xlabel(cfg["x_label"])
         ax.set_ylabel("median wall-clock (s)")
         ax.set_title(f"{est}: {cfg['name']}")

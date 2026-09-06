@@ -2,14 +2,14 @@
 Tests for modelsummary and coefplot.
 """
 
-import pytest
+import matplotlib
 import numpy as np
 import pandas as pd
-import matplotlib
+import pytest
 
 matplotlib.use("Agg")
 
-from statspai import regress, did, rdrobust, modelsummary, coefplot
+from statspai import coefplot, did, modelsummary, rdrobust, regress
 from statspai.output.modelsummary import modelsummary as ms
 
 
@@ -207,6 +207,28 @@ class TestCoefplot:
         r1, _, _, _ = ols_models
         fig, ax = coefplot(r1, did_model, model_names=["OLS", "DID"])
         assert fig is not None
+
+
+class TestListCallingConvention:
+    """R's modelsummary takes a list of models; ours must accept both."""
+
+    def test_list_input_equals_varargs(self, ols_models):
+        r1, r2, _, _ = ols_models
+        from statspai.output.modelsummary import modelsummary
+
+        assert modelsummary([r1, r2]) == modelsummary(r1, r2)
+
+    def test_tuple_input(self, ols_models):
+        r1, r2, _, _ = ols_models
+        from statspai.output.modelsummary import modelsummary
+
+        assert modelsummary((r1, r2)) == modelsummary(r1, r2)
+
+    def test_empty_list_raises(self):
+        from statspai.output.modelsummary import modelsummary
+
+        with pytest.raises(ValueError):
+            modelsummary([])
 
 
 class TestIntegration:

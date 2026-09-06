@@ -76,7 +76,7 @@ class TestMpdtaParity:
         assert df.shape == (2500, 5)
         assert set(df.columns) == {"countyreal", "year", "lemp", "first_treat", "treat"}
         assert df.attrs["expected_simple_att"] == pytest.approx(-0.04)
-        assert df.attrs["published_simple_att_original"] == pytest.approx(-0.0454)
+        assert df.attrs["published_simple_att_original"] == pytest.approx(-0.03995)
 
     def test_cs_simple_att_pinned(self, df):
         """CS simple ATT on our replica matches the pinned value."""
@@ -90,11 +90,12 @@ class TestMpdtaParity:
         r = sp.callaway_santanna(
             df, y="lemp", g="first_treat", t="year", i="countyreal", estimator="reg"
         )
-        # Published R did::att_gt simple ATT on original mpdta: -0.0454
-        # Our replica target: -0.04; accept anywhere in [-0.06, -0.02]
+        # R did::att_gt simple ATT on the original mpdta bytes: -0.03995
+        # (tests/orig_parity/02_mpdta_original). Our replica target: -0.04;
+        # accept anywhere in [-0.06, -0.02]
         assert -0.06 <= r.estimate <= -0.02, (
             f"CS simple ATT {r.estimate} outside expected range "
-            f"[-0.06, -0.02] (replica target -0.04; R original -0.0454)"
+            f"[-0.06, -0.02] (replica target -0.04; R original -0.03995)"
         )
 
     def test_cs_se_pinned(self, df):
@@ -348,9 +349,9 @@ class TestQuickstartNotebookParity:
 # point precision.
 #
 # Background: an end-user once thought our ``aggte(type='dynamic')`` diverged
-# from R because they compared against the CS 2021 paper Table 2 number
-# (-0.0454) rather than R's actual run on the same data (-0.0772). Lock the
-# real-data parity so future refactors can't silently break alignment.
+# from R because they compared against a secondhand summary number rather
+# than R's actual run on the same data (-0.0772). Lock the real-data parity
+# so future refactors can't silently break alignment.
 #
 # Source of truth: tests/orig_parity/results/02_mpdta_original_R.json
 #   produced by tests/orig_parity/02_mpdta_original.R using

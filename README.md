@@ -435,11 +435,15 @@ auto-generated matrix is published at
 
 Beyond point-parity, a Track-B coverage study runs `B=1000` Monte Carlo
 replications per estimator and checks that 95% confidence intervals hit their
-nominal rate on known-truth DGPs. The seven materialized nominal rows — OLS on
+nominal rate on known-truth DGPs. The eleven materialized nominal rows — OLS on
 an RCT (0.952), a 2×2 DiD (0.955), strong-instrument IV (0.962),
-Callaway–Sant'Anna staggered ATT (0.946), entropy balancing (1.000), DML IRM
-ATE (0.969), and a causal-forest AIPW ATE (0.977) — all land in or above the
-acceptance band around nominal 0.95; the committed artifacts live under
+Callaway–Sant'Anna staggered ATT (0.947), Sun–Abraham overall ATT (0.950),
+a two-way FE panel (0.948), sharp RD with the robust CI (0.934, marginally
+below the band on a curved DGP), SDID with placebo SEs (0.939), entropy
+balancing (1.000), DML IRM
+ATE (0.968), and a causal-forest AIPW ATE (0.977) — land in or above the
+acceptance band around nominal 0.95 except the disclosed RD row; the
+committed artifacts live under
 `tests/coverage_monte_carlo/results_b1000/`.
 
 ---

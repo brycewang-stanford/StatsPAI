@@ -79,8 +79,11 @@ def mpdta(seed: int = 42) -> pd.DataFrame:
 
     Notes
     -----
-    ``df.attrs['expected_simple_att']`` = -0.040  (published R output
-    on the original data: -0.0454; our replica's target is -0.04).
+    ``df.attrs['expected_simple_att']`` = -0.040  (R ``did::att_gt`` +
+    ``aggte(type='simple')`` on the original data returns -0.03995
+    with ``est_method='reg'``, never-treated controls, and analytic
+    SEs -- see ``tests/orig_parity/02_mpdta_original``; our replica's
+    target is -0.04).
 
     Because this is a simulated DGP, numerical values will not match
     R ``did::att_gt`` to high precision on the original data; but they
@@ -124,7 +127,7 @@ def mpdta(seed: int = 42) -> pd.DataFrame:
         "Multiple Time Periods', Journal of Econometrics 225(2), 200-230."
     )
     df.attrs["expected_simple_att"] = -0.04
-    df.attrs["published_simple_att_original"] = -0.0454
+    df.attrs["published_simple_att_original"] = -0.03995
     df.attrs["notes"] = (
         "Simulated replica matching mpdta structure; "
         "calibrated for ATT ≈ -0.04. Numerical parity with R::did on the "

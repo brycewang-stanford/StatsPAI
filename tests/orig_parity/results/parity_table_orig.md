@@ -17,7 +17,8 @@ Data source: `did::mpdta` (2500 obs)
 
 | stat | sp | R | published | rel(sp vs R) | rel(sp vs published) | citation |
 |---|---:|---:|---:|---:|---:|---|
-| `simple_ATT` | -0.03995 | -0.03995 | -0.0454 | 2.3e-14 | 0.12 | Callaway-Sant'Anna (2021) R 'did' vignette aggte simple |
+| `simple_ATT` | -0.03995 | -0.03995 | — | 2.3e-14 | — | did::aggte(type='simple') on the same bytes; no printed vignette anchor |
+| `dynamic_overall_ATT` | -0.07724 | -0.07724 | -0.0772 | 1.6e-14 | 0.00052 | Callaway-Sant'Anna 'did' vignette (did-basics), overall dynamic ATT, xformla=~1 |
 
 ## Module `03_basque_original`
 Data source: `Synth::basque` (731 obs)

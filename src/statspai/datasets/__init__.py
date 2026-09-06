@@ -209,7 +209,7 @@ def list_datasets() -> pd.DataFrame:
             "DID",
             2500,
             "Callaway-Sant'Anna (2021)",
-            "Simple ATT ≈ -0.0454 (R did::att_gt on original mpdta)",
+            "Simple ATT ≈ -0.03995 (R did::att_gt on original mpdta)",
             "Simple ATT ≈ -0.033, dynamic ATT ≈ -0.034 on this replica",
         ),
         (

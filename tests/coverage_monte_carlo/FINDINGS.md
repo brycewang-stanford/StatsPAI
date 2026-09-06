@@ -18,31 +18,41 @@ The suite now validates all three faces of the inference machinery:
 
 ## Headline B=1000 Coverage Audit
 
-The canonical Track B audit materializes seven known-truth DGPs at
-`B=1000`. The 99% Wilson band around nominal 0.95 is approximately
+The canonical Track B audit materializes eleven known-truth DGPs at
+`B=1000` (each row records B=1000 draws). The 99% Wilson band around
+nominal 0.95 is approximately
 `[0.935, 0.967]`; rows above the band are treated as conservative
-over-coverage, not as evidence of under-calibrated standard errors.
+over-coverage, not as evidence of under-calibrated standard errors, and
+the one row marginally below it is reported as mild under-coverage.
 
 | Estimator | DGP | Coverage |
 | --- | --- | --- |
 | `sp.regress` (HC1) | RCT with covariates | 0.952 |
 | `sp.regress` 2x2 DiD | 2-period homogeneous DiD | 0.955 |
 | `sp.ivreg` (HC1) | Strong binary-Z IV | 0.962 |
-| `sp.callaway_santanna` (REG, simple ATT) | Homogeneous staggered timing | 0.946 |
+| `sp.callaway_santanna` (REG, simple ATT) | Homogeneous staggered timing | 0.947 |
+| `sp.sun_abraham` (overall ATT) | Homogeneous staggered timing | 0.950 |
+| `sp.panel` two-way FE | Known-coefficient FE panel | 0.948 |
+| `sp.rdrobust` sharp (robust CI) | Known-jump curved RD | 0.934 |
+| `sp.sdid` (placebo SE) | Factor-model panel, 1 treated | 0.939 |
 | `sp.ebalance` | CIA with 2 covariates | 1.000 |
-| `sp.causal_question(design="dml")` | Binary-treatment IRM ATE | 0.969 |
+| `sp.causal_question(design="dml")` | Binary-treatment IRM ATE | 0.968 |
 | `sp.causal_question(design="causal_forest")` | AIPW-IF ATE DGP | 0.977 |
 
 Interpretation:
 
-- Closed-form OLS, DiD, IV, and simple Callaway-Sant'Anna rows sit inside
-  the Wilson band.
+- Closed-form OLS, DiD, IV, both staggered aggregations
+  (Callaway-Sant'Anna and Sun-Abraham), the two-way FE panel, and SDID's
+  placebo interval sit inside the Wilson band.
+- The sharp-RD robust bias-corrected interval sits marginally below the
+  band (0.934) on this curved DGP: mild finite-sample under-coverage,
+  reported as such rather than absorbed into a wider claim.
 - DML sits just above the upper edge; ebalance and causal forest are more
   visibly conservative. These are over-coverage findings, not hidden
   under-coverage.
-- The expensive DML and causal-forest rows are no longer supported only by
-  the lower-B pytest caps; the committed JSS artifacts record their
-  explicit B=1000 rates.
+- The expensive DML, causal-forest, and SDID rows are no longer supported
+  only by the lower-B pytest caps; the committed JSS artifacts record
+  their explicit B=1000 rates.
 
 ## Size and Power Audit (B=1000; RD at B=500, CS at B=300)
 
@@ -73,7 +83,7 @@ Interpretation:
 - `sp.did` 2x2 sizes at 0.024 — conservative, exactly mirroring its 0.955
   over-coverage. The two findings are the same fact seen from two sides.
 - `sp.callaway_santanna` sizes at 0.050 — textbook-calibrated, the size-side
-  twin of its 0.946 simple-ATT coverage.
+  twin of its 0.947 simple-ATT coverage.
 - `sp.ebalance` sizes at 0.000: it almost never rejects under the null, the
   direct counterpart of its ~1.0 over-coverage. Its power therefore rises
   later (needs the effect to clear its wider intervals) but still reaches
@@ -103,7 +113,7 @@ Root causes fixed:
    include uncertainty from the control outcome regression. The previous
    implementation only carried the treated-side residual term.
 
-Current result: the B=1000 deep audit reports `946/1000 = 0.946`, inside
+Current result: the B=1000 deep audit reports `947/1000 = 0.947`, inside
 the 99% Wilson band `[0.935, 0.967]`. The `04_csdid` R/Stata parity row
 reports simple-ATT point-estimate parity at machine precision and
 analytic-SE parity within the registered 1% tolerance.
@@ -162,7 +172,7 @@ pytest -m slow tests/coverage_monte_carlo/test_coverage_robustness.py
 Deep JSS audit artifacts:
 
 ```bash
-python tests/coverage_monte_carlo/run_b1000.py              # coverage, 9 rows
+python tests/coverage_monte_carlo/run_b1000.py              # coverage, 11 rows
 python tests/coverage_monte_carlo/run_robustness_b1000.py   # robustness rows
 python tests/coverage_monte_carlo/run_size_power_b1000.py   # size + power
 ```

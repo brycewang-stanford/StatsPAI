@@ -25,7 +25,13 @@ def main() -> None:
         estimator="reg",
         control_group="nevertreated",
     )
+    dyn = sp.aggte(fit, type="dynamic")
 
+    # The did vignette does not print a simple-aggregation ATT for
+    # mpdta, so the simple row carries no published anchor: the claim
+    # is same-byte parity against did::aggte(type="simple").  The
+    # vignette *does* print the overall dynamic/event-study ATT
+    # (-0.0772, xformla = ~1), which anchors the second row.
     rows = [
         OrigRecord(
             module=MODULE,
@@ -34,8 +40,18 @@ def main() -> None:
             estimate=float(fit.estimate),
             se=float(fit.se),
             n=n,
-            published=-0.0454,
-            citation="Callaway-Sant'Anna (2021) R 'did' vignette aggte simple",
+            published=None,
+            citation="did::aggte(type='simple') on the same bytes; no printed vignette anchor",
+        ),
+        OrigRecord(
+            module=MODULE,
+            side="py",
+            statistic="dynamic_overall_ATT",
+            estimate=float(dyn.estimate),
+            se=float(dyn.se),
+            n=n,
+            published=-0.0772,
+            citation="Callaway-Sant'Anna 'did' vignette (did-basics), overall dynamic ATT, xformla=~1",
         ),
     ]
 

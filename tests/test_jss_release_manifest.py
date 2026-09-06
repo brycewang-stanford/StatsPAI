@@ -638,17 +638,17 @@ def test_coverage_findings_track_b1000_artifacts() -> None:
 
     assert "results_b1000/coverage_b1000.json" in findings
     assert "results_b1000/coverage_robustness_b1000.json" in findings
-    assert len(canonical) == 7
+    assert len(canonical) == 11
     assert "DML sits just above the upper edge" in findings
-    assert "946/1000 = 0.946" in findings
-    assert "seven known-truth DGPs" in findings
-    assert "seven known-truth" in parity_long
-    assert "all seven" in parity_compact
-    assert "materialized seven-row" in computational_details
-    assert "seven materialized nominal rows" in root_readme
-    assert "7 个已物化 nominal 行" in root_readme_cn
-    assert "all seven known-truth nominal" in manuscript_md_export
-    assert "全部 7 个 known-truth nominal 行" in manuscript_zh_export
+    assert "947/1000 = 0.947" in findings
+    assert "eleven known-truth DGPs" in findings
+    assert "eleven known-truth" in parity_long
+    assert "all eleven" in parity_compact
+    assert "materialized eleven-row" in computational_details
+    assert "eleven materialized nominal rows" in root_readme
+    assert "11 个已物化 nominal 行" in root_readme_cn
+    assert "all eleven materialized nominal" in manuscript_md_export
+    assert "全部 11 个 known-truth nominal 行" in manuscript_zh_export
 
     for row in canonical:
         for narrative in rate_narratives:
@@ -789,10 +789,7 @@ def test_methodological_gap_ledger_pins_t4_metadata() -> None:
 
     parity_compact = " ".join(PARITY_COMPACT_SECTION.read_text().split())
     assert "two non-T2 Track A rows" in parity_compact
-    assert (
-        "classical SCM is a T4 identification/reference-disagreement disclosure"
-        in parity_compact
-    )
+    assert "is a T4 identification/reference-disagreement disclosure" in parity_compact
     assert "causal forest is a stochastic T3" in parity_compact
     assert "50 receive a pass-type verdict, " "1 is a T4" not in parity_compact
 

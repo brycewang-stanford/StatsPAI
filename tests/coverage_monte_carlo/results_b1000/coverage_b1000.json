@@ -4,48 +4,76 @@
     "B": 1000,
     "covered": 952,
     "rate": 0.952,
-    "wall_s": 2.8
+    "wall_s": 0.9
   },
   {
     "name": "sp.regress 2x2 DiD",
     "B": 1000,
     "covered": 955,
     "rate": 0.955,
-    "wall_s": 2.9
+    "wall_s": 2.1
   },
   {
     "name": "sp.ivreg (HC1) on strong-Z IV",
     "B": 1000,
     "covered": 962,
     "rate": 0.962,
-    "wall_s": 2.5
+    "wall_s": 1.6
   },
   {
     "name": "sp.callaway_santanna simple ATT (staggered)",
     "B": 1000,
-    "covered": 946,
-    "rate": 0.946,
-    "wall_s": 10.9
+    "covered": 947,
+    "rate": 0.947,
+    "wall_s": 10.5
+  },
+  {
+    "name": "sp.sun_abraham overall ATT (staggered)",
+    "B": 1000,
+    "covered": 950,
+    "rate": 0.95,
+    "wall_s": 7.0
+  },
+  {
+    "name": "sp.panel two-way FE",
+    "B": 1000,
+    "covered": 948,
+    "rate": 0.948,
+    "wall_s": 7.0
+  },
+  {
+    "name": "sp.rdrobust sharp (robust CI)",
+    "B": 1000,
+    "covered": 934,
+    "rate": 0.934,
+    "wall_s": 13.2
+  },
+  {
+    "name": "sp.sdid placebo (1 treated)",
+    "B": 1000,
+    "covered": 939,
+    "rate": 0.939,
+    "wall_s": 1434.0
   },
   {
     "name": "sp.ebalance (CIA, ATT)",
     "B": 1000,
     "covered": 1000,
     "rate": 1.0,
-    "wall_s": 0.7
+    "wall_s": 0.9
   },
   {
     "name": "sp.causal_question(design='dml') IRM ATE",
     "B": 1000,
-    "covered": 969,
-    "rate": 0.969,
-    "wall_s": 426.1
+    "covered": 968,
+    "rate": 0.968,
+    "wall_s": 366.4
   },
   {
     "name": "sp.causal_question(design='causal_forest') AIPW ATE",
     "B": 1000,
     "covered": 977,
     "rate": 0.977,
-    "wall_s": 1404.3
+    "wall_s": 1389.0
   }
 ]

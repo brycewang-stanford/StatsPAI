@@ -131,7 +131,9 @@ def modelsummary(
         the module docstring for parameter mapping.
 
     Parameters mirror R ``modelsummary``; see the module docstring for
-    the exact mapping to regtable.
+    the exact mapping to regtable. Like the R function, a single list
+    (or tuple) of fitted models is accepted in place of positional
+    arguments: ``sp.modelsummary([m1, m2])`` == ``sp.modelsummary(m1, m2)``.
 
     Examples
     --------
@@ -160,6 +162,12 @@ def modelsummary(
     >>> wide.shape[1]
     2
     """
+    # R's modelsummary takes a *list* of models; accept that calling
+    # convention too so `sp.modelsummary([m1, m2])` and
+    # `sp.modelsummary(m1, m2)` are equivalent.
+    if len(models) == 1 and isinstance(models[0], (list, tuple)):
+        models = tuple(models[0])
+
     if len(models) == 0:
         raise ValueError("At least one model required.")
 

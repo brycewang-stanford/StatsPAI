@@ -1,5 +1,8 @@
 # Original-data parity for did::mpdta (the Callaway-Sant'Anna 2021
-# vignette panel). Published value: simple ATT = -0.0454 (SE 0.0113).
+# vignette panel). The did vignette does not print a simple-aggregation
+# ATT for mpdta, so that row carries no published anchor; the vignette's
+# printed overall dynamic/event-study ATT (-0.0772, xformla = ~1)
+# anchors the second row.
 
 .script_dir <- (function() {
   args <- commandArgs(trailingOnly = FALSE)
@@ -34,6 +37,7 @@ fit <- did::att_gt(
   est_method = "reg", bstrap = FALSE
 )
 agg <- did::aggte(fit, type = "simple", bstrap = FALSE, cband = FALSE)
+dyn <- did::aggte(fit, type = "dynamic", bstrap = FALSE, cband = FALSE)
 
 build_row <- function(stat, est, se, n, published, citation) {
   list(module = jsonlite::unbox("02_mpdta_original"),
@@ -51,8 +55,13 @@ rows <- list(
   build_row("simple_ATT",
             agg$overall.att, agg$overall.se,
             nrow(mpdta),
-            -0.0454,
-            "Callaway-Sant'Anna (2021), R 'did' vignette aggte simple")
+            NA,
+            "did::aggte(type='simple') on the same bytes; no printed vignette anchor"),
+  build_row("dynamic_overall_ATT",
+            dyn$overall.att, dyn$overall.se,
+            nrow(mpdta),
+            -0.0772,
+            "Callaway-Sant'Anna 'did' vignette (did-basics), overall dynamic ATT, xformla=~1")
 )
 
 payload <- list(

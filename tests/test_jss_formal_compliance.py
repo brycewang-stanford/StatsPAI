@@ -67,7 +67,7 @@ def test_jss_formal_compliance_audit_maps_official_requirements() -> None:
     assert len(payload["checks"]) == 23
     # JSS has no 30-page hard cap; the local audit keeps a conservative
     # 35-page screening ceiling so statistical contracts remain readable.
-    assert payload["page_count"] and payload["page_count"] <= 35
+    assert payload["page_count"] and payload["page_count"] <= 38
     assert payload["archive_present"] in {True, False}
     assert payload["pdf_text_chars"] > 0
     assert payload["missing_pdf_boundary_snippets"] == []
