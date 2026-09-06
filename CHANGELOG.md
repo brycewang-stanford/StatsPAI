@@ -6,6 +6,64 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- `sp.audit(result)` now returns an `AuditReport` — a `dict` subclass that
+  renders as a readable reviewer checklist when printed, while remaining
+  byte-identical as a payload (`json.dumps`, `report["checks"]`, equality
+  against a plain dict, and every MCP tool response are unchanged). New
+  conveniences: `.summary()`, `.to_frame()`, `.missing`, `.failed`, and
+  `.checks_by_status`. `print(sp.audit(r))` previously emitted one line of
+  nested Python literals for an object whose whole purpose is to be read.
+- `sp.regtable(..., rules=)` selects the horizontal-rule characters of the
+  plain-text render: `"auto"` (default), `"unicode"`, or `"ascii"`.
+- `tests/r_parity/verify_reproduce_py.py`, the StatsPAI-side counterpart of
+  `verify_reproduce.py`: it re-executes every Track A module into a staging
+  directory and checks that the regenerated fixture CSV is byte-identical
+  to the committed one and that the regenerated `_py.json` reproduces the
+  committed golden to 1e-9. Both sides of every parity row are now
+  re-derivable, not just the R side.
+
+### Fixed
+
+- **`print(sp.regtable(...))` raised `UnicodeEncodeError` on a Windows
+  console.** The text renderer built its rules from U+2501/U+2500, which no
+  8-bit code page contains, so printing a table on a cp1252 console failed
+  before the first row. The default `rules="auto"` keeps the box-drawing
+  rules wherever stdout can encode them and falls back to `=`/`-` (and an
+  ASCII `R2` label) where it cannot; the fallback is length-preserving, so
+  columns stay aligned. Output on a UTF-8 terminal is unchanged.
+- **Four Track A modules could no longer regenerate their own fixtures.**
+  `sp.datasets.card_1995()` and `sp.datasets.california_prop99()` had their
+  `simulated=` default flipped from `True` to `False`, but modules 01, 02,
+  08 (Card) and 12 (Prop 99) still called them bare — so re-running a module
+  overwrote its frozen CSV with different data, silently leaving the R
+  golden computed on bytes the Python side no longer produced. The four
+  modules now pass `simulated=True` explicitly. No committed number changes;
+  the fixtures and goldens are the ones that were always there.
+- Both loaders' docstrings claimed `simulated : bool, default True` while
+  their signatures said `False` — the drift above is what that contradiction
+  cost.
+- Track A module 11's Python SE row was frozen before the 1.22 change of
+  `sp.match`'s default from the matched-pair SE to Abadie–Imbens, so the
+  committed golden (436.49) no longer matched what the code returns
+  (643.35). The row is refreshed and renamed `se_pair_effect` →
+  `se_abadie_imbens`; the `att_psm` parity row is unchanged. Modules 14, 53
+  and 55 had historical sandwich-SE goldens drifting at 1e-9 and are
+  likewise refreshed to the current output.
+
+## [1.24.1] — 2026-09-06
+
+### Known issues
+
+- Track A modules 01/02/08/12 call `sp.datasets.card_1995()` /
+  `california_prop99()` without pinning `simulated=`, whose default
+  changed in 1.21.0 — re-running those module scripts would regenerate
+  their fixture CSVs with different bytes. The committed fixtures and
+  goldens are unchanged and internally consistent, and the R-side
+  reproduction path is unaffected; a Python-side regeneration gate
+  (`tests/r_parity/verify_reproduce_py.py`) lands in the next release.
+
+### Added
+
 - `sp.modelsummary` now also accepts a single list (or tuple) of fitted
   models, matching R `modelsummary`'s calling convention:
   `sp.modelsummary([m1, m2])` ≡ `sp.modelsummary(m1, m2)`.
