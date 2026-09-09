@@ -5,6 +5,50 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="wooldridge-did-evidence-grade"></a>
+
+## Unreleased — ⚠️ `sp.wooldridge_did` is no longer `certified`
+
+**Who is affected.** Anyone who cited `sp.wooldridge_did`'s registry tier,
+its `validation_notes`, or `sp.parity_status("wooldridge_did")` as evidence
+that the estimator had been aligned against R or Stata. **No numerical
+output changed** — `sp.wooldridge_did` returns exactly what it returned
+before, and no result you have computed needs recomputing.
+
+**What changed.** The function was marked `certified` because the registry
+credited it with Track A module `17_etwfe` as an alias of `sp.etwfe`. The
+alias was never measured. On that module's committed bytes, with identical
+arguments:
+
+| entry point | ATT | SE |
+| --- | ---: | ---: |
+| `sp.wooldridge_did` | −0.0378480795 | 0.0058045845 |
+| `sp.etwfe` (default `cgroup='notyet'`) | −0.0351082766 | 0.0069250918 |
+| `sp.etwfe(cgroup='nevertreated')` | −0.0329765138 | 0.0077660899 |
+
+6.1% and 12.1% apart, and no control-group setting reconciles them: a
+saturated cohort×post TWFE and an ETWFE with a not-yet-treated control
+group are different estimators. The alias was withdrawn and the tier fell
+to `validated`, which is what the function's own known-truth evidence
+supports.
+
+**What to do.**
+
+- If you needed the ETWFE estimand aligned against R `etwfe` / Stata, call
+  `sp.etwfe` — it is `certified` and carries module `17_etwfe`.
+- If you want the saturated Wooldridge (2021) TWFE, keep calling
+  `sp.wooldridge_did`; nothing about it changed except the honesty of its
+  label.
+- To see the evidence behind any grade:
+  `sp.parity_status("wooldridge_did")` and
+  `sp.describe_function("wooldridge_did")["validation_notes"]`.
+
+The refuting measurement is asserted in
+`tests/reference_parity/test_track_a_alias_equivalence.py`, so the claim
+cannot quietly return.
+
+---
+
 <a id="forest-continuous-treatment-ate"></a>
 
 ## 1.25.0 — ⚠️ Causal-forest ATE/ATT no longer report an AIPW score for a continuous treatment

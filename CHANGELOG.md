@@ -2,6 +2,91 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### ⚠️ Evidence-grade corrections
+
+No estimator's numerical output changed in this section. What changed is
+which functions the parity ledger vouches for — a claim about the numbers,
+not the numbers themselves. Users who cited a grade below should re-read it.
+
+- **`sp.wooldridge_did` was certified on a false alias and is now
+  `validated`.** The registry credited it with Track A module `17_etwfe` as
+  an alias of `sp.etwfe`. Measured on that module's committed bytes with
+  identical arguments, `sp.wooldridge_did` returns ATT −0.0378480795
+  (SE 0.0058045845) while `sp.etwfe` returns −0.0351082766 (SE 0.0069250918)
+  under its default not-yet-treated control group and −0.0329765138
+  (SE 0.0077660899) under `cgroup='nevertreated'` — 6.1% and 12.1% apart,
+  with no setting reconciling them. They are different estimators (saturated
+  cohort×post TWFE versus ETWFE with a not-yet-treated control group). The
+  alias and the bare "Track A parity seed" note it rested on were withdrawn;
+  the function keeps the grade its own known-truth evidence supports. The
+  refuting measurement is pinned in
+  `tests/reference_parity/test_track_a_alias_equivalence.py` so the claim
+  cannot silently return.
+- **85 functions were under-graded and are now `certified`.** The registry
+  derived its tier by scanning the Track A README, which names one API per
+  module row while a module typically exercises several — so functions with
+  committed cross-language evidence (`sar`, `sem`, `sar_gmm` among them) sat
+  at `api_stable`. Registry tiers are now derived from the committed
+  `_parity_index.json`, which is built from the goldens themselves.
+- **Dataset loaders, DGP helpers and introspection functions no longer read
+  as verified.** A test scan credited every `sp.f(` call site in a parity
+  test, including the helper that *builds* the fixture and the accessors a
+  test calls to check metadata. `sp.dgp_did` and `sp.california_prop99` were
+  graded `validated`; `sp.bibtex` — a citation resolver — was published in
+  `docs/parity.md` as `external-replication`, and `sp.describe_function` as
+  `analytical-only`. Non-estimator symbols are now excluded by construction
+  from both the registry tier and the index, so infrastructure carries zero
+  parity rows.
+- **Two certified rows are compared against a Python reference, not R or
+  Stata**, and are now named rather than folded into the R/Stata claim:
+  `sp.metalearner` (against `econml`'s S- and T-learners) and
+  `sp.dml_sensitivity` (against `DoubleML`'s sensitivity analysis). Both
+  follow CLAUDE.md §5.1 — compare against the implementation the method's
+  own authors maintain — so the evidence stands; what was inaccurate was
+  the blanket statement that every certified symbol links to an R or Stata
+  module. The set is pinned by a test.
+
+### Added
+
+- `sp.parity_summary()` gains `by_evidence_kind` and `denominators`.
+  Cross-language parity (compared against a named R/Stata implementation)
+  and internal evidence (known-truth recovery, published-number replication)
+  answer different questions and are now reported separately instead of
+  being summed into one "verified" figure. `denominators` splits the
+  registered surface into estimator callables, infrastructure and result
+  classes, so the diluted all-registered fraction is no longer the only
+  number on offer: coverage is 169/773 estimator callables (21.9%)
+  cross-language, not 395/1182 (33.4%) of everything.
+- `statspai._parity_taxonomy` — the single source of truth for the Track A
+  alias table, the non-estimator exclusion set, and the one grade→tier
+  mapping shared by the registry and `scripts/build_parity_index.py`. Every
+  alias entry names the pytest that proves the equivalence on the module's
+  committed bytes and records the deviation actually measured, per leg.
+- `tests/reference_parity/test_track_a_alias_equivalence.py` — proves each
+  registered alias against its canonical entry point on the Track A CSV
+  bytes. Four aliases agree exactly; `sp.hdfe_ols` agrees with
+  `sp.fast.feols` to 3.6e-15 on coefficients and 1.9e-12 on the CR1
+  clustered standard error (within-cluster summation in the sandwich meat
+  amplifies 1e-15 residual differences by about three orders — a documented
+  floating-point mechanism, budgeted per leg rather than by widening the
+  whole alias).
+
+### Changed
+
+- `docs/parity.md` no longer prints a combined "verified (subtotal)" row.
+  The page reported 399 verified out of 1,182, which a reader could take as
+  "399 functions agree with Stata/R" when only 169 were compared against
+  external software. The summary now separates the two evidence kinds and
+  adds an honest-denominator table.
+- The registry↔index reconciliation test became bidirectional and lost its
+  divergence allowlist. It previously guarded only over-claiming, which let
+  the 85-function under-grading grow unnoticed; it now asserts zero
+  divergence in both directions for every stable symbol, with one
+  enumerated carve-out (`sp.did_multiplegt_dyn`: experimental API,
+  parity-backed numbers).
+
 ## [1.25.1] — 2026-09-07
 
 ### Fixed
