@@ -96,7 +96,9 @@ def test_r_density_integrates_to_one_and_is_symmetric_for_symmetric_data():
     x = np.concatenate([np.linspace(-2, 2, 101)])
     xg, yg, bw = r_density(x)
     assert bw > 0
-    assert np.trapz(yg, xg) == pytest.approx(1.0, abs=2e-3)
+    # numpy >= 2.0 renames trapz -> trapezoid (trapz removed later in 2.x)
+    _trapz = getattr(np, "trapezoid", None) or np.trapz
+    assert _trapz(yg, xg) == pytest.approx(1.0, abs=2e-3)
     assert np.allclose(yg, yg[::-1], atol=1e-10)
 
 
