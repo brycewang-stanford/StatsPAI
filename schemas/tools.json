@@ -74,7 +74,7 @@
     "name": "absorb_ols"
   },
   {
-    "description": "Adjust p-values for multiple comparisons. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Adjust p-values for multiple comparisons. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "method": {
@@ -95,7 +95,7 @@
     "name": "adjust_pvalues"
   },
   {
-    "description": "Fit an Accelerated Failure Time model by MLE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fit an Accelerated Failure Time model by MLE. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "family": {
@@ -1442,7 +1442,7 @@
     "name": "bcf_ordinal"
   },
   {
-    "description": "Benjamini-Hochberg (1995) FDR correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Benjamini-Hochberg (1995) FDR correction. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "pvalues": {
@@ -1585,7 +1585,7 @@
     "name": "bib_for"
   },
   {
-    "description": "Return verified BibTeX entries from paper.bib (StatsPAI's single source of truth for citations). Pass one or more bib keys (e.g. 'callaway2021difference'). NEVER invent citations -- call this tool instead. Unknown keys return an empty entry plus a list of close matches. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Return verified BibTeX entries from paper.bib (StatsPAI's single source of truth for citations). Pass one or more bib keys (e.g. 'callaway2021difference'). NEVER invent citations -- call this tool instead. Unknown keys return an empty entry plus a list of close matches.",
     "input_schema": {
       "properties": {
         "keys": {
@@ -1648,7 +1648,7 @@
     "name": "bidirectional_pci"
   },
   {
-    "description": "Bivariate probit model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Bivariate probit model. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -1957,7 +1957,7 @@
     "name": "blp_test"
   },
   {
-    "description": "Bonferroni correction: ``p_adj = min(p * S, 1)``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Bonferroni correction: ``p_adj = min(p * S, 1)``. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "pvalues": {
@@ -1973,7 +1973,7 @@
     "name": "bonferroni"
   },
   {
-    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Observations (or clusters/blocks) are exchangeable under the resampling scheme used; cluster= resamples whole clusters, block= preserves within-block ordering for serial dependence; The statistic callable is a smooth, well-defined functional of the data so its sampling distribution is approximable by resampling; BCa intervals further assume an estimable bias/acceleration; percentile/normal CIs assume approximate pivotality of the resampled distribution. Pre-conditions: statistic is a deterministic callable returning a finite scalar on any resampled DataFrame; Enough independent resampling units (rows, clusters, or blocks) to populate n_boot replicates; Specify cluster= or block= when data are clustered/serially dependent rather than iid. Failure modes: Few clusters yields anti-conservative CIs / wildly unstable bootstrap distribution -> Use a wild cluster bootstrap with Rademacher weights when the number of clusters is small (<~40); Statistic raises or returns NaN on a resample (e...",
+    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: certified parity evidence. Assumptions: Observations (or clusters/blocks) are exchangeable under the resampling scheme used; cluster= resamples whole clusters, block= preserves within-block ordering for serial dependence; The statistic callable is a smooth, well-defined functional of the data so its sampling distribution is approximable by resampling; BCa intervals further assume an estimable bias/acceleration; percentile/normal CIs assume approximate pivotality of the resampled distribution. Pre-conditions: statistic is a deterministic callable returning a finite scalar on any resampled DataFrame; Enough independent resampling units (rows, clusters, or blocks) to populate n_boot replicates; Specify cluster= or block= when data are clustered/serially dependent rather than iid. Failure modes: Few clusters yields anti-conservative CIs / wildly unstable bootstrap distribution -> Use a wild cluster bootstrap with Rademacher weights when the number of clusters is small (<~40); Statistic raises or returns NaN on a resample (e.g., a level drops out), aborting the loop -> Make the statistic...",
     "input_schema": {
       "properties": {
         "ci_method": {
@@ -2223,7 +2223,7 @@
     "name": "boundary_rd"
   },
   {
-    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
+    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: certified parity evidence. Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -2520,7 +2520,7 @@
     "name": "calibration_test"
   },
   {
-    "description": "California Proposition 99 tobacco control dataset. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "California Proposition 99 tobacco control dataset.",
     "input_schema": {
       "properties": {},
       "required": [],
@@ -3026,7 +3026,7 @@
     "name": "causal_rl_benchmark"
   },
   {
-    "description": "Covariate-Balancing Propensity Score estimator (Imai-Ratkovic 2014). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
+    "description": "Covariate-Balancing Propensity Score estimator (Imai-Ratkovic 2014). Validation: certified parity evidence. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "add_intercept": {
@@ -3459,7 +3459,7 @@
     "name": "clogit"
   },
   {
-    "description": "Complementary log-log regression via maximum likelihood. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Complementary log-log regression via maximum likelihood. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -4288,7 +4288,7 @@
     "name": "continuous_iv_late"
   },
   {
-    "description": "Compute contrasts of predictive margins across levels of a variable. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute contrasts of predictive margins across levels of a variable. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -4829,7 +4829,7 @@
     "name": "dag_example"
   },
   {
-    "description": "Das Gupta (1993) multi-factor decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Das Gupta (1993) multi-factor decomposition. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "data_a": {
@@ -4858,7 +4858,7 @@
     "name": "das_gupta"
   },
   {
-    "description": "Triple Differences (DDD) estimator. Adds a within-treatment-group subgroup that is unaffected by treatment as an additional control dimension, relaxing parallel trends from 'same trend across groups' to 'same differential trend across subgroups within groups'. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Parallel trends in the DDD differential (weaker than DID PT); No anticipation; SUTVA. Pre-conditions: treat x time x subgroup variation exists; subgroup is binary and meaningful within treatment group. Failure modes: Staggered adoption with heterogeneous effects -> Textbook DDD can have negative weights with staggered timing. The Olden-Men (2022) / Strezhnev (2023) heterogeneity-robust DDD is on the roadmap (see docs/rfc/did_roadmap_gap_audit.md Section 4). Alternatives: sp.did_2x2, sp.callaway_santanna. Typical minimum N: 100.",
+    "description": "Triple Differences (DDD) estimator. Adds a within-treatment-group subgroup that is unaffected by treatment as an additional control dimension, relaxing parallel trends from 'same trend across groups' to 'same differential trend across subgroups within groups'. Validation: certified parity evidence. Assumptions: Parallel trends in the DDD differential (weaker than DID PT); No anticipation; SUTVA. Pre-conditions: treat x time x subgroup variation exists; subgroup is binary and meaningful within treatment group. Failure modes: Staggered adoption with heterogeneous effects -> Textbook DDD can have negative weights with staggered timing. The Olden-Men (2022) / Strezhnev (2023) heterogeneity-robust DDD is on the roadmap (see docs/rfc/did_roadmap_gap_audit.md Section 4). Alternatives: sp.did_2x2, sp.callaway_santanna. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -5497,7 +5497,7 @@
     "name": "did_2stage"
   },
   {
-    "description": "Canonical 2x2 DID: two groups (treated / control) x two periods (pre / post). Point estimate via either group-means differencing or OLS on the treat x post interaction; optional covariates, robust / cluster SE, and sample weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: treatment timing is staggered across units -- the TWFE 2x2 estimate is a negative-weighted mix (Goodman-Bacon 2021); use sp.callaway_santanna, sp.sun_abraham or sp.did_imputation. Assumptions: Parallel trends; No anticipation; SUTVA (no spillovers). Pre-conditions: data has exactly two time periods (pre, post); treat is 0/1 constant within unit (unit-level, not time-varying); at least a handful of treated and control units. Failure modes: Staggered timing (> 2 periods with varying treat start) -> Use sp.callaway_santanna / sp.sun_abraham / sp.did_imputation; Very few clusters at the group level -> Use wild cluster bootstrap via sp.wild_cluster_bootstrap; Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna. Alternatives: sp.drdid, sp.did_analysis...",
+    "description": "Canonical 2x2 DID: two groups (treated / control) x two periods (pre / post). Point estimate via either group-means differencing or OLS on the treat x post interaction; optional covariates, robust / cluster SE, and sample weights. Validation: certified parity evidence. Do NOT use when: treatment timing is staggered across units -- the TWFE 2x2 estimate is a negative-weighted mix (Goodman-Bacon 2021); use sp.callaway_santanna, sp.sun_abraham or sp.did_imputation. Assumptions: Parallel trends; No anticipation; SUTVA (no spillovers). Pre-conditions: data has exactly two time periods (pre, post); treat is 0/1 constant within unit (unit-level, not time-varying); at least a handful of treated and control units. Failure modes: Staggered timing (> 2 periods with varying treat start) -> Use sp.callaway_santanna / sp.sun_abraham / sp.did_imputation; Very few clusters at the group level -> Use wild cluster bootstrap via sp.wild_cluster_bootstrap; Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna. Alternatives: sp.drdid, sp.did_analysis, sp.callaway_santanna, sp.sun_abraham. Typical minimum N: 30.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -7450,7 +7450,7 @@
     "name": "dml_panel"
   },
   {
-    "description": "Compute DML-OVB sensitivity for a fitted DML CausalResult. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness (IRM/PLR) or instrument validity (IIVM/PLIV) given the covariates; Overlap / positivity; Neyman-orthogonal score plus cross-fitting; nuisance estimators converge fast enough (o(n^-1/4)). Pre-conditions: Covariates, treatment, and outcome with enough data for cross-fitted machine-learning nuisances; For instrumented variants (PLIV / IIVM): an instrument as well. Failure modes: Propensity scores near 0/1 -- overlap failure inflates variance and bias -> Trim extreme scores, restrict the estimand to the overlap region, or report sensitivity (dml_sensitivity). Alternatives: sp.tmle, sp.auto_cate, sp.causal_forest. Typical minimum N: 500.",
+    "description": "Compute DML-OVB sensitivity for a fitted DML CausalResult. Validation: certified parity evidence. Assumptions: Unconfoundedness (IRM/PLR) or instrument validity (IIVM/PLIV) given the covariates; Overlap / positivity; Neyman-orthogonal score plus cross-fitting; nuisance estimators converge fast enough (o(n^-1/4)). Pre-conditions: Covariates, treatment, and outcome with enough data for cross-fitted machine-learning nuisances; For instrumented variants (PLIV / IIVM): an instrument as well. Failure modes: Propensity scores near 0/1 -- overlap failure inflates variance and bias -> Trim extreme scores, restrict the estimand to the overlap region, or report sensitivity (dml_sensitivity). Alternatives: sp.tmle, sp.auto_cate, sp.causal_forest. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "benchmark_covariates": {
@@ -7723,7 +7723,7 @@
     "name": "drdid"
   },
   {
-    "description": "Hainmueller (2012) entropy balancing. Targets the ATT by exactly balancing covariate means across treatment groups. No propensity-score model specification needed. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Hainmueller (2012) entropy balancing. Targets the ATT by exactly balancing covariate means across treatment groups. No propensity-score model specification needed. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -8055,7 +8055,7 @@
     "name": "etregress"
   },
   {
-    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with xvar, panel=False, or cgroup='nevertreated' is not yet supported; these raise rather than being silently ignored; family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or p...",
+    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale. Validation: certified evidence with scoped limitations. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with xvar, panel=False, or cgroup='nevertreated' is not yet supported; these raise rather than being silently ignored; family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -8316,7 +8316,7 @@
     "name": "evalue_rd"
   },
   {
-    "description": "E-value computed directly from a risk ratio and its CI bounds. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "E-value computed directly from a risk ratio and its CI bounds. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "rare_outcome": {
@@ -8664,7 +8664,7 @@
     "name": "fect"
   },
   {
-    "description": "Estimate GLM (logit, probit, Gaussian) with high-dimensional fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Estimate GLM (logit, probit, Gaussian) with high-dimensional fixed effects. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "cluster": {
@@ -9179,7 +9179,7 @@
     "name": "fortified_pci"
   },
   {
-    "description": "Fractional response model (Papke & Wooldridge 1996). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fractional response model (Papke & Wooldridge 1996). Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -9463,7 +9463,7 @@
     "name": "functional_form_test"
   },
   {
-    "description": "Parametric g-formula (standardization) estimator. ATE/ATT for binary D, or dose-response curve for continuous D. Consistent under correctly-specified outcome model; not doubly robust. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
+    "description": "Parametric g-formula (standardization) estimator. ATE/ATT for binary D, or dose-response curve for continuous D. Consistent under correctly-specified outcome model; not doubly robust. Validation: certified parity evidence. Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -9766,7 +9766,7 @@
     "name": "gate_test"
   },
   {
-    "description": "Gelbach (2016) decomposition of omitted variable bias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Gelbach (2016) decomposition of omitted variable bias. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "added_x": {
@@ -9857,7 +9857,7 @@
     "name": "general_bunching"
   },
   {
-    "description": "Genetic Matching for ATT estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Genetic search: population_size x generations full matching + balance evaluations (default 40 x 20 = 800 matching passes), each of which builds a pairwise distance matrix. Budget it as hundreds of sp.match calls, not one. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
+    "description": "Genetic Matching for ATT estimation. Validation: certified parity evidence. Cost: Genetic search: population_size x generations full matching + balance evaluations (default 40 x 20 = 800 matching passes), each of which builds a pairwise distance matrix. Budget it as hundreds of sp.match calls, not one. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -10045,7 +10045,7 @@
     "name": "ggdid"
   },
   {
-    "description": "Fit a Generalized Linear Model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fit a Generalized Linear Model. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -10687,7 +10687,7 @@
     "name": "heckman"
   },
   {
-    "description": "Breusch-Pagan test for heteroskedasticity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Breusch-Pagan test for heteroskedasticity. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "x": {
@@ -10711,7 +10711,7 @@
     "name": "het_test"
   },
   {
-    "description": "Holm (1979) step-down correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Holm (1979) step-down correction. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "pvalues": {
@@ -10878,7 +10878,7 @@
     "name": "horowitz_manski"
   },
   {
-    "description": "Hurdle (two-part) model for count data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Hurdle (two-part) model for count data. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -10932,7 +10932,7 @@
     "name": "hurdle"
   },
   {
-    "description": "Intra-class correlation for a fitted mixed model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Intra-class correlation for a fitted mixed model. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -11007,7 +11007,7 @@
     "name": "impactplot"
   },
   {
-    "description": "Compute a single inequality index. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute a single inequality index. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -11371,7 +11371,7 @@
     "name": "ips"
   },
   {
-    "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
+    "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Validation: certified parity evidence. Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -12033,7 +12033,7 @@
     "name": "kan_dlate"
   },
   {
-    "description": "Kaplan-Meier non-parametric survival function estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Kaplan-Meier non-parametric survival function estimator. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -12161,7 +12161,7 @@
     "name": "kink_unified"
   },
   {
-    "description": "Kitagawa (1955) two-factor rate decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Kitagawa (1955) two-factor rate decomposition. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "by": {
@@ -12373,7 +12373,7 @@
     "name": "lasso_select"
   },
   {
-    "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
+    "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: certified parity evidence. Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -12519,7 +12519,7 @@
     "name": "lingam"
   },
   {
-    "description": "List all available replication datasets and guides. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "List all available replication datasets and guides.",
     "input_schema": {
       "properties": {},
       "required": [],
@@ -12774,7 +12774,7 @@
     "name": "logit"
   },
   {
-    "description": "Log-rank test for equality of survival distributions across groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Log-rank test for equality of survival distributions across groups. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "duration": {
@@ -12926,7 +12926,7 @@
     "name": "lp_did"
   },
   {
-    "description": "Likelihood-ratio test comparing a *restricted* and a *full* model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Likelihood-ratio test comparing a *restricted* and a *full* model. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "boundary": {
@@ -13187,7 +13187,7 @@
     "name": "machado_mata"
   },
   {
-    "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
+    "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: certified parity evidence. Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -13278,7 +13278,7 @@
     "name": "margins"
   },
   {
-    "description": "Compute predictive margins at specific covariate values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute predictive margins at specific covariate values. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -13445,7 +13445,7 @@
     "name": "marginsplot"
   },
   {
-    "description": "Propensity score and covariate matching for treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: greedy nearest-neighbour matching without replacement is order-dependent: the m_order convention can differ across packages and materially moves the estimate (>5x spread on MatchIt::lalonde with Mahalanobis distance). m_order='data' and 'closest' reproduce MatchIt exactly; m_order='farthest' is StatsPAI's own dynamic rule and is not MatchIt-equivalent; bias_correction=True follows a different convention from Matching::Match's BiasAdjust: StatsPAI regresses on the full covariate vector with unweighted OLS over all controls, the reference regresses on the matching variables weighted by match counts, so bias-corrected estimates can differ from it by about 0.1%. The uncorrected estimate and its Abadie-Imbens standard error are exact. Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that. Assumptions: Unconfoundedness / CI...",
+    "description": "Propensity score and covariate matching for treatment effect estimation. Validation: certified evidence with scoped limitations. Known limitations: greedy nearest-neighbour matching without replacement is order-dependent: the m_order convention can differ across packages and materially moves the estimate (>5x spread on MatchIt::lalonde with Mahalanobis distance). m_order='data' and 'closest' reproduce MatchIt exactly; m_order='farthest' is StatsPAI's own dynamic rule and is not MatchIt-equivalent; bias_correction=True follows a different convention from Matching::Match's BiasAdjust: StatsPAI regresses on the full covariate vector with unweighted OLS over all controls, the reference regresses on the matching variables weighted by match counts, so bias-corrected estimates can differ from it by about 0.1%. The uncorrected estimate and its Abadie-Imbens standard error are exact. Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that. Assumptions: Unconfoundedness / CIA: Y(d) perp D | X; Overlap / common support: tr...",
     "input_schema": {
       "properties": {
         "bootstrap_reps": {
@@ -13816,7 +13816,7 @@
     "name": "mediate"
   },
   {
-    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
+    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: certified parity evidence. Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -13889,7 +13889,7 @@
     "name": "mediation"
   },
   {
-    "description": "Linear nested-models mediation decomposition (VanderWeele 2014 Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Linear nested-models mediation decomposition (VanderWeele 2014 Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -14363,7 +14363,7 @@
     "name": "meta_analysis"
   },
   {
-    "description": "Meta-learner framework for CATE: S-, T-, X-, R-, DR-Learner. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness: Y(d) perp D | X; Overlap: 0 < P(D=1 | X) < 1; For R-Learner / DR-Learner: orthogonality between treatment residual and outcome residual. Pre-conditions: binary treatment (0/1); covariates numeric; categoricals encoded; enough treated AND control to train separate outcome models (T/X/DR-Learner). Failure modes: Large divergence across learner types -> Use sp.compare_metalearners to identify which learner is biased; DR-Learner is safest under model misspecification; S-Learner estimates near zero regardless of true effect -> S-Learner regularization smooths treatment coefficient toward zero; use T/X/DR instead; X-Learner fails when treated group is very small -> X-Learner needs well-identified control-outcome model; fall back to T-Learner or weighted T-Learner. Alternatives: sp.causal_forest, sp.dml, sp.tmle, sp.bcf. Typical minimum N: 500.",
+    "description": "Meta-learner framework for CATE: S-, T-, X-, R-, DR-Learner. Validation: certified parity evidence. Assumptions: Unconfoundedness: Y(d) perp D | X; Overlap: 0 < P(D=1 | X) < 1; For R-Learner / DR-Learner: orthogonality between treatment residual and outcome residual. Pre-conditions: binary treatment (0/1); covariates numeric; categoricals encoded; enough treated AND control to train separate outcome models (T/X/DR-Learner). Failure modes: Large divergence across learner types -> Use sp.compare_metalearners to identify which learner is biased; DR-Learner is safest under model misspecification; S-Learner estimates near zero regardless of true effect -> S-Learner regularization smooths treatment coefficient toward zero; use T/X/DR instead; X-Learner fails when treated group is very small -> X-Learner needs well-identified control-outcome model; fall back to T-Learner or weighted T-Learner. Alternatives: sp.causal_forest, sp.dml, sp.tmle, sp.bcf. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -14818,7 +14818,7 @@
     "name": "model_averaging_dml"
   },
   {
-    "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Relevance: SNPs predict exposure (F-statistic >= 10 per SNP or set-F); Independence: SNPs perp confounders of exposure-outcome; Exclusion restriction: SNPs affect outcome only through exposure (InSIDE for Egger; >= 50% valid for median; modal for mode-based). Pre-conditions: SNP-summary statistics for exposure and outcome aligned by SNP; beta_exposure / beta_outcome / se_exposure / se_outcome arrays of equal length; >= 10 genetic instruments for reliable IVW/median/mode; >= 20 for robust Egger intercept. Failure modes: Egger intercept p < 0.05 -- directional pleiotropy -> Use weighted-median or mode-based estimator; report Egger intercept +...",
+    "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: certified parity evidence. Assumptions: Relevance: SNPs predict exposure (F-statistic >= 10 per SNP or set-F); Independence: SNPs perp confounders of exposure-outcome; Exclusion restriction: SNPs affect outcome only through exposure (InSIDE for Egger; >= 50% valid for median; modal for mode-based). Pre-conditions: SNP-summary statistics for exposure and outcome aligned by SNP; beta_exposure / beta_outcome / se_exposure / se_outcome arrays of equal length; >= 10 genetic instruments for reliable IVW/median/mode; >= 20 for robust Egger intercept. Failure modes: Egger intercept p < 0.05 -- directional pleiotropy -> Use weighted-median or mode-based estimator; report Egger intercept + I2 as pleiotropy diagnostic; Q-statistic rejects homogeneity (Co...",
     "input_schema": {
       "properties": {
         "method": {
@@ -15660,7 +15660,7 @@
     "name": "oprobit"
   },
   {
-    "description": "Optimal 1:1 matching via the Hungarian algorithm. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: either arm has more than ~10,000 units -- the assignment problem is superquadratic (see cost); use sp.psm or sp.match (greedy nearest-neighbour) at that scale. Cost: Materialises the dense n_treated x n_control distance matrix, then solves a linear sum assignment (Hungarian, ~O(n^3) worst case). Both memory and time degrade sharply past a few thousand units per arm. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing m...",
+    "description": "Optimal 1:1 matching via the Hungarian algorithm. Validation: certified parity evidence. Do NOT use when: either arm has more than ~10,000 units -- the assignment problem is superquadratic (see cost); use sp.psm or sp.match (greedy nearest-neighbour) at that scale. Cost: Materialises the dense n_treated x n_control distance matrix, then solves a linear sum assignment (Hungarian, ~O(n^3) worst case). Both memory and time degrade sharply past a few thousand units per arm. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean dif...",
     "input_schema": {
       "properties": {
         "caliper": {
@@ -15753,7 +15753,7 @@
     "name": "oster_bounds"
   },
   {
-    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
+    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: certified parity evidence. Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -15924,7 +15924,7 @@
     "name": "overlap_weighted_did"
   },
   {
-    "description": "Overlap-weight (ATO) treatment effect estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
+    "description": "Overlap-weight (ATO) treatment effect estimator. Validation: certified parity evidence. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -16281,7 +16281,7 @@
     "name": "panel_probit"
   },
   {
-    "description": "Callaway & Li (2019) quantile treatment effect on the treated for panel data. Recovers the counterfactual DISTRIBUTION of untreated outcomes for the treated group via distributional DiD plus a copula-stability assumption. Needs a balanced THREE-period panel (the third period identifies the copula). Exact parity with R qte::panel.qtet (6.8e-12). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Distributional DiD; Copula stability: the dependence between the period-t change and the period-(t-1) level equals that between the period-(t-1) change and the period-(t-2) level, for the treated. Untestable at t, but checked on the untreated group and reported in model_info['copula_check']; Continuous outcome: with mass points the rank map is not measure-preserving; model_info['coherence_check'] flags it. Pre-conditions: balanced panel over three periods; binary treatment, read at period t; continuous outcome (mass points distort the rank map). Failure modes: Outcome has mass points (e.g. many zero earnings) -> The rank map collapses tied units onto one value and the QTT curve is distorted; the reported ATT (a mean DiD) is u...",
+    "description": "Callaway & Li (2019) quantile treatment effect on the treated for panel data. Recovers the counterfactual DISTRIBUTION of untreated outcomes for the treated group via distributional DiD plus a copula-stability assumption. Needs a balanced THREE-period panel (the third period identifies the copula). Exact parity with R qte::panel.qtet (6.8e-12). Validation: certified parity evidence. Assumptions: Distributional DiD; Copula stability: the dependence between the period-t change and the period-(t-1) level equals that between the period-(t-1) change and the period-(t-2) level, for the treated. Untestable at t, but checked on the untreated group and reported in model_info['copula_check']; Continuous outcome: with mass points the rank map is not measure-preserving; model_info['coherence_check'] flags it. Pre-conditions: balanced panel over three periods; binary treatment, read at period t; continuous outcome (mass points distort the rank map). Failure modes: Outcome has mass points (e.g. many zero earnings) -> The rank map collapses tied units onto one value and the QTT curve is distorted; the reported ATT (a mean DiD) is unaffected. Use sp.cic bounds for discrete outcomes; Only two peri...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -17099,7 +17099,7 @@
     "name": "policy_tree"
   },
   {
-    "description": "Evaluate the expected value of a treatment policy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The relationship between the treated unit and controls is stable absent the intervention (causal_impact); Matrix-completion: the untreated potential outcomes follow a low-rank factor structure with treatment as the missingness pattern; No concurrent intervention affects the controls. Pre-conditions: A treated unit with a pre-period and a set of control series, or a panel with a low-rank structure. Failure modes: Pre-period fit is poor or controls are themselves affected by the intervention -> Re-select controls, lengthen the pre-period, or use synthetic-control / DiD diagnostics. Alternatives: sp.synth, sp.sdid, sp.gsynth. Typical minimum N: 50.",
+    "description": "Evaluate the expected value of a treatment policy. Validation: certified parity evidence. Assumptions: The relationship between the treated unit and controls is stable absent the intervention (causal_impact); Matrix-completion: the untreated potential outcomes follow a low-rank factor structure with treatment as the missingness pattern; No concurrent intervention affects the controls. Pre-conditions: A treated unit with a pre-period and a set of control series, or a panel with a low-rank structure. Failure modes: Pre-period fit is poor or controls are themselves affected by the intervention -> Re-select controls, lengthen the pre-period, or use synthetic-control / DiD diagnostics. Alternatives: sp.synth, sp.sdid, sp.gsynth. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "policy": {
@@ -17453,7 +17453,7 @@
     "name": "pretrends_equivalence"
   },
   {
-    "description": "Power of the pre-trend test against a hypothesised violation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Power of the pre-trend test against a hypothesised violation. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -17913,7 +17913,7 @@
     "name": "psm"
   },
   {
-    "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius, local linear regression, Mahalanobis): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance (.pstest() reproduces Stata pstest exactly), common-support plotting, and weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness / CIA: Y(d) perp D | X; Overlap / common support on the propensity score; SUTVA: no interference between matched units. Pre-conditions: binary treatment 0/1; covariates are pre-treatment (temporally prior to D); enough control units for each treated unit under k:1 matching. Failure modes: Residual imbalance after matching (max |SMD| > 0.1) -> Tighten caliper, add covariate interactions (ps_poly), or switch to sp.ebalance; Treated units off common support -> Pass common_support='minmax' (Stata `common`) or sp.trimming. Alternatives: sp.match, sp.psm, sp.ebalance, sp.cbps. Typical minimum N: 200.",
+    "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius, local linear regression, Mahalanobis): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance (.pstest() reproduces Stata pstest exactly), common-support plotting, and weighted PSM-DID. Validation: certified parity evidence. Assumptions: Unconfoundedness / CIA: Y(d) perp D | X; Overlap / common support on the propensity score; SUTVA: no interference between matched units. Pre-conditions: binary treatment 0/1; covariates are pre-treatment (temporally prior to D); enough control units for each treated unit under k:1 matching. Failure modes: Residual imbalance after matching (max |SMD| > 0.1) -> Tighten caliper, add covariate interactions (ps_poly), or switch to sp.ebalance; Treated units off common support -> Pass common_support='minmax' (Stata `common`) or sp.trimming. Alternatives: sp.match, sp.psm, sp.ebalance, sp.cbps. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "ai": {
@@ -18153,7 +18153,7 @@
     "name": "pub_ready"
   },
   {
-    "description": "Pairwise comparisons of predictive margins across all levels. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Pairwise comparisons of predictive margins across all levels. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "adjust": {
@@ -18184,7 +18184,7 @@
     "name": "pwcompare"
   },
   {
-    "description": "Quantile Difference-in-Differences (QDiD): applies the DiD contrast to quantiles, [Q11(t)-Q10(t)] - [Q01(t)-Q00(t)], on a 2x2 design with bootstrap SE. This is NOT changes-in-changes -- Athey & Imbens (2006) propose CiC and explicitly criticise QDiD; use sp.cic for CiC. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: CIC rank invariance: the quantile rank in the untreated distribution is stable across groups; Continuous outcome support covering both groups in both periods; SUTVA (no cross-group spillovers). Pre-conditions: panel or repeated cross-section; group is binary 0/1; time is binary 0/1 (pre / post). Failure modes: Outcome heavily discrete / zero-inflated -> CIC rank-matching is unstable on discrete supports -- use QTE regression (sp.qte) or Firpo-RIF; Bootstrap CI across quantiles varies wildly -> Thin tails at extreme quantiles -- restrict to [0.2, 0.8] or raise n_boot to 2000. Alternatives: sp.qte, sp.did, sp.rifreg. Typical minimum N: 500.",
+    "description": "Quantile Difference-in-Differences (QDiD): applies the DiD contrast to quantiles, [Q11(t)-Q10(t)] - [Q01(t)-Q00(t)], on a 2x2 design with bootstrap SE. This is NOT changes-in-changes -- Athey & Imbens (2006) propose CiC and explicitly criticise QDiD; use sp.cic for CiC. Validation: certified parity evidence. Assumptions: CIC rank invariance: the quantile rank in the untreated distribution is stable across groups; Continuous outcome support covering both groups in both periods; SUTVA (no cross-group spillovers). Pre-conditions: panel or repeated cross-section; group is binary 0/1; time is binary 0/1 (pre / post). Failure modes: Outcome heavily discrete / zero-inflated -> CIC rank-matching is unstable on discrete supports -- use QTE regression (sp.qte) or Firpo-RIF; Bootstrap CI across quantiles varies wildly -> Thin tails at extreme quantiles -- restrict to [0.2, 0.8] or raise n_boot to 2000. Alternatives: sp.qte, sp.did, sp.rifreg. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -18312,7 +18312,7 @@
     "name": "qreg"
   },
   {
-    "description": "Quantile treatment effects. 'firpo_qte' / 'firpo_qtt' give Firpo (2007) efficient UNCONDITIONAL QTE / QTT by propensity reweighting (analytic influence-function SE); 'conditional_qr' gives the CONDITIONAL QTE (coefficient on D in a quantile regression, Koenker & Bassett 1978); 'distribution' gives the QTT via an IPW counterfactual distribution. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: For 'firpo_qte' / 'firpo_qtt' / 'distribution': unconfoundedness + overlap; For 'conditional_qr': unconfoundedness conditional on controls; note this is a CONDITIONAL estimand with no causal reading absent rank invariance; Correct parametric quantile model (sensitivity tested via multiple quantiles). Pre-conditions: binary treatment (all methods); continuous outcome; controls cover the confounding set. Failure modes: Large IPW weights (method='ipw') -> Extreme propensities -- trim (sp.trimming) or switch to doubly-robust DR-QTE; Quantile crossing -> Use rearrangement (Chernozhukov-Fernandez-Val-Galichon) or monotone constraints. Alternatives: sp.qdid, sp.rifreg, sp.cic, sp.metalearner. Typical minimum N: 500.",
+    "description": "Quantile treatment effects. 'firpo_qte' / 'firpo_qtt' give Firpo (2007) efficient UNCONDITIONAL QTE / QTT by propensity reweighting (analytic influence-function SE); 'conditional_qr' gives the CONDITIONAL QTE (coefficient on D in a quantile regression, Koenker & Bassett 1978); 'distribution' gives the QTT via an IPW counterfactual distribution. Validation: certified parity evidence. Assumptions: For 'firpo_qte' / 'firpo_qtt' / 'distribution': unconfoundedness + overlap; For 'conditional_qr': unconfoundedness conditional on controls; note this is a CONDITIONAL estimand with no causal reading absent rank invariance; Correct parametric quantile model (sensitivity tested via multiple quantiles). Pre-conditions: binary treatment (all methods); continuous outcome; controls cover the confounding set. Failure modes: Large IPW weights (method='ipw') -> Extreme propensities -- trim (sp.trimming) or switch to doubly-robust DR-QTE; Quantile crossing -> Use rearrangement (Chernozhukov-Fernandez-Val-Galichon) or monotone constraints. Alternatives: sp.qdid, sp.rifreg, sp.cic, sp.metalearner. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -21199,7 +21199,7 @@
     "name": "regress"
   },
   {
-    "description": "Load a famous dataset and a step-by-step replication guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Load a famous dataset and a step-by-step replication guide.",
     "input_schema": {
       "properties": {
         "key": {
@@ -21219,7 +21219,7 @@
     "name": "replicate"
   },
   {
-    "description": "Ramsey RESET test for functional form misspecification. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Ramsey RESET test for functional form misspecification. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "powers": {
@@ -22084,7 +22084,7 @@
     "name": "rosenbaum_gamma"
   },
   {
-    "description": "Stable Balancing Weights (Zubizarreta 2015) with optional ATT/ATE Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
+    "description": "Stable Balancing Weights (Zubizarreta 2015) with optional ATT/ATE Validation: certified parity evidence. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -23008,7 +23008,7 @@
     "name": "snips"
   },
   {
-    "description": "Lerman-Yitzhaki (1985) Gini source decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Lerman-Yitzhaki (1985) Gini source decomposition. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "sources": {
@@ -23875,7 +23875,7 @@
     "name": "subgroup_analysis"
   },
   {
-    "description": "Subgroup decomposition (between / within) of an inequality index. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Subgroup decomposition (between / within) of an inequality index. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -24172,7 +24172,7 @@
     "name": "survivor_average_causal_effect"
   },
   {
-    "description": "Parametric survival model (AFT parameterization). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Parametric survival model (AFT parameterization). Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -25436,7 +25436,7 @@
     "name": "test_calibration"
   },
   {
-    "description": "Three-Stage Least Squares (3SLS). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Three-Stage Least Squares (3SLS). Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -26341,7 +26341,7 @@
     "name": "wild_cluster_ci_inv"
   },
   {
-    "description": "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE regression with cohort x post interactions; recovers cohort-specific ATTs. Numerically equivalent to CS / SA / BJS under the saturated specification. Validation: certified parity evidence. Do NOT use when: treatment timing is not staggered -- the extended TWFE saturation buys nothing over sp.did(method='2x2'). Cost: Like sp.etwfe: regressor count grows as O(cohorts x periods) from the saturated interactions, so the design matrix -- not the sample size -- is the binding cost. Assumptions: Parallel trends per cohort; No anticipation; SUTVA. Pre-conditions: panel with unit x time x outcome; first_treat cohort column (first period treated, 0 = never). Failure modes: Singleton cohorts with one unit -> Aggregate small cohorts or drop them. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation, sp.etwfe. Typical minimum N: 50.",
+    "description": "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE regression with cohort x post interactions; recovers cohort-specific ATTs. Numerically equivalent to CS / SA / BJS under the saturated specification. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: treatment timing is not staggered -- the extended TWFE saturation buys nothing over sp.did(method='2x2'). Cost: Like sp.etwfe: regressor count grows as O(cohorts x periods) from the saturated interactions, so the design matrix -- not the sample size -- is the binding cost. Assumptions: Parallel trends per cohort; No anticipation; SUTVA. Pre-conditions: panel with unit x time x outcome; first_treat cohort column (first period treated, 0 = never). Failure modes: Singleton cohorts with one unit -> Aggregate small cohorts or drop them. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation, sp.etwfe. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "alpha": {

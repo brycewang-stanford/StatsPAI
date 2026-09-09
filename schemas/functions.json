@@ -455,7 +455,7 @@
     }
   },
   {
-    "description": "Triple Differences (DDD) estimator. Adds a within-treatment-group subgroup that is unaffected by treatment as an additional control dimension, relaxing parallel trends from 'same trend across groups' to 'same differential trend across subgroups within groups'. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Triple Differences (DDD) estimator. Adds a within-treatment-group subgroup that is unaffected by treatment as an additional control dimension, relaxing parallel trends from 'same trend across groups' to 'same differential trend across subgroups within groups'. Validation: certified parity evidence.",
     "name": "ddd",
     "parameters": {
       "properties": {
@@ -1335,7 +1335,7 @@
     }
   },
   {
-    "description": "Meta-learner framework for CATE: S-, T-, X-, R-, DR-Learner. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Meta-learner framework for CATE: S-, T-, X-, R-, DR-Learner. Validation: certified parity evidence.",
     "name": "metalearner",
     "parameters": {
       "properties": {
@@ -1381,7 +1381,7 @@
     }
   },
   {
-    "description": "Propensity score and covariate matching for treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: greedy nearest-neighbour matching without replacement is order-dependent: the m_order convention can differ across packages and materially moves the estimate (>5x spread on MatchIt::lalonde with Mahalanobis distance). m_order='data' and 'closest' reproduce MatchIt exactly; m_order='farthest' is StatsPAI's own dynamic rule and is not MatchIt-equivalent; bias_correction=True follows a different convention from Matching::Match's BiasAdjust: StatsPAI regresses on the full covariate vector with unweighted OLS over all controls, the reference regresses on the matching variables weighted by match counts, so bias-corrected estimates can differ from it by about 0.1%. The uncorrected estimate and its Abadie-Imbens standard error are exact. Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that.",
+    "description": "Propensity score and covariate matching for treatment effect estimation. Validation: certified evidence with scoped limitations. Known limitations: greedy nearest-neighbour matching without replacement is order-dependent: the m_order convention can differ across packages and materially moves the estimate (>5x spread on MatchIt::lalonde with Mahalanobis distance). m_order='data' and 'closest' reproduce MatchIt exactly; m_order='farthest' is StatsPAI's own dynamic rule and is not MatchIt-equivalent; bias_correction=True follows a different convention from Matching::Match's BiasAdjust: StatsPAI regresses on the full covariate vector with unweighted OLS over all controls, the reference regresses on the matching variables weighted by match counts, so bias-corrected estimates can differ from it by about 0.1%. The uncorrected estimate and its Abadie-Imbens standard error are exact. Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that.",
     "name": "match",
     "parameters": {
       "properties": {
@@ -1509,7 +1509,7 @@
     }
   },
   {
-    "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius, local linear regression, Mahalanobis): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance (.pstest() reproduces Stata pstest exactly), common-support plotting, and weighted PSM-DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Stata psmatch2-faithful supported propensity-score matching paths (nearest-neighbour, kernel, radius, local linear regression, Mahalanobis): returns matched-sample variables (_pscore _treated _support _weight _y; plus _n1 through _nn _pdif for nearest-neighbour), the psmatch2 analytic ATT standard error, plus post-matching balance (.pstest() reproduces Stata pstest exactly), common-support plotting, and weighted PSM-DID. Validation: certified parity evidence.",
     "name": "psmatch2",
     "parameters": {
       "properties": {
@@ -2524,7 +2524,7 @@
     }
   },
   {
-    "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Validation: certified parity evidence.",
     "name": "ipw",
     "parameters": {
       "properties": {
@@ -2719,7 +2719,7 @@
     }
   },
   {
-    "description": "Spatial Autoregressive (Lag) Model: Y = rhoWY + Xbeta + epsilon via ML.",
+    "description": "Spatial Autoregressive (Lag) Model: Y = rhoWY + Xbeta + epsilon via ML. Validation: certified parity evidence.",
     "name": "sar",
     "parameters": {
       "properties": {
@@ -2745,7 +2745,7 @@
     }
   },
   {
-    "description": "Spatial Error Model: Y = Xbeta + u, u = lambdaWu + epsilon via ML.",
+    "description": "Spatial Error Model: Y = Xbeta + u, u = lambdaWu + epsilon via ML. Validation: certified parity evidence.",
     "name": "sem",
     "parameters": {
       "properties": {
@@ -2797,7 +2797,7 @@
     }
   },
   {
-    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: certified parity evidence.",
     "name": "bootstrap",
     "parameters": {
       "properties": {
@@ -2853,7 +2853,7 @@
     }
   },
   {
-    "description": "Parametric g-formula (standardization) estimator. ATE/ATT for binary D, or dose-response curve for continuous D. Consistent under correctly-specified outcome model; not doubly robust. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Parametric g-formula (standardization) estimator. ATE/ATT for binary D, or dose-response curve for continuous D. Consistent under correctly-specified outcome model; not doubly robust. Validation: certified parity evidence.",
     "name": "g_computation",
     "parameters": {
       "properties": {
@@ -3041,7 +3041,7 @@
     }
   },
   {
-    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: certified parity evidence.",
     "name": "mediate_interventional",
     "parameters": {
       "properties": {
@@ -3994,7 +3994,7 @@
     }
   },
   {
-    "description": "Odds ratio from a 2x2 table with Woolf (asymptotic) or Fisher-exact CI. Haldane-Anscombe correction for zero cells. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Odds ratio from a 2x2 table with Woolf (asymptotic) or Fisher-exact CI. Haldane-Anscombe correction for zero cells. Validation: certified parity evidence.",
     "name": "odds_ratio",
     "parameters": {
       "properties": {
@@ -4036,7 +4036,7 @@
     }
   },
   {
-    "description": "Relative risk (risk ratio) from a 2x2 table with Katz log-RR CI. Haldane correction for zero cells. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Relative risk (risk ratio) from a 2x2 table with Katz log-RR CI. Haldane correction for zero cells. Validation: certified parity evidence.",
     "name": "relative_risk",
     "parameters": {
       "properties": {
@@ -4069,7 +4069,7 @@
     }
   },
   {
-    "description": "Risk difference (absolute risk reduction) with Wald or Newcombe hybrid-score CI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Risk difference (absolute risk reduction) with Wald or Newcombe hybrid-score CI. Validation: certified parity evidence.",
     "name": "risk_difference",
     "parameters": {
       "properties": {
@@ -4111,7 +4111,7 @@
     }
   },
   {
-    "description": "Attributable fractions in the exposed (AF) and in the population (Levin PAF) with delta-method CI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Attributable fractions in the exposed (AF) and in the population (Levin PAF) with delta-method CI. Validation: certified parity evidence.",
     "name": "attributable_risk",
     "parameters": {
       "properties": {
@@ -4144,7 +4144,7 @@
     }
   },
   {
-    "description": "Person-time incidence rate ratio with exact Poisson CI (Clopper-Pearson on conditional binomial). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Person-time incidence rate ratio with exact Poisson CI (Clopper-Pearson on conditional binomial). Validation: certified parity evidence.",
     "name": "incidence_rate_ratio",
     "parameters": {
       "properties": {
@@ -4189,7 +4189,7 @@
     }
   },
   {
-    "description": "Mantel-Haenszel pooled OR or RR across K strata, with Robins-Breslow-Greenland variance and Cochran's Q homogeneity check. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Mantel-Haenszel pooled OR or RR across K strata, with Robins-Breslow-Greenland variance and Cochran's Q homogeneity check. Validation: certified parity evidence.",
     "name": "mantel_haenszel",
     "parameters": {
       "properties": {
@@ -4240,7 +4240,7 @@
     }
   },
   {
-    "description": "Direct age/covariate standardization of a rate using external standard-population weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Direct age/covariate standardization of a rate using external standard-population weights. Validation: certified parity evidence.",
     "name": "direct_standardize",
     "parameters": {
       "properties": {
@@ -4280,7 +4280,7 @@
     }
   },
   {
-    "description": "Indirect standardization -> SMR (standardized morbidity / mortality ratio) with Garwood exact Poisson CI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Indirect standardization -> SMR (standardized morbidity / mortality ratio) with Garwood exact Poisson CI. Validation: certified parity evidence.",
     "name": "indirect_standardize",
     "parameters": {
       "properties": {
@@ -4999,7 +4999,7 @@
     }
   },
   {
-    "description": "Sensitivity, specificity, PPV, NPV, LR+ / LR- with Wilson score CIs. Accepts either raw binary labels or pre-computed confusion counts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Sensitivity, specificity, PPV, NPV, LR+ / LR- with Wilson score CIs. Accepts either raw binary labels or pre-computed confusion counts. Validation: certified parity evidence.",
     "name": "sensitivity_specificity",
     "parameters": {
       "properties": {
@@ -5038,7 +5038,7 @@
     }
   },
   {
-    "description": "ROC curve with AUC (trapezoidal) and Hanley-McNeil (1982) standard error. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "ROC curve with AUC (trapezoidal) and Hanley-McNeil (1982) standard error. Validation: certified parity evidence.",
     "name": "roc_curve",
     "parameters": {
       "properties": {
@@ -5064,7 +5064,7 @@
     }
   },
   {
-    "description": "Cohen's kappa for inter-rater agreement on nominal or ordinal scales. Supports linear / quadratic weighting. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Cohen's kappa for inter-rater agreement on nominal or ordinal scales. Supports linear / quadratic weighting. Validation: certified parity evidence.",
     "name": "cohen_kappa",
     "parameters": {
       "properties": {
@@ -9195,7 +9195,7 @@
     }
   },
   {
-    "description": "Bootstrap SIR particle filter for non-Gaussian assimilative causal inference. Supports arbitrary prior sampler, transition sampler, and observation log-pdf, with systematic resampling triggered by an ESS threshold.",
+    "description": "Bootstrap SIR particle filter for non-Gaussian assimilative causal inference. Supports arbitrary prior sampler, transition sampler, and observation log-pdf, with systematic resampling triggered by an ESS threshold. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "particle_filter",
     "parameters": {
       "properties": {
@@ -9348,7 +9348,7 @@
     }
   },
   {
-    "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: certified parity evidence.",
     "name": "mr",
     "parameters": {
       "properties": {
@@ -9393,7 +9393,7 @@
     }
   },
   {
-    "description": "Quantile Difference-in-Differences (QDiD): applies the DiD contrast to quantiles, [Q11(t)-Q10(t)] - [Q01(t)-Q00(t)], on a 2x2 design with bootstrap SE. This is NOT changes-in-changes -- Athey & Imbens (2006) propose CiC and explicitly criticise QDiD; use sp.cic for CiC. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Quantile Difference-in-Differences (QDiD): applies the DiD contrast to quantiles, [Q11(t)-Q10(t)] - [Q01(t)-Q00(t)], on a 2x2 design with bootstrap SE. This is NOT changes-in-changes -- Athey & Imbens (2006) propose CiC and explicitly criticise QDiD; use sp.cic for CiC. Validation: certified parity evidence.",
     "name": "qdid",
     "parameters": {
       "properties": {
@@ -9441,7 +9441,7 @@
     }
   },
   {
-    "description": "Callaway & Li (2019) quantile treatment effect on the treated for panel data. Recovers the counterfactual DISTRIBUTION of untreated outcomes for the treated group via distributional DiD plus a copula-stability assumption. Needs a balanced THREE-period panel (the third period identifies the copula). Exact parity with R qte::panel.qtet (6.8e-12). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Callaway & Li (2019) quantile treatment effect on the treated for panel data. Recovers the counterfactual DISTRIBUTION of untreated outcomes for the treated group via distributional DiD plus a copula-stability assumption. Needs a balanced THREE-period panel (the third period identifies the copula). Exact parity with R qte::panel.qtet (6.8e-12). Validation: certified parity evidence.",
     "name": "panel_qtet",
     "parameters": {
       "properties": {
@@ -9523,7 +9523,7 @@
     }
   },
   {
-    "description": "Quantile treatment effects. 'firpo_qte' / 'firpo_qtt' give Firpo (2007) efficient UNCONDITIONAL QTE / QTT by propensity reweighting (analytic influence-function SE); 'conditional_qr' gives the CONDITIONAL QTE (coefficient on D in a quantile regression, Koenker & Bassett 1978); 'distribution' gives the QTT via an IPW counterfactual distribution. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Quantile treatment effects. 'firpo_qte' / 'firpo_qtt' give Firpo (2007) efficient UNCONDITIONAL QTE / QTT by propensity reweighting (analytic influence-function SE); 'conditional_qr' gives the CONDITIONAL QTE (coefficient on D in a quantile regression, Koenker & Bassett 1978); 'distribution' gives the QTT via an IPW counterfactual distribution. Validation: certified parity evidence.",
     "name": "qte",
     "parameters": {
       "properties": {
@@ -10252,7 +10252,7 @@
     }
   },
   {
-    "description": "Canonical 2x2 DID: two groups (treated / control) x two periods (pre / post). Point estimate via either group-means differencing or OLS on the treat x post interaction; optional covariates, robust / cluster SE, and sample weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: treatment timing is staggered across units -- the TWFE 2x2 estimate is a negative-weighted mix (Goodman-Bacon 2021); use sp.callaway_santanna, sp.sun_abraham or sp.did_imputation.",
+    "description": "Canonical 2x2 DID: two groups (treated / control) x two periods (pre / post). Point estimate via either group-means differencing or OLS on the treat x post interaction; optional covariates, robust / cluster SE, and sample weights. Validation: certified parity evidence. Do NOT use when: treatment timing is staggered across units -- the TWFE 2x2 estimate is a negative-weighted mix (Goodman-Bacon 2021); use sp.callaway_santanna, sp.sun_abraham or sp.did_imputation.",
     "name": "did_2x2",
     "parameters": {
       "properties": {
@@ -10889,7 +10889,7 @@
     }
   },
   {
-    "description": "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE regression with cohort x post interactions; recovers cohort-specific ATTs. Numerically equivalent to CS / SA / BJS under the saturated specification. Validation: certified parity evidence. Do NOT use when: treatment timing is not staggered -- the extended TWFE saturation buys nothing over sp.did(method='2x2'). Cost: Like sp.etwfe: regressor count grows as O(cohorts x periods) from the saturated interactions, so the design matrix -- not the sample size -- is the binding cost.",
+    "description": "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE regression with cohort x post interactions; recovers cohort-specific ATTs. Numerically equivalent to CS / SA / BJS under the saturated specification. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: treatment timing is not staggered -- the extended TWFE saturation buys nothing over sp.did(method='2x2'). Cost: Like sp.etwfe: regressor count grows as O(cohorts x periods) from the saturated interactions, so the design matrix -- not the sample size -- is the binding cost.",
     "name": "wooldridge_did",
     "parameters": {
       "properties": {
@@ -10941,7 +10941,7 @@
     }
   },
   {
-    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with xvar, panel=False, or cgroup='nevertreated' is not yet supported; these raise rather than being silently ignored; family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: Saturated cohort x period interaction design: the number of regressors grows as O(cohorts x periods), so many-cohort many-period panels produce a wide dense design and a slow solve. Check the cohort x period grid size before calling.",
+    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale. Validation: certified evidence with scoped limitations. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with xvar, panel=False, or cgroup='nevertreated' is not yet supported; these raise rather than being silently ignored; family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: Saturated cohort x period interaction design: the number of regressors grows as O(cohorts x periods), so many-cohort many-period panels produce a wide dense design and a slow solve. Check the cohort x period grid size before calling.",
     "name": "etwfe",
     "parameters": {
       "properties": {
@@ -15182,7 +15182,7 @@
     }
   },
   {
-    "description": "Power of the pre-trend test against a hypothesised violation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Power of the pre-trend test against a hypothesised violation. Validation: certified parity evidence.",
     "name": "pretrends_power",
     "parameters": {
       "properties": {
@@ -18777,7 +18777,7 @@
     }
   },
   {
-    "description": "California Proposition 99 tobacco control dataset. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "California Proposition 99 tobacco control dataset.",
     "name": "california_prop99",
     "parameters": {
       "properties": {},
@@ -19017,7 +19017,7 @@
     }
   },
   {
-    "description": "Entropy Balancing treatment effect estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Entropy Balancing treatment effect estimator. Validation: certified parity evidence.",
     "name": "ebalance",
     "parameters": {
       "properties": {
@@ -20150,7 +20150,7 @@
     }
   },
   {
-    "description": "Compute DML-OVB sensitivity for a fitted DML CausalResult. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute DML-OVB sensitivity for a fitted DML CausalResult. Validation: certified parity evidence.",
     "name": "dml_sensitivity",
     "parameters": {
       "properties": {
@@ -21583,7 +21583,7 @@
     }
   },
   {
-    "description": "Overlap-weight (ATO) treatment effect estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Overlap-weight (ATO) treatment effect estimator. Validation: certified parity evidence.",
     "name": "overlap_weights",
     "parameters": {
       "properties": {
@@ -21649,7 +21649,7 @@
     }
   },
   {
-    "description": "Covariate-Balancing Propensity Score estimator (Imai-Ratkovic 2014). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Covariate-Balancing Propensity Score estimator (Imai-Ratkovic 2014). Validation: certified parity evidence.",
     "name": "cbps",
     "parameters": {
       "properties": {
@@ -21725,7 +21725,7 @@
     }
   },
   {
-    "description": "Stable Balancing Weights (Zubizarreta 2015) with optional ATT/ATE Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Stable Balancing Weights (Zubizarreta 2015) with optional ATT/ATE Validation: certified parity evidence.",
     "name": "sbw",
     "parameters": {
       "properties": {
@@ -21884,7 +21884,7 @@
     }
   },
   {
-    "description": "Genetic Matching for ATT estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Genetic search: population_size x generations full matching + balance evaluations (default 40 x 20 = 800 matching passes), each of which builds a pairwise distance matrix. Budget it as hundreds of sp.match calls, not one.",
+    "description": "Genetic Matching for ATT estimation. Validation: certified parity evidence. Cost: Genetic search: population_size x generations full matching + balance evaluations (default 40 x 20 = 800 matching passes), each of which builds a pairwise distance matrix. Budget it as hundreds of sp.match calls, not one.",
     "name": "genmatch",
     "parameters": {
       "properties": {
@@ -24655,7 +24655,7 @@
     }
   },
   {
-    "description": "Complementary log-log regression via maximum likelihood. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Complementary log-log regression via maximum likelihood. Validation: certified parity evidence.",
     "name": "cloglog",
     "parameters": {
       "properties": {
@@ -24720,7 +24720,7 @@
     }
   },
   {
-    "description": "Fit a Generalized Linear Model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fit a Generalized Linear Model. Validation: certified parity evidence.",
     "name": "glm",
     "parameters": {
       "properties": {
@@ -25185,7 +25185,7 @@
     }
   },
   {
-    "description": "Compute predictive margins at specific covariate values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute predictive margins at specific covariate values. Validation: certified parity evidence.",
     "name": "margins_at",
     "parameters": {
       "properties": {
@@ -25275,7 +25275,7 @@
     }
   },
   {
-    "description": "Compute contrasts of predictive margins across levels of a variable. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute contrasts of predictive margins across levels of a variable. Validation: certified parity evidence.",
     "name": "contrast",
     "parameters": {
       "properties": {
@@ -25315,7 +25315,7 @@
     }
   },
   {
-    "description": "Pairwise comparisons of predictive margins across all levels. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Pairwise comparisons of predictive margins across all levels. Validation: certified parity evidence.",
     "name": "pwcompare",
     "parameters": {
       "properties": {
@@ -25688,7 +25688,7 @@
     }
   },
   {
-    "description": "Breusch-Pagan test for heteroskedasticity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Breusch-Pagan test for heteroskedasticity. Validation: certified parity evidence.",
     "name": "het_test",
     "parameters": {
       "properties": {
@@ -25717,7 +25717,7 @@
     }
   },
   {
-    "description": "Ramsey RESET test for functional form misspecification. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Ramsey RESET test for functional form misspecification. Validation: certified parity evidence.",
     "name": "reset_test",
     "parameters": {
       "properties": {
@@ -30694,7 +30694,7 @@
     }
   },
   {
-    "description": "Evaluate the expected value of a treatment policy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Evaluate the expected value of a treatment policy. Validation: certified parity evidence.",
     "name": "policy_value",
     "parameters": {
       "properties": {
@@ -31496,7 +31496,7 @@
     }
   },
   {
-    "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: certified parity evidence.",
     "name": "lee_bounds",
     "parameters": {
       "properties": {
@@ -31549,7 +31549,7 @@
     }
   },
   {
-    "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: certified parity evidence.",
     "name": "manski_bounds",
     "parameters": {
       "properties": {
@@ -31785,7 +31785,7 @@
     }
   },
   {
-    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: certified parity evidence.",
     "name": "oster_delta",
     "parameters": {
       "properties": {
@@ -31916,7 +31916,7 @@
     }
   },
   {
-    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: certified parity evidence.",
     "name": "breakdown_frontier",
     "parameters": {
       "properties": {
@@ -32445,7 +32445,7 @@
     }
   },
   {
-    "description": "Survey-weighted mean with design-corrected standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Survey-weighted mean with design-corrected standard errors. Validation: certified parity evidence.",
     "name": "svymean",
     "parameters": {
       "properties": {
@@ -32474,7 +32474,7 @@
     }
   },
   {
-    "description": "Survey-weighted total with design-corrected standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Survey-weighted total with design-corrected standard errors. Validation: certified parity evidence.",
     "name": "svytotal",
     "parameters": {
       "properties": {
@@ -32503,7 +32503,7 @@
     }
   },
   {
-    "description": "Survey-weighted generalised linear model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Survey-weighted generalised linear model. Validation: certified parity evidence.",
     "name": "svyglm",
     "parameters": {
       "properties": {
@@ -32664,7 +32664,7 @@
     }
   },
   {
-    "description": "Power for a two-arm Randomised Controlled Trial. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Power for a two-arm Randomised Controlled Trial. Validation: certified parity evidence.",
     "name": "power_rct",
     "parameters": {
       "properties": {
@@ -32835,7 +32835,7 @@
     }
   },
   {
-    "description": "Power for a Cluster-Randomised Controlled Trial. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Power for a Cluster-Randomised Controlled Trial. Validation: certified parity evidence.",
     "name": "power_cluster_rct",
     "parameters": {
       "properties": {
@@ -32917,7 +32917,7 @@
     }
   },
   {
-    "description": "Compute the Minimum Detectable Effect (MDE) for a given design. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute the Minimum Detectable Effect (MDE) for a given design. Validation: certified parity evidence.",
     "name": "mde",
     "parameters": {
       "properties": {
@@ -32942,7 +32942,7 @@
     }
   },
   {
-    "description": "Power (or sample size) to detect a difference between two proportions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Power (or sample size) to detect a difference between two proportions. Validation: certified parity evidence.",
     "name": "power_two_proportions",
     "parameters": {
       "properties": {
@@ -32989,7 +32989,7 @@
     }
   },
   {
-    "description": "Power (or sample size) for a two-arm log-rank / survival comparison. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Power (or sample size) for a two-arm log-rank / survival comparison. Validation: certified parity evidence.",
     "name": "power_logrank",
     "parameters": {
       "properties": {
@@ -33036,7 +33036,7 @@
     }
   },
   {
-    "description": "Power (or number of cases) for an unmatched case-control study. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Power (or number of cases) for an unmatched case-control study. Validation: certified parity evidence.",
     "name": "power_case_control",
     "parameters": {
       "properties": {
@@ -33137,7 +33137,7 @@
     }
   },
   {
-    "description": "Gelbach (2016) decomposition of omitted variable bias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Gelbach (2016) decomposition of omitted variable bias. Validation: certified parity evidence.",
     "name": "gelbach",
     "parameters": {
       "properties": {
@@ -33608,7 +33608,7 @@
     }
   },
   {
-    "description": "Adjust p-values for multiple comparisons. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Adjust p-values for multiple comparisons. Validation: certified parity evidence.",
     "name": "adjust_pvalues",
     "parameters": {
       "properties": {
@@ -33629,7 +33629,7 @@
     }
   },
   {
-    "description": "Bonferroni correction: ``p_adj = min(p * S, 1)``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Bonferroni correction: ``p_adj = min(p * S, 1)``. Validation: certified parity evidence.",
     "name": "bonferroni",
     "parameters": {
       "properties": {
@@ -33645,7 +33645,7 @@
     }
   },
   {
-    "description": "Holm (1979) step-down correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Holm (1979) step-down correction. Validation: certified parity evidence.",
     "name": "holm",
     "parameters": {
       "properties": {
@@ -33661,7 +33661,7 @@
     }
   },
   {
-    "description": "Benjamini-Hochberg (1995) FDR correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Benjamini-Hochberg (1995) FDR correction. Validation: certified parity evidence.",
     "name": "benjamini_hochberg",
     "parameters": {
       "properties": {
@@ -33699,7 +33699,7 @@
     }
   },
   {
-    "description": "Return the full specification for a function as a dictionary. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Return the full specification for a function as a dictionary.",
     "name": "describe_function",
     "parameters": {
       "properties": {
@@ -34302,7 +34302,7 @@
     }
   },
   {
-    "description": "Generate Difference-in-Differences panel data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Generate Difference-in-Differences panel data.",
     "name": "dgp_did",
     "parameters": {
       "properties": {
@@ -35182,7 +35182,7 @@
     }
   },
   {
-    "description": "Hurdle (two-part) model for count data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Hurdle (two-part) model for count data. Validation: certified parity evidence.",
     "name": "hurdle",
     "parameters": {
       "properties": {
@@ -36093,7 +36093,7 @@
     }
   },
   {
-    "description": "Estimate GLM (logit, probit, Gaussian) with high-dimensional fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Estimate GLM (logit, probit, Gaussian) with high-dimensional fixed effects. Validation: certified parity evidence.",
     "name": "feglm",
     "parameters": {
       "properties": {
@@ -36232,7 +36232,7 @@
     }
   },
   {
-    "description": "Kaplan-Meier non-parametric survival function estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Kaplan-Meier non-parametric survival function estimator. Validation: certified parity evidence.",
     "name": "kaplan_meier",
     "parameters": {
       "properties": {
@@ -36267,7 +36267,7 @@
     }
   },
   {
-    "description": "Parametric survival model (AFT parameterization). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Parametric survival model (AFT parameterization). Validation: certified parity evidence.",
     "name": "survreg",
     "parameters": {
       "properties": {
@@ -36410,7 +36410,7 @@
     }
   },
   {
-    "description": "Log-rank test for equality of survival distributions across groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Log-rank test for equality of survival distributions across groups. Validation: certified parity evidence.",
     "name": "logrank_test",
     "parameters": {
       "properties": {
@@ -36738,7 +36738,7 @@
     }
   },
   {
-    "description": "Kernel density estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Kernel density estimation. Validation: certified parity evidence.",
     "name": "kdensity",
     "parameters": {
       "properties": {
@@ -38945,7 +38945,7 @@
     }
   },
   {
-    "description": "Fractional response model (Papke & Wooldridge 1996). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fractional response model (Papke & Wooldridge 1996). Validation: certified parity evidence.",
     "name": "fracreg",
     "parameters": {
       "properties": {
@@ -39060,7 +39060,7 @@
     }
   },
   {
-    "description": "Bivariate probit model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Bivariate probit model. Validation: certified parity evidence.",
     "name": "biprobit",
     "parameters": {
       "properties": {
@@ -40328,7 +40328,7 @@
     }
   },
   {
-    "description": "Resolve verified BibTeX entries from ``paper.bib`` by citation key. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Resolve verified BibTeX entries from ``paper.bib`` by citation key.",
     "name": "bibtex",
     "parameters": {
       "properties": {
@@ -40638,7 +40638,7 @@
     }
   },
   {
-    "description": "Load a famous dataset and a step-by-step replication guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Load a famous dataset and a step-by-step replication guide.",
     "name": "replicate",
     "parameters": {
       "properties": {
@@ -40658,7 +40658,7 @@
     }
   },
   {
-    "description": "List all available replication datasets and guides. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "List all available replication datasets and guides.",
     "name": "list_replications",
     "parameters": {
       "properties": {},
@@ -40972,7 +40972,7 @@
     }
   },
   {
-    "description": "Three-Stage Least Squares (3SLS). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Three-Stage Least Squares (3SLS). Validation: certified parity evidence.",
     "name": "three_sls",
     "parameters": {
       "properties": {
@@ -41961,7 +41961,7 @@
     }
   },
   {
-    "description": "Intra-class correlation for a fitted mixed model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Intra-class correlation for a fitted mixed model. Validation: certified parity evidence.",
     "name": "icc",
     "parameters": {
       "properties": {
@@ -41996,7 +41996,7 @@
     }
   },
   {
-    "description": "Likelihood-ratio test comparing a *restricted* and a *full* model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Likelihood-ratio test comparing a *restricted* and a *full* model. Validation: certified parity evidence.",
     "name": "lrtest",
     "parameters": {
       "properties": {
@@ -45181,7 +45181,7 @@
     }
   },
   {
-    "description": "Kelejian-Prucha (1998) 2SLS for SAR with spatial-lag instruments.",
+    "description": "Kelejian-Prucha (1998) 2SLS for SAR with spatial-lag instruments. Validation: certified parity evidence.",
     "name": "sar_gmm",
     "parameters": {
       "properties": {
@@ -46503,7 +46503,7 @@
     }
   },
   {
-    "description": "Das Gupta (1993) multi-factor decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Das Gupta (1993) multi-factor decomposition. Validation: certified parity evidence.",
     "name": "das_gupta",
     "parameters": {
       "properties": {
@@ -46614,7 +46614,7 @@
     }
   },
   {
-    "description": "Kitagawa (1955) two-factor rate decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Kitagawa (1955) two-factor rate decomposition. Validation: certified parity evidence.",
     "name": "kitagawa_decompose",
     "parameters": {
       "properties": {
@@ -46662,7 +46662,7 @@
     }
   },
   {
-    "description": "Lerman-Yitzhaki (1985) Gini source decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Lerman-Yitzhaki (1985) Gini source decomposition. Validation: certified parity evidence.",
     "name": "source_decompose",
     "parameters": {
       "properties": {
@@ -46690,7 +46690,7 @@
     }
   },
   {
-    "description": "Subgroup decomposition (between / within) of an inequality index. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Subgroup decomposition (between / within) of an inequality index. Validation: certified parity evidence.",
     "name": "subgroup_decompose",
     "parameters": {
       "properties": {
@@ -46796,7 +46796,7 @@
     }
   },
   {
-    "description": "Linear nested-models mediation decomposition (VanderWeele 2014 Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Linear nested-models mediation decomposition (VanderWeele 2014 Validation: certified parity evidence.",
     "name": "mediation_decompose",
     "parameters": {
       "properties": {
@@ -46996,7 +46996,7 @@
     }
   },
   {
-    "description": "Compute a single inequality index. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute a single inequality index. Validation: certified parity evidence.",
     "name": "inequality_index",
     "parameters": {
       "properties": {
@@ -47608,7 +47608,7 @@
     }
   },
   {
-    "description": "Optimal 1:1 matching via the Hungarian algorithm. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: either arm has more than ~10,000 units -- the assignment problem is superquadratic (see cost); use sp.psm or sp.match (greedy nearest-neighbour) at that scale. Cost: Materialises the dense n_treated x n_control distance matrix, then solves a linear sum assignment (Hungarian, ~O(n^3) worst case). Both memory and time degrade sharply past a few thousand units per arm.",
+    "description": "Optimal 1:1 matching via the Hungarian algorithm. Validation: certified parity evidence. Do NOT use when: either arm has more than ~10,000 units -- the assignment problem is superquadratic (see cost); use sp.psm or sp.match (greedy nearest-neighbour) at that scale. Cost: Materialises the dense n_treated x n_control distance matrix, then solves a linear sum assignment (Hungarian, ~O(n^3) worst case). Both memory and time degrade sharply past a few thousand units per arm.",
     "name": "optimal_match",
     "parameters": {
       "properties": {
@@ -47752,7 +47752,7 @@
     }
   },
   {
-    "description": "Fit an Accelerated Failure Time model by MLE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fit an Accelerated Failure Time model by MLE. Validation: certified parity evidence.",
     "name": "aft",
     "parameters": {
       "properties": {
@@ -49597,7 +49597,7 @@
     }
   },
   {
-    "description": "E-value computed directly from a risk ratio and its CI bounds. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "E-value computed directly from a risk ratio and its CI bounds. Validation: certified parity evidence.",
     "name": "evalue_rr",
     "parameters": {
       "properties": {
@@ -50623,7 +50623,7 @@
     }
   },
   {
-    "description": "Number needed to treat (or harm), defined as |1 / RD|. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Number needed to treat (or harm), defined as |1 / RD|. Validation: certified parity evidence.",
     "name": "number_needed_to_treat",
     "parameters": {
       "properties": {
@@ -50656,7 +50656,7 @@
     }
   },
   {
-    "description": "Prevalence ratio (cross-sectional RR); mathematically identical Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Prevalence ratio (cross-sectional RR); mathematically identical Validation: certified parity evidence.",
     "name": "prevalence_ratio",
     "parameters": {
       "properties": {
@@ -50728,7 +50728,7 @@
     }
   },
   {
-    "description": "Shortcut: just return the AUC. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Shortcut: just return the AUC. Validation: certified parity evidence.",
     "name": "auc",
     "parameters": {
       "properties": {
@@ -55885,7 +55885,7 @@
     }
   },
   {
-    "description": "Per-node local clustering coefficient (Watts-Strogatz). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Per-node local clustering coefficient (Watts-Strogatz). Validation: certified parity evidence.",
     "name": "clustering",
     "parameters": {
       "properties": {
@@ -56026,7 +56026,7 @@
     }
   },
   {
-    "description": "Degree centrality. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Degree centrality. Validation: certified parity evidence.",
     "name": "degree_centrality",
     "parameters": {
       "properties": {
@@ -56077,7 +56077,7 @@
     }
   },
   {
-    "description": "Shortest-path betweenness centrality (Brandes 2001). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Shortest-path betweenness centrality (Brandes 2001). Validation: certified parity evidence.",
     "name": "betweenness_centrality",
     "parameters": {
       "properties": {
@@ -56102,7 +56102,7 @@
     }
   },
   {
-    "description": "Eigenvector centrality (leading eigenvector of the adjacency matrix). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Eigenvector centrality (leading eigenvector of the adjacency matrix). Validation: certified parity evidence.",
     "name": "eigenvector_centrality",
     "parameters": {
       "properties": {

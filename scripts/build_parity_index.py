@@ -57,6 +57,17 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding="utf-8")
 
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from statspai._parity_taxonomy import (  # noqa: E402
+    ALIAS_PROOF_TEST,
+    CROSS_LANGUAGE_STATUSES,
+    INFRASTRUCTURE_CATEGORIES,
+    INTERNAL_EVIDENCE_STATUSES,
+    NON_ESTIMATOR_LEAVES,
+    TRACK_A_ALIASES,
+)
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 R_PARITY = REPO_ROOT / "tests" / "r_parity"
 STATA_PARITY = REPO_ROOT / "tests" / "stata_parity"
@@ -79,21 +90,11 @@ _DISPATCHERS = {"synth", "decompose", "dml", "panel"}
 
 # Dataset loaders / DGP helpers that the test scan picks up but that are not
 # estimators — they must not receive a parity grade.
-_NON_ESTIMATOR_LEAVES = {
-    "california_prop99",
-    "california_tobacco",
-    "dgp_did",
-    "list_datasets",
-    "mpdta",
-    "nsw_dw",
-    "nsw_lalonde",
-    "card_1995",
-    "nhefs",
-    "angrist_krueger_1991",
-    "lee_2008_senate",
-    "basque_terrorism",
-    "german_reunification",
-}
+# The non-estimator exclusion set and the Track A alias table are shared with
+# the registry via ``statspai._parity_taxonomy`` so the two systems cannot
+# drift apart (they did: see the module docstring there).
+_NON_ESTIMATOR_LEAVES = NON_ESTIMATOR_LEAVES
+
 
 # Curated factor-level notes. Some estimators factor into a closed-form
 # operator (exactly pinnable) and a stochastic component (not pinnable
@@ -1883,47 +1884,40 @@ def build_external_parity_records() -> List[Dict[str, Any]]:
     return records
 
 
-# Standalone functions that are documented aliases of a Track A dispatcher
-# call (same estimator core). alias -> (dispatcher function, module id, call).
-# Backed by the registry's own certified seed and the alias docstrings, which
-# already assert the equivalence; we just make it queryable + auditable.
-_DISPATCHER_ALIASES: Dict[str, Dict[str, str]] = {
-    "oaxaca": {
-        "dispatcher": "decompose",
-        "module": "30_oaxaca",
-        "call": "sp.decompose('oaxaca')",
-    },
-    "dfl_decompose": {
-        "dispatcher": "decompose",
-        "module": "31_dfl",
-        "call": "sp.decompose('dfl')",
-    },
-    "mediate": {
-        "dispatcher": "mediation",
-        "module": "36_mediation",
-        "call": "sp.mediation",
-    },
-}
-
-
 def build_dispatcher_alias_records(
     track_a: List[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
-    """Credit standalone aliases of Track A dispatcher calls (same core)."""
+    """Credit aliases that reach a Track A module's estimator core.
+
+    The alias table lives in ``statspai._parity_taxonomy`` and every entry
+    names the pytest that proves the equivalence on the module's committed
+    bytes. This function used to justify the credit by pointing at the
+    registry's ``validation_status`` while the registry justified that
+    status with its own copy of this table -- a circular citation with no
+    artifact behind it (CLAUDE.md §10). The credit is now transitive from a
+    measurement instead.
+    """
     by_key = {(r["function"], r["module_id"]): r for r in track_a}
     records: List[Dict[str, Any]] = []
-    for alias, meta in _DISPATCHER_ALIASES.items():
-        base = by_key.get((meta["dispatcher"], meta["module"]))
+    for alias, proof in TRACK_A_ALIASES.items():
+        base = None
+        for module in proof.module.split(" + "):
+            base = by_key.get((proof.canonical, module))
+            if base is not None:
+                break
         if base is None:
             continue
         rec = dict(base)
         rec["function"] = alias
         rec["source"] = "track_a_alias"
-        rec["notes"] = list(base.get("notes", [])) + [
-            f"Alias of {meta['call']} -- same estimator core, certified via "
-            f"Track A module {meta['module']}; the registry validation_status "
-            f"independently marks this function certified."
-        ]
+        notes = list(base.get("notes", [])) + [proof.evidence_note()]
+        if proof.note:
+            notes.append(proof.note)
+        rec["notes"] = notes
+        tests = list(base.get("test", []) or [])
+        if ALIAS_PROOF_TEST not in tests:
+            tests.append(ALIAS_PROOF_TEST)
+        rec["test"] = tests
         records.append(rec)
     return records
 
@@ -1970,6 +1964,16 @@ def build_index() -> Tuple[Dict[str, Any], List[str]]:
     grade_rank = _GRADE_RANK
     # Merge order matters only for tie context; grade rank decides the winner.
     all_records = track_a + aliases + frozen + external + reference
+    # A parity test calls `sp.describe_function` to check metadata and
+    # `sp.bibtex` to resolve a citation; neither compares a number, so the
+    # call-site scan that builds `reference` would otherwise hand them the
+    # grade of whatever estimator the test was really about -- `sp.bibtex`
+    # was being published as `external-replication`. Filtering here rather
+    # than only in the registry keeps docs/parity.md from printing a claim
+    # the registry itself refuses to make.
+    all_records = [
+        rec for rec in all_records if rec["function"] not in _NON_ESTIMATOR_LEAVES
+    ]
 
     by_fn: Dict[str, Dict[str, Any]] = {}
     extra_modules: Dict[str, List[str]] = {}
@@ -2089,6 +2093,91 @@ def _primary_test_link(rec: Dict[str, Any]) -> str:
     return f"[`{name}`](../{rel}){extra}"
 
 
+def _denominators(index: Dict[str, Any]) -> Dict[str, Dict[str, int]]:
+    """Split the registered surface into parity-applicable strata.
+
+    A single ``verified / total`` fraction over every registered symbol is
+    not a meaningful coverage metric: roughly a quarter of the surface is
+    result and exception classes, and another sixth is infrastructure. Both
+    are counted here so the honest fraction is visible without anyone having
+    to recompute it, and so the paper and the docs quote the same split.
+    """
+    import inspect
+
+    import statspai as sp
+    from statspai import registry as R
+
+    infra_categories = INFRASTRUCTURE_CATEGORIES
+    statuses = {
+        rec["function"]: rec.get("status", "unverified")
+        for rec in index.get("records", [])
+    }
+    buckets = {
+        k: {"cross": 0, "verified": 0, "total": 0}
+        for k in ("estimator", "infra", "classes", "all")
+    }
+    for name in sp.list_functions():
+        spec = R._REGISTRY.get(name)
+        status = statuses.get(name, "unverified")
+        obj = getattr(sp, name, None)
+        if inspect.isclass(obj):
+            key = "classes"
+        elif spec is not None and spec.category in infra_categories:
+            key = "infra"
+        else:
+            key = "estimator"
+        for target in (key, "all"):
+            buckets[target]["total"] += 1
+            if status != "unverified":
+                buckets[target]["verified"] += 1
+            if status in CROSS_LANGUAGE_STATUSES:
+                buckets[target]["cross"] += 1
+    return buckets
+
+
+def _family_coverage(
+    index: Dict[str, Any],
+) -> List[Tuple[str, Dict[str, int]]]:
+    """Per-registry-category coverage over estimator callables only.
+
+    Result classes and infrastructure are excluded for the same reason they
+    are excluded from the honest denominators above: they cannot carry a
+    parity grade, so counting them would make every family look worse than
+    it is. Sorted by size so the largest gaps read first.
+    """
+    import inspect
+
+    import statspai as sp
+    from statspai import registry as R
+
+    infra_categories = INFRASTRUCTURE_CATEGORIES
+    # Iterate the *registered* surface, not the index records: the index
+    # holds only functions that carry evidence, so keying off it would make
+    # every family's denominator equal its numerator and report 100%
+    # coverage everywhere.
+    statuses = {
+        rec["function"]: rec.get("status", "unverified")
+        for rec in index.get("records", [])
+    }
+    families: Dict[str, Dict[str, int]] = {}
+    for name in sp.list_functions():
+        spec = R._REGISTRY.get(name)
+        if spec is None or spec.category in infra_categories:
+            continue
+        if inspect.isclass(getattr(sp, name, None)):
+            continue
+        bucket = families.setdefault(
+            spec.category, {"cross": 0, "verified": 0, "total": 0}
+        )
+        bucket["total"] += 1
+        status = statuses.get(name, "unverified")
+        if status != "unverified":
+            bucket["verified"] += 1
+        if status in CROSS_LANGUAGE_STATUSES:
+            bucket["cross"] += 1
+    return sorted(families.items(), key=lambda kv: -kv[1]["total"])
+
+
 def render_parity_doc(index: Dict[str, Any], total_functions: int) -> str:
     records = index["records"]
     by_status: Dict[str, List[Dict[str, Any]]] = {}
@@ -2112,9 +2201,13 @@ def render_parity_doc(index: Dict[str, Any], total_functions: int) -> str:
     )
     w("")
     w(
-        "StatsPAI's promise is *numerical alignment with Stata / R*. This page "
-        "makes that promise auditable function-by-function. Query any function "
-        "programmatically:"
+        "StatsPAI's promise is that every number it reports is either "
+        "*aligned with an external reference implementation*, *recovered "
+        "against a known truth*, or *honestly marked as neither*. This page "
+        "makes that promise auditable function-by-function, and keeps the "
+        "three cases apart — a method with no Stata or R sibling can reach "
+        "the second and never the first, and saying so is the point. Query "
+        "any function programmatically:"
     )
     w("")
     w("```python")
@@ -2149,15 +2242,82 @@ def render_parity_doc(index: Dict[str, Any], total_functions: int) -> str:
         "evidence attached yet — **the honest gap** |"
     )
     w("")
+    cross = sum(counts.get(g, 0) for g in CROSS_LANGUAGE_STATUSES)
+    internal = sum(counts.get(g, 0) for g in INTERNAL_EVIDENCE_STATUSES)
+    denom = _denominators(index)
+
     w("## Coverage at a glance")
     w("")
-    w("| status | functions |")
-    w("| --- | ---: |")
-    for grade in ("bit-exact", "aligned", "analytical-only", "external-replication"):
-        w(f"| {grade} | {counts.get(grade, 0)} |")
-    w(f"| **verified (subtotal)** | **{verified}** |")
-    w(f"| unverified | {unverified} |")
-    w(f"| **total registered** | **{total_functions}** |")
+    w(
+        "Read the two evidence kinds separately. Only the first answers "
+        '"does StatsPAI agree with Stata/R"; the second answers "does '
+        'StatsPAI recover the right answer", which is a different — and for '
+        "methods with no Stata/R sibling, the only available — question. "
+        'Summing them into one "verified" figure would let the smaller '
+        "claim borrow the authority of the larger one, so this page does not "
+        "print that total."
+    )
+    w("")
+    w("| evidence kind | grade | functions |")
+    w("| --- | --- | ---: |")
+    w(
+        f"| **Compared against R/Stata** (T2) | bit-exact | "
+        f"{counts.get('bit-exact', 0)} |"
+    )
+    w(f"| | aligned | {counts.get('aligned', 0)} |")
+    w(f"| | **subtotal** | **{cross}** |")
+    w(
+        f"| **No external software reference** | analytical-only (T1) | "
+        f"{counts.get('analytical-only', 0)} |"
+    )
+    w(
+        f"| | external-replication (published numbers) | "
+        f"{counts.get('external-replication', 0)} |"
+    )
+    w(f"| | **subtotal** | **{internal}** |")
+    w(f"| No numerical evidence yet | unverified | {unverified} |")
+    w("")
+    w("### Honest denominators")
+    w("")
+    w(
+        "The all-registered denominator understates coverage: it counts "
+        "result and exception classes, which can never carry a parity grade, "
+        "and infrastructure functions that render tables, draw plots, build "
+        "agent schemas or load data. The estimator denominator is the number "
+        "to drive release over release."
+    )
+    w("")
+    w("| denominator | cross-language | any evidence | total | cross-lang share |")
+    w("| --- | ---: | ---: | ---: | ---: |")
+    for label, key in (
+        ("estimator callables", "estimator"),
+        ("infrastructure (parity N/A)", "infra"),
+        ("result / exception classes", "classes"),
+        ("**all registered**", "all"),
+    ):
+        d = denom[key]
+        share = f"{d['cross'] / d['total'] * 100:.1f}%" if d["total"] else "—"
+        w(f"| {label} | {d['cross']} | {d['verified']} | {d['total']} " f"| {share} |")
+    w("")
+
+    w("### Coverage by estimator family")
+    w("")
+    w(
+        "Families with zero cross-language rows are the highest-leverage "
+        "targets when a reference implementation exists, and the honest "
+        "ceiling when one does not — a method with no Stata/R sibling can "
+        "reach `analytical-only` and no further. This table is generated "
+        "from the same records as the rest of the page, so it cannot drift "
+        "from them."
+    )
+    w("")
+    w("| family | cross-language | any evidence | estimator callables |")
+    w("| --- | ---: | ---: | ---: |")
+    for family, counts_ in _family_coverage(index):
+        w(
+            f"| {family} | {counts_['cross']} | {counts_['verified']} "
+            f"| {counts_['total']} |"
+        )
     w("")
 
     # Bit-exact + aligned: full cross-language detail.

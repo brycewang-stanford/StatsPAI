@@ -683,23 +683,6 @@
       "tolerance": ""
     },
     {
-      "function": "bibtex",
-      "notes": [
-        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
-      ],
-      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "external_parity",
-      "status": "external-replication",
-      "test": [
-        "tests/external_parity/test_rebel_canal_published.py"
-      ],
-      "tolerance": ""
-    },
-    {
       "function": "bidirectional_pci",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -1887,10 +1870,14 @@
       "additional_tests": [
         "tests/r_parity/31_dfl.py",
         "tests/r_parity/31_dfl.R",
-        "tests/stata_parity/31_dfl.do"
+        "tests/stata_parity/31_dfl.do",
+        "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "also_in_modules": [
         "31_dfl"
+      ],
+      "also_verified_by": [
+        "reference_parity"
       ],
       "function": "decompose",
       "headline": {
@@ -2036,23 +2023,9 @@
       "tolerance": ""
     },
     {
-      "function": "describe_function",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      "also_verified_by": [
+        "reference_parity"
       ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
-        "tests/reference_parity/test_qdid_parity.py"
-      ],
-      "tolerance": ""
-    },
-    {
       "function": "dfl_decompose",
       "headline": {
         "metric": "rel_est",
@@ -2069,7 +2042,7 @@
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "31_dfl",
       "notes": [
-        "Alias of sp.decompose('dfl') -- same estimator core, certified via Track A module 31_dfl; the registry validation_status independently marks this function certified."
+        "Alias of sp.decompose('dfl') — proven equivalent on the committed 31_dfl bytes to rtol 1e-12 (observed 0) by tests/reference_parity/test_track_a_alias_equivalence.py."
       ],
       "point_estimate_rel": {
         "R": 1.1607068888501023e-09,
@@ -2095,7 +2068,8 @@
       "test": [
         "tests/r_parity/31_dfl.py",
         "tests/r_parity/31_dfl.R",
-        "tests/stata_parity/31_dfl.do"
+        "tests/stata_parity/31_dfl.do",
+        "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
@@ -2722,7 +2696,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_etwfe_glm_parity.py"
+        "tests/reference_parity/test_etwfe_glm_parity.py",
+        "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -2772,7 +2747,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_etwfe_glm_parity.py"
+        "tests/reference_parity/test_etwfe_glm_parity.py",
+        "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -3144,7 +3120,8 @@
         "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_feols_wild_boottest_parity.py",
         "tests/reference_parity/test_iv_hdfe_stata_parity.py",
-        "tests/reference_parity/test_sasp_within_parity.py"
+        "tests/reference_parity/test_sasp_within_parity.py",
+        "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "also_in_modules": [
         "15_hdfe_cluster"
@@ -3950,21 +3927,59 @@
       "tolerance": ""
     },
     {
-      "function": "hdfe_ols",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_hdfe_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "hdfe_ols",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 5.181108180688351e-15,
+        "rel_vs_Stata": 2.887295942919438e-15,
+        "statistic": [
+          "beta_x1",
+          "beta_x2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "HDFE 2-way FE",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "03_hdfe",
+      "notes": [
+        "Alias of sp.fast.feols(ssc='fixest') — proven equivalent on the committed 03_hdfe + 15_hdfe_cluster bytes to rtol 1e-10 (observed 1.9e-12) by tests/reference_parity/test_track_a_alias_equivalence.py.",
+        "Two different absorption implementations of the same within estimator, so agreement is at floating-point noise rather than exactly zero. The legs are budgeted separately because the mechanism differs: the coefficient and the iid standard error agree to ~3e-15 on both modules, while the CR1 clustered standard error reaches 1.9e-12 -- residual differences of order 1e-15 are summed within cluster and squared in the sandwich meat matrix, which amplifies them by about three orders. This is floating-point accumulation in a shared estimator, not a convention difference, and it is four orders inside the loosest parity tier (1e-6)."
+      ],
+      "point_estimate_rel": {
+        "R": 5.181108180688351e-15,
+        "Stata": 2.887295942919438e-15
+      },
+      "python_call": "sp.fast.feols",
+      "reference": "fixest::feols",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "fixest": "0.14.0"
+      },
+      "se_rel": {
+        "R": 3.2505623885066544e-15,
+        "Stata": 8.368328311773695e-15
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a_alias",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/03_hdfe.py",
+        "tests/r_parity/03_hdfe.R",
+        "tests/stata_parity/03_hdfe.do",
+        "tests/reference_parity/test_track_a_alias_equivalence.py"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -4480,22 +4495,65 @@
       "tolerance": ""
     },
     {
-      "function": "iv",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_iv_hdfe_stata_parity.py",
         "tests/reference_parity/test_regress_weights_iv_robust_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "iv",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.143260125616902e-11,
+        "rel_vs_Stata": 1.1441798686230402e-11,
+        "statistic": [
+          "beta_(Intercept)",
+          "beta_exper",
+          "beta_expersq",
+          "beta_black",
+          "beta_south",
+          "beta_smsa",
+          "beta_educ"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "2SLS + HC1 SE",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "02_iv",
+      "notes": [
+        "Alias of sp.ivreg — proven equivalent on the committed 02_iv bytes to rtol 1e-12 (observed 0) by tests/reference_parity/test_track_a_alias_equivalence.py.",
+        "sp.ivreg is a thin keyword-normalising wrapper that returns iv(formula=..., data=..., robust=..., cluster=..., **kwargs) (src/statspai/regression/iv.py), so the agreement is exact by construction as well as by measurement."
+      ],
+      "point_estimate_rel": {
+        "R": 1.143260125616902e-11,
+        "Stata": 1.1441798686230402e-11
+      },
+      "python_call": "sp.ivreg",
+      "reference": "AER::ivreg",
+      "reference_versions": {
+        "AER": "1.2.16",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": 8.029187806462681e-12,
+        "Stata": 7.614043044657219e-12
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a_alias",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/02_iv.py",
+        "tests/r_parity/02_iv.R",
+        "tests/stata_parity/02_iv.do",
+        "tests/reference_parity/test_track_a_alias_equivalence.py"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "function": "iv_diag",
@@ -4540,7 +4598,8 @@
         "tests/reference_parity/test_iv_se_parity.py",
         "tests/reference_parity/test_iv_wild_boottest_parity.py",
         "tests/reference_parity/test_liml_se_parity.py",
-        "tests/reference_parity/test_paper_parity.py"
+        "tests/reference_parity/test_paper_parity.py",
+        "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -4929,26 +4988,6 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_causal_discovery_parity.py"
-      ],
-      "tolerance": ""
-    },
-    {
-      "function": "list_replications",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
-        "tests/reference_parity/test_castle_stata_parity.py",
-        "tests/reference_parity/test_sasp_within_parity.py",
-        "tests/reference_parity/test_texas_synth_parity.py",
-        "tests/reference_parity/test_thornton_ri_parity.py"
       ],
       "tolerance": ""
     },
@@ -5484,6 +5523,9 @@
       "tolerance": "effect size 1e-6 abs (output rounded to 6 dp; observed ~2e-8)"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "mediate",
       "headline": {
         "metric": "rel_est",
@@ -5500,7 +5542,8 @@
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "36_mediation",
       "notes": [
-        "Alias of sp.mediation -- same estimator core, certified via Track A module 36_mediation; the registry validation_status independently marks this function certified."
+        "Alias of sp.mediation — proven equivalent on the committed 36_mediation bytes to rtol 1e-12 (observed 0) by tests/reference_parity/test_track_a_alias_equivalence.py.",
+        "The bootstrap leg is seeded, so the alias reproduces the canonical ACME/ADE and their standard errors exactly, not merely within Monte Carlo error."
       ],
       "point_estimate_rel": {
         "R": 6.69914928633472e-15,
@@ -5526,7 +5569,8 @@
       "test": [
         "tests/r_parity/36_mediation.py",
         "tests/r_parity/36_mediation.R",
-        "tests/stata_parity/36_mediation.do"
+        "tests/stata_parity/36_mediation.do",
+        "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=0.1"
@@ -5555,6 +5599,12 @@
       "tolerance": "total = IIE + IDE 1e-12 abs (observed 0)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_track_a_alias_equivalence.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "mediation",
       "headline": {
         "metric": "rel_est",
@@ -6438,6 +6488,9 @@
       "tolerance": "estimate 1e-12 abs (observed 0); CI not pinned"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "oaxaca",
       "headline": {
         "metric": "rel_est",
@@ -6452,7 +6505,7 @@
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "30_oaxaca",
       "notes": [
-        "Alias of sp.decompose('oaxaca') -- same estimator core, certified via Track A module 30_oaxaca; the registry validation_status independently marks this function certified."
+        "Alias of sp.decompose('oaxaca') — proven equivalent on the committed 30_oaxaca bytes to rtol 1e-12 (observed 0) by tests/reference_parity/test_track_a_alias_equivalence.py."
       ],
       "point_estimate_rel": {
         "R": 6.272984425624262e-16,
@@ -6478,7 +6531,8 @@
       "test": [
         "tests/r_parity/30_oaxaca.py",
         "tests/r_parity/30_oaxaca.R",
-        "tests/stata_parity/30_oaxaca.do"
+        "tests/stata_parity/30_oaxaca.do",
+        "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=0.05"
@@ -8156,26 +8210,6 @@
         "tests/reference_parity/_fixtures/epi_R.json"
       ],
       "tolerance": "estimate, se_log, CI 1e-12 abs (observed 0)"
-    },
-    {
-      "function": "replicate",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
-        "tests/reference_parity/test_castle_stata_parity.py",
-        "tests/reference_parity/test_sasp_within_parity.py",
-        "tests/reference_parity/test_texas_synth_parity.py",
-        "tests/reference_parity/test_thornton_ri_parity.py"
-      ],
-      "tolerance": ""
     },
     {
       "also_verified_by": [
@@ -10148,7 +10182,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_did_variants_parity.py"
+        "tests/reference_parity/test_did_variants_parity.py",
+        "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "tolerance": ""
     },

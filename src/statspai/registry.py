@@ -25,6 +25,12 @@ from typing import Any, Dict, List, Optional, Tuple
 # Family-template agent-native seed data lives in a dedicated module so its
 # long descriptive strings stay out of registry.py's flake8 E501 baseline.
 from ._causal_family_seeds import CAUSAL_FAMILY_SEEDS as _CAUSAL_FAMILY_SEEDS
+from ._parity_taxonomy import (
+    CROSS_LANGUAGE_STATUSES,
+    NON_ESTIMATOR_LEAVES,
+    TRACK_A_ALIASES,
+    validation_tier_for,
+)
 
 
 @dataclass
@@ -14819,7 +14825,11 @@ _CERTIFIED_SEED_FUNCTIONS: frozenset = frozenset(
         "psm",
         "causal_forest",
         "did_imputation",
-        "wooldridge_did",
+        # "wooldridge_did" was here on the strength of an alias to Track A
+        # module 17_etwfe that measurement refuted -- the two are different
+        # estimators (see _parity_taxonomy.REFUTED_ALIASES). Removed rather
+        # than left for the index to override, so a reader of this list is
+        # not invited to restore the alias.
         "augsynth",
         "gsynth",
         "bacon_decomposition",
@@ -16586,22 +16596,20 @@ def _api_name_from_readme_cell(text: str) -> str:
     return clean.split(".")[-1]
 
 
-_TRACK_A_MODULE_ALIASES: Dict[str, Tuple[str, ...]] = {
-    # The Track-A README often names a dispatcher call while the registry also
-    # exposes method-specific aliases.  Attach the same module evidence to the
-    # alias so "certified" never relies on a bare seed note.
-    "02_iv": ("iv",),
-    "03_hdfe": ("hdfe_ols",),
-    "15_hdfe_cluster": ("hdfe_ols",),
-    "17_etwfe": ("wooldridge_did",),
-    "18_augsynth": ("augsynth",),
-    "19_gsynth": ("gsynth",),
-    "86_fect": ("fect",),
-    "87_interflex": ("interflex",),
-    "30_oaxaca": ("oaxaca",),
-    "31_dfl": ("dfl_decompose",),
-    "36_mediation": ("mediate",),
-}
+#: Track A module -> aliases that inherit the module's grade.
+#:
+#: Derived from :mod:`statspai._parity_taxonomy`, the single source of truth
+#: shared with ``scripts/build_parity_index.py``. Every entry there names the
+#: pytest that *proves* the equivalence on the module's committed bytes, so
+#: this table can no longer assert an equivalence nobody measured. The
+#: previous hand-written version claimed ``17_etwfe -> wooldridge_did``,
+#: which measurement refuted (see ``_parity_taxonomy.REFUTED_ALIASES``).
+_TRACK_A_MODULE_ALIASES: Dict[str, Tuple[str, ...]] = {}
+for _proof in TRACK_A_ALIASES.values():
+    for _module in _proof.module.split(" + "):
+        _TRACK_A_MODULE_ALIASES.setdefault(_module, ())
+        _TRACK_A_MODULE_ALIASES[_module] += (_proof.alias,)
+del _proof, _module
 
 
 def _append_evidence(
@@ -17085,6 +17093,71 @@ def _apply_negative_guidance_seeds() -> None:
     _NEGATIVE_GUIDANCE_APPLIED = True
 
 
+def _parity_index_records() -> Dict[str, Dict[str, Any]]:
+    """Full committed parity records, keyed by function (empty if absent).
+
+    Imported lazily so ``registry`` stays importable when the snapshot is
+    missing — a source tree mid-regeneration, or a stripped install. An
+    empty mapping leaves every tier at ``api_stable``, which is the safe
+    direction: the registry under-claims rather than inventing evidence.
+    The catch is narrow on purpose (CLAUDE.md §7): a snapshot that exists
+    but is malformed in some way ``parity._load_index`` does not already
+    absorb should fail loudly, not be silently downgraded to "no evidence".
+    """
+    try:
+        from .parity import _records_by_function
+    except ImportError:  # pragma: no cover - defensive
+        return {}
+    try:
+        return dict(_records_by_function())
+    except (OSError, ValueError, KeyError, TypeError):  # pragma: no cover
+        return {}
+
+
+def _index_evidence_note(record: Dict[str, Any]) -> str:
+    """Render one parity record as a self-describing evidence note.
+
+    The note has to survive being read on its own, by the JSS
+    validation-evidence audit and by a human opening ``sp.describe_function``.
+    So it states the evidence *kind* (cross-language comparison versus
+    known-truth recovery), names the reference implementation and its pinned
+    version, quotes the registered tolerance, and cites a file that exists in
+    the checkout — the audit fails on a note whose path does not resolve, and
+    that is the point.
+    """
+    status = record.get("status", "unverified")
+    tests = [t for t in (record.get("test") or []) if isinstance(t, str)]
+    citation = tests[0] if tests else ""
+    reference = str(record.get("reference") or "").strip()
+    versions = record.get("reference_versions") or {}
+    version_txt = ", ".join(f"{k} {v}" for k, v in sorted(versions.items()) if v)
+    tolerance = str(record.get("tolerance") or "").strip()
+    module = str(record.get("module_id") or "").strip()
+
+    if status in CROSS_LANGUAGE_STATUSES:
+        head = f"Cross-language parity ({status})"
+        if reference:
+            head += f" vs {reference}"
+        if version_txt:
+            head += f" [{version_txt}]"
+    else:
+        kind = (
+            "Known-truth recovery"
+            if status == "analytical-only"
+            else "Published-reference replication"
+        )
+        head = f"{kind} ({status})"
+        if reference:
+            head += f" vs {reference}"
+    if tolerance:
+        head += f"; tolerance {tolerance}"
+    if module:
+        head += f"; parity module {module}"
+    if citation:
+        head += f" -- {citation}"
+    return head
+
+
 def _apply_validation_evidence() -> None:
     """Attach validation evidence tiers after full registry expansion.
 
@@ -17148,6 +17221,67 @@ def _apply_validation_evidence() -> None:
         for note in notes[:5]:
             if note not in spec.validation_notes:
                 spec.validation_notes.append(note)
+
+    # ------------------------------------------------------------------ #
+    #  Reconcile against the committed parity index.
+    # ------------------------------------------------------------------ #
+    # The scans above are heuristics: `_scan_parity_readme` reads one API
+    # name per README row and so misses the other functions a module
+    # exercises, while `_scan_reference_tests` credits every ``sp.f(`` call
+    # site in a parity test -- including the DGP helper that *builds* the
+    # fixture. `_parity_index.json` is the artifact-backed record, produced
+    # by `scripts/build_parity_index.py` from the committed goldens
+    # themselves, and it is packaged in the wheel.
+    #
+    # Making it authoritative here closes a reconciliation gap that ran in
+    # both directions: the scan-derived tiers under-stated 85 functions that
+    # hold cross-language evidence and over-stated 3 that do not. The single
+    # grade -> tier mapping lives in `_parity_taxonomy.validation_tier_for`,
+    # so the registry and the index cannot disagree by construction.
+    index_records = _parity_index_records()
+    for name, record in index_records.items():
+        spec = _REGISTRY.get(name)
+        if spec is None or spec.stability != "stable":
+            continue
+        if name in NON_ESTIMATOR_LEAVES:
+            continue
+        tier = validation_tier_for(record.get("status", "unverified"))
+        if tier == "api_stable":
+            continue
+        spec.validation_status = tier
+        # Attach the artifact alongside the tier. A tier without a note that
+        # names a reference, a tolerance and an existing file is exactly the
+        # unbacked claim the JSS validation-evidence audit exists to catch.
+        note = _index_evidence_note(record)
+        if note and note not in spec.validation_notes:
+            spec.validation_notes.append(note)
+
+    # "Track A parity seed" is a bare assertion: it names no reference, no
+    # tolerance and no file. It exists so a wheel with no test tree still
+    # marks the flagship estimators, but in a checkout the index supplies a
+    # real note for every function that has one -- so a seed left standing on
+    # a function the index cannot give cross-language evidence for is exactly
+    # the unbacked claim this pass removes. `sp.wooldridge_did` carried one
+    # on the strength of the refuted 17_etwfe alias.
+    _index_statuses = {
+        fn: rec.get("status", "unverified") for fn, rec in index_records.items()
+    }
+    for name, spec in _REGISTRY.items():
+        if "Track A parity seed" not in spec.validation_notes:
+            continue
+        if _index_statuses.get(name, "unverified") not in CROSS_LANGUAGE_STATUSES:
+            spec.validation_notes.remove("Track A parity seed")
+
+    # A tier that no artifact backs is withdrawn rather than left standing:
+    # a dataset loader picked up by a test scan must not read as `validated`.
+    for name, spec in _REGISTRY.items():
+        if spec.stability != "stable":
+            continue
+        if spec.validation_status not in {"certified", "validated"}:
+            continue
+        backed = _index_statuses.get(name, "unverified")
+        if name in NON_ESTIMATOR_LEAVES or backed == "unverified":
+            spec.validation_status = "api_stable"
 
     for name, notes in api_contract.items():
         spec = _REGISTRY.get(name)

@@ -39,7 +39,18 @@ JSS_HEADLINE_TEST_COUNTS = {
 # never a regression; the guard asserts ``>=`` for the same reason as the
 # headline-count drift guard above.
 JSS_CERTIFIED_VALIDATED_SYMBOLS = 73
+# Notes minted from the committed parity index (registry._index_evidence_note)
+# name the reference implementation, its pinned version, the registered
+# tolerance and an existing file, so they are strictly more specific than the
+# legacy scan markers below.
+CERTIFIED_GRADE_MARKERS = (
+    "R parity module",
+    "Stata parity module",
+    "Cross-language parity (",
+)
 VALIDATED_GRADE_MARKERS = (
+    "Known-truth recovery (",
+    "Published-reference replication (",
     "tests/reference_parity/",
     "tests/external_parity/",
     "coverage",
@@ -238,7 +249,7 @@ def test_certified_validated_symbols_have_attached_evidence_notes():
         if not notes:
             missing_notes.append(name)
         if spec.get("validation_status") == "certified" and not any(
-            "R parity module" in note or "Stata parity module" in note for note in notes
+            marker in note for note in notes for marker in CERTIFIED_GRADE_MARKERS
         ):
             certified_without_grade.append(name)
         if spec.get("validation_status") == "validated" and not any(

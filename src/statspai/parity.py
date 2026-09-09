@@ -40,6 +40,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from ._parity_taxonomy import (
+    CROSS_LANGUAGE_STATUSES,
+    INFRASTRUCTURE_CATEGORIES,
+    INTERNAL_EVIDENCE_STATUSES,
+)
+
 _SNAPSHOT = Path(__file__).resolve().parent / "_parity_index.json"
 
 TAXONOMY = (
@@ -99,20 +105,40 @@ class ParityStatus(dict):
     """
 
     def summary(self) -> str:
+        """One line a reader cannot mistake for a stronger claim.
+
+        Cross-language rows name the reference implementation and the
+        observed deviation. Rows with no external software reference say so
+        in words instead of rendering an empty ``vs`` and a headline of
+        ``n/a``, which read like a comparison that had been attempted and
+        failed rather than one that was never possible.
+        """
         fn = self.get("function", "?")
         status = self.get("status", "unverified")
         if status == "unverified":
-            return f"{fn}: unverified — no cross-language parity evidence attached yet."
-        ref = self.get("reference", "")
-        tol = self.get("tolerance", "")
+            return f"{fn}: unverified — no numerical evidence attached yet."
+
+        ref = str(self.get("reference", "") or "").strip()
+        tol = str(self.get("tolerance", "") or "").strip()
+        sides = "/".join(self.get("sides", []) or [])
+
+        if status not in CROSS_LANGUAGE_STATUSES:
+            kind = (
+                "known-truth recovery on a deterministic DGP"
+                if status == "analytical-only"
+                else "published-reference replication"
+            )
+            detail = f" vs {ref}" if ref else ""
+            tail = f"; tolerance {tol}" if tol else ""
+            return (
+                f"{fn}: {status} — {kind}, no external software reference"
+                f"{detail}{tail}."
+            )
+
         head = self.get("headline", {}) or {}
-        rels = [
-            head.get("rel_vs_R"),
-            head.get("rel_vs_Stata"),
-        ]
+        rels = [head.get("rel_vs_R"), head.get("rel_vs_Stata")]
         worst = max([r for r in rels if isinstance(r, (int, float))], default=None)
         worst_s = f"{worst:.1e}" if isinstance(worst, (int, float)) else "n/a"
-        sides = "/".join(self.get("sides", []))
         return (
             f"{fn}: {status} vs {ref} [{sides}] "
             f"(headline {head.get('metric', 'rel')} {worst_s} within {tol})"
@@ -263,8 +289,67 @@ def parity_matrix(
     raise ValueError("fmt must be one of 'records', 'dataframe', or 'markdown'")
 
 
+def _denominator_strata(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, int]]:
+    """Split the registered surface into parity-applicable strata.
+
+    ``verified / total_functions`` over the whole registry is not a coverage
+    metric anyone should quote: about a quarter of the registered surface is
+    result and exception classes, which can never carry a parity grade, and
+    another sixth is infrastructure that renders tables, draws plots, builds
+    agent schemas or loads data. Reporting the strata keeps the estimator
+    fraction — the number worth driving release over release — visible next
+    to the diluted one instead of leaving readers to recompute it.
+    """
+    import inspect
+
+    try:
+        import statspai as sp
+        from statspai import registry as _registry
+    except ImportError:  # pragma: no cover - defensive
+        return {}
+
+    infra_categories = INFRASTRUCTURE_CATEGORIES
+    strata = {
+        key: {"cross_language": 0, "verified": 0, "total": 0}
+        for key in ("estimator", "infrastructure", "classes", "all")
+    }
+    for row in rows:
+        name = row.get("function", "")
+        status = row.get("status", "unverified")
+        spec = _registry._REGISTRY.get(name)
+        obj = getattr(sp, name, None)
+        if inspect.isclass(obj):
+            key = "classes"
+        elif spec is not None and spec.category in infra_categories:
+            key = "infrastructure"
+        else:
+            key = "estimator"
+        for target in (key, "all"):
+            strata[target]["total"] += 1
+            if status != "unverified":
+                strata[target]["verified"] += 1
+            if status in CROSS_LANGUAGE_STATUSES:
+                strata[target]["cross_language"] += 1
+    for bucket in strata.values():
+        total = bucket["total"]
+        bucket["cross_language_fraction"] = (
+            round(bucket["cross_language"] / total, 4) if total else 0.0
+        )
+    return strata
+
+
 def parity_summary() -> Dict[str, Any]:
     """Headline counts of the parity matrix — the honest coverage snapshot.
+
+    ``verified`` sums two evidence kinds that answer different questions, so
+    it is reported alongside ``by_evidence_kind`` rather than on its own:
+    ``cross_language`` functions were compared against a named R or Stata
+    implementation, while ``internal_evidence`` functions recover a known
+    population parameter or reproduce published numbers, which is the only
+    evidence available for a method with no Stata/R sibling. ``denominators``
+    splits the registered surface into estimators, infrastructure and result
+    classes, because the all-registered fraction dilutes coverage with
+    symbols that can never carry a parity grade.
 
     Examples
     --------
@@ -276,6 +361,10 @@ def parity_summary() -> Dict[str, Any]:
     True
     >>> s["by_status"]["bit-exact"] >= 50
     True
+    >>> s["by_evidence_kind"]["cross_language"] >= 100
+    True
+    >>> s["denominators"]["estimator"]["total"] < s["total_functions"]
+    True
     """
     rows = parity_matrix(fmt="records")
     by_status: Dict[str, int] = {}
@@ -286,16 +375,20 @@ def parity_summary() -> Dict[str, Any]:
         )
         src = r.get("source", "none")
         by_source[src] = by_source.get(src, 0) + 1
-    verified = sum(
-        by_status.get(g, 0)
-        for g in ("bit-exact", "aligned", "analytical-only", "external-replication")
-    )
+    cross = sum(by_status.get(g, 0) for g in CROSS_LANGUAGE_STATUSES)
+    internal = sum(by_status.get(g, 0) for g in INTERNAL_EVIDENCE_STATUSES)
+    verified = cross + internal
     total = len(rows)
     return {
         "total_functions": total,
         "verified": verified,
         "unverified": by_status.get("unverified", 0),
         "verified_fraction": round(verified / total, 4) if total else 0.0,
+        "by_evidence_kind": {
+            "cross_language": cross,
+            "internal_evidence": internal,
+        },
+        "denominators": _denominator_strata(rows),
         "by_status": dict(sorted(by_status.items())),
         "by_source": dict(sorted(by_source.items())),
     }
