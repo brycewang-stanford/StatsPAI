@@ -61,6 +61,39 @@ All notable changes to StatsPAI will be documented in this file.
   that ceiling as the estimator's accuracy; it now pins the real one, plus
   the sparsity-convention structure of the standard errors.
 
+### ⚠️ Correctness fixes — weak-IV inference and diagnostics
+
+- **`sp.vif` returned values rounded to two decimals.** `VIF` was rounded
+  to 2 and `1/VIF` to 4 — in the returned frame, not in a display. The
+  conventional multicollinearity threshold is 10, so two decimals decide
+  it in the fourth significant digit. Against `car::vif` the rounding
+  capped agreement at 2.9e-3; without it the factors match to 2.0e-16.
+  Third instance of this defect class in this release, after `sp.sqreg`
+  and `sp.rdbwselect`.
+- **The grid-inversion confidence sets reported grid points, not
+  boundaries.** `sp.anderson_rubin_ci`, `sp.conditional_lr_ci` and
+  `sp.k_test_ci` returned the extreme β on the grid that was still inside
+  the acceptance region, which biases every interval **inward** by up to
+  one grid step — 8.1e-3 and 4.9e-3 on a 400-point grid. The endpoints are
+  now located by bisecting the acceptance boundary off-grid; the grid still
+  decides emptiness, disconnection and unboundedness.
+
+  This one was visible from inside the package: `sp.anderson_rubin_test`
+  computes the same AR interval analytically and matched `ivmodel` to
+  1.2e-14 the whole time, so the two entry points disagreed about one
+  quantity by three orders of magnitude. A test now asserts they agree.
+
+### Added — weak-IV inference and diagnostics
+
+- Five functions pinned against R in
+  `tests/reference_parity/test_weakiv_meta_parity.py`:
+  `anderson_rubin_test`, `anderson_rubin_ci` and `vif` at machine level
+  against `ivmodel::AR.test` and `car::vif`; `meta_analysis` at 6.2e-16
+  against `metafor::rma` across all nine reported quantities;
+  `conditional_lr_ci` graded T3 against `ivmodel::CLR`, with the test
+  asserting the error shrinks with `n_sim` (3.8e-3 at 5,000, 1.7e-4 at
+  200,000) rather than pinning a tolerance to a simulated critical value.
+
 ### ⚠️ Correctness fixes — spatial
 
 - **`sp.lm_tests` reversed the model-selection conclusion it exists to

@@ -34,7 +34,7 @@ Direct Test for Heteroskedasticity."
 *Econometrica*, 48(4), 817-838. [@white1980heteroskedasticity]
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -344,8 +344,14 @@ def _vif(data: pd.DataFrame, x_vars: List[str]) -> pd.DataFrame:
         rows.append(
             {
                 "variable": x_vars[j],
-                "VIF": round(vif_j, 2),
-                "1/VIF": round(1 / vif_j, 4) if vif_j > 0 else 0,
+                # Full precision. These used to be rounded to 2 and 4
+                # decimals respectively -- in the returned frame, not in a
+                # display -- which capped agreement with car::vif at 2.9e-3
+                # and put values near the conventional threshold of 10 at
+                # the mercy of the fourth significant digit. `.summary()`
+                # and `.to_latex()` are where rounding belongs.
+                "VIF": float(vif_j),
+                "1/VIF": float(1 / vif_j) if vif_j > 0 else 0.0,
             }
         )
 

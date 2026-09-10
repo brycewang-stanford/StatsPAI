@@ -280,7 +280,7 @@
     "name": "aipw"
   },
   {
-    "description": "Anderson-Rubin confidence set -- re-export of",
+    "description": "Anderson-Rubin confidence set -- re-export of Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "add_const": {
@@ -335,7 +335,7 @@
     "name": "anderson_rubin_ci"
   },
   {
-    "description": "Anderson-Rubin (1949) test -- size-correct under weak instruments. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Anderson-Rubin (1949) test -- size-correct under weak instruments. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "absorb": {
@@ -3881,7 +3881,7 @@
     "name": "compare_metalearners"
   },
   {
-    "description": "Moreira (2003) CLR confidence set -- re-export of",
+    "description": "Moreira (2003) CLR confidence set -- re-export of Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "add_const": {
@@ -14319,7 +14319,7 @@
     "name": "mepoisson"
   },
   {
-    "description": "Summary-data meta-analysis with fixed- and random-effects pooling. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Summary-data meta-analysis with fixed- and random-effects pooling. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -26098,7 +26098,7 @@
     "name": "verify_recommendation"
   },
   {
-    "description": "Variance Inflation Factors for multicollinearity detection.",
+    "description": "Variance Inflation Factors for multicollinearity detection. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "x": {

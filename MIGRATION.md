@@ -109,6 +109,36 @@ structure explicitly.
 
 ---
 
+<a id="weakiv-vif"></a>
+
+## 1.27.0 — `sp.vif` and the weak-IV confidence sets stop rounding
+
+**Who is affected.** Anyone who read a VIF, or an endpoint from
+`sp.anderson_rubin_ci` / `sp.conditional_lr_ci` / `sp.k_test_ci`.
+
+| Surface | Changes? |
+| --- | --- |
+| `sp.vif` — `VIF`, `1/VIF` | **yes — full precision instead of 2 / 4 decimals** |
+| `sp.anderson_rubin_ci` — `lower`, `upper` | **yes — the interval widens to its true boundary** |
+| `sp.conditional_lr_ci`, `sp.k_test_ci` — `lower`, `upper` | **yes, same reason** |
+| the same objects' `beta_grid`, `statistic`, `in_set` | no |
+| `sp.anderson_rubin_test` | no (was already exact) |
+
+`sp.vif` rounded its output. `car::vif` gives 1.1634266096594732 where
+StatsPAI gave 1.16 — a 2.9e-3 error with no source but the `round()` call.
+
+The confidence sets inverted the test on a β grid and then reported the
+extreme grid point still inside the acceptance region. That is always
+*inside* the true interval, so every reported set was too narrow by up to
+one grid step. Endpoints are now found by bisecting the acceptance
+boundary, which puts `sp.anderson_rubin_ci` at 5e-15 against `ivmodel`
+where it was 8.1e-3.
+
+**What to do.** Re-run if you reported a weak-IV confidence set; the new
+one is wider. Nothing to do for VIF beyond expecting more digits.
+
+---
+
 <a id="spatial-lm-tests"></a>
 
 ## 1.27.0 — ⚠️ Spatial diagnostics: LM battery, join counts, Gi, residual Moran

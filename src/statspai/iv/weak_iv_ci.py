@@ -235,17 +235,17 @@ def anderson_rubin_ci(
     if beta_grid is None:
         beta_grid = _default_grid(Yt, Dt, Zt, n_grid)
 
-    stats_arr = np.empty_like(beta_grid, dtype=float)
-    for i, b0 in enumerate(beta_grid):
+    def _ar_stat(b0: float) -> float:
         u0 = Yt - b0 * Dt
         pi, *_ = np.linalg.lstsq(Zt, u0, rcond=None)
         u_hat = Zt @ pi
         rss_full = float((u0 - u_hat) @ (u0 - u_hat))
         rss_red = float(u0 @ u0)
-        if rss_full > 0:
-            stats_arr[i] = ((rss_red - rss_full) / k) / (rss_full / dfd)
-        else:
-            stats_arr[i] = np.inf  # pragma: no cover
+        if rss_full <= 0:  # pragma: no cover - degenerate
+            return float("inf")
+        return ((rss_red - rss_full) / k) / (rss_full / dfd)
+
+    stats_arr = np.array([_ar_stat(b0) for b0 in beta_grid], dtype=float)
     in_set = stats_arr <= crit
 
     return _build_set(
@@ -256,6 +256,7 @@ def anderson_rubin_ci(
         np.full_like(stats_arr, crit),
         in_set,
         extra={"df_num": k, "df_denom": dfd},
+        excess=lambda b0: _ar_stat(b0) - crit,
     )
 
 
@@ -306,7 +307,7 @@ def conditional_lr_ci(
 
     df_r = max(n - kW - k, 1)
 
-    for i, b0 in enumerate(beta_grid):
+    def _clr_pair(b0: float):
         ustar = Yt - b0 * Dt
         # Sigma = YD' M_Z YD / df, avoiding n×n M_Z via YD'YD - (Zs'YD)'(Zs'YD)
         YD = np.column_stack([ustar, Dt])
@@ -315,10 +316,8 @@ def conditional_lr_ci(
         suu = float(Sigma[0, 0])
         svv = float(Sigma[1, 1])
         suv = float(Sigma[0, 1])
-        if suu <= 0 or svv <= 0:
-            stat_arr[i] = 0.0  # pragma: no cover
-            crit_arr[i] = np.inf  # pragma: no cover
-            continue  # pragma: no cover
+        if suu <= 0 or svv <= 0:  # pragma: no cover - degenerate
+            return 0.0, float("inf")
         S = Zs.T @ ustar / np.sqrt(suu)
         d_perp = Dt - (suv / suu) * ustar
         sperp = max(svv - suv**2 / suu, 1e-12)
@@ -346,10 +345,17 @@ def conditional_lr_ci(
             )
         )
         crit = float(np.quantile(clr_sim, level))
-        stat_arr[i] = clr
-        crit_arr[i] = crit
+        return clr, crit
+
+    for i, b0 in enumerate(beta_grid):
+        stat_arr[i], crit_arr[i] = _clr_pair(b0)
 
     in_set = stat_arr <= crit_arr
+
+    def _clr_excess(b0: float) -> float:
+        s, c = _clr_pair(b0)
+        return s - c
+
     return _build_set(
         "Moreira CLR",
         level,
@@ -358,6 +364,7 @@ def conditional_lr_ci(
         crit_arr,
         in_set,
         extra={"n_sim": n_sim},
+        excess=_clr_excess,
     )
 
 
@@ -402,7 +409,7 @@ def k_test_ci(
     stat_arr = np.empty(len(beta_grid))
     df_r = max(n - kW - k, 1)
 
-    for i, b0 in enumerate(beta_grid):
+    def _k_stat(b0: float) -> float:
         ustar = Yt - b0 * Dt
         YD = np.column_stack([ustar, Dt])
         ZsYD = Zs.T @ YD
@@ -410,27 +417,70 @@ def k_test_ci(
         suu = float(Sigma[0, 0])
         svv = float(Sigma[1, 1])
         suv = float(Sigma[0, 1])
-        if suu <= 0 or svv <= 0:
-            stat_arr[i] = 0.0  # pragma: no cover
-            continue  # pragma: no cover
+        if suu <= 0 or svv <= 0:  # pragma: no cover - degenerate
+            return 0.0
         S = Zs.T @ ustar / np.sqrt(suu)
         d_perp = Dt - (suv / suu) * ustar
         sperp = max(svv - suv**2 / suu, 1e-12)
         T = Zs.T @ d_perp / np.sqrt(sperp)
         qt = float(T @ T)
-        K_stat = float((S @ T) ** 2 / max(qt, 1e-12))
-        stat_arr[i] = K_stat
+        return float((S @ T) ** 2 / max(qt, 1e-12))
+
+    for i, b0 in enumerate(beta_grid):
+        stat_arr[i] = _k_stat(b0)
 
     crit_arr = np.full_like(stat_arr, crit)
     in_set = stat_arr <= crit
     return _build_set(
-        "Kleibergen K", level, beta_grid, stat_arr, crit_arr, in_set, extra={"df": 1}
+        "Kleibergen K",
+        level,
+        beta_grid,
+        stat_arr,
+        crit_arr,
+        in_set,
+        extra={"df": 1},
+        excess=lambda b0: _k_stat(b0) - crit,
     )
 
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Shared result builder
 # ═══════════════════════════════════════════════════════════════════════
+
+
+def _bisect_boundary(excess: Any, outside: float, inside: float) -> float:
+    """Locate the sign change of ``excess`` between an out- and an in-point.
+
+    Plain bisection rather than Brent: ``excess`` is cheap here but not
+    guaranteed smooth (the CLR critical value is simulated), and bisection
+    only needs the sign, which the simulation reproduces stably because the
+    normal draws are fixed across beta.
+    """
+    f_out = float(excess(outside))
+    f_in = float(excess(inside))
+    if not (np.isfinite(f_out) and np.isfinite(f_in)) or f_out <= 0 or f_in > 0:
+        # No usable bracket (the grid point next door is also inside, or the
+        # statistic is degenerate). Keep the grid endpoint rather than
+        # inventing one.
+        return inside
+    a, b = (outside, inside) if outside < inside else (inside, outside)
+    for _ in range(200):
+        mid = 0.5 * (a + b)
+        if excess(mid) <= 0:
+            if outside < inside:
+                a_new, b_new = a, mid
+            else:
+                a_new, b_new = mid, b
+        else:
+            if outside < inside:
+                a_new, b_new = mid, b
+            else:
+                a_new, b_new = a, mid
+        if b_new - a_new <= 1e-14 * max(1.0, abs(mid)):
+            a, b = a_new, b_new
+            break
+        a, b = a_new, b_new
+    return float(0.5 * (a + b))
 
 
 def _build_set(
@@ -441,7 +491,22 @@ def _build_set(
     crit_arr: Any,
     in_set: Any,
     extra: dict,
+    excess: Any = None,
 ) -> WeakIVConfidenceSet:
+    """Assemble the result, refining the two endpoints off the grid.
+
+    ``excess(beta)`` returns ``statistic(beta) - critical_value(beta)``,
+    which is negative inside the set and positive outside it. The reported
+    endpoints used to be the extreme *grid points* still inside the set,
+    which biases the interval inward by up to one grid step -- on the
+    default 320-point grid that is a relative error of ~8e-3 on the AR set
+    and ~2e-2 on the CLR set, against ivmodel's root-found endpoints. The
+    grid still decides the *shape* of the set (emptiness, disconnection,
+    unboundedness); only the two boundaries are bisected.
+
+    ``excess=None`` keeps the old grid-point behaviour, for callers that
+    cannot cheaply re-evaluate the statistic at an arbitrary beta.
+    """
     if not in_set.any():
         lo = hi = np.nan
         is_empty = True
@@ -449,6 +514,13 @@ def _build_set(
         lo = float(beta_grid[in_set].min())
         hi = float(beta_grid[in_set].max())
         is_empty = False
+        if excess is not None:
+            idx0 = int(np.where(in_set)[0].min())
+            idx1 = int(np.where(in_set)[0].max())
+            if idx0 > 0:
+                lo = _bisect_boundary(excess, float(beta_grid[idx0 - 1]), lo)
+            if idx1 < len(beta_grid) - 1:
+                hi = _bisect_boundary(excess, float(beta_grid[idx1 + 1]), hi)
 
     # Detect disconnection: the set {β : in_set[i]} should be a contiguous run
     idx = np.where(in_set)[0]

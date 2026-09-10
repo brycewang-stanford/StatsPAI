@@ -613,6 +613,78 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Added in 1.27.0 by the spdep sweep, which found four correctness defects on the way: sp.lm_tests computed the wrong trace term AND built the lag statistic from W y instead of W X beta (both times the comment above the line named the right formula); sp.join_counts halved the double sum for BB and WW but not BW, breaking BB + WW + BW = S0/2; sp.getis_ord_local(star=False) standardised Gi with Gi*'s whole-sample moments; and sp.moran_residuals used the raw-variable null for OLS residuals. Weight style is not incidental here -- sp.W is binary until w.transform = 'R' while spdep's nb2listw defaults to row-standardised, and the fixture emits both so each statistic is compared under the style its reference uses."
         ),
     },
+    "anderson_rubin_test": {
+        "status": "bit-exact",
+        "reference": "R ivmodel::AR.test",
+        "reference_versions": {"ivmodel": "1.9.1", "car": "3.1.5", "metafor": "5.0.1"},
+        "tolerance": (
+            "Statistic 1.1e-15, p-value 1.2e-13, degrees of freedom exact, and the analytic AR confidence set 1.2e-14."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_weakiv_meta_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the weak-IV / diagnostics sweep, which found two defects: sp.vif returned VIF rounded to two decimals and 1/VIF to four (in the frame, not a display -- the conventional threshold of 10 was being decided in the fourth significant digit), and the grid-inversion confidence sets reported the extreme grid point still inside the acceptance region as the endpoint, biasing every interval inward by up to one grid step. sp.anderson_rubin_test computed the same AR interval analytically all along, so the package disagreed with itself about one quantity by 8e-3."
+        ),
+    },
+    "anderson_rubin_ci": {
+        "status": "bit-exact",
+        "reference": "R ivmodel::AR.test confidence set",
+        "reference_versions": {"ivmodel": "1.9.1", "car": "3.1.5", "metafor": "5.0.1"},
+        "tolerance": (
+            "Both endpoints at 5e-15 after the boundary bisection replaced the grid-point endpoints (previously 8.1e-3 / 4.9e-3). A reference-free test also asserts the two AR entry points agree with each other and that neither endpoint lands exactly on a grid node."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_weakiv_meta_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the weak-IV / diagnostics sweep, which found two defects: sp.vif returned VIF rounded to two decimals and 1/VIF to four (in the frame, not a display -- the conventional threshold of 10 was being decided in the fourth significant digit), and the grid-inversion confidence sets reported the extreme grid point still inside the acceptance region as the endpoint, biasing every interval inward by up to one grid step. sp.anderson_rubin_test computed the same AR interval analytically all along, so the package disagreed with itself about one quantity by 8e-3."
+        ),
+    },
+    "vif": {
+        "status": "bit-exact",
+        "reference": "R car::vif",
+        "reference_versions": {"ivmodel": "1.9.1", "car": "3.1.5", "metafor": "5.0.1"},
+        "tolerance": (
+            "2.0e-16 on every variance inflation factor, once the returned values stopped being rounded to two decimals."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_weakiv_meta_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the weak-IV / diagnostics sweep, which found two defects: sp.vif returned VIF rounded to two decimals and 1/VIF to four (in the frame, not a display -- the conventional threshold of 10 was being decided in the fourth significant digit), and the grid-inversion confidence sets reported the extreme grid point still inside the acceptance region as the endpoint, biasing every interval inward by up to one grid step. sp.anderson_rubin_test computed the same AR interval analytically all along, so the package disagreed with itself about one quantity by 8e-3."
+        ),
+    },
+    "meta_analysis": {
+        "status": "bit-exact",
+        "reference": "R metafor::rma (method='FE' and 'DL')",
+        "reference_versions": {"ivmodel": "1.9.1", "car": "3.1.5", "metafor": "5.0.1"},
+        "tolerance": (
+            "6.2e-16 across all nine reported quantities: fixed and random pooled effect and standard error, tau^2, Cochran Q and its p-value, I^2 and H^2. REML is not implemented here, which is a capability gap rather than a disagreement."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_weakiv_meta_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the weak-IV / diagnostics sweep, which found two defects: sp.vif returned VIF rounded to two decimals and 1/VIF to four (in the frame, not a display -- the conventional threshold of 10 was being decided in the fourth significant digit), and the grid-inversion confidence sets reported the extreme grid point still inside the acceptance region as the endpoint, biasing every interval inward by up to one grid step. sp.anderson_rubin_test computed the same AR interval analytically all along, so the package disagreed with itself about one quantity by 8e-3."
+        ),
+    },
+    "conditional_lr_ci": {
+        "status": "aligned",
+        "reference": "R ivmodel::CLR",
+        "reference_versions": {"ivmodel": "1.9.1"},
+        "tolerance": (
+            "Monte Carlo by construction and graded as such: ivmodel "
+            "integrates Moreira's conditional distribution while StatsPAI "
+            "simulates it, so the two cannot agree deterministically. The "
+            "test asserts the error SHRINKS with n_sim rather than pinning "
+            "a number -- 3.8e-3 at n_sim=5,000 and 1.7e-4 at 200,000 -- "
+            "which is the only honest statement about a simulated critical "
+            "value. The endpoints themselves are bisected off-grid, so the "
+            "residual is the critical value and not the grid."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_weakiv_meta_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the weak-IV / diagnostics sweep, which found two defects: sp.vif returned VIF rounded to two decimals and 1/VIF to four (in the frame, not a display -- the conventional threshold of 10 was being decided in the fourth significant digit), and the grid-inversion confidence sets reported the extreme grid point still inside the acceptance region as the endpoint, biasing every interval inward by up to one grid step. sp.anderson_rubin_test computed the same AR interval analytically all along, so the package disagreed with itself about one quantity by 8e-3."
+        ),
+    },
     "etregress": {
         "status": "bit-exact",
         "reference": "Stata 18 MP official `etregress` (Maddala 1983 model)",
