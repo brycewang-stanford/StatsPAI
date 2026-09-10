@@ -350,6 +350,13 @@ def test_conditional_lr_ci_smoke():
         or "conditional" in out.method.lower()
         or "moreira" in out.method.lower()
     )
+    # 1.27.0: `lower` / `upper` are the acceptance boundary, found by
+    # bisection, not the extreme grid points still inside the set. The old
+    # pins were exactly `beta_grid[in_set].min()` and `.max()`
+    # (0.38978995772354263 and 0.6734980393245119); the interval is now
+    # wider on both sides, which is the correction -- a grid point inside
+    # the set is always strictly inside the true interval. Everything that
+    # describes the grid itself is unchanged.
     np.testing.assert_allclose(
         [
             out.lower,
@@ -359,9 +366,15 @@ def test_conditional_lr_ci_smoke():
             out.statistic.min(),
             out.in_set.sum(),
         ],
-        [0.38978995772354263, 0.6734980393245119, 201, 3.78068207615837, 0.0, 40],
+        [0.38961326163064824, 0.6762307859953762, 201, 3.78068207615837, 0.0, 40],
         atol=5e-9,
     )
+    # The endpoints must sit strictly between two grid nodes; landing on one
+    # would mean the refinement stopped happening.
+    grid = np.asarray(out.beta_grid, dtype=float)
+    step = float(grid[1] - grid[0])
+    for endpoint in (out.lower, out.upper):
+        assert 0.0 < min(abs(grid - endpoint)) < step
 
 
 # ---------------------------------------------------------------------------
