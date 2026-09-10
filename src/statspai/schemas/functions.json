@@ -10889,7 +10889,7 @@
     }
   },
   {
-    "description": "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE regression with cohort x post interactions; recovers cohort-specific ATTs. Numerically equivalent to CS / SA / BJS under the saturated specification. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: treatment timing is not staggered -- the extended TWFE saturation buys nothing over sp.did(method='2x2'). Cost: Like sp.etwfe: regressor count grows as O(cohorts x periods) from the saturated interactions, so the design matrix -- not the sample size -- is the binding cost.",
+    "description": "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE regression with cohort x post interactions; recovers cohort-specific ATTs. Numerically equivalent to CS / SA / BJS under the saturated specification. Validation: certified parity evidence. Do NOT use when: treatment timing is not staggered -- the extended TWFE saturation buys nothing over sp.did(method='2x2'). Cost: Like sp.etwfe: regressor count grows as O(cohorts x periods) from the saturated interactions, so the design matrix -- not the sample size -- is the binding cost.",
     "name": "wooldridge_did",
     "parameters": {
       "properties": {

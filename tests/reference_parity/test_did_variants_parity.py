@@ -135,13 +135,23 @@ def test_gardner_did_matches_R(cs_data, r_reference):
 # ─── Wooldridge etwfe ──────────────────────────────────────────────────
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="sp.wooldridge_did returns 2.15 vs R etwfe's 2.75 (true) "
-    "— ~22% downward bias on this DGP. Likely a cohort-weighting "
-    "difference in the Mundlak transform. Flagged for v1.11.",
-)
 def test_wooldridge_did_matches_R(cs_data, r_reference):
+    """sp.wooldridge_did against R etwfe on the shared staggered fixture.
+
+    This assertion was an ``xfail(strict=False)`` from v1.11 to v1.26,
+    recording that sp.wooldridge_did returned 2.15 against R's 2.75 -- a
+    ~22% downward bias -- with the note "likely a cohort-weighting
+    difference in the Mundlak transform". The note was wrong (reweighting
+    the reported cohort ATTs only reaches 2.21) and the non-strict xfail
+    meant the defect could neither fail nor announce a fix.
+
+    The cause was that the headline and ``detail`` were read off a
+    *separate* cohort x post regression carrying one post dummy per
+    cohort. That design is not saturated in cohort x period, so under
+    dynamic effects the already-treated cohorts enter the period fixed
+    effects and contaminate every coefficient. Fixed in 1.27.0; the test
+    is strict from here on.
+    """
     e_meta = r_reference["etwfe"]["meta"]
     if not e_meta.get("available", False):
         pytest.skip(f"R etwfe unavailable: {e_meta.get('error', '?')}")
@@ -159,6 +169,43 @@ def test_wooldridge_did_matches_R(cs_data, r_reference):
         f"sp.wooldridge_did drifted from R etwfe by {rel:.1%} "
         f"(Python={py_att:.4f}, R={r_att:.4f})"
     )
+
+
+def test_wooldridge_did_recovers_known_cohort_atts(cs_data):
+    """Cohort ATTs must recover the DGP's true per-cohort effects.
+
+    The fixture's ``tau`` column carries the true effect, so the target is
+    known without any external software: cohort 2 averages 3.0 over its
+    five post periods, cohort 3 averages 2.5 over its four. The headline
+    is the cohort-size-weighted average of the two, i.e. 2.75.
+
+    Through 1.26.0 this returned 2.67 and 1.63 (headline 2.15) -- errors of
+    11% and 35% against a *known* truth -- while the registry graded the
+    function 'validated' on the strength of this very file. A known-truth
+    tier with no passing known-truth assertion behind it is the failure
+    mode this test exists to close.
+    """
+    res = sp.wooldridge_did(
+        data=cs_data, y="y", group="id", time="year", first_treat="first_treat"
+    )
+    truth = (
+        cs_data.loc[
+            (cs_data["first_treat"] > 0) & (cs_data["year"] >= cs_data["first_treat"])
+        ]
+        .groupby("first_treat")["tau"]
+        .mean()
+    )
+    detail = res.detail.set_index("cohort")["att"]
+    for cohort, true_att in truth.items():
+        got = float(detail.loc[int(cohort)])
+        assert abs(got - true_att) < 0.15, (
+            f"cohort {int(cohort)}: sp.wooldridge_did returned {got:.4f} "
+            f"against a true ATT of {true_att:.4f}. The saturated "
+            "cohort x period design recovers this DGP; a miss here means "
+            "the design regressed to an unsaturated one (see the 1.27.0 "
+            "CHANGELOG entry)."
+        )
+    assert abs(float(res.estimate) - 2.75) < 0.15
 
 
 def test_gardner_close_to_truth(cs_data, r_reference):

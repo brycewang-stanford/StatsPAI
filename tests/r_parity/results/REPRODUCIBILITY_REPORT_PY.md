@@ -22,7 +22,7 @@ This is the Python counterpart of `REPRODUCIBILITY_REPORT.md`. Both sides matter
 | `14_ols_cluster` | ✅ reproduces | same bytes | 3/3 | 0.00e+00 | 0.00e+00 |
 | `15_hdfe_cluster` | ✅ reproduces | same bytes | 2/2 | 0.00e+00 | 0.00e+00 |
 | `16_bjs` | ✅ reproduces | same bytes | 2/2 | 0.00e+00 | 0.00e+00 |
-| `17_etwfe` | ✅ reproduces | same bytes | 1/1 | 0.00e+00 | 4.34e-18 |
+| `17_etwfe` | ✅ reproduces | same bytes | 8/8 | 0.00e+00 | 0.00e+00 |
 | `18_augsynth` | ✅ reproduces | same bytes | 2/2 | 0.00e+00 | 0.00e+00 |
 | `19_gsynth` | ✅ reproduces | same bytes | 3/3 | 0.00e+00 | 0.00e+00 |
 | `20_bacon` | ✅ reproduces | same bytes | 12/12 | 0.00e+00 | 0.00e+00 |
@@ -93,3 +93,4 @@ This is the Python counterpart of `REPRODUCIBILITY_REPORT.md`. Both sides matter
 | `85_twfe_event_study` | ✅ reproduces | same bytes | 8/8 | 0.00e+00 | 0.00e+00 |
 | `86_fect` | ✅ reproduces | same bytes | 105/105 | 0.00e+00 | 0.00e+00 |
 | `87_interflex` | ✅ reproduces | same bytes | 26/26 | 0.00e+00 | 0.00e+00 |
+

@@ -7,16 +7,94 @@
       "side": "py",
       "statistic": "att_etwfe",
       "estimate": -0.035108276608099634,
-      "se": 0.0069250918288121235,
-      "ci_lo": -0.048687789491683515,
-      "ci_hi": -0.021528763724515752,
+      "se": 0.006925091828812119,
+      "ci_lo": -0.04868778949168351,
+      "ci_hi": -0.02152876372451576,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "17_etwfe",
+      "side": "py",
+      "statistic": "att_group_notyet_2004",
+      "estimate": -0.039017134968663644,
+      "se": 0.009647377142304597,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "17_etwfe",
+      "side": "py",
+      "statistic": "att_group_notyet_2006",
+      "estimate": -0.031113925561665576,
+      "se": 0.008319808603369835,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "17_etwfe",
+      "side": "py",
+      "statistic": "att_group_notyet_2007",
+      "estimate": -0.027461545258711684,
+      "se": 0.010724815826406036,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "17_etwfe",
+      "side": "py",
+      "statistic": "att_etwfe_never",
+      "estimate": -0.032976513809653635,
+      "se": 0.0077723427541003575,
+      "ci_lo": -0.04821741330586146,
+      "ci_hi": -0.017735614313445808,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "17_etwfe",
+      "side": "py",
+      "statistic": "att_group_never_2004",
+      "estimate": -0.04190878744721252,
+      "se": 0.011788177025440926,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "17_etwfe",
+      "side": "py",
+      "statistic": "att_group_never_2006",
+      "estimate": -0.01656827091782261,
+      "se": 0.013189973998528913,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    },
+    {
+      "module": "17_etwfe",
+      "side": "py",
+      "statistic": "att_group_never_2007",
+      "estimate": -0.030063905043080163,
+      "se": 0.013858037592661628,
+      "ci_lo": null,
+      "ci_hi": null,
       "n": 2500,
       "extra": {}
     }
   ],
   "extra": {
-    "method": "Wooldridge ETWFE + emfx simple aggregation",
+    "method": "Wooldridge ETWFE + emfx simple / group aggregations",
     "n_cohorts": 3,
-    "aggregation_note": "Parity row uses the R etwfe default no-ivar fixed-effect structure (StatsPAI panel=False) and sp.etwfe_emfx(weighting='treated'), which averages cohort-time marginal effects over treated post-period observations like etwfe::emfx(type='simple'). Point estimates and clustered delta-method SEs match the R reference."
+    "aggregation_note": "att_etwfe uses the R etwfe default no-ivar fixed-effect structure (StatsPAI panel=False) and sp.etwfe_emfx(weighting='treated'), which averages cohort-time marginal effects over treated post-period observations like etwfe::emfx(type='simple'). Point estimates and clustered delta-method SEs match the R reference. The att_group_* rows are the per-cohort ATTs from the same fits, matching etwfe::emfx(type='group'). The never-treated rows compare against R etwfe(cgroup='never', ivar=countyreal) because sp.etwfe(cgroup='nevertreated') absorbs unit fixed effects by two-way demeaning; point estimates are invariant to the ivar choice, the clustered SE is not.",
+    "se_convention_note": "Both sides now count the same K in the CR1 finite-sample factor: unit effects are nested in the countyreal cluster and dropped, the period effects are not and are counted, which is fixest's ssc(fixef.K='nested') and reghdfe's default (StatsPAI: did._core.fe_dof_not_nested). Through 1.26.0 sp.wooldridge_did counted only the explicit design columns, which put these SE rows near 8e-4 relative; they are now 1.3e-8 to 5.5e-6. That entire residual is R's, not ours: marginaleffects differentiates the emfx aggregation numerically with a forward difference, and re-running emfx(type='group', numderiv='richardson') moves R by exactly the observed gap (1.31e-8 / 5.48e-6 / 2.30e-6 for g=2004/2006/2007) onto 0.0117881770227968 / 0.0131899740310652 / 0.0138580376110556 -- which our analytic delta-method SEs reproduce to 2.2e-10 / 2.5e-9 / 1.3e-9. Stata jwdid, estat group -- an independent second reference that differentiates analytically -- agrees with our three SEs to all 16 committed digits, so R's default is the outlier and the mechanism is triangulated rather than merely plausible. The committed golden keeps the marginaleffects default, because that is the number a user running the canonical reference actually sees. The att_etwfe* rows deliberately do NOT take the same nested-K treatment: sp.etwfe's simple-ATT branch already agrees with Stata jwdid, estat simple to 7e-15, and applying fe_dof_not_nested there would scale its SE by 1.001 and move it 1e-3 away from both references. Measured, not assumed -- the two branches carry different explicit design column counts, so the same CR1 factor needs a different K."
   }
 }

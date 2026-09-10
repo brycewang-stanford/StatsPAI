@@ -2720,15 +2720,15 @@
         "R": 1.7847134068043535e-13,
         "Stata": 3.893560809972389e-14
       },
-      "python_call": "sp.etwfe + sp.etwfe_emfx",
+      "python_call": "sp.etwfe + sp.etwfe_emfx + sp.wooldridge_did",
       "reference": "etwfe::etwfe + emfx",
       "reference_versions": {
         "R": "R version 4.5.2 (2025-10-31)",
         "etwfe": "0.6.2"
       },
       "se_rel": {
-        "R": 2.4035766096211474e-06,
-        "Stata": 0.0006034396606860773
+        "R": 2.4035766102473914e-06,
+        "Stata": 0.0006034396606854508
       },
       "sides": [
         "py",
@@ -2771,15 +2771,15 @@
         "R": 1.7847134068043535e-13,
         "Stata": 3.893560809972389e-14
       },
-      "python_call": "sp.etwfe + sp.etwfe_emfx",
+      "python_call": "sp.etwfe + sp.etwfe_emfx + sp.wooldridge_did",
       "reference": "etwfe::etwfe + emfx",
       "reference_versions": {
         "R": "R version 4.5.2 (2025-10-31)",
         "etwfe": "0.6.2"
       },
       "se_rel": {
-        "R": 2.4035766096211474e-06,
-        "Stata": 0.0006034396606860773
+        "R": 2.4035766102473914e-06,
+        "Stata": 0.0006034396606854508
       },
       "sides": [
         "py",
@@ -10170,22 +10170,55 @@
       "tolerance": ""
     },
     {
-      "function": "wooldridge_did",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_did_variants_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "wooldridge_did",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.7847134068043535e-13,
+        "rel_vs_Stata": 3.893560809972389e-14,
+        "statistic": [
+          "att_etwfe"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Wooldridge ETWFE",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "17_etwfe",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.7847134068043535e-13,
+        "Stata": 3.893560809972389e-14
+      },
+      "python_call": "sp.etwfe + sp.etwfe_emfx + sp.wooldridge_did",
+      "reference": "etwfe::etwfe + emfx",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "etwfe": "0.6.2"
+      },
+      "se_rel": {
+        "R": 2.4035766102473914e-06,
+        "Stata": 0.0006034396606854508
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/17_etwfe.py",
+        "tests/r_parity/17_etwfe.R",
+        "tests/stata_parity/17_etwfe.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.001"
     },
     {
       "function": "wooldridge_prod",

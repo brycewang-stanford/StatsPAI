@@ -77,7 +77,7 @@ a shared explicit fold partition.
 | 14 | OLS + cluster SE | `sp.regress(cluster=)` | `lm` + `sandwich::vcovCL` |
 | 15 | HDFE + cluster SE | `sp.fast.feols(cr1)` | `fixest::feols(cluster=)` |
 | 16 | BJS imputation | `sp.did_imputation` | `didimputation::did_imputation` |
-| 17 | Wooldridge ETWFE | `sp.etwfe` + `sp.etwfe_emfx` | `etwfe::etwfe` + `emfx` |
+| 17 | Wooldridge ETWFE | `sp.etwfe` + `sp.etwfe_emfx` + `sp.wooldridge_did` | `etwfe::etwfe` + `emfx` |
 | 18 | Augmented SCM | `sp.augsynth(backend="native")` | `augsynth::augsynth` |
 | 19 | Generalized SCM | `sp.gsynth(backend="native")` | `gsynth::gsynth` |
 | 20 | Goodman--Bacon decomp | `sp.bacon_decomposition` | `bacondecomp::bacon` |

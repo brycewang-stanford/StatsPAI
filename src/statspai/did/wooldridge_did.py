@@ -46,6 +46,7 @@ from scipy import optimize, stats
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 from ._core import drop_unusable_rows as _drop_unusable_rows
+from ._core import fe_dof_not_nested as _fe_dof_not_nested
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Helper: cluster-robust OLS
@@ -56,8 +57,17 @@ def _ols_fit(
     X: np.ndarray,
     y: np.ndarray,
     cluster: Optional[np.ndarray] = None,
+    dof_k: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """OLS with optional cluster-robust (CR1) standard errors.
+
+    ``dof_k`` overrides the parameter count used in the CR1 finite-sample
+    factor ``(N-1)/(N-K)``. Callers that absorb fixed effects by demeaning
+    must pass it: the absorbed effects are real parameters, and
+    ``fixest``/``reghdfe`` count every one that is not nested inside the
+    cluster variable (see ``did._core.fe_dof_not_nested``). Leaving it at
+    ``None`` counts only the explicit design columns, which understates
+    ``K`` — and therefore the SE — whenever fixed effects were absorbed.
 
     Returns (beta, se, vcov).
     """
@@ -88,7 +98,9 @@ def _ols_fit(
         scores = np.zeros((n_cl, k), dtype=float)
         np.add.at(scores, cluster_inverse, X * resid[:, np.newaxis])
         meat = scores.T @ scores
-        correction = (n_cl / (n_cl - 1)) * ((n - 1) / (n - k))
+        k_eff = int(dof_k) if dof_k is not None else k
+        k_eff = min(max(k_eff, 1), n - 1)
+        correction = (n_cl / (n_cl - 1)) * ((n - 1) / (n - k_eff))
         vcov = correction * XtX_inv @ meat @ XtX_inv
     else:
         # HC1 robust
@@ -115,6 +127,124 @@ def _stars(p: float) -> str:
 # ═══════════════════════════════════════════════════════════════════════
 
 
+def _cohort_atts_from_cells(
+    event_study: pd.DataFrame,
+    event_vcov: Optional[np.ndarray],
+    cohorts: List[Any],
+    cohort_sizes: Dict[int, int],
+    df_resid: int,
+    alpha: float,
+) -> Tuple[pd.DataFrame, np.ndarray, float, float, float, Tuple[float, float]]:
+    """Aggregate saturated cohort x period cells into cohort-level ATTs.
+
+    Wooldridge (2021) identifies one coefficient per *treated* cell
+    ``(g, t)``, ``t >= g``; every pre-treatment cell is absorbed by the
+    cohort and period fixed effects. ``ATT(g)`` is then the
+    treated-observation-weighted mean of cohort ``g``'s cells -- the
+    aggregation R ``etwfe::emfx(type='group')`` reports.
+
+    Reading ``ATT(g)`` off a *separate* regression carrying a single post
+    dummy per cohort is not equivalent. That design is not saturated in
+    cohort x period, so under dynamic treatment effects the already-treated
+    cohorts enter the period fixed effects and contaminate every treatment
+    coefficient -- the forbidden comparison of Goodman-Bacon (2021), which
+    is precisely what the extended TWFE design exists to remove. StatsPAI
+    read the cohort ATTs off that unsaturated design through 1.26.0; see
+    the 1.27.0 CHANGELOG entry "ETWFE cohort-level ATT".
+
+    Returns ``(detail, cohort_vcov, att_overall, att_se, pvalue, ci)`` where
+    the headline is the cohort-size-weighted average of ``ATT(g)`` and its
+    SE is the delta-method value implied by ``cohort_vcov``.
+    """
+    post = event_study.loc[event_study["rel_time"] >= 0]
+    if len(post) == 0:
+        raise DataInsufficient(
+            "No post-treatment cohort x period cell survived estimation, so "
+            "no cohort ATT is identified."
+        )
+    V = np.asarray(event_vcov, dtype=float) if event_vcov is not None else None
+    n_cells = int(V.shape[0]) if V is not None else 0
+    W = np.zeros((len(cohorts), n_cells)) if n_cells else None
+
+    rows: List[Dict[str, Any]] = []
+    atts: List[float] = []
+    ses: List[float] = []
+    for i, g in enumerate(cohorts):
+        cells = post.loc[post["cohort"] == int(g)]
+        if len(cells) == 0:
+            raise DataInsufficient(
+                f"Cohort {int(g)} has no post-treatment cohort x period cell; "
+                "its ATT is not identified by the ETWFE design."
+            )
+        w_raw = cells["n_treated_obs"].astype(float).to_numpy()
+        total = float(w_raw.sum())
+        w_g = (
+            w_raw / total
+            if np.isfinite(total) and total > 0
+            else np.full(len(cells), 1.0 / len(cells))
+        )
+        att_g = float(w_g @ cells["estimate"].astype(float).to_numpy())
+
+        idx = None
+        if W is not None and "_vcov_idx" in cells.columns:
+            cand = cells["_vcov_idx"].astype(int).to_numpy() - 1
+            if bool(((cand >= 0) & (cand < n_cells)).all()):
+                idx = cand
+        if idx is not None:
+            se_g = float(np.sqrt(max(w_g @ V[np.ix_(idx, idx)] @ w_g, 0.0)))
+            W[i, idx] = w_g
+        else:
+            # No usable cell covariance: fall back to the independent-cell
+            # approximation and say so rather than inventing a covariance.
+            se_g = float(
+                np.sqrt(np.sum((w_g * cells["se"].astype(float).to_numpy()) ** 2))
+            )
+        t_g = att_g / se_g if se_g > 0 else np.nan
+        p_g = (
+            float(2 * (1 - stats.t.cdf(abs(t_g), max(df_resid, 1))))
+            if np.isfinite(t_g)
+            else np.nan
+        )
+        rows.append(
+            {
+                "cohort": int(g),
+                "att": att_g,
+                "se": se_g,
+                "tstat": t_g,
+                "pvalue": p_g,
+                "n_obs": int(cohort_sizes.get(int(g), 0)),
+                "n_treated_obs": int(total) if np.isfinite(total) else 0,
+            }
+        )
+        atts.append(att_g)
+        ses.append(se_g)
+
+    detail = pd.DataFrame(rows)
+    att_vec = np.asarray(atts, dtype=float)
+    if W is not None and V is not None and np.any(W):
+        cohort_vcov = W @ V @ W.T
+    else:
+        cohort_vcov = np.diag(np.asarray(ses, dtype=float) ** 2)
+
+    sizes = detail["n_obs"].to_numpy(dtype=float)
+    weights = (
+        sizes / sizes.sum()
+        if np.isfinite(sizes).all() and sizes.sum() > 0
+        else np.full(len(sizes), 1.0 / max(len(sizes), 1))
+    )
+    att_overall = float(weights @ att_vec)
+    att_se = float(np.sqrt(max(weights @ cohort_vcov @ weights, 0.0)))
+    t_overall = att_overall / att_se if att_se > 0 else np.nan
+    p_overall = (
+        float(2 * (1 - stats.t.cdf(abs(t_overall), max(df_resid, 1))))
+        if np.isfinite(t_overall)
+        else np.nan
+    )
+    t_crit = stats.t.ppf(1 - alpha / 2, max(df_resid, 1))
+    ci = (att_overall - t_crit * att_se, att_overall + t_crit * att_se)
+    return detail, cohort_vcov, att_overall, att_se, p_overall, ci
+
+
 def wooldridge_did(
     data: pd.DataFrame,
     y: str,
@@ -128,10 +258,34 @@ def wooldridge_did(
     """
     Wooldridge (2021) extended TWFE estimator for staggered DID.
 
-    Estimates a properly saturated TWFE regression with cohort x post
-    interactions, recovering cohort-specific ATTs and an overall
-    cohort-weighted ATT that is valid even under heterogeneous treatment
-    effects.
+    Estimates the TWFE regression *saturated in cohort x period* — one
+    coefficient per cohort-period cell, unit and period fixed effects
+    absorbed by two-way demeaning, and each cohort's ``rel_time = -1``
+    cell held out as the reference. Saturation is what makes the design
+    valid under heterogeneous and dynamic treatment effects: a single
+    post dummy per cohort is *not* saturated and is contaminated by
+    already-treated cohorts through the period fixed effects.
+
+    ``ATT(g)`` is the treated-observation-weighted mean of cohort ``g``'s
+    post-treatment cells, and ``estimate`` is the **cohort-size-weighted**
+    average of those ``ATT(g)``. This reproduces R
+    ``etwfe::etwfe(..., cgroup = "never")`` + ``emfx(type = "group")``
+    cell for cell (parity module ``17_etwfe``).
+
+    .. versionchanged:: 1.27.0
+       ⚠️ Correctness fix. Through 1.26.0 ``estimate`` and ``detail`` were
+       read off a *separate*, unsaturated cohort x post regression while
+       only the event-study output used the saturated design. On a
+       deterministic DGP with true cohort ATTs 3.0 and 2.5 the old path
+       returned 2.67 and 1.63 (headline 2.15 against a true 2.78); it now
+       returns 2.99 and 2.44. See MIGRATION.md.
+
+    See Also
+    --------
+    etwfe : The same estimator with the treated-observation-weighted
+        simple ATT that R ``emfx(type='simple')`` and Stata
+        ``jwdid, estat simple`` report as the headline, plus the
+        ``cgroup='notyet'`` not-yet-treated comparison group.
 
     Parameters
     ----------
@@ -157,9 +311,12 @@ def wooldridge_did(
     Returns
     -------
     CausalResult
-        ``estimate`` is the cohort-size-weighted ATT.
-        ``detail`` DataFrame contains cohort-specific ATTs.
-        ``model_info`` contains event-study coefficients.
+        ``estimate`` is the cohort-size-weighted average of ``ATT(g)``.
+        ``detail`` holds one row per cohort with ``ATT(g)`` and its
+        delta-method SE, aggregated from the saturated cells.
+        ``model_info['event_study']`` holds the cohort x relative-time
+        cells themselves (leads included, for pre-trend inspection) and
+        ``model_info['event_vcov']`` their cluster-robust covariance.
 
     Examples
     --------
@@ -194,21 +351,23 @@ def wooldridge_did(
     grand_mean = df["_y"].mean()
     df["_y_dm"] = df["_y"] - unit_mean - time_mean + grand_mean
 
-    # ── Build cohort × post interaction dummies ─────────────────────
-    interaction_cols: List[str] = []
-    for g in cohorts:
-        col = f"_coh{int(g)}_post"
-        df[col] = ((df["_ft"] == g) & (df[time] >= g)).astype(float)
-        interaction_cols.append(col)
-
-    # ── Also build cohort × relative-time dummies for event study ───
-    # H7 fix: build event dummies for BOTH leads and lags. Omit
-    # rel = -1 as the reference category so the design is identified.
-    # Post-only consumers can still filter via etwfe_emfx(include_leads=False).
+    # ── Build the cohort × relative-time design ─────────────────────
+    # One dummy per cohort × period cell, with each cohort's rel = -1 cell
+    # left as the omitted reference. Every treated cell (rel >= 0) therefore
+    # carries its own coefficient: this is the saturated design Wooldridge
+    # (2021) requires, and it reproduces R ``etwfe(cgroup = "never")`` cell
+    # for cell (see tests/r_parity/17_etwfe.py).
+    #
+    # A *single* post dummy per cohort is NOT this design. It is not
+    # saturated in cohort x period, so under dynamic treatment effects the
+    # already-treated cohorts enter the period fixed effects and contaminate
+    # every treatment coefficient — the forbidden comparison of
+    # Goodman-Bacon (2021), which is exactly what extended TWFE removes.
+    # StatsPAI read `detail` and the headline off that unsaturated design
+    # through 1.26.0; both now come from the cells below.
     event_cols: List[str] = []
-    rel_times = set()
+    event_meta: List[Tuple[int, int]] = []  # (cohort, rel_time)
     for g in cohorts:
-        mask_g = df["_ft"] == g
         for t_val in periods:
             rel = int(t_val - g)
             if rel == -1:
@@ -218,22 +377,23 @@ def wooldridge_did(
                 if rel >= 0
                 else f"_coh{int(g)}_rel_neg{abs(rel)}"
             )
-            df[col] = ((mask_g) & (df[time] == t_val)).astype(float)
+            df[col] = ((df["_ft"] == g) & (df[time] == t_val)).astype(float)
             event_cols.append(col)
-            rel_times.add(rel)
+            event_meta.append((int(g), rel))
 
-    # ── Demean interactions (same FE projection) ────────────────────
-    # Batch the two-way demeaning across all dummy columns. The previous
-    # per-column groupby loop repeated identical grouping work dozens of times
-    # on event-study designs; the algebra is unchanged.
-    dummy_cols = interaction_cols + event_cols
-    if dummy_cols:
-        dummy_values = df[dummy_cols]
-        unit_means = dummy_values.groupby(df[group]).transform("mean")
-        time_means = dummy_values.groupby(df[time]).transform("mean")
-        dummy_dm = dummy_values - unit_means - time_means + dummy_values.mean()
-        dummy_dm.columns = [f"{col}_dm" for col in dummy_cols]
-        df[dummy_dm.columns] = dummy_dm
+    if len(event_cols) == 0:
+        raise DataInsufficient(
+            "No cohort × period cell could be created; check "
+            f"{first_treat!r} against the observed periods."
+        )
+
+    # ── Demean the design (same two-way FE projection as the outcome) ─
+    dummy_values = df[event_cols]
+    unit_means = dummy_values.groupby(df[group]).transform("mean")
+    time_means = dummy_values.groupby(df[time]).transform("mean")
+    dummy_dm = dummy_values - unit_means - time_means + dummy_values.mean()
+    dummy_dm.columns = [f"{col}_dm" for col in event_cols]
+    df[dummy_dm.columns] = dummy_dm
 
     # ── Demean controls ─────────────────────────────────────────────
     ctrl_dm_cols: List[str] = []
@@ -252,129 +412,117 @@ def wooldridge_did(
         df[ctrl_dm_cols] = ctrl_dm
 
     # ── Drop NaN rows ───────────────────────────────────────────────
-    keep_cols = ["_y_dm"] + [f"{c}_dm" for c in interaction_cols] + ctrl_dm_cols
+    keep_cols = ["_y_dm"] + [f"{c}_dm" for c in event_cols] + ctrl_dm_cols
     valid = df[keep_cols].notna().all(axis=1)
     df_valid = df.loc[valid].reset_index(drop=True)
 
-    # ── OLS on demeaned data ────────────────────────────────────────
+    cl_arr = df_valid[cluster].values if cluster is not None else df_valid[group].values
+
+    # ── ETWFE regression on the saturated cells ─────────────────────
     y_vec = df_valid["_y_dm"].values
-    X_cols = [f"{c}_dm" for c in interaction_cols] + ctrl_dm_cols
-    X = df_valid[X_cols].values
+    X_cols = [f"{c}_dm" for c in event_cols] + ctrl_dm_cols
+    X = np.column_stack([np.ones(len(y_vec))] + [df_valid[c].values for c in X_cols])
+    if len(y_vec) <= X.shape[1]:
+        raise DataInsufficient(
+            f"The saturated ETWFE design needs more than {X.shape[1]} usable "
+            "rows (one coefficient per cohort × period cell) but only "
+            f"{len(y_vec)} remain. Pool cohorts or periods, or use "
+            "sp.callaway_santanna / sp.did_imputation on this design."
+        )
+    # Identification. sp.wooldridge_did estimates the *never-treated-control*
+    # ETWFE: every cohort x period cell except each cohort's rel = -1
+    # reference carries a dummy, so the untreated comparison has to come from
+    # never-treated units. With none, the cells span the panel and nothing
+    # pins the period effects — `pinv` still returns numbers (observed:
+    # 1e13-scale coefficients on a two-cohort panel), and a silently absurd
+    # estimate is the worst possible output.
+    if not bool(df_valid["_ft"].isna().any()):
+        raise DataInsufficient(
+            "sp.wooldridge_did needs at least one never-treated unit "
+            f"({first_treat!r} NaN or 0): it estimates the ETWFE identified "
+            "against a never-treated comparison group, and with every unit "
+            "treated the saturated cohort × period design is not identified. "
+            "Use sp.etwfe(..., cgroup='notyet') for the not-yet-treated "
+            "comparison group, or sp.callaway_santanna / sp.did_imputation."
+        )
+    # Residual rank deficiency is usually benign — a redundant cell column or
+    # a collinear control, which fixest and reghdfe simply drop and which
+    # leaves the reported aggregates estimable under the minimum-norm
+    # solution. Warn rather than raise, matching _etwfe_repeated_cs.
+    _rank = int(np.linalg.matrix_rank(X))
+    if _rank < X.shape[1]:
+        warnings.warn(
+            f"wooldridge_did: the saturated ETWFE design is rank-deficient by "
+            f"{X.shape[1] - _rank} column(s) (rank {_rank}, ncol "
+            f"{X.shape[1]}). Individual cell coefficients are then an "
+            "arbitrary member of the solution set; cohort ATTs and the "
+            "headline remain estimable. Check for collinear controls or for "
+            "a cohort with no usable pre-period.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
-    if X.shape[1] == 0:
-        raise DataInsufficient("No cohort × post interactions could be created.")
+    # The unit and period effects are absorbed by the two-way demeaning
+    # above but are still parameters. fixest's ssc(fixef.K="nested") and
+    # reghdfe's default count every absorbed effect that is not nested in
+    # the cluster; the explicit constant is collinear with them and drops
+    # out. sp.event_study and sp.sun_abraham already follow this rule
+    # (parity module 85); wooldridge_did did not until 1.27.0, which left
+    # its clustered SEs a uniform ~0.08% below R etwfe's.
+    _cluster_col = cluster if cluster is not None else group
+    k_fe = _fe_dof_not_nested(df_valid, [group, time], _cluster_col)
+    dof_k = X.shape[1] - 1 + k_fe
+    beta, se, vcov = _ols_fit(X, y_vec, cluster=cl_arr, dof_k=dof_k)
 
-    # Add constant (absorbed into demeaning but keep for numerical stability)
-    X = np.column_stack([np.ones(len(y_vec)), X])
-
-    cl_arr = None
-    if cluster is not None:
-        cl_arr = df_valid[cluster].values
-    else:
-        cl_arr = df_valid[group].values  # default: cluster at unit level
-
-    beta, se, vcov = _ols_fit(X, y_vec, cluster=cl_arr)
-
-    # ── Extract cohort-specific ATTs ────────────────────────────────
     n_obs = len(y_vec)
-    df_resid = n_obs - X.shape[1]
-    cohort_results = []
-    cohort_sizes = []
-    cohort_atts = []
-    cohort_ses = []
+    df_resid = max(n_obs - dof_k, 1)
+    n_event = len(event_cols)
+    event_vcov = vcov[1 : 1 + n_event, 1 : 1 + n_event]
 
-    for i, g in enumerate(cohorts):
-        idx = i + 1  # skip constant
-        att_g = float(beta[idx])
-        se_g = float(se[idx])
-        t_g = att_g / se_g if se_g > 0 else np.nan
-        p_g = float(2 * (1 - stats.t.cdf(abs(t_g), max(df_resid, 1))))
-        n_g = int((df_valid["_ft"] == g).sum())
-        n_treated_g = int(((df_valid["_ft"] == g) & (df_valid[time] >= g)).sum())
-        cohort_results.append(
+    ev_rows: List[Dict[str, Any]] = []
+    for j, (coh_val, rel_val) in enumerate(event_meta):
+        n_treated_ev = int(
+            (
+                (df_valid["_ft"] == coh_val)
+                & (df_valid[time] == coh_val + rel_val)
+                & (df_valid[time] >= coh_val)
+            ).sum()
+        )
+        ev_rows.append(
             {
-                "cohort": int(g),
-                "att": att_g,
-                "se": se_g,
-                "tstat": t_g,
-                "pvalue": p_g,
-                "n_obs": n_g,
-                "n_treated_obs": n_treated_g,
+                "cohort": coh_val,
+                "rel_time": rel_val,
+                "estimate": float(beta[j + 1]),
+                "se": float(se[j + 1]),
+                "_vcov_idx": j + 1,
+                "n_treated_obs": n_treated_ev,
             }
         )
-        cohort_sizes.append(n_g)
-        cohort_atts.append(att_g)
-        cohort_ses.append(se_g)
+    event_study_df = pd.DataFrame(ev_rows)
 
-    detail = pd.DataFrame(cohort_results)
-
-    # ── Aggregate ATT (cohort-size weighted) ────────────────────────
-    sizes = np.array(cohort_sizes, dtype=float)
-    atts = np.array(cohort_atts)
-    weights = (
-        sizes / sizes.sum() if sizes.sum() > 0 else np.ones(len(sizes)) / len(sizes)
+    # ── Cohort ATTs and the cohort-size-weighted headline ───────────
+    cohort_sizes = {int(g): int((df_valid["_ft"] == g).sum()) for g in cohorts}
+    (
+        detail,
+        cohort_vcov,
+        att_overall,
+        att_se_overall,
+        p_overall,
+        ci,
+    ) = _cohort_atts_from_cells(
+        event_study_df,
+        event_vcov,
+        [int(g) for g in cohorts],
+        cohort_sizes,
+        df_resid,
+        alpha,
     )
-    att_overall = float(weights @ atts)
-
-    # Delta-method SE for weighted average (assuming independent cohort estimates)
-    # Var(sum w_g * att_g) = sum w_g^2 * Var(att_g) + cross terms from vcov
-    # Use the full vcov for cohort coefficients
-    cohort_vcov = vcov[1 : 1 + len(cohorts), 1 : 1 + len(cohorts)]
-    att_se_overall = float(np.sqrt(weights @ cohort_vcov @ weights))
-
-    t_overall = att_overall / att_se_overall if att_se_overall > 0 else np.nan
-    p_overall = float(2 * (1 - stats.t.cdf(abs(t_overall), max(df_resid, 1))))
-    t_crit = stats.t.ppf(1 - alpha / 2, max(df_resid, 1))
-    ci = (att_overall - t_crit * att_se_overall, att_overall + t_crit * att_se_overall)
-
-    # ── Event study (relative-time) coefficients ────────────────────
-    # Run a separate regression with event-time dummies
-    event_study_df = None
-    event_vcov = None  # H1 fix: preserve full vcov for proper aggregation SE
-    if len(event_cols) > 0:
-        ev_X_cols = [f"{c}_dm" for c in event_cols] + ctrl_dm_cols
-        ev_valid_cols = ["_y_dm"] + ev_X_cols
-        ev_mask = df_valid[ev_valid_cols].notna().all(axis=1)
-        if ev_mask.sum() > len(ev_X_cols) + 2:
-            ev_y = df_valid.loc[ev_mask, "_y_dm"].values
-            ev_X = df_valid.loc[ev_mask, ev_X_cols].values
-            ev_X = np.column_stack([np.ones(len(ev_y)), ev_X])
-            ev_cl = cl_arr[ev_mask.values] if cl_arr is not None else None
-            ev_beta, ev_se, ev_vcov_full = _ols_fit(ev_X, ev_y, cluster=ev_cl)
-
-            ev_rows = []
-            for j, col in enumerate(event_cols):
-                # Parse name: _coh{g}_rel{k}  or  _coh{g}_rel_neg{k}
-                stripped = col.replace("_coh", "")
-                if "_rel_neg" in stripped:
-                    coh_part, rel_part = stripped.split("_rel_neg")
-                    rel_val = -int(rel_part)
-                else:
-                    coh_part, rel_part = stripped.split("_rel")
-                    rel_val = int(rel_part)
-                coh_val = int(coh_part)
-                idx_j = j + 1
-                n_treated_ev = int(
-                    (
-                        (df_valid["_ft"] == coh_val)
-                        & (df_valid[time] == coh_val + rel_val)
-                        & (df_valid[time] >= coh_val)
-                    ).sum()
-                )
-                ev_rows.append(
-                    {
-                        "cohort": coh_val,
-                        "rel_time": rel_val,
-                        "estimate": float(ev_beta[idx_j]),
-                        "se": float(ev_se[idx_j]),
-                        "_vcov_idx": idx_j,
-                        "n_treated_obs": n_treated_ev,
-                    }
-                )
-            event_study_df = pd.DataFrame(ev_rows)
-            # Keep only the event-study coefficient submatrix of vcov
-            n_event = len(event_cols)
-            event_vcov = ev_vcov_full[1 : 1 + n_event, 1 : 1 + n_event]
+    weights = detail["n_obs"].to_numpy(dtype=float)
+    weights = (
+        weights / weights.sum()
+        if weights.sum() > 0
+        else np.full(len(weights), 1.0 / max(len(weights), 1))
+    )
 
     # ── Model info ──────────────────────────────────────────────────
     model_info: Dict[str, Any] = {
@@ -760,6 +908,21 @@ def etwfe(
     True
     >>> res.detail is not None  # cohort-specific ATTs
     True
+
+    See Also
+    --------
+    wooldridge_did : The same saturated cohort x period regression reported
+        under a different headline aggregation — the **cohort-size-weighted**
+        average of ``ATT(g)`` under a never-treated comparison group, i.e. R
+        ``etwfe::etwfe(cgroup='never')`` + ``emfx(type='group')``. ``sp.etwfe``
+        instead reports the **treated-observation-weighted** simple ATT that R
+        ``emfx(type='simple')`` and Stata ``jwdid, estat simple`` print, under
+        the not-yet-treated comparison group by default. The two are separate
+        documented aggregations of one estimator, not two estimators, and they
+        differ materially on the ``17_etwfe`` parity bytes: the ``sp.etwfe``
+        default is 15.9% from the ``sp.wooldridge_did`` headline, and
+        ``sp.etwfe(cgroup='nevertreated')`` — same comparison group, different
+        weights — is still 10.5% from it. Pick the one your write-up claims.
     """
     # Drop rows no branch can use before dispatch, so a wiped outcome surfaces
     # as an error rather than an ATT of exactly 0.0 (or a raw ValueError out of
@@ -1544,6 +1707,29 @@ def _etwfe_repeated_cs(
                 event_start : event_start + len(event_cols),
                 event_start : event_start + len(event_cols),
             ]
+            ev_df_resid = max(len(ev_dfv) - ev_X.shape[1], 1)
+
+    # Cohort-level ATTs come from the saturated cohort x period cells above,
+    # not from the single-post-dummy design used for the xvar branch: the
+    # latter is not saturated and is contaminated by already-treated cohorts
+    # under dynamic effects. See _cohort_atts_from_cells.
+    if event_study_df is not None:
+        cohort_sizes = {int(g): int((ev_dfv["_ft"] == g).sum()) for g in cohorts}
+        (
+            detail,
+            base_vcov,
+            att_overall,
+            att_se,
+            p_overall,
+            ci,
+        ) = _cohort_atts_from_cells(
+            event_study_df,
+            event_vcov,
+            [int(g) for g in cohorts],
+            cohort_sizes,
+            ev_df_resid,
+            alpha,
+        )
 
     return CausalResult(
         method="Wooldridge (2021) ETWFE — repeated cross-section",

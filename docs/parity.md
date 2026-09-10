@@ -27,12 +27,12 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 153 |
+| **Compared against R/Stata** (T2) | bit-exact | 154 |
 | | aligned | 16 |
-| | **subtotal** | **169** |
-| **No external software reference** | analytical-only (T1) | 222 |
+| | **subtotal** | **170** |
+| **No external software reference** | analytical-only (T1) | 221 |
 | | external-replication (published numbers) | 4 |
-| | **subtotal** | **226** |
+| | **subtotal** | **225** |
 | No numerical evidence yet | unverified | 787 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 169 | 395 | 773 | 21.9% |
+| estimator callables | 170 | 395 | 773 | 22.0% |
 | infrastructure (parity N/A) | 0 | 0 | 124 | 0.0% |
 | result / exception classes | 0 | 0 | 285 | 0.0% |
-| **all registered** | 169 | 395 | 1182 | 14.3% |
+| **all registered** | 170 | 395 | 1182 | 14.4% |
 
 ### Coverage by estimator family
 
@@ -52,7 +52,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 59 | 144 | 331 |
+| causal | 60 | 144 | 331 |
 | regression | 28 | 35 | 37 |
 | spatial | 5 | 17 | 34 |
 | panel | 12 | 20 | 30 |
@@ -96,7 +96,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 0 | 1 | 1 |
 | synth | 0 | 0 | 1 |
 
-## bit-exact — 153 functions
+## bit-exact — 154 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -253,6 +253,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `truncreg` | truncreg::truncreg(method="NR") | R 4.5.2; truncreg 0.2.5 | rel_est<=1e-06, rel_se<=0.0001 | 3.3e-08 / 9.5e-08 | [`62_truncreg.py`](../tests/r_parity/62_truncreg.py) (+2) |
 | `twoway_cluster` | sandwich::vcovCL(cluster=~g1+g2) | R 4.5.2; sandwich 3.1.1 | rel_est<=1e-06, rel_se<=1e-06 | 7.8e-16 / 7.8e-16 | [`54_twoway_cluster.py`](../tests/r_parity/54_twoway_cluster.py) (+2) |
 | `var` | vars::VAR | R 4.5.2; vars 1.6.1 | rel_est<=1e-06, rel_se<=1e-06 | 3.1e-15 / 6.6e-15 | [`33_var.py`](../tests/r_parity/33_var.py) (+2) |
+| `wooldridge_did` | etwfe::etwfe + emfx | R 4.5.2; etwfe 0.6.2 | rel_est<=1e-06, rel_se<=0.001 | 1.8e-13 / 3.9e-14 | [`17_etwfe.py`](../tests/r_parity/17_etwfe.py) (+2) |
 | `xtabond` | plm::pgmm | R 4.5.2; plm 2.6.7 | rel_est<=1e-06, rel_se<=1e-06 | 9.0e-16 / 1.4e-15 | [`50_xtabond.py`](../tests/r_parity/50_xtabond.py) (+2) |
 | `zip_model` | pscl::zeroinfl(dist="poisson") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-06, rel_se<=0.0001 | 7.7e-08 / 1.1e-07 | [`63_zip.py`](../tests/r_parity/63_zip.py) (+2) |
 
@@ -290,7 +291,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 222 functions
+## analytical-only — 221 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -512,7 +513,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `weighted_conformal_prediction` | [`test_conformal_causal_parity.py`](../tests/reference_parity/test_conformal_causal_parity.py) |
 | `wild_cluster_bootstrap` | [`test_wcb_recovery_parity.py`](../tests/reference_parity/test_wcb_recovery_parity.py) (+1) |
 | `wild_cluster_ci_inv` | [`test_wild_cluster_ci_inv_parity.py`](../tests/reference_parity/test_wild_cluster_ci_inv_parity.py) |
-| `wooldridge_did` | [`test_did_variants_parity.py`](../tests/reference_parity/test_did_variants_parity.py) (+1) |
 | `wooldridge_prod` | [`test_structural_parity.py`](../tests/reference_parity/test_structural_parity.py) |
 | `xlearner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `xtdpdsys` | [`test_dynpanel_abdata_parity.py`](../tests/reference_parity/test_dynpanel_abdata_parity.py) |

@@ -13,10 +13,94 @@
       "n": 2500,
       "extra": {}
     }
+,
+    {
+      "module": "17_etwfe",
+      "side": "Stata",
+      "statistic": "att_group_notyet_2004",
+      "estimate": -0.039017134968670299,
+      "se": 0.0096415590431871995,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "17_etwfe",
+      "side": "Stata",
+      "statistic": "att_group_notyet_2006",
+      "estimate": -0.031113925561662401,
+      "se": 0.0083147911286325996,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "17_etwfe",
+      "side": "Stata",
+      "statistic": "att_group_notyet_2007",
+      "estimate": -0.0274615452587081,
+      "se": 0.0107183479501559,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "17_etwfe",
+      "side": "Stata",
+      "statistic": "att_etwfe_never",
+      "estimate": -0.032976513809652303,
+      "se": 0.0077723427541003002,
+      "ci_lo": -0.048210025683189703,
+      "ci_hi": -0.017743001936114899,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "17_etwfe",
+      "side": "Stata",
+      "statistic": "att_group_never_2004",
+      "estimate": -0.041908787447210799,
+      "se": 0.0117881770254409,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "17_etwfe",
+      "side": "Stata",
+      "statistic": "att_group_never_2006",
+      "estimate": -0.0165682709178228,
+      "se": 0.013189973998528901,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
+,
+    {
+      "module": "17_etwfe",
+      "side": "Stata",
+      "statistic": "att_group_never_2007",
+      "estimate": -0.030063905043080701,
+      "se": 0.0138580375926616,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2500,
+      "extra": {}
+    }
   ],
   "extra": {
     "method": "jwdid",
-    "stata_command": "jwdid lemp, ivar(countyreal) tvar(year) gvar(first_treat) | estat simple"
+    "stata_command": "jwdid lemp, ivar(countyreal) tvar(year) gvar(first_treat) [never] | estat simple | estat group"
   },
   "provenance": {
     "stata_version": 18,

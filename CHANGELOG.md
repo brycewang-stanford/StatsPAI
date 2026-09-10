@@ -2,6 +2,94 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.27.0] — 2026-09-11
+
+### ⚠️ Correctness
+
+- **ETWFE cohort-level ATTs were read off an unsaturated regression and were
+  wrong by up to 37%.** `sp.wooldridge_did` and `sp.etwfe` each ran *two*
+  regressions on the same data: a saturated cohort × period design, which fed
+  the event-study output, and a separate design carrying a *single post dummy
+  per cohort*, which fed `detail` and — for `sp.wooldridge_did` — the headline.
+  The second design is not saturated in cohort × period, so under dynamic
+  treatment effects the already-treated cohorts enter the period fixed effects
+  and contaminate every treatment coefficient. That is the forbidden comparison
+  of Goodman-Bacon (2021), i.e. precisely the bias extended TWFE exists to
+  remove. Cohort ATTs are now aggregated from the saturated cells
+  (treated-observation weights within cohort), which is what R
+  `etwfe::emfx(type='group')` and Stata `jwdid, estat group` report.
+
+  On the committed `17_etwfe` bytes, `sp.etwfe(...).detail` moves from
+  `-0.040562 / -0.035247 / -0.037735` to
+  `-0.0390171350 / -0.0311139256 / -0.0274615453`, against R's
+  `-0.0390171349687 / -0.0311139255617 / -0.0274615452587` — the old values
+  were 3.9%, 13.3% and 37.4% away from the reference. On a deterministic DGP
+  with true cohort ATTs 3.0 and 2.5, `sp.wooldridge_did` returned 2.67 and 1.63
+  (headline 2.15 against a true 2.78) and now returns 3.00 and 2.44
+  (headline 2.72).
+
+  **Affected:** `sp.wooldridge_did` — `estimate`, `se`, `pvalue`, `ci`,
+  `detail`; `sp.etwfe(...).detail` on every `cgroup` / `panel` combination;
+  `sp.etwfe_emfx(type='group')`; `sp.etwfe_emfx(..., weighting='cohort')` for
+  every `type`. **Not affected:** the `sp.etwfe` headline
+  (`estimate` / `se` / `ci`) and `sp.etwfe_emfx(..., weighting='treated')`,
+  which already aggregated the saturated cells — the certified `17_etwfe`
+  pooled ATT is bit-identical before and after
+  (`-0.035108276608100`). See MIGRATION.md.
+
+- **`sp.wooldridge_did` clustered SEs ignored the absorbed fixed effects in the
+  CR1 small-sample factor.** It counted only the explicit design columns in
+  `(N-1)/(N-K)`, while `fixest`'s `ssc(fixef.K="nested")` and `reghdfe`'s
+  default count every absorbed effect that is *not* nested inside the cluster
+  variable. `sp.event_study` and `sp.sun_abraham` were moved onto that rule in
+  1.24.0 (parity module 85); `sp.wooldridge_did` now uses the same
+  `did._core.fe_dof_not_nested` helper. SEs rise by a uniform ~0.08% on
+  `17_etwfe`, which takes the per-cohort SE agreement with R from 8.0e-4 to
+  between 1.3e-8 and 5.5e-6, and with Stata `jwdid` to 2e-15. Point estimates
+  are unchanged by this item.
+
+### Changed
+
+- **`sp.wooldridge_did` is `certified` again — on evidence this time.** 1.26.0
+  withdrew the grade because the registry had credited the function with Track
+  A module `17_etwfe` as an alias of `sp.etwfe` while nothing in the module
+  ever called it. The withdrawal was right; its stated reason was not. It
+  recorded the two as "different estimators (saturated cohort × post TWFE
+  versus ETWFE)", but the design was not saturated at all — it was the defect
+  fixed above. Module `17_etwfe` now calls `sp.wooldridge_did` directly, so the
+  grade rests on an artifact rather than on an assertion about an alias. The
+  alias claim itself stays refuted and is still pinned by
+  `tests/reference_parity/test_track_a_alias_equivalence.py`: the two functions
+  report different documented aggregations (cohort-size-weighted `ATT(g)` under
+  a never-treated comparison group versus the treated-observation-weighted
+  simple ATT). On `17_etwfe` the `sp.etwfe` default is **15.9%** away from the
+  `sp.wooldridge_did` headline, and `sp.etwfe(cgroup='nevertreated')` — same
+  comparison group, different weights — is still **10.5%** away.
+
+- **Track A module `17_etwfe` now pins eight statistics instead of one.** The
+  pooled ATT matched R and Stata to 1e-13 for three releases while every cohort
+  ATT beneath it was wrong: a headline row cannot police the aggregation under
+  it. The module adds `att_group_notyet_<g>`, `att_etwfe_never` and
+  `att_group_never_<g>`, three-way against `etwfe::emfx(type='group')` and
+  `jwdid, estat group`. All eight rows sit inside the module's **existing**
+  registered budget (`rel_est` 1e-6, `rel_se` 1e-3) — worst observed is
+  2.9e-13 / 5.5e-6 against R and 1.7e-13 / 6.0e-4 against Stata. No tolerance
+  was widened.
+
+### Fixed
+
+- **A non-strict `xfail` hid the ETWFE defect for fifteen minor versions.**
+  `tests/reference_parity/test_did_variants_parity.py::test_wooldridge_did_matches_R`
+  carried `xfail(strict=False)` from v1.11 recording "2.15 vs R etwfe's 2.75 —
+  ~22% downward bias ... likely a cohort-weighting difference in the Mundlak
+  transform, flagged for v1.11". The diagnosis was wrong (reweighting the
+  reported cohort ATTs only reaches 2.21) and `strict=False` meant the
+  assertion could neither fail nor announce a fix. Worse, the registry cited
+  that file as `sp.wooldridge_did`'s known-truth evidence while it contained no
+  passing known-truth assertion for the function. The xfail is now a strict
+  test, joined by `test_wooldridge_did_recovers_known_cohort_atts`, which
+  checks the per-cohort ATTs against the fixture's own `tau` column.
+
 ## [1.26.0] — 2026-09-10
 
 ### ⚠️ Evidence-grade corrections

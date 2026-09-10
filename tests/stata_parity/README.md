@@ -52,7 +52,7 @@ writes one row per parity statistic to
 | 14 | OLS + cluster (CR1)           | `sp.regress(robust="cluster")` | `regress, vce(cluster ...)`                                  |
 | 15 | HDFE + cluster                | `sp.fast.feols(vcov="cluster")`| `reghdfe, absorb(...) vce(cluster ...)`                      |
 | 16 | BJS imputation                | `sp.bjs_pretrend_joint`        | `did_imputation, autosample`                                 |
-| 17 | Wooldridge ETWFE              | `sp.wooldridge_did`            | `jwdid + estat simple`                                       |
+| 17 | Wooldridge ETWFE              | `sp.etwfe` + `sp.wooldridge_did` | `jwdid + estat simple/group`                               |
 | 20 | Goodman-Bacon decomposition   | `sp.bacon_decomposition`       | `bacondecomp, ddetail`                                       |
 | 21 | Honest-DiD relative-mags      | `sp.honest_did(restriction="relative_magnitudes")` | `honestdid, ... delta(rm) method(Conditional) gridPoints(1000) grid_lb(-2) grid_ub(2)` |
 | 22 | sensemakr robustness          | `sp.sensemakr`                 | `sensemakr depvar regs, treat(...) benchmark(...) kd(1) ky(1)` |

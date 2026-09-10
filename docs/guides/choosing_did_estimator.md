@@ -185,11 +185,21 @@ TWFE over them.
 | Counterfactual estimators with a factor / low-rank Y(0) model (Liu, Wang & Xu 2024): fe = imputation, ife = interactive FE, mc = matrix completion; reversals allowed | `sp.fect(df, y='y', treat='d', unit='i', time='t', method='ife', r=2)` (Track A module 86 vs R `fect` and Stata `fect`) |
 | Two-stage regression (event study + covariate ix)   | `sp.gardner_did(df, y=..., group=..., time=..., first_treat=..., event_study=True)` |
 | One-call harvesting + precision-weighted            | `sp.harvest_did(df, outcome=..., unit=..., time=..., cohort=...)`                   |
-| Two-way Mundlak / ETWFE                             | `sp.wooldridge_did(df, y, group, time, first_treat)`                                |
+| Two-way Mundlak / ETWFE — treated-obs-weighted simple ATT (R `emfx(type='simple')`, Stata `jwdid, estat simple`) | `sp.etwfe(df, y, group, time, first_treat)` |
+| Two-way Mundlak / ETWFE — cohort-size-weighted mean of ATT(g), never-treated controls (R `etwfe(cgroup='never')` + `emfx(type='group')`) | `sp.wooldridge_did(df, y, group, time, first_treat)` |
 | Cohort sub-experiments w/ clean controls (CDLZ)     | `sp.stacked_did(df, y, group, time, first_treat, window=(-5, 5))`                   |
 | Continuous / dose treatment                         | `sp.continuous_did(df, y, d, t, i)`                                                 |
 | Changes-in-changes (CIC, not DID-in-mean)           | `sp.cic(df, y, g, t)`                                                               |
 | de Chaisemartin-D'Haultfoeuille                     | `sp.did_multiplegt(df, y, group, time, treatment)`                                  |
+
+> **`sp.etwfe` vs `sp.wooldridge_did`.** One estimator, two headline
+> aggregations of the same saturated cohort × period regression — not two
+> methods, and not aliases. `sp.etwfe` reports what R `etwfe::emfx(type='simple')`
+> and Stata `jwdid, estat simple` print; `sp.wooldridge_did` reports the
+> cohort-size-weighted average of `ATT(g)` under never-treated controls. On the
+> `17_etwfe` parity bytes they are 15.9% apart, so the choice is not cosmetic —
+> state in your write-up which average you are reporting. Both are pinned
+> against R and Stata in Track A module `17_etwfe`.
 
 **Default recommendation when in doubt: `sp.callaway_santanna(..., estimator='dr')`.**
 Doubly-robust CS is the modern "no-regret" default — it's robust to both

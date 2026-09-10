@@ -5,9 +5,94 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="etwfe-cohort-att"></a>
+
+## 1.27.0 — ⚠️ ETWFE cohort-level ATTs were wrong by up to 37%
+
+**Who is affected.** Anyone who read a *per-cohort* ATT out of the ETWFE
+family, or who called `sp.wooldridge_did` at all. Specifically:
+
+| Surface | Changes? |
+| --- | --- |
+| `sp.wooldridge_did(...)` — `estimate`, `se`, `pvalue`, `ci`, `detail` | **yes** |
+| `sp.etwfe(...).detail` (every `cgroup` / `panel`) | **yes** |
+| `sp.etwfe_emfx(fit, type='group')` | **yes** |
+| `sp.etwfe_emfx(fit, ..., weighting='cohort')` | **yes** |
+| `sp.etwfe(...)` — `estimate`, `se`, `ci` | no — bit-identical |
+| `sp.etwfe_emfx(fit, ..., weighting='treated')` | no — bit-identical |
+
+If you reported an `sp.etwfe` pooled ATT, nothing you published moves. If you
+reported cohort-level effects, or anything from `sp.wooldridge_did`, **rerun**.
+
+**What was wrong.** Both functions ran two regressions on the same data. One
+was saturated in cohort × period — one coefficient per treated cell — and fed
+the event-study output. The other carried a *single post dummy per cohort* and
+fed `detail`, plus the `sp.wooldridge_did` headline. Only the first is
+Wooldridge's extended TWFE. The second is not saturated, so under dynamic
+effects the already-treated cohorts enter the period fixed effects and
+contaminate every treatment coefficient — the forbidden comparison that
+extended TWFE exists to eliminate.
+
+On a deterministic DGP whose true cohort ATTs are 3.0 and 2.5:
+
+| | cohort 2 | cohort 3 | headline |
+| --- | ---: | ---: | ---: |
+| truth | 3.0000 | 2.5000 | 2.7500 |
+| through 1.26.0 | 2.6739 | 1.6343 | 2.1541 |
+| from this release | 2.9951 | 2.4363 | 2.7157 |
+
+On the committed `17_etwfe` bytes, against R `etwfe::emfx(type='group')`:
+
+| cohort | through 1.26.0 | from this release | R reference |
+| --- | ---: | ---: | ---: |
+| 2004 | −0.040562 | −0.0390171350 | −0.0390171349687 |
+| 2006 | −0.035247 | −0.0311139256 | −0.0311139255617 |
+| 2007 | −0.037735 | −0.0274615453 | −0.0274615452587 |
+
+The old cohort ATTs were 3.9%, 13.3% and 37.4% away from the reference; the new
+ones agree to 3e-13.
+
+**A second, smaller change.** `sp.wooldridge_did`'s clustered SEs counted only
+the explicit design columns in the CR1 factor `(N-1)/(N-K)`, ignoring the fixed
+effects absorbed by demeaning. `fixest`'s `ssc(fixef.K="nested")` and
+`reghdfe`'s default count every absorbed effect not nested inside the cluster
+variable, and `sp.event_study` / `sp.sun_abraham` were moved onto that rule in
+1.24.0. `sp.wooldridge_did` now follows it too. SEs rise by a uniform ~0.08% on
+`17_etwfe`; agreement with Stata `jwdid, estat group` goes to 2e-15.
+
+**What to do.**
+
+- Cohort-level ETWFE numbers: rerun and republish. The direction of the change
+  is not uniform — it depends on the cohort's exposure length and on how much
+  the other cohorts' effects grow.
+- Pooled `sp.etwfe` numbers: nothing to do.
+- If you want the treated-observation-weighted simple ATT that R
+  `emfx(type='simple')` and Stata `jwdid, estat simple` report, call
+  `sp.etwfe`. If you want the cohort-size-weighted average of `ATT(g)` under a
+  never-treated comparison group, call `sp.wooldridge_did`. These are two
+  documented aggregations, not two estimators. On `17_etwfe` the `sp.etwfe`
+  default sits 15.9% from the `sp.wooldridge_did` headline, and
+  `sp.etwfe(cgroup='nevertreated')` — the same comparison group, only
+  reweighted — still sits 10.5% from it. Check which one your write-up claims.
+
+**Evidence.** Track A module `17_etwfe` grew from one statistic to eight and is
+now three-way (StatsPAI / R `etwfe` / Stata `jwdid`) on both the pooled and the
+per-cohort aggregation, under both comparison groups. All eight rows fit inside
+the module's pre-existing registered budget; no tolerance was widened. The
+module calls `sp.wooldridge_did` directly, so its restored `certified` grade
+rests on an artifact rather than on the alias assertion that 1.26.0 withdrew.
+
+---
+
 <a id="wooldridge-did-evidence-grade"></a>
 
-## Unreleased — ⚠️ `sp.wooldridge_did` is no longer `certified`
+## 1.26.0 — ⚠️ `sp.wooldridge_did` is no longer `certified`
+
+> **Superseded by [ETWFE cohort-level ATT](#etwfe-cohort-att) (1.27.0).**
+> The withdrawal below was correct; its stated reason was not. The entry is
+> kept verbatim because it shipped in 1.26.0 — read the newer entry for what
+> the disagreement actually was, and note that the grade has since been
+> restored on direct evidence.
 
 **Who is affected.** Anyone who cited `sp.wooldridge_did`'s registry tier,
 its `validation_notes`, or `sp.parity_status("wooldridge_did")` as evidence

@@ -14936,6 +14936,13 @@ _CERTIFIED_VARIANT_LIMITATIONS: Dict[str, Dict[str, List[str]]] = {
             "against R etwfe / Stata jwdid simple ATT values on did::mpdta. "
             "The historical cohort-share aggregation remains available via "
             "etwfe_emfx(..., weighting='cohort').",
+            "Per-cohort ATTs (result.detail, etwfe_emfx(type='group') and "
+            "every weighting='cohort' aggregation) are pinned against R "
+            "etwfe::emfx(type='group') and Stata jwdid, estat group under "
+            "both comparison groups by module 17_etwfe. They were read off "
+            "an unsaturated cohort x post regression through 1.26.0 and were "
+            "wrong by up to 37%; see the 1.27.0 CHANGELOG correctness entry. "
+            "The pooled ATT is unchanged.",
         ],
     },
 }
