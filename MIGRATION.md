@@ -109,6 +109,45 @@ structure explicitly.
 
 ---
 
+<a id="panel-re-intercept"></a>
+
+## 1.27.0 — ⚠️ RE panel binary models had no intercept; `panel_fgls` was `igls`
+
+**Who is affected.** Anyone who called `sp.panel_logit(method='re')`,
+`sp.panel_probit(method='re')` (including `method='cre'`, which routes
+through the same fitter) or `sp.panel_fgls`.
+
+| Surface | Changes? |
+| --- | --- |
+| `sp.panel_logit(method='re' \| 'cre')` — every coefficient | **yes** |
+| `sp.panel_probit(method='re' \| 'cre')` — every coefficient | **yes** |
+| `result.params` for those models | **gains a `_cons` row** |
+| `sp.panel_logit(method='fe')` | no — the constant is differenced out there |
+| `sp.panel_fgls(...)` with default arguments | **yes — now two-step** |
+| `sp.panel_fgls(..., igls=True)` | no — this is the old behaviour |
+
+**The intercept.** The RE fitter shares a grouping helper with the
+conditional FE logit, which correctly has no constant. The helper builds
+the design from the regressor names, and nothing added one back for the RE
+path, so the random-effects likelihood was maximised over slopes and
+`sigma_u` with the intercept pinned at zero.
+
+The size of the resulting bias depends on the data, not on the estimator:
+0.39% on the fixture here because the regressors are centred. Nothing
+guarantees that.
+
+**`panel_fgls`.** Stata's `xtgls` takes the variance parameters from the
+OLS residuals, does one GLS solve, and stops. StatsPAI re-estimated them
+from the GLS residuals and iterated, which is a different estimator —
+Stata calls it `igls` and it is not the default. The docstring claimed
+equivalence to the plain command.
+
+**What to do.** Re-run random-effects panel binary models and read the new
+`_cons` row. For `panel_fgls`, either accept the new (Stata-matching)
+default or pass `igls=True` to reproduce your previous numbers exactly.
+
+---
+
 <a id="weakiv-vif"></a>
 
 ## 1.27.0 — `sp.vif` and the weak-IV confidence sets stop rounding

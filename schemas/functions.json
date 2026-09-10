@@ -41026,7 +41026,7 @@
     }
   },
   {
-    "description": "Panel logit model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Panel logit model. Validation: certified parity evidence.",
     "name": "panel_logit",
     "parameters": {
       "properties": {
@@ -41099,7 +41099,7 @@
     }
   },
   {
-    "description": "Panel probit model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Panel probit model. Validation: certified parity evidence.",
     "name": "panel_probit",
     "parameters": {
       "properties": {
@@ -41172,7 +41172,7 @@
     }
   },
   {
-    "description": "Panel FGLS (Feasible Generalized Least Squares). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Panel FGLS (Feasible Generalized Least Squares). Validation: certified parity evidence.",
     "name": "panel_fgls",
     "parameters": {
       "properties": {
@@ -41194,6 +41194,11 @@
           "default": "id",
           "description": "Panel identifier.",
           "type": "string"
+        },
+        "igls": {
+          "default": false,
+          "description": "Iterate the variance estimates to convergence (Stata's ``igls``). The default is the two-step estimator Stata's ``xtgls`` reports without that option. .. versionchanged:: 1.27.0 This function iterated unconditionally, so its default was Stata's ``igls`` while the docstring claimed equivalence to the plain command. On a balanced N=60, T=12 panel under ``panels(hetero)`` the two differ by 2.8% on the slope. Pass ``igls=True`` for the previous behaviour.",
+          "type": "boolean"
         },
         "maxiter": {
           "default": 100,

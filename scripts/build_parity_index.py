@@ -685,6 +685,45 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Added in 1.27.0 by the weak-IV / diagnostics sweep, which found two defects: sp.vif returned VIF rounded to two decimals and 1/VIF to four (in the frame, not a display -- the conventional threshold of 10 was being decided in the fourth significant digit), and the grid-inversion confidence sets reported the extreme grid point still inside the acceptance region as the endpoint, biasing every interval inward by up to one grid step. sp.anderson_rubin_test computed the same AR interval analytically all along, so the package disagreed with itself about one quantity by 8e-3."
         ),
     },
+    "panel_fgls": {
+        "status": "bit-exact",
+        "reference": "Stata 18 xtgls, panels(hetero)",
+        "reference_versions": {"Stata": "18 MP"},
+        "tolerance": (
+            "6.3e-16 on every coefficient and 7.0e-16 on every standard error against the two-step default, and 4.7e-08 against `xtgls, igls` for the iterated variant. A reference-free test also asserts the two are distinct estimators, so a silent return to iterating fails."
+        ),
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_panel_stata_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the panel sweep, which found two defects. sp.panel_fgls iterated its variance estimates unconditionally -- that is Stata's `igls` option, not the default xtgls -- while its docstring claimed equivalence to the plain command (2.8% on the slope); the default is now two-step and `igls=True` keeps the old estimator under its own name. sp.panel_logit / sp.panel_probit with method='re' built their design from the regressor list alone, which is right for conditional FE logit and wrong for RE, so both were fitted with NO intercept and every slope was biased. What identified it was the gap's stubbornness -- 0.39% at 12 and at 30 quadrature points -- rather than its size."
+        ),
+    },
+    "panel_logit": {
+        "status": "bit-exact",
+        "reference": "Stata 18 xtlogit, re",
+        "reference_versions": {"Stata": "18 MP"},
+        "tolerance": (
+            "Graded by CONVERGENCE rather than a fixed tolerance: Stata integrates adaptively and StatsPAI does not, so the honest claim is that agreement improves as the Gauss-Hermite rule is refined. Observed 3.8e-04 at 12 points and 2.4e-07 at 60, with the log-likelihood at 2.1e-08 -- the sharpest single check, since it is the same objective evaluated at the same optimum. sigma_u and rho at 1e-4."
+        ),
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_panel_stata_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the panel sweep, which found two defects. sp.panel_fgls iterated its variance estimates unconditionally -- that is Stata's `igls` option, not the default xtgls -- while its docstring claimed equivalence to the plain command (2.8% on the slope); the default is now two-step and `igls=True` keeps the old estimator under its own name. sp.panel_logit / sp.panel_probit with method='re' built their design from the regressor list alone, which is right for conditional FE logit and wrong for RE, so both were fitted with NO intercept and every slope was biased. What identified it was the gap's stubbornness -- 0.39% at 12 and at 30 quadrature points -- rather than its size."
+        ),
+    },
+    "panel_probit": {
+        "status": "bit-exact",
+        "reference": "Stata 18 xtprobit, re",
+        "reference_versions": {"Stata": "18 MP"},
+        "tolerance": (
+            "Same convergence grading: 8.0e-05 at 12 quadrature points and 4.0e-08 at 60, log-likelihood at 1.7e-09, sigma_u and rho at 1e-4."
+        ),
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_panel_stata_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the panel sweep, which found two defects. sp.panel_fgls iterated its variance estimates unconditionally -- that is Stata's `igls` option, not the default xtgls -- while its docstring claimed equivalence to the plain command (2.8% on the slope); the default is now two-step and `igls=True` keeps the old estimator under its own name. sp.panel_logit / sp.panel_probit with method='re' built their design from the regressor list alone, which is right for conditional FE logit and wrong for RE, so both were fitted with NO intercept and every slope was biased. What identified it was the gap's stubbornness -- 0.39% at 12 and at 30 quadrature points -- rather than its size."
+        ),
+    },
     "etregress": {
         "status": "bit-exact",
         "reference": "Stata 18 MP official `etregress` (Maddala 1983 model)",

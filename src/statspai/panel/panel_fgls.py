@@ -18,6 +18,7 @@ Beck, N. & Katz, J.N. (1995).
 """
 
 from typing import List
+
 import numpy as np
 import pandas as pd
 
@@ -32,6 +33,7 @@ def panel_fgls(
     time: str = "time",
     panels: str = "heteroskedastic",
     corr: str = "independent",
+    igls: bool = False,
     maxiter: int = 100,
     tol: float = 1e-6,
     alpha: float = 0.05,
@@ -64,6 +66,17 @@ def panel_fgls(
     corr : str, default 'independent'
         Within-panel correlation:
         'independent', 'ar1' (panel-specific AR(1)), 'psar1' (common AR(1)).
+    igls : bool, default False
+        Iterate the variance estimates to convergence (Stata's ``igls``).
+        The default is the two-step estimator Stata's ``xtgls`` reports
+        without that option.
+
+        .. versionchanged:: 1.27.0
+           This function iterated unconditionally, so its default was
+           Stata's ``igls`` while the docstring claimed equivalence to the
+           plain command. On a balanced N=60, T=12 panel under
+           ``panels(hetero)`` the two differ by 2.8% on the slope. Pass
+           ``igls=True`` for the previous behaviour.
     maxiter : int, default 100
     tol : float, default 1e-6
     alpha : float, default 0.05
@@ -142,7 +155,17 @@ def panel_fgls(
     # For efficiency, do it block by block
 
     beta_gls = beta_ols.copy()
-    for iteration in range(maxiter):
+    # Stata's `xtgls` is TWO-STEP by default: the variance parameters come
+    # from the OLS residuals, one GLS solve follows, and that is the answer.
+    # Re-estimating the variances from the GLS residuals and iterating is a
+    # different estimator (iterated FGLS, which for this structure is ML) and
+    # is `igls` there -- an option, not the default. StatsPAI iterated
+    # unconditionally while its docstring claimed equivalence to the default
+    # command; on a balanced N=60, T=12 panel with `panels(hetero)` that is
+    # 2.8% on the slope. `igls=True` restores the old behaviour under its
+    # own name.
+    n_passes = maxiter if igls else 1
+    for iteration in range(n_passes):
         beta_old = beta_gls.copy()
 
         XtOiX = np.zeros((k_total, k_total))

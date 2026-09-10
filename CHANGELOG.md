@@ -61,6 +61,31 @@ All notable changes to StatsPAI will be documented in this file.
   that ceiling as the estimator's accuracy; it now pins the real one, plus
   the sparsity-convention structure of the standard errors.
 
+### ⚠️ Correctness fixes — panel
+
+- **`sp.panel_logit(method='re')` and `sp.panel_probit(method='re')` were
+  fitted without an intercept.** Both built their design matrix from the
+  regressor list alone. That is correct for conditional FE logit, where the
+  constant is differenced out, and wrong for a random-effects model, where
+  it is a parameter — so every slope was biased. On a balanced N=60, T=12
+  panel the error is 0.39% against Stata's `xtprobit, re`; on a design
+  whose regressors are not centred there is no bound on it.
+
+  The gap's *stubbornness* is what identified it: 0.39% at 12 quadrature
+  points and 0.39% at 30. A non-adaptive Gauss-Hermite rule that is merely
+  coarse converges as points are added; one integrating the wrong
+  likelihood does not. With the intercept restored, agreement improves to
+  4.0e-08 at 60 points and the log-likelihood matches Stata to 1.7e-09.
+  **Random-effects panel binary results should be recomputed.**
+- **`sp.panel_fgls` ran Stata's `igls`, not `xtgls`.** It re-estimated the
+  variance parameters from the GLS residuals and iterated to convergence.
+  Stata's `xtgls` is two-step by default; iterating is the `igls` option.
+  The docstring meanwhile said "Equivalent to Stata's
+  `xtgls y x, panels(het)`". 2.8% apart on the slope. The default is now
+  the two-step estimator, matching `xtgls` to 6.3e-16, and `igls=True`
+  keeps the previous behaviour under the name Stata gives it (matching
+  `xtgls, igls` to 4.7e-08).
+
 ### ⚠️ Correctness fixes — weak-IV inference and diagnostics
 
 - **`sp.vif` returned values rounded to two decimals.** `VIF` was rounded

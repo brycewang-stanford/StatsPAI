@@ -7096,55 +7096,82 @@
       "tolerance": "rel_est<=1e-06, rel_se<=0.001"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_panel_estimators_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "panel_fgls",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Added in 1.27.0 by the panel sweep, which found two defects. sp.panel_fgls iterated its variance estimates unconditionally -- that is Stata's `igls` option, not the default xtgls -- while its docstring claimed equivalence to the plain command (2.8% on the slope); the default is now two-step and `igls=True` keeps the old estimator under its own name. sp.panel_logit / sp.panel_probit with method='re' built their design from the regressor list alone, which is right for conditional FE logit and wrong for RE, so both were fitted with NO intercept and every slope was biased. What identified it was the gap's stubbornness -- 0.39% at 12 and at 30 quadrature points -- rather than its size."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata 18 xtgls, panels(hetero)",
+      "reference_versions": {
+        "Stata": "18 MP"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_panel_estimators_parity.py"
+        "tests/reference_parity/test_panel_stata_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "6.3e-16 on every coefficient and 7.0e-16 on every standard error against the two-step default, and 4.7e-08 against `xtgls, igls` for the iterated variant. A reference-free test also asserts the two are distinct estimators, so a silent return to iterating fails."
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_panel_estimators_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "panel_logit",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Added in 1.27.0 by the panel sweep, which found two defects. sp.panel_fgls iterated its variance estimates unconditionally -- that is Stata's `igls` option, not the default xtgls -- while its docstring claimed equivalence to the plain command (2.8% on the slope); the default is now two-step and `igls=True` keeps the old estimator under its own name. sp.panel_logit / sp.panel_probit with method='re' built their design from the regressor list alone, which is right for conditional FE logit and wrong for RE, so both were fitted with NO intercept and every slope was biased. What identified it was the gap's stubbornness -- 0.39% at 12 and at 30 quadrature points -- rather than its size."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata 18 xtlogit, re",
+      "reference_versions": {
+        "Stata": "18 MP"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_panel_estimators_parity.py"
+        "tests/reference_parity/test_panel_stata_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "Graded by CONVERGENCE rather than a fixed tolerance: Stata integrates adaptively and StatsPAI does not, so the honest claim is that agreement improves as the Gauss-Hermite rule is refined. Observed 3.8e-04 at 12 points and 2.4e-07 at 60, with the log-likelihood at 2.1e-08 -- the sharpest single check, since it is the same objective evaluated at the same optimum. sigma_u and rho at 1e-4."
     },
     {
-      "function": "panel_probit",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_panel_estimators_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "panel_probit",
+      "notes": [
+        "Added in 1.27.0 by the panel sweep, which found two defects. sp.panel_fgls iterated its variance estimates unconditionally -- that is Stata's `igls` option, not the default xtgls -- while its docstring claimed equivalence to the plain command (2.8% on the slope); the default is now two-step and `igls=True` keeps the old estimator under its own name. sp.panel_logit / sp.panel_probit with method='re' built their design from the regressor list alone, which is right for conditional FE logit and wrong for RE, so both were fitted with NO intercept and every slope was biased. What identified it was the gap's stubbornness -- 0.39% at 12 and at 30 quadrature points -- rather than its size."
+      ],
+      "reference": "Stata 18 xtprobit, re",
+      "reference_versions": {
+        "Stata": "18 MP"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_panel_stata_parity.py"
+      ],
+      "tolerance": "Same convergence grading: 8.0e-05 at 12 quadrature points and 4.0e-08 at 60, log-likelihood at 1.7e-09, sigma_u and rho at 1e-4."
     },
     {
       "also_verified_by": [

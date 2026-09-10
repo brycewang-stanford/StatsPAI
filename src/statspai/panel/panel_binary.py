@@ -255,9 +255,24 @@ def _fit_re_binary(
 ) -> Tuple[np.ndarray, np.ndarray, float, float, float, int, int, np.ndarray, bool]:
     """Fit RE binary panel model via MLE with Gauss-Hermite quadrature."""
     df = data[[id_col, y] + x].dropna()
-    groups, xg, yg, _ = _group_panel(df, y, x, id_col)
+    # The random-effects likelihood needs an intercept. Conditional FE logit
+    # does not -- the constant is differenced out -- and this fitter reused
+    # the same grouping helper, which builds the design from `x` alone. So
+    # the RE logit and RE probit were fitted with NO constant term, which
+    # biases every slope in a nonlinear model. Measured against Stata's
+    # `xtprobit, re` on a balanced N=60, T=12 panel: 0.39%, and stubbornly
+    # 0.39% at any number of quadrature points, which is what identified it
+    # as a design-matrix problem rather than an integration one. On a design
+    # whose regressors are not centred the error is unbounded.
+    df = df.copy()
+    const_name = "_cons"
+    while const_name in df.columns:  # pragma: no cover - name collision
+        const_name += "_"
+    df[const_name] = 1.0
+    x_design = [const_name] + list(x)
+    groups, xg, yg, _ = _group_panel(df, y, x_design, id_col)
     n_units, n_obs = len(groups), sum(len(yg[g]) for g in groups)
-    theta0 = np.zeros(len(x) + 1)
+    theta0 = np.zeros(len(x_design) + 1)
     res = optimize.minimize(
         _re_panel_nll,
         theta0,
@@ -313,9 +328,17 @@ def _wrap_re_result(
     beta, se, sigma_u, se_sigma_u, ll, n_obs, n_units, vcov, ok = _fit_re_binary(
         data, y, x_vars, id_col, n_quad, link_cdf, maxiter, tol
     )
+    # _fit_re_binary prepends the constant to the design, so the first
+    # coefficient is `_cons`. It is reported last, matching Stata's layout
+    # and the rest of this package.
+    coef_names = list(x_vars) + ["_cons"]
+    order = list(range(1, len(beta))) + [0]
+    beta = np.asarray(beta, dtype=float)[order]
+    se = np.asarray(se, dtype=float)[order]
+    vcov = np.asarray(vcov, dtype=float)[np.ix_(order, order)]
     scale = np.pi**2 / 3 if link == "logit" else 1.0
     rho = sigma_u**2 / (sigma_u**2 + scale)
-    n_params = len(x_vars) + 1
+    n_params = len(coef_names) + 1
     model_info = {
         "model": model_name,
         "method": method_tag,
@@ -343,8 +366,8 @@ def _wrap_re_result(
         "bic": -2 * ll + np.log(n_obs) * n_params,
     }
     return EconometricResults(
-        pd.Series(beta, index=x_vars),
-        pd.Series(se, index=x_vars),
+        pd.Series(beta, index=coef_names),
+        pd.Series(se, index=coef_names),
         model_info,
         data_info,
         diagnostics,
