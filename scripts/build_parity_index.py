@@ -450,6 +450,169 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "accuracy and stayed at the analytical tier because of it."
         ),
     },
+    "moran": {
+        "status": "bit-exact",
+        "reference": "R spdep::moran.test (randomisation null)",
+        "reference_versions": {"spdep": "1.4.2", "spatialreg": "1.4.3"},
+        "tolerance": (
+            "I 1.9e-15, expectation, variance and z all at 1e-15 on the row-standardised lattice."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_spdep_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the spdep sweep, which found four correctness defects on the way: sp.lm_tests computed the wrong trace term AND built the lag statistic from W y instead of W X beta (both times the comment above the line named the right formula); sp.join_counts halved the double sum for BB and WW but not BW, breaking BB + WW + BW = S0/2; sp.getis_ord_local(star=False) standardised Gi with Gi*'s whole-sample moments; and sp.moran_residuals used the raw-variable null for OLS residuals. Weight style is not incidental here -- sp.W is binary until w.transform = 'R' while spdep's nb2listw defaults to row-standardised, and the fixture emits both so each statistic is compared under the style its reference uses."
+        ),
+    },
+    "moran_local": {
+        "status": "bit-exact",
+        "reference": "R spdep::localmoran",
+        "reference_versions": {"spdep": "1.4.2", "spatialreg": "1.4.3"},
+        "tolerance": ("Every Ii at 8.1e-15."),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_spdep_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the spdep sweep, which found four correctness defects on the way: sp.lm_tests computed the wrong trace term AND built the lag statistic from W y instead of W X beta (both times the comment above the line named the right formula); sp.join_counts halved the double sum for BB and WW but not BW, breaking BB + WW + BW = S0/2; sp.getis_ord_local(star=False) standardised Gi with Gi*'s whole-sample moments; and sp.moran_residuals used the raw-variable null for OLS residuals. Weight style is not incidental here -- sp.W is binary until w.transform = 'R' while spdep's nb2listw defaults to row-standardised, and the fixture emits both so each statistic is compared under the style its reference uses."
+        ),
+    },
+    "geary": {
+        "status": "bit-exact",
+        "reference": "R spdep::geary.test",
+        "reference_versions": {"spdep": "1.4.2", "spatialreg": "1.4.3"},
+        "tolerance": (
+            "C 2.0e-15. The closed-form variance and z are new in 1.27.0 (they were NaN whenever permutations=0) and match both spdep nulls at 1.5e-14: randomisation (with the m4/m2^2 term) and normality."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_spdep_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the spdep sweep, which found four correctness defects on the way: sp.lm_tests computed the wrong trace term AND built the lag statistic from W y instead of W X beta (both times the comment above the line named the right formula); sp.join_counts halved the double sum for BB and WW but not BW, breaking BB + WW + BW = S0/2; sp.getis_ord_local(star=False) standardised Gi with Gi*'s whole-sample moments; and sp.moran_residuals used the raw-variable null for OLS residuals. Weight style is not incidental here -- sp.W is binary until w.transform = 'R' while spdep's nb2listw defaults to row-standardised, and the fixture emits both so each statistic is compared under the style its reference uses."
+        ),
+    },
+    "getis_ord_g": {
+        "status": "bit-exact",
+        "reference": "R spdep::globalG.test (binary weights)",
+        "reference_versions": {"spdep": "1.4.2", "spatialreg": "1.4.3"},
+        "tolerance": (
+            "G 5.4e-16. Binary weights, which is what spdep recommends for this statistic."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_spdep_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the spdep sweep, which found four correctness defects on the way: sp.lm_tests computed the wrong trace term AND built the lag statistic from W y instead of W X beta (both times the comment above the line named the right formula); sp.join_counts halved the double sum for BB and WW but not BW, breaking BB + WW + BW = S0/2; sp.getis_ord_local(star=False) standardised Gi with Gi*'s whole-sample moments; and sp.moran_residuals used the raw-variable null for OLS residuals. Weight style is not incidental here -- sp.W is binary until w.transform = 'R' while spdep's nb2listw defaults to row-standardised, and the fixture emits both so each statistic is compared under the style its reference uses."
+        ),
+    },
+    "getis_ord_local": {
+        "status": "bit-exact",
+        "reference": "R spdep::localG",
+        "reference_versions": {"spdep": "1.4.2", "spatialreg": "1.4.3"},
+        "tolerance": (
+            "Gi* 1.7e-14; Gi 4.3e-13 after the star=False branch stopped borrowing Gi*'s standardisation."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_spdep_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the spdep sweep, which found four correctness defects on the way: sp.lm_tests computed the wrong trace term AND built the lag statistic from W y instead of W X beta (both times the comment above the line named the right formula); sp.join_counts halved the double sum for BB and WW but not BW, breaking BB + WW + BW = S0/2; sp.getis_ord_local(star=False) standardised Gi with Gi*'s whole-sample moments; and sp.moran_residuals used the raw-variable null for OLS residuals. Weight style is not incidental here -- sp.W is binary until w.transform = 'R' while spdep's nb2listw defaults to row-standardised, and the fixture emits both so each statistic is compared under the style its reference uses."
+        ),
+    },
+    "join_counts": {
+        "status": "bit-exact",
+        "reference": "R spdep::joincount.multi (binary weights)",
+        "reference_versions": {"spdep": "1.4.2", "spatialreg": "1.4.3"},
+        "tolerance": (
+            "BB, WW and BW all exact. A reference-free guard also asserts BB + WW + BW = S0/2, the identity the BW defect violated (70.75 against 50)."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_spdep_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the spdep sweep, which found four correctness defects on the way: sp.lm_tests computed the wrong trace term AND built the lag statistic from W y instead of W X beta (both times the comment above the line named the right formula); sp.join_counts halved the double sum for BB and WW but not BW, breaking BB + WW + BW = S0/2; sp.getis_ord_local(star=False) standardised Gi with Gi*'s whole-sample moments; and sp.moran_residuals used the raw-variable null for OLS residuals. Weight style is not incidental here -- sp.W is binary until w.transform = 'R' while spdep's nb2listw defaults to row-standardised, and the fixture emits both so each statistic is compared under the style its reference uses."
+        ),
+    },
+    "lm_tests": {
+        "status": "bit-exact",
+        "reference": "R spdep::lm.RStests",
+        "reference_versions": {"spdep": "1.4.2", "spatialreg": "1.4.3"},
+        "tolerance": (
+            "All five statistics and their p-values at 1e-9. Before the fix: LM_err 39.47 against 19.58, and Robust_LM_err 20.49 (p=6e-6) against 0.0397 (p=0.84) -- the Anselin lag-vs-error decision rule, reversed."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_spdep_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the spdep sweep, which found four correctness defects on the way: sp.lm_tests computed the wrong trace term AND built the lag statistic from W y instead of W X beta (both times the comment above the line named the right formula); sp.join_counts halved the double sum for BB and WW but not BW, breaking BB + WW + BW = S0/2; sp.getis_ord_local(star=False) standardised Gi with Gi*'s whole-sample moments; and sp.moran_residuals used the raw-variable null for OLS residuals. Weight style is not incidental here -- sp.W is binary until w.transform = 'R' while spdep's nb2listw defaults to row-standardised, and the fixture emits both so each statistic is compared under the style its reference uses."
+        ),
+    },
+    "moran_residuals": {
+        "status": "bit-exact",
+        "reference": "R spdep::lm.morantest",
+        "reference_versions": {"spdep": "1.4.2", "spatialreg": "1.4.3"},
+        "tolerance": (
+            "Statistic 5e-16; the p-value at 1e-7 once X is supplied so the Cliff-Ord regression-residual null can be formed. Both spdep alternatives are recorded because lm.morantest defaults to one-sided."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_spdep_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the spdep sweep, which found four correctness defects on the way: sp.lm_tests computed the wrong trace term AND built the lag statistic from W y instead of W X beta (both times the comment above the line named the right formula); sp.join_counts halved the double sum for BB and WW but not BW, breaking BB + WW + BW = S0/2; sp.getis_ord_local(star=False) standardised Gi with Gi*'s whole-sample moments; and sp.moran_residuals used the raw-variable null for OLS residuals. Weight style is not incidental here -- sp.W is binary until w.transform = 'R' while spdep's nb2listw defaults to row-standardised, and the fixture emits both so each statistic is compared under the style its reference uses."
+        ),
+    },
+    "slx": {
+        "status": "bit-exact",
+        "reference": "R spatialreg::lmSLX",
+        "reference_versions": {"spdep": "1.4.2", "spatialreg": "1.4.3"},
+        "tolerance": ("Every coefficient at 1e-10."),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_spdep_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the spdep sweep, which found four correctness defects on the way: sp.lm_tests computed the wrong trace term AND built the lag statistic from W y instead of W X beta (both times the comment above the line named the right formula); sp.join_counts halved the double sum for BB and WW but not BW, breaking BB + WW + BW = S0/2; sp.getis_ord_local(star=False) standardised Gi with Gi*'s whole-sample moments; and sp.moran_residuals used the raw-variable null for OLS residuals. Weight style is not incidental here -- sp.W is binary until w.transform = 'R' while spdep's nb2listw defaults to row-standardised, and the fixture emits both so each statistic is compared under the style its reference uses."
+        ),
+    },
+    "sac": {
+        "status": "bit-exact",
+        "reference": "R spatialreg::sacsarlm",
+        "reference_versions": {"spdep": "1.4.2", "spatialreg": "1.4.3"},
+        "tolerance": (
+            "rho and lambda at 1e-5, slope coefficients at 1e-6 -- a bounded two-parameter ML line search on both sides."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_spdep_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the spdep sweep, which found four correctness defects on the way: sp.lm_tests computed the wrong trace term AND built the lag statistic from W y instead of W X beta (both times the comment above the line named the right formula); sp.join_counts halved the double sum for BB and WW but not BW, breaking BB + WW + BW = S0/2; sp.getis_ord_local(star=False) standardised Gi with Gi*'s whole-sample moments; and sp.moran_residuals used the raw-variable null for OLS residuals. Weight style is not incidental here -- sp.W is binary until w.transform = 'R' while spdep's nb2listw defaults to row-standardised, and the fixture emits both so each statistic is compared under the style its reference uses."
+        ),
+    },
+    "impacts": {
+        "status": "bit-exact",
+        "reference": "R spatialreg::impacts on a lagsarlm fit",
+        "reference_versions": {"spdep": "1.4.2", "spatialreg": "1.4.3"},
+        "tolerance": (
+            "Direct, indirect and total at 1e-6, inheriting the SAR rho's own agreement."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_spdep_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the spdep sweep, which found four correctness defects on the way: sp.lm_tests computed the wrong trace term AND built the lag statistic from W y instead of W X beta (both times the comment above the line named the right formula); sp.join_counts halved the double sum for BB and WW but not BW, breaking BB + WW + BW = S0/2; sp.getis_ord_local(star=False) standardised Gi with Gi*'s whole-sample moments; and sp.moran_residuals used the raw-variable null for OLS residuals. Weight style is not incidental here -- sp.W is binary until w.transform = 'R' while spdep's nb2listw defaults to row-standardised, and the fixture emits both so each statistic is compared under the style its reference uses."
+        ),
+    },
+    "knn_weights": {
+        "status": "bit-exact",
+        "reference": "R spdep::knearneigh + knn2nb",
+        "reference_versions": {"spdep": "1.4.2", "spatialreg": "1.4.3"},
+        "tolerance": (
+            "Neighbour sets identical for all 120 points, k=4, on a random point set chosen so no distance ties make the answer non-unique."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_spdep_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the spdep sweep, which found four correctness defects on the way: sp.lm_tests computed the wrong trace term AND built the lag statistic from W y instead of W X beta (both times the comment above the line named the right formula); sp.join_counts halved the double sum for BB and WW but not BW, breaking BB + WW + BW = S0/2; sp.getis_ord_local(star=False) standardised Gi with Gi*'s whole-sample moments; and sp.moran_residuals used the raw-variable null for OLS residuals. Weight style is not incidental here -- sp.W is binary until w.transform = 'R' while spdep's nb2listw defaults to row-standardised, and the fixture emits both so each statistic is compared under the style its reference uses."
+        ),
+    },
+    "distance_band": {
+        "status": "bit-exact",
+        "reference": "R spdep::dnearneigh",
+        "reference_versions": {"spdep": "1.4.2", "spatialreg": "1.4.3"},
+        "tolerance": ("Neighbour sets identical for all 120 points at a 0.25 radius."),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_spdep_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the spdep sweep, which found four correctness defects on the way: sp.lm_tests computed the wrong trace term AND built the lag statistic from W y instead of W X beta (both times the comment above the line named the right formula); sp.join_counts halved the double sum for BB and WW but not BW, breaking BB + WW + BW = S0/2; sp.getis_ord_local(star=False) standardised Gi with Gi*'s whole-sample moments; and sp.moran_residuals used the raw-variable null for OLS residuals. Weight style is not incidental here -- sp.W is binary until w.transform = 'R' while spdep's nb2listw defaults to row-standardised, and the fixture emits both so each statistic is compared under the style its reference uses."
+        ),
+    },
     "etregress": {
         "status": "bit-exact",
         "reference": "Stata 18 MP official `etregress` (Maddala 1983 model)",

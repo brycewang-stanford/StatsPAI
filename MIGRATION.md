@@ -109,6 +109,75 @@ structure explicitly.
 
 ---
 
+<a id="spatial-lm-tests"></a>
+
+## 1.27.0 — ⚠️ Spatial diagnostics: LM battery, join counts, Gi, residual Moran
+
+**Who is affected.** Anyone who used `sp.lm_tests`, `sp.join_counts`,
+`sp.getis_ord_local(star=False)`, `sp.moran_residuals` or read a z-score
+off `sp.geary`.
+
+| Surface | Changes? |
+| --- | --- |
+| `sp.lm_tests` — all five statistics | **yes; `Robust_LM_err` flips its conclusion** |
+| `sp.join_counts` — `BW` | **yes — halved** |
+| `sp.join_counts` — `BB`, `WW` | no |
+| `sp.getis_ord_local(star=False)` | **yes** |
+| `sp.getis_ord_local(star=True)` | no |
+| `sp.moran_residuals` — statistic | no |
+| `sp.moran_residuals` — p-value | **yes when `X=` is supplied** |
+| `sp.geary` — `C`, `p_sim` | no |
+| `sp.geary` — `variance`, `z_score`, `p_norm` | **yes: NaN → a value, and z changes sign** |
+| `sp.moran`, `sp.moran_local`, `sp.getis_ord_g`, `sp.slx`, `sp.sac`, `sp.impacts` | no (verified exact) |
+
+**The one that matters most.** `sp.lm_tests` is the Anselin battery used
+to choose between a spatial lag and a spatial error model. Its `T` term
+was computed as `tr(WW) + Σ_ij w_ij (WW')_ij` instead of
+`tr(W'W) + tr(WW)`, and its `J` term from `M(Wy)` instead of `M(WXβ̂)`.
+On a 10×10 rook lattice:
+
+| statistic | before | `spdep::lm.RStests` |
+| --- | ---: | ---: |
+| `LM_err` | 39.465383 | 19.578530 |
+| `LM_lag` | 20.150963 | 23.898571 |
+| `Robust_LM_err` | 20.489246 | 0.039707 |
+| `Robust_LM_lag` | 1.174826 | 4.359748 |
+
+Read as a decision rule, the old numbers say "robust LM-error is
+overwhelming (p = 6e-6), robust LM-lag is not (p = 0.28) → fit a spatial
+error model". The correct numbers say the opposite: robust LM-lag is
+significant (p = 0.037) and robust LM-error is not (p = 0.84) → fit a
+spatial lag model. **Re-run the diagnostic before trusting a
+specification chosen with it.**
+
+**Why none of this was caught.** The spatial subpackage's tests assert
+directions and ranges — "C below 1 for smooth data", "p_sim below 0.05" —
+which every one of these defects satisfies. A doubled `LM_err` is still
+significant; a doubled `BW` still exceeds its expectation; Gi with the
+wrong standardisation still ranks hotspots in roughly the same order.
+None of them survives being held against `spdep` on the same weights.
+
+**A note on weights, which decides every number above.** `sp.W` is
+**binary** until you set `w.transform = "R"`; `spdep::nb2listw` is
+row-standardised by default. Comparing the two directly is not a parity
+check, it is two different statistics. The new test file states the style
+each assertion uses.
+
+**What to do.**
+
+* Re-run `sp.lm_tests` anywhere it informed a specification choice.
+* Divide any stored `BW` join count by two, or re-run.
+* Re-run `sp.getis_ord_local(star=False)`; `star=True` results stand.
+* Pass `X=` (the design matrix, including its constant) to
+  `sp.moran_residuals` for a p-value; without it the raw-variable null is
+  kept, and is now documented as a fallback rather than presented as the
+  residual test.
+* `sp.geary`'s z-score changes sign. If you compared it against zero in a
+  one-sided direction, flip the comparison; two-sided p-values are
+  unchanged.
+
+---
+
 <a id="etregress-mle"></a>
 
 ## 1.27.0 — ⚠️ `sp.etregress` ran the two-step and called it MLE

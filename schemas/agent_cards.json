@@ -4815,6 +4815,7 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
+      "tests/reference_parity/test_spdep_parity.py",
       "Cross-language parity (bit-exact) vs spatialreg::lagsarlm / spatialreg::errorsarlm / spatialreg::lagsarlm(Durbin=TRUE) [R R version 4.5.2 (2025-10-31), spatialreg 1.4.3]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 65_spatial -- tests/r_parity/65_spatial.py",
       "API/unit contract evidence: tests/spatial/test_models_ml.py"
     ],

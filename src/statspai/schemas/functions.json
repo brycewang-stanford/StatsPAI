@@ -44343,7 +44343,7 @@
     }
   },
   {
-    "description": "Spatial weights matrix with CSR-sparse backing.",
+    "description": "Spatial weights matrix with CSR-sparse backing. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "W",
     "parameters": {
       "properties": {
@@ -44376,7 +44376,7 @@
     }
   },
   {
-    "description": "Global Moran's I -- test for global spatial autocorrelation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Global Moran's I -- test for global spatial autocorrelation. Validation: certified parity evidence.",
     "name": "moran",
     "parameters": {
       "properties": {
@@ -44411,7 +44411,7 @@
     }
   },
   {
-    "description": "Local Moran's I (LISA) -- per-location spatial association. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Local Moran's I (LISA) -- per-location spatial association. Validation: certified parity evidence.",
     "name": "moran_local",
     "parameters": {
       "properties": {
@@ -44466,12 +44466,16 @@
     }
   },
   {
-    "description": "Moran's I applied to regression residuals (quick LM-err companion).",
+    "description": "Moran's I applied to regression residuals (quick LM-err companion). Validation: certified parity evidence.",
     "name": "moran_residuals",
     "parameters": {
       "properties": {
         "W": {
           "description": "Covariates, proxy variables, or weights used by this estimator.",
+          "type": "string"
+        },
+        "X": {
+          "description": "The regression's design matrix, **including its constant**. When supplied, the p-value uses Cliff and Ord's null for *regression residuals* -- the one ``spdep::lm.morantest`` uses -- which depends on ``X`` through the hat matrix. Without it the function falls back to the raw-variable null, which is not the residuals' null. .. versionchanged:: 1.27.0 The statistic was always exact (5e-16 against ``lm.morantest``). The p-value was computed from the observed-variable null, which is the wrong reference distribution for a projection of ``y``; on a 10x10 lattice it read 3.64e-06 where ``lm.morantest`` reports 1.56e-06 (two-sided 3.13e-06). Pass ``X`` for the correct null.",
           "type": "string"
         },
         "residuals": {
@@ -44492,13 +44496,22 @@
     }
   },
   {
-    "description": "Global Geary's C -- squared-difference measure of spatial autocorrelation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Global Geary's C -- squared-difference measure of spatial autocorrelation. Validation: certified parity evidence.",
     "name": "geary",
     "parameters": {
       "properties": {
+        "assumption": {
+          "default": "randomisation",
+          "description": "Null used for the closed-form variance, following Cliff and Ord (1981) and matching ``spdep::geary.test``'s ``randomisation=`` argument. The randomisation null carries the fourth-moment term ``k = m4 / m2^2``; the normality null drops it. .. versionchanged:: 1.27.0 ``variance``, ``z_score`` and ``p_norm`` used to be ``NaN`` whenever ``permutations=0``, even though Geary's C has a closed form for all of them -- ``moran`` reported its own analytic null in the same situation. The reported ``z_score`` also changes sign: it is now ``(E[C] - C) / sd``, so a positive z means positive spatial autocorrelation, which is ``spdep``'s convention and the one ``sp.moran`` already used. Two-sided p-values are unaffected.",
+          "enum": [
+            "randomisation",
+            "normality"
+          ],
+          "type": "string"
+        },
         "permutations": {
           "default": 999,
-          "description": "Number of random permutations for the pseudo p-value (and the empirical variance / z-score). ``0`` skips the permutation test, in which case ``variance``, ``z_score`` and ``p_norm`` are ``NaN``.",
+          "description": "Number of random permutations for the pseudo p-value. ``0`` skips the permutation test; the analytic ``variance`` / ``z_score`` / ``p_norm`` are reported either way.",
           "type": "integer"
         },
         "seed": {
@@ -44522,7 +44535,7 @@
     }
   },
   {
-    "description": "Global Getis-Ord G -- overall concentration of high (or low) values.",
+    "description": "Global Getis-Ord G -- overall concentration of high (or low) values. Validation: certified parity evidence.",
     "name": "getis_ord_g",
     "parameters": {
       "properties": {
@@ -44552,7 +44565,7 @@
     }
   },
   {
-    "description": "Local Getis-Ord Gi / Gi* -- hotspot and coldspot detection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Local Getis-Ord Gi / Gi* -- hotspot and coldspot detection. Validation: certified parity evidence.",
     "name": "getis_ord_local",
     "parameters": {
       "properties": {
@@ -44587,7 +44600,7 @@
     }
   },
   {
-    "description": "Join-count statistics for a binary spatial variable. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Join-count statistics for a binary spatial variable. Validation: certified parity evidence.",
     "name": "join_counts",
     "parameters": {
       "properties": {
@@ -44652,7 +44665,7 @@
     }
   },
   {
-    "description": "Anselin (1988) Lagrange multiplier battery.",
+    "description": "Anselin (1988) Lagrange multiplier battery. Validation: certified parity evidence.",
     "name": "lm_tests",
     "parameters": {
       "properties": {
@@ -44683,7 +44696,7 @@
     }
   },
   {
-    "description": "Compute direct / indirect / total impacts + simulated SEs.",
+    "description": "Compute direct / indirect / total impacts + simulated SEs. Validation: certified parity evidence.",
     "name": "impacts",
     "parameters": {
       "properties": {
@@ -44849,7 +44862,7 @@
     }
   },
   {
-    "description": "k-nearest-neighbour spatial weights from point coordinates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "k-nearest-neighbour spatial weights from point coordinates. Validation: certified parity evidence.",
     "name": "knn_weights",
     "parameters": {
       "properties": {
@@ -44870,7 +44883,7 @@
     }
   },
   {
-    "description": "Distance-band spatial weights -- connect units within a fixed radius.",
+    "description": "Distance-band spatial weights -- connect units within a fixed radius. Validation: certified parity evidence.",
     "name": "distance_band",
     "parameters": {
       "properties": {
@@ -45122,7 +45135,7 @@
     }
   },
   {
-    "description": "SAC / SARAR: combined spatial lag + spatial error model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "SAC / SARAR: combined spatial lag + spatial error model. Validation: certified parity evidence.",
     "name": "sac",
     "parameters": {
       "properties": {
@@ -45158,7 +45171,7 @@
     }
   },
   {
-    "description": "Spatial Lag of X (SLX) model: ``Y = Xbeta + WXtheta + epsilon``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Spatial Lag of X (SLX) model: ``Y = Xbeta + WXtheta + epsilon``. Validation: certified parity evidence.",
     "name": "slx",
     "parameters": {
       "properties": {

@@ -64,7 +64,12 @@ def join_counts(
     data = S.data
     bb = 0.5 * float(np.sum(data * ((y[rows] == 1) & (y[cols] == 1))))
     ww = 0.5 * float(np.sum(data * ((y[rows] == 0) & (y[cols] == 0))))
-    bw = float(np.sum(data * (y[rows] != y[cols])))
+    # The 0.5 is not optional and was missing here while BB and WW had it.
+    # Every join is counted once, so BB + WW + BW == S0/2 for any weights;
+    # without the factor the identity failed by exactly BW (70.75 against
+    # S0/2 = 50 on a 10x10 rook lattice), and BW disagreed with
+    # spdep::joincount.multi by a factor of two.
+    bw = 0.5 * float(np.sum(data * (y[rows] != y[cols])))
 
     sims = None
     p_sim = None

@@ -61,6 +61,62 @@ All notable changes to StatsPAI will be documented in this file.
   that ceiling as the estimator's accuracy; it now pins the real one, plus
   the sparsity-convention structure of the standard errors.
 
+### ⚠️ Correctness fixes — spatial
+
+- **`sp.lm_tests` reversed the model-selection conclusion it exists to
+  inform.** Two independent errors in Anselin's LM battery, and in both
+  the comment above the line stated the correct formula while the code
+  did something else:
+  - `T` was computed as `tr(WW) + Σ_ij w_ij (WW')_ij` where the statistic
+    needs `tr(W'W) + tr(WW)`. On a row-standardised rook lattice that is
+    28.22 against the correct 56.89, so **`LM_err` came out doubled**.
+  - the lag statistic's `J` was built from `M(Wy)` instead of
+    `M(WXβ̂)`. Since `Wy = WXβ̂ + We`, that mixes the residual's own
+    spatial structure into the denominator of the very statistic that is
+    testing for it.
+
+  Measured against `spdep::lm.RStests`: `LM_err` 39.47 → 19.58,
+  `LM_lag` 20.15 → 23.90, `Robust_LM_lag` 1.17 → 4.36, and
+  **`Robust_LM_err` 20.49 (p = 6e-6) → 0.0397 (p = 0.84)**. That last row
+  is the Anselin decision rule for choosing a spatial lag over a spatial
+  error specification; StatsPAI was reporting overwhelming evidence for
+  residual error dependence where there is none. **Any specification
+  chosen with `sp.lm_tests` should be re-checked.**
+- **`sp.join_counts` reported BW at twice the BB/WW convention.** The
+  `0.5` that halves the double sum was applied to BB and WW and omitted
+  for BW, so the identity `BB + WW + BW = S0/2` failed — 70.75 against
+  50 on a 10×10 rook lattice. BB and WW were always correct.
+- **`sp.getis_ord_local(star=False)` standardised Gi with Gi*'s moments.**
+  Gi excludes observation *i* from its own neighbourhood, so Ord and Getis
+  (1995) standardise it with the exclude-self mean and variance; the code
+  used the whole-sample moments for both branches. `star=True` (Gi*) was
+  always exact. Relative error against `spdep::localG`: ~1.5.
+- **`sp.moran_residuals` tested the statistic against the wrong null.**
+  The statistic itself was exact (5e-16 against `spdep::lm.morantest`),
+  but the p-value came from the null distribution of Moran's I for an
+  *observed variable*. OLS residuals are a projection of `y`, so their
+  null depends on the design matrix. Pass the new `X=` argument for
+  Cliff and Ord's regression-residual null; without it the old
+  (documented) fallback is kept.
+
+### Added — spatial
+
+- `sp.geary` reports a closed-form variance, z-score and p-value.
+  They were `NaN` whenever `permutations=0`, although `sp.moran` reported
+  its analytic null in the same situation. Both `spdep::geary.test`
+  conventions are available through the new `assumption=` argument
+  (`'randomisation'`, the default, and `'normality'`) and match to 1.5e-14.
+  ⚠️ The reported `z_score` also changes sign to `(E[C] − C)/sd`, so a
+  positive z now means positive spatial autocorrelation — `spdep`'s
+  convention and the one `sp.moran` already used. Two-sided p-values are
+  unaffected.
+- Thirteen spatial functions are now pinned against `spdep` 1.4.2 /
+  `spatialreg` 1.4.3 in
+  `tests/reference_parity/test_spdep_parity.py`: `moran`, `moran_local`,
+  `geary`, `getis_ord_g`, `getis_ord_local`, `join_counts`, `lm_tests`,
+  `moran_residuals`, `slx`, `sac`, `impacts`, `knn_weights` and
+  `distance_band`.
+
 ### ⚠️ Correctness fixes — `sp.etregress`
 
 - **`method='mle'`, the default, was not a maximum likelihood fit.** The

@@ -173,12 +173,24 @@ def getis_ord_local(
     if star:
         np.fill_diagonal(S, 1.0)
     Wi = S.sum(axis=1)
-    sum_y = y.sum()
-    mean_y = sum_y / n
-    var_y = np.var(y, ddof=0)
-    num = S @ y - Wi * mean_y
-    denom_core = np.maximum((n * (Wi - Wi**2 / n)) / (n - 1), 0)
-    denom = np.sqrt(var_y * denom_core)
+    S1i = (S**2).sum(axis=1)
+    if star:
+        # Gi*: observation i belongs to its own neighbourhood, so the
+        # standardisation uses the whole-sample moments.
+        mean_i = np.full(n, y.mean())
+        var_i = np.full(n, np.var(y, ddof=0))
+        denom_core = np.maximum((n * S1i - Wi**2) / (n - 1), 0.0)
+    else:
+        # Gi: the numerator excludes i, so the moments must too (Ord &
+        # Getis 1995, eq. 7). Until 1.27.0 both branches used the Gi*
+        # moments above, which left the two halves of the statistic
+        # disagreeing about what the neighbourhood is -- a relative error
+        # of ~1.5 against spdep::localG.
+        mean_i = (y.sum() - y) / (n - 1)
+        var_i = np.maximum((np.sum(y**2) - y**2) / (n - 1) - mean_i**2, 0.0)
+        denom_core = np.maximum(((n - 1) * S1i - Wi**2) / (n - 2), 0.0)
+    num = S @ y - Wi * mean_i
+    denom = np.sqrt(var_i) * np.sqrt(denom_core)
     denom = np.where(denom == 0, np.nan, denom)
     Gi = num / denom
     return {"Gs": Gi, "z": Gi}
