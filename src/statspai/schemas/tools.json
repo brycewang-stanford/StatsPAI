@@ -7998,7 +7998,7 @@
           "type": "number"
         },
         "cluster": {
-          "description": "Cluster identifier column for clustered standard errors.",
+          "description": "Cluster column. Uses Stata's ML cluster factor ``g/(g-1)``.",
           "type": "string"
         },
         "maxiter": {
@@ -8008,12 +8008,12 @@
         },
         "method": {
           "default": "mle",
-          "description": "'mle' or 'twostep' (Heckman-style).",
+          "description": "``'mle'`` for full-information maximum likelihood (Stata's default) or ``'twostep'`` for the control-function estimator (Stata's ``twostep`` option). They are different estimators, not two routes to the same numbers.",
           "type": "string"
         },
         "robust": {
           "default": "nonrobust",
-          "description": "Robust standard-error or covariance estimator option.",
+          "description": "``'nonrobust'`` (observed information), ``'robust'`` (sandwich, with Stata's ``N/(N-1)`` factor) or ``'cluster'``. Passing ``cluster=`` implies ``'cluster'``. ``vce=`` is accepted as an alias.",
           "type": "string"
         },
         "tol": {
@@ -8022,7 +8022,7 @@
           "type": "number"
         },
         "treatment": {
-          "description": "Binary treatment variable.",
+          "description": "Binary treatment variable (0/1, both values present).",
           "type": "string"
         },
         "x": {
@@ -19892,7 +19892,7 @@
           "type": "integer"
         },
         "fuzzy": {
-          "description": "Treatment variable name for fuzzy RD. When provided, bandwidth accounts for first-stage variance in the Wald / IV estimator.",
+          "description": "Treatment variable name for fuzzy RD. The MSE being minimised is then the one for the Wald ratio rather than for the reduced form, so every stage of the cascade changes. .. versionchanged:: 1.27.0 This argument was parsed and then discarded: it was never passed to the bandwidth cascade, so ``fuzzy=`` returned the sharp bandwidth while the docstring claimed otherwise. On a two-sided noncompliance replica of the Lee 2008 senate data that is a 9% to 16% error in ``h``. Designs with **one-sided** noncompliance were unaffected, because ``rdbwselect`` itself falls back to the sharp bandwidth there (R's ``perf_comp``) -- which is also why the defect survived: the fixture in the repository was one-sided.",
           "type": "string"
         },
         "kernel": {

@@ -258,6 +258,188 @@ def biprobit(
     )
 
 
+# ══════════════════════════════════════════════════════════════════════
+#  etregress: likelihood, score and the two variance estimators
+# ══════════════════════════════════════════════════════════════════════
+
+
+def _probit_coefficients(Z: np.ndarray, D: np.ndarray) -> np.ndarray:
+    """Probit MLE coefficients for the selection equation."""
+
+    def _neg(g):
+        zg = Z @ g
+        ll = np.where(D == 1, stats.norm.logcdf(zg), stats.norm.logcdf(-zg))
+        q = 2.0 * D - 1.0
+        lam = q * np.exp(stats.norm.logpdf(zg) - stats.norm.logcdf(q * zg))
+        return -float(np.sum(ll)), -(Z * lam[:, None]).sum(0)
+
+    start = np.linalg.lstsq(Z, D - 0.5, rcond=None)[0]
+    res = minimize(
+        _neg, start, jac=True, method="BFGS", options={"gtol": 1e-12, "maxiter": 500}
+    )
+    return res.x
+
+
+def _etregress_scores(
+    theta: np.ndarray,
+    yv: np.ndarray,
+    W: np.ndarray,
+    Z: np.ndarray,
+    D: np.ndarray,
+):
+    """Log-likelihood and **per-observation** scores for Stata ``etregress``.
+
+    The model is the common-slopes endogenous-treatment regression
+
+        y  = w'b + eps           (w already carries the treatment column)
+        D* = z'g + u,  D = 1(D* > 0)
+        (eps, u) ~ BVN(0, 0, sigma^2, 1, rho*sigma)
+
+    with Stata's parameterisation ``athrho = atanh(rho)``,
+    ``lnsigma = log(sigma)`` -- both unbounded, which is what keeps the
+    optimiser away from the |rho| = 1 boundary.
+
+    Writing ``e = (y - w'b)/sigma``, ``a = (z'g + rho e)/sqrt(1 - rho^2)``
+    and ``q = 2D - 1``, the contribution is
+
+        l_i = log Phi(q_i a_i) - e_i^2/2 - log sigma - log(2 pi)/2
+
+    The scores are returned per observation rather than summed because the
+    robust and cluster covariance estimators need them that way; the caller
+    sums when it wants the gradient.
+    """
+    kb, kg = W.shape[1], Z.shape[1]
+    beta = theta[:kb]
+    gamma = theta[kb : kb + kg]
+    athrho, lnsigma = theta[kb + kg], theta[kb + kg + 1]
+    rho = np.tanh(athrho)
+    sigma = np.exp(lnsigma)
+    one_m = 1.0 - rho**2
+    root = np.sqrt(one_m)
+    e = (yv - W @ beta) / sigma
+    zg = Z @ gamma
+    a = (zg + rho * e) / root
+    q = 2.0 * D - 1.0
+    m = q * a
+    logcdf = stats.norm.logcdf(m)
+    ll_i = logcdf - 0.5 * e**2 - lnsigma - 0.5 * np.log(2 * np.pi)
+    # exp(logpdf - logcdf) rather than pdf/cdf: the ratio underflows to 0/0
+    # in the far tail, where the log form is still exact.
+    ql = q * np.exp(stats.norm.logpdf(m) - logcdf)
+    s_beta = W * ((e - ql * rho / root) / sigma)[:, None]
+    s_gamma = Z * (ql / root)[:, None]
+    s_lnsigma = -ql * rho * e / root + e**2 - 1.0
+    da_drho = e / root + (zg + rho * e) * rho / one_m**1.5
+    s_athrho = ql * da_drho * one_m
+    scores = np.column_stack([s_beta, s_gamma, s_athrho, s_lnsigma])
+    return float(np.sum(ll_i)), scores
+
+
+def _etregress_hessian(theta, yv, W, Z, D):
+    """Observed information: the analytic score differenced once.
+
+    Stata reports ``vce(oim)`` here. Differencing the *score* rather than
+    the log-likelihood costs one power of eps -- second differences of the
+    objective lose about half the digits, which showed up directly as
+    standard errors an order of magnitude further from Stata's.
+    """
+
+    def _g(t):
+        return _etregress_scores(t, yv, W, Z, D)[1].sum(0)
+
+    n_ = len(theta)
+    H = np.zeros((n_, n_))
+    step = np.maximum(np.abs(theta), 1.0) * (np.finfo(float).eps ** (1 / 3))
+    for i in range(n_):
+        tp = theta.copy()
+        tp[i] += step[i]
+        tm = theta.copy()
+        tm[i] -= step[i]
+        H[:, i] = -(_g(tp) - _g(tm)) / (2 * step[i])
+    return 0.5 * (H + H.T)
+
+
+def _etregress_fit_mle(yv, W, Z, D, maxiter: int, tol: float):
+    """Full-information ML, matching ``etregress`` (no ``twostep`` option).
+
+    Returns ``(theta, hessian, loglik)``.
+
+    The residual disagreement with Stata is ~5e-7 on the parameters and
+    ~7e-16 on the log-likelihood, and that ordering is the whole story: the
+    likelihood is flat to machine precision across the parameter gap.
+    Starting BFGS from Stata's own reported theta neither raises the
+    likelihood nor reduces the gradient, so neither optimiser is "closer to
+    the optimum" than the other -- there is no further optimum to reach in
+    float64. See tests/reference_parity/test_etregress_stata_parity.py.
+    """
+    beta0 = np.linalg.lstsq(W, yv, rcond=None)[0]
+    resid0 = yv - W @ beta0
+    theta = np.concatenate(
+        [
+            beta0,
+            np.linalg.lstsq(Z, D - 0.5, rcond=None)[0],
+            [0.0],
+            [np.log(np.sqrt(np.mean(resid0**2)))],
+        ]
+    )
+
+    def _neg(t):
+        ll, s = _etregress_scores(t, yv, W, Z, D)
+        return -ll, -s.sum(0)
+
+    res = minimize(
+        _neg,
+        theta,
+        jac=True,
+        method="BFGS",
+        options={"maxiter": maxiter, "gtol": max(tol, 1e-12)},
+    )
+    theta = res.x
+    best_ll = _etregress_scores(theta, yv, W, Z, D)[0]
+    # Newton polish, but only accepting steps that raise the likelihood.
+    # On a surface this flat an unguarded Newton step drifts sideways: an
+    # earlier version accepted every step and landed 2.5e-4 from Stata with
+    # a *lower* likelihood than where it started.
+    for _ in range(25):
+        g = _etregress_scores(theta, yv, W, Z, D)[1].sum(0)
+        H = _etregress_hessian(theta, yv, W, Z, D)
+        try:
+            step = np.linalg.solve(H, -g)
+        except np.linalg.LinAlgError:  # pragma: no cover - degenerate design
+            break
+        moved = False
+        for shrink in (1.0, 0.5, 0.25, 0.125):
+            cand = theta + shrink * step
+            ll_c = _etregress_scores(cand, yv, W, Z, D)[0]
+            if ll_c > best_ll:
+                theta, best_ll, moved = cand, ll_c, True
+                break
+        if not moved:
+            break
+    return theta, _etregress_hessian(theta, yv, W, Z, D), best_ll
+
+
+def _sandwich(H, scores, cluster_vals):
+    """Robust / cluster covariance from the observed information and scores."""
+    Hinv = np.linalg.inv(H)
+    n, k = scores.shape
+    if cluster_vals is None:
+        # Stata's ML robust VCE carries N/(N-1) on the meat. Omitting it is
+        # a uniform 1/(2N) shortfall on every standard error -- 2.5e-4 at
+        # N = 2000, which reads as noise until you notice it is the same
+        # 2.5e-4 on all of them.
+        meat = (n / (n - 1.0)) * (scores.T @ scores)
+        return Hinv @ meat @ Hinv
+    codes = pd.Categorical(cluster_vals).codes
+    g = int(codes.max()) + 1
+    agg = np.zeros((g, k))
+    np.add.at(agg, codes, scores)
+    meat = agg.T @ agg
+    # Stata's ML cluster factor: g/(g-1) only. Not (n-1)/(n-k)*g/(g-1),
+    # which is the regress-family factor.
+    return (g / (g - 1.0)) * (Hinv @ meat @ Hinv)
+
+
 @accepts_aliases(vce="robust")
 def etregress(
     data: pd.DataFrame,
@@ -282,7 +464,28 @@ def etregress(
         Selection: D* = z'γ + u, D = 1(D* > 0)
         (ε, u) ~ BVN(0, 0, σ², 1, ρσ)
 
-    Equivalent to Stata's ``etregress y x, treat(D = z)``.
+    Equivalent to Stata's ``etregress y x, treat(D = z)``, and pinned
+    against it: the two-step agrees to 5e-9 on every coefficient and every
+    standard error, and the ML fit's likelihood, score and observed
+    information reproduce Stata's standard errors to 1e-10 when evaluated
+    at Stata's own parameter vector. See
+    ``tests/reference_parity/test_etregress_stata_parity.py``.
+
+    .. versionchanged:: 1.27.0
+       Three fixes, all of which change published numbers:
+
+       * ``method='mle'`` now runs a maximum likelihood fit. It previously
+         executed a verbatim copy of the two-step branch — the two code
+         paths were identical — while the docstring named Stata's MLE.
+       * ``method='twostep'`` standard errors now carry Heckman's
+         correction for the estimated first stage. They were the naive OLS
+         standard errors of the hazard-augmented regression, ~11% too
+         small on a two-instrument design.
+       * ``robust`` and ``cluster`` were accepted and then never
+         referenced. Both now select the variance estimator.
+
+       See MIGRATION.md — treatment effects and their inference should be
+       recomputed.
 
     Parameters
     ----------
@@ -292,19 +495,32 @@ def etregress(
     x : list of str
         Exogenous regressors.
     treatment : str
-        Binary treatment variable.
+        Binary treatment variable (0/1, both values present).
     z : list of str
         Instruments for the selection equation.
     method : str, default 'mle'
-        'mle' or 'twostep' (Heckman-style).
+        ``'mle'`` for full-information maximum likelihood (Stata's
+        default) or ``'twostep'`` for the control-function estimator
+        (Stata's ``twostep`` option). They are different estimators, not
+        two routes to the same numbers.
     robust : str, default 'nonrobust'
+        ``'nonrobust'`` (observed information), ``'robust'`` (sandwich,
+        with Stata's ``N/(N-1)`` factor) or ``'cluster'``. Passing
+        ``cluster=`` implies ``'cluster'``. ``vce=`` is accepted as an
+        alias.
     cluster : str, optional
+        Cluster column. Uses Stata's ML cluster factor ``g/(g-1)``.
     maxiter : int, default 200
     alpha : float, default 0.05
 
     Returns
     -------
     EconometricResults
+        ``params`` carries the outcome equation, then the selection
+        equation as ``<treatment>:<name>``, then ``athrho`` and
+        ``lnsigma`` (ML) or ``hazard:lambda`` (two-step).
+        ``diagnostics`` carries ``ate``, ``ate_se``, ``rho``, ``sigma``,
+        ``lambda`` and, for ML, ``loglik``.
 
     Examples
     --------
@@ -329,68 +545,121 @@ def etregress(
     >>> bool('ate' in result.diagnostics)  # endogenous treatment effect
     True
     """
-    df = data.dropna(subset=[y, treatment] + x + z)
+    if method not in ("mle", "twostep"):
+        raise ValueError(f"method must be 'mle' or 'twostep', got {method!r}")
+    robust_kind = str(robust).lower()
+    if robust_kind not in ("nonrobust", "robust", "cluster"):
+        raise ValueError(
+            "robust must be 'nonrobust', 'robust' or 'cluster', " f"got {robust!r}"
+        )
+    subset = [y, treatment] + x + z + ([cluster] if cluster else [])
+    df = data.dropna(subset=subset)
     n = len(df)
 
     y_data = df[y].values.astype(float)
     D_data = df[treatment].values.astype(float)
-    X_out = np.column_stack([np.ones(n), df[x].values.astype(float), D_data])
-    k_out = X_out.shape[1]
+    uniq = np.unique(D_data)
+    if not np.all(np.isin(uniq, (0.0, 1.0))) or uniq.size < 2:
+        raise ValueError(
+            f"treatment '{treatment}' must be binary 0/1 with both values "
+            f"present; got {uniq[:5]}"
+        )
+    W = np.column_stack([np.ones(n), df[x].values.astype(float), D_data])
+    Z = np.column_stack([np.ones(n), df[z].values.astype(float)])
+    k_out = W.shape[1]
+    out_names = ["_cons"] + list(x) + [treatment]
+    sel_names = [f"{treatment}:_cons"] + [f"{treatment}:{v}" for v in z]
+    cluster_vals = df[cluster].values if cluster else None
+    if robust_kind == "cluster" and cluster_vals is None:
+        raise ValueError("robust='cluster' requires cluster=<column name>")
+    if cluster_vals is not None:
+        robust_kind = "cluster"
 
     if method == "twostep":
-        # Two-step (control function approach)
-        # Step 1: Probit for D
-        from .logit_probit import probit as _probit
-
-        probit_result = _probit(data=df, y=treatment, x=z)
-        gamma = probit_result.params.values
-        xb_sel = np.column_stack([np.ones(n), df[z].values.astype(float)]) @ gamma
-        # Inverse Mills ratio
-        mills = np.where(
+        # Stata's `etregress ..., twostep`: probit, then OLS on the
+        # treatment-specific hazard, with Heckman's corrected covariance.
+        gamma = _probit_coefficients(Z, D_data)
+        zg = Z @ gamma
+        hazard = np.where(
             D_data == 1,
-            stats.norm.pdf(xb_sel) / np.clip(stats.norm.cdf(xb_sel), 1e-10, None),
-            -stats.norm.pdf(xb_sel) / np.clip(1 - stats.norm.cdf(xb_sel), 1e-10, None),
+            np.exp(stats.norm.logpdf(zg) - stats.norm.logcdf(zg)),
+            -np.exp(stats.norm.logpdf(zg) - stats.norm.logcdf(-zg)),
         )
-
-        # Step 2: OLS with Mills ratio
-        X_out_mills = np.column_stack([X_out, mills])
-        beta = np.linalg.lstsq(X_out_mills, y_data, rcond=None)[0]
-        resid = y_data - X_out_mills @ beta
-        sigma2 = np.sum(resid**2) / (n - X_out_mills.shape[1])
-
-        # SE (simplified — should use bootstrap for correct SE)
-        var_cov = sigma2 * np.linalg.inv(X_out_mills.T @ X_out_mills)
-        se = np.sqrt(np.diag(var_cov))
-
-        out_names = ["_cons"] + x + [treatment, "mills_lambda"]
-        params = pd.Series(beta, index=out_names)
-        std_errors = pd.Series(se, index=out_names)
-        ate = beta[k_out - 1]  # treatment coefficient
-
+        delta_i = hazard * (hazard + zg)
+        Wa = np.column_stack([W, hazard])
+        XtX_inv = np.linalg.inv(Wa.T @ Wa)
+        beta = XtX_inv @ (Wa.T @ y_data)
+        resid = y_data - Wa @ beta
+        # sigma^2 is NOT the residual variance: the hazard term absorbs part
+        # of it, so Heckman adds rho^2 * sum(delta_i) back before dividing
+        # by n. Using the plain residual variance understates sigma and,
+        # through it, every standard error.
+        sigma2 = (resid @ resid + beta[-1] ** 2 * np.sum(delta_i)) / n
+        sigma = np.sqrt(sigma2)
+        rho = beta[-1] / sigma
+        probit_info = np.linalg.inv((Z * delta_i[:, None]).T @ Z)
+        cross = (Wa * delta_i[:, None]).T @ Z
+        Q = (rho**2) * cross @ probit_info @ cross.T
+        vcov = (
+            sigma2
+            * XtX_inv
+            @ ((Wa * (1.0 - rho**2 * delta_i)[:, None]).T @ Wa + Q)
+            @ XtX_inv
+        )
+        se_all = np.sqrt(np.diag(vcov))
+        params = pd.Series(beta, index=out_names + ["hazard:lambda"])
+        std_errors = pd.Series(se_all, index=params.index)
+        loglik = None
+        converged = True
+        extra = {}
     else:
-        # MLE (simplified: control function + joint estimation)
-        # Use two-step as approximation for MLE
-        from .logit_probit import probit as _probit
-
-        probit_result = _probit(data=df, y=treatment, x=z)
-        gamma = probit_result.params.values
-        xb_sel = np.column_stack([np.ones(n), df[z].values.astype(float)]) @ gamma
-        mills = np.where(
-            D_data == 1,
-            stats.norm.pdf(xb_sel) / np.clip(stats.norm.cdf(xb_sel), 1e-10, None),
-            -stats.norm.pdf(xb_sel) / np.clip(1 - stats.norm.cdf(xb_sel), 1e-10, None),
+        theta, hessian, loglik = _etregress_fit_mle(
+            y_data, W, Z, D_data, maxiter=maxiter, tol=tol
         )
-        X_out_mills = np.column_stack([X_out, mills])
-        beta = np.linalg.lstsq(X_out_mills, y_data, rcond=None)[0]
-        resid = y_data - X_out_mills @ beta
-        sigma2 = np.sum(resid**2) / (n - X_out_mills.shape[1])
-        var_cov = sigma2 * np.linalg.inv(X_out_mills.T @ X_out_mills)
-        se = np.sqrt(np.diag(var_cov))
+        scores = _etregress_scores(theta, y_data, W, Z, D_data)[1]
+        if robust_kind == "nonrobust":
+            vcov = np.linalg.inv(hessian)
+        else:
+            vcov = _sandwich(
+                hessian, scores, cluster_vals if robust_kind == "cluster" else None
+            )
+        se_all = np.sqrt(np.diag(vcov))
+        kg = Z.shape[1]
+        rho = float(np.tanh(theta[k_out + kg]))
+        sigma = float(np.exp(theta[k_out + kg + 1]))
+        names = out_names + sel_names + ["athrho", "lnsigma"]
+        params = pd.Series(theta, index=names)
+        std_errors = pd.Series(se_all, index=names)
+        converged = bool(np.all(np.isfinite(se_all)))
+        extra = {
+            "athrho": float(theta[k_out + kg]),
+            "lnsigma": float(theta[k_out + kg + 1]),
+            "loglik": float(loglik),
+        }
 
-        out_names = ["_cons"] + x + [treatment, "mills_lambda"]
-        params = pd.Series(beta, index=out_names)
-        std_errors = pd.Series(se, index=out_names)
-        ate = beta[k_out - 1]
+    ate = float(params.iloc[k_out - 1])
+    ate_se = float(std_errors.iloc[k_out - 1])
+    beta = params.values
+    se = std_errors.values
+
+    diagnostics = {
+        "ate": ate,
+        "ate_se": ate_se,
+        "rho": float(rho),
+        "sigma": float(sigma),
+        "lambda": float(rho * sigma),
+        "converged": converged,
+    }
+    diagnostics.update(extra)
+    # ``selection_corr`` is rho under both methods -- it is the parameter the
+    # name always meant. ``mills_coef`` / ``mills_se`` are two-step objects
+    # (the hazard coefficient rho*sigma and its SE) and have no counterpart
+    # in the MLE, which never forms a Mills ratio, so they appear only there
+    # rather than being faked from rho*sigma.
+    diagnostics["selection_corr"] = float(rho)
+    if method == "twostep":
+        diagnostics["mills_coef"] = float(params.iloc[-1])
+        diagnostics["mills_se"] = float(std_errors.iloc[-1])
 
     return EconometricResults(
         params=params,
@@ -398,19 +667,17 @@ def etregress(
         model_info={
             "model_type": "Endogenous Treatment Effects",
             "method": method,
+            "vce": robust_kind,
             "treatment_effect": ate,
             "treatment_var": treatment,
+            "rho": float(rho),
+            "sigma": float(sigma),
+            "log_likelihood": None if loglik is None else float(loglik),
         },
         data_info={
             "n_obs": n,
             "dep_var": y,
             "df_resid": n - len(beta),
         },
-        diagnostics={
-            "ate": ate,
-            "ate_se": se[k_out - 1] if k_out - 1 < len(se) else np.nan,
-            "mills_coef": beta[-1],
-            "mills_se": se[-1],
-            "selection_corr": beta[-1] / np.sqrt(sigma2) if sigma2 > 0 else np.nan,
-        },
+        diagnostics=diagnostics,
     )

@@ -2678,21 +2678,30 @@
       "tolerance": ""
     },
     {
-      "function": "etregress",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_etregress_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "etregress",
+      "notes": [
+        "Added in 1.27.0 alongside three correctness fixes this comparison found: `method='mle'` ran a verbatim copy of the two-step branch (10.7% on the treatment effect), the two-step reported uncorrected OLS standard errors (11.2% too small), and `robust=` / `cluster=` were accepted and never used. The pre-existing analytical test could not see any of it -- a two-step also recovers delta on a known DGP."
+      ],
+      "reference": "Stata 18 MP official `etregress` (Maddala 1983 model)",
+      "reference_versions": {
+        "Stata": "18 MP"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_etregress_stata_parity.py"
+      ],
+      "tolerance": "Two-step: 5e-9 on every coefficient and every standard error, including the Heckman correction for the estimated first stage. ML: the likelihood, score and observed information are pinned at 9e-11 -- our Hessian reproduces Stata's reported standard errors when evaluated at Stata's own parameter vector, which is independent of either optimiser. At our own optimum the parameters sit within 2e-5 of Stata's; that gap is the two optimisers' stopping points, not a formula difference, and StatsPAI's stops at the HIGHER log-likelihood with a gradient ~300x smaller (asserted, so a regression that makes our optimum worse fails even though the 1e-4 parity assertions would still pass). vce(robust) carries Stata's N/(N-1) meat factor and vce(cluster) its g/(g-1)."
     },
     {
       "additional_tests": [
@@ -7915,7 +7924,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_rdbwselect_comb_rules.py"
+        "tests/reference_parity/test_rdbwselect_comb_rules.py",
+        "tests/reference_parity/test_rdrobust_fuzzy_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -8160,6 +8170,7 @@
         "tests/reference_parity/test_rd_covs_cluster_parity.py",
         "tests/reference_parity/test_rd_vce_parity.py",
         "tests/reference_parity/test_rdbwselect_comb_rules.py",
+        "tests/reference_parity/test_rdrobust_fuzzy_parity.py",
         "tests/reference_parity/test_rdrobust_params_parity.py",
         "tests/reference_parity/test_rdrobust_parity.py"
       ],

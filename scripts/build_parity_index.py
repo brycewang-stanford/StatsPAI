@@ -422,6 +422,37 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "only a parity gap."
         ),
     },
+    "etregress": {
+        "status": "bit-exact",
+        "reference": "Stata 18 MP official `etregress` (Maddala 1983 model)",
+        "reference_versions": {"Stata": "18 MP"},
+        "tolerance": (
+            "Two-step: 5e-9 on every coefficient and every standard error, "
+            "including the Heckman correction for the estimated first "
+            "stage. ML: the likelihood, score and observed information are "
+            "pinned at 9e-11 -- our Hessian reproduces Stata's reported "
+            "standard errors when evaluated at Stata's own parameter "
+            "vector, which is independent of either optimiser. At our own "
+            "optimum the parameters sit within 2e-5 of Stata's; that gap "
+            "is the two optimisers' stopping points, not a formula "
+            "difference, and StatsPAI's stops at the HIGHER log-likelihood "
+            "with a gradient ~300x smaller (asserted, so a regression that "
+            "makes our optimum worse fails even though the 1e-4 parity "
+            "assertions would still pass). vce(robust) carries Stata's "
+            "N/(N-1) meat factor and vce(cluster) its g/(g-1)."
+        ),
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_etregress_stata_parity.py"],
+        "note": (
+            "Added in 1.27.0 alongside three correctness fixes this "
+            "comparison found: `method='mle'` ran a verbatim copy of the "
+            "two-step branch (10.7% on the treatment effect), the two-step "
+            "reported uncorrected OLS standard errors (11.2% too small), "
+            "and `robust=` / `cluster=` were accepted and never used. The "
+            "pre-existing analytical test could not see any of it -- a "
+            "two-step also recovers delta on a known DGP."
+        ),
+    },
     "psmatch2": {
         "status": "bit-exact",
         "reference": (

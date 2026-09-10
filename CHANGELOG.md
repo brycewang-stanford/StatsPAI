@@ -48,6 +48,36 @@ All notable changes to StatsPAI will be documented in this file.
   between 1.3e-8 and 5.5e-6, and with Stata `jwdid` to 2e-15. Point estimates
   are unchanged by this item.
 
+### ⚠️ Correctness fixes — `sp.etregress`
+
+- **`method='mle'`, the default, was not a maximum likelihood fit.** The
+  `mle` branch of `regression/selection.py` was a verbatim copy of the
+  `twostep` branch, under a comment reading "Use two-step as approximation
+  for MLE", while the docstring said "Equivalent to Stata's `etregress y x,
+  treat(D = z)`" — which is the MLE. On a two-instrument replica the
+  default returned a treatment effect of 1.978 where Stata returns 1.787,
+  **10.7% away**. `sp.etregress` now maximises the endogenous-treatment
+  likelihood; its log-likelihood, score and observed information reproduce
+  Stata's standard errors to 1e-10 at Stata's own parameter vector.
+  **Any endogenous-treatment estimate taken from the default should be
+  recomputed.**
+- **`method='twostep'` standard errors ignored the estimated first stage.**
+  They were the naive OLS standard errors of the hazard-augmented
+  regression — the source carried the comment "SE (simplified — should use
+  bootstrap for correct SE)" — so they omitted both Heckman's correction
+  and the hazard-induced heteroskedasticity. Measured against Stata:
+  **11.2% too small**, i.e. t-statistics 12.5% too large. The point
+  estimates were already exact and are unchanged; the corrected covariance
+  now matches Stata to 5e-9.
+- **`robust=` and `cluster=` were accepted and never used.** Neither
+  argument appeared anywhere in the function body, so
+  `sp.etregress(..., robust='robust')` silently returned classical
+  standard errors. Both now select the variance estimator, reproducing
+  Stata's `vce(robust)` (sandwich with the `N/(N-1)` factor) and
+  `vce(cluster)` (`g/(g-1)`).
+- `sp.etregress` now rejects a non-binary treatment and an unknown
+  `method=` instead of proceeding.
+
 ### ⚠️ Correctness fixes — RD subpackage
 
 - **`sp.rdbwselect(fuzzy=...)` parsed the argument and threw it away.**

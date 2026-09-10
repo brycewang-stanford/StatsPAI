@@ -84,6 +84,58 @@ rests on an artifact rather than on the alias assertion that 1.26.0 withdrew.
 
 ---
 
+<a id="etregress-mle"></a>
+
+## 1.27.0 — ⚠️ `sp.etregress` ran the two-step and called it MLE
+
+**Who is affected.** Anyone who called `sp.etregress`. The default path
+changes.
+
+| Surface | Changes? |
+| --- | --- |
+| `sp.etregress(...)` with default `method='mle'` | **yes — a different estimator** |
+| `sp.etregress(..., method='twostep')` coefficients | no |
+| `sp.etregress(..., method='twostep')` standard errors | **yes — ~11% wider** |
+| `sp.etregress(..., robust=...)` | **yes — the argument now does something** |
+| `sp.etregress(..., cluster=...)` | **yes — the argument now does something** |
+| `result.diagnostics['mills_coef']`, `['mills_se']` | present only under `twostep` |
+
+**What was wrong.** The `mle` branch and the `twostep` branch of
+`regression/selection.py` were the same code. The `mle` one carried the
+comment `# MLE (simplified: control function + joint estimation)` followed
+by `# Use two-step as approximation for MLE`. So the documented default —
+"Equivalent to Stata's `etregress y x, treat(D = z)`" — returned the
+control-function estimate. On a 2,000-observation replica with two
+instruments, Stata's MLE gives a treatment effect of 1.787 and the old
+default gave 1.978.
+
+Separately, the two-step's standard errors were the OLS standard errors of
+the regression that includes the hazard term. That regression's regressor
+is estimated, and its errors are heteroskedastic by construction, so those
+standard errors are too small — 11.2% on the same replica, in the
+direction that overstates significance.
+
+And `robust=` / `cluster=` were function parameters that the body never
+read.
+
+**Why it survived.** The analytical test for `sp.etregress` checks that the
+estimate recovers δ on a known DGP and sits below the upward-biased naive
+difference. A two-step passes that. No test compared the *two methods* to
+each other, and none compared either to Stata — so a branch that was a
+copy of the other branch looked healthy from every angle the suite had.
+
+**What to do.**
+
+* Re-run any endogenous-treatment model. If you want the old numbers back
+  for comparison, they are `method='twostep'`'s point estimates, which are
+  unchanged and now verified against Stata.
+* Re-derive any inference: both methods' standard errors move.
+* `result.params` now carries the selection equation as
+  `<treatment>:<name>` and, for ML, `athrho` / `lnsigma`; `rho`, `sigma`,
+  `lambda` and `loglik` are in `result.diagnostics`.
+
+---
+
 <a id="fuzzy-rd-cct"></a>
 
 ## 1.27.0 — ⚠️ Fuzzy RD bandwidth and robust inference

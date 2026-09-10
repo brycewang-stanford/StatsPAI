@@ -214,23 +214,47 @@ class TestSelectionModels:
         assert result is not None
         # Treatment effect should be positive
         assert result.diagnostics["ate"] > 0
+        # 1.27.0: the default `method='mle'` is now an actual maximum
+        # likelihood fit. It previously ran the two-step branch verbatim --
+        # the two code paths were identical -- so the values pinned here
+        # were the two-step's. Both sets are now checked against Stata's
+        # `etregress` in tests/reference_parity/test_etregress_stata_parity.py.
         np.testing.assert_allclose(
             [
                 result.params["D"],
                 result.std_errors["D"],
                 result.diagnostics["ate"],
-                result.diagnostics["mills_coef"],
                 result.diagnostics["selection_corr"],
             ],
             [
-                2.2733308550165674,
-                0.2661308581989966,
-                2.2733308550165674,
-                0.2590573684741753,
-                0.26750877131719186,
+                2.2650833897163696,
+                0.26732664290170544,
+                2.2650833897163696,
+                0.26848572818129435,
             ],
-            atol=1e-12,
+            atol=1e-8,
         )
+
+        # The two-step, asked for by name. Its point estimate is the value
+        # this test used to pin under the MLE label, to 1e-12 -- which is
+        # the evidence that the old default was the two-step. Its standard
+        # error is not: it now carries Heckman's correction for the
+        # estimated first stage, 1.7% wider here.
+        ts = etregress(df, y="y", x=["x"], treatment="D", z=["z"], method="twostep")
+        np.testing.assert_allclose(
+            [
+                ts.params["D"],
+                ts.std_errors["D"],
+                ts.diagnostics["mills_coef"],
+            ],
+            [
+                2.273330855016372,
+                0.2705926185895047,
+                0.25905736847429317,
+            ],
+            atol=1e-8,
+        )
+        assert abs(ts.params["D"] - 2.2733308550165674) < 1e-11
 
 
 class TestDistributionalTE:
