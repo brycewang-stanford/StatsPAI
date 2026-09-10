@@ -84,6 +84,31 @@ rests on an artifact rather than on the alias assertion that 1.26.0 withdrew.
 
 ---
 
+<a id="sqreg-rounding"></a>
+
+## 1.27.0 — `sp.sqreg` no longer rounds its output to four decimals
+
+**Who is affected.** Anyone who read numbers out of `sp.sqreg`. Values
+change in the 5th decimal onward; nothing about the estimator changed.
+
+`sp.sqreg` applied `round(..., 4)` to every coefficient and standard error
+before returning them. Display rounding belongs in `.summary()` and
+`.to_latex()`, which already do it; this was the returned value. For a
+coefficient of order `1e-3` that leaves a single significant digit.
+
+Against R's `quantreg::rq` on the repository's fixture, the rounding
+capped agreement at 1.2e-04 on `x2` and 7.8e-03 on `x3`. Without it the
+coefficients agree to 3.5e-14.
+
+**What to do.** Nothing, unless you compared `sp.sqreg` output for exact
+equality against previously stored 4-decimal values. Standard errors
+remain on the Powell kernel sparsity convention, which differs from R's
+`se="nid"` default and Stata `qreg` by one scalar per quantile — see
+`tests/reference_parity/test_sqreg_parity.py`, which now pins that scalar
+structure explicitly.
+
+---
+
 <a id="etregress-mle"></a>
 
 ## 1.27.0 — ⚠️ `sp.etregress` ran the two-step and called it MLE

@@ -20,7 +20,7 @@ Chernozhukov, V. and Hansen, C. (2005).
 """
 
 import warnings
-from typing import Optional, List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -207,8 +207,15 @@ def sqreg(
             var = row["variable"]
             if var not in results:
                 results[var] = {"variable": var}
-            results[var][f"Q({q})"] = round(row["coefficient"], 4)
-            results[var][f"SE({q})"] = round(row["se"], 4)
+            # Reported at full precision. These used to be rounded to four
+            # decimals, which is not a display choice -- it is the value the
+            # caller gets back. On this fixture that capped agreement with
+            # quantreg::rq at 1.2e-04 on x2 and 7.8e-03 on x3, because a
+            # coefficient near zero loses every significant digit to a fixed
+            # number of decimal places. Rounding for display belongs in
+            # `.summary()` / `.to_latex()`, which already do it.
+            results[var][f"Q({q})"] = float(row["coefficient"])
+            results[var][f"SE({q})"] = float(row["se"])
 
     return pd.DataFrame(list(results.values()))
 

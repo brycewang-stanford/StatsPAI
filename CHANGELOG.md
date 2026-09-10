@@ -48,6 +48,19 @@ All notable changes to StatsPAI will be documented in this file.
   between 1.3e-8 and 5.5e-6, and with Stata `jwdid` to 2e-15. Point estimates
   are unchanged by this item.
 
+### ⚠️ Correctness fixes — `sp.sqreg`
+
+- **`sp.sqreg` rounded its returned coefficients and standard errors to
+  four decimal places.** Not for display — in the values the caller gets
+  back. A coefficient of order `1e-3` therefore came back with one
+  significant digit, capping agreement with `quantreg::rq` at 7.8e-03
+  relative on this repository's own fixture, and any downstream
+  arithmetic inherited that. Removing the rounding puts the coefficients
+  at 3.5e-14 against R, which is where the estimator always was.
+  The reference-parity test previously asserted four decimals and recorded
+  that ceiling as the estimator's accuracy; it now pins the real one, plus
+  the sparsity-convention structure of the standard errors.
+
 ### ⚠️ Correctness fixes — `sp.etregress`
 
 - **`method='mle'`, the default, was not a maximum likelihood fit.** The

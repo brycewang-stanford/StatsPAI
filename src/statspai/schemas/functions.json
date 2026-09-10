@@ -24484,7 +24484,7 @@
     }
   },
   {
-    "description": "Simultaneous quantile regression at multiple quantiles. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Simultaneous quantile regression at multiple quantiles. Validation: certified parity evidence.",
     "name": "sqreg",
     "parameters": {
       "properties": {
@@ -39138,7 +39138,7 @@
     }
   },
   {
-    "description": "Endogenous treatment effects model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Endogenous treatment effects model. Validation: certified parity evidence.",
     "name": "etregress",
     "parameters": {
       "properties": {

@@ -422,6 +422,34 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "only a parity gap."
         ),
     },
+    "sqreg": {
+        "status": "bit-exact",
+        "reference": "R quantreg::rq (Barrodale-Roberts), Koenker 2005",
+        "reference_versions": {"quantreg": "see sqreg_R.json provenance"},
+        "tolerance": (
+            "Coefficients 3.5e-14 against quantreg::rq at tau = 0.25 / 0.50 "
+            "/ 0.75 -- both sides minimise the same pinball loss with the "
+            "same simplex. Standard errors differ from R's se='iid' by ONE "
+            "SCALAR PER QUANTILE, constant across coefficients to 6e-16: "
+            "the sandwich is identical and only the sparsity estimate "
+            "1/f(0) differs (Powell kernel here, Koenker-Bassett with a "
+            "Siddiqui/Hall-Sheather bandwidth there). The test asserts the "
+            "ratio's constancy rather than a numerical band, which a "
+            "structural difference could not satisfy. R's default se='nid' "
+            "(Hendricks-Koenker, also Stata qreg's) is a third convention "
+            "and is recorded as one."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_sqreg_parity.py"],
+        "note": (
+            "Promoted in 1.27.0 by removing a defect rather than by "
+            "loosening anything: sp.sqreg rounded its returned coefficients "
+            "to four decimals -- in the value, not for display -- which "
+            "capped agreement at 7.8e-03 on a coefficient of order 1e-3. "
+            "The previous test recorded that ceiling as the estimator's "
+            "accuracy and stayed at the analytical tier because of it."
+        ),
+    },
     "etregress": {
         "status": "bit-exact",
         "reference": "Stata 18 MP official `etregress` (Maddala 1983 model)",
