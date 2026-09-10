@@ -61,41 +61,84 @@ Unchanged from the RD sweep, in this order:
 
 | item | state |
 | --- | --- |
-| Fuzzy RD on the CCT path (4 strict xfails) | the last cross-language xfail in the suite |
-| `black` pin 23.9.1 vs the 26.5.1 the code reflects | O7; the hook rewrites files as a side effect |
-| Paper-JSS regeneration after the RD merge | O3; includes one hard-coded count that the claims mechanism does not reach |
+| Fuzzy RD on the CCT path (4 strict xfails) | **closed** — the last cross-language xfail in the suite |
+| `black` pin 23.9.1 vs the 26.5.1 the code reflects | open (O7 in the RD findings) |
+| Paper-JSS regeneration after the RD merge | open (O3) |
 
 ## Phase 2 — family sweeps, ordered by yield
 
-Ordering is (functions reachable at T2) x (probability the reference
-disagrees), highest first. Counts are estimator callables with no
-cross-language evidence today.
+Ordering was (functions reachable at T2) x (probability the reference
+disagrees). Spatial jumped the queue because `spdep` and `spatialreg` were
+already installed; the others followed the same rule.
 
-| # | family | uncovered | canonical reference | reachable at T2 |
-| --- | --- | ---: | --- | ---: |
-| 1 | regression | 9 | Stata `etregress` `sqreg` `jive` `mixlogit`, R `quantreg` | ~7 |
-| 2 | network | 21 | R `igraph`, `sna`, `ergm` | ~15 |
-| 3 | spatial | 29 | R `spdep` / `spatialreg` / `GWmodel`, Stata `spregress` | ~20 |
-| 4 | mendelian | 23 | R `MendelianRandomization`, `TwoSampleMR` | ~15 |
-| 5 | panel | 18 | Stata `xtdpdsys` `xtlsdvc` `xtnbreg` `xtgls`, R `plm` | ~12 |
-| 6 | diagnostics + postestimation | 26 | Stata `estat` / `hausman` / `vif`, R `sensemakr` | ~10 |
-| 7 | decomposition | 18 | Stata `oaxaca` `fairlie` `rifhdreg`, R `dineq` | ~8 |
-| 8 | structural | 10 | Stata `opreg` `levpet` `prodest`, R `prodest` | ~6 |
+| # | family | uncovered at start | state | certified | defects found |
+| --- | --- | ---: | --- | ---: | ---: |
+| 0 | RD (pre-campaign sweep) | — | done | 2 modules | 13 |
+| 1 | regression | 9 | partial | 2 (`etregress`, `sqreg`) | 4 |
+| 2 | spatial | 29 | done | 13 | 4 + 1 gap |
+| 3 | weak-IV / diagnostics / meta | 26 | partial | 5 | 2 |
+| 4 | panel | 18 | partial | 3 | 2 |
+| 5 | network | 21 | not started | — | — |
+| 6 | mendelian | 23 | not started | — | — |
+| 7 | decomposition | 18 | not started | — | — |
+| 8 | structural | 10 | not started | — | — |
 
-Families deliberately **not** on this list, and why: `dag` (15),
-`neural_causal` (11), `causal_llm` (4), `causal_rl` (3), `causal_text` (2)
-have no deterministic external sibling — their ceiling is `analytical-only`
-and pretending otherwise is the failure mode this whole apparatus exists to
-prevent. `bayes` (14) has R siblings but MCMC puts it at T3 by
-construction.
+**Cross-language coverage: 169 → 201 of 773 estimator callables
+(21.9% → 26.0%).**
 
-If every reachable row lands, cross-language coverage moves from 177 to
-roughly 270 of 773 (~35%). That number is a target, not a promise; the
-honest outcome of a sweep is sometimes "this family has no reference" or
-"the reference disagrees with itself".
+Families 5 and 6 need R packages that are not installed here (`igraph`,
+`sna`, `MendelianRandomization`); everything landed so far used a reference
+that was already present.
+
+## What the yield rate actually turned out to be
+
+The plan predicted "a function whose docstring names an R or Stata command,
+and which has never been compared to it, is a coin flip". Across five
+families, 25 defects in roughly 55 functions examined — close to the guess,
+and the severity distribution is worth recording because it is not what a
+test-coverage metric would predict:
+
+| class | count | examples |
+| --- | ---: | --- |
+| Wrong estimator under the right name | 4 | `etregress` MLE was the two-step; `panel_fgls` was `igls`; `getis_ord_local(star=False)` used Gi*'s moments; `rdms` built a different score |
+| Formula error where the comment was right | 3 | `lm_tests` T term and J term; `join_counts` BW |
+| Silently ignored argument | 4 | `rdbwselect(fuzzy=)`; `etregress(robust=, cluster=)`; `rdbwselect` comb selectors |
+| Rounding a returned value | 3 | `sqreg` (4 dp), `vif` (2 dp), `rdbwselect` / `rdrobust` bandwidths (6 dp) |
+| Missing term | 2 | RE panel binary intercept; two-step `etregress` Heckman correction |
+| Wrong null distribution | 2 | `moran_residuals`; `rdrandinf` publishing p = 0.000 from a NaN |
+| Approximation where an exact form existed | 2 | AR / CLR grid endpoints |
+
+**None of these was found by a unit test, and the suite is not small — it
+is over 17,000 tests.** The reason is structural: unit tests assert
+directions, ranges and shapes ("C below 1 for smooth data", "the estimate
+recovers delta", "p_sim below 0.05"), and every defect above satisfies
+those. A doubled `LM_err` is still significant. A two-step still recovers
+delta. Gi with the wrong standardisation still ranks hotspots in the same
+order. What separates them is holding the implementation against the
+reference it names, on the same bytes.
+
+## Method notes worth keeping
+
+* **The comment is often right and the line below it wrong.** Twice in one
+  function (`lm_tests`). The author knew the formula; the transcription
+  failed. No amount of reading the code catches this, because reading the
+  comment feels like reading the code.
+* **A gap that does not shrink when you refine the approximation is not an
+  approximation error.** The RE panel binary defect was found by noticing
+  0.39% at 12 quadrature points and 0.39% at 30.
+* **Fixture design can hide a whole code path.** The repository's fuzzy RD
+  fixture used one-sided noncompliance, which makes `rdbwselect` fall back
+  to the sharp bandwidth — so the fixture could not tell a correct fuzzy
+  bandwidth from a missing one, and recorded 1.2e-08 agreement while the
+  argument was being discarded entirely.
+* **Assert the identity, not just the reference.** `BB + WW + BW = S0/2`
+  catches the join-count defect with no R installed. Tests of that shape
+  survive fixture regeneration.
 
 ## Ledger
 
-Findings are appended to `docs/dev/rd_parity_sweep_findings.md`'s successor
-per family, and every correctness fix reaches `CHANGELOG.md` under
-**⚠️ Correctness fixes** with the recompute advice a user needs.
+Per-family findings: `rd_parity_sweep_findings.md`,
+`spatial_parity_sweep_findings.md`, `weakiv_parity_sweep_findings.md`,
+`panel_parity_sweep_findings.md`. Every correctness fix reaches
+`CHANGELOG.md` under **⚠️ Correctness fixes** with the recompute advice a
+user needs, and `MIGRATION.md` with a table of what moves.
