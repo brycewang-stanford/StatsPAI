@@ -9943,6 +9943,10 @@
           "description": "Kernel function used for weighting or smoothing.",
           "type": "string"
         },
+        "treat": {
+          "description": "Treatment indicator or first-treatment-period column.",
+          "type": "string"
+        },
         "x1": {
           "description": "x1 parameter (str).",
           "type": "string"
@@ -19417,7 +19421,7 @@
     "name": "rd_forest"
   },
   {
-    "description": "Armstrong-Kolesar (2018) honest confidence intervals for sharp regression discontinuity -- the only RD inference procedure with provable finite-sample coverage without bandwidth-selection bias. M is the upper bound on the second derivative of E[Y|X] near the cutoff; smaller M means tighter CIs but riskier coverage if the true curvature is larger. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: E[Y|X] has bounded second derivative |E[Y|X]''| <= M near c; Continuity of potential outcomes at c (Hahn-Todd-van der Klaauw 2001); No manipulation of x at c (run sp.mccrary_test alongside). Pre-conditions: x is continuous with support on both sides of c; Sample mass within the optimal bandwidth on each side; User-supplied M (or willingness to estimate it from data). Failure modes: M estimated from data and effective sample tiny -> Pass an explicit M based on theory or sensitivity analysis (M_grid in Armstrong-Kolesar 2018 Section 4); Honest CI much wider than rdrobust CI -> rd_honest is *honest* by construction (covers under any |f''| <= M); rdrobust trades coverage for precision. Reporting both is recommended; McCrary den...",
+    "description": "Armstrong-Kolesar (2018) honest confidence intervals for sharp regression discontinuity -- the only RD inference procedure with provable finite-sample coverage without bandwidth-selection bias. M is the upper bound on the second derivative of E[Y|X] near the cutoff; smaller M means tighter CIs but riskier coverage if the true curvature is larger. Validation: certified parity evidence. Assumptions: E[Y|X] has bounded second derivative |E[Y|X]''| <= M near c; Continuity of potential outcomes at c (Hahn-Todd-van der Klaauw 2001); No manipulation of x at c (run sp.mccrary_test alongside). Pre-conditions: x is continuous with support on both sides of c; Sample mass within the optimal bandwidth on each side; User-supplied M (or willingness to estimate it from data). Failure modes: M estimated from data and effective sample tiny -> Pass an explicit M based on theory or sensitivity analysis (M_grid in Armstrong-Kolesar 2018 Section 4); Honest CI much wider than rdrobust CI -> rd_honest is *honest* by construction (covers under any |f''| <= M); rdrobust trades coverage for precision. Reporting both is recommended; McCrary density test p < 0.05 -> Use donut-hole RD (donut=<delta>) or partia...",
     "input_schema": {
       "properties": {
         "M": {
@@ -19853,17 +19857,17 @@
     "name": "rdbwhte"
   },
   {
-    "description": "Bandwidth selection for local polynomial RD estimation.",
+    "description": "Bandwidth selection for local polynomial RD estimation. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "all": {
           "default": false,
-          "description": "If True, compute and return all eight bandwidth types.",
+          "description": "If True, compute and return all ten bandwidth types.",
           "type": "boolean"
         },
         "bwselect": {
           "default": "mserd",
-          "description": "Bandwidth selection method. One of: - ``'mserd'`` : MSE-optimal common bandwidth (default) - ``'msetwo'`` : MSE-optimal separate left/right bandwidths - ``'msecomb1'`` : min of mserd, mseleft, mseright - ``'msecomb2'`` : median of mserd, mseleft, mseright - ``'cerrd'`` : CER-optimal common bandwidth - ``'certwo'`` : CER-optimal separate left/right - ``'cercomb1'`` : min of cerrd, cerleft, cerright - ``'cercomb2'`` : median of cerrd, cerleft, cerright",
+          "description": "Bandwidth selection method. One of: - ``'mserd'`` : MSE-optimal common bandwidth (default) - ``'msetwo'`` : MSE-optimal separate left/right bandwidths - ``'msesum'`` : MSE-optimal for the sum of the two intercepts - ``'msecomb1'`` : ``min(mserd, msesum)``, per side - ``'msecomb2'`` : ``median(msetwo, mserd, msesum)``, per side - ``'cerrd'``, ``'certwo'``, ``'cersum'``, ``'cercomb1'``, ``'cercomb2'`` : the CER-optimal counterparts of the above The combination rules are applied to the finished ``h`` and ``b`` of each cascade, element-wise per side -- not stage by stage.",
           "type": "string"
         },
         "c": {
@@ -20242,7 +20246,7 @@
     "name": "rdit"
   },
   {
-    "description": "Multi-cutoff RD design. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
+    "description": "Multi-cutoff RD design. Validation: certified parity evidence. Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -20293,7 +20297,7 @@
     "name": "rdmc"
   },
   {
-    "description": "Multi-score / Geographic RD design. Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
+    "description": "Multi-score / Geographic RD design at a single boundary point. Validation: certified parity evidence. Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -20302,7 +20306,7 @@
           "type": "number"
         },
         "bandwidth": {
-          "description": "Bandwidth used for local smoothing or kernel weighting.",
+          "description": "Fixed bandwidth on the signed-distance score. When omitted the CCT MSE-optimal cascade selects it, as the reference does.",
           "type": "number"
         },
         "cutoff1": {
@@ -20318,6 +20322,10 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "type": "string"
+        },
+        "treat": {
+          "description": "Column holding the 0/1 treatment indicator (R's ``zvar``). Strongly",
           "type": "string"
         },
         "x1": {
@@ -20606,7 +20614,7 @@
     "name": "rdplotdensity"
   },
   {
-    "description": "Power of an RD design given sample size and effect size. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Power of an RD design given sample size and effect size. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -20674,7 +20682,7 @@
     "name": "rdpower"
   },
   {
-    "description": "Randomization inference for regression discontinuity designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
+    "description": "Randomization inference for regression discontinuity designs. Validation: certified parity evidence. Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -20843,12 +20851,17 @@
     "name": "rdrobust"
   },
   {
-    "description": "Minimum sample size for a given power in an RD design.",
+    "description": "Minimum sample size for a given power in an RD design. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "c": {
+          "default": 0.0,
+          "description": "c parameter (float).",
           "type": "number"
         },
         "h_left": {
@@ -20884,6 +20897,14 @@
           "default": 1.0,
           "description": "var_right parameter (float).",
           "type": "number"
+        },
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
         }
       },
       "required": [
@@ -20921,6 +20942,11 @@
           "default": 0,
           "description": "Polynomial order for adjustment.",
           "type": "integer"
+        },
+        "plot": {
+          "default": false,
+          "description": "plot parameter (bool).",
+          "type": "boolean"
         },
         "seed": {
           "default": 42,
@@ -21024,7 +21050,7 @@
     "name": "rdsummary"
   },
   {
-    "description": "Data-driven window selection for local randomization RD. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Data-driven window selection for local randomization RD. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {

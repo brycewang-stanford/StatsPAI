@@ -362,6 +362,11 @@ def _vbr(
     return {"V": float(V), "B": float(B), "R": float(R), "rate": 1.0 / (2 * o + 3)}
 
 
+def _median3(a: float, b: float, d: float) -> float:
+    """Median of exactly three bandwidths -- the ``comb2`` combination rule."""
+    return float(sorted((a, b, d))[1])
+
+
 def _combine(v_l: Dict, v_r: Dict, form: str, scale: float) -> float:
     """Assemble one side's or both sides' V/B/R into a bandwidth."""
     if form == "two_left":
@@ -441,6 +446,49 @@ def cct_bandwidth(
         raise ValueError(f"bwselect must be one of {BW_SELECTORS}, got {bwselect!r}")
     if q is None:
         q = p + 1
+
+    # The four `comb` selectors are not a fourth cascade: R runs the `rd`,
+    # `two` and `sum` cascades to completion and then combines the finished
+    # h and b element-wise, per side. Recursing is therefore the faithful
+    # reading, not a shortcut -- combining at any earlier stage would feed
+    # stage 3 a bias window that neither reference cascade produced.
+    #
+    # This dispatch used to be absent, and `form`/`two` below resolved every
+    # comb variant to the plain `rd` cascade. `comb1` survived that on data
+    # where the `rd` bandwidth is already the smaller of the pair (it is
+    # min(rd, sum)), which is why it went unnoticed; `msecomb2` came out
+    # 2.8e-4 low and `cercomb2` 5.5e-3 low on the Lee 2008 senate replica,
+    # both of them silently, because the selector fell back to a valid
+    # bandwidth for a *different* selector rather than failing.
+    if bwselect.endswith(("comb1", "comb2")):
+        prefix = bwselect[:3]  # "mse" or "cer"
+        base = {
+            name: cct_bandwidth(
+                y,
+                x,
+                c=c,
+                p=p,
+                q=q,
+                deriv=deriv,
+                kernel=kernel,
+                bwselect=f"{prefix}{name}",
+                scaleregul=scaleregul,
+                nnmatch=nnmatch,
+                masspoints=masspoints,
+                bwrestrict=bwrestrict,
+                covs=covs,
+                vce=vce,
+                cluster=cluster,
+            )
+            for name in (
+                ("rd", "sum") if bwselect.endswith("comb1") else ("two", "rd", "sum")
+            )
+        }
+        pick = min if bwselect.endswith("comb1") else _median3
+        return {
+            key: pick(*(base[name][key] for name in base))
+            for key in ("h_left", "h_right", "b_left", "b_right")
+        }
 
     y = np.asarray(y, dtype=float)
     x = np.asarray(x, dtype=float)
@@ -615,12 +663,21 @@ def cct_bias_corrected(
     covs: Optional[np.ndarray] = None,
     vce: str = "nn",
     cluster: Optional[np.ndarray] = None,
+    components: Optional[Dict[str, float]] = None,
 ) -> Tuple[float, float, float, float]:
     """CCT bias-corrected estimate and its SEs, matching ``rdrobust``.
 
     Returns ``(tau_conventional, tau_bias_corrected, se_conventional,
     se_robust)``. Sharp RD; ``covs``, ``vce`` and ``cluster`` are supported,
     ``fuzzy`` is not.
+
+    ``components``, when a dict is passed, is filled in place with the
+    per-side variances ``V_cl_left`` / ``V_cl_right`` / ``V_rb_left`` /
+    ``V_rb_right``. They are a by-product of the calculation either way;
+    the parameter only stops them being discarded. ``sp.rdsampsi`` needs
+    them because ``rdpower`` allocates the required sample size between
+    the sides by ``sqrt(h * V)``, which is not recoverable from the
+    summed standard error.
 
     ``vce`` selects the residual construction, following ``rdrobust_res``:
     ``'nn'`` uses nearest-neighbour residuals (no fitted values, so it needs
@@ -824,4 +881,17 @@ def cct_bias_corrected(
     tau_bc = fac * (out[1][1] - out[0][1])
     se_cl = fac * np.sqrt(out[0][2] + out[1][2])
     se_rb = fac * np.sqrt(out[0][3] + out[1][3])
+    if components is not None:
+        # The two sides' variances are computed separately above and then
+        # summed. Sample-size calculation needs them *unsummed*: rdpower
+        # splits the required N between the sides in proportion to
+        # sqrt(h * V) per side, which the total cannot recover. Handing
+        # them back through a caller-supplied dict keeps the four-tuple
+        # return contract every other caller depends on unchanged.
+        components.update(
+            V_cl_left=float(out[0][2]),
+            V_cl_right=float(out[1][2]),
+            V_rb_left=float(out[0][3]),
+            V_rb_right=float(out[1][3]),
+        )
     return float(tau_cl), float(tau_bc), float(se_cl), float(se_rb)

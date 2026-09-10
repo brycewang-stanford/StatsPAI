@@ -19,6 +19,7 @@ Cattaneo, M.D., Titiunik, R. & Vazquez-Bare, G. (2019).
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
@@ -223,6 +224,62 @@ def rdpower(
     )
 
 
+def _power_newton_raphson(
+    x0: float, tau: float, stilde: float, z: float, beta: float
+) -> int:
+    """Smallest sample size reaching power ``beta``, as ``rdpower`` solves it.
+
+    A transcription of ``rdpower:::rdpower.powerNR``. Two details are load
+    bearing and neither is guessable from the power formula alone:
+
+    * the loop converges on the **power**, not on ``x`` --
+      ``tol = |power(x1) - beta|`` against machine epsilon;
+    * the return is ``ceiling(x1)``, and the ceiling happens *here*, before
+      the total is divided by the design factor. Rounding at the end
+      instead moves the answer: on the rdlocrand senate fixture at
+      ``tau = 3`` it lands 1015 where ``rdpower`` reports 1016.
+
+    The guard loops are R's: nudge ``x0`` by 1.2x / 0.8x while the
+    derivative is numerically flat, and halve the Newton step while it
+    would put ``x1`` below 2.
+    """
+
+    def power(m: float) -> float:
+        a = math.sqrt(m) * tau / stilde
+        return float(1 - sp_stats.norm.cdf(z - a) + sp_stats.norm.cdf(-z - a))
+
+    def power_dot(m: float) -> float:
+        a = math.sqrt(m) * tau / stilde
+        d = tau / (2 * stilde * math.sqrt(m))
+        return float(d * (sp_stats.norm.pdf(z - a) + sp_stats.norm.pdf(-z - a)))
+
+    tol = 1.0
+    x1 = x0
+    guard = 0
+    while tol > np.finfo(float).eps:
+        guard += 1
+        if guard > 10_000:  # pragma: no cover - defensive
+            raise RuntimeError(
+                "rdsampsi: the sample-size solve did not converge in 10000 "
+                "iterations; report the inputs rather than trusting the "
+                "last iterate."
+            )
+        k = 1.0
+        dot0 = power_dot(x0)
+        power0 = power(x0)
+        while dot0 < 1e-5:
+            x0 = 1.2 * x0 if power0 <= beta else 0.8 * x0
+            dot0 = power_dot(x0)
+            power0 = power(x0)
+        x1 = x0 - (power0 - beta) / dot0
+        while x1 < 2:
+            x1 = x0 - k * (power0 - beta) / dot0
+            k /= 2
+        tol = abs(power(x1) - beta)
+        x0 = x1
+    return int(math.ceil(x1))
+
+
 def rdsampsi(
     tau: float,
     var_left: float = 1.0,
@@ -232,8 +289,29 @@ def rdsampsi(
     alpha: float = 0.05,
     target_power: float = 0.80,
     ratio: float = 1.0,
+    data: Optional["pd.DataFrame"] = None,
+    y: Optional[str] = None,
+    x: Optional[str] = None,
+    c: float = 0.0,
+    **rdrobust_kwargs: object,
 ) -> RDSampSiResult:
     """Minimum sample size for a given power in an RD design.
+
+    Two modes, mirroring ``sp.rdpower`` and R's ``rdsampsi``:
+
+    * **Design mode** (the default): supply ``var_*``, ``h_*`` and
+      ``ratio``. Useful before data exist.
+    * **Data mode**: supply ``data``, ``y`` and ``x``. The variances,
+      bandwidths and effective sample sizes are estimated from that data
+      by ``sp.rdrobust``, which is what R's ``rdsampsi(data = ...)`` does
+      and the only mode comparable against it.
+
+    .. versionadded:: 1.27.0
+       Data mode. ``sp.rdpower`` has had it since the CCT cascade work;
+       its sibling did not, so R's reference call had no StatsPAI
+       counterpart and the ``rdsampsi`` rows in
+       ``tests/reference_parity/_fixtures/rdlocrand_R.json`` could not be
+       asserted against anything.
 
     Parameters
     ----------
@@ -253,6 +331,24 @@ def rdsampsi(
     z_pow = sp_stats.norm.ppf(target_power)
     Ck = 0.35
 
+    if data is not None:
+        return _rdsampsi_from_data(
+            tau=tau,
+            data=data,
+            y=y,
+            x=x,
+            c=c,
+            alpha=alpha,
+            target_power=target_power,
+            z_alpha=z_alpha,
+            **rdrobust_kwargs,
+        )
+    if y is not None or x is not None:
+        raise ValueError(
+            "y=/x= only mean something with data=; pass data= as well, or "
+            "use design mode (var_left/var_right/h_left/h_right/ratio)"
+        )
+
     # SE = sqrt(Ck * [σ²_L / (n_L h_L) + σ²_R / (r n_L h_R)])
     # Solve for n_L: SE ≤ τ / (z_α + z_β)
     se_target = abs(tau) / (z_alpha + z_pow)
@@ -264,6 +360,132 @@ def rdsampsi(
         )
     )
     n_right = int(np.ceil(ratio * n_left))
+
+    return RDSampSiResult(
+        n_left=n_left,
+        n_right=n_right,
+        n_total=n_left + n_right,
+        tau=tau,
+        target_power=target_power,
+        alpha=alpha,
+    )
+
+
+def _rdsampsi_from_data(
+    *,
+    tau: float,
+    data: "pd.DataFrame",
+    y: Optional[str],
+    x: Optional[str],
+    c: float,
+    alpha: float,
+    target_power: float,
+    z_alpha: float,
+    **rdrobust_kwargs: object,
+) -> RDSampSiResult:
+    """Data mode: the required N implied by a fitted RD design.
+
+    A transcription of R ``rdpower::rdsampsi(data = ...)``. The chain is
+
+    ``stilde = sqrt(V_rbc)``  with  ``V_rbc = v_l / h_l + v_r / h_r``
+    and ``v_side = N * h_side * V_rb_side`` -- which for the default
+    ``deriv = 0`` and no rescaled bandwidth collapses to
+    ``stilde = se_robust * sqrt(N)``, i.e. the standard error carried to
+    the full-sample scale;
+
+    ``m``  the Newton-Raphson sample size at which power reaches the
+    target, **ceilinged there** (see ``_power_newton_raphson``);
+
+    ``nratio = sqrt(v_r) / (sqrt(v_r) + sqrt(v_l))`` -- allocation between
+    the sides by the square root of their variances, *not* by their
+    observed counts. Allocating by counts instead reproduces the total to
+    about 1% while splitting the sides visibly wrong (8567/7687 against
+    R's 9135/7256 on the senate fixture), which is the failure mode a
+    total-only check would have missed;
+
+    ``denom = nratio * n_right / n_h_right + (1 - nratio) * n_left / n_h_left``
+    rescales from the in-bandwidth sample to the whole sample, and
+    ``M = m / denom`` splits by ``nratio`` with each side ceilinged.
+    """
+    if y is None or x is None:
+        raise ValueError(
+            "data mode needs both y= and x= (the outcome and running "
+            "variable column names)"
+        )
+
+    from ._cct_bandwidth import cct_bias_corrected
+    from .rdrobust import rdrobust as _rdrobust
+
+    fit = _rdrobust(data, y=y, x=x, c=c, **rdrobust_kwargs)
+    mi = fit.model_info
+
+    yv = np.asarray(data[y], dtype=float)
+    xv = np.asarray(data[x], dtype=float)
+    keep = np.isfinite(yv) & np.isfinite(xv)
+    yv, xv = yv[keep], xv[keep]
+    n_total_obs = int(keep.sum())
+
+    h_l = float(
+        mi["bandwidth_h"]["left"]
+        if isinstance(mi["bandwidth_h"], dict)
+        else mi["bandwidth_h"]
+    )
+    h_r = float(
+        mi["bandwidth_h"]["right"]
+        if isinstance(mi["bandwidth_h"], dict)
+        else mi["bandwidth_h"]
+    )
+    b_l = float(
+        mi["bandwidth_b"]["left"]
+        if isinstance(mi["bandwidth_b"], dict)
+        else mi["bandwidth_b"]
+    )
+    b_r = float(
+        mi["bandwidth_b"]["right"]
+        if isinstance(mi["bandwidth_b"], dict)
+        else mi["bandwidth_b"]
+    )
+
+    components: dict = {}
+    cct_bias_corrected(
+        yv,
+        xv,
+        c,
+        h_l,
+        h_r,
+        b_l,
+        b_r,
+        int(mi["polynomial_p"]),
+        int(mi["polynomial_q"]),
+        int(mi.get("deriv", 0) or 0),
+        str(mi["kernel"]),
+        components=components,
+    )
+
+    v_l = n_total_obs * h_l * components["V_rb_left"]
+    v_r = n_total_obs * h_r * components["V_rb_right"]
+    stilde = math.sqrt(v_l / h_l + v_r / h_r)
+
+    n_plus = int((xv >= c).sum())
+    n_minus = int((xv < c).sum())
+    n_h_right = int(((xv >= c) & (xv <= c + h_r)).sum())
+    n_h_left = int(((xv < c) & (xv >= c - h_l)).sum())
+    if min(n_h_left, n_h_right) == 0:  # pragma: no cover - defensive
+        raise ValueError(
+            "rdsampsi: the selected bandwidth contains no observations on "
+            "one side of the cutoff; the required sample size is undefined."
+        )
+
+    root_l, root_r = math.sqrt(v_l), math.sqrt(v_r)
+    nratio = root_r / (root_r + root_l)
+
+    m = _power_newton_raphson(
+        float(n_total_obs), abs(tau), stilde, z_alpha, target_power
+    )
+    denom = nratio * n_plus / n_h_right + (1 - nratio) * n_minus / n_h_left
+    total_scaled = m / denom
+    n_right = int(math.ceil(total_scaled * nratio))
+    n_left = int(math.ceil(total_scaled * (1 - nratio)))
 
     return RDSampSiResult(
         n_left=n_left,

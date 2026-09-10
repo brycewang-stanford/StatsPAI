@@ -107,6 +107,42 @@ def test_rdrobust_cct_delegation():
     assert abs(res.estimate - 3.0) < 0.7
 
 
+def test_every_bwselect_spelling_reports_full_precision_bandwidth():
+    """Two spellings of one selector must not report different precision.
+
+    ``bwselect="cct"`` and the default ``bwselect="mserd"`` reach the same
+    CCT cascade, but only the first was covered by the precision test
+    below -- and the other code path rounded the reported bandwidth to six
+    decimals on the way out. The rounding was invisible from the estimate
+    (which is computed at full precision either way) and only showed up
+    when the reported ``h`` was compared against R: 0.342397 against
+    0.34239727634748.
+
+    It mattered because ``bandwidth_h`` is read back out and re-fitted at:
+    ``rd/diagnostics.py``, ``rd/dashboard.py`` and ``rd/rdrobust.py``
+    itself all do it. That is the ``sp.rdbwselect`` rounding defect one
+    layer down.
+    """
+    rng = np.random.default_rng(4)
+    n = 3000
+    x = rng.uniform(-1.0, 1.0, n)
+    y = 0.4 * x + 1.5 * (x >= 0) + rng.normal(0.0, 0.5, n)
+    df = pd.DataFrame({"y": y, "x": x})
+
+    seen = {}
+    for spelling in ("mserd", "cct"):
+        h = sp.rdrobust(df, y="y", x="x", c=0.0, bwselect=spelling).model_info[
+            "bandwidth_h"
+        ]
+        h = float(h["left"] if isinstance(h, dict) else h)
+        seen[spelling] = h
+        assert abs(h - round(h, 6)) > 1e-12, (
+            f"bwselect={spelling!r} reports a bandwidth rounded to six "
+            f"decimals ({h!r}); downstream code re-fits at this value"
+        )
+    assert seen["mserd"] == pytest.approx(seen["cct"], rel=1e-9)
+
+
 def test_rdrobust_cct_lee_bandwidth_preserves_reference_precision():
     import importlib.util
 

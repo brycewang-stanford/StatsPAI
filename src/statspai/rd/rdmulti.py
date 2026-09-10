@@ -437,16 +437,48 @@ def rdms(
     x2: str,
     cutoff1: float = 0,
     cutoff2: float = 0,
+    treat: Optional[str] = None,
     bandwidth: Optional[float] = None,
     kernel: str = "triangular",
     alpha: float = 0.05,
+    **rdrobust_kwargs: object,
 ) -> CausalResult:
     """
-    Multi-score / Geographic RD design.
+    Multi-score / Geographic RD design at a single boundary point.
 
-    Handles two-dimensional running variables for geographic boundaries.
+    Collapses the two-score design onto the score the reference uses --
+    Euclidean distance to the boundary point, signed by treatment status,
 
-    Equivalent to ``rdmulti::rdms()`` and Keele & Titiunik (2015).
+        ``d = sqrt((x1 - cutoff1)^2 + (x2 - cutoff2)^2) * (2 * treat - 1)``
+
+    -- and estimates a sharp RD at ``d = 0`` by delegating to
+    :func:`statspai.rdrobust`. That is what ``rdmulti::rdms()`` does, so
+    the CCT bandwidth cascade, the robust bias correction and the
+    heteroskedasticity-robust variance all come with it.
+
+    Following the reference, the reported estimate is the **bias-corrected**
+    point estimate with the **robust** interval (``Estimate[2]`` with
+    ``ci[3, ]`` in R's return), not the conventional pair; the conventional
+    numbers are in ``model_info["conventional"]``.
+
+    .. versionchanged:: 1.27.0
+       ⚠️ **Numerical output changed. Re-run anything that used this
+       function.** It previously fitted a 2D local linear in ``(x1, x2)``
+       inside a Euclidean window whose width came from Silverman's
+       *kernel density* rule of thumb, with a homoskedastic variance and
+       no bias correction. On a 6,000-row design with known effects of
+       1.5 / 2.0 / 2.5 at three boundary points it used 13 / 8 / 27
+       observations where ``rdmulti::rdms`` used 519 / 725 / 743, and
+       returned 1.322 / **4.804** / 2.326 against the reference's
+       1.396 / 1.778 / 2.463 -- the middle point 170% out, with a standard
+       error of 4.21 against 0.13. See MIGRATION.md.
+
+    .. versionadded:: 1.27.0
+       ``treat=``, the treatment indicator (``zvar`` in R). Treatment on a
+       two-dimensional boundary is not implied by the coordinates, which is
+       why the reference requires it. Omitting it falls back to
+       ``x1 >= cutoff1`` **and warns**, because that is an assumption about
+       the design rather than a fact about the data.
 
     Parameters
     ----------
@@ -461,13 +493,27 @@ def rdms(
         Cutoff for x1.
     cutoff2 : float, default 0
         Cutoff for x2.
+    treat : str, optional
+        Column holding the 0/1 treatment indicator (R's ``zvar``). Strongly
+        recommended: without it treatment is assumed to be
+        ``x1 >= cutoff1`` and a warning is issued.
     bandwidth : float, optional
+        Fixed bandwidth on the signed-distance score. When omitted the CCT
+        MSE-optimal cascade selects it, as the reference does.
     kernel : str, default 'triangular'
     alpha : float, default 0.05
+    **rdrobust_kwargs
+        Forwarded to :func:`statspai.rdrobust` (``p``, ``bwselect``,
+        ``vce``, ``cluster``, ``covs``, ...).
 
     Returns
     -------
     CausalResult
+        ``estimate`` / ``se`` / ``ci`` are the bias-corrected point estimate
+        with robust inference. ``model_info`` carries the selected
+        bandwidths, effective sample sizes either side, the conventional
+        estimates, and ``treat_assumed`` recording whether the treatment
+        convention was inferred.
 
     Examples
     --------
@@ -487,78 +533,92 @@ def rdms(
     ...                  bandwidth=3.0)
     >>> summary_text = result.summary()
     """
-    y_data = data[y].values.astype(float)
-    x1_data = data[x1].values.astype(float) - cutoff1
-    x2_data = data[x2].values.astype(float) - cutoff2
-
-    # Euclidean distance to boundary
-    distance = np.sqrt(x1_data**2 + x2_data**2)
-
-    # Treatment: positive side (both x1 and x2 > 0, or use x1 as primary)
-    # Convention: treatment = 1 if x1 >= 0
-    treatment = (x1_data >= 0).astype(float)
-
-    if bandwidth is None:
-        bandwidth_value = float(1.06 * np.std(distance) * len(distance) ** (-1 / 5))
+    if treat is None:
+        treat_values = (data[x1].to_numpy(dtype=float) >= cutoff1).astype(float)
+        warnings.warn(
+            "rdms: no treat= column given, so treatment is being taken as "
+            f"({x1} >= {cutoff1}). That is an assumption about the design, "
+            "not a property of the data -- a geographic boundary is rarely a "
+            "threshold in one coordinate. rdmulti::rdms requires the "
+            "indicator (its `zvar`) for exactly this reason. Pass treat= to "
+            "state it.",
+            UserWarning,
+            stacklevel=2,
+        )
     else:
-        bandwidth_value = float(bandwidth)
+        treat_values = data[treat].to_numpy(dtype=float)
+        bad = ~np.isin(treat_values[np.isfinite(treat_values)], (0.0, 1.0))
+        if bad.any():
+            raise ValueError(
+                f"rdms: treat= column {treat!r} must be 0/1; found "
+                f"{np.unique(treat_values[np.isfinite(treat_values)])[:5]}"
+            )
 
-    # Kernel weights based on distance
-    u = distance / bandwidth_value
-    if kernel == "triangular":
-        w = np.where(u <= 1, 1 - u, 0.0)
-    elif kernel == "uniform":
-        w = np.where(u <= 1, 1.0, 0.0)
-    else:
-        w = np.where(u <= 1, 1 - u, 0.0)
+    y_data = data[y].to_numpy(dtype=float)
+    x1_data = data[x1].to_numpy(dtype=float)
+    x2_data = data[x2].to_numpy(dtype=float)
 
-    mask = w > 0
-    n_local = int(mask.sum())
+    # The reference's own construction:
+    #     xc = sqrt((X - C)^2 + (X2 - C2)^2) * (2 * zvar - 1)
+    # i.e. Euclidean distance to the boundary point, signed by treatment
+    # status. That collapses the two-score design onto a single score, and
+    # the effect at the boundary point is then an ordinary sharp RD at zero
+    # on it -- which is why delegating to rdrobust is not a shortcut but the
+    # thing rdmulti::rdms does.
+    signed_distance = np.sqrt((x1_data - cutoff1) ** 2 + (x2_data - cutoff2) ** 2) * (
+        2.0 * treat_values - 1.0
+    )
 
-    if n_local < 10:
-        warnings.warn("Very few observations within bandwidth")  # pragma: no cover
+    frame = pd.DataFrame({"__y": y_data, "__d": signed_distance})
+    ok = np.isfinite(frame["__y"]) & np.isfinite(frame["__d"])
+    n_dropped = int((~ok).sum())
+    if n_dropped:
+        warnings.warn(
+            f"rdms: dropped {n_dropped} row(s) with a missing outcome, "
+            f"coordinate or treatment indicator.",
+            UserWarning,
+            stacklevel=2,
+        )
+    frame = frame.loc[ok]
 
-    y_m = y_data[mask]
-    x1_m = x1_data[mask]
-    x2_m = x2_data[mask]
-    D_m = treatment[mask]
-    w_m = w[mask]
+    from .rdrobust import rdrobust as _rdrobust
 
-    # Local linear with 2D running variable
-    X = np.column_stack([np.ones(n_local), x1_m, x2_m, D_m, D_m * x1_m, D_m * x2_m])
-    W = np.diag(w_m)
-
-    try:
-        XtWX = X.T @ W @ X
-        XtWy = X.T @ W @ y_m
-        beta = np.linalg.solve(XtWX, XtWy)
-        resid = y_m - X @ beta
-        sigma2 = np.sum(w_m * resid**2) / max(n_local - X.shape[1], 1)
-        var_cov = sigma2 * np.linalg.inv(XtWX)
-
-        tau = beta[3]  # treatment coefficient
-        se = np.sqrt(var_cov[3, 3])
-    except np.linalg.LinAlgError:  # pragma: no cover
-        tau, se = np.nan, np.nan  # pragma: no cover
-        beta = np.full(6, np.nan)  # pragma: no cover
-
-    z_crit = stats.norm.ppf(1 - alpha / 2)
-    p_val = 2 * (1 - stats.norm.cdf(abs(tau / se))) if se > 0 else np.nan
-
-    return CausalResult(
-        method="Geographic RD (rdms)",
-        estimand="ATE at boundary",
-        estimate=tau,
-        se=se,
-        pvalue=p_val,
-        ci=(tau - z_crit * se, tau + z_crit * se),
+    fit = _rdrobust(
+        frame,
+        y="__y",
+        x="__d",
+        c=0.0,
+        kernel=kernel,
         alpha=alpha,
-        n_obs=len(y_data),
+        **({"h": float(bandwidth), "b": float(bandwidth)} if bandwidth else {}),
+        **rdrobust_kwargs,
+    )
+
+    mi = fit.model_info
+    # rdmulti::rdms reports the bias-corrected point estimate with the
+    # robust interval (`Estimate[2]` with `ci[3, ]`), not the conventional
+    # pair, so the same convention is carried here.
+    robust = mi["robust"]
+    return CausalResult(
+        method="Multi-score RD (rdms)",
+        estimand="ATE at boundary point",
+        estimate=float(robust["estimate"]),
+        se=float(robust["se"]),
+        pvalue=float(robust.get("pvalue", np.nan)),
+        ci=(float(robust["ci"][0]), float(robust["ci"][1])),
+        alpha=alpha,
+        n_obs=int(len(frame)),
         model_info={
-            "bandwidth": bandwidth_value,
-            "kernel": kernel,
             "cutoff1": cutoff1,
             "cutoff2": cutoff2,
-            "n_local": n_local,
+            "kernel": mi["kernel"],
+            "bandwidth_h": mi["bandwidth_h"],
+            "bandwidth_b": mi["bandwidth_b"],
+            "bwselect": mi["bwselect"],
+            "n_effective_left": mi["n_effective_left"],
+            "n_effective_right": mi["n_effective_right"],
+            "conventional": mi["conventional"],
+            "treat_assumed": treat is None,
+            "score": "signed Euclidean distance to (cutoff1, cutoff2)",
         },
     )

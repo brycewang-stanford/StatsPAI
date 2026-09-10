@@ -247,3 +247,11 @@ tests/*/results/_repro_*.log
 
 # Local ado path for GitHub-only Stata bridges (installed at run time by the do-files)
 tests/stata_parity/_ado_fect/
+tests/stata_parity/_ado_rdmulti/
+
+# Empty-named graph exports dropped by a reference ado during a Stata
+# parity run (no .do file in this repo calls `graph export`; the caller is
+# one of the installed reference packages). They are regenerated on every
+# full `verify_reproduce_stata.py` run and are pure noise in git status.
+tests/stata_parity/.pdf
+tests/stata_parity/.png

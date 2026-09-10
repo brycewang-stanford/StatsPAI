@@ -103,7 +103,12 @@ def test_rdms_geographic():
     assert res.se > 0
     assert res.ci[0] < res.ci[1]
     assert np.isfinite(res.estimate)
-    assert res.model_info["n_local"] > 0
+    # `n_local` is gone with the Euclidean-window implementation. The
+    # rewritten estimator delegates to sp.rdrobust on a signed
+    # distance-to-boundary score, so the sample actually used is reported
+    # the way every other RD entry point reports it -- per side.
+    assert res.model_info["n_effective_left"] > 0
+    assert res.model_info["n_effective_right"] > 0
 
 
 def test_rdms_uniform_kernel_and_manual_bw():
@@ -113,17 +118,58 @@ def test_rdms_uniform_kernel_and_manual_bw():
     assert res.model_info["kernel"] == "uniform"
 
 
-def test_rdms_other_kernel_falls_back_to_triangular():
+def test_rdms_supports_every_kernel_rdrobust_supports():
+    """Epanechnikov is a real kernel here now, not a fallback.
+
+    The retired implementation recognised only "triangular" and
+    "uniform" and quietly treated anything else as triangular, so this
+    test used to assert a *fallback*. Delegating to sp.rdrobust means the
+    kernel argument reaches an estimator that implements all three, and
+    the three now give genuinely different answers -- which is what the
+    argument is for.
+    """
+    df = _geo_df().assign(z=lambda d: (d["x1"] >= 0).astype(float))
+    ests = {}
+    for kern in ("triangular", "uniform", "epanechnikov"):
+        res = sp.rdms(
+            df, y="y", x1="x1", x2="x2", treat="z", bandwidth=0.8, kernel=kern
+        )
+        assert np.isfinite(res.estimate)
+        assert res.model_info["kernel"] == kern
+        ests[kern] = float(res.estimate)
+    assert (
+        ests["epanechnikov"] != ests["triangular"]
+    ), "epanechnikov is being silently treated as triangular again"
+
+
+def test_rdms_requires_or_assumes_a_treatment_indicator():
+    """Treatment on a 2D boundary is not implied by the coordinates.
+
+    The retired implementation hard-coded ``x1 >= cutoff1`` behind a
+    comment reading "Convention" -- an assumption about the design
+    presented as a fact about the data. ``rdmulti::rdms`` requires the
+    indicator (its ``zvar``) for exactly this reason. Omitting it still
+    works, so existing callers are not broken, but it says so.
+    """
     df = _geo_df()
-    # an unrecognised kernel hits the else branch (triangular fallback)
-    res = sp.rdms(df, y="y", x1="x1", x2="x2", bandwidth=0.8, kernel="epanechnikov")
-    assert np.isfinite(res.estimate)
-
-
-def test_rdms_few_obs_warns():
-    df = _geo_df(n=2500)
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        sp.rdms(df, y="y", x1="x1", x2="x2", bandwidth=0.005)
-    msgs = " ".join(str(x.message) for x in w)
-    assert "few observations" in msgs.lower()
+        assumed = sp.rdms(df, y="y", x1="x1", x2="x2")
+    msgs = " ".join(str(x.message) for x in w).lower()
+    assert "treat=" in msgs and "assumption" in msgs
+    assert assumed.model_info["treat_assumed"] is True
+
+    df = df.assign(z=(df["x1"] >= 0).astype(float))
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        stated = sp.rdms(df, y="y", x1="x1", x2="x2", treat="z")
+    assert not [m for m in w if "treat=" in str(m.message)]
+    assert stated.model_info["treat_assumed"] is False
+    # Same design, stated rather than guessed: identical numbers.
+    assert stated.estimate == pytest.approx(assumed.estimate, rel=1e-12)
+
+
+def test_rdms_rejects_a_non_binary_treatment_column():
+    df = _geo_df().assign(bad=2.0)
+    with pytest.raises(ValueError, match="must be 0/1"):
+        sp.rdms(df, y="y", x1="x1", x2="x2", treat="bad")

@@ -694,6 +694,13 @@ def rdrobust(
     else:
         cl_vals_all = None
 
+    # A covariate collinear with the polynomial basis leaves the covariate
+    # adjustment unidentified, and NumPy's Cholesky accepts the singular
+    # design where R's refuses, so nothing downstream signals it.
+    from ._core import _check_covariate_rank as _check_rank
+
+    _check_rank(X_c, Z, p, names=covs, where="rdrobust")
+
     h_auto = h is None
     _cct: Optional[dict] = None
     if h_auto:
@@ -905,11 +912,6 @@ def rdrobust(
     else:
         rd_type = "Sharp"
 
-    def _round_bw(bw: Bandwidth) -> Bandwidth:
-        if isinstance(bw, tuple):
-            return (round(bw[0], 6), round(bw[1], 6))
-        return round(bw, 6)
-
     model_info: Dict[str, Any] = {
         "rd_type": rd_type,
         "deriv": deriv,
@@ -917,8 +919,15 @@ def rdrobust(
         "polynomial_p": p,
         "polynomial_q": q,
         "kernel": kernel,
-        "bandwidth_h": _round_bw(h),
-        "bandwidth_b": _round_bw(b),
+        # Reported at full precision. This used to round to six
+        # decimals, which was invisible until you noticed that the
+        # `cct` spelling of the same selector did not -- and that
+        # rd/diagnostics.py, rd/dashboard.py and this module all read
+        # `bandwidth_h` back out and re-fit at it. A rounded bandwidth
+        # fed into the next estimate is the F3 defect from
+        # sp.rdbwselect, one layer down.
+        "bandwidth_h": h,
+        "bandwidth_b": b,
         "bwselect": bwselect if h_auto else "manual",
         "cutoff": c,
         "n_left": n_left_total,

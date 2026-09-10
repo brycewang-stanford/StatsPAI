@@ -125,7 +125,11 @@ python tests/stata_parity/verify_reproduce_stata.py   # Stata 侧 golden 重推�
 - **Stata 与 R 共用一个预算**，不为 Stata 另设更松的门槛。
 - **每一行 SE 都被闸门盯着**：`tests/test_parity_harness_contract.py::test_every_r_se_row_is_inside_budget` 对每个 PASS 模块的**所有** R 侧 SE 行按注册预算门控；Stata 侧超预算的 SE 行必须在 `compare.py::STATA_SE_GAP_NOTES` 登记机制（且要能从我们自己的量重建出对方的数字）。GitHub-only 的 Stata 参考（如 `fect_stata`）在 do 文件里 `net install` 到 `tests/stata_parity/_ado_fect/`（已 gitignore），不要装进用户的 PLUS。
 - **golden 文件不得手改**：`tests/r_parity/results/*_R.json` 与 `tests/stata_parity/results/*_Stata.json` 由 `tests/r_parity/TIER_A_FIXTURE_LOCK.json` 哈希锁定，只能通过 `verify_reproduce.py` / `verify_reproduce_stata.py` 实跑重生成；复现性容差为 **1e-9**，与 parity 容差无关，parity 容差从不豁免复现性漂移。
-- **新增 Track A 模块的完整清单**（缺任一项 `cd Paper-JSS && make audit` 会 FAIL）：`NN_<method>.py` + `.R`（有 Stata 参考再加 `tests/stata_parity/NN_<method>.do`）；CSV 入 `tests/r_parity/data/`；`TOLERANCES` 登记；两侧 reproducibility report 各补一行（`REPRODUCIBILITY_REPORT.md` / `REPRODUCIBILITY_REPORT_STATA.md`）；registry 证据备注指向模块；`python scripts/build_parity_index.py` 重生 `docs/parity.md`。2026-08 新增的 82 到 85 号模块正是漏了 Stata report 这一步，导致 JSS 审计整体变红。
+- **新增 Track A 模块：不要照抄下面这段清单，跑闸门。** 权威定义是 `tests/test_parity_harness_contract.py`（42 条断言，其中 `test_parity_artifact_inventory_has_explicit_contracts` 直接断言 `py_modules == set(TOLERANCES) == set(HEADLINE)`、`set(STATA_SKIP_REASON) == py_modules - stata_modules`），加上 `python scripts/tier_a_fixture_lock.py`（哈希锁）与 `cd Paper-JSS && make audit`。**流程是：写完模块 → 跑这三个 → 按报错补齐**，而不是对着清单打勾。
+
+  下面这份是给人看的概览，**不是**验收标准，可能滞后于闸门：`NN_<method>.py` + `.R`（有 Stata 参考再加 `tests/stata_parity/NN_<method>.do`）；CSV 入 `tests/r_parity/data/`；`compare.py` 的 `TOLERANCES` **和** `HEADLINE` 各登记一条；三侧 reproducibility report 各补一行（`REPRODUCIBILITY_REPORT.md` / `_PY.md` / `_STATA.md`，且**必须跑全量重生**——`verify_reproduce.py <单模块>` 会用那一个模块覆盖整份报告，删掉其余几百行）；`TIER_A_FIXTURE_LOCK.json` 重生；`python scripts/build_parity_index.py` 重生 `docs/parity.md`；schema 包若因签名变动而漂移则 `python scripts/dump_schemas.py`。registry 证据备注**不用手写**，由 index 自动派生。
+
+  为什么改成这样：2026-08 的 82–85 号模块漏了 Stata report 让 JSS 审计整体变红，于是有了上面那份清单；2026-09 加 88 号时**照着清单做仍然漏了四项**（`HEADLINE`、`_PY.md`、fixture lock、schema），闸门抓出 7 个失败。清单是照"上次漏了什么"写的，闸门是照"实际断言什么"写的——只有后者会自己更新。
 
 #### 对不上怎么办：决策树（按顺序走，不得跳步）
 

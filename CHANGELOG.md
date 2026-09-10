@@ -48,6 +48,96 @@ All notable changes to StatsPAI will be documented in this file.
   between 1.3e-8 and 5.5e-6, and with Stata `jwdid` to 2e-15. Point estimates
   are unchanged by this item.
 
+### ⚠️ Correctness fixes — RD subpackage
+
+- **`sp.rdbwselect` returned bandwidths 2.8x–4.8x too narrow.** The public
+  selector ran a single-step rule of thumb of its own instead of the
+  Calonico–Cattaneo–Titiunik three-stage cascade that `sp.rdrobust` already
+  used: `rd/bandwidth.py` never imported `rd/_cct_bandwidth.py`. That
+  formula's exponent 1/5 equals CCT's 1/(2p+3) only at `p == 1`, it did not
+  vary with the polynomial order, and it produced no separate bias
+  bandwidth `b` at all. On the Lee 2008 senate replica it returned
+  `h = 4.63` where `rdrobust::rdbwselect` returns `17.75`, while the
+  docstring advertised Calonico, Cattaneo and Farrell (2020). A user who
+  read a bandwidth from `sp.rdbwselect` and passed it to
+  `sp.rdrobust(h=...)` therefore got a materially different estimate from
+  `sp.rdrobust`'s own default with nothing to signal the mismatch.
+  **Anyone who took a bandwidth from `sp.rdbwselect` should recompute it.**
+  Now pinned against R and Stata by Track A module `88_rdbwselect`.
+- **The four `comb` bandwidth selectors were never implemented.**
+  `msecomb1`, `msecomb2`, `cercomb1` and `cercomb2` fell through to the
+  plain `mserd`/`cerrd` cascade in `rd/_cct_bandwidth.py`. The reference
+  runs the `rd`, `two` and `sum` cascades to completion and combines the
+  finished `h` and `b` element-wise per side — `comb1 = min(rd, sum)`,
+  `comb2 = median(two, rd, sum)`. `comb1` masked the defect wherever `rd`
+  is already the smaller of the pair; `msecomb2` came out 2.8e-4 low and
+  `cercomb2` 5.5e-3 low on the Lee replica. **This path is shared with
+  `sp.rdrobust(bwselect=...)`, so the defect reached an already-certified
+  surface**: `sp.rdrobust` results computed with any `comb` selector should
+  be recomputed. All ten selectors now agree with `rdrobust::rdbwselect` to
+  1.8e-12.
+
+- **Local-randomization RD ignored missing data and could report
+  `p = 0.000` from a statistic that never computed.** `sp.rdrandinf`,
+  `sp.rdwinselect`, `sp.rdsensitivity` and `sp.rdrbounds` had no
+  missing-data handling, while `sp.rdrobust` in the same subpackage has
+  always dropped incomplete rows. On the Lee 2008 senate replica — 93
+  missing outcomes — `sp.rdrandinf` returned `estimate = nan`, and because
+  `abs(nan) >= abs(nan)` is False for every draw, the permutation counter
+  never incremented and the reported p-value was exactly 0.000, the most
+  significant answer the test can give. All four now drop non-finite rows
+  and warn with the count.
+  **`sp.rdwinselect`'s window recommendation is affected even when no
+  outcome is missing**: it was counting rows with missing *covariates* that
+  the reference excludes, putting every window's sample size above
+  `rdlocrand`'s by up to 20% (right-side counts `[14, 25, 36, 47, 57, 65]`
+  against R's `[10, 21, 31, 40, 48, 54]` on the rdlocrand senate fixture).
+  All twelve counts now match R exactly, and
+  `tests/reference_parity/test_rdlocrand_parity.py` asserts them — the
+  fixture carried them all along but the test checked only the window grid,
+  which is fixed by `wmin`/`wstep` and so could not detect the difference.
+
+- **`sp.rdms` was not computing `rdmulti::rdms`, and its docstring said it
+  was.** It fitted a two-dimensional local linear in `(x1, x2)` inside a
+  Euclidean window whose width came from Silverman's *kernel density* rule
+  of thumb — a category error rather than a tuning choice — with a
+  homoskedastic variance and no bias correction. On a 6,000-row two-score
+  design with known effects of 1.5 / 2.0 / 2.5 at three boundary points it
+  used 13 / 8 / 27 observations where `rdmulti::rdms` used 519 / 725 / 743,
+  and returned 1.322 / **4.804** / 2.326 against the reference's
+  1.396 / 1.778 / 2.463 — the middle point 170% out, with a standard error
+  of 4.21 against 0.13. **Recompute anything that used this function.**
+  It now builds the score the reference builds — Euclidean distance to the
+  boundary point signed by treatment status — and delegates to
+  `sp.rdrobust`, inheriting the CCT cascade and robust bias correction.
+  Pinned by Track A module `89_rdms`: 7.6e-12 against R, 3.3e-9 against
+  Stata, with the six effective sample sizes exactly equal on all three
+  sides.
+- **`sp.rdrobust` rounded its reported bandwidth to six decimals** on the
+  default `bwselect` path, while the `cct` spelling of the same selector
+  reported full precision — 0.342397 against 0.34239727634748. The
+  estimate was always computed at full precision, so this was invisible
+  from the result, but `model_info["bandwidth_h"]` is read back and
+  re-fitted at by `rd/diagnostics.py`, `rd/dashboard.py` and `rd/rdrobust.py`
+  itself. Same defect as the `sp.rdbwselect` rounding above, one layer
+  down; the existing precision test only covered the `cct` spelling, which
+  is why it survived.
+
+- **RD covariates collinear with the running variable are now refused
+  instead of silently producing a meaningless estimate.** A covariate that
+  is a smooth function of the running variable is already absorbed by the
+  polynomial terms the estimator fits, so the augmented design loses rank
+  and the covariate adjustment is not identified. Both StatsPAI and
+  `rdrobust` try a Cholesky factorisation and fall back to a pseudo-inverse
+  when it fails — but NumPy's Cholesky *succeeds* on the singular matrix
+  where R's refuses, so the fallback never fired here and the degenerate
+  solve was returned as an ordinary answer, 3.8e-3 away from `rdrobust`'s.
+  Carrying on was not even self-consistent: on one covariate scaling
+  `sp.rdrobust` went on to report a NaN standard error, and on another the
+  solve raised a bare `LinAlgError: Singular matrix` naming no covariate.
+  `sp.rdrobust` and `sp.rdbwselect` now raise a `ValueError` that names the
+  offending covariate. R refuses the same design under `covs_drop=FALSE`.
+
 ### Changed
 
 - **`sp.wooldridge_did` is `certified` again — on evidence this time.** 1.26.0
@@ -76,6 +166,44 @@ All notable changes to StatsPAI will be documented in this file.
   2.9e-13 / 5.5e-6 against R and 1.7e-13 / 6.0e-4 against Stata. No tolerance
   was widened.
 
+### Added
+
+- **`sp.rdms` gained `treat=`** (R's `zvar`), the treatment indicator.
+  Treatment on a two-dimensional boundary is not implied by the
+  coordinates, which is why the reference requires it; omitting it falls
+  back to `x1 >= cutoff1` **and warns**, since that is an assumption about
+  the design rather than a fact about the data. `sp.rdms` also now
+  forwards `**rdrobust_kwargs` (`p`, `bwselect`, `vce`, `cluster`, `covs`).
+- Track A module `89_rdms`: `sp.rdms` against `rdmulti::rdms` (R) and the
+  `rdms` ado (Stata), both Cattaneo-group code. `rdmulti` is not on SSC
+  (`ssc describe rdmulti` returns `r(601)`, tested rather than assumed), so
+  the Stata side `net install`s it from the rdpackages GitHub mirror into a
+  local gitignored ado path, leaving the user's PLUS directory alone.
+- **`sp.rdsampsi` gained a data mode** (`data=`, `y=`, `x=`, `c=`), matching
+  `rdpower::rdsampsi(data = ...)`. `sp.rdpower` has had one since the CCT
+  cascade work; its sibling did not, so R's reference call had no StatsPAI
+  counterpart and the `rdsampsi` reference values already sitting in
+  `tests/reference_parity/_fixtures/rdlocrand_R.json` could not be asserted
+  against anything. All three effect sizes now reproduce R's required
+  sample sizes **exactly** (integers, so no tolerance applies).
+  Two details decide the answer and a tolerance band would have hidden
+  both: the sample size is ceilinged *inside* the Newton–Raphson solve
+  rather than at the end, and the sides are allocated by
+  `sqrt(variance)`, not by their observed counts — allocating by counts
+  reproduces the total to ~1% while splitting the sides visibly wrong.
+- Track A module `88_rdbwselect`: `sp.rdbwselect` against
+  `rdrobust::rdbwselect` (R) and the `rdbwselect` ado (Stata), both
+  maintained by the Cattaneo group, so neither side is a bridge. Sixty-eight
+  bandwidths across all ten selectors, polynomial orders 1–3, three kernels,
+  covariate adjustment, clustering and the RKD derivative: 1.8e-12 against
+  R, 3.7e-9 against Stata.
+  - `certwo` is pinned against R only. Stata `rdbwselect` 10.0.0 exits with
+    a conformability error `r(3200)` on that selector, reproducibly and
+    including on `rdrobust_senate.dta`, the dataset the package's own
+    authors ship. StatsPAI reproduces R's `certwo` to 1e-12; the `.do` file
+    asserts the failure still occurs so a fixed upstream release restores
+    the cell rather than leaving a stale exclusion behind.
+
 ### Fixed
 
 - **A non-strict `xfail` hid the ETWFE defect for fifteen minor versions.**
@@ -89,6 +217,21 @@ All notable changes to StatsPAI will be documented in this file.
   passing known-truth assertion for the function. The xfail is now a strict
   test, joined by `test_wooldridge_did_recovers_known_cohort_atts`, which
   checks the per-cohort ATTs against the fixture's own `tau` column.
+
+
+- **`sp.rdsensitivity` no longer hangs.** It built a matplotlib figure
+  unconditionally and ended with `plt.show()`, which under an interactive
+  backend blocks until a human closes the window — so the call never
+  returned in a script, a test run, a CI job or an agent session. Plotting
+  is now opt-in via `plot=False`, the figure is attached to
+  `result.attrs["figure"]`, and `show()` is never called. Measured: over
+  ten minutes before being killed, against 0.58s now.
+- `sp.rdbwselect` no longer rounds its output to six decimals. A bandwidth
+  is an input to the next estimator, and rounding it capped downstream
+  agreement at ~1e-6 relative.
+- `sp.rdbwselect` accepts `msesum` and `cersum`. `_VALID_METHODS` listed
+  eight of the ten selectors `rdrobust` offers, omitting exactly the two
+  sum-form cascades that `comb1`/`comb2` are built from.
 
 ## [1.26.0] — 2026-09-10
 

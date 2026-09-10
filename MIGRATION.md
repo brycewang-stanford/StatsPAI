@@ -84,6 +84,155 @@ rests on an artifact rather than on the alias assertion that 1.26.0 withdrew.
 
 ---
 
+<a id="rdms-not-rdmulti"></a>
+
+## 1.27.0 — ⚠️ `sp.rdms` was not computing `rdmulti::rdms`
+
+**Who is affected.** Anyone who called `sp.rdms`. Every number it returned
+changes.
+
+### What was wrong
+
+Its docstring claimed equivalence to `rdmulti::rdms()`. It was a different
+estimator, and not a defensible variant of one:
+
+1. The default bandwidth was `1.06 * sd(distance) * n^(-1/5)` — Silverman's
+   rule for **kernel density estimation**, applied as an RD estimation
+   bandwidth. A category error, and the reason the window was roughly
+   thirty times too narrow.
+2. The variance was homoskedastic, not the CCT heteroskedasticity-robust
+   sandwich.
+3. There was no bias correction, so no robust interval either.
+
+Measured on a 6,000-row two-score design with a vertical boundary and known
+effects of 1.5 / 2.0 / 2.5 at three boundary points:
+
+| boundary point | truth | `rdmulti::rdms` (obs used) | `sp.rdms` before (obs used) |
+| --- | ---: | ---: | ---: |
+| (0, −0.5) | 1.5 | 1.396 (519) | 1.322 (13) |
+| (0,  0.0) | 2.0 | 1.778 (725) | **4.804 (8)** |
+| (0, +0.5) | 2.5 | 2.463 (743) | 2.326 (27) |
+
+The middle point is 170% out, reported with a standard error of 4.21
+against the reference's 0.13.
+
+### What it does now
+
+The reference collapses the two scores onto one:
+
+```text
+d = sqrt((x1 - cutoff1)^2 + (x2 - cutoff2)^2) * (2 * treat - 1)
+```
+
+— Euclidean distance to the boundary point, signed by treatment status —
+and runs a sharp RD at `d = 0`. `sp.rdms` now builds that score and
+delegates to `sp.rdrobust`, so the CCT bandwidth cascade, the robust bias
+correction and the heteroskedasticity-robust variance all come with it.
+
+Following the reference, the reported estimate is the **bias-corrected**
+point estimate with the **robust** interval; the conventional pair is in
+`model_info["conventional"]`.
+
+### What you need to do
+
+- **Recompute every `sp.rdms` result.**
+- **Pass `treat=`.** It is the treatment indicator (R's `zvar`). Treatment
+  on a two-dimensional boundary is not implied by the coordinates, which is
+  why the reference requires it. Without it, `sp.rdms` assumes
+  `x1 >= cutoff1` and warns.
+- `bandwidth=` still forces a fixed bandwidth; omit it to get the
+  MSE-optimal one, as the reference does.
+
+### Evidence
+
+`tests/r_parity/89_rdms.{py,R}` and `tests/stata_parity/89_rdms.do` pin
+three boundary points, each with the bias-corrected and conventional
+estimates, their standard errors, the selected bandwidth and the effective
+sample size on each side: 7.6e-12 against R, 3.3e-9 against Stata. The six
+effective sample sizes are exactly equal on all three sides — integers, so
+no tolerance is involved, and the row the superseded implementation would
+have failed outright.
+
+---
+
+<a id="rdbwselect-cct-cascade"></a>
+
+## 1.27.0 — ⚠️ `sp.rdbwselect` returned the wrong bandwidth
+
+**Who is affected.** Anyone who called `sp.rdbwselect`, and anyone who
+called `sp.rdrobust(bwselect=...)` with one of the four `comb` selectors.
+Unlike the `wooldridge_did` entry below, **this one does change numbers**.
+
+### What was wrong
+
+Two independent defects, both found by packaging Track A module
+`88_rdbwselect` — the first cross-language evidence this function has ever
+had.
+
+**1. The published selector ran a retired formula.** `rd/bandwidth.py`
+never imported `rd/_cct_bandwidth.py`, so `sp.rdbwselect` used a
+single-step rule of thumb while `sp.rdrobust` used the real CCT three-stage
+cascade. On the Lee 2008 senate replica:
+
+| | `h` (left) | `b` (left) |
+| --- | ---: | ---: |
+| `sp.rdbwselect` (before) | 4.632539 | 7.141922 |
+| `rdrobust::rdbwselect` | 17.754397 | 28.028087 |
+| `sp.rdbwselect` (now) | 17.754397 | 28.028087 |
+
+The old formula's exponent `1/5` equals CCT's `1/(2p+3)` only at `p == 1`,
+so it also failed to move with the polynomial order, and it produced no
+separate bias bandwidth at all.
+
+**2. The `comb` selectors were not implemented.** `msecomb1`, `msecomb2`,
+`cercomb1`, `cercomb2` silently resolved to the plain `rd` cascade. The
+reference computes the `rd`, `two` and `sum` cascades to completion and
+combines the finished `h` and `b` element-wise per side:
+
+```text
+comb1 = min(rd, sum)
+comb2 = median(two, rd, sum)
+```
+
+`comb1` therefore *appeared* correct wherever `rd` is already the smaller of
+the pair, which is why it survived undetected. `comb2` did not:
+
+| selector | before | `rdrobust` | relative |
+| --- | ---: | ---: | ---: |
+| `msecomb2` | 7.4141308229 | 7.4162332312 | 2.8e-4 |
+| `cercomb2` | 7.6315619595 | 7.6738301717 | 5.5e-3 |
+
+Because this path is shared, the defect reached `sp.rdrobust` — an
+already-`certified` function — for those selector values.
+
+### What you need to do
+
+- **Recompute any bandwidth read from `sp.rdbwselect`.** Every returned
+  value changes, in most cases by a factor of three to five.
+- **Recompute any `sp.rdrobust(bwselect="msecomb2" | "cercomb2")` result.**
+  Estimates move by 2.8e-4 to 5.5e-3 relative on the fixture above; the
+  size on your own data depends on how far the three cascades separate.
+- `sp.rdrobust` at its **default** `bwselect="mserd"`, and at `msetwo`,
+  `msesum`, `cerrd`, `certwo`, `cersum`, is unaffected — those paths already
+  matched `rdrobust` and still do, now to 1.8e-12 across a 68-cell sweep.
+- Two API surfaces widened rather than changed: `sp.rdbwselect` now accepts
+  `msesum` / `cersum` (previously rejected, though `comb1`/`comb2` are
+  defined in terms of them), and returns full-precision floats rather than
+  values rounded to six decimals.
+
+### Evidence
+
+`tests/r_parity/88_rdbwselect.{py,R}` and
+`tests/stata_parity/88_rdbwselect.do` pin all ten selectors, polynomial
+orders 1–3, three kernels, covariate adjustment, clustering and the RKD
+derivative: 1.8e-12 against R, 3.7e-9 against Stata.
+`tests/reference_parity/test_rdbwselect_comb_rules.py` pins the combination
+rules as identities across random designs, which the numerical fixture
+alone could not do — a one-dataset fixture certifies a `comb1` that is not
+computing `comb1`.
+
+---
+
 <a id="wooldridge-did-evidence-grade"></a>
 
 ## 1.26.0 — ⚠️ `sp.wooldridge_did` is no longer `certified`

@@ -22,12 +22,6 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-from statspai.rd.bandwidth import (
-    _local_poly_fit,
-    _local_residual_var,
-    _estimate_deriv,
-    _covariate_adjusted_variance,
-)
 
 
 def _df(seed=2, n=2000, tau=3.0):
@@ -80,34 +74,13 @@ def test_rdbwselect_deriv_auto_bumps_p():
     assert (out["h_left"] > 0).all()
 
 
-# ── internal helper "too few obs" fallback branches (real data, tiny h) ──
-
-
-def test_local_poly_fit_tiny_bandwidth_returns_zeros():
-    df = _df()
-    x = df["x"].values
-    y = df["y"].values
-    beta, resid, n_eff = _local_poly_fit(y, x, h=1e-9, p=2, kernel="triangular")
-    assert n_eff < 4
-    assert np.allclose(beta, 0.0)
-
-
-def test_local_residual_var_tiny_bandwidth_falls_back():
-    df = _df()
-    v = _local_residual_var(df["y"].values, df["x"].values, h=1e-9, kernel="triangular")
-    assert np.isfinite(v) and v >= 0
-
-
-def test_estimate_deriv_tiny_bandwidth_returns_zero():
-    df = _df()
-    d2 = _estimate_deriv(df["y"].values, df["x"].values, h=1e-9, kernel="triangular")
-    assert d2 == 0.0
-
-
-def test_covariate_adjusted_variance_tiny_bandwidth_falls_back():
-    df = _df()
-    covs = df[["z"]].values
-    v = _covariate_adjusted_variance(
-        df["y"].values, df["x"].values, covs, h=1e-9, kernel="triangular"
-    )
-    assert np.isfinite(v) and v >= 0
+# The four tests that used to follow here exercised `_local_poly_fit`,
+# `_local_residual_var`, `_estimate_deriv` and
+# `_covariate_adjusted_variance` -- private helpers of the single-step
+# rule of thumb this module used to run. That implementation was removed
+# in 1.27.0 once `sp.rdbwselect` was rewired onto the CCT cascade (Track A
+# module 88), so the tests went with it rather than being retargeted:
+# they asserted degenerate-bandwidth fallbacks of code that no longer
+# exists, and keeping them alive would have meant keeping the code alive.
+# The cascade's own behaviour is covered by `88_rdbwselect` and
+# `tests/reference_parity/test_rdbwselect_comb_rules.py`.

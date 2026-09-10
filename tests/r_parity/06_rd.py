@@ -56,8 +56,11 @@ def main() -> None:
         )
     )
 
-    # Legacy internal-selector diagnostic.  This keeps the old default
-    # visible without mixing it with the R/Stata default-h parity rows.
+    # Default-spelling cross-check. sp.rdrobust(...) with no bwselect
+    # reaches the same CCT cascade as bwselect='cct'; these rows pin that
+    # the two spellings converge rather than preserving a historical gap.
+    # Kept out of the parity join deliberately -- they have no R or Stata
+    # counterpart, so compare.collect drops them.
     legacy = sp.rdrobust(df, y="y", x="x", c=0.0)
     rows.append(
         ParityRecord(
@@ -111,10 +114,15 @@ def main() -> None:
                 "Track A uses sp.rdrobust(..., bwselect='cct'), which "
                 "delegates to the official rdrobust Python port and "
                 "matches R/Stata rdrobust default mserd bandwidths on "
-                "the Lee-2008 fixture. The legacy StatsPAI internal "
-                "mserd selector is retained as legacy_internal_mserd_* "
-                "diagnostic rows and should not be used as the "
-                "cross-language default-h parity claim."
+                "the Lee-2008 fixture. The legacy_internal_mserd_* rows "
+                "record the *default* spelling, sp.rdrobust(...) with no "
+                "bwselect, which once ran a separate rule-of-thumb "
+                "selector and now reaches the same CCT cascade. The name "
+                "is historical; the rows are kept as a convergence check "
+                "between the two spellings, and they agree to 1.7e-12 on "
+                "the bandwidth and 3e-14 on the robust estimate. They "
+                "have no R or Stata counterpart, so they never enter the "
+                "parity join."
             ),
         },
     )

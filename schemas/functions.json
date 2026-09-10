@@ -13657,7 +13657,7 @@
     }
   },
   {
-    "description": "Armstrong-Kolesar (2018) honest confidence intervals for sharp regression discontinuity -- the only RD inference procedure with provable finite-sample coverage without bandwidth-selection bias. M is the upper bound on the second derivative of E[Y|X] near the cutoff; smaller M means tighter CIs but riskier coverage if the true curvature is larger. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Armstrong-Kolesar (2018) honest confidence intervals for sharp regression discontinuity -- the only RD inference procedure with provable finite-sample coverage without bandwidth-selection bias. M is the upper bound on the second derivative of E[Y|X] near the cutoff; smaller M means tighter CIs but riskier coverage if the true curvature is larger. Validation: certified parity evidence.",
     "name": "rd_honest",
     "parameters": {
       "properties": {
@@ -16602,18 +16602,18 @@
     }
   },
   {
-    "description": "Bandwidth selection for local polynomial RD estimation.",
+    "description": "Bandwidth selection for local polynomial RD estimation. Validation: certified parity evidence.",
     "name": "rdbwselect",
     "parameters": {
       "properties": {
         "all": {
           "default": false,
-          "description": "If True, compute and return all eight bandwidth types.",
+          "description": "If True, compute and return all ten bandwidth types.",
           "type": "boolean"
         },
         "bwselect": {
           "default": "mserd",
-          "description": "Bandwidth selection method. One of: - ``'mserd'`` : MSE-optimal common bandwidth (default) - ``'msetwo'`` : MSE-optimal separate left/right bandwidths - ``'msecomb1'`` : min of mserd, mseleft, mseright - ``'msecomb2'`` : median of mserd, mseleft, mseright - ``'cerrd'`` : CER-optimal common bandwidth - ``'certwo'`` : CER-optimal separate left/right - ``'cercomb1'`` : min of cerrd, cerleft, cerright - ``'cercomb2'`` : median of cerrd, cerleft, cerright",
+          "description": "Bandwidth selection method. One of: - ``'mserd'`` : MSE-optimal common bandwidth (default) - ``'msetwo'`` : MSE-optimal separate left/right bandwidths - ``'msesum'`` : MSE-optimal for the sum of the two intercepts - ``'msecomb1'`` : ``min(mserd, msesum)``, per side - ``'msecomb2'`` : ``median(msetwo, mserd, msesum)``, per side - ``'cerrd'``, ``'certwo'``, ``'cersum'``, ``'cercomb1'``, ``'cercomb2'`` : the CER-optimal counterparts of the above The combination rules are applied to the finished ``h`` and ``b`` of each cascade, element-wise per side -- not stage by stage.",
           "type": "string"
         },
         "c": {
@@ -17092,7 +17092,7 @@
     }
   },
   {
-    "description": "Randomization inference for regression discontinuity designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Randomization inference for regression discontinuity designs. Validation: certified parity evidence.",
     "name": "rdrandinf",
     "parameters": {
       "properties": {
@@ -17172,7 +17172,7 @@
     }
   },
   {
-    "description": "Data-driven window selection for local randomization RD. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Data-driven window selection for local randomization RD. Validation: certified parity evidence.",
     "name": "rdwinselect",
     "parameters": {
       "properties": {
@@ -17270,6 +17270,11 @@
           "default": 0,
           "description": "Polynomial order for adjustment.",
           "type": "integer"
+        },
+        "plot": {
+          "default": false,
+          "description": "plot parameter (bool).",
+          "type": "boolean"
         },
         "seed": {
           "default": 42,
@@ -38102,7 +38107,7 @@
     }
   },
   {
-    "description": "Multi-cutoff RD design. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Multi-cutoff RD design. Validation: certified parity evidence.",
     "name": "rdmc",
     "parameters": {
       "properties": {
@@ -38158,7 +38163,7 @@
     }
   },
   {
-    "description": "Multi-score / Geographic RD design.",
+    "description": "Multi-score / Geographic RD design at a single boundary point. Validation: certified parity evidence.",
     "name": "rdms",
     "parameters": {
       "properties": {
@@ -38168,7 +38173,7 @@
           "type": "number"
         },
         "bandwidth": {
-          "description": "Bandwidth used for local smoothing or kernel weighting.",
+          "description": "Fixed bandwidth on the signed-distance score. When omitted the CCT MSE-optimal cascade selects it, as the reference does.",
           "type": "number"
         },
         "cutoff1": {
@@ -38188,6 +38193,10 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "type": "string"
+        },
+        "treat": {
+          "description": "Column holding the 0/1 treatment indicator (R's ``zvar``). Strongly",
           "type": "string"
         },
         "x1": {
@@ -38351,6 +38360,10 @@
         "kernel": {
           "default": "triangular",
           "description": "Kernel function used for weighting or smoothing.",
+          "type": "string"
+        },
+        "treat": {
+          "description": "Treatment indicator or first-treatment-period column.",
           "type": "string"
         },
         "x1": {
@@ -45548,7 +45561,7 @@
     }
   },
   {
-    "description": "Power of an RD design given sample size and effect size. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Power of an RD design given sample size and effect size. Validation: certified parity evidence.",
     "name": "rdpower",
     "parameters": {
       "properties": {
@@ -45620,7 +45633,7 @@
     }
   },
   {
-    "description": "Minimum sample size for a given power in an RD design.",
+    "description": "Minimum sample size for a given power in an RD design. Validation: certified parity evidence.",
     "name": "rdsampsi",
     "parameters": {
       "properties": {
@@ -45628,6 +45641,15 @@
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
+        },
+        "c": {
+          "default": 0.0,
+          "description": "c parameter (float).",
+          "type": "number"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
         },
         "h_left": {
           "default": 0.5,
@@ -45662,6 +45684,14 @@
           "default": 1.0,
           "description": "var_right parameter (float).",
           "type": "number"
+        },
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
         }
       },
       "required": [

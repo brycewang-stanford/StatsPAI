@@ -16,11 +16,19 @@ to statspai.rd):
         -> (beta, vcov, n_eff) with HC1 or cluster-robust variance;
            optional additive covariate augmentation; returned beta/vcov
            correspond to the polynomial part only (first p+1 entries).
+    _complete_cases(frame, columns)  -> (cleaned, n_dropped)
+        drops rows with a non-finite value in any named column, so the
+        subpackage's entry points cannot disagree about what a missing
+        outcome means.
+    _check_covariate_rank(x_centered, covs, p, names=, where=)
+        raises when the covariate-augmented local design is numerically
+        rank deficient, i.e. when a covariate is collinear with the
+        polynomial basis the estimator already fits.
 """
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, cast
+from typing import Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 from scipy import stats as _sp_stats
@@ -210,3 +218,146 @@ def _local_poly_wls(
     vcov = vcov_full[:k_poly, :k_poly]
 
     return beta, vcov, n_eff
+
+
+def _complete_cases(
+    frame,
+    columns: Sequence[Union[str, Sequence[str], None]],
+) -> Tuple[object, int]:
+    """Drop rows with a non-finite value in any of ``columns``.
+
+    Returns ``(cleaned, n_dropped)``.
+
+    ``columns`` accepts ``None`` entries and nested sequences so callers can
+    pass optional arguments through unchanged::
+
+        _complete_cases(df_w, [y, x, covs, fuzzy])
+
+    Why this is shared rather than inlined: the local-randomization entry
+    points (``rdrandinf``, ``rdwinselect``, ``rdsensitivity``, ``rdrbounds``)
+    had no missing-data handling at all, while ``rdrobust`` in the same
+    subpackage has always dropped incomplete rows. On the Lee 2008 senate
+    replica -- which carries 93 missing outcomes -- that difference made
+    ``sp.rdrandinf`` return a NaN difference in means and, because every
+    comparison against a NaN is False, a permutation p-value of exactly
+    0.000. A failed statistic was being reported as the most significant
+    result the test can produce. Two entry points in one subpackage must not
+    disagree about what a missing outcome means.
+
+    Note that ``np.isfinite`` is deliberately stricter than ``notna``: an
+    infinite outcome breaks a difference in means exactly as a missing one
+    does, and silently propagates just as far.
+    """
+    import numpy as _np
+    import pandas as _pd
+
+    flat: list[str] = []
+    for col in columns:
+        if col is None:
+            continue
+        if isinstance(col, str):
+            flat.append(col)
+        else:
+            flat.extend(c for c in col if c is not None)
+
+    if not flat:
+        return frame, 0
+
+    keep = _np.ones(len(frame), dtype=bool)
+    for name in flat:
+        values = _pd.to_numeric(frame[name], errors="coerce").to_numpy(dtype=float)
+        keep &= _np.isfinite(values)
+
+    n_dropped = int((~keep).sum())
+    return (frame if n_dropped == 0 else frame.loc[keep].copy()), n_dropped
+
+
+#: Relative singular-value cutoff below which a design is treated as rank
+#: deficient. This is ``sqrt(.Machine$double.eps)``, the same threshold
+#: ``MASS::ginv`` uses and therefore the one ``rdrobust`` inherits when its
+#: Cholesky fails and it falls back to a pseudo-inverse.
+_RANK_TOL = float(np.sqrt(np.finfo(float).eps))
+
+
+def _check_covariate_rank(
+    x_centered: "np.ndarray",
+    covs: "Optional[np.ndarray]",
+    p: int,
+    *,
+    names: "Optional[Sequence[str]]" = None,
+    where: str = "rd",
+) -> None:
+    """Warn when covariates are collinear with the local polynomial basis.
+
+    An RD covariate that is a smooth function of the running variable is
+    absorbed by the polynomial terms the estimator already fits, so the
+    augmented design ``[1, x, ..., x^p, Z]`` loses rank and the estimate
+    stops being identified. Nothing about that is visible in the output.
+
+    NumPy's Cholesky is the reason it stays invisible here: on the exactly
+    collinear case it *succeeds* where R's refuses, so the pseudo-inverse
+    fallback both implementations carry never fires on our side and a
+    numerically meaningless solve is returned as an ordinary answer. The
+    smallest relative singular value in that case is ~4e-15, seven orders
+    below the cutoff, and the returned bandwidth sits 3.8e-3 away from
+    ``rdrobust``'s. Two implementations disagreeing is the visible symptom;
+    the defect is that neither the user nor the caller was told the design
+    was singular.
+
+    The check is global rather than per-window: the bandwidth is not known
+    until after selection runs, so a window-local test would have to be
+    deferred past the point where the damage is done. A covariate collinear
+    on the whole support is collinear in every window, which is the case
+    that matters.
+    """
+    if covs is None:
+        return
+    Z = np.asarray(covs, dtype=float)
+    if Z.ndim == 1:
+        Z = Z[:, None]
+    if Z.size == 0:
+        return
+
+    basis = np.column_stack(
+        [np.ones(len(x_centered))] + [x_centered**k for k in range(1, p + 1)]
+    )
+    design = np.column_stack([basis, Z])
+    ok = np.isfinite(design).all(axis=1)
+    design = design[ok]
+    if design.shape[0] <= design.shape[1]:
+        return
+
+    # Scale columns to unit norm so the ratio measures collinearity rather
+    # than the units the covariates happen to be recorded in.
+    norms = np.linalg.norm(design, axis=0)
+    norms[norms == 0] = 1.0
+    sv = np.linalg.svd(design / norms, compute_uv=False)
+    if sv[0] <= 0:
+        return
+    rel = sv[-1] / sv[0]
+    if rel >= _RANK_TOL:
+        return
+
+    label = (
+        f" ({', '.join(str(n) for n in names)})"
+        if names is not None and len(list(names)) == Z.shape[1]
+        else ""
+    )
+    # Raise rather than warn. The estimate is not identified, so the number
+    # that would come back is whichever generalised inverse the linear
+    # algebra happened to pick -- and downstream it does not even survive
+    # intact: on this design `sp.rdrobust` goes on to report a NaN standard
+    # error, and at other covariate scalings the solve raises a bare
+    # `LinAlgError: Singular matrix` with nothing to tell the caller which
+    # covariate caused it. Warning and continuing would leave all three
+    # outcomes in play and none of them meaningful. R refuses this design
+    # too under `covs_drop=FALSE`.
+    raise ValueError(
+        f"{where}: the covariate-augmented local design is numerically rank "
+        f"deficient (smallest relative singular value {rel:.2e}, below the "
+        f"{_RANK_TOL:.2e} cutoff). At least one covariate{label} is collinear "
+        f"with the polynomial basis in the running variable, which the "
+        f"estimator already fits, so the covariate adjustment is not "
+        f"identified. Drop the offending covariate, or lower p if the "
+        f"collinearity comes from a high-order term."
+    )

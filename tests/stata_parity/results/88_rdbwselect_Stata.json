@@ -1,0 +1,786 @@
+{
+  "module": "88_rdbwselect",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_h_left",
+      "estimate": 17.754397302571299,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_h_right",
+      "estimate": 17.754397302571299,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_b_left",
+      "estimate": 28.028087188253789,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_b_right",
+      "estimate": 28.028087188253789,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msetwo_h_left",
+      "estimate": 16.16982019726321,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msetwo_h_right",
+      "estimate": 18.1264625063403,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msetwo_b_left",
+      "estimate": 27.103890194136071,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msetwo_b_right",
+      "estimate": 29.343551606624541,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msesum_h_left",
+      "estimate": 18.365465629872759,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msesum_h_right",
+      "estimate": 18.365465629872759,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msesum_b_left",
+      "estimate": 31.318535329818062,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msesum_b_right",
+      "estimate": 31.318535329818062,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msecomb1_h_left",
+      "estimate": 17.754397302571299,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msecomb1_h_right",
+      "estimate": 17.754397302571299,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msecomb1_b_left",
+      "estimate": 28.028087188253789,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msecomb1_b_right",
+      "estimate": 28.028087188253789,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msecomb2_h_left",
+      "estimate": 17.754397302571299,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msecomb2_h_right",
+      "estimate": 18.1264625063403,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msecomb2_b_left",
+      "estimate": 28.028087188253789,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "msecomb2_b_right",
+      "estimate": 29.343551606624541,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cerrd_h_left",
+      "estimate": 12.406775831352389,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cerrd_h_right",
+      "estimate": 12.406775831352389,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cerrd_b_left",
+      "estimate": 28.028087188253789,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cerrd_b_right",
+      "estimate": 28.028087188253789,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cersum_h_left",
+      "estimate": 12.83379048159742,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cersum_h_right",
+      "estimate": 12.83379048159742,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cersum_b_left",
+      "estimate": 31.318535329818062,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cersum_b_right",
+      "estimate": 31.318535329818062,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cercomb1_h_left",
+      "estimate": 12.406775831352389,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cercomb1_h_right",
+      "estimate": 12.406775831352389,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cercomb1_b_left",
+      "estimate": 28.028087188253789,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cercomb1_b_right",
+      "estimate": 28.028087188253789,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cercomb2_h_left",
+      "estimate": 12.406775831352389,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cercomb2_h_right",
+      "estimate": 12.66677505853764,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cercomb2_b_left",
+      "estimate": 28.028087188253789,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "cercomb2_b_right",
+      "estimate": 29.343551606624541,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_p2_h_left",
+      "estimate": 22.256276865516639,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_p2_h_right",
+      "estimate": 22.256276865516639,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_p2_b_left",
+      "estimate": 33.284137952177588,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_p2_b_right",
+      "estimate": 33.284137952177588,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_p3_h_left",
+      "estimate": 24.96898851819882,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_p3_h_right",
+      "estimate": 24.96898851819882,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_p3_b_left",
+      "estimate": 37.221403847836683,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_p3_b_right",
+      "estimate": 37.221403847836683,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_uniform_h_left",
+      "estimate": 11.596867415866321,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_uniform_h_right",
+      "estimate": 11.596867415866321,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_uniform_b_left",
+      "estimate": 22.944183955414001,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_uniform_b_right",
+      "estimate": 22.944183955414001,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_epanechnikov_h_left",
+      "estimate": 16.104385541121101,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_epanechnikov_h_right",
+      "estimate": 16.104385541121101,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_epanechnikov_b_left",
+      "estimate": 26.710893924107921,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_epanechnikov_b_right",
+      "estimate": 26.710893924107921,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_covs_h_left",
+      "estimate": 16.198343018562841,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_covs_h_right",
+      "estimate": 16.198343018562841,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_covs_b_left",
+      "estimate": 26.638081972169719,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_covs_b_right",
+      "estimate": 26.638081972169719,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_cluster_h_left",
+      "estimate": 15.42079744801242,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_cluster_h_right",
+      "estimate": 15.42079744801242,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_cluster_b_left",
+      "estimate": 26.054810930783312,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_cluster_b_right",
+      "estimate": 26.054810930783312,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_deriv1_h_left",
+      "estimate": 19.84174709085632,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_deriv1_h_right",
+      "estimate": 19.84174709085632,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_deriv1_b_left",
+      "estimate": 33.284137952177588,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+,
+    {
+      "module": "88_rdbwselect",
+      "side": "Stata",
+      "statistic": "mserd_deriv1_b_right",
+      "estimate": 33.284137952177588,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1390,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "stata_command": "rdbwselect y x, c(0) bwselect(mserd)",
+    "kernel": "triangular",
+    "reference_role": "canonical (Cattaneo group maintains R and Stata)"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

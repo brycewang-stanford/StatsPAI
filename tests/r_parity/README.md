@@ -147,6 +147,8 @@ a shared explicit fold partition.
 | 85 | Dynamic TWFE event study | `sp.event_study` | `fixest::feols(y ~ i(rel, treat, ref=-1) \| unit + time)` with default `ssc` (all three sides count the absorbed time effects in K since 1.24.0); non-staggered by design |
 | 86 | fect counterfactual estimators (fe / ife / mc) | `sp.fect(method="fe" / "ife" / "mc")` | `fect::fect(Y ~ D + X1 + X2, method=, force="two-way", se=FALSE, CV=FALSE, tol=1e-12, max.iteration=20000)`; Stata side uses the authors' `fect_stata` (GitHub, installed into a local ado path) |
 | 87 | interflex marginal effects (linear / binning / kernel) | `sp.interflex(estimator="linear" / "binning" / "kernel")` | `interflex::interflex(vartype="delta", vcov.type="robust", neval=5, nbins=3, bw=1)`; Stata side uses the SSC `interflex` command |
+| 88 | RD bandwidth selection (all ten CCT selectors) | `sp.rdbwselect` | `rdrobust::rdbwselect`; Stata side uses the authors' `rdbwselect` ado. `certwo` is R-only: Stata rdbwselect 10.0.0 exits r(3200) on it, including on the package's own `rdrobust_senate.dta` |
+| 89 | Multi-score / geographic RD at boundary points | `sp.rdms` | `rdmulti::rdms`; Stata side uses the `rdms` ado from the rdpackages GitHub mirror (rdmulti is not on SSC: `ssc describe rdmulti` returns r(601)), installed into a local gitignored ado path |
 | 71 | DML family (IRM / PLIV / IIVM) | `sp.dml(model="irm")` / `sp.dml(model="pliv")` / `sp.dml(model="iivm")` | `DoubleML::DoubleMLIRM` / `DoubleMLPLIV` / `DoubleMLIIVM` |
 
 ## Running

@@ -1,723 +1,56 @@
 """
-Comprehensive bandwidth selection for local polynomial RD estimation.
+Bandwidth selection for local polynomial RD estimation.
 
-Implements all eight bandwidth selection methods from Calonico, Cattaneo,
-and Farrell (2020) including MSE-optimal and CER-optimal variants:
+This module is the public entry point ``sp.rdbwselect``. The arithmetic
+lives in :mod:`statspai.rd._cct_bandwidth`, which is the same
+Calonico-Cattaneo-Titiunik three-stage cascade ``sp.rdrobust`` uses to
+pick its own default bandwidth, so the two cannot disagree.
 
-MSE-optimal (minimize mean squared error of the RD estimator):
-  - mserd    : common bandwidth
-  - msetwo   : separate left/right
-  - msecomb1 : min(mserd, mseleft, mseright)
-  - msecomb2 : median(mserd, mseleft, mseright)
+They did until 1.27.0. This file used to carry a complete second
+implementation -- a single-step rule of thumb, roughly 600 lines of it --
+and ``sp.rdbwselect`` called that one while the estimator called the
+cascade. The rule of thumb returned bandwidths 2.8x to 4.8x too narrow and
+did not vary with the polynomial order, because its exponent 1/5 equals
+CCT's 1/(2p+3) only at p == 1. It has been removed rather than deprecated:
+keeping a known-wrong implementation of a quantity that already has a
+right one in the same subpackage is what produced the defect.
 
-CER-optimal (minimize coverage error rate of confidence intervals):
-  - cerrd    : common bandwidth
-  - certwo   : separate left/right
-  - cercomb1 : min(cerrd, cerleft, cerright)
-  - cercomb2 : median(cerrd, cerleft, cerright)
-
-Supports sharp RD, fuzzy RD, covariate adjustment, and cluster-robust
-variance estimation.
+All ten selectors ``rdrobust`` offers are supported, including the
+``sum`` forms that ``comb1`` / ``comb2`` are defined in terms of. Sharp
+RD, covariate adjustment and cluster-robust variance are supported;
+covariates collinear with the running variable are refused rather than
+silently absorbed (see :func:`statspai.rd._core._check_covariate_rank`).
 
 References
 ----------
 Calonico, S., Cattaneo, M.D. and Farrell, M.H. (2020).
 "Optimal Bandwidth Choice for Robust Bias-Corrected Inference in
-Regression Discontinuity Designs." *Econometrics Journal*, 23(2), 192-210. [@calonico2020optimal]
+Regression Discontinuity Designs." *Econometrics Journal*, 23(2),
+192-210. [@calonico2020optimal]
 
 Calonico, S., Cattaneo, M.D. and Titiunik, R. (2014).
 "Robust Nonparametric Confidence Intervals for Regression-Discontinuity
 Designs." *Econometrica*, 82(6), 2295-2326. [@calonico2014robust]
-
-Imbens, G. and Kalyanaraman, K. (2012).
-"Optimal Bandwidth Choice for the Regression Discontinuity Estimator."
-*Review of Economic Studies*, 79(3), 933-959. [@imbens2012optimal]
 """
 
-from typing import Optional, List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
-# ======================================================================
-# Kernel helpers (canonical definitions live in ._core)
-# ======================================================================
-
-from ._core import _kernel_fn, _kernel_constants, _sandwich_variance  # noqa: F401
-
-# ======================================================================
-# Internal estimation helpers
-# ======================================================================
-
-
-def _local_poly_fit(
-    y: np.ndarray,
-    x: np.ndarray,
-    h: float,
-    p: int,
-    kernel: str,
-) -> Tuple[np.ndarray, np.ndarray, int]:
-    """
-    Weighted local polynomial regression at x = 0.
-
-    Returns (coefficients, residuals_in_bw, n_effective).
-    """
-    u = x / h
-    in_bw = np.abs(u) <= 1
-    n_eff = int(in_bw.sum())
-    if n_eff < p + 2:
-        return np.zeros(p + 1), np.array([]), n_eff
-
-    y_bw = y[in_bw]
-    x_bw = x[in_bw]
-    w_bw = _kernel_fn(u[in_bw], kernel)
-
-    X = np.column_stack([x_bw**j for j in range(p + 1)])
-    sqw = np.sqrt(w_bw)
-    Xw = X * sqw[:, np.newaxis]
-    yw = y_bw * sqw
-
-    try:
-        beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
-    except np.linalg.LinAlgError:  # pragma: no cover
-        beta = np.zeros(p + 1)
-
-    resid = y_bw - X @ beta
-    return beta, resid, n_eff
-
-
-def _local_residual_var(
-    y: np.ndarray,
-    x: np.ndarray,
-    h: float,
-    kernel: str,
-) -> float:
-    """Conditional variance at x = 0 from local linear residuals."""
-    u = x / h
-    in_bw = np.abs(u) <= 1
-    if in_bw.sum() < 5:
-        return float(np.var(y)) if len(y) > 0 else 1.0
-
-    y_bw, x_bw, w_bw = y[in_bw], x[in_bw], _kernel_fn(u[in_bw], kernel)
-    X = np.column_stack([np.ones(len(x_bw)), x_bw])
-    sqw = np.sqrt(w_bw)
-    Xw = X * sqw[:, np.newaxis]
-    yw = y_bw * sqw
-
-    try:
-        beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
-        resid = y_bw - X @ beta
-        return float(np.average(resid**2, weights=w_bw))
-    except Exception:  # pragma: no cover
-        return float(np.var(y_bw))
-
-
-def _local_residual_var_cluster(
-    y: np.ndarray,
-    x: np.ndarray,
-    h: float,
-    kernel: str,
-    cluster: np.ndarray,
-) -> float:
-    """Cluster-robust conditional variance at x = 0."""
-    u = x / h
-    in_bw = np.abs(u) <= 1
-    if in_bw.sum() < 5:
-        return float(np.var(y)) if len(y) > 0 else 1.0
-
-    y_bw = y[in_bw]
-    x_bw = x[in_bw]
-    w_bw = _kernel_fn(u[in_bw], kernel)
-    cl_bw = cluster[in_bw]
-
-    X = np.column_stack([np.ones(len(x_bw)), x_bw])
-    sqw = np.sqrt(w_bw)
-    Xw = X * sqw[:, np.newaxis]
-    yw = y_bw * sqw
-
-    try:
-        beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
-        resid = y_bw - X @ beta
-    except Exception:  # pragma: no cover
-        return float(np.var(y_bw))
-
-    # Cluster-robust variance of the intercept (treatment effect proxy).
-    # _sandwich_variance accepts (Xw, yw, beta, resid_raw, n_eff, k, cluster)
-    # and constructs scores Xw[g]' @ (yw[g] - Xw[g]@beta) = Xw[g]' @ (sqw*resid)[g],
-    # which matches the legacy inline computation.
-    vcov = _sandwich_variance(
-        Xw,
-        yw,
-        beta,
-        resid,
-        int(in_bw.sum()),
-        2,
-        cl_bw,
-        weights=w_bw,
-    )
-    # Return variance estimate (intercept variance scaled by n * f_c)
-    return float(vcov[0, 0] * in_bw.sum())
-
-
-def _estimate_deriv(
-    y: np.ndarray,
-    x: np.ndarray,
-    h: float,
-    kernel: str,
-    deriv_order: int = 2,
-    poly_order: int = 3,
-) -> float:
-    """
-    Estimate m^{(deriv_order)}(0) via local polynomial regression.
-
-    For second derivative (curvature), uses local cubic (poly_order=3)
-    and returns factorial(deriv_order) * beta[deriv_order].
-    """
-    u = x / h
-    in_bw = np.abs(u) <= 1
-    if in_bw.sum() < poly_order + 2:
-        return 0.0
-
-    y_bw = y[in_bw]
-    x_bw = x[in_bw]
-    w_bw = _kernel_fn(u[in_bw], kernel)
-
-    X = np.column_stack([x_bw**j for j in range(poly_order + 1)])
-    sqw = np.sqrt(w_bw)
-    Xw = X * sqw[:, np.newaxis]
-    yw = y_bw * sqw
-
-    try:
-        beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
-        from math import factorial
-
-        return float(factorial(deriv_order) * beta[deriv_order])
-    except Exception:  # pragma: no cover
-        return 0.0
-
-
-def _estimate_third_deriv(
-    y: np.ndarray,
-    x: np.ndarray,
-    h: float,
-    kernel: str,
-) -> float:
-    """Estimate m'''(0) using local quartic regression."""
-    return _estimate_deriv(y, x, h, kernel, deriv_order=3, poly_order=4)
-
-
-def _density_at_cutoff(X_c: np.ndarray, h_pilot: float, n: int) -> float:
-    """Estimate f(c) via a simple frequency estimator."""
-    n_near = np.sum(np.abs(X_c) <= h_pilot)
-    f_c = n_near / (2 * h_pilot * n) if h_pilot > 0 and n > 0 else 1.0
-    return max(f_c, 1e-10)
-
-
-def _covariate_adjusted_variance(
-    y: np.ndarray,
-    x: np.ndarray,
-    covs_data: np.ndarray,
-    h: float,
-    kernel: str,
-) -> float:
-    """
-    Variance at the cutoff after partialling out covariates.
-
-    Regresses y on covariates within the bandwidth, then computes the
-    residual variance with kernel weights.
-    """
-    u = x / h
-    in_bw = np.abs(u) <= 1
-    if in_bw.sum() < covs_data.shape[1] + 3:
-        return _local_residual_var(y, x, h, kernel)
-
-    y_bw = y[in_bw]
-    x_bw = x[in_bw]
-    w_bw = _kernel_fn(u[in_bw], kernel)
-    covs_bw = covs_data[in_bw]
-
-    # First stage: partial out covariates
-    X_cov = np.column_stack([np.ones(len(x_bw)), x_bw, covs_bw])
-    sqw = np.sqrt(w_bw)
-    Xw = X_cov * sqw[:, np.newaxis]
-    yw = y_bw * sqw
-
-    try:
-        beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
-        resid = y_bw - X_cov @ beta
-        return float(np.average(resid**2, weights=w_bw))
-    except Exception:  # pragma: no cover
-        return _local_residual_var(y, x, h, kernel)
-
-
-# ======================================================================
-# CER shrinkage factor
-# ======================================================================
-
-
-def _cer_factor(n: int, p: int) -> float:
-    """
-    Coverage Error Rate (CER) shrinkage factor.
-
-    The MSE-optimal bandwidth has rate n^{-1/(2p+3)} while the
-    CER-optimal bandwidth has rate n^{-1/(2p+3+2/(2p+3))}.
-    For the default local linear (p=1), this gives:
-      MSE rate = n^{-1/5}, CER rate approx n^{-5/21}
-
-    The shrinkage factor is:
-      n^{-1/(2p+3)} / n^{rate_CER} = n^{rate_CER - rate_MSE}
-
-    For p=1: factor ~ n^{-1/21 + 1/5} ... simplified as n^{-1/(2(2p+3))}
-
-    Following CCF (2020), the CER bandwidth is:
-      h_CER = h_MSE * n^{-1/((2p+3)(2p+5))}
-
-    For p=1: h_CER = h_MSE * n^{-1/(5*7)} = h_MSE * n^{-1/35}
-    For p=2: h_CER = h_MSE * n^{-1/(7*9)} = h_MSE * n^{-1/63}
-
-    Parameters
-    ----------
-    n : int
-        Number of observations (total or on one side).
-    p : int
-        Polynomial order for estimation.
-
-    Returns
-    -------
-    float
-        Multiplicative factor in (0, 1) to shrink MSE bandwidth to CER.
-    """
-    if n <= 1:
-        return 1.0
-    rate_exponent = 1.0 / ((2 * p + 3) * (2 * p + 5))
-    return float(n ** (-rate_exponent))
-
-
-# ======================================================================
-# Side-level MSE-optimal bandwidth
-# ======================================================================
-
-
-def _mse_bandwidth_side(
-    sigma2: float,
-    m2: float,
-    f_c: float,
-    n_side: int,
-    C_K: float,
-    h_pilot: float,
-    x_range: float,
-) -> float:
-    """
-    MSE-optimal bandwidth for one side of the cutoff.
-
-    h_MSE = (C_K * sigma^2 / (n * f_c * (m'')^2))^{1/5}
-
-    Parameters
-    ----------
-    sigma2 : float
-        Conditional variance at the cutoff (one side).
-    m2 : float
-        Second derivative estimate m''(0) on one side.
-    f_c : float
-        Density at the cutoff.
-    n_side : int
-        Number of observations on this side.
-    C_K : float
-        Kernel-specific MSE constant.
-    h_pilot : float
-        Pilot bandwidth (fallback).
-    x_range : float
-        Range of the running variable (for clipping).
-
-    Returns
-    -------
-    float
-        MSE-optimal bandwidth for this side.
-    """
-    bias_sq = m2**2
-    if bias_sq < 1e-12 or n_side < 5:
-        h_opt = h_pilot
-    else:
-        h_opt = (C_K * sigma2 / (f_c * bias_sq * n_side)) ** (1 / 5)
-    return float(np.clip(h_opt, 0.02 * x_range, 0.98 * x_range))
-
-
-def _mse_bandwidth_common(
-    sigma2_l: float,
-    sigma2_r: float,
-    m2_l: float,
-    m2_r: float,
-    f_c: float,
-    n: int,
-    C_K: float,
-    h_pilot: float,
-    x_range: float,
-) -> float:
-    """
-    MSE-optimal common bandwidth for sharp RD.
-
-    h_MSE = (C_K * (sigma_l^2 + sigma_r^2) / (n * f_c * ((m''_r - m''_l)/2)^2))^{1/5}
-    """
-    bias_sq = ((m2_r - m2_l) / 2) ** 2
-    if bias_sq < 1e-12:
-        h_opt = h_pilot
-    else:
-        h_opt = (C_K * (sigma2_l + sigma2_r) / (f_c * bias_sq * n)) ** (1 / 5)
-    return float(np.clip(h_opt, 0.02 * x_range, 0.98 * x_range))
-
-
-# ======================================================================
-# Pilot bandwidth for bias estimation
-# ======================================================================
-
-
-def _pilot_bandwidth(
-    Y: np.ndarray,
-    X_c: np.ndarray,
-    left: np.ndarray,
-    right: np.ndarray,
-    p: int,
-    kernel: str,
-) -> Tuple[float, float]:
-    """
-    Compute pilot bandwidths for curvature estimation.
-
-    Uses a regularization-based approach: pilot = C * h_rot where
-    h_rot is the Silverman rotation bandwidth and C is inflated to
-    ensure enough observations for higher-order fits.
-
-    Returns (h_pilot_main, h_pilot_deriv).
-    """
-    n = len(Y)
-    sd_x = np.std(X_c)
-    # Silverman rule
-    h_pilot = 1.06 * sd_x * n ** (-1 / 5)
-    # Wider pilot for derivative estimation
-    h_deriv = max(np.median(np.abs(X_c)), h_pilot) * 1.5
-    return h_pilot, h_deriv
-
-
-# ======================================================================
-# Bias bandwidth (b) selection
-# ======================================================================
-
-
-def _bias_bandwidth_side(
-    y: np.ndarray,
-    x: np.ndarray,
-    h_main: float,
-    h_pilot: float,
-    kernel: str,
-    n_side: int,
-    f_c: float,
-    x_range: float,
-) -> float:
-    """
-    Pilot bandwidth for bias correction on one side.
-
-    Uses the third derivative to select the bandwidth b for estimating
-    the bias of the local polynomial estimator. The bandwidth b is
-    typically wider than h.
-
-    b_MSE ~ (C_K * sigma^2 / (n * f_c * (m''')^2))^{1/7}
-    """
-    sigma2 = _local_residual_var(y, x, h_main, kernel)
-    m3 = _estimate_third_deriv(y, x, h_pilot * 2.0, kernel)
-
-    bias_sq = m3**2
-    C_K = _kernel_constants(kernel)["C_K"]
-
-    if bias_sq < 1e-12 or n_side < 8:
-        return float(np.clip(h_main * 1.5, 0.02 * x_range, 0.98 * x_range))
-
-    b_opt = (C_K * sigma2 / (f_c * bias_sq * n_side)) ** (1 / 7)
-    return float(np.clip(b_opt, 0.02 * x_range, 0.98 * x_range))
-
-
-# ======================================================================
-# Fuzzy-design variance adjustment
-# ======================================================================
-
-
-def _fuzzy_variance_adjust(
-    sigma2_y: float,
-    sigma2_d: float,
-    cov_yd: float,
-    fs_effect: float,
-) -> float:
-    """
-    Adjust variance for fuzzy RD design.
-
-    In fuzzy RD, the variance of the Wald estimator is approximately:
-      Var(tau_FRD) ~ (sigma_y^2 - 2*tau*cov(y,d) + tau^2*sigma_d^2) / fs^2
-
-    For bandwidth selection, we use a simplified inflation factor.
-
-    Parameters
-    ----------
-    sigma2_y : float
-        Outcome variance at cutoff.
-    sigma2_d : float
-        Treatment variance at cutoff.
-    cov_yd : float
-        Covariance of outcome and treatment at cutoff.
-    fs_effect : float
-        First-stage effect (jump in treatment probability).
-
-    Returns
-    -------
-    float
-        Adjusted variance for bandwidth selection.
-    """
-    if abs(fs_effect) < 1e-10:
-        return sigma2_y * 100  # degenerate first stage -> very wide
-    # Delta method approximation
-    tau_approx = 0  # under null for bandwidth purposes
-    var_wald = (sigma2_y - 2 * tau_approx * cov_yd + tau_approx**2 * sigma2_d) / (
-        fs_effect**2
-    )
-    return max(var_wald, sigma2_y)
-
-
-def _estimate_first_stage(
-    D: np.ndarray,
-    X_c: np.ndarray,
-    left: np.ndarray,
-    right: np.ndarray,
-    h: float,
-    kernel: str,
-) -> Tuple[float, float, float]:
-    """
-    Estimate first-stage effect and treatment variance on each side.
-
-    Returns (fs_effect, sigma2_d_left, sigma2_d_right).
-    """
-    beta_l, _, _ = _local_poly_fit(D[left], X_c[left], h, 1, kernel)
-    beta_r, _, _ = _local_poly_fit(D[right], X_c[right], h, 1, kernel)
-    fs_effect = beta_r[0] - beta_l[0]
-
-    sigma2_d_l = _local_residual_var(D[left], X_c[left], h, kernel)
-    sigma2_d_r = _local_residual_var(D[right], X_c[right], h, kernel)
-    return fs_effect, sigma2_d_l, sigma2_d_r
-
-
-def _estimate_covariance_yd(
-    Y: np.ndarray,
-    D: np.ndarray,
-    X_c: np.ndarray,
-    h: float,
-    kernel: str,
-) -> float:
-    """Estimate Cov(Y, D) at cutoff from local linear residuals."""
-    u = X_c / h
-    in_bw = np.abs(u) <= 1
-    if in_bw.sum() < 5:
-        return 0.0
-
-    y_bw = Y[in_bw]
-    d_bw = D[in_bw]
-    x_bw = X_c[in_bw]
-    w_bw = _kernel_fn(u[in_bw], kernel)
-
-    X = np.column_stack([np.ones(len(x_bw)), x_bw])
-    sqw = np.sqrt(w_bw)
-    Xw = X * sqw[:, np.newaxis]
-
-    try:
-        beta_y = np.linalg.lstsq(Xw, y_bw * sqw, rcond=None)[0]
-        beta_d = np.linalg.lstsq(Xw, d_bw * sqw, rcond=None)[0]
-        resid_y = y_bw - X @ beta_y
-        resid_d = d_bw - X @ beta_d
-        return float(np.average(resid_y * resid_d, weights=w_bw))
-    except Exception:  # pragma: no cover
-        return 0.0
-
-
-# ======================================================================
-# Core bandwidth computation engine
-# ======================================================================
-
-
-def _compute_all_bandwidths(
-    Y: np.ndarray,
-    X_c: np.ndarray,
-    left: np.ndarray,
-    right: np.ndarray,
-    p: int,
-    q: int,
-    kernel: str,
-    D: Optional[np.ndarray] = None,
-    covs_data: Optional[np.ndarray] = None,
-    cluster_vals: Optional[np.ndarray] = None,
-) -> dict:
-    """
-    Compute all eight bandwidth types plus bias bandwidths.
-
-    Returns a dict keyed by method name with values
-    (h_left, h_right, b_left, b_right).
-    """
-    n = len(Y)
-    n_left = int(left.sum())
-    n_right = int(right.sum())
-    x_range = np.ptp(X_c)
-
-    y_l, x_l = Y[left], X_c[left]
-    y_r, x_r = Y[right], X_c[right]
-
-    kc = _kernel_constants(kernel)
-    C_K = kc["C_K"]
-
-    # --- Pilot bandwidths ---
-    h_pilot, h_deriv = _pilot_bandwidth(Y, X_c, left, right, p, kernel)
-
-    # --- Density at cutoff ---
-    f_c = _density_at_cutoff(X_c, h_pilot, n)
-
-    # --- Conditional variance on each side ---
-    if covs_data is not None:
-        covs_l = covs_data[left]
-        covs_r = covs_data[right]
-        sigma2_l = _covariate_adjusted_variance(y_l, x_l, covs_l, h_pilot, kernel)
-        sigma2_r = _covariate_adjusted_variance(y_r, x_r, covs_r, h_pilot, kernel)
-    elif cluster_vals is not None:
-        sigma2_l = _local_residual_var_cluster(
-            y_l, x_l, h_pilot, kernel, cluster_vals[left]
-        )
-        sigma2_r = _local_residual_var_cluster(
-            y_r, x_r, h_pilot, kernel, cluster_vals[right]
-        )
-    else:
-        sigma2_l = _local_residual_var(y_l, x_l, h_pilot, kernel)
-        sigma2_r = _local_residual_var(y_r, x_r, h_pilot, kernel)
-
-    # --- Fuzzy design: adjust variance ---
-    if D is not None:
-        fs_effect, sigma2_d_l, sigma2_d_r = _estimate_first_stage(
-            D, X_c, left, right, h_pilot, kernel
-        )
-        cov_yd_l = _estimate_covariance_yd(y_l, D[left], x_l, h_pilot, kernel)
-        cov_yd_r = _estimate_covariance_yd(y_r, D[right], x_r, h_pilot, kernel)
-        sigma2_l = _fuzzy_variance_adjust(sigma2_l, sigma2_d_l, cov_yd_l, fs_effect)
-        sigma2_r = _fuzzy_variance_adjust(sigma2_r, sigma2_d_r, cov_yd_r, fs_effect)
-
-    # --- Second derivatives (curvature for bias) ---
-    m2_l = _estimate_deriv(
-        y_l, x_l, h_deriv, kernel, deriv_order=2, poly_order=max(p + 1, 3)
-    )
-    m2_r = _estimate_deriv(
-        y_r, x_r, h_deriv, kernel, deriv_order=2, poly_order=max(p + 1, 3)
-    )
-
-    # ================================================================
-    # MSE-optimal bandwidths
-    # ================================================================
-
-    # mserd: common bandwidth
-    h_mserd = _mse_bandwidth_common(
-        sigma2_l, sigma2_r, m2_l, m2_r, f_c, n, C_K, h_pilot, x_range
-    )
-
-    # msetwo / mseleft / mseright: separate bandwidths
-    h_mse_l = _mse_bandwidth_side(sigma2_l, m2_l, f_c, n_left, C_K, h_pilot, x_range)
-    h_mse_r = _mse_bandwidth_side(sigma2_r, m2_r, f_c, n_right, C_K, h_pilot, x_range)
-
-    # msecomb1: min of common and separate
-    h_msecomb1 = min(h_mserd, h_mse_l, h_mse_r)
-
-    # msecomb2: median of common and separate
-    h_msecomb2 = float(np.median([h_mserd, h_mse_l, h_mse_r]))
-
-    # ================================================================
-    # Bias bandwidths (b) for each MSE bandwidth
-    # ================================================================
-    b_mserd_l = _bias_bandwidth_side(
-        y_l, x_l, h_mserd, h_deriv, kernel, n_left, f_c, x_range
-    )
-    b_mserd_r = _bias_bandwidth_side(
-        y_r, x_r, h_mserd, h_deriv, kernel, n_right, f_c, x_range
-    )
-
-    b_mse_l = _bias_bandwidth_side(
-        y_l, x_l, h_mse_l, h_deriv, kernel, n_left, f_c, x_range
-    )
-    b_mse_r = _bias_bandwidth_side(
-        y_r, x_r, h_mse_r, h_deriv, kernel, n_right, f_c, x_range
-    )
-
-    b_msecomb1_l = _bias_bandwidth_side(
-        y_l, x_l, h_msecomb1, h_deriv, kernel, n_left, f_c, x_range
-    )
-    b_msecomb1_r = _bias_bandwidth_side(
-        y_r, x_r, h_msecomb1, h_deriv, kernel, n_right, f_c, x_range
-    )
-
-    b_msecomb2_l = _bias_bandwidth_side(
-        y_l, x_l, h_msecomb2, h_deriv, kernel, n_left, f_c, x_range
-    )
-    b_msecomb2_r = _bias_bandwidth_side(
-        y_r, x_r, h_msecomb2, h_deriv, kernel, n_right, f_c, x_range
-    )
-
-    # ================================================================
-    # CER-optimal bandwidths
-    # ================================================================
-    cer_n = _cer_factor(n, p)
-    cer_l = _cer_factor(n_left, p)
-    cer_r = _cer_factor(n_right, p)
-
-    # cerrd: CER-optimal common
-    h_cerrd = h_mserd * cer_n
-
-    # certwo: CER-optimal separate
-    h_cer_l = h_mse_l * cer_l
-    h_cer_r = h_mse_r * cer_r
-
-    # cercomb1: min
-    h_cercomb1 = min(h_cerrd, h_cer_l, h_cer_r)
-
-    # cercomb2: median
-    h_cercomb2 = float(np.median([h_cerrd, h_cer_l, h_cer_r]))
-
-    # CER bias bandwidths (shrink b proportionally)
-    b_cerrd_l = b_mserd_l * cer_n
-    b_cerrd_r = b_mserd_r * cer_n
-    b_cer_l = b_mse_l * cer_l
-    b_cer_r = b_mse_r * cer_r
-    b_cercomb1_l = b_msecomb1_l * min(cer_n, cer_l, cer_r)
-    b_cercomb1_r = b_msecomb1_r * min(cer_n, cer_l, cer_r)
-    b_cercomb2_l = b_msecomb2_l * float(np.median([cer_n, cer_l, cer_r]))
-    b_cercomb2_r = b_msecomb2_r * float(np.median([cer_n, cer_l, cer_r]))
-
-    # ================================================================
-    # Pack results
-    # ================================================================
-    results = {
-        "mserd": (h_mserd, h_mserd, b_mserd_l, b_mserd_r),
-        "msetwo": (h_mse_l, h_mse_r, b_mse_l, b_mse_r),
-        "msecomb1": (h_msecomb1, h_msecomb1, b_msecomb1_l, b_msecomb1_r),
-        "msecomb2": (h_msecomb2, h_msecomb2, b_msecomb2_l, b_msecomb2_r),
-        "cerrd": (h_cerrd, h_cerrd, b_cerrd_l, b_cerrd_r),
-        "certwo": (h_cer_l, h_cer_r, b_cer_l, b_cer_r),
-        "cercomb1": (h_cercomb1, h_cercomb1, b_cercomb1_l, b_cercomb1_r),
-        "cercomb2": (h_cercomb2, h_cercomb2, b_cercomb2_l, b_cercomb2_r),
-    }
-    return results
-
+from ._cct_bandwidth import BW_SELECTORS, cct_bandwidth
+from ._core import _check_covariate_rank
 
 # ======================================================================
 # Public API
 # ======================================================================
 
-_VALID_METHODS = {
-    "mserd",
-    "msetwo",
-    "msecomb1",
-    "msecomb2",
-    "cerrd",
-    "certwo",
-    "cercomb1",
-    "cercomb2",
-}
+#: The ten selectors ``rdrobust::rdbwselect`` offers. ``msesum`` and
+#: ``cersum`` were absent until the Track A module 88 sweep: they are the
+#: sum-form cascades that ``*comb1`` / ``*comb2`` are *built from*, so the
+#: public entry point could not reach a bandwidth its own combination rules
+#: depend on.
+_VALID_METHODS = set(BW_SELECTORS)
 
 
 def rdbwselect(
@@ -738,11 +71,25 @@ def rdbwselect(
     """
     Bandwidth selection for local polynomial RD estimation.
 
-    Implements all eight MSE-optimal and CER-optimal bandwidth selection
-    procedures from Calonico, Cattaneo, and Farrell (2020). MSE-optimal
-    bandwidths minimize the mean squared error of the RD point estimator,
-    while CER-optimal bandwidths minimize the coverage error rate of
-    robust bias-corrected confidence intervals.
+    Runs the Calonico-Cattaneo-Titiunik three-stage cascade and returns all
+    ten MSE-optimal and CER-optimal selectors ``rdrobust`` offers.
+    MSE-optimal bandwidths minimize the mean squared error of the RD point
+    estimator, while CER-optimal bandwidths minimize the coverage error
+    rate of robust bias-corrected confidence intervals.
+
+    This is the same code path ``sp.rdrobust`` uses to pick its own default
+    bandwidth, so a value read here and passed back as ``h=`` reproduces
+    ``sp.rdrobust``'s default fit exactly. Pinned against
+    ``rdrobust::rdbwselect`` (R) and the ``rdbwselect`` ado (Stata) by Track
+    A module ``88_rdbwselect`` to 1.8e-12 and 3.7e-9 respectively, across
+    all ten selectors, polynomial orders 1-3, three kernels, covariate
+    adjustment, clustering and the regression-kink derivative.
+
+    .. versionchanged:: 1.27.0
+       Both properties above are new. This function previously ran a
+       separate single-step rule of thumb and returned bandwidths 2.8x-4.8x
+       too narrow, and the four ``comb`` selectors resolved to the plain
+       ``rd`` cascade. See MIGRATION.md — results should be recomputed.
 
     Parameters
     ----------
@@ -775,24 +122,26 @@ def rdbwselect(
 
         - ``'mserd'`` : MSE-optimal common bandwidth (default)
         - ``'msetwo'`` : MSE-optimal separate left/right bandwidths
-        - ``'msecomb1'`` : min of mserd, mseleft, mseright
-        - ``'msecomb2'`` : median of mserd, mseleft, mseright
-        - ``'cerrd'`` : CER-optimal common bandwidth
-        - ``'certwo'`` : CER-optimal separate left/right
-        - ``'cercomb1'`` : min of cerrd, cerleft, cerright
-        - ``'cercomb2'`` : median of cerrd, cerleft, cerright
+        - ``'msesum'`` : MSE-optimal for the sum of the two intercepts
+        - ``'msecomb1'`` : ``min(mserd, msesum)``, per side
+        - ``'msecomb2'`` : ``median(msetwo, mserd, msesum)``, per side
+        - ``'cerrd'``, ``'certwo'``, ``'cersum'``, ``'cercomb1'``,
+          ``'cercomb2'`` : the CER-optimal counterparts of the above
+
+        The combination rules are applied to the finished ``h`` and ``b``
+        of each cascade, element-wise per side -- not stage by stage.
     cluster : str, optional
         Cluster variable name for cluster-robust variance estimation.
     all : bool, default False
-        If True, compute and return all eight bandwidth types.
+        If True, compute and return all ten bandwidth types.
 
     Returns
     -------
     pd.DataFrame
         DataFrame with columns ``[method, h_left, h_right, b_left, b_right,
         n_left, n_right]``. When ``all=False``, contains a single row for
-        the selected method. When ``all=True``, contains eight rows for
-        all methods.
+        the selected method. When ``all=True``, contains ten rows, one
+        per method.
 
     Notes
     -----
@@ -931,18 +280,35 @@ def rdbwselect(
         )
 
     # --- Compute bandwidths ---
-    bw_all = _compute_all_bandwidths(
-        Y,
-        X_c,
-        left,
-        right,
-        p,
-        q,
-        kernel,
-        D=D,
-        covs_data=covs_data,
-        cluster_vals=cluster_vals,
-    )
+    # The CCT three-stage cascade in ``rd/_cct_bandwidth.py``, which is the
+    # same code path ``sp.rdrobust`` uses and which is pinned against
+    # ``rdrobust::rdbwselect`` by Track A module 88.
+    #
+    # This entry point previously ran a single-step rule of thumb of its own
+    # (``_compute_all_bandwidths``, now retired). That formula's exponent
+    # 1/5 equals CCT's 1/(2p+3) only at p == 1, and it produced no separate
+    # bias bandwidth b, so the published function returned h between 2.8x
+    # and 4.8x too narrow -- 4.63 against R's 17.75 on the Lee 2008 senate
+    # replica -- while its docstring advertised Calonico, Cattaneo and
+    # Farrell (2020). A user who took a bandwidth from sp.rdbwselect and
+    # passed it to sp.rdrobust(h=...) got a materially different estimate
+    # from sp.rdrobust's own default, with nothing to signal the mismatch.
+    _check_covariate_rank(X_c, covs_data, p, names=covs, where="rdbwselect")
+
+    def _bw_for(method: str) -> Tuple[float, float, float, float]:
+        out = cct_bandwidth(
+            Y,
+            X_c,
+            c=0.0,  # X_c is already centred at the cutoff
+            p=p,
+            q=q,
+            deriv=deriv,
+            kernel=kernel,
+            bwselect=method,
+            covs=covs_data,
+            cluster=cluster_vals,
+        )
+        return out["h_left"], out["h_right"], out["b_left"], out["b_right"]
 
     # --- Count effective observations for each bandwidth ---
     def _count_effective(h_l: float, h_r: float) -> Tuple[int, int]:
@@ -951,46 +317,24 @@ def rdbwselect(
         return n_eff_l, n_eff_r
 
     # --- Build output ---
-    if all:
-        methods_order = [
-            "mserd",
-            "msetwo",
-            "msecomb1",
-            "msecomb2",
-            "cerrd",
-            "certwo",
-            "cercomb1",
-            "cercomb2",
-        ]
-        rows = []
-        for method in methods_order:
-            h_l, h_r, b_l, b_r = bw_all[method]
-            n_eff_l, n_eff_r = _count_effective(h_l, h_r)
-            rows.append(
-                {
-                    "method": method,
-                    "h_left": round(h_l, 6),
-                    "h_right": round(h_r, 6),
-                    "b_left": round(b_l, 6),
-                    "b_right": round(b_r, 6),
-                    "n_left": n_eff_l,
-                    "n_right": n_eff_r,
-                }
-            )
-        return pd.DataFrame(rows)
-    else:
-        h_l, h_r, b_l, b_r = bw_all[bwselect]
+    # Bandwidths are returned at full precision. They used to be rounded to
+    # six decimals here, which capped any downstream agreement at ~1e-6
+    # relative and silently perturbed sp.rdrobust(h=...) when a user fed one
+    # back in -- a rounded selector output is not the selector's answer.
+    methods = list(BW_SELECTORS) if all else [bwselect]
+    rows = []
+    for method in methods:
+        h_l, h_r, b_l, b_r = _bw_for(method)
         n_eff_l, n_eff_r = _count_effective(h_l, h_r)
-        return pd.DataFrame(
-            [
-                {
-                    "method": bwselect,
-                    "h_left": round(h_l, 6),
-                    "h_right": round(h_r, 6),
-                    "b_left": round(b_l, 6),
-                    "b_right": round(b_r, 6),
-                    "n_left": n_eff_l,
-                    "n_right": n_eff_r,
-                }
-            ]
+        rows.append(
+            {
+                "method": method,
+                "h_left": h_l,
+                "h_right": h_r,
+                "b_left": b_l,
+                "b_right": b_r,
+                "n_left": n_eff_l,
+                "n_right": n_eff_r,
+            }
         )
+    return pd.DataFrame(rows)

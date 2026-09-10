@@ -1,0 +1,182 @@
+{
+  "module": "89_rdms",
+  "side": "py",
+  "rows": [
+    {
+      "module": "89_rdms",
+      "side": "py",
+      "statistic": "bm05_biascorrected_est",
+      "estimate": 1.4234623011686898,
+      "se": 0.10621434377455416,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    },
+    {
+      "module": "89_rdms",
+      "side": "py",
+      "statistic": "bm05_conventional_est",
+      "estimate": 1.3893911483176158,
+      "se": 0.09195373290699418,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    },
+    {
+      "module": "89_rdms",
+      "side": "py",
+      "statistic": "bm05_bandwidth_h",
+      "estimate": 0.4126417163298868,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    },
+    {
+      "module": "89_rdms",
+      "side": "py",
+      "statistic": "bm05_n_eff_left",
+      "estimate": 421.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    },
+    {
+      "module": "89_rdms",
+      "side": "py",
+      "statistic": "bm05_n_eff_right",
+      "estimate": 413.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    },
+    {
+      "module": "89_rdms",
+      "side": "py",
+      "statistic": "bp00_biascorrected_est",
+      "estimate": 2.257266858335224,
+      "se": 0.17275263245282313,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    },
+    {
+      "module": "89_rdms",
+      "side": "py",
+      "statistic": "bp00_conventional_est",
+      "estimate": 2.2192873420014907,
+      "se": 0.1488352222068102,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    },
+    {
+      "module": "89_rdms",
+      "side": "py",
+      "statistic": "bp00_bandwidth_h",
+      "estimate": 0.29564996680650213,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    },
+    {
+      "module": "89_rdms",
+      "side": "py",
+      "statistic": "bp00_n_eff_left",
+      "estimate": 175.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    },
+    {
+      "module": "89_rdms",
+      "side": "py",
+      "statistic": "bp00_n_eff_right",
+      "estimate": 218.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    },
+    {
+      "module": "89_rdms",
+      "side": "py",
+      "statistic": "bp05_biascorrected_est",
+      "estimate": 2.588644936074023,
+      "se": 0.13849264022062993,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    },
+    {
+      "module": "89_rdms",
+      "side": "py",
+      "statistic": "bp05_conventional_est",
+      "estimate": 2.564956530490565,
+      "se": 0.11603948195422163,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    },
+    {
+      "module": "89_rdms",
+      "side": "py",
+      "statistic": "bp05_bandwidth_h",
+      "estimate": 0.34655703782039593,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    },
+    {
+      "module": "89_rdms",
+      "side": "py",
+      "statistic": "bp05_n_eff_left",
+      "estimate": 275.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    },
+    {
+      "module": "89_rdms",
+      "side": "py",
+      "statistic": "bp05_n_eff_right",
+      "estimate": 278.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "boundary_points": [
+      "(0, -0.5)",
+      "(0, 0.0)",
+      "(0, 0.5)"
+    ],
+    "n_rows": 15,
+    "reference": "rdmulti::rdms (R) / rdms (Stata, rdpackages GitHub)",
+    "score": "signed Euclidean distance to the boundary point",
+    "note": "sp.rdms delegates to sp.rdrobust on the signed-distance score, which is the construction rdmulti::rdms uses. The reported point estimate is the bias-corrected one paired with the robust standard error, matching R's Estimate[2] / ci[3, ] convention; the conventional pair is pinned separately rather than folded in."
+  }
+}

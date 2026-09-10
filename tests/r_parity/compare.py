@@ -294,6 +294,35 @@ STATA_SE_GAP_NOTES: dict[str, str] = {
 #     joined SE row fails loudly and must be consciously re-budgeted.
 TOLERANCES: dict[str, dict[str, float]] = {
     "01_ols": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # RD bandwidth selection across the full selector surface: all ten CCT
+    # methods at p=1, plus polynomial order, kernel, covariates, clustering
+    # and the RKD derivative. Sixty-eight bandwidths, no standard errors --
+    # a selector returns h and b, not an estimate with a variance -- so
+    # rel_se is deliberately absent rather than set to a vacuous budget.
+    #
+    # Observed: 1.8e-12 against R across every cell, 3.7e-9 against Stata.
+    # The Stata gap is the two references' own disagreement (both are
+    # Cattaneo-group code and neither is a bridge), four orders inside the
+    # registered budget, and it sits on the msesum/cersum bias bandwidth.
+    #
+    # Packaging this module is what exposed two silent defects in the
+    # published selector; both are fixed in-branch and neither is papered
+    # over here. See PARITY_SWEEP_FINDINGS.md F1-F4.
+    "88_rdbwselect": {"rel_est": 1e-6},
+    # Multi-score / geographic RD at three boundary points along one
+    # boundary. Fifteen rows: the bias-corrected and conventional point
+    # estimates with their standard errors, the selected bandwidth, and the
+    # effective sample size on each side.
+    #
+    # Observed: 7.6e-12 against R, 3.3e-9 against Stata. The six effective
+    # sample sizes agree *exactly* on all three sides, which is the row that
+    # matters most here -- they are integers, so they cannot be argued into
+    # agreement by a tolerance, and they are what the previous
+    # implementation got wrong by a factor of thirty.
+    #
+    # Packaging this module is what exposed that sp.rdms was not computing
+    # rdmulti::rdms at all (PARITY_SWEEP_FINDINGS.md O8 -> F12).
+    "89_rdms": {"rel_est": 1e-6, "rel_se": 1e-6},
     # dCDH 2020 DID_M: the static effect, the horizon-1 dynamic effect and
     # the lag-1 placebo all match at 5e-15 on a panel where treatment
     # switches both on and off. Pinned against the ARCHIVED 0.1.4 -- the
@@ -1128,6 +1157,62 @@ def render_md(modules: list[str]) -> str:
 # expected to pass, not the worst-case row -- so a documented
 # convention gap doesn't shadow the bit-equal point-estimate result.
 HEADLINE: dict[str, dict[str, Any]] = {
+    "89_rdms": {
+        "name": "Multi-score / geographic RD at boundary points",
+        # The headline is the bias-corrected point estimate at each of the
+        # three boundary points -- the quantity rdmulti::rdms reports as
+        # its own coefficient. The conventional estimates, the selected
+        # bandwidths and the per-side effective sample sizes are all still
+        # compared and budgeted; the effective sample sizes in particular
+        # are integers and agree exactly on all three sides, which is the
+        # check the superseded implementation would have failed outright
+        # (it used 8-27 observations where the reference used 519-743).
+        "headline_filter": lambda d: d.statistic.endswith("_biascorrected_est"),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": (
+            "three boundary points along one boundary; bias-corrected and "
+            "conventional estimates, standard errors, selected bandwidths "
+            "and per-side effective sample sizes agree with \\pkg{rdmulti} "
+            "to 7.6e-12 and with Stata to 3.3e-9, and the six effective "
+            "sample sizes are exactly equal on all three sides"
+        ),
+    },
+    "88_rdbwselect": {
+        "name": "RD bandwidth selection (all ten CCT selectors)",
+        # The headline is the main bandwidth h on both sides at the p=1
+        # default, across every selector -- including the four `comb`
+        # variants, which is where the defect this module exposed lived.
+        # The bias bandwidth b and the p / kernel / covariate / cluster /
+        # deriv cells are all still compared and still budgeted; they are
+        # simply not the number the table leads with.
+        "headline_filter": lambda d: d.statistic
+        in {
+            f"{m}_h_{side}"
+            for m in (
+                "mserd",
+                "msetwo",
+                "msesum",
+                "msecomb1",
+                "msecomb2",
+                "cerrd",
+                "certwo",
+                "cersum",
+                "cercomb1",
+                "cercomb2",
+            )
+            for side in ("left", "right")
+        },
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": (
+            "all 68 bandwidths agree with \\pkg{rdrobust} to 1.8e-12 and "
+            "with Stata to 3.7e-9; \\code{certwo} is pinned against R only "
+            "because Stata \\code{rdbwselect} 10.0.0 exits \\code{r(3200)} "
+            "on that selector, including on the package authors' own "
+            "\\code{rdrobust\\_senate.dta}"
+        ),
+    },
     "85_twfe_event_study": {
         "name": "Dynamic TWFE event study (benchmark specification)",
         "headline_filter": lambda d: d.statistic in {"es_+0", "es_+1"},

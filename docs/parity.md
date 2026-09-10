@@ -27,13 +27,13 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 154 |
+| **Compared against R/Stata** (T2) | bit-exact | 162 |
 | | aligned | 16 |
-| | **subtotal** | **170** |
-| **No external software reference** | analytical-only (T1) | 221 |
+| | **subtotal** | **178** |
+| **No external software reference** | analytical-only (T1) | 216 |
 | | external-replication (published numbers) | 4 |
-| | **subtotal** | **225** |
-| No numerical evidence yet | unverified | 787 |
+| | **subtotal** | **220** |
+| No numerical evidence yet | unverified | 784 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 170 | 395 | 773 | 22.0% |
+| estimator callables | 178 | 398 | 773 | 23.0% |
 | infrastructure (parity N/A) | 0 | 0 | 124 | 0.0% |
 | result / exception classes | 0 | 0 | 285 | 0.0% |
-| **all registered** | 170 | 395 | 1182 | 14.4% |
+| **all registered** | 178 | 398 | 1182 | 15.1% |
 
 ### Coverage by estimator family
 
@@ -52,7 +52,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 60 | 144 | 331 |
+| causal | 68 | 147 | 331 |
 | regression | 28 | 35 | 37 |
 | spatial | 5 | 17 | 34 |
 | panel | 12 | 20 | 30 |
@@ -96,7 +96,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 0 | 1 | 1 |
 | synth | 0 | 0 | 1 |
 
-## bit-exact — 154 functions
+## bit-exact — 162 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -220,8 +220,16 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `psmatch2` | Stata 18 MP + psmatch2 4.0.12 / pstest 4.2.2 (Leuven & Sianesi 2003) | Stata 18 MP; psmatch2 4.0.12 | Observed py<->Stata relative gaps on the committed fixtures: nearest-neighbour ATT 1.2e-16 and its analytic SE exactly 0 (as is _weight per row); radius ATT 2.8e-16; Abadie-Imbens ai(1)/ai(2) SE 3.0e-15/1.7e-15; PSM-DID across all five weight regimes 2.0e-14; pstest per-covariate rows 1.3e-14; Mahalanobis ATT 1.2e-13; llr ATT 2.1e-10 (worst of four kernels); kernel ATT 9.1e-10; pstest summary block 1.3e-9. The two loosest rows are bounded by fixture precision, not by the estimator: pstest accumulates MeanBias/MedBias in a Stata float (2.6e-9) and r(seatt) for the llr reroute was captured at 8 significant digits (9.9e-9). | — / — | [`test_psmatch2_parity.py`](../tests/reference_parity/test_psmatch2_parity.py) (+3) |
 | `pwcompare` | pairwise-contrast identity (= Stata pwcompare) | R 4.5.2 | pairwise diff == coef difference 1e-12 abs (observed <= 1e-15) | — / — | [`test_contrast_pwcompare_parity.py`](../tests/reference_parity/test_contrast_pwcompare_parity.py) |
 | `qreg` | quantreg::rq | R 4.5.2; quantreg 6.1 | rel_est<=1e-06, rel_se<=0.1 | 3.3e-15 / 4.4e-15 | [`40_qreg.py`](../tests/r_parity/40_qreg.py) (+2) |
+| `rd_honest` | RDHonest::RDHonest 1.0.1.9000 (Armstrong & Kolesar) | R 4.5.2; RDHonest 1.0.1.9000 | estimate / std.error / maximum.bias / conf.low / conf.high 1e-9 rel at fixed bandwidth; 1e-6 rel when the bandwidth and M are selected | — / — | [`test_rdhonest_parity.py`](../tests/reference_parity/test_rdhonest_parity.py) (+1) |
+| `rdbwselect` | rdrobust::rdbwselect; Stata side uses the authors' rdbwselect ado. certwo is R-only: Stata rdbwselect 10.0.0 exits r(3200) on it, including on the package's own rdrobust_senate.dta | R 4.5.2; rdrobust 3.0.0 | rel_est<=1e-06 | 9.4e-13 / 3.5e-09 | [`88_rdbwselect.py`](../tests/r_parity/88_rdbwselect.py) (+2) |
 | `rddensity` | rddensity::rddensity | R 4.5.2; rddensity 2.6 | rel_est<=1e-06, rel_se<=1e-06 | 9.3e-12 / 1.8e-11 | [`09_rddensity.py`](../tests/r_parity/09_rddensity.py) (+2) |
+| `rdmc` | rdmulti::rdmc 2.0.0 (Cattaneo, Titiunik, Vazquez-Bare & Keele) | R 4.5.2; rdmulti 2.0.0 | per-cutoff coefficients, robust coefficients, robust SEs and the pooled weighted estimate 1e-9 rel; selected bandwidths 1e-5 rel | — / — | [`test_rdmulti_parity.py`](../tests/reference_parity/test_rdmulti_parity.py) (+1) |
+| `rdms` | rdmulti::rdms; Stata side uses the rdms ado from the rdpackages GitHub mirror (rdmulti is not on SSC: ssc describe rdmulti returns r(601)), installed into a local gitignored ado path | R 4.5.2 | rel_est<=1e-06, rel_se<=1e-06 | 1.2e-12 / 5.4e-10 | [`89_rdms.py`](../tests/r_parity/89_rdms.py) (+2) |
+| `rdpower` | rdpower::rdpower 3.0 (Cattaneo, Titiunik & Vazquez-Bare) | R 4.5.2; rdpower 3.0 | robust bias-corrected SE & power 1e-8 rel (observed 4.2e-14) | — / — | [`test_rdlocrand_parity.py`](../tests/reference_parity/test_rdlocrand_parity.py) (+1) |
+| `rdrandinf` | rdlocrand::rdrandinf 2.0 (Cattaneo, Titiunik & Vazquez-Bare) | R 4.5.2; rdlocrand 2.0 | observed statistic & asymptotic p-value 1e-8 rel (observed 2.3e-15) | — / — | [`test_rdlocrand_parity.py`](../tests/reference_parity/test_rdlocrand_parity.py) (+1) |
 | `rdrobust` | rdrobust::rdrobust | R 4.5.2; rdrobust 3.0.0 | rel_est<=1e-06, rel_se<=0.1 | 2.5e-14 / 9.4e-11 | [`06_rd.py`](../tests/r_parity/06_rd.py) (+2) |
+| `rdsampsi` | rdpower::rdsampsi 3.0 (Cattaneo, Titiunik & Vazquez-Bare) | R 4.5.2; rdpower 3.0 | required sample sizes n_left / n_right / n_total asserted as exact integer equality (no tolerance) | — / — | [`test_rdlocrand_parity.py`](../tests/reference_parity/test_rdlocrand_parity.py) (+1) |
+| `rdwinselect` | rdlocrand::rdwinselect 2.0 (Cattaneo, Titiunik & Vazquez-Bare) | R 4.5.2; rdlocrand 2.0 | window grid 1e-12 rel (observed 0); per-window counts Nl / Nr asserted as exact integer equality | — / — | [`test_rdlocrand_parity.py`](../tests/reference_parity/test_rdlocrand_parity.py) (+1) |
 | `regress` | lm + sandwich::vcovHC | R 4.5.2; sandwich 3.1.1 | rel_est<=1e-06, rel_se<=1e-06 | 1.1e-12 / 1.3e-12 | [`01_ols.py`](../tests/r_parity/01_ols.py) (+2) |
 | `relative_risk` | base-R closed form (Katz-log; = epiR::epi.2by2 / Stata epitab) | R 4.5.2 | estimate, se_log, CI 1e-12 abs (observed 0) | — / — | [`test_epi_parity.py`](../tests/reference_parity/test_epi_parity.py) (+1) |
 | `reset_test` | lmtest::resettest(power=2:3, type='fitted') | R 4.5.2; lmtest 0.9.40 | F-statistic & p-value 1e-10 rel (observed ~1e-13) | — / — | [`test_diagnostics_parity.py`](../tests/reference_parity/test_diagnostics_parity.py) (+1) |
@@ -291,7 +299,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 221 functions
+## analytical-only — 216 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -466,11 +474,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `qte_hd_panel` | [`test_hd_panel_qte.py`](../tests/reference_parity/test_hd_panel_qte.py) |
 | `quasi_untreated_test` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) |
 | `rate` | [`test_forest_rate_honest_parity.py`](../tests/reference_parity/test_forest_rate_honest_parity.py) |
-| `rd_honest` | [`test_rdhonest_parity.py`](../tests/reference_parity/test_rdhonest_parity.py) |
-| `rdmc` | [`test_rdmulti_parity.py`](../tests/reference_parity/test_rdmulti_parity.py) |
-| `rdpower` | [`test_rdlocrand_parity.py`](../tests/reference_parity/test_rdlocrand_parity.py) |
-| `rdrandinf` | [`test_rdlocrand_parity.py`](../tests/reference_parity/test_rdlocrand_parity.py) |
-| `rdwinselect` | [`test_rdlocrand_parity.py`](../tests/reference_parity/test_rdlocrand_parity.py) |
 | `regime` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
 | `ri_test` | [`test_recovery_batch2_parity.py`](../tests/reference_parity/test_recovery_batch2_parity.py) (+1) |
 | `rifreg` | [`test_decomposition_family_parity.py`](../tests/reference_parity/test_decomposition_family_parity.py) |
@@ -519,6 +522,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `xtlsdvc` | [`test_lsdvc_parity.py`](../tests/reference_parity/test_lsdvc_parity.py) |
 | `yatchew_linearity_test` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) |
 
-## unverified — 787 functions
+## unverified — 784 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

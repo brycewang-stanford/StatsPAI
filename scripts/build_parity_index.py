@@ -122,6 +122,159 @@ _FACTOR_NOTES: Dict[str, Tuple[str, ...]] = {
 # tests/reference_parity/REFERENCES.md (the "Frozen R-value fixtures" table)
 # and the asserting test — no model-memory facts (CLAUDE.md §10).
 _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
+    # ---- RD local randomization / power / multi-cutoff / honest CIs ----
+    #
+    # These six were graded `analytical-only` -- the grade whose published
+    # definition is "no cross-package reference" -- while frozen fixtures
+    # generated from the Cattaneo group's own R packages sat in
+    # `_fixtures/` and tight equality assertions ran against them on every
+    # test run. The evidence existed; only the bookkeeping was missing,
+    # because `tests/reference_parity/REFERENCES.md` never listed these
+    # three fixtures and this table is populated from that list. Under-
+    # stating real evidence is the mirror image of over-claiming, and the
+    # ledger has to be right in both directions.
+    "rdrandinf": {
+        "status": "bit-exact",
+        "reference": "rdlocrand::rdrandinf 2.0 (Cattaneo, Titiunik & Vazquez-Bare)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "rdlocrand": "2.0",
+        },
+        "tolerance": "observed statistic & asymptotic p-value 1e-8 rel (observed 2.3e-15)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rdlocrand_parity.py",
+            "tests/reference_parity/_fixtures/rdlocrand_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture across three windows x three statistics. The "
+            "randomization p-value is deliberately NOT pinned -- it is a draw "
+            "from R's Mersenne stream, which Python cannot reproduce, so "
+            "equality there would be a test passing for the wrong reason; it "
+            "is checked by its sampling behaviour instead. The deterministic "
+            "quantities are what carry this grade. Regenerate via "
+            "_generate_rdlocrand_R.R."
+        ),
+    },
+    "rdwinselect": {
+        "status": "bit-exact",
+        "reference": "rdlocrand::rdwinselect 2.0 (Cattaneo, Titiunik & Vazquez-Bare)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "rdlocrand": "2.0",
+        },
+        "tolerance": (
+            "window grid 1e-12 rel (observed 0); per-window counts Nl / Nr "
+            "asserted as exact integer equality"
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rdlocrand_parity.py",
+            "tests/reference_parity/_fixtures/rdlocrand_R.json",
+        ],
+        "note": (
+            "The counts assertion is what makes this a data-dependent claim: "
+            "the window grid alone is fixed by wmin/wstep and would agree "
+            "with any sample. Adding it exposed that the function had no "
+            "missing-data handling and was running on up to 20% more rows "
+            "per window than rdlocrand; all twelve counts match exactly now. "
+            "Balance p-values are randomization-based and excluded."
+        ),
+    },
+    "rdpower": {
+        "status": "bit-exact",
+        "reference": "rdpower::rdpower 3.0 (Cattaneo, Titiunik & Vazquez-Bare)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "rdpower": "3.0",
+        },
+        "tolerance": "robust bias-corrected SE & power 1e-8 rel (observed 4.2e-14)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rdlocrand_parity.py",
+            "tests/reference_parity/_fixtures/rdlocrand_R.json",
+        ],
+        "note": (
+            "Data mode: R's rdpower(data=) is rdrobust's robust SE plus the "
+            "power formula, so this pins the whole chain rather than the "
+            "closed form on top of it. Three effect sizes."
+        ),
+    },
+    "rdsampsi": {
+        "status": "bit-exact",
+        "reference": "rdpower::rdsampsi 3.0 (Cattaneo, Titiunik & Vazquez-Bare)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "rdpower": "3.0",
+        },
+        "tolerance": (
+            "required sample sizes n_left / n_right / n_total asserted as "
+            "exact integer equality (no tolerance)"
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rdlocrand_parity.py",
+            "tests/reference_parity/_fixtures/rdlocrand_R.json",
+        ],
+        "note": (
+            "Data mode, added in 1.27.0 so the reference call has a "
+            "counterpart at all. Two details decide the answer and neither "
+            "survives a tolerance band: the sample size is ceilinged inside "
+            "the Newton-Raphson solve rather than at the end, and the sides "
+            "are allocated by sqrt(variance) rather than by observed counts "
+            "-- allocating by counts reproduces the total to ~1% while "
+            "splitting the sides wrong."
+        ),
+    },
+    "rd_honest": {
+        "status": "bit-exact",
+        "reference": "RDHonest::RDHonest 1.0.1.9000 (Armstrong & Kolesar)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "RDHonest": "1.0.1.9000",
+        },
+        "tolerance": (
+            "estimate / std.error / maximum.bias / conf.low / conf.high "
+            "1e-9 rel at fixed bandwidth; 1e-6 rel when the bandwidth and M "
+            "are selected"
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rdhonest_parity.py",
+            "tests/reference_parity/_fixtures/rdhonest_R.json",
+        ],
+        "note": (
+            "The two tiers are the honest split: the fixed-bandwidth "
+            "interval is a deterministic function of the design, while the "
+            "selected bandwidth and curvature bound come from an "
+            "optimisation whose convergence path differs across "
+            "implementations."
+        ),
+    },
+    "rdmc": {
+        "status": "bit-exact",
+        "reference": "rdmulti::rdmc 2.0.0 (Cattaneo, Titiunik, Vazquez-Bare & Keele)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "rdmulti": "2.0.0",
+        },
+        "tolerance": (
+            "per-cutoff coefficients, robust coefficients, robust SEs and "
+            "the pooled weighted estimate 1e-9 rel; selected bandwidths "
+            "1e-5 rel"
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rdmulti_parity.py",
+            "tests/reference_parity/_fixtures/rdmulti_R.json",
+        ],
+        "note": (
+            "Pins the per-unit-cutoff estimator R's rdmc actually "
+            "implements, in which cutoff c is identified only from the "
+            "units assigned to c. Bandwidths carry the looser tier because "
+            "they are selected rather than closed-form."
+        ),
+    },
     "panel_qtet": {
         "status": "bit-exact",
         "reference": "qte::panel.qtet 1.3.1 (Callaway & Li 2019)",

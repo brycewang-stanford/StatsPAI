@@ -1,0 +1,198 @@
+{
+  "module": "89_rdms",
+  "side": "Stata",
+  "rows": [
+    {
+      "module": "89_rdms",
+      "side": "Stata",
+      "statistic": "bm05_biascorrected_est",
+      "estimate": 1.4234623011907841,
+      "se": 0.1062143437595927,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+,
+    {
+      "module": "89_rdms",
+      "side": "Stata",
+      "statistic": "bm05_conventional_est",
+      "estimate": 1.3893911483366499,
+      "se": 0.091953732895860701,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+,
+    {
+      "module": "89_rdms",
+      "side": "Stata",
+      "statistic": "bm05_bandwidth_h",
+      "estimate": 0.41264171637661218,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+,
+    {
+      "module": "89_rdms",
+      "side": "Stata",
+      "statistic": "bm05_n_eff_left",
+      "estimate": 421,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+,
+    {
+      "module": "89_rdms",
+      "side": "Stata",
+      "statistic": "bm05_n_eff_right",
+      "estimate": 413,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+,
+    {
+      "module": "89_rdms",
+      "side": "Stata",
+      "statistic": "bp00_biascorrected_est",
+      "estimate": 2.2572668571250358,
+      "se": 0.17275263197654889,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+,
+    {
+      "module": "89_rdms",
+      "side": "Stata",
+      "statistic": "bp00_conventional_est",
+      "estimate": 2.219287340940443,
+      "se": 0.1488352217347079,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+,
+    {
+      "module": "89_rdms",
+      "side": "Stata",
+      "statistic": "bp00_bandwidth_h",
+      "estimate": 0.2956499677923774,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+,
+    {
+      "module": "89_rdms",
+      "side": "Stata",
+      "statistic": "bp00_n_eff_left",
+      "estimate": 175,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+,
+    {
+      "module": "89_rdms",
+      "side": "Stata",
+      "statistic": "bp00_n_eff_right",
+      "estimate": 218,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+,
+    {
+      "module": "89_rdms",
+      "side": "Stata",
+      "statistic": "bp05_biascorrected_est",
+      "estimate": 2.5886449360671828,
+      "se": 0.1384926402123588,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+,
+    {
+      "module": "89_rdms",
+      "side": "Stata",
+      "statistic": "bp05_conventional_est",
+      "estimate": 2.564956530482835,
+      "se": 0.1160394819468617,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+,
+    {
+      "module": "89_rdms",
+      "side": "Stata",
+      "statistic": "bp05_bandwidth_h",
+      "estimate": 0.34655703784180469,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+,
+    {
+      "module": "89_rdms",
+      "side": "Stata",
+      "statistic": "bp05_n_eff_left",
+      "estimate": 275,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+,
+    {
+      "module": "89_rdms",
+      "side": "Stata",
+      "statistic": "bp05_n_eff_right",
+      "estimate": 278,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 6000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "stata_command": "rdms y x1 x2 z, cvar(Cvar C2var)",
+    "install_note": "rdmulti is not on SSC (ssc describe rdmulti: r(601)); net install from raw.githubusercontent.com/rdpackages/rdmulti/master/stata into tests/stata_parity/_ado_rdmulti",
+    "reference_role": "canonical (Cattaneo group maintains R and Stata)"
+  },
+  "provenance": {
+    "stata_version": 18,
+    "edition": "MP",
+    "os": "Unix",
+    "machine_type": "Mac (Apple Silicon)",
+    "born_date": "07 Jun 2023",
+    "captured_via": "tests/stata_parity/_common.do::stata_parity_close"
+  }
+}

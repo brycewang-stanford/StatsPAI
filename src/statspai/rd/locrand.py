@@ -20,6 +20,7 @@ Cattaneo, M.D., Titiunik, R. and Vazquez-Bare, G. (2016).
 *The Stata Journal*, 16(2), 331-367. [@cattaneo2016inference]
 """
 
+import warnings
 from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -27,6 +28,34 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
+from ._core import _complete_cases
+
+
+def _drop_incomplete(frame, columns, *, where: str):
+    """Drop non-finite rows and say so, rather than propagating a NaN.
+
+    The local-randomization entry points had no missing-data handling,
+    while ``sp.rdrobust`` in the same subpackage has always dropped
+    incomplete rows. The asymmetry was not benign: a missing outcome
+    inside the window turned the difference in means into NaN, and since
+    ``abs(nan) >= abs(nan)`` is False for every draw, the permutation
+    count stayed at zero and the reported p-value came out exactly 0.000
+    -- the most significant answer the test can give, produced by a
+    statistic that never computed. Dropping silently would trade one
+    quiet failure for another, so the count is warned (CLAUDE.md §3.7).
+    """
+    cleaned, n_dropped = _complete_cases(frame, columns)
+    if n_dropped:
+        warnings.warn(
+            f"{where}: dropped {n_dropped} observation(s) inside the window "
+            f"with a missing or non-finite value in {[c for c in columns if c]}. "
+            f"{len(cleaned)} remain. Randomization inference is run on the "
+            "complete cases only.",
+            UserWarning,
+            stacklevel=3,
+        )
+    return cleaned, n_dropped
+
 
 # ======================================================================
 # Citation registration
@@ -363,6 +392,7 @@ def rdrandinf(
     # --- subset to window ---
     mask = _select_window(data, x, c, wl_value, wr_value)
     df_w = data.loc[mask].copy()
+    df_w, _n_missing = _drop_incomplete(df_w, [y, x, covs, fuzzy], where="rdrandinf")
     n_obs = len(df_w)
     if n_obs < 4:
         raise ValueError(  # pragma: no cover
@@ -638,6 +668,11 @@ def rdwinselect(
     [26, 74, 129, 193, 249]
     """
     rng = np.random.default_rng(seed)
+    # Cleaned once, before the window grid is derived: the grid is built
+    # from quantiles and gaps of the running variable, so dropping rows
+    # afterwards would leave the windows keyed to a sample that no longer
+    # exists. Warned once here rather than once per window.
+    data, _n_missing = _drop_incomplete(data, [x, covs], where="rdwinselect")
     xv = data[x].values.astype(float)
 
     # --- determine window grid ---
@@ -760,6 +795,7 @@ def rdsensitivity(
     n_perms: int = 500,
     seed: int = 42,
     alpha: float = 0.05,
+    plot: bool = False,
 ) -> pd.DataFrame:
     """
     Sensitivity of RD estimates across different window widths.
@@ -818,6 +854,11 @@ def rdsensitivity(
     >>> bool(sens["significant"].all())
     True
     """
+    # Cleaned once here rather than inside each per-window rdrandinf call:
+    # the default window grid is derived from the running variable's own
+    # spacing, so it has to be built on the sample that will actually be
+    # estimated, and one warning is more useful than `nwindows` of them.
+    data, _n_missing = _drop_incomplete(data, [y, x], where="rdsensitivity")
     xv = data[x].values.astype(float)
 
     if wlist is None:
@@ -896,11 +937,23 @@ def rdsensitivity(
 
     result = pd.DataFrame(rows)
 
-    # Auto-plot if matplotlib is available
+    # Figure built only on request, and never shown.
+    #
+    # This block used to run unconditionally and end in ``plt.show()``.
+    # Under an interactive backend -- ``macosx`` is the default on the
+    # platform this is developed on -- ``show()`` blocks until a human
+    # closes the window, so `sp.rdsensitivity(...)` never returned in a
+    # script, a test run, a CI job or an agent session. That is a hard
+    # hang in an estimation function, in a package whose stated purpose
+    # is to be callable by agents.
+    #
+    # Displaying is the caller's decision in every case: the returned
+    # figure is attached to ``result.attrs["figure"]`` so a notebook user
+    # can render it and everyone else can ignore it.
     try:
         import matplotlib.pyplot as plt
 
-        valid = result.dropna(subset=["estimate"])
+        valid = result.dropna(subset=["estimate"]) if plot else result.iloc[:0]
         if len(valid) > 0:
             fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
@@ -935,7 +988,7 @@ def rdsensitivity(
             ax.legend()
 
             plt.tight_layout()
-            plt.show()
+            result.attrs["figure"] = fig
     except ImportError:  # pragma: no cover
         pass  # pragma: no cover
 
@@ -1037,6 +1090,7 @@ def rdrbounds(
     # Subset to window
     mask = _select_window(data, x, c, wl_value, wr_value)
     df_w = data.loc[mask].copy()
+    df_w, _n_missing = _drop_incomplete(df_w, [y, x], where="rdrbounds")
     n_obs = len(df_w)
     if n_obs < 4:
         raise ValueError(f"Only {n_obs} observations in window.")  # pragma: no cover

@@ -194,6 +194,19 @@ def test_winselect_window_sequence_matches_r(rjson, senate):
 
     The balance p-values are randomization-based and so are excluded for
     the same reason as above; the geometry and the counts are not.
+
+    The counts assertion is new. This test previously checked only
+    ``w_right``, which is fixed by ``wmin`` / ``wstep`` and therefore does
+    not depend on the data at all -- so the test could not have detected
+    that ``sp.rdwinselect`` was running on a different sample than R.
+    It was: the function had no missing-data handling, and the senate
+    fixture carries 189 rows with a missing covariate, which put every
+    window's count above R's by up to 20% (right-side counts
+    ``[14, 25, 36, 47, 57, 65]`` against R's ``[10, 21, 31, 40, 48, 54]``).
+    Since the recommended window is the largest one that stays balanced,
+    the recommendation itself was derived from rows R excludes.
+    ``Nl`` / ``Nr`` are deterministic and were in the fixture the whole
+    time; they are checked now.
     """
     ref = rjson["winselect"]
     out = sp.rdwinselect(
@@ -214,6 +227,14 @@ def test_winselect_window_sequence_matches_r(rjson, senate):
         np.asarray(ref["w_right"], dtype=float),
         rtol=1e-12,
     )
+
+    # Per-window sample sizes: integer counts, so exact equality is the
+    # right assertion and any tolerance would be hiding something.
+    nl_col = cols.get("nl") or cols.get("n_left")
+    nr_col = cols.get("nr") or cols.get("n_right")
+    assert nl_col and nr_col, f"no count columns in {list(out.columns)}"
+    assert out[nl_col].tolist()[: len(ref["Nl"])] == list(ref["Nl"])
+    assert out[nr_col].tolist()[: len(ref["Nr"])] == list(ref["Nr"])
 
 
 # ── rdpower ─────────────────────────────────────────────────────────────── #
@@ -252,6 +273,72 @@ def test_power_is_monotone_in_tau(senate):
     ]
     assert powers == sorted(powers)
     assert powers[0] < 0.1 and powers[-1] > 0.99
+
+
+# ── rdsampsi ────────────────────────────────────────────────────────────── #
+
+
+@pytest.mark.parametrize("tau", [1, 3, 5])
+def test_sampsi_data_mode_matches_r_exactly(rjson, senate, tau):
+    """Required sample sizes are integers, so equality is the only bar.
+
+    These reference values shipped in the fixture from the day it was
+    generated and were asserted against nothing until data mode existed:
+    ``sp.rdsampsi`` took only ``var_*`` / ``h_*``, so R's
+    ``rdsampsi(data = ...)`` had no counterpart to compare with.
+
+    A tolerance would be meaningless here and would also hide the two
+    places this calculation can go quietly wrong -- the sample size is
+    ceilinged inside the Newton-Raphson solve rather than at the end, and
+    the sides are split by ``sqrt(variance)`` rather than by their
+    observed counts. Both are off-by-a-little errors that a 1% band would
+    swallow whole.
+    """
+    ref = rjson[f"sampsi_tau{tau}"]
+    res = sp.rdsampsi(tau=tau, data=senate, y="vote", x="margin", c=0)
+    assert res.n_left == ref["n_left"]
+    assert res.n_right == ref["n_right"]
+    assert res.n_total == ref["n_total"]
+
+
+def test_sampsi_split_is_not_proportional_to_the_observed_counts(rjson, senate):
+    """Guard the allocation rule, not just the total.
+
+    Splitting by observed counts instead of ``sqrt(variance)`` reproduces
+    the total to about 1% while getting the sides visibly wrong. On this
+    fixture it predicts roughly 8567 / 7687 against R's 9135 / 7256 — so
+    a test that checked only ``n_total`` would pass against the wrong
+    rule. This asserts the two allocations actually differ here, which is
+    what makes the equality test above discriminating.
+    """
+    ref = rjson["sampsi_tau1"]
+    nh_l, nh_r = ref["Nh_l"], ref["Nh_r"]
+    by_counts = ref["n_total"] * nh_r / (nh_l + nh_r)
+    assert abs(by_counts - ref["n_right"]) > 100, (
+        "count-proportional and variance-proportional allocation coincide on "
+        "this fixture; the equality test cannot tell the two rules apart"
+    )
+
+
+def test_sampsi_design_mode_is_unchanged():
+    """Adding data mode must not disturb the pre-existing calculator."""
+    res = sp.rdsampsi(tau=0.15, target_power=0.80)
+    assert (res.n_total, res.n_left, res.n_right) == (978, 489, 489)
+
+
+def test_sampsi_rejects_half_specified_data_mode(senate):
+    """``y=`` without ``data=`` must raise, not silently use design mode."""
+    with pytest.raises(ValueError, match="data="):
+        sp.rdsampsi(tau=1.0, y="vote", x="margin")
+
+
+def test_sampsi_is_monotone_in_tau(senate):
+    """Property test: bigger effects need smaller samples."""
+    sizes = [
+        sp.rdsampsi(tau=t, data=senate, y="vote", x="margin").n_total
+        for t in (1, 2, 3, 5, 8)
+    ]
+    assert sizes == sorted(sizes, reverse=True)
 
 
 def test_datasets_match_the_r_side(rjson, senate):

@@ -216,8 +216,25 @@ def test_strictness_tier_breakdown_matches_current_artifacts():
     # is matched with ssc(fixef.K = "none"). Non-staggered by design --
     # the saturated specification is under-identified with few cohorts
     # and is the contaminated object Sun-Abraham describes when it is not.
+    # 88_rdbwselect joins the machine tier: all ten CCT bandwidth selectors
+    # across polynomial orders 1-3, three kernels, covariate adjustment,
+    # clustering and the RKD derivative -- 68 bandwidths at 1.8e-12 against
+    # rdrobust::rdbwselect and 3.7e-9 against the Stata ado, both of them
+    # Cattaneo-group code rather than a bridge. Four cells (`certwo`) are
+    # R-only: Stata rdbwselect 10.0.0 exits r(3200) on that selector,
+    # reproducibly and including on the package's own rdrobust_senate.dta,
+    # so the .do file asserts the failure still happens rather than leaving
+    # a stale exclusion behind.
+    # 89_rdms joins the machine tier: three boundary points along one
+    # boundary, each pinning the bias-corrected and conventional estimate,
+    # their standard errors, the selected bandwidth and the effective
+    # sample size on each side -- 7.6e-12 against rdmulti::rdms and 3.3e-9
+    # against the Stata ado, with the six effective sample sizes exactly
+    # equal on all three sides. That last row is the one that matters: the
+    # superseded implementation used 8-27 observations where the reference
+    # used 519-743, and integer counts cannot be reconciled by a tolerance.
     assert compare.tier_breakdown(rendered_modules) == {
-        "machine": 78,
+        "machine": 80,
         "iterative": 7,
         "moderate": 1,
         "methodological": 1,

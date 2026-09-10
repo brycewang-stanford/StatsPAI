@@ -24111,7 +24111,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Armstrong-Kolesar (2018) honest confidence intervals for sharp regression discontinuity -- the only RD inference procedure with provable finite-sample coverage without bandwidth-selection bias. M is the upper bound on the second derivative of E[Y|X] near the cutoff; smaller M means tighter CIs but riskier coverage if the true curvature is larger. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Armstrong-Kolesar (2018) honest confidence intervals for sharp regression discontinuity -- the only RD inference procedure with provable finite-sample coverage without bandwidth-selection bias. M is the upper bound on the second derivative of E[Y|X] near the cutoff; smaller M means tighter CIs but riskier coverage if the true curvature is larger. Validation: certified parity evidence.",
     "example": "sp.rd_honest(df, y=\"score\", x=\"income\", c=10000, M=0.05)",
     "failure_modes": [
       {
@@ -24165,7 +24165,7 @@
     ],
     "reference": "Armstrong & Kolesar (2018) Econometrica [@armstrong2018optimal]",
     "signature": {
-      "description": "Armstrong-Kolesar (2018) honest confidence intervals for sharp regression discontinuity -- the only RD inference procedure with provable finite-sample coverage without bandwidth-selection bias. M is the upper bound on the second derivative of E[Y|X] near the cutoff; smaller M means tighter CIs but riskier coverage if the true curvature is larger. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Armstrong-Kolesar (2018) honest confidence intervals for sharp regression discontinuity -- the only RD inference procedure with provable finite-sample coverage without bandwidth-selection bias. M is the upper bound on the second derivative of E[Y|X] near the cutoff; smaller M means tighter CIs but riskier coverage if the true curvature is larger. Validation: certified parity evidence.",
       "name": "rd_honest",
       "parameters": {
         "properties": {
@@ -24241,10 +24241,10 @@
     "typical_n_min": 500,
     "validation_notes": [
       "tests/reference_parity/test_rdhonest_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_rdhonest_parity.py",
+      "Cross-language parity (bit-exact) vs RDHonest::RDHonest 1.0.1.9000 (Armstrong & Kolesar) [R R version 4.5.2 (2025-10-31), RDHonest 1.0.1.9000]; tolerance estimate / std.error / maximum.bias / conf.low / conf.high 1e-9 rel at fixed bandwidth; 1e-6 rel when the bandwidth and M are selected -- tests/reference_parity/test_rdhonest_parity.py",
       "API/unit contract evidence: tests/test_rd_validation.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -25796,7 +25796,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Randomization inference for regression discontinuity designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Randomization inference for regression discontinuity designs. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -25822,7 +25822,7 @@
     ],
     "reference": "cattaneo2016inference",
     "signature": {
-      "description": "Randomization inference for regression discontinuity designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Randomization inference for regression discontinuity designs. Validation: certified parity evidence.",
       "name": "rdrandinf",
       "parameters": {
         "properties": {
@@ -25905,9 +25905,9 @@
     "typical_n_min": 500,
     "validation_notes": [
       "tests/reference_parity/test_rdlocrand_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_rdlocrand_parity.py"
+      "Cross-language parity (bit-exact) vs rdlocrand::rdrandinf 2.0 (Cattaneo, Titiunik & Vazquez-Bare) [R R version 4.5.2 (2025-10-31), rdlocrand 2.0]; tolerance observed statistic & asymptotic p-value 1e-8 rel (observed 2.3e-15) -- tests/reference_parity/test_rdlocrand_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -35151,7 +35151,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Multi-cutoff RD design. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Multi-cutoff RD design. Validation: certified parity evidence.",
     "example": "sp.rdmc(df, y='score', x='running_var', cutoffs=[50, 70, 90])",
     "failure_modes": [
       {
@@ -35177,7 +35177,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Multi-cutoff RD design. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Multi-cutoff RD design. Validation: certified parity evidence.",
       "name": "rdmc",
       "parameters": {
         "properties": {
@@ -35236,9 +35236,9 @@
     "typical_n_min": 500,
     "validation_notes": [
       "tests/reference_parity/test_rdmulti_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_rdmulti_parity.py"
+      "Cross-language parity (bit-exact) vs rdmulti::rdmc 2.0.0 (Cattaneo, Titiunik, Vazquez-Bare & Keele) [R R version 4.5.2 (2025-10-31), rdmulti 2.0.0]; tolerance per-cutoff coefficients, robust coefficients, robust SEs and the pooled weighted estimate 1e-9 rel; selected bandwidths 1e-5 rel -- tests/reference_parity/test_rdmulti_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -35253,7 +35253,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Multi-score / Geographic RD design.",
+    "description": "Multi-score / Geographic RD design at a single boundary point. Validation: certified parity evidence.",
     "example": "sp.rdms(df, y='outcome', x1='dist_lat', x2='dist_lon')",
     "failure_modes": [
       {
@@ -35279,7 +35279,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Multi-score / Geographic RD design.",
+      "description": "Multi-score / Geographic RD design at a single boundary point. Validation: certified parity evidence.",
       "name": "rdms",
       "parameters": {
         "properties": {
@@ -35289,7 +35289,7 @@
             "type": "number"
           },
           "bandwidth": {
-            "description": "Bandwidth used for local smoothing or kernel weighting.",
+            "description": "Fixed bandwidth on the signed-distance score. When omitted the CCT MSE-optimal cascade selects it, as the reference does.",
             "type": "number"
           },
           "cutoff1": {
@@ -35309,6 +35309,10 @@
           "kernel": {
             "default": "triangular",
             "description": "Kernel function used for weighting or smoothing.",
+            "type": "string"
+          },
+          "treat": {
+            "description": "Column holding the 0/1 treatment indicator (R's ``zvar``). Strongly",
             "type": "string"
           },
           "x1": {
@@ -35335,8 +35339,12 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "R parity module 89_rdms",
+      "Stata parity module 89_rdms",
+      "Cross-language parity (bit-exact) vs rdmulti::rdms; Stata side uses the rdms ado from the rdpackages GitHub mirror (rdmulti is not on SSC: ssc describe rdmulti returns r(601)), installed into a local gitignored ado path [R R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 89_rdms -- tests/r_parity/89_rdms.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -35506,6 +35514,10 @@
           "kernel": {
             "default": "triangular",
             "description": "Kernel function used for weighting or smoothing.",
+            "type": "string"
+          },
+          "treat": {
+            "description": "Treatment indicator or first-treatment-period column.",
             "type": "string"
           },
           "x1": {
