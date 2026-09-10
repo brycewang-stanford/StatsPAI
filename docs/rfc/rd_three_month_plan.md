@@ -380,11 +380,30 @@ CER 变体 = 对应 MSE 变体乘一个 `N^(-ε)` 收缩因子（见 `rdbwselect
 19 个 `xfail(strict)` 守住这些；另有一个**上界测试**（10%）防止未来退回到
 sharp 路径曾经的 60% 量级——即使 strict 断言仍是 xfail 也会失败。
 
+> **2026-09-11 更新：本节四行差距全部关闭，`xfail` 已清零。**
+>
+> 上面第一条结论**读错了**，值得留在这里当教训。`fuzzy` 那个 1.2e-08 不是
+> "级联对 fuzzy 已生效"，而是**级联根本没看 `T`**：本夹具的 `treat` 是
+> 单边不依从（断点下方无人接受处理），`rdbwselect` 检测到某一侧一阶段
+> 无变异就走 R 的 `perf_comp` 分支、丢掉 `T`、退回 sharp 带宽。1.2e-08 是
+> sharp 级联在和自己对齐。换成**双边不依从**的设计，同一份代码的 `h`
+> 差 **9%–16%**（见 `test_rdrobust_fuzzy_parity.py` 与
+> `_generate_rdrobust_fuzzy_R.R`）。
+>
+> 同一条链上还有一处：`sp.rdbwselect(fuzzy=)` 解析了参数却**从不传给级联**，
+> 而 docstring 写着"会计入一阶段方差"。单边设计同样无法暴露它。
+>
+> 方差侧的真实机制是：R 把偏差修正算子**同时**作用在 `Y` 和 `T` 上，
+> 用 delta 法权重 `s_Y = [1/tau_T, -tau_Y/tau_T^2]` 合成
+> `tau_bc = tau_cl - s_Y'(bias_Y, bias_T)`，并用同一个 `s_Y` 折叠残差矩阵。
+> 拿 sharp 的偏差修正值去除以单独偏差修正过的一阶段（1.26.x 的做法）是
+> **另一个估计量**：它丢掉了分子分母之间的协方差。
+
 **未完成（按优先级）**：
 
-1. **CCT 的协变量投影与聚类机制**：`_vbr` / `cct_bias_corrected` 需要 Z 列、
-   `s` 向量与 gamma 投影（R 侧的 `dZ` 分支），以及 `rdrobust_vce` 的
-   cluster 路径。这是 covs/cluster 带宽与全部 SE 的共同前提。
+1. ~~**CCT 的协变量投影与聚类机制**~~ **已完成。** `_vbr` /
+   `cct_bias_corrected` 现在带 Z 列、`s` 向量与 gamma 投影（R 的 `dZ`
+   分支）以及 `rdrobust_vce` 的 cluster 路径；`fuzzy` 于 1.27.0 补齐。
 2. **`vce=` 参数不存在**：R 有 `hc0..hc3` / `cr*`，`sp.rdrobust` 一个都没有，
    R 脚本无法迁移。这是 API 缺口，不是数值问题。
 2. **WP-3～WP-7**：密度检验、局部随机化、多断点、honest CI、其余 33 个函数分诊。

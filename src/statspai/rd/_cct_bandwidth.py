@@ -249,19 +249,30 @@ def _vbr(
     Z: Optional[np.ndarray] = None,
     vce: str = "nn",
     C: Optional[np.ndarray] = None,
+    T: Optional[np.ndarray] = None,
 ) -> Dict[str, float]:
     """``rdrobust_bw``: variance ``V``, bias ``B``, regularisation ``R``.
 
-    Sharp RD. ``Z`` supplies covariates, which are partialled out of the
-    local polynomial Frisch-Waugh style: the residual maker is the vector
+    ``Z`` supplies covariates, which are partialled out of the local
+    polynomial Frisch-Waugh style: the residual maker is the vector
     ``s = [1, -gamma]`` where ``gamma`` solves the covariate block of the
     weighted normal equations after projecting out the polynomial basis.
+
+    ``T`` supplies the fuzzy first stage. It does not merely add a column:
+    the whole of ``V`` and ``B`` is then formed for the *ratio*
+    ``tau_Y / tau_T``, through the delta-method weights
+    ``s = [1/tau_T, -tau_Y/tau_T^2]`` (extended by the covariate block when
+    ``Z`` is present). Ignoring ``T`` here and selecting a sharp bandwidth
+    instead is not a small approximation: on a two-sided-noncompliance
+    replica of the Lee 2008 senate data it moves ``h`` by 9% to 16%.
 
     Only ``V`` depends on ``vce``/``C`` -- the bias and regularisation
     windows are pure least squares. That is why clustering shifts the
     bandwidth at all: it enters the numerator of ``V / (B^2 + scale*R)``.
     """
     # ---- variance window ------------------------------------------------
+    dT = 0 if T is None else 1
+    dZ = 0 if Z is None else Z.shape[1]
     w = _kweight(x, c, h_V, kernel)
     ind = w > 0
     eY, eX, eW = y[ind], x[ind], w[ind]
@@ -269,20 +280,55 @@ def _vbr(
     invG_V = _qr_xx_inv(R_V * np.sqrt(eW)[:, None])
     RX = R_V * eW[:, None]
 
-    # Covariate partialling-out (R's dZ branch).
+    # D_V's column order is R's: [Y, T?, Z...]. Every index below that
+    # offsets by ``dT`` does so because the fuzzy first stage sits between
+    # the outcome and the covariate block.
+    cols = [eY]
+    if T is not None:
+        cols.append(T[ind])
+    if dZ:
+        cols.append(Z[ind])
+    D_V = np.column_stack(cols)
+
+    # Covariate partialling-out (R's dZ branch). With a fuzzy first stage
+    # this solves for one gamma per endogenous column, not one overall.
     s_vec = np.array([1.0])
-    D_V = eY[:, None]
-    if Z is not None and Z.shape[1] > 0:
+    gamma = None
+    if dZ:
         eZ = Z[ind]
-        D_V = np.column_stack([eY, eZ])
         U = RX.T @ D_V
         ZWD = (eZ * eW[:, None]).T @ D_V
-        colsZ = slice(1, 1 + eZ.shape[1])
+        colsZ = slice(1 + dT, 1 + dT + dZ)
         UiGU = U[:, colsZ].T @ (invG_V @ U)
         ZWZ = ZWD[:, colsZ] - UiGU[:, colsZ]
-        ZWY = ZWD[:, 0] - UiGU[:, 0]
-        gamma = np.linalg.solve(ZWZ, ZWY)
-        s_vec = np.concatenate([[1.0], -gamma])
+        ZWY = ZWD[:, : 1 + dT] - UiGU[:, : 1 + dT]
+        gamma = np.linalg.solve(ZWZ, ZWY).reshape(dZ, 1 + dT)
+        s_vec = np.concatenate([[1.0], -gamma[:, 0]])
+
+    if T is not None:
+        # The fuzzy target is the ratio tau_Y / tau_T, so V and B are formed
+        # for it by the delta method rather than for the reduced form. R
+        # builds beta_V first and reads both numerator and denominator off
+        # the same fit; doing it in the other order gives a tau_T measured
+        # at a different window.
+        beta_V_full = invG_V @ (RX.T @ D_V)
+        fac_nu = float(math.factorial(nu)) if nu else 1.0
+        if gamma is None:
+            tau_Y = fac_nu * beta_V_full[nu, 0]
+            tau_T = fac_nu * beta_V_full[nu, 1]
+            s_vec = np.array([1.0 / tau_T, -(tau_Y / tau_T**2)])
+        else:
+            s_Y0 = np.concatenate([[1.0], -gamma[:, 0]])
+            s_T0 = np.concatenate([[1.0], -gamma[:, 1]])
+            tail = beta_V_full[nu, 1 + dT :]
+            tau_Y = fac_nu * float(s_Y0 @ np.concatenate([[beta_V_full[nu, 0]], tail]))
+            tau_T = fac_nu * float(s_T0 @ np.concatenate([[beta_V_full[nu, 1]], tail]))
+            s_vec = np.concatenate(
+                [
+                    [1.0 / tau_T, -(tau_Y / tau_T**2)],
+                    -(1.0 / tau_T) * gamma[:, 0] + (tau_Y / tau_T**2) * gamma[:, 1],
+                ]
+            )
 
     eC = None if C is None else C[ind]
     if vce == "nn":
@@ -313,8 +359,13 @@ def _vbr(
     eY_b, eX_b, eW_b = y[ind_b], x[ind_b], w_b[ind_b]
     R_B = _vander(eX_b - c, o_B)
     invG_B = _qr_xx_inv(R_B * np.sqrt(eW_b)[:, None])
-    if Z is not None and Z.shape[1] > 0:
-        D_B = np.column_stack([eY_b, Z[ind_b]])
+    cols_b = [eY_b]
+    if T is not None:
+        cols_b.append(T[ind_b])
+    if dZ:
+        cols_b.append(Z[ind_b])
+    if len(cols_b) > 1:
+        D_B = np.column_stack(cols_b)
         beta_B_full = invG_B @ ((R_B * eW_b[:, None]).T @ D_B)
         beta_B = beta_B_full @ s_vec
     else:
@@ -328,11 +379,7 @@ def _vbr(
         # same vce/cluster treatment -- the regularisation term is a
         # sandwich variance too, and leaving it at nn while V used hc left
         # h 8e-3 off with V and B both already exact.
-        D_Bz = (
-            eY_b[:, None]
-            if Z is None or Z.shape[1] == 0
-            else np.column_stack([eY_b, Z[ind_b]])
-        )
+        D_Bz = np.column_stack(cols_b) if len(cols_b) > 1 else eY_b[:, None]
         eC_b = None if C is None else C[ind_b]
         if vce == "nn":
             res_B = (
@@ -395,8 +442,18 @@ def cct_bandwidth(
     covs: Optional[np.ndarray] = None,
     vce: str = "nn",
     cluster: Optional[np.ndarray] = None,
+    fuzzy: Optional[np.ndarray] = None,
 ) -> Dict[str, float]:
     """MSE/CER-optimal bandwidths, matching ``rdrobust::rdbwselect``.
+
+    ``fuzzy`` supplies the first stage. The MSE being minimised is then the
+    one for the Wald ratio, not for the reduced form, so every stage of the
+    cascade changes -- see ``_vbr``. One exception is reproduced from R: if
+    the first stage has **no variation on a side** (one-sided
+    noncompliance, R's ``perf_comp``), ``rdbwselect`` drops ``T`` and
+    selects the sharp bandwidth. Designs of that shape therefore cannot
+    detect whether the fuzzy path exists at all, which is why the fixture
+    that pins it uses two-sided noncompliance.
 
     ``vce`` and ``cluster`` are not cosmetic here. The cascade's ``V`` term
     is a sandwich variance, so clustering widens or narrows every stage --
@@ -549,11 +606,21 @@ def cct_bandwidth(
     Zr = None if Z is None else Z[right][orr]
     Cl = None if Cc is None else Cc[left][ol]
     Cr = None if Cc is None else Cc[right][orr]
+    Tl = Tr = None
+    if fuzzy is not None:
+        Tfull = np.asarray(fuzzy, float)
+        Tl, Tr = Tfull[left][ol], Tfull[right][orr]
+        # R's perf_comp: a side with no first-stage variation makes the
+        # delta-method denominator degenerate, so rdbwselect drops T
+        # entirely and returns the sharp bandwidth rather than dividing by
+        # a zero jump.
+        if Tl.size and Tr.size and (Tl.var() == 0 or Tr.var() == 0):
+            Tl = Tr = None
     dl, dil = _runs(Xl)
     dr, dir_ = _runs(Xr)
     range_l, range_r = abs(c - x_min), abs(c - x_max)
 
-    def bw(Y, X, o, nu, o_B, h_B, scale, dups, dupsid, Zs=None, Cs=None):
+    def bw(Y, X, o, nu, o_B, h_B, scale, dups, dupsid, Zs=None, Cs=None, Ts=None):
         return _vbr(
             Y,
             X,
@@ -571,6 +638,7 @@ def cct_bandwidth(
             Zs,
             vce_eff,
             Cs,
+            Ts,
         )
 
     two = bwselect in ("msetwo", "certwo")
@@ -608,8 +676,8 @@ def cct_bandwidth(
         return v
 
     # stage 1 -- note scale = 0 here, not scaleregul.
-    D_l = bw(Yl, Xl, q + 1, q + 1, q + 2, range_l, 0.0, dl, dil, Zl, Cl)
-    D_r = bw(Yr, Xr, q + 1, q + 1, q + 2, range_r, 0.0, dr, dir_, Zr, Cr)
+    D_l = bw(Yl, Xl, q + 1, q + 1, q + 2, range_l, 0.0, dl, dil, Zl, Cl, Tl)
+    D_r = bw(Yr, Xr, q + 1, q + 1, q + 2, range_r, 0.0, dr, dir_, Zr, Cr, Tr)
     if two:
         d_l = clamp(_combine(D_l, D_r, "two_left", scaleregul), "l")
         d_r = clamp(_combine(D_l, D_r, "two_right", scaleregul), "r")
@@ -617,8 +685,8 @@ def cct_bandwidth(
         d_l = d_r = clamp(_combine(D_l, D_r, form, scaleregul))
 
     # stage 2 -- bias bandwidth b.
-    B_l = bw(Yl, Xl, q, p + 1, q + 1, d_l, scaleregul, dl, dil, Zl, Cl)
-    B_r = bw(Yr, Xr, q, p + 1, q + 1, d_r, scaleregul, dr, dir_, Zr, Cr)
+    B_l = bw(Yl, Xl, q, p + 1, q + 1, d_l, scaleregul, dl, dil, Zl, Cl, Tl)
+    B_r = bw(Yr, Xr, q, p + 1, q + 1, d_r, scaleregul, dr, dir_, Zr, Cr, Tr)
     if two:
         b_l = clamp(_combine(B_l, B_r, "two_left", scaleregul), "l")
         b_r = clamp(_combine(B_l, B_r, "two_right", scaleregul), "r")
@@ -626,8 +694,8 @@ def cct_bandwidth(
         b_l = b_r = clamp(_combine(B_l, B_r, form, scaleregul))
 
     # stage 3 -- main bandwidth h.
-    H_l = bw(Yl, Xl, p, deriv, q, b_l, scaleregul, dl, dil, Zl, Cl)
-    H_r = bw(Yr, Xr, p, deriv, q, b_r, scaleregul, dr, dir_, Zr, Cr)
+    H_l = bw(Yl, Xl, p, deriv, q, b_l, scaleregul, dl, dil, Zl, Cl, Tl)
+    H_r = bw(Yr, Xr, p, deriv, q, b_r, scaleregul, dr, dir_, Zr, Cr, Tr)
     if two:
         h_l = clamp(_combine(H_l, H_r, "two_left", scaleregul), "l")
         h_r = clamp(_combine(H_l, H_r, "two_right", scaleregul), "r")
@@ -664,12 +732,25 @@ def cct_bias_corrected(
     vce: str = "nn",
     cluster: Optional[np.ndarray] = None,
     components: Optional[Dict[str, float]] = None,
+    fuzzy: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, float, float]:
     """CCT bias-corrected estimate and its SEs, matching ``rdrobust``.
 
     Returns ``(tau_conventional, tau_bias_corrected, se_conventional,
-    se_robust)``. Sharp RD; ``covs``, ``vce`` and ``cluster`` are supported,
-    ``fuzzy`` is not.
+    se_robust)``. ``covs``, ``vce``, ``cluster`` and ``fuzzy`` are all
+    supported.
+
+    ``fuzzy`` is not a post-hoc rescaling of the sharp answer. R applies the
+    bias-correction operator to ``Y`` and ``T`` **jointly** and forms
+
+    ``tau_bc = tau_cl - s_Y' (bias_Y, bias_T)``
+
+    with ``s_Y = [1/tau_T, -tau_Y/tau_T^2]`` -- the delta-method weights,
+    which also collapse the residual matrix before the sandwich. Dividing a
+    sharp bias-corrected estimate by a separately bias-corrected first stage
+    (what this module did through 1.26.x) is a different estimator: it drops
+    the covariance between numerator and denominator, leaving the robust SE
+    ~2.5% off and the robust point estimate ~1%.
 
     ``components``, when a dict is passed, is filled in place with the
     per-side variances ``V_cl_left`` / ``V_cl_right`` / ``V_rb_left`` /
@@ -739,6 +820,9 @@ def cct_bias_corrected(
     if Zall is not None and Zall.ndim == 1:
         Zall = Zall[:, None]
     Call = None if cluster is None else np.asarray(cluster)
+    Tall = None if fuzzy is None else np.asarray(fuzzy, float)
+    dT = 0 if Tall is None else 1
+    dZ = 0 if Zall is None else Zall.shape[1]
     sides = []
     for side, h, b in (("l", h_l, b_l), ("r", h_r, b_r)):
         m = (x < c) if side == "l" else (x >= c)
@@ -751,6 +835,7 @@ def cct_bias_corrected(
         xs, ys = xs[o], ys[o]
         Zs = None if Zall is None else Zall[m][o]
         Cs = None if Call is None else Call[m][o]
+        Ts = None if Tall is None else Tall[m][o]
         dups_side, dupsid_side = _runs(xs)
         W_h = _kweight(xs, c, h, kernel)
         W_b = _kweight(xs, c, b, kernel)
@@ -758,6 +843,7 @@ def cct_bias_corrected(
         eX, eY = xs[keep], ys[keep]
         eZ = None if Zs is None else Zs[keep]
         eC = None if Cs is None else Cs[keep]
+        eT = None if Ts is None else Ts[keep]
         W_h, W_b = W_h[keep], W_b[keep]
         e_dups, e_dupsid = dups_side[keep], dupsid_side[keep]
 
@@ -775,9 +861,13 @@ def cct_bias_corrected(
         Q_q = (R_p * W_h[:, None]).T - h ** (p + 1) * np.outer(L, e_p1) @ M
 
         RXp0 = R_p * W_h[:, None]
-        Dz = (
-            eY[:, None] if eZ is None or eZ.shape[1] == 0 else np.column_stack([eY, eZ])
-        )
+        # Column order is R's: [Y, T?, Z...].
+        _cols = [eY]
+        if eT is not None:
+            _cols.append(eT)
+        if eZ is not None and eZ.shape[1]:
+            _cols.append(eZ)
+        Dz = np.column_stack(_cols)
         # Covariate partialling-out. Unlike the bandwidth cascade, which
         # solves for gamma one side at a time, rdrobust POOLS the two sides
         # here: ZWZ_p = ZWZ_p_l + ZWZ_p_r, giving a single s_Y shared by both.
@@ -787,10 +877,12 @@ def cct_bias_corrected(
         if eZ is not None and eZ.shape[1] > 0:
             U = RXp0.T @ Dz
             ZWD = (eZ * W_h[:, None]).T @ Dz
-            colsZ = slice(1, 1 + eZ.shape[1])
+            colsZ = slice(1 + dT, 1 + dT + dZ)
             UiGU = U[:, colsZ].T @ (invG_p @ U)
             ZWZ = ZWD[:, colsZ] - UiGU[:, colsZ]
-            ZWY = ZWD[:, 0] - UiGU[:, 0]
+            # One gamma per endogenous column under fuzzy: R partials the
+            # covariates out of Y and T separately before taking the ratio.
+            ZWY = ZWD[:, : 1 + dT] - UiGU[:, : 1 + dT]
         sides.append(
             dict(
                 h=h,
@@ -798,6 +890,7 @@ def cct_bias_corrected(
                 eX=eX,
                 eZ=eZ,
                 eC=eC,
+                eT=eT,
                 W_h=W_h,
                 W_b=W_b,
                 Dz=Dz,
@@ -817,10 +910,62 @@ def cct_bias_corrected(
     if sides[0]["ZWZ"] is not None:
         gamma = np.linalg.solve(
             sides[0]["ZWZ"] + sides[1]["ZWZ"], sides[0]["ZWY"] + sides[1]["ZWY"]
-        )
-        s_vec = np.concatenate([[1.0], -gamma])
+        ).reshape(dZ, 1 + dT)
     else:
-        s_vec = np.array([1.0])
+        gamma = None
+
+    fac = float(math.factorial(deriv)) if deriv else 1.0
+
+    # Per-side coefficient matrices over every column of Dz. The sharp path
+    # collapses these with s_vec immediately; the fuzzy path needs the
+    # numerator and denominator columns separately before it can form the
+    # ratio, so both are kept.
+    beta_p_mats = [sd["invG_p"] @ (sd["RXp0"].T @ sd["Dz"]) for sd in sides]
+    beta_bc_mats = [sd["invG_p"] @ (sd["Q_q"] @ sd["Dz"]) for sd in sides]
+
+    def _collapse(mat: np.ndarray, col: int) -> float:
+        """R's ``t(s) %*% c(beta[deriv+1, col], beta[deriv+1, colsZ])``."""
+        if gamma is None:
+            return fac * float(mat[deriv, col])
+        sv = np.concatenate([[1.0], -gamma[:, col]])
+        vals = np.concatenate([[mat[deriv, col]], mat[deriv, 1 + dT :]])
+        return fac * float(sv @ vals)
+
+    bp = beta_p_mats[1] - beta_p_mats[0]
+    bbc = beta_bc_mats[1] - beta_bc_mats[0]
+
+    if dT:
+        tau_Y_cl = _collapse(bp, 0)
+        tau_Y_bc = _collapse(bbc, 0)
+        tau_T_cl = _collapse(bp, 1)
+        tau_T_bc = _collapse(bbc, 1)
+        if tau_T_cl == 0.0:
+            raise ZeroDivisionError(
+                "fuzzy RD: the first-stage jump at the cutoff is exactly zero, "
+                "so the Wald ratio is not defined"
+            )
+        # The bias correction is applied to the RATIO, not to numerator and
+        # denominator separately: tau_bc = tau_cl - s' (bias_Y, bias_T).
+        s_delta = np.array([1.0 / tau_T_cl, -(tau_Y_cl / tau_T_cl**2)])
+        B_F = np.array([tau_Y_cl - tau_Y_bc, tau_T_cl - tau_T_bc])
+        tau_cl = tau_Y_cl / tau_T_cl
+        tau_bc = tau_cl - float(s_delta @ B_F)
+        if gamma is None:
+            s_vec = s_delta
+        else:
+            s_vec = np.concatenate(
+                [
+                    s_delta,
+                    -(1.0 / tau_T_cl) * gamma[:, 0]
+                    + (tau_Y_cl / tau_T_cl**2) * gamma[:, 1],
+                ]
+            )
+    else:
+        s_vec = (
+            np.array([1.0]) if gamma is None else np.concatenate([[1.0], -gamma[:, 0]])
+        )
+        tau_cl = fac * float((bp[deriv] @ s_vec))
+        tau_bc = fac * float((bbc[deriv] @ s_vec))
 
     out = []
     for sd in sides:
@@ -831,9 +976,6 @@ def cct_bias_corrected(
         invG_p, invG_q, Q_q = sd["invG_p"], sd["invG_q"], sd["Q_q"]
         RXp0 = sd["RXp0"]
         e_dups, e_dupsid = sd["e_dups"], sd["e_dupsid"]
-
-        beta_p = (invG_p @ (RXp0.T @ Dz)) @ s_vec
-        beta_bc = (invG_p @ (Q_q @ Dz)) @ s_vec
 
         # Variances. rdrobust_vce with C=NULL is crossprod((res %*% s) * RX);
         # the CONVENTIONAL one uses RX = R_p * W_h, the ROBUST one swaps in
@@ -872,15 +1014,10 @@ def cct_bias_corrected(
             V_rb = invG_q_h @ _vce_meat(RXq, res_b, eC) @ invG_q_h
         else:
             V_rb = invG_p @ _vce_meat(Q_q.T, res_b, eC, q + 1) @ invG_p
-        out.append(
-            (beta_p[deriv], beta_bc[deriv], V_cl[deriv, deriv], V_rb[deriv, deriv])
-        )
+        out.append((V_cl[deriv, deriv], V_rb[deriv, deriv]))
 
-    fac = float(math.factorial(deriv)) if deriv else 1.0
-    tau_cl = fac * (out[1][0] - out[0][0])
-    tau_bc = fac * (out[1][1] - out[0][1])
-    se_cl = fac * np.sqrt(out[0][2] + out[1][2])
-    se_rb = fac * np.sqrt(out[0][3] + out[1][3])
+    se_cl = fac * np.sqrt(out[0][0] + out[1][0])
+    se_rb = fac * np.sqrt(out[0][1] + out[1][1])
     if components is not None:
         # The two sides' variances are computed separately above and then
         # summed. Sample-size calculation needs them *unsummed*: rdpower
@@ -889,9 +1026,9 @@ def cct_bias_corrected(
         # them back through a caller-supplied dict keeps the four-tuple
         # return contract every other caller depends on unchanged.
         components.update(
-            V_cl_left=float(out[0][2]),
-            V_cl_right=float(out[1][2]),
-            V_rb_left=float(out[0][3]),
-            V_rb_right=float(out[1][3]),
+            V_cl_left=float(out[0][0]),
+            V_cl_right=float(out[1][0]),
+            V_rb_left=float(out[0][1]),
+            V_rb_right=float(out[1][1]),
         )
     return float(tau_cl), float(tau_bc), float(se_cl), float(se_rb)

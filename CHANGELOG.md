@@ -50,6 +50,30 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness fixes — RD subpackage
 
+- **`sp.rdbwselect(fuzzy=...)` parsed the argument and threw it away.**
+  `rd/bandwidth.py` read the treatment column, dropped its missing rows —
+  and then never passed it to the cascade, so the returned bandwidth was
+  the **sharp** one while the docstring said it "accounts for first-stage
+  variance in the Wald / IV estimator". On a two-sided-noncompliance
+  replica of the Lee 2008 senate data that is a **9%–16% error in `h`**.
+  **Anyone who took a bandwidth from `sp.rdbwselect(fuzzy=...)` on a design
+  with noncompliance on both sides should recompute it.** Designs with
+  *one-sided* noncompliance are unaffected: `rdbwselect` itself drops the
+  first stage and returns the sharp bandwidth when a side has no variation
+  in it (R's `perf_comp`), which is reproduced.
+- **Fuzzy RD reported a bias-corrected estimate and robust SE that were not
+  `rdrobust`'s.** `sp.rdrobust(fuzzy=...)` took the *sharp* bias-corrected
+  estimate and divided it by a separately bias-corrected first stage. That
+  is a different estimator: R applies the bias-correction operator to `Y`
+  and `T` jointly and forms `tau_bc = tau_cl − s_Y′(bias_Y, bias_T)` with
+  the delta-method weights `s_Y = [1/tau_T, −tau_Y/tau_T²]`, which also
+  collapse the residual matrix before the sandwich, so the covariance
+  between numerator and denominator is carried. Measured on the senate
+  replica: robust estimate 0.96% off, robust SE 2.5% off, conventional SE
+  1.1% off. **Fuzzy-RD robust confidence intervals should be recomputed.**
+  The whole fuzzy surface — `p` 1–2, covariates, `hc0`–`hc3`, `mserd`,
+  `cerrd`, `msetwo`, two kernels — now matches `rdrobust` 4.0.0 to 6.3e-13.
+
 - **`sp.rdbwselect` returned bandwidths 2.8x–4.8x too narrow.** The public
   selector ran a single-step rule of thumb of its own instead of the
   Calonico–Cattaneo–Titiunik three-stage cascade that `sp.rdrobust` already

@@ -195,9 +195,78 @@ full precision -- but only for the `cct` spelling, which is exactly why
 the other path kept its rounding. The new test covers both spellings and
 asserts they agree; reintroducing the rounding makes it fail.
 
+### F15 — `sp.rdbwselect(fuzzy=)` parsed the argument and discarded it (⚠️ correctness)
+
+The function read the treatment column, validated it, dropped its missing
+rows — and then called `cct_bandwidth` without it. What came back was the
+sharp bandwidth, while the parameter's docstring promised the bandwidth
+"accounts for first-stage variance in the Wald / IV estimator".
+
+The reason this is worth stating separately from "we forgot to pass an
+argument" is **why it was invisible**. The repository's fuzzy fixture used
+one-sided noncompliance (`treat = (margin >= 0) & (i %% 10 != 0)` — nobody
+below the cutoff treated). R's `rdbwselect` detects exactly that case:
+`var(T_l) == 0` sets `perf_comp`, which drops `T` and returns the sharp
+bandwidth rather than dividing by a zero first-stage jump. So the reference
+*also* returned the sharp bandwidth, the fixture agreed to 1.2e-08, and the
+RFC recorded the conclusion "`fuzzy` already gets the correct bandwidth".
+It was the sharp cascade agreeing with itself.
+
+Measured on a two-sided-noncompliance replica of the same data: `h` is
+**9%–16%** off. The new fixture
+(`_fixtures/_generate_rdrobust_fuzzy_R.R`) is built that way for this
+reason, and `test_rdbwselect_passes_fuzzy_through` asserts not only that
+the fuzzy bandwidth matches R but that it **differs from the sharp one** —
+without that second assertion the test would have passed against the
+broken version too.
+
+### F16 — fuzzy bias correction was a ratio of separately corrected parts (⚠️ correctness)
+
+`sp.rdrobust(fuzzy=)` reached the CCT operator for the sharp quantities and
+then divided: the sharp bias-corrected estimate by a separately
+bias-corrected first stage, and both SEs by `|first stage|`.
+
+R does not do that. It builds `D = [Y, T, Z...]`, applies the
+bias-correction operator `Q_q` to every column at once, and forms
+
+    s_Y    = [1/tau_T, -tau_Y/tau_T^2]
+    tau_bc = tau_cl - s_Y' (bias_Y, bias_T)
+
+with the same `s_Y` collapsing the residual matrix before the sandwich, so
+the covariance between numerator and denominator is carried into both
+variances. The old construction drops it. Measured: robust estimate 0.96%
+off, robust SE 2.5%, conventional SE 1.1%.
+
+`_vbr` needed the same treatment — the MSE being minimised is the ratio's,
+not the reduced form's — which is what makes F15's 9–16% a bandwidth error
+rather than a cosmetic one. Both are now pinned across `p` 1–2,
+covariates, `hc0`–`hc3`, `mserd`/`cerrd`/`msetwo` and two kernels at
+6.3e-13, and the four `xfail(strict=True)` markers that guarded this are
+removed. **That was the last cross-language xfail in the suite.**
+
+### F17 — `compare.py` manufactured a phantom `Paper-JSS/` in every worktree
+
+`tests/r_parity/compare.py` unconditionally did
+`PAPER_TABLES_DIR.mkdir(parents=True)` to drop one `.tex` into
+`Paper-JSS/manuscript/tables/`. `Paper-JSS/` is a git-ignored, local-only
+tree that exists in the main checkout and not in a worktree, and three JSS
+test modules skip themselves on `Paper-JSS/.exists()`.
+
+So running the parity comparison inside a worktree created a directory with
+a single `.tex` in it and no replication scripts underneath, which defeated
+the skip guard and turned two designed skips into two failures — failures
+that look like a regression in the change under test and are not. The write
+is now conditional on `Paper-JSS/manuscript` already existing, and says so
+when it skips.
+
 ## Open
 
 ### O3 - Paper-JSS: regenerate after merge, plus one literal the macros miss
+
+*Still open. The counts below moved again with the fuzzy work: module
+count is unchanged (fuzzy is pinned in `reference_parity`, not Track A),
+but `RegistryCertified` / `ParityCrossLanguage` should be re-derived
+from the main checkout rather than from this table.*
 `Paper-JSS` is a separate, gitignored repository living inside the main
 tree, and `replication/scripts/generate_manuscript_claims.py` resolves
 `statspai` from the **main** tree -- so running it from this worktree

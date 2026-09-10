@@ -84,6 +84,54 @@ rests on an artifact rather than on the alias assertion that 1.26.0 withdrew.
 
 ---
 
+<a id="fuzzy-rd-cct"></a>
+
+## 1.27.0 — ⚠️ Fuzzy RD bandwidth and robust inference
+
+**Who is affected.** Anyone who called `sp.rdrobust(fuzzy=...)` or
+`sp.rdbwselect(fuzzy=...)`.
+
+| Surface | Changes? |
+| --- | --- |
+| `sp.rdbwselect(fuzzy=...)`, **two-sided** noncompliance | **yes — 9%–16% in `h`** |
+| `sp.rdbwselect(fuzzy=...)`, one-sided noncompliance | no |
+| `sp.rdrobust(fuzzy=...)` robust estimate | **yes — ~1%** |
+| `sp.rdrobust(fuzzy=...)` robust SE | **yes — ~2.5%** |
+| `sp.rdrobust(fuzzy=...)` conventional SE | **yes — ~1.1%** |
+| `sp.rdrobust(fuzzy=...)` conventional estimate | no (was already exact) |
+| Sharp RD, any argument | no |
+
+**What was wrong.** Two separate things on the same path.
+
+`sp.rdbwselect` accepted `fuzzy=`, validated the column, dropped its
+missing rows, and then called the bandwidth cascade without it. The
+returned bandwidth was the sharp one. The docstring meanwhile promised
+that the bandwidth "accounts for first-stage variance in the Wald / IV
+estimator".
+
+`sp.rdrobust` did reach the CCT operator, but only for the sharp
+quantities; it then divided the sharp bias-corrected estimate by a
+separately bias-corrected first stage and divided the SEs by
+`|first stage|`. Both are different quantities from `rdrobust`'s, which
+treats the ratio as the estimand from the start.
+
+**Why it survived this long.** The repository's fuzzy fixture used
+*one-sided* noncompliance — nobody below the cutoff was treated. R's
+`rdbwselect` detects exactly that (`perf_comp`: a side with no first-stage
+variation), drops `T`, and returns the sharp bandwidth. So the fixture
+reported the bandwidth agreeing with R to 1.2e-08 and that was read as
+"the cascade already handles fuzzy". It was the sharp cascade agreeing
+with itself. `tests/reference_parity/test_rdrobust_fuzzy_parity.py` now
+runs on a two-sided design, and asserts the fuzzy bandwidth *differs* from
+the sharp one — a test that would have failed against the broken version
+rather than passing quietly.
+
+**What to do.** Re-run any fuzzy RD whose design has noncompliance on both
+sides. Point estimates from the conventional row are unchanged; the robust
+row and every standard error are not.
+
+---
+
 <a id="rdms-not-rdmulti"></a>
 
 ## 1.27.0 — ⚠️ `sp.rdms` was not computing `rdmulti::rdms`

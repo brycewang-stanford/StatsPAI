@@ -102,8 +102,19 @@ def rdbwselect(
     c : float, default 0
         RD cutoff value.
     fuzzy : str, optional
-        Treatment variable name for fuzzy RD. When provided, bandwidth
-        accounts for first-stage variance in the Wald / IV estimator.
+        Treatment variable name for fuzzy RD. The MSE being minimised is
+        then the one for the Wald ratio rather than for the reduced form,
+        so every stage of the cascade changes.
+
+        .. versionchanged:: 1.27.0
+           This argument was parsed and then discarded: it was never passed
+           to the bandwidth cascade, so ``fuzzy=`` returned the sharp
+           bandwidth while the docstring claimed otherwise. On a two-sided
+           noncompliance replica of the Lee 2008 senate data that is a 9%
+           to 16% error in ``h``. Designs with **one-sided** noncompliance
+           were unaffected, because ``rdbwselect`` itself falls back to the
+           sharp bandwidth there (R's ``perf_comp``) -- which is also why
+           the defect survived: the fixture in the repository was one-sided.
     deriv : int, default 0
         Derivative order. 0 = standard RD (jump in level),
         1 = regression kink design (change in slope).
@@ -307,6 +318,7 @@ def rdbwselect(
             bwselect=method,
             covs=covs_data,
             cluster=cluster_vals,
+            fuzzy=D,
         )
         return out["h_left"], out["h_right"], out["b_left"], out["b_right"]
 

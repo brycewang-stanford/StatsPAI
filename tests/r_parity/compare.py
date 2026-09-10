@@ -2302,12 +2302,29 @@ def main() -> int:
     print(
         "     strictness tiers: " + _tier_breakdown_sentence(rendered_modules, md=True)
     )
-    PAPER_TABLES_DIR.mkdir(parents=True, exist_ok=True)
-    snapshot_tex = render_track_a_snapshot_tex()
-    (PAPER_TABLES_DIR / "track_a_cross_language_snapshot.tex").write_text(
-        snapshot_tex, encoding="utf-8"
-    )
-    print("OK -- wrote Paper-JSS/manuscript/tables/track_a_cross_language_snapshot.tex")
+    # Only refresh the manuscript snapshot where the manuscript actually
+    # lives. Paper-JSS/ is a git-ignored, local-only tree that exists in the
+    # main checkout and not in a worktree, and several JSS test modules skip
+    # themselves on `Paper-JSS/.exists()`. Creating the directory here to
+    # drop one .tex into it turned that designed skip into two failures in
+    # every worktree -- a phantom Paper-JSS with no replication scripts under
+    # it. Writing only into an existing manuscript tree keeps the main
+    # checkout's behaviour identical and stops manufacturing the half-tree.
+    if PAPER_TABLES_DIR.parent.is_dir():
+        PAPER_TABLES_DIR.mkdir(parents=True, exist_ok=True)
+        snapshot_tex = render_track_a_snapshot_tex()
+        (PAPER_TABLES_DIR / "track_a_cross_language_snapshot.tex").write_text(
+            snapshot_tex, encoding="utf-8"
+        )
+        print(
+            "OK -- wrote Paper-JSS/manuscript/tables/"
+            "track_a_cross_language_snapshot.tex"
+        )
+    else:
+        print(
+            "-- skipped Paper-JSS snapshot: no Paper-JSS/manuscript tree here "
+            "(regenerate from the main checkout)"
+        )
 
     # 3-way Stata extension. Always emitted; Stata-empty modules show
     # the explicit skip/materialization reason rather than a blank.

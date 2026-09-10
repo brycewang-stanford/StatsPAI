@@ -5,13 +5,14 @@ Companion to ``test_rdrobust_parity.py``, which covers the *default* path
 ``bwselect x p x kernel`` grid and is fully green at ~4e-12.
 
 This file covers what that grid does not: ``covs``, ``fuzzy``, ``cluster``,
-``deriv`` and ``vce``. Those paths still route around the CCT implementation
-in ``rd/_cct_bandwidth.py``, so several assertions here are
-``xfail(strict=True)`` -- the same device used for WP-1, which forces the
-markers to be removed deliberately once each path lands rather than letting a
-fix pass unnoticed.
+``deriv`` and ``vce``. Every one of those now routes through the CCT
+implementation in ``rd/_cct_bandwidth.py`` and every assertion here passes;
+the file's history is a record of them landing one at a time behind
+``xfail(strict=True)``, which forced each marker to be removed deliberately
+rather than letting a fix pass unnoticed.
 
-Measured gaps against R (relative deviation, `rdsenate_params.csv`)::
+The gaps this file was created to measure, as they stood at the start
+(relative deviation against R on ``rdsenate_params.csv``)::
 
     spec           h        conv     se_conv   robust    se_rob
     covs_p1        7.3e-03  9.5e-03  1.8e-03   9.7e-03   1.4e-03
@@ -23,15 +24,17 @@ Measured gaps against R (relative deviation, `rdsenate_params.csv`)::
     deriv1         6.4e-09  6.6e-14  1.5e-02   3.8e-02   7.6e-02
     covs_fuzzy     7.3e-03  2.5e-02  3.1e-02   2.2e-02   4.3e-02
 
-Two things that read out of that table and are asserted below:
+All of them are now at ``RTOL``. The last to close was ``fuzzy`` (1.27.0),
+whose variance needed the delta-method weights rather than a division of the
+sharp answer by the first stage.
 
-* **``fuzzy`` and ``deriv`` already get the correct bandwidth** (1e-8) and,
-  for ``fuzzy``, the correct conventional point estimate (1e-14). The CCT
-  cascade is bandwidth-only for those paths; what is missing is the
-  variance, which still comes from the legacy refit.
-* **``covs`` and ``cluster`` do not** (7e-3 and 4e-2 on ``h``). The cascade
-  has no covariate-projection or cluster machinery, so the bandwidth itself
-  is wrong before any estimate is formed.
+One reading of that table was wrong at the time and is worth keeping:
+``fuzzy``'s ``h`` column showed 1.2e-08, which was taken as "the cascade
+already handles fuzzy bandwidths". It does not -- ``treat`` here is
+*one-sided*, and ``rdbwselect`` drops ``T`` and returns the sharp bandwidth
+whenever a side has no first-stage variation (R's ``perf_comp``). The 1.2e-08
+was the sharp cascade agreeing with itself. On a two-sided design the same
+code was 9%-16% off; see ``test_rdrobust_fuzzy_parity.py``.
 
 ``vce`` is not a parameter of ``sp.rdrobust`` at all; R exposes
 ``hc0``/``hc1``/``hc2``/``hc3``/``cr*``. That is an API gap rather than a
@@ -55,17 +58,15 @@ with warnings.catch_warnings():
 _FIX = pathlib.Path(__file__).parent / "_fixtures"
 RTOL = 1e-6
 
-# covs, cluster, deriv and all five vce kinds now go through the CCT path
-# end to end. fuzzy is the one remaining gap: the CCT operator has no
-# first-stage, so sp.rdrobust rescales the LEGACY bias-corrected estimate
-# by the first stage instead, which is a different quantity from R's.
-_TODO_FUZZY = (
-    "fuzzy RD is not implemented in the CCT path. sp.rdrobust falls back to "
-    "the legacy q-order refit and rescales it by the first stage; R applies "
-    "the bias-correction operator to Y and T jointly with a shared s_Y. "
-    "See docs/rfc/rd_three_month_plan.md B.5."
-)
-_XF_FUZZY = pytest.mark.xfail(strict=True, reason=_TODO_FUZZY)
+# covs, cluster, fuzzy, deriv and all five vce kinds now go through the CCT
+# path end to end. Nothing in this file is expected to fail; the four
+# fuzzy assertions that used to be xfail(strict) were closed in 1.27.0 by
+# giving the CCT operator its own first stage -- see
+# tests/reference_parity/test_rdrobust_fuzzy_parity.py, which pins the
+# fuzzy surface on a two-sided-noncompliance design. The one-sided `treat`
+# in THIS fixture cannot exercise the fuzzy bandwidth at all: with no
+# variation below the cutoff, rdbwselect's perf_comp branch drops T and
+# returns the sharp bandwidth.
 
 
 @pytest.fixture(scope="module")
@@ -149,7 +150,6 @@ def test_covs_conventional_matches_r(rjson, senate, p):
     )
 
 
-@_XF_FUZZY
 @pytest.mark.parametrize("p", [1, 2])
 def test_fuzzy_robust_coefficient_matches_r(rjson, senate, p):
     ref = rjson[f"fuzzy_p{p}"]
@@ -165,7 +165,7 @@ def test_fuzzy_robust_coefficient_matches_r(rjson, senate, p):
 @pytest.mark.parametrize(
     "spec,kw",
     [
-        pytest.param("fuzzy_p1", dict(p=1, fuzzy="treat"), marks=_XF_FUZZY),
+        ("fuzzy_p1", dict(p=1, fuzzy="treat")),
         ("covs_p1", dict(p=1, covs=["cov1", "cov2"])),
         ("cluster_p1", dict(p=1, cluster="clust")),
     ],
@@ -179,7 +179,7 @@ def test_conventional_se_matches_r(rjson, senate, spec, kw):
 @pytest.mark.parametrize(
     "spec,kw",
     [
-        pytest.param("fuzzy_p1", dict(p=1, fuzzy="treat"), marks=_XF_FUZZY),
+        ("fuzzy_p1", dict(p=1, fuzzy="treat")),
         ("covs_p1", dict(p=1, covs=["cov1", "cov2"])),
         ("cluster_p1", dict(p=1, cluster="clust")),
     ],

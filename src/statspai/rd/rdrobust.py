@@ -719,6 +719,7 @@ def rdrobust(
                 covs=Z,
                 vce=vce,
                 cluster=cl_vals_all,
+                fuzzy=D,
             )
         except (ValueError, IndexError, ZeroDivisionError, np.linalg.LinAlgError):
             # Degenerate data (empty side, singular design, kernel/bwselect
@@ -795,6 +796,7 @@ def rdrobust(
                 covs=Z,
                 vce=vce,
                 cluster=cl_vals_all,
+                fuzzy=D,
             )
             # (tau_conv, tau_bc, se_conv, se_robust)
             _tau_bc_cct = _cctvals
@@ -856,26 +858,26 @@ def rdrobust(
                 UserWarning,
                 stacklevel=2,
             )
-        if abs(fs_conv) > 1e-10:
-            tau_conv /= fs_conv
-            se_conv /= abs(fs_conv)
-        if abs(fs_bc) > 1e-10:
-            tau_bc /= fs_bc
-            se_robust /= abs(fs_bc)
+        if _tau_bc_cct is None:
+            # Legacy fallback only. The CCT path forms the Wald ratio itself,
+            # by the delta method, and rescaling its output here would divide
+            # by the first stage twice.
+            if abs(fs_conv) > 1e-10:
+                tau_conv /= fs_conv
+                se_conv /= abs(fs_conv)
+            if abs(fs_bc) > 1e-10:
+                tau_bc /= fs_bc
+                se_robust /= abs(fs_bc)
 
-    # Substitute CCT's tau_bc for the sharp case. Fuzzy rescaling above has
-    # already been applied to the legacy value, so only take the CCT one when
-    # there is no first-stage division to mirror.
-    # The CCT path now covers sharp RD with covs, cluster and all five vce
-    # kinds end to end -- bandwidth, point estimate and both variances.
-    # fuzzy is the one thing it does not implement, so the gate stays: a
-    # substitution there would discard the first-stage rescaling above.
+    # Substitute CCT's four values. The CCT path now covers sharp RD and
+    # fuzzy RD with covs, cluster and all five vce kinds end to end --
+    # bandwidth, point estimate and both variances.
     #
     # This gate has been wrong twice, in the same way both times, and each
     # time the symptom was a quantity that matched R to exactly 1.000x --
     # the adjustment had been computed and then thrown away. Anything added
     # to the CCT path in future must be added here in the same commit.
-    if _tau_bc_cct is not None and fuzzy is None:
+    if _tau_bc_cct is not None:
         # Both rows come from the CCT operator: the conventional SE also uses
         # nn residuals whose tie runs are measured on the whole side, which
         # the legacy path did not do.
