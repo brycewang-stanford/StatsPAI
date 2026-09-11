@@ -964,7 +964,7 @@ def _local_poly_rd_1d(
 # in pathological small-bandwidth cases and trades a single observation
 # for numerical stability in the HC1 degrees-of-freedom correction).
 from ._core import _local_poly_wls as _wls_local_poly  # noqa: E402
-from ._core import _sandwich_variance
+from ._core import _sandwich_variance  # noqa: E402
 
 # ======================================================================
 # Bivariate local polynomial (for location approach)

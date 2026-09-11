@@ -242,13 +242,13 @@ def bridge(kind: str, **kwargs: Any) -> BridgeResult:
     """
     # Lazy import: each bridge module registers itself on import. These names
     # are bound only for the registration side effect (never referenced), so
-    # F401 is suppressed at the opening line where flake8 reports it.
-    from . import cb_ipw as _cb_ipw
+    # F401 is suppressed on each line.
+    from . import cb_ipw as _cb_ipw  # noqa: F401
     from . import did_sc as _did_sc  # noqa: F401
-    from . import dr_calib as _dr_calib
-    from . import ewm_cate as _ewm_cate
-    from . import kink_rdd as _kink_rdd
-    from . import surrogate_pci as _surrogate_pci
+    from . import dr_calib as _dr_calib  # noqa: F401
+    from . import ewm_cate as _ewm_cate  # noqa: F401
+    from . import kink_rdd as _kink_rdd  # noqa: F401
+    from . import surrogate_pci as _surrogate_pci  # noqa: F401
 
     if kind not in _BRIDGES:
         raise ValueError(
