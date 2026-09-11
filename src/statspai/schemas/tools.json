@@ -1973,7 +1973,7 @@
     "name": "bonferroni"
   },
   {
-    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: certified parity evidence. Assumptions: Observations (or clusters/blocks) are exchangeable under the resampling scheme used; cluster= resamples whole clusters, block= preserves within-block ordering for serial dependence; The statistic callable is a smooth, well-defined functional of the data so its sampling distribution is approximable by resampling; BCa intervals further assume an estimable bias/acceleration; percentile/normal CIs assume approximate pivotality of the resampled distribution. Pre-conditions: statistic is a deterministic callable returning a finite scalar on any resampled DataFrame; Enough independent resampling units (rows, clusters, or blocks) to populate n_boot replicates; Specify cluster= or block= when data are clustered/serially dependent rather than iid. Failure modes: Few clusters yields anti-conservative CIs / wildly unstable bootstrap distribution -> Use a wild cluster bootstrap with Rademacher weights when the number of clusters is small (<~40); Statistic raises or returns NaN on a resample (e.g., a level drops out), aborting the loop -> Make the statistic...",
+    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Observations (or clusters/blocks) are exchangeable under the resampling scheme used; cluster= resamples whole clusters, block= preserves within-block ordering for serial dependence; The statistic callable is a smooth, well-defined functional of the data so its sampling distribution is approximable by resampling; BCa intervals further assume an estimable bias/acceleration; percentile/normal CIs assume approximate pivotality of the resampled distribution. Pre-conditions: statistic is a deterministic callable returning a finite scalar on any resampled DataFrame; Enough independent resampling units (rows, clusters, or blocks) to populate n_boot replicates; Specify cluster= or block= when data are clustered/serially dependent rather than iid. Failure modes: Few clusters yields anti-conservative CIs / wildly unstable bootstrap distribution -> Use a wild cluster bootstrap with Rademacher weights when the number of clusters is small (<~40); Statistic raises or returns NaN on a resample (e...",
     "input_schema": {
       "properties": {
         "ci_method": {
@@ -2223,7 +2223,7 @@
     "name": "boundary_rd"
   },
   {
-    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: certified parity evidence. Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
+    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -4288,7 +4288,7 @@
     "name": "continuous_iv_late"
   },
   {
-    "description": "Compute contrasts of predictive margins across levels of a variable. Validation: certified parity evidence.",
+    "description": "Compute contrasts of predictive margins across levels of a variable. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -4829,7 +4829,7 @@
     "name": "dag_example"
   },
   {
-    "description": "Das Gupta (1993) multi-factor decomposition. Validation: certified parity evidence.",
+    "description": "Das Gupta (1993) multi-factor decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "data_a": {
@@ -9766,7 +9766,7 @@
     "name": "gate_test"
   },
   {
-    "description": "Gelbach (2016) decomposition of omitted variable bias. Validation: certified parity evidence.",
+    "description": "Gelbach (2016) decomposition of omitted variable bias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "added_x": {
@@ -10936,7 +10936,7 @@
     "name": "hurdle"
   },
   {
-    "description": "Intra-class correlation for a fitted mixed model. Validation: certified parity evidence.",
+    "description": "Intra-class correlation for a fitted mixed model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -12165,7 +12165,7 @@
     "name": "kink_unified"
   },
   {
-    "description": "Kitagawa (1955) two-factor rate decomposition. Validation: certified parity evidence.",
+    "description": "Kitagawa (1955) two-factor rate decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "by": {
@@ -12377,7 +12377,7 @@
     "name": "lasso_select"
   },
   {
-    "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: certified parity evidence. Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
+    "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -12930,7 +12930,7 @@
     "name": "lp_did"
   },
   {
-    "description": "Likelihood-ratio test comparing a *restricted* and a *full* model. Validation: certified parity evidence.",
+    "description": "Likelihood-ratio test comparing a *restricted* and a *full* model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "boundary": {
@@ -13191,7 +13191,7 @@
     "name": "machado_mata"
   },
   {
-    "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: certified parity evidence. Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
+    "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -13282,7 +13282,7 @@
     "name": "margins"
   },
   {
-    "description": "Compute predictive margins at specific covariate values. Validation: certified parity evidence.",
+    "description": "Compute predictive margins at specific covariate values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -13820,7 +13820,7 @@
     "name": "mediate"
   },
   {
-    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: certified parity evidence. Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
+    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -13893,7 +13893,7 @@
     "name": "mediation"
   },
   {
-    "description": "Linear nested-models mediation decomposition (VanderWeele 2014 Validation: certified parity evidence.",
+    "description": "Linear nested-models mediation decomposition (VanderWeele 2014 Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -14822,7 +14822,7 @@
     "name": "model_averaging_dml"
   },
   {
-    "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: certified parity evidence. Assumptions: Relevance: SNPs predict exposure (F-statistic >= 10 per SNP or set-F); Independence: SNPs perp confounders of exposure-outcome; Exclusion restriction: SNPs affect outcome only through exposure (InSIDE for Egger; >= 50% valid for median; modal for mode-based). Pre-conditions: SNP-summary statistics for exposure and outcome aligned by SNP; beta_exposure / beta_outcome / se_exposure / se_outcome arrays of equal length; >= 10 genetic instruments for reliable IVW/median/mode; >= 20 for robust Egger intercept. Failure modes: Egger intercept p < 0.05 -- directional pleiotropy -> Use weighted-median or mode-based estimator; report Egger intercept + I2 as pleiotropy diagnostic; Q-statistic rejects homogeneity (Co...",
+    "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Relevance: SNPs predict exposure (F-statistic >= 10 per SNP or set-F); Independence: SNPs perp confounders of exposure-outcome; Exclusion restriction: SNPs affect outcome only through exposure (InSIDE for Egger; >= 50% valid for median; modal for mode-based). Pre-conditions: SNP-summary statistics for exposure and outcome aligned by SNP; beta_exposure / beta_outcome / se_exposure / se_outcome arrays of equal length; >= 10 genetic instruments for reliable IVW/median/mode; >= 20 for robust Egger intercept. Failure modes: Egger intercept p < 0.05 -- directional pleiotropy -> Use weighted-median or mode-based estimator; report Egger intercept +...",
     "input_schema": {
       "properties": {
         "method": {
@@ -15757,7 +15757,7 @@
     "name": "oster_bounds"
   },
   {
-    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: certified parity evidence. Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
+    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -17108,7 +17108,7 @@
     "name": "policy_tree"
   },
   {
-    "description": "Evaluate the expected value of a treatment policy. Validation: certified parity evidence. Assumptions: The relationship between the treated unit and controls is stable absent the intervention (causal_impact); Matrix-completion: the untreated potential outcomes follow a low-rank factor structure with treatment as the missingness pattern; No concurrent intervention affects the controls. Pre-conditions: A treated unit with a pre-period and a set of control series, or a panel with a low-rank structure. Failure modes: Pre-period fit is poor or controls are themselves affected by the intervention -> Re-select controls, lengthen the pre-period, or use synthetic-control / DiD diagnostics. Alternatives: sp.synth, sp.sdid, sp.gsynth. Typical minimum N: 50.",
+    "description": "Evaluate the expected value of a treatment policy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The relationship between the treated unit and controls is stable absent the intervention (causal_impact); Matrix-completion: the untreated potential outcomes follow a low-rank factor structure with treatment as the missingness pattern; No concurrent intervention affects the controls. Pre-conditions: A treated unit with a pre-period and a set of control series, or a panel with a low-rank structure. Failure modes: Pre-period fit is poor or controls are themselves affected by the intervention -> Re-select controls, lengthen the pre-period, or use synthetic-control / DiD diagnostics. Alternatives: sp.synth, sp.sdid, sp.gsynth. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "policy": {
@@ -18162,7 +18162,7 @@
     "name": "pub_ready"
   },
   {
-    "description": "Pairwise comparisons of predictive margins across all levels. Validation: certified parity evidence.",
+    "description": "Pairwise comparisons of predictive margins across all levels. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "adjust": {
@@ -23039,7 +23039,7 @@
     "name": "snips"
   },
   {
-    "description": "Lerman-Yitzhaki (1985) Gini source decomposition. Validation: certified parity evidence.",
+    "description": "Lerman-Yitzhaki (1985) Gini source decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "sources": {
@@ -23906,7 +23906,7 @@
     "name": "subgroup_analysis"
   },
   {
-    "description": "Subgroup decomposition (between / within) of an inequality index. Validation: certified parity evidence.",
+    "description": "Subgroup decomposition (between / within) of an inequality index. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {

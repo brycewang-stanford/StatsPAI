@@ -2797,7 +2797,7 @@
     }
   },
   {
-    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: certified parity evidence.",
+    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bootstrap",
     "parameters": {
       "properties": {
@@ -3041,7 +3041,7 @@
     }
   },
   {
-    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: certified parity evidence.",
+    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "mediate_interventional",
     "parameters": {
       "properties": {
@@ -4240,7 +4240,7 @@
     }
   },
   {
-    "description": "Direct age/covariate standardization of a rate using external standard-population weights. Validation: certified parity evidence.",
+    "description": "Direct age/covariate standardization of a rate using external standard-population weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "direct_standardize",
     "parameters": {
       "properties": {
@@ -4280,7 +4280,7 @@
     }
   },
   {
-    "description": "Indirect standardization -> SMR (standardized morbidity / mortality ratio) with Garwood exact Poisson CI. Validation: certified parity evidence.",
+    "description": "Indirect standardization -> SMR (standardized morbidity / mortality ratio) with Garwood exact Poisson CI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "indirect_standardize",
     "parameters": {
       "properties": {
@@ -4999,7 +4999,7 @@
     }
   },
   {
-    "description": "Sensitivity, specificity, PPV, NPV, LR+ / LR- with Wilson score CIs. Accepts either raw binary labels or pre-computed confusion counts. Validation: certified parity evidence.",
+    "description": "Sensitivity, specificity, PPV, NPV, LR+ / LR- with Wilson score CIs. Accepts either raw binary labels or pre-computed confusion counts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "sensitivity_specificity",
     "parameters": {
       "properties": {
@@ -5038,7 +5038,7 @@
     }
   },
   {
-    "description": "ROC curve with AUC (trapezoidal) and Hanley-McNeil (1982) standard error. Validation: certified parity evidence.",
+    "description": "ROC curve with AUC (trapezoidal) and Hanley-McNeil (1982) standard error. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "roc_curve",
     "parameters": {
       "properties": {
@@ -9348,7 +9348,7 @@
     }
   },
   {
-    "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: certified parity evidence.",
+    "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "mr",
     "parameters": {
       "properties": {
@@ -25190,7 +25190,7 @@
     }
   },
   {
-    "description": "Compute predictive margins at specific covariate values. Validation: certified parity evidence.",
+    "description": "Compute predictive margins at specific covariate values. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "margins_at",
     "parameters": {
       "properties": {
@@ -25280,7 +25280,7 @@
     }
   },
   {
-    "description": "Compute contrasts of predictive margins across levels of a variable. Validation: certified parity evidence.",
+    "description": "Compute contrasts of predictive margins across levels of a variable. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "contrast",
     "parameters": {
       "properties": {
@@ -25320,7 +25320,7 @@
     }
   },
   {
-    "description": "Pairwise comparisons of predictive margins across all levels. Validation: certified parity evidence.",
+    "description": "Pairwise comparisons of predictive margins across all levels. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "pwcompare",
     "parameters": {
       "properties": {
@@ -30699,7 +30699,7 @@
     }
   },
   {
-    "description": "Evaluate the expected value of a treatment policy. Validation: certified parity evidence.",
+    "description": "Evaluate the expected value of a treatment policy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "policy_value",
     "parameters": {
       "properties": {
@@ -31501,7 +31501,7 @@
     }
   },
   {
-    "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: certified parity evidence.",
+    "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "lee_bounds",
     "parameters": {
       "properties": {
@@ -31554,7 +31554,7 @@
     }
   },
   {
-    "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: certified parity evidence.",
+    "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "manski_bounds",
     "parameters": {
       "properties": {
@@ -31790,7 +31790,7 @@
     }
   },
   {
-    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: certified parity evidence.",
+    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "oster_delta",
     "parameters": {
       "properties": {
@@ -31921,7 +31921,7 @@
     }
   },
   {
-    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: certified parity evidence.",
+    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "breakdown_frontier",
     "parameters": {
       "properties": {
@@ -33041,7 +33041,7 @@
     }
   },
   {
-    "description": "Power (or number of cases) for an unmatched case-control study. Validation: certified parity evidence.",
+    "description": "Power (or number of cases) for an unmatched case-control study. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "power_case_control",
     "parameters": {
       "properties": {
@@ -33142,7 +33142,7 @@
     }
   },
   {
-    "description": "Gelbach (2016) decomposition of omitted variable bias. Validation: certified parity evidence.",
+    "description": "Gelbach (2016) decomposition of omitted variable bias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "gelbach",
     "parameters": {
       "properties": {
@@ -36743,7 +36743,7 @@
     }
   },
   {
-    "description": "Kernel density estimation. Validation: certified parity evidence.",
+    "description": "Kernel density estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "kdensity",
     "parameters": {
       "properties": {
@@ -41979,7 +41979,7 @@
     }
   },
   {
-    "description": "Intra-class correlation for a fitted mixed model. Validation: certified parity evidence.",
+    "description": "Intra-class correlation for a fitted mixed model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "icc",
     "parameters": {
       "properties": {
@@ -42014,7 +42014,7 @@
     }
   },
   {
-    "description": "Likelihood-ratio test comparing a *restricted* and a *full* model. Validation: certified parity evidence.",
+    "description": "Likelihood-ratio test comparing a *restricted* and a *full* model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "lrtest",
     "parameters": {
       "properties": {
@@ -46551,7 +46551,7 @@
     }
   },
   {
-    "description": "Das Gupta (1993) multi-factor decomposition. Validation: certified parity evidence.",
+    "description": "Das Gupta (1993) multi-factor decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "das_gupta",
     "parameters": {
       "properties": {
@@ -46662,7 +46662,7 @@
     }
   },
   {
-    "description": "Kitagawa (1955) two-factor rate decomposition. Validation: certified parity evidence.",
+    "description": "Kitagawa (1955) two-factor rate decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "kitagawa_decompose",
     "parameters": {
       "properties": {
@@ -46710,7 +46710,7 @@
     }
   },
   {
-    "description": "Lerman-Yitzhaki (1985) Gini source decomposition. Validation: certified parity evidence.",
+    "description": "Lerman-Yitzhaki (1985) Gini source decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "source_decompose",
     "parameters": {
       "properties": {
@@ -46738,7 +46738,7 @@
     }
   },
   {
-    "description": "Subgroup decomposition (between / within) of an inequality index. Validation: certified parity evidence.",
+    "description": "Subgroup decomposition (between / within) of an inequality index. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "subgroup_decompose",
     "parameters": {
       "properties": {
@@ -46844,7 +46844,7 @@
     }
   },
   {
-    "description": "Linear nested-models mediation decomposition (VanderWeele 2014 Validation: certified parity evidence.",
+    "description": "Linear nested-models mediation decomposition (VanderWeele 2014 Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "mediation_decompose",
     "parameters": {
       "properties": {
@@ -50776,7 +50776,7 @@
     }
   },
   {
-    "description": "Shortcut: just return the AUC. Validation: certified parity evidence.",
+    "description": "Shortcut: just return the AUC. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "auc",
     "parameters": {
       "properties": {

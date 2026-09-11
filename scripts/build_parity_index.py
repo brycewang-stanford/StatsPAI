@@ -1756,105 +1756,15 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
     },
     "evalue_rr": {
         "status": "bit-exact",
-        "reference": "VanderWeele-Ding closed form (= R EValue package)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "point + CI E-value 1e-12 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_evalue_rr_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: E-value = RR + sqrt(RR*(RR-1)) for the point "
-            "and the null-nearest CI limit, matching the R EValue package "
-            "(sp.evalue is bit-exact against it via Track A module 23)."
+        "reference": "R EValue::evalues.RR",
+        "reference_versions": {"EValue": "4.1.4"},
+        "tolerance": (
+            "Point and CI E-values at 1e-12 across ten cases, including RR < 1 and CIs crossing the null."
         ),
-    },
-    "sensitivity_specificity": {
-        "status": "bit-exact",
-        "reference": "base closed form (2x2 diagnostic accuracy; = epiR)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "sens/spec/PPV/NPV/LR 1e-12 abs (observed 0)",
         "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_epi_diag_parity.py",
-        ],
+        "test": ["tests/reference_parity/test_evalue_rr_parity.py"],
         "note": (
-            "Closed-form identity: sensitivity/specificity/PPV/NPV/likelihood "
-            "ratios are exact ratios of the 2x2 diagnostic table (= epiR / "
-            "standard). Point estimates pinned; CIs not pinned."
-        ),
-    },
-    "power_case_control": {
-        "status": "bit-exact",
-        "reference": "base-R closed form (case-control OR power, 2-prop z)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "power 1e-12 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_epi_diag_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: case exposure prevalence from the odds ratio "
-            "then unpooled-Wald two-proportion z-approx power. Matches base R "
-            "exactly."
-        ),
-    },
-    "direct_standardize": {
-        "status": "bit-exact",
-        "reference": "base closed form (directly standardized rate; = Stata dstdize)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "DSR 1e-12 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_standardize_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: DSR = sum(w_i * r_i)/sum(w_i) over strata "
-            "matches the canonical direct standardization exactly (point rate "
-            "pinned; CI not pinned)."
-        ),
-    },
-    "indirect_standardize": {
-        "status": "bit-exact",
-        "reference": "base closed form (SMR / indirect std.; = Stata istdize)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "expected + SMR 1e-12 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_standardize_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: expected = sum(reference_rate_i * "
-            "study_pop_i) and SMR = observed/expected match the canonical "
-            "indirect standardization exactly."
-        ),
-    },
-    "auc": {
-        "status": "bit-exact",
-        "reference": "Mann-Whitney rank AUC (= pROC::auc / sklearn)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "AUC 1e-12 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_auc_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: AUC equals the mid-rank Mann-Whitney "
-            "statistic (ties handled), identical to pROC::auc and sklearn."
-        ),
-    },
-    "roc_curve": {
-        "status": "bit-exact",
-        "reference": "Mann-Whitney rank AUC (= pROC::auc / sklearn)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "AUC 1e-12 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_auc_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: the ROC-curve AUC equals the mid-rank "
-            "Mann-Whitney statistic (= pROC::auc / sklearn). Curve/CI not pinned."
+            "Until 1.27.0 this entry was graded cross-language on a closed form typed into the test, with a docstring asserting that R's EValue implements the same formula; nothing consulted R. The fixture is now EValue's own output."
         ),
     },
     "svymean": {
@@ -1906,388 +1816,68 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "_generate_survey_R.R."
         ),
     },
-    "kdensity": {
-        "status": "bit-exact",
-        "reference": "Gaussian KDE closed form (= stats::density / sklearn)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "density 1e-12 abs (observed ~3e-18 / 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_kdensity_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: Gaussian KDE f(x0) = (1/nh) * sum_i "
-            "phi((x0-x_i)/h)/sqrt(2pi) matches the kernel-density value at every "
-            "grid point to machine precision (Silverman 1986). Bandwidth "
-            "selector not pinned."
-        ),
-    },
-    "gelbach": {
-        "status": "bit-exact",
-        "reference": "Gelbach (2016) exact conditional decomposition identity",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "total_change + contribution sum 1e-12 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_gelbach_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: total_change = base_coef - full_coef exactly "
-            "and per-covariate deltas sum to total_change (Gelbach 2016 exact, "
-            "order-invariant decomposition). = Stata b1x2 / R equivalents."
-        ),
-    },
-    "das_gupta": {
-        "status": "bit-exact",
-        "reference": "Das Gupta (1993) exact standardization decomposition identity",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "factor-effect sum + pct 1e-12 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_dasgupta_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: per-factor effects sum to the total rate gap "
-            "and percentages sum to 100% (Das Gupta 1993 exact standardization "
-            "decomposition)."
-        ),
-    },
-    "subgroup_decompose": {
-        "status": "bit-exact",
-        "reference": "Theil within+between exact additive identity (Shorrocks 1980)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "total == within + between 1e-12 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_subgroup_decompose_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: the generalized-entropy (Theil-T/Theil-L) "
-            "inequality index decomposes exactly into within- and between-group "
-            "components (Shorrocks 1980)."
-        ),
-    },
-    "mediation_decompose": {
-        "status": "bit-exact",
-        "reference": "natural-effects mediation (Pearl 2001; VanderWeele 2015)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "total = NDE + NIE 1e-12 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_mediation_decompose_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: total effect = natural direct + natural "
-            "indirect effect (NDE + NIE), and proportion mediated = NIE / total "
-            "(Pearl 2001; VanderWeele 2015)."
-        ),
-    },
-    "kitagawa_decompose": {
-        "status": "bit-exact",
-        "reference": "Kitagawa (1955) two-factor rate decomposition identity",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "gap = rate + composition + interaction 1e-12 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_kitagawa_decompose_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: the group rate gap splits exactly into "
-            "rate effect + composition effect + symmetric interaction, and "
-            "gap == rate_a - rate_b (Kitagawa 1955)."
-        ),
-    },
-    "source_decompose": {
-        "status": "bit-exact",
-        "reference": "Lerman-Yitzhaki (1985) Gini source decomposition identity",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "sum(contribution) == total_gini 1e-12 abs (observed ~1e-16)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_source_decompose_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: per-source contribution = share * Gini-"
-            "correlation * own-Gini and the contributions sum exactly to total "
-            "Gini (Lerman & Yitzhaki 1985)."
-        ),
-    },
-    "manski_bounds": {
-        "status": "bit-exact",
-        "reference": "Manski (1990) no-assumption worst-case ATE bound identity",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "width == y_upper - y_lower 1e-12 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_manski_bounds_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: the no-assumption ATE bound width equals the "
-            "outcome range y_upper - y_lower exactly, and each bound "
-            "reconstructs from the cell means and treatment share (Manski 1990)."
-        ),
-    },
-    "mediate_interventional": {
-        "status": "bit-exact",
-        "reference": "interventional effects telescoping identity (VanderWeele "
-        "Vansteelandt Robins 2014)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "total = IIE + IDE 1e-12 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_mediate_interventional_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: the interventional decomposition telescopes "
-            "over shared Monte-Carlo draws, so total_effect == IIE + IDE "
-            "exactly; components recover their linear-DGP population values."
-        ),
-    },
-    "policy_value": {
-        "status": "bit-exact",
-        "reference": "empirical policy value V(pi) = mean(Gamma * pi) "
-        "(Athey & Wager 2021)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "V(pi) == mean(scores * policy) 1e-15 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_policy_value_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: the doubly-robust policy value is exactly "
-            "the mean of gain scores under the policy, with degenerate-policy "
-            "values (0 / mean score) and oracle dominance holding exactly."
-        ),
-    },
-    "sensemakr": {
-        "status": "bit-exact",
-        "reference": "omitted-variable-bias closed forms (Cinelli & Hazlett 2020)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "RV / partial-R2 / OLS quantities 1e-12 abs (observed <= 2e-16)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_sensemakr_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: partial R2 = t^2/(t^2+df), robustness value "
-            "RV = (sqrt(f^4+4f^2)-f^2)/2, and beta/se/t equal the hand-rolled "
-            "OLS fit exactly (Cinelli & Hazlett 2020; = R sensemakr formulas)."
-        ),
-    },
-    "oster_delta": {
-        "status": "bit-exact",
-        "reference": "coefficient-stability bound identities (Oster 2019)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "OLS inputs 1e-12 abs (observed 0); beta(delta*)=0 at 1e-10",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_oster_delta_parity.py",
-        ],
-        "note": (
-            "Structural identities: beta/R2 for short and controlled fits equal "
-            "hand-rolled OLS exactly; bound endpoints are the named beta_full / "
-            "beta*(delta=1); delta* is exactly the zero-crossing of the "
-            "bias-adjusted coefficient grid (Oster 2019)."
-        ),
-    },
-    "breakdown_frontier": {
-        "status": "bit-exact",
-        "reference": "additive-violation breakdown identities (Masten & Poirier 2021)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "breakdown point / CI / bounds 1e-12 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_breakdown_frontier_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: breakdown point == estimate, its CI == "
-            "estimate - z*se, and bounds == estimate +/- max_violation "
-            "(Masten & Poirier 2021 breakdown-frontier framework)."
-        ),
-    },
-    "lrtest": {
-        "status": "bit-exact",
-        "reference": "likelihood-ratio identity chi2 = 2*(logL_full - logL_restricted)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "chi2 / logL fields 1e-10 abs (observed 0); p == chi2.sf exact",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_lrtest_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: the LR statistic equals twice the "
-            "log-likelihood difference of the nested ML fits, the reported "
-            "logL fields equal the models' own attributes, and p is the exact "
-            "chi-square survival at the df difference."
-        ),
-    },
-    "icc": {
-        "status": "bit-exact",
-        "reference": "variance-ratio identity ICC = var_u / (var_u + var_e)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "ICC vs model variance components 1e-12 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_icc_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: the intraclass correlation equals the "
-            "random-intercept variance share of the fitted mixed model's own "
-            "variance components exactly; tracks the realized group variance "
-            "across seeds."
-        ),
-    },
-    "lee_bounds": {
-        "status": "bit-exact",
-        "reference": "Lee (2009) trimming-bound closed form (lee2009training)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "bounds / trim fraction / retention 1e-12 abs (observed <= 1e-16)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_lee_bounds_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: with p = (s1 - s0) / s1 the bounds are the "
-            "top/bottom-trimmed treated means minus the control mean, matching "
-            "the hand-computed Lee (2009) definition exactly; bounds bracket "
-            "the planted effect."
-        ),
-    },
-    "mr": {
-        "status": "bit-exact",
-        "reference": "inverse-variance-weighted MR closed form (Burgess et al. 2013)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "estimate / se / Cochran Q 1e-10 abs (observed 0)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_mr_ivw_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: mr('ivw') is weighted regression through the "
-            "origin with weights 1/se_outcome^2 -- estimate = sum(w bx by)/"
-            "sum(w bx^2), se = sqrt(1/sum(w bx^2)), Q = sum(w resid^2) exactly."
-        ),
-    },
-    "margins_at": {
-        "status": "bit-exact",
-        "reference": "predictive-margin linear form of the OLS coefficients",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "margin(x=v) 1e-10 abs (observed 0); symmetric-grid SE symmetric",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_margins_at_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: the predictive margin at x=v equals "
-            "b0 + b_x*v + b_z*mean(z) exactly (= Stata margins, at()); "
-            "symmetric covariate grid yields symmetric standard errors."
-        ),
-    },
-    "contrast": {
-        "status": "bit-exact",
-        "reference": "treatment-contrast identity (= Stata margins, contrast(r))",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "contrast == dummy coefficient 1e-12 abs (observed <= 1e-15)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_contrast_pwcompare_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: for a linear model with C(g), the reference "
-            "contrast of predictive margins equals the dummy coefficient "
-            "coef[C(g)[T.k]] exactly (covariates cancel in the difference). "
-            "Guards the C(var)[T.level] margin-parsing correctness fix."
-        ),
-    },
-    "pwcompare": {
-        "status": "bit-exact",
-        "reference": "pairwise-contrast identity (= Stata pwcompare)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "pairwise diff == coef difference 1e-12 abs (observed <= 1e-15)",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_contrast_pwcompare_parity.py",
-        ],
-        "note": (
-            "Closed-form identity: each pairwise margin difference equals the "
-            "difference of the corresponding treatment-dummy coefficients "
-            "(j vs k == coef[T.j] - coef[T.k]) exactly."
-        ),
-    },
-    "bootstrap": {
-        "status": "bit-exact",
-        "reference": "nonparametric bootstrap contract (Efron 1979)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "estimate/se contract 1e-12 abs (observed 0); SE ~ analytic 10%",
-        "sides": ["py", "R"],
-        "test": [
-            "tests/reference_parity/test_bootstrap_parity.py",
-        ],
-        "note": (
-            "Exact contract: estimate == statistic(full sample) and se == "
-            "std(boot_distribution, ddof=1) to machine precision; the mean's "
-            "bootstrap SE is consistent with the analytic sd/sqrt(n)."
-        ),
-    },
     "degree_centrality": {
         "status": "bit-exact",
-        "reference": "Freeman normalized degree centrality (deg_i / (n-1))",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "centrality 1e-12 abs (observed 0)",
+        "reference": "R igraph::degree",
+        "reference_versions": {"igraph": "2.3.3"},
+        "tolerance": (
+            "Normalised on karate and raw in / out / all modes on a 40-node directed graph, exact."
+        ),
         "sides": ["py", "R"],
         "test": [
+            "tests/reference_parity/test_network_parity.py",
             "tests/reference_parity/test_network_centrality_parity.py",
         ],
         "note": (
-            "Closed-form identity: normalized degree centrality equals "
-            "deg_i / (n-1) exactly on canonical graphs (star hub 1.0, "
-            "leaves 1/4; triangle all 1.0). = igraph/networkx degree."
+            "Until 1.27.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
         ),
     },
     "betweenness_centrality": {
         "status": "bit-exact",
-        "reference": "Freeman betweenness centrality (shortest-path mediation)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "centrality 1e-12 abs (observed 0)",
+        "reference": "R igraph::betweenness",
+        "reference_versions": {"igraph": "2.3.3"},
+        "tolerance": (
+            "Normalised and raw on karate, raw on the directed graph, all at 1e-10."
+        ),
         "sides": ["py", "R"],
         "test": [
+            "tests/reference_parity/test_network_parity.py",
             "tests/reference_parity/test_network_centrality_parity.py",
         ],
         "note": (
-            "Closed-form identity: normalized betweenness is exact on canonical "
-            "graphs (star hub 1.0 on every leaf-pair path, leaves 0; path "
-            "midpoint 1.0). = igraph/networkx betweenness."
+            "Until 1.27.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
         ),
     },
     "clustering": {
         "status": "bit-exact",
-        "reference": "local clustering coefficient (Watts-Strogatz 1998)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "coefficient 1e-12 abs (observed 0)",
+        "reference": "R igraph::transitivity(type = 'local', isolates = 'zero')",
+        "reference_versions": {"igraph": "2.3.3"},
+        "tolerance": (
+            "Exact on karate and on a disconnected graph whose isolates and degree-1 nodes score 0 on both sides."
+        ),
         "sides": ["py", "R"],
         "test": [
+            "tests/reference_parity/test_network_parity.py",
             "tests/reference_parity/test_network_centrality_parity.py",
         ],
         "note": (
-            "Closed-form identity: local clustering = 2*triangles_i / "
-            "(deg_i*(deg_i-1)) exactly (triangle all 1.0, star / path all 0). "
-            "= igraph/networkx transitivity(local)."
+            "Until 1.27.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
         ),
     },
     "eigenvector_centrality": {
         "status": "bit-exact",
-        "reference": "leading adjacency eigenvector (Bonacich 1972)",
-        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
-        "tolerance": "centrality 1e-9 abs (observed <= 1e-15)",
+        "reference": "R sna::evcent (unit L2 norm, as here)",
+        "reference_versions": {"sna": "2.8", "igraph": "2.3.3"},
+        "tolerance": (
+            "5e-11 undirected, 8e-11 directed -- power-iteration tolerance on both sides. igraph::eigen_centrality max-scales instead (and 2.x ignores scale = FALSE), so it agrees only up to one scalar; the earlier note claiming the igraph convention was wrong."
+        ),
         "sides": ["py", "R"],
         "test": [
+            "tests/reference_parity/test_network_parity.py",
             "tests/reference_parity/test_network_centrality_parity.py",
         ],
         "note": (
-            "Closed-form identity: the L2-normalized leading eigenvector of the "
-            "adjacency matrix (star hub 1/sqrt2, leaves 1/sqrt8; triangle "
-            "uniform; path midpoint 1/sqrt2). Guards the bipartite power-"
-            "iteration fix. = igraph/networkx eigenvector convention."
+            "Until 1.27.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
         ),
     },
     "glm": {
@@ -2350,6 +1940,10 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
     "did_2x2": {
         "status": "bit-exact",
         "reference": "Stata 18 MP regress [aw=w], robust (aweight HC1)",
+        "provenance": (
+            "Stata 18 MP output captured live on 2026-07-23 from the seed-20260723 "
+            "dataset rebuilt by _make_data() in the test; values embedded as constants."
+        ),
         "reference_versions": {"Stata": "18 MP"},
         "tolerance": "b / se 1e-12 abs (observed <= 3e-16)",
         "sides": ["py", "Stata"],
@@ -2367,6 +1961,10 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
     "ddd": {
         "status": "bit-exact",
         "reference": "Stata 18 MP regress [aw=w], robust (aweight HC1)",
+        "provenance": (
+            "Stata 18 MP output captured live on 2026-07-23 from the seed-20260723 "
+            "dataset rebuilt by _make_data() in the test; values embedded as constants."
+        ),
         "reference_versions": {"Stata": "18 MP"},
         "tolerance": "b / se 1e-12 abs (observed <= 3e-15)",
         "sides": ["py", "Stata"],
@@ -2738,10 +2336,54 @@ def build_dispatcher_alias_records(
     return records
 
 
+# A test counts as touching an external reference if it loads a committed
+# fixture (written by an R / Stata generator) or calls R itself.
+_EXTERNAL_EVIDENCE = re.compile(
+    r"_fixtures|_FIX\b|Rscript|rpy2|_R\.json|_Stata\.json|_stata\.json"
+    r"|backend\s*=\s*[\"']r[\"']"
+)
+
+
+def _check_external_evidence(fn: str, meta: Dict[str, Any]) -> None:
+    """Refuse a cross-language grade that no test backs.
+
+    In 1.27.0, 32 promotions were found graded bit-exact against R or Stata
+    on tests of closed-form identities that never consulted either -- several
+    with a ``reference_versions`` naming an R build nothing had run, one
+    asserting in its docstring that an R package "implements the identical
+    closed form" in place of comparing against it. Cross-language evidence
+    has to be evidence: at least one listed test must load a reference
+    fixture or call R, or the entry must say where its embedded constants
+    came from in ``provenance`` (the live-captured Stata values behind
+    ``did_2x2`` / ``ddd``). Anything else belongs in ``analytical-only``,
+    which the reference_parity scan already assigns without an entry here.
+    """
+    if "sides" not in meta:
+        raise ValueError(
+            f"_FROZEN_PROMOTIONS[{fn!r}] has no 'sides'. It used to default to "
+            "['py', 'R'], which let an entry claim an R comparison by omission."
+        )
+    if not set(meta["sides"]) & {"R", "Stata"} or meta.get("provenance"):
+        return
+    for rel in meta["test"]:
+        path = REPO_ROOT / rel
+        if path.exists() and _EXTERNAL_EVIDENCE.search(
+            path.read_text(encoding="utf-8")
+        ):
+            return
+    raise ValueError(
+        f"_FROZEN_PROMOTIONS[{fn!r}] claims sides {meta['sides']} but none of "
+        f"{meta['test']} loads a reference fixture or calls R, and it records no "
+        "'provenance' for embedded constants. Build a real comparison or drop the "
+        "entry (the function then keeps its analytical-only grade)."
+    )
+
+
 def build_frozen_promotion_records() -> List[Dict[str, Any]]:
     """Curated frozen-reference bit-exact promotions (see _FROZEN_PROMOTIONS)."""
     records: List[Dict[str, Any]] = []
     for fn, meta in _FROZEN_PROMOTIONS.items():
+        _check_external_evidence(fn, meta)
         records.append(
             {
                 "function": fn,
@@ -2750,7 +2392,7 @@ def build_frozen_promotion_records() -> List[Dict[str, Any]]:
                 "reference": meta["reference"],
                 "reference_versions": meta.get("reference_versions", {}),
                 "tolerance": meta["tolerance"],
-                "sides": meta.get("sides", ["py", "R"]),
+                "sides": meta["sides"],
                 "test": meta["test"],
                 "notes": [meta["note"]],
             }

@@ -348,27 +348,21 @@
       "tolerance": ""
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "auc",
       "notes": [
-        "Closed-form identity: AUC equals the mid-rank Mann-Whitney statistic (ties handled), identical to pROC::auc and sklearn."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "Mann-Whitney rank AUC (= pROC::auc / sklearn)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_auc_parity.py"
       ],
-      "tolerance": "AUC 1e-12 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "function": "augsynth",
@@ -721,19 +715,16 @@
       "tolerance": "rel_est<=1e-06, rel_se<=0.01"
     },
     {
-      "additional_tests": [
-        "tests/reference_parity/test_network_parity.py"
-      ],
       "also_verified_by": [
         "reference_parity"
       ],
       "function": "betweenness_centrality",
       "notes": [
-        "Closed-form identity: normalized betweenness is exact on canonical graphs (star hub 1.0 on every leaf-pair path, leaves 0; path midpoint 1.0). = igraph/networkx betweenness."
+        "Until 1.27.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
       ],
-      "reference": "Freeman betweenness centrality (shortest-path mediation)",
+      "reference": "R igraph::betweenness",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "igraph": "2.3.3"
       },
       "sides": [
         "py",
@@ -742,9 +733,10 @@
       "source": "reference_parity_frozen",
       "status": "bit-exact",
       "test": [
+        "tests/reference_parity/test_network_parity.py",
         "tests/reference_parity/test_network_centrality_parity.py"
       ],
-      "tolerance": "centrality 1e-12 abs (observed 0)"
+      "tolerance": "Normalised and raw on karate, raw on the directed graph, all at 1e-10."
     },
     {
       "function": "beyond_average_late",
@@ -874,27 +866,21 @@
       "tolerance": "exact (atol 1e-15; observed 0)"
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "bootstrap",
       "notes": [
-        "Exact contract: estimate == statistic(full sample) and se == std(boot_distribution, ddof=1) to machine precision; the mean's bootstrap SE is consistent with the analytic sd/sqrt(n)."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "nonparametric bootstrap contract (Efron 1979)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_bootstrap_parity.py"
       ],
-      "tolerance": "estimate/se contract 1e-12 abs (observed 0); SE ~ analytic 10%"
+      "tolerance": ""
     },
     {
       "function": "bradford_hill",
@@ -914,27 +900,21 @@
       "tolerance": ""
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "breakdown_frontier",
       "notes": [
-        "Closed-form identity: breakdown point == estimate, its CI == estimate - z*se, and bounds == estimate +/- max_violation (Masten & Poirier 2021 breakdown-frontier framework)."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "additive-violation breakdown identities (Masten & Poirier 2021)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_breakdown_frontier_parity.py"
       ],
-      "tolerance": "breakdown point / CI / bounds 1e-12 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "function": "breakdown_m",
@@ -1559,19 +1539,16 @@
       "tolerance": ""
     },
     {
-      "additional_tests": [
-        "tests/reference_parity/test_network_parity.py"
-      ],
       "also_verified_by": [
         "reference_parity"
       ],
       "function": "clustering",
       "notes": [
-        "Closed-form identity: local clustering = 2*triangles_i / (deg_i*(deg_i-1)) exactly (triangle all 1.0, star / path all 0). = igraph/networkx transitivity(local)."
+        "Until 1.27.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
       ],
-      "reference": "local clustering coefficient (Watts-Strogatz 1998)",
+      "reference": "R igraph::transitivity(type = 'local', isolates = 'zero')",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "igraph": "2.3.3"
       },
       "sides": [
         "py",
@@ -1580,9 +1557,10 @@
       "source": "reference_parity_frozen",
       "status": "bit-exact",
       "test": [
+        "tests/reference_parity/test_network_parity.py",
         "tests/reference_parity/test_network_centrality_parity.py"
       ],
-      "tolerance": "coefficient 1e-12 abs (observed 0)"
+      "tolerance": "Exact on karate and on a disconnected graph whose isolates and degree-1 nodes score 0 on both sides."
     },
     {
       "also_verified_by": [
@@ -1779,27 +1757,21 @@
       "tolerance": ""
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "contrast",
       "notes": [
-        "Closed-form identity: for a linear model with C(g), the reference contrast of predictive margins equals the dummy coefficient coef[C(g)[T.k]] exactly (covariates cancel in the difference). Guards the C(var)[T.level] margin-parsing correctness fix."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "treatment-contrast identity (= Stata margins, contrast(r))",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_contrast_pwcompare_parity.py"
       ],
-      "tolerance": "contrast == dummy coefficient 1e-12 abs (observed <= 1e-15)"
+      "tolerance": ""
     },
     {
       "function": "counterfactual_fairness",
@@ -1981,27 +1953,21 @@
       "tolerance": ""
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "das_gupta",
       "notes": [
-        "Closed-form identity: per-factor effects sum to the total rate gap and percentages sum to 100% (Das Gupta 1993 exact standardization decomposition)."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "Das Gupta (1993) exact standardization decomposition identity",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_dasgupta_parity.py"
       ],
-      "tolerance": "factor-effect sum + pct 1e-12 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "also_verified_by": [
@@ -2137,19 +2103,16 @@
       "tolerance": "rel_est<=1e-06, rel_se<=0.05"
     },
     {
-      "additional_tests": [
-        "tests/reference_parity/test_network_parity.py"
-      ],
       "also_verified_by": [
         "reference_parity"
       ],
       "function": "degree_centrality",
       "notes": [
-        "Closed-form identity: normalized degree centrality equals deg_i / (n-1) exactly on canonical graphs (star hub 1.0, leaves 1/4; triangle all 1.0). = igraph/networkx degree."
+        "Until 1.27.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
       ],
-      "reference": "Freeman normalized degree centrality (deg_i / (n-1))",
+      "reference": "R igraph::degree",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "igraph": "2.3.3"
       },
       "sides": [
         "py",
@@ -2158,9 +2121,10 @@
       "source": "reference_parity_frozen",
       "status": "bit-exact",
       "test": [
+        "tests/reference_parity/test_network_parity.py",
         "tests/reference_parity/test_network_centrality_parity.py"
       ],
-      "tolerance": "centrality 1e-12 abs (observed 0)"
+      "tolerance": "Normalised on karate and raw in / out / all modes on a 40-node directed graph, exact."
     },
     {
       "additional_tests": [
@@ -2530,27 +2494,21 @@
       "tolerance": "rel_est<=1e-06"
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "direct_standardize",
       "notes": [
-        "Closed-form identity: DSR = sum(w_i * r_i)/sum(w_i) over strata matches the canonical direct standardization exactly (point rate pinned; CI not pinned)."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "base closed form (directly standardized rate; = Stata dstdize)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_standardize_parity.py"
       ],
-      "tolerance": "DSR 1e-12 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "function": "discos",
@@ -2886,19 +2844,17 @@
       "tolerance": ""
     },
     {
-      "additional_tests": [
-        "tests/reference_parity/test_network_parity.py"
-      ],
       "also_verified_by": [
         "reference_parity"
       ],
       "function": "eigenvector_centrality",
       "notes": [
-        "Closed-form identity: the L2-normalized leading eigenvector of the adjacency matrix (star hub 1/sqrt2, leaves 1/sqrt8; triangle uniform; path midpoint 1/sqrt2). Guards the bipartite power-iteration fix. = igraph/networkx eigenvector convention."
+        "Until 1.27.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
       ],
-      "reference": "leading adjacency eigenvector (Bonacich 1972)",
+      "reference": "R sna::evcent (unit L2 norm, as here)",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "igraph": "2.3.3",
+        "sna": "2.8"
       },
       "sides": [
         "py",
@@ -2907,9 +2863,10 @@
       "source": "reference_parity_frozen",
       "status": "bit-exact",
       "test": [
+        "tests/reference_parity/test_network_parity.py",
         "tests/reference_parity/test_network_centrality_parity.py"
       ],
-      "tolerance": "centrality 1e-9 abs (observed <= 1e-15)"
+      "tolerance": "5e-11 undirected, 8e-11 directed -- power-iteration tolerance on both sides. igraph::eigen_centrality max-scales instead (and 2.x ignores scale = FALSE), so it agrees only up to one scalar; the earlier note claiming the igraph convention was wrong."
     },
     {
       "function": "engle_granger",
@@ -3180,11 +3137,11 @@
       ],
       "function": "evalue_rr",
       "notes": [
-        "Closed-form identity: E-value = RR + sqrt(RR*(RR-1)) for the point and the null-nearest CI limit, matching the R EValue package (sp.evalue is bit-exact against it via Track A module 23)."
+        "Until 1.27.0 this entry was graded cross-language on a closed form typed into the test, with a docstring asserting that R's EValue implements the same formula; nothing consulted R. The fixture is now EValue's own output."
       ],
-      "reference": "VanderWeele-Ding closed form (= R EValue package)",
+      "reference": "R EValue::evalues.RR",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "EValue": "4.1.4"
       },
       "sides": [
         "py",
@@ -3195,7 +3152,7 @@
       "test": [
         "tests/reference_parity/test_evalue_rr_parity.py"
       ],
-      "tolerance": "point + CI E-value 1e-12 abs (observed 0)"
+      "tolerance": "Point and CI E-values at 1e-12 across ten cases, including RR < 1 and CIs crossing the null."
     },
     {
       "additional_tests": [
@@ -3964,27 +3921,21 @@
       "tolerance": "C 2.0e-15. The closed-form variance and z are new in 1.27.0 (they were NaN whenever permutations=0) and match both spdep nulls at 1.5e-14: randomisation (with the m4/m2^2 term) and normality."
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "gelbach",
       "notes": [
-        "Closed-form identity: total_change = base_coef - full_coef exactly and per-covariate deltas sum to total_change (Gelbach 2016 exact, order-invariant decomposition). = Stata b1x2 / R equivalents."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "Gelbach (2016) exact conditional decomposition identity",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_gelbach_parity.py"
       ],
-      "tolerance": "total_change + contribution sum 1e-12 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "function": "general_bunching",
@@ -4605,27 +4556,21 @@
       "tolerance": "count + zero coefficients 1e-6 abs (observed ~2e-8)"
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "icc",
       "notes": [
-        "Closed-form identity: the intraclass correlation equals the random-intercept variance share of the fitted mixed model's own variance components exactly; tracks the realized group variance across seeds."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "variance-ratio identity ICC = var_u / (var_u + var_e)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_icc_parity.py"
       ],
-      "tolerance": "ICC vs model variance components 1e-12 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "function": "immortal_time_check",
@@ -4693,27 +4638,21 @@
       "tolerance": "estimate 1e-12; exact CI 1e-10 abs (observed ~3e-15)"
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "indirect_standardize",
       "notes": [
-        "Closed-form identity: expected = sum(reference_rate_i * study_pop_i) and SMR = observed/expected match the canonical indirect standardization exactly."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "base closed form (SMR / indirect std.; = Stata istdize)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_standardize_parity.py"
       ],
-      "tolerance": "expected + SMR 1e-12 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "also_verified_by": [
@@ -5250,50 +5189,38 @@
       "tolerance": "7.1e-16 with normalized = False (normalized = True L2-scales the same vector)."
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "kdensity",
       "notes": [
-        "Closed-form identity: Gaussian KDE f(x0) = (1/nh) * sum_i phi((x0-x_i)/h)/sqrt(2pi) matches the kernel-density value at every grid point to machine precision (Silverman 1986). Bandwidth selector not pinned."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "Gaussian KDE closed form (= stats::density / sklearn)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_kdensity_parity.py"
       ],
-      "tolerance": "density 1e-12 abs (observed ~3e-18 / 0)"
+      "tolerance": ""
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "kitagawa_decompose",
       "notes": [
-        "Closed-form identity: the group rate gap splits exactly into rate effect + composition effect + symmetric interaction, and gap == rate_a - rate_b (Kitagawa 1955)."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "Kitagawa (1955) two-factor rate decomposition identity",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_kitagawa_decompose_parity.py"
       ],
-      "tolerance": "gap = rate + composition + interaction 1e-12 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "additional_tests": [
@@ -5361,27 +5288,21 @@
       "tolerance": ""
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "lee_bounds",
       "notes": [
-        "Closed-form identity: with p = (s1 - s0) / s1 the bounds are the top/bottom-trimmed treated means minus the control mean, matching the hand-computed Lee (2009) definition exactly; bounds bracket the planted effect."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "Lee (2009) trimming-bound closed form (lee2009training)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_lee_bounds_parity.py"
       ],
-      "tolerance": "bounds / trim fraction / retention 1e-12 abs (observed <= 1e-16)"
+      "tolerance": ""
     },
     {
       "function": "levinsohn_petrin",
@@ -5779,27 +5700,21 @@
       "tolerance": ""
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "lrtest",
       "notes": [
-        "Closed-form identity: the LR statistic equals twice the log-likelihood difference of the nested ML fits, the reported logL fields equal the models' own attributes, and p is the exact chi-square survival at the df difference."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "likelihood-ratio identity chi2 = 2*(logL_full - logL_restricted)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_lrtest_parity.py"
       ],
-      "tolerance": "chi2 / logL fields 1e-10 abs (observed 0); p == chi2.sf exact"
+      "tolerance": ""
     },
     {
       "function": "ltmle",
@@ -5853,27 +5768,21 @@
       "tolerance": ""
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "manski_bounds",
       "notes": [
-        "Closed-form identity: the no-assumption ATE bound width equals the outcome range y_upper - y_lower exactly, and each bound reconstructs from the cell means and treatment share (Manski 1990)."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "Manski (1990) no-assumption worst-case ATE bound identity",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_manski_bounds_parity.py"
       ],
-      "tolerance": "width == y_upper - y_lower 1e-12 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "also_verified_by": [
@@ -5917,27 +5826,21 @@
       "tolerance": ""
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "margins_at",
       "notes": [
-        "Closed-form identity: the predictive margin at x=v equals b0 + b_x*v + b_z*mean(z) exactly (= Stata margins, at()); symmetric covariate grid yields symmetric standard errors."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "predictive-margin linear form of the OLS coefficients",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_margins_at_parity.py"
       ],
-      "tolerance": "margin(x=v) 1e-10 abs (observed 0); symmetric-grid SE symmetric"
+      "tolerance": ""
     },
     {
       "function": "markup",
@@ -6095,27 +5998,21 @@
       "tolerance": "rel_est<=1e-06, rel_se<=0.1"
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "mediate_interventional",
       "notes": [
-        "Closed-form identity: the interventional decomposition telescopes over shared Monte-Carlo draws, so total_effect == IIE + IDE exactly; components recover their linear-DGP population values."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "interventional effects telescoping identity (VanderWeele Vansteelandt Robins 2014)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_mediate_interventional_parity.py"
       ],
-      "tolerance": "total = IIE + IDE 1e-12 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "additional_tests": [
@@ -6170,27 +6067,21 @@
       "tolerance": "rel_est<=1e-06, rel_se<=0.1"
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "mediation_decompose",
       "notes": [
-        "Closed-form identity: total effect = natural direct + natural indirect effect (NDE + NIE), and proportion mediated = NIE / total (Pearl 2001; VanderWeele 2015)."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "natural-effects mediation (Pearl 2001; VanderWeele 2015)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_mediation_decompose_parity.py"
       ],
-      "tolerance": "total = NDE + NIE 1e-12 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "additional_tests": [
@@ -6544,27 +6435,21 @@
       "tolerance": "Statistic 5e-16; the p-value at 1e-7 once X is supplied so the Cliff-Ord regression-residual null can be formed. Both spdep alternatives are recorded because lm.morantest defaults to one-sided."
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "mr",
       "notes": [
-        "Closed-form identity: mr('ivw') is weighted regression through the origin with weights 1/se_outcome^2 -- estimate = sum(w bx by)/sum(w bx^2), se = sqrt(1/sum(w bx^2)), Q = sum(w resid^2) exactly."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "inverse-variance-weighted MR closed form (Burgess et al. 2013)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_mr_ivw_parity.py"
       ],
-      "tolerance": "estimate / se / Cochran Q 1e-10 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "function": "mr_cml",
@@ -7431,27 +7316,21 @@
       "tolerance": ""
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "oster_delta",
       "notes": [
-        "Structural identities: beta/R2 for short and controlled fits equal hand-rolled OLS exactly; bound endpoints are the named beta_full / beta*(delta=1); delta* is exactly the zero-crossing of the bias-adjusted coefficient grid (Oster 2019)."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "coefficient-stability bound identities (Oster 2019)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_oster_delta_parity.py"
       ],
-      "tolerance": "OLS inputs 1e-12 abs (observed 0); beta(delta*)=0 at 1e-10"
+      "tolerance": ""
     },
     {
       "additional_tests": [
@@ -7872,30 +7751,22 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
-      "additional_tests": [
-        "tests/reference_parity/test_policy_tree_parity.py"
-      ],
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "policy_value",
       "notes": [
-        "Closed-form identity: the doubly-robust policy value is exactly the mean of gain scores under the policy, with degenerate-policy values (0 / mean score) and oracle dominance holding exactly."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "empirical policy value V(pi) = mean(Gamma * pi) (Athey & Wager 2021)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_policy_tree_parity.py",
         "tests/reference_parity/test_policy_value_parity.py"
       ],
-      "tolerance": "V(pi) == mean(scores * policy) 1e-15 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "function": "policy_weight_ate",
@@ -7966,27 +7837,21 @@
       "tolerance": ""
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "power_case_control",
       "notes": [
-        "Closed-form identity: case exposure prevalence from the odds ratio then unpooled-Wald two-proportion z-approx power. Matches base R exactly."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "base-R closed form (case-control OR power, 2-prop z)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_epi_diag_parity.py"
       ],
-      "tolerance": "power 1e-12 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "also_verified_by": [
@@ -8486,27 +8351,21 @@
       "tolerance": "Observed py<->Stata relative gaps on the committed fixtures: nearest-neighbour ATT 1.2e-16 and its analytic SE exactly 0 (as is _weight per row); radius ATT 2.8e-16; Abadie-Imbens ai(1)/ai(2) SE 3.0e-15/1.7e-15; PSM-DID across all five weight regimes 2.0e-14; pstest per-covariate rows 1.3e-14; Mahalanobis ATT 1.2e-13; llr ATT 2.1e-10 (worst of four kernels); kernel ATT 9.1e-10; pstest summary block 1.3e-9. The two loosest rows are bounded by fixture precision, not by the estimator: pstest accumulates MeanBias/MedBias in a Stata float (2.6e-9) and r(seatt) for the llr reroute was captured at 8 significant digits (9.9e-9)."
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "pwcompare",
       "notes": [
-        "Closed-form identity: each pairwise margin difference equals the difference of the corresponding treatment-dummy coefficients (j vs k == coef[T.j] - coef[T.k]) exactly."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "pairwise-contrast identity (= Stata pwcompare)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_contrast_pwcompare_parity.py"
       ],
-      "tolerance": "pairwise diff == coef difference 1e-12 abs (observed <= 1e-15)"
+      "tolerance": ""
     },
     {
       "additional_tests": [
@@ -9340,27 +9199,21 @@
       "tolerance": ""
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "roc_curve",
       "notes": [
-        "Closed-form identity: the ROC-curve AUC equals the mid-rank Mann-Whitney statistic (= pROC::auc / sklearn). Curve/CI not pinned."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "Mann-Whitney rank AUC (= pROC::auc / sklearn)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_auc_parity.py"
       ],
-      "tolerance": "AUC 1e-12 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "function": "romano_wolf",
@@ -9799,7 +9652,6 @@
         "tests/reference_parity/test_sensemakr_parity.py"
       ],
       "also_verified_by": [
-        "reference_parity_frozen",
         "reference_parity"
       ],
       "function": "sensemakr",
@@ -9847,27 +9699,21 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "sensitivity_specificity",
       "notes": [
-        "Closed-form identity: sensitivity/specificity/PPV/NPV/likelihood ratios are exact ratios of the 2x2 diagnostic table (= epiR / standard). Point estimates pinned; CIs not pinned."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "base closed form (2x2 diagnostic accuracy; = epiR)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_epi_diag_parity.py"
       ],
-      "tolerance": "sens/spec/PPV/NPV/LR 1e-12 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "function": "shapley_inequality",
@@ -9931,27 +9777,21 @@
       "tolerance": "Every coefficient at 1e-10."
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "source_decompose",
       "notes": [
-        "Closed-form identity: per-source contribution = share * Gini-correlation * own-Gini and the contributions sum exactly to total Gini (Lerman & Yitzhaki 1985)."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "Lerman-Yitzhaki (1985) Gini source decomposition identity",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_source_decompose_parity.py"
       ],
-      "tolerance": "sum(contribution) == total_gini 1e-12 abs (observed ~1e-16)"
+      "tolerance": ""
     },
     {
       "function": "spatial_did",
@@ -10306,27 +10146,21 @@
       "tolerance": ""
     },
     {
-      "also_verified_by": [
-        "reference_parity"
-      ],
       "function": "subgroup_decompose",
       "notes": [
-        "Closed-form identity: the generalized-entropy (Theil-T/Theil-L) inequality index decomposes exactly into within- and between-group components (Shorrocks 1980)."
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
       ],
-      "reference": "Theil within+between exact additive identity (Shorrocks 1980)",
-      "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
-      },
+      "reference": "",
+      "reference_versions": {},
       "sides": [
-        "py",
-        "R"
+        "py"
       ],
-      "source": "reference_parity_frozen",
-      "status": "bit-exact",
+      "source": "reference_parity",
+      "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_subgroup_decompose_parity.py"
       ],
-      "tolerance": "total == within + between 1e-12 abs (observed 0)"
+      "tolerance": ""
     },
     {
       "additional_tests": [

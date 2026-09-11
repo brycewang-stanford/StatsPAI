@@ -390,3 +390,43 @@ def test_every_certified_row_names_its_reference():
         and idx.get(fn, {}).get("status") not in CROSS_LANGUAGE_STATUSES
     )
     assert not graded, f"certified without a cross-package parity grade: {graded}"
+
+
+# --------------------------------------------------------------------------- #
+#  4. A cross-language grade must rest on a cross-language comparison
+# --------------------------------------------------------------------------- #
+def test_every_frozen_cross_language_promotion_is_backed():
+    """build_frozen_promotion_records raises on an unbacked R/Stata claim.
+
+    In 1.27.0, 32 promotions were graded bit-exact against R or Stata on
+    closed-form tests that never consulted either. The builder now refuses
+    such an entry; this runs it so CI enforces that without regenerating.
+    """
+    gen = _load_generator()
+    records = gen.build_frozen_promotion_records()
+    assert records, "no frozen promotions were built"
+
+
+def test_unbacked_cross_language_promotion_is_refused(tmp_path):
+    gen = _load_generator()
+    closed_form = tmp_path / "test_closed_form_only.py"
+    closed_form.write_text(
+        "def test_identity():\n    assert 1 + 1 == 2\n", encoding="utf-8"
+    )
+    meta = {
+        "status": "bit-exact",
+        "reference": "an R package said to use the same formula",
+        "tolerance": "0",
+        "sides": ["py", "R"],
+        "test": [str(closed_form)],
+        "note": "",
+    }
+    with pytest.raises(ValueError, match="claims sides"):
+        gen._check_external_evidence("fake_fn", meta)
+    # the same entry is fine once it says where embedded constants came from
+    gen._check_external_evidence("fake_fn", {**meta, "provenance": "captured live"})
+    # and an entry may not claim an R side by omitting `sides`
+    with pytest.raises(ValueError, match="no 'sides'"):
+        gen._check_external_evidence(
+            "fake_fn", {k: v for k, v in meta.items() if k != "sides"}
+        )

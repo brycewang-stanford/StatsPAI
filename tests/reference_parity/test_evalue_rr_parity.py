@@ -1,25 +1,29 @@
-"""Reference parity: sp.evalue_rr vs the VanderWeele-Ding E-value closed form.
+"""Cross-language parity: ``sp.evalue_rr`` vs R ``EValue::evalues.RR``.
 
-The E-value for a risk ratio is ``E = RR + sqrt(RR*(RR-1))`` (RR >= 1), and the
-E-value for a confidence limit is the same transform applied to the limit
-nearest the null (or 1 if the interval crosses it). This is the identical
-closed form the R ``EValue`` package implements (``sp.evalue`` is already
-bit-exact against it via Track A module 23); this suite pins the RR-input
-variant to the same formula to machine precision.
+Regenerate with ``Rscript tests/reference_parity/_fixtures/_generate_evalue_rr_R.R``.
 
-References
-----------
-- VanderWeele, T.J. & Ding, P. (2017). Sensitivity Analysis in Observational
-  Research: Introducing the E-Value. *Annals of Internal Medicine* 167(4).
+Before 1.27.0 this file compared ``sp.evalue_rr`` against a closed form
+typed into the test and stated that R's ``EValue`` "implements the
+identical closed form". The parity index graded that as cross-language
+evidence, but nothing here ever consulted R. The fixture below is
+``evalues.RR``'s own output, including the branches that choose which
+confidence limit is used and the rule that a CI crossing the null has an
+E-value of exactly 1. The closed form is kept as a second, independent
+check.
 """
 
 from __future__ import annotations
 
+import json
 import math
+import pathlib
 
 import pytest
 
 import statspai as sp
+
+_FIX = pathlib.Path(__file__).parent / "_fixtures"
+_CASES = json.loads((_FIX / "evalue_rr_R.json").read_text(encoding="utf-8"))["cases"]
 
 
 def _evalue(rr: float) -> float:
@@ -27,17 +31,22 @@ def _evalue(rr: float) -> float:
     return rr + math.sqrt(rr * (rr - 1.0))
 
 
-@pytest.mark.parametrize("rr", [1.5, 2.0, 3.0, 5.0])
+@pytest.mark.parametrize(
+    "case", _CASES, ids=lambda c: f"rr{c['rr']}_ci{c['lo']}-{c['hi']}"
+)
+def test_evalue_rr_matches_EValue(case):
+    if case["lo"] is None:
+        res = sp.evalue_rr(case["rr"])
+    else:
+        res = sp.evalue_rr(case["rr"], rr_lower=case["lo"], rr_upper=case["hi"])
+        assert res["evalue_ci"] == pytest.approx(case["e_ci"], rel=1e-12)
+    assert res["evalue_estimate"] == pytest.approx(case["e_point"], rel=1e-12)
+
+
+@pytest.mark.parametrize("rr", [1.5, 2.0, 3.0, 5.0, 0.6])
 def test_evalue_rr_point_matches_closed_form(rr):
-    res = sp.evalue_rr(rr)
-    assert res["evalue_estimate"] == pytest.approx(_evalue(rr), abs=1e-12)
+    assert sp.evalue_rr(rr)["evalue_estimate"] == pytest.approx(_evalue(rr), abs=1e-12)
 
 
-def test_evalue_rr_ci_uses_lower_limit():
-    res = sp.evalue_rr(2.0, rr_lower=1.3, rr_upper=3.1)
-    assert res["evalue_ci"] == pytest.approx(_evalue(1.3), abs=1e-12)
-
-
-def test_evalue_rr_ci_crossing_null_is_one():
-    res = sp.evalue_rr(1.5, rr_lower=0.9, rr_upper=2.5)
-    assert res["evalue_ci"] == pytest.approx(1.0, abs=1e-12)
+def test_evalue_rr_ci_crossing_the_null_is_one():
+    assert sp.evalue_rr(1.5, rr_lower=0.8, rr_upper=2.4)["evalue_ci"] == 1.0

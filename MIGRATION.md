@@ -45,8 +45,6 @@ fail, instead of silently dropping them, and lists them in
 
 <a id="dyadic-directed"></a>
 
-<a id="dyadic-directed"></a>
-
 <a id="evidence-grade-closed-form"></a>
 
 ## 1.27.0 — ⚠️ 26 functions are no longer graded as matching R / Stata

@@ -4969,7 +4969,7 @@
     ],
     "category": "inference",
     "cost_profile": "",
-    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: certified parity evidence.",
+    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.bootstrap(df, lambda d: d[\"y\"].mean(), n_boot=2000)",
     "failure_modes": [
       {
@@ -4996,7 +4996,7 @@
     ],
     "reference": "Efron & Tibshirani (1993)",
     "signature": {
-      "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: certified parity evidence.",
+      "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bootstrap",
       "parameters": {
         "properties": {
@@ -5039,10 +5039,10 @@
     "typical_n_min": 50,
     "validation_notes": [
       "tests/reference_parity/test_bootstrap_parity.py",
-      "Cross-language parity (bit-exact) vs nonparametric bootstrap contract (Efron 1979) [R R version 4.5.2 (2025-10-31)]; tolerance estimate/se contract 1e-12 abs (observed 0); SE ~ analytic 10% -- tests/reference_parity/test_bootstrap_parity.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_bootstrap_parity.py",
       "API/unit contract evidence: tests/test_round3.py"
     ],
-    "validation_status": "certified"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -5435,7 +5435,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: certified parity evidence.",
+    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.mediate_interventional(df, y=\"y\", treat=\"d\", mediator=\"m\", tv_confounders=[\"L\"])",
     "failure_modes": [
       {
@@ -5455,7 +5455,7 @@
     ],
     "reference": "VanderWeele, Vansteelandt & Robins (2014)",
     "signature": {
-      "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: certified parity evidence.",
+      "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "mediate_interventional",
       "parameters": {
         "properties": {
@@ -5503,10 +5503,10 @@
     "typical_n_min": 300,
     "validation_notes": [
       "tests/reference_parity/test_mediate_interventional_parity.py",
-      "Cross-language parity (bit-exact) vs interventional effects telescoping identity (VanderWeele Vansteelandt Robins 2014) [R R version 4.5.2 (2025-10-31)]; tolerance total = IIE + IDE 1e-12 abs (observed 0) -- tests/reference_parity/test_mediate_interventional_parity.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mediate_interventional_parity.py",
       "API/unit contract evidence: tests/test_mediate_interventional.py"
     ],
-    "validation_status": "certified"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -7675,7 +7675,7 @@
     ],
     "category": "epi",
     "cost_profile": "",
-    "description": "Direct age/covariate standardization of a rate using external standard-population weights. Validation: certified parity evidence.",
+    "description": "Direct age/covariate standardization of a rate using external standard-population weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -7701,7 +7701,7 @@
     ],
     "reference": "Rothman, Greenland & Lash (2008) ch. 3",
     "signature": {
-      "description": "Direct age/covariate standardization of a rate using external standard-population weights. Validation: certified parity evidence.",
+      "description": "Direct age/covariate standardization of a rate using external standard-population weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "direct_standardize",
       "parameters": {
         "properties": {
@@ -7744,10 +7744,10 @@
     "typical_n_min": 50,
     "validation_notes": [
       "tests/reference_parity/test_standardize_parity.py",
-      "Cross-language parity (bit-exact) vs base closed form (directly standardized rate; = Stata dstdize) [R R version 4.5.2 (2025-10-31)]; tolerance DSR 1e-12 abs (observed 0) -- tests/reference_parity/test_standardize_parity.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_standardize_parity.py",
       "API/unit contract evidence: tests/test_epi.py"
     ],
-    "validation_status": "certified"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -7762,7 +7762,7 @@
     ],
     "category": "epi",
     "cost_profile": "",
-    "description": "Indirect standardization -> SMR (standardized morbidity / mortality ratio) with Garwood exact Poisson CI. Validation: certified parity evidence.",
+    "description": "Indirect standardization -> SMR (standardized morbidity / mortality ratio) with Garwood exact Poisson CI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -7788,7 +7788,7 @@
     ],
     "reference": "Breslow & Day (1987) Vol. II",
     "signature": {
-      "description": "Indirect standardization -> SMR (standardized morbidity / mortality ratio) with Garwood exact Poisson CI. Validation: certified parity evidence.",
+      "description": "Indirect standardization -> SMR (standardized morbidity / mortality ratio) with Garwood exact Poisson CI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "indirect_standardize",
       "parameters": {
         "properties": {
@@ -7836,10 +7836,10 @@
     "typical_n_min": 50,
     "validation_notes": [
       "tests/reference_parity/test_standardize_parity.py",
-      "Cross-language parity (bit-exact) vs base closed form (SMR / indirect std.; = Stata istdize) [R R version 4.5.2 (2025-10-31)]; tolerance expected + SMR 1e-12 abs (observed 0) -- tests/reference_parity/test_standardize_parity.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_standardize_parity.py",
       "API/unit contract evidence: tests/test_epi.py"
     ],
-    "validation_status": "certified"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -9215,7 +9215,7 @@
     ],
     "category": "epi",
     "cost_profile": "",
-    "description": "Sensitivity, specificity, PPV, NPV, LR+ / LR- with Wilson score CIs. Accepts either raw binary labels or pre-computed confusion counts. Validation: certified parity evidence.",
+    "description": "Sensitivity, specificity, PPV, NPV, LR+ / LR- with Wilson score CIs. Accepts either raw binary labels or pre-computed confusion counts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -9241,7 +9241,7 @@
     ],
     "reference": "Altman & Bland (1994)",
     "signature": {
-      "description": "Sensitivity, specificity, PPV, NPV, LR+ / LR- with Wilson score CIs. Accepts either raw binary labels or pre-computed confusion counts. Validation: certified parity evidence.",
+      "description": "Sensitivity, specificity, PPV, NPV, LR+ / LR- with Wilson score CIs. Accepts either raw binary labels or pre-computed confusion counts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "sensitivity_specificity",
       "parameters": {
         "properties": {
@@ -9283,10 +9283,10 @@
     "typical_n_min": 30,
     "validation_notes": [
       "tests/reference_parity/test_epi_diag_parity.py",
-      "Cross-language parity (bit-exact) vs base closed form (2x2 diagnostic accuracy; = epiR) [R R version 4.5.2 (2025-10-31)]; tolerance sens/spec/PPV/NPV/LR 1e-12 abs (observed 0) -- tests/reference_parity/test_epi_diag_parity.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_epi_diag_parity.py",
       "API/unit contract evidence: tests/test_epi_diagnostic.py"
     ],
-    "validation_status": "certified"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -9300,7 +9300,7 @@
     ],
     "category": "epi",
     "cost_profile": "",
-    "description": "ROC curve with AUC (trapezoidal) and Hanley-McNeil (1982) standard error. Validation: certified parity evidence.",
+    "description": "ROC curve with AUC (trapezoidal) and Hanley-McNeil (1982) standard error. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -9326,7 +9326,7 @@
     ],
     "reference": "Hanley & McNeil (1982)",
     "signature": {
-      "description": "ROC curve with AUC (trapezoidal) and Hanley-McNeil (1982) standard error. Validation: certified parity evidence.",
+      "description": "ROC curve with AUC (trapezoidal) and Hanley-McNeil (1982) standard error. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "roc_curve",
       "parameters": {
         "properties": {
@@ -9355,10 +9355,10 @@
     "typical_n_min": 50,
     "validation_notes": [
       "tests/reference_parity/test_auc_parity.py",
-      "Cross-language parity (bit-exact) vs Mann-Whitney rank AUC (= pROC::auc / sklearn) [R R version 4.5.2 (2025-10-31)]; tolerance AUC 1e-12 abs (observed 0) -- tests/reference_parity/test_auc_parity.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_auc_parity.py",
       "API/unit contract evidence: tests/test_epi_diagnostic.py"
     ],
-    "validation_status": "certified"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -16880,7 +16880,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: certified parity evidence.",
+    "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.mr(\"ivw\", beta_exposure=bx, beta_outcome=by, se_exposure=sx, se_outcome=sy)",
     "failure_modes": [
       {
@@ -16920,7 +16920,7 @@
     ],
     "reference": "Burgess et al. 2013; Bowden et al. 2015/2016/2017/2018; Verbanck et al. 2018; Hartwig et al. 2017; Sanderson et al. 2019; Zuber et al. 2020.",
     "signature": {
-      "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: certified parity evidence.",
+      "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "mr",
       "parameters": {
         "properties": {
@@ -16938,11 +16938,11 @@
     "typical_n_min": 10,
     "validation_notes": [
       "tests/reference_parity/test_mr_ivw_parity.py",
-      "Cross-language parity (bit-exact) vs inverse-variance-weighted MR closed form (Burgess et al. 2013) [R R version 4.5.2 (2025-10-31)]; tolerance estimate / se / Cochran Q 1e-10 abs (observed 0) -- tests/reference_parity/test_mr_ivw_parity.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_ivw_parity.py",
       "API/unit contract evidence: tests/test_mr_frontier.py",
       "API/unit contract evidence: tests/test_dispatchers_v150.py"
     ],
-    "validation_status": "certified"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -32659,7 +32659,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Evaluate the expected value of a treatment policy. Validation: certified parity evidence.",
+    "description": "Evaluate the expected value of a treatment policy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -32678,7 +32678,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Evaluate the expected value of a treatment policy. Validation: certified parity evidence.",
+      "description": "Evaluate the expected value of a treatment policy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "policy_value",
       "parameters": {
         "properties": {
@@ -32703,9 +32703,9 @@
     "validation_notes": [
       "tests/reference_parity/test_policy_tree_parity.py",
       "tests/reference_parity/test_policy_value_parity.py",
-      "Cross-language parity (bit-exact) vs empirical policy value V(pi) = mean(Gamma * pi) (Athey & Wager 2021) [R R version 4.5.2 (2025-10-31)]; tolerance V(pi) == mean(scores * policy) 1e-15 abs (observed 0) -- tests/reference_parity/test_policy_value_parity.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_policy_tree_parity.py"
     ],
-    "validation_status": "certified"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -33353,7 +33353,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: certified parity evidence.",
+    "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.lee_bounds(df, y='wage', treat='training', selection='employed')",
     "failure_modes": [
       {
@@ -33373,7 +33373,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: certified parity evidence.",
+      "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "lee_bounds",
       "parameters": {
         "properties": {
@@ -33429,9 +33429,9 @@
     "typical_n_min": 100,
     "validation_notes": [
       "tests/reference_parity/test_lee_bounds_parity.py",
-      "Cross-language parity (bit-exact) vs Lee (2009) trimming-bound closed form (lee2009training) [R R version 4.5.2 (2025-10-31)]; tolerance bounds / trim fraction / retention 1e-12 abs (observed <= 1e-16) -- tests/reference_parity/test_lee_bounds_parity.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_lee_bounds_parity.py"
     ],
-    "validation_status": "certified"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -33445,7 +33445,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: certified parity evidence.",
+    "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.manski_bounds(df, y='employed', treat='training', y_lower=0, y_upper=1)",
     "failure_modes": [
       {
@@ -33465,7 +33465,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: certified parity evidence.",
+      "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "manski_bounds",
       "parameters": {
         "properties": {
@@ -33522,9 +33522,9 @@
     "typical_n_min": 100,
     "validation_notes": [
       "tests/reference_parity/test_manski_bounds_parity.py",
-      "Cross-language parity (bit-exact) vs Manski (1990) no-assumption worst-case ATE bound identity [R R version 4.5.2 (2025-10-31)]; tolerance width == y_upper - y_lower 1e-12 abs (observed 0) -- tests/reference_parity/test_manski_bounds_parity.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_manski_bounds_parity.py"
     ],
-    "validation_status": "certified"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -33728,7 +33728,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: certified parity evidence.",
+    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.oster_delta( data=df, y=\"wage\", x_base=[\"education\"], x_controls=[\"experience\", \"tenure\"], r_max=1.3, )",
     "failure_modes": [
       {
@@ -33748,7 +33748,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: certified parity evidence.",
+      "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "oster_delta",
       "parameters": {
         "properties": {
@@ -33824,9 +33824,9 @@
     "typical_n_min": 100,
     "validation_notes": [
       "tests/reference_parity/test_oster_delta_parity.py",
-      "Cross-language parity (bit-exact) vs coefficient-stability bound identities (Oster 2019) [R R version 4.5.2 (2025-10-31)]; tolerance OLS inputs 1e-12 abs (observed 0); beta(delta*)=0 at 1e-10 -- tests/reference_parity/test_oster_delta_parity.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oster_delta_parity.py"
     ],
-    "validation_status": "certified"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -33937,7 +33937,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: certified parity evidence.",
+    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.breakdown_frontier( estimate=0.05, se=0.02, assumption=\"parallel_trends\", max_violation=0.1, )",
     "failure_modes": [
       {
@@ -33957,7 +33957,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: certified parity evidence.",
+      "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "breakdown_frontier",
       "parameters": {
         "properties": {
@@ -34001,9 +34001,9 @@
     "typical_n_min": 100,
     "validation_notes": [
       "tests/reference_parity/test_breakdown_frontier_parity.py",
-      "Cross-language parity (bit-exact) vs additive-violation breakdown identities (Masten & Poirier 2021) [R R version 4.5.2 (2025-10-31)]; tolerance breakdown point / CI / bounds 1e-12 abs (observed 0) -- tests/reference_parity/test_breakdown_frontier_parity.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_breakdown_frontier_parity.py"
     ],
-    "validation_status": "certified"
+    "validation_status": "validated"
   },
   {
     "alternatives": [

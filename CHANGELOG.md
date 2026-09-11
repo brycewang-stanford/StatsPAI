@@ -121,6 +121,52 @@ All notable changes to StatsPAI will be documented in this file.
   between 1.3e-8 and 5.5e-6, and with Stata `jwdid` to 2e-15. Point estimates
   are unchanged by this item.
 
+### ⚠️ Evidence-grade corrections
+
+No estimator's output changed in this section. What changed is which
+functions the parity index vouches for as agreeing with R or Stata.
+
+- **31 functions were graded bit-exact against R or Stata on tests that
+  never consulted either.** Each was a curated promotion in
+  `scripts/build_parity_index.py` whose only test checked closed-form
+  identities — `total == within + between`, `E = RR + sqrt(RR(RR − 1))`, a
+  star graph's hub scoring 1.0 — several with a `reference_versions` field
+  naming an R build that nothing had run, and one asserting in its
+  docstring that an R package "implements the identical closed form" in
+  place of comparing against it. That is known-truth evidence (T1), and it
+  was being counted as cross-language parity (T2), the claim the JSS
+  manuscript rests on.
+  - **Five now have the comparison they claimed**, built in this release:
+    `evalue_rr` against `EValue::evalues.RR` (1e-12, ten cases including the
+    branch rules); `degree_centrality`, `betweenness_centrality` and
+    `clustering` against igraph; `eigenvector_centrality` against
+    `sna::evcent` (5e-11). The old eigenvector note also said the L2
+    normalisation matched igraph; igraph max-scales, and 2.x ignores
+    `scale = FALSE`.
+  - **Twenty-six move to `analytical-only`**, the grade their tests
+    support: `auc`, `roc_curve`, `bootstrap`, `breakdown_frontier`,
+    `contrast`, `das_gupta`, `direct_standardize`, `gelbach`, `icc`,
+    `indirect_standardize`, `kdensity`, `kitagawa_decompose`, `lee_bounds`,
+    `lrtest`, `manski_bounds`, `margins_at`, `mediate_interventional`,
+    `mediation_decompose`, `mr`, `oster_delta`, `policy_value`,
+    `power_case_control`, `pwcompare`, `sensitivity_specificity`,
+    `source_decompose`, `subgroup_decompose`. Their tests are unchanged and
+    still pass; they now carry the label those tests earn. Several have R
+    or Stata references and are candidates for real promotion.
+  - `sensemakr` was also on the list, but its grade was already carried
+    by Track A module `22_sensemakr`; the redundant entry is removed and
+    the grade is unchanged.
+  - Cross-language coverage reported by `sp.parity_summary()` is 194 of 773
+    estimator callables (25.1%). Before this correction the same code
+    reported 220 (28.5%).
+- **The index now refuses to build such an entry.** A promotion claiming an
+  R or Stata side must list a test that loads a reference fixture or calls
+  R, or record a `provenance` for embedded constants (the live-captured
+  Stata values behind `did_2x2` and `ddd` are the one legitimate case of
+  that today). `sides` is also now required: it defaulted to `["py", "R"]`,
+  so an entry could claim an R comparison by omitting the field. Guarded by
+  `tests/test_parity_index.py`.
+
 ### ⚠️ Correctness fixes — network
 
 - **`sp.dyadic_regression` double-counted reciprocal dyads in its robust
