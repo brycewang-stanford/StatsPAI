@@ -30,9 +30,9 @@ So this is a **ratchet**, matching the pattern already used by
 * a baseline entry may **not grow**;
 * a function **not** in the baseline may not start drifting at all.
 
-Regenerate after deliberately fixing entries::
-
-    pytest tests/test_registry_param_drift.py --update-drift-baseline
+After deliberately fixing an entry, delete its name from the baseline by
+hand -- ``test_baseline_has_no_stale_entries`` names it. (There is no
+regeneration flag: regenerating would also accept any new drift.)
 """
 
 from __future__ import annotations

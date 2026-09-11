@@ -454,10 +454,6 @@
       "max_iter",
       "tol"
     ],
-    "mr_cml": [
-      "max_iter",
-      "tol"
-    ],
     "mr_heterogeneity": [
       "se_exposure"
     ],

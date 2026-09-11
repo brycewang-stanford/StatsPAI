@@ -12599,6 +12599,10 @@
             "description": "beta_exposure parameter (ndarray).",
             "type": "string"
           },
+          "beta_init": {
+            "description": "Deprecated since 1.28.0 and ignored (the fit starts from the L2 over-dispersed estimate, as mr.raps does); removed in 1.29.",
+            "type": "number"
+          },
           "beta_outcome": {
             "description": "beta_outcome parameter (ndarray).",
             "type": "string"
@@ -12634,6 +12638,10 @@
           "se_outcome": {
             "description": "se_outcome parameter (ndarray).",
             "type": "string"
+          },
+          "tau2_init": {
+            "description": "Deprecated since 1.28.0 and ignored; removed in 1.29.",
+            "type": "number"
           },
           "tol": {
             "default": 1.4901161193847656e-08,

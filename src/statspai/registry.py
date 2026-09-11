@@ -6619,6 +6619,20 @@ def _build_registry() -> None:
                 ParamSpec("pruning", "bool", False, True),
                 ParamSpec("niter", "int", False, 20),
                 ParamSpec("tol", "float", False, 1.4901161193847656e-08),
+                ParamSpec(
+                    "beta_init",
+                    "float",
+                    False,
+                    None,
+                    "Deprecated since 1.28.0 and ignored (the fit starts from the L2 over-dispersed estimate, as mr.raps does); removed in 1.29.",
+                ),
+                ParamSpec(
+                    "tau2_init",
+                    "float",
+                    False,
+                    None,
+                    "Deprecated since 1.28.0 and ignored; removed in 1.29.",
+                ),
             ],
             returns="MRRapsResult",
             tags=[
