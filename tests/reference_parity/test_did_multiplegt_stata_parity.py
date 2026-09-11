@@ -11,6 +11,7 @@ The Stata reference values were produced by ``did_multiplegt (old) ...`` on the
 identical panels (Stata 18 MP, ssc ``did_multiplegt`` old mode); see
 ``Paper-DiD-JAE/replication/did_multiplegt/``. StatsPAI now matches them to ~1e-8.
 """
+
 import numpy as np
 import pandas as pd
 import pytest

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
-from .._result_serialize import ResultProtocolMixin
 
+from .._result_serialize import ResultProtocolMixin
 
 DESIGN_INTAKE_OUTCOMES = (
     "matched",
@@ -202,8 +202,7 @@ def design_intake(
             candidate_designs=["causal_discovery"],
             risks=["weak identification from observational structure alone"],
             next_step=(
-                "Use StatsPAI causal-discovery tools only as exploratory "
-                "evidence."
+                "Use StatsPAI causal-discovery tools only as exploratory " "evidence."
             ),
         )
     return IntakeResult(

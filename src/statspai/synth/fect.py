@@ -786,9 +786,11 @@ def fect(
                 idx = np.concatenate(
                     [
                         rng.choice(tr, size=len(tr), replace=True),
-                        rng.choice(co, size=len(co), replace=True)
-                        if len(co)
-                        else np.zeros(0, int),
+                        (
+                            rng.choice(co, size=len(co), replace=True)
+                            if len(co)
+                            else np.zeros(0, int)
+                        ),
                     ]
                 ).astype(int)
             else:
@@ -879,9 +881,11 @@ def fect(
         "max_iter": int(max_iter),
         "niter": int(est.get("niter", 0)),
         "converged": bool(est.get("niter", 0) <= max_iter),
-        "beta": pd.Series(np.asarray(est.get("beta", np.zeros(0))), index=covs)
-        if covs
-        else None,
+        "beta": (
+            pd.Series(np.asarray(est.get("beta", np.zeros(0))), index=covs)
+            if covs
+            else None
+        ),
         "mu": float(est["mu"]),
         "alpha": pd.Series(np.asarray(est["alpha"]), index=units),
         "xi": pd.Series(np.asarray(est["xi"]), index=times),

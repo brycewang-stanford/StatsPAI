@@ -28,6 +28,7 @@ The ``--check`` mode reads ``scripts/agent_card_coverage_floor.json``
 and fails if any tracked counter has dropped.  Bump the floor only when
 you have intentionally raised the bar; never lower it.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -81,9 +82,7 @@ class FieldStatus:
         return all(getattr(self, f) for f in TIER_B_FIELDS)
 
     def tier_a_complete(self) -> bool:
-        return self.tier_b_complete() and all(
-            getattr(self, f) for f in TIER_A_FIELDS
-        )
+        return self.tier_b_complete() and all(getattr(self, f) for f in TIER_A_FIELDS)
 
     def tier_s_complete(self) -> bool:
         return self.tier_a_complete() and self.validation_status in {
@@ -214,7 +213,13 @@ def render_summary(report: Dict[str, Any]) -> str:
         lines.append(f"  [A] {f:25s}: {c:4d}  ({_pct(c, total)})")
     lines.append("")
     lines.append("Validation tier:")
-    for status in ("certified", "validated", "api_stable", "experimental", "deprecated"):
+    for status in (
+        "certified",
+        "validated",
+        "api_stable",
+        "experimental",
+        "deprecated",
+    ):
         c = validation_counts.get(status, 0)
         if c:
             lines.append(f"  {status:15s}: {c:4d}  ({_pct(c, total)})")
@@ -249,9 +254,7 @@ def render_by_function(report: Dict[str, Any], tier: str = "tier_a") -> str:
     missing.sort(key=lambda kv: (kv[1]["category"], kv[0]))
     lines = [f"# Functions below {tier} ({len(missing)} / {report['total']})"]
     for name, info in missing:
-        gaps = [
-            f for f in TIER_B_FIELDS + TIER_A_FIELDS if not info.get(f)
-        ]
+        gaps = [f for f in TIER_B_FIELDS + TIER_A_FIELDS if not info.get(f)]
         lines.append(f"{info['category']:<20} {name:<40} missing={','.join(gaps)}")
     return "\n".join(lines)
 
@@ -277,10 +280,9 @@ def _current_floor_snapshot(report: Dict[str, Any]) -> Dict[str, int]:
     # validation_validated as a cumulative "validated or better" floor so
     # promoting evidence from validated -> certified cannot look like a
     # regression in the lower tier.
-    snap["validation_validated"] = (
-        validation_counts.get("certified", 0)
-        + validation_counts.get("validated", 0)
-    )
+    snap["validation_validated"] = validation_counts.get(
+        "certified", 0
+    ) + validation_counts.get("validated", 0)
     return snap
 
 
@@ -321,15 +323,21 @@ def check_against_floor(report: Dict[str, Any]) -> int:
 
 def write_floor(report: Dict[str, Any]) -> None:
     snap = _current_floor_snapshot(report)
-    FLOOR_PATH.write_text(json.dumps(snap, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    FLOOR_PATH.write_text(
+        json.dumps(snap, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     print(f"[agent_card_coverage] Wrote floor to {FLOOR_PATH}", file=sys.stderr)
 
 
 def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     g = parser.add_mutually_exclusive_group()
-    g.add_argument("--summary", action="store_true", help="Print summary table (default).")
-    g.add_argument("--by-category", action="store_true", help="Per-category drill-down.")
+    g.add_argument(
+        "--summary", action="store_true", help="Print summary table (default)."
+    )
+    g.add_argument(
+        "--by-category", action="store_true", help="Per-category drill-down."
+    )
     g.add_argument(
         "--by-function",
         action="store_true",

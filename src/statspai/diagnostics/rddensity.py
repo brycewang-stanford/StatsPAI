@@ -579,9 +579,7 @@ def _rddensity_h(x: float, p: int) -> float:
     if p == 9:
         return x**9 - 36 * x**7 + 378 * x**5 - 1260 * x**3 + 945 * x
     if p == 10:
-        return (
-            x**10 - 45 * x**8 + 630 * x**6 - 3150 * x**4 + 4725 * x**2 - 945
-        )
+        return x**10 - 45 * x**8 + 630 * x**6 - 3150 * x**4 + 4725 * x**2 - 945
     raise MethodIncompatibility(
         "p must be between 1 and 7 for rddensity defaults.",
         recovery_hint="Use p in the supported range 1..7.",

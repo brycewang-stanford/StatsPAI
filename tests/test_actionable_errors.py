@@ -8,6 +8,7 @@ silent disagreement between "what the fit warns about" and "what ``.violations()
 reports" is exactly the kind of latent inconsistency that erodes trust, so each
 family gets a weak/clean pair of cases here.
 """
+
 from __future__ import annotations
 
 import warnings

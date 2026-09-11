@@ -16,6 +16,7 @@ effect_0 -0.018922, effect_1 -0.053589, effect_2 -0.136274, placebo_1 +0.024269;
 StatsPAI now reproduces all four to ~1e-6. The two tests below use small
 hand-computable panels so they are self-contained.
 """
+
 import pandas as pd
 import pytest
 

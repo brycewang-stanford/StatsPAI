@@ -19,6 +19,7 @@ Usage
 Only JSON is supported intentionally: the audit is meant to run in lean CI
 environments without PyYAML or optional StatsPAI estimator dependencies.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -594,9 +595,7 @@ def render(report: Mapping[str, Any], *, path: Path) -> str:
     if issues:
         lines.extend(["", "Issues", "-" * 54])
         for issue in issues:
-            lines.append(
-                "  [{severity}] {path}: {message} ({rule})".format(**issue)
-            )
+            lines.append("  [{severity}] {path}: {message} ({rule})".format(**issue))
     return "\n".join(lines)
 
 

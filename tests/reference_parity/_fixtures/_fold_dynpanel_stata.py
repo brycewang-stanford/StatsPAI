@@ -64,7 +64,10 @@ def main() -> None:
             "commands": "xtabond, xtabond2 (SSC), xtdpdsys",
             "n_specs": len(folded),
         },
-        **{spec: {k: dict(v) for k, v in kinds.items()} for spec, kinds in folded.items()},
+        **{
+            spec: {k: dict(v) for k, v in kinds.items()}
+            for spec, kinds in folded.items()
+        },
     }
     OUT.write_text(json.dumps(payload, indent=1, sort_keys=True), encoding="utf-8")
     print(f"wrote {OUT.name}: {len(folded)} specs")

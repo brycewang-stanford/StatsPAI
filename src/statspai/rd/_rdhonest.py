@@ -347,9 +347,7 @@ def _ik_bandwidth(x: np.ndarray, y: np.ndarray, c: float) -> float:
     var_m = float(sigma2[xc < 0][0])
     var_p = float(sigma2[xc >= 0][0])
 
-    design = np.column_stack(
-        [np.ones(n), (xc >= 0).astype(float), xc, xc**2, xc**3]
-    )
+    design = np.column_stack([np.ones(n), (xc >= 0).astype(float), xc, xc**2, xc**3])
     beta, *_ = np.linalg.lstsq(design, y, rcond=None)
     m3 = 6 * beta[4]
     if m3 == 0 or f0 <= 0:  # pragma: no cover - degenerate design

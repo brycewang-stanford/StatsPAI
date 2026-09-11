@@ -18,6 +18,7 @@ Two backends are supported:
   pyfixest (so numbers should match), but we measure it independently
   to track future divergence as we move to a Rust backend.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -41,7 +42,13 @@ def _read_dataset(name: str) -> pd.DataFrame:
         raise FileNotFoundError(
             f"{csv} not found — run datasets.py first to materialise the data."
         )
-    dtypes = {"y": np.int64, "x1": np.float64, "x2": np.float64, "fe1": np.int32, "fe2": np.int32}
+    dtypes = {
+        "y": np.int64,
+        "x1": np.float64,
+        "x2": np.float64,
+        "fe1": np.int32,
+        "fe2": np.int32,
+    }
     return pd.read_csv(csv, dtype=dtypes)
 
 
@@ -118,6 +125,7 @@ def _extract_se(fit: Any) -> Dict[str, float]:
 
 def _run_pyfixest(df: pd.DataFrame) -> Any:
     import pyfixest as pf
+
     return pf.fepois(
         fml="y ~ x1 + x2 | fe1 + fe2",
         data=df,
@@ -130,6 +138,7 @@ def _run_pyfixest(df: pd.DataFrame) -> Any:
 
 def _run_statspai(df: pd.DataFrame) -> Any:
     import statspai as sp
+
     return sp.fepois(
         fml="y ~ x1 + x2 | fe1 + fe2",
         data=df,
@@ -208,7 +217,9 @@ def main() -> int:
         "error": err,
     }
     if timing is not None and err is None:
-        out["wall"] = {k: timing[k] for k in ("wall_runs", "wall_min", "wall_mean", "wall_max")}
+        out["wall"] = {
+            k: timing[k] for k in ("wall_runs", "wall_min", "wall_mean", "wall_max")
+        }
         try:
             out["coefs"] = _extract_coefs(timing["fit"])
             out["se"] = _extract_se(timing["fit"])

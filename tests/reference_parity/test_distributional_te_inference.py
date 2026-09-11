@@ -91,9 +91,9 @@ def test_size_under_null():
 def test_null_pvalues_are_uniform():
     """A valid p-value is U(0,1) under H0. The old statistic was not."""
     ks, _ = _pvalues(0.0)
-    assert stats.kstest(ks, "uniform").pvalue > 0.01, (
-        f"null p-values not uniform: {np.sort(ks)[:10]}"
-    )
+    assert (
+        stats.kstest(ks, "uniform").pvalue > 0.01
+    ), f"null p-values not uniform: {np.sort(ks)[:10]}"
 
 
 # ── B. power ───────────────────────────────────────────────────────── #
@@ -122,9 +122,9 @@ def test_null_pvalues_reach_below_half():
     """
     ks, _ = _pvalues(0.0, reps=40)
     assert ks.min() < 0.5, f"minimum null p-value was {ks.min():.4f}"
-    assert 0.3 < float((ks < 0.5).mean()) < 0.7, (
-        f"fraction below 0.5 was {(ks < 0.5).mean():.3f}, expected ~0.5"
-    )
+    assert (
+        0.3 < float((ks < 0.5).mean()) < 0.7
+    ), f"fraction below 0.5 was {(ks < 0.5).mean():.3f}, expected ~0.5"
 
 
 # ── D. quantile inversion is no longer grid-snapped ────────────────── #
@@ -270,8 +270,14 @@ def test_all_methods_produce_valid_pvalues(method):
         df = pd.DataFrame({"y": y, "d": d, "x": x})
         kw = {"x": ["x"]}
     res = sp.distributional_te(
-        df, y="y", treatment="d", method=method, quantiles=[0.5],
-        n_boot=40, seed=0, **kw
+        df,
+        y="y",
+        treatment="d",
+        method=method,
+        quantiles=[0.5],
+        n_boot=40,
+        seed=0,
+        **kw,
     )
     assert 0.0 <= res.ks_pvalue <= 1.0
     assert 0.0 <= res.cvm_pvalue <= 1.0

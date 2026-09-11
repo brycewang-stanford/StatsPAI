@@ -75,9 +75,7 @@ def test_local_moran_reproducible_under_seed():
     r1 = sp.moran_local(y, w, permutations=199, seed=0)
     r2 = sp.moran_local(y, w, permutations=199, seed=0)
     np.testing.assert_array_equal(np.asarray(r1["Is"]), np.asarray(r2["Is"]))
-    np.testing.assert_array_equal(
-        np.asarray(r1["p_sim"]), np.asarray(r2["p_sim"])
-    )
+    np.testing.assert_array_equal(np.asarray(r1["p_sim"]), np.asarray(r2["p_sim"]))
 
 
 # --------------------------------------------------------------------------

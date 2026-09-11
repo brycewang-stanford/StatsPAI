@@ -67,8 +67,12 @@ def _homogeneous_effect_data(seed=0, n=4000, tau=2.0):
 def test_conformal_ite_covers_true_homogeneous_effect():
     df = _homogeneous_effect_data(tau=2.0)
     res = sp.conformal_ite_interval(
-        df, y="y", treat="d", covariates=["x0", "x1", "x2"],
-        alpha=0.1, random_state=0,
+        df,
+        y="y",
+        treat="d",
+        covariates=["x0", "x1", "x2"],
+        alpha=0.1,
+        random_state=0,
     )
     lower = np.asarray(res.lower, dtype=float)
     upper = np.asarray(res.upper, dtype=float)
@@ -81,8 +85,12 @@ def test_conformal_ite_covers_true_homogeneous_effect():
 def test_conformal_ite_point_recovers_ate():
     df = _homogeneous_effect_data(tau=2.0)
     res = sp.conformal_ite_interval(
-        df, y="y", treat="d", covariates=["x0", "x1", "x2"],
-        alpha=0.1, random_state=0,
+        df,
+        y="y",
+        treat="d",
+        covariates=["x0", "x1", "x2"],
+        alpha=0.1,
+        random_state=0,
     )
     assert float(np.mean(res.point)) == pytest.approx(2.0, abs=0.2)
 

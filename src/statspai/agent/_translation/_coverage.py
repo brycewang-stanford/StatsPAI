@@ -12,6 +12,7 @@ it can never drift from the actual dispatch tables: the recognized names are the
 keys of ``STATA_COMMAND_MAP`` / ``R_FUNCTION_MAP``, and each target ``sp.*`` is
 parsed from the handler's own source.
 """
+
 from __future__ import annotations
 
 import inspect

@@ -419,9 +419,9 @@ def _nsw_lalonde_simulated(seed: int = 42) -> pd.DataFrame:
             "re78": re78,
         }
     )
-    df.attrs[
-        "paper"
-    ] = "LaLonde (1986); Dehejia & Wahba (1999). NSW experimental subset."
+    df.attrs["paper"] = (
+        "LaLonde (1986); Dehejia & Wahba (1999). NSW experimental subset."
+    )
     df.attrs["expected_experimental_att"] = 1794
     df.attrs["published_dehejia_wahba_att"] = 1794
     df.attrs["notes"] = (
@@ -632,9 +632,9 @@ def lee_2008_senate(seed: int = 42, simulated: bool = False) -> pd.DataFrame:
     )
     df.attrs["paper"] = "Lee (2008). Journal of Econometrics 142, 675-697."
     df.attrs["expected_jump_at_cutoff"] = 0.08
-    df.attrs[
-        "published_jump_original"
-    ] = 0.077  # Lee (2008) Table 4 incumbency advantage
+    df.attrs["published_jump_original"] = (
+        0.077  # Lee (2008) Table 4 incumbency advantage
+    )
     df.attrs["notes"] = (
         "Simulated replica.  DGP coded a 0.08 jump at margin=0; the "
         "Calonico-Cattaneo-Titiunik (2014) bias-corrected ROBUST estimator "

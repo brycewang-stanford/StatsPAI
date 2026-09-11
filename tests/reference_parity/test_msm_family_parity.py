@@ -64,9 +64,7 @@ def _make_longitudinal_panel(n=1200, T=4, alpha=TRUE_SLOPE, seed=0):
             a = float(rng.binomial(1, pr))
             cum_a += a
             y = alpha * cum_a + 1.0 * L0 + 0.3 * V + rng.normal(0.0, 0.5)
-            rows.append(
-                {"pid": i, "visit": t, "a": a, "l": L, "v": V, "y": y}
-            )
+            rows.append({"pid": i, "visit": t, "a": a, "l": L, "v": V, "y": y})
             a_prev = a
     return pd.DataFrame(rows)
 
@@ -102,9 +100,7 @@ def single_period_panel():
     L = rng.normal(0.0, 1.0, n)
     A = (rng.uniform(size=n) < 1.0 / (1.0 + np.exp(-1.2 * L))).astype(float)
     Y = 2.0 + TRUE_TAU * A + 1.5 * L + rng.normal(0.0, 1.0, n)
-    return pd.DataFrame(
-        {"pid": np.arange(n), "t": 0, "a": A, "l": L, "y": Y}
-    )
+    return pd.DataFrame({"pid": np.arange(n), "t": 0, "a": A, "l": L, "y": Y})
 
 
 @pytest.fixture(scope="module")
@@ -206,7 +202,9 @@ def test_single_period_equals_hand_computed_hajek_ipw(
     assert single_period_fit.estimate == pytest.approx(hajek, abs=1e-10)
 
 
-def test_single_period_naive_difference_is_biased(single_period_panel, single_period_fit):
+def test_single_period_naive_difference_is_biased(
+    single_period_panel, single_period_fit
+):
     # Naive treated-minus-control difference absorbs 1.5*E[L|A=1]-1.5*E[L|A=0]
     # (~+1.4 under this DGP); require > 0.8 bias and that the MSM error
     # is strictly smaller on the same data.

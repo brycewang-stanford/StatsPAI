@@ -38,8 +38,9 @@ def test_panel_fgls_recovers_slopes_under_heteroskedasticity():
             y = 1.0 + 2.0 * x1 - 1.0 * x2 + rng.standard_normal() * (0.5 + 0.5 * i / N)
             rows.append((i, t, y, x1, x2))
     df = pd.DataFrame(rows, columns=["id", "time", "y", "x1", "x2"])
-    res = sp.panel_fgls(df, y="y", x=["x1", "x2"], id="id", time="time",
-                        panels="heteroskedastic")
+    res = sp.panel_fgls(
+        df, y="y", x=["x1", "x2"], id="id", time="time", panels="heteroskedastic"
+    )
     p = res.params
     assert float(p["x1"]) == pytest.approx(2.0, abs=0.1)
     assert float(p["x2"]) == pytest.approx(-1.0, abs=0.1)

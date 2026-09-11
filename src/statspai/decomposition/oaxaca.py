@@ -886,9 +886,7 @@ def gelbach(
         var_beta_full_j = vcov_full[av_idx_full, av_idx_full]
         var_gamma_j = vcov_gamma_j[voi_idx_base, voi_idx_base]
 
-        var_delta_j = (
-            gamma_tilde_j**2 * var_beta_full_j + beta_full_j**2 * var_gamma_j
-        )
+        var_delta_j = gamma_tilde_j**2 * var_beta_full_j + beta_full_j**2 * var_gamma_j
         se_delta_j = np.sqrt(max(var_delta_j, 0.0))
         delta_var[j] = var_delta_j
 

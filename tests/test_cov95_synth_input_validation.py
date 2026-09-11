@@ -26,8 +26,9 @@ def _panel(n_units=6, n_periods=12, treatment_time=8, effect=3.0, seed=0):
     return pd.DataFrame(rows)
 
 
-COMMON = dict(outcome="y", unit="unit", time="time", treated_unit="u0",
-              treatment_time=8)
+COMMON = dict(
+    outcome="y", unit="unit", time="time", treated_unit="u0", treatment_time=8
+)
 
 
 @pytest.fixture(scope="module")

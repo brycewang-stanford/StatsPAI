@@ -454,9 +454,9 @@ def did_summary(
                         r["note"] = f"breakdown M* = {breakdown_m_value:.3f}"
                     break
         except Exception as exc:
-            failed[
-                "__sensitivity__"
-            ] = f"breakdown_m failed: {type(exc).__name__}: {str(exc)[:120]}"
+            failed["__sensitivity__"] = (
+                f"breakdown_m failed: {type(exc).__name__}: {str(exc)[:120]}"
+            )
 
     for i, r in enumerate(rows):
         r["breakdown_m"] = breakdown_m_col[i]

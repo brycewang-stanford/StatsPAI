@@ -52,9 +52,7 @@ def test_peer_effects_accepts_native_W_object():
     (the W coercion previously grabbed only the first row)."""
     W, df = _linear_in_means()
     r_native = sp.peer_effects(df, y="y", covariates=["x"], W=W)
-    r_array = sp.peer_effects(
-        df, y="y", covariates=["x"], W=np.asarray(W.full())
-    )
+    r_array = sp.peer_effects(df, y="y", covariates=["x"], W=np.asarray(W.full()))
     np.testing.assert_allclose(
         r_native.coefficients["coef"].to_numpy(),
         r_array.coefficients["coef"].to_numpy(),

@@ -5,6 +5,7 @@ NOT to staggered DiD (Callaway-Sant'Anna is degenerate with one treated unit).
 Conversely, a genuine staggered design with many treated units must keep
 routing to DiD. These two invariants are what the hit-rate benchmark drove.
 """
+
 from __future__ import annotations
 
 import numpy as np

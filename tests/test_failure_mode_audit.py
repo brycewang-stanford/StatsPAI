@@ -14,6 +14,7 @@ drifts out of sync with reality:
 Soft findings (module-only "imprecise" alternatives, taxonomy gaps) are surfaced
 by the script but intentionally do **not** fail the build here.
 """
+
 from __future__ import annotations
 
 import importlib.util

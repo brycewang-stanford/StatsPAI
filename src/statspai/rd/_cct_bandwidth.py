@@ -668,9 +668,7 @@ def cct_bandwidth(
                 (
                     bw_min_l
                     if side == "l"
-                    else bw_min_r
-                    if side == "r"
-                    else max(bw_min_l, bw_min_r)
+                    else bw_min_r if side == "r" else max(bw_min_l, bw_min_r)
                 ),
             )
         return v

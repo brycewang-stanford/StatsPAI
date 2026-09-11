@@ -32,15 +32,21 @@ def bayes_iv_fit():
     rng = np.random.default_rng(1)
     n = 1200
     z = rng.normal(0, 1, n)
-    u = rng.normal(0, 1, n)                      # confounder
+    u = rng.normal(0, 1, n)  # confounder
     x = 1.0 * z + 0.6 * u + rng.normal(0, 0.3, n)  # endogenous treatment
-    y = 1.5 * x + u                               # true LATE = 1.5
+    y = 1.5 * x + u  # true LATE = 1.5
     df = pd.DataFrame({"y": y, "x": x, "z": z})
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return sp.bayes_iv(
-            df, y="y", treat="x", instrument="z",
-            draws=800, tune=800, chains=2, random_state=0,
+            df,
+            y="y",
+            treat="x",
+            instrument="z",
+            draws=800,
+            tune=800,
+            chains=2,
+            random_state=0,
         )
 
 
@@ -71,8 +77,14 @@ def bayes_rd_fit():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return sp.bayes_rd(
-            df, y="y", running="run", cutoff=0.0,
-            draws=800, tune=800, chains=2, random_state=0,
+            df,
+            y="y",
+            running="run",
+            cutoff=0.0,
+            draws=800,
+            tune=800,
+            chains=2,
+            random_state=0,
         )
 
 

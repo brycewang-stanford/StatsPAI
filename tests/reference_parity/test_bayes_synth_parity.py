@@ -80,8 +80,6 @@ def test_bayes_synth_recovers_known_att():
     # Donor weights are convex (simplex): sum to 1.
     weights = res.model_info["weights"]
     total = (
-        sum(weights.values())
-        if isinstance(weights, dict)
-        else float(np.sum(weights))
+        sum(weights.values()) if isinstance(weights, dict) else float(np.sum(weights))
     )
     assert abs(total - 1.0) <= 1e-6

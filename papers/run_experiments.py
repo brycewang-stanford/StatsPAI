@@ -12,10 +12,12 @@ Usage:
     python run_experiments.py
 """
 
-import statspai as sp
-import numpy as np
 import time
 import warnings
+
+import numpy as np
+
+import statspai as sp
 
 warnings.filterwarnings("ignore")
 
@@ -52,7 +54,9 @@ def run_table1():
     r_rd = sp.rdrobust(df_rd, y="y", x="x", c=0.0)
     dt = time.time() - t0
     ci_l, ci_u = get_ci(r_rd)
-    results.append(("RD (Sharp)", true, r_rd.estimate, r_rd.se, ci_l <= true <= ci_u, dt))
+    results.append(
+        ("RD (Sharp)", true, r_rd.estimate, r_rd.se, ci_l <= true <= ci_u, dt)
+    )
 
     # --- IV (2SLS) ---
     true = 0.5
@@ -77,12 +81,17 @@ def run_table1():
     # --- PSM ---
     t0 = time.time()
     r_match = sp.match(
-        df_obs, y="y", treat="treatment", covariates=["x1", "x2"],
+        df_obs,
+        y="y",
+        treat="treatment",
+        covariates=["x1", "x2"],
         se_method="abadie_imbens",
     )
     dt = time.time() - t0
     ci_l, ci_u = get_ci(r_match)
-    results.append(("PSM", true, r_match.estimate, r_match.se, ci_l <= true <= ci_u, dt))
+    results.append(
+        ("PSM", true, r_match.estimate, r_match.se, ci_l <= true <= ci_u, dt)
+    )
 
     # --- AIPW ---
     t0 = time.time()
@@ -92,10 +101,14 @@ def run_table1():
     results.append(("AIPW", true, r_aipw.estimate, r_aipw.se, ci_l <= true <= ci_u, dt))
 
     # Print
-    print(f"{'Method':<18} {'True':>8} {'Estimate':>10} {'SE':>8} {'Covers':>8} {'Time(s)':>8}")
+    print(
+        f"{'Method':<18} {'True':>8} {'Estimate':>10} {'SE':>8} {'Covers':>8} {'Time(s)':>8}"
+    )
     print("-" * 62)
     for name, true_v, est, se, cov, t in results:
-        print(f"{name:<18} {true_v:>8.3f} {est:>10.4f} {se:>8.4f} {'Yes' if cov else 'No':>8} {t:>8.3f}")
+        print(
+            f"{name:<18} {true_v:>8.3f} {est:>10.4f} {se:>8.4f} {'Yes' if cov else 'No':>8} {t:>8.3f}"
+        )
 
     return results, df_iv, df_obs
 
@@ -165,8 +178,11 @@ def run_table4():
     for lrn in ["s", "t", "x", "r", "dr"]:
         t0 = time.time()
         r = sp.metalearner(
-            df_rct, y="y", treat="treatment",
-            covariates=["x1", "x2", "x3"], learner=lrn,
+            df_rct,
+            y="y",
+            treat="treatment",
+            covariates=["x1", "x2", "x3"],
+            learner=lrn,
         )
         dt = time.time() - t0
         cate = np.asarray(r.model_info["cate"], dtype=float)
@@ -227,7 +243,9 @@ def run_table5(n_sims=200):
         biases = np.array(biases)
         rmse = np.sqrt(np.mean(biases**2))
         coverage = covers / n_sims * 100
-        print(f"{name:<18} {true:>8.3f} {np.mean(biases):>10.4f} {rmse:>8.4f} {coverage:>9.1f}%")
+        print(
+            f"{name:<18} {true:>8.3f} {np.mean(biases):>10.4f} {rmse:>8.4f} {coverage:>9.1f}%"
+        )
 
 
 def _warm_up():
@@ -245,8 +263,11 @@ def _warm_up():
     sp.aipw(df_obs_w, y="y", treat="treatment", covariates=["x1", "x2"], seed=42)
     df_rct_w = sp.dgp_rct(n=300, effect=1.0, heterogeneous=True, seed=0)
     sp.metalearner(
-        df_rct_w, y="y", treat="treatment",
-        covariates=["x1", "x2", "x3"], learner="s",
+        df_rct_w,
+        y="y",
+        treat="treatment",
+        covariates=["x1", "x2", "x3"],
+        learner="s",
     )
 
 
@@ -258,6 +279,7 @@ if __name__ == "__main__":
     print(f"StatsPAI version: {sp.__version__}")
     print(f"NumPy version: {np.__version__}")
     import sklearn
+
     print(f"scikit-learn version: {sklearn.__version__}")
     print()
 
@@ -270,8 +292,8 @@ if __name__ == "__main__":
     run_table2(df_iv)
 
     # Table 3
-    dml_est = t1_results[3][2]   # DML estimate
-    psm_est = t1_results[4][2]   # PSM estimate
+    dml_est = t1_results[3][2]  # DML estimate
+    psm_est = t1_results[4][2]  # PSM estimate
     aipw_est = t1_results[5][2]  # AIPW estimate
     run_table3(df_obs, dml_est, psm_est, aipw_est)
 

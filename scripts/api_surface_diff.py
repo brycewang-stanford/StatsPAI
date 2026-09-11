@@ -104,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
         "--baseline",
         action="store_true",
         help="Print frozenset literals matching current state (ready to "
-             "paste into tests/test_api_surface_consistency.py).",
+        "paste into tests/test_api_surface_consistency.py).",
     )
     args = parser.parse_args(argv)
     state = _classify()
@@ -121,13 +121,11 @@ def main(argv: list[str] | None = None) -> int:
         state["registered_not_in_all"],
     )
     _print_block(
-        "registered, top-level absent, submodule available "
-        "(documented in example)",
+        "registered, top-level absent, submodule available " "(documented in example)",
         state["submodule_only"],
     )
     _print_block(
-        "registered but neither sp.<name> nor documented submodule resolves "
-        "— BUG",
+        "registered but neither sp.<name> nor documented submodule resolves " "— BUG",
         state["truly_unreachable"],
     )
 

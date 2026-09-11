@@ -7,6 +7,7 @@ native ``sp.absorb_ols`` kernel) must agree with ``pyfixest`` on the slope of a
 two-way fixed-effects fit, to a tight tolerance. R ``fixest`` is excluded here
 (subprocess; not assumed present in CI) — it is exercised by the harness itself.
 """
+
 from __future__ import annotations
 
 import importlib.util

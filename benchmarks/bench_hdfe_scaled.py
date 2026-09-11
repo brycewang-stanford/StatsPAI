@@ -17,6 +17,7 @@ The 1M-row case takes ~5-10 s per backend on a modern laptop; keep the
 ``--quick`` flag for CI.  Pass ``--json-out <path>`` to dump the
 result dict as JSON (parent dirs are created automatically).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -34,13 +35,12 @@ import statspai as sp
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _utils import bench, fmt_ms, speedup_label  # noqa: E402
 
-
 # ---------------------------------------------------------------------
 # Data generation
 # ---------------------------------------------------------------------
 
-def _make_two_way_panel(n_units: int, n_periods: int,
-                        seed: int = 2026) -> pd.DataFrame:
+
+def _make_two_way_panel(n_units: int, n_periods: int, seed: int = 2026) -> pd.DataFrame:
     """Realistic two-way-FE DGP (unit + time effects, 2 covariates)."""
     rng = np.random.default_rng(seed)
     n = n_units * n_periods
@@ -51,17 +51,25 @@ def _make_two_way_panel(n_units: int, n_periods: int,
     unit_fe = rng.normal(size=n_units)[i_]
     time_fe = rng.normal(size=n_periods)[t_]
     y = 1.0 + 0.5 * x1 - 0.3 * x2 + unit_fe + time_fe + rng.normal(size=n)
-    return pd.DataFrame({
-        "i": i_, "t": t_, "x1": x1, "x2": x2, "y": y,
-    })
+    return pd.DataFrame(
+        {
+            "i": i_,
+            "t": t_,
+            "x1": x1,
+            "x2": x2,
+            "y": y,
+        }
+    )
 
 
 # ---------------------------------------------------------------------
 # One benchmark row (per size)
 # ---------------------------------------------------------------------
 
-def _bench_size(n_units: int, n_periods: int, with_feols: bool,
-                with_linearmodels: bool) -> Dict:
+
+def _bench_size(
+    n_units: int, n_periods: int, with_feols: bool, with_linearmodels: bool
+) -> Dict:
     n = n_units * n_periods
     df = _make_two_way_panel(n_units, n_periods)
 
@@ -90,7 +98,8 @@ def _bench_size(n_units: int, n_periods: int, with_feols: bool,
             )
             row["sp_feols_s"] = feols_result["mean_s"]
             row["feols_vs_absorb"] = speedup_label(
-                sp_native["mean_s"], feols_result["mean_s"],
+                sp_native["mean_s"],
+                feols_result["mean_s"],
             )
         except Exception as e:  # pragma: no cover — env-dependent
             row["sp_feols_error"] = f"{type(e).__name__}: {e}"
@@ -99,6 +108,7 @@ def _bench_size(n_units: int, n_periods: int, with_feols: bool,
     if with_linearmodels and n <= 200_000:
         try:
             from linearmodels.panel import PanelOLS
+
             lm_df = df.set_index(["i", "t"])
             lm_result = bench(
                 lambda: PanelOLS.from_formula(
@@ -109,7 +119,8 @@ def _bench_size(n_units: int, n_periods: int, with_feols: bool,
             )
             row["linearmodels_s"] = lm_result["mean_s"]
             row["speedup_vs_lm"] = speedup_label(
-                sp_native["mean_s"], lm_result["mean_s"],
+                sp_native["mean_s"],
+                lm_result["mean_s"],
             )
         except ImportError:  # pragma: no cover
             pass
@@ -121,9 +132,12 @@ def _bench_size(n_units: int, n_periods: int, with_feols: bool,
 # Public API
 # ---------------------------------------------------------------------
 
-def run(sizes: Optional[List[dict]] = None,
-        with_feols: bool = True,
-        with_linearmodels: bool = True) -> Dict:
+
+def run(
+    sizes: Optional[List[dict]] = None,
+    with_feols: bool = True,
+    with_linearmodels: bool = True,
+) -> Dict:
     """Run the scaled HDFE benchmark.
 
     Parameters
@@ -138,15 +152,16 @@ def run(sizes: Optional[List[dict]] = None,
     """
     if sizes is None:
         sizes = [
-            {"n_units": 1_000, "n_periods": 10},    # 10k
-            {"n_units": 10_000, "n_periods": 10},   # 100k
+            {"n_units": 1_000, "n_periods": 10},  # 10k
+            {"n_units": 10_000, "n_periods": 10},  # 100k
             {"n_units": 100_000, "n_periods": 10},  # 1M
         ]
 
     rows: List[Dict] = []
     for cfg in sizes:
         row = _bench_size(
-            cfg["n_units"], cfg["n_periods"],
+            cfg["n_units"],
+            cfg["n_periods"],
             with_feols=with_feols,
             with_linearmodels=with_linearmodels,
         )
@@ -159,15 +174,13 @@ def run(sizes: Optional[List[dict]] = None,
         ]
         if "sp_feols_s" in row:
             parts.append(
-                f"feols={fmt_ms(row['sp_feols_s']):<9} "
-                f"({row['feols_vs_absorb']})"
+                f"feols={fmt_ms(row['sp_feols_s']):<9} " f"({row['feols_vs_absorb']})"
             )
         elif "sp_feols_error" in row:
             parts.append(f"feols=ERR({row['sp_feols_error'][:30]}…)")
         if "linearmodels_s" in row:
             parts.append(
-                f"lm={fmt_ms(row['linearmodels_s']):<9} "
-                f"({row['speedup_vs_lm']})"
+                f"lm={fmt_ms(row['linearmodels_s']):<9} " f"({row['speedup_vs_lm']})"
             )
         print("  " + " | ".join(parts))
 
@@ -179,12 +192,17 @@ def run(sizes: Optional[List[dict]] = None,
 
 def _cli():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--quick", action="store_true",
-                    help="Skip the 1M-row case (10k + 100k only).")
+    ap.add_argument(
+        "--quick", action="store_true", help="Skip the 1M-row case (10k + 100k only)."
+    )
     ap.add_argument("--no-feols", action="store_true")
     ap.add_argument("--no-lm", action="store_true")
-    ap.add_argument("--json-out", type=Path, default=None,
-                    help="Write the result dict to this JSON file.")
+    ap.add_argument(
+        "--json-out",
+        type=Path,
+        default=None,
+        help="Write the result dict to this JSON file.",
+    )
     args = ap.parse_args()
 
     sizes = [

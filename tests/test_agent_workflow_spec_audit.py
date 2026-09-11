@@ -117,8 +117,6 @@ def test_estimator_functions_resolve_against_offline_schema(tmp_path: Path) -> N
     res = _run([str(path), "--json"])
     assert res.returncode == 0, res.stderr
     report = json.loads(res.stdout)
-    assert {
-        issue["rule"] for issue in report["issues"]
-    } >= {"estimator_function_known"}
+    assert {issue["rule"] for issue in report["issues"]} >= {"estimator_function_known"}
     assert "'sp.not_a_real_estimator' is not present" in res.stdout
     assert report["status"] == "fail"

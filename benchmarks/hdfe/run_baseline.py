@@ -26,6 +26,7 @@ Examples
     # Add the heavy 1e7-row config (slow!).
     python3 run_baseline.py --datasets small medium large
 """
+
 from __future__ import annotations
 
 import argparse
@@ -52,9 +53,9 @@ PY_BACKENDS = ("pyfixest", "statspai")
 def _python_repeats(dataset: str) -> Dict[str, int]:
     """Per-dataset benchmarking depth."""
     return {
-        "small":  dict(warmup=1, repeats=3),
+        "small": dict(warmup=1, repeats=3),
         "medium": dict(warmup=1, repeats=2),
-        "large":  dict(warmup=0, repeats=1),
+        "large": dict(warmup=0, repeats=1),
     }[dataset]
 
 
@@ -62,11 +63,16 @@ def run_python_backend(dataset: str, backend: str) -> Dict[str, Any]:
     """Invoke ``run_python.py`` in a fresh subprocess; return parsed JSON."""
     cfg = _python_repeats(dataset)
     cmd = [
-        sys.executable, str(HERE / "run_python.py"),
-        "--dataset", dataset,
-        "--backend", backend,
-        "--warmup", str(cfg["warmup"]),
-        "--repeats", str(cfg["repeats"]),
+        sys.executable,
+        str(HERE / "run_python.py"),
+        "--dataset",
+        dataset,
+        "--backend",
+        backend,
+        "--warmup",
+        str(cfg["warmup"]),
+        "--repeats",
+        str(cfg["repeats"]),
     ]
     print(f"[driver] {' '.join(cmd)}", file=sys.stderr)
     proc = subprocess.run(cmd, capture_output=True, text=True)
@@ -87,7 +93,11 @@ def run_python_backend(dataset: str, backend: str) -> Dict[str, Any]:
         return {
             "dataset": dataset,
             "backend": backend,
-            "error": {"type": "JSONDecodeError", "message": str(exc), "stdout": proc.stdout},
+            "error": {
+                "type": "JSONDecodeError",
+                "message": str(exc),
+                "stdout": proc.stdout,
+            },
         }
 
 
@@ -98,10 +108,14 @@ def run_r_backend(dataset: str) -> Optional[Dict[str, Any]]:
         return None
     cfg = _python_repeats(dataset)
     cmd = [
-        rscript, str(HERE / "run_r.R"),
-        "--dataset", dataset,
-        "--warmup", str(cfg["warmup"]),
-        "--repeats", str(cfg["repeats"]),
+        rscript,
+        str(HERE / "run_r.R"),
+        "--dataset",
+        dataset,
+        "--warmup",
+        str(cfg["warmup"]),
+        "--repeats",
+        str(cfg["repeats"]),
     ]
     print(f"[driver] {' '.join(cmd)}", file=sys.stderr)
     proc = subprocess.run(cmd, capture_output=True, text=True)
@@ -122,7 +136,11 @@ def run_r_backend(dataset: str) -> Optional[Dict[str, Any]]:
         return {
             "dataset": dataset,
             "backend": "fixest",
-            "error": {"type": "JSONDecodeError", "message": str(exc), "stdout": proc.stdout},
+            "error": {
+                "type": "JSONDecodeError",
+                "message": str(exc),
+                "stdout": proc.stdout,
+            },
         }
 
 
@@ -134,13 +152,19 @@ def load_stata_result(dataset: str) -> Optional[Dict[str, Any]]:
     try:
         data = json.loads(p.read_text())
     except json.JSONDecodeError as exc:
-        return {"dataset": dataset, "backend": "ppmlhdfe", "error": {"type": "JSONDecodeError", "message": str(exc)}}
+        return {
+            "dataset": dataset,
+            "backend": "ppmlhdfe",
+            "error": {"type": "JSONDecodeError", "message": str(exc)},
+        }
     # Stata leaves wall_min/mean/max blank — fill in.
     wall = data.get("wall") or {}
     runs = wall.get("wall_runs") or []
     runs = [r for r in runs if isinstance(r, (int, float))]
-    if runs and (wall.get("wall_min") in (None, "", float("nan")) or
-                 not isinstance(wall.get("wall_min"), (int, float))):
+    if runs and (
+        wall.get("wall_min") in (None, "", float("nan"))
+        or not isinstance(wall.get("wall_min"), (int, float))
+    ):
         wall["wall_min"] = float(min(runs))
         wall["wall_mean"] = float(sum(runs) / len(runs))
         wall["wall_max"] = float(max(runs))
@@ -151,6 +175,7 @@ def load_stata_result(dataset: str) -> Optional[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 # Aggregation + report
 # ---------------------------------------------------------------------------
+
 
 def aggregate(datasets: List[str], skip_python: bool, skip_r: bool) -> Dict[str, Any]:
     RESULTS_DIR.mkdir(exist_ok=True)
@@ -208,6 +233,7 @@ def load_dataset_meta(name: str) -> Optional[Dict[str, Any]]:
 # BASELINE.md renderer
 # ---------------------------------------------------------------------------
 
+
 def _fmt_seconds(s: Optional[float]) -> str:
     if s is None:
         return "—"
@@ -241,7 +267,9 @@ def render_report(agg: Dict[str, Any], datasets: List[str]) -> str:
     # --- dataset metadata ---
     lines.append("## Datasets")
     lines.append("")
-    lines.append("| name | n | fe1 cardinality | fe2 cardinality | y mean | y zero share | seed |")
+    lines.append(
+        "| name | n | fe1 cardinality | fe2 cardinality | y mean | y zero share | seed |"
+    )
     lines.append("|---|---:|---:|---:|---:|---:|---:|")
     for name in datasets:
         meta = load_dataset_meta(name)
@@ -299,10 +327,16 @@ def render_report(agg: Dict[str, Any], datasets: List[str]) -> str:
     lines.append("")
 
     # --- coefficient cross-backend diff ---
-    lines.append("## Coefficient cross-backend diff (vs `fixest` if present, else `pyfixest`)")
+    lines.append(
+        "## Coefficient cross-backend diff (vs `fixest` if present, else `pyfixest`)"
+    )
     lines.append("")
-    lines.append("Reports `max_abs_diff` of (β_x1, β_x2) against the reference backend.")
-    lines.append("Acceptance threshold (Phase 0 sign-off): **≤ 1e-6** wherever fixest is the reference.")
+    lines.append(
+        "Reports `max_abs_diff` of (β_x1, β_x2) against the reference backend."
+    )
+    lines.append(
+        "Acceptance threshold (Phase 0 sign-off): **≤ 1e-6** wherever fixest is the reference."
+    )
     lines.append("")
     lines.append("| dataset | reference | backend | β_x1 | β_x2 | max_abs_diff |")
     lines.append("|---|---|---|---:|---:|---:|")
@@ -358,8 +392,10 @@ def render_report(agg: Dict[str, Any], datasets: List[str]) -> str:
     # --- environment ---
     lines.append("## Environment")
     lines.append("")
-    lines.append("Captured at run time so future regressions know what they're "
-                 "compared against:")
+    lines.append(
+        "Captured at run time so future regressions know what they're "
+        "compared against:"
+    )
     lines.append("")
     env = _capture_env()
     for k, v in env.items():
@@ -375,21 +411,25 @@ def _capture_env() -> Dict[str, str]:
     out["platform"] = sys.platform
     try:
         import numpy
+
         out["numpy"] = numpy.__version__
     except ImportError:
         pass
     try:
         import pandas
+
         out["pandas"] = pandas.__version__
     except ImportError:
         pass
     try:
         import pyfixest
+
         out["pyfixest"] = pyfixest.__version__
     except ImportError:
         pass
     try:
         import statspai
+
         out["statspai"] = statspai.__version__
     except ImportError:
         pass
@@ -397,12 +437,20 @@ def _capture_env() -> Dict[str, str]:
     if rscript:
         try:
             r_ver = subprocess.run(
-                [rscript, "-e", "cat(paste(R.version$major, R.version$minor, sep='.'))"],
-                capture_output=True, text=True, timeout=10,
+                [
+                    rscript,
+                    "-e",
+                    "cat(paste(R.version$major, R.version$minor, sep='.'))",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
             ).stdout.strip()
             fixest_ver = subprocess.run(
                 [rscript, "-e", "cat(as.character(packageVersion('fixest')))"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             ).stdout.strip()
             out["R"] = r_ver
             out["R fixest"] = fixest_ver
@@ -415,23 +463,35 @@ def _capture_env() -> Dict[str, str]:
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument(
-        "--datasets", nargs="+", default=["small", "medium"],
+        "--datasets",
+        nargs="+",
+        default=["small", "medium"],
         help="Which datasets to run (default: small medium).",
     )
-    ap.add_argument("--report-only", action="store_true",
-                    help="Skip subprocess runs; rebuild BASELINE.md from results/*.json.")
+    ap.add_argument(
+        "--report-only",
+        action="store_true",
+        help="Skip subprocess runs; rebuild BASELINE.md from results/*.json.",
+    )
     ap.add_argument("--skip-python", action="store_true")
     ap.add_argument("--skip-r", action="store_true")
-    ap.add_argument("--force-data", action="store_true",
-                    help="Regenerate dataset CSVs even if cached.")
+    ap.add_argument(
+        "--force-data",
+        action="store_true",
+        help="Regenerate dataset CSVs even if cached.",
+    )
     args = ap.parse_args()
 
     if not args.report_only:
         # Materialise data first (cached unless --force-data).
         from datasets import write_csv
+
         for name in args.datasets:
             write_csv(name, force=args.force_data)
 

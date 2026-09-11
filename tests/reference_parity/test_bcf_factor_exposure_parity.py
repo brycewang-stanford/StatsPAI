@@ -48,9 +48,7 @@ def _make_frame():
     L = np.zeros((p, 2))
     L[0, 0] = 1.0
     L[1, 1] = 1.0
-    loadings = pd.DataFrame(
-        L, index=[f"z{j}" for j in range(p)], columns=["F1", "F2"]
-    )
+    loadings = pd.DataFrame(L, index=[f"z{j}" for j in range(p)], columns=["F1", "F2"])
     return df, loadings, (d0, d1)
 
 
@@ -71,9 +69,7 @@ def _fit():
 def test_bcf_factor_exposure_adding_up_identities():
     res, _ = _fit()
     # Total mixture ATE == sum of per-factor ATEs, exactly.
-    assert abs(
-        res.total_mixture_ate - float(res.per_factor_ate["ate"].sum())
-    ) <= 1e-9
+    assert abs(res.total_mixture_ate - float(res.per_factor_ate["ate"].sum())) <= 1e-9
     # Total SE == sqrt(sum of per-factor variances), exactly.
     agg_se = float(np.sqrt((res.per_factor_ate["se"] ** 2).sum()))
     assert abs(res.total_mixture_se - agg_se) <= 1e-9

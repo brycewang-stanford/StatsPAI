@@ -31,8 +31,7 @@ KW = dict(y="y", d="d", X=["x0", "x1", "x2"])
 def test_iv_type_score_rejects_sample_weight():
     df = _dgp()
     with pytest.raises(MethodIncompatibility):
-        sp.dml(df, model="plr", score="IV-type",
-               sample_weight=np.ones(len(df)), **KW)
+        sp.dml(df, model="plr", score="IV-type", sample_weight=np.ones(len(df)), **KW)
 
 
 def test_fold_indices_fold_count_mismatch_rejected():

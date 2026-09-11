@@ -230,11 +230,7 @@ def _score_recommend(entry: Dict[str, Any], sp: Any) -> Dict[str, Any]:
     status = (
         "HARD_MISS"
         if hard_miss
-        else "HIT"
-        if hit_top1
-        else "PARTIAL"
-        if hit_topk
-        else "MISS"
+        else "HIT" if hit_top1 else "PARTIAL" if hit_topk else "MISS"
     )
     out.update(
         status=status,

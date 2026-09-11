@@ -293,14 +293,12 @@ def _detect_low_order_linear_dependence(
                     )
 
 
-def _numba_kernels() -> (
-    tuple[
-        _OlsKernel,
-        _SandwichKernel,
-        _ClusterMeatKernel,
-        _HacMeatKernel,
-    ]
-):
+def _numba_kernels() -> tuple[
+    _OlsKernel,
+    _SandwichKernel,
+    _ClusterMeatKernel,
+    _HacMeatKernel,
+]:
     """Load accelerated kernels only when OLS is actually estimated."""
     from ..core._numba_kernels import cluster_meat, hac_meat, ols_fit, sandwich_hc
 
@@ -1320,9 +1318,9 @@ def regress(
         base.conf_int_lower = base.params - crit * se
         base.conf_int_upper = base.params + crit * se
         base.model_info = dict(base.model_info)
-        base.model_info[
-            "vcov_type"
-        ] = f"Conley spatial HAC (acreg planar, {conley_cutoff} km; uniform)"
+        base.model_info["vcov_type"] = (
+            f"Conley spatial HAC (acreg planar, {conley_cutoff} km; uniform)"
+        )
         return base
 
     if isinstance(vce_kw, str) and vce_kw.lower() == "jackknife":

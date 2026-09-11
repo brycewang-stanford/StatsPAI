@@ -144,8 +144,13 @@ def _coef(res, name):
 def test_spatial_iv_recovers_structural_coefficient():
     W, df = _simulate_spatial_iv()
     res = sp.spatial_iv(
-        df, y="y", endog=["xend"], exog=["exg"], W=W,
-        instruments=["z"], include_WY=False,
+        df,
+        y="y",
+        endog=["xend"],
+        exog=["exg"],
+        W=W,
+        instruments=["z"],
+        include_WY=False,
     )
     assert _coef(res, "xend") == pytest.approx(1.5, abs=0.15)
     assert _coef(res, "exg") == pytest.approx(0.5, abs=0.15)

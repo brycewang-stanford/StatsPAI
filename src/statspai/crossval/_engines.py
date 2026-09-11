@@ -69,8 +69,7 @@ class EngineAdapter(ABC):
         return True, ""
 
     @abstractmethod
-    def _fit(self, spec: EstimandSpec) -> EngineEstimate:
-        ...
+    def _fit(self, spec: EstimandSpec) -> EngineEstimate: ...
 
     # -- public ----------------------------------------------------------- #
     def run(self, spec: EstimandSpec) -> EngineEstimate:

@@ -26,9 +26,9 @@ with warnings.catch_warnings():
 def _shift_share_dgp(n, K, beta=1.5, seed=0):
     rng = np.random.default_rng(seed)
     shares = rng.dirichlet(np.ones(K), size=n)  # exposure shares, rows sum to 1
-    shocks = rng.normal(0, 1, K)                 # industry shocks
-    bartik = shares @ shocks                      # shift-share instrument
-    u = rng.normal(0, 1, n)                        # confounder
+    shocks = rng.normal(0, 1, K)  # industry shocks
+    bartik = shares @ shocks  # shift-share instrument
+    u = rng.normal(0, 1, n)  # confounder
     x = 0.8 * bartik + 0.5 * u + rng.normal(0, 0.3, n)  # endogenous regressor
     y = beta * x + u
     df = pd.DataFrame({"y": y, "x": x})

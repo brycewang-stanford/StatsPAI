@@ -74,30 +74,49 @@ def main() -> None:
 
     naive = smf.ols("Y ~ A0 + A1 + L0 + L1", data=wide).fit()
     naive_contrast = naive.params["A0"] + naive.params["A1"]
-    print(f"[naive OLS, adjusting for L1]   A0+A1 = {naive_contrast:.3f}  "
-          f"(biased low — should be 6)")
+    print(
+        f"[naive OLS, adjusting for L1]   A0+A1 = {naive_contrast:.3f}  "
+        f"(biased low — should be 6)"
+    )
 
     # 2. Parametric g-formula via iterative conditional expectation.
     always = sp.gformula.ice(
-        data=wide, id_col="id", time_col=None,
-        treatment_cols=["A0", "A1"], confounder_cols=[["L0"], ["L1"]],
-        outcome_col="Y", treatment_strategy=[1, 1],
+        data=wide,
+        id_col="id",
+        time_col=None,
+        treatment_cols=["A0", "A1"],
+        confounder_cols=[["L0"], ["L1"]],
+        outcome_col="Y",
+        treatment_strategy=[1, 1],
     )
     never = sp.gformula.ice(
-        data=wide, id_col="id", time_col=None,
-        treatment_cols=["A0", "A1"], confounder_cols=[["L0"], ["L1"]],
-        outcome_col="Y", treatment_strategy=[0, 0],
+        data=wide,
+        id_col="id",
+        time_col=None,
+        treatment_cols=["A0", "A1"],
+        confounder_cols=[["L0"], ["L1"]],
+        outcome_col="Y",
+        treatment_strategy=[0, 0],
     )
-    print(f"[g-formula (ICE)]               contrast = "
-          f"{always.value - never.value:.3f}  (≈ 6)")
+    print(
+        f"[g-formula (ICE)]               contrast = "
+        f"{always.value - never.value:.3f}  (≈ 6)"
+    )
 
     # 3. Marginal structural model via stabilized IPTW.
     msm = sp.msm(
-        data=to_long(wide), y="Y", treat="A", id="id", time="time",
-        time_varying=["L"], exposure="cumulative",
+        data=to_long(wide),
+        y="Y",
+        treat="A",
+        id="id",
+        time="time",
+        time_varying=["L"],
+        exposure="cumulative",
     )
-    print(f"[MSM via IPTW]                  per-dose  = {msm.estimate:.3f}  "
-          f"(cumulative-exposure slope)")
+    print(
+        f"[MSM via IPTW]                  per-dose  = {msm.estimate:.3f}  "
+        f"(cumulative-exposure slope)"
+    )
 
     print("\nThe g-formula and MSM recover the truth; the naive OLS does not.")
 

@@ -4,6 +4,7 @@ The auto-paper's Robustness section must state plainly what the estimator's
 self-audit (``result.violations()``) found — a flagged assumption becomes a
 line in the paper, with the ``sp.*`` a reviewer would ask the authors to try.
 """
+
 from __future__ import annotations
 
 import warnings

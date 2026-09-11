@@ -19,6 +19,7 @@ tracking against the Phase 0 baseline (already committed at
 
 Spec: ``docs/superpowers/specs/2026-04-27-native-rust-irls-fepois-design.md`` §5.7.
 """
+
 from __future__ import annotations
 
 import json
@@ -42,8 +43,13 @@ def main() -> None:
         raise FileNotFoundError(
             f"{csv} not found — run benchmarks/hdfe/datasets.py first."
         )
-    dtypes = {"y": np.int64, "x1": np.float64, "x2": np.float64,
-              "fe1": np.int32, "fe2": np.int32}
+    dtypes = {
+        "y": np.int64,
+        "x1": np.float64,
+        "x2": np.float64,
+        "fe1": np.int32,
+        "fe2": np.int32,
+    }
     df = pd.read_csv(csv, dtype=dtypes)
 
     # Warmup pass (drops singleton/separation pre-pass cost off the timed run
@@ -77,8 +83,10 @@ def main() -> None:
     out_path.write_text(json.dumps(out, indent=2), encoding="utf-8")
 
     status = "PASS" if median <= GATE_SECS else "FAIL"
-    print(f"[Phase A] medium wall median = {median:.3f}s "
-          f"(gate ≤ {GATE_SECS}s) — {status}")
+    print(
+        f"[Phase A] medium wall median = {median:.3f}s "
+        f"(gate ≤ {GATE_SECS}s) — {status}"
+    )
     print(f"[Phase A] all reps: {[f'{t:.3f}' for t in timings]}")
     print(f"[Phase A] iterations = {fit.iterations}, converged = {fit.converged}")
     print(f"[Phase A] wrote {out_path}")

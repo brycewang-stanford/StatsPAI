@@ -21,8 +21,8 @@ from typing import Any, List, Optional
 import numpy as np
 import pandas as pd
 
-from ..workflow._degradation import record_degradation
 from .._result_serialize import ResultProtocolMixin
+from ..workflow._degradation import record_degradation
 
 
 class AssumptionCheck:
@@ -50,9 +50,7 @@ class AssumptionCheck:
         status = (
             "✓ PASS"
             if self.passed
-            else "✗ FAIL"
-            if self.passed is False
-            else "? INCONCLUSIVE"
+            else "✗ FAIL" if self.passed is False else "? INCONCLUSIVE"
         )
         return f"{status} | {self.assumption}: {self.test_name}"
 

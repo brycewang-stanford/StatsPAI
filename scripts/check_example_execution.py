@@ -22,6 +22,7 @@ python scripts/check_example_execution.py --max-failures N
                                                      # CI ratchet: exit 1 if
                                                      # failures exceed N
 """
+
 from __future__ import annotations
 
 import argparse
@@ -88,6 +89,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     warnings.filterwarnings("ignore")
     import numpy as np
+
     import statspai as sp
 
     seen = set()

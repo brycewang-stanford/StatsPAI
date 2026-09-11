@@ -4,6 +4,7 @@ Usage:
     python benchmarks/run_all.py --quick   (small N, ~ 30s)
     python benchmarks/run_all.py --full    (up to n=500k, minutes)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -23,35 +24,37 @@ import bench_hdfe
 import bench_did
 
 
-def main(mode: str = 'quick') -> None:
+def main(mode: str = "quick") -> None:
     print(f"\n== StatsPAI benchmark ({mode}) ==\n")
 
     import statspai as sp
 
     meta = {
-        'statspai_version': sp.__version__,
-        'python': sys.version.split()[0],
-        'platform': platform.platform(),
-        'mode': mode,
-        'timestamp_utc': datetime.now(timezone.utc).isoformat(),
+        "statspai_version": sp.__version__,
+        "python": sys.version.split()[0],
+        "platform": platform.platform(),
+        "mode": mode,
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
     }
-    print(f"StatsPAI {meta['statspai_version']} · Python "
-          f"{meta['python']} · {meta['platform']}\n")
+    print(
+        f"StatsPAI {meta['statspai_version']} · Python "
+        f"{meta['python']} · {meta['platform']}\n"
+    )
 
-    if mode == 'quick':
+    if mode == "quick":
         regression_sizes = (1_000, 10_000)
         hdfe_sizes = [
-            {'n_units': 500, 'n_periods': 10},
-            {'n_units': 2_000, 'n_periods': 10},
+            {"n_units": 500, "n_periods": 10},
+            {"n_units": 2_000, "n_periods": 10},
         ]
         did_sizes = (200, 1_000)
     else:
         regression_sizes = (1_000, 10_000, 100_000, 500_000)
         hdfe_sizes = [
-            {'n_units': 500, 'n_periods': 10},
-            {'n_units': 2_000, 'n_periods': 10},
-            {'n_units': 10_000, 'n_periods': 10},
-            {'n_units': 50_000, 'n_periods': 10},
+            {"n_units": 500, "n_periods": 10},
+            {"n_units": 2_000, "n_periods": 10},
+            {"n_units": 10_000, "n_periods": 10},
+            {"n_units": 50_000, "n_periods": 10},
         ]
         did_sizes = (200, 1_000, 5_000, 20_000)
 
@@ -68,21 +71,21 @@ def main(mode: str = 'quick') -> None:
     print()
 
     all_results = {
-        'meta': meta,
-        'regression': reg_res,
-        'hdfe': hdfe_res,
-        'did': did_res,
+        "meta": meta,
+        "regression": reg_res,
+        "hdfe": hdfe_res,
+        "did": did_res,
     }
 
-    with open(os.path.join(HERE, 'results.json'), 'w') as f:
+    with open(os.path.join(HERE, "results.json"), "w") as f:
         json.dump(all_results, f, indent=2)
 
-    _render_markdown(all_results, os.path.join(HERE, 'RESULTS.md'))
+    _render_markdown(all_results, os.path.join(HERE, "RESULTS.md"))
     print(f"\nResults written to {HERE}/RESULTS.md and results.json")
 
 
 def _render_markdown(results: dict, path: str) -> None:
-    meta = results['meta']
+    meta = results["meta"]
     lines = []
     lines.append("# StatsPAI Benchmark Results")
     lines.append("")
@@ -94,13 +97,13 @@ def _render_markdown(results: dict, path: str) -> None:
     lines.append("")
 
     # Regression panel
-    reg = results['regression']
+    reg = results["regression"]
     lines.append(f"## {reg['name']}")
     lines.append("")
-    if reg['has_statsmodels']:
+    if reg["has_statsmodels"]:
         lines.append("| n | sp.regress | statsmodels | vs statsmodels |")
         lines.append("|---:|---:|---:|:---:|")
-        for row in reg['rows']:
+        for row in reg["rows"]:
             lines.append(
                 f"| {row['n']:,} | {row['sp_regress_s']*1000:.1f} ms "
                 f"| {row['statsmodels_s']*1000:.1f} ms "
@@ -109,23 +112,21 @@ def _render_markdown(results: dict, path: str) -> None:
     else:
         lines.append("| n | sp.regress |")
         lines.append("|---:|---:|")
-        for row in reg['rows']:
-            lines.append(
-                f"| {row['n']:,} | {row['sp_regress_s']*1000:.1f} ms |"
-            )
+        for row in reg["rows"]:
+            lines.append(f"| {row['n']:,} | {row['sp_regress_s']*1000:.1f} ms |")
     lines.append("")
 
     # HDFE panel
-    hdfe = results['hdfe']
+    hdfe = results["hdfe"]
     lines.append(f"## {hdfe['name']}")
     lines.append("")
-    if hdfe['has_linearmodels']:
+    if hdfe["has_linearmodels"]:
         lines.append("| units × T | n | sp.absorb_ols | linearmodels | vs lm |")
         lines.append("|---|---:|---:|---:|:---:|")
-        for row in hdfe['rows']:
-            lm_s = row.get('linearmodels_panelols_s')
+        for row in hdfe["rows"]:
+            lm_s = row.get("linearmodels_panelols_s")
             lm_fmt = f"{lm_s*1000:.0f} ms" if lm_s else "—"
-            speedup = row.get('speedup_vs_lm', '—')
+            speedup = row.get("speedup_vs_lm", "—")
             lines.append(
                 f"| {row['n_units']:,} × {row['n_periods']} "
                 f"| {row['n_obs']:,} "
@@ -136,7 +137,7 @@ def _render_markdown(results: dict, path: str) -> None:
     else:
         lines.append("| units × T | n | sp.absorb_ols |")
         lines.append("|---|---:|---:|")
-        for row in hdfe['rows']:
+        for row in hdfe["rows"]:
             lines.append(
                 f"| {row['n_units']:,} × {row['n_periods']} "
                 f"| {row['n_obs']:,} "
@@ -145,12 +146,12 @@ def _render_markdown(results: dict, path: str) -> None:
     lines.append("")
 
     # DID panel
-    did = results['did']
+    did = results["did"]
     lines.append(f"## {did['name']}")
     lines.append("")
     lines.append("| units | obs | CS 2021 | Wooldridge |")
     lines.append("|---:|---:|---:|---:|")
-    for row in did['rows']:
+    for row in did["rows"]:
         lines.append(
             f"| {row['n_units']:,} | {row['n_obs']:,} "
             f"| {row['cs2021_s']*1000:.0f} ms "
@@ -161,16 +162,14 @@ def _render_markdown(results: dict, path: str) -> None:
     lines.append("---")
     lines.append("")
     lines.append("Generated by `python benchmarks/run_all.py`.")
-    with open(path, 'w', encoding='utf-8') as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument('--quick', action='store_true',
-                   help='Small N, ~30s total')
-    p.add_argument('--full', action='store_true',
-                   help='Full sweep up to n=500k')
+    p.add_argument("--quick", action="store_true", help="Small N, ~30s total")
+    p.add_argument("--full", action="store_true", help="Full sweep up to n=500k")
     args = p.parse_args()
-    mode = 'full' if args.full else 'quick'
+    mode = "full" if args.full else "quick"
     main(mode)

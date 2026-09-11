@@ -16,6 +16,7 @@ wrapper that runs it against this directory's ``corpus.yaml`` and writes
 The ``--check`` gate exits non-zero on any hard-miss, error, citation error,
 or — when ``--min-hit-rate`` is given — a top-1 hit-rate below the pinned floor.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -34,20 +35,31 @@ def _offenders(rows: List[Dict], predicate: Callable[[Dict], object]) -> str:
     that matches, frontier included, because a frontier entry erroring the
     same way is usually the same root cause and is worth seeing.
     """
-    hits = [f"{r['id']} ({r.get('error') or r.get('status')})" for r in rows
-            if predicate(r)]
+    hits = [
+        f"{r['id']} ({r.get('error') or r.get('status')})" for r in rows if predicate(r)
+    ]
     return "; ".join(hits) if hits else "(none — summary/detail mismatch)"
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--json", action="store_true", help="write scorecard.json only")
-    ap.add_argument("--check", action="store_true",
-                    help="CI gate: exit 1 on hard-miss / error / citation error / floor")
-    ap.add_argument("--no-fit", action="store_true",
-                    help="skip the dynamic audit pass (faster; recommend hit-rate only)")
-    ap.add_argument("--min-hit-rate", type=float, default=None,
-                    help="ratchet floor: with --check, fail if top-1 hit-rate < this")
+    ap.add_argument(
+        "--check",
+        action="store_true",
+        help="CI gate: exit 1 on hard-miss / error / citation error / floor",
+    )
+    ap.add_argument(
+        "--no-fit",
+        action="store_true",
+        help="skip the dynamic audit pass (faster; recommend hit-rate only)",
+    )
+    ap.add_argument(
+        "--min-hit-rate",
+        type=float,
+        default=None,
+        help="ratchet floor: with --check, fail if top-1 hit-rate < this",
+    )
     args = ap.parse_args()
 
     from statspai.smart.recommend_benchmark import recommend_benchmark, render_markdown

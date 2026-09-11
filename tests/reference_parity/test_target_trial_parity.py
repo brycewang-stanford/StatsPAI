@@ -237,8 +237,12 @@ def test_emulate_se_and_ci_follow_frozen_formula(emulated, rct_df):
     v0 = ((y[a == 0] - m0) ** 2).sum() / (a == 0).sum() ** 2
     se_hand = float(np.sqrt(v1 + v0))
     assert emulated.se == pytest.approx(se_hand, rel=1e-12)
-    assert emulated.ci[0] == pytest.approx(emulated.estimate - 1.96 * se_hand, rel=1e-12)
-    assert emulated.ci[1] == pytest.approx(emulated.estimate + 1.96 * se_hand, rel=1e-12)
+    assert emulated.ci[0] == pytest.approx(
+        emulated.estimate - 1.96 * se_hand, rel=1e-12
+    )
+    assert emulated.ci[1] == pytest.approx(
+        emulated.estimate + 1.96 * se_hand, rel=1e-12
+    )
 
 
 def test_emulate_recovers_known_itt_effect(emulated):
@@ -305,9 +309,7 @@ def test_ccw_weighted_per_protocol_contrast_exact(ccw_unit_weights):
     )
     assert means["always_treat"] == pytest.approx(13.0, rel=1e-12)
     assert means["never_treat"] == pytest.approx(10.0, rel=1e-12)
-    assert means["always_treat"] - means["never_treat"] == pytest.approx(
-        3.0, rel=1e-12
-    )
+    assert means["always_treat"] - means["never_treat"] == pytest.approx(3.0, rel=1e-12)
 
 
 def test_ccw_fitted_weights_positive_finite(ccw_panel, ccw_strategies):

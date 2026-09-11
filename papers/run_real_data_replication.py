@@ -15,11 +15,12 @@ Usage:
     python run_real_data_replication.py
 """
 
-import numpy as np
-import pandas as pd
+import os
 import time
 import warnings
-import os
+
+import numpy as np
+import pandas as pd
 
 warnings.filterwarnings("ignore")
 
@@ -51,15 +52,17 @@ def replicate_card_real():
         df = pd.read_csv(data_path)
 
     # Drop rows with missing wages
-    df = df.dropna(subset=["lwage", "educ", "nearc4", "exper", "expersq",
-                            "black", "south", "smsa"])
+    df = df.dropna(
+        subset=["lwage", "educ", "nearc4", "exper", "expersq", "black", "south", "smsa"]
+    )
 
     print(f"  N = {len(df)} (after dropping missing)")
 
     # === OLS ===
     ols = sp.regress(
         "lwage ~ educ + exper + expersq + black + south + smsa",
-        data=df, robust="hc1",
+        data=df,
+        robust="hc1",
     )
     ols_educ = ols.params["educ"]
     ols_se = ols.std_errors["educ"]
@@ -75,7 +78,8 @@ def replicate_card_real():
     # === First stage ===
     fs = sp.regress(
         "educ ~ nearc4 + exper + expersq + black + south + smsa",
-        data=df, robust="hc1",
+        data=df,
+        robust="hc1",
     )
     fs_coef = fs.params["nearc4"]
     fs_t = fs_coef / fs.std_errors["nearc4"]
@@ -83,7 +87,8 @@ def replicate_card_real():
     # === Extended spec: add controls (MHE col 5) ===
     ols_ext = sp.regress(
         "lwage ~ educ + exper + expersq + black + south + smsa + married",
-        data=df, robust="hc1",
+        data=df,
+        robust="hc1",
     )
     iv_ext = sp.ivreg(
         "lwage ~ (educ ~ nearc4) + exper + expersq + black + south + smsa + married",
@@ -92,10 +97,18 @@ def replicate_card_real():
 
     print(f"\n  {'':30} {'StatsPAI':>10} {'Published':>10} {'Match?':>8}")
     print(f"  {'-'*60}")
-    print(f"  {'OLS coef on educ':<30} {ols_educ:>10.4f} {'0.0747':>10} {'✓' if abs(ols_educ - 0.0747) < 0.005 else '~':>8}")
-    print(f"  {'OLS SE':<30} {ols_se:>10.4f} {'0.0034':>10} {'✓' if abs(ols_se - 0.0034) < 0.001 else '~':>8}")
-    print(f"  {'IV coef on educ':<30} {iv_educ:>10.4f} {'0.1315':>10} {'✓' if abs(iv_educ - 0.1315) < 0.01 else '~':>8}")
-    print(f"  {'IV SE':<30} {iv_se:>10.4f} {'0.0549':>10} {'✓' if abs(iv_se - 0.0549) < 0.01 else '~':>8}")
+    print(
+        f"  {'OLS coef on educ':<30} {ols_educ:>10.4f} {'0.0747':>10} {'✓' if abs(ols_educ - 0.0747) < 0.005 else '~':>8}"
+    )
+    print(
+        f"  {'OLS SE':<30} {ols_se:>10.4f} {'0.0034':>10} {'✓' if abs(ols_se - 0.0034) < 0.001 else '~':>8}"
+    )
+    print(
+        f"  {'IV coef on educ':<30} {iv_educ:>10.4f} {'0.1315':>10} {'✓' if abs(iv_educ - 0.1315) < 0.01 else '~':>8}"
+    )
+    print(
+        f"  {'IV SE':<30} {iv_se:>10.4f} {'0.0549':>10} {'✓' if abs(iv_se - 0.0549) < 0.01 else '~':>8}"
+    )
     print(f"  {'First-stage F (nearc4)':<30} {fs_t**2:>10.1f} {'>10':>10}")
     print(f"  {'IV/OLS ratio':<30} {iv_educ/ols_educ:>10.2f} {'1.76':>10}")
 
@@ -122,24 +135,49 @@ def replicate_lalonde_real():
     data_path = os.path.join(SCRIPT_DIR, "data_nsw_dw.csv")
     if not os.path.exists(data_path):
         print("  Downloading NSW D&W sample from NBER...")
-        cols = ["treat", "age", "education", "black", "hispanic",
-                "married", "nodegree", "re74", "re75", "re78"]
+        cols = [
+            "treat",
+            "age",
+            "education",
+            "black",
+            "hispanic",
+            "married",
+            "nodegree",
+            "re74",
+            "re75",
+            "re78",
+        ]
         treated = pd.read_csv(
             "https://users.nber.org/~rdehejia/data/nswre74_treated.txt",
-            sep=r'\s+', header=None, names=cols,
+            sep=r"\s+",
+            header=None,
+            names=cols,
         )
         control = pd.read_csv(
             "https://users.nber.org/~rdehejia/data/nswre74_control.txt",
-            sep=r'\s+', header=None, names=cols,
+            sep=r"\s+",
+            header=None,
+            names=cols,
         )
         df = pd.concat([treated, control], ignore_index=True)
         df.to_csv(data_path, index=False)
     else:
         df = pd.read_csv(data_path)
 
-    covs = ["age", "education", "black", "hispanic", "married", "nodegree", "re74", "re75"]
+    covs = [
+        "age",
+        "education",
+        "black",
+        "hispanic",
+        "married",
+        "nodegree",
+        "re74",
+        "re75",
+    ]
 
-    print(f"  N = {len(df)} (treated: {int(df['treat'].sum())}, control: {int((1-df['treat']).sum())})")
+    print(
+        f"  N = {len(df)} (treated: {int(df['treat'].sum())}, control: {int((1-df['treat']).sum())})"
+    )
 
     # === 1. Raw difference in means (experimental estimate) ===
     treated = df[df["treat"] == 1]["re78"]
@@ -150,13 +188,16 @@ def replicate_lalonde_real():
     # === 2. OLS with controls ===
     ols = sp.regress(
         f"re78 ~ treat + {' + '.join(covs)}",
-        data=df, robust="hc1",
+        data=df,
+        robust="hc1",
     )
     ols_est = ols.params["treat"]
     ols_se = ols.std_errors["treat"]
 
     # === 3. PSM ===
-    psm = sp.match(df, y="re78", treat="treat", covariates=covs, se_method="abadie_imbens")
+    psm = sp.match(
+        df, y="re78", treat="treat", covariates=covs, se_method="abadie_imbens"
+    )
 
     # === 4. DML ===
     dml = sp.dml(df, y="re78", treat="treat", covariates=covs)
@@ -164,16 +205,22 @@ def replicate_lalonde_real():
     # === 5. AIPW ===
     aipw = sp.aipw(df, y="re78", treat="treat", covariates=covs, seed=42)
 
-    print(f"\n  {'Estimator':<25} {'Estimate ($)':>12} {'SE ($)':>10} {'Published':>12}")
+    print(
+        f"\n  {'Estimator':<25} {'Estimate ($)':>12} {'SE ($)':>10} {'Published':>12}"
+    )
     print(f"  {'-'*62}")
-    print(f"  {'Raw diff (experimental)':<25} {raw_diff:>12.0f} {raw_se:>10.0f} {'$1,794':>12}")
+    print(
+        f"  {'Raw diff (experimental)':<25} {raw_diff:>12.0f} {raw_se:>10.0f} {'$1,794':>12}"
+    )
     print(f"  {'OLS + controls':<25} {ols_est:>12.0f} {ols_se:>10.0f} {'—':>12}")
     print(f"  {'PSM':<25} {psm.estimate:>12.0f} {psm.se:>10.0f} {'—':>12}")
     print(f"  {'DML':<25} {dml.estimate:>12.0f} {dml.se:>10.0f} {'—':>12}")
     print(f"  {'AIPW':<25} {aipw.estimate:>12.0f} {aipw.se:>10.0f} {'—':>12}")
 
     match_quality = "✓" if abs(raw_diff - 1794) < 200 else "~"
-    print(f"\n  Raw diff vs published $1,794: diff = ${abs(raw_diff - 1794):.0f} {match_quality}")
+    print(
+        f"\n  Raw diff vs published $1,794: diff = ${abs(raw_diff - 1794):.0f} {match_quality}"
+    )
     print(f"  Note: All causal estimators should converge to the experimental")
     print(f"  benchmark since this is RCT data (no confounding).")
 
@@ -209,8 +256,12 @@ def replicate_prop99_real():
 
     # Also run SDID
     r_sdid = sp.sdid(
-        df, y="packspercapita", unit="state",
-        time="year", treat_unit="California", treat_time=1989,
+        df,
+        y="packspercapita",
+        unit="state",
+        time="year",
+        treat_unit="California",
+        treat_time=1989,
     )
     print(f"  SDID estimate: {r_sdid.estimate:.2f}")
     print(f"  (Arkhangelsky et al. 2021 SDID ≈ −15.6)")
@@ -234,8 +285,9 @@ def cross_validate_real_data():
         return
 
     df = pd.read_csv(os.path.join(SCRIPT_DIR, "data_card1995.csv"))
-    df = df.dropna(subset=["lwage", "educ", "nearc4", "exper", "expersq",
-                            "black", "south", "smsa"])
+    df = df.dropna(
+        subset=["lwage", "educ", "nearc4", "exper", "expersq", "black", "south", "smsa"]
+    )
 
     covs = ["exper", "expersq", "black", "south", "smsa"]
 
@@ -282,7 +334,9 @@ if __name__ == "__main__":
     print("StatsPAI Paper — Precise Replication with REAL Data")
     print("=" * 75)
     print(f"StatsPAI version: {sp.__version__}")
-    import sklearn, numpy as _np_v
+    import numpy as _np_v
+    import sklearn
+
     print(f"NumPy {_np_v.__version__} / scikit-learn {sklearn.__version__}")
     print()
 
@@ -297,9 +351,15 @@ if __name__ == "__main__":
     print("=" * 75)
     print(f"\n  {'Experiment':<35} {'StatsPAI':>10} {'Published':>10} {'Verdict':>10}")
     print(f"  {'-'*67}")
-    print(f"  {'Card OLS (educ)':<35} {ols_educ:>10.4f} {'0.0747':>10} {'✓' if abs(ols_educ - 0.0747) < 0.005 else '~':>10}")
-    print(f"  {'Card IV (educ)':<35} {iv_educ:>10.4f} {'0.1315':>10} {'✓' if abs(iv_educ - 0.1315) < 0.01 else '~':>10}")
-    print(f"  {'LaLonde raw diff':<35} {raw_diff:>10.0f} {'1794':>10} {'✓' if abs(raw_diff - 1794) < 200 else '~':>10}")
+    print(
+        f"  {'Card OLS (educ)':<35} {ols_educ:>10.4f} {'0.0747':>10} {'✓' if abs(ols_educ - 0.0747) < 0.005 else '~':>10}"
+    )
+    print(
+        f"  {'Card IV (educ)':<35} {iv_educ:>10.4f} {'0.1315':>10} {'✓' if abs(iv_educ - 0.1315) < 0.01 else '~':>10}"
+    )
+    print(
+        f"  {'LaLonde raw diff':<35} {raw_diff:>10.0f} {'1794':>10} {'✓' if abs(raw_diff - 1794) < 200 else '~':>10}"
+    )
     print(f"  {'Prop 99 synth gap':<35} {synth_est:>10.1f} {'-26':>10}")
     print()
     print("  ✓ = matches within rounding")

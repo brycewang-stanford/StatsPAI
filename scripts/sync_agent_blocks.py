@@ -38,9 +38,7 @@ from typing import List, Tuple
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DOCS_DIR = REPO_ROOT / "docs"
 
-START_RE = re.compile(
-    r"<!--\s*AGENT-BLOCK-START:\s*(?P<name>[A-Za-z0-9_]+)\s*-->"
-)
+START_RE = re.compile(r"<!--\s*AGENT-BLOCK-START:\s*(?P<name>[A-Za-z0-9_]+)\s*-->")
 END_RE = re.compile(r"<!--\s*AGENT-BLOCK-END\s*-->")
 
 
@@ -109,11 +107,15 @@ def _process(path: Path, check: bool) -> Tuple[int, int, int]:
     if new_text == text:
         return 0, 0, len(names)
     if check:
-        diff = "\n".join(difflib.unified_diff(
-            text.splitlines(), new_text.splitlines(),
-            fromfile=str(path), tofile=str(path) + " (expected)",
-            lineterm="",
-        ))
+        diff = "\n".join(
+            difflib.unified_diff(
+                text.splitlines(),
+                new_text.splitlines(),
+                fromfile=str(path),
+                tofile=str(path) + " (expected)",
+                lineterm="",
+            )
+        )
         print(diff, file=sys.stderr)
         return 0, 1, len(names)
     path.write_text(new_text, encoding="utf-8")

@@ -34,6 +34,7 @@ Run this script after editing docstrings or after registering new
 functions.  CI does NOT auto-run it (deterministic codegen lives in
 the repo and is reviewed in the diff).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -225,7 +226,7 @@ def extract_first_example(doc: str, fn_name: str) -> Optional[str]:
         head_match = target_re.search(c)
         if head_match is None:
             continue
-        head = c[head_match.start():]
+        head = c[head_match.start() :]
         cont = _continuation_lines(lines, i + 1)
         joined = head + " " + " ".join(cont)
         if _balance_parens(joined):

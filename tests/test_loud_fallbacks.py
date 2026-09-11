@@ -107,7 +107,12 @@ class TestPrincipalStratBootstrapSurfacesFailures:
         y = 1.0 + 0.5 * d + rng.normal(0, 1, n)
         df = pd.DataFrame({"y": y, "d": d, "s": s})
         res = sp.principal_strat(
-            df, y="y", treat="d", strata="s",
-            method="monotonicity", n_boot=50, seed=3,
+            df,
+            y="y",
+            treat="d",
+            strata="s",
+            method="monotonicity",
+            n_boot=50,
+            seed=3,
         )
         assert np.isfinite(res.effects["se"]).any()

@@ -149,9 +149,7 @@ def test_contrast_recovers_K_tau_and_matches_analyze(ipw_panel, ipw_fits):
     assert res["contrast"] == pytest.approx(K_IPW * TAU, abs=ATOL_IPW_DIFF)
     # Internal identities (documented plug-in difference + delta-method SE)
     # hold to machine precision on the same deterministic data.
-    assert res["contrast"] == pytest.approx(
-        always.estimate - never.estimate, abs=1e-12
-    )
+    assert res["contrast"] == pytest.approx(always.estimate - never.estimate, abs=1e-12)
     assert res["se"] == pytest.approx(
         float(np.sqrt(always.se**2 + never.se**2)), abs=1e-12
     )

@@ -687,9 +687,9 @@ def _feglm_conley(
     base.conf_int_lower = base.params - crit * se
     base.conf_int_upper = base.params + crit * se
     base.model_info = dict(base.model_info)
-    base.model_info[
-        "vcov_type"
-    ] = f"Conley spatial HAC (conleyreg spherical, {conley_cutoff} km)"
+    base.model_info["vcov_type"] = (
+        f"Conley spatial HAC (conleyreg spherical, {conley_cutoff} km)"
+    )
     return base
 
 

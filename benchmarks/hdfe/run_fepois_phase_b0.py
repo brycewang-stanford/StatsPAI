@@ -27,6 +27,7 @@ tracking against:
 Spec: ``docs/superpowers/specs/2026-04-27-native-rust-irls-fepois-design.md``
 + ``docs/superpowers/plans/2026-04-27-phase-b-rust-irls.md`` Task B0.5.
 """
+
 from __future__ import annotations
 
 import json
@@ -50,8 +51,13 @@ def main() -> None:
         raise FileNotFoundError(
             f"{csv} not found — run benchmarks/hdfe/datasets.py first."
         )
-    dtypes = {"y": np.int64, "x1": np.float64, "x2": np.float64,
-              "fe1": np.int32, "fe2": np.int32}
+    dtypes = {
+        "y": np.int64,
+        "x1": np.float64,
+        "x2": np.float64,
+        "fe1": np.int32,
+        "fe2": np.int32,
+    }
     df = pd.read_csv(csv, dtype=dtypes)
 
     # Sanity check: confirm the sort-aware Rust entry point is loaded.
@@ -98,8 +104,10 @@ def main() -> None:
     out_path.write_text(json.dumps(out, indent=2), encoding="utf-8")
 
     status = "PASS" if median <= GATE_SECS else "FAIL"
-    print(f"[Phase B0] medium wall median = {median:.3f}s "
-          f"(gate ≤ {GATE_SECS}s) — {status}")
+    print(
+        f"[Phase B0] medium wall median = {median:.3f}s "
+        f"(gate ≤ {GATE_SECS}s) — {status}"
+    )
     print(f"[Phase B0] all reps:       {[f'{t:.3f}' for t in timings]}")
     print(f"[Phase B0] iterations = {fit.iterations}, converged = {fit.converged}")
     print(f"[Phase B0] speedup vs Phase 0 (2.61s): {out['speedup_vs_phase0']:.2f}×")

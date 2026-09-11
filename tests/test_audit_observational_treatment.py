@@ -9,6 +9,7 @@ B. ``sp.audit(result, treatment=...)`` on a causal-adjustment regression must
    add the overlap / balance / OVB-sensitivity checks a referee demands, while
    a descriptive regression (no treatment declared) is never flagged.
 """
+
 from __future__ import annotations
 
 import numpy as np

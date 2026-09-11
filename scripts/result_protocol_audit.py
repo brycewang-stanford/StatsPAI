@@ -11,6 +11,7 @@ does not import ``statspai``.  That keeps it safe to run in CI before optional
 dependencies are installed and makes it useful when debugging import-time
 regressions.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -196,9 +197,7 @@ def collect() -> dict[str, Any]:
                 "direct_methods": sorted(info.methods & set(METHODS)),
                 "effective_methods": sorted(effective & set(METHODS)),
                 "missing": {
-                    protocol: [
-                        method for method in required if method not in effective
-                    ]
+                    protocol: [method for method in required if method not in effective]
                     for protocol, required in PROTOCOLS.items()
                     if any(method not in effective for method in required)
                 },
@@ -252,8 +251,7 @@ def check(report: dict[str, Any]) -> int:
             print(f"  {item}", file=sys.stderr)
         return 1
     print(
-        "[result_protocol_audit] OK - "
-        f"{report['total']} result classes inspected."
+        "[result_protocol_audit] OK - " f"{report['total']} result classes inspected."
     )
     return 0
 
@@ -282,10 +280,7 @@ def render(report: dict[str, Any], *, missing: str | None = None) -> str:
         req = ", ".join(required)
         lines.append(f"  {protocol:18s}: {count:4d}  ({_pct(count, total)})  [{req}]")
     if missing:
-        rows = [
-            row for row in report["per_class"]
-            if missing in row.get("missing", {})
-        ]
+        rows = [row for row in report["per_class"] if missing in row.get("missing", {})]
         lines.append("")
         lines.append(f"Classes missing protocol: {missing}")
         lines.append("-" * 50)

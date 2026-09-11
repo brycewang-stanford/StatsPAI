@@ -355,9 +355,7 @@ def rdsampsi(
     # SE² = Ck * (var_L/(n_L h_L) + var_R/(ratio n_L h_R))
     # n_L = Ck * (var_L/h_L + var_R/(ratio h_R)) / SE²_target
     n_left = int(
-        np.ceil(
-            Ck * (var_left / h_left + var_right / (ratio * h_right)) / se_target**2
-        )
+        np.ceil(Ck * (var_left / h_left + var_right / (ratio * h_right)) / se_target**2)
     )
     n_right = int(np.ceil(ratio * n_left))
 

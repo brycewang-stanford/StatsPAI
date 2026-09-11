@@ -10,6 +10,7 @@ Usage::
 
 The output is committed to the repo; it is not generated at install time.
 """
+
 from __future__ import annotations
 
 import sys
@@ -23,38 +24,38 @@ ROOT = Path(__file__).resolve().parents[1] / "src" / "statspai"
 # We hard-code these because ``obj.__name__`` only reports the original symbol
 # and we need the public alias on the LHS of the stub line.
 ALIAS_LINES: dict[str, str] = {
-    "PAPER_TABLE_TEMPLATES":  "from .output.paper_tables import TEMPLATES as PAPER_TABLE_TEMPLATES",
-    "JOURNAL_PRESETS":        "from .output._journals import JOURNALS as JOURNAL_PRESETS",
+    "PAPER_TABLE_TEMPLATES": "from .output.paper_tables import TEMPLATES as PAPER_TABLE_TEMPLATES",
+    "JOURNAL_PRESETS": "from .output._journals import JOURNALS as JOURNAL_PRESETS",
     "list_journal_templates": "from .output._journals import list_templates as list_journal_templates",
-    "get_journal_template":   "from .output._journals import get_template as get_journal_template",
-    "transport_weights_fn":   "from .transport import weights as transport_weights_fn",
-    "transport_generalize":   "from .transport import generalize as transport_generalize",
-    "longitudinal_analyze":   "from .longitudinal import analyze as longitudinal_analyze",
-    "longitudinal_contrast":  "from .longitudinal import contrast as longitudinal_contrast",
-    "gformula_ice_fn":        "from .gformula import ice as gformula_ice_fn",
-    "target_trial_protocol":  "from .target_trial import protocol as target_trial_protocol",
-    "target_trial_emulate":   "from .target_trial import emulate as target_trial_emulate",
-    "target_trial_report":    "from .target_trial import to_paper as target_trial_report",
+    "get_journal_template": "from .output._journals import get_template as get_journal_template",
+    "transport_weights_fn": "from .transport import weights as transport_weights_fn",
+    "transport_generalize": "from .transport import generalize as transport_generalize",
+    "longitudinal_analyze": "from .longitudinal import analyze as longitudinal_analyze",
+    "longitudinal_contrast": "from .longitudinal import contrast as longitudinal_contrast",
+    "gformula_ice_fn": "from .gformula import ice as gformula_ice_fn",
+    "target_trial_protocol": "from .target_trial import protocol as target_trial_protocol",
+    "target_trial_emulate": "from .target_trial import emulate as target_trial_emulate",
+    "target_trial_report": "from .target_trial import to_paper as target_trial_report",
     "target_trial_checklist": "from .target_trial import target_checklist as target_trial_checklist",
-    "tte":                    "from . import target_trial as tte",
-    "dag_recommend_estimator":"from .dag import recommend_estimator as dag_recommend_estimator",
-    "gt":                     "from .output._gt import to_gt as gt",
+    "tte": "from . import target_trial as tte",
+    "dag_recommend_estimator": "from .dag import recommend_estimator as dag_recommend_estimator",
+    "gt": "from .output._gt import to_gt as gt",
 }
 
 CONSTANTS: dict[str, str] = {
-    "__version__":     "__version__: str",
-    "__author__":      "__author__: str",
-    "__email__":       "__email__: str",
-    "__citation__":    "__citation__: str",
+    "__version__": "__version__: str",
+    "__author__": "__author__: str",
+    "__email__": "__email__: str",
+    "__citation__": "__citation__: str",
     "STABILITY_TIERS": "STABILITY_TIERS: frozenset[str]",
-    "TARGET_ITEMS":    "TARGET_ITEMS: list[str]",
+    "TARGET_ITEMS": "TARGET_ITEMS: list[str]",
 }
 
 
 def _relative(modname: str) -> str:
     if modname == "statspai":
         return "."
-    return "." + modname[len("statspai."):]
+    return "." + modname[len("statspai.") :]
 
 
 def main() -> None:
@@ -65,8 +66,8 @@ def main() -> None:
     import statspai as sp  # noqa: E402
 
     submodule_lines: set[str] = set()
-    leaf_lines:      set[str] = set()
-    unresolved:      list[str] = []
+    leaf_lines: set[str] = set()
+    unresolved: list[str] = []
 
     for name in sorted(set(sp.__all__)):
         if name in CONSTANTS:
@@ -95,35 +96,35 @@ def main() -> None:
 
     out: list[str] = [
         '"""Auto-generated type stub — do not edit by hand."""',
-        '',
-        '# This stub mirrors the runtime ``statspai`` namespace so that IDEs and',
-        '# static type-checkers can statically see every public symbol, even the',
-        '# lazy-loaded ones routed through ``__getattr__``. The real bindings',
-        '# happen at runtime per src/statspai/__init__.py.',
-        '#',
-        '# Regenerate with: python3 scripts/generate_stub.py',
-        '',
+        "",
+        "# This stub mirrors the runtime ``statspai`` namespace so that IDEs and",
+        "# static type-checkers can statically see every public symbol, even the",
+        "# lazy-loaded ones routed through ``__getattr__``. The real bindings",
+        "# happen at runtime per src/statspai/__init__.py.",
+        "#",
+        "# Regenerate with: python3 scripts/generate_stub.py",
+        "",
     ]
     for sig in CONSTANTS.values():
         out.append(sig)
-    out.append('')
-    out.append('# Submodule re-exports (preserve ``sp.X.Y`` access)')
+    out.append("")
+    out.append("# Submodule re-exports (preserve ``sp.X.Y`` access)")
     out.extend(sorted(submodule_lines))
-    out.append('')
-    out.append('# Public function / class re-exports')
+    out.append("")
+    out.append("# Public function / class re-exports")
     out.extend(sorted(leaf_lines))
-    out.append('')
-    out.append('__all__: list[str]')
-    out.append('')
+    out.append("")
+    out.append("__all__: list[str]")
+    out.append("")
     if unresolved:
-        out.append('# Names without a discoverable source module — declared as Any')
-        out.append('from typing import Any')
+        out.append("# Names without a discoverable source module — declared as Any")
+        out.append("from typing import Any")
         for n in sorted(unresolved):
-            out.append(f'{n}: Any')
-        out.append('')
+            out.append(f"{n}: Any")
+        out.append("")
 
     target = ROOT / "__init__.pyi"
-    target.write_text('\n'.join(out), encoding='utf-8')
+    target.write_text("\n".join(out), encoding="utf-8")
     print(
         f"submodules: {len(submodule_lines)}\n"
         f"leaves:     {len(leaf_lines)}\n"

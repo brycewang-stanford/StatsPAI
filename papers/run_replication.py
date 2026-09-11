@@ -15,10 +15,11 @@ Usage:
     python run_replication.py
 """
 
-import numpy as np
-import pandas as pd
 import time
 import warnings
+
+import numpy as np
+import pandas as pd
 
 warnings.filterwarnings("ignore")
 
@@ -41,7 +42,8 @@ def replication_card_1995():
     # OLS
     ols = sp.regress(
         "lwage ~ educ + exper + expersq + black + south + smsa",
-        data=data, robust="hc1",
+        data=data,
+        robust="hc1",
     )
     ols_educ = ols.params["educ"]
     ols_se = ols.std_errors["educ"]
@@ -64,7 +66,8 @@ def replication_card_1995():
     # First-stage F-statistic
     first_stage = sp.regress(
         "educ ~ nearc4 + exper + expersq + black + south + smsa",
-        data=data, robust="hc1",
+        data=data,
+        robust="hc1",
     )
     fs_coef = first_stage.params["nearc4"]
     fs_se = first_stage.std_errors["nearc4"]
@@ -96,8 +99,10 @@ def replication_lee_2008():
 
     print(f"\n  RD Estimate:     {rd.estimate:.4f}")
     print(f"  SE:              {rd.se:.4f}")
-    ci = rd.ci if hasattr(rd, "ci") and rd.ci else (
-        rd.estimate - 1.96 * rd.se, rd.estimate + 1.96 * rd.se
+    ci = (
+        rd.ci
+        if hasattr(rd, "ci") and rd.ci
+        else (rd.estimate - 1.96 * rd.se, rd.estimate + 1.96 * rd.se)
     )
     print(f"  95% CI:          [{ci[0]:.4f}, {ci[1]:.4f}]")
     print(f"  p-value:         {rd.pvalue:.4f}")
@@ -159,8 +164,12 @@ def replication_prop99():
         # Try SDID as fallback
         try:
             r = sp.sdid(
-                df, outcome="packspercapita", unit="state",
-                time="year", treated_unit="California", treatment_time=1989,
+                df,
+                outcome="packspercapita",
+                unit="state",
+                time="year",
+                treated_unit="California",
+                treatment_time=1989,
             )
             print(f"  SDID estimate: {r.estimate:.2f}")
         except Exception as e2:
@@ -189,13 +198,16 @@ def replication_lalonde_1986():
     # OLS with controls
     ols = sp.regress(
         f"re78 ~ treat + {' + '.join(covs)}",
-        data=data, robust="hc1",
+        data=data,
+        robust="hc1",
     )
     ols_est = ols.params["treat"]
     ols_se = ols.std_errors["treat"]
 
     # PSM
-    psm = sp.match(data, y="re78", treat="treat", covariates=covs, se_method="abadie_imbens")
+    psm = sp.match(
+        data, y="re78", treat="treat", covariates=covs, se_method="abadie_imbens"
+    )
 
     # DML
     dml = sp.dml(data, y="re78", treat="treat", covariates=covs)
@@ -233,7 +245,7 @@ def cross_validate_econml():
         print("  EconML not installed — skipping cross-validation.")
         return
 
-    from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+    from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
     # Generate data with known effect
     np.random.seed(42)
@@ -267,12 +279,18 @@ def cross_validate_econml():
 
     sp_ci_l = sp_dml.estimate - 1.96 * sp_dml.se
     sp_ci_u = sp_dml.estimate + 1.96 * sp_dml.se
-    print(f"  {'StatsPAI':<15} {sp_dml.estimate:>10.4f} {'[' + f'{sp_ci_l:.4f}, {sp_ci_u:.4f}' + ']':>24} {sp_time:>10.3f}")
-    print(f"  {'EconML':<15} {econml_est:>10.4f} {'[' + f'{econml_ci[0]:.4f}, {econml_ci[1]:.4f}' + ']':>24} {econml_time:>10.3f}")
+    print(
+        f"  {'StatsPAI':<15} {sp_dml.estimate:>10.4f} {'[' + f'{sp_ci_l:.4f}, {sp_ci_u:.4f}' + ']':>24} {sp_time:>10.3f}"
+    )
+    print(
+        f"  {'EconML':<15} {econml_est:>10.4f} {'[' + f'{econml_ci[0]:.4f}, {econml_ci[1]:.4f}' + ']':>24} {econml_time:>10.3f}"
+    )
 
     diff = abs(sp_dml.estimate - econml_est)
     print(f"\n  Difference: {diff:.4f}")
-    print(f"  Agreement: {'Yes (< 0.05)' if diff < 0.05 else 'Close' if diff < 0.1 else 'Divergent'}")
+    print(
+        f"  Agreement: {'Yes (< 0.05)' if diff < 0.05 else 'Close' if diff < 0.1 else 'Divergent'}"
+    )
 
     # --- Also compare on Card (1995) IV ---
     print(f"\n  --- IV comparison on Card (1995) ---")
@@ -311,7 +329,9 @@ def cross_validate_econml():
         print(f"  StatsPAI IV (educ): {sp_iv_est:.4f}")
         print(f"  EconML DMLIV:       {econml_iv_est:.4f}")
         print(f"  Note: EconML uses nonparametric DML-IV, StatsPAI uses classical 2SLS")
-        print(f"  Both methods are valid; differences reflect estimator choice, not error")
+        print(
+            f"  Both methods are valid; differences reflect estimator choice, not error"
+        )
     except Exception as e:
         sp_iv_est = sp_iv.params["educ"]
         print(f"  StatsPAI IV (educ): {sp_iv_est:.4f}")
@@ -327,7 +347,9 @@ if __name__ == "__main__":
     print("StatsPAI Paper — External Validation Experiments")
     print("=" * 75)
     print(f"StatsPAI version: {sp.__version__}")
-    import sklearn, numpy as _np_v
+    import numpy as _np_v
+    import sklearn
+
     print(f"NumPy {_np_v.__version__} / scikit-learn {sklearn.__version__}")
     print()
 

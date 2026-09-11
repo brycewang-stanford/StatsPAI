@@ -98,9 +98,9 @@ def test_mc_large_lambda_collapses_to_fe():
 
 def test_min_t0_drops_short_pretreatment_units_with_warning():
     df = _staggered_panel()
-    df.loc[
-        (df["id"] == 11) & (df["time"] < 6), "y"
-    ] = np.nan  # unit 11 has 0 untreated periods
+    df.loc[(df["id"] == 11) & (df["time"] < 6), "y"] = (
+        np.nan
+    )  # unit 11 has 0 untreated periods
     with pytest.warns(UserWarning, match="dropped"):
         res = sp.fect(
             df, y="y", treat="d", unit="id", time="time", method="fe", min_t0=1

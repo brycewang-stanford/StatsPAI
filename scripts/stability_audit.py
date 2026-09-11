@@ -43,6 +43,7 @@ of *unbacked, hand-written* stable API entries has not increased beyond
 a loose floor. Auto-registered specs are excluded from the floor because
 classifying hundreds of them is a separate validation project.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -167,9 +168,8 @@ def collect() -> dict:
         # spec.stability == "stable"
         is_hand = name in hand_written
         notes = list(getattr(spec, "validation_notes", []) or [])
-        registry_backed = (
-            spec.validation_status in {"certified", "validated"}
-            or bool(notes)
+        registry_backed = spec.validation_status in {"certified", "validated"} or bool(
+            notes
         )
         if registry_backed:
             if not notes:
@@ -217,12 +217,12 @@ def collect() -> dict:
             "unbacked_handwritten": len(unbacked_handwritten),
             "unbacked_auto": len(unbacked_auto),
             "parity_test_files": sum(
-                1 for p in PARITY_DIRS if p.exists()
-                for _ in p.rglob("test_*.py")
+                1 for p in PARITY_DIRS if p.exists() for _ in p.rglob("test_*.py")
             ),
             "symbols_referenced_in_parity_tests": len(backed),
             "registry_validated_symbols": sum(
-                1 for spec in registry.values()
+                1
+                for spec in registry.values()
                 if spec.stability == "stable"
                 and spec.validation_status in {"certified", "validated"}
             ),
@@ -234,10 +234,12 @@ def collect() -> dict:
             "deprecated": sorted(deprecated),
         },
         "auto_unbacked_breakdown": {
-            "category_counts": dict(sorted(
-                unbacked_auto_categories.items(),
-                key=lambda item: (-item[1], item[0]),
-            )),
+            "category_counts": dict(
+                sorted(
+                    unbacked_auto_categories.items(),
+                    key=lambda item: (-item[1], item[0]),
+                )
+            ),
             "category_examples": {
                 category: sorted(values)
                 for category, values in sorted(
@@ -249,7 +251,8 @@ def collect() -> dict:
             "functionlike_symbol_count": len(unbacked_auto) - unbacked_auto_classlike,
         },
         "sources": {
-            name: srcs for name, srcs in evidence_sources.items()
+            name: srcs
+            for name, srcs in evidence_sources.items()
             # Only carry backed-handwritten sources in the JSON payload —
             # auto-registered specs aren't the focus of this audit.
             if name in set(backed_handwritten)
@@ -271,9 +274,7 @@ def render_report(stats: dict, *, show_unbacked: bool = False) -> str:
     lines: List[str] = []
     lines.append("StatsPAI stability/validation reverse-audit")
     lines.append("=" * 50)
-    lines.append(
-        f"Registry         : {t['registry']} functions"
-    )
+    lines.append(f"Registry         : {t['registry']} functions")
     lines.append(
         f"  stable         : {t['stable']}  "
         f"({t['stable_handwritten']} hand-written, "
@@ -284,35 +285,22 @@ def render_report(stats: dict, *, show_unbacked: bool = False) -> str:
     lines.append("")
     lines.append("Validation coverage")
     lines.append("-" * 50)
-    lines.append(
-        f"  parity test files                : "
-        f"{p['parity_test_files']}"
-    )
+    lines.append(f"  parity test files                : " f"{p['parity_test_files']}")
     lines.append(
         f"  distinct sp.* symbols referenced : "
         f"{p['symbols_referenced_in_parity_tests']}"
     )
     lines.append(
-        f"  registry certified/validated     : "
-        f"{p['registry_validated_symbols']}"
+        f"  registry certified/validated     : " f"{p['registry_validated_symbols']}"
     )
-    lines.append(
-        f"  stable hand-written, BACKED      : "
-        f"{p['backed_handwritten']}"
-    )
+    lines.append(f"  stable hand-written, BACKED      : " f"{p['backed_handwritten']}")
     lines.append(
         f"  stable hand-written, UNBACKED    : "
         f"{p['unbacked_handwritten']}  "
         f"(floor: {stats['floor']['unbacked_handwritten']})"
     )
-    lines.append(
-        f"  stable auto-registered, BACKED   : "
-        f"{p['backed_auto']}"
-    )
-    lines.append(
-        f"  stable auto-registered, UNBACKED : "
-        f"{p['unbacked_auto']}"
-    )
+    lines.append(f"  stable auto-registered, BACKED   : " f"{p['backed_auto']}")
+    lines.append(f"  stable auto-registered, UNBACKED : " f"{p['unbacked_auto']}")
     auto_breakdown = stats.get("auto_unbacked_breakdown", {})
     category_counts = auto_breakdown.get("category_counts", {})
     if category_counts:
@@ -387,14 +375,22 @@ def check_drift(stats: dict) -> int:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--json", action="store_true",
-                        help="emit machine-readable JSON")
-    parser.add_argument("--unbacked", action="store_true",
-                        help="list unbacked hand-written stable names")
-    parser.add_argument("--hand-written", action="store_true",
-                        help="restrict report to hand-written specs (default)")
-    parser.add_argument("--check", action="store_true",
-                        help="exit 1 if unbacked count exceeds floor")
+    parser.add_argument(
+        "--json", action="store_true", help="emit machine-readable JSON"
+    )
+    parser.add_argument(
+        "--unbacked",
+        action="store_true",
+        help="list unbacked hand-written stable names",
+    )
+    parser.add_argument(
+        "--hand-written",
+        action="store_true",
+        help="restrict report to hand-written specs (default)",
+    )
+    parser.add_argument(
+        "--check", action="store_true", help="exit 1 if unbacked count exceeds floor"
+    )
     args = parser.parse_args(argv)
 
     stats = collect()

@@ -13,17 +13,17 @@ Table~\\ref{tab:schema-coverage}. Re-running this script after a
 release verifies that the table has not silently drifted from the
 implementation.
 """
+
 from __future__ import annotations
 
 import statspai as sp
-
 
 CURATED_KEYS = (
     "assumptions",
     "pre_conditions",
     "failure_modes",
     "limitations",
-    "minimum_n",      # legacy spelling used in older manuscript notes
+    "minimum_n",  # legacy spelling used in older manuscript notes
     "typical_n_min",
 )
 
@@ -79,16 +79,24 @@ def main() -> None:
     print(f"Public surface (registered functions) : {n_total}")
     print(f"  with non-empty description          : {n_with_desc}")
     print(f"  with at least one typed parameter   : {n_with_params}")
-    print(f"  with curated agent_card             : {n_curated_card}  "
-          f"(at least one of {CURATED_KEYS})")
+    print(
+        f"  with curated agent_card             : {n_curated_card}  "
+        f"(at least one of {CURATED_KEYS})"
+    )
     print()
     print(f"Total parameters across all schemas   : {n_param_total}")
-    print(f"  with non-empty description          : {n_param_desc}  "
-          f"({pct(n_param_desc, n_param_total)})")
-    print(f"  with explicit default value         : {n_param_default}  "
-          f"({pct(n_param_default, n_param_total)})")
-    print(f"  with enumerated choices (enum)      : {n_param_enum}  "
-          f"({pct(n_param_enum, n_param_total)})")
+    print(
+        f"  with non-empty description          : {n_param_desc}  "
+        f"({pct(n_param_desc, n_param_total)})"
+    )
+    print(
+        f"  with explicit default value         : {n_param_default}  "
+        f"({pct(n_param_default, n_param_total)})"
+    )
+    print(
+        f"  with enumerated choices (enum)      : {n_param_enum}  "
+        f"({pct(n_param_enum, n_param_total)})"
+    )
 
 
 if __name__ == "__main__":

@@ -28,6 +28,7 @@ CSV (gzip) is the lowest-common-denominator format — R reads it via
 Arrow would be faster, but the local R install has no ``arrow`` pkg
 and we want the script to run out of the box.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -47,9 +48,9 @@ DATA_DIR = HERE / "data"
 TRUE_BETA: Dict[str, float] = {"x1": 0.30, "x2": -0.20}
 
 CONFIGS: Dict[str, Dict[str, int]] = {
-    "small":  dict(n=100_000,    fe1=1_000,     fe2=50,     seed=42),
-    "medium": dict(n=1_000_000,  fe1=100_000,   fe2=1_000,  seed=43),
-    "large":  dict(n=10_000_000, fe1=1_000_000, fe2=10_000, seed=44),
+    "small": dict(n=100_000, fe1=1_000, fe2=50, seed=42),
+    "medium": dict(n=1_000_000, fe1=100_000, fe2=1_000, seed=43),
+    "large": dict(n=10_000_000, fe1=1_000_000, fe2=10_000, seed=44),
 }
 
 
@@ -80,13 +81,7 @@ def make_dataset(name: str) -> Tuple[pd.DataFrame, Dict]:
     x1 = rng.normal(0.0, 1.0, size=n)
     x2 = rng.normal(0.0, 1.0, size=n)
 
-    eta = (
-        0.5
-        + TRUE_BETA["x1"] * x1
-        + TRUE_BETA["x2"] * x2
-        + alpha[fe1]
-        + gamma[fe2]
-    )
+    eta = 0.5 + TRUE_BETA["x1"] * x1 + TRUE_BETA["x2"] * x2 + alpha[fe1] + gamma[fe2]
     # Cap eta so exp doesn't overflow on the tails (very rare with
     # the variances above, but cheap insurance).
     np.clip(eta, -10.0, 10.0, out=eta)
@@ -158,7 +153,9 @@ def main() -> None:
         help="Which configs to materialise (default: small medium). "
         "Add 'large' explicitly — it is ~500MB+ on disk and ~10min to write.",
     )
-    parser.add_argument("--force", action="store_true", help="Regenerate even if cached")
+    parser.add_argument(
+        "--force", action="store_true", help="Regenerate even if cached"
+    )
     args = parser.parse_args()
     for name in args.configs:
         write_csv(name, force=args.force)

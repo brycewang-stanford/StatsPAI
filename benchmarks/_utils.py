@@ -1,4 +1,5 @@
 """Shared benchmark utilities."""
+
 from __future__ import annotations
 
 import time
@@ -35,10 +36,10 @@ def bench(fn: Callable, n_warmup: int = 1, n_runs: int = 3) -> dict:
             fn()
         runs.append(t[0])
     return {
-        'mean_s': sum(runs) / len(runs),
-        'min_s': min(runs),
-        'max_s': max(runs),
-        'runs': runs,
+        "mean_s": sum(runs) / len(runs),
+        "min_s": min(runs),
+        "max_s": max(runs),
+        "runs": runs,
     }
 
 
@@ -54,10 +55,10 @@ def fmt_ms(seconds: float) -> str:
 def speedup_label(baseline: float, comparison: float) -> str:
     """Return '2.5x faster' / '1.3x slower' / 'parity'."""
     if baseline <= 0 or comparison <= 0:
-        return '—'
+        return "—"
     ratio = comparison / baseline
     if 0.9 <= ratio <= 1.1:
-        return 'parity'
+        return "parity"
     if ratio > 1:
         return f"{ratio:.1f}x faster"
     return f"{1/ratio:.1f}x slower"

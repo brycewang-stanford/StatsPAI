@@ -76,13 +76,7 @@ def simulate(seed: int, pool: str = "rich", n: int = N_OBS) -> pd.DataFrame:
     x2 = rng.normal(size=n)
     index = POOLS[pool] + 0.9 * x1 - 0.5 * x2
     d = rng.binomial(1, 1 / (1 + np.exp(-index)))
-    y = (
-        1.0
-        + TRUE_ATT * d
-        + 0.7 * x1
-        - 0.3 * x2
-        + rng.normal(scale=0.5, size=n)
-    )
+    y = 1.0 + TRUE_ATT * d + 0.7 * x1 - 0.3 * x2 + rng.normal(scale=0.5, size=n)
     return pd.DataFrame({"x1": x1, "x2": x2, "d": d, "y": y})
 
 
@@ -194,8 +188,7 @@ def to_markdown(rows: List[Dict[str, Any]], meta: Dict[str, Any]) -> str:
         )
     lines += [
         "",
-        "⚠️ coverage < 0.90 &nbsp;&nbsp; ⚡ coverage < 0.93 "
-        "(nominal 0.95)",
+        "⚠️ coverage < 0.90 &nbsp;&nbsp; ⚡ coverage < 0.93 " "(nominal 0.95)",
         "",
         "**Read the `bias` column before the coverage column.** In the "
         "`thin` pool the arms are the same size, so matching *without "
@@ -273,8 +266,7 @@ def main() -> None:
     (OUT_DIR / "matching_se_coverage.md").write_text(
         to_markdown(rows, meta), encoding="utf-8"
     )
-    print(f"\nwrote {OUT_DIR / 'matching_se_coverage.md'} "
-          f"({meta['elapsed_s']}s)")
+    print(f"\nwrote {OUT_DIR / 'matching_se_coverage.md'} " f"({meta['elapsed_s']}s)")
 
 
 if __name__ == "__main__":

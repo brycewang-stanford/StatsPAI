@@ -34,7 +34,7 @@ def _malmquist_panel(g, seed=0, N=60, T=3):
         for t in range(T):
             x1 = rng.uniform(1, 5)
             x2 = rng.uniform(1, 5)
-            y = (g ** t) * eff * (x1 ** 0.4) * (x2 ** 0.5)
+            y = (g**t) * eff * (x1**0.4) * (x2**0.5)
             rows.append((i, t, y, x1, x2))
     df = pd.DataFrame(rows, columns=["id", "time", "y", "x1", "x2"])
     return sp.malmquist(df, y="y", x=["x1", "x2"], id="id", time="time")
@@ -93,7 +93,10 @@ def test_metafrontier_disadvantaged_group_has_larger_gap():
     df = _metafrontier_data()
     res = sp.metafrontier(df, y="ly", x=["lx"], group="grp")
     tgr = np.asarray(res.tgr, dtype=float)
-    mean_by_grp = pd.DataFrame({"grp": df["grp"].to_numpy(), "tgr": tgr}) \
-        .groupby("grp")["tgr"].mean()
+    mean_by_grp = (
+        pd.DataFrame({"grp": df["grp"].to_numpy(), "tgr": tgr})
+        .groupby("grp")["tgr"]
+        .mean()
+    )
     # Group 1 sits below group 0's technology -> smaller technology-gap ratio.
     assert mean_by_grp[1] < mean_by_grp[0]

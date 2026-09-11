@@ -2415,9 +2415,9 @@ def ivreg(
         base.conf_int_lower = base.params - crit * se
         base.conf_int_upper = base.params + crit * se
         base.model_info = dict(base.model_info)
-        base.model_info[
-            "vcov_type"
-        ] = f"{kind} cluster-robust (clubSandwich, Pustejovsky-Tipton 2018)"
+        base.model_info["vcov_type"] = (
+            f"{kind} cluster-robust (clubSandwich, Pustejovsky-Tipton 2018)"
+        )
         base.model_info["cluster"] = cluster
         return base
 
@@ -2453,9 +2453,9 @@ def ivreg(
         base.conf_int_lower = base.params - crit * se
         base.conf_int_upper = base.params + crit * se
         base.model_info = dict(base.model_info)
-        base.model_info[
-            "vcov_type"
-        ] = f"Conley spatial HAC (uniform, {conley_cutoff} km; acreg-compatible)"
+        base.model_info["vcov_type"] = (
+            f"Conley spatial HAC (uniform, {conley_cutoff} km; acreg-compatible)"
+        )
         return base
 
     # Two-way clustering: ``cluster=["firm", "year"]`` runs 2SLS once (clustered

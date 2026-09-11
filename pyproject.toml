@@ -190,7 +190,14 @@ target-version = ['py39']
 # scripts/tier_a_fixture_lock.py, and tests/external_parity/*.py have their
 # source text asserted verbatim by tests/test_ci_exact_parity_contract.py.
 # Keep them byte-stable.
-extend-exclude = '''
+#
+# `force-exclude`, not `extend-exclude`. The latter is applied during
+# directory traversal only, so `black tests/r_parity` skipped these while
+# `black tests/r_parity/06_rd.py` reformatted them — and passing explicit
+# filenames is exactly how pre-commit invokes black. The protection this
+# block exists to provide did not hold under the one invocation the repo
+# actually uses.
+force-exclude = '''
 /tests/(r_parity|stata_parity|external_parity)/
 '''
 
@@ -208,9 +215,17 @@ extend-exclude = '''
 # existing tree is required (or wanted, during JOSS review).
 profile = "black"
 line_length = 88
-# Mirror black's extend-exclude: these trees are SHA-locked / verbatim-asserted
+# Mirror black's force-exclude: these trees are SHA-locked / verbatim-asserted
 # parity fixtures (scripts/tier_a_fixture_lock.py,
 # tests/test_ci_exact_parity_contract.py) — never let a formatter rewrite them.
+#
+# `filter_files` is what makes the glob bind. Without it isort applies skip
+# settings during directory traversal only and formats any file named
+# explicitly on the command line — which is how pre-commit invokes it, so
+# `isort tests/r_parity/06_rd.py` rewrote a SHA-locked fixture while
+# `isort tests/r_parity` correctly skipped it. Same hole black had with
+# `extend-exclude`, in the other formatter.
+filter_files = true
 extend_skip_glob = ["tests/r_parity/*", "tests/stata_parity/*", "tests/external_parity/*"]
 
 [tool.pytest.ini_options]

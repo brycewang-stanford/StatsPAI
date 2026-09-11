@@ -1897,9 +1897,11 @@ def panel_view(
         "staggered": len(starts) > 1,
         "has_reversals": bool(has_rev),
         "n_missing_cells": int((~observed).to_numpy().sum()),
-        "share_treated_cells": float(d[observed.to_numpy()].mean())
-        if observed.to_numpy().any()
-        else float("nan"),
+        "share_treated_cells": (
+            float(d[observed.to_numpy()].mean())
+            if observed.to_numpy().any()
+            else float("nan")
+        ),
     }
 
     if type == "treat":

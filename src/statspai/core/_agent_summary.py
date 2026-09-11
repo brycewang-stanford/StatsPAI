@@ -665,9 +665,9 @@ def causal_agent_summary(result: Any) -> Dict[str, Any]:
         if isinstance(val, (str, int, float, bool)) or val is None:
             scalar_diagnostics[key] = val
         elif isinstance(val, (pd.DataFrame, pd.Series, np.ndarray)):
-            scalar_diagnostics[
-                key
-            ] = f"<{type(val).__name__} shape={getattr(val, 'shape', '?')}>"
+            scalar_diagnostics[key] = (
+                f"<{type(val).__name__} shape={getattr(val, 'shape', '?')}>"
+            )
         elif isinstance(val, dict):
             # One level deep is enough for most diagnostic subtrees.
             nested = {}

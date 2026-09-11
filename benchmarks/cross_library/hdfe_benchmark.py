@@ -37,6 +37,7 @@ Usage
     python benchmarks/cross_library/hdfe_benchmark.py --scales 10000,100000,1000000
     python benchmarks/cross_library/hdfe_benchmark.py --repeats 7 --json out.json
 """
+
 from __future__ import annotations
 
 import argparse
@@ -152,7 +153,7 @@ def _time_callable(fn: Callable[[], Tuple[float, float]], repeats: int):
     median = statistics.median(times)
     if len(times) >= 4:
         q1 = statistics.median(times[: len(times) // 2])
-        q3 = statistics.median(times[(len(times) + 1) // 2:])
+        q3 = statistics.median(times[(len(times) + 1) // 2 :])
         iqr = q3 - q1
     else:
         iqr = max(times) - min(times)
@@ -269,7 +270,9 @@ def _bench_r_fixest(df, repeats: int) -> BackendResult:
         if out.returncode != 0:
             reason = (out.stderr or out.stdout).strip().splitlines()
             tail = reason[-1] if reason else "non-zero exit"
-            status = "skipped" if "there is no package" in (out.stderr or "") else "error"
+            status = (
+                "skipped" if "there is no package" in (out.stderr or "") else "error"
+            )
             return BackendResult("R fixest", 0, status, detail=tail[:200])
         try:
             payload = json.loads(out.stdout.strip().splitlines()[-1])
@@ -307,8 +310,15 @@ def coefficient_agreement(
     """Max relative slope disagreement vs a reference backend. The benchmark is
     only meaningful if every backend computes the same estimator."""
     ok = [r for r in rows if r.status == "ok" and r.coef_x1 is not None]
-    ref = next((r for r in ok if r.backend.replace("sp.", "").startswith(reference)
-                or reference in r.backend), None)
+    ref = next(
+        (
+            r
+            for r in ok
+            if r.backend.replace("sp.", "").startswith(reference)
+            or reference in r.backend
+        ),
+        None,
+    )
     if ref is None and ok:
         ref = ok[0]
     if ref is None:
@@ -383,7 +393,9 @@ def build_report(results: Dict[int, List[BackendResult]], provenance: Dict) -> s
         )
         ok = [r for r in rows if r.status == "ok" and r.time_median_s]
         fastest = min((r.time_median_s for r in ok), default=None)
-        lines.append("| backend | status | slope x1 | SE | median (s) | IQR | Δ vs fastest |")
+        lines.append(
+            "| backend | status | slope x1 | SE | median (s) | IQR | Δ vs fastest |"
+        )
         lines.append("| --- | --- | --: | --: | --: | --: | --: |")
         for r in rows:
             if r.status != "ok":
@@ -412,7 +424,9 @@ def build_report(results: Dict[int, List[BackendResult]], provenance: Dict) -> s
 # --------------------------------------------------------------------------- #
 
 
-def run(scales: List[int], backends: List[str], repeats: int) -> Dict[int, List[BackendResult]]:
+def run(
+    scales: List[int], backends: List[str], repeats: int
+) -> Dict[int, List[BackendResult]]:
     results: Dict[int, List[BackendResult]] = {}
     for scale in scales:
         df = make_panel(scale)
@@ -431,10 +445,14 @@ def run(scales: List[int], backends: List[str], repeats: int) -> Dict[int, List[
 
 def main(argv: Optional[List[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--scales", default="10000,100000",
-                    help="comma-separated obs counts")
-    ap.add_argument("--backends", default=",".join(BACKENDS),
-                    help=f"comma-separated subset of {list(BACKENDS)}")
+    ap.add_argument(
+        "--scales", default="10000,100000", help="comma-separated obs counts"
+    )
+    ap.add_argument(
+        "--backends",
+        default=",".join(BACKENDS),
+        help=f"comma-separated subset of {list(BACKENDS)}",
+    )
     ap.add_argument("--repeats", type=int, default=5)
     ap.add_argument("--json", metavar="PATH", help="write raw results JSON here")
     ap.add_argument("--markdown", metavar="PATH", help="write the report here")

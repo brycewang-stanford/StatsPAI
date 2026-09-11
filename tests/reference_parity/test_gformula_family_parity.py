@@ -70,9 +70,9 @@ def longitudinal_df() -> pd.DataFrame:
     L0 = rng.normal(0.0, 1.0, n)
     A0 = rng.binomial(1, 1.0 / (1.0 + np.exp(-0.6 * L0)), n).astype(float)
     L1 = 0.2 + 0.7 * L0 + 0.5 * A0 + rng.normal(0.0, 0.5, n)
-    A1 = rng.binomial(
-        1, 1.0 / (1.0 + np.exp(-(0.4 * L1 + 0.3 * A0 - 0.2))), n
-    ).astype(float)
+    A1 = rng.binomial(1, 1.0 / (1.0 + np.exp(-(0.4 * L1 + 0.3 * A0 - 0.2))), n).astype(
+        float
+    )
     Y = 1.0 + 1.0 * A0 + 2.0 * A1 + 0.5 * L0 + 0.8 * L1 + rng.normal(0.0, 0.5, n)
     return pd.DataFrame(
         {"id": np.arange(n), "L0": L0, "A0": A0, "L1": L1, "A1": A1, "Y": Y}

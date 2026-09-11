@@ -809,7 +809,8 @@ def test_fabricated_author_after_the_cjk_separator_is_still_caught():
     """Narrowing must not become a way to hide an invented author."""
     truth = ac.PaperMeta(authors=["Charles Shaw"], title="T", year=2025, source="arxiv")
     c = _make_citation(
-        "前面的方法家族待核验。\n" "分布式 IV (Kennedy & Pearl 2025, arXiv 2506.12765) 归属存疑。",
+        "前面的方法家族待核验。\n"
+        "分布式 IV (Kennedy & Pearl 2025, arXiv 2506.12765) 归属存疑。",
         id="2506.12765",
     )
     issues = ac.diff_citation(c, truth)

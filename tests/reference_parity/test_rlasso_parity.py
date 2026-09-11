@@ -256,9 +256,15 @@ def test_dml_rlasso_learner_matches_r_doubleml(dml_rlasso):
     xcols = [c for c in df.columns if c.startswith("x")]
     folds = df["fold"].values.astype(int)
     res = sp.dml(
-        data=df, y="y", treat="d", covariates=xcols,
-        model="plr", ml_g="rlasso", ml_m="rlasso",
-        n_folds=ref["n_folds"], fold_indices=folds,
+        data=df,
+        y="y",
+        treat="d",
+        covariates=xcols,
+        model="plr",
+        ml_g="rlasso",
+        ml_m="rlasso",
+        n_folds=ref["n_folds"],
+        fold_indices=folds,
     )
     assert res.model_info.get("fold_source") == "user"
     np.testing.assert_allclose(float(res.estimate), ref["theta"], atol=1e-6)

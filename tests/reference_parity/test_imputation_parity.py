@@ -111,7 +111,7 @@ def test_total_variance_dominates_within_variance(mice_fit, pooled):
     res = mice_fit["res"]
     within = np.array(
         [
-            sp.regress("y ~ x1 + x2", data=res.complete(i)).std_errors.values ** 2
+            sp.regress("y ~ x1 + x2", data=res.complete(i)).std_errors.values**2
             for i in range(res.n_imputations)
         ]
     ).mean(axis=0)

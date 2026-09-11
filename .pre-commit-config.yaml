@@ -75,8 +75,16 @@ repos:
       - id: debug-statements
         stages: [pre-commit]
 
+  # Pinned to the version the dev extra installs and CLAUDE.md 14's
+  # `black src tests` therefore runs. They were 23.9.1 and 26.5.1
+  # respectively, and the two disagree about conditional-expression
+  # wrapping, so every commit through the hook pushed files further from
+  # what the documented command produces: the count of files the two
+  # versions disagreed about grew from 12 to 66 over one working session.
+  # Nothing in CI runs black, so the hook was the only enforcement and it
+  # was enforcing a different style from the one the repo is written in.
   - repo: https://github.com/psf/black
-    rev: 23.9.1
+    rev: 26.5.1
     hooks:
       - id: black
         language_version: python3

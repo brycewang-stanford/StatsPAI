@@ -9,6 +9,7 @@ Reports wall-clock + coef diff vs R ``fixest::feols`` (the reference);
 falls back to pyfixest as the cross-check when R is unavailable. Output
 is JSON to stdout and a copy to ``benchmarks/hdfe/feols_bench.json``.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -22,10 +23,10 @@ from typing import Any, Dict, List
 import numpy as np
 import pandas as pd
 
-
 # ---------------------------------------------------------------------------
 # DGP
 # ---------------------------------------------------------------------------
+
 
 def _make_panel(n: int, fe1_card: int, fe2_card: int, seed: int) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
@@ -38,15 +39,21 @@ def _make_panel(n: int, fe1_card: int, fe2_card: int, seed: int) -> pd.DataFrame
     cl = rng.normal(0, 0.4, size=fe1_card)[fe1]
     eps = cl + rng.normal(size=n)
     y = 0.30 * x1 - 0.20 * x2 + a1 + a2 + eps
-    return pd.DataFrame({
-        "y": y, "x1": x1, "x2": x2,
-        "fe1": fe1.astype(np.int32), "fe2": fe2.astype(np.int32),
-    })
+    return pd.DataFrame(
+        {
+            "y": y,
+            "x1": x1,
+            "x2": x2,
+            "fe1": fe1.astype(np.int32),
+            "fe2": fe2.astype(np.int32),
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Backends
 # ---------------------------------------------------------------------------
+
 
 def _time(fn, n_warm: int = 1, n_runs: int = 3) -> Dict[str, Any]:
     """Run ``fn()`` ``n_warm`` warmups + ``n_runs`` timed runs; return summary."""
@@ -68,8 +75,10 @@ def _time(fn, n_warm: int = 1, n_runs: int = 3) -> Dict[str, Any]:
 
 def _bench_statspai(df: pd.DataFrame) -> Dict[str, Any]:
     import statspai as sp
+
     def _run():
         return sp.fast.feols("y ~ x1 + x2 | fe1 + fe2", df, vcov="iid")
+
     summary = _time(_run)
     fit = summary.pop("result")
     summary["coef"] = {k: float(fit.coef()[k]) for k in ("x1", "x2")}
@@ -82,11 +91,15 @@ def _bench_pyfixest(df: pd.DataFrame) -> Dict[str, Any]:
         import pyfixest as pf
     except ImportError:
         return {"available": False, "reason": "pyfixest not installed"}
+
     def _run():
         return pf.feols(
-            fml="y ~ x1 + x2 | fe1 + fe2", data=df,
-            vcov="iid", fixef_rm="singleton",
+            fml="y ~ x1 + x2 | fe1 + fe2",
+            data=df,
+            vcov="iid",
+            fixef_rm="singleton",
         )
+
     summary = _time(_run)
     fit = summary.pop("result")
     summary["available"] = True
@@ -117,7 +130,10 @@ def _bench_r_fixest(df: pd.DataFrame, tmp_csv: Path) -> Dict[str, Any]:
         "cat(toJSON(out, auto_unbox=TRUE, digits=14))\n"
     )
     proc = subprocess.run(
-        ["Rscript", "-e", r_script], capture_output=True, text=True, timeout=300,
+        ["Rscript", "-e", r_script],
+        capture_output=True,
+        text=True,
+        timeout=300,
     )
     if proc.returncode != 0:
         return {"available": False, "reason": f"Rscript failed: {proc.stderr[:200]}"}
@@ -131,17 +147,19 @@ def _bench_r_fixest(df: pd.DataFrame, tmp_csv: Path) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 DATASETS = {
-    "small":  dict(n=100_000,   fe1_card=1_000,   fe2_card=50,    seed=42),
+    "small": dict(n=100_000, fe1_card=1_000, fe2_card=50, seed=42),
     "medium": dict(n=1_000_000, fe1_card=100_000, fe2_card=1_000, seed=43),
 }
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--small", action="store_true",
-                        help="Run only the 100k-row dataset")
-    parser.add_argument("--medium", action="store_true",
-                        help="Run only the 1M-row dataset")
+    parser.add_argument(
+        "--small", action="store_true", help="Run only the 100k-row dataset"
+    )
+    parser.add_argument(
+        "--medium", action="store_true", help="Run only the 1M-row dataset"
+    )
     args = parser.parse_args(argv)
 
     sizes = []
@@ -160,8 +178,10 @@ def main(argv=None):
         cfg = DATASETS[size]
         df = _make_panel(**cfg)
         ds_report: Dict[str, Any] = {"config": cfg, "n_rows": len(df)}
-        print(f"=== {size} ({len(df):,} rows, fe1={cfg['fe1_card']:,}, "
-              f"fe2={cfg['fe2_card']:,}) ===")
+        print(
+            f"=== {size} ({len(df):,} rows, fe1={cfg['fe1_card']:,}, "
+            f"fe2={cfg['fe2_card']:,}) ==="
+        )
         ds_report["statspai"] = _bench_statspai(df)
         print(f"  statspai     : {ds_report['statspai']['wall_min']*1000:.0f} ms")
         ds_report["pyfixest"] = _bench_pyfixest(df)
