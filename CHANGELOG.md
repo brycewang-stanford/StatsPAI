@@ -136,19 +136,21 @@ functions the parity index vouches for as agreeing with R or Stata.
   place of comparing against it. That is known-truth evidence (T1), and it
   was being counted as cross-language parity (T2), the claim the JSS
   manuscript rests on.
-  - **Five now have the comparison they claimed**, built in this release:
+  - **Six now have the comparison they claimed**, built in this release:
     `evalue_rr` against `EValue::evalues.RR` (1e-12, ten cases including the
     branch rules); `degree_centrality`, `betweenness_centrality` and
     `clustering` against igraph; `eigenvector_centrality` against
-    `sna::evcent` (5e-11). The old eigenvector note also said the L2
+    `sna::evcent` (5e-11); `mr` against `MendelianRandomization` (see
+    *Mendelian randomisation* below — the comparison found that its default
+    standard error was half the reference's). The old eigenvector note also said the L2
     normalisation matched igraph; igraph max-scales, and 2.x ignores
     `scale = FALSE`.
-  - **Twenty-six move to `analytical-only`**, the grade their tests
+  - **Twenty-five move to `analytical-only`**, the grade their tests
     support: `auc`, `roc_curve`, `bootstrap`, `breakdown_frontier`,
     `contrast`, `das_gupta`, `direct_standardize`, `gelbach`, `icc`,
     `indirect_standardize`, `kdensity`, `kitagawa_decompose`, `lee_bounds`,
     `lrtest`, `manski_bounds`, `margins_at`, `mediate_interventional`,
-    `mediation_decompose`, `mr`, `oster_delta`, `policy_value`,
+    `mediation_decompose`, `oster_delta`, `policy_value`,
     `power_case_control`, `pwcompare`, `sensitivity_specificity`,
     `source_decompose`, `subgroup_decompose`. Their tests are unchanged and
     still pass; they now carry the label those tests earn. Several have R
@@ -156,9 +158,10 @@ functions the parity index vouches for as agreeing with R or Stata.
   - `sensemakr` was also on the list, but its grade was already carried
     by Track A module `22_sensemakr`; the redundant entry is removed and
     the grade is unchanged.
-  - Cross-language coverage reported by `sp.parity_summary()` is 194 of 773
-    estimator callables (25.1%). Before this correction the same code
-    reported 220 (28.5%).
+  - The correction alone took cross-language coverage, as reported by
+    `sp.parity_summary()`, from 220 to 194 of 773 estimator callables
+    (28.5% → 25.1%). The real comparisons added elsewhere in this release
+    bring it to 209 (27.0%).
 - **The index now refuses to build such an entry.** A promotion claiming an
   R or Stata side must list a test that loads a reference fixture or calls
   R, or record a `provenance` for embedded constants (the live-captured
@@ -206,6 +209,92 @@ functions the parity index vouches for as agreeing with R or Stata.
   ego column. A node then gets different codes as ego and as alter unless
   the ids are already `1..N` in first-appearance order. The fixture uses such
   ids and asserts the precondition.
+
+### ⚠️ Correctness fixes — Mendelian randomisation
+
+Found by comparing every MR function against the R packages that define
+it — `MendelianRandomization`, `TwoSampleMR`, `RadialMR`, `MRPRESSO` and
+`mr.raps` — on the 28-variant LDL-C → CHD data shipped with
+`MendelianRandomization`. The percentages are on that example. **MR
+analyses should be re-run**; `MIGRATION.md#mr-sweep` has the table.
+
+- **`sp.mr_ivw` reported the fixed-effect standard error regardless of
+  heterogeneity** — 0.276 against the reference's 0.530 here (Cochran's
+  Q p = 3e-10). Both reference packages default to multiplicative random
+  effects (SE × `max(1, RSE)`) with more than three variants, and so does
+  `sp.mr_ivw` now; `model="fixed"` restores the old SE. The point estimate
+  is unchanged. `sp.mr("ivw")`, `sp.mendelian_randomization` and
+  `sp.mr_leave_one_out` inherit the change (the last used to recompute a
+  fixed-effect SE inline, 49% off).
+- **`sp.mr_egger` did not orient variants**, so its result depended on
+  which allele each variant was coded against: slope 14% and intercept —
+  the pleiotropy test — 38% off, with 16 of 28 variants having negative
+  exposure associations. Its residual standard error was also not floored
+  at 1. `sp.mr_pleiotropy_egger` (which carried its own copy of the fit)
+  and Rücker's Q′ in `sp.mr_heterogeneity(method="egger")` are fixed with
+  it.
+- **`sp.mr_median`**: a step weighted median instead of Bowden et al.'s
+  interpolated one (0.8%); a penalty using the *lower*-tail χ² probability
+  — up-weighting exactly the heterogeneous variants it exists to suppress —
+  with no `min(1, 20 q)` cap and centred on IVW instead of the weighted
+  median (38%); and a bootstrap that redrew the weights. New
+  `weighting="simple"`.
+- **`sp.mr_mode`**: bandwidth, grid and bootstrap all differed from
+  Hartwig et al.'s (estimate 7% off). The SE is now the bootstrap MAD, as
+  in the reference. New `phi=` and `refine=`.
+- **`sp.mr_cml` penalised its BIC by the number of variants instead of the
+  GWAS sample size** the method requires (log 28 against log 17723), and
+  selected six invalid variants where the reference selects two; its SE
+  held the nuisance exposure effects fixed (~12% small). New `n=` (without
+  it the old stand-in is used and a warning says so) and
+  `model_average=`; `K_max` defaults to `n_snps − 2`.
+- **`sp.mr_raps` was a different estimator under the name**: a Tukey loss
+  minimised jointly over `(β, log τ²)` with a one-dimensional sandwich
+  treating τ² as known — τ² 3.5× too small, the estimate 1.4% off, the SE
+  47% too small. Rewritten as a port of `mr.raps` 0.4.3 (`loss=`,
+  `over_dispersion=`, `pruning=`, `niter=`, `tol=`); **the default loss is
+  now Huber**, the package default. `tuning_c` passed without `loss` warns
+  that it now applies to Huber; `beta_init` / `tau2_init` are ignored with
+  a `DeprecationWarning`.
+- **`sp.mr_steiger`'s p-value was one-sided and computed as `1 − Φ(z)`**,
+  exactly 0.0 beyond z ≈ 8.3 (the reference reports 1.8e-73 here). It is
+  two-sided by default, as `TwoSampleMR` reports it; `alternative="greater"`
+  gives the one-sided test.
+- **`sp.mr_presso` is now a port of `MRPRESSO::mr_presso`.** Outlier
+  p-values were not Bonferroni-adjusted (seven outliers flagged where the
+  reference flags two, moving the corrected estimate 2.4%), SEs were
+  fixed-effect rather than residual-scaled (half the reference's), the
+  outlier test ran when the global test did not reject, and the
+  "distortion test" was a z-test rather than PRESSO's resampling test.
+  **Monte Carlo p-values return to the reference's `k / B`**, reversing
+  1.5.0's `(k + 1) / (B + 1)`: with Bonferroni the latter's smallest
+  attainable outlier p-value is `n / (B + 1)`, above 0.05 for 50 variants
+  at B = 1000, so the test could never flag anything. A 0 now means
+  "below the Monte Carlo resolution", and a warning fires when `n_boot`
+  cannot resolve the adjusted threshold. New fields `outlier_pvalues`,
+  `distortion_coefficient`.
+- Every p-value in `sp.mendelian` now comes from a survival function:
+  `1 − cdf` is accurate only to ~1e-16 absolute, 1e-7 relative on the
+  heterogeneity p-value of 3e-10 here.
+
+### Added — Mendelian randomisation
+
+- Cross-language evidence for 15 MR functions
+  (`tests/reference_parity/test_mr_R_parity.py`): `mr`, `mr_ivw`,
+  `mr_egger`, `mr_median`, `mr_mode`, `mr_cml`, `mr_steiger`,
+  `mr_radial`, `mr_presso`, `mr_leave_one_out`, `mr_pleiotropy_egger`,
+  `mr_heterogeneity`, `mr_f_statistic` and `mr_multivariable` at 1e-9 or
+  better on every deterministic quantity (bootstrap SEs and simulated
+  p-values are Monte Carlo on both sides and not compared). `mr_raps` is
+  graded `aligned`: the Gaussian fits match at 1e-8, and for the robust
+  losses the sandwich reproduces `mr.raps`'s SEs at 1e-10 when evaluated at
+  its own estimates, while the fitted values agree to 5e-5 (β) and 1.5e-3
+  (τ²) because `mr.raps` stops `uniroot` at its default tolerance and
+  `integrate` at 1.2e-4 — StatsPAI's root satisfies the estimating
+  equation more tightly.
+- `sp.mr_radial(bonferroni=, alpha=)`: `bonferroni=False` reproduces
+  `RadialMR::ivw_radial`'s outlier list; the Bonferroni default is kept.
+- The Mendelian-family guide is updated for all of the above.
 
 ### ⚠️ Correctness fixes — `sp.sqreg`
 

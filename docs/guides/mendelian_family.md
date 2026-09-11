@@ -60,13 +60,17 @@ Reference: Burgess et al. (2013), *Genet Epidemiol* 37(7).
 
 ### `sp.mr_ivw` — Inverse-Variance Weighted
 
-The workhorse. Fixed-effects meta-analysis of SNP-specific Wald ratios
-with weights `1/se_Y_i²`. Consistent under **no pleiotropy** (balanced
-or unbalanced) and the strongest power of the four when IV3 holds.
+The workhorse: weighted regression of the SNP–outcome on the
+SNP–exposure associations through the origin, weights `1/se_Y_i²`.
+Consistent under **no pleiotropy** and the strongest power of the four
+when IV3 holds. The standard error follows `MendelianRandomization`:
+with more than three SNPs the default is multiplicative random effects
+(fixed-effect SE × `max(1, RSE)`), so heterogeneity widens it;
+`model="fixed"` gives the fixed-effect SE.
 
 ```python
-res = sp.mr_ivw(beta_x, beta_y, se_x, se_y, alpha=0.05)
-print(res["estimate"], res["se"], res["Q"], res["I2"])
+res = sp.mr_ivw(beta_x, beta_y, se_x, se_y, alpha=0.05)   # model="default"
+print(res["estimate"], res["se"], res["model"], res["Q"], res["I2"])
 ```
 
 **When to use it**: your default. Always report it. If it disagrees
@@ -76,7 +80,8 @@ pleiotropy signal.
 ### `sp.mr_egger` — directional pleiotropy
 
 Fits `β_Y = α + β * β_X`, where `α` is the average pleiotropic
-intercept. Point estimate is consistent under the **InSIDE assumption**
+intercept, after orienting every SNP to a positive exposure association
+(the intercept depends on allele coding otherwise). Point estimate is consistent under the **InSIDE assumption**
 (Instrument Strength Independent of Direct Effect): the pleiotropic
 effects are uncorrelated with the SNP–exposure effects.
 
@@ -94,15 +99,16 @@ Reference: Bowden et al. (2015), *IJE* 44(2).
 ### `sp.mr_median` — weighted / penalized median
 
 Consistent when at least **50% of the weight** comes from valid
-instruments (Bowden et al. 2016). The penalized variant down-weights
-SNPs with large IVW residuals, making the estimator more robust to a
-few strong outliers:
+instruments (Bowden et al. 2016). `weighting="simple"` gives every SNP
+equal weight; `"penalized"` multiplies each weight by `min(1, 20 q_j)`,
+where `q_j` is the χ²(1) upper-tail p-value of that SNP's heterogeneity
+about the weighted median — the three options of
+`MendelianRandomization::mr_median`, which the point estimates match:
 
 ```python
-res = sp.mr_median(beta_x, beta_y, se_x, se_y,
-                    penalized=False, n_boot=1000, seed=0)
+res = sp.mr_median(beta_x, beta_y, se_x, se_y, n_boot=1000, seed=0)
 res_pen = sp.mr_median(beta_x, beta_y, se_x, se_y,
-                       penalized=True, n_boot=1000, seed=0)
+                       weighting="penalized", n_boot=1000, seed=0)
 ```
 
 **When to use it**: you suspect some SNPs are invalid but at most
@@ -125,8 +131,10 @@ res = sp.mr_mode(beta_x, beta_y, se_x, se_y,
 
 **When to use it**: the most permissive of the four — the last line
 of defense when IVW, Egger, and median all disagree. A weighted
-Gaussian-kernel mode on the Wald-ratio distribution, bandwidth via
-Silverman's rule.
+Gaussian-kernel mode on the Wald-ratio distribution with Hartwig et
+al.'s bandwidth `phi · 0.9 · min(sd, mad) · n^(-1/5)`, located on the
+same 512-point grid as `MendelianRandomization::mr_mbe` (`refine=True`
+climbs to the continuous mode instead).
 
 Reference: Hartwig, Davey Smith & Bowden (2017), *IJE* 46(6).
 
@@ -147,14 +155,14 @@ print(res.Q, res.Q_p, res.I2)
 ```
 
 `I² > 25%` → moderate heterogeneity; `I² > 50%` → substantial. IVW is
-still consistent but the reported SE becomes anti-conservative —
-switch to a random-effects IVW or use one of the robust estimators.
+still consistent; its default random-effects SE already scales with the
+heterogeneity, but consider the robust estimators too.
 
 ### `sp.mr_pleiotropy_egger` — directional pleiotropy test
 
-The MR-Egger intercept `α` with its `t(n-2)` p-value (matches R's
-`MendelianRandomization` package convention; uses `t` not `z` because
-`σ²` is plug-in estimated):
+The MR-Egger intercept `α` with its `t(n-2)` p-value (the `TwoSampleMR`
+convention, which it matches; `MendelianRandomization::mr_egger` uses a
+normal reference by default):
 
 ```python
 res = sp.mr_pleiotropy_egger(beta_x, beta_y, se_y)
@@ -194,6 +202,10 @@ res = sp.mr_steiger(
 print(res.correct_direction, res.steiger_pvalue)
 ```
 
+The p-value is two-sided, as `TwoSampleMR::mr_steiger` reports it;
+`alternative="greater"` gives the one-sided test that the exposure R² is
+the larger.
+
 **Always run this first** — it's cheap and catches reverse-causation
 cases where all downstream MR is meaningless.
 
@@ -219,6 +231,12 @@ print(res.outliers)                          # flagged SNP indices
 print(res.outlier_corrected_estimate)        # re-IVW after dropping outliers
 ```
 
+A port of `MRPRESSO::mr_presso`: outlier p-values are Bonferroni-adjusted
+and the outlier test runs only when the global test rejects. Simulated
+p-values follow the package's `k / B` convention, so `0` means "below the
+Monte Carlo resolution"; use `n_boot ≥ n_snps / sig_threshold` so the
+adjusted outlier test can reject at all (a warning fires otherwise).
+
 **When to use it**: always, if you have ≥ 10 SNPs. The global test p
 is the most reliable "do I have a pleiotropy problem" signal.
 
@@ -235,6 +253,9 @@ res = sp.mr_radial(beta_x, beta_y, se_y, snp_ids=rsids)
 print(res.outliers)             # SNPs to investigate
 print(res.table.nlargest(5, "q_contribution"))
 ```
+
+`RadialMR::ivw_radial` flags at the unadjusted `alpha`; pass
+`bonferroni=False` to reproduce its outlier list.
 
 **When to use it**: complement to `mr_presso` — radial MR has better
 Type I control at small `n_snps`. If both flag the same SNP, that SNP
@@ -257,8 +278,8 @@ print(res.f_mean, res.f_min, res.weak_instrument_risk)
 
 `f_min < 10` → the weakest SNP is a weak instrument → MR estimates
 can be biased toward the confounded observational estimate. Remedy:
-drop the weak SNPs or use **LIML / GRAPPLE** (not currently in
-StatsPAI — pre-filter at GWAS p-value threshold `5e-8` first).
+drop the weak SNPs or use an estimator built for weak instruments —
+`sp.mr_raps` (a port of `mr.raps`) or `sp.grapple`.
 
 Reference: Staiger & Stock (1997), *Econometrica* 65(3).
 

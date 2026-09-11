@@ -27,12 +27,12 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 174 |
-| | aligned | 20 |
-| | **subtotal** | **194** |
-| **No external software reference** | analytical-only (T1) | 229 |
+| **Compared against R/Stata** (T2) | bit-exact | 188 |
+| | aligned | 21 |
+| | **subtotal** | **209** |
+| **No external software reference** | analytical-only (T1) | 214 |
 | | external-replication (published numbers) | 4 |
-| | **subtotal** | **233** |
+| | **subtotal** | **218** |
 | No numerical evidence yet | unverified | 755 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 194 | 426 | 773 | 25.1% |
+| estimator callables | 209 | 426 | 773 | 27.0% |
 | infrastructure (parity N/A) | 0 | 0 | 124 | 0.0% |
 | result / exception classes | 0 | 1 | 285 | 0.0% |
-| **all registered** | 194 | 427 | 1182 | 16.4% |
+| **all registered** | 209 | 427 | 1182 | 17.7% |
 
 ### Coverage by estimator family
 
@@ -52,14 +52,14 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 63 | 149 | 331 |
+| causal | 64 | 149 | 331 |
 | regression | 30 | 35 | 37 |
 | spatial | 18 | 22 | 34 |
 | panel | 13 | 20 | 30 |
 | decomposition | 5 | 15 | 29 |
 | network | 23 | 24 | 25 |
 | inference | 8 | 20 | 23 |
-| mendelian | 0 | 17 | 23 |
+| mendelian | 14 | 17 | 23 |
 | diagnostics | 7 | 10 | 22 |
 | epi | 9 | 16 | 17 |
 | dag | 0 | 0 | 15 |
@@ -96,7 +96,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 0 | 1 | 1 |
 | synth | 0 | 0 | 1 |
 
-## bit-exact — 174 functions
+## bit-exact — 188 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -199,6 +199,20 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `moran` | R spdep::moran.test (randomisation null) | spdep 1.4.2; spatialreg 1.4.3 | I 1.9e-15, expectation, variance and z all at 1e-15 on the row-standardised lattice. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
 | `moran_local` | R spdep::localmoran | spdep 1.4.2; spatialreg 1.4.3 | Every Ii at 8.1e-15. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
 | `moran_residuals` | R spdep::lm.morantest | spdep 1.4.2; spatialreg 1.4.3 | Statistic 5e-16; the p-value at 1e-7 once X is supplied so the Cliff-Ord regression-residual null can be formed. Both spdep alternatives are recorded because lm.morantest defaults to one-sided. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
+| `mr` | R MendelianRandomization::mr_ivw through the sp.mr dispatcher | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | IVW estimate and default random-effects SE, 1e-10. | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
+| `mr_cml` | R MendelianRandomization::mr_cML (DP = FALSE, n = 17723) | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | Estimate and SE for every K = 0..6, the BIC-selected fit with its invalid set {12, 14}, and the MA-BIC average, all at 1e-9 (both sides iterate to |d theta| <= 1e-7). | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
+| `mr_egger` | R MendelianRandomization::mr_egger, TwoSampleMR::mr_egger_regression | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | Slope, intercept and both SEs at 1e-10. | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
+| `mr_f_statistic` | R MendelianRandomization::mr_ivw @Fstat | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | Mean F statistic at 1e-10. | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
+| `mr_heterogeneity` | R TwoSampleMR::mr_ivw / mr_egger_regression (Q, Q_df, Q_pval) | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | IVW and Egger (Ruecker) Q, degrees of freedom and p-values at 1e-10. | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
+| `mr_ivw` | R MendelianRandomization::mr_ivw (default / fixed / random), TwoSampleMR::mr_ivw | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | Estimate, SE under all three models, RSE and Cochran's Q at 1e-10 (observed <= 1e-15). | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
+| `mr_leave_one_out` | R MendelianRandomization::mr_ivw on each leave-one-out subset | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | All 28 leave-one-out estimates and default-model SEs at 1e-10. | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
+| `mr_median` | R MendelianRandomization::mr_median (weighted / simple / penalized) | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | Point estimates for all three weightings at 1e-10. The bootstrap SE is Monte Carlo on both sides and is not compared (T3). | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
+| `mr_mode` | R MendelianRandomization::mr_mbe (weighted / unweighted, stderror = simple) | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | Point estimates for both weightings at 1e-10 -- the same point of the same 512-point density grid. The bootstrap SE is Monte Carlo on both sides and is not compared (T3). | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
+| `mr_multivariable` | R MendelianRandomization::mr_mvivw (default random effects) | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | Three direct effects and SEs at 1e-10. | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
+| `mr_pleiotropy_egger` | R TwoSampleMR::mr_egger_regression (intercept test) | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | Intercept, SE and t(n - 2) p-value at 1e-10. | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
+| `mr_presso` | R MRPRESSO::mr_presso (NbDistribution = 2000) | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | Raw estimate and SE, observed RSS, and the outlier-corrected estimate and SE at 1e-10; outlier set {12, 14} identical. The simulated p-values are Monte Carlo on both sides (T3) and follow the reference's k / B convention. | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
+| `mr_radial` | R RadialMR::ivw_radial (alpha = 0.05, no Bonferroni) | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | Square-root weights, per-variant Q contributions and total Q at 1e-10; the outlier set is identical with bonferroni=False (StatsPAI's default applies Bonferroni). | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
+| `mr_steiger` | R TwoSampleMR::mr_steiger with r from get_r_from_bsen | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | R^2 on both traits and the direction at 1e-10; the p-value (1.8e-73) at 1e-12. | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
 | `multiway_cluster_vcov` | sandwich::vcovCL(cluster=~g1+g2+g3) | R 4.5.2; sandwich 3.1.1 | rel_est<=1e-06, rel_se<=1e-06 | 2.1e-15 / 2.1e-15 | [`56_multiway_cluster.py`](../tests/r_parity/56_multiway_cluster.py) (+2) |
 | `nbreg` | MASS::glm.nb | R 4.5.2; MASS 7.3.65 | rel_est<=1e-06, rel_se<=0.005 | 6.0e-10 / 1.3e-10 | [`42_nbreg.py`](../tests/r_parity/42_nbreg.py) (+2) |
 | `netlm` | R sna::netlm | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Coefficients 2e-15 directed and undirected. QAP p-values are permutation draws and are not compared. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
@@ -277,7 +291,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `xtabond` | plm::pgmm | R 4.5.2; plm 2.6.7 | rel_est<=1e-06, rel_se<=1e-06 | 9.0e-16 / 1.4e-15 | [`50_xtabond.py`](../tests/r_parity/50_xtabond.py) (+2) |
 | `zip_model` | pscl::zeroinfl(dist="poisson") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-06, rel_se<=0.0001 | 7.7e-08 / 1.1e-07 | [`63_zip.py`](../tests/r_parity/63_zip.py) (+2) |
 
-## aligned — 20 functions
+## aligned — 21 functions
 
 Agreement within a documented, pre-registered looser tolerance.
 
@@ -295,6 +309,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `functional_form_test` | didFF::didFF | R 4.5.2 | rel_est<=0.001 | 1.3e-14 / — | [`79_didff.py`](../tests/r_parity/79_didff.py) (+1) |
 | `genmatch` | Matching::Match 4.10-15 (Weight = 3, Weight.matrix) | — | Deterministic kernel only: given the same diagonal W, the 1-NN assignment agrees with Matching::Match on all 163 uniquely matched treated units on MatchIt::lalonde. | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
 | `hits` | R igraph::hits_scores | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Hub and authority vectors are igraph's up to normalisation: L1 here (documented), max = 1 in igraph; the ratio is constant across nodes to 1e-11. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
+| `mr_raps` | R mr.raps 0.4.3 (simple / overdispersed / overdispersed.robust) | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | Simple and L2-overdispersed fits (beta, SE, tau2) at 1e-8. Robust Huber / Tukey: the sandwich reproduces R's SEs at 1e-10 when evaluated at R's own (beta, tau2) and integrate() moments; the fitted values agree to 5e-5 (beta), 5e-4 (SE), 1.5e-3 (tau2) because R stops uniroot at its default tolerance and integrate() at 1.2e-4 -- a test shows StatsPAI's root satisfies the estimating equation more tightly than R's. | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
 | `optimal_match` | optmatch::pairmatch 0.10.8 on a logit propensity score | — | Total matched distance <= optmatch's (1 + 1e-6). The matched pairs are not pinned: the assignment problem is degenerate on this data, so equally optimal solutions report different ATTs. | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
 | `pretrends_power` | pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) | R 4.5.2 | rel_est<=0.001 | 4.0e-05 / 1.4e-04 | [`76_pretrends.py`](../tests/r_parity/76_pretrends.py) (+2) |
 | `pretrends_slope_for_power` | pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) | R 4.5.2 | rel_est<=0.001 | 4.0e-05 / 1.4e-04 | [`76_pretrends.py`](../tests/r_parity/76_pretrends.py) (+2) |
@@ -315,7 +330,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 229 functions
+## analytical-only — 214 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -454,23 +469,8 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `mi_estimate` | [`test_imputation_parity.py`](../tests/reference_parity/test_imputation_parity.py) |
 | `mice` | [`test_imputation_parity.py`](../tests/reference_parity/test_imputation_parity.py) |
 | `model_averaging_dml` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
-| `mr` | [`test_mr_ivw_parity.py`](../tests/reference_parity/test_mr_ivw_parity.py) |
-| `mr_cml` | [`test_mr_cml_parity.py`](../tests/reference_parity/test_mr_cml_parity.py) |
-| `mr_egger` | [`test_mr_parity.py`](../tests/reference_parity/test_mr_parity.py) |
-| `mr_f_statistic` | [`test_mr_f_steiger_parity.py`](../tests/reference_parity/test_mr_f_steiger_parity.py) |
-| `mr_heterogeneity` | [`test_mr_diagnostics_parity.py`](../tests/reference_parity/test_mr_diagnostics_parity.py) |
-| `mr_ivw` | [`test_mr_parity.py`](../tests/reference_parity/test_mr_parity.py) |
 | `mr_lap` | [`test_mr_lap_parity.py`](../tests/reference_parity/test_mr_lap_parity.py) |
-| `mr_leave_one_out` | [`test_mr_parity.py`](../tests/reference_parity/test_mr_parity.py) |
-| `mr_median` | [`test_mr_parity.py`](../tests/reference_parity/test_mr_parity.py) |
 | `mr_mediation` | [`test_mr_mediation_parity.py`](../tests/reference_parity/test_mr_mediation_parity.py) |
-| `mr_mode` | [`test_mr_mode_parity.py`](../tests/reference_parity/test_mr_mode_parity.py) |
-| `mr_multivariable` | [`test_mr_multivariable_parity.py`](../tests/reference_parity/test_mr_multivariable_parity.py) |
-| `mr_pleiotropy_egger` | [`test_mr_diagnostics_parity.py`](../tests/reference_parity/test_mr_diagnostics_parity.py) |
-| `mr_presso` | [`test_mr_parity.py`](../tests/reference_parity/test_mr_parity.py) |
-| `mr_radial` | [`test_mr_parity.py`](../tests/reference_parity/test_mr_parity.py) |
-| `mr_raps` | [`test_mr_raps_parity.py`](../tests/reference_parity/test_mr_raps_parity.py) |
-| `mr_steiger` | [`test_mr_f_steiger_parity.py`](../tests/reference_parity/test_mr_f_steiger_parity.py) |
 | `msm` | [`test_msm_family_parity.py`](../tests/reference_parity/test_msm_family_parity.py) |
 | `multi_treatment` | [`test_multi_treatment_parity.py`](../tests/reference_parity/test_multi_treatment_parity.py) |
 | `network_exposure` | [`test_interference_parity.py`](../tests/reference_parity/test_interference_parity.py) |

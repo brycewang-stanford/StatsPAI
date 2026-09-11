@@ -1979,6 +1979,279 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "w->w^2 sandwich-meat correctness fix."
         ),
     },
+    "mr": {
+        "status": "bit-exact",
+        "reference": "R MendelianRandomization::mr_ivw through the sp.mr dispatcher",
+        "reference_versions": {
+            "MendelianRandomization": "0.10.0",
+            "TwoSampleMR": "0.7.9",
+            "RadialMR": "1.2.4",
+            "MRPRESSO": "1.0",
+            "mr.raps": "0.4.3",
+        },
+        "tolerance": ("IVW estimate and default random-effects SE, 1e-10."),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_mr_R_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        ),
+    },
+    "mr_ivw": {
+        "status": "bit-exact",
+        "reference": "R MendelianRandomization::mr_ivw (default / fixed / random), TwoSampleMR::mr_ivw",
+        "reference_versions": {
+            "MendelianRandomization": "0.10.0",
+            "TwoSampleMR": "0.7.9",
+            "RadialMR": "1.2.4",
+            "MRPRESSO": "1.0",
+            "mr.raps": "0.4.3",
+        },
+        "tolerance": (
+            "Estimate, SE under all three models, RSE and Cochran's Q at 1e-10 (observed <= 1e-15)."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_mr_R_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        ),
+    },
+    "mr_egger": {
+        "status": "bit-exact",
+        "reference": "R MendelianRandomization::mr_egger, TwoSampleMR::mr_egger_regression",
+        "reference_versions": {
+            "MendelianRandomization": "0.10.0",
+            "TwoSampleMR": "0.7.9",
+            "RadialMR": "1.2.4",
+            "MRPRESSO": "1.0",
+            "mr.raps": "0.4.3",
+        },
+        "tolerance": ("Slope, intercept and both SEs at 1e-10."),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_mr_R_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        ),
+    },
+    "mr_median": {
+        "status": "bit-exact",
+        "reference": "R MendelianRandomization::mr_median (weighted / simple / penalized)",
+        "reference_versions": {
+            "MendelianRandomization": "0.10.0",
+            "TwoSampleMR": "0.7.9",
+            "RadialMR": "1.2.4",
+            "MRPRESSO": "1.0",
+            "mr.raps": "0.4.3",
+        },
+        "tolerance": (
+            "Point estimates for all three weightings at 1e-10. The bootstrap SE is Monte Carlo on both sides and is not compared (T3)."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_mr_R_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        ),
+    },
+    "mr_mode": {
+        "status": "bit-exact",
+        "reference": "R MendelianRandomization::mr_mbe (weighted / unweighted, stderror = simple)",
+        "reference_versions": {
+            "MendelianRandomization": "0.10.0",
+            "TwoSampleMR": "0.7.9",
+            "RadialMR": "1.2.4",
+            "MRPRESSO": "1.0",
+            "mr.raps": "0.4.3",
+        },
+        "tolerance": (
+            "Point estimates for both weightings at 1e-10 -- the same point of the same 512-point density grid. The bootstrap SE is Monte Carlo on both sides and is not compared (T3)."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_mr_R_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        ),
+    },
+    "mr_cml": {
+        "status": "bit-exact",
+        "reference": "R MendelianRandomization::mr_cML (DP = FALSE, n = 17723)",
+        "reference_versions": {
+            "MendelianRandomization": "0.10.0",
+            "TwoSampleMR": "0.7.9",
+            "RadialMR": "1.2.4",
+            "MRPRESSO": "1.0",
+            "mr.raps": "0.4.3",
+        },
+        "tolerance": (
+            "Estimate and SE for every K = 0..6, the BIC-selected fit with its invalid set {12, 14}, and the MA-BIC average, all at 1e-9 (both sides iterate to |d theta| <= 1e-7)."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_mr_R_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        ),
+    },
+    "mr_raps": {
+        "status": "aligned",
+        "reference": "R mr.raps 0.4.3 (simple / overdispersed / overdispersed.robust)",
+        "reference_versions": {
+            "MendelianRandomization": "0.10.0",
+            "TwoSampleMR": "0.7.9",
+            "RadialMR": "1.2.4",
+            "MRPRESSO": "1.0",
+            "mr.raps": "0.4.3",
+        },
+        "tolerance": (
+            "Simple and L2-overdispersed fits (beta, SE, tau2) at 1e-8. Robust Huber / Tukey: the sandwich reproduces R's SEs at 1e-10 when evaluated at R's own (beta, tau2) and integrate() moments; the fitted values agree to 5e-5 (beta), 5e-4 (SE), 1.5e-3 (tau2) because R stops uniroot at its default tolerance and integrate() at 1.2e-4 -- a test shows StatsPAI's root satisfies the estimating equation more tightly than R's."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_mr_R_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        ),
+    },
+    "mr_steiger": {
+        "status": "bit-exact",
+        "reference": "R TwoSampleMR::mr_steiger with r from get_r_from_bsen",
+        "reference_versions": {
+            "MendelianRandomization": "0.10.0",
+            "TwoSampleMR": "0.7.9",
+            "RadialMR": "1.2.4",
+            "MRPRESSO": "1.0",
+            "mr.raps": "0.4.3",
+        },
+        "tolerance": (
+            "R^2 on both traits and the direction at 1e-10; the p-value (1.8e-73) at 1e-12."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_mr_R_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        ),
+    },
+    "mr_radial": {
+        "status": "bit-exact",
+        "reference": "R RadialMR::ivw_radial (alpha = 0.05, no Bonferroni)",
+        "reference_versions": {
+            "MendelianRandomization": "0.10.0",
+            "TwoSampleMR": "0.7.9",
+            "RadialMR": "1.2.4",
+            "MRPRESSO": "1.0",
+            "mr.raps": "0.4.3",
+        },
+        "tolerance": (
+            "Square-root weights, per-variant Q contributions and total Q at 1e-10; the outlier set is identical with bonferroni=False (StatsPAI's default applies Bonferroni)."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_mr_R_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        ),
+    },
+    "mr_presso": {
+        "status": "bit-exact",
+        "reference": "R MRPRESSO::mr_presso (NbDistribution = 2000)",
+        "reference_versions": {
+            "MendelianRandomization": "0.10.0",
+            "TwoSampleMR": "0.7.9",
+            "RadialMR": "1.2.4",
+            "MRPRESSO": "1.0",
+            "mr.raps": "0.4.3",
+        },
+        "tolerance": (
+            "Raw estimate and SE, observed RSS, and the outlier-corrected estimate and SE at 1e-10; outlier set {12, 14} identical. The simulated p-values are Monte Carlo on both sides (T3) and follow the reference's k / B convention."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_mr_R_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        ),
+    },
+    "mr_leave_one_out": {
+        "status": "bit-exact",
+        "reference": "R MendelianRandomization::mr_ivw on each leave-one-out subset",
+        "reference_versions": {
+            "MendelianRandomization": "0.10.0",
+            "TwoSampleMR": "0.7.9",
+            "RadialMR": "1.2.4",
+            "MRPRESSO": "1.0",
+            "mr.raps": "0.4.3",
+        },
+        "tolerance": ("All 28 leave-one-out estimates and default-model SEs at 1e-10."),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_mr_R_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        ),
+    },
+    "mr_pleiotropy_egger": {
+        "status": "bit-exact",
+        "reference": "R TwoSampleMR::mr_egger_regression (intercept test)",
+        "reference_versions": {
+            "MendelianRandomization": "0.10.0",
+            "TwoSampleMR": "0.7.9",
+            "RadialMR": "1.2.4",
+            "MRPRESSO": "1.0",
+            "mr.raps": "0.4.3",
+        },
+        "tolerance": ("Intercept, SE and t(n - 2) p-value at 1e-10."),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_mr_R_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        ),
+    },
+    "mr_heterogeneity": {
+        "status": "bit-exact",
+        "reference": "R TwoSampleMR::mr_ivw / mr_egger_regression (Q, Q_df, Q_pval)",
+        "reference_versions": {
+            "MendelianRandomization": "0.10.0",
+            "TwoSampleMR": "0.7.9",
+            "RadialMR": "1.2.4",
+            "MRPRESSO": "1.0",
+            "mr.raps": "0.4.3",
+        },
+        "tolerance": (
+            "IVW and Egger (Ruecker) Q, degrees of freedom and p-values at 1e-10."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_mr_R_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        ),
+    },
+    "mr_f_statistic": {
+        "status": "bit-exact",
+        "reference": "R MendelianRandomization::mr_ivw @Fstat",
+        "reference_versions": {
+            "MendelianRandomization": "0.10.0",
+            "TwoSampleMR": "0.7.9",
+            "RadialMR": "1.2.4",
+            "MRPRESSO": "1.0",
+            "mr.raps": "0.4.3",
+        },
+        "tolerance": ("Mean F statistic at 1e-10."),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_mr_R_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        ),
+    },
+    "mr_multivariable": {
+        "status": "bit-exact",
+        "reference": "R MendelianRandomization::mr_mvivw (default random effects)",
+        "reference_versions": {
+            "MendelianRandomization": "0.10.0",
+            "TwoSampleMR": "0.7.9",
+            "RadialMR": "1.2.4",
+            "MRPRESSO": "1.0",
+            "mr.raps": "0.4.3",
+        },
+        "tolerance": ("Three direct effects and SEs at 1e-10."),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_mr_R_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        ),
+    },
 }
 
 

@@ -26,6 +26,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
@@ -273,7 +274,7 @@ def mr_multivariable(
                 "ci_low": est - z * se,
                 "ci_high": est + z * se,
                 "p_value": (
-                    float(2 * (1 - stats.norm.cdf(abs(est) / se))) if se > 0 else np.nan
+                    float(2 * stats.norm.sf(abs(est) / se)) if se > 0 else np.nan
                 ),
             }
         )

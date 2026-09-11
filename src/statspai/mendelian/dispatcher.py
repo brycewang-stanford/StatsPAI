@@ -14,17 +14,20 @@ layer that could silently massage numbers.
 
 Examples
 --------
+Schematic calls (``bx`` ... ``snp_df`` stand for your own data):
+
 >>> import statspai as sp
 >>> # Single-exposure IVW on summary-stat arrays
 >>> r = sp.mr("ivw", beta_exposure=bx, beta_outcome=by,
-...            se_exposure=sx, se_outcome=sy)
+...            se_exposure=sx, se_outcome=sy)  # doctest: +SKIP
 >>> # All-methods convenience wrapper over a DataFrame
 >>> r = sp.mr("all", data=snp_df, beta_exposure="beta_x",
-...            se_exposure="se_x", beta_outcome="beta_y", se_outcome="se_y")
+...            se_exposure="se_x", beta_outcome="beta_y",
+...            se_outcome="se_y")  # doctest: +SKIP
 >>> # Multivariable MR
 >>> r = sp.mr("mvmr", snp_associations=snp_df,
 ...            outcome="beta_y", outcome_se="se_y",
-...            exposures=["beta_bmi", "beta_ldl"])
+...            exposures=["beta_bmi", "beta_ldl"])  # doctest: +SKIP
 """
 
 from __future__ import annotations
@@ -139,8 +142,8 @@ def mr(method: str = "ivw", /, **kwargs: Any) -> Any:
     >>> sy = np.array([0.08, 0.10, 0.09])
     >>> r = sp.mr("ivw", beta_exposure=bx, beta_outcome=by,
     ...            se_exposure=sx, se_outcome=sy)
-    >>> round(r["estimate"], 2)
-    4.0
+    >>> round(float(r["estimate"]), 2)
+    3.87
 
     See Also
     --------

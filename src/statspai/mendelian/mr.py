@@ -28,6 +28,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -127,11 +128,30 @@ def mr_ivw(
     se_exposure: np.ndarray,
     se_outcome: np.ndarray,
     alpha: float = 0.05,
+    model: str = "default",
 ) -> Dict[str, float]:
     """
     Inverse-Variance Weighted (IVW) MR estimator.
 
-    Fixed-effects meta-analysis of Wald ratios.
+    Weighted regression of the variant-outcome associations on the
+    variant-exposure associations through the origin (equivalently, an
+    inverse-variance-weighted mean of the Wald ratios).
+
+    ``model`` follows ``MendelianRandomization::mr_ivw``:
+
+    * ``"fixed"`` -- standard error ``sqrt(1 / sum(w bx^2))``;
+    * ``"random"`` -- multiplicative random effects: the fixed-effect
+      standard error times ``max(1, RSE)``, ``RSE = sqrt(Q / (n - 1))``;
+    * ``"default"`` -- random with more than three variants, fixed
+      otherwise (the package's own rule; TwoSampleMR's ``mr_ivw`` is the
+      same multiplicative random-effects form).
+
+    .. versionchanged:: 1.27.0
+       The standard error used to be the fixed-effect one regardless of
+       heterogeneity. On ``MendelianRandomization``'s own LDL-cholesterol /
+       CHD example (28 variants, Cochran's Q p = 3e-10) that is 0.276
+       against the reference's 0.530 -- about half. The point estimate is
+       unchanged.
 
     Examples
     --------
@@ -144,8 +164,9 @@ def mr_ivw(
     >>> se_exposure = rng.uniform(0.01, 0.05, n_snps)
     >>> se_outcome = rng.uniform(0.01, 0.05, n_snps)
     >>> res = sp.mr_ivw(beta_exposure, beta_outcome, se_exposure, se_outcome)
-    >>> sorted(res.keys())
-    ['I2', 'Q', 'Q_df', 'Q_p', 'ci_lower', 'ci_upper', 'estimate', 'p_value', 'se']
+    >>> sorted(res.keys())  # doctest: +NORMALIZE_WHITESPACE
+    ['I2', 'Q', 'Q_df', 'Q_p', 'ci_lower', 'ci_upper', 'estimate', 'model',
+     'p_value', 'rse', 'se']
     >>> bool(0.0 < res["estimate"] < 0.6)
     True
 
@@ -153,22 +174,29 @@ def mr_ivw(
     ----------
     burgess2013mendelian
     """
+    if model not in ("default", "fixed", "random"):
+        raise ValueError(f"model must be 'default', 'fixed' or 'random', got {model!r}")
     # Weighted regression of beta_Y on beta_X through the origin.
     w = 1 / se_outcome**2
+    n = len(beta_exposure)
     estimate_wls = np.sum(w * beta_exposure * beta_outcome) / np.sum(
         w * beta_exposure**2
     )
-    se_wls = np.sqrt(1 / np.sum(w * beta_exposure**2))
-
-    z = estimate_wls / se_wls
-    p_value = 2 * (1 - stats.norm.cdf(abs(z)))
-    z_crit = stats.norm.ppf(1 - alpha / 2)
+    se_fixed = np.sqrt(1 / np.sum(w * beta_exposure**2))
 
     # Cochran's Q
     Q = np.sum(w * (beta_outcome - estimate_wls * beta_exposure) ** 2)
-    Q_df = len(beta_exposure) - 1
-    Q_p = 1 - stats.chi2.cdf(Q, Q_df)
+    Q_df = n - 1
+    Q_p = stats.chi2.sf(Q, Q_df)
     I2 = max(0, (Q - Q_df) / Q * 100) if Q > 0 else 0
+    rse = float(np.sqrt(Q / Q_df)) if Q_df > 0 else float("nan")
+
+    resolved = model if model != "default" else ("random" if n > 3 else "fixed")
+    se_wls = se_fixed * max(1.0, rse) if resolved == "random" else se_fixed
+
+    z = estimate_wls / se_wls
+    p_value = 2 * stats.norm.sf(abs(z))
+    z_crit = stats.norm.ppf(1 - alpha / 2)
 
     return {
         "estimate": estimate_wls,
@@ -180,6 +208,8 @@ def mr_ivw(
         "Q_df": Q_df,
         "Q_p": Q_p,
         "I2": I2,
+        "model": resolved,
+        "rse": rse,
     }
 
 
@@ -193,7 +223,19 @@ def mr_egger(
     """
     MR-Egger regression.
 
-    Allows for directional pleiotropy via a non-zero intercept.
+    Allows for directional pleiotropy via a non-zero intercept. Variants
+    are oriented to a positive exposure association before fitting, and the
+    standard errors use multiplicative random effects with the residual
+    standard error floored at 1 -- both as in ``MendelianRandomization`` and
+    ``TwoSampleMR``, which this matches to machine precision.
+
+    .. versionchanged:: 1.27.0
+       Variants were not oriented, so the result depended on which allele
+       each variant was coded against: on the LDL-C / CHD example shipped
+       with ``MendelianRandomization`` the slope was 14% off and the
+       intercept -- the pleiotropy test -- 38% off. The residual standard
+       error was also not floored at 1, which shrinks the standard errors
+       below the fixed-effect ones under under-dispersion.
 
     Examples
     --------
@@ -218,6 +260,20 @@ def mr_egger(
     w = 1 / se_outcome**2
     n = len(beta_exposure)
 
+    # Orient every variant so its exposure association is positive. The
+    # Egger intercept is not invariant to allele coding: flipping one
+    # variant's reference allele negates both of its associations, which
+    # leaves every Wald ratio unchanged but moves the variant to the other
+    # side of the origin in the (bx, by) plane and changes the fitted
+    # intercept. Bowden et al. define the estimator on oriented data, and
+    # both MendelianRandomization and TwoSampleMR orient before fitting.
+    # Before 1.27.0 this did not, and on MendelianRandomization's own
+    # LDL-C / CHD example -- 16 of 28 variants with negative bx -- the slope
+    # came out 14% off and the intercept (the pleiotropy test) 38% off.
+    sign = np.where(np.asarray(beta_exposure) < 0, -1.0, 1.0)
+    beta_exposure = np.abs(np.asarray(beta_exposure, dtype=float))
+    beta_outcome = np.asarray(beta_outcome, dtype=float) * sign
+
     # Weighted regression: beta_Y = alpha + beta * beta_X
     X = np.column_stack([np.ones(n), beta_exposure])
     W = np.diag(w)
@@ -239,7 +295,11 @@ def mr_egger(
 
     resid = beta_outcome - X @ beta_hat
     sigma2 = np.sum(w * resid**2) / (n - 2)
-    se_hat = np.sqrt(sigma2 * np.diag(XtWX_inv))
+    # Multiplicative random effects with the residual standard error
+    # floored at 1, as both reference packages do: under-dispersion must not
+    # make the Egger standard errors SMALLER than the fixed-effect ones.
+    # This used sigma2 unfloored, which shrinks them whenever sigma < 1.
+    se_hat = np.sqrt(max(1.0, sigma2) * np.diag(XtWX_inv))
 
     estimate = beta_hat[1]
     se_est = se_hat[1]
@@ -247,8 +307,10 @@ def mr_egger(
     intercept_se = se_hat[0]
 
     # Egger σ² is plug-in estimated, so both slope and intercept
-    # inference follow t(n - 2), matching R's MendelianRandomization /
-    # TwoSampleMR packages and mr_pleiotropy_egger below.  Prior
+    # inference follow t(n - 2), matching TwoSampleMR and
+    # mr_pleiotropy_egger below. (MendelianRandomization::mr_egger defaults
+    # to distribution = "normal" instead; the estimate and standard errors
+    # agree with it either way, only the reference distribution differs.)  Prior
     # versions (< v1.5) used Normal for the slope and t for the
     # intercept; the inconsistency produced anti-conservative slope CIs
     # at small n_snps (e.g. n=5 gave p=7e-6 vs the correct p ~ 1e-3).
@@ -269,6 +331,30 @@ def mr_egger(
     }
 
 
+def _weighted_median(theta: np.ndarray, weights: np.ndarray) -> float:
+    """Bowden et al.'s interpolated weighted median.
+
+    Sort the ratios, place each at the midpoint of its weight mass
+    (``cumsum(w) - w / 2``, normalised), and interpolate linearly between
+    the two ratios bracketing 0.5. This is the definition in the paper's
+    appendix code and in ``MendelianRandomization:::weighted.median``; the
+    step median it replaces returned whichever ratio first reached half the
+    weight, which is not a consistent estimator of the same quantity.
+    """
+    order = np.argsort(theta, kind="mergesort")
+    th = np.asarray(theta, dtype=float)[order]
+    w = np.asarray(weights, dtype=float)[order]
+    cum = (np.cumsum(w) - 0.5 * w) / np.sum(w)
+    below = int(np.sum(cum < 0.5))
+    if below <= 0:
+        return float(th[0])
+    if below >= len(th):
+        return float(th[-1])
+    k = below - 1
+    frac = (0.5 - cum[k]) / (cum[k + 1] - cum[k])
+    return float(th[k] + (th[k + 1] - th[k]) * frac)
+
+
 def mr_median(
     beta_exposure: np.ndarray,
     beta_outcome: np.ndarray,
@@ -278,11 +364,45 @@ def mr_median(
     n_boot: int = 1000,
     alpha: float = 0.05,
     seed: Optional[int] = None,
+    weighting: Optional[str] = None,
 ) -> Dict[str, float]:
     """
     Weighted median MR estimator.
 
     Consistent when at least 50% of the weight comes from valid instruments.
+    Matches ``MendelianRandomization::mr_median`` in all three weightings.
+
+    Parameters
+    ----------
+    weighting : {"weighted", "simple", "penalized"}, optional
+        ``"weighted"`` uses ``(bx / se_y)^2``; ``"simple"`` equal weights;
+        ``"penalized"`` multiplies the weighted weights by
+        ``min(1, 20 q_j)``, where ``q_j`` is the upper-tail chi-square(1)
+        p-value of variant j's heterogeneity about the weighted median.
+        Defaults to ``"penalized"`` if ``penalized=True`` else
+        ``"weighted"``.
+    penalized : bool, default False
+        Kept for backward compatibility; equivalent to
+        ``weighting="penalized"``.
+    n_boot, seed
+        Parametric bootstrap for the standard error: draw ``bx`` and ``by``
+        from their normal sampling distributions and take the weighted
+        median of the resampled ratios with the ORIGINAL weights, as the
+        reference does. The standard error is stochastic; the estimate is
+        not.
+
+    .. versionchanged:: 1.27.0
+       Three corrections, found against ``MendelianRandomization``:
+
+       * the weighted median was a step function (first ratio reaching half
+         the weight) instead of Bowden et al.'s interpolated definition --
+         0.8% on the package's LDL-C / CHD example;
+       * the penalty used the LOWER-tail chi-square probability, so it
+         up-weighted exactly the heterogeneous variants it exists to
+         suppress, had no ``min(1, 20 q)`` cap, and centred on the IVW
+         estimate rather than the weighted median -- 38% off;
+       * the bootstrap recomputed the weights from every draw instead of
+         holding them fixed.
 
     Examples
     --------
@@ -297,7 +417,7 @@ def mr_median(
     >>> res = sp.mr_median(beta_exposure, beta_outcome, se_exposure,
     ...                    se_outcome, n_boot=200, seed=0)
     >>> sorted(res.keys())
-    ['ci_lower', 'ci_upper', 'estimate', 'p_value', 'se']
+    ['ci_lower', 'ci_upper', 'estimate', 'p_value', 'se', 'weighting']
     >>> bool(0.0 < res["estimate"] < 0.6)
     True
 
@@ -305,45 +425,38 @@ def mr_median(
     ----------
     bowden2016consistent
     """
+    if weighting is None:
+        weighting = "penalized" if penalized else "weighted"
+    if weighting not in ("weighted", "simple", "penalized"):
+        raise ValueError(
+            f"weighting must be 'weighted', 'simple' or 'penalized', got {weighting!r}"
+        )
+    bx = np.asarray(beta_exposure, dtype=float)
+    by = np.asarray(beta_outcome, dtype=float)
+    sx = np.asarray(se_exposure, dtype=float)
+    sy = np.asarray(se_outcome, dtype=float)
     rng = np.random.default_rng(seed)
 
-    ratio = beta_outcome / beta_exposure
-    ratio_se = se_outcome / np.abs(beta_exposure)
+    ratio = by / bx
+    weighted = (bx / sy) ** 2
+    if weighting == "simple":
+        weights = np.full(len(bx), 1.0 / len(bx))
+    elif weighting == "weighted":
+        weights = weighted
+    else:
+        centre = _weighted_median(ratio, weighted)
+        q = stats.chi2.sf(weighted * (ratio - centre) ** 2, df=1)
+        weights = weighted * np.minimum(1.0, 20.0 * q)
 
-    weights = 1 / ratio_se**2
-    if penalized:
-        # Penalize SNPs with large residuals from IVW
-        ivw_est = np.sum(weights * ratio) / np.sum(weights)
-        penalty = stats.chi2.cdf((ratio - ivw_est) ** 2 / ratio_se**2, 1)
-        weights = weights * penalty
+    estimate = _weighted_median(ratio, weights)
 
-    weights = weights / weights.sum()
-
-    # Weighted median
-    order = np.argsort(ratio)
-    sorted_ratio = ratio[order]
-    sorted_weights = weights[order]
-    cum_weights = np.cumsum(sorted_weights)
-    median_idx = int(np.searchsorted(cum_weights, 0.5))
-    estimate = sorted_ratio[min(median_idx, len(sorted_ratio) - 1)]
-
-    # Bootstrap SE
     boot_estimates = np.empty(n_boot)
     for b in range(n_boot):
-        boot_beta_y = beta_outcome + rng.normal(0, se_outcome)
-        boot_beta_x = beta_exposure + rng.normal(0, se_exposure)
-        boot_ratio = boot_beta_y / boot_beta_x
-        boot_ratio_se = se_outcome / np.abs(boot_beta_x)
-        boot_w = 1 / boot_ratio_se**2
-        boot_w = boot_w / boot_w.sum()
-
-        order_b = np.argsort(boot_ratio)
-        cum_w_b = np.cumsum(boot_w[order_b])
-        mid_b = int(np.searchsorted(cum_w_b, 0.5))
-        boot_estimates[b] = boot_ratio[order_b[min(mid_b, len(order_b) - 1)]]
-
-    se = np.std(boot_estimates, ddof=1)
-    z = estimate / se
+        bx_b = rng.normal(bx, sx)
+        by_b = rng.normal(by, sy)
+        boot_estimates[b] = _weighted_median(by_b / bx_b, weights)
+    se = float(np.std(boot_estimates, ddof=1)) if n_boot > 1 else float("nan")
+    z = estimate / se if se > 0 else 0.0
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
     return {
@@ -351,7 +464,8 @@ def mr_median(
         "se": se,
         "ci_lower": estimate - z_crit * se,
         "ci_upper": estimate + z_crit * se,
-        "p_value": 2 * (1 - stats.norm.cdf(abs(z))),
+        "p_value": 2 * stats.norm.sf(abs(z)),
+        "weighting": weighting,
     }
 
 

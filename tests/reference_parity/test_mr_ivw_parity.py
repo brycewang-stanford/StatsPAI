@@ -39,12 +39,22 @@ def fitted():
 
 
 def test_ivw_matches_weighted_origin_regression(fitted):
+    """The point estimate, and both standard-error models in closed form.
+
+    Since 1.27.0 the default follows MendelianRandomization::mr_ivw: random
+    effects (fixed-effect SE times max(1, RSE)) with more than three
+    variants. The fixed-effect SE is still available as model="fixed".
+    """
     bx, by, sy, r = fitted
     w = 1 / sy**2
     beta = np.sum(w * bx * by) / np.sum(w * bx**2)
-    se = np.sqrt(1 / np.sum(w * bx**2))
+    se_fixed = np.sqrt(1 / np.sum(w * bx**2))
+    rse = np.sqrt(np.sum(w * (by - beta * bx) ** 2) / (len(bx) - 1))
     assert r["estimate"] == pytest.approx(beta, abs=1e-12)
-    assert r["se"] == pytest.approx(se, abs=1e-12)
+    assert r["model"] == "random"
+    assert r["se"] == pytest.approx(se_fixed * max(1.0, rse), abs=1e-12)
+    fixed = sp.mr_ivw(bx, by, np.zeros_like(bx), sy, model="fixed")
+    assert fixed["se"] == pytest.approx(se_fixed, abs=1e-12)
 
 
 def test_cochran_q_identity(fitted):

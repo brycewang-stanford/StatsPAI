@@ -27,6 +27,7 @@ randomization between complex traits and diseases." *Nature Genetics*,
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence, Union
 
@@ -158,7 +159,12 @@ def mr_heterogeneity(
         Q = float(np.sum(w * (by - beta_ivw * bx) ** 2))
         df = len(bx) - 1
     elif method == "egger":
-        # Rücker's Q' uses the Egger-fitted intercept+slope
+        # Rücker's Q' uses the Egger-fitted intercept+slope, on variants
+        # oriented to positive exposure association like the fit itself --
+        # the residuals, and so Q', change with allele coding otherwise.
+        flip = bx < 0
+        bx = np.where(flip, -bx, bx)
+        by = np.where(flip, -by, by)
         X = np.column_stack([np.ones(len(bx)), bx])
         W = np.diag(w)
         try:
@@ -172,7 +178,7 @@ def mr_heterogeneity(
         raise ValueError("method must be 'ivw' or 'egger'")
 
     df = max(df, 1)
-    p = float(1 - stats.chi2.cdf(Q, df))
+    p = float(stats.chi2.sf(Q, df))
     I2 = float(max(0.0, (Q - df) / Q * 100.0)) if Q > 0 else 0.0
     _result = HeterogeneityResult(Q=Q, Q_df=df, Q_p=p, I2=I2, method=method)
     try:
@@ -271,28 +277,24 @@ def mr_pleiotropy_egger(
     >>> bool(0.0 <= pleio.p_value <= 1.0)
     True
     """
+    # Delegate to mr_egger, the single implementation of the fit: variants
+    # oriented to positive exposure association, residual SE floored at 1.
+    # This function carried its own copy of the regression without either,
+    # so the intercept it tested depended on allele coding -- 38% off on
+    # MendelianRandomization's LDL-C / CHD example, 16 of whose 28 variants
+    # have negative exposure associations.
+    from .mr import mr_egger
+
     bx = np.asarray(beta_exposure, dtype=float)
     by = np.asarray(beta_outcome, dtype=float)
     sy = np.asarray(se_outcome, dtype=float)
-    w = 1.0 / sy**2
     n = len(bx)
-
-    X = np.column_stack([np.ones(n), bx])
-    W = np.diag(w)
-    try:
-        XtWX_inv = np.linalg.inv(X.T @ W @ X)
-    except np.linalg.LinAlgError:
-        XtWX_inv = np.linalg.pinv(X.T @ W @ X)
-    beta = XtWX_inv @ X.T @ W @ by
-    resid = by - X @ beta
-    sigma2 = float(np.sum(w * resid**2)) / max(n - 2, 1)
-    se = np.sqrt(sigma2 * np.diag(XtWX_inv))
-    intercept = float(beta[0])
-    intercept_se = float(se[0])
+    eg = mr_egger(bx, by, np.zeros_like(bx), sy)
+    intercept = float(eg["intercept"])
+    intercept_se = float(eg["intercept_se"])
     if intercept_se > 0:
         t_stat = intercept / intercept_se
-        # Use t(n-2) because sigma^2 is plug-in estimated; matches
-        # R's MendelianRandomization / TwoSampleMR.
+        # t(n-2) because sigma^2 is plug-in estimated, as in TwoSampleMR.
         df = max(n - 2, 1)
         p = float(2 * stats.t.sf(abs(t_stat), df=df))
     else:
@@ -359,6 +361,7 @@ def mr_leave_one_out(
     *,
     snp_ids: Optional[List[str]] = None,
     alpha: float = 0.05,
+    model: str = "default",
 ) -> LeaveOneOutResult:
     """IVW estimate with each SNP dropped in turn.
 
@@ -387,15 +390,25 @@ def mr_leave_one_out(
         snp_ids = [f"SNP_{i}" for i in range(n)]
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
+    # Each fit goes through mr_ivw, so a leave-one-out row is exactly the IVW
+    # estimate on the remaining variants under the same `model` rule
+    # (random effects with more than three variants by default). This loop
+    # used to recompute the fixed-effect standard error inline, so its rows
+    # were not the IVW results they were labelled as once mr_ivw followed
+    # MendelianRandomization's default -- 49% off on the LDL-C example.
+    from .mr import mr_ivw
+
     rows = []
     for i in range(n):
         mask = np.ones(n, dtype=bool)
         mask[i] = False
-        w = 1.0 / sy[mask] ** 2
-        beta = float(np.sum(w * bx[mask] * by[mask]) / np.sum(w * bx[mask] ** 2))
-        se = float(np.sqrt(1.0 / np.sum(w * bx[mask] ** 2)))
+        fit = mr_ivw(
+            bx[mask], by[mask], np.zeros(mask.sum()), sy[mask], alpha=alpha, model=model
+        )
+        beta = float(fit["estimate"])
+        se = float(fit["se"])
         z = beta / se if se > 0 else 0.0
-        p = float(2 * (1 - stats.norm.cdf(abs(z))))
+        p = float(2 * stats.norm.sf(abs(z)))
         rows.append(
             dict(
                 dropped_snp=snp_ids[i],
@@ -505,12 +518,26 @@ def mr_steiger(
     n_outcome: SampleSizeInput,
     *,
     eaf: Optional[np.ndarray] = None,
+    alternative: str = "two-sided",
 ) -> SteigerResult:
     """Steiger test for the direction of the causal effect (Hemani 2017).
 
     Compares the R^2 of the SNPs on the exposure with their R^2 on the
     outcome.  If R^2_exposure > R^2_outcome the assumed causal
-    direction (exposure -> outcome) is supported.
+    direction (exposure -> outcome) is supported. Matches
+    ``TwoSampleMR::mr_steiger`` with ``r`` from ``get_r_from_bsen``.
+
+    Parameters
+    ----------
+    alternative : {"two-sided", "greater"}, default "two-sided"
+        ``"two-sided"`` is the reference's p-value; ``"greater"`` tests the
+        one-sided hypothesis that the exposure R^2 is the larger.
+
+    .. versionchanged:: 1.27.0
+       The p-value was one-sided and computed as ``1 - Phi(z)``, which is
+       exactly 0.0 for z beyond ~8.3. It is now two-sided by default, as
+       the method authors' TwoSampleMR reports it, computed from the upper
+       tail directly; pass ``alternative="greater"`` for the one-sided test.
 
     Examples
     --------
@@ -562,8 +589,20 @@ def mr_steiger(
     n_y_eff = float(np.mean(ny))
     se_z = np.sqrt(1.0 / (n_x_eff - 3) + 1.0 / (n_y_eff - 3))
     z_stat = (z_x - z_y) / se_z if se_z > 0 else 0.0
-    # One-sided: does exposure R^2 exceed outcome R^2?
-    p = float(1 - stats.norm.cdf(z_stat))
+    # Two-sided by default, as TwoSampleMR::mr_steiger reports it (the
+    # method authors' implementation); "greater" is the one-sided test that
+    # the exposure explains more variance than the outcome, which this
+    # function reported before 1.27.0. Upper tails come from norm.sf: the
+    # old `1 - norm.cdf(z)` returned exactly 0.0 once z passed ~8.3, where
+    # the reference reports 1.8e-73 on the LDL-C / CHD example.
+    if alternative == "two-sided":
+        p = float(2.0 * stats.norm.sf(abs(z_stat)))
+    elif alternative == "greater":
+        p = float(stats.norm.sf(z_stat))
+    else:
+        raise ValueError(
+            f"alternative must be 'two-sided' or 'greater', got {alternative!r}"
+        )
 
     return SteigerResult(
         correct_direction=bool(r2_x > r2_y),
@@ -599,7 +638,7 @@ class MRPressoResult(ResultProtocolMixin):
     >>> by = 0.3 * bx + rng.normal(0, 0.02, n)
     >>> sx = rng.uniform(0.02, 0.05, n)
     >>> sy = rng.uniform(0.02, 0.05, n)
-    >>> res = sp.mr_presso(bx, by, sx, sy, n_boot=200, seed=0)
+    >>> res = sp.mr_presso(bx, by, sx, sy, n_boot=500, seed=0)
     >>> isinstance(res, sp.MRPressoResult)
     True
     >>> bool(0.0 <= res.global_test_pvalue <= 1.0)
@@ -623,6 +662,8 @@ class MRPressoResult(ResultProtocolMixin):
     global_test_rss_obs: float = 0.0
     global_test_pvalue: float = 1.0
     distortion_p: Optional[float] = None
+    outlier_pvalues: Optional[List[float]] = None
+    distortion_coefficient: Optional[float] = None
 
     def summary(self) -> str:
         lines = [
@@ -651,17 +692,6 @@ class MRPressoResult(ResultProtocolMixin):
         return "\n".join(lines)
 
 
-def _ivw(
-    bx: np.ndarray,
-    by: np.ndarray,
-    sy: np.ndarray,
-) -> tuple[float, float]:
-    w = 1.0 / sy**2
-    beta = float(np.sum(w * bx * by) / np.sum(w * bx**2))
-    se = float(np.sqrt(1.0 / np.sum(w * bx**2)))
-    return beta, se
-
-
 def mr_presso(
     beta_exposure: np.ndarray,
     beta_outcome: np.ndarray,
@@ -674,13 +704,42 @@ def mr_presso(
 ) -> MRPressoResult:
     """MR-PRESSO global test + outlier detection + corrected estimate.
 
-    Implementation notes
-    --------------------
-    Follows Verbanck et al. (2018).  For each SNP i, the "residual sum
-    of squares" (RSS_obs) is computed using leave-one-out predictions.
-    The null distribution is obtained by simulating SNP-outcome
-    effects with the same SEs and no pleiotropy.  SNPs with individual
-    test p < ``sig_threshold`` are flagged as outliers and re-analyzed.
+    A port of the authors' R package ``MRPRESSO::mr_presso``:
+
+    * variants are oriented to positive exposure associations;
+    * the raw and outlier-corrected estimates are weighted least squares
+      through the origin (``lm(by ~ -1 + bx, weights = 1 / se_y^2)``), with
+      the residual-scaled standard error and t(n - p) p-values;
+    * the null simulates each exposure association from N(bx, se_x) and each
+      outcome association around its *observed* leave-one-out prediction;
+    * a variant's outlier p-value compares its observed squared residual
+      from the observed leave-one-out fit with the simulated ones, and is
+      Bonferroni-adjusted (multiplied by the number of variants, capped at
+      1); the outlier test runs only when the global test rejects;
+    * the distortion test resamples non-outlier variants.
+
+    The deterministic outputs -- raw estimate / SE / p, observed RSS, and
+    the corrected estimate for a given outlier set -- match the reference
+    to machine precision. The simulated p-values cannot (different RNG).
+    They follow the reference's ``k / B`` convention, so **a p-value of 0
+    means "below the Monte Carlo resolution"**: ``< 1 / B`` for the global
+    and distortion tests, ``< n / B`` for a Bonferroni-adjusted outlier
+    p-value. The ``(k + 1) / (B + 1)`` convention cannot be used here: with
+    Bonferroni its smallest attainable outlier p-value is ``n / (B + 1)``,
+    which exceeds 0.05 for 50 variants at B = 1000, so the test could never
+    flag anything. A warning is raised when ``n_boot`` is too small to
+    resolve ``sig_threshold`` after the Bonferroni adjustment.
+
+    .. versionchanged:: 1.27.0
+       Brought in line with the reference: the per-variant outlier p-values
+       were not Bonferroni-adjusted (seven outliers flagged on the LDL-C /
+       CHD example where MR-PRESSO flags two, moving the corrected estimate
+       2.4%), standard errors were fixed-effect rather than
+       residual-scaled (half the reference's there), p-values came from
+       ``1 - Phi(z)`` and read exactly 0.0, the outlier test ran even when
+       the global test did not reject, and the "distortion test" was a
+       z-test on the difference of two estimates rather than PRESSO's
+       resampling test.
 
     Examples
     --------
@@ -694,7 +753,7 @@ def mr_presso(
     >>> se_outcome = rng.uniform(0.02, 0.05, n)
     >>> res = sp.mr_presso(
     ...     beta_exposure, beta_outcome, se_exposure, se_outcome,
-    ...     n_boot=200, seed=0,
+    ...     n_boot=500, seed=0,
     ... )
     >>> bool(0.0 <= res.global_test_pvalue <= 1.0)
     True
@@ -710,89 +769,113 @@ def mr_presso(
     by = np.asarray(beta_outcome, dtype=float)
     sx = np.asarray(se_exposure, dtype=float)
     sy = np.asarray(se_outcome, dtype=float)
+    sign = np.where(bx < 0, -1.0, 1.0)
+    bx, by = bx * sign, by * sign
+    w = 1.0 / sy**2
     n = len(bx)
+    if n <= 3:
+        raise ValueError("mr_presso: not enough instrumental variables (need > 3)")
+    if n >= n_boot:
+        raise ValueError("mr_presso: n_boot must exceed the number of variants")
 
-    raw_beta, raw_se = _ivw(bx, by, sy)
-    raw_p = (
-        float(2 * (1 - stats.norm.cdf(abs(raw_beta / raw_se)))) if raw_se > 0 else 1.0
+    def _wls(mask):
+        """lm(by ~ -1 + bx, weights = w): estimate, residual-scaled SE, p."""
+        xw, yw = bx[mask] * np.sqrt(w[mask]), by[mask] * np.sqrt(w[mask])
+        beta = float(xw @ yw / (xw @ xw))
+        df = int(mask.sum()) - 1
+        s2 = float(np.sum((yw - beta * xw) ** 2)) / df
+        se = float(np.sqrt(s2 / (xw @ xw)))
+        pval = float(2.0 * stats.t.sf(abs(beta / se), df)) if se > 0 else 1.0
+        return beta, se, pval
+
+    def _loo_betas(x, y):
+        xw, yw = x * np.sqrt(w), y * np.sqrt(w)
+        sxx, sxy = float(xw @ xw), float(xw @ yw)
+        return (sxy - xw * yw) / (sxx - xw * xw)
+
+    def _rss(x, y):
+        xw, yw = x * np.sqrt(w), y * np.sqrt(w)
+        return float(np.sum((yw - _loo_betas(x, y) * xw) ** 2))
+
+    all_mask = np.ones(n, dtype=bool)
+    raw_beta, raw_se, raw_p = _wls(all_mask)
+    beta_loo_obs = _loo_betas(bx, by)
+    rss_obs = _rss(bx, by)
+
+    # Null data sets: exposure ~ N(bx, sx); outcome_i ~ N(beta_{-i} bx_i, sy_i)
+    # around the OBSERVED leave-one-out prediction, as getRandomData builds.
+    sim_bx = rng.normal(bx, sx, size=(n_boot, n))
+    sim_by = rng.normal(beta_loo_obs * bx, sy, size=(n_boot, n))
+    rss_exp = np.array([_rss(sim_bx[b], sim_by[b]) for b in range(n_boot)])
+    p_global = float(np.sum(rss_exp > rss_obs) / n_boot)
+    if n / n_boot > sig_threshold:
+        warnings.warn(
+            f"mr_presso: n_boot={n_boot} cannot resolve sig_threshold={sig_threshold} "
+            f"after the Bonferroni adjustment for {n} variants "
+            f"(resolution {n}/{n_boot}); "
+            "only variants that no simulated draw exceeds can be flagged. "
+            f"Use n_boot >= {int(np.ceil(n / sig_threshold))}.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    base = dict(
+        raw_estimate=raw_beta,
+        raw_se=raw_se,
+        raw_p=raw_p,
+        global_test_rss_obs=rss_obs,
+        global_test_pvalue=p_global,
     )
-
-    # Observed residuals and per-SNP RSS contribution (leave-one-out)
-    def _rss_components(
-        bx_: np.ndarray,
-        by_: np.ndarray,
-        sy_: np.ndarray,
-    ) -> np.ndarray:
-        comps = np.empty(len(bx_))
-        for i in range(len(bx_)):
-            mask = np.arange(len(bx_)) != i
-            beta_i, _ = _ivw(bx_[mask], by_[mask], sy_[mask])
-            comps[i] = (by_[i] - beta_i * bx_[i]) ** 2 / sy_[i] ** 2
-        return comps
-
-    obs_rss_components = _rss_components(bx, by, sy)
-    rss_obs = float(obs_rss_components.sum())
-
-    # Null RSS via simulation under no-pleiotropy
-    null_rss = np.empty(n_boot)
-    null_components = np.empty((n_boot, n))
-    for b in range(n_boot):
-        # Simulate beta_exposure with measurement error
-        bx_sim = bx + rng.normal(0, sx)
-        # Simulate beta_outcome under H0: beta_y = beta_ivw * beta_x
-        by_sim = raw_beta * bx_sim + rng.normal(0, sy)
-        comps = _rss_components(bx_sim, by_sim, sy)
-        null_components[b] = comps
-        null_rss[b] = comps.sum()
-
-    # MC p-value convention: use (k + 1) / (B + 1) for both the global
-    # test and the per-SNP outlier test.  The raw ``mean(null >= obs)``
-    # form can return exactly 0 when the observed statistic exceeds
-    # every simulated null value, which is inadmissible as a p-value
-    # (the true tail probability is bounded below by 1 / (B + 1)).
-    # Matches the convention used by the R ``MR-PRESSO`` package and
-    # MCRATs 2003 §3.3.
-    p_global = float((np.sum(null_rss >= rss_obs) + 1) / (n_boot + 1))
-    per_snp_p = np.array(
-        [
-            (np.sum(null_components[:, i] >= obs_rss_components[i]) + 1) / (n_boot + 1)
-            for i in range(n)
-        ]
-    )
-    outliers = [int(i) for i in range(n) if per_snp_p[i] < sig_threshold]
-
-    if not outliers:
+    if p_global >= sig_threshold:
         return MRPressoResult(
-            raw_estimate=raw_beta,
-            raw_se=raw_se,
-            raw_p=raw_p,
             outlier_corrected_estimate=None,
             outlier_corrected_se=None,
             outlier_corrected_p=None,
             outliers=[],
-            global_test_rss_obs=rss_obs,
-            global_test_pvalue=p_global,
+            **base,
         )
 
-    keep = [i for i in range(n) if i not in outliers]
-    c_beta, c_se = _ivw(bx[keep], by[keep], sy[keep])
-    c_p = float(2 * (1 - stats.norm.cdf(abs(c_beta / c_se)))) if c_se > 0 else 1.0
+    dif2 = (by - bx * beta_loo_obs) ** 2
+    exp2 = (sim_by - sim_bx * beta_loo_obs[None, :]) ** 2
+    p_snp = np.sum(exp2 > dif2[None, :], axis=0) / n_boot
+    p_snp = np.minimum(p_snp * n, 1.0)
+    outliers = [int(i) for i in range(n) if p_snp[i] <= sig_threshold]
 
-    # Distortion test: how different is corrected from raw?
-    dist_z = (raw_beta - c_beta) / np.sqrt(raw_se**2 + c_se**2)
-    dist_p = float(2 * (1 - stats.norm.cdf(abs(dist_z))))
+    if not outliers or len(outliers) == n:
+        return MRPressoResult(
+            outlier_corrected_estimate=None,
+            outlier_corrected_se=None,
+            outlier_corrected_p=None,
+            outliers=outliers,
+            outlier_pvalues=[float(v) for v in p_snp],
+            **base,
+        )
+
+    keep = np.ones(n, dtype=bool)
+    keep[outliers] = False
+    c_beta, c_se, c_p = _wls(keep)
+
+    # Distortion test: resample n - k indices (with replacement) from the
+    # non-outliers, refit, and compare relative biases.
+    non_out = np.flatnonzero(keep)
+    bias_obs = (raw_beta - c_beta) / abs(c_beta)
+    bias_exp = np.empty(n_boot)
+    for b in range(n_boot):
+        idx = rng.choice(non_out, size=n - len(outliers), replace=True)
+        xw, yw = bx[idx] * np.sqrt(w[idx]), by[idx] * np.sqrt(w[idx])
+        br = float(xw @ yw / (xw @ xw))
+        bias_exp[b] = (raw_beta - br) / abs(br)
+    dist_p = float(np.sum(np.abs(bias_exp) > abs(bias_obs)) / n_boot)
 
     return MRPressoResult(
-        raw_estimate=raw_beta,
-        raw_se=raw_se,
-        raw_p=raw_p,
         outlier_corrected_estimate=c_beta,
         outlier_corrected_se=c_se,
         outlier_corrected_p=c_p,
         outliers=outliers,
-        global_test_rss_obs=rss_obs,
-        global_test_pvalue=p_global,
         distortion_p=dist_p,
+        outlier_pvalues=[float(v) for v in p_snp],
+        distortion_coefficient=float(100.0 * bias_obs),
+        **base,
     )
 
 
@@ -852,13 +935,18 @@ def mr_radial(
     se_outcome: np.ndarray,
     *,
     snp_ids: Optional[List[str]] = None,
+    alpha: float = 0.05,
+    bonferroni: bool = True,
 ) -> RadialResult:
     """Radial IVW MR (Bowden et al. 2018).
 
     Reparameterizes each SNP's Wald ratio as a coordinate in a
     "radial" space.  SNPs whose individual chi-square contribution to
-    the Cochran Q exceeds the Bonferroni threshold at alpha=0.05 are
-    flagged as outliers.
+    the Cochran Q exceeds the threshold are flagged as outliers: the
+    Bonferroni level ``alpha / n`` by default, or ``alpha`` itself with
+    ``bonferroni=False``, which is ``RadialMR::ivw_radial``'s rule. The
+    per-variant contributions and total Q match ``RadialMR`` (first-order
+    weights) to machine precision either way.
 
     Examples
     --------
@@ -899,10 +987,12 @@ def mr_radial(
     q_i = W * (ratio - beta_ivw) ** 2
     total_Q = float(q_i.sum())
     df = max(n - 1, 1)
-    p = float(1 - stats.chi2.cdf(total_Q, df))
+    p = float(stats.chi2.sf(total_Q, df))
 
-    # Bonferroni threshold for per-SNP outlier
-    threshold = stats.chi2.ppf(1 - 0.05 / n, 1)
+    # Per-SNP outlier threshold: Bonferroni by default, RadialMR's
+    # uncorrected alpha with bonferroni=False.
+    level = alpha / n if bonferroni else alpha
+    threshold = stats.chi2.ppf(1 - level, 1)
     outliers = [int(i) for i in range(n) if q_i[i] > threshold]
 
     table = pd.DataFrame(

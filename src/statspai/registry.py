@@ -5087,6 +5087,13 @@ def _build_registry() -> None:
                 ParamSpec("se_outcome", "ndarray", True),
                 ParamSpec("snp_ids", "list", False),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "model",
+                    "str",
+                    False,
+                    "default",
+                    enum=["default", "fixed", "random"],
+                ),
             ],
             returns="LeaveOneOutResult",
             tags=["mendelian_randomization", "sensitivity", "leave_one_out"],
@@ -5110,6 +5117,13 @@ def _build_registry() -> None:
                 ParamSpec("n_outcome", "int | ndarray", True),
                 ParamSpec(
                     "eaf", "ndarray", False, description="Effect-allele frequencies"
+                ),
+                ParamSpec(
+                    "alternative",
+                    "str",
+                    False,
+                    "two-sided",
+                    enum=["two-sided", "greater"],
                 ),
             ],
             returns="SteigerResult",
@@ -5152,6 +5166,8 @@ def _build_registry() -> None:
                 ParamSpec("beta_outcome", "ndarray", True),
                 ParamSpec("se_outcome", "ndarray", True),
                 ParamSpec("snp_ids", "list", False),
+                ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec("bonferroni", "bool", False, True),
             ],
             returns="RadialResult",
             tags=["mendelian_randomization", "radial", "outlier_detection"],
@@ -5397,6 +5413,8 @@ def _build_registry() -> None:
                 ParamSpec("n_boot", "int", False, 1000),
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec("seed", "int", False),
+                ParamSpec("phi", "float", False, 1.0),
+                ParamSpec("refine", "bool", False, False),
             ],
             returns="ModeBasedResult",
             tags=["mendelian_randomization", "mode", "hartwig", "zempa", "robust"],
@@ -6553,6 +6571,10 @@ def _build_registry() -> None:
                 ParamSpec("se_outcome", "ndarray", True),
                 ParamSpec("K_max", "int", False),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec("max_iter", "int", False, 100),
+                ParamSpec("tol", "float", False, 1e-07),
+                ParamSpec("n", "int", False),
+                ParamSpec("model_average", "bool", False, False),
             ],
             returns="MRcMLResult",
             tags=[
@@ -6572,20 +6594,31 @@ def _build_registry() -> None:
             description=(
                 "MR-RAPS: Robust Adjusted Profile Score for two-sample "
                 "summary-data MR (Zhao et al. 2020, Annals of Statistics). "
-                "Profile-likelihood MR with Tukey biweight loss + weak-"
-                "instrument correction; resistant to a small fraction of "
-                "gross pleiotropy outliers. Complements GRAPPLE (Gaussian) "
-                "with a robust-loss variant of the same structural model."
+                "A port of the authors' mr.raps package: the simple and "
+                "over-dispersed profile-score estimators, and the robust "
+                "over-dispersed one with a Huber (default, the package's) "
+                "or Tukey loss; weak-instrument corrected; resistant to a "
+                "small fraction of gross pleiotropy outliers."
             ),
             params=[
                 ParamSpec("beta_exposure", "ndarray", True),
                 ParamSpec("beta_outcome", "ndarray", True),
                 ParamSpec("se_exposure", "ndarray", True),
                 ParamSpec("se_outcome", "ndarray", True),
-                ParamSpec("tuning_c", "float", False, 4.685),
+                ParamSpec(
+                    "loss",
+                    "str",
+                    False,
+                    None,
+                    "None means huber, the mr.raps default.",
+                    enum=["huber", "tukey", "l2"],
+                ),
+                ParamSpec("over_dispersion", "bool", False, True),
+                ParamSpec("tuning_c", "float", False),
                 ParamSpec("alpha", "float", False, 0.05),
-                ParamSpec("beta_init", "float", False),
-                ParamSpec("tau2_init", "float", False, 1e-4),
+                ParamSpec("pruning", "bool", False, True),
+                ParamSpec("niter", "int", False, 20),
+                ParamSpec("tol", "float", False, 1.4901161193847656e-08),
             ],
             returns="MRRapsResult",
             tags=[

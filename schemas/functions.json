@@ -4379,7 +4379,7 @@
     }
   },
   {
-    "description": "Cochran's Q (IVW) or Ruecker's Q' (Egger) heterogeneity statistic with I^2, used to detect horizontal pleiotropy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Cochran's Q (IVW) or Ruecker's Q' (Egger) heterogeneity statistic with I^2, used to detect horizontal pleiotropy. Validation: certified parity evidence.",
     "name": "mr_heterogeneity",
     "parameters": {
       "properties": {
@@ -4414,7 +4414,7 @@
     }
   },
   {
-    "description": "Formal MR-Egger intercept test for directional (unbalanced) horizontal pleiotropy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Formal MR-Egger intercept test for directional (unbalanced) horizontal pleiotropy. Validation: certified parity evidence.",
     "name": "mr_pleiotropy_egger",
     "parameters": {
       "properties": {
@@ -4440,7 +4440,7 @@
     }
   },
   {
-    "description": "Drop-one IVW sensitivity -- per-SNP table of estimates when each SNP is removed in turn. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Drop-one IVW sensitivity -- per-SNP table of estimates when each SNP is removed in turn. Validation: certified parity evidence.",
     "name": "mr_leave_one_out",
     "parameters": {
       "properties": {
@@ -4455,6 +4455,16 @@
         },
         "beta_outcome": {
           "description": "beta_outcome parameter (ndarray).",
+          "type": "string"
+        },
+        "model": {
+          "default": "default",
+          "description": "Model variant or parameterisation to fit.",
+          "enum": [
+            "default",
+            "fixed",
+            "random"
+          ],
           "type": "string"
         },
         "se_outcome": {
@@ -4478,10 +4488,19 @@
     }
   },
   {
-    "description": "Steiger directionality test -- verifies that the SNPs explain more variance in the exposure than the outcome, supporting the assumed causal direction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Steiger directionality test -- verifies that the SNPs explain more variance in the exposure than the outcome, supporting the assumed causal direction. Validation: certified parity evidence.",
     "name": "mr_steiger",
     "parameters": {
       "properties": {
+        "alternative": {
+          "default": "two-sided",
+          "description": "alternative parameter (str).",
+          "enum": [
+            "two-sided",
+            "greater"
+          ],
+          "type": "string"
+        },
         "beta_exposure": {
           "description": "beta_exposure parameter (ndarray).",
           "type": "string"
@@ -4523,7 +4542,7 @@
     }
   },
   {
-    "description": "MR-PRESSO global test + per-SNP outlier detection + outlier-corrected IVW estimate + distortion test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "MR-PRESSO global test + per-SNP outlier detection + outlier-corrected IVW estimate + distortion test. Validation: certified parity evidence.",
     "name": "mr_presso",
     "parameters": {
       "properties": {
@@ -4568,10 +4587,15 @@
     }
   },
   {
-    "description": "Radial IVW MR (Bowden 2018) with per-SNP Bonferroni-thresholded outlier flagging. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Radial IVW MR (Bowden 2018) with per-SNP Bonferroni-thresholded outlier flagging. Validation: certified parity evidence.",
     "name": "mr_radial",
     "parameters": {
       "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
         "beta_exposure": {
           "description": "beta_exposure parameter (ndarray).",
           "type": "string"
@@ -4579,6 +4603,11 @@
         "beta_outcome": {
           "description": "beta_outcome parameter (ndarray).",
           "type": "string"
+        },
+        "bonferroni": {
+          "default": true,
+          "description": "bonferroni parameter (bool).",
+          "type": "boolean"
         },
         "se_outcome": {
           "description": "se_outcome parameter (ndarray).",
@@ -4920,7 +4949,7 @@
     }
   },
   {
-    "description": "Weighted or simple mode-based MR estimator (Hartwig 2017). Consistent under the ZEMPA (zero-mode pleiotropy) assumption -- more permissive than the median's 50% rule. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Weighted or simple mode-based MR estimator (Hartwig 2017). Consistent under the ZEMPA (zero-mode pleiotropy) assumption -- more permissive than the median's 50% rule. Validation: certified parity evidence.",
     "name": "mr_mode",
     "parameters": {
       "properties": {
@@ -4951,6 +4980,16 @@
           "description": "Number of bootstrap replications.",
           "type": "integer"
         },
+        "phi": {
+          "default": 1.0,
+          "description": "phi parameter (float).",
+          "type": "number"
+        },
+        "refine": {
+          "default": false,
+          "description": "refine parameter (bool).",
+          "type": "boolean"
+        },
         "se_exposure": {
           "description": "se_exposure parameter (ndarray).",
           "type": "string"
@@ -4974,7 +5013,7 @@
     }
   },
   {
-    "description": "Per-SNP F-statistic summary for instrument strength. Flags weak-instrument risk when any F < 10 (Staiger-Stock). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Per-SNP F-statistic summary for instrument strength. Flags weak-instrument risk when any F < 10 (Staiger-Stock). Validation: certified parity evidence.",
     "name": "mr_f_statistic",
     "parameters": {
       "properties": {
@@ -6292,7 +6331,7 @@
     }
   },
   {
-    "description": "Multivariable Mendelian randomization (Sanderson-Windmeijer 2019): direct causal effects of multiple correlated exposures via weighted least-squares on SNP-summary data, with conditional F-statistics for instrument strength. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Multivariable Mendelian randomization (Sanderson-Windmeijer 2019): direct causal effects of multiple correlated exposures via weighted least-squares on SNP-summary data, with conditional F-statistics for instrument strength. Validation: certified parity evidence.",
     "name": "mr_multivariable",
     "parameters": {
       "properties": {
@@ -6541,7 +6580,7 @@
     }
   },
   {
-    "description": "MR-cML-BIC: constrained maximum-likelihood MR with L0-sparse pleiotropy (Xue, Shen & Pan 2021). Block-coordinate descent jointly updates causal beta, true exposure effects, and a K-sparse pleiotropy vector; K selected by BIC. Robust to correlated + uncorrelated pleiotropy simultaneously. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "MR-cML-BIC: constrained maximum-likelihood MR with L0-sparse pleiotropy (Xue, Shen & Pan 2021). Block-coordinate descent jointly updates causal beta, true exposure effects, and a K-sparse pleiotropy vector; K selected by BIC. Robust to correlated + uncorrelated pleiotropy simultaneously. Validation: certified parity evidence.",
     "name": "mr_cml",
     "parameters": {
       "properties": {
@@ -6562,6 +6601,20 @@
           "description": "beta_outcome parameter (ndarray).",
           "type": "string"
         },
+        "max_iter": {
+          "default": 100,
+          "description": "Maximum number of optimisation iterations.",
+          "type": "integer"
+        },
+        "model_average": {
+          "default": false,
+          "description": "model_average parameter (bool).",
+          "type": "boolean"
+        },
+        "n": {
+          "description": "n parameter (int).",
+          "type": "integer"
+        },
         "se_exposure": {
           "description": "se_exposure parameter (ndarray).",
           "type": "string"
@@ -6569,6 +6622,11 @@
         "se_outcome": {
           "description": "se_outcome parameter (ndarray).",
           "type": "string"
+        },
+        "tol": {
+          "default": 1e-07,
+          "description": "Numerical convergence tolerance.",
+          "type": "number"
         }
       },
       "required": [
@@ -6581,7 +6639,7 @@
     }
   },
   {
-    "description": "MR-RAPS: Robust Adjusted Profile Score for two-sample summary-data MR (Zhao et al. 2020, Annals of Statistics). Profile-likelihood MR with Tukey biweight loss + weak-instrument correction; resistant to a small fraction of gross pleiotropy outliers. Complements GRAPPLE (Gaussian) with a robust-loss variant of the same structural model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "MR-RAPS: Robust Adjusted Profile Score for two-sample summary-data MR (Zhao et al. 2020, Annals of Statistics). A port of the authors' mr.raps package: the simple and over-dispersed profile-score estimators, and the robust over-dispersed one with a Huber (default, the package's) or Tukey loss; weak-instrument corrected; resistant to a small fraction of gross pleiotropy outliers. Validation: certified parity evidence.",
     "name": "mr_raps",
     "parameters": {
       "properties": {
@@ -6594,13 +6652,33 @@
           "description": "beta_exposure parameter (ndarray).",
           "type": "string"
         },
-        "beta_init": {
-          "description": "beta_init parameter (float).",
-          "type": "number"
-        },
         "beta_outcome": {
           "description": "beta_outcome parameter (ndarray).",
           "type": "string"
+        },
+        "loss": {
+          "description": "None means huber, the mr.raps default.",
+          "enum": [
+            "huber",
+            "tukey",
+            "l2"
+          ],
+          "type": "string"
+        },
+        "niter": {
+          "default": 20,
+          "description": "niter parameter (int).",
+          "type": "integer"
+        },
+        "over_dispersion": {
+          "default": true,
+          "description": "over_dispersion parameter (bool).",
+          "type": "boolean"
+        },
+        "pruning": {
+          "default": true,
+          "description": "pruning parameter (bool).",
+          "type": "boolean"
         },
         "se_exposure": {
           "description": "se_exposure parameter (ndarray).",
@@ -6610,13 +6688,12 @@
           "description": "se_outcome parameter (ndarray).",
           "type": "string"
         },
-        "tau2_init": {
-          "default": 0.0001,
-          "description": "tau2_init parameter (float).",
+        "tol": {
+          "default": 1.4901161193847656e-08,
+          "description": "Numerical convergence tolerance.",
           "type": "number"
         },
         "tuning_c": {
-          "default": 4.685,
           "description": "tuning_c parameter (float).",
           "type": "number"
         }
@@ -9348,7 +9425,7 @@
     }
   },
   {
-    "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: certified parity evidence.",
     "name": "mr",
     "parameters": {
       "properties": {
@@ -37985,7 +38062,7 @@
     }
   },
   {
-    "description": "MR-Egger regression. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "MR-Egger regression. Validation: certified parity evidence.",
     "name": "mr_egger",
     "parameters": {
       "properties": {
@@ -38021,7 +38098,7 @@
     }
   },
   {
-    "description": "Inverse-Variance Weighted (IVW) MR estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Inverse-Variance Weighted (IVW) MR estimator. Validation: certified parity evidence.",
     "name": "mr_ivw",
     "parameters": {
       "properties": {
@@ -38036,6 +38113,11 @@
         },
         "beta_outcome": {
           "description": "beta_outcome parameter (ndarray).",
+          "type": "string"
+        },
+        "model": {
+          "default": "default",
+          "description": "Model variant or parameterisation to fit.",
           "type": "string"
         },
         "se_exposure": {
@@ -38057,7 +38139,7 @@
     }
   },
   {
-    "description": "Weighted median MR estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Weighted median MR estimator. Validation: certified parity evidence.",
     "name": "mr_median",
     "parameters": {
       "properties": {
@@ -38076,12 +38158,12 @@
         },
         "n_boot": {
           "default": 1000,
-          "description": "Number of bootstrap replications.",
+          "description": "Parametric bootstrap for the standard error: draw ``bx`` and ``by`` from their normal sampling distributions and take the weighted median of the resampled ratios with the ORIGINAL weights, as the reference does. The standard error is stochastic; the estimate is not. Three corrections, found against ``MendelianRandomization``: * the weighted median was a step function (first ratio reaching half the weight) instead of Bowden et al.'s interpolated definition -- 0.8% on the package's LDL-C / CHD example; * the penalty used the LOWER-tail chi-square probability, so it up-weighted exactly the heterogeneous variants it exists to suppress, had no ``min(1, 20 q)`` cap, and centred on the IVW estimate rather than the weighted median -- 38% off; * the bootstrap recomputed the weights from every draw instead of holding them fixed.",
           "type": "integer"
         },
         "penalized": {
           "default": false,
-          "description": "penalized parameter (bool).",
+          "description": "Kept for backward compatibility; equivalent to ``weighting=\"penalized\"``.",
           "type": "boolean"
         },
         "se_exposure": {
@@ -38093,8 +38175,17 @@
           "type": "string"
         },
         "seed": {
-          "description": "Random seed for reproducible stochastic steps.",
+          "description": "Parametric bootstrap for the standard error: draw ``bx`` and ``by`` from their normal sampling distributions and take the weighted median of the resampled ratios with the ORIGINAL weights, as the reference does. The standard error is stochastic; the estimate is not. Three corrections, found against ``MendelianRandomization``: * the weighted median was a step function (first ratio reaching half the weight) instead of Bowden et al.'s interpolated definition -- 0.8% on the package's LDL-C / CHD example; * the penalty used the LOWER-tail chi-square probability, so it up-weighted exactly the heterogeneous variants it exists to suppress, had no ``min(1, 20 q)`` cap, and centred on the IVW estimate rather than the weighted median -- 38% off; * the bootstrap recomputed the weights from every draw instead of holding them fixed.",
           "type": "integer"
+        },
+        "weighting": {
+          "description": "``\"weighted\"`` uses ``(bx / se_y)^2``; ``\"simple\"`` equal weights; ``\"penalized\"`` multiplies the weighted weights by ``min(1, 20 q_j)``, where ``q_j`` is the upper-tail chi-square(1) p-value of variant j's heterogeneity about the weighted median. Defaults to ``\"penalized\"`` if ``penalized=True`` else ``\"weighted\"``.",
+          "enum": [
+            "weighted",
+            "simple",
+            "penalized"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -51105,6 +51196,10 @@
     "name": "MRPressoResult",
     "parameters": {
       "properties": {
+        "distortion_coefficient": {
+          "description": "distortion_coefficient parameter (Optional[float]).",
+          "type": "number"
+        },
         "distortion_p": {
           "description": "distortion_p parameter (Optional[float]).",
           "type": "number"
@@ -51130,6 +51225,13 @@
         "outlier_corrected_se": {
           "description": "outlier_corrected_se parameter (Optional[float]).",
           "type": "number"
+        },
+        "outlier_pvalues": {
+          "description": "outlier_pvalues parameter (Optional[List[float]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "outliers": {
           "default": null,
@@ -55668,6 +55770,15 @@
           "description": "loglik parameter (float).",
           "type": "number"
         },
+        "model_average": {
+          "default": false,
+          "description": "model_average parameter (bool).",
+          "type": "boolean"
+        },
+        "n_samples": {
+          "description": "Number of samples.",
+          "type": "integer"
+        },
         "n_snps": {
           "description": "Number of snps.",
           "type": "integer"
@@ -55725,9 +55836,24 @@
           "description": "loglik_robust parameter (float).",
           "type": "number"
         },
+        "loss": {
+          "default": "huber",
+          "description": "loss parameter (str).",
+          "type": "string"
+        },
+        "n_pruned": {
+          "default": 0,
+          "description": "Number of pruned.",
+          "type": "integer"
+        },
         "n_snps": {
           "description": "Number of snps.",
           "type": "integer"
+        },
+        "over_dispersion": {
+          "default": true,
+          "description": "over_dispersion parameter (bool).",
+          "type": "boolean"
         },
         "p_value": {
           "description": "p_value parameter (float).",
@@ -55739,6 +55865,11 @@
         },
         "tau2": {
           "description": "tau2 parameter (float).",
+          "type": "number"
+        },
+        "tau2_se": {
+          "default": NaN,
+          "description": "tau2_se parameter (float).",
           "type": "number"
         },
         "tuning_c": {

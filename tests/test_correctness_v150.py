@@ -111,67 +111,58 @@ class TestMREggerUsesTDistribution:
 
 
 # ======================================================================
-# Fix 2: mr_presso MC p-value uses (k+1)/(B+1)
+# Fix 2 (v1.5.0), reversed in v1.27.0: mr_presso MC p-value convention
+#
+# v1.5.0 switched the PRESSO p-values to (k+1)/(B+1) so they could never be
+# exactly zero.  v1.27.0 ports MRPRESSO::mr_presso line by line and returns
+# to the reference's k/B: the outlier test multiplies every per-variant p by
+# the number of variants (Bonferroni), and under (k+1)/(B+1) the smallest
+# attainable adjusted p is n/(B+1) -- above 0.05 for 50 variants at B=1000,
+# so the test could never flag anything.  A zero now means "below the
+# Monte Carlo resolution 1/B", and a warning fires when B cannot resolve
+# the Bonferroni threshold.
 # ======================================================================
 
 
 class TestMRPressoMCPvalueConvention:
-    def test_global_pvalue_cannot_be_zero(self):
-        """With the fix, p ≥ 1/(B+1) strictly."""
-        # Construct a scenario where the observed RSS is extreme
+    def test_global_pvalue_follows_reference_k_over_B(self):
+        """An extreme outlier gives k = 0, reported as 0 (below 1/B)."""
         rng = np.random.default_rng(0)
         n = 10
         bx = np.abs(rng.normal(0.1, 0.04, n))
-        # One obviously pleiotropic SNP — makes obs RSS very large
         by = 2.0 * bx + rng.normal(0, 0.01, n)
         by[0] = 10.0  # huge outlier
         sx = np.full(n, 0.02)
         sy = np.full(n, 0.05)
         B = 50
-        r = sp.mr_presso(bx, by, sx, sy, n_boot=B, seed=0)
-        # Floor of the MC p-value
-        assert r.global_test_pvalue >= 1.0 / (B + 1) - 1e-12, (
-            f"Global p-value = {r.global_test_pvalue} below MC floor "
-            f"{1.0 / (B + 1):.4f}."
-        )
+        with pytest.warns(UserWarning, match="cannot resolve"):
+            r = sp.mr_presso(bx, by, sx, sy, n_boot=B, seed=0)
+        assert r.global_test_pvalue == 0.0
 
-    def test_global_pvalue_matches_formula(self):
-        """The reported p matches (k+1)/(B+1) exactly."""
+    def test_global_pvalue_has_denominator_B(self):
+        """The reported p is k/B exactly, as in MRPRESSO."""
         rng = np.random.default_rng(1)
         n = 8
         bx = np.abs(rng.normal(0.1, 0.04, n))
         by = 2.0 * bx + rng.normal(0, 0.03, n)
         sx = np.full(n, 0.02)
         sy = np.full(n, 0.08)
-        B = 100
+        B = 200
         r = sp.mr_presso(bx, by, sx, sy, n_boot=B, seed=42)
-        # p should be a rational number with denominator B+1
-        p_times_B_plus_1 = r.global_test_pvalue * (B + 1)
-        assert (
-            abs(p_times_B_plus_1 - round(p_times_B_plus_1)) < 1e-9
-        ), "MC p-value should have denominator B+1, not B."
+        k = r.global_test_pvalue * B
+        assert abs(k - round(k)) < 1e-9, "MC p-value should have denominator B."
 
-    def test_per_snp_pvalues_respect_mc_floor(self):
-        """Per-SNP outlier p-values should also respect the MC floor."""
+    def test_bonferroni_outlier_test_can_reject(self):
+        """With k/B the Bonferroni-adjusted outlier test has power."""
         rng = np.random.default_rng(2)
-        n = 12
+        n = 50
         bx = np.abs(rng.normal(0.1, 0.04, n))
-        by = 2.0 * bx + rng.normal(0, 0.02, n)
-        sx = np.full(n, 0.02)
-        sy = np.full(n, 0.06)
-        B = 40
-        r = sp.mr_presso(bx, by, sx, sy, n_boot=B, seed=0)
-        # The outliers list is SNPs with p < sig_threshold = 0.05.  With
-        # the new convention, the minimum achievable p is 1/(B+1).
-        # Confirming there's no hidden p=0 anywhere: re-run the per-SNP
-        # p computation via the public API's outlier list.
-        assert (
-            1.0 / (B + 1)
-        ) < 0.05, "Sanity: 1/(B+1)=1/41 should be below sig_threshold=0.05."
-        # If any outliers were flagged they must have p < 0.05 but also
-        # ≥ 1/(B+1).  Cannot test per_snp_p directly from the returned
-        # result, but outliers being a non-empty list is sufficient.
-        assert isinstance(r.outliers, list)
+        by = 0.5 * bx + rng.normal(0, 0.005, n)
+        by[0] += 1.0  # one pleiotropic variant
+        sx = np.full(n, 0.005)
+        sy = np.full(n, 0.005)
+        r = sp.mr_presso(bx, by, sx, sy, n_boot=1000, seed=0)
+        assert 0 in r.outliers
 
 
 # ======================================================================

@@ -7959,7 +7959,7 @@
     ],
     "category": "mendelian",
     "cost_profile": "",
-    "description": "Cochran's Q (IVW) or Ruecker's Q' (Egger) heterogeneity statistic with I^2, used to detect horizontal pleiotropy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Cochran's Q (IVW) or Ruecker's Q' (Egger) heterogeneity statistic with I^2, used to detect horizontal pleiotropy. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -7999,7 +7999,7 @@
     ],
     "reference": "Bowden et al. (2017)",
     "signature": {
-      "description": "Cochran's Q (IVW) or Ruecker's Q' (Egger) heterogeneity statistic with I^2, used to detect horizontal pleiotropy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Cochran's Q (IVW) or Ruecker's Q' (Egger) heterogeneity statistic with I^2, used to detect horizontal pleiotropy. Validation: certified parity evidence.",
       "name": "mr_heterogeneity",
       "parameters": {
         "properties": {
@@ -8036,11 +8036,12 @@
     "stability": "stable",
     "typical_n_min": 10,
     "validation_notes": [
+      "tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_diagnostics_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_diagnostics_parity.py",
+      "Cross-language parity (bit-exact) vs R TwoSampleMR::mr_ivw / mr_egger_regression (Q, Q_df, Q_pval) [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance IVW and Egger (Ruecker) Q, degrees of freedom and p-values at 1e-10. -- tests/reference_parity/test_mr_R_parity.py",
       "API/unit contract evidence: tests/test_mr_diagnostics.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -8059,7 +8060,7 @@
     ],
     "category": "mendelian",
     "cost_profile": "",
-    "description": "Formal MR-Egger intercept test for directional (unbalanced) horizontal pleiotropy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Formal MR-Egger intercept test for directional (unbalanced) horizontal pleiotropy. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -8099,7 +8100,7 @@
     ],
     "reference": "Bowden et al. (2015)",
     "signature": {
-      "description": "Formal MR-Egger intercept test for directional (unbalanced) horizontal pleiotropy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Formal MR-Egger intercept test for directional (unbalanced) horizontal pleiotropy. Validation: certified parity evidence.",
       "name": "mr_pleiotropy_egger",
       "parameters": {
         "properties": {
@@ -8127,12 +8128,13 @@
     "stability": "stable",
     "typical_n_min": 10,
     "validation_notes": [
+      "tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_diagnostics_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_diagnostics_parity.py",
+      "Cross-language parity (bit-exact) vs R TwoSampleMR::mr_egger_regression (intercept test) [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance Intercept, SE and t(n - 2) p-value at 1e-10. -- tests/reference_parity/test_mr_R_parity.py",
       "API/unit contract evidence: tests/test_mr_diagnostics.py",
       "API/unit contract evidence: tests/test_correctness_v150.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -8151,7 +8153,7 @@
     ],
     "category": "mendelian",
     "cost_profile": "",
-    "description": "Drop-one IVW sensitivity -- per-SNP table of estimates when each SNP is removed in turn. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Drop-one IVW sensitivity -- per-SNP table of estimates when each SNP is removed in turn. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -8191,7 +8193,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Drop-one IVW sensitivity -- per-SNP table of estimates when each SNP is removed in turn. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Drop-one IVW sensitivity -- per-SNP table of estimates when each SNP is removed in turn. Validation: certified parity evidence.",
       "name": "mr_leave_one_out",
       "parameters": {
         "properties": {
@@ -8206,6 +8208,16 @@
           },
           "beta_outcome": {
             "description": "beta_outcome parameter (ndarray).",
+            "type": "string"
+          },
+          "model": {
+            "default": "default",
+            "description": "Model variant or parameterisation to fit.",
+            "enum": [
+              "default",
+              "fixed",
+              "random"
+            ],
             "type": "string"
           },
           "se_outcome": {
@@ -8231,10 +8243,11 @@
     "stability": "stable",
     "typical_n_min": 10,
     "validation_notes": [
+      "tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_parity.py"
+      "Cross-language parity (bit-exact) vs R MendelianRandomization::mr_ivw on each leave-one-out subset [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance All 28 leave-one-out estimates and default-model SEs at 1e-10. -- tests/reference_parity/test_mr_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -8253,7 +8266,7 @@
     ],
     "category": "mendelian",
     "cost_profile": "",
-    "description": "Steiger directionality test -- verifies that the SNPs explain more variance in the exposure than the outcome, supporting the assumed causal direction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Steiger directionality test -- verifies that the SNPs explain more variance in the exposure than the outcome, supporting the assumed causal direction. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -8293,10 +8306,19 @@
     ],
     "reference": "Hemani et al. (2017)",
     "signature": {
-      "description": "Steiger directionality test -- verifies that the SNPs explain more variance in the exposure than the outcome, supporting the assumed causal direction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Steiger directionality test -- verifies that the SNPs explain more variance in the exposure than the outcome, supporting the assumed causal direction. Validation: certified parity evidence.",
       "name": "mr_steiger",
       "parameters": {
         "properties": {
+          "alternative": {
+            "default": "two-sided",
+            "description": "alternative parameter (str).",
+            "enum": [
+              "two-sided",
+              "greater"
+            ],
+            "type": "string"
+          },
           "beta_exposure": {
             "description": "beta_exposure parameter (ndarray).",
             "type": "string"
@@ -8340,11 +8362,12 @@
     "stability": "stable",
     "typical_n_min": 10,
     "validation_notes": [
+      "tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_f_steiger_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_f_steiger_parity.py",
+      "Cross-language parity (bit-exact) vs R TwoSampleMR::mr_steiger with r from get_r_from_bsen [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance R^2 on both traits and the direction at 1e-10; the p-value (1.8e-73) at 1e-12. -- tests/reference_parity/test_mr_R_parity.py",
       "API/unit contract evidence: tests/test_mr_diagnostics.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -8367,7 +8390,7 @@
     ],
     "category": "mendelian",
     "cost_profile": "",
-    "description": "MR-PRESSO global test + per-SNP outlier detection + outlier-corrected IVW estimate + distortion test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "MR-PRESSO global test + per-SNP outlier detection + outlier-corrected IVW estimate + distortion test. Validation: certified parity evidence.",
     "example": "sp.mr_presso(beta_exposure=beta_x, beta_outcome=beta_y, se_exposure=se_x, se_outcome=se_y)",
     "failure_modes": [
       {
@@ -8415,7 +8438,7 @@
     ],
     "reference": "Verbanck et al. (2018)",
     "signature": {
-      "description": "MR-PRESSO global test + per-SNP outlier detection + outlier-corrected IVW estimate + distortion test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "MR-PRESSO global test + per-SNP outlier detection + outlier-corrected IVW estimate + distortion test. Validation: certified parity evidence.",
       "name": "mr_presso",
       "parameters": {
         "properties": {
@@ -8462,10 +8485,11 @@
     "stability": "stable",
     "typical_n_min": 10,
     "validation_notes": [
+      "tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_parity.py"
+      "Cross-language parity (bit-exact) vs R MRPRESSO::mr_presso (NbDistribution = 2000) [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance Raw estimate and SE, observed RSS, and the outlier-corrected estimate and SE at 1e-10; outlier set {12, 14} identical. The simulated p-values are Monte Carlo on both sides (T3) and follow the reference's k / B convention. -- tests/reference_parity/test_mr_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -8484,7 +8508,7 @@
     ],
     "category": "mendelian",
     "cost_profile": "",
-    "description": "Radial IVW MR (Bowden 2018) with per-SNP Bonferroni-thresholded outlier flagging. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Radial IVW MR (Bowden 2018) with per-SNP Bonferroni-thresholded outlier flagging. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -8524,10 +8548,15 @@
     ],
     "reference": "Bowden et al. (2018)",
     "signature": {
-      "description": "Radial IVW MR (Bowden 2018) with per-SNP Bonferroni-thresholded outlier flagging. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Radial IVW MR (Bowden 2018) with per-SNP Bonferroni-thresholded outlier flagging. Validation: certified parity evidence.",
       "name": "mr_radial",
       "parameters": {
         "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
           "beta_exposure": {
             "description": "beta_exposure parameter (ndarray).",
             "type": "string"
@@ -8535,6 +8564,11 @@
           "beta_outcome": {
             "description": "beta_outcome parameter (ndarray).",
             "type": "string"
+          },
+          "bonferroni": {
+            "default": true,
+            "description": "bonferroni parameter (bool).",
+            "type": "boolean"
           },
           "se_outcome": {
             "description": "se_outcome parameter (ndarray).",
@@ -8559,10 +8593,11 @@
     "stability": "stable",
     "typical_n_min": 10,
     "validation_notes": [
+      "tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_parity.py"
+      "Cross-language parity (bit-exact) vs R RadialMR::ivw_radial (alpha = 0.05, no Bonferroni) [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance Square-root weights, per-variant Q contributions and total Q at 1e-10; the outlier set is identical with bonferroni=False (StatsPAI's default applies Bonferroni). -- tests/reference_parity/test_mr_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -9010,7 +9045,7 @@
     ],
     "category": "mendelian",
     "cost_profile": "",
-    "description": "Weighted or simple mode-based MR estimator (Hartwig 2017). Consistent under the ZEMPA (zero-mode pleiotropy) assumption -- more permissive than the median's 50% rule. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Weighted or simple mode-based MR estimator (Hartwig 2017). Consistent under the ZEMPA (zero-mode pleiotropy) assumption -- more permissive than the median's 50% rule. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -9050,7 +9085,7 @@
     ],
     "reference": "Hartwig, Davey Smith & Bowden (2017)",
     "signature": {
-      "description": "Weighted or simple mode-based MR estimator (Hartwig 2017). Consistent under the ZEMPA (zero-mode pleiotropy) assumption -- more permissive than the median's 50% rule. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Weighted or simple mode-based MR estimator (Hartwig 2017). Consistent under the ZEMPA (zero-mode pleiotropy) assumption -- more permissive than the median's 50% rule. Validation: certified parity evidence.",
       "name": "mr_mode",
       "parameters": {
         "properties": {
@@ -9081,6 +9116,16 @@
             "description": "Number of bootstrap replications.",
             "type": "integer"
           },
+          "phi": {
+            "default": 1.0,
+            "description": "phi parameter (float).",
+            "type": "number"
+          },
+          "refine": {
+            "default": false,
+            "description": "refine parameter (bool).",
+            "type": "boolean"
+          },
           "se_exposure": {
             "description": "se_exposure parameter (ndarray).",
             "type": "string"
@@ -9106,11 +9151,12 @@
     "stability": "stable",
     "typical_n_min": 10,
     "validation_notes": [
+      "tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_mode_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_mode_parity.py",
+      "Cross-language parity (bit-exact) vs R MendelianRandomization::mr_mbe (weighted / unweighted, stderror = simple) [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance Point estimates for both weightings at 1e-10 -- the same point of the same 512-point density grid. The bootstrap SE is Monte Carlo on both sides and is not compared (T3). -- tests/reference_parity/test_mr_R_parity.py",
       "API/unit contract evidence: tests/test_mr_extras.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -9129,7 +9175,7 @@
     ],
     "category": "mendelian",
     "cost_profile": "",
-    "description": "Per-SNP F-statistic summary for instrument strength. Flags weak-instrument risk when any F < 10 (Staiger-Stock). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Per-SNP F-statistic summary for instrument strength. Flags weak-instrument risk when any F < 10 (Staiger-Stock). Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -9169,7 +9215,7 @@
     ],
     "reference": "Staiger & Stock (1997)",
     "signature": {
-      "description": "Per-SNP F-statistic summary for instrument strength. Flags weak-instrument risk when any F < 10 (Staiger-Stock). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Per-SNP F-statistic summary for instrument strength. Flags weak-instrument risk when any F < 10 (Staiger-Stock). Validation: certified parity evidence.",
       "name": "mr_f_statistic",
       "parameters": {
         "properties": {
@@ -9196,11 +9242,12 @@
     "stability": "stable",
     "typical_n_min": 10,
     "validation_notes": [
+      "tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_f_steiger_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_f_steiger_parity.py",
+      "Cross-language parity (bit-exact) vs R MendelianRandomization::mr_ivw @Fstat [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance Mean F statistic at 1e-10. -- tests/reference_parity/test_mr_R_parity.py",
       "API/unit contract evidence: tests/test_mr_extras.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -11744,7 +11791,7 @@
     ],
     "category": "mendelian",
     "cost_profile": "",
-    "description": "Multivariable Mendelian randomization (Sanderson-Windmeijer 2019): direct causal effects of multiple correlated exposures via weighted least-squares on SNP-summary data, with conditional F-statistics for instrument strength. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Multivariable Mendelian randomization (Sanderson-Windmeijer 2019): direct causal effects of multiple correlated exposures via weighted least-squares on SNP-summary data, with conditional F-statistics for instrument strength. Validation: certified parity evidence.",
     "example": "sp.mr_multivariable(df, outcome='beta_y', outcome_se='se_y', exposures=['beta_ldl','beta_hdl'])",
     "failure_modes": [
       {
@@ -11784,7 +11831,7 @@
     ],
     "reference": "Sanderson et al. (IJE 2019); Yao et al. (arXiv:2509.11519).",
     "signature": {
-      "description": "Multivariable Mendelian randomization (Sanderson-Windmeijer 2019): direct causal effects of multiple correlated exposures via weighted least-squares on SNP-summary data, with conditional F-statistics for instrument strength. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Multivariable Mendelian randomization (Sanderson-Windmeijer 2019): direct causal effects of multiple correlated exposures via weighted least-squares on SNP-summary data, with conditional F-statistics for instrument strength. Validation: certified parity evidence.",
       "name": "mr_multivariable",
       "parameters": {
         "properties": {
@@ -11819,11 +11866,12 @@
     "stability": "stable",
     "typical_n_min": 10,
     "validation_notes": [
+      "tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_multivariable_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_multivariable_parity.py",
+      "Cross-language parity (bit-exact) vs R MendelianRandomization::mr_mvivw (default random effects) [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance Three direct effects and SEs at 1e-10. -- tests/reference_parity/test_mr_R_parity.py",
       "API/unit contract evidence: tests/test_mr_extensions.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -12362,7 +12410,7 @@
     ],
     "category": "mendelian",
     "cost_profile": "",
-    "description": "MR-cML-BIC: constrained maximum-likelihood MR with L0-sparse pleiotropy (Xue, Shen & Pan 2021). Block-coordinate descent jointly updates causal beta, true exposure effects, and a K-sparse pleiotropy vector; K selected by BIC. Robust to correlated + uncorrelated pleiotropy simultaneously. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "MR-cML-BIC: constrained maximum-likelihood MR with L0-sparse pleiotropy (Xue, Shen & Pan 2021). Block-coordinate descent jointly updates causal beta, true exposure effects, and a K-sparse pleiotropy vector; K selected by BIC. Robust to correlated + uncorrelated pleiotropy simultaneously. Validation: certified parity evidence.",
     "example": "sp.mr_cml(bx, by, sx, sy)",
     "failure_modes": [
       {
@@ -12402,7 +12450,7 @@
     ],
     "reference": "Xue, Shen & Pan (2021) AJHG 108(7).",
     "signature": {
-      "description": "MR-cML-BIC: constrained maximum-likelihood MR with L0-sparse pleiotropy (Xue, Shen & Pan 2021). Block-coordinate descent jointly updates causal beta, true exposure effects, and a K-sparse pleiotropy vector; K selected by BIC. Robust to correlated + uncorrelated pleiotropy simultaneously. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "MR-cML-BIC: constrained maximum-likelihood MR with L0-sparse pleiotropy (Xue, Shen & Pan 2021). Block-coordinate descent jointly updates causal beta, true exposure effects, and a K-sparse pleiotropy vector; K selected by BIC. Robust to correlated + uncorrelated pleiotropy simultaneously. Validation: certified parity evidence.",
       "name": "mr_cml",
       "parameters": {
         "properties": {
@@ -12423,6 +12471,20 @@
             "description": "beta_outcome parameter (ndarray).",
             "type": "string"
           },
+          "max_iter": {
+            "default": 100,
+            "description": "Maximum number of optimisation iterations.",
+            "type": "integer"
+          },
+          "model_average": {
+            "default": false,
+            "description": "model_average parameter (bool).",
+            "type": "boolean"
+          },
+          "n": {
+            "description": "n parameter (int).",
+            "type": "integer"
+          },
           "se_exposure": {
             "description": "se_exposure parameter (ndarray).",
             "type": "string"
@@ -12430,6 +12492,11 @@
           "se_outcome": {
             "description": "se_outcome parameter (ndarray).",
             "type": "string"
+          },
+          "tol": {
+            "default": 1e-07,
+            "description": "Numerical convergence tolerance.",
+            "type": "number"
           }
         },
         "required": [
@@ -12444,11 +12511,12 @@
     "stability": "stable",
     "typical_n_min": 10,
     "validation_notes": [
+      "tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_cml_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_cml_parity.py",
+      "Cross-language parity (bit-exact) vs R MendelianRandomization::mr_cML (DP = FALSE, n = 17723) [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance Estimate and SE for every K = 0..6, the BIC-selected fit with its invalid set {12, 14}, and the MA-BIC average, all at 1e-9 (both sides iterate to |d theta| <= 1e-7). -- tests/reference_parity/test_mr_R_parity.py",
       "API/unit contract evidence: tests/test_mr_frontier.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -12470,7 +12538,7 @@
     ],
     "category": "mendelian",
     "cost_profile": "",
-    "description": "MR-RAPS: Robust Adjusted Profile Score for two-sample summary-data MR (Zhao et al. 2020, Annals of Statistics). Profile-likelihood MR with Tukey biweight loss + weak-instrument correction; resistant to a small fraction of gross pleiotropy outliers. Complements GRAPPLE (Gaussian) with a robust-loss variant of the same structural model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "MR-RAPS: Robust Adjusted Profile Score for two-sample summary-data MR (Zhao et al. 2020, Annals of Statistics). A port of the authors' mr.raps package: the simple and over-dispersed profile-score estimators, and the robust over-dispersed one with a Huber (default, the package's) or Tukey loss; weak-instrument corrected; resistant to a small fraction of gross pleiotropy outliers. Validation: certified parity evidence.",
     "example": "sp.mr_raps(beta_exposure=beta_x, beta_outcome=beta_y, se_exposure=se_x, se_outcome=se_y)",
     "failure_modes": [
       {
@@ -12518,7 +12586,7 @@
     ],
     "reference": "Zhao, Wang, Hemani, Bowden & Small (2020) Annals of Statistics 48(3).",
     "signature": {
-      "description": "MR-RAPS: Robust Adjusted Profile Score for two-sample summary-data MR (Zhao et al. 2020, Annals of Statistics). Profile-likelihood MR with Tukey biweight loss + weak-instrument correction; resistant to a small fraction of gross pleiotropy outliers. Complements GRAPPLE (Gaussian) with a robust-loss variant of the same structural model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "MR-RAPS: Robust Adjusted Profile Score for two-sample summary-data MR (Zhao et al. 2020, Annals of Statistics). A port of the authors' mr.raps package: the simple and over-dispersed profile-score estimators, and the robust over-dispersed one with a Huber (default, the package's) or Tukey loss; weak-instrument corrected; resistant to a small fraction of gross pleiotropy outliers. Validation: certified parity evidence.",
       "name": "mr_raps",
       "parameters": {
         "properties": {
@@ -12531,13 +12599,33 @@
             "description": "beta_exposure parameter (ndarray).",
             "type": "string"
           },
-          "beta_init": {
-            "description": "beta_init parameter (float).",
-            "type": "number"
-          },
           "beta_outcome": {
             "description": "beta_outcome parameter (ndarray).",
             "type": "string"
+          },
+          "loss": {
+            "description": "None means huber, the mr.raps default.",
+            "enum": [
+              "huber",
+              "tukey",
+              "l2"
+            ],
+            "type": "string"
+          },
+          "niter": {
+            "default": 20,
+            "description": "niter parameter (int).",
+            "type": "integer"
+          },
+          "over_dispersion": {
+            "default": true,
+            "description": "over_dispersion parameter (bool).",
+            "type": "boolean"
+          },
+          "pruning": {
+            "default": true,
+            "description": "pruning parameter (bool).",
+            "type": "boolean"
           },
           "se_exposure": {
             "description": "se_exposure parameter (ndarray).",
@@ -12547,13 +12635,12 @@
             "description": "se_outcome parameter (ndarray).",
             "type": "string"
           },
-          "tau2_init": {
-            "default": 0.0001,
-            "description": "tau2_init parameter (float).",
+          "tol": {
+            "default": 1.4901161193847656e-08,
+            "description": "Numerical convergence tolerance.",
             "type": "number"
           },
           "tuning_c": {
-            "default": 4.685,
             "description": "tuning_c parameter (float).",
             "type": "number"
           }
@@ -12570,11 +12657,12 @@
     "stability": "stable",
     "typical_n_min": 30,
     "validation_notes": [
+      "tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_raps_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_raps_parity.py",
+      "Cross-language parity (aligned) vs R mr.raps 0.4.3 (simple / overdispersed / overdispersed.robust) [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance Simple and L2-overdispersed fits (beta, SE, tau2) at 1e-8. Robust Huber / Tukey: the sandwich reproduces R's SEs at 1e-10 when evaluated at R's own (beta, tau2) and integrate() moments; the fitted values agree to 5e-5 (beta), 5e-4 (SE), 1.5e-3 (tau2) because R stops uniroot at its default tolerance and integrate() at 1.2e-4 -- a test shows StatsPAI's root satisfies the estimating equation more tightly than R's. -- tests/reference_parity/test_mr_R_parity.py",
       "API/unit contract evidence: tests/test_mr_frontier.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -16880,7 +16968,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: certified parity evidence.",
     "example": "sp.mr(\"ivw\", beta_exposure=bx, beta_outcome=by, se_exposure=sx, se_outcome=sy)",
     "failure_modes": [
       {
@@ -16920,7 +17008,7 @@
     ],
     "reference": "Burgess et al. 2013; Bowden et al. 2015/2016/2017/2018; Verbanck et al. 2018; Hartwig et al. 2017; Sanderson et al. 2019; Zuber et al. 2020.",
     "signature": {
-      "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Unified Mendelian Randomization dispatcher. method= selects the estimator: 'ivw' / 'egger' / 'median' / 'penalized_median' / 'mode' / 'all' (runs IVW+Egger+Median together) / 'mvmr' / 'mediation' / 'bma' (multi-exposure) / 'presso' / 'radial' / 'leave_one_out' / 'steiger' / 'heterogeneity' / 'pleiotropy_egger' / 'f_statistic' (diagnostics). Kwargs are passed through to the target function unchanged; see sp.mendelian_family guide. Validation: certified parity evidence.",
       "name": "mr",
       "parameters": {
         "properties": {
@@ -16937,12 +17025,13 @@
     "stability": "stable",
     "typical_n_min": 10,
     "validation_notes": [
+      "tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_ivw_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_ivw_parity.py",
+      "Cross-language parity (bit-exact) vs R MendelianRandomization::mr_ivw through the sp.mr dispatcher [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance IVW estimate and default random-effects SE, 1e-10. -- tests/reference_parity/test_mr_R_parity.py",
       "API/unit contract evidence: tests/test_mr_frontier.py",
       "API/unit contract evidence: tests/test_dispatchers_v150.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -34824,7 +34913,7 @@
     ],
     "category": "mendelian",
     "cost_profile": "",
-    "description": "MR-Egger regression. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "MR-Egger regression. Validation: certified parity evidence.",
     "example": "sp.mr_egger(beta_exposure=beta_x, beta_outcome=beta_y, se_exposure=se_x, se_outcome=se_y)",
     "failure_modes": [
       {
@@ -34872,7 +34961,7 @@
     ],
     "reference": "bowden2015mendelian",
     "signature": {
-      "description": "MR-Egger regression. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "MR-Egger regression. Validation: certified parity evidence.",
       "name": "mr_egger",
       "parameters": {
         "properties": {
@@ -34910,10 +34999,11 @@
     "stability": "stable",
     "typical_n_min": 15,
     "validation_notes": [
+      "tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_parity.py"
+      "Cross-language parity (bit-exact) vs R MendelianRandomization::mr_egger, TwoSampleMR::mr_egger_regression [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance Slope, intercept and both SEs at 1e-10. -- tests/reference_parity/test_mr_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -34936,7 +35026,7 @@
     ],
     "category": "mendelian",
     "cost_profile": "",
-    "description": "Inverse-Variance Weighted (IVW) MR estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Inverse-Variance Weighted (IVW) MR estimator. Validation: certified parity evidence.",
     "example": "sp.mr_ivw(beta_exposure=beta_x, beta_outcome=beta_y, se_exposure=se_x, se_outcome=se_y)",
     "failure_modes": [
       {
@@ -34991,7 +35081,7 @@
     ],
     "reference": "burgess2013mendelian",
     "signature": {
-      "description": "Inverse-Variance Weighted (IVW) MR estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Inverse-Variance Weighted (IVW) MR estimator. Validation: certified parity evidence.",
       "name": "mr_ivw",
       "parameters": {
         "properties": {
@@ -35006,6 +35096,11 @@
           },
           "beta_outcome": {
             "description": "beta_outcome parameter (ndarray).",
+            "type": "string"
+          },
+          "model": {
+            "default": "default",
+            "description": "Model variant or parameterisation to fit.",
             "type": "string"
           },
           "se_exposure": {
@@ -35029,10 +35124,12 @@
     "stability": "stable",
     "typical_n_min": 10,
     "validation_notes": [
+      "tests/reference_parity/test_mr_R_parity.py",
+      "tests/reference_parity/test_mr_ivw_parity.py",
       "tests/reference_parity/test_mr_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_parity.py"
+      "Cross-language parity (bit-exact) vs R MendelianRandomization::mr_ivw (default / fixed / random), TwoSampleMR::mr_ivw [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance Estimate, SE under all three models, RSE and Cochran's Q at 1e-10 (observed <= 1e-15). -- tests/reference_parity/test_mr_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -35051,7 +35148,7 @@
     ],
     "category": "mendelian",
     "cost_profile": "",
-    "description": "Weighted median MR estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Weighted median MR estimator. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -35091,7 +35188,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Weighted median MR estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Weighted median MR estimator. Validation: certified parity evidence.",
       "name": "mr_median",
       "parameters": {
         "properties": {
@@ -35110,12 +35207,12 @@
           },
           "n_boot": {
             "default": 1000,
-            "description": "Number of bootstrap replications.",
+            "description": "Parametric bootstrap for the standard error: draw ``bx`` and ``by`` from their normal sampling distributions and take the weighted median of the resampled ratios with the ORIGINAL weights, as the reference does. The standard error is stochastic; the estimate is not. Three corrections, found against ``MendelianRandomization``: * the weighted median was a step function (first ratio reaching half the weight) instead of Bowden et al.'s interpolated definition -- 0.8% on the package's LDL-C / CHD example; * the penalty used the LOWER-tail chi-square probability, so it up-weighted exactly the heterogeneous variants it exists to suppress, had no ``min(1, 20 q)`` cap, and centred on the IVW estimate rather than the weighted median -- 38% off; * the bootstrap recomputed the weights from every draw instead of holding them fixed.",
             "type": "integer"
           },
           "penalized": {
             "default": false,
-            "description": "penalized parameter (bool).",
+            "description": "Kept for backward compatibility; equivalent to ``weighting=\"penalized\"``.",
             "type": "boolean"
           },
           "se_exposure": {
@@ -35127,8 +35224,17 @@
             "type": "string"
           },
           "seed": {
-            "description": "Random seed for reproducible stochastic steps.",
+            "description": "Parametric bootstrap for the standard error: draw ``bx`` and ``by`` from their normal sampling distributions and take the weighted median of the resampled ratios with the ORIGINAL weights, as the reference does. The standard error is stochastic; the estimate is not. Three corrections, found against ``MendelianRandomization``: * the weighted median was a step function (first ratio reaching half the weight) instead of Bowden et al.'s interpolated definition -- 0.8% on the package's LDL-C / CHD example; * the penalty used the LOWER-tail chi-square probability, so it up-weighted exactly the heterogeneous variants it exists to suppress, had no ``min(1, 20 q)`` cap, and centred on the IVW estimate rather than the weighted median -- 38% off; * the bootstrap recomputed the weights from every draw instead of holding them fixed.",
             "type": "integer"
+          },
+          "weighting": {
+            "description": "``\"weighted\"`` uses ``(bx / se_y)^2``; ``\"simple\"`` equal weights; ``\"penalized\"`` multiplies the weighted weights by ``min(1, 20 q_j)``, where ``q_j`` is the upper-tail chi-square(1) p-value of variant j's heterogeneity about the weighted median. Defaults to ``\"penalized\"`` if ``penalized=True`` else ``\"weighted\"``.",
+            "enum": [
+              "weighted",
+              "simple",
+              "penalized"
+            ],
+            "type": "string"
           }
         },
         "required": [
@@ -35143,10 +35249,11 @@
     "stability": "stable",
     "typical_n_min": 10,
     "validation_notes": [
+      "tests/reference_parity/test_mr_R_parity.py",
       "tests/reference_parity/test_mr_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mr_parity.py"
+      "Cross-language parity (bit-exact) vs R MendelianRandomization::mr_median (weighted / simple / penalized) [MRPRESSO 1.0, MendelianRandomization 0.10.0, RadialMR 1.2.4, TwoSampleMR 0.7.9, mr.raps 0.4.3]; tolerance Point estimates for all three weightings at 1e-10. The bootstrap SE is Monte Carlo on both sides and is not compared (T3). -- tests/reference_parity/test_mr_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [

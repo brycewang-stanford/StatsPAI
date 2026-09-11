@@ -10,6 +10,7 @@ robust to both correlated and uncorrelated pleiotropic effects."
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Optional
 
@@ -17,8 +18,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ._common import as_float_arrays, harmonize_signs
 from ..._result_serialize import ResultProtocolMixin
+from ._common import as_float_arrays, harmonize_signs
 
 __all__ = ["MRcMLResult", "mr_cml"]
 
@@ -44,6 +45,11 @@ class MRcMLResult(ResultProtocolMixin):
     loglik : float
         Final log-likelihood at K_selected.
     n_snps : int
+    n_samples : int or None
+        GWAS sample size used in the BIC penalty (``None`` if not given, in
+        which case the number of variants stood in and a warning was issued).
+    model_average : bool
+        Whether ``estimate`` / ``se`` are BIC model-averaged over K.
 
     Examples
     --------
@@ -54,7 +60,7 @@ class MRcMLResult(ResultProtocolMixin):
     >>> sx = rng.uniform(0.02, 0.05, 25)
     >>> sy = rng.uniform(0.02, 0.05, 25)
     >>> by = 0.3 * bx + rng.normal(0, sy)
-    >>> res = sp.mr_cml(bx, by, sx, sy)
+    >>> res = sp.mr_cml(bx, by, sx, sy, n=50_000)
     >>> type(res).__name__
     'MRcMLResult'
     >>> res.n_snps
@@ -73,6 +79,8 @@ class MRcMLResult(ResultProtocolMixin):
     path: pd.DataFrame
     loglik: float
     n_snps: int
+    n_samples: Optional[int] = None
+    model_average: bool = False
 
     def summary(self) -> str:
         ci = f"[{self.ci_lower:+.4f}, {self.ci_upper:+.4f}]"
@@ -105,78 +113,80 @@ def _fit_fixed_k(
     vy: np.ndarray,
     K: int,
     *,
-    max_iter: int = 200,
-    tol: float = 1e-8,
+    max_iter: int = 100,
+    tol: float = 1e-7,
 ) -> tuple[float, float, float, np.ndarray]:
-    """Block-coordinate-descent MR-cML at fixed K.
+    """MR-cML at fixed K, following ``MendelianRandomization:::cML_estimate``.
 
-    Algorithm (Xue, Shen, Pan 2021 §2.3):
-    - Parameters: β (scalar causal), b_x (true exposure per SNP),
-      r (pleiotropy per SNP with ||r||_0 ≤ K).
-    - Block update loop:
-      1. Given β, r: b_x_i = (bx_i/vx_i + β (by_i - r_i)/vy_i) /
-                            (1/vx_i + β² / vy_i)
-      2. Given β, b_x: r_i = by_i - β * b_x_i   for the K SNPs with
-         largest residual squared / vy; r_i = 0 otherwise.
-      3. Given b_x, r: β = Σ b_x_i (by_i - r_i)/vy_i /
-                           Σ b_x_i² / vy_i
-    - Log-likelihood:
-      logL = -0.5 Σ [(bx_i - b_x_i)² / vx_i + log(2π vx_i)
-                     + (by_i - β b_x_i - r_i)² / vy_i + log(2π vy_i)]
+    Start from theta = 0 and mu = 0 and iterate, in this order, until
+    ``|theta_new - theta| <= tol`` or ``max_iter`` sweeps:
+
+    1. flag the K variants with the largest ``(by - theta mu)^2 / vy`` as
+       invalid and set their ``r = by - theta mu`` (0 elsewhere);
+    2. ``mu = (bx / vx + theta (by - r) / vy) / (1 / vx + theta^2 / vy)``;
+    3. ``theta = sum((by - r) mu / vy) / sum(mu^2 / vy)``.
+
+    For invalid variants ``mu`` is then reset to ``bx`` and ``r`` to
+    ``by - theta mu``, their unconstrained maximisers. The likelihood is not
+    concave in the invalid set, so the start and the update order decide
+    which optimum is reached; this follows the reference so both land on the
+    same one (the block-coordinate descent it replaces started from the IVW
+    estimate, updated in a different order, and on the reference package's
+    LDL-C example reached a different optimum at K = 6, 4.5% away).
+
+    Returns ``(theta, se, loglik, invalid_idx)``. ``se`` is the profile
+    information for theta over the valid variants
+    (``MendelianRandomization:::cML_SdTheta``)::
+
+        1 / [ sum b^2 / vy  -  sum (2 b theta - by)^2 / vy^2
+                                   / (1 / vx + theta^2 / vy) ]
+
+    The second term is the cost of estimating the nuisance exposure effects.
+    Dropping it -- as this function did before 1.27.0, under a comment
+    calling the result a profile-likelihood SE -- understates the standard
+    error by ~12% on that example.
     """
     n = len(bx)
-    b_true = bx.copy()
-    beta = float(np.sum(bx * by / vy) / max(np.sum(bx**2 / vy), 1e-300))
+    theta = 0.0
+    mu = np.zeros(n)
     r = np.zeros(n)
     invalid_idx = np.array([], dtype=int)
-
-    prev_ll = -np.inf
-    for _ in range(max_iter):
-        # Step 1: update b_x (vector)
-        num = bx / vx + beta * (by - r) / vy
-        den = 1.0 / vx + beta**2 / vy
-        b_true = num / den
-
-        # Step 2: update r with cardinality constraint ||r||_0 ≤ K
-        full_resid = by - beta * b_true
+    theta_old = theta - 1.0
+    it = 0
+    while abs(theta_old - theta) > tol and it < max_iter:
+        theta_old = theta
+        it += 1
         if K > 0:
-            score = full_resid**2 / vy
-            invalid_idx = np.argpartition(-score, K - 1)[:K]
+            importance = (by - theta * mu) ** 2 / vy
+            invalid_idx = np.sort(np.argsort(-importance, kind="stable")[:K])
             r = np.zeros(n)
-            r[invalid_idx] = full_resid[invalid_idx]
+            r[invalid_idx] = (by - theta * mu)[invalid_idx]
         else:
-            invalid_idx = np.array([], dtype=int)
             r = np.zeros(n)
+        mu = (bx / vx + theta * (by - r) / vy) / (1.0 / vx + theta**2 / vy)
+        theta = float(np.sum((by - r) * mu / vy) / np.sum(mu**2 / vy))
+    if K > 0:
+        mu[invalid_idx] = bx[invalid_idx]
+        r[invalid_idx] = (by - theta * mu)[invalid_idx]
 
-        # Step 3: update beta on the remaining (valid) SNPs
-        w_num = np.sum(b_true * (by - r) / vy)
-        w_den = np.sum(b_true**2 / vy)
-        if w_den <= 1e-300:
-            beta_new = beta
-        else:
-            beta_new = float(w_num / w_den)
+    neg_l = float(
+        np.sum((bx - mu) ** 2 / (2 * vx))
+        + np.sum((by - theta * mu - r) ** 2 / (2 * vy))
+    )
+    ll = -neg_l - 0.5 * float(
+        np.sum(np.log(2 * np.pi * vx)) + np.sum(np.log(2 * np.pi * vy))
+    )
 
-        ll = -0.5 * float(
-            np.sum((bx - b_true) ** 2 / vx)
-            + np.sum((by - beta_new * b_true - r) ** 2 / vy)
-            + np.sum(np.log(2 * np.pi * vx))
-            + np.sum(np.log(2 * np.pi * vy))
+    valid = np.ones(n, dtype=bool)
+    valid[invalid_idx] = False
+    info = float(
+        np.sum((mu**2 / vy)[valid])
+        - np.sum(
+            ((2 * mu * theta - by) ** 2 / vy**2 / (1.0 / vx + theta**2 / vy))[valid]
         )
-
-        if abs(ll - prev_ll) < tol:
-            beta = beta_new
-            break
-        beta = beta_new
-        prev_ll = ll
-
-    # Profile-likelihood SE at the selected model.
-    mask = np.ones(n, dtype=bool)
-    if K > 0 and len(invalid_idx) > 0:
-        mask[invalid_idx] = False
-    info = float(np.sum(b_true[mask] ** 2 / vy[mask]))
+    )
     se = float(np.sqrt(1.0 / info)) if info > 0 else float("nan")
-
-    return beta, se, ll, invalid_idx
+    return theta, se, ll, invalid_idx
 
 
 def mr_cml(
@@ -187,10 +197,31 @@ def mr_cml(
     *,
     K_max: Optional[int] = None,
     alpha: float = 0.05,
-    max_iter: int = 200,
-    tol: float = 1e-8,
+    max_iter: int = 100,
+    tol: float = 1e-7,
+    n: Optional[int] = None,
+    model_average: bool = False,
 ) -> MRcMLResult:
     """Constrained maximum-likelihood MR (MR-cML-BIC).
+
+    Equivalent to ``MendelianRandomization::mr_cML(..., MA = model_average,
+    DP = FALSE, n = n)``. The reference's default also applies data
+    perturbation (``DP = TRUE``, 200 resamples), which is not implemented
+    here.
+
+    .. versionchanged:: 1.27.0
+       * The BIC penalty is ``K log(n)`` with ``n`` the GWAS **sample size**,
+         which the method requires; it used the number of variants, a much
+         weaker penalty (log 28 against log 17723 on the reference package's
+         LDL-C example), and selected six invalid variants where the
+         reference selects two. ``n`` is now a parameter; without it the old
+         stand-in is used and a warning says so.
+       * The standard error is the profile information, not the information
+         with the nuisance exposure effects held fixed (~12% smaller).
+       * The fixed-K fit follows the reference's start and update order, so
+         both reach the same optimum; ``K_max`` defaults to ``n_snps - 2``
+         as in the reference.
+       * ``model_average=True`` gives the reference's MA-BIC estimate.
 
     Implements MR-cML with BIC-selected sparsity (Xue, Shen & Pan 2021,
     *AJHG* 108(7)).  The model lets each SNP have its own pleiotropy
@@ -216,10 +247,19 @@ def mr_cml(
     beta_exposure, beta_outcome : ndarray
     se_exposure, se_outcome : ndarray
     K_max : int, optional
-        Maximum pleiotropy cardinality to try.  Defaults to ``n_snps - 3``
-        (ensures at least 3 valid SNPs).  Must be in ``[0, n_snps - 1]``.
+        Maximum pleiotropy cardinality to try.  Defaults to ``n_snps - 2``,
+        the reference's ``K_vec``.  Must be in ``[0, n_snps - 1]``.
     alpha : float, default 0.05
-    max_iter, tol : inner block-CD controls.
+    max_iter, tol : int, float
+        Stop the fixed-K iteration when ``|theta_new - theta| <= tol`` or
+        after ``max_iter`` sweeps (the reference's rule and defaults).
+    n : int, optional
+        GWAS sample size for the BIC penalty. Required by the method; if
+        omitted the number of variants stands in and a ``UserWarning`` is
+        raised.
+    model_average : bool, default False
+        Average over K with weights proportional to ``exp(-BIC / 2)``; the
+        standard error is ``sum w sqrt(se_K^2 + (theta_K - theta_MA)^2)``.
 
     Returns
     -------
@@ -241,7 +281,7 @@ def mr_cml(
     >>> sx = rng.uniform(0.02, 0.05, 25)
     >>> sy = rng.uniform(0.02, 0.05, 25)
     >>> by = 0.3 * bx + rng.normal(0, sy)
-    >>> res = sp.mr_cml(bx, by, sx, sy)
+    >>> res = sp.mr_cml(bx, by, sx, sy, n=50_000)
     >>> type(res).__name__
     'MRcMLResult'
     >>> bool(np.isfinite(res.estimate))
@@ -253,33 +293,36 @@ def mr_cml(
     bx, by = harmonize_signs(bx, by)
     vx = sx**2
     vy = sy**2
-    n = len(bx)
+    p = len(bx)
 
     if K_max is None:
-        K_max = max(0, n - 3)
-    if not 0 <= K_max <= n - 1:
+        K_max = max(0, p - 2)
+    if not 0 <= K_max <= p - 1:
         raise ValueError(f"K_max must be in [0, n-1]; got {K_max}")
+    if n is None:
+        warnings.warn(
+            "mr_cml: no GWAS sample size given (n=None). The BIC penalty needs "
+            "it; using the number of variants instead, which penalises "
+            "invalid variants far less than MR-cML-BIC as published. Pass n= "
+            "to reproduce MendelianRandomization::mr_cML.",
+            UserWarning,
+            stacklevel=2,
+        )
+    log_n = float(np.log(n if n is not None else p))
 
     rows = []
     fits = {}
     for K in range(0, K_max + 1):
         beta_hat, se_hat, ll, invalid_idx = _fit_fixed_k(
-            bx,
-            by,
-            vx,
-            vy,
-            K,
-            max_iter=max_iter,
-            tol=tol,
+            bx, by, vx, vy, K, max_iter=max_iter, tol=tol
         )
-        bic = -2.0 * ll + K * np.log(n)
         rows.append(
             {
                 "K": K,
                 "estimate": beta_hat,
                 "se": se_hat,
                 "loglik": ll,
-                "bic": bic,
+                "bic": -2.0 * ll + K * log_n,
             }
         )
         fits[K] = (beta_hat, se_hat, ll, invalid_idx)
@@ -287,6 +330,15 @@ def mr_cml(
     path_df = pd.DataFrame(rows)
     K_best = int(path_df.loc[path_df["bic"].idxmin(), "K"])
     beta_hat, se_hat, ll, invalid_idx = fits[K_best]
+    if model_average:
+        bic = path_df["bic"].to_numpy(float)
+        w = np.exp(-0.5 * (bic - bic.min()))
+        w = w / w.sum()
+        th = path_df["estimate"].to_numpy(float)
+        sd = path_df["se"].to_numpy(float)
+        beta_hat = float(np.sum(w * th))
+        se_hat = float(np.nansum(w * np.sqrt(sd**2 + (th - beta_hat) ** 2)))
+        path_df["weight"] = w
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
     if np.isfinite(se_hat) and se_hat > 0:
@@ -298,7 +350,7 @@ def mr_cml(
         p_value = float("nan")
         lo = hi = float("nan")
 
-    invalid_mask = np.zeros(n, dtype=bool)
+    invalid_mask = np.zeros(p, dtype=bool)
     invalid_mask[invalid_idx] = True
 
     return MRcMLResult(
@@ -311,5 +363,7 @@ def mr_cml(
         invalid_snps=invalid_mask,
         path=path_df,
         loglik=ll,
-        n_snps=n,
+        n_snps=p,
+        n_samples=n,
+        model_average=model_average,
     )

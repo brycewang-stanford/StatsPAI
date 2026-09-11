@@ -25,16 +25,16 @@ import pytest
 
 import statspai as sp
 from statspai.mendelian.frontier import (
-    mr_lap,
-    mr_clust,
-    grapple,
-    mr_cml,
-    mr_raps,
-    MRLapResult,
-    MRClustResult,
     GrappleResult,
+    MRClustResult,
     MRcMLResult,
+    MRLapResult,
     MRRapsResult,
+    grapple,
+    mr_clust,
+    mr_cml,
+    mr_lap,
+    mr_raps,
 )
 
 # --------------------------------------------------------------------------- #
@@ -478,7 +478,7 @@ class TestMRRAPS:
         pleio = np.zeros(n)
         pleio[:3] = rng.choice([-0.15, 0.15], size=3)  # gross outliers
         by = true_beta * alpha + pleio + rng.normal(0, sy)
-        r_raps = mr_raps(bx, by, sx, sy, tuning_c=4.685)
+        r_raps = mr_raps(bx, by, sx, sy, loss="tukey", tuning_c=4.685)
         r_ivw = sp.mr(
             "ivw", beta_exposure=bx, beta_outcome=by, se_exposure=sx, se_outcome=sy
         )
@@ -499,8 +499,8 @@ class TestMRRAPS:
         pleio = np.zeros(n)
         pleio[:4] = rng.choice([-0.2, 0.2], size=4)
         by = true_beta * alpha + pleio + rng.normal(0, sy)
-        r_default = mr_raps(bx, by, sx, sy, tuning_c=4.685)
-        r_robust = mr_raps(bx, by, sx, sy, tuning_c=2.0)
+        r_default = mr_raps(bx, by, sx, sy, loss="tukey", tuning_c=4.685)
+        r_robust = mr_raps(bx, by, sx, sy, loss="tukey", tuning_c=2.0)
         # Finite sample: either works, but the tight-c estimate should
         # not be dramatically worse.
         assert np.isfinite(r_robust.estimate)
@@ -510,6 +510,21 @@ class TestMRRAPS:
         bx, by, sx, sy, _ = _sim_clean(seed=0)
         with pytest.raises(ValueError, match="tuning_c"):
             mr_raps(bx, by, sx, sy, tuning_c=-1.0)
+
+    def test_tuning_c_without_loss_warns_about_the_default_change(self):
+        """tuning_c was the Tukey constant before 1.27.0; the default loss is
+        now Huber, so a bare tuning_c must not change meaning silently."""
+        bx, by, sx, sy, _ = _sim_clean(seed=0)
+        with pytest.warns(FutureWarning, match="loss='tukey'"):
+            r = mr_raps(bx, by, sx, sy, tuning_c=4.685)
+        assert r.loss == "huber"
+
+    def test_removed_init_arguments_warn(self):
+        bx, by, sx, sy, _ = _sim_clean(seed=0)
+        with pytest.warns(DeprecationWarning, match="beta_init"):
+            r = mr_raps(bx, by, sx, sy, beta_init=0.3, tau2_init=1e-4)
+        ref = mr_raps(bx, by, sx, sy)
+        assert r.estimate == ref.estimate
 
 
 # --------------------------------------------------------------------------- #
