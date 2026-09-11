@@ -146,7 +146,7 @@ def mr_ivw(
       otherwise (the package's own rule; TwoSampleMR's ``mr_ivw`` is the
       same multiplicative random-effects form).
 
-    .. versionchanged:: 1.27.0
+    .. versionchanged:: 1.28.0
        The standard error used to be the fixed-effect one regardless of
        heterogeneity. On ``MendelianRandomization``'s own LDL-cholesterol /
        CHD example (28 variants, Cochran's Q p = 3e-10) that is 0.276
@@ -229,7 +229,7 @@ def mr_egger(
     standard error floored at 1 -- both as in ``MendelianRandomization`` and
     ``TwoSampleMR``, which this matches to machine precision.
 
-    .. versionchanged:: 1.27.0
+    .. versionchanged:: 1.28.0
        Variants were not oriented, so the result depended on which allele
        each variant was coded against: on the LDL-C / CHD example shipped
        with ``MendelianRandomization`` the slope was 14% off and the
@@ -267,7 +267,7 @@ def mr_egger(
     # side of the origin in the (bx, by) plane and changes the fitted
     # intercept. Bowden et al. define the estimator on oriented data, and
     # both MendelianRandomization and TwoSampleMR orient before fitting.
-    # Before 1.27.0 this did not, and on MendelianRandomization's own
+    # Before 1.28.0 this did not, and on MendelianRandomization's own
     # LDL-C / CHD example -- 16 of 28 variants with negative bx -- the slope
     # came out 14% off and the intercept (the pleiotropy test) 38% off.
     sign = np.where(np.asarray(beta_exposure) < 0, -1.0, 1.0)
@@ -391,7 +391,7 @@ def mr_median(
         reference does. The standard error is stochastic; the estimate is
         not.
 
-    .. versionchanged:: 1.27.0
+    .. versionchanged:: 1.28.0
        Three corrections, found against ``MendelianRandomization``:
 
        * the weighted median was a step function (first ratio reaching half

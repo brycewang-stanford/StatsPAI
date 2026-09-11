@@ -41,7 +41,7 @@ def fitted():
 def test_ivw_matches_weighted_origin_regression(fitted):
     """The point estimate, and both standard-error models in closed form.
 
-    Since 1.27.0 the default follows MendelianRandomization::mr_ivw: random
+    Since 1.28.0 the default follows MendelianRandomization::mr_ivw: random
     effects (fixed-effect SE times max(1, RSE)) with more than three
     variants. The fixed-effect SE is still available as model="fixed".
     """

@@ -398,7 +398,7 @@ def test_every_certified_row_names_its_reference():
 def test_every_frozen_cross_language_promotion_is_backed():
     """build_frozen_promotion_records raises on an unbacked R/Stata claim.
 
-    In 1.27.0, 32 promotions were graded bit-exact against R or Stata on
+    Through 1.27.0, 32 promotions were graded bit-exact against R or Stata on
     closed-form tests that never consulted either. The builder now refuses
     such an entry; this runs it so CI enforces that without regenerating.
     """

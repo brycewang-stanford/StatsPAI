@@ -498,7 +498,7 @@ def dyadic_regression(
     dyads that share both members, and like any pair sharing a member they
     enter the variance once.
 
-    .. versionchanged:: 1.27.0
+    .. versionchanged:: 1.28.0
        Pairs of dyads were weighted by the *number* of members they share
        rather than by whether they share one. The two coincide when each
        unordered pair appears once, so undirected results are unchanged; on
@@ -575,7 +575,7 @@ def dyadic_regression(
     # data, (i, j) with (j, i). Subtracting the within-pair sums
     # sum_p G_p G_p' (G_p = scores of all dyads on unordered pair p) takes
     # every such weight from 2 back to 1. With one row per unordered pair
-    # G_p G_p' is just g_d g_d', which is all the code before 1.27.0 subtracted;
+    # G_p G_p' is just g_d g_d', which is all the code before 1.28.0 subtracted;
     # on directed data it left the reciprocal cross terms double-counted
     # (1.8% on a 20-node design against dyadRobust and the brute-force
     # definition in tests/test_network.py).

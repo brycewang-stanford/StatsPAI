@@ -512,7 +512,7 @@ class TestMRRAPS:
             mr_raps(bx, by, sx, sy, tuning_c=-1.0)
 
     def test_tuning_c_without_loss_warns_about_the_default_change(self):
-        """tuning_c was the Tukey constant before 1.27.0; the default loss is
+        """tuning_c was the Tukey constant before 1.28.0; the default loss is
         now Huber, so a bare tuning_c must not change meaning silently."""
         bx, by, sx, sy, _ = _sim_clean(seed=0)
         with pytest.warns(FutureWarning, match="loss='tukey'"):

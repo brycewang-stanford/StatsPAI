@@ -43,7 +43,7 @@ fail, instead of silently dropping them, and lists them in
 
 <a id="mr-sweep"></a>
 
-## 1.27.0 — ⚠️ Mendelian randomisation brought in line with the R packages
+## Unreleased — ⚠️ Mendelian randomisation brought in line with the R packages
 
 **Who is affected.** Anyone using `sp.mendelian`: the MR estimators and
 diagnostics were compared with `MendelianRandomization`, `TwoSampleMR`,
@@ -86,7 +86,7 @@ diagnostics were compared with `MendelianRandomization`, `TwoSampleMR`,
 
 <a id="evidence-grade-closed-form"></a>
 
-## 1.27.0 — ⚠️ 25 functions are no longer graded as matching R / Stata
+## Unreleased — ⚠️ 25 functions are no longer graded as matching R / Stata
 
 **Who is affected.** Anyone who cited `sp.parity_status(fn)` /
 `docs/parity.md` for one of the functions below as evidence of agreement
@@ -115,7 +115,7 @@ comparison.
 
 <a id="dyadic-directed"></a>
 
-## 1.27.0 — ⚠️ `sp.dyadic_regression` on directed dyads
+## Unreleased — ⚠️ `sp.dyadic_regression` on directed dyads
 
 **Who is affected.** Anyone who passed `sp.dyadic_regression` data in which
 the same two nodes appear in more than one row — most commonly directed

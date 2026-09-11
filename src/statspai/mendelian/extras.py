@@ -177,7 +177,7 @@ def mr_mode(
     machine precision in both weightings: same bandwidth rule, same
     512-point density grid, same bootstrap construction.
 
-    .. versionchanged:: 1.27.0
+    .. versionchanged:: 1.28.0
        The bandwidth was a weighted-SD / IQR rule rather than Hartwig et
        al.'s ``0.9 min(sd, mad) n^(-1/5)`` on the unweighted ratios, the
        mode was searched on a different grid, and the bootstrap redrew the

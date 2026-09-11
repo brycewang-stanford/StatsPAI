@@ -75,51 +75,6 @@ All notable changes to StatsPAI will be documented in this file.
   (ATT -19.76, p = 3/39, six donors led by Utah 0.377), explains the rank-based
   p-value, and points to `covariates=` for an ADH-style specification.
 
-## [1.27.0] — 2026-09-12
-
-### ⚠️ Correctness
-
-- **ETWFE cohort-level ATTs were read off an unsaturated regression and were
-  wrong by up to 37%.** `sp.wooldridge_did` and `sp.etwfe` each ran *two*
-  regressions on the same data: a saturated cohort × period design, which fed
-  the event-study output, and a separate design carrying a *single post dummy
-  per cohort*, which fed `detail` and — for `sp.wooldridge_did` — the headline.
-  The second design is not saturated in cohort × period, so under dynamic
-  treatment effects the already-treated cohorts enter the period fixed effects
-  and contaminate every treatment coefficient. That is the forbidden comparison
-  of Goodman-Bacon (2021), i.e. precisely the bias extended TWFE exists to
-  remove. Cohort ATTs are now aggregated from the saturated cells
-  (treated-observation weights within cohort), which is what R
-  `etwfe::emfx(type='group')` and Stata `jwdid, estat group` report.
-
-  On the committed `17_etwfe` bytes, `sp.etwfe(...).detail` moves from
-  `-0.040562 / -0.035247 / -0.037735` to
-  `-0.0390171350 / -0.0311139256 / -0.0274615453`, against R's
-  `-0.0390171349687 / -0.0311139255617 / -0.0274615452587` — the old values
-  were 3.9%, 13.3% and 37.4% away from the reference. On a deterministic DGP
-  with true cohort ATTs 3.0 and 2.5, `sp.wooldridge_did` returned 2.67 and 1.63
-  (headline 2.15 against a true 2.78) and now returns 3.00 and 2.44
-  (headline 2.72).
-
-  **Affected:** `sp.wooldridge_did` — `estimate`, `se`, `pvalue`, `ci`,
-  `detail`; `sp.etwfe(...).detail` on every `cgroup` / `panel` combination;
-  `sp.etwfe_emfx(type='group')`; `sp.etwfe_emfx(..., weighting='cohort')` for
-  every `type`. **Not affected:** the `sp.etwfe` headline
-  (`estimate` / `se` / `ci`) and `sp.etwfe_emfx(..., weighting='treated')`,
-  which already aggregated the saturated cells — the certified `17_etwfe`
-  pooled ATT is bit-identical before and after
-  (`-0.035108276608100`). See MIGRATION.md.
-
-- **`sp.wooldridge_did` clustered SEs ignored the absorbed fixed effects in the
-  CR1 small-sample factor.** It counted only the explicit design columns in
-  `(N-1)/(N-K)`, while `fixest`'s `ssc(fixef.K="nested")` and `reghdfe`'s
-  default count every absorbed effect that is *not* nested inside the cluster
-  variable. `sp.event_study` and `sp.sun_abraham` were moved onto that rule in
-  1.24.0 (parity module 85); `sp.wooldridge_did` now uses the same
-  `did._core.fe_dof_not_nested` helper. SEs rise by a uniform ~0.08% on
-  `17_etwfe`, which takes the per-cohort SE agreement with R from 8.0e-4 to
-  between 1.3e-8 and 5.5e-6, and with Stata `jwdid` to 2e-15. Point estimates
-  are unchanged by this item.
 
 ### ⚠️ Evidence-grade corrections
 
@@ -295,6 +250,52 @@ analyses should be re-run**; `MIGRATION.md#mr-sweep` has the table.
 - `sp.mr_radial(bonferroni=, alpha=)`: `bonferroni=False` reproduces
   `RadialMR::ivw_radial`'s outlier list; the Bonferroni default is kept.
 - The Mendelian-family guide is updated for all of the above.
+
+## [1.27.0] — 2026-09-12
+
+### ⚠️ Correctness
+
+- **ETWFE cohort-level ATTs were read off an unsaturated regression and were
+  wrong by up to 37%.** `sp.wooldridge_did` and `sp.etwfe` each ran *two*
+  regressions on the same data: a saturated cohort × period design, which fed
+  the event-study output, and a separate design carrying a *single post dummy
+  per cohort*, which fed `detail` and — for `sp.wooldridge_did` — the headline.
+  The second design is not saturated in cohort × period, so under dynamic
+  treatment effects the already-treated cohorts enter the period fixed effects
+  and contaminate every treatment coefficient. That is the forbidden comparison
+  of Goodman-Bacon (2021), i.e. precisely the bias extended TWFE exists to
+  remove. Cohort ATTs are now aggregated from the saturated cells
+  (treated-observation weights within cohort), which is what R
+  `etwfe::emfx(type='group')` and Stata `jwdid, estat group` report.
+
+  On the committed `17_etwfe` bytes, `sp.etwfe(...).detail` moves from
+  `-0.040562 / -0.035247 / -0.037735` to
+  `-0.0390171350 / -0.0311139256 / -0.0274615453`, against R's
+  `-0.0390171349687 / -0.0311139255617 / -0.0274615452587` — the old values
+  were 3.9%, 13.3% and 37.4% away from the reference. On a deterministic DGP
+  with true cohort ATTs 3.0 and 2.5, `sp.wooldridge_did` returned 2.67 and 1.63
+  (headline 2.15 against a true 2.78) and now returns 3.00 and 2.44
+  (headline 2.72).
+
+  **Affected:** `sp.wooldridge_did` — `estimate`, `se`, `pvalue`, `ci`,
+  `detail`; `sp.etwfe(...).detail` on every `cgroup` / `panel` combination;
+  `sp.etwfe_emfx(type='group')`; `sp.etwfe_emfx(..., weighting='cohort')` for
+  every `type`. **Not affected:** the `sp.etwfe` headline
+  (`estimate` / `se` / `ci`) and `sp.etwfe_emfx(..., weighting='treated')`,
+  which already aggregated the saturated cells — the certified `17_etwfe`
+  pooled ATT is bit-identical before and after
+  (`-0.035108276608100`). See MIGRATION.md.
+
+- **`sp.wooldridge_did` clustered SEs ignored the absorbed fixed effects in the
+  CR1 small-sample factor.** It counted only the explicit design columns in
+  `(N-1)/(N-K)`, while `fixest`'s `ssc(fixef.K="nested")` and `reghdfe`'s
+  default count every absorbed effect that is *not* nested inside the cluster
+  variable. `sp.event_study` and `sp.sun_abraham` were moved onto that rule in
+  1.24.0 (parity module 85); `sp.wooldridge_did` now uses the same
+  `did._core.fe_dof_not_nested` helper. SEs rise by a uniform ~0.08% on
+  `17_etwfe`, which takes the per-cohort SE agreement with R from 8.0e-4 to
+  between 1.3e-8 and 5.5e-6, and with Stata `jwdid` to 2e-15. Point estimates
+  are unchanged by this item.
 
 ### ⚠️ Correctness fixes — `sp.sqreg`
 

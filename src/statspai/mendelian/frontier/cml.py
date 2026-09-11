@@ -142,7 +142,7 @@ def _fit_fixed_k(
                                    / (1 / vx + theta^2 / vy) ]
 
     The second term is the cost of estimating the nuisance exposure effects.
-    Dropping it -- as this function did before 1.27.0, under a comment
+    Dropping it -- as this function did before 1.28.0, under a comment
     calling the result a profile-likelihood SE -- understates the standard
     error by ~12% on that example.
     """
@@ -209,7 +209,7 @@ def mr_cml(
     perturbation (``DP = TRUE``, 200 resamples), which is not implemented
     here.
 
-    .. versionchanged:: 1.27.0
+    .. versionchanged:: 1.28.0
        * The BIC penalty is ``K log(n)`` with ``n`` the GWAS **sample size**,
          which the method requires; it used the number of variants, a much
          weaker penalty (log 28 against log 17723 on the reference package's

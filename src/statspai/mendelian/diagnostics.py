@@ -533,7 +533,7 @@ def mr_steiger(
         ``"two-sided"`` is the reference's p-value; ``"greater"`` tests the
         one-sided hypothesis that the exposure R^2 is the larger.
 
-    .. versionchanged:: 1.27.0
+    .. versionchanged:: 1.28.0
        The p-value was one-sided and computed as ``1 - Phi(z)``, which is
        exactly 0.0 for z beyond ~8.3. It is now two-sided by default, as
        the method authors' TwoSampleMR reports it, computed from the upper
@@ -592,7 +592,7 @@ def mr_steiger(
     # Two-sided by default, as TwoSampleMR::mr_steiger reports it (the
     # method authors' implementation); "greater" is the one-sided test that
     # the exposure explains more variance than the outcome, which this
-    # function reported before 1.27.0. Upper tails come from norm.sf: the
+    # function reported before 1.28.0. Upper tails come from norm.sf: the
     # old `1 - norm.cdf(z)` returned exactly 0.0 once z passed ~8.3, where
     # the reference reports 1.8e-73 on the LDL-C / CHD example.
     if alternative == "two-sided":
@@ -730,7 +730,7 @@ def mr_presso(
     flag anything. A warning is raised when ``n_boot`` is too small to
     resolve ``sig_threshold`` after the Bonferroni adjustment.
 
-    .. versionchanged:: 1.27.0
+    .. versionchanged:: 1.28.0
        Brought in line with the reference: the per-variant outlier p-values
        were not Bonferroni-adjusted (seven outliers flagged on the LDL-C /
        CHD example where MR-PRESSO flags two, moving the corrected estimate

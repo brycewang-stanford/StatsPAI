@@ -418,7 +418,7 @@ def mr_raps(
         ``False`` is only defined with ``loss="l2"``.
     tuning_c : float, optional
         Loss constant; defaults to 1.345 (Huber) or 4.685 (Tukey). Before
-        1.27.0 this was always the Tukey constant, so passing it without
+        1.28.0 this was always the Tukey constant, so passing it without
         ``loss`` warns: the loss it now applies to is Huber.
     beta_init, tau2_init
         Deprecated and ignored. The robust fit starts from the L2
@@ -435,7 +435,7 @@ def mr_raps(
     -------
     :class:`MRRapsResult`
 
-    .. versionchanged:: 1.27.0
+    .. versionchanged:: 1.28.0
        Rewritten as a port of ``mr.raps``. The previous implementation was a
        different estimator under this name: it minimised a Tukey loss jointly
        over ``(beta, log tau2)`` instead of solving the reference's
@@ -464,7 +464,7 @@ def mr_raps(
     """
     if beta_init is not None or tau2_init is not None:
         warnings.warn(
-            "mr_raps: beta_init / tau2_init are ignored since 1.27.0 -- the fit "
+            "mr_raps: beta_init / tau2_init are ignored since 1.28.0 -- the fit "
             "starts from the L2 over-dispersed estimate, as mr.raps does -- and "
             "will be removed in 1.29.",
             DeprecationWarning,
@@ -475,7 +475,7 @@ def mr_raps(
         if tuning_c is not None and tuning_c > 0:
             warnings.warn(
                 f"mr_raps: tuning_c={tuning_c} now applies to the default Huber "
-                "loss; before 1.27.0 the only loss was Tukey. Pass loss='tukey' "
+                "loss; before 1.28.0 the only loss was Tukey. Pass loss='tukey' "
                 "to keep the old loss.",
                 FutureWarning,
                 stacklevel=2,

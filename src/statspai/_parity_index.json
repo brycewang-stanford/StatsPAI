@@ -286,7 +286,7 @@
       ],
       "function": "assortativity",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R igraph::assortativity_degree",
       "reference_versions": {
@@ -720,7 +720,7 @@
       ],
       "function": "betweenness_centrality",
       "notes": [
-        "Until 1.27.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
+        "Until 1.28.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
       ],
       "reference": "R igraph::betweenness",
       "reference_versions": {
@@ -821,7 +821,7 @@
       ],
       "function": "bonacich_power",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R igraph::power_centrality and sna::bonpow",
       "reference_versions": {
@@ -1228,7 +1228,7 @@
       ],
       "function": "centrality",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R igraph degree / betweenness / closeness / page_rank / eigen_centrality",
       "reference_versions": {
@@ -1467,7 +1467,7 @@
       ],
       "function": "closeness_centrality",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "Wasserman-Faust closeness from R igraph::distances",
       "reference_versions": {
@@ -1544,7 +1544,7 @@
       ],
       "function": "clustering",
       "notes": [
-        "Until 1.27.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
+        "Until 1.28.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
       ],
       "reference": "R igraph::transitivity(type = 'local', isolates = 'zero')",
       "reference_versions": {
@@ -1592,7 +1592,7 @@
       ],
       "function": "community_detection",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R igraph::cluster_louvain (T3: randomised on both sides)",
       "reference_versions": {
@@ -2108,7 +2108,7 @@
       ],
       "function": "degree_centrality",
       "notes": [
-        "Until 1.27.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
+        "Until 1.28.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
       ],
       "reference": "R igraph::degree",
       "reference_versions": {
@@ -2779,7 +2779,7 @@
       ],
       "function": "dyadic_regression",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R dyadRobust (Aronow-Samii-Assenova dyadic-robust variance)",
       "reference_versions": {
@@ -2797,7 +2797,7 @@
       "test": [
         "tests/reference_parity/test_network_parity.py"
       ],
-      "tolerance": "Coefficients 7e-16 and standard errors 2e-15 on undirected and directed dyads, after the 1.27.0 fix to the shared-member weighting; also asserted against a brute-force construction of the definition."
+      "tolerance": "Coefficients 7e-16 and standard errors 2e-15 on undirected and directed dyads, after the 1.28.0 fix to the shared-member weighting; also asserted against a brute-force construction of the definition."
     },
     {
       "additional_tests": [
@@ -2849,7 +2849,7 @@
       ],
       "function": "eigenvector_centrality",
       "notes": [
-        "Until 1.27.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
+        "Until 1.28.0 this entry was graded cross-language on a test of closed forms (star, triangle, path) that never consulted R; the reference_versions field named an R version that nothing had run. The comparison below is real."
       ],
       "reference": "R sna::evcent (unit L2 norm, as here)",
       "reference_versions": {
@@ -2908,7 +2908,7 @@
       ],
       "function": "ergm",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R ergm::ergm(estimate = 'MPLE')",
       "reference_versions": {
@@ -3137,7 +3137,7 @@
       ],
       "function": "evalue_rr",
       "notes": [
-        "Until 1.27.0 this entry was graded cross-language on a closed form typed into the test, with a docstring asserting that R's EValue implements the same formula; nothing consulted R. The fixture is now EValue's own output."
+        "Until 1.28.0 this entry was graded cross-language on a closed form typed into the test, with a docstring asserting that R's EValue implements the same formula; nothing consulted R. The fixture is now EValue's own output."
       ],
       "reference": "R EValue::evalues.RR",
       "reference_versions": {
@@ -3544,7 +3544,7 @@
       ],
       "function": "florentine_families",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R ergm flomarriage",
       "reference_versions": {
@@ -4387,7 +4387,7 @@
       ],
       "function": "hits",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R igraph::hits_scores",
       "reference_versions": {
@@ -5142,7 +5142,7 @@
       ],
       "function": "karate_club",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R igraph::make_graph('Zachary')",
       "reference_versions": {
@@ -5168,7 +5168,7 @@
       ],
       "function": "katz_centrality",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R igraph::alpha_centrality",
       "reference_versions": {
@@ -6443,7 +6443,7 @@
       ],
       "function": "mr",
       "notes": [
-        "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
       ],
       "reference": "R MendelianRandomization::mr_ivw through the sp.mr dispatcher",
       "reference_versions": {
@@ -6473,7 +6473,7 @@
       ],
       "function": "mr_cml",
       "notes": [
-        "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
       ],
       "reference": "R MendelianRandomization::mr_cML (DP = FALSE, n = 17723)",
       "reference_versions": {
@@ -6503,7 +6503,7 @@
       ],
       "function": "mr_egger",
       "notes": [
-        "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
       ],
       "reference": "R MendelianRandomization::mr_egger, TwoSampleMR::mr_egger_regression",
       "reference_versions": {
@@ -6533,7 +6533,7 @@
       ],
       "function": "mr_f_statistic",
       "notes": [
-        "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
       ],
       "reference": "R MendelianRandomization::mr_ivw @Fstat",
       "reference_versions": {
@@ -6563,7 +6563,7 @@
       ],
       "function": "mr_heterogeneity",
       "notes": [
-        "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
       ],
       "reference": "R TwoSampleMR::mr_ivw / mr_egger_regression (Q, Q_df, Q_pval)",
       "reference_versions": {
@@ -6594,7 +6594,7 @@
       ],
       "function": "mr_ivw",
       "notes": [
-        "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
       ],
       "reference": "R MendelianRandomization::mr_ivw (default / fixed / random), TwoSampleMR::mr_ivw",
       "reference_versions": {
@@ -6641,7 +6641,7 @@
       ],
       "function": "mr_leave_one_out",
       "notes": [
-        "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
       ],
       "reference": "R MendelianRandomization::mr_ivw on each leave-one-out subset",
       "reference_versions": {
@@ -6671,7 +6671,7 @@
       ],
       "function": "mr_median",
       "notes": [
-        "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
       ],
       "reference": "R MendelianRandomization::mr_median (weighted / simple / penalized)",
       "reference_versions": {
@@ -6718,7 +6718,7 @@
       ],
       "function": "mr_mode",
       "notes": [
-        "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
       ],
       "reference": "R MendelianRandomization::mr_mbe (weighted / unweighted, stderror = simple)",
       "reference_versions": {
@@ -6748,7 +6748,7 @@
       ],
       "function": "mr_multivariable",
       "notes": [
-        "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
       ],
       "reference": "R MendelianRandomization::mr_mvivw (default random effects)",
       "reference_versions": {
@@ -6778,7 +6778,7 @@
       ],
       "function": "mr_pleiotropy_egger",
       "notes": [
-        "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
       ],
       "reference": "R TwoSampleMR::mr_egger_regression (intercept test)",
       "reference_versions": {
@@ -6808,7 +6808,7 @@
       ],
       "function": "mr_presso",
       "notes": [
-        "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
       ],
       "reference": "R MRPRESSO::mr_presso (NbDistribution = 2000)",
       "reference_versions": {
@@ -6838,7 +6838,7 @@
       ],
       "function": "mr_radial",
       "notes": [
-        "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
       ],
       "reference": "R RadialMR::ivw_radial (alpha = 0.05, no Bonferroni)",
       "reference_versions": {
@@ -6868,7 +6868,7 @@
       ],
       "function": "mr_raps",
       "notes": [
-        "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
       ],
       "reference": "R mr.raps 0.4.3 (simple / overdispersed / overdispersed.robust)",
       "reference_versions": {
@@ -6898,7 +6898,7 @@
       ],
       "function": "mr_steiger",
       "notes": [
-        "Added in 1.27.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
+        "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
       ],
       "reference": "R TwoSampleMR::mr_steiger with r from get_r_from_bsen",
       "reference_versions": {
@@ -7056,7 +7056,7 @@
       ],
       "function": "netlm",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R sna::netlm",
       "reference_versions": {
@@ -7082,7 +7082,7 @@
       ],
       "function": "netlogit",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R sna::netlogit",
       "reference_versions": {
@@ -7108,7 +7108,7 @@
       ],
       "function": "network_components",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R igraph::components",
       "reference_versions": {
@@ -7168,7 +7168,7 @@
       ],
       "function": "network_modularity",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R igraph::modularity",
       "reference_versions": {
@@ -7194,7 +7194,7 @@
       ],
       "function": "network_summary",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R igraph edge_density / diameter / mean_distance / transitivity",
       "reference_versions": {
@@ -7563,7 +7563,7 @@
       ],
       "function": "pagerank",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R igraph::page_rank (damping 0.85)",
       "reference_versions": {
@@ -9098,7 +9098,7 @@
       ],
       "function": "reciprocity",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R igraph::reciprocity",
       "reference_versions": {
@@ -10973,7 +10973,7 @@
       ],
       "function": "transitivity",
       "notes": [
-        "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        "Added in 1.28.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
       ],
       "reference": "R igraph::transitivity(type = 'global')",
       "reference_versions": {

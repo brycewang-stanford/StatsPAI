@@ -76,7 +76,7 @@ def test_ivw_heterogeneity_matches_twosamplemr():
     ref = R["tsmr_ivw"]
     _close(r.Q, ref["Q"])
     assert r.Q_df == ref["Q_df"]
-    # Q_p = 3e-10. Before 1.27.0 this was `1 - chi2.cdf`, accurate only to
+    # Q_p = 3e-10. Before 1.28.0 this was `1 - chi2.cdf`, accurate only to
     # ~1e-16 absolute, i.e. 1e-7 relative here; the survival function is exact.
     _close(r.Q_p, ref["Q_pval"])
 

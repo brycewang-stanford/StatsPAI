@@ -322,7 +322,7 @@ def test_dyadic_regression_refuses_self_dyads():
 
 
 # ── the individual centrality functions, called directly ──────────────────
-# These four were graded cross-language before 1.27.0 on a test of closed
+# These four were graded cross-language before 1.28.0 on a test of closed
 # forms (star, triangle, path) that never consulted R. The dispatcher tests
 # above exercise them indirectly; these call each one by name so the index
 # entry for each function points at a comparison that actually ran.

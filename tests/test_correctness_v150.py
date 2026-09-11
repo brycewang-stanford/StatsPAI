@@ -111,10 +111,10 @@ class TestMREggerUsesTDistribution:
 
 
 # ======================================================================
-# Fix 2 (v1.5.0), reversed in v1.27.0: mr_presso MC p-value convention
+# Fix 2 (v1.5.0), reversed in v1.28.0: mr_presso MC p-value convention
 #
 # v1.5.0 switched the PRESSO p-values to (k+1)/(B+1) so they could never be
-# exactly zero.  v1.27.0 ports MRPRESSO::mr_presso line by line and returns
+# exactly zero.  v1.28.0 ports MRPRESSO::mr_presso line by line and returns
 # to the reference's k/B: the outlier test multiplies every per-variant p by
 # the number of variants (Bonferroni), and under (k+1)/(B+1) the smallest
 # attainable adjusted p is n/(B+1) -- above 0.05 for 50 variants at B=1000,

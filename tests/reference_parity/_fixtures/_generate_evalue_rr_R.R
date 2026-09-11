@@ -4,7 +4,7 @@
 #
 # Requires: R + EValue. Run from any directory.
 #
-# Until 1.27.0 that test compared sp.evalue_rr against a closed form typed
+# Until 1.28.0 that test compared sp.evalue_rr against a closed form typed
 # into the test and then *asserted* that R's EValue implements the same
 # formula. It was graded as cross-language evidence without ever consulting
 # R. This fixture makes the comparison real: every point / CI case below is
