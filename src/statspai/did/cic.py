@@ -736,7 +736,7 @@ def cic(
         _pct(boot_att, 100 * (1 - alpha / 2)),
     )
     att_z = att_point / att_se if att_se > 0 else np.nan
-    att_pvalue = float(2 * (1 - stats.norm.cdf(np.abs(att_z))))
+    att_pvalue = float(2 * stats.norm.sf(np.abs(att_z)))
 
     # ── Build detail DataFrame ────────────────────────────────────── #
     detail = None
@@ -757,7 +757,7 @@ def cic(
         qte_ci_lo = _pct(boot_qte, 100 * alpha / 2, axis=0)
         qte_ci_hi = _pct(boot_qte, 100 * (1 - alpha / 2), axis=0)
         qte_z = np.where(qte_se > 0, qte_point / qte_se, np.nan)
-        qte_pv = 2 * (1 - stats.norm.cdf(np.abs(qte_z)))
+        qte_pv = 2 * stats.norm.sf(np.abs(qte_z))
 
         detail = pd.DataFrame(
             {

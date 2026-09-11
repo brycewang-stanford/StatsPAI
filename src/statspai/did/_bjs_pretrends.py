@@ -335,7 +335,7 @@ def bjs_pretrend_path(
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     with np.errstate(divide="ignore", invalid="ignore"):
         zstat = np.where(se > 0, beta / se, 0.0)
-    pvalue = 2.0 * (1.0 - stats.norm.cdf(np.abs(zstat)))
+    pvalue = 2.0 * stats.norm.sf(np.abs(zstat))
 
     frame = pd.DataFrame(
         {
@@ -358,7 +358,7 @@ def bjs_pretrend_path(
         joint = {
             "statistic": stat,
             "df": float(len(leads)),
-            "pvalue": float(1 - stats.chi2.cdf(stat, len(leads))),
+            "pvalue": float(stats.chi2.sf(stat, len(leads))),
             "method": "wald-cluster (BJS pretrends auxiliary regression)",
         }
     return frame, joint

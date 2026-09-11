@@ -811,7 +811,7 @@ class PSMatch2Result(ResultProtocolMixin):
 
         z = _stats.norm.ppf(1 - alpha / 2)
         tstat = beta / se if se > 0 else 0.0
-        pval = float(2 * (1 - _stats.norm.cdf(abs(tstat))))
+        pval = float(2 * _stats.norm.sf(abs(tstat)))
         ci = (beta - z * se, beta + z * se)
 
         out = CausalResult(

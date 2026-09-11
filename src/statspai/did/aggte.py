@@ -262,7 +262,7 @@ def aggte(
 
     z_point = stats.norm.ppf(1 - alpha / 2)
     denom = np.where(se_cells > 0, se_cells, np.nan)
-    pval = 2 * (1 - stats.norm.cdf(np.abs(est_cells / denom)))
+    pval = 2 * stats.norm.sf(np.abs(est_cells / denom))
 
     out = pd.DataFrame(
         {
@@ -370,7 +370,7 @@ def aggte(
             overall_se = float(np.sqrt(np.sum((w_overall**2) * se_cells**2)))
 
     overall_z = overall_est / overall_se if overall_se > 0 else 0.0
-    overall_pval = float(2 * (1 - stats.norm.cdf(abs(overall_z))))
+    overall_pval = float(2 * stats.norm.sf(abs(overall_z)))
     overall_ci = (
         overall_est - z_point * overall_se,
         overall_est + z_point * overall_se,

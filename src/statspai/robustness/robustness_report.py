@@ -30,8 +30,8 @@ Usage
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -308,7 +308,7 @@ def _quick_ols(
     se_x = se[1]
     df_resid = n - k
     t_stat = beta_x / se_x if se_x > 0 else np.inf
-    p_val = 2 * (1 - stats.t.cdf(abs(t_stat), df_resid))
+    p_val = 2 * stats.t.sf(abs(t_stat), df_resid)
     t_crit = stats.t.ppf(0.975, df_resid)
     r2 = 1 - np.sum(resid**2) / np.sum((Y - Y.mean()) ** 2)
 

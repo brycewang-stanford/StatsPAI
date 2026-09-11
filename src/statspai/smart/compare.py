@@ -23,11 +23,13 @@ Usage
 
 from __future__ import annotations
 
-from typing import Optional, List, Dict, Any
+import warnings
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats
-import warnings
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -613,7 +615,7 @@ def compare_estimators(
             else:
                 continue
 
-            p_val = 2 * (1 - stats.norm.cdf(abs(est / se))) if se > 0 else np.nan
+            p_val = 2 * stats.norm.sf(abs(est / se)) if se > 0 else np.nan
             rows.append(
                 {
                     "method": name,

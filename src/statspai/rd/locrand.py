@@ -434,7 +434,7 @@ def rdrandinf(
         # Asymptotic p-value
         if se_iv > 0 and not np.isnan(se_iv):
             t_stat = tau_iv / se_iv
-            asym_pval = 2 * (1 - sp_stats.norm.cdf(abs(t_stat)))
+            asym_pval = 2 * sp_stats.norm.sf(abs(t_stat))
         else:
             asym_pval = np.nan  # pragma: no cover
 

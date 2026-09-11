@@ -214,7 +214,7 @@ def rddensity(
     diff = float(fV[2, 0])
     se_diff = float(np.sqrt(fV[2, 1])) if np.isfinite(fV[2, 1]) else 0.0
     T_stat = diff / se_diff if se_diff > 0 else 0.0
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(T_stat))))
+    pvalue = float(2 * stats.norm.sf(abs(T_stat)))
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (diff - z_crit * se_diff, diff + z_crit * se_diff)

@@ -35,6 +35,7 @@ from typing import Any, Optional
 
 import numpy as np
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
@@ -531,7 +532,7 @@ def cohen_kappa(
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (kappa - z_crit * se, kappa + z_crit * se)
     z = kappa / se if se > 0 else 0.0
-    p = float(2 * (1 - stats.norm.cdf(abs(z))))
+    p = float(2 * stats.norm.sf(abs(z)))
 
     return KappaResult(
         kappa=float(kappa),

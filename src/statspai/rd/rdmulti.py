@@ -309,7 +309,7 @@ def rdmc(
 
     for c in cutoffs:
         tau, se, n_local = _local_linear_rd(y_data, x_data, c, bandwidth_value, kernel)
-        p_val = 2 * (1 - stats.norm.cdf(abs(tau / se))) if se > 0 else np.nan
+        p_val = 2 * stats.norm.sf(abs(tau / se)) if se > 0 else np.nan
 
         cutoff_results.append(
             {

@@ -21,11 +21,11 @@ Keele, L. and Titiunik, R. (2015).
 *Political Analysis*, 23(1), 127-155. [@keele2015geographic]
 """
 
-from typing import Optional, Callable, Tuple, Dict, Any
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import stats, optimize
+from scipy import optimize, stats
 
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -689,7 +689,7 @@ def _rd2d_distance(
     # Inference
     z_crit = stats.norm.ppf(1 - alpha / 2)
     z_stat = tau / se if se > 0 else 0.0
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(z_stat))))
+    pvalue = float(2 * stats.norm.sf(abs(z_stat)))
     ci = (tau - z_crit * se, tau + z_crit * se)
 
     detail = pd.DataFrame(
@@ -778,7 +778,7 @@ def _rd2d_location(
         )
 
         z_k = tau_k / se_k if se_k > 0 else 0.0
-        pv_k = float(2 * (1 - stats.norm.cdf(abs(z_k))))
+        pv_k = float(2 * stats.norm.sf(abs(z_k)))
         ci_k = (tau_k - z_crit * se_k, tau_k + z_crit * se_k)
 
         point_results.append(
@@ -806,7 +806,7 @@ def _rd2d_location(
         )
 
     z_pool = tau_pool / se_pool if se_pool > 0 else 0.0
-    pv_pool = float(2 * (1 - stats.norm.cdf(abs(z_pool))))
+    pv_pool = float(2 * stats.norm.sf(abs(z_pool)))
     ci_pool = (tau_pool - z_crit * se_pool, tau_pool + z_crit * se_pool)
 
     model_info: Dict[str, Any] = {
@@ -963,7 +963,8 @@ def _local_poly_rd_1d(
 # minimum-obs threshold tightens from k+1 to k+2, which only matters
 # in pathological small-bandwidth cases and trades a single observation
 # for numerical stability in the HC1 degrees-of-freedom correction).
-from ._core import _local_poly_wls as _wls_local_poly, _sandwich_variance  # noqa: E402
+from ._core import _local_poly_wls as _wls_local_poly  # noqa: E402
+from ._core import _sandwich_variance
 
 # ======================================================================
 # Bivariate local polynomial (for location approach)

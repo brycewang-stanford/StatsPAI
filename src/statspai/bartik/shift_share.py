@@ -369,9 +369,7 @@ class BartikIV:
         rss_r = resid_restricted @ resid_restricted
         df_denom = n - Z.shape[1]
         f_stat = ((rss_r - rss_f) / 1) / (rss_f / df_denom) if df_denom > 0 else np.nan
-        f_pvalue = (
-            1 - stats.f.cdf(f_stat, 1, df_denom) if not np.isnan(f_stat) else np.nan
-        )
+        f_pvalue = stats.f.sf(f_stat, 1, df_denom) if not np.isnan(f_stat) else np.nan
 
         # --- Second stage: Y ~ endog_hat + exog ---
         X_2sls = np.column_stack([X_exog, X_endog_hat])

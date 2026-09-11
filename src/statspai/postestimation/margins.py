@@ -135,7 +135,7 @@ def _linear_margins(
         dydx = float(params[var])
         se = float(np.sqrt(var_cov[idx, idx])) if idx < var_cov.shape[0] else 0
         z = dydx / se if se > 0 else 0
-        pv = float(2 * (1 - stats.norm.cdf(abs(z))))
+        pv = float(2 * stats.norm.sf(abs(z)))
 
         rows.append(
             {
@@ -191,7 +191,7 @@ def _numerical_margins(
         # Bootstrap SE (simplified: use delta method with linear approximation)
         se = float(np.std(dydx_values, ddof=1) / np.sqrt(len(dydx_values)))
         z = dydx / se if se > 0 else 0
-        pv = float(2 * (1 - stats.norm.cdf(abs(z))))
+        pv = float(2 * stats.norm.sf(abs(z)))
 
         rows.append(
             {
@@ -722,7 +722,7 @@ def contrast(
             grad_diff = level_grads[lev] - level_grads[reference]
             se = float(np.sqrt(grad_diff @ vcov @ grad_diff))
             z = diff / se if se > 0 else 0.0
-            pv = float(2 * (1 - stats.norm.cdf(abs(z))))
+            pv = float(2 * stats.norm.sf(abs(z)))
             rows.append(
                 {
                     "contrast_label": f"{lev} vs {reference}",
@@ -742,7 +742,7 @@ def contrast(
             grad_diff = level_grads[lev] - level_grads[prev]
             se = float(np.sqrt(grad_diff @ vcov @ grad_diff))
             z = diff / se if se > 0 else 0.0
-            pv = float(2 * (1 - stats.norm.cdf(abs(z))))
+            pv = float(2 * stats.norm.sf(abs(z)))
             rows.append(
                 {
                     "contrast_label": f"{lev} vs {prev}",
@@ -766,7 +766,7 @@ def contrast(
             grad_diff = level_grads[lev] - grand_grad
             se = float(np.sqrt(grad_diff @ vcov @ grad_diff))
             z = diff / se if se > 0 else 0.0
-            pv = float(2 * (1 - stats.norm.cdf(abs(z))))
+            pv = float(2 * stats.norm.sf(abs(z)))
             rows.append(
                 {
                     "contrast_label": f"{lev} vs grand mean",
@@ -878,7 +878,7 @@ def pwcompare(
         grad_diff = level_grads[lev_b] - level_grads[lev_a]
         se = float(np.sqrt(grad_diff @ vcov @ grad_diff))
         z = diff / se if se > 0 else 0.0
-        pv = float(2 * (1 - stats.norm.cdf(abs(z))))
+        pv = float(2 * stats.norm.sf(abs(z)))
         rows.append(
             {
                 "comparison": f"{lev_b} vs {lev_a}",

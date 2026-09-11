@@ -711,7 +711,7 @@ def callaway_santanna(
             unit_weights,
         )
 
-        pval = 2 * (1 - stats.norm.cdf(abs(att / se))) if se > 0 else 1.0
+        pval = 2 * stats.norm.sf(abs(att / se)) if se > 0 else 1.0
 
         gt_results.append(
             {
@@ -770,7 +770,7 @@ def callaway_santanna(
         detail["se"] = se_new
         detail["pvalue"] = np.where(
             np.isfinite(se_new) & (se_new > 0),
-            2 * (1 - stats.norm.cdf(np.abs(z_stat))),
+            2 * stats.norm.sf(np.abs(z_stat)),
             1.0,
         )
         detail["ci_lower"] = att_vals - z_crit * se_new
@@ -2077,7 +2077,7 @@ def _aggregate_simple(
         )
 
     z = att_agg / se_agg if se_agg > 0 else 0
-    pval = float(2 * (1 - stats.norm.cdf(abs(z))))
+    pval = float(2 * stats.norm.sf(abs(z)))
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (att_agg - z_crit * se_agg, att_agg + z_crit * se_agg)
 
@@ -2126,7 +2126,7 @@ def _aggregate_event_study(
         else:
             se_e = float(np.sqrt(np.average(sub["se"].values ** 2, weights=weights)))
 
-        pval = float(2 * (1 - stats.norm.cdf(abs(att_e / se_e)))) if se_e > 0 else 1.0
+        pval = float(2 * stats.norm.sf(abs(att_e / se_e))) if se_e > 0 else 1.0
 
         rows.append(
             {
@@ -2158,9 +2158,7 @@ def _aggregate_event_study(
         es["se"] = se_vec
         with np.errstate(divide="ignore", invalid="ignore"):
             z_stat = np.where(se_vec > 0, att_vals / se_vec, 0.0)
-        es["pvalue"] = np.where(
-            se_vec > 0, 2 * (1 - stats.norm.cdf(np.abs(z_stat))), 1.0
-        )
+        es["pvalue"] = np.where(se_vec > 0, 2 * stats.norm.sf(np.abs(z_stat)), 1.0)
         es["ci_lower"] = att_vals - z_crit * se_vec
         es["ci_upper"] = att_vals + z_crit * se_vec
 
@@ -2541,7 +2539,7 @@ def _callaway_santanna_rcs(
             inf_func = _fold(inf_func)
             if np.isfinite(se):
                 se = float(np.sqrt(np.mean(inf_func**2) / n_scale))
-        pval = float(2 * (1 - stats.norm.cdf(abs(att / se)))) if se > 0 else 1.0
+        pval = float(2 * stats.norm.sf(abs(att / se))) if se > 0 else 1.0
         gt_results.append(
             {
                 "group": g_val,
@@ -2611,7 +2609,7 @@ def _callaway_santanna_rcs(
         detail["se"] = se_new
         detail["pvalue"] = np.where(
             np.isfinite(se_new) & (se_new > 0),
-            2 * (1 - stats.norm.cdf(np.abs(z_stat))),
+            2 * stats.norm.sf(np.abs(z_stat)),
             1.0,
         )
         detail["ci_lower"] = att_vals - z_crit * se_new

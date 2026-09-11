@@ -430,7 +430,7 @@ def _gmm_fit(
         g_bar = W.T @ residuals / n
         j_stat = float(n * g_bar @ S_inv @ g_bar)
         j_df = m - k2
-        j_pvalue = float(1 - stats.chi2.cdf(j_stat, j_df))
+        j_pvalue = float(stats.chi2.sf(j_stat, j_df))
         hansen_j = {"statistic": j_stat, "pvalue": j_pvalue, "df": j_df}
     else:
         hansen_j = None
@@ -601,7 +601,7 @@ def _first_stage_diagnostics(
 
         if rss_full > 0 and df_denom > 0:
             f_stat = ((rss_restricted - rss_full) / df_num) / (rss_full / df_denom)
-            f_pvalue = 1 - stats.f.cdf(f_stat, df_num, df_denom)
+            f_pvalue = stats.f.sf(f_stat, df_num, df_denom)
         else:
             f_stat = f_pvalue = np.nan
 
@@ -809,7 +809,7 @@ def _hansen_j(
     stat = float(g @ S_inv @ g)
     return {
         "statistic": stat,
-        "pvalue": float(1 - stats.chi2.cdf(stat, df)),
+        "pvalue": float(stats.chi2.sf(stat, df)),
         "df": int(df),
     }
 
@@ -888,7 +888,7 @@ def _sargan_test(
 
     stat = (residuals @ P_W @ residuals) / (residuals @ residuals / n)
     df = n_excluded - n_endog
-    pvalue = 1 - stats.chi2.cdf(stat, df) if df > 0 else np.nan
+    pvalue = stats.chi2.sf(stat, df) if df > 0 else np.nan
 
     return {"statistic": stat, "pvalue": pvalue, "df": df}
 
@@ -939,7 +939,7 @@ def _hausman_test(
 
         if rss_aug > 0 and df_denom > 0:
             f_stat = ((rss_orig - rss_aug) / df_num) / (rss_aug / df_denom)
-            f_pvalue = 1 - stats.f.cdf(f_stat, df_num, df_denom)
+            f_pvalue = stats.f.sf(f_stat, df_num, df_denom)
         else:
             f_stat = f_pvalue = np.nan
     except np.linalg.LinAlgError:
@@ -2408,9 +2408,7 @@ def ivreg(
         se = cr["std_errors"]
         base.std_errors = se
         z = base.params / se
-        base.pvalues = pd.Series(
-            2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
-        )
+        base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
         crit = _stats.norm.ppf(0.975)
         base.conf_int_lower = base.params - crit * se
         base.conf_int_upper = base.params + crit * se
@@ -2446,9 +2444,7 @@ def ivreg(
         se = cv["std_errors"]
         base.std_errors = se
         z = base.params / se
-        base.pvalues = pd.Series(
-            2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
-        )
+        base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
         crit = _stats.norm.ppf(0.975)
         base.conf_int_lower = base.params - crit * se
         base.conf_int_upper = base.params + crit * se
@@ -2480,9 +2476,7 @@ def ivreg(
         se = tw["std_errors"]
         base.std_errors = se
         z = base.params / se
-        base.pvalues = pd.Series(
-            2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
-        )
+        base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
         crit = _stats.norm.ppf(0.975)
         base.conf_int_lower = base.params - crit * se
         base.conf_int_upper = base.params + crit * se

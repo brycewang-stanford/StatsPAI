@@ -630,7 +630,7 @@ class MEGLMResult(ResultProtocolMixin):
     @property
     def pvalues(self) -> pd.Series:
         z = self.tvalues.abs()
-        return 2.0 * (1.0 - stats.norm.cdf(z))
+        return 2.0 * stats.norm.sf(z)
 
     @property
     def n_fixed(self) -> int:
@@ -748,7 +748,7 @@ class MEGLMResult(ResultProtocolMixin):
             b = self.fixed_effects[var]
             se = self._se_fixed[var] if self._se_fixed is not None else np.nan
             z = b / se if se and se > 0 else np.nan
-            p = 2 * (1 - stats.norm.cdf(abs(z))) if z == z else np.nan
+            p = 2 * stats.norm.sf(abs(z)) if z == z else np.nan
             lo, hi = b - z_crit * se, b + z_crit * se
             lines.append(
                 f"{var:>18s} {b:10.4f} {se:10.4f} {z:8.3f} {p:8.4f}  "
@@ -772,7 +772,7 @@ class MEGLMResult(ResultProtocolMixin):
             b = self.fixed_effects[var]
             se = self._se_fixed[var]
             z = b / se if se else float("nan")
-            p = 2 * (1 - stats.norm.cdf(abs(z))) if z == z else float("nan")
+            p = 2 * stats.norm.sf(abs(z)) if z == z else float("nan")
             rows.append(f"| {var} | {b:.4f} | {se:.4f} | {z:.3f} | {p:.4f} |")
         vc_rows = [f"| {n} | {v:.6f} |" for n, v in self.variance_components.items()]
         return (
@@ -853,7 +853,7 @@ class MEGLMResult(ResultProtocolMixin):
             b = self.fixed_effects[var]
             se = self._se_fixed[var]
             z = b / se if se else float("nan")
-            p = 2 * (1 - stats.norm.cdf(abs(z))) if z == z else float("nan")
+            p = 2 * stats.norm.sf(abs(z)) if z == z else float("nan")
             lines.append(f"{var} & {b:.4f} & {se:.4f} & {z:.3f} & {p:.4f} \\\\")
         lines.append(r"\midrule")
         lines.append(r"\multicolumn{5}{l}{\textit{Variance components}} \\")

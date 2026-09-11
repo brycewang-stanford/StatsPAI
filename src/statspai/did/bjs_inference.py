@@ -196,7 +196,7 @@ def bjs_pretrend_joint(
         W = float(pre_att @ np.linalg.solve(cov_reg, pre_att))
     except np.linalg.LinAlgError:
         W = float(pre_att @ np.linalg.pinv(cov_reg) @ pre_att)
-    pval = float(1 - stats.chi2.cdf(W, K))
+    pval = float(stats.chi2.sf(W, K))
 
     return {
         "statistic": W,

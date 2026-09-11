@@ -21,10 +21,10 @@ from __future__ import annotations
 from typing import Optional
 
 import numpy as np
-from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 from scipy import stats
 
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
 
 
@@ -243,7 +243,7 @@ def did_misclassified(
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (corrected_att - z_crit * se, corrected_att + z_crit * se)
     z = corrected_att / se if se > 0 else 0.0
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
+    pvalue = float(2 * stats.norm.sf(abs(z)))
 
     _result = CausalResult(
         method="Staggered DiD with Misclassification + Anticipation",

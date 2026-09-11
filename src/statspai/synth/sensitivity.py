@@ -202,7 +202,7 @@ def synth_loo(
                 penalization=penalization,
             )
             z = res["att"] / res["se"] if res["se"] > 1e-10 else np.inf
-            pval = float(2 * (1 - stats.norm.cdf(abs(z))))
+            pval = float(2 * stats.norm.sf(abs(z)))
             records.append(
                 {
                     "dropped_unit": drop,
@@ -307,7 +307,7 @@ def synth_time_placebo(
                 penalization=penalization,
             )
             z = res["att"] / res["se"] if res["se"] > 1e-10 else np.inf
-            pval = float(2 * (1 - stats.norm.cdf(abs(z))))
+            pval = float(2 * stats.norm.sf(abs(z)))
             records.append(
                 {
                     "placebo_time": pt,

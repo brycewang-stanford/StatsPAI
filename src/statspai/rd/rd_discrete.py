@@ -247,7 +247,7 @@ def rd_discrete(
     )
 
     # --- p-value -----------------------------------------------------
-    pvalue = 2 * (1 - stats.norm.cdf(abs(tau_hat) / se)) if se > 0 else float("nan")
+    pvalue = 2 * stats.norm.sf(abs(tau_hat) / se) if se > 0 else float("nan")
 
     summary = (
         "\n"

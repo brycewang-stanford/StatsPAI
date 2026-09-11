@@ -96,7 +96,7 @@ def getis_ord_g(
         VG = float(np.var(sims, ddof=1))
         if VG > 0:
             z_score = (G - EG) / np.sqrt(VG)
-            p_norm = 2 * (1 - sp_stats.norm.cdf(abs(z_score)))
+            p_norm = 2 * sp_stats.norm.sf(abs(z_score))
 
     return SpatialStatistic(
         name="Getis-Ord G",

@@ -231,7 +231,7 @@ def _vuong_test(
     if s_m < 1e-15:
         return {"vuong_stat": 0.0, "vuong_p": 1.0}
     V = np.sqrt(n) * m_bar / s_m
-    p = 2 * (1 - stats.norm.cdf(np.abs(V)))
+    p = 2 * stats.norm.sf(np.abs(V))
     return {"vuong_stat": float(V), "vuong_p": float(p)}
 
 

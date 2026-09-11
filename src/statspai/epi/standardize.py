@@ -17,6 +17,7 @@ from typing import Sequence
 
 import numpy as np
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
@@ -204,7 +205,7 @@ def indirect_standardize(
     else:
         # Mid-p two-sided test
         lower = stats.poisson.cdf(observed, expected)
-        upper = 1 - stats.poisson.cdf(observed - 1, expected)
+        upper = stats.poisson.sf(observed - 1, expected)
         p_one = min(lower, upper)
     p_two = float(min(1.0, 2.0 * p_one))
 

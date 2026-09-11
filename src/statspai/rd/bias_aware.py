@@ -38,8 +38,8 @@ NBER Working Paper No. 33972. doi:10.3386/w33972. [@kaliski2025power]
 
 from __future__ import annotations
 
-from typing import Optional
 import warnings
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -330,7 +330,7 @@ def rd_bias_aware_fuzzy(
     # P-value derived from the bias-aware test of H0: τ=0
     # (whether 0 lies in the bias-aware CI).
     pvalue = (
-        2 * (1 - stats.norm.cdf(abs(tau_hat) / se_naive))
+        2 * stats.norm.sf(abs(tau_hat) / se_naive)
         if (np.isfinite(tau_hat) and np.isfinite(se_naive) and se_naive > 0)
         else float("nan")
     )

@@ -39,16 +39,14 @@ from typing import Any, Dict, List, Optional, Tuple, cast
 import numpy as np
 import pandas as pd
 
+from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility, NumericalInstability
 from ._result_protocol import jsonable as _jsonable
 from ._result_protocol import tidy_records as _tidy_records
-from ._validation import (
-    nonempty_sample as _nonempty_sample,
-    nonnegative_finite_float as _nonnegative_finite_float,
-    positive_int as _positive_int,
-    positive_weight_mass as _positive_weight_mass,
-)
-from .._result_serialize import ResultProtocolMixin
+from ._validation import nonempty_sample as _nonempty_sample
+from ._validation import nonnegative_finite_float as _nonnegative_finite_float
+from ._validation import positive_int as _positive_int
+from ._validation import positive_weight_mass as _positive_weight_mass
 
 # Optional Rust kernel for the weighted IRLS-internal demean. When available,
 # the dispatcher below routes to it; when not, the pure-NumPy fallback runs.
@@ -117,7 +115,7 @@ class FePoisResult(ResultProtocolMixin):
         # Two-sided z-test; large-sample for fepois.
         from scipy.stats import norm
 
-        p = 2.0 * (1.0 - norm.cdf(np.abs(t)))
+        p = 2.0 * norm.sf(np.abs(t))
         return pd.DataFrame(
             {
                 "Estimate": b,

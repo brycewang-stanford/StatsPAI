@@ -627,7 +627,7 @@ def sun_abraham(
         )
         var_e = float(w @ V_int @ w) + float(beta_e @ var_share @ beta_e)
         se_e = float(np.sqrt(max(var_e, 0.0)))
-        pval = float(2 * (1 - stats.norm.cdf(abs(est_e / se_e)))) if se_e > 0 else 1.0
+        pval = float(2 * stats.norm.sf(abs(est_e / se_e))) if se_e > 0 else 1.0
 
         # Keep the linear combination and the share-variance block so the
         # pre-trend test below can build the JOINT covariance rather than
@@ -712,7 +712,7 @@ def sun_abraham(
     att, se_att, _ = summary_stats[aggregation_key]
 
     z = att / se_att if se_att > 0 else 0.0
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
+    pvalue = float(2 * stats.norm.sf(abs(z)))
     ci = (att - z_crit * se_att, att + z_crit * se_att)
 
     model_info = {

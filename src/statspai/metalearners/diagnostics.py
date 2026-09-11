@@ -551,7 +551,7 @@ def gate_test(
     se_diff = np.sqrt(top["se"] ** 2 + bottom["se"] ** 2)
     if se_diff > 0:
         z = diff / se_diff
-        tvb_pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
+        tvb_pvalue = float(2 * stats.norm.sf(abs(z)))
     else:
         tvb_pvalue = np.nan
 

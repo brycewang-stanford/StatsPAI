@@ -26,6 +26,7 @@ from typing import Dict, Sequence
 
 import numpy as np
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
@@ -233,7 +234,7 @@ def heterogeneity_of_effect(
     df = k - 1
     c = w.sum() - (w**2).sum() / w.sum()
     tau2 = max((q - df) / c, 0.0) if c > 0 else 0.0
-    q_p = float(1 - stats.chi2.cdf(q, df))
+    q_p = float(stats.chi2.sf(q, df))
     i2 = max(0.0, (q - df) / q) if q > 0 else 0.0
     return HeterogeneityResult(
         tau2=float(tau2),

@@ -166,7 +166,7 @@ class QTEResult(ResultProtocolMixin):
             se_i = self.se[i]
             lo = self.ci_lower[i]
             hi = self.ci_upper[i]
-            pv = 2 * (1 - stats.norm.cdf(abs(eff / se_i))) if se_i > 0 else np.nan
+            pv = 2 * stats.norm.sf(abs(eff / se_i)) if se_i > 0 else np.nan
             s = self._stars(pv)
             lines.append(
                 f"  {tau:6.2f}  {eff:>10.4f}{s:<3s}  ({se_i:.4f})  "
@@ -191,7 +191,7 @@ class QTEResult(ResultProtocolMixin):
             se_i = self.se[i]
             lo = self.ci_lower[i]
             hi = self.ci_upper[i]
-            pv = 2 * (1 - stats.norm.cdf(abs(eff / se_i))) if se_i > 0 else np.nan
+            pv = 2 * stats.norm.sf(abs(eff / se_i)) if se_i > 0 else np.nan
             s = self._stars(pv)
             rows += (
                 f"<tr><td>{tau:.2f}</td><td>{eff:.4f}{s}</td>"

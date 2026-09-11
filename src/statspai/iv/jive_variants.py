@@ -267,7 +267,7 @@ def _run(
     params = pd.Series(res["params"], index=names)
     se = pd.Series(res["std_errors"], index=names)
     tvals = params / se.replace(0, np.nan)
-    pvals = 2 * (1 - stats.norm.cdf(np.abs(tvals.values)))
+    pvals = 2 * stats.norm.sf(np.abs(tvals.values))
 
     _result = JIVEResult(
         method={

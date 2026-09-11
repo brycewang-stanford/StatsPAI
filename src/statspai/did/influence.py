@@ -278,9 +278,7 @@ def aggte_from_influence(
             "time": pairs["time"],
             "att": att,
             "se": se,
-            "pvalue": np.where(
-                np.isfinite(se), 2 * (1 - stats.norm.cdf(np.abs(z))), 1.0
-            ),
+            "pvalue": np.where(np.isfinite(se), 2 * stats.norm.sf(np.abs(z)), 1.0),
             "relative_time": pairs["relative_time"],
         }
     )

@@ -34,7 +34,7 @@ References
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -351,7 +351,7 @@ def dml_diagnostics(result: Any, clip: float = 0.02) -> DMLDiagnostics:
         orth_stat = float(np.mean(psi) / (score_sd / np.sqrt(n)))
     else:
         orth_stat = 0.0
-    orth_pvalue = float(2 * (1 - stats.norm.cdf(abs(orth_stat))))
+    orth_pvalue = float(2 * stats.norm.sf(abs(orth_stat)))
     orth_warning = None
     if orth_pvalue < 0.01:
         orth_warning = (

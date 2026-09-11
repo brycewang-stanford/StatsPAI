@@ -251,6 +251,23 @@ analyses should be re-run**; `MIGRATION.md#mr-sweep` has the table.
   `RadialMR::ivw_radial`'s outlier list; the Bonferroni default is kept.
 - The Mendelian-family guide is updated for all of the above.
 
+### ⚠️ Correctness fixes — small p-values package-wide
+
+- **335 p-values in 180 modules were computed as `1 − cdf(x)`**, including
+  the coefficient table of every result built on `EconometricResults`
+  (`sp.regress` and the estimators that share it). In double precision
+  `1 − cdf` is accurate only to ~1e-16 *absolute*: a p-value of 1e-10
+  carries a relative error near 1e-6, and anything below ~1e-16 is returned
+  as exactly 0.0 (for a normal test, any |z| above ~8.3). They are now the
+  distribution's survival function, `sf(x)`, which is accurate across the
+  whole range. Moderate p-values move by at most a few units in the 16th
+  decimal; tiny ones become correct instead of 0. The rewrite was done on
+  the syntax tree — `1 − <scipy distribution>.cdf(args)` → `.sf(args)`,
+  including frozen distributions — so operator precedence is never guessed;
+  two call sites through lazily imported `scipy.stats` were converted by
+  hand. Found when the MR sweep's heterogeneity p-value (3e-10) disagreed
+  with `TwoSampleMR` at 1e-7.
+
 ## [1.27.0] — 2026-09-12
 
 ### ⚠️ Correctness

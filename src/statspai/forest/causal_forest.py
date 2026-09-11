@@ -1252,7 +1252,7 @@ class CausalForest(BaseModel):
         se = np.sqrt(np.diag(cov))
         tvals = beta / np.where(se > 0, se, np.nan)
         df = max(n - p, 1)
-        pvals = 2.0 * (1.0 - _stats.t.cdf(np.abs(tvals), df=df))
+        pvals = 2.0 * _stats.t.sf(np.abs(tvals), df=df)
         z = float(_stats.t.ppf(1.0 - alpha_value / 2.0, df=df))
 
         names = ["Intercept"] + (self._feature_names or [f"X{j}" for j in range(k)])
@@ -1297,13 +1297,7 @@ class CausalForest(BaseModel):
                 ci=(detail["ci_low"], detail["ci_high"]),
                 pvalue=(
                     float(
-                        2
-                        * (
-                            1
-                            - _sp_stats().norm.cdf(
-                                abs(detail["estimate"] / detail["se"])
-                            )
-                        )
+                        2 * _sp_stats().norm.sf(abs(detail["estimate"] / detail["se"]))
                     )
                     if detail.get("se")
                     else None

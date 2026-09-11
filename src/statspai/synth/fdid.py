@@ -614,9 +614,7 @@ def fdid(
             se = float(np.std(donor_atts, ddof=1) / np.sqrt(len(donor_atts)))
             z = stats.norm.ppf(1 - alpha / 2)
             ci = (att - z * se, att + z * se)
-            pvalue = (
-                float(2 * (1 - stats.norm.cdf(abs(att / se)))) if se > 0 else np.nan
-            )
+            pvalue = float(2 * stats.norm.sf(abs(att / se))) if se > 0 else np.nan
 
     # ------------------------------------------------------------------
     # Selected donor info

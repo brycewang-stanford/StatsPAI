@@ -289,7 +289,7 @@ def rdhte(
         ci_lower_vals[i] = cate_i - z_crit * se_i
         ci_upper_vals[i] = cate_i + z_crit * se_i
         z_stat = cate_i / se_i if se_i > 1e-15 else 0.0
-        pv_vals[i] = float(2 * (1 - stats.norm.cdf(abs(z_stat))))
+        pv_vals[i] = float(2 * stats.norm.sf(abs(z_stat)))
 
     # --- Average CATE (the ATE) ---
     ate = float(np.mean(cate_vals))
@@ -300,7 +300,7 @@ def rdhte(
     ate_var = float(w_avg @ vcov_diff @ w_avg)
     ate_se = float(np.sqrt(max(ate_var, 0)))
     ate_z = ate / ate_se if ate_se > 1e-15 else 0.0
-    ate_pv = float(2 * (1 - stats.norm.cdf(abs(ate_z))))
+    ate_pv = float(2 * stats.norm.sf(abs(ate_z)))
     ate_ci = (ate - z_crit * ate_se, ate + z_crit * ate_se)
 
     # --- Heterogeneity test: H0: gamma_R - gamma_L = 0 ---
@@ -599,7 +599,7 @@ def rdhte_lincom(
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (estimate - z_crit * se, estimate + z_crit * se)
     z_stat = estimate / se if se > 1e-15 else 0.0
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(z_stat))))
+    pvalue = float(2 * stats.norm.sf(abs(z_stat)))
 
     return {
         "estimate": estimate,
@@ -746,7 +746,7 @@ def _heterogeneity_test(
         wald_stat = float(diff_gamma @ Sigma_inv @ diff_gamma)
 
     wald_stat = max(wald_stat, 0.0)
-    wald_pv = float(1 - stats.chi2.cdf(wald_stat, df=dz))
+    wald_pv = float(stats.chi2.sf(wald_stat, df=dz))
 
     return {
         "statistic": wald_stat,

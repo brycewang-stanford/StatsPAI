@@ -189,9 +189,7 @@ def cbps(
     se = float(np.std(boot_used, ddof=1)) if boot_used.size > 1 else np.nan
     z = sp_stats.norm.ppf(1 - alpha / 2)
     ci = (est - z * se, est + z * se) if np.isfinite(se) else (np.nan, np.nan)
-    pval = (
-        float(2 * (1 - sp_stats.norm.cdf(abs(est) / se))) if se and se > 0 else np.nan
-    )
+    pval = float(2 * sp_stats.norm.sf(abs(est) / se)) if se and se > 0 else np.nan
 
     # Balance diagnostics: std mean difference after weighting
     mean_t = (X[T == 1] * w1[T == 1, None]).sum(axis=0) / max(w1[T == 1].sum(), 1e-12)

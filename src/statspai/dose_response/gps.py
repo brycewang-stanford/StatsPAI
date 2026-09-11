@@ -25,7 +25,8 @@ Kennedy, E. H., Ma, Z., McHugh, M. D., & Small, D. S. (2017).
 treatment effects." JRSS-B, 79(4), 1229-1245. [@kennedy2017parametric]
 """
 
-from typing import List, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
@@ -268,7 +269,7 @@ class DoseResponse:
 
         if se_iqr > 0:
             z_stat = effect_iqr / se_iqr
-            pvalue = float(2 * (1 - sp_stats.norm.cdf(abs(z_stat))))
+            pvalue = float(2 * sp_stats.norm.sf(abs(z_stat)))
         else:
             pvalue = 0.0
         ci = (effect_iqr - z_crit * se_iqr, effect_iqr + z_crit * se_iqr)

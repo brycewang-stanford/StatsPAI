@@ -60,6 +60,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
+
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
@@ -339,7 +340,7 @@ def _partial_corr_pvalue(
     z = 0.5 * np.log((1 + rho) / (1 - rho))
     se = 1.0 / np.sqrt(max(n - len(conditioning) - 3, 1))
     stat = abs(z) / se
-    pval = 2 * (1 - sp_stats.norm.cdf(stat))
+    pval = 2 * sp_stats.norm.sf(stat)
     return float(pval)
 
 

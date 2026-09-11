@@ -37,7 +37,8 @@ doi:10.1111/j.1468-0262.2004.00555.x.
 ``lee_bounds``; refs verified via Crossref and RePEc/IDEAS.)
 """
 
-from typing import Optional, List
+from typing import List, Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
@@ -215,7 +216,7 @@ def lee_bounds(
 
     if se_mid > 0:
         z_stat = midpoint / se_mid
-        pvalue = float(2 * (1 - sp_stats.norm.cdf(abs(z_stat))))
+        pvalue = float(2 * sp_stats.norm.sf(abs(z_stat)))
     else:
         pvalue = 0.0
 
@@ -416,7 +417,7 @@ def manski_bounds(
     se_mid = float((se_lb + se_ub) / 2)
 
     if se_mid > 0:
-        pvalue = float(2 * (1 - sp_stats.norm.cdf(abs(midpoint / se_mid))))
+        pvalue = float(2 * sp_stats.norm.sf(abs(midpoint / se_mid)))
     else:
         pvalue = 0.0
 

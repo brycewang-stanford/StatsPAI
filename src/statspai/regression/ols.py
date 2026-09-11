@@ -558,7 +558,7 @@ class OLSEstimator(BaseEstimator):
                 f_pvalue = 0.0
             else:
                 f_stat = ((r_squared - r_squared_restricted) / (k - 1)) / denom
-                f_pvalue = 1 - stats.f.cdf(f_stat, k - 1, n - k)
+                f_pvalue = stats.f.sf(f_stat, k - 1, n - k)
         else:
             f_stat = f_pvalue = np.nan
 
@@ -1283,9 +1283,7 @@ def regress(
         )
         base.std_errors = se
         z = base.params / se
-        base.pvalues = pd.Series(
-            2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
-        )
+        base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
         crit = _stats.norm.ppf(0.975)
         base.conf_int_lower = base.params - crit * se
         base.conf_int_upper = base.params + crit * se
@@ -1311,9 +1309,7 @@ def regress(
         se = ols_conley_vcov(base, data, conley_lat, conley_lon, conley_cutoff)
         base.std_errors = se
         z = base.params / se
-        base.pvalues = pd.Series(
-            2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
-        )
+        base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
         crit = _stats.norm.ppf(0.975)
         base.conf_int_lower = base.params - crit * se
         base.conf_int_upper = base.params + crit * se
@@ -1409,9 +1405,7 @@ def regress(
         se = two_way_correction_ols(base, c1_codes, c2_codes, c12_codes)
         base.std_errors = se
         z = base.params / se
-        base.pvalues = pd.Series(
-            2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
-        )
+        base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
         crit = _stats.norm.ppf(0.975)
         base.conf_int_lower = base.params - crit * se
         base.conf_int_upper = base.params + crit * se

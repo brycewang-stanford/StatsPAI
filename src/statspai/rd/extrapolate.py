@@ -136,7 +136,7 @@ def _partial_f_test(
     if df_resid <= 0:
         return np.nan, np.nan  # pragma: no cover
     f_stat = ((ssr_r - ssr_u) / q) / (ssr_u / df_resid)
-    p_value = 1.0 - sp_stats.f.cdf(f_stat, q, df_resid)
+    p_value = sp_stats.f.sf(f_stat, q, df_resid)
     return float(f_stat), float(p_value)
 
 
@@ -568,7 +568,7 @@ def rd_extrapolate(
     valid = ~np.isnan(cate_hat)
     ate = float(np.nanmean(cate_hat))
     ate_se = float(np.sqrt(np.nanmean(se_hat[valid] ** 2) / max(valid.sum(), 1)))
-    ate_pv = float(2 * (1 - sp_stats.norm.cdf(abs(ate) / max(ate_se, 1e-20))))
+    ate_pv = float(2 * sp_stats.norm.sf(abs(ate) / max(ate_se, 1e-20)))
     ate_ci = (ate - z_crit * ate_se, ate + z_crit * ate_se)
 
     model_info = {
@@ -788,7 +788,7 @@ def rd_multi_extrapolate(
         # Wald statistic: sum of (tau_j - tau_wbar)^2 / se_j^2
         wald_stat = np.sum(iv_weights * (tau_vals - tau_wbar) ** 2)
         wald_df = k - 1
-        wald_pval = 1.0 - sp_stats.chi2.cdf(wald_stat, wald_df)
+        wald_pval = sp_stats.chi2.sf(wald_stat, wald_df)
         heterogeneity_test = {
             "wald_statistic": float(wald_stat),
             "df": wald_df,
@@ -813,7 +813,7 @@ def rd_multi_extrapolate(
 
     ate = float(np.mean(tau_pred))
     ate_se = float(np.sqrt(np.mean(se_pred**2) / n_ep))
-    ate_pv = float(2 * (1 - sp_stats.norm.cdf(abs(ate) / max(ate_se, 1e-20))))
+    ate_pv = float(2 * sp_stats.norm.sf(abs(ate) / max(ate_se, 1e-20)))
     ate_ci = (ate - z_crit * ate_se, ate + z_crit * ate_se)
 
     cutoff_detail = pd.DataFrame(cutoff_estimates)

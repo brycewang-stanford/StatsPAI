@@ -563,7 +563,7 @@ def _weighted_treatment_effect(
     z = float(_stats.norm.ppf(1 - alpha / 2))
     low, high = ate - z * se, ate + z * se
     t_stat = ate / se if se > 0 else np.nan
-    pval = float(2 * (1 - _stats.norm.cdf(abs(t_stat)))) if se > 0 else np.nan
+    pval = float(2 * _stats.norm.sf(abs(t_stat))) if se > 0 else np.nan
     return ate, se, low, high, pval
 
 

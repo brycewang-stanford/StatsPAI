@@ -304,7 +304,7 @@ def _continuous_did_twfe(
         tau, se = np.nan, np.nan
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
-    p_val = 2 * (1 - stats.norm.cdf(abs(tau / se))) if se > 0 else np.nan
+    p_val = 2 * stats.norm.sf(abs(tau / se)) if se > 0 else np.nan
 
     return CausalResult(
         method="Continuous DID (TWFE)",
@@ -422,9 +422,7 @@ def _continuous_did_att_gt(
                 "se": se,
                 "ci_lower": att - z_crit * se,
                 "ci_upper": att + z_crit * se,
-                "p_value": (
-                    2 * (1 - stats.norm.cdf(abs(att / se))) if se > 0 else np.nan
-                ),
+                "p_value": (2 * stats.norm.sf(abs(att / se)) if se > 0 else np.nan),
                 "n_treated": len(group_ids),
                 "n_control": len(untreated_ids),
             }
@@ -440,11 +438,7 @@ def _continuous_did_att_gt(
     else:
         pooled_att, pooled_se = np.nan, np.nan
 
-    p_val = (
-        2 * (1 - stats.norm.cdf(abs(pooled_att / pooled_se)))
-        if pooled_se > 0
-        else np.nan
-    )
+    p_val = 2 * stats.norm.sf(abs(pooled_att / pooled_se)) if pooled_se > 0 else np.nan
 
     return CausalResult(
         method="Continuous DID (dose-bin heuristic)",
@@ -525,7 +519,7 @@ def _continuous_did_dose_response(
     avg_se = np.nanmean(lp_result.se)
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
-    p_val = 2 * (1 - stats.norm.cdf(abs(avg_effect / avg_se))) if avg_se > 0 else np.nan
+    p_val = 2 * stats.norm.sf(abs(avg_effect / avg_se)) if avg_se > 0 else np.nan
 
     return CausalResult(
         method="Continuous DID (Dose-Response)",
@@ -713,7 +707,7 @@ def _continuous_did_cgs(
     se_acrt = _bootstrap_se(boot_acrt, label="did.continuous.acrt_overall")
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     p_att = (
-        float(2 * (1 - stats.norm.cdf(abs(att_overall / se_att))))
+        float(2 * stats.norm.sf(abs(att_overall / se_att)))
         if (se_att > 0 and np.isfinite(se_att))
         else np.nan
     )

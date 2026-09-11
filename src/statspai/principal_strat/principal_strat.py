@@ -54,14 +54,15 @@ principal causal effect estimation." *Statistics in Medicine*, 28(23),
 
 import warnings
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._result_serialize import ResultProtocolMixin
 from ..core._bootstrap import bootstrap_se
 from ..core.results import CausalResult
-from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
@@ -421,7 +422,7 @@ def _fit_monotonicity(
             pv = float("nan")
         else:
             z = ppoint / se
-            pv = float(2 * (1 - stats.norm.cdf(abs(z))))
+            pv = float(2 * stats.norm.sf(abs(z)))
         return se, (lo, hi), pv
 
     se_tc, ci_tc, pv_tc = _ci(boot_tau, point["tau_c"], stat="tau_c")
@@ -651,7 +652,7 @@ def _fit_instrument_air(
             pv = float("nan")
         else:
             z = ppoint / se
-            pv = float(2 * (1 - stats.norm.cdf(abs(z))))
+            pv = float(2 * stats.norm.sf(abs(z)))
         return se, (lo, hi), pv
 
     se_y, ci_y, pv_y = _ci(boot_y, point["tau_y"], stat="tau_y")
@@ -941,7 +942,7 @@ def _fit_principal_score(
         lo = float(np.nanpercentile(arr, 100 * alpha / 2))
         hi = float(np.nanpercentile(arr, 100 * (1 - alpha / 2)))
         pv = (
-            float(2 * (1 - stats.norm.cdf(abs(ppoint / se))))
+            float(2 * stats.norm.sf(abs(ppoint / se)))
             if se > 0 and not np.isnan(ppoint)
             else float("nan")
         )

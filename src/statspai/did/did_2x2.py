@@ -379,7 +379,7 @@ def did_2x2(
     att_se = float(se[did_idx])
     t_stat = att / att_se if att_se > 0 else np.nan
     df_resid = n - k
-    pvalue = float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid)))
+    pvalue = float(2 * stats.t.sf(abs(t_stat), df_resid))
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
     ci = (att - t_crit * att_se, att + t_crit * att_se)
 
@@ -439,7 +439,7 @@ def did_2x2(
 
     # Full coefficient table for detail
     t_stats_all = beta / se
-    pvals_all = 2 * (1 - stats.t.cdf(np.abs(t_stats_all), df_resid))
+    pvals_all = 2 * stats.t.sf(np.abs(t_stats_all), df_resid)
     detail = pd.DataFrame(
         {
             "variable": X_names,

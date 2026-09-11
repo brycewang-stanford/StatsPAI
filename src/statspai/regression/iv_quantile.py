@@ -46,11 +46,12 @@ Regression: A Robust Inference Approach." *Journal of Econometrics*,
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Union
 import warnings
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 import pandas as pd
-from scipy import stats, optimize
+from scipy import optimize, stats
 
 from ..core.results import EconometricResults
 from .quantile import _qreg_fit
@@ -230,7 +231,7 @@ def ivqreg(
         # Assemble per-τ output
         zcrit = stats.norm.ppf(1 - alpha / 2)
         t_stat = alpha_hat / np.where(se_alpha > 0, se_alpha, np.nan)
-        pval = 2 * (1 - stats.norm.cdf(np.abs(t_stat)))
+        pval = 2 * stats.norm.sf(np.abs(t_stat))
         ci_lo = alpha_hat - zcrit * se_alpha
         ci_hi = alpha_hat + zcrit * se_alpha
 
@@ -263,7 +264,7 @@ def ivqreg(
             ]
         )
         zstat = params / np.where(ses > 0, ses, np.nan)
-        pvals = 2 * (1 - stats.norm.cdf(np.abs(zstat)))
+        pvals = 2 * stats.norm.sf(np.abs(zstat))
 
         params_s = pd.Series(params, index=names)
         se_s = pd.Series(ses, index=names)

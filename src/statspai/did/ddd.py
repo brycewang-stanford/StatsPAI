@@ -262,7 +262,7 @@ def ddd(
     est_se = float(se[ddd_idx])
     t_stat = estimate / est_se if est_se > 0 else np.nan
     df_resid = n - k
-    pvalue = float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid)))
+    pvalue = float(2 * stats.t.sf(abs(t_stat), df_resid))
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
     ci = (estimate - t_crit * est_se, estimate + t_crit * est_se)
 
@@ -272,7 +272,7 @@ def ddd(
 
     # Full coefficient table
     t_stats_all = beta / se
-    pvals_all = 2 * (1 - stats.t.cdf(np.abs(t_stats_all), df_resid))
+    pvals_all = 2 * stats.t.sf(np.abs(t_stats_all), df_resid)
     detail = pd.DataFrame(
         {
             "variable": X_names,

@@ -604,7 +604,7 @@ def dyadic_regression(
 
     crit = float(stats.norm.ppf(1 - alpha / 2))
     z = np.divide(beta, se_dyadic, out=np.zeros_like(beta), where=se_dyadic > 0)
-    pvals = 2 * (1 - stats.norm.cdf(np.abs(z)))
+    pvals = 2 * stats.norm.sf(np.abs(z))
     coef_df = pd.DataFrame(
         {
             "variable": names,

@@ -237,7 +237,7 @@ def lp_did(
         )
 
         z = beta_h / se_h if (se_h is not None and se_h > 0) else np.nan
-        p = float(2 * (1 - stats.norm.cdf(abs(z)))) if np.isfinite(z) else np.nan
+        p = float(2 * stats.norm.sf(abs(z))) if np.isfinite(z) else np.nan
         z_crit = stats.norm.ppf(1 - alpha / 2)
         es_rows.append(
             {

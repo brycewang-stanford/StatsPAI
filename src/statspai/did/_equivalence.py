@@ -200,8 +200,8 @@ def pretrend_equivalence(
         )
         # Two one-sided tests against -thr and +thr; the binding one is the
         # larger p-value, and across periods the least favourable period.
-        p_low = 1.0 - stats.norm.cdf((d + thr) / se)
-        p_high = 1.0 - stats.norm.cdf((thr - d) / se)
+        p_low = stats.norm.sf((d + thr) / se)
+        p_high = stats.norm.sf((thr - d) / se)
         tost_p = float(np.max(np.maximum(p_low, p_high)))
 
     return EquivalenceResult(

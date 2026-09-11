@@ -240,7 +240,7 @@ def _battery_ols(result: Any, alpha: float = 0.05) -> Dict[str, Any]:
             from scipy import stats as sp_stats
 
             lm_stat = nobs * r2
-            pval = float(1 - sp_stats.chi2.cdf(lm_stat, 1))
+            pval = float(sp_stats.chi2.sf(lm_stat, 1))
             checks.append(
                 {
                     "test": "Breusch-Pagan heteroskedasticity",

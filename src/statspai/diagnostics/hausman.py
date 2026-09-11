@@ -13,7 +13,7 @@ Hausman, J.A. (1978).
 *Econometrica*, 46(6), 1251-1271. [@hausman1978specification]
 """
 
-from typing import List, Dict, Any, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -106,7 +106,7 @@ def hausman_test(
         H = float(max(b_diff @ V_inv @ b_diff, 0))
 
     H = max(H, 0)  # chi² must be non-negative
-    pvalue = float(1 - stats.chi2.cdf(H, k))
+    pvalue = float(stats.chi2.sf(H, k))
 
     recommendation = "FE" if pvalue < alpha else "RE"
     recommendation_detail = (

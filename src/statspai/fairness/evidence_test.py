@@ -472,7 +472,7 @@ def evidence_without_injustice(
     se_boot = float(boots.std(ddof=1))
     if se_boot > 0:
         z = stat_obs / se_boot
-        pvalue = float(1 - stats.norm.cdf(z))
+        pvalue = float(stats.norm.sf(z))
     else:
         pvalue = float("nan")
 

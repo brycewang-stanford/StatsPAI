@@ -21,17 +21,19 @@ Hahn, P. R., Murray, J. S., & Carvalho, C. M. (2020).
 Bayesian Analysis, 15(3), 965-1056. [@hahn2020bayesian]
 """
 
-from typing import Optional, List
+from typing import List, Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
+
+from ..core.results import CausalResult
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 # sklearn is imported lazily inside the methods that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
 # file when the user never touches bcf.
 
-from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
 
 # ======================================================================
 # Public API
@@ -227,9 +229,9 @@ class BayesianCausalForest:
 
         from sklearn.base import clone
         from sklearn.ensemble import (
-            RandomForestRegressor,
-            GradientBoostingRegressor,
             GradientBoostingClassifier,
+            GradientBoostingRegressor,
+            RandomForestRegressor,
         )
         from sklearn.model_selection import KFold
 
@@ -321,7 +323,7 @@ class BayesianCausalForest:
 
         if se > 0:
             z_stat = ate / se
-            pvalue = float(2 * (1 - sp_stats.norm.cdf(abs(z_stat))))
+            pvalue = float(2 * sp_stats.norm.sf(abs(z_stat)))
         else:
             pvalue = 0.0
 

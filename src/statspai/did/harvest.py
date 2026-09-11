@@ -36,8 +36,8 @@ from typing import Any, Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
-from ..core.results import CausalResult
 from .._result_serialize import ResultProtocolMixin
+from ..core.results import CausalResult
 
 __all__ = [
     "harvest_did",
@@ -366,9 +366,7 @@ def harvest_did(
         w_n = w / w.sum() if w.sum() > 0 else w
         var_e = float(np.sum((w_n**2) * (sub["se"].to_numpy() ** 2)))
         se_e = float(np.sqrt(max(var_e, 0.0)))
-        pv_e = (
-            float(2 * (1 - _norm.cdf(abs(att_e) / se_e))) if se_e > 0 else float("nan")
-        )
+        pv_e = float(2 * _norm.sf(abs(att_e) / se_e)) if se_e > 0 else float("nan")
         event_rows.append(
             dict(
                 relative_time=int(e),
@@ -398,7 +396,7 @@ def harvest_did(
         chi2 = float(np.sum((pre["att"] / pre["se"]) ** 2))
         from scipy.stats import chi2 as _chi2
 
-        pv = float(1 - _chi2.cdf(chi2, df=len(pre)))
+        pv = float(_chi2.sf(chi2, df=len(pre)))
         pretrend = {"chi2": chi2, "df": int(len(pre)), "pvalue": pv}
     else:
         pretrend = {"chi2": float("nan"), "df": 0, "pvalue": float("nan")}
@@ -408,7 +406,7 @@ def harvest_did(
 
     z = norm.ppf(1 - alpha / 2)
     ci = (agg - z * agg_se, agg + z * agg_se)
-    pval = 2 * (1 - norm.cdf(abs(agg) / agg_se)) if agg_se > 0 else float("nan")
+    pval = 2 * norm.sf(abs(agg) / agg_se) if agg_se > 0 else float("nan")
 
     _result = CausalResult(
         method="harvest_did",

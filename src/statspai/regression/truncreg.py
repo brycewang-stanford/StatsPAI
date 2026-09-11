@@ -126,7 +126,7 @@ def truncreg(
             )
         elif ll is not None:
             z_ll = (ll - xb) / sigma
-            log_denom = np.log(np.clip(1 - stats.norm.cdf(z_ll), 1e-20, None))
+            log_denom = np.log(np.clip(stats.norm.sf(z_ll), 1e-20, None))
         elif ul is not None:
             z_ul = (ul - xb) / sigma
             log_denom = np.log(np.clip(stats.norm.cdf(z_ul), 1e-20, None))

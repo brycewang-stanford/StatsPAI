@@ -252,7 +252,7 @@ def ergm(
     beta, se, ll, _ = _irls_logit(yv, X, max_iter=200)
     crit = float(stats.norm.ppf(1 - alpha / 2))
     z = np.divide(beta, se, out=np.zeros_like(beta), where=se > 0)
-    pvals = 2 * (1 - stats.norm.cdf(np.abs(z)))
+    pvals = 2 * stats.norm.sf(np.abs(z))
     coef_df = pd.DataFrame(
         {
             "term": names,

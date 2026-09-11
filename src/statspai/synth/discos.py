@@ -856,8 +856,7 @@ def _cvm_test(
         # Asymptotic: treat as chi-squared approximation
         # Under H0, n_q * CvM ~ sum of squared normals
         pval = float(
-            1.0
-            - sp_stats.chi2.cdf(n_q * cvm_stat / max(np.var(Q_treated), 1e-10), df=n_q)
+            sp_stats.chi2.sf(n_q * cvm_stat / max(np.var(Q_treated), 1e-10), df=n_q)
         )
 
     return {

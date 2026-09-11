@@ -29,7 +29,7 @@ post-double-selection / rigorous-lasso machinery used here.
 
 from __future__ import annotations
 
-from typing import Optional, List, Dict, Any, Tuple, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -416,7 +416,7 @@ def rd_forest(
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (ate - z_crit * se_ate, ate + z_crit * se_ate)
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(ate) / max(se_ate, 1e-15))))
+    pvalue = float(2 * stats.norm.sf(abs(ate) / max(se_ate, 1e-15)))
 
     # --- Variable importance (mean decrease in impurity, averaged) ---
     imp1 = rf1.feature_importances_
@@ -649,7 +649,7 @@ def rd_boost(
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (ate - z_crit * se_ate, ate + z_crit * se_ate)
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(ate) / max(se_ate, 1e-15))))
+    pvalue = float(2 * stats.norm.sf(abs(ate) / max(se_ate, 1e-15)))
 
     # --- Variable importance (from full-sample GBMs) ---
     imp1 = gbm1.feature_importances_
@@ -885,7 +885,7 @@ def rd_lasso(
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (tau_hat - z_crit * se_tau, tau_hat + z_crit * se_tau)
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(tau_hat) / max(se_tau, 1e-15))))
+    pvalue = float(2 * stats.norm.sf(abs(tau_hat) / max(se_tau, 1e-15)))
 
     # --- All coefficients ---
     coef_table = pd.DataFrame(

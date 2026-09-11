@@ -201,7 +201,7 @@ def _cohort_atts_from_cells(
             )
         t_g = att_g / se_g if se_g > 0 else np.nan
         p_g = (
-            float(2 * (1 - stats.t.cdf(abs(t_g), max(df_resid, 1))))
+            float(2 * stats.t.sf(abs(t_g), max(df_resid, 1)))
             if np.isfinite(t_g)
             else np.nan
         )
@@ -236,7 +236,7 @@ def _cohort_atts_from_cells(
     att_se = float(np.sqrt(max(weights @ cohort_vcov @ weights, 0.0)))
     t_overall = att_overall / att_se if att_se > 0 else np.nan
     p_overall = (
-        float(2 * (1 - stats.t.cdf(abs(t_overall), max(df_resid, 1))))
+        float(2 * stats.t.sf(abs(t_overall), max(df_resid, 1)))
         if np.isfinite(t_overall)
         else np.nan
     )
@@ -791,7 +791,7 @@ def _etwfe_glm(
                 "relative_time": e_val,
                 "att": est_e,
                 "se": se_e,
-                "pvalue": float(2 * (1 - stats.norm.cdf(abs(z_e)))),
+                "pvalue": float(2 * stats.norm.sf(abs(z_e))),
                 "n_treated": int(mask.sum()),
             }
         )
@@ -840,7 +840,7 @@ def _etwfe_glm(
         estimand="ATT (average marginal effect, response scale)",
         estimate=att,
         se=se_att,
-        pvalue=float(2 * (1 - stats.norm.cdf(abs(z_stat)))),
+        pvalue=float(2 * stats.norm.sf(abs(z_stat))),
         ci=(att - z_crit * se_att, att + z_crit * se_att),
         alpha=alpha,
         n_obs=int(len(y_vec)),
@@ -1434,9 +1434,7 @@ def _etwfe_with_xvar(
         b_idx = coef_index[f"_coh{int(g)}_post"]
         att = float(beta[b_idx])
         att_se = float(se[b_idx])
-        p = float(
-            2 * (1 - stats.t.cdf(abs(att / att_se) if att_se > 0 else 0, df_resid))
-        )
+        p = float(2 * stats.t.sf(abs(att / att_se) if att_se > 0 else 0, df_resid))
         row: Dict[str, Any] = {
             "cohort": int(g),
             "att_at_xmean": att,
@@ -1448,13 +1446,7 @@ def _etwfe_with_xvar(
             slope = float(beta[s_idx])
             slope_se = float(se[s_idx])
             p_s = float(
-                2
-                * (
-                    1
-                    - stats.t.cdf(
-                        abs(slope / slope_se) if slope_se > 0 else 0, df_resid
-                    )
-                )
+                2 * (stats.t.sf(abs(slope / slope_se) if slope_se > 0 else 0, df_resid))
             )
             row[f"slope_{x}"] = slope
             row[f"slope_{x}_se"] = slope_se
@@ -1478,7 +1470,7 @@ def _etwfe_with_xvar(
     base_vcov = vcov[np.ix_(base_idx, base_idx)]
     att_se_overall = float(np.sqrt(weights_vec @ base_vcov @ weights_vec))
     t_stat = att_overall / att_se_overall if att_se_overall > 0 else np.nan
-    p_overall = float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid)))
+    p_overall = float(2 * stats.t.sf(abs(t_stat), df_resid))
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
     ci = (att_overall - t_crit * att_se_overall, att_overall + t_crit * att_se_overall)
 
@@ -1629,7 +1621,7 @@ def _etwfe_repeated_cs(
         idx = base_start + i
         att = float(beta[idx])
         s_ = float(se[idx])
-        p = float(2 * (1 - stats.t.cdf(abs(att / s_) if s_ > 0 else 0, df_resid)))
+        p = float(2 * stats.t.sf(abs(att / s_) if s_ > 0 else 0, df_resid))
         n_g = int((dfv["_ft"] == g).sum())
         n_treated_g = int(((dfv["_ft"] == g) & (dfv[time] >= g)).sum())
         cohort_rows.append(
@@ -1650,7 +1642,7 @@ def _etwfe_repeated_cs(
     base_vcov = vcov[base_start : base_start + k, base_start : base_start + k]
     att_se = float(np.sqrt(w @ base_vcov @ w))
     t_stat = att_overall / att_se if att_se > 0 else np.nan
-    p_overall = float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid)))
+    p_overall = float(2 * stats.t.sf(abs(t_stat), df_resid))
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
     ci = (att_overall - t_crit * att_se, att_overall + t_crit * att_se)
 
@@ -1862,7 +1854,7 @@ def _etwfe_never_only(
     att_se = float(np.sqrt(np.sum((w * np.array(ses)) ** 2)))
     t_stat = att_overall / att_se if att_se > 0 else np.nan
     df_resid = max(int(detail["n_obs"].sum()) - len(cohorts), 1)
-    p_overall = float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid)))
+    p_overall = float(2 * stats.t.sf(abs(t_stat), df_resid))
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
     ci = (att_overall - t_crit * att_se, att_overall + t_crit * att_se)
 
@@ -2198,7 +2190,7 @@ def drdid(
             ps_flag = 0
 
         t_stat = att_hat / att_se if att_se > 0 else np.nan
-        pvalue = float(2 * (1 - stats.norm.cdf(abs(t_stat))))
+        pvalue = float(2 * stats.norm.sf(abs(t_stat)))
         detail = pd.DataFrame(
             {
                 "statistic": [
@@ -2451,7 +2443,7 @@ def drdid(
     influence = res.influence
 
     t_stat = att_hat / att_se if att_se > 0 else np.nan
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(t_stat))))
+    pvalue = float(2 * stats.norm.sf(abs(t_stat)))
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (att_hat - z_crit * att_se, att_hat + z_crit * att_se)
 
@@ -2949,11 +2941,7 @@ def twfe_decomposition(
     else:
         att_se = 0.0
 
-    pvalue = (
-        float(2 * (1 - stats.norm.cdf(abs(bacon_att / att_se))))
-        if att_se > 0
-        else np.nan
-    )
+    pvalue = float(2 * stats.norm.sf(abs(bacon_att / att_se))) if att_se > 0 else np.nan
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (
         (bacon_att - z_crit * att_se, bacon_att + z_crit * att_se)
@@ -3028,7 +3016,7 @@ def _etwfe_glm_emfx(
         estimand=result.estimand,
         estimate=est if type != "simple" else float(result.estimate),
         se=se,
-        pvalue=float(2 * (1 - stats.norm.cdf(abs(z_stat)))),
+        pvalue=float(2 * stats.norm.sf(abs(z_stat))),
         ci=(est - z_crit * se, est + z_crit * se),
         alpha=alpha,
         n_obs=result.n_obs,
@@ -3187,7 +3175,7 @@ def etwfe_emfx(
                 t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
                 t_stat = est / se if se > 0 else np.nan
                 p = (
-                    float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid)))
+                    float(2 * stats.t.sf(abs(t_stat), df_resid))
                     if not np.isnan(t_stat)
                     else np.nan
                 )
@@ -3248,7 +3236,7 @@ def etwfe_emfx(
         t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
         t_stat = est / se if se > 0 else np.nan
         p = (
-            float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid)))
+            float(2 * stats.t.sf(abs(t_stat), df_resid))
             if not np.isnan(t_stat)
             else np.nan
         )
@@ -3419,7 +3407,7 @@ def etwfe_emfx(
             se = float(np.sqrt(np.sum((w * sub["se"].values) ** 2)))
         t_stat = est / se if se > 0 else np.nan
         p = (
-            float(2 * (1 - stats.t.cdf(abs(t_stat), df_resid)))
+            float(2 * stats.t.sf(abs(t_stat), df_resid))
             if not np.isnan(t_stat)
             else np.nan
         )

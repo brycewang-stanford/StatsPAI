@@ -299,7 +299,7 @@ class EconometricResults:
             tvalues = params / std_errors
         df_resid = self.data_info.get("df_resid", np.inf)
         self.tvalues = pd.Series(tvalues, index=index)
-        self.pvalues = 2 * (1 - stats.t.cdf(np.abs(tvalues), df_resid))
+        self.pvalues = 2 * stats.t.sf(np.abs(tvalues), df_resid)
 
         # 95% confidence intervals by default
         alpha = 0.05

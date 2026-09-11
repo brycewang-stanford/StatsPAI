@@ -10,6 +10,7 @@ Supports:
 """
 
 from typing import Any
+
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
@@ -81,10 +82,10 @@ def test(
     )
 
     if np.isfinite(df_resid):
-        pvalue = float(1 - sp_stats.f.cdf(f_stat, q, df_resid))
+        pvalue = float(sp_stats.f.sf(f_stat, q, df_resid))
     else:
         # Chi-squared if df_resid unknown
-        pvalue = float(1 - sp_stats.chi2.cdf(wald, q))
+        pvalue = float(sp_stats.chi2.sf(wald, q))
 
     return {
         "statistic": f_stat,
@@ -148,7 +149,7 @@ def lincom(
     estimate = float(c @ beta)
     se = float(np.sqrt(c @ vcov @ c))
     z = estimate / se if se > 0 else 0
-    pvalue = float(2 * (1 - sp_stats.norm.cdf(abs(z))))
+    pvalue = float(2 * sp_stats.norm.sf(abs(z)))
     z_crit = sp_stats.norm.ppf(1 - alpha / 2)
 
     return {

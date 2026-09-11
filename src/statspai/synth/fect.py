@@ -829,11 +829,7 @@ def fect(
                 )
             z = stats.norm.ppf(1 - alpha / 2)
             ci = (att - z * se_val, att + z * se_val)
-            pvalue = (
-                float(2 * (1 - stats.norm.cdf(abs(att / se_val))))
-                if se_val > 0
-                else 0.0
-            )
+            pvalue = float(2 * stats.norm.sf(abs(att / se_val))) if se_val > 0 else 0.0
             att_by_period_se = []
             for k in main["time"].tolist():
                 vals = np.array([p_[k] for p_ in period_reps if k in p_])

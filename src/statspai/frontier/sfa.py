@@ -789,11 +789,7 @@ class FrontierResult(EconometricResults):
         rts_hat = float(R @ self.params.to_numpy())
         rts_se = float(np.sqrt(R @ vcov @ R)) if vcov is not None else float("nan")
         stat = (rts_hat - 1.0) / rts_se if rts_se > 0 else float("nan")
-        pval = (
-            2.0 * (1.0 - stats.norm.cdf(abs(stat)))
-            if np.isfinite(stat)
-            else float("nan")
-        )
+        pval = 2.0 * stats.norm.sf(abs(stat)) if np.isfinite(stat) else float("nan")
         z_crit = stats.norm.ppf(1.0 - alpha / 2.0)
         ci_lo = rts_hat - z_crit * rts_se if np.isfinite(rts_se) else float("nan")
         ci_hi = rts_hat + z_crit * rts_se if np.isfinite(rts_se) else float("nan")

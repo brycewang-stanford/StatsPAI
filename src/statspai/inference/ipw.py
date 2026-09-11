@@ -161,7 +161,7 @@ def ipw(
     se = float(np.std(boot_estimates, ddof=1))
     t_crit = sp_stats.norm.ppf(1 - alpha / 2)
     ci = (estimate - t_crit * se, estimate + t_crit * se)
-    pvalue = float(2 * (1 - sp_stats.norm.cdf(abs(estimate / se)))) if se > 0 else 1.0
+    pvalue = float(2 * sp_stats.norm.sf(abs(estimate / se))) if se > 0 else 1.0
 
     # --- Diagnostics ---
     n_treated = int(T.sum())

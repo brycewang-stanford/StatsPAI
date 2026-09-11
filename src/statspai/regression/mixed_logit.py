@@ -644,7 +644,7 @@ class _MixedLogitFitter:
 
         se = _as_float_array(np.sqrt(np.clip(np.diag(V), 0, np.inf)))
         t_stat = _as_float_array(theta_hat / np.where(se > 0, se, 1))
-        pvals = _as_float_array(2 * (1 - stats.norm.cdf(np.abs(t_stat))))
+        pvals = _as_float_array(2 * stats.norm.sf(np.abs(t_stat)))
         zcrit = float(stats.norm.ppf(1 - self.alpha / 2))
         ci_lo = _as_float_array(theta_hat - zcrit * se)
         ci_hi = _as_float_array(theta_hat + zcrit * se)

@@ -18,16 +18,16 @@ Amemiya, T. (1984).
 *Journal of Econometrics*, 24(1-2), 3-61. [@amemiya1984tobit]
 """
 
-from typing import Optional, List
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
-from scipy import stats, optimize
+from scipy import optimize, stats
 
 from ..core.results import CausalResult
+from ..exceptions import DataInsufficient
 from ._limited_dep_result import LimitedDepResult
 from ._optim_helpers import robust_convergence
-from ..exceptions import DataInsufficient
 
 
 def tobit(
@@ -153,7 +153,7 @@ def tobit(
         # Upper-censored
         if isinstance(censored_high, np.ndarray) and censored_high.any():
             z = (ul - xb[censored_high]) / sigma
-            ll_val += np.sum(np.log(np.maximum(1 - stats.norm.cdf(z), 1e-20)))
+            ll_val += np.sum(np.log(np.maximum(stats.norm.sf(z), 1e-20)))
 
         return -ll_val
 
@@ -189,7 +189,7 @@ def tobit(
 
     var_names = ["const"] + x
     z_stats = beta / se_beta
-    pvals = 2 * (1 - stats.norm.cdf(np.abs(z_stats)))
+    pvals = 2 * stats.norm.sf(np.abs(z_stats))
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
     detail = pd.DataFrame(

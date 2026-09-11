@@ -24,6 +24,7 @@ confounders affected by treatment.
 
 import warnings
 from typing import List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -514,7 +515,7 @@ class MediationAnalysis:
     def _wald_pvalue(point: float, se: float) -> float:
         if se and se > 0 and np.isfinite(point):
             z = point / se
-            return float(2 * (1 - stats.norm.cdf(abs(z))))
+            return float(2 * stats.norm.sf(abs(z)))
         return float("nan")
 
     @staticmethod
@@ -800,7 +801,7 @@ def mediate_interventional(
             # Consistent with sp.aipw / sp.dml family.
             if se > 0:
                 z = point / se
-                p = float(2 * (1 - stats.norm.cdf(abs(z))))
+                p = float(2 * stats.norm.sf(abs(z)))
             else:
                 p = float("nan")
             return se, (lo, hi), p

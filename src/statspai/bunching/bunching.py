@@ -26,6 +26,7 @@ Elasticities." QJE, 126(2), 749-804. [@chetty2011adjustment]
 """
 
 from typing import Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
@@ -285,7 +286,7 @@ class BunchingEstimator:
 
         if se > 0:
             z_stat = B_normalised / se
-            pvalue = float(2 * (1 - sp_stats.norm.cdf(abs(z_stat))))
+            pvalue = float(2 * sp_stats.norm.sf(abs(z_stat)))
         else:
             pvalue = 0.0
 

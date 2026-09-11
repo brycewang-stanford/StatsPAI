@@ -452,7 +452,7 @@ def bch_post_lasso_iv(
     params = pd.Series(all_vals, index=all_names)
     ses_s = pd.Series(ses, index=all_names)
     tvals = params / ses_s.replace(0, np.nan)
-    pvals = 2 * (1 - stats.norm.cdf(np.abs(tvals.fillna(0).values)))
+    pvals = 2 * stats.norm.sf(np.abs(tvals.fillna(0).values))
 
     z_crit = 1.96
     lo = params - z_crit * ses_s

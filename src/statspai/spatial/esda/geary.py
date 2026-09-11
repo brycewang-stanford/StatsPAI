@@ -132,7 +132,7 @@ def geary(
         # autocorrelation, so this orientation makes a positive z mean the
         # same thing it means for Moran's I.
         z_score = (EC - C) / np.sqrt(VC)
-        p_norm = 2 * (1 - sp_stats.norm.cdf(abs(z_score)))
+        p_norm = 2 * sp_stats.norm.sf(abs(z_score))
     else:  # pragma: no cover - degenerate
         z_score = np.nan
         p_norm = np.nan

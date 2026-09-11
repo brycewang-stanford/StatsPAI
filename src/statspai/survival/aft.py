@@ -32,8 +32,8 @@ import pandas as pd
 from scipy import stats as sp_stats
 from scipy.optimize import minimize
 
-from .models import _parse_formula
 from .._result_serialize import ResultProtocolMixin
+from .models import _parse_formula
 
 AFTFamily = Literal["exponential", "weibull", "lognormal", "loglogistic"]
 
@@ -117,7 +117,7 @@ class AFTResult(ResultProtocolMixin):
     def pvalues(self) -> pd.Series:
         z = (self.params / self.std_errors).to_numpy(dtype=float)
         return pd.Series(
-            2.0 * (1.0 - sp_stats.norm.cdf(np.abs(z))),
+            2.0 * sp_stats.norm.sf(np.abs(z)),
             index=self.params.index,
         )
 
@@ -134,7 +134,7 @@ class AFTResult(ResultProtocolMixin):
         ]
         for nm, b, s in zip(self.var_names, self.beta, self.se):
             t = b / s if s > 0 else np.nan
-            p = 2 * (1 - sp_stats.norm.cdf(abs(t)))
+            p = 2 * sp_stats.norm.sf(abs(t))
             lines.append(
                 f"  {nm:<15s}  {b: .4f}  (SE {s: .4f}, z {t: .3f}, p {p: .4f})"
             )

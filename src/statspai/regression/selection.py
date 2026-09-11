@@ -239,9 +239,7 @@ def biprobit(
             "rho": rho,
             "rho_se": rho_se,
             "rho_test_p": (
-                float(2 * (1 - stats.norm.cdf(abs(rho / rho_se))))
-                if rho_se > 0
-                else np.nan
+                float(2 * stats.norm.sf(abs(rho / rho_se))) if rho_se > 0 else np.nan
             ),
         },
         data_info={

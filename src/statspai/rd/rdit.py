@@ -360,7 +360,7 @@ def rdit(
     # ------------------------------------------------------------------
     if se_tau > 0:
         z_stat = tau / se_tau
-        pvalue = float(2 * (1 - sp_stats.norm.cdf(abs(z_stat))))
+        pvalue = float(2 * sp_stats.norm.sf(abs(z_stat)))
     else:
         pvalue = 0.0
 

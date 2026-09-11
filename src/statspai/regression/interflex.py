@@ -529,7 +529,7 @@ def interflex(
     model_info["average_effect_label"] = "ATE" if treat_type == "discrete" else "AME"
     ci = (avg - z_crit * avg_se, avg + z_crit * avg_se) if avg_se is not None else None
     pval = (
-        float(2 * (1 - stats.norm.cdf(abs(avg / avg_se))))
+        float(2 * stats.norm.sf(abs(avg / avg_se)))
         if (avg_se is not None and avg_se > 0)
         else None
     )

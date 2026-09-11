@@ -17,7 +17,7 @@ Design: A Density Test."
 *Journal of Econometrics*, 142(2), 698-714. [@mccrary2008manipulation]
 """
 
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -379,7 +379,7 @@ def mccrary_test(
     se_theta = max(se_theta, 1e-10)
 
     z = theta / se_theta
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
+    pvalue = float(2 * stats.norm.sf(abs(z)))
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (theta - z_crit * se_theta, theta + z_crit * se_theta)

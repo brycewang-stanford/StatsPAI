@@ -17,7 +17,7 @@ Evidence from a Government Grant Policy Reform."
 *American Economic Journal: Economic Policy*, 2(2), 185-215. [@nielsen2010estimating]
 """
 
-from typing import Optional, Dict, Any, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -245,7 +245,7 @@ def rkd(
 
     # --- Inference ---
     z = estimate / se if se > 0 else np.nan
-    pvalue = 2 * (1 - stats.norm.cdf(np.abs(z)))
+    pvalue = 2 * stats.norm.sf(np.abs(z))
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (estimate - z_crit * se, estimate + z_crit * se)
 

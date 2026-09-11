@@ -34,9 +34,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
-from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "surrogate_index",
@@ -493,7 +493,7 @@ def surrogate_index(
         se = float(np.sqrt(max(var, 0.0)))
         z = stats.norm.ppf(1 - alpha / 2)
         ci = (est - z * se, est + z * se)
-        pval = 2 * (1 - stats.norm.cdf(abs(est) / se)) if se > 0 else float("nan")
+        pval = 2 * stats.norm.sf(abs(est) / se) if se > 0 else float("nan")
 
     _result = CausalResult(
         method="surrogate_index",

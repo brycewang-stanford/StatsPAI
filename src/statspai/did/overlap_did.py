@@ -26,9 +26,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._input_validation import require_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient
-from .._input_validation import require_columns
 
 # sklearn is imported lazily inside ``overlap_weighted_did`` /
 # ``dl_propensity_score`` so ``import statspai`` does not pull
@@ -191,7 +191,7 @@ def overlap_weighted_did(
     se = float(boots.std(ddof=1)) if boots.size > 10 else float("nan")
     z = stats.norm.ppf(1 - alpha / 2)
     ci = (att - z * se, att + z * se)
-    pval = 2 * (1 - stats.norm.cdf(abs(att) / se)) if se > 0 else float("nan")
+    pval = 2 * stats.norm.sf(abs(att) / se) if se > 0 else float("nan")
     return CausalResult(
         method="overlap_weighted_did",
         estimand="ATT (overlap)",

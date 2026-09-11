@@ -189,7 +189,7 @@ def did_timevarying_covariates(
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     if se > 0 and np.isfinite(se):
         z = est / se
-        p = float(2 * (1 - stats.norm.cdf(abs(z))))
+        p = float(2 * stats.norm.sf(abs(z)))
         ci = (est - z_crit * se, est + z_crit * se)
     else:
         p = np.nan

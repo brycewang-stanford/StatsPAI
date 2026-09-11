@@ -194,7 +194,7 @@ def bayes_dml(
         posterior_sd = float(1.0 / np.sqrt(posterior_prec))
         z = stats.norm.ppf(1 - alpha / 2)
         ci = (posterior_mean - z * posterior_sd, posterior_mean + z * posterior_sd)
-        p_pos = float(1 - stats.norm.cdf(0, loc=posterior_mean, scale=posterior_sd))
+        p_pos = float(stats.norm.sf(0, loc=posterior_mean, scale=posterior_sd))
         p_neg = float(stats.norm.cdf(0, loc=posterior_mean, scale=posterior_sd))
         # Monte Carlo draws for downstream use
         rng = np.random.default_rng(random_state)

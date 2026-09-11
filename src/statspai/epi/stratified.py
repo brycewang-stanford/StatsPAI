@@ -26,6 +26,7 @@ from typing import List, Sequence, Union
 
 import numpy as np
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
@@ -181,7 +182,7 @@ def mantel_haenszel(
         expected_a = n1 * (a + c) / n
         var_a = (n1 * n0 * (a + c) * (b + d)) / (n**2 * (n - 1 + (n == 1)))
         chi2_mh = (abs(a.sum() - expected_a.sum()) - 0.5) ** 2 / var_a.sum()
-        p = float(1 - stats.chi2.cdf(chi2_mh, 1))
+        p = float(stats.chi2.sf(chi2_mh, 1))
 
     else:  # RR
         num = np.sum(a * n0 / n)
@@ -196,7 +197,7 @@ def mantel_haenszel(
         ci = (float(np.exp(log_est - z * se_log)), float(np.exp(log_est + z * se_log)))
         # Test via pooled RR == 1
         z_stat = log_est / se_log if se_log > 0 else 0.0
-        p = float(2 * (1 - stats.norm.cdf(abs(z_stat))))
+        p = float(2 * stats.norm.sf(abs(z_stat)))
 
     # Homogeneity check (inverse-variance weighted Cochran's Q on
     # log-scale per-stratum estimates).  This is the standard
@@ -224,7 +225,7 @@ def mantel_haenszel(
     pooled_log = float(np.sum(w_meta * log_ks) / np.sum(w_meta))
     q_chi2 = float(np.sum(w_meta * (log_ks - pooled_log) ** 2))
     q_df = max(K - 1, 1)
-    q_p = float(1 - stats.chi2.cdf(q_chi2, q_df))
+    q_p = float(stats.chi2.sf(q_chi2, q_df))
 
     return MantelHaenszelResult(
         estimate=est,
@@ -334,5 +335,5 @@ def breslow_day_test(
         chi2 -= (sum_a - sum_ea) ** 2 / sum_va
 
     df = max(K - 1, 1)
-    p_value = float(1 - stats.chi2.cdf(chi2, df))
+    p_value = float(stats.chi2.sf(chi2, df))
     return float(chi2), p_value

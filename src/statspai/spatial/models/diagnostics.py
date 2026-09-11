@@ -110,7 +110,7 @@ def lm_tests(
     def pv(stat: float, df: int = 1) -> float:
         if not np.isfinite(stat) or stat < 0:
             return np.nan
-        return float(1 - sp_stats.chi2.cdf(stat, df=df))
+        return float(sp_stats.chi2.sf(stat, df=df))
 
     return {
         "LM_err": (float(LM_err), pv(LM_err)),

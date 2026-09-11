@@ -425,7 +425,7 @@ def joint_wald(
         w = float(est @ np.linalg.solve(cov_reg, est))
     except np.linalg.LinAlgError:
         w = float(est @ np.linalg.pinv(cov_reg) @ est)
-    pval = float(1 - stats.chi2.cdf(w, k)) if k > 0 else np.nan
+    pval = float(stats.chi2.sf(w, k)) if k > 0 else np.nan
     return {"statistic": w, "df": int(k), "pvalue": pval}
 
 

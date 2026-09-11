@@ -475,7 +475,7 @@ def mlogit(
                 V_diff = V_diff + np.eye(n_params_r) * max(0, -eigvals.min() + 1e-8)
                 chi2 = float(diff @ np.linalg.solve(V_diff, diff))
                 chi2 = max(chi2, 0.0)
-                p_iia = float(1 - stats.chi2.cdf(chi2, df_test))
+                p_iia = float(stats.chi2.sf(chi2, df_test))
                 iia_tests[categories[drop_j]] = {
                     "chi2": chi2,
                     "df": df_test,
@@ -861,7 +861,7 @@ def _ordered_model(
                         np.sum(((beta_binary_arr - beta_mean) / se_binary_arr) ** 2)
                     )
                     df_m = n_cuts - 1
-                    p_m = float(1 - stats.chi2.cdf(chi2_m, df_m))
+                    p_m = float(stats.chi2.sf(chi2_m, df_m))
                     brant_test[var_names[m]] = {
                         "chi2": chi2_m,
                         "df": df_m,
@@ -876,7 +876,7 @@ def _ordered_model(
             brant_test["_omnibus"] = {
                 "chi2": float(chi2_total),
                 "df": df_total,
-                "pvalue": float(1 - stats.chi2.cdf(chi2_total, df_total)),
+                "pvalue": float(stats.chi2.sf(chi2_total, df_total)),
             }
     except Exception as exc:
         # Don't silently drop the whole parallel-regression diagnostic.

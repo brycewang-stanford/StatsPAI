@@ -117,8 +117,8 @@ class OaxacaResult(DecompResultMixin):
 
         expl_z = expl / expl_se if expl_se > 0 else 0.0
         unex_z = unex / unex_se if unex_se > 0 else 0.0
-        expl_p = 2 * (1 - stats.norm.cdf(abs(expl_z)))
-        unex_p = 2 * (1 - stats.norm.cdf(abs(unex_z)))
+        expl_p = 2 * stats.norm.sf(abs(expl_z))
+        unex_p = 2 * stats.norm.sf(abs(unex_z))
 
         expl_pct = (expl / gap * 100) if gap != 0 else float("nan")
         unex_pct = (unex / gap * 100) if gap != 0 else float("nan")
@@ -694,7 +694,7 @@ def oaxaca(
             contrib_j = diff_X[idx] * beta_star[idx]
             se_j = abs(diff_X[idx]) * np.sqrt(vcov_star[idx, idx])
             z_j = contrib_j / se_j if se_j > 0 else 0.0
-            p_j = 2 * (1 - stats.norm.cdf(abs(z_j)))
+            p_j = 2 * stats.norm.sf(abs(z_j))
             pct_j = (contrib_j / explained * 100) if explained != 0 else float("nan")
             contributions.append(
                 {
@@ -891,7 +891,7 @@ def gelbach(
         delta_var[j] = var_delta_j
 
         z_stat = delta_j / se_delta_j if se_delta_j > 0 else 0.0
-        p_val = 2 * (1 - stats.norm.cdf(abs(z_stat)))
+        p_val = 2 * stats.norm.sf(abs(z_stat))
         pct = (delta_j / total_change * 100) if total_change != 0 else float("nan")
 
         decomp_rows.append(

@@ -25,9 +25,9 @@ from __future__ import annotations
 from typing import Any, List, Optional
 
 import numpy as np
-from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
 
 
@@ -196,7 +196,7 @@ def did_bcf(
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (att - z_crit * se, att + z_crit * se)
     z = att / se if se > 0 else 0.0
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
+    pvalue = float(2 * stats.norm.sf(abs(z)))
 
     model_info: dict[str, Any] = {
         "estimator": "DiD-BCF",

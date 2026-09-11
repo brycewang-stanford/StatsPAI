@@ -120,7 +120,7 @@ def qreg(
     se = _qreg_se(Y, X, beta, resid, quantile)
 
     z_stats = beta / se
-    pvals = 2 * (1 - stats.norm.cdf(np.abs(z_stats)))
+    pvals = 2 * stats.norm.sf(np.abs(z_stats))
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
     detail = pd.DataFrame(

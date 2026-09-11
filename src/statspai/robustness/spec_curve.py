@@ -25,9 +25,9 @@ Usage
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
-from itertools import product
 from dataclasses import dataclass
+from itertools import product
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -259,8 +259,8 @@ class SpecCurveResult(ResultProtocolMixin):
         fig, axes : matplotlib Figure and array of Axes
         """
         try:
-            import matplotlib.pyplot as plt
             import matplotlib.gridspec as gridspec
+            import matplotlib.pyplot as plt
         except ImportError:
             raise ImportError(
                 "matplotlib required for plotting.  pip install matplotlib"
@@ -484,7 +484,7 @@ def _run_one_spec(
     se_x = se[1]
     df_resid = n - k
     t_stat = beta_x / se_x if se_x > 0 else np.inf
-    p_val = 2 * (1 - stats.t.cdf(abs(t_stat), df_resid))
+    p_val = 2 * stats.t.sf(abs(t_stat), df_resid)
     t_crit = stats.t.ppf(0.975, df_resid)
 
     # R-squared

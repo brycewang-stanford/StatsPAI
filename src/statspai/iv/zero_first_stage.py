@@ -430,12 +430,12 @@ def zero_first_stage(
         first_stage_zfs=pi_zfs,
         first_stage_zfs_se=pi_zfs_se,
         first_stage_zfs_ci=(pi_zfs - crit * pi_zfs_se, pi_zfs + crit * pi_zfs_se),
-        first_stage_zfs_pvalue=float(2 * (1 - stats.norm.cdf(abs(zfs_t)))),
+        first_stage_zfs_pvalue=float(2 * stats.norm.sf(abs(zfs_t))),
         reduced_form_zfs=gamma,
         reduced_form_zfs_se=gamma_se,
         reduced_form_zfs_ci=(gamma - crit * gamma_se, gamma + crit * gamma_se),
         reduced_form_zfs_pvalue=float(
-            2 * (1 - stats.norm.cdf(abs(gamma / gamma_se))) if gamma_se > 0 else np.nan
+            2 * stats.norm.sf(abs(gamma / gamma_se)) if gamma_se > 0 else np.nan
         ),
         first_stage_main=pi_main,
         first_stage_main_se=pi_main_se,

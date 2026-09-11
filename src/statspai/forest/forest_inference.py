@@ -283,7 +283,7 @@ def calibration_test(
         index=names,
     )
     out["t"] = (out["coef"] - out["null"]) / out["se"].replace(0, np.nan)
-    out["p"] = 2 * (1 - stats.norm.cdf(np.abs(out["t"].fillna(0))))
+    out["p"] = 2 * stats.norm.sf(np.abs(out["t"].fillna(0)))
     out["ci_low"] = out["coef"] - z * out["se"]
     out["ci_high"] = out["coef"] + z * out["se"]
     return out

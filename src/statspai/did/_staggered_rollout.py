@@ -1049,7 +1049,7 @@ def staggered_rollout(
         estimand="ATT (design-based, random adoption timing)",
         estimate=estimate,
         se=se,
-        pvalue=float(2 * (1 - _stats.norm.cdf(abs(zstat)))),
+        pvalue=float(2 * _stats.norm.sf(abs(zstat))),
         ci=(estimate - z * se, estimate + z * se),
         alpha=alpha,
         n_obs=cores[0].n_units,

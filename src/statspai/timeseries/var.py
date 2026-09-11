@@ -18,13 +18,14 @@ Methods."
 *Econometrica*, 37(3), 424-438. [@granger1969investigating]
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import MethodIncompatibility
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 
 
 class VARResult(ResultProtocolMixin):
@@ -118,7 +119,7 @@ class VARResult(ResultProtocolMixin):
             lines.append("-" * 60)
             for idx, row in coef_df.iterrows():
                 t_val = row["coef"] / row["se"] if row["se"] > 0 else np.nan
-                p_val = 2 * (1 - stats.t.cdf(abs(t_val), self.n_obs - coef_df.shape[0]))
+                p_val = 2 * stats.t.sf(abs(t_val), self.n_obs - coef_df.shape[0])
                 lines.append(
                     f"{idx:<20s} {row['coef']:>10.4f} "
                     f"{row['se']:>10.4f} {t_val:>8.3f} {p_val:>8.4f}"
@@ -461,7 +462,7 @@ def granger_causality(
 
     df1 = len(restrict_indices)
     df2 = T - len(coefs_all)
-    p_value = 1 - stats.f.cdf(F_stat, df1, df2) if np.isfinite(F_stat) else np.nan
+    p_value = stats.f.sf(F_stat, df1, df2) if np.isfinite(F_stat) else np.nan
 
     return {
         "F_stat": F_stat,

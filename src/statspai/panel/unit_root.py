@@ -18,10 +18,12 @@ Im, K.S., Pesaran, M.H. & Shin, Y. (2003).
 """
 
 import warnings
-from typing import Optional, Any
+from typing import Any, Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -284,7 +286,7 @@ def panel_unitroot(
         p_values = np.clip(p_values, 1e-10, 1 - 1e-10)
         fisher_stat = -2 * np.sum(np.log(p_values))
         df = 2 * n_valid
-        p_value = 1 - stats.chi2.cdf(fisher_stat, df)
+        p_value = stats.chi2.sf(fisher_stat, df)
 
         return PanelUnitRootResult(
             test_type="Fisher-type ADF",
@@ -329,7 +331,7 @@ def panel_unitroot(
         mu = 1 / 6 if trend == "c" else 1 / 15
         sigma2_lm = 1 / 45 if trend == "c" else 11 / 6300
         Z = np.sqrt(n_valid) * (lm_bar - mu) / np.sqrt(sigma2_lm)
-        p_value = 1 - stats.norm.cdf(Z)
+        p_value = stats.norm.sf(Z)
 
         return PanelUnitRootResult(
             test_type="Hadri (stationarity)",

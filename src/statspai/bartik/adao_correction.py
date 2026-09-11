@@ -19,13 +19,13 @@ Adão, R., Kolesár, M., & Morales, E. (2019).
 *Quarterly Journal of Economics*, 134(4), 1949-2010. [@ado2019shift]
 """
 
-from typing import Optional, List, Union
+from typing import List, Optional, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..core.results import EconometricResults, CausalResult
+from ..core.results import CausalResult, EconometricResults
 
 # ======================================================================
 # ssaggregate — full shift-share 2SLS with AKM SEs
@@ -215,7 +215,7 @@ def ssaggregate(
             f_pvalue = 0.0
         else:
             f_stat = ((rss_restricted - rss_full) / 1) / (rss_full / max(df_denom, 1))
-            f_pvalue = 1 - stats.f.cdf(f_stat, 1, max(df_denom, 1))
+            f_pvalue = stats.f.sf(f_stat, 1, max(df_denom, 1))
     else:
         # OLS on residualised data
         beta_2sls = np.dot(X_tilde, Y_tilde) / np.dot(X_tilde, X_tilde)

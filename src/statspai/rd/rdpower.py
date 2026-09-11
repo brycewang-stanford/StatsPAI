@@ -198,9 +198,7 @@ def rdpower(
 
     # Power = P(reject | tau)
     power = float(
-        1.0
-        - sp_stats.norm.cdf(z_alpha - tau / se)
-        + sp_stats.norm.cdf(-z_alpha - tau / se)
+        sp_stats.norm.sf(z_alpha - tau / se) + sp_stats.norm.cdf(-z_alpha - tau / se)
     )
 
     # MDE at 80% power
@@ -246,7 +244,7 @@ def _power_newton_raphson(
 
     def power(m: float) -> float:
         a = math.sqrt(m) * tau / stilde
-        return float(1 - sp_stats.norm.cdf(z - a) + sp_stats.norm.cdf(-z - a))
+        return float(sp_stats.norm.sf(z - a) + sp_stats.norm.cdf(-z - a))
 
     def power_dot(m: float) -> float:
         a = math.sqrt(m) * tau / stilde

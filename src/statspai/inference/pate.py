@@ -521,7 +521,7 @@ class PATEEstimator:
         # p-value (Wald)
         if se > 0:
             z = estimate / se
-            pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
+            pvalue = float(2 * stats.norm.sf(abs(z)))
         else:
             pvalue = np.nan
 

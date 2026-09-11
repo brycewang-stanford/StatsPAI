@@ -533,7 +533,7 @@ class DeepIV:
         z_crit = sp_stats.norm.ppf(1 - self.alpha / 2)
         ci = (ate - z_crit * se, ate + z_crit * se)
         z_stat = ate / se if se > 0 else 0.0
-        pvalue = float(2 * (1 - sp_stats.norm.cdf(abs(z_stat))))
+        pvalue = float(2 * sp_stats.norm.sf(abs(z_stat)))
 
         # Marginal effects at different treatment levels
         detail_rows = []

@@ -361,7 +361,7 @@ class StataAdapter(EngineAdapter):
         ci_upper = coef + 1.959963985 * se if se else None
         from scipy import stats as _st
 
-        pval = float(2 * (1 - _st.norm.cdf(abs(tstat)))) if tstat else None
+        pval = float(2 * _st.norm.sf(abs(tstat))) if tstat else None
         return EngineEstimate(
             engine="Stata",
             estimand=spec.estimand,

@@ -13,7 +13,7 @@ Cengiz, D., Dube, A., Lindner, A. and Zipperer, B. (2019).
 *Quarterly Journal of Economics*, 134(3), 1405-1454. [@cengiz2019effect]
 """
 
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -246,9 +246,7 @@ def stacked_did(
         att_se = 0.0
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
-    att_pval = (
-        float(2 * (1 - stats.norm.cdf(abs(att) / att_se))) if att_se > 0 else np.nan
-    )
+    att_pval = float(2 * stats.norm.sf(abs(att) / att_se)) if att_se > 0 else np.nan
     att_ci = (att - z_crit * att_se, att + z_crit * att_se)
 
     # ── Build event study detail DataFrame ───────────────────────── #
@@ -269,7 +267,7 @@ def stacked_did(
         else:
             b = es_betas[k]
             s = es_se[k]
-            p = float(2 * (1 - stats.norm.cdf(abs(b) / s))) if s > 0 else np.nan
+            p = float(2 * stats.norm.sf(abs(b) / s)) if s > 0 else np.nan
             rows.append(
                 {
                     "relative_time": int(k),

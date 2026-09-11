@@ -145,7 +145,7 @@ def _hc_recompute_se(
     if df_resid is None or not np.isfinite(df_resid) or df_resid <= 0:
         df_resid = float(n - k)
     pvalues = pd.Series(
-        2.0 * (1.0 - sp_stats.t.cdf(np.abs(t_arr), df_resid)),
+        2.0 * sp_stats.t.sf(np.abs(t_arr), df_resid),
         index=var_names,
     )
     crit = sp_stats.t.ppf(0.975, df_resid)

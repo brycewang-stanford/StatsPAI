@@ -192,7 +192,7 @@ def heckman(
     # Variable names
     var_names = ["const"] + x + ["lambda (IMR)"]
     z_stats = beta / se
-    pvals = 2 * (1 - stats.norm.cdf(np.abs(z_stats)))
+    pvals = 2 * stats.norm.sf(np.abs(z_stats))
 
     detail = pd.DataFrame(
         {
@@ -208,14 +208,14 @@ def heckman(
     lambda_coef = float(beta[-1])
     lambda_se = float(se[-1])
     lambda_z = lambda_coef / lambda_se if lambda_se > 0 else 0
-    lambda_p = float(2 * (1 - stats.norm.cdf(abs(lambda_z))))
+    lambda_p = float(2 * stats.norm.sf(abs(lambda_z)))
 
     # Main estimate: first regressor's coefficient (after constant)
     main_coef = float(beta[1])
     main_se = float(se[1])
     z_crit = stats.norm.ppf(1 - alpha / 2)
     main_z = main_coef / main_se
-    main_p = float(2 * (1 - stats.norm.cdf(abs(main_z))))
+    main_p = float(2 * stats.norm.sf(abs(main_z)))
     ci = (main_coef - z_crit * main_se, main_coef + z_crit * main_se)
 
     model_info = {

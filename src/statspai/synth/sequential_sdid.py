@@ -25,8 +25,8 @@ from typing import Any, Dict, List, Literal, Optional
 import numpy as np
 import pandas as pd
 
-from ..core.results import CausalResult
 from .._result_serialize import ResultProtocolMixin
+from ..core.results import CausalResult
 from .sdid import sdid as _sdid_base
 
 __all__ = ["sequential_sdid", "SequentialSDIDResult"]
@@ -317,9 +317,7 @@ def sequential_sdid(
 
     z = _stats.norm.ppf(1 - alpha / 2)
     agg_ci = (agg_att - z * agg_se, agg_att + z * agg_se)
-    pval = (
-        2 * (1 - _stats.norm.cdf(abs(agg_att) / agg_se)) if agg_se > 0 else float("nan")
-    )
+    pval = 2 * _stats.norm.sf(abs(agg_att) / agg_se) if agg_se > 0 else float("nan")
 
     return CausalResult(
         method="sequential_sdid",

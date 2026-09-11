@@ -400,7 +400,7 @@ def kleibergen_paap_rk(
     df_num = k * p  # number of excluded restrictions on reduced form
     df_denom = max(n - K_rf, 1)
     rk_f = rk_wald / df_num
-    rk_wald_pvalue = float(1 - stats.chi2.cdf(rk_wald, df=k - p + 1))
+    rk_wald_pvalue = float(stats.chi2.sf(rk_wald, df=k - p + 1))
 
     # KP rk LM statistic (Kleibergen-Paap 2006, Theorem 1)
     # Tests H0: rank(Pi) <= p-1 vs H1: rank(Pi) = p.
@@ -448,7 +448,7 @@ def kleibergen_paap_rk(
         A = Zs.T @ Ds / n
         sv = np.linalg.svd(A, compute_uv=False)
         rk_lm = float(n * sv[-1] ** 2)  # smallest sv², scaled by n
-    rk_lm_pvalue = float(1 - stats.chi2.cdf(rk_lm, df=(k - p + 1)))
+    rk_lm_pvalue = float(stats.chi2.sf(rk_lm, df=(k - p + 1)))
 
     return KleibergenPaapResult(
         rk_wald=rk_wald,
@@ -576,7 +576,7 @@ def sanderson_windmeijer(
         if rss > 0 and tss > 0:
             explained = tss - rss
             f_j = (explained / df1) / (rss / df2)
-            pval = float(1 - stats.f.cdf(f_j, df1, df2))
+            pval = float(stats.f.sf(f_j, df1, df2))
             pr2 = 1 - rss / tss
         else:
             f_j = np.nan  # pragma: no cover

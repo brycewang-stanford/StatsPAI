@@ -43,10 +43,10 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 from .shift_share import bartik as _bartik_cs
-from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "shift_share_political",
@@ -365,7 +365,7 @@ def _share_balance_test(
         r2 = 1 - rss / tss
         df1, df2 = k, max(n - k - 1, 1)
         F = (r2 / k) / ((1 - r2) / max(df2, 1)) if r2 < 1 else float("inf")
-        pv = float(1 - stats.f.cdf(F, df1, df2)) if np.isfinite(F) else 0.0
+        pv = float(stats.f.sf(F, df1, df2)) if np.isfinite(F) else 0.0
         results.append(
             {
                 "covariate": col,
@@ -533,7 +533,7 @@ def shift_share_political(
         se = float(ivres.std_errors[endog])
         z = stats.norm.ppf(1 - alpha / 2)
         ci = (beta - z * se, beta + z * se)
-        pv = float(2 * (1 - stats.norm.cdf(abs(beta) / se))) if se > 0 else float("nan")
+        pv = float(2 * stats.norm.sf(abs(beta) / se)) if se > 0 else float("nan")
         causal = CausalResult(
             method="shift_share_political",
             estimand="LATE",

@@ -19,6 +19,7 @@ JASA, 103(482), 832-842. [@hudgens2008toward]
 """
 
 from typing import List, Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
@@ -237,7 +238,7 @@ class SpilloverEstimator:
         z_crit = sp_stats.norm.ppf(1 - self.alpha / 2)
 
         if se_total > 0:
-            pvalue = float(2 * (1 - sp_stats.norm.cdf(abs(total / se_total))))
+            pvalue = float(2 * sp_stats.norm.sf(abs(total / se_total)))
         else:
             pvalue = 0.0
         ci = (total - z_crit * se_total, total + z_crit * se_total)

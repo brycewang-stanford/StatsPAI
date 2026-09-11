@@ -355,7 +355,7 @@ def _quick_ols_full(
     se_x = se[1]
     df_resid = n - k
     t_crit = stats.t.ppf(0.975, df_resid)
-    p_val = 2 * (1 - stats.t.cdf(abs(beta_x / se_x), df_resid))
+    p_val = 2 * stats.t.sf(abs(beta_x / se_x), df_resid)
 
     return {
         "estimate": beta_x,
@@ -431,7 +431,7 @@ def _interaction_het_test(
 
     chi2 = float(beta_int @ V_int_inv @ beta_int)
     df_test = n_int
-    p_val = 1 - stats.chi2.cdf(chi2, df_test)
+    p_val = stats.chi2.sf(chi2, df_test)
 
     return {"chi2": chi2, "pvalue": p_val, "df": float(df_test)}
 

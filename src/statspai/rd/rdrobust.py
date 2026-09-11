@@ -887,11 +887,11 @@ def rdrobust(
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
     z_conv = tau_conv / se_conv if se_conv > 0 else 0
-    pv_conv = float(2 * (1 - stats.norm.cdf(abs(z_conv))))
+    pv_conv = float(2 * stats.norm.sf(abs(z_conv)))
     ci_conv = (tau_conv - z_crit * se_conv, tau_conv + z_crit * se_conv)
 
     z_robust = tau_bc / se_robust if se_robust > 0 else 0
-    pv_robust = float(2 * (1 - stats.norm.cdf(abs(z_robust))))
+    pv_robust = float(2 * stats.norm.sf(abs(z_robust)))
     ci_robust = (tau_bc - z_crit * se_robust, tau_bc + z_crit * se_robust)
 
     # --- Detail table (matches rdrobust R output) ---

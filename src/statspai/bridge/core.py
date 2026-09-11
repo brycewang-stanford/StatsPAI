@@ -21,6 +21,7 @@ from typing import Any, Callable, Dict, Tuple
 
 import numpy as np
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 # Registered bridge implementations. New bridges register themselves at
@@ -159,7 +160,7 @@ def _agreement_test(
     if diff_se <= 0:
         return diff, 0.0, 1.0
     z = diff / diff_se
-    p = float(2 * (1 - stats.norm.cdf(abs(z))))
+    p = float(2 * stats.norm.sf(abs(z)))
     return diff, diff_se, p
 
 
@@ -242,14 +243,12 @@ def bridge(kind: str, **kwargs: Any) -> BridgeResult:
     # Lazy import: each bridge module registers itself on import. These names
     # are bound only for the registration side effect (never referenced), so
     # F401 is suppressed at the opening line where flake8 reports it.
-    from . import (  # noqa: F401
-        did_sc as _did_sc,
-        ewm_cate as _ewm_cate,
-        cb_ipw as _cb_ipw,
-        kink_rdd as _kink_rdd,
-        dr_calib as _dr_calib,
-        surrogate_pci as _surrogate_pci,
-    )
+    from . import cb_ipw as _cb_ipw
+    from . import did_sc as _did_sc  # noqa: F401
+    from . import dr_calib as _dr_calib
+    from . import ewm_cate as _ewm_cate
+    from . import kink_rdd as _kink_rdd
+    from . import surrogate_pci as _surrogate_pci
 
     if kind not in _BRIDGES:
         raise ValueError(

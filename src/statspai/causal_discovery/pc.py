@@ -24,8 +24,9 @@ Order-independent constraint-based causal structure learning.
 JMLR, 15, 3921-3962.
 """
 
-from typing import Optional, List, Dict, Any, Tuple
 from itertools import combinations
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
@@ -567,7 +568,7 @@ def _fisher_z_test(
         return 1.0  # not enough degrees of freedom
 
     z_stat = np.sqrt(dof) * abs(z)
-    pval = 2 * (1 - sp_stats.norm.cdf(z_stat))
+    pval = 2 * sp_stats.norm.sf(z_stat)
     return float(pval)
 
 

@@ -169,7 +169,7 @@ def ebalance(
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
     z = att / se if se > 0 else 0
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
+    pvalue = float(2 * stats.norm.sf(abs(z)))
     ci = (att - z_crit * se, att + z_crit * se)
 
     # Balance check

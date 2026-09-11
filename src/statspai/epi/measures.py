@@ -37,12 +37,8 @@ from typing import Any, Optional
 import numpy as np
 from scipy import stats
 
-from ..exceptions import (
-    DataInsufficient,
-    MethodIncompatibility,
-    NumericalInstability,
-)
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
 __all__ = [
     "OR2x2Result",
@@ -377,7 +373,7 @@ def odds_ratio(
         ci = (float(np.exp(log_or - z * se_log)), float(np.exp(log_or + z * se_log)))
         # Two-sided chi-square test for H0: OR = 1
         z_stat = log_or / se_log if se_log > 0 else 0.0
-        p = float(2 * (1 - stats.norm.cdf(abs(z_stat))))
+        p = float(2 * stats.norm.sf(abs(z_stat)))
     else:
         # Fisher's exact returns an unconditional MLE OR and p-value.
         table = np.array([[a, b], [c, d]], dtype=int)
@@ -492,7 +488,7 @@ def relative_risk(
     log_rr = np.log(rr)
     ci = (float(np.exp(log_rr - z * se_log)), float(np.exp(log_rr + z * se_log)))
     z_stat = log_rr / se_log if se_log > 0 else 0.0
-    p = float(2 * (1 - stats.norm.cdf(abs(z_stat))))
+    p = float(2 * stats.norm.sf(abs(z_stat)))
 
     return RR2x2Result(
         estimate=float(rr),
@@ -619,7 +615,7 @@ def risk_difference(
     p_pool = (a + c) / (n1 + n0)
     se_pool = np.sqrt(p_pool * (1 - p_pool) * (1 / n1 + 1 / n0))
     z_stat = rd / se_pool if se_pool > 0 else 0.0
-    p_val = float(2 * (1 - stats.norm.cdf(abs(z_stat))))
+    p_val = float(2 * stats.norm.sf(abs(z_stat)))
 
     return RD2x2Result(
         estimate=float(rd),
@@ -854,7 +850,7 @@ def incidence_rate_ratio(
     # Two-sided Wald p-value on log-IRR
     log_irr = np.log(irr) if irr > 0 else 0.0
     z_stat = log_irr / se_log if se_log > 0 else 0.0
-    p = float(2 * (1 - stats.norm.cdf(abs(z_stat))))
+    p = float(2 * stats.norm.sf(abs(z_stat)))
 
     return IRRResult(
         estimate=float(irr),

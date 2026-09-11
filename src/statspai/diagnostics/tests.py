@@ -282,7 +282,7 @@ def _bp_test(resid: Any, X: Any, n: int, k: int) -> Dict[str, Any]:
     r2 = 1 - rss_unrestricted / rss_restricted if rss_restricted > 0 else 0
     lm = n * r2
     df = k - 1  # excluding constant
-    pvalue = float(1 - stats.chi2.cdf(lm, df))
+    pvalue = float(stats.chi2.sf(lm, df))
 
     return {"statistic": float(lm), "df": df, "pvalue": pvalue, "test": "Breusch-Pagan"}
 
@@ -308,7 +308,7 @@ def _reset_test(
 
     if rss_u > 0 and df1 > 0 and df2 > 0:
         f_stat = ((rss_r - rss_u) / df1) / (rss_u / df2)
-        pvalue = float(1 - stats.f.cdf(f_stat, df1, df2))
+        pvalue = float(stats.f.sf(f_stat, df1, df2))
     else:
         f_stat = 0.0
         pvalue = 1.0

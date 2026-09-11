@@ -269,7 +269,7 @@ def text_treatment_effect(
     z = sp_stats.norm.ppf(1 - alpha / 2)
     ci_lo = estimate - z * se_t
     ci_hi = estimate + z * se_t
-    pval = float(2 * (1 - sp_stats.norm.cdf(abs(estimate / se_t))))
+    pval = float(2 * sp_stats.norm.sf(abs(estimate / se_t)))
 
     diagnostics: Dict[str, Any] = {
         "n_text_components": int(actual_k),

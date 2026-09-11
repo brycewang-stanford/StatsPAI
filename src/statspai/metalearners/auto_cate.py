@@ -48,23 +48,23 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..core.results import CausalResult
 from .._result_serialize import ResultProtocolMixin
+from ..core.results import CausalResult
 
 # sklearn imports moved to function bodies — keeps ``import statspai``
 # from pulling sklearn.model_selection / sklearn.ensemble through this
 # file when the user never touches auto_cate.
 from .metalearners import (
+    DRLearner,
+    RLearner,
     SLearner,
     TLearner,
     XLearner,
-    RLearner,
-    DRLearner,
-    metalearner,
     _default_outcome_model,
     _default_propensity_model,
     _get_propensity,
     _prepare_data,
+    metalearner,
 )
 
 _LEARNER_NAMES = {
@@ -340,7 +340,7 @@ def _blp_calibration(
         # Two-sided p-value for H0: beta_1 = 1
         if b1_se > 0:
             t1 = (b1 - 1.0) / b1_se
-            p1 = float(2 * (1 - stats.norm.cdf(abs(t1))))
+            p1 = float(2 * stats.norm.sf(abs(t1)))
         else:
             p1 = np.nan
         b2 = float(ols.params[2])

@@ -46,6 +46,7 @@ from typing import Callable, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -109,7 +110,7 @@ def partial_corr_pvalue(
     if n_eff <= 0:
         return 1.0
     z = 0.5 * np.log((1 + r) / (1 - r)) * np.sqrt(n_eff)
-    p = float(2.0 * (1.0 - stats.norm.cdf(abs(z))))
+    p = float(2.0 * stats.norm.sf(abs(z)))
     return p
 
 

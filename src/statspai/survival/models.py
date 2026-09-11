@@ -185,7 +185,7 @@ class CoxResult(EconometricResults):
                     rho, chi2, pv = 0.0, 0.0, 1.0
                 else:
                     chi2 = n * rho**2
-                    pv = 1 - stats.chi2.cdf(chi2, df=1)
+                    pv = stats.chi2.sf(chi2, df=1)
             rows.append({"variable": var, "rho": rho, "chi2": chi2, "p_value": pv})
         return pd.DataFrame(rows)
 
@@ -636,7 +636,7 @@ def logrank_test(
         chi2 = float(O_E @ np.linalg.lstsq(var_mat, O_E, rcond=None)[0])
 
     df = K - 1
-    p_value = 1 - stats.chi2.cdf(chi2, df=df)
+    p_value = stats.chi2.sf(chi2, df=df)
 
     return {
         "test_statistic": chi2,
@@ -1190,7 +1190,7 @@ def cox(
         "Log-likelihood": loglik,
         "Log-likelihood (null)": loglik0,
         "LR chi2": 2 * (loglik - loglik0),
-        "LR chi2 p-value": 1 - stats.chi2.cdf(2 * (loglik - loglik0), df=p),
+        "LR chi2 p-value": stats.chi2.sf(2 * (loglik - loglik0), df=p),
         "Concordance (C)": c_index,
         "AIC": -2 * loglik + 2 * p,
         "BIC": -2 * loglik + np.log(E.sum()) * p,

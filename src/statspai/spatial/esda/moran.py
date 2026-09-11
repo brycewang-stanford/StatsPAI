@@ -119,9 +119,9 @@ def moran(
         VI = max(VI, 1e-12)
         z_score = (I - EI) / np.sqrt(VI)
         p_norm = (
-            (2 * (1 - sp_stats.norm.cdf(abs(z_score))))
+            (2 * sp_stats.norm.sf(abs(z_score)))
             if two_tailed
-            else 1 - sp_stats.norm.cdf(z_score)
+            else sp_stats.norm.sf(z_score)
         )
 
     sims = None

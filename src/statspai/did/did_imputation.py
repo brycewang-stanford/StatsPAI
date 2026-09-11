@@ -668,9 +668,7 @@ def did_imputation(
             se_att = se_boot
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
-    pvalue_att = (
-        float(2 * (1 - stats.norm.cdf(abs(att / se_att)))) if se_att > 0 else 1.0
-    )
+    pvalue_att = float(2 * stats.norm.sf(abs(att / se_att))) if se_att > 0 else 1.0
     ci_att = (att - z_crit * se_att, att + z_crit * se_att)
 
     # ── Event study (if horizon requested) ─────────────────────── #
@@ -719,9 +717,7 @@ def did_imputation(
                 relative_time=_rel_vals,
             )
 
-            pval_k = (
-                float(2 * (1 - stats.norm.cdf(abs(att_k / se_k)))) if se_k > 0 else 1.0
-            )
+            pval_k = float(2 * stats.norm.sf(abs(att_k / se_k))) if se_k > 0 else 1.0
 
             es_rows.append(
                 {
@@ -836,7 +832,7 @@ def did_imputation(
             pre_ses = pre_rows["se"].to_numpy(dtype=float)
             chi2_stat = float(np.sum((pre_atts / pre_ses) ** 2))
             df_chi2 = len(pre_rows)
-            chi2_pval = float(1 - stats.chi2.cdf(chi2_stat, df_chi2))
+            chi2_pval = float(stats.chi2.sf(chi2_stat, df_chi2))
             pretrend_test = {
                 "statistic": chi2_stat,
                 "df": df_chi2,
@@ -899,9 +895,7 @@ def did_imputation(
                 cohort=_cohort_vals,
                 relative_time=_rel_vals,
             )
-            pval_h = (
-                float(2 * (1 - stats.norm.cdf(abs(att_h / se_h)))) if se_h > 0 else 1.0
-            )
+            pval_h = float(2 * stats.norm.sf(abs(att_h / se_h))) if se_h > 0 else 1.0
             het_rows.append(
                 {
                     hetby: level,
@@ -1338,7 +1332,7 @@ def _project_treatment_effects(
 
     with np.errstate(divide="ignore", invalid="ignore"):
         zstat = np.where(se > 0, theta / se, 0.0)
-    pval = 2 * (1 - stats.norm.cdf(np.abs(zstat)))
+    pval = 2 * stats.norm.sf(np.abs(zstat))
 
     return pd.DataFrame(
         {

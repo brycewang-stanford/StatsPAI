@@ -347,7 +347,7 @@ def ddd_heterogeneous(
     est = float(main["ddd_overall"])
     if se_overall > 0 and np.isfinite(se_overall):
         z = est / se_overall
-        p = float(2 * (1 - stats.norm.cdf(abs(z))))
+        p = float(2 * stats.norm.sf(abs(z)))
         ci = (est - z_crit * se_overall, est + z_crit * se_overall)
     else:
         p = np.nan
@@ -464,7 +464,7 @@ def _finish_analytic(
     se_overall = float(np.sqrt(np.mean(psi**2) / n_units))
     if se_overall > 0 and np.isfinite(se_overall):
         z = est / se_overall
-        p = float(2 * (1 - stats.norm.cdf(abs(z))))
+        p = float(2 * stats.norm.sf(abs(z)))
         ci = (est - z_crit * se_overall, est + z_crit * se_overall)
     else:
         p = np.nan

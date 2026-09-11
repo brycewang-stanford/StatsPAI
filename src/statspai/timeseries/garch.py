@@ -24,8 +24,8 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 
-from ..regression._optim_helpers import hessian_cov
 from .._result_serialize import ResultProtocolMixin
+from ..regression._optim_helpers import hessian_cov
 
 
 @dataclass
@@ -103,9 +103,7 @@ class GARCHResult(ResultProtocolMixin):
         from scipy import stats
 
         z = (self.params / self.std_errors).to_numpy(float)
-        return pd.Series(
-            2.0 * (1.0 - stats.norm.cdf(np.abs(z))), index=self.params.index
-        )
+        return pd.Series(2.0 * stats.norm.sf(np.abs(z)), index=self.params.index)
 
     @property
     def persistence(self) -> float:

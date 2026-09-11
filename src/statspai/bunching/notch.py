@@ -27,8 +27,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
-from ..core.results import CausalResult
 from .._result_serialize import ResultProtocolMixin
+from ..core.results import CausalResult
 
 # ======================================================================
 # NotchResult
@@ -570,7 +570,7 @@ def notch(
     # ------------------------------------------------------------------
     if se_B > 0:
         z_stat = excess_B / se_B
-        pvalue = float(2 * (1 - sp_stats.norm.cdf(abs(z_stat))))
+        pvalue = float(2 * sp_stats.norm.sf(abs(z_stat)))
     else:
         pvalue = 0.0
 

@@ -149,7 +149,7 @@ class YuElwertResult(DecompResultMixin):
                 z = abs(val) / se if se > 0 else 0.0
                 from scipy.stats import norm
 
-                pval = 2 * (1 - norm.cdf(z))
+                pval = 2 * norm.sf(z)
                 line += f"   SE={se:.4f}{sig_stars(pval):<3s}"
                 if self.ci and se_key in self.ci:
                     lo, hi = self.ci[se_key]

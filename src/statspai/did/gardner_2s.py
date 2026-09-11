@@ -493,7 +493,7 @@ def gardner_did(
         att_se = float(se_dict["ATT"])
 
     pvalue = (
-        float(2 * (1 - sp_stats.norm.cdf(abs(att_overall / att_se))))
+        float(2 * sp_stats.norm.sf(abs(att_overall / att_se)))
         if att_se > 0
         else float("nan")
     )

@@ -19,15 +19,16 @@ Journal of Econometrics, 155(2), 138-154. [@cattaneo2010efficient]
 """
 
 from typing import List, Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from ..core.results import CausalResult
+
 # sklearn is imported lazily inside the methods that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
 # file when the user never touches multi_treatment.
-
-from ..core.results import CausalResult
 
 
 def multi_treatment(
@@ -262,7 +263,7 @@ class MultiTreatment:
             se = float(np.std(boot_ates[:, j], ddof=1))
             row["se"] = se
             z_stat = row["estimate"] / max(se, 1e-10)
-            pv = float(2 * (1 - sp_stats.norm.cdf(abs(z_stat))))
+            pv = float(2 * sp_stats.norm.sf(abs(z_stat)))
             row["pvalue"] = pv
             row["ci_lower"] = row["estimate"] - z_crit * se
             row["ci_upper"] = row["estimate"] + z_crit * se

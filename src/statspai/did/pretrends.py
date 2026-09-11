@@ -449,7 +449,7 @@ def pretrends_test(
     wald_stat = float(beta_pre @ vcv_inv @ beta_pre)
 
     if test_type == "wald":
-        pvalue = float(1.0 - sp_stats.chi2.cdf(wald_stat, df=K))
+        pvalue = float(sp_stats.chi2.sf(wald_stat, df=K))
         stat_label = f"Wald chi2({K})"
         out_type = "wald"
     elif test_type == "f":
@@ -461,7 +461,7 @@ def pretrends_test(
         if df_resid is None:
             df_resid = 1000  # conservative fallback
         f_stat = wald_stat / K
-        pvalue = float(1.0 - sp_stats.f.cdf(f_stat, dfn=K, dfd=df_resid))
+        pvalue = float(sp_stats.f.sf(f_stat, dfn=K, dfd=df_resid))
         wald_stat = f_stat
         stat_label = f"F({K}, {df_resid})"
         out_type = "f"
@@ -646,7 +646,7 @@ def pretrends_power(
     # pretrends_test() reports the realised statistic on the same scale.
     ncp = float(delta @ vcv_inv @ delta)
     crit = float(sp_stats.chi2.ppf(1.0 - alpha, df=K))
-    joint_power = float(1.0 - sp_stats.ncx2.cdf(crit, df=K, nc=ncp))
+    joint_power = float(sp_stats.ncx2.sf(crit, df=K, nc=ncp))
     thresh = float(sp_stats.norm.ppf(1.0 - alpha / 2.0))
 
     if test == "joint":

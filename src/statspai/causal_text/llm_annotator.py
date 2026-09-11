@@ -619,7 +619,7 @@ def _correct_multiclass(
     z = sp_stats.norm.ppf(1 - alpha / 2)
     detail["ci_low"] = detail["corrected_estimate"] - z * detail["corrected_se"]
     detail["ci_high"] = detail["corrected_estimate"] + z * detail["corrected_se"]
-    detail["pvalue"] = 2 * (1 - sp_stats.norm.cdf(np.abs(detail["t"])))
+    detail["pvalue"] = 2 * sp_stats.norm.sf(np.abs(detail["t"]))
 
     # Inflation factor (delta method on M).  For multi-class we only
     # report a coarse upper-bound version: treat each off-diagonal
@@ -1181,7 +1181,7 @@ def llm_annotator_correct(
         ci_lo, ci_hi = fo_ci_lo, fo_ci_hi
 
     if report_se > 0:
-        pval = float(2 * (1 - sp_stats.norm.cdf(abs(point / report_se))))
+        pval = float(2 * sp_stats.norm.sf(abs(point / report_se)))
     else:
         pval = float("nan")
 

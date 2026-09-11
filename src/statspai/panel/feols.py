@@ -800,7 +800,7 @@ def feols(
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
     t_stats = coef / se.replace(0, np.nan)
     pvals = pd.Series(
-        2 * (1 - stats.t.cdf(np.abs(t_stats.fillna(0)), df_resid)),
+        2 * stats.t.sf(np.abs(t_stats.fillna(0)), df_resid),
         index=x_names,
     )
     ci_lo = coef - t_crit * se
@@ -940,7 +940,7 @@ def feols(
         t_crit = stats.t.ppf(1 - alpha / 2, df_infer)
         t_stats = coef / se.replace(0, np.nan)
         pvals = pd.Series(
-            2 * (1 - stats.t.cdf(np.abs(t_stats.fillna(0)), df_infer)),
+            2 * stats.t.sf(np.abs(t_stats.fillna(0)), df_infer),
             index=x_names,
         )
         ci_lo = coef - t_crit * se
@@ -1049,7 +1049,7 @@ def _ols_no_fe(
     se = np.sqrt(np.maximum(np.diag(vcov), 0.0))
     t_stats = coef / np.where(se > 0, se, np.nan)
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
-    pvals = 2 * (1 - stats.t.cdf(np.abs(np.nan_to_num(t_stats)), df_resid))
+    pvals = 2 * stats.t.sf(np.abs(np.nan_to_num(t_stats)), df_resid)
 
     if w is None:
         y_bar = y.mean()

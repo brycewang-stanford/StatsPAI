@@ -273,7 +273,7 @@ def cohort_anchored_event_study(
 
     ci = (att_avg - z_crit * se_avg, att_avg + z_crit * se_avg)
     z = att_avg / se_avg if se_avg > 0 else 0.0
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
+    pvalue = float(2 * stats.norm.sf(abs(z)))
 
     _result = CausalResult(
         method="Cohort-Anchored Event Study (staggered-robust)",

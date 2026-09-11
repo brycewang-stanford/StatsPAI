@@ -131,7 +131,7 @@ class DTEResult(ResultProtocolMixin):
         for i, tau in enumerate(self.qte_taus):
             eff, se_i = self.qte_effects[i], self.qte_se[i]
             lo, hi = eff - z * se_i, eff + z * se_i
-            pv = 2 * (1 - stats.norm.cdf(abs(eff / se_i))) if se_i > 0 else np.nan
+            pv = 2 * stats.norm.sf(abs(eff / se_i)) if se_i > 0 else np.nan
             lines.append(
                 f"  {tau:6.2f}  {eff:>10.4f}{self._stars(pv):<3s}  ({se_i:.4f})  "
                 f"[{lo:.4f}, {hi:.4f}]"

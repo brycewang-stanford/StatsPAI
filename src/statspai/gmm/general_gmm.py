@@ -394,7 +394,7 @@ def gmm(
     # ---- Over-identification test -----------------------------------------
     J_stat = float(n * objective(theta_hat, W_est))
     J_df = q - k
-    J_p = float(1.0 - stats.chi2.cdf(J_stat, J_df)) if J_df > 0 else float("nan")
+    J_p = float(stats.chi2.sf(J_stat, J_df)) if J_df > 0 else float("nan")
 
     if param_names is None:
         param_names = [f"theta_{i}" for i in range(k)]

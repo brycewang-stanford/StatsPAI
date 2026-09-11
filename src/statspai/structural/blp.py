@@ -29,15 +29,15 @@ Logit Models of Demand. Journal of Economics & Management Strategy, 9(4), 513-54
 
 from __future__ import annotations
 
-from typing import Any, Optional
 import warnings
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
-from ..core.results import EconometricResults
 from .._result_serialize import ResultProtocolMixin
+from ..core.results import EconometricResults
 
 # ---------------------------------------------------------------------------
 # Halton sequence generator for quasi-Monte Carlo integration
@@ -523,7 +523,7 @@ class BLPResult(ResultProtocolMixin):
             coef = self.linear_params[name]
             se = self.se_linear[name]
             z = coef / se if se > 0 else np.nan
-            pval = 2 * (1 - stats.norm.cdf(np.abs(z)))
+            pval = 2 * stats.norm.sf(np.abs(z))
             ci_lo = coef - 1.96 * se
             ci_hi = coef + 1.96 * se
             lines.append(
@@ -545,7 +545,7 @@ class BLPResult(ResultProtocolMixin):
                 sigma = self.nonlinear_params[name]
                 se = self.se_nonlinear[name]
                 z = sigma / se if se > 0 else np.nan
-                pval = 2 * (1 - stats.norm.cdf(np.abs(z)))
+                pval = 2 * stats.norm.sf(np.abs(z))
                 lines.append(
                     f"  {name:<20} {sigma:>10.4f} {se:>10.4f} "
                     f"{z:>8.3f} {pval:>8.4f}"

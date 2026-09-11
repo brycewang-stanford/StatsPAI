@@ -165,7 +165,7 @@ def select_pci_proxies(
             n = len(df) - controls.shape[1] - 2
             if n > 5:
                 z_stat = 0.5 * np.log((1 + partial_zy) / (1 - partial_zy)) * np.sqrt(n)
-                p_indep = float(2 * (1 - stats.norm.cdf(abs(z_stat))))
+                p_indep = float(2 * stats.norm.sf(abs(z_stat)))
             else:
                 p_indep = 1.0
         except Exception as exc:

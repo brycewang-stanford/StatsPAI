@@ -12,13 +12,14 @@ on Treatment Effects." *RES*, 76(3), 1071-1102. [@lee2009training]
 """
 
 import warnings
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import StatsPAIWarning
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import StatsPAIWarning
 
 
 class AttritionResult(ResultProtocolMixin):
@@ -173,7 +174,7 @@ def attrition_test(
                     np.sum(resid**2) / (len(a_v) - 2) * np.linalg.inv(X.T @ X)[1, 1]
                 )
                 t = beta[1] / se
-                p = 2 * (1 - stats.t.cdf(abs(t), len(a_v) - 2))
+                p = 2 * stats.t.sf(abs(t), len(a_v) - 2)
                 rows.append({"variable": var, "coef": beta[1], "se": se, "p_value": p})
             except Exception as e:
                 warnings.warn(

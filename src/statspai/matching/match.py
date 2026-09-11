@@ -1017,7 +1017,7 @@ class MatchEstimator:
 
         # Inference (after the SE is finalized)
         t_stat = att / se if se > 0 else 0.0
-        pvalue = float(2 * (1 - stats.norm.cdf(abs(t_stat))))
+        pvalue = float(2 * stats.norm.sf(abs(t_stat)))
         z = stats.norm.ppf(1 - self.alpha / 2)
         ci = (att - z * se, att + z * se)
 

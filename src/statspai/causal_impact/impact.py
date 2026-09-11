@@ -17,7 +17,8 @@ The model:
 Fit on pre-period, then forecast into post-period for counterfactual.
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -269,7 +270,7 @@ class CausalImpactEstimator:
 
         # P-value (two-sided test against zero effect)
         z_stat = avg_effect / se_avg if se_avg > 0 else 0
-        pvalue = float(2 * (1 - stats.norm.cdf(abs(z_stat))))
+        pvalue = float(2 * stats.norm.sf(abs(z_stat)))
 
         z_crit = stats.norm.ppf(1 - self.alpha / 2)
         ci = (avg_effect - z_crit * se_avg, avg_effect + z_crit * se_avg)

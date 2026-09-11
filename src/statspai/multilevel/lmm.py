@@ -51,9 +51,9 @@ from .._result_serialize import ResultProtocolMixin
 from ..core.results import EconometricResults
 from ..exceptions import MethodIncompatibility
 from ._core import (
-    _GroupBlock,
     _as_str_list,
     _group_blocks,
+    _GroupBlock,
     _initial_theta,
     _n_cov_params,
     _prepare_frame,
@@ -152,7 +152,7 @@ class MixedResult(ResultProtocolMixin):
     @property
     def pvalues(self) -> pd.Series:
         z = self.tvalues.abs()
-        return 2.0 * (1.0 - stats.norm.cdf(z))
+        return 2.0 * stats.norm.sf(z)
 
     @property
     def n_fixed(self) -> int:
@@ -399,7 +399,7 @@ class MixedResult(ResultProtocolMixin):
         except np.linalg.LinAlgError:
             chi2 = np.nan
         df = R.shape[0]
-        p = float(1.0 - stats.chi2.cdf(chi2, df)) if chi2 == chi2 else np.nan
+        p = float(stats.chi2.sf(chi2, df)) if chi2 == chi2 else np.nan
         return {"chi2": chi2, "df": df, "p_value": p}
 
     # ------------------------------------------------------------------
@@ -438,7 +438,7 @@ class MixedResult(ResultProtocolMixin):
             b = self.fixed_effects[var]
             se = self._se_fixed[var] if self._se_fixed is not None else np.nan
             z = b / se if se and se > 0 else np.nan
-            p = 2 * (1 - stats.norm.cdf(abs(z))) if z == z else np.nan
+            p = 2 * stats.norm.sf(abs(z)) if z == z else np.nan
             lo, hi = b - z_crit * se, b + z_crit * se
             lines.append(
                 f"{var:>18s} {b:10.4f} {se:10.4f} {z:8.3f} "
@@ -495,7 +495,7 @@ class MixedResult(ResultProtocolMixin):
             b = self.fixed_effects[var]
             se = self._se_fixed[var]
             z = b / se if se else float("nan")
-            p = 2 * (1 - stats.norm.cdf(abs(z))) if z == z else float("nan")
+            p = 2 * stats.norm.sf(abs(z)) if z == z else float("nan")
             out.append(f"| {var} | {b:.4f} | {se:.4f} | {z:.3f} | {p:.4f} |")
         out.append("\n## Variance components\n")
         out.append("| Component | Estimate |")
@@ -532,7 +532,7 @@ class MixedResult(ResultProtocolMixin):
             b = self.fixed_effects[var]
             se = self._se_fixed[var]
             z = b / se if se else float("nan")
-            p = 2 * (1 - stats.norm.cdf(abs(z))) if z == z else float("nan")
+            p = 2 * stats.norm.sf(abs(z)) if z == z else float("nan")
             lines.append(f"{var} & {b:.4f} & {se:.4f} & {z:.3f} & {p:.4f} \\\\")
         lines.append(r"\midrule")
         lines.append(r"\multicolumn{5}{l}{\textit{Variance components}} \\")
@@ -1274,7 +1274,7 @@ def mixed(
     lr_test = {
         "chi2": chi2,
         "df": float(n_cov_pars),
-        "p": float(1.0 - stats.chi2.cdf(chi2, n_cov_pars)) if chi2 > 0 else 1.0,
+        "p": float(stats.chi2.sf(chi2, n_cov_pars)) if chi2 > 0 else 1.0,
     }
 
     return MixedResult(

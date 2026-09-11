@@ -9,11 +9,12 @@ Implements the same variance formulas as R ``survey::svymean``,
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Union, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
+
 from .._result_serialize import ResultProtocolMixin
 
 if TYPE_CHECKING:
@@ -43,7 +44,7 @@ class SurveyResult(ResultProtocolMixin):
 
     @property
     def p_values(self) -> pd.Series:
-        return 2 * (1 - sp_stats.t.cdf(np.abs(self.t_values), df=self.dof))
+        return 2 * sp_stats.t.sf(np.abs(self.t_values), df=self.dof)
 
     def summary(self) -> pd.DataFrame:
         """Pretty summary table."""

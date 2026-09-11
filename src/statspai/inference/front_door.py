@@ -50,6 +50,7 @@ the generalized front-door criterion." *JRSS-B*, 82(1), 199-214. [@fulcher2020ro
 
 import warnings
 from typing import Any, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -261,7 +262,7 @@ def front_door(
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (float(point - z_crit * se), float(point + z_crit * se))
     z = point / se if se > 0 else 0.0
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
+    pvalue = float(2 * stats.norm.sf(abs(z)))
 
     # When there are no covariates (or mediator is binary), the
     # marginal and conditional formulas coincide — record both the

@@ -249,9 +249,7 @@ def _feols_bias_reduced(
 
     z = base.params / se
     base.std_errors = se
-    base.pvalues = pd.Series(
-        2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
-    )
+    base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
     crit = _stats.norm.ppf(0.975)
     base.conf_int_lower = base.params - crit * se
     base.conf_int_upper = base.params + crit * se
@@ -414,9 +412,7 @@ def _feglm_bias_reduced(
 
     z = base.params / se
     base.std_errors = se
-    base.pvalues = pd.Series(
-        2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
-    )
+    base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
     crit = _stats.norm.ppf(0.975)
     base.conf_int_lower = base.params - crit * se
     base.conf_int_upper = base.params + crit * se
@@ -680,9 +676,7 @@ def _feglm_conley(
 
     z = base.params / se
     base.std_errors = se
-    base.pvalues = pd.Series(
-        2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
-    )
+    base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
     crit = _stats.norm.ppf(0.975)
     base.conf_int_lower = base.params - crit * se
     base.conf_int_upper = base.params + crit * se

@@ -17,10 +17,12 @@ Rubin, D.B. (1987).
 *Wiley*. [@rubin1987multiple]
 """
 
-from typing import Optional, List, Dict, Any, Union
+from typing import Any, Dict, List, Optional, Union
+
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -135,7 +137,7 @@ def _rubins_rules(estimates: List[Dict[str, Any]]) -> Dict[str, Any]:
     r = (1 + 1 / m) * np.diag(B) / np.diag(U_bar)
     nu_old = (m - 1) * (1 + 1 / r) ** 2
     # Large sample df
-    pvalues = 2 * (1 - stats.t.cdf(np.abs(tvalues), np.maximum(nu_old, 1)))
+    pvalues = 2 * stats.t.sf(np.abs(tvalues), np.maximum(nu_old, 1))
 
     # Fraction of missing information
     fmi = (r + 2 / (nu_old + 3)) / (r + 1)

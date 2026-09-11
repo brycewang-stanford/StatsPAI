@@ -1542,7 +1542,7 @@ def _fit_cre(
                 V_sub = vcov.values[np.ix_(mean_idx, mean_idx)]
                 wald = float(mean_coefs @ np.linalg.pinv(V_sub) @ mean_coefs)
                 wald_df = len(mean_coefs)
-                wald_p = float(1 - stats.chi2.cdf(wald, wald_df))
+                wald_p = float(stats.chi2.sf(wald, wald_df))
                 result.diagnostics["CRE Wald chi2"] = wald
                 result.diagnostics["CRE Wald df"] = wald_df
                 result.diagnostics["CRE Wald p-value"] = wald_p

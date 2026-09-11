@@ -924,7 +924,7 @@ def _overdispersion_test(y: np.ndarray, mu: np.ndarray) -> Tuple[float, float]:
         np.sum(resid_test**2) / (len(y) - 2) * np.linalg.inv(X_test.T @ X_test)[1, 1]
     )
     t_stat = beta_test[1] / se_test
-    p_val = 2 * (1 - stats.t.cdf(abs(t_stat), len(y) - 2))
+    p_val = 2 * stats.t.sf(abs(t_stat), len(y) - 2)
     return float(t_stat), float(p_val)
 
 
@@ -1047,7 +1047,7 @@ def poisson(
 
     # LR chi2
     lr_chi2 = 2 * (ll - ll_null)
-    lr_pvalue = 1 - stats.chi2.cdf(lr_chi2, k - 1)
+    lr_pvalue = stats.chi2.sf(lr_chi2, k - 1)
 
     # Pseudo R-squared (McFadden)
     pseudo_r2 = 1 - ll / ll_null
@@ -1325,10 +1325,10 @@ def nbreg(
     ll_poisson = _poisson_loglik(y_arr, mu)
     lr_alpha = 2 * (ll - ll_poisson)
     # One-sided test (alpha >= 0), use chibar^2 (50:50 mixture of chi2_0 and chi2_1)
-    lr_alpha_pvalue = 0.5 * (1 - stats.chi2.cdf(max(lr_alpha, 0), 1))
+    lr_alpha_pvalue = 0.5 * stats.chi2.sf(max(lr_alpha, 0), 1)
 
     lr_chi2 = 2 * (ll - ll_null)
-    lr_pvalue = 1 - stats.chi2.cdf(lr_chi2, k - 1)
+    lr_pvalue = stats.chi2.sf(lr_chi2, k - 1)
     pseudo_r2 = 1 - ll / ll_null
 
     aic = -2 * ll + 2 * (k + 1)  # +1 for dispersion
@@ -1892,9 +1892,7 @@ def _ppmlhdfe_cr(
     )
     z = base.params / se
     base.std_errors = se
-    base.pvalues = pd.Series(
-        2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
-    )
+    base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
     crit = _stats.norm.ppf(1 - alpha / 2)
     base.conf_int_lower = base.params - crit * se
     base.conf_int_upper = base.params + crit * se
@@ -1996,9 +1994,7 @@ def _ppmlhdfe_conley(
     )
     z = base.params / se
     base.std_errors = se
-    base.pvalues = pd.Series(
-        2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
-    )
+    base.pvalues = pd.Series(2 * _stats.norm.sf(np.abs(z)), index=base.params.index)
     crit = _stats.norm.ppf(1 - alpha / 2)
     base.conf_int_lower = base.params - crit * se
     base.conf_int_upper = base.params + crit * se
@@ -2332,7 +2328,7 @@ def ppmlhdfe(
     ll_null = _poisson_loglik(y_arr, mu_null)
 
     lr_chi2 = 2 * (ll - ll_null)
-    lr_pvalue = 1 - stats.chi2.cdf(lr_chi2, max(k - 1, 1)) if k > 1 else np.nan
+    lr_pvalue = stats.chi2.sf(lr_chi2, max(k - 1, 1)) if k > 1 else np.nan
     pseudo_r2 = 1 - ll / ll_null
 
     # Deviance

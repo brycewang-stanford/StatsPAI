@@ -19,10 +19,12 @@ Simultaneous Equations."
 *Econometrica*, 30(1), 54-78. [@zellner1962three]
 """
 
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -110,7 +112,7 @@ class SURResult(ResultProtocolMixin):
             for var in params.index:
                 t_val = params[var] / se[var] if se[var] > 0 else np.nan
                 p_val = (
-                    2 * (1 - stats.t.cdf(abs(t_val), self.n_obs))
+                    2 * stats.t.sf(abs(t_val), self.n_obs)
                     if np.isfinite(t_val)
                     else np.nan
                 )
@@ -326,7 +328,7 @@ def sureg(
     )
     bp_stat = n * np.sum(np.triu(R, k=1) ** 2)
     bp_df = M * (M - 1) // 2
-    bp_p = 1 - stats.chi2.cdf(bp_stat, bp_df) if bp_df > 0 else np.nan
+    bp_p = stats.chi2.sf(bp_stat, bp_df) if bp_df > 0 else np.nan
 
     return SURResult(
         equations=eq_results,

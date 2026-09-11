@@ -28,7 +28,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional, List, Any, Tuple, Literal
+from typing import Any, List, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -287,7 +287,7 @@ def sdid(
         raise ValueError(f"Unknown se_method: {se_method!r}")
 
     z = tau / se if se > 0 else 0.0
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
+    pvalue = float(2 * stats.norm.sf(abs(z)))
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (tau - z_crit * se, tau + z_crit * se)
 
@@ -539,7 +539,7 @@ jsonlite::write_json(
 
     tau = float(payload["estimate"])
     se = float(payload["se"])
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(tau / se)))) if se > 0 else np.nan
+    pvalue = float(2 * stats.norm.sf(abs(tau / se))) if se > 0 else np.nan
     ci = (float(payload["ci_lower"]), float(payload["ci_upper"]))
 
     method_labels = {

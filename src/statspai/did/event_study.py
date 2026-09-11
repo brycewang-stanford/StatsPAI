@@ -536,9 +536,7 @@ def event_study(
                 "ci_lower": coef - t_crit * se_i,
                 "ci_upper": coef + t_crit * se_i,
                 "pvalue": (
-                    float(2 * (1 - sp_stats.norm.cdf(abs(coef / se_i))))
-                    if se_i > 0
-                    else 1.0
+                    float(2 * sp_stats.norm.sf(abs(coef / se_i))) if se_i > 0 else 1.0
                 ),
             }
         )
@@ -621,7 +619,7 @@ def event_study(
         att_se = float(np.sqrt(att_var)) if att_var > 0 else 0.0
     else:
         att_se = 0.0
-    att_p = float(2 * (1 - sp_stats.norm.cdf(abs(att / att_se)))) if att_se > 0 else 1.0
+    att_p = float(2 * sp_stats.norm.sf(abs(att / att_se))) if att_se > 0 else 1.0
 
     _result = CausalResult(
         method="OLS Event Study (TWFE)",
@@ -840,7 +838,7 @@ def _joint_wald_test(
         wald = float(beta_sub @ np.linalg.pinv(V_sub) @ beta_sub)
     f_stat = wald / q
     df_denom = max(n_clusters - 1, 1)
-    pvalue = float(1 - sp_stats.f.cdf(f_stat, q, df_denom))
+    pvalue = float(sp_stats.f.sf(f_stat, q, df_denom))
 
     return {
         "statistic": round(f_stat, 4),

@@ -271,7 +271,7 @@ def did_multiplegt(
     # ── Compute SEs, p-values, CIs ───────────────────────────────── #
     se_main = np.nanstd(boot_main, ddof=1)
     z_main = main["did_m"] / se_main if se_main > 0 else 0.0
-    p_main = 2 * (1 - stats.norm.cdf(abs(z_main)))
+    p_main = 2 * stats.norm.sf(abs(z_main))
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci_main = (main["did_m"] - z_crit * se_main, main["did_m"] + z_crit * se_main)
 
@@ -285,7 +285,7 @@ def did_multiplegt(
             else 0.0
         )
         z = est / se if se > 0 else 0.0
-        p = 2 * (1 - stats.norm.cdf(abs(z)))
+        p = 2 * stats.norm.sf(abs(z))
         ci = (est - z_crit * se, est + z_crit * se)
         placebo_out.append(
             {
@@ -308,7 +308,7 @@ def did_multiplegt(
             else 0.0
         )
         z = est / se if se > 0 else 0.0
-        p = 2 * (1 - stats.norm.cdf(abs(z)))
+        p = 2 * stats.norm.sf(abs(z))
         ci = (est - z_crit * se, est + z_crit * se)
         dynamic_out.append(
             {
@@ -764,7 +764,7 @@ def _joint_placebo_test(
     except np.linalg.LinAlgError:
         W = float(est @ np.linalg.pinv(cov_reg) @ est)
 
-    pval = float(1 - stats.chi2.cdf(W, k))
+    pval = float(stats.chi2.sf(W, k))
     return {"statistic": W, "df": int(k), "pvalue": pval}
 
 
@@ -803,6 +803,6 @@ def _avg_cumulative_effect(
         "se": se,
         "ci_lower": avg_est - z_crit * se,
         "ci_upper": avg_est + z_crit * se,
-        "pvalue": float(2 * (1 - stats.norm.cdf(abs(z)))),
+        "pvalue": float(2 * stats.norm.sf(abs(z))),
         "n_horizons": int(len(est_vec)),
     }

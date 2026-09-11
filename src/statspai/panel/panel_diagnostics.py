@@ -18,7 +18,7 @@ Pesaran, M.H. (2004). "General Diagnostic Tests for Cross Section
     Dependence in Panels." [@hausman1978specification]
 """
 
-from typing import List, Dict, Any, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -71,7 +71,7 @@ def _hausman_from_data(
         H = float(max(b_diff @ V_inv @ b_diff, 0))
 
     H = max(H, 0)
-    pvalue = float(1 - stats.chi2.cdf(H, k))
+    pvalue = float(stats.chi2.sf(H, k))
     reject_re = pvalue <= alpha
     recommendation = "FE" if reject_re else "RE"
 
@@ -150,7 +150,7 @@ def _bp_lm_test(
     LM = (nT / (2 * (T_bar - 1))) * ratio**2
 
     LM = max(LM, 0)
-    pvalue = float(1 - stats.chi2.cdf(LM, 1))
+    pvalue = float(stats.chi2.sf(LM, 1))
 
     return {
         "statistic": LM,
@@ -227,7 +227,7 @@ def _f_test_effects(
 
     F = ((rss_r - rss_u) / df1) / (rss_u / df2)
     F = max(F, 0)
-    pvalue = float(1 - stats.f.cdf(F, df1, df2))
+    pvalue = float(stats.f.sf(F, df1, df2))
 
     return {
         "statistic": F,
@@ -300,7 +300,7 @@ def _pesaran_cd(
         }
 
     CD = np.sqrt(2.0 / (N * (N - 1))) * sum_rho
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(CD))))
+    pvalue = float(2 * stats.norm.sf(abs(CD)))
 
     return {
         "statistic": float(CD),

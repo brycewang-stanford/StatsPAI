@@ -383,9 +383,7 @@ def multi_outcome_synth(
     if len(valid_pvals) >= 2:
         # Fisher's method: -2 * sum(log(p_k)) ~ chi2(2K)
         fisher_stat = -2.0 * np.sum(np.log(valid_pvals))
-        joint_pvalue = float(
-            1 - sp_stats.chi2.cdf(fisher_stat, df=2 * len(valid_pvals))
-        )
+        joint_pvalue = float(sp_stats.chi2.sf(fisher_stat, df=2 * len(valid_pvals)))
     elif len(valid_pvals) == 1:
         joint_pvalue = valid_pvals[0]
     else:

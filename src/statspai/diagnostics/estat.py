@@ -270,7 +270,7 @@ def _estat_hettest(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 
     lm = n * r2
     df = k - 1  # regressors excl. constant
-    pval = float(1.0 - sp_stats.chi2.cdf(lm, df))
+    pval = float(sp_stats.chi2.sf(lm, df))
 
     reject = pval < alpha
     interp = (
@@ -337,7 +337,7 @@ def _estat_white(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 
     lm = n * r2
     df = k_aux - 1
-    pval = float(1.0 - sp_stats.chi2.cdf(lm, df))
+    pval = float(sp_stats.chi2.sf(lm, df))
 
     reject = pval < alpha
     interp = (
@@ -390,7 +390,7 @@ def _estat_reset(
 
     if rss_u > 0 and df1 > 0 and df2 > 0:
         f_stat = ((rss_r - rss_u) / df1) / (rss_u / df2)
-        pval = float(1.0 - sp_stats.f.cdf(f_stat, df1, df2))
+        pval = float(sp_stats.f.sf(f_stat, df1, df2))
     else:
         f_stat = 0.0
         pval = 1.0
@@ -450,7 +450,7 @@ def _estat_bgodfrey(
 
     lm = n_aux * r2
     df = lags
-    pval = float(1.0 - sp_stats.chi2.cdf(lm, df))
+    pval = float(sp_stats.chi2.sf(lm, df))
 
     reject = pval < alpha
     lag_label = "lag" if lags == 1 else "lags"
@@ -640,7 +640,7 @@ def _estat_linktest(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     XtX_inv = np.linalg.inv(X_link.T @ X_link)
     se_hatsq = np.sqrt(mse * XtX_inv[2, 2])
     t_hatsq = beta_link[2] / se_hatsq if se_hatsq > 0 else 0.0
-    pval = float(2.0 * (1.0 - sp_stats.t.cdf(abs(t_hatsq), n - 3)))
+    pval = float(2.0 * sp_stats.t.sf(abs(t_hatsq), n - 3))
 
     reject = pval < alpha
     interp = (
@@ -686,7 +686,7 @@ def _estat_normality(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
         kurt_excess = 0.0
 
     jb = (n / 6.0) * (skew**2 + (kurt_excess**2) / 4.0)
-    jb_pval = float(1.0 - sp_stats.chi2.cdf(jb, 2))
+    jb_pval = float(sp_stats.chi2.sf(jb, 2))
 
     # Shapiro-Wilk (scipy limit: n <= 5000)
     if n <= 5000:

@@ -21,8 +21,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import StatsPAIWarning
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import StatsPAIWarning
 
 
 class RandomizationResult(ResultProtocolMixin):
@@ -483,7 +483,7 @@ def balance_check(
         k = X_bal.shape[1] - 1
         n_total = len(y_treat)
         f_stat = ((tss - rss) / k) / (rss / (n_total - k - 1))
-        f_p = 1 - stats.f.cdf(f_stat, k, n_total - k - 1)
+        f_p = stats.f.sf(f_stat, k, n_total - k - 1)
     except Exception as e:
         warnings.warn(
             f"balance_check: omnibus F-test could not be computed "

@@ -20,10 +20,10 @@ import warnings
 from typing import Any, Dict, List, Optional
 
 import numpy as np
-from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 from scipy import stats
 
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceWarning
 
@@ -187,7 +187,7 @@ def fortified_pci(
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (tau - z_crit * se, tau + z_crit * se)
     z = tau / se if se > 0 else 0.0
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
+    pvalue = float(2 * stats.norm.sf(abs(z)))
 
     return CausalResult(
         method="Fortified Proximal Causal Inference (DR)",

@@ -450,7 +450,7 @@ def _hosmer_lemeshow(
             chi2 += (o_g - e_g) ** 2 / denom
 
     df = n_groups - 2
-    p_value = 1.0 - stats.chi2.cdf(chi2, df) if df > 0 else np.nan
+    p_value = stats.chi2.sf(chi2, df) if df > 0 else np.nan
     return chi2, p_value
 
 
@@ -639,7 +639,7 @@ def _fit_binary(
     _warn_if_separated(y_vec, p_hat)
     lr_chi2 = 2.0 * (ll - ll_null)
     lr_df = k - 1
-    lr_pvalue = 1.0 - stats.chi2.cdf(lr_chi2, lr_df) if lr_df > 0 else np.nan
+    lr_pvalue = stats.chi2.sf(lr_chi2, lr_df) if lr_df > 0 else np.nan
     pseudo_r2 = 1.0 - ll / ll_null if ll_null != 0 else np.nan
     aic = -2.0 * ll + 2.0 * k
     bic = -2.0 * ll + np.log(n) * k

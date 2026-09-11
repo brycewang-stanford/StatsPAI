@@ -139,7 +139,7 @@ def overlap_weights(
     se = float(np.std(boot, ddof=1))
     z = sp_stats.norm.ppf(1 - alpha / 2)
     ci = (est - z * se, est + z * se)
-    pval = float(2 * (1 - sp_stats.norm.cdf(abs(est) / se))) if se > 0 else 1.0
+    pval = float(2 * sp_stats.norm.sf(abs(est) / se)) if se > 0 else 1.0
 
     ess = (h.sum()) ** 2 / (h**2).sum() if (h**2).sum() > 0 else np.nan
     full_weights = T * h / ps + (1 - T) * h / (1 - ps)

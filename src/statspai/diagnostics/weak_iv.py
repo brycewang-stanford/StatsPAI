@@ -730,7 +730,7 @@ def anderson_rubin_test(
         return float((num_ss / df1) / (rss / df2))
 
     ar_f = _ar_f(h0)
-    ar_p = float(1 - stats.f.cdf(ar_f, df1, df2)) if not np.isnan(ar_f) else np.nan
+    ar_p = float(stats.f.sf(ar_f, df1, df2)) if not np.isnan(ar_f) else np.nan
 
     # ── AR confidence set via grid inversion ────────────────────────
     f_crit = stats.f.ppf(1 - alpha, df1, max(df2, 1))
@@ -811,7 +811,7 @@ def _kstat_and_pvalue_at(k_cs: Any, h0: float) -> Tuple[float, float]:
         return (np.nan, np.nan)
     idx = int(np.argmin(np.abs(grid - h0)))
     stat = float(k_cs.statistic[idx])
-    p = float(1.0 - stats.chi2.cdf(stat, df=1))
+    p = float(stats.chi2.sf(stat, df=1))
     return stat, p
 
 

@@ -474,7 +474,7 @@ def scpi(
     # Approximate p-value from PI (Gaussian)
     if agg_se > 0:
         z_stat = abs(att) / agg_se
-        pvalue = float(2 * (1 - stats.norm.cdf(z_stat)))
+        pvalue = float(2 * stats.norm.sf(z_stat))
     else:
         pvalue = 0.0 if abs(att) > 0 else 1.0
 

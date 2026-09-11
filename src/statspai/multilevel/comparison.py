@@ -27,6 +27,7 @@ from typing import Any
 
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -165,7 +166,7 @@ def lrtest(
 
     if boundary and df == 1:
         # Classic 50/50 mixture of χ²_0 and χ²_1 (Self–Liang 1987).
-        p = 0.5 * (1.0 - stats.chi2.cdf(chi2, 1))
+        p = 0.5 * stats.chi2.sf(chi2, 1)
     elif boundary and df >= 2:
         # The exact reference is the Stram–Lee (1994) mixture, whose
         # weights depend on the covariance parameterisation.  We fall
@@ -179,11 +180,9 @@ def lrtest(
             RuntimeWarning,
             stacklevel=2,
         )
-        p = 0.5 * (
-            (1.0 - stats.chi2.cdf(chi2, df - 1)) + (1.0 - stats.chi2.cdf(chi2, df))
-        )
+        p = 0.5 * (stats.chi2.sf(chi2, df - 1) + stats.chi2.sf(chi2, df))
     else:
-        p = 1.0 - stats.chi2.cdf(chi2, df) if df > 0 else 1.0
+        p = stats.chi2.sf(chi2, df) if df > 0 else 1.0
 
     return LRTestResult(
         chi2=chi2,

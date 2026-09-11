@@ -80,8 +80,8 @@ __all__ = ["dml_model_averaging", "model_averaging_dml", "DMLAveragingResult"]
 
 def _default_candidates() -> List[Tuple[Any, Any, str]]:
     """Return a reasonable default roster of (g, m, label) triples."""
-    from sklearn.linear_model import LassoCV, RidgeCV
     from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
+    from sklearn.linear_model import LassoCV, RidgeCV
 
     return [
         (LassoCV(cv=5), LassoCV(cv=5), "lasso"),
@@ -840,7 +840,7 @@ def dml_model_averaging(
 
     ci = (theta_avg - z * se_avg, theta_avg + z * se_avg)
     pvalue = (
-        float(2 * (1 - sp_stats.norm.cdf(abs(theta_avg / se_avg))))
+        float(2 * sp_stats.norm.sf(abs(theta_avg / se_avg)))
         if se_avg > 0
         else float("nan")
     )

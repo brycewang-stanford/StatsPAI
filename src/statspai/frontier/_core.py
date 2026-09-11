@@ -537,15 +537,15 @@ def mixed_chi_bar_pvalue(lr_stat: float, df_boundary: int = 1) -> float:
     if lr_stat <= 0:
         return 1.0
     if df_boundary == 1:
-        return float(0.5 * (1.0 - stats.chi2.cdf(lr_stat, df=1)))
+        return float(0.5 * stats.chi2.sf(lr_stat, df=1))
     # Simpler fallback: use chi2(df_boundary).
-    return float(1.0 - stats.chi2.cdf(lr_stat, df=df_boundary))
+    return float(stats.chi2.sf(lr_stat, df=df_boundary))
 
 
 def chi2_pvalue(lr_stat: float, df: int) -> float:
     if lr_stat <= 0:
         return 1.0
-    return float(1.0 - stats.chi2.cdf(lr_stat, df=df))
+    return float(stats.chi2.sf(lr_stat, df=df))
 
 
 # ---------------------------------------------------------------------------

@@ -911,18 +911,14 @@ def iv_diag(
     from scipy import stats
 
     t_2sls = beta_2sls / se_2sls if se_2sls > 0 else np.nan
-    p_2sls = (
-        float(2 * (1 - stats.norm.cdf(abs(t_2sls)))) if np.isfinite(t_2sls) else np.nan
-    )
+    p_2sls = float(2 * stats.norm.sf(abs(t_2sls))) if np.isfinite(t_2sls) else np.nan
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     ci_analytic_2sls = (beta_2sls - z_crit * se_2sls, beta_2sls + z_crit * se_2sls)
 
     # ── OLS comparator ────────────────────────────────────────────────
     beta_ols, se_ols, _ = _ols_point(Y, D, W)
     t_ols = beta_ols / se_ols if se_ols > 0 else np.nan
-    p_ols = (
-        float(2 * (1 - stats.norm.cdf(abs(t_ols)))) if np.isfinite(t_ols) else np.nan
-    )
+    p_ols = float(2 * stats.norm.sf(abs(t_ols))) if np.isfinite(t_ols) else np.nan
     ci_ols = (beta_ols - z_crit * se_ols, beta_ols + z_crit * se_ols)
 
     # ── AR / effective F / tF ─────────────────────────────────────────

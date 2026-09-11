@@ -382,7 +382,7 @@ def did_multiplegt_dyn(
         else:
             se = _bootstrap_se(boot_hist[:, j], label=f"did.multiplegt_dyn[h={h}]")
         p = (
-            float(2 * (1 - stats.norm.cdf(abs(est / se))))
+            float(2 * stats.norm.sf(abs(est / se)))
             if (se > 0 and np.isfinite(se))
             else np.nan
         )
@@ -509,7 +509,7 @@ def did_multiplegt_dyn(
 
     if se_avg and se_avg > 0:
         z = headline / se_avg
-        p_h = float(2 * (1 - stats.norm.cdf(abs(z))))
+        p_h = float(2 * stats.norm.sf(abs(z)))
         ci_h = (headline - z_crit * se_avg, headline + z_crit * se_avg)
     else:
         p_h = np.nan

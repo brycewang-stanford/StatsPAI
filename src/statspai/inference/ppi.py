@@ -184,7 +184,7 @@ def ppi_mean(
 
     z = sp_stats.norm.ppf(1 - alpha / 2)
     ci = (estimate - z * se, estimate + z * se)
-    pvalue = float(2 * (1 - sp_stats.norm.cdf(abs(estimate / se))))
+    pvalue = float(2 * sp_stats.norm.sf(abs(estimate / se)))
 
     classical_est = float(np.mean(y_arr))
     classical_se = float(np.std(y_arr, ddof=1) / np.sqrt(n))
@@ -410,7 +410,7 @@ def ppi_ols(
     se_classical = np.sqrt(np.var(psi_y_lab, axis=0, ddof=1) / n)
     z = sp_stats.norm.ppf(1 - alpha / 2)
     tvals = beta_pp / se_pp
-    pvals = 2 * (1 - sp_stats.norm.cdf(np.abs(tvals)))
+    pvals = 2 * sp_stats.norm.sf(np.abs(tvals))
 
     detail = pd.DataFrame(
         {

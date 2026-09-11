@@ -54,7 +54,8 @@ Cui, Y., Pu, H., Shi, X., Miao, W. and Tchetgen Tchetgen, E.J. (2024).
 """
 
 import warnings
-from typing import Any, Optional, List, Tuple
+from typing import Any, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -240,7 +241,7 @@ def proximal(
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (tau - z_crit * se, tau + z_crit * se)
     z = tau / se if se > 0 else 0.0
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
+    pvalue = float(2 * stats.norm.sf(abs(z)))
 
     model_info = {
         "estimator": "Proximal 2SLS (linear bridge)",

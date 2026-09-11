@@ -23,7 +23,8 @@ Lei, L. & Candes, E. J. (2021).
 JRSS-B, 83(5), 911-938. [@lei2021conformal]
 """
 
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
@@ -287,7 +288,7 @@ class ConformalCATE:
 
         if se > 0:
             z_stat = ate / se
-            pvalue = float(2 * (1 - sp_stats.norm.cdf(abs(z_stat))))
+            pvalue = float(2 * sp_stats.norm.sf(abs(z_stat)))
         else:
             pvalue = 0.0
 

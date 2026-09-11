@@ -34,6 +34,7 @@ Chapman & Hall/CRC. Chapter 13.
 
 import warnings
 from typing import Any, List, Optional, Sequence
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -272,7 +273,7 @@ def g_computation(
     # Wald p-value on each grid point (dose-response reports a curve)
     with np.errstate(divide="ignore", invalid="ignore"):
         z = np.where(se > 0, point / se, 0.0)
-    pvalue = 2 * (1 - stats.norm.cdf(np.abs(z)))
+    pvalue = 2 * stats.norm.sf(np.abs(z))
 
     model_info = {
         "estimator": "G-computation (parametric g-formula)",

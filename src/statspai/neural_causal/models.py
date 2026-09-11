@@ -1914,7 +1914,7 @@ def _inference(
     """Compute p-value and confidence interval."""
     if se > 0:
         z_stat = estimate / se
-        pvalue = float(2 * (1 - sp_stats.norm.cdf(abs(z_stat))))
+        pvalue = float(2 * sp_stats.norm.sf(abs(z_stat)))
     else:
         pvalue = 0.0
     z_crit = sp_stats.norm.ppf(1 - alpha / 2)

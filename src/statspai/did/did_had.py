@@ -436,7 +436,7 @@ def did_had(
         ci=(float(headline["ci_lower"]), float(headline["ci_upper"])),
         alpha=alpha,
         pvalue=(
-            float(2 * (1 - stats.norm.cdf(abs(headline["estimate"] / headline["se"]))))
+            float(2 * stats.norm.sf(abs(headline["estimate"] / headline["se"])))
             if headline["se"] > 0
             else 1.0
         ),
@@ -586,6 +586,6 @@ def yatchew_linearity_test(
         "s2_lin": s2_lin,
         "s2_diff": s2_diff,
         "statistic": stat,
-        "pvalue": float(1.0 - stats.norm.cdf(stat)),
+        "pvalue": float(stats.norm.sf(stat)),
         "n": int(n),
     }

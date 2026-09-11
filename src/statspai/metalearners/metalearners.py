@@ -994,7 +994,7 @@ def metalearner(
     # Inference
     if se > 0:
         t_stat = ate / se
-        pvalue = float(2 * (1 - stats.norm.cdf(abs(t_stat))))
+        pvalue = float(2 * stats.norm.sf(abs(t_stat)))
     else:
         pvalue = 0.0
 

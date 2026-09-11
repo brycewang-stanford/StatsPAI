@@ -39,16 +39,14 @@ from typing import Any, List, Optional, cast
 import numpy as np
 import pandas as pd
 
+from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility, NumericalInstability
 from ._result_protocol import jsonable as _jsonable
 from ._result_protocol import tidy_records as _tidy_records
-from ._validation import (
-    nonempty_sample as _nonempty_sample,
-    nonnegative_finite_float as _nonnegative_finite_float,
-    positive_int as _positive_int,
-    positive_weight_mass as _positive_weight_mass,
-)
-from .._result_serialize import ResultProtocolMixin
+from ._validation import nonempty_sample as _nonempty_sample
+from ._validation import nonnegative_finite_float as _nonnegative_finite_float
+from ._validation import positive_int as _positive_int
+from ._validation import positive_weight_mass as _positive_weight_mass
 
 # ---------------------------------------------------------------------------
 # Result type
@@ -109,7 +107,7 @@ class FeolsResult(ResultProtocolMixin):
         from scipy.stats import t as _t
 
         df = max(self.df_resid, 1)
-        p = 2.0 * (1.0 - _t.cdf(np.abs(t), df=df))
+        p = 2.0 * _t.sf(np.abs(t), df=df)
         return pd.DataFrame(
             {
                 "Estimate": b,
@@ -307,8 +305,8 @@ def feols(
     fe_tol = _nonnegative_finite_float(fe_tol, name="fe_tol", context="feols")
 
     # Lazy imports to keep top-level `sp.fast` cheap.
-    from .fepois import _parse_fepois_formula
     from .demean import demean as _demean
+    from .fepois import _parse_fepois_formula
     from .inference import crve as _crve
 
     lhs, rhs_terms, fe_terms = _parse_fepois_formula(formula)
@@ -414,8 +412,8 @@ def feols(
             # Weighted: the FE projection is W-weighted, so the
             # arithmetic-mean Rust kernel is wrong here. Route through
             # the same weighted-AP loop ``fepois`` uses internally.
-            from .fepois import _weighted_ap_demean
             from .demean import _detect_singletons as _ds_helper
+            from .fepois import _weighted_ap_demean
 
             # Factorise FEs explicitly so we control the singleton path
             fe_codes_raw: List[np.ndarray] = []

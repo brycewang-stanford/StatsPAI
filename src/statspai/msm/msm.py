@@ -68,6 +68,7 @@ Epidemiology*, 168(6), 656-664. [@cole2008constructing]
 
 import warnings
 from typing import Any, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -256,7 +257,7 @@ def msm(
     coef = float(beta[1])
     se_coef = float(se[1])
     z = coef / se_coef if se_coef > 0 else 0.0
-    pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
+    pvalue = float(2 * stats.norm.sf(abs(z)))
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (coef - z_crit * se_coef, coef + z_crit * se_coef)
 
@@ -268,8 +269,7 @@ def msm(
             "estimate": beta,
             "se": se,
             "z": np.where(se > 0, beta / se, 0.0),
-            "pvalue": 2
-            * (1 - stats.norm.cdf(np.abs(np.where(se > 0, beta / se, 0.0)))),
+            "pvalue": 2 * stats.norm.sf(np.abs(np.where(se > 0, beta / se, 0.0))),
         }
     )
 

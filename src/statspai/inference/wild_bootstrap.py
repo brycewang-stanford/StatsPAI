@@ -27,7 +27,7 @@ MacKinnon, J.G. and Webb, M.D. (2018).
 *The Econometrics Journal*, 21(2), 114-135. [@mackinnon2018wild]
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -253,7 +253,7 @@ def wild_cluster_bootstrap(
         "se_cluster": se_cl,
         "t_stat": float(t_stat),
         "p_boot": p_boot,
-        "p_cluster": float(2 * (1 - stats.t.cdf(abs(t_stat), G - 1))),
+        "p_cluster": float(2 * stats.t.sf(abs(t_stat), G - 1)),
         "ci_boot": ci_boot,
         "n_clusters": G,
         "n_obs": n,
