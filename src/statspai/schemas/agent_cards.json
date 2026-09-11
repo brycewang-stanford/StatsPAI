@@ -17641,7 +17641,7 @@
     ],
     "category": "network",
     "cost_profile": "",
-    "description": "Exponential random graph model (ERGM) fit by maximum pseudo-likelihood (MPLE). Terms: edges, mutual, triangles, nodematch/nodecov/absdiff. MPLE=MLE for dyad-independent models; MCMC-MLE is the roadmap.",
+    "description": "Exponential random graph model (ERGM) fit by maximum pseudo-likelihood (MPLE). Terms: edges, mutual, triangles, nodematch/nodecov/absdiff. MPLE=MLE for dyad-independent models; MCMC-MLE is the roadmap. Validation: certified parity evidence.",
     "example": "sp.ergm(g, terms=[\"edges\", \"nodematch:dept\"], node_attrs=attrs)",
     "failure_modes": [],
     "inherits_from": null,
@@ -17651,7 +17651,7 @@
     "pre_conditions": [],
     "reference": "robins2007introduction",
     "signature": {
-      "description": "Exponential random graph model (ERGM) fit by maximum pseudo-likelihood (MPLE). Terms: edges, mutual, triangles, nodematch/nodecov/absdiff. MPLE=MLE for dyad-independent models; MCMC-MLE is the roadmap.",
+      "description": "Exponential random graph model (ERGM) fit by maximum pseudo-likelihood (MPLE). Terms: edges, mutual, triangles, nodematch/nodecov/absdiff. MPLE=MLE for dyad-independent models; MCMC-MLE is the roadmap. Validation: certified parity evidence.",
       "name": "ergm",
       "parameters": {
         "properties": {
@@ -17692,9 +17692,18 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "API/unit contract evidence: tests/test_network.py"
+      "API/unit contract evidence: tests/test_network.py",
+      "tests/reference_parity/test_network_parity.py",
+      "Cross-language parity (aligned) vs R igraph degree / betweenness / closeness / page_rank / eigen_centrality [dyadRobust 0.0.1.0001, ergm 4.12.0, igraph 2.3.3, sna 2.8]; tolerance degree, betweenness (normalised and raw), closeness and PageRank at 1e-10 on Zachary's karate club. The eigenvector column is L2-normalised (networkx) where igraph max-scales it: the ratio is constant across nodes to 1e-14, so it is the same vector under a documented normalisation. -- tests/reference_parity/test_network_parity.py",
+      "Cross-language parity (aligned) vs R igraph::cluster_louvain (T3: randomised on both sides) [dyadRobust 0.0.1.0001, ergm 4.12.0, igraph 2.3.3, sna 2.8]; tolerance T3, not T2: 200 seeded runs on karate have mean modularity within four combined standard errors of igraph's 200 runs (0.4157 vs 0.4145), and both reach the same maximum, 0.41979, the known optimum for this graph. -- tests/reference_parity/test_network_parity.py",
+      "Cross-language parity (bit-exact) vs R dyadRobust (Aronow-Samii-Assenova dyadic-robust variance) [dyadRobust 0.0.1.0001, ergm 4.12.0, igraph 2.3.3, sna 2.8]; tolerance Coefficients 7e-16 and standard errors 2e-15 on undirected and directed dyads, after the 1.27.0 fix to the shared-member weighting; also asserted against a brute-force construction of the definition. -- tests/reference_parity/test_network_parity.py",
+      "Cross-language parity (bit-exact) vs R ergm::ergm(estimate = 'MPLE') [dyadRobust 0.0.1.0001, ergm 4.12.0, igraph 2.3.3, sna 2.8]; tolerance Coefficients 2e-16 to 7e-13 for edges + triangle + nodematch + nodecov + absdiff (undirected) and edges + mutual (directed); standard errors 2e-8 (directed) and <= 3.2e-7 (undirected), inside the 1e-6 budget. -- tests/reference_parity/test_network_parity.py",
+      "Cross-language parity (bit-exact) vs R sna::netlm [dyadRobust 0.0.1.0001, ergm 4.12.0, igraph 2.3.3, sna 2.8]; tolerance Coefficients 2e-15 directed and undirected. QAP p-values are permutation draws and are not compared. -- tests/reference_parity/test_network_parity.py",
+      "Cross-language parity (bit-exact) vs R sna::netlogit [dyadRobust 0.0.1.0001, ergm 4.12.0, igraph 2.3.3, sna 2.8]; tolerance Coefficients 1.4e-9 (IRLS on both sides). QAP p-values are permutation draws and are not compared. -- tests/reference_parity/test_network_parity.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_network_parity.py",
+      "Cross-language parity (bit-exact) vs R igraph edge_density / diameter / mean_distance / transitivity [dyadRobust 0.0.1.0001, ergm 4.12.0, igraph 2.3.3, sna 2.8]; tolerance Density, diameter, mean path length, transitivity and assortativity exact; average clustering matches igraph::transitivity(type = 'average', isolates = 'zero'), the convention used here. -- tests/reference_parity/test_network_parity.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alternatives": [

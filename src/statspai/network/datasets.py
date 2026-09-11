@@ -223,6 +223,12 @@ def karate_club() -> Graph:
 def florentine_families() -> Graph:
     """Padgett's Florentine marriage network (undirected, 15 families).
 
+    The Pucci family, an isolate in Padgett's marriage data, is omitted.
+    ``ergm``'s ``flomarriage`` keeps it (16 nodes), so graph-level
+    quantities that depend on ``n`` -- density, component count, mean
+    degree -- differ from that version even though the 20 marriage ties
+    are identical edge for edge.
+
     Returns
     -------
     Graph

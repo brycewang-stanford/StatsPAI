@@ -27,13 +27,13 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 184 |
-| | aligned | 17 |
-| | **subtotal** | **201** |
-| **No external software reference** | analytical-only (T1) | 202 |
+| **Compared against R/Stata** (T2) | bit-exact | 200 |
+| | aligned | 20 |
+| | **subtotal** | **220** |
+| **No external software reference** | analytical-only (T1) | 203 |
 | | external-replication (published numbers) | 4 |
-| | **subtotal** | **206** |
-| No numerical evidence yet | unverified | 775 |
+| | **subtotal** | **207** |
+| No numerical evidence yet | unverified | 755 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 201 | 406 | 773 | 26.0% |
+| estimator callables | 220 | 426 | 773 | 28.5% |
 | infrastructure (parity N/A) | 0 | 0 | 124 | 0.0% |
 | result / exception classes | 0 | 1 | 285 | 0.0% |
-| **all registered** | 201 | 407 | 1182 | 17.0% |
+| **all registered** | 220 | 427 | 1182 | 18.6% |
 
 ### Coverage by estimator family
 
@@ -57,7 +57,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | spatial | 18 | 22 | 34 |
 | panel | 15 | 20 | 30 |
 | decomposition | 11 | 15 | 29 |
-| network | 4 | 4 | 25 |
+| network | 23 | 24 | 25 |
 | inference | 9 | 20 | 23 |
 | mendelian | 0 | 17 | 23 |
 | diagnostics | 7 | 10 | 22 |
@@ -96,7 +96,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 0 | 1 | 1 |
 | synth | 0 | 0 | 1 |
 
-## bit-exact — 184 functions
+## bit-exact — 200 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -106,6 +106,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `anderson_rubin_ci` | R ivmodel::AR.test confidence set | ivmodel 1.9.1; car 3.1.5; metafor 5.0.1 | Both endpoints at 5e-15 after the boundary bisection replaced the grid-point endpoints (previously 8.1e-3 / 4.9e-3). A reference-free test also asserts the two AR entry points agree with each other and that neither endpoint lands exactly on a grid node. | — / — | [`test_weakiv_meta_parity.py`](../tests/reference_parity/test_weakiv_meta_parity.py) |
 | `anderson_rubin_test` | R ivmodel::AR.test | ivmodel 1.9.1; car 3.1.5; metafor 5.0.1 | Statistic 1.1e-15, p-value 1.2e-13, degrees of freedom exact, and the analytic AR confidence set 1.2e-14. | — / — | [`test_weakiv_meta_parity.py`](../tests/reference_parity/test_weakiv_meta_parity.py) |
 | `arima` | stats::arima | R 4.5.2; stats 4.5.2 | rel_est<=1e-06, rel_se<=1e-06 | 7.4e-07 / 9.3e-09 | [`39_arima.py`](../tests/r_parity/39_arima.py) (+2) |
+| `assortativity` | R igraph::assortativity_degree | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | 1.2e-16 on karate. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `attributable_risk` | base-R closed form (attributable fraction exposed + PAF) | R 4.5.2 | AFE + PAF point estimates 1e-12 abs (observed 0); CI not pinned | — / — | [`test_epi_extra_parity.py`](../tests/reference_parity/test_epi_extra_parity.py) (+1) |
 | `auc` | Mann-Whitney rank AUC (= pROC::auc / sklearn) | R 4.5.2 | AUC 1e-12 abs (observed 0) | — / — | [`test_auc_parity.py`](../tests/reference_parity/test_auc_parity.py) |
 | `bacon_decomposition` | bacondecomp::bacon | R 4.5.2; bacondecomp 0.1.1 | rel_est<=1e-06, rel_se<=1e-06 | 5.6e-16 / 9.6e-09 | [`20_bacon.py`](../tests/r_parity/20_bacon.py) (+2) |
@@ -114,12 +115,14 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `betareg` | betareg::betareg(link.phi="log") | R 4.5.2; betareg 3.2.4 | rel_est<=1e-06, rel_se<=0.01 | 2.2e-08 / 3.1e-08 | [`61_betareg.py`](../tests/r_parity/61_betareg.py) (+2) |
 | `betweenness_centrality` | Freeman betweenness centrality (shortest-path mediation) | R 4.5.2 | centrality 1e-12 abs (observed 0) | — / — | [`test_network_centrality_parity.py`](../tests/reference_parity/test_network_centrality_parity.py) |
 | `biprobit` | R VGAM::vglm(binom2.rho) bivariate probit | R 4.5.2; VGAM 1.1.14 | coef / rho 1e-6 abs (observed <= 2e-7); logLik 1e-6 rel | — / — | [`test_biprobit_parity.py`](../tests/reference_parity/test_biprobit_parity.py) (+1) |
+| `bonacich_power` | R igraph::power_centrality and sna::bonpow | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | 3.9e-16 against igraph and 5.8e-16 against sna at beta = 0.1. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `bonferroni` | base R stats::p.adjust(method='bonferroni') | R 4.5.2 | exact (atol 1e-15; observed 0) | — / — | [`test_mht_parity.py`](../tests/reference_parity/test_mht_parity.py) (+1) |
 | `bootstrap` | nonparametric bootstrap contract (Efron 1979) | R 4.5.2 | estimate/se contract 1e-12 abs (observed 0); SE ~ analytic 10% | — / — | [`test_bootstrap_parity.py`](../tests/reference_parity/test_bootstrap_parity.py) |
 | `breakdown_frontier` | additive-violation breakdown identities (Masten & Poirier 2021) | R 4.5.2 | breakdown point / CI / bounds 1e-12 abs (observed 0) | — / — | [`test_breakdown_frontier_parity.py`](../tests/reference_parity/test_breakdown_frontier_parity.py) |
 | `callaway_santanna` | did::att_gt + aggte | R 4.5.2; did 2.3.0 | rel_est<=1e-06, rel_se<=1e-09 | 1.3e-15 / 1.3e-15 | [`04_csdid.py`](../tests/r_parity/04_csdid.py) (+2) |
 | `cgs_continuous_did` | contdid::cont_did | R 4.5.2 | rel_est<=1e-06 | 2.4e-14 / — | [`80_contdid.py`](../tests/r_parity/80_contdid.py) (+1) |
 | `clogit` | survival::clogit | R 4.5.2; survival 3.8.3 | rel_est<=1e-06, rel_se<=1e-06 | 1.3e-08 / 1.3e-08 | [`46_clogit.py`](../tests/r_parity/46_clogit.py) (+2) |
+| `closeness_centrality` | Wasserman-Faust closeness from R igraph::distances | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Exact (0.0) on a disconnected graph with three blocks and three isolates -- the case the correction exists for; the connected-graph values also match igraph::closeness(normalized = TRUE) to 1e-10. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `clustering` | local clustering coefficient (Watts-Strogatz 1998) | R 4.5.2 | coefficient 1e-12 abs (observed 0) | — / — | [`test_network_centrality_parity.py`](../tests/reference_parity/test_network_centrality_parity.py) |
 | `cohen_kappa` | base-R closed form (Cohen's kappa point estimate) | R 4.5.2 | kappa + agreements 1e-12 abs (observed ~1e-16); SE not pinned | — / — | [`test_epi_extra_parity.py`](../tests/reference_parity/test_epi_extra_parity.py) (+1) |
 | `contrast` | treatment-contrast identity (= Stata margins, contrast(r)) | R 4.5.2 | contrast == dummy coefficient 1e-12 abs (observed <= 1e-15) | — / — | [`test_contrast_pwcompare_parity.py`](../tests/reference_parity/test_contrast_pwcompare_parity.py) |
@@ -141,8 +144,10 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `dml` | DoubleML::DoubleMLPLR | R 4.5.2; DoubleML 1.0.2 | rel_est<=1e-10, rel_se<=1e-10 | 0 / 3.7e-15 | [`08_dml.py`](../tests/r_parity/08_dml.py) (+2) |
 | `dml_sensitivity` | doubleml (Python) DoubleML.sensitivity_analysis | — | bias_bound and adjusted theta bounds 1e-12 (observed 2.5e-15); RV 1e-6 (observed 9.2e-8); RVa is a documented convention gap (<5e-3, observed 1.4e-3) because StatsPAI exhausts |theta|-z*se with the unadjusted SE while doubleml lets the SE move with the confounding scenario | — / — | [`test_dml_sensitivity_parity.py`](../tests/external_parity/test_dml_sensitivity_parity.py) |
 | `drdid` | DRDID::drdid_imp_panel | R 4.5.2; DRDID 1.2.3 | rel_est<=1e-06, rel_se<=1e-06 | 2.6e-15 / 2.2e-16 | [`38_drdid.py`](../tests/r_parity/38_drdid.py) (+2) |
+| `dyadic_regression` | R dyadRobust (Aronow-Samii-Assenova dyadic-robust variance) | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Coefficients 7e-16 and standard errors 2e-15 on undirected and directed dyads, after the 1.27.0 fix to the shared-member weighting; also asserted against a brute-force construction of the definition. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `ebalance` | ebal::ebalance 0.2.1 (Hainmueller 2012) | — | ATT rel <= 1e-5 (observed 3.2e-7); moment gap <= 1e-10 | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
 | `eigenvector_centrality` | leading adjacency eigenvector (Bonacich 1972) | R 4.5.2 | centrality 1e-9 abs (observed <= 1e-15) | — / — | [`test_network_centrality_parity.py`](../tests/reference_parity/test_network_centrality_parity.py) |
+| `ergm` | R ergm::ergm(estimate = 'MPLE') | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Coefficients 2e-16 to 7e-13 for edges + triangle + nodematch + nodecov + absdiff (undirected) and edges + mutual (directed); standard errors 2e-8 (directed) and <= 3.2e-7 (undirected), inside the 1e-6 budget. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `etregress` | Stata 18 MP official `etregress` (Maddala 1983 model) | Stata 18 MP | Two-step: 5e-9 on every coefficient and every standard error, including the Heckman correction for the estimated first stage. ML: the likelihood, score and observed information are pinned at 9e-11 -- our Hessian reproduces Stata's reported standard errors when evaluated at Stata's own parameter vector, which is independent of either optimiser. At our own optimum the parameters sit within 2e-5 of Stata's; that gap is the two optimisers' stopping points, not a formula difference, and StatsPAI's stops at the HIGHER log-likelihood with a gradient ~300x smaller (asserted, so a regression that makes our optimum worse fails even though the 1e-4 parity assertions would still pass). vce(robust) carries Stata's N/(N-1) meat factor and vce(cluster) its g/(g-1). | — / — | [`test_etregress_stata_parity.py`](../tests/reference_parity/test_etregress_stata_parity.py) |
 | `etwfe` | etwfe::etwfe + emfx | R 4.5.2; etwfe 0.6.2 | rel_est<=1e-06, rel_se<=0.001 | 1.8e-13 / 3.9e-14 | [`17_etwfe.py`](../tests/r_parity/17_etwfe.py) (+2) |
 | `etwfe_emfx` | etwfe::etwfe + emfx | R 4.5.2; etwfe 0.6.2 | rel_est<=1e-06, rel_se<=0.001 | 1.8e-13 / 3.9e-14 | [`17_etwfe.py`](../tests/r_parity/17_etwfe.py) (+2) |
@@ -153,6 +158,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `feglm` | fixest::feglm (family="logit") / fixest::fepois | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=5e-05 | 9.7e-09 / 1.8e-09 | [`67_panel_glm.py`](../tests/r_parity/67_panel_glm.py) (+2) |
 | `feols` | fixest::feols | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=1e-06 | 5.2e-15 / 2.9e-15 | [`03_hdfe.py`](../tests/r_parity/03_hdfe.py) (+2) |
 | `fepois` | fixest::feglm (family="logit") / fixest::fepois | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=5e-05 | 9.7e-09 / 1.8e-09 | [`67_panel_glm.py`](../tests/r_parity/67_panel_glm.py) (+2) |
+| `florentine_families` | R ergm flomarriage | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | The 20 marriage ties are identical edge for edge; the Pucci isolate is omitted (15 nodes against 16), which is documented. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `fracreg` | stats::glm(quasibinomial('logit')) [fractional response] | R 4.5.2 | coefficients 1e-10 abs (observed ~8e-15) | — / — | [`test_glm_ext_parity.py`](../tests/reference_parity/test_glm_ext_parity.py) (+1) |
 | `frontier` | sfaR::sfacross | R 4.5.2; sfaR 1.0.1 | rel_est<=1e-06, rel_se<=5e-05 | 4.1e-08 / 4.0e-08 | [`28_frontier.py`](../tests/r_parity/28_frontier.py) (+2) |
 | `g_computation` | base R stats::lm g-formula standardization (Robins 1986) | — | psi 1e-8 (observed <= 7e-16; bootstrap SE pinned loosely +/-25%) | — / — | [`test_gformula_parity.py`](../tests/reference_parity/test_gformula_parity.py) (+1) |
@@ -180,6 +186,8 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `ivreg` | AER::ivreg | R 4.5.2; AER 1.2.16 | rel_est<=1e-06, rel_se<=1e-06 | 1.1e-11 / 1.1e-11 | [`02_iv.py`](../tests/r_parity/02_iv.py) (+2) |
 | `join_counts` | R spdep::joincount.multi (binary weights) | spdep 1.4.2; spatialreg 1.4.3 | BB, WW and BW all exact. A reference-free guard also asserts BB + WW + BW = S0/2, the identity the BW defect violated (70.75 against 50). | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
 | `kaplan_meier` | survival::survfit | R 4.5.2; survival 3.8.3 | S(t) at every event time 1e-12 (observed ~3e-17); median exact | — / — | [`test_survival_km_parity.py`](../tests/reference_parity/test_survival_km_parity.py) (+1) |
+| `karate_club` | R igraph::make_graph('Zachary') | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Adjacency matrix identical. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
+| `katz_centrality` | R igraph::alpha_centrality | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | 7.1e-16 with normalized = False (normalized = True L2-scales the same vector). | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `kdensity` | Gaussian KDE closed form (= stats::density / sklearn) | R 4.5.2 | density 1e-12 abs (observed ~3e-18 / 0) | — / — | [`test_kdensity_parity.py`](../tests/reference_parity/test_kdensity_parity.py) |
 | `kitagawa_decompose` | Kitagawa (1955) two-factor rate decomposition identity | R 4.5.2 | gap = rate + composition + interaction 1e-12 abs (observed 0) | — / — | [`test_kitagawa_decompose_parity.py`](../tests/reference_parity/test_kitagawa_decompose_parity.py) |
 | `knn_weights` | R spdep::knearneigh + knn2nb | spdep 1.4.2; spatialreg 1.4.3 | Neighbour sets identical for all 120 points, k=4, on a random point set chosen so no distance ties make the answer non-unique. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
@@ -211,6 +219,11 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `mr` | inverse-variance-weighted MR closed form (Burgess et al. 2013) | R 4.5.2 | estimate / se / Cochran Q 1e-10 abs (observed 0) | — / — | [`test_mr_ivw_parity.py`](../tests/reference_parity/test_mr_ivw_parity.py) |
 | `multiway_cluster_vcov` | sandwich::vcovCL(cluster=~g1+g2+g3) | R 4.5.2; sandwich 3.1.1 | rel_est<=1e-06, rel_se<=1e-06 | 2.1e-15 / 2.1e-15 | [`56_multiway_cluster.py`](../tests/r_parity/56_multiway_cluster.py) (+2) |
 | `nbreg` | MASS::glm.nb | R 4.5.2; MASS 7.3.65 | rel_est<=1e-06, rel_se<=0.005 | 6.0e-10 / 1.3e-10 | [`42_nbreg.py`](../tests/r_parity/42_nbreg.py) (+2) |
+| `netlm` | R sna::netlm | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Coefficients 2e-15 directed and undirected. QAP p-values are permutation draws and are not compared. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
+| `netlogit` | R sna::netlogit | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Coefficients 1.4e-9 (IRLS on both sides). QAP p-values are permutation draws and are not compared. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
+| `network_components` | R igraph::components | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Counts and sizes exact on a disconnected graph; weak and strong counts on the directed graph. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
+| `network_modularity` | R igraph::modularity | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Exact for a fixed split and for igraph's own fast-greedy partition. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
+| `network_summary` | R igraph edge_density / diameter / mean_distance / transitivity | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Density, diameter, mean path length, transitivity and assortativity exact; average clustering matches igraph::transitivity(type = 'average', isolates = 'zero'), the convention used here. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `number_needed_to_treat` | base-R closed form (NNT = 1/risk difference) | R 4.5.2 | estimate 1e-12 abs (observed 0); CI not pinned | — / — | [`test_epi_parity.py`](../tests/reference_parity/test_epi_parity.py) (+1) |
 | `oaxaca` | oaxaca::oaxaca | R 4.5.2; oaxaca 0.1.5 | rel_est<=1e-06, rel_se<=0.05 | 6.3e-16 / 1.3e-16 | [`30_oaxaca.py`](../tests/r_parity/30_oaxaca.py) (+3) |
 | `odds_ratio` | base-R closed form (Woolf logit; = epiR::epi.2by2) | R 4.5.2 | estimate, se_log, CI 1e-12 abs (observed 0) | — / — | [`test_epi_parity.py`](../tests/reference_parity/test_epi_parity.py) (+1) |
@@ -218,6 +231,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `oprobit` | MASS::polr(method="probit") | R 4.5.2; MASS 7.3.65 | rel_est<=1e-06, rel_se<=1e-06 | 3.4e-07 / 2.8e-08 | [`49_oprobit.py`](../tests/r_parity/49_oprobit.py) (+2) |
 | `oster_delta` | coefficient-stability bound identities (Oster 2019) | R 4.5.2 | OLS inputs 1e-12 abs (observed 0); beta(delta*)=0 at 1e-10 | — / — | [`test_oster_delta_parity.py`](../tests/reference_parity/test_oster_delta_parity.py) |
 | `overlap_weights` | WeightIt::weightit 1.7.0 (method='glm'), R 4.5.2 | R 4.5.2; WeightIt 1.7.0 | All four estimands of the shared-propensity family (Li, Li & Li 2019 Table 1) relative to WeightIt: ATO 2.5e-14, ATE 4.1e-14, ATT 2.3e-14, ATC 4.1e-14. The propensity score itself matches R glm(family=binomial) to 2.6e-14 absolute. | — / — | [`test_overlap_weights_r_parity.py`](../tests/reference_parity/test_overlap_weights_r_parity.py) (+1) |
+| `pagerank` | R igraph::page_rank (damping 0.85) | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | 5e-12 undirected, 1e-12 directed. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `panel` | plm::plm + plm::phtest | R 4.5.2; plm 2.6.7 | rel_est<=1e-06, rel_se<=0.001 | 4.7e-14 / 1.5e-15 | [`35_panel.py`](../tests/r_parity/35_panel.py) (+2) |
 | `panel_fgls` | Stata 18 xtgls, panels(hetero) | Stata 18 MP | 6.3e-16 on every coefficient and 7.0e-16 on every standard error against the two-step default, and 4.7e-08 against `xtgls, igls` for the iterated variant. A reference-free test also asserts the two are distinct estimators, so a silent return to iterating fails. | — / — | [`test_panel_stata_parity.py`](../tests/reference_parity/test_panel_stata_parity.py) |
 | `panel_logit` | Stata 18 xtlogit, re | Stata 18 MP | Graded by CONVERGENCE rather than a fixed tolerance: Stata integrates adaptively and StatsPAI does not, so the honest claim is that agreement improves as the Gauss-Hermite rule is refined. Observed 3.8e-04 at 12 points and 2.4e-07 at 60, with the log-likelihood at 2.1e-08 -- the sharpest single check, since it is the same objective evaluated at the same optimum. sigma_u and rho at 1e-4. | — / — | [`test_panel_stata_parity.py`](../tests/reference_parity/test_panel_stata_parity.py) |
@@ -248,6 +262,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `rdrobust` | rdrobust::rdrobust | R 4.5.2; rdrobust 3.0.0 | rel_est<=1e-06, rel_se<=0.1 | 2.5e-14 / 9.4e-11 | [`06_rd.py`](../tests/r_parity/06_rd.py) (+2) |
 | `rdsampsi` | rdpower::rdsampsi 3.0 (Cattaneo, Titiunik & Vazquez-Bare) | R 4.5.2; rdpower 3.0 | required sample sizes n_left / n_right / n_total asserted as exact integer equality (no tolerance) | — / — | [`test_rdlocrand_parity.py`](../tests/reference_parity/test_rdlocrand_parity.py) (+1) |
 | `rdwinselect` | rdlocrand::rdwinselect 2.0 (Cattaneo, Titiunik & Vazquez-Bare) | R 4.5.2; rdlocrand 2.0 | window grid 1e-12 rel (observed 0); per-window counts Nl / Nr asserted as exact integer equality | — / — | [`test_rdlocrand_parity.py`](../tests/reference_parity/test_rdlocrand_parity.py) (+1) |
+| `reciprocity` | R igraph::reciprocity | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Exact on a 40-node directed graph. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `regress` | lm + sandwich::vcovHC | R 4.5.2; sandwich 3.1.1 | rel_est<=1e-06, rel_se<=1e-06 | 1.1e-12 / 1.3e-12 | [`01_ols.py`](../tests/r_parity/01_ols.py) (+2) |
 | `relative_risk` | base-R closed form (Katz-log; = epiR::epi.2by2 / Stata epitab) | R 4.5.2 | estimate, se_log, CI 1e-12 abs (observed 0) | — / — | [`test_epi_parity.py`](../tests/reference_parity/test_epi_parity.py) (+1) |
 | `reset_test` | lmtest::resettest(power=2:3, type='fitted') | R 4.5.2; lmtest 0.9.40 | F-statistic & p-value 1e-10 rel (observed ~1e-13) | — / — | [`test_diagnostics_parity.py`](../tests/reference_parity/test_diagnostics_parity.py) (+1) |
@@ -279,6 +294,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `three_sls` | R systemfit::systemfit(method='3SLS') | R 4.5.2; systemfit 1.1.30 | coef 1e-9 abs (observed <= 1e-15); SE ~5e-3 rel | — / — | [`test_threesls_parity.py`](../tests/reference_parity/test_threesls_parity.py) (+1) |
 | `tmle` | tmle::tmle | R 4.5.2; tmle 2.1.1 | rel_est<=1e-06, rel_se<=1e-06 | 1.9e-09 / 1.9e-09 | [`72_tmle.py`](../tests/r_parity/72_tmle.py) (+2) |
 | `tobit` | censReg::censReg | R 4.5.2; censReg 0.5.38 | rel_est<=1e-06, rel_se<=1e-05 | 2.8e-08 / 2.8e-08 | [`41_tobit.py`](../tests/r_parity/41_tobit.py) (+2) |
+| `transitivity` | R igraph::transitivity(type = 'global') | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Exact on karate. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `truncreg` | truncreg::truncreg(method="NR") | R 4.5.2; truncreg 0.2.5 | rel_est<=1e-06, rel_se<=0.0001 | 3.3e-08 / 9.5e-08 | [`62_truncreg.py`](../tests/r_parity/62_truncreg.py) (+2) |
 | `twoway_cluster` | sandwich::vcovCL(cluster=~g1+g2) | R 4.5.2; sandwich 3.1.1 | rel_est<=1e-06, rel_se<=1e-06 | 7.8e-16 / 7.8e-16 | [`54_twoway_cluster.py`](../tests/r_parity/54_twoway_cluster.py) (+2) |
 | `var` | vars::VAR | R 4.5.2; vars 1.6.1 | rel_est<=1e-06, rel_se<=1e-06 | 3.1e-15 / 6.6e-15 | [`33_var.py`](../tests/r_parity/33_var.py) (+2) |
@@ -287,7 +303,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `xtabond` | plm::pgmm | R 4.5.2; plm 2.6.7 | rel_est<=1e-06, rel_se<=1e-06 | 9.0e-16 / 1.4e-15 | [`50_xtabond.py`](../tests/r_parity/50_xtabond.py) (+2) |
 | `zip_model` | pscl::zeroinfl(dist="poisson") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-06, rel_se<=0.0001 | 7.7e-08 / 1.1e-07 | [`63_zip.py`](../tests/r_parity/63_zip.py) (+2) |
 
-## aligned — 17 functions
+## aligned — 20 functions
 
 Agreement within a documented, pre-registered looser tolerance.
 
@@ -297,11 +313,14 @@ Agreement within a documented, pre-registered looser tolerance.
 | `augsynth` | augsynth::augsynth | R 4.5.2; augsynth 0.2.0 | rel_est<=2e-05, rel_se<=1e-06 | 7.9e-06 / — | [`18_augsynth.py`](../tests/r_parity/18_augsynth.py) (+1) |
 | `causal_forest` | grf::causal_forest | R 4.5.2; grf 2.6.1 | rel_est<=0.01, rel_se<=0.25 | 1.9e-03 / — | [`13_causal_forest.py`](../tests/r_parity/13_causal_forest.py) (+1) |
 | `cbps` | CBPS::CBPS 0.24 (Imai & Ratkovic 2014) | — | ATE over/exact and ATT exact: rel <= 5e-3 (R's optimiser slack). ATT over is NOT pinned to R -- CBPS's ATT gradient mis-scales the balance block by n/n_1 and stops off-stationarity; StatsPAI is asserted to attain strictly better covariate balance instead. | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
+| `centrality` | R igraph degree / betweenness / closeness / page_rank / eigen_centrality | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | degree, betweenness (normalised and raw), closeness and PageRank at 1e-10 on Zachary's karate club. The eigenvector column is L2-normalised (networkx) where igraph max-scales it: the ratio is constant across nodes to 1e-14, so it is the same vector under a documented normalisation. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `cic` | qte::CiC | R 4.5.2 | rel_est<=1e-06 | 2.4e-15 / 6.0e-03 | [`74_cic.py`](../tests/r_parity/74_cic.py) (+2) |
 | `cloglog` | stats::glm(binomial('cloglog')) | R 4.5.2 | coefficients 5e-5 abs (observed ~1e-5; IRLS convergence) | — / — | [`test_glm_ext_parity.py`](../tests/reference_parity/test_glm_ext_parity.py) (+1) |
+| `community_detection` | R igraph::cluster_louvain (T3: randomised on both sides) | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | T3, not T2: 200 seeded runs on karate have mean modularity within four combined standard errors of igraph's 200 runs (0.4157 vs 0.4145), and both reach the same maximum, 0.41979, the known optimum for this graph. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `conditional_lr_ci` | R ivmodel::CLR | ivmodel 1.9.1 | Monte Carlo by construction and graded as such: ivmodel integrates Moreira's conditional distribution while StatsPAI simulates it, so the two cannot agree deterministically. The test asserts the error SHRINKS with n_sim rather than pinning a number -- 3.8e-3 at n_sim=5,000 and 1.7e-4 at 200,000 -- which is the only honest statement about a simulated critical value. The endpoints themselves are bisected off-grid, so the residual is the critical value and not the grid. | — / — | [`test_weakiv_meta_parity.py`](../tests/reference_parity/test_weakiv_meta_parity.py) |
 | `functional_form_test` | didFF::didFF | R 4.5.2 | rel_est<=0.001 | 1.3e-14 / — | [`79_didff.py`](../tests/r_parity/79_didff.py) (+1) |
 | `genmatch` | Matching::Match 4.10-15 (Weight = 3, Weight.matrix) | — | Deterministic kernel only: given the same diagonal W, the 1-NN assignment agrees with Matching::Match on all 163 uniquely matched treated units on MatchIt::lalonde. | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
+| `hits` | R igraph::hits_scores | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Hub and authority vectors are igraph's up to normalisation: L1 here (documented), max = 1 in igraph; the ratio is constant across nodes to 1e-11. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `optimal_match` | optmatch::pairmatch 0.10.8 on a logit propensity score | — | Total matched distance <= optmatch's (1 + 1e-6). The matched pairs are not pinned: the assignment problem is degenerate on this data, so equally optimal solutions report different ATTs. | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
 | `pretrends_power` | pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) | R 4.5.2 | rel_est<=0.001 | 4.0e-05 / 1.4e-04 | [`76_pretrends.py`](../tests/r_parity/76_pretrends.py) (+2) |
 | `pretrends_slope_for_power` | pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) | R 4.5.2 | rel_est<=0.001 | 4.0e-05 / 1.4e-04 | [`76_pretrends.py`](../tests/r_parity/76_pretrends.py) (+2) |
@@ -322,7 +341,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 202 functions
+## analytical-only — 203 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -463,6 +482,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `msm` | [`test_msm_family_parity.py`](../tests/reference_parity/test_msm_family_parity.py) |
 | `multi_treatment` | [`test_multi_treatment_parity.py`](../tests/reference_parity/test_multi_treatment_parity.py) |
 | `network_exposure` | [`test_interference_parity.py`](../tests/reference_parity/test_interference_parity.py) |
+| `network_graph` | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `never_treat` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
 | `notch` | [`test_notch_parity.py`](../tests/reference_parity/test_notch_parity.py) |
 | `notears` | [`test_causal_discovery_parity.py`](../tests/reference_parity/test_causal_discovery_parity.py) |
@@ -531,6 +551,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `xtlsdvc` | [`test_lsdvc_parity.py`](../tests/reference_parity/test_lsdvc_parity.py) |
 | `yatchew_linearity_test` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) |
 
-## unverified — 775 functions
+## unverified — 755 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

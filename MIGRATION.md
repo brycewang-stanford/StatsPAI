@@ -43,6 +43,63 @@ fail, instead of silently dropping them, and lists them in
 
 <a id="etwfe-cohort-att"></a>
 
+<a id="dyadic-directed"></a>
+
+<a id="dyadic-directed"></a>
+
+<a id="evidence-grade-closed-form"></a>
+
+## 1.27.0 — ⚠️ 26 functions are no longer graded as matching R / Stata
+
+**Who is affected.** Anyone who cited `sp.parity_status(fn)` /
+`docs/parity.md` for one of the functions below as evidence of agreement
+with R or Stata. **No numerical output changed.**
+
+`auc`, `roc_curve`, `bootstrap`, `breakdown_frontier`, `contrast`,
+`das_gupta`, `direct_standardize`, `gelbach`, `icc`, `indirect_standardize`,
+`kdensity`, `kitagawa_decompose`, `lee_bounds`, `lrtest`, `manski_bounds`,
+`margins_at`, `mediate_interventional`, `mediation_decompose`, `mr`,
+`oster_delta`, `policy_value`, `power_case_control`, `pwcompare`,
+`sensitivity_specificity`, `source_decompose`, `subgroup_decompose` —
+`bit-exact` → `analytical-only`.
+
+**Why.** Their tests verify closed-form identities; none of them compares
+against an R or Stata run. That is real evidence of a different kind, and
+it is now labelled as such. Five further functions (`evalue_rr` and four
+centrality measures) kept their grade because a real comparison was built
+for them in this release.
+
+**What to do.** If you cited one of these as "matches R / Stata", cite it
+as "verified against a closed-form identity" instead, or run your own
+comparison.
+
+---
+
+## 1.27.0 — ⚠️ `sp.dyadic_regression` on directed dyads
+
+**Who is affected.** Anyone who passed `sp.dyadic_regression` data in which
+the same two nodes appear in more than one row — most commonly directed
+dyadic data carrying both `(i, j)` and `(j, i)`, as in trade or conflict
+panels. One-row-per-unordered-pair data is unaffected.
+
+| Surface | Changes? |
+| --- | --- |
+| coefficients | no |
+| `se_dyadic`, `z`, `p`, `ci_low`, `ci_high`, undirected data | no |
+| `se_dyadic`, `z`, `p`, `ci_low`, `ci_high`, directed data | **yes — 1.8% on a 20-node design** |
+| rows with `i == j` | **now raise** |
+
+**What was wrong.** The dyadic-robust variance should let each pair of
+dyads that share a member contribute once. The implementation weighted a
+pair by how many members it shares, so `(i, j)` and `(j, i)` — which share
+both — contributed twice.
+
+**What to do.** Re-run directed dyadic regressions. Drop self-dyads
+(`i == j`) before calling; they are not dyads and have no consistent
+weight in this estimator.
+
+---
+
 ## 1.27.0 — ⚠️ ETWFE cohort-level ATTs were wrong by up to 37%
 
 **Who is affected.** Anyone who read a *per-cohort* ATT out of the ETWFE

@@ -9693,7 +9693,7 @@
     }
   },
   {
-    "description": "Construct a network Graph from an adjacency matrix or an edge list (directed/undirected, weighted). The single entry point feeding every sp.network analysis.",
+    "description": "Construct a network Graph from an adjacency matrix or an edge list (directed/undirected, weighted). The single entry point feeding every sp.network analysis. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "network_graph",
     "parameters": {
       "properties": {
@@ -9733,7 +9733,7 @@
     }
   },
   {
-    "description": "Structural summary of a network: density, components, diameter, average path length, transitivity (global clustering), reciprocity, and Newman degree assortativity.",
+    "description": "Structural summary of a network: density, components, diameter, average path length, transitivity (global clustering), reciprocity, and Newman degree assortativity. Validation: certified parity evidence.",
     "name": "network_summary",
     "parameters": {
       "properties": {
@@ -9749,7 +9749,7 @@
     }
   },
   {
-    "description": "Centrality dispatcher: degree, closeness, betweenness (Brandes), eigenvector, Katz, PageRank, Bonacich power. Returns a per-node score table.",
+    "description": "Centrality dispatcher: degree, closeness, betweenness (Brandes), eigenvector, Katz, PageRank, Bonacich power. Returns a per-node score table. Validation: certified parity evidence.",
     "name": "centrality",
     "parameters": {
       "properties": {
@@ -9785,7 +9785,7 @@
     }
   },
   {
-    "description": "Partition a network into communities by modularity optimisation: Louvain (Blondel 2008), greedy/CNM (Clauset-Newman-Moore 2004), or label propagation.",
+    "description": "Partition a network into communities by modularity optimisation: Louvain (Blondel 2008), greedy/CNM (Clauset-Newman-Moore 2004), or label propagation. Validation: certified parity evidence.",
     "name": "community_detection",
     "parameters": {
       "properties": {
@@ -9820,7 +9820,7 @@
     }
   },
   {
-    "description": "MRQAP linear network regression of one relational matrix on others, with permutation inference (Dekker double-semi-partialling) robust to network autocorrelation. sna::netlm.",
+    "description": "MRQAP linear network regression of one relational matrix on others, with permutation inference (Dekker double-semi-partialling) robust to network autocorrelation. sna::netlm. Validation: certified parity evidence.",
     "name": "netlm",
     "parameters": {
       "properties": {
@@ -9863,7 +9863,7 @@
     }
   },
   {
-    "description": "QAP logistic network regression for a binary dependent network, with dependent-matrix-permutation inference. sna::netlogit analogue.",
+    "description": "QAP logistic network regression for a binary dependent network, with dependent-matrix-permutation inference. sna::netlogit analogue. Validation: certified parity evidence.",
     "name": "netlogit",
     "parameters": {
       "properties": {
@@ -9897,7 +9897,7 @@
     }
   },
   {
-    "description": "OLS on dyadic data with Aronow-Samii-Assenova dyadic-cluster-robust standard errors that allow arbitrary dependence between dyads sharing a node (Fafchamps-Gubert).",
+    "description": "OLS on dyadic data with Aronow-Samii-Assenova dyadic-cluster-robust standard errors that allow arbitrary dependence between dyads sharing a node (Fafchamps-Gubert). Validation: certified parity evidence.",
     "name": "dyadic_regression",
     "parameters": {
       "properties": {
@@ -9941,7 +9941,7 @@
     }
   },
   {
-    "description": "Exponential random graph model (ERGM) fit by maximum pseudo-likelihood (MPLE). Terms: edges, mutual, triangles, nodematch/nodecov/absdiff. MPLE=MLE for dyad-independent models; MCMC-MLE is the roadmap.",
+    "description": "Exponential random graph model (ERGM) fit by maximum pseudo-likelihood (MPLE). Terms: edges, mutual, triangles, nodematch/nodecov/absdiff. MPLE=MLE for dyad-independent models; MCMC-MLE is the roadmap. Validation: certified parity evidence.",
     "name": "ergm",
     "parameters": {
       "properties": {
@@ -55917,7 +55917,7 @@
     }
   },
   {
-    "description": "Global clustering coefficient (transitivity).",
+    "description": "Global clustering coefficient (transitivity). Validation: certified parity evidence.",
     "name": "transitivity",
     "parameters": {
       "properties": {
@@ -55949,7 +55949,7 @@
     }
   },
   {
-    "description": "Directed reciprocity: share of arcs that are reciprocated.",
+    "description": "Directed reciprocity: share of arcs that are reciprocated. Validation: certified parity evidence.",
     "name": "reciprocity",
     "parameters": {
       "properties": {
@@ -55965,7 +55965,7 @@
     }
   },
   {
-    "description": "Newman degree-assortativity coefficient.",
+    "description": "Newman degree-assortativity coefficient. Validation: certified parity evidence.",
     "name": "assortativity",
     "parameters": {
       "properties": {
@@ -55981,7 +55981,7 @@
     }
   },
   {
-    "description": "Connected-component decomposition.",
+    "description": "Connected-component decomposition. Validation: certified parity evidence.",
     "name": "network_components",
     "parameters": {
       "properties": {
@@ -56105,7 +56105,7 @@
     }
   },
   {
-    "description": "Closeness centrality with the Wasserman-Faust disconnected correction.",
+    "description": "Closeness centrality with the Wasserman-Faust disconnected correction. Validation: certified parity evidence.",
     "name": "closeness_centrality",
     "parameters": {
       "properties": {
@@ -56180,7 +56180,7 @@
     }
   },
   {
-    "description": "Katz centrality.",
+    "description": "Katz centrality. Validation: certified parity evidence.",
     "name": "katz_centrality",
     "parameters": {
       "properties": {
@@ -56215,7 +56215,7 @@
     }
   },
   {
-    "description": "Google PageRank (Brin & Page 1998).",
+    "description": "Google PageRank (Brin & Page 1998). Validation: certified parity evidence.",
     "name": "pagerank",
     "parameters": {
       "properties": {
@@ -56250,7 +56250,7 @@
     }
   },
   {
-    "description": "Bonacich (1987) power centrality.",
+    "description": "Bonacich (1987) power centrality. Validation: certified parity evidence.",
     "name": "bonacich_power",
     "parameters": {
       "properties": {
@@ -56275,7 +56275,7 @@
     }
   },
   {
-    "description": "Kleinberg HITS hub and authority scores.",
+    "description": "Kleinberg HITS hub and authority scores. Validation: certified parity evidence.",
     "name": "hits",
     "parameters": {
       "properties": {
@@ -56340,7 +56340,7 @@
     }
   },
   {
-    "description": "Newman-Girvan modularity ``Q`` of a partition.",
+    "description": "Newman-Girvan modularity ``Q`` of a partition. Validation: certified parity evidence.",
     "name": "network_modularity",
     "parameters": {
       "properties": {
@@ -56507,7 +56507,7 @@
     }
   },
   {
-    "description": "Zachary's karate club friendship network (undirected, 34 nodes).",
+    "description": "Zachary's karate club friendship network (undirected, 34 nodes). Validation: certified parity evidence.",
     "name": "karate_club",
     "parameters": {
       "properties": {},
@@ -56516,7 +56516,7 @@
     }
   },
   {
-    "description": "Padgett's Florentine marriage network (undirected, 15 families).",
+    "description": "Padgett's Florentine marriage network (undirected, 15 families). Validation: certified parity evidence.",
     "name": "florentine_families",
     "parameters": {
       "properties": {},

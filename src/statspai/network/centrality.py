@@ -262,9 +262,13 @@ def eigenvector_centrality(
 ) -> pd.Series:
     """Eigenvector centrality (leading eigenvector of the adjacency matrix).
 
-    Computed by power iteration and L2-normalised, matching the
-    ``igraph`` / ``networkx`` convention.  For directed graphs the right
-    eigenvector is used (centrality flows along out-ties' reverse).
+    Computed by power iteration and L2-normalised, matching ``networkx``.
+    ``igraph::eigen_centrality`` scales to a maximum of 1 instead, so the two
+    agree up to one scalar -- the ratio is constant across nodes to 1e-14 on
+    Zachary's karate club (``tests/reference_parity/test_network_parity.py``).
+    Rankings and relative magnitudes are identical; absolute values are not.
+    For directed graphs the right eigenvector is used (centrality flows
+    along out-ties' reverse).
 
     Parameters
     ----------

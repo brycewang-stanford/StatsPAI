@@ -121,6 +121,46 @@ All notable changes to StatsPAI will be documented in this file.
   between 1.3e-8 and 5.5e-6, and with Stata `jwdid` to 2e-15. Point estimates
   are unchanged by this item.
 
+### ⚠️ Correctness fixes — network
+
+- **`sp.dyadic_regression` double-counted reciprocal dyads in its robust
+  variance.** The Aronow–Samii–Assenova estimator lets any two dyads that
+  share a member covary, each pair entering once. The implementation summed
+  scores by node and took `Σₙ SₙSₙ′ − g′g`, which weights a pair by the
+  *number* of members it shares. That coincides with the definition when
+  every unordered pair appears once — so undirected results are unchanged —
+  but on directed data `(i, j)` and `(j, i)` share both members and their
+  cross terms entered twice: 1.8% on the standard errors of a 20-node
+  design. The fix subtracts the within-pair score sums instead of the
+  per-row ones. **Directed dyadic regressions should be re-run.** Rows with
+  `i == j` now raise rather than entering with an inconsistent weight. The
+  repository's own brute-force test already encoded the correct definition;
+  it only ever ran on undirected data.
+
+### Added — network
+
+- Cross-language evidence for 19 network functions against R `igraph`,
+  `sna`, `ergm` and `dyadRobust` (`tests/reference_parity/test_network_parity.py`):
+  centrality scores, PageRank, Bonacich power, Katz, Wasserman–Faust
+  closeness on a disconnected graph, transitivity, assortativity,
+  reciprocity, modularity, components, `network_summary`, QAP `netlm` /
+  `netlogit` coefficients, ERGM MPLE, dyadic-robust OLS, and the bundled
+  karate and Florentine datasets — all at 1e-9 or better, except ERGM MPLE
+  standard errors at ≤3.2e-7. HITS and the eigenvector column of
+  `sp.centrality` agree with igraph up to a documented normalisation (the
+  ratio is constant across nodes); Louvain is compared as a 200-seed
+  distribution (T3).
+- `sp.eigenvector_centrality`'s docstring claimed its L2 normalisation
+  matched igraph; igraph max-scales. Corrected. `sp.florentine_families`
+  now documents that the Pucci isolate is omitted relative to `ergm`'s
+  16-node `flomarriage`.
+- Found while building the reference: the R package `dyadRobust` recodes
+  node ids inside one `dplyr::mutate()` call, and because `mutate`
+  evaluates sequentially the alter recode is built from the already-recoded
+  ego column. A node then gets different codes as ego and as alter unless
+  the ids are already `1..N` in first-appearance order. The fixture uses such
+  ids and asserts the precondition.
+
 ### ⚠️ Correctness fixes — `sp.sqreg`
 
 - **`sp.sqreg` rounded its returned coefficients and standard errors to

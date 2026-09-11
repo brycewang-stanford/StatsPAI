@@ -494,6 +494,19 @@ def dyadic_regression(
     the dependence structure that invalidates classical / one-way clustered
     SEs in network data (Fafchamps-Gubert 2007).
 
+    Directed data may carry both ``(i, j)`` and ``(j, i)``. They are two
+    dyads that share both members, and like any pair sharing a member they
+    enter the variance once.
+
+    .. versionchanged:: 1.27.0
+       Pairs of dyads were weighted by the *number* of members they share
+       rather than by whether they share one. The two coincide when each
+       unordered pair appears once, so undirected results are unchanged; on
+       directed data the reciprocal cross terms were double-counted, moving
+       the standard errors by 1.8% on a 20-node design. Now matches the
+       R package ``dyadRobust`` to 2e-15 on both designs. Rows with
+       ``i == j`` now raise instead of entering with an inconsistent weight.
+
     Parameters
     ----------
     data : pandas.DataFrame
@@ -553,22 +566,39 @@ def dyadic_regression(
     se_classical = np.sqrt(np.diag(sigma2 * XtX_inv))
 
     # ----- Aronow-Samii-Assenova dyadic-robust meat -----
-    # score per dyad
+    # The estimator weights every pair of dyads that share at least one
+    # member by exactly 1:  meat = sum_{d,d'} 1[d ∩ d' ≠ ∅] g_d g_d'.
+    #
+    # sum_n S_n S_n' (S_n = scores of dyads incident to node n) weights a
+    # pair by the NUMBER of members it shares, which is 2 whenever the two
+    # dyads join the same two nodes -- a dyad with itself, and, in directed
+    # data, (i, j) with (j, i). Subtracting the within-pair sums
+    # sum_p G_p G_p' (G_p = scores of all dyads on unordered pair p) takes
+    # every such weight from 2 back to 1. With one row per unordered pair
+    # G_p G_p' is just g_d g_d', which is all the code before 1.27.0 subtracted;
+    # on directed data it left the reciprocal cross terms double-counted
+    # (1.8% on a 20-node design against dyadRobust and the brute-force
+    # definition in tests/test_network.py).
     g = X * resid[:, None]  # (D, p)
-    nodes = pd.unique(pd.concat([df[i], df[j]], ignore_index=True))
-    p = X.shape[1]
-    meat = np.zeros((p, p))
-    # S_n = sum of scores over dyads incident to node n
-    S = {nd: np.zeros(p) for nd in nodes}
     iv = df[i].to_numpy()
     jv = df[j].to_numpy()
-    for d in range(len(df)):
-        S[iv[d]] += g[d]
-        S[jv[d]] += g[d]
-    for nd in nodes:
-        meat += np.outer(S[nd], S[nd])
-    # subtract the diagonal (dyads share both their nodes -> double counted)
-    meat -= g.T @ g
+    if np.any(iv == jv):
+        raise ValueError(
+            "dyadic_regression: rows with i == j are not dyads (a node paired "
+            "with itself shares one member with itself, which the dyadic "
+            "variance cannot weight consistently). Drop the self-dyads."
+        )
+    codes, nodes = pd.factorize(pd.concat([df[i], df[j]], ignore_index=True))
+    ci, cj = codes[: len(df)], codes[len(df) :]
+    p = X.shape[1]
+    S = np.zeros((len(nodes), p))
+    np.add.at(S, ci, g)
+    np.add.at(S, cj, g)
+    lo, hi = np.minimum(ci, cj), np.maximum(ci, cj)
+    pair_codes = pd.factorize(pd.Series(lo.astype(np.int64) * len(nodes) + hi))[0]
+    G = np.zeros((int(pair_codes.max()) + 1, p))
+    np.add.at(G, pair_codes, g)
+    meat = S.T @ S - G.T @ G
     V = XtX_inv @ meat @ XtX_inv
     se_dyadic = np.sqrt(np.clip(np.diag(V), 0, None))
 

@@ -450,6 +450,336 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "accuracy and stayed at the analytical tier because of it."
         ),
     },
+    "centrality": {
+        "status": "aligned",
+        "reference": "R igraph degree / betweenness / closeness / page_rank / eigen_centrality",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": (
+            "degree, betweenness (normalised and raw), closeness and PageRank at 1e-10 on Zachary's karate club. The eigenvector column is L2-normalised (networkx) where igraph max-scales it: the ratio is constant across nodes to 1e-14, so it is the same vector under a documented normalisation."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "closeness_centrality": {
+        "status": "bit-exact",
+        "reference": "Wasserman-Faust closeness from R igraph::distances",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": (
+            "Exact (0.0) on a disconnected graph with three blocks and three isolates -- the case the correction exists for; the connected-graph values also match igraph::closeness(normalized = TRUE) to 1e-10."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "pagerank": {
+        "status": "bit-exact",
+        "reference": "R igraph::page_rank (damping 0.85)",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": ("5e-12 undirected, 1e-12 directed."),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "transitivity": {
+        "status": "bit-exact",
+        "reference": "R igraph::transitivity(type = 'global')",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": ("Exact on karate."),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "assortativity": {
+        "status": "bit-exact",
+        "reference": "R igraph::assortativity_degree",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": ("1.2e-16 on karate."),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "reciprocity": {
+        "status": "bit-exact",
+        "reference": "R igraph::reciprocity",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": ("Exact on a 40-node directed graph."),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "network_modularity": {
+        "status": "bit-exact",
+        "reference": "R igraph::modularity",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": (
+            "Exact for a fixed split and for igraph's own fast-greedy partition."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "network_components": {
+        "status": "bit-exact",
+        "reference": "R igraph::components",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": (
+            "Counts and sizes exact on a disconnected graph; weak and strong counts on the directed graph."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "network_summary": {
+        "status": "bit-exact",
+        "reference": "R igraph edge_density / diameter / mean_distance / transitivity",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": (
+            "Density, diameter, mean path length, transitivity and assortativity exact; average clustering matches igraph::transitivity(type = 'average', isolates = 'zero'), the convention used here."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "bonacich_power": {
+        "status": "bit-exact",
+        "reference": "R igraph::power_centrality and sna::bonpow",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": ("3.9e-16 against igraph and 5.8e-16 against sna at beta = 0.1."),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "katz_centrality": {
+        "status": "bit-exact",
+        "reference": "R igraph::alpha_centrality",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": (
+            "7.1e-16 with normalized = False (normalized = True L2-scales the same vector)."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "netlm": {
+        "status": "bit-exact",
+        "reference": "R sna::netlm",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": (
+            "Coefficients 2e-15 directed and undirected. QAP p-values are permutation draws and are not compared."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "netlogit": {
+        "status": "bit-exact",
+        "reference": "R sna::netlogit",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": (
+            "Coefficients 1.4e-9 (IRLS on both sides). QAP p-values are permutation draws and are not compared."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "ergm": {
+        "status": "bit-exact",
+        "reference": "R ergm::ergm(estimate = 'MPLE')",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": (
+            "Coefficients 2e-16 to 7e-13 for edges + triangle + nodematch + nodecov + absdiff (undirected) and edges + mutual (directed); standard errors 2e-8 (directed) and <= 3.2e-7 (undirected), inside the 1e-6 budget."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "dyadic_regression": {
+        "status": "bit-exact",
+        "reference": "R dyadRobust (Aronow-Samii-Assenova dyadic-robust variance)",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": (
+            "Coefficients 7e-16 and standard errors 2e-15 on undirected and directed dyads, after the 1.27.0 fix to the shared-member weighting; also asserted against a brute-force construction of the definition."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "karate_club": {
+        "status": "bit-exact",
+        "reference": "R igraph::make_graph('Zachary')",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": ("Adjacency matrix identical."),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "florentine_families": {
+        "status": "bit-exact",
+        "reference": "R ergm flomarriage",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": (
+            "The 20 marriage ties are identical edge for edge; the Pucci isolate is omitted (15 nodes against 16), which is documented."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "hits": {
+        "status": "aligned",
+        "reference": "R igraph::hits_scores",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": (
+            "Hub and authority vectors are igraph's up to normalisation: L1 here (documented), max = 1 in igraph; the ratio is constant across nodes to 1e-11."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
+    "community_detection": {
+        "status": "aligned",
+        "reference": "R igraph::cluster_louvain (T3: randomised on both sides)",
+        "reference_versions": {
+            "igraph": "2.3.3",
+            "sna": "2.8",
+            "ergm": "4.12.0",
+            "dyadRobust": "0.0.1.0001",
+        },
+        "tolerance": (
+            "T3, not T2: 200 seeded runs on karate have mean modularity within four combined standard errors of igraph's 200 runs (0.4157 vs 0.4145), and both reach the same maximum, 0.41979, the known optimum for this graph."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_network_parity.py"],
+        "note": (
+            "Added in 1.27.0 by the network sweep. One defect: sp.dyadic_regression weighted each pair of dyads by the NUMBER of members they share instead of whether they share one, double-counting (i, j) with (j, i) on directed data (1.8% on the SEs). One reference bug: dyadRobust recodes ego / alter inside a single dplyr::mutate(), whose sequential evaluation builds the alter codes from the already-recoded ego column; the fixture passes ids for which that recode is the identity and asserts the precondition. Louvain is compared as a 200-seed distribution -- a single-seed comparison looked like a 1% shortfall and was not one."
+        ),
+    },
     "moran": {
         "status": "bit-exact",
         "reference": "R spdep::moran.test (randomisation null)",
