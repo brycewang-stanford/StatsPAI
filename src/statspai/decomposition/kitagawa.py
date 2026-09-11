@@ -344,6 +344,7 @@ def das_gupta(
     data_a: pd.DataFrame,
     data_b: pd.DataFrame,
     factor_names: Sequence[str],
+    by: Optional[Union[str, Sequence[str]]] = None,
 ) -> DasGuptaResult:
     """
     Das Gupta (1993) multi-factor decomposition.
@@ -355,17 +356,36 @@ def das_gupta(
     Parameters
     ----------
     data_a, data_b : pd.DataFrame with the same factor columns.
-        Each row contributes the factor value. The aggregate for each
-        group is computed as Σ_i ∏_f factor_{f,i}.
-
-        For single-row DataFrames (one population, no stratification) the
-        aggregate is simply ∏_f factor_f.
+        One row per stratum (e.g. age group). The aggregate for each
+        population is ``R = sum_i prod_f factor_{f,i}``; with a single row
+        it is simply ``prod_f factor_f``.
     factor_names : list of factor column names.
+    by : str or list of str, optional
+        Column(s) identifying the stratum of each row, used to pair the
+        rows of ``data_a`` and ``data_b``. Both frames must contain the same
+        strata. Without ``by`` the rows are paired by position, which
+        requires equal lengths.
 
     Notes
     -----
-    Assumes: rate = f_1 * f_2 * ... * f_m  (aggregate product form).
-    For additive forms use `kitagawa_decompose`.
+    Assumes the aggregate is a sum over strata of products of factors,
+    ``R = sum_i f_{1,i} f_{2,i} ... f_{m,i}``. Each stratum's product is
+    decomposed by averaging over all orderings of the factors -- Das
+    Gupta's symmetric formula -- and the per-stratum effects are summed,
+    which is what ``DasGuptR::dgnpop`` does with
+    ``ratefunction = "sum(f1*f2*...)"``. For additive forms use
+    `kitagawa_decompose`.
+
+    .. versionchanged:: 1.28.0
+       With more than one row per population the aggregate was computed as
+       the product of the factor *means* rather than the sum over strata of
+       the factor products the docstring stated, so the decomposition of
+       stratified data was of a different quantity. On Das Gupta's
+       Table 6.5 data (four factors, six age groups; 1963 vs 1968) factor
+       A's share of the gap was 0% where ``DasGuptR`` gives 36.8%, and
+       factor D's +333% where it gives -52.5%. Single-row inputs are
+       unchanged. Rows are now paired by ``by`` or by position, and
+       unequal lengths raise.
 
     Examples
     --------
@@ -389,32 +409,49 @@ def das_gupta(
     if m == 0:
         raise ValueError("Need ≥1 factor.")
 
-    # Collapse each dataframe to a single vector of factor means
-    va = data_a[factors].mean().to_numpy(dtype=float)
-    vb = data_b[factors].mean().to_numpy(dtype=float)
+    if by is not None:
+        by_cols = [by] if isinstance(by, str) else list(by)
+        ka = data_a[by_cols].apply(tuple, axis=1)
+        kb = data_b[by_cols].apply(tuple, axis=1)
+        if ka.duplicated().any() or kb.duplicated().any():
+            raise ValueError("das_gupta: `by` must identify one row per stratum.")
+        if set(ka) != set(kb):
+            raise ValueError(
+                "das_gupta: data_a and data_b must contain the same strata; "
+                f"only in A: {sorted(set(ka) - set(kb))}, "
+                f"only in B: {sorted(set(kb) - set(ka))}."
+            )
+        fa = data_a.set_index(ka)[factors]
+        fb = data_b.set_index(kb)[factors].reindex(fa.index)
+    else:
+        if len(data_a) != len(data_b):
+            raise ValueError(
+                "das_gupta: data_a and data_b have different numbers of rows "
+                f"({len(data_a)} vs {len(data_b)}); pass `by=` to pair strata."
+            )
+        fa, fb = data_a[factors], data_b[factors]
+    va = fa.to_numpy(dtype=float)  # (strata, factors)
+    vb = fb.to_numpy(dtype=float)
 
-    prod_a = float(np.prod(va))
-    prod_b = float(np.prod(vb))
+    prod_a = float(np.sum(np.prod(va, axis=1)))
+    prod_b = float(np.sum(np.prod(vb, axis=1)))
     gap = prod_a - prod_b
 
-    # Das Gupta effect for factor j:
-    # Δ_j = mean over all orderings ρ:
-    #   ∏_{k such that σ(k) < σ(j)} vA_k · (vA_j - vB_j) · ∏_{k such that σ(k) > σ(j)}
-    #   vB_k
+    # Das Gupta effect for factor j, stratum by stratum, then summed:
+    # Δ_j = mean over all orderings ρ of
+    #   ∏_{k before j} vA_k · (vA_j − vB_j) · ∏_{k after j} vB_k
     effects: np.ndarray = np.zeros(m)
     count = 0
     for perm in permutations(range(m)):
         count += 1
-        # place factors in order perm[0], perm[1], ..., perm[m-1]
-        # all factors preceding perm[i] take vA; all following take vB
-        # perm[i] takes the diff
         for rank, j in enumerate(perm):
-            pre = perm[:rank]
-            post = perm[rank + 1 :]
-            contrib = np.prod(va[list(pre)]) if pre else 1.0
-            contrib *= va[j] - vb[j]
-            contrib *= np.prod(vb[list(post)]) if post else 1.0
-            effects[j] += contrib
+            pre = list(perm[:rank])
+            post = list(perm[rank + 1 :])
+            contrib = np.prod(va[:, pre], axis=1) if pre else np.ones(len(va))
+            contrib = contrib * (va[:, j] - vb[:, j])
+            if post:
+                contrib = contrib * np.prod(vb[:, post], axis=1)
+            effects[j] += float(np.sum(contrib))
     effects = effects / count
 
     df_fx = pd.DataFrame(

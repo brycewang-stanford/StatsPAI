@@ -311,6 +311,83 @@ def _fit_within_group_propensity(
     return out
 
 
+def _efficient_components(
+    y: np.ndarray,
+    t: np.ndarray,
+    r: np.ndarray,
+    pred0: np.ndarray,
+    pred1: np.ndarray,
+    ps: np.ndarray,
+) -> Tuple[Dict[str, float], Dict[str, float]]:
+    """Efficient-influence-function estimator of ``cdgd::cdgd0_manual``.
+
+    ``pred0`` / ``pred1`` are each unit's fitted E[Y | R, X, T=0/1] and
+    ``ps`` its fitted P(T=1 | R, X). Transcribed from the package written by
+    the method's first author: Hajek-normalised doubly robust potential
+    outcomes (normalised over the whole sample), group means of them,
+    selection as the residual so the four components add up to the
+    disparity exactly, and standard errors from the efficient influence
+    functions, ``sqrt(mean(EIF^2) / n)``.
+    """
+    n = len(y)
+    w_t0 = (1 - t) / (1 - ps)
+    w_t1 = t / ps
+    ipo0 = w_t0 / w_t0.mean() * (y - pred0) + pred0
+    ipo1 = w_t1 / w_t1.mean() * (y - pred1) + pred1
+    wg = {g: (r == g) / np.mean(r == g) for g in (0, 1)}
+    psi = {
+        (d, g): float(np.mean(wg[g] * ipo))
+        for d, ipo in ((0, ipo0), (1, ipo1))
+        for g in (0, 1)
+    }
+    eD = {g: float(np.mean(wg[g] * t)) for g in (0, 1)}
+    ipo = {0: ipo0, 1: ipo1}
+
+    def psi_dgg(d, g1, g2):
+        return psi[(d, g1)] * eD[g2]
+
+    def eif_dgg(d, g1, g2):
+        return (
+            wg[g1] * ipo[d] * eD[g2]
+            + wg[g2] * psi[(d, g1)] * (t - eD[g2])
+            - wg[g1] * psi_dgg(d, g1, g2)
+        )
+
+    y_g = {g: float(np.mean(wg[g] * y)) for g in (0, 1)}
+    total = y_g[1] - y_g[0]
+    baseline = psi[(0, 1)] - psi[(0, 0)]
+    prevalence = (
+        psi_dgg(1, 0, 1) - psi_dgg(1, 0, 0) - psi_dgg(0, 0, 1) + psi_dgg(0, 0, 0)
+    )
+    effect = psi_dgg(1, 1, 1) - psi_dgg(0, 1, 1) - psi_dgg(1, 0, 1) + psi_dgg(0, 0, 1)
+    selection = total - baseline - prevalence - effect
+
+    if_total = wg[1] * (y - y_g[1]) - wg[0] * (y - y_g[0])
+    if_base = wg[1] * (ipo0 - psi[(0, 1)]) - wg[0] * (ipo0 - psi[(0, 0)])
+    if_prev = eif_dgg(1, 0, 1) - eif_dgg(1, 0, 0) - eif_dgg(0, 0, 1) + eif_dgg(0, 0, 0)
+    if_eff = eif_dgg(1, 1, 1) - eif_dgg(0, 1, 1) - eif_dgg(1, 0, 1) + eif_dgg(0, 0, 1)
+    if_sel = if_total - if_base - if_prev - if_eff
+
+    def _se(v):
+        return float(np.sqrt(np.mean(v**2) / n))
+
+    comps = dict(
+        disparity=float(total),
+        baseline=float(baseline),
+        prevalence=float(prevalence),
+        effect=float(effect),
+        selection=float(selection),
+    )
+    ses = dict(
+        disparity=_se(if_total),
+        baseline=_se(if_base),
+        prevalence=_se(if_prev),
+        effect=_se(if_eff),
+        selection=_se(if_sel),
+    )
+    return comps, ses
+
+
 def _components_from_nuisance(
     y: np.ndarray,
     t: np.ndarray,
@@ -349,48 +426,22 @@ def _components_from_nuisance(
     m_b1_all = m(0, 1)
 
     if efficient:
-        # Augmented (doubly-robust) outcome surfaces. Compute psi_r only
-        # on the relevant subgroup so that the t / p_r and (1-t)/(1-p_r)
-        # terms are evaluated on the population whose propensity p_r was
-        # actually fit on (avoids a foot-gun if anyone reuses tau_*_per_obs
-        # outside its own subgroup).
-        p_a_in = np.clip(p(1)[grp_a], trim, 1 - trim)
-        p_b_in = np.clip(p(0)[grp_b], trim, 1 - trim)
-        y_a, t_a = y[grp_a], t[grp_a]
-        y_b, t_b = y[grp_b], t[grp_b]
-        m_a0_in, m_a1_in = m_a0_all[grp_a], m_a1_all[grp_a]
-        m_b0_in, m_b1_in = m_b0_all[grp_b], m_b1_all[grp_b]
+        comps, _ = _efficient_components(
+            y,
+            t,
+            r,
+            np.where(grp_a, m_a0_all, m_b0_all),
+            np.where(grp_a, m_a1_all, m_b1_all),
+            np.clip(np.where(grp_a, p(1), p(0)), trim, 1 - trim),
+        )
+        return comps
 
-        ey0_a = float(np.mean(m_a0_in + (1 - t_a) / (1 - p_a_in) * (y_a - m_a0_in)))
-        ey0_b = float(np.mean(m_b0_in + (1 - t_b) / (1 - p_b_in) * (y_b - m_b0_in)))
-        psi_a = (
-            m_a1_in
-            - m_a0_in
-            + t_a / p_a_in * (y_a - m_a1_in)
-            - (1 - t_a) / (1 - p_a_in) * (y_a - m_a0_in)
-        )
-        psi_b = (
-            m_b1_in
-            - m_b0_in
-            + t_b / p_b_in * (y_b - m_b1_in)
-            - (1 - t_b) / (1 - p_b_in) * (y_b - m_b0_in)
-        )
-        # Place each subgroup's psi back into a same-length-as-y array,
-        # leaving the complementary positions as NaN (they are never
-        # touched by downstream code; this just makes the contract clear).
-        tau_a_per_obs = np.full_like(y, np.nan, dtype=float)
-        tau_a_per_obs[grp_a] = psi_a
-        tau_b_per_obs = np.full_like(y, np.nan, dtype=float)
-        tau_b_per_obs[grp_b] = psi_b
-        e_tau_a = float(psi_a.mean())
-        e_tau_b = float(psi_b.mean())
-    else:
-        ey0_a = float(m_a0_all[grp_a].mean())
-        ey0_b = float(m_b0_all[grp_b].mean())
-        tau_a_per_obs = m_a1_all - m_a0_all
-        tau_b_per_obs = m_b1_all - m_b0_all
-        e_tau_a = float(tau_a_per_obs[grp_a].mean())
-        e_tau_b = float(tau_b_per_obs[grp_b].mean())
+    ey0_a = float(m_a0_all[grp_a].mean())
+    ey0_b = float(m_b0_all[grp_b].mean())
+    tau_a_per_obs = m_a1_all - m_a0_all
+    tau_b_per_obs = m_b1_all - m_b0_all
+    e_tau_a = float(tau_a_per_obs[grp_a].mean())
+    e_tau_b = float(tau_b_per_obs[grp_b].mean())
 
     baseline = ey0_a - ey0_b
     prevalence = e_tau_b * (eD_a - eD_b)
@@ -447,14 +498,26 @@ def yu_elwert_decompose(
         Adjustment covariates (used to identify within-group CATEs).
     method : {"plugin", "efficient"}
         ``"plugin"`` uses within-cell OLS for outcomes and within-group
-        logit for the propensity and computes plug-in expectations
-        (Yu-Elwert 2025, Section 4.1). ``"efficient"`` augments each
-        moment with the doubly-robust correction term — recommended
-        when nuisance functions might be misspecified.
-    inference : {"bootstrap", "none"}
+        logit for the propensity and computes plug-in expectations.
+        ``"efficient"`` is the efficient-influence-function estimator of
+        the authors' ``cdgd`` package (``cdgd0_manual``) on those same
+        nuisance fits: Hajek-normalised doubly robust potential outcomes,
+        with selection the residual so the components add up exactly —
+        recommended when nuisance functions might be misspecified.
+
+    .. versionchanged:: 1.28.0
+       ``method="efficient"`` computed selection as a covariance of
+       doubly robust scores, so the four components did not add up to the
+       disparity (0.566 against 0.572 on a 2,000-row example), and used
+       unnormalised inverse-probability weights. Given the same nuisance
+       predictions it now matches ``cdgd::cdgd0_manual`` to machine
+       precision. ``inference="analytic"`` is new. ``"plugin"`` is
+       unchanged.
+    inference : {"bootstrap", "analytic", "none"}
         ``"bootstrap"`` returns SEs and percentile CIs from the
-        non-parametric (cluster-aware) bootstrap. ``"none"`` skips
-        inference.
+        non-parametric (cluster-aware) bootstrap. ``"analytic"`` (only with
+        ``method="efficient"``) returns the efficient-influence-function
+        SEs and Wald CIs of ``cdgd``. ``"none"`` skips inference.
     n_boot : int
     alpha : float
         Two-sided coverage level.
@@ -512,8 +575,13 @@ def yu_elwert_decompose(
     """
     if method not in ("plugin", "efficient"):
         raise ValueError(f"method must be 'plugin' or 'efficient', got {method!r}")
-    if inference not in ("bootstrap", "none"):
-        raise ValueError("inference must be 'bootstrap' or 'none'")
+    if inference not in ("bootstrap", "analytic", "none"):
+        raise ValueError("inference must be 'bootstrap', 'analytic' or 'none'")
+    if inference == "analytic" and method != "efficient":
+        raise ValueError(
+            "inference='analytic' uses the efficient influence functions and "
+            "needs method='efficient'; use inference='bootstrap' for 'plugin'."
+        )
 
     cols = [y, treatment, group] + list(x) + ([cluster] if cluster else [])
     df = data[cols].dropna().copy()
@@ -560,6 +628,22 @@ def yu_elwert_decompose(
     se: Optional[Dict[str, float]] = None
     ci: Optional[Dict[str, Tuple[float, float]]] = None
     boot_failures = 0
+    if inference == "analytic":
+        from scipy import stats as _st
+
+        m_coef, _ = _fit_within_cell_outcome(y_arr, X, t_arr, r_arr)
+        p_coef = _fit_within_group_propensity(t_arr, X, r_arr)
+        own = r_arr == 1
+
+        def _own(d: int) -> np.ndarray:
+            return np.where(own, X @ m_coef[(1, d)], X @ m_coef[(0, d)])
+
+        ps = np.where(own, logit_predict(p_coef[1], X), logit_predict(p_coef[0], X))
+        _, se = _efficient_components(
+            y_arr, t_arr, r_arr, _own(0), _own(1), np.clip(ps, trim, 1 - trim)
+        )
+        z = float(_st.norm.ppf(1 - alpha / 2))
+        ci = {k: (point[k] - z * se[k], point[k] + z * se[k]) for k in se}
     if inference == "bootstrap":
         keys = ("disparity", "baseline", "prevalence", "effect", "selection")
 

@@ -153,20 +153,28 @@ def _gap_closing_core(
         cf_gap = ey_a - ey_b
         return obs_gap, cf_gap
 
-    # Propensity score
+    # Propensity score p(x) = P(group B | x). Moving group A's covariate
+    # distribution onto B's reweights A by the density ratio
+    #   f_B(x) / f_A(x) = [p / (1 - p)] * [(1 - pi) / pi],  pi = P(B),
+    # and moving B onto A by its reciprocal. Before 1.28.0 both IPW and the
+    # AIPW correction term used the reciprocal of the right ratio, which
+    # pushes the reweighted sample AWAY from the target distribution: with
+    # Y = 2X and no group effect the IPW counterfactual gap came out at
+    # twice the observed gap instead of zero.
     beta_ps, _ = logit_fit(g.astype(float), X)
     p_hat = logit_predict(beta_ps, X)
     p_hat = np.clip(p_hat, trim, 1 - trim)
     p_group = g.mean()
+    ratio_b_over_a = p_hat / (1 - p_hat) * (1 - p_group) / p_group
 
     if method == "ipw":
         if target_dist == 1:
             # Shift A to look like B
-            w_a = (1 - p_hat[mask_a]) / p_hat[mask_a] * p_group / (1 - p_group)
+            w_a = ratio_b_over_a[mask_a]
             ey_a = float(np.average(y_a, weights=w_a))
             ey_b = float(y_b.mean())
         else:
-            w_b = p_hat[mask_b] / (1 - p_hat[mask_b]) * (1 - p_group) / p_group
+            w_b = 1.0 / ratio_b_over_a[mask_b]
             ey_a = float(y_a.mean())
             ey_b = float(np.average(y_b, weights=w_b))
         cf_gap = ey_a - ey_b
@@ -179,22 +187,16 @@ def _gap_closing_core(
         m_a_all = X @ beta_a
         m_b_all = X @ beta_b
         if target_dist == 1:
-            # E[Y_A | X_B] via DR
-            # ψ_i = m_a(X_i) + (T_i/p(X_i)) (Y_i - m_a(X_i))  evaluated on B-like sample
-            # Weight A obs by (1-p)/p, and evaluate m_a under B
+            # E_{X ~ B}[E(Y | X, A)], doubly robust: the outcome model
+            # averaged over B's covariates, plus A's residuals reweighted by
+            # the density ratio f_B / f_A.
             resid_a = y_a - m_a_all[mask_a]
-            dr_A = m_a_all[mask_b].mean() + np.mean(
-                ((1 - p_hat[mask_a]) / p_hat[mask_a] * p_group / (1 - p_group))
-                * resid_a
-            )
+            dr_A = m_a_all[mask_b].mean() + np.mean(ratio_b_over_a[mask_a] * resid_a)
             ey_a = float(dr_A)
             ey_b = float(y_b.mean())
         else:
             resid_b = y_b - m_b_all[mask_b]
-            dr_B = m_b_all[mask_a].mean() + np.mean(
-                (p_hat[mask_b] / (1 - p_hat[mask_b]) * (1 - p_group) / p_group)
-                * resid_b
-            )
+            dr_B = m_b_all[mask_a].mean() + np.mean(resid_b / ratio_b_over_a[mask_b])
             ey_a = float(y_a.mean())
             ey_b = float(dr_B)
         cf_gap = ey_a - ey_b
@@ -217,10 +219,25 @@ def gap_closing(
     seed: Optional[int] = 12345,
 ) -> GapClosingResult:
     """
-    Lundberg (2021) gap-closing estimator.
+    Counterfactual gap after equalising covariate distributions.
 
-    Computes the counterfactual mean gap that would remain if one group's
-    covariate distribution were shifted to match the other's.
+    Computes the mean gap that would remain if one group's covariate
+    distribution were shifted to match the other's, in the spirit of
+    Lundberg's gap-closing estimand with the covariates as the intervened
+    variables. ``method="ipw"`` is DiNardo-Fortin-Lemieux reweighting and
+    matches ``ddecompose::dfl_decompose``; ``"regression"`` is the
+    Oaxaca-Blinder counterfactual and matches ``ddecompose::ob_decompose``;
+    ``"aipw"`` combines the two and is consistent if either model is right.
+    For interventions on a treatment variable, see Lundberg's ``gapclosing``
+    package.
+
+    .. versionchanged:: 1.28.0
+       ``method="ipw"`` and the reweighting term of ``"aipw"`` used the
+       reciprocal of the density ratio, reweighting each group *away* from
+       the target distribution: with ``Y = 2X`` and no group effect the IPW
+       counterfactual gap was twice the observed gap instead of zero, and
+       ``"aipw"`` was consistent only when its outcome model was right.
+       ``"regression"`` is unchanged.
 
     Parameters
     ----------

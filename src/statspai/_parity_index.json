@@ -1953,21 +1953,32 @@
       "tolerance": ""
     },
     {
-      "function": "das_gupta",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_dasgupta_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "das_gupta",
+      "notes": [
+        "Added in 1.28.0 by the decomposition sweep. It found: sp.das_gupta decomposing the product of factor MEANS instead of the sum over strata of factor products its docstring stated (factor shares 0% / +333% where DasGuptR gives 37% / -52% on Das Gupta's Table 6.5); sp.gap_closing reweighting by the reciprocal of the density ratio in its IPW and AIPW paths (IPW counterfactual gap twice the observed gap on a DGP whose true value is zero); and sp.yu_elwert_decompose(method='efficient') computing selection as a covariance of DR scores, so its components did not add up to the disparity."
+      ],
+      "reference": "R DasGuptR::dgnpop (product rate function, summed over strata)",
+      "reference_versions": {
+        "DasGuptR": "2.2.0",
+        "cdgd": "1.0.1",
+        "ddecompose": "1.0.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_decomp_R_parity.py"
+      ],
+      "tolerance": "Das Gupta's Table 2.1 (two factors) and Table 6.5 (four factors x six age groups), every factor effect and both crude rates at 1e-10."
     },
     {
       "also_verified_by": [
@@ -3827,6 +3838,31 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "gap_closing",
+      "notes": [
+        "Added in 1.28.0 by the decomposition sweep. It found: sp.das_gupta decomposing the product of factor MEANS instead of the sum over strata of factor products its docstring stated (factor shares 0% / +333% where DasGuptR gives 37% / -52% on Das Gupta's Table 6.5); sp.gap_closing reweighting by the reciprocal of the density ratio in its IPW and AIPW paths (IPW counterfactual gap twice the observed gap on a DGP whose true value is zero); and sp.yu_elwert_decompose(method='efficient') computing selection as a covariance of DR scores, so its components did not add up to the disparity."
+      ],
+      "reference": "R ddecompose::dfl_decompose (method='ipw') and ob_decompose (method='regression')",
+      "reference_versions": {
+        "DasGuptR": "2.2.0",
+        "cdgd": "1.0.1",
+        "ddecompose": "1.0.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_decomp_R_parity.py"
+      ],
+      "tolerance": "Observed, counterfactual and closed gaps at 1e-9 for IPW in both directions (logit MLE in the path) and 1e-10 for regression. method='aipw' has no reference and is checked for double robustness on a known-truth DGP (T1)."
+    },
+    {
       "function": "garch",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -5206,21 +5242,32 @@
       "tolerance": ""
     },
     {
-      "function": "kitagawa_decompose",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_kitagawa_decompose_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "kitagawa_decompose",
+      "notes": [
+        "Added in 1.28.0 by the decomposition sweep. It found: sp.das_gupta decomposing the product of factor MEANS instead of the sum over strata of factor products its docstring stated (factor shares 0% / +333% where DasGuptR gives 37% / -52% on Das Gupta's Table 6.5); sp.gap_closing reweighting by the reciprocal of the density ratio in its IPW and AIPW paths (IPW counterfactual gap twice the observed gap on a DGP whose true value is zero); and sp.yu_elwert_decompose(method='efficient') computing selection as a covariance of DR scores, so its components did not add up to the disparity."
+      ],
+      "reference": "R DasGuptR::dgnpop with ratefunction sum(size*rate)/sum(size)",
+      "reference_versions": {
+        "DasGuptR": "2.2.0",
+        "cdgd": "1.0.1",
+        "ddecompose": "1.0.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_decomp_R_parity.py"
+      ],
+      "tolerance": "Rate and composition effects on Das Gupta's Table 5.1 at 1e-10; interaction exactly 0."
     },
     {
       "additional_tests": [
@@ -11497,6 +11544,31 @@
         "tests/reference_parity/test_did_had_parity.py"
       ],
       "tolerance": ""
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "yu_elwert_decompose",
+      "notes": [
+        "Added in 1.28.0 by the decomposition sweep. It found: sp.das_gupta decomposing the product of factor MEANS instead of the sum over strata of factor products its docstring stated (factor shares 0% / +333% where DasGuptR gives 37% / -52% on Das Gupta's Table 6.5); sp.gap_closing reweighting by the reciprocal of the density ratio in its IPW and AIPW paths (IPW counterfactual gap twice the observed gap on a DGP whose true value is zero); and sp.yu_elwert_decompose(method='efficient') computing selection as a covariance of DR scores, so its components did not add up to the disparity."
+      ],
+      "reference": "R cdgd::cdgd0_manual on independently fitted within-cell lm / within-group glm nuisances",
+      "reference_versions": {
+        "DasGuptR": "2.2.0",
+        "cdgd": "1.0.1",
+        "ddecompose": "1.0.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_decomp_R_parity.py"
+      ],
+      "tolerance": "method='efficient': disparity, baseline, prevalence, effect, selection and their EIF standard errors at 1e-9. method='plugin' has no reference implementation and is covered by its exact additivity identity."
     },
     {
       "additional_tests": [

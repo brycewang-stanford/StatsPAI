@@ -14,9 +14,9 @@ import pandas as pd
 import pytest
 
 import statspai as sp
+from statspai.decomposition import _common as C
 from statspai.decomposition import datasets
 from statspai.decomposition.rif import rif_values, rifreg
-from statspai.decomposition import _common as C
 
 
 @pytest.fixture(scope="module")
@@ -71,11 +71,11 @@ def test_yu_elwert_efficient(causal_df):
         method="efficient",
         inference="none",
     )
-    # The efficient (AIPW-style) estimator carries small cross-fit correction
-    # terms, so the four components reconstruct the disparity up to estimation
-    # order rather than to machine precision (the plugin variant is exact).
+    # Selection is the residual (as in cdgd), so the four components add up
+    # to the disparity exactly. Before 1.28.0 they did not, and this test
+    # tolerated the gap as "estimation order".
     assert r.disparity == pytest.approx(
-        r.baseline + r.prevalence + r.effect + r.selection, rel=1e-3, abs=1e-4
+        r.baseline + r.prevalence + r.effect + r.selection, rel=1e-12, abs=1e-14
     )
 
 

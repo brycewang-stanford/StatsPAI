@@ -4829,15 +4829,22 @@
     "name": "dag_example"
   },
   {
-    "description": "Das Gupta (1993) multi-factor decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Das Gupta (1993) multi-factor decomposition. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
+        "by": {
+          "description": "Column(s) identifying the stratum of each row, used to pair the rows of ``data_a`` and ``data_b``. Both frames must contain the same strata. Without ``by`` the rows are paired by position, which requires equal lengths.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "data_a": {
-          "description": "Each row contributes the factor value. The aggregate for each group is computed as Sigma_i _f factor_{f,i}. For single-row DataFrames (one population, no stratification) the aggregate is simply _f factor_f.",
+          "description": "One row per stratum (e.g. age group). The aggregate for each population is ``R = sum_i prod_f factor_{f,i}``; with a single row it is simply ``prod_f factor_f``.",
           "type": "string"
         },
         "data_b": {
-          "description": "Each row contributes the factor value. The aggregate for each group is computed as Sigma_i _f factor_{f,i}. For single-row DataFrames (one population, no stratification) the aggregate is simply _f factor_f.",
+          "description": "One row per stratum (e.g. age group). The aggregate for each population is ``R = sum_i prod_f factor_{f,i}``; with a single row it is simply ``prod_f factor_f``.",
           "type": "string"
         },
         "factor_names": {
@@ -9568,7 +9575,7 @@
     "name": "g_estimation"
   },
   {
-    "description": "Lundberg (2021) gap-closing estimator.",
+    "description": "Counterfactual gap after equalising covariate distributions. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -12165,7 +12172,7 @@
     "name": "kink_unified"
   },
   {
-    "description": "Kitagawa (1955) two-factor rate decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Kitagawa (1955) two-factor rate decomposition. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "by": {
@@ -26752,7 +26759,7 @@
     "name": "yatchew_linearity_test"
   },
   {
-    "description": "Nonparametric causal decomposition of a group disparity.",
+    "description": "Nonparametric causal decomposition of a group disparity. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -26770,12 +26777,16 @@
         },
         "inference": {
           "default": "bootstrap",
-          "description": "``\"bootstrap\"`` returns SEs and percentile CIs from the non-parametric (cluster-aware) bootstrap. ``\"none\"`` skips inference.",
+          "description": "``\"bootstrap\"`` returns SEs and percentile CIs from the non-parametric (cluster-aware) bootstrap. ``\"analytic\"`` (only with ``method=\"efficient\"``) returns the efficient-influence-function SEs and Wald CIs of ``cdgd``. ``\"none\"`` skips inference.",
+          "enum": [
+            "bootstrap",
+            "analytic"
+          ],
           "type": "string"
         },
         "method": {
           "default": "plugin",
-          "description": "``\"plugin\"`` uses within-cell OLS for outcomes and within-group logit for the propensity and computes plug-in expectations (Yu-Elwert 2025, Section 4.1). ``\"efficient\"`` augments each moment with the doubly-robust correction term -- recommended when nuisance functions might be misspecified.",
+          "description": "``\"plugin\"`` uses within-cell OLS for outcomes and within-group logit for the propensity and computes plug-in expectations. ``\"efficient\"`` is the efficient-influence-function estimator of the authors' ``cdgd`` package (``cdgd0_manual``) on those same nuisance fits: Hajek-normalised doubly robust potential outcomes, with selection the residual so the components add up exactly -- recommended when nuisance functions might be misspecified. ``method=\"efficient\"`` computed selection as a covariance of doubly robust scores, so the four components did not add up to the disparity (0.566 against 0.572 on a 2,000-row example), and used unnormalised inverse-probability weights. Given the same nuisance predictions it now matches ``cdgd::cdgd0_manual`` to machine precision. ``inference=\"analytic\"`` is new. ``\"plugin\"`` is unchanged.",
           "enum": [
             "plugin",
             "efficient"

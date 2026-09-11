@@ -91,19 +91,21 @@ functions the parity index vouches for as agreeing with R or Stata.
   place of comparing against it. That is known-truth evidence (T1), and it
   was being counted as cross-language parity (T2), the claim the JSS
   manuscript rests on.
-  - **Six now have the comparison they claimed**, built in this release:
+  - **Eight now have the comparison they claimed**, built in this release:
     `evalue_rr` against `EValue::evalues.RR` (1e-12, ten cases including the
     branch rules); `degree_centrality`, `betweenness_centrality` and
     `clustering` against igraph; `eigenvector_centrality` against
     `sna::evcent` (5e-11); `mr` against `MendelianRandomization` (see
     *Mendelian randomisation* below — the comparison found that its default
-    standard error was half the reference's). The old eigenvector note also said the L2
+    standard error was half the reference's); `das_gupta` and
+    `kitagawa_decompose` against `DasGuptR` (see *decomposition* below —
+    `das_gupta` was decomposing a different aggregate on stratified data). The old eigenvector note also said the L2
     normalisation matched igraph; igraph max-scales, and 2.x ignores
     `scale = FALSE`.
-  - **Twenty-five move to `analytical-only`**, the grade their tests
+  - **Twenty-three move to `analytical-only`**, the grade their tests
     support: `auc`, `roc_curve`, `bootstrap`, `breakdown_frontier`,
-    `contrast`, `das_gupta`, `direct_standardize`, `gelbach`, `icc`,
-    `indirect_standardize`, `kdensity`, `kitagawa_decompose`, `lee_bounds`,
+    `contrast`, `direct_standardize`, `gelbach`, `icc`,
+    `indirect_standardize`, `kdensity`, `lee_bounds`,
     `lrtest`, `manski_bounds`, `margins_at`, `mediate_interventional`,
     `mediation_decompose`, `oster_delta`, `policy_value`,
     `power_case_control`, `pwcompare`, `sensitivity_specificity`,
@@ -116,7 +118,7 @@ functions the parity index vouches for as agreeing with R or Stata.
   - The correction alone took cross-language coverage, as reported by
     `sp.parity_summary()`, from 220 to 194 of 773 estimator callables
     (28.5% → 25.1%). The real comparisons added elsewhere in this release
-    bring it to 209 (27.0%).
+    bring it to 213 (27.6%).
 - **The index now refuses to build such an entry.** A promotion claiming an
   R or Stata side must list a test that loads a reference fixture or calls
   R, or record a `provenance` for embedded constants (the live-captured
@@ -250,6 +252,45 @@ analyses should be re-run**; `MIGRATION.md#mr-sweep` has the table.
 - `sp.mr_radial(bonferroni=, alpha=)`: `bonferroni=False` reproduces
   `RadialMR::ivw_radial`'s outlier list; the Bonferroni default is kept.
 - The Mendelian-family guide is updated for all of the above.
+
+### ⚠️ Correctness fixes — decomposition
+
+Found by comparing against `DasGuptR`, `ddecompose` and `cdgd` (the last
+two maintained by the methods' authors or their groups).
+
+- **`sp.das_gupta` decomposed a different aggregate on stratified data.**
+  Its docstring defines the aggregate as `Σᵢ ∏_f f_{f,i}` over strata, but
+  with more than one row per population the code multiplied the factor
+  *means*. On Das Gupta's own Table 6.5 (four factors × six age groups)
+  factor A's share of the 1963→1968 change came out 0% where `DasGuptR`
+  gives 36.8%, and factor D's +333% where it gives −52.5%. It now sums the
+  per-stratum decompositions; rows are paired by the new `by=` or by
+  position, and unequal row counts raise. Single-row inputs are unchanged.
+- **`sp.gap_closing(method="ipw")` reweighted in the wrong direction**, and
+  so did the reweighting term of `method="aipw"`: both used the reciprocal
+  of the density ratio `f_target / f_source`. With `Y = 2X` and no group
+  effect, the IPW counterfactual gap came out at twice the observed gap
+  instead of zero; AIPW stayed right only while its outcome model was
+  right, i.e. it was not doubly robust. IPW now matches
+  `ddecompose::dfl_decompose` in both directions (1e-9);
+  `method="regression"` was already right and matches
+  `ddecompose::ob_decompose`.
+- **`sp.yu_elwert_decompose(method="efficient")`'s components did not add
+  up to the disparity** (0.566 against 0.572 on a 2,000-row example): it
+  computed selection as a covariance of doubly robust scores rather than
+  as the residual, and used unnormalised inverse-probability weights. It
+  now follows `cdgd::cdgd0_manual` — Hajek-normalised potential outcomes,
+  selection as the residual — and matches it to 1e-9 given the same
+  nuisance fits. New `inference="analytic"` gives the package's
+  efficient-influence-function standard errors. `method="plugin"` (the
+  default) is unchanged.
+
+### Added — decomposition
+
+- Cross-language evidence for `das_gupta`, `kitagawa_decompose`,
+  `gap_closing` and `yu_elwert_decompose`
+  (`tests/reference_parity/test_decomp_R_parity.py`), on Das Gupta's worked
+  examples and on simulated data read by both sides from the same bytes.
 
 ### ⚠️ Correctness fixes — small p-values package-wide
 

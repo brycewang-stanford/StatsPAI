@@ -2252,6 +2252,74 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Added in 1.28.0 by the Mendelian-randomisation sweep, on the 28-variant LDL-C / CHD data shipped with MendelianRandomization. It found: IVW reporting the fixed-effect SE regardless of heterogeneity (half the reference's here); Egger not orienting variants (slope 14%, intercept 38% off); a step weighted median, a lower-tail penalty and weights redrawn in the bootstrap; a mode-based bandwidth and grid unlike Hartwig et al.'s; cML penalising BIC by the number of variants instead of the sample size (six invalid variants selected instead of two) with a non-profile SE; mr_raps a different estimator under the name; Steiger one-sided with p = 0 from 1 - Phi; PRESSO without the Bonferroni step; and 1 - cdf p-values losing 1e-7 relative at p = 3e-10."
         ),
     },
+    "das_gupta": {
+        "status": "bit-exact",
+        "reference": "R DasGuptR::dgnpop (product rate function, summed over strata)",
+        "reference_versions": {
+            "DasGuptR": "2.2.0",
+            "ddecompose": "1.0.0",
+            "cdgd": "1.0.1",
+        },
+        "tolerance": (
+            "Das Gupta's Table 2.1 (two factors) and Table 6.5 (four factors x six age groups), every factor effect and both crude rates at 1e-10."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_decomp_R_parity.py"],
+        "note": (
+            "Added in 1.28.0 by the decomposition sweep. It found: sp.das_gupta decomposing the product of factor MEANS instead of the sum over strata of factor products its docstring stated (factor shares 0% / +333% where DasGuptR gives 37% / -52% on Das Gupta's Table 6.5); sp.gap_closing reweighting by the reciprocal of the density ratio in its IPW and AIPW paths (IPW counterfactual gap twice the observed gap on a DGP whose true value is zero); and sp.yu_elwert_decompose(method='efficient') computing selection as a covariance of DR scores, so its components did not add up to the disparity."
+        ),
+    },
+    "kitagawa_decompose": {
+        "status": "bit-exact",
+        "reference": "R DasGuptR::dgnpop with ratefunction sum(size*rate)/sum(size)",
+        "reference_versions": {
+            "DasGuptR": "2.2.0",
+            "ddecompose": "1.0.0",
+            "cdgd": "1.0.1",
+        },
+        "tolerance": (
+            "Rate and composition effects on Das Gupta's Table 5.1 at 1e-10; interaction exactly 0."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_decomp_R_parity.py"],
+        "note": (
+            "Added in 1.28.0 by the decomposition sweep. It found: sp.das_gupta decomposing the product of factor MEANS instead of the sum over strata of factor products its docstring stated (factor shares 0% / +333% where DasGuptR gives 37% / -52% on Das Gupta's Table 6.5); sp.gap_closing reweighting by the reciprocal of the density ratio in its IPW and AIPW paths (IPW counterfactual gap twice the observed gap on a DGP whose true value is zero); and sp.yu_elwert_decompose(method='efficient') computing selection as a covariance of DR scores, so its components did not add up to the disparity."
+        ),
+    },
+    "gap_closing": {
+        "status": "bit-exact",
+        "reference": "R ddecompose::dfl_decompose (method='ipw') and ob_decompose (method='regression')",
+        "reference_versions": {
+            "DasGuptR": "2.2.0",
+            "ddecompose": "1.0.0",
+            "cdgd": "1.0.1",
+        },
+        "tolerance": (
+            "Observed, counterfactual and closed gaps at 1e-9 for IPW in both directions (logit MLE in the path) and 1e-10 for regression. method='aipw' has no reference and is checked for double robustness on a known-truth DGP (T1)."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_decomp_R_parity.py"],
+        "note": (
+            "Added in 1.28.0 by the decomposition sweep. It found: sp.das_gupta decomposing the product of factor MEANS instead of the sum over strata of factor products its docstring stated (factor shares 0% / +333% where DasGuptR gives 37% / -52% on Das Gupta's Table 6.5); sp.gap_closing reweighting by the reciprocal of the density ratio in its IPW and AIPW paths (IPW counterfactual gap twice the observed gap on a DGP whose true value is zero); and sp.yu_elwert_decompose(method='efficient') computing selection as a covariance of DR scores, so its components did not add up to the disparity."
+        ),
+    },
+    "yu_elwert_decompose": {
+        "status": "bit-exact",
+        "reference": "R cdgd::cdgd0_manual on independently fitted within-cell lm / within-group glm nuisances",
+        "reference_versions": {
+            "DasGuptR": "2.2.0",
+            "ddecompose": "1.0.0",
+            "cdgd": "1.0.1",
+        },
+        "tolerance": (
+            "method='efficient': disparity, baseline, prevalence, effect, selection and their EIF standard errors at 1e-9. method='plugin' has no reference implementation and is covered by its exact additivity identity."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_decomp_R_parity.py"],
+        "note": (
+            "Added in 1.28.0 by the decomposition sweep. It found: sp.das_gupta decomposing the product of factor MEANS instead of the sum over strata of factor products its docstring stated (factor shares 0% / +333% where DasGuptR gives 37% / -52% on Das Gupta's Table 6.5); sp.gap_closing reweighting by the reciprocal of the density ratio in its IPW and AIPW paths (IPW counterfactual gap twice the observed gap on a DGP whose true value is zero); and sp.yu_elwert_decompose(method='efficient') computing selection as a covariance of DR scores, so its components did not add up to the disparity."
+        ),
+    },
 }
 
 
