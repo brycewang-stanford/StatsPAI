@@ -9814,13 +9814,17 @@
           },
           "type": "array"
         },
-        "robust": {
-          "default": true,
-          "description": "Heteroskedasticity-robust (``True``) or homoskedastic covariance, as ``b1x2 ..., robust`` and plain ``b1x2``. Standard errors were a two-term delta method that treated the auxiliary and long-regression estimates as independent; ``b1x2`` keeps their covariance. On ``cps_wage`` that moved the SEs by 0.03%, but the old formula has no guarantee of being that close. Point estimates are unchanged.",
-          "type": "boolean"
-        },
         "var_of_interest": {
           "description": "Which base variable's coefficient change to decompose. Defaults to the first element of ``base_x``.",
+          "type": "string"
+        },
+        "vce": {
+          "default": "robust",
+          "description": "Heteroskedasticity-robust or homoskedastic covariance, as ``b1x2 ..., robust`` and plain ``b1x2``. Standard errors were a two-term delta method that treated the auxiliary and long-regression estimates as independent; ``b1x2`` keeps their covariance. On ``cps_wage`` that moved the SEs by 0.03%, but the old formula has no guarantee of being that close. Point estimates are unchanged.",
+          "enum": [
+            "robust",
+            "nonrobust"
+          ],
           "type": "string"
         },
         "y": {
