@@ -5,6 +5,42 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="synth-placebo-pvalue"></a>
+
+## Unreleased — ⚠️ Synthetic-control placebo p-values now rank the treated unit too
+
+**Who is affected.** Anyone who reported a placebo (permutation) p-value from a
+native `sp.synth` estimator — classic SCM and the penalized, demeaned, robust,
+sparse, gsynth, matrix-completion, staggered, multi-outcome, augmented, kernel
+and DiSCo variants. Point estimates, weights, SEs and CIs do not change.
+
+**What was wrong.** The old code returned the share of *placebos* at least as
+extreme as the treated unit, `#{placebo >= treated} / J`, floored at
+`1/(J+1)`. The permutation p-value counts the treated unit in both the numerator
+and the denominator:
+
+```text
+p = (1 + #{placebo >= treated}) / (J + 1)   # = rank / (J + 1)
+```
+
+**What changes.**
+
+| Treated rank among J+1 units | Old | New |
+| --- | --- | --- |
+| 1 (most extreme) | `1/(J+1)` | `1/(J+1)` — unchanged |
+| r > 1 | `(r-1)/J` | `r/(J+1)` — larger |
+
+California Prop 99 (README example): rank 3 of 39, `0.0526 → 0.0769`. If you
+hand-computed `rank/(J+1)` because StatsPAI disagreed with Abadie et al., the
+two now agree; no code change is needed. A result sitting just under a
+significance threshold at rank `r > 1` may cross it: rerun and re-check.
+
+**Also new.** `sp.SyntheticControl` warns (`RuntimeWarning`) when placebo fits
+fail, instead of silently dropping them, and lists them in
+`model_info['placebo_failures']`.
+
+---
+
 <a id="etwfe-cohort-att"></a>
 
 ## 1.27.0 — ⚠️ ETWFE cohort-level ATTs were wrong by up to 37%

@@ -34,6 +34,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ._core import placebo_rank_pvalue
 
 # ====================================================================== #
 #  Public API
@@ -233,8 +234,7 @@ def mc_synth(
 
     if len(placebo_atts) > 0:
         se = float(np.std(placebo_atts, ddof=1))
-        pvalue = float(np.mean(np.abs(placebo_atts) >= abs(att)))
-        pvalue = max(pvalue, 1 / (len(placebo_atts) + 1))
+        pvalue = placebo_rank_pvalue(abs(att), np.abs(placebo_atts))
     else:
         se = float(np.std(effects)) / max(np.sqrt(T1), 1)
         pvalue = np.nan

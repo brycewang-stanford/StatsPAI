@@ -32,6 +32,7 @@ import pandas as pd
 from scipy import optimize, stats
 
 from ..core.results import CausalResult
+from ._core import placebo_rank_pvalue
 
 
 def staggered_synth(
@@ -236,8 +237,7 @@ def staggered_synth(
 
     if len(placebo_atts_list) > 1:
         se = float(np.std(placebo_atts_list, ddof=1))
-        pvalue = float(np.mean(np.abs(placebo_atts_list) >= abs(att)))
-        pvalue = max(pvalue, 1 / (len(placebo_atts_list) + 1))
+        pvalue = placebo_rank_pvalue(abs(att), np.abs(placebo_atts_list))
     else:
         se = float(np.std(atts, ddof=1)) / max(np.sqrt(len(atts)), 1)
         pvalue = np.nan

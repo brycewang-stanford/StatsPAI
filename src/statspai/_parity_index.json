@@ -10134,8 +10134,8 @@
       "function": "synth",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 7.775448066403412e-08,
-        "rel_vs_Stata": 7.734060059050307e-08,
+        "rel_vs_R": 7.775448155221254e-08,
+        "rel_vs_Stata": 7.734060147868149e-08,
         "statistic": [
           "avg_post_gap"
         ],
@@ -10148,8 +10148,8 @@
         "Grade is variant-specific: certified for the tested call (sp.synth(method=\"classic\", backend=\"native\")); other synth() methods/variants may differ."
       ],
       "point_estimate_rel": {
-        "R": 7.775448066403412e-08,
-        "Stata": 7.734060059050307e-08
+        "R": 7.775448155221254e-08,
+        "Stata": 7.734060147868149e-08
       },
       "python_call": "sp.synth(method=\"classic\", backend=\"native\")",
       "reference": "Synth::synth",

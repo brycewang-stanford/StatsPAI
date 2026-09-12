@@ -49,6 +49,7 @@ from scipy import stats as sp_stats
 from scipy.optimize import minimize
 
 from ..core.results import CausalResult
+from ._core import placebo_rank_pvalue
 
 # ====================================================================== #
 #  Public API
@@ -243,8 +244,7 @@ def discos(
     # --- Standard errors and p-value ---
     if len(placebo_avg_qtes) > 0:
         se = float(np.std(placebo_avg_qtes, ddof=1))
-        pvalue = float(np.mean(np.abs(placebo_avg_qtes) >= abs(avg_qte)))
-        pvalue = max(pvalue, 1 / (len(placebo_avg_qtes) + 1))
+        pvalue = placebo_rank_pvalue(abs(avg_qte), np.abs(placebo_avg_qtes))
 
         # Quantile-level CIs from placebo distribution
         if len(placebo_quantile_effects) > 0:
@@ -851,8 +851,7 @@ def _cvm_test(
     if "placebo_quantile_effects" in model_info:
         plac_arr = model_info["placebo_quantile_effects"]  # (n_plac, n_q)
         plac_cvm = np.mean(plac_arr**2, axis=1)
-        pval = float(np.mean(plac_cvm >= cvm_stat))
-        pval = max(pval, 1 / (len(plac_cvm) + 1))
+        pval = placebo_rank_pvalue(cvm_stat, plac_cvm)
     else:
         # Asymptotic: treat as chi-squared approximation
         # Under H0, n_q * CvM ~ sum of squared normals
@@ -893,9 +892,9 @@ def _stochastic_dominance_test(
     if "placebo_quantile_effects" in model_info:
         plac_arr = model_info["placebo_quantile_effects"]
         plac_min_gaps = np.min(plac_arr, axis=1)
-        # H0: no dominance. p = fraction of placebos with min_gap >= observed
-        pval = float(np.mean(plac_min_gaps >= min_gap))
-        pval = max(pval, 1 / (len(plac_min_gaps) + 1))
+        # H0: no dominance. p = rank of the observed min_gap among itself
+        # and the placebo min_gaps, divided by J+1.
+        pval = placebo_rank_pvalue(min_gap, plac_min_gaps)
     else:
         # Approximate: use KS test as fallback
         ks_stat, pval = sp_stats.ks_2samp(
@@ -946,8 +945,7 @@ def _second_order_dominance(
         plac_arr = model_info["placebo_quantile_effects"]
         plac_cum = np.cumsum(plac_arr, axis=1) / n_q
         plac_min_cum = np.min(plac_cum, axis=1)
-        pval = float(np.mean(plac_min_cum >= min_cum_gap))
-        pval = max(pval, 1 / (len(plac_min_cum) + 1))
+        pval = placebo_rank_pvalue(min_cum_gap, plac_min_cum)
     else:
         pval = np.nan
 

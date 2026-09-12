@@ -40,6 +40,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
+from ._core import placebo_rank_pvalue
 
 
 def augsynth(
@@ -248,8 +249,7 @@ def augsynth(
 
         placebo_effects = np.array(placebo_effects)
         se = float(np.std(placebo_effects, ddof=1))
-        pvalue = float(np.mean(np.abs(placebo_effects) >= abs(att)))
-        pvalue = max(pvalue, 1 / (J + 1))
+        pvalue = placebo_rank_pvalue(abs(att), np.abs(placebo_effects))
 
         t_crit = sp_stats.norm.ppf(1 - alpha / 2)
         ci = (att - t_crit * se, att + t_crit * se)

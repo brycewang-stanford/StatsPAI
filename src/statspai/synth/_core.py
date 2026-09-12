@@ -106,13 +106,21 @@ def solve_simplex_weights(
     if w0 is None:
         w0 = np.ones(J) / J
 
+    # The adding-up constraint is linear, so its Jacobian is exactly a row
+    # of ones. Supplying it spares SLSQP a finite-difference pass per
+    # iteration (J extra evaluations) without changing the solution.
+    sum_jac = np.ones((1, J))
     result = optimize.minimize(
         objective,
         w0,
         jac=jac,
         method="SLSQP",
         bounds=[(0.0, 1.0)] * J,
-        constraints={"type": "eq", "fun": lambda w: np.sum(w) - 1.0},
+        constraints={
+            "type": "eq",
+            "fun": lambda w: np.sum(w) - 1.0,
+            "jac": lambda w: sum_jac,
+        },
         options={"maxiter": 1000, "ftol": 1e-12},
     )
     # SLSQP enforces the bounds/equality only up to its own tolerance, so
@@ -128,6 +136,49 @@ def solve_simplex_weights(
     if total > 0.0:
         w = w / total
     return w
+
+
+# ---------------------------------------------------------------------------
+# Placebo (permutation) inference
+# ---------------------------------------------------------------------------
+
+
+def placebo_rank_pvalue(treated_stat: float, placebo_stats: Any) -> float:
+    """
+    Permutation p-value from in-space placebos, following the ranking
+    convention of Abadie, Diamond & Hainmueller (2010)
+    [@abadie2010synthetic].
+
+    The treated unit is ranked *together with* its placebos, so with
+    ``J`` usable placebos
+
+        p = (1 + #{j : placebo_j >= treated}) / (J + 1),
+
+    i.e. the treated unit's rank divided by the number of units in the
+    permutation distribution. Ties count against the treated unit. The
+    smallest attainable value is ``1/(J+1)``; a treated unit ranked
+    third of 39 gets ``3/39``.
+
+    Parameters
+    ----------
+    treated_stat : float
+        Test statistic of the treated unit (e.g. post/pre RMSPE ratio or
+        ``|ATT|``). ``+inf`` (perfect pre-fit) is allowed.
+    placebo_stats : array-like
+        The same statistic for each placebo unit, treated unit excluded.
+        NaN placebos are dropped from both numerator and denominator.
+
+    Returns
+    -------
+    float
+        The p-value, or NaN when no usable placebo is available.
+    """
+    stats_arr = np.asarray(placebo_stats, dtype=np.float64).ravel()
+    stats_arr = stats_arr[~np.isnan(stats_arr)]
+    if stats_arr.size == 0 or np.isnan(treated_stat):
+        return float("nan")
+    n_at_least = int(np.sum(stats_arr >= treated_stat))
+    return float((1 + n_at_least) / (stats_arr.size + 1))
 
 
 # ---------------------------------------------------------------------------
@@ -357,6 +408,12 @@ def solve_synth_weights_adh(
         X1_s, X0_s = X1, X0
         scale = np.ones(K)
 
+    # The inner solve deliberately starts from the uniform simplex point on
+    # every evaluation. Warm-starting from the previous evaluation's W is
+    # ~2x faster, but when W(V) is non-unique (K predictors < J donors) it
+    # selects a history-dependent point on the optimal face, so the outer
+    # loss stops being a function of V and Nelder-Mead drifts into worse
+    # basins (observed on the Basque special-predictor specification).
     def outer_loss(v_params: np.ndarray) -> float:
         V = _v_from_params(v_params, K)
         w = _inner_w_given_v(V, X1_s, X0_s, penalization=penalization)

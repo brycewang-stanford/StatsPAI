@@ -4,6 +4,30 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness
+
+- **Synthetic-control placebo p-values dropped the treated unit from the
+  ranking.** Every in-space placebo p-value in `sp.synth` computed
+  `mean(placebo >= treated)` — denominator `J`, treated unit not counted — and
+  then floored the result at `1/(J+1)`. The permutation p-value of Abadie,
+  Diamond & Hainmueller (2010) ranks the treated unit *together with* its `J`
+  placebos: `p = (1 + #{placebo >= treated}) / (J + 1)`. The two agree only
+  when the treated unit is the most extreme; at rank `r > 1` the old value was
+  `(r-1)/J`, too small. On California Proposition 99 (the README example)
+  California ranks 3rd of 39 states and `summary()` printed
+  `2/38 = 0.0526`; it now prints `3/39 = 0.0769`. The new p-value is never
+  smaller than the old one. All sites now share one helper,
+  `statspai.synth._core.placebo_rank_pvalue`.
+
+  **Affected:** the placebo `pvalue` of the native estimators in
+  `synth/scm.py` (classic `sp.synth` / `sp.SyntheticControl`), `penscm.py`,
+  `demeaned.py`, `robust.py`, `sparse.py`, `gsynth.py`, `mc.py`,
+  `staggered.py`, `multi_outcome.py` (per-outcome and overall),
+  `augsynth.py`, `kernel.py`, and `discos.py` (headline, Cramér–von Mises and
+  first/second-order stochastic-dominance tests). **Not affected:** point
+  estimates, weights, placebo-dispersion SEs and CIs; conformal, `scpi`,
+  Bayesian/BSTS and `sdid` inference. See MIGRATION.md.
+
 ### Fixed
 
 - **`src/statspai/_parity_index.json` is ASCII again.** The alias evidence
@@ -17,6 +41,39 @@ All notable changes to StatsPAI will be documented in this file.
   grade or number does. `tests/test_archive_ascii_contract.py` runs the
   archive's ASCII check in the ordinary suite, since the original lives in
   the git-ignored `Paper-JSS/` tree and never ran in a worktree or in CI.
+
+- `sp.SyntheticControl` no longer swallows failed in-space placebo fits. A
+  dropped placebo shrinks the permutation distribution and moves the p-value,
+  so it now raises a `RuntimeWarning` and is listed in
+  `model_info['placebo_failures']` (`unit`, `error_type`, `message`).
+
+### Changed
+
+- **Nested V-W fits (`covariates=` / `special_predictors=`) are faster per
+  inner solve.** The inner simplex least-squares solve now hands SLSQP the exact
+  Jacobian of the adding-up constraint instead of letting it finite-difference
+  it every iteration. On California Prop 99 with Abadie's four covariates the
+  treated-unit fit drops from 13.6 s to 5.9 s. **The placebo loop is still
+  slow:** placebo states that lie inside the donors' covariate hull (e.g.
+  Alabama, 108 s; Arkansas, 77 s) have a continuum of perfect-fit inner
+  solutions, so SLSQP iterates ~100 times per solve and the outer Nelder-Mead
+  often exhausts its iteration budget. Making that fast changes which of the
+  observationally equivalent weight vectors is reported, so it is left for a
+  separate, documented change. The optimum is unchanged: outer
+  loss equal to 10 significant digits, donor weights within 1e-8. Committed
+  parity outputs move by at most 3.5e-8 relative (`07_scm` headline) and
+  1e-15 (`52_scm_unique`); both still reproduce byte-identically. The `07_scm`
+  table's `solver_best_start` label changes from `regression` to
+  `dirichlet_3`, two starts whose losses tie to 1e-12. A warm-started inner
+  solve was tried and rejected: when W(V) is non-unique it makes the outer
+  loss history-dependent and sent one Basque start into a worse basin.
+
+### Docs
+
+- README / README_CN: the synthetic-control example output was stale
+  (Montana 0.84 / Nevada 0.16, ATT -13.09). It now shows what the code prints
+  (ATT -19.76, p = 3/39, six donors led by Utah 0.377), explains the rank-based
+  p-value, and points to `covariates=` for an ADH-style specification.
 
 ## [1.27.0] — 2026-09-12
 

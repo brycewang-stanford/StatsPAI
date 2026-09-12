@@ -37,6 +37,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 
@@ -395,7 +396,9 @@ def _dispatch_synth_impl(
         * ``estimate`` : float — ATT (post-treatment average effect).
         * ``se`` : float — standard error (``NaN`` if ``placebo=False``
           and the method has no analytic SE).
-        * ``pvalue`` : float — two-sided; floor ``1/(J+1)`` for permutation.
+        * ``pvalue`` : float — permutation p-value: the treated unit's rank
+          among itself and its placebos divided by ``J+1`` (so the floor is
+          ``1/(J+1)``).
         * ``ci`` : tuple[float, float] — ``(1-alpha)`` confidence interval.
         * ``detail`` : pd.DataFrame — one row per post-treatment period with
           columns ``time, treated, counterfactual, effect``.
@@ -1511,12 +1514,11 @@ class SyntheticControl:
 
         # P-value from placebo distribution
         if len(placebo_atts) > 0:
-            placebo_ratios = np.array(placebo_result["ratios"])
+            from ._core import placebo_rank_pvalue
 
-            # One-sided p-value: fraction of placebos with ratio >= treated
-            pvalue = float(np.mean(placebo_ratios >= ratio_treated))
-            # Ensure at least 1/(J+1) if treated is most extreme
-            pvalue = max(pvalue, 1 / (len(placebo_ratios) + 1))
+            # Rank of the treated post/pre RMSPE ratio among itself and
+            # the placebos, divided by J+1 (ADH 2010).
+            pvalue = placebo_rank_pvalue(ratio_treated, placebo_result["ratios"])
 
             se = float(np.std(placebo_atts)) if len(placebo_atts) > 1 else 0.0
         else:
@@ -1710,6 +1712,7 @@ class SyntheticControl:
             model_info["placebo_ratios"] = placebo_result["ratios"]
             model_info["placebo_gaps"] = placebo_result["gaps"]
             model_info["placebo_units"] = placebo_result["units"]
+            model_info["placebo_failures"] = placebo_result["failures"]
             model_info["treated_ratio"] = ratio_treated
             model_info["n_placebos"] = len(placebo_atts)
 
@@ -1747,6 +1750,7 @@ class SyntheticControl:
         ratios: List[float] = []
         gap_trajectories: List[np.ndarray] = []
         units: List[Any] = []
+        failed: List[Dict[str, str]] = []
 
         all_units_data = np.column_stack([self.Y_treated[:, np.newaxis], self.Y_donors])
         # Placebo predictor matrix: column 0 = treated, 1..J = donors
@@ -1799,8 +1803,26 @@ class SyntheticControl:
                 ratios.append(ratio_p)
                 gap_trajectories.append(gap_p)
                 units.append(placebo_unit)
-            except Exception:
-                continue
+            except Exception as exc:
+                # A dropped placebo shrinks the permutation distribution
+                # and moves the p-value, so it must not vanish silently.
+                failed.append(
+                    {
+                        "unit": placebo_unit,
+                        "error_type": type(exc).__name__,
+                        "message": str(exc),
+                    }
+                )
+
+        if failed:
+            warnings.warn(
+                f"{len(failed)} of {len(self.donor_units)} in-space placebo "
+                "fits failed and were dropped; the placebo p-value is "
+                f"computed over {len(units)} placebos. See "
+                "model_info['placebo_failures'].",
+                RuntimeWarning,
+                stacklevel=3,
+            )
 
         gaps = (
             np.column_stack(gap_trajectories)
@@ -1815,6 +1837,7 @@ class SyntheticControl:
             "ratios": ratios,
             "gaps": gaps,
             "units": units,
+            "failures": failed,
         }
 
 

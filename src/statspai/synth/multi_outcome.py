@@ -30,6 +30,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
+from ._core import placebo_rank_pvalue
 
 # ====================================================================== #
 #  Public API
@@ -354,8 +355,9 @@ def multi_outcome_synth(
         plac = np.array(placebo_atts_per_outcome[oc])
         if len(plac) > 1:
             per_outcome_se[oc] = float(np.std(plac, ddof=1))
-            pv = float(np.mean(np.abs(plac) >= abs(per_outcome_att[oc])))
-            per_outcome_pval[oc] = max(pv, 1 / (len(plac) + 1))
+            per_outcome_pval[oc] = placebo_rank_pvalue(
+                abs(per_outcome_att[oc]), np.abs(plac)
+            )
         else:
             per_outcome_se[oc] = np.nan
             per_outcome_pval[oc] = np.nan
@@ -363,10 +365,9 @@ def multi_outcome_synth(
     # Overall SE and p-value
     if len(placebo_atts_overall) > 1:
         overall_se = float(np.std(placebo_atts_overall, ddof=1))
-        overall_pvalue = float(
-            np.mean(np.abs(placebo_atts_overall) >= abs(overall_att))
+        overall_pvalue = placebo_rank_pvalue(
+            abs(overall_att), np.abs(placebo_atts_overall)
         )
-        overall_pvalue = max(overall_pvalue, 1 / (len(placebo_atts_overall) + 1))
     else:
         overall_se = np.nan
         overall_pvalue = np.nan

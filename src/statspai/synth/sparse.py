@@ -36,6 +36,7 @@ import pandas as pd
 from scipy import optimize, stats
 
 from ..core.results import CausalResult
+from ._core import placebo_rank_pvalue
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -285,8 +286,7 @@ def sparse_synth(
                 for a, m in zip(placebo_atts, placebo_pre_mspes)
             ]
         )
-        pvalue = float(np.mean(placebo_ratios >= ratio_treated))
-        pvalue = max(pvalue, 1.0 / (len(placebo_ratios) + 1))
+        pvalue = placebo_rank_pvalue(ratio_treated, placebo_ratios)
         se = float(np.std(placebo_atts, ddof=0))
     else:
         pvalue = np.nan

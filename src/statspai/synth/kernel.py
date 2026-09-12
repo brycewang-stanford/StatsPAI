@@ -32,9 +32,11 @@ from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import optimize, stats as sp_stats
+from scipy import optimize
+from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
+from ._core import placebo_rank_pvalue
 
 # ====================================================================== #
 #  Kernel functions
@@ -264,15 +266,7 @@ def _reshape_panel(
     time: str,
     treated_unit: Any,
     treatment_time: Any,
-) -> Tuple[
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-    List,
-    List,
-    List,
-]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, List, List, List]:
     """Reshape long-format panel into treated/donor matrices.
 
     Returns
@@ -376,8 +370,7 @@ def _placebo_inference(
 
     placebo_arr = np.array(placebo_effects)
     se = float(np.std(placebo_arr, ddof=1)) if J > 1 else 0.0
-    pvalue = float(np.mean(np.abs(placebo_arr) >= abs(att)))
-    pvalue = max(pvalue, 1.0 / (J + 1))  # minimum p-value bound
+    pvalue = placebo_rank_pvalue(abs(att), np.abs(placebo_arr))
     return se, pvalue, placebo_arr
 
 

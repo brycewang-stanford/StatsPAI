@@ -240,17 +240,25 @@ print(sc.summary())
 ```text
 Synthetic Control Method
 
-ATT:        -13.085166
-Std. Error:  4.164718
-95% CI:     [-21.247862, -4.922469]
-P-value:     0.0789
+ATT:        -19.760529
+Std. Error:  11.233914
+95% CI:     [-41.778595, 2.257538]
+P-value:     0.0769
 
 Active donor weights:
-Montana  0.8420
-Nevada   0.1580
+Utah           0.3768
+Montana        0.2831
+Nevada         0.1881
+Connecticut    0.0690
+New Hampshire  0.0439
+Colorado       0.0391
 ```
 
-在这个 replica 中，干预后 California 的人均香烟销量大约少了 13 包。
+干预后 California 的人均香烟销量每年大约少了 20 包。p 值是 in-space placebo 排序：
+California 的 post/pre RMSPE 比值在 39 个州里排第 3，所以 p = 3/39 ≈ 0.077。
+这个默认设定只用干预前的结果变量做匹配；如需 ADH 风格的预测变量设定，可传入
+`covariates=`（例如 `["lnincome", "retprice", "age15to24", "beer"]`）。
+这条路径会对每个 placebo 州重新求解嵌套 V-W 问题，明显更慢；调试设定时可先用 `placebo=False`。
 
 ---
 

@@ -32,6 +32,7 @@ import pandas as pd
 from scipy import optimize, stats
 
 from ..core.results import CausalResult
+from ._core import placebo_rank_pvalue
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -236,8 +237,7 @@ def penalized_synth(
         placebo_atts = placebo_info["atts"]
         placebo_ratios = np.array(placebo_info["ratios"])
 
-        pvalue = float(np.mean(placebo_ratios >= ratio_treated))
-        pvalue = max(pvalue, 1.0 / (len(placebo_ratios) + 1))
+        pvalue = placebo_rank_pvalue(ratio_treated, placebo_ratios)
         se = float(np.std(placebo_atts)) if len(placebo_atts) > 1 else 0.0
     else:
         pvalue = np.nan

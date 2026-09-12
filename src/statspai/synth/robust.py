@@ -27,13 +27,14 @@ Abadie, A. and L'Hour, J. (2021).
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Literal
+from typing import Any, List, Literal, Optional
 
 import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
 from ..core.results import CausalResult
+from ._core import placebo_rank_pvalue
 
 
 def robust_synth(
@@ -174,8 +175,7 @@ def robust_synth(
             a**2 / m if m > 1e-10 else 0
             for a, m in zip(placebo_atts, placebo_pre_mspes)
         ]
-        pvalue = float(np.mean(np.array(placebo_ratios) >= ratio_treated))
-        pvalue = max(pvalue, 1 / (len(placebo_ratios) + 1))
+        pvalue = placebo_rank_pvalue(ratio_treated, placebo_ratios)
         se = float(np.std(placebo_atts)) if len(placebo_atts) > 1 else 0.0
     else:
         pvalue = np.nan

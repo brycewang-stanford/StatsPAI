@@ -274,18 +274,28 @@ Result:
 ```text
 Synthetic Control Method
 
-ATT:        -13.085166
-Std. Error:  4.164718
-95% CI:     [-21.247862, -4.922469]
-P-value:     0.0789
+ATT:        -19.760529
+Std. Error:  11.233914
+95% CI:     [-41.778595, 2.257538]
+P-value:     0.0769
 
 Active donor weights:
-Montana  0.8420
-Nevada   0.1580
+Utah           0.3768
+Montana        0.2831
+Nevada         0.1881
+Connecticut    0.0690
+New Hampshire  0.0439
+Colorado       0.0391
 ```
 
-The estimate says California consumed about 13 fewer packs per capita after
-the intervention in this replica.
+The estimate says California consumed about 20 fewer packs per capita per year
+after the intervention. The p-value is the in-space placebo rank: California's
+post/pre RMSPE ratio ranks 3rd of the 39 states, so p = 3/39 ≈ 0.077. This
+default matches on pre-treatment outcomes only; pass `covariates=` (e.g.
+`["lnincome", "retprice", "age15to24", "beer"]`) for an ADH-style predictor
+specification. That path re-solves the nested V-W problem for every placebo
+state and is much slower; use `placebo=False` while iterating on the
+specification.
 
 ---
 
