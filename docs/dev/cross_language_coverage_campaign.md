@@ -77,7 +77,7 @@ already installed; the others followed the same rule.
 | 1 | regression | 9 | partial | 2 (`etregress`, `sqreg`) | 4 |
 | 2 | spatial | 29 | done | 13 | 4 + 1 gap |
 | 3 | weak-IV / diagnostics / meta | 26 | partial | 5 | 2 |
-| 4 | panel | 18 | partial | 4 (+ `xtdpdsys` vs Stata `xtdpdsys`) | 3 |
+| 4 | panel | 18 | partial | 5 (+ `xtdpdsys`, `xtlsdvc` vs Stata) | 3 |
 | 5 | network | 21 | done | 19 | 1 + 1 reference bug (`dyadRobust`) |
 | 6 | mendelian | 23 | done | 15 (14 bit-exact, `mr_raps` aligned) | 11 |
 | 7 | decomposition | 18 | partial | 12 (R: 8; Stata: `gelbach`, `subgroup_decompose`, `source_decompose`, `bauer_sinning`) | 8 |
@@ -91,7 +91,7 @@ Families 5 and 6 needed R packages that were not installed (`igraph`,
 `RadialMR`, `MRPRESSO`, `mr.raps` from GitHub); they are now.
 
 **After families 5–7, the evidence-grade correction and the `xtdpdsys`
-fix: 220 of 773 (28.5%).** The correction first removed 26 promotions that had graded
+fix, and `xtlsdvc`'s overdue promotion: 221 of 773 (28.6%).** The correction first removed 26 promotions that had graded
 closed-form tests as cross-language parity (220 → 194); real comparisons
 then restored three of those (`mr`, `das_gupta`, `kitagawa_decompose`) and
 added the rest. `scripts/build_parity_index.py` now refuses a

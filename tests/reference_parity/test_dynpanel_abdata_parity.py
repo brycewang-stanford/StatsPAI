@@ -297,6 +297,21 @@ class TestLagOperatorSpecifications:
         _assert_matches(r, stata[spec], spec)
         _assert_sample(r, stata[spec], spec)
 
+    def test_ab1991_slopes_do_not_depend_on_statas_default_constant(
+        self, abdata, stata
+    ):
+        """Stata's default ``xtabond`` adds ``_cons`` (B4); StatsPAI's
+        difference GMM omits it. Every other coefficient and SE is identical,
+        so the constant is reported rather than a different estimator."""
+        spec = "B4_ab1991_cons"
+        ref = stata[spec]
+        r = _fit(abdata, x=["l(0/1).w", "l(0/2).k"], lags=2)
+        no_cons = {
+            k: {n: v for n, v in ref[k].items() if n != "_cons"} for k in ("coef", "se")
+        }
+        _assert_matches(r, {**ref, **no_cons}, spec)
+        assert "_cons" in ref["coef"]
+
     def test_ab1991_with_year_dummies(self, abdata, stata):
         spec = "B3_ab1991_yeardum"
         yrs = [f"yr{t}" for t in range(1979, 1985)]

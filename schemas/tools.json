@@ -26666,7 +26666,7 @@
     "name": "xtdpdsys"
   },
   {
-    "description": "Bias-corrected LSDV (LSDVC) estimator for dynamic panels. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Bias-corrected LSDV (LSDVC) estimator for dynamic panels. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "alpha": {

@@ -2419,6 +2419,19 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Promoted in 1.28.0. sp.xtdpdsys had run xtabond2's default moment set (exogenous regressors in both equations, h(3)), so it did not reproduce the Stata command it is named after: L.n 0.686 against xtdpdsys's 0.542 on abdata. The Stata fixture already carried the xtdpdsys covariate spec, but no test read it. Now defaults to xtdpdsys's convention; iv_equation='both', h=3 gives xtabond2's."
         ),
     },
+    "xtlsdvc": {
+        "status": "bit-exact",
+        "reference": "Stata xtlsdvc V1.0.4 (Bruno 2005), SSC",
+        "reference_versions": {"Stata": "18 MP", "xtlsdvc": "1.0.4"},
+        "tolerance": (
+            "abdata: bias-corrected coefficients for initial(ab/ah/bb) x bias(1/2/3) and the AR(1)-only model at rtol 1e-7 (observed 4e-14 to 1.6e-9, the looser end through the Anderson-Hsiao initialiser). Standard errors are excluded by design: xtlsdvc reports the uncorrected LSDV ones, which sp.xtlsdvc reproduces and warns about."
+        ),
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_lsdvc_parity.py"],
+        "note": (
+            "Promoted in 1.28.0. The comparison against Stata's xtlsdvc (fixture specs H1-H6) had been in the suite since the dynamic-panel campaign, but no promotion was ever registered, so the index kept the function at analytical-only."
+        ),
+    },
 }
 
 

@@ -377,6 +377,12 @@ two maintained by the methods' authors or their groups).
 - `h=` (1, 2, 3; `xtabond2`'s `h()`) and `iv_equation=` (`"both"`, `"diff"`,
   `"level"`) on `sp.xtabond` and `sp.xtdpdsys`; `sp.xtdpdsys(...,
   iv_equation="both", h=3)` is the previous estimate.
+- `xtlsdvc` graded bit-exact against Stata `xtlsdvc` (Bruno): its
+  coefficient comparison over every initialiser and bias order had been in
+  the suite for months without a registered promotion. A test now also
+  reads the `abdata` fixture's `B4` spec — Stata's default `xtabond` with
+  `_cons` — confirming every slope and SE is unaffected by the constant
+  StatsPAI's difference GMM omits.
 - `sp.from_stata("xtdpdsys ...")` now translates to a runnable
   `sp.xtdpdsys(...)` call; it failed loud with a stale "system GMM not
   implemented" message.
