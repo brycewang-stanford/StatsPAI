@@ -57,6 +57,7 @@ def _simulate_production_panel(
     n_firms: int = 300,
     n_periods: int = 10,
     endog_labor: bool = False,
+    persistent_labor: bool = False,
 ) -> pd.DataFrame:
     """Cobb-Douglas panel satisfying the proxy-variable timing assumptions.
 
@@ -65,17 +66,24 @@ def _simulate_production_panel(
     monotone in omega given k (invertible proxy); investment i > 0 in
     levels (OP proxy). With ``endog_labor`` labor responds to
     contemporaneous omega (the ACF case); otherwise labor is exogenous
-    so OP / LP / Wooldridge are point-identified.
+    so OP / LP / Wooldridge are point-identified. ``persistent_labor``
+    makes the exogenous labor draw AR(1) with the same marginal spread:
+    Wooldridge's estimator instruments labor with its lag, which an i.i.d.
+    draw leaves irrelevant.
     """
     rng = np.random.default_rng(seed)
     rows = []
     for fid in range(n_firms):
         omega = rng.normal(0.0, SIGMA_XI / np.sqrt(1 - RHO**2))
         k = rng.normal(0.0, 0.5)
+        shock = rng.normal(0.0, 0.4) if persistent_labor else 0.0
         for t in range(n_periods):
             omega = RHO * omega + rng.normal(0.0, SIGMA_XI)
             if endog_labor:
                 ell = 0.5 * omega + 0.3 * k + rng.normal(0.0, 0.10)
+            elif persistent_labor:
+                shock = 0.8 * shock + rng.normal(0.0, 0.24)
+                ell = 0.5 + shock
             else:
                 ell = rng.normal(0.5, 0.4)
             m = 0.8 * omega + 0.5 * k + rng.normal(0.0, 0.05)
@@ -201,17 +209,17 @@ def acf_fit(endog_panel):
 
 
 @pytest.fixture(scope="module")
-def wrdg_fit(exog_panel):
+def wrdg_fit():
+    # Wooldridge instruments labor with its lag, so the exogenous labor
+    # draw is persistent here.
     return sp.wooldridge_prod(
-        exog_panel,
+        _simulate_production_panel(seed=0, persistent_labor=True),
         output="y",
         free="l",
         state="k",
         proxy="m",
         panel_id="id",
         time="year",
-        polynomial_degree=2,
-        productivity_degree=1,
     )
 
 
@@ -297,12 +305,13 @@ def test_prod_fn_dispatcher_is_identical_to_direct_call(exog_panel, lp_fit):
 
 
 def test_recovered_productivity_persistence(lp_fit, wrdg_fit):
-    # omega_hat = phi_hat - X @ beta_hat; its fitted AR(1) coefficient
-    # should recover rho = 0.7. Error inherits the elasticity error via
-    # omega_hat contamination -> abs 0.10 (observed: LP 0.668,
-    # Wooldridge 0.703).
+    # omega_hat = phi_hat - X @ beta_hat; the linear coefficient of the
+    # Markov polynomial g should recover rho = 0.7. Error inherits the
+    # elasticity error via omega_hat contamination -> abs 0.10.
     assert lp_fit.productivity_process["rho"] == pytest.approx(RHO, abs=0.10)
+    # Wooldridge's GMM estimates g jointly; its linear coefficient is rho.
     assert wrdg_fit.productivity_process["rho"] == pytest.approx(RHO, abs=0.10)
+    assert np.isfinite(wrdg_fit.diagnostics["markov_intercept"])
 
 
 def test_returns_to_scale_identity(lp_fit, op_fit):

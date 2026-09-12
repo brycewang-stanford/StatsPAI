@@ -21117,7 +21117,7 @@
     ],
     "assumptions": [
       "Hicks-neutral productivity omega enters output additively in logs.",
-      "omega follows a first-order Markov process (linear AR(1) by default).",
+      "omega follows a first-order Markov process (cubic g by default).",
       "Capital is predetermined (chosen at t-1, observed at t).",
       "Proxy variable strictly monotone in omega given state inputs -- control function inversion.",
       "ACF additionally: free input l_it depends on omega_it, so lagged labor instruments stage 2.",
@@ -21125,7 +21125,7 @@
     ],
     "category": "structural",
     "cost_profile": "",
-    "description": "Production function estimator (Cobb-Douglas) -- unified method= dispatcher. Solves the simultaneity between input choices and unobserved productivity by inverting an input policy as a control function. method= selects: 'op' (Olley-Pakes 1996, investment proxy), 'lp' (Levinsohn-Petrin 2003, intermediate-input proxy), 'acf' (Ackerberg-Caves-Frazer 2015, corrected identification -- DEFAULT), 'wrdg' (Wooldridge 2009, one-step joint GMM). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Production function estimator (Cobb-Douglas) -- unified method= dispatcher. Solves the simultaneity between input choices and unobserved productivity by inverting an input policy as a control function. method= selects: 'op' (Olley-Pakes 1996, investment proxy), 'lp' (Levinsohn-Petrin 2003, intermediate-input proxy), 'acf' (Ackerberg-Caves-Frazer 2015, corrected identification -- DEFAULT), 'wrdg' (Wooldridge 2009, joint GMM). OP/LP/ACF/WRDG are checked against Stata and R prodest (see docs/parity.md). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.prod_fn(df, output=\"y\", free=\"l\", state=\"k\", proxy=\"m\", panel_id=\"id\", time=\"year\", method=\"acf\", functional_form=\"translog\", boot_reps=200, seed=0)",
     "failure_modes": [
       {
@@ -21165,7 +21165,7 @@
     ],
     "reference": "Olley & Pakes (1996, Econometrica); Levinsohn & Petrin (2003, RES); Ackerberg, Caves & Frazer (2015, Econometrica); Wooldridge (2009, EL).",
     "signature": {
-      "description": "Production function estimator (Cobb-Douglas) -- unified method= dispatcher. Solves the simultaneity between input choices and unobserved productivity by inverting an input policy as a control function. method= selects: 'op' (Olley-Pakes 1996, investment proxy), 'lp' (Levinsohn-Petrin 2003, intermediate-input proxy), 'acf' (Ackerberg-Caves-Frazer 2015, corrected identification -- DEFAULT), 'wrdg' (Wooldridge 2009, one-step joint GMM). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Production function estimator (Cobb-Douglas) -- unified method= dispatcher. Solves the simultaneity between input choices and unobserved productivity by inverting an input policy as a control function. method= selects: 'op' (Olley-Pakes 1996, investment proxy), 'lp' (Levinsohn-Petrin 2003, intermediate-input proxy), 'acf' (Ackerberg-Caves-Frazer 2015, corrected identification -- DEFAULT), 'wrdg' (Wooldridge 2009, joint GMM). OP/LP/ACF/WRDG are checked against Stata and R prodest (see docs/parity.md). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "prod_fn",
       "parameters": {
         "properties": {
@@ -21187,7 +21187,7 @@
           },
           "functional_form": {
             "default": "cobb-douglas",
-            "description": "Production function form (translog adds quadratic + cross terms).",
+            "description": "Production function form (translog adds quadratic + cross terms; acf only).",
             "enum": [
               "cobb-douglas",
               "translog"
@@ -21216,13 +21216,11 @@
             "type": "string"
           },
           "polynomial_degree": {
-            "default": 3,
-            "description": "Stage-1 polynomial degree.",
+            "description": "Control-function polynomial degree; None = estimator default (3).",
             "type": "integer"
           },
           "productivity_degree": {
-            "default": 1,
-            "description": "Productivity AR polynomial degree (1=linear AR(1), recommended).",
+            "description": "Degree of the productivity polynomial g; None = cubic.",
             "type": "integer"
           },
           "proxy": {
@@ -21275,7 +21273,7 @@
     ],
     "category": "structural",
     "cost_profile": "",
-    "description": "Olley-Pakes (1996) production function estimator. Two-stage control function with INVESTMENT as the productivity proxy. Drops zero-investment firms (required for the inversion). Note: beta_l identification can fail if labor responds to current productivity (ACF critique) -- prefer sp.acf for modern work. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Olley-Pakes (1996) production function estimator. Two-stage control function with INVESTMENT as the productivity proxy. Drops zero-investment firms (required for the inversion). Note: beta_l identification can fail if labor responds to current productivity (ACF critique) -- prefer sp.acf for modern work. Validation: certified parity evidence.",
     "example": "sp.olley_pakes(df, output=\"y\", free=\"l\", state=\"k\", proxy=\"i\", panel_id=\"id\", time=\"year\")",
     "failure_modes": [
       {
@@ -21301,7 +21299,7 @@
     ],
     "reference": "Olley & Pakes (1996, Econometrica) [@olley1996dynamics]",
     "signature": {
-      "description": "Olley-Pakes (1996) production function estimator. Two-stage control function with INVESTMENT as the productivity proxy. Drops zero-investment firms (required for the inversion). Note: beta_l identification can fail if labor responds to current productivity (ACF critique) -- prefer sp.acf for modern work. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Olley-Pakes (1996) production function estimator. Two-stage control function with INVESTMENT as the productivity proxy. Drops zero-investment firms (required for the inversion). Note: beta_l identification can fail if labor responds to current productivity (ACF critique) -- prefer sp.acf for modern work. Validation: certified parity evidence.",
       "name": "olley_pakes",
       "parameters": {
         "properties": {
@@ -21328,10 +21326,9 @@
           },
           "functional_form": {
             "default": "cobb-douglas",
-            "description": "Production function form",
+            "description": "Production function form (translog: use ackerberg_caves_frazer)",
             "enum": [
-              "cobb-douglas",
-              "translog"
+              "cobb-douglas"
             ],
             "type": "string"
           },
@@ -21351,13 +21348,13 @@
             "type": "integer"
           },
           "productivity_degree": {
-            "default": 1,
+            "default": 3,
             "description": "productivity_degree parameter (int).",
             "type": "integer"
           },
           "proxy": {
             "default": "i",
-            "description": "Investment column (must be > 0).",
+            "description": "Investment column; rows <= 0 dropped unless drop_zero_proxy=False.",
             "type": "string"
           },
           "seed": {
@@ -21386,11 +21383,12 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_prodest_parity.py",
       "tests/reference_parity/test_structural_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_structural_parity.py",
+      "Cross-language parity (aligned) vs Stata prodest, method(op) valueadded (Rovigatti & Mollisi); R prodest::prodestOP [R prodest 1.0.2, Stata 18 MP, prodest SSC]; tolerance Simulated unbalanced panel with 31 calendar gaps. Free-input coefficient (stage-1 OLS) at 1e-12 against both, polynomial degree 2 and 3. State coefficient: StatsPAI solves the first-order condition and has a sum of squares no larger than at either reference estimate; the references stop their optimisers early (R BFGS 5.9e-6 away, Stata Nelder-Mead at tolerance 1e-5 up to 4.3e-3 away). -- tests/reference_parity/test_prodest_parity.py",
       "API/unit contract evidence: tests/test_prod_fn.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -21406,7 +21404,7 @@
     ],
     "category": "structural",
     "cost_profile": "",
-    "description": "Levinsohn-Petrin (2003) production function estimator. Uses intermediate inputs (materials/energy) as proxy -- avoids the OP zero-investment selection problem. Same ACF caveat applies to beta_l identification: prefer sp.acf for rigorous identification. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Levinsohn-Petrin (2003) production function estimator. Uses intermediate inputs (materials/energy) as proxy -- avoids the OP zero-investment selection problem. Same ACF caveat applies to beta_l identification: prefer sp.acf for rigorous identification. Validation: certified parity evidence.",
     "example": "sp.levinsohn_petrin(df, output=\"y\", free=\"l\", state=\"k\", proxy=\"m\", panel_id=\"id\", time=\"year\")",
     "failure_modes": [
       {
@@ -21432,7 +21430,7 @@
     ],
     "reference": "Levinsohn & Petrin (2003, Rev. Econ. Stud.) [@levinsohn2003estimating]",
     "signature": {
-      "description": "Levinsohn-Petrin (2003) production function estimator. Uses intermediate inputs (materials/energy) as proxy -- avoids the OP zero-investment selection problem. Same ACF caveat applies to beta_l identification: prefer sp.acf for rigorous identification. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Levinsohn-Petrin (2003) production function estimator. Uses intermediate inputs (materials/energy) as proxy -- avoids the OP zero-investment selection problem. Same ACF caveat applies to beta_l identification: prefer sp.acf for rigorous identification. Validation: certified parity evidence.",
       "name": "levinsohn_petrin",
       "parameters": {
         "properties": {
@@ -21454,10 +21452,9 @@
           },
           "functional_form": {
             "default": "cobb-douglas",
-            "description": "Production function form",
+            "description": "Production function form (translog: use ackerberg_caves_frazer)",
             "enum": [
-              "cobb-douglas",
-              "translog"
+              "cobb-douglas"
             ],
             "type": "string"
           },
@@ -21477,7 +21474,7 @@
             "type": "integer"
           },
           "productivity_degree": {
-            "default": 1,
+            "default": 3,
             "description": "productivity_degree parameter (int).",
             "type": "integer"
           },
@@ -21512,11 +21509,12 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_prodest_parity.py",
       "tests/reference_parity/test_structural_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_structural_parity.py",
+      "Cross-language parity (aligned) vs Stata prodest, method(lp) valueadded (Rovigatti & Mollisi); R prodest::prodestLP [R prodest 1.0.2, Stata 18 MP, prodest SSC]; tolerance As olley_pakes with materials as the proxy: free-input coefficient at 1e-12 against both; state coefficient at the minimiser, R 1.3e-6 and Stata up to 1.8e-3 away where their optimisers stop. -- tests/reference_parity/test_prodest_parity.py",
       "API/unit contract evidence: tests/test_prod_fn.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -21532,7 +21530,7 @@
     ],
     "category": "structural",
     "cost_profile": "",
-    "description": "Ackerberg-Caves-Frazer (2015) production function estimator. Modern default. Corrects the OP/LP identification problem: all coefficient identification moves to stage 2, with free inputs instrumented by their lagged values and state inputs at the contemporaneous level. Aliased as sp.acf. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Ackerberg-Caves-Frazer (2015) production function estimator. Modern default. Corrects the OP/LP identification problem: all coefficient identification moves to stage 2, with free inputs instrumented by their lagged values and state inputs at the contemporaneous level. Aliased as sp.acf. Validation: certified parity evidence.",
     "example": "sp.acf(df, output=\"y\", free=\"l\", state=\"k\", proxy=\"m\", panel_id=\"id\", time=\"year\", boot_reps=200, seed=0)",
     "failure_modes": [
       {
@@ -21558,7 +21556,7 @@
     ],
     "reference": "Ackerberg, Caves & Frazer (2015, Econometrica) [@ackerberg2015identification]",
     "signature": {
-      "description": "Ackerberg-Caves-Frazer (2015) production function estimator. Modern default. Corrects the OP/LP identification problem: all coefficient identification moves to stage 2, with free inputs instrumented by their lagged values and state inputs at the contemporaneous level. Aliased as sp.acf. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Ackerberg-Caves-Frazer (2015) production function estimator. Modern default. Corrects the OP/LP identification problem: all coefficient identification moves to stage 2, with free inputs instrumented by their lagged values and state inputs at the contemporaneous level. Aliased as sp.acf. Validation: certified parity evidence.",
       "name": "ackerberg_caves_frazer",
       "parameters": {
         "properties": {
@@ -21603,7 +21601,7 @@
             "type": "integer"
           },
           "productivity_degree": {
-            "default": 1,
+            "default": 3,
             "description": "productivity_degree parameter (int).",
             "type": "integer"
           },
@@ -21638,11 +21636,12 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_prodest_parity.py",
       "tests/reference_parity/test_structural_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_structural_parity.py",
+      "Cross-language parity (aligned) vs Stata prodest, method(lp) acf valueadded; R prodest::prodestACF [R prodest 1.0.2, Stata 18 MP, prodest SSC]; tolerance StatsPAI returns an exact root of the just-identified moment conditions (criterion < 1e-25), the one nearest the stage-1 coefficients; R stops 2.4e-6 (relative) from that root with criterion 9e-16. Stata's Nelder-Mead stops at non-roots (criterion 4e-6 / 7e-6), which the test records. The parity panel has three roots, all reported in diagnostics['acf_roots']. -- tests/reference_parity/test_prodest_parity.py",
       "API/unit contract evidence: tests/test_prod_fn.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -21652,20 +21651,20 @@
       "gmm"
     ],
     "assumptions": [
-      "Scalar productivity monotone in the proxy, controlled by nonparametric h(m,k); first-order Markov productivity g(omega_{t-1})",
-      "Labor and capital coefficients identified jointly via a stacked level + productivity-substituted moment system (one-step GMM with identity weight = NLS)",
-      "Instruments equal the regressors; capital predetermined, proxy positive"
+      "Scalar productivity monotone in the proxy, controlled by a polynomial h(k, m); first-order Markov productivity with a polynomial g",
+      "Labor and capital coefficients identified jointly by GMM on the level equation (instruments: current free inputs, h) and the productivity-substituted equation (state, lagged free inputs, lagged h)",
+      "Lagged free inputs must be relevant (persistent labor shocks); capital predetermined. convention='prodest' imposes a unit-slope g, which biases capital when productivity mean-reverts"
     ],
     "category": "structural",
     "cost_profile": "",
-    "description": "Wooldridge (2009) one-step GMM production function estimator. Stacks the level equation and the productivity-substituted equation into a single nonlinear LS problem. More efficient than two-step ACF; covariance matrix available without bootstrap. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Wooldridge (2009) production function estimator: the level and productivity-substituted equations share the elasticities and the control function h(k, m) and are estimated jointly by GMM with a free Markov polynomial g. convention='prodest' reproduces Stata prodest, method(wrdg) (unit-slope g, stacked 2SLS). Analytic SEs, firm-clustered by default. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.wooldridge_prod(df, output=\"y\", free=\"l\", state=\"k\", proxy=\"m\", panel_id=\"id\", time=\"year\")",
     "failure_modes": [
       {
         "alternative": "levinsohn_petrin",
-        "exception": "ConvergenceFailure",
-        "remedy": "Lower polynomial_degree and productivity_degree (defaults are 2 because the joint problem is high-dimensional).",
-        "symptom": "Stacked NLS objective fails to converge with high-degree h and g polynomials"
+        "exception": "IdentificationFailure",
+        "remedy": "Check the first-stage relevance of lagged labor; without persistent labor shocks use ACF or LP instead.",
+        "symptom": "Implausible or wildly unstable labor coefficient: lagged labor is a weak instrument for labor once h(k, m) absorbs productivity"
       },
       {
         "alternative": "ackerberg_caves_frazer",
@@ -21684,14 +21683,23 @@
     ],
     "reference": "Wooldridge (2009, Economics Letters) [@wooldridge2009estimating]",
     "signature": {
-      "description": "Wooldridge (2009) one-step GMM production function estimator. Stacks the level equation and the productivity-substituted equation into a single nonlinear LS problem. More efficient than two-step ACF; covariance matrix available without bootstrap. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Wooldridge (2009) production function estimator: the level and productivity-substituted equations share the elasticities and the control function h(k, m) and are estimated jointly by GMM with a free Markov polynomial g. convention='prodest' reproduces Stata prodest, method(wrdg) (unit-slope g, stacked 2SLS). Analytic SEs, firm-clustered by default. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "wooldridge_prod",
       "parameters": {
         "properties": {
           "boot_reps": {
             "default": 0,
-            "description": "boot_reps parameter (int).",
+            "description": "Bootstrap reps; replaces analytic SEs.",
             "type": "integer"
+          },
+          "convention": {
+            "default": "statspai",
+            "description": "'statspai': GMM with free g; 'prodest': Stata prodest's unit-slope stacked 2SLS.",
+            "enum": [
+              "statspai",
+              "prodest"
+            ],
+            "type": "string"
           },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -21704,6 +21712,14 @@
             },
             "type": "array"
           },
+          "functional_form": {
+            "default": "cobb-douglas",
+            "description": "Production function form",
+            "enum": [
+              "cobb-douglas"
+            ],
+            "type": "string"
+          },
           "output": {
             "default": "y",
             "description": "output parameter (str).",
@@ -21715,13 +21731,12 @@
             "type": "string"
           },
           "polynomial_degree": {
-            "default": 2,
-            "description": "Lower than ACF default -- joint problem is higher-dimensional.",
+            "default": 3,
+            "description": "Degree of h(state, proxy) (Stata prodest default).",
             "type": "integer"
           },
           "productivity_degree": {
-            "default": 2,
-            "description": "productivity_degree parameter (int).",
+            "description": "Degree of the Markov polynomial g (None = 3); leave None with convention='prodest'.",
             "type": "integer"
           },
           "proxy": {
@@ -21744,6 +21759,16 @@
             "default": "year",
             "description": "Time period column.",
             "type": "string"
+          },
+          "vce": {
+            "default": "cluster",
+            "description": "Analytic covariance: firm-clustered, robust, or unadjusted (convention='prodest' only).",
+            "enum": [
+              "cluster",
+              "robust",
+              "unadjusted"
+            ],
+            "type": "string"
           }
         },
         "required": [
@@ -21755,8 +21780,9 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_prodest_parity.py",
       "tests/reference_parity/test_structural_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_structural_parity.py",
+      "Known-truth recovery (analytical-only) vs Known truth on the simulated parity panel; convention='prodest' against Stata prodest, method(wrdg) and R prodestWRDG; tolerance Default GMM (free Markov polynomial) recovers labour 0.60, capital 0.30 and rho 0.70 on the parity panel within 0.05 / 0.10 / 0.05. convention='prodest' matches Stata's stacked 2SLS coefficients and unadjusted variance at 1e-8 (polynomial degree 2 and 3), and R prodestWRDG is rebuilt from the same design at 1e-12. -- tests/reference_parity/test_prodest_parity.py",
       "API/unit contract evidence: tests/test_prod_fn.py"
     ],
     "validation_status": "validated"
@@ -21846,7 +21872,7 @@
             "type": "integer"
           },
           "productivity_degree": {
-            "default": 1,
+            "default": 3,
             "description": "productivity_degree parameter (int).",
             "type": "integer"
           },
@@ -21952,10 +21978,9 @@
           },
           "functional_form": {
             "default": "cobb-douglas",
-            "description": "Production function form",
+            "description": "Production function form (translog: use ackerberg_caves_frazer)",
             "enum": [
-              "cobb-douglas",
-              "translog"
+              "cobb-douglas"
             ],
             "type": "string"
           },
@@ -21975,13 +22000,13 @@
             "type": "integer"
           },
           "productivity_degree": {
-            "default": 1,
+            "default": 3,
             "description": "productivity_degree parameter (int).",
             "type": "integer"
           },
           "proxy": {
             "default": "i",
-            "description": "Investment column (must be > 0).",
+            "description": "Investment column; rows <= 0 dropped unless drop_zero_proxy=False.",
             "type": "string"
           },
           "seed": {
@@ -22076,10 +22101,9 @@
           },
           "functional_form": {
             "default": "cobb-douglas",
-            "description": "Production function form",
+            "description": "Production function form (translog: use ackerberg_caves_frazer)",
             "enum": [
-              "cobb-douglas",
-              "translog"
+              "cobb-douglas"
             ],
             "type": "string"
           },
@@ -22099,7 +22123,7 @@
             "type": "integer"
           },
           "productivity_degree": {
-            "default": 1,
+            "default": 3,
             "description": "productivity_degree parameter (int).",
             "type": "integer"
           },

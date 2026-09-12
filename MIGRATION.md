@@ -41,6 +41,39 @@ fail, instead of silently dropping them, and lists them in
 
 ---
 
+<a id="prodest-sweep"></a>
+
+## Unreleased — ⚠️ Production functions follow Stata / R `prodest`
+
+**Who is affected.** Every call to the following, and markups computed from
+them:
+
+- `sp.olley_pakes` (`sp.opreg`)
+- `sp.levinsohn_petrin` (`sp.levpet`)
+- `sp.ackerberg_caves_frazer` (`sp.acf`)
+- `sp.wooldridge_prod`
+- `sp.prod_fn`
+
+| Function | What changes | Parity panel, labour / capital (truth 0.60 / 0.30) |
+| --- | --- | --- |
+| `olley_pakes` | labour from stage 1; capital minimises the innovations (cubic `g`) | 0.999 / 0.210 → 0.633 / 0.286 |
+| `levinsohn_petrin` | same | 1.003 / 0.204 → 0.615 / 0.331 |
+| `ackerberg_caves_frazer`, `prod_fn` default | exact root nearest the stage-1 coefficients; cubic `g` | 1.002 / 0.235 → 0.983 / 0.216 |
+| `wooldridge_prod` | joint GMM with lagged-labour instruments; analytic SEs | 0.722 / 0.309 → 0.624 / 0.341 |
+| all | calendar lags: a firm that skips a year loses the year after the gap | — |
+
+**What to do.**
+
+- Re-run.
+- To keep the previous Markov process, pass `productivity_degree=1`. The
+  previous `polynomial_degree` of `wooldridge_prod` was 2.
+- For translog, use `sp.ackerberg_caves_frazer`.
+- To reproduce Stata `prodest, method(wrdg)`, pass
+  `convention="prodest", vce="unadjusted"`.
+- Panels with duplicate (firm, year) rows or a non-numeric year now raise.
+
+---
+
 <a id="xtdpdsys-stata-convention"></a>
 
 ## Unreleased — ⚠️ `sp.xtdpdsys` now reproduces Stata's `xtdpdsys`

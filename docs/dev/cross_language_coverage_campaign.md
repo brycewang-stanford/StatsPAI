@@ -81,7 +81,7 @@ already installed; the others followed the same rule.
 | 5 | network | 21 | done | 19 | 1 + 1 reference bug (`dyadRobust`) |
 | 6 | mendelian | 23 | done | 15 (14 bit-exact, `mr_raps` aligned) | 11 |
 | 7 | decomposition | 18 | partial | 12 (R: 8; Stata: `gelbach`, `subgroup_decompose`, `source_decompose`, `bauer_sinning`) | 8 |
-| 8 | structural | 10 | not started | — | — |
+| 8 | structural | 10 | partial | 3 aligned vs Stata + R `prodest` (`olley_pakes`, `levinsohn_petrin`, `ackerberg_caves_frazer`); `wooldridge_prod` analytical (both references impose a unit-slope Markov process) | 4 + 2 reference problems |
 
 **Cross-language coverage: 169 → 201 of 773 estimator callables
 (21.9% → 26.0%).**
@@ -96,6 +96,17 @@ closed-form tests as cross-language parity (220 → 194); real comparisons
 then restored three of those (`mr`, `das_gupta`, `kitagawa_decompose`) and
 added the rest. `scripts/build_parity_index.py` now refuses a
 cross-language promotion whose tests load no reference.
+
+**After the production-function sweep (family 8): 224 of 773 (29.0%).**
+Stata and R `prodest` on a simulated unbalanced panel found four defects:
+OP / LP estimated labour in a GMM second stage instead of from stage 1;
+every estimator lagged by row instead of by year; ACF returned whichever
+local optimum Nelder-Mead reached; and Wooldridge treated labour as
+exogenous. They also found two reference problems. Both `prodest`
+Wooldridge estimators impose a unit-slope Markov process (capital -0.64 /
+-0.79 against a true 0.30), and R's leaves the constant out of its
+instruments. Separately, Stata `prodest` stores its polynomial terms as
+float unless `set type double`, which moves `e(b)` by up to 3e-7.
 
 Also found on the way, outside any one family: **335 p-values in 180 modules
 computed as `1 − cdf`**, which loses all accuracy below ~1e-16 and returns

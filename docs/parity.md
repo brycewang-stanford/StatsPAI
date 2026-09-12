@@ -28,11 +28,11 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | evidence kind | grade | functions |
 | --- | --- | ---: |
 | **Compared against R/Stata** (T2) | bit-exact | 200 |
-| | aligned | 21 |
-| | **subtotal** | **221** |
-| **No external software reference** | analytical-only (T1) | 205 |
+| | aligned | 24 |
+| | **subtotal** | **224** |
+| **No external software reference** | analytical-only (T1) | 202 |
 | | external-replication (published numbers) | 4 |
-| | **subtotal** | **209** |
+| | **subtotal** | **206** |
 | No numerical evidence yet | unverified | 752 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 221 | 429 | 773 | 28.6% |
+| estimator callables | 224 | 429 | 773 | 29.0% |
 | infrastructure (parity N/A) | 0 | 0 | 124 | 0.0% |
 | result / exception classes | 0 | 1 | 285 | 0.0% |
-| **all registered** | 221 | 430 | 1182 | 18.7% |
+| **all registered** | 224 | 430 | 1182 | 19.0% |
 
 ### Coverage by estimator family
 
@@ -69,7 +69,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | neural_causal | 0 | 0 | 11 |
 | power | 5 | 7 | 11 |
 | conformal_causal | 0 | 3 | 10 |
-| structural | 0 | 7 | 10 |
+| structural | 3 | 7 | 10 |
 | frontier | 2 | 5 | 9 |
 | survival | 5 | 8 | 8 |
 | robustness | 0 | 0 | 7 |
@@ -303,12 +303,13 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `yu_elwert_decompose` | R cdgd::cdgd0_manual on independently fitted within-cell lm / within-group glm nuisances | DasGuptR 2.2.0; ddecompose 1.0.0; cdgd 1.0.1 | method='efficient': disparity, baseline, prevalence, effect, selection and their EIF standard errors at 1e-9. method='plugin' has no reference implementation and is covered by its exact additivity identity. | — / — | [`test_decomp_R_parity.py`](../tests/reference_parity/test_decomp_R_parity.py) |
 | `zip_model` | pscl::zeroinfl(dist="poisson") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-06, rel_se<=0.0001 | 7.7e-08 / 1.1e-07 | [`63_zip.py`](../tests/r_parity/63_zip.py) (+2) |
 
-## aligned — 21 functions
+## aligned — 24 functions
 
 Agreement within a documented, pre-registered looser tolerance.
 
 | function | reference | versions | tolerance | rel err (R / Stata) | test |
 | --- | --- | --- | --- | --- | --- |
+| `ackerberg_caves_frazer` | Stata prodest, method(lp) acf valueadded; R prodest::prodestACF | Stata 18 MP; prodest SSC; R prodest 1.0.2 | StatsPAI returns an exact root of the just-identified moment conditions (criterion < 1e-25), the one nearest the stage-1 coefficients; R stops 2.4e-6 (relative) from that root with criterion 9e-16. Stata's Nelder-Mead stops at non-roots (criterion 4e-6 / 7e-6), which the test records. The parity panel has three roots, all reported in diagnostics['acf_roots']. | — / — | [`test_prodest_parity.py`](../tests/reference_parity/test_prodest_parity.py) |
 | `aft` | survival::survreg (Weibull AFT) | R 4.5.2; survival 3.8.3 | coefficients & log-scale 5e-5 abs (observed ~1e-5) | — / — | [`test_aft_parity.py`](../tests/reference_parity/test_aft_parity.py) (+1) |
 | `augsynth` | augsynth::augsynth | R 4.5.2; augsynth 0.2.0 | rel_est<=2e-05, rel_se<=1e-06 | 7.9e-06 / — | [`18_augsynth.py`](../tests/r_parity/18_augsynth.py) (+1) |
 | `causal_forest` | grf::causal_forest | R 4.5.2; grf 2.6.1 | rel_est<=0.01, rel_se<=0.25 | 1.9e-03 / — | [`13_causal_forest.py`](../tests/r_parity/13_causal_forest.py) (+1) |
@@ -321,7 +322,9 @@ Agreement within a documented, pre-registered looser tolerance.
 | `functional_form_test` | didFF::didFF | R 4.5.2 | rel_est<=0.001 | 1.3e-14 / — | [`79_didff.py`](../tests/r_parity/79_didff.py) (+1) |
 | `genmatch` | Matching::Match 4.10-15 (Weight = 3, Weight.matrix) | — | Deterministic kernel only: given the same diagonal W, the 1-NN assignment agrees with Matching::Match on all 163 uniquely matched treated units on MatchIt::lalonde. | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
 | `hits` | R igraph::hits_scores | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Hub and authority vectors are igraph's up to normalisation: L1 here (documented), max = 1 in igraph; the ratio is constant across nodes to 1e-11. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
+| `levinsohn_petrin` | Stata prodest, method(lp) valueadded (Rovigatti & Mollisi); R prodest::prodestLP | Stata 18 MP; prodest SSC; R prodest 1.0.2 | As olley_pakes with materials as the proxy: free-input coefficient at 1e-12 against both; state coefficient at the minimiser, R 1.3e-6 and Stata up to 1.8e-3 away where their optimisers stop. | — / — | [`test_prodest_parity.py`](../tests/reference_parity/test_prodest_parity.py) |
 | `mr_raps` | R mr.raps 0.4.3 (simple / overdispersed / overdispersed.robust) | MendelianRandomization 0.10.0; TwoSampleMR 0.7.9; RadialMR 1.2.4; MRPRESSO 1.0; mr.raps 0.4.3 | Simple and L2-overdispersed fits (beta, SE, tau2) at 1e-8. Robust Huber / Tukey: the sandwich reproduces R's SEs at 1e-10 when evaluated at R's own (beta, tau2) and integrate() moments; the fitted values agree to 5e-5 (beta), 5e-4 (SE), 1.5e-3 (tau2) because R stops uniroot at its default tolerance and integrate() at 1.2e-4 -- a test shows StatsPAI's root satisfies the estimating equation more tightly than R's. | — / — | [`test_mr_R_parity.py`](../tests/reference_parity/test_mr_R_parity.py) |
+| `olley_pakes` | Stata prodest, method(op) valueadded (Rovigatti & Mollisi); R prodest::prodestOP | Stata 18 MP; prodest SSC; R prodest 1.0.2 | Simulated unbalanced panel with 31 calendar gaps. Free-input coefficient (stage-1 OLS) at 1e-12 against both, polynomial degree 2 and 3. State coefficient: StatsPAI solves the first-order condition and has a sum of squares no larger than at either reference estimate; the references stop their optimisers early (R BFGS 5.9e-6 away, Stata Nelder-Mead at tolerance 1e-5 up to 4.3e-3 away). | — / — | [`test_prodest_parity.py`](../tests/reference_parity/test_prodest_parity.py) |
 | `optimal_match` | optmatch::pairmatch 0.10.8 on a logit propensity score | — | Total matched distance <= optmatch's (1 + 1e-6). The matched pairs are not pinned: the assignment problem is degenerate on this data, so equally optimal solutions report different ATTs. | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
 | `pretrends_power` | pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) | R 4.5.2 | rel_est<=0.001 | 4.0e-05 / 1.4e-04 | [`76_pretrends.py`](../tests/r_parity/76_pretrends.py) (+2) |
 | `pretrends_slope_for_power` | pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN) | R 4.5.2 | rel_est<=0.001 | 4.0e-05 / 1.4e-04 | [`76_pretrends.py`](../tests/r_parity/76_pretrends.py) (+2) |
@@ -342,14 +345,13 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 205 functions
+## analytical-only — 202 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
 | function | test |
 | --- | --- |
 | `W` | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
-| `ackerberg_caves_frazer` | [`test_structural_parity.py`](../tests/reference_parity/test_structural_parity.py) |
 | `aggte_from_influence` | [`test_aggte_r_did_parity.py`](../tests/reference_parity/test_aggte_r_did_parity.py) |
 | `aipw` | [`test_paper_parity.py`](../tests/reference_parity/test_paper_parity.py) (+1) |
 | `always_treat` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
@@ -453,7 +455,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `lasso_iv` | [`test_lasso_iv_parity.py`](../tests/reference_parity/test_lasso_iv_parity.py) |
 | `lasso_select` | [`test_lasso_select_parity.py`](../tests/reference_parity/test_lasso_select_parity.py) |
 | `lee_bounds` | [`test_lee_bounds_parity.py`](../tests/reference_parity/test_lee_bounds_parity.py) |
-| `levinsohn_petrin` | [`test_structural_parity.py`](../tests/reference_parity/test_structural_parity.py) |
 | `lincom` | [`test_postestimation_parity.py`](../tests/reference_parity/test_postestimation_parity.py) |
 | `lingam` | [`test_causal_discovery_parity.py`](../tests/reference_parity/test_causal_discovery_parity.py) |
 | `long_term_from_short` | [`test_surrogate_parity.py`](../tests/reference_parity/test_surrogate_parity.py) |
@@ -486,7 +487,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `never_treat` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
 | `notch` | [`test_notch_parity.py`](../tests/reference_parity/test_notch_parity.py) |
 | `notears` | [`test_causal_discovery_parity.py`](../tests/reference_parity/test_causal_discovery_parity.py) |
-| `olley_pakes` | [`test_structural_parity.py`](../tests/reference_parity/test_structural_parity.py) |
 | `orthogonal_to_bias` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `oster_delta` | [`test_oster_delta_parity.py`](../tests/reference_parity/test_oster_delta_parity.py) |
 | `panel_unitroot` | [`test_timeseries_parity.py`](../tests/reference_parity/test_timeseries_parity.py) |
@@ -550,7 +550,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `weighted_conformal_prediction` | [`test_conformal_causal_parity.py`](../tests/reference_parity/test_conformal_causal_parity.py) |
 | `wild_cluster_bootstrap` | [`test_wcb_recovery_parity.py`](../tests/reference_parity/test_wcb_recovery_parity.py) (+1) |
 | `wild_cluster_ci_inv` | [`test_wild_cluster_ci_inv_parity.py`](../tests/reference_parity/test_wild_cluster_ci_inv_parity.py) |
-| `wooldridge_prod` | [`test_structural_parity.py`](../tests/reference_parity/test_structural_parity.py) |
+| `wooldridge_prod` | [`test_prodest_parity.py`](../tests/reference_parity/test_prodest_parity.py) |
 | `xlearner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `yatchew_linearity_test` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) |
 

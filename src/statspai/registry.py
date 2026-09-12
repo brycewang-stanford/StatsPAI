@@ -12573,7 +12573,8 @@ def _build_registry() -> None:
                 "(Olley-Pakes 1996, investment proxy), 'lp' (Levinsohn-Petrin "
                 "2003, intermediate-input proxy), 'acf' (Ackerberg-Caves-Frazer "
                 "2015, corrected identification — DEFAULT), 'wrdg' (Wooldridge "
-                "2009, one-step joint GMM)."
+                "2009, joint GMM). OP/LP/ACF/WRDG are checked against Stata and R "
+                "prodest (see docs/parity.md)."
             ),
             params=[
                 ParamSpec(
@@ -12609,21 +12610,26 @@ def _build_registry() -> None:
                     ["op", "lp", "acf", "wrdg"],
                 ),
                 ParamSpec(
-                    "polynomial_degree", "int", False, 3, "Stage-1 polynomial degree."
+                    "polynomial_degree",
+                    "int",
+                    False,
+                    None,
+                    "Control-function polynomial degree; None = estimator default (3).",
                 ),
                 ParamSpec(
                     "productivity_degree",
                     "int",
                     False,
-                    1,
-                    "Productivity AR polynomial degree (1=linear AR(1), recommended).",
+                    None,
+                    "Degree of the productivity polynomial g; None = cubic.",
                 ),
                 ParamSpec(
                     "functional_form",
                     "str",
                     False,
                     "cobb-douglas",
-                    "Production function form (translog adds quadratic + cross terms).",
+                    "Production function form (translog adds quadratic + cross terms; "
+                    "acf only).",
                     ["cobb-douglas", "translog"],
                 ),
                 ParamSpec(
@@ -12666,7 +12672,7 @@ def _build_registry() -> None:
             ],
             assumptions=[
                 "Hicks-neutral productivity ω enters output additively in logs.",
-                "ω follows a first-order Markov process (linear AR(1) by default).",
+                "ω follows a first-order Markov process (cubic g by default).",
                 "Capital is predetermined (chosen at t-1, observed at t).",
                 "Proxy variable strictly monotone in ω given state inputs — control function inversion.",
                 "ACF additionally: free input l_it depends on ω_it, so lagged labor instruments stage 2.",
@@ -12721,19 +12727,24 @@ def _build_registry() -> None:
                 ParamSpec("free", "list", False, None, "Default ['l']."),
                 ParamSpec("state", "list", False, None, "Default ['k']."),
                 ParamSpec(
-                    "proxy", "str", False, "i", "Investment column (must be > 0)."
+                    "proxy",
+                    "str",
+                    False,
+                    "i",
+                    "Investment column; rows <= 0 dropped unless "
+                    "drop_zero_proxy=False.",
                 ),
                 ParamSpec("panel_id", "str", False, "id"),
                 ParamSpec("time", "str", False, "year"),
                 ParamSpec("polynomial_degree", "int", False, 3),
-                ParamSpec("productivity_degree", "int", False, 1),
+                ParamSpec("productivity_degree", "int", False, 3),
                 ParamSpec(
                     "functional_form",
                     "str",
                     False,
                     "cobb-douglas",
-                    "Production function form",
-                    ["cobb-douglas", "translog"],
+                    "Production function form (translog: use ackerberg_caves_frazer)",
+                    ["cobb-douglas"],
                 ),
                 ParamSpec("boot_reps", "int", False, 0),
                 ParamSpec("seed", "int", False, None),
@@ -12772,14 +12783,14 @@ def _build_registry() -> None:
                 ParamSpec("panel_id", "str", False, "id"),
                 ParamSpec("time", "str", False, "year"),
                 ParamSpec("polynomial_degree", "int", False, 3),
-                ParamSpec("productivity_degree", "int", False, 1),
+                ParamSpec("productivity_degree", "int", False, 3),
                 ParamSpec(
                     "functional_form",
                     "str",
                     False,
                     "cobb-douglas",
-                    "Production function form",
-                    ["cobb-douglas", "translog"],
+                    "Production function form (translog: use ackerberg_caves_frazer)",
+                    ["cobb-douglas"],
                 ),
                 ParamSpec("boot_reps", "int", False, 0),
                 ParamSpec("seed", "int", False, None),
@@ -12819,7 +12830,7 @@ def _build_registry() -> None:
                 ParamSpec("panel_id", "str", False, "id"),
                 ParamSpec("time", "str", False, "year"),
                 ParamSpec("polynomial_degree", "int", False, 3),
-                ParamSpec("productivity_degree", "int", False, 1),
+                ParamSpec("productivity_degree", "int", False, 3),
                 ParamSpec(
                     "functional_form",
                     "str",
@@ -12852,11 +12863,13 @@ def _build_registry() -> None:
             name="wooldridge_prod",
             category="structural",
             description=(
-                "Wooldridge (2009) one-step GMM production function "
-                "estimator. Stacks the level equation and the productivity-"
-                "substituted equation into a single nonlinear LS problem. "
-                "More efficient than two-step ACF; covariance matrix "
-                "available without bootstrap."
+                "Wooldridge (2009) production function estimator: the level "
+                "and productivity-substituted equations share the "
+                "elasticities and the control function h(k, m) and are "
+                "estimated jointly by GMM with a free Markov polynomial g. "
+                "convention='prodest' reproduces Stata prodest, method(wrdg) "
+                "(unit-slope g, stacked 2SLS). Analytic SEs, firm-clustered "
+                "by default."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -12870,12 +12883,51 @@ def _build_registry() -> None:
                     "polynomial_degree",
                     "int",
                     False,
-                    2,
-                    "Lower than ACF default — joint problem is higher-dimensional.",
+                    3,
+                    "Degree of h(state, proxy) (Stata prodest default).",
                 ),
-                ParamSpec("productivity_degree", "int", False, 2),
-                ParamSpec("boot_reps", "int", False, 0),
+                ParamSpec(
+                    "productivity_degree",
+                    "int",
+                    False,
+                    None,
+                    "Degree of the Markov polynomial g (None = 3); leave None with "
+                    "convention='prodest'.",
+                ),
+                ParamSpec(
+                    "functional_form",
+                    "str",
+                    False,
+                    "cobb-douglas",
+                    "Production function form",
+                    ["cobb-douglas"],
+                ),
+                ParamSpec(
+                    "boot_reps",
+                    "int",
+                    False,
+                    0,
+                    "Bootstrap reps; replaces analytic SEs.",
+                ),
                 ParamSpec("seed", "int", False, None),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "cluster",
+                    "Analytic covariance: firm-clustered, robust, or unadjusted "
+                    "(convention='prodest' only).",
+                    ["cluster", "robust", "unadjusted"],
+                ),
+                ParamSpec(
+                    "convention",
+                    "str",
+                    False,
+                    "statspai",
+                    "'statspai': GMM with free g; 'prodest': Stata prodest's unit-slope"
+                    " stacked 2SLS.",
+                    ["statspai", "prodest"],
+                ),
             ],
             returns="ProductionResult",
             example='sp.wooldridge_prod(df, output="y", free="l", state="k", proxy="m", panel_id="id", time="year")',

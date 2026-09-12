@@ -27,7 +27,6 @@ status. American Economic Review, 102(6), 2437-2471.
 
 from __future__ import annotations
 
-
 import numpy as np
 import pandas as pd
 

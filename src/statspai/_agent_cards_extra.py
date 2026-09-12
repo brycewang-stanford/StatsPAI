@@ -3728,14 +3728,16 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
     "wooldridge_prod": {
         "assumptions": [
             "Scalar productivity monotone in the proxy, "
-            "controlled by nonparametric h(m,k); first-order "
-            "Markov productivity g(omega_{t-1})",
+            "controlled by a polynomial h(k, m); first-order "
+            "Markov productivity with a polynomial g",
             "Labor and capital coefficients identified jointly "
-            "via a stacked level + productivity-substituted "
-            "moment system (one-step GMM with identity weight = "
-            "NLS)",
-            "Instruments equal the regressors; capital "
-            "predetermined, proxy positive",
+            "by GMM on the level equation (instruments: current "
+            "free inputs, h) and the productivity-substituted "
+            "equation (state, lagged free inputs, lagged h)",
+            "Lagged free inputs must be relevant (persistent "
+            "labor shocks); capital predetermined. "
+            "convention='prodest' imposes a unit-slope g, which "
+            "biases capital when productivity mean-reverts",
         ],
         "pre_conditions": [
             "Long firm-year panel with log output, free "
@@ -3746,14 +3748,14 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
         ],
         "failure_modes": [
             {
-                "symptom": "Stacked NLS objective fails to "
-                "converge with high-degree h and g "
-                "polynomials",
-                "exception": "ConvergenceFailure",
-                "remedy": "Lower polynomial_degree and "
-                "productivity_degree (defaults are 2 "
-                "because the joint problem is "
-                "high-dimensional).",
+                "symptom": "Implausible or wildly unstable labor "
+                "coefficient: lagged labor is a weak "
+                "instrument for labor once h(k, m) "
+                "absorbs productivity",
+                "exception": "IdentificationFailure",
+                "remedy": "Check the first-stage relevance of "
+                "lagged labor; without persistent labor "
+                "shocks use ACF or LP instead.",
                 "alternative": "levinsohn_petrin",
             },
             {

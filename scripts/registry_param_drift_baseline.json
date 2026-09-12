@@ -716,9 +716,6 @@
       "r2_short",
       "term"
     ],
-    "wooldridge_prod": [
-      "functional_form"
-    ],
     "xtabond": [
       "alpha",
       "constant",

@@ -12,15 +12,11 @@ Public surface
 * :class:`ProductionResult`    — unified result container
 """
 
-from ._result import ProductionResult
 from ._dispatcher import prod_fn
-from .op_lp_acf import (
-    ackerberg_caves_frazer,
-    levinsohn_petrin,
-    olley_pakes,
-)
-from .wooldridge import wooldridge_prod
+from ._result import ProductionResult
 from .markup import markup
+from .op_lp_acf import ackerberg_caves_frazer, levinsohn_petrin, olley_pakes
+from .wooldridge import wooldridge_prod
 
 # Convenience aliases that match common Stata / R names.
 acf = ackerberg_caves_frazer

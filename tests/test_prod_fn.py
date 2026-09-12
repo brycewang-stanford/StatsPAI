@@ -39,6 +39,7 @@ def _simulate_panel(
     sigma_xi: float = 0.20,
     sigma_eta: float = 0.10,
     seed: int = 0,
+    persistent_wage: bool = False,
 ) -> tuple[pd.DataFrame, dict]:
     rng = np.random.default_rng(seed)
     rows = []
@@ -47,6 +48,7 @@ def _simulate_panel(
     for fid in range(n_firms):
         omega = rng.normal(0.0, sigma_xi / np.sqrt(1 - rho**2))
         k = rng.normal(0.0, 0.5)  # log capital initial level
+        wage = 0.0
         for t in range(n_periods):
             xi = rng.normal(0.0, sigma_xi)
             omega = rho * omega + xi
@@ -55,6 +57,11 @@ def _simulate_panel(
             # with omega but not xi (we use omega_{t-1} via persistence, so
             # current l_t correlates with omega_t through omega_{t-1} too).
             l = 0.5 * omega + 0.3 * k + rng.normal(0.0, 0.10)
+            if persistent_wage:
+                # A persistent wage shock makes lagged labor a relevant
+                # instrument once (k, m) have absorbed omega (Wooldridge).
+                wage = 0.8 * wage + rng.normal(0.0, 0.3)
+                l -= 0.6 * wage  # noqa: E741
 
             # Materials proxy m = h(omega, k)
             m = 0.8 * omega + 0.5 * k + rng.normal(0.0, 0.05)
@@ -171,13 +178,11 @@ def test_acf_recovers_params(panel):
     assert res.method == "acf"
 
 
-def test_wooldridge_runs(panel):
-    """Wooldridge (2009) one-step GMM is high-dimensional NLS; we test
-    that it converges to a sensible neighborhood. The objective is
-    nonconvex with many polynomial coefficients, so we check the
-    elasticities are positive and bounded rather than tightly close
-    to truth."""
-    df, _ = panel
+def test_wooldridge_runs():
+    """Wooldridge (2009) stacked 2SLS instruments labor with its lag, so the
+    panel carries a persistent wage shock (an i.i.d. labor shock leaves the
+    instrument irrelevant once (k, m) absorb productivity)."""
+    df, truth = _simulate_panel(persistent_wage=True)
     res = sp.wooldridge_prod(
         df,
         output="y",
@@ -186,13 +191,45 @@ def test_wooldridge_runs(panel):
         proxy="m",
         panel_id="id",
         time="year",
-        polynomial_degree=2,
-        productivity_degree=1,
     )
     np.testing.assert_allclose(len(res.tfp), len(res.sample))
-    assert res.coef["l"] > 0 and res.coef["l"] < 1.5
-    assert res.coef["k"] > -0.5 and res.coef["k"] < 1.0
+    assert _close(res.coef["l"], truth["beta_l"], tol=0.10)
+    assert _close(res.coef["k"], truth["beta_k"], tol=0.15)
     assert res.method == "wrdg"
+    assert res.diagnostics["vce"] == "cluster"
+    assert np.all(np.isfinite(res.std_errors)) and np.all(res.std_errors > 0)
+    assert res.diagnostics["n_obs_stacked"] == 2 * len(res.sample)
+
+
+def test_wooldridge_conventions_and_vce():
+    df, truth = _simulate_panel(n_firms=120, n_periods=10, persistent_wage=True)
+    kw = dict(output="y", free="l", state="k", proxy="m", panel_id="id", time="year")
+    gmm = {v: sp.wooldridge_prod(df, vce=v, **kw) for v in ("cluster", "robust")}
+    np.testing.assert_allclose(
+        gmm["robust"].params.to_numpy(),
+        gmm["cluster"].params.to_numpy(),
+        rtol=0,
+        atol=1e-12,
+    )
+    assert not np.allclose(gmm["cluster"].std_errors, gmm["robust"].std_errors)
+    # GMM estimates the Markov slope; prodest's convention fixes it at 1 and,
+    # with mean-reverting productivity (rho = 0.7), biases capital.
+    assert gmm["cluster"].productivity_process["rho"] == pytest.approx(
+        truth["rho"], abs=0.1
+    )
+    pro = sp.wooldridge_prod(df, convention="prodest", vce="unadjusted", **kw)
+    assert pro.productivity_process["rho"] == 1.0
+    assert abs(gmm["cluster"].coef["k"] - truth["beta_k"]) < abs(
+        pro.coef["k"] - truth["beta_k"]
+    )
+    with pytest.raises(ValueError, match="vce"):
+        sp.wooldridge_prod(df, vce="hc3", **kw)
+    with pytest.raises(ValueError, match="unadjusted"):
+        sp.wooldridge_prod(df, vce="unadjusted", **kw)
+    with pytest.raises(ValueError, match="productivity_degree"):
+        sp.wooldridge_prod(df, convention="prodest", productivity_degree=1, **kw)
+    with pytest.raises(ValueError, match="convention"):
+        sp.wooldridge_prod(df, convention="stata", **kw)
 
 
 # ---------------------------------------------------------------------------
@@ -203,7 +240,12 @@ def test_wooldridge_runs(panel):
 @pytest.mark.parametrize("method", ["op", "lp", "acf", "wrdg"])
 def test_prod_fn_dispatcher(panel, method):
     df, _ = panel
+    if method == "wrdg":
+        df, _ = _simulate_panel(persistent_wage=True)
     proxy = "i" if method == "op" else "m"
+    # wooldridge_prod has no productivity polynomial; the dispatcher only
+    # forwards degrees that are given.
+    degrees = {} if method == "wrdg" else {"productivity_degree": 1}
     res = sp.prod_fn(
         df,
         output="y",
@@ -214,7 +256,7 @@ def test_prod_fn_dispatcher(panel, method):
         time="year",
         method=method,
         polynomial_degree=2,
-        productivity_degree=1,
+        **degrees,
     )
     np.testing.assert_allclose(len(res.tfp), len(res.sample))
     assert hasattr(res, "coef")
@@ -509,7 +551,7 @@ def test_translog_runs_and_exposes_quadratic_terms(panel):
 
 
 def test_translog_dispatcher(panel):
-    """Dispatcher should pass functional_form through to OP/LP/ACF."""
+    """Dispatcher should pass functional_form through to ACF."""
     df, _ = panel
     res = sp.prod_fn(
         df,
@@ -519,12 +561,31 @@ def test_translog_dispatcher(panel):
         proxy="m",
         panel_id="id",
         time="year",
-        method="lp",
+        method="acf",
         polynomial_degree=2,
         productivity_degree=1,
         functional_form="translog",
     )
     assert "ll" in res.coef and "kk" in res.coef and "lk" in res.coef
+
+
+@pytest.mark.parametrize("method", ["op", "lp"])
+def test_oplp_translog_raises(panel, method):
+    """OP / LP read the free-input coefficients off the linear stage-1
+    regression, so translog must raise rather than return wrong numbers."""
+    df, _ = panel
+    with pytest.raises(NotImplementedError, match="cobb-douglas"):
+        sp.prod_fn(
+            df,
+            output="y",
+            free="l",
+            state="k",
+            proxy="i" if method == "op" else "m",
+            panel_id="id",
+            time="year",
+            method=method,
+            functional_form="translog",
+        )
 
 
 def test_translog_markup_uses_firm_time_elasticities(panel):
@@ -593,8 +654,36 @@ def test_unknown_functional_form_raises(panel):
         )
 
 
-def test_time_gap_warning():
-    """Firms with non-consecutive years trigger a UserWarning."""
+def test_panel_lag_matches_calendar_period():
+    """The lag is the value at time - 1 of the same panel, not the previous
+    row: a skipped year leaves NaN (as Stata's L. and prodest's lagPanel)."""
+    from statspai.structural.production._core import panel_lag
+
+    df = pd.DataFrame(
+        {
+            "id": [1, 1, 1, 2, 2],
+            "t": [2000, 2001, 2003, 2000, 2001],
+            "x": [1.0, 2.0, 3.0, 4.0, 5.0],
+        },
+        index=[10, 11, 12, 13, 14],
+    )
+    lag = panel_lag(df, "x", "id", "t")
+    assert list(lag.index) == [10, 11, 12, 13, 14]
+    np.testing.assert_array_equal(lag.to_numpy(), [np.nan, 1.0, np.nan, np.nan, 4.0])
+    # row order does not matter
+    shuffled = df.iloc[[4, 2, 0, 3, 1]]
+    np.testing.assert_array_equal(
+        panel_lag(shuffled, "x", "id", "t").to_numpy(),
+        [4.0, np.nan, np.nan, np.nan, 1.0],
+    )
+    with pytest.raises(ValueError, match="uniquely"):
+        panel_lag(pd.concat([df, df.iloc[[0]]]), "x", "id", "t")
+    with pytest.raises(TypeError, match="numeric"):
+        panel_lag(df.assign(t=df["t"].astype(str)), "x", "id", "t")
+
+
+def test_calendar_gaps_drop_the_period_after_the_gap():
+    """Firms skipping a year lose the year after the gap from stage 2."""
     rng = np.random.default_rng(0)
     rows = []
     # 50 firms, but each skips year 5 (creating a 2-year gap)
@@ -611,15 +700,8 @@ def test_time_gap_warning():
                 }
             )
     df = pd.DataFrame(rows)
-    with pytest.warns(UserWarning, match="non-consecutive"):
-        sp.acf(
-            df,
-            output="y",
-            free="l",
-            state="k",
-            proxy="m",
-            panel_id="id",
-            time="year",
-            polynomial_degree=2,
-            productivity_degree=1,
-        )
+    kw = dict(output="y", free="l", state="k", panel_id="id", time="year")
+    res = sp.levinsohn_petrin(df, proxy="m", polynomial_degree=2, **kw)
+    assert res.diagnostics["n_calendar_gaps"] == 50
+    assert sorted(res.sample["year"].unique()) == [1, 2, 3, 4, 7, 8, 9, 10]
+    assert len(res.sample) == 50 * 8

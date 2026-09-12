@@ -200,14 +200,39 @@ def panel_lag(
     time: str,
     lag: int = 1,
 ) -> pd.Series:
-    """Return the within-firm lag of ``column``.
+    """Return ``column`` at calendar period ``time - lag`` of the same panel.
 
-    Assumes ``time`` is comparable (int / pandas datetime). Missing lagged
-    values are returned as ``NaN``; downstream callers must drop them
-    consistently across regressors / instruments before fitting.
+    The lag is matched on ``(panel_id, time - lag)``, not on row position, so
+    a firm that skips a year gets ``NaN`` right after the gap instead of the
+    value from two years back (Stata's ``L.`` operator and R ``prodest``'s
+    ``lagPanel`` do the same). The result is aligned to ``df.index``;
+    downstream callers must drop the ``NaN`` rows consistently across
+    regressors and instruments before fitting.
+
+    Raises
+    ------
+    TypeError
+        If ``time`` is not numeric.
+    ValueError
+        If ``(panel_id, time)`` does not identify rows uniquely.
     """
-    df = df.sort_values([panel_id, time])
-    return df.groupby(panel_id, sort=False)[column].shift(lag)
+    t = df[time]
+    if not pd.api.types.is_numeric_dtype(t):
+        raise TypeError(
+            f"time column {time!r} must be numeric (e.g. an integer year) so "
+            f"that period t - {lag} is well defined; got dtype {t.dtype}."
+        )
+    ids = df[panel_id].to_numpy()
+    tv = t.to_numpy()
+    source = pd.MultiIndex.from_arrays([ids, tv])
+    if source.has_duplicates:
+        raise ValueError(
+            f"({panel_id!r}, {time!r}) must uniquely identify rows; "
+            "found duplicate panel-period pairs."
+        )
+    values = pd.Series(df[column].to_numpy(), index=source)
+    target = pd.MultiIndex.from_arrays([ids, tv - lag])
+    return pd.Series(values.reindex(target).to_numpy(), index=df.index, name=column)
 
 
 # ---------------------------------------------------------------------------

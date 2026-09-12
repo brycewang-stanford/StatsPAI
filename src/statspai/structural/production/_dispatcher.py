@@ -13,11 +13,7 @@ from typing import Any, Optional, Sequence
 import pandas as pd
 
 from ._result import ProductionResult
-from .op_lp_acf import (
-    ackerberg_caves_frazer,
-    levinsohn_petrin,
-    olley_pakes,
-)
+from .op_lp_acf import ackerberg_caves_frazer, levinsohn_petrin, olley_pakes
 from .wooldridge import wooldridge_prod
 
 _METHOD_DISPATCH = {
@@ -41,8 +37,8 @@ def prod_fn(
     panel_id: str = "id",
     time: str = "year",
     method: str = "acf",
-    polynomial_degree: int = 3,
-    productivity_degree: int = 1,
+    polynomial_degree: Optional[int] = None,
+    productivity_degree: Optional[int] = None,
     functional_form: str = "cobb-douglas",
     boot_reps: int = 0,
     seed: Optional[int] = None,
@@ -68,34 +64,26 @@ def prod_fn(
     method : {'op', 'lp', 'acf', 'wrdg'}, default ``'acf'``
         Estimator. ACF is the modern default (corrects OP/LP
         identification problem).
-    polynomial_degree : int, default 3
-        Stage-1 control function polynomial degree.
-    productivity_degree : int, default 1
-        Productivity AR polynomial degree.  Default ``1`` (linear AR(1))
-        is the most numerically robust choice — higher degrees can
-        overfit ``omega_t`` given ``omega_{t-1}`` in finite samples and
-        flatten the GMM objective surface, which makes the structural
-        parameters numerically un-identified even when they are
-        identified in population.
+    polynomial_degree : int, optional
+        Degree of the control-function polynomial; ``None`` uses the
+        estimator's default (3, as Stata ``prodest``).
+    productivity_degree : int, optional
+        Degree of the productivity polynomial ``g``; ``None`` uses the
+        default (3, cubic, as both ``prodest`` implementations for OP / LP /
+        ACF).
     functional_form : {'cobb-douglas', 'translog'}, default 'cobb-douglas'
         Functional form. Translog adds 0.5 * x_j**2 own-quadratic terms
         and x_j*x_k cross terms — output elasticities then vary by
         firm-time and ``ProductionResult.model_info["elasticities"]``
         carries a per-row DataFrame.
 
-        Translog identification caveat: stage-2 instruments are formed
-        as polynomial transforms of the same raw set used for
-        Cobb-Douglas (``(k, l_lag)`` for ACF, ``(k, l)`` for OP/LP).
-        This is standard in the literature but the resulting moment
-        system can be near-singular when state and lagged-free inputs
-        are highly correlated, so finite-sample variance on the
-        higher-order coefficients (``ll``, ``kk``, ``lk``) is
-        substantially larger than on the linear ``l`` and ``k`` terms.
-        Use bootstrap SEs (``boot_reps>=200``) to gauge this.
-
-        Wooldridge does not yet support translog (raises
-        ``NotImplementedError``); use ``method="acf"`` or
-        ``method="lp"`` for translog work.
+        Translog is available for ``method="acf"`` only (OP, LP and
+        Wooldridge raise ``NotImplementedError``). Its stage-2
+        instruments are the same polynomial transform of ``(l_lag, k)``,
+        so the moment system can be near-singular when state and lagged
+        free inputs are highly correlated and the higher-order
+        coefficients (``ll``, ``kk``, ``lk``) are much noisier than the
+        linear terms. Use bootstrap SEs (``boot_reps>=200``) to gauge this.
     boot_reps : int, default 0
         Firm-cluster bootstrap replications. ``0`` ⇒ NaN standard errors.
     seed : int, optional
@@ -154,6 +142,12 @@ def prod_fn(
     if proxy is None:
         proxy = "i" if key in ("op", "olley_pakes") else "m"
     fn = _METHOD_DISPATCH[key]
+    # Pass the degrees only when given, so each estimator keeps its own
+    # default.
+    if polynomial_degree is not None:
+        kwargs["polynomial_degree"] = polynomial_degree
+    if productivity_degree is not None:
+        kwargs["productivity_degree"] = productivity_degree
     return fn(
         data=data,
         output=output,
@@ -162,8 +156,6 @@ def prod_fn(
         proxy=proxy,
         panel_id=panel_id,
         time=time,
-        polynomial_degree=polynomial_degree,
-        productivity_degree=productivity_degree,
         functional_form=functional_form,
         boot_reps=boot_reps,
         seed=seed,

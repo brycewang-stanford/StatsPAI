@@ -387,6 +387,73 @@ two maintained by the methods' authors or their groups).
   `sp.xtdpdsys(...)` call; it failed loud with a stale "system GMM not
   implemented" message.
 
+### ⚠️ Correctness fixes — production functions
+
+- **`sp.olley_pakes` and `sp.levinsohn_petrin` were not the OP / LP
+  estimators.** They put every input into a degree-3 polynomial and
+  estimated the labour coefficient in a GMM second stage that used current
+  labour as its own instrument. OP and LP read the free-input coefficient off
+  the stage-1 regression of output on labour and a polynomial in (capital,
+  proxy), then choose the capital coefficient to minimise the squared
+  productivity innovations under a cubic Markov polynomial. That is what
+  Stata and R `prodest` compute. On the parity panel (true labour elasticity
+  0.60) labour moves from 0.999 (OP) / 1.003 (LP) to 0.633 / 0.615. The
+  stage-1 coefficient now matches both `prodest` implementations to 1e-12;
+  the capital coefficient is the exact minimiser, where both references stop
+  their optimisers early.
+- **Lags shifted rows instead of periods.** Every production-function
+  estimator lagged by position within a firm, so a firm that skipped 2002
+  paired 2003 with 2001. They now lag by calendar year (`time - 1`, missing
+  across a gap), as Stata's `L.` and `prodest`'s `lagPanel` do. The
+  "non-consecutive time periods" warning is gone;
+  `diagnostics["n_calendar_gaps"]` counts the affected rows. Duplicate
+  (firm, year) rows or a non-numeric `time` now raise.
+- **`sp.ackerberg_caves_frazer` returned an arbitrary local optimum:**
+  Nelder-Mead on the GMM criterion from five fixed starts, with a linear
+  Markov process by default. It now solves the just-identified moment
+  conditions exactly (analytic Jacobian) from the stage-1 coefficients and a
+  grid of starts. It returns the root nearest the stage-1 coefficients,
+  lists every root in `diagnostics["acf_roots"]` and warns when there is more
+  than one. On the parity panel R `prodestACF` stops 2.4e-6 from the same
+  root; Stata `prodest, acf` stops at points that are not roots.
+- **`sp.wooldridge_prod` treated labour as exogenous.** It minimised a
+  stacked sum of squares in which labour was its own instrument in the
+  productivity equation, where labour is correlated with the innovation. It
+  is now a joint GMM:
+  - equation 1 is instrumented by current labour and the control-function
+    terms;
+  - equation 2 by capital, lagged labour and lagged control-function terms;
+  - the Markov polynomial is free, and SEs are analytic and firm-clustered
+    (previously NaN without `boot_reps`).
+
+  `convention="prodest"` reproduces Stata `prodest, method(wrdg)` to 1e-8,
+  coefficients and its unadjusted variance. That convention imposes a
+  unit-slope Markov process, which on the parity panel (rho = 0.7) puts
+  capital at -0.64 against a true 0.30; the default puts it at 0.34. R
+  `prodestWRDG` also drops the second equation's intercept and leaves the
+  constant out of its instruments (capital -0.79).
+
+### Changed — production functions
+
+- Default `productivity_degree` is 3 (cubic `g`, as in both `prodest`
+  implementations) for `olley_pakes`, `levinsohn_petrin`,
+  `ackerberg_caves_frazer` and `wooldridge_prod`. It was 1, and 2 for
+  `wooldridge_prod`, whose default `polynomial_degree` is now 3 (was 2).
+  `sp.prod_fn` passes the degrees through only when they are given.
+- `functional_form="translog"` raises `NotImplementedError` for OP and LP,
+  whose free-input coefficients are linear stage-1 coefficients. ACF keeps
+  translog.
+- `sp.wooldridge_prod` gains `vce=` (`"cluster"`, `"robust"`,
+  `"unadjusted"`) and `convention=` (`"statspai"`, `"prodest"`).
+- The firm bootstrap makes each resampled firm its own panel, so a firm
+  drawn twice no longer collides with itself in the lag.
+
+### Added — production functions
+
+- `tests/reference_parity/test_prodest_parity.py` against Stata 18 `prodest`
+  (SSC) and R `prodest` 1.0.2 on a simulated unbalanced panel with calendar
+  gaps (`_fixtures/_generate_prodest_{data.py,R.R,stata.do}`).
+
 ### ⚠️ Correctness fixes — small p-values package-wide
 
 - **335 p-values in 180 modules were computed as `1 − cdf(x)`**, including

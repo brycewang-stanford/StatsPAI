@@ -2432,6 +2432,108 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Promoted in 1.28.0. The comparison against Stata's xtlsdvc (fixture specs H1-H6) had been in the suite since the dynamic-panel campaign, but no promotion was ever registered, so the index kept the function at analytical-only."
         ),
     },
+    "olley_pakes": {
+        "status": "aligned",
+        "reference": (
+            "Stata prodest, method(op) valueadded (Rovigatti & Mollisi); R "
+            "prodest::prodestOP"
+        ),
+        "reference_versions": {
+            "Stata": "18 MP",
+            "prodest": "SSC",
+            "R prodest": "1.0.2",
+        },
+        "tolerance": (
+            "Simulated unbalanced panel with 31 calendar gaps. Free-input coefficient "
+            "(stage-1 OLS) at 1e-12 against both, polynomial degree 2 and 3. State "
+            "coefficient: StatsPAI solves the first-order condition and has a sum of "
+            "squares no larger than at either reference estimate; the references stop "
+            "their optimisers early (R BFGS 5.9e-6 away, Stata Nelder-Mead at tolerance"
+            " 1e-5 up to 4.3e-3 away)."
+        ),
+        "sides": ["py", "R", "Stata"],
+        "test": ["tests/reference_parity/test_prodest_parity.py"],
+        "note": (
+            "Added in 1.28.0 by the production-function sweep, run by "
+            "tests/reference_parity/_fixtures/_generate_prodest_R.R and "
+            "_generate_prodest_stata.do. sp.olley_pakes had estimated the free-input "
+            "coefficient in a GMM second stage with contemporaneous labour as its own "
+            "instrument, not from the stage-1 regression, and its lag operator shifted "
+            "rows, pairing years across gaps. Aligned rather than bit-exact because the"
+            " state coefficient is compared as a minimiser, not a matched number."
+        ),
+    },
+    "levinsohn_petrin": {
+        "status": "aligned",
+        "reference": (
+            "Stata prodest, method(lp) valueadded (Rovigatti & Mollisi); R "
+            "prodest::prodestLP"
+        ),
+        "reference_versions": {
+            "Stata": "18 MP",
+            "prodest": "SSC",
+            "R prodest": "1.0.2",
+        },
+        "tolerance": (
+            "As olley_pakes with materials as the proxy: free-input coefficient at "
+            "1e-12 against both; state coefficient at the minimiser, R 1.3e-6 and Stata"
+            " up to 1.8e-3 away where their optimisers stop."
+        ),
+        "sides": ["py", "R", "Stata"],
+        "test": ["tests/reference_parity/test_prodest_parity.py"],
+        "note": (
+            "Added in 1.28.0 by the production-function sweep; same defects and fixes "
+            "as olley_pakes."
+        ),
+    },
+    "ackerberg_caves_frazer": {
+        "status": "aligned",
+        "reference": "Stata prodest, method(lp) acf valueadded; R prodest::prodestACF",
+        "reference_versions": {
+            "Stata": "18 MP",
+            "prodest": "SSC",
+            "R prodest": "1.0.2",
+        },
+        "tolerance": (
+            "StatsPAI returns an exact root of the just-identified moment conditions "
+            "(criterion < 1e-25), the one nearest the stage-1 coefficients; R stops "
+            "2.4e-6 (relative) from that root with criterion 9e-16. Stata's Nelder-Mead"
+            " stops at non-roots (criterion 4e-6 / 7e-6), which the test records. The "
+            "parity panel has three roots, all reported in diagnostics['acf_roots']."
+        ),
+        "sides": ["py", "R", "Stata"],
+        "test": ["tests/reference_parity/test_prodest_parity.py"],
+        "note": (
+            "Added in 1.28.0 by the production-function sweep. "
+            "sp.ackerberg_caves_frazer used a positional lag and a linear Markov "
+            "process by default, and returned whichever local optimum Nelder-Mead "
+            "reached from five fixed starts, with no indication that the moment "
+            "conditions had other roots."
+        ),
+    },
+    "wooldridge_prod": {
+        "status": "analytical-only",
+        "reference": (
+            "Known truth on the simulated parity panel; convention='prodest' against "
+            "Stata prodest, method(wrdg) and R prodestWRDG"
+        ),
+        "tolerance": (
+            "Default GMM (free Markov polynomial) recovers labour 0.60, capital 0.30 "
+            "and rho 0.70 on the parity panel within 0.05 / 0.10 / 0.05. "
+            "convention='prodest' matches Stata's stacked 2SLS coefficients and "
+            "unadjusted variance at 1e-8 (polynomial degree 2 and 3), and R prodestWRDG"
+            " is rebuilt from the same design at 1e-12."
+        ),
+        "sides": ["py"],
+        "test": ["tests/reference_parity/test_prodest_parity.py"],
+        "note": (
+            "Graded on its default, which has no reference implementation: both prodest"
+            " implementations impose a unit-slope Markov process, which on the parity "
+            "panel (rho = 0.7) puts capital at -0.64 (Stata) and -0.79 (R) against a "
+            "true 0.30. The previous sp.wooldridge_prod was a stacked NLS that treated "
+            "labour as exogenous in both equations."
+        ),
+    },
 }
 
 

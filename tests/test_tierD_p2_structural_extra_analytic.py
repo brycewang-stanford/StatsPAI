@@ -35,16 +35,26 @@ BETA_L, BETA_K = 0.60, 0.35
 RHO = 0.7
 
 
-def _identified_panel(seed=0, n_firms=300, n_periods=15):
-    """Cobb-Douglas panel satisfying the OP/LP/Wooldridge assumptions."""
+def _identified_panel(seed=0, n_firms=300, n_periods=15, persistent_labor=False):
+    """Cobb-Douglas panel satisfying the OP/LP/Wooldridge assumptions.
+
+    ``persistent_labor`` makes the exogenous labour draw AR(1) with the same
+    marginal spread. Wooldridge's estimator instruments labour with its lag,
+    which an i.i.d. draw leaves irrelevant.
+    """
     rng = np.random.default_rng(seed)
     rows = []
     for fid in range(n_firms):
         omega = rng.normal(0.0, 0.2 / np.sqrt(1 - RHO**2))
         k = rng.normal(0.0, 0.5)
+        shock = rng.normal(0.0, 0.4) if persistent_labor else 0.0
         for t in range(n_periods):
             omega = RHO * omega + rng.normal(0.0, 0.2)
-            ell = rng.normal(0.5, 0.4)  # exogenous labour
+            if persistent_labor:
+                shock = 0.8 * shock + rng.normal(0.0, 0.24)
+                ell = 0.5 + shock  # exogenous, serially correlated labour
+            else:
+                ell = rng.normal(0.5, 0.4)  # exogenous labour
             m = 0.8 * omega + 0.5 * k + rng.normal(0.0, 0.05)  # proxy (LP/wrdg)
             i = np.exp(0.5 + 0.6 * omega + 0.3 * k + rng.normal(0.0, 0.05))
             y = BETA_L * ell + BETA_K * k + omega + rng.normal(0.0, 0.10)
@@ -64,7 +74,7 @@ class TestProdFnAnalytic:
         [("op", "i"), ("lp", "m"), ("acf", "m"), ("wrdg", "m")],
     )
     def test_recovers_cobb_douglas_elasticities(self, method, proxy):
-        df = _identified_panel()
+        df = _identified_panel(persistent_labor=(method == "wrdg"))
         res = sp.prod_fn(
             df,
             output="y",
@@ -142,7 +152,7 @@ class TestOlleyPakesAnalytic:
 # ---------------------------------------------------------------------------
 class TestWooldridgeProdAnalytic:
     def test_recovers_cobb_douglas_elasticities(self):
-        df = _identified_panel()
+        df = _identified_panel(persistent_labor=True)
         res = sp.wooldridge_prod(
             df,
             output="y",
