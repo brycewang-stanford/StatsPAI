@@ -53,6 +53,7 @@ fail, instead of silently dropping them, and lists them in
 | `yu_elwert_decompose` | `method="efficient"` | `cdgd`'s estimator; components add up | selection 0.0010 → 0.0054 on a 2,000-row example |
 | `rifreg`, `rif_values` | `statistic="gini"` | Gini RIF of the plug-in Gini (`dineq`) | coefficients up to 1% |
 | `ffl_decompose` | all | `spec_error` ↔ `reweight_error` swapped back; `reference=1` sign; `gap` = RIF-mean difference | variance gap 0.12163 → 0.12157; reference-1 components now add up |
+| `gelbach` | standard errors | `b1x2`'s joint covariance; new `vcov`, `total_se`, `robust=` | 0.03% on `cps_wage` |
 | `ffl_decompose`, `dfl_decompose` | `stat="gini"` | plug-in Gini (was `n/(n−1)`-corrected) | 0.4% |
 
 **What to do.** Re-run stratified `das_gupta` calls, passing `by=` with the

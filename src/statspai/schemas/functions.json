@@ -33227,7 +33227,7 @@
     }
   },
   {
-    "description": "Gelbach (2016) decomposition of omitted variable bias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Gelbach (2016) decomposition of omitted variable bias. Validation: certified parity evidence.",
     "name": "gelbach",
     "parameters": {
       "properties": {
@@ -33253,6 +33253,11 @@
         "data": {
           "description": "Input dataset.",
           "type": "string"
+        },
+        "robust": {
+          "default": true,
+          "description": "Heteroskedasticity-robust (``True``) or homoskedastic covariance, as ``b1x2 ..., robust`` and plain ``b1x2``. Standard errors were a two-term delta method that treated the auxiliary and long-regression estimates as independent; ``b1x2`` keeps their covariance. On ``cps_wage`` that moved the SEs by 0.03%, but the old formula has no guarantee of being that close. Point estimates are unchanged.",
+          "type": "boolean"
         },
         "var_of_interest": {
           "description": "Which base variable's coefficient change to decompose. Defaults to the first element of ``base_x``.",
@@ -33335,6 +33340,14 @@
         "total_change": {
           "description": "total_change parameter (float).",
           "type": "number"
+        },
+        "total_se": {
+          "description": "total_se parameter (Optional[float]).",
+          "type": "number"
+        },
+        "vcov": {
+          "description": "Variance-covariance estimator option.",
+          "type": "string"
         }
       },
       "required": [
@@ -46837,7 +46850,7 @@
     }
   },
   {
-    "description": "Lerman-Yitzhaki (1985) Gini source decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Lerman-Yitzhaki (1985) Gini source decomposition. Validation: certified parity evidence.",
     "name": "source_decompose",
     "parameters": {
       "properties": {
@@ -46845,8 +46858,17 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
+        "gini": {
+          "default": "corrected",
+          "description": "``\"corrected\"`` uses the ``n/(n-1)`` bias-corrected Gini, the default of :func:`inequality_index`. ``\"population\"`` uses the plug-in Gini, as Stata's ``descogini`` and Lerman & Yitzhaki's covariance formula do; shares ``S_k``, Gini correlations ``R_k`` and each source's percentage of the total are identical under both, since the factor cancels.",
+          "enum": [
+            "corrected",
+            "population"
+          ],
+          "type": "string"
+        },
         "sources": {
-          "description": "sources parameter (Sequence[str]).",
+          "description": "Income-source columns; total income is their row sum.",
           "items": {
             "type": "string"
           },
@@ -46865,7 +46887,7 @@
     }
   },
   {
-    "description": "Subgroup decomposition (between / within) of an inequality index. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Subgroup decomposition (between / within) of an inequality index. Validation: certified parity evidence.",
     "name": "subgroup_decompose",
     "parameters": {
       "properties": {

@@ -378,3 +378,74 @@ def test_dfl_rejects_unknown_convention(cps):
             inference="none",
             stat_convention="stata",
         )
+
+
+# --------------------------------------------------------------------------
+# Stata references: b1x2 (Gelbach), ineqdeco, descogini
+# --------------------------------------------------------------------------
+
+ST = json.loads((_FIX / "decomp_Stata.json").read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="module")
+def stata_data():
+    return pd.read_csv(_FIX / "decomp_stata.csv")
+
+
+@pytest.mark.parametrize(
+    "robust, key", [(True, "gelbach"), (False, "gelbach_homoskedastic")]
+)
+def test_gelbach_matches_b1x2(stata_data, robust, key):
+    """Contributions and their joint covariance, as Gelbach's own command.
+
+    Before 1.28.0 the SEs were a two-term delta method that dropped the
+    covariance between the auxiliary and long-regression estimates.
+    """
+    added = ["experience", "tenure", "union"]
+    r = sp.gelbach(stata_data, "log_wage", ["education"], added, robust=robust)
+    ref = ST[key]
+    if robust:
+        np.testing.assert_allclose(
+            r.decomposition["delta"], ST["gelbach"]["delta"], rtol=1e-10
+        )
+        _close(r.total_change, ST["gelbach"]["total"], rtol=1e-10)
+    np.testing.assert_allclose(r.vcov.to_numpy(), np.array(ref["V"]), rtol=1e-9)
+    np.testing.assert_allclose(
+        r.decomposition["se"], np.sqrt(np.diag(ref["V"])), rtol=1e-9
+    )
+    _close(r.total_se**2, ref["V_total"], rtol=1e-9)
+
+
+@pytest.mark.parametrize(
+    "index, ge", [("theil_l", "ge0"), ("theil_t", "ge1"), ("ge2", "ge2")]
+)
+def test_subgroup_decompose_matches_ineqdeco(stata_data, index, ge):
+    r = sp.subgroup_decompose(stata_data, y="wage", by="female", index=index)
+    ref = ST["ineqdeco"]
+    _close(r.total, ref[ge], rtol=1e-12)
+    _close(r.within, ref[f"within_{ge}"], rtol=1e-12)
+    _close(r.between, ref[f"between_{ge}"], rtol=1e-11)
+
+
+def test_source_decompose_matches_descogini(stata_data):
+    src = ["wage", "capital", "transfer"]
+    r = sp.source_decompose(stata_data, src, gini="population")
+    ref = ST["descogini"]
+    _close(r.total_gini, ref["gtotal"], rtol=1e-12)
+    for row in r.sources.itertuples():
+        s = ref[row.source]
+        _close(row.share, s["S"], rtol=1e-12)
+        _close(row.gini_k, s["G"], rtol=1e-12)
+        _close(row.gini_corr, s["R"], rtol=1e-12)
+        _close(row.pct_of_gini / 100.0, s["share"], rtol=1e-12)
+
+
+def test_source_decompose_conventions_share_every_ratio(stata_data):
+    """The n/(n-1) factor cancels from S_k, R_k and each source's share."""
+    src = ["wage", "capital", "transfer"]
+    a = sp.source_decompose(stata_data, src)
+    b = sp.source_decompose(stata_data, src, gini="population")
+    n = len(stata_data)
+    _close(a.total_gini, b.total_gini * n / (n - 1), rtol=1e-12)
+    for col in ("share", "gini_corr", "pct_of_gini"):
+        np.testing.assert_allclose(a.sources[col], b.sources[col], rtol=1e-12)

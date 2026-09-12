@@ -50,4 +50,12 @@ import statspai as sp  # noqa: E402
 sp.cps_wage()[["log_wage", "female", "education", "experience", "tenure"]].to_csv(
     OUT / "decomp_cps.csv", index=False, float_format="%.17g"
 )
-print("wrote decomp_gap.csv, decomp_ye.csv, decomp_cps.csv")
+# Stata references (gelbach / subgroup_decompose / source_decompose): the
+# same wage data plus a level wage and two simulated income sources.
+ineq = sp.cps_wage()
+ineq["wage"] = np.exp(ineq["log_wage"])
+rng = np.random.default_rng(11)
+ineq["capital"] = rng.lognormal(2.0, 0.8, len(ineq))
+ineq["transfer"] = rng.gamma(2.0, 1.5, len(ineq))
+ineq.to_csv(OUT / "decomp_stata.csv", index=False, float_format="%.17g")
+print("wrote decomp_gap.csv, decomp_ye.csv, decomp_cps.csv, decomp_stata.csv")

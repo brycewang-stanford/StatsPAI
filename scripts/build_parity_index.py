@@ -2354,6 +2354,45 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Added in 1.28.0 by the decomposition sweep. It found the Gini RIF built from a midpoint ECDF and the n/(n-1)-corrected Gini, averaging to neither Gini (RIF-regression coefficients up to 1% off), and sp.ffl_decompose storing the specification and reweighting errors under each other's names with a sign error for reference=1, so its components did not add up."
         ),
     },
+    "gelbach": {
+        "status": "bit-exact",
+        "reference": "Stata b1x2 (Gelbach's own command), robust and homoskedastic",
+        "reference_versions": {"Stata": "18 MP", "b1x2": "SSC"},
+        "tolerance": (
+            "Per-variable contributions at 1e-10; their full covariance, SEs and the total-change variance at 1e-9, robust and homoskedastic."
+        ),
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_decomp_R_parity.py"],
+        "note": (
+            "Added in 1.28.0 by the decomposition sweep against Stata 18 MP and SSC b1x2 (Gelbach), ineqdeco (Jenkins) and descogini (Lopez-Feldman), run by tests/reference_parity/_fixtures/_generate_decomp_stata.do. It found sp.gelbach's SEs omitting the covariance between the auxiliary and long regressions."
+        ),
+    },
+    "subgroup_decompose": {
+        "status": "bit-exact",
+        "reference": "Stata ineqdeco, bygroup()",
+        "reference_versions": {"Stata": "18 MP", "ineqdeco": "SSC"},
+        "tolerance": (
+            "GE(0), GE(1), GE(2) totals and within components at 1e-12, between components at 1e-11. The Gini path (Dagum) has no ineqdeco counterpart and keeps its analytical checks."
+        ),
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_decomp_R_parity.py"],
+        "note": (
+            "Added in 1.28.0 by the decomposition sweep against Stata 18 MP and SSC b1x2 (Gelbach), ineqdeco (Jenkins) and descogini (Lopez-Feldman), run by tests/reference_parity/_fixtures/_generate_decomp_stata.do. It found sp.gelbach's SEs omitting the covariance between the auxiliary and long regressions."
+        ),
+    },
+    "source_decompose": {
+        "status": "bit-exact",
+        "reference": "Stata descogini (Lerman-Yitzhaki)",
+        "reference_versions": {"Stata": "18 MP", "descogini": "SSC"},
+        "tolerance": (
+            "With gini='population': total Gini, and each source's S_k, G_k, R_k and share of the total at 1e-12. The default n/(n-1)-corrected Gini differs by exactly that factor; S_k, R_k and shares are identical."
+        ),
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_decomp_R_parity.py"],
+        "note": (
+            "Added in 1.28.0 by the decomposition sweep against Stata 18 MP and SSC b1x2 (Gelbach), ineqdeco (Jenkins) and descogini (Lopez-Feldman), run by tests/reference_parity/_fixtures/_generate_decomp_stata.do. It found sp.gelbach's SEs omitting the covariance between the auxiliary and long regressions."
+        ),
+    },
 }
 
 

@@ -38,8 +38,15 @@ from typing import Any, ClassVar, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from ._common import (
+    add_constant,
+    gini_population,
+    prepare_frame,
+    statistic_value,
+    weighted_gini,
+    wls,
+)
 from ._results import DecompResultMixin
-from ._common import add_constant, prepare_frame, statistic_value, weighted_gini, wls
 
 # ════════════════════════════════════════════════════════════════════════
 # Inequality indices
@@ -534,6 +541,7 @@ def source_decompose(
     data: pd.DataFrame,
     sources: Sequence[str],
     weights: Optional[Union[str, np.ndarray]] = None,
+    gini: str = "corrected",
 ) -> SourceDecompResult:
     """
     Lerman-Yitzhaki (1985) Gini source decomposition.
@@ -542,6 +550,20 @@ def source_decompose(
         S_k · R_k · G_k  /  G_total
     where S_k is its share of total mean, R_k the Gini correlation with
     total rank, G_k its own Gini.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+    sources : sequence of str
+        Income-source columns; total income is their row sum.
+    weights : str, array or None
+    gini : {"corrected", "population"}, default "corrected"
+        ``"corrected"`` uses the ``n/(n-1)`` bias-corrected Gini, the
+        default of :func:`inequality_index`. ``"population"`` uses the
+        plug-in Gini, as Stata's ``descogini`` and Lerman & Yitzhaki's
+        covariance formula do; shares ``S_k``, Gini correlations ``R_k``
+        and each source's percentage of the total are identical under
+        both, since the factor cancels.
 
     Examples
     --------
@@ -573,7 +595,15 @@ def source_decompose(
     cum = np.cumsum(w[order])
     ranks[order] = (cum - 0.5 * w[order]) / W
 
-    G_total = _gini(y_total, w)
+    if gini not in ("corrected", "population"):
+        raise ValueError(f"gini must be 'corrected' or 'population', got {gini!r}")
+
+    def _g(v: np.ndarray) -> float:
+        if gini == "population":
+            return gini_population(v, w)
+        return _gini(v, w)
+
+    G_total = _g(y_total)
     mu_total = float(np.average(y_total, weights=w))
 
     rows = []
@@ -582,7 +612,7 @@ def source_decompose(
         y_s = df[s].to_numpy(dtype=float)
         mu_s = float(np.average(y_s, weights=w))
         share = mu_s / mu_total if mu_total > 0 else 0.0
-        G_s = _gini(y_s, w)
+        G_s = _g(y_s)
         # Gini correlation: R_k = cov(y_s, F_total) / cov(y_s, F_own)
         F_own = np.empty_like(y_s)
         order_s = np.argsort(y_s)

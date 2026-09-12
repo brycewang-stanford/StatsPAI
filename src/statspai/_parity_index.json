@@ -3971,21 +3971,31 @@
       "tolerance": "C 2.0e-15. The closed-form variance and z are new in 1.27.0 (they were NaN whenever permutations=0) and match both spdep nulls at 1.5e-14: randomisation (with the m4/m2^2 term) and normality."
     },
     {
-      "function": "gelbach",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_gelbach_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "gelbach",
+      "notes": [
+        "Added in 1.28.0 by the decomposition sweep against Stata 18 MP and SSC b1x2 (Gelbach), ineqdeco (Jenkins) and descogini (Lopez-Feldman), run by tests/reference_parity/_fixtures/_generate_decomp_stata.do. It found sp.gelbach's SEs omitting the covariance between the auxiliary and long regressions."
+      ],
+      "reference": "Stata b1x2 (Gelbach's own command), robust and homoskedastic",
+      "reference_versions": {
+        "Stata": "18 MP",
+        "b1x2": "SSC"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_decomp_R_parity.py"
+      ],
+      "tolerance": "Per-variable contributions at 1e-10; their full covariance, SEs and the total-change variance at 1e-9, robust and homoskedastic."
     },
     {
       "function": "general_bunching",
@@ -10045,21 +10055,31 @@
       "tolerance": "Every coefficient at 1e-10."
     },
     {
-      "function": "source_decompose",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_source_decompose_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "source_decompose",
+      "notes": [
+        "Added in 1.28.0 by the decomposition sweep against Stata 18 MP and SSC b1x2 (Gelbach), ineqdeco (Jenkins) and descogini (Lopez-Feldman), run by tests/reference_parity/_fixtures/_generate_decomp_stata.do. It found sp.gelbach's SEs omitting the covariance between the auxiliary and long regressions."
+      ],
+      "reference": "Stata descogini (Lerman-Yitzhaki)",
+      "reference_versions": {
+        "Stata": "18 MP",
+        "descogini": "SSC"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_decomp_R_parity.py"
+      ],
+      "tolerance": "With gini='population': total Gini, and each source's S_k, G_k, R_k and share of the total at 1e-12. The default n/(n-1)-corrected Gini differs by exactly that factor; S_k, R_k and shares are identical."
     },
     {
       "function": "spatial_did",
@@ -10414,21 +10434,31 @@
       "tolerance": ""
     },
     {
-      "function": "subgroup_decompose",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_subgroup_decompose_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "subgroup_decompose",
+      "notes": [
+        "Added in 1.28.0 by the decomposition sweep against Stata 18 MP and SSC b1x2 (Gelbach), ineqdeco (Jenkins) and descogini (Lopez-Feldman), run by tests/reference_parity/_fixtures/_generate_decomp_stata.do. It found sp.gelbach's SEs omitting the covariance between the auxiliary and long regressions."
+      ],
+      "reference": "Stata ineqdeco, bygroup()",
+      "reference_versions": {
+        "Stata": "18 MP",
+        "ineqdeco": "SSC"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_decomp_R_parity.py"
+      ],
+      "tolerance": "GE(0), GE(1), GE(2) totals and within components at 1e-12, between components at 1e-11. The Gini path (Dagum) has no ineqdeco counterpart and keeps its analytical checks."
     },
     {
       "additional_tests": [

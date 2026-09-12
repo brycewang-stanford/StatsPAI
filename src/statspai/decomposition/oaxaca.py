@@ -380,12 +380,16 @@ class GelbachResult(DecompResultMixin):
         base_coef: float,
         full_coef: float,
         base_var: str,
+        vcov: Optional[pd.DataFrame] = None,
+        total_se: Optional[float] = None,
     ):
         self.total_change = total_change
         self.decomposition = decomposition
         self.base_coef = base_coef
         self.full_coef = full_coef
         self.base_var = base_var
+        self.vcov = vcov
+        self.total_se = total_se
 
     def summary(self) -> str:
         """Return formatted Gelbach decomposition summary."""
@@ -757,6 +761,7 @@ def gelbach(
     added_x: Sequence[str],
     var_of_interest: Optional[str] = None,
     alpha: float = 0.05,
+    robust: bool = True,
 ) -> GelbachResult:
     """
     Gelbach (2016) decomposition of omitted variable bias.
@@ -781,6 +786,25 @@ def gelbach(
         Defaults to the first element of ``base_x``.
     alpha : float, default 0.05
         Significance level.
+    robust : bool, default True
+        Heteroskedasticity-robust (``True``) or homoskedastic covariance,
+        as ``b1x2 ..., robust`` and plain ``b1x2``.
+
+    Notes on inference
+    ------------------
+    The standard errors are those of Gelbach's own Stata command ``b1x2``
+    (each added variable its own group): the covariance of the stacked
+    long regression and auxiliary regressions, plus the part due to the
+    long-regression coefficients on the added variables and both cross
+    terms. The result also carries the joint ``vcov`` of the per-variable
+    contributions and ``total_se``.
+
+    .. versionchanged:: 1.28.0
+       Standard errors were a two-term delta method that treated the
+       auxiliary and long-regression estimates as independent; ``b1x2``
+       keeps their covariance. On ``cps_wage`` that moved the SEs by
+       0.03%, but the old formula has no guarantee of being that close.
+       Point estimates are unchanged.
 
     Returns
     -------
@@ -862,38 +886,83 @@ def gelbach(
     full_coef = beta_full[voi_idx_full]
     total_change = base_coef - full_coef
 
-    # ── Auxiliary regressions: regress each added_x on base_x ────────
-    # gamma_tilde[j] = coef on var_of_interest from regressing added_x_j on base_x
+    # ── Contributions and their joint covariance (port of b1x2) ──────
+    # Stata order: base variables, added variables, constant.
+    X_b1 = np.column_stack([X_base_raw, np.ones(n)])  # x1 (k1 cols)
+    X_long = np.column_stack([X_base_raw, X_full_raw[:, len(base_x) :], np.ones(n)])
+    k1 = X_b1.shape[1]
+    k2 = len(added_x)
+    K = k1 + k2
+    XX = X_long.T @ X_long
+    b_long = np.linalg.solve(XX, X_long.T @ y_vec)
+    e_long = y_vec - X_long @ b_long
+    XX_inv = np.linalg.inv(XX)
+    x1x1 = X_b1.T @ X_b1
+    x1x1_inv = np.linalg.inv(x1x1)
+    idx2 = list(range(len(base_x), len(base_x) + k2))
+    b2 = b_long[idx2]
+    X2 = X_full_raw[:, len(base_x) :]
+    Gamma = x1x1_inv @ X_b1.T @ X2  # k1 x k2
+    # One group per added variable: H_g = x2_g b2_g, delta_g = (x1'x1)^-1 x1'H_g.
+    H = X2 * b2[None, :]
+    Dmat = x1x1_inv @ X_b1.T @ H  # k1 x k2
+    Rres = H - X_b1 @ Dmat  # n x k2
+
+    if robust:
+        vu = XX_inv @ ((X_long * e_long[:, None]).T @ (X_long * e_long[:, None]))
+        vu = vu @ XX_inv * n / (n - K)
+        # stacked system: scores X'e and x1'r_g; _robust default n/(n-1)
+        S = np.column_stack(
+            [X_long * e_long[:, None]] + [X_b1 * Rres[:, [g]] for g in range(k2)]
+        )
+        big = np.zeros((K + k2 * k1, K + k2 * k1))
+        big[:K, :K] = XX
+        for g in range(k2):
+            big[K + g * k1 : K + (g + 1) * k1, K + g * k1 : K + (g + 1) * k1] = x1x1
+        big_inv = np.linalg.inv(big)
+        C = big_inv @ (S.T @ S) @ big_inv * n / (n - 1)
+    else:
+        resid = np.column_stack([e_long, Rres])
+        resid = resid - resid.mean(axis=0)
+        acc = resid.T @ resid / (n - K)
+        vu = acc[0, 0] * XX_inv
+        C = np.zeros((K + k2 * k1, K + k2 * k1))
+        C[:K, :K] = vu
+        sig = acc[1:, 0]
+        block = np.hstack([np.eye(k1), Gamma]) @ XX_inv  # k1 x K
+        low = np.kron(sig[:, None], block)
+        C[K:, :K] = low
+        C[:K, K:] = low.T
+        C[K:, K:] = np.kron(acc[1:, 1:], x1x1_inv)
+
+    aux = C[K:, K:]
+    v2u = vu[np.ix_(idx2, idx2)]
+    Big = np.zeros((k2 * k1, k2))
+    cov = np.zeros((k2 * k1, k2 * k1))
+    for g in range(k2):
+        Big[g * k1 : (g + 1) * k1, g] = Gamma[:, g]
+        for h in range(k2):
+            cov[g * k1 : (g + 1) * k1, h * k1 : (h + 1) * k1] = np.outer(
+                Gamma[:, g], C[idx2[g], K + h * k1 : K + (h + 1) * k1]
+            )
+    full = aux + Big @ v2u @ Big.T + cov + cov.T
+    voi_pos = base_x.index(var_of_interest)
+    sel = [g * k1 + voi_pos for g in range(k2)]
+    V_delta = full[np.ix_(sel, sel)]
+    delta_vec = Dmat[voi_pos, :]
+
+    # Total change: the variance of the sum of the contributions, 1' V 1,
+    # which is what b1x2 reports for __TC when every added variable is
+    # decomposed.
+    total_se = float(np.sqrt(max(float(V_delta.sum()), 0.0)))
+
     decomp_rows = []
-    delta_vec = np.zeros(len(added_x))
-    delta_var = np.zeros(len(added_x))
-
     for j, av in enumerate(added_x):
-        z_j = data[av].values.astype(float)
-        gamma_j, vcov_gamma_j, _ = _ols(z_j, X_base)
-        gamma_tilde_j = gamma_j[voi_idx_base]  # coef on var_of_interest
-
-        # Full-model coefficient on this added variable
-        av_idx_full = all_x.index(av) + 1  # offset for constant
-        beta_full_j = beta_full[av_idx_full]
-
-        delta_j = gamma_tilde_j * beta_full_j
-        delta_vec[j] = delta_j
-
-        # Standard error via delta method:
-        # Var(delta_j) = gamma^2 * Var(beta_full_j) + beta_full_j^2 * Var(gamma_j)
-        #              + Var(gamma_j) * Var(beta_full_j)  [conservative]
-        var_beta_full_j = vcov_full[av_idx_full, av_idx_full]
-        var_gamma_j = vcov_gamma_j[voi_idx_base, voi_idx_base]
-
-        var_delta_j = gamma_tilde_j**2 * var_beta_full_j + beta_full_j**2 * var_gamma_j
-        se_delta_j = np.sqrt(max(var_delta_j, 0.0))
-        delta_var[j] = var_delta_j
-
+        delta_j = float(delta_vec[j])
+        se_delta_j = float(np.sqrt(max(V_delta[j, j], 0.0)))
         z_stat = delta_j / se_delta_j if se_delta_j > 0 else 0.0
         p_val = 2 * stats.norm.sf(abs(z_stat))
         pct = (delta_j / total_change * 100) if total_change != 0 else float("nan")
-
         decomp_rows.append(
             {
                 "variable": av,
@@ -902,8 +971,8 @@ def gelbach(
                 "zvalue": z_stat,
                 "pvalue": p_val,
                 "pct_of_change": pct,
-                "gamma_tilde": gamma_tilde_j,
-                "beta_full": beta_full_j,
+                "gamma_tilde": float(Gamma[voi_pos, j]),
+                "beta_full": float(b2[j]),
             }
         )
 
@@ -926,4 +995,6 @@ def gelbach(
         base_coef=base_coef,
         full_coef=full_coef,
         base_var=var_of_interest,
+        vcov=pd.DataFrame(V_delta, index=added_x, columns=added_x),
+        total_se=total_se,
     )

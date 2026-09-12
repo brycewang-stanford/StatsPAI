@@ -27,12 +27,12 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 194 |
+| **Compared against R/Stata** (T2) | bit-exact | 197 |
 | | aligned | 21 |
-| | **subtotal** | **215** |
-| **No external software reference** | analytical-only (T1) | 210 |
+| | **subtotal** | **218** |
+| **No external software reference** | analytical-only (T1) | 207 |
 | | external-replication (published numbers) | 4 |
-| | **subtotal** | **214** |
+| | **subtotal** | **211** |
 | No numerical evidence yet | unverified | 753 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 215 | 428 | 773 | 27.8% |
+| estimator callables | 218 | 428 | 773 | 28.2% |
 | infrastructure (parity N/A) | 0 | 0 | 124 | 0.0% |
 | result / exception classes | 0 | 1 | 285 | 0.0% |
-| **all registered** | 215 | 429 | 1182 | 18.2% |
+| **all registered** | 218 | 429 | 1182 | 18.4% |
 
 ### Coverage by estimator family
 
@@ -56,7 +56,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | regression | 30 | 35 | 37 |
 | spatial | 18 | 22 | 34 |
 | panel | 13 | 20 | 30 |
-| decomposition | 11 | 17 | 29 |
+| decomposition | 14 | 17 | 29 |
 | network | 23 | 24 | 25 |
 | inference | 8 | 20 | 23 |
 | mendelian | 14 | 17 | 23 |
@@ -96,7 +96,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 0 | 1 | 1 |
 | synth | 0 | 0 | 1 |
 
-## bit-exact — 194 functions
+## bit-exact — 197 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -161,6 +161,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `gap_closing` | R ddecompose::dfl_decompose (method='ipw') and ob_decompose (method='regression') | DasGuptR 2.2.0; ddecompose 1.0.0; cdgd 1.0.1 | Observed, counterfactual and closed gaps at 1e-9 for IPW in both directions (logit MLE in the path) and 1e-10 for regression. method='aipw' has no reference and is checked for double robustness on a known-truth DGP (T1). | — / — | [`test_decomp_R_parity.py`](../tests/reference_parity/test_decomp_R_parity.py) |
 | `gardner_did` | did2s::did2s | R 4.5.2 | rel_est<=1e-06 | 4.8e-08 / 2.4e-12 | [`73_did2s.py`](../tests/r_parity/73_did2s.py) (+2) |
 | `geary` | R spdep::geary.test | spdep 1.4.2; spatialreg 1.4.3 | C 2.0e-15. The closed-form variance and z are new in 1.27.0 (they were NaN whenever permutations=0) and match both spdep nulls at 1.5e-14: randomisation (with the m4/m2^2 term) and normality. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
+| `gelbach` | Stata b1x2 (Gelbach's own command), robust and homoskedastic | Stata 18 MP; b1x2 SSC | Per-variable contributions at 1e-10; their full covariance, SEs and the total-change variance at 1e-9, robust and homoskedastic. | — / — | [`test_decomp_R_parity.py`](../tests/reference_parity/test_decomp_R_parity.py) |
 | `getis_ord_g` | R spdep::globalG.test (binary weights) | spdep 1.4.2; spatialreg 1.4.3 | G 5.4e-16. Binary weights, which is what spdep recommends for this statistic. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
 | `getis_ord_local` | R spdep::localG | spdep 1.4.2; spatialreg 1.4.3 | Gi* 1.7e-14; Gi 4.3e-13 after the star=False branch stopped borrowing Gi*'s standardisation. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
 | `glm` | base R stats::glm (binomial logit + Poisson log) | R 4.5.2 | coef / logLik / AIC 1e-8 abs (observed <= 5e-13); SE ~1e-3 rel | — / — | [`test_glm_parity.py`](../tests/reference_parity/test_glm_parity.py) (+1) |
@@ -275,9 +276,11 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `sem_gmm` | spatialreg::stsls(W2X=FALSE) / spatialreg::GMerrorsar | R 4.5.2; spatialreg 1.4.3 | rel_est<=1e-06, rel_se<=1e-06 | 4.6e-08 / 7.3e-16 | [`66_spatial_gmm.py`](../tests/r_parity/66_spatial_gmm.py) (+2) |
 | `sensemakr` | sensemakr::sensemakr | R 4.5.2; sensemakr 0.1.6 | rel_est<=1e-06, rel_se<=1e-06 | 5.0e-08 / 5.0e-08 | [`22_sensemakr.py`](../tests/r_parity/22_sensemakr.py) (+2) |
 | `slx` | R spatialreg::lmSLX | spdep 1.4.2; spatialreg 1.4.3 | Every coefficient at 1e-10. | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
+| `source_decompose` | Stata descogini (Lerman-Yitzhaki) | Stata 18 MP; descogini SSC | With gini='population': total Gini, and each source's S_k, G_k, R_k and share of the total at 1e-12. The default n/(n-1)-corrected Gini differs by exactly that factor; S_k, R_k and shares are identical. | — / — | [`test_decomp_R_parity.py`](../tests/reference_parity/test_decomp_R_parity.py) |
 | `sqreg` | R quantreg::rq (Barrodale-Roberts), Koenker 2005 | quantreg see sqreg_R.json provenance | Coefficients 3.5e-14 against quantreg::rq at tau = 0.25 / 0.50 / 0.75 -- both sides minimise the same pinball loss with the same simplex. Standard errors differ from R's se='iid' by ONE SCALAR PER QUANTILE, constant across coefficients to 6e-16: the sandwich is identical and only the sparsity estimate 1/f(0) differs (Powell kernel here, Koenker-Bassett with a Siddiqui/Hall-Sheather bandwidth there). The test asserts the ratio's constancy rather than a numerical band, which a structural difference could not satisfy. R's default se='nid' (Hendricks-Koenker, also Stata qreg's) is a third convention and is recorded as one. | — / — | [`test_sqreg_parity.py`](../tests/reference_parity/test_sqreg_parity.py) |
 | `stacked_did` | hand-written stack + fixest::feols | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06 | 3.9e-13 / 7.1e-13 | [`75_stacked.py`](../tests/r_parity/75_stacked.py) (+2) |
 | `staggered_rollout` | staggered::staggered / staggered_cs / staggered_sa (1.2.2) | R 4.5.2 | rel_est<=1e-10 | 9.1e-16 / 5.7e-16 | [`82_staggered.py`](../tests/r_parity/82_staggered.py) (+2) |
+| `subgroup_decompose` | Stata ineqdeco, bygroup() | Stata 18 MP; ineqdeco SSC | GE(0), GE(1), GE(2) totals and within components at 1e-12, between components at 1e-11. The Gini path (Dagum) has no ineqdeco counterpart and keeps its analytical checks. | — / — | [`test_decomp_R_parity.py`](../tests/reference_parity/test_decomp_R_parity.py) |
 | `sun_abraham` | fixest::sunab | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=0.03 | 2.8e-11 / 2.7e-11 | [`05_sunab.py`](../tests/r_parity/05_sunab.py) (+2) |
 | `sureg` | systemfit::systemfit(method="SUR", noDfCor) | R 4.5.2; systemfit 1.1.30 | rel_est<=1e-06, rel_se<=1e-06 | 1.5e-14 / 1.5e-15 | [`60_sureg.py`](../tests/r_parity/60_sureg.py) (+2) |
 | `svyglm` | survey::svyglm (design-based GLM + linearization SE) | R 4.5.2 | coefficients + SE 1e-10 abs (observed ~2e-15 / 6e-15) | — / — | [`test_survey_parity.py`](../tests/reference_parity/test_survey_parity.py) (+1) |
@@ -336,7 +339,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 210 functions
+## analytical-only — 207 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -416,7 +419,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `front_door` | [`test_front_door_parity.py`](../tests/reference_parity/test_front_door_parity.py) |
 | `frontdoor` | [`test_frontdoor_parity.py`](../tests/reference_parity/test_frontdoor_parity.py) |
 | `garch` | [`test_timeseries_parity.py`](../tests/reference_parity/test_timeseries_parity.py) |
-| `gelbach` | [`test_gelbach_parity.py`](../tests/reference_parity/test_gelbach_parity.py) |
 | `general_bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |
 | `geolift` | [`test_geolift_parity.py`](../tests/reference_parity/test_geolift_parity.py) |
 | `ges` | [`test_ges_parity.py`](../tests/reference_parity/test_ges_parity.py) |
@@ -515,7 +517,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `sensitivity_specificity` | [`test_epi_diag_parity.py`](../tests/reference_parity/test_epi_diag_parity.py) |
 | `shapley_inequality` | [`test_decomposition_family_parity.py`](../tests/reference_parity/test_decomposition_family_parity.py) |
 | `sharp_ope_unobserved` | [`test_ope_parity.py`](../tests/reference_parity/test_ope_parity.py) |
-| `source_decompose` | [`test_source_decompose_parity.py`](../tests/reference_parity/test_source_decompose_parity.py) |
 | `spatial_did` | [`test_spatial_models_parity.py`](../tests/reference_parity/test_spatial_models_parity.py) (+1) |
 | `spatial_iv` | [`test_spatial_models_parity.py`](../tests/reference_parity/test_spatial_models_parity.py) |
 | `spatial_panel` | [`test_spatial_models_parity.py`](../tests/reference_parity/test_spatial_models_parity.py) |
@@ -529,7 +530,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `stochastic_dominance` | [`test_distributional_te_parity.py`](../tests/reference_parity/test_distributional_te_parity.py) |
 | `structural_break` | [`test_structural_break_parity.py`](../tests/reference_parity/test_structural_break_parity.py) |
 | `subcluster_wild_bootstrap` | [`test_wcb_recovery_parity.py`](../tests/reference_parity/test_wcb_recovery_parity.py) |
-| `subgroup_decompose` | [`test_subgroup_decompose_parity.py`](../tests/reference_parity/test_subgroup_decompose_parity.py) |
 | `super_learner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `surrogate_index` | [`test_surrogate_parity.py`](../tests/reference_parity/test_surrogate_parity.py) |
 | `survivor_average_causal_effect` | [`test_principal_strat_parity.py`](../tests/reference_parity/test_principal_strat_parity.py) |

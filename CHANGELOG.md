@@ -305,6 +305,16 @@ two maintained by the methods' authors or their groups).
   TRUE)` in both directions for the variance, Gini and 10th/50th/90th
   percentiles.
 
+- **`sp.gelbach`'s standard errors dropped a covariance.** They were a
+  two-term delta method treating the auxiliary regressions and the long
+  regression as independent. They now follow Gelbach's own Stata command
+  `b1x2` (each added variable its own group): the stacked-system sandwich,
+  plus the part due to the long-regression coefficients and both cross
+  terms, robust by default and homoskedastic with `robust=False`. The
+  result gains the joint `vcov` of the contributions and `total_se`
+  (`1′V1`, as `b1x2` reports it). Point estimates are unchanged; on
+  `cps_wage` the SEs moved by 0.03%.
+
 ### Added — decomposition
 
 - Cross-language evidence for `das_gupta`, `kitagawa_decompose`,
@@ -313,6 +323,14 @@ two maintained by the methods' authors or their groups).
   (`tests/reference_parity/test_decomp_R_parity.py`), on Das Gupta's worked
   examples, simulated data and `cps_wage`, read by both sides from the same
   bytes.
+- Stata-side evidence for `gelbach` (`b1x2`, robust and homoskedastic, to
+  1e-9 on the full covariance), `subgroup_decompose` (`ineqdeco`, GE(0),
+  GE(1), GE(2) total / within / between to 1e-12) and `source_decompose`
+  (`descogini`, every share, Gini and Gini correlation to 1e-12).
+- `sp.source_decompose(gini="population")`: the plug-in Gini of
+  `descogini` and Lerman & Yitzhaki's covariance formula. The default keeps
+  the `n/(n−1)`-corrected Gini of `sp.inequality_index`; shares, Gini
+  correlations and each source's percentage are identical under both.
 - `quantile_convention="rifreg"` for `sp.rifreg`, `sp.rif_values` and
   `sp.ffl_decompose`: `rifreg` / `ddecompose` use the indicator `y ≤ q`
   where `dineq` uses `y < q`.
