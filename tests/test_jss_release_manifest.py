@@ -740,7 +740,10 @@ def test_methodological_gap_ledger_pins_t4_metadata() -> None:
         "07_scm": {
             "validation_tier": "identification_dependent_native",
             "reference_backend": "Synth",
-            "solver_best_start": "regression",
+            # 0f4b9e2b gave SLSQP the exact adding-up Jacobian; the winning Basque
+            # start is now dirichlet_3, tied with regression to 1e-12 at an unchanged
+            # optimum (see CHANGELOG [Unreleased]). The six diagnostics below did not move.
+            "solver_best_start": "dirichlet_3",
             "solver_near_best_start_count": "4",
             "solver_near_best_weight_class_count": "2",
             "solver_near_best_weight_l1_max": "0.00513",
