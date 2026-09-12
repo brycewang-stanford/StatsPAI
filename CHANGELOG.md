@@ -2,6 +2,22 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- **`src/statspai/_parity_index.json` is ASCII again.** The alias evidence
+  note written by `_parity_taxonomy.AliasProof.evidence_note()` used an
+  em-dash, which put five non-ASCII bytes into the shipped parity index from
+  1.26.0 onward. The JSS submission archive requires data files to be ASCII
+  at the source (it verifies `.json` / `.csv` / `.lock` rather than
+  transliterating them, because the fixture lock and provenance audit trace
+  those bytes), so `make submission-ready` refused the 1.27.0 tree. The note
+  now uses `--`; only the text of those five `notes` entries changes, no
+  grade or number does. `tests/test_archive_ascii_contract.py` runs the
+  archive's ASCII check in the ordinary suite, since the original lives in
+  the git-ignored `Paper-JSS/` tree and never ran in a worktree or in CI.
+
 ## [1.27.0] — 2026-09-12
 
 ### ⚠️ Correctness

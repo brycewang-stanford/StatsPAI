@@ -75,7 +75,7 @@ class AliasProof:
 
     def evidence_note(self) -> str:
         return (
-            f"Alias of {self.call} — proven equivalent on the committed "
+            f"Alias of {self.call} -- proven equivalent on the committed "
             f"{self.module} bytes to rtol {self.rtol:g} (observed "
             f"{self.observed:g}) by {ALIAS_PROOF_TEST}."
         )

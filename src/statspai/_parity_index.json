@@ -2118,7 +2118,7 @@
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "31_dfl",
       "notes": [
-        "Alias of sp.decompose('dfl') — proven equivalent on the committed 31_dfl bytes to rtol 1e-12 (observed 0) by tests/reference_parity/test_track_a_alias_equivalence.py."
+        "Alias of sp.decompose('dfl') -- proven equivalent on the committed 31_dfl bytes to rtol 1e-12 (observed 0) by tests/reference_parity/test_track_a_alias_equivalence.py."
       ],
       "point_estimate_rel": {
         "R": 1.1607068888501023e-09,
@@ -4101,7 +4101,7 @@
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "03_hdfe",
       "notes": [
-        "Alias of sp.fast.feols(ssc='fixest') — proven equivalent on the committed 03_hdfe + 15_hdfe_cluster bytes to rtol 1e-10 (observed 1.9e-12) by tests/reference_parity/test_track_a_alias_equivalence.py.",
+        "Alias of sp.fast.feols(ssc='fixest') -- proven equivalent on the committed 03_hdfe + 15_hdfe_cluster bytes to rtol 1e-10 (observed 1.9e-12) by tests/reference_parity/test_track_a_alias_equivalence.py.",
         "Two different absorption implementations of the same within estimator, so agreement is at floating-point noise rather than exactly zero. The legs are budgeted separately because the mechanism differs: the coefficient and the iid standard error agree to ~3e-15 on both modules, while the CR1 clustered standard error reaches 1.9e-12 -- residual differences of order 1e-15 are summed within cluster and squared in the sandwich meat matrix, which amplifies them by about three orders. This is floating-point accumulation in a shared estimator, not a convention difference, and it is four orders inside the loosest parity tier (1e-6)."
       ],
       "point_estimate_rel": {
@@ -4699,7 +4699,7 @@
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "02_iv",
       "notes": [
-        "Alias of sp.ivreg — proven equivalent on the committed 02_iv bytes to rtol 1e-12 (observed 0) by tests/reference_parity/test_track_a_alias_equivalence.py.",
+        "Alias of sp.ivreg -- proven equivalent on the committed 02_iv bytes to rtol 1e-12 (observed 0) by tests/reference_parity/test_track_a_alias_equivalence.py.",
         "sp.ivreg is a thin keyword-normalising wrapper that returns iv(formula=..., data=..., robust=..., cluster=..., **kwargs) (src/statspai/regression/iv.py), so the agreement is exact by construction as well as by measurement."
       ],
       "point_estimate_rel": {
@@ -5763,7 +5763,7 @@
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "36_mediation",
       "notes": [
-        "Alias of sp.mediation — proven equivalent on the committed 36_mediation bytes to rtol 1e-12 (observed 0) by tests/reference_parity/test_track_a_alias_equivalence.py.",
+        "Alias of sp.mediation -- proven equivalent on the committed 36_mediation bytes to rtol 1e-12 (observed 0) by tests/reference_parity/test_track_a_alias_equivalence.py.",
         "The bootstrap leg is seeded, so the alias reproduces the canonical ACME/ADE and their standard errors exactly, not merely within Monte Carlo error."
       ],
       "point_estimate_rel": {
@@ -6781,7 +6781,7 @@
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "30_oaxaca",
       "notes": [
-        "Alias of sp.decompose('oaxaca') — proven equivalent on the committed 30_oaxaca bytes to rtol 1e-12 (observed 0) by tests/reference_parity/test_track_a_alias_equivalence.py."
+        "Alias of sp.decompose('oaxaca') -- proven equivalent on the committed 30_oaxaca bytes to rtol 1e-12 (observed 0) by tests/reference_parity/test_track_a_alias_equivalence.py."
       ],
       "point_estimate_rel": {
         "R": 6.272984425624262e-16,
