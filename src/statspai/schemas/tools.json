@@ -5315,6 +5315,15 @@
           ],
           "type": "string"
         },
+        "stat_convention": {
+          "default": "statspai",
+          "description": "Weighted variance / quantile definition for the reweighted counterfactual (see ``_common.statistic_value``). ``'hmisc'`` reproduces ``ddecompose::dfl_decompose``, which uses ``Hmisc::wtd.var`` and ``Hmisc::wtd.quantile``; the reweighting itself is identical under both. ``stat='gini'`` is the exact plug-in Gini either way; ``ddecompose`` integrates the Lorenz curve numerically and differs from it in the fourth significant digit.",
+          "enum": [
+            "statspai",
+            "hmisc"
+          ],
+          "type": "string"
+        },
         "tau": {
           "default": 0.5,
           "description": "Quantile level or target treatment-effect index.",
@@ -8877,7 +8886,7 @@
     "name": "fepois"
   },
   {
-    "description": "Firpo-Fortin-Lemieux two-step detailed distributional decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Firpo-Fortin-Lemieux RIF regression: small perturbations to the covariate distribution induce small changes in the distributional statistic; Linear approximation of the recentered influence function is locally valid. Pre-conditions: Outcome is continuous (e.g. log earnings) with adequate distributional support; Covariates explain a non-trivial share of outcome variation across groups. Failure modes: RIF instability at extreme quantiles -> Avoid quantiles below ~0.05 or above ~0.95; widen the kernel bandwidth. Alternatives: sp.dfl_decompose, sp.oaxaca, sp.rif_decomposition. Typical minimum N: 500.",
+    "description": "Firpo-Fortin-Lemieux two-step detailed distributional decomposition. Validation: certified parity evidence. Assumptions: Firpo-Fortin-Lemieux RIF regression: small perturbations to the covariate distribution induce small changes in the distributional statistic; Linear approximation of the recentered influence function is locally valid. Pre-conditions: Outcome is continuous (e.g. log earnings) with adequate distributional support; Covariates explain a non-trivial share of outcome variation across groups. Failure modes: RIF instability at extreme quantiles -> Avoid quantiles below ~0.05 or above ~0.95; widen the kernel bandwidth. Alternatives: sp.dfl_decompose, sp.oaxaca, sp.rif_decomposition. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -8906,6 +8915,16 @@
           "default": 299,
           "description": "Number of bootstrap replications.",
           "type": "integer"
+        },
+        "quantile_convention": {
+          "default": "statspai",
+          "description": "Quantile RIF convention (``stat='quantile'`` / ``'iqr'``). ``'rifreg'`` reproduces ``ddecompose`` / ``rifreg``.",
+          "enum": [
+            "statspai",
+            "dineq",
+            "rifreg"
+          ],
+          "type": "string"
         },
         "reference": {
           "default": 0,
@@ -21346,7 +21365,8 @@
           "description": "Quantile RIF convention for ``statistic=\"quantile\"``. Use ``\"dineq\"`` for R ``dineq::rif`` parity.",
           "enum": [
             "statspai",
-            "dineq"
+            "dineq",
+            "rifreg"
           ],
           "type": "string"
         },
@@ -21375,7 +21395,7 @@
     "name": "rif_decomposition"
   },
   {
-    "description": "RIF regression (Firpo, Fortin & Lemieux 2009). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "RIF regression (Firpo, Fortin & Lemieux 2009). Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "formula": {
@@ -21387,7 +21407,8 @@
           "description": "Quantile RIF convention for ``statistic=\"quantile\"``.",
           "enum": [
             "statspai",
-            "dineq"
+            "dineq",
+            "rifreg"
           ],
           "type": "string"
         },

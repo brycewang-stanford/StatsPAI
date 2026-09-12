@@ -78,17 +78,29 @@ already installed; the others followed the same rule.
 | 2 | spatial | 29 | done | 13 | 4 + 1 gap |
 | 3 | weak-IV / diagnostics / meta | 26 | partial | 5 | 2 |
 | 4 | panel | 18 | partial | 3 | 2 |
-| 5 | network | 21 | not started | — | — |
-| 6 | mendelian | 23 | not started | — | — |
-| 7 | decomposition | 18 | not started | — | — |
+| 5 | network | 21 | done | 19 | 1 + 1 reference bug (`dyadRobust`) |
+| 6 | mendelian | 23 | done | 15 (14 bit-exact, `mr_raps` aligned) | 11 |
+| 7 | decomposition | 18 | partial | 8 | 6 |
 | 8 | structural | 10 | not started | — | — |
 
 **Cross-language coverage: 169 → 201 of 773 estimator callables
 (21.9% → 26.0%).**
 
-Families 5 and 6 need R packages that are not installed here (`igraph`,
-`sna`, `MendelianRandomization`); everything landed so far used a reference
-that was already present.
+Families 5 and 6 needed R packages that were not installed (`igraph`,
+`sna`, `ergm`, `dyadRobust`, `MendelianRandomization`, `TwoSampleMR`,
+`RadialMR`, `MRPRESSO`, `mr.raps` from GitHub); they are now.
+
+**After families 5–7 and the evidence-grade correction: 215 of 773
+(27.8%).** The correction first removed 26 promotions that had graded
+closed-form tests as cross-language parity (220 → 194); real comparisons
+then restored three of those (`mr`, `das_gupta`, `kitagawa_decompose`) and
+added the rest. `scripts/build_parity_index.py` now refuses a
+cross-language promotion whose tests load no reference.
+
+Also found on the way, outside any one family: **335 p-values in 180 modules
+computed as `1 − cdf`**, which loses all accuracy below ~1e-16 and returns
+exactly 0 for |z| above ~8.3. Found because `mr_heterogeneity`'s p = 3e-10
+disagreed with `TwoSampleMR` at 1e-7; fixed package-wide on the AST.
 
 ## What the yield rate actually turned out to be
 
@@ -107,6 +119,11 @@ test-coverage metric would predict:
 | Missing term | 2 | RE panel binary intercept; two-step `etregress` Heckman correction |
 | Wrong null distribution | 2 | `moran_residuals`; `rdrandinf` publishing p = 0.000 from a NaN |
 | Approximation where an exact form existed | 2 | AR / CLR grid endpoints |
+| Wrong estimator under the right name (families 6–7) | 3 | `mr_raps` (a Tukey M-estimator, not RAPS); `mr_presso` without Bonferroni; `yu_elwert_decompose(efficient)` selection not the residual |
+| Wrong direction / orientation | 3 | `mr_egger` not orienting variants; `gap_closing` reweighting by the reciprocal density ratio; `mr_median` lower-tail penalty |
+| Wrong aggregate / estimand | 3 | `das_gupta` product of means; Gini RIF averaging to neither Gini; `mr_cml` BIC by number of variants |
+| Mislabelled output | 1 | `ffl_decompose` specification / reweighting errors swapped |
+| Default that differs from every reference | 2 | `mr_ivw` fixed-effect SE; `mr_steiger` one-sided p |
 
 **None of these was found by a unit test, and the suite is not small — it
 is over 17,000 tests.** The reason is structural: unit tests assert
@@ -139,6 +156,14 @@ reference it names, on the same bytes.
 
 Per-family findings: `rd_parity_sweep_findings.md`,
 `spatial_parity_sweep_findings.md`, `weakiv_parity_sweep_findings.md`,
-`panel_parity_sweep_findings.md`. Every correctness fix reaches
+`panel_parity_sweep_findings.md`; families 5–7 are recorded in their
+reference-parity test modules (`test_network_parity.py`,
+`test_mr_R_parity.py`, `test_decomp_R_parity.py`), whose docstrings and R
+generators state every convention a number depends on.
+
+Decomposition still open: `fairlie`, `gelbach`, `machado_mata`,
+`melly_decompose`, `cfm_decompose`, `bauer_sinning`, `yun_nonlinear`,
+`shapley_inequality`, `source_decompose`, `subgroup_decompose`,
+`disparity_decompose`, `mediation_decompose`. Every correctness fix reaches
 `CHANGELOG.md` under **⚠️ Correctness fixes** with the recompute advice a
 user needs, and `MIGRATION.md` with a table of what moves.

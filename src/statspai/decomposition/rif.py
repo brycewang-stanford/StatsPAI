@@ -28,9 +28,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._result_serialize import ResultProtocolMixin
 from ._common import influence_function as _influence_function
 from ._results import DecompResultMixin
-from .._result_serialize import ResultProtocolMixin
 
 StatisticKind = Literal[
     "quantile",
@@ -72,7 +72,7 @@ def rif_values(
     y: np.ndarray,
     statistic: StatisticKind = "quantile",
     tau: float = 0.5,
-    quantile_convention: Literal["statspai", "dineq"] = "statspai",
+    quantile_convention: Literal["statspai", "dineq", "rifreg"] = "statspai",
 ) -> np.ndarray:
     """Compute the RIF of each observation.
 
@@ -90,7 +90,7 @@ def rif_values(
     statistic : str
     tau : float
         Quantile level (only used when ``statistic="quantile"``).
-    quantile_convention : {"statspai", "dineq"}, default "statspai"
+    quantile_convention : {"statspai", "dineq", "rifreg"}, default "statspai"
         Quantile RIF convention. ``"statspai"`` preserves the historical
         empirical-CDF/Silverman path; ``"dineq"`` mirrors the R
         ``dineq::rif`` convention (Hmisc type-7 quantile, R ``bw.nrd0``
@@ -149,7 +149,7 @@ def rifreg(
     data: pd.DataFrame,
     statistic: StatisticKind = "quantile",
     tau: float = 0.5,
-    quantile_convention: Literal["statspai", "dineq"] = "statspai",
+    quantile_convention: Literal["statspai", "dineq", "rifreg"] = "statspai",
 ) -> RIFResult:
     """RIF regression (Firpo, Fortin & Lemieux 2009).
 
@@ -161,7 +161,7 @@ def rifreg(
     statistic : {"quantile", "variance", "gini"}
     tau : float
         Quantile level (default 0.5 = median UQPE).
-    quantile_convention : {"statspai", "dineq"}, default "statspai"
+    quantile_convention : {"statspai", "dineq", "rifreg"}, default "statspai"
         Quantile RIF convention for ``statistic="quantile"``.
 
     Examples
@@ -255,7 +255,7 @@ def rif_decomposition(
     statistic: StatisticKind = "quantile",
     tau: float = 0.5,
     reference: int = 0,
-    quantile_convention: Literal["statspai", "dineq"] = "statspai",
+    quantile_convention: Literal["statspai", "dineq", "rifreg"] = "statspai",
 ) -> RIFDecompositionResult:
     """RIF Oaxaca-Blinder decomposition (FFL 2009, Section 5).
 
@@ -269,7 +269,7 @@ def rif_decomposition(
         Binary (0/1) group indicator column.
     reference : int, default 0
         Which group's coefficients to use as the reference (0 or 1).
-    quantile_convention : {"statspai", "dineq"}, default "statspai"
+    quantile_convention : {"statspai", "dineq", "rifreg"}, default "statspai"
         Quantile RIF convention for ``statistic="quantile"``. Use
         ``"dineq"`` for R ``dineq::rif`` parity.
 
@@ -281,8 +281,9 @@ def rif_decomposition(
     ...     'log_wage ~ education + experience + tenure',
     ...     data=df, group='female', statistic='quantile', tau=0.5,
     ... )
-    >>> print(r.summary())
-    >>> r.total_diff, r.explained, r.unexplained
+    >>> print(r.summary())  # doctest: +SKIP
+    >>> bool(abs(r.total_diff - (r.explained + r.unexplained)) < 1e-10)
+    True
 
     >>> # Decompose the gender gap in the Gini coefficient
     >>> r = sp.rif_decomposition(

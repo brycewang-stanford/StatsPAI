@@ -66,8 +66,8 @@ class FFLResult(DecompResultMixin):
     gap: float
     composition: float
     structure: float
-    spec_error: float  # reweighting / specification error
-    reweight_error: float  # RIF linearisation error
+    spec_error: float  # specification error X_C (b_C - b_ref): RIF not linear
+    reweight_error: float  # reweighting error (X_target - X_C) b_C: -> 0 if logit OK
     stat: str
     tau: float
     detailed_composition: pd.DataFrame  # per-covariate composition
@@ -164,11 +164,14 @@ def _rif_for_sample(
     w: np.ndarray,
     stat: str,
     tau: float,
+    quantile_convention: str = "statspai",
 ) -> np.ndarray:
     """
     Weighted RIF values — thin delegate to ``_common.influence_function``.
     """
-    return influence_function(y, stat, tau=tau, w=w)
+    return influence_function(
+        y, stat, tau=tau, w=w, quantile_convention=quantile_convention
+    )
 
 
 def _numerical_rif(
@@ -214,9 +217,29 @@ def ffl_decompose(
     n_boot: int = 299,
     alpha: float = 0.05,
     seed: Optional[int] = 12345,
+    quantile_convention: str = "statspai",
 ) -> FFLResult:
     """
     Firpo-Fortin-Lemieux two-step detailed distributional decomposition.
+
+    The gap ``nu_A - nu_B`` (RIF means, i.e. the plug-in statistics) splits
+    exactly into the pure composition effect, the specification error
+    ``X_C (b_C - b_ref)`` (non-zero when the RIF is not linear in X), the
+    pure wage-structure effect, and the reweighting error
+    ``(X_target - X_C) b_C`` (zero when the reweighting is consistent), as
+    in Firpo, Fortin & Lemieux (2018) and ``ddecompose::ob_decompose(
+    reweighting = TRUE)``, which this matches.
+
+    .. versionchanged:: 1.28.0
+       Three corrections, found against ``ddecompose``: ``spec_error`` and
+       ``reweight_error`` held each other's values; with ``reference=1``
+       the specification-error term had the wrong sign, so the components
+       did not add up to the gap (0.1184 against 0.1216 for the variance
+       on ``cps_wage``); and ``gap`` was the difference of
+       ``n / (n - 1)``-corrected statistics while the components add up to
+       the difference of RIF means, so the identity held only up to that
+       correction. ``gap`` is now the RIF-mean difference (the plug-in
+       statistics; ``stat_a`` / ``stat_b`` are unchanged).
 
     Parameters
     ----------
@@ -236,6 +259,9 @@ def ffl_decompose(
     n_boot : int
     alpha : float
     seed : int or None
+    quantile_convention : {'statspai', 'dineq', 'rifreg'}
+        Quantile RIF convention (``stat='quantile'`` / ``'iqr'``).
+        ``'rifreg'`` reproduces ``ddecompose`` / ``rifreg``.
 
     Examples
     --------
@@ -244,8 +270,11 @@ def ffl_decompose(
     >>> r = sp.ffl_decompose(df, y='log_wage', group='female',
     ...                      x=['education', 'experience', 'tenure'],
     ...                      stat='quantile', tau=0.5)
-    >>> print(r.summary())  # doctest: +ELLIPSIS
-    ...Firpo-Fortin-Lemieux Two-Step Decomposition...
+    >>> import contextlib, io
+    >>> with contextlib.redirect_stdout(io.StringIO()):
+    ...     text = r.summary()
+    >>> "Firpo-Fortin-Lemieux Two-Step Decomposition" in text
+    True
     >>> bool(abs(r.gap - (r.composition + r.structure
     ...                    + r.spec_error + r.reweight_error)) < 1e-6)
     True
@@ -297,12 +326,13 @@ def ffl_decompose(
     stat_b = _statistic_value(y_b, w_b, stat, tau)
     stat_cf = _statistic_value(y_cf, w_cf, stat, tau)
 
-    gap = stat_a - stat_b
-
     # Step 2: RIF regressions on each sample
-    rif_a = _rif_for_sample(y_a, w_a, stat, tau)
-    rif_b = _rif_for_sample(y_b, w_b, stat, tau)
-    rif_cf = _rif_for_sample(y_cf, w_cf, stat, tau)
+    rif_a = _rif_for_sample(y_a, w_a, stat, tau, quantile_convention)
+    rif_b = _rif_for_sample(y_b, w_b, stat, tau, quantile_convention)
+    rif_cf = _rif_for_sample(y_cf, w_cf, stat, tau, quantile_convention)
+    # The observed gap is the difference of RIF means -- the quantity the
+    # four components add up to (FFL 2018; ddecompose's observed difference).
+    gap = float(np.average(rif_a, weights=w_a) - np.average(rif_b, weights=w_b))
 
     beta_a, _, _ = wls(rif_a, X_a, w=w_a)
     beta_b, _, _ = wls(rif_b, X_b, w=w_b)
@@ -315,25 +345,24 @@ def ffl_decompose(
 
     # Detailed FFL decomposition per Firpo-Fortin-Lemieux 2018.
     # When reference = 0, cf is "B reweighted to match A's X":
-    #   Composition (X effect)  = (mean_Xcf − mean_Xb)' · β_B     [actual X change
-    #   under B's structure]
-    #   Structure (β effect)    = mean_Xa' · (β_A − β_cf)          [A's structure vs
-    #   reweighted-B's]
-    #   Spec error              = (mean_Xa − mean_Xcf)' · β_cf     [DFL reweighting
-    #   residual → ~0 if logit OK]
-    #   RW error                = mean_Xcf' · (β_cf − β_B)         [RIF linearisation
-    #   under new weights]
+    #   Composition (pure)  = (mean_Xcf − mean_Xb)' · β_B
+    #   Specification error = mean_Xcf' · (β_cf − β_B)   [RIF not linear in X]
+    #   Structure (pure)    = mean_Xa' · (β_A − β_cf)
+    #   Reweighting error   = (mean_Xa − mean_Xcf)' · β_cf  [→ 0 if logit OK]
+    # Reference = 1 (cf is A reweighted to B's X) is the mirror image with
+    # every term negated, since the gap stays A − B. Before 1.28.0 the two
+    # error terms were stored under each other's names, and the reference-1
+    # specification error carried the wrong sign.
     if reference == 0:
         composition_vec = (mean_Xcf - mean_Xb) * beta_b
         structure_vec = mean_Xa * (beta_a - beta_cf)
-        spec_vec = (mean_Xa - mean_Xcf) * beta_cf
-        rw_vec = mean_Xcf * (beta_cf - beta_b)
+        rw_vec = (mean_Xa - mean_Xcf) * beta_cf
+        spec_vec = mean_Xcf * (beta_cf - beta_b)
     else:
-        # Reference = 1: cf is "A reweighted to match B's X"
         composition_vec = (mean_Xa - mean_Xcf) * beta_a
         structure_vec = mean_Xb * (beta_cf - beta_b)
-        spec_vec = (mean_Xcf - mean_Xb) * beta_cf
-        rw_vec = mean_Xcf * (beta_cf - beta_a)
+        rw_vec = (mean_Xcf - mean_Xb) * beta_cf
+        spec_vec = mean_Xcf * (beta_a - beta_cf)
 
     composition = float(composition_vec.sum())
     structure = float(structure_vec.sum())
@@ -385,6 +414,7 @@ def ffl_decompose(
                     trim=trim,
                     inference="none",
                     seed=None,
+                    quantile_convention=quantile_convention,
                 )
                 return np.array(
                     [

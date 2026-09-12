@@ -25,7 +25,6 @@ from typing import Any, ClassVar, Dict, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from ._results import DecompResultMixin
 from ._common import (
     add_constant,
     bootstrap_ci,
@@ -33,8 +32,9 @@ from ._common import (
     logit_fit,
     logit_predict,
     prepare_frame,
-    statistic_value as _statistic_value,
 )
+from ._common import statistic_value as _statistic_value
+from ._results import DecompResultMixin
 
 # ════════════════════════════════════════════════════════════════════════
 # Core DFL reweighter
@@ -158,6 +158,7 @@ def _dfl_core(
     tau: float,
     reference: int,
     trim: float = 0.001,
+    convention: str = "statspai",
 ) -> Tuple[float, float, float, float, float, float, np.ndarray, np.ndarray]:
     """
     Core DFL computation, returning:
@@ -189,9 +190,9 @@ def _dfl_core(
         w_cf = w_a * psi
         y_cf = y_a
 
-    stat_a = _statistic_value(y_a, w_a, stat, tau)
-    stat_b = _statistic_value(y_b, w_b, stat, tau)
-    stat_cf = _statistic_value(y_cf, w_cf, stat, tau)
+    stat_a = _statistic_value(y_a, w_a, stat, tau, convention)
+    stat_b = _statistic_value(y_b, w_b, stat, tau, convention)
+    stat_cf = _statistic_value(y_cf, w_cf, stat, tau, convention)
 
     gap = stat_a - stat_b
     if reference == 0:
@@ -225,6 +226,7 @@ def dfl_decompose(
     alpha: float = 0.05,
     quantile_grid: Optional[Sequence[float]] = None,
     seed: Optional[int] = 12345,
+    stat_convention: str = "statspai",
 ) -> DFLResult:
     """
     DFL (1996) reweighting decomposition at a chosen distributional statistic.
@@ -262,6 +264,14 @@ def dfl_decompose(
     quantile_grid : sequence of τ ∈ (0, 1) or None
         If provided, also compute quantile-process decomposition on this grid.
     seed : int or None
+    stat_convention : {'statspai', 'hmisc'}, default 'statspai'
+        Weighted variance / quantile definition for the reweighted
+        counterfactual (see ``_common.statistic_value``). ``'hmisc'``
+        reproduces ``ddecompose::dfl_decompose``, which uses
+        ``Hmisc::wtd.var`` and ``Hmisc::wtd.quantile``; the reweighting
+        itself is identical under both. ``stat='gini'`` is the exact
+        plug-in Gini either way; ``ddecompose`` integrates the Lorenz curve
+        numerically and differs from it in the fourth significant digit.
 
     Returns
     -------
@@ -274,15 +284,15 @@ def dfl_decompose(
     >>> r = sp.dfl_decompose(df, y='log_wage', group='female',
     ...                      x=['education', 'experience', 'tenure'],
     ...                      stat='quantile', tau=0.5)
-    >>> r.summary()
-    >>> r.gap, r.composition, r.structure
+    >>> r.summary()  # doctest: +SKIP
+    >>> r.gap, r.composition, r.structure  # doctest: +SKIP
 
     >>> # Variance decomposition with bootstrap inference
     >>> r = sp.dfl_decompose(df, y='log_wage', group='female',
     ...                      x=['education', 'experience', 'tenure'],
     ...                      stat='variance', inference='bootstrap',
     ...                      n_boot=49, seed=12345)
-    >>> r.se['gap']
+    >>> r.se['gap']  # doctest: +SKIP
 
     See also :func:`sp.decompose` — the unified dispatcher — via
     ``sp.decompose('dfl', data=df, ...)``.
@@ -304,7 +314,17 @@ def dfl_decompose(
         raise ValueError("Need at least 5 obs per group.")
 
     gap, comp, struct, s_a, s_b, s_cf, w_cf, beta_ps = _dfl_core(
-        y_a, X_a, w_a, y_b, X_b, w_b, stat, tau, reference, trim=trim
+        y_a,
+        X_a,
+        w_a,
+        y_b,
+        X_b,
+        w_b,
+        stat,
+        tau,
+        reference,
+        trim=trim,
+        convention=stat_convention,
     )
 
     se: Optional[Dict[str, float]] = None
@@ -336,6 +356,7 @@ def dfl_decompose(
                     tau,
                     reference,
                     trim=trim,
+                    convention=stat_convention,
                 )
                 return np.array([_g, _c, _s])
             except Exception:  # noqa: BLE001  # pragma: no cover
@@ -362,14 +383,14 @@ def dfl_decompose(
     if quantile_grid is not None and stat == "quantile":
         rows = []
         for t in quantile_grid:
-            s_a_t = _statistic_value(y_a, w_a, "quantile", t)
-            s_b_t = _statistic_value(y_b, w_b, "quantile", t)
+            s_a_t = _statistic_value(y_a, w_a, "quantile", t, stat_convention)
+            s_b_t = _statistic_value(y_b, w_b, "quantile", t, stat_convention)
             if reference == 0:
-                s_cf_t = _statistic_value(y_b, w_cf, "quantile", t)
+                s_cf_t = _statistic_value(y_b, w_cf, "quantile", t, stat_convention)
                 struct_t = s_a_t - s_cf_t
                 comp_t = s_cf_t - s_b_t
             else:
-                s_cf_t = _statistic_value(y_a, w_cf, "quantile", t)
+                s_cf_t = _statistic_value(y_a, w_cf, "quantile", t, stat_convention)
                 comp_t = s_a_t - s_cf_t
                 struct_t = s_cf_t - s_b_t
             rows.append(

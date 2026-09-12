@@ -86,12 +86,12 @@ def decompose(method: str, /, **kwargs: Any) -> Any:
     >>> df = sp.decomposition.datasets.cps_wage()
     >>> r = sp.decompose('oaxaca', data=df, y='log_wage', group='female',
     ...                  x=['education', 'experience', 'tenure'])
-    >>> r.summary()
+    >>> r.summary()  # doctest: +SKIP
 
     >>> r = sp.decompose('ffl', data=df, y='log_wage', group='female',
     ...                  x=['education', 'experience', 'tenure'],
     ...                  stat='quantile', tau=0.5)
-    >>> r.summary()
+    >>> r.summary()  # doctest: +SKIP
 
     >>> # NOTE: ``method='aipw'`` below is passed through to
     >>> # ``gap_closing``'s own ``method`` parameter; the dispatcher's

@@ -43,4 +43,11 @@ y = (
 pd.DataFrame({"y": y, "t": t, "r": r, "x1": x1, "x2": x2}).to_csv(
     OUT / "decomp_ye.csv", index=False, float_format="%.17g"
 )
-print("wrote decomp_gap.csv, decomp_ye.csv")
+# rifreg / ffl_decompose: the bundled simulated CPS-style wage data,
+# exported once so R reads the same bytes.
+import statspai as sp  # noqa: E402
+
+sp.cps_wage()[["log_wage", "female", "education", "experience", "tenure"]].to_csv(
+    OUT / "decomp_cps.csv", index=False, float_format="%.17g"
+)
+print("wrote decomp_gap.csv, decomp_ye.csv, decomp_cps.csv")

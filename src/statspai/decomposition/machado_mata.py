@@ -24,8 +24,8 @@ from typing import Any, ClassVar, Dict, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from ._results import DecompResultMixin
 from ._common import add_constant, prepare_frame
+from ._results import DecompResultMixin
 
 # ════════════════════════════════════════════════════════════════════════
 # Quantile regression via IRLS (Koenker)
@@ -217,8 +217,11 @@ def machado_mata(
     >>> r = sp.machado_mata(df, y='log_wage', group='female',
     ...                     x=['education', 'experience', 'tenure'],
     ...                     tau_grid=[0.25, 0.5, 0.75], n_sim=100, seed=0)
-    >>> print(r.summary())  # doctest: +ELLIPSIS
-    ...Machado-Mata Quantile Decomposition...
+    >>> import contextlib, io
+    >>> with contextlib.redirect_stdout(io.StringIO()):
+    ...     text = r.summary()
+    >>> "Machado-Mata Quantile Decomposition" in text
+    True
     >>> list(r.quantile_grid['tau'])
     [0.25, 0.5, 0.75]
     >>> set(['gap', 'composition', 'structure']) <= set(r.quantile_grid.columns)

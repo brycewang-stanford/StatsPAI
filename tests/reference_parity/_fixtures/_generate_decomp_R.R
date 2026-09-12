@@ -2,8 +2,8 @@
 # ---------------------------------------------------------------------------
 # R reference for tests/reference_parity/test_decomp_R_parity.py
 #
-# Requires: R 4.5 + DasGuptR + ddecompose + cdgd + jsonlite. Run
-# _generate_decomp_data.py first (it writes decomp_gap.csv / decomp_ye.csv),
+# Requires: R 4.5 + DasGuptR + ddecompose + cdgd + rifreg + dineq + jsonlite. Run
+# _generate_decomp_data.py first (it writes decomp_gap / _ye / _cps.csv),
 # then this file from any directory.
 #
 # Conventions this fixture pins, each of which decides a number below
@@ -24,9 +24,26 @@
 #   StatsPAI: E[Y | R, T, X] by lm() within each of the four (R, T) cells
 #   and P(T = 1 | R, X) by glm(binomial) within each group -- the nuisance
 #   specification sp.yu_elwert_decompose uses.
+# * RIF quantiles: rifreg / ddecompose use Hmisc::wtd.quantile, density() at
+#   the quantile and the indicator y <= q (StatsPAI quantile_convention =
+#   "rifreg"; dineq::rif uses y < q).
+# * RIF Gini: rifreg::get_rif_gini integrates the piecewise-linear Lorenz
+#   curve with integrate() (rel.tol 1.2e-4). With the exact area its formula
+#   IS dineq::rif(method = "gini"), so the Gini references are
+#   dineq::rif + lm and ob_decompose with dineq's RIF as
+#   custom_rif_function; the stock rifreg Gini is emitted too, to show
+#   the size of its quadrature error.
+# * ob_decompose(reweighting = TRUE, trimming = FALSE) is the FFL (2018)
+#   reweighted RIF decomposition; reference_0 = TRUE reweights group 0 to
+#   group 1's covariates. Terms: observed, composition, structure,
+#   specification error, reweighting error.
+# * dfl_decompose on variance / quantiles uses Hmisc's weighted variance
+#   (denominator sum(w) - 1) and weighted quantile; the Gini is supplied
+#   exactly through custom_statistic_function (see the DFL block).
 # ---------------------------------------------------------------------------
 suppressPackageStartupMessages({
-  library(DasGuptR); library(ddecompose); library(cdgd); library(jsonlite)
+  library(DasGuptR); library(ddecompose); library(cdgd); library(rifreg)
+  library(dineq); library(jsonlite)
 })
 .a <- commandArgs(trailingOnly = FALSE)
 .f <- sub("^--file=", "", .a[grep("^--file=", .a)])
@@ -95,11 +112,70 @@ ce <- cdgd0_manual(Y = "y", D = "t", G = "r", YgivenGX.Pred_D1 = p1,
 out$cdgd <- list(point = setNames(as.list(ce$results$point), rownames(ce$results)),
                  se = setNames(as.list(ce$results$se), rownames(ce$results)))
 
+# ---- RIF regression (rifreg package, dineq) --------------------------------
+c <- read.csv(file.path(OUT, "decomp_cps.csv"))
+fm <- log_wage ~ education + experience
+rr <- function(st, ...) unname(rifreg(fm, data = c, statistic = st, ...)$estimates[, 1])
+out$rifreg_variance <- rr("variance")
+out$rifreg_gini_stock <- rr("gini")
+out$rifreg_quantiles <- lapply(c(0.1, 0.5, 0.9), function(p) rr("quantiles", probs = p))
+out$dineq_gini_lm <- unname(coef(lm(dineq::rif(c$log_wage, method = "gini") ~ education + experience, data = c)))
+
+# ---- FFL reweighted RIF decomposition (ddecompose::ob_decompose) -----------
+c$female <- factor(c$female)
+fx <- log_wage ~ education + experience + tenure
+gini_exact <- function(dep_var, weights, probs = NULL)
+  data.frame(rif_gini = dineq::rif(dep_var, weights = weights, method = "gini"), weights = weights)
+ffl <- function(ref, ...) {
+  r <- suppressWarnings(ob_decompose(fx, data = c, group = female, reweighting = TRUE,
+                                     reference_0 = ref, trimming = FALSE, ...))
+  x <- r[[1]]$decomposition_terms[1, ]
+  list(observed = x$Observed_difference, composition = x$Composition_effect,
+       structure = x$Structure_effect, specification = x$Specification_error,
+       reweighting = x$Reweighting_error)
+}
+for (ref in c(TRUE, FALSE)) {
+  tag <- if (ref) "ref0" else "ref1"
+  out[[paste0("ffl_variance_", tag)]] <- ffl(ref, rifreg_statistic = "variance")
+  out[[paste0("ffl_gini_", tag)]] <- ffl(ref, rifreg_statistic = "custom",
+                                         custom_rif_function = gini_exact)
+  out[[paste0("ffl_gini_stock_", tag)]] <- ffl(ref, rifreg_statistic = "gini")
+  for (p in c(0.1, 0.5, 0.9))
+    out[[sprintf("ffl_q%02d_%s", round(100 * p), tag)]] <-
+      ffl(ref, rifreg_statistic = "quantiles", rifreg_probs = p)
+}
+
+# ---- DFL on non-mean statistics (ddecompose::dfl_decompose) ----------------
+# Hmisc::wtd.var / wtd.quantile define the reweighted counterfactual's
+# variance and quantile (StatsPAI stat_convention = "hmisc"). The stock Gini
+# integrates the Lorenz curve with integrate(); the exact plug-in Gini is
+# passed as custom_statistic_function so the comparison is not of quadrature.
+gini_stat <- function(dep_var, weights) dineq::gini.wtd(dep_var, weights)
+for (ref in c(TRUE, FALSE)) {
+  tag <- if (ref) "ref0" else "ref1"
+  r <- suppressWarnings(dfl_decompose(fx, data = c, group = female, reference_0 = ref,
+                                      statistics = c("variance", "quantiles"),
+                                      probs = c(0.1, 0.5, 0.9),
+                                      custom_statistic_function = gini_stat,
+                                      trimming = FALSE))
+  s <- r$decomposition_other_statistics
+  q <- r$decomposition_quantiles
+  row <- function(df, i) list(observed = df[i, "Observed difference"],
+                              composition = df[i, "Composition effect"],
+                              structure = df[i, "Structure effect"])
+  out[[paste0("dfl_variance_", tag)]] <- row(s, which(s$statistic == "Variance"))
+  out[[paste0("dfl_gini_", tag)]] <- row(s, which(s$statistic == "Custom statistic"))
+  for (i in seq_len(nrow(q)))
+    out[[sprintf("dfl_q%02d_%s", round(100 * q$probs[i]), tag)]] <- row(q, i)
+}
+
 out$provenance <- list(
   R = paste(R.version$major, R.version$minor, sep = "."),
   DasGuptR = as.character(packageVersion("DasGuptR")),
   ddecompose = as.character(packageVersion("ddecompose")),
-  cdgd = as.character(packageVersion("cdgd")))
+  cdgd = as.character(packageVersion("cdgd")),
+  rifreg = as.character(packageVersion("rifreg")),
+  dineq = as.character(packageVersion("dineq")))
 writeLines(toJSON(out, auto_unbox = TRUE, digits = NA, pretty = TRUE),
            file.path(OUT, "decomp_R.json"))
 cat("wrote decomp_R.json\n")

@@ -7,18 +7,14 @@ variance estimation used across multiple decomposition methods.
 
 from __future__ import annotations
 
-from typing import Optional, Sequence, Tuple, Union, Callable, cast
 import warnings
+from typing import Callable, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import (
-    ConvergenceFailure,
-    DataInsufficient,
-    MethodIncompatibility,
-)
+from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
 # ════════════════════════════════════════════════════════════════════════
 # Weighted OLS
@@ -609,8 +605,37 @@ def kde_at(y: np.ndarray, point: float, w: Optional[np.ndarray] = None) -> float
 # ════════════════════════════════════════════════════════════════════════
 
 
+def gini_population(y: np.ndarray, w: Optional[np.ndarray] = None) -> float:
+    """Plug-in (population) Gini of the weighted empirical distribution.
+
+    The exact area formula ``sum_i L_{i+1} p_i - L_i p_{i+1}`` over the
+    piecewise-linear Lorenz curve, as ``dineq::gini.wtd`` and
+    ``ineq::Gini(corr = FALSE)``. This is the functional whose RIF
+    ``influence_function(y, "gini")`` returns. ``rifreg::compute_gini``
+    targets the same area but integrates it with ``integrate()``
+    (rel.tol 1.2e-4), so it differs in the fifth significant digit.
+    """
+    y = np.asarray(y, dtype=float).ravel()
+    w = np.ones_like(y) if w is None else np.asarray(w, dtype=float).ravel()
+    order = np.argsort(y, kind="stable")
+    y_s, w_s = y[order], w[order] / w.sum()
+    p = np.cumsum(w_s)
+    lor = np.cumsum(w_s * y_s)
+    if lor[-1] <= 0:
+        return float("nan")
+    lor = lor / lor[-1]
+    return float(np.sum(lor[1:] * p[:-1]) - np.sum(lor[:-1] * p[1:]))
+
+
 def weighted_gini(y: np.ndarray, w: np.ndarray) -> float:
-    """Weighted Gini coefficient (Lerman-Yitzhaki 1989)."""
+    """Weighted Gini coefficient (Lerman-Yitzhaki 1989), bias-corrected.
+
+    ``2 cov(y, F) / mu`` with numpy's reliability-weight covariance, i.e.
+    the plug-in Gini times ``n / (n - 1)`` for unit weights --
+    ``ineq::Gini(corr = TRUE)``. This is ``sp.inequality_index``'s
+    documented default. The decomposition machinery uses
+    :func:`gini_population` instead, the functional the Gini RIF targets.
+    """
     order = np.argsort(y)
     y_s = y[order]
     w_s = w[order]
@@ -630,29 +655,64 @@ def statistic_value(
     w: np.ndarray,
     stat: str,
     tau: float = 0.5,
+    convention: str = "statspai",
 ) -> float:
     """
     Evaluate a weighted distributional statistic.
 
     Supported: ``mean``, ``variance``, ``std``, ``quantile`` (with tau),
     ``iqr``, ``gini``, ``log_var``, ``theil_t``, ``theil_l``, ``atkinson``.
+
+    ``convention`` fixes the weighted variance and quantile, which have no
+    single definition under non-uniform weights:
+
+    * ``"statspai"`` -- reliability-weight variance
+      ``sum w (y - ybar)^2 / (sum w - sum w^2 / sum w)`` and the
+      interpolated weighted quantile;
+    * ``"hmisc"`` -- ``Hmisc::wtd.var`` (frequency weights,
+      ``/ (sum w - 1)``) and ``Hmisc::wtd.quantile``, as
+      ``ddecompose::dfl_decompose`` uses.
+
+    With unit weights the two variances coincide.
     """
     y = np.asarray(y, dtype=float)
     w = np.asarray(w, dtype=float)
+    if convention not in ("statspai", "hmisc"):
+        raise MethodIncompatibility(
+            f"convention must be 'statspai' or 'hmisc', got {convention!r}",
+            recovery_hint="Use convention='statspai' or convention='hmisc'.",
+            diagnostics={"convention": convention},
+        )
+    hmisc = convention == "hmisc"
+
+    def _var(v: np.ndarray) -> float:
+        if hmisc:
+            sw = float(w.sum())
+            vbar = float(np.sum(w * v) / sw)
+            return float(np.sum(w * (v - vbar) ** 2) / (sw - 1.0))
+        return float(np.cov(v, aweights=w))
+
+    def _q(t: float) -> float:
+        if hmisc:
+            return float(weighted_quantile_hmisc(y, t, w=w))
+        return float(weighted_quantile(y, t, w=w))
+
     if stat == "mean":
         return float(np.average(y, weights=w))
     if stat == "variance":
-        return float(np.cov(y, aweights=w))
+        return _var(y)
     if stat == "std":
-        return float(np.sqrt(np.cov(y, aweights=w)))
+        return float(np.sqrt(_var(y)))
     if stat == "quantile":
-        return float(weighted_quantile(y, tau, w=w))
+        return _q(tau)
     if stat == "iqr":
-        return float(weighted_quantile(y, 0.75, w=w) - weighted_quantile(y, 0.25, w=w))
+        return _q(0.75) - _q(0.25)
     if stat == "gini":
-        return weighted_gini(y, w)
+        # The plug-in Gini, i.e. the mean of its RIF -- so a decomposition's
+        # observed gap and its RIF-based components refer to one statistic.
+        return gini_population(y, w)
     if stat == "log_var":
-        return float(np.cov(np.log(np.clip(y, 1e-12, None)), aweights=w))
+        return _var(np.log(np.clip(y, 1e-12, None)))
     if stat == "theil_t":
         yp = np.clip(y, 1e-12, None)
         mu = float(np.average(yp, weights=w))
@@ -754,15 +814,19 @@ def influence_function(
             kern = np.exp(-0.5 * ((y - q) / h) ** 2) / (h * np.sqrt(2 * np.pi))
             f_q = max(float(np.average(kern, weights=w)), 1e-12)
             return q + (tau - (y <= q).astype(float)) / f_q
-        if quantile_convention == "dineq":
+        if quantile_convention in ("dineq", "rifreg"):
+            # Both R packages: Hmisc::wtd.quantile and stats::density at the
+            # quantile (bw.nrd0, Gaussian, 512-point FFT grid). They differ
+            # only in the indicator -- dineq::rif uses y < q, rifreg
+            # (and ddecompose, built on it) y <= q -- which matters only for
+            # observations tied with q.
             q = float(weighted_quantile_hmisc(y, tau, w=w))
             f_q = max(kde_at_dineq(y, q, w=w), 1e-12)
-            return q + (tau - (y < q).astype(float)) / f_q
+            below = (y < q) if quantile_convention == "dineq" else (y <= q)
+            return q + (tau - below.astype(float)) / f_q
         raise MethodIncompatibility(
-            "quantile_convention must be 'statspai' or 'dineq'",
-            recovery_hint=(
-                "Use quantile_convention='statspai' or " "quantile_convention='dineq'."
-            ),
+            "quantile_convention must be 'statspai', 'dineq' or 'rifreg'",
+            recovery_hint=("Use quantile_convention='statspai', 'dineq' or 'rifreg'."),
             diagnostics={"quantile_convention": quantile_convention},
         )
     if stat == "mean":
@@ -798,17 +862,24 @@ def influence_function(
             ),
         )
     if stat == "gini":
-        order = np.argsort(y)
+        # RIF of the plug-in (population) Gini, as dineq::rif(method="gini"):
+        #   RIF = 1 + (1 - G) y / mu - (2 / mu) (y (1 - p) + GL(y)),
+        # p the inclusive weighted ECDF and GL the generalised Lorenz
+        # ordinate. With this ECDF the sample mean of the RIF is exactly G.
+        # Before 1.28.0 this used the midpoint ECDF together with the
+        # n/(n-1)-inflated Gini, so the RIF averaged to neither Gini
+        # (0.10405 against 0.10442 on cps_wage) and RIF-regression
+        # coefficients were off by up to 1% relative.
+        order = np.argsort(y, kind="stable")
         y_s = y[order]
-        w_s = w[order]
-        W = w_s.sum()
-        mu = float(np.average(y_s, weights=w_s))
+        w_s = w[order] / w.sum()
+        mu = float(np.sum(w_s * y_s))
         if mu <= 0:
             return np.full_like(y, np.nan)
-        F = (np.cumsum(w_s) - 0.5 * w_s) / W
-        GL = np.cumsum(w_s * y_s) / W
-        G = 2.0 * float(np.cov(y_s, F, aweights=w_s)[0, 1]) / mu
-        rif_sorted = 1.0 + (2.0 / mu) * (y_s * F - GL) - ((G + 1.0) / mu) * y_s
+        p = np.cumsum(w_s)
+        GL = np.cumsum(w_s * y_s)
+        G = gini_population(y, w)
+        rif_sorted = 1.0 + (1.0 - G) * y_s / mu - (2.0 / mu) * (y_s * (1.0 - p) + GL)
         rif_orig = np.empty_like(rif_sorted)
         rif_orig[order] = rif_sorted
         return cast(np.ndarray, rif_orig)

@@ -39,13 +39,20 @@ def test_ffl_aggregate_identity(wage, stat):
     r = sp.decompose(
         "ffl", data=wage, y="log_wage", group="female", x=X, stat=stat, tau=0.5
     )
-    # The raw gap is exactly the difference in the statistic across groups.
-    assert r.gap == pytest.approx(r.stat_a - r.stat_b, rel=1e-9, abs=1e-9)
-    # gap = composition + structure + the two approximation error terms (RIF
-    # spec error + reweighting error). Exact for linear functionals (mean);
-    # closes to RIF-linearisation order for nonlinear stats (variance/gini).
+    # The gap is the difference of RIF means -- the plug-in statistics. For
+    # the variance, stat_a / stat_b carry the n/(n-1) sample correction, so
+    # they differ from the plug-in gap by exactly that factor.
+    if stat == "variance":
+        ya = wage.loc[wage.female == 0, "log_wage"]
+        yb = wage.loc[wage.female == 1, "log_wage"]
+        assert r.gap == pytest.approx(ya.var(ddof=0) - yb.var(ddof=0), rel=1e-12)
+    else:
+        assert r.gap == pytest.approx(r.stat_a - r.stat_b, rel=1e-9, abs=1e-9)
+    # gap = composition + structure + specification error + reweighting
+    # error, an exact identity (FFL 2018). Before 1.28.0 this test allowed
+    # 1e-3 because, with reference=1, the terms did not add up.
     recon = r.composition + r.structure + r.spec_error + r.reweight_error
-    assert recon == pytest.approx(r.gap, rel=1e-3, abs=1e-3)
+    assert recon == pytest.approx(r.gap, rel=1e-12, abs=1e-15)
 
 
 def test_ffl_reference_one(wage):

@@ -118,7 +118,7 @@ functions the parity index vouches for as agreeing with R or Stata.
   - The correction alone took cross-language coverage, as reported by
     `sp.parity_summary()`, from 220 to 194 of 773 estimator callables
     (28.5% → 25.1%). The real comparisons added elsewhere in this release
-    bring it to 213 (27.6%).
+    bring it to 215 (27.8%).
 - **The index now refuses to build such an entry.** A promotion claiming an
   R or Stata side must list a test that loads a reference fixture or calls
   R, or record a `provenance` for embedded constants (the live-captured
@@ -285,12 +285,44 @@ two maintained by the methods' authors or their groups).
   efficient-influence-function standard errors. `method="plugin"` (the
   default) is unchanged.
 
+- **The Gini RIF averaged to neither Gini.** `sp.rifreg(statistic="gini")`,
+  `sp.rif_values` and the Gini path of `sp.ffl_decompose` combined a
+  midpoint ECDF with the `n/(n−1)`-corrected Gini; on `cps_wage` the RIF
+  mean was 0.10405 against a plug-in Gini of 0.10442 and RIF-regression
+  coefficients were up to 1% off. The RIF is now `dineq::rif(method =
+  "gini")`'s, to 1e-12 per observation, whose mean is exactly the plug-in
+  Gini; the Gini inside the decomposition machinery (`dfl_decompose`,
+  `ffl_decompose`) is that plug-in Gini. `sp.inequality_index("gini")`
+  keeps its documented bias-corrected default.
+- **`sp.ffl_decompose` mislabelled and mis-signed its error terms.**
+  `spec_error` held the reweighting error and `reweight_error` the
+  specification error; with `reference=1` the specification error also had
+  the wrong sign, so the four components did not add up to the gap (0.1184
+  against 0.1216 for the variance on `cps_wage`). `gap` is now the
+  difference of RIF means — the plug-in statistics the components add up
+  to, exactly; for the variance that removes the `n/(n−1)` factor it
+  carried. Every term now matches `ddecompose::ob_decompose(reweighting =
+  TRUE)` in both directions for the variance, Gini and 10th/50th/90th
+  percentiles.
+
 ### Added — decomposition
 
 - Cross-language evidence for `das_gupta`, `kitagawa_decompose`,
-  `gap_closing` and `yu_elwert_decompose`
+  `gap_closing`, `yu_elwert_decompose`, `rifreg`, `ffl_decompose` and
+  (beyond the mean) `dfl_decompose`
   (`tests/reference_parity/test_decomp_R_parity.py`), on Das Gupta's worked
-  examples and on simulated data read by both sides from the same bytes.
+  examples, simulated data and `cps_wage`, read by both sides from the same
+  bytes.
+- `quantile_convention="rifreg"` for `sp.rifreg`, `sp.rif_values` and
+  `sp.ffl_decompose`: `rifreg` / `ddecompose` use the indicator `y ≤ q`
+  where `dineq` uses `y < q`.
+- `sp.dfl_decompose(stat_convention="hmisc")`: the weighted variance
+  (`Σw(y − ȳ)² / (Σw − 1)`) and quantile of `Hmisc`, which
+  `ddecompose::dfl_decompose` uses for the reweighted counterfactual; with
+  it the variance and quantile decompositions match `ddecompose` to 1e-12.
+  The default keeps the reliability-weight variance. Neither is wrong —
+  under non-uniform weights the two are different estimators — and the
+  choice moves the composition effect in the fourth significant digit.
 
 ### ⚠️ Correctness fixes — small p-values package-wide
 

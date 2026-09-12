@@ -2320,6 +2320,40 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Added in 1.28.0 by the decomposition sweep. It found: sp.das_gupta decomposing the product of factor MEANS instead of the sum over strata of factor products its docstring stated (factor shares 0% / +333% where DasGuptR gives 37% / -52% on Das Gupta's Table 6.5); sp.gap_closing reweighting by the reciprocal of the density ratio in its IPW and AIPW paths (IPW counterfactual gap twice the observed gap on a DGP whose true value is zero); and sp.yu_elwert_decompose(method='efficient') computing selection as a covariance of DR scores, so its components did not add up to the disparity."
         ),
     },
+    "rifreg": {
+        "status": "bit-exact",
+        "reference": "R rifreg::rifreg (variance, quantiles) and dineq::rif + lm (Gini)",
+        "reference_versions": {
+            "rifreg": "1.1.0",
+            "dineq": "0.1.0",
+            "ddecompose": "1.0.0",
+        },
+        "tolerance": (
+            "Coefficients at 1e-10 for the variance and the 10th/50th/90th percentiles (quantile_convention='rifreg') and for the Gini against dineq's exact RIF; the stock rifreg Gini, which integrates the Lorenz curve numerically, agrees to 1e-4."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_decomp_R_parity.py"],
+        "note": (
+            "Added in 1.28.0 by the decomposition sweep. It found the Gini RIF built from a midpoint ECDF and the n/(n-1)-corrected Gini, averaging to neither Gini (RIF-regression coefficients up to 1% off), and sp.ffl_decompose storing the specification and reweighting errors under each other's names with a sign error for reference=1, so its components did not add up."
+        ),
+    },
+    "ffl_decompose": {
+        "status": "bit-exact",
+        "reference": "R ddecompose::ob_decompose(reweighting = TRUE)",
+        "reference_versions": {
+            "rifreg": "1.1.0",
+            "dineq": "0.1.0",
+            "ddecompose": "1.0.0",
+        },
+        "tolerance": (
+            "Observed difference, composition, structure, specification and reweighting errors at 1e-9 (1e-12 absolute floor; logit MLE in the path), both reference directions, for the variance, Gini (exact RIF supplied as custom_rif_function) and 10th/50th/90th percentiles."
+        ),
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_decomp_R_parity.py"],
+        "note": (
+            "Added in 1.28.0 by the decomposition sweep. It found the Gini RIF built from a midpoint ECDF and the n/(n-1)-corrected Gini, averaging to neither Gini (RIF-regression coefficients up to 1% off), and sp.ffl_decompose storing the specification and reweighting errors under each other's names with a sign error for reference=1, so its components did not add up."
+        ),
+    },
 }
 
 

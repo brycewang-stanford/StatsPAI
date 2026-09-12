@@ -37565,6 +37565,15 @@
             ],
             "type": "string"
           },
+          "stat_convention": {
+            "default": "statspai",
+            "description": "Weighted variance / quantile definition for the reweighted counterfactual (see ``_common.statistic_value``). ``'hmisc'`` reproduces ``ddecompose::dfl_decompose``, which uses ``Hmisc::wtd.var`` and ``Hmisc::wtd.quantile``; the reweighting itself is identical under both. ``stat='gini'`` is the exact plug-in Gini either way; ``ddecompose`` integrates the Lorenz curve numerically and differs from it in the fourth significant digit.",
+            "enum": [
+              "statspai",
+              "hmisc"
+            ],
+            "type": "string"
+          },
           "tau": {
             "default": 0.5,
             "description": "Quantile level or target treatment-effect index.",
@@ -37670,7 +37679,8 @@
             "description": "Quantile RIF convention for ``statistic=\"quantile\"``. Use ``\"dineq\"`` for R ``dineq::rif`` parity.",
             "enum": [
               "statspai",
-              "dineq"
+              "dineq",
+              "rifreg"
             ],
             "type": "string"
           },
@@ -37720,7 +37730,7 @@
     ],
     "category": "decomposition",
     "cost_profile": "",
-    "description": "Firpo-Fortin-Lemieux two-step detailed distributional decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Firpo-Fortin-Lemieux two-step detailed distributional decomposition. Validation: certified parity evidence.",
     "example": "sp.ffl_decompose(data=df, y='log_wage', group='female', x=['education'], stat='variance')",
     "failure_modes": [
       {
@@ -37740,7 +37750,7 @@
     ],
     "reference": "firpo2009unconditional",
     "signature": {
-      "description": "Firpo-Fortin-Lemieux two-step detailed distributional decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Firpo-Fortin-Lemieux two-step detailed distributional decomposition. Validation: certified parity evidence.",
       "name": "ffl_decompose",
       "parameters": {
         "properties": {
@@ -37774,6 +37784,16 @@
             "default": 299,
             "description": "Number of bootstrap replications.",
             "type": "integer"
+          },
+          "quantile_convention": {
+            "default": "statspai",
+            "description": "Quantile RIF convention (``stat='quantile'`` / ``'iqr'``). ``'rifreg'`` reproduces ``ddecompose`` / ``rifreg``.",
+            "enum": [
+              "statspai",
+              "dineq",
+              "rifreg"
+            ],
+            "type": "string"
           },
           "reference": {
             "default": 0,
@@ -37832,10 +37852,11 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "tests/reference_parity/test_decomp_R_parity.py",
       "tests/reference_parity/test_decomposition_family_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_decomposition_family_parity.py"
+      "Cross-language parity (bit-exact) vs R ddecompose::ob_decompose(reweighting = TRUE) [ddecompose 1.0.0, dineq 0.1.0, rifreg 1.1.0]; tolerance Observed difference, composition, structure, specification and reweighting errors at 1e-9 (1e-12 absolute floor; logit MLE in the path), both reference directions, for the variance, Gini (exact RIF supplied as custom_rif_function) and 10th/50th/90th percentiles. -- tests/reference_parity/test_decomp_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [

@@ -208,3 +208,173 @@ def test_yu_elwert_analytic_needs_efficient():
     e = pd.read_csv(_FIX / "decomp_ye.csv")
     with pytest.raises(ValueError, match="efficient"):
         sp.yu_elwert_decompose(e, "y", "t", "r", ["x1"], inference="analytic")
+
+
+# --------------------------------------------------------------------------
+# RIF regression (rifreg, dineq) and the FFL decomposition (ddecompose)
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def cps():
+    return pd.read_csv(_FIX / "decomp_cps.csv")
+
+
+_RIF_FM = "log_wage ~ education + experience"
+
+
+def test_rifreg_variance_matches_rifreg(cps):
+    r = sp.rifreg(_RIF_FM, data=cps, statistic="variance")
+    np.testing.assert_allclose(r.params.to_numpy(), R["rifreg_variance"], rtol=1e-10)
+
+
+@pytest.mark.parametrize("i, tau", [(0, 0.1), (1, 0.5), (2, 0.9)])
+def test_rifreg_quantile_matches_rifreg(cps, i, tau):
+    r = sp.rifreg(
+        _RIF_FM, data=cps, statistic="quantile", tau=tau, quantile_convention="rifreg"
+    )
+    np.testing.assert_allclose(
+        r.params.to_numpy(), R["rifreg_quantiles"][i], rtol=1e-10
+    )
+
+
+def test_rifreg_gini_matches_the_exact_gini_rif(cps):
+    """dineq's RIF is rifreg's formula with the Lorenz area computed exactly.
+
+    Before 1.28.0 the Gini RIF used the midpoint ECDF with the n/(n-1)
+    Gini and averaged to neither Gini; coefficients were ~1% off.
+    """
+    r = sp.rifreg(_RIF_FM, data=cps, statistic="gini")
+    np.testing.assert_allclose(r.params.to_numpy(), R["dineq_gini_lm"], rtol=1e-10)
+    # The stock rifreg Gini integrates the Lorenz curve numerically; the gap
+    # to the exact value is its quadrature error, not a convention.
+    np.testing.assert_allclose(r.params.to_numpy(), R["rifreg_gini_stock"], rtol=1e-4)
+
+
+def test_gini_rif_averages_to_the_gini(cps):
+    from statspai.decomposition._common import gini_population, influence_function
+
+    y = cps["log_wage"].to_numpy()
+    _close(influence_function(y, "gini").mean(), gini_population(y), rtol=1e-12)
+
+
+_FFL_TERMS = {
+    "gap": "observed",
+    "composition": "composition",
+    "structure": "structure",
+    "spec_error": "specification",
+    "reweight_error": "reweighting",
+}
+
+
+def _ffl(cps, stat, reference, tau=0.5):
+    return sp.ffl_decompose(
+        cps,
+        "log_wage",
+        "female",
+        ["education", "experience", "tenure"],
+        stat=stat,
+        tau=tau,
+        reference=reference,
+        trim=0.0,
+        inference="none",
+        quantile_convention="rifreg",
+    )
+
+
+@pytest.mark.parametrize("reference, tag", [(1, "ref0"), (0, "ref1")])
+@pytest.mark.parametrize(
+    "stat, key, tau",
+    [
+        ("variance", "variance", 0.5),
+        ("gini", "gini", 0.5),
+        ("quantile", "q10", 0.1),
+        ("quantile", "q50", 0.5),
+        ("quantile", "q90", 0.9),
+    ],
+)
+def test_ffl_matches_ob_decompose_reweighted(cps, stat, key, tau, reference, tag):
+    """Every term of the reweighted RIF decomposition, both directions.
+
+    StatsPAI's reference=1 reweights group 0 onto group 1's covariates, as
+    ddecompose's reference_0 = TRUE; StatsPAI's gaps are group 0 minus 1,
+    so every term is the negative of ddecompose's. Before 1.28.0 the two
+    error terms were swapped and, with reference=1, did not add up.
+    """
+    r = _ffl(cps, stat, reference, tau)
+    ref = R[f"ffl_{key}_{tag}"]
+    # 1e-9 relative, with a 1e-12 absolute floor: the error terms are
+    # differences of nearly equal products, so the logit MLE's last digits
+    # (IRLS in R, Newton here) reach them at ~1e-12 absolute.
+    for ours, theirs in _FFL_TERMS.items():
+        _close(getattr(r, ours), -ref[theirs], rtol=1e-9, atol=1e-12)
+
+
+@pytest.mark.parametrize("reference", [0, 1])
+@pytest.mark.parametrize("stat", ["mean", "variance", "gini", "quantile"])
+def test_ffl_terms_add_up_to_the_gap(cps, stat, reference):
+    r = _ffl(cps, stat, reference)
+    total = r.composition + r.structure + r.spec_error + r.reweight_error
+    _close(total, r.gap, rtol=1e-12, atol=1e-15)
+
+
+@pytest.mark.parametrize("reference, tag", [(1, "ref0"), (0, "ref1")])
+@pytest.mark.parametrize(
+    "stat, key, tau",
+    [
+        ("variance", "variance", 0.5),
+        ("gini", "gini", 0.5),
+        ("quantile", "q10", 0.1),
+        ("quantile", "q50", 0.5),
+        ("quantile", "q90", 0.9),
+    ],
+)
+def test_dfl_non_mean_statistics_match_ddecompose(cps, stat, key, tau, reference, tag):
+    """DFL beyond the mean (Track A module 31_dfl covers the mean).
+
+    stat_convention="hmisc" is ddecompose's weighted variance / quantile;
+    the Gini reference is ddecompose run with the exact plug-in Gini, since
+    its built-in Gini integrates the Lorenz curve numerically.
+    """
+    r = sp.dfl_decompose(
+        cps,
+        "log_wage",
+        "female",
+        ["education", "experience", "tenure"],
+        stat=stat,
+        tau=tau,
+        reference=reference,
+        trim=0.0,
+        inference="none",
+        stat_convention="hmisc",
+    )
+    ref = R[f"dfl_{key}_{tag}"]
+    # The Gini gap is a difference of two ~0.1 values equal to 1e-3, so
+    # identical formulas summed in a different order meet at ~1e-12 absolute.
+    _close(r.gap, -ref["observed"], rtol=1e-10, atol=1e-12)
+    _close(r.composition, -ref["composition"], rtol=1e-9, atol=1e-12)
+    _close(r.structure, -ref["structure"], rtol=1e-9, atol=1e-12)
+
+
+def test_dfl_stat_conventions_agree_on_unit_weights(cps):
+    """The two conventions only differ once weights are non-uniform."""
+    kw = dict(stat="variance", trim=0.0, inference="none")
+    a = sp.dfl_decompose(cps, "log_wage", "female", ["education"], **kw)
+    b = sp.dfl_decompose(
+        cps, "log_wage", "female", ["education"], stat_convention="hmisc", **kw
+    )
+    _close(a.gap, b.gap, rtol=1e-13)
+    assert a.composition != b.composition
+
+
+def test_dfl_rejects_unknown_convention(cps):
+    with pytest.raises(Exception, match="convention"):
+        sp.dfl_decompose(
+            cps,
+            "log_wage",
+            "female",
+            ["education"],
+            stat="variance",
+            inference="none",
+            stat_convention="stata",
+        )

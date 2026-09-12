@@ -2213,6 +2213,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_decomp_R_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -3499,21 +3502,32 @@
       "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
     },
     {
-      "function": "ffl_decompose",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_decomposition_family_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "ffl_decompose",
+      "notes": [
+        "Added in 1.28.0 by the decomposition sweep. It found the Gini RIF built from a midpoint ECDF and the n/(n-1)-corrected Gini, averaging to neither Gini (RIF-regression coefficients up to 1% off), and sp.ffl_decompose storing the specification and reweighting errors under each other's names with a sign error for reference=1, so its components did not add up."
+      ],
+      "reference": "R ddecompose::ob_decompose(reweighting = TRUE)",
+      "reference_versions": {
+        "ddecompose": "1.0.0",
+        "dineq": "0.1.0",
+        "rifreg": "1.1.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_decomp_R_parity.py"
+      ],
+      "tolerance": "Observed difference, composition, structure, specification and reweighting errors at 1e-9 (1e-12 absolute floor; logit MLE in the path), both reference directions, for the variance, Gini (exact RIF supplied as custom_rif_function) and 10th/50th/90th percentiles."
     },
     {
       "function": "finegray",
@@ -9384,21 +9398,32 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
-      "function": "rifreg",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_decomposition_family_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "rifreg",
+      "notes": [
+        "Added in 1.28.0 by the decomposition sweep. It found the Gini RIF built from a midpoint ECDF and the n/(n-1)-corrected Gini, averaging to neither Gini (RIF-regression coefficients up to 1% off), and sp.ffl_decompose storing the specification and reweighting errors under each other's names with a sign error for reference=1, so its components did not add up."
+      ],
+      "reference": "R rifreg::rifreg (variance, quantiles) and dineq::rif + lm (Gini)",
+      "reference_versions": {
+        "ddecompose": "1.0.0",
+        "dineq": "0.1.0",
+        "rifreg": "1.1.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_decomp_R_parity.py"
+      ],
+      "tolerance": "Coefficients at 1e-10 for the variance and the 10th/50th/90th percentiles (quantile_convention='rifreg') and for the Gini against dineq's exact RIF; the stock rifreg Gini, which integrates the Lorenz curve numerically, agrees to 1e-4."
     },
     {
       "also_verified_by": [

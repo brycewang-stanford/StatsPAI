@@ -145,8 +145,11 @@ def melly_decompose(
     >>> r = sp.melly_decompose(df, y='log_wage', group='female',
     ...                        x=['education', 'experience', 'tenure'],
     ...                        tau_grid=[0.25, 0.5, 0.75])
-    >>> print(r.summary())  # doctest: +ELLIPSIS
-    ...Melly (2005) Quantile Decomposition...
+    >>> import contextlib, io
+    >>> with contextlib.redirect_stdout(io.StringIO()):
+    ...     text = r.summary()
+    >>> "Melly (2005) Quantile Decomposition" in text
+    True
     >>> list(r.quantile_grid['tau'])
     [0.25, 0.5, 0.75]
     >>> set(['gap', 'composition', 'structure']) <= set(r.quantile_grid.columns)
