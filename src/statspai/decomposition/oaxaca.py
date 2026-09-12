@@ -761,7 +761,7 @@ def gelbach(
     added_x: Sequence[str],
     var_of_interest: Optional[str] = None,
     alpha: float = 0.05,
-    robust: bool = True,
+    vce: str = "robust",
 ) -> GelbachResult:
     """
     Gelbach (2016) decomposition of omitted variable bias.
@@ -786,9 +786,9 @@ def gelbach(
         Defaults to the first element of ``base_x``.
     alpha : float, default 0.05
         Significance level.
-    robust : bool, default True
-        Heteroskedasticity-robust (``True``) or homoskedastic covariance,
-        as ``b1x2 ..., robust`` and plain ``b1x2``.
+    vce : {"robust", "nonrobust"}, default "robust"
+        Heteroskedasticity-robust or homoskedastic covariance, as
+        ``b1x2 ..., robust`` and plain ``b1x2``.
 
     Notes on inference
     ------------------
@@ -851,6 +851,8 @@ def gelbach(
         var_of_interest = base_x[0]
     if var_of_interest not in base_x:
         raise ValueError(f"var_of_interest='{var_of_interest}' is not in base_x.")
+    if vce not in ("robust", "nonrobust"):
+        raise ValueError(f"vce must be 'robust' or 'nonrobust', got {vce!r}.")
 
     overlap = set(base_x) & set(added_x)
     if overlap:
@@ -908,7 +910,7 @@ def gelbach(
     Dmat = x1x1_inv @ X_b1.T @ H  # k1 x k2
     Rres = H - X_b1 @ Dmat  # n x k2
 
-    if robust:
+    if vce == "robust":
         vu = XX_inv @ ((X_long * e_long[:, None]).T @ (X_long * e_long[:, None]))
         vu = vu @ XX_inv * n / (n - K)
         # stacked system: scores X'e and x1'r_g; _robust default n/(n-1)

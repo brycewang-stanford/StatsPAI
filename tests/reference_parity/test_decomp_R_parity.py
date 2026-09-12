@@ -393,18 +393,18 @@ def stata_data():
 
 
 @pytest.mark.parametrize(
-    "robust, key", [(True, "gelbach"), (False, "gelbach_homoskedastic")]
+    "vce, key", [("robust", "gelbach"), ("nonrobust", "gelbach_homoskedastic")]
 )
-def test_gelbach_matches_b1x2(stata_data, robust, key):
+def test_gelbach_matches_b1x2(stata_data, vce, key):
     """Contributions and their joint covariance, as Gelbach's own command.
 
     Before 1.28.0 the SEs were a two-term delta method that dropped the
     covariance between the auxiliary and long-regression estimates.
     """
     added = ["experience", "tenure", "union"]
-    r = sp.gelbach(stata_data, "log_wage", ["education"], added, robust=robust)
+    r = sp.gelbach(stata_data, "log_wage", ["education"], added, vce=vce)
     ref = ST[key]
-    if robust:
+    if vce == "robust":
         np.testing.assert_allclose(
             r.decomposition["delta"], ST["gelbach"]["delta"], rtol=1e-10
         )

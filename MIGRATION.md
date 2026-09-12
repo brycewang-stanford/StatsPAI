@@ -74,7 +74,7 @@ one-step weight (`h`), and on `abdata` moved by less than 1e-12.
 | `rifreg`, `rif_values` | `statistic="gini"` | Gini RIF of the plug-in Gini (`dineq`) | coefficients up to 1% |
 | `ffl_decompose` | all | `spec_error` ↔ `reweight_error` swapped back; `reference=1` sign; `gap` = RIF-mean difference | variance gap 0.12163 → 0.12157; reference-1 components now add up |
 | `bauer_sinning`, `yun_nonlinear` | new outputs | `se`, `vcov`, `detailed_unexplained`, `detailed["se"]` (mvdcmp) | point estimates unchanged |
-| `gelbach` | standard errors | `b1x2`'s joint covariance; new `vcov`, `total_se`, `robust=` | 0.03% on `cps_wage` |
+| `gelbach` | standard errors | `b1x2`'s joint covariance; new `vcov`, `total_se`, `vce=` | 0.03% on `cps_wage` |
 | `ffl_decompose`, `dfl_decompose` | `stat="gini"` | plug-in Gini (was `n/(n−1)`-corrected) | 0.4% |
 
 **What to do.** Re-run stratified `das_gupta` calls, passing `by=` with the
