@@ -47,8 +47,9 @@ def test_detailed_contributions_sum_to_explained(binary_two_group):
 def test_group_counts_partition_the_sample(binary_two_group):
     r = sp.yun_nonlinear(binary_two_group, "y", "grp", ["x1"], model="logit")
     assert r.n_a + r.n_b == len(binary_two_group)
-    # SE is only populated when inference is requested; default is None.
-    assert r.se is None or r.se >= 0.0
+    # Delta-method SEs (mvdcmp) for the explained, unexplained and total gap.
+    assert set(r.se) == {"explained", "unexplained", "gap"}
+    assert all(v >= 0.0 for v in r.se.values())
 
 
 def test_probit_link_also_satisfies_identity(binary_two_group):

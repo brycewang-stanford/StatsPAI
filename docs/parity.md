@@ -27,13 +27,13 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 197 |
+| **Compared against R/Stata** (T2) | bit-exact | 198 |
 | | aligned | 21 |
-| | **subtotal** | **218** |
+| | **subtotal** | **219** |
 | **No external software reference** | analytical-only (T1) | 207 |
 | | external-replication (published numbers) | 4 |
 | | **subtotal** | **211** |
-| No numerical evidence yet | unverified | 753 |
+| No numerical evidence yet | unverified | 752 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 218 | 428 | 773 | 28.2% |
+| estimator callables | 219 | 429 | 773 | 28.3% |
 | infrastructure (parity N/A) | 0 | 0 | 124 | 0.0% |
 | result / exception classes | 0 | 1 | 285 | 0.0% |
-| **all registered** | 218 | 429 | 1182 | 18.4% |
+| **all registered** | 219 | 430 | 1182 | 18.5% |
 
 ### Coverage by estimator family
 
@@ -56,7 +56,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | regression | 30 | 35 | 37 |
 | spatial | 18 | 22 | 34 |
 | panel | 13 | 20 | 30 |
-| decomposition | 14 | 17 | 29 |
+| decomposition | 15 | 18 | 29 |
 | network | 23 | 24 | 25 |
 | inference | 8 | 20 | 23 |
 | mendelian | 14 | 17 | 23 |
@@ -96,7 +96,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 0 | 1 | 1 |
 | synth | 0 | 0 | 1 |
 
-## bit-exact — 197 functions
+## bit-exact — 198 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -110,6 +110,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `attributable_risk` | base-R closed form (attributable fraction exposed + PAF) | R 4.5.2 | AFE + PAF point estimates 1e-12 abs (observed 0); CI not pinned | — / — | [`test_epi_extra_parity.py`](../tests/reference_parity/test_epi_extra_parity.py) (+1) |
 | `bacon_decomposition` | bacondecomp::bacon | R 4.5.2; bacondecomp 0.1.1 | rel_est<=1e-06, rel_se<=1e-06 | 5.6e-16 / 9.6e-09 | [`20_bacon.py`](../tests/r_parity/20_bacon.py) (+2) |
 | `balance_panel` | base R counts == n_periods | R 4.5.2 | rel_est<=1e-06, rel_se<=1e-06 | 0 / 0 | [`69_balance_panel.py`](../tests/r_parity/69_balance_panel.py) (+2) |
+| `bauer_sinning` | Stata mvdcmp (Powers, Yoshioka & Yun), logit | Stata 18 MP; mvdcmp SSC | Logit: explained, unexplained, gap, Yun-weighted detailed explained and unexplained terms, their 6x6 delta-method covariance and the aggregate SEs at 1e-9. Probit aligned at 2e-6 (reference probit not fully converged; see note). | — / — | [`test_decomp_R_parity.py`](../tests/reference_parity/test_decomp_R_parity.py) |
 | `benjamini_hochberg` | base R stats::p.adjust(method='BH') | R 4.5.2 | exact (atol 1e-15; observed 0) | — / — | [`test_mht_parity.py`](../tests/reference_parity/test_mht_parity.py) (+1) |
 | `betareg` | betareg::betareg(link.phi="log") | R 4.5.2; betareg 3.2.4 | rel_est<=1e-06, rel_se<=0.01 | 2.2e-08 / 3.1e-08 | [`61_betareg.py`](../tests/r_parity/61_betareg.py) (+2) |
 | `betweenness_centrality` | R igraph::betweenness | igraph 2.3.3 | Normalised and raw on karate, raw on the directed graph, all at 1e-10. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) (+1) |
@@ -553,6 +554,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `xtlsdvc` | [`test_lsdvc_parity.py`](../tests/reference_parity/test_lsdvc_parity.py) |
 | `yatchew_linearity_test` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) |
 
-## unverified — 753 functions
+## unverified — 752 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

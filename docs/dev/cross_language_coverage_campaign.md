@@ -80,7 +80,7 @@ already installed; the others followed the same rule.
 | 4 | panel | 18 | partial | 3 | 2 |
 | 5 | network | 21 | done | 19 | 1 + 1 reference bug (`dyadRobust`) |
 | 6 | mendelian | 23 | done | 15 (14 bit-exact, `mr_raps` aligned) | 11 |
-| 7 | decomposition | 18 | partial | 8 | 6 |
+| 7 | decomposition | 18 | partial | 12 (R: 8; Stata: `gelbach`, `subgroup_decompose`, `source_decompose`, `bauer_sinning`) | 8 |
 | 8 | structural | 10 | not started | — | — |
 
 **Cross-language coverage: 169 → 201 of 773 estimator callables
@@ -90,8 +90,8 @@ Families 5 and 6 needed R packages that were not installed (`igraph`,
 `sna`, `ergm`, `dyadRobust`, `MendelianRandomization`, `TwoSampleMR`,
 `RadialMR`, `MRPRESSO`, `mr.raps` from GitHub); they are now.
 
-**After families 5–7 and the evidence-grade correction: 215 of 773
-(27.8%).** The correction first removed 26 promotions that had graded
+**After families 5–7 and the evidence-grade correction: 219 of 773
+(28.3%).** The correction first removed 26 promotions that had graded
 closed-form tests as cross-language parity (220 → 194); real comparisons
 then restored three of those (`mr`, `das_gupta`, `kitagawa_decompose`) and
 added the rest. `scripts/build_parity_index.py` now refuses a
@@ -161,9 +161,18 @@ reference-parity test modules (`test_network_parity.py`,
 `test_mr_R_parity.py`, `test_decomp_R_parity.py`), whose docstrings and R
 generators state every convention a number depends on.
 
-Decomposition still open: `fairlie`, `gelbach`, `machado_mata`,
-`melly_decompose`, `cfm_decompose`, `bauer_sinning`, `yun_nonlinear`,
-`shapley_inequality`, `source_decompose`, `subgroup_decompose`,
-`disparity_decompose`, `mediation_decompose`. Every correctness fix reaches
+Decomposition still open: `fairlie` (Stata `fairlie` randomises the
+matching, so T3 at best), `machado_mata` and `melly_decompose` (simulation
+based; no deterministic reference installed), `cfm_decompose` (R
+`Counterfactual` archived), `shapley_inequality`, `disparity_decompose`,
+`mediation_decompose`. The Stata-side references run from
+`tests/reference_parity/_fixtures/_generate_decomp_stata.do` with SSC
+packages in a private ado directory.
+
+A reference can itself be the imprecise side: `mvdcmp` fits its probits at
+Stata's default convergence tolerance, which stops two iterations in and
+leaves the coefficients 4e-8 short. The probit decomposition is therefore
+graded aligned, with the fixture recording Stata's own tightly converged
+probit to show StatsPAI's matches it to 1e-12. Every correctness fix reaches
 `CHANGELOG.md` under **⚠️ Correctness fixes** with the recompute advice a
 user needs, and `MIGRATION.md` with a table of what moves.

@@ -559,6 +559,30 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "bauer_sinning",
+      "notes": [
+        "Added in 1.28.0 by the decomposition sweep against Stata 18 MP and SSC mvdcmp (Powers, Yoshioka & Yun), run by tests/reference_parity/_fixtures/_generate_decomp_stata.do. bauer_sinning had no inference and no detailed unexplained component; both are now ports of mvdcmp. Probit is graded within logit's entry: mvdcmp's probit stops at Stata's default tolerance, so it agrees to 2e-6, and the fixture shows Stata's tightly converged probit equals StatsPAI's to 1e-12."
+      ],
+      "reference": "Stata mvdcmp (Powers, Yoshioka & Yun), logit",
+      "reference_versions": {
+        "Stata": "18 MP",
+        "mvdcmp": "SSC"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_decomp_R_parity.py"
+      ],
+      "tolerance": "Logit: explained, unexplained, gap, Yun-weighted detailed explained and unexplained terms, their 6x6 delta-method covariance and the aggregate SEs at 1e-9. Probit aligned at 2e-6 (reference probit not fully converged; see note)."
+    },
+    {
       "function": "bayes_iv",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."

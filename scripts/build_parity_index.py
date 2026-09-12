@@ -2393,6 +2393,19 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Added in 1.28.0 by the decomposition sweep against Stata 18 MP and SSC b1x2 (Gelbach), ineqdeco (Jenkins) and descogini (Lopez-Feldman), run by tests/reference_parity/_fixtures/_generate_decomp_stata.do. It found sp.gelbach's SEs omitting the covariance between the auxiliary and long regressions."
         ),
     },
+    "bauer_sinning": {
+        "status": "bit-exact",
+        "reference": "Stata mvdcmp (Powers, Yoshioka & Yun), logit",
+        "reference_versions": {"Stata": "18 MP", "mvdcmp": "SSC"},
+        "tolerance": (
+            "Logit: explained, unexplained, gap, Yun-weighted detailed explained and unexplained terms, their 6x6 delta-method covariance and the aggregate SEs at 1e-9. Probit aligned at 2e-6 (reference probit not fully converged; see note)."
+        ),
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_decomp_R_parity.py"],
+        "note": (
+            "Added in 1.28.0 by the decomposition sweep against Stata 18 MP and SSC mvdcmp (Powers, Yoshioka & Yun), run by tests/reference_parity/_fixtures/_generate_decomp_stata.do. bauer_sinning had no inference and no detailed unexplained component; both are now ports of mvdcmp. Probit is graded within logit's entry: mvdcmp's probit stops at Stata's default tolerance, so it agrees to 2e-6, and the fixture shows Stata's tightly converged probit equals StatsPAI's to 1e-12."
+        ),
+    },
 }
 
 

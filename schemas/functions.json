@@ -46627,7 +46627,7 @@
     }
   },
   {
-    "description": "Bauer-Sinning (2008) nonlinear Oaxaca-Blinder decomposition with",
+    "description": "Bauer-Sinning (2008) nonlinear Oaxaca-Blinder decomposition with Validation: certified parity evidence.",
     "name": "bauer_sinning",
     "parameters": {
       "properties": {

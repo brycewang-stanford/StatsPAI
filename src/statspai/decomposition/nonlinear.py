@@ -37,8 +37,8 @@ from typing import Any, ClassVar, Dict, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-from ._results import DecompResultMixin
 from ._common import add_constant, logit_fit, logit_predict, prepare_frame
+from ._results import DecompResultMixin
 
 # ════════════════════════════════════════════════════════════════════════
 # Probit helpers (optional)
@@ -73,6 +73,27 @@ def _probit_fit(
             beta = beta_new
             break
         beta = beta_new
+    # Fisher scoring converges only linearly for probit, so stopping at a
+    # 1e-8 step left the estimates ~1e-7 short of the MLE (visible against
+    # Stata's probit in the fifth-to-seventh digit of downstream
+    # decompositions). Finish with full Newton steps on the observed
+    # information, which converge quadratically from here.
+    for _ in range(25):
+        eta_u = X @ beta
+        q = 2.0 * y - 1.0
+        zq = q * eta_u
+        lam_o = q * np.exp(norm.logpdf(zq) - norm.logcdf(zq))
+        h = lam_o * (lam_o + eta_u)
+        info_o = (X * h[:, None]).T @ X
+        try:
+            step = np.linalg.solve(info_o, X.T @ lam_o)
+        except np.linalg.LinAlgError:
+            break
+        if not np.all(np.isfinite(step)):
+            break
+        beta = beta + step
+        if np.max(np.abs(step)) < 1e-12:
+            break
     eta = np.clip(X @ beta, -8, 8)
     phi = norm.pdf(eta)
     Phi = np.clip(norm.cdf(eta), 1e-10, 1 - 1e-10)
@@ -104,6 +125,20 @@ def _probit_predict(beta: np.ndarray, X: np.ndarray) -> np.ndarray:
     return np.asarray(norm.cdf(np.clip(X @ beta, -8, 8)))
 
 
+def _probit_oim_vcov(y: np.ndarray, X: np.ndarray, beta: np.ndarray) -> np.ndarray:
+    """Inverse observed information of the probit log likelihood (Stata e(V))."""
+    from scipy.stats import norm
+
+    eta = X @ beta
+    q = 2.0 * y - 1.0
+    z = q * eta
+    lam = q * np.exp(norm.logpdf(z) - norm.logcdf(z))
+    h = lam * (lam + eta)
+    info = (X * h[:, None]).T @ X
+    vcov = np.linalg.inv(info)
+    return 0.5 * (vcov + vcov.T)
+
+
 # ════════════════════════════════════════════════════════════════════════
 # Result
 # ════════════════════════════════════════════════════════════════════════
@@ -130,6 +165,8 @@ class NonlinearDecompResult(DecompResultMixin):
     n_a: int
     n_b: int
     se: Optional[Dict[str, float]] = None
+    detailed_unexplained: Optional[pd.DataFrame] = None
+    vcov: Optional[pd.DataFrame] = None
 
     def summary(self) -> str:
         lines = [
@@ -148,6 +185,10 @@ class NonlinearDecompResult(DecompResultMixin):
             lines.append("")
             lines.append("  Detailed explained:")
             lines.append(self.detailed.round(4).to_string(index=False))
+        if self.detailed_unexplained is not None:
+            lines.append("")
+            lines.append("  Detailed unexplained:")
+            lines.append(self.detailed_unexplained.round(4).to_string(index=False))
         lines.append("━" * 62)
         text = "\n".join(lines)
         print(text)
@@ -387,38 +428,74 @@ def bauer_sinning(
     predict = logit_predict if model == "logit" else _probit_predict
     fit = logit_fit if model == "logit" else _probit_fit
 
-    beta_a, _ = fit(y_a, X_a)
-    beta_b, _ = fit(y_b, X_b)
+    beta_a, V_a = fit(y_a, X_a)
+    beta_b, V_b = fit(y_b, X_b)
+    if model == "probit":
+        # Stata's probit e(V) is the inverse observed information; the fit
+        # helper returns the expected information, which differs off the
+        # canonical link. Use the observed Hessian for inference.
+        V_a = _probit_oim_vcov(y_a, X_a, beta_a)
+        V_b = _probit_oim_vcov(y_b, X_b, beta_b)
 
     p_a_obs = predict(beta_a, X_a).mean()
     p_b_obs = predict(beta_b, X_b).mean()
     gap = p_a_obs - p_b_obs
 
-    # Counterfactual predictions under reference beta
+    # Port of mvdcmp (Powers, Yoshioka & Yun 2011). Group "0" supplies the
+    # reference coefficients: A for reference=0, B for reference=1, in which
+    # case every mvdcmp term is the negative of this function's (the gap
+    # stays A - B).
     if reference == 0:
-        beta_ref = beta_a
+        x0, b0, V0, x1, b1, V1, sign = X_a, beta_a, V_a, X_b, beta_b, V_b, 1.0
     else:
-        beta_ref = beta_b
-    p_a_ref = predict(beta_ref, X_a).mean()
-    p_b_ref = predict(beta_ref, X_b).mean()
-    explained = p_a_ref - p_b_ref
+        x0, b0, V0, x1, b1, V1, sign = X_b, beta_b, V_b, X_a, beta_a, V_a, -1.0
+
+    def _pdf(Xm: np.ndarray, bm: np.ndarray) -> np.ndarray:
+        if model == "logit":
+            p = logit_predict(bm, Xm)
+            return np.asarray(p * (1.0 - p))
+        from scipy.stats import norm
+
+        return np.asarray(norm.pdf(Xm @ bm))
+
+    E = float(predict(b0, x0).mean() - predict(b0, x1).mean())
+    C = float(predict(b0, x1).mean() - predict(b1, x1).mean())
+    explained = sign * E
     unexplained = gap - explained
 
-    # Yun weights (first-moment linearisation)
-    mean_Xa = X_a.mean(axis=0)
-    mean_Xb = X_b.mean(axis=0)
-    delta = (mean_Xa - mean_Xb) * beta_ref  # includes constant
-    total = delta.sum()
-    if abs(total) > 1e-12:
-        weights = delta / total
-    else:
-        weights = np.zeros_like(delta)
-    contributions = weights * explained
-    # Skip constant
+    m0 = x0.mean(axis=0)
+    m1 = x1.mean(axis=0)
+    k = len(b0)
+    A_x = float((m0 - m1) @ b0)
+    A_b = float(m1 @ (b0 - b1))
+    Wdx = (m0 - m1) * b0 / A_x if abs(A_x) > 1e-300 else np.zeros(k)
+    Wdb = m1 * (b0 - b1) / A_b if abs(A_b) > 1e-300 else np.zeros(k)
+    eye = np.eye(k)
+    dW = eye * ((m0 - m1) / A_x)[:, None] - np.outer(b0 * (m0 - m1), m0 - m1) / A_x**2
+    dwA = eye * (m1 / A_b)[:, None] - np.outer(m1 * (b0 - b1), m1) / A_b**2
+    dwB = -dwA
+    g00 = (x0 * _pdf(x0, b0)[:, None]).mean(axis=0)
+    g10 = (x1 * _pdf(x1, b0)[:, None]).mean(axis=0)
+    g11 = (x1 * _pdf(x1, b1)[:, None]).mean(axis=0)
+    dEdb = np.outer(Wdx, g00 - g10) + dW * E
+    dCdb1 = np.outer(Wdb, g10) + dwA * C
+    dCdb2 = dwB * C - np.outer(Wdb, g11)
+    Z = np.zeros((k, k))
+    J = np.block([[dEdb, Z], [dCdb1, dCdb2]])
+    Vb = np.block([[V0, Z], [Z, V1]])
+    eV = J @ Vb @ J.T  # covariance of (E_k, C_k); invariant to the sign flip
+    se_E = float(np.sqrt(max((g00 - g10) @ V0 @ (g00 - g10), 0.0)))
+    se_C = float(np.sqrt(max(g10 @ V0 @ g10 + g11 @ V1 @ g11, 0.0)))
+    se_R = float(np.sqrt(max(eV.sum(), 0.0)))
+    se_Ek = np.sqrt(np.clip(np.diag(eV)[:k], 0.0, None))
+    se_Ck = np.sqrt(np.clip(np.diag(eV)[k:], 0.0, None))
+
+    contributions = sign * Wdx * E
     detailed = pd.DataFrame(
         {
             "variable": list(x),
             "contribution": contributions[1:],
+            "se": se_Ek[1:],
             "pct_of_explained": (
                 contributions[1:] / explained * 100
                 if abs(explained) > 1e-12
@@ -426,6 +503,18 @@ def bauer_sinning(
             ),
         }
     )
+    names = ["_cons"] + list(x)
+    order = list(range(1, k)) + [0]
+    detailed_unexplained = pd.DataFrame(
+        {
+            "variable": [names[i] for i in order],
+            "contribution": [sign * Wdb[i] * C for i in order],
+            "se": [se_Ck[i] for i in order],
+        }
+    )
+    labels = [f"explained:{n}" for n in names] + [f"unexplained:{n}" for n in names]
+    vcov = pd.DataFrame(eV, index=labels, columns=labels)
+    se = {"explained": se_E, "unexplained": se_C, "gap": se_R}
 
     return NonlinearDecompResult(
         method="Bauer-Sinning (Yun weights)",
@@ -439,6 +528,9 @@ def bauer_sinning(
         reference=reference,
         n_a=int(len(y_a)),
         n_b=int(len(y_b)),
+        se=se,
+        detailed_unexplained=detailed_unexplained,
+        vcov=vcov,
     )
 
 

@@ -449,3 +449,68 @@ def test_source_decompose_conventions_share_every_ratio(stata_data):
     _close(a.total_gini, b.total_gini * n / (n - 1), rtol=1e-12)
     for col in ("share", "gini_corr", "pct_of_gini"):
         np.testing.assert_allclose(a.sources[col], b.sources[col], rtol=1e-12)
+
+
+# ---- Yun / Bauer-Sinning nonlinear decomposition vs mvdcmp -----------------
+
+_MV_NAMES = ["education", "experience", "_cons"]
+
+
+def _mv_check(stata_data, model, rtol, atol):
+    r = sp.bauer_sinning(
+        stata_data,
+        y="union",
+        group="female",
+        x=["education", "experience"],
+        model=model,
+    )
+    ref = ST[f"mvdcmp_{model}"]
+    b = np.array(ref["b"])
+    V = np.array(ref["V"])
+    _close(r.explained, b[6], rtol=rtol, atol=atol)
+    _close(r.unexplained, b[7], rtol=rtol, atol=atol)
+    _close(r.gap, b[8], rtol=rtol, atol=atol)
+    det = r.detailed.set_index("variable")
+    un = r.detailed_unexplained.set_index("variable")
+    for i, name in enumerate(_MV_NAMES):
+        if name != "_cons":
+            _close(det.loc[name, "contribution"], b[i], rtol=rtol, atol=atol)
+        _close(un.loc[name, "contribution"], b[3 + i], rtol=rtol, atol=atol)
+    labels = [f"explained:{n}" for n in _MV_NAMES] + [
+        f"unexplained:{n}" for n in _MV_NAMES
+    ]
+    np.testing.assert_allclose(
+        r.vcov.loc[labels, labels].to_numpy(), V[:6, :6], rtol=rtol, atol=atol
+    )
+    _close(r.se["explained"] ** 2, V[6, 6], rtol=rtol)
+    _close(r.se["unexplained"] ** 2, V[7, 7], rtol=rtol)
+    _close(r.se["gap"] ** 2, V[8, 8], rtol=rtol)
+
+
+def test_bauer_sinning_logit_matches_mvdcmp(stata_data):
+    """Point estimates, Yun-weighted detail, delta-method covariance.
+
+    Logit's canonical link lets Stata's default tolerance reach the MLE, so
+    this is exact up to the two fits' last digits.
+    """
+    _mv_check(stata_data, "logit", rtol=1e-9, atol=1e-13)
+
+
+def test_bauer_sinning_probit_is_aligned_with_mvdcmp(stata_data):
+    """Aligned, not bit-exact: mvdcmp's probit stops at Stata's default
+    tolerance (see the next test), which moves every term by <= 1e-6."""
+    _mv_check(stata_data, "probit", rtol=2e-6, atol=1e-12)
+
+
+def test_statspai_probit_is_statas_tightly_converged_probit(stata_data):
+    from statspai.decomposition.nonlinear import _probit_fit
+
+    fits = ST["probit_fits"]
+    for g in (0, 1):
+        d = stata_data[stata_data["female"] == g]
+        X = np.column_stack([np.ones(len(d)), d["education"], d["experience"]])
+        beta, _ = _probit_fit(d["union"].to_numpy(dtype=float), X)
+        ours = np.array([beta[1], beta[2], beta[0]])
+        np.testing.assert_allclose(ours, fits[f"tight_{g}"], rtol=1e-12)
+    # ... and Stata's default fit, which mvdcmp uses, is the one that is short.
+    assert not np.allclose(fits["default_1"], fits["tight_1"], rtol=1e-10, atol=0.0)

@@ -315,6 +315,15 @@ two maintained by the methods' authors or their groups).
   (`1′V1`, as `b1x2` reports it). Point estimates are unchanged; on
   `cps_wage` the SEs moved by 0.03%.
 
+- **`sp.bauer_sinning` / `sp.yun_nonlinear` reported no inference and no
+  detailed unexplained part.** They now port `mvdcmp` (Powers, Yoshioka &
+  Yun): the Yun-weighted detail of both the explained and the unexplained
+  component (`detailed_unexplained`, including the constant), the joint
+  delta-method covariance `vcov`, and `se` for the explained, unexplained
+  and total gap. Point estimates are unchanged. Probit fits now finish with
+  observed-information Newton steps: Fisher scoring stopped ~1e-8 short of
+  the MLE (this also touches `sp.fairlie(model="probit")` at that level).
+
 ### Added — decomposition
 
 - Cross-language evidence for `das_gupta`, `kitagawa_decompose`,
@@ -327,6 +336,11 @@ two maintained by the methods' authors or their groups).
   1e-9 on the full covariance), `subgroup_decompose` (`ineqdeco`, GE(0),
   GE(1), GE(2) total / within / between to 1e-12) and `source_decompose`
   (`descogini`, every share, Gini and Gini correlation to 1e-12).
+- Evidence for `bauer_sinning` against Stata `mvdcmp`: logit to 1e-9 on
+  every term, detail and covariance; probit aligned to 2e-6, because
+  `mvdcmp` fits its probits at Stata's default tolerance (the fixture
+  records that Stata's tightly converged probit equals StatsPAI's to
+  1e-12).
 - `sp.source_decompose(gini="population")`: the plug-in Gini of
   `descogini` and Lerman & Yitzhaki's covariance formula. The default keeps
   the `n/(n−1)`-corrected Gini of `sp.inequality_index`; shares, Gini
