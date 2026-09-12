@@ -41,6 +41,26 @@ fail, instead of silently dropping them, and lists them in
 
 ---
 
+<a id="xtdpdsys-stata-convention"></a>
+
+## Unreleased — ⚠️ `sp.xtdpdsys` now reproduces Stata's `xtdpdsys`
+
+**Who is affected.** Anyone who called `sp.xtdpdsys` with exogenous
+regressors (`x=`). Pure autoregressions are affected only through the
+one-step weight (`h`), and on `abdata` moved by less than 1e-12.
+
+| Surface | Before | Now |
+| --- | --- | --- |
+| exogenous regressors instrument | both equations (one column) | differenced equation only |
+| one-step weight `H` | `h(3)` | `h(2)` |
+| `abdata`, `L.n` / `w` | 0.686 / −0.203 | 0.542 / −0.615 (= Stata `xtdpdsys`) |
+
+**What to do.** Re-run. To reproduce an old number, pass
+`iv_equation="both", h=3` — that is `xtabond2`'s default, which
+`sp.xtabond(method="system")` still uses.
+
+---
+
 <a id="decomp-sweep"></a>
 
 ## Unreleased — ⚠️ Decomposition: `das_gupta`, `gap_closing`, Yu-Elwert, Gini RIF, FFL

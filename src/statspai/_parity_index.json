@@ -11529,21 +11529,28 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "xtdpdsys",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Promoted in 1.28.0. sp.xtdpdsys had run xtabond2's default moment set (exogenous regressors in both equations, h(3)), so it did not reproduce the Stata command it is named after: L.n 0.686 against xtdpdsys's 0.542 on abdata. The Stata fixture already carried the xtdpdsys covariate spec, but no test read it. Now defaults to xtdpdsys's convention; iv_equation='both', h=3 gives xtabond2's."
       ],
-      "reference": "",
-      "reference_versions": {},
+      "reference": "Stata 18 xtdpdsys (built-in); xtabond2 iv(x, eq(diff)) h(2)",
+      "reference_versions": {
+        "Stata": "18 MP",
+        "xtabond2": "SSC 03.07.00"
+      },
       "sides": [
-        "py"
+        "py",
+        "Stata"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
         "tests/reference_parity/test_dynpanel_abdata_parity.py"
       ],
-      "tolerance": ""
+      "tolerance": "abdata, n on L.n (and w k): coefficients and SEs at 1e-9 (observed <= 6e-12) for one-step robust, two-step Windmeijer and classical one-step, instrument count equal; xtabond2 with iv(w k, eq(diff)) h(2) reproduces the same numbers."
     },
     {
       "function": "xtfrontier",

@@ -3130,9 +3130,23 @@
             },
             "type": "array"
           },
+          "h": {
+            "default": 3,
+            "description": "xtabond2 h(): one-step error covariance; 3 is xtabond2's default, 2 zeroes the system cross quadrants (Stata xtdpdsys), 1 the identity.",
+            "type": "integer"
+          },
           "id": {
             "default": "id",
             "description": "Unit identifier",
+            "type": "string"
+          },
+          "iv_equation": {
+            "description": "System GMM: equation(s) the exogenous regressors instrument; None means 'both' (xtabond2), 'diff' is Stata xtdpdsys.",
+            "enum": [
+              "both",
+              "diff",
+              "level"
+            ],
             "type": "string"
           },
           "lags": {

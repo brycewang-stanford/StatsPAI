@@ -2406,6 +2406,19 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Added in 1.28.0 by the decomposition sweep against Stata 18 MP and SSC mvdcmp (Powers, Yoshioka & Yun), run by tests/reference_parity/_fixtures/_generate_decomp_stata.do. bauer_sinning had no inference and no detailed unexplained component; both are now ports of mvdcmp. Probit is graded within logit's entry: mvdcmp's probit stops at Stata's default tolerance, so it agrees to 2e-6, and the fixture shows Stata's tightly converged probit equals StatsPAI's to 1e-12."
         ),
     },
+    "xtdpdsys": {
+        "status": "bit-exact",
+        "reference": "Stata 18 xtdpdsys (built-in); xtabond2 iv(x, eq(diff)) h(2)",
+        "reference_versions": {"Stata": "18 MP", "xtabond2": "SSC 03.07.00"},
+        "tolerance": (
+            "abdata, n on L.n (and w k): coefficients and SEs at 1e-9 (observed <= 6e-12) for one-step robust, two-step Windmeijer and classical one-step, instrument count equal; xtabond2 with iv(w k, eq(diff)) h(2) reproduces the same numbers."
+        ),
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_dynpanel_abdata_parity.py"],
+        "note": (
+            "Promoted in 1.28.0. sp.xtdpdsys had run xtabond2's default moment set (exogenous regressors in both equations, h(3)), so it did not reproduce the Stata command it is named after: L.n 0.686 against xtdpdsys's 0.542 on abdata. The Stata fixture already carried the xtdpdsys covariate spec, but no test read it. Now defaults to xtdpdsys's convention; iv_equation='both', h=3 gives xtabond2's."
+        ),
+    },
 }
 
 

@@ -89,6 +89,8 @@ def xtabond(
     iter_maxiter: int = 100,
     ah_instrument: str = "levels",
     constant: Optional[bool] = None,
+    h: int = 3,
+    iv_equation: Optional[str] = None,
 ) -> CausalResult:
     """
     Arellano-Bond / Blundell-Bond dynamic panel GMM estimator.
@@ -253,6 +255,17 @@ def xtabond(
         (where the level equation identifies it, as in ``xtabond2``) and
         ``False`` for ``method='difference'`` (where it differences away);
         requesting it for difference GMM raises ``NotImplementedError``.
+    h : {1, 2, 3}, default 3
+        ``xtabond2``'s ``h()``: the a-priori error covariance weighting the
+        one-step moments. ``3`` is ``[[MM', M], [M', I]]``; ``2`` zeroes the
+        cross quadrants for system GMM (DPD for Ox, and Stata's
+        ``xtdpdsys``); ``1`` is the identity (one-step GMM becomes 2SLS).
+    iv_equation : {'both', 'diff', 'level'}, optional
+        Which equation(s) the strictly exogenous regressors instrument in
+        system GMM. ``None`` means ``'both'`` -- ``xtabond2``'s ``iv()``
+        default, one combined column; Stata's ``xtdpdsys`` uses ``'diff'``
+        (``D.x`` in the differenced equation only). Ignored for difference
+        GMM.
 
     Returns
     -------
@@ -398,6 +411,8 @@ def xtabond(
         iter_maxiter=iter_maxiter,
         ah_instrument=ah_instrument,
         constant=constant,
+        h=h,
+        iv_equation=iv_equation,
         stacklevel=3,
     )
 
@@ -540,9 +555,22 @@ def xtdpdsys(
     must be uncorrelated with the fixed effect. Test it — the level
     instruments have their own difference-in-Hansen statistic.
 
-    Validated to machine precision against ``xtabond2 ..., robust``
-    (one-step, two-step Windmeijer, and collapsed) on the ``abdata`` panel;
-    see ``tests/reference_parity/test_dynpanel_abdata_parity.py``.
+    Defaults reproduce Stata's own ``xtdpdsys``: the strictly exogenous
+    regressors instrument the differenced equation only
+    (``iv_equation='diff'``) and the one-step weight uses ``h=2``. That is
+    ``xtabond2 ..., gmm(L.y) iv(x, eq(diff)) h(2)``; pass
+    ``iv_equation='both', h=3`` for ``xtabond2``'s own defaults, which
+    ``sp.xtabond(method='system')`` keeps. Validated against Stata 18's
+    ``xtdpdsys`` (one-step robust and classical, two-step Windmeijer) and
+    against ``xtabond2`` under both conventions on ``abdata``; see
+    ``tests/reference_parity/test_dynpanel_abdata_parity.py``.
+
+    .. versionchanged:: 1.28.0
+       ``xtdpdsys`` used ``xtabond2``'s defaults (exogenous regressors in
+       both equations, ``h(3)``), so it did not reproduce the Stata command
+       it is named after: on ``abdata`` the lagged-dependent coefficient was
+       0.686 where ``xtdpdsys`` reports 0.542. The old estimate is
+       ``sp.xtdpdsys(..., iv_equation='both', h=3)``.
 
     Examples
     --------
@@ -558,6 +586,8 @@ def xtdpdsys(
     Roodman, D. (2009). How to do xtabond2. *Stata Journal*.
     [@roodman2009xtabond]
     """
+    kwargs.setdefault("iv_equation", "diff")
+    kwargs.setdefault("h", 2)
     return xtabond(
         data=data,
         y=y,

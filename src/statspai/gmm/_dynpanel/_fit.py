@@ -75,6 +75,8 @@ def fit_dynamic_panel(
     iter_maxiter: int = 100,
     ah_instrument: str = "levels",
     constant: Optional[bool] = None,
+    h: int = 3,
+    iv_equation: Optional[str] = None,
     stacklevel: int = 3,
 ) -> DynPanelFit:
     """Fit Arellano-Bond difference GMM or Blundell-Bond system GMM.
@@ -86,6 +88,12 @@ def fit_dynamic_panel(
     """
     if lags < 1:
         raise ValueError("lags must be >= 1 (a dynamic panel needs a lagged Y).")
+    if h not in (1, 2, 3):
+        raise ValueError(f"h must be 1, 2 or 3 (xtabond2's h()), got {h!r}.")
+    if iv_equation not in (None, "diff", "level", "both"):
+        raise ValueError(
+            "iv_equation must be 'diff', 'level' or 'both', got " f"{iv_equation!r}."
+        )
     if method not in ("difference", "system", "ah"):
         raise ValueError(
             f"method must be 'difference', 'system' or 'ah', got {method!r}."
@@ -201,7 +209,11 @@ def fit_dynamic_panel(
 
     # xtabond2's iv() default is equation(both): one column carrying the
     # difference on transformed rows and the level on level rows.
-    iv_eq = "both" if system else "diff"
+    iv_eq = (
+        iv_equation
+        if (system and iv_equation is not None)
+        else ("both" if system else "diff")
+    )
     iv_terms = (
         list(ah_extra_iv)
         + list(x_terms)
@@ -220,6 +232,7 @@ def fit_dynamic_panel(
         constant=constant,
     )
     design = build_design(panel, spec)
+    design.h = h
     if cluster is not None and not cluster_is_unit:
         design.set_clusters(unit_cluster_codes(panel, cluster))
 

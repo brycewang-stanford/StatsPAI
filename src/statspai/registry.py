@@ -2837,6 +2837,24 @@ def _build_registry() -> None:
                     "Anderson-Hsiao instrument for method='ah'",
                     ["levels", "differences"],
                 ),
+                ParamSpec(
+                    "h",
+                    "int",
+                    False,
+                    3,
+                    "xtabond2 h(): one-step error covariance; 3 is xtabond2's "
+                    "default, 2 zeroes the system cross quadrants (Stata "
+                    "xtdpdsys), 1 the identity.",
+                ),
+                ParamSpec(
+                    "iv_equation",
+                    "str",
+                    False,
+                    None,
+                    "System GMM: equation(s) the exogenous regressors instrument; "
+                    "None means 'both' (xtabond2), 'diff' is Stata xtdpdsys.",
+                    enum=["both", "diff", "level"],
+                ),
             ],
             returns="CausalResult",
             example='sp.xtabond(df, y="output", x=["capital", "labor"], id="firm", time="year")',
@@ -2867,6 +2885,23 @@ def _build_registry() -> None:
                     False,
                     False,
                     "Collapse instruments (Roodman 2009) to curb proliferation",
+                ),
+                ParamSpec(
+                    "iv_equation",
+                    "str",
+                    False,
+                    "diff",
+                    "Equation(s) the exogenous regressors instrument; 'diff' is Stata "
+                    "xtdpdsys, 'both' is xtabond2's iv() default.",
+                    enum=["diff", "level", "both"],
+                ),
+                ParamSpec(
+                    "h",
+                    "int",
+                    False,
+                    2,
+                    "xtabond2 h(): one-step error covariance; 2 is Stata xtdpdsys, "
+                    "3 xtabond2's default, 1 the identity.",
                 ),
             ],
             returns="CausalResult",

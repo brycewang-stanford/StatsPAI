@@ -67,10 +67,12 @@ def unit_H_blocks(design: Design) -> List[np.ndarray]:
     for rows in design.unit_rows:
         periods = design.row_period[rows]
         eqs = design.row_eq[rows]
-        if operator is not None:
-            blocks.append(_transform_H(operator, periods, eqs))
+        if design.h == 1:
+            blocks.append(np.eye(rows.size))
+        elif operator is not None:
+            blocks.append(_transform_H(operator, periods, eqs, h=design.h))
         elif system:
-            blocks.append(system_H(periods, eqs))
+            blocks.append(system_H(periods, eqs, h=design.h))
         else:
             blocks.append(first_difference_H(periods))
     return blocks
@@ -107,6 +109,8 @@ def _banded_ZHZ(design: Design):
     deviations have a dense cross-quadrant instead and fall back to the
     explicit blocks; that path is the rarer one and stays exact either way.
     """
+    if design.h == 1:
+        return design.Z.T @ design.Z
     if design.transform_operator is not None:
         return None
     Z = design.Z
@@ -138,13 +142,15 @@ def _banded_ZHZ(design: Design):
         ZHZ[...] += weight * (block + block.T)
 
     _pair_term(is_diff, is_diff, 1, -1.0)
-    if design.has_level_equation:
+    if design.has_level_equation and design.h == 3:
         _pair_term(is_diff, ~is_diff, 0, 1.0)
         _pair_term(is_diff, ~is_diff, -1, -1.0)
     return ZHZ
 
 
-def _transform_H(M: np.ndarray, periods: np.ndarray, eqs: np.ndarray) -> np.ndarray:
+def _transform_H(
+    M: np.ndarray, periods: np.ndarray, eqs: np.ndarray, h: int = 3
+) -> np.ndarray:
     """``H = [[M M', M], [M', I]]`` from a balanced-grid transform operator.
 
     ``M`` maps the balanced level grid onto the transformed rows, its row
@@ -165,7 +171,7 @@ def _transform_H(M: np.ndarray, periods: np.ndarray, eqs: np.ndarray) -> np.ndar
         H[np.ix_(d_idx, d_idx)] = Md @ Md.T
     if l_idx.size:
         H[np.ix_(l_idx, l_idx)] = np.eye(l_idx.size)
-        if d_idx.size:
+        if d_idx.size and h == 3:
             cross = M[np.ix_(rows, periods[l_idx])]
             H[np.ix_(d_idx, l_idx)] = cross
             H[np.ix_(l_idx, d_idx)] = cross.T

@@ -502,16 +502,63 @@ class TestSystemGMM:
         assert "_cons" not in list(diff.detail["variable"])
         assert list(system.detail["variable"])[-1] == "_cons"
 
-    def test_xtdpdsys_alias_equals_method_system(self, abdata):
+    def test_xtdpdsys_with_xtabond2_defaults_equals_method_system(self, abdata):
+        """``iv_equation='both', h=3`` is xtabond2's default moment set, which
+        ``sp.xtabond(method='system')`` keeps."""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            a = sp.xtdpdsys(abdata, y="n", x=["w", "k"], id="id", time="year")
+            a = sp.xtdpdsys(
+                abdata,
+                y="n",
+                x=["w", "k"],
+                id="id",
+                time="year",
+                iv_equation="both",
+                h=3,
+            )
         b = _fit(abdata, x=["w", "k"], lags=1, method="system")
         np.testing.assert_allclose(
             a.detail["coefficient"].to_numpy(float),
             b.detail["coefficient"].to_numpy(float),
             rtol=1e-14,
         )
+
+    @pytest.mark.parametrize(
+        "spec, x, kw",
+        [
+            ("E1_xtdpdsys_ar1_1step", None, dict()),
+            ("E2_xtdpdsys_ar1_2step_wc", None, dict(twostep=True)),
+            ("E3_xtdpdsys_wk_1step", ["w", "k"], dict()),
+            ("E4_xtdpdsys_wk_2step_wc", ["w", "k"], dict(twostep=True)),
+            ("E5_xtdpdsys_wk_1step_classical", ["w", "k"], dict(robust=False)),
+        ],
+    )
+    def test_xtdpdsys_matches_statas_xtdpdsys(self, abdata, stata, spec, x, kw):
+        """Stata's own xtdpdsys: exogenous regressors in the differenced
+        equation only, one-step weight h(2).
+
+        Before 1.28.0 sp.xtdpdsys used xtabond2's defaults (iv() in both
+        equations, h(3)): 0.686 on L.n where xtdpdsys reports 0.542. These
+        specs were in the fixture all along but no test read E3.
+        """
+        kw = {"robust": True, **kw}
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            r = sp.xtdpdsys(abdata, y="n", x=x, id="id", time="year", lags=1, **kw)
+        ref = stata[spec]
+        d = r.detail.set_index("variable")
+        for name, value in ref["coef"].items():
+            ours = "L1.n" if name == "L.n" else name
+            np.testing.assert_allclose(d.loc[ours, "coefficient"], value, rtol=1e-9)
+            np.testing.assert_allclose(d.loc[ours, "se"], ref["se"][name], rtol=1e-9)
+        assert r.model_info["n_instruments"] == int(ref["e"]["zrank"])
+
+    def test_xtdpdsys_convention_is_xtabond2_ivdiff_h2(self, stata):
+        """The same moment set written in xtabond2 reproduces xtdpdsys."""
+        a, b = stata["E3_xtdpdsys_wk_1step"], stata["E6_xtabond2_ivdiff_h2_1step"]
+        for name, value in a["coef"].items():
+            np.testing.assert_allclose(b["coef"][name], value, rtol=1e-9)
+            np.testing.assert_allclose(b["se"][name], a["se"][name], rtol=1e-9)
 
     def test_hansen_j_matches_xtabond2_in_every_configuration(self, abdata, stata):
         """The Hansen J has no free scale, so it must match exactly.

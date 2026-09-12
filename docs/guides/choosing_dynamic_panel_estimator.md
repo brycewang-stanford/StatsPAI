@@ -95,6 +95,21 @@ identifies an intercept.
 sp.xtdpdsys(df, y="n", x=["w", "k"], id="id", time="year", twostep=True)
 ```
 
+**Two conventions, one estimator family.** Stata ships two system-GMM
+commands that disagree on the same data, and StatsPAI reproduces both:
+
+| Call | Exogenous `x` instruments | One-step weight | Matches |
+| --- | --- | --- | --- |
+| `sp.xtdpdsys(...)` | differenced equation only | `h=2` | Stata `xtdpdsys` |
+| `sp.xtabond(..., method="system")` | both equations, one column | `h=3` | `xtabond2 ..., iv(x)` |
+
+On `abdata` (`n` on `L.n w k`, one-step robust) they give $\hat\rho = 0.542$
+and $0.686$. Neither is wrong — they use different moment sets — but a
+replication has to name which one it ran. Switch either call with
+`iv_equation=` (`"diff"`, `"level"`, `"both"`) and `h=` (1, 2, 3):
+`sp.xtdpdsys(..., iv_equation="both", h=3)` is the `xtabond2` estimate.
+Before 1.28.0 `sp.xtdpdsys` silently used the `xtabond2` convention.
+
 **The price** is an extra assumption: each unit's deviation from its
 long-run mean must be uncorrelated with $\alpha_i$ — roughly, the process
 must be in steady state, with no systematic relationship between initial

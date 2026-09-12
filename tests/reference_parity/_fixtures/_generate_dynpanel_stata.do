@@ -281,6 +281,22 @@ dp_dump, spec(E2_xtdpdsys_ar1_2step_wc)
 xtdpdsys n w k, lags(1) vce(robust)
 dp_dump, spec(E3_xtdpdsys_wk_1step)
 
+* E4-E5 the covariate specification two-step (Windmeijer) and with the
+* classical one-step VCE. xtdpdsys instruments exogenous regressors in the
+* differenced equation only and weights the one-step moments with
+* xtabond2's h(2) -- unlike xtabond2's own defaults (iv() in both
+* equations, h(3)) -- so these pin that convention, not just the ar(1) case.
+xtdpdsys n w k, lags(1) twostep vce(robust)
+dp_dump, spec(E4_xtdpdsys_wk_2step_wc)
+
+xtdpdsys n w k, lags(1)
+dp_dump, spec(E5_xtdpdsys_wk_1step_classical)
+
+* E6 the same moment set written in xtabond2: identical to E3 if the
+* convention above is right.
+xtabond2 n L.n w k, gmm(L.n) iv(w k, eq(diff)) h(2) robust
+dp_dump, spec(E6_xtabond2_ivdiff_h2_1step)
+
 * ---------------------------------------------------------------------------
 * I. Panels with interior gaps.
 *

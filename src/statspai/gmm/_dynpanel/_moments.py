@@ -91,6 +91,10 @@ class Design:
     transform_operator: Optional[np.ndarray] = None
     # Row groups for the variance "meat"; None means group by unit.
     cluster_rows: Optional[List[np.ndarray]] = None
+    # xtabond2's h(): the a-priori error covariance used by one-step GMM.
+    # 3 (default) = [[MM', M], [M', I]]; 2 zeroes the cross quadrants (DPD for
+    # Ox and Stata's xtdpdsys); 1 is the identity.
+    h: int = 3
     _group_index_cache: Optional[Tuple[np.ndarray, np.ndarray]] = None
 
     @property
@@ -201,7 +205,7 @@ def first_difference_H(periods: np.ndarray) -> np.ndarray:
     return H
 
 
-def system_H(periods: np.ndarray, eqs: np.ndarray) -> np.ndarray:
+def system_H(periods: np.ndarray, eqs: np.ndarray, h: int = 3) -> np.ndarray:
     """``H`` for the stacked system, under var[ε] = I and var[α] = 0.
 
     With ``M`` the differencing operator, the block is
@@ -218,11 +222,12 @@ def system_H(periods: np.ndarray, eqs: np.ndarray) -> np.ndarray:
       ``s == p - 1`` — because ``Δε_p = ε_p − ε_{p-1}``;
     * level × level: the identity.
 
-    ``h(2)`` (DPD for Gauss/Ox) zeroes the cross quadrants; ``h(1)`` uses
-    the identity throughout. Only ``h(3)`` is implemented, matching
-    ``xtabond2``'s default.
+    ``h=2`` (DPD for Gauss/Ox, and Stata's ``xtdpdsys``) zeroes the cross
+    quadrants; ``h=1`` uses the identity throughout (xtabond2's help).
     """
     r = periods.size
+    if h == 1:
+        return np.eye(r)
     H = np.zeros((r, r))
     is_diff = eqs == DIFF_EQ
     is_level = ~is_diff
@@ -235,6 +240,8 @@ def system_H(periods: np.ndarray, eqs: np.ndarray) -> np.ndarray:
 
     ll = np.outer(is_level, is_level)
     H[ll & same] = 1.0
+    if h == 2:
+        return H
 
     # transformed(row p) x level(col s): +1 if s == p, -1 if s == p - 1
     dl = np.outer(is_diff, is_level)

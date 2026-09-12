@@ -356,6 +356,31 @@ two maintained by the methods' authors or their groups).
   under non-uniform weights the two are different estimators — and the
   choice moves the composition effect in the fourth significant digit.
 
+### ⚠️ Correctness fixes — dynamic panels
+
+- **`sp.xtdpdsys` did not reproduce Stata's `xtdpdsys`.** It ran
+  `xtabond2`'s default moment set — strictly exogenous regressors
+  instrumenting *both* equations in one combined column, and the `h(3)`
+  one-step weight — whereas Stata's `xtdpdsys` instruments them in the
+  differenced equation only and weights with `h(2)` (cross quadrants of `H`
+  zeroed). On `abdata` (`n` on `L.n w k`) the lagged-dependent coefficient
+  was 0.686 where `xtdpdsys` reports 0.542, and `w`'s −0.20 where it reports
+  −0.62. `sp.xtdpdsys` now defaults to Stata's convention and matches it to
+  1e-12 one-step robust, two-step Windmeijer and classical, instrument
+  count included. The Stata fixture had carried the `xtdpdsys` covariate
+  spec all along; no test read it. **Re-run system-GMM results obtained
+  through `sp.xtdpdsys`.** `sp.xtabond(method="system")` keeps
+  `xtabond2`'s defaults and is unchanged.
+
+### Added — dynamic panels
+
+- `h=` (1, 2, 3; `xtabond2`'s `h()`) and `iv_equation=` (`"both"`, `"diff"`,
+  `"level"`) on `sp.xtabond` and `sp.xtdpdsys`; `sp.xtdpdsys(...,
+  iv_equation="both", h=3)` is the previous estimate.
+- `sp.from_stata("xtdpdsys ...")` now translates to a runnable
+  `sp.xtdpdsys(...)` call; it failed loud with a stale "system GMM not
+  implemented" message.
+
 ### ⚠️ Correctness fixes — small p-values package-wide
 
 - **335 p-values in 180 modules were computed as `1 − cdf(x)`**, including

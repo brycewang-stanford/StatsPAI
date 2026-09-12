@@ -422,8 +422,10 @@ lag), see [@roodman2009xtabond] — and pass `collapse=True`, which
 StatsPAI implements to `xtabond2` parity.
 
 Blundell-Bond system GMM [@blundell1998initial] is available as
-`method='system'` (or the standalone `sp.xtdpdsys`), verified against
-Stata's `xtdpdsys` and `xtabond2`. Prefer it when the series is
+`method='system'`, which reproduces `xtabond2`'s defaults, and as the
+standalone `sp.xtdpdsys`, which reproduces Stata's `xtdpdsys` (exogenous
+regressors instrument only the differenced equation, one-step weight
+`h=2`); each is verified against its command on `abdata`. Prefer it when the series is
 persistent: as ρ approaches 1 the lagged levels difference GMM relies on
 become weak instruments. See
 [Choosing a dynamic panel estimator](choosing_dynamic_panel_estimator.md)

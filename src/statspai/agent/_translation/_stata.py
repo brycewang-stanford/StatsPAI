@@ -1141,18 +1141,8 @@ def _h_xtabond_family(cmd: StataCommand, *, sp_kind: str) -> Dict[str, Any]:
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
         return _emit_error(f"{sp_kind} requires an outcome variable", command=sp_kind)
-    if sp_kind == "xtdpdsys":
-        # xtdpdsys is Blundell-Bond *system* GMM, which sp.xtabond does not yet
-        # implement (it raises NotImplementedError). Emitting tool='xtdpdsys'
-        # (no such callable) or xtabond(method='system') (raises) would be a dead
-        # on-ramp — fail loud with the honest fallback instead.
-        return _emit_error(
-            "xtdpdsys (Blundell-Bond system GMM) is not yet available — "
-            "sp.xtabond currently implements difference GMM only. Use "
-            "`xtabond` for the Arellano-Bond difference-GMM estimator.",
-            command="xtdpdsys",
-            suggestions=["xtabond"],
-        )
+    # sp.xtdpdsys reproduces Stata's xtdpdsys by default (exogenous regressors
+    # in the differenced equation, h(2)); the translation maps straight onto it.
     panel_id = cmd.options.get("i") or cmd.options.get("id") or "<panel_id>"
     args: Dict[str, Any] = {
         "y": y,

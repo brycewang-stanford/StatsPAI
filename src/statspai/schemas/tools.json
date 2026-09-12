@@ -26518,9 +26518,23 @@
           },
           "type": "array"
         },
+        "h": {
+          "default": 3,
+          "description": "xtabond2 h(): one-step error covariance; 3 is xtabond2's default, 2 zeroes the system cross quadrants (Stata xtdpdsys), 1 the identity.",
+          "type": "integer"
+        },
         "id": {
           "default": "id",
           "description": "Unit identifier",
+          "type": "string"
+        },
+        "iv_equation": {
+          "description": "System GMM: equation(s) the exogenous regressors instrument; None means 'both' (xtabond2), 'diff' is Stata xtdpdsys.",
+          "enum": [
+            "both",
+            "diff",
+            "level"
+          ],
           "type": "string"
         },
         "lags": {
@@ -26589,7 +26603,7 @@
     "name": "xtabond"
   },
   {
-    "description": "Blundell-Bond system GMM for dynamic panels (alias for xtabond with method='system'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Blundell-Bond system GMM for dynamic panels (alias for xtabond with method='system'). Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "collapse": {
@@ -26597,9 +26611,24 @@
           "description": "Collapse instruments (Roodman 2009) to curb proliferation",
           "type": "boolean"
         },
+        "h": {
+          "default": 2,
+          "description": "xtabond2 h(): one-step error covariance; 2 is Stata xtdpdsys, 3 xtabond2's default, 1 the identity.",
+          "type": "integer"
+        },
         "id": {
           "default": "id",
           "description": "Unit identifier",
+          "type": "string"
+        },
+        "iv_equation": {
+          "default": "diff",
+          "description": "Equation(s) the exogenous regressors instrument; 'diff' is Stata xtdpdsys, 'both' is xtabond2's iv() default.",
+          "enum": [
+            "diff",
+            "level",
+            "both"
+          ],
           "type": "string"
         },
         "lags": {

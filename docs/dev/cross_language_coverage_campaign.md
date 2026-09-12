@@ -77,7 +77,7 @@ already installed; the others followed the same rule.
 | 1 | regression | 9 | partial | 2 (`etregress`, `sqreg`) | 4 |
 | 2 | spatial | 29 | done | 13 | 4 + 1 gap |
 | 3 | weak-IV / diagnostics / meta | 26 | partial | 5 | 2 |
-| 4 | panel | 18 | partial | 3 | 2 |
+| 4 | panel | 18 | partial | 4 (+ `xtdpdsys` vs Stata `xtdpdsys`) | 3 |
 | 5 | network | 21 | done | 19 | 1 + 1 reference bug (`dyadRobust`) |
 | 6 | mendelian | 23 | done | 15 (14 bit-exact, `mr_raps` aligned) | 11 |
 | 7 | decomposition | 18 | partial | 12 (R: 8; Stata: `gelbach`, `subgroup_decompose`, `source_decompose`, `bauer_sinning`) | 8 |
@@ -90,8 +90,8 @@ Families 5 and 6 needed R packages that were not installed (`igraph`,
 `sna`, `ergm`, `dyadRobust`, `MendelianRandomization`, `TwoSampleMR`,
 `RadialMR`, `MRPRESSO`, `mr.raps` from GitHub); they are now.
 
-**After families 5–7 and the evidence-grade correction: 219 of 773
-(28.3%).** The correction first removed 26 promotions that had graded
+**After families 5–7, the evidence-grade correction and the `xtdpdsys`
+fix: 220 of 773 (28.5%).** The correction first removed 26 promotions that had graded
 closed-form tests as cross-language parity (220 → 194); real comparisons
 then restored three of those (`mr`, `das_gupta`, `kitagawa_decompose`) and
 added the rest. `scripts/build_parity_index.py` now refuses a
@@ -124,6 +124,7 @@ test-coverage metric would predict:
 | Wrong aggregate / estimand | 3 | `das_gupta` product of means; Gini RIF averaging to neither Gini; `mr_cml` BIC by number of variants |
 | Mislabelled output | 1 | `ffl_decompose` specification / reweighting errors swapped |
 | Default that differs from every reference | 2 | `mr_ivw` fixed-effect SE; `mr_steiger` one-sided p |
+| Named after one command, reproduced another | 1 | `sp.xtdpdsys` ran `xtabond2`'s moment set (iv in both equations, `h(3)`), not `xtdpdsys`'s |
 
 **None of these was found by a unit test, and the suite is not small — it
 is over 17,000 tests.** The reason is structural: unit tests assert
@@ -148,6 +149,10 @@ reference it names, on the same bytes.
   to the sharp bandwidth — so the fixture could not tell a correct fuzzy
   bandwidth from a missing one, and recorded 1.2e-08 agreement while the
   argument was being discarded entirely.
+* **A fixture entry no test reads is not evidence.** The `abdata` Stata
+  fixture carried `xtdpdsys n w k` from the day it was written; the tests
+  compared `sp.xtdpdsys` only with `xtabond2`, so a 27% gap on the headline
+  coefficient sat beside its own reference for weeks.
 * **Assert the identity, not just the reference.** `BB + WW + BW = S0/2`
   catches the join-count defect with no R installed. Tests of that shape
   survive fixture regeneration.

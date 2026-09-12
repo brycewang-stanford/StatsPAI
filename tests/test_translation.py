@@ -592,12 +592,17 @@ TIER3_ROUND_TRIPS = [
         "glm",
         {"formula": "grade ~ x1 + x2", "family": "ordered_probit"},
     ),
-    # Dynamic panel GMM (xtabond = difference GMM; xtdpdsys = system GMM, which
-    # sp.xtabond does not yet implement — see TestUnsupportedButHonest below).
+    # Dynamic panel GMM (xtabond = difference GMM; xtdpdsys = system GMM,
+    # which sp.xtdpdsys reproduces with Stata's instrument and H conventions).
     (
         "xtabond y x1 x2, twostep robust i(firm)",
         "xtabond",
         {"y": "y", "x": ["x1", "x2"], "id": "firm", "twostep": True, "robust": True},
+    ),
+    (
+        "xtdpdsys y x1, twostep vce(robust) i(unit)",
+        "xtdpdsys",
+        {"y": "y", "x": ["x1"], "id": "unit", "twostep": True, "robust": True},
     ),
     # Bunching
     (
@@ -651,13 +656,14 @@ class TestTier3EdgeCases:
         assert out["ok"] is True
         assert out["arguments"]["threshold"] == 0.0
 
-    def test_xtdpdsys_fails_loud_as_unsupported(self):
-        # Blundell-Bond system GMM is not implemented (sp.xtabond raises
-        # NotImplementedError for method='system'). The translator must fail
-        # loud with the difference-GMM fallback, not emit a dead sp.xtdpdsys.
+    def test_xtdpdsys_emits_runnable_system_gmm(self):
+        # sp.xtdpdsys exists and matches Stata's xtdpdsys (see
+        # tests/reference_parity/test_dynpanel_abdata_parity.py); the
+        # translator used to fail loud from before system GMM was implemented.
         out = from_stata("xtdpdsys y x1, twostep i(unit)")
-        assert out["ok"] is False
-        assert "xtabond" in out.get("suggestions", [])
+        assert out["ok"] is True, out
+        assert out["tool"] == "xtdpdsys"
+        assert out["python_code"].startswith("sp.xtdpdsys(")
 
 
 @pytest.mark.parametrize("stata,tool,subset", TIER2_ROUND_TRIPS)
@@ -757,10 +763,8 @@ class TestStataHandlerCoverage:
             covered.add(cmd)
         # Commands whose contract is a dedicated behaviour test rather than a
         # round-trip (they intentionally do not produce a runnable payload):
-        #   xtdpdsys — system GMM unsupported → test_xtdpdsys_fails_loud_as_unsupported
         #   xtset / tsset — no sp equivalent; translator fails loud →
         #     test_xtset_handles_time_only_form
-        covered.add("xtdpdsys")
         covered.add("xtset")
         # Each handler should have at least one alias covered.
         handler_to_aliases = {}
