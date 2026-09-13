@@ -258,7 +258,7 @@ Colorado       0.0391
 California 的 post/pre RMSPE 比值在 39 个州里排第 3，所以 p = 3/39 ≈ 0.077。
 这个默认设定只用干预前的结果变量做匹配；如需 ADH 风格的预测变量设定，可传入
 `covariates=`（例如 `["lnincome", "retprice", "age15to24", "beer"]`）。
-这条路径会对每个 placebo 州重新求解嵌套 V-W 问题，明显更慢；调试设定时可先用 `placebo=False`。
+这条路径会对每个 placebo 州重新求解嵌套 V-W 问题，明显更慢：可传 `n_jobs=-1` 并行拟合 placebo（结果逐位一致），调试设定时也可先用 `placebo=False`。
 
 ---
 

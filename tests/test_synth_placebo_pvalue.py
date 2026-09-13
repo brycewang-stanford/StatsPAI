@@ -2,7 +2,7 @@
 
 The permutation p-value ranks the treated unit together with its J
 placebos and divides by J+1 (Abadie, Diamond & Hainmueller 2010). Before
-1.28.0 every placebo-based synth estimator computed
+this fix every placebo-based synth estimator computed
 ``mean(placebo >= treated)`` (denominator J, treated unit not counted)
 and floored the result at ``1/(J+1)``, so a treated unit ranked third of
 39 reported 2/38 = 0.0526 instead of 3/39 = 0.0769.
@@ -136,6 +136,114 @@ def test_scm_failed_placebo_is_reported_not_swallowed(prop99, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Parallel placebo loop (n_jobs)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def small_panel(prop99):
+    keep = ["California"] + sorted(
+        s for s in prop99["state"].unique() if s != "California"
+    )[:9]
+    return prop99[prop99["state"].isin(keep)]
+
+
+def _fit_small(panel, **kwargs):
+    return sp.SyntheticControl(
+        panel,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="California",
+        treatment_time=1989,
+        **kwargs,
+    ).fit()
+
+
+def test_parallel_placebo_loop_is_bit_identical_to_serial(small_panel):
+    # Nested V-W (covariates) is the path n_jobs exists for.
+    kw = dict(
+        covariates=["lnincome", "retprice", "age15to24", "beer"],
+        n_random_starts=0,
+    )
+    serial = _fit_small(small_panel, **kw)
+    parallel = _fit_small(small_panel, n_jobs=2, **kw)
+    ms, mp_ = serial.model_info, parallel.model_info
+    assert ms["placebo_n_jobs"] == 1
+    assert mp_["placebo_n_jobs"] == 2
+    assert ms["placebo_parallel_fallback"] is None
+    assert mp_["placebo_parallel_fallback"] is None
+    # Exact equality, not approx: same code, same inputs, same order.
+    assert parallel.pvalue == serial.pvalue
+    assert parallel.se == serial.se
+    assert mp_["placebo_units"] == ms["placebo_units"]
+    assert mp_["placebo_ratios"] == ms["placebo_ratios"]
+    assert mp_["placebo_atts"] == ms["placebo_atts"]
+    np.testing.assert_array_equal(mp_["placebo_gaps"], ms["placebo_gaps"])
+
+
+def test_sp_synth_forwards_n_jobs(small_panel):
+    kw = dict(
+        data=small_panel,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="California",
+        treatment_time=1989,
+    )
+    serial = sp.synth(**kw)
+    parallel = sp.synth(**kw, n_jobs=2)
+    assert parallel.model_info["placebo_n_jobs"] == 2
+    assert parallel.pvalue == serial.pvalue
+    assert parallel.model_info["placebo_ratios"] == serial.model_info["placebo_ratios"]
+
+
+def test_unstartable_process_pool_falls_back_to_serial_loudly(small_panel, monkeypatch):
+    from statspai.synth import scm as scm_mod
+
+    def no_processes(*args, **kwargs):
+        raise OSError("process creation not permitted")
+
+    monkeypatch.setattr(scm_mod, "_map_in_processes", no_processes)
+    with pytest.warns(RuntimeWarning, match="fell back to serial"):
+        res = _fit_small(small_panel, n_jobs=4)
+    assert res.model_info["placebo_n_jobs"] == 1
+    assert "OSError" in res.model_info["placebo_parallel_fallback"]
+    assert res.pvalue == _fit_small(small_panel).pvalue
+
+
+@pytest.mark.parametrize("bad", [0, -2, 1.5, True, "2"])
+def test_n_jobs_rejects_invalid_values(small_panel, bad):
+    from statspai.exceptions import MethodIncompatibility
+
+    with pytest.raises(MethodIncompatibility, match="n_jobs"):
+        sp.SyntheticControl(
+            small_panel,
+            outcome="cigsale",
+            unit="state",
+            time="year",
+            treated_unit="California",
+            treatment_time=1989,
+            n_jobs=bad,
+        )
+
+
+def test_n_jobs_minus_one_uses_every_cpu(small_panel):
+    import os
+
+    sc = sp.SyntheticControl(
+        small_panel,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="California",
+        treatment_time=1989,
+        n_jobs=-1,
+    )
+    assert sc.n_jobs == max(1, os.cpu_count() or 1)
+
+
+# ---------------------------------------------------------------------------
 # Other placebo-based estimators share the helper
 # ---------------------------------------------------------------------------
 
@@ -175,7 +283,7 @@ def test_variant_pvalues_live_on_the_rank_grid(prop99, method):
 def test_nested_solver_with_covariates_recovers_pre_speedup_optimum(prop99):
     """Abadie's four covariates, main fit only.
 
-    Reference values come from the solver before the 1.28.0 speed-up
+    Reference values come from the solver before the exact-Jacobian speed-up
     (outer loss 744.1002662498, weights Colorado 0.5079 / Connecticut
     0.4921, identical across all six starts). Supplying the exact
     adding-up Jacobian to SLSQP must land on the same optimum.

@@ -18094,6 +18094,11 @@
           "description": "Long-format panel ``(unit, time, outcome, ...)``.",
           "type": "string"
         },
+        "n_jobs": {
+          "default": 1,
+          "description": "Worker processes for the in-space placebo loop; ``-1`` uses every CPU. Each placebo fit is independent and runs the same code, so the results are bit-identical to ``n_jobs=1``. This matters most with ``covariates`` / ``special_predictors``, where every placebo re-solves the nested V-W problem. Workers are started with ``spawn``: in a script, call from under ``if __name__ == \"__main__\":``. If the process pool cannot start, the loop falls back to serial with a ``RuntimeWarning`` and records why in ``model_info['placebo_parallel_fallback']``.",
+          "type": "integer"
+        },
         "n_random_starts": {
           "default": 4,
           "description": "Additional random Dirichlet starts for the outer V optimiser.",

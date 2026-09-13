@@ -4,6 +4,22 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`n_jobs=` for the classic SCM placebo loop.** `sp.SyntheticControl(...,
+  n_jobs=...)` and `sp.synth(..., method='classic', n_jobs=...)` fit the
+  in-space placebos in worker processes (`-1` = every CPU). Each worker runs
+  the unchanged serial code on the same inputs, so every placebo statistic,
+  the p-value and the SE are bit-identical to `n_jobs=1` (the default, which
+  keeps the previous behaviour). Workers use `spawn` on every platform; if the
+  pool cannot start, the loop falls back to serial with a `RuntimeWarning` and
+  records the reason in `model_info['placebo_parallel_fallback']`.
+  `model_info['placebo_n_jobs']` reports the worker count actually used.
+  California Prop 99 with Abadie's four covariates and all 38 placebos
+  finishes in 534 s with `n_jobs=-1` on 8 cores; the serial loop had passed
+  22 CPU-minutes when it was stopped. The wall time is set by the slowest
+  in-hull placebos, not divided evenly by the core count.
+
 ### ⚠️ Correctness
 
 - **Synthetic-control placebo p-values dropped the treated unit from the
@@ -53,13 +69,14 @@ All notable changes to StatsPAI will be documented in this file.
   inner solve.** The inner simplex least-squares solve now hands SLSQP the exact
   Jacobian of the adding-up constraint instead of letting it finite-difference
   it every iteration. On California Prop 99 with Abadie's four covariates the
-  treated-unit fit drops from 13.6 s to 5.9 s. **The placebo loop is still
+  treated-unit fit drops from 13.6 s to 5.9 s. **Each placebo is still
   slow:** placebo states that lie inside the donors' covariate hull (e.g.
   Alabama, 108 s; Arkansas, 77 s) have a continuum of perfect-fit inner
   solutions, so SLSQP iterates ~100 times per solve and the outer Nelder-Mead
-  often exhausts its iteration budget. Making that fast changes which of the
-  observationally equivalent weight vectors is reported, so it is left for a
-  separate, documented change. The optimum is unchanged: outer
+  often exhausts its iteration budget. Making a single fit faster changes which
+  of the observationally equivalent weight vectors is reported, so it is left
+  for a separate, documented change; use `n_jobs=` (below) to cut wall time
+  without changing any number. The optimum is unchanged: outer
   loss equal to 10 significant digits, donor weights within 1e-8. Committed
   parity outputs move by at most 3.5e-8 relative (`07_scm` headline) and
   1e-15 (`52_scm_unique`); both still reproduce byte-identically. The `07_scm`

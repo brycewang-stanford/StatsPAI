@@ -33,12 +33,15 @@ Inference can be switched independently via ``inference=``:
 * **bsts posterior** — Kalman-based uncertainty
 """
 
+import functools
 import json
+import os
 import shutil
 import subprocess
 import tempfile
 import warnings
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 
 import numpy as np
@@ -173,6 +176,24 @@ def _coerce_column_list(
             diagnostics={name: out, "invalid_columns": bad},
         )
     return out
+
+
+def _resolve_n_jobs(value: Any) -> int:
+    """Validate ``n_jobs``: a positive integer, or ``-1`` for every CPU."""
+    if value is None:
+        return 1
+    if (
+        isinstance(value, (bool, np.bool_))
+        or not isinstance(value, (int, np.integer))
+        or (value < 1 and value != -1)
+    ):
+        raise MethodIncompatibility(
+            "n_jobs must be a positive integer or -1 (all CPUs).",
+            diagnostics={"n_jobs": repr(value)},
+        )
+    if value == -1:
+        return max(1, os.cpu_count() or 1)
+    return int(value)
 
 
 def _coerce_optional_column_list(columns: Any, name: str) -> Optional[List[str]]:
@@ -377,7 +398,10 @@ def _dispatch_synth_impl(
     penalization : float, default 0.0
         Ridge penalty for donor weights.
     placebo : bool, default True
-        Run placebo inference.
+        Run placebo inference. For ``method='classic'`` pass ``n_jobs=``
+        (e.g. ``-1``) to fit the in-space placebos in parallel worker
+        processes; results are bit-identical to the serial loop. See
+        :class:`SyntheticControl`.
     alpha : float, default 0.05
         Significance level.
     inference : str, optional
@@ -539,6 +563,7 @@ def _dispatch_synth_impl(
         v_method = kwargs.pop("v_method", "auto")
         standardize_predictors = kwargs.pop("standardize_predictors", True)
         n_random_starts = kwargs.pop("n_random_starts", 4)
+        n_jobs = kwargs.pop("n_jobs", 1)
         model = SyntheticControl(
             data=data,
             outcome=outcome,
@@ -553,6 +578,7 @@ def _dispatch_synth_impl(
             n_random_starts=n_random_starts,
             penalization=penalization,
             alpha=alpha,
+            n_jobs=n_jobs,
         )
         return model.fit(placebo=placebo)
 
@@ -1131,6 +1157,16 @@ class SyntheticControl:
         Ridge penalty on donor weights.
     alpha : float, default 0.05
         Significance level for confidence intervals.
+    n_jobs : int, default 1
+        Worker processes for the in-space placebo loop; ``-1`` uses every
+        CPU. Each placebo fit is independent and runs the same code, so the
+        results are bit-identical to ``n_jobs=1``. This matters most with
+        ``covariates`` / ``special_predictors``, where every placebo re-solves
+        the nested V-W problem. Workers are started with ``spawn``: in a
+        script, call from under ``if __name__ == "__main__":``. If the
+        process pool cannot start, the loop falls back to serial with a
+        ``RuntimeWarning`` and records why in
+        ``model_info['placebo_parallel_fallback']``.
 
     Examples
     --------
@@ -1162,6 +1198,7 @@ class SyntheticControl:
         n_random_starts: int = 4,
         penalization: float = 0.0,
         alpha: float = 0.05,
+        n_jobs: Optional[int] = 1,
     ):
         self.data = _require_dataframe(data, "data")
         self.outcome = _require_column_name(outcome, "outcome")
@@ -1197,6 +1234,7 @@ class SyntheticControl:
         )
         self.penalization = _require_nonnegative_float(penalization, "penalization")
         self.alpha = _require_open_unit_float(alpha, "alpha")
+        self.n_jobs = _resolve_n_jobs(n_jobs)
 
         self._validate()
         self._prepare_matrices()
@@ -1713,6 +1751,10 @@ class SyntheticControl:
             model_info["placebo_gaps"] = placebo_result["gaps"]
             model_info["placebo_units"] = placebo_result["units"]
             model_info["placebo_failures"] = placebo_result["failures"]
+            model_info["placebo_n_jobs"] = placebo_result["n_jobs"]
+            model_info["placebo_parallel_fallback"] = placebo_result[
+                "parallel_fallback"
+            ]
             model_info["treated_ratio"] = ratio_treated
             model_info["n_placebos"] = len(placebo_atts)
 
@@ -1752,65 +1794,67 @@ class SyntheticControl:
         units: List[Any] = []
         failed: List[Dict[str, str]] = []
 
-        all_units_data = np.column_stack([self.Y_treated[:, np.newaxis], self.Y_donors])
-        # Placebo predictor matrix: column 0 = treated, 1..J = donors
-        X_all = np.column_stack([self.X_treated[:, None], self.X_donors])
+        common = {
+            "Y_all": np.column_stack([self.Y_treated[:, np.newaxis], self.Y_donors]),
+            # Placebo predictor matrix: column 0 = treated, 1..J = donors
+            "X_all": np.column_stack([self.X_treated[:, None], self.X_donors]),
+            "pre_mask": self.pre_mask,
+            "post_mask": self.post_mask,
+            "has_predictors": self._has_predictors,
+            "run_nested": self._should_run_nested(),
+        }
+        n_placebos = len(self.donor_units)
+        n_workers = min(self.n_jobs, n_placebos)
+        parallel_fallback: Optional[str] = None
+        outcomes: Optional[List[Dict[str, Any]]] = None
 
-        run_nested = self._should_run_nested()
-
-        for i, placebo_unit in enumerate(self.donor_units):
-            idx_placebo = i + 1  # treated at column 0
-            Y_placebo = all_units_data[:, idx_placebo]
-            donor_idx = [j for j in range(all_units_data.shape[1]) if j != idx_placebo]
-            Y_placebo_donors = all_units_data[:, donor_idx]
-
-            Y_pre_p = Y_placebo[self.pre_mask]
-            Y_pre_d = Y_placebo_donors[self.pre_mask]
-
-            # Swap predictor columns accordingly
-            X_placebo = X_all[:, idx_placebo]
-            X_placebo_donors = X_all[:, donor_idx]
-            # When no covariates were given, X = pre-outcome of the
-            # placebo unit (which just swapped).
-            if not self._has_predictors:
-                X_placebo = Y_pre_p
-                X_placebo_donors = Y_pre_d
-
+        if n_workers > 1:
+            # Workers receive ``_solve_weights`` itself bound to a picklable
+            # stand-in carrying only the solver settings it reads, so the
+            # parallel path executes exactly the serial code.
+            settings = SimpleNamespace(
+                standardize_predictors=self.standardize_predictors,
+                n_random_starts=self.n_random_starts,
+                penalization=self.penalization,
+            )
+            task = functools.partial(
+                _placebo_one,
+                solve=functools.partial(SyntheticControl._solve_weights, settings),
+                **common,
+            )
             try:
-                sol = self._solve_weights(
-                    Y_pre_p,
-                    Y_pre_d,
-                    X_placebo,
-                    X_placebo_donors,
-                    run_nested=run_nested,
-                )
-                w = sol["w"]
-                synth_p = Y_placebo_donors @ w
-                gap_p = Y_placebo - synth_p
-
-                pre_mspe_p = float(np.mean(gap_p[self.pre_mask] ** 2))
-                post_mspe_p = float(np.mean(gap_p[self.post_mask] ** 2))
-                att_p = float(np.mean(gap_p[self.post_mask]))
-                ratio_p = (
-                    np.sqrt(post_mspe_p) / np.sqrt(pre_mspe_p)
-                    if pre_mspe_p > 1e-10
-                    else 0.0
-                )
-
-                atts.append(att_p)
-                pre_mspes.append(pre_mspe_p)
-                post_mspes.append(post_mspe_p)
-                ratios.append(ratio_p)
-                gap_trajectories.append(gap_p)
-                units.append(placebo_unit)
+                outcomes = _map_in_processes(task, n_placebos, n_workers)
             except Exception as exc:
+                parallel_fallback = f"{type(exc).__name__}: {exc}"
+                warnings.warn(
+                    f"Parallel placebo loop failed ({parallel_fallback}); "
+                    "fell back to serial (n_jobs=1). See "
+                    "model_info['placebo_parallel_fallback'].",
+                    RuntimeWarning,
+                    stacklevel=3,
+                )
+                outcomes = None
+        if outcomes is None:
+            n_workers = 1
+            task = functools.partial(_placebo_one, solve=self._solve_weights, **common)
+            outcomes = [task(i) for i in range(n_placebos)]
+
+        for placebo_unit, out in zip(self.donor_units, outcomes):
+            if out["ok"]:
+                atts.append(out["att"])
+                pre_mspes.append(out["pre_mspe"])
+                post_mspes.append(out["post_mspe"])
+                ratios.append(out["ratio"])
+                gap_trajectories.append(out["gap"])
+                units.append(placebo_unit)
+            else:
                 # A dropped placebo shrinks the permutation distribution
                 # and moves the p-value, so it must not vanish silently.
                 failed.append(
                     {
                         "unit": placebo_unit,
-                        "error_type": type(exc).__name__,
-                        "message": str(exc),
+                        "error_type": out["error_type"],
+                        "message": out["message"],
                     }
                 )
 
@@ -1838,7 +1882,88 @@ class SyntheticControl:
             "gaps": gaps,
             "units": units,
             "failures": failed,
+            "n_jobs": n_workers,
+            "parallel_fallback": parallel_fallback,
         }
+
+
+def _placebo_one(
+    i: int,
+    *,
+    solve: Any,
+    Y_all: np.ndarray,
+    X_all: np.ndarray,
+    pre_mask: np.ndarray,
+    post_mask: np.ndarray,
+    has_predictors: bool,
+    run_nested: bool,
+) -> Dict[str, Any]:
+    """Fit the in-space placebo for donor ``i`` (column ``i + 1``).
+
+    Module-level so the parallel placebo loop can pickle it. Returns the
+    placebo's statistics, or its failure (never raises), so both loops
+    report failures identically.
+    """
+    idx_placebo = i + 1  # treated at column 0
+    Y_placebo = Y_all[:, idx_placebo]
+    donor_idx = [j for j in range(Y_all.shape[1]) if j != idx_placebo]
+    Y_placebo_donors = Y_all[:, donor_idx]
+
+    Y_pre_p = Y_placebo[pre_mask]
+    Y_pre_d = Y_placebo_donors[pre_mask]
+
+    # Swap predictor columns accordingly
+    X_placebo = X_all[:, idx_placebo]
+    X_placebo_donors = X_all[:, donor_idx]
+    # When no covariates were given, X = pre-outcome of the
+    # placebo unit (which just swapped).
+    if not has_predictors:
+        X_placebo = Y_pre_p
+        X_placebo_donors = Y_pre_d
+
+    try:
+        sol = solve(
+            Y_pre_p,
+            Y_pre_d,
+            X_placebo,
+            X_placebo_donors,
+            run_nested=run_nested,
+        )
+        w = sol["w"]
+        synth_p = Y_placebo_donors @ w
+        gap_p = Y_placebo - synth_p
+
+        pre_mspe_p = float(np.mean(gap_p[pre_mask] ** 2))
+        post_mspe_p = float(np.mean(gap_p[post_mask] ** 2))
+        att_p = float(np.mean(gap_p[post_mask]))
+        ratio_p = (
+            np.sqrt(post_mspe_p) / np.sqrt(pre_mspe_p) if pre_mspe_p > 1e-10 else 0.0
+        )
+    except Exception as exc:
+        return {"ok": False, "error_type": type(exc).__name__, "message": str(exc)}
+    return {
+        "ok": True,
+        "att": att_p,
+        "pre_mspe": pre_mspe_p,
+        "post_mspe": post_mspe_p,
+        "ratio": ratio_p,
+        "gap": gap_p,
+    }
+
+
+def _map_in_processes(task: Any, n_tasks: int, n_workers: int) -> List[Any]:
+    """Run ``task(i)`` for ``i in range(n_tasks)`` in spawned processes.
+
+    ``spawn`` rather than the platform default so behaviour is the same on
+    Linux, macOS and Windows and never forks a multithreaded parent.
+    Results come back in task order.
+    """
+    import multiprocessing
+    from concurrent.futures import ProcessPoolExecutor
+
+    ctx = multiprocessing.get_context("spawn")
+    with ProcessPoolExecutor(max_workers=n_workers, mp_context=ctx) as pool:
+        return list(pool.map(task, range(n_tasks)))
 
 
 # ------------------------------------------------------------------

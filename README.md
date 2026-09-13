@@ -294,7 +294,8 @@ post/pre RMSPE ratio ranks 3rd of the 39 states, so p = 3/39 ≈ 0.077. This
 default matches on pre-treatment outcomes only; pass `covariates=` (e.g.
 `["lnincome", "retprice", "age15to24", "beer"]`) for an ADH-style predictor
 specification. That path re-solves the nested V-W problem for every placebo
-state and is much slower; use `placebo=False` while iterating on the
+state and is much slower: pass `n_jobs=-1` to fit the placebos in parallel
+(bit-identical results), or `placebo=False` while iterating on the
 specification.
 
 ---
