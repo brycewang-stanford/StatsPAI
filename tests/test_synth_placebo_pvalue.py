@@ -244,6 +244,108 @@ def test_n_jobs_minus_one_uses_every_cpu(small_panel):
 
 
 # ---------------------------------------------------------------------------
+# perfect_fit: treated predictors inside the donors' convex hull
+# ---------------------------------------------------------------------------
+
+
+def _in_hull_panel(seed: int = 0):
+    """Treated covariates AND pre-period outcomes are the same convex
+    combination ``w_true`` of the donors, so the treated unit is in the
+    covariate hull and ``w_true`` is the unique zero-loss synthetic control
+    (T0 = 20 > J = 8, donor outcomes in general position)."""
+    import pandas as pd
+
+    rng = np.random.default_rng(seed)
+    J, T, T0 = 8, 26, 20
+    w_true = np.array([0.5, 0.3, 0.2, 0.0, 0.0, 0.0, 0.0, 0.0])
+    Y0 = rng.normal(size=(T, J)).cumsum(axis=0) + 10.0
+    C0 = rng.normal(size=(2, J))
+    y1 = Y0 @ w_true
+    y1[T0:] += 3.0  # post-treatment effect
+    c1 = C0 @ w_true
+    rows = []
+    for j in range(J + 1):
+        name = "treated" if j == J else f"d{j}"
+        ys = y1 if j == J else Y0[:, j]
+        cs = c1 if j == J else C0[:, j]
+        for t in range(T):
+            rows.append({"unit": name, "time": t, "y": ys[t], "c1": cs[0], "c2": cs[1]})
+    return pd.DataFrame(rows), w_true, T0
+
+
+def _fit_in_hull(**kwargs):
+    df, w_true, T0 = _in_hull_panel()
+    res = sp.SyntheticControl(
+        df,
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T0,
+        covariates=["c1", "c2"],
+        **kwargs,
+    ).fit(placebo=False)
+    return res, w_true
+
+
+def test_default_is_the_adh_search_and_flags_the_hull():
+    res, _ = _fit_in_hull(n_random_starts=0)
+    mi = res.model_info
+    assert mi["perfect_fit"] == "legacy"
+    assert mi["in_predictor_hull"] is True
+    assert mi["v_identified"] is None
+    assert mi["solver_best_start"] in {"equal", "regression"}
+
+
+def test_exact_balance_recovers_the_exact_synthetic_control():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # the certified path must not warn
+        res, w_true = _fit_in_hull(perfect_fit="exact_balance")
+    mi = res.model_info
+    assert mi["in_predictor_hull"] is True
+    assert mi["v_identified"] is False
+    assert mi["solver_best_start"] == "exact_balance"
+    assert mi["converged"] is True
+    w = dict(zip(mi["weights"]["unit"], mi["weights"]["weight"]))
+    # atol 1e-6: trust-constr stops at gtol 1e-12 on a well-conditioned QP.
+    for j, wj in enumerate(w_true):
+        assert w.get(f"d{j}", 0.0) == pytest.approx(wj, abs=1e-6)
+    assert mi["pre_treatment_rmse"] == pytest.approx(0.0, abs=1e-5)
+    assert res.estimate == pytest.approx(3.0, abs=1e-5)
+
+
+def test_exact_balance_is_off_under_ridge_penalization():
+    res, _ = _fit_in_hull(
+        perfect_fit="exact_balance", penalization=0.01, n_random_starts=0
+    )
+    assert res.model_info["in_predictor_hull"] is True
+    assert res.model_info["solver_best_start"] in {"equal", "regression"}
+
+
+def test_out_of_hull_fit_is_flagged_and_untouched(prop99):
+    """California is outside the four-covariate hull, so ``exact_balance``
+    cannot apply (its optimum is pinned in the nested-solver test below)."""
+    sc = sp.SyntheticControl(
+        prop99,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="California",
+        treatment_time=1989,
+        covariates=["lnincome", "retprice", "age15to24", "beer"],
+    )
+    X1s, X0s, _ = _core.standardize_predictors(sc.X_treated, sc.X_donors)
+    assert _core._hull_feasibility(X1s, X0s) == (False, None)
+
+
+def test_perfect_fit_rejects_unknown_rule():
+    from statspai.exceptions import MethodIncompatibility
+
+    with pytest.raises(MethodIncompatibility, match="perfect_fit"):
+        _fit_in_hull(perfect_fit="outcome_mspe")
+
+
+# ---------------------------------------------------------------------------
 # Other placebo-based estimators share the helper
 # ---------------------------------------------------------------------------
 

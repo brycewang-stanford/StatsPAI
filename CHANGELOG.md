@@ -15,6 +15,28 @@ All notable changes to StatsPAI will be documented in this file.
   pool cannot start, the loop falls back to serial with a `RuntimeWarning` and
   records the reason in `model_info['placebo_parallel_fallback']`.
   `model_info['placebo_n_jobs']` reports the worker count actually used.
+
+- **`model_info['in_predictor_hull']` and `perfect_fit='exact_balance'` for
+  classic SCM with covariates.** Nested V-W fits now report, by an exact
+  linear-programming check, whether the treated unit's predictors lie inside
+  the donors' convex hull. Inside it, infinitely many donor-weight vectors fit
+  the predictors exactly, so the ADH V search returns path-dependent weights
+  and is slow: on Prop 99 with four covariates, 20 of the 39 states are inside,
+  including the slowest placebos (Maine 323 s, Alabama 108 s). The default
+  (`perfect_fit='legacy'`) keeps the ADH search and every existing number.
+  `perfect_fit='exact_balance'` instead balances every predictor exactly and
+  returns the weights with the best pre-treatment outcome fit among them: a
+  convex QP solved by `trust-constr`, polished by an exact KKT solve on the
+  active support, and certified by a Frank–Wolfe gap. All 20 in-hull Prop 99
+  states certify (worst relative gap 6.5e-11, constraint violation <= 1.6e-12)
+  in 3.5 s together; out-of-hull units still go through the V search. This is
+  a different estimator, not a faster ADH: the V search can zero out some
+  predictors and so fit the outcome better. Montana's pre-period SSE is 12417
+  under `exact_balance` against 2898 under the search, while Georgia's is 122
+  against 1022, Maine's 168 against 3215 and South Dakota's 34 against 2115.
+  SLSQP was tried for the QP and rejected: on these degenerate
+  equality-constrained problems it reported success at points far from the
+  optimum (Illinois 4113 against a certified 553).
   California Prop 99 with Abadie's four covariates and all 38 placebos
   finishes in 534 s with `n_jobs=-1` on 8 cores; the serial loop had passed
   22 CPU-minutes when it was stopped. The wall time is set by the slowest

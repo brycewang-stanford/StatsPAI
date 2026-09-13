@@ -26794,6 +26794,15 @@
             "description": "Ridge penalty on donor weights.",
             "type": "number"
           },
+          "perfect_fit": {
+            "default": "legacy",
+            "description": "Rule for the nested V-W fit when the treated unit's predictors lie inside the convex hull of the donors' predictors, which is checked exactly by linear programming and reported as ``model_info['in_predictor_hull']``. Inside the hull every V with full support fits the predictors perfectly and infinitely many donor-weight vectors do so, so the nested weights depend on the optimiser's path and each fit can take minutes. ``'legacy'`` (default) runs the ADH outer V search regardless. ``'exact_balance'`` instead returns, among the weights that balance *every* predictor exactly, the one with the smallest pre-treatment outcome MSPE: a convex QP solved once in well under a second and certified by a Frank-Wolfe gap; ``model_info['v_identified']`` is then False and the reported V is the identity. This is a different estimator, not a faster ADH: the V search can push some V entries to zero, dropping those predictors, and so can fit the outcome better (on Prop 99 with four covariates, Montana's pre-period SSE is 12417 under ``'exact_balance'`` against 2898 under the V search, while Georgia's is 122 against 1022). Placebo fits follow the same rule. It does not apply with ``penalization > 0`` or on the outcome-lags-only equal-V path.",
+            "enum": [
+              "legacy",
+              "exact_balance"
+            ],
+            "type": "string"
+          },
           "special_predictors": {
             "description": "R/Stata ``Synth``-style predictor specifications. Each entry is ``(column, period_spec, op)`` where ``period_spec`` is a scalar year, a list of years, or a ``slice(start, stop)`` (inclusive), and ``op`` is ``'mean'`` or ``'sum'``. When omitted together with ``covariates``, the pre-treatment outcome vector itself is used as the predictor (V has no identifying power and is fixed to the identity, following Kaul et al. 2022).",
             "items": {

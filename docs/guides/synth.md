@@ -65,6 +65,27 @@ of the 20 variants with the same API and return type.
 | Bayesian posterior | `bayesian_synth()` | Full credible intervals from MCMC. |
 | BSTS posterior | `bsts_synth()` | Kalman filter / smoother posterior draws. |
 
+### Placebo p-values and covariate specifications (classic SCM)
+
+- **p-value.** The in-space placebo p-value is the treated unit's rank among
+  itself and its `J` placebos, divided by `J + 1`: a treated unit ranked 3rd
+  of 39 gets `3/39`.
+- **Speed.** With `covariates=` / `special_predictors=` every placebo
+  re-solves the nested V-W problem. Pass `n_jobs=-1` to fit placebos in
+  parallel; results are bit-identical to the serial loop.
+- **Convex hull.** `model_info['in_predictor_hull']` reports (by exact linear
+  programming) whether the treated unit's predictors lie inside the donors'
+  convex hull. If they do, infinitely many weight vectors fit the predictors
+  exactly and the default ADH search (`perfect_fit='legacy'`) returns weights
+  that depend on the optimiser's path, often after minutes of search.
+- **`perfect_fit='exact_balance'`** instead balances *every* predictor
+  exactly and picks the best pre-treatment outcome fit among those weights
+  (a certified convex QP, well under a second). It is a different estimator,
+  not a faster ADH: the V search can drop predictors by giving them zero
+  weight and fit the outcome better. On Prop 99 with four covariates,
+  Montana's pre-period SSE is 12417 under `exact_balance` against 2898 under
+  the search, while Georgia's is 122 against 1022. Report which rule you used.
+
 ## Research workflow
 
 ### Run all methods at once

@@ -564,6 +564,7 @@ def _dispatch_synth_impl(
         standardize_predictors = kwargs.pop("standardize_predictors", True)
         n_random_starts = kwargs.pop("n_random_starts", 4)
         n_jobs = kwargs.pop("n_jobs", 1)
+        perfect_fit = kwargs.pop("perfect_fit", "legacy")
         model = SyntheticControl(
             data=data,
             outcome=outcome,
@@ -579,6 +580,7 @@ def _dispatch_synth_impl(
             penalization=penalization,
             alpha=alpha,
             n_jobs=n_jobs,
+            perfect_fit=perfect_fit,
         )
         return model.fit(placebo=placebo)
 
@@ -1167,6 +1169,27 @@ class SyntheticControl:
         process pool cannot start, the loop falls back to serial with a
         ``RuntimeWarning`` and records why in
         ``model_info['placebo_parallel_fallback']``.
+    perfect_fit : {'legacy', 'exact_balance'}, default 'legacy'
+        Rule for the nested V-W fit when the treated unit's predictors lie
+        inside the convex hull of the donors' predictors, which is checked
+        exactly by linear programming and reported as
+        ``model_info['in_predictor_hull']``. Inside the hull every V with
+        full support fits the predictors perfectly and infinitely many
+        donor-weight vectors do so, so the nested weights depend on the
+        optimiser's path and each fit can take minutes.
+        ``'legacy'`` (default) runs the ADH outer V search regardless.
+        ``'exact_balance'`` instead returns, among the weights that balance
+        *every* predictor exactly, the one with the smallest pre-treatment
+        outcome MSPE: a convex QP solved once in well under a second and
+        certified by a Frank-Wolfe gap; ``model_info['v_identified']`` is
+        then False and the reported V is the identity. This is a different
+        estimator, not a faster ADH: the V search can push some V entries
+        to zero, dropping those predictors, and so can fit the outcome
+        better (on Prop 99 with four covariates, Montana's pre-period SSE is
+        12417 under ``'exact_balance'`` against 2898 under the V search,
+        while Georgia's is 122 against 1022). Placebo fits follow the same
+        rule. It does not apply with ``penalization > 0`` or on the
+        outcome-lags-only equal-V path.
 
     Examples
     --------
@@ -1199,6 +1222,7 @@ class SyntheticControl:
         penalization: float = 0.0,
         alpha: float = 0.05,
         n_jobs: Optional[int] = 1,
+        perfect_fit: str = "legacy",
     ):
         self.data = _require_dataframe(data, "data")
         self.outcome = _require_column_name(outcome, "outcome")
@@ -1235,6 +1259,12 @@ class SyntheticControl:
         self.penalization = _require_nonnegative_float(penalization, "penalization")
         self.alpha = _require_open_unit_float(alpha, "alpha")
         self.n_jobs = _resolve_n_jobs(n_jobs)
+        self.perfect_fit = _require_string_option(perfect_fit, "perfect_fit")
+        if self.perfect_fit not in {"legacy", "exact_balance"}:
+            raise MethodIncompatibility(
+                "perfect_fit must be 'legacy' or 'exact_balance'.",
+                diagnostics={"perfect_fit": perfect_fit},
+            )
 
         self._validate()
         self._prepare_matrices()
@@ -1447,6 +1477,7 @@ class SyntheticControl:
                 standardize=self.standardize_predictors,
                 n_random_starts=self.n_random_starts,
                 penalization=self.penalization,
+                perfect_fit=self.perfect_fit,
             )
 
         # Equal V path (also used as a fast fallback)
@@ -1726,6 +1757,11 @@ class SyntheticControl:
             "v_method": "nested" if run_nested else "equal",
             "n_starts": solver_out["n_starts"],
             "converged": solver_out["converged"],
+            "perfect_fit": self.perfect_fit,
+            # None on the equal-V path (no predictor hull) or if the LP
+            # check did not finish.
+            "in_predictor_hull": solver_out.get("in_predictor_hull"),
+            "v_identified": solver_out.get("v_identified"),
             "solver_best_start": solver_out.get("best_start"),
             "solver_start_diagnostics": solver_start_diagnostics,
             "solver_start_weights": solver_start_weights,
@@ -1816,6 +1852,7 @@ class SyntheticControl:
                 standardize_predictors=self.standardize_predictors,
                 n_random_starts=self.n_random_starts,
                 penalization=self.penalization,
+                perfect_fit=self.perfect_fit,
             )
             task = functools.partial(
                 _placebo_one,

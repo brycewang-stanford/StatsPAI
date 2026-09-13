@@ -41,6 +41,7 @@ Literature* 59(2), 391-425. [@abadie2021synthetic]
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
@@ -308,6 +309,126 @@ def _regression_v_init(
         return np.ones(K)
 
 
+def _hull_feasibility(
+    X1_s: np.ndarray,
+    X0_s: np.ndarray,
+) -> Tuple[Optional[bool], Optional[np.ndarray]]:
+    """
+    Exact check whether the treated predictors lie in the donors' convex hull.
+
+    Solves the linear feasibility problem ``{w >= 0, 1'w = 1, X0 w = X1}``.
+    Inside the hull every V with full support attains a zero predictor
+    discrepancy and the inner problem has a whole polytope of solutions, so
+    the nested V-W weights depend on the optimiser's path.
+
+    Returns ``(True, feasible_w)``, ``(False, None)``, or ``(None, None)``
+    with a ``RuntimeWarning`` when the LP does not finish.
+    """
+    K, J = X0_s.shape
+    A = np.vstack([X0_s, np.ones((1, J))])
+    b = np.append(X1_s, 1.0)
+    lp = optimize.linprog(
+        np.zeros(J), A_eq=A, b_eq=b, bounds=[(0.0, None)] * J, method="highs"
+    )
+    if lp.status == 2:  # infeasible: outside the hull
+        return False, None
+    if lp.status != 0:
+        warnings.warn(
+            f"Convex-hull check for the nested SCM fit did not finish "
+            f"(linprog status {lp.status}: {lp.message}).",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        return None, None
+    return True, np.clip(np.asarray(lp.x, dtype=np.float64), 0.0, None)
+
+
+def _exact_balance_weights(
+    X1_s: np.ndarray,
+    X0_s: np.ndarray,
+    Z1: np.ndarray,
+    Z0: np.ndarray,
+    w_feasible: np.ndarray,
+) -> Dict[str, Any]:
+    """
+    Exact-covariate-balance weights with the best pre-treatment outcome fit.
+
+    For a treated unit inside the donors' predictor hull, solves
+
+        min_w ||Z1 - Z0 w||^2  s.t.  w >= 0, 1'w = 1, X0 w = X1,
+
+    a convex QP, with ``trust-constr`` (SLSQP mis-solves these degenerate
+    equality-constrained problems, reporting success at points far from the
+    optimum) and certifies it by the Frank-Wolfe gap
+    ``g'w - min_{u in P} g'u``, an upper bound on ``loss(w) - loss*``.
+
+    This is *not* the ADH nested optimum made unique: the outer V search may
+    set some V entries to (near) zero, which drops those predictors from the
+    balance constraint and can buy a better outcome fit.
+    """
+    K, J = X0_s.shape
+    A = np.vstack([X0_s, np.ones((1, J))])
+    b = np.append(X1_s, 1.0)
+    bounds = [(0.0, None)] * J
+    H = 2.0 * Z0.T @ Z0
+
+    def objective(w: np.ndarray) -> float:
+        r = Z1 - Z0 @ w
+        return float(r @ r)
+
+    def gradient(w: np.ndarray) -> np.ndarray:
+        return np.asarray(-2.0 * Z0.T @ (Z1 - Z0 @ w))
+
+    with warnings.catch_warnings():
+        # trust-constr reports quasi-Newton update skips on this quadratic
+        # objective; they are informational, the certificate below is not.
+        warnings.filterwarnings("ignore", message="delta_grad == 0.0")
+        res = optimize.minimize(
+            objective,
+            w_feasible,
+            jac=gradient,
+            hess=lambda w: H,
+            method="trust-constr",
+            bounds=optimize.Bounds(0.0, 1.0),
+            constraints=optimize.LinearConstraint(A, b, b),
+            options={"maxiter": 5000, "gtol": 1e-12, "xtol": 1e-14},
+        )
+    w = np.clip(np.asarray(res.x, dtype=np.float64), 0.0, None)
+    w = w / w.sum()
+    loss = objective(w)
+
+    # Polish: trust-constr stops at a small but finite gap (weights off by
+    # ~1e-4 when the optimum has zero loss). Re-solve the equality-constrained
+    # least squares exactly on the active support via its KKT system; keep
+    # the result only if it stays feasible and does not raise the loss.
+    support = np.flatnonzero(w > 1e-9)
+    if support.size:
+        Q = H[np.ix_(support, support)]
+        A_s = A[:, support]
+        m = A_s.shape[0]
+        kkt = np.block([[Q, A_s.T], [A_s, np.zeros((m, m))]])
+        rhs = np.concatenate([2.0 * Z0[:, support].T @ Z1, b])
+        sol = np.linalg.lstsq(kkt, rhs, rcond=None)[0]
+        w_s = sol[: support.size]
+        if np.all(w_s >= -1e-12):
+            w_pol = np.zeros(J)
+            w_pol[support] = np.clip(w_s, 0.0, None)
+            loss_pol = objective(w_pol)
+            viol_pol = float(np.abs(A @ w_pol - b).max())
+            if viol_pol <= 1e-10 and loss_pol <= loss + 1e-12 * max(loss, 1.0):
+                w, loss = w_pol, loss_pol
+
+    g = gradient(w)
+    fw = optimize.linprog(g, A_eq=A, b_eq=b, bounds=bounds, method="highs")
+    gap = float(g @ w - fw.fun) if fw.status == 0 else float("inf")
+    return {
+        "w": w,
+        "loss": loss,
+        "fw_gap": gap,
+        "max_constraint_violation": float(np.abs(A @ w - b).max()),
+    }
+
+
 def solve_synth_weights_adh(
     X1: np.ndarray,
     X0: np.ndarray,
@@ -322,6 +443,7 @@ def solve_synth_weights_adh(
     ftol: float = 1e-10,
     penalization: float = 0.0,
     random_state: Optional[int] = 42,
+    perfect_fit: str = "legacy",
 ) -> Dict[str, object]:
     """
     Canonical Abadie-Diamond-Hainmueller (2010) SCM weights via nested
@@ -365,6 +487,14 @@ def solve_synth_weights_adh(
         classical ADH problem.
     random_state : int or None, default 42
         Seed for random Dirichlet starts.
+    perfect_fit : {'legacy', 'exact_balance'}, default 'legacy'
+        Rule when ``X1`` lies in the convex hull of the columns of ``X0``.
+        ``'legacy'`` runs the V search regardless (the ADH estimator; its
+        weights are then path-dependent). ``'exact_balance'`` skips the V
+        search and returns the weights that balance every predictor exactly
+        with the smallest outer loss (see ``_exact_balance_weights``) — a
+        different estimator, not a tie-break. Only applies when
+        ``penalization == 0``.
 
     Returns
     -------
@@ -377,7 +507,16 @@ def solve_synth_weights_adh(
                              ``standardize=False``)
         n_starts : int   — total number of starts attempted
         converged : bool — True if the best start converged
+                           (``'exact_balance'``: the QP certificate passed)
+        in_predictor_hull : bool or None — X1 lies in the donors' hull
+                           (None if the LP check did not finish)
+        v_identified : False under ``'exact_balance'``, else None
     """
+    if perfect_fit not in ("legacy", "exact_balance"):
+        raise MethodIncompatibility(
+            "perfect_fit must be 'legacy' or 'exact_balance'.",
+            diagnostics={"perfect_fit": repr(perfect_fit)},
+        )
     X1 = np.asarray(X1, dtype=np.float64).ravel()
     X0 = np.asarray(X0, dtype=np.float64)
     Z1 = np.asarray(Z1, dtype=np.float64).ravel()
@@ -407,6 +546,51 @@ def solve_synth_weights_adh(
     else:
         X1_s, X0_s = X1, X0
         scale = np.ones(K)
+
+    # Hull membership is invariant to the positive row scaling above.
+    in_hull, w_feasible = _hull_feasibility(X1_s, X0_s)
+
+    if perfect_fit == "exact_balance" and penalization == 0.0 and in_hull:
+        pf = _exact_balance_weights(X1_s, X0_s, Z1, Z0, w_feasible)
+        # 1e-8 relative (absolute below loss 1): the polished QP typically
+        # certifies at 1e-10 or better; a looser bound would pass unpolished
+        # zero-loss solutions whose weights are off by ~1e-4.
+        certified = bool(pf["fw_gap"] <= 1e-8 * max(pf["loss"], 1.0))
+        if not certified:
+            warnings.warn(
+                "Exact-balance SCM weights were not certified optimal "
+                f"(Frank-Wolfe gap {pf['fw_gap']:.3g} at loss "
+                f"{pf['loss']:.6g}); converged=False.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+        V_id = np.ones(K)
+        w_pf = pf["w"]
+        inner_r_pf = X1_s - X0_s @ w_pf
+        inner_loss_pf = float(np.sum(V_id * inner_r_pf**2))
+        return {
+            "w": w_pf,
+            "v": V_id,
+            "loss": pf["loss"],
+            "inner_loss": inner_loss_pf,
+            "scale": scale,
+            "n_starts": 0,
+            "converged": certified,
+            "best_start": "exact_balance",
+            "start_diagnostics": [
+                {
+                    "start": "exact_balance",
+                    "success": certified,
+                    "loss": pf["loss"],
+                    "inner_loss": inner_loss_pf,
+                    "weights": w_pf,
+                    "v": V_id,
+                }
+            ],
+            "in_predictor_hull": True,
+            "v_identified": False,
+            "exact_balance_gap": pf["fw_gap"],
+        }
 
     # The inner solve deliberately starts from the uniform simplex point on
     # every evaluation. Warm-starting from the previous evaluation's W is
@@ -497,6 +681,8 @@ def solve_synth_weights_adh(
             "converged": False,
             "best_start": None,
             "start_diagnostics": start_diagnostics,
+            "in_predictor_hull": in_hull,
+            "v_identified": None,
         }
 
     V_opt = _v_from_params(best.x, K)
@@ -514,4 +700,6 @@ def solve_synth_weights_adh(
         "converged": bool(best.success),
         "best_start": best_start,
         "start_diagnostics": start_diagnostics,
+        "in_predictor_hull": in_hull,
+        "v_identified": None,
     }
