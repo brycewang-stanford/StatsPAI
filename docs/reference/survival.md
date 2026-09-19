@@ -23,7 +23,7 @@ r = sp.cox(
     data=df, duration='t', event='d',
     x=['age','sex','treatment'],
     strata='centre',
-    ties='efron',                    # or 'breslow' | 'exact'
+    ties='efron',                    # or 'breslow'
     robust='hc0',                    # sandwich SE
     cluster='patient_id',
 )
@@ -43,8 +43,12 @@ sp.aft('t + d ~ age + sex', df,
 ## Frailty models
 
 ```python
-sp.cox_frailty('t + d ~ age + sex', df,
-               cluster='family_id')      # shared gamma frailty
+r = sp.cox_frailty('t + d ~ age + sex', df,
+                   cluster='family_id')  # shared gamma frailty
+r.theta          # frailty variance (R coxph frailty() / Stata stcox, shared())
+r.lr_theta0      # LR test of theta = 0 (chibar2(01), p)
+sp.cox_frailty('t + d ~ age + sex', df, cluster='family_id',
+               theta=0.5)                # fixed frailty variance
 ```
 
 ## Competing risks

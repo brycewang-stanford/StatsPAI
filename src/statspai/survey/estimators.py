@@ -8,8 +8,9 @@ Implements the same variance formulas as R ``survey::svymean``,
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, List, Union
 
 import numpy as np
 import pandas as pd
@@ -81,79 +82,129 @@ def _resolve_vars(
     return variables, vals
 
 
-def _stratified_cluster_var(
-    scores: np.ndarray,
-    strata: np.ndarray,
-    cluster_ids: np.ndarray,
-    fpc: Optional[np.ndarray] = None,
-) -> np.ndarray:
+def _design_vcov(scores: np.ndarray, design: "SurveyDesign") -> np.ndarray:
     """
-    Taylor linearisation variance for clustered, stratified designs.
+    First-stage Taylor-linearisation (ultimate-cluster) covariance.
+
+    Mirrors R ``survey:::onestage`` / ``onestrat`` for a single-stage
+    design: within stratum *h* with ``n_h`` sampled PSUs, PSU score totals
+    ``t_hj`` are centred at their stratum mean and
+
+        V = sum_h (1 - f_hj) * n_h / (n_h - 1) * sum_j d_hj d_hj'
+
+    with ``f_hj`` the sampling fraction (0 without fpc).  Strata with a
+    single PSU follow ``design.lonely_psu`` (see :class:`SurveyDesign`).
 
     Parameters
     ----------
-    scores : (n, p)  linearised score contributions per observation
-    strata : (n,)
-    cluster_ids : (n,)
-    fpc : (n,) or None — finite population correction fractions
+    scores : (n, p) linearised score contributions per observation
+    design : SurveyDesign
 
     Returns
     -------
-    var : (p,) estimated variances for each of *p* statistics
+    (p, p) covariance matrix
     """
+    scores = np.asarray(scores, dtype=np.float64)
+    if scores.ndim == 1:
+        scores = scores[:, None]
     p = scores.shape[1]
-    total_var = np.zeros(p)
+    strata = design._strata_codes
+    psu = design._psu_codes
+    fpc = design.fpc_values
+    rule = design.lonely_psu
 
-    unique_strata = np.unique(strata)
-    for h in unique_strata:
-        mask_h = strata == h
-        scores_h = scores[mask_h]
-        clusters_h = cluster_ids[mask_h]
+    n_strata = int(strata.max()) + 1
+    # PSU totals, the PSU's stratum and its first-row sampling fraction
+    n_psu_total = int(psu.max()) + 1
+    t = np.zeros((n_psu_total, p))
+    np.add.at(t, psu, scores)
+    first = np.unique(psu, return_index=True)[1]
+    psu_stratum = strata[first]
+    psu_f = np.zeros(n_psu_total) if fpc is None else np.asarray(fpc)[first]
 
-        unique_psu = np.unique(clusters_h)
-        n_h = len(unique_psu)
+    recentre = scores.sum(axis=0) / n_psu_total if rule == "adjust" else None
 
-        if n_h < 2:
-            # Single-PSU stratum — contribute 0 (conservative, matches R survey)
+    vcov = np.zeros((p, p))
+    lonely = []
+    n_ok = 0
+    for h in range(n_strata):
+        idx = np.flatnonzero(psu_stratum == h)
+        n_h = idx.size
+        one_minus_f = 1.0 - psu_f[idx]
+        if n_h > 1:
+            n_ok += 1
+            if np.all(one_minus_f < 1e-7):
+                continue  # certainty stratum
+            d = t[idx] - t[idx].mean(axis=0)
+            scale = one_minus_f * n_h / (n_h - 1)
+            vcov += (d * scale[:, None]).T @ d
             continue
+        lonely.append(h)
+        if rule == "fail":
+            raise ValueError(
+                "Stratum with a single sampled PSU (lonely PSU); choose "
+                "svydesign(lonely_psu='remove'|'certainty'|'adjust'|'average')"
+            )
+        if rule == "adjust" and not np.all(one_minus_f < 1e-7):
+            d = t[idx] - recentre
+            vcov += (d * one_minus_f[:, None]).T @ d
+        # "remove" / "certainty": zero; "average": rescaled below
+    if lonely and rule == "average":
+        if n_ok == 0:
+            raise ValueError("lonely_psu='average': every stratum has one PSU")
+        vcov *= n_strata / n_ok
+    if lonely and not design._lonely_psu_explicit:
+        warnings.warn(
+            f"{len(lonely)} stratum/strata with a single sampled PSU; they "
+            "contribute zero variance (lonely_psu='remove'). R survey fails "
+            "and Stata reports a missing SE by default -- set "
+            "svydesign(lonely_psu=...) explicitly to choose the rule.",
+            UserWarning,
+            stacklevel=3,
+        )
+    return vcov
 
-        # Sum scores within each PSU
-        psu_totals = np.zeros((n_h, p))
-        for g, psu in enumerate(unique_psu):
-            psu_totals[g] = scores_h[clusters_h == psu].sum(axis=0)
 
-        psu_mean = psu_totals.mean(axis=0)
-        # Between-PSU variance
-        dev = psu_totals - psu_mean[None, :]
-        s2 = (dev**2).sum(axis=0) / (n_h - 1)
+def _design_dof(design: "SurveyDesign") -> float:
+    """Design degrees of freedom = (# PSUs) - (# strata), PSUs within strata.
 
-        fpc_factor = 1.0
-        if fpc is not None:
-            f_h = fpc[mask_h][0]
-            fpc_factor = 1 - f_h
-
-        total_var += fpc_factor * n_h * s2
-
-    return total_var
-
-
-def _design_dof(strata: np.ndarray, cluster_ids: np.ndarray) -> float:
-    """Degrees of freedom = (# PSUs) - (# strata)."""
-    n_psu = len(np.unique(cluster_ids))
-    n_strata = len(np.unique(strata))
+    Same as R ``survey::degf`` (with ``nest=TRUE``) and Stata ``e(df_r)``.
+    """
+    n_psu = int(design._psu_codes.max()) + 1
+    n_strata = int(design._strata_codes.max()) + 1
     return max(float(n_psu - n_strata), 1.0)
 
 
-def _srs_var(values: np.ndarray, weights: np.ndarray) -> np.ndarray:
-    """Simple random sampling variance for comparison (DEFF denominator)."""
-    p = values.shape[1]
-    v = np.zeros(p)
-    n = len(weights)
-    w_sum = weights.sum()
-    for j in range(p):
-        wm = np.average(values[:, j], weights=weights)
-        v[j] = np.sum(weights * (values[:, j] - wm) ** 2) / (w_sum**2) * n / (n - 1)
-    return v
+def _deff_denominator(
+    values: np.ndarray, weights: np.ndarray, mode: str, total: bool
+) -> np.ndarray:
+    """SRS variance used as DEFF denominator, as in R ``svymean(deff=)``.
+
+    ``svyvar`` = sum w (y - ybar)^2 / sum w * n / (n - 1).  Without
+    replacement (``mode="wor"``, R ``deff=TRUE``; Stata ``estat effects``
+    when an fpc is declared): ``svyvar * (N - n) / (N n)`` with N = sum w;
+    with replacement (``mode="replace"``, R ``deff="replace"``; Stata
+    ``estat effects`` without fpc): ``svyvar / n``.  Totals multiply by N^2.
+    """
+    n = float(np.sum(weights != 0))
+    N = float(weights.sum())
+    wbar = values.T @ weights / N
+    svyvar = ((values - wbar) ** 2).T @ weights / N * n / (n - 1)
+    if mode == "replace":
+        v = svyvar / n
+    elif mode == "wor":
+        if N < n:
+            warnings.warn(
+                "Sample size greater than population size (sum of weights): "
+                "are weights correctly scaled? DEFF set to NaN.",
+                UserWarning,
+                stacklevel=3,
+            )
+            return np.full(values.shape[1], np.nan)
+        v = svyvar * (N - n) / (N * n)
+    else:
+        raise ValueError(f"deff must be 'wor' or 'replace'; got {mode!r}")
+    return v * N**2 if total else v
 
 
 # ====================================================================== #
@@ -165,6 +216,7 @@ def svymean(
     variables: Union[str, List[str]],
     design: "SurveyDesign",
     alpha: float = 0.05,
+    deff: str = "wor",
 ) -> SurveyResult:
     """
     Survey-weighted mean with design-corrected standard errors.
@@ -177,6 +229,14 @@ def svymean(
         Column name(s) in the design's data.
     design : SurveyDesign
     alpha : float
+        CIs use the t distribution with the design df (#PSU - #strata), as
+        Stata ``svy:`` and R ``confint(..., df = degf(design))``; R's
+        ``confint.svystat`` default is the normal quantile.
+    deff : {"wor", "replace"}
+        Denominator of the design effect: SRS without replacement with
+        N = sum of weights (R ``deff=TRUE``; Stata ``estat effects`` when an
+        fpc is declared) or with replacement (R ``deff="replace"``; Stata
+        ``estat effects`` without fpc).
 
     Returns
     -------
@@ -195,7 +255,7 @@ def svymean(
     ...     "pw": rng.uniform(1.0, 3.0, n),    # sampling weights
     ... })
     >>> design = sp.svydesign(data=df, weights="pw", strata="region",
-    ...                       cluster="psu_id")
+    ...                       cluster="psu_id", nest=True)
     >>> res = sp.svymean("income", design)
     >>> list(res.estimate.index)
     ['income']
@@ -210,21 +270,12 @@ def svymean(
     # Linearised scores for the mean: z_i = w_i * (y_i - mean) / sum(w)
     scores = w[:, None] * (vals - means[None, :]) / w_sum
 
-    # Design variance
-    design_var = _stratified_cluster_var(
-        scores,
-        design.strata,
-        design.cluster_ids,
-        design.fpc_values,
-    )
+    design_var = np.diag(_design_vcov(scores, design))
     se = np.sqrt(design_var)
 
-    # Design effect
-    srs_v = _srs_var(vals, w)
-    deff = np.where(srs_v > 0, design_var / srs_v, 1.0)
+    deff_v = design_var / _deff_denominator(vals, w, deff, total=False)
 
-    # Confidence interval
-    dof = _design_dof(design.strata, design.cluster_ids)
+    dof = _design_dof(design)
     t_crit = sp_stats.t.ppf(1 - alpha / 2, df=dof)
 
     return SurveyResult(
@@ -232,7 +283,7 @@ def svymean(
         std_error=pd.Series(se, index=var_names),
         ci_lower=pd.Series(means - t_crit * se, index=var_names),
         ci_upper=pd.Series(means + t_crit * se, index=var_names),
-        deff=pd.Series(deff, index=var_names),
+        deff=pd.Series(deff_v, index=var_names),
         dof=dof,
         alpha=alpha,
     )
@@ -242,6 +293,7 @@ def svytotal(
     variables: Union[str, List[str]],
     design: "SurveyDesign",
     alpha: float = 0.05,
+    deff: str = "wor",
 ) -> SurveyResult:
     """
     Survey-weighted total with design-corrected standard errors.
@@ -251,6 +303,14 @@ def svytotal(
     variables : str or list of str
     design : SurveyDesign
     alpha : float
+        CIs use the t distribution with the design df (#PSU - #strata), as
+        Stata ``svy:`` and R ``confint(..., df = degf(design))``; R's
+        ``confint.svystat`` default is the normal quantile.
+    deff : {"wor", "replace"}
+        Denominator of the design effect: SRS without replacement with
+        N = sum of weights (R ``deff=TRUE``; Stata ``estat effects`` when an
+        fpc is declared) or with replacement (R ``deff="replace"``; Stata
+        ``estat effects`` without fpc).
 
     Returns
     -------
@@ -269,7 +329,7 @@ def svytotal(
     ...     "pw": rng.uniform(1.0, 3.0, n),    # sampling weights
     ... })
     >>> design = sp.svydesign(data=df, weights="pw", strata="region",
-    ...                       cluster="psu_id")
+    ...                       cluster="psu_id", nest=True)
     >>> res = sp.svytotal("income", design)
     >>> list(res.estimate.index)
     ['income']
@@ -282,19 +342,12 @@ def svytotal(
     # Linearised scores for total: z_i = w_i * y_i
     scores = w[:, None] * vals
 
-    design_var = _stratified_cluster_var(
-        scores,
-        design.strata,
-        design.cluster_ids,
-        design.fpc_values,
-    )
+    design_var = np.diag(_design_vcov(scores, design))
     se = np.sqrt(design_var)
 
-    srs_v = _srs_var(vals, w) * (w.sum()) ** 2
-    srs_v = np.where(srs_v > 0, srs_v, 1.0)
-    deff = np.where(srs_v > 0, design_var / srs_v, 1.0)
+    deff_v = design_var / _deff_denominator(vals, w, deff, total=True)
 
-    dof = _design_dof(design.strata, design.cluster_ids)
+    dof = _design_dof(design)
     t_crit = sp_stats.t.ppf(1 - alpha / 2, df=dof)
 
     return SurveyResult(
@@ -302,7 +355,7 @@ def svytotal(
         std_error=pd.Series(se, index=var_names),
         ci_lower=pd.Series(totals - t_crit * se, index=var_names),
         ci_upper=pd.Series(totals + t_crit * se, index=var_names),
-        deff=pd.Series(deff, index=var_names),
+        deff=pd.Series(deff_v, index=var_names),
         dof=dof,
         alpha=alpha,
     )
@@ -313,6 +366,7 @@ def svyglm(
     design: "SurveyDesign",
     family: str = "gaussian",
     alpha: float = 0.05,
+    dof: str = "design",
 ) -> SurveyResult:
     """
     Survey-weighted generalised linear model.
@@ -327,7 +381,15 @@ def svyglm(
     design : SurveyDesign
     family : str
         ``"gaussian"``, ``"binomial"`` (logistic), or ``"poisson"``.
+        Canonical links; the sandwich is ``A^{-1} B A^{-1}`` with
+        ``A = X' diag(w V(mu)) X`` and ``B`` the design covariance of the
+        score totals ``w (y - mu) x`` (R ``survey:::svy.varcoef``).
     alpha : float
+    dof : {"design", "residual"}
+        Degrees of freedom for t statistics, p-values and CIs.
+        ``"design"`` (default): #PSU - #strata, as Stata ``svy:``.
+        ``"residual"``: #PSU - #strata + 1 - #coefficients, as R
+        ``summary.svyglm`` / ``confint.svyglm``.
 
     Returns
     -------
@@ -347,7 +409,7 @@ def svyglm(
     ...     "pw": rng.uniform(1.0, 3.0, n),    # sampling weights
     ... })
     >>> design = sp.svydesign(data=df, weights="pw", strata="region",
-    ...                       cluster="psu_id")
+    ...                       cluster="psu_id", nest=True)
     >>> res = sp.svyglm("income ~ age", design)
     >>> list(res.estimate.index)
     ['Intercept', 'age']
@@ -367,54 +429,27 @@ def svyglm(
 
     if family == "gaussian":
         params, working_residuals = _wls_fit(y, X, w)
-    elif family == "binomial":
-        params, working_residuals = _irls_fit(y, X, w, family="binomial")
-    elif family == "poisson":
-        params, working_residuals = _irls_fit(y, X, w, family="poisson")
+        var_mu = np.ones(n)
+    elif family in ("binomial", "poisson"):
+        params, working_residuals, var_mu = _irls_fit(y, X, w, family=family)
     else:
         raise ValueError(
             f"Unknown family: {family}. Use 'gaussian', 'binomial', or 'poisson'."
         )
 
-    # Sandwich variance with survey design correction
-    # Score contributions: z_i = w_i * r_i * x_i  (linearised influence)
+    # Sandwich (R survey:::svy.varcoef): bread = (X' diag(w V(mu)) X)^{-1},
+    # score contributions z_i = w_i (y_i - mu_i) x_i (canonical link).
     scores = w[:, None] * working_residuals[:, None] * X
-
-    # Bread: (X'WX)^{-1}
-    WX = X * w[:, None]
-    bread = np.linalg.inv(WX.T @ X)
-
-    # Full sandwich: bread @ meat @ bread
-    # meat is sum of outer products of cluster score totals (already in design_var)
-    # But we need the full matrix, not just diagonal — recompute
-    p = k
-    meat_matrix = np.zeros((p, p))
-    unique_strata = np.unique(design.strata)
-    for h in unique_strata:
-        mask_h = design.strata == h
-        scores_h = scores[mask_h]
-        clusters_h = design.cluster_ids[mask_h]
-        unique_psu = np.unique(clusters_h)
-        n_h = len(unique_psu)
-        if n_h < 2:
-            continue
-        psu_totals = np.zeros((n_h, p))
-        for g, psu in enumerate(unique_psu):
-            psu_totals[g] = scores_h[clusters_h == psu].sum(axis=0)
-        psu_mean = psu_totals.mean(axis=0)
-        dev = psu_totals - psu_mean[None, :]
-        s2 = dev.T @ dev / (n_h - 1)
-        fpc_factor = 1.0
-        if design.fpc_values is not None:
-            f_h = design.fpc_values[mask_h][0]
-            fpc_factor = 1 - f_h
-        meat_matrix += fpc_factor * n_h * s2
-
-    vcov = bread @ meat_matrix @ bread
+    bread = np.linalg.inv((X * (w * var_mu)[:, None]).T @ X)
+    vcov = bread @ _design_vcov(scores, design) @ bread
     se = np.sqrt(np.diag(vcov))
 
-    dof = _design_dof(design.strata, design.cluster_ids)
-    t_crit = sp_stats.t.ppf(1 - alpha / 2, df=dof)
+    dof_v = _design_dof(design)
+    if dof == "residual":
+        dof_v = dof_v + 1 - k
+    elif dof != "design":
+        raise ValueError(f"dof must be 'design' or 'residual'; got {dof!r}")
+    t_crit = sp_stats.t.ppf(1 - alpha / 2, df=dof_v)
     estimates = pd.Series(params, index=var_names)
     se_s = pd.Series(se, index=var_names)
 
@@ -424,7 +459,7 @@ def svyglm(
         ci_lower=estimates - t_crit * se_s,
         ci_upper=estimates + t_crit * se_s,
         deff=pd.Series(np.ones(k), index=var_names),  # DEFF not standard for regression
-        dof=dof,
+        dof=dof_v,
         alpha=alpha,
     )
 
@@ -453,55 +488,54 @@ def _irls_fit(
     X: np.ndarray,
     w: np.ndarray,
     family: str,
-    max_iter: int = 25,
-    tol: float = 1e-8,
-) -> tuple[np.ndarray, np.ndarray]:
+    max_iter: int = 100,
+    tol: float = 1e-12,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Iteratively Re-weighted Least Squares for GLM families.
+    Iteratively Re-weighted Least Squares for canonical-link GLM families.
 
-    Returns (params, working_residuals) where working_residuals are
-    the linearised residuals used for sandwich variance estimation.
+    Returns ``(params, y - mu, V(mu))`` at the solution; ``V(mu)`` is the
+    variance function, which for a canonical link is also d mu / d eta.
+    Converges on the relative change in the weighted deviance (R
+    ``glm.control`` criterion) at a tighter default tolerance.
     """
     n, k = X.shape
     beta = np.zeros(k)
 
-    for _ in range(max_iter):
-        eta = X @ beta
-
+    def _mu_var(eta):
         if family == "binomial":
             mu = 1 / (1 + np.exp(-eta))
             mu = np.clip(mu, 1e-10, 1 - 1e-10)
-            var_mu = mu * (1 - mu)
-            deriv = var_mu  # d mu / d eta
-        elif family == "poisson":
+            return mu, mu * (1 - mu)
+        if family == "poisson":
             mu = np.exp(np.clip(eta, -20, 20))
-            var_mu = mu
-            deriv = mu
-        else:
-            raise ValueError(f"Unknown family: {family}")
+            return mu, mu
+        raise ValueError(f"Unknown family: {family}")
 
-        # Working response and working weights
-        z = eta + (y - mu) / deriv
-        irls_w = w * deriv**2 / var_mu  # = w * var_mu for canonical link
+    def _dev(mu):
+        if family == "binomial":
+            return -2 * np.sum(w * (y * np.log(mu) + (1 - y) * np.log(1 - mu)))
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ylog = np.where(y > 0, y * np.log(y / mu), 0.0)
+        return 2 * np.sum(w * (ylog - (y - mu)))
 
-        W = np.sqrt(irls_w)
-        Xw = X * W[:, None]
-        zw = z * W
-        beta_new = np.linalg.lstsq(Xw, zw, rcond=None)[0]
-
-        if np.max(np.abs(beta_new - beta)) < tol:
-            beta = beta_new
-            break
-        beta = beta_new
-
-    # Working residuals for sandwich
-    eta = X @ beta
     if family == "binomial":
-        mu = 1 / (1 + np.exp(-eta))
-        mu = np.clip(mu, 1e-10, 1 - 1e-10)
-    elif family == "poisson":
-        mu = np.exp(np.clip(eta, -20, 20))
+        mu = (w * y + 0.5) / (w + 1)
+        eta = np.log(mu / (1 - mu))
+    else:
+        mu = y + 0.1
+        eta = np.log(mu)
+    dev_old = np.inf
+    for _ in range(max_iter):
+        mu, var_mu = _mu_var(eta)
+        z = eta + (y - mu) / var_mu
+        W = np.sqrt(w * var_mu)
+        beta = np.linalg.lstsq(X * W[:, None], z * W, rcond=None)[0]
+        eta = X @ beta
+        dev = _dev(_mu_var(eta)[0])
+        if abs(dev - dev_old) / (abs(dev) + 0.1) < tol:
+            break
+        dev_old = dev
 
-    working_residuals = y - mu
-
-    return beta, working_residuals
+    mu, var_mu = _mu_var(X @ beta)
+    return beta, y - mu, var_mu

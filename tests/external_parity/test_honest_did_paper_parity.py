@@ -1,22 +1,22 @@
-"""Paper-level parity for Honest DiD (Rambachan & Roth, 2023, RES).
+"""Closed-form pins for ``sp.breakdown_m``'s covariance-free fallback.
 
-The ``breakdown_m`` function implements Definition 2 of the paper under
-the smoothness restriction:
+When the event-study covariance cannot be recovered (the hand-crafted results
+below carry no influence functions), ``sp.honest_did(method='smoothness')``
+falls back to the worst-case-bias interval ``theta_hat +/- (M (e+1) + z SE)``
+and ``sp.breakdown_m`` inverts that same interval, which has the closed form
 
-    M* = (|θ̂| - z_{α/2} · SE) / n_drift
+    M* = (|theta_hat| - z_{alpha/2} * SE) / n_drift,   n_drift = max(e + 1, 1).
 
-where ``θ̂`` and ``SE`` are the event-study estimate and standard error
-at relative time ``e``, and ``n_drift = max(e + 1, 1)``.
-
-This module pins the implementation to the closed-form paper formula by
-constructing synthetic event-study tables with known ``(θ̂, SE)`` and
-comparing ``sp.breakdown_m`` against the analytical answer.  It is
-complementary to the structural smoke tests in ``tests/test_honest_did.py``.
+This module pins that closed form on synthetic event-study tables with known
+``(theta_hat, SE)``. It is NOT the Rambachan-Roth FLCI breakdown value: an
+earlier version of this docstring called the formula "Definition 2 of the
+paper", which it is not. The FLCI breakdown -- what ``sp.breakdown_m``
+returns whenever the covariance is available -- is checked against R
+``HonestDiD`` in ``tests/reference_parity/test_did_synth_R_parity.py``.
 
 References
 ----------
-Rambachan, A. & Roth, J. (2023). "A More Credible Approach to Parallel
-Trends." *Review of Economic Studies*, 90(5), 2555-2591.  Definition 2.
+[@rambachan2023more]
 """
 
 from __future__ import annotations
@@ -96,7 +96,8 @@ def test_breakdown_m_matches_closed_form(theta, se, e):
     n_drift = max(e + 1, 1)
     expected = max((abs(theta) - z_crit * se) / n_drift, 0.0)
 
-    actual = sp.breakdown_m(result, e=e, method="smoothness", alpha=0.05)
+    with pytest.warns(UserWarning, match="covariance is unavailable"):
+        actual = sp.breakdown_m(result, e=e, method="smoothness", alpha=0.05)
     assert actual == pytest.approx(expected, rel=1e-10), (
         f"breakdown_m drifted from paper formula at (θ={theta}, SE={se}, "
         f"e={e}): got {actual:.6f}, expected {expected:.6f}"

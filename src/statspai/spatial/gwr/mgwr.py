@@ -14,13 +14,13 @@ you may want to compare against mgwr.MGWR directly after calling this.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Sequence
 
 import numpy as np
 
-from .gwr import gwr, KernelName
-from .bandwidth import gwr_bandwidth
 from ..._result_serialize import ResultProtocolMixin
+from .bandwidth import gwr_bandwidth
+from .gwr import KernelName, gwr
 
 
 @dataclass
@@ -71,6 +71,7 @@ def mgwr(
     max_iter: int = 200,
     tol: float = 1e-5,
     bw_init: Optional[float] = None,
+    bws: Optional[Sequence[float]] = None,
 ) -> MGWRResult:
     """Multiscale GWR via back-fitting.
 
@@ -83,6 +84,26 @@ def mgwr(
           - Fit a univariate GWR of ``ε_j`` on ``x_j`` with AICc bandwidth.
           - Replace ``f_j``.
        b. Terminate when max |Δf_j| < tol.
+
+    Parameters
+    ----------
+    coords : (n, 2) array-like
+    y : (n,) array-like
+    X : (n, p) array-like
+        Regressors, without a constant unless ``add_constant=False``.
+    kernel, fixed, add_constant
+        As in :func:`gwr`.
+    max_iter : int, default 200
+        Maximum number of back-fitting sweeps.
+    tol : float, default 1e-5
+        Convergence threshold on ``max_ij |f_j(i)_new - f_j(i)_old|``.
+    bw_init : float, optional
+        Bandwidth of the initialising GWR (selected by AICc if omitted).
+    bws : sequence of float, optional
+        Fixed covariate-specific bandwidths (length ``k``, intercept first
+        when ``add_constant=True``). When given, no bandwidth is searched:
+        the back-fitting solves the additive model at these bandwidths,
+        which is ``GWmodel::gwr.multiscale(bws0 = bws, bw.seled = TRUE)``.
 
     Examples
     --------
@@ -128,15 +149,24 @@ def mgwr(
 
     # Partial predictors f_j(x_j) = β_j(i) * x_{ij}
     f = init.params * X  # shape (n, k)
-    bws: List[float] = [bw_init] * k
+    params = init.params.copy()
+    if bws is not None:
+        fixed_bws = [float(b) for b in bws]
+        if len(fixed_bws) != k:
+            raise ValueError(f"bws must have length {k}; got {len(fixed_bws)}")
+    else:
+        fixed_bws = None
+    bw_list: List[float] = list(fixed_bws) if fixed_bws else [bw_init] * k
 
     for iteration in range(max_iter):
         max_delta = 0.0
         for j in range(k):
             partial = y - (f.sum(axis=1) - f[:, j])
             xj = X[:, j : j + 1]
-            # Select bw for this covariate alone
-            try:
+            # Select bw for this covariate alone (unless fixed by the caller)
+            if fixed_bws is not None:
+                bw_j = fixed_bws[j]
+            else:
                 bw_j = gwr_bandwidth(
                     coords,
                     partial,
@@ -145,8 +175,6 @@ def mgwr(
                     fixed=fixed,
                     add_constant=False,
                 )
-            except Exception:
-                bw_j = bws[j]
             res_j = gwr(
                 coords,
                 partial,
@@ -156,20 +184,23 @@ def mgwr(
                 fixed=fixed,
                 add_constant=False,
             )
-            new_f_j = res_j.params.ravel() * X[:, j]
+            params[:, j] = res_j.params.ravel()
+            new_f_j = params[:, j] * X[:, j]
             delta = float(np.abs(new_f_j - f[:, j]).max())
             max_delta = max(max_delta, delta)
             f[:, j] = new_f_j
-            bws[j] = float(bw_j)
+            bw_list[j] = float(bw_j)
         if max_delta < tol:
             break
+    else:
+        import warnings
 
-    params = np.empty((n, k))
-    for j in range(k):
-        # Recover β_j(i) = f_j(i) / x_{ij}  (handle near-zero x)
-        xj = X[:, j]
-        safe = np.where(np.abs(xj) < 1e-12, 1.0, xj)
-        params[:, j] = np.where(np.abs(xj) < 1e-12, 0.0, f[:, j] / safe)
+        warnings.warn(
+            f"MGWR back-fitting did not converge in {max_iter} iterations "
+            f"(last max |delta f| = {max_delta:.3g} >= tol = {tol:g}).",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     predicted = f.sum(axis=1)
     residuals = y - predicted
@@ -181,7 +212,7 @@ def mgwr(
         params=params,
         predicted=predicted,
         residuals=residuals,
-        bws=bws,
+        bws=bw_list,
         kernel=kernel,
         fixed=fixed,
         R2=float(R2),

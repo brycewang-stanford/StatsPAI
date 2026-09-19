@@ -18,6 +18,7 @@ from typing import Any, Optional, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -158,11 +159,18 @@ def _local_poly_fit(
     h: float,
     degree: int,
     kernel: str,
+    pilot: Optional[float] = None,
 ) -> Tuple[float, float]:
     """
     Fit local polynomial at a single point x0.
 
-    Returns (estimate, standard_error).
+    Returns (estimate, standard_error). With ``pilot`` set, the standard
+    error is Stata ``lpoly``'s: ``[(X'WX)^-1 X'W^2X (X'WX)^-1]_00 s2``,
+    where ``s2`` is the normalised weighted residual sum of squares of a
+    degree ``p + 2`` local fit with bandwidth ``pilot``,
+    ``sum w r^2 / (tr W - tr((X'WX)^-1 X'W^2X))``. Otherwise it is the
+    heteroskedasticity-robust sandwich with an ``m / (m - p - 1)`` factor
+    (``m`` = observations with positive kernel weight).
     """
     if h <= 0 or not np.isfinite(h):
         raise ValueError("bandwidth must be a positive finite number")
@@ -199,13 +207,44 @@ def _local_poly_fit(
     except np.linalg.LinAlgError:
         bread = np.linalg.pinv(XtWX)
 
-    df = mask.sum() - (degree + 1)
-    correction = mask.sum() / df if df > 0 else 1.0
-    meat = X.T @ ((w_local**2 * resid**2)[:, None] * X)
-    vcov = correction * bread @ meat @ bread
+    if pilot is not None:
+        s2 = _pilot_residual_variance(x0, x, y, pilot, degree + 2, kernel)
+        meat = X.T @ ((w_local**2)[:, None] * X)
+        vcov = s2 * bread @ meat @ bread
+    else:
+        df = mask.sum() - (degree + 1)
+        correction = mask.sum() / df if df > 0 else 1.0
+        meat = X.T @ ((w_local**2 * resid**2)[:, None] * X)
+        vcov = correction * bread @ meat @ bread
     se = np.sqrt(max(vcov[0, 0], 0.0))
 
     return float(fitted), float(se)
+
+
+def _pilot_residual_variance(
+    x0: float,
+    x: np.ndarray,
+    y: np.ndarray,
+    h: float,
+    degree: int,
+    kernel: str,
+) -> float:
+    """Normalised weighted RSS of a local fit (Stata lpoly's sigma^2(x0))."""
+    w = _kernel_fn((x - x0) / h, kernel) / h
+    mask = w > 0
+    if mask.sum() <= degree + 1:
+        return float("nan")
+    xl = x[mask] - x0
+    wl = w[mask]
+    X = np.column_stack([xl**j for j in range(degree + 1)])
+    A = X.T @ (wl[:, None] * X)
+    try:
+        beta = np.linalg.solve(A, X.T @ (wl * y[mask]))
+        lev = np.linalg.solve(A, X.T @ ((wl**2)[:, None] * X))
+    except np.linalg.LinAlgError:
+        return float("nan")
+    r = y[mask] - X @ beta
+    return float(np.sum(wl * r * r) / (np.sum(wl) - np.trace(lev)))
 
 
 def lpoly(
@@ -219,6 +258,8 @@ def lpoly(
     grid: Optional[np.ndarray] = None,
     ci: bool = True,
     alpha: float = 0.05,
+    se_method: str = "robust",
+    pwidth: Optional[float] = None,
 ) -> LPolyResult:
     """
     Local polynomial regression.
@@ -249,6 +290,22 @@ def lpoly(
         Compute confidence intervals.
     alpha : float, default 0.05
         Significance level for CI.
+    se_method : {"robust", "stata"}, default "robust"
+        ``"robust"``: heteroskedasticity-robust sandwich
+        ``(X'WX)^-1 X'W diag(e^2) W X (X'WX)^-1`` times ``m / (m - p - 1)``.
+        ``"stata"``: Stata ``lpoly``'s standard error, which plugs a local
+        residual variance from a degree ``p + 2`` fit with pilot bandwidth
+        ``pwidth`` into ``(X'WX)^-1 X'W^2X (X'WX)^-1``.
+    pwidth : float, optional
+        Pilot bandwidth for ``se_method="stata"`` (required; Stata's
+        default of 1.5 x its rule-of-thumb bandwidth is not implemented).
+
+    Notes
+    -----
+    Kernels have support [-1, 1] (``'epanechnikov'`` is Stata's
+    ``epan2``); with the same ``bandwidth``, ``degree`` and grid the fitted
+    values are Stata ``lpoly``'s. Stata's defaults differ: degree 0, the
+    unit-variance ``epanechnikov`` kernel and a rule-of-thumb bandwidth.
 
     Returns
     -------
@@ -276,6 +333,12 @@ def lpoly(
         raise ValueError("n_grid must be positive")
     if bandwidth is not None and (bandwidth <= 0 or not np.isfinite(bandwidth)):
         raise ValueError("bandwidth must be a positive finite number")
+    if se_method not in ("robust", "stata"):
+        raise ValueError("se_method must be 'robust' or 'stata'")
+    if se_method == "stata" and (
+        pwidth is None or not np.isfinite(pwidth) or pwidth <= 0
+    ):
+        raise ValueError("se_method='stata' needs a positive pwidth")
 
     y_data = data[y].values.astype(float)
     x_data = data[x].values.astype(float)
@@ -306,7 +369,13 @@ def lpoly(
 
     for i, x0 in enumerate(grid):
         fitted[i], se[i] = _local_poly_fit(
-            x0, x_data, y_data, bandwidth, degree, kernel
+            x0,
+            x_data,
+            y_data,
+            bandwidth,
+            degree,
+            kernel,
+            pilot=pwidth if se_method == "stata" else None,
         )
 
     # Confidence intervals

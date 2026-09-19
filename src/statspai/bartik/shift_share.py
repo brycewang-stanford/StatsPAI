@@ -75,15 +75,24 @@ def bartik(
         Hull-Jaravel 2022-style exact leave-one-out). Row index must
         align with ``shares``; columns must be a superset of
         ``shocks.index``.
-    robust : str, default 'hc1'
-        Standard error type.
+    robust : {'hc1', 'nonrobust'}, default 'hc1'
+        Standard error type: ``'hc1'`` is the 2SLS sandwich with the
+        ``n / (n - k)`` factor (Stata ``ivregress 2sls, vce(robust) small``,
+        R ``sandwich::vcovHC(type = "HC1")``); ``'nonrobust'`` uses
+        ``sigma^2 = RSS / (n - k)`` (``ivregress 2sls, small``). Other values
+        raise. For shift-share (AKM) inference pass the result to
+        :func:`sp.shift_share_se`.
     alpha : float, default 0.05
         Significance level.
 
     Returns
     -------
     EconometricResults
-        2SLS results with Bartik IV diagnostics.
+        2SLS results with Bartik IV diagnostics. The Rotemberg weight
+        table (columns ``industry``, ``weight`` = alpha_k, ``shock``,
+        ``beta`` = the just-identified IV using industry k's share alone,
+        as Stata ``bartik_weight`` reports) is in
+        ``result.model_info["rotemberg_weights"]``.
 
     Examples
     --------
@@ -222,6 +231,19 @@ class BartikIV:
         self.shares = self.shares[common]
         self.shocks = self.shocks[common]
 
+        robust = str(self.robust).lower()
+        if robust in ("hc1", "robust"):
+            self.robust = "hc1"
+        elif robust in ("nonrobust", "classical", "unadjusted"):
+            self.robust = "nonrobust"
+        else:
+            raise ValueError(
+                f"robust={self.robust!r} is not supported by sp.bartik; use "
+                "'hc1' (default, = Stata `ivregress ..., vce(robust) small`) "
+                "or 'nonrobust' (sigma^2 = RSS/(n-k)). For shift-share "
+                "(AKM) inference pass the result to sp.shift_share_se."
+            )
+
         if self.regional_shocks is not None:
             if self.regional_shocks.shape[0] != len(self.data):
                 raise ValueError(
@@ -289,11 +311,14 @@ class BartikIV:
         X_exog: Optional[np.ndarray],
     ) -> pd.DataFrame:
         """
-        Compute Rotemberg (1983) weights for Bartik IV.
+        Rotemberg weights of the Bartik IV (Goldsmith-Pinkham, Sorkin and
+        Swift 2020).
 
-        alpha_k = s_k' * P_X * X_endog / (B' * P_X * X_endog)
-
-        These show which industries drive the IV estimate.
+        ``alpha_k = g_k s_k' M_W x / sum_j g_j s_j' M_W x`` and the
+        just-identified per-industry IV ``beta_k = s_k' M_W y / s_k' M_W x``,
+        with ``M_W`` annihilating the intercept and covariates -- the
+        quantities Stata ``bartik_weight`` returns as ``r(alpha)`` /
+        ``r(beta)``. The 2SLS estimate equals ``sum_k alpha_k beta_k``.
         """
         S = self.shares.values
         n, K = S.shape
@@ -304,31 +329,34 @@ class BartikIV:
         else:
             Q = np.eye(n) - np.ones((n, n)) / n
 
-        # Numerator for each industry
-        numerator = np.zeros(K)
-        denominator = B @ Q @ X_endog
-
+        g = self.shocks.values.astype(float)
+        Qx = Q @ X_endog
+        Qy = Q @ Y
+        zx = S.T @ Qx  # Z_k' M_W x
+        zy = S.T @ Qy  # Z_k' M_W y
+        # alpha_k = g_k Z_k'M_W x / sum_k g_k Z_k'M_W x (GPSS 2020; as Stata
+        # bartik_weight / R bartik.weight::bw). The denominator is the Bartik
+        # first-stage moment B'M_W x only when B = S g (no leave-one-out).
+        denominator = float(g @ zx)
         if abs(denominator) < 1e-10:
-            return pd.DataFrame(
-                {
-                    "industry": self.shares.columns,
-                    "weight": np.zeros(K),
-                }
+            warnings.warn(
+                "Rotemberg weights are undefined: sum_k g_k s_k' M_W x is "
+                "numerically zero (no first stage); reporting NaN weights.",
+                UserWarning,
+                stacklevel=3,
             )
-
-        for k in range(K):
-            s_k = S[:, k]
-            g_k = self.shocks.values[k]
-            numerator[k] = g_k * (s_k @ Q @ X_endog)
-
-        weights = numerator / denominator
+            denominator = np.nan
+        weights = g * zx / denominator
+        with np.errstate(divide="ignore", invalid="ignore"):
+            beta_k = zy / zx  # just-identified IV using share k alone
 
         return (
             pd.DataFrame(
                 {
                     "industry": self.shares.columns,
                     "weight": weights,
-                    "shock": self.shocks.values,
+                    "shock": g,
+                    "beta": beta_k,
                 }
             )
             .sort_values("weight", ascending=False, key=abs)
@@ -420,7 +448,15 @@ class BartikIV:
             "dependent_var": self.y,
             "fitted_values": fitted,
             "residuals": residuals,
+            # Inputs sp.shift_share_se needs for AKM inference.
+            "_shift_share_inputs": {
+                "y": Y,
+                "endog": X_endog,
+                "shift_share": B,
+                "controls": X_exog,
+            },
         }
+        model_info["rotemberg_weights"] = rotemberg
 
         diagnostics = {
             "R-squared": r_squared,

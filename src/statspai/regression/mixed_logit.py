@@ -28,9 +28,13 @@ Capabilities
 
 Benchmarks
 ----------
-Matches Stata ``mixlogit`` (Hole 2007) and R ``mlogit::mlogit(..., rpar=)``
-to ``rtol < 1e-3`` on standard benchmarks (larger tolerance reflects
-simulation noise; set ``n_draws >= 1000`` for tighter agreement).
+With Stata ``mixlogit``'s draws (``n_draws=50, halton_burn=15,
+halton_shift=False`` = ``nrep(50) burn(15)``) the simulated likelihood is
+the same function as Stata's (log-likelihood equal to 5e-13) and the
+estimates / standard errors agree to ~2e-7; see
+``tests/reference_parity/test_panel_mixlogit_parity.py``.  With the default
+(shifted) draws the two are different simulators of the same integral and
+agree only within simulation error.
 
 References
 ----------
@@ -109,24 +113,34 @@ def _halton(n: int, base: int, skip: int = 10) -> np.ndarray:
     return out[skip:]
 
 
-def _halton_draws(n_draws: int, n_dim: int, n_ind: int, seed: int = 0) -> np.ndarray:
+def _halton_draws(
+    n_draws: int,
+    n_dim: int,
+    n_ind: int,
+    seed: int = 0,
+    burn: int = 10,
+    shift: bool = True,
+) -> np.ndarray:
     """
     Halton draws reshaped to ``(n_ind, n_draws, n_dim)``.
 
-    Each individual gets ``n_draws`` multi-dim points. Scrambling uses a
-    deterministic per-individual reshuffle seeded by ``seed`` so that
-    different individuals sample different regions.
+    Dimension d uses prime ``_PRIMES[d]``; the first ``burn`` points of each
+    sequence are discarded and individual i takes the next ``n_draws``
+    consecutive points.  With ``shift=True`` one uniform shift per
+    dimension (seeded by ``seed``) is added modulo 1 (randomised-start
+    Halton, Bhat 2003).  ``burn=15, shift=False`` is exactly the draw
+    matrix of Stata ``mixlogit`` (Hole 2007): ``invnormal(halton(nrep,
+    krnd, 1 + burn + nrep*(n-1)))`` for individual n.
     """
     total = n_ind * n_draws
     U2 = np.empty((total, n_dim))
     for d in range(n_dim):
-        U2[:, d] = _halton(total, _PRIMES[d % len(_PRIMES)])
-    # Randomized-start Halton (Bhat 2003): one uniform shift per dim,
-    # modulo 1. Preserves low-discrepancy while decorrelating parallel
-    # dims and avoiding exact ties when many individuals share Primes.
-    rng = np.random.default_rng(seed)
-    shift = rng.uniform(0.0, 1.0, size=(1, n_dim))
-    U_shifted = (U2 + shift) % 1.0
+        U2[:, d] = _halton(total, _PRIMES[d % len(_PRIMES)], skip=burn)
+    if shift:
+        rng = np.random.default_rng(seed)
+        U_shifted = (U2 + rng.uniform(0.0, 1.0, size=(1, n_dim))) % 1.0
+    else:
+        U_shifted = U2
     # Clip to avoid Φ⁻¹(0) = -∞ / Φ⁻¹(1) = +∞
     U_clipped = np.clip(U_shifted, 1e-12, 1.0 - 1e-12)
     U3 = U_clipped.reshape(n_ind, n_draws, n_dim)
@@ -161,6 +175,9 @@ def mixlogit(
     tol: float = 1e-6,
     halton_seed: int = 1234,
     verbose: bool = False,
+    halton_burn: int = 10,
+    halton_shift: bool = True,
+    small_sample: bool = True,
 ) -> EconometricResults:
     """
     Mixed Logit (random-coefficient MNL) via simulated maximum likelihood.
@@ -197,14 +214,27 @@ def mixlogit(
         If True, estimate a full Cholesky factor of ``cov(beta_random)``;
         otherwise only diagonal standard deviations.
     robust : bool, default True
-        Report OPG-sandwich robust SEs. ``False`` → classical inverse
-        Hessian.
+        Huber sandwich ``H⁻¹ B H⁻¹`` with ``B`` the outer product of the
+        per-individual scores (Stata ``mixlogit, robust``).  ``False`` →
+        inverse observed Hessian (Stata ``mixlogit``'s default ``oim``).
+    small_sample : bool, default True
+        Multiply the robust variance by ``N/(N − 1)``, N = number of
+        individuals, as Stata's ``robust`` does.  Ignored when
+        ``robust=False``.
     alpha : float, default 0.05
         Significance level.
     maxiter : int, default 200
     tol : float, default 1e-6
     halton_seed : int, default 1234
     verbose : bool, default False
+    halton_burn : int, default 10
+        Leading Halton points discarded per dimension.
+    halton_shift : bool, default True
+        Randomised-start Halton (one uniform shift per dimension, seeded by
+        ``halton_seed``).  ``halton_burn=15, halton_shift=False`` with
+        ``n_draws=50`` reproduces the draws of Stata ``mixlogit``'s defaults
+        (``nrep(50) burn(15)``), so the simulated likelihood is the same
+        function and the estimates agree to optimiser precision.
 
     Returns
     -------
@@ -260,6 +290,9 @@ def mixlogit(
         tol=tol,
         halton_seed=halton_seed,
         verbose=verbose,
+        halton_burn=halton_burn,
+        halton_shift=halton_shift,
+        small_sample=small_sample,
     )
     return fit.run()
 
@@ -289,6 +322,9 @@ class _MixedLogitFitter:
         tol: float,
         halton_seed: int,
         verbose: bool,
+        halton_burn: int = 10,
+        halton_shift: bool = True,
+        small_sample: bool = True,
     ) -> None:
         self.data = data
         self.y = y
@@ -306,6 +342,9 @@ class _MixedLogitFitter:
         self.tol = tol
         self.halton_seed = halton_seed
         self.verbose = verbose
+        self.halton_burn = int(halton_burn)
+        self.halton_shift = bool(halton_shift)
+        self.small_sample = bool(small_sample)
         if not self.x_random:
             raise ValueError("x_random must contain at least one column")
         required = [self.y, self.chid] + self.x_fixed + self.x_random
@@ -440,12 +479,12 @@ class _MixedLogitFitter:
             L = np.zeros((kr, kr))
             L[np.tril_indices(kr)] = sc
             diag = np.arange(kr)
-            L[diag, diag] = np.abs(L[diag, diag]) + 1e-6
+            L[diag, diag] = np.abs(L[diag, diag])
             return _as_float_array(mu[None, None, :] + zR @ L.T)
 
         # Diagonal: transform each dim independently
         beta = np.empty_like(zR)
-        sig = np.abs(sc) + 1e-8  # (kr,)
+        sig = np.abs(sc)  # (kr,); sign not identified, see run()
         for k, name in enumerate(self.x_random):
             dist = (self.random_dist or {}).get(name, "normal")
             z_k = zR[..., k]
@@ -566,7 +605,14 @@ class _MixedLogitFitter:
         n_sit = int(D["n_sit"])
         n_rows = int(D["n_rows"])
 
-        draws = _halton_draws(self.n_draws, kr, n_ind, seed=self.halton_seed)
+        draws = _halton_draws(
+            self.n_draws,
+            kr,
+            n_ind,
+            seed=self.halton_seed,
+            burn=self.halton_burn,
+            shift=self.halton_shift,
+        )
 
         # Initial values: zero fixed, zero means, unit scales
         theta0 = np.concatenate(
@@ -592,6 +638,21 @@ class _MixedLogitFitter:
         )
         theta_hat = _as_float_array(opt.x)
         ll_hat = float(-opt.fun)
+
+        # The standard deviations (diagonal case) and the Cholesky diagonal
+        # enter the likelihood only through their absolute value, so their
+        # sign is not identified; report the positive representative (Stata
+        # mixlogit prints a note asking the reader to do the same).  The
+        # likelihood is unchanged and the variance below is evaluated at the
+        # flipped point, so it carries the matching signs.
+        flip = np.ones_like(theta_hat)
+        if self.correlated:
+            rows, cols = np.tril_indices(kr)
+            diag_pos = kf + kr + np.where(rows == cols)[0]
+        else:
+            diag_pos = kf + kr + np.arange(kr)
+        flip[diag_pos] = np.where(theta_hat[diag_pos] < 0, -1.0, 1.0)
+        theta_hat = theta_hat * flip
 
         # --- Standard errors -----------------------------------------
         #
@@ -633,14 +694,33 @@ class _MixedLogitFitter:
         H = -(grad_plus - grad_minus) / (2.0 * eps)  # -∂²ℓ/∂θ∂θ'
         H = 0.5 * (H + H.T)  # symmetrize
         try:
-            H_inv = _as_float_array(np.linalg.inv(H + 1e-8 * np.eye(p)))
+            np.linalg.cholesky(H)
+            H_inv = _as_float_array(np.linalg.inv(H))
         except np.linalg.LinAlgError:
+            import warnings
+
+            warnings.warn(
+                "mixlogit: the observed information is not positive definite "
+                "at the estimate (flat or boundary direction); standard errors "
+                "use its pseudo-inverse and are unreliable.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
             H_inv = _as_float_array(np.linalg.pinv(H))
 
         if self.robust:
             V = _as_float_array(H_inv @ B @ H_inv)
+            if self.small_sample and n_ind > 1:
+                V = V * (n_ind / (n_ind - 1.0))
         else:
             V = H_inv
+
+        # BFGS on a finite-difference gradient routinely ends with
+        # "precision loss" at the optimum; certify convergence by the
+        # score instead.
+        grad_hat = self._grad_ll(theta_hat, D, kf, kr, draws, eps)
+        grad_norm = float(np.max(np.abs(grad_hat)))
+        converged = bool(opt.success) or grad_norm < 1e-4
 
         se = _as_float_array(np.sqrt(np.clip(np.diag(V), 0, np.inf)))
         t_stat = _as_float_array(theta_hat / np.where(se > 0, se, 1))
@@ -667,7 +747,8 @@ class _MixedLogitFitter:
             "correlated": self.correlated,
             "robust_se": self.robust,
             "log_likelihood": float(ll_hat),
-            "converged": bool(opt.success),
+            "converged": converged,
+            "gradient_norm": grad_norm,
             "iterations": int(opt.nit) if hasattr(opt, "nit") else None,
             "citation_key": "mixlogit",
             "_citation_key": "mixlogit",

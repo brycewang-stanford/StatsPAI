@@ -1490,13 +1490,30 @@ def xtnbreg(
     alpha: float = 0.05,
 ) -> Any:
     """
-    Panel negative-binomial regression with Stata-like ``xtnbreg`` ergonomics.
+    Panel negative-binomial regression (Stata ``xtnbreg``).
 
-    ``model="fe"`` fits an unconditional fixed-effects NB model by adding
-    explicit entity dummies through :func:`nbreg`. This is appropriate for
-    moderate panels and, most importantly, does not silently replace a count
-    model with OLS. ``model="re"`` dispatches to :func:`sp.menbreg`, the
-    random-intercept NB-2 GLMM.
+    ``model="fe"`` and ``model="re"`` are the Hausman-Hall-Griliches
+    models (the likelihoods printed in Stata's [XT] ``xtnbreg`` Methods and
+    formulas) that Stata's ``xtnbreg, fe`` / ``xtnbreg, re`` and R's
+    ``pglm(family = negbin, model = "within" / "random")`` estimate: a
+    negative binomial whose variance-to-mean ratio ``1 + δ_i`` is constant
+    within a panel, with
+
+    * ``fe`` -- the likelihood conditional on each panel's outcome total
+      (δ_i drops out; the intercept stays identified; panels with one
+      observation or an all-zero outcome carry no information and are
+      dropped, as Stata drops them);
+    * ``re`` -- ``1/(1 + δ_i) ~ Beta(r, s)``, estimated with ``ln r`` and
+      ``ln s``.
+
+    Standard errors are the inverse observed information (``vce(oim)``).
+
+    Two other panel NB estimators remain available under their own names:
+    ``model="ufe"`` is the *unconditional* fixed-effects NB-2 (entity
+    dummies through :func:`nbreg`; the default of ``model="fe"`` before
+    1.28.x), and ``model="normal_re"`` the normal random-intercept NB-2
+    GLMM :func:`sp.menbreg` (the default of ``model="re"`` before 1.28.x).
+    Neither is what ``xtnbreg`` computes.
 
     Parameters
     ----------
@@ -1513,14 +1530,17 @@ def xtnbreg(
     time : str, optional
         Time column. Stored as metadata; included as a fixed effect only when
         ``time_effects=True``.
-    model : {"fe", "re", "pooled"}, default "fe"
-        Fixed-effects, random-effects, or pooled negative binomial.
+    model : {"fe", "re", "pooled", "ufe", "normal_re"}, default "fe"
+        HHG conditional fixed effects, HHG beta random effects, pooled NB,
+        unconditional (dummy-variable) fixed-effects NB-2, or the normal
+        random-intercept NB-2 GLMM.
 
     Returns
     -------
     EconometricResults or MEGLMResult
-        ``model="fe"`` / ``"pooled"`` return :class:`EconometricResults`;
-        ``model="re"`` returns the multilevel :class:`MEGLMResult`.
+        ``"fe"`` / ``"re"`` / ``"pooled"`` / ``"ufe"`` return
+        :class:`EconometricResults`; ``"normal_re"`` returns the multilevel
+        :class:`MEGLMResult`.
 
     Examples
     --------
@@ -1577,15 +1597,49 @@ def xtnbreg(
         model_key = model.lower().replace("-", "_")
     else:
         raise MethodIncompatibility(
-            "model must be one of 'fe', 're', or 'pooled'.",
-            recovery_hint="Pass model='fe', model='re', or model='pooled'.",
+            "model must be one of 'fe', 're', 'pooled', 'ufe', or 'normal_re'.",
+            recovery_hint="Pass model='fe', 're', 'pooled', 'ufe', or 'normal_re'.",
             diagnostics={"model": repr(model)},
             alternative_functions=["sp.xtnbreg"],
         )
-    if model_key in {"fixed", "fixed_effects"}:
+    if model_key in {"fixed", "fixed_effects", "conditional"}:
         model_key = "fe"
     if model_key in {"random", "random_effects"}:
         model_key = "re"
+
+    if model_key in {"fe", "re"}:
+        if entity is None:
+            kind = "fixed-effects" if model_key == "fe" else "random-effects"
+            raise MethodIncompatibility(
+                f"{kind} xtnbreg (model={model_key!r}) requires `entity=` or a "
+                "formula fixed-effect part such as 'y ~ x | id'.",
+                recovery_hint="Pass entity='id'.",
+                diagnostics={"model": model_key, "entity": entity},
+                alternative_functions=["sp.xtnbreg"],
+            )
+        return _xtnbreg_hhg(
+            model_key,
+            data=data,
+            y=y,
+            x_list=x_list,
+            entity=entity,
+            time=time,
+            time_effects=time_effects,
+            robust=robust,
+            cluster=cluster,
+            weights=weights,
+            offset=offset,
+            exposure=exposure,
+            irr=irr,
+            dispersion=dispersion,
+            maxiter=maxiter,
+            tol=tol,
+            alpha=alpha,
+        )
+    if model_key == "ufe":
+        model_key = "fe_dummies"
+    if model_key == "normal_re":
+        model_key = "re_gaussian"
 
     if model_key == "pooled":
         pooled_formula = formula.split("|", 1)[0].strip()
@@ -1608,7 +1662,7 @@ def xtnbreg(
         result.model_info["time"] = time
         return result
 
-    if model_key == "fe":
+    if model_key == "fe_dummies":
         fe_formula = formula
         if "|" not in fe_formula:
             if not entity:
@@ -1654,14 +1708,14 @@ def xtnbreg(
             tol=tol,
             alpha=alpha,
         )
-        result.model_info["panel_model"] = "fixed_effects"
+        result.model_info["panel_model"] = "unconditional_fixed_effects"
         result.model_info["entity"] = entity
         result.model_info["time"] = time
         result.model_info["time_effects"] = bool(time_effects)
-        result.model_info["stata_equivalent"] = "xtnbreg, fe"
+        result.model_info["stata_equivalent"] = "nbreg y x i.entity"
         return result
 
-    if model_key == "re":
+    if model_key == "re_gaussian":
         if not entity:
             raise MethodIncompatibility(
                 "random-effects xtnbreg requires `entity=` or a formula "
@@ -1719,10 +1773,208 @@ def xtnbreg(
         )
 
     raise MethodIncompatibility(
-        "model must be one of 'fe', 're', or 'pooled'.",
-        recovery_hint="Pass model='fe', model='re', or model='pooled'.",
+        "model must be one of 'fe', 're', 'pooled', 'ufe', or 'normal_re'.",
+        recovery_hint="Pass model='fe' (Stata xtnbreg, fe) or model='re'.",
         diagnostics={"model": model},
         alternative_functions=["sp.xtnbreg"],
+    )
+
+
+def _xtnbreg_hhg(
+    model_key: str,
+    *,
+    data: pd.DataFrame,
+    y: str,
+    x_list: List[str],
+    entity: str,
+    time: Optional[str],
+    time_effects: bool,
+    robust: str,
+    cluster: Optional[str],
+    weights: Optional[str],
+    offset: Optional[str],
+    exposure: Optional[str],
+    irr: bool,
+    dispersion: str,
+    maxiter: int,
+    tol: float,
+    alpha: float,
+) -> EconometricResults:
+    """Stata ``xtnbreg, fe`` / ``xtnbreg, re`` (HHG 1984); see
+    :mod:`._xtnbreg_hhg`."""
+    from ._xtnbreg_hhg import fit_hhg
+
+    label = f"xtnbreg(model={model_key!r})"
+    if cluster is not None or robust not in (None, False, "nonrobust", "oim"):
+        raise MethodIncompatibility(
+            f"{label} reports observed-information standard errors only "
+            f"(as Stata's xtnbreg, {model_key}); robust={robust!r} / "
+            f"cluster={cluster!r} is not available.",
+            recovery_hint="Drop robust=/cluster=, or use model='ufe' with "
+            "cluster-robust standard errors.",
+            diagnostics={"robust": robust, "cluster": cluster},
+        )
+    if weights is not None:
+        raise MethodIncompatibility(
+            f"{label} does not support weights.",
+            recovery_hint="Drop weights=, or use model='ufe'.",
+            diagnostics={"weights": weights},
+        )
+    if str(dispersion).lower() not in ("mean", "constant"):
+        raise MethodIncompatibility(
+            f"{label}: the HHG model has a panel-constant dispersion; "
+            f"dispersion={dispersion!r} does not apply.",
+            diagnostics={"dispersion": dispersion},
+        )
+    if offset is not None and exposure is not None:
+        raise MethodIncompatibility(
+            "Pass either offset= or exposure=, not both.",
+            diagnostics={"offset": offset, "exposure": exposure},
+        )
+    if time_effects and not time:
+        raise MethodIncompatibility(
+            "time_effects=True requires `time=`.",
+            diagnostics={"time_effects": True, "time": time},
+        )
+
+    cols = [y, *x_list, entity]
+    if time_effects:
+        cols.append(time)
+    if offset is not None:
+        cols.append(offset)
+    if exposure is not None:
+        cols.append(exposure)
+    _require_columns(data, list(dict.fromkeys(cols)), label)
+    # Listwise deletion on the model's columns, as Stata's estimation sample.
+    df = data.loc[data[list(dict.fromkeys(cols))].notna().all(axis=1)].copy()
+    if len(df) == 0:
+        raise DataInsufficient(
+            f"{label}: no complete observations.",
+            diagnostics={"columns": cols},
+        )
+
+    y_arr = _numeric_column(df, y, "outcome")
+    if np.any(y_arr < 0) or np.any(y_arr != np.floor(y_arr)):
+        raise MethodIncompatibility(
+            f"{label} requires a non-negative integer count outcome.",
+            diagnostics={"outcome": y},
+        )
+    X_cols = [_numeric_column(df, c, "regressor") for c in x_list]
+    var_names = list(x_list)
+    if time_effects:
+        t_levels = sorted(df[time].unique())
+        for lv in t_levels[1:]:
+            X_cols.append((df[time] == lv).to_numpy(dtype=float))
+            var_names.append(f"{time}={lv}")
+    X_cols.append(np.ones(len(df)))
+    var_names.append("_cons")
+    X = np.column_stack(X_cols)
+    off = np.zeros(len(df))
+    if offset is not None:
+        off = _numeric_column(df, offset, "offset")
+    if exposure is not None:
+        off = np.log(_positive_exposure(df, exposure))
+
+    fit = fit_hhg(
+        model_key,
+        y_arr,
+        X,
+        df[entity].to_numpy(),
+        off,
+        maxiter=max(int(maxiter), 1),
+        tol=float(tol),
+    )
+    if not fit.converged:
+        warnings.warn(
+            f"{label}: Newton-Raphson did not converge in {fit.iterations} "
+            f"iterations (max |score| = {fit.gradient_norm:.2e}).",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+
+    k = X.shape[1]
+    beta = fit.params[:k]
+    se_beta = np.sqrt(np.maximum(np.diag(fit.vcov)[:k], 0.0))
+    names = list(var_names)
+    params = list(beta)
+    ses = list(se_beta)
+    if model_key == "re":
+        names += ["/ln_r", "/ln_s"]
+        params += list(fit.params[k:])
+        ses += list(np.sqrt(np.maximum(np.diag(fit.vcov)[k:], 0.0)))
+    params_arr = np.asarray(params)
+    ses_arr = np.asarray(ses)
+    coef_label = "Coefficient"
+    if irr:
+        params_arr = params_arr.copy()
+        ses_arr = ses_arr.copy()
+        params_arr[:k] = np.exp(beta)
+        ses_arr[:k] = np.exp(beta) * se_beta
+        coef_label = "IRR"
+
+    n_used = int(fit.keep.sum())
+    n_par = len(fit.params)
+    ll = float(fit.loglik)
+    model_info = {
+        "model_type": (
+            "Conditional FE negative binomial (Hausman-Hall-Griliches)"
+            if model_key == "fe"
+            else "Random-effects negative binomial, 1/(1+delta_i) ~ Beta(r, s) (Hausman-Hall-Griliches)"
+        ),
+        "panel_model": "fixed_effects" if model_key == "fe" else "random_effects",
+        "stata_equivalent": f"xtnbreg, {model_key}",
+        "family": "Negative Binomial",
+        "link": "log",
+        "method": "MLE (Newton-Raphson, observed information)",
+        "entity": entity,
+        "time": time,
+        "time_effects": bool(time_effects),
+        "n_groups": fit.n_groups,
+        "n_groups_dropped": fit.n_dropped_groups,
+        "converged": fit.converged,
+        "iterations": fit.iterations,
+        "gradient_norm": fit.gradient_norm,
+        "irr": irr,
+        "coef_label": coef_label,
+        "ll": ll,
+        "aic": -2.0 * ll + 2.0 * n_par,
+        "bic": -2.0 * ll + np.log(n_used) * n_par,
+    }
+    if model_key == "re":
+        model_info["r"] = float(np.exp(fit.params[k]))
+        model_info["s"] = float(np.exp(fit.params[k + 1]))
+    vcov = fit.vcov
+    if irr:
+        J = np.eye(n_par)
+        J[:k, :k] = np.diag(np.exp(beta))
+        vcov = J @ vcov @ J.T
+    data_info = {
+        "nobs": n_used,
+        "df_model": k - 1,
+        "df_resid": n_used - n_par,
+        "dependent_var": y,
+        "X": X[fit.keep],
+        "y": y_arr[fit.keep],
+        "var_cov": vcov,
+        "var_names": names,
+        "inference": "z",
+    }
+    diagnostics = {
+        "Log-Likelihood": ll,
+        "AIC": model_info["aic"],
+        "BIC": model_info["bic"],
+        "Number of groups": fit.n_groups,
+    }
+    if fit.n_dropped_groups:
+        diagnostics["Groups dropped (single obs or all-zero outcome)"] = (
+            fit.n_dropped_groups
+        )
+    return EconometricResults(
+        params=pd.Series(params_arr, index=names),
+        std_errors=pd.Series(ses_arr, index=names),
+        model_info=model_info,
+        data_info=data_info,
+        diagnostics=diagnostics,
     )
 
 

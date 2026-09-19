@@ -191,3 +191,22 @@ def test_rdmc_requires_one_of_the_two_modes(design):
 
 def test_dataset_matches_the_r_side(rjson, design):
     assert len(design) == int(rjson["_meta"]["n"])
+
+
+# ── alias: sp.multi_cutoff_rd is sp.rdmc ────────────────────────────────── #
+
+
+def test_multi_cutoff_rd_is_rdmc_on_the_r_fixture(design, fit, rjson):
+    """``sp.multi_cutoff_rd`` returns ``rdmc(*args, **kwargs)`` unchanged
+    (src/statspai/rd/_aliases.py). Measured on the same bytes, then held to
+    R directly so the alias carries the evidence itself."""
+    alias = sp.multi_cutoff_rd(design, y="y", x="x", cutoff_var="cvar")
+    for a, b in zip(alias.cutoff_results, fit.cutoff_results):
+        assert a["estimate"] == b["estimate"]
+        assert a["se_robust"] == b["se_robust"]
+    assert alias.pooled_estimate == fit.pooled_estimate
+    for i in range(3):
+        assert alias.cutoff_results[i]["estimate"] == pytest.approx(
+            rjson["coefs"][i], rel=RTOL
+        )
+    assert alias.pooled_estimate == pytest.approx(rjson["weighted_coef"], rel=RTOL)

@@ -352,36 +352,106 @@ def effective_f_test(
 #  2. Lee et al. (2022, AER) tF critical values
 # ═══════════════════════════════════════════════════════════════════════
 
-# Table 3a from Lee, McCrary, Moreira & Porter (2022, AER), two-sided 5 %.
-# Rows: first-stage F, adjusted t-critical value c_0.05(F).
-# Values taken from the paper's published Table 3 panel A (5 % level).
-# For F ≤ approx 3.84 the AR test is strictly preferred (no finite c).
-_LMMP_TABLE_5PCT: List[Tuple[float, float]] = [
-    (4.00, 18.66),
-    (5.00, 8.18),
-    (6.00, 5.40),
-    (7.00, 4.32),
-    (8.00, 3.75),
-    (9.00, 3.40),
-    (10.00, 3.16),
-    (11.00, 2.98),
-    (12.00, 2.83),
-    (13.00, 2.72),
-    (14.00, 2.62),
-    (15.00, 2.54),
-    (16.00, 2.47),
-    (16.38, 2.44),  # conventional F threshold; c ≈ 1.96*sqrt(1.56)
-    (17.00, 2.41),
-    (18.00, 2.35),
-    (20.00, 2.26),
-    (25.00, 2.13),
-    (30.00, 2.06),
-    (40.00, 2.01),
-    (50.00, 1.98),
-    (75.00, 1.96),
-    (100.00, 1.96),
-    (142.60, 1.96),
-]
+# LMMP (2022) 5 % tF critical values c_0.05(F), tabulated on sqrt(F) = 2.0,
+# 2.1, ..., 10.3 (F = 4 ... 106.09). Transcribed from R ``ivDiag::tF``
+# 1.0.6 (Lal, Lockhart, Xu & Zu), which carries the table verbatim; the
+# transcription is asserted element-for-element against that function in
+# tests/reference_parity/test_rd_iv_R_parity.py.
+#
+# Through 1.28.0 this module carried a different 24-row table indexed by F
+# whose interior values were not LMMP's: c(10) was 3.16 where the table
+# gives 3.44, c(15) 2.54 where it gives 2.87, and it returned 1.96 from
+# F = 75 onward, contradicting its own docstring's 104.7 threshold. Every
+# error was on the anti-conservative side.
+_LMMP_SQRT_F: np.ndarray = 2.0 + 0.1 * np.arange(84)
+_LMMP_C_05: np.ndarray = np.array(
+    [
+        18.66,
+        9.74,
+        7.37,
+        6.18,
+        5.43,
+        4.92,
+        4.54,
+        4.25,
+        4.01,
+        3.82,
+        3.65,
+        3.51,
+        3.39,
+        3.29,
+        3.19,
+        3.11,
+        3.03,
+        2.97,
+        2.91,
+        2.85,
+        2.8,
+        2.75,
+        2.71,
+        2.67,
+        2.63,
+        2.6,
+        2.57,
+        2.54,
+        2.51,
+        2.48,
+        2.46,
+        2.43,
+        2.41,
+        2.39,
+        2.37,
+        2.35,
+        2.33,
+        2.32,
+        2.3,
+        2.29,
+        2.27,
+        2.26,
+        2.24,
+        2.23,
+        2.22,
+        2.21,
+        2.2,
+        2.19,
+        2.17,
+        2.16,
+        2.16,
+        2.15,
+        2.14,
+        2.13,
+        2.12,
+        2.11,
+        2.1,
+        2.1,
+        2.09,
+        2.08,
+        2.08,
+        2.07,
+        2.06,
+        2.06,
+        2.05,
+        2.04,
+        2.04,
+        2.03,
+        2.03,
+        2.02,
+        2.02,
+        2.01,
+        2.01,
+        2.0,
+        2.0,
+        1.99,
+        1.99,
+        1.99,
+        1.98,
+        1.98,
+        1.97,
+        1.97,
+        1.97,
+        1.96,
+    ]
+)
 
 
 def tF_critical_value(first_stage_F: float, alpha: float = 0.05) -> float:
@@ -390,61 +460,65 @@ def tF_critical_value(first_stage_F: float, alpha: float = 0.05) -> float:
 
     Returns the adjusted two-sided t-ratio critical value ``c(F)`` such
     that ``|t| > c(F)`` is a valid 1 - ``alpha`` test of the 2SLS
-    coefficient, robust to weak instruments.
+    coefficient in the just-identified model, robust to weak instruments.
 
     Parameters
     ----------
     first_stage_F : float
-        Observed first-stage F statistic (or Olea-Pflueger F_eff).
+        First-stage F statistic of the single excluded instrument,
+        computed with the *same* variance estimator as the t-ratio it
+        adjusts (the robust / cluster Wald F -- equal to the Olea-Pflueger
+        effective F with one instrument). This is what ``ivDiag`` passes.
     alpha : float, default 0.05
-        Significance level. Only ``0.05`` is implemented (the only
-        level for which LMMP publish a complete table).
+        Significance level. Only ``0.05`` is implemented (the level LMMP
+        tabulate).
 
     Returns
     -------
     float
-        Adjusted critical value. Returns ``inf`` when ``F ≤ 3.84`` (AR
-        inference should be used instead). Converges to ``1.96`` as
-        ``F → ∞``.
+        Adjusted critical value, linearly interpolated in ``sqrt(F)`` on
+        the LMMP table exactly as ``ivDiag::tF`` does. ``1.96`` once
+        ``F >= 10.3**2 = 106.09``. ``inf`` below ``F = 4``, the first
+        tabulated point: ``c(F)`` diverges as ``F`` falls to 3.84, so the
+        tF interval is unbounded there and the Anderson-Rubin set is the
+        inference to report. (``ivDiag`` instead clamps every ``F <= 4``
+        to ``c(4) = 18.66``; the two agree from ``F = 4`` upward.)
 
     Raises
     ------
     ValueError
         If ``alpha`` is not 0.05.
 
-    Notes
-    -----
-    The LMMP tF procedure gives exactly correct 5 % size for any
-    first-stage strength. The standard ``1.96`` critical value
-    over-rejects substantially when ``F < 104.7`` (the value at which
-    ``c = 1.96``).
-
     Examples
     --------
     >>> import statspai as sp
-    >>> # With first-stage F = 10, the adjusted critical value is ~3.16
-    >>> c = sp.tF_critical_value(10.0)
-    >>> print(f"Adjusted 5% critical value: {c:.2f}")
+    >>> round(sp.tF_critical_value(10.0), 2)  # |t| must exceed 3.44 at F = 10
+    3.44
+    >>> sp.tF_critical_value(200.0)
+    1.96
+
+    References
+    ----------
+    lee2022valid, lal2024much
     """
     if not np.isclose(alpha, 0.05):
         raise ValueError(
-            "Only alpha=0.05 is supported (LMMP 2022 publish a full "
-            "table for the 5 % level only)."
+            "Only alpha=0.05 is supported (LMMP 2022 tabulate the 5 % " "level only)."
         )
-    if first_stage_F < 3.84:
-        return np.inf
-    # Linear interpolation in the table (in F, not log F — LMMP use a
-    # smooth monotone curve, linear interp introduces tiny error < 0.02).
-    table = _LMMP_TABLE_5PCT
-    Fs = np.array([x[0] for x in table])
-    cs = np.array([x[1] for x in table])
-    if first_stage_F >= Fs[-1]:
+    F = float(first_stage_F)
+    if not np.isfinite(F) or F < 4.0:
+        return float("inf")
+    root = np.sqrt(F)
+    if root >= _LMMP_SQRT_F[-1]:
         return 1.96
-    idx = np.searchsorted(Fs, first_stage_F)
-    F_lo, F_hi = Fs[idx - 1], Fs[idx]
-    c_lo, c_hi = cs[idx - 1], cs[idx]
-    w = (first_stage_F - F_lo) / (F_hi - F_lo)
-    return float(c_lo + w * (c_hi - c_lo))
+    # ivDiag: pos.lower = max(which(F0.sqrt < F.sqrt)); weights are the
+    # distances to the two neighbouring nodes.
+    lo = int(np.searchsorted(_LMMP_SQRT_F, root, side="left")) - 1
+    if lo < 0:  # root == 2.0 exactly
+        return float(_LMMP_C_05[0])
+    h1 = abs(root - _LMMP_SQRT_F[lo])
+    h2 = abs(root - _LMMP_SQRT_F[lo + 1])
+    return float((_LMMP_C_05[lo + 1] * h1 + _LMMP_C_05[lo] * h2) / (h1 + h2))
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -625,7 +699,8 @@ def anderson_rubin_test(
         ``'first_stage_F'`` : Classical first-stage F.
         ``'effective_F'`` : Olea-Pflueger robust F_eff.
         ``'tF_critical_value'`` : Lee et al. (2022) adjusted 5 %
-            two-sided critical value. ``None`` if ``alpha != 0.05``.
+            two-sided critical value at the effective F. ``None`` if
+            ``alpha != 0.05`` or there is more than one instrument.
         ``'strength'`` : Instrument-strength interpretation.
         ``'interpretation'`` : Human-readable summary.
 
@@ -769,9 +844,13 @@ def anderson_rubin_test(
         ar_ci = (np.nan, np.nan)
         ar_disjoint = False
 
-    # ── tF critical value (only meaningful at alpha=0.05) ───────────
-    if np.isclose(alpha, 0.05) and not np.isnan(f_first):
-        tF_c = tF_critical_value(max(f_first, 3.84), alpha=0.05)
+    # ── tF critical value (just-identified, alpha=0.05) ─────────────
+    # Indexed by the effective F -- the first-stage Wald F under the same
+    # variance estimator as the t-ratio being adjusted -- as R ivDiag does.
+    # Through 1.28.0 this used the homoskedastic F and was also reported
+    # for over-identified models, where the tF procedure is not defined.
+    if k_z == 1 and np.isclose(alpha, 0.05) and not np.isnan(f_eff):
+        tF_c = tF_critical_value(f_eff, alpha=0.05)
     else:
         tF_c = None
 
@@ -795,24 +874,13 @@ def anderson_rubin_test(
             f"AR test at h0={h0}: F({df1},{df2}) = {ar_f:.2f}, p = {ar_p:.4f}. "
             f"AR {100 * (1 - alpha):.0f}% CI: [{ar_ci[0]:.4f}, {ar_ci[1]:.4f}]. "
             + (
-                f"LMMP tF critical value (F = {f_first:.1f}): {tF_c:.2f} "
+                f"LMMP tF critical value (F_eff = {f_eff:.1f}): {tF_c:.2f} "
                 f"(vs. naive 1.96)."
                 if tF_c is not None
                 else ""
             )
         ),
     }
-
-
-def _kstat_and_pvalue_at(k_cs: Any, h0: float) -> Tuple[float, float]:
-    """Pick the K-statistic and chi2(1) p-value at (nearest-grid) β=h0."""
-    grid = np.asarray(k_cs.beta_grid)
-    if grid.size == 0:
-        return (np.nan, np.nan)
-    idx = int(np.argmin(np.abs(grid - h0)))
-    stat = float(k_cs.statistic[idx])
-    p = float(stats.chi2.sf(stat, df=1))
-    return stat, p
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -996,6 +1064,7 @@ def weakrobust(
     clr_simulations: int = 20_000,
     grid_size: int = 401,
     random_state: Optional[int] = None,
+    clr_method: str = "exact",
 ) -> "WeakRobustResult":
     """
     Stata-style unified weak-instrument-robust diagnostic panel.
@@ -1041,10 +1110,17 @@ def weakrobust(
     include_k : bool, default True
         Also run the Kleibergen K score test and K confidence set.
     clr_simulations : int, default 20 000
-        Monte-Carlo draws for the CLR null distribution.
+        Monte-Carlo draws for the CLR null distribution; used only with
+        ``clr_method='simulate'``.
     grid_size : int, default 401
         Grid resolution used by AR/CLR/K confidence-set inversion.
     random_state : int, optional
+    clr_method : {'exact', 'simulate'}, default 'exact'
+        How the CLR conditional null distribution is evaluated.
+        ``'exact'`` integrates it numerically (the closed form R
+        ``ivmodel::CLR`` and Stata ``weakiv`` use), making the CLR
+        p-value and set deterministic. ``'simulate'`` is the pre-1.29
+        Monte-Carlo version.
 
     Returns
     -------
@@ -1138,7 +1214,7 @@ def weakrobust(
             data.dropna(subset=[y, endog] + list(instruments) + list(exog or []))
         )
 
-    # ── CLR statistic + p-value at H0 (exact via Monte-Carlo) ─────────
+    # ── CLR statistic + p-value at H0 ─────────────────────────────────
     if include_clr:
         try:
             from ..iv.weak_identification import conditional_lr_test
@@ -1152,6 +1228,7 @@ def weakrobust(
                 beta0=h0,
                 n_simulations=clr_simulations,
                 random_state=random_state,
+                method=clr_method,
             )
             out["clr_stat"] = clr_res.statistic
             out["clr_pvalue"] = clr_res.pvalue
@@ -1176,6 +1253,7 @@ def weakrobust(
                     n_grid=grid_size,
                     n_sim=max(clr_simulations // 4, 2000),
                     random_state=random_state,
+                    method=clr_method,
                 )
                 lo, hi = float(clr_cs.lower), float(clr_cs.upper)
                 out["clr_ci"] = (lo, hi)
@@ -1194,10 +1272,23 @@ def weakrobust(
                 out["k_ci"] = (float(k_cs.lower), float(k_cs.upper))
                 out["k_is_empty"] = bool(k_cs.is_empty)
                 out["k_is_unbounded"] = bool(k_cs.is_unbounded)
-                # K stat and p at h0 — read from nearest-grid point
-                _k_stat, _k_p = _kstat_and_pvalue_at(k_cs, h0)
+                # K stat and p at h0 itself. Through 1.28.0 these were read
+                # off the grid point nearest h0 -- the grid is centred on the
+                # 2SLS estimate, so the reported "K at h0" was K at a
+                # different beta (0.8% off on the docstring example, and the
+                # grid endpoint whenever h0 lay outside the grid).
+                k_at_h0 = k_test_ci(
+                    y=y,
+                    endog=endog,
+                    instruments=list(instruments),
+                    exog=exog_arg,
+                    data=data,
+                    level=level,
+                    beta_grid=np.array([float(h0)]),
+                )
+                _k_stat = float(k_at_h0.statistic[0])
                 out["k_stat"] = _k_stat
-                out["k_pvalue"] = _k_p
+                out["k_pvalue"] = float(stats.chi2.sf(_k_stat, df=1))
         except Exception as exc:  # pragma: no cover
             out["weak_iv_ci_error"] = str(exc)
 

@@ -180,9 +180,12 @@ def test_ipcw_recovers_uniform_weights_under_no_dependent_censoring():
     assert set(diag["metric"]) >= {"mean", "max", "min"}
     w = res.weights
     assert np.isfinite(w).all()
-    assert (w > 0).all()
-    # stabilized weights should average near 1 under independent censoring
-    assert 0.5 < w.mean() < 2.0
+    # Censored rows (d == 0) carry weight 0; observed rows are positive.
+    obs = df["d"].to_numpy() == 1
+    assert (w[obs] > 0).all()
+    assert (w[~obs] == 0).all()
+    # stabilized weights should average near 1 over the observed rows
+    assert 0.5 < w[obs].mean() < 2.0
 
 
 def test_ipcw_truncation_bounds_weights():

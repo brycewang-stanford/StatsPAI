@@ -11,30 +11,35 @@ Variants
   outside the convex hull of the donors.
 * **elastic_net** — L1 + L2 penalty to produce sparse but
   regularised donor weights (no sum / sign constraints).
-* **penalized** — classic SCM constraints (>= 0, sum = 1)
-  with elastic-net penalty inside the feasible set.
+* **penalized** — classic SCM constraints (>= 0, sum = 1) with a
+  ridge penalty ``l2 * ||w||^2`` inside the feasible set (on the simplex
+  ``||w||_1 == 1``, so ``l1_penalty`` is a constant there and has no
+  effect). This is *not* the Abadie & L'Hour (2021) penalized estimator,
+  whose penalty is ``sum_j w_j ||X_1 - X_j||^2``; use
+  ``sp.synth(method='penalized')`` for that.
+
+Objective of the regression variants (intercept ``mu`` never penalised)::
+
+    min_{mu, w}  ||y - mu - X w||^2 + l2_penalty ||w||_2^2 + l1_penalty ||w||_1
 
 References
 ----------
 Doudchenko, N. and Imbens, G.W. (2016).
 "Balancing, Regression, Difference-in-Differences and Synthetic
 Control Methods: A Synthesis." NBER Working Paper 22791. [@doudchenko2016balancing]
-
-Abadie, A. and L'Hour, J. (2021).
-"A Penalized Synthetic Control Estimator for Disaggregated Data."
-*Journal of the American Statistical Association*, 116(536), 1817-1834. [@abadie2021penalized]
 """
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, List, Literal, Optional
 
 import numpy as np
 import pandas as pd
-from scipy import optimize, stats
+from scipy import stats
 
 from ..core.results import CausalResult
-from ._core import placebo_rank_pvalue
+from ._core import placebo_rank_pvalue, solve_simplex_weights
 
 
 def robust_synth(
@@ -70,17 +75,30 @@ def robust_synth(
     treatment_time : any
         First treatment period.
     covariates : list of str, optional
-        Additional covariates to match on.
+        Not supported: the weights are fitted on pre-treatment outcomes
+        only. Passing covariates raises ``NotImplementedError`` (it used
+        to be silently ignored).
     variant : {'unconstrained', 'elastic_net', 'penalized'}, default 'unconstrained'
         * ``'unconstrained'`` — no sign / sum constraints; optional intercept.
         * ``'elastic_net'`` — L1 + L2 penalty, no sign constraints.
-        * ``'penalized'`` — classic SCM constraints + elastic-net penalty.
+        * ``'penalized'`` — simplex constraints + ridge penalty (see the
+          module docstring; not Abadie & L'Hour 2021).
     l1_penalty : float, default 0.0
-        Lasso (L1) penalty strength.
+        L1 penalty ``l1_penalty * ||w||_1`` in the objective
+        ``||y - mu - X w||^2 + l2 ||w||^2 + l1 ||w||_1``. glmnet's
+        ``(lambda, alpha)`` on the same data maps to
+        ``l1 = 2 n lambda alpha`` (``n`` = pre-periods) once ``y`` is
+        scaled to unit (1/n) standard deviation.
     l2_penalty : float, default 0.01
-        Ridge (L2) penalty strength.
+        Ridge penalty ``l2_penalty * ||w||^2`` (glmnet:
+        ``l2 = n lambda (1 - alpha)``). ``0`` with ``l1_penalty=0`` is
+        ordinary least squares with an intercept — Doudchenko & Imbens'
+        unconstrained estimator, identical to
+        ``scpi::scest(w.constr = list(name = "ols"))`` on
+        ``scdata(constant = TRUE)``.
     intercept : bool, default True
-        Fit an intercept (level shift). Only for unconstrained / elastic_net.
+        Fit an unpenalised intercept (level shift). Only for
+        unconstrained / elastic_net.
     placebo : bool, default True
         Run in-space placebo inference.
     alpha : float, default 0.05
@@ -100,6 +118,19 @@ def robust_synth(
     >>> bool(result.estimate < 0)  # Prop 99 reduced cigarette sales
     True
     """
+    if covariates:
+        raise NotImplementedError(
+            "robust_synth fits donor weights on pre-treatment outcomes only; "
+            "`covariates` is not supported (it was previously ignored "
+            "silently). Use sp.synth(method='classic', covariates=...) or "
+            "sp.scpi for covariate matching."
+        )
+    if variant not in ("unconstrained", "elastic_net", "penalized"):
+        raise ValueError(
+            "variant must be 'unconstrained', 'elastic_net' or 'penalized', "
+            f"got {variant!r}"
+        )
+
     # --- Build panel ---
     pivot = data.pivot_table(index=time, columns=unit, values=outcome)
     times = pivot.index.values
@@ -145,6 +176,7 @@ def robust_synth(
     # --- Placebo ---
     placebo_atts = []
     placebo_pre_mspes = []
+    placebo_post_mspes = []
     if placebo and J >= 2:
         all_Y = np.column_stack([Y_treated[:, np.newaxis], Y_donors])
         for i in range(J):
@@ -165,15 +197,18 @@ def robust_synth(
                 gap_p = Y_p - synth_p
                 placebo_atts.append(float(np.mean(gap_p[post_mask])))
                 placebo_pre_mspes.append(float(np.mean(gap_p[pre_mask] ** 2)))
-            except Exception:  # pragma: no cover
+                placebo_post_mspes.append(float(np.mean(gap_p[post_mask] ** 2)))
+            except np.linalg.LinAlgError:  # pragma: no cover
                 continue  # pragma: no cover
 
     if len(placebo_atts) > 0:
+        # Abadie-Diamond-Hainmueller post/pre MSPE ratio, computed the SAME
+        # way for the treated unit and every placebo.
         post_mspe = float(np.mean(gap_post**2))
-        ratio_treated = post_mspe / pre_mspe if pre_mspe > 1e-10 else np.inf
+        ratio_treated = _mspe_ratio(post_mspe, pre_mspe)
         placebo_ratios = [
-            a**2 / m if m > 1e-10 else 0
-            for a, m in zip(placebo_atts, placebo_pre_mspes)
+            _mspe_ratio(post_m, pre_m)
+            for post_m, pre_m in zip(placebo_post_mspes, placebo_pre_mspes)
         ]
         pvalue = placebo_rank_pvalue(ratio_treated, placebo_ratios)
         se = float(np.std(placebo_atts)) if len(placebo_atts) > 1 else 0.0
@@ -208,7 +243,7 @@ def robust_synth(
     variant_labels = {
         "unconstrained": "Unconstrained SCM (Doudchenko & Imbens 2016)",
         "elastic_net": "Elastic-Net SCM",
-        "penalized": "Penalized SCM (Abadie & L'Hour 2021)",
+        "penalized": "Ridge-penalized simplex SCM",
     }
 
     model_info = {
@@ -216,8 +251,8 @@ def robust_synth(
         "n_donors": J,
         "n_pre_periods": int(pre_mask.sum()),
         "n_post_periods": int(post_mask.sum()),
-        "pre_treatment_mspe": round(pre_mspe, 6),
-        "pre_treatment_rmse": round(np.sqrt(pre_mspe), 6),
+        "pre_treatment_mspe": pre_mspe,
+        "pre_treatment_rmse": float(np.sqrt(pre_mspe)),
         "l1_penalty": l1_penalty,
         "l2_penalty": l2_penalty,
         "intercept": intercept_val,
@@ -234,6 +269,8 @@ def robust_synth(
     if placebo_atts:
         model_info["placebo_atts"] = placebo_atts
         model_info["n_placebos"] = len(placebo_atts)
+        model_info["mspe_ratio"] = ratio_treated
+        model_info["placebo_mspe_ratios"] = placebo_ratios
 
     return CausalResult(
         method=variant_labels.get(variant, f"Robust SCM ({variant})"),
@@ -250,6 +287,13 @@ def robust_synth(
     )
 
 
+def _mspe_ratio(post_mspe: float, pre_mspe: float) -> float:
+    """Post/pre MSPE ratio; a perfect pre-fit gives ``+inf`` for any unit."""
+    if pre_mspe > 1e-10:
+        return post_mspe / pre_mspe
+    return np.inf if post_mspe > 0 else 0.0
+
+
 def _solve_robust_weights(
     y: np.ndarray,
     X: np.ndarray,
@@ -261,61 +305,40 @@ def _solve_robust_weights(
     """
     Solve for donor weights under various constraint regimes.
 
+    Regression variants minimise
+    ``||y - mu - X w||^2 + l2 ||w||^2 + l1 ||w||_1`` with the intercept
+    ``mu`` unpenalised (profiled out by centring when ``fit_intercept``).
+
     Returns (weights, intercept).
     """
-    T, J = X.shape
-
     if variant == "penalized":
-        # Classic constraints + elastic-net penalty
-        return _solve_penalized_constrained(y, X, l1_penalty, l2_penalty)
+        # Simplex constraints + ridge; ||w||_1 == 1 on the simplex, so the
+        # L1 term is a constant and does not move the minimiser.
+        return solve_simplex_weights(y, X, penalization=l2_penalty), 0.0
 
-    # --- Unconstrained / elastic net: OLS with regularisation ---
     if fit_intercept:
-        X_aug = np.column_stack([np.ones(T), X])
+        x_bar = X.mean(axis=0)
+        y_bar = float(y.mean())
+        Xc = X - x_bar
+        yc = y - y_bar
     else:
-        X_aug = X
+        Xc, yc = X, y
 
-    p = X_aug.shape[1]
-
-    # Elastic net: min ||y - X_aug β||^2 + l2 ||β||^2 + l1 ||β||_1
     if l1_penalty > 0:
-        # Coordinate descent for elastic net
-        beta = _elastic_net_cd(y, X_aug, l1_penalty, l2_penalty, max_iter=1000)
+        beta = _elastic_net_cd(yc, Xc, l1_penalty, l2_penalty)
     else:
-        # Ridge closed form
-        XtX = X_aug.T @ X_aug
-        reg = l2_penalty * np.eye(p)
-        if fit_intercept:
-            reg[0, 0] = 0  # don't penalise intercept
-        beta = np.linalg.solve(XtX + reg, X_aug.T @ y)
+        # Ridge / OLS closed form (lstsq so that l2 = 0 is plain OLS).
+        J = Xc.shape[1]
+        if l2_penalty > 0:
+            A = np.vstack([Xc, np.sqrt(l2_penalty) * np.eye(J)])
+            b = np.concatenate([yc, np.zeros(J)])
+        else:
+            A, b = Xc, yc
+        beta = np.linalg.lstsq(A, b, rcond=None)[0]
 
     if fit_intercept:
-        return beta[1:], float(beta[0])
+        return beta, float(y_bar - x_bar @ beta)
     return beta, 0.0
-
-
-def _solve_penalized_constrained(
-    y: np.ndarray,
-    X: np.ndarray,
-    l1_penalty: float,
-    l2_penalty: float,
-) -> tuple[np.ndarray, float]:
-    """SCM constraints (w >= 0, sum = 1) + elastic-net penalty."""
-    J = X.shape[1]
-
-    def objective(w: np.ndarray) -> float:
-        r = y - X @ w
-        return float(r @ r + l2_penalty * (w @ w) + l1_penalty * np.sum(np.abs(w)))
-
-    res = optimize.minimize(
-        objective,
-        np.ones(J) / J,
-        method="SLSQP",
-        bounds=[(0, None)] * J,
-        constraints={"type": "eq", "fun": lambda w: np.sum(w) - 1},
-        options={"maxiter": 1000, "ftol": 1e-12},
-    )
-    return res.x, 0.0
 
 
 def _elastic_net_cd(
@@ -323,27 +346,46 @@ def _elastic_net_cd(
     X: np.ndarray,
     l1: float,
     l2: float,
-    max_iter: int = 1000,
-    tol: float = 1e-8,
+    max_iter: int = 100_000,
+    tol: float = 1e-13,
 ) -> np.ndarray:
-    """Coordinate descent for elastic net (no constraints)."""
+    """
+    Cyclic coordinate descent for
+    ``min_b ||y - X b||^2 + l2 ||b||^2 + l1 ||b||_1`` (no constraints).
+
+    The coordinate update is ``S(x_j' r_j, l1 / 2) / (x_j' x_j + l2)`` with
+    ``S`` the soft-threshold operator and ``r_j`` the partial residual.
+    Convergence: largest coordinate change below ``tol`` times the
+    largest coefficient; a non-converged run raises a ``RuntimeWarning``.
+    """
     n, p = X.shape
     beta = np.zeros(p)
-    XtX_diag = np.sum(X**2, axis=0)
-
+    xtx = np.sum(X**2, axis=0)
+    r = y.copy()
+    half_l1 = 0.5 * l1
     for _ in range(max_iter):
-        beta_old = beta.copy()
+        max_delta = 0.0
         for j in range(p):
-            r = y - X @ beta + X[:, j] * beta[j]
-            rho = X[:, j] @ r
-            # Soft threshold
-            if abs(rho) <= l1:
-                beta[j] = 0.0
+            if xtx[j] == 0.0 and l2 == 0.0:
+                continue
+            bj_old = beta[j]
+            rho = X[:, j] @ r + xtx[j] * bj_old
+            if abs(rho) <= half_l1:
+                bj = 0.0
             else:
-                beta[j] = (np.sign(rho) * (abs(rho) - l1)) / (XtX_diag[j] + l2)
-        if np.max(np.abs(beta - beta_old)) < tol:
-            break  # pragma: no cover
-
+                bj = np.sign(rho) * (abs(rho) - half_l1) / (xtx[j] + l2)
+            if bj != bj_old:
+                r -= X[:, j] * (bj - bj_old)
+                beta[j] = bj
+                max_delta = max(max_delta, abs(bj - bj_old))
+        if max_delta <= tol * max(1.0, float(np.max(np.abs(beta)))):
+            return beta
+    warnings.warn(
+        f"elastic-net coordinate descent did not converge in {max_iter} "
+        "sweeps; weights may be inaccurate.",
+        RuntimeWarning,
+        stacklevel=3,
+    )
     return beta
 
 

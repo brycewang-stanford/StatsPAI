@@ -16,8 +16,10 @@ References
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Sequence
+
 import numpy as np
 import pandas as pd
 
@@ -132,15 +134,36 @@ def ipcw(
         Return stabilized weights
         :math:`sw_i = \\hat P(C=0 \\mid V) / \\hat P(C=0 \\mid V, L)`.
     method : {"pooled_logistic", "cox_ph"}, default "pooled_logistic"
-        Nuisance model for the censoring hazard. Pooled logistic is
-        recommended when follow-up is long and outcomes are rare.
+        Nuisance model for being uncensored.
+
+        * ``"pooled_logistic"``: a logistic regression of the observed
+          indicator ``event == 1`` on the covariates, row by row. It uses
+          no time information, so it is the inverse probability of an
+          *observed outcome* (complete-case IPW), not a hazard model; for
+          person-time data with a per-interval censoring indicator build
+          the cumulative product yourself or use ``sp.target_trial``.
+        * ``"cox_ph"``: one row per subject. A Cox model (Breslow ties) is
+          fitted to the censoring times (``event == 0`` as the "event")
+          and each subject gets ``1 / S_C(T_i- | X_i)`` with the Breslow
+          baseline cumulative hazard -- the standard IPCW. With
+          ``stabilize=True`` the numerator is the same Cox model on
+          ``treatment_covariates`` (the Nelson-Aalen marginal ``S_C`` when
+          none are given). Matches ``survival::coxph(ties = "breslow")``
+          with ``basehaz(centered = FALSE)``.
     truncate : tuple[float, float] | None, default (0.01, 0.99)
-        Truncate weights at these quantiles to curb extreme values
-        (Cole & Hernan 2008). ``None`` disables truncation.
+        Truncate the uncensored rows' weights at these quantiles to curb
+        extreme values (Cole & Hernan 2008). ``None`` disables truncation.
 
     Returns
     -------
     IPCWResult
+        Censored rows (``event == 0``) carry weight 0; the summary
+        statistics are over the uncensored rows. (Before 1.29 censored
+        rows received the same nonzero weight formula as uncensored ones,
+        contrary to this documented convention, and ``method="cox_ph"``
+        raised a broadcasting error for more than one covariate and
+        accumulated the baseline hazard in data order rather than time
+        order.)
 
     Examples
     --------
@@ -191,28 +214,37 @@ def ipcw(
 
     if stabilize:
         if treatment_covariates:
-            V = data[list(treatment_covariates)].to_numpy(dtype=float)
-            V = np.column_stack([np.ones(n), V])
+            V_raw = data[list(treatment_covariates)].to_numpy(dtype=float)
         else:
-            V = np.ones((n, 1))
-        beta_num = _fit_logit(_censor_indicator(d), V)
-        p_uncensored_marg = np.clip(_sigmoid(V @ beta_num), 1e-8, 1.0)
+            V_raw = np.zeros((n, 0))
+        if method == "cox_ph":
+            p_uncensored_marg = _cox_uncensored_survival(t, d, V_raw)
+        else:
+            V = np.column_stack([np.ones(n), V_raw])
+            beta_num = _fit_logit(_censor_indicator(d), V)
+            p_uncensored_marg = _sigmoid(V @ beta_num)
+        p_uncensored_marg = np.clip(p_uncensored_marg, 1e-8, 1.0)
         w = p_uncensored_marg / p_uncensored_cond
     else:
         w = 1.0 / p_uncensored_cond
 
-    w = w * (d >= 0).astype(float)
-    w = np.where(d == 1, w, w)
+    # Censored rows contribute nothing to the weighted (complete-case)
+    # analysis. The line here used to read ``np.where(d == 1, w, w)``.
+    observed = d == 1
+    w = np.where(observed, w, 0.0)
 
-    if truncate is not None:
-        lo, hi = np.quantile(w[np.isfinite(w) & (w > 0)], list(truncate))
-        w = np.clip(w, lo, hi)
+    if truncate is not None and observed.any():
+        lo, hi = np.quantile(w[observed], list(truncate))
+        w = np.where(observed, np.clip(w, lo, hi), 0.0)
 
+    wo = w[observed]
     summary = {
-        "mean": float(np.nanmean(w)),
-        "max": float(np.nanmax(w)),
-        "min": float(np.nanmin(w)),
-        "effective_sample_size": float(w.sum() ** 2 / (w**2).sum()),
+        "mean": float(np.mean(wo)) if wo.size else float("nan"),
+        "max": float(np.max(wo)) if wo.size else float("nan"),
+        "min": float(np.min(wo)) if wo.size else float("nan"),
+        "effective_sample_size": (
+            float(wo.sum() ** 2 / (wo**2).sum()) if wo.size else float("nan")
+        ),
     }
 
     _result = IPCWResult(
@@ -282,49 +314,54 @@ def _fit_logit(
 
 
 def _cox_uncensored_survival(t: np.ndarray, d: np.ndarray, X: np.ndarray) -> np.ndarray:
-    """Very light Breslow Cox estimator — good enough to derive
-    :math:`\\hat S_C(t|X)` = prob still uncensored by t given X.
+    """Cox model for the censoring time; returns ``S_C(t_i- | x_i)``.
 
-    For heavy lifting users should plug ``lifelines`` / sp.survival.cox.
+    Censoring (``d == 0``) is the event. Coefficients maximise the Breslow
+    partial likelihood (Newton-Raphson); the baseline cumulative hazard is
+    Breslow's ``H0(s) = sum_{censoring times u <= s} 1 / sum_{t_l >= u}
+    exp(x_l b)`` and the survival is taken just before ``t_i``, so a
+    subject's own censoring does not enter its weight. With no covariates
+    this is the Nelson-Aalen estimator of the censoring distribution.
     """
+    t = np.asarray(t, dtype=float)
+    X = np.asarray(X, dtype=float).reshape(len(t), -1)
     n, p = X.shape
-    censor_event = (d == 0).astype(float)
-    order = np.argsort(t)
-    X_ord, ce_ord = X[order], censor_event[order]
+    ce = (np.asarray(d) == 0).astype(float)
+
+    order = np.argsort(t, kind="mergesort")
+    ts, Xs, ces = t[order], X[order], ce[order]
+    # Risk sets: rows with t_l >= t_i. With ties, all tied rows share the
+    # risk set that starts at the first of them (Breslow).
+    first_at = np.searchsorted(ts, ts, side="left")
 
     beta = np.zeros(p)
-    for _ in range(25):
-        eta = X_ord @ beta
-        exp_eta = np.exp(np.clip(eta, -35, 35))
-        cum_risk = np.flip(np.cumsum(np.flip(exp_eta)))
-        wmean = np.flip(np.cumsum(np.flip(X_ord * exp_eta[:, None]))) / np.clip(
-            np.repeat(cum_risk[:, None], p, axis=1), 1e-12, None
-        )
-        score = (X_ord - wmean)[ce_ord == 1].sum(axis=0)
-        hess = np.zeros((p, p))
-        for i in np.where(ce_ord == 1)[0]:
-            diff = X_ord[i:] - wmean[i]
-            w = exp_eta[i:] / np.clip(cum_risk[i], 1e-12, None)
-            hess += (diff * w[:, None]).T @ diff
-        hess = -hess - 1e-6 * np.eye(p)
-        try:
-            step = np.linalg.solve(hess, score)
-        except np.linalg.LinAlgError:
-            step = np.linalg.lstsq(hess, score, rcond=None)[0]
-        beta_new = beta - step
-        if np.max(np.abs(beta_new - beta)) < 1e-6:
-            beta = beta_new
-            break
-        beta = beta_new
+    if p:
+        for _ in range(100):
+            r = np.exp(np.clip(Xs @ beta, -700, 700))
+            S0 = np.cumsum(r[::-1])[::-1][first_at]
+            S1 = np.cumsum((Xs * r[:, None])[::-1], axis=0)[::-1][first_at]
+            S2 = np.cumsum(
+                (Xs[:, :, None] * Xs[:, None, :] * r[:, None, None])[::-1], axis=0
+            )[::-1][first_at]
+            ev = ces == 1
+            xbar = S1[ev] / S0[ev, None]
+            score = (Xs[ev] - xbar).sum(axis=0)
+            info = (S2[ev] / S0[ev, None, None]).sum(axis=0) - np.einsum(
+                "ij,ik->jk", xbar, xbar
+            )
+            step = np.linalg.solve(info, score)
+            beta = beta + step
+            if np.max(np.abs(step)) < 1e-12:
+                break
 
-    eta = X @ beta
-    haz_baseline = np.cumsum(
-        censor_event
-        / np.clip(
-            np.array([np.sum(np.exp(np.clip(X[t >= ti] @ beta, -35, 35))) for ti in t]),
-            1e-12,
-            None,
-        )
-    )
-    surv = np.exp(-haz_baseline * np.exp(np.clip(eta, -35, 35)))
-    return np.asarray(np.clip(surv, 1e-6, 1.0))
+    r = np.exp(np.clip(Xs @ beta, -700, 700))
+    S0 = np.cumsum(r[::-1])[::-1][first_at]
+    # Breslow increments at censoring times, then H0 just before each t_i.
+    inc = np.where(ces == 1, 1.0 / S0, 0.0)
+    H_cum = np.cumsum(inc)
+    # H0(t_i-) = sum of increments at censoring times strictly below t_i.
+    H_before = np.concatenate([[0.0], H_cum])[first_at]
+    surv_sorted = np.exp(-H_before * np.exp(np.clip(Xs @ beta, -700, 700)))
+    out = np.empty(n)
+    out[order] = surv_sorted
+    return np.asarray(out)

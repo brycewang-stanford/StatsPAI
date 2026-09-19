@@ -145,6 +145,31 @@ TRACK_A_ALIASES: Dict[str, AliasProof] = {
         call="sp.decompose('dfl')",
         legs={"components": (1e-12, 0.0)},
     ),
+    "rdd": AliasProof(
+        alias="rdd",
+        canonical="rdrobust",
+        module="06_rd",
+        call="sp.rdrobust",
+        legs={"estimates": (1e-12, 0.0), "bandwidths": (1e-12, 0.0)},
+        note=(
+            "sp.rdd renames running= / cutoff= to x= / c= and returns "
+            "rdrobust(data=..., y=..., x=running, c=cutoff, fuzzy=..., "
+            "**kwargs) (src/statspai/_article_aliases.py), so the agreement "
+            "is exact by construction as well as by measurement."
+        ),
+    ),
+    "geographic_rd": AliasProof(
+        alias="geographic_rd",
+        canonical="rdms",
+        module="89_rdms",
+        call="sp.rdms",
+        legs={"estimates": (1e-12, 0.0)},
+        note=(
+            "sp.geographic_rd returns rdms(*args, **kwargs) unchanged "
+            "(src/statspai/rd/_aliases.py); measured at all three boundary "
+            "points of module 89."
+        ),
+    ),
     "mediate": AliasProof(
         alias="mediate",
         canonical="mediation",
@@ -155,6 +180,58 @@ TRACK_A_ALIASES: Dict[str, AliasProof] = {
             "The bootstrap leg is seeded, so the alias reproduces the "
             "canonical ACME/ADE and their standard errors exactly, not "
             "merely within Monte Carlo error."
+        ),
+    ),
+    "bjs": AliasProof(
+        alias="bjs",
+        canonical="did_imputation",
+        module="16_bjs",
+        call="sp.did_imputation",
+        legs={"att": (1e-12, 0.0), "se": (1e-12, 0.0)},
+        note=(
+            "src/statspai/did/__init__.py binds `bjs = did_imputation`: the "
+            "two names are the same function object, which the proof test "
+            "asserts alongside the numbers."
+        ),
+    ),
+    "borusyak_jaravel_spiess": AliasProof(
+        alias="borusyak_jaravel_spiess",
+        canonical="did_imputation",
+        module="16_bjs",
+        call="sp.did_imputation",
+        legs={"att": (1e-12, 0.0), "se": (1e-12, 0.0)},
+        note=(
+            "src/statspai/did/__init__.py binds `borusyak_jaravel_spiess = "
+            "did_imputation`: the two names are the same function object, "
+            "which the proof test asserts alongside the numbers."
+        ),
+    ),
+    "did_2stage": AliasProof(
+        alias="did_2stage",
+        canonical="gardner_did",
+        module="73_did2s",
+        call="sp.gardner_did",
+        legs={"att": (1e-12, 0.0), "se": (1e-12, 0.0)},
+        note=(
+            "src/statspai/did/gardner_2s.py binds `did_2stage = gardner_did`: "
+            "the two names are the same function object, which the proof "
+            "test asserts alongside the numbers."
+        ),
+    ),
+    "synthdid_estimate": AliasProof(
+        alias="synthdid_estimate",
+        canonical="sdid",
+        module="12_sdid",
+        call="sp.sdid(method='sdid', backend='native')",
+        legs={"att": (1e-12, 0.0), "se_placebo": (1e-12, 0.0)},
+        note=(
+            "sp.synthdid_estimate is a positional wrapper that returns "
+            "sdid(data, y, unit, time, treat_unit, treat_time, "
+            "method='sdid', **kw) (src/statspai/synth/sdid.py). Its siblings "
+            "sp.sc_estimate and sp.did_estimate are NOT aliases of module "
+            "12_sdid -- they are different estimators (method='sc' / 'did') "
+            "and carry their own evidence against synthdid::sc_estimate / "
+            "did_estimate."
         ),
     ),
 }
@@ -294,6 +371,7 @@ CROSS_LANGUAGE_STATUSES: Tuple[str, ...] = ("bit-exact", "aligned")
 PYTHON_REFERENCE_ROWS: Dict[str, str] = {
     "metalearner": "econml.metalearners (SLearner / TLearner)",
     "dml_sensitivity": "doubleml (Python) DoubleML.sensitivity_analysis",
+    "blp": "pyblp (Python; Conlon & Gortmaker) with identical Halton agent draws",
 }
 
 #: Parity grades backed by an artifact that is *not* an external software

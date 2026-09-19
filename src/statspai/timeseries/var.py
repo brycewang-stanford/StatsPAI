@@ -132,14 +132,16 @@ class VARResult(ResultProtocolMixin):
         impulse: Optional[str] = None,
         response: Optional[str] = None,
         orthogonal: bool = True,
+        **kwargs: Any,
     ) -> Dict[str, Any]:
-        """Compute impulse response functions."""
+        """Compute impulse response functions (see :func:`irf`)."""
         return irf(
             self,
             periods=periods,
             impulse=impulse,
             response=response,
             orthogonal=orthogonal,
+            **kwargs,
         )
 
     def granger_test(self, caused: str, causing: str) -> Dict[str, Any]:
@@ -368,15 +370,24 @@ def granger_causality(
         Data (if var_result not provided).
     caused : str
         Variable being tested for causation.
-    causing : str
-        Variable hypothesized to cause.
+    causing : str or list of str
+        Variable(s) hypothesised to cause; a list tests all their lags
+        jointly (Stata ``vargranger``'s ``ALL`` row when it lists every
+        other variable).
     lags : int, optional
         Number of lags (if fitting new VAR).
 
     Returns
     -------
     dict
-        Keys: 'F_stat', 'p_value', 'df1', 'df2', 'caused', 'causing'.
+        Keys: 'F_stat', 'p_value', 'df1', 'df2', 'chi2', 'chi2_p_value',
+        'caused', 'causing', 'reject'. ``chi2`` is the Wald statistic ``W``
+        with its ``chi2(df1)`` p-value (Stata ``vargranger`` after ``var``);
+        ``F_stat = W / df1`` is referred to ``F(df1, T - m)`` (Stata
+        ``vargranger`` after ``var, small``). The residual variance in ``W``
+        follows the fitted model's ``se_df``: ``'stata'`` (divisor ``T``) or
+        ``'r'`` (divisor ``T - m``, Stata ``var, small dfk``). ``reject``
+        uses the F p-value at 5%.
 
     Examples
     --------
@@ -395,12 +406,14 @@ def granger_causality(
     >>> df = pd.DataFrame({"y": y, "x": x})
     >>> vr = sp.var(df, variables=["y", "x"], lags=2)
     >>> gc = sp.granger_causality(vr, caused="y", causing="x")
-    >>> print(gc["p_value"] < 0.05)  # True — x helps predict y
+    >>> print(gc["p_value"] < 0.05)  # x helps predict y
+    True
 
     Or fit the VAR implicitly from data:
 
     >>> gc2 = sp.granger_causality(data=df, caused="x", causing="y", lags=2)
-    >>> print(gc2["reject"])  # False — y does not Granger-cause x
+    >>> print(gc2["reject"])  # y does not Granger-cause x
+    False
     """
     if caused is None or causing is None:
         raise MethodIncompatibility(
@@ -413,20 +426,26 @@ def granger_causality(
             raise MethodIncompatibility("Provide var_result or data")
         if lags is None:
             lags = 1
-        var_result = var(data, variables=[caused, causing], lags=lags)
+        causing_vars = [causing] if isinstance(causing, str) else list(causing)
+        var_result = var(data, variables=[caused] + causing_vars, lags=lags)
 
     k = var_result._k
     p = var_result._lags
     T = var_result.n_obs
     var_names = var_result.var_names
 
-    causing_idx = var_names.index(causing)
+    causing_list = [causing] if isinstance(causing, str) else list(causing)
+    if caused in causing_list:
+        raise MethodIncompatibility(
+            "granger_causality: 'causing' must not contain the caused variable."
+        )
+    causing_idx = [var_names.index(c) for c in causing_list]
 
-    # Identify which coefficients to test (lags of causing in caused equation)
+    # Lags of every causing variable in the caused equation
     restrict_indices = []
     for lag in range(p):
-        idx = lag * k + causing_idx
-        restrict_indices.append(idx)
+        for ci in causing_idx:
+            restrict_indices.append(lag * k + ci)
 
     coef_df = var_result.coefs[caused]
     coefs_all = coef_df["coef"].values
@@ -453,22 +472,27 @@ def granger_causality(
         )
     V = sigma2 * np.asarray(XtX_inv)
 
-    # Wald test: W = (Rβ)'(R V R')^{-1}(Rβ); F = W / q ~ F(q, T - n_params).
+    # Wald statistic W = (Rβ)'(R V R')^{-1}(Rβ).
+    #   chi2 = W ~ chi2(q)            (Stata ``vargranger`` after ``var``)
+    #   F    = W / q ~ F(q, T - m)    (Stata ``vargranger`` after ``var, small``)
     mid = R @ V @ R.T
     try:
-        F_stat = (r @ np.linalg.solve(mid, r)) / len(restrict_indices)
+        W = float(r @ np.linalg.solve(mid, r))
     except np.linalg.LinAlgError:
-        F_stat = np.nan
-
+        W = np.nan
     df1 = len(restrict_indices)
+    F_stat = W / df1
     df2 = T - len(coefs_all)
     p_value = stats.f.sf(F_stat, df1, df2) if np.isfinite(F_stat) else np.nan
+    chi2_p = stats.chi2.sf(W, df1) if np.isfinite(W) else np.nan
 
     return {
         "F_stat": F_stat,
         "p_value": p_value,
         "df1": df1,
         "df2": df2,
+        "chi2": W,
+        "chi2_p_value": chi2_p,
         "caused": caused,
         "causing": causing,
         "reject": p_value < 0.05 if np.isfinite(p_value) else None,
@@ -481,9 +505,15 @@ def irf(
     impulse: Optional[str] = None,
     response: Optional[str] = None,
     orthogonal: bool = True,
+    cumulative: bool = False,
+    sigma_df: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Compute impulse response functions from VAR.
+
+    Simple responses are the MA coefficients ``Phi_s`` of the VAR;
+    orthogonalised responses are ``Phi_s P`` with ``P`` the lower Cholesky
+    factor of the residual covariance (variable order = Cholesky order).
 
     Parameters
     ----------
@@ -497,6 +527,16 @@ def irf(
         Response variable (if None, all).
     orthogonal : bool, default True
         Orthogonalized (Cholesky) IRF.
+    cumulative : bool, default False
+        Return cumulative responses ``sum_{j<=s}`` (Stata ``cirf`` /
+        ``coirf``; ``vars::irf(cumulative = TRUE)``).
+    sigma_df : {'ml', 'unbiased'}, optional
+        Divisor of the residual covariance that the orthogonalisation uses:
+        ``'ml'`` = ``T`` (Stata ``irf create`` after ``var``), ``'unbiased'``
+        = ``T - m`` with ``m`` regressors per equation (``vars::Psi``, and
+        Stata after ``var, dfk``). Default follows the fitted model's
+        ``se_df`` (``'stata'``/``'ml'`` -> ``'ml'``, ``'r'``/``'unbiased'`` ->
+        ``'unbiased'``). Irrelevant when ``orthogonal=False``.
 
     Returns
     -------
@@ -555,11 +595,25 @@ def irf(
         Phi.append(Phi_s)
 
     # Orthogonalize via Cholesky
-    sigma_u = (
-        var_result.sigma_u.values
-        if isinstance(var_result.sigma_u, pd.DataFrame)
-        else var_result.sigma_u
+    sigma_u = np.asarray(
+        (
+            var_result.sigma_u.values
+            if isinstance(var_result.sigma_u, pd.DataFrame)
+            else var_result.sigma_u
+        ),
+        dtype=float,
     )
+    if sigma_df is None:
+        sigma_df = (
+            "unbiased"
+            if str(getattr(var_result, "se_df", "stata")).lower() in {"r", "unbiased"}
+            else "ml"
+        )
+    if sigma_df not in ("ml", "unbiased"):
+        raise ValueError("sigma_df must be 'ml' or 'unbiased'")
+    if sigma_df == "unbiased":
+        m = B.shape[0]  # regressors per equation
+        sigma_u = sigma_u * var_result.n_obs / (var_result.n_obs - m)
     if orthogonal:
         P = np.linalg.cholesky(sigma_u)
     else:
@@ -576,6 +630,7 @@ def irf(
             resp_idx = var_names.index(resp)
             key = f"{imp} -> {resp}"
             irf_values = np.array([Phi[s] @ P[:, imp_idx] for s in range(periods + 1)])
-            irfs[key] = irf_values[:, resp_idx]
+            path = irf_values[:, resp_idx]
+            irfs[key] = np.cumsum(path) if cumulative else path
 
     return {"irf": irfs, "periods": list(range(periods + 1))}

@@ -1,6 +1,7 @@
-"""Tests for harvest_did (Borusyak, Hull & Jaravel, MIT/NBER WP 34550, 2025)."""
+"""Tests for harvest_did (Callaway-Sant'Anna 2x2 cells aggregated by inverse variance; name after Abadie et al., NBER WP 34550, 2025)."""
 
 import warnings
+
 import numpy as np
 import pandas as pd
 import pytest

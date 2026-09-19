@@ -359,6 +359,94 @@ def numerical_hessian(
     return H
 
 
+def richardson_hessian(
+    f: Callable[[np.ndarray], float],
+    x: np.ndarray,
+    step: float = 1e-3,
+) -> np.ndarray:
+    """Richardson-extrapolated central-difference Hessian.
+
+    ``(4 H(h) - H(2h)) / 3`` cancels the O(h^2) truncation term of
+    :func:`numerical_hessian`, so a step large enough to keep round-off
+    small (``|f| * eps / h^2``) can be used.  With log-likelihoods of a few
+    hundred, a fixed ``h = 1e-5`` leaves ~1e-3 relative round-off in the
+    curvature of weakly identified parameters; this reaches ~1e-7.
+    """
+    return (
+        4.0 * numerical_hessian(f, x, step=step)
+        - numerical_hessian(f, x, step=2.0 * step)
+    ) / 3.0
+
+
+def central_gradient(
+    f: Callable[[np.ndarray], float],
+    x: np.ndarray,
+    step: float = 1e-5,
+) -> np.ndarray:
+    """Central-difference gradient with a scale-adaptive step."""
+    x = np.asarray(x, dtype=float)
+    g = np.empty(x.size)
+    for i in range(x.size):
+        h = max(step * abs(x[i]), step)
+        xp = x.copy()
+        xm = x.copy()
+        xp[i] += h
+        xm[i] -= h
+        g[i] = (f(xp) - f(xm)) / (2.0 * h)
+    return g
+
+
+def newton_polish(
+    f: Callable[[np.ndarray], float],
+    x: np.ndarray,
+    bounds: Optional[list] = None,
+    max_steps: int = 25,
+    gtol: float = 1e-9,
+) -> np.ndarray:
+    """Finish a quasi-Newton MLE with damped Newton steps.
+
+    L-BFGS-B driven by *forward*-difference gradients cannot resolve a
+    log-likelihood optimum beyond the gradient noise (about
+    ``|f| * 1e-8``), so on flat directions it stops well short of the
+    maximiser while reporting success.  This takes central-difference
+    Newton steps from ``x`` and accepts a step only if it lowers ``f``;
+    it returns ``x`` unchanged when the Hessian is not positive definite
+    (the quasi-Newton point is then the best available answer).
+    """
+    x = np.asarray(x, dtype=float).copy()
+    lo = hi = None
+    if bounds is not None:
+        lo = np.array([-np.inf if b[0] is None else b[0] for b in bounds])
+        hi = np.array([np.inf if b[1] is None else b[1] for b in bounds])
+    fx = f(x)
+    for _ in range(max_steps):
+        g = central_gradient(f, x)
+        if np.max(np.abs(g)) < gtol:
+            break
+        H = numerical_hessian(f, x)
+        try:
+            np.linalg.cholesky(H)
+        except np.linalg.LinAlgError:
+            break
+        step = np.linalg.solve(H, g)
+        t = 1.0
+        improved = False
+        while t > 1e-4:
+            cand = x - t * step
+            if lo is not None and (np.any(cand < lo) or np.any(cand > hi)):
+                t *= 0.5
+                continue
+            fc = f(cand)
+            if np.isfinite(fc) and fc <= fx:
+                improved = fc < fx or t == 1.0
+                x, fx = cand, fc
+                break
+            t *= 0.5
+        if not improved:
+            break
+    return x
+
+
 def per_obs_scores(
     per_obs_loglik: Callable[[np.ndarray], np.ndarray],
     theta: np.ndarray,

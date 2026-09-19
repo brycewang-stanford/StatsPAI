@@ -27,6 +27,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import warnings
 from pathlib import Path
 from typing import Any, List, Literal, Optional, Tuple
 
@@ -36,7 +37,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 # ======================================================================
 # Public API
@@ -87,7 +88,10 @@ def sdid(
         * ``'sc'``   — Synthetic Control (unit weights only)
         * ``'did'``  — DID (uniform weights)
     covariates : list of str, optional
-        Reserved for future covariate-adjusted extensions.
+        Not supported by the native solver yet; passing any raises
+        :class:`~statspai.exceptions.MethodIncompatibility` rather than
+        silently estimating the unadjusted model (through 1.28.0 the
+        argument was accepted and ignored).
     se_method : {'placebo', 'bootstrap', 'jackknife'}, default 'placebo'
         Standard-error method (see Notes).
     n_reps : int, default 200
@@ -114,9 +118,28 @@ def sdid(
     -----
     **SE methods** (matching R ``synthdid::vcov``):
 
-    * *placebo* — reassign treatment to each control unit in turn.
-    * *bootstrap* — resample control units with replacement.
-    * *jackknife* — leave-one-control-unit-out.
+    * *placebo* — ``n_reps`` random permutations of the controls, the last
+      ``N1`` of which play the treated units (needs more controls than
+      treated units; otherwise NaN with a warning -- synthdid stops).
+    * *bootstrap* — ``n_reps`` resamples of all units with replacement
+      (draws without a treated or without a control unit are redrawn).
+    * *jackknife* — leave one unit out, treated or control, with the unit
+      and time weights held fixed; undefined (NaN, with a warning) when
+      there is a single treated unit, as in ``synthdid``.
+
+    Placebo and bootstrap replications re-solve the weights starting from
+    the full-sample weights with the full-sample regularisation constants,
+    exactly as ``synthdid::vcov`` does, and report the standard deviation of
+    the replications with divisor ``n_reps``. They are Monte-Carlo draws
+    from ``seed``; R's random stream cannot be reproduced, so the SE agrees
+    with R's only within simulation error, while each replication agrees
+    with R's replication for the same draw to machine precision.
+
+    Through 1.28.0 all three differed from ``synthdid``: the placebo SE
+    re-estimated every control in turn from scratch (recomputing the noise
+    level, one placebo unit regardless of ``N1``, ``ddof = 1``, ignoring
+    ``n_reps`` and ``seed``); the bootstrap resampled controls only; the
+    jackknife dropped controls only and re-estimated the weights.
 
     The SDID estimator is:
 
@@ -178,6 +201,17 @@ def sdid(
     y = outcome
     treat_unit = treated_unit
     treat_time = treatment_time
+
+    if covariates:
+        raise MethodIncompatibility(
+            "sdid: covariate adjustment is not implemented; `covariates` "
+            "would be ignored.",
+            recovery_hint=(
+                "Residualise the outcome on the covariates first, or drop "
+                "`covariates`."
+            ),
+            diagnostics={"covariates": list(covariates)},
+        )
 
     backend_norm = backend.lower().replace("-", "_")
     if backend_norm in ("synthdid", "r", "synthdid_r"):
@@ -253,45 +287,46 @@ def sdid(
     )
 
     # --- Standard errors ----------------------------------------------
-    if se_method == "placebo":
-        se, tau_reps = _se_placebo(
-            Y_co_pre,
-            Y_co_post,
-            Y_tr_pre,
-            Y_tr_post,
-            method,
-            n_co,
-            T_pre,
+    # synthdid::vcov.synthdid_estimate semantics: every replication re-solves
+    # the weights from the ORIGINAL fit's weights (renormalised to the
+    # resampled controls) with the ORIGINAL regularisation constants, and the
+    # jackknife holds the weights fixed. See _synthdid_se.
+    Y_full = np.vstack(
+        [
+            np.hstack([Y_co_pre, Y_co_post]),
+            np.hstack([Y_tr_pre, Y_tr_post]),
+        ]
+    )
+    fit_opts = _synthdid_opts(Y_full, n_co, T_pre, method)
+    se, tau_reps = _synthdid_se(
+        Y_full,
+        n_co,
+        T_pre,
+        omega,
+        lam,
+        fit_opts,
+        se_method=se_method,
+        n_reps=n_reps,
+        rng=rng,
+    )
+    if not np.isfinite(se):
+        warnings.warn(
+            f"sdid: the {se_method} standard error is undefined for this design "
+            "(synthdid returns NA or stops): the placebo SE needs more "
+            "controls than treated units, the bootstrap and the jackknife "
+            "more than one treated unit, and the jackknife more than one "
+            "control with non-zero weight. SE, p-value and CI are NaN.",
+            UserWarning,
+            stacklevel=2,
         )
-    elif se_method == "bootstrap":
-        se, tau_reps = _se_bootstrap(
-            Y_co_pre,
-            Y_co_post,
-            Y_tr_pre,
-            Y_tr_post,
-            method,
-            n_co,
-            T_pre,
-            n_reps,
-            rng,
-        )
-    elif se_method == "jackknife":
-        se, tau_reps = _se_jackknife(
-            Y_co_pre,
-            Y_co_post,
-            Y_tr_pre,
-            Y_tr_post,
-            method,
-            n_co,
-            T_pre,
-        )
-    else:
-        raise ValueError(f"Unknown se_method: {se_method!r}")
 
-    z = tau / se if se > 0 else 0.0
-    pvalue = float(2 * stats.norm.sf(abs(z)))
     z_crit = stats.norm.ppf(1 - alpha / 2)
-    ci = (tau - z_crit * se, tau + z_crit * se)
+    if np.isfinite(se) and se > 0:
+        pvalue = float(2 * stats.norm.sf(abs(tau / se)))
+        ci = (tau - z_crit * se, tau + z_crit * se)
+    else:
+        pvalue = float("nan")
+        ci = (float("nan"), float("nan"))
 
     # --- Build synthetic trajectory for plotting ----------------------
     control_names = panel.index[control_mask].tolist()
@@ -352,7 +387,7 @@ def sdid(
         "unit_weights": weight_df,
         "time_weights": time_weight_series,
         "se_method": se_method,
-        "n_reps": n_reps if se_method in ("bootstrap",) else None,
+        "n_reps": n_reps if se_method in ("placebo", "bootstrap") else None,
         "Y_obs": pd.Series(Y_tr_all, index=all_times, name="treated"),
         "Y_synth": pd.Series(Y_synth_all, index=all_times, name="synthetic"),
         "pre_times": pre_times,
@@ -1326,28 +1361,41 @@ def _sc_weight_fw(
     if intercept:
         Y_work = Y_work - Y_work.mean(axis=0, keepdims=True)
 
-    A = Y_work[:, :n_weights]
+    # synthdid:::fw.step + sc.weight.fw, with A x carried incrementally: a
+    # step moves x -> (1 - s) x + s e_i, so A x -> (1 - s) A x + s A[:, i],
+    # and every quantity below is the one fw.step forms, without re-forming
+    # the direction vector or the full residual each iteration.
+    A = np.ascontiguousarray(Y_work[:, :n_weights])
+    At = np.ascontiguousarray(A.T)
     b = Y_work[:, n_weights]
     eta = n_rows * float(zeta) ** 2
-    vals: list[float] = []
-
+    zeta2 = float(zeta) ** 2
+    min_dec2 = float(min_decrease) ** 2
+    ax = A @ weights
+    prev = None
     for _ in range(max_iter):
-        ax = A @ weights
-        half_grad = (ax - b) @ A + eta * weights
+        resid = ax - b
+        half_grad = At @ resid + eta * weights
         vertex = int(np.argmin(half_grad))
-        direction = -weights.copy()
-        direction[vertex] += 1.0
-        if np.all(direction == 0):
+        w_i = float(weights[vertex])
+        ww = float(weights @ weights)
+        dir_sq = ww - 2.0 * w_i + 1.0  # ||e_i - w||^2
+        if dir_sq == 0.0:  # all(d.x == 0): fw.step returns x unchanged
+            val = zeta2 * ww + float(resid @ resid) / n_rows
+        else:
+            err_dir = A[:, vertex] - ax
+            denom = float(err_dir @ err_dir) + eta * dir_sq
+            num = float(half_grad[vertex]) - float(half_grad @ weights)
+            step = 0.0 if denom <= 0 else -num / denom
+            step = min(1.0, max(0.0, step))
+            weights = weights * (1.0 - step)
+            weights[vertex] += step
+            ax = ax + step * err_dir
+            resid = ax - b
+            val = zeta2 * float(weights @ weights) + float(resid @ resid) / n_rows
+        if prev is not None and prev - val <= min_dec2:
             break
-        err_direction = A[:, vertex] - ax
-        denom = float(np.sum(err_direction**2) + eta * np.sum(direction**2))
-        step = 0.0 if denom <= 0 else -float(half_grad @ direction) / denom
-        step = min(1.0, max(0.0, step))
-        weights = weights + step * direction
-        err = Y_work @ np.r_[weights, -1.0]
-        vals.append(float(zeta**2 * np.sum(weights**2) + np.sum(err**2) / n_rows))
-        if len(vals) >= 2 and vals[-2] - vals[-1] <= min_decrease**2:
-            break
+        prev = val
 
     return weights
 
@@ -1368,151 +1416,211 @@ def _sparsify_function(weights: np.ndarray) -> np.ndarray:
 # ======================================================================
 
 
-def _se_placebo(
-    Y_co_pre: np.ndarray,
-    Y_co_post: np.ndarray,
-    Y_tr_pre: np.ndarray,
-    Y_tr_post: np.ndarray,
-    method: str,
-    n_co: int,
-    T_pre: int,
-) -> Tuple[float, np.ndarray]:
+def _synthdid_opts(Y: np.ndarray, N0: int, T0: int, method: str) -> dict:
+    """The regularisation constants and update flags of the original fit.
+
+    Mirrors the defaults of ``synthdid::synthdid_estimate`` and the
+    overrides of ``sc_estimate`` (``eta.omega = 1e-6``, lambda fixed at 0,
+    no omega intercept) and ``did_estimate`` (both weight vectors fixed at
+    uniform). ``vcov`` re-uses exactly these constants in every replication
+    -- they are stored in ``attr(estimate, 'opts')`` and passed back in --
+    rather than recomputing the noise level on the resampled panel.
     """
-    Deterministic placebo SE: assign treatment to each control unit in turn.
+    N1 = Y.shape[0] - N0
+    T1 = Y.shape[1] - T0
+    noise = _sdid_noise_level(Y[:N0, :T0])
+    eta_omega = 1e-6 if method == "sc" else float((N1 * T1) ** 0.25)
+    return {
+        "zeta_omega": eta_omega * noise,
+        "zeta_lambda": 1e-6 * noise,
+        "min_decrease": 1e-5 * noise,
+        "omega_intercept": method != "sc",
+        "lambda_intercept": True,
+        "update_omega": method != "did",
+        "update_lambda": method == "sdid",
+    }
 
-    This keeps the native default reproducible and fast. The R ``synthdid``
-    package uses random placebo replications for ``synthdid_se``; the Track A
-    comparison therefore treats the SE as a small Monte Carlo/convention
-    tolerance while holding the ATT itself to strict reference parity.
+
+def _synthdid_refit(
+    Y: np.ndarray,
+    N0: int,
+    T0: int,
+    omega: np.ndarray,
+    lam: np.ndarray,
+    opts: dict,
+) -> float:
+    """``synthdid_estimate(Y, N0, T0, weights = list(omega, lambda), opts)``.
+
+    The given weights initialise Frank-Wolfe when the corresponding update
+    flag is set (then sparsify and re-solve, exactly as the original fit)
+    and are used as-is otherwise. Returns the estimate
+    ``c(-omega, 1/N1) ' Y c(-lambda, 1/T1)``.
     """
-    taus: list[float] = []
-    for i in range(n_co):
-        Y_pl_tr_pre = Y_co_pre[i : i + 1, :]
-        Y_pl_tr_post = Y_co_post[i : i + 1, :]
-        idx = [j for j in range(n_co) if j != i]
-        Y_pl_co_pre = Y_co_pre[idx, :]
-        Y_pl_co_post = Y_co_post[idx, :]
+    N1 = Y.shape[0] - N0
+    T1 = Y.shape[1] - T0
+    collapsed = np.vstack(
+        [
+            np.column_stack([Y[:N0, :T0], Y[:N0, T0:].mean(axis=1)]),
+            np.r_[Y[N0:, :T0].mean(axis=0), Y[N0:, T0:].mean()],
+        ]
+    )
+    if opts["update_lambda"]:
+        first = _sc_weight_fw(
+            collapsed[:N0, :],
+            zeta=opts["zeta_lambda"],
+            intercept=opts["lambda_intercept"],
+            weights=lam,
+            min_decrease=opts["min_decrease"],
+            max_iter=100,
+        )
+        lam = _sc_weight_fw(
+            collapsed[:N0, :],
+            zeta=opts["zeta_lambda"],
+            intercept=opts["lambda_intercept"],
+            weights=_sparsify_function(first),
+            min_decrease=opts["min_decrease"],
+            max_iter=10000,
+        )
+    if opts["update_omega"]:
+        first = _sc_weight_fw(
+            collapsed[:, :T0].T,
+            zeta=opts["zeta_omega"],
+            intercept=opts["omega_intercept"],
+            weights=omega,
+            min_decrease=opts["min_decrease"],
+            max_iter=100,
+        )
+        omega = _sc_weight_fw(
+            collapsed[:, :T0].T,
+            zeta=opts["zeta_omega"],
+            intercept=opts["omega_intercept"],
+            weights=_sparsify_function(first),
+            min_decrease=opts["min_decrease"],
+            max_iter=10000,
+        )
+    row = np.r_[-np.asarray(omega, dtype=float), np.full(N1, 1.0 / N1)]
+    col = np.r_[-np.asarray(lam, dtype=float), np.full(T1, 1.0 / T1)]
+    return float(row @ Y @ col)
 
-        n_co_pl = len(idx)
-        try:
-            omega_pl, lam_pl = _compute_weights(
-                Y_pl_co_pre,
-                Y_pl_co_post,
-                Y_pl_tr_pre,
-                method,
-                n_co_pl,
-                T_pre,
-            )
-            tau_pl = _estimate_tau(
-                Y_pl_co_pre,
-                Y_pl_co_post,
-                Y_pl_tr_pre,
-                Y_pl_tr_post,
-                omega_pl,
-                lam_pl,
-            )
-            taus.append(tau_pl)
-        except Exception:
-            continue
 
-    taus_arr = np.asarray(taus, dtype=float)
-    se = float(np.std(taus_arr, ddof=1)) if len(taus_arr) > 1 else 0.0
-    return se, taus_arr
+def _sum_normalize(x: np.ndarray) -> np.ndarray:
+    """``synthdid:::sum_normalize``: rescale to sum 1, uniform if all zero."""
+    x = np.asarray(x, dtype=float)
+    total = x.sum()
+    return x / total if total != 0 else np.full(x.size, 1.0 / x.size)
 
 
-def _se_bootstrap(
-    Y_co_pre: np.ndarray,
-    Y_co_post: np.ndarray,
-    Y_tr_pre: np.ndarray,
-    Y_tr_post: np.ndarray,
-    method: str,
-    n_co: int,
-    T_pre: int,
+def _synthdid_placebo_theta(
+    Y: np.ndarray, N0: int, T0: int, omega, lam, opts: dict, ind: np.ndarray
+) -> float:
+    """One ``placebo_se`` replication for a permutation ``ind`` of the controls.
+
+    ``ind`` is 0-based. The last ``N1`` permuted controls play the treated
+    units; omega is restricted to the first ``N0 - N1`` and renormalised.
+    """
+    N1 = Y.shape[0] - N0
+    n0 = len(ind) - N1
+    return _synthdid_refit(
+        Y[ind, :], n0, T0, _sum_normalize(omega[ind[:n0]]), lam, opts
+    )
+
+
+def _synthdid_bootstrap_theta(
+    Y: np.ndarray, N0: int, T0: int, omega, lam, opts: dict, ind: np.ndarray
+) -> float:
+    """One ``bootstrap_sample`` replication for a 0-based resample ``ind``.
+
+    Returns ``nan`` for a draw with no control or no treated unit, which
+    synthdid rejects and redraws.
+    """
+    ind = np.sort(np.asarray(ind))
+    n0 = int(np.sum(ind < N0))
+    if n0 == 0 or n0 == ind.size:
+        return float("nan")
+    return _synthdid_refit(
+        Y[ind, :], n0, T0, _sum_normalize(omega[ind[:n0]]), lam, opts
+    )
+
+
+def _synthdid_se(
+    Y: np.ndarray,
+    N0: int,
+    T0: int,
+    omega: np.ndarray,
+    lam: np.ndarray,
+    opts: dict,
+    *,
+    se_method: str,
     n_reps: int,
     rng: np.random.Generator,
 ) -> Tuple[float, np.ndarray]:
+    """``synthdid::synthdid_se`` (``sqrt(vcov(estimate, method))``).
+
+    * ``placebo`` -- ``placebo_se``: ``n_reps`` random permutations of the
+      controls, the last ``N1`` acting as treated; requires ``N0 > N1``.
+    * ``bootstrap`` -- ``bootstrap_se``: ``n_reps`` accepted resamples of all
+      units with replacement (draws without a treated or without a control
+      unit are redrawn).
+    * ``jackknife`` -- ``jackknife_se``: leave one unit (control OR treated)
+      out with the weights held FIXED (omega renormalised, lambda unchanged);
+      undefined (``nan``) with a single treated unit or a single control
+      with non-zero weight, as in synthdid.
+
+    Placebo and bootstrap use ``sqrt((r - 1) / r) * sd(draws)``, i.e. the
+    standard deviation with divisor ``r``; the jackknife uses
+    ``sqrt((n - 1)^2 / n * var(u))``. Replications are Monte-Carlo draws from
+    ``rng``: they follow synthdid's algorithm exactly but cannot reproduce
+    R's random stream, so end-to-end SEs agree with R only within simulation
+    error. The per-draw map from an index vector to an estimate is exact
+    (``tests/reference_parity/test_did_synth_R_parity.py`` replays R's
+    draws).
     """
-    Bootstrap SE: resample control units with replacement.
-    """
-    taus = np.zeros(n_reps)
-    for b in range(n_reps):
-        idx = rng.choice(n_co, size=n_co, replace=True)
-        Y_co_pre_b = Y_co_pre[idx]
-        Y_co_post_b = Y_co_post[idx]
-
-        try:
-            omega_b, lam_b = _compute_weights(
-                Y_co_pre_b,
-                Y_co_post_b,
-                Y_tr_pre,
-                method,
-                n_co,
-                T_pre,
+    omega = np.asarray(omega, dtype=float)
+    lam = np.asarray(lam, dtype=float)
+    N = Y.shape[0]
+    N1 = N - N0
+    if se_method == "placebo":
+        if N0 <= N1:
+            # synthdid::placebo_se stops here; we keep the point estimate and
+            # report the SE as undefined (the caller warns).
+            return float("nan"), np.array([])
+        draws = np.array(
+            [
+                _synthdid_placebo_theta(
+                    Y, N0, T0, omega, lam, opts, rng.permutation(N0)
+                )
+                for _ in range(int(n_reps))
+            ]
+        )
+    elif se_method == "bootstrap":
+        if N0 == N - 1:
+            return float("nan"), np.array([])
+        out: list = []
+        while len(out) < int(n_reps):
+            th = _synthdid_bootstrap_theta(
+                Y, N0, T0, omega, lam, opts, rng.integers(0, N, size=N)
             )
-            taus[b] = _estimate_tau(
-                Y_co_pre_b,
-                Y_co_post_b,
-                Y_tr_pre,
-                Y_tr_post,
-                omega_b,
-                lam_b,
+            if np.isfinite(th):
+                out.append(th)
+        draws = np.asarray(out, dtype=float)
+    elif se_method == "jackknife":
+        if N0 == N - 1 or int(np.sum(omega != 0)) == 1:
+            return float("nan"), np.array([])
+        fixed = dict(opts, update_omega=False, update_lambda=False)
+        u = np.empty(N)
+        for i in range(N):
+            ind = np.delete(np.arange(N), i)
+            n0 = int(np.sum(ind < N0))
+            u[i] = _synthdid_refit(
+                Y[ind, :], n0, T0, _sum_normalize(omega[ind[:n0]]), lam, fixed
             )
-        except Exception:
-            taus[b] = np.nan
-
-    taus = taus[~np.isnan(taus)]
-    se = float(np.std(taus, ddof=1)) if len(taus) > 1 else 0.0
-    return se, taus
-
-
-def _se_jackknife(
-    Y_co_pre: np.ndarray,
-    Y_co_post: np.ndarray,
-    Y_tr_pre: np.ndarray,
-    Y_tr_post: np.ndarray,
-    method: str,
-    n_co: int,
-    T_pre: int,
-) -> Tuple[float, np.ndarray]:
-    """
-    Jackknife SE: leave-one-control-unit-out.
-    """
-    taus: list[float] = []
-    for i in range(n_co):
-        idx = [j for j in range(n_co) if j != i]
-        Y_co_pre_j = Y_co_pre[idx]
-        Y_co_post_j = Y_co_post[idx]
-        n_co_j = len(idx)
-
-        try:
-            omega_j, lam_j = _compute_weights(
-                Y_co_pre_j,
-                Y_co_post_j,
-                Y_tr_pre,
-                method,
-                n_co_j,
-                T_pre,
-            )
-            tau_j = _estimate_tau(
-                Y_co_pre_j,
-                Y_co_post_j,
-                Y_tr_pre,
-                Y_tr_post,
-                omega_j,
-                lam_j,
-            )
-            taus.append(tau_j)
-        except Exception:
-            continue
-
-    taus_arr = np.asarray(taus, dtype=float)
-    n = len(taus_arr)
-    if n > 1:
-        tau_bar = float(taus_arr.mean())
-        se = float(np.sqrt((n - 1) / n * np.sum((taus_arr - tau_bar) ** 2)))
+        se = float(np.sqrt(((N - 1) / N) * (N - 1) * np.var(u, ddof=1)))
+        return se, u
     else:
-        se = 0.0
-    return se, taus_arr
+        raise ValueError(f"Unknown se_method: {se_method!r}")
+    r = draws.size
+    se = float(np.sqrt((r - 1) / r) * np.std(draws, ddof=1)) if r > 1 else float("nan")
+    return se, draws
 
 
 # ======================================================================

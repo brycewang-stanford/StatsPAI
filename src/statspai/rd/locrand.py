@@ -1011,9 +1011,15 @@ def rdrbounds(
     Rosenbaum sensitivity bounds for RD under local randomization.
 
     Assesses how much hidden bias (departure from random assignment)
-    would be needed to explain away the estimated treatment effect.
-    For each gamma (odds ratio), computes upper and lower p-value
-    bounds under worst-case confounding.
+    would be needed to explain away the estimated treatment effect, as
+    R ``rdlocrand::rdrbounds`` does. Under Rosenbaum's model with odds
+    ratio ``Gamma`` each unit in the window is treated independently with
+    probability ``Gamma/(1+Gamma)`` or ``1/(1+Gamma)``. As in R, the bounds
+    are taken over the monotone patterns in which the ``u`` units with the
+    largest outcomes get the high probability, ``u = 1..n``: the upper
+    bound is the largest of those p-values and the lower bound the
+    smallest. ``Gamma = 1`` is randomization with the treated share as the
+    common probability.
 
     Parameters
     ----------
@@ -1025,17 +1031,18 @@ def rdrbounds(
         Running variable name.
     c : float, default 0
         RD cutoff value.
-    wl : float, optional
-        Window left bound offset (typically negative).
-    wr : float, optional
-        Window right bound offset (typically positive).
+    wl, wr : float
+        Window ``[c + wl, c + wr]`` (``wl`` typically negative).
     gamma_list : list of float, optional
-        Odds ratios to evaluate. Defaults to [1, 1.5, 2, 2.5, 3, 4, 5].
-        gamma=1 is pure randomization; gamma>1 allows confounding.
-    statistic : str, default 'ranksum'
-        Test statistic (ranksum is standard for Rosenbaum bounds).
+        Odds ratios. Defaults to ``[1, 1.5, 2, 2.5, 3, 4, 5]``.
+    statistic : {'ranksum', 'diffmeans'}, default 'ranksum'
+        ``'ranksum'`` is R's standardised rank sum (control-rank sum minus
+        its mean over ``sqrt(n0 n1 var(ranks) / n)``); ``'diffmeans'`` the
+        difference in means.
     n_perms : int, default 1000
-        Number of permutations for p-value computation.
+        Bernoulli assignment draws per p-value. The same draws are reused
+        across thresholds and ``Gamma`` values (common random numbers, as R
+        reseeds before each p-value).
     seed : int, default 42
         Random seed.
 
@@ -1046,14 +1053,14 @@ def rdrbounds(
 
     Notes
     -----
-    Under Rosenbaum's model, if gamma=Gamma, the probability that unit i
-    is treated satisfies:
-
-        1/(1+Gamma) <= P(D_i=1) <= Gamma/(1+Gamma)
-
-    instead of the uniform 1/2 under pure randomization. The bounds on the
-    p-value are obtained by computing the worst-case assignment
-    probabilities at each gamma level.
+    Randomisation p-values: agreement with R is within Monte-Carlo error
+    only. Through 1.28.0 this function split units at the *median*
+    outcome only -- one threshold instead of the extremum over all of them
+    -- drew a fixed number of treated units rather than Bernoulli
+    assignments, and gave the high probability to the *smallest* outcomes
+    for the lower bound; R's ``uminus`` on its increasing sort selects the
+    largest outcomes, the same patterns as the upper bound, which is what
+    this port follows (with R's draw-to-unit attachment for each bound).
 
     Examples
     --------
@@ -1072,112 +1079,73 @@ def rdrbounds(
     (3, 3)
     >>> list(tab.columns)
     ['gamma', 'pvalue_upper', 'pvalue_lower']
-    >>> tab["gamma"].tolist()
-    [1.0, 1.5, 2.0]
+    >>> bool((tab["pvalue_upper"] >= tab["pvalue_lower"]).all())
+    True
     """
-    rng = np.random.default_rng(seed)
     if wl is None or wr is None:
         raise ValueError(
             "Window bounds wl and wr must be specified. "
             "Use rdwinselect() to choose a data-driven window."
         )
-    wl_value = float(wl)
-    wr_value = float(wr)
-
+    if statistic not in ("ranksum", "diffmeans"):
+        raise ValueError("statistic must be 'ranksum' or 'diffmeans'")
     if gamma_list is None:
         gamma_list = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]
-
-    # Subset to window
-    mask = _select_window(data, x, c, wl_value, wr_value)
+    mask = _select_window(data, x, c, float(wl), float(wr))
     df_w = data.loc[mask].copy()
     df_w, _n_missing = _drop_incomplete(df_w, [y, x], where="rdrbounds")
-    n_obs = len(df_w)
-    if n_obs < 4:
-        raise ValueError(f"Only {n_obs} observations in window.")  # pragma: no cover
+    yv = df_w[y].to_numpy(dtype=float)
+    z = (df_w[x].to_numpy(dtype=float) >= c).astype(float)
+    n = len(yv)
+    if n < 4 or z.sum() < 2 or (n - z.sum()) < 2:
+        raise ValueError("Need >= 2 observations on each side of the cutoff.")
 
-    yv = df_w[y].values.astype(float)
-    xv = df_w[x].values.astype(float)
-    z = (xv >= c).astype(int)
-    n_t = int(z.sum())
-    n_c = n_obs - n_t
-
-    if n_t < 2 or n_c < 2:
-        raise ValueError(
-            "Need >= 2 observations on each side of cutoff."
-        )  # pragma: no cover
-
-    # Observed test statistic
-    obs_stat = _compute_stat(yv, z, statistic)
-
-    # Rank outcomes for Rosenbaum bounds
     ranks = sp_stats.rankdata(yv)
+    rank_var = float(np.var(ranks, ddof=1))
 
+    def _stats(D: np.ndarray) -> np.ndarray:
+        """Statistic for each row of a (reps, n) assignment matrix."""
+        n1 = D.sum(axis=1)
+        n0 = n - n1
+        with np.errstate(divide="ignore", invalid="ignore"):
+            if statistic == "ranksum":
+                T = (1 - D) @ ranks
+                out = (T - n0 * (n + 1) / 2) / np.sqrt(n0 * n1 * rank_var / n)
+            else:
+                out = (D @ yv) / n1 - ((1 - D) @ yv) / n0
+        out[(n1 == 0) | (n0 == 0)] = np.nan
+        return out
+
+    obs = float(_stats(z[None, :])[0])
+    rng = np.random.default_rng(seed)
+    U = rng.random((int(n_perms), n))
+
+    def _pvalue(prob: np.ndarray, order: np.ndarray) -> float:
+        # Draws are attached to units in `order`, as R attaches runif(n) to
+        # the rows of its sorted data.
+        D = np.empty_like(U)
+        D[:, order] = (U <= prob[None, :]).astype(float)
+        st = _stats(D)
+        ok = np.isfinite(st)
+        return float(np.mean(np.abs(st[ok]) >= abs(obs) - 1e-14))
+
+    dec = np.argsort(-yv, kind="mergesort")
+    inc = np.argsort(yv, kind="mergesort")
     rows = []
     for gamma in gamma_list:
         if gamma < 1.0:
-            raise ValueError("gamma must be >= 1.")  # pragma: no cover
-
+            raise ValueError("gamma must be >= 1.")
         if abs(gamma - 1.0) < 1e-14:
-            # Pure randomization: uniform permutation
-            _, pval = _permutation_pvalue(yv, z, statistic, n_perms, rng)
-            rows.append(
-                {
-                    "gamma": gamma,
-                    "pvalue_upper": pval,
-                    "pvalue_lower": pval,
-                }
-            )
+            pv = _pvalue(np.full(n, z.mean()), inc)
+            rows.append({"gamma": gamma, "pvalue_upper": pv, "pvalue_lower": pv})
             continue
-
-        # Under Rosenbaum's model with odds ratio Gamma:
-        # Worst-case assignment probabilities depend on outcome ranks.
-        # Upper bound: high-rank units more likely treated
-        # Lower bound: low-rank units more likely treated
-
-        # Assignment probabilities proportional to gamma^(rank indicator)
-        # Upper: p_i proportional to gamma^1 if rank(y_i) is high
-        # Lower: p_i proportional to gamma^1 if rank(y_i) is low
-
-        count_upper = 0
-        count_lower = 0
-
-        for _ in range(n_perms):
-            # Upper bound: bias units with higher outcomes towards treatment
-            weights_upper = np.where(
-                ranks > np.median(ranks),
-                gamma / (1.0 + gamma),
-                1.0 / (1.0 + gamma),
-            )
-            # Normalise to produce valid sampling weights
-            weights_upper = weights_upper / weights_upper.sum()
-            # Sample n_t treated units with these weights (without replacement)
-            idx_upper = rng.choice(n_obs, size=n_t, replace=False, p=weights_upper)
-            z_upper = np.zeros(n_obs, dtype=int)
-            z_upper[idx_upper] = 1
-            stat_upper = _compute_stat(yv, z_upper, statistic)
-            if abs(stat_upper) >= abs(obs_stat) - 1e-14:
-                count_upper += 1
-
-            # Lower bound: bias units with lower outcomes towards treatment
-            weights_lower = np.where(
-                ranks <= np.median(ranks),
-                gamma / (1.0 + gamma),
-                1.0 / (1.0 + gamma),
-            )
-            weights_lower = weights_lower / weights_lower.sum()
-            idx_lower = rng.choice(n_obs, size=n_t, replace=False, p=weights_lower)
-            z_lower = np.zeros(n_obs, dtype=int)
-            z_lower[idx_lower] = 1
-            stat_lower = _compute_stat(yv, z_lower, statistic)
-            if abs(stat_lower) >= abs(obs_stat) - 1e-14:
-                count_lower += 1
-
-        rows.append(
-            {
-                "gamma": gamma,
-                "pvalue_upper": count_upper / n_perms,
-                "pvalue_lower": count_lower / n_perms,
-            }
-        )
-
+        phigh, plow = gamma / (1 + gamma), 1 / (1 + gamma)
+        ub, lb = [], []
+        pos = np.arange(n)
+        for u in range(1, n + 1):
+            # R: uplus on the decreasing sort, uminus on the increasing one;
+            # both give the high probability to the u largest outcomes.
+            ub.append(_pvalue(np.where(pos < u, phigh, plow), dec))
+            lb.append(_pvalue(np.where(pos >= n - u, phigh, plow), inc))
+        rows.append({"gamma": gamma, "pvalue_upper": max(ub), "pvalue_lower": min(lb)})
     return pd.DataFrame(rows)

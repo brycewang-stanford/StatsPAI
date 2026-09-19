@@ -261,6 +261,7 @@ def power_case_control(
     alpha: float = 0.05,
     alternative: str = "two-sided",
     power_target: Optional[float] = None,
+    test: str = "wald",
 ) -> PowerResult:
     """Power (or number of cases) for an unmatched case-control study.
 
@@ -281,6 +282,13 @@ def power_case_control(
     alternative : {"two-sided", "one-sided"}
     power_target : float, optional
         Desired power; solve for the number of cases when ``n_cases=None``.
+    test : {"wald", "chi2"}, default "wald"
+        ``"wald"``: the unpooled two-proportion z test,
+        ``Phi(|p1 - p0| / se1 - z)`` with ``se1`` the unpooled standard
+        error (upper tail only). ``"chi2"``: the Pearson chi-squared test,
+        whose null standard error uses the pooled proportion, with both
+        tails counted when two-sided -- Stata ``power twoproportions``
+        (controls as group 1, cases as group 2).
 
     Returns
     -------
@@ -324,10 +332,21 @@ def power_case_control(
         alternative=alternative,
     )
 
+    if test not in ("wald", "chi2"):
+        raise ValueError("test must be 'wald' or 'chi2'")
+    params["test"] = test
+
     def _power_for_cases(nc: np.ndarray) -> np.ndarray:
         n_ctrl = nc * ratio
         se = np.sqrt(p1 * (1 - p1) / nc + p0 * (1 - p0) / n_ctrl)
-        out: np.ndarray = norm.cdf(delta / se - z_a)
+        if test == "wald":
+            out: np.ndarray = norm.cdf(delta / se - z_a)
+            return out
+        pbar = (p1 * nc + p0 * n_ctrl) / (nc + n_ctrl)
+        se0 = np.sqrt(pbar * (1 - pbar) * (1 / nc + 1 / n_ctrl))
+        out = norm.cdf((delta - z_a * se0) / se)
+        if alternative == "two-sided":
+            out = out + norm.cdf((-delta - z_a * se0) / se)
         return out
 
     if n_cases is None:
@@ -338,6 +357,12 @@ def power_case_control(
         nc = np.ceil(nc0)
         while float(_power_for_cases(np.array([nc]))[0]) < power_target:
             nc += 1
+        # The closed-form start is the Wald-test size; step down to the
+        # smallest number of cases that attains the target.
+        while nc > 1 and (
+            float(_power_for_cases(np.array([nc - 1]))[0]) >= power_target
+        ):
+            nc -= 1
         return PowerResult(
             power_val=float(_power_for_cases(np.array([nc]))[0]),
             n=int(nc),

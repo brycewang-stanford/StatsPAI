@@ -80,8 +80,9 @@ def rkd(
         Treatment variable for fuzzy RKD. If None, estimate the
         reduced-form kink in E[Y|X] (sharp / reduced-form RKD).
     h : float, optional
-        Bandwidth. If None, an MSE-optimal bandwidth is selected
-        automatically.
+        Bandwidth. If None, the CCT MSE-optimal bandwidth for the first
+        derivative (``rdrobust(deriv=1, bwselect='mserd', vce='hc1')``) is
+        selected.
     kernel : str, default 'triangular'
         Kernel function: 'triangular', 'epanechnikov', or 'uniform'.
     p : int, default 1
@@ -111,6 +112,17 @@ def rkd(
     side of the kink and computes the difference in estimated slopes
     (first derivatives) at the kink point.
 
+    It is ``sp.rdrobust(..., deriv=1, vce='hc1')`` -- R / Stata
+    ``rdrobust(deriv=1)``, the kink estimator of Calonico, Cattaneo &
+    Titiunik -- reporting the *conventional* estimate and its HC1 (or
+    cluster) standard error as the headline, with the robust
+    bias-corrected estimate, SE and interval in ``model_info['robust']``.
+    Through 1.28.0 the default bandwidth was an ad hoc rule of thumb that
+    no reference computes, and the fuzzy standard error was a delta
+    method that dropped the covariance between the outcome and treatment
+    kinks (3.6% off R on the reference fixture); both now come from the
+    shared rdrobust path.
+
     Examples
     --------
     Sharp (reduced-form) RKD — slope changes by 0.8 at the kink x=0:
@@ -136,6 +148,7 @@ def rkd(
     True
     """
     # --- Validate inputs ---
+    h_given = h is not None
     if kernel not in ("triangular", "epanechnikov", "uniform"):
         raise ValueError(
             f"kernel must be 'triangular', 'epanechnikov', or "
@@ -147,64 +160,64 @@ def rkd(
     # --- Parse data ---
     cols = [col for col in [y, x, treatment, cluster] if col is not None]
     df = data.dropna(subset=cols)
-    Y = df[y].values.astype(float)
-    X = df[x].values.astype(float)
-    X_c = X - c  # centre at kink point
-
-    T = df[treatment].values.astype(float) if treatment is not None else None
-    cl = df[cluster].values if cluster is not None else None
-
-    n = len(Y)
+    n = len(df)
     if n < 20:
         raise ValueError(f"Too few observations ({n}). Need at least 20.")
 
-    # --- Bandwidth selection ---
-    if h is None:
-        h = _rkd_bandwidth(Y, X_c, T, p, kernel)
+    # --- Estimation: the shared CCT path with deriv = 1 ---
+    from .rdrobust import rdrobust as _rdrobust
 
-    # --- Kernel weights ---
-    u = X_c / h
-    w = _kernel_weights(u, kernel)
+    fit = _rdrobust(
+        df,
+        y=y,
+        x=x,
+        c=c,
+        fuzzy=treatment,
+        deriv=1,
+        p=p,
+        kernel=kernel,
+        h=h,
+        cluster=cluster,
+        vce="hc1",
+        alpha=alpha,
+        manipulation_test=False,
+    )
+    fmi = fit.model_info
+    h = float(fmi["bandwidth_h"])
+    conv = fmi["conventional"]
+    estimate = float(conv["estimate"])
+    se = float(conv["se"])
 
+    # --- Per-side slopes (reporting and plotting only) ---
+    Y = df[y].values.astype(float)
+    X = df[x].values.astype(float)
+    X_c = X - c
+    T = df[treatment].values.astype(float) if treatment is not None else None
+    cl = df[cluster].values if cluster is not None else None
+    w = _kernel_weights(X_c / h, kernel)
     left = (X_c < 0) & (w > 0)
     right = (X_c >= 0) & (w > 0)
     n_left = int(left.sum())
     n_right = int(right.sum())
 
-    if n_left < (p + 1) or n_right < (p + 1):
-        raise ValueError(
-            f"Insufficient observations within bandwidth h={h:.4f}: "
-            f"{n_left} left, {n_right} right. "
-            f"Need at least {p + 1} on each side."
-        )
-
-    # --- Local polynomial fits ---
-    b_left_y, V_left_y, resid_left_y = _local_poly_fit(
+    b_left_y, V_left_y, _ = _local_poly_fit(
         Y[left], X_c[left], w[left], p, cl[left] if cl is not None else None
     )
-    b_right_y, V_right_y, resid_right_y = _local_poly_fit(
+    b_right_y, V_right_y, _ = _local_poly_fit(
         Y[right], X_c[right], w[right], p, cl[right] if cl is not None else None
     )
-
-    # Slope estimates (coefficient on (X - c), i.e. index 1)
     slope_left_y = b_left_y[1]
     slope_right_y = b_right_y[1]
     kink_y = slope_right_y - slope_left_y
-
     se_slope_left_y = np.sqrt(V_left_y[1, 1])
     se_slope_right_y = np.sqrt(V_right_y[1, 1])
     se_kink_y = np.sqrt(V_left_y[1, 1] + V_right_y[1, 1])
 
-    # --- Sharp vs Fuzzy ---
     if treatment is None:
-        # Sharp / reduced-form: just the kink in E[Y|X]
-        estimate = kink_y
-        se = se_kink_y
         estimand_label = "Kink in E[Y|X]"
         design = "Sharp (Reduced-Form)"
-        extra_info = {}
+        extra_info: Dict[str, Any] = {}
     else:
-        # Fuzzy: ratio of kinks
         assert T is not None
         b_left_t, V_left_t, _ = _local_poly_fit(
             T[left], X_c[left], w[left], p, cl[left] if cl is not None else None
@@ -212,37 +225,17 @@ def rkd(
         b_right_t, V_right_t, _ = _local_poly_fit(
             T[right], X_c[right], w[right], p, cl[right] if cl is not None else None
         )
-
-        slope_left_t = b_left_t[1]
-        slope_right_t = b_right_t[1]
-        kink_t = slope_right_t - slope_left_t
-
-        if np.abs(kink_t) < 1e-12:
-            raise ValueError(  # pragma: no cover
-                "First-stage kink in treatment is effectively zero. "
-                "Cannot estimate fuzzy RKD."
-            )
-
-        estimate = kink_y / kink_t
-
-        # Delta method SE for ratio: Var(a/b) ~ (1/b^2)*Var(a) + (a^2/b^4)*Var(b)
-        var_kink_y = V_left_y[1, 1] + V_right_y[1, 1]
-        var_kink_t = V_left_t[1, 1] + V_right_t[1, 1]
-        se = np.sqrt(var_kink_y / kink_t**2 + (kink_y**2 / kink_t**4) * var_kink_t)
-
-        se_slope_left_t = np.sqrt(V_left_t[1, 1])
-        se_slope_right_t = np.sqrt(V_right_t[1, 1])
-        se_kink_t = np.sqrt(var_kink_t)
-
+        kink_t = b_right_t[1] - b_left_t[1]
         estimand_label = "LATE (Fuzzy RKD)"
         design = "Fuzzy"
         extra_info = {
-            "slope_left_treatment": slope_left_t,
-            "slope_right_treatment": slope_right_t,
+            "slope_left_treatment": b_left_t[1],
+            "slope_right_treatment": b_right_t[1],
             "kink_treatment": kink_t,
-            "se_slope_left_treatment": se_slope_left_t,
-            "se_slope_right_treatment": se_slope_right_t,
-            "se_kink_treatment": se_kink_t,
+            "se_slope_left_treatment": np.sqrt(V_left_t[1, 1]),
+            "se_slope_right_treatment": np.sqrt(V_right_t[1, 1]),
+            "se_kink_treatment": np.sqrt(V_left_t[1, 1] + V_right_t[1, 1]),
+            "first_stage_F": fmi.get("first_stage_F"),
         }
 
     # --- Inference ---
@@ -261,13 +254,17 @@ def rkd(
         "se_slope_right_outcome": se_slope_right_y,
         "se_kink_outcome": se_kink_y,
         "bandwidth": h,
-        "bw_type": "MSE-optimal" if h is not None else "manual",
+        "bandwidth_b": float(fmi["bandwidth_b"]),
+        "bw_type": "manual" if h_given else "mserd (CCT, deriv=1)",
         "kernel": kernel,
         "polynomial_order": p,
         "cutoff": c,
         "n_left": n_left,
         "n_right": n_right,
         "n_effective": n_left + n_right,
+        "vce": "cluster" if cluster is not None else "hc1",
+        "conventional": dict(conv),
+        "robust": dict(fmi["robust"]),
         **extra_info,
     }
 
@@ -413,84 +410,6 @@ def _cluster_variance(
     return np.asarray(V, dtype=float)
 
 
-def _rkd_bandwidth(
-    Y: np.ndarray,
-    X_c: np.ndarray,
-    T: Optional[np.ndarray],
-    p: int,
-    kernel: str,
-) -> float:
-    """
-    MSE-optimal bandwidth for RKD (derivative estimation).
-
-    Uses a plug-in approach: fit a global polynomial to estimate bias
-    and use local residuals for variance, then apply the IK-style
-    rule adapted for derivative estimation.
-    """
-    n = len(Y)
-    x_range = np.ptp(X_c)
-    if x_range < 1e-12:
-        raise ValueError("Running variable has no variation.")  # pragma: no cover
-
-    # Pilot bandwidth: use Silverman rule-of-thumb scaled up
-    # (RKD needs larger bandwidth than RD for slope estimation)
-    sd_x = np.std(X_c)
-    h_pilot = 2.0 * 1.06 * sd_x * n ** (-1.0 / 5.0)
-    h_pilot = max(h_pilot, x_range * 0.05)  # floor
-
-    # Fit global polynomial (order p + 2) for bias estimation
-    q = min(p + 2, 5)
-    left = X_c < 0
-    right = X_c >= 0
-
-    # Estimate second derivative of conditional mean on each side
-    # using a global polynomial within a pilot region
-    pilot_left = left & (np.abs(X_c) <= h_pilot * 2)
-    pilot_right = right & (np.abs(X_c) <= h_pilot * 2)
-
-    if pilot_left.sum() < q + 1 or pilot_right.sum() < q + 1:
-        # Fallback: use full data
-        pilot_left = left
-        pilot_right = right
-
-    def _fit_deriv2(yy: np.ndarray, xx: np.ndarray) -> float:
-        """Fit polynomial and return estimated 2nd derivative at 0."""
-        if len(yy) < q + 1:
-            return 0.0
-        Z = np.column_stack([xx**j for j in range(q + 1)])
-        try:
-            beta = np.linalg.lstsq(Z, yy, rcond=None)[0]
-        except np.linalg.LinAlgError:  # pragma: no cover
-            return 0.0
-        # 2nd derivative at 0 is 2 * beta[2] (if q >= 2)
-        return float(2.0 * beta[2]) if q >= 2 else 0.0
-
-    d2_left = _fit_deriv2(Y[pilot_left], X_c[pilot_left])
-    d2_right = _fit_deriv2(Y[pilot_right], X_c[pilot_right])
-
-    # Estimate variance using local residuals
-    u_pilot = X_c / h_pilot
-    w_pilot = _kernel_weights(u_pilot, kernel)
-    active = w_pilot > 0
-    if np.any(active):
-        var_est = np.average(Y[active] ** 2, weights=w_pilot[active])
-    else:
-        var_est = np.var(Y)
-
-    # MSE-optimal bandwidth for derivative estimation
-    # h_opt ~ C_k * (sigma^2 / (n * f * (m'' bias)^2))^{1/5}
-    bias_sq = max((d2_right - d2_left) ** 2, 1e-10)
-    C_k = {"triangular": 3.4375, "epanechnikov": 3.1999, "uniform": 2.7}
-    c_k = C_k.get(kernel, 3.4375)
-
-    h_opt = c_k * (var_est / (n * bias_sq)) ** (1.0 / 5.0)
-
-    # Bound the bandwidth to reasonable range
-    h_opt = np.clip(h_opt, x_range * 0.02, x_range * 0.8)
-
-    return float(h_opt)
-
-
 def _build_detail_table(model_info: Dict[str, Any], fuzzy: bool) -> pd.DataFrame:
     """Build a tidy detail DataFrame."""
     rows = [
@@ -557,8 +476,15 @@ def _rkd_summary(result: CausalResult, alpha: Optional[float] = None) -> str:
     design = mi.get("design", "Sharp")
     lines.append(f"  Design:                 {design}")
     lines.append(f"  RKD estimate:           {result.estimate:.4f}{stars}")
-    lines.append(f"  Robust SE:              {result.se:.4f}")
+    se_label = f"  SE ({mi.get('vce', 'hc1')}):"
+    lines.append(f"{se_label:<26}{result.se:.4f}")
     lines.append(f"  {pct}% CI:                [{ci[0]:.4f}, {ci[1]:.4f}]")
+    rb = mi.get("robust")
+    if rb:
+        lines.append(
+            f"  Robust bias-corrected:  {rb['estimate']:.4f}"
+            f"  (SE: {rb['se']:.4f}; CI [{rb['ci'][0]:.4f}, {rb['ci'][1]:.4f}])"
+        )
     lines.append("")
     lines.append(
         f"  Slope left of kink:     {mi['slope_left_outcome']:.4f}"

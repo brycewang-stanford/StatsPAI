@@ -98,8 +98,13 @@ def test_rdhte_recovers_heterogeneity(rd_df):
 
 
 def test_rdbwhte_positive(rd_df):
+    # z is 0/1 here, so (as R rdbwhte) one bandwidth pair per subgroup.
     h = sp.rdbwhte(rd_df, y="y", x="x", z="z", c=0)
-    assert np.isfinite(h) and h > 0
+    if isinstance(h, pd.DataFrame):
+        vals = h[["h_left", "h_right"]].to_numpy()
+        assert np.all(np.isfinite(vals)) and np.all(vals > 0)
+    else:
+        assert np.isfinite(h) and h > 0
 
 
 def test_rdhte_lincom(rd_df):

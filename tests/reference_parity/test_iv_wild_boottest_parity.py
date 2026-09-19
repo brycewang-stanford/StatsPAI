@@ -99,7 +99,12 @@ def test_weak_iv_wild_matches_boottest_and_uses_efficient_rf() -> None:
     eff = iv_wild_bootstrap(
         base, df, "firm", "d", n_boot=99999, seed=777, efficient=True
     )
-    assert abs(eff["p_boot"] - STATA_WEAK_P) < 4e-3
+    # G = 16 and 2**16 <= 99999, so boottest enumerates every Rademacher sign
+    # vector and so does StatsPAI: the p-value is exact on both sides (22361 /
+    # 65536), and agrees to the 8 decimals the Stata value was recorded at.
+    assert eff["enumerated"] and eff["n_boot"] == 2**16
+    assert abs(eff["p_boot"] - STATA_WEAK_P) < 5e-9
+    assert eff["p_boot"] * 2**16 == 22361
 
 
 def test_iv_wild_requires_cluster_and_only_endog() -> None:

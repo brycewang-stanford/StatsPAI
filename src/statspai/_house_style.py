@@ -185,6 +185,10 @@ FALSE_FRIENDS: Dict[str, Tuple[str, ...]] = {
         "staggered_cs",
         "staggered_sa",
     ),
+    # A test option, not an SE type: Stata `xtunitroot hadri, robust` makes the
+    # Hadri LM statistic robust to cross-unit heteroskedasticity. Spelling it
+    # vce= would promise vce="cluster" on a unit-root test.
+    "robust": ("panel_unitroot",),
     # Random-effects covariance *structure*, not an SE type.
     "cov_type": (
         "mixed",

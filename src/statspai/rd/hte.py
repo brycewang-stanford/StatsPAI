@@ -5,6 +5,13 @@ Implements the methodology of Calonico, Cattaneo, Farrell, Palomba, and
 Titiunik (2025) for estimating conditional average treatment effects (CATE)
 in RD designs using fully interacted local polynomial models.
 
+``rdhte``, ``rdbwhte`` and ``rdhte_lincom`` reproduce the authors' R package
+``rdhte`` (1.x): the point estimate is the order-``p`` interacted fit
+``lm(Y ~ T * Xp * W)``, inference is robust bias-corrected (order ``q = p+1``
+fit on the same window, ``sandwich::vcovCL`` of that fit, HC3 by default),
+the default bandwidth is ``rdrobust::rdbwselect`` on the running variable
+(per subgroup for a binary ``z``), and binary covariates are subgroups.
+
 The core idea: standard RD estimates tau = E[Y(1)-Y(0)|X=c]. When treatment
 effects vary with covariates Z, we estimate CATE(z) = E[Y(1)-Y(0)|X=c, Z=z]
 by fitting a fully interacted local linear model on each side of the cutoff.
@@ -23,8 +30,6 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
-from ._core import _kernel_fn, _kernel_mse_constant, _sandwich_variance
-from .rdrobust import _select_bandwidth
 
 # ======================================================================
 # Citation
@@ -50,6 +55,207 @@ CausalResult._CITATIONS["rdhte"] = (
 # ======================================================================
 
 
+_VCE = ("hc0", "hc1", "hc2", "hc3", "cr1")
+
+
+def _normalize_vce(vce: Optional[str], cluster: bool) -> str:
+    """R ``rdhte:::.rdhte_normalize_vce`` (CR2/CR3 not ported)."""
+    if vce is None:
+        return "cr1" if cluster else "hc3"
+    vce = vce.lower()
+    if vce not in ("hc0", "hc1", "hc2", "hc3", "cr0", "cr1", "cr2", "cr3"):
+        raise ValueError(f"vce must be one of hc0-hc3 / cr1; got {vce!r}")
+    if cluster:
+        mapped = {"hc0": "cr1", "hc1": "cr1", "cr0": "cr1", "hc2": "cr2", "hc3": "cr3"}
+        vce = mapped.get(vce, vce)
+        if vce in ("cr2", "cr3"):
+            raise NotImplementedError(
+                "Clustered HC2/HC3 (vcovCL types CR2/CR3) are not ported; use "
+                "vce='cr1' with cluster=."
+            )
+        return "cr1"
+    return {"cr0": "hc0", "cr1": "hc1", "cr2": "hc2", "cr3": "hc3"}.get(vce, vce)
+
+
+def _hte_prepare(
+    data: pd.DataFrame,
+    y: str,
+    x: str,
+    z: Union[str, List[str], None],
+    c: float,
+    cluster: Optional[str],
+) -> Dict[str, Any]:
+    z_cols = [] if z is None else ([z] if isinstance(z, str) else list(z))
+    cols = [y, x] + z_cols + ([cluster] if cluster else [])
+    for col in cols:
+        if col not in data.columns:
+            role = "Cluster column" if col == cluster else "Column"
+            raise ValueError(f"{role} '{col}' not found in data")
+    frame = data[cols].dropna()
+    Y = frame[y].to_numpy(dtype=float)
+    Xc = frame[x].to_numpy(dtype=float) - c
+    Z = frame[z_cols].to_numpy(dtype=float) if z_cols else np.zeros((len(Y), 0))
+    cl = frame[cluster].to_numpy() if cluster else None
+    # R: a single 0/1 covariate is a factor (subgroups), anything else linear.
+    groups = None
+    if Z.shape[1] == 1 and np.all(np.isin(Z[:, 0], (0.0, 1.0))):
+        groups = Z[:, 0]
+    return {"Y": Y, "Xc": Xc, "Z": Z, "cl": cl, "z_cols": z_cols, "groups": groups}
+
+
+def _bw_select(
+    Y: np.ndarray,
+    Xc: np.ndarray,
+    p: int,
+    q: int,
+    kernel: str,
+    bwselect: str,
+    vce: str,
+    cl: Optional[np.ndarray],
+) -> Tuple[float, float]:
+    """``rdrobust::rdbwselect`` on the running variable (StatsPAI port)."""
+    from ._cct_bandwidth import cct_bandwidth
+
+    # R passes vce = "cr1" to rdbwselect with a cluster, where it means
+    # hc1-type residuals summed within cluster -- the port's "hc1" + cluster.
+    bw = cct_bandwidth(
+        Y,
+        Xc,
+        c=0.0,
+        p=p,
+        q=q,
+        kernel=kernel,
+        bwselect=bwselect,
+        vce="hc1" if vce == "cr1" else vce,
+        cluster=cl,
+    )
+    return float(bw["h_left"]), float(bw["h_right"])
+
+
+def _hte_bandwidths(
+    prep: Dict[str, Any],
+    h: Any,
+    p: int,
+    q: int,
+    kernel: str,
+    bwselect: str,
+    vce: str,
+) -> Tuple[np.ndarray, Dict[Any, Tuple[float, float]], str]:
+    """Per-observation bandwidth vector and per-level (h_left, h_right)."""
+    Xc, groups = prep["Xc"], prep["groups"]
+    left = Xc < 0
+    levels = [None] if groups is None else sorted(np.unique(groups).tolist())
+    h_lev: Dict[Any, Tuple[float, float]] = {}
+    if h is not None:
+        hl, hr = (float(h), float(h)) if np.ndim(h) == 0 else map(float, h)
+        for lv in levels:
+            h_lev[lv] = (hl, hr)
+        how = "manual"
+    else:
+        for lv in levels:
+            m = np.ones(len(Xc), bool) if lv is None else groups == lv
+            cl = prep["cl"][m] if prep["cl"] is not None else None
+            h_lev[lv] = _bw_select(prep["Y"][m], Xc[m], p, q, kernel, bwselect, vce, cl)
+        how = bwselect
+    h_vec = np.empty(len(Xc))
+    for lv in levels:
+        m = np.ones(len(Xc), bool) if lv is None else groups == lv
+        h_vec[m & left] = h_lev[lv][0]
+        h_vec[m & ~left] = h_lev[lv][1]
+    return h_vec, h_lev, how
+
+
+def _hte_design(
+    Xc: np.ndarray, W: np.ndarray, order: int
+) -> Tuple[np.ndarray, List[str]]:
+    """Columns of ``model.matrix(Y ~ T * Xp * W)`` (R's order not needed;
+    coefficients are looked up by name)."""
+    T = (Xc >= 0).astype(float)
+    cols, names = [np.ones_like(Xc), T], ["(Intercept)", "T"]
+    Xp = [Xc**j for j in range(1, order + 1)]
+    for j, v in enumerate(Xp, 1):
+        cols.append(v)
+        names.append(f"X{j}")
+    for k in range(W.shape[1]):
+        cols.append(W[:, k])
+        names.append(f"W{k}")
+    for j, v in enumerate(Xp, 1):
+        cols.append(T * v)
+        names.append(f"T:X{j}")
+    for k in range(W.shape[1]):
+        cols.append(T * W[:, k])
+        names.append(f"T:W{k}")
+    for j, v in enumerate(Xp, 1):
+        for k in range(W.shape[1]):
+            cols.append(v * W[:, k])
+            names.append(f"X{j}:W{k}")
+            cols.append(T * v * W[:, k])
+            names.append(f"T:X{j}:W{k}")
+    return np.column_stack(cols), names
+
+
+def _hte_fit(
+    Y: np.ndarray,
+    Xc: np.ndarray,
+    W: np.ndarray,
+    h_vec: np.ndarray,
+    order: int,
+    kernel: str,
+    vce: str,
+    cl: Optional[np.ndarray],
+) -> Tuple[np.ndarray, np.ndarray, List[str], int]:
+    """Weighted ``lm`` on ``|Xc| <= h`` and ``sandwich::vcovCL(type=vce)``."""
+    r = np.abs(Xc) <= h_vec
+    Xd, names = _hte_design(Xc[r], W[r], order)
+    u = Xc[r] / h_vec[r]
+    if kernel == "triangular":
+        w = 1 - np.abs(u)
+    elif kernel == "epanechnikov":
+        w = 1 - u**2
+    else:
+        w = np.ones_like(u)
+    y = Y[r]
+    XtW = Xd.T * w
+    bread = np.linalg.inv(XtW @ Xd)
+    beta = bread @ (XtW @ y)
+    e = y - Xd @ beta
+    psi = Xd * (w * e)[:, None]
+    n, k = Xd.shape
+    if vce == "cr1":
+        _, codes = np.unique(cl[r], return_inverse=True)
+        G = int(codes.max()) + 1
+        S = np.zeros((G, k))
+        np.add.at(S, codes, psi)
+        V = bread @ (S.T @ S) @ bread * (G / (G - 1) * (n - 1) / (n - k))
+    elif vce in ("hc2", "hc3"):
+        lev = w * np.einsum("ij,jk,ik->i", Xd, bread, Xd)
+        a = np.sqrt(1 - lev) if vce == "hc2" else (1 - lev)
+        P = psi / a[:, None]
+        V = bread @ (P.T @ P) @ bread
+    else:
+        scale = n / (n - 1) if vce == "hc0" else n / (n - k)
+        V = bread @ (psi.T @ psi) @ bread * scale
+    return beta, V, names, int(r.sum())
+
+
+def _hte_coefficients(
+    beta: np.ndarray, V: np.ndarray, names: List[str], dz: int, subgroup: bool
+) -> Tuple[np.ndarray, np.ndarray]:
+    """R's reported vector and covariance.
+
+    Continuous ``z``: ``(T, T:W_1, ..., T:W_dz)``. Subgroups: the effect in
+    each group, ``T`` for the base group and ``T + T:W`` for the other.
+    """
+    idx = [names.index("T")] + [names.index(f"T:W{k}") for k in range(dz)]
+    b = beta[idx]
+    Vs = V[np.ix_(idx, idx)]
+    if not subgroup:
+        return b, Vs
+    A = np.eye(len(idx))
+    A[1:, 0] = 1.0
+    return A @ b, A @ Vs @ A.T
+
+
 def rdhte(
     data: pd.DataFrame,
     y: str,
@@ -57,7 +263,7 @@ def rdhte(
     z: Union[str, List[str]],
     c: float = 0,
     p: int = 1,
-    h: Optional[float] = None,
+    h: Optional[Union[float, Tuple[float, float]]] = None,
     b: Optional[float] = None,
     kernel: str = "triangular",
     bwselect: str = "mserd",
@@ -65,51 +271,79 @@ def rdhte(
     alpha: float = 0.05,
     eval_points: Optional[np.ndarray] = None,
     n_eval: int = 20,
+    q: Optional[int] = None,
+    vce: Optional[str] = None,
 ) -> CausalResult:
     """
-    Estimate conditional average treatment effects (CATE) in RD designs.
+    Conditional average treatment effects (CATE) in sharp RD designs.
 
-    Fits a fully interacted local polynomial model on each side of the
-    cutoff and computes CATE(z) = (alpha_R - alpha_L) + z'(gamma_R - gamma_L).
+    The Python port of R ``rdhte`` (Calonico, Cattaneo, Farrell, Palomba &
+    Titiunik). Fits ``Y ~ T * Xp * W`` by kernel-weighted least squares on
+    ``|x - c| <= h`` and reports:
+
+    * the conventional coefficients of the order-``p`` fit -- ``T`` and
+      ``T:z`` for continuous ``z`` (so ``CATE(z) = T + z'(T:z)``), or the
+      effect in each group when ``z`` is a single 0/1 variable;
+    * robust bias-corrected inference: the order-``q`` fit on the same
+      window, with its ``sandwich::vcovCL`` covariance (HC3 by default).
+
+    ``result.model_info`` carries R's ``coef``, ``coef_bc``, ``se_rb`` and
+    ``vcov`` under those names.
 
     Parameters
     ----------
     data : pd.DataFrame
-        Input dataset.
-    y : str
-        Outcome variable name.
-    x : str
-        Running variable name.
+    y, x : str
+        Outcome and running variable.
     z : str or list of str
-        Covariate(s) for treatment effect heterogeneity.
+        Covariate(s) the effect varies with. A single 0/1 column is treated
+        as two subgroups (R's factor rule).
     c : float, default 0
-        RD cutoff value.
+        Cutoff.
     p : int, default 1
-        Polynomial order for the running variable (1 = local linear).
-    h : float, optional
-        Bandwidth for estimation. If None, MSE-optimal bandwidth is selected.
+        Polynomial order of the point estimate.
+    h : float or (float, float), optional
+        Bandwidth, or ``(h_left, h_right)``. Default: ``rdrobust``'s
+        ``rdbwselect`` (``bwselect``) on the running variable -- separately
+        in each subgroup for a binary ``z``, as R does.
     b : float, optional
-        Bandwidth for bias correction. Defaults to h.
-    kernel : str, default 'triangular'
-        Kernel function: 'triangular', 'uniform', or 'epanechnikov'.
+        Bandwidth of the bias-correction fit. Defaults to ``h`` (R has no
+        separate ``b``). Through 1.28.0 this argument was accepted and
+        ignored.
+    kernel : {'triangular', 'epanechnikov', 'uniform'}
     bwselect : str, default 'mserd'
-        Bandwidth selection method: 'mserd' or 'msetwo'.
+        Any ``rdbwselect`` rule.
     cluster : str, optional
-        Cluster variable name for cluster-robust standard errors.
+        Cluster variable (CR1).
     alpha : float, default 0.05
-        Significance level for confidence intervals.
-    eval_points : np.ndarray, optional
-        Z values at which to evaluate CATE. Each row is a point in Z-space.
-        If None, n_eval equally spaced quantiles (10th to 90th pctile) are used.
+    eval_points : array-like, optional
+        ``z`` values at which to report ``CATE(z)`` (continuous ``z``).
+        Default: ``n_eval`` points from the 10th to the 90th percentile.
     n_eval : int, default 20
-        Number of evaluation points when eval_points is not provided.
+    q : int, optional
+        Order of the bias-correction fit, default ``p + 1``.
+    vce : {'hc0', 'hc1', 'hc2', 'hc3', 'cr1'}, optional
+        Default ``'hc3'``, or ``'cr1'`` with ``cluster`` (R's defaults).
 
     Returns
     -------
     CausalResult
-        - estimate: average CATE across evaluation points (the ATE)
-        - detail: DataFrame with [z_value, cate, se, ci_lower, ci_upper, pvalue]
-        - model_info: coefficients, heterogeneity test, bandwidth info
+        ``estimate``: the average of ``CATE`` over the evaluation points
+        (the groups, for a binary ``z``), with robust bias-corrected
+        ``se`` / ``ci`` / ``pvalue``. ``detail``: one row per evaluation
+        point with ``cate`` (conventional), ``cate_bc``, ``se`` (robust),
+        ``ci_lower``, ``ci_upper``, ``pvalue``.
+
+    Notes
+    -----
+    Through 1.28.0 inference was conventional (the order-``p`` fit's own
+    HC1 SE, no bias correction), the default bandwidth was a rule of thumb
+    no reference computes, and binary ``z`` was not treated as subgroups.
+    Point estimates at a given ``h`` were already R's.
+
+    References
+    ----------
+    calonico2025treatment, calonico2025rdhtepackage
 
     Examples
     --------
@@ -126,249 +360,168 @@ def rdhte(
     >>> bool(abs(result.estimate - 2.0) < 1.0)  # average CATE near 2
     True
     """
-    # --- Validate inputs ---
     if kernel not in ("triangular", "uniform", "epanechnikov"):
-        raise ValueError(  # pragma: no cover
+        raise ValueError(
             f"kernel must be 'triangular', 'uniform', or 'epanechnikov', "
             f"got '{kernel}'"
         )
-    if p < 1:
-        raise ValueError(f"p must be >= 1, got {p}")  # pragma: no cover
+    if p < 0:
+        raise ValueError(f"p must be >= 0, got {p}")
+    q = p + 1 if q is None else int(q)
+    if q <= p:
+        raise ValueError(f"q must exceed p; got q={q}, p={p}")
+    vce_n = _normalize_vce(vce, cluster is not None)
 
-    z_cols = [z] if isinstance(z, str) else list(z)
-    dz = len(z_cols)
-
-    for col in [y, x] + z_cols:
-        if col not in data.columns:
-            raise ValueError(f"Column '{col}' not found in data")  # pragma: no cover
-    if cluster is not None and cluster not in data.columns:
-        raise ValueError(  # pragma: no cover
-            f"Cluster column '{cluster}' not found in data"
-        )
-
-    # --- Parse data ---
-    Y_raw = data[y].values.astype(float)
-    X_raw = data[x].values.astype(float)
-    Z_raw = np.column_stack([data[zc].values.astype(float) for zc in z_cols])
-    cl_raw = data[cluster].values if cluster else None
-
-    # Drop NaN
-    valid = np.isfinite(Y_raw) & np.isfinite(X_raw)
-    for j in range(dz):
-        valid &= np.isfinite(Z_raw[:, j])
-    if cl_raw is not None:
-        valid &= pd.notna(data[cluster].values)
-
-    Y = Y_raw[valid]
-    X_c = X_raw[valid] - c
-    Z = Z_raw[valid]
-    cl = cl_raw[valid] if cl_raw is not None else None
-
-    n = len(Y)
-    left = X_c < 0
-    right = X_c >= 0
-    n_left = int(left.sum())
-    n_right = int(right.sum())
-
-    # Minimum observations check: need at least (p+1) + dz + p*dz + 1
-    # parameters per side: intercept + p running-var terms + dz covariates
-    # + p*dz interactions
-    n_params = (p + 1) + dz + p * dz
-    if n_left < n_params + 2 or n_right < n_params + 2:
-        raise ValueError(  # pragma: no cover
-            f"Not enough observations (left={n_left}, right={n_right}, "
-            f"need >= {n_params + 2} per side for p={p}, dim(Z)={dz})."
-        )
-
-    # --- Bandwidth selection ---
-    h_auto = h is None
-    if h is None:
-        h = rdbwhte(data, y, x, z, c=c, p=p, kernel=kernel)
-    if b is None:
-        b = h
-
-    # --- Build evaluation points ---
-    if eval_points is not None:
-        eval_pts = np.atleast_2d(eval_points)
-        if eval_pts.ndim == 1 or (eval_pts.ndim == 2 and eval_pts.shape[1] != dz):
-            if dz == 1:
-                eval_pts = eval_pts.reshape(-1, 1)
-            else:
-                raise ValueError(  # pragma: no cover
-                    f"eval_points must have {dz} columns, "
-                    f"got shape {eval_points.shape}"
-                )
+    prep = _hte_prepare(data, y, x, z, c, cluster)
+    Y, Xc, Z, cl, z_cols = prep["Y"], prep["Xc"], prep["Z"], prep["cl"], prep["z_cols"]
+    groups = prep["groups"]
+    subgroup = groups is not None
+    dz = Z.shape[1]
+    if subgroup:
+        levels = sorted(np.unique(groups).tolist())
+        W = (groups == levels[1]).astype(float).reshape(-1, 1) if len(levels) > 1 else Z
+        if len(levels) < 2:
+            raise ValueError(f"z '{z_cols[0]}' has a single value; nothing to compare")
     else:
-        # Quantiles from 10th to 90th percentile
-        if dz == 1:
-            pctiles = np.linspace(10, 90, n_eval)
-            z_vals = np.percentile(Z[:, 0], pctiles)
-            eval_pts = z_vals.reshape(-1, 1)
-        else:
-            # For multivariate Z: grid over marginal quantiles
-            pctiles = np.linspace(10, 90, max(int(n_eval ** (1 / dz)), 3))
-            grids = [np.percentile(Z[:, j], pctiles) for j in range(dz)]
-            mesh = np.meshgrid(*grids, indexing="ij")
-            eval_pts = np.column_stack([m.ravel() for m in mesh])
-            # Trim to at most n_eval points (take evenly spaced subset)
-            if len(eval_pts) > n_eval:
-                idx = np.round(np.linspace(0, len(eval_pts) - 1, n_eval)).astype(int)
-                eval_pts = eval_pts[idx]
+        W = Z
 
-    n_eval_actual = len(eval_pts)
+    h_vec, h_lev, bw_how = _hte_bandwidths(prep, h, p, q, kernel, bwselect, vce_n)
+    b_vec = h_vec if b is None else np.full(len(Xc), float(b))
 
-    # --- Fit fully interacted model on each side ---
-    beta_L, vcov_L, n_eff_L = _interacted_wls(
-        Y[left],
-        X_c[left],
-        Z[left],
-        h,
-        p,
-        kernel,
-        cl[left] if cl is not None else None,
+    n_left, n_right = int((Xc < 0).sum()), int((Xc >= 0).sum())
+    for vec, order, lab in ((h_vec, p, "h"), (b_vec, q, "b")):
+        n_in = int((np.abs(Xc) <= vec).sum())
+        if n_in <= len(_hte_design(Xc[:1], W[:1], order)[1]):
+            raise ValueError(
+                f"Not enough observations inside the {lab} window ({n_in}) for "
+                f"the order-{order} interacted fit"
+            )
+    beta_p, _, names_p, n_eff = _hte_fit(Y, Xc, W, h_vec, p, kernel, vce_n, cl)
+    beta_q, V_q, names_q, _ = _hte_fit(Y, Xc, W, b_vec, q, kernel, vce_n, cl)
+    coef, _ = _hte_coefficients(
+        beta_p, np.zeros((len(beta_p),) * 2), names_p, W.shape[1], subgroup
     )
-    beta_R, vcov_R, n_eff_R = _interacted_wls(
-        Y[right],
-        X_c[right],
-        Z[right],
-        h,
-        p,
-        kernel,
-        cl[right] if cl is not None else None,
-    )
-
-    # --- Extract CATE coefficients ---
-    # Model on each side: Y = alpha + beta_1*(X-c) + ... + beta_p*(X-c)^p
-    #                        + Z'gamma + (X-c)*Z'delta_1
-    #                        + ... + (X-c)^p*Z'delta_p
-    # Parameter layout: [intercept, (X-c), ..., (X-c)^p, Z_1, ..., Z_dz,
-    #                    (X-c)*Z_1, ..., (X-c)*Z_dz,
-    #                    ..., (X-c)^p*Z_1, ..., (X-c)^p*Z_dz]
-    # CATE(z) = (alpha_R - alpha_L) + z'(gamma_R - gamma_L)
-    # Indices: intercept = 0, gamma starts at p+1, gamma has dz entries
-
-    idx_intercept = 0
-    idx_gamma_start = p + 1
-    idx_gamma_end = p + 1 + dz
-
-    # Difference vector for CATE constant part and Z-coefficients
-    diff_alpha = beta_R[idx_intercept] - beta_L[idx_intercept]
-    diff_gamma = (
-        beta_R[idx_gamma_start:idx_gamma_end] - beta_L[idx_gamma_start:idx_gamma_end]
-    )
-
-    # Joint variance of the differences (independent sides)
-    # Indices to extract: [intercept, gamma_1, ..., gamma_dz]
-    extract_idx = np.array(
-        [idx_intercept] + list(range(idx_gamma_start, idx_gamma_end))
-    )
-    vcov_diff = (
-        vcov_R[np.ix_(extract_idx, extract_idx)]
-        + vcov_L[np.ix_(extract_idx, extract_idx)]
-    )
-
-    # --- Evaluate CATE at each point ---
-    cate_vals = np.empty(n_eval_actual)
-    se_vals = np.empty(n_eval_actual)
-    ci_lower_vals = np.empty(n_eval_actual)
-    ci_upper_vals = np.empty(n_eval_actual)
-    pv_vals = np.empty(n_eval_actual)
+    coef_bc, vcov = _hte_coefficients(beta_q, V_q, names_q, W.shape[1], subgroup)
+    se_rb = np.sqrt(np.maximum(np.diag(vcov), 0.0))
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
-    for i in range(n_eval_actual):
-        z_i = eval_pts[i]
-        # CATE(z) = diff_alpha + z'*diff_gamma
-        # Weight vector w = [1, z_1, ..., z_dz] applied to [diff_alpha, diff_gamma]
-        w = np.concatenate([[1.0], z_i])
-        cate_i = float(w @ np.concatenate([[diff_alpha], diff_gamma]))
-        var_i = float(w @ vcov_diff @ w)
-        se_i = float(np.sqrt(max(var_i, 0)))
-
-        cate_vals[i] = cate_i
-        se_vals[i] = se_i
-        ci_lower_vals[i] = cate_i - z_crit * se_i
-        ci_upper_vals[i] = cate_i + z_crit * se_i
-        z_stat = cate_i / se_i if se_i > 1e-15 else 0.0
-        pv_vals[i] = float(2 * stats.norm.sf(abs(z_stat)))
-
-    # --- Average CATE (the ATE) ---
-    ate = float(np.mean(cate_vals))
-    # SE of the average: mean of the linear functions
-    w_avg = np.zeros(1 + dz)
-    w_avg[0] = 1.0
-    w_avg[1:] = np.mean(eval_pts, axis=0)
-    ate_var = float(w_avg @ vcov_diff @ w_avg)
-    ate_se = float(np.sqrt(max(ate_var, 0)))
-    ate_z = ate / ate_se if ate_se > 1e-15 else 0.0
-    ate_pv = float(2 * stats.norm.sf(abs(ate_z)))
-    ate_ci = (ate - z_crit * ate_se, ate + z_crit * ate_se)
-
-    # --- Heterogeneity test: H0: gamma_R - gamma_L = 0 ---
-    het_test = _heterogeneity_test(diff_gamma, vcov_diff, dz)
-
-    # --- Detail DataFrame ---
-    z_display: Any
-    if dz == 1:
-        z_display = eval_pts[:, 0]
+    # ---- evaluation points / subgroup rows ---------------------------------
+    if subgroup:
+        L = np.eye(len(coef))
+        z_display: Any = levels
     else:
-        z_display = [tuple(row) for row in eval_pts]
-
+        if eval_points is not None:
+            ev = np.asarray(eval_points, dtype=float)
+            ev = ev.reshape(-1, dz) if dz == 1 else np.atleast_2d(ev)
+            if ev.shape[1] != dz:
+                raise ValueError(f"eval_points must have {dz} columns, got {ev.shape}")
+        elif dz == 1:
+            ev = np.percentile(Z[:, 0], np.linspace(10, 90, n_eval)).reshape(-1, 1)
+        else:
+            pct = np.linspace(10, 90, max(int(n_eval ** (1 / dz)), 3))
+            grids = [np.percentile(Z[:, j], pct) for j in range(dz)]
+            ev = np.column_stack(
+                [m.ravel() for m in np.meshgrid(*grids, indexing="ij")]
+            )
+            if len(ev) > n_eval:
+                ev = ev[np.round(np.linspace(0, len(ev) - 1, n_eval)).astype(int)]
+        L = np.column_stack([np.ones(len(ev)), ev])
+        z_display = ev[:, 0] if dz == 1 else [tuple(r) for r in ev]
+    cate = L @ coef
+    cate_bc = L @ coef_bc
+    se_pts = np.sqrt(np.maximum(np.einsum("ij,jk,ik->i", L, vcov, L), 0.0))
+    t_pts = np.where(se_pts > 0, cate_bc / np.where(se_pts > 0, se_pts, 1.0), np.nan)
     detail = pd.DataFrame(
         {
             "z_value": z_display,
-            "cate": cate_vals,
-            "se": se_vals,
-            "ci_lower": ci_lower_vals,
-            "ci_upper": ci_upper_vals,
-            "pvalue": pv_vals,
+            "cate": cate,
+            "cate_bc": cate_bc,
+            "se": se_pts,
+            "ci_lower": cate_bc - z_crit * se_pts,
+            "ci_upper": cate_bc + z_crit * se_pts,
+            "pvalue": 2 * stats.norm.sf(np.abs(t_pts)),
         }
     )
 
-    # --- Model info ---
+    # ---- headline: average over the rows -------------------------------------
+    lbar = L.mean(axis=0)
+    ate = float(lbar @ coef)
+    ate_bc = float(lbar @ coef_bc)
+    ate_se = float(np.sqrt(max(lbar @ vcov @ lbar, 0.0)))
+    ate_pv = (
+        float(2 * stats.norm.sf(abs(ate_bc / ate_se))) if ate_se > 0 else float("nan")
+    )
+    ate_ci = (ate_bc - z_crit * ate_se, ate_bc + z_crit * ate_se)
+
+    # ---- heterogeneity: joint Wald on the bias-corrected contrasts ------------
+    if subgroup:
+        R_ = np.column_stack([-np.ones(len(coef) - 1), np.eye(len(coef) - 1)])
+    else:
+        R_ = np.column_stack([np.zeros(dz), np.eye(dz)])
+    rb = R_ @ coef_bc
+    wald = float(rb @ np.linalg.pinv(R_ @ vcov @ R_.T) @ rb)
+    het_test = {
+        "statistic": wald,
+        "pvalue": float(stats.chi2.sf(wald, df=R_.shape[0])),
+        "df": int(R_.shape[0]),
+    }
+
+    names_out = (
+        [f"{z_cols[0]}={lv:g}" for lv in levels]
+        if subgroup
+        else ["T"] + [f"T:{zc}" for zc in z_cols]
+    )
+    hl_list = list(h_lev.values())
     model_info: Dict[str, Any] = {
         "rd_type": "Sharp",
+        "mode": "subgroups" if subgroup else "continuous",
         "polynomial_p": p,
+        "polynomial_q": q,
         "kernel": kernel,
-        "bandwidth_h": round(float(h), 6),
-        "bandwidth_b": round(float(b), 6),
-        "bwselect": bwselect if h_auto else "manual",
+        "vce": vce_n,
+        "bandwidth_h": (
+            hl_list[0][0]
+            if len(set(hl_list)) == 1 and hl_list[0][0] == hl_list[0][1]
+            else h_lev
+        ),
+        "bandwidth_by_level": {str(k): v for k, v in h_lev.items()},
+        "bandwidth_b": float(b) if b is not None else "h",
+        "bwselect": bw_how,
         "cutoff": c,
         "z_covariates": z_cols,
         "n_z": dz,
         "n_left": n_left,
         "n_right": n_right,
-        "n_effective_left": n_eff_L,
-        "n_effective_right": n_eff_R,
-        "n_eval_points": n_eval_actual,
+        "n_effective": n_eff,
+        "n_eval_points": len(detail),
+        "coef_names": names_out,
+        "coef": coef.tolist(),
+        "coef_bc": coef_bc.tolist(),
+        "se_rb": se_rb.tolist(),
+        "vcov": vcov.tolist(),
         "ate": ate,
+        "ate_bc": ate_bc,
         "ate_se": ate_se,
         "ate_pvalue": ate_pv,
         "ate_ci": ate_ci,
-        "diff_alpha": float(diff_alpha),
-        "diff_gamma": diff_gamma.tolist(),
-        "coefficients_left": beta_L.tolist(),
-        "coefficients_right": beta_R.tolist(),
         "heterogeneity_test": het_test,
-        "vcov_diff": vcov_diff.tolist(),
+        "_L": L.tolist(),
     }
 
     result = CausalResult(
-        method="RD Heterogeneous Treatment Effects",
+        method="RD Heterogeneous Treatment Effects (rdhte)",
         estimand="CATE",
         estimate=ate,
         se=ate_se,
         pvalue=ate_pv,
         ci=ate_ci,
         alpha=alpha,
-        n_obs=n,
+        n_obs=len(Y),
         detail=detail,
         model_info=model_info,
         _citation_key="rdhte",
     )
-
-    # Attach plot method
     setattr(result, "plot", lambda **kw: _rdhte_plot(result, **kw))
-
     return result
 
 
@@ -380,34 +533,30 @@ def rdbwhte(
     c: float = 0,
     p: int = 1,
     kernel: str = "triangular",
-) -> float:
+    q: Optional[int] = None,
+    bwselect: str = "mserd",
+    vce: Optional[str] = None,
+    cluster: Optional[str] = None,
+) -> Any:
     """
-    MSE-optimal bandwidth selection for the fully interacted RD model.
+    Bandwidth selection for :func:`rdhte`, as R ``rdhte::rdbwhte``.
 
-    Accounts for the additional variance introduced by the covariate
-    interaction terms compared to the standard local polynomial RD bandwidth.
-
-    Parameters
-    ----------
-    data : pd.DataFrame
-        Input dataset.
-    y : str
-        Outcome variable name.
-    x : str
-        Running variable name.
-    z : str or list of str
-        Covariate(s) for treatment effect heterogeneity.
-    c : float, default 0
-        RD cutoff value.
-    p : int, default 1
-        Polynomial order.
-    kernel : str, default 'triangular'
-        Kernel function.
+    For continuous ``z`` this is ``rdrobust::rdbwselect`` on the running
+    variable (the covariates do not enter); for a single 0/1 ``z`` it is
+    ``rdbwselect`` within each subgroup.
 
     Returns
     -------
-    float
-        MSE-optimal bandwidth.
+    float or pd.DataFrame
+        The common bandwidth when there is one level and ``h_left ==
+        h_right``; otherwise a frame with columns ``level``, ``h_left``,
+        ``h_right``.
+
+    Notes
+    -----
+    Through 1.28.0 this inflated the local-linear bandwidth by a
+    parameter-count factor and refined it with a pilot rule of thumb --
+    a quantity no reference computes.
 
     Examples
     --------
@@ -417,125 +566,51 @@ def rdbwhte(
     >>> rng = np.random.default_rng(42)
     >>> n = 500
     >>> x = rng.uniform(-1, 1, n)
-    >>> z = rng.integers(0, 2, n)
+    >>> z = rng.normal(size=n)
     >>> y = (0.8 * (x >= 0) + 0.3 * z * (x >= 0) + 0.5 * x
     ...      + rng.normal(0, 0.3, n))
     >>> df = pd.DataFrame({"x": x, "y": y, "z": z})
     >>> h = sp.rdbwhte(df, y="y", x="x", z="z", c=0.0)
-    >>> round(float(h), 3)
-    0.174
+    >>> bool(h > 0)
+    True
     """
-    z_cols = [z] if isinstance(z, str) else list(z)
-    dz = len(z_cols)
-
-    for col in [y, x] + z_cols:
-        if col not in data.columns:
-            raise ValueError(f"Column '{col}' not found in data")  # pragma: no cover
-
-    Y = data[y].values.astype(float)
-    X_raw = data[x].values.astype(float)
-    Z = np.column_stack([data[zc].values.astype(float) for zc in z_cols])
-
-    valid = np.isfinite(Y) & np.isfinite(X_raw)
-    for j in range(dz):
-        valid &= np.isfinite(Z[:, j])
-
-    Y = Y[valid]
-    X_c = X_raw[valid] - c
-    Z = Z[valid]
-
-    n = len(Y)
-    left = X_c < 0
-    right = X_c >= 0
-
-    # Step 1: get the standard MSE-optimal bandwidth as a baseline
-    h_base = _select_bandwidth(Y, X_c, left, right, p, kernel, "mserd")
-    if isinstance(h_base, tuple):
-        h_base = float(np.mean(h_base))
-
-    # Step 2: adjust for the additional variance from interaction terms
-    # The interacted model has (p+1) + dz + p*dz parameters per side vs
-    # (p+1) for the standard model. The MSE-optimal bandwidth scales as
-    # h ~ n^{-1/(2p+3)}. With more parameters, variance increases, so the
-    # optimal bandwidth is wider. The adjustment factor comes from the
-    # ratio of integrated variance constants.
-    #
-    # For local linear (p=1): standard has 2 params, interacted has
-    # 2 + dz + dz = 2(1+dz)
-    # The variance inflation factor scales the bandwidth upward:
-    # h_hte = h_base * (n_params_interacted / n_params_standard)^{1/(2p+3)}
-    n_params_std = p + 1
-    n_params_hte = (p + 1) + dz + p * dz
-    rate_exponent = 1.0 / (2 * p + 3)
-    inflation = (n_params_hte / n_params_std) ** rate_exponent
-
-    h_hte = h_base * inflation
-
-    # Step 3: refine using pilot residuals from interacted model
-    h_pilot = min(h_hte * 1.5, 0.98 * np.ptp(X_c))
-
-    # Pilot fit: residual variance from interacted model on each side
-    sigma2_L = _interacted_residual_var(Y[left], X_c[left], Z[left], h_pilot, p, kernel)
-    sigma2_R = _interacted_residual_var(
-        Y[right], X_c[right], Z[right], h_pilot, p, kernel
+    q = p + 1 if q is None else int(q)
+    vce_n = _normalize_vce(vce, cluster is not None)
+    prep = _hte_prepare(data, y, x, z, c, cluster)
+    _, h_lev, _ = _hte_bandwidths(prep, None, p, q, kernel, bwselect, vce_n)
+    if len(h_lev) == 1:
+        hl, hr = next(iter(h_lev.values()))
+        if hl == hr:
+            return hl
+    return pd.DataFrame(
+        [{"level": k, "h_left": v[0], "h_right": v[1]} for k, v in h_lev.items()]
     )
-
-    # Curvature (second derivative of conditional mean)
-    h_deriv = max(np.median(np.abs(X_c)), h_pilot) * 1.5
-    m2_L = _interacted_second_deriv(Y[left], X_c[left], Z[left], h_deriv, kernel)
-    m2_R = _interacted_second_deriv(Y[right], X_c[right], Z[right], h_deriv, kernel)
-
-    # Density at cutoff
-    sd_x = np.std(X_c)
-    h_dens = 1.06 * sd_x * n ** (-1 / 5)
-    n_near = np.sum(np.abs(X_c) <= h_dens)
-    f_c = max(n_near / (2 * h_dens * n), 1e-10) if h_dens > 0 and n > 0 else 1.0
-
-    # MSE-optimal: h = (C_K * (sigma2_L + sigma2_R) / (f_c * bias_sq * n))^{1/(2p+3)}
-    C_K = _kernel_mse_constant(kernel)
-    bias_sq = ((m2_R - m2_L) / 2) ** 2
-
-    x_range = np.ptp(X_c)
-    if bias_sq < 1e-12:
-        h_opt = h_hte
-    else:
-        h_opt = (C_K * (sigma2_L + sigma2_R) / (f_c * bias_sq * n)) ** rate_exponent
-
-    h_opt = float(np.clip(h_opt, 0.02 * x_range, 0.98 * x_range))
-
-    return h_opt
 
 
 def rdhte_lincom(
     result: CausalResult,
-    weights: np.ndarray,
+    weights: Optional[np.ndarray] = None,
     alpha: float = 0.05,
+    linfct: Optional[np.ndarray] = None,
 ) -> Dict[str, Any]:
     """
-    Compute a weighted linear combination of CATE estimates.
+    Linear combinations of :func:`rdhte` effects, as R ``rdhte_lincom``.
 
-    Useful for computing group-specific average treatment effects,
-    e.g., the average CATE for males vs females.
-
-    Parameters
-    ----------
-    result : CausalResult
-        Result from rdhte().
-    weights : np.ndarray
-        Linear combination weights. Must have length equal to the number
-        of evaluation points in result.detail.
-    alpha : float, default 0.05
-        Significance level.
+    Either ``linfct`` -- a matrix (or vector) over R's coefficient vector
+    ``model_info['coef']`` (``T, T:z...`` or the group effects) -- or
+    ``weights`` over the rows of ``result.detail``. Each row's estimate is
+    ``L coef`` (conventional); its z-statistic, p-value and interval use
+    ``L coef_bc`` and ``sqrt(L V L')`` (robust bias-corrected), and the rows
+    are tested jointly by a Wald chi-square, as ``rdhte_lincom`` does.
 
     Returns
     -------
     dict
-        Keys: 'estimate', 'se', 'ci', 'pvalue'.
+        ``estimate``, ``se``, ``ci``, ``pvalue`` (scalars for one row,
+        arrays otherwise) and ``joint`` (``statistic``, ``df``, ``pvalue``).
 
     Examples
     --------
-    Compute the average CATE for the first half of the Z grid:
-
     >>> import numpy as np, pandas as pd
     >>> import statspai as sp
     >>> rng = np.random.default_rng(42)
@@ -545,294 +620,59 @@ def rdhte_lincom(
     >>> Y = 0.5 * X + (2.0 + 1.5 * Z) * (X >= 0) + rng.normal(0, 0.5, n)
     >>> df = pd.DataFrame({'y': Y, 'x': X, 'z': Z})
     >>> result = sp.rdhte(df, y='y', x='x', z='z', c=0)
-    >>> n_pts = len(result.detail)
-    >>> w1 = np.zeros(n_pts)
-    >>> w1[:n_pts // 2] = 1.0 / (n_pts // 2)  # first half of the Z grid
-    >>> lincom1 = sp.rdhte_lincom(result, w1)
-    >>> bool('estimate' in lincom1)
+    >>> out = sp.rdhte_lincom(result, linfct=[1.0, 1.0])  # CATE at z = 1
+    >>> bool(abs(out["estimate"] - 3.5) < 0.5)
     True
     """
-    weights = np.asarray(weights, dtype=float)
-    detail = result.detail
-    if detail is None:
-        raise ValueError("rdhte_lincom requires result.detail.")
-    n_pts = len(detail)
-
-    if len(weights) != n_pts:
-        raise ValueError(  # pragma: no cover
-            f"weights has length {len(weights)}, expected {n_pts} "
-            f"(number of evaluation points)"
-        )
-
-    # Recover the structural parameters to build the covariance properly
     mi = result.model_info
-    vcov_diff = np.array(mi["vcov_diff"])
-    diff_alpha = mi["diff_alpha"]
-    diff_gamma = np.array(mi["diff_gamma"])
-    dz = mi["n_z"]
-
-    # Each eval point i has CATE(z_i) = w_i' * theta where
-    # w_i = [1, z_i1, ..., z_idz] and theta = [diff_alpha, diff_gamma]
-    # The weighted linear combination is: sum_i weights[i] * CATE(z_i)
-    # = (sum_i weights[i] * w_i)' * theta
-    # with variance = aggregated_w' * vcov_diff * aggregated_w
-
-    # Reconstruct evaluation points from detail
-    z_values = detail["z_value"].values
-    eval_pts: Any
-    if dz == 1:
-        eval_pts = np.array(z_values, dtype=float).reshape(-1, 1)
+    coef = np.asarray(mi["coef"], dtype=float)
+    coef_bc = np.asarray(mi["coef_bc"], dtype=float)
+    V = np.asarray(mi["vcov"], dtype=float)
+    if linfct is None:
+        if weights is None:
+            raise ValueError("pass linfct= (over coefficients) or weights= (over rows)")
+        wts = np.asarray(weights, dtype=float)
+        L_rows = np.asarray(mi["_L"], dtype=float)
+        if len(wts) != len(L_rows):
+            raise ValueError(
+                f"weights has length {len(wts)}, expected {len(L_rows)} "
+                "(number of rows in result.detail)"
+            )
+        L = (wts @ L_rows).reshape(1, -1)
     else:
-        eval_pts = np.array([list(zv) for zv in z_values], dtype=float)
+        L = np.atleast_2d(np.asarray(linfct, dtype=float))
+        if L.shape[1] != len(coef):
+            raise ValueError(f"linfct needs {len(coef)} columns ({mi['coef_names']})")
+    est = L @ coef
+    est_bc = L @ coef_bc
+    LVL = L @ V @ L.T
+    se = np.sqrt(np.maximum(np.diag(LVL), 0.0))
+    zc = stats.norm.ppf(1 - alpha / 2)
+    tstat = est_bc / se
+    pv = 2 * stats.norm.sf(np.abs(tstat))
+    wald = float(est_bc @ np.linalg.pinv(LVL) @ est_bc)
+    one = L.shape[0] == 1
 
-    # Aggregated weight vector
-    w_agg = np.zeros(1 + dz)
-    for i in range(n_pts):
-        w_i = np.concatenate([[1.0], eval_pts[i]])
-        w_agg += weights[i] * w_i
-
-    theta = np.concatenate([[diff_alpha], diff_gamma])
-    estimate = float(w_agg @ theta)
-    variance = float(w_agg @ vcov_diff @ w_agg)
-    se = float(np.sqrt(max(variance, 0)))
-
-    z_crit = stats.norm.ppf(1 - alpha / 2)
-    ci = (estimate - z_crit * se, estimate + z_crit * se)
-    z_stat = estimate / se if se > 1e-15 else 0.0
-    pvalue = float(2 * stats.norm.sf(abs(z_stat)))
+    def _s(a):
+        return float(a[0]) if one else a
 
     return {
-        "estimate": estimate,
-        "se": se,
-        "ci": ci,
-        "pvalue": pvalue,
+        "estimate": _s(est),
+        "estimate_bc": _s(est_bc),
+        "se": _s(se),
+        "z": _s(tstat),
+        "ci": (
+            (float(est_bc[0] - zc * se[0]), float(est_bc[0] + zc * se[0]))
+            if one
+            else np.column_stack([est_bc - zc * se, est_bc + zc * se])
+        ),
+        "pvalue": _s(pv),
+        "joint": {
+            "statistic": wald,
+            "df": int(L.shape[0]),
+            "pvalue": float(stats.chi2.sf(wald, df=L.shape[0])),
+        },
     }
-
-
-# ======================================================================
-# Internal helpers
-# ======================================================================
-
-
-def _build_interacted_design(
-    X_c: np.ndarray,
-    Z: np.ndarray,
-    p: int,
-) -> np.ndarray:
-    """
-    Build the fully interacted design matrix.
-
-    Columns: [1, (X-c), (X-c)^2, ..., (X-c)^p,
-              Z_1, ..., Z_dz,
-              (X-c)*Z_1, ..., (X-c)*Z_dz,
-              ...
-              (X-c)^p*Z_1, ..., (X-c)^p*Z_dz]
-
-    Parameters
-    ----------
-    X_c : np.ndarray, shape (n,)
-        Centered running variable.
-    Z : np.ndarray, shape (n, dz)
-        Covariates.
-    p : int
-        Polynomial order.
-
-    Returns
-    -------
-    np.ndarray, shape (n, (p+1) + dz + p*dz) = (n, (p+1)(1+dz))
-    """
-    dz = Z.shape[1] if Z.ndim > 1 else 1
-    if Z.ndim == 1:
-        Z = Z.reshape(-1, 1)
-
-    cols = []
-
-    # Running variable polynomial: 1, (X-c), ..., (X-c)^p
-    for j in range(p + 1):
-        cols.append(X_c**j)
-
-    # Z main effects
-    for k in range(dz):
-        cols.append(Z[:, k])
-
-    # Interactions: (X-c)^j * Z_k for j=1..p, k=1..dz
-    for j in range(1, p + 1):
-        for k in range(dz):
-            cols.append((X_c**j) * Z[:, k])
-
-    return np.column_stack(cols)
-
-
-def _interacted_wls(
-    y: np.ndarray,
-    x_c: np.ndarray,
-    Z: np.ndarray,
-    h: float,
-    p: int,
-    kernel: str,
-    cluster: Optional[np.ndarray] = None,
-) -> Tuple[np.ndarray, np.ndarray, int]:
-    """
-    Kernel-weighted WLS for the fully interacted local polynomial model.
-
-    Returns (beta, vcov, n_effective).
-    """
-    if Z.ndim == 1:
-        Z = Z.reshape(-1, 1)
-    dz = Z.shape[1]
-
-    u = x_c / h
-    w = _kernel_fn(u, kernel)
-    in_bw = np.abs(u) <= 1
-    n_eff = int(in_bw.sum())
-
-    n_params = (p + 1) + dz + p * dz
-
-    if n_eff < n_params + 2:
-        return np.zeros(n_params), np.eye(n_params) * 1e10, 0
-
-    y_bw = y[in_bw]
-    x_bw = x_c[in_bw]
-    Z_bw = Z[in_bw]
-    w_bw = w[in_bw]
-
-    # Design matrix
-    Xmat = _build_interacted_design(x_bw, Z_bw, p)
-    k = Xmat.shape[1]
-
-    # WLS via square-root weights
-    sqw = np.sqrt(w_bw)
-    Xw = Xmat * sqw[:, np.newaxis]
-    yw = y_bw * sqw
-
-    try:
-        XtWX = Xw.T @ Xw
-        beta = np.linalg.solve(XtWX, Xw.T @ yw)
-    except np.linalg.LinAlgError:  # pragma: no cover
-        beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
-        XtWX = Xw.T @ Xw
-
-    resid = y_bw - Xmat @ beta
-
-    cl_bw = cluster[in_bw] if cluster is not None else None
-    vcov = _sandwich_variance(Xw, yw, beta, resid, n_eff, k, cl_bw, weights=w_bw)
-
-    return beta, vcov, n_eff
-
-
-def _heterogeneity_test(
-    diff_gamma: np.ndarray,
-    vcov_diff: np.ndarray,
-    dz: int,
-) -> Dict[str, float]:
-    """
-    Wald test for H0: gamma_R - gamma_L = 0 (no heterogeneity).
-
-    The test statistic is:
-        W = diff_gamma' * Sigma_gamma^{-1} * diff_gamma ~ chi2(dz)
-
-    where Sigma_gamma is the submatrix of vcov_diff corresponding to
-    the gamma coefficients (rows/cols 1:dz+1, excluding intercept).
-    """
-    # vcov_diff is (1+dz) x (1+dz): [intercept, gamma_1, ..., gamma_dz]
-    # Extract the gamma block (indices 1 to dz+1)
-    Sigma_gamma = vcov_diff[1:, 1:]
-
-    try:
-        Sigma_inv = np.linalg.inv(Sigma_gamma)
-        wald_stat = float(diff_gamma @ Sigma_inv @ diff_gamma)
-    except np.linalg.LinAlgError:  # pragma: no cover
-        Sigma_inv = np.linalg.pinv(Sigma_gamma)
-        wald_stat = float(diff_gamma @ Sigma_inv @ diff_gamma)
-
-    wald_stat = max(wald_stat, 0.0)
-    wald_pv = float(stats.chi2.sf(wald_stat, df=dz))
-
-    return {
-        "statistic": wald_stat,
-        "pvalue": wald_pv,
-        "df": dz,
-    }
-
-
-def _interacted_residual_var(
-    y: np.ndarray,
-    x_c: np.ndarray,
-    Z: np.ndarray,
-    h: float,
-    p: int,
-    kernel: str,
-) -> float:
-    """Residual variance from the interacted model within bandwidth."""
-    if Z.ndim == 1:
-        Z = Z.reshape(-1, 1)
-
-    u = x_c / h
-    in_bw = np.abs(u) <= 1
-    if in_bw.sum() < (p + 1) + Z.shape[1] + p * Z.shape[1] + 2:
-        return float(np.var(y)) if len(y) > 0 else 1.0
-
-    y_bw = y[in_bw]
-    x_bw = x_c[in_bw]
-    Z_bw = Z[in_bw]
-    w_bw = _kernel_fn(u[in_bw], kernel)
-
-    Xmat = _build_interacted_design(x_bw, Z_bw, p)
-    sqw = np.sqrt(w_bw)
-    Xw = Xmat * sqw[:, np.newaxis]
-    yw = y_bw * sqw
-
-    try:
-        beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
-        resid = y_bw - Xmat @ beta
-        return float(np.average(resid**2, weights=w_bw))
-    except Exception:  # pragma: no cover
-        return float(np.var(y_bw))
-
-
-def _interacted_second_deriv(
-    y: np.ndarray,
-    x_c: np.ndarray,
-    Z: np.ndarray,
-    h: float,
-    kernel: str,
-) -> float:
-    """Estimate m''(0) from interacted local cubic, evaluated at mean(Z)."""
-    if Z.ndim == 1:
-        Z = Z.reshape(-1, 1)
-
-    u = x_c / h
-    in_bw = np.abs(u) <= 1
-    if in_bw.sum() < 8:
-        return 0.0
-
-    y_bw = y[in_bw]
-    x_bw = x_c[in_bw]
-    Z_bw = Z[in_bw]
-    w_bw = _kernel_fn(u[in_bw], kernel)
-
-    # Fit a local cubic in x with Z controls (no interactions for pilot)
-    # y = b0 + b1*x + b2*x^2 + b3*x^3 + Z'*gamma
-    dz = Z_bw.shape[1]
-    cols = [x_bw**j for j in range(4)]
-    for k in range(dz):
-        cols.append(Z_bw[:, k])
-    Xmat = np.column_stack(cols)
-
-    sqw = np.sqrt(w_bw)
-    Xw = Xmat * sqw[:, np.newaxis]
-    yw = y_bw * sqw
-
-    try:
-        beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
-        return float(2 * beta[2])  # m''(0) = 2*beta_2
-    except Exception:  # pragma: no cover
-        return 0.0
-
-
-# ======================================================================
-# Plot helper
-# ======================================================================
 
 
 def _rdhte_plot(

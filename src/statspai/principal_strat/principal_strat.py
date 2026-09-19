@@ -148,6 +148,7 @@ def principal_strat(
     alpha: float = 0.05,
     n_boot: int = 500,
     seed: Optional[int] = None,
+    trimming: str = "quantile",
 ) -> PrincipalStratResult:
     """
     Principal stratification estimator.
@@ -183,6 +184,10 @@ def principal_strat(
     n_boot : int, default 500
         Bootstrap replications for SE/CI.
     seed : int, optional
+    trimming : {'quantile', 'exact'}, default 'quantile'
+        Trimming rule for the Zhang-Rubin SACE bounds (monotonicity
+        method); same meaning as in :func:`sp.lee_bounds`, with which the
+        bounds coincide.
 
     Returns
     -------
@@ -219,6 +224,8 @@ def principal_strat(
         raise ValueError(
             f"method must be 'monotonicity' or 'principal_score', got '{method}'"
         )
+    if trimming not in ("quantile", "exact"):
+        raise ValueError(f"trimming must be 'quantile' or 'exact', got {trimming!r}")
 
     covariates = list(covariates or [])
     # When ``instrument`` is supplied we route to the AIR / Wald LATE
@@ -227,7 +234,24 @@ def principal_strat(
     cols = [y, treat, strata] + covariates
     if instrument is not None:
         cols = [instrument] + cols
-    df = data[cols].dropna().reset_index(drop=True)
+    if method == "monotonicity" and instrument is None:
+        # Truncation by death: Y is undefined (missing) where S = 0, and
+        # those units are exactly what identifies the stratum shares.
+        # Dropping them -- which a blanket dropna() did before 1.29 --
+        # made every retained unit a survivor, so P(S=1|D) = 1 in both
+        # arms, no trimming happened and the "bounds" collapsed to the
+        # naive survivor contrast.
+        df = data[cols].dropna(subset=[treat, strata] + covariates)
+        df = df.reset_index(drop=True)
+        miss_sel = df[y].isna() & (df[strata] == 1)
+        if miss_sel.any():
+            raise ValueError(
+                f"principal_strat: {int(miss_sel.sum())} unit(s) with "
+                f"{strata} = 1 have a missing outcome '{y}'; the outcome "
+                "must be observed wherever the stratum variable is 1."
+            )
+    else:
+        df = data[cols].dropna().reset_index(drop=True)
     n = len(df)
 
     Y = df[y].values.astype(float)
@@ -271,7 +295,7 @@ def principal_strat(
         )
 
     if method == "monotonicity":
-        return _fit_monotonicity(Y, D, S, n, alpha, n_boot, seed)
+        return _fit_monotonicity(Y, D, S, n, alpha, n_boot, seed, trimming)
     return _fit_principal_score(Y, D, S, X, covariates, n, alpha, n_boot, seed)
 
 
@@ -283,6 +307,7 @@ def _fit_monotonicity(
     alpha: float,
     n_boot: int,
     seed: Optional[int],
+    trimming: str = "quantile",
 ) -> PrincipalStratResult:
     """
     Monotonicity / AIR decomposition, S(1) >= S(0).
@@ -311,6 +336,9 @@ def _fit_monotonicity(
     SACE = E[Y(1) - Y(0) | S(0)=S(1)=1].
     """
 
+    # Imported here: ``statspai.bounds`` pulls sklearn at package import.
+    from ..bounds.lee_manski import _lee_trimmed
+
     def _point(Y_: np.ndarray, D_: np.ndarray, S_: np.ndarray) -> Dict[str, float]:
         # Cell probabilities and conditional means
         p_s1_d1 = float(np.mean(S_[D_ == 1])) if np.any(D_ == 1) else 0.0
@@ -319,56 +347,59 @@ def _fit_monotonicity(
         pi_always = p_s1_d0
         pi_never = 1 - p_s1_d1
 
-        # Conditional means in the (D, S) cells
-        def _safe_mean(mask: np.ndarray, fallback: float = 0.0) -> float:
-            return float(np.mean(Y_[mask])) if np.any(mask) else fallback
+        # Conditional means in the (D, S) cells. Y may be missing where
+        # S = 0 (truncation by death); those cell means are then NaN.
+        def _safe_mean(mask: np.ndarray) -> float:
+            vals = Y_[mask]
+            if vals.size == 0 or np.isnan(vals).any():
+                return float("nan")
+            return float(np.mean(vals))
 
         mu_11 = _safe_mean((D_ == 1) & (S_ == 1))
         mu_01 = _safe_mean((D_ == 0) & (S_ == 1))
         mu_10 = _safe_mean((D_ == 1) & (S_ == 0))
         mu_00 = _safe_mean((D_ == 0) & (S_ == 0))
 
-        # Complier LATE (Wald-like on S=1 arm)
+        # Complier LATE (Imbens & Rubin 1997 complier means; with S as
+        # uptake and D as the randomised assignment this is the Wald
+        # ratio [E(Y|D=1) - E(Y|D=0)] / [P(S=1|D=1) - P(S=1|D=0)]):
+        #   E[Y(1) | c] = (p11 mu_11 - p01 mu_01) / pi_c
+        #   E[Y(0) | c] = ((1 - p01) mu_00 - (1 - p11) mu_10) / pi_c
+        # Before 1.29 only the first line was reported and labelled the
+        # LATE. Needs Y where S = 0; NaN under truncation by death,
+        # where the complier contrast is not defined.
+        def _wmean(weight: float, mu: float) -> float:
+            # An empty cell carries zero weight; it must not NaN the sum.
+            return 0.0 if weight == 0 else weight * mu
+
         if pi_complier > 1e-8:
-            tau_c = (mu_11 * p_s1_d1 - mu_01 * p_s1_d0) / pi_complier
+            ey1_c = (_wmean(p_s1_d1, mu_11) - _wmean(p_s1_d0, mu_01)) / pi_complier
+            ey0_c = (
+                _wmean(1 - p_s1_d0, mu_00) - _wmean(1 - p_s1_d1, mu_10)
+            ) / pi_complier
+            tau_c = ey1_c - ey0_c
         else:
             tau_c = np.nan
-
-        # Always-taker: Y(1) | always is the fraction of (D=1, S=1) that
-        # is always-takers. Under monotonicity the (D=1, S=1) cell is a
-        # mixture of compliers (fraction pi_complier/p_s1_d1) and always
-        # (fraction pi_always/p_s1_d1). Without further assumptions,
-        # point identification of E[Y(1)|always] needs principal
-        # ignorability — bounds only for this method.
 
         # Zhang-Rubin sharp bounds on SACE.
         # q = P(always | D=1, S=1) is the share of always-takers in the
         # (D=1, S=1) cell; we extract the bottom/top q-slice to bound
         # E[Y(1) | always] from below/above (Zhang & Rubin 2003 §4).
         sace_lo, sace_hi = np.nan, np.nan
-        if np.any((D_ == 1) & (S_ == 1)):
+        if np.any((D_ == 1) & (S_ == 1)) and np.any((D_ == 0) & (S_ == 1)):
             y_11 = Y_[(D_ == 1) & (S_ == 1)]
-            n_11 = len(y_11)
             if p_s1_d1 > 1e-8 and pi_always > 1e-8:
-                q = pi_always / p_s1_d1
-                q = float(np.clip(q, 0.0, 1.0))
-                k = int(round(q * n_11))
-                if k == 0:
-                    # Rounded to zero support → always-taker slice is
-                    # empty in this cell. Bounds collapse to the control-
-                    # arm always-taker mean (partial degeneracy); flag
-                    # with NaN so callers can detect it.
-                    sace_lo = float("nan")
-                    sace_hi = float("nan")
-                else:
-                    y_sorted = np.sort(y_11)
-                    # Lower bound on E[Y(1)|always]: bottom-k slice
-                    # (worst case: always-takers had the lowest outcomes)
-                    lb_mu1 = float(np.mean(y_sorted[:k]))
-                    # Upper bound on E[Y(1)|always]: top-k slice
-                    ub_mu1 = float(np.mean(y_sorted[-k:]))
-                    sace_lo = lb_mu1 - mu_01
-                    sace_hi = ub_mu1 - mu_01
+                # Trim the (p11 - p01) / p11 share of the (D=1, S=1) cell,
+                # exactly as Lee (2009) bounds do: under monotonicity the
+                # Zhang-Rubin SACE bounds and Lee bounds are the same
+                # estimator. Shared helper, Lee's sample-quantile rule.
+                # (Before 1.29 this kept round(q * n) observations, which
+                # matched neither Lee's rule nor sp.lee_bounds.)
+                p_trim = float(np.clip(1.0 - pi_always / p_s1_d1, 0.0, 1.0))
+                lb_mu1 = _lee_trimmed(y_11, p_trim, top=False, trimming=trimming)[0]
+                ub_mu1 = _lee_trimmed(y_11, p_trim, top=True, trimming=trimming)[0]
+                sace_lo = lb_mu1 - mu_01
+                sace_hi = ub_mu1 - mu_01
 
         return {
             "pi_complier": pi_complier,
@@ -1001,12 +1032,33 @@ def survivor_average_causal_effect(
     alpha: float = 0.05,
     n_boot: int = 500,
     seed: Optional[int] = None,
+    trimming: str = "quantile",
 ) -> CausalResult:
     """
     Zhang-Rubin (2003) sharp bounds on the Survivor Average Causal Effect.
 
     Returns a :class:`CausalResult` with ``estimate`` set to the midpoint
     of the SACE bounds and the endpoints stored in ``model_info``.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+    y : str
+        Outcome; may be missing (NaN) for non-survivors, as it is under
+        truncation by death, but must be observed wherever
+        ``survival == 1``.
+    treat : str
+        Binary randomised treatment (0/1).
+    survival : str
+        Binary survival indicator (0/1), assumed monotone in ``treat``.
+    alpha : float, default 0.05
+    n_boot : int, default 500
+        Bootstrap replications for the endpoint CIs.
+    seed : int, optional
+    trimming : {'quantile', 'exact'}, default 'quantile'
+        Trimming rule; see :func:`sp.lee_bounds`. Under monotonicity the
+        Zhang-Rubin SACE bounds are Lee (2009) bounds, and the two
+        functions return the same endpoints.
 
     References
     ----------
@@ -1040,6 +1092,7 @@ def survivor_average_causal_effect(
         alpha=alpha,
         n_boot=n_boot,
         seed=seed,
+        trimming=trimming,
     )
     bounds = ps.bounds
     if bounds is None:

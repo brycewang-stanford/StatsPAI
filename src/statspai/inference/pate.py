@@ -411,21 +411,21 @@ class PATEEstimator:
         mu1_tgt = self._predict_outcome(beta, X_tgt, 1.0)
         mu0_tgt = self._predict_outcome(beta, X_tgt, 0.0)
 
-        # AIPW: augment with outcome-model predictions on target
-        n_tgt = X_tgt.shape[0]
-        # Outcome-model component (on target pop)
+        # AIPW: outcome-model prediction averaged over the target sample,
+        # plus the odds-weighted residual correction from the experiment,
+        # normalised within each arm (the Hajek form of the IPW estimator
+        # above). If either the participation model or the outcome model is
+        # correct the sum is consistent for the target-population ATE.
         om_component = np.mean(mu1_tgt - mu0_tgt)
 
-        # IPW augmentation component (on experimental sample)
-        w_sum = np.sum(w)
-        if w_sum == 0:
-            return float(om_component)
+        w1 = w * D
+        w0 = w * (1 - D)
+        if np.sum(w1) == 0 or np.sum(w0) == 0:
+            return np.nan
+        aug1 = np.sum(w1 * (Y - mu1_exp)) / np.sum(w1)
+        aug0 = np.sum(w0 * (Y - mu0_exp)) / np.sum(w0)
 
-        aug1 = np.sum(w * D * (Y - mu1_exp)) / w_sum
-        aug0 = np.sum(w * (1 - D) * (Y - mu0_exp)) / w_sum
-        n_exp = len(Y)
-
-        return float(om_component + (aug1 - aug0) * (n_exp / n_tgt))
+        return float(om_component + aug1 - aug0)
 
     def _pate_calibration(
         self,

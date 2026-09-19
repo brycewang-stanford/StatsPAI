@@ -32,7 +32,7 @@ interaction: a four-way decomposition." *Epidemiology*, 25(5),
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Sequence, Dict, Any
+from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -74,6 +74,7 @@ class FourWayResult(ResultProtocolMixin):
     proportions: Dict[str, float]
     n_obs: int
     detail: Dict[str, Any] = field(default_factory=dict)
+    se: Dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         """JSON-safe dict of every field (agent-native serialization)."""
@@ -107,6 +108,7 @@ def four_way_decomposition(
     a0: float = 0.0,
     a1: float = 1.0,
     m0: float = 0.0,
+    vce: str = "ols",
 ) -> FourWayResult:
     """
     Parametric four-way decomposition of TE = CDE + INT_ref + INT_med + PIE.
@@ -120,10 +122,20 @@ def four_way_decomposition(
         Reference and comparison levels of the treatment (default 0, 1).
     m0 : float
         Mediator reference level at which CDE is evaluated.
+    vce : {'ols', 'ml'}, default 'ols'
+        Covariance of the two regressions fed to the delta-method
+        standard errors in ``result.se`` (covariates are held fixed at
+        their sample means, as in the point estimates). ``'ols'`` uses
+        ``s^2 (X'X)^{-1}`` with ``s^2 = RSS / (n - p)`` -- R
+        ``CMAverse::cmest(estimation = "paramfunc", inference = "delta")``;
+        ``'ml'`` uses ``RSS / n`` -- Stata ``med4way``, which fits both
+        linear models by maximum likelihood.
 
     Returns
     -------
     FourWayResult
+        ``se`` holds delta-method standard errors for ``total_effect``,
+        ``cde``, ``int_ref``, ``int_med`` and ``pie``.
 
     Examples
     --------
@@ -140,6 +152,8 @@ def four_way_decomposition(
     1.2
     """
     cov = list(covariates or [])
+    if vce not in ("ols", "ml"):
+        raise ValueError(f"vce must be 'ols' or 'ml', got {vce!r}")
     from sklearn.linear_model import LinearRegression
 
     df = clean_frame(
@@ -182,6 +196,53 @@ def four_way_decomposition(
     pie = (theta2 + theta3 * a0) * beta1 * (a1 - a0)
 
     te = cde + int_ref + int_med + pie
+
+    # Delta-method standard errors. The outcome and mediator regressions
+    # are fitted separately, so their coefficient covariances are
+    # block-diagonal.
+    def _vcov(X: np.ndarray, resid: np.ndarray) -> np.ndarray:
+        dof = X.shape[0] if vce == "ml" else X.shape[0] - X.shape[1]
+        s2 = float(resid @ resid) / dof
+        return s2 * np.linalg.inv(X.T @ X)
+
+    V_t = _vcov(X_out, Y - X_out @ lr.coef_)
+    V_b = _vcov(X_med, M - X_med @ mlm.coef_)
+    dA = a1 - a0
+    EM_minus = EM_a0 - m0
+    beta_c = np.asarray(mlm.coef_[2:], dtype=float)
+    Cfix = Cbar if Xc.size else np.zeros(0)
+
+    def _grad(name: str):
+        gt = np.zeros(X_out.shape[1])
+        gb = np.zeros(X_med.shape[1])
+        if name in ("cde", "te"):
+            gt[1] += dA
+            gt[3] += m0 * dA
+        if name in ("int_ref", "te"):
+            gt[3] += EM_minus * dA
+            gb[0] += theta3 * dA
+            gb[1] += theta3 * a0 * dA
+            gb[2:] += theta3 * Cfix * dA
+        if name in ("int_med", "te"):
+            gt[3] += beta1 * dA**2
+            gb[1] += theta3 * dA**2
+        if name in ("pie", "te"):
+            gt[2] += beta1 * dA
+            gt[3] += a0 * beta1 * dA
+            gb[1] += (theta2 + theta3 * a0) * dA
+        return gt, gb
+
+    se = {}
+    for name, key in (
+        ("te", "total_effect"),
+        ("cde", "cde"),
+        ("int_ref", "int_ref"),
+        ("int_med", "int_med"),
+        ("pie", "pie"),
+    ):
+        gt, gb = _grad(name)
+        se[key] = float(np.sqrt(gt @ V_t @ gt + gb @ V_b @ gb))
+    del beta_c
     if abs(te) > 1e-10:
         prop = {
             "cde": cde / te,
@@ -203,7 +264,9 @@ def four_way_decomposition(
         detail={
             "theta": [theta0, theta1, theta2, theta3],
             "beta": [beta0, beta1],
+            "vce": vce,
         },
+        se=se,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
@@ -219,6 +282,7 @@ def four_way_decomposition(
                 "a0": a0,
                 "a1": a1,
                 "m0": m0,
+                "vce": vce,
             },
             data=data,
             overwrite=False,

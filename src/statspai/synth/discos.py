@@ -22,15 +22,41 @@ The distributional treatment effect at quantile τ is:
 
 and the average distributional effect integrates over τ.
 
-Two approaches
---------------
-- **mixture** (default): weighted mixture of control CDFs
-  (ω ≥ 0, Σω = 1). Minimises the L₂-Wasserstein distance between
-  the treated unit's quantile function and the convex combination
-  of control quantile functions.
-- **quantile**: quantile-on-quantile regression, projecting the
-  treated unit's quantile function onto control quantile functions
-  without sign or summation constraints.
+Two data layouts
+----------------
+**Individual-level data** (several rows per unit-period — the setting of
+Gunsilius 2023). ``discos`` runs the distributional synthetic control of
+the paper, following the conventions of the authors' R package
+``DiSCos::DiSCo`` (version 0.1.4):
+
+- ``method='quantile'`` (R ``mixture = FALSE``, the R default): for every
+  pre-period ``t`` the weights solve the constrained least-squares problem
+  ``min_w sum_m (Q_1t(u_m) - sum_j w_j Q_jt(u_m))^2`` over quantile nodes
+  ``u_m`` (type-7 empirical quantiles) subject to ``sum w = 1``,
+  ``w <= 1`` and, with ``simplex=True``, ``w >= 0``. The weights are then
+  averaged over the pre-periods, and the counterfactual quantile function
+  in every period is ``sum_j w_j Q_jt`` on the grid ``0, 1/G, ..., 1``.
+- ``method='mixture'`` (R ``mixture = TRUE``): the weights minimise the L1
+  distance between the treated CDF and the mixture of control CDFs on a
+  grid of ``G`` outcome values (``sum w = 1``; ``w >= 0`` with
+  ``simplex=True``); the counterfactual quantile inverts the mixture CDF on
+  that grid.
+
+R draws the quantile nodes (``M`` uniform draws) and the CDF grid (``G``
+uniform draws) at random; StatsPAI uses deterministic nodes / grids by
+default (``M`` mid-points; ``G`` equispaced points on R's range) and
+accepts R's draws through ``q_nodes`` / ``cdf_grid`` for exact
+reproduction. Inference is DiSCo's permutation test (each control in turn
+as the pseudo-treated unit; statistic = post / pre root-mean squared
+Wasserstein distance; p = rank / (J + 1)).
+
+**Aggregate panels** (one row per unit-period). The distributional
+estimator is undefined there (it needs at least ``J`` observations per
+unit-period). ``discos`` then falls back to a StatsPAI heuristic that
+treats each unit's *time series* of outcomes as its distribution
+(``'mixture'``: simplex-constrained quantile-function least squares;
+``'quantile'``: unconstrained least squares) and emits a warning — that
+fallback is not the Gunsilius estimator.
 
 References
 ----------
@@ -41,12 +67,14 @@ Gunsilius, F. F. (2023).
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+import warnings
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
-from scipy.optimize import minimize
+from scipy.optimize import linprog
+from scipy.stats import rankdata
 
 from ..core.results import CausalResult
 from ._core import placebo_rank_pvalue
@@ -63,11 +91,16 @@ def discos(
     time: str,
     treated_unit: Any,
     treatment_time: Any,
-    method: str = "mixture",
-    n_quantiles: int = 100,
+    method: Optional[str] = None,
+    n_quantiles: Optional[int] = None,
     placebo: bool = True,
     alpha: float = 0.05,
     seed: Optional[int] = None,
+    *,
+    M: int = 1000,
+    simplex: bool = False,
+    q_nodes: Optional[Union[np.ndarray, Sequence[np.ndarray]]] = None,
+    cdf_grid: Optional[Sequence[np.ndarray]] = None,
 ) -> CausalResult:
     """
     Distributional Synthetic Controls (Gunsilius 2023).
@@ -90,18 +123,38 @@ def discos(
         Value in *unit* that identifies the treated unit.
     treatment_time : any
         First period of treatment (inclusive).
-    method : {'mixture', 'quantile'}, default 'mixture'
-        ``'mixture'``: constrained (ω ≥ 0, Σω = 1) — minimises the
-        L₂-Wasserstein distance between quantile functions.
-        ``'quantile'``: unconstrained quantile-on-quantile regression.
-    n_quantiles : int, default 100
-        Number of quantile grid points on (0, 1).
+    method : {'quantile', 'mixture'}, optional
+        Individual-level data: ``'quantile'`` (default; R
+        ``mixture = FALSE``) or ``'mixture'`` (R ``mixture = TRUE``) — see
+        the module docstring. Aggregate panels: ``'mixture'`` (default) or
+        ``'quantile'`` select the fallback heuristic.
+    n_quantiles : int, optional
+        Individual-level data: ``G`` — the counterfactual quantile function
+        is reported on ``0, 1/G, ..., 1`` and the mixture CDF grid has
+        ``G`` points (default 1000, as R). Aggregate panels: number of
+        quantile grid points on (0, 1) (default 100).
     placebo : bool, default True
         Run in-space placebo permutation tests for inference.
     alpha : float, default 0.05
         Significance level for confidence intervals.
     seed : int, optional
-        Random seed (currently unused; reserved for bootstrap extensions).
+        Unused (all node sets are deterministic unless supplied).
+    M : int, default 1000
+        Individual-level data, ``method='quantile'``: number of quantile
+        nodes in each weight regression (R ``M``). Default nodes are the
+        mid-points ``(m - 0.5) / M``.
+    simplex : bool, default False
+        Individual-level data: restrict weights to be non-negative (R
+        ``simplex``). ``False`` (R default) allows negative weights.
+    q_nodes : array (M,) or sequence of arrays, optional
+        Quantile nodes for the weight regressions: one array reused for
+        every pre-period, or one array per pre-period (e.g. R's
+        ``runif(M)`` draws, to reproduce ``DiSCo`` exactly).
+    cdf_grid : sequence of arrays, optional
+        ``method='mixture'``: outcome grid per period (all periods, in time
+        order) on which the CDFs are compared and inverted (R's
+        ``runif(G)`` grid). Default: ``G`` equispaced points on
+        ``[floor(10 min)/10 - 0.25, ceil(10 max)/10 + 0.25]``.
 
     Returns
     -------
@@ -126,13 +179,24 @@ def discos(
 
     Examples
     --------
+    Individual-level data: 100 draws per unit-period, unit 0 treated from
+    period 4 with a unit shift of its whole distribution.
+
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
-    >>> df = sp.california_prop99()
-    >>> result = sp.discos(df, outcome='packspercapita', unit='state',
-    ...                    time='year', treated_unit='California',
-    ...                    treatment_time=1989)
-    >>> print(result.summary())  # doctest: +SKIP
-    >>> # Quantile-level distributional effects table
+    >>> rng = np.random.default_rng(0)
+    >>> loc = {0: 2.5, 1: 1.0, 2: 2.0, 3: 3.0, 4: 4.0}
+    >>> rows = [
+    ...     (u, t, rng.normal(loc[u] + 0.2 * t + (u == 0 and t >= 4), 1.0))
+    ...     for u in loc for t in range(1, 7) for _ in range(100)
+    ... ]
+    >>> df = pd.DataFrame(rows, columns=['unit', 'time', 'y'])
+    >>> result = sp.discos(df, outcome='y', unit='unit', time='time',
+    ...                    treated_unit=0, treatment_time=4,
+    ...                    M=200, n_quantiles=100)
+    >>> bool(0.5 < result.estimate < 1.5)
+    True
     >>> qte = result.model_info['quantile_effects']
     >>> bool(set(['quantile', 'effect']).issubset(qte.columns))
     True
@@ -146,10 +210,44 @@ def discos(
     ----------
     gunsilius2023distributional
     """
-    if method not in ("mixture", "quantile"):
+    if method is not None and method not in ("mixture", "quantile"):
         raise ValueError(  # pragma: no cover
             f"method must be 'mixture' or 'quantile', got '{method}'"
         )
+    for col in (outcome, unit, time):
+        if col not in data.columns:
+            raise ValueError(f"column {col!r} not found in data")
+
+    cell_sizes = data.groupby([unit, time]).size()
+    if int(cell_sizes.max()) > 1:
+        return _discos_micro(
+            data,
+            outcome=outcome,
+            unit=unit,
+            time=time,
+            treated_unit=treated_unit,
+            treatment_time=treatment_time,
+            method=method or "quantile",
+            G=int(n_quantiles) if n_quantiles is not None else 1000,
+            M=int(M),
+            simplex=simplex,
+            q_nodes=q_nodes,
+            cdf_grid=cdf_grid,
+            placebo=placebo,
+            alpha=alpha,
+        )
+
+    warnings.warn(
+        "sp.discos received one observation per unit-period. Gunsilius' "
+        "distributional synthetic control needs individual-level data "
+        "(several observations per unit-period); falling back to a "
+        "heuristic that treats each unit's time series as its distribution. "
+        "This is not the DiSCo estimator of Gunsilius (2023) / R DiSCos.",
+        UserWarning,
+        stacklevel=2,
+    )
+    method = method or "mixture"
+    n_quantiles = 100 if n_quantiles is None else int(n_quantiles)
 
     # --- Build panel ---
     pivot = data.pivot_table(index=unit, columns=time, values=outcome)
@@ -238,7 +336,7 @@ def discos(
                 plac_effects = Q_plac_post - Q_cf_plac
                 placebo_avg_qtes.append(float(np.mean(plac_effects)))
                 placebo_quantile_effects.append(plac_effects)
-            except Exception:  # pragma: no cover
+            except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
                 continue  # pragma: no cover
 
     # --- Standard errors and p-value ---
@@ -301,11 +399,12 @@ def discos(
     # --- Build model_info ---
     model_info: Dict[str, Any] = {
         "method_variant": method,
+        "estimator": "time_series_quantiles_fallback",
         "n_quantiles": n_quantiles,
         "n_donors": J,
         "n_pre_periods": T0,
         "n_post_periods": T1,
-        "pre_rmsqe": round(pre_rmsqe, 6),
+        "pre_rmsqe": pre_rmsqe,
         "treatment_time": treatment_time,
         "treated_unit": treated_unit,
         "quantile_effects": quantile_effects_df,
@@ -416,6 +515,528 @@ def qqsynth(
         placebo=placebo,
         alpha=alpha,
         seed=seed,
+    )
+
+
+# ====================================================================== #
+#  Individual-level DiSCo (Gunsilius 2023; R ``DiSCos`` conventions)
+# ====================================================================== #
+
+
+def _quant7_sorted(xs: np.ndarray, probs: np.ndarray) -> np.ndarray:
+    """Type-7 quantiles of a sorted sample, operation-for-operation as
+    R ``DiSCos:::quant7_sorted`` (``stats::quantile(type = 7)``)."""
+    n = xs.shape[0]
+    if n == 1:
+        return np.full(probs.shape[0], xs[0])
+    index = 1.0 + (n - 1) * probs
+    lo = np.floor(index).astype(int)
+    hi = np.ceil(index).astype(int)
+    qs = xs[lo - 1].copy()
+    h = index - lo
+    m = (index > lo) & (xs[hi - 1] != qs)
+    qs[m] = (1.0 - h[m]) * qs[m] + h[m] * xs[hi - 1][m]
+    return np.asarray(qs, dtype=np.float64)
+
+
+def _ecdf_sorted(xs: np.ndarray, v: np.ndarray) -> np.ndarray:
+    """Empirical CDF of a sorted sample at ``v`` (R ``stats::ecdf``)."""
+    return np.asarray(np.searchsorted(xs, v, side="right") / xs.shape[0])
+
+
+def _eq_bounded_lsq(C: np.ndarray, t: np.ndarray, lb: float, ub: float) -> np.ndarray:
+    """``min ||C w - t||^2  s.t.  sum(w) = 1, lb <= w <= ub`` (exact).
+
+    The problem R ``pracma::lsqlincon`` hands to ``quadprog::solve.QP``
+    inside ``DiSCos:::DiSCo_weights_reg``; ``lb`` may be ``-inf``. Primal
+    active-set method: on each working set the equality-constrained least
+    squares problem is solved in the null space of the adding-up
+    constraint by ``lstsq`` on ``C`` itself (``C'C`` is never formed, so the
+    conditioning is not squared); a blocking bound is added on a step that
+    leaves the box, and the bound with the most negative multiplier is
+    released at a stationary point.
+    """
+    n, J = C.shape
+    # quadprog needs C'C positive definite (R errors otherwise). A rank-
+    # deficient problem has a non-unique minimiser; a ridge of 1e-10 of the
+    # mean squared column norm then selects one deterministically (the
+    # aggregate-panel fallback, where J donors can exceed the number of
+    # distinct quantile values).
+    if np.linalg.matrix_rank(C) < J:
+        delta = 1e-10 * float(np.mean(np.sum(C**2, axis=0)))
+        C = np.vstack([C, np.sqrt(delta) * np.eye(J)])
+        t = np.concatenate([t, np.zeros(J)])
+    scale = max(1.0, float(np.abs(C.T @ t).max()), float(np.sum(C**2, axis=0).max()))
+    tol = 1e-12 * scale
+    feas = 1e-13
+    w = np.full(J, 1.0 / J)
+    at_lb = np.zeros(J, dtype=bool)
+    at_ub = np.zeros(J, dtype=bool)
+    last_released = -1
+    for _ in range(50 * J + 50):
+        free = ~(at_lb | at_ub)
+        F = np.flatnonzero(free)
+        fixed = np.flatnonzero(~free)
+        fixed_val = np.where(at_lb, lb, ub)[fixed]
+        nF = F.size
+        r = t - C[:, fixed] @ fixed_val
+        s_F = 1.0 - float(fixed_val.sum())
+        base = np.full(nF, s_F / nF)
+        if nF > 1:
+            Q = np.linalg.qr(np.column_stack([np.ones(nF), np.eye(nF)[:, : nF - 1]]))[0]
+            Z = Q[:, 1:]
+            CF = C[:, F]
+            v = np.linalg.lstsq(CF @ Z, r - CF @ base, rcond=None)[0]
+            wF = base + Z @ v
+        else:
+            wF = base
+        cur = w[F]
+        lo_v = wF < lb - feas
+        hi_v = wF > ub + feas
+        if lo_v.any() or hi_v.any():
+            step_dir = wF - cur
+            ratios = np.full(nF, np.inf)
+            ratios[lo_v] = (lb - cur[lo_v]) / step_dir[lo_v]
+            ratios[hi_v] = (ub - cur[hi_v]) / step_dir[hi_v]
+            k = int(np.argmin(ratios))
+            if F[k] == last_released and ratios[k] <= 0.0:
+                # releasing that bound gives no descent: it is optimal
+                return np.clip(w, lb, ub)
+            w[F] = cur + max(ratios[k], 0.0) * step_dir
+            if lo_v[k]:
+                w[F[k]] = lb
+                at_lb[F[k]] = True
+            else:
+                w[F[k]] = ub
+                at_ub[F[k]] = True
+            last_released = -1
+            continue
+        w[F] = np.clip(wF, lb, ub)
+        grad = C.T @ (C @ w - t)
+        mu = -float(np.mean(grad[F]))
+        red = grad + mu  # >= 0 at a lower bound, <= 0 at an upper bound
+        bad = np.flatnonzero((at_lb & (red < -tol)) | (at_ub & (red > tol)))
+        if bad.size == 0:
+            return w
+        k = int(bad[np.argmax(np.abs(red[bad]))])
+        at_lb[k] = False
+        at_ub[k] = False
+        last_released = k
+    raise RuntimeError("DiSCo weight regression (active set) did not converge")
+
+
+def _disco_quantile_weights(
+    controls: Sequence[np.ndarray],
+    target: np.ndarray,
+    nodes: np.ndarray,
+    simplex: bool,
+) -> np.ndarray:
+    """Per-period quantile weights of R ``DiSCo_weights_reg`` (sorted data)."""
+    C = np.column_stack([_quant7_sorted(c, nodes) for c in controls])
+    tq = _quant7_sorted(target, nodes)
+    return _eq_bounded_lsq(C, tq, 0.0 if simplex else -np.inf, 1.0)
+
+
+def _disco_mixture_weights(Fc: np.ndarray, ft: np.ndarray, simplex: bool) -> np.ndarray:
+    """``min ||Fc w - ft||_1  s.t.  sum(w) = 1 (, w >= 0)`` — the linear
+    programme R ``DiSCo_mixture_solve`` gives to CVXR/SCS, solved exactly
+    with HiGHS."""
+    from scipy import sparse
+
+    G, J = Fc.shape
+    cost = np.concatenate([np.zeros(J), np.ones(G)])
+    eye = sparse.identity(G, format="csr")
+    A_ub = sparse.vstack(
+        [
+            sparse.hstack([sparse.csr_matrix(Fc), -eye]),
+            sparse.hstack([sparse.csr_matrix(-Fc), -eye]),
+        ],
+        format="csr",
+    )
+    b_ub = np.concatenate([ft, -ft])
+    A_eq = np.concatenate([np.ones(J), np.zeros(G)])[None, :]
+    bounds = [(0.0, None) if simplex else (None, None)] * J + [(0.0, None)] * G
+    res = linprog(
+        cost,
+        A_ub=A_ub,
+        b_ub=b_ub,
+        A_eq=A_eq,
+        b_eq=[1.0],
+        bounds=bounds,
+        method="highs",
+    )
+    if res.status != 0:
+        raise RuntimeError(f"DiSCo mixture LP failed: {res.message}")
+    return np.asarray(res.x[:J])
+
+
+def _invert_cdf(cdf: np.ndarray, grid: np.ndarray, evgrid: np.ndarray) -> np.ndarray:
+    """R DiSCo's CDF inversion: smallest grid point with
+    ``cdf >= tau - 1e-5`` (NaN when none)."""
+    target = evgrid - 1e-5
+    if np.all(np.diff(cdf) >= 0):
+        idx = np.searchsorted(cdf, target, side="left")
+    else:
+        idx = np.array(
+            [
+                (np.flatnonzero(cdf >= v)[0] if np.any(cdf >= v) else cdf.size)
+                for v in target
+            ]
+        )
+    out = np.full(evgrid.shape[0], np.nan)
+    ok = idx < cdf.size
+    out[ok] = grid[idx[ok]]
+    return out
+
+
+def _default_cdf_grid(
+    target: np.ndarray, controls: Sequence[np.ndarray], G: int
+) -> np.ndarray:
+    """Equispaced version of R ``DiSCos:::getGrid``'s uniform grid."""
+    lo = min(float(target.min()), min(float(c.min()) for c in controls))
+    hi = max(float(target.max()), max(float(c.max()) for c in controls))
+    lo = np.floor(lo * 10) / 10
+    hi = np.ceil(hi * 10) / 10
+    return np.linspace(lo - 0.25, hi + 0.25, G)
+
+
+def _disco_fit(
+    target: List[np.ndarray],
+    controls: List[List[np.ndarray]],
+    T0: int,
+    evgrid: np.ndarray,
+    method: str,
+    simplex: bool,
+    node_fn: Callable[[int], np.ndarray],
+    grids: Optional[List[np.ndarray]],
+) -> Dict[str, Any]:
+    """One DiSCo fit (target vs controls) over all periods.
+
+    ``target[t]`` / ``controls[t][j]`` are sorted samples; the first ``T0``
+    periods are pre-treatment. Returns weights, per-period weights,
+    counterfactual / target quantiles on ``evgrid`` and per-period squared
+    Wasserstein distances (R ``DiSCo_per``'s ``distt``).
+    """
+    n_per = len(target)
+    if method == "quantile":
+        per_w = [
+            _disco_quantile_weights(controls[t], target[t], node_fn(t), simplex)
+            for t in range(T0)
+        ]
+    else:
+        assert grids is not None
+        Fcs = [
+            np.column_stack([_ecdf_sorted(c, grids[t]) for c in controls[t]])
+            for t in range(n_per)
+        ]
+        fts = [_ecdf_sorted(target[t], grids[t]) for t in range(n_per)]
+        per_w = [_disco_mixture_weights(Fcs[t], fts[t], simplex) for t in range(T0)]
+    w = np.sum(per_w, axis=0) / T0
+    tq = [_quant7_sorted(target[t], evgrid) for t in range(n_per)]
+    if method == "quantile":
+        cq = [
+            np.column_stack([_quant7_sorted(c, evgrid) for c in controls[t]]) @ w
+            for t in range(n_per)
+        ]
+        dist = [float(np.mean((cq[t] - tq[t]) ** 2)) for t in range(n_per)]
+    else:
+        assert grids is not None
+        cdf_cf = [Fcs[t] @ w for t in range(n_per)]
+        cq = [_invert_cdf(cdf_cf[t], grids[t], evgrid) for t in range(n_per)]
+        dist = [float(np.mean((cdf_cf[t] - fts[t]) ** 2)) for t in range(n_per)]
+    return {
+        "weights": w,
+        "period_weights": per_w,
+        "target_q": tq,
+        "cf_q": cq,
+        "dist": dist,
+    }
+
+
+def _disco_tea_table(
+    effects: List[np.ndarray],
+    times: List[Any],
+    post_idx: List[int],
+    G: int,
+    samples: Tuple[float, ...] = (0.0, 0.25, 0.5, 0.75, 1.0),
+) -> pd.DataFrame:
+    """Unrounded version of R ``DiSCoTEA(agg = 'quantileDiff')``'s table:
+    mean quantile effect over quantile ranges, per post-period."""
+    evgrid = np.linspace(0.0, 1.0, G + 1)
+    rows = []
+    grid_q = [s * G + 1 for s in samples]  # 1-based, R semantics
+    for i in post_idx:
+        for a, b in zip(grid_q[:-1], grid_q[1:]):
+            idx = np.floor(np.arange(a, b + 1e-9, 1.0)).astype(int) - 1
+            rows.append(
+                {
+                    "time": times[i],
+                    "q_from": float(evgrid[int(a) - 1]),
+                    "q_to": float(evgrid[int(b) - 1]),
+                    "effect": float(np.mean(effects[i][idx])),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def _discos_micro(
+    data: pd.DataFrame,
+    *,
+    outcome: str,
+    unit: str,
+    time: str,
+    treated_unit: Any,
+    treatment_time: Any,
+    method: str,
+    G: int,
+    M: int,
+    simplex: bool,
+    q_nodes: Optional[Union[np.ndarray, Sequence[np.ndarray]]],
+    cdf_grid: Optional[Sequence[np.ndarray]],
+    placebo: bool,
+    alpha: float,
+    placebo_node_fn: Optional[Callable[[int, int], np.ndarray]] = None,
+) -> CausalResult:
+    """Gunsilius (2023) distributional SC on individual-level data."""
+    if G < 2:
+        raise ValueError("n_quantiles (G) must be >= 2")
+    if M < 1:
+        raise ValueError("M must be >= 1")
+    df = data[[unit, time, outcome]]
+    if df[outcome].isna().any():
+        raise ValueError(f"{outcome!r} contains missing values")
+    times = sorted(df[time].unique().tolist())
+    pre_idx = [i for i, t in enumerate(times) if t < treatment_time]
+    post_idx = [i for i, t in enumerate(times) if t >= treatment_time]
+    if len(pre_idx) < 2:
+        # R DiSCo accepts a single pre-period; StatsPAI keeps its long-standing
+        # requirement of two so that the pre-period fit can be assessed.
+        raise ValueError("DiSCo needs at least 2 pre-treatment periods")
+    if not post_idx:
+        raise ValueError("Need at least 1 post-treatment period")
+    T0 = len(pre_idx)
+    units_all = sorted(df[unit].unique().tolist())
+    if treated_unit not in units_all:
+        raise ValueError(f"treated unit {treated_unit!r} not found")
+    donors = [u for u in units_all if u != treated_unit]
+    J = len(donors)
+    if J < 2:
+        raise ValueError("Need at least 2 control (donor) units")
+    cells = {
+        key: np.sort(grp.to_numpy(dtype=np.float64))
+        for key, grp in df.groupby([unit, time])[outcome]
+    }
+    target: List[np.ndarray] = []
+    controls: List[List[np.ndarray]] = []
+    for t in times:
+        if (treated_unit, t) not in cells:
+            raise ValueError(f"treated unit has no observations in period {t!r}")
+        tv = cells[(treated_unit, t)]
+        cv = []
+        for u in donors:
+            if (u, t) not in cells:
+                raise ValueError(f"donor {u!r} has no observations in period {t!r}")
+            cv.append(cells[(u, t)])
+        if tv.shape[0] < J:
+            raise ValueError(
+                f"period {t!r}: the treated unit has {tv.shape[0]} observations "
+                f"but there are {J} weights to estimate (DiSCo needs at least "
+                "as many observations as donors)"
+            )
+        target.append(tv)
+        controls.append(cv)
+
+    # --- quantile nodes (pre-periods) and CDF grids (all periods) ---
+    if q_nodes is None:
+        base_nodes = (np.arange(M) + 0.5) / M
+        nodes_by_t = [base_nodes] * T0
+    else:
+        arr = q_nodes
+        if isinstance(arr, np.ndarray) and arr.ndim == 1:
+            nodes_by_t = [np.asarray(arr, dtype=float)] * T0
+        else:
+            nodes_by_t = [np.asarray(a, dtype=float) for a in arr]
+            if len(nodes_by_t) != T0:
+                raise ValueError(
+                    f"q_nodes must hold one node array per pre-period ({T0})"
+                )
+    if any(np.any((nd < 0) | (nd > 1)) for nd in nodes_by_t):
+        raise ValueError("q_nodes must lie in [0, 1]")
+    grids: Optional[List[np.ndarray]] = None
+    if method == "mixture":
+        if cdf_grid is None:
+            grids = [
+                _default_cdf_grid(target[t], controls[t], G) for t in range(len(times))
+            ]
+        else:
+            grids = [np.sort(np.asarray(g, dtype=float)) for g in cdf_grid]
+            if len(grids) != len(times):
+                raise ValueError(
+                    f"cdf_grid must hold one grid per period ({len(times)})"
+                )
+
+    evgrid = np.linspace(0.0, 1.0, G + 1)
+    fit = _disco_fit(
+        target,
+        controls,
+        T0,
+        evgrid,
+        method,
+        simplex,
+        lambda t: nodes_by_t[t],
+        grids,
+    )
+    weights = fit["weights"]
+    effects = [fit["target_q"][t] - fit["cf_q"][t] for t in range(len(times))]
+    if any(np.isnan(e).any() for e in effects):
+        warnings.warn(
+            "DiSCo mixture counterfactual CDF never reaches some quantile "
+            "levels (negative weights); those quantile effects are NaN.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    post_eff = np.vstack([effects[i] for i in post_idx])
+    estimate = float(np.mean(post_eff))
+
+    # --- permutation inference (R DiSCo_per) ---
+    pvalue = np.nan
+    se = np.nan
+    placebo_avg: List[float] = []
+    placebo_q_eff: List[np.ndarray] = []
+    perm_dist: List[List[float]] = []
+    ratio_stats: Optional[np.ndarray] = None
+    if placebo:
+        for idx in range(J):
+            keep = [k for k in range(J) if k != idx]
+            p_target = [controls[t][idx] for t in range(len(times))]
+            p_controls = [
+                [target[t]] + [controls[t][k] for k in keep] for t in range(len(times))
+            ]
+            if placebo_node_fn is None:
+                node_fn = lambda t: nodes_by_t[t]  # noqa: E731
+            else:
+                node_fn = (lambda i: (lambda t: placebo_node_fn(i, t)))(idx)
+            pf = _disco_fit(
+                p_target, p_controls, T0, evgrid, method, simplex, node_fn, grids
+            )
+            perm_dist.append(pf["dist"])
+            p_eff = np.vstack([pf["target_q"][i] - pf["cf_q"][i] for i in post_idx])
+            placebo_avg.append(float(np.mean(p_eff)))
+            placebo_q_eff.append(p_eff.mean(axis=0))
+        dist_all = np.vstack(perm_dist + [fit["dist"]])
+        ratio_stats = np.sqrt(dist_all[:, post_idx].mean(axis=1)) / np.sqrt(
+            dist_all[:, pre_idx].mean(axis=1)
+        )
+        # R: rank(-R)[target] / (J + 1), average ranks for ties
+        pvalue = float(rankdata(-ratio_stats, method="average")[-1] / (J + 1))
+        se = float(np.std(placebo_avg, ddof=1))
+
+    z_crit = sp_stats.norm.ppf(1 - alpha / 2)
+    ci = (estimate - z_crit * se, estimate + z_crit * se)
+
+    avg_tq = np.mean([fit["target_q"][i] for i in post_idx], axis=0)
+    avg_cq = np.mean([fit["cf_q"][i] for i in post_idx], axis=0)
+    avg_eff = post_eff.mean(axis=0)
+    if placebo_q_eff:
+        q_se = np.std(np.vstack(placebo_q_eff), axis=0, ddof=1)
+    else:
+        q_se = np.full(evgrid.shape[0], np.nan)
+    quantile_effects_df = pd.DataFrame(
+        {
+            "quantile": evgrid,
+            "effect": avg_eff,
+            "ci_lower": avg_eff - z_crit * q_se,
+            "ci_upper": avg_eff + z_crit * q_se,
+        }
+    )
+    by_period = pd.concat(
+        [
+            pd.DataFrame(
+                {
+                    "time": times[i],
+                    "quantile": evgrid,
+                    "treated": fit["target_q"][i],
+                    "counterfactual": fit["cf_q"][i],
+                    "effect": effects[i],
+                }
+            )
+            for i in range(len(times))
+        ],
+        ignore_index=True,
+    )
+    treated_mean = np.array([float(np.mean(target[i])) for i in range(len(times))])
+    synth_mean = np.array([float(np.mean(fit["cf_q"][i])) for i in range(len(times))])
+    gap_df = pd.DataFrame(
+        {
+            "time": times,
+            "treated": treated_mean,
+            "synthetic": synth_mean,
+            "gap": treated_mean - synth_mean,
+        }
+    )
+    effects_df = pd.DataFrame(
+        {
+            "time": [times[i] for i in post_idx],
+            "treated": treated_mean[post_idx],
+            "counterfactual": synth_mean[post_idx],
+            "effect": [float(np.mean(effects[i])) for i in post_idx],
+        }
+    )
+    period_w = pd.DataFrame(
+        np.vstack(fit["period_weights"]),
+        index=pd.Index([times[i] for i in pre_idx], name=time),
+        columns=donors,
+    )
+    model_info: Dict[str, Any] = {
+        "estimator": "gunsilius_disco",
+        "method_variant": method,
+        "simplex": simplex,
+        "M": M,
+        "G": G,
+        "n_quantiles": G,
+        "n_donors": J,
+        "n_pre_periods": T0,
+        "n_post_periods": len(post_idx),
+        "treatment_time": treatment_time,
+        "treated_unit": treated_unit,
+        "weights": dict(zip(donors, weights)),
+        "period_weights": period_w,
+        "tau_grid": evgrid,
+        "quantile_effects": quantile_effects_df,
+        "quantile_effects_by_period": by_period,
+        "quantile_effect_summary": _disco_tea_table(effects, times, post_idx, G),
+        "treated_quantiles": avg_tq,
+        "counterfactual_quantiles": avg_cq,
+        "wasserstein_sq": dict(zip(times, fit["dist"])),
+        "pre_rmsqe": float(np.sqrt(np.mean([fit["dist"][i] for i in pre_idx]))),
+        "gap_table": gap_df,
+        "effects_by_period": effects_df,
+        "Y_synth": synth_mean,
+        "Y_treated": treated_mean,
+        "times": times,
+    }
+    if placebo:
+        model_info["placebo_atts"] = placebo_avg
+        model_info["n_placebos"] = len(placebo_avg)
+        model_info["placebo_quantile_effects"] = np.vstack(placebo_q_eff)
+        model_info["permutation"] = {
+            "p_value": pvalue,
+            "rmspe_ratio": ratio_stats,
+            "placebo_wasserstein_sq": np.vstack(perm_dist),
+        }
+
+    return CausalResult(
+        method="Distributional Synthetic Controls (Gunsilius 2023)",
+        estimand="Distributional ATT",
+        estimate=estimate,
+        se=se,
+        pvalue=pvalue,
+        ci=ci,
+        alpha=alpha,
+        n_obs=len(data),
+        detail=effects_df,
+        model_info=model_info,
+        _citation_key="discos",
     )
 
 
@@ -757,25 +1378,11 @@ def _mixture_weights(
     -------
     np.ndarray, shape (J,)
     """
-    J = Q_donors.shape[0]
-
-    def objective(w: np.ndarray) -> float:
-        residual = Q_treated - w @ Q_donors
-        return float(np.sum(residual**2))
-
-    constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}
-    bounds = [(0.0, 1.0)] * J
-    w0 = np.ones(J) / J
-
-    res = minimize(
-        objective,
-        w0,
-        method="SLSQP",
-        bounds=bounds,
-        constraints=constraints,
-        options={"maxiter": 1000, "ftol": 1e-12},
-    )
-    return np.asarray(res.x)
+    # Exact active-set solution of the simplex least-squares problem. The
+    # previous finite-difference SLSQP ran to its iteration cap on this
+    # badly scaled objective (~30 s for the Prop. 99 placebos) and stopped
+    # ~1e-5 short of the optimum.
+    return _eq_bounded_lsq(Q_donors.T, Q_treated, 0.0, 1.0)
 
 
 def _quantile_weights(

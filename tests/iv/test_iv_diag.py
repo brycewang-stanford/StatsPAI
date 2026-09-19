@@ -47,9 +47,14 @@ def test_iv_diag_basic_runs_and_recovers_dgp():
     )
     # Recovers the DGP within a 2-SE window
     assert abs(r.beta_2sls - 0.8) < 3 * r.se_2sls
-    # Strong instrument: tF should collapse to ~1.96
+    # Two instruments: the LMMP tF procedure is defined for the
+    # just-identified model only (R ivDiag omits it too), so it is NaN.
     assert r.first_stage_F > 50
-    assert abs(r.tF_critical_value - 1.96) < 0.05
+    assert np.isnan(r.tF_critical_value)
+    # Just-identified and strong: tF collapses to 1.96 (effective F >= 106.09)
+    r1 = sp.iv.iv_diag(df, y="y", endog="d", instruments=["z1"], exog=["x"], n_boot=0)
+    assert r1.effective_F > 106.09
+    assert r1.tF_critical_value == 1.96
     # AR CI should contain truth
     assert r.ar_ci[0] < 0.8 < r.ar_ci[1]
     # No TSLS-LATE caveat for continuous endog

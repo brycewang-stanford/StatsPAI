@@ -352,9 +352,19 @@ def _compute_elasticities(
     sigma_price: float,
     draws: np.ndarray,
     market_ids: np.ndarray,
+    price_draw_col: Optional[int] = None,
 ) -> dict:
     """
     Compute own- and cross-price elasticities for each market.
+
+    With a random coefficient on price the consumer-level price coefficient
+    is ``alpha_r = alpha + sigma_price * nu_r`` (``nu_r`` the price column of
+    ``draws``), and
+
+        ds_j/dp_k = (1/R) sum_r alpha_r s_jr (1{j=k} - s_kr),
+        E_jk      = ds_j/dp_k * p_k / s_j.
+
+    Without one, ``alpha_r = alpha`` for every draw.
 
     Returns
     -------
@@ -364,10 +374,13 @@ def _compute_elasticities(
     unique_markets = np.unique(market_ids)
     market_indices = {m: np.where(market_ids == m)[0] for m in unique_markets}
     R = mu.shape[1]
+    if price_draw_col is not None and sigma_price != 0.0:
+        alpha_r = alpha + sigma_price * draws[:, price_draw_col]  # (R,)
+    else:
+        alpha_r = np.full(R, alpha)
     elasticities = {}
 
     for m, idx in market_indices.items():
-        J_m = len(idx)
         v = delta[idx, np.newaxis] + mu[idx]  # (J_m, R)
         v_max = np.maximum(v.max(axis=0), 0.0)
         exp_v = np.exp(v - v_max)
@@ -375,24 +388,15 @@ def _compute_elasticities(
         denom = exp_v.sum(axis=0) + exp_outside
         s_ir = exp_v / denom  # (J_m, R)  individual choice probs
 
-        # For simplicity, use mean price coefficient here
-        # (full random coefficient on price handled through mu already)
-
         p = prices[idx]  # (J_m,)
         s_j = s_ir.mean(axis=1)  # (J_m,) predicted shares
 
-        # Elasticity matrix
-        E = np.zeros((J_m, J_m))
-        for j in range(J_m):
-            for k in range(J_m):
-                if j == k:
-                    # Own elasticity: (α/s_j) * (1/R) Σ_r s_jr(1-s_jr) * p_j
-                    deriv = (alpha / R) * np.sum(s_ir[j] * (1 - s_ir[j]))
-                    E[j, k] = deriv * p[j] / s_j[j] if s_j[j] > 0 else 0.0
-                else:
-                    # Cross elasticity: -(α/s_j) * (1/R) Σ_r s_jr*s_kr * p_k
-                    deriv = -(alpha / R) * np.sum(s_ir[j] * s_ir[k])
-                    E[j, k] = deriv * p[k] / s_j[j] if s_j[j] > 0 else 0.0
+        a_s = s_ir * alpha_r[np.newaxis, :]  # alpha_r * s_jr
+        # dS[j, k] = (1/R) sum_r alpha_r s_jr (1{j=k} - s_kr)
+        dS = np.diag(a_s.mean(axis=1)) - (a_s @ s_ir.T) / R
+        with np.errstate(divide="ignore", invalid="ignore"):
+            E = dS * p[np.newaxis, :] / s_j[:, np.newaxis]
+        E[~np.isfinite(E)] = 0.0
 
         elasticities[m] = E
 
@@ -427,7 +431,9 @@ class BLPResult(ResultProtocolMixin):
     n_products : int
         Total number of product-market observations.
     gmm_objective : float
-        Value of the GMM objective at the optimum.
+        Value of the GMM objective at the optimum, ``(Z'xi)' W (Z'xi)`` with
+        the step-2 weighting matrix -- ``N`` times Hansen's J statistic
+        ``N * gbar' W gbar`` (the value pyblp reports).
     converged : bool
         Whether the outer-loop optimization converged.
 
@@ -666,6 +672,43 @@ class BLPResult(ResultProtocolMixin):
 # ---------------------------------------------------------------------------
 
 
+def _delta_jacobian(
+    delta: np.ndarray,
+    mu: np.ndarray,
+    X_random: np.ndarray,
+    draws: np.ndarray,
+    market_ids: np.ndarray,
+) -> np.ndarray:
+    """Analytic ``d delta / d sigma`` by the implicit function theorem.
+
+    Within market ``m`` the contraction solves ``s(delta, sigma) = s_obs``, so
+    ``d delta / d sigma = -(ds/d delta)^{-1} ds/d sigma`` with
+
+        ds_j/d delta_k = (1/R) sum_r s_jr (1{j=k} - s_kr)
+        ds_j/d sigma_l = (1/R) sum_r s_jr nu_rl (x_jl - sum_k s_kr x_kl).
+    """
+    N = len(delta)
+    K = X_random.shape[1]
+    R = mu.shape[1]
+    D = np.zeros((N, K))
+    for m in np.unique(market_ids):
+        idx = np.where(market_ids == m)[0]
+        v = delta[idx, np.newaxis] + mu[idx]
+        v_max = np.maximum(v.max(axis=0), 0.0)
+        exp_v = np.exp(v - v_max)
+        s_ir = exp_v / (exp_v.sum(axis=0) + np.exp(-v_max))  # (J_m, R)
+        ds_dd = np.diag(s_ir.mean(axis=1)) - (s_ir @ s_ir.T) / R
+        Xm = X_random[idx]  # (J_m, K)
+        ds_dsig = np.empty((len(idx), K))
+        for c in range(K):
+            xbar_r = Xm[:, c] @ s_ir  # (R,) sum_k s_kr x_kc
+            ds_dsig[:, c] = (
+                s_ir * draws[:, c][np.newaxis, :] * (Xm[:, [c]] - xbar_r[np.newaxis, :])
+            ).mean(axis=1)
+        D[idx] = -np.linalg.solve(ds_dd, ds_dsig)
+    return D
+
+
 def _compute_standard_errors(
     xi: np.ndarray,
     X: np.ndarray,
@@ -682,10 +725,17 @@ def _compute_standard_errors(
     maxiter_inner: int,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
-    Compute asymptotic standard errors for linear and nonlinear parameters.
+    Heteroskedasticity-robust GMM standard errors for ``(beta, sigma)`` jointly.
 
-    For linear params: standard GMM sandwich formula.
-    For nonlinear params: numerical gradient of moments w.r.t. sigma.
+    Moments ``g(theta) = Z' xi(theta) / N`` with ``xi = delta(sigma) - X beta``.
+    Jacobian ``G = [-Z'X, Z' d delta/d sigma] / N`` (``d delta / d sigma`` from
+    the implicit function theorem), ``S = sum_i xi_i^2 z_i z_i' / N`` and
+
+        Var(theta) = (G'WG)^{-1} G'W S W G (G'WG)^{-1} / N,
+
+    the covariance pyblp reports with ``se_type="robust"`` and the weighting
+    matrix ``W`` of the final GMM step. The linear block therefore carries
+    the estimation error of ``sigma``.
 
     Returns
     -------
@@ -693,57 +743,28 @@ def _compute_standard_errors(
     se_nonlinear : np.ndarray
     """
     N = len(xi)
-    L = Z.shape[1]
+    K_beta = X.shape[1]
+    K_sigma = len(sigma)
 
-    # --- Linear parameter SEs (GMM) ---
-    # Var(theta) = (X'Z W Z'X)^{-1} X'Z W S W Z'X (X'Z W Z'X)^{-1}
-    # Under optimal W, simplifies to (X'Z W Z'X)^{-1}
-    ZtX = Z.T @ X
-    bread = ZtX.T @ W @ ZtX
+    G_beta = -(Z.T @ X) / N
+    if K_sigma > 0:
+        D = _delta_jacobian(delta, mu, X_random, draws, market_ids)
+        # sigma enters as |sigma|; d|sigma|/d sigma = sign(sigma) (1 at sigma > 0)
+        D = D * np.where(sigma < 0, -1.0, 1.0)[np.newaxis, :]
+        G = np.column_stack([G_beta, (Z.T @ D) / N])
+    else:
+        G = G_beta
+
+    Zxi = Z * xi[:, np.newaxis]
+    S = Zxi.T @ Zxi / N
+    bread = G.T @ W @ G
     try:
         bread_inv = np.linalg.inv(bread)
     except np.linalg.LinAlgError:
         bread_inv = np.linalg.pinv(bread)
-
-    # Robust meat: S = (1/N) Σ_i xi_i^2 z_i z_i'
-    S = (Z * xi[:, np.newaxis]).T @ (Z * xi[:, np.newaxis]) / N
-    meat = ZtX.T @ W @ S @ W @ ZtX
-    var_linear = bread_inv @ meat @ bread_inv
-    se_linear = np.sqrt(np.maximum(np.diag(var_linear), 0.0))
-
-    # --- Nonlinear parameter SEs (numerical Jacobian) ---
-    K_sigma = len(sigma)
-    if K_sigma == 0:
-        return se_linear, np.array([])
-
-    # Jacobian of moments g = Z'xi w.r.t. sigma via finite differences
-    eps = 1e-5
-    g0 = Z.T @ xi  # (L,)
-    Jacobian = np.zeros((L, K_sigma))
-
-    for k in range(K_sigma):
-        sigma_up = sigma.copy()
-        sigma_up[k] += eps
-        mu_up = _compute_mu(X_random, np.abs(sigma_up), draws)
-        delta_up, _ = _contraction_mapping(
-            s_obs, delta.copy(), mu_up, market_ids, tol_inner, maxiter_inner
-        )
-        _, xi_up = _iv_regression(delta_up, X, Z, W)
-        g_up = Z.T @ xi_up
-        Jacobian[:, k] = (g_up - g0) / eps
-
-    # Var(sigma) = (G'W G)^{-1} G'W S W G (G'W G)^{-1} / N
-    GtWG = Jacobian.T @ W @ Jacobian
-    try:
-        GtWG_inv = np.linalg.inv(GtWG)
-    except np.linalg.LinAlgError:
-        GtWG_inv = np.linalg.pinv(GtWG)
-
-    meat_sigma = Jacobian.T @ W @ S @ W @ Jacobian
-    var_sigma = GtWG_inv @ meat_sigma @ GtWG_inv / N
-    se_nonlinear = np.sqrt(np.maximum(np.diag(var_sigma), 0.0))
-
-    return se_linear, se_nonlinear
+    V = bread_inv @ (G.T @ W @ S @ W @ G) @ bread_inv / N
+    se = np.sqrt(np.maximum(np.diag(V), 0.0))
+    return se[:K_beta], se[K_beta:]
 
 
 # ---------------------------------------------------------------------------
@@ -1058,9 +1079,10 @@ def blp(
 
     # ---- Elasticities -----------------------------------------------------
     sigma_price = 0.0
+    price_draw_col = None
     if prices in x_random:
-        sp_idx = x_random.index(prices)
-        sigma_price = sigma_final[sp_idx] if K_sigma > 0 else 0.0
+        price_draw_col = x_random.index(prices)
+        sigma_price = float(sigma_final[price_draw_col]) if K_sigma > 0 else 0.0
 
     elasticity_matrices = _compute_elasticities(
         delta_final,
@@ -1070,6 +1092,7 @@ def blp(
         sigma_price,
         draws,
         market_ids,
+        price_draw_col=price_draw_col,
     )
 
     # Own-price elasticities

@@ -7,15 +7,15 @@ design-corrected standard errors for means, totals, and regression.
 
 >>> import statspai as sp
 >>> design = sp.svydesign(data=df, weights='pw', strata='stratum',
-...                       cluster='psu')
->>> design.mean('income')
->>> design.total('income')
->>> design.glm('income ~ education + age')
+...                       cluster='psu')  # doctest: +SKIP
+>>> design.mean('income')  # doctest: +SKIP
+>>> design.total('income')  # doctest: +SKIP
+>>> design.glm('income ~ education + age')  # doctest: +SKIP
 """
 
+from .calibration import CalibrationResult, linear_calibration, rake
 from .design import SurveyDesign, svydesign
-from .estimators import svymean, svytotal, svyglm
-from .calibration import rake, linear_calibration, CalibrationResult
+from .estimators import svyglm, svymean, svytotal
 
 __all__ = [
     "SurveyDesign",

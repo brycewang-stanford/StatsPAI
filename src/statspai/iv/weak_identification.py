@@ -129,7 +129,11 @@ class CLRResult(ResultProtocolMixin):
             f"  H0: beta = {self.beta0:.4f}\n"
             f"  CLR statistic        : {self.statistic:>10.4f}   p={self.pvalue:.4f}\n"
             f"  (AR={self.ar_stat:.4f},  LM={self.lm_stat:.4f})\n"
-            f"  simulations          : {self.n_simulations}"
+            + (
+                f"  simulations          : {self.n_simulations}"
+                if self.n_simulations
+                else "  p-value              : exact (conditional on T'T)"
+            )
         )
 
 
@@ -613,6 +617,7 @@ def conditional_lr_test(
     add_const: bool = True,
     n_simulations: int = 20_000,
     random_state: Optional[int] = None,
+    method: str = "exact",
 ) -> CLRResult:
     """
     Moreira (2003) Conditional Likelihood Ratio (CLR) test.
@@ -632,8 +637,14 @@ def conditional_lr_test(
         Null-hypothesis value of beta on ``endog``.
     add_const : bool, default True
     n_simulations : int, default 20000
-        Monte-Carlo draws for the conditional critical value.
+        Monte-Carlo draws, used only with ``method='simulate'``.
     random_state : int, optional
+        Seed, used only with ``method='simulate'``.
+    method : {'exact', 'simulate'}, default 'exact'
+        ``'exact'`` integrates the conditional null distribution of CLR
+        given ``T'T`` numerically -- the closed form R ``ivmodel::CLR`` and
+        Stata ``weakiv`` evaluate -- so the p-value is deterministic.
+        ``'simulate'`` is the pre-1.29 Monte-Carlo p-value.
 
     Returns
     -------
@@ -682,11 +693,14 @@ def conditional_lr_test(
     # First orthonormalize Z
     ZZ = Z_t.T @ Z_t
     L = np.linalg.cholesky(ZZ)
-    Zs = np.linalg.solve(L.T, Z_t.T).T  # n x k with Zs'Zs = I
+    # Zs = Zt L'^-1 so that Zs'Zs = L^-1 (L L') L'^-1 = I. Through 1.28.0
+    # this solved against L' instead of L, giving Zs = Zt L^-1 -- not
+    # orthonormal once k >= 2 -- which mis-scaled every S / T statistic.
+    Zs = np.linalg.solve(L, Z_t.T).T
 
-    # Sigma = n^{-1} YD' M_Z YD
-    M_Z = np.eye(n) - Zs @ Zs.T
-    Sigma = YD.T @ M_Z @ YD / max(n - W.shape[1] - k, 1)
+    # Sigma = YD' M_Z YD / (n - p - k), without forming the n x n M_Z
+    ZsYD = Zs.T @ YD
+    Sigma = (YD.T @ YD - ZsYD.T @ ZsYD) / max(n - W.shape[1] - k, 1)
 
     # S and T statistics (Moreira 2003 notation), working directly with
     # residuals in the y*(beta0) and d directions.
@@ -709,6 +723,20 @@ def conditional_lr_test(
     clr_stat = 0.5 * (
         ar - qt + np.sqrt(max((ar + qt) ** 2 - 4 * (ar * qt - lm * qt), 0.0))
     )
+
+    if method not in ("exact", "simulate"):
+        raise ValueError(f"method must be 'exact' or 'simulate'; got {method!r}")
+    if method == "exact":
+        from .weak_iv_ci import _clr_conditional_pvalue
+
+        return CLRResult(
+            statistic=float(clr_stat),
+            pvalue=_clr_conditional_pvalue(float(clr_stat), qt, k),
+            beta0=float(beta0),
+            n_simulations=0,
+            ar_stat=ar,
+            lm_stat=lm,
+        )
 
     # Conditional critical value via Monte-Carlo, conditioning on qt
     rng = np.random.default_rng(random_state)

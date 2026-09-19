@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 
 from ..exceptions import MethodIncompatibility
-from .jackknife import _draw_weights
+from .wild_bootstrap import _wild_weight_matrix
 
 
 def _iv_cluster_vcov(
@@ -353,9 +353,12 @@ def iv_wild_bootstrap(
         rf_resid[e] = X[:, e] - d_base
 
     # --- bootstrap ---
-    t_boot = np.empty(n_boot)
-    for b in range(n_boot):
-        w_g = _draw_weights(n_clusters, weight_type, rng)
+    # With Rademacher weights and 2**G <= n_boot every sign vector is used
+    # exactly once (the boottest / fwildclusterboot rule), so the bootstrap
+    # distribution and the p-value are exact rather than simulated.
+    weights, enumerated = _wild_weight_matrix(n_clusters, n_boot, weight_type, rng)
+    t_boot = np.empty(weights.shape[0])
+    for b, w_g in enumerate(weights):
         eps = w_g[cl_codes]
         u_star = eps * u_tilde
         x_star = X.copy()
@@ -366,7 +369,8 @@ def iv_wild_bootstrap(
         se_s = float(np.sqrt(max(V_s[test_idx, test_idx], 1e-20)))
         t_boot[b] = (beta_s[test_idx] - beta0) / se_s if se_s > 0 else 0.0
 
-    p_boot = float(np.mean(np.abs(t_boot) >= np.abs(t_obs)))
+    # Symmetric two-sided p with a strict inequality, as boottest counts it.
+    p_boot = float(np.mean(np.abs(t_boot) > np.abs(t_obs)))
     t_lo = float(np.percentile(t_boot, 100 * alpha / 2))
     t_hi = float(np.percentile(t_boot, 100 * (1 - alpha / 2)))
     ci = (beta_hat[test_idx] - t_hi * se, beta_hat[test_idx] - t_lo * se)
@@ -380,7 +384,9 @@ def iv_wild_bootstrap(
         "t_distribution": t_boot,
         "n_clusters": n_clusters,
         "n_obs": n,
-        "n_boot": n_boot,
+        "n_boot": int(weights.shape[0]),
+        "n_boot_requested": n_boot,
+        "enumerated": enumerated,
         "weight_type": weight_type,
         "method": "WRE" if efficient else "WUR",
     }

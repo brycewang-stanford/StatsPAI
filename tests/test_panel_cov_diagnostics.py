@@ -103,8 +103,16 @@ def test_panel_logit_bad_method_raises(binary_df):
 
 
 def test_panel_unitroot_trend(panel_df):
+    # T = 8: with a trend, the default 2 lags leave an exactly-identified
+    # ADF regression (5 obs, 5 regressors), which now raises; use 1 lag.
     out = sp.panel_unitroot(
-        panel_df, variable="y", id="entity", time="time", test="ips", trend="ct"
+        panel_df,
+        variable="y",
+        id="entity",
+        time="time",
+        test="ips",
+        trend="ct",
+        lags=1,
     )
     assert out is not None
 

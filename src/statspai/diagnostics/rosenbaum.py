@@ -113,48 +113,40 @@ def _sign_test_bound(T_plus: int, n: int, p: float) -> float:
     return float(stats.binom.sf(T_plus - 1, n, p))
 
 
-def _wilcoxon_bound(
-    ranks_abs: np.ndarray,
-    signs: np.ndarray,
-    p: float,
-    alternative: str,
-) -> float:
+def _wilcoxon_z(ranks: np.ndarray, positive: np.ndarray, p: float) -> float:
+    """Rosenbaum's standardized signed-rank deviate at assignment probability ``p``.
+
+    ``T = sum(ranks[positive])`` against the moments of a sum of independent
+    ``Bernoulli(p) * rank`` terms: ``E = p * sum(ranks)``,
+    ``Var = p (1 - p) * sum(ranks**2)``. No continuity correction -- none of
+    ``DOS2::senWilcox`` (Rosenbaum's own implementation), ``rbounds::psens``
+    or Stata ``rbounds`` applies one.
     """
-    Compute Rosenbaum's bounding p-value for Wilcoxon signed-rank under
-    odds-ratio Gamma implied by ``p``.
-
-    Each nonzero rank ``r_i`` contributes a Bernoulli(p)·r_i summand.
-    The test statistic is T = sum_i sign_i * r_i. Under the worst case
-    ``p`` we compare the *observed* T to the extreme moments.
-    """
-    ranks_abs = np.asarray(ranks_abs, dtype=float)
-    if ranks_abs.size == 0:
-        return 1.0
-
-    T_obs = float(np.sum(ranks_abs * (signs > 0)))
-    mean = p * float(ranks_abs.sum())
-    var = (p * (1.0 - p)) * float(np.sum(ranks_abs**2))
-
+    ranks = np.asarray(ranks, dtype=float)
+    T_obs = float(np.sum(ranks[positive]))
+    mean = p * float(ranks.sum())
+    var = p * (1.0 - p) * float(np.sum(ranks**2))
     if var <= 0:
-        # Degenerate — one-sided p at the corner.
-        return 1.0 if T_obs < mean else 0.0
-
-    z = (T_obs - 0.5 - mean) / np.sqrt(var)
-    if alternative == "greater":
-        return _normal_sf(z)
-    if alternative == "less":
-        return _normal_sf(-(T_obs + 0.5 - mean) / np.sqrt(var))
-    # two-sided
-    return float(2.0 * min(_normal_sf(abs(z)), 0.5))
+        return 0.0 if T_obs == mean else float(np.sign(T_obs - mean) * np.inf)
+    return (T_obs - mean) / float(np.sqrt(var))
 
 
-def _wilcoxon_ranks(diffs: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Signed-rank transformation with mid-ranks for ties; drops zeros."""
-    mask = diffs != 0
-    d = diffs[mask]
-    ranks = stats.rankdata(np.abs(d), method="average")
-    signs = np.where(d > 0, 1, -1)
-    return ranks, signs
+def _wilcoxon_ranks(diffs: np.ndarray, zero_method: str) -> np.ndarray:
+    """Mid-ranks of ``|diffs|`` with zero differences carrying rank 0.
+
+    ``zero_method="pratt"`` ranks the zeros together with the non-zero
+    differences and then drops them (``rank(|d|) * (|d| > 0)``), as
+    ``DOS2::senWilcox`` and Stata ``rbounds`` do; ``"wilcox"`` discards the
+    zeros before ranking, as ``rbounds::psens`` does. The two agree when no
+    difference is exactly zero.
+    """
+    ad = np.abs(diffs)
+    if zero_method == "pratt":
+        return stats.rankdata(ad, method="average") * (ad > 0)
+    ranks = np.zeros_like(ad)
+    nz = ad > 0
+    ranks[nz] = stats.rankdata(ad[nz], method="average")
+    return ranks
 
 
 # --------------------------------------------------------------------
@@ -174,6 +166,7 @@ def rosenbaum_bounds(
     alternative: str = "greater",
     gamma_grid: Optional[Sequence[float]] = None,
     alpha: float = 0.05,
+    zero_method: str = "pratt",
 ) -> RosenbaumResult:
     """
     Compute Rosenbaum bounds on a paired observational study.
@@ -200,6 +193,13 @@ def rosenbaum_bounds(
         Default: ``np.arange(1.0, 3.01, 0.1)``.
     alpha : float, default 0.05
         Significance level used to report ``gamma_critical``.
+    zero_method : {"pratt", "wilcox"}, default "pratt"
+        Treatment of pairs with a zero difference in the Wilcoxon bound.
+        ``"pratt"`` ranks them with the other pairs and gives them no weight
+        (Rosenbaum's ``DOS2::senWilcox``, Stata ``rbounds``); ``"wilcox"``
+        drops them before ranking (``rbounds::psens``). Identical when no
+        difference is zero. Ignored by the sign test, which always drops
+        zeros.
 
     Returns
     -------
@@ -231,6 +231,8 @@ def rosenbaum_bounds(
     """
     if method not in {"wilcoxon", "sign"}:
         raise ValueError("method must be 'wilcoxon' or 'sign'")
+    if zero_method not in {"pratt", "wilcox"}:
+        raise ValueError("zero_method must be 'pratt' or 'wilcox'")
     if alternative not in {"greater", "less", "two-sided"}:
         raise ValueError("alternative must be 'greater', 'less', or 'two-sided'")
 
@@ -274,42 +276,39 @@ def rosenbaum_bounds(
     lowers = np.empty_like(gamma_grid_arr)
     uppers = np.empty_like(gamma_grid_arr)
 
-    if method == "wilcoxon":
-        ranks_abs, signs = _wilcoxon_ranks(diffs)
-        statistic = float(np.sum(ranks_abs * (signs > 0)))
-        for i, gamma in enumerate(gamma_grid_arr):
-            p_low = 1.0 / (1.0 + gamma)
-            p_high = gamma / (1.0 + gamma)
-            # worst case toward alternative = p_high
-            if alternative == "less":
-                p_upper_case, p_lower_case = p_low, p_high
-            else:
-                p_upper_case, p_lower_case = p_high, p_low
-            uppers[i] = _wilcoxon_bound(ranks_abs, signs, p_upper_case, alternative)
-            lowers[i] = _wilcoxon_bound(ranks_abs, signs, p_lower_case, alternative)
-    else:  # sign test
-        nonzero = diffs[diffs != 0]
-        n_nz = int(nonzero.size)
-        if alternative == "less":
-            statistic = float(np.sum(nonzero < 0))
-            target = statistic
+    # Bounding p-values (Rosenbaum 2002, ch. 4). Under hidden bias of at most
+    # Gamma the chance that the treated unit of a pair is the one with the
+    # larger response lies in [1/(1+Gamma), Gamma/(1+Gamma)]; the upper bound
+    # on the one-sided p-value evaluates the statistic's null distribution at
+    # the end of that interval least favourable to the alternative, the lower
+    # bound at the other end. "less" is the "greater" computation applied to
+    # the negated differences, and the two-sided bound is twice the smaller
+    # one-sided bound, capped at 1 (DOS2::senWilcox).
+    def _one_sided(d: np.ndarray, p: float) -> tuple:
+        if method == "wilcoxon":
+            ranks = _wilcoxon_ranks(d, zero_method)
+            z = _wilcoxon_z(ranks, d > 0, p)
+            return float(stats.norm.sf(z)), float(np.sum(ranks[d > 0]))
+        nonzero = d[d != 0]
+        t_plus = int(np.sum(nonzero > 0))
+        return _sign_test_bound(t_plus, int(nonzero.size), p), float(t_plus)
+
+    for i, gamma in enumerate(gamma_grid_arr):
+        p_high = gamma / (1.0 + gamma)
+        p_low = 1.0 / (1.0 + gamma)
+        if alternative == "greater":
+            uppers[i], statistic = _one_sided(diffs, p_high)
+            lowers[i], _ = _one_sided(diffs, p_low)
+        elif alternative == "less":
+            uppers[i], statistic = _one_sided(-diffs, p_high)
+            lowers[i], _ = _one_sided(-diffs, p_low)
         else:
-            statistic = float(np.sum(nonzero > 0))
-            target = statistic
-        for i, gamma in enumerate(gamma_grid_arr):
-            p_low = 1.0 / (1.0 + gamma)
-            p_high = gamma / (1.0 + gamma)
-            if alternative == "less":
-                p_upper_case, p_lower_case = p_low, p_high
-            else:
-                p_upper_case, p_lower_case = p_high, p_low
-            p_hi = _sign_test_bound(int(target), n_nz, p_upper_case)
-            p_lo = _sign_test_bound(int(target), n_nz, p_lower_case)
-            if alternative == "two-sided":
-                p_hi = min(1.0, 2 * p_hi)
-                p_lo = min(1.0, 2 * p_lo)
-            uppers[i] = p_hi
-            lowers[i] = p_lo
+            up_g, statistic = _one_sided(diffs, p_high)
+            up_l, _ = _one_sided(-diffs, p_high)
+            lo_g, _ = _one_sided(diffs, p_low)
+            lo_l, _ = _one_sided(-diffs, p_low)
+            uppers[i] = min(1.0, 2.0 * min(up_g, up_l))
+            lowers[i] = min(1.0, 2.0 * min(lo_g, lo_l))
 
     # ---- Critical Gamma --------------------------------------------
     above = np.where(uppers > alpha)[0]

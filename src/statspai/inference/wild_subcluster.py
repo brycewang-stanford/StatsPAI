@@ -74,8 +74,11 @@ def subcluster_wild_bootstrap(
 
     Returns
     -------
-    dict with ``p_boot``, ``ci_boot``, ``beta_hat``, ``t_stat``,
-    ``se_cluster``, ``n_sub``, ``recommendation``.
+    dict with ``p_boot`` (symmetric, ``#{|t*| > |t|} / B`` as in
+    ``boottest``), ``ci_boot``, ``beta_hat``, ``t_stat``, ``se_cluster``,
+    ``n_subclusters``, ``n_boot`` (``2**S`` when Rademacher weights and
+    ``2**S <= n_boot`` trigger full enumeration), ``enumerated`` and
+    ``recommendation``.
 
     Examples
     --------
@@ -150,24 +153,31 @@ def subcluster_wild_bootstrap(
     beta_r[j_test] = h0
     resid_r = Y - X @ beta_r
 
-    # Bootstrap
-    t_boot = np.empty(n_boot)
-    fitted_r = X @ beta_r
-    X_T = X.T
-    for b in range(n_boot):
-        w = _draw_weights(S, weight_type, rng)
-        w_obs = w[sc_idx]
-        Y_star = fitted_r + w_obs * resid_r
-        beta_b = XtX_inv @ X_T @ Y_star
-        resid_b = Y_star - X @ beta_b
-        scores_b = np.zeros((G, k))
-        np.add.at(scores_b, cl_idx, X * resid_b[:, None])
-        meat_b = scores_b.T @ scores_b
-        V_b = correction * XtX_inv @ meat_b @ XtX_inv
-        se_b = np.sqrt(max(V_b[j_test, j_test], 1e-20))
-        t_boot[b] = (beta_b[j_test] - h0) / se_b
+    # Bootstrap: signs flipped per sub-cluster, SE clustered at ``cluster``.
+    # Rademacher with 2**S <= n_boot enumerates the full grid, as boottest's
+    # bootcluster() option does.
+    from .wild_bootstrap import (
+        _symmetric_boot_pvalue,
+        _wcr_t_stats,
+        _wild_weight_matrix,
+    )
 
-    p_boot = float(np.mean(np.abs(t_boot) >= np.abs(t_stat)))
+    W, enumerated = _wild_weight_matrix(S, n_boot, weight_type, rng)
+    t_boot = _wcr_t_stats(
+        X,
+        XtX_inv,
+        X @ beta_r,
+        resid_r,
+        np.asarray(sc_idx, dtype=np.int64),
+        cl_idx,
+        G,
+        j_test,
+        h0,
+        correction,
+        W,
+    )
+
+    p_boot = _symmetric_boot_pvalue(t_boot, t_stat, W)
     t_lo = np.percentile(t_boot, 100 * alpha / 2)
     t_hi = np.percentile(t_boot, 100 * (1 - alpha / 2))
     ci = (beta_test - t_hi * se_cl, beta_test - t_lo * se_cl)
@@ -184,7 +194,9 @@ def subcluster_wild_bootstrap(
         "ci_boot": ci,
         "n_clusters": G,
         "n_subclusters": S,
-        "n_boot": n_boot,
+        "n_boot": int(W.shape[0]),
+        "n_boot_requested": n_boot,
+        "enumerated": bool(enumerated),
         "weight_type": weight_type,
         "recommendation": rec,
     }
@@ -211,8 +223,12 @@ def wild_cluster_ci_inv(
     small-cluster coverage than the percentile-t CI.
 
     The grid is centered on the OLS point estimate with half-width
-    ``grid_span * se_cluster`` and ``grid_size`` evenly-spaced points.
-    Linear interpolation refines the boundary.
+    ``grid_span * se_cluster`` and ``grid_size`` evenly-spaced points. It
+    only brackets each endpoint: the bootstrap p-value is a step function
+    of the null value, and the bracket is then bisected to machine
+    precision to locate the jump where p falls below ``alpha``. With
+    Rademacher weights and ``2**G <= n_boot`` the bootstrap grid is
+    enumerated, so the interval is exact and reproduces Stata ``boottest``.
 
     Shares the data / model arguments of :func:`subcluster_wild_bootstrap`;
     the grid-specific parameters are documented below.
@@ -270,40 +286,67 @@ def wild_cluster_ci_inv(
     if grid_size % 2 == 0:
         grid_size += 1
 
-    grid = beta_hat + np.linspace(-grid_span, grid_span, grid_size) * se_cl
-    p_grid = np.empty(grid_size)
-    for i, h0 in enumerate(grid):
-        res = wild_cluster_bootstrap(
-            data,
-            y,
-            x,
-            cluster,
-            test_var=test_var,
-            h0=float(h0),
-            n_boot=n_boot,
-            weight_type=weight_type,
-            seed=seed,
-            alpha=alpha,
+    def _p_at(h0: float) -> float:
+        return float(
+            wild_cluster_bootstrap(
+                data,
+                y,
+                x,
+                cluster,
+                test_var=test_var,
+                h0=float(h0),
+                n_boot=n_boot,
+                weight_type=weight_type,
+                seed=seed,
+                alpha=alpha,
+            )["p_boot"]
         )
-        p_grid[i] = res["p_boot"]
 
-    # Boundary: where p crosses alpha
-    def _cross(h_arr: np.ndarray, p_arr: np.ndarray, level: float) -> Optional[float]:
-        sign = np.sign(p_arr - level)
-        idx = np.where(np.diff(sign) != 0)[0]
-        if idx.size == 0:
+    grid = beta_hat + np.linspace(-grid_span, grid_span, grid_size) * se_cl
+    p_grid = np.array([_p_at(h0) for h0 in grid])
+
+    # The bootstrap p-value is a step function of h0 (it only changes when
+    # |t*_b(h0)| crosses |t(h0)|), so the interval endpoint is the location of
+    # a jump, not a point where p equals alpha. Bracket the first crossing
+    # outward from the estimate on the grid, then bisect the bracket down to
+    # machine precision -- the search Stata ``boottest`` / R
+    # ``fwildclusterboot`` perform. (Linear interpolation of p between grid
+    # points, used before, placed the endpoint anywhere inside a bracket that
+    # is ``2 * grid_span / (grid_size - 1)`` cluster SEs wide.)
+    def _endpoint(h_arr: np.ndarray, p_arr: np.ndarray) -> Optional[float]:
+        inside = p_arr >= alpha
+        if not inside[0]:
             return None
-        # Linear interpolation on the first crossing
-        i = int(idx[0])
-        x0, x1 = h_arr[i], h_arr[i + 1]
-        y0, y1 = p_arr[i] - level, p_arr[i + 1] - level
-        if y1 == y0:
-            return float((x0 + x1) / 2)
-        return float(x0 - y0 * (x1 - x0) / (y1 - y0))
+        out_idx = np.where(~inside)[0]
+        if out_idx.size == 0:
+            return None
+        j = int(out_idx[0])
+        h_in, h_out = float(h_arr[j - 1]), float(h_arr[j])
+        for _ in range(200):
+            mid = 0.5 * (h_in + h_out)
+            if mid in (h_in, h_out):
+                break
+            if _p_at(mid) >= alpha:
+                h_in = mid
+            else:
+                h_out = mid
+        return 0.5 * (h_in + h_out)
 
     mid = grid_size // 2
-    lo_candidate = _cross(grid[: mid + 1][::-1], p_grid[: mid + 1][::-1], alpha)
-    hi_candidate = _cross(grid[mid:], p_grid[mid:], alpha)
+    lo_candidate = _endpoint(grid[: mid + 1][::-1], p_grid[: mid + 1][::-1])
+    hi_candidate = _endpoint(grid[mid:], p_grid[mid:])
+    if lo_candidate is None or hi_candidate is None:
+        import warnings
+
+        warnings.warn(
+            "wild_cluster_ci_inv: the bootstrap p-value does not fall below "
+            f"alpha={alpha} inside the search grid on "
+            f"{'both sides' if lo_candidate is None and hi_candidate is None else ('the lower side' if lo_candidate is None else 'the upper side')}"
+            "; the reported bound is the grid edge, not an inverted "
+            "endpoint. Increase grid_span.",
+            UserWarning,
+            stacklevel=2,
+        )
     ci = (
         lo_candidate if lo_candidate is not None else float(grid[0]),
         hi_candidate if hi_candidate is not None else float(grid[-1]),

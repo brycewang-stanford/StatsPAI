@@ -35,7 +35,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from statspai.rlasso import rlassologit
+import statspai as sp
 from statspai.rlasso._logit import _glmnet_logit_lasso
 
 _FIXTURE_DIR = pathlib.Path(__file__).parent / "_fixtures"
@@ -79,7 +79,7 @@ def test_glmnet_engine_matches_R(data, R):
 def test_rlassologit_matches_hdm(data, R, key, kwargs, btol):
     X, y, cols = data
     exp = R[key]
-    fit = rlassologit(X, y, colnames=cols, **kwargs)
+    fit = sp.rlassologit(X, y, colnames=cols, **kwargs)
     # exact support — the crux for post-Lasso correctness
     assert np.array_equal(fit.index, np.array(exp["index"], dtype=bool))
     assert fit.n_selected == exp["n_selected"]
@@ -92,7 +92,7 @@ def test_rlassologit_matches_hdm(data, R, key, kwargs, btol):
 
 def test_rlassologit_predict_matches_hdm(data, R):
     X, y, cols = data
-    fit = rlassologit(X, y, post=True, colnames=cols)
+    fit = sp.rlassologit(X, y, post=True, colnames=cols)
     np.testing.assert_allclose(
         fit.predict(X, type="response")[:10], R["predict_first10_response"], atol=1e-5
     )

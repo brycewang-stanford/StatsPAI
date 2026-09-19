@@ -1241,9 +1241,9 @@ EXTRA_AGENT_CARDS: Dict[str, Dict[str, Any]] = {
             "sub-comparison being harvested and aggregated",
             "No anticipation before each cohort's first treated "
             "period (reference horizon -1 is clean)",
-            "Independence across units within each cohort "
-            "(unit-level cluster-robust SEs); cross-horizon "
-            "covariance ignored",
+            "Independence across units (unit-level influence "
+            "functions; the joint covariance across cells, "
+            "horizons and estimated weights is propagated)",
         ],
         "pre_conditions": [
             "Long-format panel with unit, time, outcome " "columns",

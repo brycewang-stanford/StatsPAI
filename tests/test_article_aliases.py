@@ -237,13 +237,18 @@ def test_partial_identification_horowitz_manski():
             result.ci_lower[0],
             result.ci_upper[1],
         ],
+        # Since 1.29 strata missing an arm keep their mass instead of being
+        # skipped. Worst-case bounds are then exactly y_upper - y_lower apart
+        # in every bootstrap replicate, so the two SEs coincide; before the
+        # fix replicates with a one-arm stratum shrank the interval and the
+        # SEs read 0.017183 / 0.017198.
         [
             -0.4197111111111112,
             0.5802888888888889,
-            0.017182722206985006,
-            0.017197641483617028,
-            -0.4525719611264917,
-            0.6120289801491436,
+            0.01609893060429312,
+            0.016098930604293127,
+            -0.4518033241740242,
+            0.6113033241740242,
         ],
         atol=1e-12,
     )
@@ -366,7 +371,10 @@ def test_conditional_lr_ci_smoke():
             out.statistic.min(),
             out.in_set.sum(),
         ],
-        [0.38961326163064824, 0.6762307859953762, 201, 3.78068207615837, 0.0, 40],
+        # 1.29: the conditional critical value is exact (method='exact').
+        # With one instrument CLR = AR, so it is the chi2(1) 95% quantile
+        # 3.841459 -- the simulated value it replaces was 3.7807 (MC error).
+        [0.3882823085289525, 0.6772464031207173, 201, 3.8414588206941205, 0.0, 40],
         atol=5e-9,
     )
     # The endpoints must sit strictly between two grid nodes; landing on one

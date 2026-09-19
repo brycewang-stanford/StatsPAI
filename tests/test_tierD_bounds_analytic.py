@@ -210,36 +210,29 @@ class TestOsterDeltaAnalytic:
         assert res.lower == pytest.approx(res.upper, abs=2e-2)
         assert res.lower == pytest.approx(beta, abs=5e-2)
 
-    def test_matches_oster_eq3(self):
-        # Re-derive Oster (2019) eq. 3 from the same OLS fits the estimator
-        # uses and assert the identified set endpoints match exactly. This
-        # pins the implementation to its documented analytic formula.
+    def test_matches_exact_oster_solution(self):
+        # The identified set is [beta*(delta=1), beta_full] with beta* the
+        # EXACT root of Oster's quadratic (the solution her Stata psacalc
+        # reports; cross-language parity lives in
+        # tests/reference_parity/test_inference_sens_stata_parity.py). The
+        # default r_max = 1.3 is Oster's recommendation min(1, 1.3 R_full),
+        # not an R-squared of 1.3 (which the pre-1.28 code used).
+        from statspai.diagnostics._oster import oster_beta_exact, oster_inputs
+
         rng = np.random.default_rng(12)
         n = 1500
         c = rng.normal(0, 1, n)  # confounder
         t = 0.6 * c + rng.normal(0, 1, n)  # selection on observable
         y = 1.0 * t + 1.5 * c + rng.normal(0, 0.5, n)
         df = pd.DataFrame({"y": y, "t": t, "c": c})
-        r_max = 1.3
 
-        Y = df["y"].values
-        n_ = len(df)
-        Xs = np.column_stack([np.ones(n_), df["t"].values])
-        bs = np.linalg.lstsq(Xs, Y, rcond=None)[0]
-        beta_short = bs[1]
-        r2_short = 1 - np.var(Y - Xs @ bs) / np.var(Y)
-        Xf = np.column_stack([np.ones(n_), df["t"].values, df["c"].values])
-        bf = np.linalg.lstsq(Xf, Y, rcond=None)[0]
-        beta_full = bf[1]
-        r2_full = 1 - np.var(Y - Xf @ bf) / np.var(Y)
+        inp = oster_inputs(df, "y", "t", ["c"])
+        r_max = min(1.0, 1.3 * inp["r_t"])
+        beta_star = oster_beta_exact(inp, r_max, 1.0)["beta"]
+        exp_lo, exp_hi = min(inp["beta_t"], beta_star), max(inp["beta_t"], beta_star)
 
-        bias = (beta_short - beta_full) * (r_max - r2_full) / (r2_full - r2_short)
-        beta_star = beta_full - bias
-        exp_lo, exp_hi = min(beta_full, beta_star), max(beta_full, beta_star)
-
-        res = sp.oster_delta(
-            df, y="y", x_base=["t"], x_controls=["c"], r_max=r_max, n_boot=10
-        )
+        res = sp.oster_delta(df, y="y", x_base=["t"], x_controls=["c"], n_boot=10)
+        assert res.model_info["r_max"] == pytest.approx(r_max, rel=1e-14)
         assert res.lower == pytest.approx(exp_lo, abs=1e-9)
         assert res.upper == pytest.approx(exp_hi, abs=1e-9)
 

@@ -285,7 +285,11 @@ def fisher_exact(
         When provided, the test statistic is computed on residuals
         from regressing Y on controls.
     n_perm : int, default 10000
-        Number of random permutations.
+        Number of random permutations. When the design admits no more than
+        ``n_perm`` distinct assignments (complete, cluster or stratified
+        randomization) they are all enumerated instead, so the p-value is
+        exact (the R ``ri2`` / ``randomizr`` rule), and ``n_perm`` on the
+        result reports the number of assignments.
     stratify : str, optional
         Variable for stratified permutation (permute within strata).
     cluster : str, optional
@@ -380,11 +384,25 @@ def fisher_exact(
 
         perm_fn = unrestricted_permute
 
-    # Permutation distribution
-    perm_stats = np.zeros(n_perm)
-    for b in range(n_perm):
-        D_perm = perm_fn()
-        perm_stats[b] = stat_fn(Y, D_perm)
+    # Permutation distribution. When the design has no more distinct
+    # assignments than ``n_perm`` they are enumerated (the ri2 / randomizr
+    # rule), which makes the randomization distribution -- and the p-value --
+    # exact rather than a Monte-Carlo estimate.
+    assignments = _enumerate_assignments(
+        D,
+        clusters=df[cluster].values if cluster is not None else None,
+        strata=(
+            df[stratify].values if (stratify is not None and cluster is None) else None
+        ),
+        max_count=n_perm,
+    )
+    if assignments is not None:
+        perm_stats = np.array([stat_fn(Y, a) for a in assignments])
+    else:
+        perm_stats = np.zeros(n_perm)
+        for b in range(n_perm):
+            D_perm = perm_fn()
+            perm_stats[b] = stat_fn(Y, D_perm)
 
     # P-values
     p_two_sided = float(np.mean(np.abs(perm_stats) >= np.abs(obs_stat)))
@@ -392,7 +410,9 @@ def fisher_exact(
 
     # Hodges-Lehmann confidence interval (only for ATE)
     if statistic == "ate":
-        ci = _hodges_lehmann_ci(Y, D, stat_fn, perm_fn, n_perm, alpha, rng)
+        ci = _hodges_lehmann_ci(
+            Y, D, stat_fn, perm_fn, n_perm, alpha, rng, assignments=assignments
+        )
     else:
         # For non-ATE statistics, use percentile CI from permutation dist
         ci = (
@@ -407,7 +427,7 @@ def fisher_exact(
         ci=ci,
         perm_dist=perm_stats,
         statistic_type=statistic,
-        n_perm=n_perm,
+        n_perm=int(perm_stats.size),
         n_obs=n,
         n_treated=n_treated,
     )
@@ -466,7 +486,11 @@ def ri_test(
         - ``'t'``: t-statistic
         - A callable ``f(Y, D) -> float`` for custom statistics.
     n_perms : int, default 1000
-        Number of random permutations. Use 10000+ for publications.
+        Number of random permutations. Use 10000+ for publications. When
+        the design admits no more than ``n_perms`` distinct assignments
+        (``C(n, n_1)``, or ``C(G, G_1)`` under ``cluster``) every assignment
+        is enumerated instead and the p-value is exact -- the rule R
+        ``ri2`` / ``randomizr::obtain_permutation_matrix`` apply.
     cluster : str, optional
         Cluster-level permutation (permute treatment at cluster level).
     seed : int, optional
@@ -479,7 +503,9 @@ def ri_test(
         ``'observed'``: observed test statistic
         ``'p_value'``: two-sided randomization p-value
         ``'p_one_sided'``: one-sided (greater) p-value
-        ``'n_perms'``: number of permutations used
+        ``'n_perms'``: number of permutations used (the number of distinct
+        assignments when they were enumerated)
+        ``'exact'``: True when every assignment of the design was enumerated
         ``'perm_distribution'``: array of permuted statistics
 
     Examples
@@ -493,7 +519,7 @@ def ri_test(
     >>> result = sp.ri_test(df, y='outcome', treat='treatment',
     ...                     n_perms=2000, seed=42)
     >>> sorted(result.keys())
-    ['n_perms', 'observed', 'p_one_sided', 'p_value', 'perm_distribution']
+    ['exact', 'n_perms', 'observed', 'p_one_sided', 'p_value', 'perm_distribution']
     >>> bool(0.0 <= result['p_value'] <= 1.0)
     True
     >>> result['n_perms']
@@ -564,12 +590,16 @@ def ri_test(
     # Observed statistic
     obs_stat = float(stat_fn(Y, D))
 
-    # Permutation distribution
-    perm_stats = np.zeros(n_perms)
-
-    if cluster:
+    # Permutation distribution: exact enumeration when the design has no more
+    # distinct assignments than ``n_perms`` (the ri2 / randomizr rule),
+    # otherwise ``n_perms`` random re-randomizations.
+    cl = df["_cluster"].values if cluster else None
+    assignments = _enumerate_assignments(D, clusters=cl, max_count=n_perms)
+    if assignments is not None:
+        perm_stats = np.array([stat_fn(Y, a) for a in assignments])
+    elif cluster:
+        perm_stats = np.zeros(n_perms)
         # Cluster-level permutation
-        cl = df["_cluster"].values
         unique_cl = np.unique(cl)
         # Get treatment per cluster (first obs)
         cl_treat = np.array([D[cl == c][0] for c in unique_cl])
@@ -580,11 +610,13 @@ def ri_test(
                 D_perm[cl == c] = cl_perm[i]
             perm_stats[b] = stat_fn(Y, D_perm)
     else:
+        perm_stats = np.zeros(n_perms)
         for b in range(n_perms):
             D_perm = rng.permutation(D)
             perm_stats[b] = stat_fn(Y, D_perm)
 
-    # P-values
+    # P-values (ties with the observed statistic count as extreme; the
+    # enumerated set contains the observed assignment itself)
     p_two_sided = float(np.mean(np.abs(perm_stats) >= np.abs(obs_stat)))
     p_one_sided = float(np.mean(perm_stats >= obs_stat))
 
@@ -592,7 +624,8 @@ def ri_test(
         "observed": obs_stat,
         "p_value": p_two_sided,
         "p_one_sided": p_one_sided,
-        "n_perms": n_perms,
+        "n_perms": int(perm_stats.size),
+        "exact": assignments is not None,
         "perm_distribution": perm_stats,
     }
 
@@ -637,6 +670,59 @@ def _get_stat_fn(statistic: str) -> StatFn:
         raise ValueError(
             f"Unknown statistic: '{statistic}'. " f"Use 'ate', 'ks', or 'rank_sum'."
         )
+
+
+def _enumerate_assignments(
+    D: np.ndarray,
+    clusters: Optional[np.ndarray] = None,
+    strata: Optional[np.ndarray] = None,
+    max_count: int = 10000,
+) -> Optional[np.ndarray]:
+    """Every treatment vector the design could have produced, or ``None``.
+
+    Complete randomization of ``n_1`` treated among ``n`` units (optionally
+    within ``strata``, keeping each stratum's treated count), or of treated
+    *clusters* when ``clusters`` is given (units inherit their cluster's
+    assignment). Returns an array of shape ``(N_assign, n)`` when
+    ``N_assign <= max_count`` -- the rule R ``randomizr::
+    obtain_permutation_matrix`` uses to switch from sampling to exact
+    enumeration -- and ``None`` otherwise. The observed assignment is one of
+    the rows.
+    """
+    from itertools import combinations, product
+    from math import comb, prod
+
+    D = np.asarray(D, dtype=float)
+    if not np.all(np.isin(D, (0.0, 1.0))):
+        return None
+    if clusters is not None:
+        _, inv = np.unique(clusters, return_inverse=True)
+        n_units = int(inv.max()) + 1
+        unit_D = np.array([D[inv == g][0] for g in range(n_units)])
+        if not all(np.all(D[inv == g] == unit_D[g]) for g in range(n_units)):
+            return None  # treatment varies within a cluster
+        blocks = [np.arange(n_units)]
+    else:
+        inv = None
+        unit_D = D
+        if strata is not None:
+            blocks = [np.where(strata == s_)[0] for s_ in np.unique(strata)]
+        else:
+            blocks = [np.arange(D.size)]
+    m = [int(unit_D[b].sum()) for b in blocks]
+    total = prod(comb(len(b), k) for b, k in zip(blocks, m))
+    if total > max_count:
+        return None
+    per_block = [
+        [b[list(c)] for c in combinations(range(len(b)), k)] for b, k in zip(blocks, m)
+    ]
+    out = np.zeros((total, unit_D.size))
+    for r, choice in enumerate(product(*per_block)):
+        for idx in choice:
+            out[r, idx] = 1.0
+    if inv is not None:
+        out = out[:, inv]
+    return out
 
 
 def _make_cluster_permuter(
@@ -697,6 +783,7 @@ def _hodges_lehmann_ci(
     alpha: float,
     rng: np.random.Generator,
     n_grid: int = 101,
+    assignments: Optional[np.ndarray] = None,
 ) -> Tuple[float, float]:
     """
     Hodges-Lehmann confidence interval by inverting the permutation test.
@@ -724,7 +811,17 @@ def _hodges_lehmann_ci(
         Y_adj = Y - tau_0 * D
         obs_adj = float(stat_fn(Y_adj, D))
 
-        # Quick permutation test
+        # Quick permutation test (exact over the enumerated assignments when
+        # the design was enumerated)
+        if assignments is not None:
+            # The interval is only built for the difference in means, which
+            # is linear in the assignment: evaluate every assignment at once.
+            n1 = assignments.sum(axis=1)
+            t_perm_all = (assignments @ Y_adj) / n1 - ((1.0 - assignments) @ Y_adj) / (
+                assignments.shape[1] - n1
+            )
+            p_values[i] = float(np.mean(np.abs(t_perm_all) >= abs(obs_adj)))
+            continue
         count = 0
         for b in range(n_perm_grid):
             D_perm = perm_fn()

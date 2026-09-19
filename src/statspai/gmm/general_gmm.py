@@ -157,6 +157,7 @@ def gmm(
     cluster: Optional[Any] = None,
     hac_bandwidth: Optional[int] = None,
     center: bool = False,
+    sandwich_weight: str = "reestimated",
 ) -> EconometricResults:
     """
     General GMM estimator for arbitrary moment conditions.
@@ -202,6 +203,16 @@ def gmm(
     center : bool, default False
         Centre the moments before forming ``S``. ``False`` matches Stata,
         ``True`` matches R's ``gmm``.
+    sandwich_weight : {'reestimated', 'estimation'}, default 'reestimated'
+        Weight inside the robust variance of the two-step / iterated
+        estimators.  ``'reestimated'`` uses ``S⁻¹`` re-evaluated at the
+        final estimate, so the sandwich collapses to ``(D'S⁻¹D)⁻¹/n`` (R
+        ``gmm::gmm``).  ``'estimation'`` uses the weight the final round was
+        *minimised* with -- computed from the penultimate estimate -- with
+        ``S`` at the final estimate: ``(D'WD)⁻¹ D'WSWD (D'WD)⁻¹ / n``, as
+        Stata's ``gmm`` documents in its Methods and formulas.  The two
+        coincide for the iterated estimator at convergence and for the
+        one-step estimator; for two-step they differ at order 1/n.
 
     Returns
     -------
@@ -243,6 +254,11 @@ def gmm(
         raise ValueError(f"gmm: se must be one of {_VALID_SE}, got {se!r}.")
     if vcov not in _VALID_VCOV:
         raise ValueError(f"gmm: vcov must be one of {_VALID_VCOV}, got {vcov!r}.")
+    if sandwich_weight not in ("reestimated", "estimation"):
+        raise ValueError(
+            "gmm: sandwich_weight must be 'reestimated' or 'estimation', got "
+            f"{sandwich_weight!r}."
+        )
 
     theta0 = np.asarray(theta0, dtype=float).ravel()
     k = theta0.size
@@ -313,7 +329,39 @@ def gmm(
             method="BFGS",
             options={"maxiter": maxiter, "gtol": tol},
         )
-        return res.x, int(res.nit), bool(res.success)
+        theta_gn, n_gn, gn_ok = _gauss_newton_polish(res.x, W_mat)
+        # BFGS on a finite-difference gradient reports "precision loss"
+        # long before the parameters stop moving at the 1e-8 level; the
+        # Gauss-Newton finish (Stata gmm's own algorithm) is what certifies
+        # convergence.
+        return theta_gn, int(res.nit) + n_gn, gn_ok
+
+    def _gauss_newton_polish(theta: np.ndarray, W_mat: np.ndarray) -> tuple:
+        """Gauss-Newton steps ``θ ← θ − (D'WD)⁻¹ D'W ḡ`` with backtracking.
+
+        Converges to the minimiser of ``ḡ'Wḡ`` to machine precision in a
+        few steps from a BFGS start; returns ``(θ, steps, converged)``.
+        """
+        theta = np.asarray(theta, dtype=float).copy()
+        f0 = objective(theta, W_mat)
+        for it in range(1, 101):
+            gb = g_bar(theta)
+            D = D_at(theta)
+            DtW = D.T @ W_mat
+            step = -_safe_inv(DtW @ D) @ (DtW @ gb)
+            t = 1.0
+            for _ in range(40):
+                cand = theta + t * step
+                f1 = objective(cand, W_mat)
+                if np.isfinite(f1) and f1 <= f0 * (1.0 + 1e-12) + 1e-300:
+                    break
+                t *= 0.5
+            else:
+                return theta, it, bool(np.max(np.abs(step)) < 1e-8)
+            theta, f0 = cand, f1
+            if float(np.max(np.abs(t * step) / (1.0 + np.abs(theta)))) < 1e-14:
+                return theta, it, True
+        return theta, 100, False
 
     n_iter_total = 0
     converged = True
@@ -369,7 +417,10 @@ def gmm(
     # evaluated at the same S, so the variance re-anchors S at the final
     # estimate while J keeps the weight that was actually minimised.
     W_est = W_opt
-    W_var = _safe_inv(S_hat) if weight_is_efficient else W_opt
+    if weight_is_efficient and sandwich_weight == "reestimated":
+        W_var = _safe_inv(S_hat)
+    else:
+        W_var = W_opt
 
     DtW = D.T @ W_var
     DtWD_inv = _safe_inv(DtW @ D)
@@ -409,6 +460,7 @@ def gmm(
             "overidentified": q > k,
             "vcov": vcov,
             "center": center,
+            "sandwich_weight": sandwich_weight,
             "affine": is_affine,
             "analytic_jacobian": jacobian is not None,
         },

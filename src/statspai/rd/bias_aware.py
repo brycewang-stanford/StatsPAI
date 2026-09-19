@@ -39,15 +39,22 @@ NBER Working Paper No. 33972. doi:10.3386/w33972. [@kaliski2025power]
 from __future__ import annotations
 
 import warnings
-from typing import Optional
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import stats
+from scipy import optimize, stats
 
 from ..core.results import CausalResult
-from ._core import _kernel_fn, _local_poly_wls
-from .honest_ci import _ak_critical_value, _estimate_M
+from ._rdhonest import (
+    _hmin,
+    _ik_bandwidth,
+    _kern,
+    cv_bias,
+    honest_bias,
+    honest_weights,
+    m_rule_of_thumb,
+)
 
 
 def rd_bias_aware_fuzzy(
@@ -85,17 +92,22 @@ def rd_bias_aware_fuzzy(
     c : float, default 0.0
         RD cutoff.
     M_y, M_d : float, optional
-        Smoothness bounds on |g_Y''| and |g_D''|.  If ``None``, both
-        are estimated from a local-quadratic fit on each side of the
-        cutoff (the same default as :func:`rd_honest`).
+        Smoothness bounds on |g_Y''| and |g_D''|.  If ``None``, each is
+        Armstrong & Kolesar's rule of thumb (R ``RDHonest``'s ``MROT``:
+        the largest ``|f''|`` of a global quartic on each side), as in
+        :func:`rd_honest`.
     h : float, optional
-        Bandwidth.  If ``None``, defaults to a Silverman pilot.
+        Bandwidth.  If ``None``, R ``RDHonest``'s default for a fuzzy
+        design: the MSE-optimal honest bandwidth with ``T0 = 0``.
     kernel : str, default ``'triangular'``
         Kernel.
     alpha : float, default 0.05
         Significance level.
     cluster : str, optional
-        Cluster variable for variance estimation.
+        Cluster variable. The variance of the jump estimator is then the
+        cluster-sum form RDHonest uses (EHW residuals, no finite-sample
+        factor); without clusters it is RDHonest's nearest-neighbour
+        variance (``J = 3``).
     n_grid : int, default 401
         Grid resolution for the AR-style test inversion.
 
@@ -103,8 +115,11 @@ def rd_bias_aware_fuzzy(
     -------
     CausalResult
         Result with ``model_info['bias_aware']`` containing
-        ``M_y``, ``M_d``, ``naive_ci`` (standard CCT-style fuzzy CI),
-        ``bias_aware_ci``, ``rejection_grid`` and ``first_stage_F``.
+        ``M_y``, ``M_d``, ``naive_ci`` (Wald ratio +/- z * delta-method SE),
+        ``bias_aware_ci`` (the Anderson-Rubin-type set), ``rdhonest``
+        (R ``RDHonest``'s linearised honest fuzzy CI: estimate, std.error,
+        maximum.bias, conf.low / conf.high), ``rejection_grid`` and
+        ``first_stage_F``.
 
     Notes
     -----
@@ -112,10 +127,25 @@ def rd_bias_aware_fuzzy(
 
         T(τ_0) = (Δ̂_Y − τ_0 · Δ̂_D) / σ̂(τ_0)
 
-    has |T(τ_0)| ≤ cv(b(τ_0)) where ``b(τ_0)`` is the worst-case bias-
-    to-noise ratio of the numerator–denominator combination.  The grid
-    inversion accommodates non-convex CIs that arise under weak first
-    stages.
+    has |T(τ_0)| ≤ cv(b(τ_0)) where ``b(τ_0) = (M_Y + |τ_0| M_D) B / σ̂(τ_0)``
+    is the worst-case bias-to-noise ratio of the numerator–denominator
+    combination and ``B`` the exact Hölder-class worst-case bias of the
+    local-linear jump per unit of ``M`` (from the realised weights). The
+    grid inversion accommodates non-convex CIs under weak first stages.
+
+    Every ingredient -- the jumps, the 2x2 variance, ``B``, the rule-of-
+    thumb ``M`` and the default bandwidth -- is R ``RDHonest``'s; at
+    ``τ_0 = τ̂`` the statistic's bias and noise are exactly RDHonest's
+    ``maximum.bias`` and ``std.error`` times ``|Δ̂_D|``
+    (tests/reference_parity/test_rd_iv_rd_R_parity.py). The inversion
+    itself follows Noack & Rothe (2024); RDHonest reports the linearised
+    interval instead, which is returned alongside.
+
+    Through 1.28.0 the bias bound was the closed form ``h² M / 12``, which
+    understates the worst-case local-linear boundary bias (the asymptotic
+    constant is 1/10 for the triangular kernel), ``M`` came from local
+    quadratic curvature at the cutoff, and the default bandwidth was a
+    Silverman rule of thumb.
 
     Examples
     --------
@@ -154,67 +184,27 @@ def rd_bias_aware_fuzzy(
     if alpha <= 0 or alpha >= 1:
         raise ValueError("alpha must be in (0, 1).")  # pragma: no cover
 
-    # --- Bandwidth ---------------------------------------------------
-    if h is None:
-        h = 1.06 * float(np.std(X)) * (n_obs ** (-1 / 5))
-        h = max(h, 1e-6)
+    order = np.argsort(X, kind="mergesort")
+    X, Y, D = X[order], Y[order], D[order]
+    cl = cl[order] if cl is not None else None
+    YD = np.column_stack([Y, D])
 
-    # --- M estimation -------------------------------------------------
+    # --- M and bandwidth (RDHonest defaults) --------------------------
     M_y_estimated = M_y is None
     M_d_estimated = M_d is None
     if M_y is None:
-        M_y = _estimate_M(Y, X, 0.0, h, kernel)
+        M_y = m_rule_of_thumb(X, Y, 0.0)
     if M_d is None:
-        M_d = _estimate_M(D, X, 0.0, h, kernel)
-    M_y = max(float(M_y), 1e-12)
-    M_d = max(float(M_d), 1e-12)
+        M_d = m_rule_of_thumb(X, D, 0.0)
+    M_y, M_d = float(M_y), float(M_d)
+    if h is None:
+        h = _frd_bandwidth(X, YD, M_y, M_d, kernel, alpha)
+    h = float(h)
 
-    # --- Local-linear point estimates on each side -------------------
-    left = X < 0
-    right = X >= 0
+    comp = _frd_components(X, YD, h, kernel, cl=cl)
+    delta_y, delta_d, V, B = comp["delta_y"], comp["delta_d"], comp["V"], comp["B"]
+    var_dd = float(V[3])
 
-    beta_y_l, vcov_y_l, n_yl = _local_poly_wls(
-        Y[left],
-        X[left],
-        h,
-        p=1,
-        kernel=kernel,
-        cluster=cl[left] if cl is not None else None,
-    )
-    beta_y_r, vcov_y_r, n_yr = _local_poly_wls(
-        Y[right],
-        X[right],
-        h,
-        p=1,
-        kernel=kernel,
-        cluster=cl[right] if cl is not None else None,
-    )
-    beta_d_l, vcov_d_l, _ = _local_poly_wls(
-        D[left],
-        X[left],
-        h,
-        p=1,
-        kernel=kernel,
-        cluster=cl[left] if cl is not None else None,
-    )
-    beta_d_r, vcov_d_r, _ = _local_poly_wls(
-        D[right],
-        X[right],
-        h,
-        p=1,
-        kernel=kernel,
-        cluster=cl[right] if cl is not None else None,
-    )
-
-    delta_y = float(beta_y_r[0] - beta_y_l[0])
-    delta_d = float(beta_d_r[0] - beta_d_l[0])
-    var_dy = float(vcov_y_r[0, 0] + vcov_y_l[0, 0])
-    var_dd = float(vcov_d_r[0, 0] + vcov_d_l[0, 0])
-    cov_yd = float(_local_cov_yd(Y, D, X, h, kernel, cl))
-
-    # Use a relative threshold to detect a near-zero first stage so the
-    # naive Wald CI does not collapse to an essentially-infinite interval
-    # whose seed range corrupts the AR grid below.
     sd_d = float(np.std(D)) if len(D) else 1.0
     weak_first_stage = abs(delta_d) < 0.01 * max(sd_d, 1e-6)
     if weak_first_stage:
@@ -225,63 +215,68 @@ def rd_bias_aware_fuzzy(
             UserWarning,
         )
 
-    # Naive Wald-ratio point estimate and delta-method CI
+    z = stats.norm.ppf(1 - alpha / 2)
     if weak_first_stage:
         tau_hat = float("nan")  # pragma: no cover
         se_naive = float("nan")  # pragma: no cover
         naive_ci = (float("-inf"), float("inf"))
+        rdhonest: Dict[str, Any] = {}
     else:
         tau_hat = delta_y / delta_d
-        se_naive = float(
-            np.sqrt(max(var_dy + tau_hat**2 * var_dd - 2 * tau_hat * cov_yd, 0))
-            / abs(delta_d)
-        )
-        z = stats.norm.ppf(1 - alpha / 2)
+        se_naive = _se_comb(V, tau_hat) / abs(delta_d)
         naive_ci = (tau_hat - z * se_naive, tau_hat + z * se_naive)
-
-    # --- Bias bounds for numerator and denominator -------------------
-    Ck = _kernel_bias_constant(kernel)
-    bias_y = Ck * h**2 * M_y
-    bias_d = Ck * h**2 * M_d
+        # R RDHonest's reported (linearised) honest interval.
+        max_bias = (M_y + M_d * abs(tau_hat)) * B / abs(delta_d)
+        b_ratio = max_bias / se_naive if se_naive > 0 else float("inf")
+        cv_hat = cv_bias(b_ratio, alpha)
+        rdhonest = {
+            "estimate": tau_hat,
+            "std.error": se_naive,
+            "maximum.bias": max_bias,
+            "cv": cv_hat,
+            "conf.low": tau_hat - cv_hat * se_naive,
+            "conf.high": tau_hat + cv_hat * se_naive,
+            "p.value": float(
+                stats.norm.cdf(b_ratio - abs(tau_hat / se_naive))
+                + stats.norm.cdf(-b_ratio - abs(tau_hat / se_naive))
+            ),
+        }
 
     # --- AR-style inversion -------------------------------------------
-    # Build the grid around the naive point estimate when the first
-    # stage is strong; otherwise span a wide neutral window so the
-    # AR test inverts symmetrically around 0.
+    def _excess(t0: float) -> float:
+        """``|T(t0)| - cv(b(t0))``: negative inside the set."""
+        se_t = _se_comb(V, t0)
+        if se_t <= 0:  # pragma: no cover - degenerate
+            return float("inf")
+        bias_t = (M_y + abs(t0) * M_d) * B
+        return abs(delta_y - t0 * delta_d) / se_t - cv_bias(bias_t / se_t, alpha)
+
     if np.isfinite(tau_hat) and np.isfinite(se_naive):
         span = max(abs(tau_hat) + 6 * se_naive, 5.0)
         grid_lo = tau_hat - span
         grid_hi = tau_hat + span
     else:
-        # Weak first stage: use the scale of |Δ_Y| and σ to pick a window
-        scale = max(abs(delta_y), 6 * float(np.sqrt(var_dy)), 5.0)
-        # Heuristic: scan an interval up to 100x the Y-side jump
+        scale = max(abs(delta_y), 6 * float(np.sqrt(V[0])), 5.0)
         grid_lo = -100 * scale
         grid_hi = 100 * scale
     grid = np.linspace(grid_lo, grid_hi, int(n_grid))
-    accept = np.zeros_like(grid, dtype=bool)
-    for i, t0 in enumerate(grid):
-        # Numerator-denominator combination
-        num = delta_y - t0 * delta_d
-        var = max(var_dy + t0**2 * var_dd - 2 * t0 * cov_yd, 0)
-        se = float(np.sqrt(var))
-        if se <= 0:
-            continue  # pragma: no cover
-        # Worst-case bias of (Δ_Y − τ0 Δ_D) under |g_Y''| ≤ M_y, |g_D''| ≤ M_d
-        bias = bias_y + abs(t0) * bias_d
-        b_ratio = bias / se
-        cv = _ak_critical_value(b_ratio, alpha)
-        # Anderson-Rubin acceptance under the AK FLCI critical value:
-        # cv_α(b/se) is calibrated so that |num/se| ≤ cv has coverage
-        # ≥ 1-α uniformly over |bias| ≤ b.  No additional bias padding.
-        accept[i] = abs(num) <= cv * se
+    exc = np.array([_excess(float(t0)) for t0 in grid])
+    accept = exc <= 0
 
     if accept.any():
-        # CI is the convex hull of accepted points.
         idx = np.where(accept)[0]
         ci_lo = float(grid[idx.min()])
         ci_hi = float(grid[idx.max()])
-        # Detect non-convex region (rare under strong first stage)
+        # Refine the two outer endpoints between the last rejected and the
+        # first accepted grid point.
+        if idx.min() > 0:
+            ci_lo = float(
+                optimize.brentq(_excess, grid[idx.min() - 1], ci_lo, xtol=1e-12)
+            )
+        if idx.max() < len(grid) - 1:
+            ci_hi = float(
+                optimize.brentq(_excess, ci_hi, grid[idx.max() + 1], xtol=1e-12)
+            )
         non_convex = not np.all(accept[idx.min() : idx.max() + 1])
     else:
         ci_lo, ci_hi = float("nan"), float("nan")  # pragma: no cover
@@ -362,6 +357,10 @@ def rd_bias_aware_fuzzy(
                 "first_stage_F": first_stage_F,
                 "bandwidth": float(h),
                 "kernel": kernel,
+                "bias_per_unit_M": float(B),
+                "variance_2x2": [float(v) for v in V],
+                "n_effective": comp["n_effective"],
+                "rdhonest": rdhonest,
                 "rejection_grid": (grid.tolist(), accept.tolist()),
             },
             "summary_str": summary,
@@ -394,79 +393,150 @@ def rd_bias_aware_fuzzy(
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Fuzzy-RD honest machinery (port of RDHonest's FRD path)
 # ---------------------------------------------------------------------------
 
-_BIAS_CONSTS = {
-    # Local-linear bias constant: int u^2 K(u) du / 2 (effective leading term
-    # for the local-linear bias when the kernel has support on |u| ≤ 1)
-    "triangular": 1 / 12,
-    "epanechnikov": 1 / 10,
-    "uniform": 1 / 6,
-}
+
+def _sigma_nn_2(x: np.ndarray, Y: np.ndarray, J: int = 3) -> np.ndarray:
+    """``RDHonest::sigmaNN`` for a two-column outcome; rows ``(YY, YD, DY, DD)``.
+
+    ``x`` sorted ascending; ties are kept whole, as in the univariate port.
+    """
+    n = len(x)
+    J = min(J, n - 1)
+    out = np.empty((n, 4))
+    for k in range(n):
+        lo = max(k - J, 0)
+        cand = np.concatenate([x[lo:k], x[k + 1 : min(k + J + 1, n)]])
+        d = np.sort(np.abs(cand - x[k]))[J - 1]
+        ind = np.abs(x - x[k]) <= d
+        ind[k] = False
+        jk = float(ind.sum())
+        dev = Y[k] - Y[ind].mean(axis=0)
+        out[k] = jk / (jk + 1.0) * np.outer(dev, dev).ravel()
+    return out
 
 
-def _kernel_bias_constant(kernel: str) -> float:
-    return _BIAS_CONSTS.get(kernel, _BIAS_CONSTS["triangular"])
+def _joint_resid(
+    x: np.ndarray, Y: np.ndarray, h: float, kernel: str
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Residuals of ``NPReg``'s joint order-1 fit (both columns), and ``w != 0``."""
+    w = _kern(x / h, kernel)
+    right = (x >= 0).astype(float)
+    z = np.column_stack([right, right * x, np.ones_like(x), x])
+    sw = np.sqrt(w)
+    beta, *_ = np.linalg.lstsq(z * sw[:, None], Y * sw[:, None], rcond=None)
+    return Y - z @ beta, w != 0
 
 
-def _local_cov_yd(
+def _prelim_var_frd(x: np.ndarray, Y: np.ndarray) -> np.ndarray:
+    """``PrelimVar(se.initial='EHW')`` for FRD: side-wise means of the 2x2
+    EHW residual products at the IK bandwidth of the outcome."""
+    h1 = _ik_bandwidth(x, Y[:, 0], 0.0)
+    if not np.isfinite(h1):  # pragma: no cover - degenerate design
+        h1 = float("inf")
+    r, inwin = _joint_resid(x, Y, max(h1, _hmin(x, 0.0)), "triangular")
+    prod = np.einsum("ni,nj->nij", r, r).reshape(len(x), 4)
+    out = np.zeros_like(prod)
+    for mask in (x >= 0, x < 0):
+        sel = mask & inwin
+        if sel.any():
+            out[mask] = prod[sel].mean(axis=0)
+    return out
+
+
+def _frd_components(
+    x: np.ndarray,
     Y: np.ndarray,
-    D: np.ndarray,
-    X: np.ndarray,
     h: float,
     kernel: str,
-    cl: Optional[np.ndarray],
-) -> float:
-    """Approximate covariance of the local-linear intercepts of Y and D
-    estimated separately on each side, summed across sides.  Uses the
-    weighted residual covariance.
+    sigma2: Optional[np.ndarray] = None,
+    cl: Optional[np.ndarray] = None,
+    J: int = 3,
+) -> Dict[str, Any]:
+    """Jumps, the 2x2 variance of the jump estimator, and the bias factor.
+
+    ``x`` sorted and centred. ``V`` is ``(VYY, VYD, VDY, VDD)``: RDHonest's
+    ``colSums(w^2 * sigma2)`` (nearest-neighbour ``sigma2`` by default,
+    ``supplied`` in the bandwidth search) or, with clusters, the
+    cross-product of cluster sums of ``w * residual`` (its EHW-cluster
+    form, with no finite-sample factor). ``B`` is the worst-case bias per
+    unit of ``M`` under the Holder class: ``honest_bias(w, M=1)``.
     """
-    cov = 0.0
-    for side_mask in (X < 0, X >= 0):
-        if side_mask.sum() < 5:
-            continue  # pragma: no cover
-        u = X[side_mask] / h
-        w = _kernel_fn(u, kernel)
-        in_bw = np.abs(u) <= 1
-        if in_bw.sum() < 4:
-            continue  # pragma: no cover
-        Yw = Y[side_mask][in_bw]
-        Dw = D[side_mask][in_bw]
-        Xw = X[side_mask][in_bw]
-        ww = w[in_bw]
-        Z = np.column_stack([np.ones_like(Xw), Xw])
-        sqw = np.sqrt(ww)
-        Zw = Z * sqw[:, None]
+    w = honest_weights(x, 0.0, h, kernel)
+    nz = w != 0
+    if nz.sum() < 4:
+        raise ValueError(
+            f"bandwidth h={h:g} leaves only {int(nz.sum())} observations with "
+            "non-zero weight"
+        )
+    dY = float(w @ Y[:, 0])
+    dD = float(w @ Y[:, 1])
+    if cl is not None:
+        r, _ = _joint_resid(x, Y, h, kernel)
+        s = w[:, None] * r
+        _, codes = np.unique(cl[nz], return_inverse=True)
+        G = np.zeros((int(codes.max()) + 1, 2))
+        np.add.at(G, codes, s[nz])
+        V = (G.T @ G).ravel()
+    else:
+        if sigma2 is None:
+            sigma2 = np.zeros((len(x), 4))
+            for side in (x < 0, x >= 0):
+                idx = np.flatnonzero(side & nz)
+                if idx.size >= 2:
+                    sigma2[idx] = _sigma_nn_2(x[idx], Y[idx], J)
+        V = (w[:, None] ** 2 * sigma2).sum(axis=0)
+    return {
+        "w": w,
+        "delta_y": dY,
+        "delta_d": dD,
+        "V": V,
+        "B": honest_bias(w, x, 0.0, 1.0),
+        "n_effective": int(nz.sum()),
+    }
+
+
+def _se_comb(V: np.ndarray, t: float) -> float:
+    """SE of ``Delta_Y - t * Delta_D``."""
+    return float(np.sqrt(max(V[0] - 2 * t * V[1] + t * t * V[3], 0.0)))
+
+
+def _frd_bandwidth(
+    x: np.ndarray,
+    Y: np.ndarray,
+    M_y: float,
+    M_d: float,
+    kernel: str,
+    alpha: float,
+    T0: float = 0.0,
+) -> float:
+    """``RDHonest::OptBW`` for FRD (MSE criterion, ``T0bias = TRUE``)."""
+    s2 = _prelim_var_frd(x, Y)
+    M_eff = M_y + M_d * abs(T0)
+
+    def obj(h: float) -> float:
         try:
-            ZtZ_inv = np.linalg.inv(Zw.T @ Zw)
-        except np.linalg.LinAlgError:  # pragma: no cover
-            continue  # pragma: no cover
-        beta_y = ZtZ_inv @ Zw.T @ (Yw * sqw)
-        beta_d = ZtZ_inv @ Zw.T @ (Dw * sqw)
-        ry = Yw - Z @ beta_y
-        rd = Dw - Z @ beta_d
-        if cl is not None:
-            cl_in = cl[side_mask][in_bw]
-            unique = np.unique(cl_in)
-            meat = np.zeros((2, 2))
-            for cval in unique:
-                idx = cl_in == cval
-                sy = (Zw[idx].T @ (ry[idx] * sqw[idx])).ravel()
-                sd_ = (Zw[idx].T @ (rd[idx] * sqw[idx])).ravel()
-                meat += np.outer(sy, sd_)
-            corr = len(unique) / max(len(unique) - 1, 1)
-            v = (corr * ZtZ_inv @ meat @ ZtZ_inv)[0, 0]
-        else:
-            n_eff = int(in_bw.sum())
-            corr = n_eff / max(n_eff - 2, 1)
-            # CCT (2014) W^2 kernel weighting, consistent with the variances
-            # from `_sandwich_variance`: Zw = Z*sqrt(w) supplies one power of
-            # w, so multiply by `ww` for the second. Without this the 2x2
-            # (Y, D) intercept covariance is on a different scale than the
-            # variances and the delta-method form var_dy + t^2 var_dd
-            # - 2 t cov_yd can turn negative (collapsing the fuzzy SE to 0).
-            meat = Zw.T @ np.diag(ww * ry * rd * corr) @ Zw
-            v = (ZtZ_inv @ meat @ ZtZ_inv)[0, 0]
-        cov += float(v)
-    return cov
+            comp = _frd_components(x, Y, float(h), kernel, sigma2=s2)
+        except (ValueError, np.linalg.LinAlgError):
+            return float("inf")
+        tau = comp["delta_y"] / comp["delta_d"]
+        se = _se_comb(comp["V"], tau)
+        bias = M_eff * comp["B"]
+        return bias**2 + se**2
+
+    xr = np.unique(x[x >= 0])
+    xl = np.unique(np.abs(x[x < 0]))
+    hmin = max(xr[1], xl[1])
+    hmax = float(np.max(np.abs(x)))
+    if kernel == "uniform":
+        supp = np.unique(np.abs(x))
+        supp = supp[supp >= hmin]
+        return float(supp[int(np.argmin([obj(float(v)) for v in supp]))])
+    res = optimize.minimize_scalar(
+        obj,
+        bounds=(hmin, hmax),
+        method="bounded",
+        options={"xatol": np.finfo(float).eps ** 0.75},
+    )
+    return float(abs(res.x))

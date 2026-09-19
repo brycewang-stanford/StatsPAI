@@ -821,13 +821,51 @@ class TestLRTest:
         assert lr.chi2 > 0
         assert lr.p_value < 0.05
 
-    def test_multi_component_boundary_warns(self):
-        # Unstructured → diagonal adds 2 free params on the boundary.
+    def test_single_added_effect_uses_exact_mixture(self):
+        # Intercept-only -> intercept + slope, unstructured: 1 variance + 1
+        # covariance (df 2); the null distribution is exactly the 50:50
+        # chi2_1 / chi2_2 mixture (Stram-Lee 1994), so no warning.
         df = _random_slope_panel(
             n_groups=80, n_per=30, sigma_slope=0.3, rho=0.2, sigma_int=0.6, sigma_e=0.5
         )
         r_full = sp.mixed(df, "y", ["x"], "g", x_random=["x"], cov_type="unstructured")
         r_restricted = sp.mixed(df, "y", ["x"], "g")
+        import warnings as _w
+
+        with _w.catch_warnings():
+            _w.simplefilter("error", RuntimeWarning)
+            lr = sp.lrtest(r_restricted, r_full, boundary=True)
+        from scipy import stats as _st
+
+        np.testing.assert_allclose(
+            lr.p_value,
+            0.5 * _st.chi2.sf(lr.chi2, 1) + 0.5 * _st.chi2.sf(lr.chi2, 2),
+            rtol=1e-14,
+        )
+
+    def test_multi_component_boundary_warns(self):
+        # Diagonal covariance, slope variance added (df 1) is exact; adding
+        # two slope variances at once under 'diagonal' is not a single
+        # added effect -> conservative bound + warning.
+        rng = np.random.default_rng(5)
+        n_g, n_p = 60, 20
+        g = np.repeat(np.arange(n_g), n_p)
+        x1 = rng.normal(size=n_g * n_p)
+        x2 = rng.normal(size=n_g * n_p)
+        y = (
+            1.0
+            + 0.5 * x1
+            + 0.3 * x2
+            + rng.normal(0, 0.6, n_g)[g]
+            + rng.normal(0, 0.3, n_g)[g] * x1
+            + rng.normal(0, 0.3, n_g)[g] * x2
+            + rng.normal(0, 0.5, n_g * n_p)
+        )
+        df = pd.DataFrame({"y": y, "x1": x1, "x2": x2, "g": g})
+        r_full = sp.mixed(
+            df, "y", ["x1", "x2"], "g", x_random=["x1", "x2"], cov_type="diagonal"
+        )
+        r_restricted = sp.mixed(df, "y", ["x1", "x2"], "g")
         with pytest.warns(RuntimeWarning):
             sp.lrtest(r_restricted, r_full, boundary=True)
 
@@ -883,11 +921,21 @@ class TestICC:
         with pytest.raises(NotImplementedError):
             sp.icc(r, n_boot=100)
 
-    def test_small_n_groups_warns(self):
+    def test_small_n_groups_uses_observed_information(self):
+        # The pre-1.28.x heuristic (var(log s2_u) ~ 2/n_groups) warned for
+        # n_groups < 30; the SE is now the delta method on the observed
+        # information of the variance parameters (Stata estat icc), which
+        # needs no such caveat.  Pinned against Stata in
+        # tests/reference_parity/test_panel_icc_lrtest_parity.py.
         df = _random_intercept_panel(n_groups=10, n_per=20)
         r = sp.mixed(df, "y", ["x"], "g")
-        with pytest.warns(RuntimeWarning):
-            sp.icc(r)
+        import warnings as _w
+
+        with _w.catch_warnings():
+            _w.simplefilter("error", RuntimeWarning)
+            icc = sp.icc(r)
+        assert np.isfinite(icc.se) and icc.se > 0
+        assert icc.ci_lower < icc.estimate < icc.ci_upper
 
 
 # ---------------------------------------------------------------------------

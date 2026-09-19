@@ -286,7 +286,7 @@ def rdrobust(
     c: float = 0,
     fuzzy: Optional[str] = None,
     deriv: int = 0,
-    p: int = 1,
+    p: Optional[int] = None,
     q: Optional[int] = None,
     kernel: str = "triangular",
     bwselect: str = "mserd",
@@ -329,8 +329,11 @@ def rdrobust(
         Derivative of the regression function to estimate.
         0 = standard RD (jump in level), 1 = regression kink design
         (change in slope). See Card & Lee (2008).
-    p : int, default 1
-        Polynomial order for point estimation (1 = local linear).
+    p : int, optional
+        Polynomial order for point estimation. Defaults to 1 (local
+        linear) for ``deriv=0`` and to ``deriv + 1`` otherwise -- R
+        ``rdrobust``'s rule. An explicit ``p`` is used as given and must
+        satisfy ``p >= deriv``.
     q : int, optional
         Polynomial order for bias correction (default p + 1).
     kernel : str, default 'triangular'
@@ -471,6 +474,7 @@ def rdrobust(
     """
     if engine not in ("ols", "bayes"):
         raise ValueError(f"engine must be 'ols' or 'bayes'; got {engine!r}.")
+    p_given = p is not None
     if engine == "bayes":
         return _rdrobust_bayes_engine(
             data,
@@ -479,7 +483,11 @@ def rdrobust(
             c=c,
             fuzzy=fuzzy,
             deriv=deriv,
-            p=p,
+            p=(
+                p
+                if p_given
+                else (int(deriv) + 1 if isinstance(deriv, int) and deriv > 0 else 1)
+            ),
             q=q,
             kernel=kernel,
             bwselect=bwselect,
@@ -535,6 +543,9 @@ def rdrobust(
     kernel = _require_string_option(kernel, "kernel")
     bwselect = _require_string_option(bwselect, "bwselect")
     deriv = _require_int_at_least(deriv, "deriv", 0)
+    if not p_given:
+        # R rdrobust: p <- deriv + 1 when p is not supplied (1 for deriv = 0).
+        p = 1 if deriv == 0 else deriv + 1
     p = _require_int_at_least(p, "p", 0)
     if q is not None:
         q = _require_int_at_least(q, "q", 0)
@@ -601,9 +612,15 @@ def rdrobust(
             "rbc bootstrap needs n_boot >= 99 (recommended 999).",
             diagnostics={"n_boot": n_boot},
         )
-    # For RKD (deriv >= 1), polynomial order must be at least deriv + 1
-    if deriv > 0 and p < deriv + 1:
-        p = deriv + 1
+    # R rdrobust requires deriv <= p. Through 1.28.0 an explicit p <= deriv
+    # was silently raised to deriv + 1, so rdrobust(deriv=1, p=1) -- a
+    # local-linear kink estimate, legal in R -- returned the local-quadratic
+    # one without saying so.
+    if deriv > p:
+        raise MethodIncompatibility(
+            f"deriv ({deriv}) must not exceed the polynomial order p ({p}).",
+            diagnostics={"deriv": deriv, "p": p},
+        )
     if q is None:
         q = p + 1
 
@@ -755,6 +772,29 @@ def rdrobust(
             b = float(bl) if abs(bl - br) < 1e-12 else (float(bl), float(br))
         else:
             b = h
+
+    # Each local fit needs more observations inside its window than it has
+    # coefficients. Through 1.28.0 nothing checked this after bandwidth
+    # selection: rdrobust(h=1e-4) with zero observations in the window
+    # returned an "estimate" of 5e-06 with SE 6e-22 and p = 0.0. R's
+    # rdrobust stops with an error in the same situation.
+    _hl_chk, _hr_chk = h if isinstance(h, tuple) else (h, h)
+    _bl_chk, _br_chk = b if isinstance(b, tuple) else (b, b)
+    _need = {
+        "h_left": (int(np.sum(left & (X_c >= -_hl_chk))), p + 1),
+        "h_right": (int(np.sum(right & (X_c <= _hr_chk))), p + 1),
+        "b_left": (int(np.sum(left & (X_c >= -_bl_chk))), q + 1),
+        "b_right": (int(np.sum(right & (X_c <= _br_chk))), q + 1),
+    }
+    _short = {k: v for k, v in _need.items() if v[0] <= v[1]}
+    if _short:
+        raise DataInsufficient(
+            "Insufficient observations inside the bandwidth for the local fit: "
+            + ", ".join(f"{k}: {v[0]} (need > {v[1]})" for k, v in _short.items())
+            + f". h = {h}, b = {b}.",
+            recovery_hint="Use a larger bandwidth or a lower polynomial order.",
+            diagnostics={k: v[0] for k, v in _need.items()},
+        )
 
     # --- Conventional estimate: order p, bandwidth h ---
     tau_conv, se_conv, n_eff_l, n_eff_r = _rd_estimate(
@@ -1355,7 +1395,7 @@ def rdplot(
     nbins: Optional[int] = None,
     binselect: str = "esmv",
     p: int = 4,
-    kernel: str = "triangular",
+    kernel: str = "uniform",
     ci_level: float = 0.95,
     shade_ci: bool = True,
     donut: float = 0,
@@ -1374,6 +1414,14 @@ def rdplot(
     """
     RD plot: binned scatter with polynomial fit on each side of the cutoff.
 
+    The numbers behind the picture are R ``rdrobust::rdplot``'s: the
+    number of bins, bin edges and membership, per-bin means, standard
+    errors and t-based intervals, and the kernel-weighted global
+    polynomial on each side (see ``statspai.rd._rdplot_core``). They are
+    returned on the figure as ``fig.rdplot_data``, a dict with R's
+    ``vars_bins``, ``vars_poly``, ``coef``, ``J``, ``J_IMSE`` and
+    ``J_MV``.
+
     Parameters
     ----------
     data : pd.DataFrame
@@ -1381,38 +1429,47 @@ def rdplot(
         Outcome and running variable names.
     c : float, default 0
         Cutoff.
-    nbins : int, optional
-        Bins per side. If None, uses data-driven selection via binselect.
+    nbins : int or (int, int), optional
+        Bins per side. If None, chosen by ``binselect``.
     binselect : str, default 'esmv'
-        Bin selection method (when nbins=None):
-        - 'es'   : IMSE-optimal evenly spaced
-        - 'espr' : IMSE-optimal evenly spaced (mimicking variance)
-        - 'qs'   : IMSE-optimal quantile-spaced
-        - 'qspr' : IMSE-optimal quantile-spaced (mimicking variance)
-        - 'esmv' : IMSE-optimal evenly spaced with variance mimicking (default)
-        - 'qsmv' : IMSE-optimal quantile-spaced with variance mimicking
+        Bin selection rule, as in R ``rdplot``:
+
+        - 'es'     : IMSE-optimal evenly spaced, spacings estimators
+        - 'espr'   : IMSE-optimal evenly spaced, polynomial regression
+        - 'esmv'   : mimicking-variance evenly spaced, spacings (default)
+        - 'esmvpr' : mimicking-variance evenly spaced, polynomial regression
+        - 'qs', 'qspr', 'qsmv', 'qsmvpr' : the quantile-spaced analogues
+
+        With 20% or more mass points on either side the spacings variants
+        switch to their polynomial-regression versions (R's
+        ``masspoints='adjust'``).
     p : int, default 4
-        Polynomial order for the fitted curve.
-    kernel : str
-        Kernel for the fitted curve.
+        Order of the global polynomial fitted on each side.
+    kernel : {'uniform', 'triangular', 'epanechnikov'}, default 'uniform'
+        Kernel weighting the global polynomial over ``[c - h, c + h]``.
+        R's default. (Through 1.28.0 the default read 'triangular' but the
+        argument was ignored and the fit was unweighted.)
     ci_level : float, default 0.95
-        Confidence level for pointwise CI bands.
+        Level of the per-bin t intervals and the polynomial CI band.
     shade_ci : bool, default True
-        Show confidence interval bands around the polynomial fit.
+        Shade a pointwise CI band around the polynomial (a StatsPAI
+        addition; not shown when ``covs`` is given).
     donut : float, default 0
         If > 0, shades the donut region |x - c| <= donut.
     show_bw : bool, default False
-        If True, shades the bandwidth window.
+        If True, shades the ``sp.rdrobust`` bandwidth window.
     h : float, optional
-        Bandwidth to display.
+        Support of the global polynomial fit on each side (R's ``h``);
+        defaults to the full range of ``x`` on that side.
     covs : list of str, optional
-        Covariates to partial out before binning and plotting.
+        Covariates, adjusted for as R ``rdplot(covs=, covs_eval='mean')``
+        does.
     weights : str, optional
-        Column name for observation weights in polynomial fitting.
+        Observation weights for the polynomial fit.
     hide_ci : bool, default False
-        If True, suppress CI bands entirely.
+        If True, suppress all interval displays.
     scatter : bool, default True
-        Show binned scatter points.
+        Show binned means.
     ax : matplotlib Axes, optional
     figsize : tuple
     title, x_label, y_label : str, optional
@@ -1420,6 +1477,7 @@ def rdplot(
     Returns
     -------
     (fig, ax)
+        ``fig.rdplot_data`` carries the numbers.
 
     Examples
     --------
@@ -1431,6 +1489,8 @@ def rdplot(
     >>> y = 0.5 * x + 2.0 * (x >= 0) + rng.normal(0, 0.4, n)
     >>> df = pd.DataFrame({'y': y, 'x': x})
     >>> fig, ax = sp.rdplot(df, y='y', x='x', c=0, title='RD plot')
+    >>> fig.rdplot_data["J"]  # bins left / right of the cutoff
+    (23, 23)
     >>> fig.savefig('rd_plot.png')  # doctest: +SKIP
 
     Typical flow: visualise first, then estimate with :func:`rdrobust`:
@@ -1443,62 +1503,32 @@ def rdplot(
         import matplotlib.pyplot as plt
     except ImportError:
         raise ImportError("matplotlib required. Install: pip install matplotlib")
+    from ._rdplot_core import rdplot_numbers
 
-    Y = data[y].values.astype(float)
-    X = data[x].values.astype(float)
+    if kernel not in ("uniform", "triangular", "epanechnikov"):
+        raise ValueError(
+            f"kernel must be 'uniform', 'triangular' or 'epanechnikov'; got {kernel!r}"
+        )
+    Y = data[y].to_numpy(dtype=float)
+    X = data[x].to_numpy(dtype=float)
+    Zc = data[list(covs)].to_numpy(dtype=float) if covs else None
+    Wo = data[weights].to_numpy(dtype=float) if weights else None
 
-    # Partial out covariates if provided
-    if covs:
-        valid = np.isfinite(Y) & np.isfinite(X)
-        Z = np.column_stack([data[col].values.astype(float) for col in covs])
-        valid &= np.all(np.isfinite(Z), axis=1)
-        Z_v = Z[valid]
-        Z_v = np.column_stack([np.ones(Z_v.shape[0]), Z_v])
-        try:
-            proj = Z_v @ np.linalg.lstsq(Z_v, Y[valid], rcond=None)[0]
-            Y_adj = Y.copy()
-            Y_adj[valid] = Y[valid] - proj + np.mean(Y[valid])
-            Y = Y_adj
-        except np.linalg.LinAlgError:
-            # Don't silently plot unadjusted Y when the user asked for
-            # covariate adjustment (CLAUDE.md §7).
-            warnings.warn(
-                "rdplot: covariate partial-out failed (singular covariate "
-                "design); the plot shows the *unadjusted* outcome. The point "
-                "estimate from sp.rdrobust(...) is unaffected.",
-                RuntimeWarning,
-                stacklevel=2,
-            )
-
-    # Observation weights
-    W = None
-    if weights:
-        W = data[weights].values.astype(float)
-
-    left_mask = X < c
-    right_mask = X >= c
-    x_l, y_l = X[left_mask], Y[left_mask]
-    x_r, y_r = X[right_mask], Y[right_mask]
-    w_l = W[left_mask] if W is not None else None
-    w_r = W[right_mask] if W is not None else None
-
-    # ---- IMSE-optimal number of bins ----
-    if nbins is None:
-        nbins_l = _imse_optimal_bins(x_l, y_l, binselect)
-        nbins_r = _imse_optimal_bins(x_r, y_r, binselect)
-    else:
-        nbins_l = nbins_r = nbins
-
-    # ---- Bin means ----
-    use_quantile = binselect.startswith("q") if nbins is None else False
-    bx_l, by_l, bse_l = _bin_means(x_l, y_l, nbins_l, use_quantile)
-    bx_r, by_r, bse_r = _bin_means(x_r, y_r, nbins_r, use_quantile)
-
-    # ---- Weighted global polynomial fit with pointwise CI ----
-    grid_l = np.linspace(x_l.min(), c, 200)
-    grid_r = np.linspace(c, x_r.max(), 200)
-    fit_l, ci_lo_l, ci_hi_l = _weighted_poly_fit_ci(x_l, y_l, p, grid_l, ci_level, w_l)
-    fit_r, ci_lo_r, ci_hi_r = _weighted_poly_fit_ci(x_r, y_r, p, grid_r, ci_level, w_r)
+    res = rdplot_numbers(
+        Y,
+        X,
+        c=float(c),
+        p=int(p),
+        nbins=nbins,
+        binselect=binselect,
+        kernel=kernel,
+        h=h,
+        weights=Wo,
+        covs=Zc,
+        ci=100.0 * ci_level,
+    )
+    vb, vp = res["vars_bins"], res["vars_poly"]
+    n_left_bins = int(np.sum(vb["rdplot_mean_bin"] < c))
 
     # ---- Plot ----
     if ax is None:
@@ -1508,14 +1538,19 @@ def rdplot(
 
     # Bandwidth window shading
     if show_bw:
-        if h is None:
-            try:
-                r = rdrobust(data, y=y, x=x, c=c, p=1)
-                h = r.model_info["bandwidth_h"]
-            except Exception:
-                h = None
-        if h is not None:
-            bw_h = h[0] if isinstance(h, tuple) else h
+        bw_h = None
+        try:
+            r = rdrobust(data, y=y, x=x, c=c, p=1, manipulation_test=False)
+            bw_h = r.model_info["bandwidth_h"]
+        except (ValueError, np.linalg.LinAlgError) as exc:
+            warnings.warn(
+                f"rdplot(show_bw=True): the rdrobust bandwidth could not be "
+                f"computed ({exc}); no window is shaded.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        if bw_h is not None:
+            bw_h = bw_h[0] if isinstance(bw_h, tuple) else bw_h
             ax.axvspan(
                 c - bw_h,
                 c + bw_h,
@@ -1535,41 +1570,51 @@ def rdplot(
             zorder=1,
         )
 
-    # Pointwise CI bands
-    if shade_ci and not hide_ci:
-        ax.fill_between(grid_l, ci_lo_l, ci_hi_l, color="#E74C3C", alpha=0.12, zorder=2)
-        ax.fill_between(grid_r, ci_lo_r, ci_hi_r, color="#3498DB", alpha=0.12, zorder=2)
+    xs = vp["rdplot_x"]
+    ys = vp["rdplot_y"]
+    half = len(xs) // 2
+    grid_l, fit_l = xs[:half], ys[:half]
+    grid_r, fit_r = xs[half:], ys[half:]
 
-    # Binned scatter with SE bars
+    # Pointwise CI band around the (kernel-weighted) global polynomial
+    if shade_ci and not hide_ci and not covs:
+        from ._rdplot_core import _kweight
+
+        hl, hr = res["h"]
+        left = X < c
+        ok = np.isfinite(X) & np.isfinite(Y)
+        wl = _kweight(X[left & ok], c, hl, kernel)
+        wr = _kweight(X[~left & ok], c, hr, kernel)
+        if Wo is not None:
+            wl, wr = wl * Wo[left & ok], wr * Wo[~left & ok]
+        _, lo_l, hi_l = _weighted_poly_fit_ci(
+            X[left & ok], Y[left & ok], p, grid_l, ci_level, wl
+        )
+        _, lo_r, hi_r = _weighted_poly_fit_ci(
+            X[~left & ok], Y[~left & ok], p, grid_r, ci_level, wr
+        )
+        ax.fill_between(grid_l, lo_l, hi_l, color="#E74C3C", alpha=0.12, zorder=2)
+        ax.fill_between(grid_r, lo_r, hi_r, color="#3498DB", alpha=0.12, zorder=2)
+
+    # Binned means with R's per-bin t intervals
     if scatter:
-        if bse_l is not None and len(bse_l) == len(bx_l):
-            ax.errorbar(
-                bx_l,
-                by_l,
-                yerr=1.96 * bse_l,
-                fmt="o",
-                color="#2C3E50",
-                markersize=4,
-                capsize=2,
-                alpha=0.7,
-                linewidth=0.8,
-                zorder=3,
-            )
-            ax.errorbar(
-                bx_r,
-                by_r,
-                yerr=1.96 * bse_r,
-                fmt="o",
-                color="#2C3E50",
-                markersize=4,
-                capsize=2,
-                alpha=0.7,
-                linewidth=0.8,
-                zorder=3,
-            )
+        bx, by = vb["rdplot_mean_bin"], vb["rdplot_mean_y"]
+        if hide_ci:
+            ax.scatter(bx, by, color="#2C3E50", s=30, alpha=0.8, zorder=3)
         else:
-            ax.scatter(bx_l, by_l, color="#2C3E50", s=30, alpha=0.8, zorder=3)
-            ax.scatter(bx_r, by_r, color="#2C3E50", s=30, alpha=0.8, zorder=3)
+            yerr = np.vstack([by - vb["rdplot_ci_l"], vb["rdplot_ci_r"] - by])
+            ax.errorbar(
+                bx,
+                by,
+                yerr=yerr,
+                fmt="o",
+                color="#2C3E50",
+                markersize=4,
+                capsize=2,
+                alpha=0.7,
+                linewidth=0.8,
+                zorder=3,
+            )
 
     ax.plot(grid_l, fit_l, color="#E74C3C", linewidth=1.5, zorder=4)
     ax.plot(grid_r, fit_r, color="#3498DB", linewidth=1.5, zorder=4)
@@ -1584,165 +1629,9 @@ def rdplot(
     if donut > 0 or show_bw:
         ax.legend(fontsize=9, loc="best")
     fig.tight_layout()
-
+    res["n_left_bins_plotted"] = n_left_bins
+    fig.rdplot_data = res
     return fig, ax
-
-
-def _cjm_local_poly_density(
-    x_side: np.ndarray,
-    grid: np.ndarray,
-    h: float,
-    p: int,
-    cutoff: float,
-    side: str = "left",
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Local-polynomial density via the empirical-CDF regression of
-    Cattaneo, Jansson & Ma (2020, JASA).
-
-    For each grid point g we fit a weighted local polynomial of order
-    ``p`` to ``(x_i, F_n(x_i))`` over ``|x_i - g| <= h`` and read off
-    the slope as the density estimate ``f̂(g)``.  Triangular kernel.
-
-    Variance approximated by the sandwich formula scaled by the
-    side sample size — sufficient for plotting CIs at the precision
-    needed for a manipulation test.
-    """
-    n_side = len(x_side)
-    if n_side < max(p + 2, 5):
-        return (
-            np.full_like(grid, np.nan, dtype=float),
-            np.full_like(grid, np.nan, dtype=float),
-        )
-
-    # Empirical CDF on the side
-    order = np.argsort(x_side)
-    x_sorted = x_side[order]
-    F = (np.arange(1, n_side + 1) - 0.5) / n_side  # midpoint rule
-
-    densities = np.full_like(grid, np.nan, dtype=float)
-    ses = np.full_like(grid, np.nan, dtype=float)
-    for i, g in enumerate(grid):
-        u = (x_sorted - g) / h
-        in_bw = np.abs(u) <= 1
-        n_bw = int(in_bw.sum())
-        if n_bw < p + 2:
-            continue
-        xb = x_sorted[in_bw] - g
-        Fb = F[in_bw]
-        wb = np.maximum(1 - np.abs(u[in_bw]), 0.0)
-        # Design [1, x, x^2, ..., x^p]
-        Xd = np.column_stack([xb**j for j in range(p + 1)])
-        sqw = np.sqrt(wb)
-        Xw = Xd * sqw[:, None]
-        yw = Fb * sqw
-        try:
-            XtX_inv = np.linalg.inv(Xw.T @ Xw)
-        except np.linalg.LinAlgError:
-            continue
-        beta = XtX_inv @ Xw.T @ yw
-        # f̂(g) = β1 (slope of F at g)
-        densities[i] = float(max(beta[1], 0.0))
-        # Sandwich variance for slope estimator
-        resid = Fb - Xd @ beta
-        meat = Xw.T @ np.diag((resid**2) * wb) @ Xw
-        v = XtX_inv @ meat @ XtX_inv
-        # Heuristic finite-sample inflation: divide by n_side to obtain
-        # density-scale variance
-        ses[i] = float(np.sqrt(max(v[1, 1] / max(n_side, 1), 0.0)))
-    return densities, ses
-
-
-def _imse_optimal_bins(x: np.ndarray, y: np.ndarray, binselect: str) -> int:
-    """IMSE-optimal number of bins for RD plots (CCT 2015).
-
-    The IMSE-optimal number of bins is approximately:
-        J* = ceil( C * n^{1/3} * (V / B2)^{1/3} )
-    where V = integrated variance and B2 = integrated squared bias.
-
-    For evenly-spaced: uses range/J bins.
-    For quantile-spaced: uses quantiles of X.
-    Variance-mimicking ('mv') variants inflate J to capture local variation.
-    """
-    n = len(x)
-    if n < 10:
-        return max(3, n // 3)
-
-    # Base: n^{1/3}
-    J_base = max(int(np.ceil(n ** (1 / 3))), 3)
-
-    # Estimate curvature (bias) for refinement
-    try:
-        coeffs = np.polyfit(x, y, min(3, n - 1))
-        y_hat = np.polyval(coeffs, x)
-        resid = y - y_hat
-        sigma2 = np.mean(resid**2)
-        # Second derivative at midpoint
-        if len(coeffs) >= 3:
-            m2 = 2 * coeffs[-3]  # coefficient of x^2
-        else:
-            m2 = 0
-    except (np.linalg.LinAlgError, ValueError):
-        return J_base
-
-    if abs(m2) < 1e-10:
-        return J_base
-
-    # IMSE formula: J ~ n^{1/3} * (sigma^2 / m2^2)^{1/3} * C
-    # C depends on bin type
-    x_range = np.ptp(x)
-    if x_range < 1e-10:
-        return J_base
-
-    ratio = (sigma2 / (m2**2 * x_range)) ** (1 / 3)
-    J_imse = max(3, int(np.ceil(n ** (1 / 3) * ratio * 0.7)))
-
-    # Variance-mimicking: inflate bins to capture local variation
-    if binselect.endswith("mv"):
-        J_imse = max(J_imse, int(np.ceil(n ** (2 / 5))))
-
-    # Cap at reasonable range
-    J_imse = min(J_imse, max(30, n // 10))
-
-    return J_imse
-
-
-def _bin_means(
-    xv: np.ndarray,
-    yv: np.ndarray,
-    nb: int,
-    quantile: bool = False,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Compute bin means with standard errors.
-
-    Returns (bin_x, bin_y, bin_se).
-    """
-    if len(xv) == 0:
-        return np.array([]), np.array([]), np.array([])
-
-    if quantile:
-        # Quantile-spaced bins
-        percentiles = np.linspace(0, 100, nb + 1)
-        edges = np.percentile(xv, percentiles)
-        # Remove duplicate edges
-        edges = np.unique(edges)
-        nb = len(edges) - 1
-    else:
-        edges = np.linspace(xv.min(), xv.max(), nb + 1)
-
-    bx, by, bse = [], [], []
-    for j in range(nb):
-        if j == nb - 1:
-            mask = (xv >= edges[j]) & (xv <= edges[j + 1])
-        else:
-            mask = (xv >= edges[j]) & (xv < edges[j + 1])
-        if mask.sum() > 0:
-            bx.append(xv[mask].mean())
-            by.append(yv[mask].mean())
-            if mask.sum() > 1:
-                bse.append(np.std(yv[mask], ddof=1) / np.sqrt(mask.sum()))
-            else:
-                bse.append(0.0)
-    return np.array(bx), np.array(by), np.array(bse)
 
 
 def _weighted_poly_fit_ci(
@@ -1796,7 +1685,7 @@ def rdplotdensity(
     c: float = 0,
     p: int = 2,
     n_grid: int = 50,
-    h: Optional[float] = None,
+    h: Optional[Union[float, Tuple[float, float]]] = None,
     ci_level: float = 0.95,
     hist: bool = True,
     nbins: int = 30,
@@ -1805,16 +1694,22 @@ def rdplotdensity(
     title: Optional[str] = None,
 ) -> Tuple[Any, Any]:
     """
-    Boundary-adaptive density discontinuity plot at the RD cutoff.
+    Density of the running variable on each side of the cutoff.
 
-    Implements the local-polynomial density estimator of Cattaneo,
-    Jansson & Ma (2020, *Journal of the American Statistical
-    Association* 115(531), 1449-1455): for each side of the cutoff
-    the empirical CDF F̂ is constructed and a local polynomial of
-    order ``p`` is fit to F̂.  The slope at the cutoff equals the
-    density f̂(c±), and the asymptotic variance comes from the same
-    local-polynomial sandwich.  Boundary-adaptive — does not require
-    a separate boundary kernel.
+    The Python counterpart of R ``rddensity::rdplotdensity(rddensity(X),
+    X)``: on each side, the local-polynomial density estimator of
+    Cattaneo, Jansson & Ma (R ``lpdensity``) is evaluated on an evenly
+    spaced grid over ``[c - 3 h_l, c + 3 h_r]`` (clipped to the data) with
+    the ``rddensity`` bandwidths, order ``p`` for the curve and ``p + 1``
+    for the robust bias-corrected band, the triangular kernel, the
+    mass-point-adjusted empirical CDF and R's side scaling
+    ``n_side / (n - 1)``. The numbers are returned on the figure as
+    ``fig.rdplotdensity_data`` (``Estl`` / ``Estr`` with R's columns
+    ``grid, bw, nh, f_p, f_q, se_p, se_q``).
+
+    Through 1.28.0 this used a rule-of-thumb bandwidth, a per-side
+    empirical CDF that rescaled each curve by ``n / n_side`` (roughly
+    doubling both densities), and a heuristic standard error.
 
     Parameters
     ----------
@@ -1824,18 +1719,18 @@ def rdplotdensity(
     c : float, default 0
         Cutoff.
     p : int, default 2
-        Polynomial order for the CDF regression (p=2 recommended;
-        p=1 is faster but with worse boundary behavior).
+        Local polynomial order (``rddensity``'s ``p``).
     n_grid : int, default 50
-        Grid points per side for the density curve.
-    h : float, optional
-        Bandwidth. If None, side-specific Silverman pilot.
+        Grid points per side (R's ``plotN``, whose default is 10).
+    h : float or (float, float), optional
+        Bandwidths ``(h_left, h_right)``; by default those of
+        :func:`sp.rddensity` at the same ``c`` and ``p``.
     ci_level : float, default 0.95
-        Confidence level for CI bands.
+        Level of the robust bias-corrected band ``f_q ± z se_q``.
     hist : bool, default True
-        Overlay histogram.
+        Overlay a density-scaled histogram.
     nbins : int, default 30
-        Number of histogram bins per side.
+        Histogram bins per side.
     ax : matplotlib Axes, optional
     figsize : tuple
     title : str, optional
@@ -1843,12 +1738,11 @@ def rdplotdensity(
     Returns
     -------
     (fig, ax)
+        ``fig.rdplotdensity_data`` carries the numbers.
 
     References
     ----------
-    Cattaneo, M.D., Jansson, M. and Ma, X. (2020). "Simple Local
-    Polynomial Density Estimators." *JASA* 115(531), 1449-1455.
-    [@cattaneo2020simple]
+    cattaneo2020simple
 
     Examples
     --------
@@ -1858,98 +1752,86 @@ def rdplotdensity(
     >>> rng = np.random.default_rng(42)
     >>> df = pd.DataFrame({"x": rng.uniform(-1, 1, 500)})
     >>> fig, ax = sp.rdplotdensity(df, x="x", c=0)
+    >>> est = fig.rdplotdensity_data["Estl"]
+    >>> bool(abs(est["f_p"][-1] - 0.5) < 0.2)  # U(-1, 1) has density 1/2
+    True
     """
     try:
         import matplotlib.pyplot as plt
     except ImportError:
         raise ImportError("matplotlib required. Install: pip install matplotlib")
+    from ._rdplot_core import lpdensity_numbers
 
-    X = data[x].values.astype(float)
+    X = data[x].to_numpy(dtype=float)
     X = X[np.isfinite(X)]
-
+    n = len(X)
     x_left = X[X < c]
     x_right = X[X >= c]
 
-    # Auto bandwidth (Silverman, side-specific)
     if h is None:
-        h_l = 1.06 * np.std(x_left) * len(x_left) ** (-1 / (2 * p + 3))
-        h_r = 1.06 * np.std(x_right) * len(x_right) ** (-1 / (2 * p + 3))
+        from ..diagnostics.rddensity import rddensity as _rddensity
+
+        dens = _rddensity(pd.DataFrame({"x": X}), x="x", c=c, p=p)
+        h_l = float(dens.model_info["bandwidth_left"])
+        h_r = float(dens.model_info["bandwidth_right"])
+    elif np.ndim(h) == 0:
+        h_l = h_r = float(h)  # type: ignore[arg-type]
     else:
-        h_l = h_r = h
+        h_l, h_r = (float(v) for v in h)  # type: ignore[union-attr]
 
-    grid_l = np.linspace(max(c - 3 * h_l, x_left.min()), c, n_grid)
-    grid_r = np.linspace(c, min(c + 3 * h_r, x_right.max()), n_grid)
-
-    # CJM-2020 boundary-adaptive local polynomial density
-    f_l, se_l = _cjm_local_poly_density(x_left, grid_l, h_l, p, c, side="left")
-    f_r, se_r = _cjm_local_poly_density(x_right, grid_r, h_r, p, c, side="right")
-
+    lo = max(float(X.min()), c - 3 * h_l)
+    hi = min(float(X.max()), c + 3 * h_r)
+    grid_l = np.linspace(lo, c, n_grid)
+    grid_l[-1] = c
+    grid_r = np.linspace(c, hi, n_grid)
+    grid_r[0] = c
+    est_l = lpdensity_numbers(
+        x_left, grid_l, h_l, p=p, q=p + 1, scale=len(x_left) / (n - 1)
+    )
+    est_r = lpdensity_numbers(
+        x_right, grid_r, h_r, p=p, q=p + 1, scale=len(x_right) / (n - 1)
+    )
     z = stats.norm.ppf(1 - (1 - ci_level) / 2)
 
-    # Plot
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
         fig = ax.get_figure()
 
-    # Histogram
     if hist:
-        all_range = (X.min(), X.max())
-        ax.hist(
-            x_left,
-            bins=nbins,
-            density=True,
-            alpha=0.2,
-            color="#E74C3C",
-            range=(all_range[0], c),
-            label=None,
+        # Density-scaled on the full sample, so bars and curves share a scale.
+        w_all = np.full(n, 1.0 / n)
+        for side, rng_, col in (
+            (x_left, (float(X.min()), c), "#E74C3C"),
+            (x_right, (c, float(X.max())), "#3498DB"),
+        ):
+            width = (rng_[1] - rng_[0]) / nbins
+            if len(side) and width > 0:
+                ax.hist(
+                    side,
+                    bins=nbins,
+                    range=rng_,
+                    weights=w_all[: len(side)] / width,
+                    alpha=0.2,
+                    color=col,
+                )
+
+    for est, col, lab in (
+        (est_l, "#E74C3C", "Left of cutoff"),
+        (est_r, "#3498DB", "Right of cutoff"),
+    ):
+        ok = np.isfinite(est["f_p"])
+        ax.plot(est["grid"][ok], est["f_p"][ok], color=col, linewidth=2, label=lab)
+        okq = np.isfinite(est["f_q"]) & np.isfinite(est["se_q"])
+        ax.fill_between(
+            est["grid"][okq],
+            (est["f_q"] - z * est["se_q"])[okq],
+            (est["f_q"] + z * est["se_q"])[okq],
+            color=col,
+            alpha=0.15,
         )
-        ax.hist(
-            x_right,
-            bins=nbins,
-            density=True,
-            alpha=0.2,
-            color="#3498DB",
-            range=(c, all_range[1]),
-            label=None,
-        )
-
-    # Density curves with CI
-    valid_l = np.isfinite(f_l)
-    valid_r = np.isfinite(f_r)
-
-    ax.plot(
-        grid_l[valid_l],
-        f_l[valid_l],
-        color="#E74C3C",
-        linewidth=2,
-        label="Left of cutoff",
-    )
-    ax.fill_between(
-        grid_l[valid_l],
-        (f_l - z * se_l)[valid_l],
-        (f_l + z * se_l)[valid_l],
-        color="#E74C3C",
-        alpha=0.15,
-    )
-
-    ax.plot(
-        grid_r[valid_r],
-        f_r[valid_r],
-        color="#3498DB",
-        linewidth=2,
-        label="Right of cutoff",
-    )
-    ax.fill_between(
-        grid_r[valid_r],
-        (f_r - z * se_r)[valid_r],
-        (f_r + z * se_r)[valid_r],
-        color="#3498DB",
-        alpha=0.15,
-    )
 
     ax.axvline(x=c, color="gray", linestyle="--", linewidth=1, alpha=0.7)
-
     ax.set_xlabel(x, fontsize=11)
     ax.set_ylabel("Density", fontsize=11)
     ax.set_title(title or "Density Discontinuity at Cutoff", fontsize=13)
@@ -1958,13 +1840,8 @@ def rdplotdensity(
     ax.spines["right"].set_visible(False)
     ax.tick_params(labelsize=10)
     fig.tight_layout()
-
+    fig.rdplotdensity_data = {"Estl": est_l, "Estr": est_r, "h": (h_l, h_r)}
     return fig, ax
-
-
-# ======================================================================
-# Data preparation
-# ======================================================================
 
 
 def _parse_data(

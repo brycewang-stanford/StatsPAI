@@ -1,84 +1,103 @@
-"""Bandwidth selection for GWR via golden-section search.
+"""Bandwidth selection for GWR — golden-section search as in ``GWmodel``.
 
-Criteria:
-- AICc (corrected Akaike; default — matches mgwr)
-- CV (leave-one-out cross-validation score)
+Criteria (each evaluated exactly as ``GWmodel`` does, see
+``tests/reference_parity/test_spatial_survey_R_parity.py``):
 
-Adaptive (integer nearest-neighbour) search bounds default to
-``[k + 2, n]``; fixed-distance search bounds default to
-``[median_nn, max_nn * 2]``.
+- ``"AICc"`` (default) — ``GWmodel::gwr.aic`` (which, despite its name and
+  ``bw.gwr(approach = "AIC")``, returns the *corrected* AIC); also mgwr's
+  default criterion.
+- ``"CV"`` — leave-one-out score ``sum_i (e_i / (1 - S_ii))^2``, equal to
+  ``GWmodel::gwr.cv``'s refit-with-``W_ii = 0`` sum of squared residuals.
+- ``"AIC"``, ``"BIC"`` — the uncorrected AIC and the BIC of
+  ``gwr.basic``'s diagnostics.
+
+The search is ``GWmodel``'s ``gold()`` routine, reproduced step for step:
+default bounds ``[20, n]`` (adaptive) or ``[D / 5000, D]`` with ``D`` the
+largest inter-point distance (fixed); integer probes use ``floor`` for the
+upper and ``round`` for the lower golden point; iteration stops when the
+bracket step or the criterion difference falls to ``tol`` (GWmodel's
+hard-coded ``1e-4`` by default). The criterion
+is generally *not* unimodal on the neighbour-count lattice, so any golden
+search returns a search-path-dependent local minimum; reproducing the
+reference's path is what makes the selected bandwidth comparable.
 """
 
 from __future__ import annotations
 
-from typing import Any, Callable, Literal, Optional, Tuple
+from typing import Any, Callable, Literal, Optional
 
 import numpy as np
 
-from .gwr import gwr, GWRResult, KernelName
+from .gwr import GWRResult, KernelName, gwr
 
 Criterion = Literal["AICc", "AIC", "BIC", "CV"]
 
 
-def _loss(
-    result: GWRResult,
-    criterion: Criterion,
-    y: np.ndarray,
-    coords: np.ndarray,
-    X: np.ndarray,
-    bw: float,
-    kernel: KernelName,
-    fixed: bool,
-    add_constant: bool,
-) -> float:
+def _criterion(result: GWRResult, criterion: Criterion) -> float:
     if criterion == "AICc":
-        return result.aicc
+        return float(result.aicc)
     if criterion == "AIC":
-        return result.aic
+        return float(result.aic)
     if criterion == "BIC":
-        return result.bic
+        return float(result.bic)
     if criterion == "CV":
-        # LOO prediction error — the hat-matrix trick:
-        # CV residual_i = e_i / (1 - S_ii). We need S_ii which the gwr result
-        # does not expose; approximate via a quick refit or fall back on plain
-        # RSS (conservative; mgwr uses the exact Husseini-Shih formulation).
-        return float(result.resid_ss)
+        return float(result.cv)
     raise ValueError(f"unknown criterion {criterion!r}")
 
 
-def _golden_section(
-    f: Callable[[float], float],
-    a: float,
-    b: float,
-    tol: float = 1e-3,
-    max_iter: int = 200,
-    integer: bool = False,
-) -> Tuple[float, float]:
-    """Minimise ``f`` on ``[a, b]`` via golden-section search."""
-    golden = (np.sqrt(5) - 1) / 2
-    c = b - golden * (b - a)
-    d = a + golden * (b - a)
-    if integer:
-        c = int(round(c))
-        d = int(round(d))
-    fc, fd = f(c), f(d)
-    for _ in range(max_iter):
-        if abs(b - a) < tol:
-            break
-        if fc < fd:
-            b, d, fd = d, c, fc
-            c = b - golden * (b - a)
-            if integer:
-                c = int(round(c))
-            fc = f(c)
+def _gold(
+    fun: Callable[[float], float],
+    xL: float,
+    xU: float,
+    adapt_bw: bool,
+    eps: float = 1e-4,
+) -> float:
+    """Golden-section minimiser of ``GWmodel:::gold`` (GWmodel 2.4).
+
+    Transcribed from the R source, including its stopping rule
+    (``|d| <= 1e-4`` or ``|f2 - f1| <= 1e-4``) and its integer probes
+    (``floor`` / ``round``) for adaptive bandwidths. R's ``round`` and
+    NumPy's both round half to even.
+    """
+    R = (np.sqrt(5.0) - 1.0) / 2.0
+    d = R * (xU - xL)
+    if adapt_bw:
+        x1 = float(np.floor(xL + d))
+        x2 = float(np.round(xU - d))
+    else:
+        x1 = xL + d
+        x2 = xU - d
+    f1 = fun(x1)
+    f2 = fun(x2)
+    d1 = f2 - f1
+    xopt = x1 if f1 < f2 else x2
+    while abs(d) > eps and abs(d1) > eps:
+        d = R * d
+        if f1 < f2:
+            xL = x2
+            x2 = x1
+            x1 = float(np.round(xL + d)) if adapt_bw else xL + d
+            f2 = f1
+            f1 = fun(x1)
         else:
-            a, c, fc = c, d, fd
-            d = a + golden * (b - a)
-            if integer:
-                d = int(round(d))
-            fd = f(d)
-    bw_opt = c if fc < fd else d
-    return float(bw_opt), float(min(fc, fd))
+            xU = x1
+            x1 = x2
+            x2 = float(np.floor(xU - d)) if adapt_bw else xU - d
+            f1 = f2
+            f2 = fun(x2)
+        xopt = x1 if f1 < f2 else x2
+        d1 = f2 - f1
+    return float(xopt)
+
+
+def _max_pairwise_distance(coords: np.ndarray) -> float:
+    n = coords.shape[0]
+    if n <= 5000:
+        diff = coords[:, None, :] - coords[None, :, :]
+        return float(np.sqrt((diff**2).sum(axis=2)).max())
+    # GWmodel switches to the bounding-box diagonal when it does not build
+    # the distance matrix (dp.n + dp.n > 10000).
+    return float(np.linalg.norm(coords.max(axis=0) - coords.min(axis=0)))
 
 
 def gwr_bandwidth(
@@ -91,19 +110,46 @@ def gwr_bandwidth(
     bw_min: Optional[float] = None,
     bw_max: Optional[float] = None,
     add_constant: bool = True,
-    tol: float = 1e-3,
+    tol: float = 1e-4,
 ) -> float:
-    """Select GWR bandwidth via golden-section search.
+    """Select a GWR bandwidth by golden-section search (``GWmodel::bw.gwr``).
 
     Parameters
     ----------
-    criterion : {"AICc", "AIC", "BIC", "CV"}
-        Default AICc matches mgwr.
-    fixed : bool
-        If False (default), the bandwidth is a nearest-neighbour count
-        (integer-valued; rounded at each candidate).
+    coords : (n, 2) array-like
+        Projected point coordinates.
+    y : (n,) array-like
+    X : (n, p) array-like
+        Regressors, without a constant unless ``add_constant=False``.
+    kernel : {"bisquare", "gaussian", "exponential"}
+    fixed : bool, default False
+        False: the bandwidth is a nearest-neighbour count (integer probes).
+        True: a distance.
+    criterion : {"AICc", "AIC", "BIC", "CV"}, default "AICc"
+        ``"AICc"`` is ``bw.gwr(approach = "AICc")`` (and mgwr's default);
+        ``"CV"`` is ``bw.gwr(approach = "CV")``, GWmodel's default.
     bw_min, bw_max : float, optional
-        Override the default search bounds.
+        Search bounds. Defaults are GWmodel's: ``[20, n]`` for an adaptive
+        bandwidth (``[k + 2, n]`` when ``n <= 20``, where GWmodel's bounds
+        would be empty) and ``[D / 5000, D]`` for a fixed one, ``D`` being
+        the largest inter-point distance.
+    add_constant : bool, default True
+    tol : float, default 1e-4
+        Stopping threshold of the golden-section search, applied (as in
+        GWmodel, where it is hard-coded to ``1e-4``) both to the bracket
+        step and to the difference of the two probed criterion values.
+
+    Returns
+    -------
+    float
+        The selected bandwidth.
+
+    Notes
+    -----
+    The criterion is generally not unimodal in the bandwidth, so the
+    result is the local minimum reached by the golden-section path, not
+    necessarily the global minimum. To scan globally, evaluate
+    ``sp.gwr(...).aicc`` / ``.cv`` over a grid.
 
     Examples
     --------
@@ -127,39 +173,36 @@ def gwr_bandwidth(
     X = np.asarray(X, dtype=float)
     n = coords.shape[0]
     k = X.shape[1] + (1 if add_constant else 0)
-
+    if criterion not in ("AICc", "AIC", "BIC", "CV"):
+        raise ValueError(f"unknown criterion {criterion!r}")
     if fixed:
-        if bw_min is None:
-            # smallest inter-point distance (stabilised slightly)
-            from scipy.spatial import cKDTree
-
-            tree = cKDTree(coords)
-            d1, _ = tree.query(coords, k=2)
-            bw_min = float(np.percentile(d1[:, 1], 10))
         if bw_max is None:
-            bw_max = float(np.linalg.norm(coords.max(axis=0) - coords.min(axis=0)))
-        integer = False
+            bw_max = _max_pairwise_distance(coords)
+        if bw_min is None:
+            bw_min = bw_max / 5000.0
     else:
         if bw_min is None:
-            bw_min = k + 2  # need at least k+2 obs to fit
+            bw_min = 20.0 if n > 20 else float(k + 2)
         if bw_max is None:
             bw_max = float(n)
-        integer = True
 
     def objective(bw: float) -> float:
-        res = gwr(
-            coords, y, X, bw, kernel=kernel, fixed=fixed, add_constant=add_constant
-        )
-        return _loss(res, criterion, y, coords, X, bw, kernel, fixed, add_constant)
+        try:
+            res = gwr(
+                coords,
+                y,
+                X,
+                bw,
+                kernel=kernel,
+                fixed=fixed,
+                add_constant=add_constant,
+            )
+        except (np.linalg.LinAlgError, ValueError):
+            # GWmodel's gwr.aic / gwr.cv return Inf when a local fit fails.
+            return np.inf
+        val = _criterion(res, criterion)
+        return np.inf if np.isnan(val) else val
 
-    bw_opt, _ = _golden_section(
-        objective,
-        bw_min,
-        bw_max,
-        tol=tol,
-        max_iter=60,
-        integer=integer,
+    return _gold(
+        objective, float(bw_min), float(bw_max), adapt_bw=not fixed, eps=float(tol)
     )
-    if integer:
-        bw_opt = int(round(bw_opt))
-    return float(bw_opt)

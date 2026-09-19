@@ -56,7 +56,12 @@ def test_native_sdid_matches_synthdid_reference_fixture():
     assert result.model_info["reference_backend"] == "synthdid"
     assert "Frank-Wolfe weight solver" in result.model_info["validation_note"]
     assert np.isclose(result.estimate, -15.94838884672099)
-    assert np.isclose(result.se, 2.6040746521236526)
+    # Characterisation pin of the seeded Monte-Carlo placebo SE (200
+    # synthdid::placebo_se replications at seed 42), not a reference value:
+    # R's own placebo SE on these bytes is 2.6266 (Track A module 12), a
+    # different random stream. The per-replication map is checked against R
+    # draw for draw in tests/reference_parity/test_did_synth_R_parity.py.
+    assert np.isclose(result.se, 2.5630226212963496)
 
 
 def test_native_sdid_recovers_constant_effect_on_exact_synthetic_dgp():

@@ -35,6 +35,8 @@ class StandardizedRateResult(ResultProtocolMixin):
     stratum_rates: np.ndarray
     standard_weights: np.ndarray
     method: str = "direct"
+    se: float = float("nan")
+    ci_method: str = "lognormal"
 
     def summary(self) -> str:
         lo, hi = self.ci
@@ -69,6 +71,8 @@ def direct_standardize(
     standard_weights: Sequence[float],
     *,
     alpha: float = 0.05,
+    ci_method: str = "lognormal",
+    variance: str = "poisson",
 ) -> StandardizedRateResult:
     """Direct standardization of a rate.
 
@@ -89,6 +93,15 @@ def direct_standardize(
         Standard population size or proportion per stratum.  Will be
         normalized to sum to 1.
     alpha : float
+    ci_method : {"lognormal", "gamma", "normal"}, default "lognormal"
+        ``"lognormal"``: ``exp(log r +/- z se / r)``. ``"gamma"``: the
+        Fay-Feuer gamma interval, as R ``epitools::ageadjust.direct``.
+        ``"normal"``: ``r +/- z se`` with the lower bound truncated at 0, as
+        Stata ``dstdize`` (use with ``variance="binomial"``).
+    variance : {"poisson", "binomial"}, default "poisson"
+        ``"poisson"``: ``sum w_k^2 events_k / population_k^2`` (epitools).
+        ``"binomial"``: ``sum w_k^2 r_k (1 - r_k) / population_k`` (Stata
+        ``dstdize``).
 
     Returns
     -------
@@ -96,8 +109,8 @@ def direct_standardize(
 
     Notes
     -----
-    SE is computed by the delta method on the weighted sum of stratum
-    rates, treating events as Poisson.
+    The standard error is the square root of the chosen variance of the
+    weighted sum of stratum rates; ``.se`` stores it.
 
     Examples
     --------
@@ -119,23 +132,50 @@ def direct_standardize(
     if (w_raw < 0).any():
         raise ValueError("standard_weights must be non-negative.")
 
+    if ci_method not in ("lognormal", "gamma", "normal"):
+        raise ValueError("ci_method must be 'lognormal', 'gamma' or 'normal'")
+    if variance not in ("poisson", "binomial"):
+        raise ValueError("variance must be 'poisson' or 'binomial'")
     w = w_raw / w_raw.sum()
     stratum_rates = e / p
     r_std = float(np.sum(w * stratum_rates))
-    var = float(np.sum(w**2 * e / p**2))
-    se = np.sqrt(var)
+    if variance == "poisson":
+        var = float(np.sum(w**2 * e / p**2))
+    else:
+        var = float(np.sum(w**2 * stratum_rates * (1 - stratum_rates) / p))
+    se = float(np.sqrt(var))
     z = stats.norm.ppf(1 - alpha / 2)
 
-    # Log-transform for a stable CI (Breslow-Day)
-    if r_std > 0:
-        log_rate = np.log(r_std)
-        se_log = se / r_std
-        ci = (
-            float(np.exp(log_rate - z * se_log)),
-            float(np.exp(log_rate + z * se_log)),
+    if ci_method == "lognormal":
+        if r_std > 0:
+            log_rate = np.log(r_std)
+            se_log = se / r_std
+            ci = (
+                float(np.exp(log_rate - z * se_log)),
+                float(np.exp(log_rate + z * se_log)),
+            )
+        else:
+            ci = (0.0, float(z * se))
+    elif ci_method == "gamma":
+        # Fay & Feuer: gamma with the DSR's mean and variance for the lower
+        # bound; mean and variance inflated by the largest w_k / pop_k for
+        # the upper bound.
+        wm = float(np.max(w / p))
+        lo = (
+            float(stats.gamma.ppf(alpha / 2, r_std**2 / var, scale=var / r_std))
+            if var > 0 and r_std > 0
+            else 0.0
         )
+        hi = float(
+            stats.gamma.isf(
+                alpha / 2,
+                (r_std + wm) ** 2 / (var + wm**2),
+                scale=(var + wm**2) / (r_std + wm),
+            )
+        )
+        ci = (lo, hi)
     else:
-        ci = (0.0, float(z * se))
+        ci = (float(max(0.0, r_std - z * se)), float(r_std + z * se))
 
     return StandardizedRateResult(
         rate=r_std,
@@ -143,6 +183,8 @@ def direct_standardize(
         stratum_rates=stratum_rates,
         standard_weights=w,
         method="direct",
+        se=se,
+        ci_method=ci_method,
     )
 
 
@@ -153,6 +195,7 @@ def indirect_standardize(
     population_study: Sequence[float],
     *,
     alpha: float = 0.05,
+    ci_method: str = "exact",
 ) -> SMRResult:
     """Indirect standardization -> Standardized Morbidity/Mortality Ratio.
 
@@ -160,7 +203,11 @@ def indirect_standardize(
     rate_ref_k = events_reference_k / population_reference_k.
     SMR = observed / expected.
 
-    CI uses exact Poisson (Byar's approximation / Garwood).
+    ``ci_method="exact"`` (default) is the exact Poisson (Garwood)
+    interval for the observed count divided by the expected count, as
+    Stata ``istdize``; ``"lognormal"`` is ``SMR exp(+/- z / sqrt(O))``, as R
+    ``epitools::ageadjust.indirect``. ``p_value`` is the exact two-sided
+    Poisson test of SMR = 1: twice the smaller exact tail, capped at 1.
 
     Examples
     --------
@@ -190,8 +237,19 @@ def indirect_standardize(
         raise ValueError("Expected events = 0; SMR undefined.")
     smr = float(observed / expected)
 
+    if ci_method not in ("exact", "lognormal"):
+        raise ValueError("ci_method must be 'exact' or 'lognormal'")
     # Garwood exact CI for Poisson: 2*O ~ chi2(2*O) and 2*(O+1) ~ chi2(2*(O+1))
-    if observed > 0:
+    if ci_method == "lognormal":
+        if observed <= 0:
+            raise ValueError("ci_method='lognormal' needs observed > 0.")
+        zq = stats.norm.ppf(1 - alpha / 2)
+        half = zq / np.sqrt(observed)
+        ci_count = (
+            float(observed * np.exp(-half)),
+            float(observed * np.exp(half)),
+        )
+    elif observed > 0:
         lo_chi = stats.chi2.ppf(alpha / 2, 2 * observed) / 2.0
         hi_chi = stats.chi2.ppf(1 - alpha / 2, 2 * (observed + 1)) / 2.0
         ci_count = (float(lo_chi), float(hi_chi))
@@ -203,7 +261,7 @@ def indirect_standardize(
     if observed == 0:
         p_one = float(np.exp(-expected))
     else:
-        # Mid-p two-sided test
+        # Exact two-sided p: twice the smaller exact tail (not mid-p)
         lower = stats.poisson.cdf(observed, expected)
         upper = stats.poisson.sf(observed - 1, expected)
         p_one = min(lower, upper)

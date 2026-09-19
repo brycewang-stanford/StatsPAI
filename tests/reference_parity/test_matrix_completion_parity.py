@@ -65,6 +65,12 @@ E. **Determinism / seed-stability** (consistency).  ``random_state``
    pins the bootstrap RNG, so two identical calls return bitwise-equal
    ``estimate`` and ``se`` (probed diff 0.0).
 
+Anchors A-C test PURE completion (the DGP has no additive effects), so they
+pass ``fixed_effects="none"``; since the two-way-FE default was adopted the
+solver lives in ``matrix_completion/_core.py::mc_nnm_fit`` and the line
+numbers below refer to the pre-change file. Reference (MCPanel / fect)
+alignment is in ``test_did_synth_mc_parity.py``.
+
 Implementation facts the anchors rely on (cited file:line)
 ----------------------------------------------------------
 - ``mc_panel.py:234-235`` — ``Omega = (W == 0) & ~isnan(Y)``: only
@@ -210,6 +216,7 @@ class TestRecoveryFrobenius:
             time="time",
             max_rank=2,
             lambda_reg=0.05,
+            fixed_effects="none",
             n_bootstrap=3,
             random_state=0,
         )
@@ -252,6 +259,7 @@ class TestNoiselessCollapse:
             time="time",
             max_rank=2,
             lambda_reg=1e-4,
+            fixed_effects="none",
             n_bootstrap=3,
             random_state=0,
             max_iter=5000,
@@ -294,6 +302,7 @@ class TestSingularValueGap:
             time="time",
             lambda_reg=1.0,
             n_bootstrap=3,
+            fixed_effects="none",
             random_state=0,
             max_iter=2000,
         )

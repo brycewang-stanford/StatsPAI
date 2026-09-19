@@ -6,6 +6,9 @@ and bias the standard SCM estimator. Two approaches:
 
 * **demeaned** — subtract unit-specific pre-treatment means before
   optimising weights, then add them back. Removes level differences.
+  This is the simplex-weighted SCM with an intercept: with one treated
+  unit it reproduces R ``augsynth::augsynth(progfunc = "None",
+  fixedeff = TRUE)`` (Ben-Michael, Feller & Rothstein's de-meaned SCM).
 * **detrended** — remove unit-specific linear time trends before
   optimising, then add them back. Removes both level and slope
   differences.
@@ -27,10 +30,11 @@ from typing import Any, List, Literal, Optional
 
 import numpy as np
 import pandas as pd
-from scipy import optimize, stats
+from scipy import stats
 
 from ..core.results import CausalResult
 from ._core import placebo_rank_pvalue
+from ._core import solve_simplex_weights as _solve_weights
 
 
 def demeaned_synth(
@@ -64,7 +68,9 @@ def demeaned_synth(
     treatment_time : any
         First treatment period (inclusive).
     covariates : list of str, optional
-        Additional covariates to match on.
+        Not supported: the weights are fitted on (de-meaned / de-trended)
+        pre-treatment outcomes only. Passing covariates raises
+        ``NotImplementedError`` (it used to be silently ignored).
     variant : {'demeaned', 'detrended'}, default 'demeaned'
         * ``'demeaned'`` — subtract unit-level pre-treatment means.
         * ``'detrended'`` — subtract unit-level linear time trends.
@@ -98,6 +104,13 @@ def demeaned_synth(
     ----------
     ferman2021synthetic, doudchenko2016balancing
     """
+    if covariates:
+        raise NotImplementedError(
+            "demeaned_synth fits weights on pre-treatment outcomes only; "
+            "`covariates` is not supported (it was previously ignored "
+            "silently)."
+        )
+
     # --- Build panel matrix ---
     pivot = data.pivot_table(index=time, columns=unit, values=outcome)
     times = pivot.index.values
@@ -178,6 +191,7 @@ def demeaned_synth(
     # --- Placebo inference ---
     placebo_atts = []
     placebo_pre_mspes = []
+    placebo_post_mspes = []
     if placebo and J >= 2:
         all_Y = np.column_stack([Y_treated[:, np.newaxis], Y_donors])
         all_Y_adj = np.column_stack([Y_treated_adj[:, np.newaxis], Y_donors_adj])
@@ -205,16 +219,19 @@ def demeaned_synth(
                 gap_p = Y_p - synth_p
                 placebo_atts.append(float(np.mean(gap_p[post_mask])))
                 placebo_pre_mspes.append(float(np.mean(gap_p[pre_mask] ** 2)))
-            except Exception:  # pragma: no cover
+                placebo_post_mspes.append(float(np.mean(gap_p[post_mask] ** 2)))
+            except ValueError:  # pragma: no cover
                 continue  # pragma: no cover
 
     # --- P-value ---
     if len(placebo_atts) > 0:
+        # Abadie-Diamond-Hainmueller post/pre MSPE ratio, computed the SAME
+        # way for the treated unit and every placebo.
         post_mspe = float(np.mean(gap_post**2))
-        ratio_treated = post_mspe / pre_mspe if pre_mspe > 1e-10 else np.inf
+        ratio_treated = _mspe_ratio(post_mspe, pre_mspe)
         placebo_ratios = [
-            a**2 / m if m > 1e-10 else 0
-            for a, m in zip(placebo_atts, placebo_pre_mspes)
+            _mspe_ratio(post_m, pre_m)
+            for post_m, pre_m in zip(placebo_post_mspes, placebo_pre_mspes)
         ]
         pvalue = placebo_rank_pvalue(ratio_treated, placebo_ratios)
         se = float(np.std(placebo_atts)) if len(placebo_atts) > 1 else 0.0
@@ -254,8 +271,8 @@ def demeaned_synth(
         "n_donors": J,
         "n_pre_periods": int(pre_mask.sum()),
         "n_post_periods": int(post_mask.sum()),
-        "pre_treatment_mspe": round(pre_mspe, 6),
-        "pre_treatment_rmse": round(np.sqrt(pre_mspe), 6),
+        "pre_treatment_mspe": pre_mspe,
+        "pre_treatment_rmse": float(np.sqrt(pre_mspe)),
         "penalization": penalization,
         "treatment_time": treatment_time,
         "treated_unit": treated_unit,
@@ -269,6 +286,8 @@ def demeaned_synth(
     if placebo_atts:
         model_info["placebo_atts"] = placebo_atts
         model_info["n_placebos"] = len(placebo_atts)
+        model_info["mspe_ratio"] = ratio_treated
+        model_info["placebo_mspe_ratios"] = placebo_ratios
 
     return CausalResult(
         method=f"{variant_label} Synthetic Control (Ferman & Pinto 2021)",
@@ -285,40 +304,11 @@ def demeaned_synth(
     )
 
 
-def _solve_weights(
-    Y_treated_pre: np.ndarray,
-    Y_donors_pre: np.ndarray,
-    penalization: float = 0.0,
-) -> np.ndarray:
-    """min ||y - X w||^2 + pen ||w||^2  s.t. w >= 0, sum(w) = 1."""
-    J = Y_donors_pre.shape[1]
-    if J == 0:
-        raise ValueError("No donor units available")
-
-    def objective(w: np.ndarray) -> float:
-        r = Y_treated_pre - Y_donors_pre @ w
-        loss = r @ r
-        if penalization > 0:
-            loss += penalization * (w @ w)
-        return float(loss)
-
-    def jac(w: np.ndarray) -> np.ndarray:
-        r = Y_treated_pre - Y_donors_pre @ w
-        g = -2 * Y_donors_pre.T @ r
-        if penalization > 0:
-            g += 2 * penalization * w
-        return np.asarray(g)
-
-    res = optimize.minimize(
-        objective,
-        np.ones(J) / J,
-        jac=jac,
-        method="SLSQP",
-        bounds=[(0, 1)] * J,
-        constraints={"type": "eq", "fun": lambda w: np.sum(w) - 1},
-        options={"maxiter": 1000, "ftol": 1e-12},
-    )
-    return np.asarray(res.x)
+def _mspe_ratio(post_mspe: float, pre_mspe: float) -> float:
+    """Post/pre MSPE ratio; a perfect pre-fit gives ``+inf`` for any unit."""
+    if pre_mspe > 1e-10:
+        return post_mspe / pre_mspe
+    return np.inf if post_mspe > 0 else 0.0
 
 
 # Citation

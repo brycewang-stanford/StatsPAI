@@ -633,7 +633,7 @@
     ],
     "category": "panel",
     "cost_profile": "",
-    "description": "Panel negative-binomial regression. model='fe' uses explicit entity fixed effects through nbreg; model='re' dispatches to the random-intercept NB-2 GLMM menbreg.",
+    "description": "Panel negative-binomial regression (Stata xtnbreg): model='fe' is the Hausman-Hall-Griliches conditional fixed-effects NB, model='re' the beta-dispersion random-effects NB; 'ufe' (dummy-variable NB-2) and 'normal_re' (menbreg) are the other panel NB estimators. Validation: certified parity evidence.",
     "example": "sp.xtnbreg(\"visits ~ age + income\", data=df, entity=\"person\", model=\"fe\")",
     "failure_modes": [
       {
@@ -665,7 +665,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Panel negative-binomial regression. model='fe' uses explicit entity fixed effects through nbreg; model='re' dispatches to the random-intercept NB-2 GLMM menbreg.",
+      "description": "Panel negative-binomial regression (Stata xtnbreg): model='fe' is the Hausman-Hall-Griliches conditional fixed-effects NB, model='re' the beta-dispersion random-effects NB; 'ufe' (dummy-variable NB-2) and 'normal_re' (menbreg) are the other panel NB estimators. Validation: certified parity evidence.",
       "name": "xtnbreg",
       "parameters": {
         "properties": {
@@ -700,7 +700,9 @@
             "enum": [
               "fe",
               "re",
-              "pooled"
+              "pooled",
+              "ufe",
+              "normal_re"
             ],
             "type": "string"
           },
@@ -729,9 +731,11 @@
     "stability": "stable",
     "typical_n_min": 300,
     "validation_notes": [
+      "tests/reference_parity/test_panel_xtnbreg_parity.py",
+      "Cross-language parity (bit-exact) vs Stata 18 xtnbreg, fe / re (Hausman-Hall-Griliches); pglm::pglm(family = negbin, model = 'within' / 'random') [R R version 4.5.2 (2025-10-31), Stata 18 MP, pglm 0.2.4]; tolerance coefficients / SEs rtol 1e-7 (observed <= 2.7e-8: Stata fe's score at its own estimate is 3e-7, pglm's gradtol), log-likelihood rtol 1e-12 -- tests/reference_parity/test_panel_xtnbreg_parity.py",
       "API/unit contract evidence: tests/test_count_panel_nbreg.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -1503,8 +1507,7 @@
             "type": "integer"
           },
           "p": {
-            "default": 1,
-            "description": "Polynomial order for point estimation",
+            "description": "Polynomial order for point estimation. None -> 1 (local linear) when deriv=0, deriv + 1 otherwise (R rdrobust rule).",
             "type": "integer"
           },
           "q": {
@@ -2913,6 +2916,11 @@
             "description": "Target estimand",
             "type": "string"
           },
+          "q_bound": {
+            "default": 1e-05,
+            "description": "The initial outcome predictions, on the [0, 1] scale the logistic fluctuation works on (continuous outcomes are min-max rescaled), are truncated to ``[q_bound, 1 - q_bound]`` before targeting. ``tmle::tmle`` truncates at ``1 - alpha = 5e-4`` (its default ``alpha = 0.9995``); pass ``q_bound=5e-4`` to reproduce it.",
+            "type": "number"
+          },
           "treat": {
             "description": "Binary treatment column (0/1)",
             "type": "string"
@@ -3242,7 +3250,7 @@
     ],
     "category": "panel",
     "cost_profile": "",
-    "description": "Bayesian structural time series for causal impact analysis.",
+    "description": "Causal impact of an intervention on a time series: pre-period OLS on the covariate series with an AR(1) latent state (Kalman filter), post-period counterfactual forecasts and frequentist prediction intervals for pointwise, average and cumulative effects. Not the Bayesian structural time-series model of R CausalImpact. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.causal_impact(df, y=\"sales\", time=\"date\", intervention_time=\"2020-03-15\")",
     "failure_modes": [
       {
@@ -3262,7 +3270,7 @@
     ],
     "reference": "Brodersen et al. (2015)",
     "signature": {
-      "description": "Bayesian structural time series for causal impact analysis.",
+      "description": "Causal impact of an intervention on a time series: pre-period OLS on the covariate series with an AR(1) latent state (Kalman filter), post-period counterfactual forecasts and frequentist prediction intervals for pointwise, average and cumulative effects. Not the Bayesian structural time-series model of R CausalImpact. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "causal_impact",
       "parameters": {
         "properties": {
@@ -3295,9 +3303,11 @@
     "stability": "stable",
     "typical_n_min": 30,
     "validation_notes": [
+      "tests/reference_parity/test_did_synth_misc_parity.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_did_synth_misc_parity.py",
       "API/unit contract evidence: tests/test_causal_impact.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -3310,7 +3320,7 @@
     ],
     "category": "survey",
     "cost_profile": "",
-    "description": "Declare a complex survey design for design-corrected estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Declare a complex survey design for design-corrected estimation. Validation: certified parity evidence.",
     "example": "design = sp.svydesign(df, weights=\"pw\", strata=\"region\", cluster=\"psu\")",
     "failure_modes": [
       {
@@ -3329,7 +3339,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Declare a complex survey design for design-corrected estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Declare a complex survey design for design-corrected estimation. Validation: certified parity evidence.",
       "name": "svydesign",
       "parameters": {
         "properties": {
@@ -3343,6 +3353,17 @@
           },
           "fpc": {
             "description": "Finite population correction column",
+            "type": "string"
+          },
+          "lonely_psu": {
+            "description": "How a stratum with a single sampled PSU enters the variance (R options(survey.lonely.psu=)): \"remove\"/\"certainty\" contribute zero, \"adjust\" centres at the grand mean of PSU totals, \"average\" rescales by #strata / #strata-with->1-PSU, \"fail\" raises (R default). None behaves as \"remove\" and warns when a lonely stratum is present.",
+            "enum": [
+              "remove",
+              "certainty",
+              "adjust",
+              "average",
+              "fail"
+            ],
             "type": "string"
           },
           "strata": {
@@ -3364,11 +3385,13 @@
     "stability": "stable",
     "typical_n_min": 30,
     "validation_notes": [
+      "tests/reference_parity/test_survey_calib_R_parity.py",
+      "tests/reference_parity/test_survey_design_R_parity.py",
       "tests/reference_parity/test_survey_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_survey_parity.py",
+      "Cross-language parity (bit-exact) vs survey::svydesign + svymean/svytotal/svyglm/degf (strata, nested PSUs, fpc, survey.lonely.psu); Stata svyset + svy: mean/total/regress/logit/poisson + estat effects [R R version 4.5.2 (2025-10-31), Stata 18 MP, survey 4.5]; tolerance estimates, SEs, DEFF, CI bounds 1e-10 rel, p-values 1e-9 rel (observed <= 4e-14; p 6e-13) -- tests/reference_parity/test_survey_design_R_parity.py",
       "API/unit contract evidence: tests/test_survey.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -5337,7 +5360,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Marginal Structural Models for time-varying treatments with time-varying confounders. Uses stabilized IPTW and cluster-robust inference. Handles binary or continuous treatment; exposure summary can be current, cumulative, or ever. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Marginal Structural Models for time-varying treatments with time-varying confounders. Uses stabilized IPTW and cluster-robust inference. Handles binary or continuous treatment; exposure summary can be current, cumulative, or ever. Validation: certified parity evidence.",
     "example": "sp.msm(panel, y=\"Y\", treat=\"A\", id=\"id\", time=\"t\", time_varying=[\"L_lag\"], baseline=[\"V\"])",
     "failure_modes": [
       {
@@ -5357,7 +5380,7 @@
     ],
     "reference": "Robins, Hernan & Brumback (2000); Cole & Hernan (2008)",
     "signature": {
-      "description": "Marginal Structural Models for time-varying treatments with time-varying confounders. Uses stabilized IPTW and cluster-robust inference. Handles binary or continuous treatment; exposure summary can be current, cumulative, or ever. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Marginal Structural Models for time-varying treatments with time-varying confounders. Uses stabilized IPTW and cluster-robust inference. Handles binary or continuous treatment; exposure summary can be current, cumulative, or ever. Validation: certified parity evidence.",
       "name": "msm",
       "parameters": {
         "properties": {
@@ -5370,6 +5393,15 @@
           },
           "data": {
             "description": "Long-format panel (unit x time)",
+            "type": "string"
+          },
+          "density_sd": {
+            "default": "unbiased",
+            "description": "Residual-SD convention for continuous-treatment density weights; see :func:`stabilized_weights`.",
+            "enum": [
+              "unbiased",
+              "ml"
+            ],
             "type": "string"
           },
           "exposure": {
@@ -5435,11 +5467,12 @@
     "typical_n_min": 300,
     "validation_notes": [
       "tests/reference_parity/test_msm_family_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_msm_family_parity.py",
+      "tests/reference_parity/test_teffects_R_parity.py",
+      "Cross-language parity (bit-exact) vs ipw::ipwtm + lm / glm(quasibinomial) + sandwich::vcovCL(type = 'HC1') [R R version 4.5.2 (2025-10-31), ipw 1.3.0, sandwich 3.1.1]; tolerance coefficients and cluster SEs 1e-9 rel (observed 1.5e-13); Stata regress / logit [pw] 1e-7 -- tests/reference_parity/test_teffects_R_parity.py",
       "API/unit contract evidence: tests/test_msm.py",
       "API/unit contract evidence: tests/test_escape_hatches.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -5454,7 +5487,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: certified parity evidence.",
     "example": "sp.mediate_interventional(df, y=\"y\", treat=\"d\", mediator=\"m\", tv_confounders=[\"L\"])",
     "failure_modes": [
       {
@@ -5474,7 +5507,7 @@
     ],
     "reference": "VanderWeele, Vansteelandt & Robins (2014)",
     "signature": {
-      "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: certified parity evidence.",
       "name": "mediate_interventional",
       "parameters": {
         "properties": {
@@ -5522,10 +5555,11 @@
     "typical_n_min": 300,
     "validation_notes": [
       "tests/reference_parity/test_mediate_interventional_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_mediate_interventional_parity.py",
+      "tests/reference_parity/test_teffects_R_parity.py",
+      "Cross-language parity (bit-exact) vs CMAverse::cmest 0.1.0 (gformula with postc: rpnde / rpnie / te; rb paramfunc without) [CMAverse 0.1.0, R R version 4.5.2 (2025-10-31)]; tolerance IIE / IDE / total 1e-9 rel (observed 2.3e-15) -- tests/reference_parity/test_teffects_R_parity.py",
       "API/unit contract evidence: tests/test_mediate_interventional.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -5662,7 +5696,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Principal Stratification (Frangakis & Rubin 2002). 'monotonicity' method identifies the complier PCE (= LATE) and reports Zhang-Rubin sharp bounds on the always-survivor SACE. 'principal_score' uses Ding-Lu covariate weighting to point-identify stratum-specific effects under principal ignorability. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Always-survivor SACE under encouragement design (Mealli & Pacini 2013, partial identification) is not yet implemented; only AIR / Wald LATE point estimates (tau_Y on outcome, tau_S on the post-treatment stratum) are reported when an instrument is supplied.",
+    "description": "Principal Stratification (Frangakis & Rubin 2002). 'monotonicity' method identifies the complier PCE (= LATE) and reports Zhang-Rubin sharp bounds on the always-survivor SACE. 'principal_score' uses Ding-Lu covariate weighting to point-identify stratum-specific effects under principal ignorability. Validation: certified evidence with scoped limitations. Known limitations: Always-survivor SACE under encouragement design (Mealli & Pacini 2013, partial identification) is not yet implemented; only AIR / Wald LATE point estimates (tau_Y on outcome, tau_S on the post-treatment stratum) are reported when an instrument is supplied.",
     "example": "sp.principal_strat(df, y=\"y\", treat=\"d\", strata=\"s\")",
     "failure_modes": [
       {
@@ -5698,7 +5732,7 @@
     ],
     "reference": "Frangakis & Rubin (2002); Zhang & Rubin (2003); Ding & Lu (2017)",
     "signature": {
-      "description": "Principal Stratification (Frangakis & Rubin 2002). 'monotonicity' method identifies the complier PCE (= LATE) and reports Zhang-Rubin sharp bounds on the always-survivor SACE. 'principal_score' uses Ding-Lu covariate weighting to point-identify stratum-specific effects under principal ignorability. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Always-survivor SACE under encouragement design (Mealli & Pacini 2013, partial identification) is not yet implemented; only AIR / Wald LATE point estimates (tau_Y on outcome, tau_S on the post-treatment stratum) are reported when an instrument is supplied.",
+      "description": "Principal Stratification (Frangakis & Rubin 2002). 'monotonicity' method identifies the complier PCE (= LATE) and reports Zhang-Rubin sharp bounds on the always-survivor SACE. 'principal_score' uses Ding-Lu covariate weighting to point-identify stratum-specific effects under principal ignorability. Validation: certified evidence with scoped limitations. Known limitations: Always-survivor SACE under encouragement design (Mealli & Pacini 2013, partial identification) is not yet implemented; only AIR / Wald LATE point estimates (tau_Y on outcome, tau_S on the post-treatment stratum) are reported when an instrument is supplied.",
       "name": "principal_strat",
       "parameters": {
         "properties": {
@@ -5748,6 +5782,15 @@
             "description": "Binary treatment",
             "type": "string"
           },
+          "trimming": {
+            "default": "quantile",
+            "description": "Trimming rule for the Zhang-Rubin SACE bounds (monotonicity method); same meaning as in :func:`sp.lee_bounds`, with which the bounds coincide.",
+            "enum": [
+              "quantile",
+              "exact"
+            ],
+            "type": "string"
+          },
           "y": {
             "description": "Outcome",
             "type": "string"
@@ -5766,10 +5809,11 @@
     "typical_n_min": 500,
     "validation_notes": [
       "tests/reference_parity/test_principal_strat_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_principal_strat_parity.py",
+      "tests/reference_parity/test_teffects_R_parity.py",
+      "Cross-language parity (bit-exact) vs AER::ivreg 1.2.16 (Wald LATE); SACE bounds via Stata leebounds [AER 1.2.16, R R version 4.5.2 (2025-10-31)]; tolerance 1e-10 rel on the monotonicity complier LATE -- tests/reference_parity/test_teffects_R_parity.py",
       "API/unit contract evidence: tests/test_principal_strat.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -5891,7 +5935,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Bartik / shift-share IV estimator (Adao-Kolesar-Morales 2019; Borusyak-Hull-Jaravel 2022). Uses pre-period industry / group shares x exogenous shocks as an instrument for local outcome exposure.",
+    "description": "Bartik / shift-share IV estimator (Adao-Kolesar-Morales 2019; Borusyak-Hull-Jaravel 2022). Uses pre-period industry / group shares x exogenous shocks as an instrument for local outcome exposure. Validation: certified parity evidence.",
     "example": "sp.bartik(df, y=\"wage_growth\", endog=\"emp_growth\", shares=share_matrix, shocks=industry_shocks)",
     "failure_modes": [
       {
@@ -5925,7 +5969,7 @@
     ],
     "reference": "Adao, Kolesar & Morales (2019) QJE; Borusyak, Hull & Jaravel (2022) ReStud",
     "signature": {
-      "description": "Bartik / shift-share IV estimator (Adao-Kolesar-Morales 2019; Borusyak-Hull-Jaravel 2022). Uses pre-period industry / group shares x exogenous shocks as an instrument for local outcome exposure.",
+      "description": "Bartik / shift-share IV estimator (Adao-Kolesar-Morales 2019; Borusyak-Hull-Jaravel 2022). Uses pre-period industry / group shares x exogenous shocks as an instrument for local outcome exposure. Validation: certified parity evidence.",
       "name": "bartik",
       "parameters": {
         "properties": {
@@ -5970,9 +6014,11 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "tests/reference_parity/test_did_synth_shiftshare_parity.py",
+      "Cross-language parity (bit-exact) vs 2SLS: R AER::ivreg + sandwich (HC1 / classical), Stata ivregress 2sls, vce(robust) small / small; Rotemberg weights: R bartik.weight::bw and Stata bartik_weight (Goldsmith-Pinkham, Sorkin & Swift) [AER 1.2.16, R 4.5.2, Stata 18 MP, bartik.weight 0.1.0 (GitHub paulgp/bartik-weight@722ceb85484d6a2bf77985edf2403515eacd1770, R-code/pkg), bartik_weight GitHub paulgp/bartik-weight@722ceb85484d6a2bf77985edf2403515eacd1770 code/bartik_weight.ado, sandwich 3.1.1]; tolerance 1e-9 rel on all coefficients and SEs (observed <= 5.4e-15) and on Rotemberg alpha_k / beta_k (observed 2.5e-12) -- tests/reference_parity/test_did_synth_shiftshare_parity.py",
       "API/unit contract evidence: tests/test_bartik.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -6503,7 +6549,7 @@
     ],
     "category": "censoring",
     "cost_profile": "",
-    "description": "Inverse Probability of Censoring Weights -- corrects for informative censoring under conditional independent censoring given covariates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Inverse Probability of Censoring Weights -- corrects for informative censoring under conditional independent censoring given covariates. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -6530,7 +6576,7 @@
     ],
     "reference": "Robins & Finkelstein (2000); Cole & Hernan (2008)",
     "signature": {
-      "description": "Inverse Probability of Censoring Weights -- corrects for informative censoring under conditional independent censoring given covariates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Inverse Probability of Censoring Weights -- corrects for informative censoring under conditional independent censoring given covariates. Validation: certified parity evidence.",
       "name": "ipcw",
       "parameters": {
         "properties": {
@@ -6599,10 +6645,11 @@
     "typical_n_min": 200,
     "validation_notes": [
       "tests/reference_parity/test_ipcw_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_ipcw_parity.py",
+      "tests/reference_parity/test_teffects_R_parity.py",
+      "Cross-language parity (bit-exact) vs survival::coxph(ties = 'breslow') + basehaz(centered = FALSE) [R R version 4.5.2 (2025-10-31), survival 3.8.3]; tolerance 1e-9 rel on every weight (observed 2.0e-11) -- tests/reference_parity/test_teffects_R_parity.py",
       "API/unit contract evidence: tests/test_target_trial.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -7268,6 +7315,7 @@
     "typical_n_min": 20,
     "validation_notes": [
       "tests/reference_parity/test_epi_parity.py",
+      "tests/reference_parity/test_inference_sens_R_parity.py",
       "Cross-language parity (bit-exact) vs base-R closed form (Katz-log; = epiR::epi.2by2 / Stata epitab) [R R version 4.5.2 (2025-10-31)]; tolerance estimate, se_log, CI 1e-12 abs (observed 0) -- tests/reference_parity/test_epi_parity.py",
       "API/unit contract evidence: tests/test_epi.py"
     ],
@@ -7608,6 +7656,7 @@
     "typical_n_min": 40,
     "validation_notes": [
       "tests/reference_parity/test_epi_parity.py",
+      "tests/reference_parity/test_survival_epi_R_parity.py",
       "Cross-language parity (bit-exact) vs base-R closed form (Robins-Breslow-Greenland MH; = epiR) [R R version 4.5.2 (2025-10-31)]; tolerance estimate, se_log, CI 1e-12 abs (observed 0) -- tests/reference_parity/test_epi_parity.py",
       "API/unit contract evidence: tests/test_epi.py"
     ],
@@ -7625,7 +7674,7 @@
     ],
     "category": "epi",
     "cost_profile": "",
-    "description": "Breslow-Day test for homogeneity of the odds ratio across strata, with Tarone correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Breslow-Day test for homogeneity of the odds ratio across strata, with Tarone correction. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -7651,7 +7700,7 @@
     ],
     "reference": "Breslow & Day (1980); Tarone (1985)",
     "signature": {
-      "description": "Breslow-Day test for homogeneity of the odds ratio across strata, with Tarone correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Breslow-Day test for homogeneity of the odds ratio across strata, with Tarone correction. Validation: certified parity evidence.",
       "name": "breslow_day_test",
       "parameters": {
         "properties": {
@@ -7675,11 +7724,12 @@
     "typical_n_min": 40,
     "validation_notes": [
       "tests/reference_parity/test_breslow_day_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_breslow_day_parity.py",
+      "tests/reference_parity/test_survival_epi_R_parity.py",
+      "Cross-language parity (bit-exact) vs R DescTools::BreslowDayTest (correct=FALSE/TRUE); Stata cc, by() bd tarone [DescTools 0.99.60, R R version 4.5.2 (2025-10-31), Stata 18 MP]; tolerance 1e-10 rel (observed 1.3e-14) -- tests/reference_parity/test_survival_epi_R_parity.py",
       "API/unit contract evidence: tests/test_epi.py",
       "API/unit contract evidence: tests/test_tierD_p2_epi_analytic.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -7694,7 +7744,7 @@
     ],
     "category": "epi",
     "cost_profile": "",
-    "description": "Direct age/covariate standardization of a rate using external standard-population weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Direct age/covariate standardization of a rate using external standard-population weights. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -7720,7 +7770,7 @@
     ],
     "reference": "Rothman, Greenland & Lash (2008) ch. 3",
     "signature": {
-      "description": "Direct age/covariate standardization of a rate using external standard-population weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Direct age/covariate standardization of a rate using external standard-population weights. Validation: certified parity evidence.",
       "name": "direct_standardize",
       "parameters": {
         "properties": {
@@ -7728,6 +7778,16 @@
             "default": 0.05,
             "description": "Significance level for confidence intervals and tests.",
             "type": "number"
+          },
+          "ci_method": {
+            "default": "lognormal",
+            "description": "``\"lognormal\"``: ``exp(log r +/- z se / r)``. ``\"gamma\"``: the Fay-Feuer gamma interval, as R ``epitools::ageadjust.direct``.",
+            "enum": [
+              "lognormal",
+              "gamma",
+              "normal"
+            ],
+            "type": "string"
           },
           "events": {
             "description": "events parameter (list | ndarray).",
@@ -7749,6 +7809,15 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "variance": {
+            "default": "poisson",
+            "description": "``\"poisson\"``: ``sum w_k^2 events_k / population_k^2`` (epitools). ``\"binomial\"``: ``sum w_k^2 r_k (1 - r_k) / population_k`` (Stata ``dstdize``).",
+            "enum": [
+              "poisson",
+              "binomial"
+            ],
+            "type": "string"
           }
         },
         "required": [
@@ -7763,10 +7832,11 @@
     "typical_n_min": 50,
     "validation_notes": [
       "tests/reference_parity/test_standardize_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_standardize_parity.py",
+      "tests/reference_parity/test_survival_epi_R_parity.py",
+      "Cross-language parity (bit-exact) vs R epitools::ageadjust.direct; Stata dstdize [R R version 4.5.2 (2025-10-31), Stata 18 MP, epitools 0.5.10.1]; tolerance 1e-10 rel (observed 3e-13) -- tests/reference_parity/test_survival_epi_R_parity.py",
       "API/unit contract evidence: tests/test_epi.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -7781,7 +7851,7 @@
     ],
     "category": "epi",
     "cost_profile": "",
-    "description": "Indirect standardization -> SMR (standardized morbidity / mortality ratio) with Garwood exact Poisson CI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Indirect standardization -> SMR (standardized morbidity / mortality ratio) with Garwood exact Poisson CI. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -7807,7 +7877,7 @@
     ],
     "reference": "Breslow & Day (1987) Vol. II",
     "signature": {
-      "description": "Indirect standardization -> SMR (standardized morbidity / mortality ratio) with Garwood exact Poisson CI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Indirect standardization -> SMR (standardized morbidity / mortality ratio) with Garwood exact Poisson CI. Validation: certified parity evidence.",
       "name": "indirect_standardize",
       "parameters": {
         "properties": {
@@ -7815,6 +7885,15 @@
             "default": 0.05,
             "description": "Significance level for confidence intervals and tests.",
             "type": "number"
+          },
+          "ci_method": {
+            "default": "exact",
+            "description": "\"exact\": exact Poisson (Garwood) interval for the observed count divided by the expected count, as Stata istdize. \"lognormal\": SMR exp(+/- z / sqrt(O)), as R epitools::ageadjust.indirect.",
+            "enum": [
+              "exact",
+              "lognormal"
+            ],
+            "type": "string"
           },
           "events_reference": {
             "description": "events_reference parameter (list | ndarray).",
@@ -7855,10 +7934,11 @@
     "typical_n_min": 50,
     "validation_notes": [
       "tests/reference_parity/test_standardize_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_standardize_parity.py",
+      "tests/reference_parity/test_survival_epi_R_parity.py",
+      "Cross-language parity (bit-exact) vs Stata istdize (exact CI); R epitools::ageadjust.indirect (log-normal CI) [R R version 4.5.2 (2025-10-31), Stata 18 MP, epitools 0.5.10.1]; tolerance 1e-10 rel (observed 6e-16) -- tests/reference_parity/test_survival_epi_R_parity.py",
       "API/unit contract evidence: tests/test_epi.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -9281,7 +9361,7 @@
     ],
     "category": "epi",
     "cost_profile": "",
-    "description": "Sensitivity, specificity, PPV, NPV, LR+ / LR- with Wilson score CIs. Accepts either raw binary labels or pre-computed confusion counts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Sensitivity, specificity, PPV, NPV, LR+ / LR- with Wilson score CIs. Accepts either raw binary labels or pre-computed confusion counts. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -9307,7 +9387,7 @@
     ],
     "reference": "Altman & Bland (1994)",
     "signature": {
-      "description": "Sensitivity, specificity, PPV, NPV, LR+ / LR- with Wilson score CIs. Accepts either raw binary labels or pre-computed confusion counts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Sensitivity, specificity, PPV, NPV, LR+ / LR- with Wilson score CIs. Accepts either raw binary labels or pre-computed confusion counts. Validation: certified parity evidence.",
       "name": "sensitivity_specificity",
       "parameters": {
         "properties": {
@@ -9315,6 +9395,15 @@
             "default": 0.05,
             "description": "Significance level for confidence intervals and tests.",
             "type": "number"
+          },
+          "ci_method": {
+            "default": "wilson",
+            "description": "Interval for sensitivity and specificity: Wilson score (R ``epiR::epi.tests(method=\"wilson\")``) or Clopper-Pearson exact (``epi.tests`` default, Stata ``diagt``).",
+            "enum": [
+              "wilson",
+              "exact"
+            ],
+            "type": "string"
           },
           "fn": {
             "description": "fn parameter (int).",
@@ -9349,10 +9438,11 @@
     "typical_n_min": 30,
     "validation_notes": [
       "tests/reference_parity/test_epi_diag_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_epi_diag_parity.py",
+      "tests/reference_parity/test_survival_epi_R_parity.py",
+      "Cross-language parity (bit-exact) vs R epiR::epi.tests (method wilson / exact); Stata diagti [R R version 4.5.2 (2025-10-31), Stata 18 MP, diagt 2.032 (diagti 2.053), epiR 2.0.94]; tolerance 1e-12 rel on intervals, 1e-10 on ratios (observed 2e-15) -- tests/reference_parity/test_survival_epi_R_parity.py",
       "API/unit contract evidence: tests/test_epi_diagnostic.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -9366,7 +9456,7 @@
     ],
     "category": "epi",
     "cost_profile": "",
-    "description": "ROC curve with AUC (trapezoidal) and Hanley-McNeil (1982) standard error. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "ROC curve with AUC (trapezoidal) and Hanley-McNeil (1982) standard error. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -9392,7 +9482,7 @@
     ],
     "reference": "Hanley & McNeil (1982)",
     "signature": {
-      "description": "ROC curve with AUC (trapezoidal) and Hanley-McNeil (1982) standard error. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "ROC curve with AUC (trapezoidal) and Hanley-McNeil (1982) standard error. Validation: certified parity evidence.",
       "name": "roc_curve",
       "parameters": {
         "properties": {
@@ -9403,6 +9493,16 @@
           },
           "scores": {
             "description": "scores parameter (array).",
+            "type": "string"
+          },
+          "se_method": {
+            "default": "hanley",
+            "description": "``\"hanley\"``: the Hanley-McNeil (1982) variance with the exponential approximations ``Q1 = A/(2-A)``, ``Q2 = 2A^2/(1+A)``. ``\"hanley-empirical\"``: the same variance with ``Q1`` and ``Q2`` estimated from the data (ties weighted 1/3), which is what Stata ``roctab, hanley`` reports.",
+            "enum": [
+              "hanley",
+              "hanley-empirical",
+              "delong"
+            ],
             "type": "string"
           },
           "y_true": {
@@ -9421,10 +9521,11 @@
     "typical_n_min": 50,
     "validation_notes": [
       "tests/reference_parity/test_auc_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_auc_parity.py",
+      "tests/reference_parity/test_survival_epi_R_parity.py",
+      "Cross-language parity (bit-exact) vs R pROC::roc/auc/var/ci.auc (DeLong); Stata roctab (default and hanley) [R R version 4.5.2 (2025-10-31), Stata 18 MP, pROC 1.19.0.1]; tolerance 1e-10 rel (observed 6e-15) -- tests/reference_parity/test_survival_epi_R_parity.py",
       "API/unit contract evidence: tests/test_epi_diagnostic.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -14138,7 +14239,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: certified parity evidence.",
     "example": "sp.iv.iv_diag(df, y='wage', endog='educ', instruments=['nearc4','nearc2'], exog=['exper','south'], n_boot=500, ltz_gamma_sd=0.05, random_state=42)",
     "failure_modes": [
       {
@@ -14158,7 +14259,7 @@
     ],
     "reference": "Lal, Lockhart, Xu and Zu (2024) Political Analysis 32(4), 521-540. Lee, McCrary, Moreira and Porter (2022) AER 112(10), 3260-3290. Olea and Pflueger (2013) JBES 31(3), 358-369. Conley, Hansen and Rossi (2012) ReStat 94(1), 260-272. Blandhol, Bonney, Mogstad and Torgovitsky (2022/2025) NBER WP 29709. Soczynski (2024) arXiv:2011.06695.",
     "signature": {
-      "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: certified parity evidence.",
       "name": "iv_diag",
       "parameters": {
         "properties": {
@@ -14267,11 +14368,12 @@
     "validation_notes": [
       "tests/reference_parity/test_diag_recovery_parity.py",
       "tests/reference_parity/test_iv_hdfe_stata_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_diag_recovery_parity.py",
+      "tests/reference_parity/test_rd_iv_R_parity.py",
+      "Cross-language parity (bit-exact) vs R ivDiag::ivDiag 1.0.6 (analytic block) [R R version 4.5.2 (2025-10-31), ivDiag 1.0.6, lfe 3.1.1]; tolerance 2SLS / OLS coefficients and SEs, classical first-stage F, effective F, tF critical value and interval: rel 1e-9 on 6 designs (observed <= 6e-12) -- tests/reference_parity/test_rd_iv_R_parity.py",
       "API/unit contract evidence: tests/iv/test_iv_diag.py",
       "API/unit contract evidence: tests/reference_parity/test_iv_hdfe_stata_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -15544,11 +15646,11 @@
     "assumptions": [
       "Parallel trends hold for every valid 2x2 sub-comparison being harvested and aggregated",
       "No anticipation before each cohort's first treated period (reference horizon -1 is clean)",
-      "Independence across units within each cohort (unit-level cluster-robust SEs); cross-horizon covariance ignored"
+      "Independence across units (unit-level influence functions; the joint covariance across cells, horizons and estimated weights is propagated)"
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Harvest every valid 2x2 DID comparison from a staggered panel and aggregate them via precision-weighted / simple / cohort-weighted averages. Agnostic to cohort structure; useful for robustness comparisons against CS / SA / BJS.",
+    "description": "Harvest every valid 2x2 DID comparison from a staggered panel and aggregate them via precision-weighted / simple / cohort-weighted averages. Agnostic to cohort structure; useful for robustness comparisons against CS / SA / BJS. Validation: certified parity evidence.",
     "example": "sp.harvest_did(df, unit=\"i\", time=\"t\", outcome=\"y\", cohort=\"g_first\")",
     "failure_modes": [
       {
@@ -15575,7 +15677,7 @@
     ],
     "reference": "Synthesis of Goodman-Bacon (2021) + CS (2021) + precision-weighted DiD; see docs/guides/harvest_did.md.",
     "signature": {
-      "description": "Harvest every valid 2x2 DID comparison from a staggered panel and aggregate them via precision-weighted / simple / cohort-weighted averages. Agnostic to cohort structure; useful for robustness comparisons against CS / SA / BJS.",
+      "description": "Harvest every valid 2x2 DID comparison from a staggered panel and aggregate them via precision-weighted / simple / cohort-weighted averages. Agnostic to cohort structure; useful for robustness comparisons against CS / SA / BJS. Validation: certified parity evidence.",
       "name": "harvest_did",
       "parameters": {
         "properties": {
@@ -15638,9 +15740,11 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "tests/reference_parity/test_did_synth_misc_parity.py",
+      "Cross-language parity (bit-exact) vs R did::att_gt(control_group='notyettreated', base_period='universal') for every (cohort, horizon) cell; did::aggte(type='dynamic') for the event study under weighting='n_treated' [DRDID 1.2.3, did 2.3.0]; tolerance Every 2x2 cell (ATT and SE) and every event-study horizon (ATT and SE) at 1e-9 relative; observed agreement 1.7e-14. The inverse-variance aggregate over horizons (the default headline) has no reference and is checked by identity only. -- tests/reference_parity/test_did_synth_misc_parity.py",
       "API/unit contract evidence: tests/test_harvest_did.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -17555,7 +17659,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Dose-response function for a continuous treatment under unconfoundedness. Uses generalised propensity-score weighting or double ML for the conditional expectation E[Y(d)]. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Dose-response function for a continuous treatment under unconfoundedness. Uses generalised propensity-score weighting or double ML for the conditional expectation E[Y(d)]. Validation: certified parity evidence.",
     "example": "sp.dose_response(df, y=\"y\", treat=\"dose\", covariates=[\"x1\",\"x2\"])",
     "failure_modes": [
       {
@@ -17583,7 +17687,7 @@
     ],
     "reference": "Hirano & Imbens (2004); Kennedy et al. (2017) JRSSB",
     "signature": {
-      "description": "Dose-response function for a continuous treatment under unconfoundedness. Uses generalised propensity-score weighting or double ML for the conditional expectation E[Y(d)]. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Dose-response function for a continuous treatment under unconfoundedness. Uses generalised propensity-score weighting or double ML for the conditional expectation E[Y(d)]. Validation: certified parity evidence.",
       "name": "dose_response",
       "parameters": {
         "properties": {
@@ -17637,10 +17741,11 @@
     "typical_n_min": 1000,
     "validation_notes": [
       "tests/reference_parity/test_dose_response_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_dose_response_parity.py",
+      "tests/reference_parity/test_teffects_R_parity.py",
+      "Cross-language parity (bit-exact) vs Stata doseresponse / gpscore (Hirano-Imbens normal GPS, quadratic T and GPS with interaction) [Stata 18, doseresponse SSC]; tolerance 1e-9 rel on the dose-response function at 5 doses (observed 5.1e-10) -- tests/reference_parity/test_teffects_R_parity.py",
       "API/unit contract evidence: tests/test_phase9to14.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -17835,7 +17940,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Effects of multi-valued (3+ level) treatments via AIPW. Returns pairwise contrasts versus a reference level. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Effects of multi-valued (3+ level) treatments via AIPW. Returns pairwise contrasts versus a reference level. Validation: certified parity evidence.",
     "example": "sp.multi_treatment(df, y=\"wage\", treat=\"program\", covariates=[\"age\",\"edu\"])",
     "failure_modes": [
       {
@@ -17863,7 +17968,7 @@
     ],
     "reference": "Robins et al. (1994); Imbens (2000); Yang et al. (2016)",
     "signature": {
-      "description": "Effects of multi-valued (3+ level) treatments via AIPW. Returns pairwise contrasts versus a reference level. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Effects of multi-valued (3+ level) treatments via AIPW. Returns pairwise contrasts versus a reference level. Validation: certified parity evidence.",
       "name": "multi_treatment",
       "parameters": {
         "properties": {
@@ -17888,9 +17993,28 @@
             "description": "Number of bootstrap replications.",
             "type": "integer"
           },
+          "outcome_model": {
+            "default": "gbm",
+            "description": "Per-arm outcome regression ``mu_k(X)``. ``'gbm'`` is a gradient boosting regressor (100 trees, depth 3); ``'linear'`` is OLS with an intercept fitted separately in each arm, which is the outcome model of Stata's ``teffects aipw`` (``linear by ML``).",
+            "enum": [
+              "gbm",
+              "linear"
+            ],
+            "type": "string"
+          },
           "reference": {
             "description": "Reference treatment level (defaults to 0 / smallest)",
             "type": "integer"
+          },
+          "se_method": {
+            "default": "bootstrap",
+            "description": "``'bootstrap'`` re-fits the whole estimator (same outcome model) on ``n_bootstrap`` resamples. ``'influence'`` reports ``sd(phi_k - phi_ref) / sqrt(n)`` from the AIPW influence function with the nuisance fits treated as known.",
+            "enum": [
+              "bootstrap",
+              "influence",
+              "sandwich"
+            ],
+            "type": "string"
           },
           "treat": {
             "description": "Multi-valued treatment (int)",
@@ -17914,10 +18038,11 @@
     "typical_n_min": 300,
     "validation_notes": [
       "tests/reference_parity/test_multi_treatment_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_multi_treatment_parity.py",
+      "tests/reference_parity/test_teffects_R_parity.py",
+      "Cross-language parity (bit-exact) vs Stata teffects aipw with a multivalued treatment (mlogit propensity) [Stata 18]; tolerance 1e-10 rel on both contrasts, potential-outcome means and sandwich SEs -- tests/reference_parity/test_teffects_R_parity.py",
       "API/unit contract evidence: tests/test_phase9to14.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -18040,7 +18165,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [pending verification] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable.",
+    "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [pending verification] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Validation: certified evidence with scoped limitations. Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable.",
     "example": "sp.continuous_did(df, y=\"wage\", dose=\"training_hours\", time=\"year\", id=\"worker_id\", t_pre=2019, t_post=2020)",
     "failure_modes": [
       {
@@ -18075,7 +18200,7 @@
     ],
     "reference": "Callaway, Goodman-Bacon & Sant'Anna (2024) [@callaway2024difference]; de Chaisemartin & D'Haultfuille (2018) [@dechaisemartin2018fuzzy].",
     "signature": {
-      "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [pending verification] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable.",
+      "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [pending verification] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Validation: certified evidence with scoped limitations. Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable.",
       "name": "continuous_did",
       "parameters": {
         "properties": {
@@ -18166,12 +18291,13 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "tests/reference_parity/test_did_synth_didvar_parity.py",
       "tests/reference_parity/test_dose_response_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_dose_response_parity.py",
+      "Cross-language parity (bit-exact) vs fixest::feols(y ~ dose:post | id + time) (method='twfe') [R R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance slope & SE 1e-9 rel (observed 2.2e-15), iid / ~id / ~region, balanced + unbalanced -- tests/reference_parity/test_did_synth_didvar_parity.py",
       "API/unit contract evidence: tests/test_continuous_did_heuristics.py",
       "API/unit contract evidence: tests/test_continuous_did_cgs.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -20574,7 +20700,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "DiD with time-varying covariates frozen at baseline (Caetano, Callaway, Payne & Rodrigues 2022 [pending verification]). Avoids the bad-controls bias that arises when treatment affects the covariates: freezes X at period g + baseline_offset (default g-1) per cohort and uses the frozen values as controls in a per-(g, t) outcome-regression DiD. Aggregates via cohort-size weights.",
+    "description": "DiD with time-varying covariates frozen at baseline (Caetano, Callaway, Payne & Rodrigues 2022, arXiv:2202.02903). Avoids the bad-controls bias that arises when treatment affects the covariates: freezes X at period g + baseline_offset (default g-1) per cohort and uses the frozen values as controls in a per-(g, t) outcome-regression DiD fitted on never-treated units (ptetools X_{g-1} estimator). aggregation='group' averages each cohort's post-period cells then weights cohorts by size; 'simple' weights every cell by its treated count. Validation: certified parity evidence.",
     "example": "sp.did_timevarying_covariates(df, y=\"earnings\", unit=\"i\", time=\"year\", cohort=\"g\", covariates=[\"age\",\"prior_wage\"])",
     "failure_modes": [
       {
@@ -20633,10 +20759,19 @@
     ],
     "reference": "Caetano, Callaway, Payne & Rodrigues (2022) arXiv:2202.02903 [@caetano2022difference]; a preprint, with no reference implementation to pin against.",
     "signature": {
-      "description": "DiD with time-varying covariates frozen at baseline (Caetano, Callaway, Payne & Rodrigues 2022 [pending verification]). Avoids the bad-controls bias that arises when treatment affects the covariates: freezes X at period g + baseline_offset (default g-1) per cohort and uses the frozen values as controls in a per-(g, t) outcome-regression DiD. Aggregates via cohort-size weights.",
+      "description": "DiD with time-varying covariates frozen at baseline (Caetano, Callaway, Payne & Rodrigues 2022, arXiv:2202.02903). Avoids the bad-controls bias that arises when treatment affects the covariates: freezes X at period g + baseline_offset (default g-1) per cohort and uses the frozen values as controls in a per-(g, t) outcome-regression DiD fitted on never-treated units (ptetools X_{g-1} estimator). aggregation='group' averages each cohort's post-period cells then weights cohorts by size; 'simple' weights every cell by its treated count. Validation: certified parity evidence.",
       "name": "did_timevarying_covariates",
       "parameters": {
         "properties": {
+          "aggregation": {
+            "default": "group",
+            "description": "``\"group\"``: average ATT(g, t) over each cohort's post periods, then across cohorts weighted by cohort size -- the overall ATT reported by ``ptetools`` and ``did::aggte(type = \"group\")``. ``\"simple\"``: weight every post cell by its number of treated units, as ``did::aggte(type = \"simple\")`` does on a balanced panel.",
+            "enum": [
+              "group",
+              "simple"
+            ],
+            "type": "string"
+          },
           "alpha": {
             "default": 0.05,
             "description": "Significance level for confidence intervals and tests.",
@@ -20703,9 +20838,11 @@
     "stability": "stable",
     "typical_n_min": 150,
     "validation_notes": [
+      "tests/reference_parity/test_did_synth_didvar_parity.py",
+      "Cross-language parity (bit-exact) vs ptetools::pte_default(d_outcome=TRUE, est_method='reg') and did::att_gt(est_method='reg') [DRDID 1.2.3, R R version 4.5.2 (2025-10-31), did 2.3.0, ptetools 1.0.1]; tolerance ATT(g,t) and overall ATT 1e-9 rel (observed 3.8e-15) -- tests/reference_parity/test_did_synth_didvar_parity.py",
       "API/unit contract evidence: tests/test_did_timevarying_covariates.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -21514,6 +21651,7 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_frontier_struct_R_parity.py",
       "tests/reference_parity/test_prodest_parity.py",
       "tests/reference_parity/test_structural_parity.py",
       "Cross-language parity (aligned) vs Stata prodest, method(lp) valueadded (Rovigatti & Mollisi); R prodest::prodestLP [R prodest 1.0.2, Stata 18 MP, prodest SSC]; tolerance As olley_pakes with materials as the proxy: free-input coefficient at 1e-12 against both; state coefficient at the minimiser, R 1.3e-6 and Stata up to 1.8e-3 away where their optimisers stop. -- tests/reference_parity/test_prodest_parity.py",
@@ -22182,7 +22320,7 @@
     ],
     "category": "structural",
     "cost_profile": "",
-    "description": "De Loecker & Warzynski (2012) firm-time markup estimator. Takes a fitted ProductionResult plus revenue and input-cost columns; returns mu_it = theta_v_it * (PQ)/(P_v V) where theta_v is the output elasticity of the flexible input. Cobb-Douglas only for now (translog forthcoming). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "De Loecker & Warzynski (2012) firm-time markup estimator. Takes a fitted ProductionResult plus revenue and input-cost columns; returns mu_it = theta_v_it * (PQ)/(P_v V) where theta_v is the output elasticity of the flexible input. Cobb-Douglas only for now (translog forthcoming). Validation: certified parity evidence.",
     "example": "mu = sp.markup(res, revenue=\"log_rev\", input_cost=\"log_mat\", flexible_input=\"m\")",
     "failure_modes": [
       {
@@ -22208,7 +22346,7 @@
     ],
     "reference": "De Loecker & Warzynski (2012, AER) [@deloecker2012markups]",
     "signature": {
-      "description": "De Loecker & Warzynski (2012) firm-time markup estimator. Takes a fitted ProductionResult plus revenue and input-cost columns; returns mu_it = theta_v_it * (PQ)/(P_v V) where theta_v is the output elasticity of the flexible input. Cobb-Douglas only for now (translog forthcoming). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "De Loecker & Warzynski (2012) firm-time markup estimator. Takes a fitted ProductionResult plus revenue and input-cost columns; returns mu_it = theta_v_it * (PQ)/(P_v V) where theta_v is the output elasticity of the flexible input. Cobb-Douglas only for now (translog forthcoming). Validation: certified parity evidence.",
       "name": "markup",
       "parameters": {
         "properties": {
@@ -22246,11 +22384,12 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_frontier_struct_R_parity.py",
       "tests/reference_parity/test_structural_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_structural_parity.py",
+      "Cross-language parity (bit-exact) vs Stata markupest 1.0.1 (Rovigatti), method(dlw) pmethod(lp) [Stata 18, markupest 1.0.1 10May2020]; tolerance 1e-10 rel (observed 8.1e-13 corrected, 3.4e-15 uncorrected) -- tests/reference_parity/test_frontier_struct_R_parity.py",
       "API/unit contract evidence: tests/test_prod_fn.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -22267,7 +22406,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Augmented inverse-probability weighting (AIPW) -- the canonical doubly-robust ATE estimator. Cross-fits an outcome regression and a propensity model and combines them via the efficient-influence-function formula, so the estimate is consistent if either nuisance is correctly specified (Robins, Rotnitzky & Zhao 1994). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Augmented inverse-probability weighting (AIPW) -- the canonical doubly-robust ATE estimator. Cross-fits an outcome regression and a propensity model and combines them via the efficient-influence-function formula, so the estimate is consistent if either nuisance is correctly specified (Robins, Rotnitzky & Zhao 1994). Validation: certified parity evidence.",
     "example": "sp.aipw(df, y=\"wage\", treat=\"trained\", covariates=[\"age\", \"edu\"])",
     "failure_modes": [
       {
@@ -22294,7 +22433,7 @@
     ],
     "reference": "Robins, Rotnitzky & Zhao (1994) JASA [@robins1994estimation]; Glynn & Quinn (2010) [@glynn2010introduction]",
     "signature": {
-      "description": "Augmented inverse-probability weighting (AIPW) -- the canonical doubly-robust ATE estimator. Cross-fits an outcome regression and a propensity model and combines them via the efficient-influence-function formula, so the estimate is consistent if either nuisance is correctly specified (Robins, Rotnitzky & Zhao 1994). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Augmented inverse-probability weighting (AIPW) -- the canonical doubly-robust ATE estimator. Cross-fits an outcome regression and a propensity model and combines them via the efficient-influence-function formula, so the estimate is consistent if either nuisance is correctly specified (Robins, Rotnitzky & Zhao 1994). Validation: certified parity evidence.",
       "name": "aipw",
       "parameters": {
         "properties": {
@@ -22309,6 +22448,11 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "cross_fit": {
+            "default": true,
+            "description": "Cross-fit the nuisance models over ``n_folds`` random folds (Chernozhukov et al. 2018).",
+            "type": "boolean"
           },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -22328,6 +22472,15 @@
             "default": 5,
             "description": "Cross-fitting folds (>= 2)",
             "type": "integer"
+          },
+          "se_method": {
+            "default": "influence",
+            "description": "``'influence'`` reports ``sd(psi) / sqrt(n)`` from the estimated efficient influence function, treating the nuisance fits as known (the cross-fitting / DML convention; R ``AIPW`` reports the same quantity). ``'sandwich'`` stacks the logit score, the two OLS normal equations and the AIPW moment and reports the M-estimation sandwich (divisor ``n``), which accounts for the estimated nuisance parameters at finite ``n``.",
+            "enum": [
+              "influence",
+              "sandwich"
+            ],
+            "type": "string"
           },
           "seed": {
             "description": "Random seed for reproducible stochastic steps.",
@@ -22355,10 +22508,11 @@
     "typical_n_min": 200,
     "validation_notes": [
       "tests/reference_parity/test_paper_parity.py",
+      "tests/reference_parity/test_teffects_R_parity.py",
       "tests/reference_parity/test_tmle_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_paper_parity.py"
+      "Cross-language parity (bit-exact) vs Stata teffects aipw (ATE, POmeans); R AIPW::AIPW 0.6.9.3 stratified_fit(k_split = 1) [AIPW 0.6.9.3, R R version 4.5.2 (2025-10-31), Stata 18, SuperLearner 2.0.40]; tolerance 1e-10 rel on ATE, potential-outcome means and SEs (observed <= 1.4e-14) -- tests/reference_parity/test_teffects_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -22751,7 +22905,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Callaway-Sant'Anna's estimand with **design-based** inference (Roth & Sant'Anna 2023). Same weights as sp.callaway_santanna -- every not-yet-treated cohort is a control -- but the standard error comes from random adoption timing rather than parallel trends. Use when timing was randomised and you want the familiar CS estimand; use sp.callaway_santanna when it was not. Units already treated in the first period are dropped, since ATT(g,t) is not identified for them. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: adoption timing was not randomised -- use sp.callaway_santanna, whose inference rests on parallel trends instead.",
+    "description": "Callaway-Sant'Anna's estimand with **design-based** inference (Roth & Sant'Anna 2023). Same weights as sp.callaway_santanna -- every not-yet-treated cohort is a control -- but the standard error comes from random adoption timing rather than parallel trends. Use when timing was randomised and you want the familiar CS estimand; use sp.callaway_santanna when it was not. Units already treated in the first period are dropped, since ATT(g,t) is not identified for them. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use sp.callaway_santanna, whose inference rests on parallel trends instead.",
     "example": "sp.staggered_cs(df, y=\"y\", i=\"unit\", t=\"time\", g=\"first_treat\")",
     "failure_modes": [],
     "inherits_from": null,
@@ -22765,7 +22919,7 @@
     ],
     "reference": "Roth & Sant'Anna (2023) [@roth2023efficient]",
     "signature": {
-      "description": "Callaway-Sant'Anna's estimand with **design-based** inference (Roth & Sant'Anna 2023). Same weights as sp.callaway_santanna -- every not-yet-treated cohort is a control -- but the standard error comes from random adoption timing rather than parallel trends. Use when timing was randomised and you want the familiar CS estimand; use sp.callaway_santanna when it was not. Units already treated in the first period are dropped, since ATT(g,t) is not identified for them. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: adoption timing was not randomised -- use sp.callaway_santanna, whose inference rests on parallel trends instead.",
+      "description": "Callaway-Sant'Anna's estimand with **design-based** inference (Roth & Sant'Anna 2023). Same weights as sp.callaway_santanna -- every not-yet-treated cohort is a control -- but the standard error comes from random adoption timing rather than parallel trends. Use when timing was randomised and you want the familiar CS estimand; use sp.callaway_santanna when it was not. Units already treated in the first period are dropped, since ATT(g,t) is not identified for them. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use sp.callaway_santanna, whose inference rests on parallel trends instead.",
       "name": "staggered_cs",
       "parameters": {
         "properties": {
@@ -22851,9 +23005,9 @@
     "typical_n_min": 50,
     "validation_notes": [
       "tests/reference_parity/test_staggered_extended_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_staggered_extended_parity.py"
+      "Cross-language parity (bit-exact) vs staggered::staggered_cs 1.2.2 (Roth & Sant'Anna) [R 4.5.2, staggered 1.2.2]; tolerance estimate, Neyman SE and adjusted SE at abs 1e-9 on mpdta, a randomised rollout and a null panel x simple/cohort/calendar (observed rel 6.6e-14) -- tests/reference_parity/test_staggered_extended_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -22867,7 +23021,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Sun-Abraham's estimand with **design-based** inference (Roth & Sant'Anna 2023). Identical to sp.staggered_cs except that only the last-treated cohort serves as control, which is what Sun & Abraham's interaction-weighted estimator does. Inference identifies off random adoption timing, not parallel trends. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: adoption timing was not randomised -- use sp.sun_abraham, whose inference rests on parallel trends instead.",
+    "description": "Sun-Abraham's estimand with **design-based** inference (Roth & Sant'Anna 2023). Identical to sp.staggered_cs except that only the last-treated cohort serves as control, which is what Sun & Abraham's interaction-weighted estimator does. Inference identifies off random adoption timing, not parallel trends. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use sp.sun_abraham, whose inference rests on parallel trends instead.",
     "example": "sp.staggered_sa(df, y=\"y\", i=\"unit\", t=\"time\", g=\"first_treat\")",
     "failure_modes": [],
     "inherits_from": null,
@@ -22881,7 +23035,7 @@
     ],
     "reference": "Roth & Sant'Anna (2023) [@roth2023efficient]",
     "signature": {
-      "description": "Sun-Abraham's estimand with **design-based** inference (Roth & Sant'Anna 2023). Identical to sp.staggered_cs except that only the last-treated cohort serves as control, which is what Sun & Abraham's interaction-weighted estimator does. Inference identifies off random adoption timing, not parallel trends. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: adoption timing was not randomised -- use sp.sun_abraham, whose inference rests on parallel trends instead.",
+      "description": "Sun-Abraham's estimand with **design-based** inference (Roth & Sant'Anna 2023). Identical to sp.staggered_cs except that only the last-treated cohort serves as control, which is what Sun & Abraham's interaction-weighted estimator does. Inference identifies off random adoption timing, not parallel trends. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use sp.sun_abraham, whose inference rests on parallel trends instead.",
       "name": "staggered_sa",
       "parameters": {
         "properties": {
@@ -22967,9 +23121,9 @@
     "typical_n_min": 50,
     "validation_notes": [
       "tests/reference_parity/test_staggered_extended_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_staggered_extended_parity.py"
+      "Cross-language parity (bit-exact) vs staggered::staggered_sa 1.2.2 (Roth & Sant'Anna) [R 4.5.2, staggered 1.2.2]; tolerance estimate, Neyman SE and adjusted SE at abs 1e-9 on mpdta, a randomised rollout and a null panel x simple/cohort/calendar (observed rel 6.6e-14) -- tests/reference_parity/test_staggered_extended_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -23111,7 +23265,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Butts spillover-ring DiD. The usual fix -- a spatial lag of treatment in a TWFE regression -- measures the direct effect against controls the spillover already reached. This sorts untreated units by distance to the nearest treated unit into spillover rings plus CLEAN controls beyond every ring, and estimates the direct effect and each ring's effect against the clean controls only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: there is no reference implementation, so this carries design-recovery evidence only and no cross-language parity; ring boundaries are the analyst's choice; there is no selector, and a too-wide outer ring silently contaminates the clean controls; covariate adjustment is not implemented.",
+    "description": "Butts spillover-ring DiD. The usual fix -- a spatial lag of treatment in a TWFE regression -- measures the direct effect against controls the spillover already reached. This sorts untreated units by distance to the nearest treated unit into spillover rings plus CLEAN controls beyond every ring, and estimates the direct effect and each ring's effect against the clean controls only. Validation: certified evidence with scoped limitations. Known limitations: there is no reference implementation, so this carries design-recovery evidence only and no cross-language parity; ring boundaries are the analyst's choice; there is no selector, and a too-wide outer ring silently contaminates the clean controls; covariate adjustment is not implemented.",
     "example": "sp.spillover_did(df, y=\"y\", unit=\"i\", time=\"t\", cohort=\"g\", coords=[\"lon\", \"lat\"], ring_edges=(0, 5, 10))",
     "failure_modes": [
       {
@@ -23141,7 +23295,7 @@
     ],
     "reference": "Butts (2021) arXiv:2105.03737 [@butts2021difference]. No reference implementation exists to pin against; correctness is established by design recovery in tests/reference_parity/test_spillover_rings.py.",
     "signature": {
-      "description": "Butts spillover-ring DiD. The usual fix -- a spatial lag of treatment in a TWFE regression -- measures the direct effect against controls the spillover already reached. This sorts untreated units by distance to the nearest treated unit into spillover rings plus CLEAN controls beyond every ring, and estimates the direct effect and each ring's effect against the clean controls only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: there is no reference implementation, so this carries design-recovery evidence only and no cross-language parity; ring boundaries are the analyst's choice; there is no selector, and a too-wide outer ring silently contaminates the clean controls; covariate adjustment is not implemented.",
+      "description": "Butts spillover-ring DiD. The usual fix -- a spatial lag of treatment in a TWFE regression -- measures the direct effect against controls the spillover already reached. This sorts untreated units by distance to the nearest treated unit into spillover rings plus CLEAN controls beyond every ring, and estimates the direct effect and each ring's effect against the clean controls only. Validation: certified evidence with scoped limitations. Known limitations: there is no reference implementation, so this carries design-recovery evidence only and no cross-language parity; ring boundaries are the analyst's choice; there is no selector, and a too-wide outer ring silently contaminates the clean controls; covariate adjustment is not implemented.",
       "name": "spillover_did",
       "parameters": {
         "properties": {
@@ -23211,10 +23365,11 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_did_synth_misc_parity.py",
       "tests/reference_parity/test_spillover_rings.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_spillover_rings.py"
+      "Cross-language parity (bit-exact) vs R did::att_gt(control_group='nevertreated') + did::aggte(type='simple') per group (direct / ring r, ring cohort = exposure onset); single cohort also fixest::feols(dbar ~ treat + ring1 + ring2, vcov='hetero', ssc(adj=FALSE)) [DRDID 1.2.3, did 2.3.0, fixest 0.14.0]; tolerance Direct and ring effects, their SEs and every (group, onset cohort, period) cell at 1e-9 relative on a single-cohort and a staggered spatial panel; observed agreement 1e-14. The ring construction is recomputed independently in R from the coordinates. -- tests/reference_parity/test_did_synth_misc_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -23475,7 +23630,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Treatment effect on the *distribution* of the outcome, bin by bin. Bins the outcome, runs Callaway-Sant'Anna on each bin indicator, and reports the effect on P(Y in bin). The per-bin effects sum to zero by construction -- treatment redistributes probability mass, it does not create it -- so the content is the SHAPE: which parts of the outcome distribution gained and which lost. A mean ATT of zero is perfectly consistent with large offsetting movements in the tails, and this is what shows them. R didFF::distDD. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: reports point estimates and standard errors only; the reference runs no test here and neither does this; simultaneous (uniform) confidence bands over bins are not implemented; the standard errors are pointwise only, so reading several bins at once overstates joint confidence.",
+    "description": "Treatment effect on the *distribution* of the outcome, bin by bin. Bins the outcome, runs Callaway-Sant'Anna on each bin indicator, and reports the effect on P(Y in bin). The per-bin effects sum to zero by construction -- treatment redistributes probability mass, it does not create it -- so the content is the SHAPE: which parts of the outcome distribution gained and which lost. A mean ATT of zero is perfectly consistent with large offsetting movements in the tails, and this is what shows them. R didFF::distDD. Validation: certified evidence with scoped limitations. Known limitations: reports point estimates and standard errors only; the reference runs no test here and neither does this; simultaneous (uniform) confidence bands over bins are not implemented; the standard errors are pointwise only, so reading several bins at once overstates joint confidence.",
     "example": "sp.distributional_did(df, y=\"lemp\", g=\"first_treat\", t=\"year\", i=\"countyreal\", n_bins=6)",
     "failure_modes": [],
     "inherits_from": null,
@@ -23491,7 +23646,7 @@
     ],
     "reference": "Roth & Sant'Anna (2023) *Econometrica* 91(2), 737-747 [@roth2023when]; pinned against the authors' didFF 0.1.0 distDD, including standard errors.",
     "signature": {
-      "description": "Treatment effect on the *distribution* of the outcome, bin by bin. Bins the outcome, runs Callaway-Sant'Anna on each bin indicator, and reports the effect on P(Y in bin). The per-bin effects sum to zero by construction -- treatment redistributes probability mass, it does not create it -- so the content is the SHAPE: which parts of the outcome distribution gained and which lost. A mean ATT of zero is perfectly consistent with large offsetting movements in the tails, and this is what shows them. R didFF::distDD. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: reports point estimates and standard errors only; the reference runs no test here and neither does this; simultaneous (uniform) confidence bands over bins are not implemented; the standard errors are pointwise only, so reading several bins at once overstates joint confidence.",
+      "description": "Treatment effect on the *distribution* of the outcome, bin by bin. Bins the outcome, runs Callaway-Sant'Anna on each bin indicator, and reports the effect on P(Y in bin). The per-bin effects sum to zero by construction -- treatment redistributes probability mass, it does not create it -- so the content is the SHAPE: which parts of the outcome distribution gained and which lost. A mean ATT of zero is perfectly consistent with large offsetting movements in the tails, and this is what shows them. R didFF::distDD. Validation: certified evidence with scoped limitations. Known limitations: reports point estimates and standard errors only; the reference runs no test here and neither does this; simultaneous (uniform) confidence bands over bins are not implemented; the standard errors are pointwise only, so reading several bins at once overstates joint confidence.",
       "name": "distributional_did",
       "parameters": {
         "properties": {
@@ -23605,10 +23760,11 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "tests/reference_parity/test_did_synth_didvar_parity.py",
       "tests/reference_parity/test_functional_form_extended_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_functional_form_extended_parity.py"
+      "Cross-language parity (bit-exact) vs didFF::distDD 0.1.0 (Roth & Sant'Anna) [R R version 4.5.2 (2025-10-31), did 2.3.0, didFF 0.1.0]; tolerance per-bin effect & SE 1e-9 (observed est 2.6e-12 abs, SE 2.5e-10 rel) -- tests/reference_parity/test_did_synth_didvar_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -23947,7 +24103,7 @@
     ],
     "category": "diagnostics",
     "cost_profile": "",
-    "description": "McCrary (2008) density test for manipulation of the running variable at the cutoff in regression-discontinuity designs. A significant discontinuity in the density of x at c is direct evidence that units are sorting around the cutoff (e.g. test-taking strategy, income manipulation), invalidating local randomisation.",
+    "description": "McCrary (2008) density test for manipulation of the running variable at the cutoff in regression-discontinuity designs. A significant discontinuity in the density of x at c is direct evidence that units are sorting around the cutoff (e.g. test-taking strategy, income manipulation), invalidating local randomisation. Validation: certified parity evidence.",
     "example": "sp.mccrary_test(df, x=\"income\", c=10000)",
     "failure_modes": [
       {
@@ -23973,7 +24129,7 @@
     ],
     "reference": "McCrary (2008) JoE [@mccrary2008manipulation]",
     "signature": {
-      "description": "McCrary (2008) density test for manipulation of the running variable at the cutoff in regression-discontinuity designs. A significant discontinuity in the density of x at c is direct evidence that units are sorting around the cutoff (e.g. test-taking strategy, income manipulation), invalidating local randomisation.",
+      "description": "McCrary (2008) density test for manipulation of the running variable at the cutoff in regression-discontinuity designs. A significant discontinuity in the density of x at c is direct evidence that units are sorting around the cutoff (e.g. test-taking strategy, income manipulation), invalidating local randomisation. Validation: certified parity evidence.",
       "name": "mccrary_test",
       "parameters": {
         "properties": {
@@ -23981,6 +24137,10 @@
             "default": 0.05,
             "description": "Significance level for confidence intervals and tests.",
             "type": "number"
+          },
+          "bin_width": {
+            "description": "Histogram bin width (``DCdensity``'s ``bin``). Default: ``2 sd(x) n^(-1/2)``.",
+            "type": "string"
           },
           "bw": {
             "description": "Bandwidth; auto if None",
@@ -24014,10 +24174,12 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+      "Cross-language parity (bit-exact) vs R rdd::DCdensity 0.57 (CRAN archive) [R R version 4.5.2 (2025-10-31), rdd 0.57]; tolerance theta, se, z rel 1e-9; p rel 1e-8; bin width 1e-12 (observed 6.5e-12) -- tests/reference_parity/test_rd_iv_rd_R_parity.py",
       "API/unit contract evidence: tests/test_diagnostics.py",
       "API/unit contract evidence: tests/test_estimator_provenance_round10.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -24032,7 +24194,7 @@
     ],
     "category": "diagnostics",
     "cost_profile": "",
-    "description": "Oster (2019) sensitivity to selection on unobservables -- computes the bounding coefficient under the assumption that selection on unobservables (proportional to delta x selection on observables) brings the explained variance to r_max. The breakdown delta tells you how strong unobserved selection has to be to overturn your result.",
+    "description": "Oster (2019) sensitivity to selection on unobservables -- computes the bounding coefficient under the assumption that selection on unobservables (proportional to delta x selection on observables) brings the explained variance to r_max. The breakdown delta tells you how strong unobserved selection has to be to overturn your result. Validation: certified parity evidence.",
     "example": "sp.oster_bounds(df, y=\"wage\", treat=\"college\", controls=[\"age\", \"edu\"], delta=1.0)",
     "failure_modes": [
       {
@@ -24058,7 +24220,7 @@
     ],
     "reference": "Oster (2019) JBES [@oster2019unobservable]",
     "signature": {
-      "description": "Oster (2019) sensitivity to selection on unobservables -- computes the bounding coefficient under the assumption that selection on unobservables (proportional to delta x selection on observables) brings the explained variance to r_max. The breakdown delta tells you how strong unobserved selection has to be to overturn your result.",
+      "description": "Oster (2019) sensitivity to selection on unobservables -- computes the bounding coefficient under the assumption that selection on unobservables (proportional to delta x selection on observables) brings the explained variance to r_max. The breakdown delta tells you how strong unobserved selection has to be to overturn your result. Validation: certified parity evidence.",
       "name": "oster_bounds",
       "parameters": {
         "properties": {
@@ -24119,10 +24281,13 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_inference_sens_R_parity.py",
+      "tests/reference_parity/test_inference_sens_stata_parity.py",
+      "Cross-language parity (bit-exact) vs Stata psacalc (Oster); R robomit::o_delta / o_beta [R R version 4.5.2 (2025-10-31), Stata 18, psacalc 2.1, robomit 1.0.7]; tolerance 1e-12 rel vs psacalc (observed 4.4e-14); 5e-7 abs vs robomit (it rounds to 6 dp) -- tests/reference_parity/test_inference_sens_R_parity.py",
       "API/unit contract evidence: tests/test_diagnostics.py",
       "API/unit contract evidence: tests/test_workflow_degradations.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -24136,7 +24301,7 @@
     ],
     "category": "inference",
     "cost_profile": "Runtime is roughly n_boot x (one restricted refit). This is the intended trade for few-cluster validity -- do not raise n_boot inside an outer search loop.",
-    "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the number of clusters is large (say > 50) -- ordinary CRV1 standard errors are already reliable and much cheaper. Cost: Runtime is roughly n_boot x (one restricted refit). This is the intended trade for few-cluster validity -- do not raise n_boot inside an outer search loop.",
+    "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: certified parity evidence. Do NOT use when: the number of clusters is large (say > 50) -- ordinary CRV1 standard errors are already reliable and much cheaper. Cost: Runtime is roughly n_boot x (one restricted refit). This is the intended trade for few-cluster validity -- do not raise n_boot inside an outer search loop.",
     "example": "sp.wild_cluster_bootstrap(df, y=\"y\", x=[\"d\", \"x1\"], cluster=\"state\")",
     "failure_modes": [
       {
@@ -24165,7 +24330,7 @@
     ],
     "reference": "Cameron, Gelbach & Miller (2008) RES [@cameron2008bootstrap]",
     "signature": {
-      "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the number of clusters is large (say > 50) -- ordinary CRV1 standard errors are already reliable and much cheaper. Cost: Runtime is roughly n_boot x (one restricted refit). This is the intended trade for few-cluster validity -- do not raise n_boot inside an outer search loop.",
+      "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: certified parity evidence. Do NOT use when: the number of clusters is large (say > 50) -- ordinary CRV1 standard errors are already reliable and much cheaper. Cost: Runtime is roughly n_boot x (one restricted refit). This is the intended trade for few-cluster validity -- do not raise n_boot inside an outer search loop.",
       "name": "wild_cluster_bootstrap",
       "parameters": {
         "properties": {
@@ -24235,12 +24400,14 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "tests/reference_parity/test_inference_sens_R_parity.py",
+      "tests/reference_parity/test_inference_sens_stata_parity.py",
       "tests/reference_parity/test_wcb_recovery_parity.py",
       "tests/reference_parity/test_wild_cluster_boot_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_wcb_recovery_parity.py",
+      "Cross-language parity (bit-exact) vs R fwildclusterboot::boottest; Stata boottest (WCR, Rademacher, full enumeration) [R R version 4.5.2 (2025-10-31), Stata 18, boottest 4.5.3, fwildclusterboot 0.14.3]; tolerance p exact (multiple of 1/4096); t 1e-10 rel (observed 1.9e-14) -- tests/reference_parity/test_inference_sens_R_parity.py",
       "API/unit contract evidence: tests/test_inference.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -24531,7 +24698,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Bias-aware confidence interval for fuzzy RD via Anderson-Rubin test inversion (Noack-Rothe 2024 Econometrica). Robust to weak first stages and avoids the power asymmetry of conventional 2SLS-style fuzzy RD CIs (Kaliski-Keane-Neal 2025).",
+    "description": "Bias-aware confidence interval for fuzzy RD via Anderson-Rubin test inversion (Noack-Rothe 2024 Econometrica). Robust to weak first stages and avoids the power asymmetry of conventional 2SLS-style fuzzy RD CIs (Kaliski-Keane-Neal 2025). Validation: certified parity evidence.",
     "example": "sp.rd_bias_aware_fuzzy(df, y=\"earnings\", x=\"age\", fuzzy=\"retired\", c=65)",
     "failure_modes": [
       {
@@ -24570,7 +24737,7 @@
     ],
     "reference": "Noack & Rothe (2024) Econometrica 92(3):687-711 doi:10.3982/ECTA19466 [@noack2024biasaware]",
     "signature": {
-      "description": "Bias-aware confidence interval for fuzzy RD via Anderson-Rubin test inversion (Noack-Rothe 2024 Econometrica). Robust to weak first stages and avoids the power asymmetry of conventional 2SLS-style fuzzy RD CIs (Kaliski-Keane-Neal 2025).",
+      "description": "Bias-aware confidence interval for fuzzy RD via Anderson-Rubin test inversion (Noack-Rothe 2024 Econometrica). Robust to weak first stages and avoids the power asymmetry of conventional 2SLS-style fuzzy RD CIs (Kaliski-Keane-Neal 2025). Validation: certified parity evidence.",
       "name": "rd_bias_aware_fuzzy",
       "parameters": {
         "properties": {
@@ -24635,9 +24802,11 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+      "Cross-language parity (aligned) vs R RDHonest 1.0.1.9000, RDHonest(y | d ~ x) [R R version 4.5.2 (2025-10-31), RDHonest 1.0.1.9000]; tolerance estimate, std.error, maximum.bias, conf.low/high, M, first stage: rel 1e-9 at fixed h and M (observed 1.1e-14), 1e-6 with selected h (observed 3.5e-8, optimiser) -- tests/reference_parity/test_rd_iv_rd_R_parity.py",
       "API/unit contract evidence: tests/test_rd_polish.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -24817,7 +24986,7 @@
           },
           "backend": {
             "default": "native",
-            "description": "``'native'`` solves the problem in Python. For ``method='smoothness'`` it computes the true Rambachan-Roth **fixed-length confidence interval**: the optimal affine estimator under ``Delta^SD(M)``, obtained from a convex program over the event-study covariance. On canonical ``did::mpdta`` it agrees with R ``HonestDiD`` to ~7e-5 on the interval width, the residual being ``HonestDiD``'s own Monte-Carlo folded-normal quantile. This needs the joint event-study covariance, which is recovered from a Callaway-Sant'Anna fit's influence functions; if it is unavailable the function falls back to a worst-case-bias interval and warns. For ``method='relative_magnitude'`` the native path is still the worst-case-bias approximation ``theta +/- M*max|delta_pre| +/- z*SE``. It tracks the reference closely but is not exact, and it warns. ``'honestdid'``/``'r'`` delegates to the R ``HonestDiD`` package through ``Rscript``. It is handed the same full covariance when one is recoverable; only when it is not does it fall back to ``diag(se2)``, which discards the (large, positive) cross-period covariance and materially changes the confidence set.",
+            "description": "``'native'`` solves the problem in Python. For ``method='smoothness'`` it computes the true Rambachan-Roth **fixed-length confidence interval**: the optimal affine estimator under ``Delta^SD(M)``, obtained from a convex program over the event-study covariance. With ``HonestDiD``'s Monte-Carlo folded-normal quantile replaced by the exact one, the half-length agrees with R ``HonestDiD::findOptimalFLCI`` to 1e-8 and the bounds to ~2e-5 (HonestDiD's coarser search over ``h``); against the shipped package the gap is that quantile's simulation error, ~1e-3 (``tests/reference_parity/test_did_synth_R_parity.py``). This needs the joint event-study covariance, which is recovered from a Callaway-Sant'Anna fit's influence functions; if it is unavailable the function falls back to a worst-case-bias interval and warns. For ``method='relative_magnitude'`` the native path is still the worst-case-bias approximation ``theta +/- M*max|delta_pre| +/- z*SE``. It tracks the reference closely but is not exact, and it warns. ``'honestdid'``/``'r'`` delegates to the R ``HonestDiD`` package through ``Rscript``. It is handed the same full covariance when one is recoverable; only when it is not does it fall back to ``diag(se2)``, which discards the (large, positive) cross-period covariance and materially changes the confidence set.",
             "enum": [
               "native",
               "honestdid",
@@ -24888,7 +25057,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Compute the breakdown value of M. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute the breakdown value of M. Validation: certified parity evidence.",
     "example": "sp.breakdown_m(r, e=0)",
     "failure_modes": [
       {
@@ -24915,7 +25084,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Compute the breakdown value of M. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Compute the breakdown value of M. Validation: certified parity evidence.",
       "name": "breakdown_m",
       "parameters": {
         "properties": {
@@ -24931,7 +25100,11 @@
           },
           "method": {
             "default": "smoothness",
-            "description": "Estimator or algorithm variant to use.",
+            "description": "The restriction whose confidence set is inverted; the same meaning as in :func:`honest_did`.",
+            "enum": [
+              "smoothness",
+              "relative_magnitude"
+            ],
             "type": "string"
           },
           "result": {
@@ -24948,10 +25121,11 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "tests/reference_parity/test_did_synth_R_parity.py",
       "tests/external_parity/test_honest_did_paper_parity.py",
-      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_honest_did_paper_parity.py"
+      "Cross-language parity (aligned) vs HonestDiD::findOptimalFLCI 0.2.8 (Rambachan & Roth), breakdown by uniroot on the bound facing zero [CVXR 1.8.2, HonestDiD 0.2.8, R R version 4.5.2 (2025-10-31)]; tolerance vs HonestDiD with its Monte-Carlo folded-normal quantile replaced by the exact one: 1e-9 (observed 6.1e-11); vs HonestDiD as shipped: 1e-3 (observed 4.3e-4), the simulation error of .qfoldednormal (1e6 draws, seed 0; 1.96224 vs exact 1.95996 at mu = 0) -- tests/reference_parity/test_did_synth_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -24966,7 +25140,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2').",
+    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Validation: certified parity evidence. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2').",
     "example": "",
     "failure_modes": [
       {
@@ -24996,7 +25170,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2').",
+      "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Validation: certified parity evidence. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2').",
       "name": "bjs",
       "parameters": {
         "properties": {
@@ -25144,8 +25318,12 @@
     },
     "stability": "stable",
     "typical_n_min": 100,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "R parity module 16_bjs",
+      "Stata parity module 16_bjs",
+      "Cross-language parity (bit-exact) vs didimputation::did_imputation [R R version 4.5.2 (2025-10-31), didimputation 0.5.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 16_bjs -- tests/r_parity/16_bjs.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -25168,7 +25346,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2').",
+    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Validation: certified parity evidence. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2').",
     "example": "",
     "failure_modes": [
       {
@@ -25229,7 +25407,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2').",
+      "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Validation: certified parity evidence. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2').",
       "name": "borusyak_jaravel_spiess",
       "parameters": {
         "properties": {
@@ -25377,8 +25555,12 @@
     },
     "stability": "stable",
     "typical_n_min": 100,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "R parity module 16_bjs",
+      "Stata parity module 16_bjs",
+      "Cross-language parity (bit-exact) vs didimputation::did_imputation [R R version 4.5.2 (2025-10-31), didimputation 0.5.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 16_bjs -- tests/r_parity/16_bjs.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -25401,7 +25583,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Gardner (2021) two-stage DID estimator.",
+    "description": "Gardner (2021) two-stage DID estimator. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -25460,7 +25642,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Gardner (2021) two-stage DID estimator.",
+      "description": "Gardner (2021) two-stage DID estimator. Validation: certified parity evidence.",
       "name": "did_2stage",
       "parameters": {
         "properties": {
@@ -25544,8 +25726,12 @@
     },
     "stability": "stable",
     "typical_n_min": 100,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "R parity module 73_did2s",
+      "Stata parity module 73_did2s",
+      "Cross-language parity (bit-exact) vs did2s::did2s [R R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06; parity module 73_did2s -- tests/r_parity/73_did2s.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -25654,7 +25840,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "TWFE decomposition: Goodman-Bacon (2021) + de Chaisemartin-D'Haultfoeuille weights.",
+    "description": "TWFE decomposition: Goodman-Bacon (2021) + de Chaisemartin-D'Haultfoeuille weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.twfe_decomposition(df, y='y', group='unit', time='period', first_treat='first_treat')",
     "failure_modes": [
       {
@@ -25681,7 +25867,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "TWFE decomposition: Goodman-Bacon (2021) + de Chaisemartin-D'Haultfoeuille weights.",
+      "description": "TWFE decomposition: Goodman-Bacon (2021) + de Chaisemartin-D'Haultfoeuille weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "twfe_decomposition",
       "parameters": {
         "properties": {
@@ -25723,8 +25909,11 @@
     },
     "stability": "stable",
     "typical_n_min": 100,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_did_synth_R_parity.py",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_did_synth_R_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -25739,7 +25928,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Regression Kink Design estimator (Card et al., 2015).",
+    "description": "Regression Kink Design estimator (Card et al., 2015). Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -25765,7 +25954,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Regression Kink Design estimator (Card et al., 2015).",
+      "description": "Regression Kink Design estimator (Card et al., 2015). Validation: certified parity evidence.",
       "name": "rkd",
       "parameters": {
         "properties": {
@@ -25788,7 +25977,7 @@
             "type": "string"
           },
           "h": {
-            "description": "Bandwidth. If None, an MSE-optimal bandwidth is selected automatically.",
+            "description": "Bandwidth. If None, the CCT MSE-optimal bandwidth for the first derivative (``rdrobust(deriv=1, bwselect='mserd', vce='hc1')``) is selected.",
             "type": "number"
           },
           "kernel": {
@@ -25824,8 +26013,11 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+      "Cross-language parity (bit-exact) vs R rdrobust::rdrobust(deriv = 1, vce = 'hc1') 4.0.0; Stata rdrobust, deriv(1) 11.1.0 [R R version 4.5.2 (2025-10-31), Stata 18 MP, rdrobust 4.0.0, rdrobust (Stata) 11.1.0]; tolerance conventional and robust estimate / SE, bandwidth: rel 1e-9 (observed 5.2e-12 vs R, 6.0e-11 vs Stata) -- tests/reference_parity/test_rd_iv_rd_R_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -26072,7 +26264,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Estimate conditional average treatment effects (CATE) in RD designs.",
+    "description": "Conditional average treatment effects (CATE) in sharp RD designs. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -26098,70 +26290,93 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Estimate conditional average treatment effects (CATE) in RD designs.",
+      "description": "Conditional average treatment effects (CATE) in sharp RD designs. Validation: certified parity evidence.",
       "name": "rdhte",
       "parameters": {
         "properties": {
           "alpha": {
             "default": 0.05,
-            "description": "Significance level for confidence intervals.",
+            "description": "Significance level for confidence intervals and tests.",
             "type": "number"
           },
           "b": {
-            "description": "Bandwidth for bias correction. Defaults to h.",
+            "description": "Bandwidth of the bias-correction fit. Defaults to ``h`` (R has no separate ``b``). Through 1.28.0 this argument was accepted and ignored.",
             "type": "number"
           },
           "bwselect": {
             "default": "mserd",
-            "description": "Bandwidth selection method: 'mserd' or 'msetwo'.",
+            "description": "Any ``rdbwselect`` rule.",
             "type": "string"
           },
           "c": {
             "default": 0,
-            "description": "RD cutoff value.",
+            "description": "Cutoff.",
             "type": "number"
           },
           "cluster": {
-            "description": "Cluster variable name for cluster-robust standard errors.",
+            "description": "Cluster variable (CR1).",
             "type": "string"
           },
           "data": {
-            "description": "Input dataset.",
+            "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "string"
           },
           "eval_points": {
-            "description": "Z values at which to evaluate CATE. Each row is a point in Z-space. If None, n_eval equally spaced quantiles (10th to 90th pctile) are used.",
+            "description": "``z`` values at which to report ``CATE(z)`` (continuous ``z``).",
             "type": "string"
           },
           "h": {
-            "description": "Bandwidth for estimation. If None, MSE-optimal bandwidth is selected.",
-            "type": "number"
+            "description": "Bandwidth, or ``(h_left, h_right)``. Default: ``rdrobust``'s ``rdbwselect`` (``bwselect``) on the running variable -- separately in each subgroup for a binary ``z``, as R does.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "kernel": {
             "default": "triangular",
-            "description": "Kernel function: 'triangular', 'uniform', or 'epanechnikov'.",
+            "description": "Kernel function used for weighting or smoothing.",
+            "enum": [
+              "triangular",
+              "epanechnikov",
+              "uniform"
+            ],
             "type": "string"
           },
           "n_eval": {
             "default": 20,
-            "description": "Number of evaluation points when eval_points is not provided.",
+            "description": "Number of eval.",
             "type": "integer"
           },
           "p": {
             "default": 1,
-            "description": "Polynomial order for the running variable (1 = local linear).",
+            "description": "Polynomial order of the point estimate.",
             "type": "integer"
           },
+          "q": {
+            "description": "Order of the bias-correction fit, default ``p + 1``.",
+            "type": "integer"
+          },
+          "vce": {
+            "description": "Default ``'hc3'``, or ``'cr1'`` with ``cluster`` (R's defaults).",
+            "enum": [
+              "hc0",
+              "hc1",
+              "hc2",
+              "hc3",
+              "cr1"
+            ],
+            "type": "string"
+          },
           "x": {
-            "description": "Running variable name.",
+            "description": "Outcome and running variable.",
             "type": "string"
           },
           "y": {
-            "description": "Outcome variable name.",
+            "description": "Outcome and running variable.",
             "type": "string"
           },
           "z": {
-            "description": "Covariate(s) for treatment effect heterogeneity.",
+            "description": "Covariate(s) the effect varies with. A single 0/1 column is treated as two subgroups (R's factor rule).",
             "items": {
               "type": "string"
             },
@@ -26179,8 +26394,11 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+      "Cross-language parity (bit-exact) vs R rdhte::rdhte 0.2.0 (sandwich 3.1.1) [R R version 4.5.2 (2025-10-31), rdhte 0.2.0, rdrobust 4.0.0, sandwich 3.1.1]; tolerance coef, coef.bc, se.rb, vcov rel 1e-9 (observed 2.2e-12); bandwidths 1e-8 -- tests/reference_parity/test_rd_iv_rd_R_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -26878,7 +27096,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "De-meaned / De-trended Synthetic Control Method.",
+    "description": "De-meaned / De-trended Synthetic Control Method. Validation: certified parity evidence.",
     "example": "sp.demeaned_synth(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
     "failure_modes": [
       {
@@ -26905,7 +27123,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "De-meaned / De-trended Synthetic Control Method.",
+      "description": "De-meaned / De-trended Synthetic Control Method. Validation: certified parity evidence.",
       "name": "demeaned_synth",
       "parameters": {
         "properties": {
@@ -26915,7 +27133,7 @@
             "type": "number"
           },
           "covariates": {
-            "description": "Additional covariates to match on.",
+            "description": "Not supported: the weights are fitted on (de-meaned / de-trended) pre-treatment outcomes only. Passing covariates raises ``NotImplementedError`` (it used to be silently ignored).",
             "items": {
               "type": "string"
             },
@@ -26978,8 +27196,11 @@
     },
     "stability": "stable",
     "typical_n_min": 15,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_did_synth_synthvar_parity.py",
+      "Cross-language parity (aligned) vs augsynth::augsynth(progfunc = 'None', fixedeff = TRUE) 0.2.0 (de-meaned SCM) [R R version 4.5.2 (2025-10-31), augsynth 0.2.0, osqp 1.0.0]; tolerance gap path and ATT 1e-7 rel (observed 1.2e-9); weights 1e-8 abs -- tests/reference_parity/test_did_synth_synthvar_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -26996,7 +27217,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Robust / unconstrained Synthetic Control.",
+    "description": "Robust / unconstrained Synthetic Control. Validation: certified parity evidence.",
     "example": "sp.robust_synth(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989, variant='unconstrained')",
     "failure_modes": [
       {
@@ -27023,7 +27244,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Robust / unconstrained Synthetic Control.",
+      "description": "Robust / unconstrained Synthetic Control. Validation: certified parity evidence.",
       "name": "robust_synth",
       "parameters": {
         "properties": {
@@ -27033,7 +27254,7 @@
             "type": "number"
           },
           "covariates": {
-            "description": "Additional covariates to match on.",
+            "description": "Not supported: the weights are fitted on pre-treatment outcomes only. Passing covariates raises ``NotImplementedError`` (it used to be silently ignored).",
             "items": {
               "type": "string"
             },
@@ -27045,17 +27266,17 @@
           },
           "intercept": {
             "default": true,
-            "description": "Fit an intercept (level shift). Only for unconstrained / elastic_net.",
+            "description": "Fit an unpenalised intercept (level shift). Only for unconstrained / elastic_net.",
             "type": "boolean"
           },
           "l1_penalty": {
             "default": 0.0,
-            "description": "Lasso (L1) penalty strength.",
+            "description": "L1 penalty ``l1_penalty * ||w||_1`` in the objective ``||y - mu - X w||^2 + l2 ||w||^2 + l1 ||w||_1``. glmnet's ``(lambda, alpha)`` on the same data maps to ``l1 = 2 n lambda alpha`` (``n`` = pre-periods) once ``y`` is scaled to unit (1/n) standard deviation.",
             "type": "number"
           },
           "l2_penalty": {
             "default": 0.01,
-            "description": "Ridge (L2) penalty strength.",
+            "description": "Ridge penalty ``l2_penalty * ||w||^2`` (glmnet: ``l2 = n lambda (1 - alpha)``). ``0`` with ``l1_penalty=0`` is ordinary least squares with an intercept -- Doudchenko & Imbens' unconstrained estimator, identical to ``scpi::scest(w.constr = list(name = \"ols\"))`` on ``scdata(constant = TRUE)``.",
             "type": "number"
           },
           "outcome": {
@@ -27085,7 +27306,7 @@
           },
           "variant": {
             "default": "unconstrained",
-            "description": "* ``'unconstrained'`` -- no sign / sum constraints; optional intercept. * ``'elastic_net'`` -- L1 + L2 penalty, no sign constraints. * ``'penalized'`` -- classic SCM constraints + elastic-net penalty.",
+            "description": "* ``'unconstrained'`` -- no sign / sum constraints; optional intercept. * ``'elastic_net'`` -- L1 + L2 penalty, no sign constraints. * ``'penalized'`` -- simplex constraints + ridge penalty (see the module docstring; not Abadie & L'Hour 2021).",
             "enum": [
               "unconstrained",
               "elastic_net",
@@ -27107,8 +27328,11 @@
     },
     "stability": "stable",
     "typical_n_min": 15,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_did_synth_synthvar_parity.py",
+      "Cross-language parity (bit-exact) vs scpi::scest(w.constr = list(name = 'ols')) with scdata(constant = TRUE) and stats::lm (unconstrained SC with intercept); glmnet (ridge / lasso / elastic net, unpenalised intercept) [R R version 4.5.2 (2025-10-31), glmnet 4.1.10, scpi 4.0.1]; tolerance OLS weights / intercept / fitted path 1e-10 rel (observed 8.4e-13); penalised paths 1e-8 rel, weights atol 1e-10 (observed 3.4e-11 abs, glmnet's coordinate-descent stop) -- tests/reference_parity/test_did_synth_synthvar_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -27264,7 +27488,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Staggered Adoption Synthetic Control.",
+    "description": "Staggered Adoption Synthetic Control (Ben-Michael, Feller & Rothstein). Validation: certified parity evidence.",
     "example": "sp.staggered_synth(df, outcome='gdp', unit='state', time='year', treatment='treated')",
     "failure_modes": [
       {
@@ -27291,7 +27515,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Staggered Adoption Synthetic Control.",
+      "description": "Staggered Adoption Synthetic Control (Ben-Michael, Feller & Rothstein). Validation: certified parity evidence.",
       "name": "staggered_synth",
       "parameters": {
         "properties": {
@@ -27301,17 +27525,35 @@
             "type": "number"
           },
           "data": {
-            "description": "Long-format panel data.",
+            "description": "Balanced long-format panel.",
             "type": "string"
+          },
+          "fixedeff": {
+            "default": false,
+            "description": "De-mean outcomes by unit before fitting (multisynth ``fixedeff``; note multisynth's own default is ``TRUE``).",
+            "type": "boolean"
           },
           "method": {
             "default": "separate",
-            "description": "* ``'separate'`` -- fit a separate SCM for each treated unit. * ``'pooled'`` -- partially pool weights across cohorts with the same adoption time.",
+            "description": "* ``'separate'`` -- one set of weights per treated unit (multisynth ``time_cohort = FALSE``). * ``'pooled'`` -- one set of weights per adoption cohort, fitted to the cohort's summed outcomes (multisynth ``time_cohort = TRUE``).",
             "enum": [
               "separate",
               "pooled"
             ],
             "type": "string"
+          },
+          "n_lags": {
+            "description": "Number of pre-treatment periods to balance (``None`` = all periods before the last adoption date, as in multisynth).",
+            "type": "integer"
+          },
+          "n_leads": {
+            "description": "Number of post-treatment event times in each effect window. ``None`` uses every period through the end of the panel (the longest window), which restricts donors to never-treated units.",
+            "type": "integer"
+          },
+          "nu": {
+            "default": 0.0,
+            "description": "Pooling parameter. ``0`` fits each unit (cohort) separately; ``'auto'`` uses multisynth's default heuristic.",
+            "type": "number"
           },
           "outcome": {
             "description": "Outcome variable name.",
@@ -27319,20 +27561,29 @@
           },
           "penalization": {
             "default": 0.0,
-            "description": "Ridge penalty on donor weights.",
+            "description": "Ridge penalty ``lambda`` on the weights (multisynth ``lambda``), in the scale of the objective in the module docstring.",
             "type": "number"
           },
           "placebo": {
             "default": true,
-            "description": "Run placebo inference.",
+            "description": "Compute inference (see ``se_method``). ``False`` returns a point estimate with NaN standard error / p-value.",
             "type": "boolean"
+          },
+          "se_method": {
+            "default": "placebo",
+            "description": "* ``'placebo'`` -- in-space placebos: every never-treated unit is assigned each cohort's adoption date and fitted from the other never-treated units; SE is the standard deviation of the placebo ATTs and the p-value is the placebo rank of ``|ATT|``. * ``'jackknife'`` -- leave-one-unit-out jackknife over all units with ``nu`` held at its full-sample value, exactly as ``summary(multisynth, inf_type = \"jackknife\")``; normal-theory p-value and CI.",
+            "enum": [
+              "placebo",
+              "jackknife"
+            ],
+            "type": "string"
           },
           "time": {
             "description": "Time period column.",
             "type": "string"
           },
           "treatment": {
-            "description": "Binary treatment indicator (0/1). Units transition from 0 to 1 at their respective adoption times.",
+            "description": "Binary, absorbing treatment indicator (0/1). A unit's adoption period is the first period with ``treatment == 1``.",
             "type": "string"
           },
           "unit": {
@@ -27352,8 +27603,11 @@
     },
     "stability": "stable",
     "typical_n_min": 15,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_did_synth_synthvar_parity.py",
+      "Cross-language parity (bit-exact) vs augsynth::multisynth 0.2.0 (Ben-Michael, Feller & Rothstein; partially pooled SCM for staggered adoption) [R R version 4.5.2 (2025-10-31), augsynth 0.2.0, osqp 1.0.0]; tolerance ATT, per-unit / per-cohort ATT, event-time ATT and jackknife SE 1e-8 rel (observed <= 2.6e-11); weights 1e-8 abs (observed 2.1e-10); nu 1e-8, imbalance norms 1e-6 rel -- tests/reference_parity/test_did_synth_synthvar_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -27525,7 +27779,7 @@
             "type": "string"
           },
           "covariates": {
-            "description": "Reserved for future covariate-adjusted extensions.",
+            "description": "Not supported by the native solver yet; passing any raises :class:`~statspai.exceptions.MethodIncompatibility` rather than silently estimating the unadjusted model (through 1.28.0 the argument was accepted and ignored).",
             "items": {
               "type": "string"
             },
@@ -27637,7 +27891,7 @@
     ],
     "category": "causal",
     "cost_profile": "One constrained optimisation over the donor simplex per fit. placebo=True / inference re-runs the whole fit once per donor, so runtime is roughly (donors + 1) x a single fit -- the usual reason a synth call feels slow.",
-    "description": "R-style alias: ``synthdid::synthdid_estimate``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "R-style alias: ``synthdid::synthdid_estimate``. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -27689,7 +27943,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "R-style alias: ``synthdid::synthdid_estimate``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "R-style alias: ``synthdid::synthdid_estimate``. Validation: certified parity evidence.",
       "name": "synthdid_estimate",
       "parameters": {
         "properties": {
@@ -27732,10 +27986,11 @@
     "stability": "stable",
     "typical_n_min": 15,
     "validation_notes": [
-      "tests/reference_parity/test_texas_synth_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_texas_synth_parity.py"
+      "R parity module 12_sdid",
+      "Stata parity module 12_sdid",
+      "Cross-language parity (bit-exact) vs synthdid::synthdid_estimate [R R version 4.5.2 (2025-10-31), synthdid 0.0.9]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 12_sdid -- tests/r_parity/12_sdid.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -27752,7 +28007,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "R-style alias: ``synthdid::sc_estimate``.",
+    "description": "R-style alias: ``synthdid::sc_estimate``. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -27779,7 +28034,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "R-style alias: ``synthdid::sc_estimate``.",
+      "description": "R-style alias: ``synthdid::sc_estimate``. Validation: certified parity evidence.",
       "name": "sc_estimate",
       "parameters": {
         "properties": {
@@ -27821,8 +28076,10 @@
     },
     "stability": "stable",
     "typical_n_min": 15,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs synthdid::sc_estimate 0.0.9 (Arkhangelsky, Athey, Hirshberg, Imbens & Wager) [R R version 4.5.2 (2025-10-31), synthdid 0.0.9]; tolerance estimate, unit/time weights and jackknife SE at 1e-9 on the Prop. 99 replica and a five-treated panel (observed est 8.1e-15, jackknife SE 4.8e-15); each of R's 40 placebo and 40 bootstrap replications replayed at 1e-9 (observed 2.1e-11) -- tests/reference_parity/test_did_synth_R_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -27838,7 +28095,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "R-style alias: ``synthdid::did_estimate``.",
+    "description": "R-style alias: ``synthdid::did_estimate``. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -27858,7 +28115,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "R-style alias: ``synthdid::did_estimate``.",
+      "description": "R-style alias: ``synthdid::did_estimate``. Validation: certified parity evidence.",
       "name": "did_estimate",
       "parameters": {
         "properties": {
@@ -27900,8 +28157,10 @@
     },
     "stability": "stable",
     "typical_n_min": 15,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Cross-language parity (bit-exact) vs synthdid::did_estimate 0.0.9 [R R version 4.5.2 (2025-10-31), synthdid 0.0.9]; tolerance estimate and jackknife SE at 1e-9 on the Prop. 99 replica and a five-treated panel (observed est 3.1e-15, jackknife SE 5.7e-16); R's 40 placebo and 40 bootstrap replications replayed at 1e-9 (observed 1.9e-13) -- tests/reference_parity/test_did_synth_R_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -27918,7 +28177,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Matrix Completion Synthetic Control Method.",
+    "description": "Matrix Completion Synthetic Control Method. Validation: certified parity evidence.",
     "example": "sp.mc_synth(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
     "failure_modes": [
       {
@@ -27945,7 +28204,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Matrix Completion Synthetic Control Method.",
+      "description": "Matrix Completion Synthetic Control Method. Validation: certified parity evidence.",
       "name": "mc_synth",
       "parameters": {
         "properties": {
@@ -27970,13 +28229,23 @@
             "description": "Long-format panel data.",
             "type": "string"
           },
+          "fixed_effects": {
+            "default": "two-way",
+            "description": "Unpenalised additive effects fitted with the low-rank part. ``\"two-way\"`` is the Athey et al. (2021) estimator and the default of R ``MCPanel`` and ``fect``; ``\"none\"`` is pure soft-impute (the estimator of StatsPAI <= 1.28.0), which shrinks the outcome level towards zero.",
+            "enum": [
+              "two-way",
+              "unit",
+              "time"
+            ],
+            "type": "string"
+          },
           "lambda_reg": {
-            "description": "Nuclear norm penalty. If ``None`` (default), selected automatically via cross-validation on observed entries.",
+            "description": "Singular-value threshold on the ``1/2``-scaled squared loss. The same minimiser is R ``MCPanel::mcnnm_fit(lambda_L = 2 * lambda / n_observed)`` and ``fect(method = \"mc\", CV = FALSE, lambda = lambda / (N * T))`` (both reported in ``model_info``). If ``None`` (default), selected by this function's own random-entry K-fold cross-validation (not the ``MCPanel`` / ``fect`` CV rule).",
             "type": "number"
           },
           "max_iter": {
-            "default": 500,
-            "description": "Maximum Soft-Impute iterations.",
+            "default": 5000,
+            "description": "Maximum Soft-Impute iterations (``RuntimeWarning`` if hit).",
             "type": "integer"
           },
           "outcome": {
@@ -27989,7 +28258,7 @@
             "type": "boolean"
           },
           "seed": {
-            "description": "Random seed for reproducibility.",
+            "description": "Random seed for the CV fold assignment. With ``seed=None`` and ``lambda_reg=None`` the selected lambda (hence the estimate) can differ between calls.",
             "type": "integer"
           },
           "time": {
@@ -27997,8 +28266,8 @@
             "type": "string"
           },
           "tol": {
-            "default": 1e-06,
-            "description": "Convergence tolerance (relative change in Frobenius norm).",
+            "default": 1e-10,
+            "description": "Convergence tolerance (relative change in Frobenius norm of the fitted matrix).",
             "type": "number"
           },
           "treated_unit": {
@@ -28027,8 +28296,11 @@
     },
     "stability": "stable",
     "typical_n_min": 15,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_did_synth_mc_parity.py",
+      "Cross-language parity (bit-exact) vs MCPanel::mcnnm_fit (Athey, Bayati, Doudchenko, Imbens & Khosravi; github.com/susanathey/MCPanel) and fect::fect(method = \"mc\") [MCPanel 0.0 @ 6b2706fd7c35f3266048ceb22a7e9a61ae1774da, R R version 4.5.2 (2025-10-31), fect 2.4.1]; tolerance ATT and fitted untreated matrix 1e-9 rel at fixed lambda (observed <= 6.0e-13), two-way and no-FE x two lambdas -- tests/reference_parity/test_did_synth_mc_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -30806,7 +31078,7 @@
     "assumptions": [],
     "category": "inference",
     "cost_profile": "Sparse and scale-safe: a scipy cKDTree ball query enumerates only observation pairs within dist_cutoff, so memory is O(n + pairs-within-cutoff) rather than O(n^2). This is the recommended Conley path on large samples -- unlike feols(vce='conley') / hdfe_ols(vce='conley'), which are dense. Cost still grows with dist_cutoff: a cutoff large enough to link most observations recovers the quadratic pair count.",
-    "description": "Compute Conley (1999) spatial -- and optionally spatio-temporal -- HAC Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Sparse and scale-safe: a scipy cKDTree ball query enumerates only observation pairs within dist_cutoff, so memory is O(n + pairs-within-cutoff) rather than O(n^2). This is the recommended Conley path on large samples -- unlike feols(vce='conley') / hdfe_ols(vce='conley'), which are dense. Cost still grows with dist_cutoff: a cutoff large enough to link most observations recovers the quadratic pair count.",
+    "description": "Compute Conley (1999) spatial -- and optionally spatio-temporal -- HAC Validation: certified parity evidence. Cost: Sparse and scale-safe: a scipy cKDTree ball query enumerates only observation pairs within dist_cutoff, so memory is O(n + pairs-within-cutoff) rather than O(n^2). This is the recommended Conley path on large samples -- unlike feols(vce='conley') / hdfe_ols(vce='conley'), which are dense. Cost still grows with dist_cutoff: a cutoff large enough to link most observations recovers the quadratic pair count.",
     "example": "sp.conley(result, data=df, lat=\"latitude\", lon=\"longitude\", dist_cutoff=100)",
     "failure_modes": [],
     "inherits_from": null,
@@ -30816,7 +31088,7 @@
     "pre_conditions": [],
     "reference": "",
     "signature": {
-      "description": "Compute Conley (1999) spatial -- and optionally spatio-temporal -- HAC Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Sparse and scale-safe: a scipy cKDTree ball query enumerates only observation pairs within dist_cutoff, so memory is O(n + pairs-within-cutoff) rather than O(n^2). This is the recommended Conley path on large samples -- unlike feols(vce='conley') / hdfe_ols(vce='conley'), which are dense. Cost still grows with dist_cutoff: a cutoff large enough to link most observations recovers the quadratic pair count.",
+      "description": "Compute Conley (1999) spatial -- and optionally spatio-temporal -- HAC Validation: certified parity evidence. Cost: Sparse and scale-safe: a scipy cKDTree ball query enumerates only observation pairs within dist_cutoff, so memory is O(n + pairs-within-cutoff) rather than O(n^2). This is the recommended Conley path on large samples -- unlike feols(vce='conley') / hdfe_ols(vce='conley'), which are dense. Cost still grows with dist_cutoff: a cutoff large enough to link most observations recovers the quadratic pair count.",
       "name": "conley",
       "parameters": {
         "properties": {
@@ -30893,9 +31165,9 @@
       "tests/reference_parity/test_conley_acreg_spacetime_parity.py",
       "tests/reference_parity/test_conley_parity.py",
       "tests/reference_parity/test_iv_hdfe_stata_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_conley_acreg_spacetime_parity.py"
+      "Cross-language parity (bit-exact) vs Stata acreg (Colella, Lalive, Sakalli & Thoenig) [Stata 18 MP, acreg 1.1.0]; tolerance SE 1e-9 rel (observed ~5e-15); absorbed-IV spatial 1e-10 -- tests/reference_parity/test_conley_acreg_spacetime_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -30910,7 +31182,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Compute stabilized IPTW weights for time-varying treatments. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute stabilized IPTW weights for time-varying treatments. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -30930,7 +31202,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Compute stabilized IPTW weights for time-varying treatments. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Compute stabilized IPTW weights for time-varying treatments. Validation: certified parity evidence.",
       "name": "stabilized_weights",
       "parameters": {
         "properties": {
@@ -30943,6 +31215,15 @@
           },
           "data": {
             "description": "Sorted long-format panel (one row per unit-time).",
+            "type": "string"
+          },
+          "density_sd": {
+            "default": "unbiased",
+            "description": "Residual standard deviation used in the Gaussian densities of a continuous treatment: ``'unbiased'`` divides the residual sum of squares by ``N - k`` (what ``lm``'s ``sigma`` reports); ``'ml'`` divides by ``N``, the maximum-likelihood estimate, which is the dispersion ``ipw::ipwtm(family = \"gaussian\")`` takes from ``geepack::geeglm``. Ignored for binary treatments.",
+            "enum": [
+              "unbiased",
+              "ml"
+            ],
             "type": "string"
           },
           "id": {
@@ -30994,9 +31275,10 @@
     "typical_n_min": 300,
     "validation_notes": [
       "tests/reference_parity/test_stabilized_weights_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_stabilized_weights_parity.py"
+      "tests/reference_parity/test_teffects_R_parity.py",
+      "Cross-language parity (bit-exact) vs ipw::ipwtm 1.3.0 (type = 'all'; binomial logit; gaussian via geepack::geeglm) [R R version 4.5.2 (2025-10-31), geepack 1.3.13, ipw 1.3.0]; tolerance 1e-10 rel on every weight (observed 1.5e-12) -- tests/reference_parity/test_teffects_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -31011,7 +31293,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Zhang-Rubin (2003) sharp bounds on the Survivor Average Causal Effect. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Zhang-Rubin (2003) sharp bounds on the Survivor Average Causal Effect. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -31031,7 +31313,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Zhang-Rubin (2003) sharp bounds on the Survivor Average Causal Effect. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Zhang-Rubin (2003) sharp bounds on the Survivor Average Causal Effect. Validation: certified parity evidence.",
       "name": "survivor_average_causal_effect",
       "parameters": {
         "properties": {
@@ -31046,7 +31328,7 @@
           },
           "n_boot": {
             "default": 500,
-            "description": "Number of bootstrap replications.",
+            "description": "Bootstrap replications for the endpoint CIs.",
             "type": "integer"
           },
           "seed": {
@@ -31054,15 +31336,24 @@
             "type": "integer"
           },
           "survival": {
-            "description": "survival parameter (str).",
+            "description": "Binary survival indicator (0/1), assumed monotone in ``treat``.",
             "type": "string"
           },
           "treat": {
-            "description": "Treatment indicator or first-treatment-period column.",
+            "description": "Binary randomised treatment (0/1).",
+            "type": "string"
+          },
+          "trimming": {
+            "default": "quantile",
+            "description": "Trimming rule; see :func:`sp.lee_bounds`. Under monotonicity the Zhang-Rubin SACE bounds are Lee (2009) bounds, and the two functions return the same endpoints.",
+            "enum": [
+              "quantile",
+              "exact"
+            ],
             "type": "string"
           },
           "y": {
-            "description": "Outcome variable column name or outcome array.",
+            "description": "Outcome; may be missing (NaN) for non-survivors, as it is under truncation by death, but must be observed wherever ``survival == 1``.",
             "type": "string"
           }
         },
@@ -31079,9 +31370,10 @@
     "typical_n_min": 300,
     "validation_notes": [
       "tests/reference_parity/test_principal_strat_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_principal_strat_parity.py"
+      "tests/reference_parity/test_teffects_R_parity.py",
+      "Cross-language parity (bit-exact) vs Stata leebounds 1.5 (Zhang-Rubin SACE bounds = Lee bounds under monotonicity) [Stata 18, leebounds 1.5 (2013-07-17, Tauchmann)]; tolerance 1e-10 rel (upper bound; both bounds equal sp.lee_bounds) -- tests/reference_parity/test_teffects_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -32492,6 +32784,11 @@
             },
             "type": "array"
           },
+          "q_bound": {
+            "default": 1e-05,
+            "description": "q_bound parameter (float).",
+            "type": "number"
+          },
           "random_state": {
             "default": 42,
             "description": "Random seed or RandomState for reproducible stochastic steps.",
@@ -32857,6 +33154,7 @@
     "validation_notes": [
       "tests/reference_parity/test_policy_tree_parity.py",
       "tests/reference_parity/test_policy_value_parity.py",
+      "tests/reference_parity/test_teffects_R_parity.py",
       "Known-truth recovery (analytical-only) -- tests/reference_parity/test_policy_tree_parity.py"
     ],
     "validation_status": "validated"
@@ -33293,7 +33591,7 @@
     ],
     "category": "causal",
     "cost_profile": "Iterative soft-impute: one SVD of the N x T outcome matrix per iteration, i.e. O(max_iter x N x T x min(N,T)). n_bootstrap multiplies the whole loop -- this is the dominant cost on wide panels.",
-    "description": "Estimate treatment effects using matrix completion. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the panel is nearly fully treated -- matrix completion needs a substantial observed-control block to recover the low-rank structure. Cost: Iterative soft-impute: one SVD of the N x T outcome matrix per iteration, i.e. O(max_iter x N x T x min(N,T)). n_bootstrap multiplies the whole loop -- this is the dominant cost on wide panels.",
+    "description": "Estimate treatment effects using matrix completion. Validation: certified parity evidence. Do NOT use when: the panel is nearly fully treated -- matrix completion needs a substantial observed-control block to recover the low-rank structure. Cost: Iterative soft-impute: one SVD of the N x T outcome matrix per iteration, i.e. O(max_iter x N x T x min(N,T)). n_bootstrap multiplies the whole loop -- this is the dominant cost on wide panels.",
     "example": "sp.mc_panel(df, y='gdp', unit='country', time='year', treat='treated')",
     "failure_modes": [
       {
@@ -33314,7 +33612,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Estimate treatment effects using matrix completion. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the panel is nearly fully treated -- matrix completion needs a substantial observed-control block to recover the low-rank structure. Cost: Iterative soft-impute: one SVD of the N x T outcome matrix per iteration, i.e. O(max_iter x N x T x min(N,T)). n_bootstrap multiplies the whole loop -- this is the dominant cost on wide panels.",
+      "description": "Estimate treatment effects using matrix completion. Validation: certified parity evidence. Do NOT use when: the panel is nearly fully treated -- matrix completion needs a substantial observed-control block to recover the low-rank structure. Cost: Iterative soft-impute: one SVD of the N x T outcome matrix per iteration, i.e. O(max_iter x N x T x min(N,T)). n_bootstrap multiplies the whole loop -- this is the dominant cost on wide panels.",
       "name": "mc_panel",
       "parameters": {
         "properties": {
@@ -33327,22 +33625,32 @@
             "description": "Panel data in long format.",
             "type": "string"
           },
+          "fixed_effects": {
+            "default": "two-way",
+            "description": "Unpenalised additive effects fitted alongside the low-rank component. ``\"two-way\"`` is the Athey et al. (2021) estimator and the default of R ``MCPanel`` (``to_estimate_u = to_estimate_v = TRUE``) and ``fect`` (``force = \"two-way\"``). ``\"none\"`` is pure soft-impute (``MCPanel`` with both switches off; no intercept, so the outcome level is shrunk towards zero); it is the estimator this function computed in StatsPAI <= 1.28.0.",
+            "enum": [
+              "two-way",
+              "unit",
+              "time"
+            ],
+            "type": "string"
+          },
           "lambda_reg": {
-            "description": "Nuclear norm regularisation parameter. If None, estimated via the universal threshold: lambda = sigma * sqrt(n).",
+            "description": "Singular-value threshold ``lambda`` on the objective above (the ``1/2``-scaled squared loss). The same minimiser is obtained from R ``MCPanel::mcnnm_fit(lambda_L = 2 * lambda / |Omega|)`` and from ``fect(method = \"mc\", CV = FALSE, lambda = lambda / (N * T))``; both conversions are reported in ``model_info``. If None, a heuristic (no reference implementation uses it) is applied: ``lambda = sd(Y[Omega]) * sqrt(max(N, T)) / 10``.",
             "type": "number"
           },
           "max_iter": {
-            "default": 1000,
-            "description": "Maximum iterations for the proximal gradient algorithm.",
+            "default": 5000,
+            "description": "Maximum soft-impute iterations. A ``RuntimeWarning`` is raised if the point-estimate fit hits the cap before ``tol``.",
             "type": "integer"
           },
           "max_rank": {
-            "description": "Maximum rank for the completed matrix. If None, no constraint.",
+            "description": "Hard cap on the rank of the low-rank component (not part of the reference problem). If None, no constraint.",
             "type": "integer"
           },
           "n_bootstrap": {
             "default": 200,
-            "description": "Bootstrap iterations for standard errors.",
+            "description": "Unit-bootstrap replications for the standard error.",
             "type": "integer"
           },
           "random_state": {
@@ -33355,8 +33663,8 @@
             "type": "string"
           },
           "tol": {
-            "default": 1e-05,
-            "description": "Convergence tolerance.",
+            "default": 1e-10,
+            "description": "Convergence tolerance on the relative Frobenius change of the fitted counterfactual matrix.",
             "type": "number"
           },
           "treat": {
@@ -33385,10 +33693,11 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
+      "tests/reference_parity/test_did_synth_mc_parity.py",
       "tests/reference_parity/test_matrix_completion_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_matrix_completion_parity.py"
+      "Cross-language parity (bit-exact) vs MCPanel::mcnnm_fit (Athey, Bayati, Doudchenko, Imbens & Khosravi; github.com/susanathey/MCPanel) and fect::fect(method = \"mc\") [MCPanel 0.0 @ 6b2706fd7c35f3266048ceb22a7e9a61ae1774da, R R version 4.5.2 (2025-10-31), fect 2.4.1, gsynth 1.4.0]; tolerance ATT and fitted untreated matrix 1e-9 rel at fixed lambda (observed <= 2.6e-13), four fixed-effect modes x two lambdas -- tests/reference_parity/test_did_synth_mc_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -33435,12 +33744,22 @@
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "string"
           },
+          "fixed_effects": {
+            "default": "two-way",
+            "description": "fixed_effects parameter (str).",
+            "enum": [
+              "two-way",
+              "unit",
+              "time"
+            ],
+            "type": "string"
+          },
           "lambda_reg": {
             "description": "lambda_reg parameter (Optional[float]).",
             "type": "number"
           },
           "max_iter": {
-            "default": 1000,
+            "default": 5000,
             "description": "Maximum number of optimisation iterations.",
             "type": "integer"
           },
@@ -33463,7 +33782,7 @@
             "type": "string"
           },
           "tol": {
-            "default": 1e-05,
+            "default": 1e-10,
             "description": "Numerical convergence tolerance.",
             "type": "number"
           },
@@ -33507,7 +33826,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: certified parity evidence.",
     "example": "sp.lee_bounds(df, y='wage', treat='training', selection='employed')",
     "failure_modes": [
       {
@@ -33527,7 +33846,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: certified parity evidence.",
       "name": "lee_bounds",
       "parameters": {
         "properties": {
@@ -33537,7 +33856,7 @@
             "type": "number"
           },
           "covariates": {
-            "description": "Not used in basic Lee bounds, reserved for conditional bounds.",
+            "description": "Reserved for covariate-tightened bounds, which are not implemented; a non-empty list is ignored with a ``UserWarning`` (it used to be ignored silently).",
             "items": {
               "type": "string"
             },
@@ -33557,12 +33876,30 @@
             "description": "Random seed or RandomState for reproducible stochastic steps.",
             "type": "integer"
           },
+          "se_method": {
+            "default": "bootstrap",
+            "description": "Standard errors of the two bounds. ``'analytic'`` is the asymptotic variance of Lee (2009, Proposition 3) exactly as Stata's ``leebounds`` (default ``vce(analytic)``) computes it; ``'bootstrap'`` resamples units ``n_bootstrap`` times.",
+            "enum": [
+              "bootstrap",
+              "analytic"
+            ],
+            "type": "string"
+          },
           "selection": {
             "description": "Binary selection/retention indicator (1 = observed, 0 = missing).",
             "type": "string"
           },
           "treat": {
             "description": "Binary treatment variable (0/1).",
+            "type": "string"
+          },
+          "trimming": {
+            "default": "quantile",
+            "description": "How the ``p = |p1 - p0| / max(p1, p0)`` share is trimmed from the arm with higher retention. ``'quantile'`` is Lee's (2009) sample",
+            "enum": [
+              "quantile",
+              "exact"
+            ],
             "type": "string"
           },
           "y": {
@@ -33583,9 +33920,10 @@
     "typical_n_min": 100,
     "validation_notes": [
       "tests/reference_parity/test_lee_bounds_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_lee_bounds_parity.py"
+      "tests/reference_parity/test_teffects_R_parity.py",
+      "Cross-language parity (bit-exact) vs Stata leebounds 1.5 (Tauchmann), vce(analytic) [Stata 18, leebounds 1.5 (2013-07-17, Tauchmann)]; tolerance 1e-10 rel on bounds and analytic variances -- tests/reference_parity/test_teffects_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -33599,7 +33937,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: certified parity evidence.",
     "example": "sp.manski_bounds(df, y='employed', treat='training', y_lower=0, y_upper=1)",
     "failure_modes": [
       {
@@ -33619,7 +33957,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: certified parity evidence.",
       "name": "manski_bounds",
       "parameters": {
         "properties": {
@@ -33630,7 +33968,7 @@
           },
           "assumption": {
             "default": "none",
-            "description": "Additional assumption: - 'none': no assumptions (widest bounds) - 'mtr': Monotone Treatment Response (Y(1) >= Y(0) for all) - 'mts': Monotone Treatment Selection (selection on levels)",
+            "description": "Additional assumption: - 'none': no assumptions (widest bounds) - 'mtr': Monotone Treatment Response (Y(1) >= Y(0) for all): ``[0, worst-case upper]``. - 'mts': Monotone Treatment Selection with positive selection, ``E[Y(d) | D=1] >= E[Y(d) | D=0]`` (Manski & Pepper 2000): ``[worst-case lower, E[Y|D=1] - E[Y|D=0]]``. - 'mts_mtr': MTS and MTR jointly: ``[0, E[Y|D=1] - E[Y|D=0]]``. Raises ``ValueError`` when ``E[Y|D=1] < E[Y|D=0]``: the two assumptions are then jointly refuted and the identified set is empty. Before 1.29, ``'mts'`` returned the ``'mts_mtr'`` interval (i.e. silently imposed MTR as well) and, when the naive difference was negative, swapped its endpoints instead of reporting the empty set. These match the \"worst case\", \"MTS positive selection\" and \"MTS and MTR positive selection\" rows of Stata's ``tebounds`` at zero misclassification.",
             "type": "string"
           },
           "data": {
@@ -33676,9 +34014,10 @@
     "typical_n_min": 100,
     "validation_notes": [
       "tests/reference_parity/test_manski_bounds_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_manski_bounds_parity.py"
+      "tests/reference_parity/test_teffects_R_parity.py",
+      "Cross-language parity (bit-exact) vs Stata tebounds 1.8 (SJ15-2 st0386), erates(0) [Stata 18, tebounds 1.8 (SJ15-2 st0386)]; tolerance 1e-12 rel / 1e-15 abs on both bounds -- tests/reference_parity/test_teffects_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -33692,7 +34031,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Horowitz-Manski (2000) bounds conditioning on covariates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Horowitz-Manski (2000) bounds conditioning on covariates. Validation: certified parity evidence.",
     "example": "sp.horowitz_manski( data=df, y=\"wage\", treatment=\"trained\", covariates=[\"age\", \"education\"], y_lower=0, y_upper=100, )",
     "failure_modes": [
       {
@@ -33712,7 +34051,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Horowitz-Manski (2000) bounds conditioning on covariates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Horowitz-Manski (2000) bounds conditioning on covariates. Validation: certified parity evidence.",
       "name": "horowitz_manski",
       "parameters": {
         "properties": {
@@ -33772,9 +34111,10 @@
     "typical_n_min": 100,
     "validation_notes": [
       "tests/reference_parity/test_horowitz_manski_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_horowitz_manski_parity.py"
+      "tests/reference_parity/test_teffects_R_parity.py",
+      "Cross-language parity (bit-exact) vs Stata tebounds 1.8 worst-case bounds (identical estimand for ATE worst-case bounds) [Stata 18, tebounds 1.8 (SJ15-2 st0386)]; tolerance 1e-12 rel / 1e-15 abs on both bounds -- tests/reference_parity/test_teffects_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -33882,7 +34222,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: certified parity evidence.",
     "example": "sp.oster_delta( data=df, y=\"wage\", x_base=[\"education\"], x_controls=[\"experience\", \"tenure\"], r_max=1.3, )",
     "failure_modes": [
       {
@@ -33902,7 +34242,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: certified parity evidence.",
       "name": "oster_delta",
       "parameters": {
         "properties": {
@@ -33938,7 +34278,7 @@
           },
           "r_max": {
             "default": 1.3,
-            "description": "Maximum R-squared assumption. Oster recommends 1.3 * R-squared from the fully controlled regression. If <= 0, it is set to 1.3 * R_full automatically.",
+            "description": "Maximum R-squared assumption. A value in ``(R_full, 1]`` is used as R_max itself. A value above 1 cannot be an R-squared and is read as a multiplier of the controlled R-squared, so the default 1.3 gives Oster's recommended ``R_max = min(1, 1.3 * R_full)``; ``<= 0`` means the same. A value in ``(0, R_full]`` falls back to that recommendation with a warning.",
             "type": "number"
           },
           "random_state": {
@@ -33977,10 +34317,12 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "tests/reference_parity/test_inference_sens_R_parity.py",
+      "tests/reference_parity/test_inference_sens_stata_parity.py",
       "tests/reference_parity/test_oster_delta_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oster_delta_parity.py"
+      "Cross-language parity (bit-exact) vs Stata psacalc (Oster); R robomit::o_delta / o_beta [R R version 4.5.2 (2025-10-31), Stata 18, psacalc 2.1, robomit 1.0.7]; tolerance 1e-12 rel vs psacalc (observed 4.4e-14); 5e-7 abs vs robomit -- tests/reference_parity/test_inference_sens_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -34172,7 +34514,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "G-estimation for a multi-stage dynamic treatment regime. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "G-estimation for a multi-stage dynamic treatment regime. Validation: certified parity evidence.",
     "example": "sp.g_estimation( df, y='outcome', treatments=['treatment_stage1', 'treatment_stage2'], covariates_by_stage=[['x1', 'x2'], ['x1', 'x2', 'x3']])",
     "failure_modes": [
       {
@@ -34192,7 +34534,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "G-estimation for a multi-stage dynamic treatment regime. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "G-estimation for a multi-stage dynamic treatment regime. Validation: certified parity evidence.",
       "name": "g_estimation",
       "parameters": {
         "properties": {
@@ -34224,6 +34566,15 @@
             },
             "type": "array"
           },
+          "propensity_model": {
+            "default": "logit",
+            "description": "Model for ``E[A_k | propensity covariates]`` in the g-estimating equation ``sum (A_k - A_hat_k) (Y~ - X_k beta - psi_k A_k) = 0`` (solved jointly with ``sum X_k (Y~ - X_k beta - psi_k A_k) = 0``, ``X_k`` = ``[1, covariates_by_stage[k]]``). ``'logit'`` is the logistic MLE that R ``DTRreg(method = \"gest\")`` fits for a binary treatment. ``'linear'`` is a linear-probability OLS fit; with propensity covariates equal to the stage covariates it reduces ``psi_k`` to the OLS coefficient on ``A_k`` in ``Y~ ~ X_k + A_k``.",
+            "enum": [
+              "logit",
+              "linear"
+            ],
+            "type": "string"
+          },
           "random_state": {
             "default": 42,
             "description": "Random seed or RandomState for reproducible stochastic steps.",
@@ -34253,10 +34604,11 @@
     "stability": "stable",
     "typical_n_min": 300,
     "validation_notes": [
+      "tests/reference_parity/test_teffects_R_parity.py",
       "tests/external_parity/test_whatif_nhefs.py",
-      "Published-reference replication (external-replication) vs published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md) -- tests/external_parity/test_whatif_nhefs.py"
+      "Cross-language parity (bit-exact) vs DTRreg::DTRreg 2.4 (method = 'gest', treat.type = 'bin', weight = 'none') [DTRreg 2.4, R R version 4.5.2 (2025-10-31)]; tolerance 1e-10 rel on each stage psi (observed 4.6e-15) -- tests/reference_parity/test_teffects_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -34490,7 +34842,7 @@
     ],
     "category": "regression",
     "cost_profile": "",
-    "description": "LASSO-selected instrumental variables. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "LASSO-selected instrumental variables (information-criterion penalty). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.lasso_iv(df, y='lwage', x_endog=['educ'], x_exog=['exper'], z=[f'qob_{i}' for i in range(40)])",
     "failure_modes": [
       {
@@ -34529,7 +34881,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "LASSO-selected instrumental variables. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "LASSO-selected instrumental variables (information-criterion penalty). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "lasso_iv",
       "parameters": {
         "properties": {
@@ -35541,7 +35893,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "User-friendly alias for :func:`sp.rdmc` (multi-cutoff RD).",
+    "description": "User-friendly alias for :func:`sp.rdmc` (multi-cutoff RD). Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -35567,7 +35919,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "User-friendly alias for :func:`sp.rdmc` (multi-cutoff RD).",
+      "description": "User-friendly alias for :func:`sp.rdmc` (multi-cutoff RD). Validation: certified parity evidence.",
       "name": "multi_cutoff_rd",
       "parameters": {
         "properties": {
@@ -35624,8 +35976,11 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_rdmulti_parity.py",
+      "Cross-language parity (bit-exact) vs rdmulti::rdmc 2.0.0 (Cattaneo, Titiunik, Vazquez-Bare & Keele) [R R version 4.5.2 (2025-10-31), rdmulti 2.0.0]; tolerance identical to sp.rdmc on the fixture (exact); per-cutoff and pooled estimates vs R 1e-9 rel -- tests/reference_parity/test_rdmulti_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -35640,7 +35995,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "User-friendly alias for :func:`sp.rdms` (multi-score RD).",
+    "description": "User-friendly alias for :func:`sp.rdms` (multi-score RD). Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -35666,7 +36021,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "User-friendly alias for :func:`sp.rdms` (multi-score RD).",
+      "description": "User-friendly alias for :func:`sp.rdms` (multi-score RD). Validation: certified parity evidence.",
       "name": "geographic_rd",
       "parameters": {
         "properties": {
@@ -35726,8 +36081,12 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "R parity module 89_rdms",
+      "Stata parity module 89_rdms",
+      "Cross-language parity (bit-exact) vs rdmulti::rdms; Stata side uses the rdms ado from the rdpackages GitHub mirror (rdmulti is not on SSC: ssc describe rdmulti returns r(601)), installed into a local gitignored ado path [R R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 89_rdms -- tests/r_parity/89_rdms.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -36750,8 +37109,8 @@
       "The donor pool is not subject to the same shock as the treated unit."
     ],
     "category": "causal",
-    "cost_profile": "Prediction intervals come from a simulation step on top of the point fit, so runtime is dominated by the number of simulations rather than n. cores= parallelises it.",
-    "description": "Prediction intervals for synthetic control methods. Cost: Prediction intervals come from a simulation step on top of the point fit, so runtime is dominated by the number of simulations rather than n. cores= parallelises it.",
+    "cost_profile": "Prediction intervals come from a simulation step on top of the point fit, so runtime is dominated by the number of simulations rather than n. cores= is accepted for API compatibility with R scpi but the simulation currently runs serially.",
+    "description": "Prediction intervals for synthetic control methods (R ``scpi::scpi``). Validation: certified parity evidence. Cost: Prediction intervals come from a simulation step on top of the point fit, so runtime is dominated by the number of simulations rather than n. cores= is accepted for API compatibility with R scpi but the simulation currently runs serially.",
     "example": "sp.scpi(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
     "failure_modes": [
       {
@@ -36778,54 +37137,105 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Prediction intervals for synthetic control methods. Cost: Prediction intervals come from a simulation step on top of the point fit, so runtime is dominated by the number of simulations rather than n. cores= parallelises it.",
+      "description": "Prediction intervals for synthetic control methods (R ``scpi::scpi``). Validation: certified parity evidence. Cost: Prediction intervals come from a simulation step on top of the point fit, so runtime is dominated by the number of simulations rather than n. cores= is accepted for API compatibility with R scpi but the simulation currently runs serially.",
       "name": "scpi",
       "parameters": {
         "properties": {
+          "Q": {
+            "description": "Constraint bounds; see :func:`scest`.",
+            "type": "number"
+          },
+          "Q2": {
+            "description": "Constraint bounds; see :func:`scest`.",
+            "type": "number"
+          },
           "alpha": {
             "default": 0.05,
-            "description": "Significance level for prediction intervals.",
+            "description": "Default for both ``u_alpha`` and ``e_alpha``. As in R, the combined interval has nominal coverage at least ``1 - (u_alpha + e_alpha)`` (0.90 with the defaults).",
             "type": "number"
           },
           "cores": {
             "default": 1,
-            "description": "Number of cores (reserved for future parallel subsampling).",
+            "description": "Accepted for API compatibility; the simulation runs serially.",
             "type": "integer"
           },
           "data": {
             "description": "Long-format panel data.",
             "type": "string"
           },
-          "e_method": {
-            "default": "gaussian",
-            "description": "Method for estimating out-of-sample uncertainty: - ``'gaussian'`` : sub-Gaussian bound using residual variance - ``'ls'`` : location-scale model (allows heteroskedasticity) - ``'qreg'`` : quantile regression (nonparametric)",
+          "draws": {
+            "description": "``(J, sims)`` matrix of standard-normal draws used for the in-sample simulation instead of generating them; passing the matrix R's ``rnorm`` produced reproduces R's simulated bounds.",
             "type": "string"
           },
+          "e_alpha": {
+            "description": "Levels of the in-sample / out-of-sample bounds (default ``alpha``).",
+            "type": "number"
+          },
+          "e_method": {
+            "default": "gaussian",
+            "description": "Out-of-sample bound: sub-Gaussian, location-scale or quantile regression. All three are always computed (``model_info``).",
+            "enum": [
+              "gaussian",
+              "ls",
+              "qreg"
+            ],
+            "type": "string"
+          },
+          "e_order": {
+            "default": 1,
+            "description": "Order of the out-of-sample moment models (R ``e.order``; ``e.lags`` is fixed at 0).",
+            "enum": [
+              "0",
+              "1"
+            ],
+            "type": "integer"
+          },
           "lasso_lambda": {
-            "default": 1.0,
-            "description": "L1 penalty (used when ``w_constr='lasso'``).",
+            "description": "Deprecated and ignored; see :func:`scest`.",
             "type": "number"
           },
           "outcome": {
-            "description": "Outcome variable column name.",
+            "description": "Column names.",
             "type": "string"
           },
           "pi_type": {
             "default": "both",
-            "description": "Which prediction interval components to include: - ``'in_sample'`` : only in-sample (weight estimation) uncertainty - ``'out_of_sample'``: only out-of-sample (prediction) uncertainty - ``'both'`` : simultaneous interval combining both sources",
+            "description": "Which interval is reported in ``period_results`` / ``ci``: ``'both'`` = R ``CI.all.<e_method>`` (in-sample + out-of-sample bounds), ``'in_sample'`` = R ``CI.in.sample``, ``'out_of_sample'`` = synthetic fit + out-of-sample bounds only (not an R table).",
+            "enum": [
+              "both",
+              "in_sample",
+              "out_of_sample"
+            ],
             "type": "string"
           },
+          "rho": {
+            "description": "Regularisation of the local geometry (default ``'type-2'``).",
+            "enum": [
+              "type-1",
+              "type-2"
+            ],
+            "type": "number"
+          },
+          "rho_max": {
+            "default": 0.2,
+            "description": "Upper bound on ``rho``.",
+            "type": "number"
+          },
           "ridge_lambda": {
-            "default": 1.0,
-            "description": "L2 penalty (used when ``w_constr='ridge'``).",
+            "description": "Deprecated and ignored; see :func:`scest`.",
             "type": "number"
           },
           "seed": {
-            "description": "Random seed for reproducibility in subsampling.",
+            "description": "Seed of the ``numpy`` generator for the in-sample draws (R uses its own ``rnorm`` stream, so simulated bounds agree with R only up to Monte Carlo error unless ``draws`` is supplied).",
+            "type": "integer"
+          },
+          "sims": {
+            "default": 200,
+            "description": "Number of in-sample simulation draws (R ``sims``; >= 10).",
             "type": "integer"
           },
           "time": {
-            "description": "Time period column name.",
+            "description": "Column names.",
             "type": "string"
           },
           "treated_unit": {
@@ -36836,13 +37246,43 @@
             "description": "First treatment period.",
             "type": "string"
           },
+          "u_alpha": {
+            "description": "Levels of the in-sample / out-of-sample bounds (default ``alpha``).",
+            "type": "number"
+          },
+          "u_missp": {
+            "default": true,
+            "description": "Allow a misspecified conditional mean of the pseudo-residuals (R ``u.missp``).",
+            "type": "boolean"
+          },
+          "u_order": {
+            "default": 1,
+            "description": "Order of the pseudo-residual mean model (R ``u.order``; ``u.lags`` is fixed at 0).",
+            "enum": [
+              "0",
+              "1"
+            ],
+            "type": "integer"
+          },
+          "u_sigma": {
+            "default": "HC1",
+            "description": "Variance estimator of the pseudo-residuals.",
+            "enum": [
+              "HC0",
+              "HC1",
+              "HC2",
+              "HC3",
+              "HC4"
+            ],
+            "type": "string"
+          },
           "unit": {
-            "description": "Unit identifier column name.",
+            "description": "Column names.",
             "type": "string"
           },
           "w_constr": {
             "default": "simplex",
-            "description": "Weight constraint for SCM estimation: - ``'simplex'`` : w >= 0, sum(w) = 1 - ``'lasso'`` : L1-penalised - ``'ridge'`` : L2-penalised - ``'ols'`` : ordinary least squares (unconstrained) - ``'ls'`` : least squares (same as 'ols')",
+            "description": "Weight constraint; see :func:`scest`.",
             "type": "string"
           }
         },
@@ -36859,8 +37299,11 @@
     },
     "stability": "stable",
     "typical_n_min": 15,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_did_synth_scpi_parity.py",
+      "Cross-language parity (aligned) vs R scpi::scpi (effect = 'unit-time', u.missp, u.sigma = HC1, u.order = e.order = 1, rho = type-2, e.method = all) [CVXR 1.9.2, ECOSolveR 0.6.1, Qtools 1.6.0, quantreg 6.1, scpi 4.0.1]; tolerance On R's weights: rho, Q.star, u.mean, Omega, Sigma, e.mean at 1e-9; out-of-sample e.var and gaussian / ls / qreg bounds at 1e-9 against R with rrq(method = 'br') (exact LP) and 5e-4 abs against the default Frisch-Newton rrq. In-sample simulation fed R's draws: per-draw median <= 1e-6 and max <= 2e-4 vs ECOS at 1e-12, quantile bounds at 1e-5; vs default ECOS (1e-8) bounds within 2e-3 abs. Average-effect CI = scdataMulti(effect = 'unit') within 5e-4. J > T0 (California, 38 donors) covered. -- tests/reference_parity/test_did_synth_scpi_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -36877,7 +37320,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Estimate synthetic control weights.",
+    "description": "Estimate synthetic control weights (R ``scpi::scest``). Validation: certified parity evidence.",
     "example": "sp.scest(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
     "failure_modes": [
       {
@@ -36904,17 +37347,24 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Estimate synthetic control weights.",
+      "description": "Estimate synthetic control weights (R ``scpi::scest``). Validation: certified parity evidence.",
       "name": "scest",
       "parameters": {
         "properties": {
+          "Q": {
+            "description": "Norm bound of the constraint (sum of weights for ``simplex``).",
+            "type": "number"
+          },
+          "Q2": {
+            "description": "L2 bound for ``'L1-L2'``. Default: R's ridge rule.",
+            "type": "number"
+          },
           "data": {
             "description": "Long-format panel data.",
             "type": "string"
           },
           "lasso_lambda": {
-            "default": 1.0,
-            "description": "L1 penalty (used when ``w_constr='lasso'``).",
+            "description": "Deprecated and ignored (emit ``DeprecationWarning``). Before 1.28.x these set L1 / L2 *penalties* of a different estimator; R ``scpi`` constrains the norm of ``w`` instead -- use ``Q`` / ``Q2``.",
             "type": "number"
           },
           "outcome": {
@@ -36922,8 +37372,7 @@
             "type": "string"
           },
           "ridge_lambda": {
-            "default": 1.0,
-            "description": "L2 penalty (used when ``w_constr='ridge'``).",
+            "description": "Deprecated and ignored (emit ``DeprecationWarning``). Before 1.28.x these set L1 / L2 *penalties* of a different estimator; R ``scpi`` constrains the norm of ``w`` instead -- use ``Q`` / ``Q2``.",
             "type": "number"
           },
           "time": {
@@ -36944,7 +37393,7 @@
           },
           "w_constr": {
             "default": "simplex",
-            "description": "Weight constraint: - ``'simplex'`` : w >= 0, sum(w) = 1 - ``'lasso'`` : L1-penalised (allows negative, non-summing) - ``'ridge'`` : L2-penalised - ``'ols'`` : ordinary least squares (unconstrained) - ``'ls'`` : least squares (same as 'ols')",
+            "description": "Weight constraint, as in R ``w.constr = list(name = ...)``: - ``'simplex'`` : w >= 0, sum(w) = Q (Q = 1) - ``'lasso'`` : ||w||_1 <= Q (Q = 1), weights may be negative - ``'ridge'`` : ||w||_2 <= Q, Q from R's ``shrinkage.EST`` rule (``max(Q_hat, 0.5)`` with Q_hat = ||b_ols|| / (1 + lambda), lambda = sigma^2 J / ||b_ols||^2) - ``'L1-L2'`` : w >= 0, sum(w) = 1 and ||w||_2 <= Q2 (Q2 as ridge Q) - ``'ols'`` : unconstrained least squares (``'ls'`` is an alias)",
             "type": "string"
           }
         },
@@ -36961,8 +37410,11 @@
     },
     "stability": "stable",
     "typical_n_min": 15,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_did_synth_scpi_parity.py",
+      "Cross-language parity (aligned) vs R scpi::scest (w.constr simplex / lasso / ridge / ols / L1-L2, V = 'separate') [CVXR 1.9.2, clarabel 0.11.2, osqp 1.0.0, scpi 4.0.1]; tolerance ols and lasso weights at 1e-9 abs; ridge Q / lambda and L1-L2 Q2 at 1e-10. simplex / ridge / L1-L2 weights are bounded by the conic solver: R's objective exceeds StatsPAI's exact optimum by <= 1e-7 relative (CLARABEL gap 1e-8), R's point is feasible, and ||w_R - w_py|| <= sqrt(gap / lambda_min(B'B)) (observed 2.0e-6 / 1.4e-5 / 2.9e-7). -- tests/reference_parity/test_did_synth_scpi_parity.py"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -36979,7 +37431,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Distributional Synthetic Controls (Gunsilius 2023). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Distributional Synthetic Controls (Gunsilius 2023). Validation: certified parity evidence.",
     "example": "sp.discos(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
     "failure_modes": [
       {
@@ -37006,31 +37458,41 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Distributional Synthetic Controls (Gunsilius 2023). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Distributional Synthetic Controls (Gunsilius 2023). Validation: certified parity evidence.",
       "name": "discos",
       "parameters": {
         "properties": {
+          "M": {
+            "default": 1000,
+            "description": "Individual-level data, ``method='quantile'``: number of quantile nodes in each weight regression (R ``M``). Default nodes are the mid-points ``(m - 0.5) / M``.",
+            "type": "integer"
+          },
           "alpha": {
             "default": 0.05,
             "description": "Significance level for confidence intervals.",
             "type": "number"
+          },
+          "cdf_grid": {
+            "description": "``method='mixture'``: outcome grid per period (all periods, in time order) on which the CDFs are compared and inverted (R's ``runif(G)`` grid). Default: ``G`` equispaced points on ``[floor(10 min)/10 - 0.25, ceil(10 max)/10 + 0.25]``.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "data": {
             "description": "Panel data in long format with columns for unit, time, and outcome.",
             "type": "string"
           },
           "method": {
-            "default": "mixture",
-            "description": "``'mixture'``: constrained (omega >= 0, Sigmaomega = 1) -- minimises the L2-Wasserstein distance between quantile functions. ``'quantile'``: unconstrained quantile-on-quantile regression.",
+            "description": "Individual-level data: ``'quantile'`` (default; R ``mixture = FALSE``) or ``'mixture'`` (R ``mixture = TRUE``) -- see the module docstring. Aggregate panels: ``'mixture'`` (default) or ``'quantile'`` select the fallback heuristic.",
             "enum": [
-              "mixture",
-              "quantile"
+              "quantile",
+              "mixture"
             ],
             "type": "string"
           },
           "n_quantiles": {
-            "default": 100,
-            "description": "Number of quantile grid points on (0, 1).",
+            "description": "Individual-level data: ``G`` -- the counterfactual quantile function is reported on ``0, 1/G, ..., 1`` and the mixture CDF grid has ``G`` points (default 1000, as R). Aggregate panels: number of quantile grid points on (0, 1) (default 100).",
             "type": "integer"
           },
           "outcome": {
@@ -37042,9 +37504,21 @@
             "description": "Run in-space placebo permutation tests for inference.",
             "type": "boolean"
           },
+          "q_nodes": {
+            "description": "Quantile nodes for the weight regressions: one array reused for every pre-period, or one array per pre-period (e.g. R's ``runif(M)`` draws, to reproduce ``DiSCo`` exactly).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "seed": {
-            "description": "Random seed (currently unused; reserved for bootstrap extensions).",
+            "description": "Unused (all node sets are deterministic unless supplied).",
             "type": "integer"
+          },
+          "simplex": {
+            "default": false,
+            "description": "Individual-level data: restrict weights to be non-negative (R ``simplex``). ``False`` (R default) allows negative weights.",
+            "type": "boolean"
           },
           "time": {
             "description": "Time period column name.",
@@ -37077,10 +37551,11 @@
     "stability": "stable",
     "typical_n_min": 15,
     "validation_notes": [
+      "tests/reference_parity/test_did_synth_synthvar_parity.py",
       "tests/reference_parity/test_distributional_te_parity.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_distributional_te_parity.py"
+      "Cross-language parity (bit-exact) vs DiSCos::DiSCo 0.1.4 (Gunsilius distributional synthetic controls), mixture = FALSE; mixture = TRUE vs GLPK on DiSCo's LP [CVXR 1.8.2, DiSCos 0.1.4, R R version 4.5.2 (2025-10-31), Rglpk 0.6.5.1, pracma 2.4.6, quadprog 1.5.8]; tolerance quantile weights 1e-11 abs (observed 4.9e-13), counterfactual quantile functions 1e-10 rel, quantile effects 1e-10 abs (observed 1.9e-12); mixture LP weights vs GLPK 1e-12 abs, vs DiSCo's SCS solution 5e-6 abs (observed 7.1e-7) -- tests/reference_parity/test_did_synth_synthvar_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -41363,7 +41838,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Longitudinal TMLE for static regime contrasts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Longitudinal TMLE for static regime contrasts. Validation: certified parity evidence.",
     "example": "",
     "failure_modes": [
       {
@@ -41382,7 +41857,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Longitudinal TMLE for static regime contrasts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Longitudinal TMLE for static regime contrasts. Validation: certified parity evidence.",
       "name": "ltmle",
       "parameters": {
         "properties": {
@@ -41429,9 +41904,9 @@
           "propensity_bounds": {
             "default": [
               0.01,
-              0.99
+              1.0
             ],
-            "description": "Clip propensity to this range for stability.",
+            "description": "Bounds on the *cumulative* probability of following the regime (and remaining uncensored) up to each time point, ``prod_j g_j`` -- the ``gbounds`` of R ``ltmle``, whose default this is.",
             "items": {
               "type": "string"
             },
@@ -41478,9 +41953,10 @@
     "typical_n_min": 500,
     "validation_notes": [
       "tests/reference_parity/test_ml_causal_recovery_parity_round2.py",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_ml_causal_recovery_parity_round2.py"
+      "tests/reference_parity/test_teffects_R_parity.py",
+      "Cross-language parity (bit-exact) vs ltmle::ltmle 1.3-0 (glm, gbounds c(0.01, 1), variance.method = 'ic') [R R version 4.5.2 (2025-10-31), ltmle 1.3.0]; tolerance psi1 / psi0 / ATE / SE 1e-9 rel without censoring (observed 5e-13); 1e-8 with censoring nodes (observed 5e-10) -- tests/reference_parity/test_teffects_R_parity.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [

@@ -25,7 +25,7 @@ Module & Method & Worst headline diff & Verdict \\
 \code{09\_rddensity} & RD density (CJM) & rel $\le 9.3e-12$ {\footnotesize (native CJM/rddensity default parity)} & \textbf{PASS} \\
 \code{10\_honest\_did} & Honest DiD bounds & abs $\le 4.88e-15$ {\footnotesize (FLCI via HonestDiD backend; Stata port within 0.0005)} & \textbf{PASS} \\
 \code{11\_psm} & PSM 1:1 NN & rel $\le 1.2e-15$ & \textbf{PASS} \\
-\code{12\_sdid} & Synthetic DID & rel $\le 2.6e-15$ {\footnotesize (native Frank-Wolfe/zeta ATT parity; backend-native placebo SE diagnostics)} & \textbf{PASS} \\
+\code{12\_sdid} & Synthetic DID & rel $\le 7.8e-16$ {\footnotesize (native Frank-Wolfe/zeta ATT parity; backend-native placebo SE diagnostics)} & \textbf{PASS} \\
 \code{13\_causal\_forest} & Causal forest (AIPW) & rel $\le 0.0019$ {\footnotesize (T3 combined-MC-error pass; like-for-like AIPW vs grf within $\sim 0.05$ combined SE on clean-overlap DGP)} & \textbf{PASS} \\
 \code{14\_ols\_cluster} & OLS + cluster-robust SE & rel $\le 3e-14$ & \textbf{PASS} \\
 \code{15\_hdfe\_cluster} & HDFE + cluster SE & rel $\le 5.2e-15$ {\footnotesize (fixest/reghdfe nested-FE cluster correction)} & \textbf{PASS} \\
@@ -38,9 +38,9 @@ Module & Method & Worst headline diff & Verdict \\
 \code{22\_sensemakr} & sensemakr robustness & rel $\le 5e-08$ {\footnotesize (sensemakr RV and benchmark bound-scale parity)} & \textbf{PASS} \\
 \code{23\_evalue} & E-value (closed form) & rel $\le 5.8e-14$ & \textbf{PASS} \\
 \code{24\_coxph} & Cox proportional hazards & rel $\le 8.4e-16$ & \textbf{PASS} \\
-\code{25\_lmm} & Linear mixed model & rel $\le 1.3e-10$ & \textbf{PASS} \\
+\code{25\_lmm} & Linear mixed model & rel $\le 2.6e-12$ & \textbf{PASS} \\
 \code{26\_glmm\_logit} & GLMM logit (Laplace) & rel $\le 0.00017$ & \textbf{PASS} \\
-\code{27\_glmm\_aghq} & GLMM logit (AGHQ, n=8) & rel $\le 2.4e-07$ & \textbf{PASS} \\
+\code{27\_glmm\_aghq} & GLMM logit (AGHQ, n=8) & rel $\le 1.7e-07$ & \textbf{PASS} \\
 \code{28\_frontier} & Stochastic frontier (cross-sec.) & rel $\le 4.1e-08$ & \textbf{PASS} \\
 \code{29\_panel\_sfa} & Panel SFA (Pitt--Lee) & rel $\le 2.8e-06$ {\footnotesize (slope parity; intercept/sigma rows are scale diagnostics)} & \textbf{PASS} \\
 \code{30\_oaxaca} & Blinder--Oaxaca decomposition & rel $\le 6.3e-16$ {\footnotesize (twofold vs threefold split convention)} & \textbf{PASS} \\

@@ -4,8 +4,10 @@ Structural break tests.
 Provides Bai-Perron multiple structural break test, CUSUM test,
 Chow test, and Andrews-Ploberger supremum test.
 
-Equivalent to Stata's ``estat sbknown`` / ``estat sbsingle`` and
-R's ``strucchange::breakpoints()``.
+The sup-F statistic corresponds to Stata's ``estat sbsingle`` (supremum
+Wald = k x sup-F) and ``strucchange::Fstats``; ``method='global'`` to
+``strucchange::breakpoints()``; the CUSUM test to ``estat sbcusum`` and
+``strucchange::efp(type = "Rec-CUSUM")``.
 
 References
 ----------
@@ -24,9 +26,11 @@ Brown, R.L., Durbin, J. & Evans, J.M. (1975).
 """
 
 from functools import lru_cache
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
+
 from .._result_serialize import ResultProtocolMixin
 
 _SUPF_SEED = 20240601
@@ -211,10 +215,14 @@ def structural_break(
     min_segment : float, default 0.15
         Minimum segment length as fraction of sample.
     method : str, default 'bai-perron'
-        Method: 'bai-perron', 'chow', 'sup-f'. ``'sup-f'`` and ``'chow'``
-        both compute the single-break Quandt-Andrews sup-F statistic
-        (maximised over candidate break points); ``'bai-perron'`` adds
-        sequential supF(l+1 | l) detection.
+        Method: 'bai-perron', 'global', 'chow', 'sup-f'. ``'sup-f'`` and
+        ``'chow'`` both compute the single-break Quandt-Andrews sup-F
+        statistic (maximised over candidate break points, the
+        ``strucchange::Fstats`` grid); ``'bai-perron'`` detects breaks one at
+        a time (binary segmentation), each step tested with the sup-F
+        statistic; ``'global'`` is the Bai-Perron global SSR minimisation by
+        dynamic programming with the number of breaks chosen by BIC -- the
+        estimator of ``strucchange::breakpoints(h = min_segment)``.
     alpha : float, default 0.05
         Significance level.
 
@@ -278,13 +286,24 @@ def structural_break(
     beta_full = np.linalg.lstsq(X_full, y_data, rcond=None)[0]
     rss_full = np.sum((y_data - X_full @ beta_full) ** 2)
 
+    if method not in ("bai-perron", "chow", "sup-f", "global"):
+        raise ValueError("method must be 'bai-perron', 'global', 'sup-f' or 'chow'")
+
+    if method == "global":
+        return _breakpoints_global(y_data, X_full, min_segment, max_breaks, rss_full)
+
     if method == "chow" or method == "sup-f":
-        # Sup-F test: find the single break maximizing F
+        # Sup-F test: find the single break maximizing F. Candidate break
+        # points t (= size of the first regime) run from floor(min_segment*n)
+        # to n - floor(min_segment*n) inclusive, clamped to [k+1, n-k-1] --
+        # the strucchange::Fstats(from = min_segment) convention.
         best_f = -np.inf
         best_break = None
         f_stats = []
+        t_from = max(int(np.floor(min_segment * n)), k + 1)
+        t_to = min(n - int(np.floor(min_segment * n)), n - k - 1)
 
-        for t in range(h, n - h):
+        for t in range(t_from, t_to + 1):
             # Segment 1
             X1, y1 = X_full[:t], y_data[:t]
             b1 = np.linalg.lstsq(X1, y1, rcond=None)[0]
@@ -312,7 +331,7 @@ def structural_break(
             [best_break] if p_value < alpha and best_break is not None else []
         )
 
-        return StructuralBreakResult(
+        res = StructuralBreakResult(
             test_type="Sup-F" if method == "sup-f" else "Chow",
             break_dates=selected_breaks,
             f_stats=best_f,
@@ -323,6 +342,15 @@ def structural_break(
             bic=None,
             n_obs=n,
         )
+        # Wald (chi2) scale: k * F -- strucchange::Fstats' statistic and
+        # Stata ``estat sbsingle``'s supremum Wald; ``sup_break`` is the
+        # maximising break point (size of the first regime) whether or not
+        # it is significant.
+        res.sup_wald = float(k * best_f)
+        res.sup_break = best_break
+        res.f_path = np.array([f for _, f in f_stats])
+        res.candidate_breaks = np.array([t for t, _ in f_stats])
+        return res
 
     # Bai-Perron: sequential detection
     break_dates = []
@@ -417,6 +445,174 @@ def structural_break(
     )
 
 
+def _segment_rss_table(y: np.ndarray, X: np.ndarray, h: int) -> np.ndarray:
+    """RSS[i, j] of the OLS fit on observations i..j (0-based, inclusive).
+
+    Computed for every start i by recursive least squares (the recursive
+    residuals of the segment, as ``strucchange::breakpoints`` does), so the
+    whole triangle costs O(n^2 k^2). Entries with fewer than k + 1
+    observations are NaN; only segments of length >= h are ever used.
+    """
+    n, k = X.shape
+    rss = np.full((n, n), np.nan)
+    for i in range(0, n - h + 1):
+        Xi, yi = X[i : i + k], y[i : i + k]
+        try:
+            P = np.linalg.inv(Xi.T @ Xi)
+        except np.linalg.LinAlgError:
+            P = None
+        if P is None:
+            # singular start (e.g. constant regressor over k points): fall
+            # back to direct fits for this start
+            for j in range(i + k, n):
+                Xs, ys = X[i : j + 1], y[i : j + 1]
+                b = np.linalg.lstsq(Xs, ys, rcond=None)[0]
+                rss[i, j] = float(np.sum((ys - Xs @ b) ** 2))
+            continue
+        b = P @ (Xi.T @ yi)
+        acc = float(np.sum((yi - Xi @ b) ** 2))  # exactly 0 for k points
+        rss[i, i + k - 1] = acc
+        for j in range(i + k, n):
+            x = X[j]
+            f = 1.0 + x @ P @ x
+            e = y[j] - x @ b
+            acc += e * e / f
+            rss[i, j] = acc
+            Px = P @ x
+            P = P - np.outer(Px, Px) / f
+            b = b + Px * (e / f)
+    return rss
+
+
+def _breakpoints_global(
+    y: np.ndarray,
+    X: np.ndarray,
+    min_segment: float,
+    max_breaks: Optional[int],
+    rss_full: float,
+) -> "StructuralBreakResult":
+    """Bai-Perron global minimisation, as ``strucchange::breakpoints``.
+
+    Minimum segment size ``h = floor(min_segment * n)`` (or ``min_segment``
+    itself when >= 1); for m = 1..M the optimal partition minimises the total
+    RSS by dynamic programming; the number of breaks minimises
+    ``BIC = -2 logL + (k + 1)(m + 1) log n`` with
+    ``logL = -n/2 (log RSS + 1 - log n + log 2 pi)``.
+    Break points are the index (1-based) of the last observation of each
+    regime, i.e. the size of the preceding regimes.
+    """
+    n, k = X.shape
+    h = int(np.floor(min_segment * n)) if min_segment < 1 else int(min_segment)
+    if h <= k:
+        raise ValueError(
+            "minimum segment size must be greater than the number of regressors"
+        )
+    if h > n // 2:
+        raise ValueError(
+            "minimum segment size must be smaller than half the number of "
+            "observations"
+        )
+    M = int(np.ceil(n / h)) - 2
+    if max_breaks is not None:
+        M = max(1, min(int(max_breaks), M))
+    rss = _segment_rss_table(y, X, h)
+
+    def seg(a: int, b: int) -> float:  # 1-based inclusive a..b
+        return rss[a - 1, b - 1]
+
+    # table[m][i]: optimal RSS of observations 1..i with m breaks, and the
+    # position of the last of those breaks (1-based end of regime m).
+    idx = np.arange(h, n - h + 1)
+    table_rss = {1: {i: seg(1, i) for i in idx}}
+    table_arg: dict = {1: {}}
+    for m in range(2, M + 1):
+        table_rss[m], table_arg[m] = {}, {}
+        for i in range(m * h, n - h + 1):
+            best, arg = np.inf, None
+            for j in range((m - 1) * h, i - h + 1):
+                prev = table_rss[m - 1].get(j, np.nan)
+                v = prev + seg(j + 1, i)
+                if np.isfinite(v) and v < best:
+                    best, arg = v, j
+            table_rss[m][i], table_arg[m][i] = best, arg
+
+    def extract(m: int) -> list:
+        best, opt = np.inf, None
+        for i in idx:
+            prev = table_rss[m].get(int(i), np.nan)
+            v = prev + seg(int(i) + 1, n)
+            if np.isfinite(v) and v < best:
+                best, opt = v, int(i)
+        bps = [opt]
+        for mm in range(m, 1, -1):
+            bps.insert(0, table_arg[mm][bps[0]])
+        return bps
+
+    rss_by_m = [float(seg(1, n))]
+    bps_by_m: list = [[]]
+    for m in range(1, M + 1):
+        bps = extract(m)
+        edges = [0] + bps + [n]
+        rss_by_m.append(
+            float(sum(seg(edges[q] + 1, edges[q + 1]) for q in range(len(edges) - 1)))
+        )
+        bps_by_m.append(bps)
+    bic = [
+        n * (np.log(r) + 1 - np.log(n) + np.log(2 * np.pi))
+        + (k + 1) * (m + 1) * np.log(n)
+        for m, r in enumerate(rss_by_m)
+    ]
+    m_star = int(np.argmin(bic))
+    res = StructuralBreakResult(
+        test_type="Bai-Perron (global, BIC)",
+        break_dates=list(bps_by_m[m_star]),
+        f_stats=None,
+        p_values=None,
+        n_breaks=m_star,
+        rss_full=rss_full,
+        rss_segments=rss_by_m[m_star],
+        bic=float(bic[m_star]),
+        n_obs=n,
+    )
+    res.rss_by_breaks = np.array(rss_by_m)
+    res.bic_by_breaks = np.array(bic)
+    res.breaks_by_m = bps_by_m
+    res.min_segment_size = h
+    return res
+
+
+def _bm_linear_crossing_pvalue(x: float) -> float:
+    """P(sup_{0<t<=1} |W(t)| / (1 + 2t) > x) for standard Brownian motion W.
+
+    Closed-form crossing probability of the linear boundaries
+    ``+-x (1 + 2t)``, as evaluated by ``strucchange::pvalue.efp`` (Brownian
+    motion, max functional; that function also switches to ``1 - 0.1465 x``
+    below x = 0.3, reproduced here).
+    """
+    from scipy.stats import norm
+
+    if x < 0.3:
+        return float(1.0 - 0.1465 * x)
+    p = 2.0 * (
+        norm.sf(3.0 * x)
+        + np.exp(-4.0 * x * x) * (norm.cdf(x) + norm.cdf(5.0 * x) - 1.0)
+        - np.exp(-16.0 * x * x) * norm.sf(x)
+    )
+    return float(min(max(p, 0.0), 1.0))
+
+
+@lru_cache(maxsize=32)
+def _bde_boundary(alpha: float) -> float:
+    """Boundary coefficient a with crossing probability alpha (5%: 0.9479)."""
+    from scipy.optimize import brentq
+
+    if not 0.0 < alpha < 1.0:
+        raise ValueError("alpha must lie in (0, 1)")
+    return float(
+        brentq(lambda a: _bm_linear_crossing_pvalue(a) - alpha, 0.3, 20.0, xtol=1e-14)
+    )
+
+
 def cusum_test(
     data: pd.DataFrame,
     y: str,
@@ -441,7 +637,13 @@ def cusum_test(
     -------
     dict
         Keys: ``'cusum'`` (standardised CUSUM path of the recursive
-        residuals), ``'max_cusum'`` (its supremum in absolute value),
+        residuals, ``strucchange::efp(type = "Rec-CUSUM")$process`` without
+        its leading 0), ``'max_cusum'`` (its supremum in absolute value),
+        ``'statistic'`` (``max_s |cusum_s| / (1 + 2 s / m)``, the statistic
+        of ``strucchange::sctest`` and Stata ``estat sbcusum``),
+        ``'p_value'`` (Brownian-motion crossing probability of that
+        statistic), ``'boundary_coef'`` (``a`` solving crossing probability
+        = ``alpha``; 0.9479 at 5%),
         ``'critical_value'`` (the Brown-Durbin-Evans crossing **boundary**,
         an array ``a * [1 + 2 s / (n - k)]`` that widens from ``a`` to ``3a``
         across the sample -- *not* a constant), ``'reject'`` (True if the path
@@ -469,8 +671,9 @@ def cusum_test(
     >>> y = 1.0 + 0.5 * x + rng.normal(scale=0.5, size=n)  # stable relation
     >>> df = pd.DataFrame({"y": y, "x": x})
     >>> res = sp.cusum_test(df, y="y", x=["x"])
-    >>> sorted(res.keys())
-    ['critical_value', 'cusum', 'max_cusum', 'n_obs', 'reject']
+    >>> sorted(res.keys())  # doctest: +NORMALIZE_WHITESPACE
+    ['boundary_coef', 'critical_value', 'cusum', 'max_cusum', 'n_obs',
+     'p_value', 'reject', 'statistic']
     >>> res["n_obs"]
     120
     >>> bool(res["reject"])
@@ -516,11 +719,16 @@ def cusum_test(
     # (Ploberger & Kramer 1992), a *different* test. Applied to the
     # recursive-residual CUSUM it over-rejected late breaks (true boundary
     # widens to 3a at the sample end) and under-rejected early ones. The BDE
-    # boundary coefficients ``a`` (one-sided significance level) are:
-    a_vals = {0.01: 1.143, 0.05: 0.948, 0.10: 0.850}
-    a = a_vals.get(round(float(alpha), 2), 0.948)
+    # boundary coefficient ``a`` solves P(crossing) = alpha (1.1430, 0.9479,
+    # 0.8499 at 1%, 5%, 10%; hard-coded values rounded to three decimals,
+    # used for any alpha, were replaced by this root in 1.28.x).
+    a = _bde_boundary(float(alpha))
     s = np.arange(1, m + 1)
     boundary = a * (1.0 + 2.0 * s / m)
+    # Test statistic: sup_s |cusum_s| / (1 + 2 s / m) (strucchange ``sctest``
+    # statistic S, Stata ``estat sbcusum`` statistic), and its p-value from
+    # the boundary-crossing probability of standard Brownian motion.
+    stat = float(np.max(np.abs(cusum) / (1.0 + 2.0 * s / m)))
 
     return {
         "cusum": cusum,
@@ -528,6 +736,9 @@ def cusum_test(
         # Per-recursion BDE crossing boundary (array). Replaces the old scalar
         # 1.358, which was the wrong (Brownian-bridge) critical value.
         "critical_value": boundary,
+        "boundary_coef": a,
+        "statistic": stat,
+        "p_value": _bm_linear_crossing_pvalue(stat),
         "reject": bool(np.any(np.abs(cusum) > boundary)),
         "n_obs": n,
     }

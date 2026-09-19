@@ -280,16 +280,152 @@ def sar_gmm(
 # --------------------------------------------------------------------- #
 
 
+def _tsls(y: np.ndarray, Z: np.ndarray, Q: np.ndarray, robust: bool, sig2n_k: bool):
+    """2SLS of ``y`` on ``Z`` with instrument matrix ``Q`` (``spatialreg:::tsls``).
+
+    Returns ``(coef, vcov, resid)``. Homoskedastic variance
+    ``s2 (Zp'Zp)^{-1}`` with ``s2 = e'e / n`` (``/ (n - k)`` when
+    ``sig2n_k``); ``robust=True`` gives the HC0 sandwich
+    ``(Zp'Zp)^{-1} Zp' diag(e^2) Zp (Zp'Zp)^{-1}``, where ``Zp`` is ``Z``
+    with its endogenous columns replaced by their first-stage fits.
+    """
+    n = y.shape[0]
+    coef_fs, *_ = np.linalg.lstsq(Q, Z, rcond=None)
+    Zp = Q @ coef_fs
+    ZpZp_inv = np.linalg.inv(Zp.T @ Zp)
+    coef = ZpZp_inv @ (Zp.T @ y)
+    e = y - Z @ coef
+    if robust:
+        meat = (Zp * (e**2)[:, None]).T @ Zp
+        V = ZpZp_inv @ meat @ ZpZp_inv
+    else:
+        df = n - Z.shape[1] if sig2n_k else n
+        V = float(e @ e) / df * ZpZp_inv
+    return coef, V, e
+
+
+def _kp_gm_lambda(u: np.ndarray, M: Any):
+    """Kelejian-Prucha (1999) GM estimate of ``(lambda, sigma^2)`` from residuals.
+
+    Unweighted nonlinear least squares on the three moment conditions, in
+    the ``G [lambda, lambda^2, sigma^2]' - g`` form of
+    ``spatialreg:::.kpwuwu`` / ``.kpgm``.
+
+    The minimisation is exact rather than iterative: for fixed ``lambda``
+    the objective is linear least squares in ``sigma^2``, and profiling it
+    out leaves a quartic in ``lambda`` whose stationary points are the real
+    roots of a cubic. The quartic can have a second, spurious minimum
+    outside the parameter space (on the Columbus data it sits at
+    ``lambda = 4.07`` with a *lower* objective than the admissible one), so
+    the minimiser is taken over stationary points with ``|lambda| < 1``,
+    the Kelejian-Prucha parameter space. ``gstsls`` runs ``nlminb`` from
+    the residual autocorrelation instead, which finds the same admissible
+    minimum but stops a few 1e-9 short of it on a flat objective.
+    """
+    n = u.shape[0]
+    wu = M @ u
+    wwu = M @ wu
+    trwpw = float(M.multiply(M).sum())
+    G = np.empty((3, 3))
+    G[:, 0] = np.array([2 * u @ wu, 2 * wwu @ wu, u @ wwu + wu @ wu]) / n
+    G[:, 1] = -np.array([wu @ wu, wwu @ wwu, wwu @ wu]) / n
+    G[:, 2] = np.array([1.0, trwpw / n, 0.0])
+    g = np.array([u @ u, wu @ wu, u @ wu]) / n
+
+    c = G[:, 2]
+    P = np.eye(3) - np.outer(c, c) / float(c @ c)
+    A = [-g, G[:, 0], G[:, 1]]  # residual = A0 + A1 lam + A2 lam^2 + c s2
+    # Profiled objective: sum_{i,j} lam^(i+j) A_i' P A_j  (quartic in lam)
+    quart = np.zeros(5)
+    for i in range(3):
+        for j in range(3):
+            quart[i + j] += float(A[i] @ P @ A[j])
+    deriv = np.array([k * quart[k] for k in range(1, 5)])  # ascending
+    roots = np.roots(deriv[::-1])
+    real = roots[np.abs(roots.imag) <= 1e-12 * np.maximum(1.0, np.abs(roots))].real
+    if real.size == 0:  # pragma: no cover - a quartic with positive leading term
+        raise RuntimeError("KP GM moment objective has no stationary point")
+
+    def profile(lam: float):
+        a_vec = A[0] + A[1] * lam + A[2] * lam * lam
+        s2 = -float(a_vec @ c) / float(c @ c)
+        r = a_vec + c * s2
+        return float(r @ r), s2
+
+    real = real[np.abs(real) < 1.0]
+    if real.size == 0:
+        raise RuntimeError(
+            "KP GM moment objective has no stationary point with |lambda| < 1; "
+            "the spatial-error parameter is not identified on these residuals"
+        )
+    # Minima only (second derivative of the quartic > 0).
+    d2 = np.array(
+        [sum(k * (k - 1) * quart[k] * r ** (k - 2) for k in range(2, 5)) for r in real]
+    )
+    real = real[d2 > 0] if np.any(d2 > 0) else real
+    vals = [profile(float(r)) for r in real]
+    best = int(np.argmin([v[0] for v in vals]))
+    lam_hat = float(real[best])
+    obj, s2_hat = vals[best]
+    return lam_hat, s2_hat, obj
+
+
 def sarar_gmm(
     W: Any,
     data: pd.DataFrame,
     formula: str,
     row_normalize: bool = True,
     robust: Optional[str] = None,
+    sig2n_k: bool = False,
+    w_lags: int = 2,
 ) -> EconometricResults:
-    """Combined GMM: Kelejian-Prucha SAR 2SLS then SEM GMM on residuals.
+    """SARAR (spatial lag + spatial error) by generalized spatial 2SLS.
 
-    Equivalent to ``spreg.GM_Combo`` (or ``GM_Combo_Het`` with ``robust='het'``).
+    The Kelejian-Prucha (1998) GS2SLS estimator for
+    ``y = rho W y + X beta + u,  u = lambda W u + e``, computed step for
+    step as ``spatialreg::gstsls``:
+
+    1. 2SLS of ``y`` on ``[W y, X]`` with instruments
+       ``H = [X, W X, W^2 X]`` (lags of the non-constant columns).
+    2. ``lambda`` from the Kelejian-Prucha (1999) generalized moments on the
+       2SLS residuals (unweighted nonlinear least squares).
+    3. Spatial Cochrane-Orcutt: 2SLS of ``y - lambda W y`` on
+       ``[(I - lambda W) W y, (I - lambda W) X]``, instruments
+       ``[(I - lambda W) X, W X, W^2 X]`` (the spatial-lag instruments
+       are *not* filtered, as in ``gstsls``).
+
+    ``beta``, ``rho`` and their standard errors come from step 3. The GM
+    step does not deliver a standard error for ``lambda``; it is reported
+    as NaN (as ``gstsls`` reports ``lambda.se = NULL``).
+
+    Parameters
+    ----------
+    W : array-like, sparse matrix or :class:`W`
+        Spatial weights.
+    data : DataFrame
+    formula : str
+        ``"y ~ x1 + x2"``; a constant is always added.
+    row_normalize : bool, default True
+        Row-standardise ``W`` (``spdep`` style ``"W"``).
+    robust : {None, "het"}
+        ``"het"``: HC0 sandwich in both 2SLS steps
+        (``gstsls(robust = TRUE)``). The ``lambda`` moments are still the
+        homoskedastic Kelejian-Prucha (1999) ones; this is *not* the
+        Arraiz et al. (2010) heteroskedastic GM estimator of
+        ``sphet::spreg(het = TRUE)``.
+    sig2n_k : bool, default False
+        Divide the residual sum of squares by ``n - k`` instead of ``n``
+        in the homoskedastic variance (``gstsls(sig2n_k = TRUE)``).
+    w_lags : int, default 2
+        Spatial lags of ``X`` used as instruments: ``[W X, ..., W^w_lags X]``.
+        ``2`` is Kelejian-Prucha's ``H = [X, WX, W^2 X]`` and the only
+        choice ``gstsls`` offers (its ``W2X`` argument is not used by the
+        code); ``1`` is PySAL ``spreg.GM_Combo``'s default.
+
+    Returns
+    -------
+    EconometricResults
+        ``params`` ``[const, x..., rho, lambda]``.
 
     Examples
     --------
@@ -312,88 +448,71 @@ def sarar_gmm(
     ----------
     kelejian1998generalized
     """
-    # Stage 1 — SAR GMM to recover (β̂, ρ̂) and residuals ε̂
-    sar_res = sar_gmm(W, data, formula, row_normalize=row_normalize, robust=robust)
-    rho_hat = float(sar_res.model_info["spatial_param_value"])
-    e1 = sar_res.data_info["residuals"]
+    if robust not in (None, "het"):
+        raise ValueError(f"robust must be None or 'het'; got {robust!r}")
+    is_robust = robust == "het"
+    y, X, dep, indep = _parse_formula(formula, data)
+    n = len(y)
+    M = _coerce_W(W, n_expected=n, row_normalize=row_normalize)
 
-    # Stage 2 — KP 1999 moments on ε̂ to recover λ̂
-    _, X, dep, indep = _parse_formula(formula, data)
-    M = _coerce_W(W, n_expected=len(e1), row_normalize=row_normalize)
+    Wy = M @ y
+    X_nc = X[:, 1:]
+    if int(w_lags) < 1:
+        raise ValueError(f"w_lags must be >= 1; got {w_lags!r}")
+    lags = []
+    cur = X_nc
+    for _ in range(int(w_lags)):
+        cur = M @ cur
+        lags.append(cur)
+    instr = np.column_stack(lags)
 
-    def obj(theta: np.ndarray) -> float:
-        lam, s2 = float(theta[0]), float(theta[1])
-        if not (-0.99 < lam < 0.99) or s2 <= 0:
-            return 1e20
-        g = _kp_moment_residuals(e1, M, lam, s2)
-        return float(g @ g)
+    # Step 1 -- 2SLS
+    Z1 = np.column_stack([Wy, X])
+    Q1 = np.column_stack([X, instr])
+    _, _, u = _tsls(y, Z1, Q1, is_robust, sig2n_k)
 
-    s2_init = float(e1 @ e1) / len(e1)
-    opt = minimize(
-        obj,
-        x0=[0.1, s2_init],
-        method="Nelder-Mead",
-        options={"xatol": 1e-7, "fatol": 1e-10, "maxiter": 600},
-    )
-    lam_hat = float(opt.x[0])
+    # Step 2 -- KP GM moments for lambda
+    lam_hat, gm_s2, gm_obj = _kp_gm_lambda(u, M)
 
-    # Stage 3 — Cochrane-Orcutt-style GLS: filter (y, X, WY) by (I - λ̂ W)
-    # and re-run 2SLS to match ``spreg.GM_Combo``'s final estimator.
-    import scipy.sparse as _sp
-
-    y_full = data[dep].to_numpy(float)
-    n_full = len(y_full)
-    # Rebuild X and instruments to apply the filter uniformly
-    X_full = np.column_stack([np.ones(n_full), data[list(indep)].to_numpy(float)])
-    Wy_full = M @ y_full
-    A = _sp.eye(n_full) - lam_hat * M
-    y_flt = A @ y_full
-    X_flt = A @ X_full
-    Wy_flt = A @ Wy_full
-    # Instruments: apply same filter so orthogonality is preserved
-    X_nc = X_full[:, 1:]
-    WX = M @ X_nc
-    Z_flt = A @ np.column_stack([X_full, WX])
-    D_flt = np.column_stack([X_flt, Wy_flt])
-    ZtZ_inv = np.linalg.inv(Z_flt.T @ Z_flt)
-    P_Z = Z_flt @ ZtZ_inv @ Z_flt.T
-    theta = np.linalg.solve(D_flt.T @ P_Z @ D_flt, D_flt.T @ P_Z @ y_flt)
-    beta_final = theta[:-1]
-    rho_final = float(theta[-1])
+    # Step 3 -- spatial Cochrane-Orcutt 2SLS
+    yt = y - lam_hat * (M @ y)
+    Xt = X - lam_hat * (M @ X)
+    Wyt = Wy - lam_hat * (M @ Wy)
+    Z2 = np.column_stack([Wyt, Xt])
+    Q2 = np.column_stack([Xt, instr])
+    coef, V, e = _tsls(yt, Z2, Q2, is_robust, sig2n_k)
+    se_all = np.sqrt(np.diag(V))
+    rho_hat = float(coef[0])
+    beta = coef[1:]
 
     names = ["const"] + list(indep) + ["rho", "lambda"]
-    params = np.concatenate([beta_final, [rho_final, lam_hat]])
-    # Keep SE for beta from stage-1 SAR GMM as a serviceable approximation
-    se = np.concatenate(
-        [
-            sar_res.std_errors.values[: len(beta_final)],
-            [sar_res.std_errors.values[-1], float("nan")],
-        ]
-    )
-    # Update rho to stage-3 value
-    rho_hat = rho_final
-    e1 = y_full - X_full @ beta_final - rho_final * Wy_full
+    params = np.concatenate([beta, [rho_hat, lam_hat]])
+    se = np.concatenate([se_all[1:], [se_all[0], float("nan")]])
+    fitted = y - e  # gstsls convention: fit = y - (filtered-model residual)
 
     return EconometricResults(
         params=pd.Series(params, index=names),
         std_errors=pd.Series(se, index=names),
         model_info={
-            "model_type": "SARAR-GMM / GM_Combo" + (" Het" if robust == "het" else ""),
-            "method": "Spatial 2SLS + KP 1999 moments",
+            "model_type": "SARAR GS2SLS (Kelejian-Prucha 1998"
+            + (", HC0" if is_robust else "")
+            + ")",
+            "method": "Generalized spatial 2SLS + KP 1999 GM",
             "spatial_param": "rho,lambda",
             "spatial_param_value": rho_hat,
         },
         data_info={
-            "nobs": len(e1),
+            "nobs": n,
             "df_model": len(names) - 1,
-            "df_resid": len(e1) - len(names),
+            "df_resid": n - len(names),
             "dependent_var": dep,
-            "fitted_values": sar_res.data_info["fitted_values"],
-            "residuals": e1,
+            "fitted_values": fitted,
+            "residuals": e,
             "W_sparse": M,
         },
         diagnostics={
-            "sigma2": sar_res.diagnostics["sigma2"],
-            "lambda_moment_obj": round(float(opt.fun), 8),
+            "sigma2": float(e @ e) / (n - Z2.shape[1] if sig2n_k else n),
+            "gm_sigma2": gm_s2,
+            "lambda_moment_obj": gm_obj,
         },
     )

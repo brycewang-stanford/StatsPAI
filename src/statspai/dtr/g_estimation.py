@@ -26,7 +26,6 @@ from typing import List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
-from sklearn.linear_model import LinearRegression
 
 from ..core.results import CausalResult
 
@@ -40,6 +39,7 @@ def g_estimation(
     alpha: float = 0.05,
     n_bootstrap: int = 500,
     random_state: int = 42,
+    propensity_model: str = "logit",
 ) -> CausalResult:
     """
     G-estimation for a multi-stage dynamic treatment regime.
@@ -63,6 +63,25 @@ def g_estimation(
     alpha : float, default 0.05
     n_bootstrap : int, default 500
     random_state : int, default 42
+    propensity_model : {'logit', 'linear'}, default 'logit'
+        Model for ``E[A_k | propensity covariates]`` in the g-estimating
+        equation ``sum (A_k - A_hat_k) (Y~ - X_k beta - psi_k A_k) = 0``
+        (solved jointly with ``sum X_k (Y~ - X_k beta - psi_k A_k) = 0``,
+        ``X_k`` = ``[1, covariates_by_stage[k]]``). ``'logit'`` is the
+        logistic MLE that R ``DTRreg(method = "gest")`` fits for a binary
+        treatment. ``'linear'`` is a linear-probability OLS fit; with
+        propensity covariates equal to the stage covariates it reduces
+        ``psi_k`` to the OLS coefficient on ``A_k`` in ``Y~ ~ X_k + A_k``.
+
+    Notes
+    -----
+    Before 1.29 ``propensity_covariates`` was accepted and silently
+    ignored and the propensity was always the linear-probability fit on
+    ``covariates_by_stage``; ``propensity_model='linear'`` without
+    ``propensity_covariates`` reproduces those numbers. The blip at every
+    stage is the constant ``psi_k * a_k``, so ``estimand`` is the sum of
+    the stage blips (the effect of always- versus never-treating), which
+    is also the optimal regime's value gain only when every ``psi_k > 0``.
 
     Returns
     -------
@@ -105,6 +124,7 @@ def g_estimation(
         alpha=alpha,
         n_bootstrap=n_bootstrap,
         random_state=random_state,
+        propensity_model=propensity_model,
     )
     return est.fit()
 
@@ -162,7 +182,20 @@ class GEstimation:
         alpha: float = 0.05,
         n_bootstrap: int = 500,
         random_state: int = 42,
+        propensity_model: str = "logit",
     ) -> None:
+        if propensity_model not in ("logit", "linear"):
+            raise ValueError(
+                f"propensity_model must be 'logit' or 'linear', got {propensity_model!r}"
+            )
+        self.propensity_model = propensity_model
+        if propensity_covariates is not None and len(propensity_covariates) != len(
+            treatments
+        ):
+            raise ValueError(
+                f"propensity_covariates has {len(propensity_covariates)} entries "
+                f"but {len(treatments)} treatments were specified"
+            )
         self.data = data
         self.y = y
         self.treatments = treatments
@@ -184,7 +217,9 @@ class GEstimation:
         all_cols = [self.y] + self.treatments
         for stage_covs in self.covariates_by_stage:
             all_cols.extend(stage_covs)
-        all_cols = list(set(all_cols))
+        for stage_covs in self.propensity_covariates:
+            all_cols.extend(stage_covs)
+        all_cols = list(dict.fromkeys(all_cols))
 
         missing = [c for c in all_cols if c not in self.data.columns]
         if missing:
@@ -198,9 +233,14 @@ class GEstimation:
         X_stages = [
             clean[covs].values.astype(np.float64) for covs in self.covariates_by_stage
         ]
+        P_stages = [
+            clean[covs].values.astype(np.float64) for covs in self.propensity_covariates
+        ]
 
         # Backward induction
-        psi_estimates, optimal_rules = self._backward_induction(Y, A, X_stages, n)
+        psi_estimates, optimal_rules = self._backward_induction(
+            Y, A, X_stages, n, P_stages
+        )
 
         # Bootstrap
         rng = np.random.RandomState(self.random_state)
@@ -211,7 +251,8 @@ class GEstimation:
             Y_b = Y[idx]
             A_b = [a[idx] for a in A]
             X_b = [x[idx] for x in X_stages]
-            psis_b, _ = self._backward_induction(Y_b, A_b, X_b, n)
+            P_b = [x[idx] for x in P_stages]
+            psis_b, _ = self._backward_induction(Y_b, A_b, X_b, n, P_b)
             boot_psis[b] = psis_b
 
         se_psis = np.std(boot_psis, axis=0, ddof=1)
@@ -247,6 +288,8 @@ class GEstimation:
             "psi_estimates": list(psi_estimates),
             "optimal_rules": optimal_rules,
             "total_value_optimal": float(total_value),
+            "propensity_model": self.propensity_model,
+            "propensity_covariates": [list(c) for c in self.propensity_covariates],
         }
 
         return CausalResult(
@@ -269,35 +312,38 @@ class GEstimation:
         A: List[np.ndarray],
         X_stages: List[np.ndarray],
         n: int,
+        P_stages: Optional[List[np.ndarray]] = None,
     ) -> Tuple[np.ndarray, List[str]]:
         """Backward induction for G-estimation."""
+        if P_stages is None:
+            P_stages = X_stages
         psi_estimates = np.zeros(self.n_stages)
         optimal_rules = []
         Y_tilde = Y.copy()
 
         for k in range(self.n_stages - 1, -1, -1):
             A_k = A[k]
-            X_k = X_stages[k]
+            m = len(A_k)
+            X_k = np.column_stack([np.ones(m), X_stages[k]])
+            P_k = np.column_stack([np.ones(m), P_stages[k]])
 
-            # Simple blip model: gamma(H_k, a_k) = psi_k * a_k
-            # G-estimation: find psi_k such that Y_tilde - psi_k * A_k
-            # is uncorrelated with A_k given X_k
-
-            # Residualise both Y_tilde and A_k on X_k
-            lr_y = LinearRegression()
-            lr_y.fit(X_k, Y_tilde)
-            Y_res = Y_tilde - lr_y.predict(X_k)
-
-            lr_a = LinearRegression()
-            lr_a.fit(X_k, A_k)
-            A_res = A_k - lr_a.predict(X_k)
-
-            # psi_k = Cov(Y_res, A_res) / Var(A_res)
-            denom = np.sum(A_res**2)
-            if denom > 1e-10:
-                psi_k = float(np.sum(Y_res * A_res) / denom)
+            # Propensity E[A_k | P_k]
+            if self.propensity_model == "logit":
+                A_hat = _logit_fit_predict(P_k, A_k)
             else:
-                psi_k = 0.0
+                A_hat = P_k @ np.linalg.lstsq(P_k, A_k, rcond=None)[0]
+
+            # Blip gamma(H_k, a_k) = psi_k * a_k. G-estimation solves
+            #   sum [X_k ; A_k - A_hat] (Y~ - X_k beta - psi_k A_k) = 0,
+            # the estimating equations of R DTRreg(method = "gest")
+            # (instrument matrix Hw, design Hd).
+            Hd = np.column_stack([X_k, A_k])
+            Hw = np.column_stack([X_k, A_k - A_hat])
+            try:
+                est = np.linalg.solve(Hw.T @ Hd, Hw.T @ Y_tilde)
+                psi_k = float(est[-1])
+            except np.linalg.LinAlgError:
+                psi_k = float("nan")
 
             psi_estimates[k] = psi_k
 
@@ -310,11 +356,27 @@ class GEstimation:
             else:
                 optimal_rules.append("Indifferent")
 
-            # De-blip: remove stage-k treatment effect
+            # De-blip: remove stage-k treatment effect. (DTRreg adds the
+            # regret psi_k (a_opt - A_k); with a constant blip the two
+            # pseudo-outcomes differ by a constant, which the intercept in
+            # the earlier stage's treatment-free model absorbs.)
             Y_tilde = Y_tilde - psi_k * A_k
 
         optimal_rules.reverse()  # Back to forward order
         return psi_estimates, optimal_rules
+
+
+def _logit_fit_predict(X: np.ndarray, a: np.ndarray) -> np.ndarray:
+    """Unpenalised logistic MLE by Newton-Raphson; returns fitted P(A=1|X)."""
+    beta = np.zeros(X.shape[1])
+    for _ in range(100):
+        p = 1.0 / (1.0 + np.exp(-(X @ beta)))
+        W = p * (1 - p)
+        step = np.linalg.solve((X * W[:, None]).T @ X, X.T @ (a - p))
+        beta = beta + step
+        if np.max(np.abs(step)) < 1e-12:
+            break
+    return 1.0 / (1.0 + np.exp(-(X @ beta)))
 
 
 CausalResult._CITATIONS["g_estimation"] = (

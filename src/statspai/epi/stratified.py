@@ -293,6 +293,7 @@ def breslow_day_test(
     sum_a = 0.0
     sum_ea = 0.0
     sum_va = 0.0
+    skipped: List[int] = []
 
     for k in range(K):
         a, b = arr[k, 0, 0], arr[k, 0, 1]
@@ -324,6 +325,7 @@ def breslow_day_test(
         e_c = m1 - expected_a
         e_d = n - n1 - e_c
         if min(expected_a, e_b, e_c, e_d) <= 0:
+            skipped.append(k)
             continue
         var_a = 1 / (1 / expected_a + 1 / e_b + 1 / e_c + 1 / e_d)
         chi2 += (a - expected_a) ** 2 / var_a
@@ -331,6 +333,16 @@ def breslow_day_test(
         sum_ea += expected_a
         sum_va += var_a
 
+    if skipped:
+        import warnings
+
+        warnings.warn(
+            f"breslow_day_test: strata {skipped} have a fitted cell of zero "
+            "under the common odds ratio and contribute nothing to the "
+            "statistic; degrees of freedom are still K - 1.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     if tarone_correction and sum_va > 0:
         chi2 -= (sum_a - sum_ea) ** 2 / sum_va
 

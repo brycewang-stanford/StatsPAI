@@ -187,15 +187,15 @@ def test_sdid_r_backend_requires_rscript():
 
 
 def test_sdid_jackknife_single_control_degenerates_to_zero_se():
-    # With one control, every leave-one-out re-fit has zero donors and
-    # fails, so the jackknife returns an empty tau set -> se must be 0,
-    # not NaN, and the point estimate is still the two-unit SDID contrast.
+    # One treated and one control unit: synthdid::jackknife_se returns NA
+    # (N1 = 1). The SE used to be reported as 0.0 -- a fabricated "exact"
+    # standard error. It is now NaN with a warning; the point estimate is
+    # still the two-unit SDID contrast.
     df = _panel()
     d2 = df[df["unit"].isin(["u0", "u1"])]
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", RuntimeWarning)
+    with pytest.warns(UserWarning, match="undefined"):
         res = sp.sdid(d2, **COMMON, se_method="jackknife")
-    assert res.se == 0.0
+    assert np.isnan(res.se)
     assert abs(res.estimate - EFFECT) < 1.5
 
 

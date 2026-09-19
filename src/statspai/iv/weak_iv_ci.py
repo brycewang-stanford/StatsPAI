@@ -42,9 +42,76 @@ from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-from scipy import stats
+from scipy import integrate, optimize, special, stats
 
 from ..exceptions import IdentificationFailure
+
+
+def _clr_conditional_pvalue(m: float, qt: float, k: int) -> float:
+    """Exact null p-value of the CLR statistic given ``T'T = qt``.
+
+    Under H0 the CLR statistic is a function of ``Q1 ~ chi2(1)`` and
+    ``Q_{k-1} ~ chi2(k-1)`` (independent) given ``qt``; integrating out the
+    angle between ``S`` and ``T`` gives
+
+        P(CLR > m | qt) = 1 - 2K int_0^1 F_k((qt + m) / (1 + qt x^2 / m))
+                                        (1 - x^2)^((k-3)/2) dx,
+
+    ``K = Gamma(k/2) / (sqrt(pi) Gamma((k-1)/2))`` and ``F_k`` the chi2(k)
+    CDF (``x = sin(t)`` for ``k = 2``, where the weight is singular). This is
+    the representation R ``ivmodel::condPvalue`` evaluates; with one
+    instrument CLR equals AR and the p-value is the chi2(1) tail (ivmodel
+    uses F(1, n - p - 1) there). Checked against 4e6-draw simulation to
+    MC error for k = 2, 3, 5 when it was added.
+    """
+    if not np.isfinite(m):
+        return 0.0
+    if m <= 0:
+        return 1.0
+    if k == 1:
+        return float(stats.chi2.sf(m, 1))
+    K = special.gamma(k / 2.0) / (np.sqrt(np.pi) * special.gamma((k - 1) / 2.0))
+    if k == 2:
+        val = integrate.quad(
+            lambda t: special.chdtr(k, (qt + m) / (1.0 + qt * np.sin(t) ** 2 / m)),
+            0.0,
+            np.pi / 2.0,
+            epsabs=1e-14,
+            epsrel=1e-12,
+            limit=200,
+        )[0]
+    else:
+        e = (k - 3) / 2.0
+        val = integrate.quad(
+            lambda x: special.chdtr(k, (qt + m) / (1.0 + qt * x * x / m))
+            * (1.0 - x * x) ** e,
+            0.0,
+            1.0,
+            epsabs=1e-14,
+            epsrel=1e-12,
+            limit=200,
+        )[0]
+    return float(min(max(1.0 - 2.0 * K * val, 0.0), 1.0))
+
+
+def _clr_conditional_critical_value(qt: float, k: int, level: float) -> float:
+    """``c`` with ``P(CLR > c | qt) = 1 - level`` (exact; see above)."""
+    alpha = 1.0 - level
+    if k == 1:
+        return float(stats.chi2.ppf(level, 1))
+    # CLR lies between the LM (chi2(1)) and AR (chi2(k)) pivots, so the
+    # conditional quantile is bracketed by their quantiles.
+    lo = float(stats.chi2.ppf(level, 1)) * (1.0 - 1e-9)
+    hi = float(stats.chi2.ppf(level, k)) * (1.0 + 1e-9)
+    return float(
+        optimize.brentq(
+            lambda c: _clr_conditional_pvalue(c, qt, k) - alpha,
+            lo,
+            hi,
+            xtol=1e-12,
+            rtol=1e-13,
+        )
+    )
 
 
 @dataclass
@@ -277,37 +344,42 @@ def conditional_lr_ci(
     n_sim: int = 5000,
     add_const: bool = True,
     random_state: Optional[int] = None,
+    method: str = "exact",
 ) -> WeakIVConfidenceSet:
     """
     Moreira (2003) CLR confidence set by grid inversion.
 
     At each candidate β₀, compute the CLR statistic and its conditional
-    critical value via Monte-Carlo given ``T'T``; include β₀ iff
-    ``CLR(β₀) ≤ c(T'T, 1-α)``.
+    critical value given ``T'T``; include β₀ iff ``CLR(β₀) ≤ c(T'T, 1-α)``.
+
+    ``method='exact'`` (default) evaluates the conditional null distribution
+    by one-dimensional numerical integration -- the closed form R
+    ``ivmodel::CLR`` and Stata ``weakiv`` use -- so the set is
+    deterministic. ``method='simulate'`` draws ``n_sim`` normals instead
+    (the pre-1.29 behaviour); under weak identification its endpoints
+    move by several percent between seeds at the default ``n_sim``.
 
     Uniformly most powerful invariant under normal errors with a single
     endogenous regressor. Tight under strong ID, wide under weak ID.
     """
+    if method not in ("exact", "simulate"):
+        raise ValueError(f"method must be 'exact' or 'simulate'; got {method!r}")
     Yt, Dt, Zt, kW, n = _prep(y, endog, instruments, exog, data, add_const)
     k = Zt.shape[1]
     # Orthonormalise instruments
     L = np.linalg.cholesky(Zt.T @ Zt)
-    Zs = np.linalg.solve(L.T, Zt.T).T  # Zs'Zs = I_k
+    # Zs = Zt L'^-1 so that Zs'Zs = L^-1 (L L') L'^-1 = I. Through 1.28.0
+    # this solved against L' instead of L, giving Zs = Zt L^-1 -- not
+    # orthonormal once k >= 2 -- which mis-scaled every S / T statistic.
+    Zs = np.linalg.solve(L, Zt.T).T
 
     if beta_grid is None:
         beta_grid = _default_grid(Yt, Dt, Zt, n_grid)
 
-    rng = np.random.default_rng(random_state)
-    m = int(n_sim)
-    # Pre-sample a k × m normal matrix once and reuse for each β₀
-    S_sim_base = rng.standard_normal((m, k))
-
-    stat_arr = np.empty(len(beta_grid))
-    crit_arr = np.empty(len(beta_grid))
-
     df_r = max(n - kW - k, 1)
 
-    def _clr_pair(b0: float):
+    def _clr_stat(b0: float) -> Tuple[float, np.ndarray]:
+        """CLR statistic at b0 and the vector T (Moreira 2003 notation)."""
         ustar = Yt - b0 * Dt
         # Sigma = YD' M_Z YD / df, avoiding n×n M_Z via YD'YD - (Zs'YD)'(Zs'YD)
         YD = np.column_stack([ustar, Dt])
@@ -317,7 +389,7 @@ def conditional_lr_ci(
         svv = float(Sigma[1, 1])
         suv = float(Sigma[0, 1])
         if suu <= 0 or svv <= 0:  # pragma: no cover - degenerate
-            return 0.0, float("inf")
+            return float("nan"), np.zeros(k)
         S = Zs.T @ ustar / np.sqrt(suu)
         d_perp = Dt - (suv / suu) * ustar
         sperp = max(svv - suv**2 / suu, 1e-12)
@@ -328,33 +400,59 @@ def conditional_lr_ci(
         clr = 0.5 * (
             ar - qt + np.sqrt(max((ar + qt) ** 2 - 4 * (ar * qt - lm * qt), 0.0))
         )
+        return clr, T
 
-        # Conditional critical value at the observed qt
-        # Simulate S ~ N(0, I_k) independent of T (under H0)
-        # LM_sim = (S'T)^2 / qt = s1_sim^2 where s1 is coord along T direction
-        T_dir = T / max(np.linalg.norm(T), 1e-12)
-        s1 = S_sim_base @ T_dir
-        s_rest_sq = np.sum(S_sim_base**2, axis=1) - s1**2
-        ar_sim = s1**2 + s_rest_sq
-        lm_sim = s1**2
-        clr_sim = 0.5 * (
-            ar_sim
-            - qt
-            + np.sqrt(
-                np.maximum((ar_sim + qt) ** 2 - 4 * (ar_sim * qt - lm_sim * qt), 0.0)
+    if method == "exact":
+
+        def _clr_pair(b0: float) -> Tuple[float, float]:
+            clr, T = _clr_stat(b0)
+            if not np.isfinite(clr):  # pragma: no cover - degenerate
+                return 0.0, float("inf")
+            return clr, _clr_conditional_critical_value(float(T @ T), k, level)
+
+        def _clr_excess(b0: float) -> float:
+            # Sign-equivalent to CLR - c(qt) without inverting for c:
+            # negative inside the set, positive outside.
+            clr, T = _clr_stat(b0)
+            return (1.0 - level) - _clr_conditional_pvalue(clr, float(T @ T), k)
+
+    else:
+        rng = np.random.default_rng(random_state)
+        # Pre-sample a k × m normal matrix once and reuse for each β₀
+        S_sim_base = rng.standard_normal((int(n_sim), k))
+
+        def _clr_pair(b0: float) -> Tuple[float, float]:
+            clr, T = _clr_stat(b0)
+            if not np.isfinite(clr):  # pragma: no cover - degenerate
+                return 0.0, float("inf")
+            qt = float(T @ T)
+            # Simulate S ~ N(0, I_k) independent of T (under H0);
+            # LM_sim = s1^2 with s1 the coordinate along T.
+            T_dir = T / max(np.linalg.norm(T), 1e-12)
+            s1 = S_sim_base @ T_dir
+            ar_sim = np.sum(S_sim_base**2, axis=1)
+            lm_sim = s1**2
+            clr_sim = 0.5 * (
+                ar_sim
+                - qt
+                + np.sqrt(
+                    np.maximum(
+                        (ar_sim + qt) ** 2 - 4 * (ar_sim * qt - lm_sim * qt), 0.0
+                    )
+                )
             )
-        )
-        crit = float(np.quantile(clr_sim, level))
-        return clr, crit
+            return clr, float(np.quantile(clr_sim, level))
 
+        def _clr_excess(b0: float) -> float:
+            s_, c_ = _clr_pair(b0)
+            return s_ - c_
+
+    stat_arr = np.empty(len(beta_grid))
+    crit_arr = np.empty(len(beta_grid))
     for i, b0 in enumerate(beta_grid):
         stat_arr[i], crit_arr[i] = _clr_pair(b0)
 
     in_set = stat_arr <= crit_arr
-
-    def _clr_excess(b0: float) -> float:
-        s, c = _clr_pair(b0)
-        return s - c
 
     return _build_set(
         "Moreira CLR",
@@ -363,7 +461,7 @@ def conditional_lr_ci(
         stat_arr,
         crit_arr,
         in_set,
-        extra={"n_sim": n_sim},
+        extra={"n_sim": n_sim if method == "simulate" else 0, "method": method},
         excess=_clr_excess,
     )
 
@@ -399,7 +497,10 @@ def k_test_ci(
     Yt, Dt, Zt, kW, n = _prep(y, endog, instruments, exog, data, add_const)
     k = Zt.shape[1]
     L = np.linalg.cholesky(Zt.T @ Zt)
-    Zs = np.linalg.solve(L.T, Zt.T).T
+    # Zs = Zt L'^-1 so that Zs'Zs = L^-1 (L L') L'^-1 = I. Through 1.28.0
+    # this solved against L' instead of L, giving Zs = Zt L^-1 -- not
+    # orthonormal once k >= 2 -- which mis-scaled every S / T statistic.
+    Zs = np.linalg.solve(L, Zt.T).T
 
     if beta_grid is None:
         beta_grid = _default_grid(Yt, Dt, Zt, n_grid)

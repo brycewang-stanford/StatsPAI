@@ -37,7 +37,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from statspai.rlasso import rlasso_effect, rlasso_effects, rlasso_iv
+import statspai as sp
 
 _FIXTURE_DIR = pathlib.Path(__file__).parent / "_fixtures"
 
@@ -73,7 +73,7 @@ def ajr_xydz():
 )
 def test_growth_rlasso_effect_matches_hdm(vignette_ref, growth_xyd, method, key):
     X, y, d = growth_xyd
-    res = rlasso_effect(X, y, d, method=method)
+    res = sp.rlasso_effect(X, y, d, method=method)
     exp = vignette_ref["growth"][key]
     np.testing.assert_allclose(res.alpha, exp["coef"], atol=1e-6)
     np.testing.assert_allclose(res.se, exp["se"], atol=1e-6)
@@ -82,14 +82,14 @@ def test_growth_rlasso_effect_matches_hdm(vignette_ref, growth_xyd, method, key)
 def test_growth_convergence_sign_and_scale(vignette_ref, growth_xyd):
     # Sanity on the economics: conditional convergence is negative & small.
     X, y, d = growth_xyd
-    res = rlasso_effect(X, y, d, method="partialling out")
+    res = sp.rlasso_effect(X, y, d, method="partialling out")
     assert res.alpha < 0
     assert abs(res.alpha) < 0.2
 
 
 def test_ajr_rlasso_iv_matches_hdm(vignette_ref, ajr_xydz):
     X, y, d, z = ajr_xydz
-    res = rlasso_iv(y, d, z, x=X, select_Z=False, select_X=True)
+    res = sp.rlasso_iv(y, d, z, x=X, select_Z=False, select_X=True)
     coef = float(np.ravel(res.coef)[0])
     se = float(np.ravel(res.se)[0])
     exp = vignette_ref["ajr"]
@@ -101,7 +101,7 @@ def test_ajr_institutions_effect_positive(ajr_xydz):
     # The headline AJR finding: institutions (lower expropriation risk)
     # raise GDP — a positive, significant coefficient.
     X, y, d, z = ajr_xydz
-    res = rlasso_iv(y, d, z, x=X, select_Z=False, select_X=True)
+    res = sp.rlasso_iv(y, d, z, x=X, select_Z=False, select_X=True)
     coef = float(np.ravel(res.coef)[0])
     se = float(np.ravel(res.se)[0])
     assert coef > 0
@@ -112,15 +112,19 @@ def test_ajr_institutions_effect_positive(ajr_xydz):
 #  cps2012 — gender wage gap via rlassoEffects.
 #
 #  The full expanded design is ~29,217 x 116 (~27 MB), too large to bundle. The
-#  committed fixture is a deterministic 800-row subsample. We pin the robust
-#  **female main effect** here (sp runs against the real cps2012-derived data
-#  and matches hdm exactly). The 15 ``female:`` interaction targets are *not*
-#  pinned on the subsample: rare categories (e.g. ``female:widowed``) lose
-#  support in 800 rows and become near-singular, where hdm's per-target
-#  rlassoEffect and StatsPAI diverge — a small-sample artifact, not an
-#  algorithm difference. On the full sample there is no degeneracy and all 16
-#  targets reproduce hdm exactly (verified at generation time and recorded under
-#  ``cps2012.full_sample``; see ``test_cps2012_full_sample_gender_gap_recorded``).
+#  committed fixture is a deterministic 800-row subsample on which hdm's
+#  multi-target call estimates 16 effects. 15 of them are identified and
+#  StatsPAI reproduces every one (estimate and SE) to <= 3e-12.
+#
+#  The 16th, ``female:hsd08``, is not identified: the interaction is non-zero
+#  in a single row of the subsample, so after Lasso partialling-out its
+#  residual variance is 4e-30 of its total. hdm then reports -4.7e13 (SE
+#  3.8e13) and StatsPAI 1.9e-36 -- both are ratios of rounding noise, which
+#  is why the two differ, and neither is an estimate. Earlier text here
+#  described the divergence as affecting "rare categories" in general and
+#  left the other interactions unpinned; measured, the gap is this one
+#  column. StatsPAI now warns on it (hdm does not); the test asserts both
+#  the warning and the other fifteen numbers.
 # ---------------------------------------------------------------------------
 
 
@@ -131,18 +135,18 @@ def cps_subsample():
     return Xdf.to_numpy(), df["lnw"].to_numpy(), list(Xdf.columns)
 
 
-def test_cps2012_female_main_effect_matches_hdm(vignette_ref, cps_subsample):
+def test_cps2012_all_identified_targets_match_hdm(vignette_ref, cps_subsample):
     X, y, cols = cps_subsample
-    fem_main = cols.index("female")
-    res = list(rlasso_effects(X, y, index=[fem_main]).values())[0]
-    # The "female" main-effect target is the first entry in the reference.
-    exp = next(
-        t
-        for t in vignette_ref["cps2012"]["subsample"]["targets"]
-        if t["name"] == "female"
-    )
-    np.testing.assert_allclose(res.alpha, exp["coef"], atol=1e-6)
-    np.testing.assert_allclose(res.se, exp["se"], atol=1e-6)
+    targets = vignette_ref["cps2012"]["subsample"]["targets"]
+    # R's column names use ":" where read.csv / check.names wrote ".".
+    idx = [cols.index(t["name"].replace(":", ".")) for t in targets]
+    with pytest.warns(RuntimeWarning, match="not identified"):
+        out = list(sp.rlasso_effects(X, y, index=idx).values())
+    for res, exp in zip(out, targets):
+        if exp["name"] == "female:hsd08":
+            continue  # unidentified; see the block comment above
+        np.testing.assert_allclose(res.alpha, exp["coef"], rtol=1e-9)
+        np.testing.assert_allclose(res.se, exp["se"], rtol=1e-9)
 
 
 def test_cps2012_full_sample_gender_gap_recorded(vignette_ref):

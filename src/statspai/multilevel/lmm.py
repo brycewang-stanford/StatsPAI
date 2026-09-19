@@ -160,8 +160,14 @@ class MixedResult(ResultProtocolMixin):
 
     @property
     def n_params(self) -> int:
-        """Total free parameters (fixed + variance components + sigma²)."""
-        return self.n_fixed + self._n_cov_params + 1
+        """Total free parameters (fixed + variance components + sigma²).
+
+        ``_n_cov_params`` already counts the residual variance (and, for
+        three-level fits, all three variances); adding 1 here double-counted
+        it, overstating AIC by 2 and BIC by log(n) relative to Stata
+        ``estat ic`` / R ``AIC()``.
+        """
+        return self.n_fixed + self._n_cov_params
 
     @property
     def aic(self) -> float:
@@ -1178,6 +1184,23 @@ def mixed(
         options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
     )
     converged = bool(res.success)
+
+    # L-BFGS-B stops on a *relative* change of the criterion, which on a
+    # (RE)ML deviance of order 10^3 leaves the variance components ~1e-6
+    # from the optimum (the ICC of a balanced one-way layout missed the
+    # closed-form ANOVA/REML value by 1.0e-6).  Finish with Newton steps on
+    # the numerical gradient / Hessian, as the GLMM path does.
+    from .glmm import _newton_polish
+
+    def _crit(th: np.ndarray) -> float:
+        return _profiled_nll(th, blocks, p_fixed, q_random, n_obs, reml, cov_type)
+
+    x_pol, polish_ok = _newton_polish(_crit, res.x)
+    f_pol = float(_crit(x_pol))
+    if f_pol <= float(res.fun):
+        res.x, res.fun = x_pol, f_pol
+    if polish_ok:
+        converged = True
 
     # Extract solution ------------------------------------------------------
     G_hat = _unpack_G(res.x[:n_cov_pars], q_random, cov_type)

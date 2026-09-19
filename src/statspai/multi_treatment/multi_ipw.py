@@ -40,6 +40,8 @@ def multi_treatment(
     n_bootstrap: int = 500,
     alpha: float = 0.05,
     random_state: int = 42,
+    outcome_model: str = "gbm",
+    se_method: str = "bootstrap",
 ) -> CausalResult:
     """
     Estimate effects of multi-valued treatments via AIPW.
@@ -59,6 +61,22 @@ def multi_treatment(
     n_bootstrap : int, default 500
     alpha : float, default 0.05
     random_state : int, default 42
+    outcome_model : {'gbm', 'linear'}, default 'gbm'
+        Per-arm outcome regression ``mu_k(X)``. ``'gbm'`` is a gradient
+        boosting regressor (100 trees, depth 3); ``'linear'`` is OLS with
+        an intercept fitted separately in each arm, which is the outcome
+        model of Stata's ``teffects aipw`` (``linear by ML``).
+    se_method : {'bootstrap', 'influence', 'sandwich'}, default 'bootstrap'
+        ``'bootstrap'`` re-fits the whole estimator (same outcome model)
+        on ``n_bootstrap`` resamples. ``'influence'`` reports
+        ``sd(phi_k - phi_ref) / sqrt(n)`` from the AIPW influence
+        function with the nuisance fits treated as known.
+        ``'sandwich'`` stacks the multinomial-logit score, the per-arm
+        OLS normal equations and the AIPW moments and reports the
+        M-estimation sandwich (divisor ``n``) -- the robust standard
+        error of Stata's ``teffects aipw`` with a multivalued
+        treatment. Both analytic options require
+        ``outcome_model='linear'``.
 
     Returns
     -------
@@ -95,6 +113,8 @@ def multi_treatment(
         n_bootstrap=n_bootstrap,
         alpha=alpha,
         random_state=random_state,
+        outcome_model=outcome_model,
+        se_method=se_method,
     )
     return est.fit()
 
@@ -141,7 +161,25 @@ class MultiTreatment:
         n_bootstrap: int = 500,
         alpha: float = 0.05,
         random_state: int = 42,
+        outcome_model: str = "gbm",
+        se_method: str = "bootstrap",
     ):
+        if outcome_model not in ("gbm", "linear"):
+            raise ValueError(
+                f"outcome_model must be 'gbm' or 'linear', got {outcome_model!r}"
+            )
+        if se_method not in ("bootstrap", "influence", "sandwich"):
+            raise ValueError(
+                "se_method must be 'bootstrap', 'influence' or 'sandwich', "
+                f"got {se_method!r}"
+            )
+        if se_method != "bootstrap" and outcome_model != "linear":
+            raise ValueError(
+                f"se_method={se_method!r} is the analytic variance of the "
+                "parametric AIPW estimator and requires outcome_model='linear'."
+            )
+        self.outcome_model = outcome_model
+        self.se_method = se_method
         self.data = data
         self.y = y
         self.treat = treat
@@ -178,35 +216,7 @@ class MultiTreatment:
                 f"levels: {levels}"
             )
 
-        from sklearn.ensemble import GradientBoostingRegressor
-
-        # Estimate generalized propensity scores
-        gps = self._estimate_gps(X, D, levels)
-
-        # Outcome models per treatment arm
-        mu_hats = {}
-        for k in levels:
-            mask_k = D == k
-            if mask_k.sum() > 0:
-                m = GradientBoostingRegressor(
-                    n_estimators=100,
-                    max_depth=3,
-                    learning_rate=0.1,
-                    random_state=self.random_state,
-                )
-                m.fit(X[mask_k], Y[mask_k])
-                mu_hats[k] = m.predict(X)
-            else:
-                mu_hats[k] = np.zeros(n)
-
-        # AIPW estimator for each E[Y(k)]
-        ey = {}
-        for k in levels:
-            d_k = (D == k).astype(float)
-            e_k = np.clip(gps[:, list(levels).index(k)], 0.01, 0.99)
-            mu_k = mu_hats[k]
-
-            ey[k] = float(np.mean(mu_k + d_k * (Y - mu_k) / e_k))
+        ey, phi, parts = self._point(Y, D, X, levels)
 
         # Contrasts vs reference
         ref = self.reference
@@ -222,45 +232,41 @@ class MultiTreatment:
                     "estimate": float(ate_k),
                 }
             )
-
-        # Bootstrap
-        rng = np.random.RandomState(self.random_state)
         n_contrasts = len(detail_rows)
-        boot_ates = np.zeros((self.n_bootstrap, n_contrasts))
 
-        for b in range(self.n_bootstrap):
-            idx = rng.choice(n, size=n, replace=True)
-            Y_b, D_b, X_b = Y[idx], D[idx], X[idx]
-
-            gps_b = self._estimate_gps(X_b, D_b, levels)
-            mu_b = {}
-            for k in levels:
-                mask_k = D_b == k
-                if mask_k.sum() > 2:
-                    m = GradientBoostingRegressor(
-                        n_estimators=50,
-                        max_depth=3,
-                        random_state=self.random_state,
-                    )
-                    m.fit(X_b[mask_k], Y_b[mask_k])
-                    mu_b[k] = m.predict(X_b)
-                else:
-                    mu_b[k] = np.zeros(len(idx))
-
-            ey_b = {}
-            for k in levels:
-                d_k = (D_b == k).astype(float)
-                e_k = np.clip(gps_b[:, list(levels).index(k)], 0.01, 0.99)
-                ey_b[k] = float(np.mean(mu_b[k] + d_k * (Y_b - mu_b[k]) / e_k))
-
-            for j, row in enumerate(detail_rows):
-                k = row["treatment"]
-                boot_ates[b, j] = ey_b[k] - ey_b[ref]
+        if self.se_method == "bootstrap":
+            rng = np.random.RandomState(self.random_state)
+            boot_ates = np.zeros((self.n_bootstrap, n_contrasts))
+            for b in range(self.n_bootstrap):
+                idx = rng.choice(n, size=n, replace=True)
+                ey_b, _, _ = self._point(Y[idx], D[idx], X[idx], levels)
+                for j, row in enumerate(detail_rows):
+                    boot_ates[b, j] = ey_b[row["treatment"]] - ey_b[ref]
+            ses = [float(np.std(boot_ates[:, j], ddof=1)) for j in range(n_contrasts)]
+            po_se = None
+        else:
+            if self.se_method == "sandwich":
+                ifs = _stacked_if(X, D, Y, levels, parts, phi, ey)
+                ses = [
+                    float(np.sqrt(np.mean((ifs[r["treatment"]] - ifs[ref]) ** 2) / n))
+                    for r in detail_rows
+                ]
+                po_se = {
+                    int(k): float(np.sqrt(np.mean(ifs[k] ** 2) / n)) for k in levels
+                }
+            else:
+                ses = [
+                    float(np.sqrt(np.var(phi[r["treatment"]] - phi[ref], ddof=1) / n))
+                    for r in detail_rows
+                ]
+                po_se = {
+                    int(k): float(np.sqrt(np.var(phi[k], ddof=1) / n)) for k in levels
+                }
 
         # Add SE and CI to detail
         z_crit = sp_stats.norm.ppf(1 - self.alpha / 2)
         for j, row in enumerate(detail_rows):
-            se = float(np.std(boot_ates[:, j], ddof=1))
+            se = ses[j]
             row["se"] = se
             z_stat = row["estimate"] / max(se, 1e-10)
             pv = float(2 * sp_stats.norm.sf(abs(z_stat)))
@@ -285,6 +291,10 @@ class MultiTreatment:
             "reference": int(ref),
             "n_levels": K,
             "potential_outcomes": {int(k): v for k, v in ey.items()},
+            "potential_outcomes_se": po_se,
+            "outcome_model": self.outcome_model,
+            "se_method": self.se_method,
+            "propensity_model": "multinomial logit (unpenalized MLE)",
         }
 
         return CausalResult(
@@ -301,32 +311,166 @@ class MultiTreatment:
             _citation_key="multi_treatment",
         )
 
-    def _estimate_gps(
+    def _point(
         self,
-        X: np.ndarray,
+        Y: np.ndarray,
         D: np.ndarray,
+        X: np.ndarray,
         levels: np.ndarray,
-    ) -> np.ndarray:
-        """Estimate generalized propensity scores via multinomial logit."""
-        from sklearn.linear_model import LogisticRegression
+    ):
+        """AIPW potential-outcome means; the same estimator for the point
+        estimate and every bootstrap replicate."""
+        gps, gamma, Xc = _mlogit_gps(X, D, levels)
+        mu_hats = {}
+        betas = {}
+        for k in levels:
+            mask_k = D == k
+            if self.outcome_model == "linear":
+                if mask_k.sum() < Xc.shape[1]:
+                    raise ValueError(
+                        f"Treatment arm {k} has {int(mask_k.sum())} units, "
+                        f"fewer than the {Xc.shape[1]} outcome-model parameters."
+                    )
+                beta = np.linalg.lstsq(Xc[mask_k], Y[mask_k], rcond=None)[0]
+                betas[k] = beta
+                mu_hats[k] = Xc @ beta
+            elif mask_k.sum() > 2:
+                from sklearn.ensemble import GradientBoostingRegressor
 
-        lr = LogisticRegression(
-            max_iter=1000,
-            random_state=self.random_state,
-        )
-        lr.fit(X, D)
-        probs = lr.predict_proba(X)
-
-        # Align columns with levels
-        gps = np.zeros((len(D), len(levels)), dtype=float)
-        for j, k in enumerate(levels):
-            if k in lr.classes_:
-                col_idx = list(lr.classes_).index(k)
-                gps[:, j] = probs[:, col_idx]
+                m = GradientBoostingRegressor(
+                    n_estimators=100,
+                    max_depth=3,
+                    learning_rate=0.1,
+                    random_state=self.random_state,
+                )
+                m.fit(X[mask_k], Y[mask_k])
+                mu_hats[k] = m.predict(X)
             else:
-                gps[:, j] = 1e-6
+                raise ValueError(
+                    f"Treatment arm {k} has {int(mask_k.sum())} units; the "
+                    "outcome model needs at least 3."
+                )
 
-        return np.asarray(gps, dtype=float)
+        ey = {}
+        phi = {}
+        e_clip = {}
+        for j, k in enumerate(levels):
+            d_k = (D == k).astype(float)
+            e_k = np.clip(gps[:, j], 0.01, 0.99)
+            e_clip[k] = e_k
+            phi[k] = mu_hats[k] + d_k * (Y - mu_hats[k]) / e_k
+            ey[k] = float(np.mean(phi[k]))
+        parts = {"gps": gps, "gamma": gamma, "Xc": Xc, "mu": mu_hats, "beta": betas}
+        return ey, phi, parts
+
+
+def _mlogit_gps(X: np.ndarray, D: np.ndarray, levels: np.ndarray):
+    """Unpenalised multinomial-logit generalized propensity scores.
+
+    Newton-Raphson on the full multinomial log-likelihood with the first
+    level as base (the fitted probabilities do not depend on the base).
+    Before 1.29 this was ``sklearn.linear_model.LogisticRegression()`` at
+    its default ``C=1.0``: an L2-penalised fit whose shrinkage depends on
+    the covariates' scale, so the "multinomial logit" GPS was not the
+    MLE that Cattaneo (2010) and Stata's ``teffects`` use.
+
+    Returns ``(gps, gamma, Xc)`` with ``gps`` of shape ``(n, K)`` aligned
+    with ``levels``, ``gamma`` of shape ``(K-1, p)`` for the non-base
+    levels and the design ``Xc`` with a leading intercept.
+    """
+    n = len(D)
+    Xc = np.column_stack([np.ones(n), X])
+    p = Xc.shape[1]
+    K = len(levels)
+    Dk = np.column_stack([(D == k).astype(float) for k in levels[1:]])
+    gamma = np.zeros((K - 1, p))
+    for _ in range(200):
+        eta = Xc @ gamma.T
+        eta_max = np.maximum(eta.max(axis=1), 0.0)
+        ex = np.exp(eta - eta_max[:, None])
+        denom = np.exp(-eta_max) + ex.sum(axis=1)
+        P = ex / denom[:, None]
+        score = ((Dk - P).T @ Xc).ravel()
+        H = np.zeros(((K - 1) * p, (K - 1) * p))
+        for a in range(K - 1):
+            for b in range(K - 1):
+                w = P[:, a] * ((a == b) - P[:, b])
+                H[a * p : (a + 1) * p, b * p : (b + 1) * p] = (Xc * w[:, None]).T @ Xc
+        step = np.linalg.solve(H, score)
+        gamma = gamma + step.reshape(K - 1, p)
+        if np.max(np.abs(step)) < 1e-12:
+            break
+    else:
+        import warnings
+
+        from ..exceptions import ConvergenceWarning
+
+        warnings.warn(
+            "multi_treatment: the multinomial-logit propensity model did not "
+            "converge in 200 Newton iterations (separation?).",
+            ConvergenceWarning,
+            stacklevel=3,
+        )
+    eta = Xc @ gamma.T
+    eta_max = np.maximum(eta.max(axis=1), 0.0)
+    ex = np.exp(eta - eta_max[:, None])
+    denom = np.exp(-eta_max) + ex.sum(axis=1)
+    gps = np.column_stack([np.exp(-eta_max) / denom, ex / denom[:, None]])
+    return gps, gamma, Xc
+
+
+def _stacked_if(X, D, Y, levels, parts, phi, ey):
+    """Influence functions of the AIPW means under the stacked M-estimator.
+
+    Parameters: multinomial-logit ``gamma`` (non-base levels), per-arm OLS
+    ``beta_k`` and the means ``m_k``. Row ``i`` of the returned arrays is
+    ``-A^{-1} psi_i`` for ``m_k``: the centred AIPW moment plus
+    ``E[d psi_m / d gamma] IF_gamma + E[d psi_m / d beta_k] IF_beta_k``.
+    Assumes no propensity clipping bound (the derivative of a clipped
+    score is zero, not the logit derivative).
+    """
+    gps, Xc = parts["gps"], parts["Xc"]
+    n, p = Xc.shape
+    K = len(levels)
+    if np.any((gps < 0.01) | (gps > 0.99)):
+        import warnings
+
+        warnings.warn(
+            "multi_treatment: some generalized propensity scores were "
+            "clipped to [0.01, 0.99]; the stacked sandwich is approximate "
+            "for those rows.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    P = gps[:, 1:]
+    Dk = np.column_stack([(D == k).astype(float) for k in levels[1:]])
+    H = np.zeros(((K - 1) * p, (K - 1) * p))
+    for a in range(K - 1):
+        for b in range(K - 1):
+            w = P[:, a] * ((a == b) - P[:, b])
+            H[a * p : (a + 1) * p, b * p : (b + 1) * p] = (Xc * w[:, None]).T @ Xc / n
+    scores = np.column_stack([Xc * (Dk[:, a] - P[:, a])[:, None] for a in range(K - 1)])
+    if_gamma = np.linalg.solve(H, scores.T).T  # (n, (K-1) p)
+
+    out = {}
+    for j, k in enumerate(levels):
+        d_k = (D == k).astype(float)
+        e_k = gps[:, j]
+        r_k = Y - parts["mu"][k]
+        # d e_k / d gamma_a = e_k (1{k = a} - e_a) x, a over non-base levels
+        grad_g = np.concatenate(
+            [
+                (Xc * (-d_k * r_k * ((j == a + 1) - P[:, a]) / e_k)[:, None]).mean(
+                    axis=0
+                )
+                for a in range(K - 1)
+            ]
+        )
+        grad_b = (Xc * (1 - d_k / e_k)[:, None]).mean(axis=0)
+        bread_b = (Xc * d_k[:, None]).T @ Xc / n
+        if_b = np.linalg.solve(bread_b, (Xc * (d_k * r_k)[:, None]).T).T
+        out[k] = phi[k] - ey[k] + if_gamma @ grad_g + if_b @ grad_b
+    return out
 
 
 CausalResult._CITATIONS["multi_treatment"] = (

@@ -115,8 +115,9 @@ def test_rdhte_validation_errors():
     df = _hte_df()
     with pytest.raises(ValueError, match="kernel"):
         sp.rdhte(df, y="y", x="x", z="z", c=0, kernel="bad")
+    # p = 0 (local constant) is legal, as in R rdhte; negative is not.
     with pytest.raises(ValueError, match="p must"):
-        sp.rdhte(df, y="y", x="x", z="z", c=0, p=0)
+        sp.rdhte(df, y="y", x="x", z="z", c=0, p=-1)
     with pytest.raises(ValueError, match="not found"):
         sp.rdhte(df, y="nope", x="x", z="z", c=0)
     with pytest.raises(ValueError, match="[Cc]luster"):

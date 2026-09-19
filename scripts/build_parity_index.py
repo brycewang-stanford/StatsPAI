@@ -2534,6 +2534,2668 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "labour as exogenous in both equations."
         ),
     },
+    # ======================================================================
+    # Cross-language campaign, phase 3 (2026-09). One section per family; the
+    # per-function tables, defects found, before/after numbers and unresolved
+    # items are in docs/dev/campaign_phase3/<family>*.md. Every field below is
+    # copied from the asserting test / fixture of that family.
+    # ======================================================================
+    # ---- phase 3: survival / epidemiology / nonparametric (13) ----
+    "auc": {
+        "status": "bit-exact",
+        "reference": "R pROC::auc; Stata roctab",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "pROC": "1.19.0.1",
+            "Stata": "18 MP",
+        },
+        "tolerance": "1e-10 rel (observed 2e-16)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survival_epi_R_parity.py",
+            "tests/reference_parity/_fixtures/survival_epi_R.json",
+            "tests/reference_parity/_fixtures/survival_epi_stata.json",
+        ],
+        "note": "Ties counted one half; also asserted against the mid-rank "
+        "Mann-Whitney identity.",
+    },
+    "breslow_day_test": {
+        "status": "bit-exact",
+        "reference": "R DescTools::BreslowDayTest (correct=FALSE/TRUE); Stata cc, "
+        "by() bd tarone",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "DescTools": "0.99.60",
+            "Stata": "18 MP",
+        },
+        "tolerance": "1e-10 rel (observed 1.3e-14)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survival_epi_R_parity.py",
+            "tests/reference_parity/_fixtures/survival_epi_R.json",
+            "tests/reference_parity/_fixtures/survival_epi_stata.json",
+        ],
+        "note": "Four strata, one with small cells; Mantel-Haenszel common OR on all "
+        "three sides.",
+    },
+    "cox_frailty": {
+        "status": "aligned",
+        "reference": "R survival::coxph(... + frailty(id, theta=, sparse=FALSE)); "
+        "Stata stcox, shared()",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "survival": "3.8.3",
+            "Stata": "18 MP",
+        },
+        "tolerance": "fixed theta: beta and SE 1e-9, integrated log likelihood 1e-10 "
+        "(observed 4e-14); theta maximiser 1e-6 vs R optimize (observed "
+        "5e-8) and 5e-5 vs Stata e(theta) (observed 7.5e-6)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survival_epi_R_parity.py",
+            "tests/reference_parity/_fixtures/survival_epi_R.json",
+            "tests/reference_parity/_fixtures/survival_epi_stata.json",
+        ],
+        "note": "Bit-exact at a fixed theta, including at Stata's own theta. Aligned "
+        "rather than bit-exact because theta is compared as the maximiser of "
+        "a flat integrated likelihood; ours attains a log likelihood at least "
+        "as high as Stata's. R's default sparse=TRUE / method='em' fit is not "
+        "the comparison target.",
+    },
+    "cuminc": {
+        "status": "bit-exact",
+        "reference": "R cmprsk::cuminc (estimate, var, Tests); Stata stcompet (ci, "
+        "se, hi, lo)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "cmprsk": "2.2.12",
+            "Stata": "18 MP",
+            "stcompet": "1.0.7 (06nov2012)",
+        },
+        "tolerance": "1e-10 rel (observed: CIF 6e-16, Gray variance 3e-13, delta SE "
+        "2e-16, Gray test 9e-15)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survival_epi_R_parity.py",
+            "tests/reference_parity/_fixtures/survival_epi_R.json",
+            "tests/reference_parity/_fixtures/survival_epi_stata.json",
+        ],
+        "note": "variance='gray' is cmprsk's asymptotic variance; variance='delta' "
+        "(default) is the Marubini-Valsecchi delta method stcompet reports, "
+        "conf_type='log-log' its bounds. Gray's test is cmprsk's, "
+        "unstratified, rho 0 and 1, two and three groups. Tied event and "
+        "censoring times in the fixture. Regenerate via "
+        "_generate_survival_epi_R.R / _generate_survival_epi_stata.do.",
+    },
+    "diagnostic_test": {
+        "status": "bit-exact",
+        "reference": "R epiR::epi.tests; Stata diagti",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "epiR": "2.0.94",
+            "Stata": "18 MP",
+            "diagt": "2.032 (diagti 2.053)",
+        },
+        "tolerance": "1e-12 rel (observed 2e-15)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survival_epi_R_parity.py",
+            "tests/reference_parity/_fixtures/survival_epi_R.json",
+            "tests/reference_parity/_fixtures/survival_epi_stata.json",
+        ],
+        "note": "Alias of sensitivity_specificity; the Stata block calls "
+        "sp.diagnostic_test.",
+    },
+    "direct_standardize": {
+        "status": "bit-exact",
+        "reference": "R epitools::ageadjust.direct; Stata dstdize",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "epitools": "0.5.10.1",
+            "Stata": "18 MP",
+        },
+        "tolerance": "1e-10 rel (observed 3e-13)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survival_epi_R_parity.py",
+            "tests/reference_parity/_fixtures/survival_epi_R.json",
+            "tests/reference_parity/_fixtures/survival_epi_stata.json",
+        ],
+        "note": "ci_method='gamma' (Poisson variance) is epitools; ci_method='normal' "
+        "with variance='binomial' is dstdize. The default lognormal interval "
+        "has no package reference; the rate itself is pinned to both.",
+    },
+    "finegray": {
+        "status": "bit-exact",
+        "reference": "R cmprsk::crr (coef, var, invinf, loglik); Stata stcrreg",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "cmprsk": "2.2.12",
+            "Stata": "18 MP",
+        },
+        "tolerance": "R 1e-10 rel (observed 6e-15); Stata coefficients 1e-7 and SEs "
+        "1e-8 (Stata's ml stops 5e-9 away), log likelihood 1e-10",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survival_epi_R_parity.py",
+            "tests/reference_parity/_fixtures/survival_epi_R.json",
+            "tests/reference_parity/_fixtures/survival_epi_stata.json",
+        ],
+        "note": "Censoring KM at left limits, as crr and stcrreg. vce='robust' "
+        "(default) is crr's var; small_sample=True is stcrreg's N/(N-1) "
+        "scaling; vce='model' is crr's invinf. Both causes. Breslow ties.",
+    },
+    "indirect_standardize": {
+        "status": "bit-exact",
+        "reference": "Stata istdize (exact CI); R epitools::ageadjust.indirect "
+        "(log-normal CI)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "epitools": "0.5.10.1",
+            "Stata": "18 MP",
+        },
+        "tolerance": "1e-10 rel (observed 6e-16)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survival_epi_R_parity.py",
+            "tests/reference_parity/_fixtures/survival_epi_R.json",
+            "tests/reference_parity/_fixtures/survival_epi_stata.json",
+        ],
+        "note": "ci_method='exact' (default) is istdize; 'lognormal' is epitools. "
+        "p_value not referenced.",
+    },
+    "kdensity": {
+        "status": "bit-exact",
+        "reference": "Stata kdensity (at(), bwidth(), kernel()); R bw.nrd0 / bw.SJ",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "Stata": "18 MP"},
+        "tolerance": "density and default widths 1e-10 rel (observed 9e-16); "
+        "Sheather-Jones 1e-6 vs bw.SJ(nb=1e7, tol=1e-14) (observed 2e-7, "
+        "R's pair-count binning)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survival_epi_R_parity.py",
+            "tests/reference_parity/_fixtures/survival_epi_R.json",
+            "tests/reference_parity/_fixtures/survival_epi_stata.json",
+        ],
+        "note": "Kernels epanechnikov (= Stata epan2), biweight, gaussian, uniform (= "
+        "rectangle), triangular (= triangle). bw_method='silverman' is "
+        "bw.nrd0; 'stata' is kdensity's default width. The cosine kernel is "
+        "not Stata's and is not compared.",
+    },
+    "lpoly": {
+        "status": "bit-exact",
+        "reference": "Stata lpoly (at(), bwidth(), degree(), kernel(), se(), "
+        "pwidth())",
+        "reference_versions": {"Stata": "18 MP"},
+        "tolerance": "1e-10 rel (observed 1.6e-12)",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survival_epi_R_parity.py",
+            "tests/reference_parity/_fixtures/survival_epi_R.json",
+            "tests/reference_parity/_fixtures/survival_epi_stata.json",
+        ],
+        "note": "Degrees 0/1/2, kernels epan2 / gaussian / biweight, fits and "
+        "se_method='stata' SEs with pwidth. Stata's rule-of-thumb bandwidth "
+        "is not implemented; the default robust SE is not Stata's.",
+    },
+    "power_case_control": {
+        "status": "bit-exact",
+        "reference": "Stata power twoproportions; R "
+        "stats::power.prop.test(strict=TRUE)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "Stata": "18 MP"},
+        "tolerance": "1e-11 rel vs Stata (observed 4e-13, Stata's normal CDF); 1e-10 "
+        "vs R (observed 6e-16)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survival_epi_R_parity.py",
+            "tests/reference_parity/_fixtures/survival_epi_R.json",
+            "tests/reference_parity/_fixtures/survival_epi_stata.json",
+        ],
+        "note": "test='chi2' (pooled null, both tails), 1:1 to 1:3 allocation, one- "
+        "and two-sided. The default test='wald' has no package reference.",
+    },
+    "roc_curve": {
+        "status": "bit-exact",
+        "reference": "R pROC::roc/auc/var/ci.auc (DeLong); Stata roctab (default and "
+        "hanley)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "pROC": "1.19.0.1",
+            "Stata": "18 MP",
+        },
+        "tolerance": "1e-10 rel (observed 6e-15)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survival_epi_R_parity.py",
+            "tests/reference_parity/_fixtures/survival_epi_R.json",
+            "tests/reference_parity/_fixtures/survival_epi_stata.json",
+        ],
+        "note": "Continuous and heavily tied scores. se_method='delong' is pROC and "
+        "roctab's default; 'hanley-empirical' is roctab, hanley. The default "
+        "'hanley' (exponential Q1/Q2 approximation) has no package reference.",
+    },
+    "sensitivity_specificity": {
+        "status": "bit-exact",
+        "reference": "R epiR::epi.tests (method wilson / exact); Stata diagti",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "epiR": "2.0.94",
+            "Stata": "18 MP",
+            "diagt": "2.032 (diagti 2.053)",
+        },
+        "tolerance": "1e-12 rel on intervals, 1e-10 on ratios (observed 2e-15)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survival_epi_R_parity.py",
+            "tests/reference_parity/_fixtures/survival_epi_R.json",
+            "tests/reference_parity/_fixtures/survival_epi_stata.json",
+        ],
+        "note": "Three tables, one with a zero cell. ci_method='wilson' (default) or "
+        "'exact'.",
+    },
+    # ---- phase 3: time series and panel unit roots (9) ----
+    "cusum_test": {
+        "status": "bit-exact",
+        "reference": "strucchange::efp(type = 'Rec-CUSUM') + sctest 1.5.4; Stata 18 "
+        "estat sbcusum",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "strucchange": "1.5.4",
+            "Stata": "18",
+        },
+        "tolerance": "process, statistic and p-value 1e-10 rel (observed 7.1e-14); "
+        "Stata boundary constants 3e-6",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_timeseries_R_parity.py",
+            "tests/reference_parity/_fixtures/timeseries_R.json",
+            "tests/reference_parity/_fixtures/timeseries_Stata.json",
+        ],
+        "note": "Stata's printed boundary coefficients differ from the root of "
+        "strucchange's closed-form crossing probability by <= 2.5e-6 "
+        "relative; mechanism not verified. The statistic agrees at 1e-10.",
+    },
+    "engle_granger": {
+        "status": "bit-exact",
+        "reference": "egranger 1.0.6 (Stata SSC); urca::ur.df on lm residuals; "
+        "aTSA::coint.test",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "urca": "1.3.4",
+            "aTSA": "3.1.2.1",
+            "Stata": "18",
+            "egranger": "1.0.6",
+        },
+        "tolerance": "Z(t) and step-1 coefficients 1e-10 rel (observed 2.1e-13); "
+        "MacKinnon (2010) critical values 1e-12 vs egranger",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_timeseries_R_parity.py",
+            "tests/reference_parity/_fixtures/timeseries_R.json",
+            "tests/reference_parity/_fixtures/timeseries_Stata.json",
+        ],
+        "note": "Six cases: 2 and 3 series, lags 0/1/2, trend c/ct/ctt (egranger "
+        "trend/qtrend). Residual ADF without deterministic terms; critical "
+        "values at T = n - 1.",
+    },
+    "garch": {
+        "status": "aligned",
+        "reference": "Stata 18 arch; rugarch::ugarchfit 1.5.6",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "rugarch": "1.5.6",
+            "Stata": "18",
+        },
+        "tolerance": "log-likelihood at the reference optimum 1e-12 (observed "
+        "8.5e-16); vs Stata: b 1e-5, SE 2e-5 (observed 8.2e-6 / 1e-5); "
+        "vs rugarch: params 5e-4, SE at their parameters 1e-2",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_timeseries_R_parity.py",
+            "tests/reference_parity/_fixtures/timeseries_R.json",
+            "tests/reference_parity/_fixtures/timeseries_Stata.json",
+        ],
+        "note": "Same objective on both sides (our log-likelihood at their parameters "
+        "equals theirs). Parameter gaps are their optimiser's: both "
+        "references stop below our optimum (Stata by 2.6e-10). Stata "
+        "vce(robust) carries N/(N-1). rugarch SEs come from a second "
+        "difference of the log-likelihood (.hessian2sided, step eps^(1/3)|x|) "
+        "and are about 0.5% noisy; ours agree with Stata's to 4e-6 at the "
+        "same parameters.",
+    },
+    "granger_causality": {
+        "status": "bit-exact",
+        "reference": "Stata 18 vargranger; vars::causality 1.6.1",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "vars": "1.6.1",
+            "Stata": "18",
+        },
+        "tolerance": "chi2 and F 1e-10 rel (observed 4.1e-15), p-values 1e-8",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_timeseries_R_parity.py",
+            "tests/reference_parity/_fixtures/timeseries_R.json",
+            "tests/reference_parity/_fixtures/timeseries_Stata.json",
+        ],
+        "note": "All nine vargranger rows (incl. ALL) after var, var small, var small "
+        "dfk. vars::causality F equal; its df2 is the system K(T - m), "
+        "reproduced.",
+    },
+    "irf": {
+        "status": "bit-exact",
+        "reference": "vars::irf 1.6.1; Stata 18 irf create",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "vars": "1.6.1",
+            "Stata": "18",
+        },
+        "tolerance": "1e-10 rel vs vars, 1e-9 vs Stata irf file (observed 2.6e-14)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_timeseries_R_parity.py",
+            "tests/reference_parity/_fixtures/timeseries_R.json",
+            "tests/reference_parity/_fixtures/timeseries_Stata.json",
+        ],
+        "note": "Orthogonalised, simple and cumulative responses. Residual covariance "
+        "divisor T (Stata var) or T - m (vars::Psi, Stata var, dfk) via "
+        "sigma_df.",
+    },
+    "its": {
+        "status": "bit-exact",
+        "reference": "lm + sandwich::NeweyWest 3.1.1; Stata 18 newey; itsa 1.0.0 "
+        "(SSC)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "sandwich": "3.1.1",
+            "Stata": "18",
+            "itsa": "1.0.0",
+        },
+        "tolerance": "coefficients and Newey-West SE 1e-10 rel (observed 7.9e-14); "
+        "itsa 1e-6 (glm2 IRLS)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_timeseries_R_parity.py",
+            "tests/reference_parity/_fixtures/timeseries_R.json",
+            "tests/reference_parity/_fixtures/timeseries_Stata.json",
+        ],
+        "note": "Bartlett L = 4, no prewhitening. Default = NeweyWest(adjust = "
+        "FALSE); hac_small_sample=True = NeweyWest(adjust = TRUE) = Stata "
+        "newey.",
+    },
+    "johansen": {
+        "status": "bit-exact",
+        "reference": "urca::ca.jo 1.3.4; Stata 18 vecrank",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "urca": "1.3.4",
+            "Stata": "18",
+        },
+        "tolerance": "eigenvalues, trace & max-eigenvalue statistics 1e-11 rel vs "
+        "ca.jo, 1e-10 vs vecrank (observed 8.2e-14); Osterwald-Lenum "
+        "table equal to Stata _vecgetcv cell by cell",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_timeseries_R_parity.py",
+            "tests/reference_parity/_fixtures/timeseries_R.json",
+            "tests/reference_parity/_fixtures/timeseries_Stata.json",
+        ],
+        "note": "lags = ca.jo K - 1 = vecrank lags() - 1. trend 'c'/'rc'/'rt' vs "
+        "ca.jo ecdet none/const/trend (K = 2, 3); all five vecrank trend() "
+        "cases vs Stata. ca.jo ships a different critical-value table (not "
+        "asserted); ours is Stata's.",
+    },
+    "panel_unitroot": {
+        "status": "bit-exact",
+        "reference": "plm::purtest 2.6.7; Stata 18 xtunitroot",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "plm": "2.6.7",
+            "Stata": "18",
+        },
+        "tolerance": "all statistics 1e-10 rel (observed 9.1e-15)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_timeseries_R_parity.py",
+            "tests/reference_parity/_fixtures/timeseries_R.json",
+            "tests/reference_parity/_fixtures/timeseries_Stata.json",
+        ],
+        "note": "LLC, IPS W-t-bar, Fisher (P, Z, L*, Pm), Hadri (both variants); "
+        "convention='plm' vs purtest (dfcor both ways), convention='stata' vs "
+        "xtunitroot. Stata LLC with trend uses sigma* = .971 at T = 40 (plm "
+        ".871); rebuilt from our quantities. Stata L* uses 5N+3 in its scale "
+        "constant, plm 5N+4.",
+    },
+    "structural_break": {
+        "status": "bit-exact",
+        "reference": "strucchange::Fstats / breakpoints 1.5.4; Stata 18 estat "
+        "sbsingle",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "strucchange": "1.5.4",
+            "Stata": "18",
+        },
+        "tolerance": "F path, RSS and BIC by number of breaks 1e-10 rel (observed "
+        "5.9e-14); break dates equal",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_timeseries_R_parity.py",
+            "tests/reference_parity/_fixtures/timeseries_R.json",
+            "tests/reference_parity/_fixtures/timeseries_Stata.json",
+        ],
+        "note": "method='sup-f' vs Fstats(from = 0.15) and sbsingle swald (= k x "
+        "sup-F); method='global' vs breakpoints(h = 0.15, breaks = 5). The "
+        "default method='bai-perron' (break-at-a-time) and the simulated "
+        "sup-F p-values are not covered.",
+    },
+    # ---- phase 3: inference and sensitivity (20) ----
+    "bias_factor": {
+        "status": "bit-exact",
+        "reference": "R EValue::multi_bound(confounding(), RRAUc, RRUcY)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "EValue": "4.1.4"},
+        "tolerance": "1e-14 rel (observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_R_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_R.json",
+        ],
+        "note": "Plus the identity B(e, e) = RR at the E-value e of RR.",
+    },
+    "cluster_robust_se": {
+        "status": "bit-exact",
+        "reference": "R sandwich::vcovCL (HC1, cadjust; HC0; two-way multi0=FALSE); "
+        "Stata regress, vce(cluster)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "sandwich": "3.1.1",
+            "Stata": "18",
+        },
+        "tolerance": "SE 1e-10 rel (observed 2.1e-15 R, 9.8e-16 Stata)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_R_parity.py",
+            "tests/reference_parity/test_inference_sens_stata_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_R.json",
+            "tests/reference_parity/_fixtures/inference_sens_stata.json",
+        ],
+        "note": "One-way CR1 = vcovCL(type='HC1', cadjust=TRUE) = Stata vce(cluster); "
+        "CR0 with df_adjust=False; two-way Cameron-Gelbach-Miller with each "
+        "component's own G. The two-way matrix is positive definite on the "
+        "fixture, so the default PSD projection (sandwich fix=TRUE) is "
+        "inactive; both fix settings are in the fixture.",
+    },
+    "conley": {
+        "status": "bit-exact",
+        "reference": "Stata acreg (Colella, Lalive, Sakalli & Thoenig)",
+        "provenance": "Stata 18 MP acreg output embedded as constants in "
+        "test_conley_acreg_spacetime_parity.py (commands recorded next "
+        "to each oracle matrix, synthetic geo-panel regenerated from "
+        "default_rng(7)); the IV case in test_iv_hdfe_stata_parity.py "
+        "records acreg 1.1.0 on _fixtures/iv_hdfe_panel.csv.",
+        "reference_versions": {"Stata": "18 MP", "acreg": "1.1.0"},
+        "tolerance": "SE 1e-9 rel (observed ~5e-15); absorbed-IV spatial 1e-10",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_conley_acreg_spacetime_parity.py",
+            "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+        ],
+        "note": "Seven spatial / spatio-temporal kernel configurations; the full "
+        "acreg e(V) is reproduced entrywise including Mata _makesymmetric. "
+        "Off-diagonals of acreg depend on regressor order (asserted); "
+        "StatsPAI reports the symmetric part. The IV space-time case is 1e-3 "
+        "(acreg carries a numerically zero constant column).",
+    },
+    "cr3_jackknife_vcov": {
+        "status": "bit-exact",
+        "reference": "R sandwich::vcovJK(center='estimate'), summclust (CV3); Stata "
+        "regress, vce(jackknife, cluster() mse double)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "sandwich": "3.1.1",
+            "summclust": "0.7.0",
+            "Stata": "18",
+        },
+        "tolerance": "vcov 1e-10 rel (observed 6.5e-14 R, SE 4.3e-15 Stata)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_R_parity.py",
+            "tests/reference_parity/test_inference_sens_stata_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_R.json",
+            "tests/reference_parity/_fixtures/inference_sens_stata.json",
+        ],
+        "note": "(G-1)/G * sum (b_(g) - b)(b_(g) - b)', centred at the full-sample "
+        "estimate. clubSandwich's CR3 is the same matrix without the (G-1)/G "
+        "factor, asserted as an identity. Stata's jackknife prefix stores "
+        "replicates in float unless `double` (SEs move ~7e-8); the fixture "
+        "uses double and records the float default.",
+    },
+    "evalue_from_result": {
+        "status": "bit-exact",
+        "reference": "R EValue::twoXtwoRR -> evalues.RR",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "EValue": "4.1.4"},
+        "tolerance": "1e-13 rel (observed 3.3e-16)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_R_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_R.json",
+        ],
+        "note": "End-to-end chain sp.relative_risk -> "
+        "sp.evalue_from_result(measure='RR') on three 2x2 tables (harmful, "
+        "protective, CI crossing the null). The SMD path is covered only "
+        "through sp.evalue (Track A 23_evalue).",
+    },
+    "evalue_rd": {
+        "status": "bit-exact",
+        "reference": "R EValue::evalues.RD",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "EValue": "4.1.4"},
+        "tolerance": "1e-12 rel (observed 5.8e-14: grid built by seq vs np.arange)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_R_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_R.json",
+        ],
+        "note": "Five tables incl. non-null true, alpha = 0.1, grid = 1e-3 and a CI "
+        "crossing the null (E-value 1).",
+    },
+    "fisher_exact": {
+        "status": "bit-exact",
+        "reference": "R ri2::conduct_ri (randomizr full enumeration); Stata ritest "
+        "over the full assignment set",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "ri2": "0.5.0",
+            "Stata": "18",
+            "ritest": "1.1.7",
+        },
+        "tolerance": "p exact (k / N_assignments); statistic 1e-12 rel vs R, 2^-23 vs "
+        "Stata",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_R_parity.py",
+            "tests/reference_parity/test_inference_sens_stata_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_R.json",
+            "tests/reference_parity/_fixtures/inference_sens_stata.json",
+        ],
+        "note": "Complete (924 assignments), cluster (70) and stratified (4900) "
+        "designs; ATE, KS and rank-sum statistics. Exact enumeration when the "
+        "design has <= n_perm assignments (ri2's rule) was added in this "
+        "sweep. ritest stores T(obs) in single precision. The Hodges-Lehmann "
+        "interval is not pinned.",
+    },
+    "jackknife_se": {
+        "status": "bit-exact",
+        "reference": "R sandwich::vcovJK(center='mean'); Stata regress, "
+        "vce(jackknife, cluster() double)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "sandwich": "3.1.1",
+            "Stata": "18",
+        },
+        "tolerance": "SE / CI 1e-10 rel, p 1e-9 (observed SE 2.0e-15, p 1.4e-14, CI "
+        "9.2e-12)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_R_parity.py",
+            "tests/reference_parity/test_inference_sens_stata_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_R.json",
+            "tests/reference_parity/_fixtures/inference_sens_stata.json",
+        ],
+        "note": "Replicates centred at their mean; t(G-1) p-values and intervals as "
+        "Stata reports them.",
+    },
+    "lincom": {
+        "status": "aligned",
+        "reference": "Stata 18 lincom (after regress / ivregress / logit / poisson)",
+        "reference_versions": {"Stata": "18"},
+        "tolerance": "1e-6 rel (observed <= 2.3e-15 on linear fits, <= 2.3e-8 "
+        "overall)",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_postestimation_stata_parity.py",
+            "tests/reference_parity/_fixtures/postestimation_stata.json",
+        ],
+        "note": "Seven model blocks, sum and mixed contrasts with the constant. The "
+        "ML-block gap is Stata's default ML convergence tolerance (see the "
+        "sp.test record).",
+    },
+    "margins": {
+        "status": "aligned",
+        "reference": "Stata 18 margins, dydx(*)",
+        "reference_versions": {"Stata": "18"},
+        "tolerance": "1e-6 rel (observed 2.7e-7 AME / 7.5e-8 SE on probit and "
+        "logit-with-interaction; <= 1e-10 otherwise)",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_postestimation_stata_parity.py",
+            "tests/reference_parity/_fixtures/postestimation_stata.json",
+        ],
+        "note": "Average marginal effects with delta-method SEs after logit, probit, "
+        "poisson, regress-with-interaction, logit-with-interaction. The 1e-7 "
+        "gap is Stata's default ML convergence: with tolerances 1e-14 Stata's "
+        "AMEs match StatsPAI to 2e-12 (probit) and 1e-13 (logit interaction). "
+        "The fixture's glm_cloglog_margins block is not asserted by the test.",
+    },
+    "oster_bounds": {
+        "status": "bit-exact",
+        "reference": "Stata psacalc (Oster); R robomit::o_delta / o_beta",
+        "reference_versions": {
+            "Stata": "18",
+            "psacalc": "2.1",
+            "R": "R version 4.5.2 (2025-10-31)",
+            "robomit": "1.0.7",
+        },
+        "tolerance": "1e-12 rel vs psacalc (observed 4.4e-14); 5e-7 abs vs robomit "
+        "(it rounds to 6 dp)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_R_parity.py",
+            "tests/reference_parity/test_inference_sens_stata_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_R.json",
+            "tests/reference_parity/_fixtures/inference_sens_stata.json",
+        ],
+        "note": "Data path: Oster's exact solution (quadratic at delta = 1, cubic "
+        "otherwise, psacalc's root selection). Until 1.28 the function used "
+        "her first-order approximation with the two R-squared gains swapped "
+        "(delta* 1.205 vs psacalc 0.904). The summary-statistics path remains "
+        "the (corrected) approximation and is analytical.",
+    },
+    "oster_delta": {
+        "status": "bit-exact",
+        "reference": "Stata psacalc (Oster); R robomit::o_delta / o_beta",
+        "reference_versions": {
+            "Stata": "18",
+            "psacalc": "2.1",
+            "R": "R version 4.5.2 (2025-10-31)",
+            "robomit": "1.0.7",
+        },
+        "tolerance": "1e-12 rel vs psacalc (observed 4.4e-14); 5e-7 abs vs robomit",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_R_parity.py",
+            "tests/reference_parity/test_inference_sens_stata_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_R.json",
+            "tests/reference_parity/_fixtures/inference_sens_stata.json",
+        ],
+        "note": "delta_star and beta_star_delta1 only (bootstrap SEs of the bounds "
+        "are not pinned). The default r_max = 1.3 now means min(1, 1.3 "
+        "R_full); before it was used as an R-squared of 1.3. Extra x_base "
+        "entries = psacalc mcontrol() (verified).",
+    },
+    "ri_test": {
+        "status": "bit-exact",
+        "reference": "R ri2::conduct_ri (randomizr full enumeration); Stata ritest "
+        "over the full assignment set",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "ri2": "0.5.0",
+            "Stata": "18",
+            "ritest": "1.1.7",
+        },
+        "tolerance": "p exact (k / N_assignments); statistic 1e-12 rel vs R, 2^-23 vs "
+        "Stata",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_R_parity.py",
+            "tests/reference_parity/test_inference_sens_stata_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_R.json",
+            "tests/reference_parity/_fixtures/inference_sens_stata.json",
+        ],
+        "note": "Difference in means, Welch t and KS; complete and cluster "
+        "randomization.",
+    },
+    "rosenbaum_bounds": {
+        "status": "bit-exact",
+        "reference": "R DOS2::senWilcox (Rosenbaum); Stata rbounds; R "
+        "stats::binom.test (sign test); R rbounds::psens "
+        "(zero_method='wilcox', 4-dp)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "DOS2": "0.5.2",
+            "rbounds": "2.2",
+            "Stata": "18",
+            "rbounds (Stata)": "1.1.6",
+        },
+        "tolerance": "bounding p-values 1e-12 rel (observed 4.6e-15); Stata sig- "
+        "1e-15 abs; psens at its own 4-dp rounding",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_R_parity.py",
+            "tests/reference_parity/test_inference_sens_stata_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_R.json",
+            "tests/reference_parity/_fixtures/inference_sens_stata.json",
+        ],
+        "note": "Fixed in this sweep: a continuity correction no reference applies, "
+        "zeros dropped before ranking (DOS2 and Stata rank them with weight "
+        "0; psens convention kept as zero_method='wilcox'), and a two-sided "
+        "bound that evaluated the wrong tail for negative effects (p = 0 at "
+        "Gamma = 3 where DOS2 gives 0.919).",
+    },
+    "rosenbaum_gamma": {
+        "status": "bit-exact",
+        "reference": "R DOS2::senWilcox (Rosenbaum); Stata rbounds",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "DOS2": "0.5.2",
+            "Stata": "18",
+            "rbounds (Stata)": "1.1.6",
+        },
+        "tolerance": "bounding p-values 1e-12 rel (observed 4.6e-15)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_R_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_R.json",
+        ],
+        "note": "Alias of sp.rosenbaum_bounds (same object); called directly in "
+        "test_rosenbaum_gamma_alias_and_long_format_agree.",
+    },
+    "subcluster_wild_bootstrap": {
+        "status": "bit-exact",
+        "reference": "Stata boottest, bootcluster() (CRVE clustered at g6, signs "
+        "flipped at s12)",
+        "reference_versions": {"Stata": "18", "boottest": "4.5.3"},
+        "tolerance": "p exact (multiple of 1/4096); t 1e-10 rel (observed 1.8e-14)",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_stata_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_stata.json",
+        ],
+        "note": "fwildclusterboot 0.14.3 refuses a bootcluster that is neither a "
+        "clustering variable nor a regressor, so there is no R side. "
+        "Rademacher only; the default Webb weights are sampled (not "
+        "enumerable) and are not pinned.",
+    },
+    "test": {
+        "status": "aligned",
+        "reference": "Stata 18 test (after regress / ivregress / logit / poisson)",
+        "reference_versions": {"Stata": "18"},
+        "tolerance": "1e-6 rel (observed <= 2.3e-15 on linear fits, <= 8e-10 on ML "
+        "fits, far-tail p <= 4.7e-8)",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_postestimation_stata_parity.py",
+            "tests/reference_parity/_fixtures/postestimation_stata.json",
+        ],
+        "note": "Seven model blocks. The ML-block gap is Stata's default ML "
+        "convergence tolerance: refitting with "
+        "nrtolerance/tolerance/ltolerance 1e-14 closes the probit AME gap "
+        "from 1e-7 to 2e-12 (scratch check, 2026-09-18).",
+    },
+    "wild_cluster_boot": {
+        "status": "bit-exact",
+        "reference": "R fwildclusterboot::boottest; Stata boottest (WCR, Rademacher, "
+        "full enumeration)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "fwildclusterboot": "0.14.3",
+            "Stata": "18",
+            "boottest": "4.5.3",
+        },
+        "tolerance": "p exact (multiple of 1/4096); t 1e-10 rel (observed 1.9e-14)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_R_parity.py",
+            "tests/reference_parity/test_inference_sens_stata_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_R.json",
+            "tests/reference_parity/_fixtures/inference_sens_stata.json",
+        ],
+        "note": "Result-object entry point (sp.regress fit) to the same WCR engine as "
+        "sp.wild_cluster_bootstrap.",
+    },
+    "wild_cluster_bootstrap": {
+        "status": "bit-exact",
+        "reference": "R fwildclusterboot::boottest; Stata boottest (WCR, Rademacher, "
+        "full enumeration)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "fwildclusterboot": "0.14.3",
+            "Stata": "18",
+            "boottest": "4.5.3",
+        },
+        "tolerance": "p exact (multiple of 1/4096); t 1e-10 rel (observed 1.9e-14)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_R_parity.py",
+            "tests/reference_parity/test_inference_sens_stata_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_R.json",
+            "tests/reference_parity/_fixtures/inference_sens_stata.json",
+        ],
+        "note": "G = 12 and B >= 2^12, so both references and StatsPAI enumerate all "
+        "4096 sign vectors (boottest's rule, adopted in this sweep). p = "
+        "#{|t*| > |t|}/B, strict; before the sweep StatsPAI sampled and "
+        "counted ties. Nonzero null (h0 = 0.2) included.",
+    },
+    "wild_cluster_ci_inv": {
+        "status": "bit-exact",
+        "reference": "R fwildclusterboot::boottest confidence interval (uniroot tol "
+        "1e-13)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "fwildclusterboot": "0.14.3",
+        },
+        "tolerance": "CI endpoints 1e-9 rel (observed 4.8e-12)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_inference_sens_R_parity.py",
+            "tests/reference_parity/test_inference_sens_stata_parity.py",
+            "tests/reference_parity/_fixtures/inference_sens_R.json",
+        ],
+        "note": "Endpoints are the jumps of the enumerated p(h0) step function, found "
+        "by bisection (was: linear interpolation on a 41-point grid, 0.7% "
+        "off). Stata boottest's CI is T4: its Chandrupatla search returns "
+        "early on step functions, and both reported endpoints are values its "
+        "own test rejects (p = 204/4096, 202/4096); asserted in the Stata "
+        "test.",
+    },
+    # ---- phase 3: panel / GLMM (12) ----
+    "absorb_ols": {
+        "status": "bit-exact",
+        "reference": "fixest::feols 0.14.0 and Stata reghdfe (Track A 03_hdfe / "
+        "15_hdfe_cluster goldens); Stata reghdfe with aweights, "
+        "singleton dropping, two-way clustering",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "fixest": "0.14.0",
+            "Stata": "18 MP",
+        },
+        "tolerance": "coefficients rtol 1e-12 (observed 2e-15), iid SEs 1e-12 "
+        "(observed 8e-15), clustered SEs 1e-10 (observed 5.6e-11)",
+        "sides": ["py", "R", "Stata"],
+        "test": ["tests/reference_parity/test_panel_absorb_ols_parity.py"],
+        "note": "Called directly on the committed Track A bytes (the modules go "
+        "through sp.fast.feols / sp.hdfe_ols). Two-way clustering: "
+        "cluster_df='min' reproduces reghdfe's G_min/(G_min-1) on every "
+        "inclusion-exclusion term; the default per-term factor "
+        "(sandwich::vcovCL) differs by 1.8e-4 / 1.2e-2 in variance here.",
+    },
+    "gmm": {
+        "status": "bit-exact",
+        "reference": "Stata 18 gmm (linear and exponential-mean IV; twostep, igmm, "
+        "onestep); R gmm::gmm",
+        "reference_versions": {
+            "Stata": "18 MP",
+            "R": "R version 4.5.2 (2025-10-31)",
+            "gmm": "1.9.1",
+        },
+        "tolerance": "vs Stata estimates rtol 1e-10 (observed 1.2e-12), SEs 1e-9 "
+        "linear / 1e-6 nonlinear (Stata's numerical Jacobian; observed "
+        "2.5e-7), J rtol 1e-10; vs R rtol 1e-6 (observed 1.8e-7)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_panel_gmm_stata_parity.py",
+            "tests/reference_parity/test_general_gmm_parity.py",
+        ],
+        "note": "Stata's two-step robust VCE keeps the estimation weight: "
+        "sandwich_weight='estimation'; the default re-estimates S^-1 at the "
+        "final estimate (R gmm), a documented 1/n-order difference (2.6e-6 "
+        "linear, 4.4e-5 nonlinear here). Onestep J differs by construction "
+        "(Stata recomputes an unadjusted weight). Nonlinear fits now end with "
+        "Gauss-Newton steps.",
+    },
+    "icc": {
+        "status": "bit-exact",
+        "reference": "Stata 18 estat icc after mixed (ML, REML) and melogit; "
+        "performance::icc; psych::ICC (balanced ANOVA identity)",
+        "reference_versions": {
+            "Stata": "18 MP",
+            "R": "R version 4.5.2 (2025-10-31)",
+            "performance": "0.16.0",
+            "psych": "2.6.5",
+        },
+        "tolerance": "estimate / SE rtol 1e-6, logit-scale CI rtol 2e-6 (observed <= "
+        "2.4e-7 / 7e-7 / 1.2e-6); balanced REML ICC = ANOVA ICC(1) rtol "
+        "1e-9",
+        "sides": ["py", "R", "Stata"],
+        "test": ["tests/reference_parity/test_panel_icc_lrtest_parity.py"],
+        "note": "Before 1.28.x the SE was a heuristic (var(log s2_u) ~ 2/n_groups, no "
+        "covariance) and every GLMM returned NaN silently. Now the delta "
+        "method on the observed information of the variance parameters and a "
+        "logit-scale Wald CI, latent residual variance pi^2/3 after melogit / "
+        "meologit.",
+    },
+    "interactive_fe": {
+        "status": "bit-exact",
+        "reference": "Stata regife (SSC, Gomez) ..., noconstant; R "
+        "phtt::Eup(additive.effects = 'none')",
+        "reference_versions": {
+            "Stata": "18 MP",
+            "regife": "2026-03-30 SSC",
+            "R": "R version 4.5.2 (2025-10-31)",
+            "phtt": "3.1.2",
+        },
+        "tolerance": "slopes rtol 1e-9 vs both (observed <= 2e-11); SEs rtol 1e-9 vs "
+        "regife with dof='regife' (homoskedastic and cluster), phtt SE "
+        "reconstructed rtol 1e-9",
+        "sides": ["py", "R", "Stata"],
+        "test": ["tests/reference_parity/test_panel_ife_parity.py"],
+        "note": "SEs are Bai's D0 with Z = M_Lambda X M_F since 1.28.x (was M_F X "
+        "only). Default dof counts r(N+T-r) absorbed parameters; "
+        "regife/reghdfe count r(N+T). phtt's sig2.hat demeans residuals by "
+        "unit and is not copied.",
+    },
+    "lrtest": {
+        "status": "bit-exact",
+        "reference": "Stata 18 lrtest; R anova() on lme4 ML fits",
+        "reference_versions": {
+            "Stata": "18 MP",
+            "R": "R version 4.5.2 (2025-10-31)",
+            "lme4": "2.0.1",
+        },
+        "tolerance": "chi2 rtol 1e-6, df exact, p rtol 1e-5 (observed chi2 <= 1e-9)",
+        "sides": ["py", "R", "Stata"],
+        "test": ["tests/reference_parity/test_panel_icc_lrtest_parity.py"],
+        "note": "boundary=False reproduces Stata / R (naive chi2(df)); the default "
+        "applies the chibar2 mixture, exact (Stram-Lee) for one added random "
+        "effect under an unstructured covariance. df = difference in e(k); "
+        "MixedResult.n_params no longer double-counts the residual variance.",
+    },
+    "megamma": {
+        "status": "bit-exact",
+        "reference": "glmmTMB 1.1.14 Gamma(link = 'log') (Laplace, AD Hessian); Stata "
+        "18 meglm, family(gamma) link(log) intmethod(laplace)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "glmmTMB": "1.1.14",
+            "TMB": "1.9.25",
+            "Stata": "18 MP",
+        },
+        "tolerance": "vs glmmTMB estimates / SEs rtol 1e-6 (observed 6.9e-11 / "
+        "3.8e-8); vs Stata Laplace estimates rtol 1e-6 (observed "
+        "2.2e-7); objective identity rtol 1e-11",
+        "sides": ["py", "R", "Stata"],
+        "test": ["tests/reference_parity/test_panel_glmm_parity.py"],
+        "note": "Before 1.28.x the Laplace used the Fisher curvature 1/phi (lme4's "
+        "convention), a different approximation: _cons 0.6196 vs 0.6372. "
+        "Stata's gamma SEs are not the Hessian of its own objective (5.5e-3 "
+        "Laplace) and are not asserted.",
+    },
+    "meglm": {
+        "status": "bit-exact",
+        "reference": "Stata 18 meglm (gaussian; binomial with binomial()); "
+        "lme4::lmer(REML = FALSE); lme4::glmer",
+        "reference_versions": {
+            "Stata": "18 MP",
+            "R": "R version 4.5.2 (2025-10-31)",
+            "lme4": "2.0.1",
+        },
+        "tolerance": "gaussian vs Stata estimates / SEs rtol 1e-6 (observed 4.2e-9 / "
+        "2.8e-7), vs lmer ML estimates 6.1e-11; binomial-trials vs Stata "
+        "2.4e-9 / 6.6e-8",
+        "sides": ["py", "R", "Stata"],
+        "test": ["tests/reference_parity/test_panel_glmm_parity.py"],
+        "note": "Before 1.28.x family='gaussian' held the residual variance at 1 (x1 "
+        "SE 0.0428 vs 0.0335); it is now estimated and the fit equals "
+        "sp.mixed(method='ml'). SEs are the full OIM (Stata meglm); lmer's "
+        "vcov is theta-conditional (1.2e-4 away) like sp.mixed / Stata mixed.",
+    },
+    "menbreg": {
+        "status": "bit-exact",
+        "reference": "glmmTMB 1.1.14 nbinom2 (Laplace, AD Hessian); Stata 18 menbreg "
+        "intmethod(laplace) / mcaghermite(7)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "glmmTMB": "1.1.14",
+            "TMB": "1.9.25",
+            "lme4": "2.0.1",
+            "Stata": "18 MP",
+        },
+        "tolerance": "vs glmmTMB estimates / SEs rtol 1e-6 (observed 1.7e-11 / "
+        "2.3e-7); vs Stata Laplace estimates rtol 1e-6 (observed "
+        "7.5e-8); objective identity at Stata's and glmmTMB's estimates "
+        "rtol 1e-11",
+        "sides": ["py", "R", "Stata"],
+        "test": ["tests/reference_parity/test_panel_glmm_parity.py"],
+        "note": "Laplace with the observed curvature (curvature='observed', the "
+        "default since 1.28.x; Stata, glmmTMB). curvature='expected' is "
+        "lme4's PIRLS Laplace and is pinned against glmer.nb (objective "
+        "1.6e-10, estimates 7.3e-7). Stata's Laplace SEs are not the Hessian "
+        "of its own objective (4.5e-4) and are not asserted; glmmTMB's AD "
+        "Hessian agrees with ours to 2.3e-7.",
+    },
+    "meologit": {
+        "status": "bit-exact",
+        "reference": "Stata 18 meologit intmethod(mcaghermite) intpoints(7) / "
+        "intmethod(laplace); ordinal::clmm",
+        "reference_versions": {
+            "Stata": "18 MP",
+            "R": "R version 4.5.2 (2025-10-31)",
+            "ordinal": "2025.12.29",
+        },
+        "tolerance": "AGHQ-7 vs Stata estimates rtol 1e-6 (observed 3.8e-7), SEs "
+        "incl. cutpoints rtol 2e-6 (observed 1.3e-6; 5.7e-7 at Stata's "
+        "estimates); objective identity vs Stata and clmm rtol 1e-11 "
+        "(observed <= 1.4e-11)",
+        "sides": ["py", "R", "Stata"],
+        "test": ["tests/reference_parity/test_panel_glmm_parity.py"],
+        "note": "Observed-curvature Laplace / AGHQ since 1.28.x (was Fisher); SEs are "
+        "now the full OIM with delta-method threshold SEs (was the "
+        "conditional information, no cutpoint SEs). clmm stops with gradient "
+        "2e-3; Stata's Laplace-ologit SEs are not the Hessian of its own "
+        "objective (5e-5); neither is asserted.",
+    },
+    "mepoisson": {
+        "status": "bit-exact",
+        "reference": "Stata 18 mepoisson, intmethod(laplace) / intmethod(mcaghermite) "
+        "intpoints(7); lme4::glmer(nAGQ = 1 / 7)",
+        "reference_versions": {
+            "Stata": "18 MP",
+            "R": "R version 4.5.2 (2025-10-31)",
+            "lme4": "2.0.1",
+        },
+        "tolerance": "objective identity at Stata's estimates rtol 1e-11 (observed "
+        "6.6e-12); Laplace estimates / SEs vs Stata rtol 1e-6 (observed "
+        "9.0e-11 / 1.2e-7); AGHQ-7 vs lme4 rtol 1e-6 (observed 4.4e-8 / "
+        "9.3e-8)",
+        "sides": ["py", "R", "Stata"],
+        "test": ["tests/reference_parity/test_panel_glmm_parity.py"],
+        "note": "Laplace = Stata intmethod(laplace); nAGQ = k = "
+        "intmethod(mcaghermite) intpoints(k). Stata's default mvaghermite is "
+        "a different rule and is not compared. Stata's mcaghermite estimate "
+        "stops 2.9e-5 short of the optimum of its own objective (same "
+        "function to 6.6e-12, ours strictly larger); lme4 needs tolPwrss = "
+        "1e-13 (its default 1e-7 leaves the Laplace fit 2.7e-4 away). The "
+        "1.28.x fix finishing the optimum with Newton steps moved the Laplace "
+        "estimate by 1.3e-4.",
+    },
+    "mixlogit": {
+        "status": "bit-exact",
+        "reference": "Stata mixlogit 1.4.0 (SSC, Hole), nrep(50) burn(15), on "
+        "identical Halton draws",
+        "reference_versions": {"Stata": "18 MP", "mixlogit": "1.4.0"},
+        "tolerance": "means / SDs / Sigma / SEs rtol 1e-6 (observed <= 2.2e-7), "
+        "log-likelihood rtol 1e-10 (observed 5e-13)",
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_panel_mixlogit_parity.py"],
+        "note": "Deterministic, not Monte-Carlo: n_draws=50, halton_burn=15, "
+        "halton_shift=False builds Stata's draw matrix invnormal(halton(50, "
+        "k, 1 + 15 + 50(n-1))), so both maximise the same simulated "
+        "likelihood. oim (robust=False), robust (x N/(N-1)), lognormal ln(1) "
+        "and corr (compared on Sigma) all covered. With the default shifted "
+        "draws the two are different simulators.",
+    },
+    "xtnbreg": {
+        "status": "bit-exact",
+        "reference": "Stata 18 xtnbreg, fe / re (Hausman-Hall-Griliches); "
+        "pglm::pglm(family = negbin, model = 'within' / 'random')",
+        "reference_versions": {
+            "Stata": "18 MP",
+            "R": "R version 4.5.2 (2025-10-31)",
+            "pglm": "0.2.4",
+        },
+        "tolerance": "coefficients / SEs rtol 1e-7 (observed <= 2.7e-8: Stata fe's "
+        "score at its own estimate is 3e-7, pglm's gradtol), "
+        "log-likelihood rtol 1e-12",
+        "sides": ["py", "R", "Stata"],
+        "test": ["tests/reference_parity/test_panel_xtnbreg_parity.py"],
+        "note": "Before 1.28.x model='fe' fitted an unconditional dummy-variable NB-2 "
+        "labelled 'xtnbreg, fe' and model='re' the normal random-intercept "
+        "NB-2 GLMM; both remain as model='ufe' / 'normal_re'. Conditional FE "
+        "drops all-zero and singleton panels as Stata does (N = 228 of 240).",
+    },
+    # ---- phase 3: treatment effects (16) ----
+    "aipw": {
+        "status": "bit-exact",
+        "reference": "Stata teffects aipw (ATE, POmeans); R AIPW::AIPW 0.6.9.3 "
+        "stratified_fit(k_split = 1)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "AIPW": "0.6.9.3",
+            "SuperLearner": "2.0.40",
+            "Stata": "18",
+        },
+        "tolerance": "1e-10 rel on ATE, potential-outcome means and SEs (observed <= "
+        "1.4e-14)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "Full-sample nuisances (cross_fit=False). Stata's robust SE is the "
+        "stacked M-estimation sandwich (se_method='sandwich'); R AIPW reports "
+        "sd(EIF)/sqrt(n) (se_method='influence'). AIPW's stratified_fit() "
+        "omits Q.model = FALSE for the propensity, so the R side forces "
+        "SL.glm to binomial. R AIPW's ATT divides its control term by P(A = "
+        "0); the test rebuilds that number from the same nuisances, and the "
+        "DR ATT is cross-checked against DoubleML's ATTE score.",
+    },
+    "dose_response": {
+        "status": "bit-exact",
+        "reference": "Stata doseresponse / gpscore (Hirano-Imbens normal GPS, "
+        "quadratic T and GPS with interaction)",
+        "reference_versions": {"Stata": "18", "doseresponse": "SSC"},
+        "tolerance": "1e-9 rel on the dose-response function at 5 doses (observed "
+        "5.1e-10)",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "treatment_model=LinearRegression(), "
+        "outcome_model=PolynomialFeatures(2)+LinearRegression(); the default "
+        "GBM path is not pinned. R causaldrf::hi_est uses the n-p sigma "
+        "(convention gap).",
+    },
+    "four_way_decomposition": {
+        "status": "bit-exact",
+        "reference": "Stata med4way (yreg/mreg linear); CMAverse::cmest 0.1.0 (rb, "
+        "paramfunc, delta)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "CMAverse": "0.1.0",
+            "Stata": "18",
+        },
+        "tolerance": "components 1e-12 rel; delta SEs 1e-12 rel vs CMAverse "
+        "(vcov='ols'); variances 5e-9 rel vs med4way (vcov='ml')",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "med4way fits the linear models by ML (ml maximize), so its residual "
+        "variances stop at ml's tolerance (observed 6.6e-10).",
+    },
+    "g_estimation": {
+        "status": "bit-exact",
+        "reference": "DTRreg::DTRreg 2.4 (method = 'gest', treat.type = 'bin', weight "
+        "= 'none')",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "DTRreg": "2.4"},
+        "tolerance": "1e-10 rel on each stage psi (observed 4.6e-15)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "Constant blips, logit propensity (default propensity_model); with "
+        "and without separate propensity_covariates.",
+    },
+    "gformula_ice_fn": {
+        "status": "bit-exact",
+        "reference": "base-R lm() ICE with geex::m_estimate 1.1.1 sandwich",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "geex": "1.1.1"},
+        "tolerance": "point 1e-10 rel, sandwich SE 1e-9 rel (observed 7.1e-12)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "No package fits a linear ICE to a continuous end-of-follow-up "
+        "outcome (gfoRmulaICE targets time-to-event risk); the SE is geex on "
+        "the stacked estimating equations.",
+    },
+    "horowitz_manski": {
+        "status": "bit-exact",
+        "reference": "Stata tebounds 1.8 worst-case bounds (identical estimand for "
+        "ATE worst-case bounds)",
+        "reference_versions": {"Stata": "18", "tebounds": "1.8 (SJ15-2 st0386)"},
+        "tolerance": "1e-12 rel / 1e-15 abs on both bounds",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "Averaging stratum worst-case bounds is the unconditional bound "
+        "exactly; also asserted with a one-arm stratum.",
+    },
+    "ipcw": {
+        "status": "bit-exact",
+        "reference": "survival::coxph(ties = 'breslow') + basehaz(centered = FALSE)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "survival": "3.8.3",
+        },
+        "tolerance": "1e-9 rel on every weight (observed 2.0e-11)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "method='cox_ph' only. The default method='pooled_logistic' is a "
+        "complete-case IPW of the observed indicator and has no reference.",
+    },
+    "lee_bounds": {
+        "status": "bit-exact",
+        "reference": "Stata leebounds 1.5 (Tauchmann), vce(analytic)",
+        "reference_versions": {
+            "Stata": "18",
+            "leebounds": "1.5 (2013-07-17, Tauchmann)",
+        },
+        "tolerance": "1e-10 rel on bounds and analytic variances",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "trimming='quantile' matches the shipped upper bound; "
+        "trimming='exact' matches both bounds once the thresholds are held "
+        "exactly (%21x). As shipped, leebounds keeps its threshold in a "
+        "15-digit local macro, so its tie branch never runs and its lower "
+        "bound drops the quantile observation. The test rebuilds that number "
+        "from the rounded threshold (reference defect, T4 for that one "
+        "number).",
+    },
+    "ltmle": {
+        "status": "bit-exact",
+        "reference": "ltmle::ltmle 1.3-0 (glm, gbounds c(0.01, 1), variance.method = "
+        "'ic')",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "ltmle": "1.3.0"},
+        "tolerance": "psi1 / psi0 / ATE / SE 1e-9 rel without censoring (observed "
+        "5e-13); 1e-8 with censoring nodes (observed 5e-10)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "Binary and continuous outcomes; the censored rows are limited by R "
+        "glm's default deviance tolerance.",
+    },
+    "manski_bounds": {
+        "status": "bit-exact",
+        "reference": "Stata tebounds 1.8 (SJ15-2 st0386), erates(0)",
+        "reference_versions": {"Stata": "18", "tebounds": "1.8 (SJ15-2 st0386)"},
+        "tolerance": "1e-12 rel / 1e-15 abs on both bounds",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "Worst case, MTS (positive selection), MTS+MTR; binary outcome in [0, "
+        "1].",
+    },
+    "mediate_interventional": {
+        "status": "bit-exact",
+        "reference": "CMAverse::cmest 0.1.0 (gformula with postc: rpnde / rpnie / te; "
+        "rb paramfunc without)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "CMAverse": "0.1.0",
+        },
+        "tolerance": "IIE / IDE / total 1e-9 rel (observed 2.3e-15)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "Point estimates only; SEs are bootstrap on both sides.",
+    },
+    "msm": {
+        "status": "bit-exact",
+        "reference": "ipw::ipwtm + lm / glm(quasibinomial) + sandwich::vcovCL(type = "
+        "'HC1')",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "ipw": "1.3.0",
+            "sandwich": "3.1.1",
+        },
+        "tolerance": "coefficients and cluster SEs 1e-9 rel (observed 1.5e-13); Stata "
+        "regress / logit [pw] 1e-7",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "Cumulative, ever and current exposures; gaussian and binomial. "
+        "Stata's logit cluster SE omits (N-1)/(N-k), which the test applies "
+        "explicitly; the Stata side is at 1e-7 because its logits stop at "
+        "Stata's default tolerance.",
+    },
+    "multi_treatment": {
+        "status": "bit-exact",
+        "reference": "Stata teffects aipw with a multivalued treatment (mlogit "
+        "propensity)",
+        "reference_versions": {"Stata": "18"},
+        "tolerance": "1e-10 rel on both contrasts, potential-outcome means and "
+        "sandwich SEs",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "outcome_model='linear', se_method='sandwich'. The default GBM "
+        "outcome model is not pinned.",
+    },
+    "principal_strat": {
+        "status": "bit-exact",
+        "reference": "AER::ivreg 1.2.16 (Wald LATE); SACE bounds via Stata leebounds",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "AER": "1.2.16"},
+        "tolerance": "1e-10 rel on the monotonicity complier LATE",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "method='monotonicity'. The principal-score path is not pinned.",
+    },
+    "stabilized_weights": {
+        "status": "bit-exact",
+        "reference": "ipw::ipwtm 1.3.0 (type = 'all'; binomial logit; gaussian via "
+        "geepack::geeglm)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "ipw": "1.3.0",
+            "geepack": "1.3.13",
+        },
+        "tolerance": "1e-10 rel on every weight (observed 1.5e-12)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "Gaussian treatment: density_sd='ml' (geeglm's dispersion is RSS / N; "
+        "the default divides by N - k).",
+    },
+    "survivor_average_causal_effect": {
+        "status": "bit-exact",
+        "reference": "Stata leebounds 1.5 (Zhang-Rubin SACE bounds = Lee bounds under "
+        "monotonicity)",
+        "reference_versions": {
+            "Stata": "18",
+            "leebounds": "1.5 (2013-07-17, Tauchmann)",
+        },
+        "tolerance": "1e-10 rel (upper bound; both bounds equal sp.lee_bounds)",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_teffects_R_parity.py",
+            "tests/reference_parity/_fixtures/teffects_R.json",
+            "tests/reference_parity/_fixtures/teffects_Stata.json",
+        ],
+        "note": "Outcome missing for non-survivors, as under truncation by death.",
+    },
+    # ---- phase 3: spatial / survey / frontier / structural (16) ----
+    "block_weights": {
+        "status": "bit-exact",
+        "reference": "spdep::nb2blocknb(NULL, ID) + nb2listw(style = 'W')",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "spdep": "1.4.2"},
+        "tolerance": "neighbour sets exact; weights 1e-12 rel (observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_spatial_survey_R_parity.py",
+            "tests/reference_parity/_fixtures/spatial_survey_R.json",
+        ],
+        "note": "Four regimes (POLYID %% 4) on Columbus. Regenerate via "
+        "_generate_spatial_survey_R.R.",
+    },
+    "blp": {
+        "status": "aligned",
+        "reference": "pyblp 1.2.0 (Conlon & Gortmaker), identical Halton nodes via "
+        "agent_data",
+        "reference_versions": {"pyblp": "1.2.0", "numpy": "2.2.6", "python": "3.10.20"},
+        "tolerance": "beta, sigma, SEs, objective/N, own elasticities 1e-6 rel "
+        "(observed <= 1.6e-8)",
+        "sides": ["py"],
+        "test": [
+            "tests/reference_parity/test_blp_pyblp_parity.py",
+            "tests/reference_parity/_fixtures/blp_pyblp.json",
+        ],
+        "note": "Python cross-package reference, not R or Stata. Two-step GMM with "
+        "center_moments=False. sp gmm_objective = N * pyblp objective. "
+        "Random-price-coefficient elasticities are pinned at fixed parameters "
+        "to 1e-8.",
+    },
+    "gwr": {
+        "status": "bit-exact",
+        "reference": "GWmodel::gwr.basic 2.4.1",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "GWmodel": "2.4.1"},
+        "tolerance": "local betas and SEs 1e-9 rel (observed 1.3e-11 / 3.5e-14); RSS, "
+        "AIC, AICc, BIC, enp, edf 1e-10 rel",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_spatial_survey_R_parity.py",
+            "tests/reference_parity/_fixtures/spatial_survey_R.json",
+        ],
+        "note": "Georgia, bisquare / gaussian / exponential x adaptive / fixed, "
+        "fractional bw and bw > n. Fixed on the way: the exponential kernel "
+        "was truncated, the adaptive Gaussian / exponential were "
+        "k-NN-truncated, and fractional bw was rounded up. Local R^2 is a "
+        "documented difference: StatsPAI follows mgwr (local weighted mean). "
+        "GWmodel uses the global mean and, under an adaptive kernel, the "
+        "transposed weight matrix; both are reconstructed and asserted. "
+        "Regenerate via _generate_spatial_survey_R.R.",
+    },
+    "gwr_bandwidth": {
+        "status": "bit-exact",
+        "reference": "GWmodel::bw.gwr 2.4.1 (golden section gold(); gwr.aic / gwr.cv)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "GWmodel": "2.4.1"},
+        "tolerance": "selected bandwidth 1e-10 rel (observed 0 on 8 configurations); "
+        "criterion values 1e-11 rel (observed 7.0e-15)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_spatial_survey_R_parity.py",
+            "tests/reference_parity/_fixtures/spatial_survey_R.json",
+        ],
+        "note": "AICc and CV x bisquare and gaussian x adaptive and fixed. The CV "
+        "criterion used to be in-sample RSS (always the smallest bandwidth). "
+        "The search now transcribes GWmodel's gold() because the criterion is "
+        "not unimodal on the neighbour lattice. Regenerate via "
+        "_generate_spatial_survey_R.R.",
+    },
+    "kernel_weights": {
+        "status": "bit-exact",
+        "reference": "spdep::nb2listwdist(type = 'dpd', alpha = 2) on dnearneigh(0, "
+        "h); GWmodel::gw.weight",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "spdep": "1.4.2",
+            "GWmodel": "2.4.1",
+        },
+        "tolerance": "weights 1e-12 rel / 1e-15 abs (observed 6.9e-16 rel, 3.3e-16 "
+        "abs)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_spatial_survey_R_parity.py",
+            "tests/reference_parity/_fixtures/spatial_survey_R.json",
+        ],
+        "note": "Fixed bisquare = dpd alpha 2, raw and row-standardised. The W "
+        "comparison found W.transform rebuilding the weights from 1.0, which "
+        "silently turned kernel weights binary. Fixed Gaussian, fixed "
+        "bisquare and adaptive bisquare (k = gw.weight bw k + 1) are compared "
+        "against gw.weight. The adaptive Gaussian keeps only the k nearest "
+        "neighbours (a documented convention; GWmodel weights all points), "
+        "asserted as such. Regenerate via _generate_spatial_survey_R.R.",
+    },
+    "lcsf": {
+        "status": "aligned",
+        "reference": "sfaR::sfalcmcross 1.0.1 (2 classes, half-normal)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "sfaR": "1.0.1"},
+        "tolerance": "estimates 1e-6 rel (observed 1.1e-8); OIM SEs 1e-6 rel "
+        "(observed 8.6e-8)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_frontier_struct_R_parity.py",
+            "tests/reference_parity/_fixtures/frontier_struct_R.json",
+        ],
+        "note": "sfaR reports log variances; compared as ln_sigma = Zu/2. Classes "
+        "matched by ascending sigma_u. Class-1 sigma_u is weakly identified, "
+        "so both sides are optimiser-limited; the fixture keeps the best of "
+        "four sfaR optimisers by max |gradient|, and StatsPAI's "
+        "log-likelihood is at least as high. Production-with-z and "
+        "cost-without-z cases.",
+    },
+    "linear_calibration": {
+        "status": "bit-exact",
+        "reference": "survey::calibrate(calfun='linear', unbounded); Stata svycal "
+        "regress",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "survey": "4.5",
+            "Stata": "18 MP",
+        },
+        "tolerance": "calibrated weights 1e-12 rel (observed 5.5e-15)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survey_calib_R_parity.py",
+            "tests/reference_parity/_fixtures/survey_calib_R.json",
+            "tests/reference_parity/_fixtures/survey_calib_stata.json",
+        ],
+        "note": "No intercept added: ~0 + income + age, and ~sex + income via one / "
+        "male columns. Closed-form chi-squared projection, also asserted "
+        "reference-free. Regenerate via _generate_survey_calib_R.R and "
+        "_fixtures/_generate_survey_calib_stata.do.",
+    },
+    "markup": {
+        "status": "bit-exact",
+        "reference": "Stata markupest 1.0.1 (Rovigatti), method(dlw) pmethod(lp)",
+        "reference_versions": {"Stata": "18", "markupest": "1.0.1 10May2020"},
+        "tolerance": "1e-10 rel (observed 8.1e-13 corrected, 3.4e-15 uncorrected)",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_frontier_struct_R_parity.py",
+            "tests/reference_parity/_fixtures/frontier_struct_stata.json",
+        ],
+        "note": "Markup of the free input l on the prodest parity panel; the "
+        "eta-corrected and uncorrected shares are both pinned. Compared on "
+        "the 2084 firm-years in StatsPAI's production sample; Stata also "
+        "returns the 281 first-year rows.",
+    },
+    "mgwr": {
+        "status": "aligned",
+        "reference": "GWmodel::gwr.multiscale 2.4.1 at fixed bandwidths (bw.seled = "
+        "TRUE, force.armadillo = TRUE, predictor.centered = FALSE)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "GWmodel": "2.4.1"},
+        "tolerance": "back-fitting fixed point: betas 1e-8 rel (observed 2.9e-10), "
+        "fitted values 1e-10",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_spatial_survey_R_parity.py",
+            "tests/reference_parity/_fixtures/spatial_survey_R.json",
+        ],
+        "note": "Only the fixed-bandwidth additive-model solution (sp.mgwr(bws=...)) "
+        "is pinned; GWmodel converged to dCVR < 1e-12. The "
+        "covariate-bandwidth search is NOT reproduced: GWmodel centres "
+        "predictors, stops on dCVR, freezes bandwidths after bws.reOpts "
+        "repeats and bounds bw.gwr2 by nlower. GWmodel's default C++ path "
+        "ignores bw.seled, hence force.armadillo. Regenerate via "
+        "_generate_spatial_survey_R.R.",
+    },
+    "queen_weights": {
+        "status": "bit-exact",
+        "reference": "spdep::poly2nb(queen = TRUE) + nb2listw(style = 'W' / 'S' / "
+        "'U')",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "spdep": "1.4.2",
+            "sf": "1.1.1",
+            "spData": "2.3.5",
+        },
+        "tolerance": "neighbour sets exact; weights 1e-12 rel (observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_spatial_survey_R_parity.py",
+            "tests/reference_parity/_fixtures/spatial_survey_R.json",
+        ],
+        "note": "Columbus polygons (spData) as WKT at 17 digits, read by both sides. "
+        "transform 'R' / 'V' / 'D' = nb2listw styles W / S / U. The 'V' "
+        "comparison exposed a missing n / Q rescale. Regenerate via "
+        "_generate_spatial_survey_R.R.",
+    },
+    "rake": {
+        "status": "bit-exact",
+        "reference": "survey::rake (to its fixed point) and "
+        "survey::calibrate(calfun='raking'); Stata svycal rake",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "survey": "4.5",
+            "Stata": "18 MP",
+        },
+        "tolerance": "calibrated weight shares 1e-12 rel at tol=1e-14 (observed "
+        "1.5e-15); 1e-8 at the default tol=1e-10 (observed 1.0e-10)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survey_calib_R_parity.py",
+            "tests/reference_parity/_fixtures/survey_calib_R.json",
+            "tests/reference_parity/_fixtures/survey_calib_stata.json",
+        ],
+        "note": "sp.rake returns weights summing to 1; references divided by their "
+        "sum (N = 10000). IPF and Newton raking share one fixed point (R's "
+        "two routes agree to 2e-15). Fixed here: the convergence test was an "
+        "absolute change on O(1/n) weights (4.3e-4 margin error at n = "
+        "100000). Weights only: fed to sp.svydesign they give the "
+        "fixed-weights SE (matches R/Stata), not the calibration-adjusted SE. "
+        "Regenerate via _generate_survey_calib_R.R and "
+        "_fixtures/_generate_survey_calib_stata.do.",
+    },
+    "rook_weights": {
+        "status": "bit-exact",
+        "reference": "spdep::poly2nb(queen = FALSE) + nb2listw(style = 'W')",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "spdep": "1.4.2",
+            "sf": "1.1.1",
+            "spData": "2.3.5",
+        },
+        "tolerance": "neighbour sets exact; weights 1e-12 rel (observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_spatial_survey_R_parity.py",
+            "tests/reference_parity/_fixtures/spatial_survey_R.json",
+        ],
+        "note": "Columbus: 236 queen links vs 200 rook links, so the fixture "
+        "discriminates the two criteria. Regenerate via "
+        "_generate_spatial_survey_R.R.",
+    },
+    "sarar_gmm": {
+        "status": "aligned",
+        "reference": "spatialreg::gstsls 1.4.3 (Kelejian-Prucha GS2SLS)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "spatialreg": "1.4.3",
+            "spdep": "1.4.2",
+        },
+        "tolerance": "beta, rho and SEs 1e-9 rel (observed 3.8e-11 / 3.0e-11); lambda "
+        "1e-7 rel (observed 6.5e-9)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_spatial_survey_R_parity.py",
+            "tests/reference_parity/_fixtures/spatial_survey_R.json",
+        ],
+        "note": "Default, robust = TRUE (HC0) and sig2n_k = TRUE. lambda is the exact "
+        "admissible minimiser of the KP (1999) moment objective; gstsls's "
+        "nlminb stops 6.5e-9 short on this flat objective (mpmath check). "
+        "Rewritten in this sweep: the old path filtered the instruments and "
+        "reported stage-1 SEs next to stage-3 estimates. sphet::spreg(model = "
+        "'sarar') is the KP (2010) weighted estimator, a different estimator. "
+        "Regenerate via _generate_spatial_survey_R.R.",
+    },
+    "spatial_iv": {
+        "status": "bit-exact",
+        "reference": "sphet::spreg(model = 'lag', het = TRUE) 2.1.1",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "sphet": "2.1.1",
+            "spdep": "1.4.2",
+        },
+        "tolerance": "coefficients and HC0 SEs 1e-10 rel (observed 9.5e-14 / 6.8e-14)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_spatial_survey_R_parity.py",
+            "tests/reference_parity/_fixtures/spatial_survey_R.json",
+        ],
+        "note": "Columbus: CRIME on INC with HOVAL endogenous and DISCBD excluded "
+        "(not lagged), row-standardised queen W. The docstring used to claim "
+        "Conley HAC SEs; the code, and sphet, report White / HC0. Regenerate "
+        "via _generate_spatial_survey_R.R.",
+    },
+    "spatial_panel": {
+        "status": "aligned",
+        "reference": "splm::spml(model = 'within') 1.6.5; Stata xsmle 1.4.5 fe "
+        "type(ind) vce(oim)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "splm": "1.6.5",
+            "plm": "2.6.7",
+            "Stata": "18",
+            "xsmle": "version 1.4.5 5jun2017",
+        },
+        "tolerance": "vs splm: estimates and SEs 1e-7 rel (observed 7.2e-8 / 1.3e-8, "
+        "the splm optimize floor); vs xsmle (tightened ml tolerances): "
+        "estimates and beta SEs 1e-9 (observed 2.5e-13 / 8.5e-11), "
+        "spatial-parameter SE 1e-8 (observed 3.0e-9)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_spatial_survey_R_parity.py",
+            "tests/reference_parity/_fixtures/spatial_survey_R.json",
+            "tests/reference_parity/_fixtures/spatial_survey_stata.json",
+        ],
+        "note": "Produc / usaww. SAR, SEM and SDM x individual and two-way effects "
+        "against splm (SDM = SAR with per-period W-lagged raw X). Stata "
+        "covers entity effects only: for two-way SAR / SDM, xsmle lags the "
+        "within transform of W y and reports non-convergence, a documented "
+        "reference disagreement. vce = 'information' (splm, default) or 'oim' "
+        "(xsmle). Regenerate via _generate_spatial_survey_R.R and "
+        "_fixtures/_generate_spatial_survey_stata.do.",
+    },
+    "svydesign": {
+        "status": "bit-exact",
+        "reference": "survey::svydesign + svymean/svytotal/svyglm/degf (strata, "
+        "nested PSUs, fpc, survey.lonely.psu); Stata svyset + svy: "
+        "mean/total/regress/logit/poisson + estat effects",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "survey": "4.5",
+            "Stata": "18 MP",
+        },
+        "tolerance": "estimates, SEs, DEFF, CI bounds 1e-10 rel, p-values 1e-9 rel "
+        "(observed <= 4e-14; p 6e-13)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_survey_design_R_parity.py",
+            "tests/reference_parity/_fixtures/survey_design_R.json",
+            "tests/reference_parity/_fixtures/survey_design_stata.json",
+        ],
+        "note": "Stratified clustered design with PSU ids repeating across strata, "
+        "unequal weights, fpc as PSU counts / fractions / element counts, "
+        "cluster-only and element designs, four lonely-PSU rules. GLM df: "
+        "dof='design' = Stata e(df_r), dof='residual' = R summary.svyglm. "
+        "DEFF: deff='wor' = R deff=TRUE, 'replace' = Stata without fpc. R "
+        "svyglm references refitted from the converged coefficients (one-pass "
+        "glm.fit weights are one step stale, ~2e-7 in the logit SE). Fixed "
+        "here: fpc counts divided by elements not PSUs (NaN SE), df on "
+        "non-nested ids, logit/poisson bread, scale-dependent DEFF. "
+        "Regenerate via _generate_survey_design_R.R and "
+        "_fixtures/_generate_survey_design_stata.do.",
+    },
+    # ---- phase 3: RD / IV / rlasso (24) ----
+    "effective_f_test": {
+        "status": "bit-exact",
+        "reference": "Stata weakivtest (Montiel Olea & Pflueger) after ivreg2; R "
+        "ivDiag::eff_F 1.0.6",
+        "reference_versions": {
+            "Stata": "18 MP",
+            "weakivtest": "10/28/2020",
+            "ivreg2": "4.1.12",
+            "R": "R version 4.5.2 (2025-10-31)",
+            "ivDiag": "1.0.6",
+        },
+        "tolerance": "F_eff rel 1e-9 on 6 designs (observed 3.7e-14 vs Stata, 1.3e-12 "
+        "vs ivDiag for k = 1)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_Stata.json",
+            "tests/reference_parity/_fixtures/rd_iv_R.json",
+        ],
+        "note": "k = 1 and 3 instruments, HC1 and clustered, on ivDiag::rueda and a "
+        "seeded weak-IV design. ivDiag's k > 1 effective F uses the "
+        "un-partialled Z'Z and differs by 13-16% from weakivtest and StatsPAI "
+        "(asserted as a reference disagreement).",
+    },
+    "iv_diag": {
+        "status": "bit-exact",
+        "reference": "R ivDiag::ivDiag 1.0.6 (analytic block)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "ivDiag": "1.0.6",
+            "lfe": "3.1.1",
+        },
+        "tolerance": "2SLS / OLS coefficients and SEs, classical first-stage F, "
+        "effective F, tF critical value and interval: rel 1e-9 on 6 "
+        "designs (observed <= 6e-12)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_R.json",
+        ],
+        "note": "Bootstrap, CLR / K sets and LTZ are not part of this record. Fixed "
+        "on the way: tF indexed by the homoskedastic F and reported for k > "
+        "1; se_ols ignored vcov and cluster.",
+    },
+    "jive": {
+        "status": "bit-exact",
+        "reference": "Stata jive 1.0.2 (Stata Journal st0108) ujive1 / ujive2",
+        "reference_versions": {"Stata": "18 MP", "jive": "1.0.2"},
+        "tolerance": "coefficients and SEs (default and robust) rel 1e-9 (observed "
+        "3.0e-13 / 4.4e-13)",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_Stata.json",
+        ],
+        "note": "variant='jive1' = ujive1, 'jive2' = ujive2. Through 1.28.0 jive2 was "
+        "fitted/(1-h) (not a jackknife instrument) and the default SE omitted "
+        "the IV sandwich (half of Stata's). A brute-force leave-one-out "
+        "reconstruction is asserted alongside.",
+    },
+    "mccrary_test": {
+        "status": "bit-exact",
+        "reference": "R rdd::DCdensity 0.57 (CRAN archive)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "rdd": "0.57"},
+        "tolerance": "theta, se, z rel 1e-9; p rel 1e-8; bin width 1e-12 (observed "
+        "6.5e-12)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_rd_R.json",
+        ],
+        "note": "Default and fixed bin/bandwidth, and the Senate data. Through 1.28.0 "
+        "a different estimator with silent fallbacks.",
+    },
+    "multi_cutoff_rd": {
+        "status": "bit-exact",
+        "reference": "rdmulti::rdmc 2.0.0 (Cattaneo, Titiunik, Vazquez-Bare & Keele)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "rdmulti": "2.0.0"},
+        "tolerance": "identical to sp.rdmc on the fixture (exact); per-cutoff and "
+        "pooled estimates vs R 1e-9 rel",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rdmulti_parity.py",
+            "tests/reference_parity/_fixtures/rdmulti_R.json",
+        ],
+        "note": "Alias of sp.rdmc (returns rdmc(*args, **kwargs)); asserted equal to "
+        "rdmc and to R in test_multi_cutoff_rd_is_rdmc_on_the_r_fixture.",
+    },
+    "rd_bias_aware_fuzzy": {
+        "status": "aligned",
+        "reference": "R RDHonest 1.0.1.9000, RDHonest(y | d ~ x)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "RDHonest": "1.0.1.9000",
+        },
+        "tolerance": "estimate, std.error, maximum.bias, conf.low/high, M, first "
+        "stage: rel 1e-9 at fixed h and M (observed 1.1e-14), 1e-6 with "
+        "selected h (observed 3.5e-8, optimiser)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_rd_R.json",
+        ],
+        "note": "The record covers every ingredient and RDHonest's linearised "
+        "interval (model_info['bias_aware']['rdhonest']). The headline "
+        "Anderson-Rubin-type set has no reference implementation; it is "
+        "pinned by its defining identity |T(t)| = cv(b(t)) at both endpoints. "
+        "Through 1.28.0 the bias bound was h^2 M / 12 (below the Holder worst "
+        "case).",
+    },
+    "rdbwhte": {
+        "status": "bit-exact",
+        "reference": "R rdhte::rdbwhte 0.2.0",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "rdhte": "0.2.0",
+            "rdrobust": "4.0.0",
+        },
+        "tolerance": "bandwidths rel 1e-8 (continuous and per-subgroup)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_rd_R.json",
+        ],
+        "note": "rdrobust::rdbwselect on x (per subgroup for a 0/1 moderator).",
+    },
+    "rdhte": {
+        "status": "bit-exact",
+        "reference": "R rdhte::rdhte 0.2.0 (sandwich 3.1.1)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "rdhte": "0.2.0",
+            "sandwich": "3.1.1",
+            "rdrobust": "4.0.0",
+        },
+        "tolerance": "coef, coef.bc, se.rb, vcov rel 1e-9 (observed 2.2e-12); "
+        "bandwidths 1e-8",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_rd_R.json",
+        ],
+        "note": "11 cells: continuous and 0/1-subgroup moderators, HC0-HC3, CR1, p = "
+        "2, three kernels, selected and fixed bandwidths. Through 1.28.0 "
+        "inference was conventional, h a rule of thumb and binary z not "
+        "subgroups.",
+    },
+    "rdhte_lincom": {
+        "status": "bit-exact",
+        "reference": "R rdhte::rdhte_lincom 0.2.0",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "rdhte": "0.2.0"},
+        "tolerance": "estimate, z, CI, joint chi-square rel 1e-9; p 1e-8",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_rd_R.json",
+        ],
+        "note": "Subgroup difference and continuous CATE at z = 1 (linfct=).",
+    },
+    "rdplot": {
+        "status": "bit-exact",
+        "reference": "R rdrobust::rdplot 4.0.0",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "rdrobust": "4.0.0",
+        },
+        "tolerance": "J / J_IMSE / J_MV and bin counts exact; bin means, SEs, t "
+        "intervals and polynomial values rel 1e-9 (observed 4.0e-12); p "
+        "= 4 global polynomial coefficients rel 1e-8 (observed 1.6e-10, "
+        "raw-scale conditioning)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_rd_R.json",
+        ],
+        "note": "All eight binselect rules, manual bins with a triangular kernel, "
+        "covariates, and the Senate data (missing outcomes, mass points). "
+        "Numbers returned on fig.rdplot_data. Through 1.28.0 the bin count "
+        "was a rule of thumb (esmv 17/16 bins vs R's 38/41) and kernel was "
+        "ignored.",
+    },
+    "rdplotdensity": {
+        "status": "bit-exact",
+        "reference": "R rddensity::rdplotdensity 2.6 (lpdensity 2.5)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "rddensity": "2.6",
+            "lpdensity": "2.5",
+        },
+        "tolerance": "f_p, f_q, se_p, se_q at every grid point rel 1e-8 (observed "
+        "8.0e-12); nh exact",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_rd_R.json",
+        ],
+        "note": "Mass-point data and the Senate margin. Through 1.28.0 each side used "
+        "its own ECDF (density at the cutoff 0.60 vs R's 0.23 on the "
+        "fixture).",
+    },
+    "rdrbounds": {
+        "status": "aligned",
+        "reference": "R rdlocrand::rdrbounds 2.0",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "rdlocrand": "2.0"},
+        "tolerance": "upper and lower bounds within 4 pooled binomial SEs at 4000 "
+        "draws (Monte Carlo on both sides, not parity)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_rd_R.json",
+        ],
+        "note": "T3. Through 1.28.0 only the median threshold was used: upper bounds "
+        "0.012 / 0.056 / 0.159 vs R 0.021 / 0.094 / 0.346 "
+        "(anti-conservative).",
+    },
+    "rdsensitivity": {
+        "status": "aligned",
+        "reference": "R rdlocrand::rdsensitivity / rdrandinf 2.0",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "rdlocrand": "2.0"},
+        "tolerance": "per-window estimates rel 1e-9 (rdrandinf observed statistic); "
+        "randomization p-values within 4 pooled binomial SEs at 4000 "
+        "draws (Monte Carlo on both sides, not parity)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_rd_R.json",
+        ],
+        "note": "T3 for the p-values. R's rdsensitivity reports a p-value surface "
+        "over tau; StatsPAI's tau = 0 column is compared.",
+    },
+    "rkd": {
+        "status": "bit-exact",
+        "reference": "R rdrobust::rdrobust(deriv = 1, vce = 'hc1') 4.0.0; Stata "
+        "rdrobust, deriv(1) 11.1.0",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "rdrobust": "4.0.0",
+            "Stata": "18 MP",
+            "rdrobust (Stata)": "11.1.0",
+        },
+        "tolerance": "conventional and robust estimate / SE, bandwidth: rel 1e-9 "
+        "(observed 5.2e-12 vs R, 6.0e-11 vs Stata)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_rd_R.json",
+            "tests/reference_parity/_fixtures/rd_iv_Stata.json",
+        ],
+        "note": "sp.rkd is rdrobust(deriv=1, vce='hc1') with the conventional row as "
+        "headline. Through 1.28.0 its default bandwidth was a rule of thumb "
+        "and the fuzzy SE dropped the kink covariance (3.6% on the fixture). "
+        "Sharp, fuzzy, clustered, fixed and selected bandwidth.",
+    },
+    "rlasso": {
+        "status": "bit-exact",
+        "reference": "R hdm::rlasso 0.3.2",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "hdm": "0.3.2"},
+        "tolerance": "support exact; beta / sigma / loadings / residuals atol 1e-6, "
+        "lambda0 rtol 1e-8 (observed rel <= 1.8e-12)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rlasso_parity.py",
+            "tests/reference_parity/_fixtures/rlasso_R.json",
+        ],
+        "note": "Evidence existed since the hdm port; the tests called "
+        "statspai.rlasso.* rather than sp.*, so no record was built. Four "
+        "specifications (post / intercept / homoscedastic).",
+    },
+    "rlasso_effect": {
+        "status": "bit-exact",
+        "reference": "R hdm::rlassoEffect 0.3.2",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "hdm": "0.3.2"},
+        "tolerance": "alpha / se atol 1e-6 (observed rel <= 3.3e-15), incl. hdm's "
+        "GrowthData vignette",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rlasso_parity.py",
+            "tests/reference_parity/test_rlasso_vignette_parity.py",
+            "tests/reference_parity/_fixtures/rlasso_R.json",
+        ],
+        "note": "Partialling out and double selection.",
+    },
+    "rlasso_effects": {
+        "status": "bit-exact",
+        "reference": "R hdm::rlassoEffects 0.3.2",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "hdm": "0.3.2"},
+        "tolerance": "alpha / se rtol 1e-9 on cps2012 (observed 2.8e-12); atol 1e-6 "
+        "on the synthetic fixture",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rlasso_parity.py",
+            "tests/reference_parity/test_rlasso_vignette_parity.py",
+            "tests/reference_parity/_fixtures/rlasso_vignette_R.json",
+        ],
+        "note": "15 identified cps2012 targets pinned; the 16th (female:hsd08) is "
+        "unidentified on both sides and now warns.",
+    },
+    "rlasso_iv": {
+        "status": "bit-exact",
+        "reference": "R hdm::rlassoIV 0.3.2",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "hdm": "0.3.2"},
+        "tolerance": "coef / se atol 1e-6 (observed <= 3e-15); EminentDomain atol "
+        "1e-4 (observed 6.1e-9: pseudo-inverse of a rank-deficient "
+        "control block)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rlasso_parity.py",
+            "tests/reference_parity/test_rlasso_vignette_parity.py",
+            "tests/reference_parity/_fixtures/rlasso_R.json",
+        ],
+        "note": "All four select_Z / select_X paths, BCCH EminentDomain and the AJR "
+        "vignette.",
+    },
+    "rlassologit": {
+        "status": "aligned",
+        "reference": "R hdm::rlassologit 0.3.2 (glmnet 4.1.10 engine)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "hdm": "0.3.2",
+            "glmnet": "4.1.10",
+        },
+        "tolerance": "support exact; post-Lasso atol 1e-5 (observed rel 1.7e-10); "
+        "post=False atol 1e-4 (observed 1.3e-6: glmnet "
+        "coordinate-descent convergence)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rlassologit_parity.py",
+            "tests/reference_parity/_fixtures/rlassologit_R.json",
+        ],
+        "note": "The non-post fit inherits glmnet's stopping rule; the post-Lasso fit "
+        "is an unpenalised logit and agrees to 1e-10.",
+    },
+    "rlassologit_effect": {
+        "status": "bit-exact",
+        "reference": "R hdm::rlassologitEffect 0.3.2",
+        "reference_versions": {"R": "4.5.2", "hdm": "0.3.2"},
+        "tolerance": "alpha / se atol 1e-6 (observed rel 1.1e-15 / 5.3e-14 post; se "
+        "3.2e-7 with post=False)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rlassologit_effect_parity.py",
+            "tests/reference_parity/_fixtures/rlassologit_effect_R.json",
+        ],
+        "note": "",
+    },
+    "rlassologit_effects": {
+        "status": "bit-exact",
+        "reference": "R hdm::rlassologitEffects 0.3.2",
+        "reference_versions": {"R": "4.5.2", "hdm": "0.3.2"},
+        "tolerance": "coef / se atol 1e-6 (observed rel 8.6e-16 / 2.5e-14)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rlassologit_effect_parity.py",
+            "tests/reference_parity/_fixtures/rlassologit_effect_R.json",
+        ],
+        "note": "",
+    },
+    "tF_adjustment": {
+        "status": "bit-exact",
+        "reference": "R ivDiag::tF 1.0.6 (LMMP 2022 tF table)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "ivDiag": "1.0.6"},
+        "tolerance": "rel 1e-12 on the same 26 F values (observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_R.json",
+        ],
+        "note": "Thin alias of tF_critical_value, asserted directly in the same test.",
+    },
+    "tF_critical_value": {
+        "status": "bit-exact",
+        "reference": "R ivDiag::tF 1.0.6 (LMMP 2022 tF table)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "ivDiag": "1.0.6"},
+        "tolerance": "critical value at 26 F values from 4 to 1e4: rel 1e-12 "
+        "(observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_R.json",
+        ],
+        "note": "Through 1.28.0 the table was not LMMP's (c(10) 3.16 vs 3.4353; 1.96 "
+        "from F = 75), every error anti-conservative. Now ivDiag's 84-point "
+        "sqrt(F) table and interpolation. Below F = 4 StatsPAI returns inf "
+        "where ivDiag clamps to 18.66.",
+    },
+    "weakrobust": {
+        "status": "aligned",
+        "reference": "R ivmodel::CLR 1.9.1; Stata weakiv 2.4.07 (md small)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "ivmodel": "1.9.1",
+            "Stata": "18 MP",
+            "weakiv": "2.4.07",
+        },
+        "tolerance": "CLR statistic and p-value vs ivmodel rel 1e-9 (observed "
+        "1.2e-11); CLR set vs ivmodel 5e-5 (observed 1.2e-5, ivmodel's "
+        "uniroot default tolerance); CLR / K / AR vs Stata weakiv 1e-6 "
+        "(observed 1.1e-7 / 1.1e-7 / 2.1e-8, not bisected further)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_rd_iv_R_parity.py",
+            "tests/reference_parity/_fixtures/rd_iv_R.json",
+            "tests/reference_parity/_fixtures/rd_iv_Stata.json",
+        ],
+        "note": "Three fixes: the orthonormalised instruments were not orthonormal "
+        "for k >= 2 (CLR 4.1% high); K 'at h0' was read off the nearest grid "
+        "point; the CLR critical value was simulated (now integrated exactly, "
+        "clr_method='simulate' keeps the old path). The set endpoints also "
+        "satisfy p_CLR(endpoint) = alpha to 1e-9 (reference-free identity).",
+    },
+    # ---- phase 3: DiD / synthetic control / shift-share (22) ----
+    "bartik": {
+        "status": "bit-exact",
+        "reference": "2SLS: R AER::ivreg + sandwich (HC1 / classical), Stata "
+        "ivregress 2sls, vce(robust) small / small; Rotemberg weights: R "
+        "bartik.weight::bw and Stata bartik_weight (Goldsmith-Pinkham, "
+        "Sorkin & Swift)",
+        "reference_versions": {
+            "R": "4.5.2",
+            "AER": "1.2.16",
+            "sandwich": "3.1.1",
+            "bartik.weight": "0.1.0 (GitHub "
+            "paulgp/bartik-weight@722ceb85484d6a2bf77985edf2403515eacd1770, "
+            "R-code/pkg)",
+            "Stata": "18 MP",
+            "bartik_weight": "GitHub "
+            "paulgp/bartik-weight@722ceb85484d6a2bf77985edf2403515eacd1770 "
+            "code/bartik_weight.ado",
+        },
+        "tolerance": "1e-9 rel on all coefficients and SEs (observed <= 5.4e-15) and "
+        "on Rotemberg alpha_k / beta_k (observed 2.5e-12)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_did_synth_shiftshare_parity.py",
+            "tests/reference_parity/_fixtures/did_synth_shiftshare_R.json",
+            "tests/reference_parity/_fixtures/did_synth_shiftshare_stata.json",
+        ],
+        "note": "leave_one_out=False (the leave-one-out instrument has no reference). "
+        "Rotemberg weights are exposed in model_info['rotemberg_weights'] "
+        "with the per-industry just-identified beta_k; robust= now rejects "
+        "values it does not implement instead of silently using HC1.",
+    },
+    "breakdown_m": {
+        "status": "aligned",
+        "reference": "HonestDiD::findOptimalFLCI 0.2.8 (Rambachan & Roth), breakdown "
+        "by uniroot on the bound facing zero",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "HonestDiD": "0.2.8",
+            "CVXR": "1.8.2",
+        },
+        "tolerance": "vs HonestDiD with its Monte-Carlo folded-normal quantile "
+        "replaced by the exact one: 1e-9 (observed 6.1e-11); vs "
+        "HonestDiD as shipped: 1e-3 (observed 4.3e-4), the simulation "
+        "error of .qfoldednormal (1e6 draws, seed 0; 1.96224 vs exact "
+        "1.95996 at mu = 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_did_synth_R_parity.py",
+            "tests/reference_parity/_fixtures/did_synth_honest_R.json",
+        ],
+        "note": "Grade applies to method='smoothness' with a recoverable event-study "
+        "covariance (Callaway-Sant'Anna fits). method='relative_magnitude' "
+        "and the covariance-free fallback invert honest_did's native "
+        "approximate intervals (closed forms, T1, warned). Fixed in the "
+        "did_synth sweep: breakdown_m ignored `method` and returned (|theta| "
+        "- z SE)/(e+1) everywhere; the native FLCI's SLSQP stopped at its "
+        "start point and froze the worst-case bias. Regenerate via "
+        "_generate_did_synth_honest_R.R.",
+    },
+    "continuous_did": {
+        "status": "bit-exact",
+        "reference": "fixest::feols(y ~ dose:post | id + time) (method='twfe')",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "fixest": "0.14.0"},
+        "tolerance": "slope & SE 1e-9 rel (observed 2.2e-15), iid / ~id / ~region, "
+        "balanced + unbalanced",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_did_synth_didvar_parity.py",
+            "tests/reference_parity/_fixtures/did_synth_didvar_R.json",
+        ],
+        "note": "Grade covers method='twfe' only. iid SE divides by n-K with K "
+        "counting every absorbed unit/period parameter; clustered SE uses "
+        "G/(G-1)(n-1)/(n-K) with fixest's nested-FE rule. The default "
+        "method='att_gt' (dose-bin 2x2 rollup) and 'dose_response' are "
+        "heuristics with no package reference: pinned by an analytic 2x2 SE "
+        "and exact linear-slope recovery instead. Not the CGS ATT(d|g,t) "
+        "estimator -- that is sp.cgs_continuous_did (contdid). Regenerate via "
+        "_generate_did_synth_didvar_R.R.",
+    },
+    "demeaned_synth": {
+        "status": "aligned",
+        "reference": "augsynth::augsynth(progfunc = 'None', fixedeff = TRUE) 0.2.0 "
+        "(de-meaned SCM)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "augsynth": "0.2.0",
+            "osqp": "1.0.0",
+        },
+        "tolerance": "gap path and ATT 1e-7 rel (observed 1.2e-9); weights 1e-8 abs",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_did_synth_synthvar_parity.py",
+            "tests/reference_parity/_fixtures/did_synth_synthvar_R.json",
+        ],
+        "note": "variant='demeaned' only. Limited by augsynth's synth_qp, which "
+        "hard-codes OSQP at eps_abs = eps_rel = 1e-8 (R's zero weights come "
+        "back as +-1e-9). variant='detrended' has no reference and is covered "
+        "by an exact-fit identity.",
+    },
+    "did_estimate": {
+        "status": "bit-exact",
+        "reference": "synthdid::did_estimate 0.0.9",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "synthdid": "0.0.9",
+        },
+        "tolerance": "estimate and jackknife SE at 1e-9 on the Prop. 99 replica and a "
+        "five-treated panel (observed est 3.1e-15, jackknife SE "
+        "5.7e-16); R's 40 placebo and 40 bootstrap replications replayed "
+        "at 1e-9 (observed 1.9e-13)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_did_synth_R_parity.py",
+            "tests/reference_parity/_fixtures/did_synth_R.json",
+        ],
+        "note": "Uniform weights reduce to the 2x2 difference in means, asserted "
+        "reference-free at 1e-12. Placebo/bootstrap end-to-end SE is T3 (see "
+        "sc_estimate). Regenerate via _generate_did_synth_R.R.",
+    },
+    "did_timevarying_covariates": {
+        "status": "bit-exact",
+        "reference": "ptetools::pte_default(d_outcome=TRUE, est_method='reg') and "
+        "did::att_gt(est_method='reg')",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "ptetools": "1.0.1",
+            "did": "2.3.0",
+            "DRDID": "1.2.3",
+        },
+        "tolerance": "ATT(g,t) and overall ATT 1e-9 rel (observed 3.8e-15)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_did_synth_didvar_parity.py",
+            "tests/reference_parity/_fixtures/did_synth_didvar_R.json",
+        ],
+        "note": "X_{g-1} outcome-regression estimator, never-treated comparison: "
+        "every post-period ATT(g,t), the group-aggregated overall ATT "
+        "(ptetools overall / did aggte type='group') and the simple aggregate "
+        "(did aggte type='simple'), with two covariates and one. ptetools and "
+        "did agree with each other to ~1e-14. Point estimates only: the SE is "
+        "a unit bootstrap here and a multiplier bootstrap in ptetools (T3), "
+        "not compared.",
+    },
+    "discos": {
+        "status": "bit-exact",
+        "reference": "DiSCos::DiSCo 0.1.4 (Gunsilius distributional synthetic "
+        "controls), mixture = FALSE; mixture = TRUE vs GLPK on DiSCo's "
+        "LP",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "DiSCos": "0.1.4",
+            "pracma": "2.4.6",
+            "quadprog": "1.5.8",
+            "CVXR": "1.8.2",
+            "Rglpk": "0.6.5.1",
+        },
+        "tolerance": "quantile weights 1e-11 abs (observed 4.9e-13), counterfactual "
+        "quantile functions 1e-10 rel, quantile effects 1e-10 abs "
+        "(observed 1.9e-12); mixture LP weights vs GLPK 1e-12 abs, vs "
+        "DiSCo's SCS solution 5e-6 abs (observed 7.1e-7)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_did_synth_synthvar_parity.py",
+            "tests/reference_parity/_fixtures/did_synth_synthvar_R.json",
+        ],
+        "note": "Individual-level data only (the aggregate-panel fallback is a "
+        "StatsPAI heuristic and warns). R's random quantile nodes / CDF grids "
+        "are replayed from its L'Ecuyer stream and passed via q_nodes / "
+        "cdf_grid. Permutation test: T4 -- DiSCos 0.1.4's DiSCo_per_iter "
+        "leaves the original treated unit's quantile column at zero; StatsPAI "
+        "matches the one-line-patched function (8.3e-12) and reproduces the "
+        "unpatched numbers when it zeroes that column (1e-9).",
+    },
+    "distributional_did": {
+        "status": "bit-exact",
+        "reference": "didFF::distDD 0.1.0 (Roth & Sant'Anna)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "didFF": "0.1.0",
+            "did": "2.3.0",
+        },
+        "tolerance": "per-bin effect & SE 1e-9 (observed est 2.6e-12 abs, SE 2.5e-10 "
+        "rel)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_did_synth_didvar_parity.py",
+            "tests/reference_parity/_fixtures/did_synth_didvar_R.json",
+            "tests/reference_parity/test_functional_form_extended_parity.py",
+            "tests/reference_parity/_fixtures/didff_extended_reference.json",
+        ],
+        "note": "Fourteen configurations on did::mpdta: nbins / binpoints / discrete "
+        "binning, weights, covariates under dr / reg / ipw, not-yet-treated "
+        "comparisons, simple / group / dynamic / calendar aggregation and the "
+        "dynamic event window. distDD itself crashes when a bin's influence "
+        "function is degenerate (balance_e=1 here); that case is pinned "
+        "against distDD's recipe re-run step by step in R, which first "
+        "reproduces distDD's own dynamic output to 1e-12. Largest gaps are "
+        "the propensity-score cases (logit iterated to tolerance on both "
+        "sides).",
+    },
+    "harvest_did": {
+        "status": "bit-exact",
+        "reference": "R did::att_gt(control_group='notyettreated', "
+        "base_period='universal') for every (cohort, horizon) cell; "
+        "did::aggte(type='dynamic') for the event study under "
+        "weighting='n_treated'",
+        "reference_versions": {"did": "2.3.0", "DRDID": "1.2.3"},
+        "tolerance": "Every 2x2 cell (ATT and SE) and every event-study horizon (ATT "
+        "and SE) at 1e-9 relative; observed agreement 1.7e-14. The "
+        "inverse-variance aggregate over horizons (the default headline) "
+        "has no reference and is checked by identity only.",
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_did_synth_misc_parity.py"],
+        "note": "The estimator had been attributed to Abadie, Angrist, Frandsen & "
+        "Pischke (NBER WP 34550, 2025), a survey chapter that defines no such "
+        "estimator; its building blocks are Callaway-Sant'Anna cells. "
+        "Promoted by removing defects: pre-period placebo cells counted the "
+        "treated cohort among its own controls, and every aggregation (event "
+        "study, headline aggregate, pre-trend Wald test) treated cells as "
+        "independent although they share units -- headline SE 0.062 before, "
+        "0.101 after, Monte Carlo sd 0.114.",
+    },
+    "mc_panel": {
+        "status": "bit-exact",
+        "reference": "MCPanel::mcnnm_fit (Athey, Bayati, Doudchenko, Imbens & "
+        "Khosravi; github.com/susanathey/MCPanel) and fect::fect(method "
+        '= "mc")',
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "MCPanel": "0.0 @ " "6b2706fd7c35f3266048ceb22a7e9a61ae1774da",
+            "fect": "2.4.1",
+            "gsynth": "1.4.0",
+        },
+        "tolerance": "ATT and fitted untreated matrix 1e-9 rel at fixed lambda "
+        "(observed <= 2.6e-13), four fixed-effect modes x two lambdas",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_did_synth_mc_parity.py",
+            "tests/reference_parity/_fixtures/did_synth_mc_R.json",
+        ],
+        "note": "Fixed lambda: StatsPAI theta = MCPanel lambda_L * |O| / 2 = fect "
+        "lambda * N * T (same minimiser). fixed_effects "
+        "two-way/unit/time/none = MCPanel (to_estimate_u, to_estimate_v). "
+        "References run past their default stopping rules (MCPanel rel_tol = "
+        "0, 3000 sweeps; fect tol 1e-15). The bootstrap SE and the heuristic "
+        "default lambda have no reference and are not compared. Regenerate "
+        "via _generate_did_synth_mc_R.R.",
+    },
+    "mc_synth": {
+        "status": "bit-exact",
+        "reference": "MCPanel::mcnnm_fit (Athey, Bayati, Doudchenko, Imbens & "
+        "Khosravi; github.com/susanathey/MCPanel) and fect::fect(method "
+        '= "mc")',
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "MCPanel": "0.0 @ " "6b2706fd7c35f3266048ceb22a7e9a61ae1774da",
+            "fect": "2.4.1",
+        },
+        "tolerance": "ATT and fitted untreated matrix 1e-9 rel at fixed lambda "
+        "(observed <= 6.0e-13), two-way and no-FE x two lambdas",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_did_synth_mc_parity.py",
+            "tests/reference_parity/_fixtures/did_synth_mc_R.json",
+        ],
+        "note": "Single treated unit (unit 40 from period 21) masked in the same 40 x "
+        "25 panel; same shared solver as mc_panel. The placebo-spread SE and "
+        "the default K-fold CV lambda (own random folds) have no reference "
+        "and are not compared. Regenerate via _generate_did_synth_mc_R.R.",
+    },
+    "robust_synth": {
+        "status": "bit-exact",
+        "reference": "scpi::scest(w.constr = list(name = 'ols')) with scdata(constant "
+        "= TRUE) and stats::lm (unconstrained SC with intercept); glmnet "
+        "(ridge / lasso / elastic net, unpenalised intercept)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "scpi": "4.0.1",
+            "glmnet": "4.1.10",
+        },
+        "tolerance": "OLS weights / intercept / fitted path 1e-10 rel (observed "
+        "8.4e-13); penalised paths 1e-8 rel, weights atol 1e-10 "
+        "(observed 3.4e-11 abs, glmnet's coordinate-descent stop)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_did_synth_synthvar_parity.py",
+            "tests/reference_parity/_fixtures/did_synth_synthvar_R.json",
+        ],
+        "note": "Covers variant='unconstrained' (l2 = 0 and the default 0.01) and "
+        "'elastic_net'. glmnet is compared after scaling y to unit (1/n) SD "
+        "with n*lambda*(1-alpha) = l2 and 2*n*lambda*alpha = l1/sd(y). "
+        "variant='penalized' (simplex + ridge) and the placebo SE have no "
+        "reference. No canonical package implements Doudchenko & Imbens' "
+        "CV-tuned estimator end to end; the penalty is user-set here.",
+    },
+    "sc_estimate": {
+        "status": "bit-exact",
+        "reference": "synthdid::sc_estimate 0.0.9 (Arkhangelsky, Athey, Hirshberg, "
+        "Imbens & Wager)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "synthdid": "0.0.9",
+        },
+        "tolerance": "estimate, unit/time weights and jackknife SE at 1e-9 on the "
+        "Prop. 99 replica and a five-treated panel (observed est "
+        "8.1e-15, jackknife SE 4.8e-15); each of R's 40 placebo and 40 "
+        "bootstrap replications replayed at 1e-9 (observed 2.1e-11)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_did_synth_R_parity.py",
+            "tests/reference_parity/_fixtures/did_synth_R.json",
+        ],
+        "note": "Placebo and bootstrap SEs are Monte-Carlo draws: the replication map "
+        "is pinned draw for draw against R's recorded index vectors, the "
+        "end-to-end seeded SE only within pooled Monte-Carlo error (T3). "
+        "Fixed in the did_synth sweep: all three SE methods now follow "
+        "synthdid::vcov (warm start, frozen regularisation, fixed-weight "
+        "jackknife over all units). Regenerate via _generate_did_synth_R.R.",
+    },
+    "scdata": {
+        "status": "bit-exact",
+        "reference": "R scpi::scdata (features = outcome, no cov.adj, constant = "
+        "FALSE)",
+        "reference_versions": {
+            "scpi": "4.0.1",
+            "CVXR": "1.9.2",
+            "ECOSolveR": "0.6.1",
+            "Qtools": "1.6.0",
+            "quantreg": "6.1",
+        },
+        "tolerance": "A, B, P matrices identical (0 difference) on scpi_germany; "
+        "donor order = R sort(B.names).",
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_did_synth_scpi_parity.py"],
+        "note": "Added by the phase-3 did_synth scpi sweep, which found sp.scest's "
+        "lasso / ridge were penalised estimators on standardised data rather "
+        "than R scpi's norm-constrained weights, and sp.scpi was not the "
+        "Cattaneo-Feng-Titiunik procedure (subsampling variance + Gaussian "
+        "PI; intervals 2-4x too narrow on scpi_germany). Both were rewritten "
+        "as a port of R scpi.",
+    },
+    "scest": {
+        "status": "aligned",
+        "reference": "R scpi::scest (w.constr simplex / lasso / ridge / ols / L1-L2, "
+        "V = 'separate')",
+        "reference_versions": {
+            "scpi": "4.0.1",
+            "CVXR": "1.9.2",
+            "clarabel": "0.11.2",
+            "osqp": "1.0.0",
+        },
+        "tolerance": "ols and lasso weights at 1e-9 abs; ridge Q / lambda and L1-L2 "
+        "Q2 at 1e-10. simplex / ridge / L1-L2 weights are bounded by the "
+        "conic solver: R's objective exceeds StatsPAI's exact optimum by "
+        "<= 1e-7 relative (CLARABEL gap 1e-8), R's point is feasible, "
+        "and ||w_R - w_py|| <= sqrt(gap / lambda_min(B'B)) (observed "
+        "2.0e-6 / 1.4e-5 / 2.9e-7).",
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_did_synth_scpi_parity.py"],
+        "note": "⚠️ correctness fix in the phase-3 sweep: lasso / ridge were "
+        "penalised coordinate descent / ridge regression with lambda = 1 on "
+        "standardised data (weights off by up to 0.23 from R); now ||w||_1 <= "
+        "1 and ||w||_2 <= Q with R's shrinkage.EST radius. lasso_lambda / "
+        "ridge_lambda deprecated (ignored with DeprecationWarning); L1-L2 "
+        "added.",
+    },
+    "scpi": {
+        "status": "aligned",
+        "reference": "R scpi::scpi (effect = 'unit-time', u.missp, u.sigma = HC1, "
+        "u.order = e.order = 1, rho = type-2, e.method = all)",
+        "reference_versions": {
+            "scpi": "4.0.1",
+            "CVXR": "1.9.2",
+            "ECOSolveR": "0.6.1",
+            "Qtools": "1.6.0",
+            "quantreg": "6.1",
+        },
+        "tolerance": "On R's weights: rho, Q.star, u.mean, Omega, Sigma, e.mean at "
+        "1e-9; out-of-sample e.var and gaussian / ls / qreg bounds at "
+        "1e-9 against R with rrq(method = 'br') (exact LP) and 5e-4 abs "
+        "against the default Frisch-Newton rrq. In-sample simulation fed "
+        "R's draws: per-draw median <= 1e-6 and max <= 2e-4 vs ECOS at "
+        "1e-12, quantile bounds at 1e-5; vs default ECOS (1e-8) bounds "
+        "within 2e-3 abs. Average-effect CI = scdataMulti(effect = "
+        "'unit') within 5e-4. J > T0 (California, 38 donors) covered.",
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_did_synth_scpi_parity.py"],
+        "note": "⚠️ correctness fix in the phase-3 sweep: sp.scpi was a different "
+        "procedure under the scpi name (subsampling in-sample variance, "
+        "residual-variance out-of-sample term, Gaussian PI, invented SE / "
+        "p-value); now a port of R scpi solved exactly (active-set QCQP per "
+        "draw, exact LP quantile regressions). Simulated bounds with "
+        "StatsPAI's own RNG are Monte Carlo relative to R (T3); pass draws= "
+        "to reproduce R. Default simplex end-to-end rho / df differ from R "
+        "because CLARABEL leaves one donor at 2.0e-6 >= scpi's 1e-6 active "
+        "threshold (T4; R's own L1-L2 fit of the same optimum reproduces "
+        "StatsPAI's rho).",
+    },
+    "shift_share_se": {
+        "status": "bit-exact",
+        "reference": "R ShiftShareSE::ivreg_ss (Adao, Kolesar & Morales), AKM row; "
+        "Stata SSC ivreg_ss",
+        "reference_versions": {
+            "R": "4.5.2",
+            "ShiftShareSE": "1.1.0",
+            "Stata": "18 MP",
+            "ivreg_ss": "SSC 20241116",
+        },
+        "tolerance": "1e-9 rel on beta and the AKM / AKM0 / EHW / Homoscedastic SEs; "
+        "observed <= 6e-14",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_did_synth_shiftshare_parity.py",
+            "tests/reference_parity/_fixtures/did_synth_shiftshare_R.json",
+            "tests/reference_parity/_fixtures/did_synth_shiftshare_stata.json",
+        ],
+        "note": "Applied to an sp.bartik 2SLS fit with and without controls. Until "
+        "this sweep it used the second-stage fitted values as the instrument "
+        "and returned 0.0176 against AKM's 0.2904; it now raises on results "
+        "that do not record the shift-share inputs.",
+    },
+    "spillover_did": {
+        "status": "bit-exact",
+        "reference": "R did::att_gt(control_group='nevertreated') + "
+        "did::aggte(type='simple') per group (direct / ring r, ring "
+        "cohort = exposure onset); single cohort also fixest::feols(dbar "
+        "~ treat + ring1 + ring2, vcov='hetero', ssc(adj=FALSE))",
+        "reference_versions": {"did": "2.3.0", "DRDID": "1.2.3", "fixest": "0.14.0"},
+        "tolerance": "Direct and ring effects, their SEs and every (group, onset "
+        "cohort, period) cell at 1e-9 relative on a single-cohort and a "
+        "staggered spatial panel; observed agreement 1e-14. The ring "
+        "construction is recomputed independently in R from the "
+        "coordinates.",
+        "sides": ["py", "R"],
+        "test": ["tests/reference_parity/test_did_synth_misc_parity.py"],
+        "note": "No package implements Butts's ring estimator; the regression step is "
+        "pinned to the fixest form in Butts's own replication code and every "
+        "design to did on the constructed groups. Promoted by removing two "
+        "defects: under staggered adoption every ring unit entered every "
+        "cohort's cell regardless of when it was exposed (ring effects 0.79 / "
+        "0.25 against did's 1.24 / 0.40), and the cohort-share weight term "
+        "was missing from the standard errors (direct SE 0.078 vs 0.091). "
+        "Single-cohort output is unchanged.",
+    },
+    "ssaggregate": {
+        "status": "bit-exact",
+        "reference": "R ShiftShareSE::ivreg_ss / reg_ss (Adao, Kolesar & Morales) and "
+        "ssaggregate (Borusyak, Hull & Jaravel; R kylebutts/ssaggregate "
+        "+ AER::ivreg/sandwich HC0); Stata SSC ivreg_ss / reg_ss and "
+        "ssaggregate + ivreg2, robust",
+        "reference_versions": {
+            "R": "4.5.2",
+            "ShiftShareSE": "1.1.0",
+            "ssaggregate (R)": "0.0.0.9000 (GitHub "
+            "kylebutts/ssaggregate@22df93980250891a0cc247f6020136cd33c65ba2)",
+            "AER": "1.2.16",
+            "sandwich": "3.1.1",
+            "Stata": "18 MP",
+            "reg_ss / ivreg_ss": "SSC 20241116",
+            "ssaggregate (Stata)": "SSC 1.2.2 (20200826)",
+        },
+        "tolerance": "1e-9 rel on beta, every SE row (Homoscedastic, EHW, Reg. "
+        "cluster, AKM, AKM0), AKM/AKM0 CIs and the shock-level frame; "
+        "p-values also atol 1e-15 (references use 2*(1-Phi)); observed "
+        "<= 6e-14 (frame 2.9e-13)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_did_synth_shiftshare_parity.py",
+            "tests/reference_parity/_fixtures/did_synth_shiftshare_R.json",
+            "tests/reference_parity/_fixtures/did_synth_shiftshare_stata.json",
+        ],
+        "note": "Incomplete shares (row sums 0.55-0.95), IV and OLS (reduced-form) "
+        "modes, with and without controls, region clustering, AKM0 at alpha "
+        "0.05 and 0.10. Until this sweep the AKM SE used u_k = sum_i s_ik Z_i "
+        "e_i instead of hX_k * s_k'e and was 4.4x too small on this data "
+        "(0.0665 vs 0.2904); the BHJ shock-level aggregation did not exist. "
+        "Regenerate via _generate_did_synth_shiftshare_R.R and "
+        "_fixtures/_generate_did_synth_shiftshare_stata.do.",
+    },
+    "staggered_cs": {
+        "status": "bit-exact",
+        "reference": "staggered::staggered_cs 1.2.2 (Roth & Sant'Anna)",
+        "reference_versions": {"R": "4.5.2", "staggered": "1.2.2"},
+        "tolerance": "estimate, Neyman SE and adjusted SE at abs 1e-9 on mpdta, a "
+        "randomised rollout and a null panel x simple/cohort/calendar "
+        "(observed rel 6.6e-14)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_staggered_extended_parity.py",
+            "tests/reference_parity/_fixtures/staggered_extended_reference.json",
+        ],
+        "note": "Also Track A module 82_staggered row cs_simple (R and Stata). "
+        "Plug-in weights (beta = 1), every not-yet-treated cohort as control, "
+        "units treated in the first period dropped -- as R staggered_cs. "
+        "Regenerate via _generate_staggered_extended_R.R.",
+    },
+    "staggered_sa": {
+        "status": "bit-exact",
+        "reference": "staggered::staggered_sa 1.2.2 (Roth & Sant'Anna)",
+        "reference_versions": {"R": "4.5.2", "staggered": "1.2.2"},
+        "tolerance": "estimate, Neyman SE and adjusted SE at abs 1e-9 on mpdta, a "
+        "randomised rollout and a null panel x simple/cohort/calendar "
+        "(observed rel 6.6e-14)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_staggered_extended_parity.py",
+            "tests/reference_parity/_fixtures/staggered_extended_reference.json",
+        ],
+        "note": "Also Track A module 82_staggered row sa_simple (R and Stata). "
+        "Plug-in weights with only the last-treated cohort as control -- as R "
+        "staggered_sa. Regenerate via _generate_staggered_extended_R.R.",
+    },
+    "staggered_synth": {
+        "status": "bit-exact",
+        "reference": "augsynth::multisynth 0.2.0 (Ben-Michael, Feller & Rothstein; "
+        "partially pooled SCM for staggered adoption)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "augsynth": "0.2.0",
+            "osqp": "1.0.0",
+        },
+        "tolerance": "ATT, per-unit / per-cohort ATT, event-time ATT and jackknife SE "
+        "1e-8 rel (observed <= 2.6e-11); weights 1e-8 abs (observed "
+        "2.1e-10); nu 1e-8, imbalance norms 1e-6 rel",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_did_synth_synthvar_parity.py",
+            "tests/reference_parity/_fixtures/did_synth_synthvar_R.json",
+        ],
+        "note": "Six multisynth configurations on one staggered panel: nu = 0 / 0.5 / "
+        "auto, fixedeff on and off, time_cohort = TRUE, n_lags = 5 with "
+        "lambda = 0.1, and multisynth's own defaults; jackknife SE via "
+        "summary(inf_type = 'jackknife'). multisynth run with OSQP at eps "
+        "1e-12; StatsPAI solves the same QP exactly by active set. The "
+        "placebo SE (StatsPAI's default se_method) has no reference. "
+        "Regenerate via _generate_did_synth_synthvar_R.R.",
+    },
 }
 
 

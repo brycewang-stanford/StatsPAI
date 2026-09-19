@@ -37,12 +37,16 @@ A. **Known-DGP IV (AIR) recovery + complier-share recovery** (recovery).
    (probed z ~0.7).  Non-tautological: a +20% bias on ``tau_Y``
    (-> 2.4) lands ~8 sigma out.
 B. **Closed-form saturated collapse** (closed_form).  (i) The
-   monotonicity complier LATE equals the hand-computed Wald-mixture
-   ``(mu_11*p11 - mu_01*p10)/(p11-p10)`` of the *sample* cell means to
-   machine precision (probed |diff| = 0.0) — an exact algebraic identity
-   of the estimator.  (ii) Perfect compliance ``S == D`` forces
-   ``pi_complier = 1``, ``pi_always = pi_never = 0`` and collapses the
-   LATE to ``E[Y | D=1, S=1] = mean(Y | D=1)`` (probed |diff| = 0.0).
+   monotonicity complier LATE equals the Wald ratio
+   ``(E[Y|D=1] - E[Y|D=0]) / (p11 - p10)`` of the *sample* means to
+   machine precision -- equivalently the difference of the Imbens-Rubin
+   complier means ``(mu_11 p11 - mu_01 p10)/pi_c`` and
+   ``((1-p10) mu_00 - (1-p11) mu_10)/pi_c``.  (Before 1.29 only the
+   first, the complier mean of Y(1), was reported and labelled the LATE;
+   R ``AER::ivreg`` pins the Wald value in ``test_teffects_R_parity.py``.)
+   (ii) Perfect compliance ``S == D`` forces ``pi_complier = 1``,
+   ``pi_always = pi_never = 0`` and collapses the LATE to
+   ``mean(Y | D=1) - mean(Y | D=0)``.
 C. **Naive-bias contrast on the SACE** (naive_bias).  A survivor-bias /
    truncation-by-death DGP: treatment additionally rescues a "protected"
    stratum whose outcomes sit *inside* the always-survivor outcome
@@ -66,11 +70,11 @@ E. **Orientation / determinism** (orientation).  The positive-LATE IV
 
 Implementation facts the anchors rely on (cited file:line)
 ----------------------------------------------------------
-- ``src/statspai/principal_strat/principal_strat.py:293-310`` —
+- ``src/statspai/principal_strat/principal_strat.py`` ``_fit_monotonicity`` —
   monotonicity ``pi_complier = max(P(S=1|D=1)-P(S=1|D=0), 0)``,
   ``pi_always = P(S=1|D=0)``, ``pi_never = 1-P(S=1|D=1)``, and the
-  complier LATE ``tau_c = (mu_11*p11 - mu_01*p10)/pi_complier`` — the
-  exact formula anchor B-i reproduces by hand.
+  complier LATE as the difference of the two complier means -- the
+  Wald ratio anchor B-i reproduces by hand.
 - ``principal_strat.py:415-419`` — ``strata_proportions`` keys are
   ``'always-taker / always-survivor'`` / ``'complier'`` /
   ``'never-taker / never-survivor'``; the LATE is the single row of
@@ -325,15 +329,12 @@ class TestClosedFormCollapse:
     TOL = 1e-9
 
     def test_late_equals_wald_mixture_of_cell_means(self, monotone_strata_data):
-        """tau_c == (mu_11*p11 - mu_01*p10)/(p11-p10) of the sample cells.
+        """tau_c == [E(Y|D=1) - E(Y|D=0)] / (p11 - p10) of the sample.
 
-        principal_strat.py:309-310 computes exactly this ratio of sample
-        cell means; recomputing it with raw numpy must agree in exact
-        arithmetic.  Tolerance 1e-9: the only slack is float
-        associativity in the mean/ratio (~1e-15); probed |diff| = 0.0,
-        so 1e-9 has >5 orders of headroom while staying tighter than the
-        1e-8 machine-collapse bar.  This pins the estimate to a specific
-        hand-computed scalar — a 20% bias breaks it by construction.
+        The complier contrast is E[Y(1)|c] - E[Y(0)|c] with the
+        Imbens-Rubin complier means built from the four (D, S) cells; it
+        telescopes to the Wald ratio. Tolerance 1e-9: float associativity
+        only.
         """
         df = monotone_strata_data
         r = sp.principal_strat(
@@ -354,25 +355,26 @@ class TestClosedFormCollapse:
         p10 = S[D == 0].mean()
         mu_11 = Y[(D == 1) & (S == 1)].mean()
         mu_01 = Y[(D == 0) & (S == 1)].mean()
-        tau_hand = (mu_11 * p11 - mu_01 * p10) / (p11 - p10)
+        mu_10 = Y[(D == 1) & (S == 0)].mean()
+        mu_00 = Y[(D == 0) & (S == 0)].mean()
+        ey1 = (mu_11 * p11 - mu_01 * p10) / (p11 - p10)
+        ey0 = ((1 - p10) * mu_00 - (1 - p11) * mu_10) / (p11 - p10)
+        wald = (Y[D == 1].mean() - Y[D == 0].mean()) / (p11 - p10)
 
-        assert abs(est - tau_hand) < self.TOL, (
-            f"monotonicity LATE {est!r} != hand Wald-mixture {tau_hand!r} "
-            f"(|diff|={abs(est - tau_hand):.2e}); the closed-form cell-mean "
-            f"identity is broken."
+        assert abs((ey1 - ey0) - wald) < self.TOL
+        assert abs(est - wald) < self.TOL, (
+            f"monotonicity LATE {est!r} != Wald ratio {wald!r} "
+            f"(|diff|={abs(est - wald):.2e})."
         )
 
     def test_perfect_compliance_collapses_to_treated_survivor_mean(
         self, perfect_compliance_data
     ):
-        """S == D -> pi_complier = 1 and LATE = E[Y | D=1, S=1].
+        """S == D -> pi_complier = 1 and LATE = E[Y|D=1] - E[Y|D=0].
 
-        With S == D every unit is a complier (pi_always = pi_never = 0),
-        P(S=1|D=0) = 0 so the second Wald term drops, and the LATE
-        reduces to mu_11 = mean(Y | D=1, S=1) = mean(Y | D=1).
-        Tolerance 1e-9: exact-identity collapse (probed |diff| = 0.0).
-        The stratum proportions must hit the degenerate (1, 0, 0) point
-        exactly — a separate non-tautological pin.
+        With S == D every unit is a complier (pi_always = pi_never = 0);
+        the empty (D=1, S=0) and (D=0, S=1) cells carry zero weight, and
+        the LATE is the plain difference in means.
         """
         df = perfect_compliance_data
         r = sp.principal_strat(
@@ -392,11 +394,10 @@ class TestClosedFormCollapse:
         est = float(r.effects.iloc[0]["estimate"])
         Y = df["y"].values
         D = df["d"].values
-        treated_survivor_mean = float(Y[D == 1].mean())  # == mean(Y|D=1,S=1)
-        assert abs(est - treated_survivor_mean) < self.TOL, (
-            f"perfect-compliance LATE {est!r} != E[Y|D=1,S=1] "
-            f"{treated_survivor_mean!r} "
-            f"(|diff|={abs(est - treated_survivor_mean):.2e})."
+        diff = float(Y[D == 1].mean() - Y[D == 0].mean())
+        assert abs(est - diff) < self.TOL, (
+            f"perfect-compliance LATE {est!r} != difference in means "
+            f"{diff!r} (|diff|={abs(est - diff):.2e})."
         )
 
 

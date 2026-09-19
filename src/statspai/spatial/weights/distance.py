@@ -136,8 +136,14 @@ def kernel_weights(
         With ``fixed=True``, the bandwidth distance ``h`` (for the bisquare
         and triangular kernels, neighbours beyond ``h`` get zero weight; the
         gaussian kernel has infinite support so all units are included).
-        With ``fixed=False``, the integer number of nearest neighbours that
-        defines the adaptive bandwidth.
+        With ``fixed=False``, the integer number ``k`` of nearest
+        neighbours: each unit is connected to its ``k`` nearest other units
+        and ``u = d / d_k`` with ``d_k`` the distance to the ``k``-th of
+        them (so the bisquare weight of the ``k``-th neighbour is 0; this is
+        ``GWmodel::gw.weight(adaptive = TRUE)`` with ``bw = k + 1``, which
+        counts the unit itself). For every kernel, including the Gaussian,
+        only those ``k`` units are connected -- unlike the adaptive Gaussian
+        of :func:`statspai.gwr`, which weights all points.
     kernel : {"gaussian", "bisquare", "triangular"}, default "gaussian"
         Kernel shape. ``gaussian`` ``exp(-u^2/2)``; ``bisquare``
         ``(1-u^2)^2`` for ``u<1``; ``triangular`` ``1-u`` for ``u<1``, where
@@ -148,7 +154,10 @@ def kernel_weights(
     Returns
     -------
     W
-        Spatial weights object with continuous kernel weights.
+        Spatial weights object with continuous kernel weights. The fixed
+        bisquare is spdep's ``nb2listwdist(type = "dpd", alpha = 2)`` on
+        ``dnearneigh(0, bandwidth)``; ``w.transform = "R"`` row-standardises
+        the kernel values themselves.
 
     Raises
     ------

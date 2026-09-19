@@ -21,7 +21,6 @@ Targets (from the uncovered-line report):
 from __future__ import annotations
 
 import importlib.util
-import warnings
 
 import matplotlib
 
@@ -182,7 +181,9 @@ def test_rbc_bootstrap_tiny_bandwidth_raises():
     # bootstrap enough data to succeed -- so the intended condition has to be
     # created explicitly rather than as a side effect of the b == h bug.
     df = _sharp(n=500)
-    with pytest.raises(DataInsufficient, match="rbc bootstrap"):
+    # Since 1.29 rdrobust refuses a window this empty before the bootstrap
+    # is reached; either refusal is the intended outcome.
+    with pytest.raises(DataInsufficient, match="rbc bootstrap|inside the bandwidth"):
         sp.rdrobust(df, y="y", x="x", h=0.004, b=0.004, bootstrap="rbc", n_boot=99)
 
 
@@ -190,18 +191,16 @@ def test_rbc_bootstrap_tiny_bandwidth_raises():
 
 
 def test_rdplot_tiny_sides_show_bw_fallback():
-    # 8 left / 2 right points: n<10 IMSE branch, <3-point poly fit -> NaN
-    # curves, singleton-bin SE=0, and show_bw's internal rdrobust failure
-    # (right side < p+2) silently falls back to no shading.
+    # 8 left / 2 right points. R rdplot stops below 20 observations ("Not
+    # enough observations to perform bin calculations"); so does sp.rdplot
+    # since 1.29, instead of drawing NaN curves.
     rng = np.random.default_rng(5)
     xs = np.concatenate([rng.uniform(-1, 0, 8), rng.uniform(0, 1, 2)])
     df = pd.DataFrame(
         {"y": 0.2 * xs + 1.0 * (xs >= 0) + rng.normal(0, 0.1, 10), "x": xs}
     )
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        fig, ax = sp.rdplot(df, y="y", x="x", c=0, show_bw=True)
-    assert fig is not None and ax is not None
+    with pytest.raises(ValueError, match="Not enough observations"):
+        sp.rdplot(df, y="y", x="x", c=0, show_bw=True)
     plt.close("all")
 
 
@@ -216,12 +215,15 @@ def test_rdplot_exactly_linear_outcome_zero_curvature():
 
 
 def test_rdplotdensity_sparse_right_side():
-    # Right side has 4 points < max(p+2, 5): CJM density returns NaN there,
-    # the plot must still be produced from the left-side curve.
+    # Right side has 4 points: the rddensity bandwidths cannot be computed
+    # (R's rddensity stops too), so the plot refuses rather than drawing a
+    # density from a rule of thumb, as it did through 1.28.0.
+    from statspai.exceptions import DataInsufficient
+
     rng = np.random.default_rng(13)
     xd = np.concatenate([rng.uniform(-1, 0, 300), rng.uniform(0, 1, 4)])
-    fig, ax = sp.rdplotdensity(pd.DataFrame({"x": xd}), x="x", c=0)
-    assert fig is not None and ax is not None
+    with pytest.raises(DataInsufficient):
+        sp.rdplotdensity(pd.DataFrame({"x": xd}), x="x", c=0)
     plt.close("all")
 
 

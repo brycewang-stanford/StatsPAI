@@ -53,7 +53,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from statspai.rlasso import rlasso, rlasso_effect, rlasso_effects, rlasso_iv
+import statspai as sp
 
 _FIXTURE_DIR = pathlib.Path(__file__).parent / "_fixtures"
 
@@ -113,7 +113,7 @@ def eminent():
 def test_core_rlasso_matches_hdm(coreA, R, key, kwargs):
     X, y, cols = coreA
     exp = R["coreA"][key]
-    fit = rlasso(X, y, colnames=cols, **kwargs)
+    fit = sp.rlasso(X, y, colnames=cols, **kwargs)
 
     # exact support
     assert np.array_equal(fit.index, np.array(exp["index"], dtype=bool))
@@ -134,7 +134,7 @@ def test_core_rlasso_matches_hdm(coreA, R, key, kwargs):
 
 def test_core_predict_matches_hdm(coreA, R):
     X, y, cols = coreA
-    fit = rlasso(X, y, post=True, colnames=cols)
+    fit = sp.rlasso(X, y, post=True, colnames=cols)
     np.testing.assert_allclose(
         fit.predict(X)[:10], R["coreA"]["predict_first10"], atol=1e-6
     )
@@ -153,7 +153,7 @@ def test_core_predict_matches_hdm(coreA, R):
 def test_rlasso_effect_matches_hdm(effect_df, R, method, key):
     y, d, X = effect_df
     exp = R["effect"][key]
-    res = rlasso_effect(X, y, d, method=method, post=True)
+    res = sp.rlasso_effect(X, y, d, method=method, post=True)
     np.testing.assert_allclose(res.alpha, exp["alpha"], atol=1e-6)
     np.testing.assert_allclose(res.se, exp["se"], atol=1e-6)
     np.testing.assert_allclose(res.tstat, exp["t"], atol=1e-5)
@@ -172,7 +172,7 @@ def test_rlasso_effects_multi_target_matches_hdm(effect_df, R, method, key):
     y, _, X = effect_df
     exp = R["effects_multi"][key]
     # R index is 1-based c(1,2,3,4); Python is 0-based.
-    out = rlasso_effects(X, y, index=[0, 1, 2, 3], method=method)
+    out = sp.rlasso_effects(X, y, index=[0, 1, 2, 3], method=method)
     vals = list(out.values())
     np.testing.assert_allclose([v.alpha for v in vals], exp["alpha"], atol=1e-6)
     np.testing.assert_allclose([v.se for v in vals], exp["se"], atol=1e-6)
@@ -194,7 +194,7 @@ def test_rlasso_effects_multi_target_matches_hdm(effect_df, R, method, key):
 def test_rlasso_iv_synth_matches_hdm(iv_synth, R, key, kwargs):
     y, d, X, Z = iv_synth
     exp = R["iv_synth"][key]
-    res = rlasso_iv(y=y, d=d, z=Z, x=X, **kwargs)
+    res = sp.rlasso_iv(y=y, d=d, z=Z, x=X, **kwargs)
     np.testing.assert_allclose(res.coef[0], exp["coef"], atol=1e-6)
     np.testing.assert_allclose(res.se[0], exp["se"], atol=1e-6)
 
@@ -208,7 +208,7 @@ def test_eminent_selectZ_matches_hdm(eminent, R):
     the faithful port lands on hdm's 0.2274 / 0.2466."""
     y, d, X, Z = eminent
     exp = R["eminent_logGDP"]["selectZ"]
-    res = rlasso_iv(y=y, d=d, z=Z, x=X, select_Z=True, select_X=False)
+    res = sp.rlasso_iv(y=y, d=d, z=Z, x=X, select_Z=True, select_X=False)
     np.testing.assert_allclose(res.coef[0], exp["coef"], atol=1e-4)
     np.testing.assert_allclose(res.se[0], exp["se"], atol=1e-4)
     assert res.selection["n_selected_Z"] == exp["n_selected"]
@@ -217,7 +217,7 @@ def test_eminent_selectZ_matches_hdm(eminent, R):
 def test_eminent_selectBoth_matches_hdm(eminent, R):
     y, d, X, Z = eminent
     exp = R["eminent_logGDP"]["selectBoth"]
-    res = rlasso_iv(y=y, d=d, z=Z, x=X, select_Z=True, select_X=True)
+    res = sp.rlasso_iv(y=y, d=d, z=Z, x=X, select_Z=True, select_X=True)
     np.testing.assert_allclose(res.coef[0], exp["coef"], atol=1e-4)
     np.testing.assert_allclose(res.se[0], exp["se"], atol=1e-4)
 
@@ -226,7 +226,7 @@ def test_eminent_core_selection_matches_hdm(eminent, R):
     """The first stage d ~ [z, x] selects exactly hdm's support."""
     y, d, X, Z = eminent
     exp = R["eminent_logGDP"]["lasso_d_on_zx"]
-    fit = rlasso(np.column_stack([Z, X]), d, post=True)
+    fit = sp.rlasso(np.column_stack([Z, X]), d, post=True)
     assert fit.n_selected == exp["n_selected"]
     # R is 1-based; selected_idx stored 1-based
     got = (np.where(fit.index)[0] + 1).tolist()

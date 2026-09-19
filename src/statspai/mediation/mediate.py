@@ -597,7 +597,10 @@ def mediate_interventional(
     tv_confounders : list of str, optional
         Treatment-induced mediator-outcome confounders (variables
         affected by D that confound the M-Y relationship). These enter
-        the outcome model but **not** the M-marginalization.
+        the outcome model but **not** the M-marginalization; each is
+        modelled linearly on ``[1, D, covariates]`` and integrated over
+        its law under the intervened treatment, so the D -> L -> Y path
+        is part of the direct effect.
     n_mc : int, default 500
         Monte Carlo draws of M for the stochastic intervention.
     n_boot : int, default 500
@@ -728,16 +731,34 @@ def mediate_interventional(
         draws_d1 = alpha_m + delta_m * 1.0 + base_effect_m + sigma_m * eps
         draws_d0 = alpha_m + delta_m * 0.0 + base_effect_m + sigma_m * eps
 
-        # Y is linear in (D, M, X_base, X_tv) — we exploit this to fully
-        # vectorize. The expectation over the original units' X_tv rows
-        # reduces to b_tv · mean(X_tv) because the outcome is additive.
-        tv_contrib = float(b_tv @ Xtv_.mean(axis=0)) if p_tv else 0.0
+        # Treatment-induced confounders L are drawn from their law under
+        # the *intervened* treatment, P(L | D = d, X_base) (VanderWeele,
+        # Vansteelandt & Robins 2014). Y is linear in L, so only the
+        # conditional mean of each L enters: fit L ~ [1, D, X_base] and
+        # evaluate it at D = d over the same X_base pool. Before 1.29 this
+        # used the observed marginal mean of L for both arms, which
+        # deleted the D -> L -> Y path from the direct effect (and the
+        # total) whenever tv_confounders were supplied.
+        design_l = np.column_stack([np.ones(n_), D_, Xb_])
+        if p_tv:
+            gam, *_ = np.linalg.lstsq(design_l, Xtv_, rcond=None)  # (2+p_base, p_tv)
+            gam = gam.reshape(design_l.shape[1], p_tv)
+
+            def _tv_contrib(d_val: float) -> float:
+                l_pred = gam[0] + d_val * gam[1] + Xb_pool @ gam[2 : 2 + p_base]
+                return float(np.mean(l_pred @ b_tv))
+
+        else:
+
+            def _tv_contrib(d_val: float) -> float:
+                return 0.0
+
         base_mean_pool = Xb_pool @ b_base  # (n_mc,)
 
         def _EY(d_val: float, m_draws: np.ndarray) -> float:
-            # b0 + bD*d + bM*m + b_base·x_base + b_tv·mean(X_tv)
+            # b0 + bD*d + bM*m + b_base·x_base + b_tv·E[L | d, x_base]
             inner = b0 + bD * d_val + bM * m_draws + base_mean_pool
-            return float(np.mean(inner)) + tv_contrib
+            return float(np.mean(inner)) + _tv_contrib(d_val)
 
         EY_11 = _EY(1.0, draws_d1)
         EY_10 = _EY(1.0, draws_d0)

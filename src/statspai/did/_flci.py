@@ -55,7 +55,7 @@ from __future__ import annotations
 from typing import NamedTuple, Optional
 
 import numpy as np
-from scipy import optimize, stats
+from scipy import optimize, special, stats
 
 from ..exceptions import ConvergenceFailure, MethodIncompatibility
 
@@ -143,8 +143,10 @@ def folded_normal_quantile(p: float, mu: float, sd: float = 1.0) -> float:
         )
     mu = float(abs(mu))
 
+    # special.ndtr is the standard-normal CDF stats.norm.cdf evaluates, without
+    # the distribution-object overhead (this runs inside every FLCI solve).
     def _cdf_gap(q: float) -> float:
-        return stats.norm.cdf((q - mu) / sd) - stats.norm.cdf((-q - mu) / sd) - p
+        return special.ndtr((q - mu) / sd) - special.ndtr((-q - mu) / sd) - p
 
     hi = mu + sd * 20.0
     return float(optimize.brentq(_cdf_gap, 0.0, hi, xtol=1e-12, rtol=1e-14))
@@ -220,99 +222,267 @@ def flci_delta_sd(
         )
 
     l_post = np.eye(n_post)[0] if l_post is None else np.asarray(l_post, dtype=float)
+    return _FLCIProgram(betahat, sigma, n_pre, n_post, l_post, n_grid).ci(m_bar, alpha)
 
-    a_quad, a_lin, a_const = _variance_matrices(sigma, n_pre, l_post)
-    steps = np.arange(1, n_post + 1, dtype=float)
-    sum_target = float(steps @ l_post)
-    const = (
-        sum(
-            abs(np.arange(1, s + 1) @ l_post[n_post - s :])
-            for s in range(1, n_post + 1)
+
+class _FLCIProgram:
+    """The ``Delta^SD`` FLCI program for one ``(betahat, sigma, l_post)``.
+
+    The worst-case bias ``b(h)`` of the best affine estimator whose standard
+    deviation is at most ``h`` does not depend on ``M``; the half-length for a
+    given ``M`` is ``min_h q_{1-alpha}(|N(M b(h) / h, 1)|) h``. Solving ``b(h)``
+    is the expensive step (one SLSQP program), so it is memoised: a sweep over
+    many ``M`` -- which is what :func:`breakdown_m_sd` does -- reuses every
+    solve.
+
+    The minimisation over ``h`` is a grid scan (``n_grid`` points between the
+    minimum attainable SD and the SD of the minimum-bias estimator) followed
+    by a bounded Brent refinement inside the bracket around the best grid
+    point. Through 1.28.0 the best grid point itself was reported, which left
+    a discretisation error of order ``(h_max - h_min) / n_grid`` in ``h``
+    (7e-4 relative on a CI bound of the event study in
+    ``tests/reference_parity/test_did_synth_R_parity.py`` at ``M = 0.01``);
+    the refinement removes it.
+    """
+
+    def __init__(
+        self,
+        betahat: np.ndarray,
+        sigma: np.ndarray,
+        n_pre: int,
+        n_post: int,
+        l_post: np.ndarray,
+        n_grid: int = 100,
+    ) -> None:
+        self.betahat = betahat
+        self.n_pre = n_pre
+        self.l_post = l_post
+        a_quad, a_lin, a_const = _variance_matrices(sigma, n_pre, l_post)
+        steps = np.arange(1, n_post + 1, dtype=float)
+        sum_target = float(steps @ l_post)
+        self.const = (
+            sum(
+                abs(np.arange(1, s + 1) @ l_post[n_post - s :])
+                for s in range(1, n_post + 1)
+            )
+            - sum_target
         )
-        - sum_target
-    )
-    tril = np.tril(np.ones((n_pre, n_pre)))
+        tril = np.tril(np.ones((n_pre, n_pre)))
 
-    def variance(x: np.ndarray) -> float:
-        return float(x @ a_quad @ x + a_lin @ x + a_const)
+        def variance(x: np.ndarray) -> float:
+            return float(x @ a_quad @ x + a_lin @ x + a_const)
 
-    base_cons = [
-        {"type": "ineq", "fun": lambda x: x[:n_pre] - tril @ x[n_pre:]},
-        {"type": "ineq", "fun": lambda x: x[:n_pre] + tril @ x[n_pre:]},
-        {"type": "eq", "fun": lambda x: x[n_pre:].sum() - sum_target},
-    ]
-    x0 = np.concatenate([np.ones(n_pre), np.full(n_pre, sum_target / n_pre)])
+        a_sym = a_quad + a_quad.T
+        eye = np.eye(n_pre)
+        jac_minus = np.hstack([eye, -tril])
+        jac_plus = np.hstack([eye, tril])
+        jac_sum = np.concatenate([np.zeros(n_pre), np.ones(n_pre)])
+        self._variance = variance
+        self._variance_jac = lambda x: a_sym @ x + a_lin
+        # Linear objective and constraints: exact Jacobians, so SLSQP does not
+        # finite-difference them (and is not limited by that step's error).
+        self._obj_jac = np.concatenate([np.ones(n_pre), np.zeros(n_pre)])
+        self._base_cons = [
+            {
+                "type": "ineq",
+                "fun": lambda x: x[:n_pre] - tril @ x[n_pre:],
+                "jac": lambda x: jac_minus,
+            },
+            {
+                "type": "ineq",
+                "fun": lambda x: x[:n_pre] + tril @ x[n_pre:],
+                "jac": lambda x: jac_plus,
+            },
+            {
+                "type": "eq",
+                "fun": lambda x: x[n_pre:].sum() - sum_target,
+                "jac": lambda x: jac_sum,
+            },
+        ]
+        self._x0 = np.concatenate([np.ones(n_pre), np.full(n_pre, sum_target / n_pre)])
 
-    # h ranges from the minimum attainable SD up to the SD of the
-    # minimum-bias estimator.
-    var_fit = optimize.minimize(
-        variance,
-        x0,
-        constraints=base_cons,
-        method="SLSQP",
-        options={"maxiter": 500, "ftol": 1e-12},
-    )
-    if not var_fit.success:
-        raise ConvergenceFailure(
-            "FLCI: could not find the minimum-variance affine estimator.",
-            recovery_hint="Check sigma for near-singularity, or use " "backend='r'.",
-            diagnostics={"message": var_fit.message},
-        )
-    h_min = float(np.sqrt(max(var_fit.fun, 0.0)))
-    w_min_bias = np.concatenate([np.zeros(n_pre - 1), [sum_target]])
-    h_max = float(
-        np.sqrt(max(variance(np.concatenate([np.zeros(n_pre), w_min_bias])), 0.0))
-    )
-    if not np.isfinite(h_max) or h_max <= h_min:
-        h_max = h_min * 1.5 + 1e-8
-
-    def worst_case_bias(h: float):
-        cons = base_cons + [{"type": "ineq", "fun": lambda x, h=h: h**2 - variance(x)}]
-        fit = optimize.minimize(
-            lambda x: const + x[:n_pre].sum(),
-            x0,
-            constraints=cons,
+        # h ranges from the minimum attainable SD up to the SD of the
+        # minimum-bias estimator.
+        var_fit = optimize.minimize(
+            variance,
+            self._x0,
+            jac=self._variance_jac,
+            constraints=self._base_cons,
             method="SLSQP",
             options={"maxiter": 500, "ftol": 1e-12},
         )
-        if not fit.success:
-            return np.inf, None
-        return float(fit.fun), fit.x
+        if not var_fit.success:
+            raise ConvergenceFailure(
+                "FLCI: could not find the minimum-variance affine estimator.",
+                recovery_hint="Check sigma for near-singularity, or use "
+                "backend='r'.",
+                diagnostics={"message": var_fit.message},
+            )
+        self.h_min = float(np.sqrt(max(var_fit.fun, 0.0)))
+        w_min_bias = np.concatenate([np.zeros(n_pre - 1), [sum_target]])
+        self._x0_min_bias = np.concatenate([np.abs(tril @ w_min_bias), w_min_bias])
+        h_max = float(
+            np.sqrt(max(variance(np.concatenate([np.zeros(n_pre), w_min_bias])), 0.0))
+        )
+        if not np.isfinite(h_max) or h_max <= self.h_min:
+            h_max = self.h_min * 1.5 + 1e-8
+        self.h_max = h_max
+        self.grid = np.linspace(self.h_min, self.h_max, int(n_grid))
+        self._cache: dict = {}
 
-    best = None
-    for h in np.linspace(h_min, h_max, n_grid):
-        bias, x = worst_case_bias(h)
-        if not np.isfinite(bias) or x is None:
-            continue
-        half = folded_normal_quantile(1 - alpha, m_bar * bias / h) * h
-        if best is None or half < best[0]:
-            best = (half, h, bias, x)
+    def bias(self, h: float) -> tuple:
+        """``(b(h), x(h))``: worst-case bias per unit of ``M`` and its solution."""
+        key = float(h)
+        hit = self._cache.get(key)
+        if hit is not None:
+            return hit
+        cons = self._base_cons + [
+            {
+                "type": "ineq",
+                "fun": lambda x, h=key: h**2 - self._variance(x),
+                "jac": lambda x: -self._variance_jac(x),
+            }
+        ]
+        # Two starting points. SLSQP stops after one iteration at the
+        # default start (u = 1, w uniform) whenever the variance constraint
+        # is slack there, reporting "success" at a point that is not the
+        # optimum of this convex program: through 1.28.0 that froze b(h) at
+        # the start's objective for every h above some threshold (b = 4.0
+        # where HonestDiD's ECOS solve gives 3.60 ... 3.00 on the e = 1 event
+        # study of tests/reference_parity/test_did_synth_R_parity.py), which
+        # cut the h search short and widened the FLCI. The second start is the
+        # minimum-bias estimator, feasible for every h >= h_max; the smaller
+        # objective of the two converged solves is kept.
+        best = None
+        for x0 in (self._x0, self._x0_min_bias):
+            fit = optimize.minimize(
+                lambda x: self.const + x[: self.n_pre].sum(),
+                x0,
+                jac=lambda x: self._obj_jac,
+                constraints=cons,
+                method="SLSQP",
+                options={"maxiter": 500, "ftol": 1e-12},
+            )
+            if fit.success and (best is None or fit.fun < best.fun):
+                best = fit
+        out = (float(best.fun), best.x) if best is not None else (np.inf, None)
+        self._cache[key] = out
+        return out
 
-    if best is None:  # pragma: no cover - only on a pathological sigma
-        raise ConvergenceFailure(
-            "FLCI: the worst-case-bias program did not solve at any h.",
-            recovery_hint="Use backend='r', or widen the event-study window.",
-            diagnostics={"h_min": h_min, "h_max": h_max},
+    def half_length(self, h: float, m_bar: float, alpha: float) -> float:
+        b, x = self.bias(h)
+        if not np.isfinite(b) or x is None:
+            return np.inf
+        return folded_normal_quantile(1 - alpha, m_bar * b / h) * h
+
+    def ci(self, m_bar: float, alpha: float, refine: bool = True) -> FLCIResult:
+        halves = np.array([self.half_length(h, m_bar, alpha) for h in self.grid])
+        if not np.isfinite(halves).any():  # pragma: no cover - pathological sigma
+            raise ConvergenceFailure(
+                "FLCI: the worst-case-bias program did not solve at any h.",
+                recovery_hint="Use backend='r', or widen the event-study window.",
+                diagnostics={"h_min": self.h_min, "h_max": self.h_max},
+            )
+        i = int(np.argmin(halves))
+        h_star = float(self.grid[i])
+        lo = float(self.grid[max(i - 1, 0)])
+        hi = float(self.grid[min(i + 1, len(self.grid) - 1)])
+        if refine and hi > lo:
+            ref = optimize.minimize_scalar(
+                lambda h: self.half_length(h, m_bar, alpha),
+                bounds=(lo, hi),
+                method="bounded",
+                options={"xatol": 1e-12 * hi},
+            )
+            if np.isfinite(ref.fun) and ref.fun <= halves[i]:
+                h_star = float(ref.x)
+        bias_star, x_star = self.bias(h_star)
+        half_length = self.half_length(h_star, m_bar, alpha)
+
+        n_pre = self.n_pre
+        w = x_star[n_pre:]
+        w_to_l = np.eye(n_pre)
+        for col in range(n_pre - 1):
+            w_to_l[col + 1, col] = -1.0
+        l_pre = w_to_l @ w
+
+        # The affine estimator is the full weight vector dotted with betahat.
+        # `_w_to_l` already carries the sign that turns w into the pre-period
+        # extrapolation weights, so this is an addition, not a subtraction --
+        # matching HonestDiD's `optimalVec = c(optimal.l, l_vec)`.
+        estimate = float(
+            l_pre @ self.betahat[:n_pre] + self.l_post @ self.betahat[n_pre:]
+        )
+        return FLCIResult(
+            estimate=estimate,
+            half_length=float(half_length),
+            ci_lower=estimate - float(half_length),
+            ci_upper=estimate + float(half_length),
+            pre_period_weights=l_pre,
+            h=float(h_star),
+            worst_case_bias=float(m_bar * bias_star),
         )
 
-    half_length, h_star, bias_star, x_star = best
-    w = x_star[n_pre:]
-    w_to_l = np.eye(n_pre)
-    for col in range(n_pre - 1):
-        w_to_l[col + 1, col] = -1.0
-    l_pre = w_to_l @ w
 
-    # The affine estimator is the full weight vector dotted with betahat.
-    # `_w_to_l` already carries the sign that turns w into the pre-period
-    # extrapolation weights, so this is an addition, not a subtraction --
-    # matching HonestDiD's `optimalVec = c(optimal.l, l_vec)`.
-    estimate = float(l_pre @ betahat[:n_pre] + l_post @ betahat[n_pre:])
-    return FLCIResult(
-        estimate=estimate,
-        half_length=float(half_length),
-        ci_lower=estimate - float(half_length),
-        ci_upper=estimate + float(half_length),
-        pre_period_weights=l_pre,
-        h=float(h_star),
-        worst_case_bias=float(m_bar * bias_star),
-    )
+def breakdown_m_sd(
+    betahat: np.ndarray,
+    sigma: np.ndarray,
+    n_pre: int,
+    n_post: int,
+    l_post: Optional[np.ndarray] = None,
+    alpha: float = 0.05,
+    n_grid: int = 100,
+    xtol: float = 1e-10,
+) -> float:
+    """Breakdown value ``M* = sup{M : 0 not in FLCI(M)}`` under ``Delta^SD(M)``.
+
+    The Rambachan-Roth breakdown value is defined through the confidence set
+    itself, so it is found by root-finding on the FLCI bound that faces zero:
+    ``f(M) = max(lower(M), -upper(M))`` is positive exactly when the interval
+    excludes zero. Returns ``0.0`` when ``FLCI(0)`` already covers zero.
+    """
+    betahat = np.asarray(betahat, dtype=float).ravel()
+    sigma = np.asarray(sigma, dtype=float)
+    l_post = np.eye(n_post)[0] if l_post is None else np.asarray(l_post, dtype=float)
+    prog = _FLCIProgram(betahat, sigma, n_pre, n_post, l_post, n_grid)
+
+    def f(m: float, refine: bool = True) -> float:
+        r = prog.ci(m, alpha, refine=refine)
+        return max(r.ci_lower, -r.ci_upper)
+
+    if f(0.0) <= 0.0:
+        return 0.0
+    hi = max(prog.h_min, 1e-8)
+    for _ in range(200):
+        if f(hi, refine=False) <= 0.0:
+            break
+        hi *= 2.0
+    else:  # pragma: no cover - would need an unbounded worst-case bias
+        raise ConvergenceFailure(
+            "breakdown M: the FLCI never covers zero as M grows.",
+            recovery_hint="Check the event-study inputs.",
+            diagnostics={"last_M": hi},
+        )
+    # Stage 1: locate the crossing on the grid-scanned FLCI, whose bias
+    # solves are all cached after the first evaluation (cheap).
+    m0 = float(optimize.brentq(lambda m: f(m, False), 0.0, hi, xtol=1e-9 * hi))
+    # Stage 2: polish on the refined FLCI inside a bracket around m0 that is
+    # widened until it straddles the refined crossing.
+    width = max(1e-3 * m0, 1e-10)
+    lo_b, hi_b = max(m0 - width, 0.0), m0 + width
+    for _ in range(60):
+        f_lo, f_hi = f(lo_b), f(hi_b)
+        if f_lo > 0.0 >= f_hi:
+            break
+        if f_lo <= 0.0:
+            lo_b = max(lo_b - 2.0 * width, 0.0)
+        if f_hi > 0.0:
+            hi_b = hi_b + 2.0 * width
+        width *= 2.0
+    else:  # pragma: no cover - the refined and scanned crossings coincide
+        raise ConvergenceFailure(
+            "breakdown M: could not bracket the refined FLCI crossing.",
+            recovery_hint="Check the event-study inputs.",
+            diagnostics={"grid_root": m0},
+        )
+    return float(optimize.brentq(f, lo_b, hi_b, xtol=xtol * max(m0, 1e-12), rtol=1e-14))

@@ -45,6 +45,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
@@ -185,13 +186,18 @@ class FineGrayResult(ResultProtocolMixin):
     params : np.ndarray
         Estimated coefficients (log subdistribution hazard ratios).
     bse : np.ndarray
-        Standard errors (model-based, from the inverse information).
+        Standard errors (Fine-Gray sandwich by default; see ``vce``).
     covariates : list of str
         Covariate names aligned with ``params``.
     cause : int
         The cause of interest whose subdistribution was modelled.
     n_obs, n_events : int
         Sample size and number of cause-of-interest events.
+    vcov : np.ndarray
+        Covariance matrix behind ``bse``.
+    vce : str
+        ``"robust"`` (Fine-Gray sandwich), ``"robust+n/(n-1)"`` (Stata
+        ``stcrreg`` scaling) or ``"model"`` (inverse information).
 
     Examples
     --------
@@ -224,6 +230,8 @@ class FineGrayResult(ResultProtocolMixin):
     n_events: int
     loglik: float
     alpha: float = 0.05
+    vcov: Optional[np.ndarray] = None
+    vce: str = "robust"
 
     @property
     def shr(self) -> np.ndarray:
@@ -319,13 +327,21 @@ def _aalen_johansen(
     event: np.ndarray,
     causes: Sequence[int],
     alpha: float,
+    variance: str = "delta",
+    conf_type: str = "linear",
 ) -> pd.DataFrame:
-    """Aalen-Johansen CIF for each cause with delta-method variance.
+    """Aalen-Johansen CIF for each cause with its pointwise variance.
 
-    Variance follows the Marubini-Valsecchi / Klein-Moeschberger (2003)
-    estimator (their eq. 4.7.2): three accumulating terms capturing the
-    overall-survival variation, the direct cause-specific variation, and
-    their covariance.
+    ``variance="delta"`` is the Marubini-Valsecchi (1995) delta-method
+    variance -- the estimator Stata's ``stcompet`` computes::
+
+        Var F_k(t) = sum_{t_j<=t} (F_k(t) - F_k(t_j))^2 d_j / (n_j (n_j - d_j))
+                   + sum_{t_j<=t} S(t_{j-1})^2 d_kj (n_j - d_kj) / n_j^3
+                   - 2 sum_{t_j<=t} (F_k(t) - F_k(t_j)) S(t_{j-1}) d_kj / n_j^2
+
+    ``variance="gray"`` is the asymptotic variance R ``cmprsk::cuminc``
+    reports (Gray's estimator, with the hypergeometric tie factor
+    ``1 - (d - 1)/(n - 1)`` on every increment).
     """
     order = np.argsort(time, kind="mergesort")
     time = time[order]
@@ -335,63 +351,44 @@ def _aalen_johansen(
     event_times = np.sort(np.unique(time[event != 0]))
     n_times = len(event_times)
 
-    # Per-event-time risk-set quantities.
-    n_risk = np.array([np.sum(time >= t) for t in event_times], dtype=float)
-    d_all = np.array(
-        [np.sum((time == t) & (event != 0)) for t in event_times], dtype=float
-    )
-    # Overall KM survival just before each event time, S(t_i^-).
-    s_left = np.empty(n_times, dtype=float)
-    surv = 1.0
-    for i in range(n_times):
-        s_left[i] = surv
-        if n_risk[i] > 0:
-            surv *= 1.0 - d_all[i] / n_risk[i]
+    # Per-event-time risk-set quantities (time is sorted ascending).
+    n_risk = (len(time) - np.searchsorted(time, event_times, side="left")).astype(float)
+    ev_idx = np.searchsorted(event_times, time[event != 0])
+    d_all = np.bincount(ev_idx, minlength=n_times).astype(float)
+    # Overall KM survival just before (s_left) and at (s_right) each time.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        factors = np.where(n_risk > 0, 1.0 - d_all / n_risk, 1.0)
+    s_right = np.cumprod(factors)
+    s_left = np.concatenate([[1.0], s_right[:-1]])
 
     rows = []
     for cause in causes:
-        d_k = np.array(
-            [np.sum((time == t) & (event == cause)) for t in event_times],
-            dtype=float,
-        )
+        k_idx = np.searchsorted(event_times, time[event == cause])
+        d_k = np.bincount(k_idx, minlength=n_times).astype(float)
         # Increment dF_k(t_i) = S(t_{i-1}) * d_{ki} / n_i.
         with np.errstate(divide="ignore", invalid="ignore"):
             inc = np.where(n_risk > 0, s_left * d_k / n_risk, 0.0)
         cif = np.cumsum(inc)
 
-        # Delta-method variance, accumulated at each time point.
-        var = np.zeros(n_times, dtype=float)
-        for j in range(n_times):
-            ii = np.arange(j + 1)
-            ni = n_risk[ii]
-            di = d_all[ii]
-            dki = d_k[ii]
-            sl = s_left[ii]
-            f_diff = cif[j] - np.concatenate([[0.0], cif[ii[:-1]]])
-            # term I: variation propagated through overall survival
-            with np.errstate(divide="ignore", invalid="ignore"):
-                t1 = np.where(
-                    (ni > di) & (ni > 0),
-                    f_diff**2 * di / (ni * (ni - di)),
-                    0.0,
-                )
-                # term II: direct cause-k contribution
-                t2 = np.where(
-                    ni > 0,
-                    sl**2 * ((ni - dki) / ni) * dki / ni**2,
-                    0.0,
-                )
-                # term III: covariance (subtracted)
-                t3 = np.where(
-                    ni > 0,
-                    f_diff * sl * dki / ni**2,
-                    0.0,
-                )
-            var[j] = np.sum(t1) + np.sum(t2) - 2.0 * np.sum(t3)
+        if variance == "delta":
+            var = _cif_var_delta(cif, s_left, n_risk, d_all, d_k)
+        elif variance == "gray":
+            var = _cif_var_gray(cif, s_left, s_right, n_risk, d_all, d_k)
+        else:  # pragma: no cover - validated by the caller
+            raise ValueError(f"unknown variance {variance!r}")
 
         se = np.sqrt(np.clip(var, 0.0, None))
-        ci_lo = np.clip(cif - z * se, 0.0, 1.0)
-        ci_hi = np.clip(cif + z * se, 0.0, 1.0)
+        if conf_type == "linear":
+            ci_lo = np.clip(cif - z * se, 0.0, 1.0)
+            ci_hi = np.clip(cif + z * se, 0.0, 1.0)
+        elif conf_type == "log-log":
+            # F^exp(+-z se / (F log F)); stcompet's default bounds.
+            with np.errstate(divide="ignore", invalid="ignore"):
+                expo = z * se / (cif * np.log(cif))
+                ci_lo = np.where((cif > 0) & (cif < 1), cif ** np.exp(-expo), np.nan)
+                ci_hi = np.where((cif > 0) & (cif < 1), cif ** np.exp(expo), np.nan)
+        else:  # pragma: no cover - validated by the caller
+            raise ValueError(f"unknown conf_type {conf_type!r}")
         for j in range(n_times):
             rows.append(
                 {
@@ -406,70 +403,177 @@ def _aalen_johansen(
     return pd.DataFrame(rows)
 
 
+def _cif_var_delta(
+    cif: np.ndarray,
+    s_left: np.ndarray,
+    n_risk: np.ndarray,
+    d_all: np.ndarray,
+    d_k: np.ndarray,
+) -> np.ndarray:
+    """Marubini-Valsecchi delta-method variance at every event time."""
+    n_times = len(cif)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        a1 = np.where(
+            (n_risk > d_all) & (n_risk > 0), d_all / (n_risk * (n_risk - d_all)), 0.0
+        )
+        a2 = np.where(n_risk > 0, s_left**2 * d_k * (n_risk - d_k) / n_risk**3, 0.0)
+        a3 = np.where(n_risk > 0, s_left * d_k / n_risk**2, 0.0)
+    var = np.empty(n_times, dtype=float)
+    c2 = np.cumsum(a2)
+    for j in range(n_times):
+        diff = cif[j] - cif[: j + 1]  # F(t) - F(t_j), zero at j itself
+        var[j] = (
+            np.sum(diff**2 * a1[: j + 1]) + c2[j] - 2.0 * np.sum(diff * a3[: j + 1])
+        )
+    return var
+
+
+def _cif_var_gray(
+    cif: np.ndarray,
+    s_left: np.ndarray,
+    s_right: np.ndarray,
+    n_risk: np.ndarray,
+    d_all: np.ndarray,
+    d_k: np.ndarray,
+) -> np.ndarray:
+    """Gray's asymptotic CIF variance (R ``cmprsk::cuminc``).
+
+    With ``S`` the all-cause KM, the variance at ``t`` is
+    ``v1(t) + F(t)^2 v3(t) - 2 F(t) v2(t)``, where each event time ``s <= t``
+    adds ``g^2 c``, ``g h c`` and ``h^2 c`` to ``v1, v2, v3``, with
+    ``c = S(s-)^2 (1 - (d-1)/(n-1)) d / n^2``, ``h = 1/S(s)`` and
+    ``g = 1 + F(s) h`` for failures from the cause of interest and
+    ``g = F(s) h`` for failures from the other causes.
+    """
+    n_times = len(cif)
+    d_o = d_all - d_k
+    v1 = np.zeros(n_times)
+    v2 = np.zeros(n_times)
+    v3 = np.zeros(n_times)
+    acc1 = acc2 = acc3 = 0.0
+    for j in range(n_times):
+        n = n_risk[j]
+        h = 1.0 / s_right[j] if s_right[j] > 0 else 0.0
+        if d_o[j] > 0 and s_right[j] > 0:
+            tie = 1.0 - (d_o[j] - 1.0) / (n - 1.0) if d_o[j] > 1 else 1.0
+            c = s_left[j] ** 2 * tie * d_o[j] / n**2
+            g = cif[j] * h
+            acc1 += g * g * c
+            acc2 += h * g * c
+            acc3 += h * h * c
+        if d_k[j] > 0:
+            tie = 1.0 - (d_k[j] - 1.0) / (n - 1.0) if d_k[j] > 1 else 1.0
+            c = s_left[j] ** 2 * tie * d_k[j] / n**2
+            g = 1.0 + h * cif[j]
+            acc1 += g * g * c
+            acc2 += h * g * c
+            acc3 += h * h * c
+        v1[j], v2[j], v3[j] = acc1, acc2, acc3
+    return v1 + cif**2 * v3 - 2.0 * cif * v2
+
+
 def _gray_test(
     time: np.ndarray,
     event: np.ndarray,
     group: np.ndarray,
     cause: int,
+    rho: float = 0.0,
 ) -> Dict[str, float]:
-    """Gray's (1988) K-sample test for one cause.
+    """Gray's (1988) K-sample test for equality of one cause's CIF.
 
-    Uses the subdistribution risk set (subjects who failed from a competing
-    cause remain at risk) and the rho=0 weight. Returns a chi-square statistic
-    on ``K-1`` degrees of freedom.
+    The score for group ``k`` integrates ``(1 - F(t-))^rho`` against the
+    difference between the group's subdistribution hazard and the pooled
+    one, with the subdistribution risk set estimated by
+    ``R_k(t) = n_k(t) (1 - F_k(t-)) / S_k(t-)`` (``S_k`` the group's
+    all-cause KM, ``F_k`` its cumulative incidence). The covariance is
+    Gray's asymptotic estimator, which propagates the variability of the
+    group-wise Aalen-Johansen estimates (so it is not the hypergeometric
+    log-rank variance). Numerically identical to R ``cmprsk::cuminc``'s
+    ``Tests`` (unstratified). Returns a chi-square on ``K - 1`` d.o.f.
     """
     groups = np.unique(group)
     k = len(groups)
-    all_times = np.sort(np.unique(time[event == cause]))
-    if len(all_times) == 0 or k < 2:
+    if k < 2 or not np.any(event == cause):
         return {
             "statistic": float("nan"),
             "df": k - 1,
             "p_value": float("nan"),
         }
+    gidx = np.searchsorted(groups, group)
+    code = np.where(event == cause, 1, np.where(event == 0, 0, 2))
+    utimes = np.sort(np.unique(time))
+    tpos = np.searchsorted(utimes, time)
+    m = len(utimes)
+    # d[c, t, g]: number censored (c=0), failing from the cause (1), or
+    # from a competing cause (2) at each unique time, by group.
+    d = np.zeros((3, m, k))
+    np.add.at(d, (code, tpos, gidx), 1.0)
+    # Risk set at each time by group: n minus everyone who left earlier.
+    left_before = np.cumsum(d.sum(axis=0), axis=0) - d.sum(axis=0)
+    rs_all = np.bincount(gidx, minlength=k).astype(float)[None, :] - left_before
 
-    # Subdistribution "at risk": never experienced cause-of-interest yet, and
-    # either still under observation OR already failed from a competing cause.
-    # i.e. a subject leaves the subdistribution risk set only at its own
-    # cause-of-interest event time or (for censored / not-yet-failed subjects)
-    # at its censoring time.
-    scores = np.zeros(k - 1, dtype=float)
-    vcov = np.zeros((k - 1, k - 1), dtype=float)
-
-    for t in all_times:
-        # subdistribution risk indicator per subject at time t
-        not_yet_primary = ~((event == cause) & (time < t))
-        competing_before = (event != 0) & (event != cause) & (time < t)
-        at_risk = not_yet_primary & ((time >= t) | competing_before)
-        n_at = np.array([np.sum(at_risk & (group == g)) for g in groups], dtype=float)
-        n_tot = n_at.sum()
-        if n_tot <= 1:
+    k1 = k - 1
+    score = np.zeros(k1)
+    vmat = np.zeros((k1, k1))
+    c = np.zeros((k, k))
+    v2 = np.zeros((k1, k))
+    v3 = np.zeros(k)
+    f1m = np.zeros(k)  # group CIF, left limit
+    skmm = np.ones(k)  # group all-cause KM, left limit
+    fm = 0.0  # pooled CIF, left limit
+    for t in range(m):
+        d1 = d[1, t]
+        d2 = d[2, t]
+        nd1 = d1.sum()
+        nd2 = d2.sum()
+        if nd1 == 0 and nd2 == 0:
             continue
-        d_at = np.array(
-            [np.sum((time == t) & (event == cause) & (group == g)) for g in groups],
-            dtype=float,
-        )
-        d_tot = d_at.sum()
-        if d_tot == 0:
-            continue
-        # Expected events per group under H0 and hypergeometric variance.
-        exp = n_at * d_tot / n_tot
-        obs_minus_exp = d_at - exp
-        scores += obs_minus_exp[:-1]
-        if n_tot > 1:
-            var_factor = d_tot * (n_tot - d_tot) / (n_tot - 1)
-        else:
-            var_factor = 0.0
-        for a in range(k - 1):
-            for b in range(k - 1):
-                delta = 1.0 if a == b else 0.0
-                vcov[a, b] += var_factor * (n_at[a] / n_tot * (delta - n_at[b] / n_tot))
+        rs = rs_all[t]
+        live = rs > 0
+        skm = skmm.copy()
+        f1 = f1m.copy()
+        skm[live] = skmm[live] * (rs[live] - d1[live] - d2[live]) / rs[live]
+        f1[live] = f1m[live] + skmm[live] * d1[live] / rs[live]
+        hk = np.where(live, rs / np.where(live, skmm, 1.0), 0.0)
+        rk = np.where(live, rs * (1.0 - f1m) / np.where(live, skmm, 1.0), 0.0)
+        tr = hk.sum()
+        tq = rk.sum()
+        f = fm + nd1 / tr
+        fb = (1.0 - fm) ** rho
+        a = -fb * np.outer(hk, hk) / tr
+        a[np.diag_indices(k)] = fb * hk * (1.0 - hk / tr)
+        a[~live, :] = 0.0
+        a[:, ~live] = 0.0
+        c += a * nd1 / (tr * (1.0 - fm))
+        score += np.where(live, fb * (d1 - nd1 * rk / tq), 0.0)[:k1]
+        if nd1 > 0:
+            for g in np.where(live)[0]:
+                t4 = 1.0 - (1.0 - f) / skm[g] if skm[g] > 0 else 1.0
+                t5 = 1.0 - (nd1 - 1.0) / (tr * skmm[g] - 1.0) if nd1 > 1 else 1.0
+                t3 = t5 * skmm[g] * nd1 / (tr * rs[g])
+                v3[g] += t4 * t4 * t3
+                col = a[:k1, g] - t4 * c[:k1, g]
+                v2[:, g] += col * t4 * t3
+                vmat += np.outer(col, col) * t3
+        if nd2 > 0:
+            for g in np.where(live & (d2 > 0) & (skm > 0))[0]:
+                t4 = (1.0 - f) / skm[g]
+                t5 = 1.0 - (d2[g] - 1.0) / (rs[g] - 1.0) if d2[g] > 1 else 1.0
+                t3 = t5 * skmm[g] ** 2 * d2[g] / rs[g] ** 2
+                v3[g] += t4 * t4 * t3
+                col = t4 * c[:k1, g]
+                v2[:, g] -= col * t4 * t3
+                vmat += np.outer(col, col) * t3
+        fm = f
+        f1m = f1
+        skmm = skm
+    vmat += (c[:k1] * v3[None, :]) @ c[:k1].T + c[:k1] @ v2.T + v2 @ c[:k1].T
 
     try:
-        stat = float(scores @ np.linalg.solve(vcov, scores))
+        stat = float(score @ np.linalg.solve(vmat, score))
     except np.linalg.LinAlgError:
-        stat = float(scores @ np.linalg.pinv(vcov) @ scores)
-    df = k - 1
+        stat = float(score @ np.linalg.pinv(vmat) @ score)
+    df = k1
     p = float(stats.chi2.sf(stat, df))
     return {"statistic": stat, "df": df, "p_value": p}
 
@@ -483,6 +587,9 @@ def cuminc(
     event: str,
     group: Optional[str] = None,
     alpha: float = 0.05,
+    variance: str = "delta",
+    conf_type: str = "linear",
+    rho: float = 0.0,
 ) -> CumIncResult:
     """Cumulative incidence functions for competing risks (Aalen-Johansen).
 
@@ -500,6 +607,17 @@ def cuminc(
         estimated per group and Gray's K-sample test is reported per cause.
     alpha : float
         Significance level for the confidence bands.
+    variance : {"delta", "gray"}, default "delta"
+        Pointwise variance of the CIF. ``"delta"`` is the Marubini-Valsecchi
+        delta-method estimator (the one Stata's ``stcompet`` reports);
+        ``"gray"`` is Gray's asymptotic variance, the ``var`` component of
+        R ``cmprsk::cuminc``.
+    conf_type : {"linear", "log-log"}, default "linear"
+        ``"linear"`` is ``F +/- z se`` clipped to [0, 1]; ``"log-log"`` is
+        ``F^exp(+/- z se / (F log F))``, stcompet's bounds.
+    rho : float, default 0
+        Power of the ``(1 - F(t-))^rho`` weight in Gray's test (cmprsk's
+        ``rho``).
 
     Returns
     -------
@@ -536,6 +654,10 @@ def cuminc(
     >>> ci.summary()        # doctest: +SKIP
     >>> ci.plot(cause=1)    # doctest: +SKIP
     """
+    if variance not in ("delta", "gray"):
+        raise ValueError("variance must be 'delta' or 'gray'")
+    if conf_type not in ("linear", "log-log"):
+        raise ValueError("conf_type must be 'linear' or 'log-log'")
     cols = [duration, event] + ([group] if group else [])
     data = data.dropna(subset=cols)
     time = np.asarray(data[duration], dtype=float)
@@ -547,17 +669,19 @@ def cuminc(
     tables = []
     gray = None
     if group is None:
-        tab = _aalen_johansen(time, ev, causes, alpha)
+        tab = _aalen_johansen(time, ev, causes, alpha, variance, conf_type)
         tab.insert(0, "group", "all")
         tables.append(tab)
     else:
         gvals = np.asarray(data[group])
         for g in pd.unique(gvals):
             mask = gvals == g
-            tab = _aalen_johansen(time[mask], ev[mask], causes, alpha)
+            tab = _aalen_johansen(
+                time[mask], ev[mask], causes, alpha, variance, conf_type
+            )
             tab.insert(0, "group", g)
             tables.append(tab)
-        gray = {c: _gray_test(time, ev, gvals, c) for c in causes}
+        gray = {c: _gray_test(time, ev, gvals, c, rho) for c in causes}
 
     cif_table = pd.concat(tables, ignore_index=True)
     return CumIncResult(cif_table=cif_table, causes=causes, gray_test=gray, alpha=alpha)
@@ -566,34 +690,24 @@ def cuminc(
 # --------------------------------------------------------------------------- #
 #  Public: finegray
 # --------------------------------------------------------------------------- #
-def _finegray_weights(
-    time: np.ndarray, event: np.ndarray, cause: int
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Censoring-survival Ĝ steps for Fine-Gray IPCW weights.
+def _censoring_km_left(time: np.ndarray, event: np.ndarray) -> np.ndarray:
+    """KM of the censoring distribution evaluated just before each ``time``.
 
-    Returns the KM estimate of the censoring distribution evaluated as a
-    right-continuous step function helper: ``(g_times, g_vals)`` where
-    ``g_vals[i]`` = Ĝ(g_times[i]).
+    Returns ``Ĝ(T_i-)`` for every subject: the product over censoring times
+    strictly earlier than ``T_i`` of ``1 - c_u / n_u``. Left limits are what
+    Fine & Gray's weights use (and what R ``cmprsk::crr`` / Stata
+    ``stcrreg`` evaluate), so a censoring tied with an event does not
+    down-weight that event's own risk set.
     """
-    censor_indicator = (event == 0).astype(int)
-    times = np.sort(np.unique(time))
-    g_vals = np.empty(len(times), dtype=float)
-    surv = 1.0
-    for i, t in enumerate(times):
-        n_risk = np.sum(time >= t)
-        d_c = np.sum((time == t) & (censor_indicator == 1))
-        if n_risk > 0:
-            surv *= 1.0 - d_c / n_risk
-        g_vals[i] = surv
-    return times, g_vals
-
-
-def _g_at(g_times: np.ndarray, g_vals: np.ndarray, t: float) -> float:
-    """Right-continuous Ĝ(t): last step value at or before ``t``."""
-    idx = np.searchsorted(g_times, t, side="right") - 1
-    if idx < 0:
-        return 1.0
-    return float(g_vals[idx])
+    utimes = np.sort(np.unique(time))
+    n_risk = len(time) - np.searchsorted(np.sort(time), utimes, side="left")
+    c_cnt = np.bincount(
+        np.searchsorted(utimes, time[event == 0]), minlength=len(utimes)
+    ).astype(float)
+    g_right = np.cumprod(1.0 - c_cnt / n_risk)
+    g_left = np.concatenate([[1.0], g_right[:-1]])
+    out: np.ndarray = g_left[np.searchsorted(utimes, time)]
+    return out
 
 
 def finegray(
@@ -604,7 +718,9 @@ def finegray(
     cause: int = 1,
     alpha: float = 0.05,
     max_iter: int = 50,
-    tol: float = 1e-7,
+    tol: float = 1e-10,
+    vce: str = "robust",
+    small_sample: bool = False,
 ) -> FineGrayResult:
     """Fine & Gray (1999) proportional subdistribution hazards model.
 
@@ -628,7 +744,17 @@ def finegray(
     alpha : float
         Significance level for confidence intervals.
     max_iter, tol : int, float
-        Newton-Raphson controls.
+        Newton-Raphson controls (``tol`` is on the largest coefficient step).
+    vce : {"robust", "model"}, default "robust"
+        ``"robust"`` is Fine & Gray's sandwich variance, whose score
+        residuals include the term for estimating the censoring
+        distribution: the ``var`` of R ``cmprsk::crr``. ``"model"`` is the
+        inverse information of the weighted partial likelihood
+        (``crr``'s ``invinf``), which ignores both the weighting and the
+        estimation of Ĝ and is not a valid variance for this model.
+    small_sample : bool, default False
+        Multiply the robust variance by ``n / (n - 1)``, as Stata's
+        ``stcrreg`` does.
 
     Returns
     -------
@@ -639,11 +765,11 @@ def finegray(
     -----
     Subjects who fail from a competing cause are retained in the risk set with
     time-decaying inverse-probability-of-censoring weights
-    ``w_i(t) = Ĝ(t) / Ĝ(T_i)`` (Ĝ = KM estimate of the censoring survival).
-    The weighted partial likelihood is maximised by Newton-Raphson with the
-    Breslow tie approximation. Standard errors are model-based (inverse
-    information); a fully robust sandwich variance that accounts for
-    estimating Ĝ is not yet implemented.
+    ``w_i(t) = Ĝ(t-) / Ĝ(T_i-)`` (Ĝ = KM estimate of the censoring survival,
+    evaluated at left limits). The weighted partial likelihood is maximised
+    by Newton-Raphson with the Breslow tie approximation. Coefficients,
+    both variances and the log pseudo-likelihood match R ``cmprsk::crr``;
+    with ``small_sample=True`` the standard errors match Stata ``stcrreg``.
 
     Examples
     --------
@@ -653,8 +779,8 @@ def finegray(
     >>> n = 300
     >>> x = rng.normal(size=n)
     >>> t1 = rng.exponential(scale=np.exp(-0.5 * x))   # cause of interest
-    >>> t2 = rng.exponential(scale=1.5)                # competing cause
-    >>> cens = rng.exponential(scale=2.0)
+    >>> t2 = rng.exponential(scale=1.5, size=n)        # competing cause
+    >>> cens = rng.exponential(scale=2.0, size=n)
     >>> time = np.minimum(np.minimum(t1, t2), cens)
     >>> status = np.where((t1 <= t2) & (t1 <= cens), 1,
     ...                   np.where((t2 < t1) & (t2 <= cens), 2, 0))
@@ -673,6 +799,8 @@ def finegray(
     ----------
     fine1999proportional
     """
+    if vce not in ("robust", "model"):
+        raise ValueError("vce must be 'robust' or 'model'")
     cols = [duration, event] + list(x)
     data = data.dropna(subset=cols)
     time = np.asarray(data[duration], dtype=float)
@@ -682,88 +810,90 @@ def finegray(
     if (ev == cause).sum() == 0:
         raise ValueError(f"No events for cause={cause}.")
 
-    g_times, g_vals = _finegray_weights(time, ev, cause)
-    g_self = np.array([_g_at(g_times, g_vals, t) for t in time])
-
-    # Cause-of-interest event times (Breslow ties).
-    event_times = np.sort(np.unique(time[ev == cause]))
-
-    # Precompute, for each event time, the subdistribution risk weights.
-    # w_i(t) = 1 if still at risk (T_i >= t); = Ĝ(t)/Ĝ(T_i) if i had a
-    # competing event before t; = 0 otherwise (censored / primary-failed).
+    g_self = _censoring_km_left(time, ev)  # Ĝ(T_i-)
     competing = (ev != 0) & (ev != cause)
-    weight_rows = []
-    risk_index = []
-    for t in event_times:
-        g_t = _g_at(g_times, g_vals, t)
-        w = np.zeros(n, dtype=float)
-        at_risk = time >= t
-        w[at_risk] = 1.0
-        comp_before = competing & (time < t)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            w[comp_before] = np.where(
-                g_self[comp_before] > 0,
-                g_t / g_self[comp_before],
-                0.0,
-            )
-        idx = np.where(w > 0)[0]
-        weight_rows.append(w[idx])
-        risk_index.append(idx)
+    is_event = ev == cause
 
-    # Events at each event time (Breslow): sum of covariates of primary events.
-    d_counts = []
-    event_x_sum = []
-    for t in event_times:
-        ev_mask = (time == t) & (ev == cause)
-        d_counts.append(int(ev_mask.sum()))
-        event_x_sum.append(X[ev_mask].sum(axis=0))
-    d_counts_arr = np.array(d_counts)
-    event_x_sum_arr = np.array(event_x_sum)
+    # Distinct cause-of-interest event times, their multiplicities, and the
+    # weight matrix W[m, i] = w_i(t_m) of every subject in each risk set.
+    event_times = np.sort(np.unique(time[is_event]))
+    m_of_event = np.searchsorted(event_times, time[is_event])
+    d_counts = np.bincount(m_of_event, minlength=len(event_times)).astype(float)
+    event_x_sum = np.zeros((len(event_times), p))
+    np.add.at(event_x_sum, m_of_event, X[is_event])
+    # Ĝ(t_m-) is Ĝ(T_j-) of any subject j failing at t_m.
+    g_evt = np.empty(len(event_times))
+    g_evt[m_of_event] = g_self[is_event]
+    at_risk = time[None, :] >= event_times[:, None]
+    comp_before = competing[None, :] & ~at_risk
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratio = np.where(g_self[None, :] > 0, g_evt[:, None] / g_self[None, :], 0.0)
+    W = np.where(at_risk, 1.0, np.where(comp_before, ratio, 0.0))
 
-    beta = np.zeros(p, dtype=float)
+    def _risk_sums(b: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        ew = W * np.exp(X @ b)[None, :]
+        s0 = ew.sum(axis=1)
+        s1 = ew @ X
+        return ew, s0, s1
 
     def _ll_grad_hess(
         b: np.ndarray,
     ) -> Tuple[float, np.ndarray, np.ndarray]:
-        ll = 0.0
-        grad = np.zeros(p, dtype=float)
-        hess = np.zeros((p, p), dtype=float)
-        for m, t in enumerate(event_times):
-            idx = risk_index[m]
-            w = weight_rows[m]
-            xr = X[idx]
-            eta = xr @ b
-            ew = w * np.exp(eta)
-            s0 = ew.sum()
-            if s0 <= 0:
-                continue
-            s1 = ew @ xr
-            s2 = (ew[:, None] * xr).T @ xr
-            d = d_counts_arr[m]
-            ll += event_x_sum_arr[m] @ b - d * np.log(s0)
-            grad += event_x_sum_arr[m] - d * s1 / s0
-            hess -= d * (s2 / s0 - np.outer(s1, s1) / s0**2)
+        ew, s0, s1 = _risk_sums(b)
+        xbar = s1 / s0[:, None]
+        ll = float(np.sum(event_x_sum @ b - d_counts * np.log(s0)))
+        grad = (event_x_sum - d_counts[:, None] * xbar).sum(axis=0)
+        s2 = np.einsum("mi,ij,ik->jk", ew * (d_counts / s0)[:, None], X, X)
+        hess = -(s2 - (xbar * d_counts[:, None]).T @ xbar)
         return ll, grad, hess
 
-    ll = -np.inf
+    beta = np.zeros(p, dtype=float)
+    converged = False
     for _ in range(max_iter):
         ll, grad, hess = _ll_grad_hess(beta)
         try:
             step = np.asarray(np.linalg.solve(hess, grad), dtype=float)
         except np.linalg.LinAlgError:
             step = np.asarray(np.linalg.pinv(hess) @ grad, dtype=float)
-        step = step.reshape(p)
-        beta_new = beta - step
-        if np.max(np.abs(beta_new - beta)) < tol:
-            beta = beta_new
+        beta = beta - step.reshape(p)
+        if np.max(np.abs(step)) < tol:
+            converged = True
             break
-        beta = beta_new
+    if not converged:
+        import warnings
 
-    _, _, hess = _ll_grad_hess(beta)
+        warnings.warn(
+            f"finegray: Newton-Raphson did not converge in {max_iter} "
+            "iterations; estimates may be unreliable.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    ll, _, hess = _ll_grad_hess(beta)
+    info = -hess
     try:
-        cov = np.linalg.inv(-hess)
+        inv_info = np.linalg.inv(info)
     except np.linalg.LinAlgError:
-        cov = np.linalg.pinv(-hess)
+        inv_info = np.linalg.pinv(info)
+
+    if vce == "model":
+        cov = inv_info
+    else:
+        resid = _finegray_score_residuals(
+            beta,
+            X,
+            time,
+            ev,
+            is_event,
+            competing,
+            g_self,
+            event_times,
+            d_counts,
+            W,
+        )
+        cov = inv_info @ (resid.T @ resid) @ inv_info
+        if small_sample:
+            cov = cov * n / (n - 1.0)
     bse = np.sqrt(np.clip(np.diag(cov), 0.0, None))
 
     return FineGrayResult(
@@ -772,7 +902,87 @@ def finegray(
         covariates=list(x),
         cause=int(cause),
         n_obs=n,
-        n_events=int((ev == cause).sum()),
+        n_events=int(is_event.sum()),
         loglik=float(ll),
         alpha=alpha,
+        vcov=cov,
+        vce=vce + ("+n/(n-1)" if (vce == "robust" and small_sample) else ""),
     )
+
+
+def _finegray_score_residuals(
+    beta: np.ndarray,
+    X: np.ndarray,
+    time: np.ndarray,
+    ev: np.ndarray,
+    is_event: np.ndarray,
+    competing: np.ndarray,
+    g_self: np.ndarray,
+    event_times: np.ndarray,
+    d_counts: np.ndarray,
+    W: np.ndarray,
+) -> np.ndarray:
+    """Per-subject influence terms ``eta_i + psi_i`` of Fine & Gray (1999).
+
+    ``eta_i`` is the weighted-martingale score residual
+    ``int (X_i - xbar(t)) w_i(t) dM_i(t)`` with the Breslow increment
+    ``dLambda(t_m) = d_m / S0(t_m)``. ``psi_i = int q(u)/pi(u) dM^c_i(u)``
+    carries the variability from estimating Ĝ, where ``pi(u)`` is the number
+    at risk at ``u`` and
+    ``q(u) = sum_{t_m >= u} d_m / S0(t_m) sum_{j competing, T_j < u}
+    w_j(t_m) exp(X_j b) (X_j - xbar(t_m))``.
+    """
+    n, p = X.shape
+    risk = np.exp(X @ beta)
+    ew = W * risk[None, :]
+    s0 = ew.sum(axis=1)
+    xbar = (ew @ X) / s0[:, None]
+    dlam = d_counts / s0
+
+    # eta: dN part minus the compensator.
+    eta = np.zeros((n, p))
+    m_of_event = np.searchsorted(event_times, time[is_event])
+    eta[is_event] = X[is_event] - xbar[m_of_event]
+    comp_w = ew * dlam[:, None]  # (M, n)
+    eta -= X * comp_w.sum(axis=0)[:, None] - comp_w.T @ xbar
+
+    # psi: censoring-martingale part, evaluated at distinct censoring times.
+    cens = ev == 0
+    if not np.any(cens):
+        return eta
+    c_times = np.sort(np.unique(time[cens]))
+    c_cnt = np.bincount(
+        np.searchsorted(c_times, time[cens]), minlength=len(c_times)
+    ).astype(float)
+    pi_u = (n - np.searchsorted(np.sort(time), c_times, side="left")).astype(float)
+    q = np.zeros((len(c_times), p))
+    comp_idx = np.where(competing)[0]
+    if len(comp_idx):
+        comp_idx = comp_idx[np.argsort(time[comp_idx], kind="mergesort")]
+        # a[m, j]: weight of competing subject j in event time m's
+        # compensator (non-zero only when T_j < t_m).
+        a = ew[:, comp_idx] * dlam[:, None]  # (M, J)
+        xj = X[comp_idx]
+        tj = time[comp_idx]
+        # Sweep u upwards: keep column sums over the event times t_m >= u.
+        col = a.sum(axis=0)  # (J,)
+        colx = a.T @ xbar  # (J, p)
+        m0 = 0
+        for r, u in enumerate(c_times):
+            while m0 < len(event_times) and event_times[m0] < u:
+                col -= a[m0]
+                colx -= np.outer(a[m0], xbar[m0])
+                m0 += 1
+            j0 = int(np.searchsorted(tj, u, side="left"))  # T_j < u
+            if j0 == 0 or m0 == len(event_times):
+                continue
+            q[r] = col[:j0] @ xj[:j0] - colx[:j0].sum(axis=0)
+    step = q * (c_cnt / pi_u**2)[:, None]
+    cum = np.cumsum(step, axis=0)
+    # sum over censoring times u <= T_i
+    pos = np.searchsorted(c_times, time, side="right") - 1
+    psi = np.where(pos[:, None] >= 0, -cum[np.clip(pos, 0, None)], 0.0)
+    ci = np.searchsorted(c_times, time[cens])
+    psi[cens] += q[ci] / pi_u[ci][:, None]
+    out: np.ndarray = eta + psi
+    return out

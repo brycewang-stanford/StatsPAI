@@ -14,82 +14,82 @@ data shaping:
 import numpy as np
 import pandas as pd
 
-from statspai.did.timevarying_covariates import _compute_att_gt
-from statspai.did.ddd_heterogeneous import _compute_ddd_gt
 from statspai.did.aggte import _weights_simple
+from statspai.did.ddd_heterogeneous import _compute_ddd_gt
+from statspai.did.timevarying_covariates import _compute_att_gt
 
 # ----------------------------------------------------------------------
 # timevarying_covariates._compute_att_gt
 # ----------------------------------------------------------------------
 
 
-def test_tvc_missing_pre_period_no_cells():
-    # cohort g=3 but period 2 (= g-1) absent -> pre_t not in times (259) -> no cells (303)
-    rows = []
-    for i, g in [(1, 3), (2, 3), (3, 0), (4, 0)]:
-        for t in (1, 3):  # period 2 missing
-            rows.append(
-                {"i": i, "year": t, "earn": float(i + t), "g": g, "age_base": float(i)}
-            )
-    df = pd.DataFrame(rows)
-    out = _compute_att_gt(
+def _tvc_panel(spec, times, age=lambda i, t: float(i)):
+    return pd.DataFrame(
+        [
+            {
+                "i": i,
+                "year": t,
+                "earn": float(i + t) + 0.1 * i * t,
+                "g": g,
+                "age": age(i, t),
+            }
+            for i, g in spec
+            for t in times
+        ]
+    )
+
+
+def _tvc_cells(df, cohorts):
+    return _compute_att_gt(
         df,
         y="earn",
         unit="i",
         time="year",
         cohort="g",
         covariates=["age"],
-        treated_cohorts=[3],
+        treated_cohorts=cohorts,
         never_value=0,
     )
-    assert np.isnan(out["att_overall"])
+
+
+def _assert_no_cells(out):
+    assert np.isnan(out["att_group"])
+    assert np.isnan(out["att_simple"])
     assert out["cell_estimates"] == []
 
 
-def test_tvc_too_few_treated_no_cells():
-    # Only one treated unit -> n_treated < 2 -> cell skipped (276-277)
-    rows = []
-    for i, g in [(1, 4), (2, 0), (3, 0), (4, 0)]:
-        for t in (3, 4):
-            rows.append(
-                {"i": i, "year": t, "earn": float(i + t), "g": g, "age_base": float(i)}
-            )
-    df = pd.DataFrame(rows)
-    out = _compute_att_gt(
-        df,
-        y="earn",
-        unit="i",
-        time="year",
-        cohort="g",
-        covariates=["age"],
-        treated_cohorts=[4],
-        never_value=0,
-    )
-    assert np.isnan(out["att_overall"])
+def test_tvc_missing_pre_period_no_cells():
+    # cohort g=3 but period 2 (= g-1, the base and covariate period) is absent
+    df = _tvc_panel([(1, 3), (2, 3), (3, 0), (4, 0)], times=(1, 3))
+    _assert_no_cells(_tvc_cells(df, [3]))
 
 
-def test_tvc_rank_deficient_design_skipped():
-    # 2 treated + 2 control but NaN covariate in the post period drops rows
-    # so the valid design has n <= k (line 288-289).
-    rows = []
-    for i, g in [(1, 4), (2, 4), (3, 0), (4, 0)]:
-        for t in (3, 4):
-            age = np.nan if t == 4 else float(i)
-            rows.append(
-                {"i": i, "year": t, "earn": float(i + t), "g": g, "age_base": age}
-            )
-    df = pd.DataFrame(rows)
-    out = _compute_att_gt(
-        df,
-        y="earn",
-        unit="i",
-        time="year",
-        cohort="g",
-        covariates=["age"],
-        treated_cohorts=[4],
-        never_value=0,
+def test_tvc_too_few_controls_no_cells():
+    # 2 never-treated units against an intercept + 1 covariate: n_control <= k
+    df = _tvc_panel([(1, 4), (2, 4), (3, 0), (4, 0)], times=(3, 4))
+    _assert_no_cells(_tvc_cells(df, [4]))
+
+
+def test_tvc_single_treated_unit_is_estimated():
+    # One treated unit is enough for the outcome-regression ATT(g,t) (the
+    # R reference estimates it); only the control side needs n > k.
+    df = _tvc_panel([(1, 4), (2, 0), (3, 0), (4, 0), (5, 0)], times=(3, 4))
+    out = _tvc_cells(df, [4])
+    assert len(out["cell_estimates"]) == 1
+    cell = out["cell_estimates"][0]
+    assert (cell["n_treated"], cell["n_control"]) == (1, 4)
+    assert np.isfinite(out["att_simple"])
+
+
+def test_tvc_nan_covariate_drops_controls_below_rank():
+    # Covariates are frozen at g-1 = 3; NaN there removes two of four controls,
+    # leaving n_control = 2 <= k = 2, so the cell is skipped.
+    df = _tvc_panel(
+        [(1, 4), (2, 4), (3, 0), (4, 0), (5, 0), (6, 0)],
+        times=(3, 4),
+        age=lambda i, t: np.nan if (t == 3 and i in (5, 6)) else float(i),
     )
-    assert np.isnan(out["att_overall"])
+    _assert_no_cells(_tvc_cells(df, [4]))
 
 
 # ----------------------------------------------------------------------

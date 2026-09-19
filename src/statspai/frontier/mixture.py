@@ -36,9 +36,9 @@ import pandas as pd
 from scipy import stats
 from scipy.optimize import minimize
 
+from ..exceptions import ConvergenceFailure
 from . import _core as _fc
 from .sfa import FrontierResult
-from ..exceptions import ConvergenceFailure
 
 # ---------------------------------------------------------------------------
 # Zero-Inefficiency SFA
@@ -193,7 +193,7 @@ def zisf(
         bounds=bounds,
         options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
     )
-    theta_hat = result.x
+    theta_hat = _fc.newton_polish(neg_loglik, result.x, bounds)
     ll_val = -neg_loglik(theta_hat)
 
     beta_hat = theta_hat[:k_beta]
@@ -202,7 +202,7 @@ def zisf(
     sigma_u = float(np.exp(theta_hat[k_beta + k_theta + 1]))
     p_i = 1.0 / (1.0 + np.exp(-(Z_mat @ theta_p)))
 
-    H = _fc.numerical_hessian(neg_loglik, theta_hat)
+    H = _fc.richardson_hessian(neg_loglik, theta_hat)
     vcov_oim = _fc.safe_invert_hessian(H)
     if vce_l == "oim":
         vcov = vcov_oim
@@ -489,7 +489,7 @@ def lcsf(
     if best_result is None:
         raise ConvergenceFailure("lcsf: all starts failed to converge.")
     result = best_result
-    theta_hat = result.x.copy()
+    theta_hat = _fc.newton_polish(neg_loglik, result.x, bounds)
 
     # Canonical labeling: enforce sigma_u_class1 <= sigma_u_class2 so that
     # downstream posterior class probs and param blocks are comparable
@@ -539,7 +539,7 @@ def lcsf(
     _, TE2 = _fc.jondrow_halfnormal(eps2, np.full(n, sv2), np.full(n, su2), sign)
     TE_lcsf = p1_post * TE1 + (1.0 - p1_post) * TE2
 
-    H = _fc.numerical_hessian(neg_loglik, theta_hat)
+    H = _fc.richardson_hessian(neg_loglik, theta_hat)
     vcov_oim = _fc.safe_invert_hessian(H)
     if vce_l == "oim":
         vcov = vcov_oim

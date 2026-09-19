@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from statspai.spatial.models.gmm import sar_gmm, sarar_gmm, sem_gmm
 from statspai.spatial.weights.core import W
-from statspai.spatial.models.gmm import sem_gmm, sar_gmm, sarar_gmm
 
 FIXTURE = Path(__file__).parent / "fixtures" / "columbus_reference.json"
 
@@ -41,17 +41,16 @@ def test_sar_gmm_matches_spreg_GM_Lag(columbus):
 
 def test_sarar_gmm_matches_spreg_GM_Combo(columbus):
     w, df, ref = columbus
-    res = sarar_gmm(w, df, "CRIME ~ INC + HOVAL")
+    # GM_Combo's default instrument set is [X, WX] (w_lags=1); sarar_gmm's
+    # default is gstsls's [X, WX, W^2 X]. With the instruments aligned the
+    # two agree up to spreg's L-BFGS-B stopping rule on the GM moments
+    # (lambda ~2e-6 relative; sarar_gmm solves the moment problem exactly).
+    # Before the GS2SLS rewrite this needed rtol=5e-3 because the final
+    # step filtered the instruments and the SEs came from stage 1.
+    res = sarar_gmm(w, df, "CRIME ~ INC + HOVAL", w_lags=1)
     expected = ref["gm_combo"]["betas_with_rho_lambda"]
-    # Our output order: [const, INC, HOVAL, rho, lambda]
-    # spreg GM_Combo ditto
-    # spreg's GM_Combo adds a final GLS step re-estimating β with λ̂-filtered
-    # data (Cochrane-Orcutt style). We keep the simpler two-stage estimator
-    # so β and the β rows can differ at the 2.5e-3 level; ρ and λ land
-    # within 1e-4 of spreg.
-    np.testing.assert_allclose(res.params.values, expected, rtol=5e-3)
-    np.testing.assert_allclose(res.params["rho"], expected[-2], rtol=1e-4)
-    np.testing.assert_allclose(res.params["lambda"], expected[-1], atol=1e-4)
+    # Output order: [const, INC, HOVAL, rho, lambda] -- spreg ditto.
+    np.testing.assert_allclose(res.params.values, expected, rtol=1e-5)
 
 
 def test_sem_gmm_het_robust_returns_beta_se(columbus):

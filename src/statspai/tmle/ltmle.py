@@ -204,6 +204,65 @@ def _fit_linear(X: np.ndarray, y: np.ndarray) -> Any:
     return lr
 
 
+def _logit_fit(X: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Unpenalised (quasi-)binomial logistic MLE by Newton-Raphson.
+
+    ``y`` may be fractional in [0, 1]: the quasi-binomial score equations
+    are the binomial ones, so this is R's
+    ``glm(family = quasibinomial())`` fit. Rank-deficient designs are
+    handled with a pseudo-inverse step (R drops aliased columns; the
+    fitted values agree).
+    """
+    beta = np.zeros(X.shape[1])
+    for _ in range(100):
+        mu = expit(X @ beta)
+        W = mu * (1 - mu)
+        grad = X.T @ (y - mu)
+        info = (X * W[:, None]).T @ X
+        step = np.linalg.lstsq(info, grad, rcond=None)[0]
+        beta = beta + step
+        if np.max(np.abs(step)) < 1e-12:
+            break
+    else:
+        warnings.warn(
+            "ltmle: a logistic regression did not converge in 100 Newton "
+            "steps (separation?).",
+            ConvergenceWarning,
+            stacklevel=3,
+        )
+    return beta
+
+
+def _logit_fit_predict(X: np.ndarray, y: np.ndarray, rows: np.ndarray) -> np.ndarray:
+    """Fit on ``rows`` and return fitted probabilities for every unit."""
+    if np.all(y[rows] == y[rows][0]):
+        return np.full(len(y), float(y[rows][0]))
+    return expit(X @ _logit_fit(X[rows], y[rows]))
+
+
+def _fluctuate(q_next: np.ndarray, off: np.ndarray, w: np.ndarray) -> float:
+    """Intercept-only weighted logistic fluctuation with offset.
+
+    Solves ``sum w (q_next - expit(off + eps)) = 0`` for ``eps`` (R:
+    ``glm(Q.kplus1 ~ -1 + S1 + offset(off), weights = w,
+    family = quasibinomial)``).
+    """
+    if q_next.size == 0 or not np.any(w > 0):
+        return 0.0
+    eps = 0.0
+    for _ in range(100):
+        mu = expit(off + eps)
+        score = float(np.sum(w * (q_next - mu)))
+        info = float(np.sum(w * mu * (1 - mu)))
+        step = score / info
+        eps += step
+        if abs(step) < 1e-13:
+            break
+    else:
+        raise ValueError("fluctuation did not converge")
+    return eps
+
+
 # --------------------------------------------------------------------
 # Main LTMLE
 # --------------------------------------------------------------------
@@ -218,7 +277,7 @@ def ltmle(
     censoring: Optional[Sequence[str]] = None,
     regime_treated: Optional[Regime] = None,
     regime_control: Optional[Regime] = None,
-    propensity_bounds: Tuple[float, float] = (0.01, 0.99),
+    propensity_bounds: Tuple[float, float] = (0.01, 1.0),
     outcome_type: str = "auto",
     alpha: float = 0.05,
 ) -> LTMLEResult:
@@ -257,8 +316,10 @@ def ltmle(
         >>> def dynamic(k, hist):
         ...     return (hist[f"L{k}"] > hist["L_baseline"]).astype(int)
 
-    propensity_bounds : tuple, default (0.01, 0.99)
-        Clip propensity to this range for stability.
+    propensity_bounds : tuple, default (0.01, 1.0)
+        Bounds on the *cumulative* probability of following the regime
+        (and remaining uncensored) up to each time point, ``prod_j g_j``
+        -- the ``gbounds`` of R ``ltmle``, whose default this is.
     outcome_type : {"auto", "binary", "continuous"}
         ``auto`` detects from unique values of ``y``.
     alpha : float, default 0.05
@@ -269,46 +330,34 @@ def ltmle(
 
     Notes
     -----
-    **SE caveat — residual from one-step targeting.** The reported SE is
-    the empirical standard deviation of the efficient influence curve
-    (van der Laan & Gruber 2012), divided by :math:`\\sqrt n`. The EIF is
+    **Algorithm.** Sequential regression TMLE of van der Laan & Gruber
+    (2012) as implemented in R ``ltmle`` (non-stratified, ``glm``
+    learners). A continuous outcome is mapped to ``[0, 1]`` by
+    ``(Y - min Y) / (max Y - min Y)``. Backwards over ``k = K-1, ..., 0``:
 
-    .. math::
+    1. Fit a logistic (quasi-binomial) regression of the current
+       pseudo-outcome ``Q*_{k+1}`` on the full history up to ``A_k``
+       among units uncensored through ``k``; predict for everyone with
+       ``A_0..A_k`` set to the regime, bounded to ``[1e-4, 0.9999]``.
+    2. Target it: an intercept-only logistic fluctuation with offset
+       ``logit Q_k`` and weights ``1 / prod_{j<=k} g_j`` (bounded by
+       ``propensity_bounds``) over units that follow the regime and are
+       uncensored through ``k``; the fitted intercept solves the
+       efficient-score equation exactly.
+    3. Add ``H_k (Q*_{k+1} - Q*_k)`` to the influence curve, with
+       ``H_k = I(follow, uncensored) / prod_{j<=k} g_j``.
 
-       D^*(O) = \\sum_{k=1}^{K} H_k \\cdot \\mathbb{1}\\{\\bar A_{1:k}=\\bar a,
-                                                         \\bar C_{1:k}=1\\}
-                                  (Q_{k+1}^* - Q_k^*) + (Q_1^* - \\psi)
+    ``psi = mean(Q*_0)``; the SE is ``sd(IC_treated - IC_control) /
+    sqrt(n)`` (R ``ltmle``'s ``variance.method = "ic"``). Treatment and
+    censoring models are main-terms logistic regressions on the full
+    observed history.
 
-    Both terms are computed. The martingale sum is in-sample zero ONLY
-    when the targeting equation is iterated to convergence at every time
-    point; this module uses a one-step linear (or quasi-logistic)
-    approximation, so it is near zero but not identically so, and the
-    resulting SE is mildly **anti-conservative** in small samples.
-    Measured over 200 replications of a two-period DGP with a known ATE
-    (2.24), the reported SE is about 13% below the Monte-Carlo standard
-    deviation of the estimator at :math:`n = 1000` and about 7% below it
-    at :math:`n = 4000`; nominal-95% CI coverage was 0.905 and 0.930
-    respectively. (Before v1.21 the martingale sum was omitted entirely
-    rather than approximated, which left only the dispersion of a fitted
-    conditional mean: the reported SE was then 250-400x too small and
-    did not converge at the :math:`\\sqrt n` rate.) For inference
-    that requires honest coverage with rich ML nuisances, use the
-    full CV-LTMLE / iterated-targeting path (not yet exposed; tracked
-    as a follow-up).
-
-    **Binary-outcome targeting** uses a one-step linear approximation
-    to the Bernoulli MLE
-    :math:`\\hat\\epsilon \\approx \\sum H \\cdot (\\mathrm{logit}(Y) -
-    \\mathrm{logit}(\\hat Q)) / \\sum H^2`, which is accurate near
-    :math:`\\epsilon=0` but biased for moderate :math:`\\epsilon`.
-
-    **Targeting-step failures.** If the binary-outcome fluctuation step
-    fails at a time point, :math:`\\epsilon` is set to 0 for that step
-    (no targeting update — the estimate degrades toward untargeted
-    g-computation at that time point); a ``ConvergenceWarning`` is
-    emitted and the failed step indices are recorded per regime in
-    ``detail['targeting_failures']``. Per-step epsilons (time order
-    k=0..K-1) are exposed in ``detail['epsilons']``.
+    Before 1.29 this function fitted linear models to the pseudo-
+    outcomes, set only the current treatment to the regime, and targeted
+    binary outcomes with a linearised update on ``logit(Y)`` (``Y`` in
+    ``{0, 1}`` clipped to ``1e-6``, i.e. ``+/-13.8``). On a two-period
+    binary fixture it returned an ATE of 0.757 where R ``ltmle`` returns
+    0.373; the continuous path was a different (consistent) estimator.
 
     Examples
     --------
@@ -383,9 +432,9 @@ def ltmle(
             recovery_hint="Use propensity_bounds=(0.01, 0.99).",
         )
     p_lo, p_hi = float(propensity_bounds[0]), float(propensity_bounds[1])
-    if not (0 < p_lo < p_hi < 1):
+    if not (0 < p_lo < p_hi <= 1):
         raise _ltmle_error(
-            "propensity_bounds must satisfy 0 < lower < upper < 1.",
+            "propensity_bounds must satisfy 0 < lower < upper <= 1.",
             diagnostics={"propensity_bounds": [p_lo, p_hi]},
             recovery_hint="Use bounds such as (0.01, 0.99).",
         )
@@ -452,50 +501,56 @@ def ltmle(
         else:
             outcome_type = "continuous"
 
-    # ----- Forward: fit propensity scores at every time --------------
-    # History at time k = baseline + treatments[:k] + covariates[:k+1]
-    propensities: List[np.ndarray] = []
-    for k in range(K):
-        hist_cols = list(baseline)
-        for j in range(k):
-            hist_cols += [treatments[j]] + list(covariates_time[j])
-        hist_cols += list(covariates_time[k])
-        X_k = df[hist_cols].to_numpy(dtype=float) if hist_cols else np.ones((n, 0))
-        X_k = np.column_stack([np.ones(n), X_k])
-        A_k = df[treatments[k]].to_numpy(dtype=int)
-        model_g = _fit_logit(X_k, A_k)
-        g_k = _predict_proba(model_g, X_k)
-        g_k = np.clip(g_k, *propensity_bounds)
-        propensities.append(g_k)
+    # Outcome scale: continuous Y is mapped to [0, 1] (R ltmle, Yrange=NULL).
+    Y_raw = df[y].to_numpy(dtype=float)
+    if outcome_type == "continuous":
+        y_min = float(np.nanmin(Y_raw))
+        y_range = float(np.nanmax(Y_raw) - y_min)
+        if y_range <= 0:
+            raise _ltmle_error(
+                f"ltmle: outcome '{y}' is constant.",
+                diagnostics={"y_min": y_min},
+                recovery_hint="Provide a non-degenerate outcome.",
+            )
+    else:
+        y_min, y_range = 0.0, 1.0
+    Y_scaled = (Y_raw - y_min) / y_range
 
-    # Censoring models (optional) — estimate P(C_k=1 | hist, A_k)
-    cens_probs: List[np.ndarray] = []
-    for k in range(K):
-        if not censoring:
-            cens_probs.append(np.ones(n))
-            continue
-        hist_cols = list(baseline)
+    def _hist_cols(k: int) -> List[str]:
+        cols = list(baseline)
         for j in range(k):
-            hist_cols += [treatments[j]] + list(covariates_time[j])
-        hist_cols += list(covariates_time[k]) + [treatments[k]]
-        X_c = df[hist_cols].to_numpy(dtype=float) if hist_cols else np.ones((n, 0))
-        X_c = np.column_stack([np.ones(n), X_c])
-        C_k = df[censoring[k]].to_numpy(dtype=int)
-        if np.all(C_k == 1):
-            cens_probs.append(np.ones(n))
-            continue
-        model_c = _fit_logit(X_c, C_k)
-        p_c = _predict_proba(model_c, X_c)
-        p_c = np.clip(p_c, *propensity_bounds)
-        cens_probs.append(p_c)
+            cols += list(covariates_time[j]) + [treatments[j]]
+        cols += list(covariates_time[k])
+        return cols
+
+    # Uncensored-through-k indicators (C_k observed after A_k).
+    if censoring:
+        C_obs = np.column_stack([df[c].to_numpy(dtype=float) == 1 for c in censoring])
+        uncens = np.cumprod(C_obs, axis=1).astype(bool)
+    else:
+        uncens = np.ones((n, K), dtype=bool)
+    uncens_before = np.column_stack([np.ones(n, dtype=bool), uncens[:, :-1]])
+
+    # ----- Forward: treatment and censoring models (observed history) ---
+    A_obs = np.column_stack([df[a].to_numpy(dtype=float) for a in treatments])
+    prob_a1: List[np.ndarray] = []
+    prob_c1: List[np.ndarray] = []
+    for k in range(K):
+        H = df[_hist_cols(k)].to_numpy(dtype=float)
+        X_k = np.column_stack([np.ones(n), H])
+        fit_rows = uncens_before[:, k]
+        prob_a1.append(_logit_fit_predict(X_k, A_obs[:, k], fit_rows))
+        if censoring:
+            X_c = np.column_stack([X_k, A_obs[:, k]])
+            c_k = (df[censoring[k]].to_numpy(dtype=float) == 1).astype(float)
+            prob_c1.append(_logit_fit_predict(X_c, c_k, fit_rows))
+        else:
+            prob_c1.append(np.ones(n))
+    propensities = prob_a1
 
     # Precompute the full regime matrix. For static regimes this is
     # trivial; for dynamic regimes we evaluate the callable forward in
-    # time on the OBSERVED history (NOT on a simulated counterfactual
-    # history — LTMLE's targeting step handles the causal counterfactual
-    # mapping; we need the regime value at each k evaluated on the data
-    # covariates at that k, which is what a data-dependent policy
-    # g(L_k) depends on anyway).
+    # time on the OBSERVED history (as R ltmle's abar matrix does).
     def _materialise_regime(regime: Regime) -> np.ndarray:
         """Return an (n × K) 0/1 matrix for the regime."""
         if not callable(regime):
@@ -527,174 +582,69 @@ def ltmle(
             history[f"__regime_A_{k}"] = a_k.astype(float)
         return mat
 
-    # Helper: target Q at each step given regime
     def _run_regime(regime: Regime) -> Tuple[float, np.ndarray, List[float], List[int]]:
-        """Returns ψ, influence-function contributions, per-step
-        epsilons (time order k=0..K-1) and failed targeting steps."""
-        # Cumulative regime-following indicator and cumulative weights
-        cum_follow = np.ones(n, dtype=bool)
-        cum_weight = np.ones(n)
-        regime_mat = _materialise_regime(regime)  # (n, K)
+        """Returns psi (original scale), influence curve (original scale),
+        per-step epsilons (time order k=0..K-1) and failed targeting steps."""
+        regime_mat = _materialise_regime(regime).astype(float)  # (n, K)
+        # Cumulative g of following the regime and staying uncensored.
+        g_step = np.column_stack(
+            [
+                np.where(regime_mat[:, k] == 1, prob_a1[k], 1 - prob_a1[k]) * prob_c1[k]
+                for k in range(K)
+            ]
+        )
+        cum_g = np.clip(np.cumprod(g_step, axis=1), p_lo, p_hi)
+        follow = np.cumprod(A_obs == regime_mat, axis=1).astype(bool)
 
-        # Start Q at the final outcome
-        Q = df[y].to_numpy(dtype=float).copy()
-        # Targeted outcome storage, updated from K-1 down to 0
+        Q_next = Y_scaled.copy()  # Q*_{k+1}; starts at the (scaled) outcome
+        ic = np.zeros(n, dtype=float)
         eps_list: List[float] = []
-        targeting_failures: List[int] = []
-        # Martingale part of the efficient influence curve,
-        # sum_k H_k (Q*_{k+1} - Q*_k), accumulated across time points.
-        ic_martingale = np.zeros(n, dtype=float)
-
+        failures: List[int] = []
         for k in reversed(range(K)):
-            # History at time k
-            hist_cols = list(baseline)
-            for j in range(k):
-                hist_cols += [treatments[j]] + list(covariates_time[j])
-            hist_cols += list(covariates_time[k])
-            X_k_hist = (
-                df[hist_cols].to_numpy(dtype=float) if hist_cols else np.ones((n, 0))
+            # Design: [1, history through L_k, A_k]; the prediction design
+            # sets every A_j (j <= k) to the regime (R ltmle's SetA).
+            cols = _hist_cols(k)
+            X_obs = np.column_stack(
+                [np.ones(n), df[cols + [treatments[k]]].to_numpy(dtype=float)]
             )
-            X_k_hist = np.column_stack([np.ones(n), X_k_hist])
+            X_reg = X_obs.copy()
+            for j in range(k + 1):
+                pos = 1 + (cols + [treatments[k]]).index(treatments[j])
+                X_reg[:, pos] = regime_mat[:, j]
+            fit_rows = uncens[:, k] & np.isfinite(Q_next)
+            beta = _logit_fit(X_obs[fit_rows], Q_next[fit_rows])
+            q_pred = np.clip(expit(X_reg @ beta), 1e-4, 0.9999)
+            off = logit(q_pred)
 
-            # Design matrix for Q regression includes A_k
-            A_k = df[treatments[k]].to_numpy(dtype=int)
-            X_q = np.column_stack([X_k_hist, A_k])
-
-            a_target = regime_mat[:, k]
-
-            # Fit Q_k. For binary outcomes we ONLY run the logistic
-            # regression at the terminal step k=K-1 where Q is the
-            # observed 0/1 outcome. At earlier steps Q is a continuous
-            # pseudo-outcome in [0,1] carried back from the targeted
-            # update; thresholding it at 0.5 to refit a binary logit
-            # collapses the bounded-Q recursion (van der Laan-Gruber
-            # 2012 run a quasi-logit on the continuous pseudo-outcome).
-            # We fall through to a linear regression at earlier steps
-            # and clip predictions into (0,1) before the targeting
-            # step applies its logit update.
-            at_terminal = k == K - 1
-            if outcome_type == "binary" and at_terminal:
-                m = _fit_logit(X_q, Q.astype(int))
-                Q_hat_raw = _predict_proba(m, X_q)
-                X_q_regime = np.column_stack([X_k_hist, a_target])
-                Q_hat_regime = _predict_proba(m, X_q_regime)
-            elif outcome_type == "binary":
-                # Linear model on the continuous pseudo-outcome, then
-                # clip into (ε, 1-ε) so the downstream logit update
-                # stays well-defined.
-                m = _fit_linear(X_q, Q)
-                Q_hat_raw = np.clip(m.predict(X_q), 1e-6, 1 - 1e-6)
-                X_q_regime = np.column_stack([X_k_hist, a_target])
-                Q_hat_regime = np.clip(m.predict(X_q_regime), 1e-6, 1 - 1e-6)
-            else:
-                m = _fit_linear(X_q, Q)
-                Q_hat_raw = m.predict(X_q)
-                X_q_regime = np.column_stack([X_k_hist, a_target])
-                Q_hat_regime = m.predict(X_q_regime)
-
-            # --- Targeting step -------------------------------------
-            # Clever covariate H_k = I(A_1:k = regime_1:k, C_1:k = 1) /
-            #                       prod_j g_j(regime) * prod_j P(C_j=1).
-            # The censoring indicator MUST gate the regime-following
-            # mask: previously this code used 1/p_c to inflate weights
-            # but did not exclude censored units from H, so censored
-            # rows continued contributing to the targeting equation
-            # past their censoring time with arbitrarily large weights.
-            # ltmle_survival.py already does it correctly; ltmle.py is
-            # being brought into line.
-            if censoring:
-                C_k_obs = df[censoring[k]].to_numpy(dtype=int)
-            else:
-                C_k_obs = np.ones(n, dtype=int)
-            indicator = cum_follow & (A_k == a_target) & (C_k_obs == 1)
-            # update cum_follow to include current
-            next_follow = indicator
-
-            # cumulative weight: product of 1/g_k along regime path
-            g_k = propensities[k]
-            # g under the (unit-specific) target assignment
-            g_regime = np.where(a_target == 1, g_k, 1 - g_k)
-            p_c = cens_probs[k]
-            inc = 1.0 / np.maximum(g_regime, 1e-6) / np.maximum(p_c, 1e-6)
-            new_cum_weight = cum_weight * inc
-
-            H = np.where(next_follow, new_cum_weight, 0.0)
-
-            # Fit epsilon by regressing (Q - Q_hat_raw) on H (linear for continuous,
-            # logit-update for binary).
-            if outcome_type == "binary":
-                q0 = np.clip(Q_hat_raw, 1e-6, 1 - 1e-6)
-                offset = _safe_logit(q0)
-                try:
-                    Yb = np.clip(Q, 1e-6, 1 - 1e-6)
-                    # One-step logistic update: regress logit(Y) - logit(q0) ~ H
-                    # Use weighted linear approximation
-                    resid = _safe_logit(Yb) - offset
-                    mask = H > 0
-                    if mask.sum() > 1 and np.std(H[mask]) > 1e-10:
-                        eps = float(
-                            np.sum(H[mask] * resid[mask]) / np.sum(H[mask] ** 2)
-                        )
-                    else:
-                        eps = 0.0
-                    Q_star_regime = expit(
-                        _safe_logit(Q_hat_regime) + eps * new_cum_weight
-                    )
-                except Exception as exc:
-                    eps = 0.0
-                    Q_star_regime = Q_hat_regime
-                    targeting_failures.append(k)
-                    warnings.warn(
-                        f"ltmle: targeting step k={k} failed "
-                        f"({type(exc).__name__}: {exc}); epsilon set to 0 "
-                        "(no targeting update at this time point — the "
-                        "estimate degrades toward untargeted "
-                        "g-computation).",
-                        ConvergenceWarning,
-                        stacklevel=3,
-                    )
-            else:
-                resid = Q - Q_hat_raw
-                mask = H > 0
-                if mask.sum() > 1 and np.std(H[mask]) > 1e-10:
-                    eps = float(np.sum(H[mask] * resid[mask]) / np.sum(H[mask] ** 2))
-                else:
-                    eps = 0.0
-                Q_star_regime = Q_hat_regime + eps * new_cum_weight
-
-            eps_list.append(eps)
-
-            # EIF martingale contribution at this time point, evaluated on
-            # the *observed* path: H_k (Q*_{k+1} - Q*_k). Q is still the
-            # incoming pseudo-outcome Q*_{k+1} here, and the targeted fit at
-            # the observed treatment is the same fluctuation applied to
-            # Q_hat_raw. Dropping this term leaves only Var(Q*_1), which is
-            # the dispersion of a fitted conditional mean rather than the
-            # sampling variability of the estimator.
-            if outcome_type == "binary":
-                q_star_obs = expit(
-                    _safe_logit(np.clip(Q_hat_raw, 1e-6, 1 - 1e-6)) + eps * H
+            subs = uncens[:, k] & follow[:, k]
+            w = np.where(subs, 1.0 / cum_g[:, k], 0.0)
+            try:
+                eps = _fluctuate(Q_next[subs], off[subs], w[subs])
+            except (np.linalg.LinAlgError, FloatingPointError, ValueError) as exc:
+                eps = 0.0
+                failures.append(k)
+                warnings.warn(
+                    f"ltmle: targeting step k={k} failed "
+                    f"({type(exc).__name__}: {exc}); epsilon set to 0 "
+                    "(no targeting update at this time point).",
+                    ConvergenceWarning,
+                    stacklevel=3,
                 )
-            else:
-                q_star_obs = Q_hat_raw + eps * H
-            ic_martingale = ic_martingale + H * (Q - q_star_obs)
+            q_star = expit(off + eps)
+            ic = ic + np.where(
+                subs, (np.nan_to_num(Q_next) - q_star) / cum_g[:, k], 0.0
+            )
+            eps_list.append(float(eps))
+            Q_next = q_star
 
-            # Feed targeted outcome to the previous time step as pseudo-outcome
-            Q = Q_star_regime
-            cum_follow = next_follow
-            cum_weight = new_cum_weight
-
-        psi = float(np.mean(Q))
-
-        # Efficient influence curve (van der Laan & Gruber 2012):
-        #   D*(O) = sum_k H_k (Q*_{k+1} - Q*_k) + (Q*_1 - psi)
-        # Both terms are required. The martingale sum is only zero when the
-        # targeting equation is solved exactly at every time point; this
-        # module uses a one-step update, so it is not, and omitting it made
-        # the reported SE two to three orders of magnitude too small.
-        ic = ic_martingale + (Q - psi)
-        # eps_list was appended k=K-1..0; reverse into time order.
-        return psi, ic, eps_list[::-1], sorted(targeting_failures)
+        psi_scaled = float(np.mean(Q_next))
+        ic = ic + (Q_next - psi_scaled)
+        return (
+            y_min + y_range * psi_scaled,
+            y_range * ic,
+            eps_list[::-1],
+            sorted(failures),
+        )
 
     psi1, ic1, eps1, fail1 = _run_regime(regime_treated)
     psi0, ic0, eps0, fail0 = _run_regime(regime_control)

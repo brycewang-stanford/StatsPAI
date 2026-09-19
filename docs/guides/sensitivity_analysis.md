@@ -478,9 +478,11 @@ width `y_upper − y_lower` and always contain zero — by construction
 they can never sign the effect. That is not a defect; it is the
 honest statement of what the data alone say. Each added assumption
 (`'mtr'`: treatment can't hurt anyone; `'mts'`: selection is monotone
-in levels) buys narrower bounds at the price of a defensible-or-not
-behavioural claim. Present the bounds as a ladder — none → MTR → MTS —
-so the reader sees exactly which assumption delivers which conclusion.
+in levels, which caps the upper bound at the naive difference;
+`'mts_mtr'`: both at once) buys narrower bounds at the price of a
+defensible-or-not behavioural claim. Present the bounds as a ladder —
+none → MTR → MTS → MTS + MTR — so the reader sees exactly which
+assumption delivers which conclusion.
 
 ### 5b. Lee trimming bounds
 

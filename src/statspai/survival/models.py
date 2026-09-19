@@ -659,8 +659,9 @@ def _cox_neg_logpl_efron(
     T: np.ndarray,
     E: np.ndarray,
     strata_arr: Optional[np.ndarray] = None,
+    breslow: bool = False,
 ) -> float:
-    """Negative log partial likelihood (Efron approximation for ties)."""
+    """Negative log partial likelihood (Efron, or Breslow, for ties)."""
     n, p = X.shape
     xb = X @ beta
     nll = 0.0
@@ -688,7 +689,8 @@ def _cox_neg_logpl_efron(
             nll -= event_xb_sum
             event_exp_sum = event_exp.sum()
             for ell in range(d):
-                nll += np.log(risk_sum - ell / d * event_exp_sum)
+                c = 0.0 if breslow else ell / d
+                nll += np.log(risk_sum - c * event_exp_sum)
 
     return float(nll)
 
@@ -699,8 +701,10 @@ def _cox_score_hessian_efron(
     T: np.ndarray,
     E: np.ndarray,
     strata_arr: Optional[np.ndarray] = None,
+    breslow: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Score vector and Hessian of Cox log partial likelihood (Efron)."""
+    """Score vector and Hessian of Cox log partial likelihood (Efron or
+    Breslow ties)."""
     n, p = X.shape
     xb = X @ beta
     score = np.zeros(p)
@@ -735,7 +739,7 @@ def _cox_score_hessian_efron(
             score += Xs[events_at_t].sum(axis=0)
 
             for ell in range(d):
-                c = ell / d
+                c = 0.0 if breslow else ell / d
                 denom = S0 - c * D0
                 if denom <= 0:
                     continue
@@ -1093,15 +1097,18 @@ def cox(
     if ties not in ("efron", "breslow"):
         raise ValueError(f"ties must be 'efron' or 'breslow', got {ties!r}")
 
+    breslow = ties == "breslow"
+
     def neg_logpl(b: np.ndarray) -> float:
-        # Breslow currently reuses the Efron helper, matching prior behavior.
-        return _cox_neg_logpl_efron(b, X, T, E, strata_arr)
+        return _cox_neg_logpl_efron(b, X, T, E, strata_arr, breslow=breslow)
 
     # Newton-Raphson with fallback to L-BFGS-B
     beta = beta0.copy()
     converged = False
     for iteration in range(50):
-        score, hessian = _cox_score_hessian_efron(beta, X, T, E, strata_arr)
+        score, hessian = _cox_score_hessian_efron(
+            beta, X, T, E, strata_arr, breslow=breslow
+        )
         neg_H = -hessian
         # Check if Hessian is positive definite
         try:
@@ -1135,7 +1142,7 @@ def cox(
         beta = result.x
 
     # ---- Variance estimation ------------------------------------------
-    _, hessian = _cox_score_hessian_efron(beta, X, T, E, strata_arr)
+    _, hessian = _cox_score_hessian_efron(beta, X, T, E, strata_arr, breslow=breslow)
     neg_H = -hessian
     try:
         info_inv = np.linalg.inv(neg_H)

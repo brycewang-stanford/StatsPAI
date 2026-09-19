@@ -5,17 +5,22 @@ Estimation
 ----------
 Two estimation paths are exposed via the ``nAGQ`` argument:
 
-    nAGQ = 1   →  Laplace approximation (default).  Fast; equivalent to
-                  lme4's ``glmer(nAGQ = 1)`` and Stata ``meglm`` default.
+    nAGQ = 1   →  Laplace approximation (default; lme4's default).
+                  Stata ``intmethod(laplace)``, ``glmer(nAGQ = 1)``,
+                  ``glmmTMB``.
     nAGQ ≥ 2   →  Adaptive Gauss-Hermite quadrature (AGHQ) with ``nAGQ``
-                  nodes per scalar random effect.  Required for unbiased
-                  small-cluster binary outcomes; matches lme4
-                  ``glmer(nAGQ = k)`` and Stata ``meglm intpoints(k)``.
-                  Currently restricted to single scalar random effects
-                  (``q = 1``, e.g. random intercept only) — same
-                  restriction lme4 imposes; tensor-product AGHQ over
-                  random slopes is not enabled because the cost grows
-                  as nAGQ^q.
+                  nodes centred at the conditional mode and scaled by the
+                  curvature there: Stata ``intmethod(mcaghermite)
+                  intpoints(k)``, ``glmer(nAGQ = k)``.  Stata's *default*
+                  (``mvaghermite``, 7 points, nodes re-centred at the
+                  posterior mean) is a different rule and is not
+                  implemented.  Restricted to a single scalar random effect
+                  (``q = 1``) -- the same restriction lme4 imposes.
+
+The curvature of the log integrand at the mode is the observed
+information by default (``curvature='observed'``; Stata, glmmTMB,
+ordinal::clmm).  ``curvature='expected'`` uses the Fisher weights, as
+lme4's PIRLS does; the two coincide for canonical links.
 
 Families
 --------
@@ -23,7 +28,8 @@ Five exponential / dispersion families are supported; each has its
 canonical link plus the most common practical link reported by Stata
 ``meglm``:
 
-    * ``gaussian``  identity link (``meglm`` Gaussian-with-RE).
+    * ``gaussian``  identity link, residual variance σ² estimated by ML
+      (``meglm`` Gaussian; Laplace is exact, so this is the ML LMM).
     * ``binomial``  logit link  (``melogit``).  Bernoulli or counts/trials.
     * ``poisson``   log link    (``mepoisson``).
     * ``gamma``     log link    — dispersion ``φ`` estimated by ML.
@@ -38,19 +44,13 @@ The integrated log-likelihood
     ℓ(β, θ, ψ) = Σ_j log ∫ f(y_j | β, ψ, u_j) φ(u_j; 0, G(θ)) du_j
 
 has no closed form for non-Gaussian families.  Each integral is
-approximated either by a first-order Laplace expansion around the
-conditional mode û_j (``nAGQ=1``) or by adaptive Gauss-Hermite
-quadrature recentered at û_j with curvature 1/H_j (``nAGQ>1``).
-
-Fixed-effect covariance uses the standard GLMM observed-information
-formula
-
-    Cov(β̂) = ( Σ_j X_j' W_j X_j
-              − Σ_j (X_j' W_j Z_j) H_j⁻¹ (Z_j' W_j X_j) )⁻¹,
-
-evaluated at the optimum.  This expression is the leading-order
-observed information of the marginal log-likelihood and is identical
-for nAGQ ≥ 1; only the point estimates β̂, θ̂ change with nAGQ.
+approximated either by a Laplace expansion around the conditional mode
+û_j (``nAGQ=1``) or by adaptive Gauss-Hermite quadrature recentred at
+û_j with curvature H_j (``nAGQ>1``).  The optimum is found by L-BFGS-B
+and finished with Newton steps on the numerical gradient and Hessian;
+the fixed-effect covariance is the corresponding block of the inverse
+numerical Hessian of the approximated marginal log-likelihood over all
+parameters (β, covariance parameters, dispersion) -- Stata's ``vce(oim)``.
 """
 
 from __future__ import annotations
@@ -66,6 +66,7 @@ from scipy.optimize import minimize
 
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from . import _glmm_ri as _ri
 from ._core import (
     _group_blocks,
     _GroupBlock,
@@ -237,16 +238,54 @@ class _Family:
     ) -> np.ndarray:
         raise NotImplementedError
 
+    @classmethod
+    def obs_weight(
+        cls,
+        y: np.ndarray,
+        mu: np.ndarray,
+        w: np.ndarray,
+        dispersion: Optional[float],
+    ) -> np.ndarray:
+        """Observed information on η, ``−∂² log f / ∂η²`` per observation.
+
+        Equal to the Fisher weight :meth:`irls_weight` for canonical links
+        (Gaussian-identity, binomial-logit, Poisson-log); the non-canonical
+        families (gamma-log, NB-2-log) override it.
+        """
+        return cls.irls_weight(mu, w, dispersion)
+
     @staticmethod
-    def log_lik(
+    def log_lik_vec(
         y: np.ndarray, mu: np.ndarray, w: np.ndarray, dispersion: Optional[float]
-    ) -> float:
+    ) -> np.ndarray:
+        """Per-observation log density ``log f(y_i; μ_i, …)``."""
         raise NotImplementedError
+
+    @classmethod
+    def log_lik(
+        cls,
+        y: np.ndarray,
+        mu: np.ndarray,
+        w: np.ndarray,
+        dispersion: Optional[float],
+    ) -> float:
+        return float(np.sum(cls.log_lik_vec(y, mu, w, dispersion)))
 
 
 class _Gaussian(_Family):
+    """
+    Gaussian family, identity link (Stata ``meglm, family(gaussian)``).
+
+    The residual variance ``σ²`` is estimated by ML jointly with (β, G)
+    through the packed parameter ``log σ²`` and reported as
+    ``var(Residual)``.  With an identity link the Laplace approximation
+    is exact, so the fit is the ML linear mixed model (``sp.mixed(...,
+    method='ml')``, ``lme4::lmer(REML = FALSE)``).
+    """
+
     name = "gaussian"
     link = "identity"
+    n_disp_params = 1
 
     @staticmethod
     def inv_link(eta: np.ndarray) -> np.ndarray:
@@ -258,7 +297,8 @@ class _Gaussian(_Family):
         w: np.ndarray,
         dispersion: Optional[float],
     ) -> np.ndarray:
-        return np.asarray(w, dtype=float)
+        s2 = dispersion if dispersion is not None else 1.0
+        return np.asarray((w / max(s2, _EPS)) * np.ones_like(mu), dtype=float)
 
     @staticmethod
     def score_eta(
@@ -267,22 +307,18 @@ class _Gaussian(_Family):
         w: np.ndarray,
         dispersion: Optional[float],
     ) -> np.ndarray:
-        return np.asarray(w * (y - mu), dtype=float)
+        s2 = dispersion if dispersion is not None else 1.0
+        return np.asarray(w * (y - mu) / max(s2, _EPS), dtype=float)
 
     @staticmethod
-    def log_lik(
+    def log_lik_vec(
         y: np.ndarray,
         mu: np.ndarray,
         w: np.ndarray,
         dispersion: Optional[float],
-    ) -> float:
-        # Use a unit residual variance scale; the LMM path is preferred for
-        # production Gaussian fits.  ``w`` here carries an observation weight
-        # (typically 1.0) and serves the same role as σ⁻² in a known-variance
-        # working likelihood.  This keeps the GLMM Gaussian path useful as a
-        # cross-check against ``mixed()`` without re-introducing residual
-        # variance into the optimizer state.
-        return float(-0.5 * np.sum(w * (y - mu) ** 2))
+    ) -> np.ndarray:
+        s2 = max(dispersion if dispersion is not None else 1.0, _EPS)
+        return -0.5 * w * ((y - mu) ** 2 / s2 + _LOG_2PI + np.log(s2))
 
 
 class _Binomial(_Family):
@@ -316,12 +352,12 @@ class _Binomial(_Family):
         return np.asarray(y - w * mu, dtype=float)
 
     @staticmethod
-    def log_lik(
+    def log_lik_vec(
         y: np.ndarray,
         mu: np.ndarray,
         w: np.ndarray,
         dispersion: Optional[float],
-    ) -> float:
+    ) -> np.ndarray:
         mu = np.clip(mu, _EPS, 1.0 - _EPS)
         # Include the log-binomial-coefficient constant so the
         # Bernoulli (w=1) and trials-binomial (w>1) cases yield the full
@@ -333,7 +369,7 @@ class _Binomial(_Family):
             - special.gammaln(y + 1.0)
             - special.gammaln(w - y + 1.0)
         )
-        return float(np.sum(log_coef + y * np.log(mu) + (w - y) * np.log(1.0 - mu)))
+        return log_coef + y * np.log(mu) + (w - y) * np.log(1.0 - mu)
 
 
 class _Poisson(_Family):
@@ -362,16 +398,16 @@ class _Poisson(_Family):
         return np.asarray(y - mu, dtype=float)
 
     @staticmethod
-    def log_lik(
+    def log_lik_vec(
         y: np.ndarray,
         mu: np.ndarray,
         w: np.ndarray,
         dispersion: Optional[float],
-    ) -> float:
+    ) -> np.ndarray:
         mu = np.clip(mu, 1e-300, None)
         # Include -log(y!) so AIC is comparable to negative-binomial fits
         # on the same y (NB collapses to Poisson + log(y!) as α → 0).
-        return float(np.sum(y * np.log(mu) - mu - special.gammaln(y + 1.0)))
+        return y * np.log(mu) - mu - special.gammaln(y + 1.0)
 
 
 class _Gamma(_Family):
@@ -384,11 +420,11 @@ class _Gamma(_Family):
         E[Y] = μ,   Var(Y) = φ μ².
 
     Dispersion ``φ`` is estimated jointly with (β, θ) through the packed
-    parameter ``log φ``.  IRLS weight uses the **expected** Fisher
-    information ``W = 1/φ`` per observation (Fisher scoring), which is
-    always positive — observed info ``W = y/(μ φ)`` would lose definiteness
-    when y < μ.  The score on η is the canonical-Pearson residual scaled
-    by 1/φ.
+    parameter ``log φ``.  The expected (Fisher) information on η is
+    ``W = 1/φ``; the observed information is ``W = y/(μ φ)``, positive for
+    every y > 0.  The Laplace / AGHQ curvature uses the observed form by
+    default (``curvature='observed'``), the Fisher form on request.  The
+    score on η is the canonical-Pearson residual scaled by 1/φ.
     """
 
     name = "gamma"
@@ -418,13 +454,27 @@ class _Gamma(_Family):
         phi = dispersion if dispersion is not None else 1.0
         return np.asarray(w * (y - mu) / (mu * max(phi, _EPS)), dtype=float)
 
-    @staticmethod
-    def log_lik(
+    @classmethod
+    def obs_weight(
+        cls,
         y: np.ndarray,
         mu: np.ndarray,
         w: np.ndarray,
         dispersion: Optional[float],
-    ) -> float:
+    ) -> np.ndarray:
+        # log f = -(η + y e^{-η})/φ + const  ⇒  −∂²/∂η² = y / (μ φ) > 0.
+        phi = dispersion if dispersion is not None else 1.0
+        return np.asarray(
+            w * y / (np.clip(mu, _EPS, None) * max(phi, _EPS)), dtype=float
+        )
+
+    @staticmethod
+    def log_lik_vec(
+        y: np.ndarray,
+        mu: np.ndarray,
+        w: np.ndarray,
+        dispersion: Optional[float],
+    ) -> np.ndarray:
         phi = dispersion if dispersion is not None else 1.0
         phi = max(phi, _EPS)
         inv_phi = 1.0 / phi
@@ -436,7 +486,7 @@ class _Gamma(_Family):
             - inv_phi * (np.log(np.clip(mu, _EPS, None)) + np.log(phi))
             - y / (np.clip(mu, _EPS, None) * phi)
         )
-        return float(np.sum(w * ll))
+        return w * ll
 
 
 class _NegBin(_Family):
@@ -480,18 +530,32 @@ class _NegBin(_Family):
         alpha = dispersion if dispersion is not None else 0.0
         return np.asarray(w * (y - mu) / (1.0 + alpha * mu), dtype=float)
 
-    @staticmethod
-    def log_lik(
+    @classmethod
+    def obs_weight(
+        cls,
         y: np.ndarray,
         mu: np.ndarray,
         w: np.ndarray,
         dispersion: Optional[float],
-    ) -> float:
+    ) -> np.ndarray:
+        # ∂ log f/∂η = (y − μ)/(1 + αμ);  −∂²/∂η² = μ(1 + αy)/(1 + αμ)² > 0.
+        alpha = dispersion if dispersion is not None else 0.0
+        return np.asarray(
+            w * mu * (1.0 + alpha * y) / (1.0 + alpha * mu) ** 2, dtype=float
+        )
+
+    @staticmethod
+    def log_lik_vec(
+        y: np.ndarray,
+        mu: np.ndarray,
+        w: np.ndarray,
+        dispersion: Optional[float],
+    ) -> np.ndarray:
         alpha = dispersion if dispersion is not None else 0.0
         if alpha <= _EPS:
             # Poisson limit
             mu_c = np.clip(mu, 1e-300, None)
-            return float(np.sum(w * (y * np.log(mu_c) - mu_c - special.gammaln(y + 1))))
+            return w * (y * np.log(mu_c) - mu_c - special.gammaln(y + 1))
         inv_a = 1.0 / alpha
         am = alpha * np.clip(mu, _EPS, None)
         ll = (
@@ -501,7 +565,7 @@ class _NegBin(_Family):
             - inv_a * np.log1p(am)
             + y * (np.log(am) - np.log1p(am))
         )
-        return float(np.sum(w * ll))
+        return w * ll
 
 
 _FAMILIES: Dict[str, _Family] = {
@@ -610,6 +674,7 @@ class MEGLMResult(ResultProtocolMixin):
     _dispersion: Optional[float] = field(default=None, repr=False)
     # Ordinal-logit specific — None for non-ordinal models.
     thresholds: Optional[pd.Series] = field(default=None, repr=False)
+    thresholds_se: Optional[pd.Series] = field(default=None, repr=False)
 
     # ------------------------------------------------------------------
     # Convenience
@@ -730,9 +795,11 @@ class MEGLMResult(ResultProtocolMixin):
         lines.append(f"  AIC / BIC:       {self.aic:.3f}  /  {self.bic:.3f}")
         lines.append(f"  Converged:       {self._converged}")
         if self._dispersion is not None:
-            disp_label = {"gamma": "phi", "nbinomial": "alpha"}.get(
-                self.family, "dispersion"
-            )
+            disp_label = {
+                "gamma": "phi",
+                "nbinomial": "alpha",
+                "gaussian": "sigma2",
+            }.get(self.family, "dispersion")
             lines.append(f"  Dispersion ({disp_label}): {self._dispersion:.6f}")
         lines.append("-" * w)
 
@@ -1046,22 +1113,42 @@ def _find_mode(
     u0: np.ndarray,
     dispersion: Optional[float],
     max_inner: int = 50,
-    tol: float = 1e-8,
+    tol: float = 1e-10,
+    observed: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray, float, bool]:
     """
     Newton iteration for the conditional mode û_j with step damping.
 
-    Returns ``(û_j, H_j, log|H_j|, converged)``.  ``converged`` is
-    ``False`` when the tolerance is not met within ``max_inner`` iterations
-    or when the Hessian cannot be factorised — the outer optimiser can
-    then record a warning rather than silently using a stale mode.
+    Returns ``(û_j, H_j, log|H_j|, converged)`` where ``H_j`` is the
+    curvature of the negative log integrand at û_j: the observed
+    information ``Z'W_obs Z + G⁻¹`` (``observed=True``, the Laplace
+    approximation proper) or the Fisher-weight version ``Z'W Z + G⁻¹``
+    (``observed=False``, lme4's PIRLS convention).  The two coincide for
+    canonical links.  ``converged`` is ``False`` when the tolerance is
+    not met within ``max_inner`` iterations or when the Hessian cannot be
+    factorised — the outer optimiser can then record a warning rather
+    than silently using a stale mode.
+
+    Once the step criterion is met one further Newton step is taken:
+    Newton converges quadratically, so this puts û_j at machine precision.
+    The outer objective (and its finite-difference gradient / Hessian)
+    depends on û_j through log|H_j|, which is not stationary in u, so a
+    mode that is only accurate to the stopping tolerance would inject that
+    tolerance into every numerical derivative.
     """
+    weight_fn = family.obs_weight if observed else None
+
+    def _curv(mu: np.ndarray) -> np.ndarray:
+        if weight_fn is not None:
+            return weight_fn(block.y, mu, weights, dispersion)
+        return family.irls_weight(mu, weights, dispersion)
+
     u = u0.copy()
     converged = False
     for _ in range(max_inner):
         eta = block.X @ beta + block.Z @ u + offset
         mu = family.inv_link(eta)
-        W = family.irls_weight(mu, weights, dispersion)
+        W = _curv(mu)
         s = family.score_eta(block.y, mu, weights, dispersion)
 
         grad = block.Z.T @ s - Ginv @ u
@@ -1080,16 +1167,15 @@ def _find_mode(
             step = step * (5.0 * max(u_norm, 1.0) / step_norm)
             step_norm = float(np.linalg.norm(step))
 
-        u_new = u + step
+        u = u + step
+        if converged:
+            break  # the extra quadratic-convergence step has been taken
         if step_norm < tol * (1 + u_norm):
-            u = u_new
             converged = True
-            break
-        u = u_new
 
     eta = block.X @ beta + block.Z @ u + offset
     mu = family.inv_link(eta)
-    W = family.irls_weight(mu, weights, dispersion)
+    W = _curv(mu)
     H = block.Z.T @ (W[:, None] * block.Z) + Ginv
     sign, logdet_H = np.linalg.slogdet(H)
     if sign <= 0:
@@ -1179,6 +1265,7 @@ def _glmm_nll(
     nAGQ: int,
     gh_nodes: Optional[np.ndarray],
     gh_log_weights: Optional[np.ndarray],
+    observed: bool = True,
 ) -> float:
     """
     Negative integrated log-likelihood for a GLMM.
@@ -1218,7 +1305,16 @@ def _glmm_nll(
         w = weights_list[j]
         off = offsets_list[j]
         u_hat, H_j, logdet_H, _ = _find_mode(
-            block, beta, G, Ginv, family, w, off, u_cache[j], dispersion
+            block,
+            beta,
+            G,
+            Ginv,
+            family,
+            w,
+            off,
+            u_cache[j],
+            dispersion,
+            observed=observed,
         )
         u_cache[j] = u_hat
 
@@ -1250,16 +1346,69 @@ def _glmm_nll(
     return nll
 
 
-def _numerical_oim_cov(
-    nll: Any, theta: np.ndarray, step: float = 1e-4
-) -> Optional[np.ndarray]:
-    """Inverse of the central-difference Hessian of ``nll`` at ``theta``.
+def _glmm_nll_ri(
+    theta: np.ndarray,
+    X: np.ndarray,
+    y: np.ndarray,
+    w: np.ndarray,
+    off: np.ndarray,
+    gidx: np.ndarray,
+    n_groups: int,
+    p_fixed: int,
+    cov_type: str,
+    family: _Family,
+    u_cache: np.ndarray,
+    nAGQ: int,
+    gh_nodes: Optional[np.ndarray],
+    gh_log_weights: Optional[np.ndarray],
+    observed: bool = True,
+) -> float:
+    """:func:`_glmm_nll` for a single random intercept, vectorised over
+    groups (see :mod:`._glmm_ri`).  Same parameter layout."""
+    beta = theta[:p_fixed]
+    n_cov = _n_cov_params(1, cov_type)
+    G = _unpack_G(theta[p_fixed : p_fixed + n_cov], 1, cov_type)
+    sigma2 = float(G[0, 0])
+    if not np.isfinite(sigma2) or sigma2 <= 0:
+        return 1e12
+    disp_packed = theta[p_fixed + n_cov :]
+    dispersion = family.parse_dispersion(disp_packed) if family.n_disp_params else None
+    eta_fixed = X @ beta + off
 
-    Returns ``None`` when the Hessian is not positive definite. The
-    second-order central-difference stencil has O(step^2) truncation
-    error; with ``step=1e-4`` on parameters of order one and an inner
-    Newton tolerance of 1e-10, the fixed-effect SEs agree with lme4 and
-    Stata melogit to better than 1e-6 on the parity fixtures.
+    def curv_score(eta: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        mu = family.inv_link(eta)
+        if observed:
+            W = family.obs_weight(y, mu, w, dispersion)
+        else:
+            W = family.irls_weight(mu, w, dispersion)
+        return W, family.score_eta(y, mu, w, dispersion)
+
+    def loglik_vec(eta: np.ndarray) -> np.ndarray:
+        return family.log_lik_vec(y, family.inv_link(eta), w, dispersion)
+
+    ll = _ri.ri_marginal_loglik(
+        eta_fixed,
+        gidx,
+        n_groups,
+        sigma2,
+        curv_score,
+        loglik_vec,
+        u_cache,
+        gh_nodes if nAGQ > 1 else None,
+        gh_log_weights if nAGQ > 1 else None,
+    )
+    if not np.isfinite(ll):
+        return 1e12
+    return -ll
+
+
+def _numerical_hessian(nll: Any, theta: np.ndarray, step: float = 1e-4) -> np.ndarray:
+    """Central-difference Hessian of ``nll`` at ``theta``.
+
+    The second-order stencil has O(step^2) truncation error; with
+    ``step=1e-4`` on parameters of order one and the inner mode solved to
+    machine precision (see :func:`_find_mode`) the error is ~1e-8
+    relative.
     """
     theta = np.asarray(theta, dtype=float)
     k = theta.size
@@ -1279,6 +1428,80 @@ def _numerical_oim_cov(
             fmp = float(nll(theta - ei + ej))
             fmm = float(nll(theta - ei - ej))
             H[i, j] = H[j, i] = (fpp - fpm - fmp + fmm) / (4.0 * step**2)
+    return H
+
+
+def _numerical_gradient(nll: Any, theta: np.ndarray, step: float = 1e-5) -> np.ndarray:
+    """Central-difference gradient of ``nll`` at ``theta``."""
+    theta = np.asarray(theta, dtype=float)
+    g = np.zeros(theta.size)
+    for i in range(theta.size):
+        ei = np.zeros(theta.size)
+        ei[i] = step
+        g[i] = (float(nll(theta + ei)) - float(nll(theta - ei))) / (2.0 * step)
+    return g
+
+
+def _newton_polish(
+    nll: Any, theta: np.ndarray, max_steps: int = 8, xtol: float = 1e-9
+) -> Tuple[np.ndarray, bool]:
+    """Finish a quasi-Newton optimum with full Newton steps.
+
+    L-BFGS-B on a finite-difference gradient stops where its *relative
+    function change* falls below ``ftol``; on an integrated likelihood of
+    order 10^3 that leaves the parameters ~1e-4 from the optimum, which
+    is the whole disagreement budget of a cross-package comparison.
+    Newton steps on the central-difference gradient and Hessian converge
+    quadratically from there to the noise floor of the numerical
+    derivatives (~1e-10 in the parameters).  Each step is backtracked so
+    the objective never increases.  Returns ``(theta, converged)``;
+    ``converged`` is ``False`` when the Hessian is not positive definite
+    (a variance component drifting to the boundary, a flat likelihood).
+    ``theta`` is then the last iterate at which the Hessian *was*
+    positive definite -- the starting point if there was none -- so the
+    covariance evaluated there is well defined, as it was before
+    polishing.
+    """
+    theta = np.asarray(theta, dtype=float).copy()
+    f0 = float(nll(theta))
+    last_pd = theta.copy()
+    for _ in range(max_steps):
+        g = _numerical_gradient(nll, theta)
+        H = _numerical_hessian(nll, theta)
+        try:
+            np.linalg.cholesky(H)
+        except np.linalg.LinAlgError:
+            return last_pd, False
+        last_pd = theta.copy()
+        step = np.linalg.solve(H, g)
+        t = 1.0
+        accepted = False
+        for _ in range(30):
+            cand = theta - t * step
+            f1 = float(nll(cand))
+            if np.isfinite(f1) and f1 <= f0 + 1e-12 * max(abs(f0), 1.0):
+                accepted = True
+                break
+            t *= 0.5
+        if not accepted:
+            # No decrease along the Newton direction: already at the
+            # numerical-derivative noise floor.
+            return theta, True
+        theta, f0 = cand, f1
+        if float(np.max(np.abs(t * step))) < xtol:
+            return theta, True
+    return theta, True
+
+
+def _numerical_oim_cov(
+    nll: Any, theta: np.ndarray, step: float = 1e-4
+) -> Optional[np.ndarray]:
+    """Inverse of the central-difference Hessian of ``nll`` at ``theta``.
+
+    Returns ``None`` when the Hessian is not positive definite.
+    """
+    H = _numerical_hessian(nll, theta, step=step)
+    k = H.shape[0]
     try:
         L = np.linalg.cholesky(H)
     except np.linalg.LinAlgError:
@@ -1354,6 +1577,7 @@ def meglm(
     maxiter: int = 300,
     tol: float = 1e-8,
     alpha: float = 0.05,
+    curvature: str = "observed",
 ) -> MEGLMResult:
     """
     Fit a generalised linear mixed model.
@@ -1389,16 +1613,40 @@ def meglm(
         ``nAGQ=7`` to match Stata ``meglm intpoints(7)``; values
         ``> 1`` require a single scalar random effect (no random slopes).
     maxiter, tol, alpha
-        Optimisation controls / CI width.  The default ``tol=1e-8`` keeps
-        the Laplace fixed-effect solution aligned with lme4/Stata reference
-        likelihood optima on the parity fixtures.  For AGHQ
-        (``nAGQ > 1``), the default optimiser budget is internally tightened
-        to ``maxiter=5000`` and ``tol=1e-12``; explicit user-supplied
-        controls are respected.
+        Optimisation controls / CI width.  ``maxiter`` / ``tol`` drive the
+        L-BFGS-B stage; for AGHQ (``nAGQ > 1``) the default budget is
+        internally tightened to ``maxiter=5000`` and ``tol=1e-12``
+        (explicit user-supplied controls are respected).  Either way the
+        optimum is then finished with full Newton steps on the numerical
+        gradient and Hessian, so the reported estimates sit at the
+        optimum to ~1e-9 rather than at L-BFGS-B's relative-function-change
+        stopping point (which on these likelihoods is ~1e-4 away).
+    curvature
+        Curvature of the log integrand used by the Laplace approximation
+        and to scale the AGHQ nodes.  ``'observed'`` (default) is the
+        second derivative of the conditional log-likelihood at the mode —
+        the Laplace approximation proper, and what Stata ``me*``
+        (``intmethod(laplace)`` / ``mcaghermite``), ``glmmTMB`` and
+        ``ordinal::clmm`` compute.  ``'expected'`` substitutes the Fisher
+        information (the PIRLS weights of ``lme4::glmer`` /
+        ``glmer.nb``).  The two coincide for canonical links (Gaussian,
+        binomial-logit, Poisson-log) and differ for gamma-log and
+        NB-2-log, where they are two different approximations of the same
+        integral.
 
     Returns
     -------
     MEGLMResult
+
+    Notes
+    -----
+    Stata's ``me*`` commands default to mean-variance adaptive quadrature
+    with 7 points (``intmethod(mvaghermite) intpoints(7)``); this function
+    defaults to the Laplace approximation (``nAGQ=1``, lme4's default).
+    To reproduce Stata's ``intmethod(laplace)`` pass ``nAGQ=1``; for
+    ``intmethod(mcaghermite) intpoints(k)`` pass ``nAGQ=k``.  Mean-variance
+    adaptive nodes are not implemented; they agree with mode-curvature
+    nodes only up to the quadrature error at ``k`` points.
 
     References
     ----------
@@ -1459,6 +1707,17 @@ def meglm(
     maxiter = _require_int_at_least(maxiter, "maxiter", 1)
     tol = _require_positive_float(tol, "tol")
     alpha = _require_open_unit_float(alpha, "alpha")
+    curvature = _require_string(curvature, "curvature")
+    if curvature not in ("observed", "expected"):
+        raise MethodIncompatibility(
+            f"curvature must be 'observed' or 'expected'; got {curvature!r}.",
+            recovery_hint=(
+                "Use curvature='observed' (Laplace proper; Stata, glmmTMB) "
+                "or 'expected' (Fisher weights; lme4)."
+            ),
+            diagnostics={"curvature": curvature},
+        )
+    observed = curvature == "observed"
 
     x_fixed = _coerce_column_list(x_fixed, "x_fixed")
     x_random_cols = _coerce_optional_column_list(x_random, "x_random")
@@ -1543,6 +1802,10 @@ def meglm(
 
     theta_cov0 = _initial_theta(q_random, cov_type, s2_init=0.3)
     theta_disp0 = fam.initial_dispersion()
+    if fam_key == "gaussian":
+        # Seed log σ² at the pooled residual variance of the warm start.
+        r0 = y_all - (X_all @ beta0 + off_all)
+        theta_disp0 = np.array([np.log(max(float(np.var(r0)), 1e-6))])
     theta0 = np.concatenate([beta0, theta_cov0, theta_disp0])
 
     u_cache = [np.zeros(q_random) for _ in blocks]
@@ -1560,10 +1823,33 @@ def meglm(
         if tol == 1e-8:
             opt_tol = 1e-12
 
-    res = minimize(
-        _glmm_nll,
-        theta0,
-        args=(
+    if q_random == 1:
+        # Vectorised random-intercept kernel (same numbers, no group loop).
+        gidx = np.repeat(np.arange(len(blocks)), [b.n for b in blocks])
+        u_arr = np.zeros(len(blocks))
+        ri_args = (
+            X_all,
+            y_all,
+            w_all,
+            off_all,
+            gidx,
+            len(blocks),
+            p_fixed,
+            cov_type,
+            fam,
+            u_arr,
+            nAGQ,
+            gh_nodes,
+            gh_log_weights,
+            observed,
+        )
+
+        def _objective(th: np.ndarray) -> float:
+            return _glmm_nll_ri(th, *ri_args)
+
+    else:
+        u_arr = None
+        nll_args_blocks = (
             blocks,
             weights_list,
             offsets_list,
@@ -1575,15 +1861,32 @@ def meglm(
             nAGQ,
             gh_nodes,
             gh_log_weights,
-        ),
+            observed,
+        )
+
+        def _objective(th: np.ndarray) -> float:
+            return _glmm_nll(th, *nll_args_blocks)
+
+    res = minimize(
+        _objective,
+        theta0,
         method="L-BFGS-B",
         options={"maxiter": opt_maxiter, "ftol": opt_tol, "gtol": opt_tol},
     )
     outer_converged = bool(res.success)
 
-    beta_hat = res.x[:p_fixed]
-    cov_hat = res.x[p_fixed : p_fixed + n_cov_pars]
-    disp_hat_packed = res.x[p_fixed + n_cov_pars :]
+    theta_hat, polish_ok = _newton_polish(_objective, res.x)
+    fun_hat = float(_objective(theta_hat))
+    if u_arr is not None:
+        u_cache = [np.array([v]) for v in u_arr]
+    if polish_ok:
+        # A Newton-certified optimum supersedes an L-BFGS-B "ABNORMAL"
+        # line-search exit, which is common at a flat optimum.
+        outer_converged = True
+
+    beta_hat = theta_hat[:p_fixed]
+    cov_hat = theta_hat[p_fixed : p_fixed + n_cov_pars]
+    disp_hat_packed = theta_hat[p_fixed + n_cov_pars :]
     G_hat = _unpack_G(cov_hat, q_random, cov_type)
     Ginv = np.linalg.inv(G_hat)
     dispersion = fam.parse_dispersion(disp_hat_packed) if n_disp else None
@@ -1596,20 +1899,9 @@ def meglm(
     # the uncertainty in the variance components that the conditional
     # Schur-complement formula below leaves out (which understated the
     # fixed-effect SEs by up to ~2% on the parity fixtures).
-    nll_args = (
-        blocks,
-        weights_list,
-        offsets_list,
-        p_fixed,
-        q_random,
-        cov_type,
-        fam,
-        [u.copy() for u in u_cache],
-        nAGQ,
-        gh_nodes,
-        gh_log_weights,
-    )
-    cov_full = _numerical_oim_cov(lambda th: _glmm_nll(th, *nll_args), res.x)
+    cov_full = _numerical_oim_cov(_objective, theta_hat)
+    if u_arr is not None:
+        u_cache = [np.array([v]) for v in u_arr]
 
     # BLUPs and fixed-effect info matrix at the optimum.
     blup_rows: List[Dict[str, float]] = []
@@ -1621,7 +1913,7 @@ def meglm(
     for j, (block, w, off) in enumerate(zip(blocks, weights_list, offsets_list)):
         u0 = u_cache[j]
         u_hat, H_j, _, inner_ok = _find_mode(
-            block, beta_hat, G_hat, Ginv, fam, w, off, u0, dispersion
+            block, beta_hat, G_hat, Ginv, fam, w, off, u0, dispersion, observed=observed
         )
         if not inner_ok:
             inner_failures += 1
@@ -1683,8 +1975,11 @@ def meglm(
                 vc[f"cov({random_names[j]},{random_names[i]})"] = float(G_hat[i, j])
                 vc[f"corr({random_names[j]},{random_names[i]})"] = float(corr)
     if dispersion is not None:
-        disp_label = "phi" if fam_key == "gamma" else "alpha"
-        vc[f"dispersion({disp_label})"] = float(dispersion)
+        if fam_key == "gaussian":
+            vc["var(Residual)"] = float(dispersion)
+        else:
+            disp_label = "phi" if fam_key == "gamma" else "alpha"
+            vc[f"dispersion({disp_label})"] = float(dispersion)
 
     method = "laplace" if nAGQ == 1 else f"AGHQ(nAGQ={nAGQ})"
 
@@ -1695,7 +1990,7 @@ def meglm(
         blups=blup_dict,
         n_obs=int(np.sum(w_all) if fam_key == "binomial" and trials else len(df)),
         n_groups=len(blocks),
-        log_likelihood=float(-res.fun),
+        log_likelihood=float(-fun_hat),
         family=fam_key,
         link=fam.link,
         _se_fixed=pd.Series(se_beta, index=fixed_names),

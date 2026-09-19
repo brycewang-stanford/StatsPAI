@@ -336,7 +336,7 @@
     }
   },
   {
-    "description": "Panel negative-binomial regression. model='fe' uses explicit entity fixed effects through nbreg; model='re' dispatches to the random-intercept NB-2 GLMM menbreg.",
+    "description": "Panel negative-binomial regression (Stata xtnbreg): model='fe' is the Hausman-Hall-Griliches conditional fixed-effects NB, model='re' the beta-dispersion random-effects NB; 'ufe' (dummy-variable NB-2) and 'normal_re' (menbreg) are the other panel NB estimators. Validation: certified parity evidence.",
     "name": "xtnbreg",
     "parameters": {
       "properties": {
@@ -371,7 +371,9 @@
           "enum": [
             "fe",
             "re",
-            "pooled"
+            "pooled",
+            "ufe",
+            "normal_re"
           ],
           "type": "string"
         },
@@ -845,8 +847,7 @@
           "type": "integer"
         },
         "p": {
-          "default": 1,
-          "description": "Polynomial order for point estimation",
+          "description": "Polynomial order for point estimation. None -> 1 (local linear) when deriv=0, deriv + 1 otherwise (R rdrobust rule).",
           "type": "integer"
         },
         "q": {
@@ -1644,6 +1645,11 @@
           "description": "Target estimand",
           "type": "string"
         },
+        "q_bound": {
+          "default": 1e-05,
+          "description": "The initial outcome predictions, on the [0, 1] scale the logistic fluctuation works on (continuous outcomes are min-max rescaled), are truncated to ``[q_bound, 1 - q_bound]`` before targeting. ``tmle::tmle`` truncates at ``1 - alpha = 5e-4`` (its default ``alpha = 0.9995``); pass ``q_bound=5e-4`` to reproduce it.",
+          "type": "number"
+        },
         "treat": {
           "description": "Binary treatment column (0/1)",
           "type": "string"
@@ -1960,7 +1966,7 @@
     }
   },
   {
-    "description": "Bayesian structural time series for causal impact analysis.",
+    "description": "Causal impact of an intervention on a time series: pre-period OLS on the covariate series with an AR(1) latent state (Kalman filter), post-period counterfactual forecasts and frequentist prediction intervals for pointwise, average and cumulative effects. Not the Bayesian structural time-series model of R CausalImpact. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "causal_impact",
     "parameters": {
       "properties": {
@@ -1991,7 +1997,7 @@
     }
   },
   {
-    "description": "Declare a complex survey design for design-corrected estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Declare a complex survey design for design-corrected estimation. Validation: certified parity evidence.",
     "name": "svydesign",
     "parameters": {
       "properties": {
@@ -2005,6 +2011,17 @@
         },
         "fpc": {
           "description": "Finite population correction column",
+          "type": "string"
+        },
+        "lonely_psu": {
+          "description": "How a stratum with a single sampled PSU enters the variance (R options(survey.lonely.psu=)): \"remove\"/\"certainty\" contribute zero, \"adjust\" centres at the grand mean of PSU totals, \"average\" rescales by #strata / #strata-with->1-PSU, \"fail\" raises (R default). None behaves as \"remove\" and warns when a lonely stratum is present.",
+          "enum": [
+            "remove",
+            "certainty",
+            "adjust",
+            "average",
+            "fail"
+          ],
           "type": "string"
         },
         "strata": {
@@ -3000,7 +3017,7 @@
     }
   },
   {
-    "description": "Marginal Structural Models for time-varying treatments with time-varying confounders. Uses stabilized IPTW and cluster-robust inference. Handles binary or continuous treatment; exposure summary can be current, cumulative, or ever. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Marginal Structural Models for time-varying treatments with time-varying confounders. Uses stabilized IPTW and cluster-robust inference. Handles binary or continuous treatment; exposure summary can be current, cumulative, or ever. Validation: certified parity evidence.",
     "name": "msm",
     "parameters": {
       "properties": {
@@ -3013,6 +3030,15 @@
         },
         "data": {
           "description": "Long-format panel (unit x time)",
+          "type": "string"
+        },
+        "density_sd": {
+          "default": "unbiased",
+          "description": "Residual-SD convention for continuous-treatment density weights; see :func:`stabilized_weights`.",
+          "enum": [
+            "unbiased",
+            "ml"
+          ],
           "type": "string"
         },
         "exposure": {
@@ -3075,7 +3101,7 @@
     }
   },
   {
-    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: certified parity evidence.",
     "name": "mediate_interventional",
     "parameters": {
       "properties": {
@@ -3182,7 +3208,7 @@
     }
   },
   {
-    "description": "Principal Stratification (Frangakis & Rubin 2002). 'monotonicity' method identifies the complier PCE (= LATE) and reports Zhang-Rubin sharp bounds on the always-survivor SACE. 'principal_score' uses Ding-Lu covariate weighting to point-identify stratum-specific effects under principal ignorability. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: Always-survivor SACE under encouragement design (Mealli & Pacini 2013, partial identification) is not yet implemented; only AIR / Wald LATE point estimates (tau_Y on outcome, tau_S on the post-treatment stratum) are reported when an instrument is supplied.",
+    "description": "Principal Stratification (Frangakis & Rubin 2002). 'monotonicity' method identifies the complier PCE (= LATE) and reports Zhang-Rubin sharp bounds on the always-survivor SACE. 'principal_score' uses Ding-Lu covariate weighting to point-identify stratum-specific effects under principal ignorability. Validation: certified evidence with scoped limitations. Known limitations: Always-survivor SACE under encouragement design (Mealli & Pacini 2013, partial identification) is not yet implemented; only AIR / Wald LATE point estimates (tau_Y on outcome, tau_S on the post-treatment stratum) are reported when an instrument is supplied.",
     "name": "principal_strat",
     "parameters": {
       "properties": {
@@ -3230,6 +3256,15 @@
         },
         "treat": {
           "description": "Binary treatment",
+          "type": "string"
+        },
+        "trimming": {
+          "default": "quantile",
+          "description": "Trimming rule for the Zhang-Rubin SACE bounds (monotonicity method); same meaning as in :func:`sp.lee_bounds`, with which the bounds coincide.",
+          "enum": [
+            "quantile",
+            "exact"
+          ],
           "type": "string"
         },
         "y": {
@@ -3295,7 +3330,7 @@
     }
   },
   {
-    "description": "Bartik / shift-share IV estimator (Adao-Kolesar-Morales 2019; Borusyak-Hull-Jaravel 2022). Uses pre-period industry / group shares x exogenous shocks as an instrument for local outcome exposure.",
+    "description": "Bartik / shift-share IV estimator (Adao-Kolesar-Morales 2019; Borusyak-Hull-Jaravel 2022). Uses pre-period industry / group shares x exogenous shocks as an instrument for local outcome exposure. Validation: certified parity evidence.",
     "name": "bartik",
     "parameters": {
       "properties": {
@@ -3622,7 +3657,7 @@
     }
   },
   {
-    "description": "Inverse Probability of Censoring Weights -- corrects for informative censoring under conditional independent censoring given covariates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Inverse Probability of Censoring Weights -- corrects for informative censoring under conditional independent censoring given covariates. Validation: certified parity evidence.",
     "name": "ipcw",
     "parameters": {
       "properties": {
@@ -3968,7 +4003,7 @@
     }
   },
   {
-    "description": "Parametric g-formula via Iterative Conditional Expectation (ICE) -- sequential regression of the outcome on treatment and time-varying confounders, with recursive plug-in of the target strategy. Consistent under correctly-specified nuisance models; handles time-varying confounding that vanilla adjustment cannot. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Parametric g-formula via Iterative Conditional Expectation (ICE) -- sequential regression of the outcome on treatment and time-varying confounders, with recursive plug-in of the target strategy. Consistent under correctly-specified nuisance models; handles time-varying confounding that vanilla adjustment cannot. Validation: certified parity evidence.",
     "name": "gformula_ice_fn",
     "parameters": {
       "properties": {
@@ -4253,7 +4288,7 @@
     }
   },
   {
-    "description": "Breslow-Day test for homogeneity of the odds ratio across strata, with Tarone correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Breslow-Day test for homogeneity of the odds ratio across strata, with Tarone correction. Validation: certified parity evidence.",
     "name": "breslow_day_test",
     "parameters": {
       "properties": {
@@ -4274,7 +4309,7 @@
     }
   },
   {
-    "description": "Direct age/covariate standardization of a rate using external standard-population weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Direct age/covariate standardization of a rate using external standard-population weights. Validation: certified parity evidence.",
     "name": "direct_standardize",
     "parameters": {
       "properties": {
@@ -4282,6 +4317,16 @@
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
+        },
+        "ci_method": {
+          "default": "lognormal",
+          "description": "``\"lognormal\"``: ``exp(log r +/- z se / r)``. ``\"gamma\"``: the Fay-Feuer gamma interval, as R ``epitools::ageadjust.direct``.",
+          "enum": [
+            "lognormal",
+            "gamma",
+            "normal"
+          ],
+          "type": "string"
         },
         "events": {
           "description": "events parameter (list | ndarray).",
@@ -4303,6 +4348,15 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "variance": {
+          "default": "poisson",
+          "description": "``\"poisson\"``: ``sum w_k^2 events_k / population_k^2`` (epitools). ``\"binomial\"``: ``sum w_k^2 r_k (1 - r_k) / population_k`` (Stata ``dstdize``).",
+          "enum": [
+            "poisson",
+            "binomial"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -4314,7 +4368,7 @@
     }
   },
   {
-    "description": "Indirect standardization -> SMR (standardized morbidity / mortality ratio) with Garwood exact Poisson CI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Indirect standardization -> SMR (standardized morbidity / mortality ratio) with Garwood exact Poisson CI. Validation: certified parity evidence.",
     "name": "indirect_standardize",
     "parameters": {
       "properties": {
@@ -4322,6 +4376,15 @@
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
+        },
+        "ci_method": {
+          "default": "exact",
+          "description": "\"exact\": exact Poisson (Garwood) interval for the observed count divided by the expected count, as Stata istdize. \"lognormal\": SMR exp(+/- z / sqrt(O)), as R epitools::ageadjust.indirect.",
+          "enum": [
+            "exact",
+            "lognormal"
+          ],
+          "type": "string"
         },
         "events_reference": {
           "description": "events_reference parameter (list | ndarray).",
@@ -5072,7 +5135,7 @@
     }
   },
   {
-    "description": "Sensitivity, specificity, PPV, NPV, LR+ / LR- with Wilson score CIs. Accepts either raw binary labels or pre-computed confusion counts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Sensitivity, specificity, PPV, NPV, LR+ / LR- with Wilson score CIs. Accepts either raw binary labels or pre-computed confusion counts. Validation: certified parity evidence.",
     "name": "sensitivity_specificity",
     "parameters": {
       "properties": {
@@ -5080,6 +5143,15 @@
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
+        },
+        "ci_method": {
+          "default": "wilson",
+          "description": "Interval for sensitivity and specificity: Wilson score (R ``epiR::epi.tests(method=\"wilson\")``) or Clopper-Pearson exact (``epi.tests`` default, Stata ``diagt``).",
+          "enum": [
+            "wilson",
+            "exact"
+          ],
+          "type": "string"
         },
         "fn": {
           "description": "fn parameter (int).",
@@ -5111,7 +5183,7 @@
     }
   },
   {
-    "description": "ROC curve with AUC (trapezoidal) and Hanley-McNeil (1982) standard error. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "ROC curve with AUC (trapezoidal) and Hanley-McNeil (1982) standard error. Validation: certified parity evidence.",
     "name": "roc_curve",
     "parameters": {
       "properties": {
@@ -5122,6 +5194,16 @@
         },
         "scores": {
           "description": "scores parameter (array).",
+          "type": "string"
+        },
+        "se_method": {
+          "default": "hanley",
+          "description": "``\"hanley\"``: the Hanley-McNeil (1982) variance with the exponential approximations ``Q1 = A/(2-A)``, ``Q2 = 2A^2/(1+A)``. ``\"hanley-empirical\"``: the same variance with ``Q1`` and ``Q2`` estimated from the data (ties weighted 1/3), which is what Stata ``roctab, hanley`` reports.",
+          "enum": [
+            "hanley",
+            "hanley-empirical",
+            "delong"
+          ],
           "type": "string"
         },
         "y_true": {
@@ -7604,7 +7686,7 @@
     }
   },
   {
-    "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: certified parity evidence.",
     "name": "iv_diag",
     "parameters": {
       "properties": {
@@ -8413,7 +8495,7 @@
     }
   },
   {
-    "description": "Harvest every valid 2x2 DID comparison from a staggered panel and aggregate them via precision-weighted / simple / cohort-weighted averages. Agnostic to cohort structure; useful for robustness comparisons against CS / SA / BJS.",
+    "description": "Harvest every valid 2x2 DID comparison from a staggered panel and aggregate them via precision-weighted / simple / cohort-weighted averages. Agnostic to cohort structure; useful for robustness comparisons against CS / SA / BJS. Validation: certified parity evidence.",
     "name": "harvest_did",
     "parameters": {
       "properties": {
@@ -9703,7 +9785,7 @@
     }
   },
   {
-    "description": "Dose-response function for a continuous treatment under unconfoundedness. Uses generalised propensity-score weighting or double ML for the conditional expectation E[Y(d)]. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Dose-response function for a continuous treatment under unconfoundedness. Uses generalised propensity-score weighting or double ML for the conditional expectation E[Y(d)]. Validation: certified parity evidence.",
     "name": "dose_response",
     "parameters": {
       "properties": {
@@ -10099,7 +10181,7 @@
     }
   },
   {
-    "description": "Effects of multi-valued (3+ level) treatments via AIPW. Returns pairwise contrasts versus a reference level. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Effects of multi-valued (3+ level) treatments via AIPW. Returns pairwise contrasts versus a reference level. Validation: certified parity evidence.",
     "name": "multi_treatment",
     "parameters": {
       "properties": {
@@ -10124,9 +10206,28 @@
           "description": "Number of bootstrap replications.",
           "type": "integer"
         },
+        "outcome_model": {
+          "default": "gbm",
+          "description": "Per-arm outcome regression ``mu_k(X)``. ``'gbm'`` is a gradient boosting regressor (100 trees, depth 3); ``'linear'`` is OLS with an intercept fitted separately in each arm, which is the outcome model of Stata's ``teffects aipw`` (``linear by ML``).",
+          "enum": [
+            "gbm",
+            "linear"
+          ],
+          "type": "string"
+        },
         "reference": {
           "description": "Reference treatment level (defaults to 0 / smallest)",
           "type": "integer"
+        },
+        "se_method": {
+          "default": "bootstrap",
+          "description": "``'bootstrap'`` re-fits the whole estimator (same outcome model) on ``n_bootstrap`` resamples. ``'influence'`` reports ``sd(phi_k - phi_ref) / sqrt(n)`` from the AIPW influence function with the nuisance fits treated as known.",
+          "enum": [
+            "bootstrap",
+            "influence",
+            "sandwich"
+          ],
+          "type": "string"
         },
         "treat": {
           "description": "Multi-valued treatment (int)",
@@ -10202,7 +10303,7 @@
     }
   },
   {
-    "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [pending verification] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable.",
+    "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [pending verification] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Validation: certified evidence with scoped limitations. Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable.",
     "name": "continuous_did",
     "parameters": {
       "properties": {
@@ -11595,10 +11696,19 @@
     }
   },
   {
-    "description": "DiD with time-varying covariates frozen at baseline (Caetano, Callaway, Payne & Rodrigues 2022 [pending verification]). Avoids the bad-controls bias that arises when treatment affects the covariates: freezes X at period g + baseline_offset (default g-1) per cohort and uses the frozen values as controls in a per-(g, t) outcome-regression DiD. Aggregates via cohort-size weights.",
+    "description": "DiD with time-varying covariates frozen at baseline (Caetano, Callaway, Payne & Rodrigues 2022, arXiv:2202.02903). Avoids the bad-controls bias that arises when treatment affects the covariates: freezes X at period g + baseline_offset (default g-1) per cohort and uses the frozen values as controls in a per-(g, t) outcome-regression DiD fitted on never-treated units (ptetools X_{g-1} estimator). aggregation='group' averages each cohort's post-period cells then weights cohorts by size; 'simple' weights every cell by its treated count. Validation: certified parity evidence.",
     "name": "did_timevarying_covariates",
     "parameters": {
       "properties": {
+        "aggregation": {
+          "default": "group",
+          "description": "``\"group\"``: average ATT(g, t) over each cohort's post periods, then across cohorts weighted by cohort size -- the overall ATT reported by ``ptetools`` and ``did::aggte(type = \"group\")``. ``\"simple\"``: weight every post cell by its number of treated units, as ``did::aggte(type = \"simple\")`` does on a balanced panel.",
+          "enum": [
+            "group",
+            "simple"
+          ],
+          "type": "string"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
@@ -12555,7 +12665,7 @@
     }
   },
   {
-    "description": "De Loecker & Warzynski (2012) firm-time markup estimator. Takes a fitted ProductionResult plus revenue and input-cost columns; returns mu_it = theta_v_it * (PQ)/(P_v V) where theta_v is the output elasticity of the flexible input. Cobb-Douglas only for now (translog forthcoming). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "De Loecker & Warzynski (2012) firm-time markup estimator. Takes a fitted ProductionResult plus revenue and input-cost columns; returns mu_it = theta_v_it * (PQ)/(P_v V) where theta_v is the output elasticity of the flexible input. Cobb-Douglas only for now (translog forthcoming). Validation: certified parity evidence.",
     "name": "markup",
     "parameters": {
       "properties": {
@@ -12591,7 +12701,7 @@
     }
   },
   {
-    "description": "Augmented inverse-probability weighting (AIPW) -- the canonical doubly-robust ATE estimator. Cross-fits an outcome regression and a propensity model and combines them via the efficient-influence-function formula, so the estimate is consistent if either nuisance is correctly specified (Robins, Rotnitzky & Zhao 1994). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Augmented inverse-probability weighting (AIPW) -- the canonical doubly-robust ATE estimator. Cross-fits an outcome regression and a propensity model and combines them via the efficient-influence-function formula, so the estimate is consistent if either nuisance is correctly specified (Robins, Rotnitzky & Zhao 1994). Validation: certified parity evidence.",
     "name": "aipw",
     "parameters": {
       "properties": {
@@ -12606,6 +12716,11 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "cross_fit": {
+          "default": true,
+          "description": "Cross-fit the nuisance models over ``n_folds`` random folds (Chernozhukov et al. 2018).",
+          "type": "boolean"
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -12625,6 +12740,15 @@
           "default": 5,
           "description": "Cross-fitting folds (>= 2)",
           "type": "integer"
+        },
+        "se_method": {
+          "default": "influence",
+          "description": "``'influence'`` reports ``sd(psi) / sqrt(n)`` from the estimated efficient influence function, treating the nuisance fits as known (the cross-fitting / DML convention; R ``AIPW`` reports the same quantity). ``'sandwich'`` stacks the logit score, the two OLS normal equations and the AIPW moment and reports the M-estimation sandwich (divisor ``n``), which accounts for the estimated nuisance parameters at finite ``n``.",
+          "enum": [
+            "influence",
+            "sandwich"
+          ],
+          "type": "string"
         },
         "seed": {
           "description": "Random seed for reproducible stochastic steps.",
@@ -12872,7 +12996,7 @@
     }
   },
   {
-    "description": "Callaway-Sant'Anna's estimand with **design-based** inference (Roth & Sant'Anna 2023). Same weights as sp.callaway_santanna -- every not-yet-treated cohort is a control -- but the standard error comes from random adoption timing rather than parallel trends. Use when timing was randomised and you want the familiar CS estimand; use sp.callaway_santanna when it was not. Units already treated in the first period are dropped, since ATT(g,t) is not identified for them. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: adoption timing was not randomised -- use sp.callaway_santanna, whose inference rests on parallel trends instead.",
+    "description": "Callaway-Sant'Anna's estimand with **design-based** inference (Roth & Sant'Anna 2023). Same weights as sp.callaway_santanna -- every not-yet-treated cohort is a control -- but the standard error comes from random adoption timing rather than parallel trends. Use when timing was randomised and you want the familiar CS estimand; use sp.callaway_santanna when it was not. Units already treated in the first period are dropped, since ATT(g,t) is not identified for them. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use sp.callaway_santanna, whose inference rests on parallel trends instead.",
     "name": "staggered_cs",
     "parameters": {
       "properties": {
@@ -12955,7 +13079,7 @@
     }
   },
   {
-    "description": "Sun-Abraham's estimand with **design-based** inference (Roth & Sant'Anna 2023). Identical to sp.staggered_cs except that only the last-treated cohort serves as control, which is what Sun & Abraham's interaction-weighted estimator does. Inference identifies off random adoption timing, not parallel trends. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: adoption timing was not randomised -- use sp.sun_abraham, whose inference rests on parallel trends instead.",
+    "description": "Sun-Abraham's estimand with **design-based** inference (Roth & Sant'Anna 2023). Identical to sp.staggered_cs except that only the last-treated cohort serves as control, which is what Sun & Abraham's interaction-weighted estimator does. Inference identifies off random adoption timing, not parallel trends. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use sp.sun_abraham, whose inference rests on parallel trends instead.",
     "name": "staggered_sa",
     "parameters": {
       "properties": {
@@ -13104,7 +13228,7 @@
     }
   },
   {
-    "description": "Butts spillover-ring DiD. The usual fix -- a spatial lag of treatment in a TWFE regression -- measures the direct effect against controls the spillover already reached. This sorts untreated units by distance to the nearest treated unit into spillover rings plus CLEAN controls beyond every ring, and estimates the direct effect and each ring's effect against the clean controls only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: there is no reference implementation, so this carries design-recovery evidence only and no cross-language parity; ring boundaries are the analyst's choice; there is no selector, and a too-wide outer ring silently contaminates the clean controls; covariate adjustment is not implemented.",
+    "description": "Butts spillover-ring DiD. The usual fix -- a spatial lag of treatment in a TWFE regression -- measures the direct effect against controls the spillover already reached. This sorts untreated units by distance to the nearest treated unit into spillover rings plus CLEAN controls beyond every ring, and estimates the direct effect and each ring's effect against the clean controls only. Validation: certified evidence with scoped limitations. Known limitations: there is no reference implementation, so this carries design-recovery evidence only and no cross-language parity; ring boundaries are the analyst's choice; there is no selector, and a too-wide outer ring silently contaminates the clean controls; covariate adjustment is not implemented.",
     "name": "spillover_did",
     "parameters": {
       "properties": {
@@ -13329,7 +13453,7 @@
     }
   },
   {
-    "description": "Treatment effect on the *distribution* of the outcome, bin by bin. Bins the outcome, runs Callaway-Sant'Anna on each bin indicator, and reports the effect on P(Y in bin). The per-bin effects sum to zero by construction -- treatment redistributes probability mass, it does not create it -- so the content is the SHAPE: which parts of the outcome distribution gained and which lost. A mean ATT of zero is perfectly consistent with large offsetting movements in the tails, and this is what shows them. R didFF::distDD. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: reports point estimates and standard errors only; the reference runs no test here and neither does this; simultaneous (uniform) confidence bands over bins are not implemented; the standard errors are pointwise only, so reading several bins at once overstates joint confidence.",
+    "description": "Treatment effect on the *distribution* of the outcome, bin by bin. Bins the outcome, runs Callaway-Sant'Anna on each bin indicator, and reports the effect on P(Y in bin). The per-bin effects sum to zero by construction -- treatment redistributes probability mass, it does not create it -- so the content is the SHAPE: which parts of the outcome distribution gained and which lost. A mean ATT of zero is perfectly consistent with large offsetting movements in the tails, and this is what shows them. R didFF::distDD. Validation: certified evidence with scoped limitations. Known limitations: reports point estimates and standard errors only; the reference runs no test here and neither does this; simultaneous (uniform) confidence bands over bins are not implemented; the standard errors are pointwise only, so reading several bins at once overstates joint confidence.",
     "name": "distributional_did",
     "parameters": {
       "properties": {
@@ -13630,7 +13754,7 @@
     }
   },
   {
-    "description": "McCrary (2008) density test for manipulation of the running variable at the cutoff in regression-discontinuity designs. A significant discontinuity in the density of x at c is direct evidence that units are sorting around the cutoff (e.g. test-taking strategy, income manipulation), invalidating local randomisation.",
+    "description": "McCrary (2008) density test for manipulation of the running variable at the cutoff in regression-discontinuity designs. A significant discontinuity in the density of x at c is direct evidence that units are sorting around the cutoff (e.g. test-taking strategy, income manipulation), invalidating local randomisation. Validation: certified parity evidence.",
     "name": "mccrary_test",
     "parameters": {
       "properties": {
@@ -13638,6 +13762,10 @@
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
+        },
+        "bin_width": {
+          "description": "Histogram bin width (``DCdensity``'s ``bin``). Default: ``2 sd(x) n^(-1/2)``.",
+          "type": "string"
         },
         "bw": {
           "description": "Bandwidth; auto if None",
@@ -13669,7 +13797,7 @@
     }
   },
   {
-    "description": "Oster (2019) sensitivity to selection on unobservables -- computes the bounding coefficient under the assumption that selection on unobservables (proportional to delta x selection on observables) brings the explained variance to r_max. The breakdown delta tells you how strong unobserved selection has to be to overturn your result.",
+    "description": "Oster (2019) sensitivity to selection on unobservables -- computes the bounding coefficient under the assumption that selection on unobservables (proportional to delta x selection on observables) brings the explained variance to r_max. The breakdown delta tells you how strong unobserved selection has to be to overturn your result. Validation: certified parity evidence.",
     "name": "oster_bounds",
     "parameters": {
       "properties": {
@@ -13728,7 +13856,7 @@
     }
   },
   {
-    "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the number of clusters is large (say > 50) -- ordinary CRV1 standard errors are already reliable and much cheaper. Cost: Runtime is roughly n_boot x (one restricted refit). This is the intended trade for few-cluster validity -- do not raise n_boot inside an outer search loop.",
+    "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: certified parity evidence. Do NOT use when: the number of clusters is large (say > 50) -- ordinary CRV1 standard errors are already reliable and much cheaper. Cost: Runtime is roughly n_boot x (one restricted refit). This is the intended trade for few-cluster validity -- do not raise n_boot inside an outer search loop.",
     "name": "wild_cluster_bootstrap",
     "parameters": {
       "properties": {
@@ -13942,7 +14070,7 @@
     }
   },
   {
-    "description": "Bias-aware confidence interval for fuzzy RD via Anderson-Rubin test inversion (Noack-Rothe 2024 Econometrica). Robust to weak first stages and avoids the power asymmetry of conventional 2SLS-style fuzzy RD CIs (Kaliski-Keane-Neal 2025).",
+    "description": "Bias-aware confidence interval for fuzzy RD via Anderson-Rubin test inversion (Noack-Rothe 2024 Econometrica). Robust to weak first stages and avoids the power asymmetry of conventional 2SLS-style fuzzy RD CIs (Kaliski-Keane-Neal 2025). Validation: certified parity evidence.",
     "name": "rd_bias_aware_fuzzy",
     "parameters": {
       "properties": {
@@ -14816,7 +14944,7 @@
         },
         "backend": {
           "default": "native",
-          "description": "``'native'`` solves the problem in Python. For ``method='smoothness'`` it computes the true Rambachan-Roth **fixed-length confidence interval**: the optimal affine estimator under ``Delta^SD(M)``, obtained from a convex program over the event-study covariance. On canonical ``did::mpdta`` it agrees with R ``HonestDiD`` to ~7e-5 on the interval width, the residual being ``HonestDiD``'s own Monte-Carlo folded-normal quantile. This needs the joint event-study covariance, which is recovered from a Callaway-Sant'Anna fit's influence functions; if it is unavailable the function falls back to a worst-case-bias interval and warns. For ``method='relative_magnitude'`` the native path is still the worst-case-bias approximation ``theta +/- M*max|delta_pre| +/- z*SE``. It tracks the reference closely but is not exact, and it warns. ``'honestdid'``/``'r'`` delegates to the R ``HonestDiD`` package through ``Rscript``. It is handed the same full covariance when one is recoverable; only when it is not does it fall back to ``diag(se2)``, which discards the (large, positive) cross-period covariance and materially changes the confidence set.",
+          "description": "``'native'`` solves the problem in Python. For ``method='smoothness'`` it computes the true Rambachan-Roth **fixed-length confidence interval**: the optimal affine estimator under ``Delta^SD(M)``, obtained from a convex program over the event-study covariance. With ``HonestDiD``'s Monte-Carlo folded-normal quantile replaced by the exact one, the half-length agrees with R ``HonestDiD::findOptimalFLCI`` to 1e-8 and the bounds to ~2e-5 (HonestDiD's coarser search over ``h``); against the shipped package the gap is that quantile's simulation error, ~1e-3 (``tests/reference_parity/test_did_synth_R_parity.py``). This needs the joint event-study covariance, which is recovered from a Callaway-Sant'Anna fit's influence functions; if it is unavailable the function falls back to a worst-case-bias interval and warns. For ``method='relative_magnitude'`` the native path is still the worst-case-bias approximation ``theta +/- M*max|delta_pre| +/- z*SE``. It tracks the reference closely but is not exact, and it warns. ``'honestdid'``/``'r'`` delegates to the R ``HonestDiD`` package through ``Rscript``. It is handed the same full covariance when one is recoverable; only when it is not does it fall back to ``diag(se2)``, which discards the (large, positive) cross-period covariance and materially changes the confidence set.",
           "enum": [
             "native",
             "honestdid",
@@ -14863,7 +14991,7 @@
     }
   },
   {
-    "description": "Compute the breakdown value of M. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute the breakdown value of M. Validation: certified parity evidence.",
     "name": "breakdown_m",
     "parameters": {
       "properties": {
@@ -14879,7 +15007,11 @@
         },
         "method": {
           "default": "smoothness",
-          "description": "Estimator or algorithm variant to use.",
+          "description": "The restriction whose confidence set is inverted; the same meaning as in :func:`honest_did`.",
+          "enum": [
+            "smoothness",
+            "relative_magnitude"
+          ],
           "type": "string"
         },
         "result": {
@@ -14944,7 +15076,7 @@
     }
   },
   {
-    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2').",
+    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Validation: certified parity evidence. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2').",
     "name": "bjs",
     "parameters": {
       "properties": {
@@ -15091,7 +15223,7 @@
     }
   },
   {
-    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2').",
+    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Validation: certified parity evidence. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2').",
     "name": "borusyak_jaravel_spiess",
     "parameters": {
       "properties": {
@@ -15238,7 +15370,7 @@
     }
   },
   {
-    "description": "Gardner (2021) two-stage DID estimator.",
+    "description": "Gardner (2021) two-stage DID estimator. Validation: certified parity evidence.",
     "name": "did_2stage",
     "parameters": {
       "properties": {
@@ -16504,7 +16636,7 @@
     }
   },
   {
-    "description": "TWFE decomposition: Goodman-Bacon (2021) + de Chaisemartin-D'Haultfoeuille weights.",
+    "description": "TWFE decomposition: Goodman-Bacon (2021) + de Chaisemartin-D'Haultfoeuille weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "twfe_decomposition",
     "parameters": {
       "properties": {
@@ -16545,7 +16677,7 @@
     }
   },
   {
-    "description": "RD plot: binned scatter with polynomial fit on each side of the cutoff.",
+    "description": "RD plot: binned scatter with polynomial fit on each side of the cutoff. Validation: certified parity evidence.",
     "name": "rdplot",
     "parameters": {
       "properties": {
@@ -16555,7 +16687,7 @@
         },
         "binselect": {
           "default": "esmv",
-          "description": "Bin selection method (when nbins=None): - 'es' : IMSE-optimal evenly spaced - 'espr' : IMSE-optimal evenly spaced (mimicking variance) - 'qs' : IMSE-optimal quantile-spaced - 'qspr' : IMSE-optimal quantile-spaced (mimicking variance) - 'esmv' : IMSE-optimal evenly spaced with variance mimicking (default) - 'qsmv' : IMSE-optimal quantile-spaced with variance mimicking",
+          "description": "Bin selection rule, as in R ``rdplot``: - 'es' : IMSE-optimal evenly spaced, spacings estimators - 'espr' : IMSE-optimal evenly spaced, polynomial regression - 'esmv' : mimicking-variance evenly spaced, spacings (default) - 'esmvpr' : mimicking-variance evenly spaced, polynomial regression - 'qs', 'qspr', 'qsmv', 'qsmvpr' : the quantile-spaced analogues With 20% or more mass points on either side the spacings variants switch to their polynomial-regression versions (R's ``masspoints='adjust'``).",
           "type": "string"
         },
         "c": {
@@ -16565,11 +16697,11 @@
         },
         "ci_level": {
           "default": 0.95,
-          "description": "Confidence level for pointwise CI bands.",
+          "description": "Level of the per-bin t intervals and the polynomial CI band.",
           "type": "number"
         },
         "covs": {
-          "description": "Covariates to partial out before binning and plotting.",
+          "description": "Covariates, adjusted for as R ``rdplot(covs=, covs_eval='mean')`` does.",
           "items": {
             "type": "string"
           },
@@ -16596,41 +16728,46 @@
           "type": "array"
         },
         "h": {
-          "description": "Bandwidth to display.",
+          "description": "Support of the global polynomial fit on each side (R's ``h``); defaults to the full range of ``x`` on that side.",
           "type": "number"
         },
         "hide_ci": {
           "default": false,
-          "description": "If True, suppress CI bands entirely.",
+          "description": "If True, suppress all interval displays.",
           "type": "boolean"
         },
         "kernel": {
-          "default": "triangular",
-          "description": "Kernel for the fitted curve.",
+          "default": "uniform",
+          "description": "Kernel weighting the global polynomial over ``[c - h, c + h]``. R's default. (Through 1.28.0 the default read 'triangular' but the argument was ignored and the fit was unweighted.)",
+          "enum": [
+            "uniform",
+            "triangular",
+            "epanechnikov"
+          ],
           "type": "string"
         },
         "nbins": {
-          "description": "Bins per side. If None, uses data-driven selection via binselect.",
+          "description": "Bins per side. If None, chosen by ``binselect``.",
           "type": "integer"
         },
         "p": {
           "default": 4,
-          "description": "Polynomial order for the fitted curve.",
+          "description": "Order of the global polynomial fitted on each side.",
           "type": "integer"
         },
         "scatter": {
           "default": true,
-          "description": "Show binned scatter points.",
+          "description": "Show binned means.",
           "type": "boolean"
         },
         "shade_ci": {
           "default": true,
-          "description": "Show confidence interval bands around the polynomial fit.",
+          "description": "Shade a pointwise CI band around the polynomial (a StatsPAI addition; not shown when ``covs`` is given).",
           "type": "boolean"
         },
         "show_bw": {
           "default": false,
-          "description": "If True, shades the bandwidth window.",
+          "description": "If True, shades the ``sp.rdrobust`` bandwidth window.",
           "type": "boolean"
         },
         "title": {
@@ -16638,7 +16775,7 @@
           "type": "string"
         },
         "weights": {
-          "description": "Column name for observation weights in polynomial fitting.",
+          "description": "Observation weights for the polynomial fit.",
           "type": "string"
         },
         "x": {
@@ -16667,7 +16804,7 @@
     }
   },
   {
-    "description": "Boundary-adaptive density discontinuity plot at the RD cutoff.",
+    "description": "Density of the running variable on each side of the cutoff. Validation: certified parity evidence.",
     "name": "rdplotdensity",
     "parameters": {
       "properties": {
@@ -16682,7 +16819,7 @@
         },
         "ci_level": {
           "default": 0.95,
-          "description": "Confidence level for CI bands.",
+          "description": "Level of the robust bias-corrected band ``f_q +/- z se_q``.",
           "type": "number"
         },
         "data": {
@@ -16701,27 +16838,30 @@
           "type": "array"
         },
         "h": {
-          "description": "Bandwidth. If None, side-specific Silverman pilot.",
-          "type": "number"
+          "description": "Bandwidths ``(h_left, h_right)``; by default those of :func:`sp.rddensity` at the same ``c`` and ``p``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "hist": {
           "default": true,
-          "description": "Overlay histogram.",
+          "description": "Overlay a density-scaled histogram.",
           "type": "boolean"
         },
         "n_grid": {
           "default": 50,
-          "description": "Grid points per side for the density curve.",
+          "description": "Grid points per side (R's ``plotN``, whose default is 10).",
           "type": "integer"
         },
         "nbins": {
           "default": 30,
-          "description": "Number of histogram bins per side.",
+          "description": "Histogram bins per side.",
           "type": "integer"
         },
         "p": {
           "default": 2,
-          "description": "Polynomial order for the CDF regression (p=2 recommended; p=1 is faster but with worse boundary behavior).",
+          "description": "Local polynomial order (``rddensity``'s ``p``).",
           "type": "integer"
         },
         "title": {
@@ -17110,7 +17250,7 @@
     }
   },
   {
-    "description": "Regression Kink Design estimator (Card et al., 2015).",
+    "description": "Regression Kink Design estimator (Card et al., 2015). Validation: certified parity evidence.",
     "name": "rkd",
     "parameters": {
       "properties": {
@@ -17133,7 +17273,7 @@
           "type": "string"
         },
         "h": {
-          "description": "Bandwidth. If None, an MSE-optimal bandwidth is selected automatically.",
+          "description": "Bandwidth. If None, the CCT MSE-optimal bandwidth for the first derivative (``rdrobust(deriv=1, bwselect='mserd', vce='hc1')``) is selected.",
           "type": "number"
         },
         "kernel": {
@@ -17377,7 +17517,7 @@
     }
   },
   {
-    "description": "Sensitivity of RD estimates across different window widths.",
+    "description": "Sensitivity of RD estimates across different window widths. Validation: certified parity evidence.",
     "name": "rdsensitivity",
     "parameters": {
       "properties": {
@@ -17450,7 +17590,7 @@
     }
   },
   {
-    "description": "Rosenbaum sensitivity bounds for RD under local randomization.",
+    "description": "Rosenbaum sensitivity bounds for RD under local randomization. Validation: certified parity evidence.",
     "name": "rdrbounds",
     "parameters": {
       "properties": {
@@ -17464,7 +17604,7 @@
           "type": "string"
         },
         "gamma_list": {
-          "description": "Odds ratios to evaluate. Defaults to [1, 1.5, 2, 2.5, 3, 4, 5]. gamma=1 is pure randomization; gamma>1 allows confounding.",
+          "description": "Odds ratios. Defaults to ``[1, 1.5, 2, 2.5, 3, 4, 5]``.",
           "items": {
             "type": "string"
           },
@@ -17472,7 +17612,7 @@
         },
         "n_perms": {
           "default": 1000,
-          "description": "Number of permutations for p-value computation.",
+          "description": "Bernoulli assignment draws per p-value. The same draws are reused across thresholds and ``Gamma`` values (common random numbers, as R reseeds before each p-value).",
           "type": "integer"
         },
         "seed": {
@@ -17482,15 +17622,19 @@
         },
         "statistic": {
           "default": "ranksum",
-          "description": "Test statistic (ranksum is standard for Rosenbaum bounds).",
+          "description": "``'ranksum'`` is R's standardised rank sum (control-rank sum minus its mean over ``sqrt(n0 n1 var(ranks) / n)``); ``'diffmeans'`` the difference in means.",
+          "enum": [
+            "ranksum",
+            "diffmeans"
+          ],
           "type": "string"
         },
         "wl": {
-          "description": "Window left bound offset (typically negative).",
+          "description": "Window ``[c + wl, c + wr]`` (``wl`` typically negative).",
           "type": "number"
         },
         "wr": {
-          "description": "Window right bound offset (typically positive).",
+          "description": "Window ``[c + wl, c + wr]`` (``wl`` typically negative).",
           "type": "number"
         },
         "x": {
@@ -17511,70 +17655,93 @@
     }
   },
   {
-    "description": "Estimate conditional average treatment effects (CATE) in RD designs.",
+    "description": "Conditional average treatment effects (CATE) in sharp RD designs. Validation: certified parity evidence.",
     "name": "rdhte",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals.",
+          "description": "Significance level for confidence intervals and tests.",
           "type": "number"
         },
         "b": {
-          "description": "Bandwidth for bias correction. Defaults to h.",
+          "description": "Bandwidth of the bias-correction fit. Defaults to ``h`` (R has no separate ``b``). Through 1.28.0 this argument was accepted and ignored.",
           "type": "number"
         },
         "bwselect": {
           "default": "mserd",
-          "description": "Bandwidth selection method: 'mserd' or 'msetwo'.",
+          "description": "Any ``rdbwselect`` rule.",
           "type": "string"
         },
         "c": {
           "default": 0,
-          "description": "RD cutoff value.",
+          "description": "Cutoff.",
           "type": "number"
         },
         "cluster": {
-          "description": "Cluster variable name for cluster-robust standard errors.",
+          "description": "Cluster variable (CR1).",
           "type": "string"
         },
         "data": {
-          "description": "Input dataset.",
+          "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
         "eval_points": {
-          "description": "Z values at which to evaluate CATE. Each row is a point in Z-space. If None, n_eval equally spaced quantiles (10th to 90th pctile) are used.",
+          "description": "``z`` values at which to report ``CATE(z)`` (continuous ``z``).",
           "type": "string"
         },
         "h": {
-          "description": "Bandwidth for estimation. If None, MSE-optimal bandwidth is selected.",
-          "type": "number"
+          "description": "Bandwidth, or ``(h_left, h_right)``. Default: ``rdrobust``'s ``rdbwselect`` (``bwselect``) on the running variable -- separately in each subgroup for a binary ``z``, as R does.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "kernel": {
           "default": "triangular",
-          "description": "Kernel function: 'triangular', 'uniform', or 'epanechnikov'.",
+          "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "epanechnikov",
+            "uniform"
+          ],
           "type": "string"
         },
         "n_eval": {
           "default": 20,
-          "description": "Number of evaluation points when eval_points is not provided.",
+          "description": "Number of eval.",
           "type": "integer"
         },
         "p": {
           "default": 1,
-          "description": "Polynomial order for the running variable (1 = local linear).",
+          "description": "Polynomial order of the point estimate.",
           "type": "integer"
         },
+        "q": {
+          "description": "Order of the bias-correction fit, default ``p + 1``.",
+          "type": "integer"
+        },
+        "vce": {
+          "description": "Default ``'hc3'``, or ``'cr1'`` with ``cluster`` (R's defaults).",
+          "enum": [
+            "hc0",
+            "hc1",
+            "hc2",
+            "hc3",
+            "cr1"
+          ],
+          "type": "string"
+        },
         "x": {
-          "description": "Running variable name.",
+          "description": "Outcome and running variable.",
           "type": "string"
         },
         "y": {
-          "description": "Outcome variable name.",
+          "description": "Outcome and running variable.",
           "type": "string"
         },
         "z": {
-          "description": "Covariate(s) for treatment effect heterogeneity.",
+          "description": "Covariate(s) the effect varies with. A single 0/1 column is treated as two subgroups (R's factor rule).",
           "items": {
             "type": "string"
           },
@@ -17591,39 +17758,56 @@
     }
   },
   {
-    "description": "MSE-optimal bandwidth selection for the fully interacted RD model.",
+    "description": "Bandwidth selection for :func:`rdhte`, as R ``rdhte::rdbwhte``. Validation: certified parity evidence.",
     "name": "rdbwhte",
     "parameters": {
       "properties": {
+        "bwselect": {
+          "default": "mserd",
+          "description": "bwselect parameter (str).",
+          "type": "string"
+        },
         "c": {
           "default": 0,
-          "description": "RD cutoff value.",
+          "description": "c parameter (float).",
           "type": "number"
         },
+        "cluster": {
+          "description": "Cluster identifier column for clustered standard errors.",
+          "type": "string"
+        },
         "data": {
-          "description": "Input dataset.",
+          "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
         "kernel": {
           "default": "triangular",
-          "description": "Kernel function.",
+          "description": "Kernel function used for weighting or smoothing.",
           "type": "string"
         },
         "p": {
           "default": 1,
-          "description": "Polynomial order.",
+          "description": "p parameter (int).",
           "type": "integer"
         },
+        "q": {
+          "description": "Quantile level.",
+          "type": "integer"
+        },
+        "vce": {
+          "description": "vce parameter (Optional[str]).",
+          "type": "string"
+        },
         "x": {
-          "description": "Running variable name.",
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
           "type": "string"
         },
         "y": {
-          "description": "Outcome variable name.",
+          "description": "Outcome variable column name or outcome array.",
           "type": "string"
         },
         "z": {
-          "description": "Covariate(s) for treatment effect heterogeneity.",
+          "description": "Instrument, proxy, or auxiliary variable used by this estimator.",
           "items": {
             "type": "string"
           },
@@ -17640,27 +17824,30 @@
     }
   },
   {
-    "description": "Compute a weighted linear combination of CATE estimates.",
+    "description": "Linear combinations of :func:`rdhte` effects, as R ``rdhte_lincom``. Validation: certified parity evidence.",
     "name": "rdhte_lincom",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level.",
+          "description": "Significance level for confidence intervals and tests.",
           "type": "number"
         },
+        "linfct": {
+          "description": "linfct parameter (Optional[numpy.ndarray]).",
+          "type": "string"
+        },
         "result": {
-          "description": "Result from rdhte().",
+          "description": "result parameter (CausalResult).",
           "type": "string"
         },
         "weights": {
-          "description": "Linear combination weights. Must have length equal to the number of evaluation points in result.detail.",
+          "description": "Observation weights.",
           "type": "string"
         }
       },
       "required": [
-        "result",
-        "weights"
+        "result"
       ],
       "type": "object"
     }
@@ -18178,7 +18365,7 @@
     }
   },
   {
-    "description": "De-meaned / De-trended Synthetic Control Method.",
+    "description": "De-meaned / De-trended Synthetic Control Method. Validation: certified parity evidence.",
     "name": "demeaned_synth",
     "parameters": {
       "properties": {
@@ -18188,7 +18375,7 @@
           "type": "number"
         },
         "covariates": {
-          "description": "Additional covariates to match on.",
+          "description": "Not supported: the weights are fitted on (de-meaned / de-trended) pre-treatment outcomes only. Passing covariates raises ``NotImplementedError`` (it used to be silently ignored).",
           "items": {
             "type": "string"
           },
@@ -18250,7 +18437,7 @@
     }
   },
   {
-    "description": "Robust / unconstrained Synthetic Control.",
+    "description": "Robust / unconstrained Synthetic Control. Validation: certified parity evidence.",
     "name": "robust_synth",
     "parameters": {
       "properties": {
@@ -18260,7 +18447,7 @@
           "type": "number"
         },
         "covariates": {
-          "description": "Additional covariates to match on.",
+          "description": "Not supported: the weights are fitted on pre-treatment outcomes only. Passing covariates raises ``NotImplementedError`` (it used to be silently ignored).",
           "items": {
             "type": "string"
           },
@@ -18272,17 +18459,17 @@
         },
         "intercept": {
           "default": true,
-          "description": "Fit an intercept (level shift). Only for unconstrained / elastic_net.",
+          "description": "Fit an unpenalised intercept (level shift). Only for unconstrained / elastic_net.",
           "type": "boolean"
         },
         "l1_penalty": {
           "default": 0.0,
-          "description": "Lasso (L1) penalty strength.",
+          "description": "L1 penalty ``l1_penalty * ||w||_1`` in the objective ``||y - mu - X w||^2 + l2 ||w||^2 + l1 ||w||_1``. glmnet's ``(lambda, alpha)`` on the same data maps to ``l1 = 2 n lambda alpha`` (``n`` = pre-periods) once ``y`` is scaled to unit (1/n) standard deviation.",
           "type": "number"
         },
         "l2_penalty": {
           "default": 0.01,
-          "description": "Ridge (L2) penalty strength.",
+          "description": "Ridge penalty ``l2_penalty * ||w||^2`` (glmnet: ``l2 = n lambda (1 - alpha)``). ``0`` with ``l1_penalty=0`` is ordinary least squares with an intercept -- Doudchenko & Imbens' unconstrained estimator, identical to ``scpi::scest(w.constr = list(name = \"ols\"))`` on ``scdata(constant = TRUE)``.",
           "type": "number"
         },
         "outcome": {
@@ -18312,7 +18499,7 @@
         },
         "variant": {
           "default": "unconstrained",
-          "description": "* ``'unconstrained'`` -- no sign / sum constraints; optional intercept. * ``'elastic_net'`` -- L1 + L2 penalty, no sign constraints. * ``'penalized'`` -- classic SCM constraints + elastic-net penalty.",
+          "description": "* ``'unconstrained'`` -- no sign / sum constraints; optional intercept. * ``'elastic_net'`` -- L1 + L2 penalty, no sign constraints. * ``'penalized'`` -- simplex constraints + ridge penalty (see the module docstring; not Abadie & L'Hour 2021).",
           "enum": [
             "unconstrained",
             "elastic_net",
@@ -18419,7 +18606,7 @@
     }
   },
   {
-    "description": "Staggered Adoption Synthetic Control.",
+    "description": "Staggered Adoption Synthetic Control (Ben-Michael, Feller & Rothstein). Validation: certified parity evidence.",
     "name": "staggered_synth",
     "parameters": {
       "properties": {
@@ -18429,17 +18616,35 @@
           "type": "number"
         },
         "data": {
-          "description": "Long-format panel data.",
+          "description": "Balanced long-format panel.",
           "type": "string"
+        },
+        "fixedeff": {
+          "default": false,
+          "description": "De-mean outcomes by unit before fitting (multisynth ``fixedeff``; note multisynth's own default is ``TRUE``).",
+          "type": "boolean"
         },
         "method": {
           "default": "separate",
-          "description": "* ``'separate'`` -- fit a separate SCM for each treated unit. * ``'pooled'`` -- partially pool weights across cohorts with the same adoption time.",
+          "description": "* ``'separate'`` -- one set of weights per treated unit (multisynth ``time_cohort = FALSE``). * ``'pooled'`` -- one set of weights per adoption cohort, fitted to the cohort's summed outcomes (multisynth ``time_cohort = TRUE``).",
           "enum": [
             "separate",
             "pooled"
           ],
           "type": "string"
+        },
+        "n_lags": {
+          "description": "Number of pre-treatment periods to balance (``None`` = all periods before the last adoption date, as in multisynth).",
+          "type": "integer"
+        },
+        "n_leads": {
+          "description": "Number of post-treatment event times in each effect window. ``None`` uses every period through the end of the panel (the longest window), which restricts donors to never-treated units.",
+          "type": "integer"
+        },
+        "nu": {
+          "default": 0.0,
+          "description": "Pooling parameter. ``0`` fits each unit (cohort) separately; ``'auto'`` uses multisynth's default heuristic.",
+          "type": "number"
         },
         "outcome": {
           "description": "Outcome variable name.",
@@ -18447,20 +18652,29 @@
         },
         "penalization": {
           "default": 0.0,
-          "description": "Ridge penalty on donor weights.",
+          "description": "Ridge penalty ``lambda`` on the weights (multisynth ``lambda``), in the scale of the objective in the module docstring.",
           "type": "number"
         },
         "placebo": {
           "default": true,
-          "description": "Run placebo inference.",
+          "description": "Compute inference (see ``se_method``). ``False`` returns a point estimate with NaN standard error / p-value.",
           "type": "boolean"
+        },
+        "se_method": {
+          "default": "placebo",
+          "description": "* ``'placebo'`` -- in-space placebos: every never-treated unit is assigned each cohort's adoption date and fitted from the other never-treated units; SE is the standard deviation of the placebo ATTs and the p-value is the placebo rank of ``|ATT|``. * ``'jackknife'`` -- leave-one-unit-out jackknife over all units with ``nu`` held at its full-sample value, exactly as ``summary(multisynth, inf_type = \"jackknife\")``; normal-theory p-value and CI.",
+          "enum": [
+            "placebo",
+            "jackknife"
+          ],
+          "type": "string"
         },
         "time": {
           "description": "Time period column.",
           "type": "string"
         },
         "treatment": {
-          "description": "Binary treatment indicator (0/1). Units transition from 0 to 1 at their respective adoption times.",
+          "description": "Binary, absorbing treatment indicator (0/1). A unit's adoption period is the first period with ``treatment == 1``.",
           "type": "string"
         },
         "unit": {
@@ -18567,7 +18781,7 @@
           "type": "string"
         },
         "covariates": {
-          "description": "Reserved for future covariate-adjusted extensions.",
+          "description": "Not supported by the native solver yet; passing any raises :class:`~statspai.exceptions.MethodIncompatibility` rather than silently estimating the unadjusted model (through 1.28.0 the argument was accepted and ignored).",
           "items": {
             "type": "string"
           },
@@ -18649,7 +18863,7 @@
     }
   },
   {
-    "description": "R-style alias: ``synthdid::synthdid_estimate``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "R-style alias: ``synthdid::synthdid_estimate``. Validation: certified parity evidence.",
     "name": "synthdid_estimate",
     "parameters": {
       "properties": {
@@ -18690,7 +18904,7 @@
     }
   },
   {
-    "description": "R-style alias: ``synthdid::sc_estimate``.",
+    "description": "R-style alias: ``synthdid::sc_estimate``. Validation: certified parity evidence.",
     "name": "sc_estimate",
     "parameters": {
       "properties": {
@@ -18731,7 +18945,7 @@
     }
   },
   {
-    "description": "R-style alias: ``synthdid::did_estimate``.",
+    "description": "R-style alias: ``synthdid::did_estimate``. Validation: certified parity evidence.",
     "name": "did_estimate",
     "parameters": {
       "properties": {
@@ -18944,7 +19158,7 @@
     }
   },
   {
-    "description": "Matrix Completion Synthetic Control Method.",
+    "description": "Matrix Completion Synthetic Control Method. Validation: certified parity evidence.",
     "name": "mc_synth",
     "parameters": {
       "properties": {
@@ -18969,13 +19183,23 @@
           "description": "Long-format panel data.",
           "type": "string"
         },
+        "fixed_effects": {
+          "default": "two-way",
+          "description": "Unpenalised additive effects fitted with the low-rank part. ``\"two-way\"`` is the Athey et al. (2021) estimator and the default of R ``MCPanel`` and ``fect``; ``\"none\"`` is pure soft-impute (the estimator of StatsPAI <= 1.28.0), which shrinks the outcome level towards zero.",
+          "enum": [
+            "two-way",
+            "unit",
+            "time"
+          ],
+          "type": "string"
+        },
         "lambda_reg": {
-          "description": "Nuclear norm penalty. If ``None`` (default), selected automatically via cross-validation on observed entries.",
+          "description": "Singular-value threshold on the ``1/2``-scaled squared loss. The same minimiser is R ``MCPanel::mcnnm_fit(lambda_L = 2 * lambda / n_observed)`` and ``fect(method = \"mc\", CV = FALSE, lambda = lambda / (N * T))`` (both reported in ``model_info``). If ``None`` (default), selected by this function's own random-entry K-fold cross-validation (not the ``MCPanel`` / ``fect`` CV rule).",
           "type": "number"
         },
         "max_iter": {
-          "default": 500,
-          "description": "Maximum Soft-Impute iterations.",
+          "default": 5000,
+          "description": "Maximum Soft-Impute iterations (``RuntimeWarning`` if hit).",
           "type": "integer"
         },
         "outcome": {
@@ -18988,7 +19212,7 @@
           "type": "boolean"
         },
         "seed": {
-          "description": "Random seed for reproducibility.",
+          "description": "Random seed for the CV fold assignment. With ``seed=None`` and ``lambda_reg=None`` the selected lambda (hence the estimate) can differ between calls.",
           "type": "integer"
         },
         "time": {
@@ -18996,8 +19220,8 @@
           "type": "string"
         },
         "tol": {
-          "default": 1e-06,
-          "description": "Convergence tolerance (relative change in Frobenius norm).",
+          "default": 1e-10,
+          "description": "Convergence tolerance (relative change in Frobenius norm of the fitted matrix).",
           "type": "number"
         },
         "treated_unit": {
@@ -20994,7 +21218,7 @@
           "type": "string"
         },
         "n_seasons": {
-          "description": "Seasonal period, if any.",
+          "description": "Not used (no seasonal component); a value > 1 warns.",
           "type": "integer"
         },
         "time": {
@@ -21446,7 +21670,7 @@
     }
   },
   {
-    "description": "OLS with absorbed high-dimensional fixed effects (reghdfe-style).",
+    "description": "OLS with absorbed high-dimensional fixed effects (reghdfe-style). Validation: certified parity evidence.",
     "name": "absorb_ols",
     "parameters": {
       "properties": {
@@ -21460,6 +21684,15 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "cluster_df": {
+          "default": "per_term",
+          "description": "Small-sample factor of the multi-way (inclusion-exclusion) cluster variance. ``\"per_term\"`` scales each term by its own ``G_S/(G_S - 1)`` (R ``sandwich::vcovCL``, :func:`multiway_cluster_vcov`); ``\"min\"`` scales every term by ``G_min/(G_min - 1)`` with ``G_min`` the smallest one-way cluster count -- Stata ``reghdfe``'s convention (and ``fixest``'s ``cluster.df = \"min\"``). Identical for one-way clustering.",
+          "enum": [
+            "per_term",
+            "min"
+          ],
+          "type": "string"
         },
         "drop_singletons": {
           "default": true,
@@ -22224,7 +22457,7 @@
     }
   },
   {
-    "description": "Subcluster wild cluster bootstrap for few-treated-clusters. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Subcluster wild cluster bootstrap for few-treated-clusters. Validation: certified parity evidence.",
     "name": "subcluster_wild_bootstrap",
     "parameters": {
       "properties": {
@@ -22295,7 +22528,7 @@
     }
   },
   {
-    "description": "Confidence interval via bootstrap p-value inversion. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Confidence interval via bootstrap p-value inversion. Validation: certified parity evidence.",
     "name": "wild_cluster_ci_inv",
     "parameters": {
       "properties": {
@@ -22405,7 +22638,7 @@
     }
   },
   {
-    "description": "Return cluster-robust standard errors (diagonal sqrt of vcov). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Return cluster-robust standard errors (diagonal sqrt of vcov). Validation: certified parity evidence.",
     "name": "cluster_robust_se",
     "parameters": {
       "properties": {
@@ -22434,7 +22667,7 @@
     }
   },
   {
-    "description": "CR3 cluster-jackknife variance (delete-one-cluster). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "CR3 cluster-jackknife variance (delete-one-cluster). Validation: certified parity evidence.",
     "name": "cr3_jackknife_vcov",
     "parameters": {
       "properties": {
@@ -25214,7 +25447,7 @@
     }
   },
   {
-    "description": "Compute marginal effects from a fitted model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute marginal effects from a fitted model. Validation: certified parity evidence.",
     "name": "margins",
     "parameters": {
       "properties": {
@@ -25542,7 +25775,7 @@
     }
   },
   {
-    "description": "Wald test for linear restrictions on coefficients. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Wald test for linear restrictions on coefficients. Validation: certified parity evidence.",
     "name": "test",
     "parameters": {
       "properties": {
@@ -25563,7 +25796,7 @@
     }
   },
   {
-    "description": "Estimate a linear combination of coefficients with inference. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Estimate a linear combination of coefficients with inference. Validation: certified parity evidence.",
     "name": "lincom",
     "parameters": {
       "properties": {
@@ -25764,21 +25997,21 @@
     }
   },
   {
-    "description": "Shift-share IV estimation with AKM (2019) corrected standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Shift-share IV with AKM (2019) inference and the BHJ shock-level view. Validation: certified parity evidence.",
     "name": "ssaggregate",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level.",
+          "description": "Level of the AKM / AKM0 confidence intervals in the diagnostics.",
           "type": "number"
         },
         "cluster": {
-          "description": "Observation-level cluster variable (not used in the AKM variance; retained for compatibility and diagnostics).",
+          "description": "Location-level cluster variable (e.g. state) for the ``SE (Reg. cluster)`` diagnostic. The reported SE is AKM.",
           "type": "string"
         },
         "controls": {
-          "description": "Exogenous control variables.",
+          "description": "Location-level controls (an intercept is always added).",
           "items": {
             "type": "string"
           },
@@ -25789,7 +26022,7 @@
           "type": "string"
         },
         "shares": {
-          "description": "Exposure-share matrix. ``shares[i, k]`` is unit *i*'s exposure to shock *k*.",
+          "description": "Exposure-share matrix. ``shares[i, k]`` is unit *i*'s exposure to shock *k*; rows need not sum to one.",
           "type": "string"
         },
         "shock_data": {
@@ -25797,11 +26030,11 @@
           "type": "string"
         },
         "shocks": {
-          "description": "Shock vector. Either a 1-D array/Series of length K, or a column name in *shock_data*. If ``None``, the Bartik variable in *x* is used directly (reduced-form mode).",
+          "description": "Shock vector, or a column name in *shock_data*.",
           "type": "string"
         },
         "x": {
-          "description": "Endogenous regressor / constructed Bartik IV column in *data*. If the column is the constructed Bartik instrument itself (i.e. the reduced-form specification), the estimator runs OLS and corrects SEs. If it is an endogenous regressor, a Bartik IV is constructed from *shares* and *shocks* for the first stage.",
+          "description": "Endogenous regressor (IV mode, *shocks* given) or the shift-share variable itself (OLS mode, *shocks* omitted).",
           "type": "string"
         },
         "y": {
@@ -25819,21 +26052,21 @@
     }
   },
   {
-    "description": "Correct standard errors of an existing IV result for shift-share structure.",
+    "description": "Replace the SE of a shift-share regression with the AKM (2019) SE. Validation: certified parity evidence.",
     "name": "shift_share_se",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level.",
+          "description": "Level for the AKM / AKM0 confidence intervals.",
           "type": "number"
         },
         "iv_result": {
-          "description": "An IV estimation result that contains ``residuals`` and a ``fitted_values`` in its ``data_info``, plus the instrument residualised values (stored by Bartik estimator).",
+          "description": "Result of ``sp.bartik`` or ``sp.ssaggregate``. These record the outcome, endogenous regressor, shift-share instrument and controls the AKM formula needs; results from other estimators do not, and are rejected.",
           "type": "string"
         },
         "shares": {
-          "description": "Exposure-share matrix.",
+          "description": "Exposure-share matrix (need not sum to one).",
           "type": "string"
         }
       },
@@ -26137,7 +26370,7 @@
     }
   },
   {
-    "description": "Olea-Pflueger (2013) robust effective F statistic for weak instruments. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Olea-Pflueger (2013) robust effective F statistic for weak instruments. Validation: certified parity evidence.",
     "name": "effective_f_test",
     "parameters": {
       "properties": {
@@ -26197,17 +26430,17 @@
     }
   },
   {
-    "description": "Lee-McCrary-Moreira-Porter (2022, AER) tF adjusted critical value. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Lee-McCrary-Moreira-Porter (2022, AER) tF adjusted critical value. Validation: certified parity evidence.",
     "name": "tF_critical_value",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level. Only ``0.05`` is implemented (the only level for which LMMP publish a complete table).",
+          "description": "Significance level. Only ``0.05`` is implemented (the level LMMP tabulate).",
           "type": "number"
         },
         "first_stage_F": {
-          "description": "Observed first-stage F statistic (or Olea-Pflueger F_eff).",
+          "description": "First-stage F statistic of the single excluded instrument, computed with the *same* variance estimator as the t-ratio it adjusts (the robust / cluster Wald F -- equal to the Olea-Pflueger effective F with one instrument). This is what ``ivDiag`` passes.",
           "type": "number"
         }
       },
@@ -26218,7 +26451,7 @@
     }
   },
   {
-    "description": "Stata-style unified weak-instrument-robust diagnostic panel.",
+    "description": "Stata-style unified weak-instrument-robust diagnostic panel. Validation: certified parity evidence.",
     "name": "weakrobust",
     "parameters": {
       "properties": {
@@ -26227,9 +26460,18 @@
           "description": "Significance level for the robust confidence sets.",
           "type": "number"
         },
+        "clr_method": {
+          "default": "exact",
+          "description": "How the CLR conditional null distribution is evaluated. ``'exact'`` integrates it numerically (the closed form R ``ivmodel::CLR`` and Stata ``weakiv`` use), making the CLR p-value and set deterministic. ``'simulate'`` is the pre-1.29 Monte-Carlo version.",
+          "enum": [
+            "exact",
+            "simulate"
+          ],
+          "type": "string"
+        },
         "clr_simulations": {
           "default": 20000,
-          "description": "Monte-Carlo draws for the CLR null distribution.",
+          "description": "Monte-Carlo draws for the CLR null distribution; used only with ``clr_method='simulate'``.",
           "type": "integer"
         },
         "data": {
@@ -26405,7 +26647,7 @@
     }
   },
   {
-    "description": "Compute an E-value from a StatsPAI CausalResult object.",
+    "description": "Compute an E-value from a StatsPAI CausalResult object. Validation: certified parity evidence.",
     "name": "evalue_from_result",
     "parameters": {
       "properties": {
@@ -26438,7 +26680,7 @@
     }
   },
   {
-    "description": "Exact E-value for a risk difference from a 2x2 table.",
+    "description": "Exact E-value for a risk difference from a 2x2 table. Validation: certified parity evidence.",
     "name": "evalue_rd",
     "parameters": {
       "properties": {
@@ -26484,7 +26726,7 @@
     }
   },
   {
-    "description": "Confounding bias factor ``B`` (Ding & VanderWeele 2016).",
+    "description": "Confounding bias factor ``B`` (Ding & VanderWeele 2016). Validation: certified parity evidence.",
     "name": "bias_factor",
     "parameters": {
       "properties": {
@@ -26637,7 +26879,7 @@
     }
   },
   {
-    "description": "Randomization inference p-value. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Randomization inference p-value. Validation: certified parity evidence.",
     "name": "ri_test",
     "parameters": {
       "properties": {
@@ -26656,7 +26898,7 @@
         },
         "n_perms": {
           "default": 1000,
-          "description": "Number of random permutations. Use 10000+ for publications.",
+          "description": "Number of random permutations. Use 10000+ for publications. When the design admits no more than ``n_perms`` distinct assignments (``C(n, n_1)``, or ``C(G, G_1)`` under ``cluster``) every assignment is enumerated instead and the p-value is exact -- the rule R ``ri2`` / ``randomizr::obtain_permutation_matrix`` apply.",
           "type": "integer"
         },
         "seed": {
@@ -26778,7 +27020,7 @@
     }
   },
   {
-    "description": "Compute Conley (1999) spatial -- and optionally spatio-temporal -- HAC Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Sparse and scale-safe: a scipy cKDTree ball query enumerates only observation pairs within dist_cutoff, so memory is O(n + pairs-within-cutoff) rather than O(n^2). This is the recommended Conley path on large samples -- unlike feols(vce='conley') / hdfe_ols(vce='conley'), which are dense. Cost still grows with dist_cutoff: a cutoff large enough to link most observations recovers the quadratic pair count.",
+    "description": "Compute Conley (1999) spatial -- and optionally spatio-temporal -- HAC Validation: certified parity evidence. Cost: Sparse and scale-safe: a scipy cKDTree ball query enumerates only observation pairs within dist_cutoff, so memory is O(n + pairs-within-cutoff) rather than O(n^2). This is the recommended Conley path on large samples -- unlike feols(vce='conley') / hdfe_ols(vce='conley'), which are dense. Cost still grows with dist_cutoff: a cutoff large enough to link most observations recovers the quadratic pair count.",
     "name": "conley",
     "parameters": {
       "properties": {
@@ -26981,7 +27223,7 @@
     }
   },
   {
-    "description": "Fisher's exact randomization test with enhanced features. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fisher's exact randomization test with enhanced features. Validation: certified parity evidence.",
     "name": "fisher_exact",
     "parameters": {
       "properties": {
@@ -27007,7 +27249,7 @@
         },
         "n_perm": {
           "default": 10000,
-          "description": "Number of random permutations.",
+          "description": "Number of random permutations. When the design admits no more than ``n_perm`` distinct assignments (complete, cluster or stratified randomization) they are all enumerated instead, so the p-value is exact (the R ``ri2`` / ``randomizr`` rule), and ``n_perm`` on the result reports the number of assignments.",
           "type": "integer"
         },
         "seed": {
@@ -27100,7 +27342,7 @@
     }
   },
   {
-    "description": "Leave-one-cluster-out jackknife standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Leave-one-cluster-out jackknife standard errors. Validation: certified parity evidence.",
     "name": "jackknife_se",
     "parameters": {
       "properties": {
@@ -27162,7 +27404,7 @@
     }
   },
   {
-    "description": "Wild cluster bootstrap t-test for a single coefficient.",
+    "description": "Wild cluster bootstrap t-test for a single coefficient. Validation: certified parity evidence.",
     "name": "wild_cluster_boot",
     "parameters": {
       "properties": {
@@ -27485,7 +27727,7 @@
     }
   },
   {
-    "description": "Compute stabilized IPTW weights for time-varying treatments. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute stabilized IPTW weights for time-varying treatments. Validation: certified parity evidence.",
     "name": "stabilized_weights",
     "parameters": {
       "properties": {
@@ -27498,6 +27740,15 @@
         },
         "data": {
           "description": "Sorted long-format panel (one row per unit-time).",
+          "type": "string"
+        },
+        "density_sd": {
+          "default": "unbiased",
+          "description": "Residual standard deviation used in the Gaussian densities of a continuous treatment: ``'unbiased'`` divides the residual sum of squares by ``N - k`` (what ``lm``'s ``sigma`` reports); ``'ml'`` divides by ``N``, the maximum-likelihood estimate, which is the dispersion ``ipw::ipwtm(family = \"gaussian\")`` takes from ``geepack::geeglm``. Ignored for binary treatments.",
+          "enum": [
+            "unbiased",
+            "ml"
+          ],
           "type": "string"
         },
         "id": {
@@ -27601,7 +27852,7 @@
     }
   },
   {
-    "description": "Zhang-Rubin (2003) sharp bounds on the Survivor Average Causal Effect. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Zhang-Rubin (2003) sharp bounds on the Survivor Average Causal Effect. Validation: certified parity evidence.",
     "name": "survivor_average_causal_effect",
     "parameters": {
       "properties": {
@@ -27616,7 +27867,7 @@
         },
         "n_boot": {
           "default": 500,
-          "description": "Number of bootstrap replications.",
+          "description": "Bootstrap replications for the endpoint CIs.",
           "type": "integer"
         },
         "seed": {
@@ -27624,15 +27875,24 @@
           "type": "integer"
         },
         "survival": {
-          "description": "survival parameter (str).",
+          "description": "Binary survival indicator (0/1), assumed monotone in ``treat``.",
           "type": "string"
         },
         "treat": {
-          "description": "Treatment indicator or first-treatment-period column.",
+          "description": "Binary randomised treatment (0/1).",
+          "type": "string"
+        },
+        "trimming": {
+          "default": "quantile",
+          "description": "Trimming rule; see :func:`sp.lee_bounds`. Under monotonicity the Zhang-Rubin SACE bounds are Lee (2009) bounds, and the two functions return the same endpoints.",
+          "enum": [
+            "quantile",
+            "exact"
+          ],
           "type": "string"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Outcome; may be missing (NaN) for non-survivors, as it is under truncation by death, but must be observed wherever ``survival == 1``.",
           "type": "string"
         }
       },
@@ -27937,7 +28197,7 @@
     }
   },
   {
-    "description": "Spatial 2SLS estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Spatial 2SLS estimator. Validation: certified parity evidence.",
     "name": "spatial_iv",
     "parameters": {
       "properties": {
@@ -27947,7 +28207,7 @@
         },
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Significance level of the normal confidence intervals in ``coefficients`` (``ci_lower`` / ``ci_upper``).",
           "type": "number"
         },
         "data": {
@@ -30502,6 +30762,11 @@
           },
           "type": "array"
         },
+        "q_bound": {
+          "default": 1e-05,
+          "description": "q_bound parameter (float).",
+          "type": "number"
+        },
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
@@ -31480,7 +31745,7 @@
     }
   },
   {
-    "description": "Estimate treatment effects using matrix completion. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the panel is nearly fully treated -- matrix completion needs a substantial observed-control block to recover the low-rank structure. Cost: Iterative soft-impute: one SVD of the N x T outcome matrix per iteration, i.e. O(max_iter x N x T x min(N,T)). n_bootstrap multiplies the whole loop -- this is the dominant cost on wide panels.",
+    "description": "Estimate treatment effects using matrix completion. Validation: certified parity evidence. Do NOT use when: the panel is nearly fully treated -- matrix completion needs a substantial observed-control block to recover the low-rank structure. Cost: Iterative soft-impute: one SVD of the N x T outcome matrix per iteration, i.e. O(max_iter x N x T x min(N,T)). n_bootstrap multiplies the whole loop -- this is the dominant cost on wide panels.",
     "name": "mc_panel",
     "parameters": {
       "properties": {
@@ -31493,22 +31758,32 @@
           "description": "Panel data in long format.",
           "type": "string"
         },
+        "fixed_effects": {
+          "default": "two-way",
+          "description": "Unpenalised additive effects fitted alongside the low-rank component. ``\"two-way\"`` is the Athey et al. (2021) estimator and the default of R ``MCPanel`` (``to_estimate_u = to_estimate_v = TRUE``) and ``fect`` (``force = \"two-way\"``). ``\"none\"`` is pure soft-impute (``MCPanel`` with both switches off; no intercept, so the outcome level is shrunk towards zero); it is the estimator this function computed in StatsPAI <= 1.28.0.",
+          "enum": [
+            "two-way",
+            "unit",
+            "time"
+          ],
+          "type": "string"
+        },
         "lambda_reg": {
-          "description": "Nuclear norm regularisation parameter. If None, estimated via the universal threshold: lambda = sigma * sqrt(n).",
+          "description": "Singular-value threshold ``lambda`` on the objective above (the ``1/2``-scaled squared loss). The same minimiser is obtained from R ``MCPanel::mcnnm_fit(lambda_L = 2 * lambda / |Omega|)`` and from ``fect(method = \"mc\", CV = FALSE, lambda = lambda / (N * T))``; both conversions are reported in ``model_info``. If None, a heuristic (no reference implementation uses it) is applied: ``lambda = sd(Y[Omega]) * sqrt(max(N, T)) / 10``.",
           "type": "number"
         },
         "max_iter": {
-          "default": 1000,
-          "description": "Maximum iterations for the proximal gradient algorithm.",
+          "default": 5000,
+          "description": "Maximum soft-impute iterations. A ``RuntimeWarning`` is raised if the point-estimate fit hits the cap before ``tol``.",
           "type": "integer"
         },
         "max_rank": {
-          "description": "Maximum rank for the completed matrix. If None, no constraint.",
+          "description": "Hard cap on the rank of the low-rank component (not part of the reference problem). If None, no constraint.",
           "type": "integer"
         },
         "n_bootstrap": {
           "default": 200,
-          "description": "Bootstrap iterations for standard errors.",
+          "description": "Unit-bootstrap replications for the standard error.",
           "type": "integer"
         },
         "random_state": {
@@ -31521,8 +31796,8 @@
           "type": "string"
         },
         "tol": {
-          "default": 1e-05,
-          "description": "Convergence tolerance.",
+          "default": 1e-10,
+          "description": "Convergence tolerance on the relative Frobenius change of the fitted counterfactual matrix.",
           "type": "number"
         },
         "treat": {
@@ -31562,12 +31837,22 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
         },
+        "fixed_effects": {
+          "default": "two-way",
+          "description": "fixed_effects parameter (str).",
+          "enum": [
+            "two-way",
+            "unit",
+            "time"
+          ],
+          "type": "string"
+        },
         "lambda_reg": {
           "description": "lambda_reg parameter (Optional[float]).",
           "type": "number"
         },
         "max_iter": {
-          "default": 1000,
+          "default": 5000,
           "description": "Maximum number of optimisation iterations.",
           "type": "integer"
         },
@@ -31590,7 +31875,7 @@
           "type": "string"
         },
         "tol": {
-          "default": 1e-05,
+          "default": 1e-10,
           "description": "Numerical convergence tolerance.",
           "type": "number"
         },
@@ -31687,7 +31972,7 @@
     }
   },
   {
-    "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute Lee (2009) bounds for ATE under sample selection. Validation: certified parity evidence.",
     "name": "lee_bounds",
     "parameters": {
       "properties": {
@@ -31697,7 +31982,7 @@
           "type": "number"
         },
         "covariates": {
-          "description": "Not used in basic Lee bounds, reserved for conditional bounds.",
+          "description": "Reserved for covariate-tightened bounds, which are not implemented; a non-empty list is ignored with a ``UserWarning`` (it used to be ignored silently).",
           "items": {
             "type": "string"
           },
@@ -31717,12 +32002,30 @@
           "description": "Random seed or RandomState for reproducible stochastic steps.",
           "type": "integer"
         },
+        "se_method": {
+          "default": "bootstrap",
+          "description": "Standard errors of the two bounds. ``'analytic'`` is the asymptotic variance of Lee (2009, Proposition 3) exactly as Stata's ``leebounds`` (default ``vce(analytic)``) computes it; ``'bootstrap'`` resamples units ``n_bootstrap`` times.",
+          "enum": [
+            "bootstrap",
+            "analytic"
+          ],
+          "type": "string"
+        },
         "selection": {
           "description": "Binary selection/retention indicator (1 = observed, 0 = missing).",
           "type": "string"
         },
         "treat": {
           "description": "Binary treatment variable (0/1).",
+          "type": "string"
+        },
+        "trimming": {
+          "default": "quantile",
+          "description": "How the ``p = |p1 - p0| / max(p1, p0)`` share is trimmed from the arm with higher retention. ``'quantile'`` is Lee's (2009) sample",
+          "enum": [
+            "quantile",
+            "exact"
+          ],
           "type": "string"
         },
         "y": {
@@ -31740,7 +32043,7 @@
     }
   },
   {
-    "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute Manski (1990) worst-case bounds on ATE. Validation: certified parity evidence.",
     "name": "manski_bounds",
     "parameters": {
       "properties": {
@@ -31751,7 +32054,7 @@
         },
         "assumption": {
           "default": "none",
-          "description": "Additional assumption: - 'none': no assumptions (widest bounds) - 'mtr': Monotone Treatment Response (Y(1) >= Y(0) for all) - 'mts': Monotone Treatment Selection (selection on levels)",
+          "description": "Additional assumption: - 'none': no assumptions (widest bounds) - 'mtr': Monotone Treatment Response (Y(1) >= Y(0) for all): ``[0, worst-case upper]``. - 'mts': Monotone Treatment Selection with positive selection, ``E[Y(d) | D=1] >= E[Y(d) | D=0]`` (Manski & Pepper 2000): ``[worst-case lower, E[Y|D=1] - E[Y|D=0]]``. - 'mts_mtr': MTS and MTR jointly: ``[0, E[Y|D=1] - E[Y|D=0]]``. Raises ``ValueError`` when ``E[Y|D=1] < E[Y|D=0]``: the two assumptions are then jointly refuted and the identified set is empty. Before 1.29, ``'mts'`` returned the ``'mts_mtr'`` interval (i.e. silently imposed MTR as well) and, when the naive difference was negative, swapped its endpoints instead of reporting the empty set. These match the \"worst case\", \"MTS positive selection\" and \"MTS and MTR positive selection\" rows of Stata's ``tebounds`` at zero misclassification.",
           "type": "string"
         },
         "data": {
@@ -31861,7 +32164,7 @@
     }
   },
   {
-    "description": "Horowitz-Manski (2000) bounds conditioning on covariates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Horowitz-Manski (2000) bounds conditioning on covariates. Validation: certified parity evidence.",
     "name": "horowitz_manski",
     "parameters": {
       "properties": {
@@ -31976,7 +32279,7 @@
     }
   },
   {
-    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: certified parity evidence.",
     "name": "oster_delta",
     "parameters": {
       "properties": {
@@ -32012,7 +32315,7 @@
         },
         "r_max": {
           "default": 1.3,
-          "description": "Maximum R-squared assumption. Oster recommends 1.3 * R-squared from the fully controlled regression. If <= 0, it is set to 1.3 * R_full automatically.",
+          "description": "Maximum R-squared assumption. A value in ``(R_full, 1]`` is used as R_max itself. A value above 1 cannot be an R-squared and is read as a multiplier of the controlled R-squared, so the default 1.3 gives Oster's recommended ``R_max = min(1, 1.3 * R_full)``; ``<= 0`` means the same. A value in ``(0, R_full]`` falls back to that recommendation with a warning.",
           "type": "number"
         },
         "random_state": {
@@ -32206,7 +32509,7 @@
     }
   },
   {
-    "description": "G-estimation for a multi-stage dynamic treatment regime. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "G-estimation for a multi-stage dynamic treatment regime. Validation: certified parity evidence.",
     "name": "g_estimation",
     "parameters": {
       "properties": {
@@ -32237,6 +32540,15 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "propensity_model": {
+          "default": "logit",
+          "description": "Model for ``E[A_k | propensity covariates]`` in the g-estimating equation ``sum (A_k - A_hat_k) (Y~ - X_k beta - psi_k A_k) = 0`` (solved jointly with ``sum X_k (Y~ - X_k beta - psi_k A_k) = 0``, ``X_k`` = ``[1, covariates_by_stage[k]]``). ``'logit'`` is the logistic MLE that R ``DTRreg(method = \"gest\")`` fits for a binary treatment. ``'linear'`` is a linear-probability OLS fit; with propensity covariates equal to the stage covariates it reduces ``psi_k`` to the OLS coefficient on ``A_k`` in ``Y~ ~ X_k + A_k``.",
+          "enum": [
+            "logit",
+            "linear"
+          ],
+          "type": "string"
         },
         "random_state": {
           "default": 42,
@@ -32297,6 +32609,11 @@
           },
           "type": "array"
         },
+        "propensity_model": {
+          "default": "logit",
+          "description": "propensity_model parameter (str).",
+          "type": "string"
+        },
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
@@ -32349,6 +32666,11 @@
           "description": "Number of bootstrap replications.",
           "type": "integer"
         },
+        "outcome_model": {
+          "default": "gbm",
+          "description": "outcome_model parameter (str).",
+          "type": "string"
+        },
         "random_state": {
           "default": 42,
           "description": "Random seed or RandomState for reproducible stochastic steps.",
@@ -32357,6 +32679,11 @@
         "reference": {
           "description": "reference parameter (Optional[int]).",
           "type": "integer"
+        },
+        "se_method": {
+          "default": "bootstrap",
+          "description": "se_method parameter (str).",
+          "type": "string"
         },
         "treat": {
           "description": "Treatment indicator or first-treatment-period column.",
@@ -32611,12 +32938,23 @@
           "type": "string"
         },
         "fpc": {
-          "description": "Finite population correction -- column of stratum population sizes or sampling fractions. If values are < 1 they are treated as fractions; otherwise as population counts.",
+          "description": "Finite population correction, as in R ``survey::svydesign(fpc=)`` and Stata ``svyset, fpc()``: either the population number of PSUs in the stratum (all values >= 1, at least one > 1) or the first-stage sampling fraction (all values <= 1). For an element-sampled design (``cluster=None``) the PSUs are the rows, so the count form is the population number of elements. Mixing the two forms, or a count smaller than the number of sampled PSUs in the stratum, raises ``ValueError``.",
+          "type": "string"
+        },
+        "lonely_psu": {
+          "description": "How a stratum with a single sampled PSU enters the variance, with the semantics of R's ``options(survey.lonely.psu=)`` for a single-stage design: * ``\"remove\"`` (default) / ``\"certainty\"`` -- the stratum contributes zero (Stata ``singleunit(certainty)``); * ``\"adjust\"`` -- the single PSU total is centred at the grand mean of PSU totals instead of its stratum mean (Stata ``singleunit(centered)``); * ``\"average\"`` -- the variance summed over strata with >1 PSU is scaled by #strata / #strata-with->1-PSU (Stata ``singleunit(scaled)``); * ``\"fail\"`` -- raise ``ValueError`` (R's default). Unless ``lonely_psu`` is given explicitly, a lonely stratum emits a ``UserWarning`` (Stata's default reports a missing SE instead).",
+          "enum": [
+            "remove",
+            "certainty",
+            "adjust",
+            "average",
+            "fail"
+          ],
           "type": "string"
         },
         "nest": {
           "default": false,
-          "description": "If True, PSU ids are nested within strata (re-label internally).",
+          "description": "If True, PSU ids are relabelled to be unique within strata. PSUs are always identified *within* their stratum for variance and degrees-of-freedom purposes (Stata ``svyset`` convention), so with ``nest=False`` ids that repeat across strata only trigger a warning (R's ``svydesign`` refuses them without ``nest=TRUE``).",
           "type": "boolean"
         },
         "strata": {
@@ -32642,8 +32980,17 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "CIs use the t distribution with the design df (#PSU - #strata), as Stata ``svy:`` and R ``confint(..., df = degf(design))``; R's ``confint.svystat`` default is the normal quantile.",
           "type": "number"
+        },
+        "deff": {
+          "default": "wor",
+          "description": "Denominator of the design effect: SRS without replacement with N = sum of weights (R ``deff=TRUE``; Stata ``estat effects`` when an fpc is declared) or with replacement (R ``deff=\"replace\"``; Stata ``estat effects`` without fpc).",
+          "enum": [
+            "wor",
+            "replace"
+          ],
+          "type": "string"
         },
         "design": {
           "description": "design parameter ('SurveyDesign').",
@@ -32671,8 +33018,17 @@
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "CIs use the t distribution with the design df (#PSU - #strata), as Stata ``svy:`` and R ``confint(..., df = degf(design))``; R's ``confint.svystat`` default is the normal quantile.",
           "type": "number"
+        },
+        "deff": {
+          "default": "wor",
+          "description": "Denominator of the design effect: SRS without replacement with N = sum of weights (R ``deff=TRUE``; Stata ``estat effects`` when an fpc is declared) or with replacement (R ``deff=\"replace\"``; Stata ``estat effects`` without fpc).",
+          "enum": [
+            "wor",
+            "replace"
+          ],
+          "type": "string"
         },
         "design": {
           "description": "design parameter ('SurveyDesign').",
@@ -32707,9 +33063,18 @@
           "description": "design parameter ('SurveyDesign').",
           "type": "string"
         },
+        "dof": {
+          "default": "design",
+          "description": "Degrees of freedom for t statistics, p-values and CIs. ``\"design\"`` (default): #PSU - #strata, as Stata ``svy:``. ``\"residual\"``: #PSU - #strata + 1 - #coefficients, as R ``summary.svyglm`` / ``confint.svyglm``.",
+          "enum": [
+            "design",
+            "residual"
+          ],
+          "type": "string"
+        },
         "family": {
           "default": "gaussian",
-          "description": "``\"gaussian\"``, ``\"binomial\"`` (logistic), or ``\"poisson\"``.",
+          "description": "``\"gaussian\"``, ``\"binomial\"`` (logistic), or ``\"poisson\"``. Canonical links; the sandwich is ``A^{-1} B A^{-1}`` with ``A = X' diag(w V(mu)) X`` and ``B`` the design covariance of the score totals ``w (y - mu) x`` (R ``survey:::svy.varcoef``).",
           "type": "string"
         },
         "formula": {
@@ -33227,7 +33592,7 @@
     }
   },
   {
-    "description": "Power (or number of cases) for an unmatched case-control study. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Power (or number of cases) for an unmatched case-control study. Validation: certified parity evidence.",
     "name": "power_case_control",
     "parameters": {
       "properties": {
@@ -33267,6 +33632,15 @@
           "default": 1.0,
           "description": "Number of controls per case.",
           "type": "number"
+        },
+        "test": {
+          "default": "wald",
+          "description": "``\"wald\"``: the unpooled two-proportion z test, ``Phi(|p1 - p0| / se1 - z)`` with ``se1`` the unpooled standard error (upper tail only). ``\"chi2\"``: the Pearson chi-squared test, whose null standard error uses the pooled proportion, with both tails counted when two-sided -- Stata ``power twoproportions`` (controls as group 1, cases as group 2).",
+          "enum": [
+            "wald",
+            "chi2"
+          ],
+          "type": "string"
         }
       },
       "required": [],
@@ -35096,7 +35470,7 @@
     }
   },
   {
-    "description": "Mixed Logit (random-coefficient MNL) via simulated maximum likelihood.",
+    "description": "Mixed Logit (random-coefficient MNL) via simulated maximum likelihood. Validation: certified parity evidence.",
     "name": "mixlogit",
     "parameters": {
       "properties": {
@@ -35122,10 +35496,20 @@
           "description": "Long-format choice data: one row per (choice-situation, alternative).",
           "type": "string"
         },
+        "halton_burn": {
+          "default": 10,
+          "description": "Leading Halton points discarded per dimension.",
+          "type": "integer"
+        },
         "halton_seed": {
           "default": 1234,
           "description": "halton_seed parameter (int).",
           "type": "integer"
+        },
+        "halton_shift": {
+          "default": true,
+          "description": "Randomised-start Halton (one uniform shift per dimension, seeded by ``halton_seed``). ``halton_burn=15, halton_shift=False`` with ``n_draws=50`` reproduces the draws of Stata ``mixlogit``'s defaults (``nrep(50) burn(15)``), so the simulated likelihood is the same function and the estimates agree to optimiser precision.",
+          "type": "boolean"
         },
         "maxiter": {
           "default": 200,
@@ -35147,7 +35531,12 @@
         },
         "robust": {
           "default": true,
-          "description": "Report OPG-sandwich robust SEs. ``False`` -> classical inverse Hessian.",
+          "description": "Huber sandwich ``H-1 B H-1`` with ``B`` the outer product of the per-individual scores (Stata ``mixlogit, robust``). ``False`` -> inverse observed Hessian (Stata ``mixlogit``'s default ``oim``).",
+          "type": "boolean"
+        },
+        "small_sample": {
+          "default": true,
+          "description": "Multiply the robust variance by ``N/(N - 1)``, N = number of individuals, as Stata's ``robust`` does. Ignored when ``robust=False``.",
           "type": "boolean"
         },
         "tol": {
@@ -35514,7 +35903,7 @@
     }
   },
   {
-    "description": "Jackknife Instrumental Variables Estimation (JIVE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Jackknife Instrumental Variables Estimation (JIVE). Validation: certified parity evidence.",
     "name": "jive",
     "parameters": {
       "properties": {
@@ -35538,7 +35927,7 @@
         },
         "variant": {
           "default": "jive1",
-          "description": "'jive1' (Angrist et al. 1999) or 'jive2' (alternative).",
+          "description": "Angrist, Imbens & Krueger (1999) jackknife instrument, used as the instrument in an IV second stage (Stata ``jive``'s ``ujive1`` / ``ujive2``): - ``'jive1'``: ``(Z_i pi - h_i x_i) / (1 - h_i)`` -- the leave-one-out first-stage fitted value. - ``'jive2'``: ``(Z_i pi - h_i x_i) / (1 - 1/n)``. ``h_i`` is the leverage of the first-stage regression on the included exogenous regressors and the excluded instruments.",
           "type": "string"
         },
         "x_endog": {
@@ -35576,7 +35965,7 @@
     }
   },
   {
-    "description": "LASSO-selected instrumental variables. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "LASSO-selected instrumental variables (information-criterion penalty). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "lasso_iv",
     "parameters": {
       "properties": {
@@ -35641,7 +36030,7 @@
     }
   },
   {
-    "description": "Rigorous Lasso / post-Lasso -- a faithful port of ``hdm::rlasso``.",
+    "description": "Rigorous Lasso / post-Lasso -- a faithful port of ``hdm::rlasso``. Validation: certified parity evidence.",
     "name": "rlasso",
     "parameters": {
       "properties": {
@@ -35691,7 +36080,7 @@
     }
   },
   {
-    "description": "Effect of ``d`` on ``y`` after Lasso-selecting controls ``x``.",
+    "description": "Effect of ``d`` on ``y`` after Lasso-selecting controls ``x``. Validation: certified parity evidence.",
     "name": "rlasso_effect",
     "parameters": {
       "properties": {
@@ -35746,7 +36135,7 @@
     }
   },
   {
-    "description": "Estimate the effect of each targeted column of ``X`` on ``y``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Estimate the effect of each targeted column of ``X`` on ``y``. Validation: certified parity evidence.",
     "name": "rlasso_effects",
     "parameters": {
       "properties": {
@@ -35796,7 +36185,7 @@
     }
   },
   {
-    "description": "Instrumental-variables estimation with rigorous-Lasso selection.",
+    "description": "Instrumental-variables estimation with rigorous-Lasso selection. Validation: certified parity evidence.",
     "name": "rlasso_iv",
     "parameters": {
       "properties": {
@@ -35864,7 +36253,7 @@
     }
   },
   {
-    "description": "Logistic rigorous (post-)Lasso -- a faithful port of ``hdm::rlassologit``.",
+    "description": "Logistic rigorous (post-)Lasso -- a faithful port of ``hdm::rlassologit``. Validation: certified parity evidence.",
     "name": "rlassologit",
     "parameters": {
       "properties": {
@@ -35914,7 +36303,7 @@
     }
   },
   {
-    "description": "Effect of ``d`` on a binary ``y`` after Lasso-selecting controls ``x``.",
+    "description": "Effect of ``d`` on a binary ``y`` after Lasso-selecting controls ``x``. Validation: certified parity evidence.",
     "name": "rlassologit_effect",
     "parameters": {
       "properties": {
@@ -35956,7 +36345,7 @@
     }
   },
   {
-    "description": "Logistic high-dimensional effect of each targeted column of ``X``.",
+    "description": "Logistic high-dimensional effect of each targeted column of ``X``. Validation: certified parity evidence.",
     "name": "rlassologit_effects",
     "parameters": {
       "properties": {
@@ -36654,7 +37043,7 @@
     }
   },
   {
-    "description": "Cumulative incidence functions for competing risks (Aalen-Johansen). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Cumulative incidence functions for competing risks (Aalen-Johansen). Validation: certified parity evidence.",
     "name": "cuminc",
     "parameters": {
       "properties": {
@@ -36662,6 +37051,15 @@
           "default": 0.05,
           "description": "Significance level for the confidence bands.",
           "type": "number"
+        },
+        "conf_type": {
+          "default": "linear",
+          "description": "``\"linear\"`` is ``F +/- z se`` clipped to [0, 1]; ``\"log-log\"`` is ``F^exp(+/- z se / (F log F))``, stcompet's bounds.",
+          "enum": [
+            "linear",
+            "log-log"
+          ],
+          "type": "string"
         },
         "data": {
           "description": "Input data.",
@@ -36678,6 +37076,20 @@
         "group": {
           "description": "Column name for a grouping variable. When supplied, CIFs are estimated per group and Gray's K-sample test is reported per cause.",
           "type": "string"
+        },
+        "rho": {
+          "default": 0.0,
+          "description": "Power of the ``(1 - F(t-))^rho`` weight in Gray's test (cmprsk's ``rho``).",
+          "type": "number"
+        },
+        "variance": {
+          "default": "delta",
+          "description": "Pointwise variance of the CIF. ``\"delta\"`` is the Marubini-Valsecchi delta-method estimator (the one Stata's ``stcompet`` reports); ``\"gray\"`` is Gray's asymptotic variance, the ``var`` component of R ``cmprsk::cuminc``.",
+          "enum": [
+            "delta",
+            "gray"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -36689,7 +37101,7 @@
     }
   },
   {
-    "description": "Fine & Gray (1999) proportional subdistribution hazards model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fine & Gray (1999) proportional subdistribution hazards model. Validation: certified parity evidence.",
     "name": "finegray",
     "parameters": {
       "properties": {
@@ -36717,13 +37129,27 @@
         },
         "max_iter": {
           "default": 50,
-          "description": "Newton-Raphson controls.",
+          "description": "Newton-Raphson controls (``tol`` is on the largest coefficient step).",
           "type": "integer"
         },
+        "small_sample": {
+          "default": false,
+          "description": "Multiply the robust variance by ``n / (n - 1)``, as Stata's ``stcrreg`` does.",
+          "type": "boolean"
+        },
         "tol": {
-          "default": 1e-07,
-          "description": "Newton-Raphson controls.",
+          "default": 1e-10,
+          "description": "Newton-Raphson controls (``tol`` is on the largest coefficient step).",
           "type": "number"
+        },
+        "vce": {
+          "default": "robust",
+          "description": "``\"robust\"`` is Fine & Gray's sandwich variance, whose score residuals include the term for estimating the censoring",
+          "enum": [
+            "robust",
+            "model"
+          ],
+          "type": "string"
         },
         "x": {
           "description": "Covariate column names.",
@@ -36815,6 +37241,15 @@
         "params": {
           "description": "params parameter (np.ndarray).",
           "type": "string"
+        },
+        "vce": {
+          "default": "robust",
+          "description": "vce parameter (str).",
+          "type": "string"
+        },
+        "vcov": {
+          "description": "Variance-covariance estimator option.",
+          "type": "string"
         }
       },
       "required": [
@@ -36830,7 +37265,7 @@
     }
   },
   {
-    "description": "Local polynomial regression.",
+    "description": "Local polynomial regression. Validation: certified parity evidence.",
     "name": "lpoly",
     "parameters": {
       "properties": {
@@ -36870,6 +37305,19 @@
           "default": 100,
           "description": "Number of evaluation grid points.",
           "type": "integer"
+        },
+        "pwidth": {
+          "description": "Pilot bandwidth for ``se_method=\"stata\"`` (required; Stata's default of 1.5 x its rule-of-thumb bandwidth is not implemented).",
+          "type": "number"
+        },
+        "se_method": {
+          "default": "robust",
+          "description": "``\"robust\"``: heteroskedasticity-robust sandwich ``(X'WX)^-1 X'W diag(e^2) W X (X'WX)^-1`` times ``m / (m - p - 1)``. ``\"stata\"``: Stata ``lpoly``'s standard error, which plugs a local residual variance from a degree ``p + 2`` fit with pilot bandwidth ``pwidth`` into ``(X'WX)^-1 X'W^2X (X'WX)^-1``.",
+          "enum": [
+            "robust",
+            "stata"
+          ],
+          "type": "string"
         },
         "x": {
           "description": "Independent variable name.",
@@ -36951,7 +37399,7 @@
     }
   },
   {
-    "description": "Kernel density estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Kernel density estimation. Validation: certified parity evidence.",
     "name": "kdensity",
     "parameters": {
       "properties": {
@@ -36961,7 +37409,7 @@
         },
         "bw_method": {
           "default": "silverman",
-          "description": "Bandwidth selection: 'silverman' or 'sheather-jones'.",
+          "description": "Bandwidth selection when ``bandwidth`` is None: * ``'silverman'`` (alias ``'nrd0'``): R ``bw.nrd0``, ``0.9 min(sd, IQR/1.34) n^(-1/5)``. * ``'stata'``: Stata ``kdensity``'s default, ``0.9 min(sd, (p75-p25)/1.349) n^(-1/5)`` with Stata's percentiles (unweighted only). * ``'sheather-jones'``: Sheather-Jones solve-the-equation (R ``bw.SJ``, computed without binning). Each rule is applied as-is whatever the kernel. Note that the ``'epanechnikov'`` kernel here has support [-1, 1] (Stata's ``epan2``), not the unit-variance form of R ``density`` and Stata's default ``epanechnikov``.",
           "type": "string"
         },
         "data": {
@@ -37333,7 +37781,7 @@
     }
   },
   {
-    "description": "Granger causality test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Granger causality test. Validation: certified parity evidence.",
     "name": "granger_causality",
     "parameters": {
       "properties": {
@@ -37342,7 +37790,7 @@
           "type": "string"
         },
         "causing": {
-          "description": "Variable hypothesized to cause.",
+          "description": "Variable(s) hypothesised to cause; a list tests all their lags jointly (Stata ``vargranger``'s ``ALL`` row when it lists every other variable).",
           "type": "string"
         },
         "data": {
@@ -37363,10 +37811,15 @@
     }
   },
   {
-    "description": "Compute impulse response functions from VAR. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute impulse response functions from VAR. Validation: certified parity evidence.",
     "name": "irf",
     "parameters": {
       "properties": {
+        "cumulative": {
+          "default": false,
+          "description": "Return cumulative responses ``sum_{j<=s}`` (Stata ``cirf`` / ``coirf``; ``vars::irf(cumulative = TRUE)``).",
+          "type": "boolean"
+        },
         "impulse": {
           "description": "Impulse variable (if None, all).",
           "type": "string"
@@ -37385,6 +37838,14 @@
           "description": "Response variable (if None, all).",
           "type": "string"
         },
+        "sigma_df": {
+          "description": "Divisor of the residual covariance that the orthogonalisation uses: ``'ml'`` = ``T`` (Stata ``irf create`` after ``var``), ``'unbiased'`` = ``T - m`` with ``m`` regressors per equation (``vars::Psi``, and Stata after ``var, dfk``). Default follows the fitted model's ``se_df`` (``'stata'``/``'ml'`` -> ``'ml'``, ``'r'``/``'unbiased'`` -> ``'unbiased'``). Irrelevant when ``orthogonal=False``.",
+          "enum": [
+            "ml",
+            "unbiased"
+          ],
+          "type": "string"
+        },
         "var_result": {
           "description": "Estimated VAR model.",
           "type": "string"
@@ -37397,7 +37858,7 @@
     }
   },
   {
-    "description": "Structural break detection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Structural break detection. Validation: certified parity evidence.",
     "name": "structural_break",
     "parameters": {
       "properties": {
@@ -37501,7 +37962,7 @@
     }
   },
   {
-    "description": "CUSUM test for parameter stability. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "CUSUM test for parameter stability. Validation: certified parity evidence.",
     "name": "cusum_test",
     "parameters": {
       "properties": {
@@ -38496,7 +38957,7 @@
     }
   },
   {
-    "description": "User-friendly alias for :func:`sp.rdmc` (multi-cutoff RD).",
+    "description": "User-friendly alias for :func:`sp.rdmc` (multi-cutoff RD). Validation: certified parity evidence.",
     "name": "multi_cutoff_rd",
     "parameters": {
       "properties": {
@@ -38552,7 +39013,7 @@
     }
   },
   {
-    "description": "User-friendly alias for :func:`sp.rdms` (multi-score RD).",
+    "description": "User-friendly alias for :func:`sp.rdms` (multi-score RD). Validation: certified parity evidence.",
     "name": "geographic_rd",
     "parameters": {
       "properties": {
@@ -38881,7 +39342,7 @@
     }
   },
   {
-    "description": "Interactive fixed effects estimator (Bai 2009). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Interactive fixed effects estimator (Bai 2009). Validation: certified parity evidence.",
     "name": "interactive_fe",
     "parameters": {
       "properties": {
@@ -38894,19 +39355,28 @@
           "description": "Balanced panel data.",
           "type": "string"
         },
+        "dof": {
+          "default": "exact",
+          "description": "Parameters absorbed by the factor structure. ``'exact'`` counts ``r(N + T - r)`` (``F'`` is identified only up to an rxr rotation); ``'regife'`` counts ``r(N + T)``, as Stata ``regife`` does through ``reghdfe`` (which flags that it could not detect the redundant ones). Enters ``sigma2`` and ``K`` in the cluster factor.",
+          "enum": [
+            "exact",
+            "regife"
+          ],
+          "type": "string"
+        },
         "id": {
           "default": "id",
           "description": "Unit identifier.",
           "type": "string"
         },
         "maxiter": {
-          "default": 1000,
+          "default": 10000,
           "description": "maxiter parameter (int).",
           "type": "integer"
         },
         "method": {
           "default": "iterative",
-          "description": "'iterative' (Bai 2009 CCE-type), 'pca' (principal components).",
+          "description": "Bai's (2009) iterated least squares: alternate principal components of ``Y - Xbeta`` (factors) and least squares of ``Y M_F`` on ``X M_F`` (slopes) until the slopes move by less than ``tol``. ``'pca'`` is accepted for backward compatibility and runs the same algorithm (it always did); it is deprecated.",
           "type": "string"
         },
         "n_factors": {
@@ -38916,7 +39386,7 @@
         },
         "robust": {
           "default": true,
-          "description": "Robust standard-error or covariance estimator option.",
+          "description": "``True``: cluster-robust by unit (Bai's ``D0-1 D_Z D0-1`` with the Stata CR1 factor ``G/(G-1)*(NT-1)/(NT-K)``); ``False``: Bai's homoskedastic ``sigma2 D0-1``. In both, the regressors enter through ``Z_j = M_ X_j M_F`` -- projected off *both* the factor space and the loading space.",
           "type": "boolean"
         },
         "time": {
@@ -38925,8 +39395,8 @@
           "type": "string"
         },
         "tol": {
-          "default": 1e-06,
-          "description": "Numerical convergence tolerance.",
+          "default": 1e-10,
+          "description": "Convergence criterion on max |Deltabeta|. The iteration converges linearly, so the default is tight (``regife``'s own default is 1e-9).",
           "type": "number"
         },
         "x": {
@@ -38950,13 +39420,26 @@
     }
   },
   {
-    "description": "Panel unit root test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Panel unit root test. Validation: certified parity evidence.",
     "name": "panel_unitroot",
     "parameters": {
       "properties": {
+        "convention": {
+          "default": "stata",
+          "description": "Where Stata ``xtunitroot`` and ``plm::purtest`` differ: * IPS: the IPS Table-3 moments are looked up at T = observations per panel (Stata) or T - lags - 1 (plm); * LLC: the LLC mean/std adjustments at T~ = T - lags - 1 (Stata) or T (plm); long-run-variance bandwidth ``int(3.21 T^(1/3))`` (Stata) or ``round(3.21 T^(1/3))`` (plm); Stata normalises by the short-run variance rss/n and uses the se with divisor N (plm with ``dfcor = FALSE`` is identical on those two).",
+          "enum": [
+            "stata",
+            "plm"
+          ],
+          "type": "string"
+        },
         "data": {
           "description": "Panel data.",
           "type": "string"
+        },
+        "dfcor": {
+          "description": "Residual variance of the per-unit ADF regressions (IPS, Fisher, plm-LLC) and of the Hadri residuals: rss/(n - K) if True, rss/n if False. Default True for ``convention='stata'`` (OLS, as Stata's ``regress``) and False for ``'plm'`` (plm's default).",
+          "type": "boolean"
         },
         "id": {
           "default": "id",
@@ -38964,12 +39447,17 @@
           "type": "string"
         },
         "lags": {
-          "description": "Number of ADF lags. If None, uses AIC selection.",
+          "description": "Number of lagged differences in every ADF regression (Stata ``lags()``, plm ``lags = <int>``). If None, uses ``int(4 * (T / 100) ** 0.25)`` per unit (not an information criterion). Ignored by 'hadri'.",
           "type": "integer"
+        },
+        "robust": {
+          "default": true,
+          "description": "Hadri only: heteroskedasticity-consistent version (unit-specific variances; Stata ``hadri, robust``, plm ``Hcons = TRUE``). False pools the variance (Stata default, plm ``Hcons = FALSE``).",
+          "type": "boolean"
         },
         "test": {
           "default": "ips",
-          "description": "Test type: 'llc' (Levin-Lin-Chu), 'ips' (Im-Pesaran-Shin), 'fisher' (Fisher-type ADF), 'hadri' (stationarity test).",
+          "description": "Test type: 'llc' (Levin-Lin-Chu), 'ips' (Im-Pesaran-Shin W-t-bar), 'fisher' (Maddala-Wu inverse chi-squared of the per-unit ADF p-values; the inverse-normal, inverse-logit and modified statistics are in ``details``), 'hadri' (stationarity LM test).",
           "type": "string"
         },
         "time": {
@@ -38979,7 +39467,7 @@
         },
         "trend": {
           "default": "c",
-          "description": "'n' (none), 'c' (constant), 'ct' (constant + trend).",
+          "description": "'n' (none), 'c' (constant), 'ct' (constant + trend). IPS and Hadri require 'c' or 'ct'.",
           "type": "string"
         },
         "variable": {
@@ -38999,6 +39487,10 @@
     "name": "PanelUnitRootResult",
     "parameters": {
       "properties": {
+        "details": {
+          "description": "details parameter (Optional[Dict[str, Any]]).",
+          "type": "object"
+        },
         "individual_stats": {
           "description": "individual_stats parameter.",
           "type": "string"
@@ -39041,13 +39533,18 @@
     }
   },
   {
-    "description": "Engle-Granger (1987) two-step cointegration test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Engle-Granger (1987) two-step cointegration test. Validation: certified parity evidence.",
     "name": "engle_granger",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Level at which ``rank`` (1 = cointegrated) is decided.",
+          "enum": [
+            "0.01",
+            "0.05",
+            "0.10"
+          ],
           "type": "number"
         },
         "data": {
@@ -39055,12 +39552,17 @@
           "type": "string"
         },
         "lags": {
-          "description": "Lags for ADF test. If None, uses AIC selection.",
+          "description": "Number of lagged differences ``L`` in the step-2 regression (Stata ``egranger, lags()``). If None, uses the fixed rule ``int(4 * (n / 100) ** 0.25)``.",
           "type": "integer"
         },
         "trend": {
           "default": "c",
-          "description": "trend parameter (str).",
+          "description": "Deterministic terms in step 1: constant; constant + linear trend (``egranger, trend``); constant + linear + quadratic trend (``egranger, qtrend``). The trend is ``t = 0, 1, ...``.",
+          "enum": [
+            "c",
+            "ct",
+            "ctt"
+          ],
           "type": "string"
         },
         "variables": {
@@ -39078,13 +39580,17 @@
     }
   },
   {
-    "description": "Johansen (1991) cointegration test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Johansen (1991) cointegration test. Validation: certified parity evidence.",
     "name": "johansen",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Level of the Osterwald-Lenum critical values (the table Stata's ``vecrank`` uses) that decide ``rank``.",
+          "enum": [
+            "0.05",
+            "0.01"
+          ],
           "type": "number"
         },
         "data": {
@@ -39093,17 +39599,21 @@
         },
         "lags": {
           "default": 1,
-          "description": "Number of lags in the VECM.",
+          "description": "Number of lagged **differences** in the VECM. This is Stata's ``vecrank, lags(p)`` minus one and ``ca.jo(K = lags + 1)``.",
           "type": "integer"
         },
         "test": {
           "default": "trace",
-          "description": "'trace' or 'maxeig' (maximum eigenvalue).",
+          "description": "test parameter (str).",
+          "enum": [
+            "trace",
+            "maxeig"
+          ],
           "type": "string"
         },
         "trend": {
           "default": "c",
-          "description": "'n' (none), 'c' (constant), 'ct' (constant + trend).",
+          "description": "Deterministic specification (Stata ``vecrank, trend()`` names in parentheses): ``'n'`` (``none``); ``'rc'`` (``rconstant``, constant restricted to the cointegrating space = ``ca.jo(ecdet=\"const\")``); ``'c'`` (``constant``, unrestricted constant = ``ca.jo(ecdet=\"none\")``); ``'rt'`` (``rtrend``, trend restricted to the cointegrating space, unrestricted constant = ``ca.jo(ecdet=\"trend\")``); ``'ct'`` (``trend``, unrestricted constant and trend). Stata's long names are accepted as aliases.",
           "type": "string"
         },
         "variables": {
@@ -39591,7 +40101,7 @@
     }
   },
   {
-    "description": "Estimate a BLP random-coefficients logit demand model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Estimate a BLP random-coefficients logit demand model. Validation: certified parity evidence.",
     "name": "blp",
     "parameters": {
       "properties": {
@@ -41692,18 +42202,23 @@
     }
   },
   {
-    "description": "Fit a generalised linear mixed model.",
+    "description": "Fit a generalised linear mixed model. Validation: certified parity evidence.",
     "name": "meglm",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Optimisation controls / CI width. The default ``tol=1e-8`` keeps the Laplace fixed-effect solution aligned with lme4/Stata reference likelihood optima on the parity fixtures. For AGHQ (``nAGQ > 1``), the default optimiser budget is internally tightened to ``maxiter=5000`` and ``tol=1e-12``; explicit user-supplied controls are respected.",
+          "description": "Optimisation controls / CI width. ``maxiter`` / ``tol`` drive the L-BFGS-B stage; for AGHQ (``nAGQ > 1``) the default budget is internally tightened to ``maxiter=5000`` and ``tol=1e-12`` (explicit user-supplied controls are respected). Either way the optimum is then finished with full Newton steps on the numerical gradient and Hessian, so the reported estimates sit at the optimum to ~1e-9 rather than at L-BFGS-B's relative-function-change stopping point (which on these likelihoods is ~1e-4 away).",
           "type": "number"
         },
         "cov_type": {
           "default": "unstructured",
           "description": "Random-effect covariance: ``'unstructured'`` (default), ``'diagonal'``, ``'identity'``.",
+          "type": "string"
+        },
+        "curvature": {
+          "default": "observed",
+          "description": "Curvature of the log integrand used by the Laplace approximation and to scale the AGHQ nodes. ``'observed'`` (default) is the second derivative of the conditional log-likelihood at the mode -- the Laplace approximation proper, and what Stata ``me*`` (``intmethod(laplace)`` / ``mcaghermite``), ``glmmTMB`` and ``ordinal::clmm`` compute. ``'expected'`` substitutes the Fisher information (the PIRLS weights of ``lme4::glmer`` / ``glmer.nb``). The two coincide for canonical links (Gaussian, binomial-logit, Poisson-log) and differ for gamma-log and NB-2-log, where they are two different approximations of the same integral.",
           "type": "string"
         },
         "data": {
@@ -41721,7 +42236,7 @@
         },
         "maxiter": {
           "default": 300,
-          "description": "Optimisation controls / CI width. The default ``tol=1e-8`` keeps the Laplace fixed-effect solution aligned with lme4/Stata reference likelihood optima on the parity fixtures. For AGHQ (``nAGQ > 1``), the default optimiser budget is internally tightened to ``maxiter=5000`` and ``tol=1e-12``; explicit user-supplied controls are respected.",
+          "description": "Optimisation controls / CI width. ``maxiter`` / ``tol`` drive the L-BFGS-B stage; for AGHQ (``nAGQ > 1``) the default budget is internally tightened to ``maxiter=5000`` and ``tol=1e-12`` (explicit user-supplied controls are respected). Either way the optimum is then finished with full Newton steps on the numerical gradient and Hessian, so the reported estimates sit at the optimum to ~1e-9 rather than at L-BFGS-B's relative-function-change stopping point (which on these likelihoods is ~1e-4 away).",
           "type": "integer"
         },
         "nAGQ": {
@@ -41735,7 +42250,7 @@
         },
         "tol": {
           "default": 1e-08,
-          "description": "Optimisation controls / CI width. The default ``tol=1e-8`` keeps the Laplace fixed-effect solution aligned with lme4/Stata reference likelihood optima on the parity fixtures. For AGHQ (``nAGQ > 1``), the default optimiser budget is internally tightened to ``maxiter=5000`` and ``tol=1e-12``; explicit user-supplied controls are respected.",
+          "description": "Optimisation controls / CI width. ``maxiter`` / ``tol`` drive the L-BFGS-B stage; for AGHQ (``nAGQ > 1``) the default budget is internally tightened to ``maxiter=5000`` and ``tol=1e-12`` (explicit user-supplied controls are respected). Either way the optimum is then finished with full Newton steps on the numerical gradient and Hessian, so the reported estimates sit at the optimum to ~1e-9 rather than at L-BFGS-B's relative-function-change stopping point (which on these likelihoods is ~1e-4 away).",
           "type": "number"
         },
         "trials": {
@@ -41821,7 +42336,7 @@
     }
   },
   {
-    "description": "Random-effects Poisson regression (Stata ``mepoisson``).",
+    "description": "Random-effects Poisson regression (Stata ``mepoisson``). Validation: certified parity evidence.",
     "name": "mepoisson",
     "parameters": {
       "properties": {
@@ -41871,7 +42386,7 @@
     }
   },
   {
-    "description": "Random-effects negative-binomial regression (Stata ``menbreg``).",
+    "description": "Random-effects negative-binomial regression (Stata ``menbreg``). Validation: certified parity evidence.",
     "name": "menbreg",
     "parameters": {
       "properties": {
@@ -41921,7 +42436,7 @@
     }
   },
   {
-    "description": "Random-effects Gamma GLMM with log link (Stata ``meglm`` ``family(gamma)``).",
+    "description": "Random-effects Gamma GLMM with log link (Stata ``meglm`` ``family(gamma)``). Validation: certified parity evidence.",
     "name": "megamma",
     "parameters": {
       "properties": {
@@ -41971,7 +42486,7 @@
     }
   },
   {
-    "description": "Random-effects ordinal logit (Stata ``meologit``, R ``ordinal::clmm``).",
+    "description": "Random-effects ordinal logit (Stata ``meologit``, R ``ordinal::clmm``). Validation: certified parity evidence.",
     "name": "meologit",
     "parameters": {
       "properties": {
@@ -41983,6 +42498,11 @@
         "cov_type": {
           "default": "unstructured",
           "description": "Covariance estimator type.",
+          "type": "string"
+        },
+        "curvature": {
+          "default": "observed",
+          "description": "curvature parameter (str).",
           "type": "string"
         },
         "data": {
@@ -42183,6 +42703,10 @@
           "description": "thresholds parameter (Optional[pd.Series]).",
           "type": "string"
         },
+        "thresholds_se": {
+          "description": "thresholds_se parameter (Optional[pd.Series]).",
+          "type": "string"
+        },
         "variance_components": {
           "description": "variance_components parameter (Dict[str, float]).",
           "type": "object"
@@ -42201,7 +42725,7 @@
     }
   },
   {
-    "description": "Intra-class correlation for a fitted mixed model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Intra-class correlation for a fitted random-intercept model. Validation: certified parity evidence.",
     "name": "icc",
     "parameters": {
       "properties": {
@@ -42212,20 +42736,20 @@
         },
         "component": {
           "default": "_cons",
-          "description": "Name of the random-effect variance to put in the numerator. Defaults to the random intercept (``\"_cons\"``).",
+          "description": "Random-intercept name (``\"_cons\"``); for a three-level fit the grouping column of the level whose ICC is wanted.",
           "type": "string"
         },
         "n_boot": {
           "default": 0,
-          "description": "Number of parametric bootstrap replicates used to compute the CI. ``0`` (default) uses the delta-method approximation on the log-variance scale, which is faster and usually within a few decimals of the parametric-bootstrap answer for moderate N.",
+          "description": "Parametric-bootstrap intervals are not implemented; must be 0.",
           "type": "integer"
         },
         "result": {
-          "description": "A ``MixedResult`` returned by :func:`statspai.mixed`.",
+          "description": "A ``MixedResult`` from :func:`statspai.mixed` or an ``MEGLMResult`` from ``melogit`` / ``meologit`` / ``meglm(family='gaussian')``, with a random intercept only.",
           "type": "string"
         },
         "seed": {
-          "description": "RNG seed forwarded to :func:`numpy.random.default_rng`.",
+          "description": "Unused (reserved for the bootstrap).",
           "type": "integer"
         }
       },
@@ -42236,12 +42760,12 @@
     }
   },
   {
-    "description": "Likelihood-ratio test comparing a *restricted* and a *full* model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Likelihood-ratio test comparing a *restricted* and a *full* model. Validation: certified parity evidence.",
     "name": "lrtest",
     "parameters": {
       "properties": {
         "boundary": {
-          "description": "Whether to apply the chi2 boundary correction. When ``None`` (default) we infer it from whether the restriction touches a variance component -- the only parameters that live on the boundary of their support.",
+          "description": "Whether to apply the chi2 boundary correction. When ``None`` (default) we infer it from whether the restriction touches a variance component -- the only parameters that live on the boundary of their support. ``boundary=False`` reproduces Stata's ``lrtest`` and R's ``anova()`` (naive chi2(df) tail; Stata prints a note that the test is conservative when the null is on the boundary). The degrees of freedom are the difference in the number of estimated parameters (Stata ``e(k)``), which counts every variance and covariance parameter.",
           "type": "boolean"
         },
         "full": {
@@ -42540,6 +43064,15 @@
           "description": "dist parameter (str).",
           "type": "string"
         },
+        "envelope": {
+          "default": "all",
+          "description": "Which envelopment constraints the LP imposes. * ``'all'`` -- ``x_i' beta_meta >= x_i' beta^k`` at every pooled observation ``i`` for every group ``k``: the metafrontier lies on or above each group frontier wherever any firm operates. * ``'own'`` -- ``x_i' beta_meta >= x_i' beta^{k(i)}`` only against observation ``i``'s own group frontier. This is the constraint set of R ``metafrontier::metafrontier(objective = \"lp\")``, which its documentation attributes to O'Donnell, Rao & Battese (2008). The two coincide when the group frontiers do not cross inside the data; when they cross, ``'all'`` gives a (weakly) higher metafrontier and hence (weakly) lower technology-gap ratios.",
+          "enum": [
+            "all",
+            "own"
+          ],
+          "type": "string"
+        },
         "group": {
           "description": "Group or cohort identifier.",
           "type": "string"
@@ -42755,7 +43288,7 @@
     }
   },
   {
-    "description": "Zero-Inefficiency Stochastic Frontier (Kumbhakar-Parmeter-Tsionas 2013).",
+    "description": "Zero-Inefficiency Stochastic Frontier (Kumbhakar-Parmeter-Tsionas 2013). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "zisf",
     "parameters": {
       "properties": {
@@ -42825,7 +43358,7 @@
     }
   },
   {
-    "description": "Two-class Latent-Class SFA (Orea-Kumbhakar 2004; Greene 2005).",
+    "description": "Two-class Latent-Class SFA (Orea-Kumbhakar 2004; Greene 2005). Validation: certified parity evidence.",
     "name": "lcsf",
     "parameters": {
       "properties": {
@@ -42955,7 +43488,7 @@
     }
   },
   {
-    "description": "General GMM estimator for arbitrary moment conditions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "General GMM estimator for arbitrary moment conditions. Validation: certified parity evidence.",
     "name": "gmm",
     "parameters": {
       "properties": {
@@ -43015,6 +43548,15 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "sandwich_weight": {
+          "default": "reestimated",
+          "description": "Weight inside the robust variance of the two-step / iterated estimators. ``'reestimated'`` uses ``S-1`` re-evaluated at the final estimate, so the sandwich collapses to ``(D'S-1D)-1/n`` (R ``gmm::gmm``). ``'estimation'`` uses the weight the final round was *minimised* with -- computed from the penultimate estimate -- with ``S`` at the final estimate: ``(D'WD)-1 D'WSWD (D'WD)-1 / n``, as Stata's ``gmm`` documents in its Methods and formulas. The two coincide for the iterated estimator at convergence and for the one-step estimator; for two-step they differ at order 1/n.",
+          "enum": [
+            "reestimated",
+            "estimation"
+          ],
+          "type": "string"
         },
         "se": {
           "default": "robust",
@@ -43272,54 +43814,105 @@
     }
   },
   {
-    "description": "Prediction intervals for synthetic control methods. Cost: Prediction intervals come from a simulation step on top of the point fit, so runtime is dominated by the number of simulations rather than n. cores= parallelises it.",
+    "description": "Prediction intervals for synthetic control methods (R ``scpi::scpi``). Validation: certified parity evidence. Cost: Prediction intervals come from a simulation step on top of the point fit, so runtime is dominated by the number of simulations rather than n. cores= is accepted for API compatibility with R scpi but the simulation currently runs serially.",
     "name": "scpi",
     "parameters": {
       "properties": {
+        "Q": {
+          "description": "Constraint bounds; see :func:`scest`.",
+          "type": "number"
+        },
+        "Q2": {
+          "description": "Constraint bounds; see :func:`scest`.",
+          "type": "number"
+        },
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for prediction intervals.",
+          "description": "Default for both ``u_alpha`` and ``e_alpha``. As in R, the combined interval has nominal coverage at least ``1 - (u_alpha + e_alpha)`` (0.90 with the defaults).",
           "type": "number"
         },
         "cores": {
           "default": 1,
-          "description": "Number of cores (reserved for future parallel subsampling).",
+          "description": "Accepted for API compatibility; the simulation runs serially.",
           "type": "integer"
         },
         "data": {
           "description": "Long-format panel data.",
           "type": "string"
         },
-        "e_method": {
-          "default": "gaussian",
-          "description": "Method for estimating out-of-sample uncertainty: - ``'gaussian'`` : sub-Gaussian bound using residual variance - ``'ls'`` : location-scale model (allows heteroskedasticity) - ``'qreg'`` : quantile regression (nonparametric)",
+        "draws": {
+          "description": "``(J, sims)`` matrix of standard-normal draws used for the in-sample simulation instead of generating them; passing the matrix R's ``rnorm`` produced reproduces R's simulated bounds.",
           "type": "string"
         },
+        "e_alpha": {
+          "description": "Levels of the in-sample / out-of-sample bounds (default ``alpha``).",
+          "type": "number"
+        },
+        "e_method": {
+          "default": "gaussian",
+          "description": "Out-of-sample bound: sub-Gaussian, location-scale or quantile regression. All three are always computed (``model_info``).",
+          "enum": [
+            "gaussian",
+            "ls",
+            "qreg"
+          ],
+          "type": "string"
+        },
+        "e_order": {
+          "default": 1,
+          "description": "Order of the out-of-sample moment models (R ``e.order``; ``e.lags`` is fixed at 0).",
+          "enum": [
+            "0",
+            "1"
+          ],
+          "type": "integer"
+        },
         "lasso_lambda": {
-          "default": 1.0,
-          "description": "L1 penalty (used when ``w_constr='lasso'``).",
+          "description": "Deprecated and ignored; see :func:`scest`.",
           "type": "number"
         },
         "outcome": {
-          "description": "Outcome variable column name.",
+          "description": "Column names.",
           "type": "string"
         },
         "pi_type": {
           "default": "both",
-          "description": "Which prediction interval components to include: - ``'in_sample'`` : only in-sample (weight estimation) uncertainty - ``'out_of_sample'``: only out-of-sample (prediction) uncertainty - ``'both'`` : simultaneous interval combining both sources",
+          "description": "Which interval is reported in ``period_results`` / ``ci``: ``'both'`` = R ``CI.all.<e_method>`` (in-sample + out-of-sample bounds), ``'in_sample'`` = R ``CI.in.sample``, ``'out_of_sample'`` = synthetic fit + out-of-sample bounds only (not an R table).",
+          "enum": [
+            "both",
+            "in_sample",
+            "out_of_sample"
+          ],
           "type": "string"
         },
+        "rho": {
+          "description": "Regularisation of the local geometry (default ``'type-2'``).",
+          "enum": [
+            "type-1",
+            "type-2"
+          ],
+          "type": "number"
+        },
+        "rho_max": {
+          "default": 0.2,
+          "description": "Upper bound on ``rho``.",
+          "type": "number"
+        },
         "ridge_lambda": {
-          "default": 1.0,
-          "description": "L2 penalty (used when ``w_constr='ridge'``).",
+          "description": "Deprecated and ignored; see :func:`scest`.",
           "type": "number"
         },
         "seed": {
-          "description": "Random seed for reproducibility in subsampling.",
+          "description": "Seed of the ``numpy`` generator for the in-sample draws (R uses its own ``rnorm`` stream, so simulated bounds agree with R only up to Monte Carlo error unless ``draws`` is supplied).",
+          "type": "integer"
+        },
+        "sims": {
+          "default": 200,
+          "description": "Number of in-sample simulation draws (R ``sims``; >= 10).",
           "type": "integer"
         },
         "time": {
-          "description": "Time period column name.",
+          "description": "Column names.",
           "type": "string"
         },
         "treated_unit": {
@@ -43330,13 +43923,43 @@
           "description": "First treatment period.",
           "type": "string"
         },
+        "u_alpha": {
+          "description": "Levels of the in-sample / out-of-sample bounds (default ``alpha``).",
+          "type": "number"
+        },
+        "u_missp": {
+          "default": true,
+          "description": "Allow a misspecified conditional mean of the pseudo-residuals (R ``u.missp``).",
+          "type": "boolean"
+        },
+        "u_order": {
+          "default": 1,
+          "description": "Order of the pseudo-residual mean model (R ``u.order``; ``u.lags`` is fixed at 0).",
+          "enum": [
+            "0",
+            "1"
+          ],
+          "type": "integer"
+        },
+        "u_sigma": {
+          "default": "HC1",
+          "description": "Variance estimator of the pseudo-residuals.",
+          "enum": [
+            "HC0",
+            "HC1",
+            "HC2",
+            "HC3",
+            "HC4"
+          ],
+          "type": "string"
+        },
         "unit": {
-          "description": "Unit identifier column name.",
+          "description": "Column names.",
           "type": "string"
         },
         "w_constr": {
           "default": "simplex",
-          "description": "Weight constraint for SCM estimation: - ``'simplex'`` : w >= 0, sum(w) = 1 - ``'lasso'`` : L1-penalised - ``'ridge'`` : L2-penalised - ``'ols'`` : ordinary least squares (unconstrained) - ``'ls'`` : least squares (same as 'ols')",
+          "description": "Weight constraint; see :func:`scest`.",
           "type": "string"
         }
       },
@@ -43352,17 +43975,24 @@
     }
   },
   {
-    "description": "Estimate synthetic control weights.",
+    "description": "Estimate synthetic control weights (R ``scpi::scest``). Validation: certified parity evidence.",
     "name": "scest",
     "parameters": {
       "properties": {
+        "Q": {
+          "description": "Norm bound of the constraint (sum of weights for ``simplex``).",
+          "type": "number"
+        },
+        "Q2": {
+          "description": "L2 bound for ``'L1-L2'``. Default: R's ridge rule.",
+          "type": "number"
+        },
         "data": {
           "description": "Long-format panel data.",
           "type": "string"
         },
         "lasso_lambda": {
-          "default": 1.0,
-          "description": "L1 penalty (used when ``w_constr='lasso'``).",
+          "description": "Deprecated and ignored (emit ``DeprecationWarning``). Before 1.28.x these set L1 / L2 *penalties* of a different estimator; R ``scpi`` constrains the norm of ``w`` instead -- use ``Q`` / ``Q2``.",
           "type": "number"
         },
         "outcome": {
@@ -43370,8 +44000,7 @@
           "type": "string"
         },
         "ridge_lambda": {
-          "default": 1.0,
-          "description": "L2 penalty (used when ``w_constr='ridge'``).",
+          "description": "Deprecated and ignored (emit ``DeprecationWarning``). Before 1.28.x these set L1 / L2 *penalties* of a different estimator; R ``scpi`` constrains the norm of ``w`` instead -- use ``Q`` / ``Q2``.",
           "type": "number"
         },
         "time": {
@@ -43392,7 +44021,7 @@
         },
         "w_constr": {
           "default": "simplex",
-          "description": "Weight constraint: - ``'simplex'`` : w >= 0, sum(w) = 1 - ``'lasso'`` : L1-penalised (allows negative, non-summing) - ``'ridge'`` : L2-penalised - ``'ols'`` : ordinary least squares (unconstrained) - ``'ls'`` : least squares (same as 'ols')",
+          "description": "Weight constraint, as in R ``w.constr = list(name = ...)``: - ``'simplex'`` : w >= 0, sum(w) = Q (Q = 1) - ``'lasso'`` : ||w||_1 <= Q (Q = 1), weights may be negative - ``'ridge'`` : ||w||_2 <= Q, Q from R's ``shrinkage.EST`` rule (``max(Q_hat, 0.5)`` with Q_hat = ||b_ols|| / (1 + lambda), lambda = sigma^2 J / ||b_ols||^2) - ``'L1-L2'`` : w >= 0, sum(w) = 1 and ||w||_2 <= Q2 (Q2 as ridge Q) - ``'ols'`` : unconstrained least squares (``'ls'`` is an alias)",
           "type": "string"
         }
       },
@@ -43408,12 +44037,12 @@
     }
   },
   {
-    "description": "Prepare data matrices for synthetic control estimation.",
+    "description": "Prepare data matrices for synthetic control estimation. Validation: certified parity evidence.",
     "name": "scdata",
     "parameters": {
       "properties": {
         "data": {
-          "description": "Long-format panel data.",
+          "description": "Long-format panel data (one row per unit-period).",
           "type": "string"
         },
         "outcome": {
@@ -43429,7 +44058,7 @@
           "type": "string"
         },
         "treatment_time": {
-          "description": "First treatment period.",
+          "description": "First treatment period (periods ``< treatment_time`` are pre-treatment).",
           "type": "string"
         },
         "unit": {
@@ -43449,31 +44078,41 @@
     }
   },
   {
-    "description": "Distributional Synthetic Controls (Gunsilius 2023). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Distributional Synthetic Controls (Gunsilius 2023). Validation: certified parity evidence.",
     "name": "discos",
     "parameters": {
       "properties": {
+        "M": {
+          "default": 1000,
+          "description": "Individual-level data, ``method='quantile'``: number of quantile nodes in each weight regression (R ``M``). Default nodes are the mid-points ``(m - 0.5) / M``.",
+          "type": "integer"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level for confidence intervals.",
           "type": "number"
+        },
+        "cdf_grid": {
+          "description": "``method='mixture'``: outcome grid per period (all periods, in time order) on which the CDFs are compared and inverted (R's ``runif(G)`` grid). Default: ``G`` equispaced points on ``[floor(10 min)/10 - 0.25, ceil(10 max)/10 + 0.25]``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "data": {
           "description": "Panel data in long format with columns for unit, time, and outcome.",
           "type": "string"
         },
         "method": {
-          "default": "mixture",
-          "description": "``'mixture'``: constrained (omega >= 0, Sigmaomega = 1) -- minimises the L2-Wasserstein distance between quantile functions. ``'quantile'``: unconstrained quantile-on-quantile regression.",
+          "description": "Individual-level data: ``'quantile'`` (default; R ``mixture = FALSE``) or ``'mixture'`` (R ``mixture = TRUE``) -- see the module docstring. Aggregate panels: ``'mixture'`` (default) or ``'quantile'`` select the fallback heuristic.",
           "enum": [
-            "mixture",
-            "quantile"
+            "quantile",
+            "mixture"
           ],
           "type": "string"
         },
         "n_quantiles": {
-          "default": 100,
-          "description": "Number of quantile grid points on (0, 1).",
+          "description": "Individual-level data: ``G`` -- the counterfactual quantile function is reported on ``0, 1/G, ..., 1`` and the mixture CDF grid has ``G`` points (default 1000, as R). Aggregate panels: number of quantile grid points on (0, 1) (default 100).",
           "type": "integer"
         },
         "outcome": {
@@ -43485,9 +44124,21 @@
           "description": "Run in-space placebo permutation tests for inference.",
           "type": "boolean"
         },
+        "q_nodes": {
+          "description": "Quantile nodes for the weight regressions: one array reused for every pre-period, or one array per pre-period (e.g. R's ``runif(M)`` draws, to reproduce ``DiSCo`` exactly).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "seed": {
-          "description": "Random seed (currently unused; reserved for bootstrap extensions).",
+          "description": "Unused (all node sets are deterministic unless supplied).",
           "type": "integer"
+        },
+        "simplex": {
+          "default": false,
+          "description": "Individual-level data: restrict weights to be non-negative (R ``simplex``). ``False`` (R default) allows negative weights.",
+          "type": "boolean"
         },
         "time": {
           "description": "Time period column name.",
@@ -45057,7 +45708,7 @@
     }
   },
   {
-    "description": "Queen-contiguity spatial weights from polygon geometries.",
+    "description": "Queen-contiguity spatial weights from polygon geometries. Validation: certified parity evidence.",
     "name": "queen_weights",
     "parameters": {
       "properties": {
@@ -45073,7 +45724,7 @@
     }
   },
   {
-    "description": "Rook-contiguity spatial weights from polygon geometries.",
+    "description": "Rook-contiguity spatial weights from polygon geometries. Validation: certified parity evidence.",
     "name": "rook_weights",
     "parameters": {
       "properties": {
@@ -45136,12 +45787,12 @@
     }
   },
   {
-    "description": "Kernel (distance-decay) spatial weights from point coordinates.",
+    "description": "Kernel (distance-decay) spatial weights from point coordinates. Validation: certified parity evidence.",
     "name": "kernel_weights",
     "parameters": {
       "properties": {
         "bandwidth": {
-          "description": "With ``fixed=True``, the bandwidth distance ``h`` (for the bisquare and triangular kernels, neighbours beyond ``h`` get zero weight; the gaussian kernel has infinite support so all units are included). With ``fixed=False``, the integer number of nearest neighbours that defines the adaptive bandwidth.",
+          "description": "With ``fixed=True``, the bandwidth distance ``h`` (for the bisquare and triangular kernels, neighbours beyond ``h`` get zero weight; the gaussian kernel has infinite support so all units are included). With ``fixed=False``, the integer number ``k`` of nearest",
           "type": "number"
         },
         "coords": {
@@ -45172,7 +45823,7 @@
     }
   },
   {
-    "description": "Block (regime) spatial weights -- full connectivity within each group.",
+    "description": "Block (regime) spatial weights -- full connectivity within each group. Validation: certified parity evidence.",
     "name": "block_weights",
     "parameters": {
       "properties": {
@@ -45191,7 +45842,7 @@
     }
   },
   {
-    "description": "Fit Geographically Weighted Regression.",
+    "description": "Fit Geographically Weighted Regression. Validation: certified parity evidence.",
     "name": "gwr",
     "parameters": {
       "properties": {
@@ -45205,7 +45856,7 @@
           "type": "boolean"
         },
         "bw": {
-          "description": "Bandwidth. Interpretation depends on ``fixed``: - ``fixed=True``: metric distance. - ``fixed=False`` (default, \"adaptive\"): number of nearest neighbours. Non-integer values are rounded up to include the fractional neighbour, consistent with ``mgwr``.",
+          "description": "Bandwidth. Interpretation depends on ``fixed``: - ``fixed=True``: metric distance. - ``fixed=False`` (default, \"adaptive\"): number of nearest neighbours, counting the regression point itself. The kernel scale is the distance to the ``floor(bw)``-th nearest point (``GWmodel::gw.weight`` and ``mgwr`` both floor); ``bw > n`` extrapolates the scale to ``(bw / n) * max distance`` as ``GWmodel`` does.",
           "type": "number"
         },
         "coords": {
@@ -45219,7 +45870,7 @@
         },
         "kernel": {
           "default": "bisquare",
-          "description": "Bisquare is mgwr's default.",
+          "description": "Bisquare is mgwr's default. Gaussian and exponential have infinite support under both fixed and adaptive bandwidths; only the bisquare is truncated at the bandwidth.",
           "enum": [
             "bisquare",
             "gaussian",
@@ -45242,45 +45893,52 @@
     }
   },
   {
-    "description": "Multiscale GWR via back-fitting.",
+    "description": "Multiscale GWR via back-fitting. Validation: certified parity evidence.",
     "name": "mgwr",
     "parameters": {
       "properties": {
         "X": {
-          "description": "Feature matrix or covariate DataFrame.",
+          "description": "Regressors, without a constant unless ``add_constant=False``.",
           "type": "string"
         },
         "add_constant": {
           "default": true,
-          "description": "add_constant parameter (bool).",
+          "description": "As in :func:`gwr`.",
           "type": "boolean"
         },
         "bw_init": {
-          "description": "bw_init parameter (Optional[float]).",
+          "description": "Bandwidth of the initialising GWR (selected by AICc if omitted).",
           "type": "number"
         },
+        "bws": {
+          "description": "Fixed covariate-specific bandwidths (length ``k``, intercept first when ``add_constant=True``). When given, no bandwidth is searched: the back-fitting solves the additive model at these bandwidths, which is ``GWmodel::gwr.multiscale(bws0 = bws, bw.seled = TRUE)``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "coords": {
-          "description": "coords parameter.",
+          "description": "coords parameter (ndarray).",
           "type": "string"
         },
         "fixed": {
           "default": false,
-          "description": "fixed parameter (bool).",
+          "description": "As in :func:`gwr`.",
           "type": "boolean"
         },
         "kernel": {
           "default": "bisquare",
-          "description": "Kernel function used for weighting or smoothing.",
+          "description": "As in :func:`gwr`.",
           "type": "string"
         },
         "max_iter": {
           "default": 200,
-          "description": "Maximum number of optimisation iterations.",
+          "description": "Maximum number of back-fitting sweeps.",
           "type": "integer"
         },
         "tol": {
           "default": 1e-05,
-          "description": "Numerical convergence tolerance.",
+          "description": "Convergence threshold on ``max_ij |f_j(i)_new - f_j(i)_old|``.",
           "type": "number"
         },
         "y": {
@@ -45297,12 +45955,12 @@
     }
   },
   {
-    "description": "Select GWR bandwidth via golden-section search.",
+    "description": "Select a GWR bandwidth by golden-section search (``GWmodel::bw.gwr``). Validation: certified parity evidence.",
     "name": "gwr_bandwidth",
     "parameters": {
       "properties": {
         "X": {
-          "description": "Feature matrix or covariate DataFrame.",
+          "description": "Regressors, without a constant unless ``add_constant=False``.",
           "type": "string"
         },
         "add_constant": {
@@ -45311,20 +45969,20 @@
           "type": "boolean"
         },
         "bw_max": {
-          "description": "Override the default search bounds.",
+          "description": "Search bounds. Defaults are GWmodel's: ``[20, n]`` for an adaptive bandwidth (``[k + 2, n]`` when ``n <= 20``, where GWmodel's bounds would be empty) and ``[D / 5000, D]`` for a fixed one, ``D`` being the largest inter-point distance.",
           "type": "number"
         },
         "bw_min": {
-          "description": "Override the default search bounds.",
+          "description": "Search bounds. Defaults are GWmodel's: ``[20, n]`` for an adaptive bandwidth (``[k + 2, n]`` when ``n <= 20``, where GWmodel's bounds would be empty) and ``[D / 5000, D]`` for a fixed one, ``D`` being the largest inter-point distance.",
           "type": "number"
         },
         "coords": {
-          "description": "coords parameter.",
+          "description": "Projected point coordinates.",
           "type": "string"
         },
         "criterion": {
           "default": "AICc",
-          "description": "Default AICc matches mgwr.",
+          "description": "``\"AICc\"`` is ``bw.gwr(approach = \"AICc\")`` (and mgwr's default); ``\"CV\"`` is ``bw.gwr(approach = \"CV\")``, GWmodel's default.",
           "enum": [
             "AICc",
             "AIC",
@@ -45335,17 +45993,22 @@
         },
         "fixed": {
           "default": false,
-          "description": "If False (default), the bandwidth is a nearest-neighbour count (integer-valued; rounded at each candidate).",
+          "description": "fixed parameter (bool).",
           "type": "boolean"
         },
         "kernel": {
           "default": "bisquare",
           "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "bisquare",
+            "gaussian",
+            "exponential"
+          ],
           "type": "string"
         },
         "tol": {
-          "default": 0.001,
-          "description": "Numerical convergence tolerance.",
+          "default": 0.0001,
+          "description": "Stopping threshold of the golden-section search, applied (as in GWmodel, where it is hard-coded to ``1e-4``) both to the bracket step and to the difference of the two probed criterion values.",
           "type": "number"
         },
         "y": {
@@ -45474,12 +46137,12 @@
     }
   },
   {
-    "description": "Combined GMM: Kelejian-Prucha SAR 2SLS then SEM GMM on residuals. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "SARAR (spatial lag + spatial error) by generalized spatial 2SLS. Validation: certified parity evidence.",
     "name": "sarar_gmm",
     "parameters": {
       "properties": {
         "W": {
-          "description": "Covariates, proxy variables, or weights used by this estimator.",
+          "description": "Spatial weights.",
           "type": "string"
         },
         "data": {
@@ -45487,17 +46150,27 @@
           "type": "string"
         },
         "formula": {
-          "description": "Model formula using patsy/R-style syntax.",
+          "description": "``\"y ~ x1 + x2\"``; a constant is always added.",
           "type": "string"
         },
         "robust": {
-          "description": "Robust standard-error or covariance estimator option.",
+          "description": "``\"het\"``: HC0 sandwich in both 2SLS steps (``gstsls(robust = TRUE)``). The ``lambda`` moments are still the homoskedastic Kelejian-Prucha (1999) ones; this is *not* the Arraiz et al. (2010) heteroskedastic GM estimator of ``sphet::spreg(het = TRUE)``.",
           "type": "string"
         },
         "row_normalize": {
           "default": true,
-          "description": "row_normalize parameter (bool).",
+          "description": "Row-standardise ``W`` (``spdep`` style ``\"W\"``).",
           "type": "boolean"
+        },
+        "sig2n_k": {
+          "default": false,
+          "description": "Divide the residual sum of squares by ``n - k`` instead of ``n`` in the homoskedastic variance (``gstsls(sig2n_k = TRUE)``).",
+          "type": "boolean"
+        },
+        "w_lags": {
+          "default": 2,
+          "description": "Spatial lags of ``X`` used as instruments: ``[W X, ..., W^w_lags X]``. ``2`` is Kelejian-Prucha's ``H = [X, WX, W^2 X]`` and the only choice ``gstsls`` offers (its ``W2X`` argument is not used by the code); ``1`` is PySAL ``spreg.GM_Combo``'s default.",
+          "type": "integer"
         }
       },
       "required": [
@@ -45544,7 +46217,7 @@
     }
   },
   {
-    "description": "Fit a spatial panel model by concentrated ML (Elhorst 2014). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fit a spatial panel model by concentrated ML (Elhorst 2014). Validation: certified parity evidence.",
     "name": "spatial_panel",
     "parameters": {
       "properties": {
@@ -45585,11 +46258,20 @@
         },
         "row_normalize": {
           "default": true,
-          "description": "row_normalize parameter (bool).",
+          "description": "Row-standardise ``W``.",
           "type": "boolean"
         },
         "time": {
           "description": "Column names identifying entity and time dimensions.",
+          "type": "string"
+        },
+        "vce": {
+          "default": "information",
+          "description": "``\"information\"``: inverse of the analytic information matrix of ``(sigma^2, rho, beta)`` evaluated at the estimates, as ``splm::spml(model = \"within\")`` reports. ``\"oim\"``: inverse of the observed (analytic) Hessian of the full log-likelihood -- the ``vce(oim)`` default of Stata's ``xsmle``. The two differ in the ``rho``-``rho`` term (expected ``tr(WA'WA)`` + ``beta'X'(WA)'WAX beta`` against observed ``(Wy)'(Wy)``) and so in every SE.",
+          "enum": [
+            "information",
+            "oim"
+          ],
           "type": "string"
         }
       },
@@ -48003,7 +48685,7 @@
     }
   },
   {
-    "description": "Deville-Sarndal (1992) linear calibration.",
+    "description": "Deville-Sarndal (1992) linear calibration. Validation: certified parity evidence.",
     "name": "linear_calibration",
     "parameters": {
       "properties": {
@@ -48028,7 +48710,7 @@
     }
   },
   {
-    "description": "Raking (iterative proportional fitting).",
+    "description": "Raking (iterative proportional fitting). Validation: certified parity evidence.",
     "name": "rake",
     "parameters": {
       "properties": {
@@ -48037,16 +48719,16 @@
           "type": "string"
         },
         "margins": {
-          "description": "``{column_name: {category: target_proportion}}``. E.g. ``{\"sex\": {\"M\": 0.49, \"F\": 0.51}, \"age_group\": {\"18-34\": 0.3, ...}}``.",
+          "description": "``{column_name: {category: target}}``. Targets may be proportions or population counts; each margin is normalised to shares. Every category observed in ``data[column_name]`` must have a target and every target category must occur in the data (R ``rake`` also refuses both).",
           "type": "object"
         },
         "max_iter": {
           "default": 100,
-          "description": "Maximum number of optimisation iterations.",
+          "description": "Maximum number of full sweeps over the margins.",
           "type": "integer"
         },
         "tol": {
-          "default": 1e-06,
+          "default": 1e-10,
           "description": "Numerical convergence tolerance.",
           "type": "number"
         },
@@ -48095,13 +48777,13 @@
     }
   },
   {
-    "description": "Cox proportional hazards with shared gamma frailty. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Cox proportional hazards with shared gamma frailty. Validation: certified parity evidence.",
     "name": "cox_frailty",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Significance level (kept for API symmetry; intervals are built by the result's accessors).",
           "type": "number"
         },
         "cluster": {
@@ -48118,12 +48800,25 @@
         },
         "maxiter": {
           "default": 50,
-          "description": "maxiter parameter (int).",
+          "description": "Newton-Raphson controls for the penalised fit at each theta.",
           "type": "integer"
         },
+        "theta": {
+          "description": "Fix the frailty variance instead of estimating it (R ``frailty(id, theta=)``). ``0`` fits the ordinary Cox model.",
+          "type": "number"
+        },
+        "ties": {
+          "default": "efron",
+          "description": "Tie handling in the partial likelihood (R's default is Efron, Stata's ``stcox`` default is Breslow; identical without ties).",
+          "enum": [
+            "efron",
+            "breslow"
+          ],
+          "type": "string"
+        },
         "tol": {
-          "default": 1e-06,
-          "description": "Numerical convergence tolerance.",
+          "default": 1e-10,
+          "description": "Newton-Raphson controls for the penalised fit at each theta.",
           "type": "number"
         }
       },
@@ -48492,7 +49187,7 @@
     }
   },
   {
-    "description": "Bayesian VAR with Minnesota (Litterman) prior. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Bayesian VAR with the original Minnesota (Litterman) prior. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bvar",
     "parameters": {
       "properties": {
@@ -48507,13 +49202,32 @@
         },
         "lambda1": {
           "default": 0.1,
-          "description": "Overall tightness (smaller = stronger shrinkage toward RW).",
+          "description": "Overall (self) tightness (smaller = stronger shrinkage toward RW).",
           "type": "number"
         },
         "lambda2": {
           "default": 0.5,
-          "description": "Cross-variable shrinkage relative to own-lag.",
+          "description": "Cross-variable tightness relative to own lags.",
           "type": "number"
+        },
+        "lambda3": {
+          "default": 1.0,
+          "description": "Lag decay.",
+          "type": "number"
+        },
+        "lambda4": {
+          "default": 100.0,
+          "description": "Tightness of the constant (exogenous) terms.",
+          "type": "number"
+        },
+        "sigma": {
+          "default": "ar",
+          "description": "``Sigma0``: diagonal of the univariate AR(lags) residual variances (Litterman's original; Stata ``arcov``), or the diagonal of the OLS VAR residual variances ``diag(U'U) / n`` (Stata ``varcov``). The prior-variance scales ``s_i^2`` follow the same choice.",
+          "enum": [
+            "ar",
+            "var"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -48586,7 +49300,7 @@
     }
   },
   {
-    "description": "Fit GARCH(p,q) by conditional Gaussian MLE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Fit GARCH(p,q) by conditional Gaussian MLE. Validation: certified parity evidence.",
     "name": "garch",
     "parameters": {
       "properties": {
@@ -48597,13 +49311,32 @@
         },
         "p": {
           "default": 1,
-          "description": "Number of GARCH (lagged sigma2) terms.",
+          "description": "Number of GARCH (lagged sigma2) terms (Stata ``garch(p)``).",
           "type": "integer"
+        },
+        "presample": {
+          "default": "stata",
+          "description": "How the recursion is started; both use ``m = mean(epsilon2)`` at the current mu. ``'stata'``: pre-sample epsilon2 and sigma2 equal ``m`` and every observation's sigma2 follows the recursion (Stata ``arch``, default ``arch0(xb)``). ``'rugarch'``: sigma2_t = ``m`` for the first ``max(p, q)`` observations (``rugarch::ugarchfit``, sGARCH). The log-likelihood sums over all observations in both cases.",
+          "enum": [
+            "stata",
+            "rugarch"
+          ],
+          "type": "string"
         },
         "q": {
           "default": 1,
-          "description": "Number of ARCH (lagged epsilon2) terms.",
+          "description": "Number of ARCH (lagged epsilon2) terms (Stata ``arch(q)``).",
           "type": "integer"
+        },
+        "vce": {
+          "default": "oim",
+          "description": "Covariance of the estimates: inverse observed information (Hessian of the log-likelihood, by central differences of the analytic score), outer product of the scores (Stata's ``arch`` default), or the Bollerslev-Wooldridge sandwich ``H^{-1} (S'S) H^{-1}``.",
+          "enum": [
+            "oim",
+            "opg",
+            "robust"
+          ],
+          "type": "string"
         },
         "y": {
           "description": "Return series (or log-return, etc.).",
@@ -49222,7 +49955,7 @@
     }
   },
   {
-    "description": "Sharp / fuzzy RD -- article-friendly alias for :func:`rdrobust`.",
+    "description": "Sharp / fuzzy RD -- article-friendly alias for :func:`rdrobust`. Validation: certified parity evidence.",
     "name": "rdd",
     "parameters": {
       "properties": {
@@ -49554,6 +50287,11 @@
           "description": "Confidence level or reporting level.",
           "type": "number"
         },
+        "method": {
+          "default": "exact",
+          "description": "Estimator or algorithm variant to use.",
+          "type": "string"
+        },
         "n_grid": {
           "default": 201,
           "description": "Number of grid.",
@@ -49582,7 +50320,7 @@
     }
   },
   {
-    "description": "tF adjusted critical value (Lee, McCrary, Moreira & Porter 2022, AER).",
+    "description": "tF adjusted critical value (Lee, McCrary, Moreira & Porter 2022, AER). Validation: certified parity evidence.",
     "name": "tF_adjustment",
     "parameters": {
       "properties": {
@@ -51000,7 +51738,7 @@
     }
   },
   {
-    "description": "Alias for :func:`sensitivity_specificity`.",
+    "description": "Alias for :func:`sensitivity_specificity`. Validation: certified parity evidence.",
     "name": "diagnostic_test",
     "parameters": {
       "properties": {
@@ -51008,6 +51746,11 @@
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
+        },
+        "ci_method": {
+          "default": "wilson",
+          "description": "ci_method parameter (str).",
+          "type": "string"
         },
         "fn": {
           "description": "fn parameter (Optional[int]).",
@@ -51039,7 +51782,7 @@
     }
   },
   {
-    "description": "Shortcut: just return the AUC. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Shortcut: just return the AUC. Validation: certified parity evidence.",
     "name": "auc",
     "parameters": {
       "properties": {
@@ -51163,6 +51906,11 @@
         },
         "fpr": {
           "description": "fpr parameter (np.ndarray).",
+          "type": "string"
+        },
+        "se_method": {
+          "default": "hanley",
+          "description": "se_method parameter (str).",
           "type": "string"
         },
         "thresholds": {
@@ -57935,7 +58683,7 @@
     }
   },
   {
-    "description": "Parametric four-way decomposition of TE = CDE + INT_ref + INT_med + PIE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Parametric four-way decomposition of TE = CDE + INT_ref + INT_med + PIE. Validation: certified parity evidence.",
     "name": "four_way_decomposition",
     "parameters": {
       "properties": {
@@ -57971,6 +58719,15 @@
         },
         "treat": {
           "description": "Treatment indicator or first-treatment-period column.",
+          "type": "string"
+        },
+        "vce": {
+          "default": "ols",
+          "description": "Covariance of the two regressions fed to the delta-method standard errors in ``result.se`` (covariates are held fixed at their sample means, as in the point estimates). ``'ols'`` uses ``s^2 (X'X)^{-1}`` with ``s^2 = RSS / (n - p)`` -- R ``CMAverse::cmest(estimation = \"paramfunc\", inference = \"delta\")``; ``'ml'`` uses ``RSS / n`` -- Stata ``med4way``, which fits both linear models by maximum likelihood.",
+          "enum": [
+            "ols",
+            "ml"
+          ],
           "type": "string"
         },
         "y": {
@@ -58021,6 +58778,11 @@
           "description": "proportions parameter (Dict[str, float]).",
           "type": "object"
         },
+        "se": {
+          "default": null,
+          "description": "se parameter (Dict[str, float]).",
+          "type": "object"
+        },
         "total_effect": {
           "description": "total_effect parameter (float).",
           "type": "number"
@@ -58039,7 +58801,7 @@
     }
   },
   {
-    "description": "Segmented regression for interrupted time series. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Segmented regression for interrupted time series. Validation: certified parity evidence.",
     "name": "its",
     "parameters": {
       "properties": {
@@ -58054,8 +58816,13 @@
         },
         "hac_lag": {
           "default": 4,
-          "description": "Newey-West truncation lag.",
+          "description": "Newey-West truncation lag (Bartlett weights ``1 - j/(L+1)``).",
           "type": "integer"
+        },
+        "hac_small_sample": {
+          "default": false,
+          "description": "hac_small_sample parameter (bool).",
+          "type": "boolean"
         },
         "intervention": {
           "description": "Time index (integer row position) at which the intervention begins. Required.",
@@ -58164,7 +58931,7 @@
     }
   },
   {
-    "description": "Longitudinal TMLE for static regime contrasts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Longitudinal TMLE for static regime contrasts. Validation: certified parity evidence.",
     "name": "ltmle",
     "parameters": {
       "properties": {
@@ -58211,9 +58978,9 @@
         "propensity_bounds": {
           "default": [
             0.01,
-            0.99
+            1.0
           ],
-          "description": "Clip propensity to this range for stability.",
+          "description": "Bounds on the *cumulative* probability of following the regime (and remaining uncensored) up to each time point, ``prod_j g_j`` -- the ``gbounds`` of R ``ltmle``, whose default this is.",
           "items": {
             "type": "string"
           },
@@ -59249,7 +60016,7 @@
     }
   },
   {
-    "description": "Compute Rosenbaum bounds on a paired observational study.",
+    "description": "Compute Rosenbaum bounds on a paired observational study. Validation: certified parity evidence.",
     "name": "rosenbaum_bounds",
     "parameters": {
       "properties": {
@@ -59313,6 +60080,15 @@
         "y": {
           "description": "Outcome variable column name or outcome array.",
           "type": "string"
+        },
+        "zero_method": {
+          "default": "pratt",
+          "description": "Treatment of pairs with a zero difference in the Wilcoxon bound. ``\"pratt\"`` ranks them with the other pairs and gives them no weight (Rosenbaum's ``DOS2::senWilcox``, Stata ``rbounds``); ``\"wilcox\"`` drops them before ranking (``rbounds::psens``). Identical when no difference is zero. Ignored by the sign test, which always drops zeros.",
+          "enum": [
+            "pratt",
+            "wilcox"
+          ],
+          "type": "string"
         }
       },
       "required": [],
@@ -59320,7 +60096,7 @@
     }
   },
   {
-    "description": "Compute Rosenbaum bounds on a paired observational study.",
+    "description": "Compute Rosenbaum bounds on a paired observational study. Validation: certified parity evidence.",
     "name": "rosenbaum_gamma",
     "parameters": {
       "properties": {
@@ -59383,6 +60159,15 @@
         },
         "y": {
           "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        },
+        "zero_method": {
+          "default": "pratt",
+          "description": "Treatment of pairs with a zero difference in the Wilcoxon bound. ``\"pratt\"`` ranks them with the other pairs and gives them no weight (Rosenbaum's ``DOS2::senWilcox``, Stata ``rbounds``); ``\"wilcox\"`` drops them before ranking (``rbounds::psens``). Identical when no difference is zero. Ignored by the sign test, which always drops zeros.",
+          "enum": [
+            "pratt",
+            "wilcox"
+          ],
           "type": "string"
         }
       },

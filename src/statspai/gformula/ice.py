@@ -18,8 +18,10 @@ Hernan & Robins. *Causal Inference: What If*, ch. 21.
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any, Sequence
+
 import numpy as np
 import pandas as pd
 
@@ -111,8 +113,14 @@ def ice(
         = always-treat) or a callable taking history and returning
         the intervention value.
     bootstrap : int, default 0
-        Number of nonparametric bootstrap replicates for SE. 0 uses
-        analytic linear-regression SE of the terminal mean.
+        Number of nonparametric bootstrap replicates for SE. 0 reports
+        the analytic M-estimation sandwich: the K sequential OLS normal
+        equations and the final mean are stacked, and the variance of
+        the plug-in mean propagates each stage's coefficient uncertainty
+        through the later-stage pseudo-outcomes (divisor ``n``; the
+        interval is then Wald). Before 1.29 ``bootstrap=0`` reported
+        ``sd(Y) / sqrt(n)`` -- the standard error of the *observed*
+        outcome mean, unrelated to the g-formula estimate.
     seed : int, optional
         Random seed for bootstrap.
 
@@ -174,7 +182,7 @@ def ice(
             float(np.quantile(vals_arr, 0.975)),
         )
     else:
-        se = float(data[outcome_col].std(ddof=1) / np.sqrt(max(len(data), 1)))
+        se = _ice_sandwich_se(data, treatment_cols, conf, outcome_col, strategy)
         ci = (val - 1.96 * se, val + 1.96 * se)
 
     _result = ICEResult(
@@ -253,6 +261,71 @@ def _ice_once(
         pseudo = X_intervened @ beta
 
     return float(pseudo.mean())
+
+
+def _ice_designs(
+    data: pd.DataFrame,
+    treatment_cols: Sequence[str],
+    confounder_cols: Sequence[Sequence[str]],
+    strategy: Sequence[Any],
+):
+    """Per-stage observed design X_t and intervened design X*_t."""
+    K = len(treatment_cols)
+    out = []
+    for t in range(K):
+        hist: list[str] = []
+        for s_ in range(t + 1):
+            hist.extend(confounder_cols[s_])
+            hist.append(treatment_cols[s_])
+        X = np.column_stack([np.ones(len(data)), data[hist].to_numpy(dtype=float)])
+        a_offset = 1
+        for s_ in range(t):
+            a_offset += len(confounder_cols[s_]) + 1
+        col_idx = a_offset + len(confounder_cols[t])
+        X_star = X.copy()
+        X_star[:, col_idx] = strategy[t]
+        out.append((X, X_star))
+    return out
+
+
+def _ice_sandwich_se(
+    data: pd.DataFrame,
+    treatment_cols: Sequence[str],
+    confounder_cols: Sequence[Sequence[str]],
+    outcome_col: str,
+    strategy: Sequence[Any],
+) -> float:
+    """Stacked-estimating-equation standard error of the ICE mean.
+
+    Parameters ``beta_{K-1}, ..., beta_0`` (sequential OLS) and ``psi``.
+    Stage ``t`` solves ``E[X_t (q_{t+1} - X_t beta_t)] = 0`` with
+    ``q_K = Y`` and ``q_{t+1} = X*_{t+1} beta_{t+1}``; ``psi`` solves
+    ``E[X*_0 beta_0 - psi] = 0``. The influence functions follow the
+    triangular Jacobian backwards:
+    ``IF_{beta_t} = M_t^{-1} [X_t e_t + E(X_t X*_{t+1}') IF_{beta_{t+1}}]``
+    with ``M_t = E(X_t X_t')``, and
+    ``IF_psi = X*_0 beta_0 - psi + E(X*_0)' IF_{beta_0}``.
+    """
+    designs = _ice_designs(data, treatment_cols, confounder_cols, strategy)
+    K = len(treatment_cols)
+    n = len(data)
+    q = data[outcome_col].to_numpy(dtype=float)
+    if_next = None  # IF of beta_{t+1}, shape (n, p_{t+1})
+    X_star_next = None
+    for t in reversed(range(K)):
+        X, X_star = designs[t]
+        beta = np.linalg.lstsq(X, q, rcond=None)[0]
+        resid = q - X @ beta
+        M = X.T @ X / n
+        rhs = X * resid[:, None]
+        if if_next is not None:
+            rhs = rhs + if_next @ (X_star_next.T @ X / n)
+        if_t = np.linalg.solve(M, rhs.T).T
+        q = X_star @ beta
+        if_next, X_star_next = if_t, X_star
+    psi = float(q.mean())
+    if_psi = (q - psi) + if_next @ X_star_next.mean(axis=0)
+    return float(np.sqrt(np.mean(if_psi**2) / n))
 
 
 def _resolve_strategy(strategy: Any, K: int) -> list:

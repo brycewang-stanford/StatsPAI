@@ -27,8 +27,11 @@ def test_ipcw_weights_shape_and_positivity():
     df = _censored_cohort(seed=0)
     res = sp.ipcw(df, time="time", event="event", censor_covariates=["x"])
     w = np.asarray(res.weights, dtype=float)
+    obs = df["event"].to_numpy() == 1
     assert w.shape == (len(df),)
-    assert np.all(w > 0)
+    # Uncensored rows are up-weighted; censored rows carry weight 0.
+    assert np.all(w[obs] > 0)
+    assert np.all(w[~obs] == 0)
     assert np.all(np.isfinite(w))
 
 
@@ -38,8 +41,9 @@ def test_unstabilized_weights_are_at_least_one():
         df, time="time", event="event", censor_covariates=["x"], stabilize=False
     )
     w = np.asarray(res.weights, dtype=float)
+    obs = df["event"].to_numpy() == 1
     # Unstabilized IPC weights are 1 / P(uncensored) >= 1 by construction.
-    assert w.min() >= 1.0 - 1e-6
+    assert w[obs].min() >= 1.0 - 1e-6
     assert res.stabilized is False
 
 
@@ -49,9 +53,11 @@ def test_stabilized_weights_centre_near_one():
         df, time="time", event="event", censor_covariates=["x"], stabilize=True
     )
     w = np.asarray(res.weights, dtype=float)
-    # Stabilized weights are designed to have mean ~ 1.
+    obs = df["event"].to_numpy() == 1
+    # Stabilized weights have mean ~ 1 over the uncensored rows.
     assert res.stabilized is True
-    assert abs(float(w.mean()) - 1.0) < 0.2
+    assert abs(float(w[obs].mean()) - 1.0) < 0.2
+    assert res.summary_stats["mean"] == float(w[obs].mean())
     assert res.summary_stats["effective_sample_size"] <= len(df)
     assert res.summary_stats["effective_sample_size"] > 0
 

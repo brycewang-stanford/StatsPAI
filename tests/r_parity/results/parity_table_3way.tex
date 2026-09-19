@@ -28,7 +28,7 @@ ID & Method & Worst diff vs \proglang{R} & Worst diff vs \proglang{Stata} & Verd
 \code{09} & RD density (CJM) & rel $\le 9.3e-12$ {\footnotesize (native CJM/rddensity default parity)} & rel $\le 1.8e-11$ & \textbf{PASS} \\
 \code{10} & Honest DiD bounds & abs $\le 4.88e-15$ {\footnotesize (FLCI via HonestDiD backend; Stata port within 0.0005)} & abs $\le 0.000327$ & \textbf{PASS} \\
 \code{11} & PSM 1:1 NN & rel $\le 1.2e-15$ & rel $\le 2e-16$ & \textbf{PASS} \\
-\code{12} & Synthetic DID & rel $\le 2.6e-15$ {\footnotesize (native Frank-Wolfe/zeta ATT parity; backend-native placebo SE diagnostics)} & rel $\le 7.2e-08$ & \textbf{PASS} \\
+\code{12} & Synthetic DID & rel $\le 7.8e-16$ {\footnotesize (native Frank-Wolfe/zeta ATT parity; backend-native placebo SE diagnostics)} & rel $\le 7.2e-08$ & \textbf{PASS} \\
 \code{13} & Causal forest (AIPW) & rel $\le 0.0019$ {\footnotesize (T3 combined-MC-error pass; like-for-like AIPW vs grf within $\sim 0.05$ combined SE on clean-overlap DGP)} & \emph{bridge artifact not materialized: Stata 19's official cate command is the candidate causal-forest/AIPW reference, but the verified local runtime is Stata 18 and `which cate` fails.} & \textbf{PASS} \\
 \code{14} & OLS + cluster-robust SE & rel $\le 3e-14$ & rel $\le 2.2e-14$ & \textbf{PASS} \\
 \code{15} & HDFE + cluster SE & rel $\le 5.2e-15$ {\footnotesize (fixest/reghdfe nested-FE cluster correction)} & rel $\le 2.9e-15$ & \textbf{PASS} \\
@@ -41,9 +41,9 @@ ID & Method & Worst diff vs \proglang{R} & Worst diff vs \proglang{Stata} & Verd
 \code{22} & sensemakr robustness & rel $\le 5e-08$ {\footnotesize (sensemakr RV and benchmark bound-scale parity)} & rel $\le 5e-08$ & \textbf{PASS} \\
 \code{23} & E-value (closed form) & rel $\le 5.8e-14$ & rel $\le 1.2e-16$ & \textbf{PASS} \\
 \code{24} & Cox proportional hazards & rel $\le 8.4e-16$ & rel $\le 2.1e-10$ & \textbf{PASS} \\
-\code{25} & Linear mixed model & rel $\le 1.3e-10$ & rel $\le 4.9e-11$ & \textbf{PASS} \\
-\code{26} & GLMM logit (Laplace) & rel $\le 0.00017$ & rel $\le 5.5e-06$ & \textbf{PASS} \\
-\code{27} & GLMM logit (AGHQ, n=8) & rel $\le 2.4e-07$ & rel $\le 8.4e-07$ & \textbf{PASS} \\
+\code{25} & Linear mixed model & rel $\le 2.6e-12$ & rel $\le 8.3e-11$ & \textbf{PASS} \\
+\code{26} & GLMM logit (Laplace) & rel $\le 0.00017$ & rel $\le 1.4e-08$ & \textbf{PASS} \\
+\code{27} & GLMM logit (AGHQ, n=8) & rel $\le 1.7e-07$ & rel $\le 9.8e-07$ & \textbf{PASS} \\
 \code{28} & Stochastic frontier (cross-sec.) & rel $\le 4.1e-08$ & rel $\le 4e-08$ & \textbf{PASS} \\
 \code{29} & Panel SFA (Pitt--Lee) & rel $\le 2.8e-06$ {\footnotesize (slope parity; intercept/sigma rows are scale diagnostics)} & rel $\le 1.8e-06$ & \textbf{PASS} \\
 \code{30} & Blinder--Oaxaca decomposition & rel $\le 6.3e-16$ {\footnotesize (twofold vs threefold split convention)} & rel $\le 1.3e-16$ & \textbf{PASS} \\

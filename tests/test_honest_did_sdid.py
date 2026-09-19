@@ -353,23 +353,29 @@ class TestSynthdidMethods:
         assert r1.model_info["estimator"] == "sdid"
         assert r2.model_info["estimator"] == "sc"
         assert r3.model_info["estimator"] == "did"
+        # Characterisation pins (not references). The standard errors were
+        # re-pinned in the did_synth parity sweep, when the native placebo SE
+        # was aligned with synthdid::placebo_se (random permutations with the
+        # original fit's weights and regularisation, divisor r); the point
+        # estimates did not move. The per-draw map is checked against R in
+        # tests/reference_parity/test_did_synth_R_parity.py.
         np.testing.assert_allclose(
             [r1.estimate, r1.se, r1.ci[0], r1.ci[1]],
             [
-                3.0487671564274175,
-                0.2506589448462623,
-                2.5574846521259316,
-                3.5400496607289034,
+                3.04876715642742,
+                0.21425844909589484,
+                2.628828312816058,
+                3.4687060000387824,
             ],
             atol=1e-12,
         )
         np.testing.assert_allclose(
             [r2.estimate, r2.se, r2.ci[0], r2.ci[1]],
             [
-                2.869914758406992,
-                0.39153506164425145,
-                2.1025201388995893,
-                3.6373093779143946,
+                2.8699147584069813,
+                0.35306589094041546,
+                2.1779183279942202,
+                3.5619111888197423,
             ],
             atol=1e-12,
         )
@@ -377,9 +383,9 @@ class TestSynthdidMethods:
             [r3.estimate, r3.se, r3.ci[0], r3.ci[1]],
             [
                 2.7565565537646974,
-                0.32592391468540266,
-                2.117757419281003,
-                3.395355688248392,
+                0.215387915949456,
+                2.3344039957986236,
+                3.1787091117307713,
             ],
             atol=1e-12,
         )
@@ -424,35 +430,63 @@ class TestSEMethods:
         assert result.model_info["se_method"] == "placebo"
 
     def test_bootstrap_se(self, scm_panel):
+        # One treated unit: synthdid::bootstrap_sample returns NA (every
+        # resample would need the single treated unit), and so does sdid.
         panel, treat_time = scm_panel
-        result = sdid(
+        with pytest.warns(UserWarning, match="undefined"):
+            result = sdid(
+                panel,
+                y="y",
+                unit="unit",
+                time="time",
+                treat_unit=0,
+                treat_time=treat_time,
+                se_method="bootstrap",
+                n_reps=50,
+                seed=42,
+            )
+        assert np.isnan(result.se)
+        assert result.model_info["se_method"] == "bootstrap"
+        multi = sdid(
             panel,
             y="y",
             unit="unit",
             time="time",
-            treat_unit=0,
+            treat_unit=[0, 1],
             treat_time=treat_time,
             se_method="bootstrap",
-            n_reps=50,
+            n_reps=30,
             seed=42,
         )
-        assert result.se > 0
-        assert result.model_info["se_method"] == "bootstrap"
+        assert multi.se > 0
 
     def test_jackknife_se(self, scm_panel):
+        # synthdid::jackknife_se is NA with a single treated unit.
         panel, treat_time = scm_panel
-        result = sdid(
+        with pytest.warns(UserWarning, match="undefined"):
+            result = sdid(
+                panel,
+                y="y",
+                unit="unit",
+                time="time",
+                treat_unit=0,
+                treat_time=treat_time,
+                se_method="jackknife",
+                seed=42,
+            )
+        assert np.isnan(result.se)
+        assert np.isnan(result.pvalue)
+        assert result.model_info["se_method"] == "jackknife"
+        multi = sdid(
             panel,
             y="y",
             unit="unit",
             time="time",
-            treat_unit=0,
+            treat_unit=[0, 1],
             treat_time=treat_time,
             se_method="jackknife",
-            seed=42,
         )
-        assert result.se > 0
-        assert result.model_info["se_method"] == "jackknife"
+        assert multi.se > 0
 
 
 class TestCaliforniaProp99:

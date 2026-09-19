@@ -32,14 +32,15 @@ Econometrica, 89(3), 1449-1469. [@masten2021salvaging]
 """
 
 import warnings
-from typing import Optional, List, Dict, Any, Tuple, Callable
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
-from dataclasses import dataclass, field
 
-from ..core.results import CausalResult
 from .._result_serialize import ResultProtocolMixin
+from ..core.results import CausalResult
 
 # ======================================================================
 # BoundsResult — Shared result class for all bounding methods
@@ -358,8 +359,12 @@ def horowitz_manski(
     """
     Horowitz-Manski (2000) bounds conditioning on covariates.
 
-    Tighter than unconditional Manski bounds by averaging conditional
-    bounds over the covariate distribution.
+    Averages the conditional worst-case (Manski) bounds over the
+    covariate strata. For the ATE with a common outcome range
+    ``[y_lower, y_upper]`` these bounds are linear in the cell means, so
+    the average equals the unconditional worst-case bounds exactly
+    (``sp.manski_bounds(assumption='none')``); conditioning tightens
+    nothing unless the strata carry further restrictions.
 
     Parameters
     ----------
@@ -482,14 +487,17 @@ def _hm_point(
         Y1 = Y_s[D_s == 1]
         Y0 = Y_s[D_s == 0]
 
-        if len(Y1) == 0 or len(Y0) == 0:
-            continue
-
         p1 = np.mean(D_s)  # P(D=1 | X=s)
         p0 = 1 - p1  # P(D=0 | X=s)
 
-        e1 = np.mean(Y1)
-        e0 = np.mean(Y0)
+        # A stratum with no treated (or no control) units still carries
+        # its mass: the missing arm's conditional mean is simply
+        # unrestricted in [y_lo, y_hi], which the formula below encodes
+        # once that arm's (zero-weight) sample mean is set to 0. Before
+        # 1.29 such strata were skipped, silently dropping their
+        # P(X = s) share and shrinking both bounds toward zero.
+        e1 = float(np.mean(Y1)) if len(Y1) else 0.0
+        e0 = float(np.mean(Y0)) if len(Y0) else 0.0
 
         # Conditional Manski bounds for ATE at stratum s
         lb_s = e1 * p1 + y_lo * p0 - e0 * p0 - y_hi * p1
@@ -756,9 +764,12 @@ def oster_delta(
     x_controls : list of str
         Additional controls whose inclusion tightens identification.
     r_max : float, default 1.3
-        Maximum R-squared assumption. Oster recommends 1.3 * R-squared
-        from the fully controlled regression. If <= 0, it is set to
-        1.3 * R_full automatically.
+        Maximum R-squared assumption. A value in ``(R_full, 1]`` is used as
+        R_max itself. A value above 1 cannot be an R-squared and is read as a
+        multiplier of the controlled R-squared, so the default 1.3 gives
+        Oster's recommended ``R_max = min(1, 1.3 * R_full)``; ``<= 0`` means
+        the same. A value in ``(0, R_full]`` falls back to that
+        recommendation with a warning.
     delta_range : tuple, default (-2, 2)
         Range of proportional selection parameter delta.
     n_grid : int, default 200
@@ -771,7 +782,13 @@ def oster_delta(
     -------
     BoundsResult
         lower/upper give the identified set for beta at delta=1 (equal
-        selection) and the given r_max.
+        selection) and the given r_max. ``model_info['beta_star_delta1']``
+        and ``model_info['delta_star']`` are Oster's *exact* solutions
+        (the quadratic / cubic of her Proposition 2 as solved by her Stata
+        ``psacalc``, which they reproduce to machine precision). The first
+        entry of ``x_base`` is the treatment; further ``x_base`` entries
+        enter both the short and the long regression (``psacalc``'s
+        ``mcontrol()``).
 
     Notes
     -----
@@ -799,85 +816,72 @@ def oster_delta(
     ... )
     >>> result.summary()
     """
+    from ..diagnostics._oster import oster_beta_exact, oster_delta_exact, oster_inputs
+
     all_cols = [y] + x_base + x_controls
     _check_cols(data, all_cols)
     df = data.dropna(subset=all_cols).copy()
     n = len(df)
+    treat, mcontrol = x_base[0], list(x_base[1:])
 
-    Y = df[y].values.astype(np.float64)
+    def _resolve_r_max(r2_full: float, warn: bool) -> float:
+        # r_max <= 0: Oster's recommendation 1.3 x R_full. r_max > 1 cannot
+        # be an R-squared and is read as a multiplier of R_full (so the
+        # default 1.3 means min(1, 1.3 R_full), as documented). Until 1.28
+        # a value above 1 was used as the R-squared itself.
+        if r_max <= 0 or r_max > 1.0:
+            mult = 1.3 if r_max <= 0 else r_max
+            return min(mult * r2_full, 1.0)
+        if r_max <= r2_full:
+            if warn:
+                warnings.warn(
+                    f"oster_delta: r_max={r_max:.6g} does not exceed the "
+                    f"controlled R-squared {r2_full:.6g}; using "
+                    f"min(1, 1.3 x R_full) instead.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+            return min(1.3 * r2_full, 1.0)
+        return float(r_max)
 
-    # Short regression: y ~ x_base
-    X_short = np.column_stack([np.ones(n), df[x_base].values.astype(np.float64)])
-    beta_short_all = np.linalg.lstsq(X_short, Y, rcond=None)[0]
-    beta_short = beta_short_all[1]  # coefficient on first x_base variable
-    resid_short = Y - X_short @ beta_short_all
-    r2_short = 1 - np.var(resid_short) / np.var(Y)
+    inp = oster_inputs(df, y, treat, list(x_controls), mcontrol)
+    beta_short, r2_short = inp["beta_o"], inp["r_o"]
+    beta_full, r2_full = inp["beta_t"], inp["r_t"]
+    r_max_used = _resolve_r_max(r2_full, warn=True)
 
-    # Full regression: y ~ x_base + x_controls
-    X_full = np.column_stack(
-        [
-            np.ones(n),
-            df[x_base].values.astype(np.float64),
-            df[x_controls].values.astype(np.float64),
-        ]
-    )
-    beta_full_all = np.linalg.lstsq(X_full, Y, rcond=None)[0]
-    beta_full = beta_full_all[1]  # coefficient on first x_base variable
-    resid_full = Y - X_full @ beta_full_all
-    r2_full = 1 - np.var(resid_full) / np.var(Y)
-
-    # Set r_max
-    if r_max <= 0:
-        r_max = min(1.3 * r2_full, 1.0)
-    elif r_max <= r2_full:
-        r_max = min(1.3 * r2_full, 1.0)
-
-    # Oster's bias-adjusted estimate at delta=1
-    beta_star = _oster_bias_adjusted(
-        beta_short, beta_full, r2_short, r2_full, r_max, delta=1.0
-    )
+    # Exact bias-adjusted coefficient at delta = 1 (Oster 2019; psacalc)
+    beta_star = float(oster_beta_exact(inp, r_max_used, 1.0)["beta"])  # type: ignore[arg-type]
 
     # Identified set: [min(beta_full, beta_star), max(beta_full, beta_star)]
     lb = min(beta_full, beta_star)
     ub = max(beta_full, beta_star)
 
-    # Compute delta* (the delta that makes beta_star = 0)
-    delta_star = _oster_delta_star(beta_short, beta_full, r2_short, r2_full, r_max)
+    # delta* such that beta* = 0 (exact)
+    delta_star = oster_delta_exact(inp, r_max_used, beta=0.0)
 
-    # Grid of (delta, beta_star) for plotting
+    # Grid of (delta, beta_star) for plotting (exact roots; delta = 0 gives
+    # beta_full)
     deltas = np.linspace(delta_range[0], delta_range[1], n_grid)
     betas_grid = np.array(
         [
-            _oster_bias_adjusted(beta_short, beta_full, r2_short, r2_full, r_max, d)
+            (
+                float(oster_beta_exact(inp, r_max_used, float(d))["beta"])  # type: ignore[arg-type]
+                if d != 0
+                else beta_full
+            )
             for d in deltas
         ]
     )
 
     # Bootstrap
     def _compute(df_b: pd.DataFrame, **kw: Any) -> tuple[float, float]:
-        nb = len(df_b)
-        Yb = df_b[y].values.astype(np.float64)
-        Xs = np.column_stack([np.ones(nb), df_b[x_base].values.astype(np.float64)])
-        bs_all = np.linalg.lstsq(Xs, Yb, rcond=None)[0]
-        rs = Y_var_ratio(Yb, Xs, bs_all)
-
-        Xf = np.column_stack(
-            [
-                np.ones(nb),
-                df_b[x_base].values.astype(np.float64),
-                df_b[x_controls].values.astype(np.float64),
-            ]
+        inp_b = oster_inputs(df_b, y, treat, list(x_controls), mcontrol)
+        rm = _resolve_r_max(inp_b["r_t"], warn=False)
+        bs_star = float(oster_beta_exact(inp_b, rm, 1.0)["beta"])  # type: ignore[arg-type]
+        return (
+            float(min(inp_b["beta_t"], bs_star)),
+            float(max(inp_b["beta_t"], bs_star)),
         )
-        bf_all = np.linalg.lstsq(Xf, Yb, rcond=None)[0]
-        rf = Y_var_ratio(Yb, Xf, bf_all)
-
-        rm = min(1.3 * rf, 1.0) if r_max <= 0 or r_max <= rf else r_max
-        bs_star = _oster_bias_adjusted(bs_all[1], bf_all[1], rs, rf, rm, 1.0)
-        return float(min(bf_all[1], bs_star)), float(max(bf_all[1], bs_star))
-
-    def Y_var_ratio(Yv: np.ndarray, Xv: np.ndarray, bv: np.ndarray) -> float:
-        resid = Yv - Xv @ bv
-        return 1 - np.var(resid) / np.var(Yv) if np.var(Yv) > 0 else 0.0
 
     se_lb, se_ub, ci_lb, ci_ub, n_failed = _bootstrap_bounds(
         _compute,
@@ -887,6 +891,7 @@ def oster_delta(
         random_state,
         label="oster_delta",
     )
+    r_max = r_max_used
 
     return BoundsResult(
         lower=float(lb),
@@ -911,47 +916,6 @@ def oster_delta(
             "n_boot_failed": n_failed,
         },
     )
-
-
-def _oster_bias_adjusted(
-    beta_short: float,
-    beta_full: float,
-    r2_short: float,
-    r2_full: float,
-    r_max: float,
-    delta: float,
-) -> float:
-    """Oster's bias-adjusted beta* at a given delta and R_max.
-
-    Formula (Oster 2019, eq. 3):
-        beta* = beta_full - delta * (beta_short - beta_full) *
-                (r_max - r2_full) / (r2_full - r2_short)
-    """
-    denom = r2_full - r2_short
-    if abs(denom) < 1e-12:
-        return float(beta_full)
-    bias = delta * (beta_short - beta_full) * (r_max - r2_full) / denom
-    return float(beta_full - bias)
-
-
-def _oster_delta_star(
-    beta_short: float,
-    beta_full: float,
-    r2_short: float,
-    r2_full: float,
-    r_max: float,
-) -> float:
-    """Compute delta* such that beta*(delta*, r_max) = 0.
-
-    From beta* = 0:
-        delta* = beta_full * (r2_full - r2_short) /
-                 ((beta_short - beta_full) * (r_max - r2_full))
-    """
-    numer = beta_full * (r2_full - r2_short)
-    denom = (beta_short - beta_full) * (r_max - r2_full)
-    if abs(denom) < 1e-12:
-        return float(np.inf)
-    return float(numer / denom)
 
 
 # ======================================================================

@@ -11,7 +11,8 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 import numpy as np
-from scipy import stats
+from scipy import special, stats
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -37,6 +38,68 @@ class ICCResult(ResultProtocolMixin):
         return float(self.estimate)
 
 
+_LATENT_LOGIT_VAR = float(np.pi**2 / 3.0)
+
+
+def _log_var_factor(cov_type: str) -> float:
+    """d log var(_cons) / d theta_cov for a single random intercept.
+
+    ``unstructured`` packs the log of the Cholesky diagonal (log sd),
+    ``identity`` / ``diagonal`` the log variance.
+    """
+    return 2.0 if cov_type == "unstructured" else 1.0
+
+
+def _pack_intercept_theta(var_u: float, cov_type: str) -> float:
+    return float(np.log(var_u) / _log_var_factor(cov_type))
+
+
+def _mixed_vc_cov(result: Any) -> Optional[np.ndarray]:
+    """Observed-information covariance of (theta_cov, log sigma2_e).
+
+    Inverse numerical Hessian of the (RE)ML criterion profiled over the
+    fixed effects -- for ML this is the variance-parameter block of the
+    full inverse information, for REML the inverse REML Hessian, i.e. what
+    Stata ``mixed`` reports in ``e(V)`` for its log-sd parameters.
+    """
+    from .glmm import _numerical_oim_cov
+    from .lmm import _profiled_nll
+
+    blocks = getattr(result, "_blocks", None)
+    if not blocks:
+        return None
+    cov_type = result._cov_type
+    theta = np.array(
+        [
+            _pack_intercept_theta(float(result._G[0, 0]), cov_type),
+            np.log(float(result._sigma2)),
+        ]
+    )
+    reml = str(result._method).lower() == "reml"
+    return _numerical_oim_cov(
+        lambda th: _profiled_nll(
+            th,
+            blocks,
+            len(result.fixed_effects),
+            1,
+            int(result.n_obs),
+            reml,
+            cov_type,
+        ),
+        theta,
+    )
+
+
+def _logit_ci(rho: float, se: float, alpha: float) -> tuple:
+    """Wald interval on the logit scale, mapped back (Stata ``estat icc``)."""
+    if not (0.0 < rho < 1.0) or not np.isfinite(se):
+        return np.nan, np.nan
+    z = stats.norm.ppf(1 - alpha / 2)
+    lg = np.log(rho / (1.0 - rho))
+    half = z * se / (rho * (1.0 - rho))
+    return float(special.expit(lg - half)), float(special.expit(lg + half))
+
+
 def icc(
     result: Any,
     component: str = "_cons",
@@ -45,28 +108,50 @@ def icc(
     seed: Optional[int] = None,
 ) -> ICCResult:
     """
-    Intra-class correlation for a fitted mixed model.
+    Intra-class correlation for a fitted random-intercept model.
+
+    Reproduces Stata ``estat icc``:
+
+    * after :func:`statspai.mixed` (and ``meglm(family='gaussian')``)
+      ``ρ = σ²_u / (σ²_u + σ²_e)``;
+    * after :func:`statspai.melogit` / :func:`statspai.meologit` the latent
+      -variable ICC ``ρ = σ²_u / (σ²_u + π²/3)``;
+    * after a three-level nested :func:`statspai.mixed` fit, the level ICCs
+      ``σ²_s / total`` (``component`` = outer level) and
+      ``(σ²_s + σ²_c) / total`` (inner level).
+
+    The standard error is the delta method on the observed-information
+    covariance of the variance parameters (the inverse Hessian of the
+    fitted (RE)ML / Laplace criterion), and the confidence interval is a
+    Wald interval on the logit scale mapped back to (0, 1) -- both as
+    ``estat icc`` reports them.
 
     Parameters
     ----------
     result
-        A ``MixedResult`` returned by :func:`statspai.mixed`.
+        A ``MixedResult`` from :func:`statspai.mixed` or an
+        ``MEGLMResult`` from ``melogit`` / ``meologit`` /
+        ``meglm(family='gaussian')``, with a random intercept only.
     component
-        Name of the random-effect variance to put in the numerator.
-        Defaults to the random intercept (``"_cons"``).
+        Random-intercept name (``"_cons"``); for a three-level fit the
+        grouping column of the level whose ICC is wanted.
     alpha
         Significance level for the confidence interval.  Default 0.05.
     n_boot
-        Number of parametric bootstrap replicates used to compute the
-        CI.  ``0`` (default) uses the delta-method approximation on the
-        log-variance scale, which is faster and usually within a few
-        decimals of the parametric-bootstrap answer for moderate N.
+        Parametric-bootstrap intervals are not implemented; must be 0.
     seed
-        RNG seed forwarded to :func:`numpy.random.default_rng`.
+        Unused (reserved for the bootstrap).
 
     Returns
     -------
     ICCResult
+
+    Raises
+    ------
+    MethodIncompatibility
+        For random-slope models (the ICC depends on the covariates; Stata
+        refuses too) and for count / gamma GLMMs, which have no latent
+        residual variance on the linear-predictor scale.
 
     Examples
     --------
@@ -83,59 +168,111 @@ def icc(
     >>> bool(0.0 <= float(rho) <= 1.0)  # share of variance at the school level
     True
     """
+    from ..exceptions import MethodIncompatibility
+
     if not hasattr(result, "variance_components"):
         raise TypeError("icc() expects a MixedResult-like object")
-
-    key = f"var({component})"
-    if key not in result.variance_components:
-        raise KeyError(
-            f"variance component {key!r} not found; "
-            f"available: {list(result.variance_components)}"
-        )
-
-    var_u = float(result.variance_components[key])
-    var_e = float(result.variance_components.get("var(Residual)", np.nan))
-    total = var_u + var_e
-    if total <= 0 or not np.isfinite(total):
-        return ICCResult(np.nan, np.nan, np.nan, np.nan, alpha)
-
-    rho = var_u / total
-
     if n_boot and n_boot > 0:
         raise NotImplementedError(
             "parametric-bootstrap ICC intervals are not implemented yet; "
             "call icc(result, n_boot=0) for the delta-method CI."
         )
+    vc = result.variance_components
+    alpha = float(alpha)
 
-    # Delta method on logit scale keeps the CI inside [0,1].
-    # Var(log var_u) ≈ 2 / dof_u ; approximate dof from group count.
-    # This is a crude heuristic that treats var_u as χ²-distributed with
-    # (n_groups - 1) df; it gets tight CIs wrong for small samples and
-    # ignores the correlation between var_u and var_e under (RE)ML —
-    # flagged below so users don't over-interpret the bounds.
-    n_groups = max(getattr(result, "n_groups", 1), 1)
-    if n_groups < 30:
+    # ---- three-level nested mixed() ---------------------------------------
+    if getattr(result, "_cov_type", None) == "three-level-nested":
+        levels = [k[len("var(_cons|") : -1] for k in vc if k.startswith("var(_cons|")]
+        if component not in levels:
+            raise KeyError(
+                f"level {component!r} not found; available: {levels} "
+                "(outer level first)"
+            )
+        s2 = [float(vc[f"var(_cons|{lv})"]) for lv in levels]
+        total = sum(s2) + float(vc["var(Residual)"])
+        rho = sum(s2[: levels.index(component) + 1]) / total
         warnings.warn(
-            f"icc(): delta-method CI is unreliable for n_groups="
-            f"{n_groups} < 30 (treats var(u) as χ²-distributed with "
-            "n_groups df).  Interpret the bounds cautiously.",
+            "icc(): standard errors are not available for three-level fits; "
+            "se and the confidence interval are NaN.",
             RuntimeWarning,
             stacklevel=2,
         )
-    var_log_var_u = 2.0 / n_groups
-    var_log_var_e = 2.0 / max(result.n_obs - result.n_fixed, 1)
-    # logit(rho) = log(var_u) - log(var_e)
-    var_logit = var_log_var_u + var_log_var_e
-    se_logit = np.sqrt(var_logit)
-    z = stats.norm.ppf(1 - alpha / 2)
-    logit_rho = np.log(rho / (1 - rho)) if 0 < rho < 1 else np.nan
-    if np.isfinite(logit_rho):
-        lo = 1.0 / (1.0 + np.exp(-(logit_rho - z * se_logit)))
-        hi = 1.0 / (1.0 + np.exp(-(logit_rho + z * se_logit)))
+        return ICCResult(float(rho), np.nan, np.nan, np.nan, alpha)
+
+    key = f"var({component})"
+    if key not in vc:
+        raise KeyError(
+            f"variance component {key!r} not found; " f"available: {list(vc)}"
+        )
+    x_random = list(getattr(result, "_x_random", []) or [])
+    if x_random:
+        raise MethodIncompatibility(
+            "icc() is defined for random-intercept models only; with random "
+            f"slopes on {x_random} the intraclass correlation depends on the "
+            "covariate values.",
+            recovery_hint="Refit with a random intercept only.",
+            diagnostics={"x_random": x_random},
+        )
+
+    var_u = float(vc[key])
+    family = getattr(result, "family", None)
+    is_glmm = hasattr(result, "_cov_full")
+    if is_glmm and family in ("binomial", "ordinal"):
+        if getattr(result, "link", "logit") != "logit":
+            raise MethodIncompatibility(
+                "icc() latent-scale residual variance is defined here for the "
+                "logit link only.",
+                diagnostics={"link": getattr(result, "link", None)},
+            )
+        var_e = _LATENT_LOGIT_VAR
+    elif "var(Residual)" in vc:
+        var_e = float(vc["var(Residual)"])
     else:
-        lo, hi = np.nan, np.nan
-    se_rho = se_logit * rho * (1 - rho)
-    return ICCResult(rho, se_rho, lo, hi, alpha)
+        raise MethodIncompatibility(
+            f"icc() is not defined for a {family!r} GLMM: there is no residual "
+            "variance on the linear-predictor scale (Stata's estat icc is "
+            "likewise unavailable after mepoisson / menbreg / meglm gamma).",
+            recovery_hint="Use a Gaussian (sp.mixed) or logit (sp.melogit, "
+            "sp.meologit) random-intercept model.",
+            diagnostics={"family": family},
+        )
+    total = var_u + var_e
+    if not (np.isfinite(total) and total > 0):
+        raise MethodIncompatibility(
+            "icc(): non-finite or non-positive total variance.",
+            diagnostics={"var_u": var_u, "var_e": var_e},
+        )
+    rho = var_u / total
+    c = _log_var_factor(getattr(result, "_cov_type", "unstructured"))
+
+    # d rho / d log var_u = rho (1 - rho);  d rho / d log var_e = -rho (1 - rho)
+    se = np.nan
+    if is_glmm:
+        cov_full = getattr(result, "_cov_full", None)
+        if cov_full is not None:
+            idx = len(result.fixed_effects) + (
+                len(result.thresholds) if result.thresholds is not None else 0
+            )
+            g = np.zeros(cov_full.shape[0])
+            g[idx] = c * rho * (1.0 - rho)
+            if family == "gaussian":
+                g[-1] = -rho * (1.0 - rho)  # packed log sigma2_e is last
+            se = float(np.sqrt(g @ cov_full @ g))
+    else:
+        C = _mixed_vc_cov(result)
+        if C is not None:
+            g = np.array([c * rho * (1.0 - rho), -rho * (1.0 - rho)])
+            se = float(np.sqrt(g @ C @ g))
+    if not np.isfinite(se):
+        warnings.warn(
+            "icc(): the observed-information Hessian of the variance "
+            "parameters is not positive definite (boundary fit?); se and "
+            "the confidence interval are NaN.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    lo, hi = _logit_ci(rho, se, alpha)
+    return ICCResult(float(rho), se, lo, hi, alpha)
 
 
 __all__ = ["icc", "ICCResult"]

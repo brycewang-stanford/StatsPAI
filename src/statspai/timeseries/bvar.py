@@ -5,9 +5,10 @@ own first lag coefficient is centred at 1, all other coefficients at 0,
 with tightness controlled by hyperparameter λ₁ (overall tightness) and
 λ₂ (cross-variable shrinkage).
 
-The posterior is analytically tractable (normal-inverse-Wishart) and
-computed in closed form — no MCMC required for the posterior mean and
-credible intervals.
+With the error covariance fixed at an OLS estimate (Litterman's original
+treatment; Stata ``bayes, minnfixedcovprior: var``) the coefficient
+posterior is normal and is computed in closed form -- no MCMC required for
+the posterior mean and credible intervals.
 
 References
 ----------
@@ -27,6 +28,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -115,10 +117,9 @@ class BVARResult(ResultProtocolMixin):
     ) -> tuple[np.ndarray, np.ndarray]:
         """Posterior credible interval for every coefficient.
 
-        Returns ``(lower, upper)`` matrices the same shape as ``coef``, using a
-        Normal approximation to the matrix-t marginal posterior (exact as
-        ``T`` grows). ``coef_sd`` is the marginal posterior standard deviation
-        ``sqrt(diag((X'X + V^{-1})^{-1})_i * Sigma_{kk})``.
+        Returns ``(lower, upper)`` matrices the same shape as ``coef``. With
+        the error covariance fixed at ``Sigma0`` the coefficient posterior is
+        exactly normal; ``coef_sd`` holds its marginal standard deviations.
         """
         from scipy import stats
 
@@ -159,8 +160,27 @@ def bvar(
     lags: int = 4,
     lambda1: float = 0.1,
     lambda2: float = 0.5,
+    lambda3: float = 1.0,
+    lambda4: float = 100.0,
+    sigma: str = "ar",
 ) -> BVARResult:
-    """Bayesian VAR with Minnesota (Litterman) prior.
+    """Bayesian VAR with the original Minnesota (Litterman) prior.
+
+    The error covariance is fixed at an estimate ``Sigma0`` and the VAR
+    coefficients get independent normal priors centred on a random walk:
+
+    * own lag l of variable i in equation i: mean 1 if l = 1 else 0,
+      variance ``(lambda1 / l**lambda3)**2``;
+    * lag l of variable j in equation i (j != i): mean 0, variance
+      ``(s_i^2 / s_j^2) * (lambda1 * lambda2 / l**lambda3)**2``;
+    * constant of equation i: mean 0, variance ``s_i^2 * (lambda1*lambda4)**2``,
+
+    where ``s_i^2`` is the i-th diagonal element of ``Sigma0`` (see
+    ``sigma``; by default the residual variance, divisor n, of a univariate
+    AR(lags) with constant for variable i). With ``Sigma0`` known the posterior of the
+    coefficients is exactly normal (closed form, no MCMC). This is the
+    formulation of Stata's ``bayes, minnfixedcovprior: var`` (same
+    defaults); ``sigma='var'`` is its ``minnfixedcovprior(varcov)``.
 
     Parameters
     ----------
@@ -168,9 +188,18 @@ def bvar(
         Columns are the endogenous variables.
     lags : int, default 4
     lambda1 : float, default 0.1
-        Overall tightness (smaller = stronger shrinkage toward RW).
+        Overall (self) tightness (smaller = stronger shrinkage toward RW).
     lambda2 : float, default 0.5
-        Cross-variable shrinkage relative to own-lag.
+        Cross-variable tightness relative to own lags.
+    lambda3 : float, default 1.0
+        Lag decay.
+    lambda4 : float, default 100.0
+        Tightness of the constant (exogenous) terms.
+    sigma : {'ar', 'var'}, default 'ar'
+        ``Sigma0``: diagonal of the univariate AR(lags) residual variances
+        (Litterman's original; Stata ``arcov``), or the diagonal of the OLS
+        VAR residual variances ``diag(U'U) / n`` (Stata ``varcov``). The
+        prior-variance scales ``s_i^2`` follow the same choice.
 
     Returns
     -------
@@ -214,48 +243,59 @@ def bvar(
     X = np.column_stack(X_parts + [np.ones(n)])  # (n, K*p + 1)
     m = X.shape[1]
 
-    # OLS as starting point for σ² estimates
-    B_ols = np.linalg.lstsq(X, Y, rcond=None)[0]
-    E_ols = Y - X @ B_ols
-    sigma_ols = np.diag(E_ols.T @ E_ols / n)
+    if sigma not in ("ar", "var"):
+        raise ValueError("sigma must be 'ar' or 'var'")
 
-    # Minnesota prior: V_prior is diagonal, B_prior is near RW
-    V_prior = np.zeros(m)
-    B_prior = np.zeros((m, K))
+    # Univariate AR(lags) residual variances on the VAR estimation sample
+    s2 = np.empty(K)
     for k in range(K):
+        Xk = np.column_stack(
+            [Y_raw[lags - l_ : T - l_, k] for l_ in range(1, lags + 1)] + [np.ones(n)]
+        )
+        bk = np.linalg.lstsq(Xk, Y[:, k], rcond=None)[0]
+        ek = Y[:, k] - Xk @ bk
+        s2[k] = float(ek @ ek) / n
+    if sigma == "ar":
+        Sigma0 = np.diag(s2)
+    else:
+        B_ols = np.linalg.lstsq(X, Y, rcond=None)[0]
+        E_ols = Y - X @ B_ols
+        Sigma0 = np.diag(np.diag(E_ols.T @ E_ols) / n)
+
+    # Prior mean / variance, equation by equation (beta = vec(B)); the
+    # variance scales s_i^2 are the diagonal of Sigma0.
+    s2_ar = s2
+    s2 = np.diag(Sigma0).copy()
+    b0 = np.zeros((m, K))
+    v0 = np.empty((m, K))
+    for i in range(K):
         for lag in range(1, lags + 1):
             for j in range(K):
                 idx = (lag - 1) * K + j
-                if j == k:
-                    V_prior[idx] = (lambda1 / lag) ** 2
+                if j == i:
+                    v0[idx, i] = (lambda1 / lag**lambda3) ** 2
                     if lag == 1:
-                        B_prior[idx, k] = 1.0  # RW prior
+                        b0[idx, i] = 1.0
                 else:
-                    V_prior[idx] = (lambda1 * lambda2 / lag) ** 2 * (
-                        sigma_ols[k] / max(sigma_ols[j], 1e-12)
-                    )
-        V_prior[-1] = 100.0  # flat prior on constant
+                    v0[idx, i] = (s2[i] / s2[j]) * (
+                        lambda1 * lambda2 / lag**lambda3
+                    ) ** 2
+        v0[m - 1, i] = s2[i] * (lambda1 * lambda4) ** 2
 
-    # Posterior: B_post = (X'X + V^{-1})^{-1} (X'Y + V^{-1} B_prior)
-    V_inv = np.diag(1.0 / np.maximum(V_prior, 1e-12))
-    XtX = X.T @ X
-    precision = XtX + V_inv
-    try:
-        precision_inv = np.linalg.inv(precision)
-    except np.linalg.LinAlgError:
-        precision_inv = np.linalg.pinv(precision)
-    B_post = precision_inv @ (X.T @ Y + V_inv @ B_prior)
+    # Posterior with Sigma0 known:
+    #   precision = Omega0^{-1} + Sigma0^{-1} (x) X'X
+    #   mean      = precision^{-1} (Omega0^{-1} beta0 + vec(X'Y Sigma0^{-1}))
+    # Before 1.28.x one prior-variance vector (the LAST equation's) was used
+    # for every equation -- estimates depended on the column order -- and
+    # the prior was scaled by the residual variance a second time.
+    Sinv = np.linalg.inv(Sigma0)
+    prec = np.diag(1.0 / v0.ravel(order="F")) + np.kron(Sinv, X.T @ X)
+    rhs = b0.ravel(order="F") / v0.ravel(order="F") + (X.T @ Y @ Sinv).ravel(order="F")
+    cov = np.linalg.inv(prec)
+    B_post = (cov @ rhs).reshape((m, K), order="F")
+    coef_sd = np.sqrt(np.clip(np.diag(cov), 0.0, None)).reshape((m, K), order="F")
     E_post = Y - X @ B_post
     Sigma_post = E_post.T @ E_post / n
-    # Marginal posterior SD from the matrix-normal posterior
-    #   B ~ MN(B_post, (X'X + V^{-1})^{-1}, Sigma):
-    #   sd[i, k] = sqrt( [(X'X + V^{-1})^{-1}]_{ii} * Sigma_{kk} ).
-    coef_sd = np.sqrt(
-        np.outer(
-            np.clip(np.diag(precision_inv), 0.0, None),
-            np.clip(np.diag(Sigma_post), 0.0, None),
-        )
-    )
 
     _result = BVARResult(
         coef=B_post,
@@ -269,13 +309,22 @@ def bvar(
         lambda2=lambda2,
         coef_sd=coef_sd,
     )
+    _result.sigma0 = Sigma0
+    _result.ar_variances = s2_ar
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 
         _attach_prov(
             _result,
             function="sp.timeseries.bvar",
-            params={"lags": lags, "lambda1": lambda1, "lambda2": lambda2},
+            params={
+                "lags": lags,
+                "lambda1": lambda1,
+                "lambda2": lambda2,
+                "lambda3": lambda3,
+                "lambda4": lambda4,
+                "sigma": sigma,
+            },
             data=data,
             overwrite=False,
         )

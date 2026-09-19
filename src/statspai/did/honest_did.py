@@ -38,7 +38,7 @@ from scipy import stats
 
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
-from ._flci import event_study_moments, flci_delta_sd
+from ._flci import breakdown_m_sd, event_study_moments, flci_delta_sd
 
 
 def _require_string(value: Any, *, argument: str) -> str:
@@ -152,9 +152,12 @@ def honest_did(
         For ``method='smoothness'`` it computes the true Rambachan-Roth
         **fixed-length confidence interval**: the optimal affine estimator
         under ``Δ^SD(M)``, obtained from a convex program over the
-        event-study covariance. On canonical ``did::mpdta`` it agrees with
-        R ``HonestDiD`` to ~7e-5 on the interval width, the residual being
-        ``HonestDiD``'s own Monte-Carlo folded-normal quantile. This needs
+        event-study covariance. With ``HonestDiD``'s Monte-Carlo
+        folded-normal quantile replaced by the exact one, the half-length
+        agrees with R ``HonestDiD::findOptimalFLCI`` to 1e-8 and the bounds
+        to ~2e-5 (HonestDiD's coarser search over ``h``); against the
+        shipped package the gap is that quantile's simulation error, ~1e-3
+        (``tests/reference_parity/test_did_synth_R_parity.py``). This needs
         the joint event-study covariance, which is recovered from a
         Callaway-Sant'Anna fit's influence functions; if it is
         unavailable the function falls back to a worst-case-bias interval
@@ -325,9 +328,9 @@ def honest_did(
                     )
                     rows.append(
                         {
-                            "M": round(float(M), 6),
-                            "ci_lower": round(_res.ci_lower, 6),
-                            "ci_upper": round(_res.ci_upper, 6),
+                            "M": float(M),
+                            "ci_lower": float(_res.ci_lower),
+                            "ci_upper": float(_res.ci_upper),
                             "rejects_zero": not (_res.ci_lower <= 0 <= _res.ci_upper),
                         }
                     )
@@ -356,9 +359,9 @@ def honest_did(
 
             rows.append(
                 {
-                    "M": round(M, 6),
-                    "ci_lower": round(ci_lower, 6),
-                    "ci_upper": round(ci_upper, 6),
+                    "M": float(M),
+                    "ci_lower": float(ci_lower),
+                    "ci_upper": float(ci_upper),
                     "rejects_zero": rejects,
                 }
             )
@@ -378,9 +381,9 @@ def honest_did(
 
             rows.append(
                 {
-                    "M": round(M_bar, 6),
-                    "ci_lower": round(ci_lower, 6),
-                    "ci_upper": round(ci_upper, 6),
+                    "M": float(M_bar),
+                    "ci_lower": float(ci_lower),
+                    "ci_upper": float(ci_upper),
                     "rejects_zero": rejects,
                 }
             )
@@ -685,7 +688,9 @@ def breakdown_m(
         DID result with event study.
     e : int, default 0
         Relative time period.
-    method : str, default 'smoothness'
+    method : {'smoothness', 'relative_magnitude'}, default 'smoothness'
+        The restriction whose confidence set is inverted; the same meaning
+        as in :func:`honest_did`.
     alpha : float, default 0.05
 
     Returns
@@ -715,17 +720,45 @@ def breakdown_m(
 
     Notes
     -----
-    Formally, M* = sup{M : 0 ∉ CI(M)}.
+    M* = sup{M : 0 not in CI(M)}, where CI(M) is exactly the interval
+    :func:`honest_did` reports for the same ``result``, ``e``, ``method`` and
+    ``alpha`` with ``backend='native'``. The breakdown value is a property of
+    that confidence set, so it is computed by inverting it:
 
-    For the smoothness restriction with n_drift periods:
-    M* = (|θ̂| - z_{α/2} × SE) / n_drift
+    * ``method='smoothness'`` with a recoverable event-study covariance (a
+      Callaway-Sant'Anna fit or its ``aggte(type='dynamic')``): the
+      Rambachan-Roth fixed-length confidence interval under ``Delta^SD(M)``,
+      inverted by root-finding on the bound that faces zero. This is what
+      R ``HonestDiD`` reports when its ``createSensitivityResults(method =
+      'FLCI')`` grid is refined to the crossing.
+    * ``method='smoothness'`` without the covariance: :func:`honest_did` falls
+      back to the worst-case-bias interval ``theta_hat +/- (M (e+1) +
+      z SE)``, and so does this function, giving the closed form
+      ``(|theta_hat| - z SE) / (e + 1)``. It warns, as :func:`honest_did`
+      does.
+    * ``method='relative_magnitude'``: :func:`honest_did`'s native interval
+      is the approximation ``theta_hat +/- (Mbar max|pre| + z SE)``, so the
+      breakdown is ``(|theta_hat| - z SE) / max|pre|``. It warns that this
+      is not the Rambachan-Roth conditional / hybrid confidence set.
 
-    See Rambachan & Roth (2023, *ReStud*), Definition 2.
+    Through 1.28.0 this function returned ``(|theta_hat| - z SE) / (e + 1)``
+    for every input: ``method`` was validated and then ignored, and the
+    smoothness value did not invert the FLCI that :func:`honest_did` reports
+    for the same fit (on the event study in
+    ``tests/reference_parity/test_did_synth_R_parity.py``, at ``e = 1`` it
+    returned 0.0967 where the FLCI breakdown -- and R ``HonestDiD`` -- give
+    0.0646; on mpdta's Callaway-Sant'Anna fit at ``e = 0``, 0.0193 against
+    0.0080).
+
+    See Rambachan & Roth (2023, *ReStud*) [@rambachan2023more].
     """
     e = _require_int(e, argument="e")
     alpha = _require_alpha(alpha)
     method = _require_string(method, argument="method")
-    if method not in {"smoothness", "relative_magnitude"}:
+    method_norm = method.lower()
+    if method_norm == "relative_magnitudes":
+        method_norm = "relative_magnitude"
+    if method_norm not in {"smoothness", "relative_magnitude"}:
         raise MethodIncompatibility(
             f"method must be 'smoothness' or 'relative_magnitude', got '{method}'",
             recovery_hint="Use method='smoothness' or method='relative_magnitude'.",
@@ -745,11 +778,49 @@ def breakdown_m(
     se = float(target["se"].iloc[0])
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
-    n_drift = max(e + 1, 1)
+    if method_norm == "smoothness":
+        moments = event_study_moments(result)
+        if moments is not None:
+            beta, sigma, times = moments
+            post_mask = times >= 0
+            n_pre = int((~post_mask).sum())
+            post_times = times[post_mask]
+            if n_pre >= 1 and e in set(post_times.tolist()):
+                order = np.concatenate(
+                    [np.where(~post_mask)[0], np.where(post_mask)[0]]
+                )
+                return breakdown_m_sd(
+                    beta[order],
+                    sigma[np.ix_(order, order)],
+                    n_pre=n_pre,
+                    n_post=int(post_mask.sum()),
+                    l_post=(post_times == e).astype(float),
+                    alpha=alpha,
+                )
+        warnings.warn(
+            "breakdown_m(method='smoothness'): the event-study covariance is "
+            "unavailable, so this inverts honest_did's worst-case-bias "
+            "fallback interval (theta_hat +/- M*(e+1) +/- z*SE) rather than "
+            "the Rambachan-Roth FLCI. Pass a Callaway-Sant'Anna result, which "
+            "carries influence functions.",
+            UserWarning,
+            stacklevel=2,
+        )
+        n_drift = max(e + 1, 1)
+        # M* such that |theta| - M* x n_drift - z x SE = 0
+        return float(max((abs(theta) - z_crit * se) / n_drift, 0.0))
 
-    # M* such that |θ̂| - M* × n_drift - z × SE = 0
-    m_star = (abs(theta) - z_crit * se) / n_drift
-    return float(max(m_star, 0.0))
+    warnings.warn(
+        "breakdown_m(method='relative_magnitude') inverts honest_did's native "
+        "worst-case-bias interval (theta_hat +/- Mbar*max|pre| +/- z*SE), not "
+        "the Rambachan-Roth conditional / hybrid confidence set.",
+        UserWarning,
+        stacklevel=2,
+    )
+    pre_atts = es.loc[es["relative_time"] < 0, "att"].to_numpy(dtype=float)
+    max_pre = float(np.max(np.abs(pre_atts))) if pre_atts.size else 0.0
+    scale = max_pre if max_pre > 0 else se
+    return float(max((abs(theta) - z_crit * se) / scale, 0.0))
 
 
 # ======================================================================

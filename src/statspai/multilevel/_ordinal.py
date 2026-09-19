@@ -16,14 +16,22 @@ absorbed by the threshold parameters.
 Estimation
 ----------
 Laplace approximation (default) and adaptive Gauss-Hermite quadrature
-(``nAGQ > 1``, q = 1 only).  Inner Newton uses the Fisher (expected)
-information per observation
+(``nAGQ > 1``, q = 1 only).  The curvature of the log integrand at the
+conditional mode is, by default, the observed information per observation
 
-    W_i(η) = Σ_k [f(κ_{k-1} - η) - f(κ_k - η)]² / P(y_i = k | η),
+    W_i(η) = s_i(η)² + [f'(b_i) − f'(a_i)] / p_i,
+    a_i = κ_{y_i} − η,  b_i = κ_{y_i − 1} − η,  s_i = [f(b_i) − f(a_i)] / p_i,
 
-where ``f(t) = F(t)(1 - F(t))`` is the logistic pdf.  This is positive
-semi-definite for any η, unlike the observed information which can lose
-definiteness — the same reason GLMs use Fisher scoring.
+with ``f(t) = F(t)(1 − F(t))`` the logistic pdf and ``f' = f (1 − 2F)``.
+It is non-negative because the cumulative-logit likelihood is log-concave
+in η.  This is the Laplace approximation proper and what Stata
+``meologit`` (``intmethod(laplace)`` / ``mcaghermite``) and
+``ordinal::clmm`` compute.  ``curvature='expected'`` substitutes the
+Fisher information ``Σ_k [f(κ_{k-1} − η) − f(κ_k − η)]² / P_k``.
+
+The fixed-effect and threshold standard errors are the inverse numerical
+Hessian of the approximated marginal log-likelihood over the full
+parameter vector (β, thresholds, covariance parameters) — ``vce(oim)``.
 
 Threshold parameters are reparameterised as
 
@@ -41,23 +49,17 @@ Hedeker & Gibbons (1996).  MIXOR. [@mccullagh1980regression]
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
-
 import warnings
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import special
 from scipy.optimize import minimize
 
-from ._core import (
-    _GroupBlock,
-    _initial_theta,
-    _n_cov_params,
-    _prepare_frame,
-    _unpack_G,
-)
-from .glmm import MEGLMResult, _gh_nodes
+from . import _glmm_ri as _ri
+from ._core import _GroupBlock, _initial_theta, _n_cov_params, _prepare_frame, _unpack_G
+from .glmm import MEGLMResult, _gh_nodes, _newton_polish, _numerical_oim_cov
 
 _LOG_2PI = float(np.log(2.0 * np.pi))
 _EPS = 1e-12
@@ -188,6 +190,30 @@ def _ordinal_pieces(
     return p_obs, score_eta, fisher_w, log_p_obs
 
 
+def _ordinal_observed_weight(
+    y_codes: np.ndarray, eta: np.ndarray, kappa: np.ndarray
+) -> np.ndarray:
+    """Observed information ``−∂² log P(y_i | η_i) / ∂η_i²`` per observation."""
+    K = kappa.shape[0] + 1
+    upper_kappa = np.where(y_codes == K, np.inf, kappa[np.minimum(y_codes - 1, K - 2)])
+    lower_kappa = np.where(y_codes == 1, -np.inf, kappa[np.maximum(y_codes - 2, 0)])
+    a = upper_kappa - eta
+    b = lower_kappa - eta
+    F_a = np.where(
+        np.isinf(a) & (a > 0), 1.0, _logistic_cdf(np.where(np.isinf(a), 0.0, a))
+    )
+    F_b = np.where(
+        np.isinf(b) & (b < 0), 0.0, _logistic_cdf(np.where(np.isinf(b), 0.0, b))
+    )
+    p_obs = np.clip(F_a - F_b, _EPS, 1.0)
+    f_a = np.where(np.isinf(a), 0.0, F_a * (1.0 - F_a))
+    f_b = np.where(np.isinf(b), 0.0, F_b * (1.0 - F_b))
+    fp_a = f_a * (1.0 - 2.0 * F_a)
+    fp_b = f_b * (1.0 - 2.0 * F_b)
+    score = (f_b - f_a) / p_obs
+    return score**2 + (fp_b - fp_a) / p_obs
+
+
 def _ordinal_log_lik(y_codes: np.ndarray, eta: np.ndarray, kappa: np.ndarray) -> float:
     _, _, _, log_p = _ordinal_pieces(y_codes, eta, kappa)
     return float(np.sum(log_p))
@@ -208,15 +234,25 @@ def _ordinal_find_mode(
     offset: np.ndarray,
     u0: np.ndarray,
     max_inner: int = 50,
-    tol: float = 1e-8,
+    tol: float = 1e-10,
+    observed: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray, float, bool]:
+    """Newton for the conditional mode; see ``glmm._find_mode`` for the
+    extra quadratic-convergence step and the meaning of ``observed``."""
+
+    def _curv(eta: np.ndarray, fisher_w: np.ndarray) -> np.ndarray:
+        if observed:
+            return _ordinal_observed_weight(y_codes, eta, kappa)
+        return fisher_w
+
     u = u0.copy()
     converged = False
     for _ in range(max_inner):
         eta = block.X @ beta + block.Z @ u + offset
         _, score_eta, fisher_w, _ = _ordinal_pieces(y_codes, eta, kappa)
+        W = _curv(eta, fisher_w)
         grad = block.Z.T @ score_eta - Ginv @ u
-        H = block.Z.T @ (fisher_w[:, None] * block.Z) + Ginv
+        H = block.Z.T @ (W[:, None] * block.Z) + Ginv
         try:
             step = np.linalg.solve(H, grad)
         except np.linalg.LinAlgError:
@@ -226,16 +262,16 @@ def _ordinal_find_mode(
         if step_norm > 5.0 * max(u_norm, 1.0):
             step = step * (5.0 * max(u_norm, 1.0) / step_norm)
             step_norm = float(np.linalg.norm(step))
-        u_new = u + step
+        u = u + step
+        if converged:
+            break  # the extra quadratic-convergence step has been taken
         if step_norm < tol * (1 + u_norm):
-            u = u_new
             converged = True
-            break
-        u = u_new
 
     eta = block.X @ beta + block.Z @ u + offset
     _, _, fisher_w, _ = _ordinal_pieces(y_codes, eta, kappa)
-    H = block.Z.T @ (fisher_w[:, None] * block.Z) + Ginv
+    W = _curv(eta, fisher_w)
+    H = block.Z.T @ (W[:, None] * block.Z) + Ginv
     sign, logdet_H = np.linalg.slogdet(H)
     if sign <= 0:
         logdet_H = np.inf
@@ -261,6 +297,7 @@ def _ordinal_nll(
     nAGQ: int,
     gh_nodes: Optional[np.ndarray],
     gh_log_weights: Optional[np.ndarray],
+    observed: bool = True,
 ) -> float:
     n_thr = K - 1
     beta = theta[:p_fixed]
@@ -284,7 +321,7 @@ def _ordinal_nll(
         off = offsets_list[j]
         y_c = y_codes_list[j]
         u_hat, H_j, logdet_H, _ = _ordinal_find_mode(
-            block, y_c, beta, kappa, G, Ginv, off, u_cache[j]
+            block, y_c, beta, kappa, G, Ginv, off, u_cache[j], observed=observed
         )
         u_cache[j] = u_hat
 
@@ -318,6 +355,58 @@ def _ordinal_nll(
             ll_j = ll_data - 0.5 * logdet_G - 0.5 * quad - 0.5 * logdet_H
         nll -= ll_j
     return float(nll)
+
+
+def _ordinal_nll_ri(
+    theta: np.ndarray,
+    X: np.ndarray,
+    y_codes: np.ndarray,
+    off: np.ndarray,
+    gidx: np.ndarray,
+    n_groups: int,
+    p_fixed: int,
+    K: int,
+    cov_type: str,
+    u_cache: np.ndarray,
+    nAGQ: int,
+    gh_nodes: Optional[np.ndarray],
+    gh_log_weights: Optional[np.ndarray],
+    observed: bool = True,
+) -> float:
+    """:func:`_ordinal_nll` for a single random intercept, vectorised over
+    groups (see :mod:`._glmm_ri`).  Same parameter layout."""
+    n_thr = K - 1
+    beta = theta[:p_fixed]
+    kappa = _unpack_thresholds(theta[p_fixed : p_fixed + n_thr])
+    G = _unpack_G(theta[p_fixed + n_thr :], 1, cov_type)
+    sigma2 = float(G[0, 0])
+    if not np.isfinite(sigma2) or sigma2 <= 0:
+        return 1e12
+    eta_fixed = (X @ beta if p_fixed else np.zeros(len(y_codes))) + off
+
+    def curv_score(eta: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        _, score, fisher_w, _ = _ordinal_pieces(y_codes, eta, kappa)
+        if observed:
+            return _ordinal_observed_weight(y_codes, eta, kappa), score
+        return fisher_w, score
+
+    def loglik_vec(eta: np.ndarray) -> np.ndarray:
+        return _ordinal_pieces(y_codes, eta, kappa)[3]
+
+    ll = _ri.ri_marginal_loglik(
+        eta_fixed,
+        gidx,
+        n_groups,
+        sigma2,
+        curv_score,
+        loglik_vec,
+        u_cache,
+        gh_nodes if nAGQ > 1 else None,
+        gh_log_weights if nAGQ > 1 else None,
+    )
+    if not np.isfinite(ll):
+        return 1e12
+    return -ll
 
 
 # ---------------------------------------------------------------------------
@@ -372,6 +461,7 @@ def meologit(
     maxiter: int = 300,
     tol: float = 1e-6,
     alpha: float = 0.05,
+    curvature: str = "observed",
 ) -> MEGLMResult:
     """
     Random-effects ordinal logit (Stata ``meologit``, R ``ordinal::clmm``).
@@ -383,7 +473,19 @@ def meologit(
 
     No intercept enters β — its role is taken by the K-1 thresholds.
     Returns an :class:`MEGLMResult` with ``family='ordinal'`` and
-    ``thresholds`` populated.
+    ``thresholds`` / ``thresholds_se`` populated.
+
+    ``nAGQ=1`` (default) is the Laplace approximation (Stata
+    ``intmethod(laplace)``, ``clmm``'s default); ``nAGQ=k`` is adaptive
+    Gauss-Hermite quadrature with mode-curvature nodes (Stata
+    ``intmethod(mcaghermite) intpoints(k)``, ``clmm(nAGQ = k)``).  Stata's
+    own default, ``mvaghermite`` with 7 points, re-centres the nodes at the
+    posterior mean and is not implemented.  ``curvature`` is as in
+    :func:`meglm`: ``'observed'`` (default) is the Laplace approximation
+    proper; ``'expected'`` uses Fisher weights.  L-BFGS-B is finished with
+    Newton steps on the numerical gradient and Hessian, and the standard
+    errors are the inverse of that Hessian (``vce(oim)``), threshold SEs by
+    the delta method from the ordered reparameterisation.
 
     Examples
     --------
@@ -422,6 +524,11 @@ def meologit(
     nAGQ = int(nAGQ)
     if nAGQ < 1:
         raise ValueError(f"nAGQ must be >= 1, got {nAGQ}")
+    if curvature not in ("observed", "expected"):
+        raise ValueError(
+            f"curvature must be 'observed' or 'expected'; got {curvature!r}"
+        )
+    observed = curvature == "observed"
     x_fixed = list(x_fixed)
     x_random_cols: List[str] = list(x_random) if x_random is not None else []
     if nAGQ > 1 and len(x_random_cols) > 0:
@@ -496,34 +603,77 @@ def meologit(
         gh_nodes = nodes
         gh_log_weights = np.log(weights)
 
-    res = minimize(
-        _ordinal_nll,
-        theta0,
-        args=(
-            blocks,
-            y_codes_list,
-            offsets_list,
+    nll_args = (
+        blocks,
+        y_codes_list,
+        offsets_list,
+        p_fixed,
+        q_random,
+        K,
+        cov_type,
+        u_cache,
+        nAGQ,
+        gh_nodes,
+        gh_log_weights,
+        observed,
+    )
+    if q_random == 1:
+        gidx = np.repeat(np.arange(len(blocks)), [b.n for b in blocks])
+        u_arr = np.zeros(len(blocks))
+        ri_args = (
+            X_all,
+            y_all,
+            off_all,
+            gidx,
+            len(blocks),
             p_fixed,
-            q_random,
             K,
             cov_type,
-            u_cache,
+            u_arr,
             nAGQ,
             gh_nodes,
             gh_log_weights,
-        ),
+            observed,
+        )
+
+        def _nll_at(th: np.ndarray) -> float:
+            return _ordinal_nll_ri(th, *ri_args)
+
+    else:
+        u_arr = None
+
+        def _nll_at(th: np.ndarray) -> float:
+            return _ordinal_nll(th, *nll_args)
+
+    res = minimize(
+        _nll_at,
+        theta0,
         method="L-BFGS-B",
         options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
     )
     outer_converged = bool(res.success)
 
+    theta_hat, polish_ok = _newton_polish(_nll_at, res.x)
+    if polish_ok:
+        outer_converged = True
+    fun_hat = float(_nll_at(theta_hat))
+    cov_full = _numerical_oim_cov(_nll_at, theta_hat)
+    if u_arr is not None:
+        u_cache = [np.array([v]) for v in u_arr]
+
     n_thr = K - 1
-    beta_hat = res.x[:p_fixed]
-    delta_hat = res.x[p_fixed : p_fixed + n_thr]
-    cov_hat = res.x[p_fixed + n_thr :]
+    beta_hat = theta_hat[:p_fixed]
+    delta_hat = theta_hat[p_fixed : p_fixed + n_thr]
+    cov_hat = theta_hat[p_fixed + n_thr :]
     kappa_hat = _unpack_thresholds(delta_hat)
     G_hat = _unpack_G(cov_hat, q_random, cov_type)
     Ginv = np.linalg.inv(G_hat)
+
+    # d kappa / d delta for the threshold delta method.
+    J_kappa = np.zeros((n_thr, n_thr))
+    J_kappa[:, 0] = 1.0
+    for k in range(1, n_thr):
+        J_kappa[k:, k] = np.exp(delta_hat[k])
 
     # Final pass: BLUPs + observed information for fixed-effect SEs.
     blup_rows: List[Dict[str, float]] = []
@@ -533,7 +683,15 @@ def meologit(
     inner_failures = 0
     for j, (block, y_c, off) in enumerate(zip(blocks, y_codes_list, offsets_list)):
         u_hat, H_j, _, inner_ok = _ordinal_find_mode(
-            block, y_c, beta_hat, kappa_hat, G_hat, Ginv, off, u_cache[j]
+            block,
+            y_c,
+            beta_hat,
+            kappa_hat,
+            G_hat,
+            Ginv,
+            off,
+            u_cache[j],
+            observed=observed,
         )
         if not inner_ok:
             inner_failures += 1
@@ -551,14 +709,30 @@ def meologit(
 
     if p_fixed:
         try:
-            cov_beta = np.linalg.inv(info)
-            se_beta = np.sqrt(np.maximum(np.diag(cov_beta), 0.0))
+            cov_beta_conditional = np.linalg.inv(info)
         except np.linalg.LinAlgError:
-            cov_beta = np.full((p_fixed, p_fixed), np.nan)
-            se_beta = np.full(p_fixed, np.nan)
+            cov_beta_conditional = np.full((p_fixed, p_fixed), np.nan)
     else:
-        cov_beta = np.zeros((0, 0))
-        se_beta = np.zeros(0)
+        cov_beta_conditional = np.zeros((0, 0))
+    threshold_se = np.full(n_thr, np.nan)
+    if cov_full is not None and np.all(np.isfinite(cov_full)):
+        cov_beta = cov_full[:p_fixed, :p_fixed]
+        cov_delta = cov_full[p_fixed : p_fixed + n_thr, p_fixed : p_fixed + n_thr]
+        cov_kappa = J_kappa @ cov_delta @ J_kappa.T
+        threshold_se = np.sqrt(np.maximum(np.diag(cov_kappa), 0.0))
+        vce_method = "oim"
+    else:
+        cov_beta = cov_beta_conditional
+        vce_method = "conditional_information"
+        warnings.warn(
+            "meologit observed-information Hessian is not positive definite "
+            "at the optimum; fixed-effect standard errors fall back to the "
+            "conditional (variance-components-fixed) information and may be "
+            "understated; threshold standard errors are unavailable.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    se_beta = np.sqrt(np.maximum(np.diag(cov_beta), 0.0))
 
     if inner_failures > 0:
         warnings.warn(
@@ -596,13 +770,16 @@ def meologit(
         blups=blup_dict,
         n_obs=len(df),
         n_groups=len(blocks),
-        log_likelihood=float(-res.fun),
+        log_likelihood=float(-fun_hat),
         family="ordinal",
         link="logit",
         _se_fixed=(
             pd.Series(se_beta, index=fixed_names) if p_fixed else pd.Series(dtype=float)
         ),
         _cov_fixed=cov_beta,
+        _cov_fixed_conditional=cov_beta_conditional,
+        _cov_full=cov_full,
+        _vce_method=vce_method,
         _G=G_hat,
         _x_fixed=x_fixed,
         _x_random=x_random_cols,
@@ -617,6 +794,7 @@ def meologit(
         _n_cov_params=n_cov_pars,
         _offset_name=offset,
         thresholds=pd.Series(kappa_hat, index=threshold_names),
+        thresholds_se=pd.Series(threshold_se, index=threshold_names),
     )
 
 

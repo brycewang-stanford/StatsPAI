@@ -94,9 +94,15 @@ def continuous_did(
     method : str, default 'att_gt'
         Estimation method:
 
-        - ``'att_gt'``: Dose-quantile 2×2 DID rollup (heuristic).
-        - ``'twfe'``: TWFE OLS with ``dose × post`` interaction.
-        - ``'dose_response'``: local-linear regression of ΔY on baseline dose.
+        - ``'att_gt'``: Dose-quantile 2×2 DID rollup (heuristic). SEs from
+          a unit bootstrap drawn jointly for every bin and the pooled
+          estimate.
+        - ``'twfe'``: TWFE OLS with ``dose × post`` interaction; unit and
+          period effects absorbed exactly (also on unbalanced panels), SEs
+          with ``fixest::feols`` degrees of freedom (pinned in
+          ``tests/reference_parity/test_did_synth_didvar_parity.py``).
+        - ``'dose_response'``: local-linear regression of ΔY on baseline
+          dose; the SE is a unit bootstrap of the average derivative.
         - ``'cgs'``: Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) /
           ACRT(d|g,t) MVP with ``[待核验]`` markers on paper formulas;
           see ``docs/rfc/continuous_did_cgs.md``. **Not yet reference-
@@ -104,9 +110,10 @@ def continuous_did(
     n_quantiles : int, default 5
         Number of dose quantiles for discretization.
     controls : list of str, optional
-        Control variables.
+        Control variables. Used by ``method='twfe'`` (and ``'cgs'``); the
+        ``'att_gt'`` and ``'dose_response'`` heuristics ignore them and warn.
     cluster : str, optional
-        Cluster variable for SE.
+        Cluster variable for SE (``method='twfe'`` only).
     n_boot : int, default 500
         Bootstrap replications for SE.
     alpha : float, default 0.05
@@ -228,6 +235,27 @@ def continuous_did(
         )
 
 
+def _twfe_fe_dof(df: pd.DataFrame, id: str, time: str) -> int:
+    """Rank of the unit + period dummy block: ``N + T - c``.
+
+    ``c`` is the number of connected components of the bipartite unit-period
+    graph (1 for any panel in which every unit is observed in a period that
+    links it to the rest), matching how ``fixest`` / ``reghdfe`` count the
+    absorbed parameters of two fixed effects.
+    """
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+
+    u_codes, u_uniq = pd.factorize(df[id], sort=False)
+    t_codes, t_uniq = pd.factorize(df[time], sort=False)
+    n_u, n_t = len(u_uniq), len(t_uniq)
+    graph = coo_matrix(
+        (np.ones(len(df)), (u_codes, n_u + t_codes)), shape=(n_u + n_t, n_u + n_t)
+    )
+    n_comp, _ = connected_components(graph, directed=False)
+    return int(n_u + n_t - n_comp)
+
+
 def _continuous_did_twfe(
     df: pd.DataFrame,
     y: str,
@@ -239,71 +267,72 @@ def _continuous_did_twfe(
     cluster: Optional[str],
     alpha: float,
 ) -> CausalResult:
-    """TWFE approach: y_it = α_i + λ_t + β·dose_i·post_t + ε_it"""
-    # Create interaction
+    """TWFE: ``y_it = a_i + l_t + b * dose_it * post_t (+ controls) + e_it``.
+
+    Unit and period effects are absorbed by alternating projections, which is
+    exact on unbalanced panels (a one-pass ``y - ybar_i - ybar_t + ybar``
+    transform is only exact on balanced ones). Degrees of freedom follow
+    ``fixest::feols`` defaults: the iid variance divides by ``n - K`` with
+    ``K`` counting the slopes and every absorbed fixed-effect parameter; the
+    cluster-robust variance uses ``G/(G-1) * (n-1)/(n-K)`` with ``K`` counting
+    only fixed effects not nested in the cluster (``ssc(fixef.K = "nested")``).
+    Inference uses the normal distribution.
+    """
+    from ..fast.demean import demean as _hdfe_demean
+    from ._core import fe_dof_not_nested as _fe_dof_not_nested
+
+    df = df.copy()
     df["_dose_post"] = df[dose] * df[post]
+    x_cols = ["_dose_post"] + list(controls or [])
+    needed = [y, id, time] + x_cols + ([cluster] if cluster else [])
+    valid = df[needed].notna().all(axis=1).to_numpy()
+    for c in [y] + x_cols:
+        valid &= np.isfinite(df[c].to_numpy(dtype=float))
+    dfv = df.loc[valid].reset_index(drop=True)
 
-    # Demean (within transformation for FE)
-    panel = df.set_index([id, time])
-    y_data = panel[y].values.astype(float)
+    mat = dfv[[y] + x_cols].to_numpy(dtype=float)
+    dem, info = _hdfe_demean(
+        mat,
+        [dfv[id].to_numpy(), dfv[time].to_numpy()],
+        drop_singletons=False,
+        tol=1e-14,
+        max_iter=100_000,
+        backend="numpy",
+    )
+    if not info.converged:
+        warnings.warn(
+            "continuous_did(method='twfe'): the two-way within transform did "
+            "not converge; the slope may be inaccurate.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    y_v = dem[:, 0]
+    X_v = dem[:, 1:]
+    n, k = X_v.shape
 
-    # Unit means
-    unit_means = df.groupby(id)[y].transform("mean").values
-    time_means = df.groupby(time)[y].transform("mean").values
-    grand_mean = df[y].mean()
+    beta = np.linalg.lstsq(X_v, y_v, rcond=None)[0]
+    resid = y_v - X_v @ beta
+    XtX_inv = np.linalg.inv(X_v.T @ X_v)
 
-    y_demean = y_data - unit_means - time_means + grand_mean
-
-    # Demean dose_post similarly
-    dp = df["_dose_post"].values.astype(float)
-    dp_unit = df.groupby(id)["_dose_post"].transform("mean").values
-    dp_time = df.groupby(time)["_dose_post"].transform("mean").values
-    dp_grand = df["_dose_post"].mean()
-    dp_demean = dp - dp_unit - dp_time + dp_grand
-
-    # Controls
-    if controls:
-        X_parts = [dp_demean.reshape(-1, 1)]
-        for c in controls:
-            cv = df[c].values.astype(float)
-            cv_u = df.groupby(id)[c].transform("mean").values
-            cv_t = df.groupby(time)[c].transform("mean").values
-            cv_g = df[c].mean()
-            X_parts.append((cv - cv_u - cv_t + cv_g).reshape(-1, 1))
-        X = np.column_stack(X_parts)
+    if cluster:
+        clusters = dfv[cluster].to_numpy()
+        unique_clusters = np.unique(clusters)
+        n_cl = len(unique_clusters)
+        meat = np.zeros((k, k))
+        for cl in unique_clusters:
+            cl_mask = clusters == cl
+            score = X_v[cl_mask].T @ resid[cl_mask]
+            meat += np.outer(score, score)
+        K = k + _fe_dof_not_nested(dfv, [id, time], cluster)
+        correction = n_cl / (n_cl - 1) * (n - 1) / (n - K)
+        var_cov = correction * XtX_inv @ meat @ XtX_inv
     else:
-        X = dp_demean.reshape(-1, 1)
+        K = k + _twfe_fe_dof(dfv, id, time)
+        sigma2 = np.sum(resid**2) / (n - K)
+        var_cov = sigma2 * XtX_inv
 
-    # OLS on demeaned data
-    valid = np.isfinite(y_demean) & np.all(np.isfinite(X), axis=1)
-    X_v, y_v = X[valid], y_demean[valid]
-
-    try:
-        beta = np.linalg.lstsq(X_v, y_v, rcond=None)[0]
-        resid = y_v - X_v @ beta
-        n, k = X_v.shape
-
-        # Clustered SE
-        if cluster:
-            clusters = df.loc[valid, cluster if cluster != id else id].values
-            unique_clusters = np.unique(clusters)
-            n_cl = len(unique_clusters)
-            XtX_inv = np.linalg.inv(X_v.T @ X_v)
-            meat = np.zeros((k, k))
-            for cl in unique_clusters:
-                cl_mask = clusters == cl
-                score = X_v[cl_mask].T @ resid[cl_mask]
-                meat += np.outer(score, score)
-            correction = n_cl / (n_cl - 1) * (n - 1) / (n - k)
-            var_cov = correction * XtX_inv @ meat @ XtX_inv
-        else:
-            sigma2 = np.sum(resid**2) / (n - k)
-            var_cov = sigma2 * np.linalg.inv(X_v.T @ X_v)
-
-        tau = beta[0]
-        se = np.sqrt(var_cov[0, 0])
-    except np.linalg.LinAlgError:
-        tau, se = np.nan, np.nan
+    tau = float(beta[0])
+    se = float(np.sqrt(var_cov[0, 0]))
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
     p_val = 2 * stats.norm.sf(abs(tau / se)) if se > 0 else np.nan
@@ -316,11 +345,13 @@ def _continuous_did_twfe(
         pvalue=p_val,
         ci=(tau - z_crit * se, tau + z_crit * se),
         alpha=alpha,
-        n_obs=int(valid.sum()),
+        n_obs=int(n),
         model_info={
             "dose_variable": dose,
-            "n_units": df[id].nunique(),
-            "n_periods": df[time].nunique(),
+            "n_units": int(dfv[id].nunique()),
+            "n_periods": int(dfv[time].nunique()),
+            "dof_K": int(K),
+            "cluster_var": cluster,
         },
     )
 
@@ -338,10 +369,26 @@ def _continuous_did_att_gt(
     alpha: float,
     rng: np.random.Generator,
 ) -> CausalResult:
+    """Dose-bin 2x2 DID rollup.
+
+    Units with positive baseline dose are cut into dose quantiles; each bin is
+    compared with the ``dose == 0`` units (or, when there are none, with the
+    lowest bin) by a 2x2 difference of row means. The pooled estimate is the
+    treated-count-weighted mean of the bin DIDs.
+
+    Standard errors come from a unit (cluster) bootstrap that resamples the
+    analysis units **with multiplicity** and recomputes every bin and the
+    pooled estimate on the same draw, so the pooled SE carries the covariance
+    induced by the shared comparison group.
     """
-    Group-time ATT approach: discretize dose into quantiles,
-    estimate ATT for each dose group vs untreated.
-    """
+    if controls:
+        warnings.warn(
+            "continuous_did(method='att_gt'): `controls` are not used by the "
+            "dose-bin 2x2 rollup and are ignored. Use method='twfe' for a "
+            "covariate-adjusted slope.",
+            UserWarning,
+            stacklevel=3,
+        )
     # Get dose at baseline (pre-period)
     pre_data = df[df[post] == 0]
     dose_baseline = pre_data.groupby(id)[dose].mean()
@@ -362,81 +409,103 @@ def _continuous_did_att_gt(
         include_lowest=True,
     )
 
-    # Untreated group: dose = 0
+    # Comparison arm: dose == 0, else the lowest dose bin.
     untreated_ids = dose_baseline[dose_baseline == 0].index
+    fallback_control = len(untreated_ids) == 0
+    if fallback_control:
+        lowest_g = dose_groups.dropna().min()
+        control_ids = dose_groups[dose_groups == lowest_g].index
+    else:
+        lowest_g = None
+        control_ids = untreated_ids
 
-    results_rows = []
-    z_crit = stats.norm.ppf(1 - alpha / 2)
-
+    bins: List[tuple] = []
     for g in sorted(dose_groups.dropna().unique()):
         group_ids = dose_groups[dose_groups == g].index
         if len(group_ids) < 2:
             continue
+        if fallback_control and g == lowest_g:
+            continue
+        bins.append((g, group_ids))
 
-        # Compute DID for this dose group vs untreated
-        group_data = df[df[id].isin(group_ids)]
-        control_data = df[df[id].isin(untreated_ids)]
+    # Per-unit sums / counts of the outcome in each period block; a 2x2 DID
+    # of row means is a ratio of these, so a resample with multiplicities is
+    # just a weighted ratio.
+    units = pd.Index(dose_baseline.index)
+    yv = df[y].astype(float)
+    is_post = df[post] == 1
+    sums_post = (
+        yv[is_post].groupby(df.loc[is_post, id]).sum().reindex(units, fill_value=0.0)
+    )
+    cnt_post = (
+        yv[is_post].groupby(df.loc[is_post, id]).count().reindex(units, fill_value=0)
+    )
+    sums_pre = (
+        yv[~is_post].groupby(df.loc[~is_post, id]).sum().reindex(units, fill_value=0.0)
+    )
+    cnt_pre = (
+        yv[~is_post].groupby(df.loc[~is_post, id]).count().reindex(units, fill_value=0)
+    )
+    S1, C1 = sums_post.to_numpy(float), cnt_post.to_numpy(float)
+    S0, C0 = sums_pre.to_numpy(float), cnt_pre.to_numpy(float)
+    ctrl_mask = units.isin(control_ids)
+    bin_masks = [units.isin(ids) for _, ids in bins]
 
-        if len(control_data) == 0:
-            # Use lowest dose group as control
-            lowest_g = dose_groups.dropna().min()
-            if g == lowest_g:
-                continue
-            control_ids = dose_groups[dose_groups == lowest_g].index
-            control_data = df[df[id].isin(control_ids)]
+    def _did(mult: np.ndarray, tmask: np.ndarray) -> float:
+        with np.errstate(invalid="ignore", divide="ignore"):
+            t1 = (mult[tmask] @ S1[tmask]) / (mult[tmask] @ C1[tmask])
+            t0 = (mult[tmask] @ S0[tmask]) / (mult[tmask] @ C0[tmask])
+            c1 = (mult[ctrl_mask] @ S1[ctrl_mask]) / (mult[ctrl_mask] @ C1[ctrl_mask])
+            c0 = (mult[ctrl_mask] @ S0[ctrl_mask]) / (mult[ctrl_mask] @ C0[ctrl_mask])
+        return float((t1 - t0) - (c1 - c0))
 
-        # DID: E[Y|post=1,group] - E[Y|post=0,group]
-        #      - (E[Y|post=1,ctrl] - E[Y|post=0,ctrl])
-        y_g_post = group_data.loc[group_data[post] == 1, y].mean()
-        y_g_pre = group_data.loc[group_data[post] == 0, y].mean()
-        y_c_post = control_data.loc[control_data[post] == 1, y].mean()
-        y_c_pre = control_data.loc[control_data[post] == 0, y].mean()
+    def _all(mult: np.ndarray) -> np.ndarray:
+        atts = np.array([_did(mult, m) for m in bin_masks], dtype=float)
+        n_tr = np.array([mult[m].sum() for m in bin_masks], dtype=float)
+        ok = np.isfinite(atts) & (n_tr > 0)
+        pooled = (
+            float(np.sum(n_tr[ok] * atts[ok]) / n_tr[ok].sum()) if ok.any() else np.nan
+        )
+        return np.append(atts, pooled)
 
-        att = (y_g_post - y_g_pre) - (y_c_post - y_c_pre)
+    ones = np.ones(len(units))
+    point = _all(ones)
 
-        # Bootstrap SE
-        boot_atts = np.empty(n_boot)
-        all_ids = np.concatenate([group_ids.values, untreated_ids.values])
+    in_sample = ctrl_mask.copy()
+    for m in bin_masks:
+        in_sample |= m
+    pos = np.flatnonzero(in_sample)
+    boot = np.full((n_boot, len(bins) + 1), np.nan)
+    if len(bins) > 0 and len(pos) > 0:
         for b in range(n_boot):
-            boot_ids = rng.choice(all_ids, size=len(all_ids), replace=True)
-            boot_df = df[df[id].isin(boot_ids)]
-            boot_group = boot_df[boot_df[id].isin(group_ids)]
-            boot_ctrl = boot_df[boot_df[id].isin(untreated_ids)]
+            draw = rng.choice(pos, size=len(pos), replace=True)
+            mult = np.bincount(draw, minlength=len(units)).astype(float)
+            boot[b] = _all(mult)
 
-            if len(boot_group) == 0 or len(boot_ctrl) == 0:
-                boot_atts[b] = np.nan
-                continue
-
-            b_g_post = boot_group.loc[boot_group[post] == 1, y].mean()
-            b_g_pre = boot_group.loc[boot_group[post] == 0, y].mean()
-            b_c_post = boot_ctrl.loc[boot_ctrl[post] == 1, y].mean()
-            b_c_pre = boot_ctrl.loc[boot_ctrl[post] == 0, y].mean()
-            boot_atts[b] = (b_g_post - b_g_pre) - (b_c_post - b_c_pre)
-
-        se = _bootstrap_se(boot_atts, label="did.continuous.dose_att")
-        dose_midpoint = dose_baseline[group_ids].mean()
-
+    z_crit = stats.norm.ppf(1 - alpha / 2)
+    results_rows = []
+    for j, (g, group_ids) in enumerate(bins):
+        att = float(point[j])
+        se = _bootstrap_se(boot[:, j], label="did.continuous.dose_att")
         results_rows.append(
             {
                 "dose_group": int(g),
-                "dose_midpoint": dose_midpoint,
+                "dose_midpoint": dose_baseline[group_ids].mean(),
                 "att": att,
                 "se": se,
                 "ci_lower": att - z_crit * se,
                 "ci_upper": att + z_crit * se,
                 "p_value": (2 * stats.norm.sf(abs(att / se)) if se > 0 else np.nan),
                 "n_treated": len(group_ids),
-                "n_control": len(untreated_ids),
+                "n_control": len(control_ids),
             }
         )
 
     results_df = pd.DataFrame(results_rows)
 
-    # Aggregate: dose-weighted average
     if len(results_df) > 0:
-        weights = results_df["n_treated"].values / results_df["n_treated"].sum()
-        pooled_att = np.sum(weights * results_df["att"].values)
-        pooled_se = np.sqrt(np.sum(weights**2 * results_df["se"].values ** 2))
+        pooled_att = float(point[-1])
+        pooled_se = _bootstrap_se(boot[:, -1], label="did.continuous.pooled_att")
     else:
         pooled_att, pooled_se = np.nan, np.nan
 
@@ -456,6 +525,8 @@ def _continuous_did_att_gt(
             "dose_variable": dose,
             "n_dose_groups": len(results_df),
             "n_units": df[id].nunique(),
+            "control_arm": "lowest_dose_bin" if fallback_control else "zero_dose",
+            "n_boot": n_boot,
         },
     )
 
@@ -473,11 +544,22 @@ def _continuous_did_dose_response(
     alpha: float,
     rng: np.random.Generator,
 ) -> CausalResult:
+    """Average derivative of a local-linear fit of ``dY_i`` on baseline dose.
+
+    ``dY_i`` is the unit's mean post outcome minus its mean pre outcome. The
+    headline is the grid-average of the finite-difference slope of the fitted
+    curve. Its standard error is a unit bootstrap of that same statistic (grid
+    and bandwidth held at their full-sample values), not the pointwise SE of
+    the fitted *level*, which measures a different quantity.
     """
-    Estimate a full dose-response curve in DID framework.
-    Uses local linear regression of the DID estimand on dose.
-    """
-    # Compute unit-level DID: ΔY_i = Y_i,post - Y_i,pre
+    if controls:
+        warnings.warn(
+            "continuous_did(method='dose_response'): `controls` are not used "
+            "by the local-linear dose-response fit and are ignored.",
+            UserWarning,
+            stacklevel=3,
+        )
+    # Compute unit-level DID: dY = Y_i,post - Y_i,pre
     pre_y = df[df[post] == 0].groupby(id)[y].mean()
     post_y = df[df[post] == 1].groupby(id)[y].mean()
     common_ids = pre_y.index.intersection(post_y.index)
@@ -485,25 +567,27 @@ def _continuous_did_dose_response(
     delta_y = post_y[common_ids] - pre_y[common_ids]
     dose_vals = df[df[post] == 0].groupby(id)[dose].mean()[common_ids]
 
-    # Local linear regression of ΔY on dose
     from ..nonparametric.lpoly import lpoly as _lpoly
 
-    # Create temporary df for lpoly
     temp_df = pd.DataFrame({"delta_y": delta_y.values, "dose": dose_vals.values})
-    temp_df = temp_df.dropna()
+    temp_df = temp_df.dropna().reset_index(drop=True)
+    z_crit = stats.norm.ppf(1 - alpha / 2)
 
     try:
         lp_result = _lpoly(temp_df, y="delta_y", x="dose", degree=1, n_grid=50)
-    except Exception:
-        # Fallback: simple linear
+    except (ValueError, np.linalg.LinAlgError) as exc:
+        warnings.warn(
+            "continuous_did(method='dose_response'): the local-linear fit "
+            f"failed ({exc}); falling back to a global linear slope of dY on "
+            "dose with its OLS standard error.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
         from scipy.stats import linregress
 
         slope, intercept, _, p_val, se_slope = linregress(
-            dose_vals.dropna(),
-            delta_y.dropna(),
+            temp_df["dose"].to_numpy(), temp_df["delta_y"].to_numpy()
         )
-
-        z_crit = stats.norm.ppf(1 - alpha / 2)
         return CausalResult(
             method="Continuous DID (Dose-Response)",
             estimand="Average marginal effect",
@@ -513,14 +597,30 @@ def _continuous_did_dose_response(
             ci=(slope - z_crit * se_slope, slope + z_crit * se_slope),
             alpha=alpha,
             n_obs=len(temp_df),
+            model_info={"fallback": "linregress", "fallback_reason": str(exc)},
         )
 
-    # Use slope at different dose levels as the treatment effect
-    # Average derivative as summary measure
-    avg_effect = np.nanmean(np.diff(lp_result.fitted) / np.diff(lp_result.grid))
-    avg_se = np.nanmean(lp_result.se)
+    grid = lp_result.grid
+    bw = lp_result.bandwidth
 
-    z_crit = stats.norm.ppf(1 - alpha / 2)
+    def _avg_slope(fitted: np.ndarray) -> float:
+        with np.errstate(invalid="ignore"):
+            return float(np.nanmean(np.diff(fitted) / np.diff(grid)))
+
+    avg_effect = _avg_slope(lp_result.fitted)
+
+    boot = np.full(n_boot, np.nan)
+    n_units = len(temp_df)
+    for b in range(n_boot):
+        idx = rng.integers(0, n_units, size=n_units)
+        bdf = temp_df.iloc[idx]
+        try:
+            bfit = _lpoly(bdf, y="delta_y", x="dose", degree=1, grid=grid, bandwidth=bw)
+        except (ValueError, np.linalg.LinAlgError):
+            continue  # stays NaN; bootstrap_se reports the failure count
+        boot[b] = _avg_slope(bfit.fitted)
+    avg_se = _bootstrap_se(boot, label="did.continuous.dose_response")
+
     p_val = 2 * stats.norm.sf(abs(avg_effect / avg_se)) if avg_se > 0 else np.nan
 
     return CausalResult(
@@ -533,9 +633,13 @@ def _continuous_did_dose_response(
         alpha=alpha,
         n_obs=len(temp_df),
         model_info={
-            "dose_response_grid": lp_result.grid.tolist(),
+            "dose_response_grid": grid.tolist(),
             "dose_response_fitted": lp_result.fitted.tolist(),
+            "dose_response_pointwise_se": lp_result.se.tolist(),
+            "bandwidth": float(bw),
             "n_units": len(common_ids),
+            "n_boot": n_boot,
+            "se_method": "unit bootstrap of the average derivative",
         },
     )
 

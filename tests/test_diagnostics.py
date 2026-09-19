@@ -5,12 +5,12 @@ Oster tests use analytically verifiable examples.
 McCrary tests use simulated data with/without manipulation.
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
-from statspai.diagnostics import oster_bounds, mccrary_test
 from statspai.core.results import CausalResult
+from statspai.diagnostics import mccrary_test, oster_bounds
 
 # ======================================================================
 # Fixtures
@@ -92,14 +92,14 @@ class TestOsterBounds:
         assert result["beta_long"] == 2.0
 
     def test_delta_star_formula(self):
-        """Verify δ* formula against manual calculation.
+        """Summary-statistics path: Oster's first-order approximation.
 
         β̊=3, R̊²=0.2, β̃=2, R̃²=0.5, R_max=0.65 (=1.3×0.5)
-        δ* = β̃ × (R_max - R̃²) / ((β̊ - β̃) × (R̃² - R̊²))
-           = 2 × (0.65 - 0.5) / ((3 - 2) × (0.5 - 0.2))
-           = 2 × 0.15 / (1 × 0.3)
-           = 0.3 / 0.3
-           = 1.0
+        β*(δ) ≈ β̃ − δ (β̊ − β̃)(R_max − R̃²)/(R̃² − R̊²), so
+        δ* = β̃ (R̃² − R̊²) / ((β̊ − β̃)(R_max − R̃²))
+           = 2 × 0.3 / (1 × 0.15) = 4.0
+
+        Until 1.28 the two R² differences were swapped (δ* = 1.0 here).
         """
         result = oster_bounds(
             beta_short=3.0,
@@ -108,17 +108,11 @@ class TestOsterBounds:
             r2_long=0.5,
             r_max=0.65,
         )
-        assert abs(result["delta_for_zero"] - 1.0) < 1e-10
+        assert result["method"] == "approximate"
+        assert abs(result["delta_for_zero"] - 4.0) < 1e-10
 
     def test_beta_adjusted_formula(self):
-        """Verify β*(δ=1) against manual calculation.
-
-        β̊=3, R̊²=0.2, β̃=2, R̃²=0.5, R_max=0.65, δ=1
-        β* = β̃ - δ × (β̊ - β̃) × (R̃² - R̊²) / (R_max - R̃²)
-           = 2 - 1 × (3 - 2) × (0.5 - 0.2) / (0.65 - 0.5)
-           = 2 - 1 × 1 × 0.3 / 0.15
-           = 2 - 2 = 0
-        """
+        """β*(δ=1) ≈ 2 − 1 × (3 − 2) × (0.65 − 0.5)/(0.5 − 0.2) = 1.5."""
         result = oster_bounds(
             beta_short=3.0,
             r2_short=0.2,
@@ -127,7 +121,15 @@ class TestOsterBounds:
             r_max=0.65,
             delta=1.0,
         )
-        assert abs(result["beta_adjusted"] - 0.0) < 1e-10
+        assert abs(result["beta_adjusted"] - 1.5) < 1e-10
+
+    def test_approximation_vanishes_as_r_max_reaches_r2_long(self):
+        """No room for unobservables => no adjustment (the swapped formula
+        diverged instead)."""
+        result = oster_bounds(
+            beta_short=3.0, r2_short=0.2, beta_long=2.0, r2_long=0.5, r_max=0.5 + 1e-9
+        )
+        assert abs(result["beta_adjusted"] - 2.0) < 1e-6
 
     def test_robust_when_delta_gt_1(self):
         """When δ* > 1, result should be flagged as robust."""
@@ -269,8 +271,12 @@ class TestMcCraryTest:
         assert abs(result.model_info["bandwidth"] - 0.5) < 1e-6
 
     def test_custom_bins(self, rd_data_clean):
+        # n_bins sets the bin width to range / n_bins; DCdensity then lays
+        # floor(range / width) + 2 cells over the support.
         result = mccrary_test(rd_data_clean, x="x", n_bins=20)
-        assert result.model_info["n_bins"] == 20
+        xr = rd_data_clean["x"].max() - rd_data_clean["x"].min()
+        assert result.model_info["bin_width"] == pytest.approx(xr / 20)
+        assert result.model_info["n_bins"] == 22
 
     def test_summary(self, rd_data_clean):
         result = mccrary_test(rd_data_clean, x="x")

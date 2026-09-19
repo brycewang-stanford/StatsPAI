@@ -95,7 +95,12 @@ def lrtest(
         Whether to apply the χ̄² boundary correction.  When ``None``
         (default) we infer it from whether the restriction touches a
         variance component — the only parameters that live on the
-        boundary of their support.
+        boundary of their support.  ``boundary=False`` reproduces Stata's
+        ``lrtest`` and R's ``anova()`` (naive χ²(df) tail; Stata prints a
+        note that the test is conservative when the null is on the
+        boundary).  The degrees of freedom are the difference in the
+        number of estimated parameters (Stata ``e(k)``), which counts every
+        variance and covariance parameter.
 
     Returns
     -------
@@ -168,18 +173,30 @@ def lrtest(
         # Classic 50/50 mixture of χ²_0 and χ²_1 (Self–Liang 1987).
         p = 0.5 * stats.chi2.sf(chi2, 1)
     elif boundary and df >= 2:
-        # The exact reference is the Stram–Lee (1994) mixture, whose
-        # weights depend on the covariance parameterisation.  We fall
-        # back to a simple conservative upper bound and warn.
-        warnings.warn(
-            "lrtest: multi-component boundary correction uses a "
-            "conservative upper bound on the p-value; the exact "
-            "Stram–Lee (1994) χ̄² mixture is not implemented.  "
-            "For critical decisions, corroborate with a parametric "
-            "bootstrap.",
-            RuntimeWarning,
-            stacklevel=2,
+        # Adding exactly one random effect to q existing ones under an
+        # unstructured covariance adds 1 variance + q covariances (df =
+        # q + 1), and the null distribution is exactly the 50:50 mixture
+        # of χ²_q and χ²_{q+1} (Stram–Lee 1994) -- the formula below.  For
+        # any other multi-component restriction the mixture weights depend
+        # on the parameterisation; the same formula is then a conservative
+        # bound, and we say so.
+        q_r = len(getattr(restricted, "_random_names", []) or [])
+        q_f = len(getattr(full, "_random_names", []) or [])
+        exact = (
+            q_f == q_r + 1
+            and getattr(full, "_cov_type", None) == "unstructured"
+            and df == q_f
         )
+        if not exact:
+            warnings.warn(
+                "lrtest: multi-component boundary correction uses a "
+                "conservative upper bound on the p-value; the exact "
+                "Stram–Lee (1994) χ̄² mixture is not implemented for this "
+                "restriction.  For critical decisions, corroborate with a "
+                "parametric bootstrap.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         p = 0.5 * (stats.chi2.sf(chi2, df - 1) + stats.chi2.sf(chi2, df))
     else:
         p = stats.chi2.sf(chi2, df) if df > 0 else 1.0

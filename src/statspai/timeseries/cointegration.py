@@ -18,9 +18,11 @@ Gaussian Vector Autoregressive Models." *Econometrica*, 59(6),
 1551-1580. [@johansen1991estimation]
 """
 
-from typing import Optional, List, Any
+from typing import Any, List, Optional
+
 import numpy as np
 import pandas as pd
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -129,8 +131,18 @@ def engle_granger(
     """
     Engle-Granger (1987) two-step cointegration test.
 
-    Step 1: OLS regression of y on x
-    Step 2: ADF test on residuals
+    Step 1: OLS regression of ``y`` (first variable) on the remaining
+    variables and the deterministic terms selected by ``trend``.
+    Step 2: augmented Dickey-Fuller regression on the step-1 residuals
+    **without** deterministic terms,
+
+    .. math:: \\Delta e_t = \\rho e_{t-1} + \\sum_{j=1}^{L} \\gamma_j
+              \\Delta e_{t-j} + u_t ,
+
+    whose ``t``-ratio on ``rho`` is the test statistic. This is the
+    specification of Stata's ``egranger`` (Schaffer, SSC) and the one the
+    MacKinnon critical values are tabulated for; the deterministic terms
+    live in step 1 only.
 
     Parameters
     ----------
@@ -138,13 +150,24 @@ def engle_granger(
     variables : list of str
         Variables to test (first is dependent).
     lags : int, optional
-        Lags for ADF test. If None, uses AIC selection.
-    trend : str, default 'c'
-    alpha : float, default 0.05
+        Number of lagged differences ``L`` in the step-2 regression
+        (Stata ``egranger, lags()``). If None, uses the fixed rule
+        ``int(4 * (n / 100) ** 0.25)``.
+    trend : {'c', 'ct', 'ctt'}, default 'c'
+        Deterministic terms in step 1: constant; constant + linear trend
+        (``egranger, trend``); constant + linear + quadratic trend
+        (``egranger, qtrend``). The trend is ``t = 0, 1, ...``.
+    alpha : {0.01, 0.05, 0.10}, default 0.05
+        Level at which ``rank`` (1 = cointegrated) is decided.
 
     Returns
     -------
     CointegrationResult
+        ``test_stats`` is the ADF ``t``-ratio; ``critical_values`` the
+        (1%, 5%, 10%) MacKinnon (2010) response-surface critical values for
+        ``N = len(variables)`` series and ``T = n - 1`` (the ``egranger``
+        convention); ``eigenvectors`` holds the step-1 coefficients
+        (constant, regressors, trend terms).
 
     Examples
     --------
@@ -169,27 +192,46 @@ def engle_granger(
     ----------
     [@engle1987integration]
     """
+    from ._critvals import mackinnon_cv
+
     if variables is None:
         variables = data.select_dtypes(include=[np.number]).columns.tolist()
-
-    y = data[variables[0]].values.astype(float)
-    X = data[variables[1:]].values.astype(float)
-    n = len(y)
+    if trend not in ("c", "ct", "ctt"):
+        raise ValueError("trend must be 'c', 'ct' or 'ctt' for engle_granger")
+    level_pct = {0.01: 1, 0.05: 5, 0.10: 10}.get(round(float(alpha), 2))
+    if level_pct is None:
+        raise ValueError(
+            "alpha must be 0.01, 0.05 or 0.10 (MacKinnon tabulates only these)"
+        )
     k = len(variables)
+    if not 2 <= k <= 12:
+        raise ValueError("engle_granger needs 2..12 variables (MacKinnon 2010 tables)")
 
-    # Step 1: OLS
-    X_const = np.column_stack([np.ones(n), X])
+    Z = data[list(variables)].dropna().to_numpy(dtype=float)
+    y = Z[:, 0]
+    X = Z[:, 1:]
+    n = len(y)
+
+    # Step 1: OLS with the deterministic terms
+    tt = np.arange(n, dtype=float)
+    det = [np.ones(n)]
+    if trend in ("ct", "ctt"):
+        det.append(tt)
+    if trend == "ctt":
+        det.append(tt**2)
+    X_const = np.column_stack([det[0], X] + det[1:])
     beta = np.linalg.lstsq(X_const, y, rcond=None)[0]
     residuals = y - X_const @ beta
 
-    # Step 2: ADF on residuals
+    # Step 2: ADF on residuals, no deterministic terms
     if lags is None:
         lags = int(np.floor(4 * (n / 100) ** 0.25))
+    lags = int(lags)
+    if lags < 0:
+        raise ValueError("lags must be >= 0")
 
     dy = np.diff(residuals)
     y_lag = residuals[:-1]
-
-    # ADF regression: Δe_t = ρ*e_{t-1} + Σ γ_j Δe_{t-j} + error
     T = len(dy)
     max_lag = min(lags, T - 2)
 
@@ -200,32 +242,15 @@ def engle_granger(
         lag_slice = dy[max_lag - j : max_lag - j + n_adf]
         X_adf = np.column_stack([X_adf, lag_slice])
 
-    if trend == "c":
-        X_adf = np.column_stack([X_adf, np.ones(n_adf)])
-
     beta_adf = np.linalg.lstsq(X_adf, Y_adf, rcond=None)[0]
     resid_adf = Y_adf - X_adf @ beta_adf
-    try:
-        XtX_inv = np.linalg.inv(X_adf.T @ X_adf)
-    except np.linalg.LinAlgError:
-        XtX_inv = np.linalg.pinv(X_adf.T @ X_adf)
-    se_rho = np.sqrt(
-        np.sum(resid_adf**2) / max(n_adf - X_adf.shape[1], 1) * XtX_inv[0, 0]
-    )
-    adf_stat = beta_adf[0] / se_rho
+    XtX_inv = np.linalg.inv(X_adf.T @ X_adf)
+    se_rho = np.sqrt(np.sum(resid_adf**2) / (n_adf - X_adf.shape[1]) * XtX_inv[0, 0])
+    adf_stat = float(beta_adf[0] / se_rho)
 
-    # Critical values for Engle-Granger (depend on number of variables)
-    # Approximate MacKinnon (1996) critical values
-    eg_cv = {
-        2: [-3.90, -3.34, -3.04],  # 1%, 5%, 10%
-        3: [-4.32, -3.78, -3.50],
-        4: [-4.68, -4.16, -3.88],
-        5: [-4.99, -4.49, -4.22],
-        6: [-5.26, -4.78, -4.52],
-    }
-    cvs = eg_cv.get(k, eg_cv[min(k, 6)])
-
-    reject = adf_stat < cvs[1]
+    # MacKinnon (2010) response surface, T = (step-1 observations) - 1
+    cvs = [mackinnon_cv(trend, k, lvl, n - 1) for lvl in (1, 5, 10)]
+    reject = adf_stat < cvs[(1, 5, 10).index(level_pct)]
 
     _result = CointegrationResult(
         test_type="Engle-Granger",
@@ -258,6 +283,20 @@ def engle_granger(
     return _result
 
 
+_JOHANSEN_TREND_ALIASES = {
+    "n": "n",
+    "none": "n",
+    "rc": "rc",
+    "rconstant": "rc",
+    "c": "c",
+    "constant": "c",
+    "rt": "rt",
+    "rtrend": "rt",
+    "ct": "ct",
+    "trend": "ct",
+}
+
+
 def johansen(
     data: pd.DataFrame,
     variables: Optional[List[str]] = None,
@@ -272,7 +311,7 @@ def johansen(
     Tests for the cointegration rank using the trace or maximum
     eigenvalue test statistic.
 
-    Equivalent to Stata's ``vecrank`` and R's ``ca.jo()``.
+    Equivalent to Stata's ``vecrank`` and R's ``urca::ca.jo()``.
 
     Parameters
     ----------
@@ -280,16 +319,30 @@ def johansen(
     variables : list of str
         Variables to test.
     lags : int, default 1
-        Number of lags in the VECM.
+        Number of lagged **differences** in the VECM. This is Stata's
+        ``vecrank, lags(p)`` minus one and ``ca.jo(K = lags + 1)``.
     trend : str, default 'c'
-        'n' (none), 'c' (constant), 'ct' (constant + trend).
-    test : str, default 'trace'
-        'trace' or 'maxeig' (maximum eigenvalue).
-    alpha : float, default 0.05
+        Deterministic specification (Stata ``vecrank, trend()`` names in
+        parentheses): ``'n'`` (``none``); ``'rc'`` (``rconstant``, constant
+        restricted to the cointegrating space = ``ca.jo(ecdet="const")``);
+        ``'c'`` (``constant``, unrestricted constant =
+        ``ca.jo(ecdet="none")``); ``'rt'`` (``rtrend``, trend restricted to
+        the cointegrating space, unrestricted constant =
+        ``ca.jo(ecdet="trend")``); ``'ct'`` (``trend``, unrestricted
+        constant and trend). Stata's long names are accepted as aliases.
+    test : {'trace', 'maxeig'}, default 'trace'
+    alpha : {0.05, 0.01}, default 0.05
+        Level of the Osterwald-Lenum critical values (the table Stata's
+        ``vecrank`` uses) that decide ``rank``.
 
     Returns
     -------
     CointegrationResult
+        ``test_stats[r]`` tests H0: rank <= r (r = 0..k-1);
+        ``eigenvalues`` are the k largest squared canonical correlations;
+        ``eigenvectors`` are the cointegrating vectors (columns), normalised
+        so the first element is 1 (``ca.jo``'s ``@V`` convention; restricted
+        cases carry the deterministic coefficient as the last row).
 
     Examples
     --------
@@ -310,128 +363,114 @@ def johansen(
     >>> isinstance(result.summary(), str)
     True
     """
+    from ._critvals import JOHANSEN_CV
+
+    case = _JOHANSEN_TREND_ALIASES.get(str(trend).lower())
+    if case is None:
+        raise ValueError(
+            "trend must be one of 'n', 'rc', 'c', 'rt', 'ct' (or Stata's "
+            "none / rconstant / constant / rtrend / trend)"
+        )
+    if test not in ("trace", "maxeig"):
+        raise ValueError("test must be 'trace' or 'maxeig'")
+    alpha_key = round(float(alpha), 2)
+    if alpha_key not in (0.05, 0.01):
+        raise ValueError("alpha must be 0.05 or 0.01 (Osterwald-Lenum table)")
+    lags = int(lags)
+    if lags < 0:
+        raise ValueError("lags must be >= 0")
+
     if variables is None:
         variables = data.select_dtypes(include=[np.number]).columns.tolist()
 
     Y = data[variables].dropna().values.astype(float)
     T, k = Y.shape
 
-    # First differences
     dY = np.diff(Y, axis=0)  # (T-1) x k
-
-    # Lagged levels
     Y_lag = Y[:-1]  # (T-1) x k
 
-    # Additional lags of differences
     T_eff = T - 1 - lags
     if T_eff < k + 1:
         raise ValueError("Too few observations for the number of lags")
 
     dY_trim = dY[lags:]  # T_eff x k
     Y_lag_trim = Y_lag[lags:]  # T_eff x k
+    # time index of the effective sample; any origin gives the same
+    # statistics (a shift is absorbed by the constant)
+    tt = np.arange(lags + 2, T + 1, dtype=float)
 
-    # Lagged differences
-    lag_blocks: list[np.ndarray] = []
-    for j in range(1, lags + 1):
-        lag_blocks.append(dY[lags - j : T - 1 - j])
-    if lag_blocks:
-        Z = np.hstack(lag_blocks)  # T_eff x (k*lags)
-    else:
-        Z = np.empty((T_eff, 0))
+    lag_blocks: list[np.ndarray] = [
+        dY[lags - j : T - 1 - j] for j in range(1, lags + 1)
+    ]
+    Z = np.hstack(lag_blocks) if lag_blocks else np.empty((T_eff, 0))
 
-    if trend == "c":
-        Z = (
-            np.column_stack([Z, np.ones(T_eff)])
-            if Z.shape[1] > 0
-            else np.ones((T_eff, 1))
-        )
-    elif trend == "ct":
-        Z = np.column_stack([Z, np.ones(T_eff), np.arange(1, T_eff + 1)])
+    # Deterministic terms: unrestricted ones enter Z (concentrated out),
+    # restricted ones are appended to the lagged levels.
+    if case in ("c", "rt", "ct"):
+        Z = np.column_stack([Z, np.ones(T_eff)])
+    if case == "ct":
+        Z = np.column_stack([Z, tt])
+    if case == "rc":
+        Y_lag_trim = np.column_stack([Y_lag_trim, np.ones(T_eff)])
+    elif case == "rt":
+        Y_lag_trim = np.column_stack([Y_lag_trim, tt])
 
-    # Concentrate out Z from dY and Y_lag
     if Z.shape[1] > 0:
-        Pz = Z @ np.linalg.solve(Z.T @ Z, Z.T)
-        Mz = np.eye(T_eff) - Pz
-        R0 = Mz @ dY_trim
-        R1 = Mz @ Y_lag_trim
+        coefs0 = np.linalg.lstsq(Z, dY_trim, rcond=None)[0]
+        coefs1 = np.linalg.lstsq(Z, Y_lag_trim, rcond=None)[0]
+        R0 = dY_trim - Z @ coefs0
+        R1 = Y_lag_trim - Z @ coefs1
     else:
         R0 = dY_trim
         R1 = Y_lag_trim
 
-    # Product moment matrices
     S00 = R0.T @ R0 / T_eff
     S11 = R1.T @ R1 / T_eff
     S01 = R0.T @ R1 / T_eff
     S10 = S01.T
 
-    # Solve generalized eigenvalue problem
-    # |λ S11 - S10 S00^{-1} S01| = 0
-    try:
-        S00_inv = np.linalg.inv(S00)
-        M = np.linalg.solve(S11, S10 @ S00_inv @ S01)
-        eigenvalues, eigenvectors = np.linalg.eig(M)
-    except np.linalg.LinAlgError:
-        eigenvalues = np.zeros(k)
-        eigenvectors = np.eye(k)
+    # |lambda S11 - S10 S00^{-1} S01| = 0, solved in symmetric form
+    C = np.linalg.cholesky(S11)
+    Cinv = np.linalg.inv(C)
+    Msym = Cinv @ S10 @ np.linalg.solve(S00, S01) @ Cinv.T
+    Msym = (Msym + Msym.T) / 2.0
+    eigvals, eigvecs = np.linalg.eigh(Msym)
+    order = np.argsort(-eigvals)
+    eigvals = eigvals[order]
+    V = Cinv.T @ eigvecs[:, order]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        V = V / V[0, :]
 
-    # Sort eigenvalues descending
-    idx = np.argsort(-np.real(eigenvalues))
-    eigenvalues = np.real(eigenvalues[idx])
-    eigenvectors = np.real(eigenvectors[:, idx])
+    eigenvalues = np.clip(eigvals[:k], 0.0, 1.0 - 1e-15)
+    eigenvectors = V
 
-    # Clamp eigenvalues to [0, 1)
-    eigenvalues = np.clip(eigenvalues, 0, 1 - 1e-10)
-
-    # Test statistics
     if test == "trace":
-        # Trace statistic: -T Σ_{i=r+1}^{k} ln(1-λ_i)
-        trace_stats = np.array(
+        test_stats = np.array(
             [-T_eff * np.sum(np.log(1 - eigenvalues[r:])) for r in range(k)]
         )
-        test_stats = trace_stats
     else:
-        # Max eigenvalue: -T ln(1-λ_{r+1})
-        maxeig_stats = np.array(
-            [-T_eff * np.log(1 - eigenvalues[r]) if r < k else 0 for r in range(k)]
+        test_stats = np.array([-T_eff * np.log(1 - eigenvalues[r]) for r in range(k)])
+
+    table = JOHANSEN_CV[test][alpha_key][case]
+    # critical value for H0 rank <= r is indexed by k - r
+    cvs = [table[k - r - 1] if k - r <= len(table) else np.nan for r in range(k)]
+    if k > len(table):
+        import warnings
+
+        warnings.warn(
+            f"johansen: critical values are tabulated for k - r <= {len(table)}; "
+            "the rank decision ignores hypotheses beyond the table.",
+            RuntimeWarning,
+            stacklevel=2,
         )
-        test_stats = maxeig_stats
 
-    # Critical values (Osterwald-Lenum 1992, approximate)
-    # trace test 5% critical values for k variables
-    trace_cv_5 = {
-        1: [3.84],
-        2: [15.41, 3.76],
-        3: [29.68, 15.41, 3.76],
-        4: [47.21, 29.68, 15.41, 3.76],
-        5: [68.52, 47.21, 29.68, 15.41, 3.76],
-        6: [94.15, 68.52, 47.21, 29.68, 15.41, 3.76],
-    }
-    maxeig_cv_5 = {
-        1: [3.84],
-        2: [14.07, 3.76],
-        3: [21.12, 14.07, 3.76],
-        4: [27.42, 21.12, 14.07, 3.76],
-        5: [33.46, 27.42, 21.12, 14.07, 3.76],
-        6: [39.37, 33.46, 27.42, 21.12, 14.07, 3.76],
-    }
-
-    if test == "trace":
-        cvs = trace_cv_5.get(k, trace_cv_5[min(k, 6)])
-    else:
-        cvs = maxeig_cv_5.get(k, maxeig_cv_5[min(k, 6)])
-
-    # Pad if needed
-    while len(cvs) < k:
-        cvs.append(3.76)
-
-    # Determine rank
+    # Rank: first r whose statistic does not exceed its critical value
     rank = 0
     for r in range(k):
-        if r < len(test_stats) and r < len(cvs):
-            if test_stats[r] > cvs[r]:
-                rank = r + 1
-            else:
-                break
+        if np.isfinite(cvs[r]) and test_stats[r] > cvs[r]:
+            rank = r + 1
+        else:
+            break
 
     _result = CointegrationResult(
         test_type=f"Johansen ({test})",

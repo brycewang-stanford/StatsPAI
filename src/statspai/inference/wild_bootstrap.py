@@ -27,7 +27,8 @@ MacKinnon, J.G. and Webb, M.D. (2018).
 *The Econometrics Journal*, 21(2), 114-135. [@mackinnon2018wild]
 """
 
-from typing import Any, Dict, List, Optional
+import itertools
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -71,8 +72,11 @@ def wild_cluster_bootstrap(
     h0 : float, default 0
         Null hypothesis value for the test variable coefficient.
     n_boot : int, default 999
-        Number of bootstrap replications. Use odd number for exact
-        p-value computation.
+        Number of bootstrap replications. With Rademacher weights and
+        ``2**G <= n_boot`` the full grid of ``2**G`` sign vectors is
+        enumerated instead (the rule Stata ``boottest`` and R
+        ``fwildclusterboot`` apply), so the p-value is exact and ``n_boot``
+        in the result reports ``2**G``.
     weight_type : str, default 'rademacher'
         Bootstrap weight distribution:
         - ``'rademacher'``: ±1 with equal probability. Standard choice.
@@ -80,7 +84,7 @@ def wild_cluster_bootstrap(
           Recommended when G < 12 clusters.
         - ``'mammen'``: Mammen (1993) 2-point distribution.
     seed : int, optional
-        Random seed for reproducibility.
+        Random seed for reproducibility (unused when the grid is enumerated).
     alpha : float, default 0.05
         Significance level for the confidence interval.
 
@@ -91,10 +95,15 @@ def wild_cluster_bootstrap(
         - ``beta_hat``: OLS point estimate of test_var
         - ``se_cluster``: conventional cluster-robust SE
         - ``t_stat``: t-statistic under H0
-        - ``p_boot``: wild cluster bootstrap p-value (two-sided)
-        - ``ci_boot``: bootstrap percentile-t confidence interval
+        - ``p_boot``: symmetric two-sided bootstrap p-value,
+          ``#{|t*| > |t|} / B`` (strict inequality, as in ``boottest``)
+        - ``ci_boot``: bootstrap percentile-t confidence interval (for the
+          test-inversion interval ``boottest`` reports use
+          :func:`sp.wild_cluster_ci_inv`)
         - ``n_clusters``: number of clusters
-        - ``n_boot``: number of replications used
+        - ``n_boot``: number of replications used (``2**G`` if enumerated)
+        - ``n_boot_requested``: the ``n_boot`` argument
+        - ``enumerated``: whether the full Rademacher grid was used
         - ``weight_type``: weight distribution used
         - ``recommendation``: human-readable guidance
 
@@ -195,33 +204,26 @@ def wild_cluster_bootstrap(
     resid_r = Y - X @ beta_r
 
     # --- Bootstrap ---
-    t_boot = np.zeros(n_boot)
-    fitted_r = X @ beta_r
-    X_T = X.T
+    # WCR: Y* = X beta_r + w_g * e_r, w drawn per cluster. With Rademacher
+    # weights and 2**G <= n_boot the full sign grid is enumerated (boottest /
+    # fwildclusterboot rule), which makes the bootstrap distribution exact.
+    W, enumerated = _wild_weight_matrix(G, n_boot, weight_type, rng)
+    t_boot = _wcr_t_stats(
+        X,
+        XtX_inv,
+        X @ beta_r,
+        resid_r,
+        cl_inverse,
+        cl_inverse,
+        G,
+        test_idx,
+        h0,
+        correction,
+        W,
+    )
 
-    for b in range(n_boot):
-        # Draw cluster-level weights
-        w = _draw_weights(G, weight_type, rng)
-
-        # WCR: Y* = X β_r + w_g * ε̂_r, with cluster weights mapped by
-        # the inverse index returned by np.unique.
-        Y_star = fitted_r + w[cl_inverse] * resid_r
-
-        # OLS on bootstrap sample
-        beta_b = XtX_inv @ X_T @ Y_star
-        resid_b = Y_star - X @ beta_b
-
-        # Cluster-robust SE for bootstrap sample
-        scores_b = np.zeros((G, k))
-        np.add.at(scores_b, cl_inverse, X * resid_b[:, None])
-        meat_b = scores_b.T @ scores_b
-        vcov_b = correction * XtX_inv @ meat_b @ XtX_inv
-        se_b = np.sqrt(max(vcov_b[test_idx, test_idx], 1e-20))
-
-        t_boot[b] = (beta_b[test_idx] - h0) / se_b
-
-    # --- Bootstrap p-value (two-sided) ---
-    p_boot = float(np.mean(np.abs(t_boot) >= np.abs(t_stat)))
+    # --- Bootstrap p-value (two-sided, symmetric) ---
+    p_boot = _symmetric_boot_pvalue(t_boot, t_stat, W)
 
     # --- Percentile-t confidence interval ---
     t_lower = np.percentile(t_boot, 100 * alpha / 2)
@@ -257,10 +259,118 @@ def wild_cluster_bootstrap(
         "ci_boot": ci_boot,
         "n_clusters": G,
         "n_obs": n,
-        "n_boot": n_boot,
+        "n_boot": int(W.shape[0]),
+        "n_boot_requested": n_boot,
+        "enumerated": bool(enumerated),
         "weight_type": weight_type,
         "recommendation": rec,
     }
+
+
+# ======================================================================
+# Shared WCR engine (also used by wild_cluster_boot and the subcluster
+# bootstrap)
+# ======================================================================
+
+# Largest number of bootstrap units for which the Rademacher grid is
+# enumerated (2**20 ~ 1e6 draws). Above this the request can never satisfy
+# 2**G <= n_boot in practice anyway.
+_MAX_ENUMERATE_UNITS = 20
+
+
+def _wild_weight_matrix(
+    n_units: int,
+    n_boot: int,
+    weight_type: str,
+    rng: np.random.Generator,
+) -> Tuple[np.ndarray, bool]:
+    """Bootstrap weights, shape ``(B, n_units)``, and whether they are enumerated.
+
+    Follows Stata ``boottest`` and R ``fwildclusterboot``: when the weights are
+    Rademacher and ``2**n_units <= n_boot`` every one of the ``2**n_units``
+    sign vectors is used exactly once (so ``B = 2**n_units``), which makes the
+    bootstrap distribution -- and hence the p-value -- exact and identical
+    across implementations. Otherwise ``n_boot`` draws are sampled with
+    ``rng``, one weight vector per draw, in the same order as before.
+    """
+    if (
+        weight_type == "rademacher"
+        and n_units <= _MAX_ENUMERATE_UNITS
+        and 2**n_units <= n_boot
+    ):
+        grid = np.array(
+            list(itertools.product((1.0, -1.0), repeat=n_units)), dtype=float
+        )
+        return grid, True
+    W = np.empty((n_boot, n_units))
+    for b in range(n_boot):
+        W[b] = _draw_weights(n_units, weight_type, rng)
+    return W, False
+
+
+def _wcr_t_stats(
+    X: np.ndarray,
+    XtX_inv: np.ndarray,
+    fitted_r: np.ndarray,
+    resid_r: np.ndarray,
+    boot_idx: np.ndarray,
+    err_idx: np.ndarray,
+    n_err: int,
+    test_idx: int,
+    h0: float,
+    correction: float,
+    W: np.ndarray,
+    chunk: int = 2048,
+) -> np.ndarray:
+    """Bootstrap t statistics of the restricted wild (cluster) bootstrap.
+
+    ``Y*_b = fitted_r + W[b, boot_idx] * resid_r``; each draw is refitted by
+    OLS and studentised by the CR1 cluster-robust SE computed over the
+    *error* clusters ``err_idx`` (which may be coarser than the bootstrap
+    clusters ``boot_idx``, as in the subcluster bootstrap). Vectorised over
+    draws; numerically the same computation as a per-draw loop.
+    """
+    n = X.shape[0]
+    a = XtX_inv[test_idx]  # row of (X'X)^-1 for the tested coefficient
+    xa = X @ a  # beta_b[test] = xa' Y*
+    onehot = np.zeros((n, n_err))
+    onehot[np.arange(n), err_idx] = 1.0
+    P = X @ XtX_inv  # (n, k); beta_b = Y* @ P
+    out = np.empty(W.shape[0])
+    for start in range(0, W.shape[0], chunk):
+        Wc = W[start : start + chunk]
+        Y_star = fitted_r[None, :] + Wc[:, boot_idx] * resid_r[None, :]
+        beta_b = Y_star @ P
+        resid_b = Y_star - beta_b @ X.T
+        scores = (resid_b * xa[None, :]) @ onehot  # (B, n_err)
+        var_b = correction * np.sum(scores**2, axis=1)
+        se_b = np.sqrt(np.maximum(var_b, 1e-20))
+        out[start : start + chunk] = (beta_b[:, test_idx] - h0) / se_b
+    return out
+
+
+def _symmetric_boot_pvalue(
+    t_boot: np.ndarray, t_obs: float, W: Optional[np.ndarray] = None
+) -> float:
+    """Symmetric two-sided bootstrap p-value, ``#{|t*| > |t|} / B``.
+
+    Strict inequality, as in Stata ``boottest`` and R ``fwildclusterboot``
+    (``mean(abs(t) < abs(t_boot))``). Ties matter: under full Rademacher
+    enumeration the identity draw ``w = 1`` and its negation ``w = -1``
+    reproduce ``|t|`` exactly, so counting ties (``>=``) inflates p by
+    ``2 / 2**G``. In floating point the refit of those two draws reproduces
+    ``|t|`` only up to round-off, so they are identified from ``W`` (every
+    weight equal to +1, or every weight equal to -1) and never counted,
+    instead of through a tolerance on ``t`` -- a tolerance would move the
+    location of every jump of p as a function of the null value, which is
+    what the test-inversion interval of :func:`wild_cluster_ci_inv` solves
+    for.
+    """
+    exceed = np.abs(t_boot) > abs(float(t_obs))
+    if W is not None:
+        tie = np.all(W == 1.0, axis=1) | np.all(W == -1.0, axis=1)
+        exceed &= ~tie
+    return float(np.mean(exceed))
 
 
 # ======================================================================

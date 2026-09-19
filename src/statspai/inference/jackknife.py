@@ -381,11 +381,14 @@ def wild_cluster_boot(
         - ``beta_hat``: point estimate
         - ``se_cluster``: conventional cluster-robust SE
         - ``t_stat``: observed t-statistic
-        - ``p_boot``: bootstrap p-value (two-sided)
+        - ``p_boot``: symmetric two-sided bootstrap p-value,
+          ``#{|t*| > |t|} / B`` (strict inequality, as in ``boottest``)
         - ``ci_boot``: bootstrap percentile-t confidence interval
         - ``t_distribution``: array of bootstrap t-statistics
         - ``n_clusters``: number of clusters
-        - ``n_boot``: number of replications
+        - ``n_boot``: number of replications used (``2**G`` when the
+          Rademacher grid is enumerated, i.e. when ``2**G <= n_boot``)
+        - ``n_boot_requested`` / ``enumerated``
 
     Examples
     --------
@@ -462,31 +465,33 @@ def wild_cluster_boot(
     beta_r[test_idx] = 0.0
     resid_r = Y - X @ beta_r
 
-    # Bootstrap
-    t_boot = np.zeros(n_boot)
-    for b in range(n_boot):
-        w = _draw_weights(G, weight_type, rng)
+    # Bootstrap (shared WCR engine; enumerates the Rademacher grid when
+    # 2**G <= n_boot, as Stata boottest / R fwildclusterboot do).
+    from .wild_bootstrap import (
+        _symmetric_boot_pvalue,
+        _wcr_t_stats,
+        _wild_weight_matrix,
+    )
 
-        Y_star = np.zeros(n)
-        for g_idx, g_val in enumerate(unique_cl):
-            obs_idx = cl == g_val
-            Y_star[obs_idx] = X[obs_idx] @ beta_r + w[g_idx] * resid_r[obs_idx]
+    _, cl_idx = np.unique(cl, return_inverse=True)
+    W, enumerated = _wild_weight_matrix(G, n_boot, weight_type, rng)
+    t_boot = _wcr_t_stats(
+        X,
+        XtX_inv,
+        X @ beta_r,
+        resid_r,
+        cl_idx,
+        cl_idx,
+        G,
+        test_idx,
+        0.0,
+        correction,
+        W,
+    )
 
-        beta_b = XtX_inv @ X.T @ Y_star
-        resid_b = Y_star - X @ beta_b
-
-        meat_b = np.zeros((k, k))
-        for g_val in unique_cl:
-            idx = cl == g_val
-            score_g = X[idx].T @ resid_b[idx]
-            meat_b += np.outer(score_g, score_g)
-        vcov_b = correction * XtX_inv @ meat_b @ XtX_inv
-        se_b = np.sqrt(max(vcov_b[test_idx, test_idx], 1e-20))
-
-        t_boot[b] = beta_b[test_idx] / se_b
-
-    # Bootstrap p-value (two-sided)
-    p_boot = float(np.mean(np.abs(t_boot) >= np.abs(t_stat)))
+    # Bootstrap p-value (two-sided, symmetric; strict inequality as in
+    # boottest -- ties at |t| are the identity draw and its negation).
+    p_boot = _symmetric_boot_pvalue(t_boot, t_stat, W)
 
     # Percentile-t CI
     t_lower = np.percentile(t_boot, 100 * alpha / 2)
@@ -505,7 +510,9 @@ def wild_cluster_boot(
         "t_distribution": t_boot,
         "n_clusters": G,
         "n_obs": n,
-        "n_boot": n_boot,
+        "n_boot": int(W.shape[0]),
+        "n_boot_requested": n_boot,
+        "enumerated": bool(enumerated),
         "weight_type": weight_type,
     }
 

@@ -258,17 +258,19 @@ def test_sdid_alias_estimators(panel):
 
 
 def test_sdid_with_covariates(panel):
+    # The native solver has no covariate adjustment; it used to accept and
+    # silently ignore `covariates`. It must refuse instead.
     p = _panel(with_cov=True)
-    res = sdid_mod.sdid(
-        p,
-        **COMMON,
-        method="sdid",
-        covariates=["x1"],
-        n_reps=15,
-        backend="native",
-        seed=2,
-    )
-    assert np.isfinite(res.estimate)
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="covariate"):
+        sdid_mod.sdid(
+            p,
+            **COMMON,
+            method="sdid",
+            covariates=["x1"],
+            n_reps=15,
+            backend="native",
+            seed=2,
+        )
 
 
 def test_synthdid_placebo_table(panel):

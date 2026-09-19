@@ -32,6 +32,7 @@ Chernozhukov, V., Hansen, C. and Spindler, M. (2016). "hdm:
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Any, ClassVar, Dict, Optional, Sequence, Tuple, Union
 
@@ -90,6 +91,27 @@ def _ols(y: np.ndarray, X: np.ndarray) -> tuple:
     resid = y - A @ beta
     XtX_inv = np.linalg.inv(A.T @ A)
     return beta, resid, XtX_inv, n - A.shape[1]
+
+
+def _warn_if_unidentified(resid_d: np.ndarray, d: np.ndarray, target: Any) -> None:
+    """Warn when the target is (numerically) spanned by the selected controls.
+
+    Then the effect is not identified and the reported coefficient and SE
+    are ratios of rounding noise -- on hdm's cps2012 example the target
+    ``female:hsd08`` (a single non-zero row in an 800-row subsample) has a
+    residual variance 4e-30 of its own, and hdm reports -4.7e13 where
+    StatsPAI reports 1.9e-36; both are meaningless. hdm does not warn.
+    """
+    dc = d - d.mean()
+    tot = float(dc @ dc)
+    if tot <= 0 or float(resid_d @ resid_d) <= 1e-12 * tot:
+        warnings.warn(
+            f"rlasso_effect: target {target!r} is (numerically) a linear "
+            "combination of the selected controls; its effect is not "
+            "identified and the reported estimate / SE are meaningless.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
 
 
 def rlasso_effect(
@@ -173,6 +195,7 @@ def rlasso_effect(
         yr = reg1.residuals
         reg2 = rlasso(X, dv, post=post, penalty=penalty, control=control)
         dr = reg2.residuals
+        _warn_if_unidentified(dr, dv, target)
         # lm(yr ~ dr) with intercept
         beta, resid, XtX_inv, dof = _ols(yr, dr.reshape(-1, 1))
         alpha = float(beta[1])
@@ -203,6 +226,7 @@ def rlasso_effect(
             xi = resid * np.sqrt(n / (n - sum_I - 1))
             # reg2 <- lm(d ~ selected controls)  (drop d column → X[:, union])
             _, v, _, _ = _ols(dv, X[:, idx_union])
+        _warn_if_unidentified(v, dv, target)
         mv2 = float(np.mean(v**2))
         var = (1.0 / n) * (1.0 / mv2) * float(np.mean(v**2 * xi**2)) * (1.0 / mv2)
         se = float(np.sqrt(var))
@@ -278,7 +302,7 @@ def rlasso_effects(
 
     out: Dict[str, RLassoEffectResult] = {}
     for j in index:
-        d = Xv[:, j]
+        d = pd.Series(Xv[:, j], name=cols[j])
         Xt = np.delete(Xv, j, axis=1)
         res = rlasso_effect(
             Xt, yv, d, method=method, post=post, penalty=penalty, control=control

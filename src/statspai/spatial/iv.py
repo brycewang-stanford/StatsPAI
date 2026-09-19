@@ -18,8 +18,9 @@ The strategy:
 1. First stage: regress (D, WY) on Z_full = [X, WX, W²X, Z].
 2. Second stage: regress Y on fitted (D̂, ŴY, X) via 2SLS.
 
-Standard errors are Conley-style spatial HAC using the weights matrix
-W (its first-order neighbours) as the correlation structure.
+Standard errors are the heteroskedasticity-robust (White / HC0) 2SLS
+sandwich. This is what ``sphet::spreg(model = "lag", het = TRUE)``
+reports; it does not correct for spatial correlation in the errors.
 
 References
 ----------
@@ -36,10 +37,11 @@ regression models with an introduction to spatial econometrics."
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Sequence, Dict, Any
+from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 import pandas as pd
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -55,7 +57,9 @@ class SpatialIVResult(ResultProtocolMixin):
     rho_se : float
         Standard error of ``rho``.
     coefficients : pandas.DataFrame
-        Full coefficient table with ``variable``, ``coef`` and ``se``.
+        Full coefficient table with ``variable``, ``coef``, ``se`` (HC0),
+        ``z``, ``p`` (two-sided normal) and the ``1 - alpha`` normal
+        confidence bounds ``ci_lower`` / ``ci_upper``.
     n_obs : int
         Number of observations after dropping missing rows.
 
@@ -144,6 +148,8 @@ def spatial_iv(
         If True, include WY as a regressor (spatial autoregressive
         coefficient ρ).
     alpha : float, default 0.05
+        Significance level of the normal confidence intervals in
+        ``coefficients`` (``ci_lower`` / ``ci_upper``).
 
     Returns
     -------
@@ -219,7 +225,7 @@ def spatial_iv(
     resid = Y - full_design @ beta
 
     XtX_inv = np.linalg.pinv(X_hat.T @ full_design)
-    meat = X_hat.T @ np.diag(resid**2) @ X_hat
+    meat = (X_hat * (resid**2)[:, None]).T @ X_hat
     vcov = XtX_inv @ meat @ XtX_inv.T
     se = np.sqrt(np.diag(vcov))
 
@@ -230,11 +236,20 @@ def spatial_iv(
         + ["(Intercept)"]
         + list(exog)
     )
+    from scipy.stats import norm
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        zstat = beta / se
+    crit = float(norm.isf(alpha / 2))
     coef_df = pd.DataFrame(
         {
             "variable": names,
             "coef": beta,
             "se": se,
+            "z": zstat,
+            "p": 2 * norm.sf(np.abs(zstat)),
+            "ci_lower": beta - crit * se,
+            "ci_upper": beta + crit * se,
         }
     )
 

@@ -46,6 +46,8 @@ def aipw(
     n_folds: int = 5,
     alpha: float = 0.05,
     seed: Optional[int] = 42,
+    cross_fit: bool = True,
+    se_method: str = "influence",
 ) -> CausalResult:
     """
     Augmented Inverse Probability Weighting (AIPW) estimator.
@@ -88,6 +90,26 @@ def aipw(
         fold split per call (useful for Monte-Carlo studies of
         fold-assignment sensitivity); the seed actually used is always
         recorded in ``result.model_info['seed']``.
+    cross_fit : bool, default True
+        Cross-fit the nuisance models over ``n_folds`` random folds
+        (Chernozhukov et al. 2018). ``False`` fits the logit propensity
+        and the two per-arm OLS outcome regressions once on the full
+        sample -- the classical parametric AIPW estimator, which is
+        what Stata's ``teffects aipw`` and R ``AIPW`` with
+        ``k_split = 1`` compute. ``n_folds`` and ``seed`` are then
+        unused.
+    se_method : {'influence', 'sandwich'}, default 'influence'
+        ``'influence'`` reports ``sd(psi) / sqrt(n)`` from the
+        estimated efficient influence function, treating the nuisance
+        fits as known (the cross-fitting / DML convention; R ``AIPW``
+        reports the same quantity). ``'sandwich'`` stacks the logit
+        score, the two OLS normal equations and the AIPW moment and
+        reports the M-estimation sandwich (divisor ``n``), which
+        accounts for the estimated nuisance parameters at finite ``n``.
+        This is the robust standard error of Stata's
+        ``teffects aipw``. Requires ``cross_fit=False`` and
+        ``estimand='ATE'``. The two agree asymptotically when both
+        nuisance models are correctly specified.
 
     Returns
     -------
@@ -145,6 +167,16 @@ def aipw(
     See Glynn & Quinn (2010) for an introduction, and
     Chernozhukov et al. (2018) for the cross-fitting procedure.
     """
+    if se_method not in ("influence", "sandwich"):
+        raise ValueError(
+            f"se_method must be 'influence' or 'sandwich', got {se_method!r}"
+        )
+    if se_method == "sandwich" and (cross_fit or estimand != "ATE"):
+        raise ValueError(
+            "se_method='sandwich' is the stacked M-estimation variance of "
+            "the full-sample parametric AIPW ATE; it requires "
+            "cross_fit=False and estimand='ATE'."
+        )
     rng = np.random.default_rng(seed)
 
     df = data[[y, treat] + covariates].dropna()
@@ -161,12 +193,14 @@ def aipw(
     mu0_hat = np.zeros(n)  # E[Y|X, D=0]
     e_hat = np.zeros(n)  # P(D=1|X)
 
-    fold_ids = rng.choice(n_folds, size=n)
+    if cross_fit:
+        fold_ids = rng.choice(n_folds, size=n)
+        splits = [(fold_ids != f, fold_ids == f) for f in range(n_folds)]
+    else:
+        everyone = np.ones(n, dtype=bool)
+        splits = [(everyone, everyone)]
 
-    for fold in range(n_folds):
-        test_mask = fold_ids == fold
-        train_mask = ~test_mask
-
+    for train_mask, test_mask in splits:
         X_tr, Y_tr, D_tr = X[train_mask], Y[train_mask], D[train_mask]
         X_te = X[test_mask]
 
@@ -178,26 +212,57 @@ def aipw(
         mu0_hat[test_mask] = _fit_outcome(X_tr[D_tr == 0], Y_tr[D_tr == 0], X_te)
 
     # Clip propensity scores
+    n_clipped = int(np.sum((e_hat < 0.01) | (e_hat > 0.99)))
     np.clip(e_hat, 0.01, 0.99, out=e_hat)
 
+    po_means = None
+    po_means_se = None
     # AIPW influence function
     if estimand == "ATE":
-        psi = (
-            mu1_hat
-            - mu0_hat
-            + D * (Y - mu1_hat) / e_hat
-            - (1 - D) * (Y - mu0_hat) / (1 - e_hat)
-        )
+        phi1 = mu1_hat + D * (Y - mu1_hat) / e_hat
+        phi0 = mu0_hat + (1 - D) * (Y - mu0_hat) / (1 - e_hat)
+        psi = phi1 - phi0
+        tau = float(np.mean(psi))
+        m1, m0 = float(np.mean(phi1)), float(np.mean(phi0))
+        po_means = {1: m1, 0: m0}
+        if se_method == "sandwich":
+            if n_clipped:
+                warnings.warn(
+                    f"aipw: {n_clipped} propensity score(s) were clipped to "
+                    "[0.01, 0.99]; the stacked sandwich differentiates the "
+                    "unclipped logit and is only approximate for those rows.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+            if_1, if_0 = _aipw_stacked_if(
+                X, D, Y, e_hat, mu1_hat, mu0_hat, phi1 - m1, phi0 - m0
+            )
+            # M-estimation sandwich, divisor n (Stata teffects convention).
+            se = float(np.sqrt(np.mean((if_1 - if_0) ** 2) / n))
+            po_means_se = {
+                1: float(np.sqrt(np.mean(if_1**2) / n)),
+                0: float(np.sqrt(np.mean(if_0**2) / n)),
+            }
+        else:
+            se = float(np.sqrt(np.var(psi, ddof=1) / n))
+            po_means_se = {
+                1: float(np.sqrt(np.var(phi1, ddof=1) / n)),
+                0: float(np.sqrt(np.var(phi0, ddof=1) / n)),
+            }
     elif estimand == "ATT":
         p_treat = np.mean(D)
         psi = D * (Y - mu0_hat) / p_treat - (1 - D) * e_hat * (Y - mu0_hat) / (
             (1 - e_hat) * p_treat
         )
+        tau = float(np.mean(psi))
+        # ATT = mean(N_i) / mean(D_i) is a ratio, so its influence function
+        # is (N_i - tau * D_i) / p, i.e. psi_i - tau * D_i / p. Before
+        # 1.29 the ``- tau * D / p`` centring term was missing and the SE
+        # was the standard deviation of psi itself, which is wrong unless
+        # tau = 0 (it overstated the SE on every non-null ATT).
+        se = float(np.sqrt(np.var(psi - tau * D / p_treat, ddof=1) / n))
     else:
         raise ValueError(f"estimand must be 'ATE' or 'ATT', got '{estimand}'")
-
-    tau = float(np.mean(psi))
-    se = float(np.sqrt(np.var(psi, ddof=1) / n))
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
     z = tau / se if se > 0 else 0
@@ -209,7 +274,12 @@ def aipw(
         "n_folds": n_folds,
         "n_treated": int(D.sum()),
         "n_control": int((1 - D).sum()),
-        "mean_propensity": round(float(e_hat.mean()), 4),
+        "mean_propensity": float(e_hat.mean()),
+        "cross_fit": bool(cross_fit),
+        "se_method": se_method,
+        "n_propensity_clipped": n_clipped,
+        "potential_outcome_means": po_means,
+        "potential_outcome_means_se": po_means_se,
         # Provenance for the cross-fitting split: None means the caller
         # explicitly opted into a fresh entropy-seeded split, so this
         # estimate is not reproducible by re-running.
@@ -242,6 +312,8 @@ def aipw(
                 "n_folds": n_folds,
                 "alpha": alpha,
                 "seed": seed,
+                "cross_fit": cross_fit,
+                "se_method": se_method,
             },
             data=data,
             overwrite=False,
@@ -249,6 +321,50 @@ def aipw(
     except Exception:  # pragma: no cover
         pass
     return _result
+
+
+def _aipw_stacked_if(
+    X: np.ndarray,
+    D: np.ndarray,
+    Y: np.ndarray,
+    e: np.ndarray,
+    mu1: np.ndarray,
+    mu0: np.ndarray,
+    phi1_c: np.ndarray,
+    phi0_c: np.ndarray,
+) -> tuple:
+    """Influence functions of the two AIPW potential-outcome means.
+
+    Stacks the full-sample logit score ``X (D - e)``, the per-arm OLS
+    normal equations ``D X (Y - X b1)`` / ``(1-D) X (Y - X b0)`` and the
+    AIPW moments, and returns row ``i`` of ``-A^{-1} psi_i`` for the two
+    mean parameters. ``phi1_c`` / ``phi0_c`` are the centred AIPW
+    moments. The correction terms are ``E[d psi_mu / d gamma] IF_gamma``
+    and ``E[d psi_mu / d beta] IF_beta``; they vanish in expectation only
+    when both nuisance models are correct, so at finite ``n`` they move
+    the variance.
+    """
+    n = len(Y)
+    Xc = np.column_stack([np.ones(n), X])
+    r1, r0 = Y - mu1, Y - mu0
+    w = e * (1 - e)
+    if_gamma = np.linalg.solve(
+        (Xc * w[:, None]).T @ Xc / n, (Xc * (D - e)[:, None]).T
+    ).T
+    if_b1 = np.linalg.solve((Xc * D[:, None]).T @ Xc / n, (Xc * (D * r1)[:, None]).T).T
+    if_b0 = np.linalg.solve(
+        (Xc * (1 - D)[:, None]).T @ Xc / n, (Xc * ((1 - D) * r0)[:, None]).T
+    ).T
+    # d/d gamma of D r1 / e is -D r1 (1 - e) / e * x; of (1-D) r0 / (1-e)
+    # it is (1-D) r0 e / (1 - e) * x. d/d beta of the AIPW moments is
+    # x (1 - D / e) and x (1 - (1-D) / (1-e)).
+    g1 = (Xc * (-D * r1 * (1 - e) / e)[:, None]).mean(axis=0)
+    g0 = (Xc * ((1 - D) * r0 * e / (1 - e))[:, None]).mean(axis=0)
+    b1 = (Xc * (1 - D / e)[:, None]).mean(axis=0)
+    b0 = (Xc * (1 - (1 - D) / (1 - e))[:, None]).mean(axis=0)
+    if_1 = phi1_c + if_gamma @ g1 + if_b1 @ b1
+    if_0 = phi0_c + if_gamma @ g0 + if_b0 @ b0
+    return if_1, if_0
 
 
 def _fit_propensity(

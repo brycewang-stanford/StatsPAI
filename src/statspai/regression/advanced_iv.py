@@ -362,12 +362,40 @@ def jive(
     robust : str, default 'nonrobust'
     cluster : str, optional
     variant : str, default 'jive1'
-        'jive1' (Angrist et al. 1999) or 'jive2' (alternative).
+        Angrist, Imbens & Krueger (1999) jackknife instrument, used as the
+        instrument in an IV second stage (Stata ``jive``'s ``ujive1`` /
+        ``ujive2``):
+
+        - ``'jive1'``: ``(Z_i pi - h_i x_i) / (1 - h_i)`` -- the
+          leave-one-out first-stage fitted value.
+        - ``'jive2'``: ``(Z_i pi - h_i x_i) / (1 - 1/n)``.
+
+        ``h_i`` is the leverage of the first-stage regression on the
+        included exogenous regressors and the excluded instruments.
     alpha : float, default 0.05
 
     Returns
     -------
     EconometricResults
+
+    Notes
+    -----
+    Point estimates and the ``robust`` (HC0) standard errors reproduce
+    Stata ``jive`` (Stata Journal package st0108, SJ 6-3) ``ujive1`` /
+    ``ujive2``, and so does the default standard error, the homoskedastic
+    IV sandwich ``s^2 (X_J'X)^-1 X_J'X_J (X_J'X)^-1`` with
+    ``s^2 = e'e / (n - k)``. ``cluster`` uses the ``G/(G-1)`` factor only;
+    no reference implementation offers clustered JIVE.
+
+    Through 1.28.0 ``variant='jive2'`` computed ``fitted / (1 - h_i)``,
+    which is not a jackknife instrument (it keeps observation ``i``'s own
+    contribution), and the default standard error was
+    ``s^2 (X_J'X)^-1``, which omits the sandwich and understated the SE
+    by half on the reference fixture.
+
+    References
+    ----------
+    angrist1999jackknife
 
     Examples
     --------
@@ -407,66 +435,51 @@ def jive(
     Z_excl = df[z].values.astype(float).reshape(n, -1)
     Z_all = np.column_stack([X_exog, Z_excl])
 
-    # Leave-one-out projection for each endogenous variable
-    Pz = Z_all @ np.linalg.solve(Z_all.T @ Z_all, Z_all.T)
-    h_ii = np.diag(Pz)
+    if variant not in ("jive1", "jive2"):
+        raise ValueError(f"variant must be 'jive1' or 'jive2'; got {variant!r}")
+
+    # First-stage leverages and fitted values through a thin QR, so the
+    # n x n projection matrix is never formed.
+    Q, _ = np.linalg.qr(Z_all)
+    h_ii = np.einsum("ij,ij->i", Q, Q)
 
     X_endog_hat = np.zeros_like(X_endog, dtype=np.float64)
-
     for j in range(X_endog.shape[1]):
         x_j = X_endog[:, j]
-        fitted = Pz @ x_j  # regular fitted values
-
+        loo_num = Q @ (Q.T @ x_j) - h_ii * x_j
         if variant == "jive1":
-            # JIVE1: x̂_i = (fitted_i - h_ii * x_i) / (1 - h_ii)
-            X_endog_hat[:, j] = (fitted - h_ii * x_j) / np.maximum(1 - h_ii, 1e-10)
+            X_endog_hat[:, j] = loo_num / np.maximum(1 - h_ii, 1e-10)
         else:
-            # JIVE2: x̂_i = fitted_i / (1 - h_ii)
-            X_endog_hat[:, j] = fitted / np.maximum(1 - h_ii, 1e-10)
+            X_endog_hat[:, j] = loo_num / (1.0 - 1.0 / n)
 
-    # 2SLS with jackknife instruments
+    # IV second stage with the jackknife instruments
     X_all = np.column_stack([X_exog, X_endog])
     X_hat = np.column_stack([X_exog, X_endog_hat])
 
     k = X_all.shape[1]
 
     try:
-        XhX = X_hat.T @ X_all
-        XhY = X_hat.T @ Y
-        beta = np.linalg.solve(XhX, XhY)
+        XhX_inv = np.linalg.inv(X_hat.T @ X_all)
+        beta = XhX_inv @ (X_hat.T @ Y)
     except np.linalg.LinAlgError:
+        XhX_inv = np.full((k, k), np.nan)
         beta = np.full(k, np.nan)
 
     resid = Y - X_all @ beta
 
-    # SE
-    try:
-        XhX_inv = np.linalg.inv(X_hat.T @ X_all)
-    except np.linalg.LinAlgError:
-        XhX_inv = np.eye(k)
-
     if cluster is not None:
         clusters = df[cluster].values
-        unique_cl = np.unique(clusters)
-        n_cl = len(unique_cl)
-        meat = np.zeros((k, k))
-        for cl in unique_cl:
-            cl_mask = clusters == cl
-            score = X_hat[cl_mask].T @ resid[cl_mask]
-            meat += np.outer(score, score)
-        correction = n_cl / (n_cl - 1)
-        var_cov = correction * XhX_inv @ meat @ XhX_inv.T
+        _, codes = np.unique(clusters, return_inverse=True)
+        n_cl = int(codes.max()) + 1
+        sums = np.zeros((n_cl, k))
+        np.add.at(sums, codes, X_hat * resid[:, None])
+        meat = sums.T @ sums * (n_cl / (n_cl - 1))
+    elif robust != "nonrobust":
+        meat = (X_hat * (resid**2)[:, None]).T @ X_hat
     else:
-        sigma2 = np.sum(resid**2) / (n - k)
-        mid = (
-            X_hat.T
-            @ (np.diag(resid**2) if robust != "nonrobust" else sigma2 * np.eye(n))
-            @ X_hat
-        )
-        if robust != "nonrobust":
-            var_cov = XhX_inv @ mid @ XhX_inv.T
-        else:
-            var_cov = sigma2 * np.linalg.inv(X_hat.T @ X_all)
+        sigma2 = float(resid @ resid) / (n - k)
+        meat = sigma2 * (X_hat.T @ X_hat)
+    var_cov = XhX_inv @ meat @ XhX_inv.T
 
     se = np.sqrt(np.abs(np.diag(var_cov)))
 
@@ -542,11 +555,19 @@ def lasso_iv(
     d: Optional[Any] = None,
 ) -> EconometricResults:
     """
-    LASSO-selected instrumental variables.
+    LASSO-selected instrumental variables (information-criterion penalty).
 
-    Uses LASSO to select relevant instruments from a large set,
-    then estimates IV/2SLS with selected instruments.
-    Belloni, Chen, Chernozhukov & Hansen (2012).
+    Uses LASSO to select relevant instruments from a large set, then
+    estimates IV/2SLS with the selected instruments. The Lasso penalty is
+    chosen by BIC / AIC over a fixed grid or by cross-validation, on
+    instruments partialled of the exogenous regressors.
+
+    This is *not* the estimator of Belloni, Chen, Chernozhukov & Hansen
+    (2012), which selects instruments with the rigorous plug-in penalty and
+    heteroskedasticity-adapted loadings: that estimator is
+    :func:`sp.rlasso_iv` (``select_X=False``), which reproduces R
+    ``hdm::rlassoIV``. Through 1.28.0 this function's docstring and
+    ``model_info['method']`` attributed it to BCCH (2012).
 
     Parameters
     ----------
@@ -613,11 +634,13 @@ def lasso_iv(
     )
 
     # Partial out exogenous regressors from instruments and endogenous vars
-    Px = X_exog_mat @ np.linalg.solve(X_exog_mat.T @ X_exog_mat, X_exog_mat.T)
-    Mx = np.eye(n) - Px
+    # (least-squares residuals; the n x n annihilator is never formed).
+    def _resid(M: np.ndarray) -> np.ndarray:
+        coef, *_ = np.linalg.lstsq(X_exog_mat, M, rcond=None)
+        return M - X_exog_mat @ coef
 
-    Z_tilde = Mx @ Z_candidates  # residualized instruments
-    X_endog_tilde = Mx @ df[x_endog].values.astype(float).reshape(n, -1)
+    Z_tilde = _resid(Z_candidates)  # residualized instruments
+    X_endog_tilde = _resid(df[x_endog].values.astype(float).reshape(n, -1))
 
     # LASSO selection for each endogenous variable
     selected_z_indices = set()
@@ -679,7 +702,10 @@ def lasso_iv(
 
     # Add LASSO-specific info
     result.model_info["model_type"] = "LASSO-IV (2SLS with selected instruments)"
-    result.model_info["method"] = "Belloni-Chen-Chernozhukov-Hansen (2012)"
+    result.model_info["method"] = (
+        f"Lasso instrument selection ({penalty}-chosen penalty) + 2SLS; for the "
+        "BCCH (2012) plug-in-penalty estimator use sp.rlasso_iv"
+    )
     result.model_info["n_candidate_instruments"] = len(z)
     result.model_info["n_selected_instruments"] = len(selected_z)
     result.model_info["selected_instruments"] = selected_z

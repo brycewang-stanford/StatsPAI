@@ -164,6 +164,110 @@ def test_mediate_alias_of_mediation() -> None:
 
 
 # --------------------------------------------------------------------------- #
+#  16_bjs — sp.bjs / sp.borusyak_jaravel_spiess  ==  sp.did_imputation
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("alias_key", ["bjs", "borusyak_jaravel_spiess"])
+def test_bjs_aliases_of_did_imputation(alias_key: str) -> None:
+    # Same function object -- the strongest form of alias -- and the same
+    # numbers on the committed bytes, so a future rebinding to a wrapper
+    # with different defaults is caught by the numeric legs too.
+    assert getattr(sp, alias_key) is sp.did_imputation
+    df = pd.read_csv(DATA / "16_bjs.csv")
+    kw = dict(y="lemp", group="countyreal", time="year", first_treat="first_treat")
+    canonical = sp.did_imputation(df, **kw)
+    alias = getattr(sp, alias_key)(df, **kw)
+    _check(alias_key, "att", [alias.estimate], [canonical.estimate])
+    _check(alias_key, "se", [alias.se], [canonical.se])
+
+
+# --------------------------------------------------------------------------- #
+#  73_did2s — sp.did_2stage  ==  sp.gardner_did
+# --------------------------------------------------------------------------- #
+def test_did_2stage_alias_of_gardner_did() -> None:
+    assert sp.did_2stage is sp.gardner_did
+    df = pd.read_csv(DATA / "73_did2s.csv")
+    kw = dict(y="lemp", group="countyreal", time="year", first_treat="first_treat")
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        canonical = sp.gardner_did(df, **kw)
+        alias = sp.did_2stage(df, **kw)
+    _check("did_2stage", "att", [alias.estimate], [canonical.estimate])
+    _check("did_2stage", "se", [alias.se], [canonical.se])
+
+
+# --------------------------------------------------------------------------- #
+#  12_sdid — sp.synthdid_estimate  ==  sp.sdid(method='sdid', backend='native')
+# --------------------------------------------------------------------------- #
+def test_synthdid_estimate_alias_of_sdid() -> None:
+    df = pd.read_csv(DATA / "12_sdid.csv")
+    # Exactly the module-12 call (tests/r_parity/12_sdid.py): native backend,
+    # PARITY_SEED = 42 for the placebo standard error.
+    canonical = sp.sdid(
+        df,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="California",
+        treatment_time=1989,
+        backend="native",
+        seed=42,
+    )
+    alias = sp.synthdid_estimate(
+        df,
+        y="cigsale",
+        unit="state",
+        time="year",
+        treat_unit="California",
+        treat_time=1989,
+        backend="native",
+        seed=42,
+    )
+    assert alias.model_info.get("method", "sdid") == canonical.model_info.get(
+        "method", "sdid"
+    )
+    _check("synthdid_estimate", "att", [alias.estimate], [canonical.estimate])
+    _check("synthdid_estimate", "se_placebo", [alias.se], [canonical.se])
+
+
+#  06_rd — sp.rdd  ==  sp.rdrobust
+# --------------------------------------------------------------------------- #
+def test_rdd_alias_of_rdrobust() -> None:
+    df = pd.read_csv(DATA / "06_rd.csv")
+    canonical = sp.rdrobust(df, y="y", x="x", c=0.0, bwselect="cct")
+    alias = sp.rdd(df, y="y", running="x", cutoff=0.0, bwselect="cct")
+    rows = ("conventional", "robust")
+    _check(
+        "rdd",
+        "estimates",
+        [alias.model_info[r][k] for r in rows for k in ("estimate", "se")],
+        [canonical.model_info[r][k] for r in rows for k in ("estimate", "se")],
+    )
+    _check(
+        "rdd",
+        "bandwidths",
+        [alias.model_info["bandwidth_h"], alias.model_info["bandwidth_b"]],
+        [canonical.model_info["bandwidth_h"], canonical.model_info["bandwidth_b"]],
+    )
+
+
+# --------------------------------------------------------------------------- #
+#  89_rdms — sp.geographic_rd  ==  sp.rdms
+# --------------------------------------------------------------------------- #
+def test_geographic_rd_alias_of_rdms() -> None:
+    df = pd.read_csv(DATA / "89_rdms.csv")
+    got, want = [], []
+    for c2 in (-0.5, 0.0, 0.5):
+        kw = dict(y="y", x1="x1", x2="x2", cutoff1=0.0, cutoff2=c2, treat="z")
+        canonical = sp.rdms(df, **kw)
+        alias = sp.geographic_rd(df, **kw)
+        got += [alias.estimate, alias.se]
+        want += [canonical.estimate, canonical.se]
+    _check("geographic_rd", "estimates", got, want)
+
+
+# --------------------------------------------------------------------------- #
 #  Refuted alias — sp.wooldridge_did is NOT sp.etwfe
 # --------------------------------------------------------------------------- #
 def test_wooldridge_did_is_not_an_etwfe_alias() -> None:
@@ -259,6 +363,12 @@ def test_every_registered_alias_has_a_proof_here() -> None:
         "oaxaca",
         "dfl_decompose",
         "mediate",
+        "bjs",
+        "borusyak_jaravel_spiess",
+        "did_2stage",
+        "synthdid_estimate",
+        "rdd",
+        "geographic_rd",
     }
     assert set(TRACK_A_ALIASES) == proven, (
         "TRACK_A_ALIASES changed but tests/reference_parity/"

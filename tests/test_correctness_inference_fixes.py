@@ -47,8 +47,11 @@ class TestCusumLinearBoundary:
         boundary = np.asarray(res["critical_value"], dtype=float)
         m = n - 2  # n - k, k = 2 (intercept + x)
         assert boundary.shape == (m,)
-        # Boundary widens linearly from a (=0.948 at 5%) to 3a across the sample.
-        a = 0.948
+        # Boundary widens linearly from a (=0.9479 at 5%) to 3a across the
+        # sample; a is the exact root of the Brownian-motion crossing
+        # probability (strucchange / Stata estat sbcusum: 0.9479).
+        a = float(res["boundary_coef"])
+        assert a == pytest.approx(0.9479, abs=1e-4)
         s = np.arange(1, m + 1)
         np.testing.assert_allclose(boundary, a * (1.0 + 2.0 * s / m), rtol=1e-12)
         np.testing.assert_allclose(boundary[0], a * (1 + 2 / m), rtol=1e-12)
@@ -96,11 +99,14 @@ class TestCusumLinearBoundary:
         df = pd.DataFrame({"y": y, "x": x})
         res = cusum_test(df, y="y", x=["x"])
         assert sorted(res.keys()) == [
+            "boundary_coef",
             "critical_value",
             "cusum",
             "max_cusum",
             "n_obs",
+            "p_value",
             "reject",
+            "statistic",
         ]
         assert res["n_obs"] == 120
         assert isinstance(res["reject"], bool)

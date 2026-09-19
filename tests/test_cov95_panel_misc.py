@@ -12,10 +12,10 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-from statspai.panel.unit_root import PanelUnitRootResult, panel_unitroot
-from statspai.panel.panel_fgls import panel_fgls
-from statspai.panel.panel_binary import panel_logit, panel_probit
 from statspai.panel.interactive_fe import interactive_fe
+from statspai.panel.panel_binary import panel_logit, panel_probit
+from statspai.panel.panel_fgls import panel_fgls
+from statspai.panel.unit_root import PanelUnitRootResult, panel_unitroot
 
 # ── Unit-root data ──────────────────────────────────────────────────────
 
@@ -47,12 +47,18 @@ def test_panel_unitroot_methods(ur_df, test):
     assert "Conclusion" in s
 
 
-@pytest.mark.parametrize("trend", ["c", "ct", "n"])
+@pytest.mark.parametrize("trend", ["c", "ct"])
 def test_panel_unitroot_trends(ur_df, trend):
     res = panel_unitroot(
         ur_df, variable="g", id="id", time="time", test="ips", trend=trend
     )
     assert np.isfinite(res.statistic)
+
+
+def test_panel_unitroot_ips_rejects_no_constant(ur_df):
+    # IPS moments are tabulated only with a constant (Stata / plm refuse too)
+    with pytest.raises(ValueError, match="trend='c' or 'ct'"):
+        panel_unitroot(ur_df, variable="g", id="id", time="time", test="ips", trend="n")
 
 
 def test_panel_unitroot_hadri_trend_ct(ur_df):

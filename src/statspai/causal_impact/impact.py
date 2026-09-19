@@ -1,22 +1,31 @@
 """
-Causal Impact: Bayesian structural time-series intervention analysis.
+Causal Impact: structural time-series intervention analysis.
 
 Given a time series that experienced an intervention, estimates the causal
-effect by constructing a counterfactual from covariates (control series)
-using a regression + AR(1) model fit on the pre-intervention period.
+effect by forecasting a counterfactual from covariates (control series)
+with a regression + AR(1) state-space model fit on the pre-intervention
+period.
 
-This is a frequentist approximation of the full Bayesian approach in
-Brodersen et al. (2015), designed to work without MCMC dependencies
-(no PyMC/Stan required). For the full Bayesian version, users can
-install optional dependencies.
+The model (frequentist, plug-in parameters):
 
-The model:
-    Y_t = beta' * X_t + mu_t + eps_t     (observation equation)
-    mu_t = mu_{t-1} + eta_t               (local level / random walk)
+    y_t = x_t' beta + s_t + eps_t,   eps_t ~ N(0, sigma_obs^2)
+    s_t = rho * s_{t-1} + eta_t,     eta_t ~ N(0, sigma_state^2)
 
-Fit on pre-period, then forecast into post-period for counterfactual.
+``beta`` is OLS on the pre-period, ``rho`` the lag-1 autocorrelation of the
+OLS residuals, ``sigma_obs`` their standard deviation and
+``sigma_state = sigma_obs * sqrt(1 - rho^2)``; the Kalman filter then
+forecasts the post period. The filter step is pinned to ``KFAS::KFS`` in
+``tests/reference_parity/test_did_synth_misc_parity.py``.
+
+This is NOT the model of R ``CausalImpact`` (Brodersen et al., 2015), which
+fits a Bayesian local-level + spike-and-slab regression by MCMC on
+standardised data. The estimand -- the average post-period gap between
+the observed and the counterfactual series -- is the same, but the
+counterfactual, and above all the uncertainty, come from a different model,
+so the two do not agree numerically and are not expected to.
 """
 
+import warnings
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -52,13 +61,23 @@ def causal_impact(
         Control time series (not affected by the intervention).
         If None, uses a local-level model without covariates.
     alpha : float, default 0.05
-        Significance level for credible intervals.
+        Significance level for the (frequentist) prediction intervals.
     n_seasons : int, optional
-        Seasonal period (e.g., 7 for weekly, 12 for monthly).
+        Accepted for API compatibility but currently not used: the model
+        has no seasonal component.
 
     Returns
     -------
     CausalResult
+
+    Notes
+    -----
+    ``estimate`` is the average post-period effect and ``se`` its standard
+    error from the joint covariance of the post-period forecast errors
+    (they share the latent state, so they are correlated). Parameter
+    uncertainty is not propagated. This is a frequentist regression +
+    AR(1) state-space model, not the Bayesian local-level + spike-and-slab
+    model of R ``CausalImpact``; the numbers are not comparable one for one.
 
     Examples
     --------
@@ -124,7 +143,7 @@ class CausalImpactEstimator:
     """
     Causal Impact estimator using a structural time-series model.
 
-    Fits a regression + local-level (AR(1)) model on the
+    Fits a regression + AR(1) state-space model on the
     pre-intervention period, then forecasts the counterfactual into the
     post-intervention period. The high-level :func:`causal_impact`
     wrapper is the usual entry point; instantiate this class directly
@@ -145,7 +164,7 @@ class CausalImpactEstimator:
     alpha : float, default 0.05
         Significance level for the credible intervals.
     n_seasons : int, optional
-        Seasonal period, if any.
+        Not used (no seasonal component); a value > 1 warns.
 
     Examples
     --------
@@ -187,6 +206,16 @@ class CausalImpactEstimator:
         self.covariates = covariates or []
         self.alpha = alpha
         self.n_seasons = n_seasons
+        if n_seasons is not None and int(n_seasons) > 1:
+            # Fail loudly: the argument used to be accepted and silently
+            # ignored.
+            warnings.warn(
+                f"causal_impact: n_seasons={n_seasons} is ignored -- the "
+                "model has no seasonal component. Deseasonalise the series "
+                "or include seasonal dummies / control series as covariates.",
+                UserWarning,
+                stacklevel=3,
+            )
 
         self._validate()
         self._prepare()
@@ -257,10 +286,15 @@ class CausalImpactEstimator:
         avg_effect = float(np.mean(post_effect))
         total_effect = float(np.sum(post_effect))
 
-        # Standard error from prediction uncertainty
-        post_se = Y_pred_se[self.post_mask]
-        se_avg = float(np.sqrt(np.mean(post_se**2)) / np.sqrt(self.n_post))
-        se_total = float(np.sqrt(np.sum(post_se**2)))
+        # Standard error of the average / cumulative effect. The post-period
+        # forecast errors share the latent state, so they are correlated:
+        # for post periods t < u, Cov(e_t, e_u) = rho^(u - t) * P_t, with
+        # P_t the forecast variance of the state at t; the diagonal adds
+        # the observation noise. (Up to StatsPAI 1.28.0 the errors were
+        # treated as independent, which understates the SE when rho > 0.)
+        cov_post = self._post_forecast_cov(model)
+        se_total = float(np.sqrt(max(cov_post.sum(), 0.0)))
+        se_avg = se_total / self.n_post
 
         # Relative effect
         post_pred_mean = float(np.mean(Y_pred[self.post_mask]))
@@ -335,10 +369,10 @@ class CausalImpactEstimator:
         X_pre: Optional[np.ndarray],
     ) -> Dict[str, Any]:
         """
-        Fit a local-level + regression model on pre-intervention data.
+        Fit the regression + AR(1)-state model on pre-intervention data.
 
-        Model: Y_t = beta' * X_t + mu_t + eps_t
-               mu_t = mu_{t-1} + eta_t
+        Model: Y_t = beta' * X_t + s_t + eps_t
+               s_t = rho * s_{t-1} + eta_t
 
         Returns dict with fitted parameters.
         """
@@ -385,6 +419,27 @@ class CausalImpactEstimator:
             "n_covariates": X_pre.shape[1] if X_pre is not None else 0,
         }
 
+    def _post_forecast_cov(self, model: Dict[str, Any]) -> np.ndarray:
+        """Joint covariance of the post-period forecast errors.
+
+        Under the fitted state space (state ``s_{t+1} = rho s_t + eta``,
+        observation ``y_t = x_t'beta + s_t + eps``) with no updates after
+        the intervention, ``s_u - a_u = rho^(u-t) (s_t - a_t) + noise`` for
+        ``u > t``, so ``Cov(e_t, e_u) = rho^(u-t) P_t`` and
+        ``Var(e_t) = P_t + sigma_obs^2``. Parameter uncertainty (beta, rho,
+        the variances) is not propagated.
+        """
+        P = np.asarray(model["_post_state_var"], dtype=float)
+        rho = float(model["rho"])
+        sigma_obs = float(model["sigma_obs"])
+        m = len(P)
+        idx = np.arange(m)
+        lag = np.abs(idx[:, None] - idx[None, :])
+        first = np.minimum(idx[:, None], idx[None, :])
+        cov = (rho**lag) * P[first]
+        cov[idx, idx] += sigma_obs**2
+        return cov
+
     def _predict(
         self,
         model: Dict[str, Any],
@@ -415,10 +470,13 @@ class CausalImpactEstimator:
 
         state = 0.0
         state_var = sigma_state**2
+        post_state_var = []
 
         for t in range(n):
             Y_pred[t] = Y_reg[t] + state
             Y_pred_se[t] = np.sqrt(sigma_obs**2 + state_var)
+            if not self.pre_mask[t]:
+                post_state_var.append(state_var)
 
             if self.pre_mask[t]:
                 # Update state with observed data (Kalman-like)
@@ -431,6 +489,7 @@ class CausalImpactEstimator:
                 state = rho * state
                 state_var = rho**2 * state_var + sigma_state**2
 
+        model["_post_state_var"] = np.asarray(post_state_var, dtype=float)
         return Y_pred, Y_pred_se
 
 

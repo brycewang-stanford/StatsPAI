@@ -22,14 +22,35 @@ indirectly. Reporting the rings is the point: a spillover that decays with
 distance is visible, and one that does not tells you the rings are too
 narrow.
 
+Staggered adoption. A ring unit is exposed from the first period in
+which a treated unit lies within the outer ring edge, so each ring is
+split by exposure onset and each onset cohort is compared with the clean
+controls from its own base period -- the timing rule of Butts's own
+staggered applications, where the spillover indicator switches on at the
+first year a treated unit is within the distance band. Up to StatsPAI
+1.28.0 every ring unit entered every treated cohort's cell regardless of
+when it was exposed, which biased the ring effects under staggered
+adoption (single-cohort designs were unaffected).
+
 Validation
 ----------
-There is no reference implementation to pin against -- no CRAN or GitHub
-package implements this estimator -- so correctness rests on recovering a
-known design. ``tests/reference_parity/test_spillover_rings.py`` plants a
-direct effect and two ring effects in a spatial DGP and asserts all three
-are recovered, and asserts that ``sp.spatial_did`` (the TWFE + spatial-lag
-design) is biased on the same data where this is not.
+No package implements this estimator, but every piece has a reference:
+
+* Single treatment cohort: the direct and ring effects are the
+  coefficients of the first-difference regression
+  ``dY ~ treat + ring_1 + ... + ring_R`` that Butts's replication code
+  runs with ``fixest::feols``, and the standard errors are its
+  heteroskedasticity-robust HC0 errors.
+* Any design: each group (direct, ring r) equals
+  ``did::att_gt(control_group = "nevertreated")`` +
+  ``did::aggte(type = "simple")`` on that group plus the clean controls,
+  with ring units' cohort set to their exposure onset -- point estimates
+  and analytic standard errors, including the cohort-share weight term.
+
+The ring construction itself (distance to the nearest treated unit, bands,
+onsets) is recomputed independently in the R generator. See
+``tests/reference_parity/test_did_synth_misc_parity.py``; the known-truth
+recovery tests are in ``tests/reference_parity/test_spillover_rings.py``.
 
 References
 ----------
@@ -173,10 +194,12 @@ def spillover_did(
     Notes
     -----
     Standard errors are the influence-function form for a difference of
-    group means, aggregated across ``(cohort, period)`` cells so the shared
-    control units are accounted for. There is no reference implementation
-    to pin them against; see the module docstring on how correctness is
-    established instead.
+    group means (``did``'s analytic SE), aggregated across
+    ``(cohort, period)`` cells so the shared control units are accounted
+    for, plus the influence function of the cohort-share weights (zero
+    with a single cohort). Ring units are grouped by exposure onset; see
+    the module docstring for the staggered-adoption rule and for the
+    ``did`` / ``fixest`` references the numbers are pinned to.
 
     Examples
     --------
@@ -275,6 +298,36 @@ def spillover_did(
     # belong to the first ring, not to the clean controls.
     ring_of[untreated & (nearest <= edges[0])] = 0
 
+    # Exposure onset of each ring unit: the earliest cohort among treated
+    # units within the outer ring edge. A ring unit is exposed only from
+    # then on, so under staggered adoption it is its own "cohort" in the
+    # ring comparison (Butts's staggered design turns the spillover
+    # indicator on at the first period a treated unit lies within the
+    # distance band).
+    outer = edges[-1]
+    treated_cohorts = unit_cohort[treated_mask]
+    within = dist[:, treated_mask] <= outer
+    onset = np.full(n_units, never_value, dtype=object)
+    for i in np.flatnonzero(untreated & (ring_of >= 0)):
+        onset[i] = min(treated_cohorts[within[i]])
+    # Units whose ring deepens later (a closer unit is treated after the
+    # first exposure) are assigned their final ring from the onset on.
+    first_ring = np.full(n_units, -1, dtype=int)
+    for i in np.flatnonzero(untreated & (ring_of >= 0)):
+        d_first = dist[i, treated_mask][treated_cohorts == onset[i]].min()
+        # First band whose outer edge covers the first-exposure distance.
+        first_ring[i] = int(np.searchsorted(edges[1:], d_first, side="left"))
+    n_ring_changes = int(np.sum((ring_of >= 0) & (first_ring != ring_of)))
+    if n_ring_changes:
+        warnings.warn(
+            f"{context}: {n_ring_changes} ring unit(s) move to a closer ring "
+            "after their first exposure (a nearer unit is treated later). "
+            "They are counted in their final ring from their first exposure "
+            "on, which mixes two exposure levels in the early periods.",
+            UserWarning,
+            stacklevel=2,
+        )
+
     clean = untreated & (ring_of == -1)
     n_clean = int(clean.sum())
     if n_clean == 0:
@@ -312,6 +365,7 @@ def spillover_did(
     rows: List[Dict[str, Any]] = []
     psis: Dict[str, List[np.ndarray]] = {k: [] for k in groups}
     wts: Dict[str, List[float]] = {k: [] for k in groups}
+    cell_members: Dict[str, List[np.ndarray]] = {k: [] for k in groups}
     for g in cohorts:
         base = g - 1
         if base not in periods:
@@ -326,12 +380,13 @@ def spillover_did(
                 continue
             c_mean = float(dy[ctrl].mean())
             for name, member in groups.items():
-                # The direct group is cohort-specific; the rings are defined
-                # by geography and contribute to every cell.
+                # The direct group is the treated cohort g; a ring group is
+                # the ring's units whose exposure began at g. Both are
+                # measured against clean controls from base period g - 1.
                 sel = (
                     (member & (unit_cohort == g) & ok)
                     if name == "direct"
-                    else (member & ok)
+                    else (member & (onset == g) & ok)
                 )
                 if sel.sum() < 2:
                     continue
@@ -351,6 +406,11 @@ def spillover_did(
                 )
                 psis[name].append(psi)
                 wts[name].append(float(sel.sum()))
+                cell_members[name].append(
+                    (member & (unit_cohort == g))
+                    if name == "direct"
+                    else (member & (onset == g))
+                )
 
     if not rows:
         raise DataInsufficient(
@@ -367,8 +427,18 @@ def spillover_did(
         w = np.asarray(wts[name], dtype=float)
         w = w / w.sum()
         sub = detail[detail["group"] == name]
-        est = float(np.sum(w * sub["estimate"].to_numpy()))
+        att = sub["estimate"].to_numpy()
+        est = float(np.sum(w * att))
         psi = np.sum([wi * p for wi, p in zip(w, psis[name])], axis=0)
+        # The weights are estimated cohort shares (cells weighted by their
+        # group size, as in did::aggte(type = "simple")); add their
+        # influence function. It is identically zero with one cohort.
+        ind = np.column_stack(cell_members[name]).astype(float)
+        p = ind.mean(axis=0)
+        wif = (ind - p) / p.sum() - np.sum(ind - p, axis=1, keepdims=True) * (
+            p / p.sum() ** 2
+        )[None, :]
+        psi = psi + wif @ att
         return est, float(np.sqrt(np.mean(psi**2) / n_units))
 
     direct, direct_se = _combine("direct")
@@ -404,6 +474,15 @@ def spillover_did(
         diagnostics={
             "cohorts": cohorts,
             "n_treated": int(treated_mask.sum()),
+            "n_ring_changes": n_ring_changes,
+            "ring_onsets": {
+                f"ring_{r + 1}": {
+                    str(h): int(np.sum((ring_of == r) & (onset == h)))
+                    for h in cohorts
+                    if np.any((ring_of == r) & (onset == h))
+                }
+                for r in range(len(edges) - 1)
+            },
             "distance_to_nearest_treated": {
                 "min_untreated": (
                     float(nearest[untreated].min()) if untreated.any() else np.nan

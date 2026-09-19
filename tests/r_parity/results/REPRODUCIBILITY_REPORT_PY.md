@@ -17,22 +17,22 @@ This is the Python counterpart of `REPRODUCIBILITY_REPORT.md`. Both sides matter
 | `09_rddensity` | ✅ reproduces | same bytes | 6/6 | 0.00e+00 | 0.00e+00 |
 | `10_honest_did` | ✅ reproduces | in-script | 11/11 | 0.00e+00 | 0.00e+00 |
 | `11_psm` | ✅ reproduces | same bytes | 4/4 | 0.00e+00 | 0.00e+00 |
-| `12_sdid` | ✅ reproduces | same bytes | 2/2 | 0.00e+00 | 0.00e+00 |
+| `12_sdid` | ⚠️ DRIFT | same bytes | 2/2 | 1.58e-02 | 0.00e+00 |
 | `13_causal_forest` | ✅ reproduces | same bytes | 2/2 | 0.00e+00 | 0.00e+00 |
 | `14_ols_cluster` | ✅ reproduces | same bytes | 3/3 | 0.00e+00 | 0.00e+00 |
 | `15_hdfe_cluster` | ✅ reproduces | same bytes | 2/2 | 0.00e+00 | 0.00e+00 |
 | `16_bjs` | ✅ reproduces | same bytes | 2/2 | 0.00e+00 | 0.00e+00 |
 | `17_etwfe` | ✅ reproduces | same bytes | 8/8 | 0.00e+00 | 0.00e+00 |
-| `18_augsynth` | ✅ reproduces | same bytes | 2/2 | 0.00e+00 | 0.00e+00 |
+| `18_augsynth` | ✅ reproduces | same bytes | 2/2 | 4.77e-14 | 1.35e-14 |
 | `19_gsynth` | ✅ reproduces | same bytes | 3/3 | 0.00e+00 | 0.00e+00 |
 | `20_bacon` | ✅ reproduces | same bytes | 12/12 | 0.00e+00 | 0.00e+00 |
 | `21_honest_relmags` | ✅ reproduces | in-script | 10/10 | 0.00e+00 | 0.00e+00 |
 | `22_sensemakr` | ✅ reproduces | same bytes | 7/7 | 0.00e+00 | 0.00e+00 |
 | `23_evalue` | ✅ reproduces | in-script | 26/26 | 0.00e+00 | 0.00e+00 |
 | `24_coxph` | ✅ reproduces | same bytes | 3/3 | 0.00e+00 | 0.00e+00 |
-| `25_lmm` | ✅ reproduces | same bytes | 4/4 | 0.00e+00 | 0.00e+00 |
-| `26_glmm_logit` | ✅ reproduces | same bytes | 3/3 | 0.00e+00 | 0.00e+00 |
-| `27_glmm_aghq` | ✅ reproduces | same bytes | 3/3 | 0.00e+00 | 0.00e+00 |
+| `25_lmm` | ⚠️ DRIFT | same bytes | 4/4 | 1.39e-07 | 5.07e-08 |
+| `26_glmm_logit` | ⚠️ DRIFT | same bytes | 3/3 | 3.30e-06 | 3.90e-07 |
+| `27_glmm_aghq` | ⚠️ DRIFT | same bytes | 3/3 | 1.09e-07 | 1.07e-08 |
 | `28_frontier` | ✅ reproduces | same bytes | 8/8 | 0.00e+00 | 0.00e+00 |
 | `29_panel_sfa` | ✅ reproduces | same bytes | 5/5 | 0.00e+00 | 0.00e+00 |
 | `30_oaxaca` | ✅ reproduces | same bytes | 11/11 | 0.00e+00 | 0.00e+00 |
@@ -47,14 +47,14 @@ This is the Python counterpart of `REPRODUCIBILITY_REPORT.md`. Both sides matter
 | `39_arima` | ✅ reproduces | same bytes | 4/4 | 0.00e+00 | 0.00e+00 |
 | `40_qreg` | ✅ reproduces | same bytes | 3/3 | 0.00e+00 | 0.00e+00 |
 | `41_tobit` | ✅ reproduces | same bytes | 3/3 | 0.00e+00 | 0.00e+00 |
-| `42_nbreg` | ✅ reproduces | same bytes | 3/3 | 0.00e+00 | 0.00e+00 |
+| `42_nbreg` | ⚠️ DRIFT | same bytes | 3/3 | 7.42e-11 | 7.13e-05 |
 | `43_heckman` | ✅ reproduces | same bytes | 3/3 | 0.00e+00 | 0.00e+00 |
-| `44_mlogit` | ✅ reproduces | same bytes | 6/6 | 0.00e+00 | 0.00e+00 |
-| `45_ologit` | ✅ reproduces | same bytes | 3/3 | 0.00e+00 | 0.00e+00 |
-| `46_clogit` | ✅ reproduces | same bytes | 1/1 | 0.00e+00 | 0.00e+00 |
+| `44_mlogit` | ⚠️ DRIFT | same bytes | 6/6 | 1.66e-09 | 1.04e-06 |
+| `45_ologit` | ⚠️ DRIFT | same bytes | 3/3 | 3.46e-08 | 1.34e-07 |
+| `46_clogit` | ✅ reproduces | same bytes | 1/1 | 0.00e+00 | 3.82e-10 |
 | `47_ppmlhdfe_3fe` | ✅ reproduces | same bytes | 4/4 | 0.00e+00 | 0.00e+00 |
 | `48_probit` | ✅ reproduces | same bytes | 2/2 | 0.00e+00 | 0.00e+00 |
-| `49_oprobit` | ✅ reproduces | same bytes | 3/3 | 0.00e+00 | 0.00e+00 |
+| `49_oprobit` | ⚠️ DRIFT | same bytes | 3/3 | 1.28e-08 | 1.34e-08 |
 | `50_xtabond` | ✅ reproduces | same bytes | 2/2 | 1.11e-16 | 2.08e-17 |
 | `51_newey` | ✅ reproduces | same bytes | 2/2 | 0.00e+00 | 0.00e+00 |
 | `52_scm_unique` | ✅ reproduces | same bytes | 7/7 | 0.00e+00 | 0.00e+00 |
@@ -66,10 +66,10 @@ This is the Python counterpart of `REPRODUCIBILITY_REPORT.md`. Both sides matter
 | `58_poisson` | ✅ reproduces | same bytes | 3/3 | 0.00e+00 | 0.00e+00 |
 | `59_liml` | ✅ reproduces | same bytes | 3/3 | 0.00e+00 | 0.00e+00 |
 | `60_sureg` | ✅ reproduces | same bytes | 6/6 | 0.00e+00 | 0.00e+00 |
-| `61_betareg` | ✅ reproduces | same bytes | 4/4 | 0.00e+00 | 0.00e+00 |
-| `62_truncreg` | ✅ reproduces | same bytes | 4/4 | 0.00e+00 | 0.00e+00 |
-| `63_zip` | ✅ reproduces | same bytes | 5/5 | 0.00e+00 | 0.00e+00 |
-| `64_zinb` | ✅ reproduces | same bytes | 6/6 | 0.00e+00 | 0.00e+00 |
+| `61_betareg` | ⚠️ DRIFT | same bytes | 4/4 | 2.16e-08 | 2.71e-07 |
+| `62_truncreg` | ⚠️ DRIFT | same bytes | 4/4 | 2.62e-08 | 1.32e-06 |
+| `63_zip` | ⚠️ DRIFT | same bytes | 5/5 | 7.99e-08 | 5.79e-07 |
+| `64_zinb` | ⚠️ DRIFT | same bytes | 6/6 | 1.95e-07 | 7.88e-06 |
 | `65_spatial` | ✅ reproduces | same bytes | 14/14 | 0.00e+00 | 0.00e+00 |
 | `66_spatial_gmm` | ✅ reproduces | same bytes | 8/8 | 0.00e+00 | 0.00e+00 |
 | `67_panel_glm` | ✅ reproduces | in-script | 4/4 | 0.00e+00 | 0.00e+00 |

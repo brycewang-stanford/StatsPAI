@@ -68,6 +68,7 @@ def tmle(
     Q: "Optional[np.ndarray]" = None,
     g1W: "Optional[np.ndarray]" = None,
     fluctuation: str = "single",
+    q_bound: float = 1e-5,
 ) -> CausalResult:
     """
     Estimate causal effects using TMLE with Super Learner.
@@ -97,6 +98,15 @@ def tmle(
     propensity_bounds : tuple, default (0.025, 0.975)
         Bounds for propensity score truncation.
     random_state : int, default 42
+    q_bound : float, default 1e-5
+        The initial outcome predictions, on the [0, 1] scale the logistic
+        fluctuation works on (continuous outcomes are min-max rescaled),
+        are truncated to ``[q_bound, 1 - q_bound]`` before targeting.
+        ``tmle::tmle`` truncates at ``1 - alpha = 5e-4`` (its default
+        ``alpha = 0.9995``); pass ``q_bound=5e-4`` to reproduce it. The
+        truncation only binds when an initial prediction falls outside
+        the observed outcome range, which is common for linear ``Q`` fits
+        near the extremes.
 
     Returns
     -------
@@ -137,6 +147,7 @@ def tmle(
         Q=Q,
         g1W=g1W,
         fluctuation=fluctuation,
+        q_bound=q_bound,
     )
     _result = est.fit()
     try:
@@ -154,6 +165,7 @@ def tmle(
                 "alpha": alpha,
                 "propensity_bounds": list(propensity_bounds),
                 "random_state": random_state,
+                "q_bound": q_bound,
                 "outcome_library": (
                     [type(m).__name__ for m in outcome_library]
                     if outcome_library
@@ -234,7 +246,11 @@ class TMLE:
         Q: "Optional[np.ndarray]" = None,
         g1W: "Optional[np.ndarray]" = None,
         fluctuation: str = "single",
+        q_bound: float = 1e-5,
     ):
+        if not (0 < q_bound < 0.5):
+            raise ValueError(f"tmle: q_bound must lie in (0, 0.5), got {q_bound!r}")
+        self.q_bound = float(q_bound)
         if fluctuation not in ("single", "per_arm"):
             raise ValueError(
                 f"tmle: unknown fluctuation={fluctuation!r}; use "
@@ -325,7 +341,7 @@ class TMLE:
             Q_bar_0 = sl_Q.predict(W0)  # Q(0, W_i)
 
         # Bound predictions
-        eps_bound = 1e-5
+        eps_bound = self.q_bound
         Q_bar_A = np.clip(Q_bar_A, eps_bound, 1 - eps_bound)
         Q_bar_1 = np.clip(Q_bar_1, eps_bound, 1 - eps_bound)
         Q_bar_0 = np.clip(Q_bar_0, eps_bound, 1 - eps_bound)
@@ -519,6 +535,7 @@ class TMLE:
                 "g1W": "supplied" if self.g1W_init is not None else "super_learner",
             },
             "fluctuation": self.fluctuation,
+            "q_bound": self.q_bound,
             # ``epsilon`` stays the scalar it has always been under the
             # default single-covariate fluctuation. Under 'per_arm' there
             # is no scalar fluctuation parameter, so it is None rather

@@ -21,6 +21,7 @@ from typing import Any, Literal, Optional
 
 import numpy as np
 from scipy.spatial import cKDTree
+
 from ..._result_serialize import ResultProtocolMixin
 
 KernelName = Literal["gaussian", "bisquare", "exponential"]
@@ -34,8 +35,10 @@ KernelName = Literal["gaussian", "bisquare", "exponential"]
 def _kernel(u: np.ndarray, kernel: KernelName) -> np.ndarray:
     """Kernel evaluated at the scaled distance ``u = d / bw``.
 
-    Gaussian has infinite support; bisquare and exponential clip at u=1
-    (return 0 beyond). The bisquare form is the default in mgwr.
+    Gaussian ``exp(-u^2/2)`` and exponential ``exp(-u)`` have infinite
+    support; bisquare ``(1-u^2)^2`` is truncated to zero at ``u >= 1``.
+    These are the kernel definitions of ``GWmodel::gw.weight`` and of
+    PySAL ``mgwr``'s ``Kernel``; both leave the exponential untruncated.
     """
     u = np.asarray(u, dtype=float)
     if kernel == "gaussian":
@@ -43,7 +46,7 @@ def _kernel(u: np.ndarray, kernel: KernelName) -> np.ndarray:
     if kernel == "bisquare":
         return np.asarray(np.where(u < 1.0, (1.0 - u * u) ** 2, 0.0), dtype=float)
     if kernel == "exponential":
-        return np.asarray(np.where(u < 1.0, np.exp(-u), 0.0), dtype=float)
+        return np.asarray(np.exp(-u), dtype=float)
     raise ValueError(f"unknown kernel {kernel!r}")
 
 
@@ -52,29 +55,48 @@ def _kernel(u: np.ndarray, kernel: KernelName) -> np.ndarray:
 # --------------------------------------------------------------------- #
 
 
+def _adaptive_scale(d: np.ndarray, bw: float) -> float:
+    """Distance that an adaptive (nearest-neighbour) bandwidth ``bw`` maps to.
+
+    ``GWmodel::gw.weight(adaptive = TRUE)``: the ``floor(bw)``-th smallest
+    distance from the regression point, counting the point itself (distance
+    0) as the first neighbour; when ``bw`` exceeds the number of data points
+    ``n`` the scale is extrapolated as ``(bw / n) * max(d)``.
+    """
+    n = d.shape[0]
+    if bw > n:
+        return float(bw / n * d.max())
+    k = int(np.floor(bw))
+    if k < 1:
+        raise ValueError(f"adaptive bandwidth must be >= 1 neighbour; got {bw!r}")
+    return float(np.partition(d, k - 1)[k - 1])
+
+
 def _weights_row(
     coords: np.ndarray,
     i: int,
     bw: float,
     kernel: KernelName,
     fixed: bool,
-    tree: cKDTree,
+    tree: Optional[cKDTree] = None,
 ) -> np.ndarray:
-    n = coords.shape[0]
-    if fixed:
-        d = np.linalg.norm(coords - coords[i], axis=1)
-        return _kernel(d / bw, kernel)
-    # adaptive: bw is number of nearest neighbours (can be float from
-    # golden-section search — use floor + fractional interpolation).
-    k = int(np.ceil(bw))
-    k = max(min(k, n), 2)
-    dists, idx = tree.query(coords[i], k=k)
-    w = np.zeros(n)
-    # use the k-th distance as bandwidth scale
-    scale = dists[-1] if dists[-1] > 0 else 1.0
-    u = dists / scale
-    w[idx] = _kernel(u, kernel)
-    return w
+    """Kernel weights of every data point for regression point ``i``.
+
+    Fixed: ``bw`` is a distance. Adaptive: ``bw`` is a neighbour count
+    (non-integer values are floored, as in both ``GWmodel`` and ``mgwr``),
+    converted to a distance by :func:`_adaptive_scale`. The kernel is then
+    applied to *all* points; only the bisquare is truncated, so an adaptive
+    Gaussian or exponential kernel keeps weight on points beyond the
+    ``bw``-th neighbour exactly as the fixed-bandwidth versions do.
+    """
+    d = np.linalg.norm(coords - coords[i], axis=1)
+    scale = float(bw) if fixed else _adaptive_scale(d, bw)
+    if not scale > 0:
+        raise ValueError(
+            "bandwidth maps to a zero distance (coincident points); "
+            "increase the bandwidth"
+        )
+    return _kernel(d / scale, kernel)
 
 
 # --------------------------------------------------------------------- #
@@ -101,6 +123,9 @@ class GWRResult(ResultProtocolMixin):
     k: int
     se: Optional[np.ndarray] = None  # (n, k) local coefficient standard errors
     tvals: Optional[np.ndarray] = None  # (n, k) local t-statistics
+    influence: Optional[np.ndarray] = None  # (n,) hat-matrix diagonal S_ii
+    cv: Optional[float] = None  # leave-one-out CV score  sum (e_i / (1 - S_ii))^2
+    tr_StS: Optional[float] = None  # tr(S'S)
 
     def summary(self) -> str:
         lines = [
@@ -158,10 +183,15 @@ def gwr(
         Bandwidth. Interpretation depends on ``fixed``:
         - ``fixed=True``: metric distance.
         - ``fixed=False`` (default, "adaptive"): number of nearest
-          neighbours. Non-integer values are rounded up to include the
-          fractional neighbour, consistent with ``mgwr``.
+          neighbours, counting the regression point itself. The kernel
+          scale is the distance to the ``floor(bw)``-th nearest point
+          (``GWmodel::gw.weight`` and ``mgwr`` both floor); ``bw > n``
+          extrapolates the scale to ``(bw / n) * max distance`` as
+          ``GWmodel`` does.
     kernel : {"bisquare", "gaussian", "exponential"}
-        Bisquare is mgwr's default.
+        Bisquare is mgwr's default. Gaussian and exponential have infinite
+        support under both fixed and adaptive bandwidths; only the
+        bisquare is truncated at the bandwidth.
     fixed : bool, default False
     add_constant : bool, default True
         Prepend a column of ones to ``X``.
@@ -188,7 +218,7 @@ def gwr(
     if add_constant:
         X = np.column_stack([np.ones(X.shape[0]), X])
     n, k = X.shape
-    tree = cKDTree(coords)
+    tree = None
 
     params = np.empty((n, k))
     predicted = np.empty(n)
@@ -216,6 +246,13 @@ def gwr(
 
     residuals = y - predicted
     resid_ss = float(residuals @ residuals)
+    # Leave-one-out CV: for a local weighted least-squares fit, dropping
+    # observation i from the regression at i gives the prediction residual
+    # e_i / (1 - S_ii) exactly, so this equals GWmodel::gwr.cv (which refits
+    # with W_ii = 0) without n extra fits.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        cv_resid = residuals / (1.0 - S_diag)
+    cv = float(cv_resid @ cv_resid) if np.all(np.isfinite(cv_resid)) else np.inf
     tss = float(((y - y.mean()) ** 2).sum())
     R2 = 1.0 - resid_ss / tss if tss > 0 else np.nan
     tr_S = float(S_diag.sum())
@@ -237,7 +274,10 @@ def gwr(
     )
     bic = 2 * n * np.log(np.sqrt(sigma2)) + n * np.log(2 * np.pi) + tr_S * np.log(n)
 
-    # Local R²: Leung, Mei & Zhang (2000) definition
+    # Local R²: geographically weighted TSS around the *local* weighted mean
+    # of y, as in PySAL mgwr's ``GWRResults.localR2``. GWmodel's
+    # ``gwr.basic`` centres TSS on the *global* mean instead; the two
+    # packages disagree and this follows mgwr.
     local_R2 = np.empty(n)
     for i in range(n):
         w = _weights_row(coords, i, bw, kernel, fixed, tree)
@@ -264,4 +304,7 @@ def gwr(
         k=k,
         se=se,
         tvals=tvals,
+        influence=S_diag,
+        cv=cv,
+        tr_StS=float(tr_StS),
     )

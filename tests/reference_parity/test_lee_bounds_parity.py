@@ -7,6 +7,10 @@ the top/bottom-trimmed treated means minus the observed control mean:
     lower == mean(y1[y1 <= Q_{1-p}(y1)]) - mean(y0)
     upper == mean(y1[y1 >= Q_p(y1)])     - mean(y0)
 
+with Q the sample quantile of Stata's ``_pctile`` (``x_(floor(q n) + 1)``),
+i.e. Lee's (2009) estimator as Stata ``leebounds`` computes it for a
+continuous outcome (cross-checked in ``test_teffects_R_parity.py``).
+
 All reported quantities (bounds, trimming fraction, retention rates) match the
 hand-computed definition to machine precision (observed <= 1e-16), and the
 bounds bracket the true constant effect planted in the DGP.
@@ -46,8 +50,14 @@ def test_bounds_match_hand_trimmed_means(fitted):
     s1 = df.loc[df.d == 1, "s"].mean()
     s0 = df.loc[df.d == 0, "s"].mean()
     p = (s1 - s0) / s1
-    lower = y1[y1 <= np.quantile(y1, 1 - p)].mean() - y0.mean()
-    upper = y1[y1 >= np.quantile(y1, p)].mean() - y0.mean()
+    # Lee's sample-quantile rule with Stata _pctile's quantile definition:
+    # the q-quantile of n sorted values is x_(floor(q n) + 1) (1-based) when
+    # q n is not an integer.
+    ys = np.sort(y1)
+    q_lo = ys[int(np.floor((1 - p) * len(ys)))]
+    q_hi = ys[int(np.floor(p * len(ys)))]
+    lower = y1[y1 <= q_lo].mean() - y0.mean()
+    upper = y1[y1 >= q_hi].mean() - y0.mean()
     assert mi["lower_bound"] == pytest.approx(lower, abs=1e-12)
     assert mi["upper_bound"] == pytest.approx(upper, abs=1e-12)
     assert mi["trimming_fraction"] == pytest.approx(p, abs=1e-15)

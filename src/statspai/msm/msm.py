@@ -90,6 +90,7 @@ def msm(
     trim_per_period: bool = False,
     alpha: float = 0.05,
     family: str = "gaussian",
+    density_sd: str = "unbiased",
 ) -> CausalResult:
     """
     Estimate a Marginal Structural Model via stabilized IPTW.
@@ -137,6 +138,9 @@ def msm(
         Significance level.
     family : {'gaussian', 'binomial'}, default 'gaussian'
         Outcome family for the weighted pooled regression.
+    density_sd : {'unbiased', 'ml'}, default 'unbiased'
+        Residual-SD convention for continuous-treatment density weights;
+        see :func:`stabilized_weights`.
 
     Returns
     -------
@@ -218,6 +222,7 @@ def msm(
         baseline=baseline,
         treat_type=treat_type,
         trim_per_period=(trim if (trim_per_period and trim and trim > 0) else 0.0),
+        density_sd=density_sd,
     )
 
     # Post-cumulative trimming (the conventional default — once on the
@@ -321,6 +326,7 @@ def msm(
                 "trim_per_period": trim_per_period,
                 "alpha": alpha,
                 "family": family,
+                "density_sd": density_sd,
             },
             data=data,
             overwrite=False,
@@ -390,6 +396,7 @@ def stabilized_weights(
     baseline: Optional[List[str]] = None,
     treat_type: str = "auto",
     trim_per_period: float = 0.0,
+    density_sd: str = "unbiased",
 ) -> np.ndarray:
     """
     Compute stabilized IPTW weights for time-varying treatments.
@@ -425,6 +432,13 @@ def stabilized_weights(
         quantile ``[trim_per_period, 1 - trim_per_period]`` *before*
         taking the cumulative product. A common value is 0.01. Set to
         0 to disable per-period trimming (the default).
+    density_sd : {'unbiased', 'ml'}, default 'unbiased'
+        Residual standard deviation used in the Gaussian densities of a
+        continuous treatment: ``'unbiased'`` divides the residual sum of
+        squares by ``N - k`` (what ``lm``'s ``sigma`` reports);
+        ``'ml'`` divides by ``N``, the maximum-likelihood estimate, which
+        is the dispersion ``ipw::ipwtm(family = "gaussian")`` takes from
+        ``geepack::geeglm``. Ignored for binary treatments.
 
     Returns
     -------
@@ -457,6 +471,8 @@ def stabilized_weights(
     >>> round(float(sw.mean()), 2)
     1.0
     """
+    if density_sd not in ("unbiased", "ml"):
+        raise ValueError(f"density_sd must be 'unbiased' or 'ml', got {density_sd!r}")
     baseline = list(baseline or [])
     df = data.sort_values([id, time]).reset_index(drop=True)
 
@@ -489,8 +505,8 @@ def stabilized_weights(
         lik_num = np.where(A == 1, p_num, 1 - p_num)
         lik_den = np.where(A == 1, p_den, 1 - p_den)
     else:
-        lik_num = _gauss_density(X_num, A)
-        lik_den = _gauss_density(X_den, A)
+        lik_num = _gauss_density(X_num, A, ml=density_sd == "ml")
+        lik_den = _gauss_density(X_den, A, ml=density_sd == "ml")
 
     eps = 1e-10
     ratio = lik_num / np.maximum(lik_den, eps)
@@ -545,10 +561,11 @@ def _logit_proba(X: np.ndarray, y: np.ndarray) -> np.ndarray:
         return np.full(len(y), mean, dtype=float)
 
 
-def _gauss_density(X: np.ndarray, y: np.ndarray) -> np.ndarray:
+def _gauss_density(X: np.ndarray, y: np.ndarray, ml: bool = False) -> np.ndarray:
     """
     Gaussian conditional density p(y | X) from OLS residuals.
-    Returns the density evaluated at the observed y_i.
+    Returns the density evaluated at the observed y_i. ``ml=True`` uses the
+    maximum-likelihood residual variance (divisor N) instead of N - k.
     """
     design = np.column_stack([np.ones(X.shape[0]), X])
     try:
@@ -557,7 +574,7 @@ def _gauss_density(X: np.ndarray, y: np.ndarray) -> np.ndarray:
         resid = y - fitted
         # Use N - k df for sigma
         k = design.shape[1]
-        denom = max(len(y) - k, 1)
+        denom = len(y) if ml else max(len(y) - k, 1)
         sigma = float(np.sqrt(np.sum(resid**2) / denom))
         sigma = max(sigma, 1e-6)
         dens = stats.norm.pdf(y, loc=fitted, scale=sigma)

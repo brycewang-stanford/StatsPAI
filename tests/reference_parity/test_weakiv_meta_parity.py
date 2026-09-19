@@ -7,11 +7,11 @@ Three tolerances for three reasons:
 
 * **Deterministic and pinned at machine level** — the AR statistic and its
   confidence set, ``sp.vif``, and both meta-analysis pooling methods.
-* **Monte Carlo by construction** — ``sp.conditional_lr_ci``. ``ivmodel``
-  integrates Moreira's conditional distribution; StatsPAI simulates it. The
-  test asserts the error *shrinks with* ``n_sim`` rather than pinning a
-  number, which is the only honest statement about a simulated critical
-  value.
+* **Closed form, reference tolerance-limited** — ``sp.conditional_lr_ci``.
+  Since 1.29 StatsPAI integrates Moreira's conditional distribution as
+  ``ivmodel`` does (``method='exact'``, the default) and matches it to
+  ivmodel's own ``uniroot`` tolerance. The Monte-Carlo variant
+  (``method='simulate'``) keeps its convergence assertion.
 * **Not tested against R at all** — nothing here, deliberately: everything
   in this file has a reference.
 
@@ -127,7 +127,17 @@ def test_ar_endpoints_are_not_grid_points(data):
         assert 0.0 < nearest < step
 
 
-# ── CLR: Monte Carlo, so the assertion is about convergence ──────────────
+# ── CLR: exact by default; the simulated variant must converge ──────────
+
+
+def test_clr_confidence_set_matches_ivmodel_exactly(rjson, data):
+    cs = sp.conditional_lr_ci(
+        data["y"], data["d"], data[["z1", "z2"]], exog=data[["w"]]
+    )
+    # ivmodel solves its critical value with uniroot's default tolerance
+    # (~1.2e-4 absolute on the statistic), which bounds this comparison.
+    assert cs.lower == pytest.approx(rjson["CLR"]["ci_lower"], rel=5e-5)
+    assert cs.upper == pytest.approx(rjson["CLR"]["ci_upper"], rel=5e-5)
 
 
 def test_clr_confidence_set_converges_to_ivmodel(rjson, data):
@@ -142,6 +152,7 @@ def test_clr_confidence_set_converges_to_ivmodel(rjson, data):
             exog=data[["w"]],
             n_sim=n_sim,
             random_state=7,
+            method="simulate",
         )
         return max(
             abs(cs.lower - ref_lo) / abs(ref_lo),

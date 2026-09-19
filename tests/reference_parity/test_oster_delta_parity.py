@@ -6,11 +6,11 @@ two OLS fits and the delta grid:
     beta_short / r2_short  == the base OLS fit          (machine-exact)
     beta_full  / r2_full   == the controlled OLS fit    (machine-exact)
     upper == beta_full;  lower == beta_star(delta=1)
-    beta(delta_star) == 0  on the reported (delta, beta) grid — delta* is
-    exactly the zero-crossing of the bias-adjusted coefficient.
+    beta*(delta_star) == 0 -- delta* is exactly the zero of the (exact)
+    bias-adjusted coefficient.
 
-Verified against hand-rolled lstsq fits and grid interpolation (observed
-diffs 0 / 4e-17).
+Verified against hand-rolled lstsq fits. Cross-language parity against
+Oster's Stata psacalc: test_inference_sens_stata_parity.py.
 """
 
 from __future__ import annotations
@@ -68,9 +68,13 @@ def test_bound_endpoints_are_named_quantities(fitted):
 
 
 def test_delta_star_is_zero_crossing(fitted):
-    _, r = fitted
+    """delta* is where the bias-adjusted coefficient reaches zero: fed back
+    into Oster's cubic, it yields a root at 0 (exact solution; the grid is
+    only a plotting aid and is non-linear in delta)."""
+    from statspai.diagnostics._oster import oster_beta_exact, oster_inputs
+
+    df, r = fitted
     mi = r.model_info
-    dg = np.asarray(mi["delta_grid"], dtype=float)
-    bg = np.asarray(mi["beta_grid"], dtype=float)
-    beta_at_star = float(np.interp(mi["delta_star"], dg, bg))
-    assert beta_at_star == pytest.approx(0.0, abs=1e-10)
+    inp = oster_inputs(df, "y", "d", ["x1", "x2"])
+    roots = oster_beta_exact(inp, mi["r_max"], delta=mi["delta_star"])["roots"]
+    assert min(abs(x) for x in roots) == pytest.approx(0.0, abs=1e-10)

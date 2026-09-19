@@ -74,6 +74,8 @@ def oster_bounds(
         Control variables (included in the long but not short regression).
     r_max : float, optional
         Maximum R² under full selection. Default: min(1.0, 1.3 × R²_long).
+        Must not exceed 1; a value at or below R²_long is replaced by
+        R²_long + 0.01 with a warning.
     delta : float, default 1.0
         Proportionality assumption: ratio of unobservable-to-observable
         selection. δ=1 means equal selection.
@@ -97,6 +99,13 @@ def oster_bounds(
         - ``r_max``: maximum R² used
         - ``delta_for_zero``: δ* such that adjusted β = 0 (robustness measure)
         - ``beta_adjusted``: bias-adjusted β under (δ, R_max)
+        - ``beta_adjusted_alternatives``: the other real roots of Oster's
+          quadratic (δ = 1) / cubic (δ ≠ 1) -- exact method only
+        - ``method``: ``"exact"`` when called with data -- Oster's exact
+          solution, which reproduces her Stata ``psacalc`` (``delta`` and
+          ``beta``) to machine precision -- or ``"approximate"`` when only
+          (β, R²) summaries are given, which uses Oster's first-order
+          approximation β* ≈ β̃ − δ (β̊ − β̃)(R_max − R̃²)/(R̃² − R̊²)
         - ``identified_set``: [min(β_adjusted, β_long), max(β_adjusted, β_long)]
         - ``robust``: True if identified set excludes zero
         - ``interpretation``: human-readable interpretation
@@ -122,17 +131,23 @@ def oster_bounds(
     >>> # From statistics (e.g., read from a paper)
     >>> result = sp.oster_bounds(beta_short=2.5, r2_short=0.15,
     ...                          beta_long=2.0, r2_long=0.45)
-    >>> round(result['delta_for_zero'], 1)
-    1.8
+    >>> round(result['delta_for_zero'], 2)
+    8.89
     """
     # --- Obtain β and R² ---
+    from ._oster import (
+        oster_approx_beta,
+        oster_approx_delta,
+        oster_beta_exact,
+        oster_delta_exact,
+        oster_inputs,
+    )
+
+    inputs: Optional[Dict[str, float]] = None
     if data is not None and y is not None and treat is not None:
-        b_short, r2_s, b_long, r2_l = _run_oster_regressions(
-            data,
-            y,
-            treat,
-            controls or [],
-        )
+        inputs = oster_inputs(data, y, treat, controls or [])
+        b_short, r2_s = inputs["beta_o"], inputs["r_o"]
+        b_long, r2_l = inputs["beta_t"], inputs["r_t"]
     elif (
         beta_short is not None
         and r2_short is not None
@@ -150,33 +165,43 @@ def oster_bounds(
     # --- R_max ---
     if r_max is None:
         r_max = min(1.0, 1.3 * r2_l)
+    elif r_max > 1.0:
+        raise ValueError(f"r_max is an R-squared and cannot exceed 1 (got {r_max}).")
     if r_max <= r2_l:
-        r_max = min(1.0, r2_l + 0.01)
+        import warnings
 
-    # --- Bias-adjusted coefficient (Oster eq. 4) ---
-    # β*(δ, R_max) = β̃ - δ × (β̊ - β̃) × (R̃² - R̊²) / (R_max - R̃²)
+        adjusted = min(1.0, r2_l + 0.01)
+        warnings.warn(
+            f"oster_bounds: r_max={r_max:.6g} does not exceed the controlled "
+            f"R-squared {r2_l:.6g}; using r_max={adjusted:.6g} instead.",
+            UserWarning,
+            stacklevel=2,
+        )
+        r_max = adjusted
+
     movement = b_short - b_long  # β̊ - β̃
     r2_gain_obs = r2_l - r2_s  # R̃² - R̊²
-    r2_gain_unobs = r_max - r2_l  # R_max - R̃²
-
-    if abs(r2_gain_unobs) < 1e-12:
-        # R_max ≈ R²_long → no room for unobservables
+    beta_alternatives: List[float] = []
+    if abs(r2_gain_obs) < 1e-12 and abs(movement) < 1e-12:
+        # Controls move neither the coefficient nor R²: uninformative.
         beta_adj = b_long
         delta_star = np.inf
-    elif abs(r2_gain_obs) < 1e-12:
-        # No R² gain from controls → controls don't matter
-        beta_adj = b_long
-        delta_star = np.inf
+        method = "exact" if inputs is not None else "approximate"
+    elif inputs is not None:
+        # Exact solution (Oster 2019; psacalc): uses the variances of y, of
+        # the treatment and of the treatment residualised on the controls.
+        delta_star = oster_delta_exact(inputs, r_max, beta=0.0)
+        sol = oster_beta_exact(inputs, r_max, delta=delta)
+        beta_adj = float(sol["beta"])  # type: ignore[arg-type]
+        beta_alternatives = list(sol["alternatives"])  # type: ignore[arg-type]
+        method = "exact"
     else:
-        bias_correction = delta * movement * r2_gain_obs / r2_gain_unobs
-        beta_adj = b_long - bias_correction
-
-        # δ* that drives adjusted β to zero
-        # 0 = β̃ - δ* × (β̊ - β̃) × (R̃² - R̊²) / (R_max - R̃²)
-        # δ* = β̃ × (R_max - R̃²) / ((β̊ - β̃) × (R̃² - R̊²))
-        numerator = b_long * r2_gain_unobs
-        denominator = movement * r2_gain_obs
-        delta_star = numerator / denominator if abs(denominator) > 1e-12 else np.inf
+        # Only coefficients and R² are known: Oster's first-order
+        # approximation beta* ~= beta_t - delta (beta_o - beta_t)
+        # (R_max - R_t) / (R_t - R_o).
+        beta_adj = oster_approx_beta(b_short, b_long, r2_s, r2_l, r_max, delta)
+        delta_star = oster_approx_delta(b_short, b_long, r2_s, r2_l, r_max)
+        method = "approximate"
 
     # --- Identified set: [min(β_adj, β_long), max(β_adj, β_long)] ---
     id_set = (min(beta_adj, b_long), max(beta_adj, b_long))
@@ -213,39 +238,12 @@ def oster_bounds(
         "delta": delta,
         "delta_for_zero": delta_star,
         "beta_adjusted": beta_adj,
+        "beta_adjusted_alternatives": beta_alternatives,
+        "method": method,
         "identified_set": id_set,
         "robust": robust,
         "interpretation": interp,
     }
-
-
-def _run_oster_regressions(
-    data: pd.DataFrame,
-    y: str,
-    treat: str,
-    controls: List[str],
-) -> Tuple[float, float, float, float]:
-    """Run short and long regressions, return (β_short, R²_short, β_long, R²_long)."""
-    df = data[[y, treat] + controls].dropna()
-    Y = df[y].values
-    D = df[treat].values
-    n = len(Y)
-
-    # Short regression: Y ~ D
-    X_short = np.column_stack([np.ones(n), D])
-    beta_s = np.linalg.lstsq(X_short, Y, rcond=None)[0]
-    resid_s = Y - X_short @ beta_s
-    tss = np.sum((Y - Y.mean()) ** 2)
-    r2_s = 1 - np.sum(resid_s**2) / tss
-
-    # Long regression: Y ~ D + controls
-    X_long = np.column_stack([np.ones(n), D] + [df[c].values for c in controls])
-    beta_l = np.linalg.lstsq(X_long, Y, rcond=None)[0]
-    resid_l = Y - X_long @ beta_l
-    r2_l = 1 - np.sum(resid_l**2) / tss
-
-    # Treatment coefficient is index 1 in both
-    return float(beta_s[1]), float(r2_s), float(beta_l[1]), float(r2_l)
 
 
 # ======================================================================
@@ -260,6 +258,7 @@ def mccrary_test(
     bw: Optional[float] = None,
     n_bins: Optional[int] = None,
     alpha: float = 0.05,
+    bin_width: Optional[float] = None,
 ) -> CausalResult:
     """
     McCrary (2008) density discontinuity test for RD manipulation.
@@ -267,6 +266,15 @@ def mccrary_test(
     Tests the null hypothesis that the density of the running variable
     is continuous at the cutoff. A rejection suggests possible manipulation
     of the running variable.
+
+    A line-for-line port of R ``rdd::DCdensity`` (the R implementation of
+    McCrary's ``DCdensity``): a fine histogram with bin width
+    ``2 sd(x) n^(-1/2)``, a bandwidth from fourth-order polynomial fits to
+    the bin heights on each side (``3.348 (sigma^2 (c - l) /
+    sum f''^2)^(1/5)``, averaged over the two sides), zero-padded bins,
+    triangular-kernel local linear fits to the bin heights on each side,
+    and ``theta = log f+ - log f-`` with
+    ``se = sqrt(24 / (5 n h) (1/f+ + 1/f-))``.
 
     Parameters
     ----------
@@ -276,12 +284,15 @@ def mccrary_test(
     c : float, default 0
         RD cutoff.
     bw : float, optional
-        Bandwidth for local linear density estimation.
-        Default: automatic (2 × Silverman rule).
+        Bandwidth of the local linear fits. Default: McCrary's rule above.
     n_bins : int, optional
-        Number of histogram bins per side. Default: ceil(sqrt(n/2)).
+        Convenience alternative to ``bin_width``: the bin width becomes
+        ``(max(x) - min(x)) / n_bins``. Ignored when ``bin_width`` is given.
     alpha : float, default 0.05
         Significance level.
+    bin_width : float, optional
+        Histogram bin width (``DCdensity``'s ``bin``). Default:
+        ``2 sd(x) n^(-1/2)``.
 
     Returns
     -------
@@ -290,6 +301,19 @@ def mccrary_test(
         - ``pvalue``: two-sided test for H₀: no discontinuity
         - ``model_info['density_left']``: estimated density from the left
         - ``model_info['density_right']``: estimated density from the right
+
+    Notes
+    -----
+    Through 1.28.0 this was a different estimator under McCrary's name:
+    ``ceil(sqrt(n/2))`` bins of a width set by the narrower side, a
+    Silverman-type bandwidth, a sandwich SE, and silent fallbacks to a
+    density of 0.01 with SE 0.1 when a side had fewer than two bins in the
+    window. :func:`sp.rddensity` (Cattaneo, Jansson & Ma) is the modern
+    replacement; this function exists for comparability with McCrary.
+
+    References
+    ----------
+    mccrary2008manipulation
 
     Examples
     --------
@@ -302,85 +326,93 @@ def mccrary_test(
     >>> bool(result.pvalue > 0.05)   # no manipulation -> fail to reject
     True
     """
-    X = data[x].values.astype(float)
+    X = data[x].to_numpy(dtype=float)
     X = X[np.isfinite(X)]
-    n = len(X)
-
-    if n < 20:
+    rn = len(X)
+    if rn < 20:
         raise ValueError("Need at least 20 observations for McCrary test.")
+    rsd = float(np.std(X, ddof=1))
+    rmin, rmax = float(X.min()), float(X.max())
+    if c <= rmin or c >= rmax:
+        raise ValueError("Cutpoint must lie within range of the running variable.")
 
-    X_c = X - c
+    if bin_width is not None:
+        b = float(bin_width)
+    elif n_bins is not None:
+        b = (rmax - rmin) / int(n_bins)
+    else:
+        b = 2 * rsd * rn ** (-0.5)
+    if not np.isfinite(b) or b <= 0:
+        raise ValueError(f"bin width must be positive; got {b}")
 
-    # Bins per side
-    if n_bins is None:
-        n_bins = max(int(np.ceil(np.sqrt(n / 2))), 10)
+    def _mid(v):
+        return np.floor((v - c) / b) * b + b / 2 + c
 
-    # Bandwidth
+    l_ = _mid(rmin)
+    r_ = _mid(rmax)
+    lc, rc = c - b / 2, c + b / 2
+    j = int(np.floor((rmax - rmin) / b)) + 2
+    binnum = np.round(((_mid(X) - l_) / b) + 1).astype(int)  # 1-based
+    if binnum.min() < 1 or binnum.max() > j:  # pragma: no cover - R would error
+        raise ValueError("bin assignment fell outside the histogram grid")
+    cellval = np.bincount(binnum - 1, minlength=j)[:j] / rn / b
+    cellmp = _mid(l_ + np.arange(j) * b)
+
     if bw is None:
-        bw = 2 * 1.06 * np.std(X_c) * n ** (-1 / 5)
+        leftofc = int(np.round(((_mid(lc) - l_) / b) + 1))
+        rightofc = int(np.round(((_mid(rc) - l_) / b) + 1))
+        if rightofc - leftofc != 1:  # pragma: no cover - mirrors R's guard
+            raise ValueError("Error occurred in bandwidth calculation")
 
-    # --- Step 1: Histogram (separate left and right) ---
-    x_left = X_c[X_c < 0]
-    x_right = X_c[X_c >= 0]
+        def _side_h(mask, span, mp_eval):
+            V = np.vander(cellmp[mask], 5, increasing=True)
+            coef, *_ = np.linalg.lstsq(V, cellval[mask], rcond=None)
+            resid = cellval[mask] - V @ coef
+            mse4 = float(resid @ resid) / (int(mask.sum()) - 5)
+            fpp = 2 * coef[2] + 6 * coef[3] * mp_eval + 12 * coef[4] * mp_eval**2
+            return 3.348 * (mse4 * span / float(np.sum(fpp * fpp))) ** 0.2
 
-    if len(x_left) < 5 or len(x_right) < 5:
-        raise ValueError("Not enough observations on each side of the cutoff.")
+        h_left = _side_h(cellmp < c, c - l_, cellmp[:leftofc])
+        h_right = _side_h(cellmp >= c, r_ - c, cellmp[rightofc - 1 :])
+        bw = 0.5 * (h_left + h_right)
+    bw = float(bw)
+    if not ((X > c - bw) & (X < c)).any() or not ((X < c + bw) & (X >= c)).any():
+        raise ValueError("Insufficient data within the bandwidth.")
 
-    # Bin width
-    bin_w_left = abs(x_left.min()) / n_bins if len(x_left) > 0 else 1
-    bin_w_right = x_right.max() / n_bins if len(x_right) > 0 else 1
-    bin_w = min(bin_w_left, bin_w_right)
-    bin_w = max(bin_w, 1e-10)
+    pad = int(np.ceil(bw / b))
+    cval, cmp_ = cellval, cellmp
+    if pad >= 1:
+        cval = np.concatenate([np.zeros(pad), cellval, np.zeros(pad)])
+        cmp_ = np.concatenate(
+            [
+                (l_ - pad * b) + np.arange(pad) * b,  # R seq(l - pad*b, l - b, b)
+                cellmp,
+                (r_ + b) + np.arange(pad) * b,  # R seq(r + b, r + pad*b, b)
+            ]
+        )
+    dist = cmp_ - c
 
-    # Create bins (centered at midpoints)
-    # Left: bins from -n_bins*bin_w to 0
-    # Right: bins from 0 to n_bins*bin_w
-    edges_left = np.linspace(-n_bins * bin_w, 0, n_bins + 1)
-    edges_right = np.linspace(0, n_bins * bin_w, n_bins + 1)
+    def _side_fit(mask):
+        w = 1 - np.abs(dist / bw)
+        w = np.where(w > 0, w * mask, 0.0)
+        if np.count_nonzero(w) < 2:
+            raise ValueError("Too few bins inside the bandwidth on one side.")
+        sw = np.sqrt(w)
+        A = np.column_stack([np.ones_like(dist), dist]) * sw[:, None]
+        coef, *_ = np.linalg.lstsq(A, cval * sw, rcond=None)
+        return float(coef[0])
 
-    counts_left, _ = np.histogram(x_left, bins=edges_left)
-    counts_right, _ = np.histogram(x_right, bins=edges_right)
-
-    # Bin midpoints
-    mid_left = (edges_left[:-1] + edges_left[1:]) / 2
-    mid_right = (edges_right[:-1] + edges_right[1:]) / 2
-
-    # Normalized counts → density estimates
-    density_left = counts_left / (n * bin_w)
-    density_right = counts_right / (n * bin_w)
-
-    # --- Step 2: Local linear smoothing on each side ---
-    # Fit local linear to (midpoint, density) within bandwidth of cutoff
-    f_left, se_left = _local_linear_density(
-        mid_left,
-        density_left,
-        0,
-        bw,
-        side="left",
-    )
-    f_right, se_right = _local_linear_density(
-        mid_right,
-        density_right,
-        0,
-        bw,
-        side="right",
-    )
-
-    # Ensure positive densities
-    f_left = max(f_left, 1e-10)
-    f_right = max(f_right, 1e-10)
-
-    # --- Step 3: Test statistic ---
-    # θ̂ = ln(f̂₊) - ln(f̂₋)
-    theta = np.log(f_right) - np.log(f_left)
-
-    # SE via delta method: se(θ) ≈ sqrt((se_r/f_r)² + (se_l/f_l)²)
-    se_theta = np.sqrt((se_right / f_right) ** 2 + (se_left / f_left) ** 2)
-    se_theta = max(se_theta, 1e-10)
-
+    f_left = _side_fit(cmp_ < c)
+    f_right = _side_fit(cmp_ >= c)
+    if f_left <= 0 or f_right <= 0:
+        raise ValueError(
+            f"Non-positive density estimate at the cutoff (left {f_left:.4g}, "
+            f"right {f_right:.4g}); the log-difference is undefined."
+        )
+    theta = float(np.log(f_right) - np.log(f_left))
+    se_theta = float(np.sqrt((1 / (rn * bw)) * (24 / 5) * (1 / f_right + 1 / f_left)))
     z = theta / se_theta
     pvalue = float(2 * stats.norm.sf(abs(z)))
-
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (theta - z_crit * se_theta, theta + z_crit * se_theta)
 
@@ -388,12 +420,14 @@ def mccrary_test(
         "density_left": f_left,
         "density_right": f_right,
         "log_density_ratio": theta,
+        "z": z,
         "bandwidth": bw,
-        "n_bins": n_bins,
-        "bin_width": bin_w,
+        "bin_width": b,
+        "n_bins": j,
         "cutoff": c,
-        "n_left": len(x_left),
-        "n_right": len(x_right),
+        "n_left": int((X < c).sum()),
+        "n_right": int((X >= c).sum()),
+        "reference": "R rdd::DCdensity",
     }
 
     _result = CausalResult(
@@ -404,7 +438,7 @@ def mccrary_test(
         pvalue=pvalue,
         ci=ci,
         alpha=alpha,
-        n_obs=n,
+        n_obs=rn,
         model_info=model_info,
         _citation_key="mccrary",
     )
@@ -419,6 +453,7 @@ def mccrary_test(
                 "c": c,
                 "bw": bw,
                 "n_bins": n_bins,
+                "bin_width": b,
                 "alpha": alpha,
             },
             data=data,
@@ -427,96 +462,3 @@ def mccrary_test(
     except Exception:  # pragma: no cover
         pass
     return _result
-
-
-def _local_linear_density(
-    midpoints: np.ndarray,
-    densities: np.ndarray,
-    target: float,
-    bw: float,
-    side: str = "left",
-) -> Tuple[float, float]:
-    """
-    Local linear regression of bin densities on bin midpoints.
-
-    Evaluates at ``target`` (the cutoff boundary).
-    Returns (density_estimate, standard_error).
-    """
-    # Use only bins within bandwidth
-    if side == "left":
-        in_bw = (midpoints >= target - bw) & (midpoints < target)
-    else:
-        in_bw = (midpoints >= target) & (midpoints <= target + bw)
-
-    m = midpoints[in_bw]
-    d = densities[in_bw]
-
-    if len(m) < 2:
-        # Fall back: simple average of nearest bins
-        if len(d) > 0:
-            return float(d.mean()), (
-                float(d.std() / np.sqrt(len(d))) if len(d) > 1 else 0.1
-            )
-        return 0.01, 0.1
-
-    # Triangular kernel weights
-    u = (m - target) / bw
-    w = np.maximum(1 - np.abs(u), 0)
-
-    # WLS: density = α + β × (midpoint - target)
-    X = np.column_stack([np.ones(len(m)), m - target])
-    sqw = np.sqrt(w)
-    Xw = X * sqw[:, np.newaxis]
-    dw = d * sqw
-
-    try:
-        beta = np.linalg.lstsq(Xw, dw, rcond=None)[0]
-        f_hat = float(beta[0])  # intercept = density at cutoff
-
-        # SE from weighted residuals
-        resid = d - X @ beta
-        n_eff = len(m)
-        sigma2 = np.sum(w * resid**2) / max(np.sum(w) - 2, 1)
-        try:
-            XtWX_inv = np.linalg.inv(Xw.T @ Xw)
-            se_hat = float(np.sqrt(sigma2 * XtWX_inv[0, 0]))
-        except np.linalg.LinAlgError:
-            se_hat = float(np.std(d) / np.sqrt(n_eff))
-    except Exception:
-        f_hat = float(np.average(d, weights=w))
-        se_hat = float(np.std(d) / np.sqrt(len(d)))
-
-    return max(f_hat, 1e-10), max(se_hat, 1e-10)
-
-
-# ======================================================================
-# Citations
-# ======================================================================
-
-CausalResult._CITATIONS["oster"] = (
-    "@article{oster2019unobservable,\n"
-    "  title={Unobservable Selection and Coefficient Stability: "
-    "Theory and Evidence},\n"
-    "  author={Oster, Emily},\n"
-    "  journal={Journal of Business \\& Economic Statistics},\n"
-    "  volume={37},\n"
-    "  number={2},\n"
-    "  pages={187--204},\n"
-    "  year={2019},\n"
-    "  publisher={Taylor \\& Francis}\n"
-    "}"
-)
-
-CausalResult._CITATIONS["mccrary"] = (
-    "@article{mccrary2008manipulation,\n"
-    "  title={Manipulation of the Running Variable in the "
-    "Regression Discontinuity Design: A Density Test},\n"
-    "  author={McCrary, Justin},\n"
-    "  journal={Journal of Econometrics},\n"
-    "  volume={142},\n"
-    "  number={2},\n"
-    "  pages={698--714},\n"
-    "  year={2008},\n"
-    "  publisher={Elsevier}\n"
-    "}"
-)

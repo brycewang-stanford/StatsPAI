@@ -7,7 +7,8 @@ test against reference labels:
 - Sensitivity (true-positive rate) and specificity (true-negative rate)
 - Positive / negative predictive values (with prevalence-adjusted forms)
 - Likelihood ratios (LR+, LR-)
-- ROC curve + AUC (trapezoidal integration) with DeLong-style SE
+- ROC curve + AUC (Mann-Whitney, ties counted one half) with Hanley-McNeil
+  or DeLong SE
 - Cohen's kappa (inter-rater agreement, linear or quadratic weighted)
 
 All functions accept either:
@@ -60,7 +61,7 @@ class DiagnosticTestResult(ResultProtocolMixin):
     """Container for binary diagnostic-test performance metrics.
 
     Returned by :func:`sensitivity_specificity` / :func:`diagnostic_test`.
-    Holds sensitivity and specificity (with Wilson-score CIs), predictive
+    Holds sensitivity and specificity (with Wilson-score or exact CIs), predictive
     values (``ppv``, ``npv``), likelihood ratios (``lr_pos``, ``lr_neg``),
     ``prevalence``, and the raw confusion cells ``tp``/``fp``/``fn``/``tn``.
 
@@ -117,6 +118,13 @@ def _wilson_ci(k: int, n: int, alpha: float = 0.05) -> tuple[float, float]:
     return float(centre - half), float(centre + half)
 
 
+def _exact_ci(k: int, n: int, alpha: float = 0.05) -> tuple[float, float]:
+    """Clopper-Pearson interval from beta quantiles."""
+    lo = 0.0 if k == 0 else float(stats.beta.ppf(alpha / 2, k, n - k + 1))
+    hi = 1.0 if k == n else float(stats.beta.isf(alpha / 2, k + 1, n - k))
+    return lo, hi
+
+
 def sensitivity_specificity(
     y_true: Any = None,
     y_pred: Any = None,
@@ -126,8 +134,9 @@ def sensitivity_specificity(
     fp: Optional[int] = None,
     tn: Optional[int] = None,
     alpha: float = 0.05,
+    ci_method: str = "wilson",
 ) -> DiagnosticTestResult:
-    """Sensitivity and specificity with Wilson-score CIs.
+    """Sensitivity and specificity with Wilson-score (or exact) CIs.
 
     Parameters
     ----------
@@ -137,6 +146,10 @@ def sensitivity_specificity(
         Pre-computed confusion cells.  Use instead of ``y_true``/
         ``y_pred`` when you already have counts.
     alpha : float, default 0.05
+    ci_method : {"wilson", "exact"}, default "wilson"
+        Interval for sensitivity and specificity: Wilson score (R
+        ``epiR::epi.tests(method="wilson")``) or Clopper-Pearson exact
+        (``epi.tests`` default, Stata ``diagt``).
 
     Examples
     --------
@@ -172,8 +185,11 @@ def sensitivity_specificity(
     neg = tn_i + fp_i
     sens = tp_i / pos if pos > 0 else float("nan")
     spec = tn_i / neg if neg > 0 else float("nan")
-    sens_ci = _wilson_ci(tp_i, pos, alpha) if pos > 0 else (0.0, 1.0)
-    spec_ci = _wilson_ci(tn_i, neg, alpha) if neg > 0 else (0.0, 1.0)
+    if ci_method not in ("wilson", "exact"):
+        raise ValueError("ci_method must be 'wilson' or 'exact'")
+    _ci = _wilson_ci if ci_method == "wilson" else _exact_ci
+    sens_ci = _ci(tp_i, pos, alpha) if pos > 0 else (0.0, 1.0)
+    spec_ci = _ci(tn_i, neg, alpha) if neg > 0 else (0.0, 1.0)
 
     ppv = tp_i / (tp_i + fp_i) if (tp_i + fp_i) > 0 else float("nan")
     npv = tn_i / (tn_i + fn_i) if (tn_i + fn_i) > 0 else float("nan")
@@ -231,8 +247,8 @@ class ROCResult(ResultProtocolMixin):
 
     Returned by :func:`roc_curve`.  Holds the sweep ``thresholds`` and the
     corresponding true/false positive rates (``tpr``, ``fpr``), plus the
-    ``auc`` with its Hanley-McNeil standard error (``auc_se``) and CI
-    (``auc_ci``).
+    ``auc`` with its standard error (``auc_se``; Hanley-McNeil or DeLong,
+    see ``se_method``) and CI (``auc_ci``).
 
     Examples
     --------
@@ -253,6 +269,7 @@ class ROCResult(ResultProtocolMixin):
     auc: float
     auc_se: float
     auc_ci: tuple[float, float]
+    se_method: str = "hanley"
 
     def summary(self) -> str:
         lo, hi = self.auc_ci
@@ -268,13 +285,32 @@ def roc_curve(
     scores: Any,
     *,
     alpha: float = 0.05,
+    se_method: str = "hanley",
 ) -> ROCResult:
-    """ROC curve with Hanley-McNeil (1982) AUC standard error.
+    """ROC curve with the AUC and its standard error.
 
     Parameters
     ----------
     y_true : array-like of {0, 1}
     scores : array-like of continuous predictions (higher = more "positive")
+    alpha : float, default 0.05
+    se_method : {"hanley", "hanley-empirical", "delong"}, default "hanley"
+        ``"hanley"``: the Hanley-McNeil (1982) variance with the
+        exponential approximations ``Q1 = A/(2-A)``, ``Q2 = 2A^2/(1+A)``.
+        ``"hanley-empirical"``: the same variance with ``Q1`` and ``Q2``
+        estimated from the data (ties weighted 1/3), which is what Stata
+        ``roctab, hanley`` reports. ``"delong"``: the DeLong-DeLong-
+        Clarke-Pearson placement-value variance (R ``pROC::var`` /
+        ``ci.auc`` default and Stata ``roctab``'s default).
+
+    Notes
+    -----
+    The curve is traced over the distinct score values: ``thresholds`` holds
+    them in decreasing order and ``tpr`` / ``fpr`` the rates of the rule
+    "positive when score >= threshold". The AUC is therefore the
+    Mann-Whitney probability ``P(S+ > S-) + P(S+ = S-)/2`` exactly, with
+    tied scores counted as half. The confidence interval is
+    ``AUC +/- z se`` truncated to [0, 1] (as ``pROC::ci.auc`` does).
 
     Examples
     --------
@@ -292,38 +328,79 @@ def roc_curve(
     ----------
     [@hanley1982meaning]
     """
+    if se_method not in ("hanley", "hanley-empirical", "delong"):
+        raise ValueError("se_method must be 'hanley', 'hanley-empirical' or 'delong'")
     y = np.asarray(y_true).astype(int)
     s = np.asarray(scores, dtype=float)
     if y.shape != s.shape:
         raise ValueError("y_true and scores must have the same shape.")
+    if not np.all(np.isin(y, (0, 1))):
+        raise ValueError("y_true must be coded 0/1.")
 
-    # Sweep thresholds from high to low
-    order = np.argsort(-s)
-    y_sorted = y[order]
-    s_sorted = s[order]
     n_pos = int(y.sum())
     n_neg = len(y) - n_pos
     if n_pos == 0 or n_neg == 0:
         raise ValueError("Need both positive and negative labels for ROC.")
 
-    cum_tp = np.cumsum(y_sorted == 1)
-    cum_fp = np.cumsum(y_sorted == 0)
-    tpr = cum_tp / n_pos
-    fpr = cum_fp / n_neg
+    # One ROC point per distinct score (ties move TPR and FPR together).
+    thr = np.unique(s)[::-1]
+    idx = np.searchsorted(-thr, -s)  # position of each score in thr
+    tp_at = np.bincount(idx[y == 1], minlength=len(thr))
+    fp_at = np.bincount(idx[y == 0], minlength=len(thr))
+    tpr = np.cumsum(tp_at) / n_pos
+    fpr = np.cumsum(fp_at) / n_neg
 
-    # Trapezoidal AUC
-    fpr_ext = np.concatenate([[0.0], fpr, [1.0]])
-    tpr_ext = np.concatenate([[0.0], tpr, [1.0]])
-    auc_val = float(np.trapezoid(tpr_ext, fpr_ext))
+    # Mann-Whitney AUC via placement values (ties count one half).
+    s_pos = np.sort(s[y == 1])
+    s_neg = np.sort(s[y == 0])
+    pos = s[y == 1]
+    neg = s[y == 0]
+    v10 = (
+        np.searchsorted(s_neg, pos, side="left")
+        + 0.5
+        * (
+            np.searchsorted(s_neg, pos, side="right")
+            - np.searchsorted(s_neg, pos, side="left")
+        )
+    ) / n_neg
+    v01 = (
+        (n_pos - np.searchsorted(s_pos, neg, side="right"))
+        + 0.5
+        * (
+            np.searchsorted(s_pos, neg, side="right")
+            - np.searchsorted(s_pos, neg, side="left")
+        )
+    ) / n_pos
+    auc_val = float(v10.mean())
 
-    # Hanley-McNeil SE
-    q1 = auc_val / (2 - auc_val)
-    q2 = 2 * auc_val**2 / (1 + auc_val)
-    var = (
-        auc_val * (1 - auc_val)
-        + (n_pos - 1) * (q1 - auc_val**2)
-        + (n_neg - 1) * (q2 - auc_val**2)
-    ) / (n_pos * n_neg)
+    if se_method in ("hanley", "hanley-empirical"):
+        if se_method == "hanley":
+            q1 = auc_val / (2 - auc_val)
+            q2 = 2 * auc_val**2 / (1 + auc_val)
+        else:
+            # By distinct score, ascending: negatives / positives at the
+            # level, negatives strictly below, positives strictly above.
+            neg_at = fp_at[::-1].astype(float)
+            pos_at = tp_at[::-1].astype(float)
+            neg_below = np.cumsum(neg_at) - neg_at
+            pos_above = n_pos - np.cumsum(pos_at)
+            q2 = float(
+                np.sum(pos_at * (neg_below * (neg_below + neg_at) + neg_at**2 / 3))
+                / (n_pos * n_neg**2)
+            )
+            q1 = float(
+                np.sum(neg_at * (pos_above * (pos_above + pos_at) + pos_at**2 / 3))
+                / (n_neg * n_pos**2)
+            )
+        var = (
+            auc_val * (1 - auc_val)
+            + (n_pos - 1) * (q1 - auc_val**2)
+            + (n_neg - 1) * (q2 - auc_val**2)
+        ) / (n_pos * n_neg)
+    else:
+        s10 = float(np.var(v10, ddof=1)) if n_pos > 1 else float("nan")
+        s01 = float(np.var(v01, ddof=1)) if n_neg > 1 else float("nan")
+        var = s10 / n_pos + s01 / n_neg
     se = float(np.sqrt(max(var, 0.0)))
     z = float(stats.norm.ppf(1 - alpha / 2))
     ci = (
@@ -332,12 +409,13 @@ def roc_curve(
     )
 
     return ROCResult(
-        thresholds=s_sorted,
+        thresholds=thr,
         tpr=tpr,
         fpr=fpr,
         auc=auc_val,
         auc_se=se,
         auc_ci=ci,
+        se_method=se_method,
     )
 
 

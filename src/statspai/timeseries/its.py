@@ -38,15 +38,15 @@ Epidemiology*, 46(1), 348-355. [@lopezbernal2016interrupted]
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import DataInsufficient
 from .._input_validation import require_columns
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import DataInsufficient
 
 
 @dataclass
@@ -134,6 +134,7 @@ def its(
     seasonality_harmonics: int = 2,
     hac_lag: int = 4,
     alpha: float = 0.05,
+    hac_small_sample: bool = False,
 ) -> ITSResult:
     """
     Segmented regression for interrupted time series.
@@ -154,8 +155,14 @@ def its(
         with annual cycle). If None, no seasonality is added.
     seasonality_harmonics : int, default 2
     hac_lag : int, default 4
-        Newey-West truncation lag.
+        Newey-West truncation lag (Bartlett weights ``1 - j/(L+1)``).
     alpha : float, default 0.05
+    hac_small_sample : bool, default False
+        False: the plain Newey-West sandwich with normal inference
+        (``sandwich::NeweyWest(fit, lag = L, prewhite = FALSE,
+        adjust = FALSE)``). True: scale it by ``n / (n - k)`` and use
+        ``t(n - k)`` for p-values and intervals -- Stata ``newey, lag(L)``
+        and hence ``itsa, single ... lag(L)`` (Linden, SSC).
 
     Returns
     -------
@@ -243,12 +250,19 @@ def its(
     resid = Y - X @ beta
 
     vcov = _newey_west_vcov(X, resid, hac_lag)
+    n_obs, k_par = X.shape
+    if hac_small_sample:
+        vcov = vcov * n_obs / (n_obs - k_par)
     se = np.sqrt(np.diag(vcov))
 
     idx_level = coef_names.index("level_change")
     idx_slope = coef_names.index("slope_change")
 
-    crit = float(stats.norm.ppf(1 - alpha / 2))
+    if hac_small_sample:
+        dist = stats.t(df=n_obs - k_par)
+    else:
+        dist = stats.norm()
+    crit = float(dist.ppf(1 - alpha / 2))
 
     level = float(beta[idx_level])
     slope = float(beta[idx_slope])
@@ -256,8 +270,8 @@ def its(
     se_slope = float(se[idx_slope])
     ci_level = (level - crit * se_level, level + crit * se_level)
     ci_slope = (slope - crit * se_slope, slope + crit * se_slope)
-    p_level = float(2 * stats.norm.sf(abs(level / max(se_level, 1e-12))))
-    p_slope = float(2 * stats.norm.sf(abs(slope / max(se_slope, 1e-12))))
+    p_level = float(2 * dist.sf(abs(level / max(se_level, 1e-12))))
+    p_slope = float(2 * dist.sf(abs(slope / max(se_slope, 1e-12))))
 
     coef_df = pd.DataFrame(
         {
@@ -311,6 +325,7 @@ def its(
                 "seasonality_harmonics": seasonality_harmonics,
                 "hac_lag": hac_lag,
                 "alpha": alpha,
+                "hac_small_sample": hac_small_sample,
             },
             data=data,
             overwrite=False,

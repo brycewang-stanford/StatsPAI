@@ -4,13 +4,16 @@ Matrix Completion for Causal Panel Data.
 Estimates treatment effects by imputing the counterfactual outcomes
 matrix using nuclear-norm regularisation (soft-thresholded SVD):
 
-    min_{L}  sum_{(i,t) in Omega} (Y_it - L_it)^2 + lambda * ||L||_*
+    min_{a, b, L}  1/2 sum_{(i,t) in Omega} (Y_it - a_i - b_t - L_it)^2
+                   + lambda * ||L||_*
 
-where Omega is the set of control (untreated) observations and
-||L||_* is the nuclear norm (sum of singular values).
+where Omega is the set of control (untreated) observations, ||L||_* is
+the nuclear norm (sum of singular values) and the unit / time effects
+``a_i`` / ``b_t`` are unpenalised (``fixed_effects='two-way'``, the
+default, as in R ``MCPanel::mcnnm`` and ``fect(method="mc")``).
 
 The treatment effect for treated unit i at time t is:
-    tau_it = Y_it - L*_it
+    tau_it = Y_it - (a_i + b_t + L_it)
 
 This approach subsumes both synthetic control (low-rank across units)
 and interactive fixed effects (low-rank across time).
@@ -29,6 +32,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
+from ._core import _check_fixed_effects, mc_nnm_fit
 
 # ======================================================================
 # Public API
@@ -43,11 +47,12 @@ def mc_panel(
     treat: str,
     lambda_reg: Optional[float] = None,
     max_rank: Optional[int] = None,
-    max_iter: int = 1000,
-    tol: float = 1e-5,
+    max_iter: int = 5000,
+    tol: float = 1e-10,
     n_bootstrap: int = 200,
     alpha: float = 0.05,
     random_state: int = 42,
+    fixed_effects: str = "two-way",
 ) -> CausalResult:
     """
     Estimate treatment effects using matrix completion.
@@ -65,23 +70,48 @@ def mc_panel(
     treat : str
         Binary treatment indicator (0/1). Can be staggered.
     lambda_reg : float, optional
-        Nuclear norm regularisation parameter. If None,
-        estimated via the universal threshold: lambda = sigma * sqrt(n).
+        Singular-value threshold ``lambda`` on the objective above (the
+        ``1/2``-scaled squared loss). The same minimiser is obtained from
+        R ``MCPanel::mcnnm_fit(lambda_L = 2 * lambda / |Omega|)`` and from
+        ``fect(method = "mc", CV = FALSE, lambda = lambda / (N * T))``;
+        both conversions are reported in ``model_info``. If None, a
+        heuristic (no reference implementation uses it) is applied:
+        ``lambda = sd(Y[Omega]) * sqrt(max(N, T)) / 10``.
     max_rank : int, optional
-        Maximum rank for the completed matrix. If None, no constraint.
-    max_iter : int, default 1000
-        Maximum iterations for the proximal gradient algorithm.
-    tol : float, default 1e-5
-        Convergence tolerance.
+        Hard cap on the rank of the low-rank component (not part of the
+        reference problem). If None, no constraint.
+    max_iter : int, default 5000
+        Maximum soft-impute iterations. A ``RuntimeWarning`` is raised if
+        the point-estimate fit hits the cap before ``tol``.
+    tol : float, default 1e-10
+        Convergence tolerance on the relative Frobenius change of the
+        fitted counterfactual matrix.
     n_bootstrap : int, default 200
-        Bootstrap iterations for standard errors.
+        Unit-bootstrap replications for the standard error.
     alpha : float, default 0.05
         Significance level.
     random_state : int, default 42
+    fixed_effects : {"two-way", "unit", "time", "none"}, default "two-way"
+        Unpenalised additive effects fitted alongside the low-rank
+        component. ``"two-way"`` is the Athey et al. (2021) estimator
+        and the default of R ``MCPanel`` (``to_estimate_u = to_estimate_v
+        = TRUE``) and ``fect`` (``force = "two-way"``). ``"none"`` is pure
+        soft-impute (``MCPanel`` with both switches off; no intercept, so
+        the outcome level is shrunk towards zero); it is the estimator this
+        function computed in StatsPAI <= 1.28.0.
 
     Returns
     -------
     CausalResult
+        ``model_info['completed_matrix']`` is the imputed untreated
+        outcome matrix (fixed effects + low-rank part);
+        ``model_info['low_rank_matrix']`` is the low-rank part alone.
+
+    Notes
+    -----
+    ``se`` is a unit (row) bootstrap of the whole fit at the same
+    ``lambda``; neither ``MCPanel`` nor ``fect`` reports this exact
+    quantity, so only the point estimate is reference-aligned.
 
     Examples
     --------
@@ -115,6 +145,7 @@ def mc_panel(
         n_bootstrap=n_bootstrap,
         alpha=alpha,
         random_state=random_state,
+        fixed_effects=fixed_effects,
     )
     _result = est.fit()
     try:
@@ -135,6 +166,7 @@ def mc_panel(
                 "n_bootstrap": n_bootstrap,
                 "alpha": alpha,
                 "random_state": random_state,
+                "fixed_effects": fixed_effects,
             },
             data=data,
             overwrite=False,
@@ -167,6 +199,7 @@ class MCPanel:
     n_bootstrap : int
     alpha : float
     random_state : int
+    fixed_effects : {"two-way", "unit", "time", "none"}
 
     Examples
     --------
@@ -203,11 +236,12 @@ class MCPanel:
         treat: str,
         lambda_reg: Optional[float] = None,
         max_rank: Optional[int] = None,
-        max_iter: int = 1000,
-        tol: float = 1e-5,
+        max_iter: int = 5000,
+        tol: float = 1e-10,
         n_bootstrap: int = 200,
         alpha: float = 0.05,
         random_state: int = 42,
+        fixed_effects: str = "two-way",
     ):
         self.data = data
         self.y = y
@@ -221,6 +255,7 @@ class MCPanel:
         self.n_bootstrap = n_bootstrap
         self.alpha = alpha
         self.random_state = random_state
+        self.fixed_effects = _check_fixed_effects(fixed_effects)
 
     def fit(self) -> CausalResult:
         """Run matrix completion and return treatment effect estimates."""
@@ -252,18 +287,20 @@ class MCPanel:
         Y_filled = np.nan_to_num(Y, nan=0.0)
 
         # Determine lambda
-        if self.lambda_reg is None:
-            # Universal threshold: sigma * sqrt(max(N, T))
-            # Estimate sigma from control observations
+        lam = self.lambda_reg
+        if lam is None:
+            # Heuristic: sd(control Y) * sqrt(max(N, T)) / 10
             control_vals = Y_filled[Omega]
             if len(control_vals) > 1:
                 sigma = float(np.std(control_vals, ddof=1))
             else:
                 sigma = 1.0
-            self.lambda_reg = sigma * np.sqrt(max(N, T)) / 10
+            lam = sigma * np.sqrt(max(N, T)) / 10
+        lam = float(lam)
 
-        # Solve via soft-impute (proximal gradient)
-        L = self._soft_impute(Y_filled, Omega, N, T)
+        # Solve via soft-impute with unpenalised fixed effects
+        sol = self._solve(Y_filled, Omega, lam, warn=True)
+        L = sol["fit"]
 
         # Treatment effects: tau_it = Y_it - L_it for treated obs
         treated_mask = W == 1
@@ -279,6 +316,7 @@ class MCPanel:
         # Bootstrap SE
         rng = np.random.RandomState(self.random_state)
         boot_atts = np.zeros(self.n_bootstrap)
+        n_boot_unconverged = 0
 
         for b in range(self.n_bootstrap):
             # Resample units
@@ -288,20 +326,35 @@ class MCPanel:
             Omega_b = (W_b == 0) & (~np.isnan(Y_b))
             Y_b_filled = np.nan_to_num(Y_b, nan=0.0)
 
-            L_b = self._soft_impute(Y_b_filled, Omega_b, N, T)
+            sol_b = self._solve(Y_b_filled, Omega_b, lam, warn=False)
+            n_boot_unconverged += int(not sol_b["converged"])
+            L_b = sol_b["fit"]
             treated_b = W_b == 1
             if treated_b.sum() > 0:
                 boot_atts[b] = np.mean(Y_b[treated_b] - L_b[treated_b])
             else:
                 boot_atts[b] = att
 
-        se = float(np.std(boot_atts, ddof=1))
+        # A handful of slow resamples barely moves the SE; many means the
+        # SE is computed from unconverged fits -> say so.
+        if n_boot_unconverged > 0.05 * self.n_bootstrap:
+            import warnings
+
+            warnings.warn(
+                f"{n_boot_unconverged} of {self.n_bootstrap} bootstrap fits "
+                f"hit max_iter={self.max_iter} before tol={self.tol:g}; "
+                "increase max_iter.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
+        se = float(np.std(boot_atts, ddof=1)) if self.n_bootstrap > 1 else np.nan
 
         if se > 0:
             z_stat = att / se
             pvalue = float(2 * sp_stats.norm.sf(abs(z_stat)))
         else:
-            pvalue = 0.0
+            pvalue = np.nan
 
         z_crit = sp_stats.norm.ppf(1 - self.alpha / 2)
         ci = (att - z_crit * se, att + z_crit * se)
@@ -322,9 +375,8 @@ class MCPanel:
 
         detail = pd.DataFrame(unit_atts) if unit_atts else None
 
-        # Completed matrix rank
-        U, s, Vt = np.linalg.svd(L, full_matrices=False)
-        effective_rank = int(np.sum(s > 1e-6))
+        # Rank of the (penalised) low-rank component
+        effective_rank = int(np.sum(sol["singular_values"] > 1e-6))
 
         periods = Y_mat.columns.tolist()
         treated_units = [u for i, u in enumerate(units) if treated_mask[i].any()]
@@ -332,14 +384,24 @@ class MCPanel:
         completed_df.index.name = self.unit
         completed_df.columns.name = self.time
 
+        n_omega = int(Omega.sum())
         model_info = {
-            "lambda_reg": self.lambda_reg,
+            "lambda_reg": lam,
+            # Same minimiser, reference parameterisations:
+            "lambda_mcpanel": 2.0 * lam / n_omega,
+            "lambda_fect": lam / (N * T),
+            "fixed_effects": self.fixed_effects,
+            "converged": bool(sol["converged"]),
+            "n_iter": int(sol["n_iter"]),
+            "n_bootstrap_unconverged": n_boot_unconverged,
             "effective_rank": effective_rank,
             "n_units": N,
             "n_periods": T,
             "n_treated_cells": int(treated_mask.sum()),
             "n_control_cells": int(Omega.sum()),
             "completed_matrix": L,
+            "low_rank_matrix": sol["L"],
+            "fixed_effects_matrix": sol["fe"],
             "treatment_effects_matrix": tau_matrix,
             # Labeled views — completed_matrix rows follow this exact
             # unit order; use these instead of guessing row positions.
@@ -370,50 +432,24 @@ class MCPanel:
             _citation_key="mc_panel",
         )
 
-    def _soft_impute(
+    def _solve(
         self,
         Y: np.ndarray,
         Omega: np.ndarray,
-        N: int,
-        T: int,
-    ) -> np.ndarray:
-        """
-        Soft-impute algorithm for nuclear norm regularised completion.
-
-        Iteratively:
-        1. Replace treated entries with current estimate.
-        2. Compute SVD.
-        3. Soft-threshold singular values.
-        """
-        L: np.ndarray = np.zeros((N, T), dtype=float)
-
-        for iteration in range(self.max_iter):
-            # Fill in: use observed controls, impute treated
-            Z = np.where(Omega, Y, L)
-
-            # SVD
-            U, s, Vt = np.linalg.svd(Z, full_matrices=False)
-
-            # Soft-threshold
-            s_thresh = np.maximum(s - self.lambda_reg, 0)
-
-            # Max rank constraint
-            if self.max_rank is not None:
-                s_thresh[self.max_rank :] = 0
-
-            # Reconstruct
-            L_new = np.asarray(U * s_thresh @ Vt, dtype=float)
-
-            # Check convergence
-            diff = np.linalg.norm(L_new - L, "fro")
-            norm_L = np.linalg.norm(L_new, "fro") + 1e-10
-
-            L = L_new
-
-            if diff / norm_L < self.tol:
-                break
-
-        return np.asarray(L, dtype=float)
+        lam: float,
+        warn: bool,
+    ) -> dict:
+        """Nuclear-norm completion on the control cells (shared solver)."""
+        return mc_nnm_fit(
+            Y,
+            Omega,
+            lam,
+            fixed_effects=self.fixed_effects,
+            max_iter=self.max_iter,
+            tol=self.tol,
+            max_rank=self.max_rank,
+            warn=warn,
+        )
 
 
 # ======================================================================

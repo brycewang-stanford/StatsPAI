@@ -6,23 +6,22 @@ a panel matrix Y (N x T) and imputes them via nuclear norm regularisation
 (low-rank matrix completion).  The counterfactual is the imputed value;
 the treatment effect is observed minus imputed.
 
-Algorithm -- Soft-Impute / SVT
--------------------------------
+Algorithm -- Soft-Impute / SVT with unpenalised fixed effects
+--------------------------------------------------------------
 1. Build Y matrix (units x time).  Mask treated unit's post-treatment entries.
-2. Initialise M = row/column means.
-3. Iterate:  M = SVT_lambda( P_obs(Y) + P_miss(M) )
-   where SVT_lambda soft-thresholds singular values by lambda.
-4. Counterfactual for treated = M[treated, post_periods].
-5. Effects = Y_observed - M_imputed.
+2. Solve  min 1/2 ||P_obs(Y - a 1' - 1 b' - L)||^2 + lambda ||L||_*
+   (``fixed_effects='two-way'``; see ``statspai.matrix_completion._core``)
+   by soft-impute: fill missing cells with the current fit, double-centre,
+   soft-threshold the singular values by lambda.
+3. Counterfactual for treated = fit[treated, post_periods].
+4. Effects = Y_observed - fit.
 
 Cross-validation for lambda: hold out random entries from observed cells,
 pick lambda minimising reconstruction error.
 
 References
 ----------
-Athey, S., Bayati, M., Doudchenko, N., Imbens, G. and Khosravi, A. (2021).
-"Matrix Completion Methods for Causal Panel Data Models."
-*Journal of the American Statistical Association*, 116(536), 1716-1730. [@athey2021matrix]
+[@athey2021matrix]
 """
 
 from __future__ import annotations
@@ -34,6 +33,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ..matrix_completion._core import _center, _check_fixed_effects, mc_nnm_fit
 from ._core import placebo_rank_pvalue
 
 # ====================================================================== #
@@ -50,12 +50,13 @@ def mc_synth(
     treatment_time: Any,
     covariates: Optional[List[str]] = None,
     lambda_reg: Optional[float] = None,
-    max_iter: int = 500,
-    tol: float = 1e-6,
+    max_iter: int = 5000,
+    tol: float = 1e-10,
     cv_folds: int = 5,
     alpha: float = 0.05,
     placebo: bool = True,
     seed: Optional[int] = None,
+    fixed_effects: str = "two-way",
 ) -> CausalResult:
     """
     Matrix Completion Synthetic Control Method.
@@ -81,12 +82,17 @@ def mc_synth(
     covariates : list of str, optional
         Time-varying covariates to partial out before matrix completion.
     lambda_reg : float, optional
-        Nuclear norm penalty.  If ``None`` (default), selected
-        automatically via cross-validation on observed entries.
-    max_iter : int, default 500
-        Maximum Soft-Impute iterations.
-    tol : float, default 1e-6
-        Convergence tolerance (relative change in Frobenius norm).
+        Singular-value threshold on the ``1/2``-scaled squared loss.  The
+        same minimiser is R ``MCPanel::mcnnm_fit(lambda_L = 2 * lambda /
+        n_observed)`` and ``fect(method = "mc", CV = FALSE, lambda =
+        lambda / (N * T))`` (both reported in ``model_info``).  If
+        ``None`` (default), selected by this function's own random-entry
+        K-fold cross-validation (not the ``MCPanel`` / ``fect`` CV rule).
+    max_iter : int, default 5000
+        Maximum Soft-Impute iterations (``RuntimeWarning`` if hit).
+    tol : float, default 1e-10
+        Convergence tolerance (relative change in Frobenius norm of the
+        fitted matrix).
     cv_folds : int, default 5
         Number of CV folds for automatic lambda selection.
     alpha : float, default 0.05
@@ -95,7 +101,15 @@ def mc_synth(
         Run placebo (permutation) inference by treating each control
         unit as if it were treated.
     seed : int, optional
-        Random seed for reproducibility.
+        Random seed for the CV fold assignment. With ``seed=None`` and
+        ``lambda_reg=None`` the selected lambda (hence the estimate) can
+        differ between calls.
+    fixed_effects : {"two-way", "unit", "time", "none"}, default "two-way"
+        Unpenalised additive effects fitted with the low-rank part.
+        ``"two-way"`` is the Athey et al. (2021) estimator and the default
+        of R ``MCPanel`` and ``fect``; ``"none"`` is pure soft-impute (the
+        estimator of StatsPAI <= 1.28.0), which shrinks the outcome level
+        towards zero.
 
     Returns
     -------
@@ -121,6 +135,7 @@ def mc_synth(
     >>> print(result.summary())
     """
     rng = np.random.default_rng(seed)
+    _check_fixed_effects(fixed_effects)
 
     # ------------------------------------------------------------------ #
     #  Build panel matrix
@@ -168,9 +183,11 @@ def mc_synth(
     # ------------------------------------------------------------------ #
     #  Observation mask:  1 = observed, 0 = missing (to impute)
     # ------------------------------------------------------------------ #
-    obs_mask = np.ones_like(Y_full, dtype=bool)
+    obs_mask = np.isfinite(Y_full)
     post_col_start = T0  # post-treatment columns start at index T0
     obs_mask[treated_idx, post_col_start:] = False
+    if not np.isfinite(Y_full[treated_idx, :T0]).all():
+        raise ValueError("The treated unit has missing pre-treatment outcomes.")
 
     # ------------------------------------------------------------------ #
     #  Auto-select lambda via CV on observed entries
@@ -183,12 +200,15 @@ def mc_synth(
             max_iter,
             tol,
             rng,
+            fixed_effects,
         )
+    lambda_reg = float(lambda_reg)
 
     # ------------------------------------------------------------------ #
     #  Soft-Impute
     # ------------------------------------------------------------------ #
-    M = _soft_impute(Y_full, obs_mask, lambda_reg, max_iter, tol)
+    sol = _soft_impute(Y_full, obs_mask, lambda_reg, max_iter, tol, fixed_effects)
+    M = sol["fit"]
 
     # ------------------------------------------------------------------ #
     #  Extract counterfactual and effects
@@ -204,8 +224,8 @@ def mc_synth(
     pre_residuals = Y_treated_pre - Y_synth_pre
     pre_rmspe = float(np.sqrt(np.mean(pre_residuals**2)))
 
-    # Effective rank of completed matrix
-    _, S_full, _ = np.linalg.svd(M, full_matrices=False)
+    # Rank of the penalised low-rank component
+    S_full = sol["singular_values"]
     eff_rank = int(np.sum(S_full > 1e-10))
 
     # ------------------------------------------------------------------ #
@@ -215,22 +235,16 @@ def mc_synth(
     if placebo and J >= 2:
         for j_idx, donor_unit in enumerate(donors):
             d_idx = all_units.index(donor_unit)
-            plac_mask = np.ones_like(Y_full, dtype=bool)
+            plac_mask = np.isfinite(Y_full)
             plac_mask[d_idx, post_col_start:] = False
-
-            try:
-                M_plac = _soft_impute(
-                    Y_full,
-                    plac_mask,
-                    lambda_reg,
-                    max_iter,
-                    tol,
-                )
-                plac_post = Y_full[d_idx, T0:]
-                plac_synth = M_plac[d_idx, T0:]
-                placebo_atts.append(float(np.mean(plac_post - plac_synth)))
-            except Exception:  # pragma: no cover
-                continue  # pragma: no cover
+            if not np.isfinite(Y_full[d_idx]).all():
+                continue  # donor with gaps: its placebo gap is undefined
+            M_plac = _soft_impute(
+                Y_full, plac_mask, lambda_reg, max_iter, tol, fixed_effects
+            )["fit"]
+            plac_post = Y_full[d_idx, T0:]
+            plac_synth = M_plac[d_idx, T0:]
+            placebo_atts.append(float(np.mean(plac_post - plac_synth)))
 
     if len(placebo_atts) > 0:
         se = float(np.std(placebo_atts, ddof=1))
@@ -272,6 +286,13 @@ def mc_synth(
         "treated_unit": treated_unit,
         "rank": eff_rank,
         "lambda_reg": lambda_reg,
+        "lambda_mcpanel": 2.0 * lambda_reg / int(obs_mask.sum()),
+        "lambda_fect": lambda_reg / Y_full.size,
+        "fixed_effects": fixed_effects,
+        "converged": bool(sol["converged"]),
+        "n_iter": int(sol["n_iter"]),
+        "completed_matrix": M,
+        "low_rank_matrix": sol["L"],
         "gap_table": gap_table,
         "Y_synth": np.concatenate([Y_synth_pre, Y_synth_post]),
         "Y_treated": np.concatenate([Y_treated_pre, Y_treated_post]),
@@ -311,55 +332,23 @@ def _soft_impute(
     lam: float,
     max_iter: int,
     tol: float,
-) -> np.ndarray:
+    fixed_effects: str = "two-way",
+    warn: bool = True,
+) -> dict:
+    """Nuclear-norm completion via the shared ``matrix_completion`` solver.
+
+    Starts from the row + column means of the observed entries.
     """
-    Soft-Impute / SVT algorithm for matrix completion.
-
-    Parameters
-    ----------
-    Y : ndarray (N, T)
-        Panel matrix with all entries filled (missing entries will be
-        ignored via *obs_mask*).
-    obs_mask : ndarray of bool (N, T)
-        True where entries are observed.
-    lam : float
-        Nuclear norm penalty (singular value threshold).
-    max_iter : int
-        Maximum iterations.
-    tol : float
-        Convergence tolerance on relative Frobenius norm change.
-
-    Returns
-    -------
-    M : ndarray (N, T)
-        Completed matrix.
-    """
-    # Initialise with row and column means on observed entries
-    M = _init_from_means(Y, obs_mask)
-
-    for _ in range(max_iter):
-        # Fill observed entries from Y, missing from current M
-        Z = np.where(obs_mask, Y, M)
-
-        # SVT: soft-threshold singular values
-        M_new = _svt(Z, lam)
-
-        # Convergence check
-        diff = np.linalg.norm(M_new - M, "fro")
-        norm_prev = np.linalg.norm(M, "fro")
-        if norm_prev > 0 and diff / norm_prev < tol:
-            M = M_new
-            break
-        M = M_new
-
-    return M
-
-
-def _svt(Z: np.ndarray, lam: float) -> np.ndarray:
-    """Singular Value Thresholding: soft-threshold singular values by lam."""
-    U, S, Vt = np.linalg.svd(Z, full_matrices=False)
-    S_thresh = np.maximum(S - lam, 0.0)
-    return np.asarray((U * S_thresh) @ Vt)
+    return mc_nnm_fit(
+        Y,
+        obs_mask,
+        lam,
+        fixed_effects=fixed_effects,
+        max_iter=max_iter,
+        tol=tol,
+        init=_init_from_means(np.where(obs_mask, Y, 0.0), obs_mask),
+        warn=warn,
+    )
 
 
 def _init_from_means(Y: np.ndarray, obs_mask: np.ndarray) -> np.ndarray:
@@ -399,6 +388,7 @@ def _cv_lambda(
     max_iter: int,
     tol: float,
     rng: np.random.Generator,
+    fixed_effects: str = "two-way",
 ) -> float:
     """
     Select nuclear norm penalty via cross-validation on observed entries.
@@ -406,9 +396,13 @@ def _cv_lambda(
     Holds out random observed entries, runs Soft-Impute on the rest,
     and picks lambda minimising reconstruction MSE.
     """
-    # Candidate lambdas: fraction of largest singular value
+    # Candidate lambdas: fraction of the largest singular value of the
+    # mean-filled matrix after removing the (unpenalised) fixed effects
+    Y = np.where(obs_mask, Y, 0.0)
     Z_init = _init_from_means(Y, obs_mask)
-    _, S0, _ = np.linalg.svd(np.where(obs_mask, Y, Z_init), full_matrices=False)
+    _, S0, _ = np.linalg.svd(
+        _center(np.where(obs_mask, Y, Z_init), fixed_effects), full_matrices=False
+    )
     s_max = S0[0] if len(S0) > 0 else 1.0
 
     lambdas = np.logspace(
@@ -441,13 +435,10 @@ def _cv_lambda(
             for idx in test_perm:
                 train_mask[obs_rows[idx], obs_cols[idx]] = False
 
-            # Run Soft-Impute on training set
-            try:
-                M_cv = _soft_impute(Y, train_mask, lam, max_iter=100, tol=tol)
-            except Exception:  # pragma: no cover
-                mse_total += 1e10
-                n_eval += 1
-                continue  # pragma: no cover
+            # Run Soft-Impute on training set (capped at 100 iterations)
+            M_cv = _soft_impute(
+                Y, train_mask, lam, 100, tol, fixed_effects, warn=False
+            )["fit"]
 
             # MSE on held-out entries
             fold_mse = 0.0
@@ -516,7 +507,7 @@ CausalResult._CITATIONS["mc_synth"] = (
     "@article{athey2021matrix,\n"
     "  title={Matrix Completion Methods for Causal Panel Data Models},\n"
     "  author={Athey, Susan and Bayati, Mohsen and Doudchenko, Nikolay\n"
-    "          and Imbens, Guido and Khosravi, Azeem},\n"
+    "          and Imbens, Guido and Khosravi, Khashayar},\n"
     "  journal={Journal of the American Statistical Association},\n"
     "  volume={116},\n"
     "  number={536},\n"

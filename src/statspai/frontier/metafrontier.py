@@ -43,8 +43,9 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import linprog
 
-from .sfa import FrontierResult, frontier as _frontier
 from .._result_serialize import ResultProtocolMixin
+from .sfa import FrontierResult
+from .sfa import frontier as _frontier
 
 
 @dataclass
@@ -124,6 +125,7 @@ def metafrontier(
     cost: bool = False,
     te_method: str = "bc",
     lp_tol: float = 1e-7,
+    envelope: str = "all",
     **frontier_kwargs: Any,
 ) -> MetafrontierResult:
     """Estimate a metafrontier across ``K`` groups.
@@ -141,6 +143,20 @@ def metafrontier(
         can declare numerical infeasibility on mathematically feasible
         problems; loosening ``lp_tol`` (e.g., ``1e-6``) typically
         recovers these cases.
+    envelope : {'all', 'own'}, default 'all'
+        Which envelopment constraints the LP imposes.
+
+        * ``'all'`` -- ``x_i' beta_meta >= x_i' beta^k`` at every pooled
+          observation ``i`` for every group ``k``: the metafrontier lies on
+          or above each group frontier wherever any firm operates.
+        * ``'own'`` -- ``x_i' beta_meta >= x_i' beta^{k(i)}`` only against
+          observation ``i``'s own group frontier.  This is the constraint
+          set of R ``metafrontier::metafrontier(objective = "lp")``, which
+          its documentation attributes to O'Donnell, Rao & Battese (2008).
+
+        The two coincide when the group frontiers do not cross inside the
+        data; when they cross, ``'all'`` gives a (weakly) higher
+        metafrontier and hence (weakly) lower technology-gap ratios.
     frontier_kwargs : forwarded to :func:`frontier` for each group
         (e.g., ``usigma``, ``vsigma``, ``emean``, ``vce``, ``cluster``).
 
@@ -172,6 +188,8 @@ def metafrontier(
     """
     if group not in data.columns:
         raise KeyError(f"{group!r} is not a column in data.")
+    if envelope not in ("all", "own"):
+        raise ValueError(f"envelope must be 'all' or 'own', got {envelope!r}.")
     required = [y] + list(x) + [group]
     df = data[required].dropna().copy()
 
@@ -222,9 +240,12 @@ def metafrontier(
     # (flip sign for cost).
     A_ub_rows = []
     b_ub_rows = []
-    for g in group_ids:
-        bk = beta_groups[g].to_numpy()
-        Xbk = X @ bk
+    targets = (
+        [own_frontier]
+        if envelope == "own"
+        else [X @ beta_groups[g].to_numpy() for g in group_ids]
+    )
+    for Xbk in targets:
         if cost:
             # x_i' beta_meta <= x_i' beta^k    =>    X @ beta_meta - Xbk <= 0
             A_ub_rows.append(X)
@@ -286,11 +307,13 @@ def metafrontier(
     # Step 3: technology-gap ratios and meta-efficiencies.
     # ------------------------------------------------------------------
     meta_frontier_hat = X @ beta_meta_arr
-    # TGR per obs: ratio of group frontier to meta frontier.
-    # Production: frontier = max output. In log units:
-    # TGR_i = exp(log_y_group_frontier - log_y_meta_frontier).
-    # The gap is negative for production and positive for cost after sign flip.
+    # TGR per obs: ratio of group frontier to meta frontier, in (0, 1].
+    # Production (max output): TGR_i = exp(x_i'b^{k(i)} - x_i'b_meta).
+    # Cost (min cost): the metafrontier lies *below* the group frontier,
+    # so TGR_i = exp(x_i'b_meta - x_i'b^{k(i)}).
     gap = own_frontier - meta_frontier_hat
+    if cost:
+        gap = -gap
     tgr = np.exp(gap)
     tgr = np.clip(tgr, 0.0, 1.0)
     tgr_series = pd.Series(tgr, index=df.index, name="tgr")
@@ -311,6 +334,7 @@ def metafrontier(
         "group_vec": df[group].to_numpy(),
         "regressors": list(x),
         "dep_var": y,
+        "envelope": envelope,
     }
     return MetafrontierResult(
         beta_meta=beta_meta,

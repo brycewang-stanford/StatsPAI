@@ -144,7 +144,7 @@ def rdd(
     >>> df = pd.DataFrame({'y': y, 'x': x})
     >>> res = sp.rdd(df, y='y', running='x', cutoff=0.0)
     >>> round(res.estimate, 2)  # robust RD estimate (true jump 0.8)
-    0.81
+    0.82
     """
     from .rd.rdrobust import rdrobust
 
@@ -346,8 +346,9 @@ def psm(
     >>> df = sp.cps_wage()
     >>> result = sp.psm(df, y='log_wage', d='union',
     ...                 X=['education', 'experience', 'tenure'])
-    >>> result.summary()
-    >>> result.estimate
+    >>> print(result.summary())  # doctest: +SKIP
+    >>> round(result.estimate, 3)  # ATT of union membership on log wage
+    0.187
 
     >>> # Propensity-score stratification instead of nearest-neighbour
     >>> result = sp.psm(df, y='log_wage', d='union',
@@ -669,10 +670,10 @@ def tF_adjustment(first_stage_F: float, alpha: float = 0.05) -> float:
     Examples
     --------
     >>> import statspai as sp
-    >>> sp.tF_adjustment(15.0)  # weakish first stage -> inflated crit. value
-    2.54
-    >>> sp.tF_adjustment(100.0)  # strong first stage -> back to ~1.96
-    1.96
+    >>> round(sp.tF_adjustment(15.0), 2)  # weakish first stage -> inflated
+    2.87
+    >>> round(sp.tF_adjustment(100.0), 2)  # 1.96 only from F = 106.09 on
+    1.97
     """
     from .diagnostics.weak_iv import tF_critical_value
 
@@ -723,8 +724,8 @@ def matrix_completion(
     >>> df = pd.DataFrame(rows)
     >>> res = sp.matrix_completion(df, y='y', d='d', unit='unit',
     ...                            time='time', n_bootstrap=50)
-    >>> round(res.estimate, 2)  # average treatment effect on the treated
-    2.86
+    >>> round(res.estimate, 2)  # average treatment effect on the treated (truth 2.0)
+    2.1
     """
     # Use importlib rather than `from .matrix_completion import mc_panel`
     # because this function itself is late-bound as `sp.matrix_completion`,

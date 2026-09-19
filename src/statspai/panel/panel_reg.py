@@ -1747,7 +1747,18 @@ def panel_compare(
                 **kwargs,
             )
             results[_METHOD_NAMES.get(m, m)] = r
-        except Exception as e:  # pragma: no cover
+        except Exception as e:  # noqa: BLE001 - best-effort comparison table
+            # Orchestration glue: one failing method must not sink the
+            # table, but the failure has to be loud (CLAUDE.md §3.7), not a
+            # silent "error" cell.
+            from ..workflow._degradation import record_degradation
+
+            record_degradation(
+                None,
+                section=f"panel_compare method={m!r}",
+                exc=e,
+                detail="the column is marked 'error' in the comparison table",
+            )
             results[_METHOD_NAMES.get(m, m)] = str(e)
 
     # Build comparison DataFrame

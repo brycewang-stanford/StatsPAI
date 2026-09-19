@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from statspai.rlasso import rlassologit_effect, rlassologit_effects
+import statspai as sp
 
 _FIXTURE_DIR = pathlib.Path(__file__).parent / "_fixtures"
 
@@ -42,7 +42,7 @@ def data():
 @pytest.mark.parametrize("post, key", [(True, "single_post"), (False, "single_nopost")])
 def test_rlassologit_effect_matches_hdm(ref, data, post, key):
     X, y, d = data
-    res = rlassologit_effect(X, y, d, post=post)
+    res = sp.rlassologit_effect(X, y, d, post=post)
     exp = ref[key]
     np.testing.assert_allclose(res.alpha, exp["alpha"], atol=1e-6)
     np.testing.assert_allclose(res.se, exp["se"], atol=1e-6)
@@ -52,7 +52,7 @@ def test_rlassologit_effect_matches_hdm(ref, data, post, key):
 
 def test_rlassologit_effects_multitarget_matches_hdm(ref, data):
     X, y, _ = data
-    out = rlassologit_effects(X, y, index=[0, 1])
+    out = sp.rlassologit_effects(X, y, index=[0, 1])
     results = list(out.values())
     targets = ref["multi"]["targets"]
     assert len(results) == len(targets) == 2
@@ -63,7 +63,7 @@ def test_rlassologit_effects_multitarget_matches_hdm(ref, data):
 
 def test_rlassologit_effect_result_shape(data):
     X, y, d = data
-    res = rlassologit_effect(X, y, d)
+    res = sp.rlassologit_effect(X, y, d)
     assert res.se > 0
     assert np.isfinite(res.alpha)
     assert res.n_selected >= 0

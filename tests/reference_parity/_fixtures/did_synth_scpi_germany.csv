@@ -1,0 +1,749 @@
+"country","year","gdp"
+"Australia",1960,2.373
+"Australia",1961,2.346
+"Australia",1962,2.539
+"Australia",1963,2.717
+"Australia",1964,2.873
+"Australia",1965,2.973
+"Australia",1966,3.23
+"Australia",1967,3.404
+"Australia",1968,3.788
+"Australia",1969,4.162
+"Australia",1970,4.49
+"Australia",1971,4.677
+"Australia",1972,5.013
+"Australia",1973,5.595
+"Australia",1974,6.024
+"Australia",1975,6.683
+"Australia",1976,7.14
+"Australia",1977,7.482
+"Australia",1978,8.272
+"Australia",1979,9.174
+"Australia",1980,10.203
+"Australia",1981,11.513
+"Australia",1982,11.537
+"Australia",1983,12.3
+"Australia",1984,13.12
+"Australia",1985,14.019
+"Australia",1986,14.537
+"Australia",1987,15.554
+"Australia",1988,16.524
+"Australia",1989,17.255
+"Australia",1990,17.322
+"Australia",1991,17.652
+"Australia",1992,18.496
+"Australia",1993,19.432
+"Australia",1994,20.583
+"Australia",1995,21.773
+"Australia",1996,22.562
+"Australia",1997,23.649
+"Australia",1998,24.853
+"Australia",1999,26.283
+"Australia",2000,27.403
+"Australia",2001,28.492
+"Australia",2002,29.819
+"Australia",2003,31.273
+"Austria",1960,1.796
+"Austria",1961,1.899
+"Austria",1962,1.977
+"Austria",1963,2.074
+"Austria",1964,2.224
+"Austria",1965,2.336
+"Austria",1966,2.537
+"Austria",1967,2.668
+"Austria",1968,2.908
+"Austria",1969,3.239
+"Austria",1970,3.732
+"Austria",1971,4.1
+"Austria",1972,4.513
+"Austria",1973,4.969
+"Austria",1974,5.622
+"Austria",1975,6.147
+"Austria",1976,6.81
+"Austria",1977,7.588
+"Austria",1978,8.117
+"Austria",1979,9.288
+"Austria",1980,10.312
+"Austria",1981,11.242
+"Austria",1982,12.148
+"Austria",1983,13.048
+"Austria",1984,13.533
+"Austria",1985,14.296
+"Austria",1986,14.921
+"Austria",1987,15.549
+"Austria",1988,16.595
+"Austria",1989,17.768
+"Austria",1990,19.07
+"Austria",1991,20.172
+"Austria",1992,20.96
+"Austria",1993,21.22
+"Austria",1994,22.139
+"Austria",1995,22.976
+"Austria",1996,24.008
+"Austria",1997,24.472
+"Austria",1998,25.314
+"Austria",1999,26.558
+"Austria",2000,28.359
+"Austria",2001,28.855
+"Austria",2002,29.942
+"Austria",2003,30.796
+"Belgium",1960,1.782
+"Belgium",1961,1.883
+"Belgium",1962,2.018
+"Belgium",1963,2.122
+"Belgium",1964,2.288
+"Belgium",1965,2.414
+"Belgium",1966,2.559
+"Belgium",1967,2.719
+"Belgium",1968,2.958
+"Belgium",1969,3.308
+"Belgium",1970,3.797
+"Belgium",1971,4.129
+"Belgium",1972,4.512
+"Belgium",1973,5.039
+"Belgium",1974,5.707
+"Belgium",1975,6.146
+"Belgium",1976,6.854
+"Belgium",1977,7.326
+"Belgium",1978,8.056
+"Belgium",1979,8.921
+"Belgium",1980,10.156
+"Belgium",1981,11.079
+"Belgium",1982,11.827
+"Belgium",1983,12.334
+"Belgium",1984,13.113
+"Belgium",1985,13.735
+"Belgium",1986,14.292
+"Belgium",1987,15.013
+"Belgium",1988,16.209
+"Belgium",1989,17.345
+"Belgium",1990,18.526
+"Belgium",1991,19.453
+"Belgium",1992,20.123
+"Belgium",1993,20.308
+"Belgium",1994,21.34
+"Belgium",1995,22.248
+"Belgium",1996,22.687
+"Belgium",1997,23.416
+"Belgium",1998,24.164
+"Belgium",1999,24.792
+"Belgium",2000,26.631
+"Belgium",2001,28.001
+"Belgium",2002,29.33
+"Belgium",2003,30.082
+"Denmark",1960,2.329
+"Denmark",1961,2.485
+"Denmark",1962,2.665
+"Denmark",1963,2.7
+"Denmark",1964,2.98
+"Denmark",1965,3.177
+"Denmark",1966,3.377
+"Denmark",1967,3.58
+"Denmark",1968,3.892
+"Denmark",1969,4.352
+"Denmark",1970,4.541
+"Denmark",1971,4.858
+"Denmark",1972,5.262
+"Denmark",1973,5.719
+"Denmark",1974,6.121
+"Denmark",1975,6.565
+"Denmark",1976,7.371
+"Denmark",1977,7.901
+"Denmark",1978,8.585
+"Denmark",1979,9.566
+"Denmark",1980,10.362
+"Denmark",1981,11.106
+"Denmark",1982,12.115
+"Denmark",1983,12.822
+"Denmark",1984,13.777
+"Denmark",1985,14.698
+"Denmark",1986,15.608
+"Denmark",1987,16.024
+"Denmark",1988,16.766
+"Denmark",1989,17.418
+"Denmark",1990,18.237
+"Denmark",1991,19.07
+"Denmark",1992,19.829
+"Denmark",1993,20.199
+"Denmark",1994,21.691
+"Denmark",1995,22.693
+"Denmark",1996,23.781
+"Denmark",1997,24.878
+"Denmark",1998,25.669
+"Denmark",1999,27.113
+"Denmark",2000,28.798
+"Denmark",2001,29.837
+"Denmark",2002,30.318
+"Denmark",2003,30.853
+"France",1960,1.858
+"France",1961,1.959
+"France",1962,2.099
+"France",1963,2.205
+"France",1964,2.367
+"France",1965,2.526
+"France",1966,2.728
+"France",1967,2.915
+"France",1968,3.163
+"France",1969,3.531
+"France",1970,3.857
+"France",1971,4.203
+"France",1972,4.535
+"France",1973,5.008
+"France",1974,5.594
+"France",1975,6.077
+"France",1976,6.673
+"France",1977,7.292
+"France",1978,8.031
+"France",1979,8.948
+"France",1980,9.891
+"France",1981,10.929
+"France",1982,11.869
+"France",1983,12.518
+"France",1984,13.145
+"France",1985,13.746
+"France",1986,14.308
+"France",1987,14.94
+"France",1988,16.04
+"France",1989,17.193
+"France",1990,18.244
+"France",1991,19.021
+"France",1992,19.746
+"France",1993,19.92
+"France",1994,20.695
+"France",1995,21.545
+"France",1996,22.288
+"France",1997,23.37
+"France",1998,24.412
+"France",1999,25.111
+"France",2000,26.69
+"France",2001,28.043
+"France",2002,28.829
+"France",2003,29.21
+"Greece",1960,0.707
+"Greece",1961,1.028
+"Greece",1962,1.049
+"Greece",1963,1.188
+"Greece",1964,1.316
+"Greece",1965,1.492
+"Greece",1966,1.634
+"Greece",1967,1.754
+"Greece",1968,1.967
+"Greece",1969,2.298
+"Greece",1970,2.631
+"Greece",1971,2.988
+"Greece",1972,3.383
+"Greece",1973,3.844
+"Greece",1974,3.907
+"Greece",1975,4.505
+"Greece",1976,5.024
+"Greece",1977,5.417
+"Greece",1978,6.138
+"Greece",1979,6.781
+"Greece",1980,7.374
+"Greece",1981,7.87
+"Greece",1982,8.204
+"Greece",1983,8.388
+"Greece",1984,8.834
+"Greece",1985,9.297
+"Greece",1986,9.525
+"Greece",1987,9.548
+"Greece",1988,10.277
+"Greece",1989,11.036
+"Greece",1990,11.405
+"Greece",1991,11.971
+"Greece",1992,12.198
+"Greece",1993,12.166
+"Greece",1994,12.566
+"Greece",1995,12.991
+"Greece",1996,13.418
+"Greece",1997,14.127
+"Greece",1998,14.665
+"Greece",1999,15.213
+"Greece",2000,16.272
+"Greece",2001,17.332
+"Greece",2002,19.119
+"Greece",2003,20.479
+"Italy",1960,1.62
+"Italy",1961,1.763
+"Italy",1962,1.9
+"Italy",1963,2.021
+"Italy",1964,2.093
+"Italy",1965,2.205
+"Italy",1966,2.4
+"Italy",1967,2.624
+"Italy",1968,2.91
+"Italy",1969,3.227
+"Italy",1970,3.602
+"Italy",1971,3.834
+"Italy",1972,4.101
+"Italy",1973,4.594
+"Italy",1974,5.24
+"Italy",1975,5.601
+"Italy",1976,6.288
+"Italy",1977,6.821
+"Italy",1978,7.542
+"Italy",1979,8.594
+"Italy",1980,9.643
+"Italy",1981,10.593
+"Italy",1982,11.275
+"Italy",1983,11.812
+"Italy",1984,12.543
+"Italy",1985,13.285
+"Italy",1986,13.896
+"Italy",1987,14.688
+"Italy",1988,15.784
+"Italy",1989,16.875
+"Italy",1990,17.946
+"Italy",1991,18.845
+"Italy",1992,19.367
+"Italy",1993,19.778
+"Italy",1994,20.577
+"Italy",1995,21.532
+"Italy",1996,22.235
+"Italy",1997,22.81
+"Italy",1998,23.84
+"Italy",1999,24.402
+"Italy",2000,25.759
+"Italy",2001,26.586
+"Italy",2002,27.32
+"Italy",2003,27.537
+"Japan",1960,1.01
+"Japan",1961,1.143
+"Japan",1962,1.262
+"Japan",1963,1.374
+"Japan",1964,1.546
+"Japan",1965,1.647
+"Japan",1966,1.889
+"Japan",1967,2.133
+"Japan",1968,2.496
+"Japan",1969,2.917
+"Japan",1970,3.293
+"Japan",1971,3.575
+"Japan",1972,3.988
+"Japan",1973,4.491
+"Japan",1974,4.778
+"Japan",1975,5.3
+"Japan",1976,5.768
+"Japan",1977,6.344
+"Japan",1978,7.084
+"Japan",1979,8.027
+"Japan",1980,8.931
+"Japan",1981,9.986
+"Japan",1982,10.813
+"Japan",1983,11.346
+"Japan",1984,12.064
+"Japan",1985,12.978
+"Japan",1986,13.59
+"Japan",1987,14.425
+"Japan",1988,15.862
+"Japan",1989,17.269
+"Japan",1990,18.815
+"Japan",1991,20.055
+"Japan",1992,20.648
+"Japan",1993,21.122
+"Japan",1994,21.757
+"Japan",1995,22.551
+"Japan",1996,23.714
+"Japan",1997,24.478
+"Japan",1998,24.429
+"Japan",1999,24.709
+"Japan",2000,26.015
+"Japan",2001,26.619
+"Japan",2002,27.196
+"Japan",2003,28.071
+"Netherlands",1960,2.113
+"Netherlands",1961,2.111
+"Netherlands",1962,2.275
+"Netherlands",1963,2.36
+"Netherlands",1964,2.566
+"Netherlands",1965,2.739
+"Netherlands",1966,2.874
+"Netherlands",1967,3.078
+"Netherlands",1968,3.399
+"Netherlands",1969,3.951
+"Netherlands",1970,4.342
+"Netherlands",1971,4.705
+"Netherlands",1972,4.984
+"Netherlands",1973,5.475
+"Netherlands",1974,6.165
+"Netherlands",1975,6.699
+"Netherlands",1976,7.345
+"Netherlands",1977,7.959
+"Netherlands",1978,8.676
+"Netherlands",1979,9.504
+"Netherlands",1980,10.458
+"Netherlands",1981,11.304
+"Netherlands",1982,11.784
+"Netherlands",1983,12.419
+"Netherlands",1984,13.234
+"Netherlands",1985,13.938
+"Netherlands",1986,14.613
+"Netherlands",1987,15.197
+"Netherlands",1988,16.082
+"Netherlands",1989,17.387
+"Netherlands",1990,18.665
+"Netherlands",1991,19.626
+"Netherlands",1992,20.224
+"Netherlands",1993,20.679
+"Netherlands",1994,21.588
+"Netherlands",1995,22.585
+"Netherlands",1996,23.531
+"Netherlands",1997,24.692
+"Netherlands",1998,25.811
+"Netherlands",1999,26.654
+"Netherlands",2000,28.467
+"Netherlands",2001,30.359
+"Netherlands",2002,31.284
+"Netherlands",2003,31.792
+"New Zealand",1960,2.545
+"New Zealand",1961,2.659
+"New Zealand",1962,2.713
+"New Zealand",1963,2.866
+"New Zealand",1964,3.001
+"New Zealand",1965,3.224
+"New Zealand",1966,3.481
+"New Zealand",1967,3.36
+"New Zealand",1968,3.489
+"New Zealand",1969,3.969
+"New Zealand",1970,4.136
+"New Zealand",1971,4.438
+"New Zealand",1972,4.78
+"New Zealand",1973,5.335
+"New Zealand",1974,6.041
+"New Zealand",1975,6.382
+"New Zealand",1976,6.748
+"New Zealand",1977,6.867
+"New Zealand",1978,7.301
+"New Zealand",1979,7.915
+"New Zealand",1980,8.656
+"New Zealand",1981,9.736
+"New Zealand",1982,10.687
+"New Zealand",1983,11.262
+"New Zealand",1984,12.141
+"New Zealand",1985,12.556
+"New Zealand",1986,13.085
+"New Zealand",1987,13.402
+"New Zealand",1988,13.569
+"New Zealand",1989,14.124
+"New Zealand",1990,14.42
+"New Zealand",1991,14.252
+"New Zealand",1992,14.679
+"New Zealand",1993,15.605
+"New Zealand",1994,16.686
+"New Zealand",1995,17.402
+"New Zealand",1996,17.879
+"New Zealand",1997,18.51
+"New Zealand",1998,18.669
+"New Zealand",1999,19.937
+"New Zealand",2000,20.789
+"New Zealand",2001,21.825
+"New Zealand",2002,22.662
+"New Zealand",2003,23.728
+"Norway",1960,1.713
+"Norway",1961,1.823
+"Norway",1962,1.905
+"Norway",1963,1.991
+"Norway",1964,2.112
+"Norway",1965,2.268
+"Norway",1966,2.417
+"Norway",1967,2.62
+"Norway",1968,2.784
+"Norway",1969,3.035
+"Norway",1970,3.213
+"Norway",1971,3.523
+"Norway",1972,3.814
+"Norway",1973,4.138
+"Norway",1974,4.728
+"Norway",1975,5.458
+"Norway",1976,6.116
+"Norway",1977,6.742
+"Norway",1978,7.412
+"Norway",1979,8.354
+"Norway",1980,9.557
+"Norway",1981,10.548
+"Norway",1982,11.205
+"Norway",1983,12.022
+"Norway",1984,13.22
+"Norway",1985,14.354
+"Norway",1986,15.184
+"Norway",1987,15.823
+"Norway",1988,16.299
+"Norway",1989,17.043
+"Norway",1990,18.004
+"Norway",1991,19.212
+"Norway",1992,20.185
+"Norway",1993,21.088
+"Norway",1994,22.534
+"Norway",1995,23.874
+"Norway",1996,26.263
+"Norway",1997,27.776
+"Norway",1998,27.294
+"Norway",1999,30.011
+"Norway",2000,36.273
+"Norway",2001,37.078
+"Norway",2002,36.617
+"Norway",2003,37.245
+"Portugal",1960,0.728
+"Portugal",1961,0.783
+"Portugal",1962,0.848
+"Portugal",1963,0.905
+"Portugal",1964,0.979
+"Portugal",1965,1.084
+"Portugal",1966,1.17
+"Portugal",1967,1.293
+"Portugal",1968,1.475
+"Portugal",1969,1.592
+"Portugal",1970,1.916
+"Portugal",1971,2.153
+"Portugal",1972,2.42
+"Portugal",1973,2.845
+"Portugal",1974,3.048
+"Portugal",1975,3.045
+"Portugal",1976,3.407
+"Portugal",1977,3.784
+"Portugal",1978,4.12
+"Portugal",1979,4.663
+"Portugal",1980,5.263
+"Portugal",1981,5.812
+"Portugal",1982,6.263
+"Portugal",1983,6.479
+"Portugal",1984,6.57
+"Portugal",1985,6.959
+"Portugal",1986,7.414
+"Portugal",1987,8.126
+"Portugal",1988,9.057
+"Portugal",1989,10.042
+"Portugal",1990,10.894
+"Portugal",1991,11.783
+"Portugal",1992,12.219
+"Portugal",1993,12.236
+"Portugal",1994,12.614
+"Portugal",1995,13.413
+"Portugal",1996,13.974
+"Portugal",1997,14.804
+"Portugal",1998,15.401
+"Portugal",1999,16.363
+"Portugal",2000,17.353
+"Portugal",2001,18.071
+"Portugal",2002,18.799
+"Portugal",2003,17.603
+"Spain",1960,1.074
+"Spain",1961,1.201
+"Spain",1962,1.335
+"Spain",1963,1.467
+"Spain",1964,1.554
+"Spain",1965,1.678
+"Spain",1966,1.841
+"Spain",1967,1.954
+"Spain",1968,2.16
+"Spain",1969,2.447
+"Spain",1970,2.715
+"Spain",1971,2.951
+"Spain",1972,3.293
+"Spain",1973,3.71
+"Spain",1974,4.227
+"Spain",1975,4.6
+"Spain",1976,4.965
+"Spain",1977,5.364
+"Spain",1978,5.761
+"Spain",1979,6.188
+"Spain",1980,6.856
+"Spain",1981,7.447
+"Spain",1982,7.957
+"Spain",1983,8.378
+"Spain",1984,8.812
+"Spain",1985,9.259
+"Spain",1986,9.744
+"Spain",1987,10.542
+"Spain",1988,11.434
+"Spain",1989,12.417
+"Spain",1990,13.365
+"Spain",1991,14.152
+"Spain",1992,14.564
+"Spain",1993,14.699
+"Spain",1994,15.325
+"Spain",1995,16.032
+"Spain",1996,16.72
+"Spain",1997,17.42
+"Spain",1998,18.479
+"Spain",1999,19.817
+"Spain",2000,21.074
+"Spain",2001,22.257
+"Spain",2002,23.756
+"Spain",2003,24.812
+"Switzerland",1960,3.387
+"Switzerland",1961,3.625
+"Switzerland",1962,3.788
+"Switzerland",1963,3.946
+"Switzerland",1964,4.158
+"Switzerland",1965,4.36
+"Switzerland",1966,4.575
+"Switzerland",1967,4.79
+"Switzerland",1968,5.138
+"Switzerland",1969,5.645
+"Switzerland",1970,6.382
+"Switzerland",1971,6.938
+"Switzerland",1972,7.406
+"Switzerland",1973,7.998
+"Switzerland",1974,8.8
+"Switzerland",1975,8.934
+"Switzerland",1976,9.368
+"Switzerland",1977,10.24
+"Switzerland",1978,11.003
+"Switzerland",1979,12.189
+"Switzerland",1980,13.853
+"Switzerland",1981,15.338
+"Switzerland",1982,15.963
+"Switzerland",1983,16.611
+"Switzerland",1984,17.71
+"Switzerland",1985,18.812
+"Switzerland",1986,19.458
+"Switzerland",1987,20.12
+"Switzerland",1988,21.334
+"Switzerland",1989,22.965
+"Switzerland",1990,24.518
+"Switzerland",1991,24.84
+"Switzerland",1992,25.141
+"Switzerland",1993,25.427
+"Switzerland",1994,26.031
+"Switzerland",1995,26.485
+"Switzerland",1996,26.394
+"Switzerland",1997,27.85
+"Switzerland",1998,28.835
+"Switzerland",1999,28.887
+"Switzerland",2000,30.461
+"Switzerland",2001,30.806
+"Switzerland",2002,32.751
+"Switzerland",2003,33.516
+"UK",1960,2.158
+"UK",1961,2.216
+"UK",1962,2.276
+"UK",1963,2.386
+"UK",1964,2.534
+"UK",1965,2.66
+"UK",1966,2.794
+"UK",1967,2.923
+"UK",1968,3.173
+"UK",1969,3.391
+"UK",1970,3.615
+"UK",1971,3.854
+"UK",1972,4.149
+"UK",1973,4.683
+"UK",1974,5.036
+"UK",1975,5.481
+"UK",1976,5.953
+"UK",1977,6.489
+"UK",1978,7.176
+"UK",1979,7.973
+"UK",1980,8.502
+"UK",1981,9.161
+"UK",1982,9.917
+"UK",1983,10.669
+"UK",1984,11.336
+"UK",1985,12.068
+"UK",1986,12.795
+"UK",1987,13.717
+"UK",1988,14.864
+"UK",1989,15.716
+"UK",1990,16.397
+"UK",1991,16.681
+"UK",1992,17.069
+"UK",1993,17.845
+"UK",1994,18.975
+"UK",1995,19.86
+"UK",1996,20.923
+"UK",1997,22.28
+"UK",1998,23.206
+"UK",1999,23.959
+"UK",2000,25.583
+"UK",2001,27.026
+"UK",2002,28.969
+"UK",2003,29.609
+"USA",1960,2.879
+"USA",1961,2.929
+"USA",1962,3.103
+"USA",1963,3.227
+"USA",1964,3.42
+"USA",1965,3.667
+"USA",1966,3.974
+"USA",1967,4.154
+"USA",1968,4.494
+"USA",1969,4.805
+"USA",1970,4.999
+"USA",1971,5.362
+"USA",1972,5.838
+"USA",1973,6.464
+"USA",1974,6.951
+"USA",1975,7.519
+"USA",1976,8.3
+"USA",1977,9.146
+"USA",1978,10.229
+"USA",1979,11.306
+"USA",1980,12.186
+"USA",1981,13.533
+"USA",1982,13.94
+"USA",1983,15.008
+"USA",1984,16.549
+"USA",1985,17.6
+"USA",1986,18.439
+"USA",1987,19.407
+"USA",1988,20.711
+"USA",1989,22.047
+"USA",1990,23.064
+"USA",1991,23.507
+"USA",1992,24.509
+"USA",1993,25.409
+"USA",1994,26.67
+"USA",1995,27.574
+"USA",1996,28.814
+"USA",1997,30.262
+"USA",1998,31.519
+"USA",1999,33.028
+"USA",2000,34.603
+"USA",2001,35.341
+"USA",2002,36.18
+"USA",2003,37.548
+"West Germany",1960,2.284
+"West Germany",1961,2.388
+"West Germany",1962,2.527
+"West Germany",1963,2.61
+"West Germany",1964,2.806
+"West Germany",1965,3.005
+"West Germany",1966,3.168
+"West Germany",1967,3.241
+"West Germany",1968,3.571
+"West Germany",1969,3.998
+"West Germany",1970,4.367
+"West Germany",1971,4.686
+"West Germany",1972,5.055
+"West Germany",1973,5.553
+"West Germany",1974,6.074
+"West Germany",1975,6.603
+"West Germany",1976,7.367
+"West Germany",1977,8.09
+"West Germany",1978,8.928
+"West Germany",1979,10.067
+"West Germany",1980,11.083
+"West Germany",1981,12.115
+"West Germany",1982,12.761
+"West Germany",1983,13.519
+"West Germany",1984,14.481
+"West Germany",1985,15.291
+"West Germany",1986,15.998
+"West Germany",1987,16.679
+"West Germany",1988,17.786
+"West Germany",1989,18.994
+"West Germany",1990,20.465
+"West Germany",1991,21.602
+"West Germany",1992,22.154
+"West Germany",1993,21.878
+"West Germany",1994,22.371
+"West Germany",1995,23.035
+"West Germany",1996,23.742
+"West Germany",1997,24.156
+"West Germany",1998,24.931
+"West Germany",1999,25.755
+"West Germany",2000,26.943
+"West Germany",2001,27.449
+"West Germany",2002,28.348
+"West Germany",2003,28.855

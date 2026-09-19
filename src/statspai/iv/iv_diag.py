@@ -91,7 +91,10 @@ class IVDiagResult(ResultProtocolMixin):
         Olea–Pflueger (2013) robust effective F.
     tF_critical_value : float
         Lee et al. (2022, AER) tF adjusted 5 % critical value at the
-        observed first-stage F. ``inf`` if F < 3.84.
+        effective F (the robust / cluster first-stage Wald F, matching the
+        variance of ``se_2sls``), as R ``ivDiag`` computes it. ``inf`` if
+        that F is below 4; ``nan`` with more than one instrument, where
+        the tF procedure is not defined.
     ar_stat, ar_pvalue : float
         Anderson–Rubin (1949) F-statistic and p-value at ``h0``.
     ar_ci : tuple[float, float]
@@ -112,8 +115,8 @@ class IVDiagResult(ResultProtocolMixin):
         Conley–Hansen–Rossi LTZ sensitivity CI under
         ``gamma_var = (gamma_sd) ** 2``.
     tF_adjusted_ci : tuple[float, float] | None
-        ``beta ± tF_critical_value × se``. Falls back to ``±inf`` when
-        ``F < 3.84`` (per LMMP 2022).
+        ``beta ± tF_critical_value × se``. ``±inf`` when the effective F
+        is below 4, ``nan`` with more than one instrument.
     tsls_late_caveat : str | None
         BBMT (2022/2025) / Słoczyński (2024) caveat text whenever the
         specification is at risk of negative-weight LATE pathologies.
@@ -569,18 +572,45 @@ def _two_sls_point(
 
 
 def _ols_point(
-    Y: np.ndarray, D: np.ndarray, W: np.ndarray
+    Y: np.ndarray,
+    D: np.ndarray,
+    W: np.ndarray,
+    cluster: Optional[np.ndarray] = None,
+    vcov: str = "HC1",
+    n_absorbed: int = 0,
 ) -> Tuple[float, float, np.ndarray]:
-    """Return (beta_ols, se_ols, residuals)."""
+    """Return (beta_ols, se_ols, residuals).
+
+    The standard error uses the same ``vcov`` / ``cluster`` choice and the
+    same finite-sample factors as the 2SLS standard error it is printed
+    beside (``_se_2sls_robust``), which is also what ``ivDiag`` reports.
+    Through 1.28.0 it was always the homoskedastic SE, whatever ``vcov``
+    and ``cluster`` said.
+    """
     n = len(Y)
     X = np.column_stack([D.reshape(-1, 1), W])
     coef, *_ = np.linalg.lstsq(X, Y, rcond=None)
     beta = float(coef[0])
     resid = Y - X @ coef
-    sigma2 = float(resid @ resid) / max(n - X.shape[1], 1)
+    k = X.shape[1] + n_absorbed
     XtX_inv = np.linalg.pinv(X.T @ X)
-    se = float(np.sqrt(sigma2 * XtX_inv[0, 0]))
-    return beta, se, resid
+    if cluster is None and vcov == "classic":
+        sigma2 = float(resid @ resid) / max(n - k, 1)
+        return beta, float(np.sqrt(sigma2 * XtX_inv[0, 0])), resid
+    scores = X * resid[:, None]
+    if cluster is None:
+        if vcov not in ("HC0", "HC1"):
+            raise ValueError(f"vcov must be 'HC0', 'HC1' or 'classic'; got {vcov!r}")
+        scale = n / max(n - k, 1) if vcov == "HC1" else 1.0
+        meat = scores.T @ scores * scale
+    else:
+        _, codes = np.unique(cluster, return_inverse=True)
+        G = int(codes.max()) + 1
+        sums = np.zeros((G, X.shape[1]))
+        np.add.at(sums, codes, scores)
+        meat = sums.T @ sums * (G / max(G - 1, 1) * (n - 1) / max(n - k, 1))
+    cov = XtX_inv @ meat @ XtX_inv
+    return beta, float(np.sqrt(max(cov[0, 0], 0.0))), resid
 
 
 def _se_2sls_robust(
@@ -811,7 +841,8 @@ def iv_diag(
         Which bootstraps to run.  Both can be requested.
     include_clr_ci, include_k_ci : bool
         Optionally invert CLR / K tests on a grid for the matching
-        confidence set (slower; CLR uses Monte-Carlo critical values).
+        confidence set (slower; CLR critical values are the exact
+        conditional quantiles).
     grid_size : int
         Resolution of the AR / CLR / K grid inversion.
     ltz_gamma_sd : float, optional
@@ -851,7 +882,10 @@ def iv_diag(
       :func:`sp.iv.sanderson_windmeijer` per regressor.
     - The tF-corrected CI follows LMMP 2022: it widens (vs. the Wald
       CI) by exactly the multiplicative ratio
-      ``c(F) / 1.96`` and equals ``±∞`` when ``F < 3.84``.
+      ``c(F) / 1.96`` and equals ``±∞`` when ``F < 4``. It is indexed
+      by the effective F and reported only in the just-identified case,
+      as in R ``ivDiag``.
+    - ``se_ols`` follows ``vcov`` / ``cluster`` like ``se_2sls``.
     - The bootstrap is implemented as a pairs (or wild Rademacher)
       bootstrap; see Young (2022, EER 147, 104112) for why analytic SEs
       can be unreliable. Cluster-bootstrap is used automatically when
@@ -916,7 +950,9 @@ def iv_diag(
     ci_analytic_2sls = (beta_2sls - z_crit * se_2sls, beta_2sls + z_crit * se_2sls)
 
     # ── OLS comparator ────────────────────────────────────────────────
-    beta_ols, se_ols, _ = _ols_point(Y, D, W)
+    beta_ols, se_ols, _ = _ols_point(
+        Y, D, W, cluster=cluster_arr, vcov=vcov, n_absorbed=fe_dof
+    )
     t_ols = beta_ols / se_ols if se_ols > 0 else np.nan
     p_ols = float(2 * stats.norm.sf(abs(t_ols))) if np.isfinite(t_ols) else np.nan
     ci_ols = (beta_ols - z_crit * se_ols, beta_ols + z_crit * se_ols)
@@ -936,19 +972,24 @@ def iv_diag(
     )
     first_stage_F = float(ar["first_stage_F"])
     effective_F = float(ar["effective_F"])
-    # LMMP (2022) tF table is published only for alpha = 0.05 and F >= 3.84.
-    # When either guard fails, the AR / weak-IV-robust set is the right
-    # fallback and the t-ratio adjustment is meaningless — store inf.
-    if (
-        not np.isclose(alpha, 0.05)
-        or not np.isfinite(first_stage_F)
-        or first_stage_F < 3.84
-    ):
+    # LMMP (2022) tF: just-identified only, tabulated for alpha = 0.05.
+    # The F it is indexed by must use the same variance estimator as the
+    # t-ratio it adjusts -- the robust / cluster Wald F, which with one
+    # instrument is the Olea-Pflueger effective F. That is what R ivDiag
+    # passes to its tF(); through 1.28.0 this used the homoskedastic
+    # first-stage F whatever ``vcov`` / ``cluster`` said.
+    if k_z != 1:
+        tF_c = np.nan
+        tF_ci = (np.nan, np.nan)
+    elif not np.isclose(alpha, 0.05) or not np.isfinite(effective_F):
         tF_c = np.inf
         tF_ci = (-np.inf, np.inf)
     else:
-        tF_c = tF_critical_value(first_stage_F, alpha=0.05)
-        tF_ci = (beta_2sls - tF_c * se_2sls, beta_2sls + tF_c * se_2sls)
+        tF_c = tF_critical_value(effective_F, alpha=0.05)
+        if np.isfinite(tF_c):
+            tF_ci = (beta_2sls - tF_c * se_2sls, beta_2sls + tF_c * se_2sls)
+        else:
+            tF_ci = (-np.inf, np.inf)
 
     # ── Kleibergen-Paap rk ────────────────────────────────────────────
     kp_rk_lm = kp_rk_lm_pvalue = kp_rk_f = None

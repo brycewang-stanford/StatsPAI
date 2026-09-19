@@ -26,6 +26,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult, EconometricResults
+from ._akm import _akm_fit, _bhj_aggregate, _resid
 
 # ======================================================================
 # ssaggregate — full shift-share 2SLS with AKM SEs
@@ -44,12 +45,33 @@ def ssaggregate(
     alpha: float = 0.05,
 ) -> EconometricResults:
     """
-    Shift-share IV estimation with AKM (2019) corrected standard errors.
+    Shift-share IV with AKM (2019) inference and the BHJ shock-level view.
 
-    Estimates a 2SLS regression where the instrument is a Bartik
-    (shift-share) variable B_i = sum_k s_{ik} g_k, and corrects the
-    variance-covariance matrix to account for cross-sectional correlation
-    induced by shared shocks.
+    Estimates the location-level regression of *y* on *x* (plus
+    *controls* and an intercept). With *shocks* given, *x* is
+    instrumented by the shift-share (Bartik) variable
+    ``B_i = sum_k s_ik g_k`` (just-identified 2SLS); without *shocks*,
+    *x* is taken to be the shift-share variable itself and the model is
+    fitted by OLS (the reduced form / ``reg_ss`` case).
+
+    The reported SE of *x* is the Adao-Kolesar-Morales exposure-robust
+    SE, computed exactly as R ``ShiftShareSE::ivreg_ss`` / ``reg_ss``
+    (and Stata ``ivreg_ss`` / ``reg_ss``): the control-residualised
+    shift-share variable is regressed on the shares to recover the
+    control-adjusted shocks ``hX_k``, and
+    ``SE = sqrt(sum_k (hX_k * s_k' e)^2) / RX``. The diagnostics also
+    carry that package's other rows (Homoscedastic, EHW, region-cluster
+    when *cluster* is given, and the AKM0 null-imposed CI).
+
+    With *shocks* given, the Borusyak-Hull-Jaravel shock-level
+    aggregation (what Stata / R ``ssaggregate`` produce) is returned in
+    ``result.data_info["shock_data"]`` -- per shock ``s_n`` (exposure
+    weight, sums to one) and the exposure-weighted means of the
+    control-residualised *y* and *x* -- together with the shock-level IV
+    coefficient and its HC0 SE (``ivreg2 y (x = g) [aw = s_n], robust``)
+    in the diagnostics. When the shares do not sum to one, the shock-level
+    coefficient equals the location-level one only if the sum of shares is
+    among the *controls*; a warning is raised otherwise.
 
     Parameters
     ----------
@@ -58,32 +80,42 @@ def ssaggregate(
     y : str
         Outcome variable name.
     x : str
-        Endogenous regressor / constructed Bartik IV column in *data*.
-        If the column is the constructed Bartik instrument itself (i.e.
-        the reduced-form specification), the estimator runs OLS and
-        corrects SEs.  If it is an endogenous regressor, a Bartik IV is
-        constructed from *shares* and *shocks* for the first stage.
+        Endogenous regressor (IV mode, *shocks* given) or the shift-share
+        variable itself (OLS mode, *shocks* omitted).
     shares : array-like of shape (n, K)
-        Exposure-share matrix.  ``shares[i, k]`` is unit *i*'s exposure
-        to shock *k*.
+        Exposure-share matrix. ``shares[i, k]`` is unit *i*'s exposure
+        to shock *k*; rows need not sum to one.
     shocks : str or array-like of shape (K,), optional
-        Shock vector.  Either a 1-D array/Series of length K, or a
-        column name in *shock_data*.  If ``None``, the Bartik variable
-        in *x* is used directly (reduced-form mode).
+        Shock vector, or a column name in *shock_data*.
     shock_data : pd.DataFrame, optional
         Shock-level DataFrame (K rows) when *shocks* is a column name.
     controls : list of str, optional
-        Exogenous control variables.
+        Location-level controls (an intercept is always added).
     cluster : str, optional
-        Observation-level cluster variable (not used in the AKM
-        variance; retained for compatibility and diagnostics).
+        Location-level cluster variable (e.g. state) for the
+        ``SE (Reg. cluster)`` diagnostic. The reported SE is AKM.
     alpha : float, default 0.05
-        Significance level.
+        Level of the AKM / AKM0 confidence intervals in the diagnostics.
 
     Returns
     -------
     EconometricResults
-        With AKM-corrected standard errors.
+        Coefficients of the location-level regression; the SE of *x* is
+        AKM, the controls carry HC1 SEs. p-values / CIs are normal-based
+        (as in the reference). Diagnostics: ``SE (AKM)``, ``SE (AKM0)``,
+        ``SE (EHW)``, ``SE (Homoscedastic)``, ``SE (HC1)``, AKM / AKM0 CIs,
+        first-stage F, and (IV mode) ``beta (BHJ shock-level)`` /
+        ``SE (BHJ shock-level, HC0)``.
+
+    Notes
+    -----
+    Convention differences inside the reference itself, reproduced as is:
+    in IV mode the Homoscedastic row uses ``RSS / n`` and EHW has no
+    small-sample factor (it equals HC0); in OLS mode the Homoscedastic
+    row uses ``RSS / (n - p)`` and EHW multiplies by ``n / (n - p)``.
+    ``SE (HC1)`` is the HC1 SE of *x* from the full regression.
+    AKM0 reports the CI half-width over ``z_{1 - alpha/2}`` as its SE; if
+    the CI is unbounded, ``model_info["akm0_ci_type"]`` says so.
 
     Examples
     --------
@@ -116,7 +148,9 @@ def ssaggregate(
     # ------------------------------------------------------------------
     # Parse shares
     # ------------------------------------------------------------------
+    shock_ids = None
     if isinstance(shares, pd.DataFrame):
+        shock_ids = shares.columns.to_numpy()
         S = shares.values.astype(float)
     else:
         S = np.asarray(shares, dtype=float)
@@ -125,6 +159,8 @@ def ssaggregate(
     if S.shape[0] != n:
         raise ValueError(f"shares has {S.shape[0]} rows but data has {n} rows")
     K = S.shape[1]
+    if shock_ids is None:
+        shock_ids = np.arange(K)
 
     # ------------------------------------------------------------------
     # Parse shocks
@@ -150,145 +186,79 @@ def ssaggregate(
         iv_constructed = False
 
     # ------------------------------------------------------------------
-    # Control matrix
+    # Control matrix (always with an intercept)
     # ------------------------------------------------------------------
     controls = controls or []
     for c in controls:
         if c not in data.columns:
             raise ValueError(f"Control '{c}' not found in data")
-
     if controls:
-        W = np.column_stack(
-            [
-                np.ones(n),
-                data[controls].values.astype(float),
-            ]
-        )
+        W = np.column_stack([np.ones(n), data[controls].values.astype(float)])
         control_names = ["Intercept"] + controls
     else:
         W = np.ones((n, 1))
         control_names = ["Intercept"]
 
-    # ------------------------------------------------------------------
-    # Residualise Y, X_endog, and instrument wrt controls
-    # ------------------------------------------------------------------
-    def _residualise(v: np.ndarray, M: np.ndarray) -> np.ndarray:
-        """OLS residuals of v on M."""
-        beta = np.linalg.lstsq(M, v, rcond=None)[0]
-        return np.asarray(v - M @ beta, dtype=float)
+    region = None
+    if cluster is not None:
+        if cluster not in data.columns:
+            raise ValueError(f"cluster column '{cluster}' not found in data")
+        region = data[cluster].to_numpy()
 
-    Y_tilde = _residualise(Y, W)
-    X_tilde = _residualise(X_endog, W)
-
+    # ------------------------------------------------------------------
+    # AKM inference (ShiftShareSE::ivreg_ss / reg_ss conventions)
+    # ------------------------------------------------------------------
     if iv_constructed:
-        B = S @ g  # Bartik IV
-        Z_tilde = _residualise(B, W)
+        B = S @ g  # Bartik instrument
+        akm = _akm_fit(Y, B, S, W, y2=X_endog, region_cvar=region, alpha=alpha)
     else:
-        # Reduced-form: x is already the Bartik, use it as its own instrument
-        Z_tilde = X_tilde.copy()
+        # Reduced form: x is itself the shift-share variable -> OLS.
+        B = X_endog
+        akm = _akm_fit(Y, X_endog, S, W, y2=None, region_cvar=region, alpha=alpha)
 
-    # ------------------------------------------------------------------
-    # 2SLS (or OLS if reduced form)
-    # ------------------------------------------------------------------
+    # First-stage F (homoskedastic partial F on the residualised instrument)
     if iv_constructed:
-        # First stage: X_tilde ~ Z_tilde
+        X_tilde = _resid(X_endog, W)
+        Z_tilde = _resid(B, W)
         gamma_hat = np.dot(Z_tilde, X_tilde) / np.dot(Z_tilde, Z_tilde)
-        X_hat = gamma_hat * Z_tilde
-
-        # Second stage
-        beta_2sls = np.dot(X_hat, Y_tilde) / np.dot(X_hat, X_tilde)
-
-        # Residuals (from actual X, not predicted)
-        eps_hat = Y_tilde - beta_2sls * X_tilde
-
-        # First-stage F
         resid_fs = X_tilde - gamma_hat * Z_tilde
-        rss_restricted = np.dot(X_tilde, X_tilde)  # restricted = no instrument
+        rss_restricted = np.dot(X_tilde, X_tilde)
         rss_full = np.dot(resid_fs, resid_fs)
         df_denom = n - W.shape[1] - 1
         if rss_full <= 1e-12 * max(rss_restricted, 1e-300):
-            # Instrument predicts the regressor (almost) perfectly: the
-            # first-stage F is effectively infinite. Report it as such instead
-            # of dividing by a ~zero residual sum of squares, which raised a
-            # RuntimeWarning and produced a non-finite statistic.
+            # Instrument predicts the regressor (almost) perfectly: report
+            # an infinite F instead of dividing by a ~zero RSS.
             f_stat = np.inf
             f_pvalue = 0.0
         else:
-            f_stat = ((rss_restricted - rss_full) / 1) / (rss_full / max(df_denom, 1))
+            f_stat = (rss_restricted - rss_full) / (rss_full / max(df_denom, 1))
             f_pvalue = stats.f.sf(f_stat, 1, max(df_denom, 1))
-    else:
-        # OLS on residualised data
-        beta_2sls = np.dot(X_tilde, Y_tilde) / np.dot(X_tilde, X_tilde)
-        eps_hat = Y_tilde - beta_2sls * X_tilde
-        f_stat = np.nan
-        f_pvalue = np.nan
 
     # ------------------------------------------------------------------
-    # AKM (2019) variance estimator
+    # Full 2SLS / OLS for all coefficients (HC1 SEs for the controls)
     # ------------------------------------------------------------------
-    # For each shock k:  u_k = sum_i  s_{ik} * Z_tilde_i * eps_hat_i
-    # V_AKM = (X_hat' X_tilde)^{-2}  *  sum_k  u_k^2
-    # (scalar case — single endogenous regressor)
-
-    u_k = np.zeros(K)
-    for k in range(K):
-        u_k[k] = np.sum(S[:, k] * Z_tilde * eps_hat)
-
     if iv_constructed:
-        denom = np.dot(X_hat, X_tilde)
-    else:
-        denom = np.dot(X_tilde, X_tilde)
-
-    var_akm = np.sum(u_k**2) / (denom**2)
-    se_akm = float(np.sqrt(var_akm))
-
-    # ------------------------------------------------------------------
-    # Conventional (HC1) SE for comparison
-    # ------------------------------------------------------------------
-    hc1_scale = n / max(n - W.shape[1] - 1, 1)
-    if iv_constructed:
-        var_hc1 = hc1_scale * np.sum((Z_tilde * eps_hat) ** 2) / (denom**2)
-    else:
-        var_hc1 = hc1_scale * np.sum((X_tilde * eps_hat) ** 2) / (denom**2)
-    se_hc1 = float(np.sqrt(var_hc1))
-
-    # ------------------------------------------------------------------
-    # Also estimate coefficients on controls (from full OLS / 2SLS)
-    # ------------------------------------------------------------------
-    # Re-run the full regression to get all coefficients
-    if iv_constructed:
-        # Full 2SLS with controls
         Z_full = np.column_stack([W, B])
         gamma_full = np.linalg.lstsq(Z_full, X_endog, rcond=None)[0]
-        X_endog_hat_full = Z_full @ gamma_full
-        Xfull = np.column_stack([W, X_endog_hat_full])
+        Xfull = np.column_stack([W, Z_full @ gamma_full])
     else:
         Xfull = np.column_stack([W, X_endog])
-
     Xactual = np.column_stack([W, X_endog])
     all_names = control_names + [x]
 
     XtX_inv = np.linalg.inv(Xfull.T @ Xfull)
     params_full = XtX_inv @ (Xfull.T @ Y)
-
-    # Residuals from actual regressors
     eps_full = Y - Xactual @ params_full
     k_params = len(all_names)
-
-    # Construct SEs for all parameters (use HC1 for controls, AKM for x)
-    hc1_meat = Xfull.T @ np.diag((n / max(n - k_params, 1)) * eps_full**2) @ Xfull
+    hc1_meat = (Xfull * ((n / max(n - k_params, 1)) * eps_full**2)[:, None]).T @ Xfull
     var_full = XtX_inv @ hc1_meat @ XtX_inv
     se_full = np.sqrt(np.diag(var_full))
-    # Override SE for x with AKM
-    se_full[-1] = se_akm
+    se_hc1 = float(se_full[-1])
+    se_full[-1] = akm["se"]["AKM"]
 
-    # ------------------------------------------------------------------
-    # Build result
-    # ------------------------------------------------------------------
     params_s = pd.Series(params_full, index=all_names)
     se_s = pd.Series(se_full, index=all_names)
 
-    # R-squared
     tss = np.sum((Y - np.mean(Y)) ** 2)
     rss = np.sum(eps_full**2)
     r_squared = 1 - rss / tss if tss > 0 else np.nan
@@ -301,26 +271,36 @@ def ssaggregate(
             else "OLS with AKM-corrected SEs"
         ),
         "robust": "AKM (shock-level clustering)",
+        "akm0_ci_type": akm["akm0_ci_type"],
     }
-
     data_info = {
         "nobs": n,
         "df_model": k_params - 1,
         "df_resid": n - k_params,
+        # AKM / EHW inference is asymptotic-normal (as in ShiftShareSE and
+        # Stata reg_ss / ivreg_ss): p-values and CIs use z, not t(n - k).
+        "inference": "z",
         "dependent_var": y,
         "fitted_values": Xactual @ params_full,
         "residuals": eps_full,
+        "_shift_share_inputs": {
+            "y": Y,
+            "endog": X_endog if iv_constructed else None,
+            "shift_share": B,
+            "controls": W,
+        },
     }
-
-    diagnostics = {
-        "R-squared": r_squared,
-        "SE (AKM)": se_akm,
-        "SE (HC1)": se_hc1,
-        "N shocks (K)": K,
-    }
+    diagnostics = _akm_diagnostics(akm, alpha)
+    diagnostics["SE (HC1)"] = se_hc1
+    diagnostics["R-squared"] = r_squared
+    diagnostics["N shocks (K)"] = K
     if iv_constructed:
         diagnostics["First-stage F"] = float(f_stat)
         diagnostics["First-stage F p-value"] = float(f_pvalue)
+        bhj = _bhj_aggregate(Y, X_endog, S, g, W, shock_ids, y, x)
+        data_info["shock_data"] = bhj["shock_data"]
+        diagnostics["beta (BHJ shock-level)"] = bhj["beta"]
+        diagnostics["SE (BHJ shock-level, HC0)"] = bhj["se_hc0"]
 
     return EconometricResults(
         params=params_s,
@@ -331,8 +311,24 @@ def ssaggregate(
     )
 
 
+def _akm_diagnostics(akm: dict, alpha: float) -> dict:
+    """Flatten an ``_akm_fit`` result into scalar diagnostics."""
+    out = {}
+    for row in ("Homoscedastic", "EHW", "Reg. cluster", "AKM", "AKM0"):
+        if np.isnan(akm["se"][row]):
+            continue
+        out[f"SE ({row})"] = akm["se"][row]
+        out[f"p-value ({row})"] = float(akm["p"][row])
+    lvl = f"{100 * (1 - alpha):g}%"
+    out[f"CI lower (AKM, {lvl})"] = float(akm["ci_l"]["AKM"])
+    out[f"CI upper (AKM, {lvl})"] = float(akm["ci_r"]["AKM"])
+    out[f"CI lower (AKM0, {lvl})"] = float(akm["ci_l"]["AKM0"])
+    out[f"CI upper (AKM0, {lvl})"] = float(akm["ci_r"]["AKM0"])
+    return out
+
+
 # ======================================================================
-# shift_share_se — correct an existing IV result
+# shift_share_se — AKM inference for an existing shift-share result
 # ======================================================================
 
 
@@ -342,33 +338,33 @@ def shift_share_se(
     alpha: float = 0.05,
 ) -> EconometricResults:
     """
-    Correct standard errors of an existing IV result for shift-share structure.
+    Replace the SE of a shift-share regression with the AKM (2019) SE.
 
-    Takes an ``EconometricResults`` from any StatsPAI IV estimator and
-    replaces the SEs with AKM (2019) shock-clustered SEs.
+    Takes the result of :func:`sp.bartik` (2SLS with the shift-share
+    instrument) or :func:`sp.ssaggregate` and recomputes the inference on
+    the last coefficient (the endogenous regressor, or the shift-share
+    variable in a reduced form) with the Adao-Kolesar-Morales
+    exposure-robust formula, exactly as R ``ShiftShareSE::ivreg_ss`` /
+    ``reg_ss`` and Stata ``ivreg_ss`` / ``reg_ss`` compute it.
 
     Parameters
     ----------
     iv_result : EconometricResults
-        An IV estimation result that contains ``residuals`` and a
-        ``fitted_values`` in its ``data_info``, plus the instrument
-        residualised values (stored by Bartik estimator).
+        Result of ``sp.bartik`` or ``sp.ssaggregate``. These record the
+        outcome, endogenous regressor, shift-share instrument and controls
+        the AKM formula needs; results from other estimators do not, and
+        are rejected.
     shares : array-like of shape (n, K)
-        Exposure-share matrix.
+        Exposure-share matrix (need not sum to one).
     alpha : float, default 0.05
-        Significance level.
+        Level for the AKM / AKM0 confidence intervals.
 
     Returns
     -------
     EconometricResults
-        A new result object with AKM-corrected standard errors.
-
-    Notes
-    -----
-    This function requires that the IV result's ``data_info`` contains
-    ``'residuals'``.  It computes the AKM variance using the residuals
-    and shares.  For the instrument residuals, it uses the fitted
-    values from the first stage (``fitted_values``).
+        Same point estimates; the last SE is the AKM SE and the
+        diagnostics carry the Homoscedastic / EHW / AKM / AKM0 rows.
+        p-values and CIs are normal-based, as in the reference.
 
     Examples
     --------
@@ -395,73 +391,55 @@ def shift_share_se(
         S = np.asarray(shares, dtype=float)
     if S.ndim == 1:
         S = S.reshape(-1, 1)
-    K = S.shape[1]
-    n = S.shape[0]
 
-    # Extract residuals
-    eps = iv_result.data_info.get("residuals")
-    if eps is None:
+    inputs = iv_result.data_info.get("_shift_share_inputs")
+    if inputs is None:
         raise ValueError(
-            "iv_result must contain 'residuals' in data_info. "
-            "Re-run the IV estimator with StatsPAI to ensure residuals "
-            "are stored."
+            "shift_share_se needs the outcome, endogenous regressor, "
+            "shift-share instrument and controls of the fit; only results "
+            "of sp.bartik or sp.ssaggregate record them. Fit the model with "
+            "sp.bartik(...) or sp.ssaggregate(...) instead."
         )
-    eps = np.asarray(eps, dtype=float)
-    if len(eps) != n:
-        raise ValueError(f"shares has {n} rows but residuals have {len(eps)} elements")
+    n = len(inputs["y"])
+    if S.shape[0] != n:
+        raise ValueError(f"shares has {S.shape[0]} rows but the fit has {n}")
 
-    # We need the residualised instrument.  Use fitted values as proxy
-    # for the instrument projection.
-    fitted = iv_result.data_info.get("fitted_values")
-    if fitted is not None:
-        fitted = np.asarray(fitted, dtype=float)
-        # Residualise fitted (remove mean)
-        Z_tilde = fitted - np.mean(fitted)
-    else:
-        # Fallback: use the Bartik instrument from shares (assume unit shocks)
-        Z_tilde = S @ np.ones(K)
-        Z_tilde = Z_tilde - np.mean(Z_tilde)
-
-    # Original params
+    akm = _akm_fit(
+        inputs["y"],
+        inputs["shift_share"],
+        S,
+        inputs["controls"],
+        y2=inputs["endog"],
+        alpha=alpha,
+    )
     params = iv_result.params.copy()
+    if not np.isclose(akm["beta"], float(params.iloc[-1]), rtol=1e-8, atol=1e-12):
+        raise ValueError(
+            "The recorded shift-share inputs do not reproduce the fitted "
+            f"coefficient ({akm['beta']!r} vs {float(params.iloc[-1])!r})."
+        )
     old_se = iv_result.std_errors.copy()
-
-    # AKM correction for the last parameter (endogenous regressor)
-    # u_k = sum_i s_{ik} * Z_tilde_i * eps_i
-    u_k = np.zeros(K)
-    for k in range(K):
-        u_k[k] = np.sum(S[:, k] * Z_tilde * eps)
-
-    denom = np.dot(Z_tilde, Z_tilde)
-    if denom == 0:
-        raise ValueError("Instrument has zero variation after residualising")
-
-    # For the endogenous variable coefficient:
-    # The 2SLS denominator is X_hat' X_tilde ≈ Z_tilde' X_tilde
-    # We approximate with Z_tilde' Z_tilde (exact if just-identified)
-    var_akm = np.sum(u_k**2) / (denom**2)
-    se_akm = float(np.sqrt(var_akm))
-
-    # Replace last SE with AKM
     new_se = old_se.copy()
-    new_se.iloc[-1] = se_akm
+    new_se.iloc[-1] = akm["se"]["AKM"]
 
-    # Build new result
     model_info = dict(iv_result.model_info)
     model_info["robust"] = "AKM (shock-level clustering)"
     model_info["original_method"] = model_info.get("method", "")
     model_info["method"] = model_info.get("method", "") + " + AKM SE correction"
+    model_info["akm0_ci_type"] = akm["akm0_ci_type"]
 
+    data_info = dict(iv_result.data_info)
+    data_info["inference"] = "z"
     diagnostics = dict(iv_result.diagnostics)
-    diagnostics["SE (AKM)"] = se_akm
+    diagnostics.update(_akm_diagnostics(akm, alpha))
     diagnostics["SE (original)"] = float(old_se.iloc[-1])
-    diagnostics["N shocks (K)"] = K
+    diagnostics["N shocks (K)"] = S.shape[1]
 
     return EconometricResults(
         params=params,
         std_errors=new_se,
         model_info=model_info,
-        data_info=iv_result.data_info,
+        data_info=data_info,
         diagnostics=diagnostics,
     )
 

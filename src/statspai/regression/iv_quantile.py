@@ -25,10 +25,19 @@ Capabilities
 - Bootstrap standard errors for α̂(τ) (pairs bootstrap)
 - Multiple quantiles in one call
 
-Benchmarks
-----------
-Matches Chernozhukov-Hansen's Stata ``ivqreg2`` (Kaplan 2019) and R's
-``quantreg::ivqreg`` conventions.
+Reference behaviour
+-------------------
+With one endogenous regressor and one instrument the estimate is the root
+of the instrument's coefficient in the auxiliary quantile regression; it
+reproduces that root computed with R ``quantreg::rq``
+(tests/reference_parity/test_rd_iv_R_parity.py). With more instruments
+than endogenous regressors the criterion here weights ``b(alpha)`` by the
+identity, whereas Chernozhukov & Hansen weight it by the inverse of its
+estimated covariance, so the over-identified estimates are a different
+(consistent) member of the family. (An earlier version of this docstring
+claimed agreement with Stata ``ivqreg2`` and "R's ``quantreg::ivqreg``";
+``ivqreg2`` implements the Machado-Santos Silva moments estimator and
+``quantreg`` has no ``ivqreg``.)
 
 References
 ----------
@@ -346,7 +355,9 @@ def _fit_ivqreg_one(
         Y_tilde = Y - D @ alpha_vec
         coef = _qreg_fit(Y_tilde, W, tau)  # (kx + kz,)
         b_hat = coef[kx:]
-        # Identity weighting — extend to optimal later
+        # Identity weighting. Chernozhukov-Hansen weight by the inverse of
+        # b_hat's covariance; the two coincide only when the model is
+        # just identified (see the module docstring).
         crit = float(b_hat @ b_hat)
         return crit, coef, b_hat
 

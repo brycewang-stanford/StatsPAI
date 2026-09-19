@@ -1,35 +1,47 @@
 """
-Harvesting Differences-in-Differences and Event-Study Designs.
+Harvesting every valid 2x2 DID comparison in a staggered panel.
 
-Implements the unified-estimation framework from MIT/NBER Working Paper
-34550 (2025), which "harvests" every valid 2×2 DID comparison implied by
-staggered-adoption panel data and combines them into a single
-precision-weighted estimator.
+For each treated cohort ``g`` and event horizon ``e`` the building block is
+the 2x2 comparison
 
-The core idea is that under parallel-trends, any 2×2 comparison
+    ATT_hat(g, g + e) =
+        [ Ybar(g, g+e) - Ybar(g, g-1) ] - [ Ybar(C, g+e) - Ybar(C, g-1) ]
 
-    ATT_hat(g, g', t₁, t₂) =
-        [ Ȳ(g, t₂) - Ȳ(g, t₁) ] - [ Ȳ(g', t₂) - Ȳ(g', t₁) ]
+with a *universal* base period ``g - 1`` (``reference=-1``) and a clean
+control group ``C`` = never-treated units plus cohorts not yet treated at
+``max(g - 1, g + e)`` -- cohort ``g`` itself excluded. That is exactly the
+Callaway--Sant'Anna ATT(g, t) of ``did::att_gt(control_group =
+"notyettreated", base_period = "universal")`` without covariates
+[@callaway2021difference]. The cells are then combined into an event study
+(per horizon, over cohorts) and one post-treatment aggregate, under a
+choice of weights.
 
-where ``g`` is a treated cohort, ``g'`` a control cohort that is not yet
-treated at ``t₂``, and ``t₁ < t₂`` straddle ``g``'s treatment time, is an
-unbiased estimator of the treatment effect on cohort ``g`` between
-``t₁`` and ``t₂``.  Harvesting collects all such valid comparisons and
-weights them by inverse variance.
+Scope of the name. "Harvesting" follows the title of Abadie, Angrist,
+Frandsen & Pischke (NBER WP 34550, 2025) [@abadie2025harvesting], a survey
+chapter on DiD and event-study evidence. That chapter does not define this
+estimator or its inverse-variance aggregation; earlier versions of this
+docstring said it did, which was wrong. The building blocks are
+Callaway--Sant'Anna's; the ``precision`` aggregation is StatsPAI's own.
 
-The result is numerically equivalent to the Callaway–Sant'Anna (2021)
-ATT(g, t) building blocks when restricted to a single horizon ``t₂``,
-but generalises naturally to (a) pre-period placebo tests, (b)
-event-study aggregation, and (c) long-difference contrasts.
+Inference. Every cell carries its unit-level influence function (the
+``did`` package's analytic form: population variances, divisor ``n``), so
+event-study and aggregate standard errors include the covariance created by
+units shared across cells -- the same never-treated controls serve every
+cohort, and the same treated units appear at every horizon. With
+``weighting="n_treated"`` the event-study weights are estimated cohort
+shares and their own influence function is added, which reproduces
+``did::aggte(type = "dynamic")`` exactly. ``precision`` weights are treated
+as fixed (their estimation error is ignored, as in feasible GLS).
 
 References
 ----------
-Abadie, Angrist, Frandsen & Pischke (NBER WP 34550, 2025).
-"Harvesting Differences-in-Differences and Event-Study Evidence."
+callaway2021difference
+abadie2025harvesting
 """
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -88,7 +100,7 @@ class HarvestDIDResult(ResultProtocolMixin):
     def summary(self) -> str:
         lo, hi = self.ci
         lines = [
-            "Harvesting DID / Event-Study (Abadie et al. NBER WP 34550, 2025)",
+            "Harvesting DID / Event-Study (2x2 cells harvested and aggregated)",
             "-" * 62,
             f"  Aggregate ATT          : {self.estimate:+.6f}",
             f"  Standard error         : {self.se:.6f}",
@@ -159,66 +171,58 @@ def _harvest_comparisons(
     never_value: Any,
     horizons: Sequence[int],
     reference: int,
-) -> List[Dict[str, Any]]:
+) -> tuple:
     """Enumerate all valid 2x2 DID comparisons indexed by (cohort, horizon).
 
     For each treated cohort ``g`` and each target horizon ``e``:
 
-      - Let t₂ = g + e  (outcome period)
-      - Let t₁ = g + reference  (pre-treatment reference period)
-      - Let the control group be the union of all cohorts not yet
-        treated at t₂ (including never-treated).
+      - t2 = g + e (outcome period), t1 = g + reference (base period);
+      - the control group is every never-treated unit plus every cohort
+        not yet treated at ``max(t1, t2)``, excluding cohort ``g`` itself
+        (for a pre-period placebo, ``max(t1, t2) = t1 < g`` and cohort
+        ``g`` would otherwise count as its own control).
 
-    The 2×2 estimate contrasts (ybar_{g, t₂} − ybar_{g, t₁}) against
-    the weighted mean of the same contrast over the control group.
+    Returns ``(records, psi, n_units, unit_cohort)``: ``psi`` is the
+    ``(n_units, n_cells)`` matrix of unit-level influence functions,
+    scaled so that ``se = sqrt(sum(psi**2)) / n_units``.
     """
     means = means.merge(cohort_map, on=unit, how="left")
     records: List[Dict[str, Any]] = []
-    # Index by (unit, time) for fast lookup via pivot tables.
+    psis: List[np.ndarray] = []
     pivot_y = means.pivot(index=unit, columns=time, values="ybar")
     all_times = sorted(pivot_y.columns.tolist())
-    cohorts = cohort_map.set_index(unit)["__g__"]
+    cohorts = cohort_map.drop_duplicates(subset=[unit]).set_index(unit)["__g__"]
+    cohorts = cohorts.reindex(pivot_y.index)
+    n_units = len(pivot_y.index)
+    is_never = (cohorts == never_value) | cohorts.isna()
     unique_gs = sorted(
         [g for g in cohorts.unique() if g != never_value and pd.notna(g)]
     )
 
     for g in unique_gs:
-        treated_units = cohorts[cohorts == g].index
+        is_g = (cohorts == g).to_numpy()
         for e in horizons:
             t2 = g + e
             t1 = g + reference
             if t1 not in all_times or t2 not in all_times or t1 == t2:
                 continue
-            # Clean-control cohorts: not yet treated in either reference
-            # period (max of t1, t2 guards pre-period placebos too).
             t_last = max(t1, t2)
-            control_mask = (cohorts == never_value) | (cohorts > t_last)
-            control_units = cohorts[control_mask].index
-            if len(treated_units) == 0 or len(control_units) == 0:
+            ctrl = (is_never | ((cohorts > t_last) & (cohorts != g))).to_numpy()
+            if not is_g.any() or not ctrl.any():
                 continue
-            try:
-                yT_t2 = pivot_y.loc[treated_units, t2].to_numpy(dtype=float)
-                yT_t1 = pivot_y.loc[treated_units, t1].to_numpy(dtype=float)
-                yC_t2 = pivot_y.loc[control_units, t2].to_numpy(dtype=float)
-                yC_t1 = pivot_y.loc[control_units, t1].to_numpy(dtype=float)
-            except KeyError:
+            d = (pivot_y[t2] - pivot_y[t1]).to_numpy(dtype=float)
+            ok = np.isfinite(d)
+            sel_T = is_g & ok
+            sel_C = ctrl & ok
+            if sel_T.sum() < 2 or sel_C.sum() < 2:
                 continue
-            # Drop units missing any of the four cells.
-            ok_T = np.isfinite(yT_t2) & np.isfinite(yT_t1)
-            ok_C = np.isfinite(yC_t2) & np.isfinite(yC_t1)
-            if ok_T.sum() < 2 or ok_C.sum() < 2:
-                continue
-            # Unit-level long differences.
-            dT = yT_t2[ok_T] - yT_t1[ok_T]
-            dC = yC_t2[ok_C] - yC_t1[ok_C]
-            delta_T = float(np.mean(dT))
-            delta_C = float(np.mean(dC))
-            att = float(delta_T - delta_C)
-            # Cluster-robust variance at the unit level: difference of two
-            # independent sample means.
-            v_T = float(np.var(dT, ddof=1) / len(dT)) if len(dT) > 1 else 0.0
-            v_C = float(np.var(dC, ddof=1) / len(dC)) if len(dC) > 1 else 0.0
-            se = float(np.sqrt(max(v_T + v_C, 0.0)))
+            dT = d[sel_T]
+            dC = d[sel_C]
+            att = float(dT.mean() - dC.mean())
+            psi = np.zeros(n_units, dtype=float)
+            psi[sel_T] = (dT - dT.mean()) * (n_units / sel_T.sum())
+            psi[sel_C] = -(dC - dC.mean()) * (n_units / sel_C.sum())
+            se = float(np.sqrt(np.sum(psi**2)) / n_units)
             records.append(
                 dict(
                     cohort=g,
@@ -227,12 +231,33 @@ def _harvest_comparisons(
                     t2=t2,
                     att=att,
                     se=se,
-                    weight=float(ok_T.sum()),
-                    n_treated=int(ok_T.sum()),
-                    n_control=int(ok_C.sum()),
+                    weight=float(sel_T.sum()),
+                    n_treated=int(sel_T.sum()),
+                    n_control=int(sel_C.sum()),
                 )
             )
-    return records
+            psis.append(psi)
+    psi_mat = np.column_stack(psis) if psis else np.zeros((n_units, 0), dtype=float)
+    return records, psi_mat, n_units, cohorts.to_numpy()
+
+
+def _share_wif(
+    cohorts_of_cells: np.ndarray,
+    unit_cohort: np.ndarray,
+    n_units: int,
+) -> np.ndarray:
+    """Influence function of cohort-share weights ``w_k = p_{g_k} / sum p``.
+
+    ``did``'s ``wif()``: column ``k`` is
+    ``(1{G=g_k} - p_k) / sum(p) - sum_j (1{G=g_j} - p_j) * p_k / sum(p)^2``
+    with ``p_g`` the share of units in cohort ``g``.
+    """
+    ind = np.column_stack([(unit_cohort == g).astype(float) for g in cohorts_of_cells])
+    p = ind.mean(axis=0)
+    sp_ = p.sum()
+    if1 = (ind - p) / sp_
+    if2 = np.sum(ind - p, axis=1, keepdims=True) * (p / sp_**2)[None, :]
+    return if1 - if2
 
 
 # ---------------------------------------------------------------------------
@@ -297,12 +322,22 @@ def harvest_did(
 
     Notes
     -----
-    Inference assumes independence across **units within each cohort**
-    (unit-level cluster-robust SEs), but the cross-horizon covariance
-    induced by shared units is ignored when aggregating the event study
-    into a single ATT.  For strict inference, wrap this call in
-    :func:`sp.inference.bootstrap` at the unit level, or use the
-    per-comparison table to feed :func:`sp.inference.multiway_cluster_vcov`.
+    Units are the sampling unit (independent across units, arbitrary
+    dependence over time within a unit). Each 2x2 cell's standard error is
+    the influence-function form of ``did::att_gt`` (population variances,
+    divisor ``n``); event-study, aggregate and pre-trend inference use the
+    joint covariance of the cells through their unit-level influence
+    functions. Up to StatsPAI 1.28.0 cell SEs used ``ddof=1`` sample
+    variances and every aggregation assumed independent cells, which
+    understated the event-study and aggregate SEs; pre-period placebo
+    cells also counted the treated cohort among its own controls.
+
+    With ``weighting="n_treated"`` the cells and the event study reproduce
+    ``did::att_gt(control_group="notyettreated", base_period="universal")``
+    and ``did::aggte(type="dynamic")`` (``tests/reference_parity/
+    test_did_synth_misc_parity.py``). The post-treatment aggregate is an
+    inverse-variance average over horizons, which has no counterpart in
+    ``did`` (``aggte`` averages horizons equally).
 
     Examples
     --------
@@ -338,7 +373,7 @@ def harvest_did(
     )
     means = _cell_means(data, unit=unit, time=time, outcome=outcome)
 
-    records = _harvest_comparisons(
+    records, psi, n_units, unit_cohort = _harvest_comparisons(
         means,
         cohort_map,
         unit=unit,
@@ -355,17 +390,29 @@ def harvest_did(
     tbl = pd.DataFrame(records)
 
     # --- Per-horizon event-study aggregation ------------------------------
+    # Each horizon's influence function is the weighted sum of its cells'
+    # influence functions, so the covariance created by shared control
+    # units enters the standard error. For ``n_treated`` the weights are
+    # estimated cohort shares and their influence function is added
+    # (did::aggte(type = "dynamic")).
     from scipy.stats import norm as _norm
 
     event_rows = []
+    horizon_if = []
     for e in sorted(tbl["horizon"].unique()):
-        sub = tbl[tbl["horizon"] == e]
+        idx = np.flatnonzero(tbl["horizon"].to_numpy() == e)
+        sub = tbl.iloc[idx]
         w = _weights(sub, weighting)
-        att_e = float(np.average(sub["att"], weights=w))
-        # Variance of weighted mean with weights summing to 1
-        w_n = w / w.sum() if w.sum() > 0 else w
-        var_e = float(np.sum((w_n**2) * (sub["se"].to_numpy() ** 2)))
-        se_e = float(np.sqrt(max(var_e, 0.0)))
+        w_n = w / w.sum()
+        att_c = sub["att"].to_numpy(dtype=float)
+        att_e = float(np.sum(w_n * att_c))
+        if_e = psi[:, idx] @ w_n
+        if weighting == "n_treated":
+            if_e = (
+                if_e
+                + _share_wif(sub["cohort"].to_numpy(), unit_cohort, n_units) @ att_c
+            )
+        se_e = float(np.sqrt(np.sum(if_e**2)) / n_units)
         pv_e = float(2 * _norm.sf(abs(att_e) / se_e)) if se_e > 0 else float("nan")
         event_rows.append(
             dict(
@@ -376,28 +423,48 @@ def harvest_did(
                 n_comparisons=int(len(sub)),
             )
         )
+        horizon_if.append(if_e)
     event_study = pd.DataFrame(event_rows)
+    horizon_if = np.column_stack(horizon_if)
 
     # --- Aggregate ATT over non-negative horizons -------------------------
-    post = event_study[event_study["relative_time"] >= 0]
-    if len(post) == 0:
+    # Inverse-variance weights across horizons (treated as fixed); the
+    # variance uses the full cross-horizon covariance, because the same
+    # treated and control units appear at every horizon.
+    post_idx = np.flatnonzero(event_study["relative_time"].to_numpy() >= 0)
+    if len(post_idx) == 0:
         raise RuntimeError(
             "No post-treatment horizons in the harvest — extend `horizons`."
         )
+    post = event_study.iloc[post_idx]
     w_post = 1.0 / np.maximum(post["se"].to_numpy() ** 2, 1e-12)
-    agg = float(np.average(post["att"], weights=w_post))
     w_post_n = w_post / w_post.sum()
-    agg_var = float(np.sum((w_post_n**2) * (post["se"].to_numpy() ** 2)))
-    agg_se = float(np.sqrt(max(agg_var, 0.0)))
+    agg = float(np.sum(w_post_n * post["att"].to_numpy()))
+    agg_if = horizon_if[:, post_idx] @ w_post_n
+    agg_se = float(np.sqrt(np.sum(agg_if**2)) / n_units)
 
     # --- Pre-trend joint test (Wald of horizon<0 ATTs) --------------------
-    pre = event_study[event_study["relative_time"] < 0]
-    if len(pre) > 0 and (pre["se"] > 0).all():
-        chi2 = float(np.sum((pre["att"] / pre["se"]) ** 2))
+    # Uses the joint covariance of the pre-period horizons: they share the
+    # base period g-1 and the control units, so they are not independent.
+    pre_idx = np.flatnonzero(event_study["relative_time"].to_numpy() < 0)
+    if len(pre_idx) > 0 and (event_study["se"].iloc[pre_idx] > 0).all():
         from scipy.stats import chi2 as _chi2
 
-        pv = float(_chi2.sf(chi2, df=len(pre)))
-        pretrend = {"chi2": chi2, "df": int(len(pre)), "pvalue": pv}
+        b_pre = event_study["att"].to_numpy()[pre_idx]
+        if_pre = horizon_if[:, pre_idx]
+        V_pre = (if_pre.T @ if_pre) / n_units**2
+        rank = int(np.linalg.matrix_rank(V_pre))
+        if rank < len(pre_idx):
+            warnings.warn(
+                "harvest_did: the pre-period covariance matrix is singular "
+                f"(rank {rank} of {len(pre_idx)}); the pre-trend Wald test "
+                "uses its pseudo-inverse with df = rank.",
+                UserWarning,
+                stacklevel=2,
+            )
+        chi2 = float(b_pre @ np.linalg.pinv(V_pre) @ b_pre)
+        pv = float(_chi2.sf(chi2, df=rank))
+        pretrend = {"chi2": chi2, "df": rank, "pvalue": pv}
     else:
         pretrend = {"chi2": float("nan"), "df": 0, "pvalue": float("nan")}
 
@@ -425,6 +492,13 @@ def harvest_did(
             "weighting": weighting,
             "horizons": list(horizons),
             "reference": int(reference),
+            "aggregate_horizon_weights": dict(
+                zip(post["relative_time"].astype(int).tolist(), w_post_n.tolist())
+            ),
+            "se_convention": (
+                "influence function, divisor n (did::att_gt analytic SE); "
+                "event-study and aggregate SEs include cross-cell covariance"
+            ),
         },
         _citation_key="harvest_did",
     )

@@ -15,21 +15,16 @@ Compares against:
       the ``psi`` at which the coefficient on ``H(psi)`` is zero) and the
       *linear* moment-condition g-estimator that StatsPAI uses.
 
-CONVENTION NOTE.  StatsPAI's ``sp.g_estimation`` solves the additive
-SNMM by the **linear** moment condition: it residualises both ``Y`` and
-``A`` on the confounders ``L`` (OLS) and sets
-
-    psi = cov(Y_res, A_res) / var(A_res),
-
-with bootstrap inference.  The book's Program 14.2 instead finds the
-``psi`` that makes the coefficient on ``H(psi) = Y - psi*A`` vanish in a
-*logistic* model ``qsmk ~ H(psi) + L``, with the CI read off where that
-coefficient's Wald test crosses +/-1.96.  Both target the *same*
-estimand under the rank-preserving (no-effect-modification) SNMM, and on
-NHEFS they agree to two decimals (linear 3.4626 vs logistic 3.4611,
-book-rounded 3.4).  The linear estimator is what StatsPAI exposes; the R
-side carries both so we can anchor StatsPAI's point estimate to machine
-precision (linear) *and* confirm it lands on the book's logistic figure.
+CONVENTION NOTE.  Since 1.29 ``sp.g_estimation`` defaults to
+``propensity_model='logit'``: it solves ``sum (A - A_hat)(Y - psi A) = 0``
+jointly with the treatment-free OLS equations, ``A_hat`` a logistic fit on
+``L``. Because the logit score makes ``A - A_hat`` orthogonal to ``L``, this
+is exactly Program 14.2's closed form -- the ``psi`` at which the
+coefficient on ``H(psi) = Y - psi*A`` vanishes in ``qsmk ~ H(psi) + L``
+(3.4611 on NHEFS, the R side's ``snmm_psi``). Before 1.29 StatsPAI used the
+*linear* moment condition (``psi = cov(Y_res, A_res) / var(A_res)`` with OLS
+residuals; 3.4626), which ``propensity_model='linear'`` still reproduces and
+the R side still carries as ``snmm_psi_linear``.
 """
 
 from __future__ import annotations
@@ -62,9 +57,9 @@ def main() -> None:
     se = float(res.se)
     ci = (float(res.ci[0]), float(res.ci[1]))
 
-    # Independent in-script reproduction of StatsPAI's exact linear
-    # moment condition -- a machine-precision self-check that also gives
-    # the value the R "linear g-estimation" anchor must match.
+    # Independent in-script reproduction of the linear moment condition
+    # (StatsPAI's pre-1.29 default, propensity_model='linear') -- the value
+    # the R "linear g-estimation" anchor must match.
     X = dd[covs].values.astype(float)
     A = df["qsmk"].values.astype(float)
     Y = df["wt82_71"].values.astype(float)
@@ -99,7 +94,7 @@ def main() -> None:
             se=None,
             n=n,
             published=3.4,
-            citation="Linear moment-condition g-estimate (StatsPAI algorithm)",
+            citation="Linear moment-condition g-estimate (propensity_model='linear')",
         ),
     ]
 
@@ -114,7 +109,7 @@ def main() -> None:
             "ci_snmm": [ci[0], ci[1]],
             "published_psi": 3.4,
             "published_snmm_ci": [2.5, 4.5],
-            "statspai_matches_linear_check": bool(abs(psi - psi_linear) < 1e-8),
+            "statspai_default_propensity_model": "logit",
         },
     )
     print(

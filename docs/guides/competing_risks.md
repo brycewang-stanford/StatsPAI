@@ -14,12 +14,11 @@
 `0` = right-censored, and `1, 2, ...` = the competing causes. This
 matches R's `cmprsk` and `survival` conventions.
 
-Scope note: these estimators are validated internally (CIF
-self-consistency, analytic-vs-bootstrap variance agreement, Fine-Gray
-recovery on simulated data, Gray's-test calibration) but are **not yet
-parity-certified** against R's `cmprsk` / `survival`. Validate your
-headline number before publication and read
-`sp.describe_function("cuminc")["limitations"]`.
+Reference parity: the cumulative incidence, both of its variances, Gray's
+test and every Fine-Gray number are pinned to R `cmprsk` (`cuminc`, `crr`)
+and Stata (`stcompet`, `stcrreg`) on identical data with tied event and
+censoring times, at 1e-10 or tighter
+(`tests/reference_parity/test_survival_epi_R_parity.py`).
 
 ---
 
@@ -52,8 +51,11 @@ print(ci.cif_table.head())   # group / cause / time / cif / se / ci_lower / ci_u
 ci.plot(cause=1)             # step CIF curve with the other causes overlaid
 ```
 
-Each cause's CIF comes with a delta-method standard error and a
-confidence band (Marubini-Valsecchi / Klein-Moeschberger variance). To
+Each cause's CIF comes with a standard error and a confidence band. The
+default `variance="delta"` is the Marubini-Valsecchi delta method (what
+Stata's `stcompet` reports); `variance="gray"` is Gray's asymptotic
+variance (the `var` of R `cmprsk::cuminc`). `conf_type="log-log"` gives
+stcompet's bounds instead of the default linear band clipped to [0, 1]. To
 read off the cumulative incidence at a specific horizon:
 
 ```python
@@ -74,6 +76,9 @@ ci.plot(cause=1)          # one CIF curve per arm
 Gray's test targets the **subdistribution** hazard, so it answers the
 clinically relevant question "do the groups differ in cumulative
 incidence of cause 1?" rather than the cause-specific-hazard question.
+The statistic is `cmprsk::cuminc`'s: subdistribution risk sets estimated
+per group from the group's KM and CIF, and Gray's asymptotic covariance
+(not a log-rank variance). `rho=` sets the `(1 - F(t-))^rho` weight.
 
 ---
 
@@ -97,8 +102,16 @@ fg.tidy()        # term / coef / shr / std_err / z / p_value / shr_lower / shr_u
 
 Subjects who fail from a competing cause are kept in the risk set with
 time-decaying inverse-probability-of-censoring weights
-`Ĝ(t)/Ĝ(T_i)` (Fine & Gray 1999); the weighted partial likelihood is
-maximised by Newton-Raphson.
+`Ĝ(t-)/Ĝ(T_i-)` (Fine & Gray 1999; the censoring KM at left limits, as
+`cmprsk::crr` and `stcrreg` evaluate it); the weighted partial likelihood
+is maximised by Newton-Raphson.
+
+Standard errors default to Fine and Gray's sandwich (`vce="robust"`),
+whose score residuals include the variability from estimating Ĝ — the
+`var` of `cmprsk::crr`. `small_sample=True` multiplies it by `n/(n-1)`,
+which reproduces Stata's `stcrreg`. `vce="model"` returns the inverse
+information (`crr`'s `invinf`), which is not a valid variance for this
+model and is kept only for comparison.
 
 ---
 
@@ -121,13 +134,9 @@ cumulative incidence.
 
 ## 5. Limitations (read before you publish)
 
-- **Standard errors for `sp.finegray` are model-based** (inverse
-  information). A fully robust sandwich variance that accounts for
-  estimating the censoring distribution Ĝ is not yet implemented; for
-  small samples or heavy censoring, validate the SEs against R's
-  `cmprsk::crr`.
-- **No time-varying covariates** in `sp.finegray` yet.
-- **Parity is not yet certified** against `cmprsk` / `survival`.
+- **No time-varying covariates** in `sp.finegray` yet (cmprsk's `cov2` /
+  `tf`), and no `cengroup` (group-specific censoring distributions).
+- **Gray's test is unstratified** (cmprsk's `strata=` is not exposed).
 
 ## Where to next
 

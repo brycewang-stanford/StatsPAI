@@ -994,6 +994,7 @@ def absorb_ols(
     return_absorber: bool = False,
     solver: str = "map",
     slopes: Optional[Sequence[SlopeSpec]] = None,
+    cluster_df: str = "per_term",
 ) -> dict:
     """OLS with absorbed high-dimensional fixed effects (reghdfe-style).
 
@@ -1021,6 +1022,14 @@ def absorb_ols(
         If True, also return the ``Absorber`` object for reuse.
     solver : {"map", "lsmr", "lsqr"}, default "map"
         Within-transformation backend. See :class:`Absorber`.
+    cluster_df : {"per_term", "min"}, default "per_term"
+        Small-sample factor of the multi-way (inclusion-exclusion) cluster
+        variance.  ``"per_term"`` scales each term by its own
+        ``G_S/(G_S − 1)`` (R ``sandwich::vcovCL``, :func:`multiway_cluster_vcov`);
+        ``"min"`` scales every term by ``G_min/(G_min − 1)`` with ``G_min`` the
+        smallest one-way cluster count -- Stata ``reghdfe``'s convention (and
+        ``fixest``'s ``cluster.df = "min"``).  Identical for one-way
+        clustering.
 
     Returns
     -------
@@ -1056,6 +1065,8 @@ def absorb_ols(
     n, p = X.shape
     if y.shape[0] != n:
         raise ValueError("y and X length mismatch.")  # pragma: no cover
+    if cluster_df not in ("per_term", "min"):
+        raise ValueError(f"cluster_df must be 'per_term' or 'min'; got {cluster_df!r}.")
 
     ab = Absorber(
         fe,
@@ -1137,6 +1148,7 @@ def absorb_ols(
             df_resid=df_resid,
             weights=w,
             n_absorbed=dof_fe_cluster + p,
+            cluster_df=cluster_df,
         )
     if cluster is None:
         dof_fe_cluster = dof_fe
@@ -1293,8 +1305,14 @@ def _cluster_sandwich(
     df_resid: int,
     weights: Optional[np.ndarray] = None,
     n_absorbed: int = 0,
+    cluster_df: str = "per_term",
 ) -> np.ndarray:
-    """Cluster-robust variance (one-way or multi-way, PSD-corrected)."""
+    """Cluster-robust variance (one-way or multi-way, PSD-corrected).
+
+    ``cluster_df='min'`` applies ``G_min/(G_min − 1)`` to every
+    inclusion-exclusion term (reghdfe); ``'per_term'`` each term's own
+    ``G/(G − 1)``.
+    """
     if not isinstance(cluster, list):
         clusters_list = [np.asarray(cluster)]
     else:
@@ -1303,6 +1321,10 @@ def _cluster_sandwich(
     n, k = X.shape
     scores = X * resid[:, None] if weights is None else X * (resid * weights)[:, None]
 
+    g_min: Optional[int] = None
+    if cluster_df == "min" and len(clusters_list) > 1:
+        g_min = min(int(_factorize(c)[0].max()) + 1 for c in clusters_list)
+
     def _one_way(c: np.ndarray) -> np.ndarray:
         codes, _ = _factorize(c)
         G = int(codes.max()) + 1
@@ -1310,7 +1332,8 @@ def _cluster_sandwich(
         agg = np.zeros((G, k))
         np.add.at(agg, codes, scores)
         meat = agg.T @ agg
-        scale = (G / max(G - 1, 1)) * ((n - 1) / max(n - n_absorbed, 1))
+        G_adj = G if g_min is None else g_min
+        scale = (G_adj / max(G_adj - 1, 1)) * ((n - 1) / max(n - n_absorbed, 1))
         return np.asarray(scale * XtX_inv @ meat @ XtX_inv)
 
     if len(clusters_list) == 1:

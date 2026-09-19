@@ -20,6 +20,15 @@ class W:
     id_order : sequence, optional
         Explicit ordering of observation ids. Defaults to ``sorted(neighbors)``.
 
+    Notes
+    -----
+    ``w.transform`` re-weights the weights *as constructed* (never a
+    previous transform): ``"O"`` original, ``"B"`` binary, ``"R"`` row
+    standardised (spdep style ``"W"``), ``"V"`` variance stabilising
+    (spdep ``"S"``: ``w_ij / sqrt(sum_j w_ij^2)`` rescaled to sum ``n``),
+    ``"D"`` globally standardised to sum 1 (spdep ``"U"``). Each matches
+    ``spdep::nb2listw(style=, glist=)`` and libpysal's ``transform``.
+
     Examples
     --------
     >>> import statspai as sp
@@ -52,6 +61,9 @@ class W:
             self._weights = {i: [1.0] * len(v) for i, v in self._neighbors.items()}
         else:
             self._weights = {i: list(weights[i]) for i in self._id_order}
+        # Weights as constructed; every transform is computed from these
+        # (spdep ``nb2listw(glist = ...)`` / libpysal ``transformations["O"]``).
+        self._original = {i: list(v) for i, v in self._weights.items()}
         self._transform = "O"
         self._sparse: Optional[Any] = None
 
@@ -84,23 +96,36 @@ class W:
             raise ValueError(f"transform must be one of {self._VALID_TRANSFORMS}")
         if value == self._transform:
             return
-        base_weights = {i: [1.0] * len(v) for i, v in self._neighbors.items()}
-        if value == "R":
-            for i, ws in base_weights.items():
-                s = sum(ws)
-                if s > 0:
-                    base_weights[i] = [w / s for w in ws]
+        orig = self._original
+        if value == "O":
+            base_weights = {i: list(ws) for i, ws in orig.items()}
+        elif value == "B":
+            base_weights = {i: [1.0] * len(ws) for i, ws in orig.items()}
+        elif value == "R":
+            # Row-standardise the ORIGINAL weights (spdep style "W"):
+            # w_ij / sum_j w_ij. Kernel / inverse-distance weights keep their
+            # relative magnitudes; only binary weights become 1 / k_i.
+            base_weights = {}
+            for i, ws in orig.items():
+                s_ = float(sum(ws))
+                base_weights[i] = [w / s_ for w in ws] if s_ > 0 else [0.0] * len(ws)
         elif value == "V":
-            for i, ws in base_weights.items():
-                s = sum(ws)
-                if s > 0:
-                    base_weights[i] = [w / s * np.sqrt(len(ws)) for w in ws]
-        elif value == "D":
-            total = sum(sum(ws) for ws in base_weights.values())
-            if total > 0:
-                base_weights = {
-                    i: [w / total for w in ws] for i, ws in base_weights.items()
-                }
+            # Variance-stabilising (spdep style "S", Tiefelsdorf et al. 1999):
+            # w_ij / sqrt(sum_j w_ij^2), then rescaled so all weights sum to n.
+            scaled = {}
+            for i, ws in orig.items():
+                q = float(np.sqrt(sum(w * w for w in ws)))
+                scaled[i] = [w / q for w in ws] if q > 0 else [0.0] * len(ws)
+            big_q = float(sum(sum(ws) for ws in scaled.values()))
+            if not big_q > 0:
+                raise ValueError("variance-stabilising transform: all weights are zero")
+            nq = self.n / big_q
+            base_weights = {i: [w * nq for w in ws] for i, ws in scaled.items()}
+        else:  # "D": globally standardised to sum 1 (spdep style "U")
+            total = float(sum(sum(ws) for ws in orig.values()))
+            if not total > 0:
+                raise ValueError("global standardisation: all weights are zero")
+            base_weights = {i: [w / total for w in ws] for i, ws in orig.items()}
         self._weights = base_weights
         self._transform = value
         self._sparse = None

@@ -255,3 +255,7 @@ tests/stata_parity/_ado_rdmulti/
 # full `verify_reproduce_stata.py` run and are pure noise in git status.
 tests/stata_parity/.pdf
 tests/stata_parity/.png
+
+# Private per-family Stata ado trees / R libraries used to generate reference fixtures
+tests/reference_parity/_fixtures/_ado_*/
+tests/reference_parity/_fixtures/_rlib_*/
