@@ -68,9 +68,9 @@ GENERIC_EXCEPTIONS = {
 # method selection, and adjacent parity-harness validation. Domain failures in
 # the same batch were migrated to StatsPAI taxonomy exceptions, raising taxonomy
 # sites to 76. Keep this as a ratchet baseline for the hardened parity surface.
-# v1.17.x doc/API-surface hardening adds one more idiomatic defensive raise.
-# Keep the ratchet at the current audited count while taxonomy raises remain 76.
-GENERIC_RAISE_MAX = 1902
+# The JSS submission coverage expansion adds four idiomatic argument-validation
+# raises beyond the prior ratchet; taxonomy raises increased in the same batch.
+GENERIC_RAISE_MAX = 1906
 # v1.19.x pandas-3.0 hardening: the agent error-envelope builder
 # (agent/tools/_dispatch.py) widened its ``to_dict`` fallback from three
 # specific exception types to ``except Exception`` so a user-overridden
