@@ -180,6 +180,8 @@ PyPI 凭据在 `~/.pypirc`——**不要**提交仓库、不要写进 memory。�
 6. `git tag vX.Y.Z && git push && git push --tags`。
 7. `twine upload dist/*`。
 
+**默认不发 GitHub Release（2026-09-26 起）。** 发版 = TestPyPI + PyPI（本地 twine）+ 打 tag，到此为止；**不要**跑 `gh release create`，也不要在网页上 Publish Release。原因：Publish Release 会同时触发两个不可逆动作——Zenodo 铸出永久不可删的 version DOI，以及 `ci-cd.yml` 的 `release: published` 再上传一次 PyPI（与本地 twine 重复）。只推 tag 两者都不触发。只有用户在**当前会话**明确要求（如期刊需要 Zenodo version DOI）时才发，并先按下文「Zenodo 归档」一条做核对；发版总结里要写明「未创建 GitHub Release」。
+
 ---
 
 ## 8. 文档
