@@ -167,6 +167,58 @@ All notable changes to StatsPAI will be documented in this file.
   an SE is NaN / inf (a parameter at its boundary, separation, an
   unidentified term) instead of printing NaN silently.
 
+- **The partially linear DML estimate is labelled `theta`, not `ATE`.**
+  `sp.dml(model="plr")`, `sp.DoubleMLPLR` and `sp.dml_model_averaging`
+  report `estimand == "theta"`, so `sp.regtable` prints a `theta` row. The
+  PLR parameter equals the ATE only under a constant effect: with
+  heterogeneous effects of a binary treatment it is a variance-weighted
+  average, and with a continuous treatment (the JSS article's years of
+  schooling) a partial coefficient. Estimates are unchanged. See MIGRATION
+  `#plr-theta-label`.
+- **`sp.cate_summary` names its first row `Mean`, not `Mean (ATE)`.** It is
+  the plain average of the fitted conditional effects, which is neither the
+  estimator's doubly-robust average nor, for a continuous treatment, an ATE.
+
+### Parity
+
+- **The original-data RD row runs StatsPAI's own selector.**
+  `tests/orig_parity/05_lee_original.py` called
+  `sp.rdrobust(bwselect="cct")`, which delegates to the official rdrobust
+  Python port, so the row printed in the JSS article (agreement 3.5e-16)
+  compared the method authors' code with itself. It now runs the native
+  default and agrees with R `rdrobust` to 3e-14. Found by extending the
+  call-trace audit to the ledger:
+  `scripts/trace_parity_provenance.py --ledger orig` writes
+  `tests/orig_parity/results/_implementation_trace.json`, and
+  `tests/test_orig_parity_native_contract.py` holds the twelve modules to
+  it (seven native; five NHEFS modules fit their propensity or outcome
+  regression with statsmodels, registered in
+  `compare_orig.ORIG_IMPLEMENTATION_PROVENANCE` and marked in the table).
+- **`tests/r_parity/renv.lock` records every reference package.** Fifteen
+  packages that modules 72-89 load (`did2s`, `interflex`, `staggered`,
+  `DIDmultiplegt` 0.1.4, `DIDmultiplegtDYN`, ...) were missing from the
+  lock generator's list, and `rdrobust` was pinned at 3.0.0 while the
+  goldens were produced by 4.0.0. The lock is regenerated from the
+  reference library (354 packages), all 89 R modules re-verified at 1e-9
+  in it, and `tests/test_r_lock_covers_references.py` scans every R parity
+  script so the list cannot fall behind again.
+- The Track A forest row's verdict reads "one draw (S); T3 by seed study":
+  the single draw is a stochastic screen, the module's T3 grade rests on
+  the seed-replicated study.
+
+### Fixed
+
+- `tests/r_parity/verify_reproduce.py` used a backslash inside an f-string
+  expression, which needs Python 3.12; the Tier 2 reproduction path
+  failed with a `SyntaxError` under the 3.10 lock environment.
+- The JSS release gate also requires `MIGRATION.md` to carry no
+  `## Unreleased` sections (1.31.0 shipped eleven).
+- The Track B caption quotes the exact binomial 99% acceptance region for
+  a 95% interval at B = 1,000, [0.931, 0.967], computed by the table
+  generator, instead of a hand-typed "Wilson band" [0.935, 0.967] that no
+  interval formula produces.
+
+
 ## [1.31.0] — 2026-09-26
 
 ### Added
@@ -600,7 +652,7 @@ All notable changes to StatsPAI will be documented in this file.
   changes from `"permutation"` (in-sample effect changes) to grf's
   `"split"` importance in 1.33.
 
-### ⚠️ Correctness (JSS review v2, 2026-09)
+### ⚠️ Correctness (validation-evidence audit)
 
 - **`sp.iv(..., vce=...)` silently ignored the option.** `vce=` (and
   `vcov=`) fell through `**kwargs` into the k-class fit, which dropped them:
@@ -622,7 +674,7 @@ All notable changes to StatsPAI will be documented in this file.
   feols_ssc.py`). Point estimates are unchanged; `ssc="statspai"` reproduces
   old SEs. See MIGRATION.md.
 
-### Changed (JSS review v3, 2026-09-25)
+### Changed (validation-evidence audit)
 
 - **Evidence notes are the same in a pip install as in a checkout.** The
   registry used to scan `tests/` at import time when a source tree sat next
@@ -649,7 +701,7 @@ All notable changes to StatsPAI will be documented in this file.
   parity drivers are written as `\u` escapes so the archive's scripts print
   byte-identical tables. The two `.gitignore` files left the lock scope.
 
-### Changed (JSS review v2, 2026-09)
+### Changed (validation-evidence audit)
 
 - **`sp.validation_scope` grades outputs, not only configurations.** Each
   evidence row now lists the values it actually ran on every dimension (no
@@ -701,7 +753,7 @@ All notable changes to StatsPAI will be documented in this file.
   (special predictors, nested V, no placebos) on both sides, with the
   package-default workflow (V = I plus donor placebos) reported separately.
 
-### Added (JSS review response, 2026-09)
+### Added (validation-evidence audit)
 
 - **Agent cards for four newly exported causal functions.** `sp.q_learning`,
   `sp.a_learning`, `sp.snmm` and `sp.balke_pearl` became reachable as
@@ -759,7 +811,7 @@ All notable changes to StatsPAI will be documented in this file.
 - `sp.audit` gains a `not_applicable` status (see Fixed) and
   `AuditReport.not_applicable`.
 
-### Changed (JSS review response, 2026-09)
+### Changed (validation-evidence audit)
 
 - **Track A modules 10 and 21 no longer compare R with R.** Both called
   `sp.honest_did(..., backend="honestdid")`, which runs the R package, so
@@ -779,7 +831,7 @@ All notable changes to StatsPAI will be documented in this file.
   re-estimating robust SEs with `sp.iv`, not `sp.regress` (which would drop
   the instruments).
 
-### ⚠️ Correctness (JSS review response, 2026-09)
+### ⚠️ Correctness (validation-evidence audit)
 
 - **`sp.ebalance` standard error.** The SE was a weighted two-sample
   variance with the weights held fixed. It ignores that entropy balancing

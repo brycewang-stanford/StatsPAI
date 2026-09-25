@@ -48,6 +48,10 @@ RESULTS_DIR = HERE / "results"
 DATA_DIR = HERE / "data"
 STAGING_DIR = RESULTS_DIR / "_repro_check"
 
+#: Placeholder for a value R did not report (kept out of the f-string:
+#: a backslash inside an f-string expression needs Python 3.12).
+EM_DASH = "\u2014"
+
 REPRO_REL_TOL = 1e-9
 REPRO_ABS_TOL = 1e-9
 
@@ -215,7 +219,7 @@ def render_report(results: list[dict]) -> str:
                 f"| `{r['module']}` | {badge} "
                 f"| {r['n_shared']}/{r['n_committed']} "
                 f"| {r['worst_rel_est']:.2e} | {r['worst_rel_se']:.2e} "
-                f"| {r.get('r_version') or '\u2014'} | {r.get('n_packages', 0)} |"
+                f"| {r.get('r_version') or EM_DASH} | {r.get('n_packages', 0)} |"
             )
         else:
             lines.append(
@@ -246,7 +250,7 @@ def render_report(results: list[dict]) -> str:
             union.setdefault(p, set()).add(v if isinstance(v, str) else str(v))
     if union:
         lines += ["## Captured R environment (union across re-run modules)", ""]
-        lines.append(f"- R version(s): {', '.join(sorted(r_versions)) or '\u2014'}")
+        lines.append(f"- R version(s): {', '.join(sorted(r_versions)) or EM_DASH}")
         lines += ["", "| package | version(s) |", "|---|---|"]
         for p in sorted(union):
             lines.append(f"| `{p}` | {', '.join(sorted(union[p]))} |")

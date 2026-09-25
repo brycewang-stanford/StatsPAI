@@ -604,7 +604,8 @@ class TestCATEDiagnostics:
         )
         summary = cate_summary(result)
         assert isinstance(summary, pd.DataFrame)
-        assert "Mean (ATE)" in summary.index
+        assert "Mean" in summary.index
+        assert "Mean (ATE)" not in summary.index
         assert "Std. Dev." in summary.index
         assert "Median" in summary.index
         assert summary.loc["N", "CATE"] == result.n_obs

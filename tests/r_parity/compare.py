@@ -149,7 +149,7 @@ TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
         "label": "AIPW ATE",
         "data": "clean-overlap DGP",
         "tol": "0.01",
-        "verdict": "T3; seed-replicated, operator exact",
+        "verdict": "one draw (S); T3 by seed study",
     },
     {
         "module": "11_psm",

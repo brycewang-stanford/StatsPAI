@@ -33,6 +33,10 @@ an internal delegation change behind an unchanged entry script -- makes the
 trace stale, and the contract test refuses it until the module is re-traced.
 
 The result is ``tests/r_parity/results/_implementation_trace.json``.
+``--ledger orig`` runs the same audit over the original-data ledger
+(``tests/orig_parity/``), writing
+``tests/orig_parity/results/_implementation_trace.json``; its contract test
+is ``tests/test_orig_parity_native_contract.py``.
 ``tests/test_parity_implementation_provenance.py`` then asserts that the
 hand-registered classification in
 ``tests/r_parity/compare.py::IMPLEMENTATION_PROVENANCE`` agrees with the
@@ -44,6 +48,7 @@ Usage::
 
     python scripts/trace_parity_provenance.py            # all modules
     python scripts/trace_parity_provenance.py 10 21 35   # selected
+    python scripts/trace_parity_provenance.py --ledger orig   # orig-data ledger
 """
 
 from __future__ import annotations
@@ -62,6 +67,19 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 PARITY = REPO / "tests" / "r_parity"
+
+#: The two same-byte ledgers the audit covers: directory, the env var that
+#: redirects its result writes, and where its trace is written.
+LEDGERS = {
+    "r": {
+        "dir": "tests/r_parity",
+        "env": "STATSPAI_R_PARITY_RESULTS_DIR",
+    },
+    "orig": {
+        "dir": "tests/orig_parity",
+        "env": "STATSPAI_ORIG_PARITY_RESULTS_DIR",
+    },
+}
 if str(REPO / "scripts") not in sys.path:
     sys.path.insert(0, str(REPO / "scripts"))
 
@@ -128,6 +146,14 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(normalized_source_bytes(path)).hexdigest()
 
 
+def _ledger_dir(ledger: str, root: Path = REPO) -> Path:
+    return root / LEDGERS[ledger]["dir"]
+
+
+def trace_path(ledger: str = "r", root: Path = REPO) -> Path:
+    return _ledger_dir(ledger, root) / "results" / "_implementation_trace.json"
+
+
 def _run_one(module_path: Path) -> dict:
     """Execute one Track A module in-process under the boundary profiler."""
     src_root = str(REPO / "src" / "statspai")
@@ -164,7 +190,7 @@ def _run_one(module_path: Path) -> dict:
     subprocess.Popen.__init__ = popen_spy  # type: ignore[method-assign]
     old_argv, old_path = sys.argv, list(sys.path)
     sys.argv = [str(module_path)]
-    sys.path.insert(0, str(PARITY))
+    sys.path.insert(0, str(module_path.parent))
     error = None
     # Import the package before profiling starts: the files recorded as
     # exercised are then the ones on this module's estimation path, not
@@ -215,14 +241,14 @@ def _run_one(module_path: Path) -> dict:
     }
 
 
-def stale_reasons(stem: str, rec: dict, root: Path = REPO) -> list:
+def stale_reasons(stem: str, rec: dict, root: Path = REPO, ledger: str = "r") -> list:
     """Why a module's trace no longer describes the current tree ([] if current).
 
     The trace is stale if the entry script, any StatsPAI file on the traced
     estimation path, or the committed result changed since it was recorded,
     or if the trace predates exercised-source recording.
     """
-    parity = root / "tests" / "r_parity"
+    parity = _ledger_dir(ledger, root)
     reasons = []
     script = parity / f"{stem}.py"
     if rec.get("source_sha256") != (_sha256(script) if script.exists() else None):
@@ -243,18 +269,20 @@ def stale_reasons(stem: str, rec: dict, root: Path = REPO) -> list:
     return reasons
 
 
-def _worker(stem: str, scratch: str) -> dict:
+def _worker(stem: str, scratch: str, ledger: str = "r") -> dict:
     """Run one module in a fresh interpreter so imports and state don't leak."""
+    parity = _ledger_dir(ledger)
     env = dict(os.environ)
-    env["STATSPAI_R_PARITY_RESULTS_DIR"] = str(Path(scratch) / "results")
+    env[LEDGERS[ledger]["env"]] = str(Path(scratch) / "results")
+    Path(scratch, "results").mkdir(parents=True, exist_ok=True)
     env["STATSPAI_R_PARITY_DATA_DIR"] = str(Path(scratch) / "data")
     env["PYTHONPATH"] = os.pathsep.join(
-        [str(REPO / "src"), str(PARITY), env.get("PYTHONPATH", "")]
+        [str(REPO / "src"), str(parity), env.get("PYTHONPATH", "")]
     )
     env.setdefault("MPLBACKEND", "Agg")
     proc = subprocess.run(
-        [sys.executable, __file__, "--child", stem],
-        cwd=PARITY,
+        [sys.executable, __file__, "--child", stem, "--ledger", ledger],
+        cwd=parity,
         env=env,
         capture_output=True,
         text=True,
@@ -277,10 +305,18 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("modules", nargs="*", help="module number prefixes")
     ap.add_argument("--child", help=argparse.SUPPRESS)
+    ap.add_argument(
+        "--ledger",
+        choices=sorted(LEDGERS),
+        default="r",
+        help="r = Track A (tests/r_parity); orig = original-data ledger",
+    )
     args = ap.parse_args()
+    parity = _ledger_dir(args.ledger)
+    out = trace_path(args.ledger)
 
     if args.child:
-        path = PARITY / f"{args.child}.py"
+        path = parity / f"{args.child}.py"
         import warnings
 
         warnings.simplefilter("ignore")
@@ -288,20 +324,20 @@ def main() -> None:
         sys.stdout.write("\n@@TRACE@@" + json.dumps(rec) + "\n")
         return
 
-    stems = sorted(p.stem for p in PARITY.glob("[0-9][0-9]*_*.py"))
+    stems = sorted(p.stem for p in parity.glob("[0-9][0-9]*_*.py"))
     if args.modules:
         stems = [s for s in stems if s.split("_")[0] in set(args.modules)]
-    existing = json.loads(OUT.read_text(encoding="utf-8")) if OUT.exists() else {}
+    existing = json.loads(out.read_text(encoding="utf-8")) if out.exists() else {}
     modules = dict(existing.get("modules", {}))
     with tempfile.TemporaryDirectory() as scratch:
         # Modules that read an already-frozen CSV read the committed copy
         # (``COMMITTED_DATA_DIR``); modules that dump one write to scratch.
         for stem in stems:
-            rec = _worker(stem, scratch)
+            rec = _worker(stem, scratch, args.ledger)
             # The trace is evidence about *this* source; a later edit to the
             # module invalidates it, and the contract test checks the hash.
-            rec["source_sha256"] = _sha256(PARITY / f"{stem}.py")
-            result = PARITY / "results" / f"{stem}_py.json"
+            rec["source_sha256"] = _sha256(parity / f"{stem}.py")
+            result = parity / "results" / f"{stem}_py.json"
             rec["result_sha256"] = _sha256(result) if result.exists() else None
             modules[stem] = rec
             status = "ERROR" if rec.get("error") else "ok"
@@ -317,10 +353,10 @@ def main() -> None:
         "known_package_classes": KNOWN,
         "modules": dict(sorted(modules.items())),
     }
-    OUT.write_text(
+    out.write_text(
         json.dumps(payload, indent=1, sort_keys=False) + "\n", encoding="utf-8"
     )
-    print(f"wrote {OUT.relative_to(REPO)} ({len(modules)} modules)")
+    print(f"wrote {out.relative_to(REPO)} ({len(modules)} modules)")
 
 
 if __name__ == "__main__":

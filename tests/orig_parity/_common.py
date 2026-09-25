@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
@@ -38,7 +39,10 @@ import pandas as pd
 
 HERE = Path(__file__).resolve().parent
 DATA_DIR = HERE / "data"
-RESULTS_DIR = HERE / "results"
+#: Committed results. The call-trace audit
+#: (``scripts/trace_parity_provenance.py --ledger orig``) redirects writes to a
+#: scratch directory so tracing never touches a committed fixture.
+RESULTS_DIR = Path(os.environ.get("STATSPAI_ORIG_PARITY_RESULTS_DIR", HERE / "results"))
 
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)

@@ -64,6 +64,13 @@ an intentional fixture change with
 
 ### Reference packages (canonical R implementations)
 
+This table names the reference package behind each module family; the
+authoritative, complete list (every reference package and its dependency
+closure, 354 packages) is [`renv.lock`](renv.lock), which
+`tests/test_r_lock_covers_references.py` checks against every
+`library()` / `pkg::` call in the R parity scripts.
+
+
 | Package | Version | Module(s) |
 |---|---|---|
 | `AER` | 1.2.16 | 02 (2SLS `ivreg`) |
@@ -98,7 +105,7 @@ an intentional fixture change with
 | `pscl` | 1.5.9 | 63/64 (`zeroinfl` ZIP/ZINB) |
 | `quantreg` | 6.1 | 40 (quantile regression) |
 | `rddensity` | 2.6 | 09 (CJM density) |
-| `rdrobust` | 3.0.0 | 06 (RD bias-corrected) |
+| `rdrobust` | 4.0.0 | 06 (RD bias-corrected), 88 (bandwidth selectors) |
 | `sampleSelection` | 1.2.14 | 43 (Heckman) |
 | `sandwich` | 3.1.1 | 01/14 (HC1, cluster vcov), 51 (Newey–West), 54/55/56 (HC2/HC3, multiway) |
 | `sensemakr` | 0.1.6 | 22 (sensemakr) |
@@ -110,7 +117,35 @@ an intentional fixture change with
 | `tmle` | 2.1.1 | 72 (targeted MLE) |
 | `truncreg` | 0.2.5 | 62 (truncated regression) |
 | `vars` | 1.6.1 | 33 (VAR) |
+| `qte` | 2.0.0 | 74 (changes-in-changes) |
+| `did2s` | 1.2.1 | 73 (Gardner two-stage) |
+| `pretrends` | 0.1.0 | 76 (pre-trend power) |
+| `triplediff` | 0.2.4 | 77 (DDD) |
+| `DIDmultiplegtDYN` | 2.3.4 | 78 (dCDH dynamic; needs `polars` 1.13.0.9000 from r-universe) |
+| `didFF` | 0.1.0 | 79 (functional-form test) |
+| `contdid` | 0.1.1 | 80 (continuous DiD) |
+| `DIDmultiplegt` | **0.1.4** (private library) | 81 (dCDH 2020 DID_M) |
+| `staggered` | 1.2.2 | 82 (efficient staggered DiD) |
+| `fect` | 2.4.1 | 86 (panel counterfactuals) |
+| `interflex` | 1.4.0 | 87 (interaction effects; `Lmoments` 1.3.2) |
+| `rdmulti` | 2.0.0 | 89 (multi-score RD) |
 | `jsonlite` | 2.0.0 | (harness I/O — full-precision result serialisation) |
+
+> **Module 81 needs an archived release.** CRAN's `DIDmultiplegt` 2.x
+> routes the classic estimator through `mode="old"`, which returns `NaN`
+> even on the package's own example. Install the archived 0.1.4 into a
+> private library and point the harness at it:
+>
+> ```r
+> install.packages("assertthat")
+> install.packages(
+>   "https://cran.r-project.org/src/contrib/Archive/DIDmultiplegt/DIDmultiplegt_0.1.4.tar.gz",
+>   repos = NULL, type = "source", lib = "~/.cache/statspai/didm_lib")
+> ```
+>
+> then `export STATSPAI_DIDM_LIB=~/.cache/statspai/didm_lib` before
+> `verify_reproduce.py`. Without it the module stops with that message
+> rather than emitting 2.x's `NaN`.
 
 ## Stata
 
@@ -134,7 +169,8 @@ install lines are recorded in `../stata_parity/_common.do`.
 
 ---
 
-*Captured 2026-05-29 via `Rscript -e 'sessionInfo()'` and Stata
+*Captured 2026-05-29 and refreshed 2026-09-26 (lock regenerated from the
+installed reference library; all 89 R modules re-verified) via `Rscript -e 'sessionInfo()'` and Stata
 `c(stata_version)` on the maintainer's macOS arm64 workstation. Refresh
 this file whenever the reference environment changes; the per-`_R.json`
 `provenance` block is the authoritative per-result record.*

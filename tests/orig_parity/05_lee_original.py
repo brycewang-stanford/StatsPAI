@@ -1,8 +1,14 @@
 """StatsPAI original-data parity (Python side) -- Module 05.
 
-Runs sp.rdrobust(..., bwselect="cct") on the *original*
-rdrobust::rdrobust_RDsenate extract (Lee 2008 House-elections sharp
-RD on the Senate vote-share margin).
+Runs the native sp.rdrobust default (CCT MSE-optimal bandwidth,
+robust bias-corrected inference, implemented in StatsPAI itself) on the
+*original* rdrobust::rdrobust_RDsenate extract (a Lee-style sharp RD on
+the Senate vote-share margin).
+
+The ``bwselect="cct"`` option delegates to the official rdrobust Python
+port; a row computed that way compares the authors' code with itself, so
+it must never appear in this ledger (see
+tests/test_orig_parity_native_contract.py).
 """
 
 from __future__ import annotations
@@ -25,7 +31,7 @@ def main() -> None:
     df = read_csv(MODULE)
     n = len(df)
 
-    fit = sp.rdrobust(df, y="y", x="x", c=0.0, kernel="triangular", bwselect="cct")
+    fit = sp.rdrobust(df, y="y", x="x", c=0.0, kernel="triangular")
     conventional = fit.model_info["conventional"]
     robust = fit.model_info["robust"]
     h = fit.model_info["bandwidth_h"]
@@ -63,7 +69,7 @@ def main() -> None:
         extra={
             "data_source": "rdrobust::rdrobust_RDsenate",
             "n_obs": n,
-            "bwselect": "cct",
+            "bwselect": str(fit.model_info.get("bwselect", "mserd")),
             "h_left": h_left,
             "h_right": h_right,
         },

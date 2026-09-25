@@ -39,7 +39,15 @@ REFERENCE_PKGS <- c(
   # to silently drop them.)
   "spatialreg",
   # Module 70+: policy learning / targeted learning references.
-  "policytree", "tmle"
+  "policytree", "tmle",
+  # Modules 72-89: modern DiD, RD-extension, and panel-counterfactual
+  # references. These were called by the parity scripts but missing from
+  # this list, so the lock silently omitted them (found 2026-09-26 by
+  # scanning every tests/r_parity/*.R for library() and pkg:: calls;
+  # tests/test_r_lock_covers_references.py now enforces it).
+  "contdid", "did2s", "didFF", "DIDmultiplegt", "DIDmultiplegtDYN",
+  "polars", "fect", "interflex", "Lmoments", "panelView", "pretrends",
+  "qte", "rdmulti", "staggered", "triplediff"
 )
 
 ip <- installed.packages()

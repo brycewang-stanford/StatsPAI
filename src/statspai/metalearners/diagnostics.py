@@ -31,8 +31,13 @@ def cate_summary(result: CausalResult) -> pd.DataFrame:
     Returns
     -------
     pd.DataFrame
-        Summary statistics: mean, sd, min, q25, median, q75, max,
-        fraction positive, fraction significant (> 2*SE away from 0).
+        Summary statistics of the fitted conditional effects: mean, sd,
+        min, q25, median, q75, max, fraction positive, IQR, N. The
+        ``"Mean"`` row is the plain average of the fitted CATEs; it is not
+        the estimator's doubly-robust average effect (use
+        ``average_treatment_effect()`` on a forest), and for a continuous
+        treatment it averages partial effects. It was labelled
+        ``"Mean (ATE)"`` before 1.32.0.
 
     Examples
     --------
@@ -57,7 +62,7 @@ def cate_summary(result: CausalResult) -> pd.DataFrame:
     cate = _extract_cate(result)
 
     summary = {
-        "Mean (ATE)": np.mean(cate),
+        "Mean": np.mean(cate),
         "Std. Dev.": np.std(cate, ddof=1),
         "Min": np.min(cate),
         "Q25": np.percentile(cate, 25),

@@ -349,8 +349,9 @@ def rdrobust(
         - 'cercomb1' : min of cerrd and certwo
         - 'cercomb2' : median of cerrd, cerleft, cerright
         - 'cct'      : delegate to the official ``rdrobust`` Python port
-                       for canonical R ``rdrobust`` parity; requires the
-                       optional ``statspai[rd-cct]`` extra
+                       (the method authors' code); requires the optional
+                       ``statspai[rd-cct]`` extra. The native default
+                       already matches R ``rdrobust``.
     h : float, optional
         Manual bandwidth for estimation (overrides bwselect).
     b : float, optional
@@ -1171,20 +1172,18 @@ def _delegate_to_cct_rdrobust(
 
     Why
     ---
-    Our internal ``mserd`` recipe is calibrated independently of the
-    canonical CCT 2014 recursive bandwidth selection and can drift from
-    R `rdrobust::rdrobust` by 60–70% on certain datasets (notably the
-    Lee/CCT Senate replication where R returns h=17.75 / Conv=7.41 and
-    StatsPAI's mserd returns h=4.63 / Conv=12.62; see
-    ``tests/orig_parity/results/parity_table_orig.md`` row 52 / module
-    ``05_lee_original``). For exact CCT replication, this path delegates
-    the entire estimation to ``rdrobust>=1.3``.
+    For users who want the method authors' own code. The native default
+    (``bwselect='mserd'``) implements the CCT bandwidth cascade and robust
+    bias-corrected inference in StatsPAI itself and already returns R
+    ``rdrobust::rdrobust``'s bandwidth and estimates on the RDsenate
+    extract to ~1e-13 (Track A module ``06_rd``; original-data module
+    ``05_lee_original``). This path is therefore a convergence check,
+    never a parity row: comparing the port with R compares the authors'
+    code with itself.
 
     See Also
     --------
-    sp.rdrobust : default ``bwselect='mserd'`` uses StatsPAI's own MSE
-        bandwidth (kept stable for backward compat); set
-        ``bwselect='cct'`` to opt into R-parity.
+    sp.rdrobust : native default ``bwselect='mserd'``.
 
     References
     ----------

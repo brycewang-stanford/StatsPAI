@@ -10,6 +10,27 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 RESULTS_DIR = HERE / "results"
 
+#: What the StatsPAI side of each original-data module executes, checked
+#: against the call trace ``results/_implementation_trace.json`` (written by
+#: ``scripts/trace_parity_provenance.py --ledger orig``) by
+#: ``tests/test_orig_parity_native_contract.py``. Unlisted modules are
+#: ``native``. ``statsmodels_nuisance`` means the estimator (weighting,
+#: standardization, inference) is StatsPAI's, but its propensity or outcome
+#: regression is fitted by a statsmodels GLM/OLS; that is a dependency of the
+#: comparison, and the manuscript marks those rows. No module may call an
+#: official port (``bwselect="cct"``) or the R reference itself.
+ORIG_IMPLEMENTATION_PROVENANCE: dict[str, str] = {
+    "06_nhefs_ch12_ipw": "statsmodels_nuisance",
+    "07_nhefs_ch13_gformula": "statsmodels_nuisance",
+    "09_nhefs_ch15_outcome": "statsmodels_nuisance",
+    "10_nhefs_ch17_survival": "statsmodels_nuisance",
+    "11_nhefs_evalue": "statsmodels_nuisance",
+}
+
+
+def implementation_kind(module: str) -> str:
+    return ORIG_IMPLEMENTATION_PROVENANCE.get(module, "native")
+
 
 def fmt(x: float | None, prec: int = 4) -> str:
     if x is None:
@@ -29,8 +50,8 @@ def main() -> None:
         "",
         "Headline finding across all rows: **sp matches R on the same "
         "bytes** for closed-form rows (OLS, IV, naive/adjusted "
-        "regressions) and for Lee RD when the canonical "
-        "`bwselect='cct'` path is used. Where sp diverges from the "
+        "regressions) and for the native Lee RD default (CCT bandwidth "
+        "and robust bias-corrected inference). Where sp diverges from the "
         "published-paper anchor, the divergence is documented per row "
         "-- usually because the public R package's data subset differs "
         "from the paper's original extract, or because the canonical R "

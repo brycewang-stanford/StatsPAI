@@ -33,6 +33,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "assertthat": {
+      "Package": "assertthat",
+      "Version": "0.2.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "augsynth": {
       "Package": "augsynth",
       "Version": "0.2.0",
@@ -97,6 +103,18 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "bit": {
+      "Package": "bit",
+      "Version": "4.6.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "bit64": {
+      "Package": "bit64",
+      "Version": "4.8.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "bitops": {
       "Package": "bitops",
       "Version": "1.0.9",
@@ -105,7 +123,7 @@
     },
     "BMisc": {
       "Package": "BMisc",
-      "Version": "1.4.8",
+      "Version": "1.4.9",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -197,6 +215,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "clipr": {
+      "Package": "clipr",
+      "Version": "0.8.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "clock": {
       "Package": "clock",
       "Version": "0.7.4",
@@ -247,6 +271,16 @@
       "Package": "compiler",
       "Version": "4.5.2",
       "Source": "R"
+    },
+    "contdid": {
+      "Package": "contdid",
+      "Version": "0.1.1",
+      "Source": "GitHub",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "bcallaway11",
+      "RemoteRepo": "contdid",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "5cfec81a82fc8cfeffb6b7b822a0eded5deafc91"
     },
     "cowplot": {
       "Package": "cowplot",
@@ -343,9 +377,37 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "did2s": {
+      "Package": "did2s",
+      "Version": "1.2.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "didFF": {
+      "Package": "didFF",
+      "Version": "0.1.0",
+      "Source": "GitHub",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "pedrohcgs",
+      "RemoteRepo": "didFF",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "c80f6d82389c94e9a4f42ad321f28182d127cda9"
+    },
     "didimputation": {
       "Package": "didimputation",
       "Version": "0.5.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "DIDmultiplegt": {
+      "Package": "DIDmultiplegt",
+      "Version": "0.1.4",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "DIDmultiplegtDYN": {
+      "Package": "DIDmultiplegtDYN",
+      "Version": "2.3.4",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -522,6 +584,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "formula.tools": {
+      "Package": "formula.tools",
+      "Version": "1.7.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "fracdiff": {
       "Package": "fracdiff",
       "Version": "1.5.3",
@@ -576,9 +644,21 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "ggplotify": {
+      "Package": "ggplotify",
+      "Version": "0.1.3",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "ggstats": {
       "Package": "ggstats",
       "Version": "0.13.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "ggthemes": {
+      "Package": "ggthemes",
+      "Version": "5.2.0",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -603,6 +683,12 @@
     "glue": {
       "Package": "glue",
       "Version": "1.8.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "gmm": {
+      "Package": "gmm",
+      "Version": "1.9.1",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -651,6 +737,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "gridGraphics": {
+      "Package": "gridGraphics",
+      "Version": "0.5.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "gsynth": {
       "Package": "gsynth",
       "Version": "1.4.0",
@@ -672,6 +764,12 @@
     "hardhat": {
       "Package": "hardhat",
       "Version": "1.4.3",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "haven": {
+      "Package": "haven",
+      "Version": "2.5.5",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -738,6 +836,12 @@
     "insight": {
       "Package": "insight",
       "Version": "1.5.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "interflex": {
+      "Package": "interflex",
+      "Version": "1.4.0",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -823,6 +927,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "lfe": {
+      "Package": "lfe",
+      "Version": "3.1.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "lgr": {
       "Package": "lgr",
       "Version": "0.5.2",
@@ -850,6 +960,12 @@
     "lme4": {
       "Package": "lme4",
       "Version": "2.0.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "Lmoments": {
+      "Package": "Lmoments",
+      "Version": "1.3.2",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -921,6 +1037,12 @@
     "mathjaxr": {
       "Package": "mathjaxr",
       "Version": "2.0.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "matlib": {
+      "Package": "matlib",
+      "Version": "1.0.1",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1135,6 +1257,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "npiv": {
+      "Package": "npiv",
+      "Version": "0.1.3",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "numDeriv": {
       "Package": "numDeriv",
       "Version": "2016.8.1.1",
@@ -1150,6 +1278,18 @@
     "openssl": {
       "Package": "openssl",
       "Version": "2.4.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "openxlsx": {
+      "Package": "openxlsx",
+      "Version": "4.2.8.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "operator.tools": {
+      "Package": "operator.tools",
+      "Version": "1.6.3.1",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1212,6 +1352,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "pcse": {
+      "Package": "pcse",
+      "Version": "1.9.1.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "pillar": {
       "Package": "pillar",
       "Version": "1.11.1",
@@ -1230,11 +1376,23 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "plotrix": {
+      "Package": "plotrix",
+      "Version": "3.8.14",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "plyr": {
       "Package": "plyr",
       "Version": "1.8.9",
       "Source": "Repository",
       "Repository": "CRAN"
+    },
+    "polars": {
+      "Package": "polars",
+      "Version": "1.13.0.9000",
+      "Source": "Repository",
+      "Repository": "https://rpolars.r-universe.dev"
     },
     "policytree": {
       "Package": "policytree",
@@ -1247,6 +1405,16 @@
       "Version": "2.4.6",
       "Source": "Repository",
       "Repository": "CRAN"
+    },
+    "pretrends": {
+      "Package": "pretrends",
+      "Version": "0.1.0",
+      "Source": "GitHub",
+      "RemoteHost": "api.github.com",
+      "RemoteUsername": "jonathandroth",
+      "RemoteRepo": "pretrends",
+      "RemoteRef": "HEAD",
+      "RemoteSha": "122731d082a5990e274f57fd9af0968e44977e7a"
     },
     "prettyunits": {
       "Package": "prettyunits",
@@ -1296,6 +1464,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "ptetools": {
+      "Package": "ptetools",
+      "Version": "1.0.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "purrr": {
       "Package": "purrr",
       "Version": "1.2.1",
@@ -1305,6 +1479,12 @@
     "qrng": {
       "Package": "qrng",
       "Version": "0.0.11",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "qte": {
+      "Package": "qte",
+      "Version": "2.0.0",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1386,6 +1566,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "rdmulti": {
+      "Package": "rdmulti",
+      "Version": "2.0.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "Rdpack": {
       "Package": "Rdpack",
       "Version": "2.6.6",
@@ -1394,7 +1580,13 @@
     },
     "rdrobust": {
       "Package": "rdrobust",
-      "Version": "3.0.0",
+      "Version": "4.0.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "readr": {
+      "Package": "readr",
+      "Version": "2.2.0",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1428,6 +1620,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "rgl": {
+      "Package": "rgl",
+      "Version": "1.3.36",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "Rglpk": {
       "Package": "Rglpk",
       "Version": "0.6.5.1",
@@ -1442,13 +1640,19 @@
     },
     "rlang": {
       "Package": "rlang",
-      "Version": "1.1.7",
+      "Version": "1.3.0",
       "Source": "Repository",
       "Repository": "CRAN"
     },
     "rmarkdown": {
       "Package": "rmarkdown",
       "Version": "2.31",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "rnames": {
+      "Package": "rnames",
+      "Version": "1.0.1",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1496,6 +1700,12 @@
     "sampleSelection": {
       "Package": "sampleSelection",
       "Version": "1.2.14",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "sampling": {
+      "Package": "sampling",
+      "Version": "2.11",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1600,9 +1810,21 @@
       "Version": "4.5.2",
       "Source": "R"
     },
+    "splines2": {
+      "Package": "splines2",
+      "Version": "0.5.4",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "SQUAREM": {
       "Package": "SQUAREM",
       "Version": "2026.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "staggered": {
+      "Package": "staggered",
+      "Version": "1.2.2",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1739,10 +1961,22 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "tmvtnorm": {
+      "Package": "tmvtnorm",
+      "Version": "1.7",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "tools": {
       "Package": "tools",
       "Version": "4.5.2",
       "Source": "R"
+    },
+    "triplediff": {
+      "Package": "triplediff",
+      "Version": "0.2.4",
+      "Source": "Repository",
+      "Repository": "CRAN"
     },
     "TruncatedNormal": {
       "Package": "TruncatedNormal",
@@ -1833,6 +2067,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "vroom": {
+      "Package": "vroom",
+      "Version": "1.7.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "withr": {
       "Package": "withr",
       "Version": "3.0.2",
@@ -1845,15 +2085,39 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "wooldridge": {
+      "Package": "wooldridge",
+      "Version": "1.4.4",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "xfun": {
       "Package": "xfun",
       "Version": "0.56",
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "xtable": {
+      "Package": "xtable",
+      "Version": "1.8.8",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "yaml": {
       "Package": "yaml",
       "Version": "2.3.12",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "yulab.utils": {
+      "Package": "yulab.utils",
+      "Version": "0.2.5",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "zip": {
+      "Package": "zip",
+      "Version": "2.3.3",
       "Source": "Repository",
       "Repository": "CRAN"
     },

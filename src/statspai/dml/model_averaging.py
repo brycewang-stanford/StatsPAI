@@ -961,7 +961,7 @@ def dml_model_averaging(
 
     return DMLAveragingResult(
         method="DML (PLR) with model averaging",
-        estimand="ATE",
+        estimand="theta",
         estimate=theta_avg,
         se=se_avg,
         pvalue=pvalue,

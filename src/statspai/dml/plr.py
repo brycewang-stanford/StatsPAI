@@ -54,7 +54,11 @@ class DoubleMLPLR(_DoubleMLBase):
     """
 
     _MODEL_TAG = "PLR"
-    _ESTIMAND = "ATE"
+    #: The PLR parameter theta in Y = theta*D + g(X) + e. It equals the ATE
+    #: only under a constant effect; with heterogeneous effects it is a
+    #: variance-weighted average, and with a continuous D it is a partial
+    #: coefficient. Labelled "ATE" before 1.32.0.
+    _ESTIMAND = "theta"
     _REQUIRES_INSTRUMENT = False
     _ML_M_TARGET_BINARY = False  # PLR is agnostic to D type
     _SUPPORTS_SAMPLE_WEIGHT = True

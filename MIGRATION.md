@@ -5,7 +5,40 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
-<a id="cs-event-study-share-term"></a>
+<a id="plr-theta-label"></a>
+
+## Unreleased — DML PLR estimate is labelled `theta`; `cate_summary` row `Mean`
+
+**Who is affected.** Code that indexes a partially linear DML result by
+its old label, e.g. `sp.dml(..., model="plr").params["ATE"]`,
+`sp.regtable(..., keep=["ATE"])` for a PLR column, or
+`sp.cate_summary(res).loc["Mean (ATE)"]`.
+
+**What changed.** No number changes; two labels were wrong.
+
+- `sp.dml(model="plr")` (and `sp.DoubleMLPLR`, `sp.dml_model_averaging`)
+  now report `estimand == "theta"`. The PLR parameter theta in
+  `Y = theta*D + g(X) + e` equals the ATE only under a constant effect;
+  with heterogeneous effects of a binary `D` it is a variance-weighted
+  average, and with a continuous `D` (years of schooling, a dose) it is a
+  partial coefficient. `model="irm"` still reports `ATE`, and the IV
+  models `LATE`.
+- `sp.cate_summary` names its first row `Mean` instead of `Mean (ATE)`. It
+  is the plain average of the fitted conditional effects, not the
+  estimator's doubly-robust average (`cf.average_treatment_effect()` for a
+  forest), and for a continuous treatment it averages partial effects.
+
+**What to do.**
+
+```python
+res = sp.dml(df, y="y", d="d", X=X, model="plr")
+res.estimate            # unchanged, prefer this
+res.params["theta"]     # was res.params["ATE"]
+sp.regtable(ols, res, keep=["d", "theta"])
+sp.cate_summary(cf).loc["Mean"]   # was .loc["Mean (ATE)"]
+```
+
+---
 
 <a id="qreg-default-se"></a>
 
@@ -71,7 +104,9 @@ To silence the listwise-deletion note, drop incomplete rows before the call.
 
 ---
 
-## Unreleased — ⚠️ Callaway--Sant'Anna convenience event study carries the cohort-share term
+<a id="cs-event-study-share-term"></a>
+
+## 1.31.0 — ⚠️ Callaway--Sant'Anna convenience event study carries the cohort-share term
 
 **Who is affected.** Anyone reading standard errors, confidence intervals or
 p-values from `sp.callaway_santanna(...).model_info['event_study']` (also
@@ -93,7 +128,7 @@ reported the corrected values since the share term was added there.
 
 <a id="pretrends-joint-covariance"></a>
 
-## Unreleased — ⚠️ `sp.pretrends_test` / `pretrends_power` / `sensitivity_rr` use the joint pre-period covariance
+## 1.31.0 — ⚠️ `sp.pretrends_test` / `pretrends_power` / `sensitivity_rr` use the joint pre-period covariance
 
 **Who is affected.** Anyone who passed an `sp.event_study` result (without
 `expose_pre_vcov=True`) or a `sun_abraham` / `stacked_did` /
@@ -123,7 +158,7 @@ that share a reference period and fixed effects.
 
 <a id="feols-ssc-default"></a>
 
-## Unreleased — ⚠️ `sp.fast.feols` small-sample correction and `sp.iv(vce=)`
+## 1.31.0 — ⚠️ `sp.fast.feols` small-sample correction and `sp.iv(vce=)`
 
 **`sp.fast.feols`.** The default `ssc` is now `"fixest"`, the convention of
 `fixest::feols` and `reghdfe` (and of the parity rows). Coefficients do not
@@ -154,7 +189,7 @@ dimension is the exact count (`"2000"`, not `">=2000"`) and the DML
 `learners` dimension is `linear` / `default` / `other` (not `flexible`).
 <a id="surrogate-result-deprecated"></a>
 
-## Unreleased — `SurrogateResult` deprecated
+## 1.31.0 — `SurrogateResult` deprecated
 
 **Who is affected.** Code that imports or constructs
 `statspai.SurrogateResult`.
@@ -170,7 +205,7 @@ raises a `DeprecationWarning`; it will be removed in 1.33. Use the
 
 <a id="grf-family-rebuild"></a>
 
-## Unreleased — ⚠️ `iv_forest`, `multi_arm_forest`, `causal_survival_forest` rebuilt on the GRF engine; engine seeding fixed
+## 1.31.0 — ⚠️ `iv_forest`, `multi_arm_forest`, `causal_survival_forest` rebuilt on the GRF engine; engine seeding fixed
 
 **Who is affected.** Anyone calling these three functions, and anyone who
 compares `sp.causal_forest` (or any GRF-engine forest) numbers across
@@ -225,7 +260,7 @@ default is `"split"` (grf's `variable_importance`, also `sp.variable_importance`
 
 <a id="ebalance-mestimation-se"></a>
 
-## Unreleased — ⚠️ `sp.ebalance` standard errors account for the balancing
+## 1.31.0 — ⚠️ `sp.ebalance` standard errors account for the balancing
 
 **Who is affected.** Anyone reading `.se`, `.ci` or `.pvalue` from
 `sp.ebalance`. Point estimates do not change.
@@ -251,7 +286,7 @@ usually be narrower. Use `vce="naive"` only to reproduce earlier numbers.
 
 <a id="causal-question-forest-ate"></a>
 
-## Unreleased — ⚠️ `causal_question(design="causal_forest")` reports the forest's own ATE
+## 1.31.0 — ⚠️ `causal_question(design="causal_forest")` reports the forest's own ATE
 
 **Who is affected.** Anyone reading `.estimate`, `.se` or `.ci` from
 `sp.causal_question(..., design="causal_forest").estimate()`.
@@ -271,7 +306,7 @@ has an effect.
 
 <a id="honest-did-native-rm"></a>
 
-## Unreleased — `sp.honest_did(method="relative_magnitude")` is the Rambachan-Roth set natively
+## 1.31.0 — `sp.honest_did(method="relative_magnitude")` is the Rambachan-Roth set natively
 
 **Who is affected.** Calls with `method="relative_magnitude"` and the
 default `backend="native"`.
@@ -290,7 +325,7 @@ method="relative_magnitude")` follows.
 
 <a id="audit-not-applicable"></a>
 
-## Unreleased — `sp.audit` reports checks that do not exist for a fit as `not_applicable`
+## 1.31.0 — `sp.audit` reports checks that do not exist for a fit as `not_applicable`
 
 **Who is affected.** Code that branches on `sp.audit(...)["checks"][i]
 ["status"]` or on `summary["n_total"]`, for IV fits.
@@ -306,7 +341,7 @@ diluted by checks that cannot be run.
 
 <a id="forest-continuous-att"></a>
 
-## Unreleased — ⚠️ causal forests with a continuous treatment refuse ATT and ATC
+## 1.31.0 — ⚠️ causal forests with a continuous treatment refuse ATT and ATC
 
 **Who is affected.** Code that calls `cf.att()`, or
 `cf.average_treatment_effect(target_sample="treated")` / `"control"`, on a
@@ -362,7 +397,7 @@ same arguments. On this design it returns the 1.28.0 column exactly.
 
 <a id="fe-forest-imputation"></a>
 
-## Unreleased — ⚠️ causal forests with fixed effects: calibration uses imputation scores
+## 1.31.0 — ⚠️ causal forests with fixed effects: calibration uses imputation scores
 
 **Who is affected.** Code that calls `sp.calibration_test(cf)` or
 `sp.calibrate_cate(cf)` on a forest fitted with `fe="twoway"` and a binary
