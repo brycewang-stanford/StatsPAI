@@ -162,11 +162,11 @@ class TestCovarianceExport:
         _withhold(without)
 
         p_true = sp.pretrends_power(with_cov)
-        t_true = sp.pretrends_test(with_cov)
+        t_true = sp.pretrends_test(with_cov, type="wald")
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             p_diag = sp.pretrends_power(without)
-            t_diag = sp.pretrends_test(without)
+            t_diag = sp.pretrends_test(without, type="wald")
 
         # The numbers in the docstring are the joint-Wald pre-test. Since
         # 1.21.0 that is no longer what `power` defaults to (the default
@@ -225,8 +225,8 @@ class TestCovarianceExport:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             s_diag = sp.sensitivity_rr(r_diag, Mbar=grid)
-            t_diag = sp.pretrends_test(r_diag)
-        t_true = sp.pretrends_test(r)
+            t_diag = sp.pretrends_test(r_diag, type="wald")
+        t_true = sp.pretrends_test(r, type="wald")
 
         assert s_true.breakdown_mbar != s_diag.breakdown_mbar
         assert s_true.breakdown_mbar == pytest.approx(0.485, abs=2e-3)

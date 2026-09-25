@@ -15551,10 +15551,12 @@
           "type": "string"
         },
         "type": {
-          "default": "wald",
-          "description": "Test statistic",
+          "default": "auto",
+          "description": "Test statistic: 'auto' follows the estimator's own convention (F(K, G-1) for sp.event_study, chi2 Wald otherwise); 'wald' or 'f' force one.",
           "enum": [
-            "wald"
+            "auto",
+            "wald",
+            "f"
           ],
           "type": "string"
         }

@@ -257,7 +257,7 @@ If you **must** use TWFE event studies for a reviewer:
 ```python
 r = sp.event_study(df, y='y', treat_time='first_treat',
                    time='t', unit='i', window=(-4, 4))
-sp.pretrends_test(r)   # joint Wald test on the leads
+sp.pretrends_test(r)   # joint F(K, G-1) test on the leads, as Stata `test`
 ```
 `sp.event_study` is the pooled-TWFE event study — under staggered
 adoption with heterogeneous effects its leads are contaminated by other

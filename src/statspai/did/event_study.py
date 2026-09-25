@@ -296,7 +296,7 @@ def event_study(
         ``model_info['vcv_pre']``. With ``True`` (the default since 1.31),
         :func:`pretrends_test`, :func:`pretrends_power` and
         :func:`sensitivity_rr` use the full cluster-robust covariance of the
-        pre-treatment coefficients, so ``sp.pretrends_test(es, type='f')``
+        pre-treatment coefficients, so ``sp.pretrends_test(es)``
         reproduces ``model_info['pretrend_test']`` and Stata's ``test`` after
         a clustered ``reghdfe`` event study. ``False`` withholds the key and
         restores the pre-1.31 diagonal (independent-coefficients) path, which

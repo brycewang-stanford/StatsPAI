@@ -83,7 +83,7 @@ def test_pretrends_bad_type():
     from statspai.did.pretrends import pretrends_test
 
     es = _mk_es_result([-2, -1, 1], [0.05, 0.03, 1.0], [0.1, 0.1, 0.2])
-    with pytest.raises(ValueError, match="must be 'wald' or 'f'"):
+    with pytest.raises(ValueError, match="must be 'auto', 'wald' or 'f'"):
         pretrends_test(es, type="zzz")
 
 
@@ -180,6 +180,7 @@ def test_pretrends_summary_prints():
 
 def test_aggte_no_detail_raises():
     import copy
+
     from statspai.did.aggte import aggte
     from statspai.did.callaway_santanna import callaway_santanna
 
@@ -192,6 +193,7 @@ def test_aggte_no_detail_raises():
 
 def test_aggte_bstrap_falls_back_when_no_inf():
     import copy
+
     from statspai.did.aggte import aggte
     from statspai.did.callaway_santanna import callaway_santanna
 

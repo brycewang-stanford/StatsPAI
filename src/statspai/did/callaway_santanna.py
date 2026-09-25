@@ -855,6 +855,8 @@ def callaway_santanna(
         n_units,
         alpha,
         boot_cfg=boot_cfg,
+        unit_cohorts=unit_info[g].to_numpy(),
+        unit_weights=unit_weights,
     )
 
     # 7. Pre-trend test
@@ -2157,12 +2159,19 @@ def _aggregate_event_study(
     n_total: int,
     alpha: float,
     boot_cfg: Optional[Dict[str, Any]] = None,
+    unit_cohorts: Optional[np.ndarray] = None,
+    unit_weights: Optional[np.ndarray] = None,
 ) -> pd.DataFrame:
     """Event study aggregation: average ATT by relative time e = t − g.
 
     When ``boot_cfg`` is given (bstrap=True path), the per-event-time SEs
     come from a joint multiplier bootstrap over all event-time
     combinations instead of the analytic plug-in.
+
+    ``unit_cohorts`` (row-aligned with ``inf_matrix``) adds the
+    cohort-share estimation term, as :func:`_aggregate_simple` and
+    ``sp.aggte(type='dynamic')`` do; without it an event time that mixes
+    cohorts has too small a standard error.
     """
 
     relative_times = sorted(detail["relative_time"].unique())
@@ -2187,6 +2196,13 @@ def _aggregate_event_study(
         if inf_matrix is not None:
             col_idx = np.where(mask.values)[0]
             inf_e = inf_matrix[:, col_idx] @ weights
+            if unit_cohorts is not None and len(unit_cohorts) == inf_matrix.shape[0]:
+                pg, ind = _cohort_share_context(
+                    sub["group"].values, unit_cohorts, unit_weights
+                )
+                inf_e = inf_e + _weight_influence(pg, ind) @ (
+                    sub["att"].values.astype(float)
+                )
             se_e = float(np.sqrt(np.mean(inf_e**2) / n_total))
             psi_cols.append(inf_e)
         else:
@@ -2770,6 +2786,7 @@ def _callaway_santanna_rcs(
         cohort_sizes,
         n_scale,
         alpha,
+        unit_cohorts=cohort_by_slot,
     )
     pretrend = _pretrend_test(
         detail, inf_matrix, n_scale, pretest=pretest, pretest_periods=pretest_periods

@@ -17404,7 +17404,16 @@ def _build_registry() -> None:
                     True,
                     description="DiD or event-study result with pre-period coefficients",
                 ),
-                ParamSpec("type", "str", False, "wald", "Test statistic", ["wald"]),
+                ParamSpec(
+                    "type",
+                    "str",
+                    False,
+                    "auto",
+                    "Test statistic: 'auto' follows the estimator's own "
+                    "convention (F(K, G-1) for sp.event_study, chi2 Wald "
+                    "otherwise); 'wald' or 'f' force one.",
+                    ["auto", "wald", "f"],
+                ),
                 ParamSpec("alpha", "float", False, 0.05),
             ],
             returns="dict with statistic / pvalue / pre_periods",

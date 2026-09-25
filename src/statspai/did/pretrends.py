@@ -419,9 +419,18 @@ def _invert_vcv(vcv: np.ndarray, context: str, target: str) -> np.ndarray:
 # ────────────────────────────────────────────────────────────────────
 
 
+def _default_test_type(result: Any) -> str:
+    """``'f'`` when the estimator's own pre-trend test is an F test."""
+    mi = getattr(result, "model_info", None)
+    own = mi.get("pretrend_test") if isinstance(mi, dict) else None
+    if isinstance(own, dict) and own.get("df_denom") is not None:
+        return "f"
+    return "wald"
+
+
 def pretrends_test(
     result: Any,
-    type: str = "wald",
+    type: str = "auto",
     alpha: float = 0.05,
 ) -> Dict[str, Any]:
     """Joint test of pre-treatment coefficients.
@@ -433,7 +442,14 @@ def pretrends_test(
     ----------
     result : CausalResult
         Event-study result containing pre-treatment estimates and SEs.
-    type : ``'wald'`` or ``'f'``
+    type : ``'auto'``, ``'wald'`` or ``'f'``, default ``'auto'``
+        ``'auto'``: the estimator's own convention. ``'f'`` when the
+        result's ``model_info['pretrend_test']`` is an F test (it records
+        ``df_denom``, as :func:`event_study` does: a clustered regression,
+        tested like Stata's ``test`` after ``reghdfe``); ``'wald'``
+        otherwise (influence-function estimators such as
+        :func:`callaway_santanna` and :func:`did_imputation`, whose
+        reference implementations report a chi-squared Wald test).
         ``'wald'``: chi-squared test statistic.
         ``'f'``: scaled F-statistic ``W / K`` on ``(K, d)`` degrees of
         freedom, where ``d`` is ``model_info['df_resid']`` when present,
@@ -471,6 +487,8 @@ def pretrends_test(
     """
     context = "pretrends_test"
     test_type = _require_string_option(type, "type", context).lower()
+    if test_type == "auto":
+        test_type = _default_test_type(result)
     alpha = _require_open_unit_float(alpha, "alpha", context)
     es = _extract_event_study(result)
     time_col, est_col, se_col = _resolve_columns(es)
@@ -517,11 +535,11 @@ def pretrends_test(
         out_type = "f"
     else:
         raise MethodIncompatibility(
-            f"type must be 'wald' or 'f', got '{type}'.",
+            f"type must be 'auto', 'wald' or 'f', got '{type}'.",
             diagnostics={
                 "context": context,
                 "type": type,
-                "valid_types": ["wald", "f"],
+                "valid_types": ["auto", "wald", "f"],
             },
         )
 

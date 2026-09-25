@@ -321,9 +321,28 @@ All notable changes to StatsPAI will be documented in this file.
     when the result records `n_clusters` (Stata's `test` after a clustered
     regression), instead of `n_obs - K`. On the castle panel it now returns
     F(4, 49), p = 0.29272676, against Stata's 0.29272676.
-  - The default `type="wald"` is unchanged: chi2(4) on the same quadratic
-    form, p = 0.277 on the castle panel. See MIGRATION
+  - The default `type` is now `"auto"`: the estimator's own convention.
+    That is `"f"` when `model_info['pretrend_test']` is an F test (it
+    records `df_denom`, as `sp.event_study` does), so
+    `sp.pretrends_test(es)` returns the same F(4, 49), p = 0.2927 as the
+    event study and Stata; it is `"wald"` (chi2) for influence-function
+    estimators such as `callaway_santanna` / `aggte` and `did_imputation`,
+    whose references (R `did`, Stata `did_imputation`) report chi2. The old
+    default is `type="wald"` (p = 0.277 on the castle panel). See MIGRATION
     `#pretrends-joint-covariance`.
+- **`sp.callaway_santanna(...).model_info['event_study']` standard errors
+  now include the cohort-share estimation term.** The convenience event
+  study stored on a raw Callaway--Sant'Anna fit weighted each event time's
+  ATT(g,t) by estimated cohort shares but treated the shares as fixed,
+  dropping R `did`'s `wif` term that `sp.aggte(type="dynamic")` carries.
+  Every event time that mixes cohorts had too small a standard error: on the
+  castle-doctrine panel by up to 47% (52% with population weights), on
+  `mpdta` by up to 0.9%. The table now equals
+  `sp.aggte(cs, type="dynamic", bstrap=False)` to ~1e-15 on panel and
+  repeated-cross-section fits, weighted or not, never- or not-yet-treated
+  controls, with covariates. Point estimates do not change; with
+  `bstrap=True` the multiplier bootstrap now resamples the same influence
+  functions. See MIGRATION `#cs-event-study-share-term`.
 
 - **`sp.iv_forest` was not an instrumental forest.** Its neighbourhood
   forest was a scikit-learn random forest trained on `Y`, not honest and

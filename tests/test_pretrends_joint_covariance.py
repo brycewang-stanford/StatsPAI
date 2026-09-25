@@ -59,8 +59,24 @@ def test_default_f_test_reproduces_stata_and_own_pretrend_test(castle_es):
     assert out["pvalue"] == pytest.approx(0.29272676, rel=1e-6)
 
 
-def test_default_wald_uses_joint_covariance(castle_es):
+def test_default_is_the_event_studys_own_f_test(castle_es):
     out = sp.pretrends_test(castle_es)
+    assert out["type"] == "f"
+    assert out["stat_label"] == "F(4, 49)"
+    assert out["pvalue"] == pytest.approx(0.29272676, rel=1e-6)
+
+
+def test_default_on_influence_function_estimators_is_wald(castle):
+    castle = castle.assign(g0=castle["effyear"].fillna(0))
+    cs = sp.callaway_santanna(castle, y="l_homicide", g="g0", t="year", i="sid")
+    dyn = sp.aggte(cs, type="dynamic", bstrap=False)
+    out = sp.pretrends_test(dyn)
+    assert out["type"] == "wald"
+    assert out["stat_label"].startswith("Wald chi2(")
+
+
+def test_wald_uses_joint_covariance(castle_es):
+    out = sp.pretrends_test(castle_es, type="wald")
     # chi2(4) on the same quadratic form: 4 * 1.2746 = 5.098.
     assert out["statistic"] == pytest.approx(4 * 1.2746247822, rel=1e-6)
     assert out["pvalue"] == pytest.approx(0.2773, abs=5e-4)
@@ -80,9 +96,14 @@ def test_opt_out_restores_diagonal_and_warns(castle):
     )
     assert es.model_info["vcv_pre"] is None
     with pytest.warns(UserWarning, match="MUTUALLY INDEPENDENT"):
-        out = sp.pretrends_test(es)
+        out = sp.pretrends_test(es, type="wald")
     # The pre-1.31 number the walkthrough reported.
     assert out["pvalue"] == pytest.approx(0.6035, abs=5e-4)
+
+
+def test_auto_rejects_unknown_type(castle_es):
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="'auto'"):
+        sp.pretrends_test(castle_es, type="lr")
 
 
 def test_other_estimators_fall_back_to_event_study_vcov(castle):

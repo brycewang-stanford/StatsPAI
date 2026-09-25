@@ -5,6 +5,28 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="cs-event-study-share-term"></a>
+
+## Unreleased — ⚠️ Callaway--Sant'Anna convenience event study carries the cohort-share term
+
+**Who is affected.** Anyone reading standard errors, confidence intervals or
+p-values from `sp.callaway_santanna(...).model_info['event_study']` (also
+shown by the fit's summary and plots) rather than from
+`sp.aggte(cs, type="dynamic")`.
+
+**What changes.** Those standard errors now include the estimation error of
+the cohort shares that weight each event time, as R `did::aggte` and
+`sp.aggte` do. They grow wherever an event time mixes cohorts (up to 47% on
+the castle-doctrine panel); single-cohort event times and all point
+estimates are unchanged. The table now equals
+`sp.aggte(cs, type="dynamic", bstrap=False)`.
+
+**To reproduce old numbers.** There is no switch: the old numbers treated
+estimated weights as known and were anti-conservative. `sp.aggte` has
+reported the corrected values since the share term was added there.
+
+---
+
 <a id="pretrends-joint-covariance"></a>
 
 ## Unreleased — ⚠️ `sp.pretrends_test` / `pretrends_power` / `sensitivity_rr` use the joint pre-period covariance
@@ -23,7 +45,10 @@ either direction. On the castle-doctrine panel it moved from 0.603 to 0.277
 `stacked_did` / `did_imputation` results the pre-period block now comes
 from `sp.event_study_vcov`.
 `type="f"` also switches its denominator degrees of freedom from
-`n_obs - K` to `G - 1` for clustered results.
+`n_obs - K` to `G - 1` for clustered results, and the default `type` is now
+`"auto"`: F(K, G - 1) on an `sp.event_study` result (its own convention and
+Stata's), chi2 Wald otherwise. Pass `type="wald"` for the old default
+statistic.
 
 **To reproduce old numbers.** `sp.event_study(..., expose_pre_vcov=False)`
 restores the diagonal path for event-study results. Only reproduce old
