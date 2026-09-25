@@ -298,23 +298,21 @@ def test_track_a_aliases_are_all_proven():
 
 
 def test_wheel_only_tiers_match_the_source_tree():
-    """An installed wheel must grade functions exactly as a checkout does.
+    """Re-applying the evidence pass from a blank registry is idempotent.
 
-    Before the registry consumed the committed index, a wheel had no test
-    tree to scan and fell back to a coarse hand-written seed, so
-    ``sp.describe_function(...)["validation_status"]`` could differ between
-    a checkout and the artifact users actually install. ``_parity_index.json``
-    is packaged, so the two must now agree exactly -- including that no
-    certified symbol arrives without an evidence note.
+    Tiers and notes come only from the packaged ``_parity_index.json`` (no
+    test-tree scan since 1.31.0), so clearing every tier and note and
+    re-running the pass must restore the same grades, and no certified
+    symbol may come back without an evidence note. That the whole
+    ``describe_function`` record is identical in a detached install is
+    checked end to end by ``tests/test_registry_install_independence.py``.
     """
     from statspai import registry as R
 
     R._ensure_full_registry()
     source_tree = {fn: spec.validation_status for fn, spec in R._REGISTRY.items()}
     saved_notes = {fn: list(spec.validation_notes) for fn, spec in R._REGISTRY.items()}
-    saved_repo_root = R._repo_root
     try:
-        R._repo_root = lambda: None
         R._VALIDATION_EVIDENCE_APPLIED = False
         for spec in R._REGISTRY.values():
             spec.validation_notes.clear()
@@ -327,7 +325,6 @@ def test_wheel_only_tiers_match_the_source_tree():
             if spec.validation_status == "certified" and not spec.validation_notes
         )
     finally:
-        R._repo_root = saved_repo_root
         R._VALIDATION_EVIDENCE_APPLIED = False
         for fn, spec in R._REGISTRY.items():
             spec.validation_notes[:] = saved_notes[fn]

@@ -457,6 +457,33 @@ All notable changes to StatsPAI will be documented in this file.
   feols_ssc.py`). Point estimates are unchanged; `ssc="statspai"` reproduces
   old SEs. See MIGRATION.md.
 
+### Changed (JSS review v3, 2026-09-25)
+
+- **Evidence notes are the same in a pip install as in a checkout.** The
+  registry used to scan `tests/` at import time when a source tree sat next
+  to the package, and fall back to a bare "Track A parity seed" note when it
+  did not. Grades agreed either way (both come from the packaged
+  `_parity_index.json`), but 557 functions returned different
+  `validation_notes` -- and the JSS manuscript printed the checkout version,
+  which no installed release returns. Notes are now built only from the
+  packaged index record: one `R parity module NN` / `Stata parity module NN`
+  line per reference actually joined, the self-describing evidence note, and
+  up to four further evidence files. The bare seed note is gone. Version
+  strings no longer print as "R R version 4.5.2".
+  `tests/test_registry_install_independence.py` imports a copy of the
+  package with no source tree around it and requires every
+  `describe_function` record to equal the in-tree one.
+- **The Track A hash gates hold on the JSS archive.** The archive ships
+  source files ASCII-transliterated (JSS requires ASCII source), and the
+  Tier A fixture lock and the implementation trace hashed raw bytes, so both
+  reported every module stale on the extracted archive although no code had
+  changed. All gates now hash through `scripts/ascii_source.py`, the function
+  the packager uses; the lock (26 source entries; no data or golden entry
+  moved) and the 89-module trace (hashes only; every classification and
+  traced path unchanged) were regenerated. Output string literals in the
+  parity drivers are written as `\u` escapes so the archive's scripts print
+  byte-identical tables. The two `.gitignore` files left the lock scope.
+
 ### Changed (JSS review v2, 2026-09)
 
 - **`sp.validation_scope` grades outputs, not only configurations.** Each
