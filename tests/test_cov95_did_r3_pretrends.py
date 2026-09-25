@@ -65,15 +65,11 @@ def test_pretrends_power_moderate_warning(es_result):
     # A mid-size delta pushes power into the 0.5-0.8 "moderate" band, which
     # triggers the moderate-power warning branch.
     #
-    # NOTE: sp.event_study can now export the full cluster-robust pre-period
-    # covariance, which changes this number — but it is withheld by default
-    # (``expose_pre_vcov=False``) during the live JOSS review, so the default
-    # path still uses the diagonal fallback and the original multiplier (5)
-    # is correct. When that default flips post-JOSS, rescale to 7 (which lands
-    # in the same band under the true covariance) and log the move as a
-    # correctness fix.
+    # Rescaled from 5 to 6 in 1.31, when sp.event_study began publishing
+    # the full cluster-robust pre-period covariance by default (⚠️
+    # correctness fix): the same band is reached at a larger delta.
     k = sp.pretrends_test(es_result)["df"]
-    out = sp.pretrends_power(es_result, delta=np.full(k, 5 * 0.05))
+    out = sp.pretrends_power(es_result, delta=np.full(k, 6 * 0.05))
     assert 0.5 <= out["power"] < 0.8
     assert out["warning"] is not None
     assert "MODERATE" in out["warning"]

@@ -55,6 +55,12 @@ def _panel(n_units=80, n_periods=9, treat_at=5, pre_trend=0.0, seed=0):
     return pd.DataFrame(rows)
 
 
+def _withhold(result):
+    """Force the pre-1.31 diagonal path (as ``expose_pre_vcov=False`` does)."""
+    result.model_info.pop("vcv_pre")
+    result.model_info["vcv_pre_withheld"] = True
+
+
 @pytest.fixture(scope="module")
 def es_result():
     return sp.event_study(
@@ -71,10 +77,9 @@ def es_result():
 def es_result_full():
     """Event study that publishes the true pre-period covariance.
 
-    ``expose_pre_vcov`` is opt-in during the live JOSS review (the default
-    withholds ``vcv_pre`` so pre-trend tools keep the historical diagonal
-    numbers). The covariance-behaviour tests below deliberately opt in, since
-    their whole point is to exercise the corrected full-covariance path.
+    ``expose_pre_vcov=True`` has been the default since 1.31; passing it
+    explicitly keeps these covariance-behaviour tests independent of the
+    default.
     """
     return sp.event_study(
         _panel(),
@@ -107,10 +112,11 @@ class TestCovarianceExport:
         es = mi["event_study"]
         est = es[~es["is_reference"]].sort_values("relative_time")
         assert np.allclose(np.sqrt(np.diag(vcov)), est["se"].to_numpy())
-        # vcv_pre — the key that flips the pre-trend tools onto the corrected
-        # covariance — is withheld by default (JOSS hold) and present on opt-in.
-        assert mi["vcv_pre"] is None
+        # vcv_pre — the key the pre-trend tools read — is published by
+        # default since 1.31 (⚠️ correctness fix); False withholds it.
+        assert mi["vcv_pre"] is not None
         assert es_result_full.model_info["vcv_pre"] is not None
+        assert mi["vcv_pre_withheld"] is False
 
     def test_off_diagonal_terms_are_materially_nonzero(self, es_result_full):
         """The pre-period coefficients are NOT independent in practice.
@@ -153,7 +159,7 @@ class TestCovarianceExport:
         """
         with_cov = es_result_full
         without = copy.deepcopy(es_result_full)
-        without.model_info.pop("vcv_pre")
+        _withhold(without)
 
         p_true = sp.pretrends_power(with_cov)
         t_true = sp.pretrends_test(with_cov)
@@ -212,7 +218,7 @@ class TestCovarianceExport:
             expose_pre_vcov=True,
         )
         r_diag = copy.deepcopy(r)
-        r_diag.model_info.pop("vcv_pre")
+        _withhold(r_diag)
 
         grid = np.linspace(0.0, 3.0, 3001)
         s_true = sp.sensitivity_rr(r, Mbar=grid)
@@ -233,7 +239,7 @@ class TestCovarianceExport:
     def test_diagonal_fallback_warns_loudly(self, es_result):
         """Never silent: the fallback must say what it is assuming."""
         stripped = copy.deepcopy(es_result)
-        stripped.model_info.pop("vcv_pre")
+        _withhold(stripped)
         with pytest.warns(UserWarning, match="MUTUALLY INDEPENDENT"):
             sp.pretrends_test(stripped)
         with pytest.warns(UserWarning, match="vcv_pre"):

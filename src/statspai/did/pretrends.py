@@ -309,10 +309,17 @@ def _pre_vcv(
     K_all: int,
     K: int,
     context: str,
+    pre_times: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     vcv = None
+    withheld = False
     if hasattr(result, "model_info") and isinstance(result.model_info, dict):
         vcv = result.model_info.get("vcv_pre", None)
+        withheld = bool(result.model_info.get("vcv_pre_withheld", False))
+    if vcv is None and pre_times is not None and not withheld:
+        joint = _joint_pre_block(result, pre_times, se_pre)
+        if joint is not None:
+            return joint
     if vcv is None:
         warnings.warn(
             f"{context}: no pre-period covariance matrix found in "
@@ -324,9 +331,9 @@ def _pre_vcv(
             "negative. Wald pre-trend statistics, Roth (2022) power, and "
             "Rambachan-Roth breakdown Mbar computed from this fallback can be "
             "materially misstated. Supply the full pre-period covariance via "
-            "`result.model_info['vcv_pre']` — sp.event_study computes it and "
-            "will write it when called with `expose_pre_vcov=True` (opt-in "
-            "during the current release; it becomes the default afterwards).",
+            "`result.model_info['vcv_pre']` or through sp.event_study_vcov "
+            "— sp.event_study writes it by default (unless called with "
+            "`expose_pre_vcov=False`).",
             UserWarning,
             stacklevel=3,
         )
@@ -360,6 +367,38 @@ def _pre_vcv(
             diagnostics={"context": context},
         )
     return out
+
+
+def _joint_pre_block(
+    result: Any, pre_times: np.ndarray, se_pre: np.ndarray
+) -> Optional[np.ndarray]:
+    """Pre-period block of the estimator's joint event-study covariance.
+
+    Estimators other than ``event_study`` / ``aggte`` do not write
+    ``vcv_pre`` but do expose a joint covariance through
+    :func:`event_study_vcov`. Returns ``None`` (so the caller takes its
+    loud diagonal fallback) when there is none, when it misses a pre-period,
+    or when its diagonal does not reproduce the table's standard errors.
+    """
+    from .es_inference import event_study_vcov
+
+    try:
+        evc = event_study_vcov(result, allow_diagonal=False)
+    except MethodIncompatibility:
+        return None
+    pos = {int(t): i for i, t in enumerate(evc.times)}
+    times = [int(t) for t in pre_times]
+    if any(t not in pos for t in times):
+        return None
+    idx = [pos[t] for t in times]
+    block = np.asarray(evc.vcov, dtype=float)[np.ix_(idx, idx)]
+    if not np.all(np.isfinite(block)):
+        return None
+    if not np.allclose(
+        np.sqrt(np.clip(np.diag(block), 0.0, None)), se_pre, rtol=1e-6, atol=0.0
+    ):
+        return None
+    return block
 
 
 def _invert_vcv(vcv: np.ndarray, context: str, target: str) -> np.ndarray:
@@ -396,7 +435,12 @@ def pretrends_test(
         Event-study result containing pre-treatment estimates and SEs.
     type : ``'wald'`` or ``'f'``
         ``'wald'``: chi-squared test statistic.
-        ``'f'``: scaled F-statistic (requires ``df_resid`` in model_info).
+        ``'f'``: scaled F-statistic ``W / K`` on ``(K, d)`` degrees of
+        freedom, where ``d`` is ``model_info['df_resid']`` when present,
+        otherwise ``G - 1`` when the result records ``n_clusters`` (Stata's
+        ``test`` after a clustered regression), otherwise ``n_obs - K``.
+        On an :func:`event_study` result this reproduces
+        ``model_info['pretrend_test']``.
     alpha : float, default 0.05
         Significance level.
 
@@ -444,7 +488,8 @@ def pretrends_test(
     K = len(beta_pre)
 
     # Build variance-covariance matrix (diagonal if full VCV unavailable)
-    vcv = _pre_vcv(result, se_pre, estimated, K_all, K, context)
+    pre_times = pre[time_col].to_numpy(dtype=float)[estimated]
+    vcv = _pre_vcv(result, se_pre, estimated, K_all, K, context, pre_times)
     vcv_inv = _invert_vcv(vcv, context, "pre-trend test")
     wald_stat = float(beta_pre @ vcv_inv @ beta_pre)
 
@@ -456,6 +501,11 @@ def pretrends_test(
         df_resid = None
         if hasattr(result, "model_info") and isinstance(result.model_info, dict):
             df_resid = result.model_info.get("df_resid", None)
+            n_clusters = result.model_info.get("n_clusters", None)
+            if df_resid is None and n_clusters is not None and int(n_clusters) > 1:
+                # Cluster-robust covariance: Stata's ``test`` convention,
+                # F(K, G - 1), as in ``model_info['pretrend_test']``.
+                df_resid = int(n_clusters) - 1
         if hasattr(result, "n_obs") and df_resid is None:
             df_resid = max(result.n_obs - K, K + 1)
         if df_resid is None:
@@ -616,7 +666,15 @@ def pretrends_power(
     K = len(se_pre)
 
     # Build VCV (diagonal if full VCV unavailable)
-    vcv = _pre_vcv(result, se_pre, estimated, K_all, K, context)
+    vcv = _pre_vcv(
+        result,
+        se_pre,
+        estimated,
+        K_all,
+        K,
+        context,
+        pre[time_col].to_numpy(dtype=float),
+    )
     vcv_inv = _invert_vcv(vcv, context, "pre-trend power")
 
     # Default delta: linear trend scaled by minimum SE
@@ -1198,6 +1256,7 @@ def sensitivity_rr(
                 len(pre_se),
                 int(estimated_s.sum()),
                 context,
+                pre_t[estimated_s],
             )
             try:
                 W_est = np.linalg.inv(vcv_s)

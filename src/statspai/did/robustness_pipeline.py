@@ -389,10 +389,8 @@ def parallel_trends_robustness(
            If the result does not carry a pre-period covariance matrix in
            ``model_info['vcv_pre']``, the pre-trend test and power fall
            back to assuming the pre-period coefficients are mutually
-           independent and warn loudly. ``sp.event_study`` computes the full
-           cluster-robust covariance; pass ``expose_pre_vcov=True`` to it to
-           have this pipeline use the correct covariance instead of the
-           diagonal fallback.
+           independent and warn loudly. ``sp.event_study`` writes the full
+           cluster-robust pre-period covariance there by default.
     m_grid : sequence of float, optional
         Grid of violation magnitudes. Default: the ``honest_did``
         default, multiples of the standard error at ``e``.

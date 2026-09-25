@@ -5,6 +5,33 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="pretrends-joint-covariance"></a>
+
+## Unreleased — ⚠️ `sp.pretrends_test` / `pretrends_power` / `sensitivity_rr` use the joint pre-period covariance
+
+**Who is affected.** Anyone who passed an `sp.event_study` result (without
+`expose_pre_vcov=True`) or a `sun_abraham` / `stacked_did` /
+`did_imputation` result to `sp.pretrends_test`,
+`sp.pretrends_power` or `sp.sensitivity_rr`. Those calls warned "treated as
+MUTUALLY INDEPENDENT" and used a diagonal covariance.
+
+**What changes.** The pre-trend statistics now use the joint cluster-robust
+covariance of the pre-treatment coefficients, the same one the event
+study's own `model_info['pretrend_test']` uses. The p-value can move in
+either direction. On the castle-doctrine panel it moved from 0.603 to 0.277
+(`type="wald"`) and 0.293 (`type="f"`, now matching Stata's `test`). On `sun_abraham` /
+`stacked_did` / `did_imputation` results the pre-period block now comes
+from `sp.event_study_vcov`.
+`type="f"` also switches its denominator degrees of freedom from
+`n_obs - K` to `G - 1` for clustered results.
+
+**To reproduce old numbers.** `sp.event_study(..., expose_pre_vcov=False)`
+restores the diagonal path for event-study results. Only reproduce old
+numbers this way; the diagonal ignores the covariance between coefficients
+that share a reference period and fixed effects.
+
+---
+
 <a id="feols-ssc-default"></a>
 
 ## Unreleased — ⚠️ `sp.fast.feols` small-sample correction and `sp.iv(vce=)`

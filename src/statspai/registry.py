@@ -13949,13 +13949,13 @@ def _build_registry() -> None:
                     "expose_pre_vcov",
                     "bool",
                     False,
-                    False,
-                    "Publish the true pre-period covariance into "
-                    "model_info['vcv_pre']. With True, pretrends_test / "
-                    "pretrends_power / sensitivity_rr / honest_did use the "
-                    "full covariance of the pre-treatment coefficients; with "
-                    "False (default) the key is withheld and those tools fall "
-                    "back to a diagonal covariance and warn.",
+                    True,
+                    "Publish the pre-period covariance into "
+                    "model_info['vcv_pre'] (default). pretrends_test / "
+                    "pretrends_power / sensitivity_rr then use the full "
+                    "cluster-robust covariance of the pre-treatment "
+                    "coefficients; False withholds the key and restores the "
+                    "pre-1.31 diagonal fallback, which warns.",
                 ),
             ],
             returns="CausalResult with event_study DataFrame",

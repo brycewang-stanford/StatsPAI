@@ -12586,8 +12586,8 @@
           "type": "string"
         },
         "expose_pre_vcov": {
-          "default": false,
-          "description": "Publish the true pre-period covariance into model_info['vcv_pre']. With True, pretrends_test / pretrends_power / sensitivity_rr / honest_did use the full covariance of the pre-treatment coefficients; with False (default) the key is withheld and those tools fall back to a diagonal covariance and warn.",
+          "default": true,
+          "description": "Publish the pre-period covariance into model_info['vcv_pre'] (default). pretrends_test / pretrends_power / sensitivity_rr then use the full cluster-robust covariance of the pre-treatment coefficients; False withholds the key and restores the pre-1.31 diagonal fallback, which warns.",
           "type": "boolean"
         },
         "ref_period": {
@@ -17553,7 +17553,7 @@
           "type": "array"
         },
         "result": {
-          "description": "A fitted DiD/event-study result carrying event-study estimates in ``result.model_info['event_study']`` (e.g. from ``sp.event_study``, ``sp.callaway_santanna``, ``sp.sun_abraham``). .. note:: If the result does not carry a pre-period covariance matrix in ``model_info['vcv_pre']``, the pre-trend test and power fall back to assuming the pre-period coefficients are mutually independent and warn loudly. ``sp.event_study`` computes the full cluster-robust covariance; pass ``expose_pre_vcov=True`` to it to have this pipeline use the correct covariance instead of the diagonal fallback.",
+          "description": "A fitted DiD/event-study result carrying event-study estimates in ``result.model_info['event_study']`` (e.g. from ``sp.event_study``, ``sp.callaway_santanna``, ``sp.sun_abraham``). .. note:: If the result does not carry a pre-period covariance matrix in ``model_info['vcv_pre']``, the pre-trend test and power fall back to assuming the pre-period coefficients are mutually independent and warn loudly. ``sp.event_study`` writes the full cluster-robust pre-period covariance there by default.",
           "type": "string"
         }
       },

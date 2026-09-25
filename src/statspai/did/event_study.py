@@ -234,7 +234,7 @@ def event_study(
     alpha: float = 0.05,
     weights: Optional[str] = None,
     bin_width: Optional[int] = None,
-    expose_pre_vcov: bool = False,
+    expose_pre_vcov: bool = True,
 ) -> CausalResult:
     """
     Traditional OLS event study with entity and time fixed effects.
@@ -291,21 +291,19 @@ def event_study(
     weights : str, optional
         Column name for analytical weights (e.g. population weights).
         Equivalent to Stata's ``[aweight=...]``.
-    expose_pre_vcov : bool, default False
-        Whether to publish the true pre-period covariance matrix into
-        ``model_info['vcv_pre']``. When ``True``, downstream honest-DiD and
-        pre-trend tools (:func:`pretrends_test`, :func:`pretrends_power`,
-        :func:`sensitivity_rr`, :func:`honest_did`) use the full covariance
-        of the pre-treatment coefficients. When ``False`` (the default) that
-        key is withheld, so those tools fall back to treating the
-        pre-coefficients as independent (diagonal covariance) and emit a
-        warning saying so. The full covariance is the statistically correct
-        input; the diagonal default is retained temporarily for numerical
-        continuity with earlier releases and will become the default in a
-        future version (flagged as a correctness fix). The full covariance of
-        the event-time coefficients is always available in
-        ``model_info['vcov']`` / ``['vcov_full']`` regardless of this flag —
-        it changes only which path the *pre-trend* tools take.
+    expose_pre_vcov : bool, default True
+        Whether to publish the pre-period covariance matrix into
+        ``model_info['vcv_pre']``. With ``True`` (the default since 1.31),
+        :func:`pretrends_test`, :func:`pretrends_power` and
+        :func:`sensitivity_rr` use the full cluster-robust covariance of the
+        pre-treatment coefficients, so ``sp.pretrends_test(es, type='f')``
+        reproduces ``model_info['pretrend_test']`` and Stata's ``test`` after
+        a clustered ``reghdfe`` event study. ``False`` withholds the key and
+        restores the pre-1.31 diagonal (independent-coefficients) path, which
+        warns; it is kept only to reproduce old numbers. The full covariance
+        of the event-time coefficients is always available in
+        ``model_info['vcov']`` / ``['vcov_full']`` regardless of this flag,
+        and :func:`honest_did` reads it through :func:`event_study_vcov`.
 
     Returns
     -------
@@ -646,18 +644,14 @@ def event_study(
             # always available and move no published numbers.
             "vcov": vcov_event,
             "vcov_full": vcov,
-            # ``vcv_pre`` is the ONE key that flips pretrends_test /
-            # pretrends_power / sensitivity_rr / honest_did from the historical
-            # diagonal (independent pre-coefficients) approximation onto the
-            # true pre-period covariance — a genuine correctness fix, but one
-            # that MOVES numbers published under earlier releases. Per the
-            # maintainer's decision it stays opt-in during the live JOSS
-            # review: by default we withhold it, so those tools take their
-            # diagonal path AND emit the loud _pre_vcv warning. Set
-            # ``expose_pre_vcov=True`` to opt into the accurate covariance now.
-            # TODO(post-JOSS): flip this default to always-on and log it as a
-            # ⚠️ correctness fix in CHANGELOG + MIGRATION.
+            # ``vcv_pre`` is the key pretrends_test / pretrends_power /
+            # sensitivity_rr read. ⚠️ correctness fix (1.31): published by
+            # default. Withholding it (the pre-1.31 default) sent those tools
+            # onto a diagonal covariance: on the castle-doctrine panel the
+            # joint pre-trend p-value was 0.603 instead of the cluster-robust
+            # 0.293 reported in ``pretrend_test`` above and by Stata.
             "vcv_pre": vcv_pre if expose_pre_vcov else None,
+            "vcv_pre_withheld": not expose_pre_vcov,
             "vcov_event_times": list(rel_periods),
             "vcov_pre_times": list(pre_times),
             "ref_period": ref_canonical,

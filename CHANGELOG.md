@@ -300,6 +300,31 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.pretrends_test` on an `sp.event_study` result now uses the joint
+  pre-period covariance by default.** `sp.event_study` withheld
+  `model_info['vcv_pre']` unless called with `expose_pre_vcov=True` (an
+  opt-in kept during the JOSS review), so `pretrends_test`,
+  `pretrends_power` and `sensitivity_rr` fell back to a diagonal
+  covariance, warning but still returning a number. On the castle-doctrine
+  panel (`window=(-5, 5)`, clustered by state) that number was p = 0.603,
+  while the event study's own `pretrend_test` and Stata 18
+  (`reghdfe ..., vce(cluster sid)` + `test`) both give F(4, 49) = 1.2746,
+  p = 0.2927. A third-party Stata-versus-StatsPAI walkthrough caught it.
+  - `expose_pre_vcov` now defaults to `True`; `False` restores the old
+    diagonal path and still warns.
+  - When a result carries no `vcv_pre` (checked on `sun_abraham`,
+    `stacked_did`, `did_imputation(pretrends=...)`), the pre-trend tools
+    take the pre-period block from `sp.event_study_vcov` instead of the
+    diagonal, provided its diagonal reproduces the table's standard errors
+    (to 1e-6); otherwise they keep the warned diagonal fallback.
+  - `pretrends_test(type="f")` uses `G - 1` denominator degrees of freedom
+    when the result records `n_clusters` (Stata's `test` after a clustered
+    regression), instead of `n_obs - K`. On the castle panel it now returns
+    F(4, 49), p = 0.29272676, against Stata's 0.29272676.
+  - The default `type="wald"` is unchanged: chi2(4) on the same quadratic
+    form, p = 0.277 on the castle panel. See MIGRATION
+    `#pretrends-joint-covariance`.
+
 - **`sp.iv_forest` was not an instrumental forest.** Its neighbourhood
   forest was a scikit-learn random forest trained on `Y`, not honest and
   not split on the IV gradient; residuals came from in-sample predictions,
