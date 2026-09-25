@@ -2,7 +2,7 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.31.0] — 2026-09-26
 
 ### Added
 
