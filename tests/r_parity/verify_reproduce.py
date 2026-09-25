@@ -202,20 +202,20 @@ def render_report(results: list[dict]) -> str:
         f"within rel/abs {REPRO_REL_TOL:g} (a reproducibility tolerance, far "
         "tighter than the cross-language parity budget in `compare.py`).",
         "",
-        "| Module | Status | shared/total | worst rel Δest | worst rel Δse | R version | pkgs |",
+        "| Module | Status | shared/total | worst rel \u0394est | worst rel \u0394se | R version | pkgs |",
         "|---|---|---:|---:|---:|---|---:|",
     ]
     for r in results:
         if r["status"] in ("reproduces", "drift"):
             if r["status"] == "reproduces":
-                badge = "✅ reproduces*" if r.get("relaxed") else "✅ reproduces"
+                badge = "\u2705 reproduces*" if r.get("relaxed") else "\u2705 reproduces"
             else:
-                badge = "⚠️ DRIFT"
+                badge = "\u26a0\ufe0f DRIFT"
             lines.append(
                 f"| `{r['module']}` | {badge} "
                 f"| {r['n_shared']}/{r['n_committed']} "
                 f"| {r['worst_rel_est']:.2e} | {r['worst_rel_se']:.2e} "
-                f"| {r.get('r_version') or '—'} | {r.get('n_packages', 0)} |"
+                f"| {r.get('r_version') or '\u2014'} | {r.get('n_packages', 0)} |"
             )
         else:
             lines.append(
@@ -246,7 +246,7 @@ def render_report(results: list[dict]) -> str:
             union.setdefault(p, set()).add(v if isinstance(v, str) else str(v))
     if union:
         lines += ["## Captured R environment (union across re-run modules)", ""]
-        lines.append(f"- R version(s): {', '.join(sorted(r_versions)) or '—'}")
+        lines.append(f"- R version(s): {', '.join(sorted(r_versions)) or '\u2014'}")
         lines += ["", "| package | version(s) |", "|---|---|"]
         for p in sorted(union):
             lines.append(f"| `{p}` | {', '.join(sorted(union[p]))} |")

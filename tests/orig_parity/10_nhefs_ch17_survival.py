@@ -220,7 +220,7 @@ def main() -> None:
             se=None,
             n=n,
             published=1.39,
-            citation="Hernán-Robins, What If §17 (unadjusted qsmk hazard ratio)",
+            citation="Hern\u00e1n-Robins, What If \u00a717 (unadjusted qsmk hazard ratio)",
             extra={"n_death": n_death, "scale": "hazard ratio"},
         ),
         OrigRecord(
@@ -231,7 +231,7 @@ def main() -> None:
             se=se_loghr,
             n=n,
             published=1.00,
-            citation="Hernán-Robins, What If §17.4 (IP-weighted hazard ratio; "
+            citation="Hern\u00e1n-Robins, What If \u00a717.4 (IP-weighted hazard ratio; "
             "pooled-logistic, package-consistent)",
             extra={
                 "log_hr": loghr,
@@ -251,7 +251,7 @@ def main() -> None:
             se=None,
             n=n,
             published=0.805,
-            citation="Hernán-Robins, What If Program 17.4 (IP-weighted S(120), A=0)",
+            citation="Hern\u00e1n-Robins, What If Program 17.4 (IP-weighted S(120), A=0)",
             extra={"scale": "survival probability"},
         ),
         OrigRecord(
@@ -262,7 +262,7 @@ def main() -> None:
             se=None,
             n=n,
             published=0.807,
-            citation="Hernán-Robins, What If Program 17.4 (IP-weighted S(120), A=1)",
+            citation="Hern\u00e1n-Robins, What If Program 17.4 (IP-weighted S(120), A=1)",
             extra={"scale": "survival probability"},
         ),
         OrigRecord(
@@ -273,7 +273,7 @@ def main() -> None:
             se=None,
             n=n,
             published=0.002,
-            citation="Hernán-Robins, What If Program 17.4 "
+            citation="Hern\u00e1n-Robins, What If Program 17.4 "
             "(IP-weighted 120-month survival difference, quit - no-quit)",
             extra={"scale": "survival difference", "s_noquit": s0, "s_quit": s1},
         ),

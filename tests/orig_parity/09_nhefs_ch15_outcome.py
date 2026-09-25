@@ -125,7 +125,7 @@ def main() -> None:
             se=se_qsmk,
             n=n,
             published=2.56,
-            citation="Hernán-Robins, What If Program 15.1 (qsmk main coef)",
+            citation="Hern\u00e1n-Robins, What If Program 15.1 (qsmk main coef)",
             extra={"note": "conditional effect at smokeintensity=0; NOT marginal"},
         ),
         OrigRecord(
@@ -136,7 +136,7 @@ def main() -> None:
             se=se_int,
             n=n,
             published=0.0467,
-            citation="Hernán-Robins, What If Program 15.1 (qsmk:smokeintensity)",
+            citation="Hern\u00e1n-Robins, What If Program 15.1 (qsmk:smokeintensity)",
         ),
         OrigRecord(
             module=MODULE,
@@ -146,7 +146,7 @@ def main() -> None:
             se=None,
             n=n,
             published=2.79,
-            citation="Hernán-Robins, What If Program 15.1 (effect at smokeintensity=5)",
+            citation="Hern\u00e1n-Robins, What If Program 15.1 (effect at smokeintensity=5)",
         ),
         OrigRecord(
             module=MODULE,
@@ -156,7 +156,7 @@ def main() -> None:
             se=None,
             n=n,
             published=4.43,
-            citation="Hernán-Robins, What If Program 15.1 (effect at smokeintensity=40)",
+            citation="Hern\u00e1n-Robins, What If Program 15.1 (effect at smokeintensity=40)",
         ),
         # (b)(i) Program 15.3
         OrigRecord(
@@ -167,7 +167,7 @@ def main() -> None:
             se=se_psi,
             n=n,
             published=3.5,
-            citation="Hernán-Robins, What If Program 15.3 (PS as covariate)",
+            citation="Hern\u00e1n-Robins, What If Program 15.3 (PS as covariate)",
         ),
         # (b)(ii) Program 15.4
         OrigRecord(
@@ -178,7 +178,7 @@ def main() -> None:
             se=se_psd,
             n=n,
             published=3.5,
-            citation="Hernán-Robins, What If Program 15.4 (PS-decile stratification)",
+            citation="Hern\u00e1n-Robins, What If Program 15.4 (PS-decile stratification)",
         ),
         # cross-reference: standardized marginal ATE
         OrigRecord(
@@ -189,7 +189,7 @@ def main() -> None:
             se=float(gc.se),
             n=n,
             published=3.5,
-            citation="Hernán-Robins, What If Ch.15 (standardized marginal ATE, cross-ref)",
+            citation="Hern\u00e1n-Robins, What If Ch.15 (standardized marginal ATE, cross-ref)",
         ),
     ]
 

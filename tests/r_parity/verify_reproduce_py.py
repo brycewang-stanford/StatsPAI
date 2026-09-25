@@ -216,13 +216,13 @@ def render_report(results: list[dict]) -> str:
         "from the frozen bytes, and this one shows the frozen bytes are "
         "themselves re-derivable from the package.",
         "",
-        "| Module | Status | fixture | shared/total | worst rel Δest "
-        "| worst rel Δse |",
+        "| Module | Status | fixture | shared/total | worst rel \u0394est "
+        "| worst rel \u0394se |",
         "|---|---|---|---:|---:|---:|",
     ]
     for res in results:
         if res["status"] in ("reproduces", "drift"):
-            badge = "✅ reproduces" if res["status"] == "reproduces" else "⚠️ DRIFT"
+            badge = "\u2705 reproduces" if res["status"] == "reproduces" else "\u26a0\ufe0f DRIFT"
             if res["status"] == "reproduces" and res.get("relaxed"):
                 badge += "*"
             lines.append(

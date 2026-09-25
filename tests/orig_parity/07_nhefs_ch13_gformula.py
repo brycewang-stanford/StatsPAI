@@ -121,7 +121,7 @@ def main() -> None:
             se=None,
             n=n,
             published=2.54,
-            citation="Hernán-Robins, What If §12.2 (crude)",
+            citation="Hern\u00e1n-Robins, What If \u00a712.2 (crude)",
         ),
         OrigRecord(
             module=MODULE,
@@ -131,7 +131,7 @@ def main() -> None:
             se=float(res.se),
             n=n,
             published=3.5,
-            citation="Hernán-Robins, What If Program 13.3 (standardization)",
+            citation="Hern\u00e1n-Robins, What If Program 13.3 (standardization)",
             extra={
                 "model": "additive Q(D,X) (no qsmk:smokeintensity)",
                 "ci": [float(res.ci[0]), float(res.ci[1])],
@@ -145,7 +145,7 @@ def main() -> None:
             se=float(gold_se),
             n=n,
             published=3.5,
-            citation="Hernán-Robins, What If Program 13.3 (qsmk:smokeintensity)",
+            citation="Hern\u00e1n-Robins, What If Program 13.3 (qsmk:smokeintensity)",
             extra={
                 "model": "wt82_71 ~ qsmk + qsmk:smokeintensity + conf",
                 "ci": [gold_lo, gold_hi],

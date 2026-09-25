@@ -60,7 +60,7 @@ def main() -> None:
             se=None,
             n=n,
             published=2.54,
-            citation="Hernán-Robins, What If §12.2 (crude)",
+            citation="Hern\u00e1n-Robins, What If \u00a712.2 (crude)",
         ),
         OrigRecord(
             module=MODULE,
@@ -70,7 +70,7 @@ def main() -> None:
             se=float(res.se),
             n=n,
             published=3.4,
-            citation="Hernán-Robins, What If Program 12.4 (IP-weighted ATE)",
+            citation="Hern\u00e1n-Robins, What If Program 12.4 (IP-weighted ATE)",
         ),
     ]
 

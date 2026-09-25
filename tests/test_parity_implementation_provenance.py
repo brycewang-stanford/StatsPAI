@@ -19,7 +19,6 @@ a module ``unclassified`` rather than native.
 
 from __future__ import annotations
 
-import hashlib
 import importlib.util
 import json
 import shutil
@@ -183,11 +182,56 @@ def test_internal_delegation_change_behind_an_unchanged_script_is_stale(tmp_path
     reasons = tracer.stale_reasons(stem, rec, root=tmp_path)
     assert reasons == [f"{target} changed"]
     assert (
-        hashlib.sha256(
-            (tmp_path / f"tests/r_parity/{stem}.py").read_bytes()
-        ).hexdigest()
-        == rec["source_sha256"]
+        tracer._sha256(tmp_path / f"tests/r_parity/{stem}.py") == rec["source_sha256"]
     )
+
+
+def test_trace_is_current_on_archive_transliterated_sources(tmp_path):
+    """The JSS archive ships source files ASCII-transliterated.
+
+    Hashing raw bytes made the freshness check fail on the extracted archive
+    for every module whose estimation path touches a file with an em dash or
+    a Greek letter, although no code had changed. Rebuild a module's traced
+    files as the archive writes them and require the trace to stay current.
+    """
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from ascii_source import ASCII_SOURCE_SUFFIXES, ascii_source_text
+
+    tracer = _load_tracer()
+    trace = _trace()
+
+    def _is_ascii(rel):
+        try:
+            (ROOT / rel).read_bytes().decode("ascii")
+            return True
+        except UnicodeDecodeError:
+            return False
+
+    stem = next(
+        (
+            s
+            for s, rec in sorted(trace.items())
+            if any(not _is_ascii(r) for r in rec.get("exercised_sources", []))
+        ),
+        None,
+    )
+    if stem is None:
+        pytest.skip("every traced source is already ASCII (e.g. inside the archive)")
+    rec = trace[stem]
+    files = [f"tests/r_parity/{stem}.py", f"tests/r_parity/results/{stem}_py.json"]
+    files += list(rec["exercised_sources"])
+    rewritten = 0
+    for rel in files:
+        src, dst = ROOT / rel, tmp_path / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if src.suffix in ASCII_SOURCE_SUFFIXES and not _is_ascii(rel):
+            text = ascii_source_text(src.read_text(encoding="utf-8"))
+            dst.write_bytes(text.encode("ascii"))
+            rewritten += 1
+        else:
+            shutil.copyfile(src, dst)
+    assert rewritten > 0
+    assert tracer.stale_reasons(stem, rec, root=tmp_path) == []
 
 
 def test_unknown_package_is_unclassified_not_native():

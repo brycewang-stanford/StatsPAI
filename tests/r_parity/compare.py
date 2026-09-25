@@ -939,9 +939,9 @@ TIER_LABEL = {
     "unclassified": "unclassified",
 }
 TIER_LABEL_MD = {
-    "machine": "machine-level point estimate (≤1e-6)",
-    "iterative": "iterative/cross-fit (≤1e-3)",
-    "moderate": "moderate (≤5e-2)",
+    "machine": "machine-level point estimate (\u22641e-6)",
+    "iterative": "iterative/cross-fit (\u22641e-3)",
+    "moderate": "moderate (\u22645e-2)",
     "methodological": "methodological/T4 disclosure (T3/T4, not deterministic T2)",
     "unclassified": "unclassified",
 }
@@ -1126,7 +1126,7 @@ def _has_any_stata(modules: list[str]) -> bool:
 
 def fmt(x: float | None, prec: int = 6) -> str:
     if x is None:
-        return "—"
+        return "\u2014"
     if abs(x) >= 1 or x == 0.0:
         return f"{x:.{prec}f}"
     return f"{x:.{prec}g}"
@@ -1255,8 +1255,8 @@ def render_md(modules: list[str]) -> str:
                     lines.append(f"- **{k}**: `{v}`")
         lines.append("")
         lines.append(
-            "| stat | py est | R est | abs Δ | rel Δ "
-            "| py SE | R SE | abs Δ SE | rel Δ SE |"
+            "| stat | py est | R est | abs \u0394 | rel \u0394 "
+            "| py SE | R SE | abs \u0394 SE | rel \u0394 SE |"
         )
         lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
         for d in diffs:

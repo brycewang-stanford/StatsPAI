@@ -13,7 +13,7 @@ RESULTS_DIR = HERE / "results"
 
 def fmt(x: float | None, prec: int = 4) -> str:
     if x is None:
-        return "—"
+        return "\u2014"
     return f"{x:.{prec}g}"
 
 

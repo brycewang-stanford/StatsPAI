@@ -15,12 +15,20 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT / "scripts") not in sys.path:
+    sys.path.insert(0, str(ROOT / "scripts"))
+
+from ascii_source import normalized_source_bytes  # noqa: E402
+
 MANIFEST_PATH = ROOT / "tests" / "r_parity" / "TIER_A_FIXTURE_LOCK.json"
 SCHEMA_VERSION = 1
 
+#: The ``.gitignore`` files of the two harness directories are repository
+#: hygiene, not fixtures: no number depends on them, and the JSS archive ships
+#: no VCS metadata, so locking them made the lock unverifiable there.
 LOCK_PATTERNS: tuple[str, ...] = (
+    "scripts/ascii_source.py",
     "scripts/tier_a_fixture_lock.py",
-    "tests/r_parity/.gitignore",
     "tests/r_parity/[0-9][0-9]_*.R",
     "tests/r_parity/[0-9][0-9]_*.py",
     "tests/r_parity/README.md",
@@ -39,7 +47,6 @@ LOCK_PATTERNS: tuple[str, ...] = (
     "tests/r_parity/results/parity_table_3way.md",
     "tests/r_parity/results/parity_table_3way.tex",
     "tests/r_parity/verify_reproduce.py",
-    "tests/stata_parity/.gitignore",
     "tests/stata_parity/[0-9][0-9]_*.do",
     "tests/stata_parity/README.md",
     "tests/stata_parity/STATA_ENVIRONMENT.md",
@@ -68,8 +75,7 @@ def _read_normalized(path: Path) -> bytes:
     to LF makes the lock stable across OSes; on a LF checkout it is a
     no-op, so the committed manifest stays valid without a rewrite.
     """
-    data = path.read_bytes()
-    return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return normalized_source_bytes(path)
 
 
 def _sha256(path: Path) -> str:

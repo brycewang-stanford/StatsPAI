@@ -62,6 +62,11 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 PARITY = REPO / "tests" / "r_parity"
+if str(REPO / "scripts") not in sys.path:
+    sys.path.insert(0, str(REPO / "scripts"))
+
+from ascii_source import normalized_source_bytes  # noqa: E402
+
 OUT = PARITY / "results" / "_implementation_trace.json"
 
 #: Packages that are numerical substrate, not estimator implementations.
@@ -118,7 +123,9 @@ def _top_package(filename: str) -> str | None:
 
 
 def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    # Hashed ASCII-normalized, as the JSS archive ships source files
+    # (scripts/ascii_source.py), so the freshness check also holds there.
+    return hashlib.sha256(normalized_source_bytes(path)).hexdigest()
 
 
 def _run_one(module_path: Path) -> dict:

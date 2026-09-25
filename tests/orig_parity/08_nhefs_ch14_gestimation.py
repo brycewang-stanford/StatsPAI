@@ -79,7 +79,7 @@ def main() -> None:
             se=se,
             n=n,
             published=3.4,
-            citation="Hernán-Robins, What If Program 14.2 (G-estimation SNMM psi)",
+            citation="Hern\u00e1n-Robins, What If Program 14.2 (G-estimation SNMM psi)",
             extra={
                 "ci": [ci[0], ci[1]],
                 "pvalue": float(res.pvalue),

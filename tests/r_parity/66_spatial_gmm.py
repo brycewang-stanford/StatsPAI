@@ -113,7 +113,7 @@ def main() -> None:
             "note": (
                 "sp.sar_gmm(w_lags=1) vs spatialreg::stsls(W2X=FALSE) "
                 "(coefficients + n-k SEs, bit-exact); sp.sem_gmm vs "
-                "spatialreg::GMerrorsar (coefficients + lambda, point-only — "
+                "spatialreg::GMerrorsar (coefficients + lambda, point-only \u2014 "
                 "SE variance-estimator convention differs)."
             ),
         },
