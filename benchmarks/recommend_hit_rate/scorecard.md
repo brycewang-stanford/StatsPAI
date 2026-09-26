@@ -1,9 +1,10 @@
 # Recommendation Hit-Rate Scorecard
 
-- corpus: `1.0.0-fifty`  |  statspai: `1.21.0`  |  entries: **50** (43 core + 7 frontier; 10 Tier-A + 40 Tier-B)
+- corpus: `1.1.0-fifty`  |  statspai: `1.31.0`  |  entries: **50** (43 core + 7 frontier; 10 Tier-A + 40 Tier-B)
 - **core top-1 hit-rate: 1.0**  |  top-k: 1.0  |  hard-miss rate: 0.0  |  errors: 0
 - audit catalog mean recall (static): 1.0  |  audit dynamic mean recall (fit+audit): 1.0  |  audit errors: 0
-- frontier coverage (gap-probe designs recommend is being taught): **1.0** (7/7)
+- frontier coverage (gap-probe designs recommend is being taught): **1.0** (7/7)  |  frontier fit+audit OK: 7/7
+- **end-to-end (all 50 cases: acceptable top-1 AND fitted AND audited): 50/50**
 
 ## recommend hit-rate (dynamic — runs on real / synthetic data)
 
@@ -64,57 +65,57 @@ _Frontier (gap-probe) designs are marked ⊕ and scored separately; they do not 
 
 ## audit recall (dynamic — fit the estimator, run sp.audit, does it ask)
 
-| id | fitted family | recall | actionable next-steps |
-| --- | --- | --- | --- |
-| `callaway_santanna_2021_mpdta` | did | 1.0 | bacon_decomposition, honest_did |
-| `angrist_krueger_1991_qob` | iv | 1.0 | anderson_rubin_ci, overid_test |
-| `card_1995_proximity` | iv | 1.0 | anderson_rubin_ci |
-| `lee_2008_senate_rd` | rd | 1.0 | bandwidth_sensitivity, placebo_cutoff |
-| `abadie_2010_prop99` | synth | 1.0 | placebo_inference |
-| `abadie_2003_basque` | synth | 1.0 | placebo_inference |
-| `abadie_2015_german` | synth | 1.0 | placebo_inference |
-| `dehejia_wahba_1999_nsw` | matching | 1.0 | overlap, balance_after, ovb_sensitivity |
-| `trap_staggered_heterogeneous_twfe` | did | 1.0 | bacon_decomposition, honest_did |
-| `trap_did_2x2_common_timing` | did | 1.0 | parallel_trends |
-| `trap_weak_instrument` | iv | 1.0 | anderson_rubin_ci |
-| `archetype_strong_instrument` | iv | 1.0 | — |
-| `archetype_sharp_rd` | rd | 1.0 | bandwidth_sensitivity, placebo_cutoff |
-| `trap_fuzzy_rd` | rd | 1.0 | bandwidth_sensitivity |
-| `trap_observational_strong_confounding` | matching | 1.0 | overlap, balance_after, ovb_sensitivity |
-| `lalonde_1986_nsw_experimental` | matching | 1.0 | overlap, balance_after |
-| `acemoglu_angrist_2001_ada` | did | 1.0 | parallel_trends |
-| `card_krueger_1994_minwage` | did | 1.0 | parallel_trends |
-| `angrist_1990_draft_lottery` | iv | 1.0 | anderson_rubin_ci |
-| `acemoglu_2001_colonial_iv` | iv | 1.0 | anderson_rubin_ci |
-| `dell_2010_mining_mita_rd` | rd | 1.0 | bandwidth_sensitivity |
-| `duflo_2001_school_construction_did` | did | 1.0 | parallel_trends |
-| `carpenter_dobkin_2009_mlda_rd` | rd | 1.0 | bandwidth_sensitivity |
-| `bertrand_mullainathan_2004_audit` | matching | 1.0 | balance_after |
-| `nunn_wantchekon_2011_slave_iv` | iv | 1.0 | anderson_rubin_ci |
-| `meyer_viscusi_durbin_1995_did` | did | 1.0 | parallel_trends |
-| `ludwig_miller_2007_headstart_rd` | rd | 1.0 | bandwidth_sensitivity |
-| `miguel_2004_rainfall_iv` | iv | 1.0 | anderson_rubin_ci |
-| `angrist_lavy_1999_classsize_rd` | rd | 1.0 | bandwidth_sensitivity |
-| `card_1990_mariel_boatlift` | synth | 1.0 | placebo_inference |
-| `dube_lester_reich_2010_border_did` | did | 1.0 | — |
-| `ditella_schargrodsky_2004_police_did` | did | 1.0 | parallel_trends |
-| `angrist_evans_1998_familysize_iv` | iv | 1.0 | anderson_rubin_ci |
-| `imbens_2001_lottery_obs` | matching | 1.0 | overlap, balance_after |
-| `autor_dorn_hanson_2013_bartik` | — | ERR | TypeError("bartik() missing 2 required positional arguments: |
-| `oreopoulos_2006_schooling_iv` | iv | 1.0 | anderson_rubin_ci |
-| `galiani_2005_water_did` | did | 1.0 | — |
-| `card_dobkin_maestas_2008_medicare_rd` | rd | 1.0 | bandwidth_sensitivity |
-| `almond_2006_flu_did` | did | 1.0 | — |
-| `bleakley_2007_hookworm_did` | did | 1.0 | — |
-| `black_1999_school_boundary_rd` | rd | 1.0 | bandwidth_sensitivity |
-| `chay_greenstone_2005_airquality_iv` | iv | 1.0 | anderson_rubin_ci |
-| `chetty_looney_kroft_2009_salience` | matching | 1.0 | balance_after |
-| `finkelstein_2007_medicare_did` | did | 1.0 | — |
-| `frontier_bunching_saez2010` | rd | 0.0 | — |
-| `frontier_rkd_card2015` | rd | 1.0 | bandwidth_sensitivity |
-| `frontier_ddd_gruber1994` | — | ERR | TypeError("ddd() missing 1 required positional argument: 'su |
-| `frontier_bartik_gpss2020` | — | ERR | TypeError("bartik() missing 2 required positional arguments: |
-| `frontier_decomposition_oaxaca1973` | regression | 0.0 | — |
-| `frontier_repeated_cross_sections_did` | — | ERR | MethodIncompatibility("Time variable 'time' must have exactl |
+| id | stage | fitted family | recall | actionable next-steps |
+| --- | --- | --- | --- | --- |
+| `callaway_santanna_2021_mpdta` | ok | did | 1.0 | bacon_decomposition, honest_did |
+| `angrist_krueger_1991_qob` | ok | iv | 1.0 | anderson_rubin_ci |
+| `card_1995_proximity` | ok | iv | 1.0 | anderson_rubin_ci |
+| `lee_2008_senate_rd` | ok | rd | 1.0 | bandwidth_sensitivity, placebo_cutoff |
+| `abadie_2010_prop99` | ok | synth | 1.0 | placebo_inference |
+| `abadie_2003_basque` | ok | synth | 1.0 | placebo_inference |
+| `abadie_2015_german` | ok | synth | 1.0 | placebo_inference |
+| `dehejia_wahba_1999_nsw` | ok | matching | 1.0 | overlap, balance_after, ovb_sensitivity |
+| `trap_staggered_heterogeneous_twfe` | ok | did | 1.0 | bacon_decomposition, honest_did |
+| `trap_did_2x2_common_timing` | ok | did | 1.0 | parallel_trends |
+| `trap_weak_instrument` | ok | iv | 1.0 | anderson_rubin_ci |
+| `archetype_strong_instrument` | ok | iv | 1.0 | — |
+| `archetype_sharp_rd` | ok | rd | 1.0 | bandwidth_sensitivity, placebo_cutoff |
+| `trap_fuzzy_rd` | ok | rd | 1.0 | bandwidth_sensitivity |
+| `trap_observational_strong_confounding` | ok | matching | 1.0 | overlap, balance_after, ovb_sensitivity |
+| `lalonde_1986_nsw_experimental` | ok | matching | 1.0 | overlap, balance_after |
+| `acemoglu_angrist_2001_ada` | ok | did | 1.0 | parallel_trends |
+| `card_krueger_1994_minwage` | ok | did | 1.0 | parallel_trends |
+| `angrist_1990_draft_lottery` | ok | iv | 1.0 | anderson_rubin_ci |
+| `acemoglu_2001_colonial_iv` | ok | iv | 1.0 | anderson_rubin_ci |
+| `dell_2010_mining_mita_rd` | ok | rd | 1.0 | bandwidth_sensitivity |
+| `duflo_2001_school_construction_did` | ok | did | 1.0 | parallel_trends |
+| `carpenter_dobkin_2009_mlda_rd` | ok | rd | 1.0 | bandwidth_sensitivity |
+| `bertrand_mullainathan_2004_audit` | ok | matching | 1.0 | balance_after |
+| `nunn_wantchekon_2011_slave_iv` | ok | iv | 1.0 | anderson_rubin_ci |
+| `meyer_viscusi_durbin_1995_did` | ok | did | 1.0 | parallel_trends |
+| `ludwig_miller_2007_headstart_rd` | ok | rd | 1.0 | bandwidth_sensitivity |
+| `miguel_2004_rainfall_iv` | ok | iv | 1.0 | anderson_rubin_ci |
+| `angrist_lavy_1999_classsize_rd` | ok | rd | 1.0 | bandwidth_sensitivity |
+| `card_1990_mariel_boatlift` | ok | synth | 1.0 | placebo_inference |
+| `dube_lester_reich_2010_border_did` | ok | did | 1.0 | — |
+| `ditella_schargrodsky_2004_police_did` | ok | did | 1.0 | parallel_trends |
+| `angrist_evans_1998_familysize_iv` | ok | iv | 1.0 | anderson_rubin_ci |
+| `imbens_2001_lottery_obs` | ok | matching | 1.0 | overlap, balance_after |
+| `autor_dorn_hanson_2013_bartik` | ok | iv | 1.0 | — |
+| `oreopoulos_2006_schooling_iv` | ok | iv | 1.0 | anderson_rubin_ci |
+| `galiani_2005_water_did` | ok | did | 1.0 | — |
+| `card_dobkin_maestas_2008_medicare_rd` | ok | rd | 1.0 | bandwidth_sensitivity |
+| `almond_2006_flu_did` | ok | did | 1.0 | — |
+| `bleakley_2007_hookworm_did` | ok | did | 1.0 | — |
+| `black_1999_school_boundary_rd` | ok | rd | 1.0 | bandwidth_sensitivity |
+| `chay_greenstone_2005_airquality_iv` | ok | iv | 1.0 | anderson_rubin_ci |
+| `chetty_looney_kroft_2009_salience` | ok | matching | 1.0 | balance_after |
+| `finkelstein_2007_medicare_did` | ok | did | 1.0 | — |
+| `frontier_bunching_saez2010` | ok | rd | 0.0 | — |
+| `frontier_rkd_card2015` | ok | rd | 1.0 | bandwidth_sensitivity |
+| `frontier_ddd_gruber1994` | ok | did | 1.0 | parallel_trends |
+| `frontier_bartik_gpss2020` | ok | iv | 0.0 | — |
+| `frontier_decomposition_oaxaca1973` | ok | regression | 0.0 | — |
+| `frontier_repeated_cross_sections_did` | ok | did | 1.0 | parallel_trends |
 
 _Generated by sp.recommend_benchmark()_

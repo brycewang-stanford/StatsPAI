@@ -1,6 +1,6 @@
 {
-  "corpus_version": "1.0.0-fifty",
-  "statspai_version": "1.21.0",
+  "corpus_version": "1.1.0-fifty",
+  "statspai_version": "1.31.0",
   "n_entries": 50,
   "n_core": 43,
   "n_tier_a": 10,
@@ -14,10 +14,17 @@
     "audit_dynamic_mean_recall": 1.0,
     "n_audit_errors": 0
   },
+  "end_to_end": {
+    "n_cases": 50,
+    "n_ok": 50,
+    "rate": 1.0
+  },
   "frontier": {
     "n_frontier": 7,
     "n_hit": 7,
     "coverage": 1.0,
+    "n_fit_ok": 7,
+    "n_errors": 0,
     "ids": [
       "autor_dorn_hanson_2013_bartik",
       "frontier_bunching_saez2010",
@@ -38,11 +45,13 @@
       "ranked_labels": [
         "Callaway-Sant'Anna (2021) \u2014 staggered DID",
         "Sun-Abraham (2021) \u2014 interaction-weighted",
+        "Roth-Sant'Anna (2023) \u2014 design-based, IF timing was randomised",
         "Event-study (dynamic treatment effects)"
       ],
       "ranked_tags": [
         "callaway_santanna",
         "sun_abraham",
+        "callaway_santanna",
         "unknown:Event-study (dynamic treatment effects)"
       ],
       "top1_tag": "callaway_santanna",
@@ -271,11 +280,13 @@
       "ranked_labels": [
         "Callaway-Sant'Anna (2021) \u2014 staggered DID",
         "Sun-Abraham (2021) \u2014 interaction-weighted",
+        "Roth-Sant'Anna (2023) \u2014 design-based, IF timing was randomised",
         "Event-study (dynamic treatment effects)"
       ],
       "ranked_tags": [
         "callaway_santanna",
         "sun_abraham",
+        "callaway_santanna",
         "unknown:Event-study (dynamic treatment effects)"
       ],
       "top1_tag": "callaway_santanna",
@@ -504,11 +515,13 @@
       "ranked_labels": [
         "Callaway-Sant'Anna (2021) \u2014 staggered DID",
         "Sun-Abraham (2021) \u2014 interaction-weighted",
+        "Roth-Sant'Anna (2023) \u2014 design-based, IF timing was randomised",
         "Event-study (dynamic treatment effects)"
       ],
       "ranked_tags": [
         "callaway_santanna",
         "sun_abraham",
+        "callaway_santanna",
         "unknown:Event-study (dynamic treatment effects)"
       ],
       "top1_tag": "callaway_santanna",
@@ -640,11 +653,13 @@
       "ranked_labels": [
         "Callaway-Sant'Anna (2021) \u2014 staggered DID",
         "Sun-Abraham (2021) \u2014 interaction-weighted",
+        "Roth-Sant'Anna (2023) \u2014 design-based, IF timing was randomised",
         "Event-study (dynamic treatment effects)"
       ],
       "ranked_tags": [
         "callaway_santanna",
         "sun_abraham",
+        "callaway_santanna",
         "unknown:Event-study (dynamic treatment effects)"
       ],
       "top1_tag": "callaway_santanna",
@@ -885,11 +900,13 @@
       "ranked_labels": [
         "Callaway-Sant'Anna (2021) \u2014 staggered DID",
         "Sun-Abraham (2021) \u2014 interaction-weighted",
+        "Roth-Sant'Anna (2023) \u2014 design-based, IF timing was randomised",
         "Event-study (dynamic treatment effects)"
       ],
       "ranked_tags": [
         "callaway_santanna",
         "sun_abraham",
+        "callaway_santanna",
         "unknown:Event-study (dynamic treatment effects)"
       ],
       "top1_tag": "callaway_santanna",
@@ -1055,11 +1072,13 @@
       "ranked_labels": [
         "Callaway-Sant'Anna (2021) \u2014 staggered DID",
         "Sun-Abraham (2021) \u2014 interaction-weighted",
+        "Roth-Sant'Anna (2023) \u2014 design-based, IF timing was randomised",
         "Event-study (dynamic treatment effects)"
       ],
       "ranked_tags": [
         "callaway_santanna",
         "sun_abraham",
+        "callaway_santanna",
         "unknown:Event-study (dynamic treatment effects)"
       ],
       "top1_tag": "callaway_santanna",
@@ -1113,11 +1132,13 @@
       "ranked_labels": [
         "Callaway-Sant'Anna (2021) \u2014 staggered DID",
         "Sun-Abraham (2021) \u2014 interaction-weighted",
+        "Roth-Sant'Anna (2023) \u2014 design-based, IF timing was randomised",
         "Event-study (dynamic treatment effects)"
       ],
       "ranked_tags": [
         "callaway_santanna",
         "sun_abraham",
+        "callaway_santanna",
         "unknown:Event-study (dynamic treatment effects)"
       ],
       "top1_tag": "callaway_santanna",
@@ -1144,11 +1165,13 @@
       "ranked_labels": [
         "Callaway-Sant'Anna (2021) \u2014 staggered DID",
         "Sun-Abraham (2021) \u2014 interaction-weighted",
+        "Roth-Sant'Anna (2023) \u2014 design-based, IF timing was randomised",
         "Event-study (dynamic treatment effects)"
       ],
       "ranked_tags": [
         "callaway_santanna",
         "sun_abraham",
+        "callaway_santanna",
         "unknown:Event-study (dynamic treatment effects)"
       ],
       "top1_tag": "callaway_santanna",
@@ -1262,11 +1285,13 @@
       "ranked_labels": [
         "Callaway-Sant'Anna (2021) \u2014 staggered DID",
         "Sun-Abraham (2021) \u2014 interaction-weighted",
+        "Roth-Sant'Anna (2023) \u2014 design-based, IF timing was randomised",
         "Event-study (dynamic treatment effects)"
       ],
       "ranked_tags": [
         "callaway_santanna",
         "sun_abraham",
+        "callaway_santanna",
         "unknown:Event-study (dynamic treatment effects)"
       ],
       "top1_tag": "callaway_santanna",
@@ -1908,6 +1933,8 @@
   "audit_dynamic": [
     {
       "id": "callaway_santanna_2021_mpdta",
+      "top1_function": "callaway_santanna",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "did",
       "covered": [
@@ -1924,6 +1951,8 @@
     },
     {
       "id": "angrist_krueger_1991_qob",
+      "top1_function": "ivreg",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "iv",
       "covered": [
@@ -1933,13 +1962,14 @@
       ],
       "not_emitted": [],
       "actionable_next_steps": [
-        "anderson_rubin_ci",
-        "overid_test"
+        "anderson_rubin_ci"
       ],
       "dynamic_recall": 1.0
     },
     {
       "id": "card_1995_proximity",
+      "top1_function": "ivreg",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "iv",
       "covered": [
@@ -1954,6 +1984,8 @@
     },
     {
       "id": "lee_2008_senate_rd",
+      "top1_function": "rdrobust",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "rd",
       "covered": [
@@ -1970,6 +2002,8 @@
     },
     {
       "id": "abadie_2010_prop99",
+      "top1_function": "synth",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "synth",
       "covered": [
@@ -1984,6 +2018,8 @@
     },
     {
       "id": "abadie_2003_basque",
+      "top1_function": "synth",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "synth",
       "covered": [
@@ -1998,6 +2034,8 @@
     },
     {
       "id": "abadie_2015_german",
+      "top1_function": "synth",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "synth",
       "covered": [
@@ -2012,6 +2050,8 @@
     },
     {
       "id": "dehejia_wahba_1999_nsw",
+      "top1_function": "match",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "matching",
       "covered": [
@@ -2029,6 +2069,8 @@
     },
     {
       "id": "trap_staggered_heterogeneous_twfe",
+      "top1_function": "callaway_santanna",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "did",
       "covered": [
@@ -2045,6 +2087,8 @@
     },
     {
       "id": "trap_did_2x2_common_timing",
+      "top1_function": "did",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "did",
       "covered": [
@@ -2058,6 +2102,8 @@
     },
     {
       "id": "trap_weak_instrument",
+      "top1_function": "liml",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "iv",
       "covered": [
@@ -2072,6 +2118,8 @@
     },
     {
       "id": "archetype_strong_instrument",
+      "top1_function": "ivreg",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "iv",
       "covered": [
@@ -2083,6 +2131,8 @@
     },
     {
       "id": "archetype_sharp_rd",
+      "top1_function": "rdrobust",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "rd",
       "covered": [
@@ -2099,6 +2149,8 @@
     },
     {
       "id": "trap_fuzzy_rd",
+      "top1_function": "rdrobust",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "rd",
       "covered": [
@@ -2113,6 +2165,8 @@
     },
     {
       "id": "trap_observational_strong_confounding",
+      "top1_function": "match",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "matching",
       "covered": [
@@ -2130,6 +2184,8 @@
     },
     {
       "id": "lalonde_1986_nsw_experimental",
+      "top1_function": "match",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "matching",
       "covered": [
@@ -2145,6 +2201,8 @@
     },
     {
       "id": "acemoglu_angrist_2001_ada",
+      "top1_function": "callaway_santanna",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "did",
       "covered": [
@@ -2158,6 +2216,8 @@
     },
     {
       "id": "card_krueger_1994_minwage",
+      "top1_function": "did",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "did",
       "covered": [
@@ -2171,6 +2231,8 @@
     },
     {
       "id": "angrist_1990_draft_lottery",
+      "top1_function": "ivreg",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "iv",
       "covered": [
@@ -2185,6 +2247,8 @@
     },
     {
       "id": "acemoglu_2001_colonial_iv",
+      "top1_function": "ivreg",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "iv",
       "covered": [
@@ -2199,6 +2263,8 @@
     },
     {
       "id": "dell_2010_mining_mita_rd",
+      "top1_function": "rdrobust",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "rd",
       "covered": [
@@ -2213,6 +2279,8 @@
     },
     {
       "id": "duflo_2001_school_construction_did",
+      "top1_function": "callaway_santanna",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "did",
       "covered": [
@@ -2226,6 +2294,8 @@
     },
     {
       "id": "carpenter_dobkin_2009_mlda_rd",
+      "top1_function": "rdrobust",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "rd",
       "covered": [
@@ -2240,6 +2310,8 @@
     },
     {
       "id": "bertrand_mullainathan_2004_audit",
+      "top1_function": "match",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "matching",
       "covered": [
@@ -2253,6 +2325,8 @@
     },
     {
       "id": "nunn_wantchekon_2011_slave_iv",
+      "top1_function": "ivreg",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "iv",
       "covered": [
@@ -2267,6 +2341,8 @@
     },
     {
       "id": "meyer_viscusi_durbin_1995_did",
+      "top1_function": "did",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "did",
       "covered": [
@@ -2280,6 +2356,8 @@
     },
     {
       "id": "ludwig_miller_2007_headstart_rd",
+      "top1_function": "rdrobust",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "rd",
       "covered": [
@@ -2294,6 +2372,8 @@
     },
     {
       "id": "miguel_2004_rainfall_iv",
+      "top1_function": "ivreg",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "iv",
       "covered": [
@@ -2308,6 +2388,8 @@
     },
     {
       "id": "angrist_lavy_1999_classsize_rd",
+      "top1_function": "rdrobust",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "rd",
       "covered": [
@@ -2322,6 +2404,8 @@
     },
     {
       "id": "card_1990_mariel_boatlift",
+      "top1_function": "synth",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "synth",
       "covered": [
@@ -2336,6 +2420,8 @@
     },
     {
       "id": "dube_lester_reich_2010_border_did",
+      "top1_function": "callaway_santanna",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "did",
       "covered": [
@@ -2347,6 +2433,8 @@
     },
     {
       "id": "ditella_schargrodsky_2004_police_did",
+      "top1_function": "did",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "did",
       "covered": [
@@ -2360,6 +2448,8 @@
     },
     {
       "id": "angrist_evans_1998_familysize_iv",
+      "top1_function": "ivreg",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "iv",
       "covered": [
@@ -2374,6 +2464,8 @@
     },
     {
       "id": "imbens_2001_lottery_obs",
+      "top1_function": "match",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "matching",
       "covered": [
@@ -2389,12 +2481,21 @@
     },
     {
       "id": "autor_dorn_hanson_2013_bartik",
-      "status": "AUDIT_ERROR",
-      "error": "TypeError(\"bartik() missing 2 required positional arguments: 'shares' and 'shocks'\")",
-      "dynamic_recall": null
+      "top1_function": "bartik",
+      "stage": "ok",
+      "status": "OK",
+      "audit_family": "iv",
+      "covered": [
+        "weak_instrument"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [],
+      "dynamic_recall": 1.0
     },
     {
       "id": "oreopoulos_2006_schooling_iv",
+      "top1_function": "ivreg",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "iv",
       "covered": [
@@ -2409,6 +2510,8 @@
     },
     {
       "id": "galiani_2005_water_did",
+      "top1_function": "callaway_santanna",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "did",
       "covered": [
@@ -2420,6 +2523,8 @@
     },
     {
       "id": "card_dobkin_maestas_2008_medicare_rd",
+      "top1_function": "rdrobust",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "rd",
       "covered": [
@@ -2434,6 +2539,8 @@
     },
     {
       "id": "almond_2006_flu_did",
+      "top1_function": "callaway_santanna",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "did",
       "covered": [
@@ -2445,6 +2552,8 @@
     },
     {
       "id": "bleakley_2007_hookworm_did",
+      "top1_function": "callaway_santanna",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "did",
       "covered": [
@@ -2456,6 +2565,8 @@
     },
     {
       "id": "black_1999_school_boundary_rd",
+      "top1_function": "rdrobust",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "rd",
       "covered": [
@@ -2470,6 +2581,8 @@
     },
     {
       "id": "chay_greenstone_2005_airquality_iv",
+      "top1_function": "ivreg",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "iv",
       "covered": [
@@ -2484,6 +2597,8 @@
     },
     {
       "id": "chetty_looney_kroft_2009_salience",
+      "top1_function": "match",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "matching",
       "covered": [
@@ -2497,6 +2612,8 @@
     },
     {
       "id": "finkelstein_2007_medicare_did",
+      "top1_function": "callaway_santanna",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "did",
       "covered": [
@@ -2508,6 +2625,8 @@
     },
     {
       "id": "frontier_bunching_saez2010",
+      "top1_function": "bunching",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "rd",
       "covered": [],
@@ -2519,6 +2638,8 @@
     },
     {
       "id": "frontier_rkd_card2015",
+      "top1_function": "rkd",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "rd",
       "covered": [
@@ -2532,18 +2653,36 @@
     },
     {
       "id": "frontier_ddd_gruber1994",
-      "status": "AUDIT_ERROR",
-      "error": "TypeError(\"ddd() missing 1 required positional argument: 'subgroup'\")",
-      "dynamic_recall": null
+      "top1_function": "ddd",
+      "stage": "ok",
+      "status": "OK",
+      "audit_family": "did",
+      "covered": [
+        "parallel_trends"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "parallel_trends"
+      ],
+      "dynamic_recall": 1.0
     },
     {
       "id": "frontier_bartik_gpss2020",
-      "status": "AUDIT_ERROR",
-      "error": "TypeError(\"bartik() missing 2 required positional arguments: 'shares' and 'shocks'\")",
-      "dynamic_recall": null
+      "top1_function": "bartik",
+      "stage": "ok",
+      "status": "OK",
+      "audit_family": "iv",
+      "covered": [],
+      "not_emitted": [
+        "rotemberg_weights"
+      ],
+      "actionable_next_steps": [],
+      "dynamic_recall": 0.0
     },
     {
       "id": "frontier_decomposition_oaxaca1973",
+      "top1_function": "oaxaca",
+      "stage": "ok",
       "status": "OK",
       "audit_family": "regression",
       "covered": [],
@@ -2555,9 +2694,18 @@
     },
     {
       "id": "frontier_repeated_cross_sections_did",
-      "status": "AUDIT_ERROR",
-      "error": "MethodIncompatibility(\"Time variable 'time' must have exactly 2 values, got 4: [np.int64(0), np.int64(1), np.int64(2), np.int64(3)]\")",
-      "dynamic_recall": null
+      "top1_function": "did",
+      "stage": "ok",
+      "status": "OK",
+      "audit_family": "did",
+      "covered": [
+        "parallel_trends"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "parallel_trends"
+      ],
+      "dynamic_recall": 1.0
     }
   ]
 }

@@ -63,7 +63,7 @@ print(sp.datasets.list_datasets()[["name", "design", "source"]])
 
 StatsPAI 内置 14 个可离线加载的数据集。大部分是真实的已发表数据（`source == "bundled CSV"`）：Card (1995) NLSYM 教育回报数据、带 PSID 对照组的 LaLonde/NSW、R `rdrobust` 附带的美国参议院 RD 数据、California Proposition 99、castle-doctrine 面板、NHEFS 等。少数是按已发表设计校准的**确定性模拟复刻**（`source == "simulated"`），包括下面用到的 Callaway–Sant'Anna `mpdta` 面板——它们的数字不是原始数据上的数字。
 
-一眼概览：1,249 个注册函数，分布在 87 个子模块；405k 行核心代码 + 260k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
+一眼概览：1,255 个注册函数，分布在 87 个子模块；405k 行核心代码 + 260k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
 
 ---
 

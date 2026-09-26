@@ -8687,7 +8687,7 @@
           "type": "string"
         },
         "treat": {
-          "description": "Treatment variable",
+          "description": "Treatment variable. model='plr' also accepts a list of treatment columns: each is fitted with the others as controls on one split, and the result carries the joint covariance across treatments.",
           "type": "string"
         },
         "trimming_threshold": {
@@ -10420,7 +10420,7 @@
           "type": "string"
         },
         "fml": {
-          "description": "A pyfixest-style formula. Examples: - ``\"Y ~ X1 + X2\"`` -- plain OLS - ``\"Y ~ X1 | firm + year\"`` -- two-way fixed effects - ``\"Y ~ 1 | firm | X1 ~ Z1\"`` -- IV with fixed effects - ``\"Y ~ X1 | csw0(firm, year)\"`` -- multiple estimations",
+          "description": "A pyfixest-style formula. Examples: - ``\"Y ~ X1 + X2\"`` -- plain OLS - ``\"Y ~ X1 | firm + year\"`` -- two-way fixed effects - ``\"Y ~ 1 | firm | X1 ~ Z1\"`` -- IV with fixed effects - ``\"Y ~ X1 | csw0(firm, year)\"`` -- multiple estimations - ``\"Y ~ X1 | firm + state[year]\"`` -- varying slopes: state fixed effects plus state-specific year trends (``state[[year]]`` for the slopes alone). pyfixest does not absorb these, so such formulas run on StatsPAI's own HDFE kernel (``model_info['backend'] == 'statspai-native'``), matching R ``fixest`` for ``vcov`` iid / hetero / ``{'CRV1': col}`` and ``weights=``.",
           "type": "string"
         },
         "lean": {
@@ -14948,7 +14948,7 @@
     "name": "list_replications"
   },
   {
-    "description": "Propose a candidate DAG from variable names + domain description. Assumptions: LLM-proposed graphs / priors are hypotheses to validate, not statistical identification; Human review or data-driven falsification is required before any causal claim. Pre-conditions: Domain context and a bounded list of candidate variables; A configured, logged LLM provider for reproducibility. Failure modes: Proposals are unstable across runs or include hallucinated variables/edges -> Fix the model release and seed, add constraints, and cross-check with constraint-based discovery. Alternatives: sp.llm_dag_constrained, sp.causal_discovery, sp.dag. Typical minimum N: 1.",
+    "description": "Propose a candidate DAG from variable names + domain description. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis. Assumptions: LLM-proposed graphs / priors are hypotheses to validate, not statistical identification; Human review or data-driven falsification is required before any causal claim. Pre-conditions: Domain context and a bounded list of candidate variables; A configured, logged LLM provider for reproducibility. Failure modes: Proposals are unstable across runs or include hallucinated variables/edges -> Fix the model release and seed, add constraints, and cross-check with constraint-based discovery. Alternatives: sp.llm_dag_constrained, sp.causal_discovery, sp.dag. Typical minimum N: 1.",
     "input_schema": {
       "properties": {
         "client": {
@@ -14981,7 +14981,7 @@
     "name": "llm_dag_propose"
   },
   {
-    "description": "Propose sensitivity-analysis priors for the substantive setting. Assumptions: LLM-proposed graphs / priors are hypotheses to validate, not statistical identification; Human review or data-driven falsification is required before any causal claim. Pre-conditions: Domain context and a bounded list of candidate variables; A configured, logged LLM provider for reproducibility. Failure modes: Proposals are unstable across runs or include hallucinated variables/edges -> Fix the model release and seed, add constraints, and cross-check with constraint-based discovery. Alternatives: sp.llm_dag_constrained, sp.causal_discovery, sp.dag. Typical minimum N: 1.",
+    "description": "Propose sensitivity-analysis priors for the substantive setting. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis. Assumptions: LLM-proposed graphs / priors are hypotheses to validate, not statistical identification; Human review or data-driven falsification is required before any causal claim. Pre-conditions: Domain context and a bounded list of candidate variables; A configured, logged LLM provider for reproducibility. Failure modes: Proposals are unstable across runs or include hallucinated variables/edges -> Fix the model release and seed, add constraints, and cross-check with constraint-based discovery. Alternatives: sp.llm_dag_constrained, sp.causal_discovery, sp.dag. Typical minimum N: 1.",
     "input_schema": {
       "properties": {
         "client": {
@@ -15018,7 +15018,7 @@
     "name": "llm_sensitivity_priors"
   },
   {
-    "description": "Enumerate plausible unobserved confounders for a study. Assumptions: LLM-proposed graphs / priors are hypotheses to validate, not statistical identification; Human review or data-driven falsification is required before any causal claim. Pre-conditions: Domain context and a bounded list of candidate variables; A configured, logged LLM provider for reproducibility. Failure modes: Proposals are unstable across runs or include hallucinated variables/edges -> Fix the model release and seed, add constraints, and cross-check with constraint-based discovery. Alternatives: sp.llm_dag_constrained, sp.causal_discovery, sp.dag. Typical minimum N: 1.",
+    "description": "Enumerate plausible unobserved confounders for a study. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis. Assumptions: LLM-proposed graphs / priors are hypotheses to validate, not statistical identification; Human review or data-driven falsification is required before any causal claim. Pre-conditions: Domain context and a bounded list of candidate variables; A configured, logged LLM provider for reproducibility. Failure modes: Proposals are unstable across runs or include hallucinated variables/edges -> Fix the model release and seed, add constraints, and cross-check with constraint-based discovery. Alternatives: sp.llm_dag_constrained, sp.causal_discovery, sp.dag. Typical minimum N: 1.",
     "input_schema": {
       "properties": {
         "client": {
@@ -15776,17 +15776,17 @@
           "type": "number"
         },
         "at": {
-          "description": "Fix covariates at specific values for conditional margins. E.g., ``{'age': 30, 'female': 1}``.",
+          "description": "Fix covariates at specific values for conditional margins. E.g., ``{'age': 30, 'female': 1}``. Every key must be a model variable (Stata error 322 otherwise).",
           "type": "object"
         },
         "eps": {
           "default": 1e-05,
-          "description": "Step size for numerical differentiation.",
+          "description": "Relative step for the central difference used on transformed terms.",
           "type": "number"
         },
         "method": {
           "default": "ame",
-          "description": "- 'ame': Average Marginal Effect (average dy/dx across all obs) - 'mem': Marginal Effect at the Mean (dy/dx at mean of X)",
+          "description": "- 'ame': Average Marginal Effect (average dy/dx across all obs) - 'mem': Marginal Effect at the Mean (Stata ``atmeans``: every design component at its sample mean, factor indicators at their shares, interactions as products of those means)",
           "type": "string"
         },
         "result": {
@@ -15794,7 +15794,7 @@
           "type": "string"
         },
         "variables": {
-          "description": "Variables to compute dy/dx for. Default: all regressors.",
+          "description": "Variables to compute dy/dx for. Default: every model variable, factor variables included (Stata ``dydx(*)``).",
           "items": {
             "type": "string"
           },
@@ -15818,7 +15818,7 @@
           "type": "number"
         },
         "at": {
-          "description": "Mapping of variable names to lists/arrays of values. If multiple variables are given, the Cartesian product of all value lists is used. Example:: at={\"experience\": [1, 5, 10], \"female\": [0, 1]} produces 6 grid points.",
+          "description": "Mapping of variable names to lists/arrays of values. If multiple variables are given, the Cartesian product of all value lists is used. Example:: at={\"experience\": [1, 5, 10], \"female\": [0, 1]} produces 6 grid points. Every key must be a model variable.",
           "type": "object"
         },
         "result": {
@@ -24431,7 +24431,7 @@
     "name": "rdrbounds"
   },
   {
-    "description": "Sharp or fuzzy regression-discontinuity with robust bias-corrected CIs (Calonico-Cattaneo-Titiunik 2014). Use fuzzy= for IV-style fuzzy RD. Validation: certified evidence with scoped limitations. Known limitations: observation-level weights are not yet supported -- passing a weight column raises NotImplementedError; R-parity certification applies to bwselect='cct' or manually matched h/b bandwidths; the dependency-light default bwselect='mserd' uses StatsPAI's calibrated selector and can differ from rdrobust::rdrobust defaults.",
+    "description": "Sharp or fuzzy regression-discontinuity with robust bias-corrected CIs (Calonico-Cattaneo-Titiunik 2014). Use fuzzy= for IV-style fuzzy RD. Validation: certified evidence with scoped limitations. Known limitations: the weighted rbc bootstrap is not supported -- passing weights= with bootstrap='rbc' raises MethodIncompatibility; R-parity certification applies only to the configurations enumerated by sp.validation_scope(function='rdrobust') -- the default native mserd / triangular / p=1 / nn path (Track A 06), a manual bandwidth, and the weighted rows -- other selectors, kernels and vce choices are pinned for sp.rdbwselect or not at all for this entry point.",
     "input_schema": {
       "properties": {
         "c": {

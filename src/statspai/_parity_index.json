@@ -2479,7 +2479,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_contrast_pwcompare_parity.py"
+        "tests/reference_parity/test_contrast_pwcompare_parity.py",
+        "tests/reference_parity/test_margins_ext_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -3701,6 +3702,7 @@
         "tests/external_parity/test_dml_sensitivity_parity.py",
         "tests/reference_parity/test_cross_estimator_parity.py",
         "tests/reference_parity/test_dml_cluster_doubleml_parity.py",
+        "tests/reference_parity/test_dml_multi_treatment_parity.py",
         "tests/reference_parity/test_dml_parity.py",
         "tests/reference_parity/test_ml_causal_dml_parity.py",
         "tests/reference_parity/test_rlasso_parity.py"
@@ -4698,6 +4700,7 @@
         "tests/r_parity/15_hdfe_cluster.R",
         "tests/stata_parity/15_hdfe_cluster.do",
         "tests/reference_parity/test_castle_stata_parity.py",
+        "tests/reference_parity/test_feols_varying_slopes_parity.py",
         "tests/reference_parity/test_feols_wild_boottest_parity.py",
         "tests/reference_parity/test_iv_hdfe_stata_parity.py",
         "tests/reference_parity/test_sasp_within_parity.py",
@@ -5725,6 +5728,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py"
       ],
       "also_verified_by": [
@@ -7658,6 +7662,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py"
@@ -8080,6 +8085,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py"
       ],
@@ -8108,7 +8114,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_margins_at_parity.py"
+        "tests/reference_parity/test_margins_at_parity.py",
+        "tests/reference_parity/test_margins_ext_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -8845,7 +8852,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_imputation_parity.py"
+        "tests/reference_parity/test_imputation_parity.py",
+        "tests/reference_parity/test_mi_test_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -8873,6 +8881,23 @@
       "tolerance": "1e-9 rel (p, CI via t quantiles at fractional df); 1e-12 est/SE/df"
     },
     {
+      "function": "mi_test",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_mi_test_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "mice",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -8885,7 +8910,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_imputation_parity.py"
+        "tests/reference_parity/test_imputation_parity.py",
+        "tests/reference_parity/test_mi_test_parity.py"
       ],
       "tolerance": ""
     },
@@ -10795,6 +10821,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_count_quantile_parity.py",
+        "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py"
@@ -11383,6 +11410,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py",
         "tests/reference_parity/test_vce_grammar_stata_parity.py"
@@ -11782,6 +11810,9 @@
       "tolerance": "neighbour sets exact; weights 1e-12 rel (observed 0)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_survey_calibrated_design_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -12451,6 +12482,7 @@
         "tests/reference_parity/test_rd_iv_rd_R_parity.py",
         "tests/reference_parity/test_rd_open_R_parity.py",
         "tests/reference_parity/test_rd_vce_parity.py",
+        "tests/reference_parity/test_rd_weights_parity.py",
         "tests/reference_parity/test_rdbwselect_comb_rules.py",
         "tests/reference_parity/test_rdrobust_fuzzy_parity.py",
         "tests/reference_parity/test_rdrobust_params_parity.py",
@@ -12651,6 +12683,8 @@
         "tests/reference_parity/test_inference_sens_R_parity.py",
         "tests/reference_parity/test_inference_sens_stata_parity.py",
         "tests/reference_parity/test_margins_at_parity.py",
+        "tests/reference_parity/test_margins_ext_parity.py",
+        "tests/reference_parity/test_mi_test_parity.py",
         "tests/reference_parity/test_misc_sens_R_parity.py",
         "tests/reference_parity/test_ols_se_external_parity.py",
         "tests/reference_parity/test_panel_bias_reduced_parity.py",
@@ -14925,6 +14959,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_survey_calib_R_parity.py",
+        "tests/reference_parity/test_survey_calibrated_design_parity.py",
+        "tests/reference_parity/test_survey_domain_parity.py",
         "tests/reference_parity/test_survey_parity.py"
       ],
       "also_verified_by": [
@@ -15449,6 +15485,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_dml_multi_treatment_parity.py",
         "tests/reference_parity/test_postestimation_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py"
       ],

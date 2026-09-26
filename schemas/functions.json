@@ -748,7 +748,7 @@
     }
   },
   {
-    "description": "RD estimation: sharp, fuzzy, kink, and donut-hole designs with robust inference. Validation: certified evidence with scoped limitations. Known limitations: observation-level weights are not yet supported -- passing a weight column raises NotImplementedError; R-parity certification applies to bwselect='cct' or manually matched h/b bandwidths; the dependency-light default bwselect='mserd' uses StatsPAI's calibrated selector and can differ from rdrobust::rdrobust defaults.",
+    "description": "RD estimation: sharp, fuzzy, kink, and donut-hole designs with robust inference. Validation: certified evidence with scoped limitations. Known limitations: the weighted rbc bootstrap is not supported -- passing weights= with bootstrap='rbc' raises MethodIncompatibility; R-parity certification applies only to the configurations enumerated by sp.validation_scope(function='rdrobust') -- the default native mserd / triangular / p=1 / nn path (Track A 06), a manual bandwidth, and the weighted rows -- other selectors, kernels and vce choices are pinned for sp.rdbwselect or not at all for this entry point.",
     "name": "rdrobust",
     "parameters": {
       "properties": {
@@ -1011,7 +1011,7 @@
           "type": "string"
         },
         "treat": {
-          "description": "Treatment variable",
+          "description": "Treatment variable. model='plr' also accepts a list of treatment columns: each is fitted with the others as controls on one split, and the result carries the joint covariance across treatments.",
           "type": "string"
         },
         "trimming_threshold": {
@@ -1034,7 +1034,7 @@
     }
   },
   {
-    "description": "Treatment-Agnostic Representation Network for neural CATE/ATE estimation. Stores CATE, potential-outcome predictions, training diagnostics, and export-ready unit effects.",
+    "description": "Treatment-Agnostic Representation Network for neural CATE/ATE estimation. Stores CATE, potential-outcome predictions, training diagnostics, and export-ready unit effects. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "name": "tarnet",
     "parameters": {
       "properties": {
@@ -1124,7 +1124,7 @@
     }
   },
   {
-    "description": "Counterfactual Regression Network: TARNet plus an MMD/IPM representation-balance penalty for neural CATE/ATE estimation.",
+    "description": "Counterfactual Regression Network: TARNet plus an MMD/IPM representation-balance penalty for neural CATE/ATE estimation. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "name": "cfrnet",
     "parameters": {
       "properties": {
@@ -1219,7 +1219,7 @@
     }
   },
   {
-    "description": "DragonNet: neural potential-outcome heads plus a propensity head and targeted regularisation; reports AIPW ATE, CATE, propensity overlap diagnostics, and export-ready unit effects.",
+    "description": "DragonNet: neural potential-outcome heads plus a propensity head and targeted regularisation; reports AIPW ATE, CATE, propensity overlap diagnostics, and export-ready unit effects. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "name": "dragonnet",
     "parameters": {
       "properties": {
@@ -5025,7 +5025,7 @@
     }
   },
   {
-    "description": "Causal Effect Variational Auto-Encoder: infer a latent confounder Z from noisy proxies X, then estimate ITE via counterfactual decoding. Uses PyTorch when available, else a numpy linear-variational fallback.",
+    "description": "Causal Effect Variational Auto-Encoder: infer a latent confounder Z from noisy proxies X, then estimate ITE via counterfactual decoding. Uses PyTorch when available, else a numpy linear-variational fallback. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "name": "cevae",
     "parameters": {
       "properties": {
@@ -6817,7 +6817,7 @@
     }
   },
   {
-    "description": "Level-1 (knowledge) and Level-2 (deductive reasoning) evaluation of an LLM's causal-reasoning ability.",
+    "description": "Level-1 (knowledge) and Level-2 (deductive reasoning) evaluation of an LLM's causal-reasoning ability. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "name": "llm_causal_assess",
     "parameters": {
       "properties": {
@@ -9812,7 +9812,7 @@
     }
   },
   {
-    "description": "Multi-agent LLM causal discovery (arXiv:2509.00987, 2025). Runs proposer / critic / domain-expert / synthesiser agents over several rounds, returns per-edge confidence + audit log.",
+    "description": "Multi-agent LLM causal discovery (arXiv:2509.00987, 2025). Runs proposer / critic / domain-expert / synthesiser agents over several rounds, returns per-edge confidence + audit log. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "name": "causal_mas",
     "parameters": {
       "properties": {
@@ -10039,6 +10039,11 @@
           ],
           "type": "string"
         },
+        "strict": {
+          "default": false,
+          "description": "Delivery mode: refuse to write a pack that a third party could not rerun (no code, data or environment, or any failed step) instead of writing a partial one. Verify the result with sp.verify_replication_pack.",
+          "type": "boolean"
+        },
         "target": {
           "description": "PaperDraft, fitted result, list of results, or None for a data-only pack",
           "type": "string"
@@ -10178,7 +10183,7 @@
     }
   },
   {
-    "description": "Closed-loop LLM-assisted DAG discovery: iterate LLM-propose -> constrained PC -> CI-test validate -> demote, until edge set converges or max_iter is hit. Returns a final DAG with per-edge LLM confidence and CI-test p-value.",
+    "description": "Closed-loop LLM-assisted DAG discovery: iterate LLM-propose -> constrained PC -> CI-test validate -> demote, until edge set converges or max_iter is hit. Returns a final DAG with per-edge LLM confidence and CI-test p-value. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "name": "llm_dag_constrained",
     "parameters": {
       "properties": {
@@ -10242,7 +10247,7 @@
     }
   },
   {
-    "description": "Per-edge CI-test validation of a declared DAG. For each directed edge a->b, run partial-correlation independence test conditioning on parents(b)\\{a}. Edges with p>alpha are flagged unsupported.",
+    "description": "Per-edge CI-test validation of a declared DAG. For each directed edge a->b, run partial-correlation independence test conditioning on parents(b)\\{a}. Edges with p>alpha are flagged unsupported. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "name": "llm_dag_validate",
     "parameters": {
       "properties": {
@@ -23039,7 +23044,7 @@
     }
   },
   {
-    "description": "Estimate causal effects using Deep Instrumental Variables.",
+    "description": "Estimate causal effects using Deep Instrumental Variables. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "name": "deepiv",
     "parameters": {
       "properties": {
@@ -26011,6 +26016,54 @@
     }
   },
   {
+    "description": "Unpack, integrity-check, rerun and diff a replication archive.",
+    "name": "verify_replication_pack",
+    "parameters": {
+      "properties": {
+        "atol": {
+          "default": 1e-12,
+          "description": "Tolerance for each recorded estimate and standard error. The defaults allow floating-point reordering, not a different answer.",
+          "type": "number"
+        },
+        "keep_dir": {
+          "description": "Unpack here (and keep it) instead of a temporary directory.",
+          "type": "string"
+        },
+        "path": {
+          "description": "Archive written by :func:`sp.replication_pack`.",
+          "type": "string"
+        },
+        "python": {
+          "description": "Interpreter for the rerun; defaults to the current one. Point it at a clean virtual environment built from ``env/requirements.txt`` for a third-party replication.",
+          "type": "string"
+        },
+        "rtol": {
+          "default": 1e-08,
+          "description": "Tolerance for each recorded estimate and standard error. The defaults allow floating-point reordering, not a different answer.",
+          "type": "number"
+        },
+        "timeout": {
+          "default": 900.0,
+          "description": "Seconds allowed for ``code/script.py``.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Outcome of :func:`verify_replication_pack` (a ``dict``).",
+    "name": "ReplicationVerification",
+    "parameters": {
+      "properties": {},
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
     "description": "Convert StatsPAI table / DataFrame / Collection into ``GT``.",
     "name": "gt",
     "parameters": {
@@ -26845,10 +26898,20 @@
           "description": "Decimal places.",
           "type": "integer"
         },
+        "listwise": {
+          "default": false,
+          "description": "Drop every row with a missing value in any of ``vars`` before computing all correlations (Stata ``listwise``).",
+          "type": "boolean"
+        },
         "method": {
           "default": "pearson",
           "description": "``'pearson'``, ``'spearman'``, or ``'kendall'``.",
           "type": "string"
+        },
+        "obs": {
+          "default": false,
+          "description": "Print the number of observations used for each pair beneath the coefficient (Stata ``obs``) in text / LaTeX / HTML output.",
+          "type": "boolean"
         },
         "output": {
           "default": "text",
@@ -27848,21 +27911,21 @@
           "type": "number"
         },
         "at": {
-          "description": "Fix covariates at specific values for conditional margins. E.g., ``{'age': 30, 'female': 1}``.",
+          "description": "Fix covariates at specific values for conditional margins. E.g., ``{'age': 30, 'female': 1}``. Every key must be a model variable (Stata error 322 otherwise).",
           "type": "object"
         },
         "data": {
-          "description": "Data to compute margins on. Defaults to the estimation sample.",
+          "description": "Data to compute margins on (the estimation data). Required for factor variables and formula transformations. Defaults to the stored design when the model has neither.",
           "type": "string"
         },
         "eps": {
           "default": 1e-05,
-          "description": "Step size for numerical differentiation.",
+          "description": "Relative step for the central difference used on transformed terms.",
           "type": "number"
         },
         "method": {
           "default": "ame",
-          "description": "- 'ame': Average Marginal Effect (average dy/dx across all obs) - 'mem': Marginal Effect at the Mean (dy/dx at mean of X)",
+          "description": "- 'ame': Average Marginal Effect (average dy/dx across all obs) - 'mem': Marginal Effect at the Mean (Stata ``atmeans``: every design component at its sample mean, factor indicators at their shares, interactions as products of those means)",
           "type": "string"
         },
         "result": {
@@ -27870,7 +27933,7 @@
           "type": "string"
         },
         "variables": {
-          "description": "Variables to compute dy/dx for. Default: all regressors.",
+          "description": "Variables to compute dy/dx for. Default: every model variable, factor variables included (Stata ``dydx(*)``).",
           "items": {
             "type": "string"
           },
@@ -28010,7 +28073,7 @@
           "type": "number"
         },
         "at": {
-          "description": "Mapping of variable names to lists/arrays of values. If multiple variables are given, the Cartesian product of all value lists is used. Example:: at={\"experience\": [1, 5, 10], \"female\": [0, 1]} produces 6 grid points.",
+          "description": "Mapping of variable names to lists/arrays of values. If multiple variables are given, the Cartesian product of all value lists is used. Example:: at={\"experience\": [1, 5, 10], \"female\": [0, 1]} produces 6 grid points. Every key must be a model variable.",
           "type": "object"
         },
         "data": {
@@ -35484,6 +35547,19 @@
           "description": "design parameter ('SurveyDesign').",
           "type": "string"
         },
+        "subpop": {
+          "description": "Domain (subpopulation) estimation, as Stata ``svy, subpop()`` and R ``subset(design, ...)``: the estimate uses the domain rows, the variance the *whole* design (scores are zero outside the domain), so strata and PSUs without domain members still count. Filtering the data first would drop them and understate the variance. DEFF is not computed for domains (NaN).",
+          "type": "string"
+        },
+        "subpop_df": {
+          "default": "stata",
+          "description": "Design df for a domain: strata without domain members are dropped; Stata then counts every PSU of the remaining strata, R ``degf(subset(...))`` only PSUs with a domain member.",
+          "enum": [
+            "stata",
+            "r"
+          ],
+          "type": "string"
+        },
         "variables": {
           "description": "Column name(s) in the design's data.",
           "items": {
@@ -35520,6 +35596,19 @@
         },
         "design": {
           "description": "design parameter ('SurveyDesign').",
+          "type": "string"
+        },
+        "subpop": {
+          "description": "Domain (subpopulation) estimation, as Stata ``svy, subpop()`` and R ``subset(design, ...)``: the estimate uses the domain rows, the variance the *whole* design (scores are zero outside the domain), so strata and PSUs without domain members still count. Filtering the data first would drop them and understate the variance. DEFF is not computed for domains (NaN).",
+          "type": "string"
+        },
+        "subpop_df": {
+          "default": "stata",
+          "description": "Design df for a domain: strata without domain members are dropped; Stata then counts every PSU of the remaining strata, R ``degf(subset(...))`` only PSUs with a domain member.",
+          "enum": [
+            "stata",
+            "r"
+          ],
           "type": "string"
         },
         "variables": {
@@ -35567,6 +35656,19 @@
         },
         "formula": {
           "description": "``\"y ~ x1 + x2\"`` style formula.",
+          "type": "string"
+        },
+        "subpop": {
+          "description": "Domain (subpopulation) estimation, as Stata ``svy, subpop()`` and R ``subset(design, ...)``: the estimate uses the domain rows, the variance the *whole* design (scores are zero outside the domain), so strata and PSUs without domain members still count. Filtering the data first would drop them and understate the variance. Rows with a missing formula variable are treated the same way (outside the domain), as R ``svyglm``'s ``na.action`` does.",
+          "type": "string"
+        },
+        "subpop_df": {
+          "default": "stata",
+          "description": "Design df for a domain: strata without domain members are dropped; Stata then counts every PSU of the remaining strata, R ``degf(subset(...))`` only PSUs with a domain member.",
+          "enum": [
+            "stata",
+            "r"
+          ],
           "type": "string"
         }
       },
@@ -36774,6 +36876,22 @@
     }
   },
   {
+    "description": "Maintenance tier derived from ``stability`` and ``validation_status``.",
+    "name": "support_tier",
+    "parameters": {
+      "properties": {
+        "name": {
+          "description": "name parameter (str).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Return the full specification for a function as a dictionary.",
     "name": "describe_function",
     "parameters": {
@@ -37352,6 +37470,31 @@
     }
   },
   {
+    "description": "Auditable summary of a fitted result, shared by Python and MCP.",
+    "name": "result_card",
+    "parameters": {
+      "properties": {
+        "result": {
+          "description": "Any StatsPAI result (``EconometricResults``, ``CausalResult`` or a domain result object). Sections the result does not record are left out or marked, never guessed.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Structured, JSON-safe card for one fitted result (a ``dict``).",
+    "name": "ResultCard",
+    "parameters": {
+      "properties": {},
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
     "description": "Unified help entry point for StatsPAI.",
     "name": "help",
     "parameters": {
@@ -37408,6 +37551,16 @@
     "name": "dgp_did",
     "parameters": {
       "properties": {
+        "ddd": {
+          "default": false,
+          "description": "Triple-difference design (non-staggered only). Adds a binary ``subgroup`` column (drawn per unit); the treatment effect applies only to ``subgroup == 1`` units of the treated group, and every treated-group unit (both subgroups) also receives a post-period shock of size ``ddd_confound``. Plain DiD on the eligible subgroup is then biased by ``ddd_confound``; DDD recovers ``effect``. The draws for all other columns are identical to ``ddd=False``.",
+          "type": "boolean"
+        },
+        "ddd_confound": {
+          "default": 1.0,
+          "description": "Treated-group x post shock shared by both subgroups (``ddd=True``).",
+          "type": "number"
+        },
         "effect": {
           "default": 0.5,
           "description": "Average treatment effect on the treated.",
@@ -37738,6 +37891,11 @@
           "default": 1.0,
           "description": "True effect of the Bartik instrument on the outcome.",
           "type": "number"
+        },
+        "endogenous": {
+          "default": false,
+          "description": "If True, generate a structural shift-share IV instead of the reduced",
+          "type": "boolean"
         },
         "n_industries": {
           "default": 10,
@@ -39084,7 +39242,7 @@
           "type": "string"
         },
         "fml": {
-          "description": "A pyfixest-style formula. Examples: - ``\"Y ~ X1 + X2\"`` -- plain OLS - ``\"Y ~ X1 | firm + year\"`` -- two-way fixed effects - ``\"Y ~ 1 | firm | X1 ~ Z1\"`` -- IV with fixed effects - ``\"Y ~ X1 | csw0(firm, year)\"`` -- multiple estimations",
+          "description": "A pyfixest-style formula. Examples: - ``\"Y ~ X1 + X2\"`` -- plain OLS - ``\"Y ~ X1 | firm + year\"`` -- two-way fixed effects - ``\"Y ~ 1 | firm | X1 ~ Z1\"`` -- IV with fixed effects - ``\"Y ~ X1 | csw0(firm, year)\"`` -- multiple estimations - ``\"Y ~ X1 | firm + state[year]\"`` -- varying slopes: state fixed effects plus state-specific year trends (``state[[year]]`` for the slopes alone). pyfixest does not absorb these, so such formulas run on StatsPAI's own HDFE kernel (``model_info['backend'] == 'statspai-native'``), matching R ``fixest`` for ``vcov`` iid / hetero / ``{'CRV1': col}`` and ``weights=``.",
           "type": "string"
         },
         "lean": {
@@ -41006,11 +41164,11 @@
         },
         "method": {
           "default": "pmm",
-          "description": "Imputation method per variable: 'pmm' (predictive mean matching), 'norm' (Bayesian linear), 'logreg' (logistic for binary), 'sample' (random sample). Dict maps variable names to methods.",
+          "description": "Imputation method per variable: 'pmm' (predictive mean matching), 'norm' (Bayesian linear), 'logreg' (proper logistic, for binary variables), 'polyreg' (proper multinomial logit, for unordered categoricals), 'sample' (random draw from the observed values -- ignores every other variable). Dict maps variable names to methods. With a string, the string applies to numeric variables with more than two values; two-valued variables get 'logreg' and non-numeric variables with more than two levels get 'polyreg', as R ``mice``'s defaults. (Before 1.32 non-numeric variables got 'sample', which attenuates every association with them.)",
           "type": "object"
         },
         "predictors": {
-          "description": "Dict mapping variable -> list of predictor variables. If None, uses all other variables.",
+          "description": "Dict mapping variable -> list of predictor variables. If None, uses all other variables; categorical ones enter as treatment dummies.",
           "items": {
             "type": "string"
           },
@@ -41095,6 +41253,44 @@
       "required": [
         "mice_result",
         "estimator"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Joint Wald test of pooled multiple-imputation coefficients. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "mi_test",
+    "parameters": {
+      "properties": {
+        "method": {
+          "default": "equal_fmi",
+          "description": "``\"equal_fmi\"`` is Stata ``mi test``'s default test (equal fractions of missing information across the tested coefficients); ``\"unrestricted\"`` is ``mi test, ufmitest``.",
+          "enum": [
+            "equal_fmi",
+            "unrestricted"
+          ],
+          "type": "string"
+        },
+        "pooled": {
+          "description": "Output of :func:`sp.mi_estimate` (it carries the within / between covariances ``ubar_matrix`` / ``b_matrix``).",
+          "type": "object"
+        },
+        "small": {
+          "default": false,
+          "description": "Stata's small-sample (Reiter 2007) denominator df. Not implemented: ``True`` raises. The default reproduces ``mi test, nosmall``.",
+          "type": "boolean"
+        },
+        "terms": {
+          "description": "Coefficient names tested jointly equal to zero (``var_names``).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "pooled",
+        "terms"
       ],
       "type": "object"
     }
@@ -43063,8 +43259,24 @@
           "description": "Running variable (for RD designs).",
           "type": "string"
         },
+        "shares": {
+          "description": "Exposure-share matrix (units x industries) and industry shock vector for ``design='bartik'``; forwarded to :func:`sp.bartik`.",
+          "type": "string"
+        },
+        "shocks": {
+          "description": "Exposure-share matrix (units x industries) and industry shock vector for ``design='bartik'``; forwarded to :func:`sp.bartik`.",
+          "type": "string"
+        },
+        "subgroup": {
+          "description": "Binary eligibility column for a triple difference (``design='ddd'``). Without it the DDD card is returned with ``ready=False`` and ``missing_arguments=['subgroup']``.",
+          "type": "string"
+        },
         "time": {
           "description": "Time variable (for panel/DID).",
+          "type": "string"
+        },
+        "treat_time": {
+          "description": "Adoption period for a single-adoption design. Needed for pooled DiD on repeated cross-sections with more than two periods (no ``id``), where ``post = 1[time >= treat_time]`` is built explicitly.",
           "type": "string"
         },
         "treatment": {
@@ -55722,6 +55934,19 @@
           },
           "type": "array"
         },
+        "declared_estimand": {
+          "default": "",
+          "description": "declared_estimand parameter (str).",
+          "type": "string"
+        },
+        "deviations": {
+          "default": null,
+          "description": "deviations parameter (List[Dict[str, Any]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "estimand": {
           "description": "estimand parameter (str).",
           "type": "string"
@@ -58108,7 +58333,7 @@
     }
   },
   {
-    "description": "Propose a candidate DAG from variable names + domain description.",
+    "description": "Propose a candidate DAG from variable names + domain description. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "name": "llm_dag_propose",
     "parameters": {
       "properties": {
@@ -58183,7 +58408,7 @@
     }
   },
   {
-    "description": "Enumerate plausible unobserved confounders for a study.",
+    "description": "Enumerate plausible unobserved confounders for a study. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "name": "llm_unobserved_confounders",
     "parameters": {
       "properties": {
@@ -58262,7 +58487,7 @@
     }
   },
   {
-    "description": "Propose sensitivity-analysis priors for the substantive setting.",
+    "description": "Propose sensitivity-analysis priors for the substantive setting. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "name": "llm_sensitivity_priors",
     "parameters": {
       "properties": {
@@ -62428,7 +62653,7 @@
     }
   },
   {
-    "description": "GCN-featurised AIPW ATE estimator under network interference.",
+    "description": "GCN-featurised AIPW ATE estimator under network interference. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "name": "gnn_causal",
     "parameters": {
       "properties": {
@@ -64954,7 +65179,7 @@
     }
   },
   {
-    "description": "Merge an LLM-proposed DAG with a data-driven CI-test skeleton.",
+    "description": "Merge an LLM-proposed DAG with a data-driven CI-test skeleton. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "name": "llm_dag",
     "parameters": {
       "properties": {

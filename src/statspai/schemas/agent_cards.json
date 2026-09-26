@@ -1315,7 +1315,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "RD estimation: sharp, fuzzy, kink, and donut-hole designs with robust inference. Validation: certified evidence with scoped limitations. Known limitations: observation-level weights are not yet supported -- passing a weight column raises NotImplementedError; R-parity certification applies to bwselect='cct' or manually matched h/b bandwidths; the dependency-light default bwselect='mserd' uses StatsPAI's calibrated selector and can differ from rdrobust::rdrobust defaults.",
+    "description": "RD estimation: sharp, fuzzy, kink, and donut-hole designs with robust inference. Validation: certified evidence with scoped limitations. Known limitations: the weighted rbc bootstrap is not supported -- passing weights= with bootstrap='rbc' raises MethodIncompatibility; R-parity certification applies only to the configurations enumerated by sp.validation_scope(function='rdrobust') -- the default native mserd / triangular / p=1 / nn path (Track A 06), a manual bandwidth, and the weighted rows -- other selectors, kernels and vce choices are pinned for sp.rdbwselect or not at all for this entry point.",
     "example": "sp.rdrobust(df, y=\"score\", x=\"income\", c=10000)",
     "failure_modes": [
       {
@@ -1345,8 +1345,8 @@
     ],
     "inherits_from": null,
     "limitations": [
-      "observation-level weights are not yet supported -- passing a weight column raises NotImplementedError",
-      "R-parity certification applies to bwselect='cct' or manually matched h/b bandwidths; the dependency-light default bwselect='mserd' uses StatsPAI's calibrated selector and can differ from rdrobust::rdrobust defaults."
+      "the weighted rbc bootstrap is not supported -- passing weights= with bootstrap='rbc' raises MethodIncompatibility",
+      "R-parity certification applies only to the configurations enumerated by sp.validation_scope(function='rdrobust') -- the default native mserd / triangular / p=1 / nn path (Track A 06), a manual bandwidth, and the weighted rows -- other selectors, kernels and vce choices are pinned for sp.rdbwselect or not at all for this entry point."
     ],
     "name": "rdrobust",
     "not_recommended_when": [],
@@ -1357,7 +1357,7 @@
     ],
     "reference": "Calonico, Cattaneo, Titiunik (2014)",
     "signature": {
-      "description": "RD estimation: sharp, fuzzy, kink, and donut-hole designs with robust inference. Validation: certified evidence with scoped limitations. Known limitations: observation-level weights are not yet supported -- passing a weight column raises NotImplementedError; R-parity certification applies to bwselect='cct' or manually matched h/b bandwidths; the dependency-light default bwselect='mserd' uses StatsPAI's calibrated selector and can differ from rdrobust::rdrobust defaults.",
+      "description": "RD estimation: sharp, fuzzy, kink, and donut-hole designs with robust inference. Validation: certified evidence with scoped limitations. Known limitations: the weighted rbc bootstrap is not supported -- passing weights= with bootstrap='rbc' raises MethodIncompatibility; R-parity certification applies only to the configurations enumerated by sp.validation_scope(function='rdrobust') -- the default native mserd / triangular / p=1 / nn path (Track A 06), a manual bandwidth, and the weighted rows -- other selectors, kernels and vce choices are pinned for sp.rdbwselect or not at all for this entry point.",
       "name": "rdrobust",
       "parameters": {
         "properties": {
@@ -1508,7 +1508,7 @@
       "tests/external_parity/test_published_replications.py",
       "tests/reference_parity/test_paper_parity.py",
       "tests/reference_parity/test_rd_covs_cluster_parity.py",
-      "Variant-level certification: bwselect='cct' delegates to official rdrobust for canonical R parity; default mserd is documented as a bandwidth-convention gap."
+      "Variant-level certification: the native default path (CCT three-stage bandwidth cascade and bias-corrected operator) matches rdrobust::rdrobust on Track A 06; weights= is pinned in tests/reference_parity/test_rd_weights_parity.py; bwselect='cct' delegates to the official port."
     ],
     "validation_status": "certified"
   },
@@ -1773,7 +1773,7 @@
             "type": "string"
           },
           "treat": {
-            "description": "Treatment variable",
+            "description": "Treatment variable. model='plr' also accepts a list of treatment columns: each is fitted with the others as controls on one split, and the result carries the joint covariance across treatments.",
             "type": "string"
           },
           "trimming_threshold": {
@@ -1824,7 +1824,7 @@
     ],
     "category": "neural_causal",
     "cost_profile": "",
-    "description": "Treatment-Agnostic Representation Network for neural CATE/ATE estimation. Stores CATE, potential-outcome predictions, training diagnostics, and export-ready unit effects.",
+    "description": "Treatment-Agnostic Representation Network for neural CATE/ATE estimation. Stores CATE, potential-outcome predictions, training diagnostics, and export-ready unit effects. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "example": "sp.tarnet(df, y=\"outcome\", treat=\"treated\", covariates=[\"x1\",\"x2\"], validation_fraction=0.2)",
     "failure_modes": [
       {
@@ -1847,7 +1847,9 @@
       }
     ],
     "inherits_from": null,
-    "limitations": [],
+    "limitations": [
+      "no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds."
+    ],
     "name": "tarnet",
     "not_recommended_when": [],
     "pre_conditions": [
@@ -1858,7 +1860,7 @@
     ],
     "reference": "Shalit, Johansson & Sontag (2017) ICML",
     "signature": {
-      "description": "Treatment-Agnostic Representation Network for neural CATE/ATE estimation. Stores CATE, potential-outcome predictions, training diagnostics, and export-ready unit effects.",
+      "description": "Treatment-Agnostic Representation Network for neural CATE/ATE estimation. Stores CATE, potential-outcome predictions, training diagnostics, and export-ready unit effects. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
       "name": "tarnet",
       "parameters": {
         "properties": {
@@ -1972,7 +1974,7 @@
     ],
     "category": "neural_causal",
     "cost_profile": "",
-    "description": "Counterfactual Regression Network: TARNet plus an MMD/IPM representation-balance penalty for neural CATE/ATE estimation.",
+    "description": "Counterfactual Regression Network: TARNet plus an MMD/IPM representation-balance penalty for neural CATE/ATE estimation. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "example": "sp.cfrnet(df, y=\"outcome\", treat=\"treated\", covariates=[\"x1\",\"x2\"], ipm_weight=1.0)",
     "failure_modes": [
       {
@@ -1995,7 +1997,9 @@
       }
     ],
     "inherits_from": null,
-    "limitations": [],
+    "limitations": [
+      "no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds."
+    ],
     "name": "cfrnet",
     "not_recommended_when": [],
     "pre_conditions": [
@@ -2006,7 +2010,7 @@
     ],
     "reference": "Shalit, Johansson & Sontag (2017) ICML",
     "signature": {
-      "description": "Counterfactual Regression Network: TARNet plus an MMD/IPM representation-balance penalty for neural CATE/ATE estimation.",
+      "description": "Counterfactual Regression Network: TARNet plus an MMD/IPM representation-balance penalty for neural CATE/ATE estimation. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
       "name": "cfrnet",
       "parameters": {
         "properties": {
@@ -2125,7 +2129,7 @@
     ],
     "category": "neural_causal",
     "cost_profile": "",
-    "description": "DragonNet: neural potential-outcome heads plus a propensity head and targeted regularisation; reports AIPW ATE, CATE, propensity overlap diagnostics, and export-ready unit effects.",
+    "description": "DragonNet: neural potential-outcome heads plus a propensity head and targeted regularisation; reports AIPW ATE, CATE, propensity overlap diagnostics, and export-ready unit effects. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "example": "sp.dragonnet(df, y=\"outcome\", treat=\"treated\", covariates=[\"x1\",\"x2\"], validation_fraction=0.2)",
     "failure_modes": [
       {
@@ -2148,7 +2152,9 @@
       }
     ],
     "inherits_from": null,
-    "limitations": [],
+    "limitations": [
+      "no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds."
+    ],
     "name": "dragonnet",
     "not_recommended_when": [],
     "pre_conditions": [
@@ -2159,7 +2165,7 @@
     ],
     "reference": "Shi, Blei & Veitch (2019) NeurIPS",
     "signature": {
-      "description": "DragonNet: neural potential-outcome heads plus a propensity head and targeted regularisation; reports AIPW ATE, CATE, propensity overlap diagnostics, and export-ready unit effects.",
+      "description": "DragonNet: neural potential-outcome heads plus a propensity head and targeted regularisation; reports AIPW ATE, CATE, propensity overlap diagnostics, and export-ready unit effects. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
       "name": "dragonnet",
       "parameters": {
         "properties": {
@@ -5033,6 +5039,8 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs survey::svydesign + svymean/svytotal/svyglm/degf (strata, nested PSUs, fpc, survey.lonely.psu); Stata svyset + svy: mean/total/regress/logit/poisson + estat effects [R version 4.5.2 (2025-10-31), Stata 18 MP, survey 4.5]; tolerance estimates, SEs, DEFF, CI bounds 1e-10 rel, p-values 1e-9 rel (observed <= 4e-14; p 6e-13) -- tests/reference_parity/test_survey_design_R_parity.py",
       "tests/reference_parity/test_survey_calib_R_parity.py",
+      "tests/reference_parity/test_survey_calibrated_design_parity.py",
+      "tests/reference_parity/test_survey_domain_parity.py",
       "tests/reference_parity/test_survey_parity.py",
       "API/unit contract evidence: tests/test_survey.py"
     ],
@@ -8605,7 +8613,7 @@
     ],
     "category": "neural_causal",
     "cost_profile": "",
-    "description": "Causal Effect Variational Auto-Encoder: infer a latent confounder Z from noisy proxies X, then estimate ITE via counterfactual decoding. Uses PyTorch when available, else a numpy linear-variational fallback.",
+    "description": "Causal Effect Variational Auto-Encoder: infer a latent confounder Z from noisy proxies X, then estimate ITE via counterfactual decoding. Uses PyTorch when available, else a numpy linear-variational fallback. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "example": "",
     "failure_modes": [
       {
@@ -8622,7 +8630,9 @@
       }
     ],
     "inherits_from": null,
-    "limitations": [],
+    "limitations": [
+      "no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds."
+    ],
     "name": "cevae",
     "not_recommended_when": [],
     "pre_conditions": [
@@ -8631,7 +8641,7 @@
     ],
     "reference": "Louizos et al. (2017)",
     "signature": {
-      "description": "Causal Effect Variational Auto-Encoder: infer a latent confounder Z from noisy proxies X, then estimate ITE via counterfactual decoding. Uses PyTorch when available, else a numpy linear-variational fallback.",
+      "description": "Causal Effect Variational Auto-Encoder: infer a latent confounder Z from noisy proxies X, then estimate ITE via counterfactual decoding. Uses PyTorch when available, else a numpy linear-variational fallback. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
       "name": "cevae",
       "parameters": {
         "properties": {
@@ -11991,7 +12001,7 @@
     ],
     "category": "dag",
     "cost_profile": "",
-    "description": "Level-1 (knowledge) and Level-2 (deductive reasoning) evaluation of an LLM's causal-reasoning ability.",
+    "description": "Level-1 (knowledge) and Level-2 (deductive reasoning) evaluation of an LLM's causal-reasoning ability. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "example": "",
     "failure_modes": [
       {
@@ -12008,7 +12018,9 @@
       }
     ],
     "inherits_from": null,
-    "limitations": [],
+    "limitations": [
+      "LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis."
+    ],
     "name": "llm_causal_assess",
     "not_recommended_when": [],
     "pre_conditions": [
@@ -12017,7 +12029,7 @@
     ],
     "reference": "arXiv:2403.09606; 2409.09822; 2503.09326; 2509.00987.",
     "signature": {
-      "description": "Level-1 (knowledge) and Level-2 (deductive reasoning) evaluation of an LLM's causal-reasoning ability.",
+      "description": "Level-1 (knowledge) and Level-2 (deductive reasoning) evaluation of an LLM's causal-reasoning ability. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
       "name": "llm_causal_assess",
       "parameters": {
         "properties": {
@@ -17457,7 +17469,7 @@
     ],
     "category": "causal_llm",
     "cost_profile": "",
-    "description": "Multi-agent LLM causal discovery (arXiv:2509.00987, 2025). Runs proposer / critic / domain-expert / synthesiser agents over several rounds, returns per-edge confidence + audit log.",
+    "description": "Multi-agent LLM causal discovery (arXiv:2509.00987, 2025). Runs proposer / critic / domain-expert / synthesiser agents over several rounds, returns per-edge confidence + audit log. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "example": "sp.causal_llm.causal_mas(variables=['age','sex','treatment','outcome'])",
     "failure_modes": [
       {
@@ -17468,7 +17480,9 @@
       }
     ],
     "inherits_from": null,
-    "limitations": [],
+    "limitations": [
+      "LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis."
+    ],
     "name": "causal_mas",
     "not_recommended_when": [],
     "pre_conditions": [
@@ -17477,7 +17491,7 @@
     ],
     "reference": "arXiv:2509.00987 (2025).",
     "signature": {
-      "description": "Multi-agent LLM causal discovery (arXiv:2509.00987, 2025). Runs proposer / critic / domain-expert / synthesiser agents over several rounds, returns per-edge confidence + audit log.",
+      "description": "Multi-agent LLM causal discovery (arXiv:2509.00987, 2025). Runs proposer / critic / domain-expert / synthesiser agents over several rounds, returns per-edge confidence + audit log. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
       "name": "causal_mas",
       "parameters": {
         "properties": {
@@ -17796,6 +17810,11 @@
             ],
             "type": "string"
           },
+          "strict": {
+            "default": false,
+            "description": "Delivery mode: refuse to write a pack that a third party could not rerun (no code, data or environment, or any failed step) instead of writing a partial one. Verify the result with sp.verify_replication_pack.",
+            "type": "boolean"
+          },
           "target": {
             "description": "PaperDraft, fitted result, list of results, or None for a data-only pack",
             "type": "string"
@@ -18054,7 +18073,7 @@
     ],
     "category": "dag",
     "cost_profile": "",
-    "description": "Closed-loop LLM-assisted DAG discovery: iterate LLM-propose -> constrained PC -> CI-test validate -> demote, until edge set converges or max_iter is hit. Returns a final DAG with per-edge LLM confidence and CI-test p-value.",
+    "description": "Closed-loop LLM-assisted DAG discovery: iterate LLM-propose -> constrained PC -> CI-test validate -> demote, until edge set converges or max_iter is hit. Returns a final DAG with per-edge LLM confidence and CI-test p-value. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "example": "sp.llm_dag_constrained(df, variables=['X','Y','Z'], oracle=lambda v, d: [('X','Y',0.9)], max_iter=3)",
     "failure_modes": [
       {
@@ -18077,7 +18096,9 @@
       }
     ],
     "inherits_from": null,
-    "limitations": [],
+    "limitations": [
+      "LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis."
+    ],
     "name": "llm_dag_constrained",
     "not_recommended_when": [],
     "pre_conditions": [
@@ -18088,7 +18109,7 @@
     ],
     "reference": "Kcman et al. arXiv:2305.00050; Long et al. arXiv:2307.02390; Jiralerspong et al. arXiv:2402.01207.",
     "signature": {
-      "description": "Closed-loop LLM-assisted DAG discovery: iterate LLM-propose -> constrained PC -> CI-test validate -> demote, until edge set converges or max_iter is hit. Returns a final DAG with per-edge LLM confidence and CI-test p-value.",
+      "description": "Closed-loop LLM-assisted DAG discovery: iterate LLM-propose -> constrained PC -> CI-test validate -> demote, until edge set converges or max_iter is hit. Returns a final DAG with per-edge LLM confidence and CI-test p-value. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
       "name": "llm_dag_constrained",
       "parameters": {
         "properties": {
@@ -18170,7 +18191,7 @@
     ],
     "category": "dag",
     "cost_profile": "",
-    "description": "Per-edge CI-test validation of a declared DAG. For each directed edge a->b, run partial-correlation independence test conditioning on parents(b)\\{a}. Edges with p>alpha are flagged unsupported.",
+    "description": "Per-edge CI-test validation of a declared DAG. For each directed edge a->b, run partial-correlation independence test conditioning on parents(b)\\{a}. Edges with p>alpha are flagged unsupported. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "example": "sp.llm_dag_validate(my_dag, df, alpha=0.05)",
     "failure_modes": [
       {
@@ -18187,7 +18208,9 @@
       }
     ],
     "inherits_from": null,
-    "limitations": [],
+    "limitations": [
+      "LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis."
+    ],
     "name": "llm_dag_validate",
     "not_recommended_when": [],
     "pre_conditions": [
@@ -18195,7 +18218,7 @@
     ],
     "reference": "Spirtes-Glymour-Scheines (2000); standard CI-test logic.",
     "signature": {
-      "description": "Per-edge CI-test validation of a declared DAG. For each directed edge a->b, run partial-correlation independence test conditioning on parents(b)\\{a}. Edges with p>alpha are flagged unsupported.",
+      "description": "Per-edge CI-test validation of a declared DAG. For each directed edge a->b, run partial-correlation independence test conditioning on parents(b)\\{a}. Edges with p>alpha are flagged unsupported. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
       "name": "llm_dag_validate",
       "parameters": {
         "properties": {
@@ -32241,7 +32264,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Estimate causal effects using Deep Instrumental Variables.",
+    "description": "Estimate causal effects using Deep Instrumental Variables. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "example": "sp.deepiv( df, y='lwage', treat='educ', instruments=['nearc4'], covariates=['exper', 'expersq'], )",
     "failure_modes": [
       {
@@ -32252,7 +32275,9 @@
       }
     ],
     "inherits_from": null,
-    "limitations": [],
+    "limitations": [
+      "no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds."
+    ],
     "name": "deepiv",
     "not_recommended_when": [],
     "pre_conditions": [
@@ -32261,7 +32286,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Estimate causal effects using Deep Instrumental Variables.",
+      "description": "Estimate causal effects using Deep Instrumental Variables. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
       "name": "deepiv",
       "parameters": {
         "properties": {
@@ -38126,7 +38151,7 @@
             "type": "string"
           },
           "fml": {
-            "description": "A pyfixest-style formula. Examples: - ``\"Y ~ X1 + X2\"`` -- plain OLS - ``\"Y ~ X1 | firm + year\"`` -- two-way fixed effects - ``\"Y ~ 1 | firm | X1 ~ Z1\"`` -- IV with fixed effects - ``\"Y ~ X1 | csw0(firm, year)\"`` -- multiple estimations",
+            "description": "A pyfixest-style formula. Examples: - ``\"Y ~ X1 + X2\"`` -- plain OLS - ``\"Y ~ X1 | firm + year\"`` -- two-way fixed effects - ``\"Y ~ 1 | firm | X1 ~ Z1\"`` -- IV with fixed effects - ``\"Y ~ X1 | csw0(firm, year)\"`` -- multiple estimations - ``\"Y ~ X1 | firm + state[year]\"`` -- varying slopes: state fixed effects plus state-specific year trends (``state[[year]]`` for the slopes alone). pyfixest does not absorb these, so such formulas run on StatsPAI's own HDFE kernel (``model_info['backend'] == 'statspai-native'``), matching R ``fixest`` for ``vcov`` iid / hetero / ``{'CRV1': col}`` and ``weights=``.",
             "type": "string"
           },
           "lean": {
@@ -43687,7 +43712,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Propose a candidate DAG from variable names + domain description.",
+    "description": "Propose a candidate DAG from variable names + domain description. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "example": "",
     "failure_modes": [
       {
@@ -43698,7 +43723,9 @@
       }
     ],
     "inherits_from": null,
-    "limitations": [],
+    "limitations": [
+      "LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis."
+    ],
     "name": "llm_dag_propose",
     "not_recommended_when": [],
     "pre_conditions": [
@@ -43707,7 +43734,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Propose a candidate DAG from variable names + domain description.",
+      "description": "Propose a candidate DAG from variable names + domain description. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
       "name": "llm_dag_propose",
       "parameters": {
         "properties": {
@@ -43756,7 +43783,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Enumerate plausible unobserved confounders for a study.",
+    "description": "Enumerate plausible unobserved confounders for a study. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "example": "",
     "failure_modes": [
       {
@@ -43767,7 +43794,9 @@
       }
     ],
     "inherits_from": null,
-    "limitations": [],
+    "limitations": [
+      "LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis."
+    ],
     "name": "llm_unobserved_confounders",
     "not_recommended_when": [],
     "pre_conditions": [
@@ -43776,7 +43805,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Enumerate plausible unobserved confounders for a study.",
+      "description": "Enumerate plausible unobserved confounders for a study. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
       "name": "llm_unobserved_confounders",
       "parameters": {
         "properties": {
@@ -43834,7 +43863,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Propose sensitivity-analysis priors for the substantive setting.",
+    "description": "Propose sensitivity-analysis priors for the substantive setting. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
     "example": "",
     "failure_modes": [
       {
@@ -43845,7 +43874,9 @@
       }
     ],
     "inherits_from": null,
-    "limitations": [],
+    "limitations": [
+      "LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis."
+    ],
     "name": "llm_sensitivity_priors",
     "not_recommended_when": [],
     "pre_conditions": [
@@ -43854,7 +43885,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Propose sensitivity-analysis priors for the substantive setting.",
+      "description": "Propose sensitivity-analysis priors for the substantive setting. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
       "name": "llm_sensitivity_priors",
       "parameters": {
         "properties": {
@@ -44695,6 +44726,102 @@
     },
     "stability": "stable",
     "typical_n_min": 200,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alternatives": [],
+    "assumptions": [],
+    "category": "neural_causal",
+    "cost_profile": "",
+    "description": "GCN-featurised AIPW ATE estimator under network interference. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
+    "example": "",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [
+      "no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds."
+    ],
+    "name": "gnn_causal",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "reference": "",
+    "signature": {
+      "description": "GCN-featurised AIPW ATE estimator under network interference. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
+      "name": "gnn_causal",
+      "parameters": {
+        "properties": {
+          "adjacency": {
+            "description": "adjacency parameter (DataFrame).",
+            "type": "string"
+          },
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "covariates": {
+            "description": "Covariate matrix, DataFrame, or column names.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "min_leaf": {
+            "default": 5,
+            "description": "min_leaf parameter (int).",
+            "type": "integer"
+          },
+          "n_layers": {
+            "default": 2,
+            "description": "Number of GCN propagation layers applied to the covariate matrix.",
+            "type": "integer"
+          },
+          "n_trees": {
+            "default": 200,
+            "description": "Number of trees.",
+            "type": "integer"
+          },
+          "propensity_bounds": {
+            "default": [
+              0.02,
+              0.98
+            ],
+            "description": "propensity_bounds parameter (tuple[float, float]).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "random_state": {
+            "default": 42,
+            "description": "Random seed or RandomState for reproducible stochastic steps.",
+            "type": "integer"
+          },
+          "treat": {
+            "description": "Treatment indicator or first-treatment-period column.",
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome variable column name or outcome array.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "treat",
+          "covariates",
+          "adjacency"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
     "validation_notes": [],
     "validation_status": "api_stable"
   },
@@ -45869,6 +45996,78 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alternatives": [],
+    "assumptions": [],
+    "category": "dag",
+    "cost_profile": "",
+    "description": "Merge an LLM-proposed DAG with a data-driven CI-test skeleton. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
+    "example": "",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [
+      "LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis."
+    ],
+    "name": "llm_dag",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "reference": "",
+    "signature": {
+      "description": "Merge an LLM-proposed DAG with a data-driven CI-test skeleton. Known limitations: LLM output is a proposal, not evidence -- only a heuristic step: it is not reproducible across model versions or providers, has no numerical evidence, and must be checked against domain knowledge and data (e.g. sp.llm_dag_validate) before it constrains an analysis.",
+      "name": "llm_dag",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "ci_test": {
+            "default": "fisherz",
+            "description": "ci_test parameter (str).",
+            "type": "string"
+          },
+          "data": {
+            "description": "Observational data used for CI-test skeleton construction. Required for merge_strategy in {\"intersection\", \"union_with_ci\"}.",
+            "type": "string"
+          },
+          "descriptions": {
+            "description": "Human-readable description per variable (passed to the oracle).",
+            "type": "object"
+          },
+          "merge_strategy": {
+            "default": "intersection",
+            "description": "How to combine oracle and CI-test results.",
+            "enum": [
+              "oracle_only",
+              "intersection",
+              "union_with_ci"
+            ],
+            "type": "string"
+          },
+          "oracle": {
+            "description": "A callable ``f(variables, descriptions) -> list[(from, to)]``. If ``None``, this function runs a **data-only** pipeline.",
+            "type": "string"
+          },
+          "variables": {
+            "description": "Variable names.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "variables"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
     "validation_notes": [],
     "validation_status": "api_stable"
   }
