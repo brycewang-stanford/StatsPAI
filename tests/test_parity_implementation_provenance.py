@@ -251,3 +251,28 @@ def test_trace_records_the_estimation_path_and_versions():
         assert rec["exercised_sources"], stem
         assert all(p.startswith("src/statspai/") for p in rec["exercised_sources"])
         assert "numpy" in rec["dependency_versions"], stem
+
+
+def test_version_bump_does_not_stale_a_trace_but_other_edits_do(tmp_path):
+    """A release bump rewrites ``__version__`` in the package root, which ten
+    Track A modules import through; that alone must not stale their traces
+    (it did at 1.32.0), while any other edit to the same file must."""
+    tracer = _load_tracer()
+    init = tmp_path / "src" / "statspai" / "__init__.py"
+    init.parent.mkdir(parents=True)
+    body = '"""pkg."""\n__version__ = "1.0.0"\nfrom .x import y\n'
+    init.write_text(body, encoding="utf-8")
+    before = tracer._sha256(init)
+    init.write_text(body.replace("1.0.0", "9.9.9"), encoding="utf-8")
+    assert tracer._sha256(init) == before
+    init.write_text(
+        body.replace("from .x import y", "from .x import z"), encoding="utf-8"
+    )
+    assert tracer._sha256(init) != before
+    # Only the package root is exempted: a version line elsewhere is code.
+    other = tmp_path / "src" / "statspai" / "sub" / "__init__.py"
+    other.parent.mkdir()
+    other.write_text(body, encoding="utf-8")
+    first = tracer._sha256(other)
+    other.write_text(body.replace("1.0.0", "9.9.9"), encoding="utf-8")
+    assert tracer._sha256(other) != first

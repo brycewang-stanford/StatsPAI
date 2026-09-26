@@ -57,6 +57,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import runpy
 import subprocess
 import sys
@@ -140,10 +141,21 @@ def _top_package(filename: str) -> str | None:
     return None
 
 
+#: The release number in ``statspai/__init__.py`` is metadata, not part of
+#: any estimation path; without this, every version bump staled the traces
+#: of the modules that import through the package root (ten Track A modules
+#: and one original-data module at 1.32.0). Any other edit to the file
+#: still stales them.
+_VERSION_LINE = re.compile(rb'(?m)^__version__ = "[^"]*"$')
+
+
 def _sha256(path: Path) -> str:
     # Hashed ASCII-normalized, as the JSS archive ships source files
     # (scripts/ascii_source.py), so the freshness check also holds there.
-    return hashlib.sha256(normalized_source_bytes(path)).hexdigest()
+    data = normalized_source_bytes(path)
+    if path.name == "__init__.py" and path.parent.name == "statspai":
+        data = _VERSION_LINE.sub(b'__version__ = "<release>"', data)
+    return hashlib.sha256(data).hexdigest()
 
 
 def _ledger_dir(ledger: str, root: Path = REPO) -> Path:
