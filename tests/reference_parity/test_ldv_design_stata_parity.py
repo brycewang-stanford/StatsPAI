@@ -215,7 +215,13 @@ def test_qreg_matches_stata(q: int, vce: str) -> None:
             d.loc[ours, "coefficient"], ref[f"b_{theirs}"], rtol=RTOL
         )
         np.testing.assert_allclose(d.loc[ours, "se"], ref[f"se_{theirs}"], rtol=RTOL)
+        # Stata refers the statistic to t(e(df_r)) = t(N - k), not z.
+        np.testing.assert_allclose(
+            d.loc[ours, "pvalue"], ref[f"p_{theirs}"], rtol=1e-8, atol=1e-300
+        )
     np.testing.assert_allclose(res.model_info["bandwidth"], ref["bwidth"], rtol=1e-12)
+    assert res.model_info["df_inference"] == int(ref["df_r"])
+    np.testing.assert_allclose(res.ci, (ref["ll_x1"], ref["ul_x1"]), rtol=RTOL)
 
 
 @pytest.mark.parametrize("q", [25, 50, 75])
@@ -227,6 +233,9 @@ def test_qreg_nid_matches_quantreg(q: int) -> None:
     res = _qreg(q, "nid")
     np.testing.assert_allclose(res.detail["coefficient"], ref["b"], rtol=RTOL)
     np.testing.assert_allclose(res.detail["se"], ref["se"], rtol=RTOL)
+    # summary.rq refers the statistic to t(rdf), rdf = N - k.
+    assert res.model_info["df_inference"] == ref["rdf"]
+    np.testing.assert_allclose(res.detail["pvalue"], ref["p"], rtol=1e-8, atol=1e-15)
 
 
 def test_qreg_default_is_stata_iid() -> None:

@@ -119,11 +119,20 @@ foreach spec in "heckman_oim||" "heckman_robust||vce(robust)" ///
 foreach q in 25 50 75 {
     foreach v in iid robust {
         quietly qreg yq x1 x2, quantile(0.`q') vce(`v')
+        * replay to post r(table): p-values and intervals use t(e(df_r))
+        quietly qreg
+        matrix T = r(table)
         file write fh `"  "qreg_`q'_`v'": {"' _n
+        local i = 0
         foreach t in x1 x2 _cons {
+            local ++i
             file write fh `"    "b_`t'": "' %23.16e (_b[`t']) `","' _n
             file write fh `"    "se_`t'": "' %23.16e (_se[`t']) `","' _n
+            file write fh `"    "p_`t'": "' %23.16e (T[4, `i']) `","' _n
+            file write fh `"    "ll_`t'": "' %23.16e (T[5, `i']) `","' _n
+            file write fh `"    "ul_`t'": "' %23.16e (T[6, `i']) `","' _n
         }
+        file write fh `"    "df_r": "' %12.0f (e(df_r)) `","' _n
         file write fh `"    "bwidth": "' %23.16e (e(bwidth)) `", "N": "' %12.0f (e(N)) _n
         file write fh `"  },"' _n
     }

@@ -19,7 +19,9 @@ for (q in c(25, 50, 75)) {
   out[[paste0("nid_", q)]] <- list(
     terms = names(coef(fit)),
     b = unname(coef(fit)),
-    se = unname(s$coefficients[, 2])
+    se = unname(s$coefficients[, 2]),
+    p = unname(s$coefficients[, 4]),
+    rdf = s$rdf
   )
 }
 out[["_meta"]] <- list(

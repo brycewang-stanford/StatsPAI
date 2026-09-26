@@ -97,8 +97,9 @@ def qreg(
           implementation and the reference (full covariance matrix within
           1e-13 at four quantiles).
 
-        ``'kernel'`` and ``'cluster'`` report t(N - k) inference, as
-        ``qreg2`` does.
+        Every choice reports t(N - k) p-values and intervals, as Stata
+        ``qreg`` / ``qreg2`` and R ``quantreg::summary.rq`` do (normal
+        before 1.32).
     cluster : str, optional
         Cluster column; implies ``vce='cluster'``. Rows with a missing
         cluster id are dropped, as ``qreg2`` does.
@@ -206,21 +207,19 @@ def qreg(
         )
         se = _as_float_array(np.sqrt(np.maximum(np.diag(vcov), 0.0)))
 
-    z_stats = beta / se
-    if kind in ("kernel", "cluster"):
-        # qreg2 keeps qreg's residual degrees of freedom: t(N - k).
-        pvals = 2 * stats.t.sf(np.abs(z_stats), n - k)
-        z_crit = stats.t.ppf(1 - alpha / 2, n - k)
-    else:
-        pvals = 2 * stats.norm.sf(np.abs(z_stats))
-        z_crit = stats.norm.ppf(1 - alpha / 2)
+    # Stata qreg / qreg2 and R quantreg::summary.rq all refer the statistic
+    # to t(N - k); before 1.32 this used the normal distribution.
+    t_stats = beta / se
+    pvals = 2 * stats.t.sf(np.abs(t_stats), n - k)
+    t_crit = stats.t.ppf(1 - alpha / 2, n - k)
 
     detail = pd.DataFrame(
         {
             "variable": var_names,
             "coefficient": beta,
             "se": se,
-            "z": z_stats,
+            "t": t_stats,
+            "z": t_stats,  # pre-1.32 column name, kept for compatibility
             "pvalue": pvals,
         }
     )
@@ -229,7 +228,7 @@ def qreg(
     main_coef = float(beta[1])
     main_se = float(se[1])
     main_p = float(pvals[1])
-    ci = (main_coef - z_crit * main_se, main_coef + z_crit * main_se)
+    ci = (main_coef - t_crit * main_se, main_coef + t_crit * main_se)
 
     model_info = {
         "quantile": quantile,
@@ -237,6 +236,7 @@ def qreg(
         "n_obs": n,
         "vce": kind,
         "bandwidth": bandwidth,
+        "df_inference": n - k,
     }
     if kind != "powell":
         model_info["vcov"] = pd.DataFrame(vcov, index=var_names, columns=var_names)
@@ -244,7 +244,6 @@ def qreg(
         model_info.update(
             {
                 "kernel_scale": kernel_scale,
-                "df_inference": n - k,
                 "reference": (
                     "Stata qreg2" + (f", cluster({cluster})" if cluster else "")
                 ),

@@ -303,6 +303,14 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.qreg` p-values and intervals use t(N - k).** They were referred
+  to the normal distribution for every `vce`; Stata `qreg` / `qreg2` and R
+  `quantreg::summary.rq` all use t with the residual degrees of freedom.
+  Coefficients and SEs are unchanged; p-values and 95% intervals widen
+  slightly (by the t/z ratio, 0.2% at N = 1,200). Now pinned against Stata
+  18 `qreg` (`vce(iid)` / `vce(robust)`, three quantiles) and quantreg
+  `se = "nid"` (`test_ldv_design_stata_parity.py`). The results table
+  gains a `t` column; `z` is kept with the same values for compatibility.
 - **`sp.panel(method="mundlak" | "chamberlain")` random-effects variance
   components follow Stata.** linearmodels computes sigma_e and sigma_u with
   degrees of freedom from the column count, and the unit-mean columns the

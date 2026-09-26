@@ -40,6 +40,24 @@ sp.cate_summary(cf).loc["Mean"]   # was .loc["Mean (ATE)"]
 
 ---
 
+<a id="qreg-t-inference"></a>
+
+## Unreleased — ⚠️ `sp.qreg` p-values and intervals use t(N - k)
+
+**Who is affected.** Anyone reading p-values, stars or confidence intervals
+from `sp.qreg` (any `vce`), including `result.ci` and `detail["pvalue"]`.
+
+**What changes.** The statistic is referred to t with N - k degrees of
+freedom, as Stata `qreg` and R `quantreg` do, instead of the normal.
+Coefficients and standard errors do not change; intervals widen by the
+ratio of the t and normal critical values. `detail` has a new `t` column;
+the old `z` column still exists and holds the same statistic.
+
+**To reproduce old numbers.** `2 * scipy.stats.norm.sf(abs(b / se))` and
+`b +/- scipy.stats.norm.ppf(0.975) * se` from `detail`.
+
+---
+
 <a id="panel-cre-theta"></a>
 
 ## Unreleased — ⚠️ `sp.panel(method="mundlak" | "chamberlain")` mean coefficients move slightly

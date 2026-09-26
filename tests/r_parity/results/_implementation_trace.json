@@ -1265,7 +1265,7 @@
    "result_sha256": "e09876268874e84e2156fadaf076e9be18d05a7e9df8c8d4990fb3bb4e9e4f1d"
   },
   "40_qreg": {
-   "seconds": 0.68,
+   "seconds": 1.29,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1275,7 +1275,7 @@
     "src/statspai/_aliases.py": "2ec89b9fce6d42178261527eeb73e67b9a8c6ec1bf9dbc2dff53137dac417ef9",
     "src/statspai/core/results.py": "8c5ed2a00742d573658a907a958ea258a54f82abbc7ec88996f23539fd77956d",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
-    "src/statspai/regression/quantile.py": "82069e4e5e7c7869facc072088a53ec0f0216cc0b22e948f6ec1bebb5ecf8905"
+    "src/statspai/regression/quantile.py": "94af62e818f0a968e10463387f5e86da796dcae2fe237c2e19617df718544926"
    },
    "dependency_versions": {
     "numpy": "2.2.6",
