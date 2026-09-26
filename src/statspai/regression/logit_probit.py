@@ -718,6 +718,7 @@ def _fit_binary(
     if cluster_arr is not None:
         model_info["n_clusters"] = int(len(np.unique(cluster_arr)))
 
+    model_info["alpha"] = alpha
     result = EconometricResults(
         params=params,
         std_errors=se_series,

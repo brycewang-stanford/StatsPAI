@@ -252,6 +252,7 @@ def zisf(
         params=params_s,
         std_errors=std_errors,
         model_info={
+            "alpha": alpha,
             "model_type": (
                 f"Zero-Inefficiency SFA ({'Cost' if cost else 'Production'})"
             ),
@@ -572,6 +573,7 @@ def lcsf(
         params=params_s,
         std_errors=std_errors,
         model_info={
+            "alpha": alpha,
             "model_type": (
                 f"Latent-Class SFA (2 classes, " f"{'Cost' if cost else 'Production'})"
             ),

@@ -143,7 +143,9 @@ def _sandwich_variance(
             w_vec = np.asarray(weights, dtype=float)
         else:
             w_vec = Xw[:, 0] ** 2  # Xw[:, 0] = sqrt(w) (weighted intercept)
-        meat = Xw.T @ np.diag(w_vec * resid**2 * corr) @ Xw
+        # Row weighting, not np.diag: the n_eff x n_eff diagonal matrix made
+        # this O(n^2) in memory.
+        meat = (Xw * (w_vec * resid**2 * corr)[:, None]).T @ Xw
         return cast(np.ndarray, bread @ meat @ bread)
 
 

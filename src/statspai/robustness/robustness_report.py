@@ -37,6 +37,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_formula_first
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -300,7 +301,7 @@ def _quick_ols(
     else:
         # HC1
         u2 = resid**2
-        meat = X.T @ np.diag(u2) @ X * n / (n - k)
+        meat = (X * (u2)[:, None]).T @ X * n / (n - k)
         vcov = XtX_inv @ meat @ XtX_inv
 
     se = np.sqrt(np.diag(vcov))
@@ -328,6 +329,7 @@ def _quick_ols(
 # ---------------------------------------------------------------------------
 
 
+@accepts_formula_first()
 def robustness_report(
     data: pd.DataFrame,
     formula: str,

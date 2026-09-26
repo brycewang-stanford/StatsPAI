@@ -145,13 +145,12 @@ def liml(
     X_all = np.column_stack([X_exog, X_endog])
     k = X_all.shape[1]
 
-    # Residual maker for X_exog
-    Px_exog = X_exog @ np.linalg.solve(X_exog.T @ X_exog, X_exog.T)
-    Mx = np.eye(n) - Px_exog
+    # Projections are applied, never formed: the n x n matrices used here
+    # before made sp.liml O(n^2) in memory (10 GB at n = 20,000).
+    from .iv import _projector
 
-    # Projection onto all instruments
-    Pz = Z_all @ np.linalg.solve(Z_all.T @ Z_all, Z_all.T)
-    Mz = np.eye(n) - Pz
+    proj_x = _projector(X_exog, np.linalg.inv(X_exog.T @ X_exog))
+    proj_z = _projector(Z_all, np.linalg.inv(Z_all.T @ Z_all))
 
     # Compute LIML κ via the Anderson (1951) generalized symmetric
     # eigenvalue problem:  S_exog v = κ S_full v , with
@@ -167,8 +166,8 @@ def liml(
     # in ``iv.py::_liml_kappa``. Fixed here by aligning to that
     # canonical implementation: ``scipy.linalg.eigh(S_exog, S_full)``.
     W = np.column_stack([Y.reshape(-1, 1), X_endog])
-    S_full = W.T @ Mz @ W  # W0' M_full W0
-    S_exog = W.T @ Mx @ W  # W0' M_exog W0
+    S_full = W.T @ (W - proj_z(W))  # W0' M_full W0
+    S_exog = W.T @ (W - proj_x(W))  # W0' M_exog W0
 
     try:
         from scipy.linalg import eigh as _sp_eigh
@@ -194,11 +193,13 @@ def liml(
     if fuller is not None:
         kappa = kappa - fuller / (n - Z_all.shape[1])
 
-    # k-class estimator: β = (X'(I - κMz)X)^{-1} X'(I - κMz)Y
-    I_kMz = np.eye(n) - kappa * Mz
+    # k-class estimator: β = (X'(I - κMz)X)^{-1} X'(I - κMz)Y, with
+    # (I - κMz) X = (1 - κ) X + κ Pz X.
+    PzX = proj_z(X_all)
+    AX = (1.0 - kappa) * X_all + kappa * PzX
+    XtWX = X_all.T @ AX
     try:
-        XtWX = X_all.T @ I_kMz @ X_all
-        XtWY = X_all.T @ I_kMz @ Y
+        XtWY = AX.T @ Y
         beta = np.linalg.solve(XtWX, XtWY)
     except np.linalg.LinAlgError:
         beta = np.full(k, np.nan)
@@ -207,13 +208,9 @@ def liml(
 
     # Standard errors
     try:
-        XtX_inv = (
-            np.linalg.inv(X_all.T @ I_kMz @ X_all)
-            if not np.any(np.isnan(beta))
-            else np.eye(k)
-        )
+        XtX_inv = np.linalg.inv(XtWX) if not np.any(np.isnan(beta)) else np.eye(k)
     except np.linalg.LinAlgError:
-        XtX_inv = np.linalg.pinv(X_all.T @ I_kMz @ X_all)
+        XtX_inv = np.linalg.pinv(XtWX)
 
     # Stata grammar: vce='robust' / True / 'cluster firm'.
     from ..core._vcov_spec import parse_se_request
@@ -235,7 +232,6 @@ def liml(
     # kappa = 1 (2SLS), but moved robust / cluster SEs ~0.05% away from both
     # references. Bread and meat use the small-sample convention of
     # ``ivregress ..., small``, like the classical SE below.
-    PzX = Pz @ X_all
     scores = PzX * resid[:, None]
     if robust == "cluster":
         clusters = df[cluster].values
@@ -291,6 +287,7 @@ def liml(
         params=params,
         std_errors=std_errors,
         model_info={
+            "alpha": alpha,
             "model_type": model_name,
             "method": "Limited Information Maximum Likelihood",
             "kappa": kappa,
@@ -511,6 +508,7 @@ def jive(
         params=params,
         std_errors=std_errors,
         model_info={
+            "alpha": alpha,
             "model_type": f"JIVE ({variant.upper()})",
             "method": "Jackknife Instrumental Variables",
             "endog_vars": x_endog,

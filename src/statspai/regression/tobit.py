@@ -22,14 +22,16 @@ from typing import List, Optional
 
 import numpy as np
 import pandas as pd
-from scipy import optimize, stats
+from scipy import optimize, special, stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._limited_dep_result import LimitedDepResult
 from ._optim_helpers import robust_convergence
 
 
+@accepts_aliases(robust="vce", covariates="x")
 def tobit(
     data: pd.DataFrame,
     y: str,
@@ -37,6 +39,9 @@ def tobit(
     ll: float = 0,
     ul: Optional[float] = None,
     alpha: float = 0.05,
+    vce: Optional[str] = None,
+    cluster: Optional[str] = None,
+    weights: Optional[str] = None,
 ) -> CausalResult:
     """
     Tobit (Type I) censored regression via MLE.
@@ -56,6 +61,16 @@ def tobit(
     ul : float, optional
         Upper censoring limit. Default: no upper censoring.
     alpha : float, default 0.05
+    vce : str, optional
+        Standard errors: ``None`` / ``'oim'`` (observed information, Stata's
+        default), ``'robust'`` (``vce(robust)``, with Stata's ``N/(N-1)``)
+        or ``'cluster'``; ``vce="cluster firm"`` also works. ``robust=`` is
+        accepted as an alias.
+    cluster : str, optional
+        Cluster column (Stata ``vce(cluster c)``, factor ``G/(G-1)``).
+    weights : str, optional
+        Sampling-weight column (Stata ``[pw=]``): the log-likelihood is
+        weighted and, as in Stata, the standard errors are robust.
 
     Returns
     -------
@@ -101,10 +116,39 @@ def tobit(
 
     See Tobin (1958, *Econometrica*).
     """
-    df = data[[y] + x].dropna()
+    from ..core._vcov_spec import parse_se_request
+
+    se_req = parse_se_request(
+        vce,
+        cluster,
+        function="tobit",
+        supported=("nonrobust", "robust", "cluster"),
+    )
+    se_kind, cluster = se_req.kind, se_req.cluster
+    if weights is not None and se_kind == "nonrobust":
+        # Stata: pweights imply vce(robust); the OIM variance is not valid
+        # for a pseudo-likelihood.
+        se_kind = "robust"
+    extra = [c for c in (cluster, weights) if isinstance(c, str)]
+    missing_cols = [c for c in [y] + list(x) + extra if c not in data]
+    if missing_cols:
+        raise MethodIncompatibility(
+            f"tobit: columns not found in data: {missing_cols}",
+            diagnostics={"missing": missing_cols},
+        )
+    df = data[list(dict.fromkeys([y] + list(x) + extra))].dropna()
     Y = df[y].values.astype(float)
     X = np.column_stack([np.ones(len(df))] + [df[v].values.astype(float) for v in x])
     n, k = X.shape
+    wt = np.ones(n)
+    if weights is not None:
+        wt = df[weights].to_numpy(dtype=float)
+        if not np.all(np.isfinite(wt)) or np.any(wt <= 0):
+            raise MethodIncompatibility(
+                "tobit: weights must be finite and strictly positive.",
+                diagnostics={"weights": weights},
+            )
+        wt = wt * (n / wt.sum())
 
     if ul is None:
         ul = np.inf
@@ -142,18 +186,23 @@ def tobit(
         if uncensored.any():
             resid = Y[uncensored] - xb[uncensored]
             ll_val += np.sum(
-                -0.5 * np.log(2 * np.pi * sigma**2) - resid**2 / (2 * sigma**2)
+                wt[uncensored]
+                * (-0.5 * np.log(2 * np.pi * sigma**2) - resid**2 / (2 * sigma**2))
             )
 
         # Left-censored
         if censored_low.any():
             z = (ll - xb[censored_low]) / sigma
-            ll_val += np.sum(np.log(np.maximum(stats.norm.cdf(z), 1e-20)))
+            ll_val += np.sum(
+                wt[censored_low] * np.log(np.maximum(stats.norm.cdf(z), 1e-20))
+            )
 
         # Upper-censored
         if isinstance(censored_high, np.ndarray) and censored_high.any():
             z = (ul - xb[censored_high]) / sigma
-            ll_val += np.sum(np.log(np.maximum(stats.norm.sf(z), 1e-20)))
+            ll_val += np.sum(
+                wt[censored_high] * np.log(np.maximum(stats.norm.sf(z), 1e-20))
+            )
 
         return -ll_val
 
@@ -166,23 +215,49 @@ def tobit(
     # spuriously distrust correct estimates (see robust_convergence).
     converged, grad_norm = robust_convergence(result)
 
-    theta_hat = result.x
+    # Newton polish on complex-step scores (the shared ML path of truncreg /
+    # biprobit). BFGS stops at gtol=1e-6, which left coefficients ~1e-6 and
+    # standard errors ~5e-5 (relative) from Stata's tobit; a few exact
+    # Newton steps reach the optimum.
+    from ._optim_helpers import inverse_information, ml_newton_polish, se_from_vcov
+
+    def obs_loglik(theta: np.ndarray) -> np.ndarray:
+        """Per-observation weighted log-likelihood, complex-step safe."""
+        xb = X @ theta[:k]
+        ln_s = theta[k]
+        s = np.exp(ln_s)
+        out = np.zeros(n, dtype=np.result_type(theta, float))
+        mid = ~censored_low & ~censored_high
+        r = (Y[mid] - xb[mid]) / s
+        out[mid] = -0.5 * np.log(2 * np.pi) - ln_s - 0.5 * r * r
+        if censored_low.any():
+            out[censored_low] = special.log_ndtr((ll - xb[censored_low]) / s)
+        if censored_high.any():
+            out[censored_high] = special.log_ndtr((xb[censored_high] - ul) / s)
+        return wt * out
+
+    theta_hat, scores, H, _ = ml_newton_polish(
+        obs_loglik, np.asarray(result.x, dtype=float)
+    )
+    grad_norm = float(np.max(np.abs(scores.sum(axis=0))))
+    converged = bool(converged or grad_norm < 1e-6)
     beta = theta_hat[:k]
     sigma = np.exp(theta_hat[k])
 
-    # Standard errors from the observed-information matrix (numerical
-    # central-difference Hessian of the negative log-likelihood at the
-    # optimum). Earlier versions used `result.hess_inv` from BFGS,
-    # which is a quasi-Newton update for driving the optimiser, not
-    # a reliable Hessian estimate — it produced SE 13-30% off versus
+    # Standard errors from the observed information of the polished fit.
+    # Before 1.32 the second difference of the log-likelihood (~1e-5
+    # accurate); earlier still `result.hess_inv` from BFGS, 13-30% off
     # R censReg::censReg and Stata `tobit` (parity finding #9).
-    from ._optim_helpers import hessian_cov
+    from ..core._vcov import ml_vcov
 
-    try:
-        V_full = hessian_cov(neg_loglik, theta_hat)
-        se_full = np.sqrt(np.maximum(np.diag(V_full), 1e-20))
-    except Exception:
-        se_full = np.full(k + 1, np.nan)
+    clusters = df[cluster].to_numpy() if se_kind == "cluster" else None
+    V_full = ml_vcov(
+        inverse_information(H),
+        scores if se_kind != "nonrobust" else None,
+        kind=se_kind,
+        clusters=clusters,
+    )
+    se_full = se_from_vcov(V_full)
 
     se_beta = se_full[:k]
     se_sigma = se_full[k] * sigma  # delta method for exp transform
@@ -219,6 +294,10 @@ def tobit(
         "log_likelihood": float(-result.fun),
         "converged": converged,
         "gradient_norm": grad_norm,
+        "vce": se_kind,
+        "cluster": cluster if se_kind == "cluster" else None,
+        "n_clusters": (int(df[cluster].nunique()) if se_kind == "cluster" else None),
+        "weights": weights,
     }
 
     return LimitedDepResult(

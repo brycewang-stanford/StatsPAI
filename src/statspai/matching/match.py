@@ -200,6 +200,9 @@ def match(
     n_bins: Optional[int] = None,
     # --- inference ---
     alpha: float = 0.05,
+    # --- design ---
+    weights: Optional[str] = None,
+    cluster: Optional[str] = None,
 ) -> CausalResult:
     """
     Estimate treatment effect using matching.
@@ -396,6 +399,51 @@ def match(
     >>> result = sp.match(df, y='wage', treat='training',
     ...                   covariates=['age', 'edu'], method='psm')
     """
+    if cluster is not None:
+        raise MethodIncompatibility(
+            "sp.match: cluster-robust matching inference is not available. "
+            "Abadie-Imbens matching variances assume independent units, and "
+            "neither Stata's teffects nnmatch / psmatch nor R's Matching "
+            "offers a cluster option to check one against.",
+            recovery_hint=(
+                "For clustered data use a weighting estimator with verified "
+                "cluster SEs: sp.aipw(..., cluster=), sp.ipw(..., cluster=, "
+                "se_method='sandwich') or sp.tmle(..., cluster=)."
+            ),
+            alternative_functions=["sp.aipw", "sp.ipw", "sp.tmle"],
+        )
+    if weights is not None:
+        return _match_frequency_weighted(
+            data,
+            weights,
+            y=y,
+            treat=treat,
+            covariates=covariates,
+            distance=distance,
+            method=method,
+            estimand=estimand,
+            n_matches=n_matches,
+            caliper=caliper,
+            caliper_scale=caliper_scale,
+            replace=replace,
+            ties=ties,
+            tie_tolerance=tie_tolerance,
+            m_order=m_order,
+            mahalanobis_cov=mahalanobis_cov,
+            bias_correction=bias_correction,
+            ps_poly=ps_poly,
+            common_support=common_support,
+            kernel=kernel,
+            bwidth=bwidth,
+            se_method=se_method,
+            ai_matches=ai_matches,
+            bootstrap_reps=bootstrap_reps,
+            bootstrap_seed=bootstrap_seed,
+            llr_stata_compat=llr_stata_compat,
+            n_strata=n_strata,
+            n_bins=n_bins,
+            alpha=alpha,
+        )
     estimator = MatchEstimator(
         data=data,
         y=y,
@@ -474,6 +522,45 @@ def match(
 # ======================================================================
 # MatchEstimator
 # ======================================================================
+
+
+def _match_frequency_weighted(
+    data: pd.DataFrame, weights: str, **kwargs: Any
+) -> CausalResult:
+    """Frequency weights: each row stands for ``w`` identical observations.
+
+    This is Stata's ``[fw=]`` -- the only weight ``teffects nnmatch`` /
+    ``psmatch`` accept -- and it is exactly an expansion of the data, which
+    is how it is computed. Sampling weights have no matching estimator with
+    a checked variance, so non-integer weights are refused.
+    """
+    if weights not in data.columns:
+        raise MethodIncompatibility(
+            f"sp.match: weights column '{weights}' not in data.",
+            diagnostics={"weights": weights},
+        )
+    w = data[weights].to_numpy(dtype=float)
+    ok = np.isfinite(w)
+    if np.any(w[ok] < 1) or np.any(w[ok] != np.round(w[ok])):
+        raise MethodIncompatibility(
+            "sp.match: weights= are frequency weights (Stata [fw=]) and must "
+            "be positive integers. Matching has no sampling-weight estimator "
+            "with a checked variance (teffects nnmatch / psmatch refuse "
+            "[pw=]).",
+            recovery_hint=(
+                "For survey weights use sp.ipw(..., weights=, "
+                "se_method='sandwich'), sp.aipw(..., weights=) or "
+                "sp.tmle(..., weights=), which match Stata / R to 1e-9."
+            ),
+            alternative_functions=["sp.ipw", "sp.aipw", "sp.tmle"],
+        )
+    keep = data.loc[ok]
+    expanded = keep.loc[keep.index.repeat(w[ok].astype(int))].reset_index(drop=True)
+    result = match(expanded, **kwargs)
+    if isinstance(getattr(result, "model_info", None), dict):
+        result.model_info["frequency_weights"] = weights
+        result.model_info["n_rows_before_expansion"] = int(len(keep))
+    return result
 
 
 class MatchEstimator:

@@ -2,6 +2,23 @@
   "generator": "scripts/build_parity_index.py",
   "records": [
     {
+      "function": "DoubleML",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_dml_cluster_doubleml_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "W",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -173,6 +190,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_paper_parity.py",
+        "tests/reference_parity/test_teffects_design_stata_parity.py",
         "tests/reference_parity/test_tmle_parity.py"
       ],
       "also_verified_by": [
@@ -3676,6 +3694,7 @@
         "tests/external_parity/test_dml_python_parity.py",
         "tests/external_parity/test_dml_sensitivity_parity.py",
         "tests/reference_parity/test_cross_estimator_parity.py",
+        "tests/reference_parity/test_dml_cluster_doubleml_parity.py",
         "tests/reference_parity/test_dml_parity.py",
         "tests/reference_parity/test_ml_causal_dml_parity.py",
         "tests/reference_parity/test_rlasso_parity.py"
@@ -6025,7 +6044,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_heckman_se_parity.py"
+        "tests/reference_parity/test_heckman_se_parity.py",
+        "tests/reference_parity/test_ldv_design_stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -6659,7 +6679,8 @@
     },
     {
       "additional_tests": [
-        "tests/external_parity/test_whatif_nhefs.py"
+        "tests/external_parity/test_whatif_nhefs.py",
+        "tests/reference_parity/test_teffects_design_stata_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -6750,6 +6771,7 @@
       "additional_tests": [
         "tests/reference_parity/test_iv_card_aer_parity.py",
         "tests/reference_parity/test_iv_hdfe_stata_parity.py",
+        "tests/reference_parity/test_iv_weights_stata_parity.py",
         "tests/reference_parity/test_regress_weights_iv_robust_parity.py",
         "tests/reference_parity/test_validation_entry_points.py"
       ],
@@ -6884,6 +6906,7 @@
         "tests/reference_parity/test_iv_first_stage_f_stata_parity.py",
         "tests/reference_parity/test_iv_parity.py",
         "tests/reference_parity/test_iv_se_parity.py",
+        "tests/reference_parity/test_iv_weights_stata_parity.py",
         "tests/reference_parity/test_iv_wild_boottest_parity.py",
         "tests/reference_parity/test_liml_se_parity.py",
         "tests/reference_parity/test_paper_parity.py",
@@ -8134,6 +8157,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_match_fw_stata_parity.py",
         "tests/reference_parity/test_matching_parity.py",
         "tests/reference_parity/test_psmatch2_llr_parity.py",
         "tests/reference_parity/test_psmatch2_parity.py"
@@ -11452,6 +11476,12 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_match_fw_stata_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "evidence_grade": "T2",
       "function": "psm",
       "headline": {
@@ -11582,7 +11612,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_count_quantile_parity.py"
+        "tests/reference_parity/test_count_quantile_parity.py",
+        "tests/reference_parity/test_ldv_design_stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -11616,8 +11647,8 @@
         "quantreg": "6.1"
       },
       "se_rel": {
-        "R": 0.0734365153275581,
-        "Stata": 0.0301971898585794
+        "R": 7.804279455062907e-16,
+        "Stata": 2.106110642144495e-08
       },
       "sides": [
         "py",
@@ -11632,7 +11663,7 @@
         "tests/stata_parity/40_qreg.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=0.1"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -15489,7 +15520,8 @@
         "tests/reference_parity/test_tmle_parity.py",
         "tests/reference_parity/_fixtures/tmle_R.json",
         "tests/reference_parity/test_r2_teffects_parity.py",
-        "tests/reference_parity/test_teffects_R_parity.py"
+        "tests/reference_parity/test_teffects_R_parity.py",
+        "tests/reference_parity/test_tmle_design_R_parity.py"
       ],
       "also_verified_by": [
         "reference_parity_frozen",
@@ -15542,7 +15574,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_count_quantile_parity.py"
+        "tests/reference_parity/test_count_quantile_parity.py",
+        "tests/reference_parity/test_ldv_design_stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -15551,8 +15584,8 @@
       "function": "tobit",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 2.839367745401811e-08,
-        "rel_vs_Stata": 2.839820258616991e-08,
+        "rel_vs_R": 1.1318816613397751e-13,
+        "rel_vs_Stata": 4.638320446419254e-12,
         "statistic": [
           "beta_intercept",
           "beta_x"
@@ -15565,8 +15598,8 @@
       "module_id": "41_tobit",
       "notes": [],
       "point_estimate_rel": {
-        "R": 2.839367745401811e-08,
-        "Stata": 2.839820258616991e-08
+        "R": 1.1318816613397751e-13,
+        "Stata": 4.638320446419254e-12
       },
       "python_call": "sp.tobit",
       "reference": "censReg::censReg",
@@ -15575,8 +15608,8 @@
         "censReg": "0.5.38"
       },
       "se_rel": {
-        "R": 1.9737336319471556e-06,
-        "Stata": 1.9737754213770836e-06
+        "R": 3.3660529455296635e-11,
+        "Stata": 1.1160857951522542e-11
       },
       "sides": [
         "py",
@@ -15591,7 +15624,7 @@
         "tests/stata_parity/41_tobit.do"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06, rel_se<=1e-05"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "also_verified_by": [

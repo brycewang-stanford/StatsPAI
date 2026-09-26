@@ -7,7 +7,7 @@
       "side": "py",
       "statistic": "beta_intercept",
       "estimate": 0.9994009145910392,
-      "se": 0.07122118665641534,
+      "se": 0.07023031170155533,
       "ci_lo": null,
       "ci_hi": null,
       "n": 500,
@@ -18,7 +18,7 @@
       "side": "py",
       "statistic": "beta_x1",
       "estimate": 0.5310785492916436,
-      "se": 0.07419220431412975,
+      "se": 0.07112911774993624,
       "ci_lo": null,
       "ci_hi": null,
       "n": 500,
@@ -29,7 +29,7 @@
       "side": "py",
       "statistic": "beta_x2",
       "estimate": -0.35712088188099417,
-      "se": 0.06993449036514897,
+      "se": 0.06515009445510479,
       "ci_lo": null,
       "ci_hi": null,
       "n": 500,
@@ -38,6 +38,7 @@
   ],
   "extra": {
     "quantile": 0.5,
-    "engine": "statsmodels"
+    "engine": "statsmodels",
+    "vce": "nid"
   }
 }

@@ -429,6 +429,7 @@ def _wrap_re_result(
         "se_sigma_u": se_sigma_u,
         "rho": rho,
         "n_quadrature": n_quad,
+        "alpha": alpha,
     }
     if original_x is not None:
         model_info["original_x"] = original_x
@@ -598,6 +599,7 @@ def panel_logit(
         pd.Series(beta, index=x_vars),
         pd.Series(se, index=x_vars),
         model_info={
+            "alpha": alpha,
             "model": "Panel Logit (Conditional FE)",
             "method": "fe",
             "link": "logit",

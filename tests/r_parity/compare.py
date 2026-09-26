@@ -770,16 +770,16 @@ TOLERANCES: dict[str, dict[str, float]] = {
     "38_drdid": {"rel_est": 1e-6, "rel_se": 1e-6},  # panel DRDID calibrated PS
     # rel_se sentinel (was 1e-2): no SE row joins on this fixture.
     "39_arima": {"rel_est": 1e-6, "rel_se": 1e-6},  # innovations-MLE exact convention
-    # A: sp uses a Powell-type iid kernel sandwich
-    # (regression/quantile.py) while quantreg reports se='nid'
-    # (Hendricks-Koenker difference-quotient sandwich, chosen to match
-    # Stata qreg); different sparsity estimators by construction.
-    # Observed 7.3% (R) / 3.0% (Stata), 1.4x margin.
-    "40_qreg": {"rel_est": 1e-6, "rel_se": 1e-1},  # Powell SE method choice
+    # 1.32: sp.qreg(vce="nid") is quantreg's se="nid" (1e-15) and Stata's
+    # qreg, vce(robust) (2e-8: Stata zeroes fitted differences below
+    # sqrt(eps) where quantreg subtracts sqrt(eps)). The 1e-1 budget covered
+    # the old Silverman-kernel iid sandwich, 7.3% (R) / 3.0% (Stata) off.
+    "40_qreg": {"rel_est": 1e-6, "rel_se": 1e-6},
     "41_tobit": {
         "rel_est": 1e-6,
-        "rel_se": 1e-5,
-    },  # observed-info Hessian; obs worst 2.0e-6 (2026-06 tighten)
+        "rel_se": 1e-6,
+    },  # Newton polish on complex-step scores (1.32); obs worst 3.4e-11 (R) /
+    # 1.1e-11 (Stata), was 2.0e-6 with the 2nd-difference Hessian
     "42_nbreg": {
         "rel_est": 1e-6,
         "rel_se": 5e-3,
@@ -1822,7 +1822,7 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic.startswith("beta_"),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "post sqrt(n) sandwich-scaling fix",
+        "gap_note": "Hendricks-Koenker nid sandwich (1.32)",
     },
     "41_tobit": {
         "name": "Tobit (left-censored)",

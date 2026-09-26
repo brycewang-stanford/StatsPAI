@@ -48,6 +48,8 @@ def aipw(
     seed: Optional[int] = 42,
     cross_fit: bool = True,
     se_method: str = "influence",
+    weights: Optional[str] = None,
+    cluster: Optional[str] = None,
 ) -> CausalResult:
     """
     Augmented Inverse Probability Weighting (AIPW) estimator.
@@ -110,6 +112,15 @@ def aipw(
         ``teffects aipw``. Requires ``cross_fit=False`` and
         ``estimand='ATE'``. The two agree asymptotically when both
         nuisance models are correctly specified.
+    weights : str, optional
+        Column of sampling (probability) weights, Stata ``[pw=]``. The
+        propensity logit and outcome regressions are weighted fits, the
+        effect is the weighted mean of the AIPW scores, and every
+        standard error is the weighted (robust) one. Weights must be
+        strictly positive; their scale does not matter.
+    cluster : str, optional
+        Column identifying clusters. Standard errors sum the influence
+        function within clusters (Stata ``vce(cluster c)``).
 
     Returns
     -------
@@ -180,7 +191,14 @@ def aipw(
         )
     rng = np.random.default_rng(seed)
 
-    df = data[[y, treat] + covariates].dropna()
+    extra = [c for c in (weights, cluster) if c is not None]
+    missing_cols = [c for c in [y, treat] + list(covariates) + extra if c not in data]
+    if missing_cols:
+        raise MethodIncompatibility(
+            f"aipw: columns not found in data: {missing_cols}",
+            diagnostics={"missing": missing_cols},
+        )
+    df = data[list(dict.fromkeys([y, treat] + list(covariates) + extra))].dropna()
     Y = df[y].values.astype(float)
     D = df[treat].values.astype(float)
     X = df[covariates].values.astype(float)
@@ -188,6 +206,28 @@ def aipw(
 
     if not set(np.unique(D)).issubset({0, 1}):
         raise ValueError("Treatment must be binary (0/1)")
+
+    # Sampling weights normalised to mean one (their scale is irrelevant);
+    # ``None`` keeps the unweighted path byte-identical to earlier releases.
+    omega: Optional[np.ndarray] = None
+    if weights is not None:
+        wv = df[weights].to_numpy(dtype=float)
+        if not np.all(np.isfinite(wv)) or np.any(wv <= 0):
+            raise MethodIncompatibility(
+                "aipw: weights must be finite and strictly positive.",
+                diagnostics={"weights": weights},
+            )
+        omega = wv * (n / wv.sum())
+    groups: Optional[np.ndarray] = None
+    if cluster is not None:
+        groups = pd.factorize(df[cluster])[0]
+        if groups.max() + 1 < 2:
+            raise MethodIncompatibility(
+                "aipw: cluster= needs at least two clusters.",
+                diagnostics={"cluster": cluster},
+            )
+    design_based = omega is not None or groups is not None
+    om = np.ones(n) if omega is None else omega
 
     # Cross-fitted predictions
     mu1_hat = np.zeros(n)  # E[Y|X, D=1]
@@ -204,17 +244,33 @@ def aipw(
     for train_mask, test_mask in splits:
         X_tr, Y_tr, D_tr = X[train_mask], Y[train_mask], D[train_mask]
         X_te = X[test_mask]
+        w_tr = None if omega is None else omega[train_mask]
 
         # Propensity score (logistic regression)
-        e_hat[test_mask] = _fit_propensity(X_tr, D_tr, X_te)
+        e_hat[test_mask] = _fit_propensity(X_tr, D_tr, X_te, w_tr)
 
         # Outcome regressions (OLS on treated and control separately)
-        mu1_hat[test_mask] = _fit_outcome(X_tr[D_tr == 1], Y_tr[D_tr == 1], X_te)
-        mu0_hat[test_mask] = _fit_outcome(X_tr[D_tr == 0], Y_tr[D_tr == 0], X_te)
+        t1, t0 = D_tr == 1, D_tr == 0
+        mu1_hat[test_mask] = _fit_outcome(
+            X_tr[t1], Y_tr[t1], X_te, None if w_tr is None else w_tr[t1]
+        )
+        mu0_hat[test_mask] = _fit_outcome(
+            X_tr[t0], Y_tr[t0], X_te, None if w_tr is None else w_tr[t0]
+        )
 
     # Clip propensity scores
     n_clipped = int(np.sum((e_hat < 0.01) | (e_hat > 0.99)))
     np.clip(e_hat, 0.01, 0.99, out=e_hat)
+
+    def _se_of(u: np.ndarray) -> float:
+        """SE of a mean from its (already weight-scaled) influence rows.
+
+        ``sqrt(sum u_i^2) / n``, or with clusters the sum over clusters of
+        the within-cluster totals squared (Stata ``vce(cluster)``).
+        """
+        if groups is not None:
+            u = np.bincount(groups, weights=u)
+        return float(np.sqrt(np.sum(u**2)) / n)
 
     po_means = None
     po_means_se = None
@@ -223,8 +279,12 @@ def aipw(
         phi1 = mu1_hat + D * (Y - mu1_hat) / e_hat
         phi0 = mu0_hat + (1 - D) * (Y - mu0_hat) / (1 - e_hat)
         psi = phi1 - phi0
-        tau = float(np.mean(psi))
-        m1, m0 = float(np.mean(phi1)), float(np.mean(phi0))
+        if design_based:
+            tau = float(np.mean(om * psi))
+            m1, m0 = float(np.mean(om * phi1)), float(np.mean(om * phi0))
+        else:
+            tau = float(np.mean(psi))
+            m1, m0 = float(np.mean(phi1)), float(np.mean(phi0))
         po_means = {1: m1, 0: m0}
         if se_method == "sandwich":
             if n_clipped:
@@ -236,14 +296,21 @@ def aipw(
                     stacklevel=2,
                 )
             if_1, if_0 = _aipw_stacked_if(
-                X, D, Y, e_hat, mu1_hat, mu0_hat, phi1 - m1, phi0 - m0
+                X, D, Y, e_hat, mu1_hat, mu0_hat, phi1 - m1, phi0 - m0, omega
             )
-            # M-estimation sandwich, divisor n (Stata teffects convention).
-            se = float(np.sqrt(np.mean((if_1 - if_0) ** 2) / n))
-            po_means_se = {
-                1: float(np.sqrt(np.mean(if_1**2) / n)),
-                0: float(np.sqrt(np.mean(if_0**2) / n)),
-            }
+            if design_based:
+                se = _se_of(if_1 - if_0)
+                po_means_se = {1: _se_of(if_1), 0: _se_of(if_0)}
+            else:
+                # M-estimation sandwich, divisor n (Stata teffects convention).
+                se = float(np.sqrt(np.mean((if_1 - if_0) ** 2) / n))
+                po_means_se = {
+                    1: float(np.sqrt(np.mean(if_1**2) / n)),
+                    0: float(np.sqrt(np.mean(if_0**2) / n)),
+                }
+        elif design_based:
+            se = _se_of(om * (psi - tau))
+            po_means_se = {1: _se_of(om * (phi1 - m1)), 0: _se_of(om * (phi0 - m0))}
         else:
             se = float(np.sqrt(np.var(psi, ddof=1) / n))
             po_means_se = {
@@ -251,17 +318,21 @@ def aipw(
                 0: float(np.sqrt(np.var(phi0, ddof=1) / n)),
             }
     elif estimand == "ATT":
-        p_treat = np.mean(D)
+        p_treat = float(np.mean(om * D)) if design_based else np.mean(D)
         psi = D * (Y - mu0_hat) / p_treat - (1 - D) * e_hat * (Y - mu0_hat) / (
             (1 - e_hat) * p_treat
         )
-        tau = float(np.mean(psi))
         # ATT = mean(N_i) / mean(D_i) is a ratio, so its influence function
         # is (N_i - tau * D_i) / p, i.e. psi_i - tau * D_i / p. Before
         # 1.29 the ``- tau * D / p`` centring term was missing and the SE
         # was the standard deviation of psi itself, which is wrong unless
         # tau = 0 (it overstated the SE on every non-null ATT).
-        se = float(np.sqrt(np.var(psi - tau * D / p_treat, ddof=1) / n))
+        if design_based:
+            tau = float(np.mean(om * psi))
+            se = _se_of(om * (psi - tau * D / p_treat))
+        else:
+            tau = float(np.mean(psi))
+            se = float(np.sqrt(np.var(psi - tau * D / p_treat, ddof=1) / n))
     else:
         raise ValueError(f"estimand must be 'ATE' or 'ATT', got '{estimand}'")
 
@@ -281,6 +352,9 @@ def aipw(
         "n_propensity_clipped": n_clipped,
         "potential_outcome_means": po_means,
         "potential_outcome_means_se": po_means_se,
+        "weights": weights,
+        "cluster": cluster,
+        "n_clusters": None if groups is None else int(groups.max() + 1),
         # Provenance for the cross-fitting split: None means the caller
         # explicitly opted into a fresh entropy-seeded split, so this
         # estimate is not reproducible by re-running.
@@ -315,6 +389,8 @@ def aipw(
                 "seed": seed,
                 "cross_fit": cross_fit,
                 "se_method": se_method,
+                "weights": weights,
+                "cluster": cluster,
             },
             data=data,
             overwrite=False,
@@ -333,6 +409,7 @@ def _aipw_stacked_if(
     mu0: np.ndarray,
     phi1_c: np.ndarray,
     phi0_c: np.ndarray,
+    omega: Optional[np.ndarray] = None,
 ) -> tuple:
     """Influence functions of the two AIPW potential-outcome means.
 
@@ -344,27 +421,36 @@ def _aipw_stacked_if(
     and ``E[d psi_mu / d beta] IF_beta``; they vanish in expectation only
     when both nuisance models are correct, so at finite ``n`` they move
     the variance.
+
+    With sampling weights ``omega`` (mean one) every estimating equation
+    is ``mean(omega_i psi_i) = 0``: each Jacobian becomes an
+    ``omega``-weighted mean and each influence row carries its
+    ``omega_i`` (the pweight sandwich of Stata ``teffects ... [pw=]``).
     """
     n = len(Y)
+    om = np.ones(n) if omega is None else omega
     Xc = np.column_stack([np.ones(n), X])
     r1, r0 = Y - mu1, Y - mu0
     w = e * (1 - e)
     if_gamma = np.linalg.solve(
-        (Xc * w[:, None]).T @ Xc / n, (Xc * (D - e)[:, None]).T
+        (Xc * (om * w)[:, None]).T @ Xc / n, (Xc * (om * (D - e))[:, None]).T
     ).T
-    if_b1 = np.linalg.solve((Xc * D[:, None]).T @ Xc / n, (Xc * (D * r1)[:, None]).T).T
+    if_b1 = np.linalg.solve(
+        (Xc * (om * D)[:, None]).T @ Xc / n, (Xc * (om * D * r1)[:, None]).T
+    ).T
     if_b0 = np.linalg.solve(
-        (Xc * (1 - D)[:, None]).T @ Xc / n, (Xc * ((1 - D) * r0)[:, None]).T
+        (Xc * (om * (1 - D))[:, None]).T @ Xc / n,
+        (Xc * (om * (1 - D) * r0)[:, None]).T,
     ).T
     # d/d gamma of D r1 / e is -D r1 (1 - e) / e * x; of (1-D) r0 / (1-e)
     # it is (1-D) r0 e / (1 - e) * x. d/d beta of the AIPW moments is
     # x (1 - D / e) and x (1 - (1-D) / (1-e)).
-    g1 = (Xc * (-D * r1 * (1 - e) / e)[:, None]).mean(axis=0)
-    g0 = (Xc * ((1 - D) * r0 * e / (1 - e))[:, None]).mean(axis=0)
-    b1 = (Xc * (1 - D / e)[:, None]).mean(axis=0)
-    b0 = (Xc * (1 - (1 - D) / (1 - e))[:, None]).mean(axis=0)
-    if_1 = phi1_c + if_gamma @ g1 + if_b1 @ b1
-    if_0 = phi0_c + if_gamma @ g0 + if_b0 @ b0
+    g1 = (Xc * (om * -D * r1 * (1 - e) / e)[:, None]).mean(axis=0)
+    g0 = (Xc * (om * (1 - D) * r0 * e / (1 - e))[:, None]).mean(axis=0)
+    b1 = (Xc * (om * (1 - D / e))[:, None]).mean(axis=0)
+    b0 = (Xc * (om * (1 - (1 - D) / (1 - e)))[:, None]).mean(axis=0)
+    if_1 = om * phi1_c + if_gamma @ g1 + if_b1 @ b1
+    if_0 = om * phi0_c + if_gamma @ g0 + if_b0 @ b0
     return if_1, if_0
 
 
@@ -372,15 +458,24 @@ def _fit_propensity(
     X_train: np.ndarray,
     D_train: np.ndarray,
     X_test: np.ndarray,
+    w_train: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """Logistic regression propensity score."""
+    """Logistic regression propensity score (weighted MLE if ``w_train``)."""
     try:
         import statsmodels.api as sm
 
         X_tr = sm.add_constant(X_train)
         X_te = sm.add_constant(X_test)
-        logit = sm.Logit(D_train, X_tr)
-        res = logit.fit(disp=0, maxiter=300, warn_convergence=False)
+        if w_train is None:
+            logit = sm.Logit(D_train, X_tr)
+            res = logit.fit(disp=0, maxiter=300, warn_convergence=False)
+        else:
+            # Weighted logit MLE; freq_weights leaves the point estimates
+            # of the pweighted likelihood unchanged (only its model-based
+            # variance, which is not used, would differ).
+            res = sm.GLM(
+                D_train, X_tr, family=sm.families.Binomial(), freq_weights=w_train
+            ).fit(tol=1e-12, maxiter=300)
         return np.asarray(np.clip(res.predict(X_te), 0.01, 0.99), dtype=float)
     except Exception as exc:
         # A constant propensity turns AIPW into regression-adjustment-only,
@@ -402,8 +497,9 @@ def _fit_outcome(
     X_train: np.ndarray,
     Y_train: np.ndarray,
     X_test: np.ndarray,
+    w_train: Optional[np.ndarray] = None,
 ) -> np.ndarray:
-    """OLS outcome regression."""
+    """OLS outcome regression (WLS if ``w_train``)."""
     if len(X_train) < 3:
         return np.full(len(X_test), np.mean(Y_train) if len(Y_train) > 0 else 0)
     try:
@@ -411,7 +507,11 @@ def _fit_outcome(
 
         X_tr = sm.add_constant(X_train)
         X_te = sm.add_constant(X_test)
-        ols = sm.OLS(Y_train, X_tr)
+        ols = (
+            sm.OLS(Y_train, X_tr)
+            if w_train is None
+            else sm.WLS(Y_train, X_tr, weights=w_train)
+        )
         res = ols.fit()
         return np.asarray(res.predict(X_te), dtype=float)
     except Exception as exc:

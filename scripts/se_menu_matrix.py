@@ -300,6 +300,30 @@ MATRIX: Dict[str, Dict[str, str]] = {
         # reference implementation offers vce(nn/hc0-3/cluster) only — no
         # wild/CR2/Conley exists to align against.
     },
+    # teffects-family and limited-dependent-variable estimators (1.32):
+    # each native cell is pinned against Stata 18 in
+    # tests/reference_parity/test_teffects_design_stata_parity.py /
+    # test_ldv_design_stata_parity.py. The rest are n/a: Stata's
+    # teffects / tobit / heckman offer oim, robust and cluster only.
+    "aipw": {  # parametric: stacked M-estimation sandwich (se_method)
+        "classical": "native",
+        "hc_robust": "native",
+        "cluster": "native",
+    },
+    "ipw": {  # se_method="sandwich"; bootstrap default (cluster bootstrap)
+        "hc_robust": "native",
+        "cluster": "native",
+    },
+    "tobit": {
+        "classical": "native",
+        "hc_robust": "native",
+        "cluster": "native",
+    },
+    "heckman": {  # method="ml"; the two-step offers the classical SE only
+        "classical": "native",
+        "hc_robust": "native",
+        "cluster": "native",
+    },
     "synth": {  # SC permutation / conformal / SDID jackknife — orthogonal menu
         "jackknife": "native",
         # Remaining cells are legitimately n/a: synthetic-control inference is

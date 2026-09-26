@@ -370,6 +370,22 @@ class DoubleMLIRM(_DoubleMLBase):
             psi_scores = psi + theta
 
         m_hat = m_clip  # legacy alias kept for the diagnostics block below
+        # Linear score elements (DoubleML convention) for the base class's
+        # cluster-robust recomputation.
+        if self.score == "ATE" and not self.normalize_ipw:
+            self._last_rep_score = {
+                "psi_a": -np.ones(n, dtype=float),
+                "psi_b": psi_scores,
+                "splits": splits,
+                "weights": sample_weight,
+            }
+        else:
+            self._last_rep_score = {
+                "psi_a": psi_a,
+                "psi_b": psi_b,
+                "splits": splits,
+                "weights": None,
+            }
 
         # Overlap diagnostics: how many propensities were clipped, and
         # the empirical distribution. Surface to the user via model_info.

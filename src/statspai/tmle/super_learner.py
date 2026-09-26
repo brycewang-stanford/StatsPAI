@@ -22,7 +22,8 @@ van der Laan, M. J., Polley, E. C., & Hubbard, A. E. (2007).
 Statistical Applications in Genetics and Molecular Biology, 6(1). [@vanderlaan2007super]
 """
 
-from typing import Any, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, List, Optional
+
 import numpy as np
 from scipy.optimize import minimize
 
@@ -152,13 +153,21 @@ class SuperLearner:
         self._fitted = False
         self.n_features_in_: Optional[int] = None
 
-    def fit(self, X: Any, y: Any) -> "SuperLearner":
+    def fit(
+        self, X: Any, y: Any, sample_weight: Optional[Any] = None
+    ) -> "SuperLearner":
         """
         Fit the Super Learner.
 
         1. Get cross-validated predictions from each base learner.
         2. Find optimal weights via simplex-constrained least squares.
         3. Refit all base learners on full data.
+
+        ``sample_weight`` (observation weights, e.g. survey weights) is
+        passed to every base learner's ``fit`` and weights the simplex
+        least-squares and the CV risks -- R ``SuperLearner``'s
+        ``obsWeights``. A learner whose ``fit`` does not take
+        ``sample_weight`` raises rather than being fitted unweighted.
         """
         from sklearn.base import clone
         from sklearn.model_selection import KFold, StratifiedKFold
@@ -166,6 +175,28 @@ class SuperLearner:
         self._validate_fit_controls()
         X, y = self._prepare_fit_arrays(X, y)
         n = len(y)
+        sw: Optional[np.ndarray] = None
+        if sample_weight is not None:
+            sw = np.asarray(sample_weight, dtype=np.float64).ravel()
+            if sw.shape[0] != n or not np.all(np.isfinite(sw)) or np.any(sw < 0):
+                raise MethodIncompatibility(
+                    "SuperLearner.fit(): sample_weight must be finite, "
+                    "non-negative and one per row.",
+                    diagnostics={"n": n, "n_weights": int(sw.shape[0])},
+                )
+
+        def _fit_one(model: Any, Xf: np.ndarray, yf: np.ndarray, wf: Any) -> None:
+            if wf is None:
+                model.fit(Xf, yf)
+                return
+            try:
+                model.fit(Xf, yf, sample_weight=wf)
+            except TypeError as exc:
+                raise MethodIncompatibility(
+                    f"SuperLearner: {type(model).__name__}.fit does not accept "
+                    "sample_weight, so it cannot be fitted with weights.",
+                    recovery_hint="Use learners that accept sample_weight.",
+                ) from exc
 
         if self.library is None:
             self.library = self._default_library()
@@ -248,7 +279,7 @@ class SuperLearner:
 
             for k, learner in enumerate(self.library):
                 m = clone(learner)
-                m.fit(X_tr, y_tr)
+                _fit_one(m, X_tr, y_tr, None if sw is None else sw[train_idx])
                 if self.task == "classification" and hasattr(m, "predict_proba"):
                     cv_preds[test_idx, k] = m.predict_proba(X_te)[:, 1]
                 else:
@@ -263,8 +294,9 @@ class SuperLearner:
         # We instead solve the QP directly via SLSQP on the squared
         # loss, which is convex with a unique global minimum.
         Z = cv_preds
-        ZTZ = Z.T @ Z
-        ZTy = Z.T @ y
+        Zw = Z if sw is None else Z * sw[:, None]
+        ZTZ = Zw.T @ Z
+        ZTy = Zw.T @ y
 
         def _obj(w: np.ndarray) -> float:
             # 0.5 * ||y - Z w||² up to a constant
@@ -315,14 +347,17 @@ class SuperLearner:
 
         # CV risk per learner
         self.cv_risks_ = np.array(
-            [np.mean((y - cv_preds[:, k]) ** 2) for k in range(n_learners)]
+            [
+                np.average((y - cv_preds[:, k]) ** 2, weights=sw)
+                for k in range(n_learners)
+            ]
         )
 
         # Step 3: Refit all learners on full data
         self._fitted_learners = []
         for learner in self.library:
             m = clone(learner)
-            m.fit(X, y)
+            _fit_one(m, X, y, sw)
             self._fitted_learners.append(m)
 
         self.n_features_in_ = X.shape[1]
@@ -535,19 +570,19 @@ class SuperLearner:
 
     def _default_library(self) -> List[Any]:
         """Build a diverse default library of learners."""
-        from sklearn.linear_model import (
-            LinearRegression,
-            Ridge,
-            Lasso,
-            LogisticRegression,
-        )
         from sklearn.ensemble import (
-            RandomForestRegressor,
-            RandomForestClassifier,
-            GradientBoostingRegressor,
             GradientBoostingClassifier,
+            GradientBoostingRegressor,
+            RandomForestClassifier,
+            RandomForestRegressor,
         )
-        from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
+        from sklearn.linear_model import (
+            Lasso,
+            LinearRegression,
+            LogisticRegression,
+            Ridge,
+        )
+        from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 
         if self.task == "classification":
             return [

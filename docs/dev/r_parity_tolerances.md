@@ -95,6 +95,22 @@ committed JSONs and tightening each to ≈3× that gap (floored at the
 is left at `1e-5`. No value was loosened; the harness contract test
 and the offline render both pass at the new budgets.
 
+*1.32:* `40_qreg` `rel_se` `0.10` → `1e-6` (removed from the ≥ `5e-2`
+table). The old row was graded A as "different sparsity estimators by
+construction": StatsPAI's only SE was a Silverman-bandwidth Gaussian-kernel
+iid sandwich (7.3% / 3.0% off), and it described quantreg's `se="nid"` as
+Stata `qreg`'s default, which it is not (Stata's default is `vce(iid)` with
+the fitted-quantile sparsity). `sp.qreg` now offers `vce="iid"` (Stata's
+default, and the new default), `"robust"` (Stata `vce(robust)`) and
+`"nid"` (quantreg); the module runs `vce="nid"` against quantreg `se="nid"`
+(`1e-15`) and Stata `qreg, vce(robust)` (`2e-8`: Stata zeroes fitted
+differences below `sqrt(eps)` where quantreg subtracts `sqrt(eps)`).
+
+*1.32:* `41_tobit` `rel_se` `1e-5` → `1e-6`. The `2.0e-6` gap above was
+the second-difference Hessian and BFGS's `gtol=1e-6` stop; `sp.tobit` now
+Newton-polishes on complex-step scores (the shared ML path of `truncreg` /
+`biprobit`), and the worst joined gap is `3.4e-11` (R) / `1.1e-11` (Stata).
+
 ## Reproducing the audit
 
 Run from the repository root. This recomputes, for every module, the
@@ -152,7 +168,6 @@ R side / Stata side). "Margin" is tolerance ÷ worst observed gap.
 | `29_panel_sfa` | `rel_se` | 5e-2 | B | 0.0184 / 2.9e-6 | Half-normal Pitt–Lee panel SFA (`pitt1981measurement`). All three sides now fit the same likelihood: the Stata do-file constrains `xtfrontier, ti`'s truncated-normal `mu` to 0 (before 2026-09 the Stata rows were a different model, mislabelled as a "scale" difference; the intercept and `sigma_u` now agree to 1e-6). Stata's analytic-Hessian OIM (`ml` method `d2`) matches StatsPAI's central-difference OIM to 3e-6 on every SE row, which pins the Python Hessian as exact; `frontier::sfa`'s `mleCov` (Coelli's FRONTIER 4.1 routine) is 0.1%–1.8% off, worst on the intercept. Budget = 3× the worst R-side row; margin 2.7×. |
 | `30_oaxaca` | `rel_se` | 0.05 | A | 0.0125 / 0.0122 | Blinder–Oaxaca (`blinder1973wage`, `oaxaca1973male`; cf. `jann2008blinder`). StatsPAI reports closed-form delta-method SEs (`src/statspai/decomposition/oaxaca.py`); `oaxaca::oaxaca` reports seeded bootstrap SEs with `R=100` replications, whose own Monte Carlo noise is ~`(2R)^{-1/2}` ≈ 7% of the SE. Tightened 2026-06-10 from 1.0 (4× margin); a future regeneration that changes the bootstrap RNG stream may legitimately require re-registration. |
 | `36_mediation` | `rel_se` | 0.10 | A | 0.0701 / 0.0321 | Causal mediation (`imai2010general`). StatsPAI uses bootstrap inference (B=1000); `mediation::mediate` uses quasi-Bayesian Monte Carlo with `sims=200` (~5% MC noise by itself); the Stata bridge uses delta-method SEs. Different inference algorithms by construction; point effects match at 1e-15. Margin 1.4×. Frozen by the contract test. |
-| `40_qreg` | `rel_se` | 0.10 | A | 0.0734 / 0.0302 | Median regression (`koenker2005quantile`). StatsPAI uses the Powell-type iid kernel sandwich (`src/statspai/regression/quantile.py`, kernel estimate of the residual density at zero); the R fixture deliberately reports `summary(rq, se="nid")` — the Hendricks–Koenker difference-quotient sandwich — chosen to match Stata `qreg`'s default. Different sparsity estimators by construction. Margin 1.4×. |
 
 All remaining entries are at `3e-2` or tighter and are graded inline in
 `compare.py`. Modules `26_glmm_logit`, `27_glmm_aghq` and

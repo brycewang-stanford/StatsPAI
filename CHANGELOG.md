@@ -2,6 +2,171 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **`sp.aipw(weights=, cluster=)`.** Sampling weights (weighted logit and
+  per-arm WLS, weighted mean of the AIPW scores) and cluster-summed
+  standard errors, on both the cross-fitted influence path and the
+  parametric `se_method="sandwich"` path. Against Stata 18 `teffects aipw`
+  the ATE, both potential-outcome means and all their SEs agree to 1e-14
+  with clusters, weights and both. `teffects aipw` refuses `[pw=]`; its
+  `[iw=], vce(cluster)` sandwich is the sampling-weight one and pins
+  `weights=`, while `[iw=], vce(robust)` treats the weights as frequencies
+  (effective N = sum of w) -- a different quantity, reconstructed exactly in
+  the test so the gap is documented
+  (`tests/reference_parity/test_teffects_design_stata_parity.py`).
+  Unweighted, unclustered calls are unchanged to the last bit.
+- **`sp.ipw(weights=, cluster=, se_method="sandwich")`.** Sampling weights,
+  a cluster bootstrap, and the deterministic M-estimation sandwich of
+  `teffects ipw`; ATE and ATET agree with Stata 18 to 1e-13 across
+  unweighted / `[pw=]` / `vce(cluster)` / both. The default bootstrap is
+  unchanged.
+- **`sp.heckman(method="ml")`: full-information maximum likelihood**, the
+  estimator Stata's `heckman` fits by default (the existing two-step stays
+  the default here). Parameterised as Stata does (`athrho`, `lnsigma`),
+  with `vce="robust"`, `cluster=` and `weights=` (`[pw=]`, which imply
+  robust SEs). Outcome and selection coefficients, `athrho`, `lnsigma`,
+  `lambda` and every SE agree with Stata 18 to 1e-15 / 1e-11 across all
+  five variance / weight combinations. The two-step estimator refuses
+  robust SEs and weights, as Stata's `twostep` does.
+- **`sp.tobit(vce=, cluster=, weights=)`.** Robust and cluster-robust
+  standard errors (Stata's `N/(N-1)` and `G/(G-1)`) and sampling weights,
+  matching Stata 18 `tobit` to 1e-10 for left- and two-sided censoring.
+- **`sp.dml(cluster=)`** for all four models (PLR / IRM / PLIV / IIVM):
+  cross-fitting folds over whole clusters and the Chiang-Kato-Ma-Sasaki
+  (2022) one-way cluster variance, as DoubleML computes it on
+  `DoubleMLClusterData`; estimate and SE agree with DoubleML to 1e-15 on
+  shared folds (`test_dml_cluster_doubleml_parity.py`). `weights=` is now
+  an alias of `sample_weight=`.
+- **`sp.tmle(weights=, cluster=)`** -- R `tmle`'s `obsWeights=` (weighted
+  Super Learner fits, fluctuation, plug-in and influence function) and a
+  centred cluster-sum influence-function variance with `G/(G-1)`, equal to
+  `tmle`'s `id=` variance for equal-size clusters; binary and continuous
+  outcomes agree with R `tmle` 2.1.1 to 1e-9 across all four combinations
+  (`test_tmle_design_R_parity.py`). `SuperLearner.fit` takes
+  `sample_weight` (R `SuperLearner`'s `obsWeights`).
+- **`sp.match` / `sp.psm(weights=)`** are frequency weights, Stata's
+  `[fw=]` -- the only weight `teffects nnmatch` / `psmatch` accept -- and
+  agree with `teffects psmatch [fw=]` to the existing module-11 gap (2e-7).
+  Sampling weights and `cluster=` are refused with the weighting estimators
+  that support them as alternatives: no matching estimator has a checked
+  variance for either.
+- **`sp.metalearner(weights=, cluster=)`** for the AIPW average behind
+  `estimate` / `se` (weighted cross-fit nuisances, cluster-level folds,
+  centred cluster-sum variance); the CATE fit stays unweighted. Checked
+  analytically (unit weights and singleton clusters reproduce the old
+  numbers; the estimate equals a hand-built weighted cross-fit AIPW).
+- **Formula-first calls on data-first estimators.** `sp.qreg`, `sp.panel`,
+  `sp.panel_compare`, `sp.robustness_report`, `sp.subgroup_analysis` and
+  `sp.spatial_panel` take `(data, formula)`, unlike `sp.regress` /
+  `sp.iv` / `sp.feols`; `sp.qreg("y ~ x", data=df)` died with "multiple
+  values for argument 'data'". A string in the first position is now read
+  as the formula; existing calls and signatures are unchanged.
+- **House-style aliases:** `sp.callaway_santanna(cluster=)` (for
+  `clustervars=`) and `sp.lp_did(id=, treat=, covariates=)`.
+
+### ⚠️ Correctness
+
+- **`sp.iv` / `sp.ivreg` honour `weights=`.** Both accepted the keyword and
+  dropped it, returning the unweighted estimate (4.238 weighted vs 3.547
+  reported on a design where the effect varies with the weight). Weights
+  are now analytic weights (Stata `[aw=]`) on 2SLS / LIML / Fuller / GMM /
+  JIVE; the coefficients, classical / robust / cluster SEs and weighted R²
+  match Stata 18 `ivregress ... [aw=w], small` to 1e-14
+  (`tests/reference_parity/test_iv_weights_stata_parity.py`, fixture
+  `_generate_iv_weights_stata.do`). `absorb=` with `weights=` and the
+  refit-based IV SEs (CR2 / CR3, two-way, Conley, wild bootstrap) refuse a
+  weighted fit rather than report an unchecked number.
+- **`alpha=` sets the reported interval on 31 estimators.** `logit`,
+  `probit`, `poisson`, `nbreg`, `zip_model`, `zinb`, `hurdle`, `ppmlhdfe`,
+  `glm`, `fracreg`, `betareg`, `mlogit`, `ologit` / `oprobit`, `clogit`,
+  `truncreg`, `biprobit`, `etregress`, `iv`, `liml`, `jive`, `gmm`,
+  `panel_fgls`, `panel_logit` / `panel_probit`, `interactive_fe`,
+  `frontier`, `zisf`, `lcsf`, `cox`, `survreg`, `ivqreg`,
+  `twoway_cluster`, `conley`, `jackknife_se`, `cr2_se`, `shift_share_se`
+  took `alpha` and still stored, returned from `conf_int()` and printed
+  95% intervals. The fit-time level is now the default of `conf_int()`,
+  `tidy()` and `summary()`; `alpha=0.05` output is unchanged.
+- **`EconometricResults.summary(alpha=)` printed the wrong interval.** It
+  relabelled the columns (`[0.050 0.950]`) but printed the 95% bounds.
+- **`sp.synth(method="mc", covariates=...)` used the covariates.** The
+  dispatcher dropped them (ATT 0.82 without vs 2.73 with on a design whose
+  covariate confounds; true effect 2).
+- **`sp.synth(method="augmented", placebo=False)`** no longer runs the
+  placebo loop; the dispatcher did not forward `placebo`. ASCM inference is
+  that loop, so the SE / p-value / interval are now NaN, with a warning.
+- **`sp.synth(method="classic", standardize=False)` stops standardizing.**
+  The parameter is `standardize_predictors`; `standardize=` was dropped, so
+  predictors were standardized regardless. `standardize=` is now an alias.
+- **`sp.synth_report(n_donor_samples=, sensitivity_seed=)`** reach only the
+  sensitivity analysis instead of also being passed to (and dropped by)
+  `sp.synth`.
+- **`sp.qreg` standard errors are Stata's by default.** The docstring said
+  "equivalent to Stata's `qreg`", but the SE was a Silverman-bandwidth
+  Gaussian-kernel iid sandwich that matched neither Stata nor quantreg
+  (2-8% off on the new fixture, 3.0% / 7.3% on Track A). The default is
+  now Stata's `vce(iid)` (fitted-quantile sparsity, Hall-Sheather
+  bandwidth); `vce="robust"` is Stata's `vce(robust)` and `vce="nid"` is
+  quantreg's `summary(se="nid")`. All three agree with their reference to
+  1e-14 at tau = 0.25 / 0.5 / 0.75. Coefficients are unchanged;
+  `vce="powell"` reproduces the old SEs. Track A `40_qreg` now runs
+  `vce="nid"`: 1e-15 against quantreg and 2e-8 against Stata `qreg,
+  vce(robust)`, and its SE budget goes from 1e-1 to 1e-6.
+- **`sp.tobit` reaches the optimum.** BFGS stopped at `gtol=1e-6` and the
+  SEs came from a second-difference Hessian; a Newton polish on
+  complex-step scores (the `truncreg` / `biprobit` path) moves
+  coefficients by ~1e-6 and SEs by up to ~5e-5 (relative). Track A module
+  `41_tobit` goes from 2.0e-6 to 3.4e-11 (R `censReg`) / 1.1e-11 (Stata);
+  its registered SE budget is tightened from 1e-5 to 1e-6.
+
+### Performance
+
+- **IV, LIML, quantile regression and RD no longer need O(n^2) memory.**
+  Several kernels formed `n x n` projections or `diag()` matrices: `sp.iv`
+  (every method) used 2.9 GB at n = 8,000 and ran out of memory near
+  15,000; `sp.liml` 10 GB at 20,000; `sp.rdrobust` 7 GB at 80,000.
+  Projections are now applied to vectors and sandwiches weight rows, so
+  `sp.iv(..., cluster=)` fits n = 1,000,000 in 0.5 s and `sp.liml`
+  n = 200,000 in 0.03 s. The same `X' diag(v) X` pattern was removed from
+  `sp.did` (2x2), `ddd`, `its`, `bartik`, `spec_curve`,
+  `robustness_report`, the JIVE variants, many-weak IV, peer effects,
+  `rkd`, the honest RD CI and the OLS HC2 / HC3 path. Results change only
+  in the last floating-point digits; all Stata / R parity tests pass
+  unchanged.
+- **`sp.qreg` uses HiGHS interior point with crossover.** It returns the
+  same vertex solution as the simplex (Stata / R parity unchanged at
+  1e-14) about 45x faster at n = 100,000. The old `maxiter=5000` simplex
+  cap failed from n ~ 20,000 and silently dropped every fit to an IRLS
+  fallback that itself formed an `n x n` matrix (35 s / 6.6 GB at 20,000;
+  now 1.8 s / 0.25 GB).
+- **Kleibergen-Paap robust statistic vectorised** (a per-row Python loop
+  took 1.6 s at n = 100,000 inside every robust `sp.iv` fit).
+
+### Changed
+
+- **Unknown keywords raise instead of vanishing** on `sp.iv` (k-class
+  path), `IVRegression.fit`, `sp.synth(method="classic"|"penalized")`,
+  `sp.synth(backend="r")` and `sp.augsynth`. `sp.ivreg(small=, iv_diag=)`
+  were whitelisted and then ignored; they now raise until implemented.
+- **`sp.synth_compare` reports the methods it skips.** A failing method
+  used to be dropped with no trace; it now emits `WorkflowDegradedWarning`
+  and is listed in `comparison.degradations`. A misspelled option raises
+  instead of silently emptying the table, and the call raises if every
+  method fails.
+- **Listwise deletion is announced.** Estimators that drop rows with a
+  missing value in a variable they use now emit one `AssumptionWarning`
+  naming the count per column and record
+  `model_info["listwise_deletion"]`, as R prints "observations deleted due
+  to missingness". It fires only when the reported N equals the input rows
+  minus the incomplete ones, so imputation, bandwidth or subsample
+  estimators stay silent. `sp.iv` now attaches provenance.
+- **Non-finite standard errors warn.** `EconometricResults` emits a
+  `ConvergenceWarning` and records `model_info["nonfinite_se_terms"]` when
+  an SE is NaN / inf (a parameter at its boundary, separation, an
+  unidentified term) instead of printing NaN silently.
+
 ## [1.31.0] — 2026-09-26
 
 ### Added

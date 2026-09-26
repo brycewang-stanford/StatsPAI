@@ -333,6 +333,7 @@ def psm(
     X: List[str],
     *,
     method: str = "nn",
+    weights: Optional[str] = None,
     **kwargs: Any,
 ) -> CausalResult:
     """Propensity-score matching — article alias for :func:`match`
@@ -340,6 +341,9 @@ def psm(
 
     ``method='nn'`` (the common Stata/R shorthand) is translated into the
     richer ``method='nearest'`` API of :func:`statspai.matching.match`.
+    ``weights`` are frequency weights (Stata ``[fw=]``, positive integers),
+    the only weight ``teffects psmatch`` accepts; sampling weights and
+    ``cluster=`` are refused in favour of ``sp.ipw`` / ``sp.aipw``.
 
     Examples
     --------
@@ -375,6 +379,7 @@ def psm(
         covariates=X,
         method=internal_method,
         distance=kwargs.pop("distance", "propensity"),
+        weights=weights,
         **kwargs,
     )
 
@@ -1081,7 +1086,7 @@ def policy_tree(
     )
 
 
-@accepts_aliases(_strict=True, controls="covariates")
+@accepts_aliases(_strict=True, controls="covariates", weights="sample_weight")
 def dml(
     data: pd.DataFrame,
     y: str,

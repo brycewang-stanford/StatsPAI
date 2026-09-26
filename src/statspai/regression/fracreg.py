@@ -212,6 +212,7 @@ def fracreg(
         params=params,
         std_errors=std_errors,
         model_info={
+            "alpha": alpha,
             "model_type": f"Fractional {link.title()} (Papke-Wooldridge)",
             "link": link,
             "quasi_ll": qll,
@@ -416,6 +417,7 @@ def betareg(
         params=params,
         std_errors=std_errors,
         model_info={
+            "alpha": alpha,
             "model_type": "Beta Regression (Ferrari-Cribari-Neto)",
             "link": link,
             "n_mean_params": k_mean,

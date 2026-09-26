@@ -7,6 +7,70 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="cs-event-study-share-term"></a>
 
+<a id="qreg-default-se"></a>
+
+## Unreleased — ⚠️ `sp.qreg` default standard errors follow Stata's `qreg`
+
+**Who is affected.** Anyone reading standard errors, p-values or intervals
+from `sp.qreg` (and `sp.sqreg`, which calls it) without choosing a variance.
+
+**What changes.** The default SE is now Stata's `qreg` default,
+`vce(iid)`: the sparsity is the difference quotient of the mean fitted
+quantiles at `tau +/- h` with the Hall-Sheather bandwidth. It used to be a
+Gaussian-kernel density of the residuals with a Silverman bandwidth, which
+matched neither Stata nor R `quantreg` (2-8% off). Coefficients are
+unchanged. New choices: `vce="robust"` (Stata `vce(robust)`) and
+`vce="nid"` (R `quantreg` `se="nid"`).
+
+**To reproduce old numbers.** `sp.qreg(..., vce="powell")`.
+
+---
+
+<a id="tobit-polish"></a>
+
+## Unreleased — ⚠️ `sp.tobit` estimates move by ~1e-6
+
+**Who is affected.** Anyone comparing `sp.tobit` output digit by digit
+with an earlier release.
+
+**What changes.** The fit is Newton-polished to the optimum and the SEs
+come from the polished observed information; coefficients move by ~1e-6
+and SEs by up to ~5e-5 (relative), towards Stata `tobit` and R `censReg`
+(now 1e-11 apart on the Track A fixture). There is no switch: the old
+digits were an optimiser stopping short.
+
+---
+
+<a id="iv-weights-alpha"></a>
+
+## Unreleased — ⚠️ `sp.iv(weights=)` and fit-time `alpha=` take effect
+
+**Who is affected.** (1) Anyone who passed `weights=` to `sp.iv` or
+`sp.ivreg`. (2) Anyone who passed `alpha=` to one of the 31 estimators
+listed in the CHANGELOG (`logit`, `poisson`, `cox`, `liml`, `frontier`,
+`cr2_se`, ...) and read intervals from the result. (3) Anyone who read
+intervals from `summary(alpha=...)` on an `EconometricResults`. (4) Users of
+`sp.synth(method="mc", covariates=...)` or
+`sp.synth(method="augmented", placebo=False)`.
+
+**What changes.** (1) The weights are applied: point estimates and SEs are
+now the weighted ones (Stata `ivregress [aw=]`); previously the unweighted
+fit was returned. (2) and (3) Intervals are at the requested level;
+previously they were always 95%. Point estimates, SEs and p-values are
+unchanged. (4) The covariates are used and the placebo loop is skipped.
+
+**Also newly loud.** Unknown keywords on `sp.iv`, `sp.ivreg` (including
+`small=` and `iv_diag=`), `sp.synth(method="classic")` and `sp.augsynth`
+raise `TypeError`; `sp.synth_compare` warns about skipped methods; dropping
+incomplete rows emits an `AssumptionWarning`; NaN standard errors emit a
+`ConvergenceWarning`.
+
+**To reproduce old numbers.** (1) Omit `weights=`. (2)-(3) Omit `alpha=` or
+pass `alpha=0.05`. (4) Omit `covariates=` / call `sp.augsynth` directly.
+To silence the listwise-deletion note, drop incomplete rows before the call.
+
+---
+
 ## Unreleased — ⚠️ Callaway--Sant'Anna convenience event study carries the cohort-share term
 
 **Who is affected.** Anyone reading standard errors, confidence intervals or

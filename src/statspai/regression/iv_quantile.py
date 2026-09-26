@@ -309,6 +309,7 @@ def ivqreg(
             "grid_criterion": grid_crit,
         }
 
+        model_info["alpha"] = alpha
         return EconometricResults(
             params=params_s,
             std_errors=se_s,

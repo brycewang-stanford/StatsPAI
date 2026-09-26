@@ -603,15 +603,15 @@ class OLSEstimator(BaseEstimator):
             weights = (n / (n - k)) * residuals**2
         elif robust_type == "hc2":
             # MacKinnon and White (1985)
-            h = np.diag(X @ XtX_inv @ X.T)
+            h = np.einsum("ij,jk,ik->i", X, XtX_inv, X)
             weights = residuals**2 / (1 - h)
         elif robust_type == "hc3":
             # Davidson and MacKinnon (1993)
-            h = np.diag(X @ XtX_inv @ X.T)
+            h = np.einsum("ij,jk,ik->i", X, XtX_inv, X)
             weights = residuals**2 / (1 - h) ** 2
 
         # Sandwich estimator
-        meat = X.T @ np.diag(weights) @ X
+        meat = (X * (weights)[:, None]).T @ X
         return np.asarray(XtX_inv @ meat @ XtX_inv, dtype=float)
 
     def _hac_cov_matrix(

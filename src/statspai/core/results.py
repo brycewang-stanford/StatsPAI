@@ -2,6 +2,7 @@
 Unified results class for all econometric models
 """
 
+import warnings
 from html import escape as _html_escape
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
 
@@ -259,6 +260,10 @@ class EconometricResults:
     1.9
     """
 
+    #: Fit-time significance level; class default keeps results that were
+    #: pickled before the attribute existed (or built via ``__new__``) valid.
+    alpha: float = 0.05
+
     def __init__(
         self,
         params: pd.Series,
@@ -288,9 +293,57 @@ class EconometricResults:
         self.model_info = model_info
         self.data_info = data_info or {}
         self.diagnostics = diagnostics or {}
+        # The significance level requested at fit time (``sp.logit(...,
+        # alpha=0.1)``) is the default for every interval this object
+        # reports. It used to be ignored: the stored bounds were always 95%.
+        _alpha = (model_info or {}).get("alpha")
+        self.alpha = (
+            0.05 if _alpha is None else _validate_probability(_alpha, name="alpha")
+        )
 
         # Compute derived statistics
         self._compute_statistics()
+        self._flag_nonfinite_se()
+
+    def _flag_nonfinite_se(self) -> None:
+        """Warn when a reported standard error is NaN / inf.
+
+        A singular information matrix (a parameter on the boundary, e.g.
+        NB dispersion -> 0; separation; an unidentified term) used to leave
+        NaN in the SE column with no signal. Terms the estimator deliberately
+        omitted (``model_info['omitted']``) are not flagged.
+        """
+        try:
+            se = self.std_errors.to_numpy(dtype=float, copy=False)
+        except (TypeError, ValueError):  # pragma: no cover - exotic SE types
+            return
+        bad = ~np.isfinite(se)
+        if not bad.any():
+            return
+        omitted = set((self.model_info or {}).get("omitted", ()) or ())
+        terms = [
+            str(t) for t, b in zip(self.params.index, bad) if b and t not in omitted
+        ]
+        if not terms:
+            return
+        if isinstance(self.model_info, dict):
+            self.model_info["nonfinite_se_terms"] = terms
+        from ..exceptions import ConvergenceWarning
+
+        warnings.warn(
+            ConvergenceWarning(
+                f"Standard errors are not finite for {terms}: the variance "
+                "matrix is singular there, so no test or interval is reported "
+                "for these terms.",
+                recovery_hint=(
+                    "Typical causes: a parameter at its boundary (e.g. NB "
+                    "overdispersion -> 0; refit the Poisson counterpart), "
+                    "perfect separation, or a term not identified by the data."
+                ),
+                diagnostics={"terms": terms},
+            ),
+            stacklevel=3,
+        )
 
     def _compute_statistics(self) -> None:
         """Compute t-statistics, p-values, and confidence intervals"""
@@ -307,9 +360,8 @@ class EconometricResults:
         self.tvalues = pd.Series(tvalues, index=index)
         self.pvalues = 2 * stats.t.sf(np.abs(tvalues), df_resid)
 
-        # 95% confidence intervals by default
-        alpha = 0.05
-        t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
+        # Intervals at the fit-time level (95% unless ``alpha`` was given).
+        t_crit = stats.t.ppf(1 - self.alpha / 2, df_resid)
         self.conf_int_lower = pd.Series(params - t_crit * std_errors, index=index)
         self.conf_int_upper = pd.Series(params + t_crit * std_errors, index=index)
 
@@ -323,32 +375,39 @@ class EconometricResults:
 
         return inference_df(self, stores=("data_info",))
 
-    def summary(self, alpha: float = 0.05) -> str:
+    def summary(self, alpha: Optional[float] = None) -> str:
         """
         Generate a summary table of results
 
         Parameters
         ----------
-        alpha : float, default 0.05
-            Significance level for confidence intervals
+        alpha : float, optional
+            Significance level for confidence intervals. Defaults to the
+            level requested at fit time (0.05 unless the estimator was
+            called with ``alpha=``).
 
         Returns
         -------
         str
             Formatted summary table
         """
+        alpha = self.alpha if alpha is None else alpha
         alpha = _validate_probability(alpha, name="alpha")
         # Label by the reference distribution the p-values actually use:
         # likelihood-based fits (and fits with no residual df) report z.
         stat = "z" if not np.isfinite(self._inference_df()) else "t"
+        # Recompute the bounds at the requested level: the stored
+        # ``conf_int_lower/upper`` are at the fit-time level, and printing
+        # them under a different alpha's column labels mislabelled the table.
+        ci = self.conf_int(alpha)
         coef_table = pd.DataFrame(
             {
                 "Coefficient": self.params,
                 "Std. Error": self.std_errors,
                 f"{stat}-statistic": self.tvalues,
                 f"P>|{stat}|": self.pvalues,
-                f"[{alpha / 2:.3f}": self.conf_int_lower,
-                f"{1 - alpha / 2:.3f}]": self.conf_int_upper,
+                f"[{alpha / 2:.3f}": ci.iloc[:, 0],
+                f"{1 - alpha / 2:.3f}]": ci.iloc[:, 1],
             }
         )
 
@@ -384,20 +443,22 @@ class EconometricResults:
         output.append("=" * 80)
         return SummaryText("\n".join(output))
 
-    def conf_int(self, alpha: float = 0.05) -> pd.DataFrame:
+    def conf_int(self, alpha: Optional[float] = None) -> pd.DataFrame:
         """
         Return confidence intervals for parameters
 
         Parameters
         ----------
-        alpha : float, default 0.05
-            Significance level
+        alpha : float, optional
+            Significance level. Defaults to the fit-time level (0.05 unless
+            the estimator was called with ``alpha=``).
 
         Returns
         -------
         pd.DataFrame
             Confidence intervals
         """
+        alpha = self.alpha if alpha is None else alpha
         alpha = _validate_probability(alpha, name="alpha")
         stats = _scipy_stats()
         t_crit = stats.t.ppf(1 - alpha / 2, self._inference_df())
@@ -430,8 +491,15 @@ class EconometricResults:
     # Broom-style tidy interface (EconometricResults)
     # ------------------------------------------------------------------
 
-    def tidy(self, conf_level: float = 0.95) -> pd.DataFrame:
+    def tidy(self, conf_level: Optional[float] = None) -> pd.DataFrame:
         """Return a long-format DataFrame of coefficients, broom-style.
+
+        Parameters
+        ----------
+        conf_level : float, optional
+            Confidence level of the interval columns. Defaults to the
+            fit-time level (0.95 unless the estimator was called with
+            ``alpha=``).
 
         Columns
         -------
@@ -460,6 +528,8 @@ class EconometricResults:
         --------
         glance : 1-row model-level summary (R^2, F, N, AIC, BIC).
         """
+        if conf_level is None:
+            conf_level = 1 - self.alpha
         conf_level = _validate_probability(conf_level, name="conf_level")
         alpha = 1 - conf_level
         df_resid = self._inference_df()

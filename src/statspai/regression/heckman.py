@@ -18,16 +18,19 @@ Heckman, J.J. (1979).
 *Econometrica*, 47(1), 153-161. [@heckman1979sample]
 """
 
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
+from ..exceptions import MethodIncompatibility
 from ._limited_dep_result import LimitedDepResult
 
 
+@accepts_aliases(robust="vce")
 def heckman(
     data: pd.DataFrame,
     y: str,
@@ -35,6 +38,10 @@ def heckman(
     select: str,
     z: List[str],
     alpha: float = 0.05,
+    method: str = "twostep",
+    vce: Optional[str] = None,
+    cluster: Optional[str] = None,
+    weights: Optional[str] = None,
 ) -> CausalResult:
     """
     Heckman (1979) two-step selection model.
@@ -54,6 +61,23 @@ def heckman(
         Variables in the selection equation (should include exclusion
         restrictions — variables in z but not in x).
     alpha : float, default 0.05
+    method : {'twostep', 'ml'}, default 'twostep'
+        ``'twostep'`` is Heckman's (1979) probit + OLS-with-IMR estimator
+        with the Heckman / Greene analytical variance (Stata
+        ``heckman ..., twostep``). ``'ml'`` is full-information maximum
+        likelihood -- Stata's default ``heckman`` -- parameterised as
+        ``(beta, gamma, atanh rho, ln sigma)``; the result's ``detail`` also
+        carries the selection equation and ``rho`` / ``sigma`` / ``lambda``.
+    vce : str, optional
+        ``method='ml'`` only: ``None`` / ``'oim'`` (observed information),
+        ``'robust'`` or ``'cluster'``; ``robust=`` is accepted as an alias.
+        Stata's twostep does not offer robust standard errors, and neither
+        does this one.
+    cluster : str, optional
+        ``method='ml'`` only: cluster column (``vce(cluster c)``).
+    weights : str, optional
+        ``method='ml'`` only: sampling weights (``[pw=]``), which imply
+        robust standard errors as in Stata.
 
     Returns
     -------
@@ -99,9 +123,31 @@ def heckman(
 
     See Heckman (1979, *Econometrica*), Section 2.
     """
+    if method not in ("twostep", "ml"):
+        raise MethodIncompatibility(
+            f"heckman: method must be 'twostep' or 'ml', got {method!r}."
+        )
+    from ..core._vcov_spec import parse_se_request
+
+    se_req = parse_se_request(
+        vce,
+        cluster,
+        function="heckman",
+        supported=("nonrobust", "robust", "cluster"),
+    )
+    se_kind, cluster = se_req.kind, se_req.cluster
+    if method == "twostep" and (se_kind != "nonrobust" or weights is not None):
+        raise MethodIncompatibility(
+            "heckman: robust / cluster standard errors and weights need "
+            "method='ml' (Stata's heckman twostep offers neither).",
+            recovery_hint="Pass method='ml', or drop vce= / cluster= / weights=.",
+        )
+    if weights is not None and se_kind == "nonrobust":
+        se_kind = "robust"  # Stata: pweights imply vce(robust)
+
     df = data.copy()
 
-    for col in [y, select] + x + z:
+    for col in [y, select] + x + z + [c for c in (cluster, weights) if c]:
         if col not in df.columns:
             raise ValueError(f"Column '{col}' not found")
 
@@ -189,6 +235,25 @@ def heckman(
     vcov = sigma2 * XtX_inv @ (M_het + Q) @ XtX_inv
     se = np.sqrt(np.maximum(np.diag(vcov), 0.0))
 
+    if method == "ml":
+        return _heckman_ml_result(
+            data,
+            y,
+            x,
+            select,
+            z,
+            alpha=alpha,
+            se_kind=se_kind,
+            cluster=cluster,
+            weights=weights,
+            start={
+                "beta": beta[:-1],
+                "gamma": gamma,
+                "rho": beta_lambda / np.sqrt(sigma2) if sigma2 > 0 else 0.0,
+                "sigma": np.sqrt(sigma2),
+            },
+        )
+
     # Variable names
     var_names = ["const"] + x + ["lambda (IMR)"]
     z_stats = beta / se
@@ -246,6 +311,81 @@ def heckman(
         alpha=alpha,
         n_obs=n_eff,
         detail=detail,
+        model_info=model_info,
+        _citation_key="heckman",
+    )
+
+
+def _heckman_ml_result(
+    data: pd.DataFrame,
+    y: str,
+    x: List[str],
+    select: str,
+    z: List[str],
+    *,
+    alpha: float,
+    se_kind: str,
+    cluster: Optional[str],
+    weights: Optional[str],
+    start: dict,
+) -> CausalResult:
+    """Wrap :func:`._heckman_ml.heckman_ml` in the heckman result type."""
+    from ._heckman_ml import heckman_ml
+
+    fit = heckman_ml(
+        data,
+        y,
+        x,
+        select,
+        z,
+        se_kind=se_kind,
+        cluster=cluster,
+        weights=weights,
+        start=start,
+    )
+    main_coef, main_se = float(fit["beta"][1]), float(fit["se_beta"][1])
+    z_crit = stats.norm.ppf(1 - alpha / 2)
+    lam_p = (
+        float(2 * stats.norm.sf(abs(fit["lambda"] / fit["lambda_se"])))
+        if fit["lambda_se"] > 0
+        else np.nan
+    )
+    model_info = {
+        "method": "Heckman ML",
+        "n_total": fit["n_total"],
+        "n_selected": fit["n_selected"],
+        "n_censored": fit["n_total"] - fit["n_selected"],
+        "selection_vars": z,
+        "lambda_coef": fit["lambda"],
+        "lambda_se": fit["lambda_se"],
+        "lambda_pvalue": lam_p,
+        "selection_bias": (
+            "Yes (rho significant)"
+            if fit["wald_rho0_p"] < 0.05
+            else "No evidence (rho not significant)"
+        ),
+        "sigma": fit["sigma"],
+        "rho": fit["rho"],
+        "log_likelihood": fit["loglik"],
+        "wald_rho0": fit["wald_rho0"],
+        "wald_rho0_pvalue": fit["wald_rho0_p"],
+        "converged": fit["converged"],
+        "gradient_norm": fit["gradient_norm"],
+        "vce": se_kind,
+        "cluster": cluster if se_kind == "cluster" else None,
+        "n_clusters": fit["n_clusters"],
+        "weights": weights,
+    }
+    return LimitedDepResult(
+        method="Heckman (1979) Selection Model (ML)",
+        estimand=f"beta_{x[0]}",
+        estimate=main_coef,
+        se=main_se,
+        pvalue=float(2 * stats.norm.sf(abs(main_coef / main_se))),
+        ci=(main_coef - z_crit * main_se, main_coef + z_crit * main_se),
+        alpha=alpha,
+        n_obs=fit["n_total"],
+        detail=fit["detail"],
         model_info=model_info,
         _citation_key="heckman",
     )

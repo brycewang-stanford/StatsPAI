@@ -158,6 +158,7 @@ def twoway_cluster(
     data_info["df_resid"] = df_resid
     data_info["vcov"] = V_twoway
 
+    model_info["alpha"] = alpha
     new_result = EconometricResults(
         params=result.params.copy(),
         std_errors=se,

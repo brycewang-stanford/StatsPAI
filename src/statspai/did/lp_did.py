@@ -57,10 +57,12 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from . import _core as _dc
 
 
+@accepts_aliases(_strict=True, id="unit", treat="treatment", covariates="controls")
 def lp_did(
     data: pd.DataFrame,
     y: str,

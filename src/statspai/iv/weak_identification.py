@@ -221,10 +221,11 @@ def _reduced_form_cov(
         return np.asarray(np.kron(Sigma, ZZ_inv), dtype=float)
 
     if cov_type == "robust":
-        # Meat: sum_i kron(z_i z_i', v_i v_i') -- KP (2006) eq. 13.
-        meat = np.zeros((k * p, k * p))
-        for i in range(n):
-            meat += np.kron(np.outer(Z_tilde[i], Z_tilde[i]), np.outer(V[i], V[i]))
+        # Meat: sum_i kron(z_i z_i', v_i v_i') -- KP (2006) eq. 13 -- which
+        # is U'U with U_i = kron(z_i, v_i). Vectorised: the per-row Python
+        # loop took ~1.6 s at n = 100,000.
+        U = (Z_tilde[:, :, None] * V[:, None, :]).reshape(n, k * p)
+        meat = U.T @ U
         meat *= ssc
     else:  # cluster
         from itertools import combinations

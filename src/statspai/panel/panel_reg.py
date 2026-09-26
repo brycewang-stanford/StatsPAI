@@ -33,7 +33,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from .._aliases import accepts_aliases
+from .._aliases import accepts_aliases, accepts_formula_first
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import EconometricResults
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
@@ -1412,6 +1412,7 @@ def _panel_bias_reduced(
         ),
     }
 
+    model_info["alpha"] = alpha
     res = PanelResults(
         params=params,
         std_errors=std_errors,
@@ -1622,7 +1623,7 @@ def _fit_gmm(
 
     method_key = {"difference": "ab", "system": "system", "ah": "ah"}[gmm_method]
 
-    model_info = {
+    model_info: Dict[str, Any] = {
         "model_type": _METHOD_NAMES.get(method_key, gmm_method),
         "method": method_key,
         "robust": "robust" if robust else "nonrobust",
@@ -1657,6 +1658,7 @@ def _fit_gmm(
     if "n_instruments" in mi:
         diagnostics["N instruments"] = mi["n_instruments"]
 
+    model_info["alpha"] = alpha
     return PanelResults(
         params=params,
         std_errors=std_errors,
@@ -1678,6 +1680,7 @@ def _fit_gmm(
 # ======================================================================
 
 
+@accepts_formula_first()
 @accepts_aliases(vce="robust")
 def panel_compare(
     data: pd.DataFrame,

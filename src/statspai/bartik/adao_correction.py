@@ -443,6 +443,7 @@ def shift_share_se(
     diagnostics["SE (original)"] = float(old_se.iloc[-1])
     diagnostics["N shocks (K)"] = S.shape[1]
 
+    model_info["alpha"] = alpha
     return EconometricResults(
         params=params,
         std_errors=new_se,

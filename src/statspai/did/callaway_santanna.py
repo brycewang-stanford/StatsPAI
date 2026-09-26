@@ -211,6 +211,9 @@ def _require_columns(
     cohort="g",
     covariates="x",
     controls="x",
+    # House-style cluster= (every other DiD estimator); clustervars= is
+    # R did::att_gt's spelling and stays the parameter name.
+    cluster="clustervars",
 )
 def callaway_santanna(
     data: pd.DataFrame,

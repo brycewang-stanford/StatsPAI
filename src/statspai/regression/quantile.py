@@ -27,6 +27,7 @@ import pandas as pd
 from scipy import stats
 from scipy.optimize import linprog
 
+from .._aliases import accepts_formula_first
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 
@@ -35,6 +36,7 @@ def _as_float_array(value: object) -> np.ndarray:
     return np.asarray(value, dtype=float)
 
 
+@accepts_formula_first()
 def qreg(
     data: pd.DataFrame,
     formula: Optional[str] = None,
@@ -42,6 +44,7 @@ def qreg(
     x: Optional[List[str]] = None,
     quantile: float = 0.5,
     alpha: float = 0.05,
+    vce: Optional[str] = None,
 ) -> CausalResult:
     """
     Quantile regression at a single quantile.
@@ -60,6 +63,29 @@ def qreg(
     quantile : float, default 0.5
         Quantile to estimate (0 < q < 1). 0.5 = median.
     alpha : float, default 0.05
+        Also sets the Hall-Sheather bandwidth's ``z_{1-alpha/2}``, as
+        Stata's ``level()`` does.
+    vce : {None, 'iid', 'robust', 'nid', 'powell'}, optional
+        Standard errors (all use the Hall-Sheather bandwidth ``h`` and the
+        quantile fits at ``tau +/- h``):
+
+        * ``None`` / ``'iid'`` -- Stata's default ``qreg`` (``vce(iid)``,
+          fitted sparsity): ``tau (1-tau) s^2 (X'X)^{-1}`` with ``s`` the
+          difference quotient of the mean fitted quantiles.
+        * ``'robust'`` -- Stata ``vce(robust)``: the Hendricks-Koenker
+          sandwich ``tau (1-tau) H X'X H``, ``H = (sum f_i x_i x_i')^{-1}``
+          with ``f_i = 2h / x_i'(b(tau+h) - b(tau-h))``.
+        * ``'nid'`` -- R ``quantreg::summary.rq(se="nid")``: the same
+          sandwich with quantreg's conventions (``alpha = 0.05`` in the
+          bandwidth, ``h`` halved until ``tau +/- h`` is inside (0, 1),
+          ``sqrt(eps)`` subtracted from the fitted differences).
+        * ``'powell'`` -- the Silverman-bandwidth Gaussian-kernel iid
+          sandwich this function used before 1.32 (matches neither
+          reference; kept to reproduce old numbers).
+
+        Cluster-robust quantile-regression SEs are not offered: the Stata
+        18 ``qreg`` used as the reference refuses ``vce(cluster)``, and a
+        variance with no reference check is not shipped.
 
     Returns
     -------
@@ -88,8 +114,8 @@ def qreg(
 
     where ρ_τ(u) = u(τ - 1(u < 0)) is the check function.
 
-    Standard errors are computed using the Powell (1991) sandwich
-    estimator with a kernel density estimate of f(0|X).
+    Standard errors default to Stata's ``qreg`` (``vce(iid)``, fitted
+    sparsity, Hall-Sheather bandwidth); see ``vce``.
 
     See Koenker & Bassett (1978, *Econometrica*).
     """
@@ -104,7 +130,25 @@ def qreg(
     else:
         raise MethodIncompatibility("Provide either formula or (y, x)")
 
-    df = data[[y_name] + x_names].dropna()
+    kind = str(vce or "iid").lower()
+    if kind not in ("iid", "robust", "nid", "powell"):
+        raise MethodIncompatibility(
+            f"qreg: vce must be one of 'iid', 'robust', 'nid', 'powell'; "
+            f"got {vce!r}.",
+            recovery_hint=(
+                "Cluster-robust quantile-regression SEs are not available; "
+                "use sp.bootstrap with a cluster resampling scheme."
+            ),
+            diagnostics={"vce": vce},
+        )
+    cols = [y_name] + x_names
+    missing_cols = [c for c in cols if c not in data]
+    if missing_cols:
+        raise MethodIncompatibility(
+            f"qreg: columns not found in data: {missing_cols}",
+            diagnostics={"missing": missing_cols},
+        )
+    df = data[list(dict.fromkeys(cols))].dropna()
     Y = df[y_name].values.astype(float)
     X = np.column_stack(
         [np.ones(len(df))] + [df[v].values.astype(float) for v in x_names]
@@ -116,8 +160,19 @@ def qreg(
     beta = _qreg_fit(Y, X, quantile)
     resid = Y - X @ beta
 
-    # Standard errors (Powell sandwich estimator)
-    se = _qreg_se(Y, X, beta, resid, quantile)
+    if kind == "powell":
+        se = _qreg_se(Y, X, beta, resid, quantile)
+        bandwidth = None
+    else:
+        vcov, bandwidth = _qreg_vcov(
+            Y,
+            X,
+            resid,
+            quantile,
+            kind,
+            alpha=alpha,
+        )
+        se = _as_float_array(np.sqrt(np.maximum(np.diag(vcov), 0.0)))
 
     z_stats = beta / se
     pvals = 2 * stats.norm.sf(np.abs(z_stats))
@@ -143,6 +198,8 @@ def qreg(
         "quantile": quantile,
         "pseudo_r2": _pseudo_r2(Y, resid, quantile),
         "n_obs": n,
+        "vce": kind,
+        "bandwidth": bandwidth,
     }
 
     return CausalResult(
@@ -249,13 +306,16 @@ def _qreg_fit(Y: np.ndarray, X: np.ndarray, tau: float) -> np.ndarray:
     bounds = [(None, None)] * k + [(0, None)] * (2 * n)
 
     try:
+        # HiGHS interior point with its default crossover returns the same
+        # basic (vertex) solution as dual simplex, ~45x faster at
+        # n = 100,000 (3 s vs 143 s). The old maxiter=5000 cap made the
+        # simplex fail from n ~ 20,000 and dropped every fit to IRLS.
         result = linprog(
             c,
             A_eq=A_eq,
             b_eq=b_eq,
             bounds=bounds,
-            method="highs",
-            options={"maxiter": 5000},
+            method="highs-ipm",
         )
         if result.success:
             return _as_float_array(result.x[:k])
@@ -290,9 +350,9 @@ def _qreg_irls(
         resid = Y - X @ beta
         w = np.where(resid >= 0, tau, 1 - tau)
         w = w / (np.abs(resid) + 1e-6)
-        W = np.diag(w)
+        Xw = X * w[:, None]
         try:
-            beta_new = np.linalg.solve(X.T @ W @ X, X.T @ W @ Y)
+            beta_new = np.linalg.solve(Xw.T @ X, Xw.T @ Y)
         except np.linalg.LinAlgError:
             break
         if np.max(np.abs(beta_new - beta)) < 1e-8:
@@ -301,6 +361,58 @@ def _qreg_irls(
         beta = beta_new
 
     return _as_float_array(beta)
+
+
+def _hall_sheather(n: int, tau: float, alpha: float) -> float:
+    """Hall-Sheather (1988) bandwidth, as Stata qreg and quantreg use it."""
+    x0 = stats.norm.ppf(tau)
+    f0 = stats.norm.pdf(x0)
+    z = stats.norm.ppf(1 - alpha / 2)
+    return float(
+        n ** (-1 / 3) * z ** (2 / 3) * (1.5 * f0**2 / (2 * x0**2 + 1)) ** (1 / 3)
+    )
+
+
+def _qreg_vcov(
+    Y: np.ndarray,
+    X: np.ndarray,
+    resid: np.ndarray,
+    tau: float,
+    kind: str,
+    *,
+    alpha: float,
+) -> Tuple[np.ndarray, float]:
+    """Koenker (2005, sec. 3.4) sparsity-based covariances of ``b(tau)``.
+
+    Returns ``(V, h)``. All kinds refit the quantile regression at
+    ``tau +/- h`` (Hall-Sheather ``h``); see :func:`qreg` for which
+    reference convention each ``kind`` reproduces.
+    """
+    n = X.shape[0]
+    h = _hall_sheather(n, tau, 0.05 if kind == "nid" else alpha)
+    if kind == "nid":
+        while tau - h < 0 or tau + h > 1:
+            h /= 2
+    elif tau - h <= 0 or tau + h >= 1:
+        raise MethodIncompatibility(
+            f"qreg: the bandwidth h={h:.4g} puts tau +/- h outside (0, 1); "
+            "the sparsity cannot be estimated at this quantile and n.",
+            recovery_hint="Use vce='nid' (halves h) or a bootstrap.",
+            diagnostics={"tau": tau, "bandwidth": h},
+        )
+    b_lo = _qreg_fit(Y, X, tau - h)
+    b_hi = _qreg_fit(Y, X, tau + h)
+    XtX = X.T @ X
+    if kind == "iid":
+        s = (float(np.mean(X @ b_hi)) - float(np.mean(X @ b_lo))) / (2 * h)
+        return tau * (1 - tau) * s**2 * np.linalg.inv(XtX), h
+    dyhat = X @ (b_hi - b_lo)
+    if kind == "nid":
+        f = np.maximum(0.0, 2 * h / (dyhat - np.sqrt(np.finfo(float).eps)))
+    else:  # Stata: a non-positive fitted difference gives zero density
+        f = np.where(dyhat > np.sqrt(np.finfo(float).eps), 2 * h / dyhat, 0.0)
+    H = np.linalg.inv((X * f[:, None]).T @ X)
+    return tau * (1 - tau) * H @ XtX @ H, h
 
 
 def _qreg_se(
@@ -323,8 +435,11 @@ def _qreg_se(
 
     # Powell (1991) iid kernel sandwich for QR:
     #   V = tau(1-tau) / f0² * (X'X)^{-1}
-    # Reference: Koenker (2005, eq. 3.7); matches Stata qreg's default
-    # and quantreg::summary(rq, se="iid"). Earlier versions of this
+    # Reference: Koenker (2005, eq. 3.7). This is ``vce='powell'``: its
+    # Silverman-bandwidth Gaussian kernel matches neither Stata qreg's
+    # default (fitted sparsity) nor quantreg's "iid" / "nid" -- 3-7% off
+    # both on the Track A fixture -- which is why it is no longer the
+    # default (1.32). Earlier versions of this
     # file divided by an extra factor of n, producing SE that were
     # smaller by sqrt(n) (~20x at n=500) and meaningless inference.
     XtX_inv = np.linalg.pinv(X.T @ X)

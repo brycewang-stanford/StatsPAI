@@ -117,7 +117,7 @@ def _newey_west_vcov(X: np.ndarray, resid: np.ndarray, L: int) -> np.ndarray:
     for lag in range(L + 1):
         w = 1 - lag / (L + 1.0)
         if lag == 0:
-            sub = X.T @ np.diag(resid**2) @ X
+            sub = (X * (resid**2)[:, None]).T @ X
         else:
             xe_t = (X[lag:].T * resid[lag:]) @ ((X[:-lag].T * resid[:-lag]).T)
             sub = w * (xe_t + xe_t.T)

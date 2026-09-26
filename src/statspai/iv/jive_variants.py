@@ -225,7 +225,7 @@ def _jive_estimate(
 
     # HC1 robust standard errors (default — many-IV literature convention)
     n_over = n / max(n - X.shape[1], 1)
-    meat = X_hat.T @ np.diag(resid**2 * n_over) @ X_hat
+    meat = (X_hat * (resid**2 * n_over)[:, None]).T @ X_hat
     var_cov = XhXh_inv @ meat @ XhXh_inv
     se = np.sqrt(np.maximum(np.diag(var_cov), 0))
 

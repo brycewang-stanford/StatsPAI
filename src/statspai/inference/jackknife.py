@@ -166,6 +166,7 @@ def jackknife_se(
     diagnostics["n_clusters"] = G
     diagnostics["effective_dof"] = df_resid
 
+    model_info["alpha"] = alpha
     _result = EconometricResults(
         params=params_series,
         std_errors=se_series,
@@ -312,6 +313,7 @@ def cr2_se(
         var_names[i]: float(dof[i]) for i in range(len(dof))
     }
 
+    model_info["alpha"] = alpha
     _result = EconometricResults(
         params=result.params.copy(),
         std_errors=se_series,

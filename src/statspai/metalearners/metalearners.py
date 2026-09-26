@@ -227,6 +227,7 @@ def _cross_fit_aipw_phi(
     clip: Tuple[float, float] = (0.01, 0.99),
     seed: int = 42,
     fold_indices: Optional[np.ndarray] = None,
+    sample_weight: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, dict[str, Any]]:
     """Cross-fit AIPW (DR) pseudo-outcome :math:`\\varphi_i`.
 
@@ -254,8 +255,26 @@ def _cross_fit_aipw_phi(
     mu1_hat = np.zeros(n, dtype=float)
     mu0_hat = np.zeros(n, dtype=float)
     e_hat = np.zeros(n, dtype=float)
+
+    def _fit(model: Any, Xf: np.ndarray, yf: np.ndarray, wf: Any) -> None:
+        # Nuisances are weighted fits when sample weights are given; a
+        # learner that cannot take them is refused, not fitted unweighted.
+        if wf is None:
+            model.fit(Xf, yf)
+            return
+        try:
+            model.fit(Xf, yf, sample_weight=wf)
+        except TypeError as exc:
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                f"metalearner(weights=): {type(model).__name__}.fit does not "
+                "accept sample_weight."
+            ) from exc
+
     for tr, te in _fold_splits(X, n_folds, seed, fold_indices):
         X_tr, Y_tr, D_tr = X[tr], Y[tr], D[tr]
+        W_tr = None if sample_weight is None else sample_weight[tr]
         X_te = X[te]
         m1 = clone(outcome_model)
         m0 = clone(outcome_model)
@@ -266,17 +285,27 @@ def _cross_fit_aipw_phi(
         # n_folds=5 this fallback essentially never triggers, but the
         # branch keeps the helper safe on tiny / lopsided samples.
         if tr_mask1.sum() >= 2:
-            m1.fit(X_tr[tr_mask1], Y_tr[tr_mask1])
+            _fit(
+                m1,
+                X_tr[tr_mask1],
+                Y_tr[tr_mask1],
+                None if W_tr is None else W_tr[tr_mask1],
+            )
             mu1_hat[te] = m1.predict(X_te)
         else:
             mu1_hat[te] = float(np.mean(Y_tr[tr_mask1])) if tr_mask1.any() else 0.0
         if tr_mask0.sum() >= 2:
-            m0.fit(X_tr[tr_mask0], Y_tr[tr_mask0])
+            _fit(
+                m0,
+                X_tr[tr_mask0],
+                Y_tr[tr_mask0],
+                None if W_tr is None else W_tr[tr_mask0],
+            )
             mu0_hat[te] = m0.predict(X_te)
         else:
             mu0_hat[te] = float(np.mean(Y_tr[tr_mask0])) if tr_mask0.any() else 0.0
         prop = clone(propensity_model)
-        prop.fit(X_tr, D_tr)
+        _fit(prop, X_tr, D_tr, W_tr)
         e_hat[te] = _get_propensity(prop, X_te, clip=clip)
     e_clip = np.asarray(np.clip(e_hat, clip[0], clip[1]), dtype=float)
     n_clip_lo = int(np.sum(e_hat < clip[0]))
@@ -852,6 +881,8 @@ def metalearner(
     d: Optional[str] = None,
     x: Optional[List[str]] = None,
     fold_indices: Optional[Any] = None,
+    weights: Optional[str] = None,
+    cluster: Optional[str] = None,
 ) -> CausalResult:
     """
     Estimate heterogeneous treatment effects using meta-learners.
@@ -898,6 +929,16 @@ def metalearner(
         control units. The default ``None`` keeps the historical
         ``KFold(n_folds, shuffle=True, random_state=42)``; passing that
         split's labels reproduces the default result exactly.
+    weights : str, optional
+        Sampling-weight column. The AIPW score behind ``estimate`` / ``se``
+        is then a weighted cross-fit (weighted outcome and propensity
+        fits, weighted mean, weighted influence function) for every
+        ``learner=``. The CATE function itself is fitted unweighted.
+    cluster : str, optional
+        Cluster column. Cross-fitting folds are formed over whole clusters
+        and the SE sums the influence function within clusters, centred,
+        with ``G/(G-1)`` -- which reduces to the default SE when every row
+        is its own cluster.
 
     Returns
     -------
@@ -993,7 +1034,35 @@ def metalearner(
             "metalearner() missing required argument: 'covariates' (alias 'x')"
         )
 
+    design = [c for c in (weights, cluster) if c is not None]
+    for c in design:
+        if c not in data.columns:
+            raise ValueError(f"Column '{c}' not found in data")
+    if design:
+        # Complete cases on the design columns too, before the usual prep.
+        data = data.loc[data[design].notna().all(axis=1)]
     Y, D, X, n = _prepare_data(data, y, treat, covariates)
+    keep_rows = data[[y, treat] + list(covariates)].notna().all(axis=1).to_numpy()
+    sw: Optional[np.ndarray] = None
+    if weights is not None:
+        sw = data.loc[keep_rows, weights].to_numpy(dtype=float)
+        if not np.all(np.isfinite(sw)) or np.any(sw <= 0):
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                "metalearner: weights must be finite and strictly positive."
+            )
+        sw = sw * (n / sw.sum())
+    cl_codes: Optional[np.ndarray] = None
+    if cluster is not None:
+        cl_codes = pd.factorize(data.loc[keep_rows, cluster])[0]
+        if int(cl_codes.max()) + 1 < n_folds:
+            from ..exceptions import DataInsufficient
+
+            raise DataInsufficient(
+                f"metalearner(cluster=): {int(cl_codes.max()) + 1} clusters "
+                f"cannot fill n_folds={n_folds} cluster-level folds."
+            )
 
     # Validate binary treatment
     unique_d = np.unique(D)
@@ -1014,6 +1083,29 @@ def metalearner(
             n_folds=n_folds,
             binary_target=D,
         )
+
+    if cl_codes is not None:
+        if folds is None:
+            # Cross-fit over whole clusters so no cluster is split between
+            # a nuisance fit and its prediction.
+            from sklearn.model_selection import KFold
+
+            n_cl = int(cl_codes.max()) + 1
+            cf = np.empty(n_cl, dtype=int)
+            for k, (_, te) in enumerate(
+                KFold(n_splits=n_folds, shuffle=True, random_state=42).split(
+                    np.zeros(n_cl)
+                )
+            ):
+                cf[te] = k
+            folds = cf[cl_codes]
+        elif (pd.Series(folds).groupby(cl_codes).nunique() > 1).any():
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                "metalearner(cluster=): the supplied fold_indices split a "
+                "cluster across folds."
+            )
 
     learner = learner.lower()
     valid = {"s", "t", "x", "r", "dr"}
@@ -1067,7 +1159,7 @@ def metalearner(
     # under-estimates the SE.  We now reuse DR-Learner's own pseudo
     # outcomes when available (avoids a second cross-fit) and otherwise
     # build them via :func:`_cross_fit_aipw_phi`.
-    if learner == "dr" and hasattr(est, "_pseudo_outcomes"):
+    if learner == "dr" and hasattr(est, "_pseudo_outcomes") and sw is None:
         phi = np.asarray(est._pseudo_outcomes, dtype=float)
         aipw_diag: dict[str, Any] = getattr(est, "_pseudo_diag", {}) or {}
     else:
@@ -1091,9 +1183,23 @@ def metalearner(
             _prop,
             n_folds=n_folds,
             fold_indices=folds,
+            sample_weight=sw,
         )
-    ate = float(np.mean(phi))
-    se = float(np.std(phi, ddof=1) / np.sqrt(n))
+    if sw is None and cl_codes is None:
+        ate = float(np.mean(phi))
+        se = float(np.std(phi, ddof=1) / np.sqrt(n))
+    else:
+        om = np.ones(n) if sw is None else sw
+        ate = float(np.mean(om * phi))
+        infl = om * (phi - ate)
+        if cl_codes is None:
+            se = float(np.std(infl, ddof=1) / np.sqrt(n))
+        else:
+            # Centred cluster sums with G/(G-1): the line above when every
+            # row is its own cluster (same convention as sp.tmle).
+            S = np.bincount(cl_codes, weights=infl)
+            G = S.shape[0]
+            se = float(np.sqrt(G / (G - 1) * np.sum((S - S.mean()) ** 2)) / n)
 
     # Inference
     if se > 0:
@@ -1148,8 +1254,15 @@ def metalearner(
         # the chosen learner only governs CATE prediction. See the
         # ``ate_method`` note in the docstring + the v1.11.x migration
         # guide.
-        "se_method": "aipw_influence_function",
+        "se_method": (
+            "aipw_influence_function"
+            if cl_codes is None
+            else "cluster_aipw_influence_function"
+        ),
         "ate_method": "aipw_dr_pseudo_outcome",
+        "weights": weights,
+        "cluster": cluster,
+        "n_clusters": None if cl_codes is None else int(cl_codes.max()) + 1,
         # ``estimate`` / ``se`` describe the AIPW average and are invariant
         # to ``learner=``; ``cate_mean`` is the learner-specific average of
         # the fitted effect function and ships no standard error.  Stated

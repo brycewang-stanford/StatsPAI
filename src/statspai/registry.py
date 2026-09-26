@@ -879,6 +879,16 @@ def _build_registry() -> None:
                     "Regressor columns (alternative to formula)",
                 ),
                 ParamSpec("quantile", "float", False, 0.5, "Quantile (0-1)"),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "None/'iid' = Stata qreg default (fitted sparsity, "
+                    "Hall-Sheather); 'robust' = Stata vce(robust); 'nid' = "
+                    "quantreg se='nid'; 'powell' = pre-1.32 kernel SE",
+                    ["iid", "robust", "nid", "powell"],
+                ),
             ],
             returns="EconometricResults",
             example='sp.qreg(df, "wage ~ education", quantile=0.9)',
@@ -924,6 +934,37 @@ def _build_registry() -> None:
                     0.05,
                     "Significance level for confidence intervals",
                 ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "twostep",
+                    "'twostep' (Heckman 1979 probit + OLS with IMR) or 'ml' "
+                    "(full-information ML, Stata's default heckman)",
+                    ["twostep", "ml"],
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "method='ml' only: None/'oim', 'robust' or 'cluster' "
+                    "(e.g. vce='cluster firm'); robust= is an alias",
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "method='ml' only: cluster column (vce(cluster c))",
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "method='ml' only: sampling weights [pw=] (imply robust SEs)",
+                ),
             ],
             returns="EconometricResults",
             example='sp.heckman(df, y="wage", x=["education", "experience"], select="employed", z=["age", "kids"])',
@@ -957,6 +998,24 @@ def _build_registry() -> None:
                     False,
                     0.05,
                     "Significance level for confidence intervals",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    None,
+                    "None/'oim' (observed information), 'robust' or "
+                    "'cluster', e.g. vce='cluster firm'; robust= is an alias",
+                ),
+                ParamSpec(
+                    "cluster", "str", False, None, "Cluster column (vce(cluster c))"
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Sampling weights [pw=]: weighted likelihood, robust SEs",
                 ),
             ],
             returns="EconometricResults",
@@ -1896,6 +1955,22 @@ def _build_registry() -> None:
                         "(DoubleML trimming_rule='truncate'). Default 0.01 = "
                         "historical clip."
                     ),
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "One-way cluster column: folds over whole clusters and the "
+                    "Chiang-Kato-Ma-Sasaki cluster variance (DoubleML "
+                    "DoubleMLClusterData, all four models).",
+                ),
+                ParamSpec(
+                    "sample_weight",
+                    "str",
+                    False,
+                    None,
+                    "Observation weights (column or array); weights= is an " "alias.",
                 ),
             ],
             returns="CausalResult",
@@ -4066,6 +4141,23 @@ def _build_registry() -> None:
                     "random_state=42); passing that split's labels reproduces "
                     "the default exactly.",
                 ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Sampling weights for the AIPW average (estimate/se): "
+                    "weighted nuisance fits, mean and influence function. The "
+                    "CATE fit is unweighted.",
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster column: folds over whole clusters; SE from centred "
+                    "cluster sums of the influence function with G/(G-1).",
+                ),
             ],
             returns="Meta-learner result with CATE predictions",
             example='sp.metalearner(df, y="outcome", treat="treat", covariates=["x1","x2"], learner="x")',
@@ -4278,6 +4370,15 @@ def _build_registry() -> None:
                     "method='llr' only: reproduce Stata psmatch2's SUBSTITUTE "
                     "for LLR (lpoly-smoothed outcome + nearest-neighbour "
                     "matching) rather than genuine local linear regression.",
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Frequency weights (Stata [fw=], positive integers; the "
+                    "only weight teffects matching accepts). Sampling weights "
+                    "and cluster= are refused: use sp.ipw / sp.aipw / sp.tmle.",
                 ),
             ],
             returns="MatchEstimator result",
@@ -4528,6 +4629,23 @@ def _build_registry() -> None:
                     "the EIF at the targeted fits. The default (None) fits both "
                     "nuisances on the full sample (not cross-fitted). Not "
                     "combinable with Q / g1W.",
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Observation weights (R tmle obsWeights): weighted Super "
+                    "Learner fits, fluctuation, plug-in and influence function. "
+                    "ATE only; not with fold_indices.",
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster column: influence function summed within clusters "
+                    "with G/(G-1) (R tmle id= for equal cluster sizes).",
                 ),
             ],
             returns="TMLE result",
@@ -5514,6 +5632,31 @@ def _build_registry() -> None:
                 ),
                 ParamSpec(
                     "trim", "float", False, 0.0, "Propensity score trimming threshold"
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Sampling-weight column (Stata [pw=]); weights the logit "
+                    "and multiplies each IPW weight",
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster column: cluster bootstrap, or cluster-summed "
+                    "sandwich with se_method='sandwich'",
+                ),
+                ParamSpec(
+                    "se_method",
+                    "str",
+                    False,
+                    "bootstrap",
+                    "'sandwich' = teffects ipw robust M-estimation SE "
+                    "(needs normalize=True, trim=0)",
+                    ["bootstrap", "sandwich"],
                 ),
             ],
             returns="CausalResult",
@@ -15579,6 +15722,23 @@ def _build_registry() -> None:
                     "accounts for the estimated nuisance parameters at finite "
                     "``n``.",
                     enum=["influence", "sandwich"],
+                ),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Sampling-weight column (Stata [pw=]): weighted logit and "
+                    "outcome fits, weighted mean of the AIPW scores, weighted "
+                    "robust SEs.",
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster column: SEs sum the influence function within "
+                    "clusters (Stata vce(cluster c)).",
                 ),
             ],
             returns="CausalResult",

@@ -267,6 +267,16 @@ class DoubleMLIIVM(_DoubleMLBase):
             den_var = abs(float(np.sum(w * psi_b)))
             se = float(np.sqrt(num_var)) / den_var if den_var > 0 else 0.0
 
+        # Linear score elements in the DoubleML convention (theta = -sum
+        # psi_b / sum psi_a), i.e. ours with the numerator/denominator
+        # roles relabelled, for the base class's cluster recomputation.
+        self._last_rep_score = {
+            "psi_a": -psi_b,
+            "psi_b": psi_a,
+            "splits": splits,
+            "weights": w_full,
+        }
+
         n_clipped_lo = int(np.sum(m_hat_raw < lo))
         n_clipped_hi = int(np.sum(m_hat_raw > hi))
         self._last_rep_diagnostics = {

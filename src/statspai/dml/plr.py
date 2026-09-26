@@ -168,6 +168,15 @@ class DoubleMLPLR(_DoubleMLBase):
             num = float(np.sum((w**2) * (psi_score**2)))
             se = float(np.sqrt(num)) / abs(denom) if denom != 0 else 0.0
 
+        # Linear score elements (DoubleML convention, theta = -sum psi_b /
+        # sum psi_a) for the cluster-robust recomputation in the base class.
+        self._last_rep_score = {
+            "psi_a": psi_a if self.score == "IV-type" else -(d_resid**2),
+            "psi_b": psi_b if self.score == "IV-type" else d_resid * y_resid,
+            "splits": splits,
+            "weights": sample_weight,
+        }
+
         # Diagnostics: residual scales, partial correlation, and a crude
         # within-R² for each nuisance — analogous to the panel_dml
         # diagnostics block. These help users sanity-check that the ML

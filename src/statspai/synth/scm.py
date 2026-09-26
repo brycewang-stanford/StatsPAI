@@ -541,6 +541,10 @@ def _dispatch_synth_impl(
                     "pre-outcome special predictors automatically; use "
                     "backend='native' for custom special_predictors."
                 )
+            from ..core._vcov_spec import reject_unknown_kwargs
+
+            kwargs.pop("special_predictors", None)
+            reject_unknown_kwargs(kwargs, function="synth(backend='r')")
             return _synth_r_backend(
                 data=data,
                 outcome=outcome,
@@ -563,10 +567,24 @@ def _dispatch_synth_impl(
             )
         special_predictors = kwargs.pop("special_predictors", None)
         v_method = kwargs.pop("v_method", "auto")
-        standardize_predictors = kwargs.pop("standardize_predictors", True)
+        if "standardize" in kwargs and "standardize_predictors" in kwargs:
+            raise TypeError(
+                "synth(): pass standardize_predictors= or its alias "
+                "standardize=, not both."
+            )
+        # ``standardize=`` used to be dropped here (it is not the parameter's
+        # name), so standardize=False silently standardized anyway.
+        standardize_predictors = kwargs.pop(
+            "standardize_predictors", kwargs.pop("standardize", True)
+        )
         n_random_starts = kwargs.pop("n_random_starts", 4)
         n_jobs = kwargs.pop("n_jobs", 1)
         perfect_fit = kwargs.pop("perfect_fit", "legacy")
+        # Anything left over used to be dropped here, so a misspelled option
+        # (``v_methd=``) silently fell back to the default.
+        from ..core._vcov_spec import reject_unknown_kwargs
+
+        reject_unknown_kwargs(kwargs, function=f"synth(method={method!r})")
         model = SyntheticControl(
             data=data,
             outcome=outcome,
@@ -632,6 +650,9 @@ def _dispatch_synth_impl(
             treated_unit=treated_unit,
             treatment_time=treatment_time,
             covariates=covariates,
+            # placebo= was not forwarded: sp.synth(method='augmented',
+            # placebo=False) still ran the placebo loop.
+            placebo=placebo,
             alpha=alpha,
             **kwargs,
         )
@@ -706,6 +727,8 @@ def _dispatch_synth_impl(
             time=time,
             treated_unit=treated_unit,
             treatment_time=treatment_time,
+            # covariates= used to be dropped here for method='mc'.
+            covariates=covariates,
             alpha=alpha,
             placebo=placebo,
             **kwargs,

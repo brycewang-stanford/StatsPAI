@@ -239,6 +239,7 @@ def biprobit(
         params=params,
         std_errors=std_errors,
         model_info={
+            "alpha": alpha,
             "model_type": "Bivariate Probit",
             "converged": converged,
             "gradient_norm": grad_norm,
@@ -679,6 +680,7 @@ def etregress(
         params=params,
         std_errors=std_errors,
         model_info={
+            "alpha": alpha,
             "model_type": "Endogenous Treatment Effects",
             "method": method,
             "vce": robust_kind,

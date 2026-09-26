@@ -325,15 +325,19 @@ class BartikIV:
         S = self.shares.values
         n, K = S.shape
 
-        # Projection matrix for exogenous vars
-        if X_exog is not None:
-            Q = np.eye(n) - X_exog @ np.linalg.lstsq(X_exog, np.eye(n), rcond=None)[0]
-        else:
-            Q = np.eye(n) - np.ones((n, n)) / n
+        # Annihilator for the exogenous block, applied to vectors rather than
+        # formed (the n x n matrix made Rotemberg weights O(n^2) in memory).
+        def _annihilate(v: np.ndarray) -> np.ndarray:
+            out: np.ndarray
+            if X_exog is not None:
+                out = v - X_exog @ np.linalg.lstsq(X_exog, v, rcond=None)[0]
+            else:
+                out = v - np.mean(v, axis=0)
+            return out
 
         g = self.shocks.values.astype(float)
-        Qx = Q @ X_endog
-        Qy = Q @ Y
+        Qx = _annihilate(X_endog)
+        Qy = _annihilate(Y)
         zx = S.T @ Qx  # Z_k' M_W x
         zy = S.T @ Qy  # Z_k' M_W y
         # alpha_k = g_k Z_k'M_W x / sum_k g_k Z_k'M_W x (GPSS 2020; as Stata
@@ -417,7 +421,7 @@ class BartikIV:
         # Standard errors (HC1)
         if self.robust != "nonrobust":
             weights = (n / (n - k)) * residuals**2
-            meat = X_2sls.T @ np.diag(weights) @ X_2sls
+            meat = (X_2sls * (weights)[:, None]).T @ X_2sls
             var_cov = XhXh_inv @ meat @ XhXh_inv
         else:
             sigma2 = np.sum(residuals**2) / (n - k)

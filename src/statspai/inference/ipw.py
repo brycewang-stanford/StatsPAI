@@ -33,6 +33,7 @@ from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
+from ..exceptions import MethodIncompatibility
 
 
 @accepts_aliases(_strict=True, controls="covariates")
@@ -47,6 +48,9 @@ def ipw(
     n_bootstrap: int = 500,
     alpha: float = 0.05,
     seed: Optional[int] = None,
+    weights: Optional[str] = None,
+    cluster: Optional[str] = None,
+    se_method: str = "bootstrap",
 ) -> CausalResult:
     """
     Inverse Probability Weighting estimator for treatment effects.
@@ -79,6 +83,19 @@ def ipw(
         Significance level for confidence intervals.
     seed : int, optional
         Random seed for reproducibility.
+    weights : str, optional
+        Column of sampling (probability) weights, Stata ``[pw=]``. The
+        propensity logit is a weighted fit and each unit's IPW weight is
+        multiplied by its sampling weight. Strictly positive; scale-free.
+    cluster : str, optional
+        Column identifying clusters. The bootstrap resamples whole clusters;
+        the sandwich sums the influence function within clusters (Stata
+        ``vce(cluster c)``).
+    se_method : {'bootstrap', 'sandwich'}, default 'bootstrap'
+        ``'sandwich'`` is the stacked M-estimation variance of the logit
+        score and the normalised IPW means (divisor ``n``) -- the robust
+        standard error of Stata ``teffects ipw``, deterministic and
+        bootstrap-free. Requires ``normalize=True`` and ``trim=0``.
 
     Returns
     -------
@@ -118,14 +135,52 @@ def ipw(
     if estimand not in ("ATE", "ATT", "ATC"):
         raise ValueError(f"estimand must be 'ATE', 'ATT', or 'ATC', got '{estimand}'")
 
+    if se_method not in ("bootstrap", "sandwich"):
+        raise MethodIncompatibility(
+            f"se_method must be 'bootstrap' or 'sandwich', got {se_method!r}"
+        )
+    if se_method == "sandwich" and (not normalize or trim > 0):
+        raise MethodIncompatibility(
+            "se_method='sandwich' is the M-estimation variance of the "
+            "normalised (Hajek) IPW estimator without trimming; it requires "
+            "normalize=True and trim=0.",
+            recovery_hint="Use se_method='bootstrap' for trimmed or "
+            "Horvitz-Thompson weights.",
+        )
     rng = np.random.RandomState(seed)
 
     # --- Prepare data ---
-    df = data[[y, treat] + covariates].dropna().copy()
+    extra = [c for c in (weights, cluster) if c is not None]
+    missing_cols = [c for c in [y, treat] + list(covariates) + extra if c not in data]
+    if missing_cols:
+        raise MethodIncompatibility(
+            f"ipw: columns not found in data: {missing_cols}",
+            diagnostics={"missing": missing_cols},
+        )
+    df = data[list(dict.fromkeys([y, treat] + list(covariates) + extra))].dropna()
     Y = df[y].values.astype(np.float64)
     T = df[treat].values.astype(np.float64)
     X = df[covariates].values.astype(np.float64)
     n = len(Y)
+    # Sampling weights normalised to mean one; None keeps the unweighted
+    # path byte-identical to earlier releases.
+    sw: Optional[np.ndarray] = None
+    if weights is not None:
+        wv = df[weights].to_numpy(dtype=float)
+        if not np.all(np.isfinite(wv)) or np.any(wv <= 0):
+            raise MethodIncompatibility(
+                "ipw: weights must be finite and strictly positive.",
+                diagnostics={"weights": weights},
+            )
+        sw = wv * (n / wv.sum())
+    groups: Optional[np.ndarray] = None
+    if cluster is not None:
+        groups = pd.factorize(df[cluster])[0]
+        if groups.max() + 1 < 2:
+            raise MethodIncompatibility(
+                "ipw: cluster= needs at least two clusters.",
+                diagnostics={"cluster": cluster},
+            )
 
     if not set(np.unique(T)).issubset({0, 1}):
         raise ValueError(f"Treatment variable '{treat}' must be binary (0/1)")
@@ -136,7 +191,7 @@ def ipw(
         )
 
     # --- Estimate propensity scores ---
-    pscore = _estimate_propensity(X, T)
+    pscore = _estimate_propensity(X, T, sw)
     pscore_raw = np.asarray(pscore, dtype=float).copy()  # pre-trim, for overlap
 
     # --- Trim ---
@@ -144,23 +199,34 @@ def ipw(
         pscore = np.clip(pscore, trim, 1 - trim)
 
     # --- Compute weights ---
-    weights_1, weights_0 = _compute_weights(T, pscore, estimand, normalize)
+    weights_1, weights_0 = _compute_weights(T, pscore, estimand, normalize, sw)
 
     # --- Point estimate ---
     estimate = float(np.sum(weights_1 * Y) - np.sum(weights_0 * Y))
 
-    # --- Bootstrap SE ---
-    boot_estimates = np.empty(n_bootstrap)
-    for b in range(n_bootstrap):
-        idx = rng.choice(n, size=n, replace=True)
-        Y_b, T_b, X_b = Y[idx], T[idx], X[idx]
-        ps_b = _estimate_propensity(X_b, T_b)
-        if trim > 0:
-            ps_b = np.clip(ps_b, trim, 1 - trim)
-        w1, w0 = _compute_weights(T_b, ps_b, estimand, normalize)
-        boot_estimates[b] = np.sum(w1 * Y_b) - np.sum(w0 * Y_b)
+    if se_method == "sandwich":
+        se = _ipw_sandwich_se(X, T, Y, pscore, estimand, sw, groups)
+        boot_estimates = None
+    else:
+        # --- Bootstrap SE (whole clusters when cluster= is given) ---
+        boot_estimates = np.empty(n_bootstrap)
+        if groups is not None:
+            members = [np.flatnonzero(groups == g) for g in range(groups.max() + 1)]
+        for b in range(n_bootstrap):
+            if groups is None:
+                idx = rng.choice(n, size=n, replace=True)
+            else:
+                pick = rng.choice(len(members), size=len(members), replace=True)
+                idx = np.concatenate([members[g] for g in pick])
+            Y_b, T_b, X_b = Y[idx], T[idx], X[idx]
+            sw_b = None if sw is None else sw[idx]
+            ps_b = _estimate_propensity(X_b, T_b, sw_b)
+            if trim > 0:
+                ps_b = np.clip(ps_b, trim, 1 - trim)
+            w1, w0 = _compute_weights(T_b, ps_b, estimand, normalize, sw_b)
+            boot_estimates[b] = np.sum(w1 * Y_b) - np.sum(w0 * Y_b)
 
-    se = float(np.std(boot_estimates, ddof=1))
+        se = float(np.std(boot_estimates, ddof=1))
     t_crit = sp_stats.norm.ppf(1 - alpha / 2)
     ci = (estimate - t_crit * se, estimate + t_crit * se)
     pvalue = float(2 * sp_stats.norm.sf(abs(estimate / se))) if se > 0 else 1.0
@@ -185,7 +251,11 @@ def ipw(
         "_pscore": pscore_raw,
         "trimming_threshold": trim,
         "normalized": normalize,
-        "n_bootstrap": n_bootstrap,
+        "n_bootstrap": n_bootstrap if se_method == "bootstrap" else None,
+        "se_method": se_method,
+        "weights": weights,
+        "cluster": cluster,
+        "n_clusters": None if groups is None else int(groups.max() + 1),
     }
 
     _result = CausalResult(
@@ -215,6 +285,9 @@ def ipw(
                 "n_bootstrap": n_bootstrap,
                 "alpha": alpha,
                 "seed": seed,
+                "weights": weights,
+                "cluster": cluster,
+                "se_method": se_method,
             },
             data=data,
             overwrite=False,
@@ -229,8 +302,19 @@ def ipw(
 # ====================================================================== #
 
 
-def _estimate_propensity(X: np.ndarray, T: np.ndarray) -> np.ndarray:
-    """Logistic regression propensity score."""
+def _estimate_propensity(
+    X: np.ndarray, T: np.ndarray, sw: Optional[np.ndarray] = None
+) -> np.ndarray:
+    """Logistic regression propensity score (weighted MLE if ``sw``)."""
+    if sw is not None:
+        import statsmodels.api as sm
+
+        X_const = sm.add_constant(X, has_constant="add")
+        # freq_weights gives the pweighted likelihood's point estimates.
+        res = sm.GLM(T, X_const, family=sm.families.Binomial(), freq_weights=sw).fit(
+            tol=1e-12, maxiter=300
+        )
+        return np.clip(np.asarray(res.predict(X_const), dtype=float), 1e-8, 1 - 1e-8)
     try:
         import statsmodels.api as sm
 
@@ -263,19 +347,77 @@ def _estimate_propensity(X: np.ndarray, T: np.ndarray) -> np.ndarray:
     return np.clip(ps, 1e-8, 1 - 1e-8)
 
 
+def _ipw_sandwich_se(
+    X: np.ndarray,
+    T: np.ndarray,
+    Y: np.ndarray,
+    e: np.ndarray,
+    estimand: str,
+    sw: Optional[np.ndarray],
+    groups: Optional[np.ndarray],
+) -> float:
+    """M-estimation SE of the normalised IPW contrast (Stata ``teffects ipw``).
+
+    Stacks the (weighted) logit score ``w (T - e) x`` with the two Hajek
+    means ``w a_k (Y - mu_k) = 0``, where ``a_1 = T/e, a_0 = (1-T)/(1-e)``
+    (ATE), ``T, (1-T) e/(1-e)`` (ATT) or ``T (1-e)/e, 1-T`` (ATC). Row ``i``
+    of the influence function of ``mu_k`` is
+    ``[w a_k (Y - mu_k) + G_k' IF_gamma] / mean(w a_k)`` with
+    ``G_k = mean(w (Y - mu_k) d a_k / d gamma)`` and
+    ``IF_gamma = H^{-1} w (T - e) x``, ``H = mean(w e (1-e) x x')``.
+    Divisor ``n``; with clusters the rows are summed within clusters first.
+    """
+    n = len(Y)
+    w = np.ones(n) if sw is None else sw
+    Xc = np.column_stack([np.ones(n), X])
+    odds = e / (1 - e)
+    if estimand == "ATE":
+        a1, a0 = T / e, (1 - T) / (1 - e)
+        da1, da0 = -T * (1 - e) / e, (1 - T) * odds
+    elif estimand == "ATT":
+        a1, a0 = T, (1 - T) * odds
+        da1, da0 = np.zeros(n), (1 - T) * odds
+    else:  # ATC
+        a1, a0 = T * (1 - e) / e, 1 - T
+        da1, da0 = -T * (1 - e) / e, np.zeros(n)
+    H = (Xc * (w * e * (1 - e))[:, None]).T @ Xc / n
+    if_gamma = np.linalg.solve(H, (Xc * (w * (T - e))[:, None]).T).T
+
+    def _if(a: np.ndarray, da: np.ndarray) -> np.ndarray:
+        mu = np.sum(w * a * Y) / np.sum(w * a)
+        resid = Y - mu
+        G = (Xc * (w * resid * da)[:, None]).mean(axis=0)
+        rows: np.ndarray = (w * a * resid + if_gamma @ G) / np.mean(w * a)
+        return rows
+
+    u = _if(a1, da1) - _if(a0, da0)
+    if groups is not None:
+        u = np.bincount(groups, weights=u)
+    return float(np.sqrt(np.sum(u**2)) / n)
+
+
 def _compute_weights(
     T: np.ndarray,
     pscore: np.ndarray,
     estimand: str,
     normalize: bool,
+    sw: Optional[np.ndarray] = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Compute IPW weights for treated (w1) and control (w0) groups.
 
     Returns (weights_1, weights_0) such that:
         estimate = sum(w1 * Y) - sum(w0 * Y)
+
+    Sampling weights ``sw`` (mean one) multiply each unit's IPW weight.
     """
     n = len(T)
+    if sw is not None:
+        w1, w0 = _compute_weights(T, pscore, estimand, normalize=False)
+        w1, w0 = w1 * n * sw, w0 * n * sw
+        if normalize:
+            return w1 / w1.sum(), w0 / w0.sum()
+        return w1 / n, w0 / n
 
     if estimand == "ATE":
         # Horvitz-Thompson: w1 = T/p, w0 = (1-T)/(1-p)

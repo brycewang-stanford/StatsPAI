@@ -1,10 +1,12 @@
 """StatsPAI quantile regression parity (Python side) -- Module 40.
 
 Generates a heteroskedastic linear DGP and runs sp.qreg at tau=0.5.
-The R side uses quantreg::rq; Stata uses qreg.
-
-Tolerance: rel < 1e-3 on coefficients (simplex solver converges to
-the same vertex); rel < 5e-2 on SEs (different SE methods).
+The R side uses quantreg::rq with summary(se="nid"); Stata uses
+qreg, vce(robust). All three compute the Hendricks-Koenker sandwich with
+the Hall-Sheather bandwidth, so sp.qreg is called with vce="nid" (before
+1.32 its only SE was a Silverman-bandwidth kernel iid sandwich, 3-7% off
+both references). Stata's vce(robust) zeroes fitted differences below
+sqrt(eps) where quantreg subtracts sqrt(eps) from them -- a ~1e-7 gap.
 """
 from __future__ import annotations
 
@@ -31,7 +33,7 @@ def main() -> None:
     df = make_data()
     dump_csv(df, MODULE)
 
-    res = sp.qreg(data=df, y="y", x=["x1", "x2"], quantile=0.5)
+    res = sp.qreg(data=df, y="y", x=["x1", "x2"], quantile=0.5, vce="nid")
     # detail is a pandas.DataFrame-like dict with parallel arrays
     coef = res.detail["coefficient"]
     se = res.detail["se"]
@@ -50,7 +52,7 @@ def main() -> None:
                 estimate=est, se=sev, n=int(len(df))))
 
     write_results(MODULE, "py", rows,
-                  extra={"quantile": 0.5, "engine": "statsmodels"})
+                  extra={"quantile": 0.5, "engine": "statsmodels", "vce": "nid"})
 
 
 if __name__ == "__main__":

@@ -277,6 +277,35 @@ _METHOD_ALIASES: Dict[str, str] = {
     "bartik": "shift_share",
 }
 
+
+def _iv_provenance(
+    result: Any,
+    formula: Optional[str],
+    data: Any,
+    method: str,
+    cluster: Any,
+    kwargs: Dict[str, Any],
+) -> Any:
+    """Attach the call record (and the listwise-deletion note) to a k-class fit."""
+    from ..output._lineage import attach_provenance
+
+    return attach_provenance(
+        result,
+        function="sp.iv",
+        params={
+            "formula": formula,
+            "method": method,
+            "cluster": cluster if isinstance(cluster, (str, list, tuple)) else None,
+            "weights": (
+                kwargs.get("weights")
+                if isinstance(kwargs.get("weights"), str)
+                else None
+            ),
+        },
+        data=data,
+    )
+
+
 # Methods that consume a Patsy-style ``"y ~ (endog ~ z) + x"`` formula.
 _FORMULA_METHODS = frozenset({"2sls", "liml", "fuller", "gmm", "jive"})
 
@@ -371,7 +400,7 @@ def _dispatch(
                     model = IVRegression(formula=formula, data=data, method=canon)
                     model.fit(robust="nonrobust", cluster=cluster)
                     _attach_augmented_diagnostics(model, result)
-                return result
+                return _iv_provenance(result, formula, data, canon, cluster, kwargs)
         if absorb_terms:
             result, model, _pre = _iv_absorb_run(
                 formula=formula,
@@ -393,7 +422,7 @@ def _dispatch(
             result = model.fit(robust=robust, cluster=cluster, **kwargs)
         if augmented_diagnostics:
             _attach_augmented_diagnostics(model, result)
-        return result
+        return _iv_provenance(result, formula, data, canon, cluster, kwargs)
 
     # ── 2. Modern JIVE variants (jive1/ujive/ijive/rjive) ────────────
     if canon in {"jive1", "ujive", "ijive", "rjive"}:

@@ -439,6 +439,7 @@ def zip_model(
         "bic": model_info["bic"],
     }
 
+    model_info["alpha"] = alpha
     return EconometricResults(
         params=params,
         std_errors=std_errors,
@@ -759,6 +760,7 @@ def zinb(
         "bic": model_info["bic"],
     }
 
+    model_info["alpha"] = alpha
     return EconometricResults(
         params=params,
         std_errors=std_errors,
@@ -1086,6 +1088,7 @@ def hurdle(
         assert alpha_hat is not None
         diagnostics["alpha_dispersion"] = float(alpha_hat)
 
+    model_info["alpha"] = alpha
     return EconometricResults(
         params=params,
         std_errors=std_errors,

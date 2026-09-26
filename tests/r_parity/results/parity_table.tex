@@ -53,8 +53,8 @@ Module & Method & Worst headline diff & Verdict \\
 \code{37\_ppmlhdfe} & PPML + HDFE & rel $\le 4.9e-13$ {\footnotesize (post PPML FE-score fix; robust SE within 0.5\% of fixest)} & \textbf{PASS} \\
 \code{38\_drdid} & DR-DID (SZ 2020) & rel $\le 2.6e-15$ {\footnotesize (panel DR-DID calibrated propensity parity with R/Stata)} & \textbf{PASS} \\
 \code{39\_arima} & ARIMA(2,0,0) & rel $\le 7.4e-07$ {\footnotesize (stats::arima ML / tightly converged Stata arima)} & \textbf{PASS} \\
-\code{40\_qreg} & Quantile reg (median) & rel $\le 3.3e-15$ {\footnotesize (post sqrt(n) sandwich-scaling fix)} & \textbf{PASS} \\
-\code{41\_tobit} & Tobit (left-censored) & rel $\le 2.8e-08$ {\footnotesize (post observed-information Hessian fix)} & \textbf{PASS} \\
+\code{40\_qreg} & Quantile reg (median) & rel $\le 3.3e-15$ {\footnotesize (Hendricks-Koenker nid sandwich (1.32))} & \textbf{PASS} \\
+\code{41\_tobit} & Tobit (left-censored) & rel $\le 1.1e-13$ {\footnotesize (post observed-information Hessian fix)} & \textbf{PASS} \\
 \code{42\_nbreg} & Negative binomial & rel $\le 5.1e-10$ & \textbf{PASS} \\
 \code{43\_heckman} & Heckman 2-step & rel $\le 1e-11$ & \textbf{PASS} \\
 \code{44\_mlogit} & Multinomial logit & rel $\le 2.6e-07$ {\footnotesize (post observed-information Hessian fix)} & \textbf{PASS} \\

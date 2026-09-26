@@ -46,8 +46,9 @@ import datetime as _dt
 import hashlib
 import sys
 import uuid
-from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, Mapping, Optional
+import warnings
+from dataclasses import asdict, dataclass, field
+from typing import Any, Dict, List, Mapping, Optional
 
 __all__ = [
     "Provenance",
@@ -104,8 +105,8 @@ def compute_data_hash(data: Any, length: int = 12) -> Optional[str]:
     if data is None:
         return None
     try:
-        import pandas as pd
         import numpy as np
+        import pandas as pd
 
         if isinstance(data, pd.DataFrame):
             if len(data) > MAX_HASH_ROWS:
@@ -198,8 +199,8 @@ def _summarise_value(v: Any) -> Any:
             items = items[:50] + [("...", f"(+{len(v) - 50} more)")]
         return {str(k): _summarise_value(val) for k, val in items}
     try:
-        import pandas as pd
         import numpy as np
+        import pandas as pd
 
         if isinstance(v, pd.DataFrame):
             return {
@@ -388,7 +389,137 @@ def attach_provenance(
             return result
     except Exception:
         return result
+    _note_listwise_deletion(result, function, params, data)
     return result
+
+
+def _reported_nobs(result: Any) -> Optional[int]:
+    """The estimation-sample size a result reports, if it reports one."""
+    import numpy as np
+
+    for owner, keys in (
+        (result, ("n_obs", "nobs")),
+        (getattr(result, "data_info", None), ("nobs", "n_obs")),
+        (getattr(result, "model_info", None), ("n_obs", "nobs")),
+    ):
+        if owner is None:
+            continue
+        for key in keys:
+            value = (
+                owner.get(key)
+                if isinstance(owner, Mapping)
+                else getattr(owner, key, None)
+            )
+            if isinstance(value, (int, np.integer)) and not isinstance(value, bool):
+                return int(value)
+            if isinstance(value, (float, np.floating)) and float(value).is_integer():
+                return int(value)
+    return None
+
+
+def _referenced_columns(params: Optional[Mapping[str, Any]], columns: Any) -> List[str]:
+    """Data columns named by the call's arguments (strings, lists, formulas)."""
+    import re
+
+    cols = set(map(str, columns))
+    found: List[str] = []
+
+    def add(name: Any) -> None:
+        if isinstance(name, str) and name in cols and name not in found:
+            found.append(name)
+
+    for value in (params or {}).values():
+        if isinstance(value, str):
+            if value in cols:
+                add(value)
+            elif "~" in value:
+                for token in re.findall(r"[A-Za-z_][A-Za-z0-9_.]*", value):
+                    add(token)
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                add(item)
+    return found
+
+
+#: Designs in which a missing value is information, not a dropped row:
+#: attrition / truncation-by-death bounds use the missing outcomes to set
+#: the trimming share, censoring weights model them, a surrogate index or
+#: a transport weight is built precisely where the outcome is unobserved,
+#: and imputation fills them. The listwise-deletion note would be false.
+_MISSING_BY_DESIGN = frozenset(
+    {
+        "lee_bounds",
+        "manski_bounds",
+        "horowitz_manski",
+        "selection_bounds",
+        "survivor_average_causal_effect",
+        "ipcw",
+        "clone_censor_weight",
+        "surrogate_index",
+        "transport_weights",
+        "mice",
+        "heckman",
+    }
+)
+
+
+def _note_listwise_deletion(
+    result: Any,
+    function: str,
+    params: Optional[Mapping[str, Any]],
+    data: Any,
+) -> None:
+    """Warn when rows with missing values were dropped from the estimation.
+
+    Estimators drop rows with a missing value in any variable they use
+    (listwise deletion), as Stata and R do -- but R prints how many rows
+    went and Stata shows the smaller N, while StatsPAI said nothing. The
+    note fires only when the result's reported N equals the input rows
+    minus the incomplete ones, i.e. when listwise deletion demonstrably
+    happened; estimators that impute, trim to a bandwidth or subset the
+    sample for other reasons do not match and stay silent. Never raises.
+    """
+    try:
+        import pandas as pd
+
+        if function.split(".")[-1] in _MISSING_BY_DESIGN:
+            return
+        if not isinstance(data, pd.DataFrame) or len(data) == 0:
+            return
+        used = _referenced_columns(params, data.columns)
+        if not used:
+            return
+        incomplete = data[used].isna()
+        n_dropped = int(incomplete.any(axis=1).sum())
+        if n_dropped == 0:
+            return
+        nobs = _reported_nobs(result)
+        if nobs is None or nobs != len(data) - n_dropped:
+            return
+        by_column = {c: int(n) for c, n in incomplete.sum().items() if n}
+        info = {"n_rows_dropped_missing": n_dropped, "missing_by_column": by_column}
+        model_info = getattr(result, "model_info", None)
+        if isinstance(model_info, dict):
+            model_info.setdefault("listwise_deletion", info)
+    except Exception:
+        return
+    from ..exceptions import AssumptionWarning
+
+    name = function.split(".")[-1]
+    warnings.warn(
+        AssumptionWarning(
+            f"{name}: {n_dropped} of {len(data)} rows dropped for missing "
+            f"values (listwise deletion) -- by column: {by_column}.",
+            recovery_hint=(
+                "Estimates use complete cases only, which is unbiased only if "
+                "missingness is unrelated to the outcome given the model's "
+                "variables. Impute with sp.mice to check, or drop the rows "
+                "explicitly to silence this note."
+            ),
+            diagnostics=info,
+        ),
+        stacklevel=3,
+    )
 
 
 def get_provenance(result: Any) -> Optional[Provenance]:

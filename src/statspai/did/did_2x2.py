@@ -364,7 +364,7 @@ def did_2x2(
             hc1_weights = (n / (n - k)) * (w**2 * resid**2)
         else:
             hc1_weights = (n / (n - k)) * resid**2
-        meat = X.T @ np.diag(hc1_weights) @ X
+        meat = (X * (hc1_weights)[:, None]).T @ X
         vcov = XtX_inv @ meat @ XtX_inv
     else:
         if w is not None:

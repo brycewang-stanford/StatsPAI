@@ -32,6 +32,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import warnings
 from pathlib import Path
 from typing import Any, List, Optional
 
@@ -98,7 +99,8 @@ def augsynth(
         The R backend is intended for exact reference-package parity;
         the native path remains the dependency-light default.
     **kwargs
-        Ignored — accepted for dispatcher compatibility.
+        Not accepted: any leftover keyword raises ``TypeError`` (they used
+        to be ignored, so a misspelled option fell back to its default).
 
     Returns
     -------
@@ -122,6 +124,9 @@ def augsynth(
     >>> bool(result.estimate < 0)  # Prop 99 lowered cigarette sales
     True
     """
+    from ..core._vcov_spec import reject_unknown_kwargs
+
+    reject_unknown_kwargs(kwargs, function="augsynth")
     backend_norm = backend.lower().replace("-", "_")
     if backend_norm in {"augsynth", "r", "augsynth_r"}:
         if covariates:
@@ -256,6 +261,15 @@ def augsynth(
         t_crit = sp_stats.norm.ppf(1 - alpha / 2)
         ci = (att - t_crit * se, att + t_crit * se)
     else:
+        # ASCM inference is the placebo permutation; without it there is no
+        # standard error to report. Say so rather than return bare NaN.
+        warnings.warn(
+            "augsynth(placebo=False): no placebo permutation was run, so the "
+            "standard error, p-value and interval are NaN. Pass placebo=True "
+            "for inference.",
+            UserWarning,
+            stacklevel=2,
+        )
         placebo_effects = np.array([])
         se = float("nan")
         pvalue = float("nan")

@@ -1,11 +1,12 @@
 * tests/stata_parity/40_qreg.do
 *
 * Module 40: Quantile regression (median).
-*   StatsPAI:  sp.qreg(quantile=0.5)
+*   StatsPAI:  sp.qreg(quantile=0.5, vce="nid")
 *   R:         quantreg::rq(tau=0.5, summary(se="nid"))
-*   Stata:     qreg y x1 x2
+*   Stata:     qreg y x1 x2, vce(robust)
 *
-* Tolerance: rel < 1e-3 on coefficients; rel < 5e-2 on SEs.
+* All three are the Hendricks-Koenker sandwich with the Hall-Sheather
+* bandwidth (vce(robust) uses the default fitted density method).
 
 version 18
 clear all
@@ -18,7 +19,7 @@ import delimited "${STATA_PARITY_DATA}/40_qreg.csv", clear case(preserve)
 
 local n = _N
 
-qreg y x1 x2
+qreg y x1 x2, vce(robust)
 
 local b0  = _b[_cons]
 local se0 = _se[_cons]
@@ -32,7 +33,7 @@ stata_parity_row, stat(beta_x1)        est(`b1') std(`se1') nob(`n')
 stata_parity_row, stat(beta_x2)        est(`b2') std(`se2') nob(`n')
 
 stata_parity_extra, key(quantile) val(0.5)
-stata_parity_extra, key(se_method) val("Koenker-Bassett 1978")
-stata_parity_extra, key(stata_command) val("qreg y x1 x2")
+stata_parity_extra, key(se_method) val("Hendricks-Koenker sandwich, Hall-Sheather bandwidth")
+stata_parity_extra, key(stata_command) val("qreg y x1 x2, vce(robust)")
 
 stata_parity_close, module(40_qreg)

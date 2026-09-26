@@ -994,6 +994,11 @@ def synth_report(
             f"output must be 'text', 'markdown', or 'latex', got {output!r}"
         )
 
+    # Sensitivity-only options must not reach synth(), which rejects
+    # unknown keywords (they used to be dropped there silently).
+    n_donor_samples = kwargs.pop("n_donor_samples", 100)
+    seed = kwargs.pop("sensitivity_seed", None)
+
     # --- Main estimation ---
     result = synth(
         data=data,
@@ -1014,8 +1019,6 @@ def synth_report(
     if sensitivity:
         # Extract params relevant to sensitivity
         penalization = kwargs.get("penalization", 0.0)
-        n_donor_samples = kwargs.pop("n_donor_samples", 100)
-        seed = kwargs.pop("sensitivity_seed", None)
 
         try:
             sens_result = synth_sensitivity(

@@ -130,6 +130,10 @@ estimator, or only on `feols`?* The honest answer, tracked in
 | `did` | · | · | ✓ | · | · | ✓ | · | · |
 | `dml` | ✓ | · | · | · | · | · | · | · |
 | `rdrobust` | · | ✓ | ✓ | · | · | · | · | · |
+| `aipw` | ✓ | ✓ | ✓ | · | · | · | · | · |
+| `ipw` | · | ✓ | ✓ | · | · | · | · | · |
+| `tobit` | ✓ | ✓ | ✓ | · | · | · | · | · |
+| `heckman` | ✓ | ✓ | ✓ | · | · | · | · | · |
 | `synth` | · | · | · | · | · | · | · | ✓ |
 
 **Legend:** ✓ native (estimator parameter, correct for its FE/IV/GLM structure)
@@ -304,6 +308,28 @@ What the matrix makes explicit today:
   `vce="conley"` via the conleyreg-referenced GLM spatial HAC. Remaining
   blanks (`synth`, `rdrobust`, `dml` rows) are documented in
   `scripts/se_menu_matrix.py` as methodologically legitimate n/a.
+
+- **Treatment effects and limited dependent variables take Stata's weights
+  and clusters (1.32).** `sp.aipw` / `sp.ipw` accept `weights=` (Stata
+  `[pw=]`) and `cluster=`; `sp.tobit` and `sp.heckman(method="ml")` accept
+  `vce=`, `cluster=` and `weights=`. Each is pinned against Stata 18
+  (`teffects aipw` / `teffects ipw` / `tobit` / `heckman`) to 1e-10 or
+  better in `tests/reference_parity/test_teffects_design_stata_parity.py`
+  and `test_ldv_design_stata_parity.py`:
+
+  ```python
+  sp.aipw(df, y="y", treat="d", covariates=["x1", "x2"], weights="w", cluster="g",
+          cross_fit=False, se_method="sandwich")      # teffects aipw [iw=w], vce(cluster g)
+  sp.ipw(df, "y", "d", ["x1", "x2"], estimand="ATT", weights="w",
+         se_method="sandwich")                        # teffects ipw ... [pw=w], atet
+  sp.tobit(df, "y", ["x1", "x2"], ll=0, vce="cluster g")
+  sp.heckman(df, y="y", x=["x1"], select="s", z=["x1", "z"], method="ml", weights="w")
+  ```
+
+  One convention to know: `teffects aipw` refuses `[pw=]`, and its
+  `[iw=], vce(robust)` treats the weights as frequencies (effective N = sum
+  of the weights). `sp.aipw(weights=)` is the sampling-weight SE, which
+  Stata reports under `vce(cluster)`.
 
 This is the gap the SE-menu wiring work closes, estimator by estimator. The
 matrix is the scoreboard: the CI gate ratchets the **native** count up and the

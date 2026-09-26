@@ -61,6 +61,7 @@ def dml(
     normalize_ipw: bool = False,
     trimming_threshold: float = 1e-2,
     *,
+    cluster: Optional[str] = None,
     external_predictions: Optional["OOFPredictions"] = None,
     store_oof: bool = False,
     observation_ids: Optional[Sequence[str]] = None,
@@ -150,6 +151,13 @@ def dml(
         estimated propensity is clipped to ``[t, 1 - t]``. The default
         ``0.01`` reproduces the historical clip and matches DoubleML's
         ``trimming_threshold`` with ``trimming_rule='truncate'``.
+    cluster : str, optional
+        Column identifying clusters (one-way). Cross-fitting folds are
+        formed over whole clusters and the standard error is the
+        cluster-robust DML variance of Chiang, Kato, Ma and Sasaki (2022),
+        as DoubleML computes it for ``DoubleMLClusterData``; the estimate
+        solves the fold-weighted score. Not available with
+        ``external_predictions``.
     external_predictions : OOFPredictions, optional
         Python-only in-memory predictions for unweighted, unnormalised
         binary-treatment IRM ATE scoring. ``caller_declared`` training records
@@ -254,6 +262,7 @@ def dml(
         score=score,
         normalize_ipw=normalize_ipw,
         trimming_threshold=trimming_threshold,
+        cluster=cluster,
     )
     oof_provenance = build_oof_provenance_payload(
         external_predictions=external_predictions,
@@ -282,6 +291,8 @@ def dml(
             "normalize_ipw": normalize_ipw,
             "trimming_threshold": trimming_threshold,
             "fold_indices": fold_indices if isinstance(fold_indices, str) else None,
+            "cluster": cluster,
+            "sample_weight": sample_weight if isinstance(sample_weight, str) else None,
             # Keep learner objects out of the JSON-serialisable lineage record.
             "ml_g": type(ml_g).__name__ if ml_g is not None else None,
             "ml_m": type(ml_m).__name__ if ml_m is not None else None,
@@ -358,6 +369,7 @@ class DoubleML:
         score: Optional[str] = None,
         normalize_ipw: bool = False,
         trimming_threshold: float = 1e-2,
+        cluster: Optional[str] = None,
     ):
         key = str(model).lower()
         if key not in _MODEL_REGISTRY:
@@ -383,6 +395,7 @@ class DoubleML:
             score=score,
             normalize_ipw=normalize_ipw,
             trimming_threshold=trimming_threshold,
+            cluster=cluster,
         )
 
     def fit(

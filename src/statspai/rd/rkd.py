@@ -357,9 +357,9 @@ def _local_poly_fit(
     n = len(Y)
     # Design matrix: [1, X, X^2, ..., X^p]
     Z = np.column_stack([X**j for j in range(p + 1)])  # (n, p+1)
-    W = np.diag(w)
+    # Kernel weights applied by row: np.diag(w) was an n x n matrix.
 
-    ZtW = Z.T @ W  # (p+1, n)
+    ZtW = (Z * w[:, None]).T  # (p+1, n)
     ZtWZ = ZtW @ Z  # (p+1, p+1)
 
     try:
@@ -375,7 +375,7 @@ def _local_poly_fit(
         V = _cluster_variance(Z, w, resid, cl, ZtWZ_inv)
     else:
         # HC1 sandwich: (Z'WZ)^{-1} Z'W diag(e^2) WZ (Z'WZ)^{-1}
-        meat = Z.T @ (W @ np.diag(resid**2) @ W) @ Z
+        meat = (Z * (w**2 * resid**2)[:, None]).T @ Z
         dfc = n / max(n - (p + 1), 1)
         V = dfc * ZtWZ_inv @ meat @ ZtWZ_inv
 

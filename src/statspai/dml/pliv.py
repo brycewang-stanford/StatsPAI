@@ -192,6 +192,15 @@ class DoubleMLPLIV(_DoubleMLBase):
             num = float(np.sum((w**2) * (psi**2)))
             se = float(np.sqrt(num)) / abs(denom) if denom != 0 else 0.0
 
+        # Linear score elements (DoubleML convention) for the base class's
+        # cluster-robust recomputation.
+        self._last_rep_score = {
+            "psi_a": -z_resid * d_resid,
+            "psi_b": z_resid * y_resid,
+            "splits": splits,
+            "weights": w_full,
+        }
+
         # Approximate first-stage F (informative weak-IV diagnostic)
         # using the partial correlation: F_partial ≈ (n-K) ρ² / (1-ρ²).
         # K is unknown (ML nuisance has no fixed dof), so we use n as an

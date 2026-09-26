@@ -71,6 +71,8 @@ def tmle(
     fluctuation: str = "single",
     q_bound: float = 1e-5,
     fold_indices: "Optional[Any]" = None,
+    weights: Optional[str] = None,
+    cluster: Optional[str] = None,
 ) -> CausalResult:
     """
     Estimate causal effects using TMLE with Super Learner.
@@ -134,6 +136,17 @@ def tmle(
         sample, as on the default path, before the per-fold fits; this is
         a fixed affine map, not a fitted nuisance. A Super Learner failure
         inside a training complement is re-raised naming the fold.
+    weights : str, optional
+        Observation (sampling) weights column, R ``tmle``'s ``obsWeights``:
+        normalised to mean one, passed to every Super Learner fit, used in
+        the fluctuation regression, and multiplying the plug-in average and
+        the influence function. ``estimand='ATE'`` only.
+    cluster : str, optional
+        Cluster column. The standard error sums the influence function
+        within clusters: ``G/(G-1) sum_g (S_g - mean S)^2 / n^2``, which
+        is R ``tmle``'s ``id=`` variance when clusters are of equal size
+        (``tmle`` averages the influence function within ``id`` instead, a
+        repeated-measures convention that differs with unequal sizes).
 
     Returns
     -------
@@ -199,6 +212,8 @@ def tmle(
         fluctuation=fluctuation,
         q_bound=q_bound,
         fold_indices=fold_indices,
+        weights=weights,
+        cluster=cluster,
     )
     _result = est.fit()
     try:
@@ -218,6 +233,8 @@ def tmle(
                 "random_state": random_state,
                 "q_bound": q_bound,
                 "cross_fitted": fold_indices is not None,
+                "weights": weights,
+                "cluster": cluster,
                 "outcome_library": (
                     [type(m).__name__ for m in outcome_library]
                     if outcome_library
@@ -336,6 +353,8 @@ class TMLE:
         fluctuation: str = "single",
         q_bound: float = 1e-5,
         fold_indices: "Optional[Any]" = None,
+        weights: Optional[str] = None,
+        cluster: Optional[str] = None,
     ):
         if not (0 < q_bound < 0.5):
             raise MethodIncompatibility(
@@ -372,11 +391,26 @@ class TMLE:
                 ),
             )
         self.fold_indices = fold_indices
+        if weights is not None and fold_indices is not None:
+            raise MethodIncompatibility(
+                "tmle: weights= is not implemented for the cross-fitted "
+                "(fold_indices) path; its per-fold Super Learners would be "
+                "fitted unweighted.",
+                recovery_hint="Drop fold_indices, or drop weights=.",
+            )
+        if weights is not None and estimand != "ATE":
+            raise MethodIncompatibility(
+                "tmle: weights= is implemented for estimand='ATE' only.",
+                recovery_hint="Drop weights= or use estimand='ATE'.",
+            )
+        self.weights = weights
+        self.cluster = cluster
 
     def fit(self) -> CausalResult:
         """Run TMLE and return causal effect estimates."""
         # Prepare data
-        cols = [self.y, self.treat] + self.covariates
+        design = [c for c in (self.weights, self.cluster) if c is not None]
+        cols = list(dict.fromkeys([self.y, self.treat] + self.covariates + design))
         missing = [c for c in cols if c not in self.data.columns]
         if missing:
             raise ValueError(f"Columns not found in data: {missing}")
@@ -386,6 +420,23 @@ class TMLE:
         A = clean[self.treat].values.astype(np.float64)
         W = clean[self.covariates].values.astype(np.float64)
         n = len(Y)
+        # Observation weights normalised to mean one (R tmle's obsWeights);
+        # None keeps the unweighted path byte-identical.
+        obs_w: "Optional[np.ndarray]" = None
+        if self.weights is not None:
+            obs_w = clean[self.weights].to_numpy(dtype=np.float64)
+            if not np.all(np.isfinite(obs_w)) or np.any(obs_w <= 0):
+                raise MethodIncompatibility(
+                    "tmle: weights must be finite and strictly positive."
+                )
+            obs_w = obs_w * (n / obs_w.sum())
+        cl_codes: "Optional[np.ndarray]" = None
+        if self.cluster is not None:
+            cl_codes = pd.factorize(clean[self.cluster])[0]
+            if cl_codes.max() + 1 < 2:
+                raise MethodIncompatibility(
+                    "tmle: cluster= needs at least two clusters."
+                )
 
         unique_a = np.unique(A)
         if not (len(unique_a) == 2 and set(unique_a.astype(int)) == {0, 1}):
@@ -472,7 +523,7 @@ class TMLE:
                 task="classification" if is_binary_outcome else "regression",
                 random_state=self.random_state,
             )
-            sl_Q.fit(AW, Y_scaled)
+            sl_Q.fit(AW, Y_scaled, sample_weight=obs_w)
             Q_bar_A = sl_Q.predict(AW)  # Q(A_i, W_i) for observed A
             Q_bar_1 = sl_Q.predict(W1)  # Q(1, W_i)
             Q_bar_0 = sl_Q.predict(W0)  # Q(0, W_i)
@@ -512,7 +563,7 @@ class TMLE:
                 task="classification",
                 random_state=self.random_state,
             )
-            sl_g.fit(W, A)
+            sl_g.fit(W, A, sample_weight=obs_w)
             g_hat_raw = sl_g.predict(W)
         g_hat = np.clip(g_hat_raw, self.propensity_bounds[0], self.propensity_bounds[1])
 
@@ -582,7 +633,7 @@ class TMLE:
         logit_Q_A = logit(Q_bar_A)
 
         if self.fluctuation == "single":
-            epsilon = self._fit_epsilon(Y_scaled, logit_Q_A, H_A)
+            epsilon = self._fit_epsilon(Y_scaled, logit_Q_A, H_A, weights=obs_w)
             epsilon_vec = np.array([float(epsilon)])
             Q_star_A = expit(logit_Q_A + epsilon * H_A)
             Q_star_1 = expit(logit(Q_bar_1) + epsilon * H_1)
@@ -601,7 +652,9 @@ class TMLE:
                 H1_at1, H0_at1 = np.ones(n), np.zeros(n)
                 H1_at0, H0_at0 = np.zeros(n), -g_hat / (1 - g_hat)
             H_mat = np.column_stack([H1_A, H0_A])
-            epsilon_vec = self._fit_epsilon_multi(Y_scaled, logit_Q_A, H_mat)
+            epsilon_vec = self._fit_epsilon_multi(
+                Y_scaled, logit_Q_A, H_mat, weights=obs_w
+            )
             e1, e0 = float(epsilon_vec[0]), float(epsilon_vec[1])
             Q_star_A = expit(logit_Q_A + e1 * H1_A + e0 * H0_A)
             Q_star_1 = expit(logit(Q_bar_1) + e1 * H1_at1 + e0 * H0_at1)
@@ -622,7 +675,16 @@ class TMLE:
             Q_star_0_orig = Q_star_0
             Q_star_A_orig = Q_star_A
 
-        if self.estimand == "ATE":
+        if self.estimand == "ATE" and obs_w is not None:
+            # R tmle: mu_a = mean(w * Q*_a), IC = w * (... - (mu1 - mu0)).
+            psi = float(np.mean(obs_w * (Q_star_1_orig - Q_star_0_orig)))
+            EIF = obs_w * (
+                (Q_star_1_orig - Q_star_0_orig)
+                + A * (Y - Q_star_A_orig) / g_hat
+                - (1 - A) * (Y - Q_star_A_orig) / (1 - g_hat)
+                - psi
+            )
+        elif self.estimand == "ATE":
             psi = float(np.mean(Q_star_1_orig - Q_star_0_orig))
 
             # Efficient influence function
@@ -648,7 +710,15 @@ class TMLE:
             )
 
         # Standard error from influence function
-        se = float(np.std(EIF, ddof=1) / np.sqrt(n))
+        if cl_codes is None:
+            se = float(np.std(EIF, ddof=1) / np.sqrt(n))
+        else:
+            # Cluster sums of the influence function, centred, with the
+            # G/(G-1) factor: equals the line above when every row is its
+            # own cluster, and R tmle's id= variance for equal cluster sizes.
+            S = np.bincount(cl_codes, weights=EIF)
+            G = S.shape[0]
+            se = float(np.sqrt(G / (G - 1) * np.sum((S - S.mean()) ** 2)) / n)
 
         if se > 0:
             z_stat = psi / se
@@ -662,7 +732,14 @@ class TMLE:
         # Model info
         model_info = {
             "estimand": self.estimand,
-            "se_method": "efficient_influence_function",
+            "se_method": (
+                "efficient_influence_function"
+                if cl_codes is None
+                else "cluster_efficient_influence_function"
+            ),
+            "weights": self.weights,
+            "cluster": self.cluster,
+            "n_clusters": None if cl_codes is None else int(cl_codes.max() + 1),
             "propensity_mean": float(np.mean(g_hat)),
             "propensity_std": float(np.std(g_hat)),
             "propensity_bounds": self.propensity_bounds,
@@ -769,6 +846,7 @@ class TMLE:
         H: np.ndarray,
         max_iter: int = 100,
         tol: float = 1e-10,
+        weights: "Optional[np.ndarray]" = None,
     ) -> np.ndarray:
         """Fit a vector fluctuation parameter by Newton-Raphson.
 
@@ -783,10 +861,11 @@ class TMLE:
         """
         eps = np.zeros(H.shape[1], dtype=np.float64)
         converged = False
+        ow = np.ones(len(Y)) if weights is None else weights
         for _ in range(max_iter):
             p = expit(logit_Q + H @ eps)
-            score = H.T @ (Y - p)
-            w = p * (1.0 - p)
+            score = H.T @ (ow * (Y - p))
+            w = ow * p * (1.0 - p)
             hessian = -(H * w[:, None]).T @ H
             try:
                 delta = np.linalg.solve(hessian, -score)
@@ -818,6 +897,7 @@ class TMLE:
         H: np.ndarray,
         max_iter: int = 50,
         tol: float = 1e-8,
+        weights: "Optional[np.ndarray]" = None,
     ) -> Any:
         """
         Fit the fluctuation parameter epsilon via Newton-Raphson.
@@ -830,10 +910,13 @@ class TMLE:
 
         for it in range(max_iter):
             p = expit(logit_Q + epsilon * H)
-            # Score: sum(H * (Y - p))
-            score = np.sum(H * (Y - p))
-            # Hessian: -sum(H^2 * p * (1-p))
-            hessian = -np.sum(H**2 * p * (1 - p))
+            # Score: sum(w * H * (Y - p)); Hessian: -sum(w * H^2 * p * (1-p))
+            if weights is None:
+                score = np.sum(H * (Y - p))
+                hessian = -np.sum(H**2 * p * (1 - p))
+            else:
+                score = np.sum(weights * H * (Y - p))
+                hessian = -np.sum(weights * H**2 * p * (1 - p))
 
             if abs(hessian) < 1e-15:
                 # Singular Hessian — exit but flag.

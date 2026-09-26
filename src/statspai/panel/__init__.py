@@ -32,6 +32,7 @@ Correia, S. (2017). "Linear Models with High-Dimensional Fixed Effects."
 
 from typing import Any, Dict, Optional, Union
 
+from .._aliases import accepts_formula_first
 from ..exceptions import MethodIncompatibility
 from .feols import FEOLSResult
 from .feols import feols as hdfe_feols
@@ -129,6 +130,7 @@ _CLASSICAL_PANEL_METHODS = frozenset(
 )
 
 
+@accepts_formula_first()
 def panel(
     data: Any = None,
     formula: Optional[str] = None,

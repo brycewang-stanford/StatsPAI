@@ -239,8 +239,8 @@
       "Cross-language parity (bit-exact) vs AER::ivreg [AER 1.2.16, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 02_iv -- tests/r_parity/02_iv.py",
       "tests/reference_parity/test_iv_card_aer_parity.py",
       "tests/reference_parity/test_iv_hdfe_stata_parity.py",
-      "tests/reference_parity/test_regress_weights_iv_robust_parity.py",
-      "tests/reference_parity/test_validation_entry_points.py"
+      "tests/reference_parity/test_iv_weights_stata_parity.py",
+      "tests/reference_parity/test_regress_weights_iv_robust_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -394,6 +394,16 @@
             "description": "Quantile (0-1)",
             "type": "number"
           },
+          "vce": {
+            "description": "None/'iid' = Stata qreg default (fitted sparsity, Hall-Sheather); 'robust' = Stata vce(robust); 'nid' = quantreg se='nid'; 'powell' = pre-1.32 kernel SE",
+            "enum": [
+              "iid",
+              "robust",
+              "nid",
+              "powell"
+            ],
+            "type": "string"
+          },
           "x": {
             "description": "Regressor columns (alternative to formula)",
             "items": {
@@ -417,8 +427,9 @@
     "validation_notes": [
       "R parity module 40_qreg",
       "Stata parity module 40_qreg",
-      "Cross-language parity (bit-exact) vs quantreg::rq [R version 4.5.2 (2025-10-31), quantreg 6.1]; tolerance rel_est<=1e-06, rel_se<=0.1; parity module 40_qreg -- tests/r_parity/40_qreg.py",
+      "Cross-language parity (bit-exact) vs quantreg::rq [R version 4.5.2 (2025-10-31), quantreg 6.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 40_qreg -- tests/r_parity/40_qreg.py",
       "tests/reference_parity/test_count_quantile_parity.py",
+      "tests/reference_parity/test_ldv_design_stata_parity.py",
       "API/unit contract evidence: tests/test_quantile.py",
       "API/unit contract evidence: tests/test_decomposition_tier_c.py"
     ],
@@ -464,6 +475,10 @@
             "description": "Significance level for confidence intervals",
             "type": "number"
           },
+          "cluster": {
+            "description": "Cluster column (vce(cluster c))",
+            "type": "string"
+          },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "string"
@@ -476,6 +491,14 @@
           "ul": {
             "description": "Upper censoring limit (default: none)",
             "type": "number"
+          },
+          "vce": {
+            "description": "None/'oim' (observed information), 'robust' or 'cluster', e.g. vce='cluster firm'; robust= is an alias",
+            "type": "string"
+          },
+          "weights": {
+            "description": "Sampling weights [pw=]: weighted likelihood, robust SEs",
+            "type": "string"
           },
           "x": {
             "description": "Regressors",
@@ -502,8 +525,9 @@
     "validation_notes": [
       "R parity module 41_tobit",
       "Stata parity module 41_tobit",
-      "Cross-language parity (bit-exact) vs censReg::censReg [R version 4.5.2 (2025-10-31), censReg 0.5.38]; tolerance rel_est<=1e-06, rel_se<=1e-05; parity module 41_tobit -- tests/r_parity/41_tobit.py",
+      "Cross-language parity (bit-exact) vs censReg::censReg [R version 4.5.2 (2025-10-31), censReg 0.5.38]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 41_tobit -- tests/r_parity/41_tobit.py",
       "tests/reference_parity/test_count_quantile_parity.py",
+      "tests/reference_parity/test_ldv_design_stata_parity.py",
       "API/unit contract evidence: tests/test_weakiv_tobit.py"
     ],
     "validation_status": "certified"
@@ -1689,6 +1713,10 @@
       "name": "dml",
       "parameters": {
         "properties": {
+          "cluster": {
+            "description": "One-way cluster column: folds over whole clusters and the Chiang-Kato-Ma-Sasaki cluster variance (DoubleML DoubleMLClusterData, all four models).",
+            "type": "string"
+          },
           "covariates": {
             "description": "List of control variable names",
             "items": {
@@ -1729,6 +1757,10 @@
             "default": false,
             "description": "Self-normalize the inverse-propensity weights for the IPW models (irm/iivm); matches DoubleML's normalize_ipw. Rejected for plr/pliv.",
             "type": "boolean"
+          },
+          "sample_weight": {
+            "description": "Observation weights (column or array); weights= is an alias.",
+            "type": "string"
           },
           "score": {
             "description": "Orthogonal score variant (DoubleML-compatible). PLR: 'partialling out' (default) or 'IV-type'. IRM: 'ATE' (default) or 'ATTE'. None selects the model default; defaults reproduce historical output exactly.",
@@ -4027,6 +4059,10 @@
       "name": "metalearner",
       "parameters": {
         "properties": {
+          "cluster": {
+            "description": "Cluster column: folds over whole clusters; SE from centred cluster sums of the influence function with G/(G-1).",
+            "type": "string"
+          },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
             "items": {
@@ -4056,6 +4092,10 @@
           },
           "treat": {
             "description": "Binary treatment column (0/1)",
+            "type": "string"
+          },
+          "weights": {
+            "description": "Sampling weights for the AIPW average (estimate/se): weighted nuisance fits, mean and influence function. The CATE fit is unweighted.",
             "type": "string"
           },
           "y": {
@@ -4256,6 +4296,10 @@
           "treatment": {
             "description": "Treatment indicator, treatment variable, or treatment array.",
             "type": "string"
+          },
+          "weights": {
+            "description": "Frequency weights (Stata [fw=], positive integers; the only weight teffects matching accepts). Sampling weights and cluster= are refused: use sp.ipw / sp.aipw / sp.tmle.",
+            "type": "string"
           }
         },
         "required": [
@@ -4271,6 +4315,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs MatchIt::matchit 4.7.2 (nearest, glm/logit distance); tolerance 1:1 and 2:1 PS matching without replacement: rel <= 1e-9. Mahalanobis metric pinned against MatchIt:::mahalanobis_dist (rel <= 1e-10); greedy m_order='data'/'closest' rel <= 1e-9. -- tests/reference_parity/test_matching_r_parity.py",
+      "tests/reference_parity/test_match_fw_stata_parity.py",
       "tests/reference_parity/test_matching_parity.py",
       "tests/reference_parity/test_psmatch2_llr_parity.py",
       "tests/reference_parity/test_psmatch2_parity.py"
@@ -4483,6 +4528,10 @@
       "name": "tmle",
       "parameters": {
         "properties": {
+          "cluster": {
+            "description": "Cluster column: influence function summed within clusters with G/(G-1) (R tmle id= for equal cluster sizes).",
+            "type": "string"
+          },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
             "items": {
@@ -4510,6 +4559,10 @@
           },
           "treat": {
             "description": "Binary treatment column (0/1)",
+            "type": "string"
+          },
+          "weights": {
+            "description": "Observation weights (R tmle obsWeights): weighted Super Learner fits, fluctuation, plug-in and influence function. ATE only; not with fold_indices.",
             "type": "string"
           },
           "y": {
@@ -6056,6 +6109,10 @@
       "name": "ipw",
       "parameters": {
         "properties": {
+          "cluster": {
+            "description": "Cluster column: cluster bootstrap, or cluster-summed sandwich with se_method='sandwich'",
+            "type": "string"
+          },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
             "items": {
@@ -6077,6 +6134,15 @@
             ],
             "type": "string"
           },
+          "se_method": {
+            "default": "bootstrap",
+            "description": "'sandwich' = teffects ipw robust M-estimation SE (needs normalize=True, trim=0)",
+            "enum": [
+              "bootstrap",
+              "sandwich"
+            ],
+            "type": "string"
+          },
           "treat": {
             "description": "Treatment indicator or first-treatment-period column.",
             "type": "string"
@@ -6085,6 +6151,10 @@
             "default": 0.0,
             "description": "Propensity score trimming threshold",
             "type": "number"
+          },
+          "weights": {
+            "description": "Sampling-weight column (Stata [pw=]); weights the logit and multiplies each IPW weight",
+            "type": "string"
           },
           "y": {
             "description": "Outcome variable column name or outcome array.",
@@ -6105,6 +6175,7 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs base R stats::glm(binomial) + hand-rolled Hajek weighted means; tolerance Hajek ATE/ATT estimate 1e-9 (observed <= 2e-15; SE not pinned) -- tests/reference_parity/test_ipw_parity.py",
       "tests/external_parity/test_whatif_nhefs.py",
+      "tests/reference_parity/test_teffects_design_stata_parity.py",
       "API/unit contract evidence: tests/test_new_features.py"
     ],
     "validation_status": "certified"
@@ -24608,6 +24679,10 @@
             "description": "Significance level for confidence intervals and tests.",
             "type": "number"
           },
+          "cluster": {
+            "description": "Cluster column: SEs sum the influence function within clusters (Stata vce(cluster c)).",
+            "type": "string"
+          },
           "covariates": {
             "description": "Confounders to adjust for",
             "items": {
@@ -24656,6 +24731,10 @@
             "description": "Binary treatment (0/1)",
             "type": "string"
           },
+          "weights": {
+            "description": "Sampling-weight column (Stata [pw=]): weighted logit and outcome fits, weighted mean of the AIPW scores, weighted robust SEs.",
+            "type": "string"
+          },
           "y": {
             "description": "Outcome variable",
             "type": "string"
@@ -24675,6 +24754,7 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata teffects aipw (ATE, POmeans); R AIPW::AIPW 0.6.9.3 stratified_fit(k_split = 1) [AIPW 0.6.9.3, R version 4.5.2 (2025-10-31), Stata 18, SuperLearner 2.0.40]; tolerance 1e-10 rel on ATE, potential-outcome means and SEs (observed <= 1.4e-14) -- tests/reference_parity/test_teffects_R_parity.py",
       "tests/reference_parity/test_paper_parity.py",
+      "tests/reference_parity/test_teffects_design_stata_parity.py",
       "tests/reference_parity/test_tmle_parity.py"
     ],
     "validation_status": "certified"
@@ -31329,7 +31409,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Legacy facade. Prefer the per-model classes directly for new code:",
+    "description": "Legacy facade. Prefer the per-model classes directly for new code: Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -31349,7 +31429,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Legacy facade. Prefer the per-model classes directly for new code:",
+      "description": "Legacy facade. Prefer the per-model classes directly for new code: Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "DoubleML",
       "parameters": {
         "properties": {
@@ -31357,6 +31437,10 @@
             "default": 0.05,
             "description": "Significance level for confidence intervals and tests.",
             "type": "number"
+          },
+          "cluster": {
+            "description": "Cluster identifier column for clustered standard errors.",
+            "type": "string"
           },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
@@ -31450,8 +31534,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_dml_cluster_doubleml_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -31494,6 +31580,10 @@
             "default": 0.05,
             "description": "Significance level for confidence intervals and tests.",
             "type": "number"
+          },
+          "cluster": {
+            "description": "Cluster identifier column for clustered standard errors.",
+            "type": "string"
           },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
@@ -31627,6 +31717,10 @@
             "description": "Significance level for confidence intervals and tests.",
             "type": "number"
           },
+          "cluster": {
+            "description": "Cluster identifier column for clustered standard errors.",
+            "type": "string"
+          },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
             "items": {
@@ -31759,6 +31853,10 @@
             "description": "Significance level for confidence intervals and tests.",
             "type": "number"
           },
+          "cluster": {
+            "description": "Cluster identifier column for clustered standard errors.",
+            "type": "string"
+          },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
             "items": {
@@ -31890,6 +31988,10 @@
             "default": 0.05,
             "description": "Significance level for confidence intervals and tests.",
             "type": "number"
+          },
+          "cluster": {
+            "description": "Cluster identifier column for clustered standard errors.",
+            "type": "string"
           },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
@@ -35724,6 +35826,10 @@
             "description": "Significance level for confidence intervals and tests.",
             "type": "number"
           },
+          "cluster": {
+            "description": "Cluster identifier column for clustered standard errors.",
+            "type": "string"
+          },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
             "items": {
@@ -35795,6 +35901,10 @@
           },
           "treat": {
             "description": "Treatment indicator or first-treatment-period column.",
+            "type": "string"
+          },
+          "weights": {
+            "description": "Observation weights.",
             "type": "string"
           },
           "y": {
@@ -42218,6 +42328,10 @@
             "description": "Estimator or algorithm variant to use.",
             "type": "string"
           },
+          "weights": {
+            "description": "Observation weights.",
+            "type": "string"
+          },
           "y": {
             "description": "Outcome variable column name or outcome array.",
             "type": "string"
@@ -42237,7 +42351,8 @@
     "validation_notes": [
       "R parity module 11_psm",
       "Stata parity module 11_psm",
-      "Cross-language parity (bit-exact) vs MatchIt::matchit [MatchIt 4.7.2, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 11_psm -- tests/r_parity/11_psm.py"
+      "Cross-language parity (bit-exact) vs MatchIt::matchit [MatchIt 4.7.2, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 11_psm -- tests/r_parity/11_psm.py",
+      "tests/reference_parity/test_match_fw_stata_parity.py"
     ],
     "validation_status": "certified"
   },

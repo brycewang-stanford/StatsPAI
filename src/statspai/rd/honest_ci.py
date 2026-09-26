@@ -74,10 +74,11 @@ def _local_linear(
         return np.nan, np.nan, np.array([]), 0  # pragma: no cover
 
     w = _kernel_weights(xs, c, h, kernel)
-    W = np.diag(w)
     X_mat = np.column_stack([np.ones(len(xs)), xs - c])
     try:
-        beta = np.linalg.solve(X_mat.T @ W @ X_mat, X_mat.T @ W @ ys)
+        beta = np.linalg.solve(
+            (X_mat * w[:, None]).T @ X_mat, (X_mat * w[:, None]).T @ ys
+        )
     except np.linalg.LinAlgError:  # pragma: no cover
         return np.nan, np.nan, np.array([]), 0  # pragma: no cover
 
@@ -111,11 +112,12 @@ def _local_quadratic(
         return np.full(3, np.nan), np.array([])
 
     w = _kernel_weights(xs, c, h, kernel)
-    W = np.diag(w)
     dx = xs - c
     X_mat = np.column_stack([np.ones(len(xs)), dx, dx**2])
     try:
-        beta = np.linalg.solve(X_mat.T @ W @ X_mat, X_mat.T @ W @ ys)
+        beta = np.linalg.solve(
+            (X_mat * w[:, None]).T @ X_mat, (X_mat * w[:, None]).T @ ys
+        )
     except np.linalg.LinAlgError:  # pragma: no cover
         return np.full(3, np.nan), np.array([])
 
@@ -257,16 +259,15 @@ def _rd_se(
         side: str,
     ) -> float:
         w = _kernel_weights(xs[mask], c, h, kernel)
-        W = np.diag(w)
         dx = xs[mask] - c
         X_mat = np.column_stack([np.ones(len(dx)), dx])
         e1 = np.array([1.0, 0.0])
         try:
-            XWX_inv = np.linalg.inv(X_mat.T @ W @ X_mat)
+            XWX_inv = np.linalg.inv((X_mat * w[:, None]).T @ X_mat)
         except np.linalg.LinAlgError:  # pragma: no cover
             return np.nan  # pragma: no cover
         # HC1
-        Sigma = X_mat.T @ W @ np.diag(resid**2) @ W @ X_mat
+        Sigma = (X_mat * (w**2 * resid**2)[:, None]).T @ X_mat
         V = XWX_inv @ Sigma @ XWX_inv
         return float(e1 @ V @ e1)
 

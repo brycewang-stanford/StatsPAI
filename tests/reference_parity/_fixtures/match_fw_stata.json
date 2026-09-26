@@ -1,0 +1,10 @@
+{
+  "psmatch_atet_fw": {"est":  2.4859128699538023e+03, "se":  3.0721194325162753e+02, "N":         5419},
+  "psmatch_atet_expanded": {"est":  2.4859128699538019e+03, "se":  3.0721194325162799e+02},
+  "_meta": {
+    "stata_version": "18",
+    "flavor": "IC MP",
+    "seed": 20260926,
+    "generated": "26 Sep 2026"
+  }
+}

@@ -308,6 +308,10 @@
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
         },
+        "cluster": {
+          "description": "Cluster column: SEs sum the influence function within clusters (Stata vce(cluster c)).",
+          "type": "string"
+        },
         "covariates": {
           "description": "Confounders to adjust for",
           "items": {
@@ -350,6 +354,10 @@
         },
         "treat": {
           "description": "Binary treatment (0/1)",
+          "type": "string"
+        },
+        "weights": {
+          "description": "Sampling-weight column (Stata [pw=]): weighted logit and outcome fits, weighted mean of the AIPW scores, weighted robust SEs.",
           "type": "string"
         },
         "y": {
@@ -8623,6 +8631,10 @@
     "description": "Double/Debiased Machine Learning supports PLR, binary-D IRM, PLIV, and binary-D/binary-Z IIVM. Python-only external OOFPredictions supports unweighted, unnormalised IRM ATE scoring with exact alignment; caller_declared records are declarations rather than proof against leakage. Validation: certified evidence with scoped limitations. Known limitations: external_predictions, store_oof, and observation_ids are Python-only and absent from JSON/MCP inputs; external records accept no dict, JSON string, or file path; store_oof=True retains individual-level records for get_oof() and get_residuals() in memory only; ordinary serialization omits them; Retained IRM needs at least 10 rows per treatment arm in each training fold or raises DataInsufficient instead of fallback; internal explicit fold_indices require n_rep=1, while external repeated IRM records are allowed when the explicit partition is equivalent for every repeat. Assumptions: Unconfoundedness: Y(d) perp D | X (conditional ignorability); Overlap: 0 < P(D=1 | X) < 1 for the estimand support (strong for IRM); Nuisance-function estimators converge at op(n^{-1/4}) -- fast enough that orthogonal moments give sqrtn CATE. Pre-conditions...",
     "input_schema": {
       "properties": {
+        "cluster": {
+          "description": "One-way cluster column: folds over whole clusters and the Chiang-Kato-Ma-Sasaki cluster variance (DoubleML DoubleMLClusterData, all four models).",
+          "type": "string"
+        },
         "covariates": {
           "description": "List of control variable names",
           "items": {
@@ -8659,6 +8671,10 @@
           "default": false,
           "description": "Self-normalize the inverse-propensity weights for the IPW models (irm/iivm); matches DoubleML's normalize_ipw. Rejected for plr/pliv.",
           "type": "boolean"
+        },
+        "sample_weight": {
+          "description": "Observation weights (column or array); weights= is an alias.",
+          "type": "string"
         },
         "score": {
           "description": "Orthogonal score variant (DoubleML-compatible). PLR: 'partialling out' (default) or 'IV-type'. IRM: 'ATE' (default) or 'ATTE'. None selects the model default; defaults reproduce historical output exactly.",
@@ -12671,8 +12687,29 @@
           "description": "Significance level for confidence intervals",
           "type": "number"
         },
+        "cluster": {
+          "description": "method='ml' only: cluster column (vce(cluster c))",
+          "type": "string"
+        },
+        "method": {
+          "default": "twostep",
+          "description": "'twostep' (Heckman 1979 probit + OLS with IMR) or 'ml' (full-information ML, Stata's default heckman)",
+          "enum": [
+            "twostep",
+            "ml"
+          ],
+          "type": "string"
+        },
         "select": {
           "description": "Binary selection indicator (1 = observed, 0 = not)",
+          "type": "string"
+        },
+        "vce": {
+          "description": "method='ml' only: None/'oim', 'robust' or 'cluster' (e.g. vce='cluster firm'); robust= is an alias",
+          "type": "string"
+        },
+        "weights": {
+          "description": "method='ml' only: sampling weights [pw=] (imply robust SEs)",
           "type": "string"
         },
         "x": {
@@ -13554,6 +13591,10 @@
     "description": "Inverse Probability Weighting for ATE/ATT/ATC with propensity score trimming. Validation: certified parity evidence. Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
     "input_schema": {
       "properties": {
+        "cluster": {
+          "description": "Cluster column: cluster bootstrap, or cluster-summed sandwich with se_method='sandwich'",
+          "type": "string"
+        },
         "covariates": {
           "description": "Covariate matrix, DataFrame, or column names.",
           "items": {
@@ -13571,6 +13612,15 @@
           ],
           "type": "string"
         },
+        "se_method": {
+          "default": "bootstrap",
+          "description": "'sandwich' = teffects ipw robust M-estimation SE (needs normalize=True, trim=0)",
+          "enum": [
+            "bootstrap",
+            "sandwich"
+          ],
+          "type": "string"
+        },
         "treat": {
           "description": "Treatment indicator or first-treatment-period column.",
           "type": "string"
@@ -13579,6 +13629,10 @@
           "default": 0.0,
           "description": "Propensity score trimming threshold",
           "type": "number"
+        },
+        "weights": {
+          "description": "Sampling-weight column (Stata [pw=]); weights the logit and multiplies each IPW weight",
+          "type": "string"
         },
         "y": {
           "description": "Outcome variable column name or outcome array.",
@@ -16034,6 +16088,10 @@
         "treatment": {
           "description": "Treatment indicator, treatment variable, or treatment array.",
           "type": "string"
+        },
+        "weights": {
+          "description": "Frequency weights (Stata [fw=], positive integers; the only weight teffects matching accepts). Sampling weights and cluster= are refused: use sp.ipw / sp.aipw / sp.tmle.",
+          "type": "string"
         }
       },
       "required": [
@@ -16878,6 +16936,10 @@
     "description": "Meta-learner framework for CATE: S-, T-, X-, R-, DR-Learner. Validation: certified parity evidence. Assumptions: Unconfoundedness: Y(d) perp D | X; Overlap: 0 < P(D=1 | X) < 1; For R-Learner / DR-Learner: orthogonality between treatment residual and outcome residual. Pre-conditions: binary treatment (0/1); covariates numeric; categoricals encoded; enough treated AND control to train separate outcome models (T/X/DR-Learner). Failure modes: Large divergence across learner types -> Use sp.compare_metalearners to identify which learner is biased; DR-Learner is safest under model misspecification; S-Learner estimates near zero regardless of true effect -> S-Learner regularization smooths treatment coefficient toward zero; use T/X/DR instead; X-Learner fails when treated group is very small -> X-Learner needs well-identified control-outcome model; fall back to T-Learner or weighted T-Learner. Alternatives: sp.causal_forest, sp.dml, sp.tmle, sp.bcf. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
+        "cluster": {
+          "description": "Cluster column: folds over whole clusters; SE from centred cluster sums of the influence function with G/(G-1).",
+          "type": "string"
+        },
         "covariates": {
           "description": "Covariate matrix, DataFrame, or column names.",
           "items": {
@@ -16903,6 +16965,10 @@
         },
         "treat": {
           "description": "Binary treatment column (0/1)",
+          "type": "string"
+        },
+        "weights": {
+          "description": "Sampling weights for the AIPW average (estimate/se): weighted nuisance fits, mean and influence function. The CATE fit is unweighted.",
           "type": "string"
         },
         "y": {
@@ -20807,6 +20873,10 @@
           "description": "Estimator or algorithm variant to use.",
           "type": "string"
         },
+        "weights": {
+          "description": "Observation weights.",
+          "type": "string"
+        },
         "y": {
           "description": "Outcome variable column name or outcome array.",
           "type": "string"
@@ -21246,6 +21316,16 @@
           "default": 0.5,
           "description": "Quantile (0-1)",
           "type": "number"
+        },
+        "vce": {
+          "description": "None/'iid' = Stata qreg default (fitted sparsity, Hall-Sheather); 'robust' = Stata vce(robust); 'nid' = quantreg se='nid'; 'powell' = pre-1.32 kernel SE",
+          "enum": [
+            "iid",
+            "robust",
+            "nid",
+            "powell"
+          ],
+          "type": "string"
         },
         "x": {
           "description": "Regressor columns (alternative to formula)",
@@ -29498,6 +29578,10 @@
     "description": "Targeted Maximum Likelihood Estimation for ATE/ATT with double-robustness. Validation: certified parity evidence. Assumptions: Unconfoundedness: Y(d) perp D | X; Overlap: 0 < P(D=1 | X) < 1 on the estimand support; Consistent estimation of at least one of Q(a, x) = E[Y|A, X] or g(x) = P(A=1|X) (double robustness). Pre-conditions: binary treatment 0/1; covariates comprise the confounding set; n >= 500 for asymptotic efficiency. Failure modes: Extreme propensity scores (ATE IF denominator ~ 0) -> Bound propensity scores away from 0/1 (e.g. 0.025 / 0.975) or trim; Super-learner cross-validated risk not improving over baseline -> Nuisances not learnable; widen the candidate library or use stronger base learners. Alternatives: sp.dml, sp.aipw, sp.metalearner, sp.ltmle. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
+        "cluster": {
+          "description": "Cluster column: influence function summed within clusters with G/(G-1) (R tmle id= for equal cluster sizes).",
+          "type": "string"
+        },
         "covariates": {
           "description": "Covariate matrix, DataFrame, or column names.",
           "items": {
@@ -29523,6 +29607,10 @@
           "description": "Binary treatment column (0/1)",
           "type": "string"
         },
+        "weights": {
+          "description": "Observation weights (R tmle obsWeights): weighted Super Learner fits, fluctuation, plug-in and influence function. ATE only; not with fold_indices.",
+          "type": "string"
+        },
         "y": {
           "description": "Outcome variable column name or outcome array.",
           "type": "string"
@@ -29546,6 +29634,10 @@
           "description": "Significance level for confidence intervals",
           "type": "number"
         },
+        "cluster": {
+          "description": "Cluster column (vce(cluster c))",
+          "type": "string"
+        },
         "ll": {
           "default": 0.0,
           "description": "Lower censoring limit (set -inf for none)",
@@ -29554,6 +29646,14 @@
         "ul": {
           "description": "Upper censoring limit (default: none)",
           "type": "number"
+        },
+        "vce": {
+          "description": "None/'oim' (observed information), 'robust' or 'cluster', e.g. vce='cluster firm'; robust= is an alias",
+          "type": "string"
+        },
+        "weights": {
+          "description": "Sampling weights [pw=]: weighted likelihood, robust SEs",
+          "type": "string"
         },
         "x": {
           "description": "Regressors",

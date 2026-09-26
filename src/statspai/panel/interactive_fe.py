@@ -255,6 +255,7 @@ def interactive_fe(
         params=params,
         std_errors=std_errors,
         model_info={
+            "alpha": alpha,
             "model_type": "Interactive Fixed Effects (Bai 2009)",
             "n_factors": r,
             "method": "iterative",

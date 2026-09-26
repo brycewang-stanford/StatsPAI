@@ -39,11 +39,12 @@ and variance in the IV model." *JAE*, 33(6), 871-887.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Sequence, Dict, Any
+from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -100,9 +101,10 @@ def jive(
     # Expand instrument matrix with exogenous regressors.
     Z_full = np.column_stack([np.ones(n), Z, Xc])
     # Leave-one-out fitted D: (I - H_i) predictions
-    PZ = Z_full @ np.linalg.pinv(Z_full.T @ Z_full) @ Z_full.T
-    D_hat = PZ @ D
-    h_ii = np.diag(PZ)
+    # Projection and leverages without the n x n PZ (O(n^2) memory).
+    ZtZ_pinv = np.linalg.pinv(Z_full.T @ Z_full)
+    D_hat = Z_full @ (ZtZ_pinv @ (Z_full.T @ D))
+    h_ii = np.einsum("ij,jk,ik->i", Z_full, ZtZ_pinv, Z_full)
     h_ii = np.clip(h_ii, a_max=0.999, a_min=None)
     D_jack = (D_hat - h_ii * D) / (1 - h_ii)
 
@@ -112,9 +114,7 @@ def jive(
     resid = Y - X2 @ beta
     vcov = (
         np.linalg.pinv(X2.T @ X2)
-        @ X2.T
-        @ np.diag(resid**2)
-        @ X2
+        @ ((X2 * (resid**2)[:, None]).T @ X2)
         @ np.linalg.pinv(X2.T @ X2).T
     )
     se = np.sqrt(np.diag(vcov))

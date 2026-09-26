@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import minimize_scalar
 
+from ..._aliases import accepts_formula_first
 from ..._result_serialize import ResultProtocolMixin
 from ...exceptions import ConvergenceFailure, MethodIncompatibility
 from ..models.ml import _coerce_W
@@ -117,6 +118,7 @@ class SpatialPanelResult(ResultProtocolMixin):
 # --------------------------------------------------------------------- #
 
 
+@accepts_formula_first()
 def spatial_panel(
     data: pd.DataFrame,
     formula: str,

@@ -29,7 +29,7 @@ References
 """
 
 import warnings
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -117,7 +117,7 @@ def _k_class_fit(
 
     # --- First stage (for diagnostics & projections) ---
     WtW_inv = np.linalg.inv(W.T @ W)
-    P_W = W @ WtW_inv @ W.T
+    proj = _projector(W, WtW_inv)
 
     first_stage_results = _first_stage_diagnostics(
         X_exog,
@@ -135,11 +135,11 @@ def _k_class_fit(
     X_actual = np.column_stack([X_exog, X_endog])
     k = X_actual.shape[1]
 
-    M_W = np.eye(n) - P_W
-    A = np.eye(n) - kappa * M_W  # = (1-kappa)*I + kappa*P_W
-
-    XAX = X_actual.T @ A @ X_actual
-    XAy = X_actual.T @ A @ y
+    # A = I - kappa * M_W = (1 - kappa) I + kappa P_W, applied, not formed.
+    PX = proj(X_actual)
+    AX_k = (1.0 - kappa) * X_actual + kappa * PX
+    XAX = X_actual.T @ AX_k
+    XAy = AX_k.T @ y
 
     try:
         XAX_inv = np.linalg.inv(XAX)
@@ -173,11 +173,11 @@ def _k_class_fit(
     # k-class first-order-condition form (I - κ M_W) X, used here before,
     # differs from X̂ by (κ - 1) M_W X: asymptotically negligible and zero
     # at κ = 1 (2SLS), but a ~0.05% finite-sample gap to both references.
-    AX = P_W @ X_actual
+    AX = PX
     if cluster is not None:
-        var_cov = _cluster_cov(AX, A, residuals, XAX_inv, cluster)
+        var_cov = _cluster_cov(AX, None, residuals, XAX_inv, cluster)
     elif robust != "nonrobust":
-        var_cov = _robust_cov(AX, A, residuals, XAX_inv, robust, n, k)
+        var_cov = _robust_cov(AX, None, residuals, XAX_inv, robust, n, k)
     else:
         sigma2 = np.sum(residuals**2) / (n - k)
         var_cov = sigma2 * XAX_inv
@@ -226,6 +226,43 @@ def _k_class_fit(
 # ====================================================================== #
 
 
+def _projector(
+    W: np.ndarray, WtW_inv: np.ndarray
+) -> "Callable[[np.ndarray], np.ndarray]":
+    """``M -> P_W M`` without forming the ``n x n`` projection matrix.
+
+    ``P_W = W (W'W)^{-1} W'`` was built explicitly throughout this module,
+    which made every IV fit O(n^2) in memory (2.9 GB at n = 8,000; out of
+    memory near n = 15,000). Applying it as ``W ((W'W)^{-1} (W' M))`` is
+    the same linear map at O(n k) cost.
+    """
+
+    def apply(M: np.ndarray) -> np.ndarray:
+        out: np.ndarray = W @ (WtW_inv @ (W.T @ M))
+        return out
+
+    return apply
+
+
+def _row_leverage(W: np.ndarray, WtW_inv: np.ndarray) -> np.ndarray:
+    """``diag(W (W'W)^{-1} W')`` row by row, without the ``n x n`` matrix."""
+    lev: np.ndarray = np.einsum("ij,jk,ik->i", W, WtW_inv, W)
+    return lev
+
+
+def _validate_iv_alpha(alpha: Any) -> float:
+    """Return ``alpha`` as a float in (0, 1), failing loudly otherwise."""
+    try:
+        value = float(alpha)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"alpha must be a number in (0, 1); got {alpha!r}."
+        ) from exc
+    if not np.isfinite(value) or not 0.0 < value < 1.0:
+        raise MethodIncompatibility(f"alpha must be a number in (0, 1); got {alpha!r}.")
+    return value
+
+
 def _liml_kappa(
     y: np.ndarray,
     X_exog: np.ndarray,
@@ -238,15 +275,7 @@ def _liml_kappa(
 
     This is the Anderson (1951) / Anderson-Rubin LIML formulation.
     """
-    n = len(y)
     W_full = np.column_stack([X_exog, Z])  # all instruments
-
-    # Projection matrices
-    P_exog = X_exog @ np.linalg.solve(X_exog.T @ X_exog, X_exog.T)
-    P_full = W_full @ np.linalg.solve(W_full.T @ W_full, W_full.T)
-
-    M_exog = np.eye(n) - P_exog
-    M_full = np.eye(n) - P_full
 
     # W0 = [y, X_endog]
     W0 = np.column_stack([y, X_endog])
@@ -254,8 +283,13 @@ def _liml_kappa(
     # Matrices for generalized eigenvalue problem
     # A = W0' M_full W0  (residuals from full model)
     # B = W0' M_exog W0  (residuals from exog-only model)
-    A = W0.T @ M_full @ W0
-    B = W0.T @ M_exog @ W0
+    # computed as W0'W0 - (Q'W0)'(Q'W0)-type cross products, never forming
+    # the n x n annihilators.
+    W0W0 = W0.T @ W0
+    XeW0 = X_exog.T @ W0
+    WfW0 = W_full.T @ W0
+    A = W0W0 - WfW0.T @ np.linalg.solve(W_full.T @ W_full, WfW0)
+    B = W0W0 - XeW0.T @ np.linalg.solve(X_exog.T @ X_exog, XeW0)
 
     # kappa_LIML solves the generalized symmetric eigenvalue problem
     #     B v = kappa A v
@@ -341,8 +375,7 @@ def _gmm_fit(
 
     # Step 1: 2SLS for initial residuals
     WtW_inv = np.linalg.inv(W.T @ W)
-    P_W = W @ WtW_inv @ W.T
-    X_hat = np.column_stack([X_exog, P_W @ X_endog])
+    X_hat = np.column_stack([X_exog, _projector(W, WtW_inv)(X_endog)])
     XhXh_inv = np.linalg.inv(X_hat.T @ X_hat)
     beta_init = XhXh_inv @ X_hat.T @ y
     resid_init = y - X_actual @ beta_init
@@ -512,12 +545,11 @@ def _jive_fit(
 
     # Full projection matrix
     WtW_inv = np.linalg.inv(W.T @ W)
-    P_W = W @ WtW_inv @ W.T
-    h = np.diag(P_W)  # leverage values
+    h = _row_leverage(W, WtW_inv)  # leverage values
 
     # JIVE1: X_hat_i = (P_W X_endog)_i / (1 - h_ii) - h_ii/(1-h_ii) * X_endog_i
     # Equivalently: X_hat_jive_i = (P_W X_endog_i - h_ii X_endog_i) / (1 - h_ii)
-    X_endog_hat_full = P_W @ X_endog
+    X_endog_hat_full = _projector(W, WtW_inv)(X_endog)
     # Float buffer regardless of the input dtype: an integer-typed
     # endogenous regressor (0/1 treatment, counts) would otherwise
     # truncate the leave-one-out fitted values on assignment. Same
@@ -536,9 +568,9 @@ def _jive_fit(
 
     # Standard errors (HC1-style with JIVE bread)
     if cluster is not None:
-        var_cov = _cluster_cov(X_hat_jive, np.eye(n), residuals, XhXh_inv, cluster)
+        var_cov = _cluster_cov(X_hat_jive, None, residuals, XhXh_inv, cluster)
     elif robust != "nonrobust":
-        var_cov = _robust_cov(X_hat_jive, np.eye(n), residuals, XhXh_inv, robust, n, k)
+        var_cov = _robust_cov(X_hat_jive, None, residuals, XhXh_inv, robust, n, k)
     else:
         sigma2 = np.sum(residuals**2) / (n - k)
         var_cov = sigma2 * XhXh_inv
@@ -700,7 +732,7 @@ def _normalize_robust(robust: Any) -> str:
 
 def _robust_cov(
     X_hat: np.ndarray,
-    A: np.ndarray,
+    A: Optional[np.ndarray],
     residuals: np.ndarray,
     bread: np.ndarray,
     robust_type: str,
@@ -713,7 +745,7 @@ def _robust_cov(
     elif robust_type == "hc1":
         weights = (n / (n - k)) * residuals**2
     elif robust_type in ("hc2", "hc3"):
-        h = np.diag(X_hat @ bread @ X_hat.T)
+        h = np.einsum("ij,jk,ik->i", X_hat, bread, X_hat)
         h = np.clip(h, 0, 1 - 1e-8)
         if robust_type == "hc2":
             weights = residuals**2 / (1 - h)
@@ -722,7 +754,7 @@ def _robust_cov(
     else:
         raise ValueError(f"Unknown robust type: {robust_type}")
 
-    meat = X_hat.T @ np.diag(weights) @ X_hat
+    meat = (X_hat * weights[:, None]).T @ X_hat
     return _as_float_array(bread @ meat @ bread)
 
 
@@ -866,7 +898,7 @@ def _hansen_j(
 
 def _cluster_cov(
     X_hat: np.ndarray,
-    A: np.ndarray,
+    A: Optional[np.ndarray],
     residuals: np.ndarray,
     bread: np.ndarray,
     cluster: Any,
@@ -934,9 +966,9 @@ def _sargan_test(
     """Sargan test for overidentifying restrictions."""
     n = len(residuals)
     WtW_inv = np.linalg.inv(W.T @ W)
-    P_W = W @ WtW_inv @ W.T
+    Wr = W.T @ residuals
 
-    stat = (residuals @ P_W @ residuals) / (residuals @ residuals / n)
+    stat = (Wr @ WtW_inv @ Wr) / (residuals @ residuals / n)
     df = n_excluded - n_endog
     pvalue = stats.chi2.sf(stat, df) if df > 0 else np.nan
 
@@ -1256,11 +1288,31 @@ class IVRegression(BaseModel):
         cluster : str, list of str, Series or DataFrame, optional
             Clustering dimension(s). More than one selects multiway
             (Cameron-Gelbach-Miller) clustering.
+        weights : str or array-like, optional
+            Analytic regression weights (Stata ``[aw=]``): a column name, or
+            one strictly positive value per estimation-sample row. Every
+            estimator runs on the ``sqrt(w)``-scaled design, so point
+            estimates, classical / robust / cluster SEs and the first stage
+            are the weighted ones ``ivregress ... [aw=w]`` reports.
+        alpha : float, default 0.05
+            Significance level of the reported confidence intervals.
+        gmm_vcov : str, default 'sandwich'
+            ``method='gmm'`` only.
 
         Returns
         -------
         EconometricResults
         """
+        # ``weights`` and ``alpha`` used to vanish here: the old signature
+        # took **kwargs and read only ``gmm_vcov``, so sp.iv(..., weights=w)
+        # returned the unweighted estimate and alpha= left the 95% CI as is.
+        from ..core._vcov_spec import reject_unknown_kwargs
+
+        weights = kwargs.pop("weights", None)
+        alpha = _validate_iv_alpha(kwargs.pop("alpha", 0.05))
+        gmm_vcov = str(kwargs.pop("gmm_vcov", "sandwich")).lower()
+        reject_unknown_kwargs(kwargs, function="iv")
+
         # Normalise the SE-type vocabulary through the shared Stata grammar
         # (``core._vcov_spec``): case-insensitive HC0–HC3, ``True`` /
         # ``'robust'`` (≡ HC1), ``'vce(robust)'``, and ``'cluster firm'``.
@@ -1416,6 +1468,21 @@ class IVRegression(BaseModel):
                         },
                     )
 
+        # --- Analytic weights: fit on the sqrt(w)-scaled design ---
+        # Same device as OLS (regression/ols.py): with every array scaled by
+        # sqrt(w) the unweighted kernels return weighted k-class / GMM / JIVE
+        # estimates, and the scaled residuals feed each VCE branch unchanged.
+        # Normalising to sum(w) = n is Stata's aweight convention; it moves
+        # only the classical sigma^2, which is then Stata's.
+        sw = None
+        y_orig = np.asarray(y_fit, dtype=float)
+        if weights is not None:
+            sw = np.sqrt(self._resolve_iv_weights(weights, len(y_fit)))
+            y_fit = y_orig * sw
+            X_exog_fit = X_exog_fit * sw[:, None]
+            X_endog_fit = X_endog_fit * sw[:, None]
+            Z_fit = Z_fit * sw[:, None]
+
         # --- Dispatch to estimation method ---
         method = self.method
 
@@ -1453,7 +1520,7 @@ class IVRegression(BaseModel):
                 Z_fit,
                 robust=robust,
                 cluster=cluster_var,
-                gmm_vcov=str(kwargs.get("gmm_vcov", "sandwich")).lower(),
+                gmm_vcov=gmm_vcov,
             )
 
         elif method == "jive":
@@ -1465,6 +1532,20 @@ class IVRegression(BaseModel):
                 robust=robust,
                 cluster=cluster_var,
             )
+
+        if sw is not None:
+            # Report residuals / fitted values on the data scale and the
+            # weighted R^2 (Stata aweight): the kernels saw sqrt(w)-scaled
+            # arrays, so their residuals are sqrt(w) * e and their R^2
+            # centres on the unweighted mean of sqrt(w) * y.
+            w = sw**2
+            resid = np.asarray(results["residuals"], dtype=float) / sw
+            y_wbar = np.sum(w * y_orig) / np.sum(w)
+            results["residuals"] = resid
+            results["fitted_values"] = y_orig - resid
+            results["rss"] = float(np.sum(w * resid**2))
+            results["tss"] = float(np.sum(w * (y_orig - y_wbar) ** 2))
+            results["r_squared"] = 1.0 - results["rss"] / results["tss"]
 
         # Build results object
         all_names = self._exog_names + self._endog_names
@@ -1479,7 +1560,11 @@ class IVRegression(BaseModel):
             "method": method_desc,
             "robust": robust,
             "cluster": cluster,
+            "alpha": alpha,
         }
+        if sw is not None:
+            model_info["weights"] = weights if isinstance(weights, str) else "array"
+            model_info["weight_type"] = "aweight"
         if cluster_var is not None:
             try:
                 _cf = _as_cluster_frame(cluster_var)
@@ -1547,6 +1632,10 @@ class IVRegression(BaseModel):
                 "n_exog": X_exog_fit.shape[1],
                 "n_endog": X_endog_fit.shape[1],
                 "kappa": float(results.get("kappa", 1.0)),
+                # The arrays above are sqrt(w)-scaled when weighted; the
+                # refit-based SE helpers (CR2/CR3, two-way, Conley, WRE)
+                # have no weighted reference check yet and refuse them.
+                "weighted": sw is not None,
             }
 
         # Build diagnostics dict
@@ -1645,6 +1734,30 @@ class IVRegression(BaseModel):
         self._results = results_obj
         self.is_fitted = True
         return results_obj
+
+    def _resolve_iv_weights(self, weights: Any, n: int) -> np.ndarray:
+        """Align analytic weights with the estimation sample, normalised to n.
+
+        A column name is looked up on the NaN-dropped sample the formula
+        path kept (``_clean_data``), so weights stay row-aligned with ``y``;
+        an array must already have one entry per estimation-sample row.
+        """
+        from .ols import _validate_analytic_weights
+
+        if isinstance(weights, str):
+            src = getattr(self, "_clean_data", None)
+            if src is None or weights not in getattr(src, "columns", ()):
+                raise MethodIncompatibility(
+                    f"weights='{weights}' is not a column in the data.",
+                    recovery_hint="Pass the name of a weight column in `data`.",
+                    diagnostics={"weights": weights},
+                )
+            wv = np.asarray(src[weights], dtype=float)
+        else:
+            wv = np.asarray(weights, dtype=float).ravel()
+        w = _validate_analytic_weights(wv, n, context="IV analytic weights")
+        normalised: np.ndarray = w * (n / w.sum())
+        return normalised
 
     def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
         """Generate predictions from the fitted IV model.
@@ -2015,6 +2128,20 @@ def _iv_absorb_run(
     weighting matrix is computed on the residualised data.
     """
 
+    if kwargs.get("weights") is not None:
+        # Weighted absorption needs weighted within-transformations of every
+        # block, not sqrt(w)-scaling after unweighted demeaning; refuse
+        # rather than return a silently-unweighted or mis-weighted fit.
+        raise MethodIncompatibility(
+            "sp.iv(absorb=..., weights=...) is not supported: weighted "
+            "fixed-effect absorption is not implemented on the IV path.",
+            recovery_hint=(
+                "Add the fixed effects as dummies in the formula "
+                "(e.g. 'y ~ x + C(firm) + (d ~ z)') with weights=, or fit "
+                "the unweighted absorbed model."
+            ),
+            diagnostics={"absorb": list(absorb_terms)},
+        )
     cluster_names = _normalise_cluster(cluster)
     if cluster is not None and cluster_names is None:
         raise MethodIncompatibility(
@@ -2600,6 +2727,8 @@ def ivreg(
     reject_unknown_kwargs(
         kwargs,
         function="ivreg",
-        known=("method", "alpha", "weights", "small", "iv_diag"),
+        # ``small`` / ``iv_diag`` used to be listed here and then dropped
+        # downstream without effect; they are rejected until implemented.
+        known=("method", "alpha", "weights"),
     )
     return iv(formula=formula, data=data, robust=se_kw, cluster=cluster, **kwargs)

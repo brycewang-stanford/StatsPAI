@@ -38,7 +38,8 @@ from scipy.optimize import minimize
 from scipy.special import logsumexp
 
 from . import _core as _fc
-from .sfa import FrontierResult, frontier as _cs_frontier
+from .sfa import FrontierResult
+from .sfa import frontier as _cs_frontier
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -630,6 +631,7 @@ def _fit_ti_tvd(
         params=params,
         std_errors=std_errors,
         model_info={
+            "alpha": alpha,
             "model_type": (
                 f"Panel Stochastic Frontier ({model.upper()}, "
                 f"{'Cost' if cost else 'Production'})"
@@ -1078,6 +1080,7 @@ def _fit_tre(
         params=params,
         std_errors=std_errors,
         model_info={
+            "alpha": alpha,
             "model_type": (
                 f"Panel Stochastic Frontier (TRE, "
                 f"{'Cost' if cost else 'Production'})"

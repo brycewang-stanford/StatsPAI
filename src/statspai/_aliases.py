@@ -139,6 +139,48 @@ def accepts_aliases(
     return decorator
 
 
+def accepts_formula_first(formula_param: str = "formula") -> Callable[[F], F]:
+    """Let a data-first estimator also take the formula first.
+
+    Most formula estimators are ``f(formula, data)`` (``sp.regress``,
+    ``sp.iv``, ``sp.feols``); a few are ``f(data, formula)``
+    (``sp.qreg``, ``sp.panel``, the spatial family), so
+    ``sp.qreg("y ~ x", data=df)`` died with "got multiple values for
+    argument 'data'". A DataFrame is never a string, so a string in the
+    first positional slot is unambiguously the formula: it is rebound to
+    ``formula_param`` and any second positional becomes ``data``. Calls in
+    the existing order are untouched, and the signature is unchanged.
+    """
+
+    def decorator(func: F) -> F:
+        params = list(inspect.signature(func).parameters)
+        if not params or params[0] != "data" or formula_param not in params:
+            raise ValueError(
+                f"accepts_formula_first on {func.__name__}: expected a "
+                f"data-first signature with a {formula_param!r} parameter."
+            )
+
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            if args and isinstance(args[0], str) and formula_param not in kwargs:
+                kwargs[formula_param] = args[0]
+                rest = args[1:]
+                if rest and "data" not in kwargs:
+                    kwargs["data"] = rest[0]
+                    rest = rest[1:]
+                if rest:
+                    raise TypeError(
+                        f"{func.__name__}(): with the formula first, pass the "
+                        "remaining arguments by keyword."
+                    )
+                return func(**kwargs)
+            return func(*args, **kwargs)
+
+        return wrapper  # type: ignore[return-value]
+
+    return decorator
+
+
 def _unexpected_message(name: str, unknown: list, known: set) -> str:
     """``TypeError`` text for unknown keywords, with did-you-mean suggestions."""
     parts = []

@@ -7,7 +7,7 @@
       "side": "Stata",
       "statistic": "beta_intercept",
       "estimate": 0.99940091459103886,
-      "se": 0.0691335477882562,
+      "se": 0.0702303130563426,
       "ci_lo": null,
       "ci_hi": null,
       "n": 500,
@@ -19,7 +19,7 @@
       "side": "Stata",
       "statistic": "beta_x1",
       "estimate": 0.53107854929164366,
-      "se": 0.072017478832683002,
+      "se": 0.071129119188366105,
       "ci_lo": null,
       "ci_hi": null,
       "n": 500,
@@ -31,7 +31,7 @@
       "side": "Stata",
       "statistic": "beta_x2",
       "estimate": -0.35712088188099261,
-      "se": 0.067884567200915499,
+      "se": 0.065150095827237894,
       "ci_lo": null,
       "ci_hi": null,
       "n": 500,
@@ -40,8 +40,8 @@
   ],
   "extra": {
     "quantile": "0.5",
-    "se_method": "Koenker-Bassett 1978",
-    "stata_command": "qreg y x1 x2"
+    "se_method": "Hendricks-Koenker sandwich, Hall-Sheather bandwidth",
+    "stata_command": "qreg y x1 x2, vce(robust)"
   },
   "provenance": {
     "stata_version": 18,

@@ -1176,7 +1176,7 @@ def cox(
     params_s = pd.Series(beta, index=x, name="coef")
     se_s = pd.Series(se, index=x, name="se")
 
-    model_info = {
+    model_info: Dict[str, Any] = {
         "model_type": "Cox Proportional Hazards",
         "method": f"Partial likelihood ({ties})",
         "ties": ties,
@@ -1203,6 +1203,7 @@ def cox(
         "BIC": -2 * loglik + np.log(E.sum()) * p,
     }
 
+    model_info["alpha"] = alpha
     _result = CoxResult(
         params=params_s,
         std_errors=se_s,
@@ -1484,7 +1485,7 @@ def survreg(
     params_s = pd.Series(all_params, index=all_param_names, name="coef")
     se_s = pd.Series(all_se, index=all_param_names, name="se")
 
-    model_info = {
+    model_info: Dict[str, Any] = {
         "model_type": f"Parametric Survival ({dist})",
         "method": "AFT — Maximum Likelihood",
         "distribution": dist,
@@ -1509,6 +1510,7 @@ def survreg(
     if dist_lower == "weibull":
         diagnostics["shape (1/sigma)"] = 1.0 / np.exp(log_sigma_hat)
 
+    model_info["alpha"] = alpha
     return EconometricResults(
         params=params_s,
         std_errors=se_s,

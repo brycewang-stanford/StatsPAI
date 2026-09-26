@@ -455,6 +455,7 @@ def gmm(
         params=pd.Series(theta_hat, index=param_names),
         std_errors=pd.Series(se_hat, index=param_names),
         model_info={
+            "alpha": alpha,
             "model_type": f"GMM ({method})",
             "n_moments": q,
             "n_params": k,

@@ -1171,6 +1171,7 @@ def poisson(
         "Overdispersion p-value": od_pval,
     }
 
+    model_info["alpha"] = alpha
     return EconometricResults(
         params=params_series,
         std_errors=se_series,
@@ -1462,6 +1463,7 @@ def nbreg(
         diagnostics["N fixed-effect parameters"] = n_fe_params
         diagnostics["Fixed-effect levels"] = fe_level_counts
 
+    model_info["alpha"] = alpha
     return EconometricResults(
         params=params_series,
         std_errors=se_series,
@@ -1975,6 +1977,7 @@ def _xtnbreg_hhg(
         diagnostics["Groups dropped (single obs or all-zero outcome)"] = (
             fit.n_dropped_groups
         )
+    model_info["alpha"] = alpha
     return EconometricResults(
         params=pd.Series(params_arr, index=names),
         std_errors=pd.Series(ses_arr, index=names),
@@ -2771,6 +2774,7 @@ def ppmlhdfe(
     if n_cluster is not None:
         diagnostics["N clusters"] = n_cluster
 
+    model_info["alpha"] = alpha
     return EconometricResults(
         params=params_series,
         std_errors=se_series,

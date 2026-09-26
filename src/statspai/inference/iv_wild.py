@@ -28,6 +28,26 @@ from ..exceptions import MethodIncompatibility
 from .wild_bootstrap import _wild_weight_matrix
 
 
+def _reject_weighted(iv: Optional[Dict[str, Any]]) -> None:
+    """Refuse a weighted IV fit: these refits have no weighted reference check.
+
+    The stored design is sqrt(w)-scaled when ``sp.iv(weights=)`` was used.
+    Refitting on it is the textbook weighted analogue, but no CR2 / CR3 /
+    two-way / Conley / wild-bootstrap row has been compared against a weighted
+    reference (Stata ``boottest``, R ``clubSandwich``), so fail loudly rather
+    than report an unchecked number.
+    """
+    if iv is not None and iv.get("weighted"):
+        raise MethodIncompatibility(
+            "This IV standard-error refit does not support weighted fits yet "
+            "(sp.iv(..., weights=...)).",
+            recovery_hint=(
+                "Use vce='robust' or cluster= on the weighted fit, which are "
+                "computed on the weighted design directly."
+            ),
+        )
+
+
 def _iv_cluster_vcov(
     AX: np.ndarray,
     resid: np.ndarray,
@@ -67,6 +87,7 @@ def iv_twoway_vcov(
     Returns ``{"vcov", "std_errors", "var_names", "n_clusters1/2/12"}``.
     """
     iv = getattr(result, "data_info", {}).get("iv")
+    _reject_weighted(iv)
     if iv is None:
         raise MethodIncompatibility(
             "iv_twoway_vcov requires an sp.ivreg (2SLS) result (data_info['iv'])."
@@ -143,6 +164,8 @@ def iv_cr_vcov(
         raise MethodIncompatibility("iv_cr_vcov kind must be 'CR2' or 'CR3'.")
 
     iv = getattr(result, "data_info", {}).get("iv")
+
+    _reject_weighted(iv)
     if iv is None:
         raise MethodIncompatibility(
             "iv_cr_vcov requires an sp.ivreg (2SLS) result (data_info['iv'])."
@@ -201,6 +224,7 @@ def iv_conley_vcov(
     ``acreg y ... (d = z), spatial latitude() longitude() dist()`` exactly.
     """
     iv = getattr(result, "data_info", {}).get("iv")
+    _reject_weighted(iv)
     if iv is None:
         raise MethodIncompatibility(
             "iv_conley_vcov requires an sp.ivreg (2SLS) result (data_info['iv'])."
@@ -272,6 +296,7 @@ def iv_wild_bootstrap(
         plain restricted reduced form (projection on instruments only).
     """
     iv = getattr(result, "data_info", {}).get("iv")
+    _reject_weighted(iv)
     if iv is None:
         raise MethodIncompatibility(
             "iv_wild_bootstrap requires an sp.ivreg (2SLS) result carrying the "

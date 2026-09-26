@@ -8,9 +8,10 @@ Tests for advanced Synthetic Control modules:
 - Sensitivity Analysis (sensitivity.py)
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
+
 from statspai.core.results import CausalResult
 
 # ====================================================================== #
@@ -688,7 +689,12 @@ class TestUnifiedDispatcher:
         assert isinstance(result, CausalResult)
         assert "ATT" in result.estimand  # covers 'ATT' and 'Distributional ATT'
         assert isinstance(result.estimate, float)
-        assert result.ci[0] <= result.ci[1]
+        if method in ("augmented", "ascm"):
+            # ASCM inference is the placebo permutation: with placebo=False
+            # (honoured since 1.32) there is no interval to order.
+            assert np.isnan(result.ci[0]) and np.isnan(result.ci[1])
+        else:
+            assert result.ci[0] <= result.ci[1]
 
     @pytest.mark.parametrize("method", ALL_METHODS)
     def test_all_methods_positive_effect(self, panel_data, method):

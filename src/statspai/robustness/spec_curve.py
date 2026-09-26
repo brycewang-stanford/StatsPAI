@@ -455,7 +455,7 @@ def _run_one_spec(
     elif se_type in ("hc1", "robust"):
         # HC1 robust SE
         u2 = resid**2
-        meat = X_mat.T @ np.diag(u2) @ X_mat * n / (n - k)
+        meat = (X_mat * (u2)[:, None]).T @ X_mat * n / (n - k)
         vcov = XtX_inv @ meat @ XtX_inv
     elif se_type == "cluster" and cluster_var:
         clusters = df_clean[cluster_var].values
@@ -474,7 +474,7 @@ def _run_one_spec(
     else:
         # Fallback to HC1
         u2 = resid**2
-        meat = X_mat.T @ np.diag(u2) @ X_mat * n / (n - k)
+        meat = (X_mat * (u2)[:, None]).T @ X_mat * n / (n - k)
         vcov = XtX_inv @ meat @ XtX_inv
 
     se = np.sqrt(np.diag(vcov))

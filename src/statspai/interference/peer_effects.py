@@ -33,7 +33,7 @@ models with group interactions, contextual factors and fixed effects."
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Sequence, Dict, Any, List
+from typing import Any, Dict, List, Sequence
 
 import numpy as np
 import pandas as pd
@@ -201,15 +201,15 @@ def peer_effects(
     instruments = np.column_stack(instr_list) if instr_list else np.ones((n, 1))
 
     # 2SLS
-    PZ = instruments @ np.linalg.pinv(instruments.T @ instruments) @ instruments.T
-    X_hat = PZ @ full
+    # Projection applied, not formed (the n x n PZ was O(n^2) memory).
+    X_hat = instruments @ (
+        np.linalg.pinv(instruments.T @ instruments) @ (instruments.T @ full)
+    )
     beta = np.linalg.pinv(X_hat.T @ full) @ X_hat.T @ Y
     resid = Y - full @ beta
     vcov = (
         np.linalg.pinv(X_hat.T @ full)
-        @ X_hat.T
-        @ np.diag(resid**2)
-        @ X_hat
+        @ ((X_hat * (resid**2)[:, None]).T @ X_hat)
         @ np.linalg.pinv(X_hat.T @ full).T
     )
     se = np.sqrt(np.diag(vcov))

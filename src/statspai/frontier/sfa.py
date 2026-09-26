@@ -200,7 +200,7 @@ class FrontierResult(EconometricResults):
         }
     )
 
-    def summary(self, alpha: float = 0.05) -> str:
+    def summary(self, alpha: Optional[float] = None) -> str:
         """Formatted summary table (Stata-style SFA block).
 
         Overrides :class:`EconometricResults.summary` to hide per-observation
@@ -1489,6 +1489,7 @@ def frontier(
         params=params,
         std_errors=std_errors,
         model_info={
+            "alpha": alpha,
             "model_type": f"Stochastic Frontier ({'Cost' if cost else 'Production'})",
             "method": f"ML, {dist}",
             "inefficiency_dist": dist,

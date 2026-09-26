@@ -201,6 +201,7 @@ def truncreg(
         params=params,
         std_errors=std_errors,
         model_info={
+            "alpha": alpha,
             "model_type": "Truncated Regression",
             "lower_limit": ll,
             "upper_limit": ul,

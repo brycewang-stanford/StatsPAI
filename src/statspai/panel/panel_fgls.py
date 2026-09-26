@@ -250,6 +250,7 @@ def panel_fgls(
         params=params,
         std_errors=std_errors,
         model_info={
+            "alpha": alpha,
             "model_type": "Panel FGLS",
             "panels": panels,
             "corr": corr,

@@ -98,6 +98,9 @@ class _DoubleMLBase:
     # divides by a propensity (IRM, IIVM) and therefore honour
     # ``normalize_ipw`` / ``trimming_threshold`` (DoubleML semantics).
     _VALID_SCORES: Optional[set] = None
+    #: Linear score elements of the last cross-fit repetition, stashed by
+    #: each model for the cluster-robust recomputation (_cluster_theta_se).
+    _last_rep_score: Dict[str, Any]
     _DEFAULT_SCORE: Optional[str] = None
     _USES_IPW: bool = False
 
@@ -120,6 +123,7 @@ class _DoubleMLBase:
         score: Optional[str] = None,
         normalize_ipw: bool = False,
         trimming_threshold: float = 1e-2,
+        cluster: Optional[str] = None,
     ):
         context = f"dml.{self._MODEL_TAG.lower() or 'base'}"
         if not isinstance(data, pd.DataFrame):
@@ -256,6 +260,25 @@ class _DoubleMLBase:
                     f"(matching data); got shape {arr.shape}"
                 )
             self._sample_weight_input = arr
+        # One-way clustering (Chiang, Kato, Ma and Sasaki 2022, as DoubleML
+        # implements it): folds are formed over clusters and the variance is
+        # built from within-cluster score sums; see _cluster_theta_se.
+        if cluster is None:
+            self.cluster: Optional[str] = None
+        elif isinstance(cluster, str):
+            if cluster not in data.columns:
+                raise MethodIncompatibility(
+                    f"{context}: cluster column '{cluster}' not in data",
+                    diagnostics={"missing_columns": [cluster]},
+                )
+            self.cluster = cluster
+        else:
+            raise MethodIncompatibility(
+                f"{context}: cluster must name one column; two-way clustering "
+                "is not implemented.",
+                diagnostics={"cluster": repr(cluster)},
+            )
+        self._cluster_codes: Optional[np.ndarray] = None
         if self._sample_weight_input is not None and not self._SUPPORTS_SAMPLE_WEIGHT:
             raise MethodIncompatibility(  # pragma: no cover
                 f"{context}: sample_weight is not yet supported for "
@@ -406,6 +429,49 @@ class _DoubleMLBase:
             "external predictions are not implemented for this DML model"
         )
 
+    def _cluster_theta_se(self, score: Dict[str, Any]) -> Tuple[float, float]:
+        """One-way cluster-robust DML estimate and SE from linear scores.
+
+        With ``psi = psi_a * theta + psi_b`` (weighted by ``w`` when sample
+        weights are used), folds ``k = 1..K`` partitioning the ``G``
+        clusters into sets ``I_k`` (Chiang, Kato, Ma and Sasaki 2022; the
+        one-way case of DoubleML's cluster data):
+
+        * ``theta = -sum_k |I_k|^-1 sum_{test_k} psi_b / sum_k |I_k|^-1
+          sum_{test_k} psi_a``;
+        * ``J = K^-1 sum_k |I_k|^-1 sum_{test_k} psi_a``;
+        * ``Gamma = K^-1 sum_k |I_k|^-1 sum_{g in I_k} (sum_{i in g} psi_i)^2``;
+        * ``Var(theta) = Gamma / (J^2 G)``.
+        """
+        codes = self._cluster_codes
+        assert codes is not None
+        psi_a = np.asarray(score["psi_a"], dtype=float)
+        psi_b = np.asarray(score["psi_b"], dtype=float)
+        w = score.get("weights")
+        if w is not None:
+            w = np.asarray(w, dtype=float)
+            w = w * (len(w) / w.sum())
+            psi_a, psi_b = w * psi_a, w * psi_b
+        splits = score["splits"]
+        sizes = [len(np.unique(codes[test])) for _, test in splits]
+        num = sum(np.sum(psi_b[test]) / m for (_, test), m in zip(splits, sizes))
+        den = sum(np.sum(psi_a[test]) / m for (_, test), m in zip(splits, sizes))
+        if abs(den) < 1e-12:
+            raise RuntimeError(
+                "DML cluster: score denominator is ~0."
+            )  # pragma: no cover
+        theta = float(-num / den)
+        psi = psi_a * theta + psi_b
+        K = len(splits)
+        J = den / K
+        gamma = 0.0
+        for (_, test), m in zip(splits, sizes):
+            sums = np.bincount(codes[test], weights=psi[test])
+            gamma += float(np.sum(sums**2)) / m
+        gamma /= K
+        G = int(codes.max()) + 1
+        return theta, float(np.sqrt(gamma / (J**2 * G)))
+
     def _make_splits(
         self,
         X: np.ndarray,
@@ -456,6 +522,22 @@ class _DoubleMLBase:
                             },
                         )
             return splits
+        if self._cluster_codes is not None:
+            # Folds over whole clusters: no cluster is split between a
+            # training and a test set (DoubleML's one-way cluster resampling,
+            # which does not stratify either).
+            from sklearn.model_selection import KFold
+
+            codes = self._cluster_codes
+            n_cl = int(codes.max()) + 1
+            kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=rng_seed)
+            return [
+                (
+                    np.flatnonzero(~np.isin(codes, test_cl)),
+                    np.flatnonzero(np.isin(codes, test_cl)),
+                )
+                for _, test_cl in kf.split(np.zeros(n_cl))
+            ]
         if stratify is None:
             from sklearn.model_selection import KFold
 
@@ -623,6 +705,12 @@ class _DoubleMLBase:
                 "fold assignment for the single cross-fit repetition."
             )
         collector = None
+        self._cluster_codes = None
+        if external_predictions is not None and self.cluster is not None:
+            raise MethodIncompatibility(
+                "DML cluster= is not supported with external_predictions: the "
+                "cross-fitting folds must be formed over clusters here."
+            )
         if external_predictions is not None:
             analysis = self.data[[self.y, self.treat] + self.covariates]
             fi = self._fold_indices_input
@@ -688,6 +776,8 @@ class _DoubleMLBase:
                 work["__fold__"] = self.data[fi].values
             elif fi is not None:
                 work["__fold__"] = np.asarray(fi)
+            if self.cluster is not None:
+                work["__cl__"] = self.data[self.cluster].values
             if store_oof:
                 identity = _retention.internal_analysis_identity(
                     n_input=len(self.data),
@@ -727,6 +817,29 @@ class _DoubleMLBase:
             else:
                 fold_indices = None
                 fold_source = "kfold"
+            if "__cl__" in clean.columns:
+                self._cluster_codes = pd.factorize(clean["__cl__"])[0]
+                n_cl = int(self._cluster_codes.max()) + 1
+                if n_cl < self.n_folds:
+                    raise DataInsufficient(
+                        f"DML cluster=: {n_cl} clusters cannot fill "
+                        f"n_folds={self.n_folds} cluster-level folds."
+                    )
+                if fold_indices is not None:
+                    per_cluster = (
+                        pd.Series(fold_indices).groupby(self._cluster_codes).nunique()
+                    )
+                    if (per_cluster > 1).any():
+                        raise MethodIncompatibility(
+                            "DML cluster=: the supplied fold_indices split a "
+                            "cluster across folds; every cluster must lie in "
+                            "one fold.",
+                            diagnostics={
+                                "n_split_clusters": int((per_cluster > 1).sum())
+                            },
+                        )
+                else:
+                    fold_source = "cluster_kfold"
             if store_oof:
                 collector = _retention.OOFRetention.internal(
                     y=Y,
@@ -777,6 +890,8 @@ class _DoubleMLBase:
                     )
             finally:
                 self.__dict__.pop("_oof_rep_capture", None)
+            if self._cluster_codes is not None:
+                theta_r, se_r = self._cluster_theta_se(self._last_rep_score)
             if collector is not None:
                 assert isinstance(capture, _retention.OOFRepCapture)
                 collector.finish_rep(capture, theta_r, se_r)
@@ -811,6 +926,13 @@ class _DoubleMLBase:
             "n_covariates": len(self.covariates),
             "fold_source": fold_source,
         }
+        if self.cluster is not None:
+            model_info["cluster"] = self.cluster
+            model_info["n_clusters"] = (
+                int(self._cluster_codes.max()) + 1
+                if self._cluster_codes is not None
+                else None
+            )
         if self.score is not None:
             model_info["score"] = self.score
         if self._USES_IPW:

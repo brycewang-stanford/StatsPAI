@@ -507,6 +507,7 @@ def mlogit(
         "n_obs": n,
     }
 
+    model_info["alpha"] = alpha
     result = EconometricResults(
         params=params_series,
         std_errors=se_series,
@@ -886,6 +887,7 @@ def _ordered_model(
         "n_obs": n,
     }
 
+    model_info["alpha"] = alpha
     result = EconometricResults(
         params=params_series,
         std_errors=se_series,
@@ -1355,6 +1357,7 @@ def clogit(
         "n_groups": n_groups_valid,
     }
 
+    model_info["alpha"] = alpha
     result = EconometricResults(
         params=params_series,
         std_errors=se_series,

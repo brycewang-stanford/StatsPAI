@@ -1478,6 +1478,7 @@ class GLMRegression(BaseModel):
         if isinstance(self.family, NegativeBinomial):
             diagnostics["NB alpha"] = self.family.alpha
 
+        model_info["alpha"] = alpha
         results_obj = EconometricResults(
             params=params,
             std_errors=std_errors,
