@@ -234,7 +234,7 @@
     "tests/r_parity/results/88_rdbwselect_py.json": "a3cc7aa4bbe422070af077fad15e0c8b2953dc9c8e2b91fda454124db56f3912",
     "tests/r_parity/results/89_rdms_R.json": "8663507e8901f2cc364e8820c7dd941fb3d65e2c532a4d2c942927ba71ae2de4",
     "tests/r_parity/results/89_rdms_py.json": "3a396cea2303bce2063f8e3a95b6706084bde6cc19eb78629ca543d8327fd094",
-    "tests/r_parity/results/_implementation_trace.json": "74657d5c8e25eaa975c79a21de3de05cd97ec95ff9f9aa52a3af61490974b5c1",
+    "tests/r_parity/results/_implementation_trace.json": "99983d4703482263a63eb53d640fd6139d85a95b01b8f2c05b456d8593ba5bbd",
     "tests/reference_parity/_fixtures/grf_seed_mc_R.json": "c5556d98ac8cbd06d33815a4c256e1166d17415ca4634d1b9c26669eb238f405",
     "tests/reference_parity/_fixtures/grf_seed_mc_m13_R.json": "8708acfd7d21242b36a2abe710d1cc2a82f0916a0bf317b2b84f6410105584ad",
     "tests/reference_parity/_fixtures/grf_seed_mc_m13_py.json": "bf61232b6223ee949b7f53cdd775e6eb501519849189147d9af325a87584425b",

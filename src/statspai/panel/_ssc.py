@@ -2,8 +2,8 @@
 
 ``sp.panel`` fits its static models through linearmodels, whose covariance
 scaling follows linearmodels' own ``debiased`` / ``count_effects`` rules and
-matches neither Stata nor R ``fixest`` once standard errors are robust or
-clustered. ``ssc="stata"`` / ``ssc="fixest"`` recompute the covariance from
+matches neither Stata's ``xtreg`` nor R's ``fixest`` once standard errors are
+robust or clustered. ``ssc="stata"`` / ``ssc="fixest"`` recompute the covariance from
 the transformed design on the same estimation sample and apply the reference
 package's factor and reference distribution. Every rule below is pinned
 against Stata 18 and fixest 0.14 on an unbalanced panel by

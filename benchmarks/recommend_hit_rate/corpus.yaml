@@ -407,7 +407,7 @@ entries:
   # TIER A — experimental (RCT) NSW sample. The randomized benchmark Dehejia-
   # Wahba's observational reanalysis targets. recommend detects observational
   # (it cannot know assignment was randomized from data alone); a balancing
-  # estimator is acceptable, OLS/difference-in-means is the gold standard.
+  # estimator is acceptable, OLS/difference-in-means is the design's own estimator.
   # ---------------------------------------------------------------------------
   - id: lalonde_1986_nsw_experimental
     paper:
@@ -432,7 +432,7 @@ entries:
       robustness_checks:
         - {check: overlap,       provenance: methodological_followup, source: "common support across arms"}
         - {check: balance_after, provenance: paper_section,           source: "randomization balance check"}
-    notes: "Experimental NSW: difference-in-means is the gold standard; a balancing estimator is also valid. No disqualifying estimator (randomized)."
+    notes: "Experimental NSW: difference-in-means is the design's own estimator; a balancing estimator is also valid. No disqualifying estimator (randomized)."
 
   # ---------------------------------------------------------------------------
   # TIER B — real applied DiD. Acemoglu-Angrist (2001) studied the ADA's effect
@@ -637,7 +637,7 @@ entries:
         disqualifying: []
       robustness_checks:
         - {check: balance_after, provenance: paper_section, source: "randomization balance across name groups"}
-    notes: "Randomized resume field experiment. Difference-in-means is the gold standard; a balancing estimator is also valid (recommend detects observational — it cannot know assignment was randomized)."
+    notes: "Randomized resume field experiment. Difference-in-means is the design's own estimator; a balancing estimator is also valid (recommend detects observational — it cannot know assignment was randomized)."
 
   # ---------------------------------------------------------------------------
   # TIER B — Nunn & Wantchekon (2011) slave-trade IV (distance from coast as an
@@ -1127,7 +1127,7 @@ entries:
         disqualifying: []
       robustness_checks:
         - {check: balance_after, provenance: paper_section, source: "randomization balance across treated vs control aisles/stores"}
-    notes: "Randomized store tax-salience field experiment. Difference-in-means is the gold standard; a balancing estimator is also valid (recommend detects observational)."
+    notes: "Randomized store tax-salience field experiment. Difference-in-means is the design's own estimator; a balancing estimator is also valid (recommend detects observational)."
 
   # ---------------------------------------------------------------------------
   # TIER B — Finkelstein (2007) Medicare-introduction DiD (regions by pre-1965

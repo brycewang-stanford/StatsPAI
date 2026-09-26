@@ -209,7 +209,7 @@ from `sp.qreg` (and `sp.sqreg`, which calls it) without choosing a variance.
 `vce(iid)`: the sparsity is the difference quotient of the mean fitted
 quantiles at `tau +/- h` with the Hall-Sheather bandwidth. It used to be a
 Gaussian-kernel density of the residuals with a Silverman bandwidth, which
-matched neither Stata nor R `quantreg` (2-8% off). Coefficients are
+matched neither Stata's `qreg` nor R's `quantreg` (2-8% off). Coefficients are
 unchanged. New choices: `vce="robust"` (Stata `vce(robust)`) and
 `vce="nid"` (R `quantreg` `se="nid"`).
 
