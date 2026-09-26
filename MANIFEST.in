@@ -20,6 +20,12 @@ include src/statspai/paper.bib
 # Include tests and fixtures so source distributions can run the shipped
 # parity/snapshot suites without regenerating reference artifacts.
 recursive-include tests *
+# ...but not the gitignored local outputs that `recursive-include` would
+# otherwise sweep up from a working tree: the reproduction scratch area of
+# verify_reproduce*.py, and the NHEFS extracts regenerated on demand (their
+# redistribution is left to the upstream source, hence the .gitignore).
+prune tests/r_parity/results/_repro_check
+recursive-exclude tests/orig_parity/data *_nhefs_*.csv
 
 # Exclude internal documentation and development files
 exclude PROJECT_SUMMARY.md
