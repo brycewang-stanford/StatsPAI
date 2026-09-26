@@ -1298,6 +1298,16 @@ class EconometricResults:
         )
         return base
 
+    def result_card(self) -> Any:
+        """Auditable card: estimand, sample, specification, inference,
+        provenance, configuration-level evidence, assumptions, limitations.
+
+        See :func:`statspai.result_card`.
+        """
+        from ..result_card import result_card as _result_card
+
+        return _result_card(self)
+
     def cite(self, format: str = "bibtex") -> Any:
         """Return the canonical citation for this estimator, if registered.
 
@@ -1619,8 +1629,10 @@ class EconometricResults:
         ]
         if iv_keys:
             h.append(
-                '<details open style="border-top:1px solid #E5E7EB;"><summary style="padding:6px 14px;font-size:12px;'
-                'font-weight:600;color:#1a1a2e;cursor:pointer;">IV Diagnostics</summary>'
+                '<details open style="border-top:1px solid #E5E7EB;">'
+                '<summary style="padding:6px 14px;font-size:12px;'
+                'font-weight:600;color:#1a1a2e;cursor:pointer;">'
+                "IV Diagnostics</summary>"
             )
             h.append('<div class="sp-diag">')
             for k in iv_keys:
@@ -4221,6 +4233,16 @@ class CausalResult:
 
             Path(path).write_text(latex, encoding="utf-8")
         return latex
+
+    def result_card(self) -> Any:
+        """Auditable card: estimand, sample, specification, inference,
+        provenance, configuration-level evidence, assumptions, limitations.
+
+        See :func:`statspai.result_card`.
+        """
+        from ..result_card import result_card as _result_card
+
+        return _result_card(self)
 
     def cite(self, format: str = "bibtex") -> Any:
         """Return the canonical citation for this estimator.

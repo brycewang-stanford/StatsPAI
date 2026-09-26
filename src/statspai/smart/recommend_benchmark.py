@@ -204,18 +204,35 @@ def _load_df(loader: str, sp: Any) -> Any:
     return eval(loader, {"__builtins__": {}}, {"sp": sp})  # noqa: S307  # nosec
 
 
+def _load_case(entry: Dict[str, Any], sp: Any) -> Any:
+    """Return ``(df, recommend_kwargs)`` for a corpus entry.
+
+    A loader may return a DataFrame, or a dict with a ``data`` DataFrame plus
+    non-tabular design inputs (e.g. ``dgp_bartik``'s ``shares`` / ``shocks``).
+    ``data.loader_args`` maps ``recommend`` keyword -> key of that dict, so a
+    case can hand over inputs that YAML literals cannot express.
+    """
+    obj = _load_df(entry["data"]["loader"], sp)
+    kwargs = dict(entry["data"].get("args", {}))
+    if isinstance(obj, dict):
+        for kw, key in (entry["data"].get("loader_args") or {}).items():
+            kwargs[kw] = obj[key]
+        obj = obj["data"]
+    return obj, kwargs
+
+
 def _score_recommend(entry: Dict[str, Any], sp: Any) -> Dict[str, Any]:
     out: Dict[str, Any] = {"id": entry["id"], "design": entry["design"]["label"]}
     gt = entry["ground_truth"]["estimator"]
     acceptable = set(gt["acceptable"])
     disqualifying = set(gt.get("disqualifying", []))
     try:
-        df = _load_df(entry["data"]["loader"], sp)
+        df, rec_kwargs = _load_case(entry, sp)
     except Exception as e:  # pragma: no cover - environment dependent
         out.update(status="LOAD_ERROR", error=repr(e)[:160])
         return out
     try:
-        rec = sp.recommend(df, **dict(entry["data"].get("args", {})))
+        rec = sp.recommend(df, **rec_kwargs)
     except Exception as e:
         out.update(status="RECOMMEND_ERROR", error=repr(e)[:160])
         return out
@@ -274,16 +291,57 @@ def _score_audit_coverage(
 
 
 def _score_audit_dynamic(entry: Dict[str, Any], sp: Any) -> Dict[str, Any]:
+    """Fit the top-1 card and audit it; record which stage failed.
+
+    ``stage`` is ``recommend`` / ``not_ready`` / ``fit`` / ``audit`` / ``ok``.
+    ``NOT_READY`` means the top card itself declared missing inputs — a
+    fixture problem or an honest "cannot run", never counted as a success.
+    """
     out: Dict[str, Any] = {"id": entry["id"]}
     scored = _scored_checks(entry)
     try:
-        df = _load_df(entry["data"]["loader"], sp)
-        rec = sp.recommend(df, **dict(entry["data"].get("args", {})))
+        df, rec_kwargs = _load_case(entry, sp)
+        rec = sp.recommend(df, **rec_kwargs)
+    except Exception as e:
+        out.update(
+            status="AUDIT_ERROR",
+            stage="recommend",
+            error=repr(e)[:160],
+            dynamic_recall=None,
+        )
+        return out
+    top = rec.recommendations[0] if rec.recommendations else {}
+    out["top1_function"] = top.get("function")
+    if top and not top.get("ready", True):
+        out.update(
+            status="NOT_READY",
+            stage="not_ready",
+            missing_arguments=top.get("missing_arguments", []),
+            blocked=top.get("blocked"),
+            dynamic_recall=None,
+        )
+        return out
+    try:
         result = rec.run(which=0)
+    except Exception as e:
+        out.update(
+            status="AUDIT_ERROR",
+            stage="fit",
+            error=repr(e)[:160],
+            dynamic_recall=None,
+        )
+        return out
+    try:
         card = sp.audit(result)
     except Exception as e:
-        out.update(status="AUDIT_ERROR", error=repr(e)[:160], dynamic_recall=None)
+        out.update(
+            status="AUDIT_ERROR",
+            stage="audit",
+            error=repr(e)[:160],
+            dynamic_recall=None,
+        )
         return out
+    out["stage"] = "ok"
     emitted = {c["name"]: c for c in card.get("checks", [])}
     covered = [c for c in scored if c in emitted]
     actionable = [
@@ -399,10 +457,23 @@ def recommend_benchmark(
     ]
     mean_dyn = sum(dyn_recalls) / len(dyn_recalls) if dyn_recalls else None
     n_audit_err = sum(
-        1 for a in dyn_rows if a["id"] in core_ids and a.get("status") == "AUDIT_ERROR"
+        1
+        for a in dyn_rows
+        if a["id"] in core_ids and a.get("status") in ("AUDIT_ERROR", "NOT_READY")
     )
     n_frontier = len(frontier)
     n_frontier_hit = sum(1 for r in frontier if r.get("hit_top1"))
+    frontier_ids = {r["id"] for r in frontier}
+    fr_dyn = [a for a in dyn_rows if a["id"] in frontier_ids]
+    n_frontier_fit_ok = sum(1 for a in fr_dyn if a.get("status") == "OK")
+    n_frontier_err = sum(
+        1 for a in fr_dyn if a.get("status") in ("AUDIT_ERROR", "NOT_READY")
+    )
+    n_end_to_end = sum(
+        1
+        for r, a in zip(rec_rows, dyn_rows)
+        if r.get("hit_top1") and a.get("status") == "OK"
+    )
 
     return {
         "corpus_version": corpus.get("corpus_version"),
@@ -424,10 +495,23 @@ def recommend_benchmark(
             ),
             "n_audit_errors": n_audit_err,
         },
+        # Every case, core + frontier: top-1 recommendation acceptable AND
+        # the recommended call fitted AND sp.audit ran. None when fit=False.
+        "end_to_end": (
+            {
+                "n_cases": len(rec_rows),
+                "n_ok": n_end_to_end,
+                "rate": round(n_end_to_end / len(rec_rows), 4) if rec_rows else None,
+            }
+            if fit
+            else None
+        ),
         "frontier": {
             "n_frontier": n_frontier,
             "n_hit": n_frontier_hit,
             "coverage": round(n_frontier_hit / n_frontier, 4) if n_frontier else None,
+            "n_fit_ok": n_frontier_fit_ok if fit else None,
+            "n_errors": n_frontier_err if fit else None,
             "ids": [r["id"] for r in frontier],
         },
         "citation_errors": citation_errors,
@@ -481,9 +565,20 @@ def render_markdown(card: Dict[str, Any]) -> str:
         f"  |  audit dynamic mean recall (fit+audit): {s.get('audit_dynamic_mean_recall')}"
         f"  |  audit errors: {s.get('n_audit_errors')}",
         f"- frontier coverage (gap-probe designs recommend is being taught): "
-        f"**{fr.get('coverage')}** ({fr.get('n_hit', 0)}/{fr.get('n_frontier', 0)})",
-        "",
+        f"**{fr.get('coverage')}** ({fr.get('n_hit', 0)}/{fr.get('n_frontier', 0)})"
+        + (
+            f"  |  frontier fit+audit OK: {fr.get('n_fit_ok')}/{fr.get('n_frontier', 0)}"
+            if fr.get("n_fit_ok") is not None
+            else ""
+        ),
     ]
+    e2e = card.get("end_to_end")
+    if e2e:
+        lines.append(
+            f"- **end-to-end (all {e2e['n_cases']} cases: acceptable top-1 AND "
+            f"fitted AND audited): {e2e['n_ok']}/{e2e['n_cases']}**"
+        )
+    lines.append("")
     if card["citation_errors"]:
         lines += [
             "> ⚠ CITATION ERRORS (bib_key not in paper.bib): "
@@ -510,16 +605,27 @@ def render_markdown(card: Dict[str, Any]) -> str:
             "",
             "## audit recall (dynamic — fit the estimator, run sp.audit, does it ask)",
             "",
-            "| id | fitted family | recall | actionable next-steps |",
-            "| --- | --- | --- | --- |",
+            "| id | stage | fitted family | recall | actionable next-steps |",
+            "| --- | --- | --- | --- | --- |",
         ]
         for a in card["audit_dynamic"]:
             if a.get("status") == "AUDIT_ERROR":
-                lines.append(f"| `{a['id']}` | — | ERR | {a.get('error', '')[:60]} |")
+                lines.append(
+                    f"| `{a['id']}` | {a.get('stage', '?')} failed | — | ERR "
+                    f"| {a.get('error', '')[:60]} |"
+                )
+                continue
+            if a.get("status") == "NOT_READY":
+                need = (
+                    ", ".join(a.get("missing_arguments") or [])
+                    or (a.get("blocked") or "")[:60]
+                )
+                lines.append(f"| `{a['id']}` | not ready | — | — | needs: {need} |")
                 continue
             steps = ", ".join(a.get("actionable_next_steps", [])) or "—"
             lines.append(
-                f"| `{a['id']}` | {a.get('audit_family')} | {a.get('dynamic_recall')} | {steps} |"
+                f"| `{a['id']}` | ok | {a.get('audit_family')} "
+                f"| {a.get('dynamic_recall')} | {steps} |"
             )
     lines += ["", "_Generated by sp.recommend_benchmark()_"]
     return "\n".join(lines)

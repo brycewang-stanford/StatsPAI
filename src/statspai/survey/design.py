@@ -10,7 +10,7 @@ Stata's ``svyset``.
 from __future__ import annotations
 
 import warnings
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -101,6 +101,16 @@ class SurveyDesign:
     ):
         self.data = data.copy()
         n_obs = len(data)
+        self._init_kwargs = {
+            "strata": strata,
+            "cluster": cluster,
+            "fpc": fpc,
+            "nest": nest,
+            "lonely_psu": lonely_psu,
+        }
+        #: set by :meth:`calibrate`: the auxiliary design matrix and the
+        #: weights its linearisation regression uses (see ``_design_vcov``).
+        self._calibration: Optional[dict] = None
 
         # Resolve weights
         if isinstance(weights, str):
@@ -265,6 +275,119 @@ class SurveyDesign:
         """Survey-weighted GLM; ``kwargs`` go to ``sp.svyglm``."""
         return svyglm(formula, design=self, family=family, alpha=alpha, **kwargs)
 
+    def calibrate(
+        self,
+        *,
+        margins: Optional[Dict[str, Dict]] = None,
+        totals: Optional[Dict[str, float]] = None,
+        variance: str = "greg",
+        max_iter: int = 100,
+        tol: float = 1e-10,
+    ) -> "SurveyDesign":
+        """Calibrated design whose standard errors account for calibration.
+
+        Raking to ``margins`` (as :func:`sp.rake`) or linear GREG
+        calibration to ``totals`` (as :func:`sp.linear_calibration`).
+        Unlike feeding the calibrated weights to a new design -- which
+        treats them as fixed -- the returned design keeps the auxiliary
+        variables, and every estimator's linearisation scores are replaced
+        by their residuals from the weighted regression on them before the
+        design variance is formed. Estimates of the calibration totals
+        themselves then have zero variance, as they should.
+
+        Parameters
+        ----------
+        margins : dict, optional
+            ``{column: {category: population count}}`` -- raking. Weights
+            are put on the population scale (sum = the margins' total), as R
+            ``rake`` / ``calibrate`` and Stata ``svycal``. Proportions are
+            accepted; the weights then keep the design-weight total.
+        totals : dict, optional
+            ``{column: population total}`` -- linear (chi-squared distance)
+            calibration, no intercept added (include a column of ones with
+            total N for one).
+        variance : {"greg", "stata"}, default "greg"
+            Weights of the residualising regression. ``"greg"`` uses the
+            design weights and multiplies the residuals by the calibrated
+            weights -- the g-weighted residual variance of Särndal,
+            Swensson & Wretman, as R ``survey::calibrate`` computes it.
+            ``"stata"`` uses the calibrated weights throughout, as Stata
+            ``svyset, rake()`` / ``regress()``. The two are asymptotically
+            equivalent and differ at O(1/n) (0.5 % on the reference data).
+        max_iter, tol
+            Raking controls (see :func:`sp.rake`).
+
+        Returns
+        -------
+        SurveyDesign
+
+        Examples
+        --------
+        >>> import numpy as np, pandas as pd
+        >>> import statspai as sp
+        >>> rng = np.random.default_rng(0)
+        >>> n = 400
+        >>> df = pd.DataFrame({
+        ...     "psu": rng.integers(0, 40, n), "stratum": rng.integers(0, 4, n),
+        ...     "d": rng.uniform(20, 40, n), "sex": rng.choice(["F", "M"], n),
+        ... })
+        >>> df["y"] = 5 + (df["sex"] == "M") + rng.normal(size=n)
+        >>> des = sp.svydesign(df, weights="d", strata="stratum",
+        ...                    cluster="psu", nest=True)
+        >>> cal = des.calibrate(margins={"sex": {"F": 6000, "M": 5000}})
+        >>> round(float(cal.weights.sum()))
+        11000
+        >>> bool(cal.mean("y").std_error.iloc[0] < des.mean("y").std_error.iloc[0])
+        True
+        """
+        from .calibration import linear_calibration, rake
+
+        if (margins is None) == (totals is None):
+            raise MethodIncompatibility(
+                "calibrate: pass exactly one of margins= (raking) or totals= "
+                "(linear calibration)."
+            )
+        if variance not in ("greg", "stata"):
+            raise MethodIncompatibility(
+                f"calibrate: variance must be 'greg' or 'stata', got {variance!r}."
+            )
+        d = self.weights
+        data = self.data.assign(__design_w__=d)
+        if margins is not None:
+            res = rake(data, margins, weight="__design_w__", max_iter=max_iter, tol=tol)
+            sums = [float(sum(t.values())) for t in margins.values()]
+            scale = sums[0] if min(sums) > 1.0 + 1e-12 else float(d.sum())
+            w_new = res.calibrated_weights * scale
+            cols: List[np.ndarray] = []
+            for col, targets in margins.items():
+                vals = self.data[col].to_numpy()
+                cols.extend((vals == c).astype(float) for c in targets)
+            X = np.column_stack(cols)
+            method = "raking"
+        else:
+            assert totals is not None  # exactly one of margins / totals
+            res = linear_calibration(data, totals, weight="__design_w__")
+            w_new = res.calibrated_weights
+            X = self.data[list(totals)].to_numpy(dtype=float)
+            method = "linear"
+        if not np.all(w_new > 0):
+            raise MethodIncompatibility(
+                "calibrate: linear calibration produced non-positive weights "
+                f"({int((w_new <= 0).sum())} rows); the design cannot use them.",
+                recovery_hint="Use raking (margins=), or bounded calibration.",
+            )
+        kw: Dict[str, Any] = dict(self._init_kwargs)
+        base = self.data.drop(columns=["__weight__"], errors="ignore")
+        new = SurveyDesign(base, weights=w_new, **kw)
+        new._calibration = {
+            "X": X,
+            "reg_weights": d.copy() if variance == "greg" else w_new.copy(),
+            "method": method,
+            "variance": variance,
+            "converged": bool(res.converged),
+        }
+        return new
+
     def __repr__(self) -> str:
         parts = [f"SurveyDesign(n={self.n}"]
         if self.strata_col:
@@ -274,6 +397,11 @@ class SurveyDesign:
             n_psu = len(np.unique(self.cluster_ids))
             parts.append(f"cluster={self.cluster_col}[{n_psu}]")
         parts.append(f"weights={self._weight_col}")
+        if self._calibration is not None:
+            parts.append(
+                f"calibrated={self._calibration['method']}"
+                f"[{self._calibration['variance']}]"
+            )
         return ", ".join(parts) + ")"
 
 

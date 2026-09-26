@@ -2,16 +2,16 @@
 Tests for utility functions: labels, pwcorr, winsor, describe.
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
 from statspai.utils import (
-    label_var,
-    label_vars,
+    describe,
     get_label,
     get_labels,
-    describe,
+    label_var,
+    label_vars,
     pwcorr,
     winsor,
 )
@@ -224,3 +224,51 @@ class TestIntegration:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestPwcorrMissingSemantics:
+    """Stata ``pwcorr`` deletes missing values pairwise by default.
+
+    Golden values from Stata 18 MP ``pwcorr a b c, sig obs`` on the same
+    five rows (r(C), r(sig), r(Nobs)).
+    """
+
+    @staticmethod
+    def _df():
+        return pd.DataFrame(
+            {
+                "a": [1.0, 2, 3, 4, 5],
+                "b": [1.0, 2, 1, 2, 8],
+                "c": [1.0, 2, 3, np.nan, np.nan],
+            }
+        )
+
+    def test_unrelated_missing_column_does_not_change_pair(self):
+        import statspai as sp
+
+        m = sp.pwcorr(self._df(), vars=["a", "b", "c"], output="dataframe")
+        assert m.loc["a", "b"] == pytest.approx(0.7504787743864565, abs=1e-12)
+        assert m.attrs["pvalues"].loc["a", "b"] == pytest.approx(
+            0.1438905695130879, abs=1e-10
+        )
+        nobs = m.attrs["nobs"]
+        assert nobs.loc["a", "b"] == 5 and nobs.loc["a", "c"] == 3
+        two = sp.pwcorr(self._df(), vars=["a", "b"], output="dataframe")
+        assert two.loc["a", "b"] == pytest.approx(m.loc["a", "b"], abs=1e-15)
+
+    def test_listwise_is_explicit(self):
+        import statspai as sp
+
+        m = sp.pwcorr(
+            self._df(), vars=["a", "b", "c"], listwise=True, output="dataframe"
+        )
+        assert m.loc["a", "b"] == pytest.approx(0.0, abs=1e-12)
+        assert (m.attrs["nobs"].to_numpy() == 3).all()
+
+    def test_degenerate_pair_is_nan_not_number(self):
+        import statspai as sp
+
+        df = pd.DataFrame({"a": [1.0, 2, 3], "k": [5.0, 5, 5]})
+        m = sp.pwcorr(df, output="dataframe")
+        assert np.isnan(m.loc["a", "k"])
+        assert "." in sp.pwcorr(df)

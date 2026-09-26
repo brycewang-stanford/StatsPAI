@@ -7,8 +7,11 @@ the slope at all, with no warning — so a user asking for
 indication anything was dropped. On the fixture below that is 0.337 against a
 Stata ``reghdfe`` truth of 0.067.
 
-These tests pin the *refusal*, not a number: whatever the backend does later,
-StatsPAI must not hand back a quietly-wrong coefficient.
+Since 1.32 ``sp.feols`` absorbs varying slopes through StatsPAI's own HDFE
+kernel (R fixest parity in
+``tests/reference_parity/test_feols_varying_slopes_parity.py``), so the OLS
+tests pin the Stata ``reghdfe`` number instead of a refusal. ``fepois`` /
+``feglm`` still go through pyfixest and still refuse.
 """
 
 from __future__ import annotations
@@ -43,7 +46,7 @@ def slope_panel() -> pd.DataFrame:
 
 
 # --------------------------------------------------------------------------- #
-#  The refusal
+#  feols now absorbs the slope (and reports that it did)
 # --------------------------------------------------------------------------- #
 
 
@@ -53,18 +56,28 @@ def slope_panel() -> pd.DataFrame:
         "y ~ d | county + pref[year]",
         "y ~ d | county + pref[[year]]",
         "y ~ d | county + i.pref#c.year",
-        "y ~ d | pref[year]",
     ],
 )
-def test_feols_refuses_varying_slope_fe(slope_panel, fml):
-    with pytest.raises(MethodIncompatibility, match="varying slope"):
-        sp.feols(fml, data=slope_panel)
+def test_feols_absorbs_varying_slope_like_reghdfe(slope_panel, fml):
+    """Stata: reghdfe y d, absorb(county i.pref#c.year) -> d = 0.066701865575718
+    (pref is nested in county, so the pref intercepts are redundant). The
+    Stata number carries reghdfe's default 1e-8 projection tolerance (the
+    native path here demeans to 1e-12), hence abs=1e-7."""
+    res = sp.feols(fml, data=slope_panel)
+    assert float(res.params["d"]) == pytest.approx(0.066701865575718, abs=1e-7)
+    assert res.model_info["backend"] == "statspai-native"
 
 
-def test_error_names_both_working_alternatives(slope_panel):
+def test_slope_only_model_keeps_intercept_like_fixest(slope_panel):
+    res = sp.feols("y ~ d | pref[[year]]", data=slope_panel)
+    assert "Intercept" in res.params.index
+
+
+def test_glm_error_names_both_working_alternatives(slope_panel):
     """An agent must be able to recover from the message without guessing."""
+    df = slope_panel.assign(y=(slope_panel["y"] > 1).astype(int))
     with pytest.raises(MethodIncompatibility) as exc:
-        sp.feols("y ~ d | county + pref[year]", data=slope_panel)
+        sp.fepois("y ~ d | county + pref[year]", data=df)
     msg = str(exc.value)
     assert "i(pref, year)" in msg
     assert "hdfe_ols" in msg

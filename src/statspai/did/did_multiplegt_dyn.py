@@ -762,8 +762,10 @@ def did_multiplegt_dyn(
     return CausalResult(
         method=(
             "did_multiplegt_dyn (dCDH 2024 ReStat) "
-            "[MVP — pinned to DIDmultiplegtDYN for effects, placebos and "
-            "analytic SEs; controls/trends variants not implemented]"
+            "[experimental MVP; pinned to DIDmultiplegtDYN for effects, "
+            "placebos, analytic SEs "
+            "and controls / trends_nonparam / normalized / continuous; "
+            "trends_lin, predict_het not implemented]"
         ),
         estimand=(
             "Average dynamic effect across horizons 0..dynamic "
@@ -800,11 +802,11 @@ def did_multiplegt_dyn(
             "group_effects": main.get("group_effects", {}),
             "same_switchers": same_switchers,
             "warning": (
-                "controls=, trends_nonparam= and normalized= are "
-                "available and pinned to DIDmultiplegtDYN; trends_lin, "
-                "continuous, predict_het and the heteroskedastic-weights "
-                "variant are not, and joint tests come from the bootstrap "
-                "only. See docs/rfc/multiplegt_dyn.md."
+                "controls=, trends_nonparam=, normalized= and continuous= "
+                "are available and pinned to DIDmultiplegtDYN; trends_lin, "
+                "predict_het and the heteroskedastic-weights variant are "
+                "not, and joint tests come from the bootstrap only. See "
+                "docs/rfc/multiplegt_dyn.md."
             ),
         },
         _citation_key="dechaisemartin2024difference",

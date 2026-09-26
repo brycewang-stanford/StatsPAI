@@ -5,6 +5,7 @@ Provides MICE (Multiple Imputation by Chained Equations),
 EM imputation, and analysis tools for multiply-imputed data.
 """
 
-from .mice import mice, MICEResult, mi_estimate
+from ._mi_test import mi_test
+from .mice import MICEResult, mi_estimate, mice
 
-__all__ = ["mice", "MICEResult", "mi_estimate"]
+__all__ = ["mice", "MICEResult", "mi_estimate", "mi_test"]

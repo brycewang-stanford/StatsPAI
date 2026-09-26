@@ -101,6 +101,18 @@ def main() -> int:
                 f"{s['n_audit_errors']} audit error(s): "
                 + _offenders(card["audit_dynamic"], lambda r: r.get("error"))
             )
+        fr = card.get("frontier") or {}
+        if fr.get("n_errors"):
+            # Frontier hit-rate is scored separately, but a frontier case whose
+            # top card cannot be fitted is an advertised pipeline that fails;
+            # it gates like a core error (review F05, 2026-09-26).
+            reasons.append(
+                f"{fr['n_errors']} frontier fit/audit error(s): "
+                + _offenders(
+                    [a for a in card["audit_dynamic"] if a["id"] in fr.get("ids", [])],
+                    lambda r: r.get("status") in ("AUDIT_ERROR", "NOT_READY"),
+                )
+            )
         if s["hard_miss_rate"]:
             reasons.append(
                 f"hard-miss rate {s['hard_miss_rate']}: "

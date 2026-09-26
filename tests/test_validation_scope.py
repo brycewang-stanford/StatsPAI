@@ -416,3 +416,43 @@ def test_renders_readably(card):
     text = str(sp.validation_scope(sp.regress("lwage ~ educ", data=card, robust="hac")))
     assert text.startswith("Validation scope: sp.regress  [covered]")
     assert "51_newey.py" in text
+
+
+# --------------------------------------------------------------------------- #
+#  Joint outputs: covariance matrices and joint tests (review 2026-09 §4.1)
+# --------------------------------------------------------------------------- #
+
+
+def test_joint_outputs_are_graded_separately_from_se():
+    cs_dr = sp.validation_scope(
+        function="callaway_santanna",
+        estimator="dr",
+        control_group="nevertreated",
+        weights="none",
+        covariates="none",
+        inference="analytic",
+        base_period="universal",
+        anticipation="0",
+        clustering="none",
+    )
+    assert cs_dr["outputs"]["vcov"]["status"] == "reference"
+    cs_reg = sp.validation_scope(
+        function="callaway_santanna",
+        estimator="reg",
+        control_group="nevertreated",
+        weights="none",
+        covariates="none",
+        inference="analytic",
+        base_period="universal",
+        anticipation="0",
+        clustering="none",
+    )
+    # the SE rows cover reg, but no artifact compared its joint covariance
+    assert cs_reg["outputs"]["se"]["status"] == "reference"
+    assert cs_reg["outputs"]["vcov"]["status"] == "not_covered"
+
+    cr1 = sp.validation_scope(function="regress", vce="cr1", weights="none")
+    assert cr1["outputs"]["joint_test"]["status"] == "reference"
+    hc3 = sp.validation_scope(function="regress", vce="hc3", weights="none")
+    assert hc3["outputs"]["joint_test"]["status"] == "not_covered"
+    assert hc3["outputs"]["se"]["status"] == "reference"

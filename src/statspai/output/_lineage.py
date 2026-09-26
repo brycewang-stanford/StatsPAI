@@ -44,11 +44,15 @@ from __future__ import annotations
 
 import datetime as _dt
 import hashlib
+import json
+import os
 import sys
 import uuid
 import warnings
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional, TypeVar, cast
+
+_F = TypeVar("_F", bound=Callable[..., Any])
 
 __all__ = [
     "Provenance",
@@ -390,7 +394,124 @@ def attach_provenance(
     except Exception:
         return result
     _note_listwise_deletion(result, function, params, data)
+    _capture_if_requested(result, prov)
     return result
+
+
+#: When set, every attached provenance record is also appended (JSON lines)
+#: to this file together with the result's headline numbers.
+#: ``sp.verify_replication_pack`` sets it for the rerun of a pack's script.
+CAPTURE_ENV = "STATSPAI_CAPTURE_RESULTS"
+
+
+def headline_numbers(result: Any, limit: int = 60) -> Dict[str, Any]:
+    """``{name: [estimate, se]}`` for a result's reported coefficients.
+
+    ``EconometricResults``-style ``params`` / ``std_errors`` series, or a
+    ``CausalResult``'s scalar ``estimate`` / ``se``. Empty when neither is
+    present.
+    """
+    import numpy as np
+
+    out: Dict[str, Any] = {}
+
+    def _f(v: Any) -> Optional[float]:
+        try:
+            x = float(v)
+        except (TypeError, ValueError):
+            return None
+        return x if np.isfinite(x) else None
+
+    params: Any = getattr(result, "params", None)
+    ses: Any = getattr(result, "std_errors", None)
+    if hasattr(params, "items") and type(result).__name__ != "CausalResult":
+        for i, (k, v) in enumerate(params.items()):
+            if i >= limit:
+                break
+            se = ses.get(k) if hasattr(ses, "get") else None
+            out[str(k)] = [_f(v), _f(se)]
+        return out
+    if hasattr(result, "estimate"):
+        out["estimate"] = [
+            _f(getattr(result, "estimate", None)),
+            _f(getattr(result, "se", None)),
+        ]
+    return out
+
+
+def result_record(result: Any) -> Optional[Dict[str, Any]]:
+    """Replication record: provenance key plus headline numbers."""
+    prov = getattr(result, "_provenance", None)
+    if prov is None:
+        return None
+    return {
+        "function": prov.function,
+        "params": prov.params,
+        "data_hash": prov.data_hash,
+        "data_shape": prov.data_shape,
+        "numbers": headline_numbers(result),
+    }
+
+
+def _capture_if_requested(result: Any, prov: Any) -> None:
+    path = os.environ.get(CAPTURE_ENV)
+    if not path:
+        return
+    try:
+        rec = result_record(result)
+        if rec is None:
+            return
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec, default=str) + "\n")
+    except Exception as exc:  # noqa: BLE001 — capture must never break a fit
+        warnings.warn(
+            f"{CAPTURE_ENV}: could not record {getattr(prov, 'function', '?')}: "
+            f"{type(exc).__name__}: {exc}",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+
+
+def records_provenance(function: str, *, data_arg: str = "data") -> Callable[[_F], _F]:
+    """Decorator: attach a :class:`Provenance` record to the returned result.
+
+    The call is bound to the wrapped signature, so ``params`` are the
+    arguments as the function received them; ``data_arg`` is fingerprinted
+    rather than stored. Place it *outside* decorators that rewrite the data
+    (e.g. ``markout_clusters``) so the fingerprint and ``data_shape`` describe
+    the caller's input. Like :func:`attach_provenance` it never raises and
+    never overwrites a record an inner call already set.
+    """
+    import functools
+    import inspect
+
+    def deco(fn: _F) -> _F:
+        sig = inspect.signature(fn)
+
+        @functools.wraps(fn)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            result = fn(*args, **kwargs)
+            try:
+                bound = sig.bind_partial(*args, **kwargs)
+            except TypeError:
+                return result
+            params: Dict[str, Any] = {}
+            data = None
+            for name, value in bound.arguments.items():
+                kind = sig.parameters[name].kind
+                if name == data_arg:
+                    data = value
+                elif kind is inspect.Parameter.VAR_KEYWORD:
+                    params.update(value)
+                elif kind is not inspect.Parameter.VAR_POSITIONAL:
+                    params[name] = value
+            return attach_provenance(
+                result, function=function, params=params, data=data
+            )
+
+        return cast(_F, wrapper)
+
+    return deco
 
 
 def _reported_nobs(result: Any) -> Optional[int]:

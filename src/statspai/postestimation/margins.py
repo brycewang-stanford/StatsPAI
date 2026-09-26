@@ -1,19 +1,21 @@
 """
-Marginal effects estimation.
+Marginal effects and predictive margins.
 
-Computes Average Marginal Effects (AME) for linear and nonlinear models
-via numerical differentiation, with delta-method standard errors.
-
-Equivalent to Stata's ``margins, dydx(*)`` and ``marginsplot``.
+Average marginal effects (AME) / marginal effects at the means (MEM),
+predictive margins at covariate values, contrasts and pairwise comparisons
+of margins, all on the model's default prediction scale with delta-method
+standard errors. Equivalent to Stata's margins family.
 
 Supports:
-- Continuous variables: dy/dx
-- Binary/categorical: discrete change (0→1)
-- Conditional margins: at specific covariate values
-- Interaction effects
+- Continuous variables: dy/dx, through interactions and formula transforms
+  (I(x**2), np.log(x)) -- the design is rebuilt from the formula
+- Factor variables (C(g)): discrete change of each level vs the base
+- Conditional margins at specific covariate values, atmeans
+- Estimation-sample averaging with the fit's weights, offsets / exposure
 """
 
 import re
+import warnings
 from itertools import product as itertools_product
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -21,8 +23,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import MethodIncompatibility
+from ..exceptions import MethodIncompatibility, StatsPAIWarning
 from ._covariance import coefficient_covariance, inference_df, require_covariance
+from ._design import design_for, model_setting
 
 
 def margins(
@@ -37,22 +40,49 @@ def margins(
     """
     Compute marginal effects from a fitted model.
 
+    Equivalent to Stata's ``margins, dydx(varlist)`` (``atmeans`` with
+    ``method='mem'``), on the model's default prediction scale: the linear
+    prediction after ``regress``, ``Pr(y=1)`` after ``logit`` / ``probit`` /
+    ``cloglog``, the expected count (including any ``offset`` / ``exposure``)
+    after ``poisson`` / ``nbreg`` / log-link ``glm``.
+
+    * **Continuous variables** — ``dy/dx`` of the prediction, differentiating
+      *through* every term the variable enters: interactions, and formula
+      transformations such as ``I(x**2)`` or ``np.log(x)`` (the design is
+      rebuilt from the fitted formula, so an ``x + I(x**2)`` model reports the
+      total effect ``b1 + 2 b2 x``, like Stata's ``c.x##c.x``).
+    * **Factor variables** (entered as ``C(g)``) — Stata's discrete change
+      of each level against the base level, ``E[mu | g=l] - E[mu | g=base]``,
+      one row per non-base level labelled ``"l.g"``.  A numeric 0/1 column
+      *not* wrapped in ``C()`` is continuous, as in Stata without ``i.``.
+    * Averages are over the estimation sample (Stata ``e(sample)``: rows of
+      ``data`` complete on the outcome and every model variable) and use the
+      fit's ``weights`` when it had any. Standard errors are delta-method on
+      the full coefficient covariance, with t(df) after ``regress`` and z
+      after likelihood estimators.
+
     Parameters
     ----------
     result : EconometricResults
         Fitted model result (must have ``.params`` and associated data).
     data : pd.DataFrame, optional
-        Data to compute margins on. Defaults to the estimation sample.
+        Data to compute margins on (the estimation data). Required for
+        factor variables and formula transformations. Defaults to the
+        stored design when the model has neither.
     variables : list of str, optional
-        Variables to compute dy/dx for. Default: all regressors.
+        Variables to compute dy/dx for. Default: every model variable,
+        factor variables included (Stata ``dydx(*)``).
     at : dict, optional
         Fix covariates at specific values for conditional margins.
-        E.g., ``{'age': 30, 'female': 1}``.
+        E.g., ``{'age': 30, 'female': 1}``. Every key must be a model
+        variable (Stata error 322 otherwise).
     method : str, default 'ame'
         - 'ame': Average Marginal Effect (average dy/dx across all obs)
-        - 'mem': Marginal Effect at the Mean (dy/dx at mean of X)
+        - 'mem': Marginal Effect at the Mean (Stata ``atmeans``: every
+          design component at its sample mean, factor indicators at their
+          shares, interactions as products of those means)
     eps : float, default 1e-5
-        Step size for numerical differentiation.
+        Relative step for the central difference used on transformed terms.
     alpha : float, default 0.05
         Significance level.
 
@@ -60,6 +90,8 @@ def margins(
     -------
     pd.DataFrame
         Table with columns: variable, dy/dx, se, z, pvalue, ci_lower, ci_upper.
+        ``.attrs`` records ``n`` (rows averaged over), ``weights``,
+        ``design_backend`` and, for factor rows, ``base_levels``.
 
     Examples
     --------
@@ -79,94 +111,382 @@ def margins(
     >>> me.columns.tolist()
     ['variable', 'dy/dx', 'se', 'z', 'pvalue', 'ci_lower', 'ci_upper']
 
-    Conditional margins: marginal effect of x1 with female fixed at 1.
+    Conditional margins: marginal effect of x1 with x2 fixed at 1.
 
-    >>> me_at = sp.margins(result, data=df, variables=['x1'], at={'female': 1})
+    >>> me_at = sp.margins(result, data=df, variables=['x1'], at={'x2': 1})
     >>> me_at['variable'].tolist()
     ['x1']
+
+    Quadratic term and a factor: the effect of ``x`` includes ``2 b2 x``,
+    ``g`` gets one discrete-change row per non-base level.
+
+    >>> df["g"] = rng.integers(1, 4, size=200)
+    >>> r2 = sp.regress("y ~ x1 + I(x1**2) + C(g)", data=df)
+    >>> sp.margins(r2, data=df)["variable"].tolist()
+    ['x1', '2.g', '3.g']
     """
     if method not in ("ame", "mem"):
         raise MethodIncompatibility(
             f"margins: method must be 'ame' or 'mem', got {method!r}."
         )
-    link = _response_link(result)
-    params = result.params
-    frame = _margins_frame(result, data)
-    if at:
-        frame = frame.copy()
-        for name, value in at.items():
-            frame[name] = value
-    base_vars = _term_variables(params.index)
-    present = [v for v in base_vars if v in frame.columns]
-    incomplete = frame[present].isna().any(axis=1) if present else None
-    if incomplete is not None and bool(incomplete.any()):
-        raise MethodIncompatibility(
-            f"margins: {int(incomplete.sum())} row(s) of data have missing "
-            f"values in model variables {present}; marginal effects averaged "
-            "over them are undefined.",
-            recovery_hint=(
-                "Omit data= to average over the fitted model's own estimation "
-                "sample (Stata's e(sample)), or pass data restricted to "
-                "complete rows."
-            ),
-            diagnostics={"n_incomplete": int(incomplete.sum())},
-        )
-    if method == "mem":
-        # Stata ``atmeans``: every component at its sample mean.
-        frame = frame.mean(numeric_only=True).to_frame().T
-
+    ctx = _MarginsContext(result, data, at=at)
+    design = ctx.design
     if variables is None:
-        variables = [v for v in base_vars if not _is_factor_variable(v, params.index)]
+        variables = [
+            v
+            for v in design.variables
+            if v in ctx.frame.columns
+            and (not design.is_factor(v) or v in design.factors)
+        ]
     else:
-        unknown = [v for v in variables if v not in base_vars]
+        unknown = [v for v in variables if v not in design.variables]
         if unknown:
             raise MethodIncompatibility(
                 f"margins: {unknown} do not enter the model.",
-                recovery_hint=f"Variables in the model: {base_vars}.",
+                recovery_hint=f"Variables in the model: {design.variables}.",
             )
 
-    beta = params.to_numpy(dtype=float)
-    X = _design(params.index, frame)
-    eta = X @ beta + _offset(result, frame)
-    f, f_prime = _link_derivatives(link, eta)
-
-    df_ref = inference_df(result)
-    finite = np.isfinite(df_ref)
-    crit = (
-        stats.t.ppf(1 - alpha / 2, df_ref) if finite else stats.norm.ppf(1 - alpha / 2)
-    )
-
-    rows = []
+    rows: List[Dict[str, Any]] = []
+    base_levels: Dict[str, Any] = {}
     for var in variables:
-        if _is_factor_variable(var, params.index):
-            raise MethodIncompatibility(
-                f"margins: {var!r} enters as a factor; dy/dx of a factor is a "
-                "discrete change, which this function does not compute.",
-                recovery_hint="Use sp.contrast for level comparisons.",
-            )
-        D = _design_derivative(params.index, frame, var)  # d X / d var
-        d_eta = D @ beta
-        dydx = float(np.mean(f * d_eta))
+        if design.is_factor(var):
+            if var not in design.factors:
+                raise MethodIncompatibility(
+                    f"margins: {var!r} enters as a factor but its levels cannot "
+                    "be read from the data (pass data= with the raw column).",
+                )
+            levels, base = design.factors[var]
+            base_levels[var] = base
+            b_eta, b_X = ctx.index_at({var: base}, method)
+            mu_b, f_b = _mu_and_slope(ctx.link, b_eta)
+            for lev in levels:
+                if _same_level(lev, base):
+                    continue
+                l_eta, l_X = ctx.index_at({var: lev}, method)
+                mu_l, f_l = _mu_and_slope(ctx.link, l_eta)
+                est = ctx.mean(mu_l - mu_b)
+                grad = ctx.mean(f_l[:, None] * l_X - f_b[:, None] * b_X)
+                rows.append(ctx.inference_row(f"{_level_label(lev)}.{var}", est, grad))
+            continue
+
+        X, D = ctx.design_and_derivative(var, method, eps)
+        eta = X @ ctx.beta + ctx.offset(method)
+        f, f_prime = _link_derivatives(ctx.link, eta)
+        d_eta = D @ ctx.beta
+        est = ctx.mean(f * d_eta)
         # Delta method: d AME / d beta = mean(f'(eta) X d_eta + f(eta) D).
-        grad = np.mean(f_prime[:, None] * X * d_eta[:, None] + f[:, None] * D, axis=0)
-        V = require_covariance(result, grad.reshape(1, -1), f"margins({var!r})")
+        grad = ctx.mean(f_prime[:, None] * X * d_eta[:, None] + f[:, None] * D)
+        rows.append(ctx.inference_row(var, est, grad, label=f"margins({var!r})"))
+
+    out = pd.DataFrame(
+        rows, columns=["variable", "dy/dx", "se", "z", "pvalue", "ci_lower", "ci_upper"]
+    )
+    out.attrs.update(ctx.attrs())
+    if base_levels:
+        out.attrs["base_levels"] = base_levels
+    return out
+
+
+class _MarginsContext:
+    """Estimation sample, design backend, weights and inference for margins.
+
+    ``margins`` / ``margins_at`` / ``contrast`` / ``pwcompare`` share it so
+    the four functions agree on the averaging sample (Stata ``e(sample)``),
+    the averaging weights, the prediction scale and the reference
+    distribution.
+    """
+
+    def __init__(
+        self,
+        result: Any,
+        data: Optional[pd.DataFrame],
+        at: Optional[Dict[str, Any]] = None,
+        alpha: float = 0.05,
+    ) -> None:
+        self.result = result
+        self.link = _response_link(result)
+        self.beta = result.params.to_numpy(dtype=float)
+        self.cov_source = result
+        if (getattr(result, "model_info", None) or {}).get("irr"):
+            # irr=True reports exp(b) with delta-method SEs; the index and the
+            # stored covariance are on the b scale.
+            self.beta = np.log(self.beta)
+            self.cov_source = _IndexScaleView(result)
+        frame = _margins_frame(result, data)
+        self.design = design_for(result, frame)
+        frame, self.n_dropped = _estimation_sample(
+            result, frame, self.design, restrict=data is not None
+        )
+        if at:
+            unknown = [k for k in at if k not in self.design.variables]
+            if unknown:
+                raise MethodIncompatibility(
+                    f"margins: at() variable(s) {unknown} are not in the model "
+                    f"(Stata: 'not found in list of covariates', r(322)).",
+                    recovery_hint=f"Model variables: {self.design.variables}.",
+                    diagnostics={"not_in_model": unknown},
+                )
+            frame = frame.copy()
+            for name, value in at.items():
+                frame[name] = value
+        self.frame = frame
+        self.at = dict(at or {})
+        self.weights, self.weights_name = _averaging_weights(result, frame, data)
+        self.df = inference_df(result)
+        self.alpha = alpha
+
+    # -- averaging -------------------------------------------------------
+    def mean(self, values: np.ndarray) -> Any:
+        values = np.asarray(values, dtype=float)
+        if self.weights is None:
+            return values.mean(axis=0)
+        if isinstance(self.weights, str):  # weights exist but are unavailable
+            spread = np.ptp(values, axis=0) if values.shape[0] else 0.0
+            if np.any(np.abs(spread) > 1e-12 * (1.0 + np.abs(values).max())):
+                raise MethodIncompatibility(
+                    f"margins: the fit used weights={self.weights!r}, which "
+                    "Stata margins averages with, but that column is not in the "
+                    "data margins was given.",
+                    recovery_hint="Pass data= containing the weight column.",
+                )
+            return values.mean(axis=0)
+        w = self.weights / self.weights.sum()
+        return np.tensordot(w, values, axes=(0, 0))
+
+    # -- designs ---------------------------------------------------------
+    def offset(self, method: str = "ame", frame: Optional[pd.DataFrame] = None) -> Any:
+        fr = self.frame if frame is None else frame
+        off = _offset(self.result, fr)
+        if method == "mem":
+            return np.array([self.mean(off)])
+        return off
+
+    def index_at(
+        self, setting: Dict[str, Any], method: str = "ame"
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Linear index and design with ``setting`` imposed on every row."""
+        fr = self.frame.copy()
+        for k, v in setting.items():
+            fr[k] = v
+        if method == "mem":
+            X = self._design_at_means(fr)
+            return X @ self.beta + self.offset("mem", fr), X
+        X = self.design.build(fr)
+        return X @ self.beta + _offset(self.result, fr), X
+
+    def design_and_derivative(
+        self, var: str, method: str, eps: float
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        if method == "mem":
+            at_means: Tuple[np.ndarray, np.ndarray] = self._design_at_means(
+                self.frame, deriv_var=var, eps=eps
+            )
+            return at_means
+        return (
+            self.design.build(self.frame),
+            self.design.derivative(self.frame, var, eps),
+        )
+
+    def _design_at_means(
+        self, frame: pd.DataFrame, deriv_var: Optional[str] = None, eps: float = 1e-5
+    ) -> Any:
+        """Stata ``atmeans``: every component at its (weighted) sample mean.
+
+        Numeric raw variables are set to their means; factor indicators to
+        their shares, with interactions formed as products of those means
+        (a weighted sum over the factor-level grid with product weights).
+        Returns the 1 x k design (and its derivative when asked).
+        """
+        design = self.design
+        fixed = set(self.at)
+        numeric = [
+            v
+            for v in design.variables
+            if v in frame.columns and not design.is_factor(v)
+        ]
+        factor_vars = [v for v in design.variables if design.is_factor(v)]
+        base = {}
+        for v in numeric:
+            base[v] = float(self.mean(frame[v].to_numpy(dtype=float)))
+        grid: List[Tuple[Dict[str, Any], float]] = [({}, 1.0)]
+        for v in factor_vars:
+            col = frame[v]
+            if v in fixed or col.nunique(dropna=True) == 1:
+                val = col.iloc[0]
+                grid = [({**g, v: val}, w) for g, w in grid]
+                continue
+            levels = design.factors.get(v, (list(pd.unique(col.dropna())), None))[0]
+            shares = {}
+            for lev in levels:
+                hit = col.map(lambda o, _l=lev: _same_level(o, _l))
+                shares[lev] = float(self.mean(hit.to_numpy(dtype=float)))
+            grid = [
+                ({**g, v: lev}, w * s) for g, w in grid for lev, s in shares.items()
+            ]
+            if len(grid) > 20000:
+                raise MethodIncompatibility(
+                    "margins(method='mem'): too many factor-level combinations "
+                    "to evaluate atmeans.",
+                )
+        cells = pd.DataFrame([{**base, **g} for g, _ in grid])
+        for c in frame.columns:
+            if c not in cells.columns:
+                cells[c] = frame[c].iloc[0]
+        wts = np.array([w for _, w in grid])
+        X = wts @ design.build(cells)
+        if deriv_var is None:
+            return X[None, :]
+        D = wts @ design.derivative(cells, deriv_var, eps)
+        return X[None, :], D[None, :]
+
+    # -- inference -------------------------------------------------------
+    def inference_row(
+        self, name: str, est: float, grad: np.ndarray, label: Optional[str] = None
+    ) -> Dict[str, Any]:
+        grad = np.asarray(grad, dtype=float).reshape(-1)
+        V = require_covariance(self.cov_source, grad.reshape(1, -1), label or "margins")
         se = float(np.sqrt(max(float(grad @ V @ grad), 0.0)))
-        stat = dydx / se if se > 0 else float("nan")
-        pv = float(
-            2 * (stats.t.sf(abs(stat), df_ref) if finite else stats.norm.sf(abs(stat)))
+        return _inference_dict(float(est), se, self.df, self.alpha, name)
+
+    def vcov(self) -> np.ndarray:
+        return _get_vcov(self.cov_source)
+
+    def attrs(self) -> Dict[str, Any]:
+        return {
+            "n": int(len(self.frame)),
+            "n_dropped": int(self.n_dropped),
+            "weights": self.weights_name,
+            "design_backend": self.design.backend,
+            "prediction_scale": _SCALE_LABEL.get(self.link, self.link),
+        }
+
+
+class _IndexScaleView:
+    """A result reported as exp(b) (``irr=True``), viewed on the b scale."""
+
+    def __init__(self, result: Any) -> None:
+        self.params = np.log(result.params)
+        self.std_errors = result.std_errors / result.params
+        self.data_info = getattr(result, "data_info", None)
+        self.model_info = getattr(result, "model_info", None)
+
+
+_SCALE_LABEL = {
+    "identity": "linear prediction",
+    "logit": "Pr(y=1)",
+    "probit": "Pr(y=1)",
+    "cloglog": "Pr(y=1)",
+    "log": "expected count (exp(xb + offset))",
+}
+
+
+def _inference_dict(
+    est: float, se: float, df: float, alpha: float, name: str
+) -> Dict[str, Any]:
+    finite = np.isfinite(df)
+    crit = stats.t.ppf(1 - alpha / 2, df) if finite else stats.norm.ppf(1 - alpha / 2)
+    stat = est / se if se > 0 else float("nan")
+    pv = float(2 * (stats.t.sf(abs(stat), df) if finite else stats.norm.sf(abs(stat))))
+    return {
+        "variable": name,
+        "dy/dx": est,
+        "se": se,
+        "z": stat,
+        "pvalue": pv,
+        "ci_lower": est - crit * se,
+        "ci_upper": est + crit * se,
+    }
+
+
+def _mu_and_slope(link: str, eta: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Prediction ``mu = g^{-1}(eta)`` and ``d mu / d eta``."""
+    if link == "identity":
+        return eta, np.ones_like(eta)
+    if link == "logit":
+        p = 1.0 / (1.0 + np.exp(-eta))
+        return p, p * (1.0 - p)
+    if link == "probit":
+        return stats.norm.cdf(eta), stats.norm.pdf(eta)
+    if link == "cloglog":
+        e = np.exp(eta)
+        return 1.0 - np.exp(-e), e * np.exp(-e)
+    mu = np.exp(eta)
+    return mu, mu
+
+
+def _same_level(a: Any, b: Any) -> bool:
+    try:
+        return float(a) == float(b)
+    except (TypeError, ValueError):
+        return str(a) == str(b)
+
+
+def _level_label(level: Any) -> str:
+    if isinstance(level, (float, np.floating)) and float(level).is_integer():
+        return str(int(level))
+    return str(level)
+
+
+def _estimation_sample(
+    result: Any, frame: pd.DataFrame, design: Any, restrict: bool
+) -> Tuple[pd.DataFrame, int]:
+    """Rows of ``frame`` in Stata's ``e(sample)``.
+
+    Complete on the dependent variable (when present), every model variable,
+    and the weight / offset / exposure columns. The stored design
+    (``data=None``) is already the estimation sample.
+    """
+    if not restrict:
+        return frame, 0
+    cols = [v for v in design.variables if v in frame.columns]
+    dep = (getattr(result, "data_info", None) or {}).get("dependent_var")
+    if isinstance(dep, str) and dep in frame.columns:
+        cols.append(dep)
+    for key in ("weights", "offset", "exposure", "cluster"):
+        spec = model_setting(result, key)
+        specs = spec if isinstance(spec, (list, tuple)) else [spec]
+        cols.extend(c for c in specs if isinstance(c, str) and c in frame.columns)
+    if not cols:
+        return frame, 0
+    keep = frame[cols].notna().all(axis=1)
+    n_drop = int((~keep).sum())
+    kept = frame.loc[keep] if n_drop else frame
+    nobs = (getattr(result, "data_info", None) or {}).get("nobs")
+    if n_drop and isinstance(nobs, (int, np.integer)) and len(kept) != int(nobs):
+        warnings.warn(
+            StatsPAIWarning(
+                f"margins: averaging over {len(kept)} complete row(s) of data "
+                f"({n_drop} dropped for missing model variables), but the fit's "
+                f"estimation sample had {int(nobs)} rows — data may not be the "
+                "estimation data.",
+                recovery_hint="Pass the data the model was fitted on.",
+                diagnostics={"n_used": len(kept), "n_dropped": n_drop, "nobs": nobs},
+            ),
+            stacklevel=4,
         )
-        rows.append(
-            {
-                "variable": var,
-                "dy/dx": dydx,
-                "se": se,
-                "z": stat,
-                "pvalue": pv,
-                "ci_lower": dydx - crit * se,
-                "ci_upper": dydx + crit * se,
-            }
-        )
-    return pd.DataFrame(rows)
+    return kept, n_drop
+
+
+def _averaging_weights(
+    result: Any, frame: pd.DataFrame, data: Optional[pd.DataFrame]
+) -> Tuple[Any, Optional[str]]:
+    """Weights Stata ``margins`` averages with (the fit's own weights)."""
+    spec = model_setting(result, "weights")
+    if spec is None:
+        return None, None
+    if isinstance(spec, str):
+        if spec in frame.columns:
+            return frame[spec].to_numpy(dtype=float), spec
+        return spec, spec  # sentinel: needed only when the average varies
+    w = np.asarray(spec, dtype=float).ravel()
+    nobs = (getattr(result, "data_info", None) or {}).get("nobs")
+    if len(w) == len(frame) and (data is None or len(frame) == nobs):
+        return w, "array"
+    raise MethodIncompatibility(
+        "margins: the fit used array weights that cannot be aligned with the "
+        "data passed to margins.",
+        recovery_hint="Fit with weights='<column>' so margins can align them.",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -242,87 +562,11 @@ def _margins_frame(result: Any, data: Optional[pd.DataFrame]) -> pd.DataFrame:
     )
 
 
-def _term_variables(terms: Any) -> List[str]:
-    """Distinct base variables that enter the model terms, in order."""
-    out: List[str] = []
-    for term in terms:
-        for part in str(term).split(":"):
-            if part in _INTERCEPT_TOKENS:
-                continue
-            m = _CAT_TERM_RE.match(part)
-            name = m.group(1) if m is not None else part
-            if name not in out:
-                out.append(name)
-    return out
-
-
-def _is_factor_variable(var: str, terms: Any) -> bool:
-    for term in terms:
-        for part in str(term).split(":"):
-            m = _CAT_TERM_RE.match(part)
-            if m is not None and m.group(1) == var:
-                return True
-    return False
-
-
-_INTERCEPT_TOKENS = ("Intercept", "const", "_cons")
-
-
-def _part_values(part: str, frame: pd.DataFrame) -> np.ndarray:
-    n = len(frame)
-    if part in _INTERCEPT_TOKENS:
-        return np.ones(n)
-    m = _CAT_TERM_RE.match(part)
-    if m is not None:
-        base, level = m.group(1), m.group(2)
-        if base not in frame.columns:
-            raise MethodIncompatibility(f"margins: {base!r} is not in the data.")
-        return np.array(
-            [_factor_value(base, level, v) for v in frame[base]], dtype=float
-        )
-    if part not in frame.columns:
-        raise MethodIncompatibility(
-            f"margins: model term {part!r} is not a data column; transformed "
-            "terms such as I(x**2) or np.log(x) are not supported.",
-            recovery_hint="Create the transformed variable as a column and refit.",
-        )
-    return frame[part].to_numpy(dtype=float)
-
-
-def _design(terms: Any, frame: pd.DataFrame) -> np.ndarray:
-    columns = []
-    for term in terms:
-        value = np.ones(len(frame))
-        for part in str(term).split(":"):
-            value = value * _part_values(part, frame)
-        columns.append(value)
-    return np.column_stack(columns)
-
-
-def _design_derivative(terms: Any, frame: pd.DataFrame, var: str) -> np.ndarray:
-    """``d X / d var`` for each design column (product rule over ``a:b``)."""
-    columns = []
-    for term in terms:
-        parts = str(term).split(":")
-        deriv = np.zeros(len(frame))
-        for i, part in enumerate(parts):
-            if part != var:
-                continue
-            others = np.ones(len(frame))
-            for j, other in enumerate(parts):
-                if j != i:
-                    others = others * _part_values(other, frame)
-            deriv = deriv + others
-        columns.append(deriv)
-    return np.column_stack(columns)
-
-
 def _offset(result: Any, frame: pd.DataFrame) -> np.ndarray:
     """Offset / log-exposure in the linear predictor, when the fit had one."""
-    model_info = getattr(result, "model_info", None) or {}
     total = np.zeros(len(frame))
     for key, transform in (("offset", lambda v: v), ("exposure", np.log)):
-        spec = model_info.get(key)
+        spec = model_setting(result, key)
         if spec is None:
             continue
         if isinstance(spec, str) and spec in frame.columns:
@@ -352,86 +596,6 @@ def _get_vcov(result: Any) -> np.ndarray:
             recovery_hint="Refit with an estimator that stores data_info['var_cov'].",
         )
     return V
-
-
-def _require_linear_prediction(result: Any, function: str) -> None:
-    """``margins_at`` / ``contrast`` / ``pwcompare`` predict on the index scale.
-
-    That is the prediction scale only for linear models; after logit or
-    poisson it would report log-odds / log-count contrasts labelled as
-    margins, so those fits are refused.
-    """
-    if _response_link(result) != "identity":
-        raise MethodIncompatibility(
-            f"{function} predicts on the linear-index scale, which is not the "
-            "outcome scale of this model.",
-            recovery_hint="Use sp.margins for response-scale marginal effects.",
-        )
-
-
-# Categorical design-term pattern, e.g. ``C(group)[T.2]`` or ``group[T.b]``
-# (formulaic / patsy treatment-coding).  Captures the base variable name and
-# the encoded reference level.
-_CAT_TERM_RE = re.compile(r"^(?:C\(\s*)?([A-Za-z_]\w*)\s*(?:,[^)]*)?\)?\[T\.(.+)\]$")
-
-
-def _factor_value(base: str, level: str, obs_val: Any) -> float:
-    """Indicator for a treatment-coded dummy: 1.0 if ``obs_val`` is ``level``."""
-    try:
-        return 1.0 if float(obs_val) == float(level) else 0.0
-    except (TypeError, ValueError):
-        return 1.0 if str(obs_val) == str(level) else 0.0
-
-
-def _component_value(
-    token: str,
-    row: pd.Series,
-    var_to_change: Optional[str],
-    new_val: Any,
-) -> Optional[float]:
-    """Design value of a single (non-interaction) token for one observation.
-
-    Handles the intercept, plain numeric columns, and treatment-coded
-    categorical dummies ``C(var)[T.level]``.  Returns ``None`` when the token
-    references a variable that is absent from the row (so callers can treat the
-    whole interaction term as zero, matching the original behaviour).
-    """
-    if token in ("Intercept", "const"):
-        return 1.0
-
-    m = _CAT_TERM_RE.match(token)
-    if m is not None:
-        base, level = m.group(1), m.group(2)
-        obs_val = new_val if base == var_to_change else row.get(base)
-        if base != var_to_change and base not in row.index:
-            return None
-        return _factor_value(base, level, obs_val)
-
-    if token == var_to_change:
-        return float(new_val)
-    if token in row.index:
-        return float(row[token])
-    return None
-
-
-def _predict_row(
-    params: pd.Series,
-    row: pd.Series,
-    var_to_change: Optional[str],
-    new_val: Any,
-) -> float:
-    """Predict y for a single observation, changing one variable."""
-    y = 0.0
-    for term, coef in params.items():
-        val = coef
-        for part in term.split(":"):
-            comp = _component_value(part, row, var_to_change, new_val)
-            if comp is None:
-                val = 0.0
-                break
-            val *= comp
-        y += val
-    return float(y)
 
 
 def marginsplot(
@@ -514,6 +678,36 @@ def marginsplot(
 # ---------------------------------------------------------------------------
 
 
+def _level_margins(
+    ctx: "_MarginsContext", variable: str, levels: List[Any]
+) -> Tuple[Dict[Any, float], Dict[Any, np.ndarray]]:
+    """Predictive margin and its gradient with ``variable`` set to each level."""
+    margins_: Dict[Any, float] = {}
+    grads: Dict[Any, np.ndarray] = {}
+    for lev in levels:
+        eta, X = ctx.index_at({variable: lev})
+        mu, slope = _mu_and_slope(ctx.link, eta)
+        margins_[lev] = float(ctx.mean(mu))
+        grads[lev] = np.asarray(ctx.mean(slope[:, None] * X), dtype=float)
+    return margins_, grads
+
+
+def _require_model_variable(ctx: "_MarginsContext", variable: str, fn: str) -> None:
+    if variable not in ctx.design.variables:
+        raise MethodIncompatibility(
+            f"{fn}: {variable!r} is not in the model "
+            "(Stata: 'not found in list of covariates', r(322)).",
+            recovery_hint=f"Model variables: {ctx.design.variables}.",
+        )
+
+
+def _t_or_z(df: float) -> Tuple[Any, Any]:
+    """(ppf, sf) of the reference law: t(df) after regress, N(0,1) after ML."""
+    if np.isfinite(df):
+        return (lambda q: stats.t.ppf(q, df)), (lambda x: stats.t.sf(x, df))
+    return stats.norm.ppf, stats.norm.sf
+
+
 def margins_at(
     result: Any,
     data: pd.DataFrame,
@@ -527,8 +721,12 @@ def margins_at(
 
     For each combination of *at* values, every observation has the *at*
     variables set to those values while all other covariates stay at their
-    observed levels.  The predicted value is averaged across observations
-    to give the *predictive margin* at that point, with delta-method SEs.
+    observed levels.  The prediction -- on the model's default scale: the
+    linear prediction after ``regress``, ``Pr(y=1)`` after ``logit`` /
+    ``probit``, the expected count after ``poisson`` -- is averaged over the
+    estimation sample (weighted when the fit was) to give the *predictive
+    margin* at that point, with delta-method SEs and t(df) / z inference as
+    the fit's own.
 
     Parameters
     ----------
@@ -543,7 +741,7 @@ def margins_at(
 
             at={"experience": [1, 5, 10], "female": [0, 1]}
 
-        produces 6 grid points.
+        produces 6 grid points. Every key must be a model variable.
     alpha : float, default 0.05
         Significance level for confidence intervals.
 
@@ -574,72 +772,36 @@ def margins_at(
     >>> m.columns.tolist()
     ['experience', 'margin', 'se', 'ci_lower', 'ci_upper']
     """
-    params = result.params
-    _require_linear_prediction(result, "this margins function")
-    vcov = _get_vcov(result)
-    z_crit = stats.norm.ppf(1 - alpha / 2)
+    ctx = _MarginsContext(result, data, alpha=alpha)
+    for v in at:
+        _require_model_variable(ctx, v, "margins_at")
+    V = ctx.vcov()
+    ppf, _ = _t_or_z(ctx.df)
+    crit = ppf(1 - alpha / 2)
 
-    # Build grid (Cartesian product of all at-values)
     at_vars = list(at.keys())
     at_values = [np.atleast_1d(at[v]).tolist() for v in at_vars]
-    grid = list(itertools_product(*at_values))
-
     rows = []
-    for point in grid:
+    for point in itertools_product(*at_values):
         point_dict = dict(zip(at_vars, point))
-
-        # Set at-variables to grid values for every observation
-        df_mod = data.copy()
-        for var, val in point_dict.items():
-            df_mod[var] = val
-
-        # Compute predicted y for each observation, then average
-        preds = np.array(
-            [
-                _predict_row(params, df_mod.iloc[i], var_to_change=None, new_val=None)
-                for i in range(len(df_mod))
-            ]
-        )
-        margin = float(np.mean(preds))
-
-        # Delta-method SE: gradient of the average prediction w.r.t. beta
-        gradient = _margin_gradient(params, df_mod)
-        se = float(np.sqrt(gradient @ vcov @ gradient))
-
+        eta, X = ctx.index_at(point_dict)
+        mu, slope = _mu_and_slope(ctx.link, eta)
+        margin = float(ctx.mean(mu))
+        gradient = np.asarray(ctx.mean(slope[:, None] * X), dtype=float)
+        se = float(np.sqrt(max(float(gradient @ V @ gradient), 0.0)))
         row = dict(point_dict)
         row.update(
             {
                 "margin": margin,
                 "se": se,
-                "ci_lower": margin - z_crit * se,
-                "ci_upper": margin + z_crit * se,
+                "ci_lower": margin - crit * se,
+                "ci_upper": margin + crit * se,
             }
         )
         rows.append(row)
-
-    return pd.DataFrame(rows)
-
-
-def _margin_gradient(params: pd.Series, df_mod: pd.DataFrame) -> np.ndarray:
-    """Gradient of average prediction w.r.t. parameter vector (for delta method)."""
-    n = len(df_mod)
-    p = len(params)
-    grad = np.zeros(p)
-
-    for i in range(n):
-        row = df_mod.iloc[i]
-        for j, (term, _coef) in enumerate(params.items()):
-            val = 1.0
-            for part in term.split(":"):
-                comp = _component_value(part, row, None, None)
-                if comp is None:
-                    val = 0.0
-                    break
-                val *= comp
-            grad[j] += val
-
-    grad /= n
-    return grad
+    out = pd.DataFrame(rows)
+    out.attrs.update(ctx.attrs())
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -830,102 +992,79 @@ def contrast(
     >>> c["contrast_label"].tolist()
     ['1.0 vs 0', '2.0 vs 0']
     """
-    params = result.params
-    _require_linear_prediction(result, "this margins function")
-    vcov = _get_vcov(result)
-    z_crit = stats.norm.ppf(1 - alpha / 2)
+    ctx = _MarginsContext(result, data, alpha=alpha)
+    _require_model_variable(ctx, variable, "contrast")
+    V = ctx.vcov()
+    ppf, sf = _t_or_z(ctx.df)
+    crit = ppf(1 - alpha / 2)
 
-    levels = sorted(data[variable].unique())
+    levels = sorted(ctx.frame[variable].dropna().unique())
+    level_margins, level_grads = _level_margins(ctx, variable, levels)
 
-    # Compute predictive margin and gradient at each level
-    level_margins = {}
-    level_grads = {}
-    level_counts = {}
-    for lev in levels:
-        df_mod = data.copy()
-        df_mod[variable] = lev
-        preds = np.array(
-            [
-                _predict_row(params, df_mod.iloc[i], var_to_change=None, new_val=None)
-                for i in range(len(df_mod))
-            ]
-        )
-        level_margins[lev] = float(np.mean(preds))
-        level_grads[lev] = _margin_gradient(params, df_mod)
-        level_counts[lev] = int((data[variable] == lev).sum())
+    def _row(label: str, diff: float, grad_diff: np.ndarray) -> Dict[str, Any]:
+        se = float(np.sqrt(max(float(grad_diff @ V @ grad_diff), 0.0)))
+        z = diff / se if se > 0 else 0.0
+        return {
+            "contrast_label": label,
+            "contrast": diff,
+            "se": se,
+            "z": z,
+            "pvalue": float(2 * sf(abs(z))),
+            "ci_lower": diff - crit * se,
+            "ci_upper": diff + crit * se,
+        }
 
-    # Build contrasts
     rows = []
     if method == "r":
         if reference is None:
             reference = levels[0]
-        for lev in levels:
-            if lev == reference:
-                continue
-            diff = level_margins[lev] - level_margins[reference]
-            grad_diff = level_grads[lev] - level_grads[reference]
-            se = float(np.sqrt(grad_diff @ vcov @ grad_diff))
-            z = diff / se if se > 0 else 0.0
-            pv = float(2 * stats.norm.sf(abs(z)))
-            rows.append(
-                {
-                    "contrast_label": f"{lev} vs {reference}",
-                    "contrast": diff,
-                    "se": se,
-                    "z": z,
-                    "pvalue": pv,
-                    "ci_lower": diff - z_crit * se,
-                    "ci_upper": diff + z_crit * se,
-                }
+        ref_key = next((lv for lv in levels if _same_level(lv, reference)), None)
+        if ref_key is None:
+            raise MethodIncompatibility(
+                f"contrast: reference level {reference!r} is not observed in "
+                f"{variable!r} (levels {levels}).",
             )
-
+        for lev in levels:
+            if lev == ref_key:
+                continue
+            rows.append(
+                _row(
+                    f"{lev} vs {reference}",
+                    level_margins[lev] - level_margins[ref_key],
+                    level_grads[lev] - level_grads[ref_key],
+                )
+            )
     elif method == "ar":
         for i in range(1, len(levels)):
             lev, prev = levels[i], levels[i - 1]
-            diff = level_margins[lev] - level_margins[prev]
-            grad_diff = level_grads[lev] - level_grads[prev]
-            se = float(np.sqrt(grad_diff @ vcov @ grad_diff))
-            z = diff / se if se > 0 else 0.0
-            pv = float(2 * stats.norm.sf(abs(z)))
             rows.append(
-                {
-                    "contrast_label": f"{lev} vs {prev}",
-                    "contrast": diff,
-                    "se": se,
-                    "z": z,
-                    "pvalue": pv,
-                    "ci_lower": diff - z_crit * se,
-                    "ci_upper": diff + z_crit * se,
-                }
+                _row(
+                    f"{lev} vs {prev}",
+                    level_margins[lev] - level_margins[prev],
+                    level_grads[lev] - level_grads[prev],
+                )
             )
-
     elif method == "gw":
-        total_n = sum(level_counts.values())
-        weights = {lev: level_counts[lev] / total_n for lev in levels}
-        grand_margin = sum(weights[lev] * level_margins[lev] for lev in levels)
-        grand_grad = sum(weights[lev] * level_grads[lev] for lev in levels)
-
+        col = ctx.frame[variable]
+        shares = {
+            lev: float(ctx.mean((col == lev).to_numpy(dtype=float))) for lev in levels
+        }
+        grand_margin = sum(shares[lev] * level_margins[lev] for lev in levels)
+        grand_grad = sum(shares[lev] * level_grads[lev] for lev in levels)
         for lev in levels:
-            diff = level_margins[lev] - grand_margin
-            grad_diff = level_grads[lev] - grand_grad
-            se = float(np.sqrt(grad_diff @ vcov @ grad_diff))
-            z = diff / se if se > 0 else 0.0
-            pv = float(2 * stats.norm.sf(abs(z)))
             rows.append(
-                {
-                    "contrast_label": f"{lev} vs grand mean",
-                    "contrast": diff,
-                    "se": se,
-                    "z": z,
-                    "pvalue": pv,
-                    "ci_lower": diff - z_crit * se,
-                    "ci_upper": diff + z_crit * se,
-                }
+                _row(
+                    f"{lev} vs grand mean",
+                    level_margins[lev] - grand_margin,
+                    level_grads[lev] - grand_grad,
+                )
             )
     else:
         raise ValueError(f"Unknown contrast method '{method}'. Use 'r', 'ar', or 'gw'.")
 
-    return pd.DataFrame(rows)
+    out = pd.DataFrame(rows)
+    out.attrs.update(ctx.attrs())
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -989,65 +1128,48 @@ def pwcompare(
     >>> bool((pw["pvalue_adj"] >= pw["pvalue"]).all())
     True
     """
-    params = result.params
-    _require_linear_prediction(result, "this margins function")
-    vcov = _get_vcov(result)
+    ctx = _MarginsContext(result, data, alpha=alpha)
+    _require_model_variable(ctx, variable, "pwcompare")
+    V = ctx.vcov()
+    ppf, sf = _t_or_z(ctx.df)
 
-    levels = sorted(data[variable].unique())
+    levels = sorted(ctx.frame[variable].dropna().unique())
+    level_margins, level_grads = _level_margins(ctx, variable, levels)
 
-    # Compute margin & gradient at each level
-    level_margins = {}
-    level_grads = {}
-    for lev in levels:
-        df_mod = data.copy()
-        df_mod[variable] = lev
-        preds = np.array(
-            [
-                _predict_row(params, df_mod.iloc[i], var_to_change=None, new_val=None)
-                for i in range(len(df_mod))
-            ]
-        )
-        level_margins[lev] = float(np.mean(preds))
-        level_grads[lev] = _margin_gradient(params, df_mod)
-
-    # All pairwise comparisons
-    pairs = []
-    for i in range(len(levels)):
-        for j in range(i + 1, len(levels)):
-            pairs.append((levels[i], levels[j]))
-
+    pairs = [
+        (levels[i], levels[j])
+        for i in range(len(levels))
+        for j in range(i + 1, len(levels))
+    ]
     n_comp = len(pairs)
     rows = []
     for lev_a, lev_b in pairs:
         diff = level_margins[lev_b] - level_margins[lev_a]
         grad_diff = level_grads[lev_b] - level_grads[lev_a]
-        se = float(np.sqrt(grad_diff @ vcov @ grad_diff))
+        se = float(np.sqrt(max(float(grad_diff @ V @ grad_diff), 0.0)))
         z = diff / se if se > 0 else 0.0
-        pv = float(2 * stats.norm.sf(abs(z)))
         rows.append(
             {
                 "comparison": f"{lev_b} vs {lev_a}",
                 "diff": diff,
                 "se": se,
                 "z": z,
-                "pvalue": pv,
+                "pvalue": float(2 * sf(abs(z))),
             }
         )
 
-    # Adjust p-values
     raw_pvals = [r["pvalue"] for r in rows]
     adj_pvals = _adjust_pvalues(raw_pvals, method=adjust, n_comparisons=n_comp)
-
-    # Determine adjusted alpha for CIs
     alpha_adj = _adjusted_alpha(alpha, adjust, n_comp)
-    z_crit = stats.norm.ppf(1 - alpha_adj / 2)
-
+    crit = ppf(1 - alpha_adj / 2)
     for r, padj in zip(rows, adj_pvals):
         r["pvalue_adj"] = padj
-        r["ci_lower"] = r["diff"] - z_crit * r["se"]
-        r["ci_upper"] = r["diff"] + z_crit * r["se"]
+        r["ci_lower"] = r["diff"] - crit * r["se"]
+        r["ci_upper"] = r["diff"] + crit * r["se"]
 
-    return pd.DataFrame(rows)
+    out = pd.DataFrame(rows)
+    out.attrs.update(ctx.attrs())
+    return out
 
 
 def _adjust_pvalues(
@@ -1062,7 +1184,10 @@ def _adjust_pvalues(
     elif method == "bonferroni":
         return [float(p) for p in np.minimum(pvals * n_comparisons, 1.0).tolist()]
     elif method == "sidak":
-        return [float(p) for p in (1.0 - (1.0 - pvals) ** n_comparisons).tolist()]
+        # 1 - (1 - p)^m cancels to exactly 0 for p < ~1e-17; the log1p /
+        # expm1 form keeps full precision (Stata reports 7.0e-26 there).
+        sidak = -np.expm1(n_comparisons * np.log1p(-pvals))
+        return [float(p) for p in np.minimum(sidak, 1.0).tolist()]
     elif method == "holm":
         n = len(pvals)
         order = np.argsort(pvals)
@@ -1089,7 +1214,7 @@ def _adjusted_alpha(alpha: float, method: str, n_comparisons: int) -> float:
     elif method == "bonferroni":
         return alpha / n_comparisons
     elif method == "sidak":
-        return float(1.0 - (1.0 - alpha) ** (1.0 / n_comparisons))
+        return float(-np.expm1(np.log1p(-alpha) / n_comparisons))
     elif method == "holm":
         # Conservative: use Bonferroni alpha for CIs
         return alpha / n_comparisons

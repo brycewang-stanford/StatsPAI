@@ -29,6 +29,8 @@ def dgp_did(
     n_groups: int = 4,
     heterogeneous: bool = False,
     seed: int | None = None,
+    ddd: bool = False,
+    ddd_confound: float = 1.0,
 ) -> pd.DataFrame:
     """Generate Difference-in-Differences panel data.
 
@@ -48,11 +50,23 @@ def dgp_did(
         If True, the treatment effect varies by unit.
     seed : int or None
         Random seed for reproducibility.
+    ddd : bool, default False
+        Triple-difference design (non-staggered only). Adds a binary
+        ``subgroup`` column (drawn per unit); the treatment effect applies
+        only to ``subgroup == 1`` units of the treated group, and every
+        treated-group unit (both subgroups) also receives a post-period
+        shock of size ``ddd_confound``. Plain DiD on the eligible subgroup
+        is then biased by ``ddd_confound``; DDD recovers ``effect``. The
+        draws for all other columns are identical to ``ddd=False``.
+    ddd_confound : float, default 1.0
+        Treated-group x post shock shared by both subgroups (``ddd=True``).
 
     Returns
     -------
     pd.DataFrame
-        Columns: ``unit``, ``time``, ``y``, ``treated``, ``first_treat``, ``group``.
+        Columns: ``unit``, ``time``, ``y``, ``treated``, ``first_treat``, ``group``
+        (plus ``subgroup`` when ``ddd=True``; ``treated`` is then the
+        effective treatment ``group * post * subgroup``).
         ``df.attrs['true_effect']`` stores the average treatment effect.
 
     Examples
@@ -116,6 +130,17 @@ def dgp_did(
     df["unit"] = df["unit"].astype(int)
     df["time"] = df["time"].astype(int)
     df["group"] = df["group"].astype(int)
+    if ddd:
+        if staggered:
+            raise ValueError("dgp_did(ddd=True) requires staggered=False")
+        sub = rng.integers(0, 2, size=n_units)
+        s_row = sub[df["unit"].to_numpy()]
+        post_g = df["treated"].to_numpy()  # = group * post before the DDD edit
+        eff = unit_effects[df["unit"].to_numpy()]
+        # remove the effect from ineligible units, add the shared shock
+        df["y"] = df["y"] - eff * post_g * (1 - s_row) + ddd_confound * post_g
+        df["treated"] = post_g * s_row
+        df["subgroup"] = s_row.astype(int)
     df.attrs["true_effect"] = effect
     return df
 
@@ -906,6 +931,7 @@ def dgp_bartik(
     n_industries: int = 10,
     effect: float = 1.0,
     seed: int | None = None,
+    endogenous: bool = False,
 ) -> dict:
     """Generate shift-share (Bartik) instrument data.
 
@@ -919,11 +945,19 @@ def dgp_bartik(
         True effect of the Bartik instrument on the outcome.
     seed : int or None
         Random seed.
+    endogenous : bool, default False
+        If True, generate a structural shift-share IV instead of the reduced
+        form: an endogenous regressor ``x = bartik + v`` and
+        ``y = effect * x + e`` with ``corr(v, e) = 0.6``, so OLS of ``y`` on
+        ``x`` is biased and ``sp.bartik(data, y='y', endog='x',
+        shares=out['shares'], shocks=out['shocks'])`` recovers ``effect``.
+        The default (reduced-form) draws are unchanged.
 
     Returns
     -------
     dict
-        ``'data'``: DataFrame with ``y``, ``bartik``, ``region``;
+        ``'data'``: DataFrame with ``y``, ``bartik``, ``region`` (plus ``x``
+        when ``endogenous=True``);
         ``'shares'``: (n_regions, n_industries) array;
         ``'shocks'``: (n_industries,) array.
 
@@ -946,6 +980,20 @@ def dgp_bartik(
 
     # Bartik instrument
     bartik = shares @ shocks
+
+    if endogenous:
+        # Scale the instrument so the first stage is strong at moderate n.
+        z = (bartik - bartik.mean()) / bartik.std()
+        v, e = rng.multivariate_normal(
+            [0.0, 0.0], [[1.0, 0.6], [0.6, 1.0]], size=n_regions
+        ).T
+        x = z + v
+        y = effect * x + e
+        data = pd.DataFrame(
+            {"y": y, "x": x, "bartik": bartik, "region": np.arange(n_regions)}
+        )
+        data.attrs["true_effect"] = effect
+        return {"data": data, "shares": shares, "shocks": shocks}
 
     y = effect * bartik + rng.normal(0, 1, size=n_regions)
 

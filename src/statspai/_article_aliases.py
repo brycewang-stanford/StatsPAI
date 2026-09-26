@@ -1140,7 +1140,9 @@ def dml(
     (``plr`` / ``pliv`` to machine precision under shared learners and
     folds). Declared scope boundaries — single scalar instrument for
     ``pliv`` / ``iivm`` (use ``sp.scalar_iv_projection`` for multiple
-    instruments), one treatment per call, and DML2 procedure only are detailed in the
+    instruments), several treatments only for ``plr`` (``treat=[d1, d2]``
+    returns the joint score covariance, DoubleML's multi-``d`` PLR), and
+    DML2 procedure only are detailed in the
     :func:`statspai.dml.dml` docstring and the guide *"sp.dml and the
     DoubleML reference implementation"*.
 
@@ -1190,6 +1192,30 @@ def dml(
             diagnostics={"function": "dml", "d": d, "treat": treat},
         )
     treat_final = treat if treat is not None else d
+    if isinstance(treat_final, (list, tuple)) and len(treat_final) > 1:
+        # Several treatments: PLR per treatment on one split, other
+        # treatments as controls, joint score covariance (DoubleML's
+        # multi-d convention); see statspai.dml._multi.
+        from .dml._multi import dml_multi_treatment
+
+        treats = [_require_column_name(t, "treat", "dml") for t in treat_final]
+        cov_multi = _coerce_column_list(
+            covariates if covariates is not None else X, "covariates", "dml"
+        )
+        if model_y is not None:
+            kwargs.setdefault("ml_g", model_y)
+        if model_d is not None:
+            kwargs.setdefault("ml_m", model_d)
+        if store_oof or external_predictions is not None:
+            raise MethodIncompatibility(
+                "dml with several treatments does not support store_oof / "
+                "external_predictions."
+            )
+        return dml_multi_treatment(
+            data, y, treats, list(cov_multi), dict(kwargs, model=model)
+        )
+    if isinstance(treat_final, (list, tuple)) and len(treat_final) == 1:
+        treat_final = treat_final[0]
     if treat_final is not None:
         treat_final = _require_column_name(treat_final, "treat", "dml")
     X_final = _coerce_column_list(X, "X", "dml", allow_none=True)

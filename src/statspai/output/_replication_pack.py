@@ -57,10 +57,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Union
 
 from ._bibliography import citations_to_bib_entries
-from ._lineage import (
-    compute_data_hash,
-    lineage_summary,
-)
+from ._lineage import compute_data_hash, lineage_summary
 
 __all__ = ["replication_pack", "ReplicationPack"]
 
@@ -271,6 +268,71 @@ def _resolve_caller_code(code: Optional[str]) -> Optional[str]:
     return None
 
 
+_THREAD_ENV = (
+    "OMP_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS",
+    "NUMBA_NUM_THREADS",
+    "RAYON_NUM_THREADS",
+    "PYTHONHASHSEED",
+    "STATSPAI_SKIP_RUST",
+)
+
+
+def _runtime_record() -> Dict[str, Any]:
+    """What can change numbers without changing code: backends, threads, BLAS.
+
+    ``pip freeze`` pins packages; it does not say whether the optional Rust
+    HDFE kernel, numba or JAX were importable, which BLAS numpy links, or
+    how many threads were allowed -- each of which selects a different code
+    path or summation order.
+    """
+    import platform
+
+    rec: Dict[str, Any] = {
+        "machine": platform.machine(),
+        "cpu_count": os.cpu_count(),
+        "thread_env": {k: os.environ.get(k) for k in _THREAD_ENV if os.environ.get(k)},
+    }
+    from importlib import metadata as _md
+    from importlib.util import find_spec
+
+    backends: Dict[str, Any] = {}
+    for mod in (
+        "statspai_hdfe",
+        "numba",
+        "jax",
+        "pyfixest",
+        "torch",
+        "pymc",
+        "rdrobust",
+    ):
+        # find_spec + distribution metadata: availability without importing
+        # (importing torch just to record its version would cost seconds).
+        try:
+            if find_spec(mod) is None:
+                backends[mod] = None
+                continue
+        except (ImportError, ValueError):
+            backends[mod] = None
+            continue
+        try:
+            backends[mod] = _md.version(mod.replace("_", "-"))
+        except _md.PackageNotFoundError:
+            backends[mod] = "available"
+    rec["optional_backends"] = backends
+    try:
+        import numpy as np
+
+        cfg = np.show_config(mode="dicts")  # numpy >= 1.25
+        blas = (cfg or {}).get("Build Dependencies", {}).get("blas", {})
+        rec["blas"] = {k: blas.get(k) for k in ("name", "version") if blas.get(k)}
+    except Exception:  # noqa: BLE001 — older numpy: no structured config
+        rec["blas"] = None
+    return rec
+
+
 def _readme(
     title: str,
     paper_filename: Optional[str],
@@ -331,6 +393,18 @@ def _readme(
             "```",
             "",
             "and compare against the value in `MANIFEST.json`.",
+            "",
+            "## Verifying the rerun",
+            "",
+            "Run from the directory holding the archive; this unpacks it into a "
+            "fresh directory, checks every hash, reruns `code/script.py` there "
+            "(the script should read `data/dataset.csv`) and compares the "
+            "estimates and standard errors with `results/results.json`:",
+            "",
+            "```bash",
+            'python -c "import statspai as sp; '
+            "print(sp.verify_replication_pack('<this archive>.zip'))\"",
+            "```",
         ]
     )
     return "\n".join(lines) + "\n"
@@ -417,6 +491,7 @@ def replication_pack(
     extra_files: Optional[Mapping[str, Union[str, bytes]]] = None,
     include_git_sha: bool = True,
     overwrite: bool = True,
+    strict: bool = False,
 ) -> ReplicationPack:
     """Build a replication archive.
 
@@ -457,6 +532,13 @@ def replication_pack(
         skipped when not in a repo).
     overwrite : bool, default True
         Overwrite an existing archive at ``output_path``.
+    strict : bool, default False
+        Delivery mode. The default is tolerant (a partial pack, with the
+        gaps listed in ``warnings``, is more useful while exploring). With
+        ``strict=True`` a pack that could not be rerun by a third party --
+        no code, no data, no environment, or any failed step -- raises
+        ``MethodIncompatibility`` instead of being written. Check a strict
+        pack end to end with :func:`sp.verify_replication_pack`.
 
     Returns
     -------
@@ -618,6 +700,17 @@ def replication_pack(
         except Exception as exc:
             warnings.append(f"lineage summary failed: {type(exc).__name__}: {exc}")
 
+    # ------- result records (for sp.verify_replication_pack) ---------
+    if results:
+        from ._lineage import result_record
+
+        records = [r for r in (result_record(res) for res in results) if r]
+        if records:
+            _put(
+                "results/results.json",
+                json.dumps(records, indent=2, default=str) + "\n",
+            )
+
     # ------- extras ---------------------------------------------------
     if extra_files:
         for k, v in extra_files.items():
@@ -637,6 +730,28 @@ def replication_pack(
     )
     _put("README.md", readme)
 
+    if strict:
+        missing = [
+            what
+            for what, ok in (
+                ("code (code=...)", "code/script.py" in archive),
+                ("data (data=... or target.data)", "data/dataset.csv" in archive),
+                ("environment (env=True)", "env/requirements.txt" in archive),
+            )
+            if not ok
+        ]
+        if missing or warnings:
+            from ..exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                "replication_pack(strict=True): the archive would not be "
+                "re-runnable by a third party -- "
+                + "; ".join(([f"missing {m}" for m in missing]) + list(warnings)),
+                recovery_hint="Supply the missing pieces, or build with "
+                "strict=False for an exploratory pack.",
+                diagnostics={"missing": missing, "warnings": list(warnings)},
+            )
+
     # ------- top-level MANIFEST.json ---------------------------------
     manifest: Dict[str, Any] = {
         "title": title,
@@ -653,6 +768,8 @@ def replication_pack(
             manifest["git_sha"] = sha
     if results:
         manifest["n_results_with_provenance"] = len(results)
+    manifest["strict"] = bool(strict)
+    manifest["runtime"] = _runtime_record()
 
     manifest_bytes = (json.dumps(manifest, indent=2, default=str) + "\n").encode(
         "utf-8"

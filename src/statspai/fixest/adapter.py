@@ -11,6 +11,15 @@ import pandas as pd
 from ..core.results import EconometricResults
 
 
+def _pyfixest_version() -> Any:
+    try:
+        from importlib.metadata import version
+
+        return version("pyfixest")
+    except Exception:  # noqa: BLE001 — metadata only; never block the fit
+        return None
+
+
 def _pyfixest_to_econometric_results(
     fit: Any,
     vcov: Optional[Union[str, Dict[str, str]]] = None,
@@ -54,7 +63,16 @@ def _pyfixest_to_econometric_results(
     # --- nobs / degrees of freedom ---
     nobs = int(fit._N) if hasattr(fit, "_N") else len(params)
     k = len(params)
-    df_resid = nobs - k
+    # Residual df counts the absorbed fixed-effect levels too (pyfixest's
+    # ``_df_k`` = regressors + FE parameters), as R fixest's t(N - K). Using
+    # N - k (regressors only) made every feols interval slightly too narrow
+    # and handed downstream users (sp.test, mi_estimate) the wrong df.
+    k_total = getattr(fit, "_df_k", None)
+    try:
+        k_total = int(k_total) if k_total is not None else k
+    except (TypeError, ValueError):
+        k_total = k
+    df_resid = nobs - max(k, k_total)
 
     # --- R-squared ---
     diagnostics: Dict[str, Any] = {}
@@ -98,6 +116,13 @@ def _pyfixest_to_econometric_results(
         "formula": fml_str,
         "vcov_type": vcov_type,
         "fixed_effects": fe_info,
+        # Which implementation produced the numbers (review 2026-09: the
+        # top-level sp.feols delegates to pyfixest; sp.fast.feols is the
+        # native kernel with a different feature set). Surfaced by
+        # sp.result_card and describable without reading the source.
+        "backend": "pyfixest",
+        "backend_version": _pyfixest_version(),
+        "implementation": "delegate",
     }
 
     # --- cluster count (for few-clusters diagnostic) ---
@@ -122,6 +147,23 @@ def _pyfixest_to_econometric_results(
         "df_resid": df_resid,
         "n_params": k,
     }
+    # The full coefficient covariance pyfixest computed. Without it every
+    # multi-coefficient postestimation (sp.test, lincom, margins) refused a
+    # feols fit for want of the off-diagonal terms. Stored only when its
+    # diagonal reproduces the reported SEs.
+    V = getattr(fit, "_vcov", None)
+    if V is not None:
+        V = np.asarray(V, dtype=float)
+        se_arr = np.asarray(std_errors, dtype=float)
+        if V.shape == (len(se_arr), len(se_arr)) and np.allclose(
+            np.sqrt(np.clip(np.diag(V), 0, None)), se_arr, rtol=1e-8, atol=1e-14
+        ):
+            data_info["var_cov"] = V
+    # Clustered (CRV) inference uses t(G - 1), as pyfixest / fixest and
+    # Stata do. Without this the intervals (and sp.test's F denominator)
+    # used the residual df: a clustered CI came out too narrow.
+    if model_info.get("n_clusters") and str(vcov_type).upper().startswith("CRV"):
+        data_info["df_inference"] = int(model_info["n_clusters"]) - 1
 
     # Try to attach residuals and fitted values. A failure here silently
     # disables the standalone SE menu (`cr2_se`, `wild_cluster_boot`, ...)

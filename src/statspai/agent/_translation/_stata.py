@@ -720,6 +720,18 @@ def _h_glm_like(cmd: StataCommand, *, sp_fn: str, display_name: str) -> Dict[str
         code_pairs.append(f"cluster={cluster!r}")
     if "robust" in args:
         code_pairs.append(f"robust={robust!r}")
+    for opt in ("exposure", "offset"):
+        val = cmd.options.get(opt)
+        if val and sp_fn in ("poisson", "nbreg"):
+            args[opt] = val.split()[0]
+            code_pairs.append(f"{opt}={args[opt]!r}")
+        elif val:
+            return _emit_error(
+                f"{display_name}: option {opt}() is not carried over by "
+                f"sp.{sp_fn}.",
+                command=display_name,
+                suggestions=[],
+            )
     python = f"sp.{sp_fn}({formula!r}, " + ", ".join(code_pairs) + ")"
     return _emit(sp_fn, args, python)
 
@@ -1417,6 +1429,193 @@ def _coerce_scalar(s: str) -> Any:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Semantic normalisation shared by every handler
+# ---------------------------------------------------------------------------
+#
+# The handlers were written against plain varlists. Two pieces of ordinary
+# Stata grammar used to pass through verbatim -- factor-variable notation
+# (``i.g``, ``c.x#c.x``) and the weight clause (``[aw=w]``) -- and ended up
+# inside the formula with ``ok=True``, i.e. a confident but broken
+# translation. They are now translated or refused before any handler runs.
+
+_WEIGHT_RE = re.compile(
+    r"\[\s*(aw|aweights?|pw|pweights?|fw|fweights?|iw|iweights?)\s*=\s*"
+    r"([A-Za-z_]\w*)\s*\]",
+    re.I,
+)
+_TS_OP_RE = re.compile(r"^(?:[LDFS]\d*|[LDF]\([^)]*\))\.[A-Za-z_]", re.I)
+#: Tokens that use factor-variable syntax (anything else -- plain names,
+#: lincom / test expressions -- passes through untouched).
+_FV_RE = re.compile(r"^(?:i|c|ibn|ib\d+)\.|#", re.I)
+
+
+def _fv_part(tok: str) -> Optional[str]:
+    """One factor-variable component -> formula syntax (None: unsupported)."""
+    m = re.fullmatch(r"i\.([A-Za-z_]\w*)", tok)
+    if m:
+        return f"C({m.group(1)})"
+    m = re.fullmatch(r"ib(\d+)\.([A-Za-z_]\w*)", tok)
+    if m:
+        return f"C({m.group(2)}, Treatment({m.group(1)}))"
+    m = re.fullmatch(r"ibn\.([A-Za-z_]\w*)", tok)
+    if m:
+        return f"C({m.group(1)})"
+    m = re.fullmatch(r"c\.([A-Za-z_]\w*)", tok)
+    if m:
+        return m.group(1)
+    if re.fullmatch(r"[A-Za-z_]\w*", tok):
+        return tok
+    return None
+
+
+def _fv_token(tok: str) -> Optional[str]:
+    """A varlist token in factor-variable notation -> formula syntax."""
+    if "##" in tok:
+        # a##b is a + b + a#b; going through the '#' rule keeps c.x##c.x
+        # as x + I(x**2) (x*x would collapse to x in the formula language).
+        raw = tok.split("##")
+        mains = [_fv_part(t) for t in raw]
+        inter = _fv_token("#".join(raw))
+        if None in mains or inter is None:
+            return None
+        terms: List[str] = []
+        for t in mains + [inter]:  # type: ignore[operator]
+            if t not in terms:
+                terms.append(t)  # type: ignore[arg-type]
+        return " + ".join(terms)
+    if "#" in tok:
+        raw = tok.split("#")
+        parts = [_fv_part(t) for t in raw]
+        if None in parts:
+            return None
+        # c.x#c.x is the square of x (x:x would collapse to x)
+        if len(set(parts)) == 1 and all(r.startswith("c.") for r in raw):
+            return f"I({parts[0]}**{len(parts)})"
+        return ":".join(parts)  # type: ignore[arg-type]
+    return _fv_part(tok)
+
+
+def _normalise_command(cmd: StataCommand) -> Tuple[Optional[str], Dict[str, Any]]:
+    """Strip the weight clause and translate factor notation in place.
+
+    Returns ``(error, info)``; ``info`` carries ``weight`` = (kind, var) and
+    ``semantics`` notes.
+    """
+    info: Dict[str, Any] = {"weight": None, "semantics": []}
+    joined = " ".join(cmd.varlist)
+    m = _WEIGHT_RE.search(joined)
+    if m:
+        info["weight"] = (m.group(1).lower()[:2], m.group(2))
+        joined = (joined[: m.start()] + " " + joined[m.end() :]).strip()
+    elif "[" in joined:
+        return "unrecognised weight clause in " + repr(joined), info
+    toks = joined.split()
+    out: List[str] = []
+    factor_used = False
+    for tok in toks:
+        if _TS_OP_RE.match(tok):
+            return (
+                f"time-series operator {tok!r} is not translated; create the "
+                "lag / difference as a column first",
+                info,
+            )
+        if not _FV_RE.search(tok):
+            out.append(tok)
+            continue
+        new = _fv_token(tok)
+        if new is None:
+            return f"factor-variable term {tok!r} is not translated", info
+        factor_used = factor_used or "C(" in new
+        out.append(new)
+    cmd.varlist = out
+    if factor_used:
+        info["semantics"].append(
+            "i.var -> C(var): the base (omitted) level is the lowest one, as "
+            "Stata's default; ib#. is mapped to Treatment(#)."
+        )
+    return None, info
+
+
+def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str, Any]:
+    """Attach a Stata weight to a translated call, or refuse it."""
+    import inspect
+
+    import statspai as sp
+
+    kind, var = weight
+    fn = getattr(sp, str(payload.get("tool") or ""), None)
+    try:
+        params = inspect.signature(inspect.unwrap(fn)).parameters if fn else {}
+    except (TypeError, ValueError):
+        params = {}
+    if "weights" not in params:
+        return _emit_error(
+            f"[{kind}={var}] cannot be carried over: sp.{payload.get('tool')} "
+            "takes no weights= argument.",
+            command=payload.get("tool"),
+            suggestions=[],
+        )
+    code = payload["python_code"]
+    sem = payload.setdefault("semantics", [])
+    if kind == "iw":
+        return _emit_error(
+            f"[iw={var}] (importance weights) has no StatsPAI equivalent; "
+            "their scaling is estimator-specific in Stata.",
+            command=payload.get("tool"),
+            suggestions=[],
+        )
+    if kind == "fw":
+        # Frequency weights: each row stands for w identical rows. weights=
+        # would treat them as analytic weights (other SEs / df), and a tool
+        # call's arguments cannot carry a row expansion, so refuse with the
+        # exact rewrite.
+        expanded = code.replace(
+            "data=df", f"data=df.loc[df.index.repeat(df[{var!r}])]", 1
+        )
+        return _emit_error(
+            f"[fw={var}] (frequency weights) is exact only by expanding rows, "
+            f"which a tool call cannot express; run: {expanded}",
+            command=payload.get("tool"),
+            suggestions=[expanded],
+        )
+    else:
+        payload["arguments"]["weights"] = var
+        code = code.replace("data=df", f"data=df, weights={var!r}", 1)
+        if kind == "aw":
+            sem.append(f"[aw={var}] -> weights={var!r} (analytic weights).")
+        else:
+            sem.append(
+                f"[pw={var}] -> weights={var!r}; Stata's pweights imply "
+                "robust standard errors."
+            )
+            args = payload["arguments"]
+            if (
+                "robust" in params
+                and not args.get("robust")
+                and not args.get("cluster")
+            ):
+                args["robust"] = "hc1"
+                code = code.replace(
+                    f"weights={var!r}", f"weights={var!r}, robust='hc1'", 1
+                )
+    payload["python_code"] = code
+    return payload
+
+
+_POSTEST_HANDLERS = frozenset(
+    {
+        _h_margins,
+        _h_marginsplot,
+        _h_contrast,
+        _h_test,
+        _h_lincom,
+        _h_xtset,
+        _h_boottest,
+    }
+)
+
+
 def from_stata(line: str) -> Dict[str, Any]:
     """Translate a Stata command line to a StatsPAI tool-call payload.
 
@@ -1478,7 +1677,28 @@ def from_stata(line: str) -> Dict[str, Any]:
             suggestions=suggestions,
         )
 
-    return handler(parsed)
+    info: Dict[str, Any]
+    if handler in _POSTEST_HANDLERS:
+        # postestimation commands take variable names / expressions, which
+        # their handlers interpret themselves (``contrast i.g`` -> ``g``)
+        err, info = None, {"weight": None, "semantics": []}
+    else:
+        err, info = _normalise_command(parsed)
+    if err is not None:
+        return _emit_error(err, command=parsed.command, suggestions=[])
+    payload = handler(parsed)
+    if not payload.get("ok"):
+        return payload
+    payload.setdefault("semantics", [])
+    payload["semantics"] = list(info["semantics"]) + payload["semantics"]
+    if info["weight"] is not None:
+        payload = _apply_weight(payload, info["weight"])
+    if payload.get("ok") and parsed.if_cond:
+        payload["semantics"].append(
+            "The `if` sample is not applied by the call; filter df first "
+            "(see notes)."
+        )
+    return payload
 
 
 __all__ = ["from_stata", "STATA_COMMAND_MAP", "StataCommand", "StataParseError"]

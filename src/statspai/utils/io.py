@@ -13,8 +13,8 @@ This addresses the #1 pain point for Stata → Python migration:
 pandas' ``read_stata()`` loses variable labels silently.
 """
 
-from typing import Any, Optional
 from pathlib import Path
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -85,32 +85,55 @@ def read_data(
 
 
 def _read_stata(path: str, **kwargs: Any) -> pd.DataFrame:
-    """Read .dta with variable labels preserved."""
-    import pyreadstat
+    """Read .dta with variable and value labels preserved.
 
+    ``pyreadstat`` (``pip install statspai[io]``) is preferred.  Without it
+    the pandas reader is used; it keeps variable labels and value labels as
+    well, and value-labelled columns keep their numeric codes (as with
+    pyreadstat) rather than being converted to categoricals, so the two
+    paths return the same frame layout.
+    """
     try:
-        df, meta = pyreadstat.read_dta(path, **kwargs)
-        # Store variable labels
-        if meta.column_names_to_labels:
-            df.attrs["_labels"] = {
-                k: v
-                for k, v in meta.column_names_to_labels.items()
-                if v  # skip empty labels
-            }
-        # Store value labels
-        if meta.variable_value_labels:
-            df.attrs["_value_labels"] = meta.variable_value_labels
-        return df
+        import pyreadstat
     except ImportError:
-        # Fallback to pandas (loses labels)
-        import warnings
+        return _read_stata_pandas(path, **kwargs)
 
-        warnings.warn(
-            "pyreadstat not installed. Variable labels from .dta will be lost. "
-            "Install: pip install pyreadstat",
-            UserWarning,
-        )
-        return pd.read_stata(path, **kwargs)
+    df, meta = pyreadstat.read_dta(path, **kwargs)
+    if meta.column_names_to_labels:
+        df.attrs["_labels"] = {
+            k: v for k, v in meta.column_names_to_labels.items() if v
+        }
+    if meta.variable_value_labels:
+        df.attrs["_value_labels"] = meta.variable_value_labels
+    return df
+
+
+def _read_stata_pandas(path: str, **kwargs: Any) -> pd.DataFrame:
+    """pandas fallback for .dta that still carries labels into ``attrs``."""
+    kwargs.setdefault("convert_categoricals", False)
+    with pd.read_stata(path, iterator=True, **kwargs) as reader:
+        df = reader.read()
+        var_labels = reader.variable_labels()
+        label_sets = reader.value_labels()
+        # value_labels() is keyed by label-set name; map sets to variables.
+        lbl_names = getattr(reader, "_lbllist", None) or []
+    labels = {k: v for k, v in var_labels.items() if v}
+    if labels:
+        df.attrs["_labels"] = labels
+    if not lbl_names:
+        # Private attribute gone in a future pandas: fall back to the common
+        # Stata convention of naming a label set after its variable.
+        lbl_names = [c if c in label_sets else "" for c in df.columns]
+    value_labels = {}
+    for col, lbl in zip(df.columns, lbl_names):
+        if lbl and lbl in label_sets:
+            value_labels[col] = {
+                (k.item() if hasattr(k, "item") else k): v
+                for k, v in label_sets[lbl].items()
+            }
+    if value_labels:
+        df.attrs["_value_labels"] = value_labels
+    return df
 
 
 def _read_sas(path: str, **kwargs: Any) -> pd.DataFrame:

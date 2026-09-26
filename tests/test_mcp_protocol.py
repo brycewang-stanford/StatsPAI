@@ -29,9 +29,9 @@ import pytest
 
 from statspai.agent.mcp_server import (
     MCP_PROTOCOL_VERSION,
-    SUPPORTED_PROTOCOL_VERSIONS,
     SERVER_NAME,
     SERVER_VERSION,
+    SUPPORTED_PROTOCOL_VERSIONS,
     handle_request,
 )
 
@@ -272,6 +272,7 @@ class TestAnnotationsAndOutputSchema:
             "result_id",
             "result_uri",
             "data_provenance",
+            "result_card",
             "error",
             "error_kind",
             "remediation",
@@ -343,6 +344,20 @@ class TestStructuredContent:
         assert result["isError"] is True
         assert isinstance(result.get("structuredContent"), dict)
         assert "error" in result["structuredContent"]
+
+    def test_result_card_reaches_structured_content(self, sample_csv):
+        msg = _rpc(
+            "tools/call",
+            {
+                "name": "regress",
+                "arguments": {"formula": "y ~ x", "data_path": str(sample_csv)},
+            },
+        )
+        card = msg["result"]["structuredContent"]["result_card"]
+        assert card["function"] == "regress"
+        assert card["sample"]["n_used"] == 300
+        assert card["evidence"]["level"] == "configuration"
+        assert card["inference"]["reference_distribution"] == "t(298)"
 
     def test_local_data_path_provenance_reaches_result_resource(self, sample_csv):
         expected_sha = hashlib.sha256(sample_csv.read_bytes()).hexdigest()

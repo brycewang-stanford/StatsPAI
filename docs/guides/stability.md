@@ -65,7 +65,7 @@ statspai describe rdrobust
 
 These are machine-readable through `sp.describe_function(name)["limitations"]` and should be treated as the priority backlog for production hardening:
 
-- `callaway_santanna`: repeated cross-sections currently support only `estimator="reg"` with `control_group="nevertreated"`.
+- `callaway_santanna`: repeated cross-sections (`panel=False`) support `estimator="dr"` / `"ipw"` / `"reg"` (Sant'Anna-Zhao `drdid_rc` / `std_ipw_did_rc` / `reg_did_rc`), both control groups and the multiplier bootstrap. Point estimates match R `did::att_gt(panel=FALSE)`; the simple-ATT standard errors carry a ~0.15% gap from how the aggregation denominator is formed and are held at 1% (`tests/reference_parity/test_cs_rcs_parity.py`). `clustervars=` under RCS requires `bstrap=True`.
 - `rdrobust`: observation-level weights are reserved and raise `NotImplementedError`; exact R parity is attached to `bwselect="cct"` or common manual bandwidths, while the default `mserd` selector is a documented convention.
 - `rddensity`: native default bandwidths, mass-point ECDF handling, and jackknife CJM local-density inference mirror `rddensity::rddensity` on the JSS parity fixture. Manual side-specific bandwidths are still treated as explicit user controls; `backend="r"` remains available when direct execution of the R package is required.
 - `synth`: ADH/Synth parity requires the same `special_predictors` recipe; SDID/augmented/gsynth rows include documented regularisation or local-optimum convention gaps.
@@ -77,7 +77,7 @@ These are machine-readable through `sp.describe_function(name)["limitations"]` a
 - `network_exposure`: only `design="bernoulli"` is implemented.
 - `etwfe`: `panel=False` with `cgroup="nevertreated"` is not implemented.
 - `continuous_did`: `method="cgs"` is an MVP without full CGS parity.
-- `did_multiplegt_dyn`: experimental MVP. Effects, placebos, switcher counts, `Av_tot_eff` and the analytic influence-function SEs are pinned to `DIDmultiplegtDYN` / Stata `did_multiplegt_dyn` (Track A 78 and the castle-doctrine reference test); `controls=`, trends, `normalized`/`continuous` and the heteroskedastic-weights variant are not implemented.
+- `did_multiplegt_dyn`: experimental. Effects, placebos, switcher counts, `Av_tot_eff` and the analytic influence-function SEs are pinned to `DIDmultiplegtDYN` / Stata `did_multiplegt_dyn` (Track A 78 and the castle-doctrine reference test); `controls=`, `trends_nonparam=`, `normalized=` and `continuous=` are implemented and pinned to `DIDmultiplegtDYN` 2.3.4 at machine precision (`tests/reference_parity/test_dcdh_options_parity.py`). **Not implemented:** `trends_lin` (an implementation following the reference's documentation does not reproduce its numbers past horizon 0, so it is withheld rather than shipped wrong — see `docs/rfc/multiplegt_dyn.md`), `predict_het`, and the heteroskedastic-weights variant; joint tests come from the cluster bootstrap only.
 
 ## Auditing
 

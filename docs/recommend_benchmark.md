@@ -47,23 +47,43 @@ python benchmarks/recommend_hit_rate/harness.py --check --min-hit-rate 0.9
 
 ## Current results
 
-15 designs — 8 Tier-A (bundled real data: Callaway-Sant'Anna `mpdta`,
-Card 1995, Angrist-Krueger 1991, Lee 2008, three Abadie synthetic-control
-studies, Dehejia-Wahba 1995) and 7 Tier-B adversarial archetypes (synthetic
-stubs via `sp.dgp_*`, each anchored to a DOI-verified method/critique paper):
+> Numbers below are a dated snapshot. The authoritative, regenerated copy is
+> [`benchmarks/recommend_hit_rate/scorecard.md`](https://github.com/brycewang-stanford/StatsPAI/tree/main/benchmarks/recommend_hit_rate/scorecard.md)
+> (written by `harness.py`); always quote it with its corpus version and
+> denominators. A hit-rate is a statement about **this corpus only**, not an
+> out-of-sample validity claim.
 
-| metric | value |
-| --- | --- |
-| top-1 hit-rate | **1.0** (15/15) |
-| hard-miss rate | **0.0** |
-| audit catalog mean recall (static) | 1.0 |
-| audit dynamic mean recall (fit+audit) | **1.0** |
+Snapshot: corpus `1.1.0-fifty`, StatsPAI 1.31.0+ (2026-09-26). **50 designs**:
+43 core + 7 frontier (gap-probe); by data source 10 Tier-A (bundled data — note
+that some bundled sets, e.g. `mpdta`, are documented simulated replicas rather
+than the original paper data) and 40 Tier-B (synthetic stubs via `sp.dgp_*`,
+each anchored to a DOI-verified paper).
+
+| metric | denominator | value |
+| --- | --- | --- |
+| core top-1 hit-rate | 43 core | **43/43** |
+| core hard-miss rate | 43 core | **0** |
+| audit catalog mean recall (static) | 43 core | 1.0 |
+| audit dynamic mean recall (fit+audit) | 43 core | 1.0 |
+| frontier top-1 hit | 7 frontier | 7/7 |
+| frontier fit + audit completed | 7 frontier | 7/7 |
+| **end-to-end** (acceptable top-1 *and* fitted *and* audited) | 50 all | **50/50** |
+
+"End-to-end" was added after the 2026-09-26 review found four frontier cases
+that recommended the right estimator and then failed to run (Bartik without
+shares/shocks, DDD without a subgroup, a four-period repeated-cross-section
+design routed into the two-period path). Each recommendation card now carries
+`ready`, `missing_arguments` and, where the design is not identified from the
+inputs, a `blocked` reason; `.run()` refuses a non-ready card with a message
+naming what is missing, and the CI gate fails on any frontier fit/audit error.
 
 The engine resisted every adversarial trap: staggered + heterogeneous effects →
 Callaway-Sant'Anna (never TWFE); weak instrument → LIML / Anderson-Rubin; strong
 instrument → 2SLS; single-treated-unit panel → synthetic control; strong
-confounding → propensity-score matching (never bare OLS). The live scorecard and
-the findings that drove fixes live in
+confounding → propensity-score matching (never bare OLS). Choosing a *tool* is
+not the same as establishing identification: e.g. PSM under strong confounding
+is a candidate estimator whose validity still rests on selection on
+observables. The live scorecard and the findings that drove fixes live in
 [`benchmarks/recommend_hit_rate/`](https://github.com/brycewang-stanford/StatsPAI/tree/main/benchmarks/recommend_hit_rate).
 
 ## Methodology and integrity
@@ -79,5 +99,6 @@ the findings that drove fixes live in
   paper's own section, a published methodological critique, or a later method
   the field expects) and never fabricates a referee report.
 - **Non-regressing.** The CI ratchet (`recommend-benchmark.yml`) fails the build
-  on any hard-miss, error, citation error, or hit-rate below the pinned floor —
+  on any hard-miss, recommend/fit/audit error (core *or* frontier), citation
+  error, or hit-rate below the pinned floor —
   so the moat cannot silently erode.

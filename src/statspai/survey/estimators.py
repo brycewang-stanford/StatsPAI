@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -108,6 +108,9 @@ def _design_vcov(scores: np.ndarray, design: "SurveyDesign") -> np.ndarray:
     scores = np.asarray(scores, dtype=np.float64)
     if scores.ndim == 1:
         scores = scores[:, None]
+    cal = getattr(design, "_calibration", None)
+    if cal is not None:
+        scores = _calibration_residuals(scores, design.weights, cal)
     p = scores.shape[1]
     strata = design._strata_codes
     psu = design._psu_codes
@@ -167,14 +170,75 @@ def _design_vcov(scores: np.ndarray, design: "SurveyDesign") -> np.ndarray:
     return vcov
 
 
-def _design_dof(design: "SurveyDesign") -> float:
+def _calibration_residuals(scores: np.ndarray, w: np.ndarray, cal: dict) -> np.ndarray:
+    """Replace ``w_i a_i`` by ``w_i (a_i - x_i'b)`` for a calibrated design.
+
+    ``b`` is the regression of the per-unit influence ``a = score / w`` on
+    the calibration variables, weighted by ``cal['reg_weights']`` (design
+    weights for the GREG convention of R ``survey::calibrate``; calibrated
+    weights for Stata ``svyset, rake()``). Residualising is invariant to how
+    the auxiliary columns are parametrised, so rank-deficient raking dummies
+    are handled by least squares.
+    """
+    X = cal["X"]
+    rw = np.sqrt(cal["reg_weights"])
+    a = scores / w[:, None]
+    coef, *_ = np.linalg.lstsq(X * rw[:, None], a * rw[:, None], rcond=None)
+    resid: np.ndarray = w[:, None] * (a - X @ coef)
+    return resid
+
+
+def _domain_mask(design: "SurveyDesign", subpop: Any) -> Optional[np.ndarray]:
+    """Boolean domain indicator (``None`` = whole population).
+
+    ``subpop`` is a column name (non-zero, non-missing = in the domain, as
+    Stata ``svy, subpop()``), or a boolean array / Series of length ``n``.
+    """
+    if subpop is None:
+        return None
+    if isinstance(subpop, str):
+        if subpop not in design.data.columns:
+            raise MethodIncompatibility(f"subpop={subpop!r} is not a column in data")
+        col = design.data[subpop]
+        mask = col.notna().to_numpy() & (col.fillna(0).to_numpy() != 0)
+    else:
+        mask = np.asarray(subpop)
+        if mask.shape != (design.n,):
+            raise MethodIncompatibility(
+                f"subpop has shape {mask.shape}; expected ({design.n},)"
+            )
+        mask = mask.astype(bool)
+    out: np.ndarray = mask
+    if not out.any():
+        raise DataInsufficient("subpop selects no observations")
+    return out
+
+
+def _design_dof(
+    design: "SurveyDesign", dom: Optional[np.ndarray] = None, rule: str = "stata"
+) -> float:
     """Design degrees of freedom = (# PSUs) - (# strata), PSUs within strata.
 
     Same as R ``survey::degf`` (with ``nest=TRUE``) and Stata ``e(df_r)``.
+    For a domain (``dom``) only strata with domain members count; the two
+    references then differ on PSUs: Stata counts every PSU of such a
+    stratum (``rule="stata"``), R ``degf(subset(...))`` only PSUs with a
+    domain member (``rule="r"``).
     """
-    n_psu = int(design._psu_codes.max()) + 1
-    n_strata = int(design._strata_codes.max()) + 1
-    return max(float(n_psu - n_strata), 1.0)
+    if dom is None:
+        n_psu = int(design._psu_codes.max()) + 1
+        n_strata = int(design._strata_codes.max()) + 1
+        return max(float(n_psu - n_strata), 1.0)
+    strata_in = np.unique(design._strata_codes[dom])
+    if rule == "r":
+        n_psu = np.unique(design._psu_codes[dom]).size
+    elif rule == "stata":
+        n_psu = np.unique(
+            design._psu_codes[np.isin(design._strata_codes, strata_in)]
+        ).size
+    else:
+        raise MethodIncompatibility(f"subpop_df must be 'stata' or 'r'; got {rule!r}")
+    return max(float(n_psu - strata_in.size), 1.0)
 
 
 def _deff_denominator(
@@ -219,6 +283,8 @@ def svymean(
     design: "SurveyDesign",
     alpha: float = 0.05,
     deff: str = "wor",
+    subpop: Any = None,
+    subpop_df: str = "stata",
 ) -> SurveyResult:
     """
     Survey-weighted mean with design-corrected standard errors.
@@ -239,6 +305,19 @@ def svymean(
         N = sum of weights (R ``deff=TRUE``; Stata ``estat effects`` when an
         fpc is declared) or with replacement (R ``deff="replace"``; Stata
         ``estat effects`` without fpc).
+
+    subpop : str or bool array, optional
+        Domain (subpopulation) estimation, as Stata ``svy, subpop()`` and R
+        ``subset(design, ...)``: the estimate uses the domain rows, the
+        variance the *whole* design (scores are zero outside the domain), so
+        strata and PSUs without domain members still count. Filtering the
+        data first would drop them and understate the variance.
+        DEFF is not computed for domains (NaN).
+
+    subpop_df : {"stata", "r"}, default "stata"
+        Design df for a domain: strata without domain members are dropped;
+        Stata then counts every PSU of the remaining strata, R
+        ``degf(subset(...))`` only PSUs with a domain member.
 
     Returns
     -------
@@ -263,21 +342,27 @@ def svymean(
     ['income']
     """
     var_names, vals = _resolve_vars(variables, design.data)
-    w = design.weights
+    dom = _domain_mask(design, subpop)
+    w = design.weights if dom is None else design.weights * dom
+    vals_d = vals if dom is None else np.where(dom[:, None], vals, 0.0)
     w_sum = w.sum()
 
-    # Point estimates
-    means = np.array([np.average(vals[:, j], weights=w) for j in range(len(var_names))])
+    # Point estimates (domain rows only when subpop is given)
+    means = np.array([np.sum(w * vals_d[:, j]) / w_sum for j in range(len(var_names))])
 
-    # Linearised scores for the mean: z_i = w_i * (y_i - mean) / sum(w)
-    scores = w[:, None] * (vals - means[None, :]) / w_sum
+    # Linearised scores for the mean: z_i = w_i * (y_i - mean) / sum(w),
+    # zero outside the domain
+    scores = w[:, None] * (vals_d - means[None, :]) / w_sum
 
     design_var = np.diag(_design_vcov(scores, design))
     se = np.sqrt(design_var)
 
-    deff_v = design_var / _deff_denominator(vals, w, deff, total=False)
+    if dom is None:
+        deff_v = design_var / _deff_denominator(vals, w, deff, total=False)
+    else:
+        deff_v = np.full(len(var_names), np.nan)
 
-    dof = _design_dof(design)
+    dof = _design_dof(design, dom, subpop_df)
     t_crit = sp_stats.t.ppf(1 - alpha / 2, df=dof)
 
     return SurveyResult(
@@ -296,6 +381,8 @@ def svytotal(
     design: "SurveyDesign",
     alpha: float = 0.05,
     deff: str = "wor",
+    subpop: Any = None,
+    subpop_df: str = "stata",
 ) -> SurveyResult:
     """
     Survey-weighted total with design-corrected standard errors.
@@ -313,6 +400,19 @@ def svytotal(
         N = sum of weights (R ``deff=TRUE``; Stata ``estat effects`` when an
         fpc is declared) or with replacement (R ``deff="replace"``; Stata
         ``estat effects`` without fpc).
+
+    subpop : str or bool array, optional
+        Domain (subpopulation) estimation, as Stata ``svy, subpop()`` and R
+        ``subset(design, ...)``: the estimate uses the domain rows, the
+        variance the *whole* design (scores are zero outside the domain), so
+        strata and PSUs without domain members still count. Filtering the
+        data first would drop them and understate the variance.
+        DEFF is not computed for domains (NaN).
+
+    subpop_df : {"stata", "r"}, default "stata"
+        Design df for a domain: strata without domain members are dropped;
+        Stata then counts every PSU of the remaining strata, R
+        ``degf(subset(...))`` only PSUs with a domain member.
 
     Returns
     -------
@@ -337,19 +437,24 @@ def svytotal(
     ['income']
     """
     var_names, vals = _resolve_vars(variables, design.data)
-    w = design.weights
+    dom = _domain_mask(design, subpop)
+    w = design.weights if dom is None else design.weights * dom
+    vals_d = vals if dom is None else np.where(dom[:, None], vals, 0.0)
 
-    totals = np.array([(w * vals[:, j]).sum() for j in range(len(var_names))])
+    totals = np.array([(w * vals_d[:, j]).sum() for j in range(len(var_names))])
 
-    # Linearised scores for total: z_i = w_i * y_i
-    scores = w[:, None] * vals
+    # Linearised scores for total: z_i = w_i * y_i (zero outside the domain)
+    scores = w[:, None] * vals_d
 
     design_var = np.diag(_design_vcov(scores, design))
     se = np.sqrt(design_var)
 
-    deff_v = design_var / _deff_denominator(vals, w, deff, total=True)
+    if dom is None:
+        deff_v = design_var / _deff_denominator(vals, w, deff, total=True)
+    else:
+        deff_v = np.full(len(var_names), np.nan)
 
-    dof = _design_dof(design)
+    dof = _design_dof(design, dom, subpop_df)
     t_crit = sp_stats.t.ppf(1 - alpha / 2, df=dof)
 
     return SurveyResult(
@@ -369,6 +474,8 @@ def svyglm(
     family: str = "gaussian",
     alpha: float = 0.05,
     dof: str = "design",
+    subpop: Any = None,
+    subpop_df: str = "stata",
 ) -> SurveyResult:
     """
     Survey-weighted generalised linear model.
@@ -392,6 +499,20 @@ def svyglm(
         ``"design"`` (default): #PSU - #strata, as Stata ``svy:``.
         ``"residual"``: #PSU - #strata + 1 - #coefficients, as R
         ``summary.svyglm`` / ``confint.svyglm``.
+
+    subpop : str or bool array, optional
+        Domain (subpopulation) estimation, as Stata ``svy, subpop()`` and R
+        ``subset(design, ...)``: the estimate uses the domain rows, the
+        variance the *whole* design (scores are zero outside the domain), so
+        strata and PSUs without domain members still count. Filtering the
+        data first would drop them and understate the variance.
+        Rows with a missing formula variable are treated the same way
+        (outside the domain), as R ``svyglm``'s ``na.action`` does.
+
+    subpop_df : {"stata", "r"}, default "stata"
+        Design df for a domain: strata without domain members are dropped;
+        Stata then counts every PSU of the remaining strata, R
+        ``degf(subset(...))`` only PSUs with a domain member.
 
     Returns
     -------
@@ -423,9 +544,17 @@ def svyglm(
     # pandas >= 3.0 string columns are StringDtype, which patsy cannot sniff.
     _data = _coerce_string_extension_dtypes(design.data)
     y_df, X_df = dmatrices(formula, data=_data, return_type="dataframe")
+    # Rows patsy kept (complete cases), intersected with the domain; the
+    # rest of the design contributes zero scores but keeps its PSUs.
+    pos = _data.index.get_indexer(X_df.index)
+    dom = _domain_mask(design, subpop)
+    if dom is not None:
+        keep = dom[pos]
+        pos = pos[keep]
+        y_df, X_df = y_df.iloc[keep], X_df.iloc[keep]
     y = y_df.values.ravel()
     X = X_df.values
-    w = design.weights
+    w = design.weights[pos]
     var_names = list(X_df.columns)
     n, k = X.shape
 
@@ -441,12 +570,14 @@ def svyglm(
 
     # Sandwich (R survey:::svy.varcoef): bread = (X' diag(w V(mu)) X)^{-1},
     # score contributions z_i = w_i (y_i - mu_i) x_i (canonical link).
-    scores = w[:, None] * working_residuals[:, None] * X
+    scores_used = w[:, None] * working_residuals[:, None] * X
+    scores = np.zeros((design.n, k))
+    scores[pos] = scores_used
     bread = np.linalg.inv((X * (w * var_mu)[:, None]).T @ X)
     vcov = bread @ _design_vcov(scores, design) @ bread
     se = np.sqrt(np.diag(vcov))
 
-    dof_v = _design_dof(design)
+    dof_v = _design_dof(design, dom, subpop_df)
     if dof == "residual":
         dof_v = dof_v + 1 - k
     elif dof != "design":

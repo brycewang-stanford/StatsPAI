@@ -448,7 +448,9 @@ def _add_did_checks(result: Any, findings: List[RobustnessFinding]) -> None:
                     interpretation=(
                         "p < 0.10 — pre-trends look unbalanced; investigate"
                         if p < 0.10
-                        else "p ≥ 0.10 — no pre-trend evidence at the 10% level"
+                        else "p ≥ 0.10 — the pre-test does not reject; a "
+                        "non-rejection is not evidence that parallel trends "
+                        "hold (check power: sp.pretrends_power, sp.honest_did)"
                     ),
                 )
             )

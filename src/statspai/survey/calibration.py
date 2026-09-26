@@ -107,7 +107,9 @@ def rake(
     The calibrated weights are only weights: passing them to
     ``sp.svydesign`` treats them as fixed, which is not R's
     calibration-adjusted linearisation variance (residuals of y on the
-    calibration variables).  See ``test_survey_calib_R_parity.py``.
+    calibration variables).  For standard errors that account for the
+    calibration use ``design.calibrate(margins=...)`` on a
+    :class:`SurveyDesign` (``test_survey_calibrated_design_parity.py``).
 
     Examples
     --------
@@ -221,6 +223,9 @@ def linear_calibration(
     ``survey::calibrate(design, ~ 0 + x1 + ..., population, calfun =
     "linear")`` (unbounded).  No intercept is added: include a column of
     ones with total N for one (a dummy column for a category count).
+
+    Returns weights only; for calibration-aware standard errors use
+    ``design.calibrate(totals=...)`` on a :class:`SurveyDesign`.
 
     Parameters
     ----------

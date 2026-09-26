@@ -65,39 +65,33 @@ context about what's available.
 from __future__ import annotations
 
 import json
-import sys
 import os
+import sys
 import traceback
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, TextIO, cast
 
-from ._data_loader import (
-    DEFAULT_MAX_DATA_BYTES as _DEFAULT_MAX_DATA_BYTES,
-    max_data_bytes as _max_data_bytes,
-    is_remote_url as _is_remote_url,
-    data_provenance as _data_provenance,
-    load_dataframe as _load_dataframe,
-)
-from ._errors import (
-    RpcError as _RpcError,
-    InvalidParamsError as _InvalidParamsError,
-    ResourceNotFoundError as _ResourceNotFoundError,
-)
-from ._prompts import (
-    PROMPTS as _PROMPTS,
-    SafeDict as _SafeDict,
-    handle_prompts_list as _prompts_list_impl,
-    handle_prompts_get as _prompts_get_impl,
-)
+from ._data_loader import DEFAULT_MAX_DATA_BYTES as _DEFAULT_MAX_DATA_BYTES
+from ._data_loader import data_provenance as _data_provenance
+from ._data_loader import is_remote_url as _is_remote_url
+from ._data_loader import load_dataframe as _load_dataframe
+from ._data_loader import max_data_bytes as _max_data_bytes
+from ._errors import InvalidParamsError as _InvalidParamsError
+from ._errors import ResourceNotFoundError as _ResourceNotFoundError
+from ._errors import RpcError as _RpcError
+from ._prompts import PROMPTS as _PROMPTS
+from ._prompts import SafeDict as _SafeDict
+from ._prompts import handle_prompts_get as _prompts_get_impl
+from ._prompts import handle_prompts_list as _prompts_list_impl
+from ._resources import FUNCTION_URI_PREFIX as _FUNCTION_URI_PREFIX
+from ._resources import RESULT_URI_PREFIX as _RESULT_URI_PREFIX
+from ._resources import catalog_text as _catalog_text_impl
+from ._resources import function_detail as _function_detail
+from ._resources import functions_index as _functions_index
+from ._resources import handle_resources_list as _handle_resources_list
+from ._resources import handle_resources_read as _resources_read_impl
 from ._resources import (
-    FUNCTION_URI_PREFIX as _FUNCTION_URI_PREFIX,
-    RESULT_URI_PREFIX as _RESULT_URI_PREFIX,
-    catalog_text as _catalog_text_impl,
-    functions_index as _functions_index,
-    function_detail as _function_detail,
-    handle_resources_list as _handle_resources_list,
-    handle_resources_read as _resources_read_impl,
     handle_resources_templates_list as _handle_resources_templates_list,
 )
 
@@ -509,6 +503,19 @@ _RESULT_OUTPUT_SCHEMA: Dict[str, Any] = {
             "items": {"type": "object", "additionalProperties": True},
         },
         "warnings": {"type": "array", "items": {"type": "string"}},
+        "result_card": {
+            "type": "object",
+            "description": (
+                "sp.result_card(result): estimand, sample (rows used vs "
+                "input, exclusions), specification (formula, weights, call "
+                "arguments), inference (covariance, t/normal, CI level), "
+                "provenance (versions, data hash), evidence (configuration-"
+                "level validation_scope where mapped, else the function tier "
+                "flagged as such), assumptions (declared, not verified), "
+                "limitations. Absent at detail='minimal'."
+            ),
+            "additionalProperties": True,
+        },
         "next_steps": {
             "type": "array",
             "description": "Suggested follow-up analyses (detail='agent').",
@@ -794,8 +801,9 @@ def _build_mcp_tools() -> List[Dict[str, Any]]:
                 "type": "array",
                 "items": {"type": "string"},
                 "description": (
-                    "Optional column projection. Parquet/Feather/Stata "
-                    "loaders honour this for fast partial reads."
+                    "Optional column projection, honoured by every "
+                    "reader that supports it (CSV/Parquet/Feather/Stata) "
+                    "and by streamed sampling."
                 ),
             }
         if "data_sample_n" not in props:
@@ -804,7 +812,10 @@ def _build_mcp_tools() -> List[Dict[str, Any]]:
                 "minimum": 1,
                 "description": (
                     "Optional uniform random subsample size "
-                    "(seed=0, deterministic) — useful on huge panels."
+                    "(seed=0, deterministic, file order kept). Files over "
+                    "the server's size cap are sampled in one streamed "
+                    "pass for .csv/.tsv/.txt/.parquet/.jsonl/.dta — useful "
+                    "on huge panels."
                 ),
             }
         if "result_id" not in props:

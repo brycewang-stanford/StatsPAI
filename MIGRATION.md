@@ -59,6 +59,108 @@ for `did_summary`, drop `cluster=` (the CS row always clustered by unit).
 
 ---
 
+<a id="pwcorr-pairwise"></a>
+
+## Unreleased — ⚠️ `sp.pwcorr` deletes missing values pairwise
+
+**Who is affected.** Anyone calling `sp.pwcorr` on data with missing values.
+
+**What changes.** Each correlation now uses every row on which *that pair*
+is observed (Stata `pwcorr`'s default); it used to drop any row with a gap
+in any listed variable. The text output reports the range of pairwise N;
+`output="dataframe"` carries `.attrs["nobs"]` and `.attrs["pvalues"]`.
+
+**To reproduce old numbers.** `sp.pwcorr(..., listwise=True)`.
+
+---
+
+<a id="margins-stata-semantics"></a>
+
+## Unreleased — ⚠️ `sp.margins` / `margins_at` / `contrast` / `pwcompare` follow Stata's averaging
+
+**Who is affected.** Users of the margins family with (a) `poisson` /
+`nbreg` / `glm` fits that used `exposure=` / `offset=`, (b) weighted fits,
+(c) `data=` containing rows outside the estimation sample, (d)
+`method="mem"` with factor variables, (e) p-values / intervals from
+`margins_at` / `contrast` / `pwcompare` after `regress`, or (f) the default
+`variables` list of a model with `C()` terms.
+
+**What changes.** (a) The offset / exposure is part of the prediction --
+this is the largest change (the AME scales with the mean exposure). (b) The
+average is weighted by the fit's weights. (c) Rows missing the outcome or a
+model / cluster / weight variable are dropped (Stata `e(sample)`), with a
+warning when the remaining count differs from the fit's `nobs`; they used to
+be averaged in or to raise. (d) `atmeans` sets factor indicators to their
+shares. (e) t(df) instead of N(0, 1). (f) Factor variables get discrete-change
+rows (`"2.g"`), as Stata's `dydx(*)`; transformations such as `I(x**2)` are
+differentiated through, so an `x + I(x**2)` model reports the total effect
+of `x`. `margins_at` / `contrast` / `pwcompare` now run after logit / probit
+/ poisson on the response scale instead of raising.
+
+**To reproduce old numbers.** There is no switch for (a)-(e): those were
+defects against Stata (see `tests/reference_parity/test_r2_postest_parity.py`
+and `test_margins_ext_parity.py`). For (f) pass `variables=[...]` listing the
+continuous variables, and pre-compute a transformed column (e.g. `x2`) if
+you want it treated as an independent regressor.
+
+---
+
+<a id="mice-categorical"></a>
+
+## Unreleased — ⚠️ `sp.mice` imputes categorical and binary variables with models
+
+**Who is affected.** Anyone using `sp.mice` on data with non-numeric
+columns or binary variables, and anyone whose other variables are imputed
+from data that contains categorical columns.
+
+**What changes.** Two-level variables default to proper `'logreg'`
+(parameters drawn from their posterior; the MLE was used before) and
+multi-level non-numeric variables to the new `'polyreg'` (they used to get
+`'sample'`, random draws from their own marginal, which attenuates every
+association with them). Categorical columns now enter the other variables'
+equations as dummies (they were ignored). Imputed values and pooled
+estimates change.
+
+**To reproduce old numbers.** Not exactly (the random streams differ);
+`method={"var": "sample"}` restores the marginal draw for a variable.
+
+---
+
+<a id="rdrobust-fuzzy-comb"></a>
+
+## Unreleased — ⚠️ `sp.rdrobust` fuzzy designs with a `comb` bandwidth selector
+
+**Who is affected.** `sp.rdrobust(fuzzy=..., bwselect="msecomb1" |
+"msecomb2" | "cercomb1" | "cercomb2")`.
+
+**What changes.** The bandwidth is now the fuzzy (Wald-ratio) one, as R
+`rdrobust`; the comb recursion used to drop the first stage and return the
+sharp bandwidth, moving h and the estimate substantially (h 0.18 vs 0.32,
+estimate 0.29 vs 0.56 on the test design).
+
+**To reproduce old numbers.** Compute the sharp comb bandwidth
+(`sp.rdrobust(data, y=..., x=..., bwselect="msecomb2")` without `fuzzy=`)
+and pass it as `h=` / `b=`.
+
+---
+
+<a id="mcp-sample-rule"></a>
+
+## Unreleased — MCP `data_sample_n` draws a different (deterministic) sample
+
+**Who is affected.** MCP clients that pass `data_sample_n`.
+
+**What changes.** The sample is the `data_sample_n` rows with the smallest
+seed-0 uniform keys, in file order, identical whether the file is loaded
+whole or streamed; it used to be `DataFrame.sample(random_state=0)` on the
+loaded frame (different rows, shuffled order).
+
+**To reproduce old numbers.** Load the file yourself and call
+`df.sample(n, random_state=0)`.
+
+---
+
+
 <a id="qreg-default-se"></a>
 
 ## Unreleased — ⚠️ `sp.qreg` default standard errors follow Stata's `qreg`

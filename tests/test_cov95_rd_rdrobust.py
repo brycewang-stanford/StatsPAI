@@ -279,10 +279,12 @@ def test_rdrobust_validation_errors():
         sp.rdrobust(df, y="y", x="x", c=0, rho=-1.0)
 
 
-def test_rdrobust_weights_not_implemented():
+def test_rdrobust_weighted_bootstrap_refused():
     df = _make_sharp()
-    with pytest.raises(NotImplementedError):
-        sp.rdrobust(df, y="y", x="x", c=0, weights="w")
+    if "w" not in df.columns:
+        df = df.assign(w=1.0)
+    with pytest.raises(sp.exceptions.MethodIncompatibility, match="bootstrap"):
+        sp.rdrobust(df, y="y", x="x", c=0, weights="w", bootstrap="rbc")
 
 
 def test_rdrobust_donut_too_aggressive():

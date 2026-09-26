@@ -25,6 +25,7 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 
 
 class RecommendationResult(ResultProtocolMixin):
@@ -72,6 +73,10 @@ class RecommendationResult(ResultProtocolMixin):
         self._data = data
         self._y = y
         self._treatment = treatment
+        #: What the recommendation does not establish: untestable
+        #: assumptions, checks that bear on them, questions to ask, and the
+        #: level of claim the design supports (set by :func:`recommend`).
+        self.identification: Dict[str, Any] = {}
 
     def summary(self) -> str:
         lines = [
@@ -115,6 +120,14 @@ class RecommendationResult(ResultProtocolMixin):
                 lines.append(f"    Robustness: {rec['robustness']}")
             if rec.get("code"):
                 lines.append(f"    Code: {rec['code']}")
+            if rec.get("blocked"):
+                lines.append(f"    NOT RUNNABLE: {rec['blocked']}")
+                if rec.get("blocked_hint"):
+                    lines.append(f"    Fix: {rec['blocked_hint']}")
+            elif rec.get("missing_arguments"):
+                lines.append(
+                    "    Needs before .run(): " + ", ".join(rec["missing_arguments"])
+                )
             v = rec.get("verify")
             if v:
                 if v.get("error"):
@@ -130,6 +143,23 @@ class RecommendationResult(ResultProtocolMixin):
                         f"{v.get('elapsed_s', 0):.1f}s)  "
                         f"[measures resampling stability, NOT identification validity]"
                     )
+
+        ident = getattr(self, "identification", None) or {}
+        if ident:
+            lines.append(f"\n{'─' * 70}")
+            lines.append(
+                f"IDENTIFICATION (claim: {ident.get('claim')}; design "
+                f"{ident.get('design_source', '').replace('_', ' ')})"
+            )
+            lines.append(f"{'─' * 70}")
+            for a in ident.get("untestable_assumptions", []):
+                lines.append(f"  • untestable: {a}")
+            for c in ident.get("checks", []):
+                lines.append(f"  • check: {c['check']} -> {c['function']}")
+            for q in ident.get("questions", []):
+                lines.append(f"  ? {q}")
+            if ident.get("note"):
+                lines.append(f"  {ident['note']}")
 
         lines.append(f"\n{'─' * 70}")
         lines.append("SUGGESTED WORKFLOW")
@@ -341,8 +371,27 @@ class RecommendationResult(ResultProtocolMixin):
         import statspai as sp
 
         rec = self.recommendations[which]
+        if rec.get("blocked"):
+            raise MethodIncompatibility(
+                f"Recommendation {rec['method']!r} cannot run: {rec['blocked']}",
+                recovery_hint=rec.get("blocked_hint", ""),
+                diagnostics={"function": rec["function"], "which": which},
+            )
+        missing = [a for a in rec.get("missing_arguments", []) if a not in kwargs]
+        if missing:
+            raise MethodIncompatibility(
+                f"Recommendation {rec['method']!r} (sp.{rec['function']}) needs "
+                f"{', '.join(repr(m) for m in missing)}, which the data and "
+                "the recommend() arguments do not determine.",
+                recovery_hint=(
+                    f"Pass them to .run(which={which}, "
+                    + ", ".join(f"{m}=..." for m in missing)
+                    + ") or to sp.recommend(...)."
+                ),
+                diagnostics={"missing_arguments": missing, "which": which},
+            )
         func = getattr(sp, rec["function"])
-        params = rec.get("params", {})
+        params = dict(rec.get("params", {}))
         params.update(kwargs)
         return func(**params)
 
@@ -501,6 +550,11 @@ def recommend(
     proxy_z: Optional[List[str]] = None,
     proxy_w: Optional[List[str]] = None,
     post_treat_strata: Optional[str] = None,
+    # --- design-specific inputs that data shape cannot supply ---
+    subgroup: Optional[str] = None,
+    treat_time: Any = None,
+    shares: Any = None,
+    shocks: Any = None,
     # --- verification (pre-existing) ---
     verify: bool = False,
     verify_B: int = 50,
@@ -560,6 +614,17 @@ def recommend(
         Binary post-treatment variable defining principal strata
         (take-up, survival, employment, …). Triggers
         `sp.principal_strat` (Frangakis & Rubin 2002).
+    subgroup : str, optional
+        Binary eligibility column for a triple difference
+        (``design='ddd'``). Without it the DDD card is returned with
+        ``ready=False`` and ``missing_arguments=['subgroup']``.
+    treat_time : scalar, optional
+        Adoption period for a single-adoption design. Needed for pooled DiD
+        on repeated cross-sections with more than two periods (no ``id``),
+        where ``post = 1[time >= treat_time]`` is built explicitly.
+    shares, shocks : array-like, optional
+        Exposure-share matrix (units x industries) and industry shock
+        vector for ``design='bartik'``; forwarded to :func:`sp.bartik`.
     verify : bool, default False
         If True, run *resampling-stability* checks on the top-k
         recommendations (bootstrap CV, permutation placebo, 50%-subsample
@@ -616,6 +681,7 @@ def recommend(
 
     profile = _profile_data(data, y, treatment, id, time)
 
+    design_declared = design is not None
     if design is None:
         design = _detect_design(
             data, y, treatment, id, time, running_var, instrument, profile
@@ -892,26 +958,28 @@ def recommend(
             )
         else:
             _rcs = bool(time and not id and data[time].nunique() > 2)
-            recommendations.append(
-                {
-                    "method": (
-                        "Classic 2×2 DID"
-                        if not _rcs
-                        else "Pooled DID (repeated cross-sections)"
-                    ),
-                    "function": "did",
-                    "reason": (
-                        "Two groups, two periods — classic DID is appropriate."
-                        if not _rcs
-                        else "Repeated cross-sections (a treated/control group "
-                        "observed over time, no panel id) — pooled DID on the "
-                        "group × post interaction."
-                    ),
-                    "assumptions": ["Parallel trends", "No anticipation", "SUTVA"],
-                    "code": f"sp.did(df, y='{y}', treat='{treatment}', time='{time}')",
-                    "params": {"data": data, "y": y, "treat": treatment, "time": time},
-                }
-            )
+            if _rcs:
+                recommendations.append(
+                    _pooled_rcs_did_card(data, y, treatment, str(time), treat_time)
+                )
+            else:
+                recommendations.append(
+                    {
+                        "method": "Classic 2×2 DID",
+                        "function": "did",
+                        "reason": "Two groups, two periods — classic DID is "
+                        "appropriate.",
+                        "assumptions": ["Parallel trends", "No anticipation", "SUTVA"],
+                        "code": f"sp.did(df, y='{y}', treat='{treatment}', "
+                        f"time='{time}')",
+                        "params": {
+                            "data": data,
+                            "y": y,
+                            "treat": treatment,
+                            "time": time,
+                        },
+                    }
+                )
 
     elif design == "synth":
         # Single-treated-unit comparative case study → synthetic control. Derive
@@ -1472,12 +1540,13 @@ def recommend(
                 "robustness": "Inspect each constituent 2x2; event-study the "
                 "triple difference; honest-DiD on the DDD estimand.",
                 "code": f"sp.ddd(df, y='{y}', treat='{treatment}', "
-                f"time='{time}', subgroup='<subgroup>')",
+                f"time='{time}', subgroup='{subgroup or '<subgroup>'}')",
                 "params": {
                     "data": data,
                     "y": y,
                     "treat": treatment,
                     "time": time,
+                    **({"subgroup": subgroup} if subgroup else {}),
                 },
             }
         )
@@ -1500,7 +1569,13 @@ def recommend(
                 "over-identification across shocks; pre-trend balance on shares.",
                 "code": f"sp.bartik(df, y='{y}', endog='{treatment}', "
                 f"shares=<shares_df>, shocks=<shocks>)",
-                "params": {"data": data, "y": y, "endog": treatment},
+                "params": {
+                    "data": data,
+                    "y": y,
+                    "endog": treatment,
+                    **({"shares": shares} if shares is not None else {}),
+                    **({"shocks": shocks} if shocks is not None else {}),
+                },
             }
         )
 
@@ -1910,7 +1985,9 @@ def recommend(
                 )
             )
 
-    return RecommendationResult(
+    _annotate_readiness(recommendations)
+
+    out = RecommendationResult(
         recommendations=recommendations,
         data_profile=profile,
         design=design,
@@ -1919,6 +1996,131 @@ def recommend(
         y=y,
         treatment=treatment,
     )
+    from ..registry import _REGISTRY, _ensure_full_registry
+    from ._identification import identification_brief
+
+    _ensure_full_registry()
+    out.identification = identification_brief(
+        design,
+        declared=design_declared,
+        treatment=treatment,
+        available=set(_REGISTRY),
+    )
+    return out
+
+
+def _pooled_rcs_did_card(
+    data: pd.DataFrame,
+    y: str,
+    treatment: Optional[str],
+    time: str,
+    treat_time: Any,
+) -> Dict[str, Any]:
+    """Pooled DiD for repeated cross-sections with more than two periods.
+
+    With no unit id, the treated-group rows before adoption look exactly
+    like control rows unless ``treatment`` is a *time-invariant* group
+    indicator, so a switch indicator ``D_gt`` does not identify the DiD.
+    With a group indicator and the adoption period, the pooled 2x2
+    ``y ~ G + Post + G x Post`` is built on an explicit ``post`` column.
+    """
+    card: Dict[str, Any] = {
+        "method": "Pooled DID (repeated cross-sections)",
+        "function": "did",
+        "reason": "Repeated cross-sections (a treated/control group observed "
+        "over time, no panel id) — pooled DID on the group × post "
+        "interaction.",
+        "assumptions": [
+            "Parallel trends",
+            "No anticipation",
+            "SUTVA",
+            "Stable group composition across cross-sections",
+        ],
+    }
+    d = data[treatment] if treatment in data.columns else None
+    by_t = d.groupby(data[time]).mean() if d is not None else None
+    is_switch = bool(
+        by_t is not None
+        and len(by_t) > 1
+        and float(by_t.iloc[0]) == 0.0
+        and float(by_t.max()) > 0.0
+    )
+    if is_switch:
+        first = data.loc[data[treatment] > 0, time].min()
+        first = first.item() if hasattr(first, "item") else first
+        card.update(
+            code=f"sp.did(df, y='{y}', treat='<treated_group>', time='post')",
+            params={"data": data, "y": y, "time": time},
+            blocked=(
+                f"'{treatment}' switches on over time (0 in every row of the "
+                f"first period, >0 later), i.e. it is treated x post. Without a "
+                "unit id the pre-adoption rows of the treated group cannot be "
+                "told apart from control rows, so the DiD is not identified "
+                "from this column."
+            ),
+            blocked_hint=(
+                "Re-run sp.recommend with treatment=<time-invariant treated-"
+                f"group indicator> and treat_time={first!r} (the first period "
+                f"in which '{treatment}' is on)."
+            ),
+        )
+        return card
+    if treat_time is None:
+        card.update(
+            code=f"sp.did(df, y='{y}', treat='{treatment}', time='post')",
+            params={"data": data, "y": y, "treat": treatment, "time": time},
+            blocked=(
+                f"'{time}' has {data[time].nunique()} periods; a pooled 2x2 "
+                "needs the adoption period to define post."
+            ),
+            blocked_hint="Pass treat_time=<first treated period> to sp.recommend.",
+        )
+        return card
+    post_col = "_post"
+    while post_col in data.columns:
+        post_col = "_" + post_col
+    rcs = data.copy()
+    rcs[post_col] = (rcs[time] >= treat_time).astype(int)
+    card.update(
+        code=(
+            f"df['{post_col}'] = (df['{time}'] >= {treat_time!r}).astype(int); "
+            f"sp.did(df, y='{y}', treat='{treatment}', time='{post_col}')"
+        ),
+        params={"data": rcs, "y": y, "treat": treatment, "time": post_col},
+    )
+    return card
+
+
+def _annotate_readiness(recommendations: List[Dict[str, Any]]) -> None:
+    """Mark each card ``ready`` / ``missing_arguments`` in place.
+
+    ``missing_arguments`` lists required parameters of the target function
+    (no default) that the card's ``params`` do not fill. A card with a
+    ``blocked`` reason is never ready. ``RecommendationResult.run`` refuses
+    a non-ready card with a message naming what is missing, instead of the
+    bare ``TypeError`` the estimator would raise.
+    """
+    import inspect
+
+    import statspai as sp
+
+    for rec in recommendations:
+        fn = getattr(sp, str(rec.get("function", "")), None)
+        missing: List[str] = []
+        if callable(fn):
+            try:
+                sig = inspect.signature(inspect.unwrap(fn))
+            except (TypeError, ValueError):
+                sig = None
+            if sig is not None:
+                params = rec.get("params") or {}
+                for p in sig.parameters.values():
+                    if p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD):
+                        continue
+                    if p.default is inspect.Parameter.empty and p.name not in params:
+                        missing.append(p.name)
+        rec["missing_arguments"] = missing
+        rec["ready"] = not missing and not rec.get("blocked")
 
 
 def _filter_unstable_recommendations(

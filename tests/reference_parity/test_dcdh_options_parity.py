@@ -1,4 +1,4 @@
-"""dCDH option parity: controls, trends_nonparam, normalized.
+"""dCDH option parity: controls, trends_nonparam, normalized, continuous.
 
 Every number here is the authors' own ``DIDmultiplegtDYN`` 2.3.4 on the
 same panel bytes, so the tolerance is machine
@@ -6,9 +6,10 @@ precision rather than a budget: these are the same estimators, not merely
 the same estimand. The panel and the R call that produced these numbers are
 ``_generate_dcdh_options_data.py`` and ``_generate_dcdh_options_R.R``.
 
-``trends_lin``, ``continuous`` and ``predict_het`` are deliberately absent
-from the public surface -- see the module docstring for what is known
-about the ``trends_lin`` arithmetic.
+``trends_lin`` and ``predict_het`` are deliberately absent from the public
+surface -- see the module docstring for what is known about the
+``trends_lin`` arithmetic. (``continuous`` was added later; its pins are at
+the end of this file.)
 """
 
 import pathlib

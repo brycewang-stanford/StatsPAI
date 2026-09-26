@@ -66,6 +66,7 @@ class MICEResult(ResultProtocolMixin):
         self.variables_imputed = variables_imputed
         self.methods = methods  # dict: var -> method used
         self.convergence = convergence
+        self.fit_failures: List[Dict[str, Any]] = []
 
     def summary(self) -> str:
         lines = [
@@ -141,7 +142,9 @@ def _rubins_rules(
         ``ci_upper``, ``df``, ``dfcom``, ``ubar``, ``b``, ``t``, ``riv``,
         ``lambda``, ``fmi``, ``fmi_barnard_rubin`` (all per coefficient),
         ``var_cov`` (the total
-        covariance ``U-bar + (1 + 1/m) B``) and ``n_imputations``.
+        covariance ``U-bar + (1 + 1/m) B``), ``ubar_matrix`` / ``b_matrix``
+        (the full within / between covariances, for :func:`mi_test`) and
+        ``n_imputations``.
 
     Notes
     -----
@@ -225,6 +228,8 @@ def _rubins_rules(
         "fmi": fmi,
         "fmi_barnard_rubin": fmi_br,
         "var_cov": T,
+        "ubar_matrix": U_bar,
+        "b_matrix": B,
         "n_imputations": m,
     }
 
@@ -290,33 +295,151 @@ def _impute_norm(y_obs: Any, x_obs: Any, x_miss: Any, rng: Any) -> Any:
     return y_hat
 
 
-def _impute_logreg(y_obs: Any, x_obs: Any, x_miss: Any, rng: Any) -> Any:
-    """Logistic regression imputation for binary variables."""
-    from scipy.optimize import minimize
+def _logit_newton(
+    y: np.ndarray, X: np.ndarray, ridge: float = 1e-6, max_iter: int = 50
+) -> Any:
+    """Logistic MLE by Newton-Raphson; returns ``(beta, cov)`` or None.
 
-    n_obs = len(y_obs)
-    X_obs = np.column_stack([np.ones(n_obs), x_obs])
-
-    def neg_ll(beta: Any) -> Any:
-        xb = X_obs @ beta
-        xb = np.clip(xb, -500, 500)
-        p = 1 / (1 + np.exp(-xb))
-        p = np.clip(p, 1e-10, 1 - 1e-10)
-        return -np.sum(y_obs * np.log(p) + (1 - y_obs) * np.log(1 - p))
-
-    beta0 = np.zeros(X_obs.shape[1])
+    A tiny ridge keeps the Hessian invertible under (quasi-)separation, the
+    role R ``mice`` gives to its data augmentation.
+    """
+    k = X.shape[1]
+    beta = np.zeros(k)
+    pen = ridge * np.eye(k)
+    pen[0, 0] = 0.0
+    for _ in range(max_iter):
+        eta = np.clip(X @ beta, -30, 30)
+        p = 1.0 / (1.0 + np.exp(-eta))
+        W = p * (1.0 - p)
+        H = (X * W[:, None]).T @ X + pen
+        g = X.T @ (y - p) - pen @ beta
+        try:
+            step = np.linalg.solve(H, g)
+        except np.linalg.LinAlgError:
+            return None
+        beta = beta + step
+        if np.max(np.abs(step)) < 1e-10:
+            break
+    eta = np.clip(X @ beta, -30, 30)
+    p = 1.0 / (1.0 + np.exp(-eta))
+    H = (X * (p * (1.0 - p))[:, None]).T @ X + pen
     try:
-        result = minimize(neg_ll, beta0, method="BFGS")
-        beta = result.x
-    except Exception:
-        p_obs = y_obs.mean()
-        return (rng.random(len(x_miss)) < p_obs).astype(float)
+        cov = np.linalg.inv(H)
+    except np.linalg.LinAlgError:
+        return None
+    if not np.all(np.isfinite(beta)) or not np.all(np.isfinite(cov)):
+        return None
+    return beta, (cov + cov.T) / 2.0
 
+
+def _impute_logreg(y_obs: Any, x_obs: Any, x_miss: Any, rng: Any) -> Any:
+    """Proper logistic imputation for a binary variable (R ``logreg``).
+
+    Draws ``beta* ~ N(beta_hat, (X'WX)^-1)`` before predicting, so the
+    between-imputation variance carries the parameter uncertainty Rubin's
+    rules need. (Before 1.32 the MLE itself was used -- an improper
+    imputation that understates the pooled variance.) Returns None when the
+    model cannot be fitted; the caller records and reports that.
+    """
+    y_obs = np.asarray(y_obs, dtype=float)
+    X_obs = np.column_stack([np.ones(len(y_obs)), x_obs])
+    fit = _logit_newton(y_obs, X_obs)
+    if fit is None:
+        return None
+    beta, cov = fit
+    beta_star = rng.multivariate_normal(beta, cov)
     X_miss = np.column_stack([np.ones(len(x_miss)), x_miss])
-    xb = X_miss @ beta
-    xb = np.clip(xb, -500, 500)
-    probs = 1 / (1 + np.exp(-xb))
+    probs = 1.0 / (1.0 + np.exp(-np.clip(X_miss @ beta_star, -30, 30)))
     return (rng.random(len(x_miss)) < probs).astype(float)
+
+
+def _mlogit_fit(codes: np.ndarray, X: np.ndarray, K: int, ridge: float = 1e-6) -> Any:
+    """Multinomial logit (baseline category 0) by Newton; ``(theta, cov)``."""
+    n, k = X.shape
+    Y = np.zeros((n, K))
+    Y[np.arange(n), codes] = 1.0
+    theta = np.zeros((K - 1) * k)
+    pen = ridge * np.eye(len(theta))
+    for j in range(K - 1):
+        pen[j * k, j * k] = 0.0
+
+    def probs(th: np.ndarray) -> np.ndarray:
+        E = np.column_stack([np.zeros(n), X @ th.reshape(K - 1, k).T])
+        E = E - E.max(axis=1, keepdims=True)
+        P = np.exp(E)
+        out: np.ndarray = P / P.sum(axis=1, keepdims=True)
+        return out
+
+    def hessian(P: np.ndarray) -> np.ndarray:
+        H = np.zeros((len(theta), len(theta)))
+        for a in range(1, K):
+            for b in range(1, K):
+                w = P[:, a] * ((a == b) - P[:, b])
+                H[(a - 1) * k : a * k, (b - 1) * k : b * k] = (X * w[:, None]).T @ X
+        return H + pen
+
+    for _ in range(50):
+        P = probs(theta)
+        g = (X.T @ (Y[:, 1:] - P[:, 1:])).T.ravel() - pen @ theta
+        try:
+            step = np.linalg.solve(hessian(P), g)
+        except np.linalg.LinAlgError:
+            return None
+        theta = theta + step
+        if np.max(np.abs(step)) < 1e-10:
+            break
+    try:
+        cov = np.linalg.inv(hessian(probs(theta)))
+    except np.linalg.LinAlgError:
+        return None
+    if not np.all(np.isfinite(theta)) or not np.all(np.isfinite(cov)):
+        return None
+    return theta, (cov + cov.T) / 2.0
+
+
+def _impute_polyreg(
+    codes_obs: np.ndarray, x_obs: Any, x_miss: Any, K: int, rng: Any
+) -> Any:
+    """Proper multinomial-logit imputation for an unordered categorical.
+
+    Parameters are drawn from their asymptotic posterior before the
+    categories are sampled from the predicted probabilities. Returns integer
+    category codes, or None when the model cannot be fitted.
+    """
+    X_obs = np.column_stack([np.ones(len(codes_obs)), x_obs])
+    fit = _mlogit_fit(np.asarray(codes_obs, dtype=int), X_obs, K)
+    if fit is None:
+        return None
+    theta, cov = fit
+    th = rng.multivariate_normal(theta, cov).reshape(K - 1, X_obs.shape[1])
+    X_miss = np.column_stack([np.ones(len(x_miss)), x_miss])
+    E = np.column_stack([np.zeros(len(X_miss)), X_miss @ th.T])
+    E = E - E.max(axis=1, keepdims=True)
+    P = np.exp(E)
+    P = P / P.sum(axis=1, keepdims=True)
+    u = rng.random(len(X_miss))[:, None]
+    return (u > np.cumsum(P, axis=1)).sum(axis=1).clip(0, K - 1)
+
+
+def _is_categorical(s: pd.Series) -> bool:
+    return not pd.api.types.is_numeric_dtype(s) or pd.api.types.is_bool_dtype(s)
+
+
+def _predictor_matrix(
+    df_imp: pd.DataFrame, pred_vars: List[str], categorical: set
+) -> np.ndarray:
+    """Numeric predictors as-is; categorical ones as treatment dummies."""
+    blocks = []
+    for v in pred_vars:
+        if v in categorical:
+            d = pd.get_dummies(df_imp[v].astype("object"), drop_first=True, dtype=float)
+            if d.shape[1]:
+                blocks.append(d.to_numpy(dtype=float))
+        else:
+            blocks.append(df_imp[v].to_numpy(dtype=float)[:, None])
+    if not blocks:
+        return np.empty((len(df_imp), 0))
+    return np.column_stack(blocks)
 
 
 def mice(
@@ -344,11 +467,19 @@ def mice(
     method : str or dict, default 'pmm'
         Imputation method per variable:
         'pmm' (predictive mean matching), 'norm' (Bayesian linear),
-        'logreg' (logistic for binary), 'sample' (random sample).
-        Dict maps variable names to methods.
+        'logreg' (proper logistic, for binary variables), 'polyreg'
+        (proper multinomial logit, for unordered categoricals), 'sample'
+        (random draw from the observed values -- ignores every other
+        variable). Dict maps variable names to methods. With a string, the
+        string applies to numeric variables with more than two values;
+        two-valued variables get 'logreg' and non-numeric variables with
+        more than two levels get 'polyreg', as R ``mice``'s defaults.
+        (Before 1.32 non-numeric variables got 'sample', which attenuates
+        every association with them.)
     predictors : dict, optional
         Dict mapping variable -> list of predictor variables.
-        If None, uses all other variables.
+        If None, uses all other variables; categorical ones enter as
+        treatment dummies.
     seed : int, optional
         Random seed.
     print_progress : bool, default False
@@ -391,20 +522,60 @@ def mice(
     # Identify variables with missing data
     missing_vars = [col for col in df.columns if df[col].isna().any()]
     n_missing = {col: df[col].isna().sum() for col in missing_vars}
-    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    categorical = {c for c in df.columns if _is_categorical(df[c])}
+    # A string column with very many levels (an id, a name) would enter every
+    # equation as hundreds of dummies; it is left out as a predictor.
+    max_levels = max(10, min(50, len(df) // 10))
+    wide = sorted(c for c in categorical if df[c].nunique() > max_levels)
+    usable_cols = [c for c in df.columns if c not in wide]
+    if wide and predictors is None:
+        import warnings as _warnings
+
+        _warnings.warn(
+            f"mice: categorical column(s) {wide} have more than {max_levels} "
+            "levels and are not used as predictors (pass predictors= to "
+            "override).",
+            UserWarning,
+            stacklevel=2,
+        )
+    valid_methods = ("pmm", "norm", "logreg", "polyreg", "sample")
 
     # Determine methods
     if isinstance(method, str):
         methods = {}
         for var in missing_vars:
-            if var not in numeric_cols:
-                methods[var] = "sample"
-            elif df[var].dropna().nunique() == 2:
+            n_lev = df[var].dropna().nunique()
+            if n_lev == 2:
                 methods[var] = "logreg"
+            elif var in categorical:
+                methods[var] = "polyreg"
             else:
                 methods[var] = method
     else:
-        methods = method
+        methods = dict(method)
+        for var in missing_vars:
+            methods.setdefault(
+                var,
+                (
+                    "logreg"
+                    if df[var].dropna().nunique() == 2
+                    else ("polyreg" if var in categorical else "pmm")
+                ),
+            )
+    bad = {v: mth for v, mth in methods.items() if mth not in valid_methods}
+    if bad:
+        raise MethodIncompatibility(
+            f"mice: unknown imputation method(s) {bad}.",
+            recovery_hint=f"Use one of {valid_methods}.",
+        )
+    for var in missing_vars:
+        if var in categorical and methods[var] in ("pmm", "norm"):
+            raise MethodIncompatibility(
+                f"mice: {var!r} is categorical; method {methods[var]!r} needs a "
+                "numeric variable.",
+                recovery_hint="Use 'logreg' (2 levels), 'polyreg' or 'sample'.",
+            )
+    fit_failures: List[Dict[str, Any]] = []
 
     # Sort by amount of missing (least to most)
     missing_vars_sorted = sorted(missing_vars, key=lambda v: n_missing[v])
@@ -435,47 +606,81 @@ def mice(
                 if predictors is not None and var in predictors:
                     pred_vars = predictors[var]
                 else:
-                    pred_vars = [
-                        c for c in numeric_cols if c != var and c in df_imp.columns
-                    ]
+                    pred_vars = [c for c in usable_cols if c != var]
 
-                if len(pred_vars) == 0:
-                    # No predictors: sample from observed
-                    observed = df.loc[~mask, var].values
+                m_method = methods.get(var, "pmm")
+                observed = df.loc[~mask, var].values
+                if len(pred_vars) == 0 or m_method == "sample":
                     df_imp.loc[mask, var] = rng.choice(observed, size=mask.sum())
                     continue
 
-                # Get predictor matrix (using current imputed values)
-                X_all = df_imp[pred_vars].values.astype(float)
-
-                # Handle any remaining NaN in predictors
+                # Predictor matrix at the current imputed values; categorical
+                # predictors enter as treatment dummies.
+                X_all = _predictor_matrix(df_imp, pred_vars, categorical)
                 for j in range(X_all.shape[1]):
                     col_nan = np.isnan(X_all[:, j])
                     if col_nan.any():
                         X_all[col_nan, j] = np.nanmean(X_all[:, j])
-
-                y_obs = df_imp.loc[~mask, var].values.astype(float)
                 x_obs = X_all[~mask.values]
                 x_miss = X_all[mask.values]
 
-                m_method = methods.get(var, "pmm")
-
-                if m_method == "pmm":
-                    imputed = _impute_pmm(y_obs, x_obs, x_miss, rng)
-                elif m_method == "norm":
-                    imputed = _impute_norm(y_obs, x_obs, x_miss, rng)
-                elif m_method == "logreg":
-                    imputed = _impute_logreg(y_obs, x_obs, x_miss, rng)
-                elif m_method == "sample":
-                    observed = df.loc[~mask, var].values
-                    imputed = rng.choice(observed, size=mask.sum())
+                imputed: Any
+                if m_method in ("logreg", "polyreg"):
+                    levels = pd.unique(df.loc[~mask, var])
+                    levels = sorted(levels, key=lambda v: (str(type(v)), v))
+                    lut = {lv: i for i, lv in enumerate(levels)}
+                    codes = df_imp.loc[~mask, var].map(lut).to_numpy()
+                    if m_method == "logreg" and len(levels) == 2:
+                        drawn = _impute_logreg(codes, x_obs, x_miss, rng)
+                    else:
+                        drawn = _impute_polyreg(codes, x_obs, x_miss, len(levels), rng)
+                    if drawn is None:
+                        fit_failures.append(
+                            {
+                                "imputation": imp,
+                                "iteration": iteration,
+                                "variable": var,
+                                "method": m_method,
+                            }
+                        )
+                        imputed = rng.choice(observed, size=mask.sum())
+                    else:
+                        imputed = np.asarray(levels, dtype=object)[
+                            np.asarray(drawn, dtype=int)
+                        ]
+                        if not _is_categorical(df[var]):
+                            imputed = imputed.astype(float)
                 else:
-                    observed = df.loc[~mask, var].values
-                    imputed = rng.choice(observed, size=mask.sum())
+                    y_obs = df_imp.loc[~mask, var].values.astype(float)
+                    if m_method == "pmm":
+                        imputed = _impute_pmm(y_obs, x_obs, x_miss, rng)
+                    else:
+                        imputed = _impute_norm(y_obs, x_obs, x_miss, rng)
 
                 df_imp.loc[mask, var] = imputed
 
         imputed_datasets.append(df_imp)
+
+    if fit_failures:
+        import warnings as _warnings
+
+        from ..exceptions import ConvergenceWarning
+
+        by_var: Dict[str, int] = {}
+        for f in fit_failures:
+            by_var[f["variable"]] = by_var.get(f["variable"], 0) + 1
+        _warnings.warn(
+            ConvergenceWarning(
+                "mice: the imputation model could not be fitted in "
+                f"{len(fit_failures)} step(s) ({by_var}); those steps drew "
+                "from the observed values instead, which ignores the other "
+                "variables.",
+                recovery_hint="Reduce predictors (predictors=), merge sparse "
+                "categories, or check for perfect prediction.",
+                diagnostics={"by_variable": by_var},
+            ),
+            stacklevel=2,
+        )
 
     _result = MICEResult(
         imputed_datasets=imputed_datasets,
@@ -484,8 +689,9 @@ def mice(
         n_missing=n_missing,
         variables_imputed=missing_vars_sorted,
         methods=methods,
-        convergence=True,
+        convergence=not fit_failures,
     )
+    _result.fit_failures = fit_failures
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 

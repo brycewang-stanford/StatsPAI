@@ -7,14 +7,16 @@ StatsPAI's ``EconometricResults``, making them compatible with
 """
 
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ..exceptions import MethodIncompatibility
+from ..output._lineage import records_provenance
 from .adapter import _multi_fit_to_results, _pyfixest_to_econometric_results
 
 #: vcov sentinels (case-insensitive) that select the wild cluster bootstrap.
@@ -35,6 +37,155 @@ def _fe_part(fml: str) -> str:
     """
     parts = fml.split("|")
     return parts[1] if len(parts) > 1 else ""
+
+
+def _has_varying_slopes(fml: str) -> bool:
+    fe = _fe_part(fml)
+    return bool(fe) and (
+        _VARYING_SLOPE_RE.search(fe) is not None
+        or _STATA_SLOPE_RE.search(fe) is not None
+    )
+
+
+def _translate_varying_slopes(fml: str) -> Tuple[str, bool]:
+    """fixest FE syntax -> ``sp.hdfe_ols`` absorb syntax.
+
+    ``f[x]`` -> ``f + i.f#c.x`` (fixed effect and slope); ``f[[x]]`` ->
+    ``i.f#c.x`` (slope only); ``f[x1, x2]`` gives one slope per variable.
+    Returns ``(formula, needs_constant)``: R fixest keeps a global intercept
+    when every absorbed term is a pure slope (``y ~ x | f[[z]]``), whereas
+    Stata ``reghdfe absorb(i.f#c.z)`` does not, so a constant FE is added.
+    """
+    parts = fml.split("|")
+    fe_terms = [t.strip() for t in parts[1].split("+") if t.strip()]
+    out: List[str] = []
+    has_intercept_fe = False
+    for term in fe_terms:
+        m = re.fullmatch(r"([A-Za-z_]\w*)\s*(\[\[?)\s*([^\]]+?)\s*\]\]?", term)
+        if m is None:
+            out.append(term)
+            if not _STATA_SLOPE_RE.fullmatch(term):
+                has_intercept_fe = True
+            continue
+        factor, brackets, vars_ = m.group(1), m.group(2), m.group(3)
+        if brackets == "[":
+            out.append(factor)
+            has_intercept_fe = True
+        for v in (x.strip() for x in vars_.split(",") if x.strip()):
+            out.append(f"i.{factor}#c.{v}")
+    rest = "|".join(parts[2:])
+    new = parts[0].rstrip() + " | " + " + ".join(out)
+    if rest:
+        new += " |" + rest
+    return new, not has_intercept_fe
+
+
+def _feols_varying_slopes(
+    fml: str,
+    data: pd.DataFrame,
+    *,
+    vcov: Any,
+    cluster: Optional[str],
+    weights: Optional[str],
+    ssc: Any,
+    fixef_rm: str,
+    extra: Dict[str, Any],
+) -> EconometricResults:
+    """Varying-slope FE through the native kernel, reported like feols."""
+    from ..panel.feols import hdfe_ols as _hdfe_ols
+
+    if extra:
+        raise MethodIncompatibility(
+            f"feols with varying slopes does not support {sorted(extra)}.",
+            recovery_hint="Drop them, or absorb the slopes with sp.hdfe_ols.",
+        )
+    if ssc is not None:
+        raise MethodIncompatibility(
+            "feols with varying slopes uses the native HDFE kernel, which "
+            "does not take pyfixest ssc= objects.",
+            recovery_hint="Drop ssc=, or call sp.hdfe_ols directly.",
+        )
+    if "|" in fml.split("|", 2)[-1] and fml.count("|") > 1:
+        raise MethodIncompatibility(
+            "feols with varying slopes does not support an IV part.",
+        )
+    kw: Dict[str, Any] = {}
+    label = "iid"
+    if isinstance(vcov, dict):
+        ((kind, cl),) = vcov.items()
+        if str(kind).upper() not in ("CRV1", "CLUSTER"):
+            raise MethodIncompatibility(
+                f"feols with varying slopes supports vcov='iid', 'hetero' or "
+                f"{{'CRV1': col}}; got {vcov!r}."
+            )
+        cluster = cl
+    elif isinstance(vcov, str):
+        v = vcov.lower()
+        if v in ("hetero", "hc1", "robust"):
+            kw["vce"] = "robust"
+            label = "hetero"
+        elif v not in ("iid",):
+            raise MethodIncompatibility(
+                f"feols with varying slopes supports vcov='iid', 'hetero' or "
+                f"{{'CRV1': col}}; got {vcov!r}."
+            )
+    if cluster is not None:
+        kw["cluster"] = cluster
+        label = f"CRV1:{cluster}"
+    translated, needs_constant = _translate_varying_slopes(fml)
+    work = data
+    if needs_constant:
+        # fixest keeps (and reports) the intercept when only slopes are
+        # absorbed; carry it as an explicit regressor.
+        work = data.assign(__const__=1.0)
+        lhs, rhs = translated.split("|", 1)
+        dep, regs = lhs.split("~", 1)
+        translated = f"{dep.strip()} ~ __const__ + {regs.strip()} |{rhs}"
+    res = _hdfe_ols(
+        translated,
+        data=work,
+        weights=weights,
+        drop_singletons=(fixef_rm == "singleton"),
+        tol=1e-12,
+        **kw,
+    )
+    params = res.params.rename({"__const__": "Intercept"})
+    ses = res.std_errors.rename({"__const__": "Intercept"})
+    names = list(params.index)
+    k = len(names)
+    V = np.asarray(res.vcov, dtype=float)
+    data_info: Dict[str, Any] = {
+        "nobs": int(res.n_obs),
+        "df_model": k,
+        "df_resid": int(res.df_resid),
+        "var_cov": V if V.shape == (k, k) else None,
+        "var_names": names,
+        "residuals": np.asarray(res.residuals),
+    }
+    n_cl = (res.cluster_info or {}).get("n_clusters")
+    if cluster is not None and n_cl:
+        data_info["df_inference"] = int(min(n_cl)) - 1
+    model_info: Dict[str, Any] = {
+        "model_type": "OLS (StatsPAI native HDFE)",
+        "method": "High-Dimensional Fixed Effects (varying slopes)",
+        "formula": fml,
+        "absorbed_formula": translated,
+        "vcov_type": label,
+        "fixed_effects": _fe_part(fml),
+        "backend": "statspai-native",
+        "implementation": "native",
+        "cluster": cluster,
+    }
+    if cluster is not None and n_cl:
+        model_info["n_clusters"] = int(min(n_cl))
+    diagnostics = {"R-squared (within)": float(res.r2_within)}
+    return EconometricResults(
+        params=params.rename(None),
+        std_errors=ses.rename(None),
+        model_info=model_info,
+        data_info=data_info,
+        diagnostics=diagnostics,
+    )
 
 
 def _reject_silent_varying_slopes(fml: str) -> None:
@@ -688,6 +839,8 @@ def _feglm_conley(
 
 
 @accepts_aliases(vce="vcov")
+@records_provenance("sp.feols")
+@markout_clusters
 def feols(
     fml: str,
     data: pd.DataFrame,
@@ -722,6 +875,12 @@ def feols(
         - ``"Y ~ X1 | firm + year"`` — two-way fixed effects
         - ``"Y ~ 1 | firm | X1 ~ Z1"`` — IV with fixed effects
         - ``"Y ~ X1 | csw0(firm, year)"`` — multiple estimations
+        - ``"Y ~ X1 | firm + state[year]"`` — varying slopes: state fixed
+          effects plus state-specific year trends (``state[[year]]`` for the
+          slopes alone). pyfixest does not absorb these, so such formulas run
+          on StatsPAI's own HDFE kernel (``model_info['backend'] ==
+          'statspai-native'``), matching R ``fixest`` for ``vcov`` iid /
+          hetero / ``{'CRV1': col}`` and ``weights=``.
 
     data : pd.DataFrame
         Input dataset.
@@ -801,7 +960,20 @@ def feols(
     >>> r2 = sp.feols("y ~ x1 | firm", data=df)  # doctest: +SKIP
     >>> sp.outreg2(r1, r2, filename="table.xlsx")  # doctest: +SKIP
     """
-    _reject_silent_varying_slopes(fml)
+    if _has_varying_slopes(fml):
+        # pyfixest parses fixest's varying-slope syntax but silently drops the
+        # slope (see _reject_silent_varying_slopes); route to StatsPAI's own
+        # HDFE kernel, which absorbs it.
+        return _feols_varying_slopes(
+            fml,
+            data,
+            vcov=vcov,
+            cluster=cluster,
+            weights=weights,
+            ssc=ssc,
+            fixef_rm=fixef_rm,
+            extra=kwargs,
+        )
 
     # Wild cluster bootstrap path (Stata ``boottest`` / ``vce()``-style):
     #   sp.feols("y ~ x | firm", data=df, vce="wild", cluster="firm")
@@ -891,6 +1063,8 @@ def feols(
 
 
 @accepts_aliases(vce="vcov")
+@records_provenance("sp.fepois")
+@markout_clusters
 def fepois(
     fml: str,
     data: pd.DataFrame,
@@ -1082,6 +1256,8 @@ def fepois(
 
 
 @accepts_aliases(vce="vcov")
+@records_provenance("sp.feglm")
+@markout_clusters
 def feglm(
     fml: str,
     data: pd.DataFrame,

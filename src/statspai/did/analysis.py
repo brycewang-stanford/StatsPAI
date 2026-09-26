@@ -121,7 +121,11 @@ class DIDAnalysis:
                         "  ⚠ Pre-trend test rejects at 5% — parallel trends concern."
                     )
                 else:
-                    lines.append("  ✓ No evidence of pre-trend violation.")
+                    lines.append(
+                        "  Pre-trend test does not reject at 5% -- not evidence "
+                        "that parallel trends hold (low power; see "
+                        "sp.pretrends_power / sp.honest_did)."
+                    )
             lines.append("")
 
         # Sensitivity

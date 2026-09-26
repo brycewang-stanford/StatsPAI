@@ -16,7 +16,7 @@ Supports:
 """
 
 import warnings
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -51,11 +51,13 @@ def bartik(
         Outcome variable.
     endog : str
         Endogenous regressor (e.g., local employment growth).
-    shares : pd.DataFrame
+    shares : pd.DataFrame or array-like
         Share matrix (n_units x n_industries). Rows = regions, cols = industries.
-        Row index must align with data index.
-    shocks : pd.Series
-        National shock vector (n_industries,). Index = industry names.
+        Row index must align with data index. A bare 2-D array is accepted;
+        its columns are named ``k0..k{K-1}``.
+    shocks : pd.Series or array-like
+        National shock vector (n_industries,). Index = industry names. A bare
+        1-D array is matched to the share columns by position.
     covariates : list of str, optional
         Exogenous control variables.
     leave_one_out : bool, default True
@@ -155,6 +157,36 @@ def bartik(
     return _result
 
 
+def _coerce_shift_share(shares: Any, shocks: Any, data: pd.DataFrame) -> Any:
+    """Accept array inputs: shares (n x K) and shocks (K,) as numpy / lists.
+
+    A bare array has no industry labels, so the columns are named
+    ``k0..k{K-1}`` and the shocks are labelled to match; shares rows are
+    aligned to ``data.index`` positionally (the documented contract for a
+    DataFrame too).
+    """
+    if not isinstance(shares, pd.DataFrame):
+        arr = np.asarray(shares, dtype=float)
+        if arr.ndim != 2:
+            raise ValueError(
+                f"shares must be 2-D (units x industries), got shape {arr.shape}"
+            )
+        shares = pd.DataFrame(
+            arr,
+            index=data.index if arr.shape[0] == len(data) else None,
+            columns=[f"k{j}" for j in range(arr.shape[1])],
+        )
+    if not isinstance(shocks, pd.Series):
+        vec = np.asarray(shocks, dtype=float).ravel()
+        if vec.shape[0] != shares.shape[1]:
+            raise ValueError(
+                f"shocks has {vec.shape[0]} entries but shares has "
+                f"{shares.shape[1]} industry columns"
+            )
+        shocks = pd.Series(vec, index=shares.columns)
+    return shares, shocks
+
+
 class BartikIV:
     """
     Bartik Shift-Share IV estimator.
@@ -214,6 +246,9 @@ class BartikIV:
         self._validate()
 
     def _validate(self) -> None:
+        self.shares, self.shocks = _coerce_shift_share(
+            self.shares, self.shocks, self.data
+        )
         for col in [self.y, self.endog] + self.covariates:
             if col not in self.data.columns:
                 raise ValueError(f"Column '{col}' not found in data")

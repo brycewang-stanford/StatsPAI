@@ -23,9 +23,22 @@ import os
 import re
 import sys
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, FrozenSet, Iterable, List, Optional, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    TypeVar,
+    cast,
+)
 
 from ..exceptions import MethodIncompatibility, StatsPAIWarning, warn
+
+_F = TypeVar("_F", bound=Callable[..., Any])
 
 __all__ = [
     "SERequest",
@@ -472,7 +485,7 @@ def _caller_stacklevel() -> int:
     return level + 1
 
 
-def markout_clusters(func: Callable) -> Callable:
+def markout_clusters(func: _F) -> _F:
     """Exclude rows whose cluster variable is missing, as Stata does.
 
     Stata's ``vce(cluster v)`` marks observations with missing ``v`` out of
@@ -524,6 +537,7 @@ def markout_clusters(func: Callable) -> Callable:
         info = getattr(result, "model_info", None)
         if isinstance(info, dict):
             info["n_missing_cluster_dropped"] = n_missing
+            info["n_input_rows"] = int(len(data))
         return result
 
-    return wrapper
+    return cast(_F, wrapper)

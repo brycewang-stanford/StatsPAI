@@ -46,58 +46,58 @@ design doc; ``regtable`` is the canonical one):
   adapter (lazy).
 """
 
-# ── Regression-table renderers ──────────────────────────────────────────
-from .regression_table import regtable, RegtableResult
-from .estimates import eststo, estclear, esttab, EstimateTableResult
-from .modelsummary import modelsummary, coefplot, coefplot_tikz  # noqa: F401
-from .outreg2 import OutReg2, outreg2  # noqa: F401
+# ── Bibliography / CSL ──────────────────────────────────────────────────
+from ._bibliography import (
+    CSL_REGISTRY,
+    citations_to_bib_entries,
+    csl_filename,
+    csl_url,
+    list_csl_styles,
+    make_bib_key,
+    parse_citation_to_bib,
+    write_bib,
+)
 
-# ── Single-table helpers ────────────────────────────────────────────────
-from .sumstats import sumstats, balance_table
-from .tab import tab
-from .mean_comparison import mean_comparison, MeanComparisonResult
-
-# ── Multi-table / paper bundles ─────────────────────────────────────────
-from .paper_tables import paper_tables, PaperTables, TEMPLATES as PAPER_TABLE_TEMPLATES
-from .collection import Collection, CollectionItem, collect
+# ── great_tables adapter ────────────────────────────────────────────────
+from ._gt import is_great_tables_available, to_gt
 
 # ── Inline citation ─────────────────────────────────────────────────────
 from ._inline import cite
 
 # ── Journal templates ───────────────────────────────────────────────────
-from ._journals import (
-    JOURNALS,
-    list_templates as list_journal_templates,
-    get_template as get_journal_template,
-)
+from ._journals import JOURNALS
+from ._journals import get_template as get_journal_template
+from ._journals import list_templates as list_journal_templates
 
 # ── Provenance / lineage ────────────────────────────────────────────────
 from ._lineage import (
     Provenance,
     attach_provenance,
-    get_provenance,
     compute_data_hash,
     format_provenance,
+    get_provenance,
     lineage_summary,
 )
 
 # ── Replication pack ────────────────────────────────────────────────────
 from ._replication_pack import ReplicationPack, replication_pack
+from ._replication_verify import ReplicationVerification, verify_replication_pack
+from .collection import Collection, CollectionItem, collect
+from .estimates import EstimateTableResult, estclear, eststo, esttab
+from .mean_comparison import MeanComparisonResult, mean_comparison
+from .modelsummary import coefplot, coefplot_tikz, modelsummary  # noqa: F401
+from .outreg2 import OutReg2, outreg2  # noqa: F401
 
-# ── great_tables adapter ────────────────────────────────────────────────
-from ._gt import to_gt, is_great_tables_available
+# ── Multi-table / paper bundles ─────────────────────────────────────────
+from .paper_tables import TEMPLATES as PAPER_TABLE_TEMPLATES
+from .paper_tables import PaperTables, paper_tables
 
-# ── Bibliography / CSL ──────────────────────────────────────────────────
-from ._bibliography import (
-    CSL_REGISTRY,
-    csl_url,
-    csl_filename,
-    list_csl_styles,
-    parse_citation_to_bib,
-    make_bib_key,
-    citations_to_bib_entries,
-    write_bib,
-)
+# ── Regression-table renderers ──────────────────────────────────────────
+from .regression_table import RegtableResult, regtable
+
+# ── Single-table helpers ────────────────────────────────────────────────
+from .sumstats import balance_table, sumstats
+from .tab import tab
 
 __all__ = [
     # Regression-table renderers (canonical first)
@@ -138,6 +138,8 @@ __all__ = [
     # Replication pack
     "ReplicationPack",
     "replication_pack",
+    "verify_replication_pack",
+    "ReplicationVerification",
     # great_tables adapter
     "to_gt",
     "is_great_tables_available",

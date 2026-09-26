@@ -62,11 +62,13 @@ def test_rd_missing_column_raises(base_df):
 # weight-identity is N/A: weights must raise, not be silently ignored          #
 # --------------------------------------------------------------------------- #
 def test_rd_weights_not_silently_ignored(base_df):
-    assert_raises_clean(
-        lambda: sp.rdrobust(base_df.assign(w=1.0), y="y", x="x", weights="w"),
-        NotImplementedError,
-        match="weight",
-    )
+    # Implemented in 1.32: non-constant weights must move the estimate.
+    rng = np.random.default_rng(1)
+    plain = sp.rdrobust(base_df, y="y", x="x")
+    w = rng.uniform(0.2, 3.0, len(base_df))
+    weighted = sp.rdrobust(base_df.assign(w=w), y="y", x="x", weights="w")
+    assert weighted.estimate != plain.estimate
+    assert weighted.model_info["weighted"] is True
 
 
 # --------------------------------------------------------------------------- #

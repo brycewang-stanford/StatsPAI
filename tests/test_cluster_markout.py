@@ -137,16 +137,33 @@ def test_warning_carries_agent_payload(frames):
     assert note.diagnostics == {"cluster": ["g"], "n_dropped": 4}
 
 
-def test_margins_refuses_data_with_missing_model_variables(frames):
+def test_margins_drops_incomplete_rows_like_e_sample_and_warns(frames):
+    # Stata averages over e(sample): rows with a missing model variable are
+    # not in it. (Until 1.32 sp.margins refused such data outright.) When the
+    # rows left differ from the fit's own nobs, data is probably not the
+    # estimation data, so that is flagged.
     with_na, complete = frames
     holes = complete.copy()
     holes.loc[holes.index[:3], "x"] = np.nan
     fit, _ = _fit(CALLS["logit"], complete)
-    with pytest.raises(sp.exceptions.MethodIncompatibility, match="3 row"):
-        sp.margins(fit, data=holes)
+    with pytest.warns(StatsPAIWarning, match="3 dropped"):
+        out = sp.margins(fit, data=holes)
+    assert out.attrs["n"] == len(complete) - 3
+    assert np.isfinite(out["dy/dx"]).all()
     # at= fixing the incomplete column makes the rows usable again.
     out = sp.margins(fit, data=holes, at={"x": 0.0})
     assert np.isfinite(out["dy/dx"]).all()
+
+
+def test_margins_on_marked_out_data_equals_complete_data(frames):
+    # The rows the missing-cluster markout dropped are excluded again.
+    with_na, complete = frames
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", StatsPAIWarning)
+        fit = sp.logit("yb ~ x", data=with_na, vce="cluster g")
+    pd.testing.assert_frame_equal(
+        sp.margins(fit, data=with_na), sp.margins(fit, data=complete)
+    )
 
 
 def test_stata_margins_averages_over_the_estimation_sample(frames):

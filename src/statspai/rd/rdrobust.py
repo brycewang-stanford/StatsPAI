@@ -397,6 +397,15 @@ def rdrobust(
     donut : float, default 0
         Donut-hole radius: observations with |x - c| <= donut are
         excluded. Useful when manipulation near the cutoff is suspected.
+    weights : str, optional
+        Column of non-negative observation weights, as R
+        ``rdrobust(weights=)``: they multiply the kernel weights in every
+        local regression -- all three stages of the bandwidth selector,
+        the conventional and bias-corrected fits, and the sandwich
+        variance. Rows with zero weight drop out of the windows; rows with a
+        missing weight are removed with the other incomplete cases.
+        Supported on the default CCT path and on ``bwselect='cct'``; not
+        with ``bootstrap='rbc'``.
     alpha : float, default 0.05
         Significance level for confidence intervals.
     bootstrap : {'rbc', None}, default None
@@ -599,6 +608,7 @@ def rdrobust(
             cluster=cluster,
             donut=donut,
             alpha=alpha,
+            weights=weights,
         )
     if bootstrap is not None and bootstrap not in ("rbc",):
         bootstrap = _require_string_option(bootstrap, "bootstrap")
@@ -607,6 +617,14 @@ def rdrobust(
             f"bootstrap must be None or 'rbc', got {bootstrap!r}. "
             "See Cavaliere, Gonçalves, Nielsen & Zanelli (arXiv:2512.00566, 2025).",
             diagnostics={"bootstrap": bootstrap},
+        )
+    if bootstrap is not None and weights is not None:
+        raise MethodIncompatibility(
+            "bootstrap='rbc' does not support observation weights: the "
+            "bootstrap resamples the unweighted local fits.",
+            recovery_hint="Drop weights= or bootstrap=; the analytic robust "
+            "bias-corrected SE supports weights.",
+            diagnostics={"bootstrap": bootstrap, "weights": weights},
         )
     if bootstrap is not None and n_boot < 99:
         raise MethodIncompatibility(
@@ -632,7 +650,33 @@ def rdrobust(
         )
 
     # --- Parse and prepare data ---
-    Y, X_c, D, Z = _parse_data(data, y, x, c, fuzzy, covs)
+    if weights is not None:
+        weights = _require_column_name(weights, "weights")
+        if weights not in data.columns:
+            raise MethodIncompatibility(
+                f"weights column '{weights}' not found in data.",
+                diagnostics={"missing_column": weights},
+            )
+    _extra = [col for col in (cluster, weights) if col is not None]
+    Y, X_c, D, Z, _valid = _parse_data(
+        data, y, x, c, fuzzy, covs, extra=_extra, return_mask=True
+    )
+    W_obs: Optional[np.ndarray] = None
+    if weights is not None:
+        W_obs = data[weights].to_numpy(dtype=float)[_valid]
+        if not np.all(np.isfinite(W_obs)):
+            raise MethodIncompatibility(
+                f"weights column '{weights}' must be finite.",
+                diagnostics={"weights": weights},
+            )
+        if np.any(W_obs < 0):
+            raise MethodIncompatibility(
+                f"weights column '{weights}' has {int((W_obs < 0).sum())} "
+                "negative value(s); observation weights must be >= 0.",
+                recovery_hint="R rdrobust silently drops such rows; drop or "
+                "recode them explicitly.",
+                diagnostics={"weights": weights},
+            )
 
     # --- Mass-points diagnostic (Kolesár-Rothe 2018) -----------------
     n_unique = int(np.unique(X_c).size)
@@ -647,15 +691,16 @@ def rdrobust(
         )
 
     # --- Observation-level weights ---
-    if weights is not None:
-        raise NotImplementedError(
-            "Observation-level weights are not yet supported in rdrobust. "
-            "This parameter is reserved for a future release."
-        )
+    # As R rdrobust(weights=): they multiply the kernel weights in every
+    # local regression -- bandwidth cascade, conventional and bias-corrected
+    # fits, leverages and sandwich meat -- so they run through the CCT path
+    # only (the legacy fallback below is refused for a weighted fit).
+    _donut_keep: Optional[np.ndarray] = None
 
     # --- Donut hole: exclude observations within donut radius ---
     if donut > 0:
         keep = np.abs(X_c) > donut
+        _donut_keep = keep
         if keep.sum() < 10:
             raise DataInsufficient(
                 f"donut={donut} excludes too many observations "
@@ -668,6 +713,8 @@ def rdrobust(
             D = D[keep]
         if Z is not None:
             Z = Z[keep]
+        if W_obs is not None:
+            W_obs = W_obs[keep]
 
     n = len(Y)
     left = X_c < 0
@@ -708,11 +755,13 @@ def rdrobust(
     vce = str(vce).lower()
 
     # --- Cluster values (handle donut filtering) ---
+    # Aligned with Y / X_c: the complete-case mask first, then the donut.
+    # (Taking data[cluster] whole crashed with an IndexError whenever any
+    # row had a missing y or x.)
     if cluster:
-        cl_vals_all = data[cluster].values
-        if donut > 0:
-            X_raw = data[x].values.astype(float) - c
-            cl_vals_all = cl_vals_all[np.abs(X_raw) > donut]
+        cl_vals_all = data[cluster].values[_valid]
+        if _donut_keep is not None:
+            cl_vals_all = cl_vals_all[_donut_keep]
     else:
         cl_vals_all = None
 
@@ -742,11 +791,15 @@ def rdrobust(
                 vce=vce,
                 cluster=cl_vals_all,
                 fuzzy=D,
+                weights=W_obs,
             )
         except (ValueError, IndexError, ZeroDivisionError, np.linalg.LinAlgError):
             # Degenerate data (empty side, singular design, kernel/bwselect
             # rejected): fall back to the legacy selector rather than failing
-            # the whole estimate.
+            # the whole estimate -- except for a weighted fit, which the
+            # legacy selector would silently treat as unweighted.
+            if W_obs is not None:
+                raise
             _cct = None
 
     if h is None:
@@ -842,10 +895,13 @@ def rdrobust(
                 vce=vce,
                 cluster=cl_vals_all,
                 fuzzy=D,
+                weights=W_obs,
             )
             # (tau_conv, tau_bc, se_conv, se_robust)
             _tau_bc_cct = _cctvals
         except (ValueError, IndexError, ZeroDivisionError, np.linalg.LinAlgError):
+            if W_obs is not None:
+                raise
             _tau_bc_cct = None
 
     tau_bc, se_robust, _, _ = _rd_estimate(
@@ -927,6 +983,35 @@ def rdrobust(
         # nn residuals whose tie runs are measured on the whole side, which
         # the legacy path did not do.
         tau_conv, tau_bc, se_conv, se_robust = _tau_bc_cct
+
+    if W_obs is not None:
+        # Diagnostics that the legacy helpers compute unweighted.
+        _hl_w, _hr_w = h if isinstance(h, tuple) else (h, h)
+        pos = W_obs > 0
+        n_eff_l = int(np.sum(left & pos & (X_c >= -_hl_w)))
+        n_eff_r = int(np.sum(right & pos & (X_c <= _hr_w)))
+        if D is not None:
+            from ._cct_bandwidth import cct_bias_corrected as _cbc
+
+            _bl_w, _br_w = b if isinstance(b, tuple) else (b, b)
+            fs_c, _, fs_s, _ = _cbc(
+                D,
+                X_c,
+                0.0,
+                float(_hl_w),
+                float(_hr_w),
+                float(_bl_w),
+                float(_br_w),
+                p,
+                q,
+                deriv,
+                kernel,
+                covs=Z,
+                vce=vce,
+                cluster=cl_vals_all,
+                weights=W_obs,
+            )
+            fs_F = float((fs_c / fs_s) ** 2) if fs_s > 0 else float("inf")
 
     # --- Inference ---
     z_crit = stats.norm.ppf(1 - alpha / 2)
@@ -1166,6 +1251,7 @@ def _delegate_to_cct_rdrobust(
     cluster: Optional[str],
     donut: float,
     alpha: float,
+    weights: Optional[str] = None,
 ) -> CausalResult:
     """Delegate to the official ``rdrobust`` Python port (Calonico-
     Cattaneo-Titiunik 2014) and adapt the result to ``CausalResult``.
@@ -1199,7 +1285,12 @@ def _delegate_to_cct_rdrobust(
         ) from exc
 
     # --- Parse data the same way our internal path does ---
-    Y_arr, X_c, D, Z = _parse_data(data, y, x, c, fuzzy, covs)
+    _extra = [col for col in (cluster, weights) if col is not None]
+    Y_arr, X_c, D, Z, _valid = _parse_data(
+        data, y, x, c, fuzzy, covs, extra=_extra, return_mask=True
+    )
+    cluster_vals = None if cluster is None else data[cluster].values[_valid]
+    W_obs = None if weights is None else data[weights].to_numpy(float)[_valid]
 
     # Apply donut filter (rdrobust does not support donut natively).
     if donut > 0:
@@ -1216,6 +1307,10 @@ def _delegate_to_cct_rdrobust(
             D = D[keep]
         if Z is not None:
             Z = Z[keep]
+        if cluster_vals is not None:
+            cluster_vals = cluster_vals[keep]
+        if W_obs is not None:
+            W_obs = W_obs[keep]
 
     # rdrobust expects raw (uncentered) X — re-add cutoff.
     X_raw = X_c + c
@@ -1226,13 +1321,6 @@ def _delegate_to_cct_rdrobust(
     n_left_total = int((X_c < 0).sum())
     n_right_total = int((X_c >= 0).sum())
     n_obs = len(Y_arr)
-
-    cluster_vals = None
-    if cluster is not None:
-        cluster_vals = data[cluster].values
-        if donut > 0:
-            X_full = data[x].values.astype(float) - c
-            cluster_vals = cluster_vals[np.abs(X_full) > donut]
 
     # --- Call official rdrobust ---
     kw: Dict[str, Any] = dict(
@@ -1251,6 +1339,8 @@ def _delegate_to_cct_rdrobust(
         kw["covs"] = pd.DataFrame(Z, columns=list(covs))
     if cluster_vals is not None:
         kw["cluster"] = cluster_vals
+    if W_obs is not None:
+        kw["weights"] = W_obs
     if h is not None:
         # rdrobust accepts scalar h (common) or two-element list (l/r)
         kw["h"] = h
@@ -1860,10 +1950,15 @@ def _parse_data(
     c: float,
     fuzzy: Optional[str],
     covs: Optional[List[str]],
-) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
+    extra: Optional[List[str]] = None,
+    return_mask: bool = False,
+) -> Any:
     """Parse and validate RD data.
 
-    Returns (Y, X_centered, D_or_None, Z_covariates_or_None).
+    Returns (Y, X_centered, D_or_None, Z_covariates_or_None), plus the
+    row mask of ``data`` that was kept when ``return_mask=True``. Columns in
+    ``extra`` (cluster, weights) join the complete-case rule, as in R's
+    ``rdrobust`` (``na.ok`` also requires a non-missing cluster / weight).
     Covariates are returned as a matrix (n, k) for inclusion in the
     local polynomial (covariate-adjusted estimation per Calonico et al. 2019),
     rather than being partialled out globally.
@@ -1911,6 +2006,8 @@ def _parse_data(
                     },
                 )
             valid &= np.isfinite(data[col].values.astype(float))
+    for col in extra or []:
+        valid &= data[col].notna().to_numpy()
 
     Y, X_c = Y[valid], X_c[valid]
     if D is not None:
@@ -1928,6 +2025,8 @@ def _parse_data(
         # Demean covariates for numerical stability
         Z = Z - Z.mean(axis=0)
 
+    if return_mask:
+        return Y, X_c, D, Z, valid
     return Y, X_c, D, Z
 
 

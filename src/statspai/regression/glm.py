@@ -25,6 +25,7 @@ from ..core.base import BaseEstimator, BaseModel
 from ..core.results import EconometricResults
 from ..core.utils import _coerce_string_extension_dtypes, create_design_matrices
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..output._lineage import records_provenance
 
 
 def _require_string(value: Any, name: str) -> str:
@@ -1442,6 +1443,17 @@ class GLMRegression(BaseModel):
             "converged": results["converged"],
             "n_iter": results["n_iter"],
         }
+        # Picklable design recipe for postestimation (sp.margins rebuilds
+        # the design, incl. C() factors and I() transforms, from it).
+        if self.formula is not None:
+            model_info["formula"] = self.formula
+        for _key, _spec in (
+            ("offset", offset),
+            ("exposure", exposure),
+            ("weights", weights),
+        ):
+            if isinstance(_spec, str):
+                model_info[_key] = _spec
 
         data_info = {
             "nobs": results["nobs"],
@@ -1694,6 +1706,7 @@ class GLMRegression(BaseModel):
 
 
 @accepts_aliases(vce="robust")
+@records_provenance("sp.glm")
 @markout_clusters
 def glm(
     formula: Optional[str] = None,

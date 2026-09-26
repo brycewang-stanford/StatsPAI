@@ -121,6 +121,12 @@ spatial = [
 text = [
     "sentence-transformers>=2.2.0",
 ]
+io = [
+    # Optional: preserves Stata / SPSS / SAS variable + value labels via
+    # pyreadstat (Apache-2.0). ``sp.read_data`` works without it — the pandas
+    # fallback keeps .dta labels too — so this stays out of core deps.
+    "pyreadstat>=1.2",
+]
 tune = [
     "optuna>=3.0",
 ]
@@ -181,6 +187,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 "statspai" = ["py.typed", "*.pyi", "CITATION.cff", "paper.bib", "schemas/*.json", "_parity_index.json"]
 "statspai.datasets" = ["data/*.csv"]
+"statspai.smart" = ["data/recommend_corpus.yaml"]
 
 [tool.black]
 line-length = 88

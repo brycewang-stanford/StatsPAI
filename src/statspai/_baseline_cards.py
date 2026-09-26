@@ -1753,6 +1753,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "example": 'sp.mi_estimate(mice_res, sp.regress, formula="y ~ x1 + x2")',
         "tags": ["missing"],
     },
+    "mi_test": {
+        "example": 'sp.mi_test(pooled, ["x2", "x3"])',
+        "tags": ["missing"],
+    },
     "mice": {
         "example": "sp.mice(df, m=5, method='pmm')",
         "tags": ["missing"],

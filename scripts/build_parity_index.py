@@ -15,8 +15,9 @@ Design contract (zero-hallucination, §10 of CLAUDE.md):
   ``unverified``.
 
 Status taxonomy (the user-facing parity grade):
-  * ``bit-exact``           — matches a named R/Stata reference to the
-                              machine tolerance tier (rel <= 1e-6).
+  * ``bit-exact``           — matches a named R/Stata reference within the
+                              strict tolerance tier (rel <= 1e-6); a
+                              tolerance grade, not bitwise equality.
   * ``aligned``             — matches a named R/Stata reference within a
                               documented looser tolerance (iterative /
                               moderate / methodological tier).
@@ -6861,8 +6862,12 @@ def render_parity_doc(index: Dict[str, Any], total_functions: int) -> str:
     w("| grade | meaning |")
     w("| --- | --- |")
     w(
-        "| `bit-exact` | matches a named R/Stata reference to machine tolerance "
-        "(headline relative error ≤ 1e-6) |"
+        "| `bit-exact` | matches a named R/Stata reference on identical input "
+        "bytes within the strict pre-registered tolerance (headline estimate "
+        "and SE relative error ≤ 1e-6; most modules land at 1e-9 to 1e-15). "
+        "A numerical-tolerance grade, not IEEE bitwise equality, and a "
+        "statement about the compared configuration only — see "
+        "`sp.validation_scope` for which options and outputs were compared |"
     )
     w(
         "| `aligned` | matches a named reference within a documented, "

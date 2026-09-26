@@ -1,5 +1,14 @@
 # Performance: an honest cross-library benchmark
 
+> **Current numbers (2026-09-26, StatsPAI 1.31+):** the workflow benchmark
+> in [`benchmarks/workflow_bench/`](https://github.com/brycewang-stanford/StatsPAI/tree/main/benchmarks/workflow_bench)
+> covers HDFE OLS, IV-HDFE, PPML with separation, staggered DiD, DML with
+> repeated folds and the wild cluster bootstrap at 100k / 1M rows against
+> pyfixest, DoubleML and R, with cold start, peak memory and failures. The
+> cross-library HDFE report below is older (StatsPAI 1.20, one DGP) and is
+> kept for its methodology.
+
+
 StatsPAI's position on performance is simple: **publish where we win and where
 we lose, on one machine, with the numbers proving every backend computes the
 same estimator.** Selectively quoting only the regimes where a library is fast

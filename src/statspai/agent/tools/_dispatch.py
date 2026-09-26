@@ -485,6 +485,22 @@ def execute_tool(
         out["result_id"] = rid
         out["result_uri"] = f"statspai://result/{rid}"
 
+    # Result card: the same estimand / sample / inference / provenance /
+    # evidence-scope summary sp.result_card returns in Python, so an agent
+    # never has to reassemble it (skipped at detail='minimal').
+    if detail != "minimal" and (
+        hasattr(result, "params") or hasattr(result, "estimate")
+    ):
+        from ...result_card import result_card as _result_card
+        from ...workflow._degradation import record_degradation
+
+        try:
+            out["result_card"] = dict(_result_card(result))
+        except Exception as e:  # noqa: BLE001 — the fit itself succeeded
+            degr: List[Dict[str, Any]] = []
+            record_degradation(degr, section="result_card", exc=e, detail=name)
+            out["result_card_error"] = degr[0] if degr else repr(e)
+
     # Output enrichment: pre-built next_calls + verified citations +
     # short narrative. Agents on per-call billing get more value per
     # roundtrip; agents on per-token billing can request

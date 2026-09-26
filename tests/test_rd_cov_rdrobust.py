@@ -74,9 +74,22 @@ def test_rdrobust_rho(sharp):
     assert res is not None
 
 
-def test_rdrobust_weights_not_supported(sharp):
-    with pytest.raises(NotImplementedError):
-        sp.rdrobust(sharp, y="y", x="x", c=0.0, weights="w")
+def test_rdrobust_weights_are_used(sharp):
+    # weights= is implemented since 1.32 (R rdrobust parity in
+    # tests/reference_parity/test_rd_weights_parity.py): unit weights leave
+    # the fit unchanged, non-constant ones change it.
+    base = sp.rdrobust(sharp, y="y", x="x", c=0.0)
+    unit = sp.rdrobust(sharp.assign(w1=1.0), y="y", x="x", c=0.0, weights="w1")
+    assert unit.estimate == base.estimate
+    rng = np.random.default_rng(0)
+    varied = sp.rdrobust(
+        sharp.assign(wv=rng.uniform(0.5, 2.0, len(sharp))),
+        y="y",
+        x="x",
+        c=0.0,
+        weights="wv",
+    )
+    assert varied.estimate != base.estimate
 
 
 def test_rdrobust_result_exports(sharp):

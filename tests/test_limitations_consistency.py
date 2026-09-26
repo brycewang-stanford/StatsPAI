@@ -44,6 +44,25 @@ ALLOWED_PHRASES: Tuple[str, ...] = (
 
 
 LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
+    # Frontier method cards (registry._FRONTIER_METHOD_LIMITATIONS): evidence
+    # statements, not code paths that raise.
+    **{
+        n: ["no numerical evidence -- only API/unit tests"]
+        for n in ("tarnet", "cfrnet", "dragonnet", "cevae", "gnn_causal", "deepiv")
+    },
+    **{
+        n: ["LLM output is a proposal, not evidence"]
+        for n in (
+            "llm_dag_propose",
+            "llm_dag_constrained",
+            "llm_dag_validate",
+            "llm_dag",
+            "llm_unobserved_confounders",
+            "llm_sensitivity_priors",
+            "llm_causal_assess",
+            "causal_mas",
+        )
+    },
     "dml": [
         # Interface-scope statements about the opt-in OOF audit path, not
         # code paths that raise: the three controls are keyword-only Python
@@ -371,15 +390,16 @@ def _runtime_map() -> (
             ),
             MethodIncompatibility,
         ),
-        ("rdrobust", "observation-level weights"): (
+        ("rdrobust", "the weighted rbc bootstrap is not supported"): (
             lambda: sp.rdrobust(
                 df_cs,
                 y="y",
                 x="x",
                 c=0.0,
                 weights="w",
+                bootstrap="rbc",
             ),
-            NotImplementedError,
+            MethodIncompatibility,
         ),
         ("llm_annotator_correct", "logistic and Bayesian variants"): (
             lambda: sp.llm_annotator_correct(

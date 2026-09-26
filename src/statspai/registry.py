@@ -1763,8 +1763,8 @@ def _build_registry() -> None:
             alternatives=["rd_honest", "rdrbounds", "bounds"],
             typical_n_min=500,
             limitations=[
-                "observation-level weights are not yet supported — passing a "
-                "weight column raises NotImplementedError",
+                "the weighted rbc bootstrap is not supported — passing "
+                "weights= with bootstrap='rbc' raises MethodIncompatibility",
             ],
         )
     )
@@ -1892,7 +1892,17 @@ def _build_registry() -> None:
             params=[
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True, description="Outcome"),
-                ParamSpec("treat", "str", True, description="Treatment variable"),
+                ParamSpec(
+                    "treat",
+                    "str",
+                    True,
+                    description=(
+                        "Treatment variable. model='plr' also accepts a list "
+                        "of treatment columns: each is fitted with the others "
+                        "as controls on one split, and the result carries the "
+                        "joint covariance across treatments."
+                    ),
+                ),
                 ParamSpec(
                     "covariates",
                     "list",
@@ -10585,6 +10595,16 @@ def _build_registry() -> None:
                 ParamSpec("extra_files", "dict", False),
                 ParamSpec("include_git_sha", "bool", False, True),
                 ParamSpec("overwrite", "bool", False, True),
+                ParamSpec(
+                    "strict",
+                    "bool",
+                    False,
+                    False,
+                    "Delivery mode: refuse to write a pack that a third party "
+                    "could not rerun (no code, data or environment, or any "
+                    "failed step) instead of writing a partial one. Verify "
+                    "the result with sp.verify_replication_pack.",
+                ),
             ],
             returns="ReplicationPack",
             example=(
@@ -18191,18 +18211,55 @@ _NON_FUNCTION_PUBLIC_EXPORTS: frozenset = frozenset(
 )
 
 
+#: Method cards for frontier modules with no numerical evidence (review
+#: 2026-09, section 6.7): what is heuristic or unvalidated, stated where
+#: agents read it (tool descriptions, sp.result_card).
+_NEURAL_NO_EVIDENCE = (
+    "no numerical evidence -- only API/unit tests; no known-truth or cross-"
+    "package comparison in the parity index, and estimates depend on "
+    "network initialisation, training schedule and seed. Treat intervals as"
+    " unvalidated and report results across seeds."
+)
+_LLM_PROPOSAL_ONLY = (
+    "LLM output is a proposal, not evidence -- only a heuristic step: it is"
+    " not reproducible across model versions or providers, has no numerical"
+    " evidence, and must be checked against domain knowledge and data (e.g."
+    " sp.llm_dag_validate) before it constrains an analysis."
+)
+_FRONTIER_METHOD_LIMITATIONS: Dict[str, List[str]] = {
+    "tarnet": [_NEURAL_NO_EVIDENCE],
+    "cfrnet": [_NEURAL_NO_EVIDENCE],
+    "dragonnet": [_NEURAL_NO_EVIDENCE],
+    "cevae": [_NEURAL_NO_EVIDENCE],
+    "gnn_causal": [_NEURAL_NO_EVIDENCE],
+    "deepiv": [_NEURAL_NO_EVIDENCE],
+    "llm_dag_propose": [_LLM_PROPOSAL_ONLY],
+    "llm_dag_constrained": [_LLM_PROPOSAL_ONLY],
+    "llm_dag_validate": [_LLM_PROPOSAL_ONLY],
+    "llm_dag": [_LLM_PROPOSAL_ONLY],
+    "llm_unobserved_confounders": [_LLM_PROPOSAL_ONLY],
+    "llm_sensitivity_priors": [_LLM_PROPOSAL_ONLY],
+    "llm_causal_assess": [_LLM_PROPOSAL_ONLY],
+    "causal_mas": [_LLM_PROPOSAL_ONLY],
+}
+
+
 _CERTIFIED_VARIANT_LIMITATIONS: Dict[str, Dict[str, List[str]]] = {
     "rdrobust": {
         "limitations": [
-            "R-parity certification applies to bwselect='cct' or manually "
-            "matched h/b bandwidths; the dependency-light default "
-            "bwselect='mserd' uses StatsPAI's calibrated selector and can "
-            "differ from rdrobust::rdrobust defaults.",
+            "R-parity certification applies only to the configurations "
+            "enumerated by sp.validation_scope(function='rdrobust') -- the "
+            "default native mserd / triangular / p=1 / nn path (Track A 06), "
+            "a manual bandwidth, and the weighted rows -- other selectors, "
+            "kernels and vce choices are pinned for sp.rdbwselect or not at "
+            "all for this entry point.",
         ],
         "validation_notes": [
-            "Variant-level certification: bwselect='cct' delegates to "
-            "official rdrobust for canonical R parity; default mserd is "
-            "documented as a bandwidth-convention gap.",
+            "Variant-level certification: the native default path (CCT "
+            "three-stage bandwidth cascade and bias-corrected operator) "
+            "matches rdrobust::rdrobust on Track A 06; weights= is pinned in "
+            "tests/reference_parity/test_rd_weights_parity.py; "
+            "bwselect='cct' delegates to the official port.",
         ],
     },
     "rddensity": {
@@ -20577,6 +20634,14 @@ def _apply_validation_evidence() -> None:
             if note not in spec.validation_notes:
                 spec.validation_notes.append(note)
 
+    for name, lims in _FRONTIER_METHOD_LIMITATIONS.items():
+        spec = _REGISTRY.get(name)
+        if spec is None:
+            continue
+        for limitation in lims:
+            if limitation not in spec.limitations:
+                spec.limitations.append(limitation)
+
     for name, payload in _CERTIFIED_VARIANT_LIMITATIONS.items():
         spec = _REGISTRY.get(name)
         if spec is None:
@@ -20893,7 +20958,39 @@ def describe_function(name: str) -> Dict[str, Any]:
     aliases = getattr(getattr(statspai, name, None), "__statspai_aliases__", None)
     if aliases:
         out["aliases"] = dict(aliases)
+    out["support_tier"] = support_tier(name)
     return out
+
+
+def support_tier(name: str) -> str:
+    """Maintenance tier derived from ``stability`` and ``validation_status``.
+
+    * ``"core"`` -- stable, with numerical evidence (``certified`` or
+      ``validated``);
+    * ``"extension"`` -- stable and contract-tested, but no numerical
+      evidence in the parity index (``api_stable``);
+    * ``"research"`` -- experimental / deprecated, or a frontier module whose
+      method card says its output is heuristic or unvalidated (LLM, neural).
+
+    Derived, never stored, so it cannot drift from the two axes it reads.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> sp.support_tier("callaway_santanna")
+    'core'
+    >>> sp.support_tier("llm_dag_propose")
+    'research'
+    """
+    _ensure_full_registry()
+    spec = _REGISTRY[name]
+    if spec.stability in ("experimental", "deprecated") or (
+        name in _FRONTIER_METHOD_LIMITATIONS
+    ):
+        return "research"
+    if spec.validation_status in ("certified", "validated"):
+        return "core"
+    return "extension"
 
 
 def function_schema(name: str, *, agent_native: bool = False) -> Dict[str, Any]:

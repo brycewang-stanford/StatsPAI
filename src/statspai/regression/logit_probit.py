@@ -21,6 +21,7 @@ Hosmer, D.W. & Lemeshow, S. (2000).
     *Applied Logistic Regression*, 2nd ed. Wiley. [@hosmer2000applied]
 """
 
+import functools
 import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -32,6 +33,7 @@ from .._aliases import accepts_aliases
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ..core.utils import create_design_matrices
+from ..output._lineage import records_provenance
 
 LinkFunc = Callable[[np.ndarray], np.ndarray]
 LinkTriplet = Tuple[LinkFunc, LinkFunc, LinkFunc]
@@ -719,6 +721,12 @@ def _fit_binary(
         model_info["n_clusters"] = int(len(np.unique(cluster_arr)))
 
     model_info["alpha"] = alpha
+    # Picklable design recipe for postestimation (sp.margins rebuilds the
+    # design, incl. C() factors and I() transforms, from the formula).
+    if formula is not None:
+        model_info["formula"] = formula
+    if isinstance(weights, str):
+        model_info["weights"] = weights
     result = EconometricResults(
         params=params,
         std_errors=se_series,
@@ -727,26 +735,49 @@ def _fit_binary(
         diagnostics=diagnostics,
     )
 
-    def _result_predict(
-        X_new: Optional[np.ndarray] = None,
-        pred_type: str = "response",
-        cutoff: float = 0.5,
-    ) -> np.ndarray:
-        X_pred = X_mat if X_new is None else _as_float_array(X_new)
-        return _predict(beta, X_pred, cdf_func, pred_type, cutoff)
-
-    def _result_classification_table(cutoff: float = 0.5) -> Dict[str, Any]:
-        probs = p_hat if cutoff == 0.5 else cdf_func(X_mat @ beta)
-        return _classification_table(y_vec, _as_float_array(probs), cutoff)
-
-    setattr(result, "predict", _result_predict)
+    # functools.partial over module-level helpers, not closures: a closure
+    # attribute made every logit/probit result unpicklable, which broke the
+    # MCP result cache and replication packs.
+    setattr(
+        result,
+        "predict",
+        functools.partial(_bound_result_predict, beta, X_mat, cdf_func),
+    )
     setattr(
         result,
         "classification_table",
-        _result_classification_table,
+        functools.partial(
+            _bound_classification_table, beta, X_mat, y_vec, p_hat, cdf_func
+        ),
     )
 
     return result
+
+
+def _bound_result_predict(
+    beta: np.ndarray,
+    X_mat: np.ndarray,
+    cdf_func: Any,
+    X_new: Optional[np.ndarray] = None,
+    pred_type: str = "response",
+    cutoff: float = 0.5,
+) -> np.ndarray:
+    """``result.predict`` for binary-response fits (picklable via partial)."""
+    X_pred = X_mat if X_new is None else _as_float_array(X_new)
+    return _predict(beta, X_pred, cdf_func, pred_type, cutoff)
+
+
+def _bound_classification_table(
+    beta: np.ndarray,
+    X_mat: np.ndarray,
+    y_vec: np.ndarray,
+    p_hat: np.ndarray,
+    cdf_func: Any,
+    cutoff: float = 0.5,
+) -> Dict[str, Any]:
+    """``result.classification_table`` (picklable via partial)."""
+    probs = p_hat if cutoff == 0.5 else cdf_func(X_mat @ beta)
+    return _classification_table(y_vec, _as_float_array(probs), cutoff)
 
 
 # =========================================================================
@@ -755,6 +786,7 @@ def _fit_binary(
 
 
 @accepts_aliases(vce="robust")
+@records_provenance("sp.logit")
 @markout_clusters
 def logit(
     formula: Optional[str] = None,
@@ -847,6 +879,7 @@ def logit(
 
 
 @accepts_aliases(vce="robust")
+@records_provenance("sp.probit")
 @markout_clusters
 def probit(
     formula: Optional[str] = None,
@@ -932,6 +965,7 @@ def probit(
 
 
 @accepts_aliases(vce="robust")
+@records_provenance("sp.cloglog")
 @markout_clusters
 def cloglog(
     formula: Optional[str] = None,

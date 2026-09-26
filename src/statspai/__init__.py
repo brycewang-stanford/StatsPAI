@@ -300,6 +300,7 @@ from .output._lineage import (
     lineage_summary,
 )
 from .output._replication_pack import ReplicationPack, replication_pack
+from .output._replication_verify import ReplicationVerification, verify_replication_pack
 from .output.collection import Collection, CollectionItem, collect
 from .output.estimates import estclear, eststo, esttab
 from .output.modelsummary import coefplot, coefplot_tikz, modelsummary
@@ -898,6 +899,7 @@ from .registry import (
     function_schema,
     list_functions,
     search_functions,
+    support_tier,
 )
 
 # Advanced IV
@@ -934,6 +936,7 @@ from .regression.truncreg import truncreg
 
 # Count Data
 from .regression.zeroinflated import hurdle, zinb, zip_model
+from .result_card import ResultCard, result_card
 
 # Rigorous (data-driven) Lasso — faithful port of R's hdm package
 from .rlasso import (  # noqa: E402
@@ -1386,6 +1389,8 @@ __all__ = [
     # Replication pack (audited archive)
     "ReplicationPack",
     "replication_pack",
+    "verify_replication_pack",
+    "ReplicationVerification",
     # great_tables adapter (manuscript/reporting tables)
     "gt",
     "is_great_tables_available",
@@ -1701,6 +1706,7 @@ __all__ = [
     "benjamini_hochberg",
     # AI / Agent Registry
     "list_functions",
+    "support_tier",
     "describe_function",
     "function_schema",
     "agent_schema",
@@ -1726,6 +1732,8 @@ __all__ = [
     "parity_summary",
     "validation_scope",
     "ValidationScope",
+    "result_card",
+    "ResultCard",
     "help",
     "HelpResult",
     # Data Generating Processes
@@ -1811,6 +1819,7 @@ __all__ = [
     "mice",
     "MICEResult",
     "mi_estimate",
+    "mi_test",
     # Mendelian Randomization
     "mendelian_randomization",
     "MRResult",
@@ -3127,6 +3136,7 @@ _register_lazy(
     "mice",
     "MICEResult",
     "mi_estimate",
+    "mi_test",
 )
 _register_lazy(
     "survey",

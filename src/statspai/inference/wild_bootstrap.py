@@ -327,25 +327,49 @@ def _wcr_t_stats(
     ``Y*_b = fitted_r + W[b, boot_idx] * resid_r``; each draw is refitted by
     OLS and studentised by the CR1 cluster-robust SE computed over the
     *error* clusters ``err_idx`` (which may be coarser than the bootstrap
-    clusters ``boot_idx``, as in the subcluster bootstrap). Vectorised over
-    draws; numerically the same computation as a per-draw loop.
+    clusters ``boot_idx``, as in the subcluster bootstrap).
+
+    Every draw is linear in its cluster weights ``w_b`` (Roodman,
+    MacKinnon, Nielsen & Webb's boottest algebra): with ``a`` the tested
+    row of ``(X'X)^-1``, ``xa = X a`` and ``e`` the restricted residuals,
+
+    * ``beta*_b[test] = xa'f + v'w_b`` with ``v_g = sum_{i in g} xa_i e_i``;
+    * the error-cluster scores are ``K w_b`` with ``K = M - Q A``, where
+      ``M[c, g] = sum_{i in c, g} xa_i e_i``, ``Q[c] = sum_{i in c} xa_i x_i``
+      and ``A[:, g] = sum_{i in g} (X (X'X)^-1)_i e_i`` (the part of
+      ``beta*_b`` that moves with ``w_b``; the ``f`` part leaves no residual
+      because ``f`` lies in the column space of ``X``).
+
+    So the loop over draws touches only ``B x (G_boot + G_err)`` numbers:
+    memory no longer scales with ``n x B`` (it used to materialise ``Y*``
+    and the residuals for 2,048 draws at a time -- 2.7 GB at n = 100k),
+    and the result is the same computation up to floating-point order.
     """
-    n = X.shape[0]
     a = XtX_inv[test_idx]  # row of (X'X)^-1 for the tested coefficient
     xa = X @ a  # beta_b[test] = xa' Y*
-    onehot = np.zeros((n, n_err))
-    onehot[np.arange(n), err_idx] = 1.0
-    P = X @ XtX_inv  # (n, k); beta_b = Y* @ P
+    G_boot = int(W.shape[1])
+    xe = xa * resid_r
+    v = np.bincount(boot_idx, weights=xe, minlength=G_boot)
+    c0 = float(xa @ fitted_r)
+    # M: error cluster x bootstrap cluster sums of xa * e
+    M = np.zeros((n_err, G_boot))
+    np.add.at(M, (err_idx, boot_idx), xe)
+    # Q: error-cluster sums of xa * x
+    Q = np.zeros((n_err, X.shape[1]))
+    np.add.at(Q, err_idx, xa[:, None] * X)
+    # A: k x G_boot, bootstrap-cluster sums of (X (X'X)^-1)_i e_i
+    P = X @ XtX_inv
+    A = np.zeros((G_boot, X.shape[1]))
+    np.add.at(A, boot_idx, P * resid_r[:, None])
+    K = M - Q @ A.T  # (n_err, G_boot)
     out = np.empty(W.shape[0])
     for start in range(0, W.shape[0], chunk):
         Wc = W[start : start + chunk]
-        Y_star = fitted_r[None, :] + Wc[:, boot_idx] * resid_r[None, :]
-        beta_b = Y_star @ P
-        resid_b = Y_star - beta_b @ X.T
-        scores = (resid_b * xa[None, :]) @ onehot  # (B, n_err)
+        num = c0 + Wc @ v - h0
+        scores = Wc @ K.T  # (B, n_err)
         var_b = correction * np.sum(scores**2, axis=1)
         se_b = np.sqrt(np.maximum(var_b, 1e-20))
-        out[start : start + chunk] = (beta_b[:, test_idx] - h0) / se_b
+        out[start : start + chunk] = num / se_b
     return out
 
 

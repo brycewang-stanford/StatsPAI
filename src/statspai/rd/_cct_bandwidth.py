@@ -250,8 +250,13 @@ def _vbr(
     vce: str = "nn",
     C: Optional[np.ndarray] = None,
     T: Optional[np.ndarray] = None,
+    W: Optional[np.ndarray] = None,
 ) -> Dict[str, float]:
     """``rdrobust_bw``: variance ``V``, bias ``B``, regularisation ``R``.
+
+    ``W`` holds observation weights; as in R's ``rdrobust_bw`` they
+    multiply the kernel weights of both windows (``w <- W * w``) before the
+    ``w > 0`` selection, so they enter every fit, leverage and sandwich.
 
     ``Z`` supplies covariates, which are partialled out of the local
     polynomial Frisch-Waugh style: the residual maker is the vector
@@ -274,6 +279,8 @@ def _vbr(
     dT = 0 if T is None else 1
     dZ = 0 if Z is None else Z.shape[1]
     w = _kweight(x, c, h_V, kernel)
+    if W is not None:
+        w = W * w
     ind = w > 0
     eY, eX, eW = y[ind], x[ind], w[ind]
     R_V = _vander(eX - c, o)
@@ -355,6 +362,8 @@ def _vbr(
 
     # ---- bias window ----------------------------------------------------
     w_b = _kweight(x, c, h_B, kernel)
+    if W is not None:
+        w_b = W * w_b
     ind_b = w_b > 0
     eY_b, eX_b, eW_b = y[ind_b], x[ind_b], w_b[ind_b]
     R_B = _vander(eX_b - c, o_B)
@@ -443,8 +452,14 @@ def cct_bandwidth(
     vce: str = "nn",
     cluster: Optional[np.ndarray] = None,
     fuzzy: Optional[np.ndarray] = None,
+    weights: Optional[np.ndarray] = None,
 ) -> Dict[str, float]:
     """MSE/CER-optimal bandwidths, matching ``rdrobust::rdbwselect``.
+
+    ``weights`` are observation weights (R ``rdbwselect(weights=)``): they
+    multiply the kernel weights in every stage of the cascade; the reference
+    bandwidth ``c_bw`` (sd / IQR of x, unique-value count) stays unweighted,
+    as in R.
 
     ``fuzzy`` supplies the first stage. The MSE being minimised is then the
     one for the Wald ratio, not for the reduced form, so every stage of the
@@ -536,6 +551,8 @@ def cct_bandwidth(
                 covs=covs,
                 vce=vce,
                 cluster=cluster,
+                fuzzy=fuzzy,
+                weights=weights,
             )
             for name in (
                 ("rd", "sum") if bwselect.endswith("comb1") else ("two", "rd", "sum")
@@ -559,14 +576,21 @@ def cct_bandwidth(
     if Cc is not None and vce_eff in ("nn", "hc0", "hc1"):
         # R promotes cluster + nn/hc0/hc1 to cr1, whose residuals are hc1's.
         vce_eff = "hc1"
+    Wall = None if weights is None else np.asarray(weights, dtype=float)
     ok = np.isfinite(y) & np.isfinite(x)
     if Z is not None:
         ok &= np.isfinite(Z).all(axis=1)
+    if Wall is not None:
+        ok &= np.isfinite(Wall)
     y, x = y[ok], x[ok]
     if Z is not None:
         Z = Z[ok]
     if Cc is not None:
         Cc = Cc[ok]
+    if Wall is not None:
+        Wall = Wall[ok]
+    if fuzzy is not None:
+        fuzzy = np.asarray(fuzzy, float)[ok]
     n = len(x)
 
     # Reference bandwidth. stdvars=FALSE => raw scale; masspoints='adjust'
@@ -606,6 +630,8 @@ def cct_bandwidth(
     Zr = None if Z is None else Z[right][orr]
     Cl = None if Cc is None else Cc[left][ol]
     Cr = None if Cc is None else Cc[right][orr]
+    Wl = None if Wall is None else Wall[left][ol]
+    Wr = None if Wall is None else Wall[right][orr]
     Tl = Tr = None
     if fuzzy is not None:
         Tfull = np.asarray(fuzzy, float)
@@ -620,7 +646,9 @@ def cct_bandwidth(
     dr, dir_ = _runs(Xr)
     range_l, range_r = abs(c - x_min), abs(c - x_max)
 
-    def bw(Y, X, o, nu, o_B, h_B, scale, dups, dupsid, Zs=None, Cs=None, Ts=None):
+    def bw(
+        Y, X, o, nu, o_B, h_B, scale, dups, dupsid, Zs=None, Cs=None, Ts=None, Ws=None
+    ):
         return _vbr(
             Y,
             X,
@@ -639,6 +667,7 @@ def cct_bandwidth(
             vce_eff,
             Cs,
             Ts,
+            Ws,
         )
 
     two = bwselect in ("msetwo", "certwo")
@@ -674,8 +703,8 @@ def cct_bandwidth(
         return v
 
     # stage 1 -- note scale = 0 here, not scaleregul.
-    D_l = bw(Yl, Xl, q + 1, q + 1, q + 2, range_l, 0.0, dl, dil, Zl, Cl, Tl)
-    D_r = bw(Yr, Xr, q + 1, q + 1, q + 2, range_r, 0.0, dr, dir_, Zr, Cr, Tr)
+    D_l = bw(Yl, Xl, q + 1, q + 1, q + 2, range_l, 0.0, dl, dil, Zl, Cl, Tl, Wl)
+    D_r = bw(Yr, Xr, q + 1, q + 1, q + 2, range_r, 0.0, dr, dir_, Zr, Cr, Tr, Wr)
     if two:
         d_l = clamp(_combine(D_l, D_r, "two_left", scaleregul), "l")
         d_r = clamp(_combine(D_l, D_r, "two_right", scaleregul), "r")
@@ -683,8 +712,8 @@ def cct_bandwidth(
         d_l = d_r = clamp(_combine(D_l, D_r, form, scaleregul))
 
     # stage 2 -- bias bandwidth b.
-    B_l = bw(Yl, Xl, q, p + 1, q + 1, d_l, scaleregul, dl, dil, Zl, Cl, Tl)
-    B_r = bw(Yr, Xr, q, p + 1, q + 1, d_r, scaleregul, dr, dir_, Zr, Cr, Tr)
+    B_l = bw(Yl, Xl, q, p + 1, q + 1, d_l, scaleregul, dl, dil, Zl, Cl, Tl, Wl)
+    B_r = bw(Yr, Xr, q, p + 1, q + 1, d_r, scaleregul, dr, dir_, Zr, Cr, Tr, Wr)
     if two:
         b_l = clamp(_combine(B_l, B_r, "two_left", scaleregul), "l")
         b_r = clamp(_combine(B_l, B_r, "two_right", scaleregul), "r")
@@ -692,8 +721,8 @@ def cct_bandwidth(
         b_l = b_r = clamp(_combine(B_l, B_r, form, scaleregul))
 
     # stage 3 -- main bandwidth h.
-    H_l = bw(Yl, Xl, p, deriv, q, b_l, scaleregul, dl, dil, Zl, Cl, Tl)
-    H_r = bw(Yr, Xr, p, deriv, q, b_r, scaleregul, dr, dir_, Zr, Cr, Tr)
+    H_l = bw(Yl, Xl, p, deriv, q, b_l, scaleregul, dl, dil, Zl, Cl, Tl, Wl)
+    H_r = bw(Yr, Xr, p, deriv, q, b_r, scaleregul, dr, dir_, Zr, Cr, Tr, Wr)
     if two:
         h_l = clamp(_combine(H_l, H_r, "two_left", scaleregul), "l")
         h_r = clamp(_combine(H_l, H_r, "two_right", scaleregul), "r")
@@ -731,6 +760,7 @@ def cct_bias_corrected(
     cluster: Optional[np.ndarray] = None,
     components: Optional[Dict[str, float]] = None,
     fuzzy: Optional[np.ndarray] = None,
+    weights: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, float, float]:
     """CCT bias-corrected estimate and its SEs, matching ``rdrobust``.
 
@@ -819,6 +849,9 @@ def cct_bias_corrected(
         Zall = Zall[:, None]
     Call = None if cluster is None else np.asarray(cluster)
     Tall = None if fuzzy is None else np.asarray(fuzzy, float)
+    # Observation weights multiply both kernels before the w > 0 selection
+    # (R rdrobust: w_h <- fw * w_h, w_b <- fw * w_b).
+    Wall = None if weights is None else np.asarray(weights, float)
     dT = 0 if Tall is None else 1
     dZ = 0 if Zall is None else Zall.shape[1]
     sides = []
@@ -837,6 +870,9 @@ def cct_bias_corrected(
         dups_side, dupsid_side = _runs(xs)
         W_h = _kweight(xs, c, h, kernel)
         W_b = _kweight(xs, c, b, kernel)
+        if Wall is not None:
+            Ws = Wall[m][o]
+            W_h, W_b = Ws * W_h, Ws * W_b
         keep = (W_h > 0) | (W_b > 0)
         eX, eY = xs[keep], ys[keep]
         eZ = None if Zs is None else Zs[keep]

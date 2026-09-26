@@ -18,8 +18,8 @@ repeated tools/call invocations on the same file are O(1).
 
 from __future__ import annotations
 
-import hashlib
 import functools
+import hashlib
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -101,6 +101,7 @@ def data_provenance(
         if sample_n is not None:
             out["sample_n"] = int(sample_n)
             out["sample_seed"] = 0
+            out["sample_method"] = SAMPLE_METHOD
         out["hash_status"] = "not_hashed_remote"
         return out
 
@@ -122,6 +123,7 @@ def data_provenance(
     if sample_n is not None:
         out["sample_n"] = int(sample_n)
         out["sample_seed"] = 0
+        out["sample_method"] = SAMPLE_METHOD
 
     try:
         stat = os.stat(local_path)
@@ -137,6 +139,128 @@ def data_provenance(
     return out
 
 
+#: Row-chunk size for streamed sampling of over-cap files.
+_STREAM_CHUNK_ROWS = 250_000
+
+#: Formats that can be read in row chunks without materialising the file.
+_STREAMABLE_SUFFIXES = (".csv", ".tsv", ".txt", ".parquet", ".pq", ".jsonl", ".dta")
+
+#: Sampling rule recorded in provenance. One rule for every code path, so
+#: the rows returned for a given ``data_sample_n`` never depend on whether
+#: the file happened to fit under the byte cap.
+SAMPLE_METHOD = "uniform_min_key_seed0"
+
+
+def _is_streamable(path: str) -> bool:
+    return path.lower().endswith(_STREAMABLE_SUFFIXES)
+
+
+def estimated_load_bytes(path: str, columns: Optional[List[str]] = None) -> int:
+    """Best cheap estimate of the bytes a full local load materialises.
+
+    Parquet is compressed on disk, so its on-disk size can understate the
+    in-memory frame several-fold; use the footer's *uncompressed* column
+    sizes (restricted to the projection when one is given).  Other formats
+    fall back to the on-disk size.
+    """
+    size = os.stat(path).st_size
+    if path.lower().endswith((".parquet", ".pq")):
+        try:
+            import pyarrow.parquet as pq
+
+            meta = pq.ParquetFile(path).metadata
+            want = set(columns) if columns else None
+            total = 0
+            for g in range(meta.num_row_groups):
+                rg = meta.row_group(g)
+                for c in range(rg.num_columns):
+                    col = rg.column(c)
+                    top = col.path_in_schema.split(".")[0]
+                    if want is None or top in want:
+                        total += col.total_uncompressed_size
+            return max(total, 1) if want else max(total, size)
+        except Exception:  # noqa: BLE001 — estimate only; fall back to disk size
+            return size
+    return size
+
+
+def _sample_keys(rng: Any, n_rows: int) -> Any:
+    return rng.random(n_rows)
+
+
+def _uniform_sample(df: "pd.DataFrame", n: int) -> "pd.DataFrame":
+    """Keep the ``n`` rows with the smallest seed-0 uniform keys, file order."""
+    import numpy as np
+
+    if len(df) <= n:
+        return df
+    keys = _sample_keys(np.random.default_rng(0), len(df))
+    idx = np.sort(np.argpartition(keys, n - 1)[:n])
+    return df.iloc[idx].reset_index(drop=True)
+
+
+def _iter_chunks(path: str, columns: Optional[List[str]]) -> Any:
+    import pandas as pd
+
+    lower = path.lower()
+    cols = list(columns) if columns else None
+    if lower.endswith((".csv", ".tsv", ".txt")):
+        sep = "\t" if lower.endswith(".tsv") else ","
+        yield from pd.read_csv(
+            path, sep=sep, usecols=cols, chunksize=_STREAM_CHUNK_ROWS
+        )
+    elif lower.endswith((".parquet", ".pq")):
+        import pyarrow.parquet as pq
+
+        pf = pq.ParquetFile(path)
+        for batch in pf.iter_batches(batch_size=_STREAM_CHUNK_ROWS, columns=cols):
+            yield batch.to_pandas()
+    elif lower.endswith(".jsonl"):
+        for chunk in pd.read_json(path, lines=True, chunksize=_STREAM_CHUNK_ROWS):
+            yield chunk[cols] if cols else chunk
+    elif lower.endswith(".dta"):
+        with pd.read_stata(path, columns=cols, chunksize=_STREAM_CHUNK_ROWS) as reader:
+            yield from reader
+    else:  # pragma: no cover — guarded by _is_streamable
+        raise MethodIncompatibility(f"{path!r} cannot be streamed")
+
+
+def _stream_sample(path: str, columns: Optional[List[str]], n: int) -> "pd.DataFrame":
+    """Uniform sample of ``n`` rows in one pass, O(n + chunk) memory.
+
+    Row ``i`` gets the ``i``-th draw of ``default_rng(0).random``; the
+    generator's stream does not depend on how it is chunked, so this
+    returns exactly the rows :func:`_uniform_sample` returns on the fully
+    loaded frame.
+    """
+    import numpy as np
+    import pandas as pd
+
+    rng = np.random.default_rng(0)
+    kept: Optional[pd.DataFrame] = None
+    kept_keys: np.ndarray = np.empty(0)
+    kept_pos: np.ndarray = np.empty(0, dtype=np.int64)
+    offset = 0
+    for chunk in _iter_chunks(path, columns):
+        m = len(chunk)
+        keys = _sample_keys(rng, m)
+        pos = np.arange(offset, offset + m, dtype=np.int64)
+        offset += m
+        chunk = chunk.reset_index(drop=True)
+        cand = chunk if kept is None else pd.concat([kept, chunk], ignore_index=True)
+        cand_keys = np.concatenate([kept_keys, keys])
+        cand_pos = np.concatenate([kept_pos, pos])
+        if len(cand_keys) > n:
+            sel = np.argpartition(cand_keys, n - 1)[:n]
+            cand = cand.iloc[sel].reset_index(drop=True)
+            cand_keys, cand_pos = cand_keys[sel], cand_pos[sel]
+        kept, kept_keys, kept_pos = cand, cand_keys, cand_pos
+    if kept is None:
+        return pd.DataFrame(columns=list(columns or []))
+    order = np.argsort(kept_pos)
+    return kept.iloc[order].reset_index(drop=True)
+
+
 def load_dataframe(
     path: str, columns: Optional[List[str]] = None, sample_n: Optional[int] = None
 ) -> "pd.DataFrame":
@@ -148,17 +272,23 @@ def load_dataframe(
         Absolute filesystem path or one of: ``file://``, ``s3://``,
         ``gs://``, ``https://``, ``http://``.
     columns : list of str, optional
-        Column projection. Honoured by parquet / feather / stata
-        readers; for CSV we read all columns then sub-select (read_csv's
-        ``usecols`` would also work but mismatched names raise; we want
-        the server to be permissive and let the estimator surface
-        column-name errors with rich remediation).
+        Column projection, passed to every reader that supports it
+        (CSV ``usecols``, Parquet / Feather / Stata ``columns``).
     sample_n : int, optional
-        Uniform random subsample size (seed=0, deterministic).
-        Applied AFTER the projection.
+        Uniform random subsample size without replacement. Deterministic:
+        row ``i`` of the file gets the ``i``-th draw of
+        ``numpy.random.default_rng(0).random`` and the ``sample_n`` rows
+        with the smallest draws are kept, in file order.  The same rows
+        are returned whether the file is loaded whole or streamed.
 
     Notes
     -----
+    Local files larger than ``STATSPAI_MCP_MAX_DATA_BYTES`` (estimated
+    in-memory size; Parquet uses its uncompressed column sizes) are
+    rejected *unless* ``sample_n`` is given and the format is streamable
+    (.csv/.tsv/.txt/.parquet/.pq/.jsonl/.dta): then the sample is drawn in
+    a single chunked pass without materialising the file.
+
     Caches the materialised frame keyed by ``(path, mtime, columns)``
     so repeated tool calls on the same file are O(1) after the first
     load.
@@ -194,15 +324,13 @@ def load_dataframe(
             raise MethodIncompatibility(
                 f"Could not read data file metadata: {path!r}: {e}"
             ) from e
-        size = stat.st_size
         cap = max_data_bytes()
-        if cap and size > cap:
-            raise MethodIncompatibility(
-                f"data file is {size:,} bytes; exceeds "
-                f"STATSPAI_MCP_MAX_DATA_BYTES={cap:,}. "
-                f"Pass data_sample_n=<N> for a random subsample, or "
-                f"raise the limit with the env var."
-            )
+        est = estimated_load_bytes(path, columns) if cap else stat.st_size
+        if cap and est > cap:
+            if sample_size is not None and _is_streamable(path):
+                df = _stream_sample(path, columns, sample_size)
+                return df
+            raise MethodIncompatibility(_over_cap_message(path, est, cap, columns))
         mtime = stat.st_mtime
         df = _load_local_cached(path, mtime, tuple(columns or ()))
 
@@ -210,9 +338,37 @@ def load_dataframe(
         keep = [c for c in columns if c in df.columns]
         if keep:
             df = df[keep]
-    if sample_size is not None and len(df) > sample_size:
-        df = df.sample(n=sample_size, random_state=0).reset_index(drop=True)
+    if sample_size is not None:
+        df = _uniform_sample(df, sample_size)
     return df
+
+
+def _over_cap_message(
+    path: str, est: int, cap: int, columns: Optional[List[str]]
+) -> str:
+    what = (
+        "estimated in-memory size (uncompressed Parquet columns)"
+        if path.lower().endswith((".parquet", ".pq"))
+        else "file size"
+    )
+    head = (
+        f"data {what} is {est:,} bytes; exceeds "
+        f"STATSPAI_MCP_MAX_DATA_BYTES={cap:,}. "
+    )
+    if _is_streamable(path):
+        tips = (
+            "Pass data_sample_n=<N> to draw a uniform sample in one streamed "
+            "pass (the file is never fully loaded)"
+        )
+        if not columns:
+            tips += ", and/or data_columns=[...] to read only the columns used"
+        return head + tips + "; or raise the limit with the env var."
+    return (
+        head + f"'{Path(path).suffix}' files must be parsed whole, so data_sample_n "
+        "cannot reduce peak memory here. Convert to Parquet/CSV (which "
+        "support streamed sampling), pre-sample offline, or raise the limit "
+        "with the env var."
+    )
 
 
 @functools.lru_cache(maxsize=8)
@@ -292,4 +448,6 @@ __all__ = [
     "is_remote_url",
     "data_provenance",
     "load_dataframe",
+    "estimated_load_bytes",
+    "SAMPLE_METHOD",
 ]

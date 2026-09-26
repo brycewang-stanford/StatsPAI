@@ -266,13 +266,14 @@ def _weighted_sweep(
 ) -> None:
     """In-place: subtract weighted group means.
 
-    ``mean_g(col) = sum_{i in g} w_i * col_i / sum_{i in g} w_i``.
+    ``mean_g(col) = sum_{i in g} w_i * col_i / sum_{i in g} w_i``. Delegates
+    to the shared fused numba kernel of the HDFE absorber (one pass per
+    step instead of bincount + gather temporaries), with its NumPy fallback
+    when numba is unavailable.
     """
-    weighted_sums = np.bincount(codes, weights=col * weights, minlength=wsum.size)
-    means = np.divide(
-        weighted_sums, wsum, out=np.zeros_like(weighted_sums), where=wsum > 0
-    )
-    col -= means[codes]
+    from ..panel._hdfe_kernels import sweep_weighted
+
+    sweep_weighted(col, weights, codes, wsum)
 
 
 def _aitken_extrapolate(x0: np.ndarray, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
@@ -995,13 +996,20 @@ def fepois(
         converged = bool(result["converged"])
     else:
         # Python IRLS fallback (Phase A / B0 dispatcher path).
+        # Warm start (as fixest / ppmlhdfe): the weighted residual-maker M_w
+        # annihilates anything in the FE span, so M_w(z - f) = M_w z for the
+        # previous iteration's FE component f. Starting the alternating
+        # projections from z - f instead of z leaves the fixed point
+        # unchanged and cuts the sweeps as IRLS converges.
+        z_fe_prev: Optional[np.ndarray] = None
+        X_fe_prev: Optional[np.ndarray] = None
         for it in range(maxiter):
             z = eta + (y - mu) / mu
             w = mu * obs_weights
 
             # Weighted within-transform of z and X by FE
             z_tilde, _, _ = _weighted_ap_demean(
-                z,
+                z if z_fe_prev is None else z - z_fe_prev,
                 fe_codes,
                 counts_list,
                 w,
@@ -1009,13 +1017,15 @@ def fepois(
                 tol=fe_tol,
             )
             X_tilde, _, _ = _weighted_ap_demean(
-                X,
+                X if X_fe_prev is None else X - X_fe_prev,
                 fe_codes,
                 counts_list,
                 w,
                 max_iter=fe_maxiter,
                 tol=fe_tol,
             )
+            z_fe_prev = z - z_tilde
+            X_fe_prev = X - X_tilde
 
             # WLS on demeaned:
             # (X_tilde' W X_tilde) beta = X_tilde' W z_tilde.

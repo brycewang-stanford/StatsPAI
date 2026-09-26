@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -231,14 +231,36 @@ class EstimationResult(ResultProtocolMixin):
     n: int
     underlying: Any
     plan: IdentificationPlan
+    #: The estimand the question declared (``estimand`` is what was
+    #: delivered; they differ when the design cannot identify the declared
+    #: one and the plan fell back).
+    declared_estimand: str = ""
+    #: Departures from the declaration, as ``{kind, ...}`` records:
+    #: ``estimand`` (declared vs delivered), ``sample`` (rows used vs rows
+    #: declared) and ``override`` (estimator keywords passed at estimate()).
+    deviations: List[Dict[str, Any]] = field(default_factory=list)
 
     def summary(self) -> str:
         lo, hi = self.ci
-        return (
+        out = (
             f"Causal Question Estimate ({self.estimand} via sp.{self.estimator})\n"
             f"  Estimate = {self.estimate:+.4f}   "
             f"SE = {self.se:.4f}   95% CI [{lo:+.4f}, {hi:+.4f}]   n = {self.n}"
         )
+        for d in self.deviations:
+            if d.get("kind") == "estimand":
+                out += (
+                    f"\n  ! Declared {d['declared']}, delivered {d['delivered']}: "
+                    f"{d.get('reason', '')}"
+                )
+            elif d.get("kind") == "sample":
+                out += (
+                    f"\n  ! Estimation sample {d['estimation_rows']} of "
+                    f"{d['declared_rows']} rows"
+                )
+            elif d.get("kind") == "override":
+                out += f"\n  ! Overridden at estimate(): {', '.join(d['arguments'])}"
+        return out
 
 
 # --------------------------------------------------------------------------- #
@@ -349,8 +371,15 @@ class CausalQuestion:
 
     # --- Estimation ------------------------------------------------------ #
 
-    def estimate(self, **kwargs: Any) -> EstimationResult:
-        """Execute the identification plan against ``self.data``."""
+    def estimate(self, *, strict: bool = False, **kwargs: Any) -> EstimationResult:
+        """Execute the identification plan against ``self.data``.
+
+        The declaration constrains the result: when the design cannot deliver
+        the declared estimand (the plan falls back, e.g. CATE -> ATE), the
+        result records it under ``deviations``, a ``StatsPAIWarning`` is
+        raised, and ``strict=True`` refuses instead. Rows dropped from the
+        declared data and estimator keywords passed here are recorded too.
+        """
         if self.data is None:
             raise DataInsufficient(
                 "CausalQuestion.data must be set before estimate().",
@@ -360,7 +389,70 @@ class CausalQuestion:
         plan = self._plan
         if plan is None:
             plan = self.identify()
+        if strict and plan.estimand != self.estimand:
+            raise MethodIncompatibility(
+                f"The declared estimand {self.estimand!r} cannot be delivered "
+                f"by the {plan.estimator!r} plan, which estimates "
+                f"{plan.estimand!r}.",
+                recovery_hint=(
+                    "Change the design or the estimand, or call estimate() "
+                    "without strict=True to accept the fallback (recorded "
+                    "under result.deviations)."
+                ),
+                diagnostics={"declared": self.estimand, "delivered": plan.estimand},
+            )
         result = _dispatch_estimator(self, plan, **kwargs)
+        # ``n`` is the estimation sample the estimator reports, not the rows
+        # of the declared data (the dispatcher used len(data), which
+        # over-reported n whenever rows were dropped).
+        under = result.underlying
+        used = (getattr(under, "data_info", None) or {}).get("nobs")
+        if used is None:
+            used = getattr(under, "n_obs", None)
+        if isinstance(used, (int, np.integer)) and int(used) > 0:
+            result.n = int(used)
+        result.declared_estimand = self.estimand
+        devs: List[Dict[str, Any]] = []
+        if result.estimand != self.estimand:
+            reason = "; ".join(
+                w for w in plan.warnings if "estimand" in w.lower()
+            ) or "; ".join(plan.warnings)
+            devs.append(
+                {
+                    "kind": "estimand",
+                    "declared": self.estimand,
+                    "delivered": result.estimand,
+                    "reason": reason,
+                }
+            )
+            import warnings as _warnings
+
+            from ..exceptions import StatsPAIWarning
+
+            _warnings.warn(
+                StatsPAIWarning(
+                    f"causal_question declared {self.estimand} but "
+                    f"sp.{result.estimator} delivered {result.estimand}.",
+                    recovery_hint="Pass strict=True to refuse such fallbacks.",
+                    diagnostics={
+                        "declared": self.estimand,
+                        "delivered": result.estimand,
+                    },
+                ),
+                stacklevel=2,
+            )
+        n_rows = len(self.data)
+        if isinstance(result.n, (int, np.integer)) and 0 < int(result.n) < n_rows:
+            devs.append(
+                {
+                    "kind": "sample",
+                    "declared_rows": n_rows,
+                    "estimation_rows": int(result.n),
+                }
+            )
+        if kwargs:
+            devs.append({"kind": "override", "arguments": sorted(kwargs)})
+        result.deviations = devs
         self._result = result
         return result
 

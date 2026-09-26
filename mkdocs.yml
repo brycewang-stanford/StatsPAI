@@ -99,7 +99,9 @@ nav:
   - JSS source-audit dossier: jss_source_audit_dossier.md
   - "R/Stata parity tolerance registry": dev/r_parity_tolerances.md
   - "Cross-language parity matrix": parity.md
+  - "Capability table (generated)": capabilities.md
   - Guides:
+      - "Research tasks: where to start": guides/research_tasks.md
       - "Public health & epidemiology — overview & design→method map": guides/public_health.md
       - "Reproducing Hernán-Robins *What If* on real NHEFS (g-methods parity certification)": guides/whatif_nhefs.md
       - "Epidemiological measures (OR/RR/RD/IRR/NNT, Mantel–Haenszel, standardization, diagnostic accuracy)": guides/epi_measures.md

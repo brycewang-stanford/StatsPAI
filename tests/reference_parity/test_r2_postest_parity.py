@@ -24,6 +24,7 @@ Stata command each StatsPAI call is held against
 ``sp.margins(r, d, variables=["x"], at={...})``        ``margins, dydx(x) at(...)``
 ``sp.margins(..., method="mem")``                      ``margins, dydx(...) atmeans``
 ``sp.test(r, "C(g)[T.2] = C(g)[T.3] = C(g)[T.4] = 0")``  joint row of ``contrast r.g``
+``sp.margins_at`` / ``sp.contrast`` after logit/probit  ``margins, at()`` / ``margins r.g`` (Pr)
 =====================================================  =========================================
 
 Conventions every number depends on
@@ -55,8 +56,8 @@ Tolerances
   est / 5.2e-8 SE), p-values on the log scale. Probit / poisson coefficient
   gaps are 1.8e-11 / 1.2e-8; their margins are asserted at 1e-7.
 
-Defects (``xfail(strict=True)`` tests assert the Stata number)
---------------------------------------------------------------
+Former defects, fixed in 1.32 (the D-tests assert the Stata number)
+-------------------------------------------------------------------
 D1  ``margins_at`` / ``contrast`` / ``pwcompare`` use N(0, 1) for p-values and
     intervals whatever the fit (``stats.norm`` hard-coded in
     ``postestimation/margins.py``), while ``sp.margins`` in the same file and
@@ -71,6 +72,10 @@ D4  ``at=`` naming a variable that does not enter the model is silently
     ignored (Stata: error 322, "not found in list of covariates").
 D5  Margins average over every row of ``data``; Stata averages over
     ``e(sample)``. With 25 missing outcomes the margin is off by 3.4e-3.
+
+All five were strict xfails until 1.32, when margins / margins_at /
+contrast / pwcompare moved onto one shared context (estimation sample,
+fit weights, t(df) or z, atmeans as products of component means).
 """
 
 from __future__ import annotations
@@ -449,21 +454,32 @@ def test_logit_gap_is_the_optimiser():
 
 
 # ---------------------------------------------------------------------------
-# index models: margins_at / contrast / pwcompare refuse (loudly)
+# index models: margins_at / contrast / pwcompare on the response scale
 # ---------------------------------------------------------------------------
-@pytest.mark.parametrize("fit", ["logit", "probit"])
-def test_level_functions_refuse_index_models(fit):
-    """Stata reports these on predict(pr) (margins) or xb (contrast / pwcompare
-    commands; fixture keys ``*_at_x_pr``, ``*_at_x_xb``, ``*_r_g_pr``,
-    ``*_pwcompare_bonferroni``). StatsPAI supports neither scale here and
-    refuses rather than labelling index predictions as margins."""
+@pytest.mark.parametrize("fit,rtol", [("logit", ML), ("probit", ML_TIGHT)])
+def test_level_functions_on_response_scale_after_index_models(fit, rtol):
+    """Stata ``margins, at(x=(0 1))`` and ``margins r.g`` after logit / probit
+    report predict(pr) margins (fixture keys ``*_at_x_pr``, ``*_r_g_pr``).
+    Until 1.32 StatsPAI refused these rather than mislabel index predictions;
+    they now predict on Pr(y=1) with z inference, as Stata does."""
     r, d = _fit(fit), _data()
-    with pytest.raises(MethodIncompatibility):
-        sp.margins_at(r, d, at={"x": [0.0, 1.0]})
-    with pytest.raises(MethodIncompatibility):
-        sp.contrast(r, d, "g")
-    with pytest.raises(MethodIncompatibility):
-        sp.pwcompare(r, d, "g")
+    m = sp.margins_at(r, d, at={"x": [0.0, 1.0]})
+    ref = T(f"{fit}__at_x_pr")
+    _close(m["margin"], ref.loc["b"], rtol)
+    _close(m["se"], ref.loc["se"], rtol)
+    _close(m["ci_lower"], ref.loc["ll"], rtol)
+    c = sp.contrast(r, d, "g", method="r")
+    ref = T(f"{fit}__r_g_pr")
+    assert list(c["contrast_label"]) == _pairs(ref.columns)
+    _close(c["contrast"], ref.loc["b"], rtol)
+    _close(c["se"], ref.loc["se"], rtol)
+    assert np.log(c["pvalue"].to_numpy()) == pytest.approx(
+        np.log(ref.loc["pvalue"].to_numpy()), rel=1e-4
+    )
+    # pwcompare "k vs 1" rows are the same margins-scale differences
+    p = sp.pwcompare(r, d, "g").set_index("comparison")
+    for lab, diff in zip(c["contrast_label"], c["contrast"]):
+        assert p.loc[lab, "diff"] == pytest.approx(diff, rel=1e-12)
 
 
 # ---------------------------------------------------------------------------
@@ -502,7 +518,6 @@ _D1 = (
 )
 
 
-@pytest.mark.xfail(strict=True, reason=_D1)
 @pytest.mark.parametrize("blk", LINEAR)
 def test_D1_margins_at_uses_t_df_r(blk):
     ref = T(f"{blk}__at_x")
@@ -511,7 +526,6 @@ def test_D1_margins_at_uses_t_df_r(blk):
     _close(m["ci_upper"], ref.loc["ul"], 1e-9)
 
 
-@pytest.mark.xfail(strict=True, reason=_D1)
 @pytest.mark.parametrize("blk", LINEAR)
 def test_D1_contrast_uses_t_df_r(blk):
     ref = T(f"{blk}__r_g")
@@ -520,7 +534,6 @@ def test_D1_contrast_uses_t_df_r(blk):
     _close(c["ci_lower"], ref.loc["ll"], 1e-9)
 
 
-@pytest.mark.xfail(strict=True, reason=_D1)
 @pytest.mark.parametrize("blk", LINEAR)
 @pytest.mark.parametrize("adjust", ["sidak", "bonferroni"])
 def test_D1_pwcompare_adjusted_inference_uses_t_df_r(blk, adjust):
@@ -531,7 +544,6 @@ def test_D1_pwcompare_adjusted_inference_uses_t_df_r(blk, adjust):
     _close(p["ci_upper"], ref.loc["ul"], 1e-9)
 
 
-@pytest.mark.xfail(strict=True, reason=_D1)
 def test_D1_pwcompare_holm_matches_emmeans():
     ref = _r()["emmeans_pairs"]["holm"]
     p = sp.pwcompare(_fit("ols"), _data(), "g", adjust="holm").set_index("comparison")
@@ -540,15 +552,6 @@ def test_D1_pwcompare_holm_matches_emmeans():
         assert p.loc[f"{j} vs {k}", "pvalue_adj"] == pytest.approx(pv, rel=1e-8)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "D2: Sidak adjustment 1.0 - (1.0 - p) ** m in _adjust_pvalues "
-        "(postestimation/margins.py) cancels to exactly 0 for p < ~1e-17; Stata "
-        "reports 7.0e-26 for '4 vs 3'. (emmeans 2.0.3 uses the same naive formula "
-        "and also returns 0.) Fix: -np.expm1(m * np.log1p(-p))."
-    ),
-)
 def test_D2_sidak_adjustment_keeps_small_p():
     p = sp.pwcompare(_fit("ols"), _data(), "g", adjust="sidak")
     m = len(p)
@@ -568,16 +571,15 @@ _D3 = (
 )
 
 
-@pytest.mark.xfail(strict=True, reason=_D3)
 @pytest.mark.parametrize("fit,rtol", [("logit", ML), ("probit", ML_TIGHT)])
 def test_D3_atmeans_with_factor(fit, rtol):
     ref = T(f"{fit}__dydx_atmeans")
-    m = sp.margins(_fit(fit), _data(), method="mem")
+    # Stata: margins, dydx(x z) atmeans  (the factor g is held at its shares)
+    m = sp.margins(_fit(fit), _data(), variables=["x", "z"], method="mem")
     _close(m["dy/dx"], ref.loc["b"], rtol)
     _close(m["se"], ref.loc["se"], rtol)
 
 
-@pytest.mark.xfail(strict=True, reason=_D3)
 @pytest.mark.parametrize("fit,rtol", [("logit", ML), ("probit", ML_TIGHT)])
 def test_D3_at_with_atmeans_with_factor(fit, rtol):
     ref = T(f"{fit}__dydx_x_at_z1_atmeans")
@@ -585,17 +587,6 @@ def test_D3_at_with_atmeans_with_factor(fit, rtol):
     assert float(m["dy/dx"].iloc[0]) == pytest.approx(ref.loc["b"].iloc[0], rel=rtol)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "D4: at= naming a variable that is not in the model is silently ignored "
-        "(margins_at overwrites the column and _predict_row never reads it; "
-        "margins() likewise), returning identical rows. Stata: 'variable cl not "
-        "found in list of covariates', r(322) (fixture ols__at_notinmodel_rc). "
-        "Fix: raise MethodIncompatibility when set(at) - _term_variables(params.index)."
-    ),
-    raises=AssertionError,
-)
 def test_D4_at_variable_not_in_model_is_an_error():
     assert _stata()["ols__at_notinmodel_rc"] == 322
     r, d = _fit("ols"), _data()
@@ -622,18 +613,6 @@ def test_margins_on_estimation_sample_matches_stata():
     _close(c["contrast"], T("miss__gw_g").loc["b"], LIN)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "D5: margins_at / contrast / pwcompare / margins average over every row of "
-        "data=, including the 25 rows the fit dropped (missing yl_m); Stata margins "
-        "averages over e(sample). Margin off by 3.4e-3 rel, gw contrast by 5.0e-3. "
-        "The result stores no estimation-sample mask (data_info has X, y, "
-        "dependent_var but no index). Fix: restrict data to rows complete on "
-        "dependent_var and every model variable (or store the sample mask at fit "
-        "time); rows with a missing covariate currently yield NaN margins."
-    ),
-)
 def test_D5_margins_use_estimation_sample():
     r, d = _fit("miss"), _data()
     m = sp.margins_at(r, d, at={"x": [0.0, 1.0]})
