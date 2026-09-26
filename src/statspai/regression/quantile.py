@@ -45,6 +45,8 @@ def qreg(
     quantile: float = 0.5,
     alpha: float = 0.05,
     vce: Optional[str] = None,
+    cluster: Optional[str] = None,
+    kernel_scale: str = "mad",
 ) -> CausalResult:
     """
     Quantile regression at a single quantile.
@@ -82,10 +84,28 @@ def qreg(
         * ``'powell'`` -- the Silverman-bandwidth Gaussian-kernel iid
           sandwich this function used before 1.32 (matches neither
           reference; kept to reproduce old numbers).
+        * ``'kernel'`` -- the heteroskedasticity-robust Powell (1984)
+          kernel sandwich of Stata ``qreg2`` (its default): uniform kernel
+          on the residuals, bandwidth ``kappa [Phi^-1(tau + h) -
+          Phi^-1(tau - h)]`` with Hall-Sheather ``h``.
+        * ``'cluster'`` (or ``'cluster <var>'``, ``'cluster(<var>)'``) --
+          the cluster-robust covariance of Parente and Santos Silva
+          (2016) [@parente2016quantile], as Stata ``qreg2, cluster()``
+          computes it; the same kernel ``A`` with the scores
+          ``tau - 1(u <= 0)`` summed within clusters. Official ``qreg``
+          has no cluster option; ``qreg2`` is the authors' own
+          implementation and the reference (full covariance matrix within
+          1e-13 at four quantiles).
 
-        Cluster-robust quantile-regression SEs are not offered: the Stata
-        18 ``qreg`` used as the reference refuses ``vce(cluster)``, and a
-        variance with no reference check is not shipped.
+        ``'kernel'`` and ``'cluster'`` report t(N - k) inference, as
+        ``qreg2`` does.
+    cluster : str, optional
+        Cluster column; implies ``vce='cluster'``. Rows with a missing
+        cluster id are dropped, as ``qreg2`` does.
+    kernel_scale : {'mad', 'silverman'}, default 'mad'
+        The ``kappa`` of the ``'kernel'`` / ``'cluster'`` bandwidth: the
+        median absolute deviation of the residuals (``qreg2`` default) or
+        Silverman's ``min(sd, IQR/1.34)`` (``qreg2, silverman``).
 
     Returns
     -------
@@ -130,18 +150,14 @@ def qreg(
     else:
         raise MethodIncompatibility("Provide either formula or (y, x)")
 
-    kind = str(vce or "iid").lower()
-    if kind not in ("iid", "robust", "nid", "powell"):
+    kind, cluster = _parse_qreg_vce(vce, cluster)
+    if kernel_scale not in ("mad", "silverman"):
         raise MethodIncompatibility(
-            f"qreg: vce must be one of 'iid', 'robust', 'nid', 'powell'; "
-            f"got {vce!r}.",
-            recovery_hint=(
-                "Cluster-robust quantile-regression SEs are not available; "
-                "use sp.bootstrap with a cluster resampling scheme."
-            ),
-            diagnostics={"vce": vce},
+            f"qreg: kernel_scale must be 'mad' or 'silverman'; got "
+            f"{kernel_scale!r}.",
+            diagnostics={"kernel_scale": kernel_scale},
         )
-    cols = [y_name] + x_names
+    cols = [y_name] + x_names + ([cluster] if cluster is not None else [])
     missing_cols = [c for c in cols if c not in data]
     if missing_cols:
         raise MethodIncompatibility(
@@ -149,6 +165,11 @@ def qreg(
             diagnostics={"missing": missing_cols},
         )
     df = data[list(dict.fromkeys(cols))].dropna()
+    if len(df) == 0:
+        raise MethodIncompatibility(
+            "qreg: no complete rows after dropping missing values.",
+            diagnostics={"columns": cols},
+        )
     Y = df[y_name].values.astype(float)
     X = np.column_stack(
         [np.ones(len(df))] + [df[v].values.astype(float) for v in x_names]
@@ -160,9 +181,20 @@ def qreg(
     beta = _qreg_fit(Y, X, quantile)
     resid = Y - X @ beta
 
+    n_clusters = None
     if kind == "powell":
         se = _qreg_se(Y, X, beta, resid, quantile)
         bandwidth = None
+    elif kind in ("kernel", "cluster"):
+        groups = pd.factorize(df[cluster])[0] if kind == "cluster" else np.arange(n)
+        n_clusters = int(groups.max()) + 1
+        if kind == "cluster" and n_clusters < 2:
+            raise MethodIncompatibility(
+                "qreg: cluster-robust SEs need at least two clusters.",
+                diagnostics={"cluster": cluster, "n_clusters": n_clusters},
+            )
+        vcov, bandwidth = _pss_vcov(X, resid, quantile, groups, kernel_scale)
+        se = _as_float_array(np.sqrt(np.maximum(np.diag(vcov), 0.0)))
     else:
         vcov, bandwidth = _qreg_vcov(
             Y,
@@ -175,8 +207,13 @@ def qreg(
         se = _as_float_array(np.sqrt(np.maximum(np.diag(vcov), 0.0)))
 
     z_stats = beta / se
-    pvals = 2 * stats.norm.sf(np.abs(z_stats))
-    z_crit = stats.norm.ppf(1 - alpha / 2)
+    if kind in ("kernel", "cluster"):
+        # qreg2 keeps qreg's residual degrees of freedom: t(N - k).
+        pvals = 2 * stats.t.sf(np.abs(z_stats), n - k)
+        z_crit = stats.t.ppf(1 - alpha / 2, n - k)
+    else:
+        pvals = 2 * stats.norm.sf(np.abs(z_stats))
+        z_crit = stats.norm.ppf(1 - alpha / 2)
 
     detail = pd.DataFrame(
         {
@@ -201,6 +238,20 @@ def qreg(
         "vce": kind,
         "bandwidth": bandwidth,
     }
+    if kind != "powell":
+        model_info["vcov"] = pd.DataFrame(vcov, index=var_names, columns=var_names)
+    if kind in ("kernel", "cluster"):
+        model_info.update(
+            {
+                "kernel_scale": kernel_scale,
+                "df_inference": n - k,
+                "reference": (
+                    "Stata qreg2" + (f", cluster({cluster})" if cluster else "")
+                ),
+            }
+        )
+        if kind == "cluster":
+            model_info.update({"cluster": cluster, "n_clusters": n_clusters})
 
     return CausalResult(
         method=f"Quantile Regression (tau={quantile})",
@@ -361,6 +412,117 @@ def _qreg_irls(
         beta = beta_new
 
     return _as_float_array(beta)
+
+
+_QREG_KINDS = ("iid", "robust", "nid", "powell", "kernel", "cluster")
+
+
+def _parse_qreg_vce(
+    vce: Optional[str], cluster: Optional[str]
+) -> Tuple[str, Optional[str]]:
+    """Resolve ``vce`` / ``cluster`` into ``(kind, cluster column)``."""
+    import re
+
+    raw = "" if vce is None else str(vce).strip()
+    m = re.fullmatch(r"(?i)cluster\s*(?:\(\s*([^()\s]+)\s*\)|\s+(\S+))?", raw)
+    if m:
+        named = m.group(1) or m.group(2)
+        if named is not None and cluster is not None and named != cluster:
+            raise MethodIncompatibility(
+                f"qreg: vce={vce!r} and cluster={cluster!r} name different "
+                "cluster variables.",
+                diagnostics={"vce": vce, "cluster": cluster},
+            )
+        cluster = named or cluster
+        kind = "cluster"
+    else:
+        kind = raw.lower() or ("cluster" if cluster is not None else "iid")
+    if kind not in _QREG_KINDS:
+        raise MethodIncompatibility(
+            f"qreg: vce must be one of {', '.join(map(repr, _QREG_KINDS))} "
+            f"(or 'cluster <var>'); got {vce!r}.",
+            diagnostics={"vce": vce},
+        )
+    if kind == "cluster" and cluster is None:
+        raise MethodIncompatibility(
+            "qreg: vce='cluster' needs a cluster column.",
+            recovery_hint="Pass cluster='<column>' or vce='cluster <column>'.",
+            diagnostics={"vce": vce},
+        )
+    if kind != "cluster" and cluster is not None:
+        raise MethodIncompatibility(
+            f"qreg: cluster={cluster!r} conflicts with vce={vce!r}.",
+            recovery_hint="Drop vce= (cluster= implies vce='cluster').",
+            diagnostics={"vce": vce, "cluster": cluster},
+        )
+    return kind, cluster
+
+
+def _stata_percentile(x: np.ndarray, p: float) -> float:
+    """``summarize, detail`` percentile: mean of the two straddling order
+    statistics when ``n p / 100`` is an integer, else the next one up."""
+    s = np.sort(x)
+    pos = len(s) * p / 100.0
+    whole = round(pos)
+    if abs(pos - whole) < 1e-9:
+        return float((s[int(whole) - 1] + s[int(whole)]) / 2)
+    return float(s[int(np.floor(pos))])
+
+
+def _pss_vcov(
+    X: np.ndarray,
+    resid: np.ndarray,
+    tau: float,
+    groups: np.ndarray,
+    scale: str,
+    epsilon: float = 1e-7,
+) -> Tuple[np.ndarray, float]:
+    """Powell kernel sandwich, cluster-robust when ``groups`` repeat.
+
+    ``V = D^{-1} A D^{-1}`` with ``D = sum 1(|u_i| < c) x_i x_i' / (2c)``
+    and ``A = sum_g s_g s_g'``, ``s_g = sum_{i in g} (tau - 1(u_i <= 0)) x_i``
+    (Parente and Santos Silva 2016). Conventions follow their Stata
+    ``qreg2``: residuals below ``epsilon`` times the median absolute
+    residual are set to zero (a basic solution has k exact zeros that the
+    solver returns as ~1e-13); ``c = kappa [Phi^-1(tau + h) -
+    Phi^-1(tau - h)]``, ``h`` Hall-Sheather at the 95% level, ``kappa`` the
+    MAD of the residuals about their median or Silverman's
+    ``min(sd, IQR / 1.34)``. Returns ``(V, c)``.
+    """
+    n, k = X.shape
+    u = np.asarray(resid, dtype=float)
+    au = np.abs(u)
+    u = np.where(au < _stata_percentile(au, 50) * epsilon, 0.0, u)
+    h = _hall_sheather(n, tau, 0.05)
+    if tau + h > 1 or tau - h < 0:
+        raise MethodIncompatibility(
+            f"qreg: the bandwidth h={h:.4g} puts tau +/- h outside (0, 1); "
+            "too few observations for this quantile.",
+            diagnostics={"tau": tau, "bandwidth": h, "n": n},
+        )
+    if scale == "silverman":
+        kappa = min(
+            float(np.std(u, ddof=1)),
+            (_stata_percentile(u, 75) - _stata_percentile(u, 25)) / 1.34,
+        )
+    else:
+        kappa = _stata_percentile(np.abs(u - _stata_percentile(u, 50)), 50)
+    c = kappa * float(stats.norm.ppf(tau + h) - stats.norm.ppf(tau - h))
+    inside = np.abs(u) < c
+    if c <= 0 or inside.sum() < k:
+        raise MethodIncompatibility(
+            f"qreg: the kernel bandwidth c={c:.4g} keeps {int(inside.sum())} "
+            f"residuals, fewer than the {k} parameters; the density cannot "
+            "be estimated.",
+            diagnostics={"bandwidth": c, "inside": int(inside.sum())},
+        )
+    D = (X * (inside / (2 * c))[:, None]).T @ X
+    scores = X * (tau - (u <= 0))[:, None]
+    sg = np.zeros((int(groups.max()) + 1, k))
+    np.add.at(sg, groups, scores)
+    D_inv = np.linalg.inv(D)
+    V = D_inv @ (sg.T @ sg) @ D_inv
+    return (V + V.T) / 2, c
 
 
 def _hall_sheather(n: int, tau: float, alpha: float) -> float:

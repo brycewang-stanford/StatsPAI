@@ -180,6 +180,24 @@ def _x_regress(r: Any) -> Dict[str, Optional[str]]:
     }
 
 
+def _x_panel(r: Any) -> Dict[str, Optional[str]]:
+    mi = _mi(r)
+    vce = _lower(mi.get("vce_type"))
+    if vce is None:
+        if mi.get("cluster"):
+            vce = "cluster"
+        elif _lower(mi.get("robust")) == "robust":
+            vce = "robust"
+        elif _lower(mi.get("robust")) in (None, "nonrobust", "unadjusted"):
+            vce = "unadjusted"
+    return {
+        "method": _lower(mi.get("method")),
+        "vce": vce,
+        "ssc": _lower(mi.get("ssc")) or "linearmodels",
+        "weights": _set(mi.get("weights")),
+    }
+
+
 def _x_iv(r: Any) -> Dict[str, Optional[str]]:
     mi = _mi(r)
     model_type = (_lower(mi.get("model_type")) or "").replace("iv-", "")
@@ -630,6 +648,155 @@ _add(
         "sp.panel; this entry point has its own coverage row. ssc='statspai' (the "
         "pre-1.31 default) has no reference row; its CR1 SE over-covers on the "
         "Track B panel (mechanisms/feols_ssc.py).",
+    )
+)
+
+_PANEL_SSC = _RP + "test_panel_ssc_stata_parity.py"
+_PANEL_METHODS = (
+    "fe",
+    "twoway",
+    "pooled",
+    "fd",
+    "re",
+    "be",
+    "mundlak",
+    "chamberlain",
+)
+
+
+def _panel_row(
+    kind: str,
+    artifact: str,
+    methods: Tuple[str, ...],
+    vce: Tuple[str, ...],
+    ssc: str,
+    weights: str,
+    outputs: Tuple[str, ...],
+    compares: str,
+    entry: str,
+) -> _Row:
+    return _Row(
+        kind,
+        artifact,
+        {
+            "method": _vals(*methods),
+            "vce": _vals(*vce),
+            "ssc": _vals(ssc),
+            "weights": _vals(weights),
+        },
+        outputs,
+        compares,
+        entry,
+    )
+
+
+_add(
+    _Scope(
+        "panel",
+        {
+            "method": _PANEL_METHODS,
+            "vce": ("unadjusted", "robust", "cluster"),
+            "ssc": ("linearmodels", "stata", "fixest"),
+            "weights": ("none", "set"),
+        },
+        _x_panel,
+        (
+            _panel_row(
+                "T2",
+                _R + "35_panel.py",
+                ("fe", "re"),
+                ("unadjusted",),
+                "linearmodels",
+                "none",
+                _EST,
+                "FE / RE coefficients vs plm::plm (SE budget 1e-3)",
+                "sp.panel(data=df, ...)",
+            ),
+            _panel_row(
+                "T2",
+                _PANEL_SSC,
+                ("fe", "twoway", "pooled", "fd", "re"),
+                ("unadjusted", "robust", "cluster"),
+                "stata",
+                "none",
+                _EST_SE,
+                "coefficients, SEs and t / z df vs Stata xtreg / areg / regress",
+                "sp.panel(data, ..., ssc=ssc)",
+            ),
+            _panel_row(
+                "T2",
+                _PANEL_SSC,
+                ("be",),
+                ("unadjusted",),
+                "stata",
+                "none",
+                _EST_SE,
+                "coefficients and SEs vs Stata xtreg, be",
+                "sp.panel(data, ..., ssc=ssc)",
+            ),
+            _panel_row(
+                "T2",
+                _PANEL_SSC,
+                ("mundlak",),
+                ("unadjusted", "cluster"),
+                "stata",
+                "none",
+                _EST_SE,
+                "coefficients and SEs vs Stata xtreg, re with unit means",
+                "sp.panel(data, ..., ssc=ssc)",
+            ),
+            _panel_row(
+                "T2",
+                _PANEL_SSC,
+                ("chamberlain",),
+                ("cluster",),
+                "stata",
+                "none",
+                _EST_SE,
+                "coefficients and SEs vs Stata xtreg, re with Chamberlain terms",
+                "sp.panel(data, ..., ssc=ssc)",
+            ),
+            _panel_row(
+                "T2",
+                _PANEL_SSC,
+                ("fe", "twoway", "pooled"),
+                ("unadjusted", "cluster"),
+                "stata",
+                "set",
+                _EST_SE,
+                "weighted fits vs Stata xtreg / regress [aw=]",
+                "sp.panel(data, ..., ssc=ssc)",
+            ),
+            _panel_row(
+                "T2",
+                _PANEL_SSC,
+                ("fe", "twoway", "pooled", "fd"),
+                ("unadjusted", "robust", "cluster"),
+                "fixest",
+                "none",
+                _EST_SE,
+                "coefficients, SEs and t df vs R fixest default ssc()",
+                "sp.panel(data, ..., ssc=ssc)",
+            ),
+            _panel_row(
+                "T2",
+                _PANEL_SSC,
+                ("fe", "twoway", "pooled"),
+                ("unadjusted", "robust", "cluster"),
+                "fixest",
+                "set",
+                _EST_SE,
+                "weighted fits vs R fixest weights=",
+                "sp.panel(data, ..., ssc=ssc)",
+            ),
+        ),
+        invariant={
+            "vce": (_EST, "the covariance is computed after the coefficients"),
+            "ssc": (_EST, "the small-sample convention scales the covariance only"),
+        },
+        note="The default ssc (linearmodels' own scaling) has no SE reference row "
+        "beyond the unadjusted FE / RE budget of module 35; robust and clustered "
+        "SEs are reference-checked only under ssc='stata' or ssc='fixest'.",
     )
 )
 
@@ -1531,7 +1698,7 @@ def validation_scope(
         raise MethodIncompatibility(
             f"No configuration-level evidence map for {name!r}.",
             recovery_hint=(
-                "validation_scope covers the twelve validation-suite estimators: "
+                "validation_scope covers these estimators: "
                 + ", ".join(SCOPE_FUNCTIONS)
                 + ". For other functions read sp.describe_function(name)['validation_notes']."
             ),
@@ -1665,6 +1832,8 @@ def _function_of(result: Any) -> Optional[str]:
         return "causal_forest"
     if type(result).__name__ == "FeolsResult":
         return "fast.feols"
+    if type(result).__name__ == "PanelResults":
+        return "panel"
     mi = _mi(result)
     model_type = _lower(mi.get("model_type")) or ""
     if model_type.startswith("iv") or "2sls" in model_type:

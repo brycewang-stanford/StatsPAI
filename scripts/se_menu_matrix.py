@@ -314,6 +314,16 @@ MATRIX: Dict[str, Dict[str, str]] = {
         "hc_robust": "native",
         "cluster": "native",
     },
+    "qreg": {
+        # vce=None/'iid' Stata qreg default; 'robust' Stata vce(robust);
+        # 'kernel' / cluster= are qreg2's Powell sandwich and the
+        # Parente-Santos Silva (2016) cluster-robust covariance, pinned to
+        # qreg2 at 1e-13 on the full matrix
+        # (tests/reference_parity/test_qreg_cluster_stata_parity.py).
+        "classical": "native",
+        "hc_robust": "native",
+        "cluster": "native",
+    },
     "tobit": {
         "classical": "native",
         "hc_robust": "native",

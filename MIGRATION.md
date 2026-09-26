@@ -40,6 +40,25 @@ sp.cate_summary(cf).loc["Mean"]   # was .loc["Mean (ATE)"]
 
 ---
 
+<a id="panel-cre-theta"></a>
+
+## Unreleased — ⚠️ `sp.panel(method="mundlak" | "chamberlain")` mean coefficients move slightly
+
+**Who is affected.** Anyone reading the coefficients on the unit means
+(`_mean_<x>`), the Chamberlain terms or the constant of a correlated
+random-effects fit, or the Mundlak Wald statistic built on them.
+
+**What changes.** The random-effects variance components no longer count
+the unit-mean columns as degrees of freedom (they add no rank). theta is now
+Stata's, and the mean coefficients and the constant move by a few parts in
+ten thousand on typical panels. The coefficients on the original
+regressors (the FE estimates) are unchanged.
+
+**To reproduce old numbers.** Fit `linearmodels.panel.RandomEffects`
+directly on the augmented design.
+
+---
+
 <a id="panel-weights-cluster"></a>
 
 ## Unreleased — ⚠️ `sp.panel(weights=, cluster=)` and `sp.did_summary(cluster=)` take effect

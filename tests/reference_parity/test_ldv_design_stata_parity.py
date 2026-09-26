@@ -242,5 +242,7 @@ def test_qreg_legacy_powell_and_refusals() -> None:
     assert (
         abs(old.detail.set_index("variable").loc["x1", "se"] / ref["se_x1"] - 1) > 0.01
     )
-    with pytest.raises(MethodIncompatibility, match="Cluster-robust"):
+    # Cluster-robust SEs exist since 1.32 (qreg2 parity lives in
+    # test_qreg_cluster_stata_parity.py) but need a cluster column.
+    with pytest.raises(MethodIncompatibility, match="needs a cluster column"):
         _qreg(50, "cluster")

@@ -206,6 +206,32 @@ All notable changes to StatsPAI will be documented in this file.
 - Provenance (`result._provenance`) is now recorded by `sp.logit`,
   `sp.probit`, `sp.cloglog`, `sp.poisson`, `sp.nbreg`, `sp.glm`, `sp.feols`,
   `sp.fepois`, `sp.feglm` (new decorator `records_provenance`).
+- **`sp.panel(ssc="stata" | "fixest")`: standard errors on Stata's or
+  fixest's small-sample convention.** The default keeps linearmodels' own
+  scaling, which matches neither package once SEs are robust or clustered
+  (a factor of up to 1.40 in the variance on the test panel). `"stata"`
+  reproduces the command each method corresponds to -- `xtreg, fe`,
+  `xtreg ... i.t, fe`, `regress`, `regress D.y D.x, nocons`, `xtreg, re`,
+  `xtreg, be` -- including `G/(G-1)*(N-1)/(N-K)` with the unit effects
+  uncounted when the cluster nests the unit (and `areg`'s full count when
+  it does not), t(G-1) inference (z for RE), and Stata's rule that
+  `vce(robust)` after `xtreg` clusters on the panel variable. `"fixest"`
+  reproduces R fixest's default `ssc()` for `fe` / `twoway` / `pooled` /
+  `fd`. Coefficients, SEs and the reference distribution match Stata 18
+  and fixest 0.14 to 1e-14 on an unbalanced panel with unit, state and
+  period clusters and analytic weights
+  (`tests/reference_parity/test_panel_ssc_stata_parity.py`). The full
+  covariance is now stored on every `sp.panel` result, so `sp.lincom` /
+  `sp.test` work after it.
+- **`sp.qreg(cluster=)`: cluster-robust quantile-regression SEs**
+  (Parente and Santos Silva 2016 [@parente2016quantile]; refs verified via
+  Crossref and the Essex research repository). Also `vce="cluster <var>"`
+  and `vce="kernel"` (the heteroskedasticity-robust Powell sandwich), with
+  `kernel_scale="mad" | "silverman"`. Official Stata `qreg` has no cluster
+  option; the reference is `qreg2`, the authors' own module, and the full
+  covariance matrix matches it to 1e-13 at quantiles 0.25-0.9, with string
+  and partly missing cluster ids, together with its t(N-k) p-values and
+  intervals (`tests/reference_parity/test_qreg_cluster_stata_parity.py`).
 
 - **`sp.aipw(weights=, cluster=)`.** Sampling weights (weighted logit and
   per-arm WLS, weighted mean of the AIPW scores) and cluster-summed
@@ -270,6 +296,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.panel(method="mundlak" | "chamberlain")` random-effects variance
+  components follow Stata.** linearmodels computes sigma_e and sigma_u with
+  degrees of freedom from the column count, and the unit-mean columns the
+  CRE designs add are swept out by the within transformation, so they
+  inflated it (`N - G - 4` instead of `N - G - 2` with two regressors). theta
+  moved, and with it the coefficients on the means and the constant (4e-4
+  relative on the test panel); the regressors' own coefficients, which
+  equal the FE estimates, did not. theta now comes from the fit without the
+  means, whose rank is its column count; both CRE designs match Stata
+  `xtreg, re` with the terms added to 1e-12. The corrected fit reproduces
+  linearmodels' `RandomEffects` attribute for attribute on a design without
+  mean columns (`tests/test_panel_cre_theta.py`). The Mundlak Wald test now
+  uses the reported covariance, so it follows `ssc=` too.
 - **`sp.panel` honours `weights=` and a named `cluster=` column.** The
   linearmodels path (`method='fe' | 'twoway' | 'pooled' | 're' | 'be' |
   'fd'`) dropped `weights=` without a word, and `cluster=` naming any
@@ -442,6 +481,11 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **`sp.panel(method="fd", cluster="time")` fails with an explanation.**
+  linearmodels cannot cluster first differences on a variable that changes
+  within a unit and raised a raw `ValueError`; it now raises
+  `MethodIncompatibility` pointing to `ssc="stata"`, which computes it
+  (Stata `regress D.y D.x, vce(cluster t)`).
 - **Canonical keyword spellings on 174 more functions.** Functions whose
   parameters used `unit` / `entity` / `i` / `panel_id`, `outcome`,
   `treatment`, `controls` / `covs`, `t` / `time_col`, `cluster_var`,

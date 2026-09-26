@@ -456,3 +456,19 @@ def test_joint_outputs_are_graded_separately_from_se():
     hc3 = sp.validation_scope(function="regress", vce="hc3", weights="none")
     assert hc3["outputs"]["joint_test"]["status"] == "not_covered"
     assert hc3["outputs"]["se"]["status"] == "reference"
+
+
+def test_panel_scope_separates_the_default_and_the_reference_conventions():
+    import pandas as pd
+
+    df = pd.read_csv(ROOT / "tests/reference_parity/_fixtures/panel_ssc_data.csv")
+    kw = dict(entity="id", time="t", cluster="st")
+    default = sp.validation_scope(sp.panel(df, "y ~ x1 + x2", **kw))
+    stata = sp.validation_scope(sp.panel(df, "y ~ x1 + x2", ssc="stata", **kw))
+    assert default["configuration"]["ssc"] == "linearmodels"
+    assert stata["configuration"]["ssc"] == "stata"
+    assert stata["status"] == "covered"
+    assert stata["outputs"]["se"]["status"] == "reference"
+    # linearmodels' own clustered scaling has no reference row.
+    assert default["status"] == "estimate_only"
+    assert default["outputs"]["se"]["status"] == "not_covered"

@@ -886,8 +886,28 @@ def _build_registry() -> None:
                     None,
                     "None/'iid' = Stata qreg default (fitted sparsity, "
                     "Hall-Sheather); 'robust' = Stata vce(robust); 'nid' = "
-                    "quantreg se='nid'; 'powell' = pre-1.32 kernel SE",
-                    ["iid", "robust", "nid", "powell"],
+                    "quantreg se='nid'; 'kernel' = qreg2 heteroskedasticity-"
+                    "robust Powell sandwich; 'cluster <var>' = Parente-Santos "
+                    "Silva (2016) cluster-robust, as qreg2, cluster(); "
+                    "'powell' = pre-1.32 kernel SE",
+                    ["iid", "robust", "nid", "kernel", "cluster", "powell"],
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster column; implies vce='cluster' (Stata qreg2, "
+                    "cluster(); t(N-k) inference)",
+                ),
+                ParamSpec(
+                    "kernel_scale",
+                    "str",
+                    False,
+                    "mad",
+                    "Bandwidth scale for vce='kernel'/'cluster': 'mad' "
+                    "(qreg2 default) or 'silverman' (qreg2, silverman)",
+                    ["mad", "silverman"],
                 ),
             ],
             returns="EconometricResults",
@@ -4745,7 +4765,19 @@ def _build_registry() -> None:
                     "cluster",
                     "str",
                     False,
-                    description="Cluster variable: entity, time, or twoway",
+                    description="Cluster variable: entity, time, twoway, or "
+                    "any column name",
+                ),
+                ParamSpec(
+                    "ssc",
+                    "str",
+                    False,
+                    None,
+                    "Small-sample convention: None keeps linearmodels; "
+                    "'stata' = xtreg/areg/regress (G/(G-1)*(N-1)/(N-K), "
+                    "t(G-1), z for RE, xtreg vce(robust) = cluster on unit); "
+                    "'fixest' = R fixest default ssc() (fe/twoway/pooled/fd)",
+                    ["stata", "fixest"],
                 ),
                 ParamSpec(
                     "lags", "int", False, 1, "AR lags for dynamic panel (ab/system)"

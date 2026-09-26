@@ -18836,7 +18836,7 @@
     "input_schema": {
       "properties": {
         "cluster": {
-          "description": "Cluster variable: entity, time, or twoway",
+          "description": "Cluster variable: entity, time, twoway, or any column name",
           "type": "string"
         },
         "entity": {
@@ -18878,6 +18878,14 @@
         "robust": {
           "default": "nonrobust",
           "description": "Standard errors: nonrobust, robust, kernel, driscoll-kraay",
+          "type": "string"
+        },
+        "ssc": {
+          "description": "Small-sample convention: None keeps linearmodels; 'stata' = xtreg/areg/regress (G/(G-1)*(N-1)/(N-K), t(G-1), z for RE, xtreg vce(robust) = cluster on unit); 'fixest' = R fixest default ssc() (fe/twoway/pooled/fd)",
+          "enum": [
+            "stata",
+            "fixest"
+          ],
           "type": "string"
         },
         "time": {
@@ -21308,8 +21316,21 @@
     "description": "Quantile regression at specified quantile(s). Validation: certified parity evidence. Assumptions: Conditional quantile is linear in covariates; Outcome continuous (or finely discretized) so the check-function minimization is well-posed; Powell (1991) sandwich SEs require a consistent kernel density of the conditional density at zero. Pre-conditions: Continuous outcome variable; Quantile tau strictly in (0,1). Failure modes: Sparse data in tail quantiles gives unstable density estimate and wide SEs -> Estimate a more central quantile or pool more data near the tail; Crossing/degenerate fit when regressors are collinear -> Drop or combine collinear regressors before refitting. Alternatives: sp.regress, sp.feols. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
+        "cluster": {
+          "description": "Cluster column; implies vce='cluster' (Stata qreg2, cluster(); t(N-k) inference)",
+          "type": "string"
+        },
         "formula": {
           "description": "'y ~ x1 + x2' (alternative to y/x)",
+          "type": "string"
+        },
+        "kernel_scale": {
+          "default": "mad",
+          "description": "Bandwidth scale for vce='kernel'/'cluster': 'mad' (qreg2 default) or 'silverman' (qreg2, silverman)",
+          "enum": [
+            "mad",
+            "silverman"
+          ],
           "type": "string"
         },
         "quantile": {
@@ -21318,11 +21339,13 @@
           "type": "number"
         },
         "vce": {
-          "description": "None/'iid' = Stata qreg default (fitted sparsity, Hall-Sheather); 'robust' = Stata vce(robust); 'nid' = quantreg se='nid'; 'powell' = pre-1.32 kernel SE",
+          "description": "None/'iid' = Stata qreg default (fitted sparsity, Hall-Sheather); 'robust' = Stata vce(robust); 'nid' = quantreg se='nid'; 'kernel' = qreg2 heteroskedasticity-robust Powell sandwich; 'cluster <var>' = Parente-Santos Silva (2016) cluster-robust, as qreg2, cluster(); 'powell' = pre-1.32 kernel SE",
           "enum": [
             "iid",
             "robust",
             "nid",
+            "kernel",
+            "cluster",
             "powell"
           ],
           "type": "string"

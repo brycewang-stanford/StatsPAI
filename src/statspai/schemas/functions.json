@@ -156,6 +156,10 @@
     "name": "qreg",
     "parameters": {
       "properties": {
+        "cluster": {
+          "description": "Cluster column; implies vce='cluster' (Stata qreg2, cluster(); t(N-k) inference)",
+          "type": "string"
+        },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "string"
@@ -164,17 +168,28 @@
           "description": "'y ~ x1 + x2' (alternative to y/x)",
           "type": "string"
         },
+        "kernel_scale": {
+          "default": "mad",
+          "description": "Bandwidth scale for vce='kernel'/'cluster': 'mad' (qreg2 default) or 'silverman' (qreg2, silverman)",
+          "enum": [
+            "mad",
+            "silverman"
+          ],
+          "type": "string"
+        },
         "quantile": {
           "default": 0.5,
           "description": "Quantile (0-1)",
           "type": "number"
         },
         "vce": {
-          "description": "None/'iid' = Stata qreg default (fitted sparsity, Hall-Sheather); 'robust' = Stata vce(robust); 'nid' = quantreg se='nid'; 'powell' = pre-1.32 kernel SE",
+          "description": "None/'iid' = Stata qreg default (fitted sparsity, Hall-Sheather); 'robust' = Stata vce(robust); 'nid' = quantreg se='nid'; 'kernel' = qreg2 heteroskedasticity-robust Powell sandwich; 'cluster <var>' = Parente-Santos Silva (2016) cluster-robust, as qreg2, cluster(); 'powell' = pre-1.32 kernel SE",
           "enum": [
             "iid",
             "robust",
             "nid",
+            "kernel",
+            "cluster",
             "powell"
           ],
           "type": "string"
@@ -2798,7 +2813,7 @@
     "parameters": {
       "properties": {
         "cluster": {
-          "description": "Cluster variable: entity, time, or twoway",
+          "description": "Cluster variable: entity, time, twoway, or any column name",
           "type": "string"
         },
         "data": {
@@ -2844,6 +2859,14 @@
         "robust": {
           "default": "nonrobust",
           "description": "Standard errors: nonrobust, robust, kernel, driscoll-kraay",
+          "type": "string"
+        },
+        "ssc": {
+          "description": "Small-sample convention: None keeps linearmodels; 'stata' = xtreg/areg/regress (G/(G-1)*(N-1)/(N-K), t(G-1), z for RE, xtreg vce(robust) = cluster on unit); 'fixest' = R fixest default ssc() (fe/twoway/pooled/fd)",
+          "enum": [
+            "stata",
+            "fixest"
+          ],
           "type": "string"
         },
         "time": {

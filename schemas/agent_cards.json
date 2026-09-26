@@ -381,6 +381,10 @@
       "name": "qreg",
       "parameters": {
         "properties": {
+          "cluster": {
+            "description": "Cluster column; implies vce='cluster' (Stata qreg2, cluster(); t(N-k) inference)",
+            "type": "string"
+          },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "string"
@@ -389,17 +393,28 @@
             "description": "'y ~ x1 + x2' (alternative to y/x)",
             "type": "string"
           },
+          "kernel_scale": {
+            "default": "mad",
+            "description": "Bandwidth scale for vce='kernel'/'cluster': 'mad' (qreg2 default) or 'silverman' (qreg2, silverman)",
+            "enum": [
+              "mad",
+              "silverman"
+            ],
+            "type": "string"
+          },
           "quantile": {
             "default": 0.5,
             "description": "Quantile (0-1)",
             "type": "number"
           },
           "vce": {
-            "description": "None/'iid' = Stata qreg default (fitted sparsity, Hall-Sheather); 'robust' = Stata vce(robust); 'nid' = quantreg se='nid'; 'powell' = pre-1.32 kernel SE",
+            "description": "None/'iid' = Stata qreg default (fitted sparsity, Hall-Sheather); 'robust' = Stata vce(robust); 'nid' = quantreg se='nid'; 'kernel' = qreg2 heteroskedasticity-robust Powell sandwich; 'cluster <var>' = Parente-Santos Silva (2016) cluster-robust, as qreg2, cluster(); 'powell' = pre-1.32 kernel SE",
             "enum": [
               "iid",
               "robust",
               "nid",
+              "kernel",
+              "cluster",
               "powell"
             ],
             "type": "string"
@@ -430,6 +445,7 @@
       "Cross-language parity (bit-exact) vs quantreg::rq [R version 4.5.2 (2025-10-31), quantreg 6.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 40_qreg -- tests/r_parity/40_qreg.py",
       "tests/reference_parity/test_count_quantile_parity.py",
       "tests/reference_parity/test_ldv_design_stata_parity.py",
+      "tests/reference_parity/test_qreg_cluster_stata_parity.py",
       "API/unit contract evidence: tests/test_quantile.py",
       "API/unit contract evidence: tests/test_decomposition_tier_c.py"
     ],
@@ -4652,7 +4668,7 @@
       "parameters": {
         "properties": {
           "cluster": {
-            "description": "Cluster variable: entity, time, or twoway",
+            "description": "Cluster variable: entity, time, twoway, or any column name",
             "type": "string"
           },
           "data": {
@@ -4700,6 +4716,14 @@
             "description": "Standard errors: nonrobust, robust, kernel, driscoll-kraay",
             "type": "string"
           },
+          "ssc": {
+            "description": "Small-sample convention: None keeps linearmodels; 'stata' = xtreg/areg/regress (G/(G-1)*(N-1)/(N-K), t(G-1), z for RE, xtreg vce(robust) = cluster on unit); 'fixest' = R fixest default ssc() (fe/twoway/pooled/fd)",
+            "enum": [
+              "stata",
+              "fixest"
+            ],
+            "type": "string"
+          },
           "time": {
             "description": "Time column",
             "type": "string"
@@ -4726,7 +4750,8 @@
       "Stata parity module 35_panel",
       "Cross-language parity (bit-exact) vs plm::plm + plm::phtest [R version 4.5.2 (2025-10-31), plm 2.6.7]; tolerance rel_est<=1e-06, rel_se<=0.001; parity module 35_panel; implementation: third party python -- tests/r_parity/35_panel.py",
       "tests/reference_parity/test_panel_bias_reduced_parity.py",
-      "tests/reference_parity/test_panel_parity.py"
+      "tests/reference_parity/test_panel_parity.py",
+      "tests/reference_parity/test_panel_ssc_stata_parity.py"
     ],
     "validation_status": "certified"
   },

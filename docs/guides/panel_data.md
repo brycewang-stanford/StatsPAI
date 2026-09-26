@@ -369,8 +369,27 @@ for name, r in [("iid", r_iid), ("cluster(firm)", r_cl1),
   `sp.cr2_se(result, data, cluster=...)`.
 
 For `sp.panel` classical methods, pass `cluster="worker"` (one-way) the
-same way; for `sp.feols`, use the pyfixest vcov spec, e.g.
-`vcov={"CRV1": "firm"}`.
+same way -- any column works, not just the panel id; for `sp.feols`, use
+the pyfixest vcov spec, e.g. `vcov={"CRV1": "firm"}`.
+
+`sp.panel` keeps linearmodels' own small-sample scaling by default, which
+is neither Stata's nor fixest's. To report the numbers those packages
+print, pass `ssc="stata"` or `ssc="fixest"`:
+
+```python
+fe = sp.panel(df, "y ~ x1 + x2", entity="id", time="year",
+              cluster="state", ssc="stata")   # = xtreg, fe vce(cluster state)
+```
+
+Under `ssc="stata"` each method follows its Stata command (`xtreg, fe`,
+`xtreg ... i.year, fe`, `regress`, `regress D.y D.x, nocons`, `xtreg, re`,
+`xtreg, be`): the cluster factor is `G/(G-1)*(N-1)/(N-K)`, with the unit
+effects not counted when the cluster nests the unit (as `xtreg`) and counted
+when it does not (as `areg`); inference is t(G-1), z for RE; and
+`robust="robust"` after FE / RE clusters on the unit, because that is what
+Stata's `vce(robust)` means after `xtreg`. `ssc="fixest"` follows R fixest's
+default `ssc()`, where `vcov="hetero"` stays heteroskedasticity-robust. Both
+are pinned to 1e-14 (`tests/reference_parity/test_panel_ssc_stata_parity.py`).
 
 ## 7. Dynamic panels: lagged outcomes and Nickell bias
 
@@ -608,7 +627,7 @@ from here.
 | Hausman test                  | `hausman fe re`                      | `phtest(fe, re)`                            | `fe.hausman_test()` or `sp.hausman_test(df, y=, x=, id=, time=)`          |
 | BP LM test                    | `xttest0`                            | `plmtest(pooled, type="bp")`                | `re.bp_lm_test()`                                                         |
 | Multi-way FE absorption       | `reghdfe y x, absorb(i j t)`         | `feols(y ~ x \| i + j + t)`                 | `sp.hdfe_ols("y ~ x \| i + j + t", data=df)` or `sp.feols(...)`           |
-| Clustered SE                  | `, vce(cluster id)`                  | `cluster = ~id`                             | `cluster="id"`  (`vcov={"CRV1": "id"}` for `sp.feols`)                    |
+| Clustered SE                  | `, vce(cluster id)`                  | `cluster = ~id`                             | `cluster="id", ssc="stata"` (or `ssc="fixest"`; `vcov={"CRV1": "id"}` for `sp.feols`) |
 | Two-way clustered SE          | `reghdfe ..., vce(cluster id year)`  | `cluster = ~id + year`                      | `cluster=["id", "year"]`                                                  |
 | Wild cluster bootstrap        | `boottest`                           | `fwildclusterboot`                          | `sp.hdfe_ols(..., wild=True)` / `sp.wild_cluster_bootstrap(...)`          |
 | FE Poisson (PPML)             | `ppmlhdfe y x, absorb(i t)`          | `fepois(y ~ x \| i + t)`                    | `sp.ppmlhdfe("y ~ x \| i + t", data=df)` or `sp.fepois(...)`              |
