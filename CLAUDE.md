@@ -175,7 +175,7 @@ PyPI 凭据在 `~/.pypirc`——**不要**提交仓库、不要写进 memory。�
 1. Bump `pyproject.toml` + `__version__`。
 2. 更新 [`CHANGELOG.md`](CHANGELOG.md)（`Added / Changed / Fixed / ⚠️ Correctness`）。
 3. `pytest -q` 全绿 + `pytest tests/reference_parity/ -q` 必过。
-4. `rm -rf dist/ && python -m build && twine check dist/*`。
+4. `rm -rf dist/ && python -m build && twine check dist/*`。**再把 sdist 的文件清单对照 `git ls-files`**：`MANIFEST.in` 的 `recursive-include tests *` 会把工作树里被 gitignore 的本地产物一起打包——1.32.0 发版时先后抓到复现检查的临时目录、Track C 的 38 MB 共享输入、以及刻意不入库的 NHEFS 数据，sdist 一度从 25 MB 涨到 63 MB。新出现的 gitignore 产物目录要在 `MANIFEST.in` 里 `prune`。
 5. 干净 venv 装 wheel 冒烟测试。
 6. `git tag vX.Y.Z && git push && git push --tags`。
 7. `twine upload dist/*`。
