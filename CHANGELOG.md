@@ -595,6 +595,15 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **Printing a large `sp.forest_group_effects` or `best_linear_projection`
+  table from a fixed-effects forest no longer raises.** Both put their
+  covariance matrix in `DataFrame.attrs["vcov"]`; pandas compares attrs with
+  `==` when it concatenates or truncates a frame for display, and a raw array
+  made that `ValueError: The truth value of an array ... is ambiguous`. The
+  matrix is now a read-only array whose `==` returns one bool; indexing, `@`
+  and ufuncs are unchanged (`np.equal` still compares elementwise). No
+  numbers change.
+
 - `tests/r_parity/verify_reproduce.py` used a backslash inside an f-string
   expression, which needs Python 3.12; the Tier 2 reproduction path
   failed with a `SyntaxError` under the 3.10 lock environment.
