@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
+from .._result_serialize import ResultProtocolMixin
 from ._agreement import (
     VERDICT_AGREE,
     VERDICT_DISAGREE,
@@ -21,7 +22,6 @@ from ._agreement import (
     AgreementReport,
     EngineEstimate,
 )
-from .._result_serialize import ResultProtocolMixin
 
 try:  # SummaryText gives nice terminal + notebook rendering; degrade to str.
     from ..core.results import SummaryText
@@ -197,7 +197,9 @@ class CrossValidationResult(ResultProtocolMixin):
         lines.append("=" * 72)
         return SummaryText("\n".join(lines))
 
-    def to_markdown(self) -> str:
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def to_markdown(self) -> str:  # type: ignore[override]
         df = self.estimates_table[
             ["engine", "coef", "se", "ci_lower", "ci_upper", "status"]
         ]
@@ -207,7 +209,9 @@ class CrossValidationResult(ResultProtocolMixin):
         )
         return head + str(df.to_markdown(index=False))
 
-    def to_latex(
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def to_latex(  # type: ignore[override]
         self, caption: Optional[str] = None, label: Optional[str] = None
     ) -> str:
         df = self.ok_table()[["engine", "coef", "se", "ci_lower", "ci_upper"]]

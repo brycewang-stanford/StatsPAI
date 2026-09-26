@@ -414,18 +414,6 @@ def _extract_model_data(result: Any) -> _ModelData:
 # ---------------------------------------------------------------------------
 
 
-def _latex_escape(text: str) -> str:
-    """Escape special LaTeX characters (except $ and *)."""
-    if not text:
-        return ""
-    text = text.replace("\\", "\\textbackslash{}")
-    for ch in ("&", "%", "#", "_", "{", "}"):
-        text = text.replace(ch, f"\\{ch}")
-    text = text.replace("~", "\\textasciitilde{}")
-    text = text.replace("^", "\\textasciicircum{}")
-    return text
-
-
 def _html_escape(text: str) -> str:
     if not text:
         return ""
@@ -606,6 +594,7 @@ def esttab(
     _warn_once_esttab()
 
     # Resolve models: positional args > global store
+    results = _format_module.unwrap_single_sequence(results)
     if results:
         model_list: List[Any] = list(results)
         if names:

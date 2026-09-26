@@ -155,7 +155,9 @@ class CICResult(CausalResult):
         fig.tight_layout()
         return fig, ax
 
-    def summary(self, alpha: Optional[float] = None) -> str:
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def summary(self, alpha: Optional[float] = None) -> str:  # type: ignore[override]
         a = self.alpha if alpha is None else alpha
         lines = []
         lines.append("━" * 60)

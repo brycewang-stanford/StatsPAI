@@ -34,6 +34,31 @@ seeded draws differ from earlier releases.
 
 ---
 
+<a id="result-display-precision"></a>
+
+## Unreleased — `.to_latex()`, `.summary()` and generic result tables use the adaptive precision
+
+Display only; no estimate, standard error or p-value changes.
+
+| | before | now (default) |
+| --- | --- | --- |
+| `CausalResult.summary()` | `0.332635` (SE `0.084764`), p `0.0001` | `0.333` (SE `0.085`), p `<0.001` |
+| `CausalResult.to_latex()` | `0.3326` (`%.4f`, no argument) | `0.333`; `digits=` / `fmt=` accepted |
+| generic `*Result.to_latex()` | `-0.09446` / `5.386e+05` | `-0.094` / `538,582` |
+| generic `to_markdown()` / `to_word()` | `-0.094458` / `538582` | `-0.094` / `538,582` |
+| `regtable(stats_fmt=)` | `"%.3f"` | `"stat"` (same for values below six figures) |
+| `to_dict()` / `to_excel()` | full value | **unchanged** |
+
+To restore the old output:
+
+```python
+result.to_latex(digits=4)
+result.summary(digits=6)
+sp.regtable(m1, m2, stats_fmt="%.3f")
+```
+
+---
+
 <a id="plr-theta-label"></a>
 
 ## Unreleased — DML PLR estimate is labelled `theta`; `cate_summary` row `Mean`

@@ -70,7 +70,9 @@ class DIDSummaryResult(CausalResult):
 
     _DID_SUMMARY_MARKER: bool = True
 
-    def summary(self, alpha: Optional[float] = None) -> str:  # noqa: ARG002
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def summary(self, alpha: Optional[float] = None) -> str:  # type: ignore[override]  # noqa: ARG002
         mi = self.model_info or {}
         fit = mi.get("methods_fit", [])
         failed = mi.get("methods_failed", {})

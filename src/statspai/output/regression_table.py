@@ -45,14 +45,9 @@ from scipy import stats as sp_stats
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._diagnostics import extract_diagnostic_rows
-from ._format import (
-    AUTO,
-    AUTO_PREFIX,
-    MAX_AUTO_DECIMALS,
-    auto_decimals,
-    normalize_fmt,
-    sig_decimals,
-)
+from ._format import AUTO, AUTO_PREFIX, MAX_AUTO_DECIMALS, STAT, auto_decimals
+from ._format import latex_escape as _latex_escape
+from ._format import normalize_fmt, sig_decimals
 from ._journals import get_template, star_note_for
 from ._repro import build_repro_note
 from .estimates import (
@@ -63,7 +58,6 @@ from .estimates import (
     _fmt_int,
     _fmt_val,
     _html_escape,
-    _latex_escape,
     _ModelData,
 )
 
@@ -559,7 +553,7 @@ class RegtableResult:
         fmt: str,
         title: Optional[str],
         se_fmt: Optional[str] = None,
-        stats_fmt: str = "%.3f",
+        stats_fmt: str = STAT,
         notes: Optional[List[str]],
         add_rows: Optional[Dict[str, List[str]]],
         stats: Optional[List[str]],
@@ -3124,7 +3118,7 @@ def regtable(
     star_levels: Optional[Tuple[float, ...]] = None,
     fmt: Union[str, int, None] = None,
     se_fmt: Union[str, int, None] = None,
-    stats_fmt: Union[str, int] = "%.3f",
+    stats_fmt: Union[str, int] = STAT,
     digits: Optional[int] = None,
     output: str = "text",
     filename: Optional[str] = None,
@@ -3211,11 +3205,16 @@ def regtable(
         Defaults to ``fmt``, which is what published tables do — the two
         halves of a coefficient/SE pair share a decimal place. Set this
         only to deliberately break the pairing (e.g. ``1,521 (591.3)``).
-    stats_fmt : str or int, default ``"%.3f"``
+    stats_fmt : str or int, default ``"stat"``
         Precision for the summary-statistic rows (R², adj. R², F, ...) and
         for ``tests=`` footer statistics. These live on their own scale, so
-        they do not follow ``fmt``. ``N`` is always a thousands-separated
-        integer.
+        they do not follow ``fmt`` — but they also span scales among
+        themselves, which no fixed decimal count survives. ``"stat"`` keeps
+        three decimals and surrenders them only as the integer part grows:
+        R² stays ``0.090``, a Wald F passed in as ``10.5`` stays
+        ``10.500``, and an F of 538582.398 stops printing nine significant
+        figures and reads ``538,582``. Pass ``"%.3f"`` for the old fixed
+        behaviour. ``N`` is always a thousands-separated integer.
     digits : int, optional
         Int-flavoured alias for ``fmt``: ``digits=3`` ≡ ``fmt="%.3f"``.
         Passing both ``fmt=`` and ``digits=`` raises.

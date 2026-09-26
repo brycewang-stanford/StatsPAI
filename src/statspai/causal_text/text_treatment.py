@@ -125,7 +125,9 @@ class TextTreatmentResult(CausalResult):
         self.embedding_dim = int(embedding_dim)
         self.embedder_name = str(embedder_name)
 
-    def summary(
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def summary(  # type: ignore[override]
         self,
         alpha: Optional[float] = None,
     ) -> str:  # pragma: no cover (cosmetic)

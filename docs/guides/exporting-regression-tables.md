@@ -92,6 +92,20 @@ r.to_latex(
 `EconometricResults`, `CausalResult`, and duck-typed objects exposing
 `params` / `std_errors`.
 
+Models may be passed as separate arguments or as a single list — the
+latter is what R's `modelsummary` takes, so it works here too:
+
+```python
+sp.regtable(m1, m2)      # varargs
+sp.regtable([m1, m2])    # a list, same table
+sp.etable([m1, m2])      # and on the sibling functions
+```
+
+A *nested* list still means something different to `sp.regtable`: each
+inner list is a panel. Anything that cannot be tabulated raises
+`MethodIncompatibility` naming the offending position — these functions
+never return a silently empty table.
+
 ```python
 tbl = sp.regtable(
     m1, m2, m3,
@@ -173,15 +187,30 @@ To pin precision yourself:
 
 **The same vocabulary works everywhere.** `sp.regtable`, `sp.esttab`,
 `sp.modelsummary`, `sp.sumstats`, `sp.mean_comparison`, `sp.outreg2`,
-`sp.etable`, `sp.fast.etable`, and the result-object exports
-(`.to_markdown()`, `.to_html()`, `.to_word()`) all take precision the same
-way, so you never have to remember which parameter a given exporter wanted:
+`sp.etable`, `sp.fast.etable`, and every result-object surface —
+`.to_markdown()`, `.to_html()`, `.to_word()`, `.to_latex()` and
+`.summary()` — take precision the same way, so you never have to remember
+which parameter a given exporter wanted:
 
 ```python
 sp.regtable(m1, m2, digits=3)
 sp.sumstats(df, digits=3)
 result.to_markdown(digits=3)
+result.to_latex(digits=3)
+result.summary(digits=3)       # the console agrees with the exports
 ```
+
+What you read on screen is what you get in the paper. `.summary()` used
+to be pinned at six decimals while every export used adaptive precision,
+so the same ATT could read `0.332635` in the terminal and `0.333` in the
+table you pasted into LaTeX.
+
+**Fit statistics get their own rule.** `stats_fmt` defaults to `"stat"`:
+three decimals, surrendered one at a time as the integer part grows past
+six significant figures. R² stays `0.090` and a Wald F you pass in as
+`10.5` stays `10.500`, but an F statistic of 538582.398 prints as
+`538,582` rather than at nine significant figures. Pass an explicit
+`stats_fmt="%.3f"` for uniform decimals.
 
 One deliberate exception: `.to_excel()` keeps **numeric** cells rounded to
 six decimals rather than display strings. A spreadsheet gets sorted, charted
@@ -376,6 +405,30 @@ response *curves*. Forcing these into a coefficient column would misrepresent
 them, so they are intentionally excluded from the table exporters. The
 `tests/test_export_surface_contract.py` suite pins the universality claim for
 the table-shaped results above.
+
+---
+
+## 9. LaTeX special characters
+
+Cells, column headers and table notes are escaped for you. This matters
+more than it sounds: a matching result's detail table has a
+`propensity_score` row and `mean_treated` headers, and an unescaped `_`
+stops `pdflatex` with `! Missing $ inserted`. The star legend is escaped
+too — a bare `<` in `p<0.01` typesets as an inverted exclamation mark
+under the default OT1 font encoding.
+
+A `caption=` you supply is **not** escaped, because a caption is where
+deliberate markup belongs:
+
+```python
+r.to_latex(caption=r"Effect of $D$ on $Y$ \citep{yourbibkey}")
+```
+
+The rule is that data is escaped and markup is not, and the two are told
+apart by where they came from rather than by a flag — nothing in the
+string `beta_1` says whether it is a column name or the inside of
+`$\beta_1$`. If you need markup in a cell, set `escape=False` on
+`sp.regtable` and escape what you meant to yourself.
 
 ---
 

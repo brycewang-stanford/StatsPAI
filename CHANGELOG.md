@@ -548,6 +548,20 @@ All notable changes to StatsPAI will be documented in this file.
   `pytest --doctest-modules` (undefined `sp` / `df`, unchecked or stale output,
   references to names that do not exist such as `sp.synth.bsts_synth` and
   `statspai.compat.SklearnDID`); they are now self-contained and checked.
+- **One precision system for every exit of a result object.**
+  `CausalResult.to_latex()` was pinned at `%.4f` with no precision argument
+  and `.summary()` printed six decimals, while the other exporters used the
+  adaptive default -- the same ATT read `0.3326`, `0.333` and `0.332635`.
+  Both now accept `fmt=` / `digits=` and default to `"auto"`; `.summary()`
+  floors p-values at `<0.001`. The generic `Field | Value` table used `%.4g`
+  in LaTeX and `%.6g` elsewhere; all three display surfaces now share the
+  adaptive formatter (`538,582`, not `5.386e+05`). `to_dict()` /
+  `to_excel()` keep full precision. Display only -- no estimate changes. See
+  MIGRATION.md#result-display-precision.
+- **`regtable(stats_fmt=...)` defaults to `"stat"` instead of `"%.3f"`:**
+  three decimals, given up only as the integer part grows past six figures,
+  so R2 still reads `0.090` and an F of 538582.398 reads `538,582`. Pass
+  `stats_fmt="%.3f"` for the old rendering.
 
 - **`sp.panel(method="fd", cluster="time")` fails with an explanation.**
   linearmodels cannot cluster first differences on a variable that changes
@@ -656,6 +670,35 @@ All notable changes to StatsPAI will be documented in this file.
   matrix is now a read-only array whose `==` returns one bool; indexing, `@`
   and ufuncs are unchanged (`np.equal` still compares elementwise). No
   numbers change.
+- **`CausalResult.to_latex()` emitted LaTeX that does not compile.** Cells,
+  headers and notes went out unescaped: a matching result's
+  `propensity_score` row and `mean_treated` / `mean_control` headers halt
+  `pdflatex` on the bare `_`, and the star legend's `p<0.1` typesets as
+  `p¡0.1` under the default OT1 encoding. Escaping now runs over cells,
+  headers and notes (a caller-supplied `caption=` still passes through
+  verbatim). `tests/test_latex_escaping.py` compiles the output with a real
+  TeX engine when one is installed.
+- **Five copies of the LaTeX escaper had drifted** (`output/estimates.py`,
+  `synth/exports.py`, `synth/report.py`, `did/report.py`,
+  `_result_serialize.py`); two omitted `\`, none covered `<` / `>`. All now
+  delegate to `output._format.latex_escape`.
+- **The generic `Field | Value` table (`ResultProtocolMixin.to_latex`) had
+  three LaTeX faults:** escaping covered only `_ % &`; booleans rendered as
+  the amsmath macro `\text{True}` (undefined without amsmath); and the
+  generated caption (the class name) was raw. Multi-line values are
+  flattened and truncated to 120 characters.
+- **The star legend printed `p<0.00`** for `star_levels=(0.05, 0.01,
+  0.001)`; thresholds now widen only as far as they need (`p<0.001`).
+- **`sp.etable([m1, m2])` returned an empty table, silently.** A lone list is
+  unwrapped for `etable` / `modelsummary` / `esttab` / `outreg2`, and an
+  argument that cannot be tabulated raises `MethodIncompatibility` naming
+  its position and type (it was a bare `TypeError`).
+- **The registry example for `sp.match` could not run** (`treatment=` /
+  `outcome=` instead of `treat=` / `y=`). A new audit,
+  `scripts/registry_example_audit.py` (gated at zero findings by
+  `tests/test_registry_example_audit.py`), parses every registry `example=`
+  and checks its keywords against the real signature, through
+  `@accepts_aliases`.
 
 - `tests/r_parity/verify_reproduce.py` used a backslash inside an f-string
   expression, which needs Python 3.12; the Tier 2 reproduction path

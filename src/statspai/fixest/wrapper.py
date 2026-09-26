@@ -1462,9 +1462,13 @@ def etable(
         if getattr(r, "params", None) is None and not hasattr(r, "_pyfixest_fit")
     ]
     if not_results:
-        raise TypeError(
+        from ..exceptions import MethodIncompatibility
+
+        which = ", ".join(f"argument {i} ({name})" for i, name in not_results)
+        raise MethodIncompatibility(
             "etable() expects fitted results (e.g. from sp.regress, sp.feols, "
-            f"sp.logit); argument(s) {not_results} have no coefficients."
+            f"sp.logit); {which} has no coefficients.",
+            recovery_hint="Pass only fitted model results to sp.etable.",
         )
 
     pf_fits = [

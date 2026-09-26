@@ -3377,8 +3377,8 @@
           "type": "string"
         },
         "stats_fmt": {
-          "default": "%.3f",
-          "description": "Precision for summary-statistic rows (R2, adj. R2, F); independent of fmt because they are on their own scale",
+          "default": "stat",
+          "description": "Precision for summary-statistic rows (R2, adj. R2, F); independent of fmt because they are on their own scale. 'stat' keeps 3 decimals but gives them up as the integer part grows, so R2 reads 0.090 and a large F reads 538,582 rather than 538582.398",
           "type": "integer"
         },
         "template": {
@@ -25595,7 +25595,7 @@
           "type": "array"
         },
         "stats_fmt": {
-          "default": "%.3f",
+          "default": "stat",
           "description": "stats_fmt parameter (str).",
           "type": "string"
         },

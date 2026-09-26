@@ -18,6 +18,7 @@ result and must not change without a CHANGELOG entry.
 from __future__ import annotations
 
 import math
+import re
 from typing import Any, Optional, Tuple
 
 import numpy as np
@@ -290,6 +291,8 @@ def fmt_val(value: Any, fmt: str = "%.4f") -> str:
         return ""
     if fmt == AUTO:
         return fmt_auto(value)
+    if fmt == STAT:
+        return fmt_statistic(value)
     resolved = _auto_decimals_from_fmt(fmt)
     if resolved is not None:
         return fmt_fixed(value, resolved)
@@ -335,6 +338,7 @@ def normalize_fmt(fmt: Any, param: str = "fmt") -> str:
     if isinstance(fmt, str):
         if (
             fmt == AUTO
+            or fmt == STAT
             or _auto_decimals_from_fmt(fmt) is not None
             or _prefixed_int(fmt, SIG_PREFIX) is not None
         ):
@@ -405,6 +409,57 @@ def format_pvalue(value: Any, decimals: int = SUBUNIT_DECIMALS) -> str:
     return f"<{floor:.{decimals}f}" if 0 <= p < floor else f"{p:.{decimals}f}"
 
 
+#: Single-pass LaTeX escape table. Sequential ``str.replace`` calls are unsafe
+#: here: ``\`` → ``\textbackslash{}`` inserts ``{`` and ``}`` that a later pass
+#: would re-escape into ``\textbackslash\{\}``. Substituting once via a regex
+#: guarantees each input character is escaped exactly once regardless of order.
+#:
+#: ``<`` and ``>`` are included because p-value cells read ``<0.001``, and in
+#: LaTeX text mode under the default OT1 encoding a bare ``<`` typesets as an
+#: inverted exclamation mark. ``\textless`` is correct under both OT1 and T1.
+_LATEX_ESCAPES = {
+    "\\": r"\textbackslash{}",
+    "~": r"\textasciitilde{}",
+    "^": r"\textasciicircum{}",
+    "<": r"\textless{}",
+    ">": r"\textgreater{}",
+    "&": r"\&",
+    "%": r"\%",
+    "$": r"\$",
+    "#": r"\#",
+    "_": r"\_",
+    "{": r"\{",
+    "}": r"\}",
+}
+_LATEX_RE = re.compile(r"[\\~^<>&%$#_{}]")
+
+
+def latex_escape(value: Any) -> str:
+    """Escape LaTeX special characters in a **data** cell or label.
+
+    Centralised so the LaTeX exporters do not each reinvent it. Five
+    partial copies had drifted apart: ``synth/report.py`` and
+    ``_result_serialize.py`` both omitted ``\\`` from their replacement
+    tables, so a backslash in the data went out raw and broke the
+    document, and none of the five covered ``<`` / ``>``.
+
+    Escaping is unconditional and total. There is deliberately no
+    "pass my markup through" mode: a string cannot be both auto-escaped
+    and hand-written LaTeX, because escaping ``_`` is right in a column
+    name and wrong inside ``$\\beta_1$``, and nothing in the value itself
+    says which it is. Strings that *are* markup — a caller's ``caption``
+    — bypass this function entirely rather than passing a flag to it.
+
+    Parameters
+    ----------
+    value : any
+        Coerced with ``str``; NaN / None render as ``""``.
+    """
+    if is_missing(value):
+        return ""
+    return _LATEX_RE.sub(lambda m: _LATEX_ESCAPES[m.group(0)], str(value))
+
+
 def format_frame(df: Any, fmt: Any = AUTO) -> Any:
     """Render a tidy / glance frame's numeric columns as display strings.
 
@@ -446,6 +501,91 @@ def format_frame(df: Any, fmt: Any = AUTO) -> Any:
         else:
             out[col] = [fmt_val(v, fmt) for v in df[col]]
     return out
+
+
+def unwrap_single_sequence(args: Any) -> Tuple[Any, ...]:
+    """Accept ``f([m1, m2])`` wherever ``f(m1, m2)`` is the signature.
+
+    The table functions take ``*results``, but a list is what everyone
+    reaches for first — it is how R's ``modelsummary`` is called, what this
+    package's own registry examples show, and what ``sp.regtable`` already
+    accepts. Silently returning an empty table for it (the old behaviour)
+    is the worst of the three options.
+
+    Only a lone sequence argument is unwrapped, and only when it does not
+    itself contain sequences — nested lists mean panels to ``regtable``,
+    and that reading must survive.
+    """
+    if len(args) != 1 or not isinstance(args[0], (list, tuple)):
+        return tuple(args)
+    inner = args[0]
+    if any(isinstance(item, (list, tuple)) for item in inner):
+        return tuple(args)
+    return tuple(inner)
+
+
+#: Sentinel for summary-statistic precision (R², F, Wald, Hansen J ...).
+#: Resolved by :func:`fmt_statistic`.
+STAT = "stat"
+
+#: Decimals a statistic gets when it is small enough to afford them. Matches
+#: the ``"%.3f"`` this sentinel replaced, so ordinary tables are unchanged.
+STAT_DECIMALS = 3
+
+#: Total significant figures a statistic may occupy before decimals start
+#: being given up. Six keeps ``302.955`` and ``12.340`` exactly as they were
+#: while collapsing ``538582.398`` — nine displayed figures, the last three
+#: pure noise — to ``538,582``.
+STAT_MAX_SIGNIFICANT = 6
+
+
+def fmt_statistic(value: Any) -> str:
+    """Render a summary statistic: up to three decimals, magnitude-aware.
+
+    Fit statistics span scales that no single fixed format survives. A flat
+    ``"%.3f"`` is right for R² (``0.090``) and for a Wald F the user handed
+    in as ``10.5`` (``10.500``), but prints an F of 538582.398 at nine
+    significant figures. Plain ``"auto"`` overcorrects the other way: three
+    significant digits turn a user-supplied ``12.34`` into ``12.3``,
+    discarding precision the caller explicitly asked for.
+
+    So: keep three decimals, and surrender them one at a time only as the
+    integer part grows past :data:`STAT_MAX_SIGNIFICANT` figures.
+    """
+    if is_missing(value):
+        return ""
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return ""
+    if not np.isfinite(f):
+        return ""
+    int_digits = 1 if abs(f) < 1 else int(math.floor(math.log10(abs(f)))) + 1
+    decimals = min(STAT_DECIMALS, max(0, STAT_MAX_SIGNIFICANT - int_digits))
+    return fmt_fixed(f, decimals)
+
+
+def format_pair(*values: Any, fmt: Any = AUTO) -> Tuple[str, ...]:
+    """Render scalars that belong together at one shared precision.
+
+    The frame-level counterpart is :func:`format_frame`; this is for the
+    loose scalars a result object prints outside a table — the point
+    estimate, its standard error and its confidence bounds in
+    ``.summary()`` and in the single-row LaTeX body. Under ``fmt="auto"``
+    the decimal count is driven by the first two arguments (estimate and
+    standard error), so the CI shares whatever precision the estimate got
+    rather than picking its own.
+
+    Any explicit *fmt* is applied verbatim to every value, matching how
+    ``digits=3`` behaves everywhere else.
+    """
+    if fmt != AUTO:
+        return tuple(fmt_val(v, fmt) for v in values)
+    decimals = auto_decimals(
+        values[0] if len(values) > 0 else None,
+        values[1] if len(values) > 1 else None,
+    )
+    return tuple(fmt_fixed(v, decimals) for v in values)
 
 
 def resolve_digits(

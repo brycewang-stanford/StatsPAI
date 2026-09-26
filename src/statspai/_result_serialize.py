@@ -34,6 +34,8 @@ import warnings
 from dataclasses import fields, is_dataclass
 from typing import Any, ClassVar, Dict, Tuple
 
+import numpy as np
+
 from .core.results import _to_jsonable
 
 
@@ -82,14 +84,63 @@ def result_to_dict(obj: Any) -> Dict[str, Any]:
     return out
 
 
-def _fmt_scalar(v: Any) -> str:
-    if isinstance(v, bool):
-        return r"\text{" + str(v) + "}"
-    if isinstance(v, int):
-        return str(v)
-    if isinstance(v, float):
-        return f"{v:.4g}"
-    return str(v).replace("_", r"\_").replace("%", r"\%").replace("&", r"\&")
+def _resolved_fmt(fmt: Any, digits: int | None) -> Any:
+    """Collapse the ``fmt=`` / ``digits=`` pair, package-wide semantics.
+
+    Same rule as every other exporter: either spelling is accepted and
+    passing both raises rather than silently preferring one.
+    """
+    from .output._format import AUTO, resolve_digits
+
+    return resolve_digits(fmt, digits, default=AUTO)
+
+
+def display_value(value: Any, fmt: Any = None) -> str:
+    """Render one field value for a **display** surface.
+
+    Shared by the three renderers that show a result as a Field/Value
+    table — LaTeX, Markdown and Word — so they stop disagreeing about the
+    same number. They previously carried two conventions between them
+    (``%.4g`` in LaTeX, ``%.6g`` in Markdown and Word), which showed one
+    ``att`` as ``-0.09446`` and ``-0.094458`` from the same object.
+
+    Floats follow the package-wide adaptive default, so a value reads the
+    same here as in ``sp.regtable`` or ``CausalResult.to_latex``. ``%.4g``
+    was also actively bad at scale: it rendered 538582.4 as ``5.386e+05``.
+
+    ``to_dict`` and ``to_excel`` deliberately do **not** route through
+    here — those are data-interchange surfaces and keep the full value.
+    """
+    from .output._format import AUTO, fmt_val
+
+    # bool is an int subclass; check it first or True renders as 1.
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, (int, np.integer)):
+        return str(value)
+    if isinstance(value, float):
+        return fmt_val(value, AUTO if fmt is None else fmt)
+    return _one_line(value)
+
+
+def _fmt_scalar(v: Any, fmt: Any = None) -> str:
+    """Render one scalar field as a LaTeX-safe cell.
+
+    This is the *only* place a value gets escaped on the way into
+    ``result_to_latex`` — escaping again at the call site would turn the
+    ``\\&`` produced here into ``\\textbackslash{}\\&``.
+
+    Flattening happens before escaping, so a truncated long value can
+    never be cut through the middle of a ``\\textbackslash{}``.
+
+    Booleans render as plain ``True`` / ``False``. They used to be wrapped
+    in ``\\text{...}``, which is an amsmath macro: any result carrying a
+    bool field emitted a table that failed to compile with "Undefined
+    control sequence" unless the document happened to load amsmath.
+    """
+    from .output._format import latex_escape
+
+    return latex_escape(display_value(v, fmt))
 
 
 def _accepts_second_positional(fn: Any) -> bool:
@@ -157,8 +208,34 @@ def result_export_rows(obj: Any) -> "list[Tuple[str, Any]]":
     return rows
 
 
+#: Longest value rendered in a generic Field/Value cell before truncation.
+#: Long enough for a formula or a vcov description, short enough that one
+#: runaway field cannot push the table off the page.
+_MAX_CELL_CHARS = 120
+
+
+def _one_line(text: str) -> str:
+    """Collapse a value to a single line a ``tabular`` cell can hold.
+
+    Some result fields carry a whole rendered ``summary()`` — forty lines
+    of ASCII rules and headings. LaTeX treats the newlines as ordinary
+    whitespace, so this still *compiles*; it just produces one cell holding
+    the entire summary run together as a paragraph, which is not a table
+    anyone can read. ``to_markdown`` already flattens for the same reason.
+    """
+    flat = " ".join(str(text).split())
+    if len(flat) > _MAX_CELL_CHARS:
+        # ASCII ellipsis: a literal "…" needs utf8 inputenc to typeset.
+        return flat[: _MAX_CELL_CHARS - 3].rstrip() + "..."
+    return flat
+
+
 def result_to_latex(
-    obj: Any, *, caption: str | None = None, label: str | None = None
+    obj: Any,
+    *,
+    caption: str | None = None,
+    label: str | None = None,
+    fmt: Any = None,
 ) -> str:
     """Render the *scalar* fields of a result dataclass as a booktabs table.
 
@@ -166,20 +243,24 @@ def result_to_latex(
     dumped, so the table stays publication-sized. Mirrors the ``to_latex``
     other result objects expose, so ``sp.<est>(...).to_latex()`` works
     uniformly.
+
+    Rows come from :func:`result_export_rows`, the same source Markdown,
+    Word and Excel use, so the four surfaces cannot disagree about which
+    fields exist or how a nested field is summarised.
     """
-    d = result_to_dict(obj)
-    rows = []
-    for key, val in d.items():
-        if val is None:
-            continue
-        if isinstance(val, (list, dict)):
-            n = len(val)
-            disp = f"[{n} item{'s' if n != 1 else ''}]"
-        else:
-            disp = _fmt_scalar(val)
-        rows.append((str(key).replace("_", r"\_"), disp))
-    _warn_if_no_rows(obj, len(rows))
-    cap = caption or type(obj).__name__
+    from .output._format import latex_escape
+
+    rows = [
+        # Values are escaped and flattened inside _fmt_scalar — escaping
+        # again here would turn its "\&" into "\textbackslash{}\&".
+        (latex_escape(key), _fmt_scalar(val, fmt))
+        for key, val in result_export_rows(obj)
+    ]
+    # A caller-supplied caption passes through verbatim — it may hold
+    # deliberate LaTeX. The generated fallback is the class name, which is
+    # data: a class called ``_BoolResult`` or ``PSM_DiDResult`` carries an
+    # underscore and halts the build with "Missing $ inserted".
+    cap = caption if caption is not None else latex_escape(type(obj).__name__)
     body = " \\\\\n".join(f"  {k} & {v}" for k, v in rows)
     lines = [
         "\\begin{table}[htbp]",
@@ -217,30 +298,43 @@ class ResultProtocolMixin:
         """JSON-safe dict of every field (agent-native serialization)."""
         return result_to_dict(self)
 
-    def to_latex(self, *, caption: str | None = None, label: str | None = None) -> str:
+    def to_latex(
+        self,
+        *,
+        caption: str | None = None,
+        label: str | None = None,
+        digits: int | None = None,
+        fmt: Any = None,
+    ) -> str:
         """A compact booktabs table of the result's scalar fields."""
-        return result_to_latex(self, caption=caption, label=label)
+        return result_to_latex(
+            self, caption=caption, label=label, fmt=_resolved_fmt(fmt, digits)
+        )
 
-    def to_markdown(self) -> str:
+    def to_markdown(self, digits: int | None = None, fmt: Any = None) -> str:
         """GitHub-flavoured markdown table of the result's scalar fields."""
-        rows = result_export_rows(self)
+        resolved = _resolved_fmt(fmt, digits)
         lines = [
             f"### {type(self).__name__}",
             "",
             "| Field | Value |",
             "| --- | --- |",
         ]
-        for key, val in rows:
-            disp = f"{val:.6g}" if isinstance(val, float) else str(val)
-            # A literal newline ends the table row and orphans the rest of
-            # the value as body text, silently truncating the table; a bare
-            # pipe opens a spurious column.
-            disp = disp.replace("|", r"\|").replace("\r\n", " ").replace("\n", " ")
-            disp = disp.replace("\r", " ")
+        for key, val in result_export_rows(self):
+            # display_value already flattens newlines — a literal newline
+            # ends the row and orphans the rest as body text. The pipe is
+            # Markdown's own separator and is escaped only here.
+            disp = display_value(val, resolved).replace("|", r"\|")
             lines.append(f"| {key} | {disp} |")
         return "\n".join(lines)
 
-    def to_word(self, filename: str, title: str | None = None) -> str:
+    def to_word(
+        self,
+        filename: str,
+        title: str | None = None,
+        digits: int | None = None,
+        fmt: Any = None,
+    ) -> str:
         """§3 Word (.docx) export.
 
         Uses the class's own ``to_docx`` when it defines one (bespoke
@@ -268,11 +362,10 @@ class ResultProtocolMixin:
         table.style = "Light Grid Accent 1"
         table.rows[0].cells[0].text = "Field"
         table.rows[0].cells[1].text = "Value"
+        resolved = _resolved_fmt(fmt, digits)
         for i, (key, val) in enumerate(rows, start=1):
             table.rows[i].cells[0].text = str(key)
-            table.rows[i].cells[1].text = (
-                f"{val:.6g}" if isinstance(val, float) else str(val)
-            )
+            table.rows[i].cells[1].text = display_value(val, resolved)
         doc.save(filename)
         return filename
 

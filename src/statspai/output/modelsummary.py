@@ -54,6 +54,8 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
+from ._format import unwrap_single_sequence
+
 _DEPRECATION_MSG = (
     "modelsummary() is now a thin wrapper over sp.regtable() and will "
     "be removed in a future minor release. Migrate to "
@@ -165,8 +167,7 @@ def modelsummary(
     # R's modelsummary takes a *list* of models; accept that calling
     # convention too so `sp.modelsummary([m1, m2])` and
     # `sp.modelsummary(m1, m2)` are equivalent.
-    if len(models) == 1 and isinstance(models[0], (list, tuple)):
-        models = tuple(models[0])
+    models = unwrap_single_sequence(models)
 
     if len(models) == 0:
         raise ValueError("At least one model required.")

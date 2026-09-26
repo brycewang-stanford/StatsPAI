@@ -161,7 +161,9 @@ class SpecCurveResult(ResultProtocolMixin):
 
     # ---- export ---------------------------------------------------------
 
-    def to_latex(
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def to_latex(  # type: ignore[override]
         self,
         *args: Any,
         caption: Optional[str] = "Specification Curve Summary",

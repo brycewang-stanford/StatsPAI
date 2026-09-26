@@ -352,8 +352,12 @@ def outreg2(
         else:
             fmt = "excel"
 
+    from ._format import unwrap_single_sequence
+
     table = _build_regtable(
-        models=list(results),
+        # Accept sp.outreg2([m1, m2], filename=...) alongside varargs, as
+        # the sibling table functions do.
+        models=list(unwrap_single_sequence(results)),
         model_names=model_names,
         title=title,
         notes=notes,

@@ -482,7 +482,9 @@ class MixedResult(ResultProtocolMixin):
     # Export
     # ------------------------------------------------------------------
 
-    def to_markdown(self) -> str:
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def to_markdown(self) -> str:  # type: ignore[override]
         r2 = (
             self.r_squared()
             if len(self._blocks) > 0
@@ -516,7 +518,9 @@ class MixedResult(ResultProtocolMixin):
         )
         return "\n".join(out)
 
-    def to_latex(
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def to_latex(  # type: ignore[override]
         self,
         *,
         caption: Optional[str] = None,

@@ -437,7 +437,9 @@ class SpatialDiDResult(ResultProtocolMixin):
     def to_json(self, indent: Optional[int] = None, **kwargs: Any) -> str:
         return json.dumps(self.to_dict(**kwargs), indent=indent, default=_to_jsonable)
 
-    def to_markdown(self, path: Optional[str] = None, **kwargs: Any) -> str:
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def to_markdown(self, path: Optional[str] = None, **kwargs: Any) -> str:  # type: ignore[override]
         md = str(self.tidy(**kwargs).to_markdown(index=False, floatfmt=".4f"))
         if path is not None:
             Path(path).write_text(md, encoding="utf-8")

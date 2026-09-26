@@ -247,7 +247,9 @@ class ParallelTrendsRobustnessResult(ResultProtocolMixin):
 
     # ── Export ───────────────────────────────────────────────────── #
 
-    def to_latex(
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def to_latex(  # type: ignore[override]
         self,
         *,
         caption: Optional[str] = None,

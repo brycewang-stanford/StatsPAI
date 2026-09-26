@@ -234,6 +234,23 @@ def star_note_for(star_levels: Tuple[float, ...]) -> str:
     levels_strict_first = sorted(star_levels)
     n = len(levels_strict_first)
     pieces = [
-        f"{'*' * (n - i)} p<{lev:.2f}" for i, lev in enumerate(levels_strict_first)
+        f"{'*' * (n - i)} p<{_level_text(lev)}"
+        for i, lev in enumerate(levels_strict_first)
     ]
     return ", ".join(pieces)
+
+
+def _level_text(level: float) -> str:
+    """Render a significance level without rounding it out of existence.
+
+    Two decimals is the convention the presets are written in — ``p<0.10``,
+    ``p<0.05``, ``p<0.01``. A fixed ``%.2f`` breaks down the moment someone
+    passes ``star_levels=(0.05, 0.01, 0.001)``, which printed the
+    self-contradicting ``p<0.00``. Widen only as far as the level actually
+    needs.
+    """
+    for decimals in (2, 3, 4, 5, 6):
+        rounded = round(level, decimals)
+        if rounded != 0 and abs(level - rounded) < 1e-12:
+            return f"{level:.{decimals}f}"
+    return f"{level:g}"

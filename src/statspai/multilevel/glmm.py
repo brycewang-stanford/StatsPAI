@@ -833,7 +833,9 @@ class MEGLMResult(ResultProtocolMixin):
         lines.append("=" * w)
         return "\n".join(lines)
 
-    def to_markdown(self) -> str:
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def to_markdown(self) -> str:  # type: ignore[override]
         rows = []
         for var in self.fixed_effects.index:
             b = self.fixed_effects[var]
@@ -897,7 +899,9 @@ class MEGLMResult(ResultProtocolMixin):
     # LaTeX / plot
     # ------------------------------------------------------------------
 
-    def to_latex(
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def to_latex(  # type: ignore[override]
         self,
         *,
         caption: Optional[str] = None,
