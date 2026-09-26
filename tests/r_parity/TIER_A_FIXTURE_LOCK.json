@@ -1,5 +1,5 @@
 {
-  "aggregate_sha256": "6365201e94f1e603de139d882f7791e094743be86fa15142576bdc15e3180c93",
+  "aggregate_sha256": "6a325d5e6a6dc81db417a2853869b9ae66c91a57238a130b25b168ebb7963f95",
   "counts": {
     "files": 637,
     "input_csvs": 88,
@@ -918,9 +918,9 @@
       "sha256": "a3081e58a186d64ad319c218794e211f3f51e384b5588e3d651317a135f4130e"
     },
     {
-      "bytes": 6177,
+      "bytes": 7952,
       "path": "tests/r_parity/R_ENVIRONMENT.md",
-      "sha256": "4a6238c4668e9e84ebc22a4f8c12e1b13f4c71c83c853051150d7db51f1cfa1d"
+      "sha256": "8e0dbca88b29cdb6134c01b3e80429052868758a4e39179f0bf9e3ac611b5ff1"
     },
     {
       "bytes": 5229,
@@ -933,14 +933,14 @@
       "sha256": "f49b514bd01786f548fa2c547ee7e2ec85d27e9f956d4899d69dc3118d77f83b"
     },
     {
-      "bytes": 4464,
+      "bytes": 4993,
       "path": "tests/r_parity/_gen_renv_lock.R",
-      "sha256": "fd04b73dca8dcc0b00dcfdd975ef5616cf7535d293adb61cf9a13470a9477717"
+      "sha256": "ac58c5186daa282abcafe45dc6b6ca334a1993ed71b26759fd4de308c1087683"
     },
     {
-      "bytes": 112455,
+      "bytes": 112450,
       "path": "tests/r_parity/compare.py",
-      "sha256": "14d3b7ce02d1dd22990f90a20e478bc7af48acb70e068618e149b64dce71016e"
+      "sha256": "286368414fb5d85bb51ef62747dea36f27b5633de4ac474ec063f979a87b37f6"
     },
     {
       "bytes": 104713,
@@ -1383,9 +1383,9 @@
       "sha256": "7317adac5e5a1e72e8e2d51f88dad4f63540eccf0740c35a447572c9dee709ad"
     },
     {
-      "bytes": 41778,
+      "bytes": 48009,
       "path": "tests/r_parity/renv.lock",
-      "sha256": "16323f76f1583f9033c9d542de9e470e6866558eed647d686e07cf2190e2bbab"
+      "sha256": "b7fdd2f39fe6c07317b73cdd4f10f3e7fef42e07e13700916cfb5c259a3dfd38"
     },
     {
       "bytes": 2429,
@@ -2280,7 +2280,7 @@
     {
       "bytes": 16120,
       "path": "tests/r_parity/results/REPRODUCIBILITY_REPORT.md",
-      "sha256": "840cdc737d865103d1ba63c25dd67d8c88e321deb7a07cebfe75f8edb649de04"
+      "sha256": "8afc46a5182d14ee41bacadb1767f7a3db4a28ae3512484ee649948ba54d4d7e"
     },
     {
       "bytes": 133179,
@@ -2303,9 +2303,9 @@
       "sha256": "cf69ec46b7b70202b5a7d2cc600827e23a12b40c0dbb2cf0f887ac7c2b1baa9d"
     },
     {
-      "bytes": 13106,
+      "bytes": 13260,
       "path": "tests/r_parity/verify_reproduce.py",
-      "sha256": "ffa68c75cd176b0779f820b3ab831c15ef48c11999d51f65ff69cf4889e1a48c"
+      "sha256": "4fbe6e4c51f2370969de3846da6d39c3a7e82ac459bd9d6f41d36592179953d5"
     },
     {
       "bytes": 1448,

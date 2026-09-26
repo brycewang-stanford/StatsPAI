@@ -37,7 +37,7 @@
  },
  "modules": {
   "01_ols": {
-   "seconds": 1.67,
+   "seconds": 2.69,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -66,7 +66,7 @@
    "result_sha256": "28e6141a40124e3863f6b172ece43c7431785afd1cb9acdf588557f683608ebb"
   },
   "02_iv": {
-   "seconds": 0.68,
+   "seconds": 2.4,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -93,7 +93,7 @@
    "result_sha256": "979b24f58c32a6211b43fd28ef054809a75996073fe5c17c1bac3ddfcc6956d1"
   },
   "03_hdfe": {
-   "seconds": 0.71,
+   "seconds": 2.44,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -129,7 +129,7 @@
    "result_sha256": "eac61fccb75c2e607609475a3a54924eedfce3bc05d4c5f5b9655d68f1a0908c"
   },
   "04_csdid": {
-   "seconds": 0.66,
+   "seconds": 2.71,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -156,7 +156,7 @@
    "result_sha256": "e480e94b941cfd97f74f7599adab403a90e93951e37c2309d0418d9c234b6988"
   },
   "05_sunab": {
-   "seconds": 0.68,
+   "seconds": 2.19,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -181,7 +181,7 @@
    "result_sha256": "8711d6fef18e1a71db60db7ea929cfdea75f81a87abc18136135829e38566722"
   },
   "06_rd": {
-   "seconds": 1.94,
+   "seconds": 6.53,
    "error": null,
    "boundary_calls": [
     {
@@ -207,7 +207,7 @@
     "src/statspai/plots/themes.py": "dc73d564dbee4ec67ef7e14fa76aef49da6411c100f432aaec6dddd138d31861",
     "src/statspai/rd/_cct_bandwidth.py": "492f2fb5993516de663ee93bb4a0a072b99f2d35e67014842e5bbbbc786ae1cf",
     "src/statspai/rd/_core.py": "3c5ad051e6e4cf17cdee86ff845d76dbc955f61ee1a21e9ee5ef32f977a126de",
-    "src/statspai/rd/rdrobust.py": "bee782ede909801a3098c203720b87b2604607a8861896abe43f64ce8f349641"
+    "src/statspai/rd/rdrobust.py": "ba57852c81f740616f9f19cfaeb14b9694118381883a3d4ba9e4814ced7d643b"
    },
    "dependency_versions": {
     "rdrobust": "2.0.0",
@@ -220,7 +220,7 @@
    "result_sha256": "11558f8cc546da726e0e52d4e2fcbc7f4ff5b2c91ca72447a62b8b8a9a2683f5"
   },
   "07_scm": {
-   "seconds": 12.38,
+   "seconds": 51.28,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -247,7 +247,7 @@
    "result_sha256": "aa18d5c937be1bd133dc5b3e505bac87be7b3a55b6a8497a17e3198ce0daa3bd"
   },
   "08_dml": {
-   "seconds": 1.28,
+   "seconds": 2.92,
    "error": null,
    "boundary_calls": [
     {
@@ -290,7 +290,7 @@
     "src/statspai/dml/_learners.py": "7d3b07ca04b4f999e9a5a3941ef4662c9a6706a56cc3ffe469aac170220cc9d5",
     "src/statspai/dml/_oof_retention.py": "f35b7958405b6c20a3ff9d2c16530bab8f48ded2357c93748544ee9b9a0babeb",
     "src/statspai/dml/double_ml.py": "43954fe9b0c42e86119dd5102d5210fb778dda3187a0707dc7a43e4a920f8617",
-    "src/statspai/dml/plr.py": "acbf750cb8ad6dbab8319d6aea576280835387ad03fc61892c7bee80a9383763",
+    "src/statspai/dml/plr.py": "61152a25f23a9e85b0ac91162809c3bbb94192d1e161c4ad428c3c986e4a12a4",
     "src/statspai/output/_lineage.py": "ec68f8b18444b011b4efc5151f5c00018b2c20d4bb83c5fa798ed33a2cf8dbbe",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
@@ -304,7 +304,7 @@
    "result_sha256": "a0c31040d76ea03ae409c1eb4678b6e1a912310fd9631e12905b65c04a6dfd4b"
   },
   "09_rddensity": {
-   "seconds": 0.62,
+   "seconds": 2.22,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -328,7 +328,7 @@
    "result_sha256": "66342b1fbe4ca16a5f13015ad7773933b556b324fcfafa10d2cd36ddbaa6a7cb"
   },
   "10_honest_did": {
-   "seconds": 2.62,
+   "seconds": 8.27,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -351,7 +351,7 @@
    "result_sha256": "ea132f42ceb479639b345b67996e3cbfe0650c319544eea666e6898408362a31"
   },
   "11_psm": {
-   "seconds": 0.84,
+   "seconds": 2.33,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -378,7 +378,7 @@
    "result_sha256": "fcb134426f7e0368f84491d7c7aab61a65a16b77ed5a10be586c945a16b3ae96"
   },
   "12_sdid": {
-   "seconds": 18.38,
+   "seconds": 65.65,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -402,7 +402,7 @@
    "result_sha256": "27f4c31ee17df71e14c04cf02e97b603839fb5914e8b2a72595ff74e3b446277"
   },
   "13_causal_forest": {
-   "seconds": 6.31,
+   "seconds": 17.53,
    "error": null,
    "boundary_calls": [
     {
@@ -450,7 +450,7 @@
    "result_sha256": "5d74ab6f100ad558522ccccae6aa6b59440618fc91f263f663efd4e2d16f97a2"
   },
   "14_ols_cluster": {
-   "seconds": 1.02,
+   "seconds": 3.36,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -479,7 +479,7 @@
    "result_sha256": "ee2708a9ac465c6cf4706839aa09574c2cf3b7907fc5e0517227b8583d1798bc"
   },
   "15_hdfe_cluster": {
-   "seconds": 0.71,
+   "seconds": 2.22,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -515,7 +515,7 @@
    "result_sha256": "6813ea5ae61deb5c87f47f6cf5acb75db7ee929ba1241d94d705effd90e0323d"
   },
   "16_bjs": {
-   "seconds": 0.64,
+   "seconds": 2.1,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -541,7 +541,7 @@
    "result_sha256": "3dddae79ea0cd1d6581dcca3da7368dc34fc3549f2a1b7bfa6fa28c5e1e0c30a"
   },
   "17_etwfe": {
-   "seconds": 0.71,
+   "seconds": 2.14,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -566,7 +566,7 @@
    "result_sha256": "4917af1feb1792f391f58ea29afa5f1bd039a5b66c2815ab2b52192c74f385ca"
   },
   "18_augsynth": {
-   "seconds": 0.74,
+   "seconds": 1.86,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -591,7 +591,7 @@
    "result_sha256": "deec5e183d36dea6ab1cd3a07857ab0ef3f9860dc11edca8b30f5242b758a14f"
   },
   "19_gsynth": {
-   "seconds": 0.63,
+   "seconds": 1.73,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -615,7 +615,7 @@
    "result_sha256": "143c423a1304d62c34cdde02849c5d2cae5d6b26bf95233125e3ae130c8eafa0"
   },
   "20_bacon": {
-   "seconds": 0.92,
+   "seconds": 2.86,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -636,7 +636,7 @@
    "result_sha256": "112a297f5e857128a472144d27c1464b7caaeca94300b734d3d3bc3da6c41309"
   },
   "21_honest_relmags": {
-   "seconds": 10.06,
+   "seconds": 27.82,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -660,7 +660,7 @@
    "result_sha256": "9d441cbf671a920d578adcde55f578c1e5de9cb69091a6c57baefe2c59e8f0bc"
   },
   "22_sensemakr": {
-   "seconds": 0.68,
+   "seconds": 1.84,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -681,7 +681,7 @@
    "result_sha256": "2a1e79dfec334dd27395c277ba7647a8f2766b362e68342af847f1db5d63a3c6"
   },
   "23_evalue": {
-   "seconds": 0.64,
+   "seconds": 1.63,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -701,7 +701,7 @@
    "result_sha256": "e4ff16ddc8134e6f46d4fbeee47917ac38b7914e42ad08559e5e9b68c92d9353"
   },
   "24_coxph": {
-   "seconds": 1.41,
+   "seconds": 3.84,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -746,7 +746,7 @@
    "result_sha256": "f5b9d22b827e44d4316e568571f35e297850e3a7db927db91c411e894a05398d"
   },
   "25_lmm": {
-   "seconds": 1.53,
+   "seconds": 3.55,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -774,7 +774,7 @@
    "result_sha256": "a4bc2c81a543e4d4b865eca09d3115a35f66f56e2d2f708a652e7154d0bf7cbc"
   },
   "26_glmm_logit": {
-   "seconds": 0.74,
+   "seconds": 1.87,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -802,7 +802,7 @@
    "result_sha256": "52803ee392c1109ed4055557875fe9016421056de8110da4b8c03dc74307eaa0"
   },
   "27_glmm_aghq": {
-   "seconds": 0.83,
+   "seconds": 2.36,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -830,7 +830,7 @@
    "result_sha256": "0a9aea5ff73ce668f000f1bb98e51b12fe83e9d3b74ed431734a14a090355543"
   },
   "28_frontier": {
-   "seconds": 0.69,
+   "seconds": 1.97,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -853,7 +853,7 @@
    "result_sha256": "0588bf49208f92c4463bfc0f1fab252656fa71d6ee78474a18a62df5b84bb0ec"
   },
   "29_panel_sfa": {
-   "seconds": 0.71,
+   "seconds": 2.18,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -876,7 +876,7 @@
    "result_sha256": "2e1c7e36cf70716eaa1f78b7d28eb42fed2453540bc45ea16db8ee5c7a576561"
   },
   "30_oaxaca": {
-   "seconds": 0.65,
+   "seconds": 1.74,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -899,7 +899,7 @@
    "result_sha256": "0808ce3d03e294f216a982dae787704fb6f3d954dae9418b0e576cda8b07af6a"
   },
   "31_dfl": {
-   "seconds": 0.62,
+   "seconds": 2.01,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -922,7 +922,7 @@
    "result_sha256": "9767169a8599af2bcb82bd3c0e5c71bbe0ff904cdf4dc7558823936106778b2e"
   },
   "32_rif": {
-   "seconds": 0.65,
+   "seconds": 2.08,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -943,7 +943,7 @@
    "result_sha256": "a9b5bc87dc4b8335d8f9bb2b52bf19fc85de81c23a3488bca9694844ffadd061"
   },
   "33_var": {
-   "seconds": 0.61,
+   "seconds": 1.87,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -963,7 +963,7 @@
    "result_sha256": "5114adaf7d32edc5d4614aa93d4a5c02c0353b240230b2ca9b4a9712f0a3eb3f"
   },
   "34_lp": {
-   "seconds": 0.62,
+   "seconds": 2.04,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -984,7 +984,7 @@
    "result_sha256": "87a99bf35a0082f9d98a029ed5e0a94ec97e7e7703b06ec7c4c8b59f29e42a1a"
   },
   "35_panel": {
-   "seconds": 0.91,
+   "seconds": 2.45,
    "error": null,
    "boundary_calls": [
     {
@@ -1148,7 +1148,7 @@
    "result_sha256": "6289667b488090e088fd7403d2cb53c77668a5de567b291c9a7db9d722f72a6d"
   },
   "36_mediation": {
-   "seconds": 0.82,
+   "seconds": 2.16,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1171,7 +1171,7 @@
    "result_sha256": "add80fa145ca87fd9888b88d5f1461636473949b1b65c604f5ccfa3ede9a04bf"
   },
   "37_ppmlhdfe": {
-   "seconds": 0.68,
+   "seconds": 1.71,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1196,7 +1196,7 @@
    "result_sha256": "8fa45f7db89091a9829de651bf945b4554b2533fe2d69b72d2248d59a057ff2a"
   },
   "38_drdid": {
-   "seconds": 0.63,
+   "seconds": 1.58,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1219,7 +1219,7 @@
    "result_sha256": "8b129ec3af86b0b5899d0af0a37040fabcde7f11bb0cd7f455bdbf6a5881678b"
   },
   "39_arima": {
-   "seconds": 0.93,
+   "seconds": 2.09,
    "error": null,
    "boundary_calls": [
     {
@@ -1262,7 +1262,7 @@
    "result_sha256": "e09876268874e84e2156fadaf076e9be18d05a7e9df8c8d4990fb3bb4e9e4f1d"
   },
   "40_qreg": {
-   "seconds": 0.64,
+   "seconds": 2.22,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1284,7 +1284,7 @@
    "result_sha256": "5cbf19c302ee3df21f504b000a9edf5bc00779351ad2a9ee8980b32c9cc2b540"
   },
   "41_tobit": {
-   "seconds": 0.64,
+   "seconds": 1.95,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1309,7 +1309,7 @@
    "result_sha256": "2005f2debfedb438aeb79c91a02781dff8c5c472fea6de61e3d50312c9dac9ef"
   },
   "42_nbreg": {
-   "seconds": 0.61,
+   "seconds": 1.74,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1336,7 +1336,7 @@
    "result_sha256": "d45e85adde3449ee07c8ae97a2ebabcc31e0420bf39ac5c27134bf64267acf17"
   },
   "43_heckman": {
-   "seconds": 0.62,
+   "seconds": 1.59,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1359,7 +1359,7 @@
    "result_sha256": "b0fce34fd4bcc90c611c4c253c97c09b824703c7ef5b6ea3e097609313645535"
   },
   "44_mlogit": {
-   "seconds": 0.68,
+   "seconds": 2.08,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1386,7 +1386,7 @@
    "result_sha256": "35a6657888192a7d73d7fcf868a8a89659265db7a214bf849a73b709ac429f82"
   },
   "45_ologit": {
-   "seconds": 0.65,
+   "seconds": 1.91,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1413,7 +1413,7 @@
    "result_sha256": "37b95bece4cae3889bcf9f6e25a4bf5793429a1504aaf38856626d01cf52bb3c"
   },
   "46_clogit": {
-   "seconds": 1.81,
+   "seconds": 4.48,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1440,7 +1440,7 @@
    "result_sha256": "c54451e6a650f326129d583494150519f2adcd0deb98873aadfeaba3b442790a"
   },
   "47_ppmlhdfe_3fe": {
-   "seconds": 0.71,
+   "seconds": 1.61,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1465,7 +1465,7 @@
    "result_sha256": "555dccc6b282b10172495d0105cf29333fb984bfb748d8f4ade1c820bb852c45"
   },
   "48_probit": {
-   "seconds": 0.63,
+   "seconds": 1.4,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1491,7 +1491,7 @@
    "result_sha256": "35f138670a66dba61c6a1e77e2e30758a687dc9a6120dae8bc37dba5575b2619"
   },
   "49_oprobit": {
-   "seconds": 0.67,
+   "seconds": 1.54,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1518,7 +1518,7 @@
    "result_sha256": "b6956e9d35956c827a14910566a317c3311083fa52b1235ab8973a786f5ccb96"
   },
   "50_xtabond": {
-   "seconds": 0.62,
+   "seconds": 1.41,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1547,7 +1547,7 @@
    "result_sha256": "98bdbca4c31310198d48c0a087ae5afea9246bf68e08d21aa32355bb47d3aa07"
   },
   "51_newey": {
-   "seconds": 0.82,
+   "seconds": 2.27,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1575,7 +1575,7 @@
    "result_sha256": "4a10dedbcb6a421390e698e381ade8ad28838f3dc616ae729cda430f8533a459"
   },
   "52_scm_unique": {
-   "seconds": 0.63,
+   "seconds": 1.54,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1601,7 +1601,7 @@
    "result_sha256": "fab1735e218898f68a1e20fd9a9c214bb8a37ede05b797ac45d8ea1e279d9c4f"
   },
   "53_cr2": {
-   "seconds": 0.94,
+   "seconds": 2.18,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1648,7 +1648,7 @@
    "result_sha256": "2677e5ac5cf47c45ad53a22c14cfeb3e27bb1165345dfb9eb2fc076d66ed4605"
   },
   "54_twoway_cluster": {
-   "seconds": 0.84,
+   "seconds": 1.86,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1679,7 +1679,7 @@
    "result_sha256": "afdb129d2736346e9b997be81a2c22f91c5c6e4c14b54f2c02ebe1746b42c34f"
   },
   "55_hc2_hc3": {
-   "seconds": 0.89,
+   "seconds": 1.69,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1708,7 +1708,7 @@
    "result_sha256": "b7eb48cd9d4d25b5fd3ea359823ad2dd309b90dc453ec7c273a683952f08f0b1"
   },
   "56_multiway_cluster": {
-   "seconds": 0.91,
+   "seconds": 1.96,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1738,7 +1738,7 @@
    "result_sha256": "f3fdd7484e1502f7d8756d0dd7f4bf385d6d63af7917029788a533c022fa66d9"
   },
   "57_logit": {
-   "seconds": 0.62,
+   "seconds": 1.7,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1764,7 +1764,7 @@
    "result_sha256": "74ec7ceaa04be47bda31dabf3df79474050dc4ee8095fcc9b4456d726bff9b83"
   },
   "58_poisson": {
-   "seconds": 0.67,
+   "seconds": 1.56,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1789,7 +1789,7 @@
    "result_sha256": "af52945f2240d403b22f0d7edec7689170483b2963ebb8feda4f5de23e1acfbe"
   },
   "59_liml": {
-   "seconds": 0.66,
+   "seconds": 1.11,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1815,7 +1815,7 @@
    "result_sha256": "f6cfaab2f05058925730faaf28b6414848cb09bc17fdbb81f53dd8ccad9af6e4"
   },
   "60_sureg": {
-   "seconds": 0.63,
+   "seconds": 1.1,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1835,7 +1835,7 @@
    "result_sha256": "df787e8ca6670fbb9898fe24d1c3b68cbb8a2095f2684c3b80b08bf3804feafc"
   },
   "61_betareg": {
-   "seconds": 0.69,
+   "seconds": 1.1,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1861,7 +1861,7 @@
    "result_sha256": "bd22c5ca75af4e3b2305c027fd578036baf21bd075bd0d3f8323faec6fc88200"
   },
   "62_truncreg": {
-   "seconds": 0.66,
+   "seconds": 1.11,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1887,7 +1887,7 @@
    "result_sha256": "21e8be741b69f2f26fb814e0ce366987029c1eb03d53f28ea3f9a2fe0bbb9189"
   },
   "63_zip": {
-   "seconds": 0.7,
+   "seconds": 1.19,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1914,7 +1914,7 @@
    "result_sha256": "924677d27285a283340c25a93687e57c2fcfd38d1b7f1ecd426ec84a3804cb48"
   },
   "64_zinb": {
-   "seconds": 0.78,
+   "seconds": 1.45,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1941,7 +1941,7 @@
    "result_sha256": "9997083815f5760943ac43fec429e9d1e44fd6b13454e6d0e8d8346cc9d21997"
   },
   "65_spatial": {
-   "seconds": 0.89,
+   "seconds": 1.54,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -1993,7 +1993,7 @@
    "result_sha256": "7b3031a8f7b095102fb4a93dfe30bfe065d8b8785e718123074364abdac16da7"
   },
   "66_spatial_gmm": {
-   "seconds": 0.76,
+   "seconds": 1.51,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2046,7 +2046,7 @@
    "result_sha256": "adc43cac6900fb9fca20405e77f37d18d0bce00047decb040f3061b08f06db5c"
   },
   "67_panel_glm": {
-   "seconds": 7.31,
+   "seconds": 22.64,
    "error": null,
    "boundary_calls": [
     {
@@ -2141,7 +2141,7 @@
    "result_sha256": "10f2c4ce7a4bfb77384ebcbce6e4de2713e03273cd1f241118628bcc7bbf6c36"
   },
   "68_demean_within": {
-   "seconds": 1.08,
+   "seconds": 3.76,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2162,7 +2162,7 @@
    "result_sha256": "31d8b196641c98308e584ec2921381fe5bec778a34cb8ab6dd520c0edf4c9ec0"
   },
   "69_balance_panel": {
-   "seconds": 0.61,
+   "seconds": 1.39,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2182,7 +2182,7 @@
    "result_sha256": "b448a22da427ea7123c412f9dfed38b8f5ca5f0e8062d20b2fdef791eda6fbb0"
   },
   "70_policy_tree": {
-   "seconds": 1.21,
+   "seconds": 2.92,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2204,7 +2204,7 @@
    "result_sha256": "ee4756c004056c4cc0e0fb79fb43a03d44cc6476cc274336cb33199e46365c32"
   },
   "71_dml_family": {
-   "seconds": 1.1,
+   "seconds": 3.09,
    "error": null,
    "boundary_calls": [
     {
@@ -2289,7 +2289,7 @@
    "result_sha256": "494f49a88ec68428c28dbbf39ea6d58359af8a233482e3512602de56b7580e3c"
   },
   "72_tmle": {
-   "seconds": 0.85,
+   "seconds": 2.01,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2312,7 +2312,7 @@
    "result_sha256": "4d43a569f700cf0743b468ccf5935f925008ddd4cdf0f939424924d627917509"
   },
   "73_did2s": {
-   "seconds": 0.72,
+   "seconds": 1.32,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2336,7 +2336,7 @@
    "result_sha256": "48e70fda585db0bb0bbce9bd73592a60bfcb18771a06575dc4984f3a0ed774ad"
   },
   "74_cic": {
-   "seconds": 0.63,
+   "seconds": 1.28,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2358,7 +2358,7 @@
    "result_sha256": "d3d56f2a4ae9438cd0805edd150b3e3ae0a13719f7e2d67806600da54a418a8b"
   },
   "75_stacked": {
-   "seconds": 1.13,
+   "seconds": 1.95,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2383,7 +2383,7 @@
    "result_sha256": "dfc1586480d9ce6973af2705f1df5ffb44ee66bfe33f49353ec0076c2a8c326b"
   },
   "76_pretrends": {
-   "seconds": 1.07,
+   "seconds": 1.72,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2404,7 +2404,7 @@
    "result_sha256": "16a95b8e59178f30e03099d46255651188a5436bbc0b4c0a976dc970168ed735"
   },
   "77_ddd": {
-   "seconds": 0.93,
+   "seconds": 1.6,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2427,7 +2427,7 @@
    "result_sha256": "76f4bb098eb07f7c7d0e691262c1e7e158a620700ffe692e9963fa421e76b5fa"
   },
   "78_multiplegt_dyn": {
-   "seconds": 1.36,
+   "seconds": 2.02,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2451,7 +2451,7 @@
    "result_sha256": "abdd294ba707f66109a122c63e511faedab437e199bbd7e629cdabba72e06aff"
   },
   "79_didff": {
-   "seconds": 1.3,
+   "seconds": 2.35,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2478,7 +2478,7 @@
    "result_sha256": "20fbaf79bbf4ba34c75a6e32d8504bf47b48316476654cc46a8454cebda4b530"
   },
   "80_contdid": {
-   "seconds": 0.67,
+   "seconds": 1.22,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2499,7 +2499,7 @@
    "result_sha256": "090e87e850e5e9b2433108fe65eedaf065d71f689f6f316bbbd21676e901dcbb"
   },
   "81_didm": {
-   "seconds": 0.83,
+   "seconds": 1.38,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2522,7 +2522,7 @@
    "result_sha256": "916e5e09161274a614105b30598f2dae192d3ba0b9c9d159d8c8d018132d6b5c"
   },
   "82_staggered": {
-   "seconds": 0.7,
+   "seconds": 1.04,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2544,7 +2544,7 @@
    "result_sha256": "b7c8fa3780a4214b687451c88cf664cea8b9153a061e35d92ab625696d5dc6ad"
   },
   "83_lpdid": {
-   "seconds": 1.63,
+   "seconds": 2.41,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2567,7 +2567,7 @@
    "result_sha256": "1c2b89ccd63237079db6314ade632123a611494da5981eba05c42a046e4af950"
   },
   "84_bjs_pretrends": {
-   "seconds": 0.67,
+   "seconds": 1.06,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2593,7 +2593,7 @@
    "result_sha256": "464be9e43ddef1ea0fdc64ee0c1d1dd4b04a6bc6a8cd9bda7e38c31a86c94878"
   },
   "85_twfe_event_study": {
-   "seconds": 0.65,
+   "seconds": 0.93,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2617,7 +2617,7 @@
    "result_sha256": "0be3015f10d51a74235e5dd5efedfe7f84afd1a7b8fba953e8485631e89bdf49"
   },
   "86_fect": {
-   "seconds": 1.01,
+   "seconds": 1.64,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2639,7 +2639,7 @@
    "result_sha256": "78fff03308cbd50647163c6c79fe8d5707f5d26869ece2d473ac9dcaf35b2d94"
   },
   "87_interflex": {
-   "seconds": 0.64,
+   "seconds": 1.04,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2660,7 +2660,7 @@
    "result_sha256": "cfe6477289f00d186b1871173398493c863f032d408c51e6f432df56e74223fc"
   },
   "88_rdbwselect": {
-   "seconds": 1.66,
+   "seconds": 2.93,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2684,7 +2684,7 @@
    "result_sha256": "a3cc7aa4bbe422070af077fad15e0c8b2953dc9c8e2b91fda454124db56f3912"
   },
   "89_rdms": {
-   "seconds": 1.05,
+   "seconds": 2.79,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -2700,7 +2700,7 @@
     "src/statspai/rd/_cct_bandwidth.py": "492f2fb5993516de663ee93bb4a0a072b99f2d35e67014842e5bbbbc786ae1cf",
     "src/statspai/rd/_core.py": "3c5ad051e6e4cf17cdee86ff845d76dbc955f61ee1a21e9ee5ef32f977a126de",
     "src/statspai/rd/rdmulti.py": "b071e51637d13dee8619f582e0db11f86b40154eb8db6aca87b7c130dfb92131",
-    "src/statspai/rd/rdrobust.py": "bee782ede909801a3098c203720b87b2604607a8861896abe43f64ce8f349641"
+    "src/statspai/rd/rdrobust.py": "ba57852c81f740616f9f19cfaeb14b9694118381883a3d4ba9e4814ced7d643b"
    },
    "dependency_versions": {
     "numpy": "2.2.6",

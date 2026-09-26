@@ -1925,7 +1925,8 @@
       "python_call": "sp.cgs_continuous_did",
       "reference": "contdid::cont_did",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "R": "R version 4.5.2 (2025-10-31)",
+        "contdid": "0.1.1"
       },
       "se_rel": {
         "R": null,
@@ -2001,7 +2002,8 @@
       "python_call": "sp.cic",
       "reference": "qte::CiC",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "R": "R version 4.5.2 (2025-10-31)",
+        "qte": "2.0.0"
       },
       "se_rel": {
         "R": null,
@@ -2853,7 +2855,8 @@
       "python_call": "sp.ddd_heterogeneous",
       "reference": "triplediff::ddd + agg_ddd",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "R": "R version 4.5.2 (2025-10-31)",
+        "triplediff": "0.2.4"
       },
       "se_rel": {
         "R": null,
@@ -3194,7 +3197,8 @@
       "python_call": "sp.gardner_did",
       "reference": "did2s::did2s",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "R": "R version 4.5.2 (2025-10-31)",
+        "did2s": "1.2.1"
       },
       "se_rel": {
         "R": 2.6800407832750184e-10,
@@ -3406,6 +3410,7 @@
       "python_call": "sp.did_multiplegt",
       "reference": "DIDmultiplegt::did_multiplegt (archived 0.1.4)",
       "reference_versions": {
+        "DIDmultiplegt": "0.1.4",
         "R": "R version 4.5.2 (2025-10-31)"
       },
       "se_rel": {
@@ -3463,6 +3468,7 @@
       "python_call": "sp.did_multiplegt_dyn",
       "reference": "DIDmultiplegtDYN::did_multiplegt_dyn",
       "reference_versions": {
+        "DIDmultiplegtDYN": "2.3.4",
         "R": "R version 4.5.2 (2025-10-31)"
       },
       "se_rel": {
@@ -5201,7 +5207,8 @@
       "python_call": "sp.functional_form_test",
       "reference": "didFF::didFF",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "R": "R version 4.5.2 (2025-10-31)",
+        "didFF": "0.1.0"
       },
       "se_rel": {
         "R": null,
@@ -5365,7 +5372,8 @@
       "python_call": "sp.gardner_did",
       "reference": "did2s::did2s",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "R": "R version 4.5.2 (2025-10-31)",
+        "did2s": "1.2.1"
       },
       "se_rel": {
         "R": 2.6800407832750184e-10,
@@ -5540,7 +5548,8 @@
       "python_call": "sp.rdms",
       "reference": "rdmulti::rdms; Stata side uses the rdms ado from the rdpackages GitHub mirror (rdmulti is not on SSC: ssc describe rdmulti returns r(601)), installed into a local gitignored ado path",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "R": "R version 4.5.2 (2025-10-31)",
+        "rdmulti": "2.0.0"
       },
       "se_rel": {
         "R": 6.212012867024796e-12,
@@ -6604,7 +6613,8 @@
       "python_call": "sp.interflex(estimator=\"linear\" / \"binning\" / \"kernel\")",
       "reference": "interflex::interflex(vartype=\"delta\", vcov.type=\"robust\", neval=5, nbins=3, bw=1); Stata side uses the SSC interflex command",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "R": "R version 4.5.2 (2025-10-31)",
+        "interflex": "1.4.0"
       },
       "se_rel": {
         "R": 3.901143440433245e-15,
@@ -11243,7 +11253,8 @@
       "python_call": "sp.pretrends_power / sp.pretrends_slope_for_power",
       "reference": "pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN)",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "R": "R version 4.5.2 (2025-10-31)",
+        "pretrends": "0.1.0"
       },
       "se_rel": {
         "R": null,
@@ -11295,7 +11306,8 @@
       "python_call": "sp.pretrends_power / sp.pretrends_slope_for_power",
       "reference": "pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN)",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "R": "R version 4.5.2 (2025-10-31)",
+        "pretrends": "0.1.0"
       },
       "se_rel": {
         "R": null,
@@ -12046,7 +12058,7 @@
       "reference": "rdrobust::rdbwselect; Stata side uses the authors' rdbwselect ado. certwo is R-only: Stata rdbwselect 10.0.0 exits r(3200) on it, including on the package's own rdrobust_senate.dta",
       "reference_versions": {
         "R": "R version 4.5.2 (2025-10-31)",
-        "rdrobust": "3.0.0"
+        "rdrobust": "4.0.0"
       },
       "se_rel": {
         "R": null,
@@ -12099,7 +12111,7 @@
       "reference": "rdrobust::rdrobust",
       "reference_versions": {
         "R": "R version 4.5.2 (2025-10-31)",
-        "rdrobust": "3.0.0"
+        "rdrobust": "4.0.0"
       },
       "se_rel": {
         "R": 1.039657225327433e-13,
@@ -12282,7 +12294,8 @@
       "python_call": "sp.rdms",
       "reference": "rdmulti::rdms; Stata side uses the rdms ado from the rdpackages GitHub mirror (rdmulti is not on SSC: ssc describe rdmulti returns r(601)), installed into a local gitignored ado path",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "R": "R version 4.5.2 (2025-10-31)",
+        "rdmulti": "2.0.0"
       },
       "se_rel": {
         "R": 6.212012867024796e-12,
@@ -12473,7 +12486,7 @@
       "reference": "rdrobust::rdrobust",
       "reference_versions": {
         "R": "R version 4.5.2 (2025-10-31)",
-        "rdrobust": "3.0.0"
+        "rdrobust": "4.0.0"
       },
       "se_rel": {
         "R": 1.039657225327433e-13,
@@ -14446,7 +14459,8 @@
       "python_call": "sp.staggered_rollout",
       "reference": "staggered::staggered / staggered_cs / staggered_sa (1.2.2)",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "R": "R version 4.5.2 (2025-10-31)",
+        "staggered": "1.2.2"
       },
       "se_rel": {
         "R": null,

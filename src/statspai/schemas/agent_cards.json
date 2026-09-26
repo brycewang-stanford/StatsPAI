@@ -1503,7 +1503,7 @@
     "validation_notes": [
       "R parity module 06_rd",
       "Stata parity module 06_rd",
-      "Cross-language parity (bit-exact) vs rdrobust::rdrobust [R version 4.5.2 (2025-10-31), rdrobust 3.0.0]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 06_rd -- tests/r_parity/06_rd.py",
+      "Cross-language parity (bit-exact) vs rdrobust::rdrobust [R version 4.5.2 (2025-10-31), rdrobust 4.0.0]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 06_rd -- tests/r_parity/06_rd.py",
       "tests/external_parity/test_causalml_book.py",
       "tests/external_parity/test_published_replications.py",
       "tests/reference_parity/test_paper_parity.py",
@@ -15297,7 +15297,7 @@
     "validation_notes": [
       "R parity module 73_did2s",
       "Stata parity module 73_did2s",
-      "Cross-language parity (bit-exact) vs did2s::did2s [R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 73_did2s -- tests/r_parity/73_did2s.py",
+      "Cross-language parity (bit-exact) vs did2s::did2s [R version 4.5.2 (2025-10-31), did2s 1.2.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 73_did2s -- tests/r_parity/73_did2s.py",
       "tests/reference_parity/test_did_variants_parity.py",
       "tests/reference_parity/test_sunab_did2s_mpdta_parity.py",
       "tests/reference_parity/test_track_a_alias_equivalence.py"
@@ -19956,7 +19956,7 @@
     "validation_notes": [
       "R parity module 81_didm",
       "Stata parity module 81_didm",
-      "Cross-language parity (bit-exact) vs DIDmultiplegt::did_multiplegt (archived 0.1.4) [R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06; parity module 81_didm -- tests/r_parity/81_didm.py",
+      "Cross-language parity (bit-exact) vs DIDmultiplegt::did_multiplegt (archived 0.1.4) [DIDmultiplegt 0.1.4, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06; parity module 81_didm -- tests/r_parity/81_didm.py",
       "tests/reference_parity/test_absorbing_reference.py",
       "tests/reference_parity/test_did_multiplegt_parity.py"
     ],
@@ -21646,7 +21646,7 @@
     "validation_notes": [
       "R parity module 74_cic",
       "Stata parity module 74_cic",
-      "Cross-language parity (aligned) vs qte::CiC [R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06; parity module 74_cic -- tests/r_parity/74_cic.py",
+      "Cross-language parity (aligned) vs qte::CiC [R version 4.5.2 (2025-10-31), qte 2.0.0]; tolerance rel_est<=1e-06; parity module 74_cic -- tests/r_parity/74_cic.py",
       "tests/reference_parity/test_cic_qte_parity.py",
       "tests/reference_parity/test_qdid_parity.py",
       "API/unit contract evidence: tests/test_cov95_did_cic.py",
@@ -23223,7 +23223,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "R parity module 77_ddd",
-      "Cross-language parity (bit-exact) vs triplediff::ddd + agg_ddd [R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 77_ddd -- tests/r_parity/77_ddd.py",
+      "Cross-language parity (bit-exact) vs triplediff::ddd + agg_ddd [R version 4.5.2 (2025-10-31), triplediff 0.2.4]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 77_ddd -- tests/r_parity/77_ddd.py",
       "tests/reference_parity/test_ddd_triplediff_parity.py",
       "API/unit contract evidence: tests/test_ddd_heterogeneous.py"
     ],
@@ -25653,7 +25653,7 @@
     "validation_notes": [
       "R parity module 82_staggered",
       "Stata parity module 82_staggered",
-      "Cross-language parity (bit-exact) vs staggered::staggered / staggered_cs / staggered_sa (1.2.2) [R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-10; parity module 82_staggered -- tests/r_parity/82_staggered.py",
+      "Cross-language parity (bit-exact) vs staggered::staggered / staggered_cs / staggered_sa (1.2.2) [R version 4.5.2 (2025-10-31), staggered 1.2.2]; tolerance rel_est<=1e-10; parity module 82_staggered -- tests/r_parity/82_staggered.py",
       "tests/reference_parity/test_staggered_extended_parity.py",
       "tests/reference_parity/test_staggered_rollout_parity.py"
     ],
@@ -26266,7 +26266,7 @@
     "typical_n_min": 500,
     "validation_notes": [
       "R parity module 80_contdid",
-      "Cross-language parity (bit-exact) vs contdid::cont_did [R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06; parity module 80_contdid -- tests/r_parity/80_contdid.py",
+      "Cross-language parity (bit-exact) vs contdid::cont_did [R version 4.5.2 (2025-10-31), contdid 0.1.1]; tolerance rel_est<=1e-06; parity module 80_contdid -- tests/r_parity/80_contdid.py",
       "tests/reference_parity/test_cgs_continuous_parity.py"
     ],
     "validation_status": "certified"
@@ -26691,7 +26691,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "R parity module 79_didff",
-      "Cross-language parity (aligned) vs didFF::didFF [R version 4.5.2 (2025-10-31)]; tolerance rel_est<=0.001; parity module 79_didff -- tests/r_parity/79_didff.py",
+      "Cross-language parity (aligned) vs didFF::didFF [R version 4.5.2 (2025-10-31), didFF 0.1.0]; tolerance rel_est<=0.001; parity module 79_didff -- tests/r_parity/79_didff.py",
       "tests/reference_parity/test_functional_form_extended_parity.py",
       "tests/reference_parity/test_functional_form_parity.py"
     ],
@@ -28530,7 +28530,7 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs did2s::did2s [R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 73_did2s -- tests/r_parity/73_did2s.py"
+      "Cross-language parity (bit-exact) vs did2s::did2s [R version 4.5.2 (2025-10-31), did2s 1.2.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 73_did2s -- tests/r_parity/73_did2s.py"
     ],
     "validation_status": "certified"
   },
@@ -38972,7 +38972,7 @@
     "validation_notes": [
       "R parity module 89_rdms",
       "Stata parity module 89_rdms",
-      "Cross-language parity (bit-exact) vs rdmulti::rdms; Stata side uses the rdms ado from the rdpackages GitHub mirror (rdmulti is not on SSC: ssc describe rdmulti returns r(601)), installed into a local gitignored ado path [R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 89_rdms -- tests/r_parity/89_rdms.py",
+      "Cross-language parity (bit-exact) vs rdmulti::rdms; Stata side uses the rdms ado from the rdpackages GitHub mirror (rdmulti is not on SSC: ssc describe rdmulti returns r(601)), installed into a local gitignored ado path [R version 4.5.2 (2025-10-31), rdmulti 2.0.0]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 89_rdms -- tests/r_parity/89_rdms.py",
       "tests/reference_parity/test_track_a_alias_equivalence.py"
     ],
     "validation_status": "certified"
@@ -39178,7 +39178,7 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs rdmulti::rdms; Stata side uses the rdms ado from the rdpackages GitHub mirror (rdmulti is not on SSC: ssc describe rdmulti returns r(601)), installed into a local gitignored ado path [R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 89_rdms -- tests/r_parity/89_rdms.py"
+      "Cross-language parity (bit-exact) vs rdmulti::rdms; Stata side uses the rdms ado from the rdpackages GitHub mirror (rdmulti is not on SSC: ssc describe rdmulti returns r(601)), installed into a local gitignored ado path [R version 4.5.2 (2025-10-31), rdmulti 2.0.0]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 89_rdms -- tests/r_parity/89_rdms.py"
     ],
     "validation_status": "certified"
   },
