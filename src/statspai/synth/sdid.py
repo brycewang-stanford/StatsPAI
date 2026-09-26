@@ -29,7 +29,7 @@ import subprocess
 import tempfile
 import warnings
 from pathlib import Path
-from typing import Any, List, Literal, Optional, Tuple
+from typing import Any, List, Literal, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -1644,3 +1644,43 @@ CausalResult._CITATIONS["sdid"] = (
     "  publisher={American Economic Association}\n"
     "}"
 )
+
+
+def _block_adoption_from_cohorts(
+    data: pd.DataFrame, unit: str, cohort: str
+) -> Tuple[List[Any], Any]:
+    """Treated units and the common adoption period from a cohort column.
+
+    ``cohort`` holds each unit's first treated period (0 or less = never
+    treated), the encoding ``sp.did`` / ``sp.did_analysis`` use. SDID here is
+    the block design -- every treated unit adopts at one period -- so several
+    adoption periods cannot be collapsed onto the earliest one: doing that
+    counts the later cohorts' untreated periods as treated and returns a
+    different estimand without any sign that it did.
+    """
+    treated = data[cohort] > 0
+    periods = sorted(pd.unique(data.loc[treated, cohort]))
+    if len(periods) > 1:
+        raise MethodIncompatibility(
+            f"sdid: the treated units adopt at {len(periods)} different periods "
+            f"({_fmt_periods(periods)}); SDID as implemented is the block "
+            "design with one adoption period, and collapsing the cohorts onto "
+            "the earliest one would estimate a different quantity.",
+            recovery_hint=(
+                "Fit sp.sdid on each adoption cohort separately (its treated "
+                "units plus the never-treated), or use a staggered estimator "
+                "such as sp.callaway_santanna or sp.did_imputation."
+            ),
+            diagnostics={"adoption_periods": [_plain(p) for p in periods]},
+        )
+    units = data.loc[treated, unit].unique().tolist()
+    return units, (_plain(periods[0]) if periods else None)
+
+
+def _plain(value: Any) -> Any:
+    return value.item() if hasattr(value, "item") else value
+
+
+def _fmt_periods(periods: Sequence[Any], limit: int = 6) -> str:
+    shown = ", ".join(str(_plain(p)) for p in periods[:limit])
+    return shown + (", ..." if len(periods) > limit else "")

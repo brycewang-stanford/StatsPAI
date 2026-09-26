@@ -34,6 +34,25 @@ seeded draws differ from earlier releases.
 
 ---
 
+<a id="sdid-staggered-refused"></a>
+
+## Unreleased — ⚠️ `sp.did` / `sp.did_analysis` with `method="sdid"` refuse staggered adoption
+
+**Who is affected.** Anyone who ran `sp.did(..., method="sdid")` or
+`sp.did_analysis(..., method="sdid")` on a panel whose `treat` column holds
+more than one first-treatment period.
+
+**What changed.** Those calls used the earliest adoption period for every
+treated unit and returned a number for a different estimand. They now raise
+`MethodIncompatibility`. A panel with one adoption cohort is unaffected.
+
+**What to do.** Fit `sp.sdid` per cohort (its treated units plus the
+never-treated), or use a staggered estimator (`sp.callaway_santanna`,
+`sp.did_imputation`). Earlier `sdid` numbers from staggered panels should be
+re-estimated.
+
+---
+
 <a id="result-display-precision"></a>
 
 ## Unreleased — `.to_latex()`, `.summary()` and generic result tables use the adaptive precision

@@ -375,6 +375,17 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.did(method="sdid")` and `sp.did_analysis(method="sdid")` estimated
+  staggered panels as a block design, silently.** Both read each unit's first
+  treated period from `treat` and took the earliest one as every treated
+  unit's adoption period, so a later cohort's pre-adoption periods counted as
+  treated: 1.54 against a true effect of 2 on a two-cohort test panel, with
+  no warning. SDID here is the block design, so several adoption periods now
+  raise `MethodIncompatibility` naming them, with the per-cohort fit and the
+  staggered estimators as the way forward; a single-cohort panel returns
+  exactly what it did before. `did_analysis(method="sdid")` also requires
+  `id=`. See MIGRATION.md#sdid-staggered-refused.
+
 - **`sp.optimal_design` reported every sample size twice as large as needed.**
   The individual and stratified branches returned the total sample of the
   two-sample power formula as `n_per_arm` (and doubled it again for

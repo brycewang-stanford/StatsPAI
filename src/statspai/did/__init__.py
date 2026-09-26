@@ -851,10 +851,9 @@ def did(
         _treat_time = treat_time
         if _treat_unit is None and _treat_time is None:
             # treat column encodes first treatment period (0 = never treated)
-            treated_mask = data[treat] > 0
-            if treated_mask.any():
-                _treat_unit = data.loc[treated_mask, id].unique().tolist()
-                _treat_time = int(data.loc[treated_mask, treat].min())
+            from ..synth.sdid import _block_adoption_from_cohorts
+
+            _treat_unit, _treat_time = _block_adoption_from_cohorts(data, id, treat)
         return _sdid(
             data,
             y=y,
