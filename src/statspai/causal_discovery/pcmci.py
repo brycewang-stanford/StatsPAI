@@ -294,7 +294,9 @@ def pcmci(
     ...                      columns=["gdp", "inflation", "rates"])
     >>> res = sp.pcmci(df_ts, variables=["gdp", "inflation", "rates"],
     ...                tau_max=2, pc_alpha=0.1)
-    >>> res.discovered_links()        # DataFrame of all significant links
+    >>> links = res.discovered_links()  # DataFrame of all significant links
+    >>> list(links.columns)
+    ['source', 'target', 'lag', 'partial_corr', 'p_value']
     """
     if variables is None:
         variables = list(data.columns)

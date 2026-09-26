@@ -197,11 +197,15 @@ class CausalForest(BaseModel):
     >>>
     >>> # Fit Causal Forest
     >>> cf = CausalForest(n_estimators=50, random_state=42)
-    >>> cf.fit('Y ~ T | X1 + X2 + X3', data=data)
+    >>> cf = cf.fit('Y ~ T | X1 + X2 + X3', data=data)  # returns self
+    >>> cf
+    CausalForest(fitted=True, n_estimators=50)
     >>>
     >>> # Estimate treatment effects
     >>> cate = cf.effect(data[['X1', 'X2', 'X3']])
-    >>> print(f"Average treatment effect: {cate.mean():.3f}")
+    >>> cate.shape
+    (1000,)
+    >>> ate = float(cate.mean())  # average treatment effect
     """
 
     def __init__(
@@ -2290,11 +2294,14 @@ def causal_forest(
     >>> # Fit using formula interface
     >>> cf = causal_forest('outcome ~ treatment | X1 + X2', data=data,
     ...                   n_estimators=50, random_state=42)
-    >>> print(cf.summary())
+    >>> print(cf.summary().splitlines()[1])
+    Causal Forest Results
     >>>
     >>> # Estimate effects
     >>> effects = cf.effect(data[['X1', 'X2']])
-    >>> print(f"Mean effect: {effects.mean():.3f}")
+    >>> effects.shape
+    (500,)
+    >>> mean_effect = float(effects.mean())
     """
     frame = data
 

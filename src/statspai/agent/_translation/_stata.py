@@ -1654,8 +1654,8 @@ def from_stata(line: str) -> Dict[str, Any]:
     >>> out = sp.from_stata("reghdfe y x, absorb(id year) vce(cluster id)")
     >>> out["ok"]
     True
-    >>> out["python_code"].startswith("sp.fixest")
-    True
+    >>> out["python_code"]
+    "sp.feols('y ~ x | id + year', data=df, cluster='id')"
     >>> sp.from_stata("notacommand y x")["ok"]
     False
     """

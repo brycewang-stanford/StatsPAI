@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 import numpy as np
+
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
@@ -126,7 +127,11 @@ def bradford_hill(
     ...     analogy=0.5,
     ...     notes={"strength": "HR > 5 in meta-analysis"},
     ... )
-    >>> print(res.summary())
+    >>> res.total, res.max_total
+    (6.5, 9.0)
+    >>> res.verdict
+    'MODERATE support; several viewpoints weak.'
+    >>> report = res.summary()  # printable per-viewpoint table
     """
     kw_scores: Dict[str, Optional[float]] = dict(
         strength=strength,

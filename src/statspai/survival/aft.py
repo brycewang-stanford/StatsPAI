@@ -172,8 +172,10 @@ def aft(
     >>> df = pd.DataFrame({"dur": np.minimum(t, c),
     ...                    "event": (t <= c).astype(int), "x": x})
     >>> res = sp.aft("dur + event ~ x", data=df, family="weibull")
-    >>> print(round(float(res.beta[1]), 2))  # 0.52 — truth 0.5 (log-time scale)
-    >>> print(res.summary())
+    >>> print(round(float(res.beta[1]), 2))  # truth 0.5 (log-time scale)
+    0.52
+    >>> print(res.summary().splitlines()[0])
+    AFT Model (weibull)
     """
     lhs_str, covariates = _parse_formula(formula)
     lhs_parts = [s.strip() for s in lhs_str.split("+")]

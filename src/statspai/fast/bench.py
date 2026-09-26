@@ -10,7 +10,11 @@ Example
 -------
 >>> from statspai.fast import hdfe_bench
 >>> res = hdfe_bench(n_list=(1_000, 10_000), n_groups=50, seed=0)
->>> print(res.to_dataframe())
+>>> table = res.to_dataframe()
+>>> table.shape
+(6, 8)
+>>> sorted(table['backend'].unique())
+['numba', 'numpy', 'rust']
 
 The harness is **tool-agnostic**: a path is measured if its backend is
 installed, and quietly marked "unavailable" otherwise. This means the
@@ -27,10 +31,10 @@ from typing import Any, Callable, Dict, List, Sequence, Tuple, cast
 import numpy as np
 import pandas as pd
 
+from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility
 from ._result_protocol import jsonable as _jsonable
 from ._validation import nonnegative_finite_float, positive_int
-from .._result_serialize import ResultProtocolMixin
 
 _BackendFn = Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]
 
@@ -84,7 +88,8 @@ def _detect_backends() -> Dict[str, _Backend]:
     # Numba path: delegate to the shipping statspai kernel so we measure
     # the exact code users run, not a re-implementation.
     try:
-        from ..panel._hdfe_kernels import sweep as _numba_sweep, _HAS_NUMBA
+        from ..panel._hdfe_kernels import _HAS_NUMBA
+        from ..panel._hdfe_kernels import sweep as _numba_sweep
 
         def _hdfe_numba(
             y: np.ndarray,
@@ -120,8 +125,8 @@ def _detect_backends() -> Dict[str, _Backend]:
     # Rust path: present for forward-compat but marked unavailable
     # until the PyO3 wheel lands (see spec 2026-04-20-v095-rust-hdfe-spike).
     try:
-        from statspai_hdfe import (  # type: ignore[import-untyped]
-            group_demean as _rust_group_demean,
+        from statspai_hdfe import (
+            group_demean as _rust_group_demean,  # type: ignore[import-untyped]
         )
 
         def _hdfe_rust(

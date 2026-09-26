@@ -3,23 +3,51 @@ StatsPAI: Validation-tiered statistics and econometrics workflows for Python
 
 Unified API for causal inference and econometrics:
 
+>>> import os
+>>> import tempfile
+>>> import numpy as np
+>>> import pandas as pd
 >>> import statspai as sp
->>>
->>> # OLS regression
->>> result = sp.regress("y ~ x1 + x2", data=df)
->>>
->>> # Difference-in-Differences
->>> result = sp.did(df, y='wage', treat='treated', time='post')
->>>
->>> # Staggered DID (Callaway & Sant'Anna)
->>> result = sp.did(df, y='wage', treat='first_treat',
-...                time='year', id='worker_id')
->>>
->>> # Causal Forest
->>> cf = sp.causal_forest("y ~ treatment | x1 + x2", data=df)
->>>
->>> # Publication-quality export
->>> sp.outreg2(result, filename="results.xlsx")
+>>> rng = np.random.default_rng(0)
+>>> n = 400
+>>> df = pd.DataFrame({"x1": rng.normal(size=n), "x2": rng.normal(size=n),
+...                    "treated": rng.binomial(1, 0.5, n),
+...                    "post": rng.binomial(1, 0.5, n)})
+>>> df["y"] = 1 + df["x1"] + 0.5 * df["treated"] * df["post"] + rng.normal(size=n)
+
+OLS regression
+
+>>> ols = sp.regress("y ~ x1 + x2", data=df)
+>>> type(ols).__name__
+'EconometricResults'
+
+Difference-in-Differences
+
+>>> result = sp.did(df, y="y", treat="treated", time="post")
+>>> type(result).__name__
+'CausalResult'
+
+Staggered DID (Callaway & Sant'Anna)
+
+>>> panel = sp.dgp_did(n_units=50, n_periods=6, staggered=True, seed=0)
+>>> result = sp.did(panel, y="y", treat="first_treat",
+...                 time="time", id="unit")
+>>> result.method
+"Callaway and Sant'Anna (2021)"
+
+Causal Forest
+
+>>> cf = sp.causal_forest("y ~ treated | x1 + x2", data=df,
+...                       n_estimators=50, random_state=0)
+>>> type(cf).__name__
+'CausalForest'
+
+Publication-quality export
+
+>>> with tempfile.TemporaryDirectory() as tmp:
+...     table = sp.regtable(ols, filename=os.path.join(tmp, "results.xlsx"))
+...     os.listdir(tmp)
+['results.xlsx']
 """
 
 __version__ = "1.31.0"

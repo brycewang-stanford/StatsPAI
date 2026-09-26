@@ -2339,10 +2339,27 @@ def iv(
 
     Examples
     --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> df = pd.DataFrame(rng.normal(size=(n, 5)),
+    ...                   columns=["z1", "z2", "z3", "z4", "z5"])
+    >>> df["parent_edu"] = rng.normal(12, 2, n)
+    >>> df["distance"] = rng.exponential(10, n)
+    >>> df["experience"] = rng.normal(10, 4, n)
+    >>> u = rng.normal(size=n)                      # unobserved ability
+    >>> df["education"] = (4 + 0.5 * df["parent_edu"] - 0.1 * df["distance"]
+    ...                    + 0.3 * df[["z1", "z2", "z3", "z4", "z5"]].sum(axis=1)
+    ...                    + 0.8 * u + rng.normal(size=n))
+    >>> df["wage"] = 1 + 0.1 * df["education"] + 0.05 * df["experience"] + u
+
     >>> # Standard 2SLS
     >>> result = sp.iv("wage ~ (education ~ parent_edu + distance) + experience",
     ...               data=df)
-    >>> print(result.summary())
+    >>> list(result.params.index)
+    ['Intercept', 'experience', 'education']
+    >>> text = result.summary()
 
     >>> # LIML (better with weak instruments)
     >>> result = sp.iv("wage ~ (education ~ parent_edu + distance) + experience",

@@ -1103,13 +1103,17 @@ def mixed(
     >>> y = 2.0 + 0.5 * x + rng.normal(0, 1.0, 30)[g] + rng.normal(0, 0.5, 300)
     >>> df = pd.DataFrame({"y": y, "x": x, "school": g})
     >>> res = sp.mixed(df, y="y", x_fixed=["x"], group="school")
-    >>> print(round(float(res.fixed_effects["x"]), 2))  # 0.51 — truth 0.5
-    >>> print(res.icc)  # share of variance at the school level
+    >>> print(round(float(res.fixed_effects["x"]), 2))  # truth 0.5
+    0.51
+    >>> print(round(res.icc, 2))  # share of variance at the school level
+    0.8
 
     Add a random slope for ``x``:
 
     >>> res2 = sp.mixed(df, y="y", x_fixed=["x"], group="school",
     ...                 x_random=["x"])
+    >>> type(res2).__name__
+    'MixedResult'
     """
     if method not in ("reml", "ml"):
         raise ValueError("method must be 'reml' or 'ml'")

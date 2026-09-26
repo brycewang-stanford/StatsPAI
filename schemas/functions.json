@@ -28745,6 +28745,11 @@
           "description": "Unit identifier.",
           "type": "string"
         },
+        "sigmamore": {
+          "default": false,
+          "description": "Stata's ``hausman fe re, sigmamore``: both covariance matrices use the RE disturbance variance. Use it when the classical statistic is negative (``recommendation == \"inconclusive\"``).",
+          "type": "boolean"
+        },
         "time": {
           "description": "Time period identifier.",
           "type": "string"
@@ -37838,13 +37843,13 @@
     }
   },
   {
-    "description": "Generate bunching data around a kink point.",
+    "description": "Generate earnings that bunch at a kink in the marginal tax schedule.",
     "name": "dgp_bunching",
     "parameters": {
       "properties": {
         "elasticity": {
           "default": 0.3,
-          "description": "Behavioral elasticity governing bunching intensity.",
+          "description": "Earnings elasticity with respect to the net-of-tax rate.",
           "type": "number"
         },
         "kink_point": {
@@ -37860,6 +37865,16 @@
         "seed": {
           "description": "Random seed.",
           "type": "integer"
+        },
+        "t0": {
+          "default": 0.0,
+          "description": "Marginal tax rate below and above the kink (``t0 < t1 < 1``).",
+          "type": "number"
+        },
+        "t1": {
+          "default": 0.2,
+          "description": "Marginal tax rate below and above the kink (``t0 < t1 < 1``).",
+          "type": "number"
         }
       },
       "required": [],
@@ -41075,6 +41090,10 @@
         "mde": {
           "description": "Minimum detectable effect. If None, compute MDE given n.",
           "type": "number"
+        },
+        "n": {
+          "description": "Total number of individuals, used to solve for the MDE when ``mde`` is None (individual and stratified designs; cluster designs use ``n_clusters`` and ``cluster_size``).",
+          "type": "integer"
         },
         "n_arms": {
           "default": 2,

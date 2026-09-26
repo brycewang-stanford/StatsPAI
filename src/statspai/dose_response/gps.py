@@ -104,8 +104,13 @@ def dose_response(
     >>> df = pd.DataFrame({"outcome": outcome, "dosage": dosage,
     ...                    "age": age, "weight": weight})
     >>> result = sp.dose_response(df, y="outcome", treat="dosage",
-    ...                           covariates=["age", "weight"])
-    >>> result.detail            # dose-response curve
+    ...                           covariates=["age", "weight"],
+    ...                           n_dose_points=10, n_bootstrap=20)
+    >>> curve = result.detail            # dose-response curve
+    >>> curve.shape
+    (10, 6)
+    >>> list(curve.columns)
+    ['dose', 'response', 'se', 'ci_lower', 'ci_upper', 'marginal_effect']
     """
     est = DoseResponse(
         data=data,

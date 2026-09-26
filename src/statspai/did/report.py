@@ -1125,8 +1125,12 @@ def cs_report(
     ...         y = 0.3 * t + (2.0 if post else 0.0) + (unit % 5) + rng.normal()
     ...         rows.append((unit, t, g, y))
     >>> df = pd.DataFrame(rows, columns=["id", "t", "g", "y"])
-    >>> rpt = sp.cs_report(df, y="y", g="g", t="t", i="id", random_state=42)
-    >>> rpt.dynamic           # event-study DataFrame w/ uniform bands
+    >>> rpt = sp.cs_report(df, y="y", g="g", t="t", i="id",
+    ...                    n_boot=199, random_state=42, verbose=False)
+    >>> type(rpt).__name__
+    'CSReport'
+    >>> rpt.dynamic["relative_time"].tolist()  # event study w/ uniform bands
+    [-4, -3, -2, 0, 1, 2, 3]
     """
     if isinstance(data_or_result, CausalResult):
         cs = data_or_result

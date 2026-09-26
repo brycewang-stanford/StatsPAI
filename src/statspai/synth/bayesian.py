@@ -114,12 +114,21 @@ def bayesian_synth(
 
     Examples
     --------
-    >>> result = sp.bayesian_synth(
-    ...     df, outcome='gdp', unit='state', time='year',
-    ...     treated_unit='California', treatment_time=1989,
-    ...     n_iter=4000, n_warmup=2000, n_chains=4, seed=42,
+    Called through the ``sp.synth`` dispatcher; extra keyword arguments
+    are forwarded to this estimator:
+
+    >>> import statspai as sp
+    >>> df = sp.dgp_synth(n_units=10, n_periods=20, treatment_time=15,
+    ...                   effect=2.0, seed=0)
+    >>> result = sp.synth(
+    ...     df, outcome='y', unit='unit', time='time',
+    ...     treated_unit=0, treatment_time=15, method='bayesian',
+    ...     n_iter=500, n_warmup=250, n_chains=2, seed=42,
     ... )
-    >>> print(result.summary())
+    >>> result.method, result.estimand
+    ('Bayesian Synthetic Control', 'ATT')
+    >>> 'att_draws' in result.model_info
+    True
 
     Notes
     -----

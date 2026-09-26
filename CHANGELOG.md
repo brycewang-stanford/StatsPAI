@@ -6,6 +6,11 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- `sigmamore=True` on `sp.hausman_test` / `PanelResults.hausman_test`
+  (Stata's `hausman fe re, sigmamore`, pinned to Stata 18).
+- `sp.test` / `sp.lincom` use the full covariance of `sp.panel` results, so
+  joint restrictions -- e.g. the Mundlak test of the unit-mean terms -- work.
+
 - **`sp.mi_test(pooled, terms, method="equal_fmi"|"unrestricted", small=True)`** --
   joint Wald test after `sp.mi_estimate`, Stata's `mi test` (equal fractions
   of missing information, the default) and `mi test, ufmitest`, with
@@ -303,6 +308,32 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.optimal_design` reported every sample size twice as large as needed.**
+  The individual and stratified branches returned the total sample of the
+  two-sample power formula as `n_per_arm` (and doubled it again for
+  `n_total`); the cluster branch doubled the cluster count the same way; the
+  `mde=None` branch ignored the sample size; the cost-optimal cluster size was
+  never used. Sizes now follow the formula (documented in the docstring) and
+  agree with `sp.power` / `sp.power_cluster_rct`; solving for the MDE needs
+  `n=` or `n_clusters=`. See MIGRATION.md#design-and-diagnostic-fixes.
+- **Hausman test.** `sp.hausman_test` estimated the FE / RE variances itself
+  and disagreed with Stata by up to 50x on the statistic; it now shares the
+  `PanelResults.hausman_test` implementation, which matches Stata 18
+  `hausman fe re` to 1e-6 (`tests/reference_parity/test_hausman_stata_parity.py`).
+  Both clamped a negative statistic to 0 and recommended RE with p = 1 -- on
+  panels where the unit effect loads on the regressors, i.e. exactly where FE is
+  needed; a negative statistic is now `recommendation="inconclusive"`,
+  `pvalue=nan`, with an `AssumptionWarning`.
+- **`sp.compare_estimators` dropped methods silently.** `matching` (in the
+  default list) and `dml` called their estimators with keywords they do not
+  take; the per-method `try` turned the error into a warning and the row
+  vanished. All seven methods now run, and the IPW bootstrap is seeded so the
+  table is reproducible.
+- **`sp.estat` IV tests never ran.** `endogenous` / `overid` looked up
+  `model_info` keys no IV estimator writes, and `estat(result, "all")` did not
+  recognise `sp.ivreg`'s `"IV-2SLS"` label; they now read the fit's Wu-Hausman
+  F and Sargan / Hansen J statistics.
+
 - **`sp.qreg` p-values and intervals use t(N - k).** They were referred
   to the normal distribution for every `vce`; Stata `qreg` / `qreg2` and R
   `quantreg::summary.rq` all use t with the residual degrees of freedom.
@@ -495,6 +526,28 @@ All notable changes to StatsPAI will be documented in this file.
   9.7 s / 0.6 GB; `sp.match` with Mahalanobis distance benefits the same way.
 
 ### Changed
+
+- `scripts/signature_house_style.py` counts a legacy-named parameter as
+  converged when the function accepts the canonical spelling through
+  `@accepts_aliases`, and the ratchet baseline was lowered to the observed
+  counts (legacy sites 376 -> 69). Signatures keep the reference package's
+  parameter names by decision -- see `docs/guides/grammar.md`.
+- **`sp.regtable` / `sp.esttab` / `sp.modelsummary` tabulate Tobit and other
+  limited-dependent-variable fits term by term.** They collapsed these
+  `CausalResult`s to the headline estimand: one row named `beta_x1`, with the
+  intercept (`const`) and `sigma` missing. `sp.etable` on non-pyfixest results
+  now renders through `sp.regtable` (same `"coef*** (se)"` layout), so every
+  table entry point reports identical numbers from one formatter; results
+  whose standard errors are bare arrays no longer break `sp.regtable`.
+- `sp.dgp_bunching` generated no bunching (it scaled incomes above the kink
+  without moving anyone onto it), so `sp.bunching` found nothing on the
+  package's own demonstration data. It now follows the iso-elastic kink model
+  (new `t0=` / `t1=` marginal tax rates; `df.attrs` records `dt`, the bunching
+  interval and the number of bunchers).
+- About 120 docstring examples across 91 modules failed under
+  `pytest --doctest-modules` (undefined `sp` / `df`, unchecked or stale output,
+  references to names that do not exist such as `sp.synth.bsts_synth` and
+  `statspai.compat.SklearnDID`); they are now self-contained and checked.
 
 - **`sp.panel(method="fd", cluster="time")` fails with an explanation.**
   linearmodels cannot cluster first differences on a variable that changes

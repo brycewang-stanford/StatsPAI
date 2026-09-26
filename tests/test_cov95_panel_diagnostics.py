@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from statspai.exceptions import AssumptionWarning
 from statspai.panel import panel_diagnostics as pd_diag
 
 
@@ -48,13 +49,28 @@ def test_re_estimator_shapes(panel_df):
     assert np.all(np.diag(vcov_re) >= 0)
 
 
-def test_hausman_from_data(panel_df):
-    out = pd_diag._hausman_from_data(panel_df, "y", ["x1", "x2"], "id", "time")
+def _valid_re_panel():
+    """Random effects uncorrelated with x: V_FE - V_RE is positive definite."""
+    rng = np.random.default_rng(42)
+    n_id, n_t = 100, 8
+    unit = np.repeat(np.arange(n_id), n_t)
+    x1 = rng.normal(size=n_id * n_t)
+    x2 = rng.normal(size=n_id * n_t)
+    y = 1.0 + 0.5 * x1 - 0.3 * x2 + rng.normal(0, 1, n_id)[unit]
+    y = y + rng.normal(0, 0.5, n_id * n_t)
+    return pd.DataFrame(
+        {"y": y, "x1": x1, "x2": x2, "id": unit, "time": np.tile(np.arange(n_t), n_id)}
+    )
+
+
+def test_hausman_from_data():
+    out = pd_diag._hausman_from_data(_valid_re_panel(), "y", ["x1", "x2"], "id", "time")
     for key in (
         "statistic",
         "df",
         "pvalue",
         "recommendation",
+        "psd_violation",
         "beta_fe",
         "beta_re",
         "interpretation",
@@ -62,19 +78,32 @@ def test_hausman_from_data(panel_df):
         assert key in out
     assert out["df"] == 2
     assert out["statistic"] >= 0
+    assert not out["psd_violation"]
     assert 0.0 <= out["pvalue"] <= 1.0
     assert out["recommendation"] in ("FE", "RE")
     assert isinstance(out["beta_fe"], pd.Series)
     assert "chi2" in out["interpretation"]
 
 
-def test_hausman_alpha_one_forces_fe(panel_df):
-    # alpha=1.0 => pvalue < alpha always true => recommends FE branch
+def test_hausman_alpha_one_forces_fe():
+    # alpha=1.0 => pvalue <= alpha always true => recommends FE branch
     out = pd_diag._hausman_from_data(
-        panel_df, "y", ["x1", "x2"], "id", "time", alpha=1.0
+        _valid_re_panel(), "y", ["x1", "x2"], "id", "time", alpha=1.0
     )
     assert out["recommendation"] == "FE"
     assert "Fixed Effects" in out["interpretation"]
+
+
+def test_hausman_negative_statistic_is_inconclusive(panel_df):
+    # On this panel V_FE - V_RE is not positive semi-definite and the
+    # quadratic form is negative. It used to be clamped to 0 -> p = 1 ->
+    # "use RE", a conclusion the failed test cannot support.
+    with pytest.warns(AssumptionWarning, match="negative"):
+        out = pd_diag._hausman_from_data(panel_df, "y", ["x1", "x2"], "id", "time")
+    assert out["statistic"] < 0
+    assert np.isnan(out["pvalue"])
+    assert out["recommendation"] == "inconclusive"
+    assert out["psd_violation"]
 
 
 def test_bp_lm_test(panel_df):

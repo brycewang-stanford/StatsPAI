@@ -1315,10 +1315,12 @@ def _dispatch_etwfe_impl(
     Examples
     --------
     >>> import statspai as sp
-    >>> df = sp.dgp_did(n_units=200, n_periods=10, staggered=True)
+    >>> df = sp.dgp_did(n_units=200, n_periods=10, staggered=True, seed=0)
     >>> res = sp.etwfe(df, y='y', group='unit',
-    ...                time='period', first_treat='first_treat')
-    >>> res.summary()
+    ...                time='time', first_treat='first_treat')
+    >>> type(res).__name__
+    'CausalResult'
+    >>> text = res.summary()
 
     See Also
     --------
@@ -3557,12 +3559,15 @@ def etwfe_emfx(
     Examples
     --------
     >>> import statspai as sp
-    >>> df = sp.dgp_did(n_units=200, n_periods=10, staggered=True)
+    >>> df = sp.dgp_did(n_units=200, n_periods=10, staggered=True, seed=0)
     >>> fit = sp.etwfe(df, y='y', time='time',
     ...                first_treat='first_treat', group='unit')
     >>> evt = sp.etwfe_emfx(fit, type='event')
-    >>> print(evt.detail)   # ATT by event time
+    >>> evt.detail["event_time"].tolist()   # ATT by event time
+    [0, 1, 2, 3, 4, 5]
     >>> grp = sp.etwfe_emfx(fit, type='group')
+    >>> list(grp.detail.columns[:3])
+    ['cohort', 'estimate', 'se']
     >>> cal = sp.etwfe_emfx(fit, type='calendar')
     """
     valid = {"simple", "group", "event", "calendar"}

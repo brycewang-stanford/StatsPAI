@@ -469,16 +469,24 @@ def fdid(
 
     Examples
     --------
+    Called through the ``sp.synth`` dispatcher:
+
     >>> import statspai as sp
-    >>> result = sp.synth.fdid(
-    ...     data=panel_df,
-    ...     outcome='gdp',
-    ...     unit='country',
-    ...     time='year',
-    ...     treated_unit='West Germany',
-    ...     treatment_time=1990,
+    >>> panel_df = sp.dgp_synth(n_units=10, n_periods=20, treatment_time=15,
+    ...                         effect=2.0, seed=0)
+    >>> result = sp.synth(
+    ...     panel_df,
+    ...     outcome='y',
+    ...     unit='unit',
+    ...     time='time',
+    ...     treated_unit=0,
+    ...     treatment_time=15,
+    ...     method='fdid',
     ... )
-    >>> result.summary()
+    >>> result.method
+    'Forward Difference-in-Differences (FDID)'
+    >>> 'selected_donors' in result.model_info
+    True
 
     References
     ----------

@@ -14,9 +14,23 @@ diagnostic tests, following the standards from empirical economics:
 
 Usage
 -----
+>>> import numpy as np
+>>> import pandas as pd
+>>> import statspai as sp
+>>> rng = np.random.default_rng(0)
+>>> n = 200
+>>> df = pd.DataFrame({"treated": np.repeat([0, 1], n),
+...                    "post": np.tile([0, 1], n)})
+>>> df["wage"] = (1.0 + 0.5 * df["post"] + 0.8 * df["treated"] * df["post"]
+...               + rng.normal(size=2 * n))
 >>> result = sp.did(df, y='wage', treat='treated', time='post')
->>> sp.diagnose_result(result)          # auto-detects DID → runs DID battery
->>> sp.diagnose_result(result, print_results=True)
+>>> out = sp.diagnose_result(result, print_results=False)  # auto-detects DID
+>>> out["method_type"]
+'did'
+>>> [check["test"] for check in out["checks"]]
+['Treatment effect']
+
+Pass ``print_results=True`` (the default) to also print the formatted battery.
 """
 
 from __future__ import annotations

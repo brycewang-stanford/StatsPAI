@@ -97,10 +97,14 @@ def bunching(
     --------
     >>> import statspai as sp, numpy as np, pandas as pd
     >>> rng = np.random.default_rng(0)
-    >>> income = rng.exponential(50000, 2000)   # taxable income, kink at 50k
-    >>> df = pd.DataFrame({"income": income})
+    >>> smooth = rng.normal(50000, 15000, 2000)      # taxable income
+    >>> bunchers = rng.uniform(49000, 51000, 200)    # excess mass at the 50k kink
+    >>> df = pd.DataFrame({"income": np.concatenate([smooth, bunchers])})
     >>> result = sp.bunching(df, running_var="income", threshold=50000)
-    >>> print(result.summary())
+    >>> type(result).__name__
+    'CausalResult'
+    >>> bool(result.estimate > 0 and result.pvalue < 0.05)
+    True
     """
     est = BunchingEstimator(
         data=data,

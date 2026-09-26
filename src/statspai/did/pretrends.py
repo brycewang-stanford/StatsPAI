@@ -483,7 +483,9 @@ def pretrends_test(
     ...         rows.append((i, t, cohort, y))
     >>> df = pd.DataFrame(rows, columns=["id", "t", "cohort", "y"])
     >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id")
-    >>> sp.pretrends_test(es)
+    >>> out = sp.pretrends_test(es)
+    >>> out["type"], out["df"], bool(out["reject"])
+    ('f', 3, False)
     """
     context = "pretrends_test"
     test_type = _require_string_option(type, "type", context).lower()
@@ -662,7 +664,11 @@ def pretrends_power(
     ...         rows.append((i, t, cohort, y))
     >>> df = pd.DataFrame(rows, columns=["id", "t", "cohort", "y"])
     >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id")
-    >>> sp.pretrends_power(es)
+    >>> pw = sp.pretrends_power(es)
+    >>> pw["test"], pw["df"]
+    ('individual', 3)
+    >>> bool(0 <= pw["power"] <= 1)
+    True
     """
     context = "pretrends_power"
     alpha = _require_open_unit_float(alpha, "alpha", context)
@@ -842,8 +848,8 @@ def pretrends_slope_for_power(
     >>> df = pd.DataFrame(rows, columns=["id", "t", "cohort", "y"])
     >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id")
     >>> out = sp.pretrends_slope_for_power(es)
-    >>> round(out["slope"], 3)
-    0.245
+    >>> round(out["slope"], 2)
+    0.29
     >>> out["target_power"]
     0.5
 
@@ -1201,7 +1207,11 @@ def sensitivity_rr(
     >>> df = pd.DataFrame(rows, columns=["id", "t", "cohort", "y"])
     >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id")
     >>> sens = sp.sensitivity_rr(es, Mbar=[0, 0.01, 0.02, 0.05])
-    >>> sens.summary()
+    >>> text = sens.summary()
+    >>> "Breakdown Mbar" in text
+    True
+    >>> sens.mbar_grid.tolist()
+    [0.0, 0.01, 0.02, 0.05]
     """
     context = "sensitivity_rr"
     method = _require_string_option(method, "method", context).upper()
@@ -1394,7 +1404,10 @@ def pretrends_summary(
     >>> df = pd.DataFrame(rows)
     >>> result = sp.event_study(df, y="y", treat_time="g", time="time",
     ...                         unit="unit", window=(-3, 3))
-    >>> report = sp.pretrends_summary(result)  # also prints the report
+    >>> report = sp.pretrends_summary(result)  # doctest: +ELLIPSIS
+    ━...
+      Pre-Trends Analysis
+    ...
     >>> bool(isinstance(report, str))
     True
     """

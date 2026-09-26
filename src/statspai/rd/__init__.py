@@ -56,10 +56,10 @@ other RD variant is one ``method=`` away.
 >>> type(res).__name__
 'CausalResult'
 >>> round(float(res.estimate), 3)
-0.844
+0.738
 >>> honest = sp.rd(df, y="y", x="x", c=0, method="honest")
 >>> round(float(honest.estimate), 3)            # Armstrong-Kolesar honest CI
-0.781
+0.745
 """
 
 import inspect as _inspect

@@ -97,13 +97,18 @@ def sparse_synth(
 
     Examples
     --------
+    Called through the ``sp.synth`` dispatcher:
+
     >>> import statspai as sp
-    >>> result = sp.sparse_synth(
-    ...     df, outcome='gdp', unit='state', time='year',
-    ...     treated_unit='California', treatment_time=1989,
-    ...     mode='lasso',
+    >>> df = sp.dgp_synth(n_units=10, n_periods=20, treatment_time=15,
+    ...                   effect=2.0, seed=0)
+    >>> result = sp.synth(
+    ...     df, outcome='y', unit='unit', time='time',
+    ...     treated_unit=0, treatment_time=15,
+    ...     method='sparse', mode='lasso',
     ... )
-    >>> result.summary()
+    >>> result.method
+    'Sparse SCM (LASSO)'
     """
     _VALID_MODES = ("lasso", "constrained_lasso", "joint")
     if mode not in _VALID_MODES:

@@ -12555,6 +12555,11 @@
           "description": "Unit identifier.",
           "type": "string"
         },
+        "sigmamore": {
+          "default": false,
+          "description": "Stata's ``hausman fe re, sigmamore``: both covariance matrices use the RE disturbance variance. Use it when the classical statistic is negative (``recommendation == \"inconclusive\"``).",
+          "type": "boolean"
+        },
         "time": {
           "description": "Time period identifier.",
           "type": "string"

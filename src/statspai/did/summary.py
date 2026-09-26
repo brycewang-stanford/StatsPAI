@@ -27,7 +27,8 @@ Example
 >>> df = sp.dgp_did(n_units=200, n_periods=10, staggered=True, seed=0)
 >>> summary = sp.did_summary(df, y='y', time='time',
 ...                          first_treat='first_treat', group='unit')
->>> print(summary.detail)
+>>> summary.detail["method"].tolist()
+['cs', 'sa', 'bjs', 'etwfe', 'stacked']
 """
 
 from typing import Any, Callable, Dict, List, Optional, Union
@@ -382,8 +383,11 @@ def did_summary(
     >>> df = sp.dgp_did(n_units=200, n_periods=10, staggered=True, seed=0)
     >>> out = sp.did_summary(df, y='y', time='time',
     ...                      first_treat='first_treat', group='unit')
-    >>> out.summary()
-    >>> print(out.detail[['method', 'estimate', 'se', 'pvalue']])
+    >>> text = out.summary()  # formatted comparison table (str)
+    >>> out.detail["method"].tolist()
+    ['cs', 'sa', 'bjs', 'etwfe', 'stacked']
+    >>> list(out.detail.columns[:5])
+    ['method', 'estimator', 'estimate', 'se', 'pvalue']
     """
     if methods in ("auto", "all"):
         methods_list = list(_DEFAULT_METHODS)

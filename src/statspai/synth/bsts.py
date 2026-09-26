@@ -678,13 +678,27 @@ def causal_impact(
 
     Examples
     --------
+    This wide-format interface is not re-exported as ``sp.causal_impact``
+    (that name is the long-format estimator); import it from its module:
+
+    >>> import numpy as np
     >>> import pandas as pd
-    >>> import statspai as sp
+    >>> from statspai.synth.bsts import causal_impact
+    >>> rng = np.random.default_rng(0)
+    >>> x1 = 100 + np.cumsum(rng.normal(0, 1, 100))
+    >>> x2 = 50 + np.cumsum(rng.normal(0, 1, 100))
+    >>> y = 1.2 * x1 + 0.8 * x2 + rng.normal(0, 1, 100)
+    >>> y[70:] += 10                             # intervention at t = 70
     >>> # Wide-format: columns = [outcome, control1, control2, ...]
-    >>> result = sp.synth.causal_impact(
-    ...     data, pre_period=(1, 70), post_period=(71, 100)
+    >>> data = pd.DataFrame({"y": y, "x1": x1, "x2": x2})
+    >>> result = causal_impact(
+    ...     data, pre_period=(0, 69), post_period=(70, 99),
+    ...     n_simulations=200, seed=0,
     ... )
-    >>> print(result.summary())
+    >>> result.method
+    'Bayesian Structural Time Series (CausalImpact)'
+    >>> bool(result.estimate > 0)
+    True
 
     References
     ----------
@@ -1003,12 +1017,18 @@ def bsts_synth(
 
     Examples
     --------
+    Called through the ``sp.synth`` dispatcher:
+
     >>> import statspai as sp
-    >>> result = sp.synth.bsts_synth(
-    ...     data, outcome='gdp', unit='country', time='year',
-    ...     treated_unit='West Germany', treatment_time=1990,
+    >>> df = sp.dgp_synth(n_units=10, n_periods=20, treatment_time=15,
+    ...                   effect=2.0, seed=0)
+    >>> result = sp.synth(
+    ...     df, outcome='y', unit='unit', time='time',
+    ...     treated_unit=0, treatment_time=15, method='bsts',
+    ...     n_simulations=200, seed=0,
     ... )
-    >>> print(result.summary())
+    >>> result.method
+    'Bayesian Structural Time Series (CausalImpact)'
 
     See Also
     --------

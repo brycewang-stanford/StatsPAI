@@ -104,9 +104,17 @@ sp.regress("y ~ x", df, robust="hc1")   # existing spelling — unchanged
 # coefficients and SEs are bit-identical between the two
 ```
 
-During JSS review this is strictly additive (no defaults change, no warnings).
-Post-review, parameters are renamed to the canonical spelling and the legacy
-spelling deprecates on the normal `MIGRATION.md` schedule.
+This is strictly additive: no defaults change and no warnings are raised.
+
+**Signatures are not renamed (decision, 2026-09-17).** Where a parameter
+mirrors the reference implementation — `i` / `t` / `g` / `x` in R `did`,
+`group` / `controls` in Stata `did_imputation`, `x` / `c` / `covs` in
+`rdrobust`, `robust=` on Stata-style estimators — the signature keeps that name,
+because it is what a user porting code from R or Stata already writes, and a
+rename would break every existing call. The house-style spelling is accepted
+alongside it through `@accepts_aliases`. Revisit only if a parameter has no
+reference-package counterpart, and then through a `DeprecationWarning` and a
+`MIGRATION.md` entry with at least one minor release of overlap.
 
 ---
 
@@ -349,7 +357,10 @@ python scripts/se_menu_matrix.py --check          # SE-menu coverage ratchet
 - **`signature_house_style`** introspects every public callable and counts
   legacy-spelling sites per theme against a frozen baseline. A new function
   using `robust=` where `vce=` is canonical raises the count and fails the
-  gate. False friends are excluded by allowlist.
+  gate. False friends are excluded by allowlist, and a legacy-named parameter
+  whose canonical spelling the function accepts through `@accepts_aliases`
+  counts as converged — the gate measures what a caller can type, so removing
+  an alias fails it too.
 - **`se_menu_matrix`** validates that every estimator and SE function it
   references still resolves under `sp.*` (drift guard), and ratchets the
   native-cell count up / unsafe-cell count down.

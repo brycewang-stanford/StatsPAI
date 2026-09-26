@@ -19,14 +19,19 @@ Quick start
 ...     analysis_plan="clone-censor-weight + pooled logistic + IPCW",
 ...     baseline_covariates=["age", "sex", "bmi", "ldl"],
 ... )
->>> print(proto.summary())
+>>> print(proto.summary())  # doctest: +ELLIPSIS
+Target Trial Protocol
+========================================
+1. Eligibility: age >= 50 and diabetic == 1
+2. Treatment strategies: statin at t0, no statin
+...
 """
 
+from .ccw import CloneCensorWeightResult, clone_censor_weight
+from .diagnostics import ImmortalTimeDiagnostic, immortal_time_check
+from .emulate import TargetTrialResult, emulate
 from .protocol import TargetTrialProtocol, protocol
-from .emulate import emulate, TargetTrialResult
-from .ccw import clone_censor_weight, CloneCensorWeightResult
-from .diagnostics import immortal_time_check, ImmortalTimeDiagnostic
-from .report import to_paper, target_checklist, TARGET_ITEMS
+from .report import TARGET_ITEMS, target_checklist, to_paper
 
 __all__ = [
     "TargetTrialProtocol",

@@ -218,23 +218,51 @@ def dml(
 
     Examples
     --------
-    >>> # Partially Linear Regression
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> df = pd.DataFrame(rng.normal(size=(n, 3)), columns=['age', 'edu', 'exp'])
+    >>> X_cols = ['age', 'edu', 'exp']
+
+    >>> # Partially Linear Regression (true effect 1.0)
+    >>> df['training'] = 0.5 * df['age'] + rng.normal(size=n)
+    >>> df['wage'] = 1.0 * df['training'] + df['edu'] + rng.normal(size=n)
     >>> result = sp.dml(df, y='wage', treat='training',
     ...                 covariates=['age', 'edu', 'exp'])
+    >>> result.method, round(float(result.estimate), 1)
+    ('Double ML (PLR)', 1.0)
 
-    >>> # Interactive Regression (binary treatment, ATE)
-    >>> result = sp.dml(df, y='wage', treat='D', covariates=X_cols,
+    >>> # Interactive Regression (binary treatment, ATE; true effect 2.0)
+    >>> df['D'] = rng.binomial(1, 0.5, n)
+    >>> df['y_bin'] = 2.0 * df['D'] + df['edu'] + rng.normal(size=n)
+    >>> result = sp.dml(df, y='y_bin', treat='D', covariates=X_cols,
     ...                 model='irm')
+    >>> result.method, result.estimand
+    ('Double ML (IRM)', 'ATE')
 
-    >>> # Partially Linear IV — endogenous D, instrument Z
+    >>> # Partially Linear IV — endogenous schooling, instrument Z
+    >>> df['Z'] = rng.normal(size=n)
+    >>> u = rng.normal(size=n)                     # unobserved confounder
+    >>> df['schooling'] = df['Z'] + u + rng.normal(size=n)
+    >>> df['earnings'] = 0.5 * df['schooling'] + df['age'] + u + rng.normal(size=n)
     >>> result = sp.dml(df, y='earnings', treat='schooling',
-    ...                 covariates=['age', 'father_edu'],
-    ...                 model='pliv', instrument='quarter_of_birth')
+    ...                 covariates=['age', 'edu'],
+    ...                 model='pliv', instrument='Z')
+    >>> result.method, result.estimand
+    ('Double ML (PLIV)', 'LATE')
 
     >>> # Interactive IV — binary D, binary Z (LATE)
-    >>> result = sp.dml(df, y='earnings', treat='college',
-    ...                 covariates=['age', 'ability'],
+    >>> df['lottery_win'] = rng.binomial(1, 0.5, n)
+    >>> df['college'] = ((df['lottery_win'] + u + rng.normal(size=n)) > 0.5)
+    >>> df['college'] = df['college'].astype(int)
+    >>> df['earnings2'] = 1.0 * df['college'] + df['age'] + u + rng.normal(size=n)
+    >>> result = sp.dml(df, y='earnings2', treat='college',
+    ...                 covariates=['age', 'edu'],
     ...                 model='iivm', instrument='lottery_win')
+    >>> result.method, result.estimand
+    ('Double ML (IIVM)', 'LATE')
     """
     key = str(model).lower()
     if key not in _MODEL_REGISTRY:

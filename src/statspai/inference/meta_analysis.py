@@ -277,7 +277,11 @@ def meta_analysis(
     >>> # five studies' log odds ratios and SEs
     >>> r = sp.meta_analysis([0.10, 0.25, -0.05, 0.30, 0.15],
     ...                      [0.05, 0.10, 0.08, 0.12, 0.06])
-    >>> r.summary()
+    >>> r.method, round(r.estimate, 4)
+    ('DL', 0.1305)
+    >>> round(r.i2, 3)
+    0.549
+    >>> report = r.summary()
     """
     y = np.asarray(effects, dtype=float)
     s = np.asarray(se, dtype=float)

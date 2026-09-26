@@ -4749,6 +4749,7 @@
       "R parity module 35_panel",
       "Stata parity module 35_panel",
       "Cross-language parity (bit-exact) vs plm::plm + plm::phtest [R version 4.5.2 (2025-10-31), plm 2.6.7]; tolerance rel_est<=1e-06, rel_se<=0.001; parity module 35_panel; implementation: third party python -- tests/r_parity/35_panel.py",
+      "tests/reference_parity/test_hausman_stata_parity.py",
       "tests/reference_parity/test_panel_bias_reduced_parity.py",
       "tests/reference_parity/test_panel_parity.py",
       "tests/reference_parity/test_panel_ssc_stata_parity.py"

@@ -33,19 +33,17 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
-from .feols import FeolsResult
 from ._result_protocol import distribution_summary as _distribution_summary
 from ._result_protocol import jsonable as _jsonable
 from ._result_protocol import tidy_records as _tidy_records
-from ._validation import (
-    nonempty_sample as _nonempty_sample,
-    nonnegative_finite_float as _nonnegative_finite_float,
-    open_unit_float as _open_unit_float,
-    positive_int as _positive_int,
-    positive_weight_mass as _positive_weight_mass,
-)
-from .._result_serialize import ResultProtocolMixin
+from ._validation import nonempty_sample as _nonempty_sample
+from ._validation import nonnegative_finite_float as _nonnegative_finite_float
+from ._validation import open_unit_float as _open_unit_float
+from ._validation import positive_int as _positive_int
+from ._validation import positive_weight_mass as _positive_weight_mass
+from .feols import FeolsResult
 
 # ---------------------------------------------------------------------------
 # JAX availability + helpers (mirrors jax_backend.py's policy)
@@ -395,8 +393,8 @@ def feols_jax(
             X_dem = stacked_dem[:, 1:]
             fe_card = list(info.n_fe)
         else:
-            from .fepois import _weighted_ap_demean
             from .demean import _detect_singletons as _ds_helper
+            from .fepois import _weighted_ap_demean
 
             fe_codes_raw: List[np.ndarray] = []
             for col in fe_terms:
@@ -921,8 +919,8 @@ def _jax_prep_inputs(
             X_dem = stacked_dem[:, 1:]
             fe_card = list(info.n_fe)
         else:
-            from .fepois import _weighted_ap_demean
             from .demean import _detect_singletons as _ds_helper
+            from .fepois import _weighted_ap_demean
 
             fe_codes_raw: List[np.ndarray] = []
             for col in fe_terms:
@@ -1085,12 +1083,23 @@ def feols_jax_bootstrap(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
-    >>> b = sp.fast.feols_jax_bootstrap(
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> df = pd.DataFrame({
+    ...     "firm": rng.integers(0, 25, n),
+    ...     "year": rng.integers(2010, 2016, n),
+    ...     "x1": rng.normal(size=n),
+    ...     "x2": rng.normal(size=n),
+    ... })
+    >>> df["y"] = 1 + 0.5 * df["x1"] - 0.3 * df["x2"] + rng.normal(size=n)
+    >>> b = sp.fast.feols_jax_bootstrap(  # doctest: +SKIP
     ...     "y ~ x1 + x2 | firm + year", data=df,
     ...     n_boot=2_000, bootstrap='cluster', cluster='firm',
     ... )
-    >>> print(b.summary())
+    >>> print(b.summary())  # doctest: +SKIP
     """
     _require_dataframe(data, context="feols_jax_bootstrap")
     if not _HAS_JAX:

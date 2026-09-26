@@ -223,10 +223,73 @@ def _ci_bounds(model: "_ModelData", var: str, alpha: float) -> Tuple[float, floa
     return b - crit * se_f, b + crit * se_f
 
 
+def _as_series(values: Any, index: pd.Index) -> Optional[pd.Series]:
+    """``values`` as a Series on ``index``; ``None`` when it cannot align.
+
+    Most result classes store standard errors / p-values as Series, a few
+    as bare arrays; the table renderers look terms up by name.
+    """
+    if values is None:
+        return None
+    if isinstance(values, pd.Series):
+        return values
+    arr = np.asarray(values, dtype=float).ravel()
+    if arr.size != len(index):
+        return None
+    return pd.Series(arr, index=index)
+
+
+def _full_vector_causal(result: Any) -> Optional[_ModelData]:
+    """Term-by-term extraction for a ``CausalResult`` with a coefficient vector.
+
+    Limited-dependent-variable fits (Tobit, Heckman ...) return a
+    ``CausalResult`` whose ``params`` carries every coefficient. Collapsing it
+    to the single headline estimand dropped the intercept and ancillary
+    parameters (Tobit's ``sigma``) and relabelled the slope with the estimand
+    name (``beta_x1``).
+    """
+    params = getattr(result, "params", None)
+    if not isinstance(params, pd.Series) or len(params) < 2:
+        return None
+    std_errors = _as_series(getattr(result, "std_errors", None), params.index)
+    if std_errors is None or not std_errors.index.equals(params.index):
+        return None
+    nan = pd.Series(np.nan, index=params.index)
+    pvalues = _as_series(getattr(result, "pvalues", None), params.index)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        tvalues = _as_series(getattr(result, "tvalues", None), params.index)
+        if tvalues is None:
+            tvalues = params / std_errors
+    mi = getattr(result, "model_info", {}) or {}
+    stats: Dict[str, Any] = {"N": getattr(result, "n_obs", None)}
+    for key, label in (
+        ("log_likelihood", "Log-Likelihood"),
+        ("aic", "AIC"),
+        ("bic", "BIC"),
+    ):
+        if key in mi:
+            stats[label] = mi[key]
+    return _ModelData(
+        params,
+        std_errors,
+        tvalues,
+        pvalues if pvalues is not None else nan,
+        nan,
+        nan,
+        stats,
+        getattr(result, "method", ""),
+        # Likelihood-based: confidence bounds use the normal (df_resid=None).
+        df_resid=None,
+    )
+
+
 def _extract_model_data(result: Any) -> _ModelData:
     """Unified extraction for EconometricResults and CausalResult."""
 
     if _is_causal(result):
+        full = _full_vector_causal(result)
+        if full is not None:
+            return full
         name = getattr(result, "estimand", "Treatment")
         params = pd.Series({name: result.estimate})
         std_errors = pd.Series({name: result.se})
@@ -265,7 +328,9 @@ def _extract_model_data(result: Any) -> _ModelData:
 
     # EconometricResults (or duck-typed equivalent)
     params = result.params
-    std_errors = result.std_errors
+    std_errors = _as_series(getattr(result, "std_errors", None), params.index)
+    if std_errors is None:
+        std_errors = pd.Series(np.nan, index=params.index)
     tvalues = getattr(result, "tvalues", params / std_errors)
     pvalues_raw = getattr(result, "pvalues", None)
     if pvalues_raw is None:

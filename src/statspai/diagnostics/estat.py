@@ -7,21 +7,49 @@ only (no statsmodels dependency).
 
 Usage
 -----
+>>> import numpy as np
+>>> import pandas as pd
+>>> import statspai as sp
+>>> rng = np.random.default_rng(42)
+>>> df = pd.DataFrame({"x1": rng.normal(size=200), "x2": rng.normal(size=200)})
+>>> df["y"] = 1.0 + 0.5 * df["x1"] - 0.3 * df["x2"] + rng.normal(size=200)
 >>> result = sp.regress("y ~ x1 + x2", data=df)
->>> sp.estat(result, "hettest")       # Breusch-Pagan
->>> sp.estat(result, "white")         # White's general test
->>> sp.estat(result, "reset")         # Ramsey RESET
->>> sp.estat(result, "bgodfrey")      # Breusch-Godfrey serial correlation
->>> sp.estat(result, "dwatson")       # Durbin-Watson
->>> sp.estat(result, "vif")           # Variance Inflation Factors
->>> sp.estat(result, "ic")            # AIC / BIC / HQIC
->>> sp.estat(result, "linktest")      # Specification link test
->>> sp.estat(result, "normality")     # Jarque-Bera + Shapiro-Wilk
->>> sp.estat(result, "leverage")      # Cook's D, DFBETAS
->>> sp.estat(result, "endogenous")    # Durbin-Wu-Hausman (IV)
->>> sp.estat(result, "overid")        # Sargan / Hansen J (IV)
->>> sp.estat(result, "firststage")    # First-stage F (IV)
->>> sp.estat(result, "all")           # Run all applicable tests
+>>> out = sp.estat(result, "hettest", print_results=False)   # Breusch-Pagan
+>>> out["test"]
+'Breusch-Pagan test for heteroskedasticity'
+>>> for name in ["white",       # White's general test
+...              "reset",       # Ramsey RESET
+...              "bgodfrey",    # Breusch-Godfrey serial correlation
+...              "dwatson",     # Durbin-Watson
+...              "vif",         # Variance Inflation Factors
+...              "ic",          # AIC / BIC / HQIC
+...              "linktest",    # Specification link test
+...              "normality",   # Jarque-Bera + Shapiro-Wilk
+...              "leverage"]:   # Cook's D, DFBETAS
+...     print(sp.estat(result, name, print_results=False)["test"])
+White's test for heteroskedasticity
+Ramsey RESET test
+Breusch-Godfrey LM test (1 lag)
+Durbin-Watson test
+Variance Inflation Factors
+Information Criteria
+Specification link test
+Normality of residuals
+Leverage and influence diagnostics
+>>> len(sp.estat(result, "all", print_results=False))  # all applicable tests
+10
+
+IV-specific tests (``"endogenous"`` for Durbin-Wu-Hausman, ``"overid"`` for
+Sargan / Hansen J, ``"firststage"`` for the first-stage F) take an IV result:
+
+>>> z = rng.normal(size=500)
+>>> u = rng.normal(size=500)
+>>> d = z + 0.5 * u + rng.normal(size=500)
+>>> iv_df = pd.DataFrame({"y": 1 + 0.5 * d + u, "d": d, "z": z})
+>>> iv_res = sp.ivreg("y ~ (d ~ z)", data=iv_df)
+>>> fs = sp.estat(iv_res, "firststage", print_results=False)
+>>> fs["statistic_label"], bool(fs["statistic"] > 10)
+('F', True)
 
 References
 ----------
@@ -37,6 +65,7 @@ Cook, R.D. (1977). *Technometrics*, 19(1), 15--18. [@breusch1979simple]
 
 from __future__ import annotations
 
+import re
 import textwrap
 from itertools import combinations
 from typing import Any, Dict, List, Union
@@ -820,19 +849,33 @@ def _estat_leverage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 # ------------------------------------------------------------------
 
 
+def _iv_stat(result: Any, *keys: str) -> Any:
+    """First non-missing value among ``keys`` in model_info, then diagnostics."""
+    for store in (
+        getattr(result, "model_info", None),
+        getattr(result, "diagnostics", None),
+    ):
+        if not isinstance(store, dict):
+            continue
+        for key in keys:
+            value = store.get(key)
+            if value is not None:
+                return value
+    return None
+
+
 def _estat_endogenous(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """Durbin-Wu-Hausman endogeneity test (for IV results)."""
-    mi = result.model_info
-
-    # Look for pre-computed DWH statistic
-    dwh = mi.get("wu_hausman") or mi.get("dwh_statistic")
-    dwh_pval = mi.get("wu_hausman_pvalue") or mi.get("dwh_pvalue")
+    # sp.ivreg / sp.iv record the Wu-Hausman F test in ``diagnostics``;
+    # ``model_info`` keys are the older spelling.
+    dwh = _iv_stat(result, "wu_hausman", "dwh_statistic", "Hausman F-stat")
+    dwh_pval = _iv_stat(result, "wu_hausman_pvalue", "dwh_pvalue", "Hausman p-value")
 
     if dwh is None:
         return {
             "test": "Durbin-Wu-Hausman endogeneity test",
             "error": (
-                "DWH statistic not found in model_info. "
+                "Durbin-Wu-Hausman statistic not found on this result. "
                 "This test requires an IV/2SLS estimation result."
             ),
             "interpretation": "Not applicable: model was not estimated via IV.",
@@ -870,17 +913,21 @@ def _estat_endogenous(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 
 def _estat_overid(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """Sargan/Hansen J test for over-identifying restrictions."""
-    mi = result.model_info
-
-    sargan = mi.get("sargan_stat") or mi.get("hansen_j")
-    sargan_pval = mi.get("sargan_pvalue") or mi.get("hansen_j_pvalue")
-    sargan_df = mi.get("sargan_df") or mi.get("overid_df")
+    # sp.ivreg reports Sargan under i.i.d. errors and Hansen's J once the
+    # vcov is robust or clustered, both in ``diagnostics``.
+    sargan = _iv_stat(
+        result, "sargan_stat", "hansen_j", "Sargan statistic", "Hansen J statistic"
+    )
+    sargan_pval = _iv_stat(
+        result, "sargan_pvalue", "hansen_j_pvalue", "Sargan p-value", "Hansen J p-value"
+    )
+    sargan_df = _iv_stat(result, "sargan_df", "overid_df", "Sargan df", "Hansen J df")
 
     if sargan is None:
         return {
             "test": "Sargan/Hansen J over-identification test",
             "error": (
-                "Over-identification statistic not found in model_info. "
+                "Over-identification statistic not found on this result. "
                 "This test requires an IV estimation with more instruments "
                 "than endogenous regressors."
             ),
@@ -1001,9 +1048,13 @@ def _estat_all(
         outputs.append(_estat_linktest(result, alpha=alpha))
         outputs.append(_estat_leverage(result, alpha=alpha))
 
-    # IV-specific tests (always attempt; they handle missing info gracefully)
-    mi = result.model_info
-    is_iv = mi.get("model_type", "").lower() in ("iv", "2sls", "gmm", "liml")
+    # IV-specific tests. sp.ivreg labels its fits "IV-2SLS", "IV-LIML", ...,
+    # which an exact match against ("iv", "2sls", ...) never recognised.
+    model_type = str(result.model_info.get("model_type", "")).lower()
+    tokens = set(re.split(r"[^a-z0-9]+", model_type))
+    is_iv = bool(tokens & {"iv", "2sls", "gmm", "liml", "fuller", "jive"}) or (
+        _iv_stat(result, "Hausman F-stat", "wu_hausman", "dwh_statistic") is not None
+    )
     if is_iv:
         outputs.append(_estat_endogenous(result, alpha=alpha))
         outputs.append(_estat_overid(result, alpha=alpha))

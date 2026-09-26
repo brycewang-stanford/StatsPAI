@@ -11,9 +11,14 @@ that identification depends on assumptions the data cannot check.
 A pre-registered analysis plan makes those assumptions explicit and
 prevents retrospective p-hacking.
 
->>> q = sp.causal_question(...)
->>> sp.preregister(q, "pap.yaml")
->>> q2 = sp.load_preregister("pap.yaml")
+>>> import os, tempfile
+>>> import statspai as sp
+>>> q = sp.causal_question("policy", "employment", estimand="ATT",
+...                        design="did", time="year", id="county")
+>>> path = sp.preregister(q, os.path.join(tempfile.mkdtemp(), "pap.yaml"))
+>>> q2 = sp.load_preregister(path)
+>>> (q2.treatment, q2.design, q2.estimand)
+('policy', 'did', 'ATT')
 """
 
 from __future__ import annotations

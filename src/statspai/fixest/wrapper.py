@@ -1399,18 +1399,6 @@ def feglm(
 # --------------------------------------------------------------------------- #
 
 
-def _aligned(values: Any, index: Any) -> Optional[pd.Series]:
-    """Return *values* as a Series indexed by *index* (``None`` if unusable)."""
-    if values is None:
-        return None
-    if isinstance(values, pd.Series):
-        return values
-    arr = np.asarray(values).ravel()
-    if arr.size != len(index):
-        return None
-    return pd.Series(arr, index=index)
-
-
 def etable(
     *results: EconometricResults,
     **kwargs: Any,
@@ -1418,8 +1406,10 @@ def etable(
     """
     Display a pyfixest-style regression table for StatsPAI results.
 
-    If the results carry a ``_pyfixest_fit`` reference, uses pyfixest's
-    native ``etable``. Otherwise falls back to a simple pandas summary.
+    If every result carries a ``_pyfixest_fit`` reference, uses pyfixest's
+    native ``etable``. Otherwise returns one row per term with
+    ``"coef*** (se)"`` cells, formatted by :func:`sp.regtable` so both tables
+    report identical numbers.
 
     Parameters
     ----------
@@ -1487,34 +1477,19 @@ def etable(
         pf = _check_pyfixest()
         return pf.etable(pf_fits, **kwargs)
 
-    # Fallback for non-pyfixest results. The previous version returned bare
-    # coefficients — no standard errors, no significance markers, no rounding —
-    # which reads as a finished table while omitting half of what a reader
-    # needs. Report every term the model exposes (regtable's term extraction
-    # renames or drops some, e.g. Tobit's ``const`` and ``sigma``), each with
-    # its own standard error at a shared decimal place.
-    from ..output._format import AUTO, auto_decimals, fmt_fixed, format_stars
+    # Non-pyfixest results: sp.regtable's cells folded into pyfixest's compact
+    # "coef (se)" layout, one row per term. One formatter for every table
+    # entry point, so stars, rounding and term extraction cannot drift apart.
+    from ..output.regression_table import regtable
 
-    fmt = kwargs.get("fmt", AUTO)
+    table = regtable(*results, **{k: kwargs[k] for k in ("fmt",) if k in kwargs})
+    terms = table._resolve_vars(table._all_models_flat())
+    frame = table.to_dataframe().iloc[: 2 * len(terms)]
     rows: Dict[str, Dict[str, str]] = {}
-    for i, r in enumerate(results):
-        col = f"({i + 1})"
-        params = getattr(r, "params", None)
-        if params is None:
-            continue
-        # ``std_errors`` / ``pvalues`` are Series on most result classes but
-        # bare arrays on a few; align both to the coefficient index.
-        ses = _aligned(getattr(r, "std_errors", None), params.index)
-        pvals = _aligned(getattr(r, "pvalues", None), params.index)
-        for term in params.index:
-            est = float(params[term])
-            se = float(ses[term]) if ses is not None and term in ses.index else np.nan
-            d = auto_decimals(est, se) if fmt == AUTO else None
-            cell = fmt_fixed(est, d) if d is not None else f"{est:{fmt[1:]}}"
-            if pvals is not None and term in pvals.index:
-                cell += format_stars(float(pvals[term]))
-            if np.isfinite(se):
-                se_txt = fmt_fixed(se, d) if d is not None else f"{se:{fmt[1:]}}"
-                cell += f" ({se_txt})"
-            rows.setdefault(str(term), {})[col] = cell
-    return pd.DataFrame(rows).T.fillna("")
+    for k, term in enumerate(terms):
+        coef, se = frame.iloc[2 * k], frame.iloc[2 * k + 1]
+        rows[str(term)] = {
+            col: f"{coef[col]} {se[col]}".strip() if coef[col] else ""
+            for col in frame.columns
+        }
+    return pd.DataFrame(rows).T

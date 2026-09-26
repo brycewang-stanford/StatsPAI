@@ -38,15 +38,19 @@ Checks performed (with literature references):
 
 Usage
 -----
+>>> import numpy as np
 >>> import statspai as sp
+>>> df = sp.dgp_did(n_units=50, n_periods=6, seed=0)
+>>> df['age'] = np.random.default_rng(0).normal(40, 10, len(df))
 >>> diag = sp.check_identification(
-...     df, y='wage', treatment='training',
-...     covariates=['age', 'education'],
-...     id='worker_id', time='year',
+...     df, y='y', treatment='treated',
+...     covariates=['age'],
+...     id='unit', time='time',
 ...     design='did',
 ... )
->>> print(diag.summary())
->>> diag.verdict   # 'OK' | 'WARNINGS' | 'BLOCKERS'
+>>> report = diag.summary()
+>>> diag.verdict in ('OK', 'WARNINGS', 'BLOCKERS')
+True
 """
 
 from __future__ import annotations

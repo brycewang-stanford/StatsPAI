@@ -135,7 +135,10 @@ def mc_synth(
     >>> result = sp.mc_synth(df, outcome='packspercapita', unit='state',
     ...                      time='year', treated_unit='California',
     ...                      treatment_time=1989, placebo=False, seed=0)
-    >>> print(result.summary())
+    >>> result.method, result.estimand
+    ('Matrix Completion SCM (Athey et al. 2021)', 'ATT')
+    >>> bool(result.estimate < 0)   # Prop 99 reduced cigarette sales
+    True
     """
     rng = np.random.default_rng(seed)
     _check_fixed_effects(fixed_effects)

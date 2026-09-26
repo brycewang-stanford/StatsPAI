@@ -403,8 +403,10 @@ def synth_compare(
     ...     treated_unit="California", treatment_time=1989,
     ...     methods=["classic", "demeaned"],
     ... )
-    >>> print(comp.summary())
+    >>> comp.comparison_table.shape  # one row per method
+    (2, 11)
     >>> comp.recommended            # method with the best pre-period fit
+    'classic'
 
     See Also
     --------
@@ -562,7 +564,10 @@ def synth_recommend(
     >>> best = sp.synth_recommend(
     ...     df, outcome="packspercapita", unit="state", time="year",
     ...     treated_unit="California", treatment_time=1989,
+    ...     methods=["classic", "demeaned", "augmented"],  # omit to try all
     ... )
+    >>> best
+    'classic'
     >>> result = sp.synth(
     ...     df, outcome="packspercapita", unit="state", time="year",
     ...     treated_unit="California", treatment_time=1989,

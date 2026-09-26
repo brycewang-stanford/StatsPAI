@@ -494,10 +494,16 @@ class CausalQuestion:
 
         Examples
         --------
-        >>> q = sp.causal_question("trained", "wage", data=df, design="did",
-        ...                        time="year", id="worker_id")
+        >>> import os, tempfile
+        >>> import statspai as sp
+        >>> df = sp.dgp_did(n_units=100, n_periods=10, seed=0)
+        >>> df["first_treat"] = df["first_treat"].fillna(0).astype(int)
+        >>> q = sp.causal_question("first_treat", "y", data=df, design="did",
+        ...                        estimand="ATT", time="time", id="unit")
         >>> draft = q.paper(fmt='qmd')
-        >>> draft.write("paper.qmd")
+        >>> list(draft.sections)[:3]
+        ['Question', 'Data', 'Identification']
+        >>> draft.write(os.path.join(tempfile.mkdtemp(), "paper.qmd"))
         """
         from ..workflow.paper import paper_from_question
 

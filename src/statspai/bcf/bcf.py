@@ -94,8 +94,13 @@ def bcf(
     >>> df["outcome"], df["treatment"] = outcome, treatment
     >>> result = sp.bcf(df, y="outcome", treat="treatment",
     ...                 covariates=["x1", "x2", "x3"], n_bootstrap=10)
-    >>> print(result.summary())
+    >>> type(result).__name__
+    'CausalResult'
+    >>> bool(result.ci[0] < 2.0 < result.ci[1])  # true ATE = 2
+    True
     >>> cate = result.model_info["cate"]        # individual effects
+    >>> cate.shape
+    (400,)
     """
     est = BayesianCausalForest(
         data=data,

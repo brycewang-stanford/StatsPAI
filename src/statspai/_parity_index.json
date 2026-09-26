@@ -5994,7 +5994,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_diag_recovery_parity.py"
+        "tests/reference_parity/test_diag_recovery_parity.py",
+        "tests/reference_parity/test_hausman_stata_parity.py"
       ],
       "tolerance": ""
     },
@@ -10542,6 +10543,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_hausman_stata_parity.py",
         "tests/reference_parity/test_panel_bias_reduced_parity.py",
         "tests/reference_parity/test_panel_parity.py",
         "tests/reference_parity/test_panel_ssc_stata_parity.py"

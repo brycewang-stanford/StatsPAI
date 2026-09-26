@@ -19,8 +19,8 @@ from typing import Any, Callable, Dict, Optional
 import numpy as np
 from scipy.stats import norm
 
-from ..exceptions import ConvergenceFailure
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import ConvergenceFailure
 
 __all__ = [
     "power",
@@ -784,11 +784,15 @@ def power(
     >>> import statspai as sp
     >>> sp.power("did", n=1000, effect_size=0.1,
     ...          n_periods=10, n_treated_periods=5)
+    PowerResult(design='did', power=0.5683, n=1000, effect_size=0.1000)
     >>> sp.power("did", power=0.8, effect_size=0.1,
     ...          n_periods=10, n_treated_periods=5)
+    PowerResult(design='did', power=0.8001, n=1727, effect_size=0.1000)
     >>> result = sp.power("did", n=range(100, 2000, 100), effect_size=0.1,
     ...                   n_periods=10, n_treated_periods=5)
-    >>> result.plot()
+    >>> result
+    PowerResult(design='did', power=[0.0993..0.8362], len=19)
+    >>> ax = result.plot()
     """
     # Accept 'power' kwarg as alias for power_target (convenience API)
     if power_target is None and "power" in kwargs:
@@ -872,6 +876,7 @@ def mde(
     --------
     >>> import statspai as sp
     >>> sp.mde("did", n=1000, n_periods=10, n_treated_periods=5)
+    PowerResult(design='did', power=0.8000, n=1000, effect_size=0.1314)
     """
     if n is None:
         raise ValueError("n must be specified for MDE calculation.")

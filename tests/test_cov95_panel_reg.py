@@ -17,7 +17,11 @@ import pandas as pd  # noqa: E402
 import pytest  # noqa: E402
 
 import statspai as sp  # noqa: E402
-from statspai.exceptions import DataInsufficient, MethodIncompatibility  # noqa: E402
+from statspai.exceptions import (  # noqa: E402
+    AssumptionWarning,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 from statspai.panel import PanelRegression, PanelResults  # noqa: E402
 from statspai.panel.panel_reg import PanelCompareResults, panel_compare  # noqa: E402
 
@@ -42,9 +46,12 @@ def panel_df():
 
 def test_hausman_test_method(panel_df):
     r = sp.panel(panel_df, "y ~ x1 + x2", entity="id", time="year", method="fe")
-    out = r.hausman_test()
-    assert out["recommendation"] in ("FE", "RE")
-    assert out["statistic"] >= 0
+    # x1 loads on the unit effect: V_FE - V_RE is not PSD on this panel and
+    # the classical statistic is negative, so the test must not pick a model.
+    with pytest.warns(AssumptionWarning, match="negative"):
+        out = r.hausman_test()
+    assert out["recommendation"] == "inconclusive"
+    assert out["statistic"] < 0 and np.isnan(out["pvalue"])
 
 
 def test_hausman_test_uses_same_re_estimator_as_panel_re():

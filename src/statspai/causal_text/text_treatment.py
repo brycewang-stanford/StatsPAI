@@ -197,7 +197,10 @@ def text_treatment_effect(
     ... })
     >>> r = sp.text_treatment_effect(df, text_col="text", outcome="outcome",
     ...                              treatment="treatment", n_components=2)
-    >>> r.estimate
+    >>> r.estimand, r.embedding_dim
+    ('ATE', 2)
+    >>> bool(np.isfinite(r.estimate) and r.se > 0)
+    True
     """
     for col in (text_col, outcome, treatment):
         if col not in data.columns:

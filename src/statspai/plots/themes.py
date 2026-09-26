@@ -19,7 +19,7 @@ Usage
 >>> sp.set_theme('default')           # reset to matplotlib default
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 _THEMES: Dict[str, Dict[str, Any]] = {
     "academic": {
@@ -416,11 +416,17 @@ def use_chinese(style: str = "auto") -> str:
 
     Examples
     --------
+    >>> import matplotlib as mpl
     >>> import statspai as sp
-    >>> sp.use_chinese()           # auto-detect best font
-    >>> sp.use_chinese('serif')    # prefer 宋体
-    >>> sp.use_chinese('sans')     # prefer 黑体/苹方
-    >>> sp.use_chinese('Kaiti SC') # use specific font
+    >>> with mpl.rc_context():  # restore rcParams afterwards
+    ...     font = sp.use_chinese()             # auto-detect best font
+    ...     serif = sp.use_chinese('serif')     # prefer 宋体
+    ...     sans = sp.use_chinese('sans')       # prefer 黑体/苹方
+    ...     named = sp.use_chinese('Kaiti SC')  # use specific font
+    >>> isinstance(font, str)  # '' (with a warning) if no CJK font is installed
+    True
+    >>> named
+    'Kaiti SC'
     """
     try:
         import matplotlib as mpl
@@ -599,8 +605,8 @@ def set_theme(
     >>> sp.set_theme('default')           # reset to matplotlib defaults
     """
     try:
-        import matplotlib.pyplot as plt
         import matplotlib as mpl
+        import matplotlib.pyplot as plt
         from cycler import cycler
     except ImportError:
         raise ImportError("matplotlib required. Install: pip install matplotlib")

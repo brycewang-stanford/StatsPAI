@@ -232,6 +232,7 @@ def examples(name: str) -> Dict[str, Any]:
 
     Examples
     --------
+    >>> import statspai as sp
     >>> ex = sp.examples("did")
     >>> ex["examples"][0]["title"]
     'Classic 2x2 DID'

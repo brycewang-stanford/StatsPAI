@@ -686,8 +686,8 @@ def from_r(line: str) -> Dict[str, Any]:
     >>> out = sp.from_r("feols(y ~ x | id, data = df)")
     >>> out["ok"]
     True
-    >>> out["python_code"].startswith("sp.fixest")
-    True
+    >>> out["python_code"]
+    "sp.feols('y ~ x | id', data=df)"
     """
     parsed = _parse_call(line)
     if parsed is None:

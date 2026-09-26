@@ -36,12 +36,20 @@ def _hausman_from_data(
     id_col: str,
     time_col: str,
     alpha: float = 0.05,
+    sigmamore: bool = False,
 ) -> Dict[str, Any]:
     """
     Hausman (1978) specification test.
 
     H0: RE is consistent and efficient (use RE).
     H1: RE is inconsistent (use FE).
+
+    Matches Stata ``xtreg, fe`` / ``xtreg, re`` / ``hausman fe re``
+    (``tests/reference_parity/test_hausman_stata_parity.py``).
+    ``sigmamore=True`` is ``hausman fe re, sigmamore``: both covariance
+    matrices use the RE disturbance variance, i.e. ``V_FE`` is rescaled by
+    ``s2_RE / s2_FE``, which keeps the variance difference usable where the
+    classical statistic goes negative.
     """
     df = data[[id_col, time_col, y] + x].dropna()
     k = len(x)
@@ -59,34 +67,17 @@ def _hausman_from_data(
     beta_re = fit_re.params.loc[x].to_numpy(dtype=float)
     vcov_fe = fit_fe.cov.loc[x, x].to_numpy(dtype=float)
     vcov_re = fit_re.cov.loc[x, x].to_numpy(dtype=float)
+    if sigmamore:
+        vcov_fe = vcov_fe * float(fit_re.s2) / float(fit_fe.s2)
 
-    b_diff = beta_fe - beta_re
-    V_diff = vcov_fe - vcov_re
-
-    try:
-        V_inv = np.linalg.inv(V_diff)
-        H = float(b_diff @ V_inv @ b_diff)
-    except np.linalg.LinAlgError:  # pragma: no cover
-        V_inv = np.linalg.pinv(V_diff)
-        H = float(max(b_diff @ V_inv @ b_diff, 0))
-
-    H = max(H, 0)
-    pvalue = float(stats.chi2.sf(H, k))
-    reject_re = pvalue <= alpha
-    recommendation = "FE" if reject_re else "RE"
+    from ..diagnostics.hausman import _hausman_decision
 
     return {
-        "statistic": H,
-        "df": k,
-        "pvalue": pvalue,
-        "recommendation": recommendation,
+        **_hausman_decision(beta_fe - beta_re, vcov_fe - vcov_re, k, alpha),
+        "sigmamore": bool(sigmamore),
         "beta_fe": pd.Series(beta_fe, index=x),
         "beta_re": pd.Series(beta_re, index=x),
         "covariance_reference": "linearmodels/plm unadjusted FE-RE covariance",
-        "interpretation": (
-            f"chi2({k}) = {H:.4f}, p = {pvalue:.4f}. "
-            f"{'Reject H0: use Fixed Effects.' if reject_re else 'Cannot reject H0: Random Effects is more efficient.'}"
-        ),
     }
 
 

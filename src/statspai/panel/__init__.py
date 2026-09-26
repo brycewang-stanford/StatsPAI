@@ -11,11 +11,27 @@ R's fixest)
 
 All results return ``PanelResults`` with built-in diagnostics:
 
+>>> import numpy as np, pandas as pd
+>>> import statspai as sp
+>>> rng = np.random.default_rng(0)
+>>> ids = np.repeat(np.arange(50), 6)
+>>> alpha_i = rng.normal(size=50)[ids]
+>>> x1 = rng.normal(size=300) + 0.5 * alpha_i
+>>> x2 = rng.normal(size=300)
+>>> y = 1.0 + 0.5 * x1 - 0.3 * x2 + alpha_i + rng.normal(size=300)
+>>> df = pd.DataFrame({"id": ids, "t": np.tile(np.arange(6), 50),
+...                    "y": y, "x1": x1, "x2": x2})
 >>> result = sp.panel(df, "y ~ x1 + x2", entity='id', time='t')
->>> result.hausman_test()        # FE vs RE
->>> result.bp_lm_test()          # Pooled vs RE
->>> result.f_test_effects()      # Joint significance of FE
->>> result.compare('re')         # Side-by-side comparison
+>>> type(result).__name__
+'PanelResults'
+>>> result.params.round(1).to_dict()
+{'x1': 0.5, 'x2': -0.3}
+>>> haus = result.hausman_test()        # FE vs RE
+>>> lm = result.bp_lm_test()            # Pooled vs RE
+>>> ftest = result.f_test_effects()     # Joint significance of FE
+>>> ftest["df1"], ftest["df2"]
+(49, 248)
+>>> cmp = result.compare('re')          # Side-by-side comparison
 
 References
 ----------

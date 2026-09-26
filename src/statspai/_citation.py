@@ -154,10 +154,15 @@ def citation(format: str = "bibtex", which: str = "paper") -> str:
     Examples
     --------
     >>> import statspai as sp
-    >>> print(sp.citation())                    # JOSS article, BibTeX
-    >>> print(sp.citation("apa"))               # JOSS article, APA
-    >>> print(sp.citation(which="software"))    # versioned software entry
-    >>> print(sp.citation("plain", which="both"))
+    >>> print(sp.citation().splitlines()[0])    # JOSS article, BibTeX
+    @article{wang2026statspaijoss,
+    >>> print(sp.citation("apa"))  # JOSS article, APA  # doctest: +ELLIPSIS
+    Wang, B., & Rozelle, S. (2026). StatsPAI: ... https://doi.org/10.21105/joss.10604
+    >>> print(sp.citation(which="software").splitlines()[0])  # software entry
+    @software{wang2026statspai,
+    >>> both = sp.citation("plain", which="both")   # article, then software
+    >>> both.count("Biaoyue Wang and Scott Rozelle (2026)")
+    2
     """
     from . import __version__
 

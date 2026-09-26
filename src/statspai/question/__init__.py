@@ -15,27 +15,34 @@ automatically:
   4. Produce a reproducible Methods paragraph.
 
 >>> import statspai as sp
+>>> df = sp.dgp_did(n_units=100, n_periods=10, seed=0)
+>>> df["first_treat"] = df["first_treat"].fillna(0).astype(int)
 >>> q = sp.causal_question(
-...     treatment="minimum_wage_hike",
-...     outcome="employment",
+...     treatment="first_treat",   # first treatment period, 0 = never
+...     outcome="y",
 ...     estimand="ATT",
-...     design="policy_shock",
+...     design="did",
 ...     data=df,
 ...     time_structure="panel",
-...     covariates=["industry", "skill"],
+...     time="time",
+...     id="unit",
 ... )
->>> q.identify()
+>>> q.identify().estimator
+'did'
 >>> r = q.estimate()
->>> q.report()
+>>> r.estimand
+'ATT'
+>>> print(q.report().splitlines()[0])
+## Causal Question
 """
 
+from .preregister import load_preregister, preregister
 from .question import (
     CausalQuestion,
-    causal_question,
-    IdentificationPlan,
     EstimationResult,
+    IdentificationPlan,
+    causal_question,
 )
-from .preregister import preregister, load_preregister
 
 __all__ = [
     "CausalQuestion",

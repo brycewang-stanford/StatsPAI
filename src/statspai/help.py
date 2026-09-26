@@ -9,13 +9,23 @@ Aggregates four help layers:
 Usage
 -----
 >>> import statspai as sp
->>> sp.help()                       # top-level overview
->>> sp.help('did')                  # function detail
->>> sp.help('causal')               # category listing
->>> sp.help('causal.did')           # scoped detail
->>> sp.help(sp.regress)             # docstring fallback
->>> sp.help(search='treatment')     # keyword search
->>> sp.help('did', format='dict')   # programmatic access
+>>> overview = sp.help()                          # top-level overview
+>>> "QUICK START" in overview.text
+True
+>>> print(sp.help('did').text.splitlines()[0])    # function detail
+sp.did  —  [causal]
+>>> print(sp.help('causal').text.splitlines()[0]) # category listing
+Category: causal
+>>> print(sp.help('causal.did').text.splitlines()[0])  # scoped detail
+sp.did  —  [causal]
+>>> print(sp.help(sp.regress).text.splitlines()[0])    # docstring fallback
+sp.regress  —  [regression]
+>>> hits = sp.help(search='treatment')            # keyword search
+>>> hits.text.startswith("Search: 'treatment'")
+True
+>>> info = sp.help('did', format='dict')          # programmatic access
+>>> info['name'], info['category']
+('did', 'causal')
 """
 
 from __future__ import annotations
@@ -594,10 +604,7 @@ def _function_detail(name: str, verbose: bool = False) -> Optional[str]:
 
 def _search_results(query: str) -> str:
     """Render keyword-search hits."""
-    from .registry import (  # noqa: WPS433
-        _ensure_full_registry,
-        search_functions,
-    )
+    from .registry import _ensure_full_registry, search_functions  # noqa: WPS433
 
     _ensure_full_registry()
 
@@ -781,7 +788,8 @@ def help(  # noqa: A001 (shadow builtin by design; sp.help is our public API)
 
         # Unknown — suggest nearest matches
         from difflib import get_close_matches
-        from .registry import list_functions, _ensure_full_registry
+
+        from .registry import _ensure_full_registry, list_functions
 
         _ensure_full_registry()
         all_names = list_functions()

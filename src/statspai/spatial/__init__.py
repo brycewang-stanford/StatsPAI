@@ -24,12 +24,25 @@ matrix, or an ``(n, n)`` ndarray for the weights argument.
 
 Examples
 --------
+>>> import numpy as np
+>>> import pandas as pd
 >>> import statspai as sp
+>>> rng = np.random.default_rng(0)
+>>> n = 100
+>>> coords = rng.uniform(0, 10, size=(n, 2))
+>>> df = pd.DataFrame({"x1": rng.normal(size=n), "x2": rng.normal(size=n)})
+>>> df["y"] = 1 + 0.5 * df["x1"] - 0.3 * df["x2"] + rng.normal(size=n)
 >>> w = sp.knn_weights(coords, k=6); w.transform = "R"
->>> moran = sp.moran(df["y"], w)
+>>> moran = sp.moran(df["y"], w, permutations=99, seed=0)
 >>> result = sp.sar(w, data=df, formula='y ~ x1 + x2')
->>> eff = sp.impacts(result)
+>>> list(result.params.index)
+['const', 'x1', 'x2', 'rho']
+>>> eff = sp.impacts(result, n_sim=200, seed=0)
+>>> list(eff.columns)
+['Direct', 'SE_Direct', 'Indirect', 'SE_Indirect', 'Total', 'SE_Total']
 >>> lms = sp.lm_tests("y ~ x1 + x2", df, w)
+>>> sorted(lms)
+['LM_err', 'LM_lag', 'Robust_LM_err', 'Robust_LM_lag', 'SARMA']
 """
 
 from .did import SpatialDiDResult, spatial_did

@@ -11,7 +11,20 @@ Specification curve analysis. *Nature Human Behaviour*, 4(11), 1208–1214.
 
 Usage
 -----
+>>> import numpy as np
+>>> import pandas as pd
 >>> import statspai as sp
+>>> rng = np.random.default_rng(0)
+>>> n = 400
+>>> df = pd.DataFrame({
+...     "female": rng.integers(0, 2, size=n),
+...     "region": rng.integers(0, 4, size=n),
+...     "age": rng.integers(22, 60, size=n),
+...     "education": rng.normal(12, 3, size=n),
+...     "experience": rng.normal(10, 5, size=n),
+... })
+>>> df["wage"] = (5.0 + 0.4 * df["education"] + 0.1 * df["experience"]
+...               - 0.5 * df["female"] + rng.normal(size=n))
 >>> result = sp.spec_curve(
 ...     data=df,
 ...     y='wage',
@@ -19,8 +32,10 @@ Usage
 ...     controls=[[], ['experience'], ['experience', 'female']],
 ...     se_types=['nonrobust', 'hc1'],
 ... )
->>> result.plot()
->>> result.summary()
+>>> result.n_specs                  # 3 control sets x 2 SE types
+6
+>>> fig, axes = result.plot()
+>>> text = result.summary()
 """
 
 from __future__ import annotations

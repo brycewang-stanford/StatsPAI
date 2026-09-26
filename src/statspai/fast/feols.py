@@ -278,11 +278,24 @@ def feols(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 500
+    >>> df = pd.DataFrame({
+    ...     "firm": rng.integers(0, 25, n),
+    ...     "year": rng.integers(2010, 2016, n),
+    ...     "x1": rng.normal(size=n),
+    ...     "x2": rng.normal(size=n),
+    ... })
+    >>> df["y"] = 1 + 0.5 * df["x1"] - 0.3 * df["x2"] + rng.normal(size=n)
     >>> fit = sp.fast.feols("y ~ x1 + x2 | firm + year", data=df)
-    >>> fit.summary()
-    >>> fit.coef()                                # pd.Series
-    >>> fit.se()                                  # pd.Series
+    >>> text = fit.summary()                      # str
+    >>> list(fit.coef().index)                    # pd.Series
+    ['x1', 'x2']
+    >>> type(fit.se()).__name__
+    'Series'
     """
     if vcov not in ("iid", "hc1", "cr1"):
         raise MethodIncompatibility(

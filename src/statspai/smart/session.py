@@ -16,6 +16,8 @@ calls ``rng = np.random.default_rng()`` inside the block, the draws
 will be different on every run regardless of the session seed. To
 get deterministic ``default_rng`` draws, pass the seed explicitly:
 
+>>> import numpy as np
+>>> import statspai as sp
 >>> with sp.session(seed=42) as state:
 ...     rng = np.random.default_rng(state.seed)   # explicit seed
 ...     x = rng.normal(size=5)

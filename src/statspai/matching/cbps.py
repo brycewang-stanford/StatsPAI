@@ -116,14 +116,18 @@ def cbps(
     >>> df = sp.cps_wage()
     >>> result = sp.cbps(df, y='log_wage', treat='union',
     ...                  covariates=['education', 'experience', 'tenure'],
-    ...                  estimand='ATT', n_bootstrap=50, seed=42)
-    >>> result.summary()
-    >>> result.model_info['std_mean_diff_after']  # balance after weighting
+    ...                  estimand='ATT', n_bootstrap=20, seed=42)
+    >>> round(result.estimate, 3)
+    0.189
+    >>> report = result.summary()
+    >>> smd = result.model_info['std_mean_diff_after']  # balance after weighting
+    >>> sorted(smd)
+    ['_intercept', 'education', 'experience', 'tenure']
 
     >>> # Just-identified CBPS (balance moments only)
     >>> result = sp.cbps(df, y='log_wage', treat='union',
     ...                  covariates=['education', 'experience', 'tenure'],
-    ...                  variant='exact', n_bootstrap=50, seed=42)
+    ...                  variant='exact', n_bootstrap=20, seed=42)
     """
     if estimand not in ("ATE", "ATT"):
         raise ValueError(f"estimand must be 'ATE' or 'ATT', got {estimand!r}")
