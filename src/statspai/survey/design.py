@@ -218,6 +218,7 @@ class SurveyDesign:
                     "fpc must be all population counts (>= 1) or all "
                     "sampling fractions (<= 1)"
                 )
+            self.fpc_values: Optional[np.ndarray]
             if is_popsize:
                 if np.any(raw < self._n_psu_h):
                     raise MethodIncompatibility(
@@ -251,7 +252,7 @@ class SurveyDesign:
         self,
         variables: Union[str, List[str]],
         alpha: float = 0.05,
-        **kwargs,
+        **kwargs: Any,
     ) -> SurveyResult:
         """Design-corrected weighted mean(s); ``kwargs`` go to ``sp.svymean``."""
         return svymean(variables, design=self, alpha=alpha, **kwargs)
@@ -260,7 +261,7 @@ class SurveyDesign:
         self,
         variables: Union[str, List[str]],
         alpha: float = 0.05,
-        **kwargs,
+        **kwargs: Any,
     ) -> SurveyResult:
         """Design-corrected weighted total(s); ``kwargs`` go to ``sp.svytotal``."""
         return svytotal(variables, design=self, alpha=alpha, **kwargs)
@@ -270,7 +271,7 @@ class SurveyDesign:
         formula: str,
         family: str = "gaussian",
         alpha: float = 0.05,
-        **kwargs,
+        **kwargs: Any,
     ) -> SurveyResult:
         """Survey-weighted GLM; ``kwargs`` go to ``sp.svyglm``."""
         return svyglm(formula, design=self, family=family, alpha=alpha, **kwargs)

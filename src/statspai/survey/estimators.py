@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List, Optional, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -270,7 +270,8 @@ def _deff_denominator(
         v = svyvar * (N - n) / (N * n)
     else:
         raise MethodIncompatibility(f"deff must be 'wor' or 'replace'; got {mode!r}")
-    return v * N**2 if total else v
+    out: np.ndarray = v * N**2 if total else v
+    return out
 
 
 # ====================================================================== #
@@ -635,7 +636,7 @@ def _irls_fit(
     n, k = X.shape
     beta = np.zeros(k)
 
-    def _mu_var(eta):
+    def _mu_var(eta: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         if family == "binomial":
             mu = 1 / (1 + np.exp(-eta))
             mu = np.clip(mu, 1e-10, 1 - 1e-10)
@@ -645,12 +646,12 @@ def _irls_fit(
             return mu, mu
         raise ValueError(f"Unknown family: {family}")
 
-    def _dev(mu):
+    def _dev(mu: np.ndarray) -> float:
         if family == "binomial":
-            return -2 * np.sum(w * (y * np.log(mu) + (1 - y) * np.log(1 - mu)))
+            return float(-2 * np.sum(w * (y * np.log(mu) + (1 - y) * np.log(1 - mu))))
         with np.errstate(divide="ignore", invalid="ignore"):
             ylog = np.where(y > 0, y * np.log(y / mu), 0.0)
-        return 2 * np.sum(w * (ylog - (y - mu)))
+        return float(2 * np.sum(w * (ylog - (y - mu))))
 
     if family == "binomial":
         mu = (w * y + 0.5) / (w + 1)

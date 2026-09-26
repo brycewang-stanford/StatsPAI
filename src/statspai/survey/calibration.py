@@ -173,8 +173,8 @@ def rake(
             stacklevel=2,
         )
 
-    def _max_rel_gap():
-        return max(abs(w[m].sum() - t) / t for cells in plan for m, t in cells)
+    def _max_rel_gap() -> float:
+        return float(max(abs(w[m].sum() - t) / t for cells in plan for m, t in cells))
 
     converged = False
     iteration = 0

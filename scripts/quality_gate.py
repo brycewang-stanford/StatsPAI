@@ -16,14 +16,19 @@ import sys
 from dataclasses import dataclass
 from typing import Optional, Sequence
 
-DEFAULT_FLAKE8_MAX = 1000
+# Ratcheted 2026-09-26 from 1000 (main had drifted to 1023 and the CI gate
+# had been red since 09-24) to 929, measured in the canonical CI env
+# (ubuntu/py3.10 ``.[dev,fixest]``; flake8 7.3). Lower as fixes land.
+DEFAULT_FLAKE8_MAX = 929
 # Baseline for StatsPAI-authored type debt only (see ``run_mypy`` — the count is
 # scoped to ``src/statspai/`` lines). Reset 2026-09-22 to the first real
 # measurement: the earlier value of 25 was set against runs that aborted on a
 # third-party [syntax] error before type-checking anything (observed=1), so it
 # never reflected our code. Measured 828 under mypy 1.20 with the lean
 # ``.[dev,fixest]`` CI env on py3.10. Lower as fixes land — never raise it.
-DEFAULT_MYPY_MAX = 828
+# 2026-09-26: 827 in that env (main had drifted to 843; the step was
+# masked by the red flake8 gate before it).
+DEFAULT_MYPY_MAX = 827
 FORBIDDEN_IMPORT_PREFIXES = (
     "numba",
     "sklearn",

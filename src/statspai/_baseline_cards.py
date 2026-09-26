@@ -764,7 +764,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "anderson_rubin_test": {
-        "example": "sp.anderson_rubin_test(df, y='wage', endog='education', instruments=['parent_edu', 'distance'])",
+        "example": (
+            "sp.anderson_rubin_test(df, y='wage', endog='education', "
+            "instruments=['parent_edu', 'distance'])"
+        ),
         "tags": ["diagnostics"],
     },
     "arima": {
@@ -781,7 +784,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["experimental"],
     },
     "attrition_test": {
-        "example": "sp.attrition_test(df, treatment='treated', observed='endline_observed', covariates=['age', 'income', 'education'])",
+        "example": (
+            "sp.attrition_test(df, treatment='treated', observed='endline_observed', "
+            "covariates=['age', 'income', 'education'])"
+        ),
         "tags": ["experimental"],
     },
     "auc": {
@@ -792,7 +798,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["smart"],
     },
     "auto_cate": {
-        "example": "sp.auto_cate(df, y='wage', treat='training', covariates=['age', 'edu', 'exp'])",
+        "example": (
+            "sp.auto_cate(df, y='wage', treat='training', covariates=['age', 'edu', "
+            "'exp'])"
+        ),
         "tags": ["causal"],
     },
     "auto_cate_tuned": {
@@ -814,7 +823,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "balance_check": {
-        "example": "sp.balance_check(df, treatment='treated', covariates=['age', 'income', 'education'])",
+        "example": (
+            "sp.balance_check(df, treatment='treated', covariates=['age', 'income', "
+            "'education'])"
+        ),
         "tags": ["experimental"],
     },
     "balance_diagnostics": {
@@ -825,7 +837,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["panel"],
     },
     "balance_table": {
-        "example": "sp.balance_table(df, treat='treated', covariates=['age', 'edu', 'income'], output='balance.docx')",
+        "example": (
+            "sp.balance_table(df, treat='treated', covariates=['age', 'edu', "
+            "'income'], output='balance.docx')"
+        ),
         "tags": ["output"],
     },
     "balanceplot": {
@@ -842,7 +857,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["bayes", "bayesian"],
     },
     "bcf": {
-        "example": "sp.bcf(df, y='outcome', treat='treatment', covariates=['x1', 'x2', 'x3'])",
+        "example": (
+            "sp.bcf(df, y='outcome', treat='treatment', covariates=['x1', 'x2', "
+            "'x3'])"
+        ),
         "tags": ["causal"],
     },
     "benjamini_hochberg": {
@@ -865,7 +883,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["plots"],
     },
     "biprobit": {
-        "example": "sp.biprobit(df, y1='employed', y2='married', x1=['age', 'education'], x2=['age', 'children'])",
+        "example": (
+            "sp.biprobit(df, y1='employed', y2='married', x1=['age', 'education'], "
+            "x2=['age', 'children'])"
+        ),
         "tags": ["regression"],
     },
     "bjs": {
@@ -894,7 +915,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "breakdown_frontier": {
-        "example": 'sp.breakdown_frontier( estimate=0.05, se=0.02, assumption="parallel_trends", max_violation=0.1, )',
+        "example": (
+            "sp.breakdown_frontier( estimate=0.05, se=0.02, "
+            'assumption="parallel_trends", max_violation=0.1, )'
+        ),
         "tags": ["causal"],
     },
     "breakdown_m": {
@@ -958,7 +982,11 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["decomposition"],
     },
     "check_identification": {
-        "example": "sp.check_identification( df, y='wage', treatment='training', covariates=['age', 'education'], id='worker', time='year', design='did', )",
+        "example": (
+            "sp.check_identification( df, y='wage', treatment='training', "
+            "covariates=['age', 'education'], id='worker', time='year', design='did',"
+            " )"
+        ),
         "tags": ["smart"],
     },
     "chilean_households": {
@@ -999,11 +1027,18 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal", "event_study"],
     },
     "compare_estimators": {
-        "example": "sp.compare_estimators( data=df, y='wage', treatment='training', methods=['ols', 'matching', 'ipw', 'dml'], covariates=['age', 'education'], )",
+        "example": (
+            "sp.compare_estimators( data=df, y='wage', treatment='training', "
+            "methods=['ols', 'matching', 'ipw', 'dml'], covariates=['age', "
+            "'education'], )"
+        ),
         "tags": ["smart"],
     },
     "compare_metalearners": {
-        "example": "sp.compare_metalearners(df, y='wage', treat='training', covariates=['age', 'edu'])",
+        "example": (
+            "sp.compare_metalearners(df, y='wage', treat='training', "
+            "covariates=['age', 'edu'])"
+        ),
         "tags": ["causal"],
     },
     "compute_data_hash": {
@@ -1016,7 +1051,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["conformal_causal", "conformal"],
     },
     "conformal_cate": {
-        "example": "sp.conformal_cate(df, y='outcome', treat='treatment', covariates=['x1', 'x2'])",
+        "example": (
+            "sp.conformal_cate(df, y='outcome', treat='treatment', covariates=['x1', "
+            "'x2'])"
+        ),
         "tags": ["conformal_causal", "conformal"],
     },
     "conformal_counterfactual": {
@@ -1038,15 +1076,24 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["conformal_causal", "conformal"],
     },
     "conformal_synth": {
-        "example": "sp.conformal_synth(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
+        "example": (
+            "sp.conformal_synth(df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989)"
+        ),
         "tags": ["causal", "conformal"],
     },
     "conley": {
-        "example": 'sp.conley(result, data=df, lat="latitude", lon="longitude", dist_cutoff=100)',
+        "example": (
+            'sp.conley(result, data=df, lat="latitude", lon="longitude", '
+            "dist_cutoff=100)"
+        ),
         "tags": ["inference"],
     },
     "contrast": {
-        "example": 'sp.contrast(result, data=df, variable="education", method="r", reference=0)',
+        "example": (
+            'sp.contrast(result, data=df, variable="education", method="r", '
+            "reference=0)"
+        ),
         "tags": ["postestimation"],
     },
     "copula_sensitivity": {
@@ -1101,14 +1148,20 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["decomposition"],
     },
     "deepiv": {
-        "example": "sp.deepiv( df, y='lwage', treat='educ', instruments=['nearc4'], covariates=['exper', 'expersq'], )",
+        "example": (
+            "sp.deepiv( df, y='lwage', treat='educ', instruments=['nearc4'], "
+            "covariates=['exper', 'expersq'], )"
+        ),
         "tags": ["causal"],
     },
     "demean": {
         "tags": ["panel"],
     },
     "demeaned_synth": {
-        "example": "sp.demeaned_synth(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
+        "example": (
+            "sp.demeaned_synth(df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989)"
+        ),
         "tags": ["causal"],
     },
     "describe": {
@@ -1191,7 +1244,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal", "did"],
     },
     "did_summary": {
-        "example": "sp.did_summary(df, y='y', time='time', first_treat='first_treat', group='unit')",
+        "example": (
+            "sp.did_summary(df, y='y', time='time', first_treat='first_treat', "
+            "group='unit')"
+        ),
         "tags": ["causal", "did"],
     },
     "did_summary_plot": {
@@ -1205,7 +1261,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal", "did"],
     },
     "discos": {
-        "example": "sp.discos(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
+        "example": (
+            "sp.discos(df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989)"
+        ),
         "tags": ["causal"],
     },
     "discos_plot": {
@@ -1253,7 +1312,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["dag"],
     },
     "ebalance": {
-        "example": "sp.ebalance(df, y='outcome', treat='treated', covariates=['age', 'income', 'education'])",
+        "example": (
+            "sp.ebalance(df, y='outcome', treat='treated', covariates=['age', "
+            "'income', 'education'])"
+        ),
         "tags": ["causal"],
     },
     "effective_f_test": {
@@ -1280,7 +1342,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["panel"],
     },
     "etregress": {
-        "example": "sp.etregress(df, y='wage', x=['experience', 'education'], treatment='union', z=['father_union', 'region'])",
+        "example": (
+            "sp.etregress(df, y='wage', x=['experience', 'education'], "
+            "treatment='union', z=['father_union', 'region'])"
+        ),
         "tags": ["regression"],
     },
     "etwfe_emfx": {
@@ -1333,7 +1398,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["decomposition"],
     },
     "fisher_exact": {
-        "example": 'sp.fisher_exact( data=df, y="outcome", treatment="treated", statistic="ate", n_perm=10000, seed=42)',
+        "example": (
+            'sp.fisher_exact( data=df, y="outcome", treatment="treated", '
+            'statistic="ate", n_perm=10000, seed=42)'
+        ),
         "tags": ["inference"],
     },
     "focal_cate": {
@@ -1361,7 +1429,11 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["agent"],
     },
     "g_estimation": {
-        "example": "sp.g_estimation( df, y='outcome', treatments=['treatment_stage1', 'treatment_stage2'], covariates_by_stage=[['x1', 'x2'], ['x1', 'x2', 'x3']])",
+        "example": (
+            "sp.g_estimation( df, y='outcome', treatments=['treatment_stage1', "
+            "'treatment_stage2'], covariates_by_stage=[['x1', 'x2'], ['x1', 'x2', "
+            "'x3']])"
+        ),
         "tags": ["causal"],
     },
     "gap_closing": {
@@ -1377,7 +1449,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["spatial"],
     },
     "gelbach": {
-        "example": 'sp.gelbach( data=df, y="wage", base_x=["education"], added_x=["experience", "tenure", "union"], )',
+        "example": (
+            'sp.gelbach( data=df, y="wage", base_x=["education"], '
+            'added_x=["experience", "tenure", "union"], )'
+        ),
         "tags": ["decomposition"],
     },
     "general_bunching": {
@@ -1442,7 +1517,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "gsynth": {
-        "example": "sp.gsynth(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
+        "example": (
+            "sp.gsynth(df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989)"
+        ),
         "tags": ["causal"],
     },
     "gt": {
@@ -1456,7 +1534,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["spatial"],
     },
     "hausman_test": {
-        "example": "sp.hausman_test(df, y='wage', x=['education', 'experience'], id='worker', time='year')",
+        "example": (
+            "sp.hausman_test(df, y='wage', x=['education', 'experience'], "
+            "id='worker', time='year')"
+        ),
         "tags": ["diagnostics"],
     },
     "hdfe_ols": {
@@ -1480,11 +1561,17 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "horowitz_manski": {
-        "example": 'sp.horowitz_manski( data=df, y="wage", treatment="trained", covariates=["age", "education"], y_lower=0, y_upper=100, )',
+        "example": (
+            'sp.horowitz_manski( data=df, y="wage", treatment="trained", '
+            'covariates=["age", "education"], y_lower=0, y_upper=100, )'
+        ),
         "tags": ["causal"],
     },
     "hurdle": {
-        "example": "sp.hurdle(data=df, y='doctor_visits', x=['age', 'income'], count_model='negbin')",
+        "example": (
+            "sp.hurdle(data=df, y='doctor_visits', x=['age', 'income'], "
+            "count_model='negbin')"
+        ),
         "tags": ["regression"],
     },
     "icc": {
@@ -1507,7 +1594,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["plots"],
     },
     "interactive_fe": {
-        "example": "sp.interactive_fe(df, y='gdp', x=['investment', 'trade'], id='country', time='year', n_factors=2)",
+        "example": (
+            "sp.interactive_fe(df, y='gdp', x=['investment', 'trade'], id='country', "
+            "time='year', n_factors=2)"
+        ),
         "tags": ["panel"],
     },
     "interference_available_designs": {
@@ -1520,11 +1610,18 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["output"],
     },
     "iv_bounds": {
-        "example": 'sp.iv_bounds( data=df, y="wage", treatment="trained", instrument="lottery", assumption="monotone_iv", )',
+        "example": (
+            'sp.iv_bounds( data=df, y="wage", treatment="trained", '
+            'instrument="lottery", assumption="monotone_iv", )'
+        ),
         "tags": ["causal"],
     },
     "ivqreg": {
-        "example": "sp.ivqreg(df, y='earnings', endog='schooling', instruments='quarter_of_birth', exog=['age', 'race'], tau=0.5, bootstrap=400)",
+        "example": (
+            "sp.ivqreg(df, y='earnings', endog='schooling', "
+            "instruments='quarter_of_birth', exog=['age', 'race'], tau=0.5, "
+            "bootstrap=400)"
+        ),
         "tags": ["regression"],
     },
     "jackknife_se": {
@@ -1535,7 +1632,9 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["regression"],
     },
     "johansen": {
-        "example": "sp.johansen(df, variables=['gdp', 'consumption', 'investment'], lags=2)",
+        "example": (
+            "sp.johansen(df, variables=['gdp', 'consumption', 'investment'], lags=2)"
+        ),
         "tags": ["timeseries"],
     },
     "join_counts": {
@@ -1562,7 +1661,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["decomposition"],
     },
     "kitagawa_test": {
-        "example": 'sp.kitagawa_test( data=df, y="outcome", treatment="treated", instrument="assigned", n_boot=1000, seed=42, )',
+        "example": (
+            'sp.kitagawa_test( data=df, y="outcome", treatment="treated", '
+            'instrument="assigned", n_boot=1000, seed=42, )'
+        ),
         "tags": ["diagnostics"],
     },
     "knn_weights": {
@@ -1573,11 +1675,17 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["utils"],
     },
     "label_vars": {
-        "example": "sp.label_vars(df, { 'wage': 'Monthly wage (CNY)', 'edu': 'Years of education', 'exp': 'Work experience (years)', })",
+        "example": (
+            "sp.label_vars(df, { 'wage': 'Monthly wage (CNY)', 'edu': 'Years of "
+            "education', 'exp': 'Work experience (years)', })"
+        ),
         "tags": ["utils"],
     },
     "lasso_iv": {
-        "example": "sp.lasso_iv(df, y='lwage', x_endog=['educ'], x_exog=['exper'], z=[f'qob_{i}' for i in range(40)])",
+        "example": (
+            "sp.lasso_iv(df, y='lwage', x_endog=['educ'], x_exog=['exper'], "
+            "z=[f'qob_{i}' for i in range(40)])"
+        ),
         "tags": ["regression"],
     },
     "lasso_select": {
@@ -1587,11 +1695,16 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["frontier"],
     },
     "lee_bounds": {
-        "example": "sp.lee_bounds(df, y='wage', treat='training', selection='employed')",
+        "example": (
+            "sp.lee_bounds(df, y='wage', treat='training', selection='employed')"
+        ),
         "tags": ["causal"],
     },
     "liml": {
-        "example": "sp.liml(data=df, y='lwage', x_endog=['educ'], x_exog=['exper', 'expersq'], z=['nearc4'])",
+        "example": (
+            "sp.liml(data=df, y='lwage', x_endog=['educ'], x_exog=['exper', "
+            "'expersq'], z=['nearc4'])"
+        ),
         "tags": ["regression"],
     },
     "lincom": {
@@ -1647,7 +1760,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["regression"],
     },
     "logrank_test": {
-        "example": 'sp.logrank_test(data=df, duration="time", event="status", group="treatment")',
+        "example": (
+            'sp.logrank_test(data=df, duration="time", event="status", '
+            'group="treatment")'
+        ),
         "tags": ["survival"],
     },
     "love_plot": {
@@ -1673,7 +1789,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["frontier"],
     },
     "manski_bounds": {
-        "example": "sp.manski_bounds(df, y='employed', treat='training', y_lower=0, y_upper=1)",
+        "example": (
+            "sp.manski_bounds(df, y='employed', treat='training', y_lower=0, "
+            "y_upper=1)"
+        ),
         "tags": ["causal"],
     },
     "margins": {
@@ -1681,7 +1800,9 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["postestimation"],
     },
     "margins_at": {
-        "example": 'sp.margins_at(result, data=df, at={"experience": [1, 5, 10, 15, 20]})',
+        "example": (
+            'sp.margins_at(result, data=df, at={"experience": [1, 5, 10, 15, 20]})'
+        ),
         "tags": ["postestimation"],
     },
     "margins_at_plot": {
@@ -1698,11 +1819,16 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "mc_panel": {
-        "example": "sp.mc_panel(df, y='gdp', unit='country', time='year', treat='treated')",
+        "example": (
+            "sp.mc_panel(df, y='gdp', unit='country', time='year', treat='treated')"
+        ),
         "tags": ["causal"],
     },
     "mc_synth": {
-        "example": "sp.mc_synth(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
+        "example": (
+            "sp.mc_synth(df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989)"
+        ),
         "tags": ["causal"],
     },
     "mde": {
@@ -1734,7 +1860,11 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["panel"],
     },
     "mendelian_randomization": {
-        "example": "sp.mendelian_randomization( data=snp_stats, beta_exposure='beta_x', beta_outcome='beta_y', se_exposure='se_x', se_outcome='se_y', exposure_name='BMI', outcome_name='T2D', )",
+        "example": (
+            "sp.mendelian_randomization( data=snp_stats, beta_exposure='beta_x', "
+            "beta_outcome='beta_y', se_exposure='se_x', se_outcome='se_y', "
+            "exposure_name='BMI', outcome_name='T2D', )"
+        ),
         "tags": ["mendelian"],
     },
     "meologit": {
@@ -1768,11 +1898,18 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["panel"],
     },
     "mixlogit": {
-        "example": "sp.mixlogit( df, y='chosen', alt='alt_id', chid='obs_id', x_fixed=['price'], x_random=['quality', 'time'], panel_id='person_id', n_draws=1000, )",
+        "example": (
+            "sp.mixlogit( df, y='chosen', alt='alt_id', chid='obs_id', "
+            "x_fixed=['price'], x_random=['quality', 'time'], panel_id='person_id', "
+            "n_draws=1000, )"
+        ),
         "tags": ["regression"],
     },
     "ml_bounds": {
-        "example": "sp.ml_bounds(df, y='wage', treat='training', covariates=['age', 'educ', 'exper'])",
+        "example": (
+            "sp.ml_bounds(df, y='wage', treat='training', covariates=['age', 'educ', "
+            "'exper'])"
+        ),
         "tags": ["causal"],
     },
     "mlogit": {
@@ -1825,7 +1962,11 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "multi_outcome_synth": {
-        "example": "sp.multi_outcome_synth( df, outcomes=['gdp', 'employment', 'wages'], unit='state', time='year', treated_unit='California', treatment_time=1989, )",
+        "example": (
+            "sp.multi_outcome_synth( df, outcomes=['gdp', 'employment', 'wages'], "
+            "unit='state', time='year', treated_unit='California', "
+            "treatment_time=1989, )"
+        ),
         "tags": ["causal"],
     },
     "multi_score_rd": {
@@ -1862,7 +2003,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "notch": {
-        "example": "sp.notch(df, x='income', notch_point=50000, notch_size=0.10, bin_width=500)",
+        "example": (
+            "sp.notch(df, x='income', notch_point=50000, notch_size=0.10, "
+            "bin_width=500)"
+        ),
         "tags": ["causal"],
     },
     "notears": {
@@ -1894,7 +2038,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "oster_delta": {
-        "example": 'sp.oster_delta( data=df, y="wage", x_base=["education"], x_controls=["experience", "tenure"], r_max=1.3, )',
+        "example": (
+            'sp.oster_delta( data=df, y="wage", x_base=["education"], '
+            'x_controls=["experience", "tenure"], r_max=1.3, )'
+        ),
         "tags": ["causal", "sensitivity"],
     },
     "outlier_indicator": {
@@ -1907,7 +2054,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "panel_fgls": {
-        "example": "sp.panel_fgls(df, y='gdp', x=['investment', 'trade'], id='country', time='year', panels='heteroskedastic', corr='ar1')",
+        "example": (
+            "sp.panel_fgls(df, y='gdp', x=['investment', 'trade'], id='country', "
+            "time='year', panels='heteroskedastic', corr='ar1')"
+        ),
         "tags": ["panel"],
     },
     "panel_logit": {
@@ -1936,7 +2086,11 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "pate": {
-        "example": 'sp.pate( data_experiment=df_rct, data_target=df_pop, y="outcome", treatment="treated", covariates=["age", "edu", "income"], method="aipw", )',
+        "example": (
+            'sp.pate( data_experiment=df_rct, data_target=df_pop, y="outcome", '
+            'treatment="treated", covariates=["age", "edu", "income"], method="aipw",'
+            " )"
+        ),
         "tags": ["inference"],
     },
     "pc_algorithm": {
@@ -1944,7 +2098,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "pcmci": {
-        "example": "sp.pcmci(df_ts, variables=['gdp', 'inflation', 'rates'], tau_max=4, pc_alpha=0.01)",
+        "example": (
+            "sp.pcmci(df_ts, variables=['gdp', 'inflation', 'rates'], tau_max=4, "
+            "pc_alpha=0.01)"
+        ),
         "tags": ["causal"],
     },
     "peer_effects": {
@@ -1983,7 +2140,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["postestimation"],
     },
     "power": {
-        "example": 'sp.power("did", n=1000, effect_size=0.1, n_periods=10, n_treated_periods=5)',
+        "example": (
+            'sp.power("did", n=1000, effect_size=0.1, n_periods=10, '
+            "n_treated_periods=5)"
+        ),
         "tags": ["power"],
     },
     "power_cluster_rct": {
@@ -2005,7 +2165,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["power"],
     },
     "ppmlhdfe": {
-        "example": 'sp.ppmlhdfe("trade ~ dist + contig | origin + dest + year", data=df, cluster="pair_id")',
+        "example": (
+            'sp.ppmlhdfe("trade ~ dist + contig | origin + dest + year", data=df, '
+            'cluster="pair_id")'
+        ),
         "tags": ["regression"],
     },
     "predict_cate": {
@@ -2048,7 +2211,9 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["smart"],
     },
     "pwcompare": {
-        "example": 'sp.pwcompare(result, data=df, variable="group", adjust="bonferroni")',
+        "example": (
+            'sp.pwcompare(result, data=df, variable="group", adjust="bonferroni")'
+        ),
         "tags": ["postestimation"],
     },
     "pwcorr": {
@@ -2056,7 +2221,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["utils"],
     },
     "qqsynth": {
-        "example": "sp.qqsynth(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
+        "example": (
+            "sp.qqsynth(df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989)"
+        ),
         "tags": ["causal"],
     },
     "qte_hd_panel": {
@@ -2069,7 +2237,9 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["survey"],
     },
     "randomize": {
-        "example": "sp.randomize(df, strata='district', balance_vars=['age', 'income'])",
+        "example": (
+            "sp.randomize(df, strata='district', balance_vars=['age', 'income'])"
+        ),
         "tags": ["experimental"],
     },
     "rank": {
@@ -2162,7 +2332,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "rdit": {
-        "example": 'sp.rdit(df, y="electricity", time="date", cutoff="2015-01-01", seasonality="month")',
+        "example": (
+            'sp.rdit(df, y="electricity", time="date", cutoff="2015-01-01", '
+            'seasonality="month")'
+        ),
         "tags": ["causal"],
     },
     "rdmc": {
@@ -2210,7 +2383,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["utils"],
     },
     "recommend": {
-        "example": "sp.recommend(df, y='wage', treatment='training', id='worker', time='year')",
+        "example": (
+            "sp.recommend(df, y='wage', treatment='training', id='worker', "
+            "time='year')"
+        ),
         "tags": ["smart"],
     },
     "render_agent_block": {
@@ -2231,7 +2407,9 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["diagnostics"],
     },
     "ri_test": {
-        "example": "sp.ri_test(df, y='outcome', treat='treatment', n_perms=5000, seed=42)",
+        "example": (
+            "sp.ri_test(df, y='outcome', treat='treatment', n_perms=5000, seed=42)"
+        ),
         "tags": ["inference"],
     },
     "rif_decomposition": {
@@ -2244,15 +2422,26 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "robust_synth": {
-        "example": "sp.robust_synth(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989, variant='unconstrained')",
+        "example": (
+            "sp.robust_synth(df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989, variant='unconstrained')"
+        ),
         "tags": ["causal"],
     },
     "robustness_report": {
-        "example": "sp.robustness_report( data=df, formula=\"wage ~ education + experience\", x='education', cluster_var='region', extra_controls=['female', 'age'], winsor_levels=[0.01, 0.05], )",
+        "example": (
+            'sp.robustness_report( data=df, formula="wage ~ education + experience", '
+            "x='education', cluster_var='region', extra_controls=['female', 'age'], "
+            "winsor_levels=[0.01, 0.05], )"
+        ),
         "tags": ["robustness"],
     },
     "romano_wolf": {
-        "example": 'sp.romano_wolf( data=df, y=["wage", "hours", "employment", "benefits"], x=["treatment"], controls=["age", "education", "experience"], n_boot=1000, seed=42, )',
+        "example": (
+            'sp.romano_wolf( data=df, y=["wage", "hours", "employment", "benefits"], '
+            'x=["treatment"], controls=["age", "education", "experience"], '
+            "n_boot=1000, seed=42, )"
+        ),
         "tags": ["inference"],
     },
     "rook_weights": {
@@ -2286,30 +2475,49 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["spatial"],
     },
     "sbw": {
-        "example": "sp.sbw(df, treat='D', covariates=['age', 'educ', 'race'], y='wage', delta=0.02)",
+        "example": (
+            "sp.sbw(df, treat='D', covariates=['age', 'educ', 'race'], y='wage', "
+            "delta=0.02)"
+        ),
         "tags": ["causal"],
     },
     "sc_estimate": {
         "tags": ["causal"],
     },
     "scalar_iv_projection": {
-        "example": "sp.scalar_iv_projection( df, treat='schooling', instruments=['quarter_of_birth', 'distance_to_college'], covariates=['age', 'parent_edu'], )",
+        "example": (
+            "sp.scalar_iv_projection( df, treat='schooling', "
+            "instruments=['quarter_of_birth', 'distance_to_college'], "
+            "covariates=['age', 'parent_edu'], )"
+        ),
         "tags": ["utils"],
     },
     "scdata": {
-        "example": "sp.scdata(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
+        "example": (
+            "sp.scdata(df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989)"
+        ),
         "tags": ["causal"],
     },
     "scest": {
-        "example": "sp.scest(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
+        "example": (
+            "sp.scest(df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989)"
+        ),
         "tags": ["causal"],
     },
     "scpi": {
-        "example": "sp.scpi(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
+        "example": (
+            "sp.scpi(df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989)"
+        ),
         "tags": ["causal"],
     },
     "sdid": {
-        "example": "sp.sdid(df, y='packspercapita', unit='state', time='year', treat_unit='California', treat_time=1989)",
+        "example": (
+            "sp.sdid(df, y='packspercapita', unit='state', time='year', "
+            "treat_unit='California', treat_time=1989)"
+        ),
         "tags": ["causal"],
     },
     "search_functions": {
@@ -2320,7 +2528,11 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "selection_bounds": {
-        "example": 'sp.selection_bounds( data=df, y="wage", treatment="trained", selection="employed", covariates=["age", "education"], method="conditional", )',
+        "example": (
+            'sp.selection_bounds( data=df, y="wage", treatment="trained", '
+            'selection="employed", covariates=["age", "education"], '
+            'method="conditional", )'
+        ),
         "tags": ["causal"],
     },
     "sem_gmm": {
@@ -2369,14 +2581,21 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["regression"],
     },
     "ssaggregate": {
-        "example": 'sp.ssaggregate( data=df, y="employment_growth", x="bartik_instrument", shares=shares_matrix, shocks="industry_growth", shock_data=df_shocks, controls=["population", "density"], )',
+        "example": (
+            'sp.ssaggregate( data=df, y="employment_growth", x="bartik_instrument", '
+            'shares=shares_matrix, shocks="industry_growth", shock_data=df_shocks, '
+            'controls=["population", "density"], )'
+        ),
         "tags": ["bartik"],
     },
     "stabilized_weights": {
         "tags": ["causal"],
     },
     "staggered_synth": {
-        "example": "sp.staggered_synth(df, outcome='gdp', unit='state', time='year', treatment='treated')",
+        "example": (
+            "sp.staggered_synth(df, outcome='gdp', unit='state', time='year', "
+            "treatment='treated')"
+        ),
         "tags": ["causal", "staggered"],
     },
     "stepwise": {
@@ -2394,7 +2613,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["inference"],
     },
     "subgroup_analysis": {
-        "example": "sp.subgroup_analysis( data=df, formula=\"wage ~ education + experience\", x='education', by={'Gender': 'female', 'Region': 'region'}, )",
+        "example": (
+            'sp.subgroup_analysis( data=df, formula="wage ~ education + experience", '
+            "x='education', by={'Gender': 'female', 'Region': 'region'}, )"
+        ),
         "tags": ["robustness"],
     },
     "subgroup_decompose": {
@@ -2408,7 +2630,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "sureg": {
-        "example": "sp.sureg( equations={ 'demand': ('quantity', ['price', 'income']), 'supply': ('quantity', ['price', 'cost']), }, data=df, )",
+        "example": (
+            "sp.sureg( equations={ 'demand': ('quantity', ['price', 'income']), "
+            "'supply': ('quantity', ['price', 'cost']), }, data=df, )"
+        ),
         "tags": ["regression"],
     },
     "survival_sensitivity": {
@@ -2419,7 +2644,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "survreg": {
-        "example": 'sp.survreg("time ~ age + treatment", data=df, event="status", dist="weibull")',
+        "example": (
+            'sp.survreg("time ~ age + treatment", data=df, event="status", '
+            'dist="weibull")'
+        ),
         "tags": ["survival"],
     },
     "svyglm": {
@@ -2432,23 +2660,39 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["survey"],
     },
     "synth_compare": {
-        "example": "sp.synth_compare( df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989, )",
+        "example": (
+            "sp.synth_compare( df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989, )"
+        ),
         "tags": ["causal", "synth"],
     },
     "synth_donor_sensitivity": {
-        "example": "sp.synth_donor_sensitivity(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989, n_samples=200, seed=42)",
+        "example": (
+            "sp.synth_donor_sensitivity(df, outcome='gdp', unit='state', time='year',"
+            " treated_unit='California', treatment_time=1989, n_samples=200, seed=42)"
+        ),
         "tags": ["causal", "synth"],
     },
     "synth_loo": {
-        "example": "sp.synth_loo(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
+        "example": (
+            "sp.synth_loo(df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989)"
+        ),
         "tags": ["causal", "synth"],
     },
     "synth_mde": {
-        "example": "sp.synth_mde( df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989, seed=42, )",
+        "example": (
+            "sp.synth_mde( df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989, seed=42, )"
+        ),
         "tags": ["causal", "synth"],
     },
     "synth_power": {
-        "example": "sp.synth_power( df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989, n_simulations=500, seed=42, )",
+        "example": (
+            "sp.synth_power( df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989, n_simulations=500, "
+            "seed=42, )"
+        ),
         "tags": ["causal", "synth"],
     },
     "synth_power_plot": {
@@ -2456,23 +2700,40 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal", "synth"],
     },
     "synth_recommend": {
-        "example": "sp.synth_recommend( df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989, )",
+        "example": (
+            "sp.synth_recommend( df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989, )"
+        ),
         "tags": ["causal", "synth"],
     },
     "synth_report": {
-        "example": "sp.synth_report( df, outcome='cigsale', unit='state', time='year', treated_unit='California', treatment_time=1989, )",
+        "example": (
+            "sp.synth_report( df, outcome='cigsale', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989, )"
+        ),
         "tags": ["causal", "synth"],
     },
     "synth_report_to_file": {
-        "example": "sp.synth_report_to_file( df, outcome='cigsale', unit='state', time='year', treated_unit='California', treatment_time=1989, filename='california_scm.md', )",
+        "example": (
+            "sp.synth_report_to_file( df, outcome='cigsale', unit='state', "
+            "time='year', treated_unit='California', treatment_time=1989, "
+            "filename='california_scm.md', )"
+        ),
         "tags": ["causal", "synth"],
     },
     "synth_rmspe_filter": {
-        "example": "sp.synth_rmspe_filter(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
+        "example": (
+            "sp.synth_rmspe_filter(df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989)"
+        ),
         "tags": ["causal", "synth"],
     },
     "synth_sensitivity": {
-        "example": "sp.synth_sensitivity(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989, n_donor_samples=200, seed=42)",
+        "example": (
+            "sp.synth_sensitivity(df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989, n_donor_samples=200, "
+            "seed=42)"
+        ),
         "tags": ["causal", "synth"],
     },
     "synth_sensitivity_plot": {
@@ -2480,7 +2741,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal", "synth"],
     },
     "synth_time_placebo": {
-        "example": "sp.synth_time_placebo(df, outcome='gdp', unit='state', time='year', treated_unit='California', treatment_time=1989)",
+        "example": (
+            "sp.synth_time_placebo(df, outcome='gdp', unit='state', time='year', "
+            "treated_unit='California', treatment_time=1989)"
+        ),
         "tags": ["causal", "synth"],
     },
     "synth_to_excel": {
@@ -2540,7 +2804,11 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["causal"],
     },
     "three_sls": {
-        "example": "sp.three_sls( equations={ 'demand': ('q', ['p', 'income'], []), 'supply': ('q', ['p', 'cost'], []), }, data=df, instruments=['income', 'cost', 'weather'], )",
+        "example": (
+            "sp.three_sls( equations={ 'demand': ('q', ['p', 'income'], []), "
+            "'supply': ('q', ['p', 'cost'], []), }, data=df, instruments=['income', "
+            "'cost', 'weather'], )"
+        ),
         "tags": ["regression"],
     },
     "translog_design": {
@@ -2561,11 +2829,16 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["regression"],
     },
     "twfe_decomposition": {
-        "example": "sp.twfe_decomposition(df, y='y', group='unit', time='period', first_treat='first_treat')",
+        "example": (
+            "sp.twfe_decomposition(df, y='y', group='unit', time='period', "
+            "first_treat='first_treat')"
+        ),
         "tags": ["causal"],
     },
     "twoway_cluster": {
-        "example": 'sp.twoway_cluster(result, data=df, cluster1="firm", cluster2="year")',
+        "example": (
+            'sp.twoway_cluster(result, data=df, cluster1="firm", cluster2="year")'
+        ),
         "tags": ["inference"],
     },
     "use_chinese": {
@@ -2576,7 +2849,9 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["validation"],
     },
     "var": {
-        "example": "sp.var(df, variables=['gdp', 'inflation', 'interest_rate'], lags=2)",
+        "example": (
+            "sp.var(df, variables=['gdp', 'inflation', 'interest_rate'], lags=2)"
+        ),
         "tags": ["timeseries"],
     },
     "verify": {
@@ -2592,7 +2867,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["diagnostics"],
     },
     "weakrobust": {
-        "example": "sp.weakrobust(df, y='wage', endog='educ', instruments=['nearc2','nearc4'], exog=['age','exper'])",
+        "example": (
+            "sp.weakrobust(df, y='wage', endog='educ', "
+            "instruments=['nearc2','nearc4'], exog=['age','exper'])"
+        ),
         "reference": "anderson1949estimation",
         "tags": ["diagnostics"],
     },
@@ -2600,7 +2878,10 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["conformal_causal", "conformal"],
     },
     "wild_cluster_boot": {
-        "example": 'sp.wild_cluster_boot(result, data=df, cluster="state", variable="x1", n_boot=999)',
+        "example": (
+            'sp.wild_cluster_boot(result, data=df, cluster="state", variable="x1", '
+            "n_boot=999)"
+        ),
         "tags": ["inference"],
     },
     "wild_cluster_ci_inv": {
@@ -2626,11 +2907,17 @@ BASELINE_CARDS: Dict[str, Dict[str, Any]] = {
         "tags": ["decomposition"],
     },
     "zinb": {
-        "example": "sp.zinb(data=df, y='doctor_visits', x=['age', 'income'], inflate=['age', 'chronic'])",
+        "example": (
+            "sp.zinb(data=df, y='doctor_visits', x=['age', 'income'], inflate=['age',"
+            " 'chronic'])"
+        ),
         "tags": ["regression"],
     },
     "zip_model": {
-        "example": "sp.zip_model(data=df, y='doctor_visits', x=['age', 'income'], inflate=['age', 'chronic'])",
+        "example": (
+            "sp.zip_model(data=df, y='doctor_visits', x=['age', 'income'], "
+            "inflate=['age', 'chronic'])"
+        ),
         "tags": ["regression"],
     },
     "zisf": {
