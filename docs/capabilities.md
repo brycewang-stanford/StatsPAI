@@ -21,7 +21,7 @@ Options and evidence for the flagship estimators, read from their signatures and
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `sp.feols` | `weights` | `cluster` | `vcov=None` | pyfixest (varying slopes: native) | core | certified | — | — |
 | `sp.hdfe_ols` | `weights` | `cluster` | `vce=None`, `se_type=None` | native | core | certified | — | — |
-| `sp.panel` | via `**kwargs` | via `**kwargs` | via `**kwargs` | native | core | certified | — | — |
+| `sp.panel` | via `**kwargs` | via `**kwargs` | via `**kwargs` | native | core | certified | yes | — |
 | `sp.fepois` | `weights` | `cluster` | `vcov=None` | pyfixest | core | certified | — | — |
 
 ## IV
