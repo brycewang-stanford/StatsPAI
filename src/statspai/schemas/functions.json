@@ -41295,12 +41295,12 @@
           "type": "string"
         },
         "pooled": {
-          "description": "Output of :func:`sp.mi_estimate` (it carries the within / between covariances ``ubar_matrix`` / ``b_matrix``).",
+          "description": "Output of :func:`sp.mi_estimate` (it carries the within / between covariances ``ubar_matrix`` / ``b_matrix`` and the complete-data df ``dfcom``).",
           "type": "object"
         },
         "small": {
-          "default": false,
-          "description": "Stata's small-sample (Reiter 2007) denominator df. Not implemented: ``True`` raises. The default reproduces ``mi test, nosmall``.",
+          "default": true,
+          "description": "Small-sample denominator df, Stata's default: Reiter (2007) for the equal-FMI test and Barnard & Rubin (1999) / Marchenko & Reiter (2009) otherwise. Applied only when the pooled result carries a finite complete-data df (``dfcom``, e.g. the residual df of ``sp.regress``); without one the large-sample df is used, as Stata does when ``e(df_r)`` is not set. ``small=False`` is ``mi test, nosmall``.",
           "type": "boolean"
         },
         "terms": {

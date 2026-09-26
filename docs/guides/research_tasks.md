@@ -111,8 +111,10 @@ tests; [survey guide](survey_ph.md).
 `variance="stata"`). Categorical variables are imputed with
 `'logreg'` / `'polyreg'`; `'sample'` ignores every other variable. Joint
 tests after MI are not ordinary Wald tests on the pooled covariance:
-`sp.mi_test` is Stata's `mi test, nosmall` (the small-sample df is not
-implemented and is refused, not approximated).
+`sp.mi_test` is Stata's `mi test`, including its default small-sample df
+(Reiter 2007; `small=False` for `mi test, nosmall`). With a tiny
+complete-data df Reiter's df leaves its valid range: the number matches
+Stata but an `AssumptionWarning` says not to trust it.
 
 ## 8. Marginal effects and predictions
 

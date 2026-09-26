@@ -6,14 +6,21 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
-- **`sp.mi_test(pooled, terms, method="equal_fmi"|"unrestricted")`** --
+- **`sp.mi_test(pooled, terms, method="equal_fmi"|"unrestricted", small=True)`** --
   joint Wald test after `sp.mi_estimate`, Stata's `mi test` (equal fractions
-  of missing information, the default) and `mi test, ufmitest`. Matches
-  Stata 18 `mi test, nosmall` to 1e-9 in F, denominator df and p on eight
-  and three Stata completions, covering both df branches
-  (`tests/reference_parity/test_mi_test_parity.py`). Stata's default
-  small-sample df (Reiter 2007) is not implemented: `small=True` raises
-  instead of returning the large-sample df under that name.
+  of missing information, the default) and `mi test, ufmitest`, with
+  Stata's default small-sample denominator df: Reiter (2007) for the
+  equal-FMI test, Barnard & Rubin (1999) / Marchenko & Reiter (2009)
+  otherwise; `small=False` is `mi test, nosmall`. Matches Stata 18 to 1e-9
+  in F, df and p on 326 configurations crossing complete-data df
+  (396 / 26 / 11 / 3), imputations (2--8), both tests, 1--4 tested terms
+  and both df modes (`tests/reference_parity/test_mi_test_parity.py`).
+  Two places where Stata departs from the Marchenko & Reiter paper are
+  followed and documented: the large-sample part of the small-sample df is
+  built on the within-imputation RVI, and the equal-FMI branch switches on
+  `k(M-1) <= 4`. Reiter's df outside its range (complete-data df tiny
+  relative to the missing information) reproduces Stata but warns
+  (`AssumptionWarning`). The result carries `dfcom` and `df_adjustment`.
   `mi_estimate` / `MICEResult.combine` now also return the full within and
   between covariances (`ubar_matrix`, `b_matrix`).
 
