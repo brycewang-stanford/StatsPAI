@@ -8,13 +8,13 @@
 \toprule
 Estimator & Common task & Ref. & Max.~$N$ & \statspai{} (s) & Ref. (s) & Faster & Agree \\
 \midrule
-HDFE & OLS, two absorbed FE, iid SE & \pkg{fixest} & 1{,}000{,}000 & 0.127 (0.004) & 0.080 (0.001) & ref. $\mathbf{1.6\times}$ & 2e-14 \\
-CS-DiD & ATT(g,t), pre-test, simple and dynamic aggregation & \pkg{did} & 125{,}000 & 0.025 (0.000) & 0.467 (0.010) & sp $\mathbf{18.8\times}$ & 4e-13 \\
-SCM & ADH special predictors, nested V, no placebos & \pkg{Synth} & 100 & 264.565 (0.758) & 4.551 (0.093) & ref. $\mathbf{58\times}$ & 0.000 \\
-DML & PLR, linear learners, 5 folds & \pkg{DoubleML} & 10{,}000 & 0.0080 (0.0000) & 0.0090 (0.0001) & tie $1.13\times$ & 0.00 SE \\
+HDFE & OLS, two absorbed FE, iid SE & \pkg{fixest} & 1{,}000{,}000 & 0.120 (0.001) & 0.074 (0.001) & ref. $\mathbf{1.6\times}$ & 2e-14 \\
+CS-DiD & ATT(g,t), pre-test, simple and dynamic aggregation & \pkg{did} & 125{,}000 & 0.028 (0.000) & 0.443 (0.002) & sp $\mathbf{15.8\times}$ & 4e-13 \\
+SCM & ADH special predictors, nested V, no placebos & \pkg{Synth} & 100 & 264.108 (0.498) & 4.353 (0.108) & ref. $\mathbf{61\times}$ & 0.000 \\
+DML & PLR, linear learners, 5 folds & \pkg{DoubleML} & 10{,}000 & 0.0077 (0.0000) & 0.0085 (0.0000) & tie $1.10\times$ & 0.00 SE \\
 \bottomrule
 \end{tabular}
 \endgroup
-\caption{Track C at the largest measured size (Apple Silicon arm64, one thread on both sides, \statspai{} 1.31.0). Both sides read the same input file (SHA-256 checked) and run the task shown; times are median seconds with the interquartile range in parentheses. ``Agree'' compares the target quantity outside the timed call: relative difference of the coefficient or simple ATT (HDFE, CS), absolute difference of the average post-treatment gap between the two non-convex SCM solvers, and the DML difference in units of its SE (the folds are drawn independently on each side).}
+\caption{Track C at the largest measured size (Apple Silicon arm64, one thread on both sides, \statspai{} 1.32.0). Both sides read the same input file (SHA-256 checked) and run the task shown; times are median seconds with the interquartile range in parentheses. ``Agree'' compares the target quantity outside the timed call: relative difference of the coefficient or simple ATT (HDFE, CS), absolute difference of the average post-treatment gap between the two non-convex SCM solvers, and the DML difference in units of its SE (the folds are drawn independently on each side).}
 \label{tab:track-c-perf}
 \end{table}
