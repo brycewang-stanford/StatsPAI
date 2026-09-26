@@ -768,9 +768,9 @@ All notable changes to StatsPAI will be documented in this file.
 - **The star legend printed `p<0.00`** for `star_levels=(0.05, 0.01,
   0.001)`; thresholds now widen only as far as they need (`p<0.001`).
 - **`sp.etable([m1, m2])` returned an empty table, silently.** A lone list is
-  unwrapped for `etable` / `modelsummary` / `esttab` / `outreg2`, and an
-  argument that cannot be tabulated raises `MethodIncompatibility` naming
-  its position and type (it was a bare `TypeError`).
+  unwrapped for `etable` / `modelsummary` / `esttab` / `outreg2`, and the
+  `TypeError` for an argument that cannot be tabulated now names its
+  position and type and says how to recover.
 - **The registry example for `sp.match` could not run** (`treatment=` /
   `outcome=` instead of `treat=` / `y=`). A new audit,
   `scripts/registry_example_audit.py` (gated at zero findings by

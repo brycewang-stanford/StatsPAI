@@ -97,7 +97,7 @@ to a published design (`source == "simulated"`), including the
 Callaway–Sant'Anna `mpdta` panel used below; their numbers are not the numbers
 from the original data.
 
-At a glance: 1,255 registered functions across 87 submodules; 405k LOC (core) + 260k LOC (tests). Run `python scripts/registry_stats.py` to reproduce these numbers.
+At a glance: 1,259 registered functions across 87 submodules; 405k LOC (core) + 260k LOC (tests). Run `python scripts/registry_stats.py` to reproduce these numbers.
 
 ---
 
@@ -317,10 +317,10 @@ Result:
   Callaway and Sant'Anna (2021) — aggte[simple]
 ==============================================================================
 
-  ATT:      -0.032977 ***
-  Std. Error:  (0.007765)
-  [95% CI]:    [-0.048195,  -0.017758]
-  P-value:     0.0000
+  ATT:      -0.0330 ***
+  Std. Error:  (0.0078)
+  [95% CI]:    [-0.0482,  -0.0178]
+  P-value:     <0.001
 ...
   Observations:    2,500
 ...
@@ -352,10 +352,10 @@ Result:
   Sharp RD Estimation
 ==============================================================================
 
-  RD Effect:       7.506502 ***
-  Std. Error:  (1.741258)
-  [95% CI]:    [4.093699,  10.919306]
-  P-value:     0.0000
+  RD Effect:       7.51 ***
+  Std. Error:  (1.74)
+  [95% CI]:    [4.09,  10.92]
+  P-value:     <0.001
 
 ------------------------------------------------------------------------------
   Inference
@@ -413,10 +413,10 @@ Result:
   Synthetic Control Method
 ==============================================================================
 
-  ATT:      -19.760529 *
-  Std. Error:  (11.233914)
-  [95% CI]:    [-41.778595,  2.257538]
-  P-value:     0.0769
+  ATT:      -19.8 *
+  Std. Error:  (11.2)
+  [95% CI]:    [-41.8,  2.3]
+  P-value:     0.077
 
 ------------------------------------------------------------------------------
   Detailed Estimates

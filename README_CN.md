@@ -63,7 +63,7 @@ print(sp.datasets.list_datasets()[["name", "design", "source"]])
 
 StatsPAI 内置 14 个可离线加载的数据集。大部分是真实的已发表数据（`source == "bundled CSV"`）：Card (1995) NLSYM 教育回报数据、带 PSID 对照组的 LaLonde/NSW、R `rdrobust` 附带的美国参议院 RD 数据、California Proposition 99、castle-doctrine 面板、NHEFS 等。少数是按已发表设计校准的**确定性模拟复刻**（`source == "simulated"`），包括下面用到的 Callaway–Sant'Anna `mpdta` 面板——它们的数字不是原始数据上的数字。
 
-一眼概览：1,255 个注册函数，分布在 87 个子模块；405k 行核心代码 + 260k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
+一眼概览：1,259 个注册函数，分布在 87 个子模块；405k 行核心代码 + 260k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
 
 ---
 
@@ -237,10 +237,10 @@ print(overall.summary())
   Callaway and Sant'Anna (2021) — aggte[simple]
 ==============================================================================
 
-  ATT:      -0.032977 ***
-  Std. Error:  (0.007765)
-  [95% CI]:    [-0.048195,  -0.017758]
-  P-value:     0.0000
+  ATT:      -0.0330 ***
+  Std. Error:  (0.0078)
+  [95% CI]:    [-0.0482,  -0.0178]
+  P-value:     <0.001
 ...
   Observations:    2,500
 ...
@@ -267,10 +267,10 @@ print(rd.summary())
   Sharp RD Estimation
 ==============================================================================
 
-  RD Effect:       7.506502 ***
-  Std. Error:  (1.741258)
-  [95% CI]:    [4.093699,  10.919306]
-  P-value:     0.0000
+  RD Effect:       7.51 ***
+  Std. Error:  (1.74)
+  [95% CI]:    [4.09,  10.92]
+  P-value:     <0.001
 
 ------------------------------------------------------------------------------
   Inference
@@ -318,10 +318,10 @@ print(sc.summary())
   Synthetic Control Method
 ==============================================================================
 
-  ATT:      -19.760529 *
-  Std. Error:  (11.233914)
-  [95% CI]:    [-41.778595,  2.257538]
-  P-value:     0.0769
+  ATT:      -19.8 *
+  Std. Error:  (11.2)
+  [95% CI]:    [-41.8,  2.3]
+  P-value:     0.077
 
 ------------------------------------------------------------------------------
   Detailed Estimates

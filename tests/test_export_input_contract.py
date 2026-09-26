@@ -90,7 +90,8 @@ class TestOutreg2:
 
 class TestUnusableInputIsLoud:
     def test_etable_names_the_offending_argument(self, models):
-        with pytest.raises(MethodIncompatibility) as excinfo:
+        # TypeError is etable's released contract (since 1.29.0).
+        with pytest.raises(TypeError) as excinfo:
             sp.etable(models[0], "not a model")
         message = str(excinfo.value)
         assert "argument 2" in message
@@ -99,7 +100,7 @@ class TestUnusableInputIsLoud:
         assert "recovery" in message.lower()
 
     def test_all_unusable_arguments_raise_rather_than_empty(self):
-        with pytest.raises(MethodIncompatibility):
+        with pytest.raises(TypeError):
             sp.etable("a", "b")
 
     def test_empty_call_still_rejected(self):
