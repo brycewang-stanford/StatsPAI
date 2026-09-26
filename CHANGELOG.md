@@ -2,6 +2,199 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **`sp.did_had` — heterogeneous-adoption DiD** (de Chaisemartin, Ciccia,
+  D'Haultfœuille & Knau; `dechaisemartin2024nounit`). The design where
+  every group adopts at the same period F with a *heterogeneous dose* and
+  **no group stays untreated**, so the counterfactual cannot come from a
+  control group: it is the local-polynomial intercept at dose zero,
+  supplied by the quasi-untreated. Ports Stata's `did_had` including
+  `effects=` / `placebo=` / `trends_lin=` / `dynamic=`, the
+  quasi-untreated-group diagnostic, and a Yatchew differencing test of
+  linearity (`yatchew1999elementary` — note Stata's own `did_had` help
+  dates this to 1997 while citing the 1999 paper's volume and pages;
+  StatsPAI carries the verified 1999 record). Pinned against Stata 18 MP
+  (`87_did_had.do`) to 1.6e-8 at supplied bandwidths and 9.8e-8
+  end-to-end with selection.
+
+  Note the interval is deliberately **not** symmetric around the
+  estimate: `did_had` pairs a conventional point estimate with a
+  bias-corrected interval centred at `β̂ − B̂`, and StatsPAI follows it.
+
+- **`sp.lprobust_at_point` and the bandwidth-selection family.**
+  Local polynomial regression with robust bias correction — the engine
+  under `did_had` — matching Stata to 9.2e-9 across three kernels ×
+  three bandwidths, plus ports of five of the six `nprobust` selectors:
+
+  | | `sp.` function | vs R |
+  | --- | --- | --- |
+  | `mse-dpi` | `lpbwselect_mse_dpi` | 5.6e-13 |
+  | `mse-rot` | `lpbwselect_mse_rot` | 4.3e-12 |
+  | `imse-dpi` | `lpbwselect_imse_dpi` | 4.5e-13 |
+  | `imse-rot` | `lpbwselect_imse_rot` | 1.6e-12 |
+  | `ce-rot` | `lpbwselect_ce_rot` | 4.2e-13 |
+
+  Stata agrees with R on all five (worst 1.1e-7); its residual is its
+  own — `lpbwselect.ado` integrates the kernel moment constants
+  numerically where these evaluate them in closed form. All five are
+  also pinned **end-to-end through `sp.did_had`** against Stata's
+  `bw_method()`, which is what catches a wiring bug that leaves the
+  selectors themselves correct.
+
+  Three details the reference forces and that are followed rather than
+  harmonized: `imse-rot` grids on **x-quantiles** while `imse-dpi` grids
+  on **equal spacing**; the IMSE `B_h` uses `rB·B1²` with **no**
+  regularization term, unlike the pointwise `mse-dpi` bandwidth, which
+  carries `bwregul·R`; and `ce-dpi` shares `ce-rot`'s `b` exactly,
+  differing only in `h`.
+
+  `mse-rot` and `imse-rot` deliberately report no `b`: R derives one by
+  re-entering the selector on the even `(p − deriv)` branch, which is not
+  ported, and neither consumer needs it — `lprobust` and `did_had` both
+  run at `rho = 1`, so their bias bandwidth is `h`.
+
+  **`ce-dpi` is not ported** (it needs `nprobust`'s ~150-line
+  coverage-error plug-in). Passing it raises `NotImplementedError`
+  naming the gap, so a valid Stata spelling does not read as a typo and
+  is never silently swapped for a different selector.
+
+  Mass points matter here and are handled: with tied doses at the
+  evaluation point — the *normal* case in this design, since true stayers
+  all sit at dose 0 — a plain k-NN variance picked an arbitrary subset of
+  the tie group and got the standard error wrong by 3–6% while the point
+  estimate stayed exact to 2e-9. Tie groups are consumed whole.
+
+- **`ScalarEffect`'s docstring example could not run.** It called
+  `ScalarEffect(...)` bare, with no import, so the example-execution
+  gate failed on it. Now `import statspai as sp` +
+  `sp.ScalarEffect(...)`, matching the house rule that every example is
+  runnable as written.
+
+- `sigmamore=True` on `sp.hausman_test` / `PanelResults.hausman_test`
+  (Stata's `hausman fe re, sigmamore`, pinned to Stata 18).
+- `sp.test` / `sp.lincom` use the full covariance of `sp.panel` results, so
+  joint restrictions -- e.g. the Mundlak test of the unit-mean terms -- work.
+
+### ⚠️ Correctness
+
+- **`sp.did(method="sdid")` and `sp.did_analysis(method="sdid")` estimated
+  staggered panels as a block design, silently.** Both read each unit's first
+  treated period from `treat` and took the earliest one as every treated
+  unit's adoption period, so a later cohort's pre-adoption periods counted as
+  treated: 1.54 against a true effect of 2 on a two-cohort test panel, with
+  no warning. SDID here is the block design, so several adoption periods now
+  raise `MethodIncompatibility` naming them, with the per-cohort fit and the
+  staggered estimators as the way forward; a single-cohort panel returns
+  exactly what it did before. `did_analysis(method="sdid")` also requires
+  `id=`. See MIGRATION.md#sdid-staggered-refused.
+
+- **`sp.optimal_design` reported every sample size twice as large as needed.**
+  The individual and stratified branches returned the total sample of the
+  two-sample power formula as `n_per_arm` (and doubled it again for
+  `n_total`); the cluster branch doubled the cluster count the same way; the
+  `mde=None` branch ignored the sample size; the cost-optimal cluster size was
+  never used. Sizes now follow the formula (documented in the docstring) and
+  agree with `sp.power` / `sp.power_cluster_rct`; solving for the MDE needs
+  `n=` or `n_clusters=`. See MIGRATION.md#design-and-diagnostic-fixes.
+- **Hausman test.** `sp.hausman_test` estimated the FE / RE variances itself
+  and disagreed with Stata by up to 50x on the statistic; it now shares the
+  `PanelResults.hausman_test` implementation, which matches Stata 18
+  `hausman fe re` to 1e-6 (`tests/reference_parity/test_hausman_stata_parity.py`).
+  Both clamped a negative statistic to 0 and recommended RE with p = 1 -- on
+  panels where the unit effect loads on the regressors, i.e. exactly where FE is
+  needed; a negative statistic is now `recommendation="inconclusive"`,
+  `pvalue=nan`, with an `AssumptionWarning`.
+- **`sp.compare_estimators` dropped methods silently.** `matching` (in the
+  default list) and `dml` called their estimators with keywords they do not
+  take; the per-method `try` turned the error into a warning and the row
+  vanished. All seven methods now run, and the IPW bootstrap is seeded so the
+  table is reproducible.
+- **`sp.estat` IV tests never ran.** `endogenous` / `overid` looked up
+  `model_info` keys no IV estimator writes, and `estat(result, "all")` did not
+  recognise `sp.ivreg`'s `"IV-2SLS"` label; they now read the fit's Wu-Hausman
+  F and Sargan / Hansen J statistics.
+
+### Changed
+
+- `scripts/signature_house_style.py` counts a legacy-named parameter as
+  converged when the function accepts the canonical spelling through
+  `@accepts_aliases`, and the ratchet baseline was lowered to the observed
+  counts (legacy sites 376 -> 69). Signatures keep the reference package's
+  parameter names by decision -- see `docs/guides/grammar.md`.
+- **`sp.regtable` / `sp.esttab` / `sp.modelsummary` tabulate Tobit and other
+  limited-dependent-variable fits term by term.** They collapsed these
+  `CausalResult`s to the headline estimand: one row named `beta_x1`, with the
+  intercept (`const`) and `sigma` missing. `sp.etable` on non-pyfixest results
+  now renders through `sp.regtable` (same `"coef*** (se)"` layout), so every
+  table entry point reports identical numbers from one formatter; results
+  whose standard errors are bare arrays no longer break `sp.regtable`.
+- `sp.dgp_bunching` generated no bunching (it scaled incomes above the kink
+  without moving anyone onto it), so `sp.bunching` found nothing on the
+  package's own demonstration data. It now follows the iso-elastic kink model
+  (new `t0=` / `t1=` marginal tax rates; `df.attrs` records `dt`, the bunching
+  interval and the number of bunchers).
+- About 120 docstring examples across 91 modules failed under
+  `pytest --doctest-modules` (undefined `sp` / `df`, unchecked or stale output,
+  references to names that do not exist such as `sp.synth.bsts_synth` and
+  `statspai.compat.SklearnDID`); they are now self-contained and checked.
+- **One precision system for every exit of a result object.**
+  `CausalResult.to_latex()` was pinned at `%.4f` with no precision argument
+  and `.summary()` printed six decimals, while the other exporters used the
+  adaptive default -- the same ATT read `0.3326`, `0.333` and `0.332635`.
+  Both now accept `fmt=` / `digits=` and default to `"auto"`; `.summary()`
+  floors p-values at `<0.001`. The generic `Field | Value` table used `%.4g`
+  in LaTeX and `%.6g` elsewhere; all three display surfaces now share the
+  adaptive formatter (`538,582`, not `5.386e+05`). `to_dict()` /
+  `to_excel()` keep full precision. Display only -- no estimate changes. See
+  MIGRATION.md#result-display-precision.
+- **`regtable(stats_fmt=...)` defaults to `"stat"` instead of `"%.3f"`:**
+  three decimals, given up only as the integer part grows past six figures,
+  so R2 still reads `0.090` and an F of 538582.398 reads `538,582`. Pass
+  `stats_fmt="%.3f"` for the old rendering.
+
+### Fixed
+
+- **Printing a large `sp.forest_group_effects` or `best_linear_projection`
+  table from a fixed-effects forest no longer raises.** Both put their
+  covariance matrix in `DataFrame.attrs["vcov"]`; pandas compares attrs with
+  `==` when it concatenates or truncates a frame for display, and a raw array
+  made that `ValueError: The truth value of an array ... is ambiguous`. The
+  matrix is now a read-only array whose `==` returns one bool; indexing, `@`
+  and ufuncs are unchanged (`np.equal` still compares elementwise). No
+  numbers change.
+- **`CausalResult.to_latex()` emitted LaTeX that does not compile.** Cells,
+  headers and notes went out unescaped: a matching result's
+  `propensity_score` row and `mean_treated` / `mean_control` headers halt
+  `pdflatex` on the bare `_`, and the star legend's `p<0.1` typesets as
+  `p¡0.1` under the default OT1 encoding. Escaping now runs over cells,
+  headers and notes (a caller-supplied `caption=` still passes through
+  verbatim). `tests/test_latex_escaping.py` compiles the output with a real
+  TeX engine when one is installed.
+- **Five copies of the LaTeX escaper had drifted** (`output/estimates.py`,
+  `synth/exports.py`, `synth/report.py`, `did/report.py`,
+  `_result_serialize.py`); two omitted `\`, none covered `<` / `>`. All now
+  delegate to `output._format.latex_escape`.
+- **The generic `Field | Value` table (`ResultProtocolMixin.to_latex`) had
+  three LaTeX faults:** escaping covered only `_ % &`; booleans rendered as
+  the amsmath macro `\text{True}` (undefined without amsmath); and the
+  generated caption (the class name) was raw. Multi-line values are
+  flattened and truncated to 120 characters.
+- **The star legend printed `p<0.00`** for `star_levels=(0.05, 0.01,
+  0.001)`; thresholds now widen only as far as they need (`p<0.001`).
+- **`sp.etable([m1, m2])` returned an empty table, silently.** A lone list is
+  unwrapped for `etable` / `modelsummary` / `esttab` / `outreg2`, and the
+  `TypeError` for an argument that cannot be tabulated now names its
+  position and type and says how to recover.
+- **The registry example for `sp.match` could not run** (`treatment=` /
+  `outcome=` instead of `treat=` / `y=`). A new audit,
+  `scripts/registry_example_audit.py` (gated at zero findings by
+  `tests/test_registry_example_audit.py`), parses every registry `example=`
+  and checks its keywords against the real signature, through
+  `@accepts_aliases`.
+
 ## [1.32.0] — 2026-09-27
 
 ### Added

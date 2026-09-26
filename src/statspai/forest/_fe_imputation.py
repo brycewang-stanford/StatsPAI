@@ -65,6 +65,7 @@ from ..exceptions import (
     MethodIncompatibility,
     NumericalInstability,
 )
+from ..utils._attrs import attrs_array
 
 _VARIANCES = ("forest", "bjs")
 
@@ -810,7 +811,7 @@ def best_linear_projection_fe(
         f"OLS of imputation scores on covariates over {rows.size} treated "
         f"cells; {label}"
     )
-    out.attrs["vcov"] = V
+    out.attrs["vcov"] = attrs_array(V)
     return out
 
 
@@ -1103,7 +1104,7 @@ def group_effects(
             tab[f"{col}_pct"] = 100.0 * np.expm1(tab[col].to_numpy())
     tab.index.name = "group"
     tab.attrs["method"] = method
-    tab.attrs["vcov"] = V
+    tab.attrs["vcov"] = attrs_array(V)
     tab.attrs["tests"] = _group_tests(tab["estimate"].to_numpy(), V, labels, alpha)
     tab.attrs["estimand"] = "ATT (treated cells)" if fe else "ATE (all rows)"
     if fe:

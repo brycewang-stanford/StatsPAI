@@ -125,7 +125,9 @@ class TextTreatmentResult(CausalResult):
         self.embedding_dim = int(embedding_dim)
         self.embedder_name = str(embedder_name)
 
-    def summary(
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def summary(  # type: ignore[override]
         self,
         alpha: Optional[float] = None,
     ) -> str:  # pragma: no cover (cosmetic)
@@ -197,7 +199,10 @@ def text_treatment_effect(
     ... })
     >>> r = sp.text_treatment_effect(df, text_col="text", outcome="outcome",
     ...                              treatment="treatment", n_components=2)
-    >>> r.estimate
+    >>> r.estimand, r.embedding_dim
+    ('ATE', 2)
+    >>> bool(np.isfinite(r.estimate) and r.se > 0)
+    True
     """
     for col in (text_col, outcome, treatment):
         if col not in data.columns:

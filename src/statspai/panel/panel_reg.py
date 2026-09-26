@@ -195,17 +195,29 @@ class PanelResults(EconometricResults):
     # Hausman test: FE vs RE
     # ------------------------------------------------------------------
 
-    def hausman_test(self, alpha: float = 0.05) -> Dict[str, Any]:
+    def hausman_test(
+        self, alpha: float = 0.05, sigmamore: bool = False
+    ) -> Dict[str, Any]:
         """
         Hausman (1978) specification test: FE vs RE.
 
         Under H0 (RE consistent), both FE and RE are consistent but RE
         is efficient. Under H1, only FE is consistent.
 
+        Parameters
+        ----------
+        alpha : float, default 0.05
+        sigmamore : bool, default False
+            Stata's ``hausman fe re, sigmamore``: base both covariance
+            matrices on the RE disturbance variance. Use it when the
+            classical statistic is negative (``recommendation ==
+            "inconclusive"``).
+
         Returns
         -------
         dict
-            'statistic', 'df', 'pvalue', 'recommendation', 'interpretation'
+            'statistic', 'df', 'pvalue', 'recommendation' ('FE', 'RE' or
+            'inconclusive'), 'psd_violation', 'sigmamore', 'interpretation'
         """
         panel_data, dep_var, indep_vars, entity, time = self._stored_design(
             "Hausman test"
@@ -219,6 +231,7 @@ class PanelResults(EconometricResults):
             entity,
             time,
             alpha,
+            sigmamore=sigmamore,
         )
 
     # ------------------------------------------------------------------
@@ -807,11 +820,23 @@ def _dispatch_panel_impl(
 
     Examples
     --------
+    >>> import numpy as np, pandas as pd
     >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n_id, n_t = 60, 6
+    >>> ids = np.repeat(np.arange(n_id), n_t)
+    >>> alpha_i = rng.normal(size=n_id)[ids]
+    >>> edu = rng.normal(12, 2, n_id * n_t) + alpha_i
+    >>> exp = rng.normal(10, 3, n_id * n_t)
+    >>> wage = (1.0 + 0.08 * edu + 0.05 * exp + alpha_i
+    ...         + rng.normal(0, 0.5, n_id * n_t))
+    >>> df = pd.DataFrame({"id": ids, "year": np.tile(np.arange(2010, 2016), n_id),
+    ...                    "wage": wage, "edu": edu, "exp": exp})
     >>>
     >>> # Fixed Effects
     >>> r = sp.panel(df, "wage ~ edu + exp", entity='id', time='year')
-    >>> print(r.summary())
+    >>> r.params.round(2).to_dict()
+    {'edu': 0.08, 'exp': 0.05}
     >>>
     >>> # Two-way FE (entity + time)
     >>> r = sp.panel(df, "wage ~ edu + exp", entity='id', time='year',
@@ -822,11 +847,13 @@ def _dispatch_panel_impl(
     ...              method='mundlak')
     >>>
     >>> # Arellano-Bond dynamic panel
-    >>> r = sp.panel(df, "y ~ x1 + x2", entity='id', time='year',
+    >>> r = sp.panel(df, "wage ~ edu + exp", entity='id', time='year',
     ...              method='ab', lags=1)
+    >>> list(r.params.index)
+    ['L1.wage', 'edu', 'exp']
     >>>
     >>> # System GMM (Blundell-Bond)
-    >>> r = sp.panel(df, "y ~ x1 + x2", entity='id', time='year',
+    >>> r = sp.panel(df, "wage ~ edu + exp", entity='id', time='year',
     ...              method='system', lags=1, twostep=True)
     >>>
     >>> # Two-way clustered SE
@@ -834,10 +861,12 @@ def _dispatch_panel_impl(
     ...              method='fe', cluster='twoway')
     >>>
     >>> # Diagnostics on result
-    >>> r.hausman_test()       # FE vs RE
-    >>> r.bp_lm_test()         # Pooled vs RE
-    >>> r.f_test_effects()     # Joint significance of FE
-    >>> r.compare('re')        # Side-by-side comparison
+    >>> haus = r.hausman_test()     # FE vs RE
+    >>> lm = r.bp_lm_test()         # Pooled vs RE
+    >>> ftest = r.f_test_effects()  # Joint significance of FE
+    >>> sorted(ftest)[:3]
+    ['df1', 'df2', 'interpretation']
+    >>> cmp = r.compare('re')       # Side-by-side comparison
 
     See Also
     --------

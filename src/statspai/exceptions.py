@@ -29,14 +29,39 @@ Each instance exposes:
 Agent-oriented example
 ----------------------
 
->>> from statspai.exceptions import AssumptionViolation
+>>> import numpy as np
+>>> import pandas as pd
+>>> import statspai as sp
+>>> from statspai.exceptions import MethodIncompatibility, StatsPAIError
+>>> rng = np.random.default_rng(0)
+>>> x = rng.uniform(-1, 1, 200)
+>>> df = pd.DataFrame({"x": x, "y": 0.5 * (x >= 0) + rng.normal(size=200)})
 >>> try:
-...     result = sp.did(df, y="y", treat="t", time="p")
-... except AssumptionViolation as e:
-...     print(e.recovery_hint)           # "Run sp.pretrends_test(...)"
-...     print(e.diagnostics)              # {"test": "pretrends", "pvalue": 0.003}
-...     for alt in e.alternative_functions:
-...         print(alt)                    # "sp.callaway_santanna", ...
+...     result = sp.rd(df, y="y", x="x", method="not_a_method")
+... except StatsPAIError as e:
+...     err = e
+>>> isinstance(err, MethodIncompatibility), isinstance(err, ValueError)
+(True, True)
+>>> print(err.recovery_hint)
+Choose one of the supported RD method strings.
+>>> err.diagnostics["method"]
+'not_a_method'
+>>> err.alternative_functions[:2]
+['sp.rd', 'sp.rdrobust']
+>>> sorted(err.to_dict())[:3]
+['alternative_functions', 'class', 'diagnostics']
+
+Raising a structured error from your own code:
+
+>>> from statspai.exceptions import AssumptionViolation
+>>> e = AssumptionViolation(
+...     "Pre-trends reject parallel trends",
+...     recovery_hint="Run sp.pretrends_test(...) or use sp.honest_did",
+...     diagnostics={"test": "pretrends", "pvalue": 0.003},
+...     alternative_functions=["sp.callaway_santanna"],
+... )
+>>> e.to_dict()["class"], e.diagnostics["pvalue"]
+('AssumptionViolation', 0.003)
 
 Note
 ----

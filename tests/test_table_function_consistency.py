@@ -63,6 +63,28 @@ def _quiet(fn, *args, **kwargs):
         return fn(*args, **kwargs)
 
 
+def test_limited_dependent_results_are_tabulated_term_by_term():
+    """Tobit is a CausalResult with a full coefficient vector.
+
+    regtable used to collapse it to the headline estimand: one row renamed
+    ``beta_x1``, with ``const`` and ``sigma`` missing.
+    """
+    rng = np.random.default_rng(0)
+    df = pd.DataFrame({"x1": rng.normal(size=400)})
+    df["y"] = np.maximum(0.5 + df.x1 + rng.normal(size=400), 0)
+    fit = _quiet(sp.tobit, df, y="y", x=["x1"], ll=0)
+    table = _quiet(sp.regtable, fit).to_dataframe()
+    labels = [i for i in table.index if i]
+    assert labels[:3] == ["const", "x1", "sigma"]
+    assert "beta_x1" not in table.index
+    se_row = table.iloc[list(table.index).index("sigma") + 1, 0]
+    assert se_row == f"({float(fit.std_errors['sigma']):.3f})"
+    etable = _quiet(sp.etable, fit)
+    assert list(etable.index) == ["const", "x1", "sigma"]
+    coef = table.loc["x1"].iloc[0]
+    assert etable.loc["x1", "(1)"].startswith(coef)
+
+
 def test_all_table_paths_agree(models, tmp_path):
     reference = _from_long_frame(_quiet(sp.regtable, *models).to_dataframe())
     assert reference, "regtable produced no coefficient rows"

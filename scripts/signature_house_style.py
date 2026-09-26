@@ -122,6 +122,7 @@ def collect() -> Dict[str, Any]:
 
     violations: List[Dict[str, Any]] = []
     acknowledged: List[Dict[str, Any]] = []
+    aliased: List[Dict[str, Any]] = []
     # theme -> {"canonical": n, "legacy": n} over participating functions.
     participation: Dict[str, Counter] = defaultdict(Counter)
     robust_kinds: Counter = Counter()
@@ -137,6 +138,9 @@ def collect() -> Dict[str, Any]:
         kind = _robust_default_kind(obj)
         if kind is not None:
             robust_kinds[kind] += 1
+        # Canonical spellings the function accepts at call time and forwards
+        # to a legacy-named parameter (``@accepts_aliases(vce="robust")``).
+        accepted = getattr(obj, "__statspai_aliases__", {}) or {}
 
         for param in params:
             theme = spelling_theme.get(param)
@@ -149,6 +153,13 @@ def collect() -> Dict[str, Any]:
                 continue
             if param in canonical_names:
                 participation[theme]["canonical"] += 1
+            elif accepted.get(alias_to_canonical.get(param, "")) == param:
+                # The signature keeps the reference package's spelling (R
+                # ``did``'s ``i``, Stata's ``robust``) but callers can already
+                # write the canonical one; the lint measures what users can
+                # type, so this site is converged, not drift.
+                participation[theme]["aliased"] += 1
+                aliased.append({"function": name, "param": param, "theme": theme})
             else:
                 participation[theme]["legacy"] += 1
                 violations.append(
@@ -168,10 +179,12 @@ def collect() -> Dict[str, Any]:
     coverage = {}
     for theme in hs.THEMES:
         counts = participation.get(theme, Counter())
-        total = counts["canonical"] + counts["legacy"]
-        pct = (counts["canonical"] / total * 100.0) if total else 100.0
+        total = counts["canonical"] + counts["aliased"] + counts["legacy"]
+        usable = counts["canonical"] + counts["aliased"]
+        pct = (usable / total * 100.0) if total else 100.0
         coverage[theme] = {
             "canonical": counts["canonical"],
+            "aliased": counts["aliased"],
             "legacy": counts["legacy"],
             "total": total,
             "canonical_pct": round(pct, 1),
@@ -182,6 +195,7 @@ def collect() -> Dict[str, Any]:
             "public_callables": len(callables),
             "introspected": introspected,
             "violations": len(violations),
+            "aliased": len(aliased),
             "acknowledged_false_friends": len(acknowledged),
         },
         "by_theme": dict(sorted(by_theme.items())),
@@ -261,14 +275,16 @@ def render(report: Dict[str, Any]) -> str:
     lines.append(f"Public callables          : {t['public_callables']}")
     lines.append(f"  introspected w/ params  : {t['introspected']}")
     lines.append(f"Legacy-spelling sites     : {t['violations']}")
+    lines.append(f"Accepted via alias        : {t['aliased']}")
     lines.append(f"Acknowledged false friends: {t['acknowledged_false_friends']}")
     lines.append("")
-    lines.append("Canonical coverage by theme")
+    lines.append("Canonical coverage by theme (signature or alias)")
     lines.append("-" * 50)
     for theme, cov in report["coverage"].items():
         lines.append(
-            f"  {theme:10s}: {cov['canonical_pct']:5.1f}% canonical "
-            f"({cov['canonical']}/{cov['total']}; {cov['legacy']} legacy)"
+            f"  {theme:10s}: {cov['canonical_pct']:5.1f}% "
+            f"({cov['canonical']} signature + {cov['aliased']} alias of "
+            f"{cov['total']}; {cov['legacy']} legacy)"
         )
     lines.append("")
     lines.append("Legacy-spelling sites by theme")

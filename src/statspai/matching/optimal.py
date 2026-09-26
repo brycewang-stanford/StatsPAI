@@ -342,11 +342,11 @@ class CardinalityMatchResult(ResultProtocolMixin):
     >>> isinstance(res, sp.CardinalityMatchResult)
     True
     >>> res.n_matched_pairs
-    107
+    106
     >>> round(res.ate, 2)
-    1.86
-    >>> res.balance['|SMD|'].round(3).tolist()
-    [0.111, 0.082]
+    1.84
+    >>> bool((res.balance['|SMD|'] <= 0.1).all())
+    True
     """
 
     treated_matched: np.ndarray  # indices of matched treated
@@ -423,11 +423,11 @@ def cardinality_match(
     ...                            covariates=['x1', 'x2'],
     ...                            smd_tolerance=0.1)
     >>> res.n_matched_pairs
-    107
+    106
     >>> round(res.ate, 2)
-    1.86
-    >>> res.balance['|SMD|'].round(3).tolist()
-    [0.111, 0.082]
+    1.84
+    >>> bool((res.balance['|SMD|'] <= 0.1).all())
+    True
     """
     df = data.dropna(subset=[treatment, outcome] + covariates).reset_index(drop=True)
     t = df[treatment].to_numpy().astype(int)

@@ -27,7 +27,8 @@ Example
 >>> df = sp.dgp_did(n_units=200, n_periods=10, staggered=True, seed=0)
 >>> summary = sp.did_summary(df, y='y', time='time',
 ...                          first_treat='first_treat', group='unit')
->>> print(summary.detail)
+>>> summary.detail["method"].tolist()
+['cs', 'sa', 'bjs', 'etwfe', 'stacked']
 """
 
 from typing import Any, Callable, Dict, List, Optional, Union
@@ -69,7 +70,9 @@ class DIDSummaryResult(CausalResult):
 
     _DID_SUMMARY_MARKER: bool = True
 
-    def summary(self, alpha: Optional[float] = None) -> str:  # noqa: ARG002
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def summary(self, alpha: Optional[float] = None) -> str:  # type: ignore[override]  # noqa: ARG002
         mi = self.model_info or {}
         fit = mi.get("methods_fit", [])
         failed = mi.get("methods_failed", {})
@@ -382,8 +385,11 @@ def did_summary(
     >>> df = sp.dgp_did(n_units=200, n_periods=10, staggered=True, seed=0)
     >>> out = sp.did_summary(df, y='y', time='time',
     ...                      first_treat='first_treat', group='unit')
-    >>> out.summary()
-    >>> print(out.detail[['method', 'estimate', 'se', 'pvalue']])
+    >>> text = out.summary()  # formatted comparison table (str)
+    >>> out.detail["method"].tolist()
+    ['cs', 'sa', 'bjs', 'etwfe', 'stacked']
+    >>> list(out.detail.columns[:5])
+    ['method', 'estimator', 'estimate', 'se', 'pvalue']
     """
     if methods in ("auto", "all"):
         methods_list = list(_DEFAULT_METHODS)

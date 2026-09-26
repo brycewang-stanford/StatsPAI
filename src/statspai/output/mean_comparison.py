@@ -24,8 +24,9 @@ from scipy import stats as sp_stats
 from ._format import AUTO
 from ._format import fmt_val as _fmt_val
 from ._format import format_stars as _format_stars
+from ._format import latex_escape as _latex_escape
 from ._format import resolve_digits
-from .estimates import _html_escape, _latex_escape
+from .estimates import _html_escape
 
 __all__ = ["MeanComparisonResult", "mean_comparison"]
 

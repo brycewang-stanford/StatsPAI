@@ -16,6 +16,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from ..exceptions import MethodIncompatibility
+
 # ---------------------------------------------------------------------------
 # Difference-in-Differences
 # ---------------------------------------------------------------------------
@@ -809,8 +811,19 @@ def dgp_bunching(
     kink_point: float = 50000.0,
     elasticity: float = 0.3,
     seed: int | None = None,
+    t0: float = 0.0,
+    t1: float = 0.2,
 ) -> pd.DataFrame:
-    """Generate bunching data around a kink point.
+    """Generate earnings that bunch at a kink in the marginal tax schedule.
+
+    Counterfactual earnings ``z*`` are those under the flat rate ``t0``. At the
+    kink the marginal rate rises to ``t1``; with iso-elastic earnings
+    ``z = z* ((1 - t) / (1 - t0))^elasticity``:
+
+    * ``z* <= kink_point`` -- unaffected;
+    * ``z* >= kink_point * ((1 - t0) / (1 - t1))^elasticity`` -- earn
+      ``z* ((1 - t1) / (1 - t0))^elasticity``;
+    * in between -- locate exactly at ``kink_point`` (the bunchers).
 
     Parameters
     ----------
@@ -819,34 +832,50 @@ def dgp_bunching(
     kink_point : float
         Location of the kink (e.g., tax threshold).
     elasticity : float
-        Behavioral elasticity governing bunching intensity.
+        Earnings elasticity with respect to the net-of-tax rate.
     seed : int or None
         Random seed.
+    t0, t1 : float
+        Marginal tax rate below and above the kink (``t0 < t1 < 1``).
 
     Returns
     -------
     pd.DataFrame
-        Columns: ``income``, ``counterfactual_income``.
+        Columns: ``income``, ``counterfactual_income``. ``df.attrs`` holds
+        ``true_effect`` (the elasticity), ``dt`` (``t1 - t0``, the argument
+        :func:`sp.bunching` takes), ``bunching_upper`` (the top of the
+        counterfactual interval that bunches) and ``n_bunchers``.
 
     Examples
     --------
     >>> import statspai as sp
     >>> df = sp.dgp_bunching(n=5000, kink_point=50000, elasticity=0.2, seed=0)
-    >>> df.attrs['true_effect']  # elasticity
-    0.2
-    >>> bool((df['income'] <= df['counterfactual_income'] + 1e-9).all())  # bunched down
+    >>> df.attrs['true_effect'], df.attrs['dt']
+    (0.2, 0.2)
+    >>> bool((df['income'] <= df['counterfactual_income'] + 1e-9).all())
+    True
+    >>> bool((df['income'] == 50000).sum() == df.attrs['n_bunchers'] > 0)
     True
     """
+    if not 0 <= t0 < t1 < 1:
+        raise MethodIncompatibility(f"need 0 <= t0 < t1 < 1, got t0={t0}, t1={t1}")
+    if elasticity < 0:
+        raise MethodIncompatibility(
+            f"elasticity must be non-negative, got {elasticity}"
+        )
     rng = np.random.default_rng(seed)
 
-    # Counterfactual income from log-normal centred near the kink
+    # Counterfactual (flat-tax) earnings: log-normal centred near the kink.
     log_mean = np.log(kink_point) - 0.5 * 0.3**2
     z_star = rng.lognormal(mean=log_mean, sigma=0.3, size=n)
 
-    # Behavioural response: those above the kink reduce income
+    response = ((1 - t1) / (1 - t0)) ** elasticity
+    upper = kink_point / response
     income = z_star.copy()
-    above = z_star > kink_point
-    income[above] = kink_point + (z_star[above] - kink_point) * (1 - elasticity)
+    bunch = (z_star > kink_point) & (z_star < upper)
+    income[bunch] = kink_point
+    above = z_star >= upper
+    income[above] = z_star[above] * response
 
     df = pd.DataFrame(
         {
@@ -855,6 +884,9 @@ def dgp_bunching(
         }
     )
     df.attrs["true_effect"] = elasticity
+    df.attrs["dt"] = round(t1 - t0, 12)
+    df.attrs["bunching_upper"] = float(upper)
+    df.attrs["n_bunchers"] = int(bunch.sum())
     return df
 
 

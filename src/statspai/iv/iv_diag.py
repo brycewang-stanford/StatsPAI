@@ -409,7 +409,9 @@ class IVDiagResult(ResultProtocolMixin):
         """Return all numeric diagnostics as a flat dict (jsonable)."""
         return dict(self.diagnostics)
 
-    def to_latex(
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def to_latex(  # type: ignore[override]
         self,
         caption: Optional[str] = None,
         label: Optional[str] = None,
@@ -440,7 +442,9 @@ class IVDiagResult(ResultProtocolMixin):
         """Write the summary table to ``path`` (one sheet)."""
         self.to_frame().to_excel(path, index=False, sheet_name="iv_diag")
 
-    def to_word(self, path: str, title: Optional[str] = None) -> None:
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def to_word(self, path: str, title: Optional[str] = None) -> None:  # type: ignore[override]
         """Write the summary table to a .docx file (requires python-docx)."""
         try:
             from docx import Document

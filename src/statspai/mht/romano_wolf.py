@@ -714,7 +714,7 @@ def adjust_pvalues(
     --------
     >>> import statspai as sp
     >>> sp.adjust_pvalues([0.01, 0.04, 0.03, 0.20], method='holm')
-    array([0.04, 0.12, 0.09, 0.20])
+    array([0.04, 0.09, 0.09, 0.2 ])
     """
     _dispatch = {
         "bonferroni": bonferroni,

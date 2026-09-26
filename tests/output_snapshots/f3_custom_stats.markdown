@@ -13,4 +13,4 @@
 | adj_r_squared |  |  |
 
 *Standard errors in parentheses*
-**** p<0.00, ** p<0.01, * p<0.05*
+**** p<0.001, ** p<0.01, * p<0.05*

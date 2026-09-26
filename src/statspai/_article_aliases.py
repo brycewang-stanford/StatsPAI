@@ -359,6 +359,8 @@ def psm(
     >>> result = sp.psm(df, y='log_wage', d='union',
     ...                 X=['education', 'experience', 'tenure'],
     ...                 method='stratify')
+    >>> round(float(result.estimate), 3)
+    0.192
     """
     from .matching.match import match as _match
 

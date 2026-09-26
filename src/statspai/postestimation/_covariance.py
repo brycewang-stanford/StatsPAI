@@ -80,6 +80,11 @@ def coefficient_covariance(result: Any) -> tuple[Optional[np.ndarray], np.ndarra
     inner = getattr(result, "_results", None)
     if inner is not None:
         candidates.append(getattr(inner, "var_cov", None))
+    # sp.panel results wrap a linearmodels fit whose ``cov`` is the matrix
+    # behind the reported (possibly clustered) standard errors.
+    linearmodels_fit = getattr(result, "_lm_result", None)
+    if linearmodels_fit is not None:
+        candidates.append(getattr(linearmodels_fit, "cov", None))
     candidates.append(getattr(result, "vcov", None))
 
     for cand in candidates:

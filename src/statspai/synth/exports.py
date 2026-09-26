@@ -564,23 +564,14 @@ def synth_to_latex(
 
 
 def _latex_escape(text: str) -> str:
-    """Minimal LaTeX escape for table cells / labels."""
-    repl = {
-        "&": "\\&",
-        "%": "\\%",
-        "$": "\\$",
-        "#": "\\#",
-        "_": "\\_",
-        "{": "\\{",
-        "}": "\\}",
-        "~": "\\textasciitilde{}",
-        "^": "\\textasciicircum{}",
-        "\\": "\\textbackslash{}",
-    }
-    out = []
-    for ch in str(text):
-        out.append(repl.get(ch, ch))
-    return "".join(out)
+    """Escape LaTeX specials in a table cell / label.
+
+    Delegates to the package-wide implementation in ``output._format`` so
+    the synth exporters cannot drift from the rest of the package.
+    """
+    from ..output._format import latex_escape
+
+    return latex_escape(text)
 
 
 # ====================================================================== #

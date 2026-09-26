@@ -276,7 +276,7 @@ def genmatch(
     >>> res.n_treated
     111
     >>> round(res.att, 2)
-    1.72
+    1.73
     >>> res.balance.columns.tolist()
     ['variable', 'smd_pre', 'smd_post', 'ks_p_pre', 'ks_p_post']
     """

@@ -956,31 +956,11 @@ def _df_to_booktabs(df: pd.DataFrame, float_format: str = "%.4f") -> str:
             aligns.append("l")
     col_spec = "".join(aligns)
 
-    # Single-pass LaTeX escape.  Sequential replace() calls are unsafe
-    # because `\` → `\textbackslash{}` inserts `{` and `}` that later
-    # passes would re-escape, producing broken output like
-    # `\textbackslash\{\}` instead of `\textbackslash{}`.  Using re.sub
-    # with a lookup table guarantees each input character is escaped
-    # exactly once.
-    import re as _re
-
-    _LATEX_ESCAPES = {
-        "\\": r"\textbackslash{}",
-        "~": r"\textasciitilde{}",
-        "^": r"\textasciicircum{}",
-        "&": r"\&",
-        "%": r"\%",
-        "$": r"\$",
-        "#": r"\#",
-        "_": r"\_",
-        "{": r"\{",
-        "}": r"\}",
-    }
-    _LATEX_RE = _re.compile(r"[\\~^&%$#_{}]")
-
-    def _escape(v: object) -> str:
-        text = "" if (isinstance(v, float) and pd.isna(v)) else str(v)
-        return _LATEX_RE.sub(lambda m: _LATEX_ESCAPES[m.group(0)], text)
+    # This single-pass escape is now the package-wide one in
+    # ``output._format`` — it also covers "<" / ">", which matters because
+    # p-value cells read "<0.001" and a bare "<" typesets as an inverted
+    # exclamation mark under OT1.
+    from ..output._format import latex_escape as _escape
 
     header = " & ".join(_escape(c) for c in formatted.columns) + " \\\\"
     body_rows = [
@@ -1125,8 +1105,12 @@ def cs_report(
     ...         y = 0.3 * t + (2.0 if post else 0.0) + (unit % 5) + rng.normal()
     ...         rows.append((unit, t, g, y))
     >>> df = pd.DataFrame(rows, columns=["id", "t", "g", "y"])
-    >>> rpt = sp.cs_report(df, y="y", g="g", t="t", i="id", random_state=42)
-    >>> rpt.dynamic           # event-study DataFrame w/ uniform bands
+    >>> rpt = sp.cs_report(df, y="y", g="g", t="t", i="id",
+    ...                    n_boot=199, random_state=42, verbose=False)
+    >>> type(rpt).__name__
+    'CSReport'
+    >>> rpt.dynamic["relative_time"].tolist()  # event study w/ uniform bands
+    [-4, -3, -2, 0, 1, 2, 3]
     """
     if isinstance(data_or_result, CausalResult):
         cs = data_or_result

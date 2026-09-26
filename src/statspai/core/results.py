@@ -4,7 +4,7 @@ Unified results class for all econometric models
 
 import warnings
 from html import escape as _html_escape
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -1686,6 +1686,27 @@ def _resolve_digits(fmt: Any, digits: Optional[int], *, default: Any) -> Any:
     return resolve_digits(fmt, digits, default=default)
 
 
+def _format_pair(*values: Any, fmt: Any) -> Tuple[str, ...]:
+    """Render related scalars at one shared precision (lazy import)."""
+    from ..output._format import format_pair
+
+    return format_pair(*values, fmt=fmt)
+
+
+def _latex_escape(value: Any) -> str:
+    """Escape LaTeX specials in a data cell (lazy import)."""
+    from ..output._format import latex_escape
+
+    return latex_escape(value)
+
+
+def _format_pvalue(value: Any) -> str:
+    """Render a p-value, flooring at ``<0.001`` (lazy import)."""
+    from ..output._format import format_pvalue
+
+    return format_pvalue(value)
+
+
 _AUTO = "auto"
 
 
@@ -3207,7 +3228,12 @@ class CausalResult:
     # Summary
     # ------------------------------------------------------------------
 
-    def summary(self, alpha: Optional[float] = None) -> str:
+    def summary(
+        self,
+        alpha: Optional[float] = None,
+        digits: Optional[int] = None,
+        fmt: Union[str, int, None] = None,
+    ) -> str:
         """
         Generate a formatted text summary of the causal estimation results.
 
@@ -3215,6 +3241,14 @@ class CausalResult:
         ----------
         alpha : float, optional
             Override significance level for display.
+        digits : int, optional
+            Decimal places. Shorthand for ``fmt="%.3f"``; passing both raises.
+        fmt : str or int, optional
+            Numeric format, defaulting to ``"auto"`` — the same precision
+            the export methods use, so what you read on screen is what
+            :meth:`to_latex` / :meth:`to_markdown` will write. Previously
+            this block was pinned at six decimals and could not agree with
+            any exported table.
 
         Returns
         -------
@@ -3222,6 +3256,7 @@ class CausalResult:
         """
         alpha = self.alpha if alpha is None else alpha
         alpha = _validate_probability(alpha, name="alpha")
+        fmt = _resolve_digits(fmt, digits, default=_AUTO)
         lines: List[str] = []
 
         lines.append("=" * 78)
@@ -3230,11 +3265,17 @@ class CausalResult:
         lines.append("")
 
         stars = self._stars(self.pvalue)
-        lines.append(f"  {self.estimand}:      {self.estimate: .6f} {stars}")
-        lines.append(f"  Std. Error:  ({self.se:.6f})")
+        # One precision for the estimate, its SE and the interval it implies.
+        point, se, lo, hi = _format_pair(
+            self.estimate, self.se, self.ci[0], self.ci[1], fmt=fmt
+        )
+        # Keep the sign column that " .6f" used to provide.
+        signed = point if point.startswith("-") else f" {point}"
+        lines.append(f"  {self.estimand}:      {signed} {stars}")
+        lines.append(f"  Std. Error:  ({se})")
         pct = int(100 * (1 - alpha))
-        lines.append(f"  [{pct}% CI]:    [{self.ci[0]:.6f},  {self.ci[1]:.6f}]")
-        lines.append(f"  P-value:     {self.pvalue:.4f}")
+        lines.append(f"  [{pct}% CI]:    [{lo},  {hi}]")
+        lines.append(f"  P-value:     {_format_pvalue(self.pvalue)}")
         lines.append("")
 
         # Identifying assumption, stated rather than implied.
@@ -4114,6 +4155,8 @@ class CausalResult:
         *,
         caption: Optional[str] = None,
         label: Optional[str] = None,
+        digits: Optional[int] = None,
+        fmt: Union[str, int, None] = None,
     ) -> str:
         """Generate a LaTeX table of the results.
 
@@ -4126,6 +4169,15 @@ class CausalResult:
             ``\\caption{...}`` text.
         label : str, optional
             ``\\label{...}`` cross-reference id.
+        digits : int, optional
+            Decimal places, e.g. ``digits=3``. Shorthand for
+            ``fmt="%.3f"``; passing both raises.
+        fmt : str or int, optional
+            Numeric format, defaulting to ``"auto"`` — the same
+            journal-adaptive precision :meth:`to_markdown`, :meth:`to_html`
+            and ``sp.regtable`` use, so a result exports at one precision
+            whichever surface it leaves by. Accepts ``"%.3f"`` (printf),
+            ``3`` (decimals), ``"r3"`` / ``"s3"`` (fixest spellings).
 
         Notes
         -----
@@ -4134,8 +4186,13 @@ class CausalResult:
         source therefore requires ``\\usepackage{threeparttable}`` (and
         ``booktabs`` is not needed — plain ``\\hline`` rules are used).
         """
-        caption = caption or f"{self.method} Results"
+        # A caller-supplied caption passes through verbatim — it may hold
+        # deliberate LaTeX ($\beta$, \citet{...}). Only the auto-generated
+        # fallback is escaped, since ``self.method`` is estimator metadata
+        # that can carry an underscore.
+        caption = caption or f"{_latex_escape(self.method)} Results"
         label = label or "tab:causal_result"
+        fmt = _resolve_digits(fmt, digits, default=_AUTO)
 
         lines = [
             "\\begin{table}[htbp]",
@@ -4187,32 +4244,40 @@ class CausalResult:
                 "coefficient": "Coefficient",
                 "tstat": "t-stat",
             }
-            lines.append(" & ".join(hdr.get(c, c) for c in cols) + " \\\\")
+            # ``hdr`` values are hand-written LaTeX ("Std.\\ Error"); anything
+            # falling through to the raw column name is user data and must be
+            # escaped, or a column called ``mean_treated`` fails to compile.
+            lines.append(
+                " & ".join(hdr[c] if c in hdr else _latex_escape(c) for c in cols)
+                + " \\\\"
+            )
             lines.append("\\hline")
-            for _, row in self.detail.iterrows():
+            # Render through the shared formatter so the LaTeX table agrees
+            # with to_markdown()/to_html() cell for cell: one precision per
+            # estimate/SE row, p-values floored at <0.001, counts as ints.
+            rendered = _format_frame(self.detail[cols], fmt)
+            pvals = (
+                list(self.detail["pvalue"])
+                if "pvalue" in self.detail.columns
+                else [np.nan] * len(self.detail)
+            )
+            for i in range(len(rendered)):
                 vals = []
                 for c in cols:
-                    v = row[c]
-                    if isinstance(v, float):
-                        s = (
-                            self._stars(row.get("pvalue", np.nan))
-                            if c == star_col
-                            else ""
-                        )
-                        vals.append(f"{v:.4f}{s}")
-                    else:
-                        vals.append(
-                            str(int(v)) if isinstance(v, (int, np.integer)) else str(v)
-                        )
+                    cell = _latex_escape(rendered[c].iloc[i])
+                    if c == star_col:
+                        cell += self._stars(pvals[i])
+                    vals.append(cell)
                 lines.append(" & ".join(vals) + " \\\\")
         else:
             lines.append("\\begin{tabular}{lc}")
             lines.append("\\hline\\hline")
+            point, se = _format_pair(self.estimate, self.se, fmt=fmt)
             lines.append(
-                f"{self.estimand} & "
-                f"{self.estimate:.4f}{self._stars(self.pvalue)} \\\\"
+                f"{_latex_escape(self.estimand)} & "
+                f"{point}{self._stars(self.pvalue)} \\\\"
             )
-            lines.append(f"& ({self.se:.4f}) \\\\")
+            lines.append(f"& ({se}) \\\\")
 
         lines += [
             "\\hline",
@@ -4222,7 +4287,7 @@ class CausalResult:
             "\\begin{tablenotes}",
             "\\footnotesize",
             "\\item Standard errors in parentheses.",
-            "\\item * p<0.1, ** p<0.05, *** p<0.01",
+            "\\item * p\\textless{}0.1, ** p\\textless{}0.05, " "*** p\\textless{}0.01",
             "\\end{tablenotes}",
             "\\end{threeparttable}",
             "\\end{table}",

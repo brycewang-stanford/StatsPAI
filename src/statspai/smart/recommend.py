@@ -9,13 +9,19 @@ responsible for the identification argument and validation status.
 Usage
 -----
 >>> import statspai as sp
+>>> df = sp.dgp_observational(n=300, seed=0)
 >>> rec = sp.recommend(
-...     data=df, y='wage', treatment='training',
+...     data=df, y='y', treatment='treatment',
+...     covariates=['x1', 'x2'],
 ...     design='observational',  # or 'rct', 'panel', 'iv', 'rd', 'did'
-...     dag=my_dag,  # optional
+...     # dag=my_dag,  # optional causal DAG
 ... )
->>> print(rec.summary())
+>>> report = rec.summary()
+>>> rec.recommendations[0]['function']
+'match'
 >>> result = rec.run()  # execute the recommended estimator
+>>> type(result).__name__
+'CausalResult'
 """
 
 from typing import Any, Dict, List, Optional, Tuple

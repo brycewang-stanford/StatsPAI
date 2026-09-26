@@ -10,10 +10,19 @@ remedies when a check fails.
 
 Usage
 -----
+>>> import numpy as np
+>>> import pandas as pd
 >>> import statspai as sp
+>>> rng = np.random.default_rng(0)
+>>> df = pd.DataFrame({'education': rng.integers(8, 20, 300),
+...                    'experience': rng.integers(0, 30, 300)})
+>>> df['wage'] = (1 + 0.1 * df['education'] + 0.02 * df['experience']
+...               + rng.normal(size=300))
 >>> result = sp.regress("wage ~ education + experience", data=df, robust='hc1')
->>> audit = sp.assumption_audit(result)
->>> print(audit.summary())
+>>> audit = sp.assumption_audit(result, verbose=False)
+>>> type(audit).__name__, audit.method
+('AssumptionResult', 'OLS')
+>>> report = audit.summary()  # printable pass / fail table
 """
 
 from typing import Any, List, Optional

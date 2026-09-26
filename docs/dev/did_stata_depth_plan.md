@@ -222,7 +222,14 @@ ado's 1997**).
   `sp.list_functions()`, and carries NumPy docstring with `Examples`.
 - No numeric output of an existing estimator moves without a
   ⚠️ correctness entry in `CHANGELOG.md` + `MIGRATION.md`.
-- Citations: `did_had` needs de Chaisemartin et al. (2025), Calonico–Cattaneo–
-  Farrell (2018, 2019), Yatchew (1997) verified against Crossref/arXiv before
-  any of them enters a docstring. Bib keys only.
+- Citations: `did_had` needs de Chaisemartin et al., Calonico–Cattaneo–
+  Farrell, and Yatchew verified against Crossref/arXiv before any of them
+  enters a docstring. Bib keys only.
+
+  **Done, and the Yatchew one was wrong at source.** Stata's `did_had`
+  help dates the differencing test to **1997** while quoting *Economics
+  Letters* 62(3), 271–278 — which is the **1999** paper ("An elementary
+  nonparametric differencing test of equality of regression functions",
+  doi:10.1016/S0165-1765(98)00243-2). StatsPAI carries the verified 1999
+  record as `yatchew1999elementary`. Do not copy the ado's year back in.
 - Commit gate: nothing is committed or pushed without explicit authorization.

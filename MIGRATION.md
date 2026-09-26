@@ -5,6 +5,79 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="design-and-diagnostic-fixes"></a>
+
+## Unreleased — ⚠️ `optimal_design` sample sizes, Hausman test, `compare_estimators`, `estat` IV tests
+
+**Who is affected.** Anyone who sized a study with `sp.optimal_design`, chose
+between fixed and random effects with `sp.hausman_test` or
+`PanelResults.hausman_test`, compared estimators with `sp.compare_estimators`,
+or ran `sp.estat` after an IV fit.
+
+| Area | Old | New | Old number, if you need it |
+| --- | --- | --- | --- |
+| `optimal_design` individual / stratified, `mde=` given | total sample reported as `n_per_arm`, `n_total` twice that — every design twice as large as needed | `n_total` = total sample, `n_per_arm` = largest arm (the two-sample power formula; equals `sp.power("rct")` up to per-arm rounding) | — (old sizes were twice the correct ones) |
+| `optimal_design` cluster, `mde=` given | cluster count doubled the same way | smallest design reaching the target power (checked against `sp.power_cluster_rct`) | — |
+| `optimal_design` with `mde=None` | MDE for a sample of one (ignored the sample size); cluster MDE used the treated arm as the total | needs `n=` (individual / stratified) or `n_clusters=` (cluster) and returns the MDE for that sample | — |
+| `optimal_design` with `cost_per_cluster` / `cost_per_unit` | cost-optimal cluster size reported but not used | the cost-optimal size drives the sample size | — |
+| `sp.hausman_test` statistic | own FE / RE variance estimates (223 where Stata reports 4.36 on the same panel) | same as `PanelResults.hausman_test` and Stata `hausman fe re` to 1e-6 | — |
+| Hausman, negative statistic (both entry points) | clamped to 0: `pvalue=1`, `recommendation="RE"` | reported as is, `pvalue=nan`, `recommendation="inconclusive"`, `AssumptionWarning` | — |
+| `sp.compare_estimators` | `matching` (default list) and `dml` silently absent (keyword errors caught as warnings); IPW SE unseeded | all run; IPW bootstrap seeded | — |
+| `sp.estat` after `sp.ivreg` / `sp.iv` | `endogenous` / `overid` always "not found"; `all` ran no IV test | read the fit's Wu-Hausman F and Sargan / Hansen J | — |
+
+**New.** `sigmamore=True` on both Hausman entry points reproduces Stata's
+`hausman fe re, sigmamore` and gives a usable test where the classical statistic
+is negative. `sp.test` / `sp.lincom` accept multi-coefficient restrictions on
+`sp.panel` results (e.g. the Mundlak test `sp.test(res, "_mean_x1 _mean_x2")`).
+`sp.dgp_bunching` now generates bunching at the kink (new `t0=` / `t1=`), so its
+seeded draws differ from earlier releases.
+
+---
+
+<a id="sdid-staggered-refused"></a>
+
+## Unreleased — ⚠️ `sp.did` / `sp.did_analysis` with `method="sdid"` refuse staggered adoption
+
+**Who is affected.** Anyone who ran `sp.did(..., method="sdid")` or
+`sp.did_analysis(..., method="sdid")` on a panel whose `treat` column holds
+more than one first-treatment period.
+
+**What changed.** Those calls used the earliest adoption period for every
+treated unit and returned a number for a different estimand. They now raise
+`MethodIncompatibility`. A panel with one adoption cohort is unaffected.
+
+**What to do.** Fit `sp.sdid` per cohort (its treated units plus the
+never-treated), or use a staggered estimator (`sp.callaway_santanna`,
+`sp.did_imputation`). Earlier `sdid` numbers from staggered panels should be
+re-estimated.
+
+---
+
+<a id="result-display-precision"></a>
+
+## Unreleased — `.to_latex()`, `.summary()` and generic result tables use the adaptive precision
+
+Display only; no estimate, standard error or p-value changes.
+
+| | before | now (default) |
+| --- | --- | --- |
+| `CausalResult.summary()` | `0.332635` (SE `0.084764`), p `0.0001` | `0.333` (SE `0.085`), p `<0.001` |
+| `CausalResult.to_latex()` | `0.3326` (`%.4f`, no argument) | `0.333`; `digits=` / `fmt=` accepted |
+| generic `*Result.to_latex()` | `-0.09446` / `5.386e+05` | `-0.094` / `538,582` |
+| generic `to_markdown()` / `to_word()` | `-0.094458` / `538582` | `-0.094` / `538,582` |
+| `regtable(stats_fmt=)` | `"%.3f"` | `"stat"` (same for values below six figures) |
+| `to_dict()` / `to_excel()` | full value | **unchanged** |
+
+To restore the old output:
+
+```python
+result.to_latex(digits=4)
+result.summary(digits=6)
+sp.regtable(m1, m2, stats_fmt="%.3f")
+```
+
+---
+
 <a id="plr-theta-label"></a>
 
 ## 1.32.0 — DML PLR estimate is labelled `theta`; `cate_summary` row `Mean`

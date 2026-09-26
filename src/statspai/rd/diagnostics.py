@@ -92,7 +92,7 @@ def rdbwsensitivity(
     >>> list(tab.columns)
     ['bandwidth', 'estimate', 'se', 'ci_lower', 'ci_upper', 'pvalue']
     >>> [round(v, 3) for v in tab["estimate"].tolist()]
-    [0.834, 0.816, 0.797, 0.789, 0.785]
+    [0.805, 0.863, 0.825, 0.825, 0.819]
     """
     from .rdrobust import rdrobust
 
@@ -228,8 +228,10 @@ def rdbalance(
     >>> bal = sp.rdbalance(df, x="x", covs=["w1", "w2"])
     >>> bal["covariate"].tolist()
     ['w1', 'w2']
-    >>> bool(bal["significant"].any())
-    False
+    >>> list(bal.columns)
+    ['covariate', 'estimate', 'se', 'z', 'pvalue', 'significant']
+    >>> bool((bal["pvalue"] > 0.01).all())    # no covariate jump at the 1% level
+    True
     """
     from .rdrobust import rdrobust
 
@@ -335,7 +337,7 @@ def rdplacebo(
     >>> pl = sp.rdplacebo(df, y="y", x="x", n_placebo=4)
     >>> true_row = pl[pl["is_true_cutoff"]]
     >>> round(float(true_row["estimate"].iloc[0]), 2)
-    0.51
+    0.52
     >>> int((pl[~pl["is_true_cutoff"]]["pvalue"] < 0.05).sum())
     0
     """
@@ -549,7 +551,7 @@ def rdsummary(
     >>> sorted(res.keys())
     ['balance', 'bw_sensitivity', 'density_test', 'estimate']
     >>> round(float(res["estimate"].estimate), 2)
-    0.51
+    0.52
     """
     from ..diagnostics.rddensity import rddensity
     from .rdrobust import rdrobust

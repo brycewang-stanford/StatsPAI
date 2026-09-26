@@ -62,6 +62,27 @@ forvalues i = 1/`nr' {
         `", "yatchew_t": "' %22.17f (Y[`yrow',3]) `", "yatchew_p": "' %22.17f (Y[`yrow',4]) ///
         `", "rel_time": "' %6.0f (R[`i',10]) "}`comma'" _n
 }
+* Every bw_method lprobust accepts, under a "_"-prefixed key so the
+* per-row loop in the Python test skips it. did_had does NOT validate
+* bw_method() -- it passes the string straight to lprobust's
+* bwselect() -- so this is the full surface, not a chosen subset.
+* Rows of e(estimates) are placebos-first: Placebo_1, Effect_1, Effect_2.
+file write `fh' `"  , "_bw_methods": {"' _n
+local bfirst 1
+foreach m in mse-dpi mse-rot imse-dpi imse-rot ce-dpi ce-rot {
+    qui did_had y g t d, effects(2) placebo(1) bw_method(`m') graph_off
+    matrix B = e(estimates)
+    if !`bfirst' file write `fh' "," _n
+    file write `fh' `"    ""' "`m'" `"": {"' ///
+        `""bw_placebo_1": "' %22.17f (B[1,6]) ///
+        `", "bw_effect_1": "' %22.17f (B[2,6]) ///
+        `", "bw_effect_2": "' %22.17f (B[3,6]) ///
+        `", "est_effect_1": "' %22.17f (B[2,1]) ///
+        `", "se_effect_1": "' %22.17f (B[2,2]) "}"
+    local bfirst 0
+}
+file write `fh' _n "  }" _n
+
 file write `fh' `"  , "_meta": {"cmd": "did_had", "effects": 3, "placebo": 2, "kernel": "epanechnikov", "bw_method": "mse-dpi", "yatchew": "het_robust", "stata": "18 MP"}"' _n
 file write `fh' "}" _n
 file close `fh'

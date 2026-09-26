@@ -330,8 +330,10 @@ def local_projections(
     ...     y[t] = 0.5 * y[t - 1] + 0.8 * shock[t] + rng.normal(0, 0.5)
     >>> df = pd.DataFrame({"y": y, "shock": shock})
     >>> res = sp.local_projections(df, outcome="y", shock="shock", horizons=8)
-    >>> print(round(float(res.irf[0]), 2))  # 0.75 — impact response, truth 0.8
-    >>> print(res.to_frame().head())        # horizon, irf, se, ci bands, n
+    >>> print(round(float(res.irf[0]), 2))  # impact response, truth 0.8
+    0.75
+    >>> list(res.to_frame().columns)        # one row per horizon 0..8
+    ['horizon', 'irf', 'se', 'ci_lower', 'ci_upper', 'n']
     >>> ax = res.plot()                     # IRF with Newey-West CI band
     """
     if controls is None:

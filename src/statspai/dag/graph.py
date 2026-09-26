@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import re
 from itertools import combinations
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -288,13 +288,14 @@ class DAG:
 
         Examples
         --------
+        >>> import statspai as sp
         >>> g = sp.dag('Z -> X; Z -> Y; X -> Y')
-        >>> g.path_status('X', 'Y')
-        [{'path': ['X', 'Y'], 'type': 'causal', 'open': True},
-         {'path': ['X', 'Z', 'Y'], 'type': 'backdoor', 'open': True}]
-        >>> g.path_status('X', 'Y', conditioned={'Z'})
-        [{'path': ['X', 'Y'], 'type': 'causal', 'open': True},
-         {'path': ['X', 'Z', 'Y'], 'type': 'backdoor', 'open': False}]
+        >>> status = g.path_status('X', 'Y')  # path order is not guaranteed
+        >>> sorted((s['type'], s['path'], s['open']) for s in status)
+        [('backdoor', ['X', 'Z', 'Y'], True), ('causal', ['X', 'Y'], True)]
+        >>> status = g.path_status('X', 'Y', conditioned={'Z'})
+        >>> sorted((s['type'], s['path'], s['open']) for s in status)
+        [('backdoor', ['X', 'Z', 'Y'], False), ('causal', ['X', 'Y'], True)]
         """
         conditioned = conditioned or set()
         causal_set = {tuple(p) for p in self.causal_paths(exposure, outcome)}
@@ -331,9 +332,10 @@ class DAG:
 
         Examples
         --------
+        >>> import statspai as sp
         >>> g = sp.dag('Z -> X; Z -> Y; X -> Y')
-        >>> g.classify_variable('Z', 'X', 'Y')
-        {'confounder', 'ancestor_of_treatment', 'ancestor_of_outcome'}
+        >>> sorted(g.classify_variable('Z', 'X', 'Y'))
+        ['ancestor_of_outcome', 'ancestor_of_treatment', 'confounder']
         """
         roles: Set[str] = set()
         if node == exposure or node == outcome:
@@ -404,9 +406,13 @@ class DAG:
 
         Examples
         --------
+        >>> import statspai as sp
         >>> g = sp.dag('D -> O -> Y; A -> O; A -> Y; D -> Y')
-        >>> g.bad_controls('D', 'Y')
-        {'O': ['collider — conditioning opens D→O←A→Y']}
+        >>> bad = g.bad_controls('D', 'Y')
+        >>> list(bad)
+        ['O']
+        >>> [reason.split(' — ')[0] for reason in bad['O']]
+        ['mediator', 'collider']
         """
         warnings: dict = {}
         descendants_x = self.descendants(exposure)
@@ -470,9 +476,10 @@ class DAG:
 
         Examples
         --------
+        >>> import statspai as sp
         >>> g = sp.dag('Z -> X -> Y; Z -> Y')
         >>> g_do = g.do('X')
-        >>> g_do.edges  # Z -> X edge is removed
+        >>> sorted(g_do.edges)  # Z -> X edge is removed
         [('X', 'Y'), ('Z', 'Y')]
         """
         if isinstance(intervention, str):
@@ -512,6 +519,7 @@ class DAG:
 
         Examples
         --------
+        >>> import statspai as sp
         >>> g = sp.dag('U <-> X; U <-> Y; X -> M -> Y')
         >>> g.frontdoor_sets('X', 'Y')
         [{'M'}]
@@ -799,10 +807,10 @@ class DAG:
         (fig, ax) : matplotlib figure and axes
         """
         try:
-            import matplotlib.pyplot as plt
             import matplotlib.patches as mpatches
-            from matplotlib.patches import FancyArrowPatch
+            import matplotlib.pyplot as plt
             import numpy as np
+            from matplotlib.patches import FancyArrowPatch
         except ImportError:
             raise ImportError(
                 "matplotlib required for DAG plotting: pip install matplotlib"
@@ -1168,8 +1176,11 @@ class DAG:
 
         Examples
         --------
+        >>> import statspai as sp
         >>> g = sp.dag('Z -> X; Z -> Y; X -> Y')
-        >>> print(g.summary('X', 'Y'))
+        >>> text = g.summary('X', 'Y')
+        >>> print(text.splitlines()[0])
+        DAG Summary: effect of X on Y
         """
         lines = [f"DAG Summary: effect of {exposure} on {outcome}", "=" * 50]
 
@@ -1243,13 +1254,16 @@ def dag(spec: str = "") -> DAG:
 
     Examples
     --------
+    >>> import statspai as sp
     >>> g = sp.dag('Z -> X -> Y; Z -> Y')
     >>> g.adjustment_sets('X', 'Y')
     [{'Z'}]
 
-    >>> g = sp.dag('X -> Y; X <-> Y')  # unobserved confounder
+    No valid adjustment set exists with an unobserved confounder:
+
+    >>> g = sp.dag('X -> Y; X <-> Y')
     >>> g.adjustment_sets('X', 'Y')
-    []  # no valid adjustment set exists
+    []
     """
     return DAG(spec)
 
@@ -1431,12 +1445,17 @@ def dag_example(name: str) -> DAG:
 
     Examples
     --------
+    >>> import statspai as sp
     >>> g = sp.dag_example('discrimination')
-    >>> print(g.summary('D', 'Y'))
-    >>> g.plot('D', 'Y')
+    >>> sorted(g.nodes)
+    ['A', 'D', 'O', 'Y']
+    >>> print(g.summary('D', 'Y').splitlines()[0])
+    DAG Summary: effect of D on Y
+    >>> fig, ax = g.plot('D', 'Y')
 
     >>> g = sp.dag_example('frontdoor')
-    >>> g.plot('X', 'Y', positions=sp.dag_example_positions('frontdoor'))
+    >>> pos = sp.dag_example_positions('frontdoor')
+    >>> fig, ax = g.plot('X', 'Y', positions=pos)
     """
     if name not in _EXAMPLES:
         avail = ", ".join(sorted(_EXAMPLES.keys()))
@@ -1509,13 +1528,19 @@ def dag_simulate(
 
     Examples
     --------
+    >>> import statspai as sp
     >>> df = sp.dag_simulate('discrimination')
+    >>> df.shape
+    (10000, 5)
     >>> import statsmodels.formula.api as smf
     >>> # Biased: wrong sign due to collider
-    >>> smf.ols('wage ~ female + occupation', data=df).fit().params['female']
+    >>> biased = smf.ols('wage ~ female + occupation', data=df).fit()
+    >>> bool(biased.params['female'] > 0)
+    True
     >>> # Correct: includes ability
     >>> fit = smf.ols('wage ~ female + occupation + ability', data=df).fit()
-    >>> fit.params['female']
+    >>> bool(fit.params['female'] < 0)
+    True
     """
     import numpy as np
     import pandas as pd

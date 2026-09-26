@@ -12,13 +12,18 @@ estimates and surfaces agreement diagnostics for manual review.
 Usage
 -----
 >>> import statspai as sp
+>>> df = sp.dgp_observational(n=300, seed=0)
 >>> comp = sp.compare_estimators(
-...     data=df, y='wage', treatment='training',
-...     methods=['ols', 'matching', 'ipw', 'dml'],
-...     covariates=['age', 'education', 'experience'],
+...     data=df, y='y', treatment='treatment',
+...     methods=['ols', 'ipw', 'aipw'],
+...     covariates=['x1', 'x2'],
 ... )
->>> print(comp.summary())
->>> comp.plot()
+>>> comp.estimates_table['method'].tolist()
+['OLS (robust SE)', 'Inverse Probability Weighting', 'Augmented IPW (DR)']
+>>> float(comp.agreement['sign_agree'])
+1.0
+>>> report = comp.summary()
+>>> ax = comp.plot()
 """
 
 from __future__ import annotations
@@ -344,14 +349,16 @@ def compare_estimators(
                 name = "OLS (robust SE)"
 
             elif method == "matching":
-                r = sp.match(df, y=y, treatment=treatment, covariates=covariates[:10])
+                r = sp.match(df, y=y, treat=treatment, covariates=covariates[:10])
                 est = r.estimate
                 se = r.se
                 results["Matching"] = r
                 name = "Propensity Score Matching"
 
             elif method == "ipw":
-                r = sp.ipw(df, y=y, treat=treatment, covariates=covariates[:10])
+                # Bootstrap SE: seeded like g_computation below so the table
+                # is reproducible.
+                r = sp.ipw(df, y=y, treat=treatment, covariates=covariates[:10], seed=0)
                 est = r.estimate if hasattr(r, "estimate") else r.params.iloc[0]
                 se = r.se if hasattr(r, "se") else r.std_errors.iloc[0]
                 results["IPW"] = r
@@ -394,7 +401,7 @@ def compare_estimators(
                 name = "G-computation (parametric g-formula)"
 
             elif method == "dml":
-                r = sp.dml(df, y=y, treatment=treatment, covariates=covariates[:20])
+                r = sp.dml(df, y=y, treat=treatment, covariates=covariates[:20])
                 est = r.estimate
                 se = r.se
                 results["DML"] = r

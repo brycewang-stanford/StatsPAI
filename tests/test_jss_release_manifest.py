@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import zipfile
@@ -521,8 +522,6 @@ def test_validation_claim_lint_covers_release_notes() -> None:
     #
     # What is worth asserting is that the census *closes*: the tiers must
     # partition the public surface exactly, with nothing unaccounted for.
-    import statspai as sp
-
     counts = payload["claim_counts"]
     tiers = ("certified", "validated", "api_stable", "experimental")
     observed_tiers = {t: counts[t] for t in tiers}
@@ -530,7 +529,20 @@ def test_validation_claim_lint_covers_release_notes() -> None:
         f"registry tiers do not partition the surface: {observed_tiers} "
         f"vs registry={counts['registry']}"
     )
-    assert counts["registry"] == len(sp.list_functions())
+    # The lint holds its documents to the census of the release the
+    # manuscript describes (generated_claims.tex); whether the live registry
+    # still equals that census is generate_manuscript_claims.py --check's
+    # job, and it is expected to drift on main while the paper is in review.
+    assert payload["claim_count_source"].startswith("manuscript snapshot")
+    claims = (
+        REPO_ROOT / "Paper-JSS" / "manuscript" / "generated_claims.tex"
+    ).read_text(encoding="utf-8")
+    snapshot_total = int(
+        re.search(r"\\newcommand\{\\RegistryTotal\}\{(.*)\}\s*$", claims, re.M)
+        .group(1)
+        .replace("{,}", "")
+    )
+    assert counts["registry"] == snapshot_total
     assert counts["certified_validated"] == counts["certified"] + counts["validated"]
     assert all(counts[t] > 0 for t in tiers)
 

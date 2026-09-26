@@ -337,7 +337,7 @@ def from_sdmx(payload: JSONLike, *, value_name: str = "value") -> pd.DataFrame:
     ...   }}}
     >>> import statspai as sp
     >>> df = sp.from_sdmx(payload)
-    >>> df.loc[0, "LOCATION"], df.loc[0, "TIME_PERIOD"], df.loc[0, "value"]
+    >>> df.loc[0, "LOCATION"], df.loc[0, "TIME_PERIOD"], float(df.loc[0, "value"])
     ('USA', '2020', 3.2)
     """
     kind = _payload_kind(payload)

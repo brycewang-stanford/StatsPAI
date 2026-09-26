@@ -53,7 +53,17 @@ from typing import Dict, Optional
 
 import numpy as np
 
-__all__ = ["LProbustPoint", "lprobust_at_point", "lpbwselect_mse_dpi"]
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
+
+__all__ = [
+    "LProbustPoint",
+    "lprobust_at_point",
+    "lpbwselect_mse_dpi",
+    "lpbwselect_mse_rot",
+    "lpbwselect_imse_dpi",
+    "lpbwselect_imse_rot",
+    "lpbwselect_ce_rot",
+]
 
 _KERNELS = ("epanechnikov", "triangular", "uniform", "gaussian")
 
@@ -121,7 +131,7 @@ def _kernel_weights(u: np.ndarray, kernel: str) -> np.ndarray:
         return np.where(a <= 1.0, 0.5, 0.0)
     if kernel == "gaussian":
         return np.exp(-0.5 * u**2) / np.sqrt(2.0 * np.pi)
-    raise ValueError(f"kernel must be one of {_KERNELS}, got {kernel!r}")
+    raise MethodIncompatibility(f"kernel must be one of {_KERNELS}, got {kernel!r}")
 
 
 def _nn_residuals(x: np.ndarray, y: np.ndarray, n_neighbors: int) -> np.ndarray:
@@ -146,7 +156,7 @@ def _nn_residuals(x: np.ndarray, y: np.ndarray, n_neighbors: int) -> np.ndarray:
     """
     n = len(x)
     if min(n_neighbors, n - 1) < 1:
-        raise ValueError(
+        raise MethodIncompatibility(
             "nearest-neighbour residuals need at least two observations "
             f"inside the bandwidth; got {n}."
         )
@@ -245,18 +255,18 @@ def lprobust_at_point(
     x = np.asarray(x, dtype=float).ravel()
     y = np.asarray(y, dtype=float).ravel()
     if x.shape != y.shape:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"x and y must have the same length, got {x.shape} and {y.shape}"
         )
     if kernel not in _KERNELS:
-        raise ValueError(f"kernel must be one of {_KERNELS}, got {kernel!r}")
+        raise MethodIncompatibility(f"kernel must be one of {_KERNELS}, got {kernel!r}")
     if p < 0 or deriv < 0 or deriv > p:
-        raise ValueError(f"need 0 <= deriv <= p, got deriv={deriv}, p={p}")
+        raise MethodIncompatibility(f"need 0 <= deriv <= p, got deriv={deriv}, p={p}")
     if not np.isfinite(h) or h <= 0:
-        raise ValueError(f"h must be a positive finite bandwidth, got {h}")
+        raise MethodIncompatibility(f"h must be a positive finite bandwidth, got {h}")
     b = float(h) if b is None else float(b)
     if not np.isfinite(b) or b <= 0:
-        raise ValueError(f"b must be a positive finite bandwidth, got {b}")
+        raise MethodIncompatibility(f"b must be a positive finite bandwidth, got {b}")
 
     finite = np.isfinite(x) & np.isfinite(y)
     x, y = x[finite], y[finite]
@@ -268,7 +278,7 @@ def lprobust_at_point(
     inside = (w_h_all > 0) | (w_b_all > 0)
     n_eff = int(inside.sum())
     if n_eff <= q + 1:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"only {n_eff} observations fall inside the bandwidth at "
             f"eval_point={eval_point}; a p={p} fit with bias correction "
             f"needs more than {q + 1}. Widen h/b or lower p."
@@ -287,7 +297,7 @@ def lprobust_at_point(
         inv_g_p = np.linalg.inv(g_p)
         inv_g_q = np.linalg.inv(g_q)
     except np.linalg.LinAlgError as exc:
-        raise ValueError(
+        raise MethodIncompatibility(
             "the local polynomial design is singular at "
             f"eval_point={eval_point} -- the running variable has too "
             "little variation inside the bandwidth."
@@ -429,6 +439,13 @@ def _bw_pieces(
         "B2": float(b2),
         "R": float(bwreg),
         "bw": bw,
+        # Rate constants, exported because the IMSE selectors need to
+        # average rV*V and rB*B1^2 over a grid. Note B.h there is
+        # rB*B1^2 with NO regularization term, unlike `bw` above, which
+        # carries `scale * R` -- copying `bw`'s denominator into an IMSE
+        # average would be wrong in a way no smoke test would catch.
+        "rV": float(r_v_pow),
+        "rB": float(r_b),
     }
 
 
@@ -482,9 +499,11 @@ def lpbwselect_mse_dpi(
     x, y = x[finite], y[finite]
 
     if kernel not in _PILOT_CONST:
-        raise ValueError(f"kernel must be one of {tuple(_PILOT_CONST)}, got {kernel!r}")
+        raise MethodIncompatibility(
+            f"kernel must be one of {tuple(_PILOT_CONST)}, got {kernel!r}"
+        )
     if (p - deriv) % 2 == 0:
-        raise NotImplementedError(
+        raise MethodIncompatibility(
             f"mse-dpi is implemented for odd (p - deriv); got p={p}, "
             f"deriv={deriv}. The even case needs a numerical optimization "
             "of the MSE expansion that is not ported yet, and is rejected "
@@ -503,7 +522,7 @@ def lpbwselect_mse_dpi(
     bw_min = None
     if bwcheck is not None:
         if n < bwcheck:
-            raise ValueError(
+            raise MethodIncompatibility(
                 f"bwcheck={bwcheck} needs at least that many observations, " f"got {n}."
             )
         bw_min = float(np.sort(np.abs(x - eval_point))[bwcheck - 1])
@@ -573,4 +592,501 @@ def lpbwselect_mse_dpi(
     )
     h_mse = _clamp(ch["bw"])
 
-    return {"h": float(h_mse), "b": float(b_mse)}
+    return {
+        "h": float(h_mse),
+        "b": float(b_mse),
+        # Variance/bias pieces at this evaluation point, in the form
+        # lpbwselect.imse.dpi averages. Odd (p - deriv) only, which is
+        # the branch guarded above.
+        "V_h": float(ch["rV"] * ch["V"]),
+        "B_h": float(ch["rB"] * ch["B1"] ** 2),
+        "V_b": float(cb["rV"] * cb["V"]),
+        "B_b": float(cb["rB"] * cb["B1"] ** 2),
+    }
+
+
+def _kernel_moment_constants(p: int, deriv: int, kernel: str) -> Dict[str, float]:
+    """Asymptotic bias and variance constants of the local polynomial fit.
+
+    Port of ``nprobust``'s ``lp.bw.fun``. Dose zero is a **boundary**
+    point of the support, so the moment integrals run over ``[0, inf)``
+    rather than the whole line — and since every kernel here is
+    supported on ``[-1, 1]``, that reduces to ``[0, 1]``, which is what
+    the helpers below evaluate::
+
+        Gamma_ij = int u^(i+j) K(u) du
+        nu_i     = int u^(i+p+1) K(u) du
+        Psi_ij   = int u^(i+j) K(u)^2 du
+
+    ``C1 = (Gamma^-1 nu)_deriv`` scales the leading bias, ``C2 =
+    (Gamma^-1 Psi Gamma^-1)_{deriv,deriv}`` the variance.
+
+    Evaluated in closed form. Stata's ``lpbwselect.ado`` integrates these
+    numerically instead, which is the whole of its 5.1e-8 disagreement.
+    """
+    if kernel == "gaussian":
+        raise MethodIncompatibility(
+            "the rule-of-thumb moment constants are implemented for the "
+            "compact kernels only; got 'gaussian'."
+        )
+
+    def m1(power: int) -> float:
+        """int_0^1 u^power K(u) du."""
+        if kernel == "epanechnikov":
+            return 0.75 * (1.0 / (power + 1) - 1.0 / (power + 3))
+        if kernel == "triangular":
+            return 1.0 / (power + 1) - 1.0 / (power + 2)
+        if kernel == "uniform":
+            return 0.5 / (power + 1)
+        raise MethodIncompatibility(f"kernel must be one of {_KERNELS}, got {kernel!r}")
+
+    def m2(power: int) -> float:
+        """int_0^1 u^power K(u)^2 du."""
+        if kernel == "epanechnikov":
+            # (3/4)^2 (1 - u^2)^2 = 9/16 (1 - 2u^2 + u^4)
+            return (9.0 / 16.0) * (
+                1.0 / (power + 1) - 2.0 / (power + 3) + 1.0 / (power + 5)
+            )
+        if kernel == "triangular":
+            # (1 - u)^2 = 1 - 2u + u^2
+            return 1.0 / (power + 1) - 2.0 / (power + 2) + 1.0 / (power + 3)
+        if kernel == "uniform":
+            return 0.25 / (power + 1)
+        raise MethodIncompatibility(f"kernel must be one of {_KERNELS}, got {kernel!r}")
+
+    gamma = np.array(
+        [[m1(i + j) for j in range(p + 1)] for i in range(p + 1)], dtype=float
+    )
+    nu = np.array([m1(i + p + 1) for i in range(p + 1)], dtype=float)
+    psi = np.array(
+        [[m2(i + j) for j in range(p + 1)] for i in range(p + 1)], dtype=float
+    )
+
+    g_inv = np.linalg.inv(gamma)
+    c1 = float((g_inv @ nu)[deriv])
+    c2 = float((g_inv @ psi @ g_inv)[deriv, deriv])
+    return {"C1": c1, "C2": c2}
+
+
+def lpbwselect_mse_rot(
+    x: np.ndarray,
+    y: np.ndarray,
+    eval_point: float,
+    *,
+    kernel: str = "epanechnikov",
+    p: int = 1,
+    deriv: int = 0,
+) -> Dict[str, float]:
+    """MSE-optimal rule-of-thumb bandwidth, as ``bwselect('mse-rot')``.
+
+    Port of ``nprobust``'s ``lpbwselect.mse.rot``. Cheaper and cruder than
+    :func:`lpbwselect_mse_dpi`: the density at the evaluation point comes
+    from a box count, the residual variance from a global degree-``p+3``
+    polynomial, and the curvature from two high-order local fits at the
+    full data range.
+
+    Returns ``{'h', 'C1', 'C2'}`` — the bandwidth and the two kernel
+    moment constants behind it.
+
+    **No ``b``.** R reports one, but it gets it by re-entering this same
+    selector at ``p = q = deriv + 1``, which makes ``(p - deriv)`` even —
+    the branch that needs a 1-D optimization and is not ported. Neither
+    consumer needs it: Stata's ``lprobust`` and :func:`~statspai.did_had`
+    both run at ``rho = 1``, so their bias bandwidth is ``h``. Returning
+    a made-up ``b`` would be worse than omitting it.
+
+    Only the ``(p - deriv)`` odd case is implemented, matching
+    :func:`lpbwselect_mse_dpi`; the even case is rejected rather than
+    approximated.
+
+    Parameters
+    ----------
+    x, y : array-like
+        Running variable and outcome. Non-finite rows are dropped.
+    eval_point : float
+        Where the bandwidth is optimal for.
+    kernel : {'epanechnikov', 'triangular', 'uniform'}
+    p : int, default 1
+        Polynomial order.
+    deriv : int, default 0
+        Derivative estimated; 0 is the intercept ``did_had`` needs.
+
+    Returns
+    -------
+    dict with ``h``, ``C1``, ``C2``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> x = np.abs(rng.gamma(1.4, 0.6, 400))
+    >>> y = 1.0 + 0.5 * x + rng.normal(0, 0.3, 400)
+    >>> bw = sp.lpbwselect_mse_rot(x, y, 0.0)
+    >>> bool(bw['h'] > 0)
+    True
+
+    References
+    ----------
+    calonico2019nprobust
+    """
+    x = np.asarray(x, dtype=float).ravel()
+    y = np.asarray(y, dtype=float).ravel()
+    if x.size != y.size:
+        raise MethodIncompatibility(
+            f"x and y must be the same length, got {x.size} and {y.size}."
+        )
+    finite = np.isfinite(x) & np.isfinite(y)
+    x, y = x[finite], y[finite]
+
+    if kernel not in _PILOT_CONST:
+        raise MethodIncompatibility(
+            f"kernel must be one of {tuple(_PILOT_CONST)}, got {kernel!r}"
+        )
+    if (p - deriv) % 2 == 0:
+        raise MethodIncompatibility(
+            f"mse-rot is implemented for odd (p - deriv); got p={p}, deriv={deriv}."
+        )
+
+    n = len(x)
+    if n < p + 4:
+        raise DataInsufficient(
+            f"mse-rot fits a degree-{p + 3} global polynomial and needs at "
+            f"least {p + 4} observations, got {n}."
+        )
+
+    x_iqr = float(np.quantile(x, 0.75) - np.quantile(x, 0.25))
+    rng_x = float(x.max() - x.min())
+    c_bw = _PILOT_CONST[kernel] * min(float(np.std(x, ddof=1)), x_iqr / 1.349)
+    c_bw *= n ** (-1 / 5)
+
+    # Density at the evaluation point by box count, and the residual
+    # variance from a global polynomial -- both deliberately crude.
+    f_hat = float(np.sum(np.abs(x - eval_point) <= c_bw) / (2.0 * n * c_bw))
+    if f_hat <= 0:
+        raise MethodIncompatibility(
+            "the rule-of-thumb density estimate at the evaluation point is "
+            "zero -- no observation falls within the pilot window, so no "
+            "bandwidth is defined there."
+        )
+    k_ord = p + 3
+    design = np.column_stack([x**j for j in range(k_ord + 1)])
+    beta, *_ = np.linalg.lstsq(design, y, rcond=None)
+    resid = y - design @ beta
+    s2_hat = float(resid @ resid / (n - (k_ord + 1)))
+
+    # Curvature: high-order local fits over the whole range.
+    m1 = lprobust_at_point(
+        x, y, eval_point, h=rng_x, b=rng_x, kernel=kernel, p=p + 3, deriv=p + 1
+    ).tau_us
+
+    const = _kernel_moment_constants(p, deriv, kernel)
+    bsq = (m1 / factorial(p + 1)) ** 2
+    num = (2 * deriv + 1) * const["C2"] * (s2_hat / f_hat)
+    den = 2 * (p + 1 - deriv) * const["C1"] ** 2 * bsq * n
+    if den <= 0:
+        raise NumericalInstability(
+            "the rule-of-thumb curvature estimate is zero, so the MSE-optimal "
+            "bandwidth is unbounded; supply a bandwidth explicitly."
+        )
+    h = float((num / den) ** (1.0 / (2 * p + 3)))
+    return {
+        "h": h,
+        "C1": const["C1"],
+        "C2": const["C2"],
+        # The variance and bias pieces, in the form lpbwselect.imse.rot
+        # averages over its grid: h = ((1+2v) mean(V) / (N mean(2(p+1-v)
+        # B^2)))^(1/(2p+3)) reduces to the expression above at a single
+        # evaluation point.
+        "V": float(const["C2"] * (s2_hat / f_hat)),
+        "B": float(const["C1"] * m1 / factorial(p + 1)),
+    }
+
+
+def lpbwselect_imse_rot(
+    x: np.ndarray,
+    y: np.ndarray,
+    *,
+    kernel: str = "epanechnikov",
+    p: int = 1,
+    deriv: int = 0,
+) -> Dict[str, float]:
+    """IMSE-optimal rule-of-thumb bandwidth, as ``bwselect('imse-rot')``.
+
+    Port of ``nprobust``'s ``lpbwselect.imse.rot``. Where ``mse-rot``
+    optimizes the MSE **at one point**, this optimizes the *integrated*
+    MSE, so it takes no ``eval_point``: it averages :func:`lpbwselect_mse_rot`'s
+    variance and bias pieces over an interior grid of ``x``-quantiles
+    (5th to 95th percentile in steps of 2.5, i.e. 37 points) and solves
+    the same first-order condition on the averages::
+
+        h = ( (1+2v) mean(V) / (N mean(2(p+1-v) B^2)) )^(1/(2p+3))
+
+    The grid is quantile-spaced, deliberately: ``lpbwselect.imse.rot``
+    ignores the ``imsegrid`` argument that the DPI variant honours, and
+    uses quantiles where :func:`lpbwselect_imse_dpi` uses equal spacing.
+    Copying one grid to the other silently moves the answer.
+
+    Returns ``{'h'}``. As with :func:`lpbwselect_mse_rot`, no ``b``:
+    R derives it by re-entering at ``p = q, deriv = p + 1``, an even
+    ``(p - deriv)`` case that is not ported.
+
+    Parameters
+    ----------
+    x, y : array-like
+        Running variable and outcome. Non-finite rows are dropped.
+    kernel : {'epanechnikov', 'triangular', 'uniform'}
+    p : int, default 1
+        Polynomial order.
+    deriv : int, default 0
+
+    Returns
+    -------
+    dict with ``h``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> x = np.abs(rng.gamma(1.4, 0.6, 400))
+    >>> y = 1.0 + 0.5 * x + rng.normal(0, 0.3, 400)
+    >>> bool(sp.lpbwselect_imse_rot(x, y)['h'] > 0)
+    True
+
+    References
+    ----------
+    calonico2019nprobust
+    """
+    x = np.asarray(x, dtype=float).ravel()
+    y = np.asarray(y, dtype=float).ravel()
+    if x.size != y.size:
+        raise MethodIncompatibility(
+            f"x and y must be the same length, got {x.size} and {y.size}."
+        )
+    finite = np.isfinite(x) & np.isfinite(y)
+    x, y = x[finite], y[finite]
+    n = len(x)
+
+    if (p - deriv) % 2 == 0:
+        raise MethodIncompatibility(
+            f"imse-rot is implemented for odd (p - deriv); got p={p}, "
+            f"deriv={deriv}. The even case needs a 1-D optimization of the "
+            "IMSE expansion that is not ported."
+        )
+
+    # R: quantile(x, probs = seq(0.05, 0.95, 0.025)) -- 37 points.
+    # linspace rather than arange: a float step accumulates error and can
+    # silently drop or add the last probability. numpy's default quantile
+    # method is linear interpolation, which is R's type 7 default.
+    grid = np.quantile(x, np.linspace(0.05, 0.95, 37))
+    v_vals, b_vals = [], []
+    for point in grid:
+        piece = lpbwselect_mse_rot(x, y, float(point), kernel=kernel, p=p, deriv=deriv)
+        v_vals.append(piece["V"])
+        b_vals.append(piece["B"])
+
+    num = (1 + 2 * deriv) * float(np.mean(v_vals))
+    den = n * float(np.mean(2 * (p + 1 - deriv) * np.asarray(b_vals) ** 2))
+    if den <= 0:
+        raise NumericalInstability(
+            "the averaged rule-of-thumb curvature is zero, so the IMSE-optimal "
+            "bandwidth is unbounded; supply a bandwidth explicitly."
+        )
+    return {"h": float((num / den) ** (1.0 / (2 * p + 3)))}
+
+
+def lpbwselect_imse_dpi(
+    x: np.ndarray,
+    y: np.ndarray,
+    *,
+    kernel: str = "epanechnikov",
+    p: int = 1,
+    deriv: int = 0,
+    imsegrid: int = 30,
+    n_neighbors: int = 3,
+    bwcheck: int = 21,
+    bwregul: float = 1.0,
+) -> Dict[str, float]:
+    """IMSE-optimal direct-plug-in bandwidths, as ``bwselect('imse-dpi')``.
+
+    Port of ``nprobust``'s ``lpbwselect.imse.dpi``: run
+    :func:`lpbwselect_mse_dpi` at each of ``imsegrid`` **equally spaced**
+    points across the range of ``x``, then solve on the averaged pieces::
+
+        h = ( mean(V_h) / (N mean(B_h)) )^(1/(2p+3))
+        b = ( mean(V_b) / (N mean(B_b)) )^(1/(2q+3)),   q = p + 1
+
+    ``B_h`` here is ``rB * B1^2`` with **no** regularization term, unlike
+    the pointwise ``mse-dpi`` bandwidth, which carries ``bwregul * R``.
+    The two denominators genuinely differ and substituting one for the
+    other moves the answer without failing anything obvious.
+
+    Equally spaced, not quantiles — :func:`lpbwselect_imse_rot` uses
+    quantiles. The reference is inconsistent here and this port follows
+    it rather than harmonizing.
+
+    Parameters
+    ----------
+    x, y : array-like
+    kernel : {'epanechnikov', 'triangular', 'uniform', 'gaussian'}
+    p, deriv : int
+    imsegrid : int, default 30
+        Number of equally spaced evaluation points.
+    n_neighbors, bwcheck, bwregul
+        Forwarded to :func:`lpbwselect_mse_dpi` at every grid point.
+
+    Returns
+    -------
+    dict with ``h`` and ``b``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> x = np.abs(rng.gamma(1.4, 0.6, 400))
+    >>> y = 1.0 + 0.5 * x + rng.normal(0, 0.3, 400)
+    >>> bool(sp.lpbwselect_imse_dpi(x, y)['h'] > 0)
+    True
+
+    References
+    ----------
+    calonico2019nprobust
+    """
+    x = np.asarray(x, dtype=float).ravel()
+    y = np.asarray(y, dtype=float).ravel()
+    if x.size != y.size:
+        raise MethodIncompatibility(
+            f"x and y must be the same length, got {x.size} and {y.size}."
+        )
+    finite = np.isfinite(x) & np.isfinite(y)
+    x, y = x[finite], y[finite]
+    n = len(x)
+
+    if (p - deriv) % 2 == 0:
+        raise MethodIncompatibility(
+            f"imse-dpi is implemented for odd (p - deriv); got p={p}, "
+            f"deriv={deriv}. The even case needs a 1-D optimization of the "
+            "IMSE expansion that is not ported."
+        )
+    if imsegrid < 2:
+        raise MethodIncompatibility(f"imsegrid must be at least 2, got {imsegrid}.")
+
+    grid = np.linspace(float(x.min()), float(x.max()), imsegrid)
+    v_h, b_h, v_b, b_b = [], [], [], []
+    for point in grid:
+        piece = lpbwselect_mse_dpi(
+            x,
+            y,
+            float(point),
+            kernel=kernel,
+            p=p,
+            deriv=deriv,
+            n_neighbors=n_neighbors,
+            bwcheck=bwcheck,
+            bwregul=bwregul,
+        )
+        v_h.append(piece["V_h"])
+        b_h.append(piece["B_h"])
+        v_b.append(piece["V_b"])
+        b_b.append(piece["B_b"])
+
+    q = p + 1
+    mean_b_h, mean_b_b = float(np.mean(b_h)), float(np.mean(b_b))
+    if mean_b_h <= 0 or mean_b_b <= 0:
+        raise NumericalInstability(
+            "the averaged plug-in curvature is zero, so the IMSE-optimal "
+            "bandwidth is unbounded; supply a bandwidth explicitly."
+        )
+    h = (float(np.mean(v_h)) / (n * mean_b_h)) ** (1.0 / (2 * p + 3))
+    b = (float(np.mean(v_b)) / (n * mean_b_b)) ** (1.0 / (2 * q + 3))
+    return {"h": float(h), "b": float(b)}
+
+
+def lpbwselect_ce_rot(
+    x: np.ndarray,
+    y: np.ndarray,
+    eval_point: float,
+    *,
+    kernel: str = "epanechnikov",
+    p: int = 1,
+    deriv: int = 0,
+    n_neighbors: int = 3,
+    bwcheck: int = 21,
+    bwregul: float = 1.0,
+) -> Dict[str, float]:
+    """Coverage-error-optimal rule of thumb, as ``bwselect('ce-rot')``.
+
+    Port of ``nprobust``'s ``ce-rot`` branch. MSE-optimal bandwidths are
+    too wide for *coverage*: they trade bias for variance at the rate
+    that minimizes point-estimate error, which leaves enough bias to
+    distort a confidence interval. The rule of thumb undersmooths the
+    MSE-DPI choice by a power of ``N``::
+
+        h = h_mse_dpi * N^( -p     / ((2p+3)(p+3)) )
+        b = b_mse_dpi * N^( -(q+2) / ((2q+5)(q+3)) ),   q = p + 1
+
+    for the odd ``(p - deriv)`` case implemented here. Cheap, because it
+    reuses :func:`lpbwselect_mse_dpi` rather than deriving anything new.
+
+    Note ``ce-dpi`` shares this **exact** ``b`` and differs only in ``h``,
+    which needs a separate ~150-line routine that is not ported; see
+    :func:`~statspai.did_had`.
+
+    Parameters
+    ----------
+    x, y : array-like
+    eval_point : float
+    kernel : {'epanechnikov', 'triangular', 'uniform', 'gaussian'}
+    p, deriv : int
+    n_neighbors, bwcheck, bwregul
+        Forwarded to :func:`lpbwselect_mse_dpi`.
+
+    Returns
+    -------
+    dict with ``h`` and ``b``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> x = np.abs(rng.gamma(1.4, 0.6, 400))
+    >>> y = 1.0 + 0.5 * x + rng.normal(0, 0.3, 400)
+    >>> bw = sp.lpbwselect_ce_rot(x, y, 0.0)
+    >>> bool(bw['h'] < sp.lpbwselect_mse_dpi(x, y, 0.0)['h'])   # undersmoothed
+    True
+
+    References
+    ----------
+    calonico2019nprobust, calonico2018effect
+    """
+    if (p - deriv) % 2 == 0:
+        raise MethodIncompatibility(
+            f"ce-rot is implemented for odd (p - deriv); got p={p}, "
+            f"deriv={deriv}; the even case uses different exponents and is "
+            "not ported."
+        )
+    mse = lpbwselect_mse_dpi(
+        x,
+        y,
+        eval_point,
+        kernel=kernel,
+        p=p,
+        deriv=deriv,
+        n_neighbors=n_neighbors,
+        bwcheck=bwcheck,
+        bwregul=bwregul,
+    )
+    # N must be the sample mse-dpi actually used, which drops a row when
+    # EITHER x or y is non-finite. Counting finite x alone would rescale
+    # by the wrong N whenever y carries the missing value -- a silent few
+    # percent, in the direction of undersmoothing.
+    xa = np.asarray(x, dtype=float).ravel()
+    ya = np.asarray(y, dtype=float).ravel()
+    n = int(np.sum(np.isfinite(xa) & np.isfinite(ya)))
+    q = p + 1
+    h = mse["h"] * n ** (-(p / ((2 * p + 3) * (p + 3))))
+    b = mse["b"] * n ** (-((q + 2) / ((2 * q + 5) * (q + 3))))
+    return {"h": float(h), "b": float(b)}

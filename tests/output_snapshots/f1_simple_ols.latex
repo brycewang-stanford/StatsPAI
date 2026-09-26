@@ -17,6 +17,6 @@ Adj. R$^2$ & 0.602 \\
 F & 302.955 \\
 \hline\hline
 \multicolumn{2}{l}{\footnotesize Standard errors in parentheses} \\
-\multicolumn{2}{l}{\footnotesize *** p<0.01, ** p<0.05, * p<0.10} \\
+\multicolumn{2}{l}{\footnotesize *** p\textless{}0.01, ** p\textless{}0.05, * p\textless{}0.10} \\
 \end{tabular}
 \end{table}

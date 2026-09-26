@@ -72,7 +72,42 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
-from ..nonparametric.lprobust import lpbwselect_mse_dpi, lprobust_at_point
+from ..exceptions import MethodIncompatibility
+from ..nonparametric.lprobust import (
+    lpbwselect_ce_rot,
+    lpbwselect_imse_dpi,
+    lpbwselect_imse_rot,
+    lpbwselect_mse_dpi,
+    lpbwselect_mse_rot,
+    lprobust_at_point,
+)
+
+#: Bandwidth selectors ``bandwidth=`` accepts by name, keyed by Stata's
+#: ``bw_method()`` spelling. Stata's ``did_had`` does not validate
+#: ``bw_method()`` at all -- it passes the string straight to
+#: ``lprobust``'s ``bwselect()`` -- so the accepted set is whatever
+#: ``lprobust`` accepts. Each adapter takes ``(x, y, eval_point,
+#: kernel)`` and returns ``h``; the IMSE selectors optimize the
+#: *integrated* MSE and so ignore the evaluation point by construction.
+_BW_SELECTORS = {
+    "mse-dpi": lambda x, y, e, kernel: lpbwselect_mse_dpi(x, y, e, kernel=kernel)["h"],
+    "mse-rot": lambda x, y, e, kernel: lpbwselect_mse_rot(x, y, e, kernel=kernel)["h"],
+    "imse-dpi": lambda x, y, e, kernel: lpbwselect_imse_dpi(x, y, kernel=kernel)["h"],
+    "imse-rot": lambda x, y, e, kernel: lpbwselect_imse_rot(x, y, kernel=kernel)["h"],
+    "ce-rot": lambda x, y, e, kernel: lpbwselect_ce_rot(x, y, e, kernel=kernel)["h"],
+}
+
+#: Selectors ``lprobust`` accepts that this port does NOT implement.
+#: Named explicitly so the error says "not ported" rather than making a
+#: valid Stata spelling look like a typo.
+_BW_UNPORTED = {
+    "ce-dpi": (
+        "ce-dpi needs nprobust's ~150-line coverage-error plug-in "
+        "routine, which is not ported. Its bias bandwidth b is identical "
+        "to ce-rot's; only h differs, so 'ce-rot' is the closest "
+        "available choice."
+    ),
+}
 
 __all__ = ["did_had", "quasi_untreated_test", "yatchew_linearity_test"]
 
@@ -211,12 +246,21 @@ def did_had(
         Number of placebo estimates, built symmetrically: the ``F-1`` to
         ``F-1+ℓ`` evolution is replaced by ``F-1`` to ``F-1-ℓ``, with the
         dose taken from the matching post period.
-    bandwidth : float or sequence of float, optional
-        Bandwidth for the local polynomial fit at dose zero — one value,
-        or one per reported horizon (placebos first, then effects).
+    bandwidth : str, float, or sequence of float
+        Bandwidth for the local polynomial fit at dose zero. Either a
+        selector name, matching Stata's ``bw_method()``:
 
-        **Required for now.** Stata's default ``bw_method('mse-dpi')``
-        selector is not yet implemented; see Notes.
+        - ``'mse-dpi'`` (default) — MSE-optimal direct plug-in at dose 0
+        - ``'mse-rot'`` — the cheaper rule of thumb
+        - ``'imse-dpi'`` / ``'imse-rot'`` — *integrated* MSE, i.e. one
+          global bandwidth rather than one optimal at dose 0
+        - ``'ce-rot'`` — coverage-error-optimal; undersmooths ``mse-dpi``,
+          giving a narrower window and better interval coverage
+
+        …or an explicit value: one, or one per reported horizon (placebos
+        first, then effects). ``'ce-dpi'`` is accepted by Stata but not
+        ported, and raises :class:`NotImplementedError` rather than
+        silently substituting another selector.
     kernel : {'epanechnikov', 'triangular', 'uniform', 'gaussian'}
         Default epanechnikov, matching ``did_had``.
     alpha : float, default 0.05
@@ -254,14 +298,22 @@ def did_had(
     **The interval is not symmetric around the estimate.** It is centred
     at ``estimate − bias``; see the module docstring.
 
-    **Bandwidth selection is not implemented.** ``did_had`` defaults to
-    ``mse-dpi``, whose implementation lives in a compiled Mata library
-    (``nprobust``'s ``nprobust_lp_mse_dpi``) with no readable source, so
-    reproducing it means re-deriving the selector from Calonico,
-    Cattaneo & Farrell (2019) rather than porting it. Until that is done
-    and pinned, ``bandwidth`` must be supplied explicitly — an estimator
-    that silently used a *different* bandwidth from the reference would
-    produce numbers that look right and are not.
+    **Bandwidth selection runs per horizon.** Each horizon is a separate
+    regression on its own (dose, evolution) pair, so the selector is
+    re-run for each — which is why Stata's ``BW`` column varies down the
+    table. Five of the six selectors ``lprobust`` accepts are ported and
+    pinned end-to-end against Stata 18 MP on the ``87_did_had.do``
+    fixture; against R the selectors themselves agree to 1.6e-12 or
+    better. Stata's own residual (up to ~1e-7) comes from integrating the
+    kernel moment constants numerically where these use closed forms.
+
+    Stata's ``did_had`` does **not** validate ``bw_method()`` — it
+    forwards the string to ``lprobust``'s ``bwselect()`` — so the
+    accepted set here is whatever ``lprobust`` accepts, minus
+    ``'ce-dpi'``, which raises.
+
+    ``lprobust``'s ``rho`` defaults to 1, so the bias bandwidth is ``h``,
+    not the ``b`` the selector reports. ``did_had`` inherits that.
 
     Examples
     --------
@@ -280,11 +332,10 @@ def did_had(
         raise ValueError(f"placebo must be >= 0, got {placebo}")
     if bandwidth is None:
         raise ValueError(
-            "did_had requires an explicit bandwidth=. Stata's default "
-            "bw_method('mse-dpi') selector is not implemented yet — its "
-            "source is a compiled Mata routine — and guessing a bandwidth "
-            "would silently change every estimate. Pass the bandwidth you "
-            "want, or the one Stata's did_had reports in its BW column."
+            "bandwidth=None is not a bandwidth. Pass 'mse-dpi' (the "
+            "default, matching Stata), 'mse-rot', a float, or one float "
+            "per horizon — silently picking one would change every "
+            "estimate without saying so."
         )
 
     wide_y, wide_d, periods, f_period = _panel_matrices(data, y, group, time, treat)
@@ -333,11 +384,14 @@ def did_had(
     # effect and placebo, which is why its BW column varies down the table.
     auto_bw = isinstance(bandwidth, str)
     if auto_bw:
-        if bandwidth != "mse-dpi":
+        if bandwidth in _BW_UNPORTED:
+            raise MethodIncompatibility(_BW_UNPORTED[bandwidth])
+        if bandwidth not in _BW_SELECTORS:
             raise ValueError(
-                f"bandwidth must be 'mse-dpi', a float, or one float per "
-                f"horizon; got {bandwidth!r}."
+                f"bandwidth must be one of {sorted(_BW_SELECTORS)}, a "
+                f"float, or one float per horizon; got {bandwidth!r}."
             )
+        select_bw = _BW_SELECTORS[bandwidth]
         bws: List[Optional[float]] = [None] * len(horizons)
     else:
         bws = list(_resolve_bandwidths(bandwidth, len(horizons)))
@@ -387,7 +441,7 @@ def did_had(
             # rather than using the selector's own b. did_had inherits
             # that, so the bias bandwidth here is h, not the b the
             # selector would report.
-            bw = lpbwselect_mse_dpi(dose_k, dy_k, 0.0, kernel=kernel)["h"]
+            bw = select_bw(dose_k, dy_k, 0.0, kernel)
         fit = lprobust_at_point(dose_k, dy_k, 0.0, h=bw, b=bw, kernel=kernel)
         beta = (float(dy_k.mean()) - fit.tau_us) / mean_dose
         bias = -fit.bias / mean_dose
@@ -453,7 +507,7 @@ def did_had(
             "dynamic": dynamic,
             "trends_lin": trends_lin,
             "bandwidth": [float(r["bandwidth"]) for r in rows],
-            "bandwidth_method": "mse-dpi" if auto_bw else "supplied",
+            "bandwidth_method": bandwidth if auto_bw else "supplied",
             "n_groups": int(y_mat.shape[0]),
             "quasi_untreated_test": {
                 "statistic": rows[-1]["qug_statistic"],

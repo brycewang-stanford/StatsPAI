@@ -231,9 +231,17 @@ def test_did_bjs_missing_id_raises():
 
 
 def test_did_sdid():
+    # SDID is the block design: one adoption cohort plus never-treated. The
+    # staggered panel itself is refused (tests/test_sdid_staggered_refused.py).
     df = _staggered()
+    df = df[df["g"] != 6]
     r = sp.did(df, y="y", treat="g", time="t", id="i", method="sdid")
     assert r.estimate is not None
+
+
+def test_did_sdid_refuses_staggered_cohorts():
+    with pytest.raises(MethodIncompatibility, match="different periods"):
+        sp.did(_staggered(), y="y", treat="g", time="t", id="i", method="sdid")
 
 
 def test_did_sdid_missing_id_raises():

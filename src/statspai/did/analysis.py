@@ -469,12 +469,19 @@ def did_analysis(
         main_result = fn(data, y=y, i=id, t=time, g=treat, alpha=alpha, **kwargs)
         method_label = main_result.method
     elif method == "sdid":
+        from ..synth.sdid import _block_adoption_from_cohorts
         from ..synth.sdid import sdid as _sdid
 
-        # SDID requires different parameter mapping
-        treat_time_vals = sorted(data.loc[data[treat] > 0, treat].unique())
-        treat_time_val = treat_time_vals[0] if treat_time_vals else None
-        treat_units = data.loc[data[treat] > 0, id].unique().tolist() if id else None
+        # SDID requires different parameter mapping; the treat column holds
+        # each unit's first treated period, and several of them are refused.
+        if id is None:
+            from statspai.exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                "did_analysis(method='sdid') needs id= (the unit identifier).",
+                recovery_hint="Pass id='unit_column'.",
+            )
+        treat_units, treat_time_val = _block_adoption_from_cohorts(data, id, treat)
         main_result = _sdid(
             data,
             y=y,

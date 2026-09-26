@@ -439,8 +439,13 @@ def auto_cate(
     >>> df["wage"], df["training"] = wage, training
     >>> result = sp.auto_cate(df, y="wage", treat="training",
     ...                       covariates=["age", "edu", "exp"],
-    ...                       learners=("s", "t"))
-    >>> print(result.summary())
+    ...                       learners=("s", "t"), n_folds=3, n_bootstrap=50)
+    >>> result.leaderboard["learner"].tolist()
+    ['S-Learner', 'T-Learner']
+    >>> result.selection_rule
+    'lowest held-out Nie-Wager R-loss'
+    >>> bool(result.best_learner in set(result.leaderboard["learner"]))
+    True
     """
     if score != "r_loss":
         raise NotImplementedError(

@@ -13,9 +13,24 @@ These are functional helpers, not a parser — the parser is intentionally
 deferred to a later phase. You feed the helpers into the existing
 ``sp.feols`` / ``sp.fast.fepois`` callers manually:
 
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> df = pd.DataFrame({
+    ...     'firm': rng.integers(0, 20, 400),
+    ...     'year': rng.integers(2008, 2013, 400),
+    ...     'x': rng.normal(size=400),
+    ... })
+    >>> df['y'] = rng.poisson(np.exp(0.2 * df['x']))
     >>> dummies = sp.fast.i(df['year'], ref=2010)
+    >>> list(dummies.columns)
+    ['year::2008', 'year::2009', 'year::2011', 'year::2012']
     >>> X = pd.concat([df[['x']], dummies], axis=1)
-    >>> sp.fast.fepois('y ~ ' + ' + '.join(X.columns) + ' | firm', data=df.join(dummies))
+    >>> formula = 'y ~ ' + ' + '.join(X.columns) + ' | firm'
+    >>> fit = sp.fast.fepois(formula, data=df.join(dummies))
+    >>> type(fit).__name__
+    'FePoisResult'
 """
 
 from __future__ import annotations

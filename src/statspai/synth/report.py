@@ -898,21 +898,15 @@ def _format_latex(
 
 
 def _latex_escape(text: str) -> str:
-    """Escape LaTeX special characters."""
-    replacements = {
-        "&": r"\&",
-        "%": r"\%",
-        "$": r"\$",
-        "#": r"\#",
-        "_": r"\_",
-        "{": r"\{",
-        "}": r"\}",
-        "~": r"\textasciitilde{}",
-        "^": r"\textasciicircum{}",
-    }
-    for char, replacement in replacements.items():
-        text = text.replace(char, replacement)
-    return text
+    """Escape LaTeX special characters.
+
+    Delegates to ``output._format.latex_escape``. The local copy this
+    replaced left a raw ``\\`` in the output (backslash was absent from its
+    replacement table), which does not compile.
+    """
+    from ..output._format import latex_escape
+
+    return latex_escape(text)
 
 
 # ======================================================================

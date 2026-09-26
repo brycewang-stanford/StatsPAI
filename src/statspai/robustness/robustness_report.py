@@ -13,7 +13,20 @@ Checks include:
 
 Usage
 -----
+>>> import numpy as np
+>>> import pandas as pd
 >>> import statspai as sp
+>>> rng = np.random.default_rng(0)
+>>> n = 400
+>>> df = pd.DataFrame({
+...     "female": rng.integers(0, 2, size=n),
+...     "region": rng.integers(0, 4, size=n),
+...     "age": rng.integers(22, 60, size=n),
+...     "education": rng.normal(12, 3, size=n),
+...     "experience": rng.normal(10, 5, size=n),
+... })
+>>> df["wage"] = (5.0 + 0.4 * df["education"] + 0.1 * df["experience"]
+...               - 0.5 * df["female"] + rng.normal(size=n))
 >>> baseline = sp.regress("wage ~ education + experience", data=df)
 >>> report = sp.robustness_report(
 ...     data=df,
@@ -24,8 +37,10 @@ Usage
 ...     drop_controls=['experience'],
 ...     winsor_levels=[0.01, 0.05],
 ... )
->>> report.plot()
->>> report.summary()
+>>> report.results_df["check"].tolist()[:3]
+['Baseline', 'SE: OLS (non-robust)', 'SE: Clustered (region)']
+>>> fig, ax = report.plot()
+>>> text = report.summary()
 """
 
 from __future__ import annotations
@@ -128,7 +143,9 @@ class RobustnessResult(ResultProtocolMixin):
         lines.append("=" * 78)
         return "\n".join(lines)
 
-    def to_latex(
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def to_latex(  # type: ignore[override]
         self,
         *,
         caption: Optional[str] = "Robustness Checks",

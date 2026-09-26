@@ -432,7 +432,8 @@ def _dispatch_synth_impl(
           for most methods: ``pre_rmspe``, ``post_rmspe``, ``weights``,
           ``n_donors``, ``n_pre_periods``, ``n_post_periods``. Extra keys
           are method-specific — see each variant's own docstring
-          (``help(sp.bayesian_synth)``, ``help(sp.mc_synth)``, ...).
+          (``help(sp.mc_synth)``,
+          ``help(statspai.synth.bayesian.bayesian_synth)``, ...).
 
     Notes
     -----
@@ -441,50 +442,66 @@ def _dispatch_synth_impl(
 
     Examples
     --------
+    A small simulated panel (unit 0 treated from period 15) shared by all
+    calls below:
+
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> df = sp.dgp_synth(n_units=10, n_periods=20, treatment_time=15,
+    ...                   effect=2.0, seed=0)
+    >>> rng = np.random.default_rng(1)
+    >>> df["emp"] = 0.5 * df["y"] + rng.normal(0, 0.1, len(df))
+    >>> args = dict(outcome='y', unit='unit', time='time',
+    ...             treated_unit=0, treatment_time=15)
+
     Classic SCM:
 
-    >>> result = sp.synth(df, outcome='gdp', unit='state', time='year',
-    ...                   treated_unit='California', treatment_time=1989)
+    >>> result = sp.synth(df, **args)
+    >>> result.method
+    'Synthetic Control Method'
 
     De-meaned:
 
-    >>> result = sp.synth(..., method='demeaned')
+    >>> result = sp.synth(df, **args, method='demeaned')
 
     Unconstrained (negative weights):
 
-    >>> result = sp.synth(..., method='unconstrained')
+    >>> result = sp.synth(df, **args, method='unconstrained')
 
     Factor model:
 
-    >>> result = sp.synth(..., method='gsynth', n_factors=3)
+    >>> result = sp.synth(df, **args, method='gsynth', n_factors=2)
+    >>> result.method
+    'Generalized Synthetic Control (Xu 2017)'
 
     Conformal inference:
 
-    >>> result = sp.synth(..., inference='conformal')
+    >>> result = sp.synth(df, **args, inference='conformal')
 
-    Staggered adoption:
+    Staggered adoption (binary treatment indicator instead of a single
+    treated unit):
 
-    >>> result = sp.synth(df, outcome='gdp', unit='state', time='year',
+    >>> result = sp.synth(df, outcome='y', unit='unit', time='time',
     ...                   treatment='treated', method='staggered')
 
     Matrix completion:
 
-    >>> result = sp.synth(..., method='mc')
+    >>> result = sp.synth(df, **args, method='mc')
 
     Distributional synthetic controls:
 
-    >>> result = sp.synth(..., method='discos')
+    >>> result = sp.synth(df, **args, method='discos')
 
     Multiple outcomes:
 
-    >>> result = sp.synth(df, outcome='gdp', unit='state', time='year',
-    ...                   treated_unit='California', treatment_time=1989,
-    ...                   method='multi_outcome',
-    ...                   outcomes=['gdp', 'employment', 'investment'])
+    >>> result = sp.synth(df, **args, method='multi_outcome',
+    ...                   outcomes=['y', 'emp'])
 
     Prediction intervals:
 
-    >>> result = sp.synth(..., method='scpi')
+    >>> result = sp.synth(df, **args, method='scpi')
+    >>> type(result).__name__
+    'CausalResult'
 
     See Also
     --------

@@ -6,20 +6,41 @@ the style of ``sp.synth`` / ``sp.decompose`` / ``sp.dml``.
 
 Examples
 --------
+>>> import numpy as np
+>>> import pandas as pd
 >>> import statspai as sp
+>>> rng = np.random.default_rng(0)
+>>> n = 240
+>>> x1, x2 = rng.normal(size=n), rng.normal(size=n)
+>>> d = rng.integers(0, 2, size=n)
+>>> y = 1.0 + 0.5 * x1 + d * (1.0 + 0.5 * x2) + rng.normal(0, 0.5, n)
+>>> df = pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2,
+...                    "village": np.repeat(np.arange(12), 20)})
 >>> # Default CATE intervals
 >>> r = sp.conformal("cate", data=df, y="y", treat="d",
 ...                  covariates=["x1", "x2"])
+>>> type(r).__name__
+'CausalResult'
 >>> # ITE nested bound
 >>> r = sp.conformal("ite", data=df, y="y", treat="d",
 ...                  covariates=["x1", "x2"], alpha=0.1)
+>>> type(r).__name__
+'ConformalITEResult'
 >>> # Dose-response band
+>>> dose = rng.uniform(0, 5, n)
+>>> train = pd.DataFrame({"y": 2.0 + 0.7 * dose + x1, "dose": dose, "x": x1})
+>>> test = pd.DataFrame({"dose": [1.0, 3.0], "x": [0.0, 0.5]})
+>>> grid = [0.0, 2.5, 5.0]
 >>> r = sp.conformal("continuous", data=train, y="y", treatment="dose",
 ...                  covariates=["x"], test_data=test, dose_grid=grid)
+>>> type(r).__name__
+'ContinuousConformalResult'
 >>> # Cluster-exchangeable under interference
 >>> r = sp.conformal("interference", data=df, y="y", treatment="d",
-...                  cluster="village", covariates=["x"],
-...                  test_clusters=["v1", "v2"])
+...                  cluster="village", covariates=["x1"],
+...                  test_clusters=[0, 1])
+>>> list(r.predictions["cluster"])
+[0, 1]
 """
 
 from __future__ import annotations

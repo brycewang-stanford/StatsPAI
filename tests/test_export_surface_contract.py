@@ -125,6 +125,45 @@ class TestResultOwnExportMethods:
             json.dumps(r.to_dict())  # must be JSON-safe
 
 
+class TestLightweightResultsCarryTheContract:
+    """§3's export contract reaches the small dataclass results too.
+
+    ``IPCWResult`` was a plain dataclass with none of it. Opting a class
+    into ``ResultProtocolMixin`` is the whole fix — the point of this test
+    is that the inherited methods actually produce output for a real fit,
+    not merely that the attributes exist.
+    """
+
+    @pytest.fixture(scope="class")
+    def ipcw_result(self):
+        rng = np.random.default_rng(0)
+        n = 400
+        df = pd.DataFrame({"x": rng.normal(size=n), "z": rng.normal(size=n)})
+        df["time"] = rng.exponential(5, size=n)
+        df["event"] = (rng.random(n) < 0.6).astype(int)
+        return sp.ipcw(df, time="time", event="event", censor_covariates=["x", "z"])
+
+    def test_to_latex_renders_rows(self, ipcw_result):
+        latex = ipcw_result.to_latex()
+        assert "\\begin{tabular}" in latex
+        assert "method" in latex
+
+    def test_to_markdown_renders_rows(self, ipcw_result):
+        assert "| method |" in ipcw_result.to_markdown()
+
+    def test_to_dict_is_json_safe(self, ipcw_result):
+        json.dumps(ipcw_result.to_dict())
+
+    def test_to_excel_writes_a_workbook(self, ipcw_result, tmp_path):
+        path = tmp_path / "ipcw.xlsx"
+        ipcw_result.to_excel(str(path))
+        assert path.exists() and path.stat().st_size > 0
+
+    def test_underscored_field_names_are_escaped(self, ipcw_result):
+        # "summary_stats" must not reach the tabular as a bare "_".
+        assert "summary\\_stats" in ipcw_result.to_latex()
+
+
 class TestBoundaryDocumentation:
     """Pin the documented boundary: regtable consumes coefficient-like
     results (params/std_errors OR estimate/se). A bare object without either

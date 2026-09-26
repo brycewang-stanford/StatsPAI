@@ -60,9 +60,19 @@ def sar(
 
     Examples
     --------
-    >>> W = sp.queen_weights(gdf)  # or any (n,n) array
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 80
+    >>> coords = rng.uniform(0, 10, size=(n, 2))
+    >>> W = sp.knn_weights(coords, k=5).sparse.toarray()  # or any (n,n) array
+    >>> df = pd.DataFrame({"income": rng.normal(size=n),
+    ...                    "education": rng.normal(size=n)})
+    >>> df["crime"] = 2 - 0.5 * df["income"] + rng.normal(size=n)
     >>> result = sp.sar(W, data=df, formula='crime ~ income + education')
-    >>> print(result.summary())
+    >>> list(result.params.index)
+    ['const', 'income', 'education', 'rho']
     """
     model = SpatialModel(
         W, data, formula, model_type="sar", row_normalize=row_normalize, alpha=alpha

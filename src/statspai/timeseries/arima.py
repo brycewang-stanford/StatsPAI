@@ -6,10 +6,20 @@ interface: formula-like specification, ``.summary()``, ``.forecast()``,
 
 Examples
 --------
+>>> import numpy as np
+>>> import pandas as pd
 >>> import statspai as sp
+>>> rng = np.random.default_rng(0)
+>>> e = rng.normal(size=150)
+>>> dy = np.zeros(150)
+>>> for t in range(1, 150):
+...     dy[t] = 0.3 + 0.5 * dy[t - 1] + e[t] + 0.3 * e[t - 1]
+>>> df = pd.DataFrame({"gdp": 100 + np.cumsum(dy)})
 >>> result = sp.arima(df["gdp"], order=(1, 1, 1))
 >>> fc = result.forecast(horizon=12)
->>> result.plot()
+>>> fc.shape, list(fc.columns)
+((12, 3), ['forecast', 'lower', 'upper'])
+>>> ax = result.plot()
 """
 
 from __future__ import annotations
@@ -247,8 +257,8 @@ def arima(
     (3, 2)
     """
     try:
-        from statsmodels.tsa.statespace.sarimax import SARIMAX
         from statsmodels.tsa.arima.model import ARIMA as SMARIMA
+        from statsmodels.tsa.statespace.sarimax import SARIMAX
     except ImportError as e:
         raise ImportError(
             "statsmodels is required for arima(). "

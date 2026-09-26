@@ -1,76 +1,82 @@
 {
-  "_comment": "Frozen ceiling of legacy-spelling sites per theme for the signature house-style ratchet. Lower these as convergence lands; regenerate with `python scripts/signature_house_style.py --update-baseline`.  se raised 58->60 on 2026-08-02 for gmm(vcov=) and xtdpdsys(robust=): both match their own family's existing spelling — feols(vcov=) and xtabond(robust=) — so renaming them in isolation would trade a house-style violation for a sibling inconsistency, which is worse for users. xtdpdsys is already registered in _house_style.ROBUST_BOOL_HINTS as awaiting the coordinated vce= convergence. Lower this again when that convergence lands, not before.  se raised 60->62 on 2026-08-05 for regress(vcov=) and ivreg(vcov=). These are NOT drift: vcov= was previously accepted by both functions via **kwargs and silently discarded, returning unclustered standard errors (measured 1.7x too small on a 15-cluster example; see MIGRATION.md#vcov-silently-ignored). The options were to honour the spelling or to reject it; honouring it is what users moving between sp.feols and sp.regress actually want, and the notebook that surfaced the bug mixes both spellings in one file. vce= remains canonical and is unchanged; vcov= is a documented alias that normalises onto it. Do not lower this by renaming vcov= away -- that would re-open the silent-SE path.  unit / time / covariates added 2026-09-15 when the maintainer ratified id= and covariates= as canonical (grammar convergence P1). They are frozen at their first observed counts: canonical spellings are accepted through @accepts_aliases without renaming signatures, so these counts fall only when a signature is renamed; the ceiling stops new drift meanwhile.  covariates raised 82->88 on 2026-09-23 for the six FE-forest post-estimation entry points that landed in 7dfd6566 with controls= (average_treatment_effect, calibrate_cate, calibration_test, test_calibration, cate_pretrend_test, forest_group_effects). They spell it that way because they wrap CausalForest methods of the same name and signature; renaming the functions alone would split the pair, and renaming the methods is an API change owned by the forest line of work, not by the DiD release that found this. The rename to covariates= (with controls= as an alias, on both the functions and the methods) is owed before those helpers appear in a second release -- lower this back to 82 then.",
+  "_comment": "Frozen ceiling of legacy-spelling sites per theme for the signature house-style ratchet. Lower these as convergence lands; regenerate with `python scripts/signature_house_style.py --update-baseline`.",
   "by_theme": {
-    "cluster": 2,
-    "covariates": 88,
-    "data": 5,
-    "outcome": 55,
-    "se": 62,
-    "time": 16,
-    "treatment": 63,
-    "unit": 85,
-    "weights": 5
+    "covariates": 40,
+    "outcome": 3,
+    "se": 21,
+    "time": 2,
+    "unit": 3
   },
   "coverage": {
     "cluster": {
-      "canonical": 101,
-      "canonical_pct": 98.1,
-      "legacy": 2,
-      "total": 103
+      "aliased": 2,
+      "canonical": 124,
+      "canonical_pct": 100.0,
+      "legacy": 0,
+      "total": 126
     },
     "covariates": {
-      "canonical": 133,
-      "canonical_pct": 61.9,
-      "legacy": 82,
-      "total": 215
+      "aliased": 43,
+      "canonical": 156,
+      "canonical_pct": 83.3,
+      "legacy": 40,
+      "total": 239
     },
     "data": {
-      "canonical": 492,
-      "canonical_pct": 99.0,
-      "legacy": 5,
-      "total": 497
+      "aliased": 5,
+      "canonical": 536,
+      "canonical_pct": 100.0,
+      "legacy": 0,
+      "total": 541
     },
     "outcome": {
-      "canonical": 319,
-      "canonical_pct": 85.3,
-      "legacy": 55,
-      "total": 374
+      "aliased": 52,
+      "canonical": 362,
+      "canonical_pct": 99.3,
+      "legacy": 3,
+      "total": 417
     },
     "se": {
-      "canonical": 15,
-      "canonical_pct": 20.5,
-      "legacy": 58,
-      "total": 73
+      "aliased": 41,
+      "canonical": 39,
+      "canonical_pct": 79.2,
+      "legacy": 21,
+      "total": 101
     },
     "time": {
-      "canonical": 131,
-      "canonical_pct": 89.1,
-      "legacy": 16,
-      "total": 147
+      "aliased": 14,
+      "canonical": 140,
+      "canonical_pct": 98.7,
+      "legacy": 2,
+      "total": 156
     },
     "treatment": {
-      "canonical": 98,
-      "canonical_pct": 60.9,
-      "legacy": 63,
-      "total": 161
+      "aliased": 63,
+      "canonical": 114,
+      "canonical_pct": 100.0,
+      "legacy": 0,
+      "total": 177
     },
     "unit": {
-      "canonical": 32,
-      "canonical_pct": 27.4,
-      "legacy": 85,
-      "total": 117
+      "aliased": 82,
+      "canonical": 39,
+      "canonical_pct": 97.6,
+      "legacy": 3,
+      "total": 124
     },
     "weights": {
-      "canonical": 39,
-      "canonical_pct": 88.6,
-      "legacy": 5,
-      "total": 44
+      "aliased": 5,
+      "canonical": 73,
+      "canonical_pct": 100.0,
+      "legacy": 0,
+      "total": 78
     }
   },
   "totals": {
-    "acknowledged_false_friends": 44,
-    "introspected": 875,
-    "public_callables": 897,
-    "violations": 375
+    "acknowledged_false_friends": 45,
+    "aliased": 307,
+    "introspected": 913,
+    "public_callables": 935,
+    "violations": 69
   }
 }

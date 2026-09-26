@@ -328,8 +328,19 @@ def decision_summary(
 
     Examples
     --------
+    >>> import numpy as np, pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> df = pd.DataFrame({"treated": rng.integers(0, 2, n),
+    ...                    "post": rng.integers(0, 2, n)})
+    >>> df["wage"] = (10 + 0.5 * df["treated"] + 0.3 * df["post"]
+    ...               + 2.0 * df["treated"] * df["post"] + rng.normal(size=n))
     >>> r = sp.did(df, y='wage', treat='treated', time='post')
-    >>> print(r.decision_summary(rope=0.5).text)
+    >>> ds = r.decision_summary(rope=0.5)
+    >>> ds.table["label"].iloc[0]
+    'Significant & practically meaningful'
+    >>> text = ds.text  # one-paragraph prose verdict
     """
     rope_band = _coerce_rope(rope, sesoi)
 

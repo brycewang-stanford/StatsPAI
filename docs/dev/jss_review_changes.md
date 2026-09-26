@@ -24,4 +24,23 @@ Rules:
 
 ## Entries
 
-(none yet)
+### 2026-09-27 — call traces re-recorded after the post-release merge
+
+- **Commits.** The merge of `main` (upstream `a916c7bc`..`881fdf8c`: sdid
+  refusal of staggered cohorts, LaTeX output precision, `did_had` bandwidth
+  selectors, forest covariance attrs, and others) into the 1.32.0 release
+  line; re-traced Track A modules 03 13 15 24 25 26 27 35 53 65 66 and
+  original-data module 08.
+- **Reason.** The traces bind SHA-256 digests of every source file on each
+  module's estimation path; the merged commits edited some of those files,
+  and upstream had recorded its traces before the release's
+  `__version__`-line normalisation.
+- **Effect on the paper.** None. Only `exercised_sources` digests and
+  `seconds` changed; no module's implementation classification moved
+  (checked field by field against `v1.32.0`), so the native / port /
+  third-party census of Section 5.3 and Appendix A (86 / 0 / 3) and the
+  original-data ledger's provenance marks are unchanged. No estimate,
+  standard error or table cell is read from these files.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`

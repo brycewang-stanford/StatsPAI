@@ -168,7 +168,9 @@ class LLMAnnotatorResult(CausalResult):
         self.correction_factor = float(correction_factor)
         self.annotator_diagnostics = dict(annotator_diagnostics)
 
-    def summary(
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def summary(  # type: ignore[override]
         self,
         alpha: Optional[float] = None,
     ) -> str:  # pragma: no cover (cosmetic)

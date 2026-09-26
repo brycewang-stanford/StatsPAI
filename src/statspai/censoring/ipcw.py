@@ -23,9 +23,11 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
+from .._result_serialize import ResultProtocolMixin
+
 
 @dataclass
-class IPCWResult:
+class IPCWResult(ResultProtocolMixin):
     """Result of an IPCW fit.
 
     Attributes

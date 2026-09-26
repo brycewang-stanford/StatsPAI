@@ -35,7 +35,9 @@ class RKDResult(CausalResult):
         super().__init__(**kwargs)
         self._rkd_plot_data = rkd_plot_data
 
-    def summary(self, alpha: Optional[float] = None) -> str:
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def summary(self, alpha: Optional[float] = None) -> str:  # type: ignore[override]
         return _rkd_summary(self, alpha)
 
     def plot(self, type: str = "main", **kwargs: Any) -> Any:

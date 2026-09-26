@@ -4412,7 +4412,7 @@ def _build_registry() -> None:
                 ),
             ],
             returns="MatchEstimator result",
-            example='sp.match(df, treatment="treat", outcome="y", covariates=["x1","x2"])',
+            example='sp.match(df, y="y", treat="treat", covariates=["x1","x2"])',
             tags=["matching", "propensity", "psm", "treatment"],
             reference="Rosenbaum & Rubin (1983); Ho et al. (2007) Political Analysis; Stuart (2010) Statistical Science",
             pre_conditions=[
@@ -5214,9 +5214,12 @@ def _build_registry() -> None:
                     "stats_fmt",
                     "str|int",
                     False,
-                    "%.3f",
+                    "stat",
                     "Precision for summary-statistic rows (R2, adj. R2, F); "
-                    "independent of fmt because they are on their own scale",
+                    "independent of fmt because they are on their own scale. "
+                    "'stat' keeps 3 decimals but gives them up as the integer "
+                    "part grows, so R2 reads 0.090 and a large F reads "
+                    "538,582 rather than 538582.398",
                 ),
                 ParamSpec(
                     "digits",

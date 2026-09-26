@@ -32,9 +32,15 @@ deterministic simulated replica.
 Usage
 -----
 >>> import statspai as sp
->>> sp.list_replications()
+>>> reps = sp.list_replications()
+>>> reps['key'].tolist()[:3]
+['card_1995', 'abadie_2010', 'castle_2013']
 >>> data, guide = sp.replicate('card_1995')
->>> print(guide)
+>>> data.shape
+(3010, 9)
+>>> print(guide)  # doctest: +ELLIPSIS
+========...
+REPLICATION GUIDE: Card (1995) ...
 """
 
 from __future__ import annotations
@@ -1189,7 +1195,11 @@ def list_replications() -> pd.DataFrame:
     Examples
     --------
     >>> import statspai as sp
-    >>> sp.list_replications()
+    >>> reps = sp.list_replications()
+    >>> list(reps.columns)[:4]
+    ['key', 'title', 'design', 'journal']
+    >>> 'card_1995' in set(reps['key'])
+    True
     """
     rows = []
     for key, info in _REPLICATIONS.items():
@@ -1242,7 +1252,10 @@ def replicate(
     --------
     >>> import statspai as sp
     >>> data, guide = sp.replicate('card_1995')
-    >>> print(guide)
+    >>> data.shape
+    (3010, 9)
+    >>> guide.splitlines()[1]  # doctest: +ELLIPSIS
+    'REPLICATION GUIDE: Card (1995) ...'
     """
     if key not in _REPLICATIONS:
         available = ", ".join(_REPLICATIONS.keys())

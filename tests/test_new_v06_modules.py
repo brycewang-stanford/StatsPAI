@@ -6,10 +6,11 @@ Tests for all new v0.6 modules:
 - Multi-Cutoff RD, Continuous DID, Advanced IV
 """
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
-import warnings
 
 # ====================================================================
 # Helper: generate test data
@@ -323,7 +324,7 @@ class TestTimeSeries:
         assert "VAR" in s
 
     def test_granger(self):
-        from statspai.timeseries.var import var, granger_causality
+        from statspai.timeseries.var import granger_causality, var
 
         rng = np.random.default_rng(42)
         n = 200
@@ -449,17 +450,18 @@ class TestExperimental:
         assert "Attrition" in s
 
     def test_optimal_design(self):
-        from statspai.experimental.optimal import optimal_design
         from scipy import stats
 
+        from statspai.experimental.optimal import optimal_design
+
+        # Two arms, p = 0.5: N = z^2 sigma^2 / (mde^2 p (1 - p)) in TOTAL, i.e.
+        # z^2 / (mde^2 (1 - p)) per arm. (Before 1.29.0 the total was reported
+        # per arm, doubling every sample size.)
         result = optimal_design(design="individual", mde=0.2, sigma=1.0)
-        z_alpha = stats.norm.ppf(1 - 0.05 / 2)
-        z_beta = stats.norm.ppf(0.8)
-        expected_n_per_arm = np.ceil(((z_alpha + z_beta) ** 2) / (0.2**2 * 0.5 * 0.5))
-        np.testing.assert_allclose(result.n_per_arm, expected_n_per_arm)
-        np.testing.assert_allclose(result.n_total, np.ceil(expected_n_per_arm / 0.5))
-        assert result is not None
-        assert result.n_total > 0
+        z = stats.norm.ppf(1 - 0.05 / 2) + stats.norm.ppf(0.8)
+        per_arm = np.ceil(z**2 / (0.2**2 * 0.5))
+        assert result.n_per_arm == per_arm
+        assert result.n_total == 2 * per_arm
         s = result.summary()
         assert "Optimal" in s
 
@@ -467,12 +469,9 @@ class TestExperimental:
             design="cluster", mde=0.2, sigma=1.0, icc=0.05, cluster_size=20
         )
         deff = 1 + (20 - 1) * 0.05
-        expected_cluster_ind_per_arm = np.ceil(
-            ((z_alpha + z_beta) ** 2 * deff) / (0.2**2 * 0.5 * 0.5)
-        )
-        expected_clusters = np.ceil(expected_cluster_ind_per_arm / 20) * 2
-        np.testing.assert_allclose(result_cl.n_clusters, expected_clusters)
-        assert result_cl.n_clusters > 0
+        clusters_per_arm = np.ceil(np.ceil(z**2 * deff / (0.2**2 * 0.5)) / 20)
+        assert result_cl.n_clusters == 2 * clusters_per_arm
+        assert result_cl.n_total == 2 * clusters_per_arm * 20
 
 
 # ====================================================================

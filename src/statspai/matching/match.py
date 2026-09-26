@@ -361,9 +361,24 @@ def match(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> n = 400
+    >>> df = pd.DataFrame({'age': rng.integers(20, 60, n),
+    ...                    'edu': rng.integers(8, 18, n),
+    ...                    'exp': rng.normal(10, 5, n)})
+    >>> logit = -3 + 0.03 * df['age'] + 0.1 * df['edu']
+    >>> df['training'] = rng.binomial(1, 1 / (1 + np.exp(-logit)))
+    >>> df['wage'] = (5 + 1.5 * df['training'] + 0.05 * df['age']
+    ...               + 0.3 * df['edu'] + 0.1 * df['exp'] + rng.normal(size=n))
+
     >>> # Propensity score matching (default)
     >>> result = sp.match(df, y='wage', treat='training',
     ...                   covariates=['age', 'edu', 'exp'])
+    >>> type(result).__name__
+    'CausalResult'
 
     >>> # Mahalanobis distance + bias correction
     >>> result = sp.match(df, y='wage', treat='training',

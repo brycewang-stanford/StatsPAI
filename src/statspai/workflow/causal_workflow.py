@@ -14,12 +14,20 @@ or override steps.
 
 Usage
 -----
+>>> import os
+>>> import tempfile
 >>> import statspai as sp
->>> w = sp.causal(df, y='wage', treatment='training',
-...               id='worker', time='year', design='did')
->>> w.report('analysis.html')
->>> w.result      # the fitted CausalResult
->>> w.diagnostics # IdentificationReport
+>>> df = sp.dgp_did(n_units=60, n_periods=6, seed=0)
+>>> w = sp.causal(df, y='y', treatment='treated',
+...               id='unit', time='time', design='did')
+>>> path = os.path.join(tempfile.mkdtemp(), 'analysis.html')
+>>> html = w.report(path)
+>>> os.path.exists(path)
+True
+>>> type(w.result).__name__       # the fitted CausalResult
+'CausalResult'
+>>> type(w.diagnostics).__name__  # IdentificationReport
+'IdentificationReport'
 """
 
 from __future__ import annotations
@@ -1388,19 +1396,27 @@ def causal(
     --------
     One-call full analysis:
 
+    >>> import os
+    >>> import tempfile
     >>> import statspai as sp
-    >>> w = sp.causal(df, y='wage', treatment='training',
-    ...               id='worker', time='year', design='did')
-    >>> w.report('analysis.html')
+    >>> df = sp.dgp_did(n_units=60, n_periods=6, seed=0)
+    >>> w = sp.causal(df, y='y', treatment='treated',
+    ...               id='unit', time='time', design='did')
+    >>> html = w.report(os.path.join(tempfile.mkdtemp(), 'analysis.html'))
+    >>> html.startswith('<!DOCTYPE html>')
+    True
 
     Fine-grained control:
 
-    >>> w = sp.causal(df, y='y', treatment='d', auto_run=False)
-    >>> w.diagnose()        # -> IdentificationReport
+    >>> obs = sp.dgp_observational(n=300, seed=0)
+    >>> w = sp.causal(obs, y='y', treatment='treatment', auto_run=False)
+    >>> diag = w.diagnose()        # -> IdentificationReport
     >>> if w.diagnostics.verdict == 'BLOCKERS':
     ...     raise SystemExit(1)
-    >>> w.estimate()
-    >>> print(w.report(fmt='markdown'))
+    >>> fit = w.estimate()
+    >>> md = w.report(fmt='markdown')
+    >>> md.splitlines()[0]
+    '# Causal Analysis Report'
     """
     workflow = CausalWorkflow(
         data=data,

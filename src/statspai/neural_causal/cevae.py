@@ -95,7 +95,9 @@ class CEVAEResult(ResultProtocolMixin):
             }
         )
 
-    def to_markdown(self, path: str | None = None, digits: int = 4) -> str:
+    # Own layout without the base class's digits= / fmt= precision options;
+    # passing them raises TypeError rather than being ignored.
+    def to_markdown(self, path: str | None = None, digits: int = 4) -> str:  # type: ignore[override]
         parts = [
             "# CEVAE",
             "",

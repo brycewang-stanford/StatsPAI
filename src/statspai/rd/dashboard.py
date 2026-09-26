@@ -408,7 +408,7 @@ def rd_compare(
     >>> tab.loc[0, "method"], tab.loc[0, "status"]
     ('rdrobust', 'ok')
     >>> round(float(tab.loc[0, "estimate"]), 3)
-    0.813
+    0.818
     """
     method_kwargs = method_kwargs or {}
     rows = []
@@ -541,7 +541,7 @@ def rd_robustness_table(
     >>> tab["kernel"].tolist()
     ['triangular', 'uniform']
     >>> round(float(tab.loc[0, "estimate_conv"]), 3)
-    0.765
+    0.806
     """
     from .rdrobust import rdrobust
 

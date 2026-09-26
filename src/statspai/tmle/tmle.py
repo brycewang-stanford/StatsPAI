@@ -193,7 +193,9 @@ def tmle(
     >>> df["outcome"], df["treatment"] = outcome, treatment
     >>> result = sp.tmle(df, y="outcome", treat="treatment",
     ...                  covariates=["x1", "x2", "x3"])
-    >>> print(result.summary())
+    >>> result.estimand, round(result.estimate, 1)
+    ('ATE', 2.0)
+    >>> report = result.summary()
     """
     est = TMLE(
         data=data,
