@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -424,6 +425,7 @@ class CausalQuestion:
 # --------------------------------------------------------------------------- #
 
 
+@accepts_aliases(treat="treatment", y="outcome")
 def causal_question(
     treatment: str,
     outcome: str,

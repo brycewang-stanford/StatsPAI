@@ -26,13 +26,15 @@ from typing import List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
+from .._input_validation import clean_frame
+from .._result_serialize import ResultProtocolMixin
+from ..exceptions import DataInsufficient
+
 # sklearn is imported lazily inside ``network_hte`` so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
 # file when the user never touches the spillover estimators.
 
-from ..exceptions import DataInsufficient
-from .._input_validation import clean_frame
-from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "network_hte",
@@ -166,6 +168,7 @@ class InwardOutwardResult(ResultProtocolMixin):
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(treat="treatment")
 def network_hte(
     data: pd.DataFrame,
     *,
@@ -242,10 +245,7 @@ def network_hte(
             diagnostics={"n_complete": int(n), "required": int(n_folds * 10)},
         )
 
-    from sklearn.ensemble import (
-        GradientBoostingClassifier,
-        GradientBoostingRegressor,
-    )
+    from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
     from sklearn.model_selection import KFold
 
     kf = KFold(n_splits=n_folds, shuffle=True, random_state=random_state)
@@ -322,6 +322,7 @@ def network_hte(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(treat="treatment")
 def inward_outward_spillover(
     data: pd.DataFrame,
     *,

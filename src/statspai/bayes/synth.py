@@ -19,6 +19,7 @@ from typing import Any, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ._base import BayesianCausalResult, _require_pymc, _sample_model
 
 
@@ -58,6 +59,7 @@ def _wide_panel(
     return times, treated, donor_mat, donor_names
 
 
+@accepts_aliases(id="unit", y="outcome")
 def bayes_synth(
     data: pd.DataFrame,
     outcome: str,

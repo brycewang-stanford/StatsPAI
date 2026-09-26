@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 # numpy 2.0 renamed ``trapz`` to ``trapezoid``; the project supports numpy 1.x
@@ -427,6 +428,7 @@ def _dte_cic(
 # ══════════════════════════════════════════════════════════════════════
 
 
+@accepts_aliases(treat="treatment")
 def distributional_te(
     data: pd.DataFrame,
     y: str,

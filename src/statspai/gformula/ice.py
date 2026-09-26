@@ -25,6 +25,7 @@ from typing import Any, Sequence
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -77,6 +78,7 @@ class ICEResult(ResultProtocolMixin):
         )
 
 
+@accepts_aliases(time="time_col")
 def ice(
     data: pd.DataFrame,
     id_col: str,

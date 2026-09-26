@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -481,6 +482,7 @@ def _detect_design(
     return "cross-section"
 
 
+@accepts_aliases(treat="treatment")
 def recommend(
     data: pd.DataFrame,
     y: str,

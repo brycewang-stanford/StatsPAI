@@ -26,6 +26,7 @@ from typing import Any, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
@@ -115,6 +116,7 @@ class InterferenceConformalResult(ResultProtocolMixin):
 # -------------------------------------------------------------------------
 
 
+@accepts_aliases(treat="treatment")
 def conformal_continuous(
     data: pd.DataFrame,
     *,
@@ -281,6 +283,7 @@ def conformal_continuous(
 # -------------------------------------------------------------------------
 
 
+@accepts_aliases(treat="treatment")
 def conformal_interference(
     data: pd.DataFrame,
     *,

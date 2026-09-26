@@ -42,6 +42,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..exceptions import StatsPAIError
 from ..output._lineage import format_provenance, get_provenance
 from ._degradation import WorkflowDegradedWarning, record_degradation
@@ -1247,6 +1248,7 @@ def _reviewer_audit_section(
 # --------------------------------------------------------------------- #
 
 
+@accepts_aliases(treat="treatment")
 def paper(
     data: "pd.DataFrame",
     question: Optional[str] = None,

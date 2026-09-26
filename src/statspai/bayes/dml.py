@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = ["bayes_dml", "BayesianDMLResult"]
@@ -74,6 +75,7 @@ class BayesianDMLResult(ResultProtocolMixin):
         )
 
 
+@accepts_aliases(treat="treatment")
 def bayes_dml(
     data: pd.DataFrame,
     *,

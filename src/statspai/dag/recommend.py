@@ -18,6 +18,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Sequence, Set
 
+from .._aliases import accepts_aliases
+
 __all__ = ["EstimatorRecommendation", "recommend_estimator"]
 
 
@@ -60,6 +62,7 @@ class EstimatorRecommendation:
         return "\n".join(lines)
 
 
+@accepts_aliases(y="outcome")
 def recommend_estimator(
     dag: Any,
     exposure: str,

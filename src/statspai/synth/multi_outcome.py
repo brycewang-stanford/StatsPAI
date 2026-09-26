@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ._core import placebo_rank_pvalue
 
@@ -37,6 +38,7 @@ from ._core import placebo_rank_pvalue
 # ====================================================================== #
 
 
+@accepts_aliases(id="unit")
 def multi_outcome_synth(
     data: pd.DataFrame,
     outcomes: List[str],

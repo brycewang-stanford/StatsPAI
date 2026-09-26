@@ -57,6 +57,7 @@ from typing import Any, Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..exceptions import IdentificationFailure
 from ..workflow._degradation import record_degradation
 
@@ -868,6 +869,7 @@ def _check_rd_density(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(treat="treatment")
 def check_identification(
     data: pd.DataFrame,
     y: str,

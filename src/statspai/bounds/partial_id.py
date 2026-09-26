@@ -39,6 +39,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
 
@@ -345,6 +346,7 @@ def _bootstrap_bounds(
 # ======================================================================
 
 
+@accepts_aliases(treat="treatment")
 def horowitz_manski(
     data: pd.DataFrame,
     y: str,
@@ -537,6 +539,7 @@ def _create_strata(df: pd.DataFrame, covariates: List[str]) -> pd.Series:
 # ======================================================================
 
 
+@accepts_aliases(covariates="controls", treat="treatment")
 def iv_bounds(
     data: pd.DataFrame,
     y: str,
@@ -931,6 +934,7 @@ def oster_delta(
 # ======================================================================
 
 
+@accepts_aliases(treat="treatment")
 def selection_bounds(
     data: pd.DataFrame,
     y: str,

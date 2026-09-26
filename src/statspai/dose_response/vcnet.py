@@ -41,14 +41,15 @@ Effects of Continuous Treatments." *ICLR 2021*. [@nie2021quasi]
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Sequence, Dict, Any
+from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 import pandas as pd
 from scipy.interpolate import BSpline
 
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 
 @dataclass
@@ -304,6 +305,7 @@ def _prepare_t_grid(t_grid: Optional[Sequence[float]], T: np.ndarray) -> np.ndar
     return grid
 
 
+@accepts_aliases(treat="treatment")
 def vcnet(
     data: pd.DataFrame,
     y: str,
@@ -458,6 +460,7 @@ def vcnet(
 # --------------------------------------------------------------------
 
 
+@accepts_aliases(treat="treatment")
 def scigan(
     data: pd.DataFrame,
     y: str,

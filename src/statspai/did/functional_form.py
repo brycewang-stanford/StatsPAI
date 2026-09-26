@@ -57,6 +57,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -502,6 +503,7 @@ def _cut(y_all: np.ndarray, edges: np.ndarray) -> _Binning:
     return _Binning(codes=codes, lower=edges[:-1], upper=edges[1:], discrete=False)
 
 
+@accepts_aliases(id="i", time="t")
 def functional_form_test(
     data: pd.DataFrame,
     y: str,
@@ -861,6 +863,7 @@ class DistributionalDiDResult(ResultProtocolMixin):
         return ax
 
 
+@accepts_aliases(id="i", time="t")
 def distributional_did(
     data: pd.DataFrame,
     y: str,

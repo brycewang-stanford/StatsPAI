@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Sequence
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 # sklearn is imported lazily inside the helpers that need it so that
@@ -186,6 +187,7 @@ def _fit_mu_tau_at_time(
     return mu_hat, tau_hat
 
 
+@accepts_aliases(id="unit", treat="treatment", y="outcome")
 def bcf_longitudinal(
     data: pd.DataFrame,
     *,

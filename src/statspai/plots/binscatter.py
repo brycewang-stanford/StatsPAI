@@ -29,12 +29,15 @@ Stepner, M. (2013).
 Statistical Software Components, Boston College.
 """
 
-from typing import Optional, List, Tuple, Any
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 
+
+@accepts_aliases(covariates="controls")
 def binscatter(
     data: pd.DataFrame,
     y: str,

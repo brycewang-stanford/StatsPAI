@@ -28,6 +28,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
+
 
 def _ensure_mpl() -> Tuple[Any, Any]:
     try:
@@ -1835,6 +1837,7 @@ def did_summary_plot(
     return fig, ax
 
 
+@accepts_aliases(id="unit")
 def panel_view(
     data: pd.DataFrame,
     unit: str,

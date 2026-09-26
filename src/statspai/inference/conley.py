@@ -50,6 +50,7 @@ import pandas as pd
 from scipy import stats
 from scipy.spatial import cKDTree
 
+from .._aliases import accepts_aliases
 from ..core.results import EconometricResults
 from ..exceptions import MethodIncompatibility
 from ._psd import se_from_vcov
@@ -344,6 +345,7 @@ def _spatiotemporal_meat(
     return meat
 
 
+@accepts_aliases(id="unit")
 def conley(
     result: EconometricResults,
     data: pd.DataFrame,

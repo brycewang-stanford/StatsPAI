@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
@@ -31,6 +32,7 @@ from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInsta
 # ======================================================================
 
 
+@accepts_aliases(covariates="controls")
 def oster_bounds(
     data: Optional[pd.DataFrame] = None,
     y: Optional[str] = None,

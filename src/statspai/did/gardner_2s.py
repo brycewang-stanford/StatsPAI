@@ -51,7 +51,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import linalg as sp_linalg
+from scipy import sparse
 from scipy import stats as sp_stats
 
 from .._aliases import accepts_aliases
@@ -181,9 +181,9 @@ def _stage2_bin_se(y_k: np.ndarray, cl_k: np.ndarray) -> float:
 
 
 def _did2s_vcov(
-    A_un_w: np.ndarray,
+    A_un_w: sparse.spmatrix,
     e1_w: np.ndarray,
-    A_full_w: np.ndarray,
+    A_full_w: sparse.spmatrix,
     X2_w: np.ndarray,
     e2_w: np.ndarray,
     untreated_mask: np.ndarray,
@@ -236,17 +236,15 @@ def _did2s_vcov(
     # column rank; otherwise the minimum-norm solution, which is what
     # did2s::robust_solve_XtX falls back to (pseudo-inverse). Rows of X1 in
     # the row space of X10 receive the same adjustment either way.
-    ata = A_un_w.T @ A_un_w
-    atx2 = A_full_w.T @ X2_w
-    try:
-        gamma = sp_linalg.cho_solve(sp_linalg.cho_factor(ata), atx2)
-    except np.linalg.LinAlgError:
-        gamma = np.linalg.lstsq(ata, atx2, rcond=None)[0]
+    # Sparse normal equations of the Stage-1 design (the dense Cholesky
+    # of an (N+T) x (N+T) matrix built from dense dummies did not scale).
+    atx2 = np.asarray(A_full_w.T @ X2_w)
+    gamma = _sparse_normal_solve(sparse.csr_matrix(A_un_w), atx2)
 
     # Per-observation influence contributions, one row per observation:
     #   IF_i = e1_i a_i' Γ M  -  e2_i x2_i' M      (M symmetric)
     IF = -(X2_w * e2_w[:, None]) @ m_inv
-    IF[untreated_mask] += ((A_un_w * e1_w[:, None]) @ gamma) @ m_inv
+    IF[untreated_mask] += np.asarray(sparse.diags(e1_w) @ A_un_w @ gamma) @ m_inv
 
     S = np.zeros((n_clusters, k), dtype=float)
     np.add.at(S, cl_idx, IF)
@@ -260,11 +258,14 @@ def _build_fe_design(
     *,
     u_levels: Optional[np.ndarray] = None,
     t_levels: Optional[np.ndarray] = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[sparse.csr_matrix, np.ndarray, np.ndarray]:
     """Build (intercept, unit dummies minus one, time dummies minus one, X).
 
     When ``u_levels``/``t_levels`` are provided, builds the design against that
     reference set of levels (useful for prediction on a different sample).
+    Returned sparse: the dense dummy matrix was ``n x (N + T)`` and the
+    dense least-squares on it failed ("SVD did not converge") by
+    n = 20,000 panel rows.
     """
     if u_levels is None:
         u_levels = np.unique(unit)
@@ -272,22 +273,65 @@ def _build_fe_design(
         t_levels = np.unique(time)
 
     n = len(unit)
-    # Intercept
-    intercept = np.ones((n, 1))
-    # Unit dummies drop first level
-    D_u = np.zeros((n, max(len(u_levels) - 1, 0)))
-    for j, lvl in enumerate(u_levels[1:]):
-        D_u[:, j] = (unit == lvl).astype(float)
-    # Time dummies drop first level
-    D_t = np.zeros((n, max(len(t_levels) - 1, 0)))
-    for j, lvl in enumerate(t_levels[1:]):
-        D_t[:, j] = (time == lvl).astype(float)
+    rows = np.arange(n)
 
-    parts = [intercept, D_u, D_t]
+    def _dummies(codes_src: np.ndarray, levels: np.ndarray) -> sparse.csr_matrix:
+        # Levels after the first (dropped) level get a column each.
+        idx = np.searchsorted(levels, codes_src)
+        ok = (idx < len(levels)) & (
+            levels[np.minimum(idx, len(levels) - 1)] == codes_src
+        )
+        keep = ok & (idx > 0)
+        return sparse.csr_matrix(
+            (np.ones(int(keep.sum())), (rows[keep], idx[keep] - 1)),
+            shape=(n, max(len(levels) - 1, 0)),
+        )
+
+    parts = [
+        sparse.csr_matrix(np.ones((n, 1))),
+        _dummies(np.asarray(unit), np.asarray(u_levels)),
+        _dummies(np.asarray(time), np.asarray(t_levels)),
+    ]
     if X is not None and X.size > 0:
-        parts.append(X)
-    A = np.hstack(parts)
+        parts.append(sparse.csr_matrix(X))
+    A = sparse.hstack(parts, format="csr")
     return A, u_levels, t_levels
+
+
+def _sparse_normal_solve(
+    A: sparse.csr_matrix, B: np.ndarray, *, keep: Optional[np.ndarray] = None
+) -> np.ndarray:
+    """``(A'A)^+ B`` for a sparse FE design, one row per column of ``A``.
+
+    Columns of ``A`` that are identically zero (a unit seen only in treated
+    rows) get zero rows -- the minimum-norm answer ``lstsq`` gave them --
+    and are dropped before a sparse LU of the column-equilibrated normal
+    matrix. Falls back to a dense least-squares solve if that matrix is
+    singular (collinear FE beyond the zero columns).
+    """
+    p = A.shape[1]
+    if keep is None:
+        keep = np.asarray(A.getnnz(axis=0) > 0).ravel()
+    Ak = A[:, keep]
+    scale = np.sqrt(np.asarray(Ak.multiply(Ak).sum(axis=0)).ravel())
+    scale[scale == 0] = 1.0
+    D = sparse.diags(1.0 / scale)
+    As = Ak @ D
+    M = (As.T @ As).tocsc()
+    B2 = np.asarray(B, dtype=float).reshape(p, -1)
+    out = np.zeros_like(B2)
+    rhs = D @ B2[keep]
+    try:
+        from scipy.sparse.linalg import splu
+
+        sol = splu(M).solve(rhs)
+        if not np.all(np.isfinite(sol)):
+            raise RuntimeError("non-finite sparse solve")
+    except (RuntimeError, ValueError):
+        dense = As.toarray()
+        sol = np.linalg.lstsq(dense.T @ dense, rhs, rcond=None)[0]
+    out[keep] = D @ sol
+    return out[:, 0] if B.ndim == 1 else out
 
 
 @accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
@@ -490,9 +534,9 @@ def gardner_did(
     )
     y_un = df.loc[untreated_mask, y].to_numpy(dtype=float)
     sw_un = sw[untreated_mask]
-    A_un_w = A_un if weights is None else A_un * sw_un[:, None]
+    A_un_w = A_un if weights is None else sparse.diags(sw_un) @ A_un
 
-    coefs, *_ = np.linalg.lstsq(A_un_w, y_un * sw_un, rcond=None)
+    coefs = _sparse_normal_solve(A_un_w, A_un_w.T @ (y_un * sw_un))
 
     # Predict counterfactual Y(0) for all rows using Stage-1 coefficients.
     A_full, _, _ = _build_fe_design(
@@ -571,7 +615,7 @@ def gardner_did(
     boot_overall_se: Optional[float] = None
     n_clusters = int(pd.unique(cl).size)
     if vce == "analytic" and k2 > 0:
-        A_full_w = A_full if weights is None else A_full * sw[:, None]
+        A_full_w = A_full if weights is None else sparse.diags(sw) @ A_full
         V = _did2s_vcov(
             A_un_w,
             e1_un * sw_un,

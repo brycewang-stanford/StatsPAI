@@ -85,6 +85,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import NumericalInstability
 
@@ -940,6 +941,7 @@ def _bootstrap_ci(
 # ----------------------------------------------------------------------
 
 
+@accepts_aliases(y="outcome")
 def llm_annotator_correct(
     *,
     annotations_llm: pd.Series,

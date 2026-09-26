@@ -30,11 +30,12 @@ Example
 >>> print(summary.detail)
 """
 
-from typing import Callable, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 
 
@@ -128,10 +129,36 @@ def _run_cs(
     cluster: Optional[str],
     alpha: float,
 ) -> CausalResult:
-    from .aggte import aggte
+    return _aggte_simple(
+        _fit_cs(data, y, group, time, first_treat, controls, cluster, alpha),
+        cluster,
+        group,
+        alpha,
+    )
+
+
+def _fit_cs(
+    data: pd.DataFrame,
+    y: str,
+    group: str,
+    time: str,
+    first_treat: str,
+    controls: Optional[List[str]],
+    cluster: Optional[str],
+    alpha: float,
+) -> CausalResult:
+    """CS fit honouring ``cluster=``.
+
+    CS analytic SEs cluster on the unit only; clustering on a coarser
+    variable needs the multiplier bootstrap (R ``did::att_gt(clustervars=)``
+    has the same restriction). Fixed seed so the summary is reproducible.
+    """
     from .callaway_santanna import callaway_santanna
 
-    cs = callaway_santanna(
+    extra: Dict[str, Any] = {}
+    if cluster is not None and cluster != group:
+        extra = dict(clustervars=[group, cluster], bstrap=True, random_state=0)
+    return callaway_santanna(
         data,
         y=y,
         g=first_treat,
@@ -139,7 +166,17 @@ def _run_cs(
         i=group,
         x=controls,
         alpha=alpha,
+        **extra,
     )
+
+
+def _aggte_simple(
+    cs: CausalResult, cluster: Optional[str], group: str, alpha: float
+) -> CausalResult:
+    from .aggte import aggte
+
+    if cluster is not None and cluster != group:
+        return aggte(cs, type="simple", alpha=alpha, bstrap=True, random_state=0)
     return aggte(cs, type="simple", alpha=alpha, bstrap=False)
 
 
@@ -260,6 +297,7 @@ def _extract(res: CausalResult) -> dict:
     return dict(estimate=est, se=se, pvalue=p, ci_low=ci_lo, ci_high=ci_hi, n_obs=n)
 
 
+@accepts_aliases(covariates="controls")
 def did_summary(
     data: pd.DataFrame,
     y: str,
@@ -395,19 +433,10 @@ def did_summary(
             print(f"  running {name} ({label})...", flush=True)
         try:
             if name == "cs" and include_sensitivity:
-                from .aggte import aggte as _aggte
-                from .callaway_santanna import callaway_santanna
-
-                cs_raw = callaway_santanna(
-                    data,
-                    y=y,
-                    g=first_treat,
-                    t=time,
-                    i=group,
-                    x=controls,
-                    alpha=alpha,
+                cs_raw = _fit_cs(
+                    data, y, group, time, first_treat, controls, cluster, alpha
                 )
-                res = _aggte(cs_raw, type="simple", alpha=alpha, bstrap=False)
+                res = _aggte_simple(cs_raw, cluster, group, alpha)
             else:
                 res = _DISPATCH[name](
                     data,
@@ -747,6 +776,7 @@ def did_summary_to_latex(
 # ═══════════════════════════════════════════════════════════════════════
 
 
+@accepts_aliases(covariates="controls")
 def did_report(
     data: pd.DataFrame,
     y: str,

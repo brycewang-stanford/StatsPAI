@@ -17,6 +17,7 @@ from typing import Any, List, Optional
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 
 __all__ = ["geolift"]
@@ -24,6 +25,7 @@ __all__ = ["geolift"]
 _TREATED_LABEL = "_treated_geos"
 
 
+@accepts_aliases(y="outcome")
 def geolift(
     data: pd.DataFrame,
     outcome: str,

@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
+from .._aliases import accepts_aliases
+
 # Catalogue of common unobserved confounders by domain
 _DOMAIN_CONFOUNDERS = {
     "health": [
@@ -93,6 +95,7 @@ class UnobservedConfounderProposal:
         return "\n".join(rows)
 
 
+@accepts_aliases(treat="treatment", y="outcome")
 def llm_unobserved_confounders(
     treatment: str,
     outcome: str,

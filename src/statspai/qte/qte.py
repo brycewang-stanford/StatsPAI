@@ -44,6 +44,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 # ══════════════════════════════════════════════════════════════════════
@@ -547,6 +548,7 @@ def _qreg_coef(
 _QTE_METHODS = ("firpo_qte", "firpo_qtt", "conditional_qr", "distribution")
 
 
+@accepts_aliases(covariates="controls", treat="treatment")
 def qte(
     data: pd.DataFrame,
     y: str,

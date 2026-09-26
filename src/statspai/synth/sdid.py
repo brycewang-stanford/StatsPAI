@@ -631,6 +631,7 @@ jsonlite::write_json(
 # ======================================================================
 
 
+@accepts_aliases(id="unit")
 def synthdid_estimate(
     data: pd.DataFrame,
     y: str,
@@ -665,6 +666,7 @@ def synthdid_estimate(
     return sdid(data, y, unit, time, treat_unit, treat_time, method="sdid", **kw)
 
 
+@accepts_aliases(id="unit")
 def sc_estimate(
     data: pd.DataFrame,
     y: str,
@@ -699,6 +701,7 @@ def sc_estimate(
     return sdid(data, y, unit, time, treat_unit, treat_time, method="sc", **kw)
 
 
+@accepts_aliases(id="unit")
 def did_estimate(
     data: pd.DataFrame,
     y: str,
@@ -738,6 +741,7 @@ def did_estimate(
 # ======================================================================
 
 
+@accepts_aliases(id="unit")
 def synthdid_placebo(
     data: pd.DataFrame,
     y: str,

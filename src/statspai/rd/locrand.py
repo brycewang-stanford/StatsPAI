@@ -27,6 +27,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ._core import _complete_cases
 
@@ -303,6 +304,7 @@ def _wald_iv(y: np.ndarray, d_actual: np.ndarray, z: np.ndarray) -> Tuple[float,
 # ======================================================================
 
 
+@accepts_aliases(covariates="covs")
 def rdrandinf(
     data: pd.DataFrame,
     y: str,
@@ -612,6 +614,7 @@ def _ci_test_inversion(
     return (float(min(not_rejected)), float(max(not_rejected)))
 
 
+@accepts_aliases(covariates="covs")
 def rdwinselect(
     data: pd.DataFrame,
     x: str,

@@ -12,18 +12,19 @@ from typing import Any, List, Optional, Sequence, Tuple, Type
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
+from ..exceptions import (
+    DataInsufficient,
+    MethodIncompatibility,
+    NumericalInstability,
+    StatsPAIError,
+)
 from ._base import (
     BayesianDIDResult,
     _az_hdi_compat,
     _require_pymc,
     _sample_model,
     _summarise_posterior,
-)
-from ..exceptions import (
-    DataInsufficient,
-    MethodIncompatibility,
-    NumericalInstability,
-    StatsPAIError,
 )
 
 _DID_ALTERNATIVES = ["sp.did", "sp.wooldridge_did"]
@@ -343,6 +344,7 @@ def _prepare_did_frame(
     }
 
 
+@accepts_aliases(id="unit")
 def bayes_did(
     data: pd.DataFrame,
     y: str,

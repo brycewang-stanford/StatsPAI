@@ -27,8 +27,8 @@ import numpy as np
 import pandas as pd
 
 from ._aliases import accepts_aliases
-from .exceptions import MethodIncompatibility
 from ._result_serialize import ResultProtocolMixin
+from .exceptions import MethodIncompatibility
 
 __all__ = [
     "auto_did",
@@ -278,6 +278,7 @@ class AutoDIDResult(ResultProtocolMixin):
         )
 
 
+@accepts_aliases(id="i", time="t")
 def auto_did(
     data: pd.DataFrame,
     y: str,

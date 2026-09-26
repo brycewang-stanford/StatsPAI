@@ -147,7 +147,12 @@ from . import _core as _dc
 
 
 @accepts_aliases(
-    _strict=True, id="group", unit="group", treat="treatment", weight="weights"
+    covariates="controls",
+    _strict=True,
+    id="group",
+    unit="group",
+    treat="treatment",
+    weight="weights",
 )
 def did_multiplegt_dyn(
     data: pd.DataFrame,

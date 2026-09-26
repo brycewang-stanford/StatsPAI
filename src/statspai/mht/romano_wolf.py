@@ -46,6 +46,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 # ──────────────────────────────────────────────────────────────────────
@@ -482,6 +483,7 @@ class RomanoWolfResult(ResultProtocolMixin):
 # ──────────────────────────────────────────────────────────────────────
 
 
+@accepts_aliases(covariates="controls")
 def romano_wolf(
     data: pd.DataFrame,
     y: List[str],

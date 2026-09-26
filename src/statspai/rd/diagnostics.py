@@ -15,10 +15,12 @@ Cattaneo, M.D., Idrobo, N. and Titiunik, R. (2020).
 *Cambridge Elements*. [@cattaneo2019practical]
 """
 
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+
+from .._aliases import accepts_aliases
 
 # ======================================================================
 # Bandwidth sensitivity
@@ -173,6 +175,7 @@ def rdbwsensitivity(
 # ======================================================================
 
 
+@accepts_aliases(covariates="covs")
 def rdbalance(
     data: pd.DataFrame,
     x: str,
@@ -464,6 +467,7 @@ def _auto_placebo_cutoffs(
 # ======================================================================
 
 
+@accepts_aliases(covariates="covs")
 def rdsummary(
     data: pd.DataFrame,
     y: str,
@@ -547,8 +551,8 @@ def rdsummary(
     >>> round(float(res["estimate"].estimate), 2)
     0.51
     """
-    from .rdrobust import rdrobust
     from ..diagnostics.rddensity import rddensity
+    from .rdrobust import rdrobust
 
     results: Dict[str, Any] = {}
 

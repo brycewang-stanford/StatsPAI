@@ -56,6 +56,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .qte import QTEResult
 
 __all__ = ["panel_qtet"]
@@ -217,6 +218,7 @@ def _prepare(
     return out, n1, n0
 
 
+@accepts_aliases(id="unit")
 def panel_qtet(
     data: pd.DataFrame,
     y: str,

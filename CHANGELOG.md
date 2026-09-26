@@ -69,6 +69,23 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.panel` honours `weights=` and a named `cluster=` column.** The
+  linearmodels path (`method='fe' | 'twoway' | 'pooled' | 're' | 'be' |
+  'fd'`) dropped `weights=` without a word, and `cluster=` naming any
+  column other than `'entity'` / `'time'` / `'twoway'` clustered on the
+  entity while `model_info['cluster']` reported the requested column (a
+  state-clustered SE of 0.157 came back where the correct value is 0.214).
+  Weighted `fe` / `twoway` / `pooled` fits now match
+  `sp.feols(weights=)` (coefficients 1e-15, robust SE 1e-10); a named
+  column is clustered on. Weights with `re` / `be` / `fd` / CRE / GMM, and
+  a non-entity cluster with GMM, raise `MethodIncompatibility` because no
+  reference defines them (Stata `xtreg, re` rejects weights).
+- **`sp.did_summary(cluster=)` reaches the Callaway--Sant'Anna row.** Every
+  other method received `cluster=`; CS kept unit-clustered analytic SEs,
+  which understated the state-clustered SE by 2.3x in the test design.
+  Clustering on a variable other than the unit now uses CS's multiplier
+  bootstrap with `clustervars=[unit, cluster]` (seed 0), the same
+  restriction as R `did::att_gt(clustervars=)`.
 - **`sp.iv` / `sp.ivreg` honour `weights=`.** Both accepted the keyword and
   dropped it, returning the unweighted estimate (4.238 weighted vs 3.547
   reported on a design where the effect varies with the weight). Weights
@@ -143,9 +160,32 @@ All notable changes to StatsPAI will be documented in this file.
   now 1.8 s / 0.25 GB).
 - **Kleibergen-Paap robust statistic vectorised** (a per-row Python loop
   took 1.6 s at n = 100,000 inside every robust `sp.iv` fit).
+- **`sp.gardner_did` (did2s) fits large panels.** The first stage built a
+  dense unit x time dummy matrix and solved it by SVD, which failed to
+  converge at 20,000 rows (2,000 units). The design is now sparse and
+  both the first stage and the GMM correction term are solved through
+  sparse normal equations: 200,000 rows take 0.15 s. R `did2s` parity is
+  unchanged.
+- **Nearest-neighbour matching with replacement no longer builds the full
+  treated x control distance matrix.** Distances are computed in blocks
+  sized to about 16M cells, and each target's k nearest are preselected
+  with a partial sort before the tie-aware ordering, which picks the same
+  matches. `sp.psm` at n = 100,000 went from 167 s / 1.9 GB to
+  9.7 s / 0.6 GB; `sp.match` with Mahalanobis distance benefits the same way.
 
 ### Changed
 
+- **Canonical keyword spellings on 174 more functions.** Functions whose
+  parameters used `unit` / `entity` / `i` / `panel_id`, `outcome`,
+  `treatment`, `controls` / `covs`, `t` / `time_col`, `cluster_var`,
+  `sample_weight` / `weight` or `df` now also accept the house-style `id`,
+  `y`, `treat`, `covariates`, `time`, `cluster`, `weights` and `data` (all the synth, RD-covariate, matching
+  diagnostics, bounds, DiD helper, target-trial, transport, LLM-causal,
+  production-function and robustness entry points). The old spellings keep
+  working; passing both raises `TypeError`.
+  `tests/test_house_style_alias_contract.py` keeps it that way, with four
+  documented false friends (`esttab(t=)`, `dyadic_regression(i=)` and the
+  spatial `unit='km'` helpers).
 - **Unknown keywords raise instead of vanishing** on `sp.iv` (k-class
   path), `IVRegression.fit`, `sp.synth(method="classic"|"penalized")`,
   `sp.synth(backend="r")` and `sp.augsynth`. `sp.ivreg(small=, iv_diag=)`

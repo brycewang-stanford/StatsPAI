@@ -27,6 +27,7 @@ from typing import Dict, Optional
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility
 
@@ -55,6 +56,7 @@ class CalibrationResult(ResultProtocolMixin):
         return self.summary()
 
 
+@accepts_aliases(weights="weight")
 def rake(
     data: pd.DataFrame,
     margins: Dict[str, Dict],
@@ -204,6 +206,7 @@ def rake(
     )
 
 
+@accepts_aliases(weights="weight")
 def linear_calibration(
     data: pd.DataFrame,
     totals: Dict[str, float],

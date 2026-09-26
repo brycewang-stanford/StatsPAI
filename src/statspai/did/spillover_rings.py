@@ -67,6 +67,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -148,6 +149,7 @@ def _pairwise_distances(coords: np.ndarray) -> np.ndarray:
     return np.sqrt((diff**2).sum(axis=-1))
 
 
+@accepts_aliases(id="unit")
 def spillover_did(
     data: pd.DataFrame,
     y: str,

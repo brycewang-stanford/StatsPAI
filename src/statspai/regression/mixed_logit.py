@@ -56,6 +56,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
+from .._aliases import accepts_aliases
 from ..core._validate import require_bool_flag
 from ..core.results import CausalResult, EconometricResults
 
@@ -158,6 +159,7 @@ def _halton_draws(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(id="panel_id")
 def mixlogit(
     data: pd.DataFrame,
     y: str,

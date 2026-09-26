@@ -76,6 +76,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, NumericalInstability
@@ -83,6 +84,7 @@ from . import _core as _dc
 from ._ddd_dr import ddd_dr_cell
 
 
+@accepts_aliases(id="unit")
 def ddd_heterogeneous(
     data: pd.DataFrame,
     y: str,

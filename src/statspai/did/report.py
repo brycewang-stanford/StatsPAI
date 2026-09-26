@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from .aggte import aggte
 from .callaway_santanna import callaway_santanna
@@ -1022,6 +1023,7 @@ def _record_degradation(
 # ======================================================================
 
 
+@accepts_aliases(id="i", time="t")
 def cs_report(
     data_or_result: Union[pd.DataFrame, CausalResult],
     y: Optional[str] = None,

@@ -697,6 +697,7 @@ def tF_adjustment(first_stage_F: float, alpha: float = 0.05) -> float:
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(id="unit")
 def matrix_completion(
     data: pd.DataFrame,
     y: str,

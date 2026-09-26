@@ -25,10 +25,12 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 
+@accepts_aliases(id="unit", y="outcome")
 def conformal_synth(
     data: pd.DataFrame,
     outcome: str,

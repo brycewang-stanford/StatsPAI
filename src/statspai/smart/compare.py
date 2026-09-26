@@ -30,6 +30,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -177,6 +178,7 @@ class ComparisonResult(ResultProtocolMixin):
         return ax
 
 
+@accepts_aliases(treat="treatment")
 def compare_estimators(
     data: pd.DataFrame,
     y: str,

@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .scm import synth
 from .sensitivity import synth_sensitivity
 
@@ -919,6 +920,7 @@ def _latex_escape(text: str) -> str:
 # ======================================================================
 
 
+@accepts_aliases(id="unit", y="outcome")
 def synth_report(
     data: pd.DataFrame,
     outcome: str,
@@ -1046,6 +1048,7 @@ def synth_report(
         return _format_latex(result, mi, method, sens_result, alpha)
 
 
+@accepts_aliases(id="unit", y="outcome")
 def synth_report_to_file(
     data: pd.DataFrame,
     outcome: str,

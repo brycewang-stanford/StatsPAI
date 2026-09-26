@@ -35,16 +35,19 @@ Extensions." Cambridge University Press. doi:10.1017/9781009441896.
 
 from __future__ import annotations
 
-from typing import Optional, List, Dict, Any, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
+
+from .._aliases import accepts_aliases
 
 # =============================================================================
 # rd_dashboard
 # =============================================================================
 
 
+@accepts_aliases(covariates="covs")
 def rd_dashboard(
     data: pd.DataFrame,
     y: str,
@@ -121,7 +124,7 @@ def rd_dashboard(
             "rd_dashboard needs matplotlib. Install: pip install matplotlib"
         ) from e
 
-    from .rdrobust import rdrobust, rdplot, rdplotdensity
+    from .rdrobust import rdplot, rdplotdensity, rdrobust
 
     # Resolve reference bandwidth
     if h is None:
@@ -475,6 +478,7 @@ def rd_compare(
 # =============================================================================
 
 
+@accepts_aliases(covariates="covs")
 def rd_robustness_table(
     data: pd.DataFrame,
     y: str,

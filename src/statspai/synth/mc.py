@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 from ..matrix_completion._core import _center, _check_fixed_effects, mc_nnm_fit
@@ -42,6 +43,7 @@ from ._core import placebo_rank_pvalue
 # ====================================================================== #
 
 
+@accepts_aliases(id="unit", y="outcome")
 def mc_synth(
     data: pd.DataFrame,
     outcome: str,

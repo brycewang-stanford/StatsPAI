@@ -12,6 +12,7 @@ from typing import Any, Optional, Sequence
 
 import pandas as pd
 
+from ..._aliases import accepts_aliases
 from ._result import ProductionResult
 from .op_lp_acf import ackerberg_caves_frazer, levinsohn_petrin, olley_pakes
 from .wooldridge import wooldridge_prod
@@ -28,6 +29,7 @@ _METHOD_DISPATCH = {
 }
 
 
+@accepts_aliases(id="panel_id")
 def prod_fn(
     data: pd.DataFrame,
     output: str = "y",

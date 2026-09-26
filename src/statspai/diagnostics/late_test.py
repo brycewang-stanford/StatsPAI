@@ -31,6 +31,8 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 # --------------------------------------------------------------------------- #
@@ -212,6 +214,7 @@ def _compute_test_statistic(
 # --------------------------------------------------------------------------- #
 
 
+@accepts_aliases(treat="treatment")
 def kitagawa_test(
     data: pd.DataFrame,
     y: str,

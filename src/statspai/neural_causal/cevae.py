@@ -22,10 +22,14 @@ outcome heads) factorisation. This keeps the import hierarchy light.
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any
+
 import numpy as np
 import pandas as pd
+
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -363,6 +367,7 @@ class CEVAE:
         )
 
 
+@accepts_aliases(treat="treatment", y="outcome")
 def cevae(
     X: np.ndarray,
     treatment: np.ndarray,

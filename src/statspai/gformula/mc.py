@@ -48,6 +48,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as _stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -333,6 +334,7 @@ def _simulate(
 # ═══════════════════════════════════════════════════════════════════════
 
 
+@accepts_aliases(time="time_col")
 def gformula_mc(
     data: pd.DataFrame,
     treatment_cols: Sequence[str],

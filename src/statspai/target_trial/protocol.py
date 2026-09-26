@@ -18,8 +18,11 @@ in observational studies.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass, field, asdict
+
+from dataclasses import asdict, dataclass, field
 from typing import Any, Sequence
+
+from .._aliases import accepts_aliases
 
 _VALID_CONTRASTS = ("ITT", "per-protocol", "as-treated", "observational-analogue")
 
@@ -139,6 +142,7 @@ class TargetTrialProtocol:
         return asdict(self)
 
 
+@accepts_aliases(y="outcome")
 def protocol(
     eligibility: Any,
     treatment_strategies: Sequence[str],

@@ -17,6 +17,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Union
 
+from .._aliases import accepts_aliases
+
 NodeInput = Union[str, Iterable[str]]
 NodeSet = set[str]
 
@@ -118,6 +120,7 @@ class IdentificationResult:
         return "\n".join(lines)
 
 
+@accepts_aliases(treat="treatment", y="outcome")
 def identify(
     dag: Any,
     treatment: NodeInput,

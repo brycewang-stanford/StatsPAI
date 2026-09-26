@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
+from .._aliases import accepts_aliases
+
 _DOMAIN_PRIORS: Dict[str, Dict[str, Any]] = {
     "health": {
         "rho_max": 0.3,
@@ -83,6 +85,7 @@ class SensitivityPriorProposal:
         )
 
 
+@accepts_aliases(treat="treatment", y="outcome")
 def llm_sensitivity_priors(
     treatment: str,
     outcome: str,

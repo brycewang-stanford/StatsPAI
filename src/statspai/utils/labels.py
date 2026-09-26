@@ -25,11 +25,14 @@ Usage
 ['variable', 'type', 'n', 'n_missing', 'label']
 """
 
-from typing import Optional, Dict, cast
+from typing import Dict, Optional, cast
 
 import pandas as pd
 
+from .._aliases import accepts_aliases
 
+
+@accepts_aliases(data="df")
 def label_var(df: pd.DataFrame, var: str, label: str) -> None:
     """
     Attach a human-readable label to a variable.
@@ -63,6 +66,7 @@ def label_var(df: pd.DataFrame, var: str, label: str) -> None:
     df.attrs["_labels"][var] = label
 
 
+@accepts_aliases(data="df")
 def label_vars(df: pd.DataFrame, labels: Dict[str, str]) -> None:
     """
     Attach labels to multiple variables at once.
@@ -92,6 +96,7 @@ def label_vars(df: pd.DataFrame, labels: Dict[str, str]) -> None:
         label_var(df, var, label)
 
 
+@accepts_aliases(data="df")
 def get_label(df: pd.DataFrame, var: str) -> str:
     """
     Get the label for a variable, falling back to the column name.
@@ -121,6 +126,7 @@ def get_label(df: pd.DataFrame, var: str) -> str:
     return labels.get(var, var)
 
 
+@accepts_aliases(data="df")
 def get_labels(df: pd.DataFrame) -> Dict[str, str]:
     """
     Get all variable labels as a dictionary.
@@ -144,6 +150,7 @@ def get_labels(df: pd.DataFrame) -> Dict[str, str]:
     return {col: labels.get(col, col) for col in df.columns}
 
 
+@accepts_aliases(data="df")
 def describe(
     df: pd.DataFrame,
     columns: Optional[list] = None,

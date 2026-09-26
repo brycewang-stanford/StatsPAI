@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ._agreement import (
     STATUS_ERROR,
     STATUS_OK,
@@ -27,6 +28,7 @@ from ._result import CrossValidationResult
 from ._spec import EstimandSpec
 
 
+@accepts_aliases(treat="treatment")
 def cross_validate(
     data_or_result: Union[pd.DataFrame, Any],
     estimand: Optional[str] = None,

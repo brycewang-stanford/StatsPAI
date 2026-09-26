@@ -38,6 +38,7 @@ from typing import Dict, Optional
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = ["synth_survival", "SyntheticSurvivalResult"]
@@ -138,6 +139,7 @@ def _simplex_ls(Y: np.ndarray, X: np.ndarray) -> np.ndarray:
     return np.asarray(solve_simplex_weights(Y, X))
 
 
+@accepts_aliases(id="unit")
 def synth_survival(
     data: pd.DataFrame,
     unit: str,

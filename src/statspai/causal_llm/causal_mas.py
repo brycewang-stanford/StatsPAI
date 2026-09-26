@@ -31,6 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from .llm_dag import _classify_variable
 
@@ -196,6 +197,7 @@ def _run_llm_agent(client: Any, role: str, prompt: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(treat="treatment", y="outcome")
 def causal_mas(
     variables: Sequence[str],
     *,

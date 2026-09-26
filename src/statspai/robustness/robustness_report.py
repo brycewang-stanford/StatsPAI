@@ -37,7 +37,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from .._aliases import accepts_formula_first
+from .._aliases import accepts_aliases, accepts_formula_first
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -330,6 +330,7 @@ def _quick_ols(
 
 
 @accepts_formula_first()
+@accepts_aliases(cluster="cluster_var")
 def robustness_report(
     data: pd.DataFrame,
     formula: str,

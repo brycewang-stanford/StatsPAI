@@ -19,6 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -63,6 +64,7 @@ class TransportIdentificationResult(ResultProtocolMixin):
         return f"TransportIdentificationResult({status}: {self.formula})"
 
 
+@accepts_aliases(treat="treatment", y="outcome")
 def identify_transport(
     dag: Any,
     treatment: str | Iterable[str],

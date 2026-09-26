@@ -37,6 +37,7 @@ from typing import Any, Dict, Optional, Union
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 from . import _scpi_solvers as _sv
@@ -50,6 +51,7 @@ _W_CONSTR = ("simplex", "lasso", "ridge", "ols", "L1-L2")
 # ====================================================================== #
 
 
+@accepts_aliases(id="unit", y="outcome")
 def scdata(
     data: pd.DataFrame,
     outcome: str,
@@ -185,6 +187,7 @@ def scdata(
     }
 
 
+@accepts_aliases(id="unit", y="outcome")
 def scest(
     data: pd.DataFrame,
     outcome: str,
@@ -293,6 +296,7 @@ def scest(
     }
 
 
+@accepts_aliases(id="unit", y="outcome")
 def scpi(
     data: pd.DataFrame,
     outcome: str,

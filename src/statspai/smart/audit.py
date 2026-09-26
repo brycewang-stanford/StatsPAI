@@ -31,6 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from .._aliases import accepts_aliases
 from ..core._agent_summary import (  # Threshold constants imported (not re-stated) so audit's verdict; cannot drift from violations() when a future correctness fix; updates a cutoff. Single source of truth for numerical thresholds.
     _COX_PH_ALPHA,
     _ESS_MIN,
@@ -953,6 +954,7 @@ _OBSERVATIONAL_TREATMENT_CHECKS: Tuple[_Check, ...] = tuple(
 )
 
 
+@accepts_aliases(treat="treatment")
 def audit(result: Any, *, treatment: Optional[str] = None) -> "AuditReport":
     """Reviewer-checklist audit of a fitted StatsPAI result.
 

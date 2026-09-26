@@ -38,6 +38,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import NumericalInstability
 from ._common import embed_texts
@@ -145,6 +146,7 @@ class TextTreatmentResult(CausalResult):
         return "\n".join(lines)
 
 
+@accepts_aliases(treat="treatment", y="outcome")
 def text_treatment_effect(
     data: pd.DataFrame,
     *,

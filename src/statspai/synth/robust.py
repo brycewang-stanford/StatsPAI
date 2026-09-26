@@ -38,11 +38,13 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 from ._core import placebo_rank_pvalue, solve_simplex_weights
 
 
+@accepts_aliases(id="unit", y="outcome")
 def robust_synth(
     data: pd.DataFrame,
     outcome: str,

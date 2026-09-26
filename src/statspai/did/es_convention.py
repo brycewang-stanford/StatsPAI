@@ -45,6 +45,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..exceptions import MethodIncompatibility
 
 __all__ = [
@@ -435,6 +436,7 @@ def _default_runners(
     }
 
 
+@accepts_aliases(id="unit")
 def compare_event_study_conventions(
     data: pd.DataFrame,
     y: str,

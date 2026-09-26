@@ -1473,7 +1473,7 @@ def nbreg(
     )
 
 
-@accepts_aliases(vce="robust")
+@accepts_aliases(id="entity", vce="robust")
 def xtnbreg(
     formula: Optional[str] = None,
     data: pd.DataFrame = None,

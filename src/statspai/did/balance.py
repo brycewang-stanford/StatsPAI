@@ -39,6 +39,7 @@ from typing import Any, Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 __all__ = ["did_balance", "DiDBalanceResult"]
@@ -342,6 +343,7 @@ def _norm_diff(
 # ----------------------------------------------------------------------
 
 
+@accepts_aliases(id="i", time="t")
 def did_balance(
     data: pd.DataFrame,
     covariates: Sequence[str],

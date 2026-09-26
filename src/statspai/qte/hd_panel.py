@@ -50,6 +50,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -291,6 +292,7 @@ def _fit_once(
 # ══════════════════════════════════════════════════════════════════════
 
 
+@accepts_aliases(id="unit")
 def qte_hd_panel(
     data: pd.DataFrame,
     y: str,

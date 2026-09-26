@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
 
@@ -281,6 +282,7 @@ class FisherResult(ResultProtocolMixin):
 # ======================================================================
 
 
+@accepts_aliases(covariates="controls", treat="treatment")
 def fisher_exact(
     data: pd.DataFrame,
     y: str,

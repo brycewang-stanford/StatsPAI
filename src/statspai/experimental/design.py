@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility, StatsPAIWarning
 
@@ -417,6 +418,7 @@ def _mahalanobis_distance(
         return float(np.sum(diff**2))
 
 
+@accepts_aliases(treat="treatment")
 def balance_check(
     data: pd.DataFrame,
     treatment: str,

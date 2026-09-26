@@ -72,6 +72,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
@@ -318,6 +319,7 @@ def _cluster_se_from_psi(
     return float(np.sqrt(var_theta)), omega
 
 
+@accepts_aliases(id="unit", weights="sample_weight")
 def dml_panel(
     data: pd.DataFrame,
     y: str,

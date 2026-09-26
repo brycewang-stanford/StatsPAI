@@ -40,6 +40,25 @@ sp.cate_summary(cf).loc["Mean"]   # was .loc["Mean (ATE)"]
 
 ---
 
+<a id="panel-weights-cluster"></a>
+
+## Unreleased — ⚠️ `sp.panel(weights=, cluster=)` and `sp.did_summary(cluster=)` take effect
+
+**Who is affected.** Anyone who passed `weights=` to `sp.panel`, passed
+`cluster=` with a column name other than the panel entity (e.g. a state
+id for county panels), or passed `cluster=` to `sp.did_summary`.
+
+**What changes.** `sp.panel` weighted `fe` / `twoway` / `pooled` fits are
+now WLS (they were unweighted) and a named cluster column is clustered on
+(it used to cluster on the entity). Weights with `re` / `be` / `fd` /
+`mundlak` / `chamberlain` / GMM now raise. The CS row of `sp.did_summary`
+clusters on the requested variable through the multiplier bootstrap.
+
+**To reproduce old numbers.** Drop `weights=`; use `cluster='entity'`;
+for `did_summary`, drop `cluster=` (the CS row always clustered by unit).
+
+---
+
 <a id="qreg-default-se"></a>
 
 ## Unreleased — ⚠️ `sp.qreg` default standard errors follow Stata's `qreg`

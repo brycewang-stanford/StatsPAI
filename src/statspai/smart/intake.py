@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 DESIGN_INTAKE_OUTCOMES = (
@@ -72,6 +73,7 @@ class IntakeResult(ResultProtocolMixin):
         return "\n".join(lines)
 
 
+@accepts_aliases(covariates="controls")
 def design_intake(
     *,
     estimand: Optional[str] = None,

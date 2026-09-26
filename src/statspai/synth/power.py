@@ -46,6 +46,7 @@ from typing import Any, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .scm import SyntheticControl
 
 # ======================================================================
@@ -202,6 +203,7 @@ def _treated_ratio_with_effect(
 # ======================================================================
 
 
+@accepts_aliases(id="unit", y="outcome")
 def synth_power(
     data: pd.DataFrame,
     outcome: str,
@@ -387,6 +389,7 @@ def synth_power(
 # ======================================================================
 
 
+@accepts_aliases(id="unit", y="outcome")
 def synth_mde(
     data: pd.DataFrame,
     outcome: str,

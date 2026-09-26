@@ -26,6 +26,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._input_validation import require_columns
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient
@@ -211,6 +212,7 @@ def overlap_weighted_did(
     )
 
 
+@accepts_aliases(treat="treatment")
 def dl_propensity_score(
     data: pd.DataFrame,
     *,

@@ -23,8 +23,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import DataInsufficient
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import DataInsufficient
 
 # --------------------------------------------------------------------- #
 #  Newey-West HAC for a single regression
@@ -253,6 +254,7 @@ def _lpirfs_cholesky(
 # --------------------------------------------------------------------- #
 
 
+@accepts_aliases(covariates="controls", y="outcome")
 def local_projections(
     data: pd.DataFrame,
     outcome: str,

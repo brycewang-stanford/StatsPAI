@@ -36,6 +36,7 @@ from typing import List, NamedTuple
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 __all__ = ["AbsorbingCheck", "check_absorbing"]
@@ -75,6 +76,7 @@ class AbsorbingCheck(NamedTuple):
         )
 
 
+@accepts_aliases(id="unit")
 def check_absorbing(
     data: pd.DataFrame,
     unit: str,

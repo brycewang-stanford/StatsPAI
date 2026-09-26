@@ -35,6 +35,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..exceptions import MethodIncompatibility
 
 # ======================================================================
@@ -163,6 +164,7 @@ def _warn_dropped(kind: str, failed: List[Dict[str, Any]], n_total: int) -> None
 # ======================================================================
 
 
+@accepts_aliases(id="unit", y="outcome")
 def synth_loo(
     data: pd.DataFrame,
     outcome: str,
@@ -261,6 +263,7 @@ def synth_loo(
 # ======================================================================
 
 
+@accepts_aliases(id="unit", y="outcome")
 def synth_time_placebo(
     data: pd.DataFrame,
     outcome: str,
@@ -373,6 +376,7 @@ def synth_time_placebo(
 # ======================================================================
 
 
+@accepts_aliases(id="unit", y="outcome")
 def synth_donor_sensitivity(
     data: pd.DataFrame,
     outcome: str,
@@ -475,6 +479,7 @@ def synth_donor_sensitivity(
 # ======================================================================
 
 
+@accepts_aliases(id="unit", y="outcome")
 def synth_rmspe_filter(
     data: pd.DataFrame,
     outcome: str,
@@ -657,6 +662,7 @@ def synth_rmspe_filter(
 # ======================================================================
 
 
+@accepts_aliases(id="unit", y="outcome")
 def synth_sensitivity(
     data: pd.DataFrame,
     outcome: str,

@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ._core import _check_fixed_effects, mc_nnm_fit
 
@@ -39,6 +40,7 @@ from ._core import _check_fixed_effects, mc_nnm_fit
 # ======================================================================
 
 
+@accepts_aliases(id="unit")
 def mc_panel(
     data: pd.DataFrame,
     y: str,

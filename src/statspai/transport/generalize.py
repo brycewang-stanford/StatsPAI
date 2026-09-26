@@ -7,12 +7,16 @@ Bareinboim transportability program.
 """
 
 from __future__ import annotations
+
 from typing import Sequence
+
 import pandas as pd
 
-from .weighting import transport_weights, TransportWeightResult
+from .._aliases import accepts_aliases
+from .weighting import TransportWeightResult, transport_weights
 
 
+@accepts_aliases(treat="treatment", y="outcome")
 def generalize(
     rct: pd.DataFrame,
     target_population: pd.DataFrame,

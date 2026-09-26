@@ -48,6 +48,7 @@ from typing import Any, Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
 
@@ -265,6 +266,7 @@ def _share_wif(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(id="unit", y="outcome")
 def harvest_did(
     data: pd.DataFrame,
     *,

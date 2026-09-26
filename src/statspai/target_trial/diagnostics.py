@@ -1,8 +1,12 @@
 """Diagnostic checks for target trial emulation."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass
+
 import pandas as pd
+
+from .._aliases import accepts_aliases
 
 
 @dataclass
@@ -14,6 +18,7 @@ class ImmortalTimeDiagnostic:
     explanation: str
 
 
+@accepts_aliases(time="time_col")
 def immortal_time_check(
     data: pd.DataFrame,
     id_col: str,

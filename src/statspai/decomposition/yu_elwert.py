@@ -49,6 +49,7 @@ from typing import Any, ClassVar, Dict, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ._common import (
     add_constant,
     bootstrap_ci,
@@ -467,6 +468,7 @@ def _components_from_nuisance(
 # ════════════════════════════════════════════════════════════════════════
 
 
+@accepts_aliases(treat="treatment")
 def yu_elwert_decompose(
     data: pd.DataFrame,
     y: str,

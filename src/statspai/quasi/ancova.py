@@ -149,7 +149,7 @@ def _fit_adjusted(
     )
 
 
-@accepts_aliases(vce="robust")
+@accepts_aliases(y="outcome", vce="robust")
 def ancova(
     data: pd.DataFrame,
     outcome: str,

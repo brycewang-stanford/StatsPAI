@@ -47,7 +47,7 @@ class RKDResult(CausalResult):
 # ======================================================================
 
 
-@accepts_aliases(_strict=True, running="x", cutoff="c")
+@accepts_aliases(treat="treatment", _strict=True, running="x", cutoff="c")
 def rkd(
     data: pd.DataFrame,
     y: str,

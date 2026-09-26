@@ -35,6 +35,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._core import _kernel_fn
@@ -218,6 +219,7 @@ def _validate_covariates(
 # ======================================================================
 
 
+@accepts_aliases(covariates="covs")
 def rd_forest(
     data: pd.DataFrame,
     y: str,
@@ -477,6 +479,7 @@ def rd_forest(
 # ======================================================================
 
 
+@accepts_aliases(covariates="covs")
 def rd_boost(
     data: pd.DataFrame,
     y: str,
@@ -702,6 +705,7 @@ def rd_boost(
 # ======================================================================
 
 
+@accepts_aliases(covariates="covs")
 def rd_lasso(
     data: pd.DataFrame,
     y: str,
@@ -931,6 +935,7 @@ def rd_lasso(
 # ======================================================================
 
 
+@accepts_aliases(covariates="covs")
 def rd_cate_summary(
     data: pd.DataFrame,
     y: str,

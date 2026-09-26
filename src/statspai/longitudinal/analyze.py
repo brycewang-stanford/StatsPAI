@@ -22,6 +22,7 @@ from typing import Any, Optional, Sequence, Union
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from .regime import Regime
 from .regime import regime as _regime
@@ -113,6 +114,7 @@ class LongitudinalResult(ResultProtocolMixin):
         return "\n".join(lines)
 
 
+@accepts_aliases(treat="treatment", y="outcome")
 def analyze(
     data: pd.DataFrame,
     id: str,
@@ -572,6 +574,7 @@ def _logit_fit_predict(X: np.ndarray, y: np.ndarray) -> np.ndarray:
 # --------------------------------------------------------------------------- #
 
 
+@accepts_aliases(treat="treatment", y="outcome")
 def contrast(
     data: pd.DataFrame,
     id: str,

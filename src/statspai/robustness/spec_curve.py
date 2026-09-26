@@ -33,6 +33,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility
 
@@ -514,6 +515,7 @@ def _run_one_spec(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(cluster="cluster_var", covariates="controls")
 def spec_curve(
     data: pd.DataFrame,
     y: str,

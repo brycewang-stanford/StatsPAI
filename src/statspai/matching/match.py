@@ -524,6 +524,30 @@ def match(
 # ======================================================================
 
 
+class _LazyDistance:
+    """Row access to a distance matrix computed in cached blocks."""
+
+    #: Cells per cached block (~128 MB of float64), so the block holds
+    #: fewer rows as the control pool grows.
+    _CELLS = 1 << 24
+
+    def __init__(self, compute: Any, shape: Tuple[int, int]) -> None:
+        self._compute = compute
+        self.shape = shape
+        self._BLOCK = max(1, min(2048, self._CELLS // max(shape[1], 1)))
+        self._start = -1
+        self._rows: Optional[np.ndarray] = None
+
+    def __getitem__(self, i: int) -> np.ndarray:
+        i = int(i)
+        if self._rows is None or not (self._start <= i < self._start + len(self._rows)):
+            self._start = (i // self._BLOCK) * self._BLOCK
+            stop = min(self._start + self._BLOCK, self.shape[0])
+            self._rows = self._compute(np.arange(self._start, stop))
+        row: np.ndarray = self._rows[i - self._start]
+        return row
+
+
 def _match_frequency_weighted(
     data: pd.DataFrame, weights: str, **kwargs: Any
 ) -> CausalResult:
@@ -1795,8 +1819,31 @@ class MatchEstimator:
         idx_from: np.ndarray,
         idx_to: np.ndarray,
         pscore: Optional[np.ndarray] = None,
+    ) -> Any:
+        """Distances between two groups: a matrix, or row blocks on demand.
+
+        With-replacement matching reads the matrix one target row at a time,
+        so for it the rows are computed lazily in blocks (same ``cdist``
+        call, bit-identical values): the full ``n_treated x n_control``
+        matrix was ~0.8 GB at n = 20,000 and grows quadratically. Without
+        replacement the processing order needs every row, so the matrix is
+        built in full as before.
+        """
+        if self.replace and self.method not in ("kernel", "radius", "llr"):
+            return _LazyDistance(
+                lambda rows: self._distance_block(X, idx_from[rows], idx_to, pscore),
+                (len(idx_from), len(idx_to)),
+            )
+        return self._distance_block(X, idx_from, idx_to, pscore)
+
+    def _distance_block(
+        self,
+        X: np.ndarray,
+        idx_from: np.ndarray,
+        idx_to: np.ndarray,
+        pscore: Optional[np.ndarray] = None,
     ) -> np.ndarray:
-        """Compute distance matrix between two groups."""
+        """Compute the distance matrix between two groups."""
         X_from = X[idx_from]
         X_to = X[idx_to]
 
@@ -2411,6 +2458,15 @@ class MatchEstimator:
             if not np.any(finite):
                 return np.array([], dtype=int)
             candidates = np.where(finite)[0]
+            if 0 < k < candidates.size:
+                # Only units at or below the k-th smallest distance can be
+                # among the first k of the (distance, index) sort, ties at
+                # the boundary included, so sorting that subset gives the
+                # same selection as sorting every candidate -- which was
+                # the whole cost of matching (12 s of 12.5 s at n = 30,000).
+                dc = d[candidates]
+                kth = np.partition(dc, k - 1)[k - 1]
+                candidates = candidates[dc <= kth]
             order = np.lexsort((pool_order[candidates], d[candidates]))
             return np.asarray(candidates[order[:k]], dtype=int)
 

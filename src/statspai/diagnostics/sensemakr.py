@@ -17,15 +17,17 @@ Cinelli, C. and Hazlett, C. (2020).
 *Journal of the Royal Statistical Society: Series B*, 82(1), 39-67. [@cinelli2020making]
 """
 
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 
 
+@accepts_aliases(covariates="controls")
 def sensemakr(
     data: pd.DataFrame,
     y: str,

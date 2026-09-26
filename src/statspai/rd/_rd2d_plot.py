@@ -7,12 +7,14 @@ from typing import Any, Callable, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import MethodIncompatibility
 
 _PLOT_TYPES = ("scatter", "heatmap", "boundary_effects")
 
 
+@accepts_aliases(treat="treatment")
 def rd2d_plot(
     data: pd.DataFrame,
     y: str,

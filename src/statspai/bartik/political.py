@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
@@ -378,6 +379,7 @@ def _share_balance_test(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(id="unit", y="outcome")
 def shift_share_political(
     data: pd.DataFrame,
     *,
@@ -880,6 +882,7 @@ def _build_bartik_panel(
     return out
 
 
+@accepts_aliases(id="unit", y="outcome")
 def shift_share_political_panel(
     data: pd.DataFrame,
     *,

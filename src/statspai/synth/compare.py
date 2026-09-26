@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from .scm import synth
 
@@ -344,6 +345,7 @@ def _recommend(table: pd.DataFrame) -> Tuple[str, str]:
 # ====================================================================== #
 
 
+@accepts_aliases(id="unit", y="outcome")
 def synth_compare(
     data: pd.DataFrame,
     outcome: str,
@@ -515,6 +517,7 @@ def synth_compare(
 # ====================================================================== #
 
 
+@accepts_aliases(id="unit", y="outcome")
 def synth_recommend(
     data: pd.DataFrame,
     outcome: str,

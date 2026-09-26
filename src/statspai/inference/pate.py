@@ -39,9 +39,11 @@ import pandas as pd
 from scipy import stats
 from scipy.optimize import minimize
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 
 
+@accepts_aliases(treat="treatment")
 def pate(
     data_experiment: pd.DataFrame,
     data_target: pd.DataFrame,

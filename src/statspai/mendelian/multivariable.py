@@ -27,6 +27,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility
 
@@ -197,6 +198,7 @@ def _ivw(
 # -------------------------------------------------------------------------
 
 
+@accepts_aliases(y="outcome")
 def mr_multivariable(
     snp_associations: pd.DataFrame,
     *,
@@ -532,6 +534,7 @@ def mr_mediation(
 # -------------------------------------------------------------------------
 
 
+@accepts_aliases(y="outcome")
 def mr_bma(
     snp_associations: pd.DataFrame,
     *,

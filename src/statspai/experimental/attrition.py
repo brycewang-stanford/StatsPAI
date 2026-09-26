@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility, StatsPAIWarning
 
@@ -96,6 +97,7 @@ class AttritionResult(ResultProtocolMixin):
         return "\n".join(lines)
 
 
+@accepts_aliases(treat="treatment")
 def attrition_test(
     data: pd.DataFrame,
     treatment: str,
@@ -206,6 +208,7 @@ def attrition_test(
     )
 
 
+@accepts_aliases(treat="treatment")
 def attrition_bounds(
     data: pd.DataFrame,
     y: str,

@@ -34,6 +34,7 @@ from typing import Any, ClassVar, Dict, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._common import (
     add_constant,
@@ -432,6 +433,7 @@ class MediationDecompResult(DecompResultMixin):
         )
 
 
+@accepts_aliases(treat="treatment")
 def mediation_decompose(
     data: pd.DataFrame,
     y: str,

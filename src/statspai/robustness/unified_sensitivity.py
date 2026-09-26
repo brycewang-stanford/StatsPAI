@@ -26,6 +26,7 @@ from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 
+from .._aliases import accepts_aliases
 from ..exceptions import MethodIncompatibility, StatsPAIError
 
 __all__ = ["SensitivityDashboard", "unified_sensitivity"]
@@ -338,6 +339,7 @@ def _coerce_matched_pairs(mp: Any) -> tuple[np.ndarray, np.ndarray]:
 # --------------------------------------------------------------------------- #
 
 
+@accepts_aliases(covariates="controls")
 def unified_sensitivity(
     result: Any,
     *,

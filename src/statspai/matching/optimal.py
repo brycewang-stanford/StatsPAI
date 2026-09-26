@@ -23,6 +23,7 @@ import pandas as pd
 from scipy import optimize
 from scipy.spatial.distance import cdist
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -168,6 +169,7 @@ def _distance_matrix(
     )
 
 
+@accepts_aliases(treat="treatment", y="outcome")
 def optimal_match(
     data: pd.DataFrame,
     treatment: str,
@@ -370,6 +372,7 @@ class CardinalityMatchResult(ResultProtocolMixin):
         return self.summary()
 
 
+@accepts_aliases(treat="treatment", y="outcome")
 def cardinality_match(
     data: pd.DataFrame,
     treatment: str,

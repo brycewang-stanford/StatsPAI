@@ -24,11 +24,14 @@ References
 """
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Callable, Sequence
+
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -80,6 +83,7 @@ class CloneCensorWeightResult(ResultProtocolMixin):
         )
 
 
+@accepts_aliases(time="time_col")
 def clone_censor_weight(
     data: pd.DataFrame,
     id_col: str,

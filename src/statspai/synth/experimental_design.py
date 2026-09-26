@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._input_validation import require_columns
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient
@@ -187,6 +188,7 @@ def _leave_one_out_sc(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(id="unit", y="outcome")
 def synth_experimental_design(
     data: pd.DataFrame,
     *,

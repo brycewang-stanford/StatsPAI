@@ -19,6 +19,7 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -84,6 +85,7 @@ class TransportWeightResult(ResultProtocolMixin):
         )
 
 
+@accepts_aliases(treat="treatment", y="outcome")
 def transport_weights(
     source: pd.DataFrame,
     target: pd.DataFrame,

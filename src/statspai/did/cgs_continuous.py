@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._contdid import cont_did_cell, default_dose_grid, knots_by_quantile
@@ -125,6 +126,7 @@ class ContinuousDoseResult(ResultProtocolMixin):
         }
 
 
+@accepts_aliases(id="unit")
 def cgs_continuous_did(
     data: pd.DataFrame,
     y: str,

@@ -76,6 +76,7 @@ from scipy import stats as sp_stats
 from scipy.optimize import linprog
 from scipy.stats import rankdata
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 from ._core import _eq_bounded_lsq, placebo_rank_pvalue
@@ -85,6 +86,7 @@ from ._core import _eq_bounded_lsq, placebo_rank_pvalue
 # ====================================================================== #
 
 
+@accepts_aliases(id="unit", y="outcome")
 def discos(
     data: pd.DataFrame,
     outcome: str,
@@ -441,6 +443,7 @@ def discos(
     )
 
 
+@accepts_aliases(id="unit", y="outcome")
 def qqsynth(
     data: pd.DataFrame,
     outcome: str,

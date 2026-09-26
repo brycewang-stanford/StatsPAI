@@ -203,7 +203,7 @@ def _coerce_optional_column_list(columns: Any, name: str) -> Optional[List[str]]
     return _coerce_column_list(columns, name, allow_empty=True)
 
 
-@accepts_aliases(_strict=True, id="unit")
+@accepts_aliases(treat="treatment", _strict=True, id="unit")
 def synth(
     data: pd.DataFrame,
     outcome: Optional[str] = None,

@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Literal, Optional
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
 from .sdid import sdid as _sdid_base
@@ -90,6 +91,7 @@ class SequentialSDIDResult(ResultProtocolMixin):
         )
 
 
+@accepts_aliases(id="unit", y="outcome")
 def sequential_sdid(
     data: pd.DataFrame,
     *,

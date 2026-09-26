@@ -47,9 +47,9 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._result_serialize import ResultProtocolMixin
 from ..core.results import SummaryText, _to_jsonable
 from ..exceptions import DataInsufficient, MethodIncompatibility
-from .._result_serialize import ResultProtocolMixin
 
 _EPS = 1e-12
 _EARTH_RADIUS_KM = 6371.0
@@ -1145,7 +1145,7 @@ def _spatial_diagnostics(
     return diagnostics
 
 
-@accepts_aliases(vce="se_type")
+@accepts_aliases(id="unit", vce="se_type")
 def spatial_did(
     data: pd.DataFrame,
     y: str,

@@ -32,11 +32,13 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ._core import placebo_rank_pvalue
 from ._core import solve_simplex_weights as _solve_weights
 
 
+@accepts_aliases(id="unit", y="outcome")
 def demeaned_synth(
     data: pd.DataFrame,
     outcome: str,

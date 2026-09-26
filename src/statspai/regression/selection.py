@@ -449,7 +449,7 @@ def _sandwich(H, scores, cluster_vals):
     return (g / (g - 1.0)) * (Hinv @ meat @ Hinv)
 
 
-@accepts_aliases(vce="robust")
+@accepts_aliases(treat="treatment", vce="robust")
 @markout_clusters
 def etregress(
     data: pd.DataFrame,

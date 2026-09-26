@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility
 
@@ -40,6 +41,7 @@ from ..exceptions import MethodIncompatibility
 # ======================================================================
 
 
+@accepts_aliases(treat="treatment")
 def propensity_score(
     data: pd.DataFrame,
     treatment: str,
@@ -240,6 +242,7 @@ def _crump_alpha(ps: np.ndarray) -> float:
     return best_alpha
 
 
+@accepts_aliases(treat="treatment")
 def trimming(
     data: pd.DataFrame,
     treatment: str,
@@ -564,6 +567,7 @@ def table_to_string(df: pd.DataFrame) -> str:
 # ======================================================================
 
 
+@accepts_aliases(treat="treatment")
 def ps_balance(
     data: pd.DataFrame,
     treatment: str,
@@ -662,6 +666,7 @@ def ps_balance(
     return PSBalanceResult(table=table, ps=ps)
 
 
+@accepts_aliases(treat="treatment")
 def balance_diagnostics(
     data: pd.DataFrame,
     treatment: str,
@@ -861,6 +866,7 @@ def _require_matplotlib() -> Any:
 # ======================================================================
 
 
+@accepts_aliases(treat="treatment")
 def overlap_plot(
     data: pd.DataFrame,
     treatment: str,
@@ -991,6 +997,7 @@ def overlap_plot(
 # ======================================================================
 
 
+@accepts_aliases(treat="treatment")
 def love_plot(
     data: Any,
     treatment: Optional[str] = None,

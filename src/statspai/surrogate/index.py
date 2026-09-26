@@ -34,6 +34,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
@@ -355,6 +356,7 @@ def _delta_variance(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(treat="treatment")
 def surrogate_index(
     experimental: pd.DataFrame,
     observational: pd.DataFrame,
@@ -561,6 +563,7 @@ def surrogate_index(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(treat="treatment")
 def long_term_from_short(
     experimental: pd.DataFrame,
     observational: pd.DataFrame,
@@ -732,6 +735,7 @@ def long_term_from_short(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(treat="treatment")
 def proximal_surrogate_index(
     experimental: pd.DataFrame,
     observational: pd.DataFrame,

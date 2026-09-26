@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import MethodIncompatibility, NumericalInstability
 from ._akm import _akm_fit, _bhj_aggregate, _resid
@@ -34,6 +35,7 @@ from ._akm import _akm_fit, _bhj_aggregate, _resid
 # ======================================================================
 
 
+@accepts_aliases(covariates="controls")
 def ssaggregate(
     data: pd.DataFrame,
     y: str,

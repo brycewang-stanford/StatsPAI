@@ -44,6 +44,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..exceptions import DataInsufficient
 
 __all__ = [
@@ -143,6 +144,7 @@ class DiDClusterDiagnostics:
         }
 
 
+@accepts_aliases(id="unit")
 def did_cluster_diagnostics(
     data: pd.DataFrame,
     unit: str,

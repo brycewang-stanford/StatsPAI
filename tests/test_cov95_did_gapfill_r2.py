@@ -921,4 +921,5 @@ def test_gardner_build_fe_design_default_levels():
         unit, time, None, u_levels=np.unique(unit), t_levels=np.unique(time)
     )
     assert A_default.shape == A_explicit.shape
-    assert np.allclose(A_default, A_explicit)
+    # The design is sparse since 1.32 (dense dummies did not scale).
+    assert np.allclose(A_default.toarray(), A_explicit.toarray())

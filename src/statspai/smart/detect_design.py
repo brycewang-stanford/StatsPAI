@@ -23,6 +23,8 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
+from .._aliases import accepts_aliases
+
 # Heuristic thresholds (literature-free — these are pragmatic
 # defaults, deliberately permissive to avoid silently rejecting real
 # panels with mild imbalance / unusual shapes).
@@ -285,6 +287,7 @@ def _detect_rd_running_var(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(id="unit")
 def detect_design(
     data: pd.DataFrame,
     *,

@@ -47,6 +47,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize
 
+from ..._aliases import accepts_aliases
 from ...exceptions import ConvergenceFailure
 from ._core import elasticities_at, expand_inputs, panel_lag, polynomial_basis
 from ._result import ProductionResult
@@ -713,6 +714,7 @@ def _resolve_inputs(
     return _to_list(free, free_default), _to_list(state, state_default)
 
 
+@accepts_aliases(id="panel_id")
 def olley_pakes(
     data: pd.DataFrame,
     output: str = "y",
@@ -825,6 +827,7 @@ def olley_pakes(
     )
 
 
+@accepts_aliases(id="panel_id")
 def levinsohn_petrin(
     data: pd.DataFrame,
     output: str = "y",
@@ -921,6 +924,7 @@ def levinsohn_petrin(
     )
 
 
+@accepts_aliases(id="panel_id")
 def ackerberg_caves_frazer(
     data: pd.DataFrame,
     output: str = "y",

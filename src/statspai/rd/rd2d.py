@@ -42,6 +42,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._rd2d_distance import rd2d_distance_bw, rd2d_distance_estimate
@@ -358,6 +359,7 @@ def _rd2d_pooled(
 # ======================================================================
 
 
+@accepts_aliases(treat="treatment")
 def rd2d(
     data: pd.DataFrame,
     y: str,
@@ -910,6 +912,7 @@ def _build_result(
     )
 
 
+@accepts_aliases(treat="treatment")
 def rd2d_bw(
     data: pd.DataFrame,
     y: str,

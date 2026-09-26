@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 from .rdrobust import rdrobust
 
@@ -351,6 +352,7 @@ def _cate_dr(
 # ======================================================================
 
 
+@accepts_aliases(covariates="covs", treat="treatment")
 def rd_extrapolate(
     data: pd.DataFrame,
     y: str,
@@ -843,6 +845,7 @@ def rd_multi_extrapolate(
     )
 
 
+@accepts_aliases(covariates="covs")
 def rd_external_validity(
     data: pd.DataFrame,
     y: str,
