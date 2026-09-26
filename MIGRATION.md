@@ -7,7 +7,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="plr-theta-label"></a>
 
-## Unreleased — DML PLR estimate is labelled `theta`; `cate_summary` row `Mean`
+## 1.32.0 — DML PLR estimate is labelled `theta`; `cate_summary` row `Mean`
 
 **Who is affected.** Code that indexes a partially linear DML result by
 its old label, e.g. `sp.dml(..., model="plr").params["ATE"]`,
@@ -42,7 +42,7 @@ sp.cate_summary(cf).loc["Mean"]   # was .loc["Mean (ATE)"]
 
 <a id="qreg-t-inference"></a>
 
-## Unreleased — ⚠️ `sp.qreg` p-values and intervals use t(N - k)
+## 1.32.0 — ⚠️ `sp.qreg` p-values and intervals use t(N - k)
 
 **Who is affected.** Anyone reading p-values, stars or confidence intervals
 from `sp.qreg` (any `vce`), including `result.ci` and `detail["pvalue"]`.
@@ -60,7 +60,7 @@ the old `z` column still exists and holds the same statistic.
 
 <a id="panel-cre-theta"></a>
 
-## Unreleased — ⚠️ `sp.panel(method="mundlak" | "chamberlain")` mean coefficients move slightly
+## 1.32.0 — ⚠️ `sp.panel(method="mundlak" | "chamberlain")` mean coefficients move slightly
 
 **Who is affected.** Anyone reading the coefficients on the unit means
 (`_mean_<x>`), the Chamberlain terms or the constant of a correlated
@@ -79,7 +79,7 @@ directly on the augmented design.
 
 <a id="panel-weights-cluster"></a>
 
-## Unreleased — ⚠️ `sp.panel(weights=, cluster=)` and `sp.did_summary(cluster=)` take effect
+## 1.32.0 — ⚠️ `sp.panel(weights=, cluster=)` and `sp.did_summary(cluster=)` take effect
 
 **Who is affected.** Anyone who passed `weights=` to `sp.panel`, passed
 `cluster=` with a column name other than the panel entity (e.g. a state
@@ -98,7 +98,7 @@ for `did_summary`, drop `cluster=` (the CS row always clustered by unit).
 
 <a id="pwcorr-pairwise"></a>
 
-## Unreleased — ⚠️ `sp.pwcorr` deletes missing values pairwise
+## 1.32.0 — ⚠️ `sp.pwcorr` deletes missing values pairwise
 
 **Who is affected.** Anyone calling `sp.pwcorr` on data with missing values.
 
@@ -113,7 +113,7 @@ in any listed variable. The text output reports the range of pairwise N;
 
 <a id="margins-stata-semantics"></a>
 
-## Unreleased — ⚠️ `sp.margins` / `margins_at` / `contrast` / `pwcompare` follow Stata's averaging
+## 1.32.0 — ⚠️ `sp.margins` / `margins_at` / `contrast` / `pwcompare` follow Stata's averaging
 
 **Who is affected.** Users of the margins family with (a) `poisson` /
 `nbreg` / `glm` fits that used `exposure=` / `offset=`, (b) weighted fits,
@@ -144,7 +144,7 @@ you want it treated as an independent regressor.
 
 <a id="mice-categorical"></a>
 
-## Unreleased — ⚠️ `sp.mice` imputes categorical and binary variables with models
+## 1.32.0 — ⚠️ `sp.mice` imputes categorical and binary variables with models
 
 **Who is affected.** Anyone using `sp.mice` on data with non-numeric
 columns or binary variables, and anyone whose other variables are imputed
@@ -165,7 +165,7 @@ estimates change.
 
 <a id="rdrobust-fuzzy-comb"></a>
 
-## Unreleased — ⚠️ `sp.rdrobust` fuzzy designs with a `comb` bandwidth selector
+## 1.32.0 — ⚠️ `sp.rdrobust` fuzzy designs with a `comb` bandwidth selector
 
 **Who is affected.** `sp.rdrobust(fuzzy=..., bwselect="msecomb1" |
 "msecomb2" | "cercomb1" | "cercomb2")`.
@@ -183,7 +183,7 @@ and pass it as `h=` / `b=`.
 
 <a id="mcp-sample-rule"></a>
 
-## Unreleased — MCP `data_sample_n` draws a different (deterministic) sample
+## 1.32.0 — MCP `data_sample_n` draws a different (deterministic) sample
 
 **Who is affected.** MCP clients that pass `data_sample_n`.
 
@@ -200,7 +200,7 @@ loaded frame (different rows, shuffled order).
 
 <a id="qreg-default-se"></a>
 
-## Unreleased — ⚠️ `sp.qreg` default standard errors follow Stata's `qreg`
+## 1.32.0 — ⚠️ `sp.qreg` default standard errors follow Stata's `qreg`
 
 **Who is affected.** Anyone reading standard errors, p-values or intervals
 from `sp.qreg` (and `sp.sqreg`, which calls it) without choosing a variance.
@@ -219,7 +219,7 @@ unchanged. New choices: `vce="robust"` (Stata `vce(robust)`) and
 
 <a id="tobit-polish"></a>
 
-## Unreleased — ⚠️ `sp.tobit` estimates move by ~1e-6
+## 1.32.0 — ⚠️ `sp.tobit` estimates move by ~1e-6
 
 **Who is affected.** Anyone comparing `sp.tobit` output digit by digit
 with an earlier release.
@@ -234,7 +234,7 @@ digits were an optimiser stopping short.
 
 <a id="iv-weights-alpha"></a>
 
-## Unreleased — ⚠️ `sp.iv(weights=)` and fit-time `alpha=` take effect
+## 1.32.0 — ⚠️ `sp.iv(weights=)` and fit-time `alpha=` take effect
 
 **Who is affected.** (1) Anyone who passed `weights=` to `sp.iv` or
 `sp.ivreg`. (2) Anyone who passed `alpha=` to one of the 31 estimators
