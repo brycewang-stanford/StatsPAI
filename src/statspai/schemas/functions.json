@@ -40364,6 +40364,217 @@
     }
   },
   {
+    "description": "MSE-optimal rule-of-thumb bandwidth, as ``bwselect('mse-rot')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "lpbwselect_mse_rot",
+    "parameters": {
+      "properties": {
+        "deriv": {
+          "default": 0,
+          "description": "Derivative estimated; 0 is the intercept ``did_had`` needs.",
+          "type": "integer"
+        },
+        "eval_point": {
+          "description": "Where the bandwidth is optimal for.",
+          "type": "number"
+        },
+        "kernel": {
+          "default": "epanechnikov",
+          "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "epanechnikov",
+            "triangular",
+            "uniform"
+          ],
+          "type": "string"
+        },
+        "p": {
+          "default": 1,
+          "description": "Polynomial order.",
+          "type": "integer"
+        },
+        "x": {
+          "description": "Running variable and outcome. Non-finite rows are dropped.",
+          "type": "string"
+        },
+        "y": {
+          "description": "Running variable and outcome. Non-finite rows are dropped.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "eval_point"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "IMSE-optimal direct-plug-in bandwidths, as ``bwselect('imse-dpi')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "lpbwselect_imse_dpi",
+    "parameters": {
+      "properties": {
+        "bwcheck": {
+          "default": 21,
+          "description": "Forwarded to :func:`lpbwselect_mse_dpi` at every grid point.",
+          "type": "integer"
+        },
+        "bwregul": {
+          "default": 1.0,
+          "description": "Forwarded to :func:`lpbwselect_mse_dpi` at every grid point.",
+          "type": "number"
+        },
+        "deriv": {
+          "default": 0,
+          "description": "deriv parameter (int).",
+          "type": "integer"
+        },
+        "imsegrid": {
+          "default": 30,
+          "description": "Number of equally spaced evaluation points.",
+          "type": "integer"
+        },
+        "kernel": {
+          "default": "epanechnikov",
+          "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "epanechnikov",
+            "triangular",
+            "uniform",
+            "gaussian"
+          ],
+          "type": "string"
+        },
+        "n_neighbors": {
+          "default": 3,
+          "description": "Forwarded to :func:`lpbwselect_mse_dpi` at every grid point.",
+          "type": "integer"
+        },
+        "p": {
+          "default": 1,
+          "description": "p parameter (int).",
+          "type": "integer"
+        },
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "IMSE-optimal rule-of-thumb bandwidth, as ``bwselect('imse-rot')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "lpbwselect_imse_rot",
+    "parameters": {
+      "properties": {
+        "deriv": {
+          "default": 0,
+          "description": "deriv parameter (int).",
+          "type": "integer"
+        },
+        "kernel": {
+          "default": "epanechnikov",
+          "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "epanechnikov",
+            "triangular",
+            "uniform"
+          ],
+          "type": "string"
+        },
+        "p": {
+          "default": 1,
+          "description": "Polynomial order.",
+          "type": "integer"
+        },
+        "x": {
+          "description": "Running variable and outcome. Non-finite rows are dropped.",
+          "type": "string"
+        },
+        "y": {
+          "description": "Running variable and outcome. Non-finite rows are dropped.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Coverage-error-optimal rule of thumb, as ``bwselect('ce-rot')``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "lpbwselect_ce_rot",
+    "parameters": {
+      "properties": {
+        "bwcheck": {
+          "default": 21,
+          "description": "Forwarded to :func:`lpbwselect_mse_dpi`.",
+          "type": "integer"
+        },
+        "bwregul": {
+          "default": 1.0,
+          "description": "Forwarded to :func:`lpbwselect_mse_dpi`.",
+          "type": "number"
+        },
+        "deriv": {
+          "default": 0,
+          "description": "deriv parameter (int).",
+          "type": "integer"
+        },
+        "eval_point": {
+          "description": "eval_point parameter (float).",
+          "type": "number"
+        },
+        "kernel": {
+          "default": "epanechnikov",
+          "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "epanechnikov",
+            "triangular",
+            "uniform",
+            "gaussian"
+          ],
+          "type": "string"
+        },
+        "n_neighbors": {
+          "default": 3,
+          "description": "Forwarded to :func:`lpbwselect_mse_dpi`.",
+          "type": "integer"
+        },
+        "p": {
+          "default": 1,
+          "description": "p parameter (int).",
+          "type": "integer"
+        },
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "eval_point"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Estimate a Vector Autoregression (VAR) model. Validation: certified parity evidence.",
     "name": "var",
     "parameters": {
@@ -42105,7 +42316,7 @@
         },
         "bandwidth": {
           "default": "mse-dpi",
-          "description": "Bandwidth for the local polynomial fit at dose zero -- one value, or one per reported horizon (placebos first, then effects). **Required for now.** Stata's default ``bw_method('mse-dpi')`` selector is not yet implemented; see Notes.",
+          "description": "Bandwidth for the local polynomial fit at dose zero. Either a selector name, matching Stata's ``bw_method()``: - ``'mse-dpi'`` (default) -- MSE-optimal direct plug-in at dose 0 - ``'mse-rot'`` -- the cheaper rule of thumb - ``'imse-dpi'`` / ``'imse-rot'`` -- *integrated* MSE, i.e. one global bandwidth rather than one optimal at dose 0 - ``'ce-rot'`` -- coverage-error-optimal; undersmooths ``mse-dpi``, giving a narrower window and better interval coverage ...or an explicit value: one, or one per reported horizon (placebos first, then effects). ``'ce-dpi'`` is accepted by Stata but not ported, and raises :class:`NotImplementedError` rather than silently substituting another selector.",
           "items": {
             "type": "string"
           },

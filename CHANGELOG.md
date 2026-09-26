@@ -6,6 +6,73 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.did_had` — heterogeneous-adoption DiD** (de Chaisemartin, Ciccia,
+  D'Haultfœuille & Knau; `dechaisemartin2024nounit`). The design where
+  every group adopts at the same period F with a *heterogeneous dose* and
+  **no group stays untreated**, so the counterfactual cannot come from a
+  control group: it is the local-polynomial intercept at dose zero,
+  supplied by the quasi-untreated. Ports Stata's `did_had` including
+  `effects=` / `placebo=` / `trends_lin=` / `dynamic=`, the
+  quasi-untreated-group diagnostic, and a Yatchew differencing test of
+  linearity (`yatchew1999elementary` — note Stata's own `did_had` help
+  dates this to 1997 while citing the 1999 paper's volume and pages;
+  StatsPAI carries the verified 1999 record). Pinned against Stata 18 MP
+  (`87_did_had.do`) to 1.6e-8 at supplied bandwidths and 9.8e-8
+  end-to-end with selection.
+
+  Note the interval is deliberately **not** symmetric around the
+  estimate: `did_had` pairs a conventional point estimate with a
+  bias-corrected interval centred at `β̂ − B̂`, and StatsPAI follows it.
+
+- **`sp.lprobust_at_point` and the bandwidth-selection family.**
+  Local polynomial regression with robust bias correction — the engine
+  under `did_had` — matching Stata to 9.2e-9 across three kernels ×
+  three bandwidths, plus ports of five of the six `nprobust` selectors:
+
+  | | `sp.` function | vs R |
+  | --- | --- | --- |
+  | `mse-dpi` | `lpbwselect_mse_dpi` | 5.6e-13 |
+  | `mse-rot` | `lpbwselect_mse_rot` | 4.3e-12 |
+  | `imse-dpi` | `lpbwselect_imse_dpi` | 4.5e-13 |
+  | `imse-rot` | `lpbwselect_imse_rot` | 1.6e-12 |
+  | `ce-rot` | `lpbwselect_ce_rot` | 4.2e-13 |
+
+  Stata agrees with R on all five (worst 1.1e-7); its residual is its
+  own — `lpbwselect.ado` integrates the kernel moment constants
+  numerically where these evaluate them in closed form. All five are
+  also pinned **end-to-end through `sp.did_had`** against Stata's
+  `bw_method()`, which is what catches a wiring bug that leaves the
+  selectors themselves correct.
+
+  Three details the reference forces and that are followed rather than
+  harmonized: `imse-rot` grids on **x-quantiles** while `imse-dpi` grids
+  on **equal spacing**; the IMSE `B_h` uses `rB·B1²` with **no**
+  regularization term, unlike the pointwise `mse-dpi` bandwidth, which
+  carries `bwregul·R`; and `ce-dpi` shares `ce-rot`'s `b` exactly,
+  differing only in `h`.
+
+  `mse-rot` and `imse-rot` deliberately report no `b`: R derives one by
+  re-entering the selector on the even `(p − deriv)` branch, which is not
+  ported, and neither consumer needs it — `lprobust` and `did_had` both
+  run at `rho = 1`, so their bias bandwidth is `h`.
+
+  **`ce-dpi` is not ported** (it needs `nprobust`'s ~150-line
+  coverage-error plug-in). Passing it raises `NotImplementedError`
+  naming the gap, so a valid Stata spelling does not read as a typo and
+  is never silently swapped for a different selector.
+
+  Mass points matter here and are handled: with tied doses at the
+  evaluation point — the *normal* case in this design, since true stayers
+  all sit at dose 0 — a plain k-NN variance picked an arbitrary subset of
+  the tie group and got the standard error wrong by 3–6% while the point
+  estimate stayed exact to 2e-9. Tie groups are consumed whole.
+
+- **`ScalarEffect`'s docstring example could not run.** It called
+  `ScalarEffect(...)` bare, with no import, so the example-execution
+  gate failed on it. Now `import statspai as sp` +
+  `sp.ScalarEffect(...)`, matching the house rule that every example is
+  runnable as written.
+
 - `sigmamore=True` on `sp.hausman_test` / `PanelResults.hausman_test`
   (Stata's `hausman fe re, sigmamore`, pinned to Stata 18).
 - `sp.test` / `sp.lincom` use the full covariance of `sp.panel` results, so

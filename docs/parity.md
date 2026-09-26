@@ -30,9 +30,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 362 |
 | | aligned | 53 |
 | | **subtotal** | **415** |
-| **No external software reference** | analytical-only (T1) | 142 |
+| **No external software reference** | analytical-only (T1) | 146 |
 | | external-replication (published numbers) | 2 |
-| | **subtotal** | **144** |
+| | **subtotal** | **148** |
 | No numerical evidence yet | unverified | 696 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 415 | 556 | 807 | 51.4% |
+| estimator callables | 415 | 560 | 811 | 51.2% |
 | infrastructure (parity N/A) | 0 | 1 | 128 | 0.0% |
 | result / exception classes | 0 | 2 | 320 | 0.0% |
-| **all registered** | 415 | 559 | 1255 | 33.1% |
+| **all registered** | 415 | 563 | 1259 | 33.0% |
 
 ### Coverage by estimator family
 
@@ -72,6 +72,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | structural | 5 | 7 | 10 |
 | survival | 8 | 8 | 9 |
 | frontier | 5 | 7 | 9 |
+| nonparametric | 2 | 8 | 8 |
 | robustness | 3 | 4 | 7 |
 | interference | 0 | 1 | 7 |
 | other | 2 | 3 | 7 |
@@ -83,7 +84,6 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | experimental | 3 | 3 | 5 |
 | causal_llm | 0 | 0 | 4 |
 | bartik | 4 | 4 | 4 |
-| nonparametric | 2 | 4 | 4 |
 | causal_discovery | 0 | 0 | 3 |
 | surrogate | 0 | 3 | 3 |
 | causal_rl | 0 | 0 | 3 |
@@ -534,7 +534,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `aggte` | [`test_honest_did_paper_parity.py`](../tests/external_parity/test_honest_did_paper_parity.py) (+1) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 142 functions
+## analytical-only — 146 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -620,7 +620,11 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `long_term_from_short` | [`test_surrogate_parity.py`](../tests/reference_parity/test_surrogate_parity.py) |
 | `longitudinal_analyze` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
 | `longitudinal_contrast` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
+| `lpbwselect_ce_rot` | [`test_lprobust_parity.py`](../tests/reference_parity/test_lprobust_parity.py) |
+| `lpbwselect_imse_dpi` | [`test_lprobust_parity.py`](../tests/reference_parity/test_lprobust_parity.py) |
+| `lpbwselect_imse_rot` | [`test_lprobust_parity.py`](../tests/reference_parity/test_lprobust_parity.py) |
 | `lpbwselect_mse_dpi` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) (+1) |
+| `lpbwselect_mse_rot` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) (+1) |
 | `lprobust_at_point` | [`test_lprobust_parity.py`](../tests/reference_parity/test_lprobust_parity.py) |
 | `ltmle_survival` | [`test_ml_causal_recovery_parity_round2.py`](../tests/reference_parity/test_ml_causal_recovery_parity_round2.py) |
 | `machado_mata` | [`test_decomp_qte_parity.py`](../tests/reference_parity/test_decomp_qte_parity.py) |

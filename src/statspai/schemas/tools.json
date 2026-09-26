@@ -7120,7 +7120,7 @@
         },
         "bandwidth": {
           "default": "mse-dpi",
-          "description": "Bandwidth for the local polynomial fit at dose zero -- one value, or one per reported horizon (placebos first, then effects). **Required for now.** Stata's default ``bw_method('mse-dpi')`` selector is not yet implemented; see Notes.",
+          "description": "Bandwidth for the local polynomial fit at dose zero. Either a selector name, matching Stata's ``bw_method()``: - ``'mse-dpi'`` (default) -- MSE-optimal direct plug-in at dose 0 - ``'mse-rot'`` -- the cheaper rule of thumb - ``'imse-dpi'`` / ``'imse-rot'`` -- *integrated* MSE, i.e. one global bandwidth rather than one optimal at dose 0 - ``'ce-rot'`` -- coverage-error-optimal; undersmooths ``mse-dpi``, giving a narrower window and better interval coverage ...or an explicit value: one, or one per reported horizon (placebos first, then effects). ``'ce-dpi'`` is accepted by Stata but not ported, and raises :class:`NotImplementedError` rather than silently substituting another selector.",
           "items": {
             "type": "string"
           },

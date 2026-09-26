@@ -1825,6 +1825,10 @@ __all__ = [
     "lprobust_at_point",
     "LProbustPoint",
     "lpbwselect_mse_dpi",
+    "lpbwselect_mse_rot",
+    "lpbwselect_imse_dpi",
+    "lpbwselect_imse_rot",
+    "lpbwselect_ce_rot",
     # Time Series
     "var",
     "VARResult",
@@ -3203,6 +3207,10 @@ _register_lazy(
     "lprobust_at_point",
     "LProbustPoint",
     "lpbwselect_mse_dpi",
+    "lpbwselect_mse_rot",
+    "lpbwselect_imse_dpi",
+    "lpbwselect_imse_rot",
+    "lpbwselect_ce_rot",
 )
 _register_lazy(
     "multilevel",
