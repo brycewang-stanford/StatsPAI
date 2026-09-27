@@ -26293,8 +26293,12 @@
           ],
           "type": "string"
         },
+        "covariate_method": {
+          "description": "With ``treat=`` and ``covariates=``: ``'projected'`` removes ``X beta``, ``beta`` from a unit and period fixed-effects regression on the never-treated units, before estimation (Stata's ``covariates(..., projected)``). Required whenever covariates are given; Stata's default ``'optimized'`` is not implemented.",
+          "type": "string"
+        },
         "covariates": {
-          "description": "Not supported by the native solver yet; passing any raises :class:`~statspai.exceptions.MethodIncompatibility` rather than silently estimating the unadjusted model (through 1.28.0 the argument was accepted and ignored).",
+          "description": "Covariates, with ``treat=`` and ``covariate_method=\"projected\"`` only. With ``treated_unit=`` / ``treatment_time=`` passing any raises :class:`~statspai.exceptions.MethodIncompatibility` rather than silently estimating the unadjusted model (through 1.28.0 the argument was accepted and ignored).",
           "items": {
             "type": "string"
           },
@@ -26321,11 +26325,12 @@
         },
         "se_method": {
           "default": "placebo",
-          "description": "Standard-error method (see Notes).",
+          "description": "Standard-error method (see Notes). ``'noinference'`` (``treat=`` only) returns the point estimate with NaN SE, as Stata's ``vce(noinference)``.",
           "enum": [
             "placebo",
             "bootstrap",
-            "jackknife"
+            "jackknife",
+            "noinference"
           ],
           "type": "string"
         },
@@ -26335,6 +26340,10 @@
         },
         "time": {
           "description": "Time period column.",
+          "type": "string"
+        },
+        "treat": {
+          "description": "A 0/1 column that switches on when a unit is treated and stays on, as in Stata's ``sdid Y unit time W``; replaces ``treated_unit`` / ``treatment_time``. Units may adopt at different periods: each adoption cohort is fitted against the never-treated units and the cohort effects are averaged with weights proportional to treated units x post periods ([@clarke2024synthetic], eq. 7). This path follows Stata ``sdid`` 2.0.2, including its checks and inference rules; cohort detail is in ``model_info['tau_by_cohort']``.",
           "type": "string"
         },
         "treat_time": {

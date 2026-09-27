@@ -13689,6 +13689,7 @@
       "additional_tests": [
         "tests/reference_parity/test_did_synth_R_parity.py",
         "tests/reference_parity/test_sdid_parity.py",
+        "tests/reference_parity/test_sdid_staggered_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "also_verified_by": [
