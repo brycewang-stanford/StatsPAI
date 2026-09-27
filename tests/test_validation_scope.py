@@ -472,3 +472,35 @@ def test_panel_scope_separates_the_default_and_the_reference_conventions():
     # linearmodels' own clustered scaling has no reference row.
     assert default["status"] == "estimate_only"
     assert default["outputs"]["se"]["status"] == "not_covered"
+
+
+def test_sdid_treat_path_has_its_own_rows():
+    # A fitted staggered result reports interface / design / covariates itself.
+    staggered = sp.validation_scope(
+        function="sdid",
+        method="sdid",
+        se_method="jackknife",
+        code_path="native",
+        interface="treat",
+        design="staggered",
+        covariates="projected",
+    )
+    assert staggered["status"] == "covered"
+    # A by-name query that predates those dimensions means the treated_unit=
+    # block design without covariates, and keeps its old answer.
+    legacy = sp.validation_scope(
+        function="sdid", method="sdid", se_method="placebo", code_path="native"
+    )
+    assert legacy["configuration"]["interface"] == "treated_unit"
+    assert legacy["status"] == "estimate_only"
+    # Bootstrap on the treat= path is screened, not a reference row.
+    boot = sp.validation_scope(
+        function="sdid",
+        method="sdid",
+        se_method="bootstrap",
+        code_path="native",
+        interface="treat",
+        design="staggered",
+        covariates="none",
+    )
+    assert boot["outputs"]["se"]["status"] == "not_covered"

@@ -840,6 +840,9 @@ def did(
                 diagnostics={"method": method, "se_method": se_method},
             )
         sdid_se_method = cast(_SDIDSeMethod, se_method)
+        # The placebo / bootstrap draws were unseeded here through 1.31:
+        # seed= and random_state= were accepted and not passed on.
+        sdid_seed = seed if seed is not None else random_state
         if id is None:
             raise MethodIncompatibility(
                 "'id' (unit identifier) is required for SDID.",
@@ -850,10 +853,23 @@ def did(
         _treat_unit = treat_unit
         _treat_time = treat_time
         if _treat_unit is None and _treat_time is None:
-            # treat column encodes first treatment period (0 = never treated)
-            from ..synth.sdid import _block_adoption_from_cohorts
+            # treat column encodes first treatment period (0 = never treated);
+            # several adoption periods are estimated cohort by cohort.
+            from ..synth.sdid import _sdid_on_cohort_column
 
-            _treat_unit, _treat_time = _block_adoption_from_cohorts(data, id, treat)
+            return _sdid_on_cohort_column(
+                data,
+                y=y,
+                unit=id,
+                time=time,
+                cohort=treat,
+                method="sdid",
+                covariates=covariates,
+                se_method=sdid_se_method,
+                alpha=alpha,
+                seed=sdid_seed,
+                **kwargs,
+            )
         return _sdid(
             data,
             y=y,
@@ -865,6 +881,7 @@ def did(
             covariates=covariates,
             se_method=sdid_se_method,
             alpha=alpha,
+            seed=sdid_seed,
             **kwargs,
         )
 

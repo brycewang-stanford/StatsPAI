@@ -6,6 +6,30 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.sdid(treat=...)`: staggered adoption, projected covariates and
+  Stata's inference rules.** `treat=` takes a 0/1 indicator, as Stata's
+  `sdid Y unit time W`. Each adoption cohort is fitted against the
+  never-treated units with the block estimator's own weight solver and the
+  cohort effects are averaged by treated units x post periods
+  (`clarke2024synthetic`, eq. 7); per-cohort effects, weights and SEs are in
+  `model_info["tau_by_cohort"]`, and `unit_weights` / `time_weights` become
+  unit x cohort and period x cohort tables. `covariates=` with
+  `covariate_method="projected"` removes `X beta` fitted by a two-way
+  fixed-effects regression on the never-treated units (Stata's `projected`;
+  `optimized`, Stata's default, is not implemented and is never chosen
+  silently). `se_method` gains `"noinference"`; the jackknife holds the
+  cohort weights fixed and re-projects covariates on every leave-one-out
+  sample; bootstrap and placebo re-solve from the original weights. Stata's
+  refusals are reproduced (jackknife needs two treated units in every
+  cohort, bootstrap more than one treated unit with a single cohort, placebo
+  more controls than treated units). Pinned against Stata `sdid` 2.0.2 on the
+  paper's two datasets: ATT, every cohort effect, the projected-covariate
+  beta and the jackknife SEs (sdid / did / sc, with and without covariates)
+  to 1e-13 or better (`tests/reference_parity/test_sdid_staggered_parity.py`,
+  T2); bootstrap / placebo are a stochastic screen only. The
+  `treated_unit=` / `treatment_time=` interface is unchanged and stays pinned
+  to R `synthdid`.
+
 - **`sp.did_had` — heterogeneous-adoption DiD** (de Chaisemartin, Ciccia,
   D'Haultfœuille & Knau; `dechaisemartin2024nounit`). The design where
   every group adopts at the same period F with a *heterogeneous dose* and
@@ -85,11 +109,12 @@ All notable changes to StatsPAI will be documented in this file.
   treated period from `treat` and took the earliest one as every treated
   unit's adoption period, so a later cohort's pre-adoption periods counted as
   treated: 1.54 against a true effect of 2 on a two-cohort test panel, with
-  no warning. SDID here is the block design, so several adoption periods now
-  raise `MethodIncompatibility` naming them, with the per-cohort fit and the
-  staggered estimators as the way forward; a single-cohort panel returns
-  exactly what it did before. `did_analysis(method="sdid")` also requires
-  `id=`. See MIGRATION.md#sdid-staggered-refused.
+  no warning. Several adoption periods are now estimated cohort by cohort
+  through `sp.sdid(treat=...)` (below); a single-cohort panel returns exactly
+  what it did before. `sp.did(method="sdid")` also passes `seed=` /
+  `random_state=` on -- they were accepted and dropped, so its placebo /
+  bootstrap SE changed on every run -- and `did_analysis(method="sdid")`
+  requires `id=`. See MIGRATION.md#sdid-staggered.
 
 - **`sp.optimal_design` reported every sample size twice as large as needed.**
   The individual and stratified branches returned the total sample of the
@@ -118,6 +143,14 @@ All notable changes to StatsPAI will be documented in this file.
   F and Sargan / Hansen J statistics.
 
 ### Changed
+
+- **CI: the pandas-3 lane runs nightly instead of on every push.**
+  `test-pandas3` (~45 min, the full suite under pandas 3.x) now runs on a
+  nightly schedule, on pull requests, on releases and on manual `full` /
+  publish dispatches. Every push to main still gets the fast gate, the
+  quality ratchets, `import-budget`, `security` and the `Parity guards`
+  workflow, which is unchanged. The concurrency group now includes the event
+  name so a push never cancels the nightly run.
 
 - `scripts/signature_house_style.py` counts a legacy-named parameter as
   converged when the function accepts the canonical spelling through

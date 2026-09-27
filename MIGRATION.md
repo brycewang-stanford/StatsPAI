@@ -34,22 +34,27 @@ seeded draws differ from earlier releases.
 
 ---
 
-<a id="sdid-staggered-refused"></a>
+<a id="sdid-staggered"></a>
 
-## Unreleased — ⚠️ `sp.did` / `sp.did_analysis` with `method="sdid"` refuse staggered adoption
+## Unreleased — ⚠️ `sp.did` / `sp.did_analysis` with `method="sdid"` estimate staggered adoption by cohort
 
 **Who is affected.** Anyone who ran `sp.did(..., method="sdid")` or
 `sp.did_analysis(..., method="sdid")` on a panel whose `treat` column holds
-more than one first-treatment period.
+more than one first-treatment period, and anyone who relied on
+`sp.did(method="sdid")` standard errors being reproducible.
 
 **What changed.** Those calls used the earliest adoption period for every
-treated unit and returned a number for a different estimand. They now raise
-`MethodIncompatibility`. A panel with one adoption cohort is unaffected.
+treated unit and returned a number for a different estimand. They now fit
+each adoption cohort against the never-treated units and average the cohort
+effects (`sp.sdid(treat=...)`, Stata `sdid`'s estimator). A panel with one
+adoption cohort gives the same estimate as before. `sp.did(method="sdid")`
+now seeds its placebo / bootstrap draws with `seed=` (or `random_state=`),
+which were previously ignored, so its SE is reproducible and differs from
+an earlier unseeded run.
 
-**What to do.** Fit `sp.sdid` per cohort (its treated units plus the
-never-treated), or use a staggered estimator (`sp.callaway_santanna`,
-`sp.did_imputation`). Earlier `sdid` numbers from staggered panels should be
-re-estimated.
+**What to do.** Re-estimate `sdid` numbers from staggered panels. The
+placebo SE needs more never-treated than treated units (Stata's rule); use
+`se_method="bootstrap"` otherwise.
 
 ---
 

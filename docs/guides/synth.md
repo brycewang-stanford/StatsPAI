@@ -86,6 +86,38 @@ of the 20 variants with the same API and return type.
   Montana's pre-period SSE is 12417 under `exact_balance` against 2898 under
   the search, while Georgia's is 122 against 1022. Report which rule you used.
 
+### Staggered adoption and covariates with SDID
+
+`sp.sdid` has two interfaces. `treated_unit=` / `treatment_time=` is the block
+design of R `synthdid`. `treat=` takes a 0/1 indicator, as Stata's
+`sdid Y unit time W`, and follows Stata `sdid` (Clarke, Pailañir, Athey and
+Imbens 2024): units may adopt at different periods, each adoption cohort is
+fitted against the never-treated units, and the cohort effects are averaged
+by treated units × post periods.
+
+```python
+import statspai as sp
+
+res = sp.sdid(df, outcome="y", unit="country", time="year",
+              treat="w", se_method="jackknife")
+res.model_info["tau_by_cohort"]   # adoption, tau, se, n_treated, T_post, weight
+
+res = sp.sdid(df, outcome="y", unit="country", time="year", treat="w",
+              covariates=["lngdp"], covariate_method="projected",
+              se_method="bootstrap", seed=1)
+```
+
+- `covariate_method="projected"` removes `X β`, with `β` from a two-way
+  fixed-effects regression on the never-treated units. Stata's default,
+  `optimized`, is not implemented, so the method must be named.
+- The jackknife is deterministic and matches Stata to 1e-13; it needs two
+  treated units in every cohort. The bootstrap needs more than one treated
+  unit when there is a single cohort, and the placebo more never-treated than
+  treated units — the same refusals as Stata. `se_method="noinference"`
+  returns the point estimate only.
+- `sp.did(method="sdid")` reads cohorts from its `treat` column (first
+  treated period, 0 = never) and uses this path when there are several.
+
 ## Research workflow
 
 ### Run all methods at once

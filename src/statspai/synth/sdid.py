@@ -29,7 +29,7 @@ import subprocess
 import tempfile
 import warnings
 from pathlib import Path
-from typing import Any, List, Literal, Optional, Sequence, Tuple
+from typing import Any, List, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -58,11 +58,13 @@ def sdid(
     treat_time: Any = None,
     method: Literal["sdid", "sc", "did"] = "sdid",
     covariates: Optional[List[str]] = None,
-    se_method: Literal["placebo", "bootstrap", "jackknife"] = "placebo",
+    se_method: Literal["placebo", "bootstrap", "jackknife", "noinference"] = "placebo",
     n_reps: int = 200,
     seed: Optional[int] = None,
     alpha: float = 0.05,
     backend: Literal["native", "synthdid", "r"] = "native",
+    treat: Optional[str] = None,
+    covariate_method: Optional[str] = None,
 ) -> CausalResult:
     """
     Synthetic Difference-in-Differences estimator (and SC / DID variants).
@@ -88,12 +90,15 @@ def sdid(
         * ``'sc'``   — Synthetic Control (unit weights only)
         * ``'did'``  — DID (uniform weights)
     covariates : list of str, optional
-        Not supported by the native solver yet; passing any raises
+        Covariates, with ``treat=`` and ``covariate_method="projected"``
+        only. With ``treated_unit=`` / ``treatment_time=`` passing any raises
         :class:`~statspai.exceptions.MethodIncompatibility` rather than
         silently estimating the unadjusted model (through 1.28.0 the
         argument was accepted and ignored).
-    se_method : {'placebo', 'bootstrap', 'jackknife'}, default 'placebo'
-        Standard-error method (see Notes).
+    se_method : {'placebo', 'bootstrap', 'jackknife', 'noinference'}, default 'placebo'
+        Standard-error method (see Notes). ``'noinference'`` (``treat=``
+        only) returns the point estimate with NaN SE, as Stata's
+        ``vce(noinference)``.
     n_reps : int, default 200
         Replications for placebo / bootstrap SE.
     seed : int, optional
@@ -107,6 +112,22 @@ def sdid(
         estimate and ``synthdid_se`` standard error. The R backend is
         mainly for exact cross-language parity claims; the dependency-
         light native implementation remains the default.
+    treat : str, optional
+        A 0/1 column that switches on when a unit is treated and stays on,
+        as in Stata's ``sdid Y unit time W``; replaces ``treated_unit`` /
+        ``treatment_time``. Units may adopt at different periods: each
+        adoption cohort is fitted against the never-treated units and the
+        cohort effects are averaged with weights proportional to treated
+        units x post periods ([@clarke2024synthetic], eq. 7). This path follows
+        Stata ``sdid`` 2.0.2, including its checks and inference rules;
+        cohort detail is in ``model_info['tau_by_cohort']``.
+    covariate_method : {'projected'}, optional
+        With ``treat=`` and ``covariates=``: ``'projected'`` removes
+        ``X beta``, ``beta`` from a unit and period fixed-effects regression
+        on the never-treated units, before estimation (Stata's
+        ``covariates(..., projected)``).
+        Required whenever covariates are given; Stata's default
+        ``'optimized'`` is not implemented.
 
     Returns
     -------
@@ -178,7 +199,8 @@ def sdid(
     ----------
     Arkhangelsky, D., Athey, S., Hirshberg, D. A., Imbens, G. W. and Wager, S.
     (2021). Synthetic difference-in-differences. *American Economic Review*.
-    [@arkhangelsky2021synthetic]
+    [@arkhangelsky2021synthetic]; staggered adoption, covariates and the
+    ``treat=`` interface: [@clarke2024synthetic].
     """
     # --- Resolve canonical/legacy parameter names ---------------------
     if outcome is None:
@@ -192,6 +214,40 @@ def sdid(
         raise TypeError("sdid: provide `outcome` (or legacy alias `y`)")
     if unit is None or time is None:
         raise TypeError("sdid: `unit` and `time` are required")
+    if treat is not None:
+        if treated_unit is not None or treatment_time is not None:
+            raise MethodIncompatibility(
+                "sdid: pass either treat= (a 0/1 column) or "
+                "treated_unit= with treatment_time=, not both.",
+                recovery_hint="Drop treated_unit / treatment_time when using treat=.",
+            )
+        if backend.lower() != "native":
+            raise MethodIncompatibility(
+                "sdid: treat= runs the native estimator only.",
+                recovery_hint="Use backend='native'.",
+            )
+        from ._sdid_staggered import sdid_from_treatment
+
+        return sdid_from_treatment(
+            data,
+            y=outcome,
+            unit=unit,
+            time=time,
+            treatment=treat,
+            method=method,
+            covariates=covariates,
+            covariate_method=covariate_method,
+            se_method=se_method,
+            n_reps=n_reps,
+            seed=seed,
+            alpha=alpha,
+        )
+    if se_method == "noinference" or covariate_method is not None:
+        raise MethodIncompatibility(
+            "sdid: se_method='noinference' and covariate_method= are available "
+            "with treat= only.",
+            recovery_hint="Declare treatment with treat='<0/1 column>'.",
+        )
     if treated_unit is None:
         raise TypeError("sdid: provide `treated_unit` (or legacy alias `treat_unit`)")
     if treatment_time is None:
@@ -207,8 +263,8 @@ def sdid(
             "sdid: covariate adjustment is not implemented; `covariates` "
             "would be ignored.",
             recovery_hint=(
-                "Residualise the outcome on the covariates first, or drop "
-                "`covariates`."
+                "Use treat='<0/1 column>' with covariate_method='projected', "
+                "residualise the outcome first, or drop `covariates`."
             ),
             diagnostics={"covariates": list(covariates)},
         )
@@ -1646,41 +1702,40 @@ CausalResult._CITATIONS["sdid"] = (
 )
 
 
-def _block_adoption_from_cohorts(
-    data: pd.DataFrame, unit: str, cohort: str
-) -> Tuple[List[Any], Any]:
-    """Treated units and the common adoption period from a cohort column.
+def _sdid_on_cohort_column(
+    data: pd.DataFrame, *, y: str, unit: str, time: str, cohort: str, **kwargs: Any
+) -> CausalResult:
+    """``sp.sdid`` from a cohort column, the encoding ``sp.did`` /
+    ``sp.did_analysis`` use: each unit's first treated period, 0 or less for
+    never treated.
 
-    ``cohort`` holds each unit's first treated period (0 or less = never
-    treated), the encoding ``sp.did`` / ``sp.did_analysis`` use. SDID here is
-    the block design -- every treated unit adopts at one period -- so several
-    adoption periods cannot be collapsed onto the earliest one: doing that
-    counts the later cohorts' untreated periods as treated and returns a
-    different estimand without any sign that it did.
+    One adoption period is the block design and goes through
+    ``treated_unit=`` / ``treatment_time=`` exactly as before. Several go
+    through ``treat=`` (cohort-by-cohort fits, [@clarke2024synthetic] eq. 7);
+    through 1.31 they were collapsed onto the earliest period, which counted
+    later cohorts' untreated periods as treated.
     """
     treated = data[cohort] > 0
     periods = sorted(pd.unique(data.loc[treated, cohort]))
-    if len(periods) > 1:
-        raise MethodIncompatibility(
-            f"sdid: the treated units adopt at {len(periods)} different periods "
-            f"({_fmt_periods(periods)}); SDID as implemented is the block "
-            "design with one adoption period, and collapsing the cohorts onto "
-            "the earliest one would estimate a different quantity.",
-            recovery_hint=(
-                "Fit sp.sdid on each adoption cohort separately (its treated "
-                "units plus the never-treated), or use a staggered estimator "
-                "such as sp.callaway_santanna or sp.did_imputation."
-            ),
-            diagnostics={"adoption_periods": [_plain(p) for p in periods]},
+    if len(periods) <= 1:
+        units = data.loc[treated, unit].unique().tolist()
+        return sdid(
+            data,
+            y=y,
+            unit=unit,
+            time=time,
+            treat_unit=units,
+            treat_time=_plain(periods[0]) if periods else None,
+            **kwargs,
         )
-    units = data.loc[treated, unit].unique().tolist()
-    return units, (_plain(periods[0]) if periods else None)
+    indicator = "__sdid_treated__"
+    while indicator in data.columns:
+        indicator += "_"
+    frame = data.assign(
+        **{indicator: (treated & (data[time] >= data[cohort])).astype(int)}
+    )
+    return sdid(frame, y=y, unit=unit, time=time, treat=indicator, **kwargs)
 
 
 def _plain(value: Any) -> Any:
     return value.item() if hasattr(value, "item") else value
-
-
-def _fmt_periods(periods: Sequence[Any], limit: int = 6) -> str:
-    shown = ", ".join(str(_plain(p)) for p in periods[:limit])
-    return shown + (", ..." if len(periods) > limit else "")

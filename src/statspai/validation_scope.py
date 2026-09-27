@@ -116,6 +116,10 @@ class _Scope:
     #: dimension -> (outputs that do not depend on it, reason)
     invariant: Mapping[str, Tuple[Tuple[str, ...], str]] = field(default_factory=dict)
     note: str = ""
+    #: dimension -> value assumed when a by-name query omits it. Only for a
+    #: dimension added after the map was first published, whose omitted value
+    #: is what every earlier call ran; a fitted result always reports its own.
+    defaults: Mapping[str, str] = field(default_factory=dict)
 
     @property
     def dimensions(self) -> Tuple[str, ...]:
@@ -292,10 +296,15 @@ def _x_synth(r: Any) -> Dict[str, Optional[str]]:
 
 def _x_sdid(r: Any) -> Dict[str, Optional[str]]:
     mi = _mi(r)
+    # Only the treat= path records "design"; treated_unit= is always a block.
+    via_treat = "design" in mi
     return {
         "method": _lower(mi.get("estimator")),
         "se_method": _lower(mi.get("se_method")),
         "code_path": _lower(mi.get("backend")),
+        "interface": "treat" if via_treat else "treated_unit",
+        "design": _lower(mi.get("design")) if via_treat else "block",
+        "covariates": _lower(mi.get("covariate_method")) or "none",
     }
 
 
@@ -1291,8 +1300,11 @@ _add(
         "sdid",
         {
             "method": ("sdid", "sc", "did"),
-            "se_method": ("placebo", "bootstrap", "jackknife"),
+            "se_method": ("placebo", "bootstrap", "jackknife", "noinference"),
             "code_path": ("native", "synthdid", "r"),
+            "interface": ("treated_unit", "treat"),
+            "design": ("block", "staggered"),
+            "covariates": ("none", "projected"),
         },
         _x_sdid,
         (
@@ -1303,10 +1315,29 @@ _add(
                     "method": _vals("sdid"),
                     "se_method": _vals("placebo"),
                     "code_path": _vals("native"),
+                    "interface": _vals("treated_unit"),
+                    "design": _vals("block"),
+                    "covariates": _vals("none"),
                 },
                 _EST,
                 "point ATT vs synthdid (the SE is not part of this row)",
                 "sp.sdid(backend='native')",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_sdid_staggered_parity.py",
+                {
+                    "method": _vals("sdid", "did", "sc"),
+                    "se_method": _vals("jackknife", "noinference"),
+                    "code_path": _vals("native"),
+                    "interface": _vals("treat"),
+                    "design": _vals("block", "staggered"),
+                    "covariates": _vals("none", "projected"),
+                },
+                _EST_SE,
+                "ATT, per-cohort tau and jackknife SE vs Stata sdid 2.0.2 "
+                "(Prop 99 block, quota staggered, projected covariates)",
+                "sp.sdid(treat=...)",
             ),
             _Row(
                 "B",
@@ -1315,6 +1346,9 @@ _add(
                     "method": _vals("sdid"),
                     "se_method": _vals("placebo"),
                     "code_path": _vals("native"),
+                    "interface": _vals("treated_unit"),
+                    "design": _vals("block"),
+                    "covariates": _vals("none"),
                 },
                 _COV,
                 "placebo-SE CI coverage, one treated unit",
@@ -1328,6 +1362,9 @@ _add(
                 "solved; the ATT is unchanged",
             )
         },
+        # added with sp.sdid(treat=...); an older by-name query means the
+        # treated_unit= block design without covariates
+        defaults={"interface": "treated_unit", "design": "block", "covariates": "none"},
     )
 )
 
@@ -1708,6 +1745,8 @@ def validation_scope(
     cfg: Dict[str, Optional[str]] = {d: None for d in scope.dimensions}
     if result is not None:
         cfg.update(scope.extract(result))
+    else:
+        cfg.update(scope.defaults)
     for key, value in configuration.items():
         if key not in scope.domains:
             raise MethodIncompatibility(

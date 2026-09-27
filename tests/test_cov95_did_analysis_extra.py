@@ -29,9 +29,8 @@ def _staggered(seed=0, n_units=90, n_periods=8):
 
 
 def test_did_analysis_sdid_method():
-    # SDID is the block design: one adoption cohort (4) plus never-treated.
-    # The staggered panel (cohorts 4 and 6) is refused, see
-    # tests/test_sdid_staggered_refused.py.
+    # One adoption cohort (4) plus never-treated: the block design. The
+    # staggered panel is covered in tests/test_sdid_cohort_column.py.
     df = _staggered()
     df = df[df["first"] != 6]
     rep = did_analysis(
