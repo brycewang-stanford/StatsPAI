@@ -6155,6 +6155,33 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "times with fewer pre-periods than donors have non-unique weights and "
         "are not compared (7 of 12 on the fixture).",
     },
+    "event_study_vcov": {
+        "status": "bit-exact",
+        "reference": "did::aggte(type='dynamic') 2.3.0 influence-function "
+        "covariance; fixest::sunab 0.14.0 (A V A', cohort shares fixed); "
+        "fixest::feols i(rel, ref=-1) 0.14.0; did2s::did2s 1.2.1",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "did": "2.3.0",
+            "fixest": "0.14.0",
+            "did2s": "1.2.1",
+        },
+        "tolerance": "full joint covariance (every off-diagonal entry) and "
+        "coefficients 1e-9 rel (observed 3.4e-15 cs / 5.1e-13 twfe / "
+        "8.9e-11 sunab / 3.3e-10 did2s)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_event_study_vcov_R_parity.py",
+            "tests/reference_parity/_fixtures/event_study_vcov_R.json",
+        ],
+        "note": "Track A modules 05 / 73 / 85 pin only the diagonal; this "
+        "pins the off-diagonal blocks that sup-t bands and the HonestDiD FLCI "
+        "use, read through sp.event_study_vcov from four estimators. The "
+        "did2s reference runs with fixest fixef.tol tightened from 1e-6 to "
+        "1e-11 so it is the exact least-squares solution (Track A module 73's "
+        "~1e-7 gap is that tolerance). Sun-Abraham is compared under "
+        "share_variance=False, fixest's convention.",
+    },
 }
 
 

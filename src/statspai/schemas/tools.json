@@ -10018,7 +10018,7 @@
     "name": "event_study_table"
   },
   {
-    "description": "Event-study coefficients and their joint covariance from any DiD event-study fit (callaway_santanna/aggte, event_study, sun_abraham, gardner_did, did_imputation, stacked_did, lp_did, did_multiplegt_dyn, etwfe). Feeds uniform bands and HonestDiD; flags joint=False when only diagonal or block-diagonal covariance exists. Alternatives: sp.uniform_bands, sp.honest_did.",
+    "description": "Event-study coefficients and their joint covariance from any DiD event-study fit (callaway_santanna/aggte, event_study, sun_abraham, gardner_did, did_imputation, stacked_did, lp_did, did_multiplegt_dyn, etwfe). Feeds uniform bands and HonestDiD; flags joint=False when only diagonal or block-diagonal covariance exists. Validation: certified parity evidence. Alternatives: sp.uniform_bands, sp.honest_did.",
     "input_schema": {
       "properties": {
         "allow_diagonal": {
@@ -30007,7 +30007,7 @@
     "name": "unified_sensitivity"
   },
   {
-    "description": "Sup-t simultaneous confidence band for an event study from any DiD estimator: critical value = 1-alpha quantile of max|Z| with Z ~ N(0, R), R the correlation of the covered coefficients. Falls back to the conservative Sidak value when the estimator exposes no joint covariance. Alternatives: sp.aggte, sp.event_study_vcov.",
+    "description": "Sup-t simultaneous confidence band for an event study from any DiD estimator: critical value = 1-alpha quantile of max|Z| with Z ~ N(0, R), R the correlation of the covered coefficients. Falls back to the conservative Sidak value when the estimator exposes no joint covariance. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.aggte, sp.event_study_vcov.",
     "input_schema": {
       "properties": {
         "alpha": {

@@ -15337,6 +15337,7 @@
       "Stata parity module 73_did2s",
       "Cross-language parity (bit-exact) vs did2s::did2s [R version 4.5.2 (2025-10-31), did2s 1.2.1]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 73_did2s -- tests/r_parity/73_did2s.py",
       "tests/reference_parity/test_did_variants_parity.py",
+      "tests/reference_parity/test_event_study_vcov_R_parity.py",
       "tests/reference_parity/test_sunab_did2s_mpdta_parity.py",
       "tests/reference_parity/test_track_a_alias_equivalence.py"
     ],
@@ -20493,10 +20494,10 @@
       "R parity module 05_sunab",
       "Stata parity module 05_sunab",
       "Cross-language parity (bit-exact) vs fixest::sunab [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=0.03; parity module 05_sunab -- tests/r_parity/05_sunab.py",
+      "tests/reference_parity/test_event_study_vcov_R_parity.py",
       "tests/reference_parity/test_sunab_control_cohort_parity.py",
       "tests/reference_parity/test_sunab_did2s_mpdta_parity.py",
-      "tests/reference_parity/test_sunab_event_time_aggregate_parity.py",
-      "tests/reference_parity/test_sunab_weighted_parity.py"
+      "tests/reference_parity/test_sunab_event_time_aggregate_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -21940,6 +21941,7 @@
       "Stata parity module 85_twfe_event_study",
       "Cross-language parity (bit-exact) vs fixest::feols(y ~ i(rel, treat, ref=-1) [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-09, rel_se<=1e-09; parity module 85_twfe_event_study -- tests/r_parity/85_twfe_event_study.py",
       "tests/external_parity/test_rebel_canal_published.py",
+      "tests/reference_parity/test_event_study_vcov_R_parity.py",
       "API/unit contract evidence: tests/test_did.py",
       "API/unit contract evidence: tests/test_fast_event_study.py"
     ],
@@ -25246,7 +25248,7 @@
     "assumptions": [],
     "category": "causal",
     "cost_profile": "",
-    "description": "Event-study coefficients and their joint covariance from any DiD event-study fit (callaway_santanna/aggte, event_study, sun_abraham, gardner_did, did_imputation, stacked_did, lp_did, did_multiplegt_dyn, etwfe). Feeds uniform bands and HonestDiD; flags joint=False when only diagonal or block-diagonal covariance exists.",
+    "description": "Event-study coefficients and their joint covariance from any DiD event-study fit (callaway_santanna/aggte, event_study, sun_abraham, gardner_did, did_imputation, stacked_did, lp_did, did_multiplegt_dyn, etwfe). Feeds uniform bands and HonestDiD; flags joint=False when only diagonal or block-diagonal covariance exists. Validation: certified parity evidence.",
     "example": "sp.event_study_vcov(sp.sun_abraham(df, y='lemp', g='first_treat', t='year', i='countyreal'))",
     "failure_modes": [],
     "inherits_from": null,
@@ -25256,7 +25258,7 @@
     "pre_conditions": [],
     "reference": "Rambachan & Roth (2023) [@rambachan2023more]",
     "signature": {
-      "description": "Event-study coefficients and their joint covariance from any DiD event-study fit (callaway_santanna/aggte, event_study, sun_abraham, gardner_did, did_imputation, stacked_did, lp_did, did_multiplegt_dyn, etwfe). Feeds uniform bands and HonestDiD; flags joint=False when only diagonal or block-diagonal covariance exists.",
+      "description": "Event-study coefficients and their joint covariance from any DiD event-study fit (callaway_santanna/aggte, event_study, sun_abraham, gardner_did, did_imputation, stacked_did, lp_did, did_multiplegt_dyn, etwfe). Feeds uniform bands and HonestDiD; flags joint=False when only diagonal or block-diagonal covariance exists. Validation: certified parity evidence.",
       "name": "event_study_vcov",
       "parameters": {
         "properties": {
@@ -25279,9 +25281,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "tests/test_es_inference.py: the diagonal reproduces every estimator's reported SEs to 1e-12; cross-horizon blocks checked against a cluster bootstrap"
+      "tests/test_es_inference.py: the diagonal reproduces every estimator's reported SEs to 1e-12; cross-horizon blocks checked against a cluster bootstrap",
+      "Cross-language parity (bit-exact) vs did::aggte(type='dynamic') 2.3.0 influence-function covariance; fixest::sunab 0.14.0 (A V A', cohort shares fixed); fixest::feols i(rel, ref=-1) 0.14.0; did2s::did2s 1.2.1 [R version 4.5.2 (2025-10-31), did 2.3.0, did2s 1.2.1, fixest 0.14.0]; tolerance full joint covariance (every off-diagonal entry) and coefficients 1e-9 rel (observed 3.4e-15 cs / 5.1e-13 twfe / 8.9e-11 sunab / 3.3e-10 did2s) -- tests/reference_parity/test_event_study_vcov_R_parity.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -25291,7 +25294,7 @@
     "assumptions": [],
     "category": "causal",
     "cost_profile": "",
-    "description": "Sup-t simultaneous confidence band for an event study from any DiD estimator: critical value = 1-alpha quantile of max|Z| with Z ~ N(0, R), R the correlation of the covered coefficients. Falls back to the conservative Sidak value when the estimator exposes no joint covariance.",
+    "description": "Sup-t simultaneous confidence band for an event study from any DiD estimator: critical value = 1-alpha quantile of max|Z| with Z ~ N(0, R), R the correlation of the covered coefficients. Falls back to the conservative Sidak value when the estimator exposes no joint covariance. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.uniform_bands(fit, which='post')",
     "failure_modes": [],
     "inherits_from": null,
@@ -25301,7 +25304,7 @@
     "pre_conditions": [],
     "reference": "Montiel Olea & Plagborg-Moller (2019) [@olea2019simultaneous]; Callaway & Sant'Anna (2021) [@callaway2021difference]",
     "signature": {
-      "description": "Sup-t simultaneous confidence band for an event study from any DiD estimator: critical value = 1-alpha quantile of max|Z| with Z ~ N(0, R), R the correlation of the covered coefficients. Falls back to the conservative Sidak value when the estimator exposes no joint covariance.",
+      "description": "Sup-t simultaneous confidence band for an event study from any DiD estimator: critical value = 1-alpha quantile of max|Z| with Z ~ N(0, R), R the correlation of the covered coefficients. Falls back to the conservative Sidak value when the estimator exposes no joint covariance. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "uniform_bands",
       "parameters": {
         "properties": {
@@ -25351,9 +25354,10 @@
     "stability": "stable",
     "typical_n_min": null,
     "validation_notes": [
-      "tests/test_es_inference.py: Sidak identity under independence, matches aggte(cband=True) critical value within Monte Carlo error, simultaneous coverage ~ 1-alpha in simulation"
+      "tests/test_es_inference.py: Sidak identity under independence, matches aggte(cband=True) critical value within Monte Carlo error, simultaneous coverage ~ 1-alpha in simulation",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_event_study_vcov_R_parity.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [

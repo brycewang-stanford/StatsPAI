@@ -144,6 +144,23 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **`sp.event_study_vcov` is now pinned against R, off-diagonal blocks
+  included.** Track A modules 05 / 73 / 85 compared each event-time
+  coefficient and its SE, i.e. only the diagonal of the covariance that
+  `sp.uniform_bands` and the HonestDiD FLCI consume.
+  `tests/reference_parity/test_event_study_vcov_R_parity.py` now compares
+  the full matrix, read through `sp.event_study_vcov`, for four estimators on
+  the Track A CSV bytes: `sp.callaway_santanna` against `did::aggte`'s
+  influence-function covariance (3.4e-15), `sp.event_study` against `fixest`
+  (5.1e-13), `sp.sun_abraham(share_variance=False)` against `fixest::sunab`
+  (8.9e-11) and `sp.gardner_did(event_study=True)` against `did2s`
+  (3.3e-10). No numbers moved. The parity grade goes from unverified to
+  bit-exact. `sp.uniform_bands` draws its sup-t critical value by Monte
+  Carlo, so it is graded analytical-only. It passes an equivalence test
+  against `mvtnorm::qmvnorm` (20 seeds, margin +/-0.005). Its docstring
+  understated the Monte Carlo error: the seed-to-seed SD at the default
+  100,000 draws is about 5e-3, not 1e-3.
+
 - **CI: the pandas-3 lane runs nightly instead of on every push.**
   `test-pandas3` (~45 min, the full suite under pandas 3.x) now runs on a
   nightly schedule, on pull requests, on releases and on manual `full` /

@@ -1579,6 +1579,7 @@
         "tests/reference_parity/test_cs_weighted_parity.py",
         "tests/reference_parity/test_csdid_conventions_stata_parity.py",
         "tests/reference_parity/test_did_synth_R_parity.py",
+        "tests/reference_parity/test_event_study_vcov_R_parity.py",
         "tests/reference_parity/test_fect_equivalence_parity.py",
         "tests/reference_parity/test_honest_did_backend_parity.py",
         "tests/reference_parity/test_rcs_aggregation_conventions.py",
@@ -4455,10 +4456,12 @@
     },
     {
       "additional_tests": [
-        "tests/external_parity/test_rebel_canal_published.py"
+        "tests/external_parity/test_rebel_canal_published.py",
+        "tests/reference_parity/test_event_study_vcov_R_parity.py"
       ],
       "also_verified_by": [
-        "external_parity"
+        "external_parity",
+        "reference_parity"
       ],
       "evidence_grade": "T2",
       "function": "event_study",
@@ -4505,6 +4508,33 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-09, rel_se<=1e-09"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "event_study_vcov",
+      "notes": [
+        "Track A modules 05 / 73 / 85 pin only the diagonal; this pins the off-diagonal blocks that sup-t bands and the HonestDiD FLCI use, read through sp.event_study_vcov from four estimators. The did2s reference runs with fixest fixef.tol tightened from 1e-6 to 1e-11 so it is the exact least-squares solution (Track A module 73's ~1e-7 gap is that tolerance). Sun-Abraham is compared under share_variance=False, fixest's convention."
+      ],
+      "reference": "did::aggte(type='dynamic') 2.3.0 influence-function covariance; fixest::sunab 0.14.0 (A V A', cohort shares fixed); fixest::feols i(rel, ref=-1) 0.14.0; did2s::did2s 1.2.1",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "did": "2.3.0",
+        "did2s": "1.2.1",
+        "fixest": "0.14.0"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_event_study_vcov_R_parity.py",
+        "tests/reference_parity/_fixtures/event_study_vcov_R.json"
+      ],
+      "tolerance": "full joint covariance (every off-diagonal entry) and coefficients 1e-9 rel (observed 3.4e-15 cs / 5.1e-13 twfe / 8.9e-11 sunab / 3.3e-10 did2s)"
     },
     {
       "function": "evidence_without_injustice",
@@ -5346,6 +5376,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_did_variants_parity.py",
+        "tests/reference_parity/test_event_study_vcov_R_parity.py",
         "tests/reference_parity/test_sunab_did2s_mpdta_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
@@ -14788,6 +14819,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_event_study_vcov_R_parity.py",
         "tests/reference_parity/test_sunab_control_cohort_parity.py",
         "tests/reference_parity/test_sunab_did2s_mpdta_parity.py",
         "tests/reference_parity/test_sunab_event_time_aggregate_parity.py",
@@ -15978,6 +16010,23 @@
         "tests/reference_parity/test_misc_sens_R_parity.py"
       ],
       "tolerance": "1e-10 rel"
+    },
+    {
+      "function": "uniform_bands",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_event_study_vcov_R_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "validation_scope",

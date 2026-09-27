@@ -333,8 +333,10 @@ def uniform_bands(
         critical value depends on how many coefficients are covered, so a
         band must be computed on the window it is drawn on.
     n_draws : int, default 100_000
-        Gaussian draws for the critical value (Monte Carlo error of the
-        quantile is ~1e-3 at the default).
+        Gaussian draws for the critical value. At the default the
+        seed-to-seed SD of the quantile is about 5e-3 (measured 0.004 to
+        0.006 on the mpdta event studies), roughly 0.2 percent of the
+        critical value; raise ``n_draws`` for a steadier band.
     seed : int or None, default 0
         Seed for the draws.
 
