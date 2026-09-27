@@ -194,7 +194,7 @@ PyPI 凭据在 `~/.pypirc`——**不要**提交仓库、不要写进 memory。�
 
 ## 9. Git 协作
 
-- **🚨 提交闸门（本节最高优先级，压过下面所有条款）**：默认**禁止** `git commit` / `git push`。必须等用户在**当前会话**里明确说"可以提交 / 可以 push"才放行；会话结束时也**不要**自动提交——先用中文总结、等用户指示。本仓库已配 `PreToolUse` hook 强制拦截（见 [`.claude/settings.json`](.claude/settings.json)），但**不要依赖 hook 兜底**，要主动遵守。
+- **🚨 提交闸门（本节最高优先级，压过下面所有条款）**：**2026-09-28 起，用户已给出常设授权**：agent 判断合适时可以直接 `git commit` + `git push origin HEAD:main`，不必每次再问。"合适"指同时满足：(1) 相关测试与 pre-commit / pre-push 闸门全绿（不得 `--no-verify`）；(2) 只暂存自己这条线的改动，逐文件 add，绝不 `-A` / `-a`（§9.2）；(3) 改动完整、自洽，不是半成品；(4) 触及 JSS 冻结产物时已在 `docs/dev/jss_review_changes.md` 记录。拿不准就先问。**以下仍须用户在当前会话明确授权**：打 tag、发 PyPI / TestPyPI、GitHub Release、`--force` / 改写已推送历史、删除远程分支。每段工作结束时照常用中文总结，写明推送了哪些 commit。本地 `PreToolUse` hook（[`.claude/hooks/block-git-commit-push.py`](.claude/hooks/block-git-commit-push.py)）仍会拦截，判断合适后在命令前置 `STATSPAI_ALLOW_GIT=1` 放行，这是一道有意识的确认，不是绕过。
 - **获得授权之后**才适用以下条款：默认分支 `main`，**直推 main**、默认不开 PR，除非明确要求（见 `memory/feedback_no_pr.md`）。
 - Commit 风格：`feat:` / `fix(<area>):` / `docs(<area>):` / `chore:`，摘要 ≤ 72 字符。
 - **禁止**：`--no-verify` / `--no-gpg-sign` / `--force`（除非明确授权）；对已推送 commit `--amend`。出错用 `git revert`。
@@ -385,7 +385,7 @@ python scripts/registry_stats.py --table        # 重生 docs/stats.md 的按模
 - **JSS 审稿期冻结（投稿即生效，至编辑决定为止）。** 稿件锚定 `tests/jss_review_freeze.json` 里的 tag；该文件哈希了稿件表格读取的全部冻结产物（Track A / 原始数据 parity 结果、Track B 覆盖率与机制实验、森林种子研究、Track C 计时）。审稿期间**照常开发、照常发版**，但凡改动其中任何一个文件（修 bug 后重生成 parity、重跑计时、加新模块），都必须在 `docs/dev/jss_review_changes.md` 记一条：日期、commit、原因、**对论文的影响**（哪张表哪个数字从多少变成多少），路径用反引号列出——否则 `tests/test_jss_review_freeze.py` 红。**不要为了表格好看重生成冻结产物；不要改稿件**——记录下来的改动在下一轮修改稿时统一并入，届时锚到新 release 并 `python scripts/jss_review_freeze.py --write --release X.Y.Z` 重新冻结。审稿期内 Paper-JSS 的脚本要对着冻结 tag 的 worktree 跑（`STATSPAI_ROOT=<tag worktree>`），对着 main 跑会因版本号不同而让 release-boundary 审计变红，那不是论文的问题。编辑决定后把 manifest 的 `"active"` 设为 `false`。
 - **Zenodo 归档：只有 "Publish 一个 GitHub Release" 会触发。** commit / push / 打 tag / 发 PyPI 新版都**不触发**归档。Publish Release 会同时触发 GitHub↔Zenodo 自动归档（铸出**永久不可删的 version DOI**）和 `ci-cd.yml` 的 `publish-prod`（上传 PyPI），一次两个不可逆动作——发之前务必先手动跑一轮 `ci-cd.yml` 的 `test_scope=full`，并核对 `.zenodo.json` / `CITATION.cff` 的标题、作者、ORCID、单位、license 与 `paper.md` 逐项一致。
 - **JOSS #10604 的归档已完成（2026-08-24）。** 时序上要注意：JOSS 要求**在 `recommend-accept` 之前**交出 archive DOI，不是接收之后——编辑 8/18 的 post-review checklist 明确索要 DOI 和版本号。本次交付的是 **v1.23.0**，version DOI `10.5281/zenodo.22085759`；concept DOI 仍是 `10.5281/zenodo.19933900`（永远指向最新归档）。此后再发 Release 会继续铸新的 version DOI，**不影响本次投稿**（JOSS 锚的是已提交的那一个）。
-- **提交闸门（同 §9 顶部"提交闸门"，二者是同一条规则、最高优先级）**：默认**禁止** commit / push，必须等用户在本会话明确授权才放行；每次会话结束也**不自动提交**，先用中文总结、与用户讨论，等用户指示。
+- **提交闸门（同 §9 顶部"提交闸门"，二者是同一条规则、最高优先级）**：2026-09-28 起常设授权，agent 判断合适（闸门全绿、只含自己的改动、改动完整）即可直接 commit + push 到 main；tag / PyPI / GitHub Release / force push 仍须当次明确授权。每段工作结束照常用中文总结并列出已推送的 commit。
 
 
 - Please think in Egnlish but summarize the coversation and discuss with me in Chinese.
