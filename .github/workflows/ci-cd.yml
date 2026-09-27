@@ -7,6 +7,11 @@ on:
     branches: [ main ]
   release:
     types: [ published ]
+  # Nightly (02:37 Beijing): runs test-pandas3, which no longer runs on every
+  # push. The publish jobs are gated on release / dispatch, so a scheduled
+  # run can never upload anything.
+  schedule:
+    - cron: '37 18 * * *'
   workflow_dispatch:
     inputs:
       publish_target:
@@ -39,9 +44,10 @@ env:
 # per (workflow, ref) and cancel any superseded in-progress/queued run on a new
 # push — only the latest commit on a branch matters for CI feedback.
 # Guard: never cancel a `release` run (tag ref, isolated group) so an in-flight
-# publish to PyPI is never interrupted mid-upload.
+# publish to PyPI is never interrupted mid-upload. The event name is part of
+# the group so a push to main never cancels the nightly run on the same ref.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: ${{ github.event_name != 'release' }}
 
 jobs:
@@ -280,12 +286,20 @@ jobs:
   # the full suite under pandas 3.x only ran at release time (the full matrix's
   # 3.11-3.13 entries resolve `pandas>=1.3.0` to 3.x). That left a window where
   # a pandas-3.0 regression — e.g. the StringDtype/patsy break a JOSS reviewer
-  # hit — could land between releases. This job runs the full default suite
-  # against pandas 3.x on every push and PR so such regressions fail fast.
-  # pytest-xdist keeps it to roughly one shard's wall time. Cross-language
-  # numerical parity remains owned by the separate parity-guards workflow.
+  # hit — could land between releases. This job closes that window: it runs
+  # the full default suite against pandas 3.x nightly, on PRs, on releases and
+  # on manual full / publish dispatches. It no longer runs on every push to
+  # main: at ~45 min it dominated push feedback, and a pandas-3 regression is
+  # caught within a day. Cross-language numerical parity stays on every push
+  # (the separate parity-guards workflow is unchanged).
   test-pandas3:
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'pull_request' ||
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (inputs.test_scope == 'full' || inputs.publish_target != 'none'))
 
     steps:
     - uses: actions/checkout@v7
