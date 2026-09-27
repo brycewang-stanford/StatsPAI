@@ -439,7 +439,9 @@ class SpatialDiDResult(ResultProtocolMixin):
 
     # Own layout without the base class's digits= / fmt= precision options;
     # passing them raises TypeError rather than being ignored.
-    def to_markdown(self, path: Optional[str] = None, **kwargs: Any) -> str:  # type: ignore[override]
+    def to_markdown(  # type: ignore[override]
+        self, path: Optional[str] = None, **kwargs: Any
+    ) -> str:
         md = str(self.tidy(**kwargs).to_markdown(index=False, floatfmt=".4f"))
         if path is not None:
             Path(path).write_text(md, encoding="utf-8")

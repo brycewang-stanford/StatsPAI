@@ -444,7 +444,9 @@ class IVDiagResult(ResultProtocolMixin):
 
     # Own layout without the base class's digits= / fmt= precision options;
     # passing them raises TypeError rather than being ignored.
-    def to_word(self, path: str, title: Optional[str] = None) -> None:  # type: ignore[override]
+    def to_word(  # type: ignore[override]
+        self, path: str, title: Optional[str] = None
+    ) -> None:
         """Write the summary table to a .docx file (requires python-docx)."""
         try:
             from docx import Document
