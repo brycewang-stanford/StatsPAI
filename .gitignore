@@ -208,6 +208,10 @@ MORNING_REPORT_2026-04-29.md
 # to this public repo — the JOSS reviewers actively watch it). Keep local only.
 .joss-review-notes/
 
+# Local-only internal reviews and discussion drafts (open bugs, roadmap
+# judgments). This repo is public; keep these off it.
+.internal-notes/
+
 # Core-coverage campaign working dir (heavy XML/logs ignored; tracker kept)
 .coverage_campaign/*
 !.coverage_campaign/CAMPAIGN.md
