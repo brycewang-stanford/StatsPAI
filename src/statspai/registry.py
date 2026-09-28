@@ -366,6 +366,7 @@ class FunctionSpec:
             "not_recommended_when": card["not_recommended_when"],
             "cost_profile": card["cost_profile"],
             "reference": card["reference"],
+            "evidence": card["evidence"],
         }
         return schema
 
@@ -440,6 +441,7 @@ class FunctionSpec:
             "reference": self.reference,
             "example": self.example,
             "inherits_from": self.inherits_from,
+            "evidence": evidence_record(self.name),
         }
 
 
@@ -21133,6 +21135,80 @@ def _index_evidence_note(record: Dict[str, Any]) -> str:
 _MAX_ADDITIONAL_EVIDENCE_NOTES = 4
 
 
+def _derive_grade(record: Dict[str, Any]) -> Tuple[Optional[str], str]:
+    """(grade, basis) for a parity-index record.
+
+    A recorded ``evidence_grade`` (T2 / T3 / T4 / S, set by the index
+    builder from the ledgers) wins. Otherwise the grade follows CLAUDE.md
+    §5.1 from the record's status and sides: a same-byte cross-language
+    comparison inside the registered budget is T2; a known-truth /
+    closed-form recovery with no external reference is T1; a published-
+    numbers replication is reported as ``external``; anything else is
+    ungraded. ``basis`` says which path produced the grade so a reader can
+    tell a recorded grade from a derived one.
+    """
+    recorded = record.get("evidence_grade")
+    if recorded:
+        return str(recorded), "recorded"
+    status = str(record.get("status") or "unverified")
+    sides = set(record.get("sides") or [])
+    cross = bool(sides & {"R", "Stata"})
+    if status in {"bit-exact", "aligned"} and cross:
+        return "T2", "derived from status and sides"
+    if status in {"bit-exact", "aligned", "analytical-only"}:
+        return "T1", "derived from status and sides"
+    if status == "external-replication":
+        return "external", "derived from status"
+    return None, "no numerical evidence"
+
+
+def evidence_record(name: str) -> Dict[str, Any]:
+    """Structured numerical-evidence record for a registered function.
+
+    The same facts ``validation_notes`` states in prose, as data: parity
+    ``status`` (bit-exact / aligned / analytical-only / external-replication
+    / unverified), the evidence ``grade`` (T1–T4 / S / external) with its
+    ``grade_basis``, the reference implementations and versions, the
+    registered ``tolerance``, the comparison ``sides`` and the test files.
+    Read straight from the committed parity index, so an installed wheel
+    reports the same record as a source checkout.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> rec = sp.describe_function('regress')['evidence']
+    >>> rec['status'], rec['grade']
+    ('bit-exact', 'T2')
+    """
+    record = _parity_index_records().get(name)
+    if not record:
+        return {
+            "status": "unverified",
+            "grade": None,
+            "grade_basis": "no numerical evidence",
+            "sides": [],
+            "reference": "",
+            "reference_versions": {},
+            "tolerance": "",
+            "tests": [],
+            "module_id": None,
+            "source": None,
+        }
+    grade, basis = _derive_grade(record)
+    return {
+        "status": str(record.get("status") or "unverified"),
+        "grade": grade,
+        "grade_basis": basis,
+        "sides": list(record.get("sides") or []),
+        "reference": str(record.get("reference") or ""),
+        "reference_versions": dict(record.get("reference_versions") or {}),
+        "tolerance": str(record.get("tolerance") or ""),
+        "tests": [t for t in (record.get("test") or []) if isinstance(t, str)],
+        "module_id": record.get("module_id"),
+        "source": record.get("source"),
+    }
+
+
 def _index_evidence_notes(record: Dict[str, Any]) -> List[str]:
     """All registry notes for one parity-index record, in display order.
 
@@ -21629,6 +21705,7 @@ def describe_function(name: str) -> Dict[str, Any]:
         else:
             out["inheritance"] = "declared"
     out["auto_generated"] = bool(getattr(spec, "_auto", False))
+    out["evidence"] = evidence_record(name)
     # Call-time keyword aliases (``@accepts_aliases``) are invisible to the
     # signature; list them so agents can use the house-style spellings.
     import statspai

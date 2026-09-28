@@ -113,8 +113,8 @@ and the agent cards are only as good as this metadata.
 - [x] schema contradictions fixed; `kind` marker for classes
 - [x] curated cards, batch 1: family cards for every parity-ledger entry point without one (28 families, 272 members; card coverage 46 % → 75 %)
 - [ ] curated cards, batch 2: per-function refinement of the highest-traffic members (the family card is the floor, not the ceiling)
-- [ ] structured evidence tier field; `describe_function` merges inheritance
-- [ ] CHANGELOG, schema regen, docs/stats
+- [x] structured evidence tier field (`evidence` in describe_function / agent_card / x_statspai); `describe_function` merges inheritance
+- [x] CHANGELOG, schema regen, docs/stats
 
 ## W4 — Machine-readable estimator routing (week 3)
 
@@ -210,4 +210,5 @@ MCP, and it is not shipped. There is no `AGENTS.md` / `llms.txt`.
 - 2026-09-28 — W3 pass 3 batch 1 done (28 family cards). Evidence-tier field and batch 2 remain.
 - 2026-09-28 — W4 done (routing tables, sp.route / sp.decision_guide, route_estimator tool, packaged guides).
 - 2026-09-28 — W5 done (statspai run / family shortcuts / route / mcp).
-- 2026-09-28 — W6 done (packaged `statspai-analysis` skill, `statspai skill install|validate|path`, AGENTS.md, llms.txt). Remaining across the plan: W3 evidence-tier field and per-function card refinement; the CI workflow patch in `plans/pending-workflow-patches/` needs a user push.
+- 2026-09-28 — W3 evidence-tier field done (structured `evidence` in every discovery view).
+- 2026-09-28 — W6 done (packaged `statspai-analysis` skill, `statspai skill install|validate|path`, AGENTS.md, llms.txt). Remaining across the plan: W3 per-function card refinement (batch 2); the CI workflow patch in `plans/pending-workflow-patches/` needs a user push.

@@ -65,7 +65,16 @@ All notable changes to StatsPAI will be documented in this file.
   post-estimation, rlasso, DiD diagnostics, ML-causal helpers, the
   g-formula / transport / target-trial toolkit, missing data and
   randomization inference. Agent-card coverage on callables moves from
-  46 % to 75 %; the ratchet floor is raised to 70 %.
+  46 % to 75 %; the ratchet floor is raised to 70 %. Every discovery
+  view (`describe_function`, `agent_card`, `function_schema(...,
+  agent_native=True)['x_statspai']`) now carries a structured `evidence`
+  record read from the committed parity index — `status` (bit-exact /
+  aligned / analytical-only / external-replication / unverified),
+  `grade` (T1–T4 / S / external) with `grade_basis` (recorded by the
+  index builder, or derived from status and sides per CLAUDE.md §5.1),
+  `sides`, `reference`, `reference_versions`, `tolerance`, `tests`,
+  `module_id` — so an agent no longer parses evidence tiers out of
+  prose notes or needs a separate `sp.parity_status` call.
 - **Machine-readable estimator routing: `sp.route`, `sp.decision_guide`,
   MCP `route_estimator`, `statspai://guide/{family}`.** The decision
   logic of the seven `docs/guides/choosing_*_estimator.md` guides (DiD,

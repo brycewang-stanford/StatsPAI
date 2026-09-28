@@ -167,3 +167,55 @@ def test_harvested_fields_are_bounded_and_bind():
 def test_harvest_samples(name):
     s = registry._REGISTRY[name]
     assert s.returns and s.example and f"sp.{name}(" in s.example
+
+
+class TestStructuredEvidence:
+    """``evidence`` is the parity index as data, in every discovery view."""
+
+    def test_track_a_module_reports_recorded_t2(self):
+        e = sp.describe_function("regress")["evidence"]
+        assert e["status"] == "bit-exact" and e["grade"] == "T2"
+        assert e["grade_basis"] == "recorded"
+        assert {"R", "Stata"} <= set(e["sides"])
+        assert e["reference"] and e["tests"]
+
+    def test_stochastic_forest_is_t3_not_parity(self):
+        e = sp.describe_function("causal_forest")["evidence"]
+        assert e["grade"] == "T3" and e["status"] == "aligned"
+
+    def test_known_truth_only_is_t1(self):
+        e = sp.describe_function("DoubleML")["evidence"]
+        assert e["status"] == "analytical-only" and e["grade"] == "T1"
+        assert e["sides"] == ["py"]
+
+    def test_unverified_is_explicit(self):
+        e = sp.describe_function("route")["evidence"]
+        assert e == {
+            "status": "unverified",
+            "grade": None,
+            "grade_basis": "no numerical evidence",
+            "sides": [],
+            "reference": "",
+            "reference_versions": {},
+            "tolerance": "",
+            "tests": [],
+            "module_id": None,
+            "source": None,
+        }
+
+    def test_evidence_present_in_card_and_agent_schema(self):
+        card = sp.agent_card("callaway_santanna")
+        assert card["evidence"]["grade"] == "T2"
+        schema = sp.function_schema("callaway_santanna", agent_native=True)
+        assert schema["x_statspai"]["evidence"]["status"] == "bit-exact"
+
+    def test_grade_never_overstates_status(self):
+        from statspai.registry import evidence_record
+
+        for name in registry._REGISTRY:
+            e = evidence_record(name)
+            if e["grade"] == "T2":
+                assert e["status"] in {"bit-exact", "aligned"}, name
+                assert set(e["sides"]) & {"R", "Stata"}, name
+            if e["status"] == "unverified":
+                assert e["grade"] is None, name
