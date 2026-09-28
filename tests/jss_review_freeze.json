@@ -3,7 +3,7 @@
   "release": "1.32.0",
   "tag": "v1.32.0",
   "frozen_on": "2026-09-27",
-  "active": true,
+  "active": false,
   "globs": [
     "tests/r_parity/results/*.json",
     "tests/stata_parity/results/*.json",

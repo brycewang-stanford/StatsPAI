@@ -197,6 +197,12 @@ def main() -> int:
         return 0
 
     manifest = load_manifest()
+    if not manifest.get("active", False):
+        print(
+            f"OK -- freeze inactive (last anchor {manifest['tag']}); nothing to "
+            "check until it is re-written at submission with --write"
+        )
+        return 0
     report = drift(manifest)
     missing = unrecorded(manifest)
     for kind, paths in report.items():

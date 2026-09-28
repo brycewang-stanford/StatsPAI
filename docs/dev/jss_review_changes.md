@@ -31,6 +31,19 @@ Rules:
 
 ## Entries
 
+### 2026-09-28 — freeze paused: the paper has not been submitted yet
+
+- **Reason.** The freeze was written at 1.32.0 on 2026-09-27 on the
+  assumption that the JSS package had gone in. It has not; submission is
+  planned for about two weeks later. A freeze is meant to start at
+  submission, so `"active"` is set to `false` in
+  `tests/jss_review_freeze.json` and both checks pass vacuously until then.
+- **At submission.** Re-anchor to the release actually submitted and
+  re-freeze with `python scripts/jss_review_freeze.py --write --release
+  X.Y.Z`, which rewrites every hash and sets `"active": true` again. The
+  entries below describe changes against the provisional 1.32.0 anchor;
+  they stay as history and do not need to be carried into the new freeze.
+
 ### 2026-09-28 — call traces re-recorded for sdid(treat=) and an es_inference docstring
 
 - **Commits.** `80abadb7` (re-trace after `sp.sdid(treat=...)`, commit
