@@ -492,6 +492,14 @@ def etwfe_glm(
         cell_n = np.where(cell_live, cell_n, 0.0)
         cells_arr = np.array(live_cells, dtype=int)
 
+        # **CRITICAL FIX**: When fe='unit', cell_n was computed from all observations
+        # (including separated ones), but me_sum and grad_sum are computed only from
+        # kept (non-separated) observations. This caused the response-scale SE to be
+        # underestimated (denominator too large). Recompute cell_n from kept rows only.
+        cell_n_kept = np.bincount(cell_k[cell_k >= 0], minlength=n_cells).astype(float)
+        # For omitted cells (cell_live=False), set to 0; otherwise use kept count
+        cell_n = np.where(cell_live, cell_n_kept, 0.0)
+
     K = len(beta)
     # Per-cell summaries: the response-scale aggregates only need these.
     me_sum = np.bincount(cell_rows, weights=me_rows, minlength=n_cells)
@@ -586,6 +594,65 @@ def etwfe_glm(
         }
     )
 
+    # Build event-study covariance matrix for use by pretrends_test/honest_did
+    # The cell coefficients' covariance is a submatrix of vcov indexed by
+    # the live cell positions (for fe='unit' with separated observations).
+    event_times = sorted(set(e_arr[cell_n > 0].astype(int).tolist()))
+    if event_times and K > 0:
+        # Identify which cells correspond to each event time
+        event_vcov_map = {}  # event_time -> list of (cell_idx, coef_idx)
+        for i, (coh, period) in enumerate(interaction_cell):
+            if (
+                cell_n[i] > 0 and cells_arr[i] >= 0
+            ):  # cell has observations and coef was estimated
+                e = int(t_arr[i] - g_arr[i])
+                if e not in event_vcov_map:
+                    event_vcov_map[e] = []
+                event_vcov_map[e].append((i, cells_arr[i]))
+
+        if event_vcov_map:
+            # For each event time, aggregate the covariance of its cell coefficients
+            # using the same delta-method aggregation as the point estimates
+            event_vcov_df = pd.DataFrame(
+                index=event_times, columns=event_times, dtype=float
+            )
+            for e1 in event_times:
+                for e2 in event_times:
+                    if e1 in event_vcov_map and e2 in event_vcov_map:
+                        # Covariance between aggregates at e1 and e2
+                        cov = 0.0
+                        for i1, c1 in event_vcov_map[e1]:
+                            n1 = cell_n[i1]
+                            for i2, c2 in event_vcov_map[e2]:
+                                n2 = cell_n[i2]
+                                if c1 >= 0 and c2 >= 0 and c1 < K and c2 < K:
+                                    # Weight by cell sizes and scale to per-treated-obs
+                                    w = 1.0 / (n1 * n2) if n1 > 0 and n2 > 0 else 0.0
+                                    cov += w * vcov[c1, c2]
+                        event_vcov_df.loc[e1, e2] = cov
+
+            event_vcov_df = pd.DataFrame(
+                event_vcov_df.astype(float).values,
+                index=event_times,
+                columns=event_times,
+            )
+            # Mark as block diagonal if pre and post periods are from separate regressions
+            has_pre = any(e < 0 for e in event_times)
+            has_post = any(e >= 0 for e in event_times)
+            if has_pre and has_post and cg == "nevertreated":
+                # With never-treated, leads may be from separate auxiliary regression
+                # Check if the off-diagonal cross terms are near-zero (separate estimation)
+                max_cross = 0.0
+                for e1 in event_times:
+                    if e1 < 0:
+                        for e2 in event_times:
+                            if e2 >= 0:
+                                max_cross = max(
+                                    max_cross, abs(event_vcov_df.loc[e1, e2])
+                                )
+                if max_cross < 1e-10:
+                    event_vcov_df.attrs["block_diagonal"] = True
+
     head = aggregations[scale]
     att, se_att = head["simple"]["att"], head["simple"]["se"]
     z_stat = att / se_att if se_att > 0 else 0.0
@@ -627,6 +694,12 @@ def etwfe_glm(
             "fe": fe_mode,
             "scale": scale,
             "event_study": event_study,
+            "event_study_vcov": (
+                event_vcov_df
+                if "event_vcov_df" in locals()
+                and isinstance(event_vcov_df, pd.DataFrame)
+                else None
+            ),
             "calendar": (
                 calendar_tbl[["period", "att", "se", "n_treated"]].copy()
                 if not calendar_tbl.empty

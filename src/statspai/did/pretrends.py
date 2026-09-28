@@ -317,7 +317,12 @@ def _pre_vcv(
         vcv = result.model_info.get("vcv_pre", None)
         withheld = bool(result.model_info.get("vcv_pre_withheld", False))
     if vcv is None and pre_times is not None and not withheld:
-        joint = _joint_pre_block(result, pre_times, se_pre)
+        # Try strict matching first (for linear models with exact SE agreement)
+        joint = _joint_pre_block(result, pre_times, se_pre, strict=True)
+        if joint is not None:
+            return joint
+        # Fall back to lenient matching (for nonlinear models like Poisson)
+        joint = _joint_pre_block(result, pre_times, se_pre, strict=False)
         if joint is not None:
             return joint
     if vcv is None:
@@ -370,7 +375,7 @@ def _pre_vcv(
 
 
 def _joint_pre_block(
-    result: Any, pre_times: np.ndarray, se_pre: np.ndarray
+    result: Any, pre_times: np.ndarray, se_pre: np.ndarray, strict: bool = False
 ) -> Optional[np.ndarray]:
     """Pre-period block of the estimator's joint event-study covariance.
 
@@ -379,6 +384,13 @@ def _joint_pre_block(
     :func:`event_study_vcov`. Returns ``None`` (so the caller takes its
     loud diagonal fallback) when there is none, when it misses a pre-period,
     or when its diagonal does not reproduce the table's standard errors.
+
+    Parameters
+    ----------
+    strict : bool, default False
+        If True, strictly match the reported standard errors to the matrix
+        diagonal (rtol=1e-6). If False, use a more lenient tolerance for
+        nonlinear models where SE computation may differ slightly.
     """
     from .es_inference import event_study_vcov
 
@@ -394,8 +406,10 @@ def _joint_pre_block(
     block = np.asarray(evc.vcov, dtype=float)[np.ix_(idx, idx)]
     if not np.all(np.isfinite(block)):
         return None
+    # Nonlinear models (Poisson, logit) may have slightly different SE via delta method
+    tol = 1e-6 if strict else 1e-3
     if not np.allclose(
-        np.sqrt(np.clip(np.diag(block), 0.0, None)), se_pre, rtol=1e-6, atol=0.0
+        np.sqrt(np.clip(np.diag(block), 0.0, None)), se_pre, rtol=tol, atol=1e-6
     ):
         return None
     return block

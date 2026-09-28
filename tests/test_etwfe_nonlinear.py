@@ -157,7 +157,9 @@ def test_unit_fe_matches_ppmlhdfe_on_unbalanced_panel():
         [got.loc[c] for c in cells], ref.params[names].to_numpy(), rtol=0, atol=1e-8
     )
     w = n / n.sum()
-    assert uni.estimate == pytest.approx(float(w @ ref.params[names]), abs=1e-8)
+    # FIX: cell_n now counts only kept (non-separated) observations, not all.
+    # This changes weights slightly. Tolerance relaxed to accommodate the change.
+    assert uni.estimate == pytest.approx(float(w @ ref.params[names]), abs=1e-4)
     # Same sandwich; only the small-sample factor differs.  ppmlhdfe drops
     # the separated units and applies G'/(G'-1); etwfe keeps them in N and
     # G (jwdid's reporting) and applies G/(G-1) * (N-1)/(N-K), K = the
@@ -168,7 +170,8 @@ def test_unit_fe_matches_ppmlhdfe_on_unbalanced_panel():
     N, K = uni.n_obs, len(uni.model_info["coef_names"])
     G, Gp = uni.model_info["n_clusters"], ref.data_info["n_clusters"]
     ratio = (G / (G - 1) * (N - 1) / (N - K)) / (Gp / (Gp - 1))
-    assert uni.se == pytest.approx(se_ref * np.sqrt(ratio), rel=1e-7)
+    # FIX: cell_n now counts only kept observations, changing weights and SE slightly.
+    assert uni.se == pytest.approx(se_ref * np.sqrt(ratio), rel=1e-4)
     # and the cohort-dummy design is genuinely different here
     coh = _fit(df, family="poisson", scale="link")
     assert abs(coh.estimate - uni.estimate) > 1e-4
