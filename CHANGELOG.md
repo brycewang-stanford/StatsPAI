@@ -31,6 +31,29 @@ All notable changes to StatsPAI will be documented in this file.
   `WorkflowDegradedWarning`; a missing handle explains whether it was
   evicted or never existed. Before this, a frame derived in one call
   could not reach the next, and any hand-made table needed a temp file.
+- **Registry metadata harvested from docstrings; family inheritance;
+  consistent schemas.** The 982 auto-registered entries now carry
+  `returns` (first sentence of the `Returns` block), `example` (the
+  shortest `sp.<name>(...)` statement from `Examples` that parses and
+  binds to the signature — the same check `scripts/registry_example_audit.py`
+  applies) and `reference` (paper.bib keys when the `References` block
+  cites them, else the author's own first entry). Coverage moves from
+  example 34 % / returns 22 % / reference 22 % to 96 % / 83 % / 33 %.
+  Family variants without a card (`rd_* → rdrobust`, `did_* → did`,
+  `synth_* → synth`, `dml_* → dml`, `iv_* → iv`, `forest_* →
+  causal_forest`, …) inherit their dispatcher's assumptions,
+  pre-conditions, failure modes and alternatives; `describe_function`
+  now merges inherited fields exactly as the agent card does and says so
+  (`inherited_from`, `inheritance`), and reports `auto_generated` and,
+  for result / exception / model classes, `kind: "class"` (320 exported
+  classes are no longer offered as tools). Exported JSON schemas are
+  reconciled: numeric enums become numbers, an enum on an array moves to
+  `items.enum`, a default of another JSON type widens `type` to the
+  union, a default outside its enum is stated in the description instead
+  of contradicting the schema, and `List[float]` / `Sequence[int]`
+  parameters get typed `items`. `tests/test_registry_metadata_ratchet.py`
+  pins the coverage shares and the schema consistency so they can only
+  move up. `sp.rd` (the RD dispatcher) is registered and exported.
 - **`sp.search_functions` understands task phrases.** Stopwords are
   ignored, common econometrics spellings are expanded (`did` ↔
   difference-in-differences, `rd` ↔ discontinuity, `iv` ↔ instrument,

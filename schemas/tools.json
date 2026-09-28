@@ -545,14 +545,14 @@
           ],
           "description": "order parameter (Tuple[int, int, int]).",
           "items": {
-            "type": "string"
+            "type": "integer"
           },
           "type": "array"
         },
         "seasonal_order": {
           "description": "seasonal_order parameter (Optional[Tuple[int, int, int, int]]).",
           "items": {
-            "type": "string"
+            "type": "integer"
           },
           "type": "array"
         },
@@ -767,7 +767,10 @@
             "dr"
           ],
           "description": "learners parameter (LearnersArg).",
-          "type": "string"
+          "type": [
+            "string",
+            "array"
+          ]
         },
         "n_bootstrap": {
           "default": 200,
@@ -849,7 +852,7 @@
     "name": "auto_cate_tuned"
   },
   {
-    "description": "Run several staggered-DiD estimators side by side.",
+    "description": "Run several staggered-DiD estimators side by side. Assumptions: Parallel trends: treated and control groups would have followed the same trajectory absent treatment; No anticipation: outcomes in pre-treatment periods are unaffected by future treatment; SUTVA: no spillovers between units. Pre-conditions: data is panel or repeated cross-section with a time column; treat column is binary (0/1) for 2x2, or first-treatment-period (int) for staggered; at least one pre-treatment period (>= 2 periods for 2x2; >= 3 recommended for event study). Failure modes: Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna; Staggered treatment timing with TWFE method -> TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation; Pre-trend test underpowered (Roth 2022) -> Check sp.pretrends_power -- if low, report honest CI via sp.sensitivity_rr. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation, sp.sdid. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -911,7 +914,7 @@
     "name": "auto_did"
   },
   {
-    "description": "Race 2SLS, LIML, and JIVE on a single-endogenous IV spec.",
+    "description": "Race 2SLS, LIML, and JIVE on a single-endogenous IV spec. Assumptions: Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb); Exclusion: instruments affect outcome only through the endogenous regressor; Monotonicity (for LATE interpretation under heterogeneous effects). Pre-conditions: formula includes the (endog ~ instruments) parenthesised block; at least as many instruments as endogenous regressors (order condition); instruments are not themselves endogenous in the outcome equation. Failure modes: First-stage F < 10 (Stock-Yogo 5% bias) -> Use weak-IV-robust inference (Anderson-Rubin) or LIML; Over-identification test rejects (sp.estat 'overid') -> At least one instrument is invalid; drop instruments or switch to just-identified LIML; Hausman endogeneity test fails to reject -> OLS may be consistent and more efficient; report both. Alternatives: sp.deepiv, sp.bartik, sp.proximal, sp.regress. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -1097,7 +1100,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -1319,8 +1322,8 @@
           "default": 0,
           "description": "reference parameter (int).",
           "enum": [
-            "0",
-            "1"
+            0,
+            1
           ],
           "type": "integer"
         },
@@ -1935,7 +1938,7 @@
         "horizon": {
           "description": "Relative time periods for event study estimates, e.g. ``list(range(-5, 6))``. If ``None``, reports only the overall ATT (no event study disaggregation).",
           "items": {
-            "type": "string"
+            "type": "integer"
           },
           "type": "array"
         },
@@ -2055,7 +2058,7 @@
         "horizon": {
           "description": "If omitted, inferred from ``result.model_info['event_study']``.",
           "items": {
-            "type": "string"
+            "type": "integer"
           },
           "type": "array"
         },
@@ -2273,7 +2276,7 @@
         "horizon": {
           "description": "Relative time periods for event study estimates, e.g. ``list(range(-5, 6))``. If ``None``, reports only the overall ATT (no event study disaggregation).",
           "items": {
-            "type": "string"
+            "type": "integer"
           },
           "type": "array"
         },
@@ -2388,7 +2391,10 @@
         "bwcheck": {
           "default": "auto",
           "description": "bwcheck parameter (Union[int, str, None]).",
-          "type": "integer"
+          "type": [
+            "integer",
+            "string"
+          ]
         },
         "bwparam": {
           "default": "main",
@@ -2416,7 +2422,7 @@
           ],
           "description": "deriv parameter (Tuple[int, int]).",
           "items": {
-            "type": "string"
+            "type": "integer"
           },
           "type": "array"
         },
@@ -2525,7 +2531,7 @@
         "weights": {
           "description": "Observation weights.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -2697,7 +2703,7 @@
         "bunch_region": {
           "description": "(lower, upper) bounds of the bunching region. If None, uses [threshold - 2*bin_width, threshold + 2*bin_width].",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -2713,7 +2719,7 @@
         "exclude_region": {
           "description": "Same as bunch_region unless otherwise specified.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -2858,7 +2864,7 @@
         "multipliers": {
           "description": "Values of ``k``; default ``np.linspace(0.5, 5.0, 19)``. A ``k`` that implies ``R2_{D~Z|X} >= 1`` is impossible and its row is NaN with ``feasible = False`` (sensemakr stops with an error instead).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -3285,7 +3291,10 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": [
+            "array",
+            "string"
+          ]
         },
         "forest": {
           "description": "Fitted fe= forest.",
@@ -3693,7 +3702,7 @@
         "propensity_bounds": {
           "description": "Clip ``e`` in the average-effect score denominators (off by default, as in grf).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -3974,22 +3983,22 @@
           "default": 0,
           "description": "Same convention as ``machado_mata`` / ``melly_decompose``: ``reference=0`` builds the counterfactual from A's distribution regression coefficients applied to B's X (F_{Y<0|1>}), opposite to the reweighting convention in ``dfl_decompose``.",
           "enum": [
-            "0",
-            "1"
+            0,
+            1
           ],
           "type": "integer"
         },
         "tau_grid": {
           "description": "Grid of tau values to evaluate.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
         "thresholds": {
           "description": "Explicit distribution-regression thresholds, shared by both groups.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -4566,7 +4575,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -4907,7 +4916,7 @@
         "grid_range": {
           "description": "(min, max) of the hypothesis grid. Default: the point estimate +/- max(5 x SD of the pre-period SC residuals, 3 x the largest absolute post-period gap). A confidence set reaching an end of the grid is truncated there (flagged in ``model_info['ci_truncated']``, with a warning). When ``alpha`` is below the smallest attainable p-value (``1/(T0+1)`` pointwise, ``1/(T0+T1)`` joint) nothing can be rejected and the set is ``(-inf, inf)``.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -5210,7 +5219,7 @@
         "rho_grid": {
           "description": "Correlation grid. Defaults to ``np.linspace(-0.5, 0.5, 21)``.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -5934,7 +5943,10 @@
         "never_value": {
           "default": 0,
           "description": "Value in cohort for never-treated units",
-          "type": "string"
+          "type": [
+            "string",
+            "integer"
+          ]
         },
         "se": {
           "description": "'analytic' influence-function variance (exact, and what triplediff reports) or 'bootstrap' clustered on unit (the only path that fills in placebo_joint_test). Defaults to bootstrap without covariates, analytic with them",
@@ -6290,7 +6302,7 @@
         "quantile_grid": {
           "description": "If provided, also compute quantile-process decomposition on this grid.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -6298,8 +6310,8 @@
           "default": 0,
           "description": "- 0: reweight Group B to look like A's X (default). The counterfactual is F_{Y<1|0>} -- A's X distribution with B's outcome structure. - 1: reweight Group A to look like B's X. The counterfactual is F_{Y<0|1>} -- B's X distribution with A's outcome structure. .. warning:: ``reference`` has different economic semantics across method families. In DFL, ``reference=0`` yields cf = *A's X, B's beta* (reweighting approach). In ``machado_mata`` / ``melly`` / ``cfm``, ``reference=0`` yields cf = *A's beta, B's X* (coefficient-substitution approach). These are **opposite** counterfactual constructions. Within each method labels are internally consistent (DFL structure = A - cf; MM composition = A - cf). When comparing estimates across methods, read the per-method docstrings carefully.",
           "enum": [
-            "0",
-            "1"
+            0,
+            1
           ],
           "type": "integer"
         },
@@ -6524,7 +6536,7 @@
         "horizon": {
           "description": "Relative-time leads/lags to report when ``event_study=True``; defaults to ``range(-5, 6)`` intersected with available support. Each reported coefficient is the (weighted) mean of the residualised outcome at that relative time; the Stage-2 regression has no intercept, so the set of horizons requested does not change any individual coefficient or its standard error.",
           "items": {
-            "type": "string"
+            "type": "integer"
           },
           "type": "array"
         },
@@ -6890,18 +6902,18 @@
         },
         "estimators": {
           "description": "Candidates to score",
-          "enum": [
-            "twfe",
-            "callaway_santanna",
-            "sun_abraham",
-            "did_imputation",
-            "gardner_did",
-            "etwfe",
-            "did_multiplegt_dyn",
-            "stacked_did",
-            "lp_did"
-          ],
           "items": {
+            "enum": [
+              "twfe",
+              "callaway_santanna",
+              "sun_abraham",
+              "did_imputation",
+              "gardner_did",
+              "etwfe",
+              "did_multiplegt_dyn",
+              "stacked_did",
+              "lp_did"
+            ],
             "type": "string"
           },
           "type": "array"
@@ -7206,7 +7218,7 @@
     "name": "did_forest"
   },
   {
-    "description": "Heterogeneous-adoption DiD using quasi-untreateded groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Heterogeneous-adoption DiD using quasi-untreateded groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Parallel trends: treated and control groups would have followed the same trajectory absent treatment; No anticipation: outcomes in pre-treatment periods are unaffected by future treatment; SUTVA: no spillovers between units. Pre-conditions: data is panel or repeated cross-section with a time column; treat column is binary (0/1) for 2x2, or first-treatment-period (int) for staggered; at least one pre-treatment period (>= 2 periods for 2x2; >= 3 recommended for event study). Failure modes: Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna; Staggered treatment timing with TWFE method -> TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation; Pre-trend test underpowered (Roth 2022) -> Check sp.pretrends_power -- if low, report honest CI via sp.sensitivity_rr. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation, sp.sdid. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -7218,9 +7230,12 @@
           "default": "mse-dpi",
           "description": "Bandwidth for the local polynomial fit at dose zero. Either a selector name, matching Stata's ``bw_method()``: - ``'mse-dpi'`` (default) -- MSE-optimal direct plug-in at dose 0 - ``'mse-rot'`` -- the cheaper rule of thumb - ``'imse-dpi'`` / ``'imse-rot'`` -- *integrated* MSE, i.e. one global bandwidth rather than one optimal at dose 0 - ``'ce-rot'`` -- coverage-error-optimal; undersmooths ``mse-dpi``, giving a narrower window and better interval coverage ...or an explicit value: one, or one per reported horizon (placebos first, then effects). ``'ce-dpi'`` is accepted by Stata but not ported, and raises :class:`NotImplementedError` rather than silently substituting another selector.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
-          "type": "array"
+          "type": [
+            "array",
+            "string"
+          ]
         },
         "dynamic": {
           "default": false,
@@ -7719,7 +7734,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -7801,7 +7816,10 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": [
+            "array",
+            "string"
+          ]
         },
         "plot_sort_by": {
           "default": "estimate",
@@ -7838,7 +7856,7 @@
     "name": "did_report"
   },
   {
-    "description": "One-call method-robustness comparison for staggered DID.",
+    "description": "One-call method-robustness comparison for staggered DID. Assumptions: Parallel trends: treated and control groups would have followed the same trajectory absent treatment; No anticipation: outcomes in pre-treatment periods are unaffected by future treatment; SUTVA: no spillovers between units. Pre-conditions: data is panel or repeated cross-section with a time column; treat column is binary (0/1) for 2x2, or first-treatment-period (int) for staggered; at least one pre-treatment period (>= 2 periods for 2x2; >= 3 recommended for event study). Failure modes: Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna; Staggered treatment timing with TWFE method -> TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation; Pre-trend test underpowered (Roth 2022) -> Check sp.pretrends_power -- if low, report honest CI via sp.sensitivity_rr. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation, sp.sdid. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -7876,7 +7894,10 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": [
+            "array",
+            "string"
+          ]
         },
         "time": {
           "description": "Time / period variable (integer-valued).",
@@ -7922,7 +7943,7 @@
           ],
           "description": "Figure size when creating a new figure.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -7956,7 +7977,7 @@
     "name": "did_summary_plot"
   },
   {
-    "description": "Render a :func:`did_summary` result as a LaTeX",
+    "description": "Render a :func:`did_summary` result as a LaTeX Assumptions: Parallel trends: treated and control groups would have followed the same trajectory absent treatment; No anticipation: outcomes in pre-treatment periods are unaffected by future treatment; SUTVA: no spillovers between units. Pre-conditions: data is panel or repeated cross-section with a time column; treat column is binary (0/1) for 2x2, or first-treatment-period (int) for staggered; at least one pre-treatment period (>= 2 periods for 2x2; >= 3 recommended for event study). Failure modes: Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna; Staggered treatment timing with TWFE method -> TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation; Pre-trend test underpowered (Roth 2022) -> Check sp.pretrends_power -- if low, report honest CI via sp.sensitivity_rr. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation, sp.sdid. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "caption": {
@@ -7997,7 +8018,7 @@
     "name": "did_summary_to_latex"
   },
   {
-    "description": "Render a :func:`did_summary` result as a GitHub-Flavoured Markdown table.",
+    "description": "Render a :func:`did_summary` result as a GitHub-Flavoured Markdown table. Assumptions: Parallel trends: treated and control groups would have followed the same trajectory absent treatment; No anticipation: outcomes in pre-treatment periods are unaffected by future treatment; SUTVA: no spillovers between units. Pre-conditions: data is panel or repeated cross-section with a time column; treat column is binary (0/1) for 2x2, or first-treatment-period (int) for staggered; at least one pre-treatment period (>= 2 periods for 2x2; >= 3 recommended for event study). Failure modes: Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna; Staggered treatment timing with TWFE method -> TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation; Pre-trend test underpowered (Roth 2022) -> Check sp.pretrends_power -- if low, report honest CI via sp.sensitivity_rr. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation, sp.sdid. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "digits": {
@@ -8093,7 +8114,10 @@
         "never_value": {
           "default": 0,
           "description": "never_value parameter.",
-          "type": "string"
+          "type": [
+            "string",
+            "integer"
+          ]
         },
         "seed": {
           "description": "Random seed for reproducible stochastic steps.",
@@ -8288,7 +8312,7 @@
           ],
           "description": "Figure size.",
           "items": {
-            "type": "string"
+            "type": "integer"
           },
           "type": "array"
         },
@@ -8534,7 +8558,10 @@
         "n_bins": {
           "default": "auto",
           "description": "Equal-width bins, or 'auto' for the didFF rule. Bins span the WHOLE panel here (unlike functional_form_test, which bins untreated rows only): the estimand is about where treated mass ended up",
-          "type": "integer"
+          "type": [
+            "integer",
+            "string"
+          ]
         },
         "panel": {
           "default": true,
@@ -8603,7 +8630,7 @@
         "quantiles": {
           "description": "quantiles parameter (Optional[List[float]]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -8657,20 +8684,23 @@
         "index": {
           "default": "shannon",
           "description": "Index/indices to compute, or 'all'",
-          "enum": [
-            "shannon",
-            "richness",
-            "pielou",
-            "simpson",
-            "gini_simpson",
-            "inv_simpson",
-            "hill",
-            "all"
-          ],
           "items": {
+            "enum": [
+              "shannon",
+              "richness",
+              "pielou",
+              "simpson",
+              "gini_simpson",
+              "inv_simpson",
+              "hill",
+              "all"
+            ],
             "type": "string"
           },
-          "type": "array"
+          "type": [
+            "array",
+            "string"
+          ]
         },
         "min_records": {
           "default": 0,
@@ -9429,9 +9459,9 @@
           "default": 0.05,
           "description": "Level at which ``rank`` (1 = cointegrated) is decided.",
           "enum": [
-            "0.01",
-            "0.05",
-            "0.10"
+            0.01,
+            0.05,
+            0.1
           ],
           "type": "number"
         },
@@ -9492,7 +9522,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -9839,7 +9869,7 @@
         "ci": {
           "description": "Confidence interval on the ``measure`` scale. Takes precedence over ``se`` for ratio measures.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -9919,7 +9949,7 @@
     "name": "evalue_from_result"
   },
   {
-    "description": "Exact E-value for a risk difference from a 2x2 table. Validation: certified parity evidence.",
+    "description": "Exact E-value for a risk difference from a 2x2 table. Validation: certified parity evidence. Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (McCrary density test); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy); sufficient mass of observations within the optimal bandwidth. Failure modes: McCrary density test p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternatives: sp.rd_honest, sp.rdrbounds, sp.bounds. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -10176,8 +10206,8 @@
           "default": 0,
           "description": "``reference()``). The switching always runs from A's covariates to B's, so the contributions share the sign of the explained gap.",
           "enum": [
-            "0",
-            "1"
+            0,
+            1
           ],
           "type": "integer"
         },
@@ -10681,8 +10711,8 @@
           "default": 0,
           "description": "0: B reweighted to look like A's X (composition = effect of A's X on B's outcomes relative to observed B)",
           "enum": [
-            "0",
-            "1"
+            0,
+            1
           ],
           "type": "integer"
         },
@@ -10913,7 +10943,7 @@
           ],
           "description": "propensity_bounds parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         }
@@ -10948,7 +10978,10 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": [
+            "array",
+            "string"
+          ]
         },
         "forest": {
           "description": "Fitted GRF-engine forest.",
@@ -11018,7 +11051,10 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": [
+            "array",
+            "string"
+          ]
         },
         "depth": {
           "default": 2,
@@ -11393,7 +11429,10 @@
         "n_bins": {
           "default": "auto",
           "description": "Equal-width outcome bins; too coarse a grid buys a large p-value for nothing. 'auto' follows didFF: an outcome with fewer than 20 distinct untreated values is treated as discrete (one bin per value), otherwise it is cut into min(20, n_distinct) bins",
-          "type": "integer"
+          "type": [
+            "integer",
+            "string"
+          ]
         },
         "n_sims": {
           "default": 100000,
@@ -11600,8 +11639,8 @@
           "default": 1,
           "description": "- 1: shift Group A's covariate distribution to match Group B's - 0: shift Group B's to match Group A's",
           "enum": [
-            "0",
-            "1"
+            0,
+            1
           ],
           "type": "integer"
         },
@@ -12111,7 +12150,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -12380,7 +12419,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -12595,7 +12634,10 @@
         "never_value": {
           "default": 0,
           "description": "never_value parameter.",
-          "type": "string"
+          "type": [
+            "string",
+            "integer"
+          ]
         },
         "outcome": {
           "description": "Outcome variable column name or outcome array.",
@@ -13137,7 +13179,7 @@
           ],
           "description": "figsize parameter (tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -13217,7 +13259,7 @@
     "name": "influence_functions"
   },
   {
-    "description": "Instrumental forest: heterogeneous local average treatment effects.",
+    "description": "Instrumental forest: heterogeneous local average treatment effects. Assumptions: Unconfoundedness: Y(d) independent of D given X (pooled forest); Overlap: 0 < P(D=1 | X) < 1 for the estimand support; fe=: conditional parallel trends and no anticipation; treatment varies within units. Pre-conditions: treatment is binary 0/1 (continuous allowed with discrete_treatment=False); covariates are numeric and finite; encode categoricals beforehand; n >= ~1000 for stable CATE -- forests are data-hungry. Failure modes: sp.calibration_test differential_forest_prediction p_one_sided > 0.05 -> No detectable heterogeneity: report the average effect, not the CATE ranking; average_treatment_effect(target_sample='all') raises MethodIncompatibility on an fe= forest -> Parallel trends identifies effects on treated cells: use target_sample='treated' (imputation ATT) or sp.forest_group_effects; counterfactual effects of never-treated units are extrapolations (sp.forest_support); Panel data fitted without clusters= (units repeat across rows) -> Refit with clusters=unit; i.i.d. honesty and SEs are invalid with repeated units. Alternatives: sp.did_forest, sp.metalearner, sp.dml, sp.multi_arm_forest. Typic...",
     "input_schema": {
       "properties": {
         "W_hat": {
@@ -13448,14 +13490,17 @@
           "default": 30,
           "description": "interflex ``grid``: an integer gives that many candidates log-spaced from ``range(x)/100`` to ``range(x)``; a sequence is used as the grid.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
-          "type": "array"
+          "type": [
+            "array",
+            "integer"
+          ]
         },
         "cutoffs": {
           "description": "cutoffs parameter (Optional[Sequence[float]]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -13563,7 +13608,7 @@
         "x_eval": {
           "description": "Explicit evaluation points.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -14306,9 +14351,12 @@
           "default": 0.5,
           "description": "Quantile(s) of interest in ``(0, 1)``.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
-          "type": "array"
+          "type": [
+            "array",
+            "number"
+          ]
         },
         "verbose": {
           "default": false,
@@ -14446,8 +14494,8 @@
           "default": 0.05,
           "description": "Level of the Osterwald-Lenum critical values (the table Stata's ``vecrank`` uses) that decide ``rank``.",
           "enum": [
-            "0.05",
-            "0.01"
+            0.05,
+            0.01
           ],
           "type": "number"
         },
@@ -15466,7 +15514,7 @@
           ],
           "description": "(width, height). Height defaults to 0.4 * n_covariates + 1.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -15643,7 +15691,7 @@
           ],
           "description": "Bounds on the *cumulative* probability of following the regime (and remaining uncensored) up to each time point, ``prod_j g_j`` -- the ``gbounds`` of R ``ltmle``, whose default this is.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -15728,7 +15776,7 @@
           ],
           "description": "propensity_bounds parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -15794,8 +15842,8 @@
           "default": 0,
           "description": "0: use Group A's coefficients with Group B's X. The counterfactual is F_{Y<0|1>} -- A's beta on B's X. 1: use Group B's coefficients with Group A's X. .. warning:: Opposite convention to ``dfl_decompose``. In DFL, ``reference=0`` means *A's X, B's beta* (reweighting). Here, ``reference=0`` means *A's beta, B's X* (coefficient swap). See ``dfl_decompose`` docstring for the full convention map.",
           "enum": [
-            "0",
-            "1"
+            0,
+            1
           ],
           "type": "integer"
         },
@@ -15807,7 +15855,7 @@
         "tau_grid": {
           "description": "tau grid for reporting (default: deciles 0.1..0.9)",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -15968,7 +16016,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -16070,7 +16118,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -16761,15 +16809,15 @@
           "default": 0,
           "description": "Same convention as ``machado_mata``: ``reference=0`` uses A's beta on B's X (coefficient-swap counterfactual F_{Y<0|1>}), opposite to ``dfl_decompose`` whose ``reference=0`` uses A's X with B's beta.",
           "enum": [
-            "0",
-            "1"
+            0,
+            1
           ],
           "type": "integer"
         },
         "tau_grid": {
           "description": "Grid of tau values to evaluate.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -17011,7 +17059,7 @@
         "effects": {
           "description": "Per-study effect sizes (e.g. log odds ratios, mean differences).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -17034,7 +17082,7 @@
         "se": {
           "description": "Per-study standard errors (must be positive).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         }
@@ -17464,7 +17512,7 @@
     "name": "mlogit"
   },
   {
-    "description": "Model-averaging / stacking DML-PLR estimator. Validation: certified parity evidence.",
+    "description": "Model-averaging / stacking DML-PLR estimator. Validation: certified parity evidence. Assumptions: Unconfoundedness: Y(d) perp D | X (conditional ignorability); Overlap: 0 < P(D=1 | X) < 1 for the estimand support (strong for IRM); Nuisance-function estimators converge at op(n^{-1/4}) -- fast enough that orthogonal moments give sqrtn CATE. Pre-conditions: data is tabular (DataFrame); covariates include all confounders conditional on which unconfoundedness holds; cross-fitting folds >= 2 (default 5) -- more folds -> lower variance, higher compute; for irm / iivm: treatment (and for iivm: instrument) is binary 0/1. Failure modes: Extreme propensity scores (~ 0 or 1) -> Trim sample to 0.05 < e(x) < 0.95 or use overlap weights (sp.overlap_weights); Nuisance models cross-val R2 near zero -> Nuisances not learnable -- DML bias guarantees don't apply; re-featurize or pick a different model family; Large Monte-Carlo variance across folds (n_rep > 1) -> Increase n_rep to 10+ and aggregate by median; check for leakage. Alternatives: sp.metalearner, sp.causal_forest, sp.tmle, sp.aipw. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -17771,7 +17819,7 @@
         "cutoffs": {
           "description": "cutoffs parameter (Optional[List[float]]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -17871,7 +17919,7 @@
     "name": "multi_outcome_synth"
   },
   {
-    "description": "Multi-task regression forest for ``E[Y_1, ..., Y_q | X]``",
+    "description": "Multi-task regression forest for ``E[Y_1, ..., Y_q | X]`` Assumptions: Unconfoundedness: Y(d) independent of D given X (pooled forest); Overlap: 0 < P(D=1 | X) < 1 for the estimand support; fe=: conditional parallel trends and no anticipation; treatment varies within units. Pre-conditions: treatment is binary 0/1 (continuous allowed with discrete_treatment=False); covariates are numeric and finite; encode categoricals beforehand; n >= ~1000 for stable CATE -- forests are data-hungry. Failure modes: sp.calibration_test differential_forest_prediction p_one_sided > 0.05 -> No detectable heterogeneity: report the average effect, not the CATE ranking; average_treatment_effect(target_sample='all') raises MethodIncompatibility on an fe= forest -> Parallel trends identifies effects on treated cells: use target_sample='treated' (imputation ATT) or sp.forest_group_effects; counterfactual effects of never-treated units are extrapolations (sp.forest_support); Panel data fitted without clusters= (units repeat across rows) -> Refit with clusters=unit; i.i.d. honesty and SEs are invalid with repeated units. Alternatives: sp.did_forest, sp.metalearner, sp.dml, sp.multi_arm_forest. Typical minimum...",
     "input_schema": {
       "properties": {
         "ci_group_size": {
@@ -17980,7 +18028,7 @@
         "cutoffs": {
           "description": "cutoffs parameter (List[float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -18336,7 +18384,7 @@
         "exclude_range": {
           "description": "Range around the notch to exclude from the counterfactual fit. If None, defaults to (notch_point - 3*bin_width, notch_point + 5*bin_width).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -18442,14 +18490,16 @@
           "type": "string"
         },
         "reference": {
-          "default": 0,
-          "description": "Reference coefficient vector beta*: - ``0`` -- Group A coefficients (beta_A). The \"explained\" part uses Group A's returns as the benchmark. - ``1`` -- Group B coefficients (beta_B). - ``'pooled'`` -- Pooled OLS (Neumark 1988). - ``'cotton'`` -- Sample-size weighted average (Cotton 1988). - ``'reimers'`` -- Equal-weighted average (Reimers 1983).",
+          "description": "Reference coefficient vector beta*: - ``0`` -- Group A coefficients (beta_A). The \"explained\" part uses Group A's returns as the benchmark. - ``1`` -- Group B coefficients (beta_B). - ``'pooled'`` -- Pooled OLS (Neumark 1988). - ``'cotton'`` -- Sample-size weighted average (Cotton 1988). - ``'reimers'`` -- Equal-weighted average (Reimers 1983). Default: 0.",
           "enum": [
             "pooled",
             "cotton",
             "reimers"
           ],
-          "type": "integer"
+          "type": [
+            "integer",
+            "string"
+          ]
         },
         "x": {
           "description": "Covariate names.",
@@ -18730,7 +18780,7 @@
           ],
           "description": "Range of proportional selection parameter delta.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -18804,7 +18854,7 @@
           ],
           "description": "Figure size (width, height).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -19056,7 +19106,7 @@
     "name": "panel_compare"
   },
   {
-    "description": "Panel FGLS (Feasible Generalized Least Squares). Validation: certified parity evidence.",
+    "description": "Panel FGLS (Feasible Generalized Least Squares). Validation: certified parity evidence. Assumptions: Static FE: strict exogeneity of regressors conditional on unit fixed effects (E[u_it | x_i, alpha_i] = 0); Random effects: unit effect uncorrelated with regressors; relax with Mundlak / Chamberlain; Dynamic GMM: weak exogeneity and no second-order serial correlation in differenced errors. Pre-conditions: Data is a long-format panel keyed by (entity, time) with at least 2 time periods per entity; Outcome and regressors are numeric or properly encoded; Method-specific structure satisfied (e.g. dynamic GMM needs T moderate, system GMM needs initial-condition validity). Failure modes: Hausman test rejects RE -> Switch to fixed effects (method='fe') or correlated random effects (method='mundlak'); Few clusters (< 30) inflate Type I error with cluster-robust SEs -> Use wild-cluster bootstrap or CR2/CR3 small-sample corrections; High-dimensional fixed effects make the design singular -> Switch to method='hdfe' / feols for absorption, or drop singletons. Alternatives: sp.feols, sp.hdfe_ols, sp.regress. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -19120,7 +19170,7 @@
     "name": "panel_fgls"
   },
   {
-    "description": "Panel logit model. Validation: certified parity evidence.",
+    "description": "Panel logit model. Validation: certified parity evidence. Assumptions: Static FE: strict exogeneity of regressors conditional on unit fixed effects (E[u_it | x_i, alpha_i] = 0); Random effects: unit effect uncorrelated with regressors; relax with Mundlak / Chamberlain; Dynamic GMM: weak exogeneity and no second-order serial correlation in differenced errors. Pre-conditions: Data is a long-format panel keyed by (entity, time) with at least 2 time periods per entity; Outcome and regressors are numeric or properly encoded; Method-specific structure satisfied (e.g. dynamic GMM needs T moderate, system GMM needs initial-condition validity). Failure modes: Hausman test rejects RE -> Switch to fixed effects (method='fe') or correlated random effects (method='mundlak'); Few clusters (< 30) inflate Type I error with cluster-robust SEs -> Use wild-cluster bootstrap or CR2/CR3 small-sample corrections; High-dimensional fixed effects make the design singular -> Switch to method='hdfe' / feols for absorption, or drop singletons. Alternatives: sp.feols, sp.hdfe_ols, sp.regress. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -19188,7 +19238,7 @@
     "name": "panel_logit"
   },
   {
-    "description": "Panel probit model. Validation: certified parity evidence.",
+    "description": "Panel probit model. Validation: certified parity evidence. Assumptions: Static FE: strict exogeneity of regressors conditional on unit fixed effects (E[u_it | x_i, alpha_i] = 0); Random effects: unit effect uncorrelated with regressors; relax with Mundlak / Chamberlain; Dynamic GMM: weak exogeneity and no second-order serial correlation in differenced errors. Pre-conditions: Data is a long-format panel keyed by (entity, time) with at least 2 time periods per entity; Outcome and regressors are numeric or properly encoded; Method-specific structure satisfied (e.g. dynamic GMM needs T moderate, system GMM needs initial-condition validity). Failure modes: Hausman test rejects RE -> Switch to fixed effects (method='fe') or correlated random effects (method='mundlak'); Few clusters (< 30) inflate Type I error with cluster-robust SEs -> Use wild-cluster bootstrap or CR2/CR3 small-sample corrections; High-dimensional fixed effects make the design singular -> Switch to method='hdfe' / feols for absorption, or drop singletons. Alternatives: sp.feols, sp.hdfe_ols, sp.regress. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -19333,7 +19383,7 @@
     "name": "panel_qtet"
   },
   {
-    "description": "Panel unit root test. Validation: certified parity evidence.",
+    "description": "Panel unit root test. Validation: certified parity evidence. Assumptions: Static FE: strict exogeneity of regressors conditional on unit fixed effects (E[u_it | x_i, alpha_i] = 0); Random effects: unit effect uncorrelated with regressors; relax with Mundlak / Chamberlain; Dynamic GMM: weak exogeneity and no second-order serial correlation in differenced errors. Pre-conditions: Data is a long-format panel keyed by (entity, time) with at least 2 time periods per entity; Outcome and regressors are numeric or properly encoded; Method-specific structure satisfied (e.g. dynamic GMM needs T moderate, system GMM needs initial-condition validity). Failure modes: Hausman test rejects RE -> Switch to fixed effects (method='fe') or correlated random effects (method='mundlak'); Few clusters (< 30) inflate Type I error with cluster-robust SEs -> Use wild-cluster bootstrap or CR2/CR3 small-sample corrections; High-dimensional fixed effects make the design singular -> Switch to method='hdfe' / feols for absorption, or drop singletons. Alternatives: sp.feols, sp.hdfe_ols, sp.regress. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "convention": {
@@ -19391,7 +19441,7 @@
     "name": "panel_unitroot"
   },
   {
-    "description": "panelView-style display of a panel's treatment status and outcomes.",
+    "description": "panelView-style display of a panel's treatment status and outcomes. Assumptions: Static FE: strict exogeneity of regressors conditional on unit fixed effects (E[u_it | x_i, alpha_i] = 0); Random effects: unit effect uncorrelated with regressors; relax with Mundlak / Chamberlain; Dynamic GMM: weak exogeneity and no second-order serial correlation in differenced errors. Pre-conditions: Data is a long-format panel keyed by (entity, time) with at least 2 time periods per entity; Outcome and regressors are numeric or properly encoded; Method-specific structure satisfied (e.g. dynamic GMM needs T moderate, system GMM needs initial-condition validity). Failure modes: Hausman test rejects RE -> Switch to fixed effects (method='fe') or correlated random effects (method='mundlak'); Few clusters (< 30) inflate Type I error with cluster-robust SEs -> Use wild-cluster bootstrap or CR2/CR3 small-sample corrections; High-dimensional fixed effects make the design singular -> Switch to method='hdfe' / feols for absorption, or drop singletons. Alternatives: sp.feols, sp.hdfe_ols, sp.regress. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "ax": {
@@ -19405,7 +19455,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -19476,7 +19526,7 @@
           ],
           "description": "Figure size.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -19550,7 +19600,7 @@
         "m_grid": {
           "description": "Grid of violation magnitudes. Default: the ``honest_did`` default, multiples of the standard error at ``e``.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -20640,7 +20690,7 @@
     "name": "principal_strat"
   },
   {
-    "description": "Probability forest for ``P[Y = k | X]`` (``grf::probability_forest``).",
+    "description": "Probability forest for ``P[Y = k | X]`` (``grf::probability_forest``). Assumptions: Unconfoundedness: Y(d) independent of D given X (pooled forest); Overlap: 0 < P(D=1 | X) < 1 for the estimand support; fe=: conditional parallel trends and no anticipation; treatment varies within units. Pre-conditions: treatment is binary 0/1 (continuous allowed with discrete_treatment=False); covariates are numeric and finite; encode categoricals beforehand; n >= ~1000 for stable CATE -- forests are data-hungry. Failure modes: sp.calibration_test differential_forest_prediction p_one_sided > 0.05 -> No detectable heterogeneity: report the average effect, not the CATE ranking; average_treatment_effect(target_sample='all') raises MethodIncompatibility on an fe= forest -> Parallel trends identifies effects on treated cells: use target_sample='treated' (imputation ATT) or sp.forest_group_effects; counterfactual effects of never-treated units are extrapolations (sp.forest_support); Panel data fitted without clusters= (units repeat across rows) -> Refit with clusters=unit; i.i.d. honesty and SEs are invalid with repeated units. Alternatives: sp.did_forest, sp.metalearner, sp.dml, sp.multi_arm_forest. Ty...",
     "input_schema": {
       "properties": {
         "ci_group_size": {
@@ -21616,7 +21666,7 @@
     "name": "qte_hd_panel"
   },
   {
-    "description": "Quantile forest for conditional quantiles of ``Y`` (``grf::quantile_forest``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Quantile forest for conditional quantiles of ``Y`` (``grf::quantile_forest``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness: Y(d) independent of D given X (pooled forest); Overlap: 0 < P(D=1 | X) < 1 for the estimand support; fe=: conditional parallel trends and no anticipation; treatment varies within units. Pre-conditions: treatment is binary 0/1 (continuous allowed with discrete_treatment=False); covariates are numeric and finite; encode categoricals beforehand; n >= ~1000 for stable CATE -- forests are data-hungry. Failure modes: sp.calibration_test differential_forest_prediction p_one_sided > 0.05 -> No detectable heterogeneity: report the average effect, not the CATE ranking; average_treatment_effect(target_sample='all') raises MethodIncompatibility on an fe= forest -> Parallel trends identifies effects on treated cells: use target_sample='treated' (imputation ATT) or sp.forest_group_effects; counterfactual effects of never-treated units are extrapolations (sp.forest_support); Panel data fitted without clusters= (units repeat across rows) -> Refit with clusters=unit; i.i.d. honesty and S...",
     "input_schema": {
       "properties": {
         "clusters": {
@@ -21688,7 +21738,7 @@
           ],
           "description": "Quantiles that calibrate the splits and are predicted by default.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -21728,7 +21778,7 @@
         "dose": {
           "description": "Doses at the horizon being tested. Non-positive values are",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         }
@@ -21852,7 +21902,10 @@
           "items": {
             "type": "string"
           },
-          "type": "array"
+          "type": [
+            "array",
+            "string"
+          ]
         },
         "forest": {
           "description": "Fitted GRF-engine forest; supplies the data and the hyper-parameters, and is left untouched.",
@@ -22000,7 +22053,10 @@
         "bwcheck": {
           "default": "auto",
           "description": "Minimum number of observations (or mass points) inside every bandwidth; ``'auto'`` is R's default ``50 + p + 1``.",
-          "type": "integer"
+          "type": [
+            "integer",
+            "string"
+          ]
         },
         "bwparam": {
           "default": "main",
@@ -22032,7 +22088,7 @@
           ],
           "description": "Location approach: partial derivative of the effect to estimate.",
           "items": {
-            "type": "string"
+            "type": "integer"
           },
           "type": "array"
         },
@@ -22175,7 +22231,7 @@
         "weights": {
           "description": "WBATE weights over the evaluation points (R ``summary(..., WBATE=)``); normalised to sum to one. Default: equal weights.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -22222,7 +22278,10 @@
         "bwcheck": {
           "default": "auto",
           "description": "bwcheck parameter (Union[int, str, None]).",
-          "type": "integer"
+          "type": [
+            "integer",
+            "string"
+          ]
         },
         "bwparam": {
           "default": "main",
@@ -22250,7 +22309,7 @@
           ],
           "description": "deriv parameter (Tuple[int, int]).",
           "items": {
-            "type": "string"
+            "type": "integer"
           },
           "type": "array"
         },
@@ -22386,7 +22445,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -22548,7 +22607,7 @@
     "name": "rd_bias_aware_fuzzy"
   },
   {
-    "description": "Gradient Boosting for RD -- flexible CATE estimation.",
+    "description": "Gradient Boosting for RD -- flexible CATE estimation. Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (McCrary density test); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy); sufficient mass of observations within the optimal bandwidth. Failure modes: McCrary density test p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternatives: sp.rd_honest, sp.rdrbounds, sp.bounds. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -22610,7 +22669,7 @@
     "name": "rd_boost"
   },
   {
-    "description": "Run multiple ML-RD methods and compare CATE estimates.",
+    "description": "Run multiple ML-RD methods and compare CATE estimates. Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (McCrary density test); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy); sufficient mass of observations within the optimal bandwidth. Failure modes: McCrary density test p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternatives: sp.rd_honest, sp.rdrbounds, sp.bounds. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -22664,7 +22723,7 @@
     "name": "rd_cate_summary"
   },
   {
-    "description": "Compare multiple RD estimators on the same data.",
+    "description": "Compare multiple RD estimators on the same data. Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (McCrary density test); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy); sufficient mass of observations within the optimal bandwidth. Failure modes: McCrary density test p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternatives: sp.rd_honest, sp.rdrbounds, sp.bounds. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -22721,7 +22780,7 @@
         "bw_grid": {
           "description": "Bandwidths to evaluate in the sensitivity panel. If None, uses ``[0.5, 0.75, 1.0, 1.25, 1.5, 2.0] x h_mse``.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -22744,7 +22803,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -23353,7 +23412,7 @@
         "cutoffs": {
           "description": "Cutoff values. Must contain at least 2 cutoffs.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -23385,7 +23444,7 @@
     "name": "rd_multi_extrapolate"
   },
   {
-    "description": "Multi-score RDD: treatment if all running variables exceed cutoffs.",
+    "description": "Multi-score RDD: treatment if all running variables exceed cutoffs. Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (McCrary density test); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy); sufficient mass of observations within the optimal bandwidth. Failure modes: McCrary density test p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternatives: sp.rd_honest, sp.rdrbounds, sp.bounds. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -23400,7 +23459,7 @@
         "cutoffs": {
           "description": "One cutoff per running variable (same length).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -23473,7 +23532,7 @@
           ],
           "description": "Specification grid.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -23500,7 +23559,7 @@
           ],
           "description": "Specification grid.",
           "items": {
-            "type": "string"
+            "type": "integer"
           },
           "type": "array"
         },
@@ -23715,7 +23774,7 @@
         "bw_grid": {
           "description": "Explicit bandwidth values to evaluate. If None, auto-generates a grid as multiples of the MSE-optimal bandwidth.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -23726,7 +23785,7 @@
           ],
           "description": "Range of multipliers for the optimal bandwidth.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -23742,7 +23801,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -23783,7 +23842,7 @@
     "name": "rdbwsensitivity"
   },
   {
-    "description": "Sharp / fuzzy RD -- article-friendly alias for :func:`rdrobust`. Validation: certified parity evidence.",
+    "description": "Sharp / fuzzy RD -- article-friendly alias for :func:`rdrobust`. Validation: certified parity evidence. Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (McCrary density test); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy); sufficient mass of observations within the optimal bandwidth. Failure modes: McCrary density test p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternatives: sp.rd_honest, sp.rdrbounds, sp.bounds. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "cutoff": {
@@ -23838,7 +23897,7 @@
         "h": {
           "description": "Bandwidth. A scalar applies the same bandwidth on both sides; a length-2 sequence is interpreted as ``(h_left, h_right)``.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -23893,7 +23952,7 @@
         "h": {
           "description": "Bandwidth, or ``(h_left, h_right)``. Default: ``rdrobust``'s ``rdbwselect`` (``bwselect``) on the running variable -- separately in each subgroup for a binary ``z``, as R does.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -24064,7 +24123,7 @@
         "cutoffs": {
           "description": "Cutoff values.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -24174,7 +24233,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -24200,7 +24259,7 @@
         "placebo_cutoffs": {
           "description": "Explicit placebo cutoff values. If None, auto-generates from the data distribution.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -24268,7 +24327,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -24373,14 +24432,14 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
         "h": {
           "description": "Bandwidths ``(h_left, h_right)``; by default those of :func:`sp.rddensity` at the same ``c`` and ``p``.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -24575,7 +24634,7 @@
         "gamma_list": {
           "description": "Odds ratios. Defaults to ``[1, 1.5, 2, 2.5, 3, 4, 5]``.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -24772,7 +24831,7 @@
         "wlist": {
           "description": "Symmetric half-window widths to evaluate. If None, an evenly-spaced grid is generated automatically.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -25036,7 +25095,7 @@
     "name": "regress"
   },
   {
-    "description": "Honest regression forest for ``E[Y | X]`` (``grf::regression_forest``).",
+    "description": "Honest regression forest for ``E[Y | X]`` (``grf::regression_forest``). Assumptions: Unconfoundedness: Y(d) independent of D given X (pooled forest); Overlap: 0 < P(D=1 | X) < 1 for the estimand support; fe=: conditional parallel trends and no anticipation; treatment varies within units. Pre-conditions: treatment is binary 0/1 (continuous allowed with discrete_treatment=False); covariates are numeric and finite; encode categoricals beforehand; n >= ~1000 for stable CATE -- forests are data-hungry. Failure modes: sp.calibration_test differential_forest_prediction p_one_sided > 0.05 -> No detectable heterogeneity: report the average effect, not the CATE ranking; average_treatment_effect(target_sample='all') raises MethodIncompatibility on an fe= forest -> Parallel trends identifies effects on treated cells: use target_sample='treated' (imputation ATT) or sp.forest_group_effects; counterfactual effects of never-treated units are extrapolations (sp.forest_support); Panel data fitted without clusters= (units repeat across rows) -> Refit with clusters=unit; i.i.d. honesty and SEs are invalid with repeated units. Alternatives: sp.did_forest, sp.metalearner, sp.dml, sp.multi_arm_forest. T...",
     "input_schema": {
       "properties": {
         "ci_group_size": {
@@ -25478,7 +25537,7 @@
         "index": {
           "description": "index parameter (Optional[Sequence[int]]).",
           "items": {
-            "type": "string"
+            "type": "integer"
           },
           "type": "array"
         },
@@ -25510,7 +25569,7 @@
     "name": "rlasso_effects"
   },
   {
-    "description": "Instrumental-variables estimation with rigorous-Lasso selection. Validation: certified parity evidence.",
+    "description": "Instrumental-variables estimation with rigorous-Lasso selection. Validation: certified parity evidence. Assumptions: Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb); Exclusion: instruments affect outcome only through the endogenous regressor; Monotonicity (for LATE interpretation under heterogeneous effects). Pre-conditions: formula includes the (endog ~ instruments) parenthesised block; at least as many instruments as endogenous regressors (order condition); instruments are not themselves endogenous in the outcome equation. Failure modes: First-stage F < 10 (Stock-Yogo 5% bias) -> Use weak-IV-robust inference (Anderson-Rubin) or LIML; Over-identification test rejects (sp.estat 'overid') -> At least one instrument is invalid; drop instruments or switch to just-identified LIML; Hausman endogeneity test fails to reject -> OLS may be consistent and more efficient; report both. Alternatives: sp.deepiv, sp.bartik, sp.proximal, sp.regress. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "control": {
@@ -25676,7 +25735,7 @@
         "index": {
           "description": "index parameter (Optional[Sequence[int]]).",
           "items": {
-            "type": "string"
+            "type": "integer"
           },
           "type": "array"
         },
@@ -25813,7 +25872,7 @@
         "winsor_levels": {
           "description": "Winsorization percentiles, e.g. ``[0.01, 0.05]``.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -25904,14 +25963,14 @@
         "control": {
           "description": "Outcome in the treated / control unit of each matched pair (same length). Ignored if ``data`` is provided.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
         "gamma_grid": {
           "description": "Gamma values (>= 1) over which to compute bounding p-values.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -25935,7 +25994,7 @@
         "treated": {
           "description": "Outcome in the treated / control unit of each matched pair (same length). Ignored if ``data`` is provided.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -25980,14 +26039,14 @@
         "control": {
           "description": "Outcome in the treated / control unit of each matched pair (same length). Ignored if ``data`` is provided.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
         "gamma_grid": {
           "description": "Gamma values (>= 1) over which to compute bounding p-values.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -26011,7 +26070,7 @@
         "treated": {
           "description": "Outcome in the treated / control unit of each matched pair (same length). Ignored if ``data`` is provided.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -26054,9 +26113,12 @@
           "default": 0.02,
           "description": "Balance tolerance. With ``tolerance_scale='sd'`` the constraint is ``|mean_T(X_j) - weighted mean_C(X_j)| <= delta_j * sd(X_j)``.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
-          "type": "array"
+          "type": [
+            "array",
+            "number"
+          ]
         },
         "estimand": {
           "default": "att",
@@ -26261,7 +26323,7 @@
         "t_grid": {
           "description": "Grid of t values to evaluate.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -26327,8 +26389,8 @@
           "default": 1,
           "description": "Order of the out-of-sample moment models (R ``e.order``; ``e.lags`` is fixed at 0).",
           "enum": [
-            "0",
-            "1"
+            0,
+            1
           ],
           "type": "integer"
         },
@@ -26356,7 +26418,10 @@
             "type-1",
             "type-2"
           ],
-          "type": "number"
+          "type": [
+            "number",
+            "string"
+          ]
         },
         "rho_max": {
           "default": 0.2,
@@ -26401,8 +26466,8 @@
           "default": 1,
           "description": "Order of the pseudo-residual mean model (R ``u.order``; ``u.lags`` is fixed at 0).",
           "enum": [
-            "0",
-            "1"
+            0,
+            1
           ],
           "type": "integer"
         },
@@ -26840,14 +26905,14 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
         "original_ci": {
           "description": "Original CI (at M=0) for comparison.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -26939,7 +27004,10 @@
         "never_treated_value": {
           "default": 0,
           "description": "never_treated_value parameter.",
-          "type": "string"
+          "type": [
+            "string",
+            "integer"
+          ]
         },
         "outcome": {
           "description": "Outcome variable column name or outcome array.",
@@ -27289,7 +27357,10 @@
         "never_value": {
           "default": 0,
           "description": "never_value parameter.",
-          "type": "string"
+          "type": [
+            "string",
+            "integer"
+          ]
         },
         "ring_edges": {
           "default": [
@@ -27337,7 +27408,7 @@
         "quantiles": {
           "description": "quantiles parameter (Optional[List[float]]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -27513,9 +27584,12 @@
           "default": 0,
           "description": "event_time parameter (float or list).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
-          "type": "array"
+          "type": [
+            "array",
+            "integer"
+          ]
         },
         "fisher": {
           "default": false,
@@ -27596,9 +27670,12 @@
           "default": 0,
           "description": "Only read when estimand='eventstudy'. A list returns one row per event time in .detail with the joint covariance in model_info['vcov']",
           "items": {
-            "type": "string"
+            "type": "number"
           },
-          "type": "array"
+          "type": [
+            "array",
+            "integer"
+          ]
         },
         "fisher": {
           "default": false,
@@ -27684,9 +27761,12 @@
           "default": 0,
           "description": "event_time parameter (float or list).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
-          "type": "array"
+          "type": [
+            "array",
+            "integer"
+          ]
         },
         "fisher": {
           "default": false,
@@ -27888,8 +27968,8 @@
           "default": 1,
           "description": "Order of stochastic dominance. 1 = first-order (CDF dominance). 2 = second-order (integrated CDF dominance).",
           "enum": [
-            "1",
-            "2"
+            1,
+            2
           ],
           "type": "integer"
         },
@@ -28272,7 +28352,7 @@
     "name": "sureg"
   },
   {
-    "description": "Survival forest: conditional survival curves ``S(t | x)`` from Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Survival forest: conditional survival curves ``S(t | x)`` from Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness: Y(d) independent of D given X (pooled forest); Overlap: 0 < P(D=1 | X) < 1 for the estimand support; fe=: conditional parallel trends and no anticipation; treatment varies within units. Pre-conditions: treatment is binary 0/1 (continuous allowed with discrete_treatment=False); covariates are numeric and finite; encode categoricals beforehand; n >= ~1000 for stable CATE -- forests are data-hungry. Failure modes: sp.calibration_test differential_forest_prediction p_one_sided > 0.05 -> No detectable heterogeneity: report the average effect, not the CATE ranking; average_treatment_effect(target_sample='all') raises MethodIncompatibility on an fe= forest -> Parallel trends identifies effects on treated cells: use target_sample='treated' (imputation ATT) or sp.forest_group_effects; counterfactual effects of never-treated units are extrapolations (sp.forest_support); Panel data fitted without clusters= (units repeat across rows) -> Refit with clusters=unit; i.i.d. honesty and SEs are invalid w...",
     "input_schema": {
       "properties": {
         "clusters": {
@@ -28389,7 +28469,7 @@
         "gamma_grid": {
           "description": "Gamma (>= 1) values. Defaults to ``np.linspace(1.0, 3.0, 21)``.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -28560,7 +28640,7 @@
     "name": "synth"
   },
   {
-    "description": "Run multiple SCM variants and compare them side by side. Cost: Runs every estimator in methods= end to end, so cost is the sum of the individual fits -- and each placebo-enabled member internally re-runs once per donor. Expect it to be the slowest call in a synthetic-control workflow; narrow methods= once you have shortlisted.",
+    "description": "Run multiple SCM variants and compare them side by side. Cost: Runs every estimator in methods= end to end, so cost is the sum of the individual fits -- and each placebo-enabled member internally re-runs once per donor. Expect it to be the slowest call in a synthetic-control workflow; narrow methods= once you have shortlisted. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid,...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -28611,7 +28691,7 @@
     "name": "synth_compare"
   },
   {
-    "description": "Donor-pool bootstrap sensitivity for Synthetic Control. Validation: certified parity evidence.",
+    "description": "Donor-pool bootstrap sensitivity for Synthetic Control. Validation: certified parity evidence. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
     "input_schema": {
       "properties": {
         "k": {
@@ -28665,7 +28745,7 @@
     "name": "synth_donor_sensitivity"
   },
   {
-    "description": "Leave-one-out donor sensitivity for Synthetic Control. Validation: certified parity evidence.",
+    "description": "Leave-one-out donor sensitivity for Synthetic Control. Validation: certified parity evidence. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -28711,7 +28791,7 @@
     "name": "synth_loo"
   },
   {
-    "description": "Minimum Detectable Effect for a Synthetic Control design.",
+    "description": "Minimum Detectable Effect for a Synthetic Control design. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -28766,7 +28846,7 @@
     "name": "synth_mde"
   },
   {
-    "description": "Power analysis for Synthetic Control designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Power analysis for Synthetic Control designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -28777,7 +28857,7 @@
         "effect_sizes": {
           "description": "Grid of hypothetical additive effect sizes to evaluate. If ``None``, auto-generates 10 steps from 0 to 3 * pre-treatment SD of the outcome.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -28858,7 +28938,7 @@
     "name": "synth_power_plot"
   },
   {
-    "description": "Quickly recommend the best SCM method for the given data.",
+    "description": "Quickly recommend the best SCM method for the given data. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
     "input_schema": {
       "properties": {
         "outcome": {
@@ -28946,7 +29026,7 @@
     "name": "synth_report"
   },
   {
-    "description": "Generate an SCM report and write it directly to a file.",
+    "description": "Generate an SCM report and write it directly to a file. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -29005,7 +29085,7 @@
     "name": "synth_report_to_file"
   },
   {
-    "description": "Pre-fit-filtered placebo p-values (Abadie et al. 2010). Validation: certified parity evidence.",
+    "description": "Pre-fit-filtered placebo p-values (Abadie et al. 2010). Validation: certified parity evidence. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
     "input_schema": {
       "properties": {
         "metric": {
@@ -29038,7 +29118,7 @@
         "thresholds": {
           "description": "Cut-off multiples of the treated unit's pre-treatment fit; a placebo is kept when its fit is ``<= threshold x`` the treated unit's. Default ``[1, 2, 5, 10, 20, np.inf]``.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -29071,7 +29151,7 @@
     "name": "synth_rmspe_filter"
   },
   {
-    "description": "Run all SCM sensitivity diagnostics in a single call.",
+    "description": "Run all SCM sensitivity diagnostics in a single call. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -29136,7 +29216,7 @@
           ],
           "description": "Figure size in inches.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -29208,7 +29288,7 @@
     "name": "synth_survival"
   },
   {
-    "description": "Time-placebo (\"backdating\") test for Synthetic Control. Validation: certified parity evidence.",
+    "description": "Time-placebo (\"backdating\") test for Synthetic Control. Validation: certified parity evidence. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -29258,7 +29338,7 @@
     "name": "synth_time_placebo"
   },
   {
-    "description": "Multi-sheet Excel workbook for synthetic-control results.",
+    "description": "Multi-sheet Excel workbook for synthetic-control results. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
     "input_schema": {
       "properties": {
         "digits": {
@@ -29294,7 +29374,7 @@
     "name": "synth_to_excel"
   },
   {
-    "description": "Formatted LaTeX table for synthetic-control results.",
+    "description": "Formatted LaTeX table for synthetic-control results. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
     "input_schema": {
       "properties": {
         "booktabs": {
@@ -29352,7 +29432,7 @@
     "name": "synth_to_latex"
   },
   {
-    "description": "GitHub-flavoured Markdown table for synthetic-control results.",
+    "description": "GitHub-flavoured Markdown table for synthetic-control results. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with similar pre-treatment trajectories. Failure modes: Pre-treatment RMSPE > post-treatment effect -> Poor pre-fit -- switch to method='demeaned'/'augmented' or enlarge donor pool; Placebo p-value >= 0.1 despite visible gap -> Use inference='conformal' (valid under weak assumptions) or report ranked placebo statistic; All weight concentrated on one donor -> Interpolation bias risk -- check method='elastic_net' or augmented SCM. Alternatives: sp.sdid, sp.did, sp.matrix_completion, sp.causal_impact. Typical minimum N: 10.",
     "input_schema": {
       "properties": {
         "digits": {
@@ -29497,7 +29577,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -29542,7 +29622,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -29573,7 +29653,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -29605,7 +29685,7 @@
         "figsize": {
           "description": "Figure size. Auto-selected if None.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -29943,7 +30023,7 @@
           ],
           "description": "figsize parameter (Tuple[float, float]).",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -30383,7 +30463,7 @@
         "t_grid": {
           "description": "Treatment values at which to evaluate the dose-response curve. Defaults to 40 equally-spaced points between the observed min/max.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
@@ -31072,9 +31152,9 @@
           "default": 2,
           "description": "How many terms of the Bun-Kiviet expansion to subtract: ``O(1/T)``, ``O(1/NT)``, or ``O(1/NT^2)``. Bun & Kiviet (2003) find diminishing returns beyond the second.",
           "enum": [
-            "1",
-            "2",
-            "3"
+            1,
+            2,
+            3
           ],
           "type": "integer"
         },
@@ -31196,14 +31276,14 @@
         "x": {
           "description": "Running variable and outcome, same length.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         },
         "y": {
           "description": "Running variable and outcome, same length.",
           "items": {
-            "type": "string"
+            "type": "number"
           },
           "type": "array"
         }
@@ -31313,8 +31393,8 @@
           "default": 0,
           "description": "reference parameter (int).",
           "enum": [
-            "0",
-            "1"
+            0,
+            1
           ],
           "type": "integer"
         },

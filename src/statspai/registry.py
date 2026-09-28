@@ -265,11 +265,12 @@ class FunctionSpec:
             prop["type"] = _json_schema_type(p.type)
             # JSON schema requires "items" for array types
             if prop["type"] == "array":
-                prop["items"] = {"type": "string"}
+                prop["items"] = {"type": _array_item_type(p.type)}
             if p.enum:
-                prop["enum"] = p.enum
+                prop["enum"] = list(p.enum)
             if p.default is not None:
                 prop["default"] = p.default
+            _reconcile_param_schema(prop, p)
             properties[p.name] = prop
             if p.required:
                 required.append(p.name)
@@ -369,7 +370,11 @@ class FunctionSpec:
         return schema
 
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        out = asdict(self)
+        kind = getattr(self, "_kind", None)
+        if kind:
+            out["kind"] = kind
+        return out
 
     def agent_card(self, *, merge_inherited: bool = True) -> Dict[str, Any]:
         """Return the agent-native view of this function.
@@ -20061,6 +20066,375 @@ def _parse_docstring_params(doc: str) -> Dict[str, Dict[str, Any]]:
     return out
 
 
+_DOC_SECTION_RE = re.compile(r"^(?P<name>[A-Z][A-Za-z ]{2,30})\n-{3,}\s*$", re.M)
+
+
+def _doc_sections(doc: str) -> Dict[str, str]:
+    """Split a NumPy-style docstring into ``{section: text}``.
+
+    The preamble (everything before the first ``Header\\n----`` pair) is
+    stored under ``""``. Section names are lower-cased. Google-style
+    ``Args:`` blocks are not split here — :func:`_parse_docstring_params`
+    already handles parameters for both dialects.
+    """
+    if not doc:
+        return {}
+    text = doc.expandtabs()
+    out: Dict[str, str] = {}
+    last_name = ""
+    last_end = 0
+    for m in _DOC_SECTION_RE.finditer(text):
+        out[last_name] = text[last_end : m.start()].strip("\n")
+        last_name = m.group("name").strip().lower()
+        last_end = m.end()
+    out[last_name] = text[last_end:].strip("\n")
+    return out
+
+
+def _squash(text: str, limit: int) -> str:
+    """Collapse whitespace and cut at a sentence boundary near ``limit``."""
+    s = re.sub(r"\s+", " ", text or "").strip()
+    if len(s) <= limit:
+        return s
+    cut = s[:limit]
+    for sep in (". ", "; ", ", "):
+        k = cut.rfind(sep)
+        if k > limit // 2:
+            return cut[: k + 1].strip()
+    return cut.rstrip() + "…"
+
+
+def _harvest_returns(sections: Dict[str, str]) -> str:
+    """``Returns`` section → ``"<type>: <first sentence>"`` (≤ 240 chars)."""
+    block = sections.get("returns") or sections.get("return") or ""
+    if not block.strip():
+        return ""
+    lines = [ln for ln in block.splitlines() if ln.strip()]
+    if not lines:
+        return ""
+    head = lines[0].strip()
+    # ``name : type`` or bare ``type`` on the first line; the description is
+    # the indented continuation.
+    if " : " in head:
+        head = head.split(" : ", 1)[1].strip()
+    body = " ".join(ln.strip() for ln in lines[1:] if ln.startswith((" ", "\t")))
+    body = re.sub(r"``([^`]*)``", r"\1", body)
+    if body:
+        return _squash(f"{head}: {body}", 240)
+    return _squash(head, 120)
+
+
+def _harvest_example(sections: Dict[str, str], name: str, obj: Any = None) -> str:
+    """First ``>>>`` statement that calls ``sp.<name>(`` (with its ``...``
+    continuation lines), else the first non-import statement (≤ 300 chars)."""
+    block = sections.get("examples") or ""
+    if not block.strip():
+        return ""
+    stmts: List[str] = []
+    cur: List[str] = []
+    for ln in block.splitlines():
+        s = ln.strip()
+        if s.startswith(">>> "):
+            if cur:
+                stmts.append("\n".join(cur))
+            cur = [s[4:]]
+        elif s.startswith("... ") and cur:
+            cur.append(s[4:])
+        elif s == "..." and cur:
+            cur.append("")
+        else:
+            if cur:
+                stmts.append("\n".join(cur))
+                cur = []
+    if cur:
+        stmts.append("\n".join(cur))
+    call_re = re.compile(rf"\bsp\.{re.escape(name)}\(")
+    candidates = [s.strip() for s in stmts if call_re.search(s)]
+    if not candidates:
+        candidates = [
+            s.strip()
+            for s in stmts
+            if not s.startswith(("import ", "from ")) and ("=" in s or "(" in s)
+        ]
+    # Prefer the shortest statement that survives the same static check
+    # the registry example audit applies (parses; keywords bind to the
+    # signature). A docstring example that names a keyword the function
+    # does not accept is a docstring bug, not something to advertise.
+    for cand in sorted(candidates, key=len):
+        if len(cand) > 400:
+            continue
+        if _example_binds(cand, name, obj):
+            return cand
+    return ""
+
+
+def _example_binds(example: str, name: str, obj: Any) -> bool:
+    """True when ``example`` parses and its ``sp.<name>(...)`` keywords are
+    accepted by ``obj``'s signature (or ``obj`` takes ``**kwargs``)."""
+    import ast
+
+    try:
+        tree = ast.parse(example)
+    except SyntaxError:
+        return False
+    try:
+        sig = inspect.signature(obj)
+    except (TypeError, ValueError):
+        return True
+    params = sig.parameters
+    aliases = getattr(obj, "__statspai_aliases__", {}) or {}
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        # Same rule as scripts/registry_example_audit.py: a bare ``**kwargs``
+        # is open-ended, but ``@accepts_aliases`` adds ``**kwargs`` only to
+        # take alternative spellings and still rejects unknown names, so
+        # the accepted set is the signature plus the recorded aliases.
+        if not aliases:
+            return True
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        fn = node.func
+        if not (
+            isinstance(fn, ast.Attribute)
+            and fn.attr == name
+            and isinstance(fn.value, ast.Name)
+            and fn.value.id == "sp"
+        ):
+            continue
+        for kw in node.keywords:
+            if kw.arg is not None and kw.arg not in params and kw.arg not in aliases:
+                return False
+    return True
+
+
+_BIB_KEY_RE = re.compile(r"\[@([A-Za-z][A-Za-z0-9_:-]+)\]")
+
+
+def _harvest_reference(sections: Dict[str, str]) -> str:
+    """``References`` section → bib keys when present, else the first entry.
+
+    Bib keys (``[@callaway2021difference]``) are the paper.bib anchors
+    CLAUDE.md §10 asks docstrings to use; when a section has them, the
+    key list is the whole reference. Otherwise the first entry's text is
+    kept verbatim (it is the author's own citation, not an LLM-written
+    one) and compressed to 240 characters.
+    """
+    block = sections.get("references") or ""
+    if not block.strip():
+        return ""
+    keys = _BIB_KEY_RE.findall(block)
+    if keys:
+        seen: List[str] = []
+        for k in keys:
+            if k not in seen:
+                seen.append(k)
+        return "; ".join(f"@{k}" for k in seen)
+    # First paragraph (entries are separated by blank lines or indentation).
+    paras = re.split(r"\n\s*\n", block.strip())
+    first = paras[0] if paras else block
+    first = re.sub(r"\.\.\s+\[\d+\]\s*", "", first)
+    return _squash(first, 240)
+
+
+#: ``array`` item types inferred from the parameter's type text.
+_ARRAY_ITEM_TYPE_RE = (
+    (re.compile(r"\b(float|double|number|np\.floating)\b", re.I), "number"),
+    (re.compile(r"\bint\b", re.I), "integer"),
+    (re.compile(r"\bbool\b", re.I), "boolean"),
+)
+
+
+def _array_item_type(type_text: str) -> str:
+    """``List[float]`` → ``number``; ``Sequence[int]`` → ``integer``; else string."""
+    inner = type_text or ""
+    m = re.search(r"\[(.*)\]", inner)
+    if m:
+        inner = m.group(1)
+    for rx, jt in _ARRAY_ITEM_TYPE_RE:
+        if rx.search(inner):
+            return jt
+    return "string"
+
+
+def _json_type_of(value: Any) -> Optional[str]:
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, (list, tuple)):
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    return None
+
+
+def _reconcile_param_schema(prop: Dict[str, Any], p: "ParamSpec") -> None:
+    """Make ``type`` / ``enum`` / ``default`` mutually consistent in place.
+
+    The 2026-09 audit found three contradiction classes in the exported
+    schemas: enums on non-string types (``alpha: number, enum
+    ['0.01', '0.05']``), defaults outside their enum (``reference:
+    integer, default 0, enum ['pooled', 'cotton']``) and defaults of the
+    wrong type (``diagnostics: boolean, default 'auto'``). Each has a
+    single truthful repair:
+
+    * an enum on a numeric type is coerced to numbers when every value
+      parses, otherwise the parameter really accepts strings too and the
+      type becomes ``["<declared>", "string"]``;
+    * an enum on an array type describes the *items*, so it moves to
+      ``items.enum``;
+    * a default outside its enum is kept out of the schema (a strict
+      validator would reject it) and stated in the description instead;
+    * a default of another JSON type widens ``type`` to the union.
+    """
+    typ = prop.get("type")
+    enum = prop.get("enum")
+    default = prop.get("default")
+
+    if default is not None and _json_type_of(default) is None:
+        # dataclass ``field(default_factory=...)`` sentinels, callables,
+        # numpy objects: not representable in a JSON schema — drop them.
+        prop.pop("default", None)
+        default = None
+
+    if enum and typ == "array":
+        prop.setdefault("items", {})["enum"] = list(enum)
+        prop.pop("enum", None)
+        enum = None
+    elif enum and typ in ("integer", "number"):
+        conv: List[Any] = []
+        ok = True
+        for v in enum:
+            try:
+                conv.append(int(v) if typ == "integer" else float(v))
+            except (TypeError, ValueError):
+                ok = False
+                break
+        if ok:
+            prop["enum"] = conv
+            enum = conv
+        else:
+            prop["type"] = [typ, "string"]
+    elif enum and typ == "boolean":
+        prop["type"] = ["boolean", "string"]
+
+    if default is not None:
+        dtype = _json_type_of(default)
+        declared = prop.get("type")
+        declared_set = set(declared) if isinstance(declared, list) else {declared}
+        if dtype == "integer" and "number" in declared_set:
+            dtype = "number"
+        if dtype is not None and dtype not in declared_set and declared:
+            if isinstance(declared, list):
+                prop["type"] = declared + [dtype]
+            else:
+                prop["type"] = [declared, dtype]
+        enum_now = prop.get("enum")
+        if enum_now and default not in enum_now:
+            prop.pop("default", None)
+            note = f" Default: {default!r}."
+            if note.strip() not in prop.get("description", ""):
+                prop["description"] = (prop.get("description") or "").rstrip() + note
+
+
+#: Family parents for auto-registered variants that declare no card of
+#: their own. A variant named ``<prefix><rest>`` / ``<rest><suffix>``
+#: inherits the parent's assumptions / pre-conditions / failure modes /
+#: alternatives (see :attr:`FunctionSpec.inherits_from`). The parent must
+#: itself carry assumptions, otherwise nothing is inherited. DGP helpers,
+#: plots and classes never inherit — their contract is not the parent's.
+_FAMILY_PREFIXES: Tuple[Tuple[str, str], ...] = (
+    ("did_", "did"),
+    ("rd_", "rdrobust"),
+    ("rdd", "rdrobust"),
+    ("rdmc", "rdrobust"),
+    ("rdms", "rdrobust"),
+    ("synth_", "synth"),
+    ("sdid_", "sdid"),
+    ("dml_", "dml"),
+    ("iv_", "iv"),
+    ("ivreg_", "ivreg"),
+    ("event_study_", "event_study"),
+    ("forest_", "causal_forest"),
+    ("mr_", "mr"),
+    ("psm_", "psm"),
+    ("ipw_", "ipw"),
+    ("aipw_", "aipw"),
+    ("tmle_", "tmle"),
+    ("bcf_", "bcf"),
+    ("gformula_", "gformula"),
+    ("msm_", "msm"),
+    ("panel_", "panel"),
+    ("feols_", "feols"),
+    ("qte_", "qte"),
+    ("metalearner_", "metalearner"),
+    ("match_", "match"),
+    ("matching_", "match"),
+)
+_FAMILY_SUFFIXES: Tuple[Tuple[str, str], ...] = (
+    ("_did", "did"),
+    ("_rd", "rdrobust"),
+    ("_synth", "synth"),
+    ("_sdid", "sdid"),
+    ("_dml", "dml"),
+    ("_iv", "iv"),
+    ("_forest", "causal_forest"),
+    ("_event_study", "event_study"),
+    ("_tmle", "tmle"),
+)
+_NO_INHERIT_PREFIXES = ("dgp_", "plot_", "sim_")
+_NO_INHERIT_SUFFIXES = ("_plot", "_table", "_report", "_dashboard")
+
+_FAMILY_INHERITANCE_APPLIED = False
+
+
+def _family_parent(name: str) -> Optional[str]:
+    lower = name.lower()
+    if name[:1].isupper() or lower.startswith(_NO_INHERIT_PREFIXES):
+        return None
+    if lower.endswith(_NO_INHERIT_SUFFIXES):
+        return None
+    for prefix, parent in _FAMILY_PREFIXES:
+        if lower.startswith(prefix) and lower != parent:
+            return parent
+    for suffix, parent in _FAMILY_SUFFIXES:
+        if lower.endswith(suffix) and lower != parent:
+            return parent
+    return None
+
+
+def _apply_family_inheritance() -> None:
+    """Point card-less auto specs at their family dispatcher.
+
+    Runs after the seed / baseline passes so a hand-written card or an
+    explicit ``inherits_from`` always wins; only specs with no
+    assumptions of their own and no declared parent are touched. The
+    derived link is marked (``_inherited_auto``) so
+    :func:`describe_function` can say the card is inherited.
+    """
+    global _FAMILY_INHERITANCE_APPLIED
+    if _FAMILY_INHERITANCE_APPLIED:
+        return
+    for name, spec in _REGISTRY.items():
+        if spec.inherits_from or spec.assumptions:
+            continue
+        if not getattr(spec, "_auto", False):
+            continue
+        parent = _family_parent(name)
+        if parent is None or parent not in _REGISTRY or parent == name:
+            continue
+        pspec = _REGISTRY[parent]
+        if not (pspec.assumptions or pspec.inherits_from):
+            continue
+        spec.inherits_from = parent
+        object.__setattr__(spec, "_inherited_auto", True)
+    _FAMILY_INHERITANCE_APPLIED = True
+
+
 def _first_doc_line(doc: Optional[str]) -> str:
     if not doc:
         return ""
@@ -20143,14 +20517,23 @@ def _auto_spec_from_callable(name: str, obj: Any) -> Optional[FunctionSpec]:
 
     desc = _first_doc_line(doc) or f"({name} — no description)"
     category = _infer_category(obj)
+    # Harvest what the docstring already states (NumPy sections). Every
+    # public function carries an ``Examples`` block (the examples-coverage
+    # gate insists), about half a ``Returns`` block and a sixth a
+    # ``References`` block; before 1.33 none of it reached the registry,
+    # so 982 auto entries advertised ``returns=""`` / ``example=""`` to
+    # agents while the answer sat one ``help()`` away.
+    sections = _doc_sections(doc)
+    is_class = inspect.isclass(obj)
     spec = FunctionSpec(
         name=name,
         category=category,
         description=desc,
         params=params,
-        returns="",
-        example="",
+        returns=("" if is_class else _harvest_returns(sections)),
+        example=_harvest_example(sections, name, obj),
         tags=[],
+        reference=_harvest_reference(sections),
     )
     # Mark auto-registered specs so downstream tooling
     # (``scripts/stability_audit.py`` / ``describe_function`` error
@@ -20158,6 +20541,10 @@ def _auto_spec_from_callable(name: str, obj: Any) -> Optional[FunctionSpec]:
     # Hand-written ``register(FunctionSpec(...))`` calls don't touch
     # this attribute, so its absence (or False) means "hand-written".
     object.__setattr__(spec, "_auto", True)
+    if is_class:
+        # Result / exception / model classes are exported for typing and
+        # isinstance checks; an agent never "calls" them as a tool.
+        object.__setattr__(spec, "_kind", "class")
     return spec
 
 
@@ -20917,6 +21304,7 @@ def _ensure_full_registry() -> None:
         _apply_agent_card_seeds()
         _apply_baseline_cards()
         _apply_negative_guidance_seeds()
+        _apply_family_inheritance()
         return
 
     import statspai as _sp  # safe: called post-import from user code
@@ -20949,6 +21337,7 @@ def _ensure_full_registry() -> None:
     _apply_agent_card_seeds()
     _apply_baseline_cards()
     _apply_negative_guidance_seeds()
+    _apply_family_inheritance()
 
 
 # ====================================================================== #
@@ -21104,7 +21493,33 @@ def describe_function(name: str) -> Dict[str, Any]:
         )
         hint = ", ".join(hand_written[:15]) + ", ..."
         raise KeyError(f"Unknown function '{name}'. Examples: {hint}")
-    out = _REGISTRY[name].to_dict()
+    spec = _REGISTRY[name]
+    out = spec.to_dict()
+    # Merge the parent's agent-native lists exactly as ``agent_card`` does,
+    # so ``describe_function`` and the MCP describe tool never show fewer
+    # assumptions / failure modes than the card (43 inheriting specs did
+    # before 1.33). ``inherited_from`` names the parent so the agent can
+    # tell an inherited statement from the function's own.
+    if spec.inherits_from:
+        card = spec.agent_card(merge_inherited=True)
+        for key in (
+            "assumptions",
+            "pre_conditions",
+            "failure_modes",
+            "alternatives",
+            "not_recommended_when",
+        ):
+            out[key] = card.get(key, out.get(key))
+        if out.get("typical_n_min") is None:
+            out["typical_n_min"] = card.get("typical_n_min")
+        if not out.get("cost_profile"):
+            out["cost_profile"] = card.get("cost_profile", "")
+        out["inherited_from"] = spec.inherits_from
+        if getattr(spec, "_inherited_auto", False):
+            out["inheritance"] = "family (derived from the name)"
+        else:
+            out["inheritance"] = "declared"
+    out["auto_generated"] = bool(getattr(spec, "_auto", False))
     # Call-time keyword aliases (``@accepts_aliases``) are invisible to the
     # signature; list them so agents can use the house-style spellings.
     import statspai
@@ -21268,7 +21683,7 @@ _SEARCH_SYNONYMS: Dict[str, Tuple[str, ...]] = {
     "instrument": ("iv", "instrument", "instrumental"),
     "instruments": ("iv", "instrument", "instrumental"),
     "twfe": ("twfe", "two-way", "fixed effects"),
-    "fe": ("fixed effects", "fixest"),
+    "fe": ("fixed effects", "fixest", "feols", "fe"),
     "staggered": ("staggered", "callaway", "sun-abraham", "cohort"),
     "cohort": ("cohort", "staggered", "callaway"),
     "synthetic": ("synthetic", "synth"),
@@ -21299,7 +21714,6 @@ _SEARCH_SYNONYMS: Dict[str, Tuple[str, ...]] = {
     "timing": ("timing", "staggered", "cohort", "event"),
     "adoption": ("adoption", "staggered", "cohort"),
     "event": ("event", "event_study", "dynamic"),
-    "fe": ("fixed effects", "fixest", "feols", "fe"),
     "dml": ("dml", "double machine learning", "debiased"),
 }
 

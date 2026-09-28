@@ -108,9 +108,9 @@ and the agent cards are only as good as this metadata.
   default not in enum, wrong default type, classes exported as functions:
   a `kind: class` marker so tools exclude them).
 
-- [ ] docstring harvest in `_auto_spec_from_callable` + ratchet test
-- [ ] family inheritance + `inherited_from` marker
-- [ ] schema contradictions fixed; `kind` marker for classes
+- [x] docstring harvest in `_auto_spec_from_callable` + ratchet test
+- [x] family inheritance + `inherited_from` marker
+- [x] schema contradictions fixed; `kind` marker for classes
 - [ ] curated cards, batch 1: did / iv / rd / synth / dml / panel families
 - [ ] curated cards, batch 2: remaining parity-ledger entry points
 - [ ] structured evidence tier field; `describe_function` merges inheritance
@@ -205,4 +205,5 @@ MCP, and it is not shipped. There is no `AGENTS.md` / `llms.txt`.
 
 - 2026-09-28 — plan written; W1 started.
 - 2026-09-28 — W1 done (reader-thread stdio loop, subprocess e2e test, CI gate).
-- 2026-09-28 — W2 done (data handles, inline tables, transform chains with lineage). W3 next.
+- 2026-09-28 — W2 done (data handles, inline tables, transform chains with lineage).
+- 2026-09-28 — W3 pass 1–2 done (docstring harvest, family inheritance, schema reconciliation, ratchet). Curated card batches next.

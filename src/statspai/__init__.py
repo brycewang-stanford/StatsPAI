@@ -1247,6 +1247,7 @@ __all__ = [
     "drdid",
     "twfe_decomposition",
     # RD
+    "rd",
     "rdrobust",
     "rdplot",
     "rdplotdensity",
