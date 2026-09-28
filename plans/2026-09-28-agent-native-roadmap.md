@@ -111,8 +111,8 @@ and the agent cards are only as good as this metadata.
 - [x] docstring harvest in `_auto_spec_from_callable` + ratchet test
 - [x] family inheritance + `inherited_from` marker
 - [x] schema contradictions fixed; `kind` marker for classes
-- [ ] curated cards, batch 1: did / iv / rd / synth / dml / panel families
-- [ ] curated cards, batch 2: remaining parity-ledger entry points
+- [x] curated cards, batch 1: family cards for every parity-ledger entry point without one (28 families, 272 members; card coverage 46 % → 75 %)
+- [ ] curated cards, batch 2: per-function refinement of the highest-traffic members (the family card is the floor, not the ceiling)
 - [ ] structured evidence tier field; `describe_function` merges inheritance
 - [ ] CHANGELOG, schema regen, docs/stats
 
@@ -206,4 +206,5 @@ MCP, and it is not shipped. There is no `AGENTS.md` / `llms.txt`.
 - 2026-09-28 — plan written; W1 started.
 - 2026-09-28 — W1 done (reader-thread stdio loop, subprocess e2e test, CI gate).
 - 2026-09-28 — W2 done (data handles, inline tables, transform chains with lineage).
-- 2026-09-28 — W3 pass 1–2 done (docstring harvest, family inheritance, schema reconciliation, ratchet). Curated card batches next.
+- 2026-09-28 — W3 pass 1–2 done (docstring harvest, family inheritance, schema reconciliation, ratchet).
+- 2026-09-28 — W3 pass 3 batch 1 done (28 family cards). Evidence-tier field and batch 2 remain; W4 next.

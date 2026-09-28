@@ -54,6 +54,18 @@ All notable changes to StatsPAI will be documented in this file.
   parameters get typed `items`. `tests/test_registry_metadata_ratchet.py`
   pins the coverage shares and the schema consistency so they can only
   move up. `sp.rd` (the RD dispatcher) is registered and exported.
+  A per-family card layer (`statspai._family_cards`, 28 families, 272
+  members) states the shared assumptions, data pre-conditions, failure
+  modes with remedies and alternatives for the parity-ledger entry points
+  no earlier card reached — limited-dependent-variable and count
+  regressions, survival, clustered / spatial-HAC inference, weak-IV
+  tools, RD bandwidth helpers, multiple testing, spatial statistics and
+  models, networks, power, decompositions, mediation, selection /
+  attrition bounds, survey estimation, time series, dynamic panels,
+  post-estimation, rlasso, DiD diagnostics, ML-causal helpers, the
+  g-formula / transport / target-trial toolkit, missing data and
+  randomization inference. Agent-card coverage on callables moves from
+  46 % to 75 %; the ratchet floor is raised to 70 %.
 - **`sp.search_functions` understands task phrases.** Stopwords are
   ignored, common econometrics spellings are expanded (`did` ↔
   difference-in-differences, `rd` ↔ discontinuity, `iv` ↔ instrument,

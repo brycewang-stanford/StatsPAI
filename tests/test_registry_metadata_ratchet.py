@@ -38,12 +38,12 @@ def _share(items, pred) -> float:
 # --------------------------------------------------------------------------
 # Floors. Measured 2026-09-28 after the docstring harvest:
 #   example 0.959 · returns 0.834 (callables) · reference 0.334 ·
-#   card 0.463 (callables) · placeholder params 0.527
+#   card 0.463 (callables) · placeholder params 0.527; family cards lift card to 0.75
 # --------------------------------------------------------------------------
 EXAMPLE_FLOOR = 0.95
 RETURNS_FLOOR = 0.80
 REFERENCE_FLOOR = 0.30
-CARD_FLOOR = 0.45
+CARD_FLOOR = 0.70
 PLACEHOLDER_PARAM_CEILING = 0.55
 
 

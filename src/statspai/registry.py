@@ -21215,6 +21215,16 @@ def _apply_agent_card_seeds() -> None:
     # module is absent the merge is a no-op.  Application stays extend-missing
     # below, so curated FunctionSpec content always survives.
     seed_sources: Dict[str, Dict[str, Any]] = {}
+    # Lowest priority: per-family cards (statspai._family_cards) covering the
+    # parity-ledger entry points that neither the in-file seeds nor the
+    # Tier-A overlay reach — survival, clustered inference, weak-IV tools,
+    # spatial statistics, networks, power, decompositions, time series, ...
+    try:
+        from ._family_cards import expand_family_cards
+
+        seed_sources.update(expand_family_cards())
+    except ImportError:  # pragma: no cover - wheel without the module
+        pass
     try:
         from ._agent_cards_extra import EXTRA_AGENT_CARDS
 
@@ -21230,8 +21240,21 @@ def _apply_agent_card_seeds() -> None:
         extend_missing(spec.pre_conditions, list(meta.get("pre_conditions", [])))
         extend_missing(spec.assumptions, list(meta.get("assumptions", [])))
         extend_missing(spec.alternatives, list(meta.get("alternatives", [])))
+        extend_missing(
+            spec.not_recommended_when, list(meta.get("not_recommended_when", []))
+        )
         if spec.typical_n_min is None and meta.get("typical_n_min") is not None:
             spec.typical_n_min = int(meta["typical_n_min"])
+        if not spec.cost_profile and meta.get("cost_profile"):
+            spec.cost_profile = str(meta["cost_profile"])
+        seed_parent = meta.get("inherits_from")
+        if (
+            seed_parent
+            and not spec.inherits_from
+            and seed_parent in _REGISTRY
+            and seed_parent != name
+        ):
+            spec.inherits_from = str(seed_parent)
         for item in meta.get("failure_modes", []):
             mode = FailureMode(**item)
             if all(

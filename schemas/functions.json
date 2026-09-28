@@ -3166,7 +3166,7 @@
     }
   },
   {
-    "description": "Blundell-Bond system GMM for dynamic panels (alias for xtabond with method='system'). Validation: certified parity evidence.",
+    "description": "Blundell-Bond system GMM for dynamic panels (alias for xtabond with method='system'). Validation: certified parity evidence. Do NOT use when: T is large relative to N -- the Nickell bias that motivates GMM is O(1/T) and within estimation is fine.",
     "name": "xtdpdsys",
     "parameters": {
       "properties": {
@@ -10509,7 +10509,7 @@
     }
   },
   {
-    "description": "Closed-form Kalman filter over a stream of causal-effect estimates + SEs. Produces a running posterior over the time-varying (or static) causal effect. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Closed-form Kalman filter over a stream of causal-effect estimates + SEs. Produces a running posterior over the time-varying (or static) causal effect. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention.",
     "name": "causal_kalman",
     "parameters": {
       "properties": {
@@ -24215,7 +24215,7 @@
     }
   },
   {
-    "description": "Return the within-transformed ``x`` and the singleton keep mask. Validation: certified parity evidence.",
+    "description": "Return the within-transformed ``x`` and the singleton keep mask. Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference.",
     "name": "demean",
     "parameters": {
       "properties": {
@@ -24267,7 +24267,7 @@
     }
   },
   {
-    "description": "OLS with absorbed high-dimensional fixed effects (reghdfe-style). Validation: certified parity evidence.",
+    "description": "OLS with absorbed high-dimensional fixed effects (reghdfe-style). Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference.",
     "name": "absorb_ols",
     "parameters": {
       "properties": {
@@ -25056,7 +25056,7 @@
     }
   },
   {
-    "description": "Subcluster wild cluster bootstrap for few-treated-clusters. Validation: certified parity evidence.",
+    "description": "Subcluster wild cluster bootstrap for few-treated-clusters. Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff.",
     "name": "subcluster_wild_bootstrap",
     "parameters": {
       "properties": {
@@ -25127,7 +25127,7 @@
     }
   },
   {
-    "description": "Confidence interval via bootstrap p-value inversion. Validation: certified parity evidence.",
+    "description": "Confidence interval via bootstrap p-value inversion. Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff.",
     "name": "wild_cluster_ci_inv",
     "parameters": {
       "properties": {
@@ -25194,7 +25194,7 @@
     }
   },
   {
-    "description": "Compute N-way cluster-robust variance of an OLS coefficient vector. Validation: certified parity evidence.",
+    "description": "Compute N-way cluster-robust variance of an OLS coefficient vector. Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff.",
     "name": "multiway_cluster_vcov",
     "parameters": {
       "properties": {
@@ -25237,7 +25237,7 @@
     }
   },
   {
-    "description": "Return cluster-robust standard errors (diagonal sqrt of vcov). Validation: certified parity evidence.",
+    "description": "Return cluster-robust standard errors (diagonal sqrt of vcov). Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff.",
     "name": "cluster_robust_se",
     "parameters": {
       "properties": {
@@ -25266,7 +25266,7 @@
     }
   },
   {
-    "description": "CR3 cluster-jackknife variance (delete-one-cluster). Validation: certified parity evidence.",
+    "description": "CR3 cluster-jackknife variance (delete-one-cluster). Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff.",
     "name": "cr3_jackknife_vcov",
     "parameters": {
       "properties": {
@@ -26447,7 +26447,7 @@
     }
   },
   {
-    "description": "Covariate-adjusted comparison of group means (ANCOVA). Validation: certified parity evidence.",
+    "description": "Covariate-adjusted comparison of group means (ANCOVA). Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference.",
     "name": "ancova",
     "parameters": {
       "properties": {
@@ -27476,7 +27476,7 @@
     }
   },
   {
-    "description": "Bias-corrected LSDV (LSDVC) estimator for dynamic panels. Validation: certified parity evidence.",
+    "description": "Bias-corrected LSDV (LSDVC) estimator for dynamic panels. Validation: certified parity evidence. Do NOT use when: T is large relative to N -- the Nickell bias that motivates GMM is O(1/T) and within estimation is fine.",
     "name": "xtlsdvc",
     "parameters": {
       "properties": {
@@ -27548,7 +27548,7 @@
     }
   },
   {
-    "description": "Simultaneous quantile regression at multiple quantiles. Validation: certified parity evidence.",
+    "description": "Simultaneous quantile regression at multiple quantiles. Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference.",
     "name": "sqreg",
     "parameters": {
       "properties": {
@@ -27589,7 +27589,7 @@
     }
   },
   {
-    "description": "Logit (logistic) regression via maximum likelihood. Validation: certified parity evidence.",
+    "description": "Logit (logistic) regression via maximum likelihood. Validation: certified parity evidence. Do NOT use when: the goal is a causal treatment effect under unconfoundedness -- use sp.ipw, sp.aipw or sp.match and let the outcome model be a nuisance.",
     "name": "logit",
     "parameters": {
       "properties": {
@@ -27659,7 +27659,7 @@
     }
   },
   {
-    "description": "Probit regression via maximum likelihood. Validation: certified parity evidence.",
+    "description": "Probit regression via maximum likelihood. Validation: certified parity evidence. Do NOT use when: the goal is a causal treatment effect under unconfoundedness -- use sp.ipw, sp.aipw or sp.match and let the outcome model be a nuisance.",
     "name": "probit",
     "parameters": {
       "properties": {
@@ -27724,7 +27724,7 @@
     }
   },
   {
-    "description": "Complementary log-log regression via maximum likelihood. Validation: certified parity evidence.",
+    "description": "Complementary log-log regression via maximum likelihood. Validation: certified parity evidence. Do NOT use when: the goal is a causal treatment effect under unconfoundedness -- use sp.ipw, sp.aipw or sp.match and let the outcome model be a nuisance.",
     "name": "cloglog",
     "parameters": {
       "properties": {
@@ -27789,7 +27789,7 @@
     }
   },
   {
-    "description": "Fit a Generalized Linear Model. Validation: certified parity evidence.",
+    "description": "Fit a Generalized Linear Model. Validation: certified parity evidence. Do NOT use when: the sample is censored (values piled at a limit) rather than truncated (values absent) -- that is a censored-regression problem.",
     "name": "glm",
     "parameters": {
       "properties": {
@@ -27923,7 +27923,7 @@
     }
   },
   {
-    "description": "Poisson regression via MLE (IRLS). Validation: certified parity evidence.",
+    "description": "Poisson regression via MLE (IRLS). Validation: certified parity evidence. Do NOT use when: the outcome is a rate with a known exposure -- model the count with an exposure offset rather than the ratio.",
     "name": "poisson",
     "parameters": {
       "properties": {
@@ -27993,7 +27993,7 @@
     }
   },
   {
-    "description": "Pseudo-Poisson Maximum Likelihood with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- dense O(n^2) memory (see cost); vce='conley' with high-dimensional fixed effects -- the conleyreg-matching construction is dummy-based and raises MethodIncompatibility past 1,000 dummy columns; use cluster= (CRV1) there. Cost: IRLS is linear in n. vce='conley' builds the FE-as-dummies design plus dense n x n great-circle distance and kernel matrices (glm_conley_vcov) -- ~0.8 GB at n=10,000 and ~80 GB at n=100,000 -- and it refuses designs with >= n or > 1,000 dummy columns. Use cluster= (CRV1) instead at that scale.",
+    "description": "Pseudo-Poisson Maximum Likelihood with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: the outcome is a rate with a known exposure -- model the count with an exposure offset rather than the ratio; vce='conley' on more than ~20,000 rows -- dense O(n^2) memory (see cost); vce='conley' with high-dimensional fixed effects -- the conleyreg-matching construction is dummy-based and raises MethodIncompatibility past 1,000 dummy columns; use cluster= (CRV1) there. Cost: IRLS is linear in n. vce='conley' builds the FE-as-dummies design plus dense n x n great-circle distance and kernel matrices (glm_conley_vcov) -- ~0.8 GB at n=10,000 and ~80 GB at n=100,000 -- and it refuses designs with >= n or > 1,000 dummy columns. Use cluster= (CRV1) instead at that scale.",
     "name": "ppmlhdfe",
     "parameters": {
       "properties": {
@@ -28706,7 +28706,7 @@
     }
   },
   {
-    "description": "Replace the SE of a shift-share regression with the AKM (2019) SE. Validation: certified parity evidence.",
+    "description": "Replace the SE of a shift-share regression with the AKM (2019) SE. Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff.",
     "name": "shift_share_se",
     "parameters": {
       "properties": {
@@ -29643,7 +29643,7 @@
     }
   },
   {
-    "description": "Compute two-way cluster-robust standard errors. Validation: certified parity evidence.",
+    "description": "Compute two-way cluster-robust standard errors. Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff.",
     "name": "twoway_cluster",
     "parameters": {
       "properties": {
@@ -29679,7 +29679,7 @@
     }
   },
   {
-    "description": "Compute Conley (1999) spatial -- and optionally spatio-temporal -- HAC Validation: certified parity evidence. Cost: Sparse and scale-safe: a scipy cKDTree ball query enumerates only observation pairs within dist_cutoff, so memory is O(n + pairs-within-cutoff) rather than O(n^2). This is the recommended Conley path on large samples -- unlike feols(vce='conley') / hdfe_ols(vce='conley'), which are dense. Cost still grows with dist_cutoff: a cutoff large enough to link most observations recovers the quadratic pair count.",
+    "description": "Compute Conley (1999) spatial -- and optionally spatio-temporal -- HAC Validation: certified parity evidence. Cost: Memory O(n^2): materialises dense n x n distance / kernel matrices; at n = 140,000 that is ~157 GB -- subsample or cluster by region instead.",
     "name": "conley",
     "parameters": {
       "properties": {
@@ -30001,7 +30001,7 @@
     }
   },
   {
-    "description": "Leave-one-cluster-out jackknife standard errors. Validation: certified parity evidence.",
+    "description": "Leave-one-cluster-out jackknife standard errors. Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff.",
     "name": "jackknife_se",
     "parameters": {
       "properties": {
@@ -30032,7 +30032,7 @@
     }
   },
   {
-    "description": "CR2 bias-corrected cluster-robust standard errors (Bell & McCaffrey 2002). Validation: certified parity evidence.",
+    "description": "CR2 bias-corrected cluster-robust standard errors (Bell & McCaffrey 2002). Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff.",
     "name": "cr2_se",
     "parameters": {
       "properties": {
@@ -30063,7 +30063,7 @@
     }
   },
   {
-    "description": "Wild cluster bootstrap t-test for a single coefficient. Validation: certified parity evidence.",
+    "description": "Wild cluster bootstrap t-test for a single coefficient. Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff.",
     "name": "wild_cluster_boot",
     "parameters": {
       "properties": {
@@ -36004,7 +36004,7 @@
     }
   },
   {
-    "description": "Power for a two-arm Randomised Controlled Trial. Validation: certified parity evidence.",
+    "description": "Power for a two-arm Randomised Controlled Trial. Validation: certified parity evidence. Do NOT use when: computing 'post-hoc power' from the observed effect -- it is a one-to-one function of the p-value and adds no information.",
     "name": "power_rct",
     "parameters": {
       "properties": {
@@ -36175,7 +36175,7 @@
     }
   },
   {
-    "description": "Power for a Cluster-Randomised Controlled Trial. Validation: certified parity evidence.",
+    "description": "Power for a Cluster-Randomised Controlled Trial. Validation: certified parity evidence. Do NOT use when: computing 'post-hoc power' from the observed effect -- it is a one-to-one function of the p-value and adds no information.",
     "name": "power_cluster_rct",
     "parameters": {
       "properties": {
@@ -36216,7 +36216,7 @@
     }
   },
   {
-    "description": "Power for OLS regression (single coefficient of interest). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Power for OLS regression (single coefficient of interest). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: computing 'post-hoc power' from the observed effect -- it is a one-to-one function of the p-value and adds no information.",
     "name": "power_ols",
     "parameters": {
       "properties": {
@@ -36257,7 +36257,7 @@
     }
   },
   {
-    "description": "Compute the Minimum Detectable Effect (MDE) for a given design. Validation: certified parity evidence.",
+    "description": "Compute the Minimum Detectable Effect (MDE) for a given design. Validation: certified parity evidence. Do NOT use when: computing 'post-hoc power' from the observed effect -- it is a one-to-one function of the p-value and adds no information.",
     "name": "mde",
     "parameters": {
       "properties": {
@@ -36282,7 +36282,7 @@
     }
   },
   {
-    "description": "Power (or sample size) to detect a difference between two proportions. Validation: certified parity evidence.",
+    "description": "Power (or sample size) to detect a difference between two proportions. Validation: certified parity evidence. Do NOT use when: computing 'post-hoc power' from the observed effect -- it is a one-to-one function of the p-value and adds no information.",
     "name": "power_two_proportions",
     "parameters": {
       "properties": {
@@ -36329,7 +36329,7 @@
     }
   },
   {
-    "description": "Power (or sample size) for a two-arm log-rank / survival comparison. Validation: certified parity evidence.",
+    "description": "Power (or sample size) for a two-arm log-rank / survival comparison. Validation: certified parity evidence. Do NOT use when: computing 'post-hoc power' from the observed effect -- it is a one-to-one function of the p-value and adds no information.",
     "name": "power_logrank",
     "parameters": {
       "properties": {
@@ -36376,7 +36376,7 @@
     }
   },
   {
-    "description": "Power (or number of cases) for an unmatched case-control study. Validation: certified parity evidence.",
+    "description": "Power (or number of cases) for an unmatched case-control study. Validation: certified parity evidence. Do NOT use when: computing 'post-hoc power' from the observed effect -- it is a one-to-one function of the p-value and adds no information.",
     "name": "power_case_control",
     "parameters": {
       "properties": {
@@ -36626,7 +36626,7 @@
     }
   },
   {
-    "description": "Stepwise variable selection for OLS regression. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Stepwise variable selection for OLS regression. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference.",
     "name": "stepwise",
     "parameters": {
       "properties": {
@@ -36691,7 +36691,7 @@
     }
   },
   {
-    "description": "LASSO-based variable selection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "LASSO-based variable selection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference.",
     "name": "lasso_select",
     "parameters": {
       "properties": {
@@ -36888,7 +36888,7 @@
     }
   },
   {
-    "description": "Romano-Wolf stepdown adjusted p-values for multiple outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Romano-Wolf stepdown adjusted p-values for multiple outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the hypotheses are one pre-registered primary outcome -- there is nothing to adjust.",
     "name": "romano_wolf",
     "parameters": {
       "properties": {
@@ -36976,7 +36976,7 @@
     }
   },
   {
-    "description": "Adjust p-values for multiple comparisons. Validation: certified parity evidence.",
+    "description": "Adjust p-values for multiple comparisons. Validation: certified parity evidence. Do NOT use when: the hypotheses are one pre-registered primary outcome -- there is nothing to adjust.",
     "name": "adjust_pvalues",
     "parameters": {
       "properties": {
@@ -36997,7 +36997,7 @@
     }
   },
   {
-    "description": "Bonferroni correction: ``p_adj = min(p * S, 1)``. Validation: certified parity evidence.",
+    "description": "Bonferroni correction: ``p_adj = min(p * S, 1)``. Validation: certified parity evidence. Do NOT use when: the hypotheses are one pre-registered primary outcome -- there is nothing to adjust.",
     "name": "bonferroni",
     "parameters": {
       "properties": {
@@ -37013,7 +37013,7 @@
     }
   },
   {
-    "description": "Holm (1979) step-down correction. Validation: certified parity evidence.",
+    "description": "Holm (1979) step-down correction. Validation: certified parity evidence. Do NOT use when: the hypotheses are one pre-registered primary outcome -- there is nothing to adjust.",
     "name": "holm",
     "parameters": {
       "properties": {
@@ -37029,7 +37029,7 @@
     }
   },
   {
-    "description": "Benjamini-Hochberg (1995) FDR correction. Validation: certified parity evidence.",
+    "description": "Benjamini-Hochberg (1995) FDR correction. Validation: certified parity evidence. Do NOT use when: the hypotheses are one pre-registered primary outcome -- there is nothing to adjust.",
     "name": "benjamini_hochberg",
     "parameters": {
       "properties": {
@@ -38123,7 +38123,7 @@
     }
   },
   {
-    "description": "Multinomial logit for J > 2 unordered categories via MLE. Validation: certified parity evidence.",
+    "description": "Multinomial logit for J > 2 unordered categories via MLE. Validation: certified parity evidence. Do NOT use when: the goal is a causal treatment effect under unconfoundedness -- use sp.ipw, sp.aipw or sp.match and let the outcome model be a nuisance.",
     "name": "mlogit",
     "parameters": {
       "properties": {
@@ -38186,7 +38186,7 @@
     }
   },
   {
-    "description": "Ordered logit (proportional odds) model via MLE. Validation: certified parity evidence.",
+    "description": "Ordered logit (proportional odds) model via MLE. Validation: certified parity evidence. Do NOT use when: the goal is a causal treatment effect under unconfoundedness -- use sp.ipw, sp.aipw or sp.match and let the outcome model be a nuisance.",
     "name": "ologit",
     "parameters": {
       "properties": {
@@ -38239,7 +38239,7 @@
     }
   },
   {
-    "description": "Ordered probit model via MLE. Validation: certified parity evidence.",
+    "description": "Ordered probit model via MLE. Validation: certified parity evidence. Do NOT use when: the goal is a causal treatment effect under unconfoundedness -- use sp.ipw, sp.aipw or sp.match and let the outcome model be a nuisance.",
     "name": "oprobit",
     "parameters": {
       "properties": {
@@ -38292,7 +38292,7 @@
     }
   },
   {
-    "description": "McFadden's conditional (fixed-effect) logit for choice data. Validation: certified parity evidence.",
+    "description": "McFadden's conditional (fixed-effect) logit for choice data. Validation: certified parity evidence. Do NOT use when: the goal is a causal treatment effect under unconfoundedness -- use sp.ipw, sp.aipw or sp.match and let the outcome model be a nuisance.",
     "name": "clogit",
     "parameters": {
       "properties": {
@@ -38349,7 +38349,7 @@
     }
   },
   {
-    "description": "Mixed Logit (random-coefficient MNL) via simulated maximum likelihood. Validation: certified parity evidence.",
+    "description": "Mixed Logit (random-coefficient MNL) via simulated maximum likelihood. Validation: certified parity evidence. Do NOT use when: the goal is a causal treatment effect under unconfoundedness -- use sp.ipw, sp.aipw or sp.match and let the outcome model be a nuisance.",
     "name": "mixlogit",
     "parameters": {
       "properties": {
@@ -38456,7 +38456,7 @@
     }
   },
   {
-    "description": "Instrumental-variable quantile regression (Chernozhukov-Hansen). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Instrumental-variable quantile regression (Chernozhukov-Hansen). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference.",
     "name": "ivqreg",
     "parameters": {
       "properties": {
@@ -38546,7 +38546,7 @@
     }
   },
   {
-    "description": "Zero-Inflated Poisson (ZIP) regression via MLE. Validation: certified parity evidence.",
+    "description": "Zero-Inflated Poisson (ZIP) regression via MLE. Validation: certified parity evidence. Do NOT use when: the outcome is a rate with a known exposure -- model the count with an exposure offset rather than the ratio.",
     "name": "zip_model",
     "parameters": {
       "properties": {
@@ -38606,7 +38606,7 @@
     }
   },
   {
-    "description": "Zero-Inflated Negative Binomial (ZINB) regression via MLE. Validation: certified parity evidence.",
+    "description": "Zero-Inflated Negative Binomial (ZINB) regression via MLE. Validation: certified parity evidence. Do NOT use when: the outcome is a rate with a known exposure -- model the count with an exposure offset rather than the ratio.",
     "name": "zinb",
     "parameters": {
       "properties": {
@@ -38666,7 +38666,7 @@
     }
   },
   {
-    "description": "Hurdle (two-part) model for count data. Validation: certified parity evidence.",
+    "description": "Hurdle (two-part) model for count data. Validation: certified parity evidence. Do NOT use when: the outcome is a rate with a known exposure -- model the count with an exposure offset rather than the ratio.",
     "name": "hurdle",
     "parameters": {
       "properties": {
@@ -39577,7 +39577,7 @@
     }
   },
   {
-    "description": "Estimate GLM (logit, probit, Gaussian) with high-dimensional fixed effects. Validation: certified parity evidence.",
+    "description": "Estimate GLM (logit, probit, Gaussian) with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: the sample is censored (values piled at a limit) rather than truncated (values absent) -- that is a censored-regression problem.",
     "name": "feglm",
     "parameters": {
       "properties": {
@@ -39655,7 +39655,7 @@
     }
   },
   {
-    "description": "Cox Proportional Hazards model via partial likelihood. Validation: certified parity evidence.",
+    "description": "Cox Proportional Hazards model via partial likelihood. Validation: certified parity evidence. Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray.",
     "name": "cox",
     "parameters": {
       "properties": {
@@ -39716,7 +39716,7 @@
     }
   },
   {
-    "description": "Kaplan-Meier non-parametric survival function estimator. Validation: certified parity evidence.",
+    "description": "Kaplan-Meier non-parametric survival function estimator. Validation: certified parity evidence. Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray.",
     "name": "kaplan_meier",
     "parameters": {
       "properties": {
@@ -39751,7 +39751,7 @@
     }
   },
   {
-    "description": "Parametric survival model (AFT parameterization). Validation: certified parity evidence.",
+    "description": "Parametric survival model (AFT parameterization). Validation: certified parity evidence. Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray.",
     "name": "survreg",
     "parameters": {
       "properties": {
@@ -39894,7 +39894,7 @@
     }
   },
   {
-    "description": "Log-rank test for equality of survival distributions across groups. Validation: certified parity evidence.",
+    "description": "Log-rank test for equality of survival distributions across groups. Validation: certified parity evidence. Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray.",
     "name": "logrank_test",
     "parameters": {
       "properties": {
@@ -39925,7 +39925,7 @@
     }
   },
   {
-    "description": "Cumulative incidence functions for competing risks (Aalen-Johansen). Validation: certified parity evidence.",
+    "description": "Cumulative incidence functions for competing risks (Aalen-Johansen). Validation: certified parity evidence. Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray.",
     "name": "cuminc",
     "parameters": {
       "properties": {
@@ -39983,7 +39983,7 @@
     }
   },
   {
-    "description": "Fine & Gray (1999) proportional subdistribution hazards model. Validation: certified parity evidence.",
+    "description": "Fine & Gray (1999) proportional subdistribution hazards model. Validation: certified parity evidence. Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray.",
     "name": "finegray",
     "parameters": {
       "properties": {
@@ -40281,7 +40281,7 @@
     }
   },
   {
-    "description": "Kernel density estimation. Validation: certified parity evidence.",
+    "description": "Kernel density estimation. Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference.",
     "name": "kdensity",
     "parameters": {
       "properties": {
@@ -40874,7 +40874,7 @@
     }
   },
   {
-    "description": "Granger causality test. Validation: certified parity evidence.",
+    "description": "Granger causality test. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention.",
     "name": "granger_causality",
     "parameters": {
       "properties": {
@@ -40904,7 +40904,7 @@
     }
   },
   {
-    "description": "Compute impulse response functions from VAR. Validation: certified parity evidence.",
+    "description": "Compute impulse response functions from VAR. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention.",
     "name": "irf",
     "parameters": {
       "properties": {
@@ -40951,7 +40951,7 @@
     }
   },
   {
-    "description": "Structural break detection. Validation: certified parity evidence.",
+    "description": "Structural break detection. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention.",
     "name": "structural_break",
     "parameters": {
       "properties": {
@@ -41064,7 +41064,7 @@
     }
   },
   {
-    "description": "CUSUM test for parameter stability. Validation: certified parity evidence.",
+    "description": "CUSUM test for parameter stability. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention.",
     "name": "cusum_test",
     "parameters": {
       "properties": {
@@ -42626,7 +42626,7 @@
     }
   },
   {
-    "description": "Interactive fixed effects estimator (Bai 2009). Validation: certified parity evidence.",
+    "description": "Interactive fixed effects estimator (Bai 2009). Validation: certified parity evidence. Do NOT use when: T is large relative to N -- the Nickell bias that motivates GMM is O(1/T) and within estimation is fine.",
     "name": "interactive_fe",
     "parameters": {
       "properties": {
@@ -42817,7 +42817,7 @@
     }
   },
   {
-    "description": "Engle-Granger (1987) two-step cointegration test. Validation: certified parity evidence.",
+    "description": "Engle-Granger (1987) two-step cointegration test. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention.",
     "name": "engle_granger",
     "parameters": {
       "properties": {
@@ -42864,7 +42864,7 @@
     }
   },
   {
-    "description": "Johansen (1991) cointegration test. Validation: certified parity evidence.",
+    "description": "Johansen (1991) cointegration test. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention.",
     "name": "johansen",
     "parameters": {
       "properties": {
@@ -42974,7 +42974,7 @@
     }
   },
   {
-    "description": "Fractional response model (Papke & Wooldridge 1996). Validation: certified parity evidence.",
+    "description": "Fractional response model (Papke & Wooldridge 1996). Validation: certified parity evidence. Do NOT use when: the sample is censored (values piled at a limit) rather than truncated (values absent) -- that is a censored-regression problem.",
     "name": "fracreg",
     "parameters": {
       "properties": {
@@ -43028,7 +43028,7 @@
     }
   },
   {
-    "description": "Beta regression (Ferrari & Cribari-Neto 2004). Validation: certified parity evidence.",
+    "description": "Beta regression (Ferrari & Cribari-Neto 2004). Validation: certified parity evidence. Do NOT use when: the sample is censored (values piled at a limit) rather than truncated (values absent) -- that is a censored-regression problem.",
     "name": "betareg",
     "parameters": {
       "properties": {
@@ -43089,7 +43089,7 @@
     }
   },
   {
-    "description": "Bivariate probit model. Validation: certified parity evidence.",
+    "description": "Bivariate probit model. Validation: certified parity evidence. Do NOT use when: the goal is a causal treatment effect under unconfoundedness -- use sp.ipw, sp.aipw or sp.match and let the outcome model be a nuisance.",
     "name": "biprobit",
     "parameters": {
       "properties": {
@@ -44865,7 +44865,7 @@
     }
   },
   {
-    "description": "Truncated regression (MLE). Validation: certified parity evidence.",
+    "description": "Truncated regression (MLE). Validation: certified parity evidence. Do NOT use when: the sample is censored (values piled at a limit) rather than truncated (values absent) -- that is a censored-regression problem.",
     "name": "truncreg",
     "parameters": {
       "properties": {
@@ -44922,7 +44922,7 @@
     }
   },
   {
-    "description": "Seemingly Unrelated Regression (SUR). Validation: certified parity evidence.",
+    "description": "Seemingly Unrelated Regression (SUR). Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference.",
     "name": "sureg",
     "parameters": {
       "properties": {
@@ -45017,7 +45017,7 @@
     }
   },
   {
-    "description": "Three-Stage Least Squares (3SLS). Validation: certified parity evidence.",
+    "description": "Three-Stage Least Squares (3SLS). Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference.",
     "name": "three_sls",
     "parameters": {
       "properties": {
@@ -45494,7 +45494,7 @@
     }
   },
   {
-    "description": "Fit a generalised linear mixed model. Validation: certified parity evidence.",
+    "description": "Fit a generalised linear mixed model. Validation: certified parity evidence. Do NOT use when: the sample is censored (values piled at a limit) rather than truncated (values absent) -- that is a censored-regression problem.",
     "name": "meglm",
     "parameters": {
       "properties": {
@@ -45628,7 +45628,7 @@
     }
   },
   {
-    "description": "Random-effects Poisson regression (Stata ``mepoisson``). Validation: certified parity evidence.",
+    "description": "Random-effects Poisson regression (Stata ``mepoisson``). Validation: certified parity evidence. Do NOT use when: the outcome is a rate with a known exposure -- model the count with an exposure offset rather than the ratio.",
     "name": "mepoisson",
     "parameters": {
       "properties": {
@@ -45678,7 +45678,7 @@
     }
   },
   {
-    "description": "Random-effects negative-binomial regression (Stata ``menbreg``). Validation: certified parity evidence.",
+    "description": "Random-effects negative-binomial regression (Stata ``menbreg``). Validation: certified parity evidence. Do NOT use when: the outcome is a rate with a known exposure -- model the count with an exposure offset rather than the ratio.",
     "name": "menbreg",
     "parameters": {
       "properties": {
@@ -45728,7 +45728,7 @@
     }
   },
   {
-    "description": "Random-effects Gamma GLMM with log link (Stata ``meglm`` ``family(gamma)``). Validation: certified parity evidence.",
+    "description": "Random-effects Gamma GLMM with log link (Stata ``meglm`` ``family(gamma)``). Validation: certified parity evidence. Do NOT use when: the sample is censored (values piled at a limit) rather than truncated (values absent) -- that is a censored-regression problem.",
     "name": "megamma",
     "parameters": {
       "properties": {
@@ -45778,7 +45778,7 @@
     }
   },
   {
-    "description": "Random-effects ordinal logit (Stata ``meologit``, R ``ordinal::clmm``). Validation: certified parity evidence.",
+    "description": "Random-effects ordinal logit (Stata ``meologit``, R ``ordinal::clmm``). Validation: certified parity evidence. Do NOT use when: the goal is a causal treatment effect under unconfoundedness -- use sp.ipw, sp.aipw or sp.match and let the outcome model be a nuisance.",
     "name": "meologit",
     "parameters": {
       "properties": {
@@ -46656,7 +46656,7 @@
     }
   },
   {
-    "description": "Two-class Latent-Class SFA (Orea-Kumbhakar 2004; Greene 2005). Validation: certified parity evidence.",
+    "description": "Two-class Latent-Class SFA (Orea-Kumbhakar 2004; Greene 2005). Validation: certified parity evidence. Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray.",
     "name": "lcsf",
     "parameters": {
       "properties": {
@@ -46786,7 +46786,7 @@
     }
   },
   {
-    "description": "General GMM estimator for arbitrary moment conditions. Validation: certified parity evidence.",
+    "description": "General GMM estimator for arbitrary moment conditions. Validation: certified parity evidence. Do NOT use when: the object of interest is a treatment effect and covariates were chosen by stepwise selection -- use sp.dml, which handles selection with valid inference.",
     "name": "gmm",
     "parameters": {
       "properties": {
@@ -52439,7 +52439,7 @@
     }
   },
   {
-    "description": "Fit an Accelerated Failure Time model by MLE. Validation: certified parity evidence.",
+    "description": "Fit an Accelerated Failure Time model by MLE. Validation: certified parity evidence. Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray.",
     "name": "aft",
     "parameters": {
       "properties": {
@@ -52471,7 +52471,7 @@
     }
   },
   {
-    "description": "Cox proportional hazards with shared gamma frailty. Validation: certified parity evidence.",
+    "description": "Cox proportional hazards with shared gamma frailty. Validation: certified parity evidence. Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray.",
     "name": "cox_frailty",
     "parameters": {
       "properties": {
@@ -52735,7 +52735,7 @@
     }
   },
   {
-    "description": "Fit ARIMA(p,d,q) or SARIMAX. Validation: certified parity evidence.",
+    "description": "Fit ARIMA(p,d,q) or SARIMAX. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention.",
     "name": "arima",
     "parameters": {
       "properties": {
@@ -52881,7 +52881,7 @@
     }
   },
   {
-    "description": "Bayesian VAR with the original Minnesota (Litterman) prior. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Bayesian VAR with the original Minnesota (Litterman) prior. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention.",
     "name": "bvar",
     "parameters": {
       "properties": {
@@ -52994,7 +52994,7 @@
     }
   },
   {
-    "description": "Fit GARCH(p,q) by conditional Gaussian MLE. Validation: certified parity evidence.",
+    "description": "Fit GARCH(p,q) by conditional Gaussian MLE. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention.",
     "name": "garch",
     "parameters": {
       "properties": {
@@ -58005,7 +58005,7 @@
     }
   },
   {
-    "description": "Nonparametric sensitivity for survival / hazard-ratio outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Nonparametric sensitivity for survival / hazard-ratio outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray.",
     "name": "survival_sensitivity",
     "parameters": {
       "properties": {
@@ -64803,7 +64803,7 @@
     }
   },
   {
-    "description": "Segmented regression for interrupted time series. Validation: certified parity evidence.",
+    "description": "Segmented regression for interrupted time series. Validation: certified parity evidence. Do NOT use when: the question is a treatment effect with a control series available -- sp.causal_impact / sp.synth use the control to absorb common shocks that a single-series ITS attributes to the intervention.",
     "name": "its",
     "parameters": {
       "properties": {
