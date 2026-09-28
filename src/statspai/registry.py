@@ -14250,7 +14250,9 @@ def _build_registry() -> None:
                 "scale='link' the treated-observation-weighted mean of the "
                 "cohort x period coefficients (Stata jwdid estat simple, "
                 "predict(xb)); fe='unit' absorbs unit fixed effects like "
-                "jwdid ..., method(ppmlhdfe)."
+                "jwdid ..., method(ppmlhdfe); hettype= and a covariate xvar= "
+                "follow jwdid hettype() and jwdid y x (estat ..., over() via "
+                "etwfe_emfx(by_xvar=True))."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -14261,7 +14263,18 @@ def _build_registry() -> None:
                 ParamSpec("controls", "list", False, None),
                 ParamSpec("cluster", "str", False, None),
                 ParamSpec("alpha", "float", False, 0.05),
-                ParamSpec("xvar", "list", False, None, "R-style alias for controls"),
+                ParamSpec(
+                    "xvar",
+                    "list",
+                    False,
+                    None,
+                    "Effect moderator(s). Linear: R etwfe-style centred "
+                    "moderators. Nonlinear: Stata jwdid y x -- each treatment "
+                    "effect interacted with the covariate demeaned within the "
+                    "hettype cells; a categorical column (category / object / "
+                    "bool) enters as level dummies and etwfe_emfx(by_xvar=True) "
+                    "reports the ATT per level.",
+                ),
                 ParamSpec(
                     "panel",
                     "bool",
@@ -14289,8 +14302,9 @@ def _build_registry() -> None:
                     "(2023) nonlinear ETWFE by MLE and report the average "
                     "marginal effect on the response scale, matching R "
                     "etwfe::emfx. The nonlinear branch requires panel=True "
-                    "and no xvar or weights; it supports both cgroup values "
-                    "(nevertreated adds pre-period cells / event-study leads).",
+                    "and no weights; it supports both cgroup values "
+                    "(nevertreated adds pre-period cells / event-study "
+                    "leads), hettype= and xvar=.",
                     ["gaussian", "poisson", "logit", "binomial"],
                 ),
                 ParamSpec(
@@ -14330,9 +14344,35 @@ def _build_registry() -> None:
                     "'cohort' is R etwfe's cohort-dummy design; 'unit' absorbs "
                     "unit fixed effects like Stata jwdid ..., "
                     "method(ppmlhdfe). Identical on balanced panels; on "
-                    "unbalanced ones fe='cohort' warns. Separated all-zero "
-                    "units stay in N and the cluster count, as jwdid reports.",
+                    "unbalanced ones fe='cohort' warns. What happens to "
+                    "separated all-zero units is set by separated=.",
                     ["cohort", "unit"],
+                ),
+                ParamSpec(
+                    "hettype",
+                    "str",
+                    False,
+                    None,
+                    "Nonlinear families: which cohort x period cells share a "
+                    "coefficient, as Stata jwdid hettype(). None / "
+                    "'timecohort' is the saturated design; 'time', 'cohort', "
+                    "'event' and 'twfe' pool across cohorts, periods, event "
+                    "times, or all cells (robustness checks of an ETWFE "
+                    "table). The linear branch raises for anything but the "
+                    "default.",
+                    ["timecohort", "time", "cohort", "event", "twfe"],
+                ),
+                ParamSpec(
+                    "separated",
+                    "str",
+                    False,
+                    "keep",
+                    "family='poisson', fe='unit': 'keep' leaves separated "
+                    "(all-zero) rows in N, the cluster count and the "
+                    "aggregation weights (the ATT over every treated row); "
+                    "'drop' removes them, which is what jwdid reports "
+                    "whenever ppmlhdfe flags the separation.",
+                    ["keep", "drop"],
                 ),
                 ParamSpec(
                     "scale",
@@ -14367,9 +14407,15 @@ def _build_registry() -> None:
                 "cross-sections) is not yet supported; pass either "
                 "panel=True with cgroup='nevertreated' or panel=False with "
                 "cgroup='notyet'",
-                "family='poisson'/'logit' with xvar, panel=False, or "
-                "cgroup='nevertreated' is not yet supported; these raise "
-                "rather than being silently ignored",
+                "family='poisson'/'logit' with panel=False or weights= is "
+                "not yet supported; these raise rather than being silently "
+                "ignored",
+                "hettype= other than the saturated default is implemented "
+                "for the nonlinear families only",
+                "response-scale SEs under fe='unit' use the profiled delta "
+                "method; Stata jwdid's margins holds the absorbed effects "
+                "fixed (documented convention difference, point estimates "
+                "agree)",
                 "family='poisson'/'logit' reports an average marginal effect "
                 "on the response scale (counts / probability) rather than a "
                 "link-scale coefficient — the R etwfe::emfx convention",

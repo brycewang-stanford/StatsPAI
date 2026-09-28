@@ -30,7 +30,7 @@ import tempfile
 import warnings
 from numbers import Real
 from pathlib import Path
-from typing import Any, List, Optional, Sequence, cast
+from typing import Any, List, Optional, Sequence, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -113,6 +113,63 @@ def _coerce_m_grid(m_grid: Optional[Sequence[float]], *, se_hat: float) -> List[
     return out
 
 
+def _window_filter(moments: Optional[tuple], window: Optional[tuple]):
+    """Restrict ``(beta, sigma, times)`` to event times inside ``window``."""
+    if moments is None or window is None:
+        return moments
+    lo, hi = window
+    beta, sigma, times = moments
+    keep = (times >= lo) & (times <= hi)
+    if not keep.any():
+        return None
+    return beta[keep], sigma[np.ix_(keep, keep)], times[keep]
+
+
+def _coerce_window(window: Any) -> Optional[tuple]:
+    if window is None:
+        return None
+    try:
+        lo, hi = (float(v) for v in window)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            "window must be a (lo, hi) pair of event times.",
+            recovery_hint="e.g. window=(-5, 5) as Stata estat event, window(-5 5).",
+            diagnostics={"window": repr(window)},
+        ) from exc
+    if not (np.isfinite(lo) and np.isfinite(hi)) or lo >= 0 or hi < 0:
+        raise MethodIncompatibility(
+            f"window={window!r} must contain both leads and horizons "
+            "(lo < 0 <= hi).",
+            recovery_hint="e.g. window=(-5, 5).",
+            diagnostics={"window": repr(window)},
+        )
+    return lo, hi
+
+
+def _coerce_l_vec(l_vec: Any, post_times: np.ndarray) -> np.ndarray:
+    """Target weights over the post-treatment event times (HonestDiD
+    ``l_vec``); ``'average'`` puts ``1 / n_post`` on each."""
+    n_post = len(post_times)
+    if isinstance(l_vec, str):
+        if l_vec.strip().lower() in {"average", "mean", "avg"}:
+            return np.full(n_post, 1.0 / n_post)
+        raise MethodIncompatibility(
+            f"l_vec={l_vec!r} is not recognised; pass 'average' or weights.",
+            recovery_hint="e.g. l_vec='average' or l_vec=[0, 0, 1].",
+            diagnostics={"l_vec": l_vec},
+        )
+    lv = np.asarray(l_vec, dtype=float).ravel()
+    if lv.size != n_post or not np.all(np.isfinite(lv)) or not np.any(lv != 0):
+        raise MethodIncompatibility(
+            f"l_vec must hold {n_post} finite weights, not all zero, one per "
+            f"post-treatment event time {[int(t) for t in post_times]}.",
+            recovery_hint="Match the post-treatment periods of the (windowed) "
+            "event study, or pass l_vec='average'.",
+            diagnostics={"l_vec": lv.tolist(), "n_post": n_post},
+        )
+    return lv
+
+
 def honest_did(
     result: CausalResult,
     e: int = 0,
@@ -121,6 +178,8 @@ def honest_did(
     alpha: float = 0.05,
     backend: str = "native",
     honestdid_method: Optional[str] = None,
+    l_vec: Optional[Any] = None,
+    window: Optional[Tuple[float, float]] = None,
 ) -> pd.DataFrame:
     """
     Rambachan & Roth (2023) sensitivity analysis for parallel trends.
@@ -190,6 +249,17 @@ def honest_did(
         ``method='smoothness'``. The native backend implements ``'FLCI'``
         (smoothness) and ``'C-LF'`` / ``'Conditional'`` (relative
         magnitudes); the R backend accepts all four.
+    l_vec : sequence of float or ``'average'``, optional
+        Target ``l' tau_post`` instead of the single period ``e`` (HonestDiD's
+        ``l_vec``): one weight per post-treatment event time of the
+        (windowed) event study, in increasing order.  ``'average'`` is the
+        mean of the post-treatment effects.  ``e`` is ignored when given.
+        Native backend only.
+    window : tuple of (lo, hi), optional
+        Use only the event times with ``lo <= t <= hi`` (inclusive; must
+        straddle zero), e.g. ``(-5, 5)`` for an analysis run on Stata
+        ``estat event, window(-5 5)``.  The leads outside the window no
+        longer calibrate the restriction.  Native backend only.
 
     Returns
     -------
@@ -251,7 +321,15 @@ def honest_did(
     alpha = _require_alpha(alpha)
     backend = _require_string(backend, argument="backend")
     backend_norm = backend.lower().replace("-", "_")
+    win = _coerce_window(window)
     if backend_norm in {"r", "honestdid", "honest_did", "honestdid_r"}:
+        if l_vec is not None or win is not None:
+            raise MethodIncompatibility(
+                "l_vec= and window= are implemented by backend='native'.",
+                recovery_hint="Use backend='native' (it matches R HonestDiD "
+                "on identical inputs), or drop l_vec / window.",
+                diagnostics={"backend": backend},
+            )
         return _honest_did_r_backend(
             result=result,
             e=e,
@@ -298,19 +376,42 @@ def honest_did(
         result = etwfe_emfx(result, type="event", include_leads=True)
 
     es = _extract_event_study(result)
+    if win is not None:
+        es = es[(es["relative_time"] >= win[0]) & (es["relative_time"] <= win[1])]
     z_crit = stats.norm.ppf(1 - alpha / 2)
+    moments = _window_filter(event_study_moments(result), win)
 
-    # Find the target period
-    target_row = es[es["relative_time"] == e]
-    if len(target_row) == 0:
-        raise DataInsufficient(
-            f"No event study estimate at relative time e={e}",
-            recovery_hint="Choose an `e` value present in the event-study table.",
-            diagnostics={"e": e, "available": es["relative_time"].tolist()},
-        )
-
-    theta_hat = float(target_row["att"].iloc[0])
-    se_hat = float(target_row["se"].iloc[0])
+    # Target: the period e, or l' tau_post over the post-treatment periods.
+    lv: Optional[np.ndarray] = None
+    if l_vec is not None:
+        if moments is not None:
+            post_t = moments[2][moments[2] >= 0]
+        else:
+            post_t = np.sort(
+                es.loc[es["relative_time"] >= 0, "relative_time"].to_numpy(dtype=int)
+            )
+        lv = _coerce_l_vec(l_vec, post_t)
+        if moments is not None:
+            b, S, t = moments
+            pm = t >= 0
+            theta_hat = float(lv @ b[pm])
+            se_hat = float(np.sqrt(lv @ S[np.ix_(pm, pm)] @ lv))
+        else:
+            post_es = es[es["relative_time"] >= 0].sort_values("relative_time")
+            theta_hat = float(lv @ post_es["att"].to_numpy(dtype=float))
+            se_hat = float(np.sqrt(lv**2 @ post_es["se"].to_numpy(dtype=float) ** 2))
+        # the worst-case fallback drifts to the furthest weighted period
+        e = int(post_t[np.flatnonzero(lv != 0)].max())
+    else:
+        target_row = es[es["relative_time"] == e]
+        if len(target_row) == 0:
+            raise DataInsufficient(
+                f"No event study estimate at relative time e={e}",
+                recovery_hint="Choose an `e` value present in the event-study table.",
+                diagnostics={"e": e, "available": es["relative_time"].tolist()},
+            )
+        theta_hat = float(target_row["att"].iloc[0])
+        se_hat = float(target_row["se"].iloc[0])
 
     # Pre-treatment estimates (for calibrating M)
     pre = es[es["relative_time"] < 0].sort_values("relative_time")
@@ -327,14 +428,14 @@ def honest_did(
         # recoverable from a Callaway-Sant'Anna fit's influence functions;
         # when it is not (no influence functions attached) we fall back to the
         # worst-case-bias approximation below and say so.
-        _moments = event_study_moments(result)
+        _moments = moments
         if _moments is not None:
             _beta, _sigma, _times = _moments
             _post_mask = _times >= 0
             _n_pre = int((~_post_mask).sum())
             _post_times = _times[_post_mask]
-            if _n_pre >= 1 and e in set(_post_times.tolist()):
-                _l_post = (_post_times == e).astype(float)
+            if _n_pre >= 1 and (lv is not None or e in set(_post_times.tolist())):
+                _l_post = lv if lv is not None else (_post_times == e).astype(float)
                 # Reorder to pre-then-post, which is what flci_delta_sd wants.
                 _order = np.concatenate(
                     [np.where(~_post_mask)[0], np.where(_post_mask)[0]]
@@ -398,8 +499,7 @@ def honest_did(
     elif method == "relative_magnitude":
         # Preferred path: the Rambachan-Roth / ARP confidence set, which needs
         # the joint event-study covariance (as the FLCI does).
-        _moments = event_study_moments(result)
-        _rm = _native_rm_table(_moments, e, m_grid, alpha, honestdid_method)
+        _rm = _native_rm_table(moments, e, m_grid, alpha, honestdid_method, l_vec=lv)
         if _rm is not None:
             return _rm
 
@@ -447,7 +547,9 @@ def honest_did(
     return _out
 
 
-def _rm_inputs(moments: Optional[tuple], e: int) -> Optional[tuple]:
+def _rm_inputs(
+    moments: Optional[tuple], e: int, l_vec: Optional[np.ndarray] = None
+) -> Optional[tuple]:
     """(betahat, sigma, n_pre, n_post, l_post) in HonestDiD order, or None."""
     if moments is None:
         return None
@@ -455,7 +557,9 @@ def _rm_inputs(moments: Optional[tuple], e: int) -> Optional[tuple]:
     post_mask = times >= 0
     n_pre = int((~post_mask).sum())
     post_times = times[post_mask]
-    if n_pre < 1 or e not in set(post_times.tolist()):
+    if n_pre < 1 or (l_vec is None and e not in set(post_times.tolist())):
+        return None
+    if l_vec is not None and len(l_vec) != int(post_mask.sum()):
         return None
     order = np.concatenate([np.where(~post_mask)[0], np.where(post_mask)[0]])
     return (
@@ -463,7 +567,7 @@ def _rm_inputs(moments: Optional[tuple], e: int) -> Optional[tuple]:
         sigma[np.ix_(order, order)],
         n_pre,
         int(post_mask.sum()),
-        (post_times == e).astype(float),
+        (post_times == e).astype(float) if l_vec is None else np.asarray(l_vec),
     )
 
 
@@ -473,9 +577,10 @@ def _native_rm_table(
     m_grid: Sequence[float],
     alpha: float,
     honestdid_method: Optional[str],
+    l_vec: Optional[np.ndarray] = None,
 ) -> Optional[pd.DataFrame]:
     """Native Delta^RM confidence sets over ``m_grid`` (None if no covariance)."""
-    inputs = _rm_inputs(moments, e)
+    inputs = _rm_inputs(moments, e, l_vec)
     if inputs is None:
         return None
     b, s, n_pre, n_post, l_post = inputs

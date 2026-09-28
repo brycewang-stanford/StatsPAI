@@ -33691,7 +33691,7 @@
     ],
     "category": "causal",
     "cost_profile": "One saturated OLS with cohorts x periods interaction columns.",
-    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale, or with scale='link' the treated-observation-weighted mean of the cohort x period coefficients (Stata jwdid estat simple, predict(xb)); fe='unit' absorbs unit fixed effects like jwdid ..., method(ppmlhdfe). Validation: certified evidence with scoped limitations. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with xvar, panel=False, or cgroup='nevertreated' is not yet supported; these raise rather than being silently ignored; family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention; weights= is not yet supported together with xvar or with family='poisson'/'logit'; both combinations raise; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: One saturated OLS with cohorts x periods interaction columns.",
+    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale, or with scale='link' the treated-observation-weighted mean of the cohort x period coefficients (Stata jwdid estat simple, predict(xb)); fe='unit' absorbs unit fixed effects like jwdid ..., method(ppmlhdfe); hettype= and a covariate xvar= follow jwdid hettype() and jwdid y x (estat ..., over() via etwfe_emfx(by_xvar=True)). Validation: certified evidence with scoped limitations. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with panel=False or weights= is not yet supported; these raise rather than being silently ignored; hettype= other than the saturated default is implemented for the nonlinear families only; response-scale SEs under fe='unit' use the profiled delta method; Stata jwdid's margins holds the absorbed effects fixed (documented convention difference, point estimates agree); family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention; weights= is not yet supported together with xvar or with family='poisson'/'logit'; both combinations raise; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: One saturated OLS with cohorts x periods interaction columns.",
     "evidence": {
       "grade": "T2",
       "grade_basis": "recorded",
@@ -33757,7 +33757,9 @@
     "inherits_from": "did",
     "limitations": [
       "cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'",
-      "family='poisson'/'logit' with xvar, panel=False, or cgroup='nevertreated' is not yet supported; these raise rather than being silently ignored",
+      "family='poisson'/'logit' with panel=False or weights= is not yet supported; these raise rather than being silently ignored",
+      "hettype= other than the saturated default is implemented for the nonlinear families only",
+      "response-scale SEs under fe='unit' use the profiled delta method; Stata jwdid's margins holds the absorbed effects fixed (documented convention difference, point estimates agree)",
       "family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention",
       "weights= is not yet supported together with xvar or with family='poisson'/'logit'; both combinations raise",
       "cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'."
@@ -33807,7 +33809,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale, or with scale='link' the treated-observation-weighted mean of the cohort x period coefficients (Stata jwdid estat simple, predict(xb)); fe='unit' absorbs unit fixed effects like jwdid ..., method(ppmlhdfe). Validation: certified evidence with scoped limitations. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with xvar, panel=False, or cgroup='nevertreated' is not yet supported; these raise rather than being silently ignored; family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention; weights= is not yet supported together with xvar or with family='poisson'/'logit'; both combinations raise; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: One saturated OLS with cohorts x periods interaction columns.",
+      "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale, or with scale='link' the treated-observation-weighted mean of the cohort x period coefficients (Stata jwdid estat simple, predict(xb)); fe='unit' absorbs unit fixed effects like jwdid ..., method(ppmlhdfe); hettype= and a covariate xvar= follow jwdid hettype() and jwdid y x (estat ..., over() via etwfe_emfx(by_xvar=True)). Validation: certified evidence with scoped limitations. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with panel=False or weights= is not yet supported; these raise rather than being silently ignored; hettype= other than the saturated default is implemented for the nonlinear families only; response-scale SEs under fe='unit' use the profiled delta method; Stata jwdid's margins holds the absorbed effects fixed (documented convention difference, point estimates agree); family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention; weights= is not yet supported together with xvar or with family='poisson'/'logit'; both combinations raise; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: One saturated OLS with cohorts x periods interaction columns.",
       "name": "etwfe",
       "parameters": {
         "properties": {
@@ -33857,7 +33859,7 @@
             "x-statspai-role": "dataframe"
           },
           "family": {
-            "description": "Outcome model. None/'gaussian' is the linear ETWFE. 'poisson' (counts) and 'logit' (binary) fit Wooldridge (2023) nonlinear ETWFE by MLE and report the average marginal effect on the response scale, matching R etwfe::emfx. The nonlinear branch requires panel=True and no xvar or weights; it supports both cgroup values (nevertreated adds pre-period cells / event-study leads).",
+            "description": "Outcome model. None/'gaussian' is the linear ETWFE. 'poisson' (counts) and 'logit' (binary) fit Wooldridge (2023) nonlinear ETWFE by MLE and report the average marginal effect on the response scale, matching R etwfe::emfx. The nonlinear branch requires panel=True and no weights; it supports both cgroup values (nevertreated adds pre-period cells / event-study leads), hettype= and xvar=.",
             "enum": [
               "gaussian",
               "poisson",
@@ -33867,7 +33869,7 @@
             "type": "string"
           },
           "fe": {
-            "description": "family='poisson' only: heterogeneity control. None / 'cohort' is R etwfe's cohort-dummy design; 'unit' absorbs unit fixed effects like Stata jwdid ..., method(ppmlhdfe). Identical on balanced panels; on unbalanced ones fe='cohort' warns. Separated all-zero units stay in N and the cluster count, as jwdid reports.",
+            "description": "family='poisson' only: heterogeneity control. None / 'cohort' is R etwfe's cohort-dummy design; 'unit' absorbs unit fixed effects like Stata jwdid ..., method(ppmlhdfe). Identical on balanced panels; on unbalanced ones fe='cohort' warns. What happens to separated all-zero units is set by separated=.",
             "enum": [
               "cohort",
               "unit"
@@ -33888,6 +33890,17 @@
             ],
             "x-statspai-role": "column"
           },
+          "hettype": {
+            "description": "Nonlinear families: which cohort x period cells share a coefficient, as Stata jwdid hettype(). None / 'timecohort' is the saturated design; 'time', 'cohort', 'event' and 'twfe' pool across cohorts, periods, event times, or all cells (robustness checks of an ETWFE table). The linear branch raises for anything but the default.",
+            "enum": [
+              "timecohort",
+              "time",
+              "cohort",
+              "event",
+              "twfe"
+            ],
+            "type": "string"
+          },
           "panel": {
             "default": true,
             "description": "If False, treat data as repeated cross-section",
@@ -33902,6 +33915,15 @@
             ],
             "type": "string"
           },
+          "separated": {
+            "default": "keep",
+            "description": "family='poisson', fe='unit': 'keep' leaves separated (all-zero) rows in N, the cluster count and the aggregation weights (the ATT over every treated row); 'drop' removes them, which is what jwdid reports whenever ppmlhdfe flags the separation.",
+            "enum": [
+              "keep",
+              "drop"
+            ],
+            "type": "string"
+          },
           "time": {
             "description": "Time period column.",
             "type": "string",
@@ -33913,7 +33935,7 @@
             "x-statspai-role": "column"
           },
           "xvar": {
-            "description": "R-style alias for controls",
+            "description": "Effect moderator(s). Linear: R etwfe-style centred moderators. Nonlinear: Stata jwdid y x -- each treatment effect interacted with the covariate demeaned within the hettype cells; a categorical column (category / object / bool) enters as level dummies and etwfe_emfx(by_xvar=True) reports the ATT per level.",
             "items": {
               "type": "string"
             },
@@ -33942,8 +33964,9 @@
       "Stata parity module 17_etwfe",
       "Cross-language parity (bit-exact) vs etwfe::etwfe + emfx [R version 4.5.2 (2025-10-31), etwfe 0.6.2]; tolerance rel_est<=1e-06, rel_se<=0.001; parity module 17_etwfe -- tests/r_parity/17_etwfe.py",
       "tests/reference_parity/test_etwfe_glm_parity.py",
+      "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
       "tests/reference_parity/test_event_study_vcov_R_parity.py",
-      "tests/reference_parity/test_track_a_alias_equivalence.py",
+      "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
       "Default cgroup='notyet' and cgroup='nevertreated' are pinned against R etwfe / Stata jwdid simple ATT values on did::mpdta. The historical cohort-share aggregation remains available via etwfe_emfx(..., weighting='cohort').",
       "Per-cohort ATTs (result.detail, etwfe_emfx(type='group') and every weighting='cohort' aggregation) are pinned against R etwfe::emfx(type='group') and Stata jwdid, estat group under both comparison groups by module 17_etwfe. They were read off an unsaturated cohort x post regression through 1.26.0 and were wrong by up to 37%; see the 1.27.0 CHANGELOG correctness entry. The pooled ATT is unchanged. weights= is pinned on the castle-doctrine and no-fault-divorce panels: estimates under agg_weights='estimation' reproduce Stata jwdid [pw=] + estat (simple / event / group / calendar) to ~1e-12 and the never-treated simple aggregate equals the weighted Callaway-Sant'Anna simple ATT to 1e-14; agg_weights='unit' reproduces R etwfe::emfx with weights= to ~1e-12 (SEs to ~3e-6, marginaleffects' numerical Jacobian). Stata SEs differ from R/StatsPAI only by the documented sqrt((n - K_R) / (n - K_Stata)) degrees-of-freedom factor (tests/test_etwfe_weights_reference.py)."
     ],
@@ -39413,7 +39436,8 @@
     "typical_n_min": 50,
     "validation_notes": [
       "tests/test_es_inference.py: the diagonal reproduces every estimator's reported SEs to 1e-12; cross-horizon blocks checked against a cluster bootstrap",
-      "Cross-language parity (bit-exact) vs did::aggte(type='dynamic') 2.3.0 influence-function covariance; fixest::sunab 0.14.0 (A V A', cohort shares fixed); fixest::feols i(rel, ref=-1) 0.14.0; did2s::did2s 1.2.1; etwfe::emfx(type='event') 0.6.2; Stata 18 did_imputation (Borusyak, SSC, 2023-11-22) [R version 4.5.2 (2025-10-31), Stata 18, did 2.3.0, did2s 1.2.1, etwfe 0.6.2, fixest 0.14.0, marginaleffects 0.32.0]; tolerance full joint covariance (every off-diagonal entry) 1e-9 rel (observed 3.4e-15 cs / 5.1e-13 twfe / 8.9e-11 sunab / 6.7e-11 did2s), 1e-8 did_imputation (observed 1.2e-9), 1e-6 etwfe (observed 3.4e-9 not-yet / 8.1e-8 never); coefficients 1e-9 (observed <= 3.3e-10) -- tests/reference_parity/test_event_study_vcov_R_parity.py"
+      "Cross-language parity (bit-exact) vs did::aggte(type='dynamic') 2.3.0 influence-function covariance; fixest::sunab 0.14.0 (A V A', cohort shares fixed); fixest::feols i(rel, ref=-1) 0.14.0; did2s::did2s 1.2.1; etwfe::emfx(type='event') 0.6.2; Stata 18 did_imputation (Borusyak, SSC, 2023-11-22) [R version 4.5.2 (2025-10-31), Stata 18, did 2.3.0, did2s 1.2.1, etwfe 0.6.2, fixest 0.14.0, marginaleffects 0.32.0]; tolerance full joint covariance (every off-diagonal entry) 1e-9 rel (observed 3.4e-15 cs / 5.1e-13 twfe / 8.9e-11 sunab / 6.7e-11 did2s), 1e-8 did_imputation (observed 1.2e-9), 1e-6 etwfe (observed 3.4e-9 not-yet / 8.1e-8 never); coefficients 1e-9 (observed <= 3.3e-10) -- tests/reference_parity/test_event_study_vcov_R_parity.py",
+      "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -43897,6 +43921,10 @@
             ],
             "type": "string"
           },
+          "l_vec": {
+            "description": "Target ``l' tau_post`` instead of the single period ``e`` (HonestDiD's ``l_vec``): one weight per post-treatment event time of the (windowed) event study, in increasing order. ``'average'`` is the mean of the post-treatment effects. ``e`` is ignored when given. Native backend only.",
+            "type": "string"
+          },
           "m_grid": {
             "description": "Grid of M values (maximum violation magnitude) to evaluate.",
             "items": {
@@ -43916,6 +43944,13 @@
           "result": {
             "description": "A fitted DID result that contains event study estimates in ``result.model_info['event_study']``.",
             "type": "string"
+          },
+          "window": {
+            "description": "Use only the event times with ``lo <= t <= hi`` (inclusive; must straddle zero), e.g. ``(-5, 5)`` for an analysis run on Stata ``estat event, window(-5 5)``. The leads outside the window no longer calibrate the restriction. Native backend only.",
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
           }
         },
         "required": [
@@ -45650,6 +45685,11 @@
             "description": "Significance level for confidence intervals.",
             "type": "number"
           },
+          "by_xvar": {
+            "default": false,
+            "description": "Nonlinear fits with one categorical ``xvar``: report the aggregation per level of the covariate (R ``emfx(by_xvar = TRUE)``, Stata ``estat ..., over()``); ``detail`` gains a ``level`` column.",
+            "type": "boolean"
+          },
           "include_leads": {
             "default": false,
             "description": "For ``type='event'`` and ``type='calendar'``, whether to include pre-treatment relative times (``rel_time < 0``) in the output. These coefficients identify pre-trends and are informative for parallel-trends inspection. Default ``False`` for backward compatibility with earlier versions; set ``True`` for full event-study output matching the R ``etwfe::emfx(type='event')`` default. ``rel_time = -1`` is always the reference category and is excluded.",
@@ -45701,6 +45741,7 @@
       "Stata parity module 17_etwfe",
       "Cross-language parity (bit-exact) vs etwfe::etwfe + emfx [R version 4.5.2 (2025-10-31), etwfe 0.6.2]; tolerance rel_est<=1e-06, rel_se<=0.001; parity module 17_etwfe -- tests/r_parity/17_etwfe.py",
       "tests/reference_parity/test_etwfe_glm_parity.py",
+      "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
       "tests/reference_parity/test_track_a_alias_equivalence.py"
     ],
     "validation_status": "certified"

@@ -51,6 +51,38 @@ All notable changes to StatsPAI will be documented in this file.
   profiled delta method and differ from `jwdid`'s `margins`, which holds
   the absorbed effects fixed and differentiates through `ppmlhdfe`'s
   `_cons` normalisation (0.0262 vs 0.0318 there; point estimates agree).
+- **Nonlinear ETWFE covers the rest of a jwdid table: `hettype=`,
+  `xvar=`, `separated=`.** `sp.etwfe(family='poisson' | 'logit',
+  hettype='event' | 'cohort' | 'time' | 'twfe')` pools the cohort x period
+  cells as `jwdid, hettype()`; `xvar=` follows `jwdid y x` (each effect
+  moderated by the covariate demeaned within the hettype cells, plus
+  covariate-by-period and, for time-varying covariates, covariate-by-cohort
+  terms), a categorical column entering as `i.x` level dummies, and
+  `sp.etwfe_emfx(res, ..., by_xvar=True)` reports every aggregation per
+  level (`estat ..., over()`, R `emfx(by_xvar = TRUE)`). Linearly
+  dependent columns are omitted as `ppmlhdfe` does (a covariate level
+  missing from one cohort used to stall IRLS for 1,000 iterations and
+  return NaN). `separated='keep' | 'drop'` (fe='unit') decides whether
+  separated all-zero rows stay in `N`, the cluster count and the
+  aggregation weights: jwdid drops them exactly when `ppmlhdfe` flags the
+  separation, which it does on some panels and not on others, so the
+  published number depends on it. Against Stata `jwdid` v2.201 /
+  `ppmlhdfe` 2.3.0 on a new fixture (13 specifications: every hettype,
+  `never`, categorical and time-varying continuous covariates) link-scale
+  estimates agree to 2e-14, SEs to 1e-10 relative, the response-scale
+  point estimate to 2e-7 (`test_etwfe_poisson_jwdid_parity.py`); on the
+  replication panel, Appendix Table 3's hettype columns and Figure 4's
+  `over()` ATTs match to 6 digits. The nonlinear design moved to
+  `did/_etwfe_glm_design.py` (with `_etwfe_glm_fit.py`,
+  `_etwfe_glm_emfx.py`); `sp.etwfe(hettype=)` on the linear branch raises.
+- **`sp.honest_did(l_vec=, window=)`.** `l_vec` targets `l' tau_post`
+  (HonestDiD's `l_vec`; `'average'` for the mean post-treatment effect)
+  instead of a single period; `window=(lo, hi)` restricts the event study
+  first, as an analysis run on `estat event, window()`. Against Stata
+  `honestdid` 1.3.0 the FLCI agrees to 3e-6 and the Conditional
+  relative-magnitudes bounds to within one grid step
+  (`test_honest_did_lvec_window_Stata_parity.py`). Native backend only; the
+  R backend raises when either is passed.
 - **Poisson / logit ETWFE event studies carry their joint covariance.**
   `model_info['event_study_vcov']` is `G V G'` over the event-time
   aggregates (leads and horizons share one regression), on the fit's

@@ -36,9 +36,16 @@ leads and horizons covary); it is ``model_info['event_study_vcov']``, the
 matrix ``sp.event_study_vcov``, ``sp.pretrends_test`` and ``sp.honest_did``
 consume.
 
-Aggregation weights are the treated observations of each cell, separated
-(all-zero) rows included, as in ``jwdid``: a separated row's fitted mean and
-marginal effect are exactly zero, so it enters the denominator only.
+Aggregation weights are the treated observations of each cell.  With
+``fe='unit'`` separated (all-zero) rows are kept in them by default
+(``separated='keep'``): a separated row's fitted mean and marginal effect
+are exactly zero, so on the response scale it enters the denominator only.
+``separated='drop'`` removes them from the weights, ``N`` and the cluster
+count, which is what ``jwdid`` reports whenever ``ppmlhdfe`` flags the
+separation (``estat`` averages over ``e(sample)``).  ``hettype`` and
+``xvar`` are built in :mod:`._etwfe_glm_design`; the fit helpers live in
+:mod:`._etwfe_glm_fit` and the aggregation-serving code in
+:mod:`._etwfe_glm_emfx`.
 
 Response-scale SEs under ``fe='unit'`` are a documented convention
 difference from ``jwdid``.  StatsPAI profiles the unit effect (the Poisson
@@ -62,174 +69,20 @@ from scipy import stats
 
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
-
-#: Non-identity families supported by ``sp.etwfe(family=...)``, mapped to
-#: their ``statsmodels`` family constructor.  ``None``/``'gaussian'`` keeps
-#: the historical linear OLS path untouched.
-_ETWFE_GLM_FAMILIES = {
-    "poisson": "Poisson",
-    "logit": "Binomial",
-    "binomial": "Binomial",
-}
-
-_SCALES = ("response", "link")
-
-
-def normalise_scale(scale: Optional[str]) -> str:
-    """Validate ``scale=`` ('response' | 'link'; 'xb'/'eta' alias 'link')."""
-    if scale is None:
-        return "response"
-    key = str(scale).strip().lower()
-    if key in {"xb", "eta", "linear_predictor", "log"}:
-        key = "link"
-    if key in {"mu", "ame", "count", "probability"}:
-        key = "response"
-    if key not in _SCALES:
-        raise MethodIncompatibility(
-            f"scale={scale!r} is not recognised; use 'response' or 'link'.",
-            recovery_hint="scale='link' reports the treated-observation-"
-            "weighted average of the cohort x period coefficients (Stata "
-            "estat simple, predict(xb)); 'response' the average marginal "
-            "effect.",
-            diagnostics={"scale": scale},
-        )
-    return key
-
-
-def normalise_glm_fe(fe: Optional[str], fam_key: str) -> str:
-    """Validate ``fe=`` for the nonlinear branch ('cohort' | 'unit')."""
-    key = "cohort" if fe is None else str(fe).strip().lower()
-    if key in {"ivar", "id", "individual"}:
-        key = "unit"
-    if key in {"gvar", "group", "mundlak"}:
-        key = "cohort"
-    if key not in {"cohort", "unit"}:
-        raise MethodIncompatibility(
-            f"fe={fe!r} is not recognised; use 'cohort' or 'unit'.",
-            recovery_hint="fe='cohort' is R etwfe's design; fe='unit' "
-            "absorbs unit fixed effects like Stata jwdid ..., "
-            "method(ppmlhdfe).",
-            diagnostics={"fe": fe},
-        )
-    if key == "unit" and fam_key != "poisson":
-        raise MethodIncompatibility(
-            f"fe='unit' is only available for family='poisson'; a {fam_key} "
-            "model with unit effects suffers the incidental-parameters bias.",
-            recovery_hint="Use fe='cohort' (Wooldridge's pooled Mundlak form) "
-            "for binary outcomes.",
-            diagnostics={"family": fam_key, "fe": fe},
-        )
-    return key
-
-
-def _normalise_glm_cgroup(cgroup: str) -> str:
-    key = str(cgroup).strip().lower()
-    if key in {"notyet", "notyettreated", "not_yet"}:
-        return "notyet"
-    if key in {"never", "nevertreated", "never_treated"}:
-        return "never"
-    raise MethodIncompatibility(
-        f"cgroup={cgroup!r} is not recognised; use 'notyet' or 'nevertreated'.",
-        recovery_hint="cgroup='notyet' (default) or cgroup='nevertreated'.",
-        diagnostics={"cgroup": cgroup},
-    )
-
-
-def _cluster_sandwich(
-    scores: np.ndarray,
-    bread_inv: np.ndarray,
-    cl_codes: np.ndarray,
-    n_clusters: int,
-    factor: float,
-) -> np.ndarray:
-    """``factor * A^{-1} (sum_g s_g s_g') A^{-1}`` with per-cluster sums."""
-    G = int(cl_codes.max()) + 1 if cl_codes.size else 0
-    S = np.column_stack(
-        [
-            np.bincount(cl_codes, weights=scores[:, j], minlength=G)
-            for j in range(scores.shape[1])
-        ]
-    )
-    meat = S.T @ S
-    return factor * (bread_inv @ meat @ bread_inv)
-
-
-def _fit_poisson_unit_fe(
-    y: np.ndarray,
-    X: np.ndarray,
-    unit_codes: np.ndarray,
-    cl_codes: np.ndarray,
-    n_clusters_full: int,
-    n_full: int,
-) -> Dict[str, Any]:
-    """PPML with the unit effect absorbed; ``fe='unit'``.
-
-    Separated rows (units whose outcome is zero in every period, and rows a
-    single regressor predicts to be zero) are removed before IRLS, as in
-    Stata ``ppmlhdfe``; they carry no information about the slopes and their
-    fitted mean is exactly zero.  They stay in ``N`` and in the cluster count
-    that enters the ``G/(G-1)`` factor, which is how ``jwdid`` reports its
-    ``ppmlhdfe`` fits (the replication-package tables print the full-sample
-    ``N``).
-
-    The small-sample factor is ``G/(G-1)`` alone, Stata ``ppmlhdfe``'s
-    clustered convention (and ``sp.ppmlhdfe``'s): with 26 clusters and 18
-    regressors a ``(N-1)/(N-K)`` term would inflate every SE by 3.5%
-    relative to ``jwdid``.
-    """
-    from ..regression.count import _ppml_hdfe_irls, _ppml_separation_mask
-
-    keep, sep_counts = _ppml_separation_mask(y, X, [unit_codes])
-    if not keep.any():
-        raise DataInsufficient(
-            "etwfe(family='poisson', fe='unit'): every unit has an all-zero "
-            "outcome; nothing to estimate.",
-            recovery_hint="Check the outcome column.",
-            diagnostics={"n_separated": int(len(y))},
-        )
-    Xk = X[keep]
-    live = np.flatnonzero(np.any(Xk != 0, axis=0))
-    beta_live, mu, converged, n_iter, X_dm = _ppml_hdfe_irls(
-        y[keep],
-        Xk[:, live],
-        fe_indices_list=[unit_codes[keep]],
-        maxiter=1000,
-        tol=1e-10,
-    )
-    if not converged:
-        warnings.warn(
-            "etwfe(family='poisson', fe='unit'): PPML did not converge; "
-            "estimates may be unreliable.",
-            stacklevel=3,
-        )
-    yk = y[keep]
-    bread = X_dm.T @ (mu[:, None] * X_dm)
-    try:
-        bread_inv = np.linalg.inv(bread)
-    except np.linalg.LinAlgError as exc:
-        raise ConvergenceFailure(
-            "etwfe(family='poisson', fe='unit'): singular information matrix "
-            "(collinear cohort x period cells or controls).",
-            recovery_hint="Drop collinear controls or check the cohort " "timing.",
-            diagnostics={"n_obs": int(keep.sum())},
-        ) from exc
-    k = len(live)
-    G = int(n_clusters_full)
-    factor = G / (G - 1.0) if G > 1 else 1.0
-    vcov = _cluster_sandwich(
-        X_dm * (yk - mu)[:, None], bread_inv, cl_codes[keep], G, factor
-    )
-    return {
-        "keep": keep,
-        "live": live,
-        "beta": beta_live,
-        "vcov": vcov,
-        "mu": mu,
-        "converged": bool(converged),
-        "n_iter": int(n_iter),
-        "sep_counts": sep_counts,
-        "ssc": {"n": int(n_full), "k": int(k), "G": G, "factor": float(factor)},
-    }
+from ._etwfe_glm_design import (  # noqa: F401 - re-exported
+    _ETWFE_GLM_FAMILIES,
+    _SCALES,
+    _normalise_glm_cgroup,
+    build_glm_design,
+)
+from ._etwfe_glm_design import is_categorical as _is_categorical
+from ._etwfe_glm_design import (  # noqa: F401 - re-exported
+    normalise_glm_fe,
+    normalise_hettype,
+    normalise_scale,
+)
+from ._etwfe_glm_emfx import etwfe_glm_emfx  # noqa: F401 - re-exported
+from ._etwfe_glm_fit import _fit_poisson_unit_fe, _independent_columns
 
 
 def etwfe_glm(
@@ -245,19 +98,24 @@ def etwfe_glm(
     cgroup: str = "notyet",
     fe: Optional[str] = None,
     scale: str = "response",
+    hettype: Optional[str] = None,
+    xvar: Optional[List[str]] = None,
+    separated: str = "keep",
 ) -> CausalResult:
     """Nonlinear ETWFE — Wooldridge (2023) staggered DiD with a link function.
 
-    See the module docstring for the design.  ``controls`` enter the linear
-    index additively, without cohort / period / treatment interactions --
-    the role of Stata ``jwdid``'s ``exovar()``.
+    See the module docstring for the design and :mod:`._etwfe_glm_design`
+    for ``hettype`` / ``xvar``.  ``controls`` enter the linear index
+    additively, without cohort / period / treatment interactions -- the
+    role of Stata ``jwdid``'s ``exovar()``.
 
     Verified against R ``etwfe`` 0.6.2 (``fe='cohort'``) on a simulated
     count panel: simple AME matches to 1e-10 and every event-time AME to
-    1e-6; see ``tests/reference_parity/test_etwfe_glm_parity.py``.  The
-    ``fe='unit'`` link-scale coefficients match an explicit
-    ``sp.fepois`` / ``sp.ppmlhdfe`` fit of the same cells with the unit
-    effect absorbed (``tests/test_etwfe_nonlinear.py``).
+    1e-6; see ``tests/reference_parity/test_etwfe_glm_parity.py``.  With
+    ``fe='unit'``, every ``hettype`` and categorical / continuous ``xvar``
+    matches Stata ``jwdid ..., method(ppmlhdfe)`` (``estat simple`` on both
+    scales, ``estat event``, ``estat simple, over()``); see
+    ``tests/reference_parity/test_etwfe_poisson_jwdid_parity.py``.
     """
     try:
         import statsmodels.api as sm
@@ -279,10 +137,43 @@ def etwfe_glm(
     scale = normalise_scale(scale)
     fe_mode = normalise_glm_fe(fe, fam_key)
     cg = _normalise_glm_cgroup(cgroup)
+    het = normalise_hettype(hettype)
+    sep_mode = str(separated).strip().lower()
+    if sep_mode not in {"keep", "drop"}:
+        raise MethodIncompatibility(
+            f"separated={separated!r} is not recognised; use 'keep' or 'drop'.",
+            recovery_hint="'keep' (default) keeps separated rows in the "
+            "aggregation weights, N and the cluster count; 'drop' removes "
+            "them, as jwdid does whenever ppmlhdfe flags the separation.",
+            diagnostics={"separated": separated},
+        )
+    if sep_mode == "drop" and fe_mode != "unit":
+        raise MethodIncompatibility(
+            "separated='drop' applies to fe='unit' (the only design that "
+            "separates units).",
+            recovery_hint="Pass fe='unit', or drop separated=.",
+            diagnostics={"separated": separated, "fe": fe_mode},
+        )
+    xvar_list: List[str] = []
+    if xvar is not None:
+        xvar_list = [xvar] if isinstance(xvar, str) else list(xvar)
+        for xv in xvar_list:
+            if xv not in data.columns:
+                raise KeyError(f"xvar {xv!r} not found in data.columns")
 
     df = data.copy()
     df["_ft"] = df[first_treat].replace(0, np.nan)
     df["_y"] = df[y].astype(float)
+
+    # Estimation sample first: covariates are demeaned over it (jwdid's
+    # touse), so rows a regressor cannot use must go before the design.
+    usable = np.isfinite(df["_y"].to_numpy(dtype=float))
+    for c in list(controls or []) + xvar_list:
+        col = df[c]
+        usable &= col.notna().to_numpy()
+        if not _is_categorical(col):
+            usable &= np.isfinite(col.to_numpy(dtype=float))
+    df = df.loc[usable].reset_index(drop=True)
 
     periods = sorted(df[time].unique())
     cohorts = sorted(df.loc[df["_ft"].notna(), "_ft"].unique())
@@ -320,78 +211,45 @@ def etwfe_glm(
             diagnostics={"family": family},
         )
 
-    # ── Design ──────────────────────────────────────────────────────────
-    # fe='cohort': intercept + cohort dummies (never-treated omitted) +
-    # period dummies (first omitted) + cells, mirroring R etwfe's
-    #   ~ .Dtreat:i(gvar, i.tvar, ref=0, ref2=<first>) + i(gvar, ref=0)
-    #     + i(tvar, ref=<first>)
-    # fe='unit': period dummies + cells; the unit effect is absorbed.
-    cols: List[np.ndarray] = []
-    names: List[str] = []
-    if fe_mode == "cohort":
-        cols.append(np.ones(len(df)))
-        names.append("const")
-        for g_val in cohorts:
-            cols.append((df["_ft"] == g_val).to_numpy(dtype=float))
-            names.append(f"cohort[{int(g_val)}]")
-    for t_val in periods[1:]:
-        cols.append((df[time] == t_val).to_numpy(dtype=float))
-        names.append(f"period[{int(t_val)}]")
-
-    interaction_idx: List[int] = []
-    interaction_cell: List[Tuple[int, int]] = []
-    cell_post: List[bool] = []
-    for g_val in cohorts:
-        pre = [p for p in periods if p < g_val]
-        ref = pre[-1] if pre else None
-        for t_val in periods:
-            if cg == "notyet":
-                if t_val < g_val:
-                    continue
-            elif t_val == ref:
-                continue
-            col = ((df["_ft"] == g_val) & (df[time] == t_val)).to_numpy(dtype=float)
-            if col.sum() <= 0:
-                continue
-            cols.append(col)
-            names.append(f"treat[{int(g_val)},{int(t_val)}]")
-            interaction_idx.append(len(names) - 1)
-            interaction_cell.append((int(g_val), int(t_val)))
-            cell_post.append(bool(t_val >= g_val))
-
-    if not any(cell_post):
+    des = build_glm_design(
+        df,
+        group=group,
+        time=time,
+        cohorts=cohorts,
+        periods=periods,
+        cgroup=cg,
+        hettype=het,
+        fe_mode=fe_mode,
+        xvar=xvar_list,
+        controls=controls,
+    )
+    X, names = des["X"], des["names"]
+    interaction_cell: List[Tuple[int, int]] = des["cells"]
+    post_arr = des["cell_post"]
+    if not post_arr.any():
         raise DataInsufficient(
             "No post-treatment cohort x period cells — nothing to estimate.",
             recovery_hint="Check that treated cohorts have observed periods "
             "at or after their first_treat value.",
             diagnostics={"cohorts": [int(c) for c in cohorts]},
         )
-
-    ctrl_names: List[str] = []
-    for c in controls or []:
-        cols.append(df[c].astype(float).to_numpy())
-        names.append(f"control[{c}]")
-        ctrl_names.append(c)
-
-    X = np.column_stack(cols)
     y_vec = df["_y"].to_numpy(dtype=float)
-    keep_rows = np.isfinite(X).all(axis=1) & np.isfinite(y_vec)
-    X, y_vec = X[keep_rows], y_vec[keep_rows]
-    df_keep = df.loc[keep_rows].reset_index(drop=True)
     n_obs = int(len(y_vec))
+    n_cells = len(interaction_cell)
+    row_cell = des["row_cell"]
+    levels = des["level_codes"]
+    n_levels = max(len(des["level_labels"]), 1)
 
     cluster_col = cluster or group
-    cl_codes = pd.factorize(df_keep[cluster_col])[0].astype(np.intp)
+    cl_codes = pd.factorize(df[cluster_col])[0].astype(np.intp)
     n_clusters = int(cl_codes.max()) + 1 if n_obs else 0
 
     # A balanced-panel identity (Wooldridge 2023) makes pooled Poisson with
     # cohort dummies reproduce Poisson with unit effects; with missing
     # outcomes it no longer does, and the two designs give different
     # coefficients.  Say so instead of letting the gap pass silently.
-    per_unit = df_keep.groupby(group)[time].nunique()
-    balanced = bool(
-        per_unit.nunique() <= 1 and per_unit.iloc[0] == df_keep[time].nunique()
-    )
+    per_unit = df.groupby(group)[time].nunique()
+    balanced = bool(per_unit.nunique() <= 1 and per_unit.iloc[0] == df[time].nunique())
     if fam_key == "poisson" and fe_mode == "cohort" and not balanced:
         warnings.warn(
             "etwfe(family='poisson'): the estimation sample is an unbalanced "
@@ -403,19 +261,31 @@ def etwfe_glm(
             stacklevel=3,
         )
 
-    cells_arr = np.asarray(interaction_idx, dtype=int)
-    cell_of = np.full(n_obs, -1, dtype=int)
-    Xc = X[:, cells_arr]
-    in_cell = Xc.sum(axis=1) > 0
-    cell_of[in_cell] = np.argmax(Xc[in_cell], axis=1)
-    n_cells = len(interaction_cell)
-    cell_n = np.bincount(cell_of[in_cell], minlength=n_cells).astype(float)
+    # Aggregation units: (cell, covariate level).  Every treated row of a
+    # cell counts in the weights, separated rows included (their fitted mean
+    # and marginal effect are exactly zero -- see the module docstring).
+    in_cell = row_cell >= 0
+    unit_of = np.full(n_obs, -1, dtype=int)
+    unit_of[in_cell] = row_cell[in_cell] * n_levels + levels[in_cell]
+    n_units = n_cells * n_levels
+    unit_n = np.bincount(unit_of[in_cell], minlength=n_units).astype(float)
+    unit_cell = np.repeat(np.arange(n_cells), n_levels)
+    unit_level = np.tile(np.arange(n_levels), n_cells)
 
     sep_info: Dict[str, Any] = {"n_separated": 0}
     omitted: List[str] = []
+    treat_cols = des["treat_cols"]
 
     if fe_mode == "cohort":
         sm_family = getattr(sm.families, _ETWFE_GLM_FAMILIES[fam_key])()
+        live = _independent_columns(X)
+        omitted = [names[j] for j in range(len(names)) if j not in set(live.tolist())]
+        pos_in_live = {int(j): i for i, j in enumerate(live)}
+        treat_k = np.array(
+            [pos_in_live[int(j)] for j in treat_cols if int(j) in pos_in_live],
+            dtype=int,
+        )
+        X = X[:, live]
         model = sm.GLM(y_vec, X, family=sm_family)
         try:
             fit = model.fit(cov_type="cluster", cov_kwds={"groups": cl_codes})
@@ -431,48 +301,76 @@ def etwfe_glm(
         converged = bool(getattr(fit, "converged", True))
         link = sm_family.link
         X0 = X.copy()
-        X0[:, cells_arr] = 0.0
-        mu1 = np.asarray(link.inverse(X @ beta), dtype=float)
-        mu0 = np.asarray(link.inverse(X0 @ beta), dtype=float)
-        dmu1 = np.asarray(link.inverse_deriv(X @ beta), dtype=float)
-        dmu0 = np.asarray(link.inverse_deriv(X0 @ beta), dtype=float)
+        X0[:, treat_k] = 0.0
+        eta1, eta0 = X @ beta, X0 @ beta
+        mu1 = np.asarray(link.inverse(eta1), dtype=float)
+        mu0 = np.asarray(link.inverse(eta0), dtype=float)
+        dmu1 = np.asarray(link.inverse_deriv(eta1), dtype=float)
+        dmu0 = np.asarray(link.inverse_deriv(eta0), dtype=float)
         rows = np.flatnonzero(in_cell)
         me_rows = (mu1 - mu0)[rows]
         grad_rows = X[rows] * dmu1[rows, None] - X0[rows] * dmu0[rows, None]
-        cell_rows = cell_of[rows]
+        resp_units = unit_of[rows]
+        Z_all = X  # link-scale effect of row i is Z_i[treat] @ beta[treat]
         link_name = type(link).__name__
-        coef_names = list(names)
+        coef_names = [names[j] for j in live]
         ssc = None
+        param_live = np.array([int(c) in pos_in_live for c in des["param_col"]])
     else:
-        unit_codes = pd.factorize(df_keep[group])[0].astype(np.intp)
-        res = _fit_poisson_unit_fe(y_vec, X, unit_codes, cl_codes, n_clusters, n_obs)
+        unit_codes = pd.factorize(df[group])[0].astype(np.intp)
+        res = _fit_poisson_unit_fe(
+            y_vec,
+            X,
+            unit_codes,
+            cl_codes,
+            n_clusters,
+            n_obs,
+            count_separated=(sep_mode == "keep"),
+        )
         live = res["live"]
         keep = res["keep"]
-        omitted = [names[j] for j in range(len(names)) if j not in set(live.tolist())]
+        live_set = set(live.tolist())
+        omitted = [names[j] for j in range(len(names)) if j not in live_set]
         n_sep = int((~keep).sum())
         sep_info = {
             "n_separated": n_sep,
             "n_separated_by_rule": dict(res["sep_counts"]),
         }
         if n_sep:
+            where = (
+                "they stay in N, the cluster count and the aggregation "
+                "weights (separated='keep')"
+                if sep_mode == "keep"
+                else "they are dropped from N, the cluster count and the "
+                "aggregation weights (separated='drop')"
+            )
             warnings.warn(
                 f"etwfe(family='poisson', fe='unit'): {n_sep} separated "
                 "observation(s) (all-zero units / perfectly predicted zeros) "
                 "have a fitted mean of exactly zero and were left out of "
-                "IRLS; they stay in N and in the cluster count, as jwdid "
-                "reports them.",
+                f"IRLS; {where}.",
                 UserWarning,
                 stacklevel=3,
             )
+            if sep_mode == "drop":
+                in_cell = in_cell & keep
+                unit_of = np.where(keep, unit_of, -1)
+                unit_n = np.bincount(unit_of[in_cell], minlength=n_units).astype(float)
+                n_obs = int(keep.sum())
+                n_clusters = int(res["ssc"]["G"])
         beta = res["beta"]
         vcov = res["vcov"]
         converged = res["converged"]
         coef_names = [names[j] for j in live]
-        Xl = X[keep][:, live]
         pos_in_live = {int(j): i for i, j in enumerate(live)}
-        live_cells = [pos_in_live.get(int(j), -1) for j in cells_arr]
+        treat_k = np.array(
+            [pos_in_live[int(j)] for j in treat_cols if int(j) in pos_in_live],
+            dtype=int,
+        )
+        Z_all = X[:, live]
+        Xl = Z_all[keep]
         cmask = np.zeros(len(live), dtype=bool)
-        cmask[[c for c in live_cells if c >= 0]] = True
+        cmask[treat_k] = True
         mu = res["mu"]
         mu0 = mu * np.exp(-(Xl[:, cmask] @ beta[cmask]))
         # Profile the unit effect: exp(c_i) = sum_t y_it / sum_t exp(x_it b),
@@ -489,78 +387,79 @@ def etwfe_glm(
                 for j in range(Xl.shape[1])
             ]
         )[uk]
-        cell_k = cell_of[keep]
-        rows = np.flatnonzero(cell_k >= 0)
+        unit_k = unit_of[keep]
+        rows = np.flatnonzero(unit_k >= 0)
         X0l = Xl[rows].copy()
         X0l[:, cmask] = 0.0
         me_rows = (mu - mu0)[rows]
         grad_rows = mu[rows, None] * (Xl[rows] - xbar[rows]) - mu0[rows, None] * (
             X0l - xbar[rows]
         )
-        cell_rows = cell_k[rows]
+        resp_units = unit_k[rows]
         link_name = "Log"
         ssc = res["ssc"]
-        if omitted:
-            dropped_cells = [c for c in omitted if c.startswith("treat[")]
-            if dropped_cells:
-                warnings.warn(
-                    f"etwfe(family='poisson', fe='unit'): cell(s) "
-                    f"{dropped_cells} contain only separated observations and "
-                    "are omitted from every aggregate.",
-                    UserWarning,
-                    stacklevel=3,
-                )
-        # Cells that were omitted drop out of the aggregation weights.
-        # Separated rows stay in ``cell_n``: they are treated observations,
-        # jwdid weights every cell by all of them, and their fitted mean and
-        # marginal effect are exactly zero, so summing ``me`` / ``grad`` over
-        # the kept rows and dividing by the full count is the exact average.
-        cell_live = np.array([c >= 0 for c in live_cells])
-        cell_n = np.where(cell_live, cell_n, 0.0)
-        cells_arr = np.array(live_cells, dtype=int)
+        param_live = np.array([int(c) in pos_in_live for c in des["param_col"]])
+        dropped = [lab for lab, ok in zip(des["param_labels"], param_live) if not ok]
+        if dropped:
+            warnings.warn(
+                f"etwfe(family='poisson', fe='unit'): treatment parameter(s) "
+                f"{dropped} have only separated observations and are omitted "
+                "from every aggregate.",
+                UserWarning,
+                stacklevel=3,
+            )
+
+    # Cells whose treatment parameter was not estimable leave the weights.
+    cell_live = param_live[des["cell_param"]]
+    unit_n = np.where(cell_live[unit_cell], unit_n, 0.0)
 
     K = len(beta)
-    # Per-cell summaries: the response-scale aggregates only need these.
-    me_sum = np.bincount(cell_rows, weights=me_rows, minlength=n_cells)
+    # Per-unit sums: link-scale effect sum_i z_i' beta and its gradient
+    # sum_i z_i (z_i = the treatment columns of row i), and the
+    # response-scale marginal effects and their gradients.
+    rows_all = np.flatnonzero(in_cell)
+    u_all = unit_of[rows_all]
+    Zt = np.asarray(Z_all[rows_all][:, treat_k], dtype=float)
+    link_grad = np.zeros((n_units, K))
+    for j, k in enumerate(treat_k):
+        link_grad[:, k] = np.bincount(u_all, weights=Zt[:, j], minlength=n_units)
+    link_sum = link_grad @ beta
+    me_sum = np.bincount(resp_units, weights=me_rows, minlength=n_units)
     grad_sum = (
         np.column_stack(
             [
-                np.bincount(cell_rows, weights=grad_rows[:, j], minlength=n_cells)
+                np.bincount(resp_units, weights=grad_rows[:, j], minlength=n_units)
                 for j in range(K)
             ]
         )
         if K
-        else np.zeros((n_cells, 0))
-    )
-    cell_beta = np.array([beta[c] if c >= 0 else np.nan for c in cells_arr])
-    cell_se = np.array(
-        [np.sqrt(max(vcov[c, c], 0.0)) if c >= 0 else np.nan for c in cells_arr]
+        else np.zeros((n_units, 0))
     )
 
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
 
     def _agg(sel: np.ndarray, sc: str) -> Tuple[float, float, int, np.ndarray]:
-        """Aggregate over the cells in ``sel``; the gradient is returned so
-        joint covariances of several aggregates are ``G V G'``."""
-        sel = sel & (cell_n > 0)
-        n_sel = float(cell_n[sel].sum())
+        """Aggregate over the (cell, level) units in ``sel``; the gradient
+        is returned so joint covariances of several aggregates are
+        ``G V G'``."""
+        sel = sel & (unit_n > 0)
+        n_sel = float(unit_n[sel].sum())
         if n_sel <= 0:
             return np.nan, np.nan, 0, np.zeros(K)
         if sc == "response":
             est = float(me_sum[sel].sum() / n_sel)
             grad = grad_sum[sel].sum(axis=0) / n_sel
         else:
-            w = cell_n[sel] / n_sel
-            est = float(w @ cell_beta[sel])
-            grad = np.zeros(K)
-            np.add.at(grad, cells_arr[sel], w)
+            est = float(link_sum[sel].sum() / n_sel)
+            grad = link_grad[sel].sum(axis=0) / n_sel
         var = float(grad @ vcov @ grad)
         return est, float(np.sqrt(max(var, 0.0))), int(n_sel), grad
 
     g_arr = np.array([c[0] for c in interaction_cell], dtype=float)
     t_arr = np.array([c[1] for c in interaction_cell], dtype=float)
-    post_arr = np.array(cell_post, dtype=bool)
     e_arr = t_arr - g_arr
+    ug, ut, ue = g_arr[unit_cell], t_arr[unit_cell], e_arr[unit_cell]
+    upost = post_arr[unit_cell]
 
     def _row(label: str, key: Any, est: float, se: float, n: int) -> Dict[str, Any]:
         z = est / se if se and se > 0 else np.nan
@@ -574,12 +473,12 @@ def etwfe_glm(
             "n_treated": n,
         }
 
-    aggregations: Dict[str, Dict[str, Any]] = {}
-    for sc in _SCALES:
-        simple = _agg(post_arr, sc)
+    def _tables(sc: str, lev: Optional[int] = None) -> Dict[str, Any]:
+        base = np.ones(n_units, dtype=bool) if lev is None else unit_level == lev
+        simple = _agg(base & upost, sc)
         ev_rows, ev_times, ev_grads = [], [], []
         for e_val in sorted(set(e_arr.tolist())):
-            est, se, n, grad = _agg(e_arr == e_val, sc)
+            est, se, n, grad = _agg(base & (ue == e_val), sc)
             if n:
                 ev_rows.append(_row("relative_time", int(e_val), est, se, n))
                 ev_times.append(int(e_val))
@@ -595,15 +494,15 @@ def etwfe_glm(
         ev_vcov = pd.DataFrame(Gm @ vcov @ Gm.T, index=ev_times, columns=ev_times)
         grp_rows = []
         for g_val in cohorts:
-            est, se, n, _ = _agg(post_arr & (g_arr == g_val), sc)
+            est, se, n, _ = _agg(base & upost & (ug == g_val), sc)
             if n:
                 grp_rows.append(_row("cohort", int(g_val), est, se, n))
         cal_rows = []
         for t_val in sorted(set(t_arr[post_arr].tolist())):
-            est, se, n, _ = _agg(post_arr & (t_arr == t_val), sc)
+            est, se, n, _ = _agg(base & upost & (ut == t_val), sc)
             if n:
                 cal_rows.append(_row("period", int(t_val), est, se, n))
-        aggregations[sc] = {
+        return {
             "simple": {"att": simple[0], "se": simple[1], "n_treated": simple[2]},
             "event": ev,
             "event_vcov": ev_vcov,
@@ -611,18 +510,58 @@ def etwfe_glm(
             "calendar": pd.DataFrame(cal_rows),
         }
 
+    aggregations: Dict[str, Dict[str, Any]] = {}
+    for sc in _SCALES:
+        aggregations[sc] = _tables(sc)
+        if des["level_var"] is not None:
+            by = {}
+            for li, lab in enumerate(des["level_labels"]):
+                by[lab] = _tables(sc, li)
+            aggregations[sc]["by_xvar"] = by
+
+    # Per-cell table: link-scale cell ATT (the cell coefficient without
+    # covariates; its covariate-averaged value with them), its SE, the AME.
+    cell_rows = []
+    for c in range(n_cells):
+        sel = unit_cell == c
+        est, se, n, _ = _agg(sel, "link")
+        n_c = float(unit_n[sel].sum())
+        cell_rows.append(
+            (
+                est,
+                se,
+                int(n_c),
+                float(me_sum[sel].sum() / n_c) if n_c > 0 else np.nan,
+            )
+        )
+    cell_n = np.array([r[2] for r in cell_rows], dtype=float)
     cells_df = pd.DataFrame(
         {
             "cohort": [c[0] for c in interaction_cell],
             "period": [c[1] for c in interaction_cell],
             "relative_time": e_arr.astype(int),
             "post": post_arr,
+            "param": [des["param_labels"][p] for p in des["cell_param"]],
             "n_treated": cell_n.astype(int),
-            "coef": cell_beta,
-            "se": cell_se,
-            "ame": np.where(cell_n > 0, me_sum / np.maximum(cell_n, 1), np.nan),
+            "coef": [r[0] for r in cell_rows],
+            "se": [r[1] for r in cell_rows],
+            "ame": [r[3] for r in cell_rows],
         }
     )
+    by_xvar_simple = None
+    if des["level_var"] is not None:
+        by_xvar_simple = pd.DataFrame(
+            [
+                _row(
+                    "level",
+                    lab,
+                    aggregations[scale]["by_xvar"][lab]["simple"]["att"],
+                    aggregations[scale]["by_xvar"][lab]["simple"]["se"],
+                    aggregations[scale]["by_xvar"][lab]["simple"]["n_treated"],
+                )
+                for lab in des["level_labels"]
+            ]
+        )
 
     head = aggregations[scale]
     att, se_att = head["simple"]["att"], head["simple"]["se"]
@@ -633,11 +572,9 @@ def etwfe_glm(
         estimand = (
             "ATT (link scale: treated-observation-weighted mean of the "
             + ("log-point" if fam_key == "poisson" else "log-odds")
-            + " cohort x period coefficients)"
+            + " cohort x period effects)"
         )
 
-    # Keep the historical public tables: event study without leads unless
-    # the never-treated design estimated them.
     ev_head = head["event"]
     event_study = ev_head.drop(columns=["ci_lower", "ci_upper"], errors="ignore")
     group_tbl = head["group"]
@@ -663,6 +600,7 @@ def etwfe_glm(
             "link": link_name,
             "cgroup": cg,
             "fe": fe_mode,
+            "hettype": het,
             "scale": scale,
             "event_study": event_study,
             "event_study_vcov": head["event_vcov"],
@@ -675,8 +613,13 @@ def etwfe_glm(
             "coefficients": beta,
             "vcov": vcov,
             "interaction_cells": interaction_cell,
+            "treatment_params": list(des["param_labels"]),
             "cells": cells_df,
             "aggregations": aggregations,
+            "xvar": xvar_list,
+            "xvar_columns": des["x_names"],
+            "by_xvar_var": des["level_var"],
+            "by_xvar": by_xvar_simple,
             "att_response": aggregations["response"]["simple"]["att"],
             "se_response": aggregations["response"]["simple"]["se"],
             "att_link": aggregations["link"]["simple"]["att"],
@@ -684,122 +627,12 @@ def etwfe_glm(
             "n_treated_obs": int(cell_n[post_arr].sum()),
             "n_clusters": n_clusters,
             "se_type": f"cluster-robust on {cluster_col}",
-            "controls": ctrl_names,
+            "controls": des["ctrl_names"],
             "balanced_panel": balanced,
             "omitted": omitted,
             "ssc": ssc,
             "converged": converged,
             **sep_info,
-        },
-        _citation_key="wooldridge2021two",
-    )
-
-
-def etwfe_glm_emfx(
-    result: CausalResult,
-    type: str,
-    alpha: float,
-    scale: Optional[str] = None,
-    include_leads: bool = False,
-) -> CausalResult:
-    """Serve the aggregations a nonlinear ``sp.etwfe`` fit already computed.
-
-    ``scale=None`` keeps the scale the fit was reported on.  For
-    ``type='simple'`` the estimate and SE are that scale's overall ATT.  For
-    the other types ``detail`` holds one row per cohort / event time /
-    period with its own delta-method SE; the headline ``estimate`` is the
-    unweighted mean of those rows and ``se`` the overall ATT's SE (the rows
-    share coefficients, so averaging their SEs would understate).
-
-    ``model_info['event_study']`` and ``model_info['event_study_vcov']`` of
-    the returned result are on the served scale, so ``sp.event_study_vcov``
-    / ``sp.pretrends_test`` / ``sp.honest_did`` applied to it test the
-    scale that was asked for.
-    """
-    mi = result.model_info or {}
-    sc = normalise_scale(scale if scale is not None else mi.get("scale", "response"))
-    aggs = mi.get("aggregations")
-    if not isinstance(aggs, dict) or sc not in aggs:
-        raise MethodIncompatibility(
-            "This nonlinear etwfe result predates scale-aware aggregation; "
-            "re-fit it with the current sp.etwfe.",
-            recovery_hint="Call sp.etwfe(..., family=...) again.",
-            diagnostics={"scale": sc},
-        )
-    agg = aggs[sc]
-    z_crit = float(stats.norm.ppf(1 - alpha / 2))
-    simple = agg["simple"]
-    se_all = float(simple["se"])
-    ev_full = agg.get("event")
-    scale_mi: Dict[str, Any] = {}
-    if isinstance(ev_full, pd.DataFrame) and not ev_full.empty:
-        scale_mi = {
-            "event_study": ev_full.drop(
-                columns=["ci_lower", "ci_upper"], errors="ignore"
-            ),
-            "event_study_vcov": agg.get("event_vcov"),
-        }
-
-    if type == "simple":
-        if sc == mi.get("scale", "response") and alpha == result.alpha:
-            return result
-        est = float(simple["att"])
-        z = est / se_all if se_all > 0 else 0.0
-        return CausalResult(
-            method=f"{result.method} — emfx[simple, {sc}]",
-            estimand=(
-                "ATT (average marginal effect, response scale)"
-                if sc == "response"
-                else "ATT (link scale)"
-            ),
-            estimate=est,
-            se=se_all,
-            pvalue=float(2 * stats.norm.sf(abs(z))),
-            ci=(est - z_crit * se_all, est + z_crit * se_all),
-            alpha=alpha,
-            n_obs=result.n_obs,
-            detail=None,
-            model_info={**mi, **scale_mi, "emfx_type": "simple", "emfx_scale": sc},
-            _citation_key="wooldridge2021two",
-        )
-
-    label = {"event": "relative_time", "group": "cohort", "calendar": "period"}[type]
-    frame = agg[type]
-    if isinstance(frame, pd.DataFrame) and type == "event" and not include_leads:
-        if "relative_time" in frame.columns:
-            frame = frame[frame["relative_time"] >= 0]
-    if not isinstance(frame, pd.DataFrame) or frame.empty:
-        raise DataInsufficient(
-            f"etwfe_emfx(type={type!r}) has no cells to report.",
-            recovery_hint="Check the treated cohorts and event window.",
-            diagnostics={"type": type},
-        )
-    frame = frame.copy()
-    frame["ci_lower"] = frame["att"] - z_crit * frame["se"]
-    frame["ci_upper"] = frame["att"] + z_crit * frame["se"]
-    est = float(np.average(frame["att"].to_numpy(dtype=float)))
-    z_stat = est / se_all if se_all > 0 else 0.0
-    return CausalResult(
-        method=f"{result.method} — emfx[{type}]",
-        estimand=result.estimand if sc == mi.get("scale") else f"ATT ({sc} scale)",
-        estimate=est,
-        se=se_all,
-        pvalue=float(2 * stats.norm.sf(abs(z_stat))),
-        ci=(est - z_crit * se_all, est + z_crit * se_all),
-        alpha=alpha,
-        n_obs=result.n_obs,
-        detail=frame.reset_index(drop=True),
-        model_info={
-            **mi,
-            **scale_mi,
-            "emfx_type": type,
-            "emfx_label": label,
-            "emfx_scale": sc,
-            "emfx_note": (
-                "estimate is the unweighted mean of the reported cells; "
-                "se is the overall delta-method SE from the fit; each row "
-                "carries its own delta-method se"
-            ),
         },
         _citation_key="wooldridge2021two",
     )

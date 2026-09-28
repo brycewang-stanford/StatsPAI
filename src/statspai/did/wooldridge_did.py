@@ -48,6 +48,7 @@ from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
+from ._etwfe_glm_design import normalise_hettype as _normalise_hettype
 from ._etwfe_nonlinear import _ETWFE_GLM_FAMILIES
 from ._etwfe_nonlinear import etwfe_glm as _etwfe_glm_impl
 from ._etwfe_nonlinear import etwfe_glm_emfx as _etwfe_glm_emfx_impl
@@ -682,6 +683,9 @@ def _etwfe_glm(
     cgroup: str = "notyet",
     fe: Optional[str] = None,
     scale: str = "response",
+    hettype: Optional[str] = None,
+    xvar: Optional[Any] = None,
+    separated: str = "keep",
 ) -> CausalResult:
     """Nonlinear ETWFE; implementation in :mod:`._etwfe_nonlinear`."""
     return _etwfe_glm_impl(
@@ -697,6 +701,9 @@ def _etwfe_glm(
         cgroup=cgroup,
         fe=fe,
         scale=scale,
+        hettype=hettype,
+        xvar=xvar,
+        separated=separated,
     )
 
 
@@ -718,6 +725,8 @@ def etwfe(
     agg_weights: str = "estimation",
     fe: Optional[str] = None,
     scale: str = "response",
+    hettype: Optional[str] = None,
+    separated: str = "keep",
 ) -> CausalResult:
     """Public ``sp.etwfe`` entry point — see ``_dispatch_etwfe_impl`` for
     the full docstring on options and behaviour.
@@ -742,9 +751,32 @@ def etwfe(
     effect in counts, not log points. The nonlinear branch supports
     ``cgroup='notyet'`` and ``cgroup='nevertreated'`` (the latter also
     estimates the pre-treatment cells, i.e. event-study leads, relative to
-    ``g - 1``); it does not currently accept ``xvar``, ``panel=False`` or
+    ``g - 1``); it does not currently accept ``panel=False`` or
     ``weights``.  Its ``controls`` enter additively without interactions
-    (Stata ``jwdid``'s ``exovar()``).
+    (Stata ``jwdid``'s ``exovar()``).  Its ``xvar`` follows Stata ``jwdid
+    y x``: each treatment effect is moderated by the covariate demeaned
+    within the ``hettype`` cells, with covariate-by-period (and, when the
+    covariate varies within units, covariate-by-cohort) terms; a
+    categorical column (pandas ``category`` / ``object`` / ``bool``)
+    enters as level dummies, and ``sp.etwfe_emfx(..., by_xvar=True)``
+    reports the ATT per level (``estat ..., over()``).
+
+    ``hettype`` (nonlinear families) pools the cohort x period cells as
+    Stata ``jwdid, hettype()``: ``'timecohort'`` (default, saturated),
+    ``'time'`` (one effect per calendar period), ``'cohort'`` (one per
+    cohort), ``'event'`` (one per event time) or ``'twfe'`` (a single
+    effect).  The restricted designs are the robustness checks of an
+    ETWFE table, not heterogeneity-robust estimators themselves.
+
+    ``separated`` (``family='poisson', fe='unit'``) decides what happens to
+    separated rows (all-zero units, perfectly predicted zeros) after they
+    leave IRLS.  ``'keep'`` (default) keeps them in ``N``, the cluster
+    count and the aggregation weights: the ATT averages over every treated
+    observation, and a separated row enters with its exact-zero marginal
+    effect.  ``'drop'`` removes them from all three, which is what Stata
+    ``jwdid`` reports whenever ``ppmlhdfe`` flags the separation (its
+    ``estat`` averages over ``e(sample)``); ``ppmlhdfe`` does not always
+    flag it on large panels, and then ``'keep'`` is the matching choice.
 
     ``scale`` (nonlinear families only) picks the headline scale:
     ``'response'`` (default) is the average marginal effect above;
@@ -849,7 +881,6 @@ def etwfe(
         # branch does not implement — a quietly-dropped xvar/cgroup would
         # change the estimand without telling anyone.
         for arg_name, arg_val, bad in (
-            ("xvar", xvar, xvar is not None),
             ("panel", panel, not panel),
             ("weights", weights, weights is not None),
         ):
@@ -876,6 +907,9 @@ def etwfe(
             cgroup=cgroup,
             fe=fe,
             scale=scale,
+            hettype=hettype,
+            xvar=xvar,
+            separated=separated,
         )
     elif fam_key not in (None, "gaussian", "normal"):
         raise MethodIncompatibility(
@@ -894,6 +928,21 @@ def etwfe(
                 recovery_hint="Drop fe= for the linear ETWFE (cohort and "
                 "period effects, R etwfe's default design).",
                 diagnostics={"fe": fe, "family": family},
+            )
+        if str(separated).strip().lower() != "keep":
+            raise MethodIncompatibility(
+                f"etwfe(separated={separated!r}) applies to family='poisson' "
+                "with fe='unit'.",
+                recovery_hint="Drop separated= for the linear ETWFE.",
+                diagnostics={"separated": separated, "family": family},
+            )
+        if _normalise_hettype(hettype) != "timecohort":
+            raise MethodIncompatibility(
+                f"etwfe(hettype={hettype!r}) is only implemented for the "
+                "nonlinear families so far.",
+                recovery_hint="Use family='poisson' / 'logit', or drop "
+                "hettype= for the saturated linear ETWFE.",
+                diagnostics={"hettype": hettype, "family": family},
             )
         _result = _dispatch_etwfe_impl(
             data=data,
@@ -931,6 +980,8 @@ def etwfe(
                 "agg_weights": agg_weights,
                 "fe": fe,
                 "scale": scale,
+                "hettype": hettype,
+                "separated": separated,
             },
             data=data,
             overwrite=False,
@@ -3180,10 +3231,16 @@ def _etwfe_glm_emfx(
     alpha: float,
     scale: Optional[str] = None,
     include_leads: bool = False,
+    by_xvar: bool = False,
 ) -> CausalResult:
     """Nonlinear-fit aggregations; implementation in :mod:`._etwfe_nonlinear`."""
     return _etwfe_glm_emfx_impl(
-        result, type=type, alpha=alpha, scale=scale, include_leads=include_leads
+        result,
+        type=type,
+        alpha=alpha,
+        scale=scale,
+        include_leads=include_leads,
+        by_xvar=by_xvar,
     )
 
 
@@ -3195,6 +3252,7 @@ def etwfe_emfx(
     weighting: str = "treated",
     agg_weights: Optional[str] = None,
     scale: Optional[str] = None,
+    by_xvar: bool = False,
 ) -> CausalResult:
     """
     R ``etwfe::emfx``-style aggregated marginal effects for an ETWFE fit.
@@ -3252,6 +3310,11 @@ def etwfe_emfx(
         ``estat ..., predict(xb)`` / R ``emfx(predict='link')``).
         ``None`` (default) keeps the scale the fit was reported on.  The
         linear model has one scale and accepts either value.
+    by_xvar : bool, default False
+        Nonlinear fits with one categorical ``xvar``: report the
+        aggregation per level of the covariate (R ``emfx(by_xvar =
+        TRUE)``, Stata ``estat ..., over()``); ``detail`` gains a
+        ``level`` column.
 
     Returns
     -------
@@ -3329,7 +3392,21 @@ def etwfe_emfx(
         and result.model_info.get("estimator") == "etwfe_glm"
     ):
         return _etwfe_glm_emfx(
-            result, type=type, alpha=alpha, scale=scale, include_leads=include_leads
+            result,
+            type=type,
+            alpha=alpha,
+            scale=scale,
+            include_leads=include_leads,
+            by_xvar=by_xvar,
+        )
+    if by_xvar:
+        raise MethodIncompatibility(
+            "etwfe_emfx(by_xvar=True) is implemented for nonlinear "
+            "(family='poisson' / 'logit') fits with a categorical xvar.",
+            recovery_hint="Refit with family='poisson' and a categorical "
+            "xvar, or read the moderator slopes from model_info for the "
+            "linear fit.",
+            diagnostics={"by_xvar": by_xvar},
         )
     if scale is not None:
         _normalise_etwfe_scale(scale)

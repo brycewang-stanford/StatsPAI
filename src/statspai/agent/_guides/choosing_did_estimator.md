@@ -224,6 +224,20 @@ TWFE over them.
 > `fe='unit'` to reproduce jwdid when outcomes have missing values (the
 > default warns in that case). Both scales live in
 > `res.model_info['aggregations']` and `sp.etwfe_emfx(res, type=..., scale=...)`.
+>
+> The rest of a jwdid table maps one to one. `hettype='event' | 'cohort' |
+> 'time' | 'twfe'` is `jwdid, hettype()` (the restricted-heterogeneity
+> robustness columns). `xvar='x'` is `jwdid y x`; a categorical column
+> (`.astype('category')`) is `jwdid y i.x`, and
+> `sp.etwfe_emfx(res, by_xvar=True)` is `estat simple, over(x)`.
+> `cgroup='nevertreated'` is `jwdid, never`, and its leads feed
+> `sp.pretrends_test(res, window=(-5, -2))` (`estat event, window(-5 5)
+> pretrend`) and `sp.honest_did(res, l_vec='average', window=(-5, 5))`
+> through the joint event-study covariance. Separated all-zero units are kept
+> in `N`, the cluster count and the aggregation weights by default
+> (`separated='keep'`); jwdid drops them whenever `ppmlhdfe` flags the
+> separation, which `separated='drop'` reproduces — check jwdid's `N` to see
+> which case your table is in.
 
 #### Or settle it on your own panel
 

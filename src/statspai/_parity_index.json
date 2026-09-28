@@ -4200,7 +4200,9 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_etwfe_glm_parity.py",
+        "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
         "tests/reference_parity/test_event_study_vcov_R_parity.py",
+        "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "also_verified_by": [
@@ -4254,6 +4256,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_etwfe_glm_parity.py",
+        "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "also_verified_by": [
@@ -4512,6 +4515,9 @@
       "tolerance": "rel_est<=1e-09, rel_se<=1e-09"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -6254,6 +6260,7 @@
         "tests/stata_parity/21_honest_relmags.do",
         "tests/external_parity/test_honest_did_paper_parity.py",
         "tests/reference_parity/test_honest_did_backend_parity.py",
+        "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
         "tests/reference_parity/test_honest_rm_R_parity.py"
       ],
       "also_in_modules": [

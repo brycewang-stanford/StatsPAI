@@ -204,6 +204,11 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         # path that raises, so it is descriptive.  The numeric claim is pinned
         # in tests/reference_parity/test_etwfe_glm_parity.py.
         "reports an average marginal effect",
+        # A documented convention difference in how the response-scale SE
+        # is computed (profiled unit effect vs. jwdid's margins), not a code
+        # path that raises; pinned in the module docstring of
+        # statspai.did._etwfe_nonlinear and CHANGELOG.
+        "response-scale SEs under fe='unit'",
     ],
     "pretrends_equivalence": [
         # Describes an intentionally absent default (the equivalence bound is
@@ -366,7 +371,7 @@ def _runtime_map() -> (
             ),
             NotImplementedError,
         ),
-        ("etwfe", "family='poisson'/'logit' with xvar"): (
+        ("etwfe", "family='poisson'/'logit' with panel=False or weights="): (
             lambda: sp.etwfe(
                 df_panel,
                 y="y",
@@ -374,7 +379,18 @@ def _runtime_map() -> (
                 time="t",
                 first_treat="g",
                 family="poisson",
-                xvar="dose",
+                panel=False,
+            ),
+            MethodIncompatibility,
+        ),
+        ("etwfe", "hettype= other than the saturated default"): (
+            lambda: sp.etwfe(
+                df_panel,
+                y="y",
+                group="i",
+                time="t",
+                first_treat="g",
+                hettype="event",
             ),
             MethodIncompatibility,
         ),
