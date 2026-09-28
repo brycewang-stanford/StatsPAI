@@ -676,7 +676,12 @@ sp.stata("regress y x, vce(cluster id)", data=df)   # translate and run
 ```
 
 **From the shell** — `statspai list`, `statspai describe rdrobust`,
-`statspai search "synthetic control"`.
+`statspai search "synthetic control"`; and estimation with the same payload an
+MCP client gets: `statspai run callaway_santanna --data panel.csv --arg y=lemp
+--arg g=first_treat --arg t=year --arg i=countyreal`, or the schema-driven
+shortcuts `statspai did --data panel.csv --y lemp --treat treated --time year
+--id id`. `statspai route did --answer design=staggered` routes a question to
+estimators without data; `statspai mcp` starts the server.
 
 **Over MCP** — the package installs a `statspai-mcp` stdio server (pure Python,
 no extra dependencies). By default it lists the hand-curated estimators,

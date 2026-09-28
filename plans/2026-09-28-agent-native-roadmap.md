@@ -157,9 +157,9 @@ shell cannot run an analysis and get JSON back.
 - Errors: structured `StatsPAIError.to_dict()` on stderr, exit code by
   `error_kind`.
 
-- [ ] `run` subcommand + schema-driven argument parsing
-- [ ] family shortcuts; `mcp` subcommand; JSON default when piped
-- [ ] tests (subprocess), docs/guides/agent_api.md, CHANGELOG
+- [x] `run` subcommand + schema-driven argument parsing
+- [x] family shortcuts; `mcp` subcommand; JSON default when piped
+- [x] tests (subprocess), docs/guides/agent_api.md, CHANGELOG
 
 ## W6 — Skill package and agent docs (week 4)
 
@@ -208,4 +208,5 @@ MCP, and it is not shipped. There is no `AGENTS.md` / `llms.txt`.
 - 2026-09-28 — W2 done (data handles, inline tables, transform chains with lineage).
 - 2026-09-28 — W3 pass 1–2 done (docstring harvest, family inheritance, schema reconciliation, ratchet).
 - 2026-09-28 — W3 pass 3 batch 1 done (28 family cards). Evidence-tier field and batch 2 remain.
-- 2026-09-28 — W4 done (routing tables, sp.route / sp.decision_guide, route_estimator tool, packaged guides). W5 next.
+- 2026-09-28 — W4 done (routing tables, sp.route / sp.decision_guide, route_estimator tool, packaged guides).
+- 2026-09-28 — W5 done (statspai run / family shortcuts / route / mcp). W6 next.

@@ -275,6 +275,33 @@ Not thread-safe — for parallel workloads, use one
 
 ---
 
+## Shell: `statspai run`
+
+A shell agent gets the same payload an MCP client gets, without a
+server:
+
+```bash
+statspai run callaway_santanna --data panel.csv \
+    --arg y=lemp --arg g=first_treat --arg t=year --arg i=countyreal
+statspai did --data panel.csv --y lemp --treat treated --time year --id id \
+    --covariates '["pop"]' --format summary
+statspai route rd --answer assignment=sharp --answer running=continuous
+statspai mcp --profile curated
+```
+
+`run` takes any registered function and `--arg key=value` pairs (values
+parse as JSON when they can — numbers, booleans, lists, quoted strings);
+the family shortcuts (`did`, `callaway_santanna`, `event_study`,
+`regress`, `feols`, `ivreg`, `rdrobust`, `synth`, `dml`, `match`, `ipw`,
+`aipw`) build their `--flags` from the registry schema, so they cannot
+drift from the signature. `--data` accepts every format the MCP loader
+reads (`--columns` / `--sample` for large files). Output is the agent
+payload (`--detail minimal|standard|agent`, `--out file.json`), or
+`--format summary` for the result's text summary. Arguments the function
+cannot bind are reported under `_unsupported_args`; estimator errors are
+the structured `StatsPAIError` payload on stderr with exit code 3, usage
+errors exit 2.
+
 ## MCP server: drop-in for Claude Desktop / Cursor
 
 `pip install statspai` exposes a `statspai-mcp` console script.

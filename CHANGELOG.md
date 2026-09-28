@@ -81,6 +81,17 @@ All notable changes to StatsPAI will be documented in this file.
   (`statspai/agent/_guides/`, byte-identical to `docs/guides` via
   `scripts/sync_guides.py --check`, a pre-push hook) so an installed
   package can serve them over MCP.
+- **CLI runs estimators.** `statspai run <function> --data FILE --arg
+  key=value ...` executes any registered function through the same
+  dispatch layer as the MCP server and prints the agent payload
+  (`--detail`, `--out`, `--format summary`); schema-driven family
+  shortcuts (`statspai did|callaway_santanna|event_study|regress|feols|
+  ivreg|rdrobust|synth|dml|match|ipw|aipw --data FILE --y ... `) build
+  their flags from the registry so they cannot drift; `statspai route
+  <family> --answer key=value` routes a question without data; `statspai
+  mcp [--profile]` starts the server. Unknown arguments are reported
+  under `_unsupported_args`, estimator errors are the structured payload
+  on stderr with exit code 3, usage errors exit 2.
 - **`sp.search_functions` understands task phrases.** Stopwords are
   ignored, common econometrics spellings are expanded (`did` ↔
   difference-in-differences, `rd` ↔ discontinuity, `iv` ↔ instrument,
