@@ -311,15 +311,29 @@ What the server exposes:
   (~580 entries, ~2 MB — larger than most client context windows, so
   only for clients that page or defer tool loading). `tools/call`
   accepts any tool name under every profile.
-- **`tools/call`** — runs the estimator. Accepts `data_path` (CSV,
-  Parquet, etc. — server-side `pd.read_*`) plus the estimator's
-  own kwargs plus the `detail` parameter to control payload size.
+- **`tools/call`** — runs the estimator. Data arrives as `data_path`
+  (CSV, Parquet, Stata, … read server-side), `data_id` (a handle from
+  `load_data` / `transform_data` — no re-upload, lineage recorded),
+  `data_records` or `data_csv` (a small inline table); plus the
+  estimator's own kwargs and `detail` to control payload size. Payloads
+  carry `data_provenance`, `runtime_warnings` and `_unsupported_args`.
+- **Data handles** — `load_data` → `data_id`; `transform_data(data_id,
+  operations=[...])` derives a new handle (query / select / rename /
+  dropna / assign / winsor / reshape / mice / any DataFrame-returning
+  `sp.<fn>`) and records the chain; `describe_data` profiles one.
+- **Routing without data** — `route_estimator(family, answers)` turns
+  answers to a family's decision questions (did / iv / rd / matching /
+  ml_causal / qte / dynamic_panel) into registered calls with example,
+  reason, added assumptions and the guide section; the same tables back
+  `sp.route` / `sp.decision_guide` in Python.
 - **`resources/list`** — `statspai://catalog` (Markdown index) and
   `statspai://functions` (JSON `[{name, description}]`).
 - **`resources/templates/list`** — `statspai://function/{name}` →
   per-function rich agent card (description, signature,
   assumptions, failure_modes, alternatives, `typical_n_min`,
-  example).
+  example); `statspai://guide/{family}` → the full "choosing an
+  estimator" guide; `statspai://data/{id}` → a dataset handle with its
+  lineage; `statspai://result/{id}` → a fitted result.
 - **`prompts/list` / `prompts/get`** — curated workflow templates
   (`audit_did_result`, `design_then_estimate`, `robustness_followup`,
   `stata_command_workflow`, `r_command_workflow`, …) MCP clients

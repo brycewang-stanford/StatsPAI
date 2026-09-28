@@ -954,6 +954,58 @@
     }
   },
   {
+    "description": "Route a research question to estimator calls. Answer a family's decision questions (see sp.decision_guide) and get the matching registered functions with example calls, the reason, the assumptions each adds, and the guide section to read; also reports the unanswered questions and the one that narrows the choice most. Do NOT use when: a DataFrame is already in hand and the design can be detected from it -- sp.recommend routes from data.",
+    "name": "route",
+    "parameters": {
+      "properties": {
+        "answers": {
+          "description": "question_key=answer pairs from sp.decision_guide(family)",
+          "type": "object"
+        },
+        "family": {
+          "description": "Estimator family",
+          "enum": [
+            "did",
+            "iv",
+            "rd",
+            "matching",
+            "ml_causal",
+            "qte",
+            "dynamic_panel"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "family"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Machine-readable decision table for an estimator family: the questions to answer (with allowed answers) and every route (registered function, example call, why, assumptions added, guide heading). The same logic as docs/guides/choosing_*.md, kept in sync by tests.",
+    "name": "decision_guide",
+    "parameters": {
+      "properties": {
+        "family": {
+          "description": "Estimator family; omit to list families",
+          "enum": [
+            "did",
+            "iv",
+            "rd",
+            "matching",
+            "ml_causal",
+            "qte",
+            "dynamic_panel"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
     "description": "Unified regression-discontinuity dispatcher. method= selects the estimator: 'rdrobust' (default; CCT bias-corrected local polynomial), 'honest', 'randinf', 'hte', 'forest', 'boost', 'lasso', 'rkd', 'flex', 'discrete', 'rd2d', 'rdmc', 'rdms', 'rdit', 'extrapolate', 'external_validity', 'distribution', 'bias_aware_fuzzy', 'bayes_hte', 'interference'.",
     "name": "rd",
     "parameters": {

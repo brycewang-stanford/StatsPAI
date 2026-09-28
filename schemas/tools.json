@@ -26094,6 +26094,38 @@
     "name": "rosenbaum_gamma"
   },
   {
+    "description": "Route a research question to estimator calls without data. Give the family (did / iv / rd / matching / ml_causal / qte / dynamic_panel) and answers to its decision questions; get the matching registered functions with example calls, why each is right, the assumptions it adds and the guide section to read, plus the unanswered questions and the one that narrows the choice most. Call with no answers to see the questions. The full guide is readable at statspai://guide/{family}.",
+    "input_schema": {
+      "properties": {
+        "answers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "question_key -> answer (see the questions returned when omitted).",
+          "type": "object"
+        },
+        "family": {
+          "description": "Estimator family.",
+          "enum": [
+            "did",
+            "iv",
+            "rd",
+            "matching",
+            "ml_causal",
+            "qte",
+            "dynamic_panel"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "family"
+      ],
+      "type": "object"
+    },
+    "name": "route_estimator"
+  },
+  {
     "description": "Stable Balancing Weights (Zubizarreta 2015) with optional ATT/ATE Validation: certified parity evidence. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
     "input_schema": {
       "properties": {

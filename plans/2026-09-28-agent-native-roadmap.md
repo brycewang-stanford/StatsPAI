@@ -134,11 +134,11 @@ needs a live DataFrame; 17 `alternatives` point at names that do not resolve.
 - Test: every `route` target and every registry `alternatives` entry
   resolves to a registered callable.
 
-- [ ] decision tables for did / iv / rd / matching / ml_causal / qte / dynamic_panel
-- [ ] `sp.route` / `sp.decision_guide` + registry entries
-- [ ] guides regenerated from tables; packaged; MCP resource + tool
-- [ ] resolvability test for routes and `alternatives`
-- [ ] CHANGELOG, schema regen
+- [x] decision tables for did / iv / rd / matching / ml_causal / qte / dynamic_panel
+- [x] `sp.route` / `sp.decision_guide` + registry entries
+- [x] guides packaged (byte-synced with docs/guides, pre-push hook); MCP resource + `route_estimator` tool. (Regenerating the Markdown *from* the tables was dropped: the guides carry prose the tables do not; the tests bind the two instead.)
+- [x] resolvability test for routes and `alternatives`
+- [x] CHANGELOG, schema regen
 
 ## W5 — CLI that runs estimators (week 3–4)
 
@@ -207,4 +207,5 @@ MCP, and it is not shipped. There is no `AGENTS.md` / `llms.txt`.
 - 2026-09-28 — W1 done (reader-thread stdio loop, subprocess e2e test, CI gate).
 - 2026-09-28 — W2 done (data handles, inline tables, transform chains with lineage).
 - 2026-09-28 — W3 pass 1–2 done (docstring harvest, family inheritance, schema reconciliation, ratchet).
-- 2026-09-28 — W3 pass 3 batch 1 done (28 family cards). Evidence-tier field and batch 2 remain; W4 next.
+- 2026-09-28 — W3 pass 3 batch 1 done (28 family cards). Evidence-tier field and batch 2 remain.
+- 2026-09-28 — W4 done (routing tables, sp.route / sp.decision_guide, route_estimator tool, packaged guides). W5 next.

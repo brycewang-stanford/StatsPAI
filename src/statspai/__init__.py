@@ -890,6 +890,7 @@ from .qte import (
     qte_hd_panel,
 )
 from .quasi import ancova, negd
+from ._routing import decision_guide, route
 from .question import (
     CausalQuestion,
     EstimationResult,
@@ -1736,9 +1737,11 @@ __all__ = [
     # AI / Agent Registry
     "list_functions",
     "support_tier",
+    "decision_guide",
     "describe_function",
     "function_schema",
     "agent_schema",
+    "route",
     "search_functions",
     "all_schemas",
     "agent_card",

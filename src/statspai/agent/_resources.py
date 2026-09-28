@@ -32,6 +32,7 @@ from typing import Any, Callable, Dict, List, Optional, Type
 FUNCTION_URI_PREFIX = "statspai://function/"
 RESULT_URI_PREFIX = "statspai://result/"
 DATA_URI_PREFIX = "statspai://data/"
+GUIDE_URI_PREFIX = "statspai://guide/"
 PARITY_TRACK_A_URI = "statspai://parity/track-a-summary"
 
 #: Fallback URI for the result-schema resource. ``mcp_server`` owns the
@@ -578,6 +579,31 @@ def handle_resources_read(
             ],
         }
 
+    if uri.startswith(GUIDE_URI_PREFIX):
+        family = uri[len(GUIDE_URI_PREFIX) :].strip().lower()
+        from .._routing import FAMILIES
+
+        if family not in FAMILIES:
+            raise ResourceNotFoundError(
+                f"Unknown guide {family!r}; families: {sorted(FAMILIES)}."
+            )
+        guide_path = (
+            Path(__file__).resolve().parent / "_guides" / FAMILIES[family].guide
+        )
+        if not guide_path.exists():
+            raise ResourceNotFoundError(
+                f"Guide file {guide_path.name} is not packaged in this install."
+            )
+        return {
+            "contents": [
+                {
+                    "uri": uri,
+                    "mimeType": "text/markdown",
+                    "text": guide_path.read_text(encoding="utf-8"),
+                },
+            ],
+        }
+
     if uri.startswith(DATA_URI_PREFIX):
         did = uri[len(DATA_URI_PREFIX) :]
         if not did or "/" in did:
@@ -641,6 +667,19 @@ def handle_resources_templates_list(params: Dict[str, Any]) -> Dict[str, Any]:
                 ),
             },
             {
+                "uriTemplate": GUIDE_URI_PREFIX + "{family}",
+                "name": "StatsPAI estimator-choice guide",
+                "mimeType": "text/markdown",
+                "description": (
+                    "The full 'choosing an estimator' guide for a family "
+                    "(did, iv, rd, matching, ml_causal, qte, dynamic_panel): "
+                    "target parameter, design questions, decision tables, "
+                    "diagnostics and pitfalls. The machine-readable version "
+                    "of its decision logic is the route_estimator tool / "
+                    "sp.decision_guide."
+                ),
+            },
+            {
                 "uriTemplate": DATA_URI_PREFIX + "{id}",
                 "name": "StatsPAI dataset handle",
                 "mimeType": "application/json",
@@ -674,6 +713,7 @@ def handle_resources_templates_list(params: Dict[str, Any]) -> Dict[str, Any]:
 
 __all__ = [
     "DATA_URI_PREFIX",
+    "GUIDE_URI_PREFIX",
     "FUNCTION_URI_PREFIX",
     "RESULT_URI_PREFIX",
     "PARITY_TRACK_A_URI",

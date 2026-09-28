@@ -13,6 +13,7 @@ recursive-include src *.pyi
 recursive-include src py.typed
 recursive-include src/statspai/schemas *.json
 include src/statspai/_parity_index.json
+recursive-include src/statspai/agent/_guides *.md
 # Verified master bibliography, shipped so sp.bibtex() resolves on a wheel install
 # (kept byte-identical to the root paper.bib by tools/bib_subset.py packaged --check).
 include src/statspai/paper.bib

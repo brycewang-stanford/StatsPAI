@@ -66,6 +66,21 @@ All notable changes to StatsPAI will be documented in this file.
   g-formula / transport / target-trial toolkit, missing data and
   randomization inference. Agent-card coverage on callables moves from
   46 % to 75 %; the ratchet floor is raised to 70 %.
+- **Machine-readable estimator routing: `sp.route`, `sp.decision_guide`,
+  MCP `route_estimator`, `statspai://guide/{family}`.** The decision
+  logic of the seven `docs/guides/choosing_*_estimator.md` guides (DiD,
+  IV, RD, matching, ML-causal, QTE, dynamic panel) is restated as data
+  in `statspai._routing`: each family has questions with allowed
+  answers and routes that name a registered function, an example call,
+  why it is right, the assumptions it adds and the guide heading to
+  read. `sp.route(family, **answers)` returns the matching routes, the
+  unanswered questions and the one that narrows the choice most;
+  `sp.decision_guide(family)` returns the whole table. Tests pin every
+  route target to the registry and every `read_more` to a heading in
+  the guide, and the guides themselves now ship in the wheel
+  (`statspai/agent/_guides/`, byte-identical to `docs/guides` via
+  `scripts/sync_guides.py --check`, a pre-push hook) so an installed
+  package can serve them over MCP.
 - **`sp.search_functions` understands task phrases.** Stopwords are
   ignored, common econometrics spellings are expanded (`did` ↔
   difference-in-differences, `rd` ↔ discontinuity, `iv` ↔ instrument,

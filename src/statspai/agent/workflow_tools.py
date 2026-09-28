@@ -649,6 +649,43 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
             "required": ["operations"],
         },
     },
+    {
+        "name": "route_estimator",
+        "description": (
+            "Route a research question to estimator calls without data. Give "
+            "the family (did / iv / rd / matching / ml_causal / qte / "
+            "dynamic_panel) and answers to its decision questions; get the "
+            "matching registered functions with example calls, why each is "
+            "right, the assumptions it adds and the guide section to read, "
+            "plus the unanswered questions and the one that narrows the "
+            "choice most. Call with no answers to see the questions. The "
+            "full guide is readable at statspai://guide/{family}."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "family": {
+                    "type": "string",
+                    "enum": [
+                        "did",
+                        "iv",
+                        "rd",
+                        "matching",
+                        "ml_causal",
+                        "qte",
+                        "dynamic_panel",
+                    ],
+                    "description": "Estimator family.",
+                },
+                "answers": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                    "description": "question_key -> answer (see the questions returned when omitted).",
+                },
+            },
+            "required": ["family"],
+        },
+    },
 ]
 
 
@@ -704,6 +741,9 @@ def execute_workflow_tool(
 
     if name == "describe_function":
         return _tool_describe_function(arguments)
+
+    if name == "route_estimator":
+        return _tool_route_estimator(arguments)
 
     if name == "load_data":
         return _tool_load_data(arguments, data)
@@ -2162,6 +2202,36 @@ def _tool_transform_data(
         "operations": applied,
     }
     out.update(describe_frame(df))
+    return out
+
+
+def _tool_route_estimator(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    """``route_estimator`` meta-tool: data-free estimator routing."""
+    from .._routing import decision_guide, route
+    from ..exceptions import StatsPAIError
+
+    family = arguments.get("family")
+    if not isinstance(family, str) or not family.strip():
+        return {"error": "`family` is required.", "families": decision_guide()}
+    answers = arguments.get("answers") or {}
+    if not isinstance(answers, dict):
+        return {"error": "`answers` must be an object of question_key -> answer."}
+    try:
+        if not answers:
+            out: Dict[str, Any] = decision_guide(family)
+            out["hint"] = (
+                "Answer the questions with route_estimator(family=..., "
+                "answers={key: answer, ...})."
+            )
+            return out
+        out = route(family, **{str(k): str(v) for k, v in answers.items()})
+    except StatsPAIError as exc:
+        return {
+            "error": str(exc),
+            "error_kind": exc.code,
+            "error_payload": exc.to_dict(),
+        }
+    out["guide_uri"] = f"statspai://guide/{family.strip().lower()}"
     return out
 
 

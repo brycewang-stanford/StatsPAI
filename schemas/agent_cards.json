@@ -1695,6 +1695,107 @@
   },
   {
     "alternatives": [
+      "sp.decision_guide",
+      "sp.recommend",
+      "sp.causal_question"
+    ],
+    "assumptions": [],
+    "category": "agent",
+    "cost_profile": "",
+    "description": "Route a research question to estimator calls. Answer a family's decision questions (see sp.decision_guide) and get the matching registered functions with example calls, the reason, the assumptions each adds, and the guide section to read; also reports the unanswered questions and the one that narrows the choice most. Do NOT use when: a DataFrame is already in hand and the design can be detected from it -- sp.recommend routes from data.",
+    "example": "sp.route('did', design='staggered', timing_random='no', covariates='none')",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "route",
+    "not_recommended_when": [
+      "a DataFrame is already in hand and the design can be detected from it -- sp.recommend routes from data"
+    ],
+    "pre_conditions": [
+      "Answers use the keys and values listed by sp.decision_guide(family)"
+    ],
+    "reference": "Baker, Callaway, Cunningham, Goodman-Bacon & Sant'Anna (2026) JEL",
+    "signature": {
+      "description": "Route a research question to estimator calls. Answer a family's decision questions (see sp.decision_guide) and get the matching registered functions with example calls, the reason, the assumptions each adds, and the guide section to read; also reports the unanswered questions and the one that narrows the choice most. Do NOT use when: a DataFrame is already in hand and the design can be detected from it -- sp.recommend routes from data.",
+      "name": "route",
+      "parameters": {
+        "properties": {
+          "answers": {
+            "description": "question_key=answer pairs from sp.decision_guide(family)",
+            "type": "object"
+          },
+          "family": {
+            "description": "Estimator family",
+            "enum": [
+              "did",
+              "iv",
+              "rd",
+              "matching",
+              "ml_causal",
+              "qte",
+              "dynamic_panel"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "family"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alternatives": [
+      "sp.route",
+      "sp.recommend"
+    ],
+    "assumptions": [],
+    "category": "agent",
+    "cost_profile": "",
+    "description": "Machine-readable decision table for an estimator family: the questions to answer (with allowed answers) and every route (registered function, example call, why, assumptions added, guide heading). The same logic as docs/guides/choosing_*.md, kept in sync by tests.",
+    "example": "sp.decision_guide('rd')",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "decision_guide",
+    "not_recommended_when": [],
+    "pre_conditions": [],
+    "reference": "",
+    "signature": {
+      "description": "Machine-readable decision table for an estimator family: the questions to answer (with allowed answers) and every route (registered function, example call, why, assumptions added, guide heading). The same logic as docs/guides/choosing_*.md, kept in sync by tests.",
+      "name": "decision_guide",
+      "parameters": {
+        "properties": {
+          "family": {
+            "description": "Estimator family; omit to list families",
+            "enum": [
+              "did",
+              "iv",
+              "rd",
+              "matching",
+              "ml_causal",
+              "qte",
+              "dynamic_panel"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alternatives": [
       "sp.rdrobust",
       "sp.rd_honest",
       "sp.rdrandinf",

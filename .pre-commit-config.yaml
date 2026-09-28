@@ -171,6 +171,14 @@ repos:
         always_run: true
         stages: [pre-push]
 
+      - id: guides-packaged-sync
+        name: packaged estimator-choice guides == docs/guides (sp.decision_guide / statspai://guide)
+        entry: python3 scripts/sync_guides.py --check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       - id: registry-drift
         name: registry_stats --check (public-function / submodule drift)
         entry: python3 scripts/registry_stats.py --check

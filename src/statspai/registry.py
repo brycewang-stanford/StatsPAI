@@ -1846,6 +1846,92 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="route",
+            category="agent",
+            description=(
+                "Route a research question to estimator calls. Answer a family's "
+                "decision questions (see sp.decision_guide) and get the matching "
+                "registered functions with example calls, the reason, the "
+                "assumptions each adds, and the guide section to read; also "
+                "reports the unanswered questions and the one that narrows the "
+                "choice most."
+            ),
+            params=[
+                ParamSpec(
+                    "family",
+                    "str",
+                    True,
+                    description="Estimator family",
+                    enum=[
+                        "did",
+                        "iv",
+                        "rd",
+                        "matching",
+                        "ml_causal",
+                        "qte",
+                        "dynamic_panel",
+                    ],
+                ),
+                ParamSpec(
+                    "answers",
+                    "Dict[str, str]",
+                    False,
+                    None,
+                    "question_key=answer pairs from sp.decision_guide(family)",
+                ),
+            ],
+            returns="dict: routes / pending_routes / unanswered / next_question / guide",
+            example="sp.route('did', design='staggered', timing_random='no', covariates='none')",
+            tags=["agent", "routing", "decision", "guide"],
+            reference="Baker, Callaway, Cunningham, Goodman-Bacon & Sant'Anna (2026) JEL",
+            pre_conditions=[
+                "Answers use the keys and values listed by sp.decision_guide(family)",
+            ],
+            alternatives=["sp.decision_guide", "sp.recommend", "sp.causal_question"],
+            not_recommended_when=[
+                "a DataFrame is already in hand and the design can be detected from it — sp.recommend routes from data",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="decision_guide",
+            category="agent",
+            description=(
+                "Machine-readable decision table for an estimator family: the "
+                "questions to answer (with allowed answers) and every route "
+                "(registered function, example call, why, assumptions added, "
+                "guide heading). The same logic as docs/guides/choosing_*.md, "
+                "kept in sync by tests."
+            ),
+            params=[
+                ParamSpec(
+                    "family",
+                    "str",
+                    False,
+                    None,
+                    "Estimator family; omit to list families",
+                    [
+                        "did",
+                        "iv",
+                        "rd",
+                        "matching",
+                        "ml_causal",
+                        "qte",
+                        "dynamic_panel",
+                    ],
+                ),
+            ],
+            returns="dict: family / title / guide / questions / routes",
+            example="sp.decision_guide('rd')",
+            tags=["agent", "routing", "decision", "guide"],
+            alternatives=["sp.route", "sp.recommend"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="rd",
             category="causal",
             description=(

@@ -440,6 +440,7 @@ _DATALESS_OVERRIDES = frozenset(
         "load_data",
         "describe_data",
         "transform_data",
+        "route_estimator",
     }
 )
 
@@ -467,6 +468,7 @@ _CORE_PROFILE_TOOLS = frozenset(
         "search_functions",
         "describe_function",
         "call_function",
+        "route_estimator",
         "detect_design",
         "preflight",
         "recommend",
