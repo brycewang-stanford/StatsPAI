@@ -98,6 +98,8 @@ def _is_agent_safe(name: str, spec: Any) -> bool:
     * anything flagged by spec metadata (tags contains 'internal')
     * classes (PascalCase names that resolve to a type, not a function);
       agents call functions, not constructors directly
+    * registered aliases (``spec.alias_of`` set): the canonical entry is
+      listed once; the alias stays callable through ``tools/call``
     """
     if not name or name.startswith("_"):
         return False
@@ -105,6 +107,9 @@ def _is_agent_safe(name: str, spec: Any) -> bool:
         return False
     tags = getattr(spec, "tags", []) or []
     if any(str(t).lower() == "internal" for t in tags):
+        return False
+    alias_of = getattr(spec, "alias_of", None)
+    if isinstance(alias_of, str) and alias_of:
         return False
     # Heuristic: PascalCase → class, which shouldn't be a tool.  Verify
     # against statspai to avoid false positives on SCREAMING names.

@@ -12,7 +12,7 @@
 
 | Ecosystem / Project                  | Method     |  Files | Lines of code | Primary focus                      |
 | ------------------------------------ | ---------- | -----: | ------------: | ---------------------------------- |
-| **StatsPAI** `src/statspai/`         | measured   |    773 |   **404,864** | validation-tiered causal inference |
+| **StatsPAI** `src/statspai/`         | measured   |    829 |   **466,650** | validation-tiered causal inference |
 | StatsPAI tests (`tests/`)            | measured   |  1,277 |       259,615 | —                                  |
 | statsmodels 0.14.x                   | measured   |    948 |   **381,981** | GLM / time series / general        |
 | linearmodels                         | measured   |    131 |        36,607 | panel / IV                         |
@@ -39,23 +39,23 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
-| `did` | 45,426 | 58 | 90 |
-| `synth` | 27,089 | 35 | 55 |
+| `did` | 45,504 | 58 | 90 |
+| `synth` | 27,673 | 36 | 55 |
 | `rd` | 20,281 | 31 | 54 |
 | `regression` | 19,867 | 24 | 39 |
+| `agent` | 16,678 | 36 | 4 |
 | `smart` | 16,475 | 21 | 31 |
 | `forest` | 15,811 | 17 | 31 |
-| `output` | 13,686 | 22 | 42 |
-| `agent` | 12,946 | 32 | 4 |
+| `output` | 13,703 | 22 | 42 |
 | `matching` | 10,493 | 15 | 25 |
-| `core` | 10,097 | 15 | 5 |
+| `core` | 10,155 | 15 | 5 |
 | `decomposition` | 9,776 | 19 | 32 |
 | `panel` | 9,073 | 14 | 18 |
 | `dml` | 8,999 | 24 | 16 |
 | `inference` | 8,792 | 19 | 26 |
-| `iv` | 8,567 | 17 | 10 |
+| `iv` | 8,569 | 17 | 10 |
 | `diagnostics` | 7,929 | 14 | 25 |
-| `spatial` | 7,846 | 30 | 38 |
+| `spatial` | 7,848 | 30 | 38 |
 | `fast` | 7,743 | 16 | 0 |
 | `plots` | 6,011 | 7 | 8 |
 | `timeseries` | 5,659 | 11 | 20 |
@@ -70,27 +70,27 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `qte` | 4,148 | 9 | 13 |
 | `causal_discovery` | 4,079 | 11 | 20 |
 | `tmle` | 3,693 | 6 | 11 |
-| `dag` | 3,592 | 9 | 23 |
+| `dag` | 3,593 | 9 | 23 |
 | `structural` | 3,570 | 9 | 12 |
 | `network` | 3,514 | 9 | 33 |
-| `neural_causal` | 3,337 | 6 | 18 |
+| `neural_causal` | 3,339 | 6 | 18 |
 | `robustness` | 3,157 | 6 | 11 |
 | `causal_llm` | 2,976 | 10 | 15 |
 | `bounds` | 2,812 | 5 | 12 |
 | `crossval` | 2,761 | 7 | 2 |
 | `bartik` | 2,628 | 5 | 8 |
-| `postestimation` | 2,611 | 6 | 12 |
+| `postestimation` | 2,612 | 6 | 12 |
 | `conformal_causal` | 2,551 | 9 | 21 |
 | `epi` | 2,516 | 6 | 20 |
 | `rlasso` | 2,476 | 7 | 10 |
+| `interference` | 2,473 | 10 | 20 |
 | `utils` | 2,467 | 10 | 32 |
-| `interference` | 2,445 | 10 | 20 |
 | `datasets` | 2,404 | 4 | 3 |
 | `question` | 2,102 | 3 | 6 |
 | `policy_learning` | 2,072 | 5 | 8 |
 | `proximal` | 2,030 | 8 | 13 |
 | `nonparametric` | 1,923 | 4 | 11 |
-| `fixest` | 1,846 | 3 | 4 |
+| `fixest` | 1,847 | 3 | 4 |
 | `causal_text` | 1,716 | 4 | 4 |
 | `mediation` | 1,673 | 4 | 6 |
 | `bcf` | 1,659 | 5 | 8 |
@@ -123,10 +123,10 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `censoring` | 376 | 2 | 2 |
 | `quasi` | 339 | 2 | 2 |
 | `geolift` | 182 | 2 | 1 |
-| `checks` | 152 | 2 | 0 |
+| `checks` | 154 | 2 | 0 |
 | `causal` | 111 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **453,341** | **816** | **1259** |
+| **Total** | **466,650** | **829** | **1262** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.

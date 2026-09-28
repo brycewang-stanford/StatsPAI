@@ -65,8 +65,15 @@ def dispatch_registry_tool(
     data: Optional[pd.DataFrame] = None,
     detail: str = "agent",
     as_handle: bool = False,
+    result_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Run any registered ``sp.<name>`` function as a tool call.
+
+    ``result_id`` resolves a cached fit into the function's ``result``
+    argument when it has one. An unresolvable handle returns the
+    structured ``missing_result_handle`` error; a handle given to a
+    function without a ``result`` parameter is listed under
+    ``_unsupported_args``.
 
     Raises
     ------
@@ -97,10 +104,19 @@ def dispatch_registry_tool(
     if data is not None and "data" not in kwargs:
         kwargs["data"] = data
 
-    from .tools import _default_serializer
-    from ._result_cache import RESULT_CACHE
-    from .remediation import remediate as _remediate
     from ..exceptions import StatsPAIError
+    from ._replay import build_replay
+    from ._result_cache import RESULT_CACHE, missing_result_error
+    from .remediation import remediate as _remediate
+    from .tools import _default_serializer
+
+    if result_id:
+        if RESULT_CACHE.get_entry(result_id) is None:
+            return dict(missing_result_error(result_id), tool=name)
+        if "result" not in kwargs and allowed is not None and "result" in allowed:
+            kwargs["result"] = RESULT_CACHE.get(result_id)
+        elif "result" not in kwargs:
+            unsupported = sorted(unsupported + ["result_id"])
 
     try:
         result = fn(**kwargs)
@@ -147,6 +163,9 @@ def dispatch_registry_tool(
             "applied; check describe_function for the accepted names.",
         )
 
+    replay = build_replay(name, kwargs, result_id=result_id)
+    out["replay"] = replay
+
     rid: Optional[str] = None
     if as_handle:
         rid = RESULT_CACHE.put(
@@ -155,6 +174,7 @@ def dispatch_registry_tool(
             arguments={
                 k: v for k, v in arguments.items() if not isinstance(v, pd.DataFrame)
             },
+            replay=replay,
         )
         out["result_id"] = rid
         out["result_uri"] = f"statspai://result/{rid}"

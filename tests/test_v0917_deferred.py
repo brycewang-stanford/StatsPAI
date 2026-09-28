@@ -650,8 +650,12 @@ class TestMCPServer:
             }
         )
         resp = json.loads(sp.agent.mcp_handle_request(req))
-        # Either JSON-RPC error or an isError:True content block
-        assert resp["result"]["isError"] is True
+        # Either JSON-RPC error or an isError:True content block (an
+        # unknown tool name is a -32602 protocol error per the MCP spec).
+        if "error" in resp:
+            assert resp["error"]["code"] == -32602
+        else:
+            assert resp["result"]["isError"] is True
 
     def test_resources_list_and_read(self):
         import statspai as sp

@@ -322,11 +322,11 @@ FAMILY_CARDS: Dict[str, Dict[str, Any]] = {
             ),
         ],
         "alternatives": ["sp.cluster_robust_se", "sp.twoway_cluster"],
-        "cost_profile": (
-            "Memory O(n^2): materialises dense n x n distance / kernel matrices; "
-            "at n = 140,000 that is ~157 GB — subsample or cluster by region "
-            "instead."
-        ),
+        # No cost_profile here: ``sp.conley`` enumerates only within-cutoff
+        # pairs (scipy cKDTree), so the dense O(n^2) warning that belongs to
+        # ``feols(vce='conley')`` would steer agents away from the scalable
+        # path. The accurate profile comes from the registry's negative-
+        # guidance table.
     },
     # ------------------------------------------------------------------ #
     "weak_iv_inference": {

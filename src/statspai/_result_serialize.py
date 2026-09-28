@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import fields, is_dataclass
-from typing import Any, ClassVar, Dict, Tuple
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Dict, List, Tuple, TypeVar
 
 import numpy as np
 
@@ -59,6 +59,11 @@ def result_to_dict(obj: Any) -> Dict[str, Any]:
     """
     if is_dataclass(obj):
         return {f.name: _to_jsonable(getattr(obj, f.name)) for f in fields(obj)}
+    if isinstance(obj, tuple) and hasattr(obj, "_asdict"):
+        # NamedTuple results: the declared fields, then any properties.
+        out_nt: Dict[str, Any] = {k: _to_jsonable(v) for k, v in obj._asdict().items()}
+        _sweep_properties(obj, out_nt)
+        return out_nt
     attrs = getattr(obj, "__dict__", None)
     if attrs is None:
         raise TypeError(
@@ -70,6 +75,12 @@ def result_to_dict(obj: Any) -> Dict[str, Any]:
         for k, v in attrs.items()
         if not k.startswith("_") and not callable(v)
     }
+    _sweep_properties(obj, out)
+    return out
+
+
+def _sweep_properties(obj: Any, out: Dict[str, Any]) -> None:
+    """Add the public ``property`` values declared on ``obj``'s classes."""
     for klass in type(obj).__mro__:
         for name, member in vars(klass).items():
             if name.startswith("_") or name in out:
@@ -81,7 +92,6 @@ def result_to_dict(obj: Any) -> Dict[str, Any]:
             # reproduce exactly the silent-empty-export bug this sweep
             # exists to fix (CLAUDE.md §7).
             out[name] = _to_jsonable(getattr(obj, name))
-    return out
 
 
 def _resolved_fmt(fmt: Any, digits: int | None) -> Any:
@@ -294,9 +304,107 @@ class ResultProtocolMixin:
     #: Verified paper.bib key(s) for the estimator (see CLAUDE.md §10).
     _citation_keys: ClassVar[Tuple[str, ...]] = ()
 
-    def to_dict(self) -> Dict[str, Any]:
-        """JSON-safe dict of every field (agent-native serialization)."""
-        return result_to_dict(self)
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        # A subclass that defines its own ``to_dict`` without a ``detail``
+        # argument would otherwise break the documented
+        # ``r.to_dict(detail="agent")`` contract (TypeError). Wrap it so the
+        # legacy call is untouched and the other levels get the envelope.
+        _wrap_legacy_to_dict(cls)
+
+    if TYPE_CHECKING:
+        # Gradual signatures for the type checker only. Domain subclasses
+        # override these with their own historical parameters (``to_dict``
+        # overrides are wrapped at class creation to accept ``detail=``;
+        # CrossValidationResult.next_steps returns strings), so the static
+        # contract is "callable, returns a dict / list"; the runtime
+        # signatures below are the documented ones.
+
+        def to_dict(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+            """Type-checker stub; see the runtime definition."""
+
+        def violations(self, *args: Any, **kwargs: Any) -> Any:
+            """Type-checker stub; see the runtime definition."""
+
+        def next_steps(self, *args: Any, **kwargs: Any) -> Any:
+            """Type-checker stub; see the runtime definition."""
+
+        def result_card(self, *args: Any, **kwargs: Any) -> Any:
+            """Type-checker stub; see the runtime definition."""
+
+    else:
+
+        def to_dict(
+            self, *, detail: str = "standard", detail_head: int = 5
+        ) -> Dict[str, Any]:
+            """JSON-safe dict of the result (agent-native serialization).
+
+            Parameters
+            ----------
+            detail : {"minimal", "standard", "agent"}, default ``"standard"``
+                Same levels as :meth:`CausalResult.to_dict`.
+
+                - ``"minimal"`` — the bare envelope: ``method``, ``estimand``,
+                  ``estimate``, ``se``, ``pvalue``, ``ci``, ``alpha``,
+                  ``n_obs``, ``citation_key``, read off the fields this class
+                  records (``None`` where it records none).
+                - ``"standard"`` — every field, JSON-safe (the historical
+                  ``to_dict()`` output, unchanged).
+                - ``"agent"`` — standard fields + the envelope + ``diagnostics``,
+                  ``violations``, ``warnings``, ``next_steps``,
+                  ``suggested_functions`` and ``degradations``.
+            detail_head : int, default 5
+                Accepted for signature parity with ``CausalResult.to_dict``;
+                domain results carry no ``detail`` table, so it is unused.
+
+            Returns
+            -------
+            dict
+                Round-trips through ``json.dumps``.
+            """
+            from ._result_contract import build_payload, check_detail
+
+            check_detail(detail)
+            if detail == "standard":
+                return result_to_dict(self)
+            base = result_to_dict(self) if detail == "agent" else None
+            return build_payload(self, detail, base)
+
+        def violations(self) -> List[Dict[str, Any]]:
+            """Structured assumption / diagnostic issues this result recorded.
+
+            Same item shape as :meth:`CausalResult.violations` (``kind`` /
+            ``severity`` / ``test`` / ``value`` / ``threshold`` / ``message``
+            / ``recovery_hint`` / ``alternatives``). Derived from the stored
+            ``model_info`` / ``diagnostics`` mappings and ``degradations``;
+            nothing is re-run. ``[]`` when nothing was flagged.
+            """
+            from ._result_contract import generic_violations
+
+            return generic_violations(self)
+
+        def next_steps(self, print_result: bool = False) -> List[Dict[str, str]]:
+            """Recommended follow-ups, as dicts (``action`` / ``reason`` /
+            ``priority`` / ``category``), from the producing function's
+            registry card (failure-mode remedies, registered alternatives).
+
+            ``[]`` when the producing function cannot be resolved without
+            guessing. Prints nothing unless ``print_result=True``.
+            """
+            from ._result_contract import generic_next_steps
+
+            steps = generic_next_steps(self)
+            if print_result:
+                for s in steps:
+                    print(f"-> {s['action']}\n   {s['reason']}")
+            return steps
+
+        def result_card(self) -> Any:
+            """Auditable card (estimand, sample, provenance incl. seed,
+            evidence tier, ...). See :func:`statspai.result_card`."""
+            from .result_card import result_card as _result_card
+
+            return _result_card(self)
 
     def to_json(self, indent: int | None = None) -> str:
         """``json.dumps`` of :meth:`to_dict` — the same entry point the
@@ -428,3 +536,86 @@ class ResultProtocolMixin:
                 f"{type(self).__name__}; see the estimator docstring."
             )
         return "\n".join(keys)
+
+
+#: Mixin members :func:`attach_result_protocol` copies onto a class that
+#: cannot inherit (``typing.NamedTuple`` forbids extra bases).
+_PROTOCOL_MEMBERS: Tuple[str, ...] = (
+    "to_dict",
+    "to_json",
+    "to_latex",
+    "to_markdown",
+    "to_word",
+    "to_excel",
+    "cite",
+    "violations",
+    "next_steps",
+    "result_card",
+)
+
+_C = TypeVar("_C", bound=type)
+
+
+def attach_result_protocol(cls: _C) -> _C:
+    """Class decorator: give ``cls`` the :class:`ResultProtocolMixin` surface.
+
+    For result types that cannot take the mixin as a base — chiefly
+    ``typing.NamedTuple`` results, whose tuple unpacking and field access
+    must keep working. Members the class defines itself are left alone; a
+    legacy ``to_dict`` without ``detail`` is wrapped as for mixin
+    subclasses.
+    """
+    for name in _PROTOCOL_MEMBERS:
+        if name not in vars(cls):
+            setattr(cls, name, vars(ResultProtocolMixin)[name])
+    _wrap_legacy_to_dict(cls)
+    return cls
+
+
+def _wrap_legacy_to_dict(cls: type) -> None:
+    """Make ``cls.to_dict`` accept ``detail=`` when it was defined without."""
+    import functools
+    import inspect
+
+    fn = vars(cls).get("to_dict")
+    if fn is None or not inspect.isfunction(fn):
+        return
+    if getattr(fn, "_statspai_detail_aware", False):
+        return
+    try:
+        sig = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return
+    if "detail" in sig.parameters:
+        return
+
+    legacy: Callable[..., Any] = fn
+
+    @functools.wraps(legacy)
+    def to_dict(self: Any, *args: Any, detail: str = "standard", **kwargs: Any) -> Any:
+        from ._result_contract import build_payload, check_detail
+
+        check_detail(detail)
+        if detail == "standard":
+            return legacy(self, *args, **kwargs)
+        base = legacy(self, *args, **kwargs) if detail == "agent" else None
+        return build_payload(self, detail, base)
+
+    params = list(sig.parameters.values())
+    detail_param = inspect.Parameter(
+        "detail", inspect.Parameter.KEYWORD_ONLY, default="standard", annotation=str
+    )
+    pos = next(
+        (i for i, p in enumerate(params) if p.kind is inspect.Parameter.VAR_KEYWORD),
+        len(params),
+    )
+    params.insert(pos, detail_param)
+    to_dict.__signature__ = sig.replace(parameters=params)  # type: ignore[attr-defined]
+    to_dict._statspai_detail_aware = True  # type: ignore[attr-defined]
+    to_dict.__doc__ = (legacy.__doc__ or "").rstrip() + (
+        "\n\n        ``detail`` ({'minimal', 'standard', 'agent'}, default "
+        "'standard'): 'standard' returns the dict above unchanged; "
+        "'minimal' / 'agent' return the shared agent envelope (see "
+        "``ResultProtocolMixin.to_dict``).\n"
+    )
+    cls.to_dict = to_dict  # type: ignore[attr-defined]

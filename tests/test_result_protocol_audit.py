@@ -140,3 +140,42 @@ def test_core_result_classes_expose_full_agent_protocol() -> None:
     for key, methods in required.items():
         assert key in by_key
         assert methods <= set(by_key[key]["effective_methods"])
+
+
+def test_agent_contract_is_tracked_and_gaps_are_exact() -> None:
+    res = _run(["--json"])
+    assert res.returncode == 0, res.stderr
+    payload = json.loads(res.stdout)
+    assert "agent_contract" in payload["protocol_counts"]
+    for method in ("to_dict_detail", "violations", "next_steps", "result_card"):
+        assert method in payload["method_counts"]
+    missing = {
+        row["key"]
+        for row in payload["per_class"]
+        if "agent_contract" in row.get("missing", {})
+    }
+    assert missing == set(payload["agent_contract_gaps"])
+    by_key = {row["key"]: row for row in payload["per_class"]}
+    contract = {"to_dict_detail", "violations", "next_steps", "result_card", "cite"}
+    for key in (
+        "src/statspai/core/results.py:CausalResult",
+        "src/statspai/core/results.py:EconometricResults",
+        "src/statspai/decomposition/oaxaca.py:OaxacaResult",
+        "src/statspai/did/_equivalence.py:EquivalenceResult",
+        "src/statspai/did/_flci.py:FLCIResult",
+    ):
+        assert contract <= set(by_key[key]["effective_methods"]), key
+
+
+def test_agent_contract_ratchet_rejects_an_undocumented_gap(tmp_path) -> None:
+    sys.path.insert(0, str(SCRIPT.parent))
+    import result_protocol_audit as audit
+
+    report = audit.collect()
+    row = next(
+        r
+        for r in report["per_class"]
+        if r["key"] == "src/statspai/decomposition/oaxaca.py:OaxacaResult"
+    )
+    row.setdefault("missing", {})["agent_contract"] = ["violations"]
+    assert audit.check(report) == 1

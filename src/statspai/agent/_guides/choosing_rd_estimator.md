@@ -86,7 +86,7 @@ sp.rdpower(df, y='y', x='running_var', c=0.0, tau=[0.1, 0.5, 1.0])
 Or in one call:
 ```python
 r = sp.rdrobust(df, y='y', x='running_var', c=0.0)
-r.next_steps()  # prints the priority-ordered checklist
+r.next_steps(print_result=True)  # prints the priority-ordered checklist
 ```
 
 ## 5. Bandwidth selection

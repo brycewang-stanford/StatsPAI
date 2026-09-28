@@ -27,6 +27,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
+from ..exceptions import MethodIncompatibility as _MethodIncompatibility
 from ._result_cache import RESULT_CACHE
 
 # ----------------------------------------------------------------------
@@ -631,7 +632,12 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
             "wide_to_long {stubnames, i, j, sep?}, long_to_wide {index, "
             "columns, values}, mice {columns?, m?} (single completed "
             "dataset), function {name, arguments?} (any sp.<name> taking "
-            "data= and returning a DataFrame)."
+            "data= and returning a DataFrame). query / assign expressions "
+            "are limited to columns (backticks for odd names), constants, "
+            "operators, in / not in, math functions (log, exp, sqrt, abs, "
+            "...) and col.isnull()/isin()/between()/str.contains(); other "
+            "attribute access, subscripts and @locals fail with "
+            "error_kind='unsafe_expression'."
         ),
         "input_schema": {
             "type": "object",
@@ -868,34 +874,13 @@ def _need_result(rid: Optional[str]) -> Any:
         }
     obj = RESULT_CACHE.get(rid)
     if obj is None:
-        reason = RESULT_CACHE.miss_reason(rid)
-        hints = {
-            "ttl": (
-                "result_id expired (server result-cache TTL); the "
-                "underlying fit may be stale — re-fit the estimator "
-                "with as_handle=true for a fresh handle."
-            ),
-            "lru": (
-                "result_id evicted (LRU cache keeps only the most "
-                "recent fits); re-fit the estimator with "
-                "as_handle=true to obtain a fresh handle."
-            ),
-            "explicit": (
-                "result_id was explicitly dropped; re-fit the "
-                "estimator with as_handle=true."
-            ),
-            "unknown": (
-                "unknown result_id (never cached, or evicted long "
-                "ago, or the server restarted); re-fit the "
-                "estimator with as_handle=true."
-            ),
-        }
-        return {
-            "error": f"result_id {rid!r} not found in cache",
-            "reason": reason,
-            "hint": hints.get(reason, hints["unknown"]),
-            "available_result_ids": RESULT_CACHE.keys(),
-        }
+        from ._result_cache import missing_result_error
+
+        miss = missing_result_error(rid)
+        # ``reason`` is the older spelling of ``miss_reason``; kept so
+        # existing agents keep branching on it.
+        miss["reason"] = miss["miss_reason"]
+        return miss
     return obj
 
 
@@ -1929,6 +1914,175 @@ _TRANSFORM_OPS = (
 )
 
 
+class UnsafeExpression(_MethodIncompatibility):
+    """A ``transform_data`` expression uses syntax outside the allowlist."""
+
+    code = "unsafe_expression"
+
+
+#: Element-wise functions ``query`` / ``assign`` expressions may call
+#: (the math functions pandas ``eval`` supports).
+_EXPR_FUNCS = frozenset(
+    {
+        "abs",
+        "log",
+        "log10",
+        "log1p",
+        "exp",
+        "expm1",
+        "sqrt",
+        "sin",
+        "cos",
+        "tan",
+        "sinh",
+        "cosh",
+        "tanh",
+        "arcsin",
+        "arccos",
+        "arctan",
+        "arcsinh",
+        "arccosh",
+        "arctanh",
+        "arctan2",
+    }
+)
+
+#: Column methods allowed as ``<column>.<method>(...)``.
+_EXPR_METHODS = frozenset({"isnull", "notnull", "isna", "notna", "isin", "between"})
+
+#: String methods allowed as ``<column>.str.<method>(...)``.
+_EXPR_STR_METHODS = frozenset({"contains", "startswith", "endswith"})
+
+
+def _validate_expression(expr: str) -> None:
+    """Reject a ``query`` / ``assign`` expression outside a small allowlist.
+
+    ``DataFrame.query`` / ``eval`` with ``engine="python"`` evaluate
+    Python syntax, including attribute access, subscripts and local
+    ``@name`` references — a model-supplied string must not reach them
+    unchecked. Allowed: column names (bare or backtick-quoted), constants,
+    arithmetic / comparison / boolean / bitwise operators, ``in`` /
+    ``not in``, list and tuple literals, the math functions in
+    :data:`_EXPR_FUNCS`, and ``col.isnull()``-style methods
+    (:data:`_EXPR_METHODS`, ``col.str.contains(...)``). Everything else —
+    other attribute access, dunder names, subscripts, lambdas,
+    comprehensions, ``@`` references, ``@`` matrix products — raises
+    :class:`UnsafeExpression`.
+    """
+    import ast
+    import re
+
+    # Backtick-quoted column names are opaque to Python's parser.
+    masked = re.sub(r"`[^`]*`", "_statspai_bt_col_", expr)
+    try:
+        tree = ast.parse(masked.strip(), mode="eval")
+    except SyntaxError as e:
+        raise UnsafeExpression(
+            f"Expression {expr!r} is not allowed: {e.msg}.",
+            recovery_hint=(
+                "Use column names, constants and operators only; local "
+                "variable references (@name) are not supported."
+            ),
+        ) from e
+
+    ops_ok = (
+        ast.Expression,
+        ast.BoolOp,
+        ast.And,
+        ast.Or,
+        ast.BinOp,
+        ast.Add,
+        ast.Sub,
+        ast.Mult,
+        ast.Div,
+        ast.FloorDiv,
+        ast.Mod,
+        ast.Pow,
+        ast.BitAnd,
+        ast.BitOr,
+        ast.BitXor,
+        ast.UnaryOp,
+        ast.Not,
+        ast.USub,
+        ast.UAdd,
+        ast.Invert,
+        ast.Compare,
+        ast.Eq,
+        ast.NotEq,
+        ast.Lt,
+        ast.LtE,
+        ast.Gt,
+        ast.GtE,
+        ast.In,
+        ast.NotIn,
+        ast.Is,
+        ast.IsNot,
+        ast.Load,
+        ast.List,
+        ast.Tuple,
+        ast.keyword,
+    )
+
+    def _reject(node: Any, why: str) -> None:
+        raise UnsafeExpression(
+            f"Expression {expr!r} is not allowed: {why}.",
+            recovery_hint=(
+                "Allowed: columns, constants, + - * / // % **, comparisons, "
+                "and/or/not, & | ~, in / not in, list literals, math "
+                "functions (log, exp, sqrt, abs, ...), "
+                "col.isnull()/notnull()/isna()/notna()/isin()/between(), "
+                "col.str.contains()/startswith()/endswith()."
+            ),
+            diagnostics={"node": type(node).__name__},
+        )
+
+    def _check_name(node: Any) -> None:
+        if "__" in node.id:
+            _reject(node, f"name {node.id!r} contains a dunder")
+
+    def _walk(node: Any) -> None:
+        if isinstance(node, ast.Name):
+            _check_name(node)
+            return
+        if isinstance(node, ast.Constant):
+            if not isinstance(node.value, (str, int, float, bool, type(None))):
+                _reject(node, "unsupported constant")
+            return
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Name):
+                if func.id not in _EXPR_FUNCS:
+                    _reject(node, f"call to {func.id!r}")
+            elif isinstance(func, ast.Attribute):
+                owner = func.value
+                if func.attr in _EXPR_METHODS and isinstance(owner, ast.Name):
+                    _check_name(owner)
+                elif (
+                    func.attr in _EXPR_STR_METHODS
+                    and isinstance(owner, ast.Attribute)
+                    and owner.attr == "str"
+                    and isinstance(owner.value, ast.Name)
+                ):
+                    _check_name(owner.value)
+                else:
+                    _reject(node, f"method call .{func.attr}()")
+            else:
+                _reject(node, "call target")
+            for arg in node.args:
+                _walk(arg)
+            for kw in node.keywords:
+                if kw.arg is None:
+                    _reject(node, "**kwargs")
+                _walk(kw.value)
+            return
+        if not isinstance(node, ops_ok):
+            _reject(node, f"{type(node).__name__} syntax")
+        for child in ast.iter_child_nodes(node):
+            _walk(child)
+
+    _walk(tree)
+
+
 def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
     """Apply one ``transform_data`` step. Raises on a bad step."""
     from ..exceptions import MethodIncompatibility
@@ -1970,6 +2124,7 @@ def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
                 "op='query' needs a string `expr`.",
                 recovery_hint="e.g. {'op': 'query', 'expr': 'year >= 2005 and age < 65'}",
             )
+        _validate_expression(expr)
         return df.query(expr, engine="python")
     if op == "select":
         return df[_cols()]
@@ -2014,6 +2169,7 @@ def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
                 "op='assign' needs `column` and a string `expr`.",
                 recovery_hint="e.g. {'op': 'assign', 'column': 'lwage', 'expr': 'log(wage)'}",
             )
+        _validate_expression(expr)
         out = df.copy()
         out[column] = out.eval(expr, engine="python")
         return out

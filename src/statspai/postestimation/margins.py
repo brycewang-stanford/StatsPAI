@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility, StatsPAIWarning
 from ._covariance import coefficient_covariance, inference_df, require_covariance
 from ._design import design_for, model_setting
@@ -1231,7 +1232,7 @@ def _adjusted_alpha(alpha: float, method: str, n_comparisons: int) -> float:
 # ---------------------------------------------------------------------------
 
 
-class _MarginsResult:
+class _MarginsResult(ResultProtocolMixin):
     """Duck-typed result wrapping a ``margins`` DataFrame.
 
     Exposes the attributes ``_extract_model_data`` (in ``output/estimates``)

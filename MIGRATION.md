@@ -25,6 +25,37 @@ method(ppmlhdfe)` tables with `sp.etwfe`.
 
 ---
 
+<a id="agent-surface-hardening"></a>
+
+## Unreleased — ⚠️ MCP errors as `isError` results, remote data opt-in, `next_steps()` stops printing
+
+**Who is affected.** MCP clients and scripts that parse `statspai-mcp`
+responses, code that calls `handle_request` in-process, shell pipelines
+that branch on `statspai run` exit codes, and anyone relying on
+`result.next_steps()` printing. No estimate, standard error or default
+seed changed.
+
+| Area | Old | New | How to keep the old behaviour |
+| --- | --- | --- | --- |
+| MCP tool failure (bad / expired `data_id` or `result_id`, data-load error, invalid argument value, timeout) | JSON-RPC `error` (-32602 / -32000), message only | `result` with `isError: true`; details in `structuredContent` (`error_kind`, `message`, `hint`, `miss_reason`) | read `result.structuredContent.error_kind` instead of `error.code` |
+| MCP unknown tool name | `isError` result | JSON-RPC -32602 (protocol error, per spec) | — |
+| MCP stale `result_id` | silently ignored | `isError`, `error_kind: "missing_result_handle"` | pass a live handle |
+| MCP `data_path` URL (`http(s)` / `s3` / `gs`) | fetched, no byte cap | refused (`remote_disabled`) unless `STATSPAI_MCP_ALLOW_REMOTE=1`; capped by `STATSPAI_MCP_MAX_DATA_BYTES` | set `STATSPAI_MCP_ALLOW_REMOTE=1` |
+| MCP `transform_data` `query` / `assign` | any pandas expression (`engine="python"`) | AST allowlist: columns, literals, arithmetic / comparison / boolean operators, `in`, a fixed set of math functions and `isnull` / `isin` / `between` / `.str.contains`-style column methods; attribute chains, dunders, subscripts and `@` locals are refused (`unsafe_expression`) | — |
+| In-process `handle_request` tool profile | `full` | `curated` (as the CLI) | `STATSPAI_MCP_PROFILE=full` |
+| MCP text content block | pretty-printed JSON | compact JSON; oversized payloads truncated (see `truncated`) | `max_output_bytes=0` disables the budget |
+| `CausalResult.next_steps()` / `EconometricResults.next_steps()` | returned the list and printed a banner | returns the list only | `r.next_steps(print_result=True)` |
+| `statspai run` exit code | 3 for every estimator error | 4 input errors (`column_not_found`, `missing_arguments`, `unknown_argument`), 5 `missing_dependency`, 3 otherwise | treat any non-zero, non-2 code as an estimator error |
+| Remediation category | `bad_argument` | `unknown_argument` (with `did_you_mean`) | — |
+| `sp.all_schemas()` | included 320 classes | functions only | `sp.all_schemas(include_classes=True)` |
+| Schema of `data` parameters | `"type": "string"` | `"type": "object"`, `x-statspai-role: "dataframe"` | — |
+
+**Exceptions.** `ColumnNotFound` subclasses both `DataInsufficient` and
+`MethodIncompatibility` (and `ValueError`), and `MissingDependencyError`
+subclasses `ImportError`, so existing `except` clauses keep catching them.
+
+---
+
 <a id="design-and-diagnostic-fixes"></a>
 
 ## Unreleased — ⚠️ `optimal_design` sample sizes, Hausman test, `compare_estimators`, `estat` IV tests

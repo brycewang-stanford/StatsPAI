@@ -1,30 +1,35 @@
-"""Concurrent tool-call runner with timeout + progress notifications.
+"""Tool-call runner: timeout, progress notifications, cooperative cancel.
 
-Why this exists
----------------
+What this module does
+---------------------
 
-The v1.x ``serve_stdio`` is a strictly serial loop:
+:func:`run_with_progress` executes one ``tools/call`` body on a worker
+thread and, while it runs, drains the tool's progress events into
+``notifications/progress`` messages, enforces the wall-clock timeout
+(``STATSPAI_MCP_TOOL_TIMEOUT_SECONDS``) and watches a cancel
+:class:`threading.Event` set by the stdio loop when the client sends
+``notifications/cancelled``.
 
-    for raw in stdin:
-        response = handle_request(raw)
-        write(response)
+What it does *not* do
+---------------------
 
-That has three operational problems:
+Python threads cannot be killed. On timeout or cancel the caller gets
+its answer immediately, but the worker thread keeps running until the
+tool returns or next reaches a cancellation checkpoint:
 
-1. **Long tools block the channel.** A 10-minute ``spec_curve`` ties up
-   the server; the client can't even ``initialize`` a sibling MCP
-   session until it ends.
-2. **No progress signal.** MCP 2024-11-05 supports
-   ``notifications/progress`` so a server can keep the agent's UI
-   informed during slow work; the v1.10 server has no plumbing.
-3. **No timeout.** A misconfigured BCF / SuperLearner can pin the
-   process indefinitely.
+* A tool reaches a checkpoint whenever it calls :func:`progress` or
+  :func:`check_cancelled`; both raise :class:`ToolCancelled` once the
+  request was cancelled (or timed out), so a tool that reports progress
+  stops at its next report.
+* A tool that never reports (most estimators today) runs to completion
+  in the background. Such threads are counted by
+  :func:`orphaned_threads` and the count is reported in the timeout
+  error so an operator can see that CPU is still being spent.
 
-This module wraps each ``tools/call`` in a worker thread, drains a
-shared progress queue from the main loop, and enforces a global
-timeout. Tools opt in to progress reporting via a ``progress=``
-keyword (passed through ``tools/call``'s ``_meta.progressToken``);
-tools that don't accept it remain unaffected.
+Concurrency between *requests* (answering ``ping`` / ``tools/list``
+while a tool runs, bounded worker pool) lives in
+:func:`statspai.agent.mcp_server.serve_stdio`; this module only runs a
+single call.
 
 Why threading, not asyncio
 --------------------------
@@ -32,20 +37,18 @@ Why threading, not asyncio
 asyncio on stdin is fragile cross-platform (Windows lacks
 ``connect_read_pipe`` for pipes; ``anyio`` works but is a new dep).
 A small ``threading.Thread`` + ``queue.Queue`` keeps the public
-surface unchanged and avoids the asyncio Windows pitfall, at the cost
-of giving up structured cancellation (we use ``threading.Event`` +
-heartbeat checks instead).
+surface unchanged.
 
 Public surface
 --------------
 
-* :func:`run_tools_call_with_progress` — wrap an MCP tools/call
-  request_id, params dict, and emit-callback into a runner that
-  returns the JSON-RPC result string and posts progress notifications
-  along the way.
-* :data:`PROGRESS_TOKEN` — thread-local key tools read to discover
-  whether to emit progress.
-* :data:`TOOL_TIMEOUT_ENV` — env var read by :func:`tool_timeout`.
+* :func:`run_with_progress` — run one call with progress / timeout /
+  cancel.
+* :func:`progress` / :func:`check_cancelled` — tool-side helpers.
+* :class:`ToolCancelled` — raised at a checkpoint after cancel/timeout.
+* :func:`tool_timeout` / :data:`TOOL_TIMEOUT_ENV` — timeout config.
+* :func:`orphaned_threads` — tool threads still running after their
+  request was answered (timeout / cancel).
 """
 
 from __future__ import annotations
@@ -74,13 +77,77 @@ def tool_timeout() -> Optional[float]:
 
 
 # ---------------------------------------------------------------------------
-# Per-thread progress channel
+# Cancellation
 # ---------------------------------------------------------------------------
+
+
+class ToolCancelled(BaseException):
+    """Raised inside a tool thread at a checkpoint after cancel / timeout.
+
+    Derives from :class:`BaseException` (like ``KeyboardInterrupt`` and
+    ``asyncio.CancelledError``) so estimator code that guards its own
+    work with ``except Exception`` cannot swallow the cancellation.
+    """
+
 
 _THREAD_LOCAL = threading.local()
 
+#: Tool threads that were still running when their request was answered
+#: (timeout or cancel). Pruned lazily by :func:`orphaned_threads`.
+_ORPHANS: "set[threading.Thread]" = set()
+_ORPHANS_LOCK = threading.Lock()
 
-def _set_progress_channel(token: Any, q: queue.Queue) -> None:
+
+def _register_orphan(t: threading.Thread) -> None:
+    if t.is_alive():
+        with _ORPHANS_LOCK:
+            _ORPHANS.add(t)
+
+
+def orphaned_threads() -> int:
+    """Number of tool threads still running after their call was answered."""
+    with _ORPHANS_LOCK:
+        for t in [t for t in _ORPHANS if not t.is_alive()]:
+            _ORPHANS.discard(t)
+        return len(_ORPHANS)
+
+
+def set_cancel_event(event: Optional[threading.Event]) -> None:
+    """Bind ``event`` as the cancel signal of the *current* thread.
+
+    The stdio loop binds one event per in-flight ``tools/call`` on the
+    pool thread that serves it; :func:`run_with_progress` picks it up via
+    :func:`current_cancel_event` and re-binds it on the tool thread.
+    """
+    if event is None:
+        if hasattr(_THREAD_LOCAL, "cancel_event"):
+            del _THREAD_LOCAL.cancel_event
+    else:
+        _THREAD_LOCAL.cancel_event = event
+
+
+def current_cancel_event() -> Optional[threading.Event]:
+    """Cancel event bound to the current thread, if any."""
+    return getattr(_THREAD_LOCAL, "cancel_event", None)
+
+
+def check_cancelled() -> None:
+    """Tool-side checkpoint: raise :class:`ToolCancelled` if cancelled.
+
+    A no-op outside a cancellable MCP call, so library code can call it
+    unconditionally inside long loops.
+    """
+    ev = getattr(_THREAD_LOCAL, "cancel_event", None)
+    if ev is not None and ev.is_set():
+        raise ToolCancelled("tool call cancelled by the client (or timed out)")
+
+
+# ---------------------------------------------------------------------------
+# Per-thread progress channel
+# ---------------------------------------------------------------------------
+
+
+def _set_progress_channel(token: Any, q: "queue.Queue[Any]") -> None:
     _THREAD_LOCAL.progress_token = token
     _THREAD_LOCAL.progress_queue = q
 
@@ -95,12 +162,13 @@ def _clear_progress_channel() -> None:
 def progress(value: float, total: Optional[float] = None, *, message: str = "") -> None:
     """Tool-side helper: emit a ``notifications/progress``.
 
-    Idempotent and safe to call from any tool: when no channel is
-    registered (e.g. agent-side direct ``execute_tool`` call), this
-    is a no-op. Tools that wrap their own loops can call this
-    cheaply; the main loop drains the queue and serialises the
-    notification on stdout.
+    Also a cancellation checkpoint: raises :class:`ToolCancelled` when
+    the client cancelled the request (``notifications/cancelled``) or
+    the call already timed out, so a tool that reports progress stops
+    promptly. Outside an MCP call (no channel registered, e.g. a direct
+    ``execute_tool`` call) this is a no-op.
     """
+    check_cancelled()
     token = getattr(_THREAD_LOCAL, "progress_token", None)
     q = getattr(_THREAD_LOCAL, "progress_queue", None)
     if token is None or q is None:
@@ -128,6 +196,7 @@ def run_with_progress(
     timeout: Optional[float] = None,
     drain: Optional[Callable[[Dict[str, Any]], None]] = None,
     poll_interval: float = 0.05,
+    cancel_event: Optional[threading.Event] = None,
 ) -> Tuple[bool, Any]:
     """Execute ``work()`` in a worker thread, draining progress events.
 
@@ -138,61 +207,47 @@ def run_with_progress(
         we surface the return verbatim or the exception in the second
         element of the tuple.
     progress_token : optional
-        When non-None, the worker thread can call
-        :func:`progress` to push notifications. When None, those calls
-        are no-ops and ``drain`` is never invoked.
+        When non-None, the worker thread can call :func:`progress` to
+        push notifications. When None, those calls only act as
+        cancellation checkpoints and ``drain`` is never invoked.
     timeout : float, optional
-        Wall-clock seconds to wait. ``None`` ⇒ wait indefinitely.
+        Wall-clock seconds to wait. ``None`` ⇒ wait indefinitely. On
+        timeout the cancel event is set too, so the tool stops at its
+        next checkpoint; a tool without checkpoints keeps running in the
+        background (see :func:`orphaned_threads`).
     drain : callable, optional
-        Receives each progress payload (a dict) as it arrives. The
-        caller serialises it as a JSON-RPC notification and writes
-        to stdout.
+        Receives each progress payload (a dict) as it arrives.
     poll_interval : float
         How often to check the worker / drain the queue.
+    cancel_event : threading.Event, optional
+        Set by the caller to cancel the call. Defaults to the event
+        bound to the calling thread (:func:`current_cancel_event`).
 
     Returns
     -------
     (ok, result_or_exc)
         ``ok=True``: ``result_or_exc`` is the return value.
-        ``ok=False``: ``result_or_exc`` is a ``TimeoutError`` (when
-        the timeout fired) or the exception raised by ``work``.
+        ``ok=False``: ``result_or_exc`` is a ``TimeoutError`` (timeout),
+        a :class:`ToolCancelled` (client cancel) or the exception raised
+        by ``work``.
     """
-    if progress_token is None:
+    if cancel_event is None:
+        cancel_event = current_cancel_event()
+    if progress_token is None and not timeout and cancel_event is None:
+        # Nothing to supervise: run inline (cheapest, and keeps
+        # thread-affine libraries happy for in-process callers).
         try:
-            if not timeout:
-                return True, work()
-            result: Dict[str, Any] = {}
-
-            def _runner_no_progress() -> None:
-                try:
-                    result["value"] = work()
-                    result["ok"] = True
-                except BaseException as exc:  # noqa: BLE001
-                    result["ok"] = False
-                    result["exc"] = exc
-
-            t = threading.Thread(
-                target=_runner_no_progress,
-                name="statspai-mcp-tool",
-                daemon=True,
-            )
-            t.start()
-            t.join(timeout)
-            if t.is_alive():
-                return False, TimeoutError(
-                    f"tool exceeded {timeout:.0f}s timeout "
-                    f"(env: {TOOL_TIMEOUT_ENV})"
-                )
-            if "ok" not in result:
-                return False, RuntimeError("worker terminated without result")
-            if result["ok"]:
-                return True, result["value"]
-            return False, result["exc"]
-        except BaseException as exc:  # noqa: BLE001
+            return True, work()
+        except BaseException as exc:  # noqa: BLE001 — preserve everything
             return False, exc
 
-    q: queue.Queue = queue.Queue(maxsize=256)
-    result = {}
+    # ``stop`` is what the tool thread's checkpoints watch. It is set on
+    # client cancel *and* on timeout; the caller's ``cancel_event`` is
+    # only ever read here, so a timeout never masquerades as a client
+    # cancel (whose response the stdio loop suppresses).
+    stop = threading.Event()
+    q: "queue.Queue[Any]" = queue.Queue(maxsize=256)
+    result: Dict[str, Any] = {}
 
     def _put_done() -> None:
         try:
@@ -206,8 +261,8 @@ def run_with_progress(
 
     def _runner() -> None:
         try:
-            if progress_token is not None:
-                _set_progress_channel(progress_token, q)
+            set_cancel_event(stop)
+            _set_progress_channel(progress_token, q)
             result["value"] = work()
             result["ok"] = True
         except BaseException as exc:  # noqa: BLE001 — preserve everything
@@ -215,6 +270,7 @@ def run_with_progress(
             result["exc"] = exc
         finally:
             _clear_progress_channel()
+            set_cancel_event(None)
             _put_done()
 
     t = threading.Thread(target=_runner, name="statspai-mcp-tool", daemon=True)
@@ -223,21 +279,24 @@ def run_with_progress(
 
     while True:
         if deadline is not None and time.monotonic() > deadline:
-            # Hard timeout — the worker keeps running (Python threads
-            # are not cooperatively cancellable) but the response is
-            # surfaced now. Tools that do heavy work without yielding
-            # back to Python won't honour this — that's the cost of
-            # not ripping out the synchronous tool API.
+            # Hard timeout. The response is surfaced now; the event makes
+            # the tool stop at its next checkpoint, and a tool without
+            # checkpoints is tracked as an orphan (threads cannot be
+            # killed).
+            stop.set()
+            _register_orphan(t)
             return False, TimeoutError(
-                f"tool exceeded {timeout:.0f}s timeout " f"(env: {TOOL_TIMEOUT_ENV})"
+                f"tool exceeded {timeout:.0f}s timeout (env: {TOOL_TIMEOUT_ENV})"
             )
+        if cancel_event is not None and cancel_event.is_set() and "ok" not in result:
+            stop.set()
+            _register_orphan(t)
+            return False, ToolCancelled("tool call cancelled by the client")
 
         try:
             kind, payload = q.get(timeout=poll_interval)
         except queue.Empty:
             if not t.is_alive() and "ok" in result:
-                # Race: thread finished without putting "done"
-                # (shouldn't happen given the finally:, but be defensive).
                 break
             continue
         if kind == "progress":
@@ -258,6 +317,11 @@ def run_with_progress(
 __all__ = [
     "tool_timeout",
     "progress",
+    "check_cancelled",
+    "current_cancel_event",
+    "set_cancel_event",
+    "orphaned_threads",
     "run_with_progress",
+    "ToolCancelled",
     "TOOL_TIMEOUT_ENV",
 ]

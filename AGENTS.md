@@ -32,10 +32,15 @@ which are not tools.
 r = sp.did(df, y="y", treat="d", id="id", time="t")
 r.to_dict(detail="agent")   # estimate / se / ci / diagnostics / violations / degradations / next_steps
 r.violations()              # failed assumption checks only; empty + degradations ≠ clean
-r.next_steps()              # the estimator's own follow-up checklist
-r.result_card()             # estimand, sample, specification, inference, provenance, evidence tier
+r.next_steps()              # follow-up checklist as a list of dicts; prints nothing (print_result=True to print)
+r.result_card()             # estimand, sample, specification, inference, provenance (incl. seed), evidence tier
 r.cite()                    # verified BibTeX; never write a citation from memory
 ```
+
+Every result class carries these five methods, not only `CausalResult` /
+`EconometricResults`: domain results get them from `ResultProtocolMixin`, with
+fields the class does not record returned as `null` rather than guessed
+(`scripts/result_protocol_audit.py --check` lists the few documented gaps).
 
 `sp.audit(r)` lists the robustness checks still missing. Errors are
 `StatsPAIError` subclasses with `code`, `recovery_hint`, `diagnostics`,

@@ -298,10 +298,12 @@ def execute_tool(
                 data=data,
                 detail=detail,
                 as_handle=as_handle,
+                result_id=result_id,
             )
         except KeyError:
             return {
                 "error": f"Unknown tool: {name!r}",
+                "error_kind": "unknown_tool",
                 "available_tools": [t["name"] for t in TOOL_REGISTRY],
                 "hint": (
                     "Read statspai://functions for the full "
@@ -350,12 +352,21 @@ def execute_tool(
     # extends the result-handle chaining contract (fit ``as_handle`` →
     # ``result_id`` → downstream tool) to curated estimators that consume
     # a result, not just the dedicated ``*_from_result`` workflow tools.
-    if result_id and "result" not in kwargs and _accepts_param(fn, "result"):
-        from .._result_cache import RESULT_CACHE
+    #
+    # A handle that does not resolve is an error, never silently ignored:
+    # the call would otherwise run without the fit the agent pointed at.
+    # A handle passed to a tool that cannot consume a result is reported
+    # under ``_unsupported_args`` like any other argument it cannot bind.
+    result_ignored = False
+    if result_id:
+        from .._result_cache import RESULT_CACHE, missing_result_error
 
-        cached = RESULT_CACHE.get(result_id)
-        if cached is not None:
-            kwargs["result"] = cached
+        if RESULT_CACHE.get_entry(result_id) is None:
+            return dict(missing_result_error(result_id), tool=name)
+        if "result" not in kwargs and _accepts_param(fn, "result"):
+            kwargs["result"] = RESULT_CACHE.get(result_id)
+        elif "result" not in kwargs:
+            result_ignored = True
 
     # Drop kwargs the resolved function cannot bind (schema↔signature
     # drift guard). Surfaced transparently below via ``_unsupported_args``.
@@ -364,6 +375,8 @@ def execute_tool(
     # frame) is not reported as drift.
     kwargs, _dropped = _filter_to_signature(fn, kwargs)
     _unsupported_args = [k for k in _dropped if k != "data"]
+    if result_ignored:
+        _unsupported_args = sorted(_unsupported_args + ["result_id"])
 
     def _serialize(result_obj: Any) -> Any:
         """Invoke ``serialize`` with ``detail=`` when supported.
@@ -471,6 +484,11 @@ def execute_tool(
     # so the next tools/call can reach it without re-loading the CSV
     # and re-fitting. This is the foundational primitive for chained
     # workflows (did → audit → sensitivity → honest_did_from_result).
+    from .._replay import build_replay
+
+    replay = build_replay(spec["statspai_fn"], kwargs, result_id=result_id)
+    out["replay"] = replay
+
     rid: Optional[str] = None
     if as_handle:
         from .._result_cache import RESULT_CACHE
@@ -481,6 +499,7 @@ def execute_tool(
             arguments={
                 k: v for k, v in arguments.items() if not isinstance(v, pd.DataFrame)
             },
+            replay=replay,
         )
         out["result_id"] = rid
         out["result_uri"] = f"statspai://result/{rid}"

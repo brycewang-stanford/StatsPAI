@@ -236,3 +236,21 @@ def test_help_flag_exits_zero():
     )
     assert proc.returncode == 0
     assert "--profile" in proc.stdout
+
+
+def test_ping_and_tool_error_over_the_wire(server, tmp_path):
+    """``ping`` is answered, and a bad data_path is an isError *result*."""
+    _initialize(server, sampling=False)
+    rid = server.request("ping")
+    assert server.read_until(lambda m: m.get("id") == rid)["result"] == {}
+    rid = server.request(
+        "tools/call",
+        {
+            "name": "regress",
+            "arguments": {"formula": "y ~ x", "data_path": str(tmp_path / "no.csv")},
+        },
+    )
+    msg = server.read_until(lambda m: m.get("id") == rid)
+    assert msg["result"]["isError"] is True
+    assert msg["result"]["structuredContent"]["error_kind"] == "file_not_found"
+    assert "no.csv" in msg["result"]["structuredContent"]["message"]

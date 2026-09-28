@@ -224,17 +224,18 @@ def _reject_silent_varying_slopes(fml: str) -> None:
 
 
 def _check_pyfixest() -> Any:
-    """Import pyfixest or raise a clear error."""
-    try:
-        import pyfixest as pf
+    """Import pyfixest or raise a structured ``MissingDependencyError``.
 
-        return pf
-    except ImportError:
-        raise ImportError(
-            "pyfixest is required for high-dimensional fixed effects estimation.\n"
-            "Install it with: pip install pyfixest\n"
-            "Or install StatsPAI with the fixest extra: pip install statspai[fixest]"
-        )
+    The error is an ``ImportError`` (back-compatible) and a
+    ``StatsPAIError`` whose diagnostics carry the install command.
+    """
+    from .._optional_deps import require_optional
+
+    return require_optional(
+        "pyfixest",
+        extra="fixest",
+        purpose="high-dimensional fixed effects estimation",
+    )
 
 
 # --------------------------------------------------------------------------- #

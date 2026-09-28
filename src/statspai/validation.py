@@ -23,6 +23,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Union
 
+from ._result_serialize import attach_result_protocol
+
 _REPO_ENV = "STATSPAI_REPO_ROOT"
 
 
@@ -171,6 +173,7 @@ class ReproductionStep:
         return asdict(self)
 
 
+@attach_result_protocol
 @dataclass
 class ReproductionResult:
     """Structured result returned by :func:`reproduce_jss_tables`.

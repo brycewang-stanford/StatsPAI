@@ -83,6 +83,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._result_serialize import attach_result_protocol
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -104,6 +105,7 @@ _SE_TYPES = ("neyman", "adjusted")
 _GINV_RCOND = float(np.sqrt(np.finfo(float).eps))
 
 
+@attach_result_protocol
 class StaggeredRolloutResult(NamedTuple):
     """Point estimate, both standard errors, and the fitted control weights."""
 

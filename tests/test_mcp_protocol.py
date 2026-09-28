@@ -184,12 +184,12 @@ class TestAnnotationsAndOutputSchema:
         msg = _rpc("tools/list", {})
         tools = msg["result"]["tools"]
         assert tools, "manifest unexpectedly empty"
-        from statspai.agent.mcp_server import _FILE_WRITING_TOOLS
+        from statspai.agent.mcp_server import _is_file_writing_tool
 
         for t in tools:
             ann = t.get("annotations")
             assert isinstance(ann, dict), f"{t['name']} missing annotations"
-            if t["name"] in _FILE_WRITING_TOOLS:
+            if _is_file_writing_tool(t["name"], t["inputSchema"]):
                 # Report / export builders write files on request; they
                 # must NOT be auto-approved as read-only.
                 assert (
@@ -557,8 +557,10 @@ class TestToolsCall:
             },
             request_id=15,
         )
-        assert "error" in msg
-        assert msg["error"]["code"] == -32602
+        # Bad argument values are tool-execution errors (isError), so
+        # the model sees them; only protocol faults are JSON-RPC errors.
+        assert msg["result"]["isError"] is True
+        assert msg["result"]["structuredContent"]["error_kind"] == "invalid_arguments"
 
     def test_detail_in_tool_input_schema(self):
         msg = _rpc("tools/list", {}, request_id=16)
@@ -719,11 +721,9 @@ class TestResources:
 
 class TestToolsCallUnknownName:
 
-    def test_unknown_tool_returns_structured_error_dict(self, tmp_path):
-        # The MCP server forwards the args to ``execute_tool``, which
-        # returns ``{"error": ..., "available_tools": [...]}`` for an
-        # unknown name. That dict surfaces as the ``content[0].text``
-        # of the tools/call result with ``isError=true``.
+    def test_unknown_tool_is_a_protocol_error(self, tmp_path):
+        # MCP spec: an unknown tool name is a protocol error (-32602),
+        # not a tool-execution result.
         csv = tmp_path / "empty.csv"
         pd.DataFrame({"y": [1.0]}).to_csv(csv, index=False)
         msg = _rpc(
@@ -733,11 +733,8 @@ class TestToolsCallUnknownName:
                 "arguments": {"data_path": str(csv)},
             },
         )
-        result = msg["result"]
-        assert result["isError"] is True
-        payload = json.loads(result["content"][0]["text"])
-        assert "error" in payload
-        assert "available_tools" in payload
+        assert msg["error"]["code"] == -32602
+        assert "Unknown tool" in msg["error"]["message"]
 
 
 # ---------------------------------------------------------------------------

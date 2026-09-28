@@ -9,6 +9,7 @@ contamination.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -135,6 +136,7 @@ def cluster_staggered_rollout(
         raise ValueError("No never-treated control clusters available.")
 
     rel_rows = []
+    cell_failures: list = []
     for c in cohorts:
         cohort_clusters = cl.loc[cl[first_treat] == c, cluster].unique()
         for k in range(-leads, lags + 1):
@@ -162,8 +164,17 @@ def cluster_staggered_rollout(
                             "att": att,
                         }
                     )
-            except Exception:
+            except Exception as exc:  # noqa: BLE001 - counted and reported below
+                cell_failures.append(f"cohort={c}, rel_time={k}: {exc!r}")
                 continue
+    if cell_failures:
+        warnings.warn(
+            f"cluster_staggered_rollout: {len(cell_failures)} cohort x event-time "
+            f"cell(s) could not be estimated and were skipped "
+            f"(first: {cell_failures[0]}).",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     es_long = pd.DataFrame(rel_rows)
     if es_long.empty:
@@ -173,6 +184,7 @@ def cluster_staggered_rollout(
     # SE via cluster bootstrap
     rng = np.random.default_rng(0)
     boot = []
+    boot_failures: list = []
     n_clusters = cl[cluster].nunique()
     for b in range(100):
         sample_clusters = rng.choice(
@@ -208,8 +220,24 @@ def cluster_staggered_rollout(
                         inner_atts.append(att)
             if inner_atts:
                 boot.append(np.mean(inner_atts))
-        except Exception:
+        except Exception as exc:  # noqa: BLE001 - counted and reported below
+            boot_failures.append(repr(exc))
             continue
+    if boot_failures:
+        warnings.warn(
+            f"cluster_staggered_rollout: {len(boot_failures)} of 100 bootstrap "
+            f"replications failed and were dropped (first: {boot_failures[0]}).",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    if len(boot) < 2:
+        warnings.warn(
+            "cluster_staggered_rollout: fewer than 2 usable bootstrap "
+            "replications; the reported standard error (1e-6) is a placeholder, "
+            "not an estimate of sampling variability.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     se = float(np.std(boot, ddof=1)) if len(boot) >= 2 else 1e-6
     overall = float(es.loc[es["rel_time"] >= 0, "att"].mean())
     z_crit = float(stats.norm.ppf(1 - alpha / 2))

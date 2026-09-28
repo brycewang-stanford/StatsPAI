@@ -30,6 +30,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._result_serialize import attach_result_protocol, result_to_dict
 from . import _format as _format_module
 
 _format_stars = _format_module.format_stars
@@ -465,6 +466,7 @@ def _warn_once_esttab() -> None:
     warnings.warn(_DEPRECATION_MSG_ESTTAB, DeprecationWarning, stacklevel=3)
 
 
+@attach_result_protocol
 class EstimateTableResult:
     """Stata ``esttab`` result handle — thin wrapper over a :class:`RegtableResult`.
 
@@ -499,6 +501,17 @@ class EstimateTableResult:
     def to_csv(self) -> str:
         # Legacy esttab returned CSV via the table's dataframe view.
         return str(self._rt.to_dataframe().to_csv())
+
+    def to_dict(self) -> Dict[str, Any]:
+        """The wrapped table's JSON-safe dict (``RegtableResult.to_dict``).
+
+        ``detail="minimal"`` / ``"agent"`` add the shared agent envelope
+        (see ``ResultProtocolMixin.to_dict``).
+        """
+        fn = getattr(self._rt, "to_dict", None)
+        if callable(fn):
+            return dict(fn())
+        return result_to_dict(self)
 
     # ── dunder ─────────────────────────────────────────────────────────
     def _render(self, fmt: str) -> str:

@@ -12,10 +12,12 @@
 | MCP (Claude Code / Desktop, Cursor) | `claude mcp add statspai -- statspai-mcp` | tools `search_functions` → `describe_function` → `route_estimator`; resources `statspai://function/{name}`, `statspai://guide/{family}` | `tools/call` on a listed tool, or `call_function(function=..., arguments={...})` for any of the 1,200+ |
 | Shell | `pip install statspai` | `statspai search ...`, `statspai describe <name>`, `statspai route <family> --answer k=v` | `statspai run <name> --data f.csv --arg k=v`, `statspai did --data f.csv --y ... --treat ...` |
 
-The MCP server lists ~35 curated tools by default (`--profile curated`);
-`--profile full` lists every auto-generated tool (~580, ~2 MB — only for
-clients that page their tool list). Every registered function stays callable
-under every profile.
+The MCP server lists the hand-curated tools by default (`--profile curated`,
+the default for the CLI and for in-process `handle_request` alike);
+`--profile core` is a smaller set and `--profile full` lists every
+auto-generated tool (several hundred, megabytes of schema — only for clients
+that page their tool list). Every registered function stays callable under
+every profile, and `statspai://functions` always indexes all of them.
 
 ## Data over MCP
 
@@ -30,10 +32,61 @@ under every profile.
   `data_provenance`, so a table note can state how the sample was built. Other
   ops: `select`, `drop`, `rename`, `fillna`, `sort`, `sample`, `wide_to_long`,
   `long_to_wide`, `mice`, `function` (any DataFrame-returning `sp.<fn>`).
+- `query` / `assign` expressions are allowlisted: columns (backticks for odd
+  names), constants, operators, `in` / `not in`, math functions (`log`, `exp`,
+  `sqrt`, `abs`, …) and `col.isnull()` / `isin()` / `between()` /
+  `str.contains()`. Attribute access, subscripts and `@local` references fail
+  with `error_kind: "unsafe_expression"`.
 - `describe_data(data_id)` profiles a handle; `statspai://data/{id}` reads it.
 - Fit with `as_handle=true` to get a `result_id`; chain it into
   `audit_result`, `honest_did_from_result`, `sensitivity_from_result`,
   `interpret_result`, `plot_from_result`.
+
+## Errors, limits and cancellation over MCP
+
+- **Tool failures are results, not protocol errors.** A bad or expired
+  `data_id` / `result_id`, an unreadable or refused file, a timeout or an
+  estimator error returns a normal `tools/call` result with `isError: true`;
+  `structuredContent` carries `error_kind` (`missing_data_handle`,
+  `missing_result_handle`, `file_not_found`, `data_load_error`,
+  `path_not_allowed`, `remote_disabled`, `invalid_arguments`, `timeout`,
+  `internal_error`, or an estimator code such as `assumption_violation`),
+  `message`, `hint` and, for handles, `miss_reason` (`ttl` / `lru` / `bytes`
+  / `explicit` / `unknown`). Only protocol faults — malformed JSON-RPC, an
+  unknown method or tool name, `params` / `arguments` that are not objects —
+  are JSON-RPC errors.
+- **`result_id` is never ignored**: a stale handle is `missing_result_handle`
+  on every tool; a handle given to a tool that cannot use a fitted result is
+  listed under `_unsupported_args`.
+- **Output budget.** Results are capped at `max_output_bytes` (argument; server
+  default `STATSPAI_MCP_MAX_OUTPUT_BYTES`, 256 KiB; `0` = no limit). Over
+  budget, the longest lists / tables are cut first and each cut is listed
+  under `truncated: [{path, total, shown}]`; estimate / SE / CI / p-value are
+  never cut. The `text` block is the same object as `structuredContent`,
+  serialised compactly.
+- **NaN / Inf** are sent as `null`; their JSON Pointers are listed under
+  `_nonfinite` (`[{path, value: "NaN" | "Infinity" | "-Infinity"}]`), so an
+  infinite SE is not mistaken for a missing one.
+- **`replay`**: estimator results (and cached result handles, via
+  `statspai://result/{id}`) carry the `sp.<fn>(data=data, ...)` call that
+  reproduces them, with a comment naming the data source.
+- **Liveness and cancel.** `ping` answers `{}`. `tools/call` runs on a worker
+  pool (1 worker by default, `STATSPAI_MCP_WORKERS`), so `ping`, `tools/list`
+  and resource reads are answered while an estimator runs.
+  `notifications/cancelled` stops a call at its next progress checkpoint and
+  suppresses its response. Timeouts (`STATSPAI_MCP_TOOL_TIMEOUT_SECONDS`,
+  default 600) return `error_kind: "timeout"` with
+  `worker_may_still_be_running: true` — Python threads cannot be killed, so a
+  computation without checkpoints finishes in the background.
+- **Operator controls.** `STATSPAI_MCP_DATA_ROOTS` (`os.pathsep`-separated)
+  restricts which directories `data_path` may read (symlinks resolved;
+  `file://` URLs included). Network URLs (`s3://`, `gs://`, `https://`) are
+  off unless `STATSPAI_MCP_ALLOW_REMOTE=1`, and remote reads obey the same
+  `STATSPAI_MCP_MAX_DATA_BYTES` cap as local files. The data cache is bounded
+  by count (`STATSPAI_MCP_DATA_CACHE_SIZE`) and bytes
+  (`STATSPAI_MCP_DATA_CACHE_BYTES`, default 2 GiB). Tools that can write a
+  file carry `readOnlyHint: false`; `openWorldHint` is true only when remote
+  loading is on.
 
 ## The result contract (what to read before trusting a number)
 
@@ -55,7 +108,9 @@ Errors are structured: `error`, `error_kind` (`assumption_violation`,
 `identification_failure`, `data_insufficient`, `convergence_failure`,
 `numerical_instability`, `method_incompatibility`), `error_payload`
 (`recovery_hint`, `diagnostics`, `alternative_functions`) and `remediation`.
-On the CLI they go to stderr with exit code 3 (usage errors exit 2).
+On the CLI they go to stderr with an exit code by kind: 2 usage, 4 input
+errors (`column_not_found` / `missing_arguments` / `unknown_argument`),
+5 `missing_dependency`, 3 any other estimator error.
 
 ## Routing without data
 

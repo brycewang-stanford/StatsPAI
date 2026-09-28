@@ -299,8 +299,11 @@ reads (`--columns` / `--sample` for large files). Output is the agent
 payload (`--detail minimal|standard|agent`, `--out file.json`), or
 `--format summary` for the result's text summary. Arguments the function
 cannot bind are reported under `_unsupported_args`; estimator errors are
-the structured `StatsPAIError` payload on stderr with exit code 3, usage
-errors exit 2.
+the structured `StatsPAIError` payload on stderr; the exit code follows
+`error_kind`: 2 usage, 4 input errors (`column_not_found`,
+`missing_arguments`, `unknown_argument`), 5 `missing_dependency`, 3 any
+other estimator error. Stdout is strict JSON and carries
+`runtime_warnings`.
 
 ## MCP server: drop-in for Claude Desktop / Cursor
 
@@ -329,21 +332,30 @@ statspai-mcp     # speaks JSON-RPC 2.0 over stdio
 What the server exposes:
 
 - **`tools/list`** — typed tools with JSON-Schema inputs. The shape
-  depends on the profile: `statspai-mcp --profile curated` (the CLI
-  default) lists the ~35 hand-curated estimator / workflow / pipeline
-  tools plus three discovery meta-tools — `search_functions`,
-  `describe_function`, `call_function` — through which every one of the
-  ~1,250 registered functions stays reachable; `--profile core` trims
-  that to ~20; `--profile full` advertises every auto-generated tool
-  (~580 entries, ~2 MB — larger than most client context windows, so
-  only for clients that page or defer tool loading). `tools/call`
-  accepts any tool name under every profile.
+  depends on the profile: `curated` (the default, for the CLI and for
+  in-process `handle_request` alike) lists the hand-curated estimator /
+  workflow / pipeline tools plus three discovery meta-tools —
+  `search_functions`, `describe_function`, `call_function` — through
+  which every registered function stays reachable; `--profile core`
+  trims that to a smaller set; `--profile full` advertises every
+  auto-generated tool (several hundred entries, megabytes of schema —
+  larger than most client context windows, so only for clients that
+  page or defer tool loading). `tools/call` accepts any tool name under
+  every profile, and `statspai://functions` always indexes all of them.
 - **`tools/call`** — runs the estimator. Data arrives as `data_path`
   (CSV, Parquet, Stata, … read server-side), `data_id` (a handle from
   `load_data` / `transform_data` — no re-upload, lineage recorded),
   `data_records` or `data_csv` (a small inline table); plus the
-  estimator's own kwargs and `detail` to control payload size. Payloads
-  carry `data_provenance`, `runtime_warnings` and `_unsupported_args`.
+  estimator's own kwargs, `detail` to control payload depth and
+  `max_output_bytes` to cap its size. Payloads carry `data_provenance`,
+  `runtime_warnings`, `_unsupported_args` and `replay` (the
+  `sp.<fn>(data=data, ...)` call that reproduces the fit).
+- **`ping`** answers `{}`; `notifications/progress` is sent when the
+  call carries `_meta.progressToken`, and `notifications/cancelled`
+  stops a running call at its next progress checkpoint (no response is
+  sent for it). Calls run on a worker pool (`STATSPAI_MCP_WORKERS`,
+  default 1), so the server keeps answering `ping` / `tools/list` /
+  resources while an estimator runs.
 - **Data handles** — `load_data` → `data_id`; `transform_data(data_id,
   operations=[...])` derives a new handle (query / select / rename /
   dropna / assign / winsor / reshape / mice / any DataFrame-returning
@@ -388,6 +400,46 @@ fields:
 
 Agents branch on `error_kind` (typed) instead of regex-parsing
 `error` (free text).
+
+Every failure that happens while executing a call is a normal result
+with `isError: true` — not a JSON-RPC error, which many clients never
+show to the model. Besides estimator errors that covers a missing or
+expired handle (`missing_data_handle` / `missing_result_handle`, with
+`miss_reason` and `hint`), data-loading failures (`file_not_found`,
+`data_load_error`, `path_not_allowed`, `remote_disabled`), bad argument
+values (`invalid_arguments`), timeouts (`timeout`, with
+`worker_may_still_be_running`) and unexpected dispatch failures
+(`internal_error`). JSON-RPC errors are reserved for protocol faults:
+malformed requests, unknown methods or tool names, and `params` /
+`arguments` that are not JSON objects.
+
+Result shaping:
+
+- The `text` block is the compact JSON of `structuredContent` (the
+  MCP spec asks for both); nothing is pretty-printed twice.
+- `max_output_bytes` (default `STATSPAI_MCP_MAX_OUTPUT_BYTES`, 256 KiB,
+  `0` disables) cuts the longest lists / tables first and records each
+  cut under `truncated: [{path, total, shown}]`; headline numbers
+  (estimate, SE, CI, p-value) are never cut.
+- NaN / ±Inf are sent as `null` and listed under
+  `_nonfinite: [{path, value}]`.
+
+Operator settings (environment of the server process):
+
+| Variable | Effect |
+| --- | --- |
+| `STATSPAI_MCP_DATA_ROOTS` | `os.pathsep`-separated directories `data_path` may read (real paths, symlinks resolved); unset = no restriction |
+| `STATSPAI_MCP_ALLOW_REMOTE` | `1` enables `s3://` / `gs://` / `http(s)://` data URLs (off by default); tools then advertise `openWorldHint: true` |
+| `STATSPAI_MCP_MAX_DATA_BYTES` | byte cap for local *and* remote loads (default 2 GiB) |
+| `STATSPAI_MCP_MAX_OUTPUT_BYTES` | default result byte budget (256 KiB) |
+| `STATSPAI_MCP_TOOL_TIMEOUT_SECONDS` | per-call timeout (default 600; `0` disables) |
+| `STATSPAI_MCP_WORKERS` | `tools/call` worker pool size (default 1 keeps estimators serialised) |
+| `STATSPAI_MCP_DATA_CACHE_SIZE` / `STATSPAI_MCP_DATA_CACHE_BYTES` | data-handle cache bounds (16 frames / 2 GiB) |
+| `STATSPAI_MCP_PROFILE` | default `tools/list` profile |
+
+Tools that can write a file (report / export builders, and any tool
+whose schema has an output-path parameter such as `output` / `path` /
+`save_to`) carry `readOnlyHint: false`.
 
 ---
 

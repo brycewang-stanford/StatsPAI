@@ -29,6 +29,78 @@ All notable changes to StatsPAI will be documented in this file.
   `jwdid, never`). The `fe='unit'` cells equal an explicit
   `sp.ppmlhdfe` fit of the same design to 1e-8
   (`tests/test_etwfe_nonlinear.py`).
+- **Every result class speaks the agent contract.** `to_dict(detail=
+  "minimal"|"standard"|"agent")`, `violations()`, `next_steps()` and
+  `result_card()` used to exist only on the `CausalResult` /
+  `EconometricResults` trees (16 of ~300 result classes);
+  `sp.oaxaca(...).to_dict(detail="agent")` raised `TypeError`. They now live
+  on `ResultProtocolMixin` (`statspai._result_contract`), legacy
+  `to_dict()` overrides are wrapped so they accept `detail=` (`"standard"`
+  returns the old dict byte for byte), and NamedTuple / plain result types
+  get the same surface through `attach_result_protocol` without losing
+  tuple unpacking. 298 of 300 result classes carry the contract; the two
+  exceptions (the JAX-absent placeholder and `HelpResult`) are listed in
+  `scripts/result_protocol_audit.py::AGENT_CONTRACT_GAPS`, and the audit
+  fails on any other gap. `result_card()["provenance"]` now names the
+  `result_class` and, for stochastic estimators, records `seed` /
+  `reproducible` / `seed_source` (`reproducible: false` when the call ran
+  unseeded, `null` when the estimator did not record its seed). No
+  estimator's numbers or default seed changed.
+- **MCP protocol completeness.** `ping` is answered; `tools/call` runs on a
+  worker pool (`STATSPAI_MCP_WORKERS`, default 1, so estimation stays
+  serialised) while the main loop keeps answering `ping`, `tools/list` and
+  resources; `notifications/cancelled` stops a running tool at its next
+  progress checkpoint. Results carry `replay` — the equivalent
+  `sp.<fn>(...)` call — so an MCP analysis can be re-run in Python.
+  Payloads over `max_output_bytes` (argument or
+  `STATSPAI_MCP_MAX_OUTPUT_BYTES`, default 256 KiB) are cut largest-table
+  first with every cut listed under `truncated` (headline estimate / se /
+  ci / p-value are never cut); non-finite values are listed under
+  `_nonfinite` so `null` no longer conflates "missing" with NaN / inf.
+- **MCP data access is bounded.** `STATSPAI_MCP_DATA_ROOTS` confines
+  `data_path` (symlinks resolved, `file://` included) to the listed
+  directories; the data-handle cache has a byte cap
+  (`STATSPAI_MCP_DATA_CACHE_BYTES`, default 2 GiB) next to its count cap;
+  tools with an output-path parameter (e.g. `synth_report(output=...)`)
+  are derived from their schemas and advertised `readOnlyHint: false`.
+- **Errors an agent can act on.** `ColumnNotFound` (kind
+  `column_not_found`, still a `MethodIncompatibility` / `DataInsufficient`
+  / `ValueError`) carries `diagnostics["did_you_mean"]` —
+  `sp.did(df, y="yy", ...)` now says "did you mean 'y'?".
+  `MissingDependencyError` (kind `missing_dependency`, also an
+  `ImportError`) carries the install command (`pip install
+  "statspai[fixest]"` for `sp.feols`). Remediation recognises
+  `missing_arguments` (lists the schema's required parameters) and
+  `unknown_argument` (suggests the closest parameter or alias).
+  `pipeline_*` stages keep the structured error payload instead of a
+  string, and their fallback serialisers record degradations.
+- **Discovery that understands research questions.**
+  `sp.search_functions` maps estimand / design vocabulary (LATE /
+  compliers, ATT, CATE, RKD, synthetic control, 2SLS, TWFE, IPW, AIPW,
+  TMLE, …) to the functions that estimate it, ranks dispatchers first and
+  canonical names above aliases, scores agent-card text at low weight, and
+  returns the best partial matches (`match: "partial"`) instead of `[]`.
+  "minimum wage employment difference in differences" used to return
+  nothing.
+- **Schemas say what comes back and what a string means.**
+  `FunctionSpec.result_class` (98 % of callables) is exported as
+  `x_statspai.returns = {class, fields, …}` in the agent-native schema,
+  as `returns` in the agent card and `result_schema` in
+  `describe_function`. Parameters carry `x-statspai-role`
+  (`dataframe` / `formula` / `column` / `columns`), `x-aliases` /
+  `x-canonical` for legacy spellings, enums derived from `Literal`
+  annotations, dispatcher method tables and docstring choice lists
+  (option-parameter enum coverage 57 % → 67 %), and array item types
+  inferred from defaults. `FunctionSpec.alias_of` marks 30 aliases
+  (`statspai.registry.is_alias`); aliases stay callable but are listed
+  once in the MCP tool manifest. Merged agent cards record per-field
+  `provenance` (`curated` / `family` / `baseline` / `docstring`) so family
+  boilerplate is distinguishable from method-specific statements. 28 new
+  estimator cards (e.g. `kitagawa_test`, `evalue_rd`, `ppi_ols`,
+  `bayes_its`, the conformal family, `stochastic_dominance`,
+  `cluster_staggered_rollout`); placeholder parameter descriptions fall
+  from 53 % to 39 %. Ratchets: card / curated-card floors re-frozen at
+  current values, enum and `result_class` coverage pinned.
 
 - **MCP tool-list profiles and discovery meta-tools.** `tools/list` used to
   return every auto-generated tool (579 entries, ~2 MB, roughly half a
@@ -38,8 +110,8 @@ All notable changes to StatsPAI will be documented in this file.
   pipeline tools plus three new meta-tools — `search_functions`,
   `describe_function`, `call_function` — through which every registered
   function stays reachable (discover → describe → call). `tools/call`
-  accepts any tool name under every profile. In-process
-  `handle_request` keeps the historical `full` default.
+  accepts any tool name under every profile. (In-process
+  `handle_request` now defaults to `curated` too — see Changed.)
 - **MCP data handles, inline tables and transform chains.** `load_data`
   (from `data_path`, `data_records` or `data_csv`) returns a `data_id`
   that every tool accepts in place of `data_path`; `transform_data`
@@ -183,6 +255,43 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **⚠️ MCP tool failures are `isError` results, not protocol errors.**
+  An unknown or expired `data_id` / `result_id`, a data-load failure, an
+  invalid argument value or a timeout used to come back as a JSON-RPC
+  error (-32602 / -32000), which many clients never show to the model.
+  They are now `{"isError": true, "structuredContent": {error_kind,
+  message, hint, miss_reason, …}}`. Malformed requests, unknown methods
+  and unknown tool names stay JSON-RPC errors (an unknown tool name is
+  now -32602). A stale `result_id` is an error on every path instead of
+  being ignored. Text blocks are compact JSON. See MIGRATION.md.
+- **⚠️ MCP network data is opt-in.** `data_path` URLs (`http(s)://`,
+  `s3://`, `gs://`) need `STATSPAI_MCP_ALLOW_REMOTE=1` and obey
+  `STATSPAI_MCP_MAX_DATA_BYTES` like local files; `openWorldHint` is
+  `true` only while remote loading is enabled. `transform_data`
+  expressions (`query` / `assign`) pass an AST allowlist first
+  (`unsafe_expression` otherwise).
+- **⚠️ In-process `handle_request` defaults to the `curated` profile,**
+  like the `statspai-mcp` CLI; pass the profile explicitly (or set
+  `STATSPAI_MCP_PROFILE=full`) for the full manifest.
+  `statspai://functions` always serves the full index.
+- **`CausalResult.next_steps()` / `EconometricResults.next_steps()` no
+  longer print.** They returned the checklist *and* printed a ~1.2 KB
+  banner to stdout, which polluted MCP stdio and piped CLI output; pass
+  `print_result=True` to print.
+- **CLI output contract.** Stdout is strict JSON (`allow_nan=False`, numpy
+  values serialised, not `repr`), carries `runtime_warnings`, and estimator
+  prints go to stderr. Exit codes by `error_kind`: 2 usage, 4 input errors
+  (`column_not_found` / `missing_arguments` / `unknown_argument`; were 3),
+  5 `missing_dependency` (was 3), 3 other estimator errors.
+- **Remediation category `bad_argument` is now `unknown_argument`.**
+- **`sp.all_schemas()` omits classes** (pass `include_classes=True`); the
+  `data` parameter is typed `object` with `x-statspai-role: dataframe`
+  instead of `string`.
+- **`sp.cluster_staggered_rollout` reports skipped cells and failed
+  bootstrap draws** with a `RuntimeWarning` instead of dropping them
+  silently, and warns when its standard error is the 1e-6 placeholder
+  (fewer than two usable draws). Estimates are unchanged.
+
 - **MCP stdio loop reads on a thread; server-side sampling no longer
   deadlocks.** `serve_stdio` used to read stdin on the same thread that
   ran `tools/call`, so a tool that asked the client's LLM a question
@@ -224,6 +333,10 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **`scripts/stability_audit.py --check` is green again.** `sp.rd`,
+  `sp.route` and `sp.decision_guide` were registered as stable without an
+  evidence record; they now cite their unit-contract tests
+  (`tests/test_rd_dispatcher.py`, `tests/test_routing.py`).
 - `sp.rd(..., cutoff=0)` raised `TypeError: rdrobust() received both
   'cutoff' and its canonical target 'c'` because the dispatcher forwarded
   the alias inside `**kwargs` alongside `c=c`. `cutoff=` / `running=`

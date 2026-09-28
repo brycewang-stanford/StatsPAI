@@ -58,6 +58,7 @@ from typing import NamedTuple, Optional
 
 import numpy as np
 
+from .._result_serialize import attach_result_protocol
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 __all__ = [
@@ -75,6 +76,7 @@ __all__ = [
 _TRIM_LEVEL = 0.995
 
 
+@attach_result_protocol
 class RCSResult(NamedTuple):
     """ATT, analytic SE, and the per-observation influence function."""
 

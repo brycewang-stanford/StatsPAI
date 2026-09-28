@@ -24,6 +24,11 @@ Usage
     python scripts/agent_card_coverage.py --json         # machine-readable
     python scripts/agent_card_coverage.py --check        # CI ratchet — exit 1 on regression
 
+The ``[C]`` rows count *curated* content: a field whose card provenance
+(``sp.agent_card(name)["provenance"]``) is ``curated`` or
+``curated+family`` — written for that entry point rather than inherited
+family boilerplate. Both are ratcheted alongside the raw field counts.
+
 The ``--check`` mode reads ``scripts/agent_card_coverage_floor.json``
 and fails if any tracked counter has dropped.  Bump the floor only when
 you have intentionally raised the bar; never lower it.
@@ -77,6 +82,8 @@ class FieldStatus:
     alternatives: bool
     typical_n_min: bool
     validation_status: str
+    curated_assumptions: bool = False
+    curated_failure_modes: bool = False
 
     def tier_b_complete(self) -> bool:
         return all(getattr(self, f) for f in TIER_B_FIELDS)
@@ -120,7 +127,19 @@ def _status_for_spec(spec: Any) -> FieldStatus:
         alternatives=bool(card["alternatives"]),
         typical_n_min=card["typical_n_min"] is not None,
         validation_status=spec.validation_status,
+        curated_assumptions=_is_curated(card, "assumptions"),
+        curated_failure_modes=_is_curated(card, "failure_modes"),
     )
+
+
+#: Curated counters: the field carries at least one item written for this
+#: entry point (card provenance ``curated`` or ``curated+family``), not only
+#: family boilerplate inherited from a family card / template / parent.
+CURATED_FIELDS: Tuple[str, ...] = ("assumptions", "failure_modes")
+
+
+def _is_curated(card: Dict[str, Any], field: str) -> bool:
+    return card.get("provenance", {}).get(field) in {"curated", "curated+family"}
 
 
 def collect() -> Dict[str, Any]:
@@ -160,6 +179,9 @@ def collect() -> Dict[str, Any]:
         for f in TIER_B_FIELDS + TIER_A_FIELDS:
             if getattr(status, f):
                 field_counts[f] += 1
+        for f in CURATED_FIELDS:
+            if getattr(status, f"curated_{f}"):
+                field_counts[f"curated_{f}"] += 1
         validation_counts[status.validation_status] += 1
 
     total = len(per_function)
@@ -211,6 +233,10 @@ def render_summary(report: Dict[str, Any]) -> str:
     for f in TIER_A_FIELDS:
         c = field_counts.get(f, 0)
         lines.append(f"  [A] {f:25s}: {c:4d}  ({_pct(c, total)})")
+    for f in CURATED_FIELDS:
+        c = field_counts.get(f"curated_{f}", 0)
+        label = f"curated {f}"
+        lines.append(f"  [C] {label:25s}: {c:4d}  ({_pct(c, total)})")
     lines.append("")
     lines.append("Validation tier:")
     for status in (
@@ -275,6 +301,8 @@ def _current_floor_snapshot(report: Dict[str, Any]) -> Dict[str, int]:
     }
     for f in TIER_B_FIELDS + TIER_A_FIELDS:
         snap[f"field_{f}"] = report["field_counts"].get(f, 0)
+    for f in CURATED_FIELDS:
+        snap[f"curated_{f}"] = report["field_counts"].get(f"curated_{f}", 0)
     snap["validation_certified"] = validation_counts.get("certified", 0)
     # `certified` is a stricter validation tier than `validated`. Treat
     # validation_validated as a cumulative "validated or better" floor so

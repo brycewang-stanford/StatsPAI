@@ -36,6 +36,11 @@ from ._result_cache import ResultCache
 
 _DEFAULT_DATA_CACHE_SIZE = 16
 
+#: Default total in-memory budget of the data cache (bytes). Sixteen
+#: frames of a large panel can exceed the host's memory long before the
+#: count limit bites, so the cache is bounded by bytes as well.
+DEFAULT_DATA_CACHE_BYTES = 2 * 1024 * 1024 * 1024  # 2 GiB
+
 #: Head rows echoed in ``load_data`` / ``describe_data`` / the resource.
 HEAD_ROWS = 5
 
@@ -50,18 +55,46 @@ def _data_cache_size() -> int:
         return _DEFAULT_DATA_CACHE_SIZE
 
 
+def _data_cache_bytes() -> Optional[int]:
+    """``STATSPAI_MCP_DATA_CACHE_BYTES`` (``0`` disables the byte budget)."""
+    raw = os.environ.get("STATSPAI_MCP_DATA_CACHE_BYTES")
+    if raw is None:
+        return DEFAULT_DATA_CACHE_BYTES
+    try:
+        v = int(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_DATA_CACHE_BYTES
+    return v if v > 0 else None
+
+
 class DataCache(ResultCache):
     """LRU cache of DataFrames; ids are ``d_<hex>``.
 
     ``arguments`` on each entry holds the provenance / lineage record
     (``source_type``, ``parent_id``, ``operations`` …) so the resource
     view and ``data_provenance`` can be rebuilt from the handle alone.
+
+    Bounded by count (``STATSPAI_MCP_DATA_CACHE_SIZE``, default 16) *and*
+    by total in-memory bytes (``STATSPAI_MCP_DATA_CACHE_BYTES``, default
+    2 GiB); least-recently-used frames are evicted first and the reason
+    (``lru`` / ``bytes``) is kept in the eviction ledger so a later miss
+    explains itself.
     """
 
     _prefix = "d_"
 
-    def __init__(self, max_size: Optional[int] = None) -> None:
-        super().__init__(max_size=max_size or _data_cache_size())
+    def __init__(
+        self, max_size: Optional[int] = None, *, max_bytes: Optional[int] = None
+    ) -> None:
+        super().__init__(
+            max_size=max_size or _data_cache_size(),
+            max_bytes=max_bytes if max_bytes is not None else _data_cache_bytes(),
+        )
+
+    def _entry_bytes(self, obj: Any) -> int:
+        if isinstance(obj, pd.DataFrame):
+            return int(obj.memory_usage(index=True, deep=True).sum())
+        return 0
 
 
 DATA_CACHE = DataCache()
@@ -315,6 +348,11 @@ def missing_handle_error(data_id: str) -> Dict[str, Any]:
             "data_id evicted (the data cache keeps only the most recent "
             "frames); reload with load_data."
         ),
+        "bytes": (
+            "data_id evicted to keep the data cache under its memory budget "
+            "(STATSPAI_MCP_DATA_CACHE_BYTES); reload with load_data, or "
+            "project columns / sample rows so frames are smaller."
+        ),
         "explicit": "data_id was released; reload with load_data.",
     }
     return {
@@ -331,6 +369,7 @@ def missing_handle_error(data_id: str) -> Dict[str, Any]:
 
 
 __all__ = [
+    "DEFAULT_DATA_CACHE_BYTES",
     "DATA_CACHE",
     "DataCache",
     "HEAD_ROWS",

@@ -22,8 +22,26 @@ shortcuts go through the same dispatch layer as the MCP server
 server-side, arguments the function cannot bind are reported under
 ``_unsupported_args``, and the result is the agent payload
 (``to_dict(detail=...)``) as JSON on stdout — so a shell agent gets
-exactly what an MCP client gets. Structured errors go to stderr as JSON
-with exit code 3.
+exactly what an MCP client gets.
+
+Output contract (``run`` / family shortcuts):
+
+* stdout carries exactly one strict-JSON document (RFC 8259: no ``NaN`` /
+  ``Infinity``; numpy / pandas values are converted, never ``repr``-ed).
+  Anything an estimator ``print``s is redirected to stderr.
+* Python warnings raised during the call are attached as
+  ``runtime_warnings: [{category, message}]``.
+* Errors are a structured JSON object on stderr (``error``,
+  ``error_kind``, ``remediation``, and ``error_payload`` for
+  ``StatsPAIError``) with an exit code chosen by kind:
+
+  ====  ==============================================================
+  2     usage error (bad CLI flags, unknown function, data file unreadable)
+  3     estimator error (any other failure inside the estimator)
+  4     input error: ``column_not_found`` / ``missing_arguments`` /
+        ``unknown_argument`` (fix the call and retry)
+  5     ``missing_dependency`` (install the extra named in ``install``)
+  ====  ==============================================================
 """
 
 from __future__ import annotations
@@ -54,6 +72,16 @@ SHORTCUTS = (
 
 EXIT_USAGE = 2
 EXIT_ESTIMATOR = 3
+EXIT_INPUT = 4
+EXIT_DEPENDENCY = 5
+
+#: ``error_kind`` -> exit code. Kinds not listed exit with EXIT_ESTIMATOR.
+KIND_EXIT_CODES: Dict[str, int] = {
+    "column_not_found": EXIT_INPUT,
+    "missing_arguments": EXIT_INPUT,
+    "unknown_argument": EXIT_INPUT,
+    "missing_dependency": EXIT_DEPENDENCY,
+}
 
 
 def _parse_value(raw: str) -> Any:
@@ -198,17 +226,27 @@ def _run_function(
             return EXIT_USAGE
 
     want_summary = fmt == "summary"
-    payload = execute_tool(
-        name, dict(arguments), data=df, detail=detail, as_handle=want_summary
+    payload, runtime_warnings = _call_capturing(
+        execute_tool,
+        name,
+        dict(arguments),
+        data=df,
+        detail=detail,
+        as_handle=want_summary,
     )
     if not isinstance(payload, dict):
         payload = {"value": payload}
     if provenance is not None:
         payload.setdefault("data_provenance", provenance)
+    if runtime_warnings:
+        payload["runtime_warnings"] = runtime_warnings
 
     if payload.get("error"):
+        kind = _error_kind(payload)
+        if kind:
+            payload["error_kind"] = kind
         _emit_error(payload)
-        return EXIT_ESTIMATOR
+        return KIND_EXIT_CODES.get(kind or "", EXIT_ESTIMATOR)
 
     if want_summary:
         from .agent._result_cache import RESULT_CACHE
@@ -223,26 +261,137 @@ def _run_function(
             text = summary()
             print(text if isinstance(text, str) else str(text))
         else:
-            print(json.dumps(_clean(payload), indent=indent or None, default=str))
+            print(_dumps(payload, indent=indent))
         payload.pop("result_id", None)
         payload.pop("result_uri", None)
     else:
-        text = json.dumps(_clean(payload), indent=indent or None, default=str)
-        print(text)
+        print(_dumps(payload, indent=indent))
     if out_path:
         with open(out_path, "w", encoding="utf-8") as fh:
-            json.dump(_clean(payload), fh, indent=indent or None, default=str)
+            fh.write(_dumps(payload, indent=indent))
     return 0
 
 
-def _clean(obj: Any) -> Any:
-    from .agent.mcp_server import _clean_floats
+def _call_capturing(fn: Any, *args: Any, **kwargs: Any) -> Any:
+    """Run ``fn`` with stdout -> stderr and Python warnings recorded.
 
-    return _clean_floats(obj)
+    Returns ``(result, runtime_warnings)`` where ``runtime_warnings`` is a
+    de-duplicated list of ``{"category", "message"}`` (at most 20), the
+    same shape the MCP server attaches. Redirecting stdout keeps the CLI's
+    stdout a single JSON document even when an estimator prints.
+    """
+    import contextlib
+    import warnings
+
+    with contextlib.redirect_stdout(sys.stderr):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result = fn(*args, **kwargs)
+    recorded: List[Dict[str, str]] = []
+    seen: set = set()
+    for w in caught:
+        key = (w.category.__name__, str(w.message))
+        if key in seen:
+            continue
+        seen.add(key)
+        recorded.append({"category": key[0], "message": key[1]})
+        if len(recorded) >= 20:
+            break
+    return result, recorded
+
+
+def _error_kind(payload: Dict[str, Any]) -> Optional[str]:
+    """Pick the error kind that decides the exit code.
+
+    A remediation category that is mechanically actionable (column typo,
+    missing / unknown argument, missing dependency) wins over the raiser's
+    broader taxonomy kind, so e.g. a ``MethodIncompatibility`` carrying
+    ``missing_columns`` diagnostics still exits as ``column_not_found``.
+    """
+    rem = payload.get("remediation")
+    category = rem.get("category") if isinstance(rem, dict) else None
+    if isinstance(category, str) and category in KIND_EXIT_CODES:
+        return category
+    kind = payload.get("error_kind")
+    if isinstance(kind, str) and kind:
+        return kind
+    return category if isinstance(category, str) else None
+
+
+def _local_json_default(o: Any) -> Any:
+    """Fallback encoder used only if the MCP server's encoder is unavailable."""
+    import math
+
+    try:
+        import numpy as np
+
+        if isinstance(o, np.generic):
+            o = o.item()
+        elif isinstance(o, np.ndarray):
+            return _local_clean(o.tolist())
+    except ImportError:  # pragma: no cover - numpy is a core dependency
+        pass
+    try:
+        import pandas as pd
+
+        if isinstance(o, pd.DataFrame):
+            return _local_clean(o.to_dict(orient="list"))
+        if isinstance(o, (pd.Series, pd.Index)):
+            return _local_clean(o.tolist())
+        if isinstance(o, (pd.Timestamp, pd.Timedelta)):
+            return str(o)
+    except ImportError:  # pragma: no cover - pandas is a core dependency
+        pass
+    if isinstance(o, float):
+        return None if (math.isnan(o) or math.isinf(o)) else o
+    if isinstance(o, (int, str, bool)) or o is None:
+        return o
+    if isinstance(o, (set, frozenset)):
+        return _local_clean(sorted(o, key=str))
+    return str(o)
+
+
+def _local_clean(obj: Any) -> Any:
+    import math
+
+    if isinstance(obj, float):
+        return None if (math.isnan(obj) or math.isinf(obj)) else obj
+    if isinstance(obj, dict):
+        return {k: _local_clean(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_local_clean(v) for v in obj]
+    return obj
+
+
+def _json_helpers() -> Any:
+    """``(clean, default)`` — the MCP server's encoders, else local copies."""
+    try:
+        from .agent.mcp_server import _clean_floats, _json_default
+    except ImportError:  # pragma: no cover - exercised only on refactor drift
+        return _local_clean, _local_json_default
+    return _clean_floats, _json_default
+
+
+def _dumps(obj: Any, *, indent: Optional[int] = 2) -> str:
+    """Strict JSON (``allow_nan=False``) with numpy / pandas support."""
+    clean, default = _json_helpers()
+
+    def _default(o: Any) -> Any:
+        # Clean what the encoder returns: a container produced from a
+        # numpy array / DataFrame may itself hold NaN.
+        return clean(default(o))
+
+    return json.dumps(
+        clean(obj), indent=indent or None, default=_default, allow_nan=False
+    )
+
+
+def _clean(obj: Any) -> Any:
+    return _json_helpers()[0](obj)
 
 
 def _emit_error(payload: Dict[str, Any]) -> None:
-    print(json.dumps(_clean(payload), indent=2, default=str), file=sys.stderr)
+    print(_dumps(payload, indent=2), file=sys.stderr)
 
 
 def _make_parser() -> argparse.ArgumentParser:
@@ -463,7 +612,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print(str(e), file=sys.stderr)
             return 2
         if args.json:
-            print(json.dumps(spec, indent=2, default=str))
+            print(_dumps(spec, indent=2))
             return 0
         print(sp.help(args.name, verbose=True))
         return 0
@@ -471,7 +620,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.command == "search":
         q = " ".join(args.query)
         if args.json:
-            print(json.dumps(sp.search_functions(q), indent=2))
+            print(_dumps(sp.search_functions(q), indent=2))
             return 0
         print(sp.help(search=q))
         return 0
@@ -573,7 +722,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             )
             return EXIT_USAGE
         if args.json or not sys.stdout.isatty():
-            print(json.dumps(payload, indent=2, default=str))
+            print(_dumps(payload, indent=2))
             return 0
         _print_route(payload)
         return 0

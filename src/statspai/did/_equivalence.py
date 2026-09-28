@@ -57,6 +57,7 @@ from typing import NamedTuple, Optional
 import numpy as np
 from scipy import stats
 
+from .._result_serialize import attach_result_protocol
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 __all__ = [
@@ -66,6 +67,7 @@ __all__ = [
 ]
 
 
+@attach_result_protocol
 class EquivalenceResult(NamedTuple):
     """Joint pre-trend test plus its two equivalence counterparts."""
 

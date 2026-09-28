@@ -115,7 +115,7 @@ class CFPolicyResult(ResultProtocolMixin):
 
 
 @dataclass
-class StructuralMDPResult:
+class StructuralMDPResult(ResultProtocolMixin):
     """Result of :func:`statspai.structural_mdp`.
 
     Fields: ``state_dim``, ``action_dim``, ``A``, ``B``, ``reward_coef``.

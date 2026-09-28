@@ -32,6 +32,8 @@ TAXONOMY_EXCEPTIONS = {
     "ConvergenceFailure",
     "NumericalInstability",
     "MethodIncompatibility",
+    "ColumnNotFound",
+    "MissingDependencyError",
 }
 
 GENERIC_EXCEPTIONS = {
@@ -123,6 +125,14 @@ class ExceptionVisitor(ast.NodeVisitor):
 
     def visit_Raise(self, node: ast.Raise) -> None:  # noqa: N802
         exc_name = _name(node.exc)
+        # ``raise ColumnNotFound.from_missing(...)``: an alternate
+        # constructor on a taxonomy class is a taxonomy raise.
+        if (
+            isinstance(node.exc, ast.Call)
+            and isinstance(node.exc.func, ast.Attribute)
+            and _name(node.exc.func.value) in TAXONOMY_EXCEPTIONS
+        ):
+            exc_name = _name(node.exc.func.value)
         category = "other"
         if exc_name in TAXONOMY_EXCEPTIONS:
             category = "taxonomy"

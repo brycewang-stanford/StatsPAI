@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._result_serialize import attach_result_protocol
 from ._format import AUTO
 from ._format import fmt_val as _fmt_val
 from ._format import format_stars as _format_stars
@@ -31,6 +32,7 @@ from .estimates import _html_escape
 __all__ = ["MeanComparisonResult", "mean_comparison"]
 
 
+@attach_result_protocol
 class MeanComparisonResult:
     """Rich result object for balance / mean comparison tables.
 

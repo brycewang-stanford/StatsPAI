@@ -842,7 +842,7 @@ class EconometricResults:
         """
         return self.data_info.get("fitted_values")
 
-    def next_steps(self, print_result: bool = True) -> List[Dict[str, str]]:
+    def next_steps(self, print_result: bool = False) -> List[Dict[str, str]]:
         """
         Agent-native workflow guidance: what to do after fitting this model.
 
@@ -852,8 +852,11 @@ class EconometricResults:
 
         Parameters
         ----------
-        print_result : bool, default True
-            Print formatted recommendations to stdout.
+        print_result : bool, default False
+            Also print the formatted recommendations to stdout. Off by
+            default so calling ``next_steps()`` from an MCP
+            stdio server, a CLI pipe or a batch job never writes a banner
+            into the output stream; the return value is identical.
 
         Returns
         -------
@@ -4468,7 +4471,7 @@ class CausalResult:
             raise ValueError("Pre-trend test not available for this method.")
         return cast(Dict[str, Any], self.model_info["pretrend_test"])
 
-    def next_steps(self, print_result: bool = True) -> List[Dict[str, str]]:
+    def next_steps(self, print_result: bool = False) -> List[Dict[str, str]]:
         """
         Agent-native workflow guidance: what to do after this causal analysis.
 
@@ -4477,8 +4480,11 @@ class CausalResult:
 
         Parameters
         ----------
-        print_result : bool, default True
-            Print formatted recommendations to stdout.
+        print_result : bool, default False
+            Also print the formatted recommendations to stdout. Off by
+            default so calling ``next_steps()`` from an MCP
+            stdio server, a CLI pipe or a batch job never writes a banner
+            into the output stream; the return value is identical.
 
         Returns
         -------

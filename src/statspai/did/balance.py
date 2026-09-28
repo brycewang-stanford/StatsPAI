@@ -40,6 +40,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._result_serialize import attach_result_protocol
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 __all__ = ["did_balance", "DiDBalanceResult"]
@@ -56,6 +57,7 @@ _IR_THRESHOLD = 0.25
 # ----------------------------------------------------------------------
 
 
+@attach_result_protocol
 @dataclass
 class DiDBalanceResult:
     """Balance table for a DiD design.

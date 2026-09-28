@@ -380,7 +380,9 @@ def _top_overview() -> str:
     lines.append("-----------------")
     lines.append("  sp.list_functions(category=None)   Machine-readable function index")
     lines.append("  sp.describe_function(name)         Full metadata for one function")
-    lines.append("  sp.search_functions(query)         Keyword search (AND logic)")
+    lines.append(
+        "  sp.search_functions(query)         Keyword / research-question search"
+    )
     lines.append("  sp.function_schema(name)           OpenAI/Anthropic tool schema")
     lines.append(
         "  sp.all_schemas()                   " "Bulk schema export for LLM agents"
@@ -611,6 +613,8 @@ def _search_results(query: str) -> str:
     hits = search_functions(query)
     lines: List[str] = []
     header = f"Search: {query!r}  →  {len(hits)} match(es)"
+    if hits and all(h.get("match") == "partial" for h in hits):
+        header += " (partial: no function matched most of the query)"
     lines.append(header)
     lines.append("=" * len(header))
     if not hits:
@@ -624,6 +628,8 @@ def _search_results(query: str) -> str:
         short = h["description"].split(".")[0][:80]
         v = h.get("validation_status", "")
         suffix = f" [{v}]" if v in {"certified", "validated", "experimental"} else ""
+        if h.get("alias_of"):
+            suffix += f" (alias of {h['alias_of']})"
         lines.append(f"  {h['name']:<{width}}  [{h['category']}]  " f"{short}{suffix}")
     if len(hits) > 50:
         lines.append(

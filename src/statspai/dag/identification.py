@@ -18,13 +18,14 @@ from dataclasses import dataclass
 from typing import Any, Union
 
 from .._aliases import accepts_aliases
+from .._result_serialize import ResultProtocolMixin
 
 NodeInput = Union[str, Iterable[str]]
 NodeSet = set[str]
 
 
 @dataclass
-class IdentificationResult:
+class IdentificationResult(ResultProtocolMixin):
     """Outcome of an identification query.
 
     Attributes

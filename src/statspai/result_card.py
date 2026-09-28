@@ -177,7 +177,15 @@ def _function_name(result: Any) -> Optional[str]:
         return fn.rsplit(".", 1)[-1]
     from .validation_scope import _function_of
 
-    return _function_of(result)
+    name = _function_of(result)
+    if name is not None:
+        return name
+    # Domain result classes without a provenance record: the registry's
+    # ``returns`` field names the class; used only when exactly one
+    # registered function returns it (never a guess).
+    from ._result_contract import resolve_function
+
+    return resolve_function(result)
 
 
 def _estimand(result: Any, mi: Dict[str, Any], scale: Optional[str]) -> Dict[str, Any]:
@@ -276,7 +284,9 @@ def _inference(result: Any, mi: Dict[str, Any], di: Dict[str, Any]) -> Dict[str,
     return out
 
 
-def _provenance_section(result: Any, mi: Dict[str, Any]) -> Dict[str, Any]:
+def _provenance_section(
+    result: Any, mi: Dict[str, Any], function: Optional[str] = None
+) -> Dict[str, Any]:
     prov = getattr(result, "_provenance", None)
     out: Dict[str, Any] = {}
     for k in (
@@ -301,9 +311,23 @@ def _provenance_section(result: Any, mi: Dict[str, Any]) -> Dict[str, Any]:
     if backend:
         out["backend"] = backend
     mod = type(result).__module__
-    if mod and not mod.startswith("statspai"):
-        out["result_class"] = f"{mod}.{type(result).__name__}"
+    out["result_class"] = f"{mod}.{type(result).__name__}"
+    # Seed / reproducibility: recorded even when the stochastic estimator
+    # ran with seed=None (``seed: None, reproducible: False``) rather than
+    # silently omitted. Empty when the function takes no seed argument.
+    from ._result_contract import seed_record
+
+    params = dict(getattr(prov, "params", None) or {})
+    out.update(
+        {k: _jsonable(v) for k, v in seed_record(function or None, params, mi).items()}
+    )
     if not out.get("function"):
+        if "statspai_version" not in out:
+            import statspai
+
+            # Version that built the card, not necessarily the fit's.
+            out["statspai_version"] = statspai.__version__
+            out["statspai_version_source"] = "card"
         out["note"] = (
             "no provenance record attached; call arguments and data fingerprint "
             "are unavailable"
@@ -446,7 +470,10 @@ def result_card(result: Any) -> ResultCard:
           (t(df) or normal), CI level, whether the full covariance is
           available for joint tests;
         * ``provenance`` -- function, versions, data hash and shape, run id,
-          backend;
+          backend, result class, and -- for functions taking ``seed`` /
+          ``random_state`` -- ``seed`` / ``reproducible`` /
+          ``seed_source`` (``seed: None, reproducible: False`` when the
+          call left the seed unset);
         * ``evidence`` -- configuration-level coverage from
           :func:`sp.validation_scope` where a map exists, otherwise the
           function-level tier flagged as such;
@@ -480,7 +507,7 @@ def result_card(result: Any) -> ResultCard:
             "sample": _sample(result, mi, di),
             "specification": _specification(result, mi),
             "inference": _inference(result, mi, di),
-            "provenance": _provenance_section(result, mi),
+            "provenance": _provenance_section(result, mi, function),
             "evidence": {
                 **_evidence(result, function),
                 **(

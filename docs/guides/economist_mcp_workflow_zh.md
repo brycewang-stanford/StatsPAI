@@ -39,8 +39,12 @@ StatsPAI 的 MCP server 是 local-first 的：它读取你显式给出的
 ## 数据交接
 
 数据型工具都接受 `data_path`。支持 `.dta`、`.csv`、`.tsv`、`.parquet`、
-`.feather`、`.xlsx`、`.json`、`.jsonl`，以及 `file://`、`https://`、
-`http://`、`s3://`、`gs://` 等 URL。
+`.feather`、`.xlsx`、`.json`、`.jsonl`，以及 `file://` 本地 URL。
+`https://`、`http://`、`s3://`、`gs://` 等网络 URL 默认关闭，需在服务器
+环境里设置 `STATSPAI_MCP_ALLOW_REMOTE=1` 才会读取（否则返回
+`error_kind: "remote_disabled"`），远程读取同样受字节上限约束。设置
+`STATSPAI_MCP_DATA_ROOTS`（以系统路径分隔符分隔的目录列表）后，只能读取
+这些目录内的文件（解析符号链接后判断），越界返回 `path_not_allowed`。
 
 大文件建议同时传：
 

@@ -1073,4 +1073,27 @@ FUNCTION_CARDS: Dict[str, Card] = {
 }
 
 
+def _merge_estimator_cards() -> None:
+    """Fold batch 3 (:mod:`statspai._function_cards_estimators`) in.
+
+    Field by field, entries already here first: a list field is extended
+    with the batch-3 items it does not yet contain, a scalar is only filled
+    when absent.
+    """
+    from ._function_cards_estimators import ESTIMATOR_CARDS
+
+    for name, card in ESTIMATOR_CARDS.items():
+        base = FUNCTION_CARDS.setdefault(name, {})
+        for key, value in card.items():
+            if isinstance(value, list):
+                merged = list(base.get(key, []))
+                merged.extend(v for v in value if v not in merged)
+                base[key] = merged
+            elif key not in base:
+                base[key] = value
+
+
+_merge_estimator_cards()
+
+
 __all__ = ["FUNCTION_CARDS"]

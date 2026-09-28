@@ -29,6 +29,58 @@ CANONICAL_ALIASES: Dict[str, FrozenSet[str]] = {
 }
 
 
+#: ``{alias: canonical}`` for every registered name that is the same
+#: callable as another (``sp.rosenbaum_gamma is sp.rosenbaum_bounds``) or a
+#: thin wrapper that forwards to one unchanged apart from argument spelling
+#: (``sp.rdd`` -> ``sp.rdrobust``). The registry copies it onto
+#: ``FunctionSpec.alias_of`` so search ranks the canonical entry first and a
+#: tool manifest can list each estimator once. Dispatchers that *choose*
+#: between several targets (``sp.causal_discovery``,
+#: ``sp.partial_identification``) are not aliases, and neither are core
+#: verbs that also exist as a dispatcher option (``sp.ivreg``).
+#: ``tests/test_discovery_aliases.py`` checks that every identical-callable
+#: pair in the registry is listed here and that every target is registered.
+FUNCTION_ALIAS_OF: Dict[str, str] = {
+    # Same callable object under two names.
+    "did_imputation": "bjs",
+    "borusyak_jaravel_spiess": "bjs",
+    "did_2stage": "gardner_did",
+    "causal_survival": "causal_survival_forest",
+    "model_averaging_dml": "dml_model_averaging",
+    "opreg": "olley_pakes",
+    "levpet": "levinsohn_petrin",
+    "acf": "ackerberg_caves_frazer",
+    "test_calibration": "calibration_test",
+    "postestimation_report": "postestimation_contract",
+    "verify": "verify_recommendation",
+    "yun_nonlinear": "bauer_sinning",
+    "rosenbaum_gamma": "rosenbaum_bounds",
+    # Forwarding wrappers (article / Stata / R spellings).
+    "rdd": "rdrobust",
+    "psm": "match",
+    "frontdoor": "front_door",
+    "xlearner": "metalearner",
+    "conformal_ite": "conformal_cate",
+    "mediation": "mediate",
+    "multi_cutoff_rd": "rdmc",
+    "geographic_rd": "rdms",
+    "boundary_rd": "rd2d",
+    "multi_score_rd": "rd_multi_score",
+    "diagnostic_test": "sensitivity_specificity",
+    "kan_dlate": "dist_iv",
+    "nonlinear_icp": "icp",
+    "xtdpdsys": "xtabond",
+    "synthdid_estimate": "sdid",
+    "sc_estimate": "sdid",
+    "did_estimate": "sdid",
+}
+
+
+def alias_target(name: str) -> "str | None":
+    """Registered name ``name`` is an alias of, or ``None``."""
+    return FUNCTION_ALIAS_OF.get(name)
+
+
 def canonical_of(name: str) -> str:
     """Return the canonical name for ``name`` (or ``name`` itself if no alias)."""
     for canonical, aliases in CANONICAL_ALIASES.items():

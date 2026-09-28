@@ -39,12 +39,19 @@ def _share(items, pred) -> float:
 # Floors. Measured 2026-09-28 after the docstring harvest:
 #   example 0.959 · returns 0.834 (callables) · reference 0.334 ·
 #   card 0.463 (callables) · placeholder params 0.527; family cards lift card to 0.75
+# Re-measured after the W10 discovery pass (docstring descriptions for
+# hand-written / class / alias parameters, estimator cards batch 3):
+#   card 0.779 · placeholder params 0.388 · option-param enums 0.673 ·
+#   result_class 0.981 (callables) · curated assumptions 265 callables
 # --------------------------------------------------------------------------
 EXAMPLE_FLOOR = 0.95
 RETURNS_FLOOR = 0.80
 REFERENCE_FLOOR = 0.30
-CARD_FLOOR = 0.70
-PLACEHOLDER_PARAM_CEILING = 0.55
+CARD_FLOOR = 0.77
+PLACEHOLDER_PARAM_CEILING = 0.39
+OPTION_ENUM_FLOOR = 0.66
+RESULT_CLASS_FLOOR = 0.97
+CURATED_ASSUMPTIONS_FLOOR = 260
 
 
 def test_example_coverage():
@@ -75,6 +82,36 @@ def test_placeholder_parameter_descriptions_do_not_grow():
             if not desc or _PLACEHOLDER.match(desc):
                 placeholder += 1
     assert placeholder / total <= PLACEHOLDER_PARAM_CEILING
+
+
+def test_option_parameters_carry_enums():
+    """Share of string-typed option parameters (``method`` / ``kernel`` /
+    ``vce`` …) whose schema states the accepted values."""
+    from statspai._schema_enrich import OPTION_PARAM_NAMES
+
+    total = with_enum = 0
+    for s in _CALLABLES:
+        props = s.to_openai_schema()["parameters"]["properties"]
+        for pname, prop in props.items():
+            typ = prop["type"] if isinstance(prop["type"], list) else [prop["type"]]
+            if pname in OPTION_PARAM_NAMES and "string" in typ:
+                total += 1
+                with_enum += bool(prop.get("enum"))
+    assert with_enum / total >= OPTION_ENUM_FLOOR
+
+
+def test_result_class_coverage_on_callables():
+    assert _share(_CALLABLES, lambda s: bool(s.result_class)) >= RESULT_CLASS_FLOOR
+
+
+def test_curated_assumption_cards_do_not_shrink():
+    curated = sum(
+        1
+        for s in _CALLABLES
+        if s.agent_card()["provenance"].get("assumptions")
+        in {"curated", "curated+family"}
+    )
+    assert curated >= CURATED_ASSUMPTIONS_FLOOR
 
 
 def test_classes_are_marked_and_not_tools():

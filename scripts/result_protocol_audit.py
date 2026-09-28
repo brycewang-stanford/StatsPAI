@@ -6,6 +6,14 @@ and exporters work best when those objects expose a predictable surface:
 ``to_dict()`` for serialization, and ``to_agent_summary()`` / ``brief()`` for
 LLM-facing summaries.
 
+The documented *agent contract* (AGENTS.md, ``schemas/result.schema.json``)
+is tracked separately as the ``agent_contract`` protocol:
+``to_dict(detail=...)`` (pseudo-method ``to_dict_detail``), ``violations()``,
+``next_steps()``, ``result_card()`` and ``cite()``. ``to_dict`` counts as
+detail-aware when the nearest definition takes ``detail`` or lives on a
+``ResultProtocolMixin`` subclass / ``@attach_result_protocol`` class (the
+mixin wraps a legacy ``to_dict`` so it accepts ``detail``).
+
 This audit is intentionally static: it parses source files with ``ast`` and
 does not import ``statspai``.  That keeps it safe to run in CI before optional
 dependencies are installed and makes it useful when debugging import-time
@@ -33,13 +41,30 @@ METHODS: tuple[str, ...] = (
     "to_agent_summary",
     "brief",
     "plot",
+    "to_dict_detail",
+    "violations",
+    "next_steps",
+    "result_card",
+    "cite",
 )
+
+#: The mixin that supplies (and, for legacy ``to_dict`` overrides, wraps)
+#: the agent contract, and the decorator that grafts it onto NamedTuples.
+MIXIN_NAME = "ResultProtocolMixin"
+ATTACH_DECORATOR = "attach_result_protocol"
 
 PROTOCOLS: dict[str, tuple[str, ...]] = {
     "printable": ("summary",),
     "serializable": ("summary", "to_dict"),
     "tidy_model": ("summary", "tidy", "glance"),
     "agent_ready": ("summary", "to_agent_summary"),
+    "agent_contract": (
+        "to_dict_detail",
+        "violations",
+        "next_steps",
+        "result_card",
+        "cite",
+    ),
 }
 
 # Ratchet floors.  These are deliberately lower-bound counters, not aspirational
@@ -47,16 +72,37 @@ PROTOCOLS: dict[str, tuple[str, ...]] = {
 # them to hide a regression.
 FLOORS: dict[str, int] = {
     "result_classes": 262,
-    "method_summary": 256,
-    "method_tidy": 21,
-    "method_glance": 17,
-    "method_to_dict": 35,
-    "method_to_agent_summary": 27,
-    "method_brief": 11,
-    "protocol_printable": 256,
-    "protocol_serializable": 34,
-    "protocol_tidy_model": 17,
-    "protocol_agent_ready": 27,
+    "method_brief": 14,
+    "method_cite": 294,
+    "method_glance": 20,
+    "method_next_steps": 294,
+    "method_plot": 69,
+    "method_result_card": 294,
+    "method_summary": 285,
+    "method_tidy": 26,
+    "method_to_agent_summary": 30,
+    "method_to_dict": 298,
+    "method_to_dict_detail": 294,
+    "method_violations": 294,
+    "protocol_agent_contract": 294,
+    "protocol_agent_ready": 30,
+    "protocol_printable": 285,
+    "protocol_serializable": 285,
+    "protocol_tidy_model": 20,
+}
+
+#: Result classes known to miss the agent contract, with the reason. The
+#: ratchet fails on any *other* class missing it, and on an entry here that
+#: no longer misses it (delete the entry when the class is fixed).
+AGENT_CONTRACT_GAPS: dict[str, str] = {
+    "src/statspai/fast/_jax_fallback.py:FeolsBootstrapResult": (
+        "JAX-absent fallback stub of fast/jax_feols.py:FeolsBootstrapResult "
+        "(which has the contract)"
+    ),
+    "src/statspai/help.py:HelpResult": (
+        "documentation payload of sp.help, not a fitted result; .data is "
+        "already the structured dict"
+    ),
 }
 
 CANONICAL_CLASSES = {
@@ -67,6 +113,11 @@ CANONICAL_CLASSES = {
         "to_dict",
         "to_agent_summary",
         "brief",
+        "to_dict_detail",
+        "violations",
+        "next_steps",
+        "result_card",
+        "cite",
     ),
     "src/statspai/core/results.py:CausalResult": (
         "summary",
@@ -76,6 +127,11 @@ CANONICAL_CLASSES = {
         "to_agent_summary",
         "brief",
         "plot",
+        "to_dict_detail",
+        "violations",
+        "next_steps",
+        "result_card",
+        "cite",
     ),
 }
 
@@ -87,6 +143,9 @@ class ClassInfo:
     line: int
     bases: tuple[str, ...]
     methods: frozenset[str]
+    #: ``True`` / ``False`` when the class itself defines ``to_dict`` (does
+    #: it take ``detail``?); ``None`` when it inherits it.
+    to_dict_detail: bool | None = None
 
     @property
     def key(self) -> str:
@@ -115,7 +174,27 @@ def _is_result_class(name: str) -> bool:
     return name.endswith("Result") or name.endswith("Results")
 
 
-def _scan_file(path: Path) -> list[ClassInfo]:
+def _takes_detail(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    args = fn.args
+    names = [a.arg for a in (*args.posonlyargs, *args.args, *args.kwonlyargs)]
+    return "detail" in names
+
+
+def _class_functions(
+    body: list[ast.stmt],
+) -> list[ast.FunctionDef | ast.AsyncFunctionDef]:
+    """Methods of a class body, including those under ``if`` blocks."""
+    out: list[ast.FunctionDef | ast.AsyncFunctionDef] = []
+    for child in body:
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            out.append(child)
+        elif isinstance(child, ast.If):
+            out.extend(_class_functions(child.body))
+            out.extend(_class_functions(child.orelse))
+    return out
+
+
+def _scan_file(path: Path, *, all_classes: bool = False) -> list[ClassInfo]:
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     except (OSError, SyntaxError):
@@ -123,16 +202,25 @@ def _scan_file(path: Path) -> list[ClassInfo]:
 
     out: list[ClassInfo] = []
     for node in ast.walk(tree):
-        if not isinstance(node, ast.ClassDef) or not _is_result_class(node.name):
+        if not isinstance(node, ast.ClassDef):
             continue
-        methods = frozenset(
-            child.name
-            for child in node.body
-            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+        if not all_classes and not _is_result_class(node.name):
+            continue
+        funcs = _class_functions(node.body)
+        methods = frozenset(f.name for f in funcs)
+        to_dict_defs = [f for f in funcs if f.name == "to_dict"]
+        # ``if TYPE_CHECKING: <stub> else: <real>`` defines to_dict twice;
+        # the runtime one is detail-aware when any branch takes ``detail``.
+        to_dict_detail = (
+            any(_takes_detail(f) for f in to_dict_defs) if to_dict_defs else None
         )
         bases = tuple(
             b for b in (_base_name(base) for base in node.bases) if b is not None
         )
+        decorators = {_base_name(d) for d in node.decorator_list}
+        if ATTACH_DECORATOR in decorators:
+            # The decorator grafts the mixin's members onto the class.
+            bases = bases + (MIXIN_NAME,)
         out.append(
             ClassInfo(
                 path=path,
@@ -140,16 +228,58 @@ def _scan_file(path: Path) -> list[ClassInfo]:
                 line=node.lineno,
                 bases=bases,
                 methods=methods,
+                to_dict_detail=to_dict_detail,
             )
         )
     return out
 
 
-def collect_classes(src_root: Path = SRC_ROOT) -> list[ClassInfo]:
+def collect_classes(
+    src_root: Path = SRC_ROOT, *, all_classes: bool = False
+) -> list[ClassInfo]:
     classes: list[ClassInfo] = []
     for path in sorted(src_root.rglob("*.py")):
-        classes.extend(_scan_file(path))
+        classes.extend(_scan_file(path, all_classes=all_classes))
     return classes
+
+
+def _ancestors(
+    info: ClassInfo,
+    by_name: dict[str, list[ClassInfo]],
+    seen: Set[str] | None = None,
+) -> set[str]:
+    seen = set() if seen is None else seen
+    if info.identity in seen:
+        return set()
+    seen.add(info.identity)
+    names: set[str] = set(info.bases)
+    for base in info.bases:
+        for parent in by_name.get(base, []):
+            names |= _ancestors(parent, by_name, seen)
+    return names
+
+
+def _detail_aware(
+    info: ClassInfo,
+    by_name: dict[str, list[ClassInfo]],
+    seen: Set[str] | None = None,
+) -> bool:
+    """Does the ``to_dict`` this class resolves to accept ``detail``?"""
+    seen = set() if seen is None else seen
+    if info.identity in seen:
+        return False
+    seen.add(info.identity)
+    if info.to_dict_detail is not None:
+        if info.to_dict_detail:
+            return True
+        # A legacy override on a mixin subclass is wrapped at class
+        # creation (ResultProtocolMixin.__init_subclass__).
+        return info.name == MIXIN_NAME or MIXIN_NAME in _ancestors(info, by_name)
+    for base in info.bases:  # left-to-right, like the MRO for these trees
+        for parent in by_name.get(base, []):
+            if "to_dict" in _effective_methods(parent, by_name):
+                return _detail_aware(parent, by_name, seen)
+    return False
 
 
 def _effective_methods(
@@ -170,9 +300,13 @@ def _effective_methods(
 
 
 def collect() -> dict[str, Any]:
-    classes = collect_classes()
+    # Resolve inheritance against *every* class (mixins such as
+    # ResultProtocolMixin / DecompResultMixin are not named ``*Result``),
+    # but report only result classes.
+    every = collect_classes(all_classes=True)
+    classes = [info for info in every if _is_result_class(info.name)]
     by_name: dict[str, list[ClassInfo]] = {}
-    for info in classes:
+    for info in every:
         by_name.setdefault(info.name, []).append(info)
 
     per_class: list[dict[str, Any]] = []
@@ -180,7 +314,10 @@ def collect() -> dict[str, Any]:
     protocol_counts: dict[str, int] = {p: 0 for p in PROTOCOLS}
 
     for info in classes:
-        effective = _effective_methods(info, by_name)
+        effective = set(_effective_methods(info, by_name))
+        effective.discard("to_dict_detail")
+        if "to_dict" in effective and _detail_aware(info, by_name):
+            effective.add("to_dict_detail")
         for method in METHODS:
             if method in effective:
                 method_counts[method] += 1
@@ -210,6 +347,7 @@ def collect() -> dict[str, Any]:
         "protocol_counts": protocol_counts,
         "per_class": sorted(per_class, key=lambda row: (row["path"], row["line"])),
         "floors": FLOORS,
+        "agent_contract_gaps": AGENT_CONTRACT_GAPS,
     }
 
 
@@ -237,6 +375,27 @@ def _canonical_failures(report: dict[str, Any]) -> list[str]:
     return failures
 
 
+def _agent_contract_failures(report: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    missing = {
+        row["key"]
+        for row in report["per_class"]
+        if "agent_contract" in row.get("missing", {})
+    }
+    for key in sorted(missing - set(AGENT_CONTRACT_GAPS)):
+        failures.append(
+            f"{key}: missing the agent contract (to_dict(detail=), "
+            "violations, next_steps, result_card, cite) -- inherit "
+            "ResultProtocolMixin or use @attach_result_protocol"
+        )
+    for key in sorted(set(AGENT_CONTRACT_GAPS) - missing):
+        failures.append(
+            f"{key}: listed in AGENT_CONTRACT_GAPS but now has the contract "
+            "(or no longer exists) -- delete the entry"
+        )
+    return failures
+
+
 def check(report: dict[str, Any]) -> int:
     current = _floor_snapshot(report)
     failures: list[str] = []
@@ -245,6 +404,7 @@ def check(report: dict[str, Any]) -> int:
         if observed < floor:
             failures.append(f"{key}: observed={observed} floor={floor}")
     failures.extend(_canonical_failures(report))
+    failures.extend(_agent_contract_failures(report))
     if failures:
         print("[result_protocol_audit] REGRESSION", file=sys.stderr)
         for item in failures:

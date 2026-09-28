@@ -46,6 +46,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._result_serialize import attach_result_protocol
 from ..exceptions import MethodIncompatibility
 
 __all__ = [
@@ -247,6 +248,7 @@ def event_study_convention(
 # --------------------------------------------------------------------- #
 # Empirical comparison
 # --------------------------------------------------------------------- #
+@attach_result_protocol
 @dataclass
 class EventStudyConventionResult:
     """Paths and convention diagnostics for one panel.

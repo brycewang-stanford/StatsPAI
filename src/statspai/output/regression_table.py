@@ -43,6 +43,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from .._result_serialize import attach_result_protocol
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._diagnostics import extract_diagnostic_rows
 from ._format import AUTO, AUTO_PREFIX, MAX_AUTO_DECIMALS, STAT, auto_decimals
@@ -514,6 +515,7 @@ def _unique_column_keys(labels: List[str]) -> List[str]:
     return keys
 
 
+@attach_result_protocol
 class RegtableResult:
     """Rich result object for regression tables with multi-format export.
 

@@ -18,13 +18,13 @@ import time
 
 import pytest
 
+from statspai.agent import mcp_handle_request, mcp_serve_stdio
 from statspai.agent._runner import (
+    TOOL_TIMEOUT_ENV,
     progress,
     run_with_progress,
     tool_timeout,
-    TOOL_TIMEOUT_ENV,
 )
-from statspai.agent import mcp_handle_request, mcp_serve_stdio
 
 # ----------------------------------------------------------------------
 # run_with_progress core
@@ -244,8 +244,13 @@ class TestRpcTimeout:
                 )
             )
         )
-        # Timeout triggers a -32000 generic server error with the
-        # readable message including the env-var name.
-        assert "error" in msg
-        assert "timeout" in msg["error"]["message"].lower()
-        assert TOOL_TIMEOUT_ENV in msg["error"]["message"]
+        # A timeout is a tool-execution error (isError result) with a
+        # readable message naming the env var, and it says the worker
+        # thread may still be running (threads cannot be killed).
+        result = msg["result"]
+        assert result["isError"] is True
+        sc = result["structuredContent"]
+        assert sc["error_kind"] == "timeout"
+        assert TOOL_TIMEOUT_ENV in sc["message"]
+        assert sc["worker_may_still_be_running"] is True
+        assert sc["orphaned_tool_threads"] >= 1

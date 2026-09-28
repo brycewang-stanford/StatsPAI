@@ -26,7 +26,7 @@ from typing import Sequence
 
 import pandas as pd
 
-from .exceptions import DataInsufficient, StatsPAIError
+from .exceptions import ColumnNotFound, DataInsufficient, StatsPAIError
 
 
 def require_columns(
@@ -35,8 +35,10 @@ def require_columns(
     """Validate that ``data`` is a frame carrying every required column.
 
     A wrong type raises :class:`~statspai.exceptions.StatsPAIError`; a missing
-    column raises :class:`~statspai.exceptions.DataInsufficient` (a
-    ``ValueError`` *and* a ``StatsPAIError``) whose message contains the
+    column raises :class:`~statspai.exceptions.ColumnNotFound` (a
+    :class:`~statspai.exceptions.DataInsufficient`, hence a ``ValueError``
+    *and* a ``StatsPAIError``, with ``diagnostics["did_you_mean"]``) whose
+    message contains the
     conventional ``"Missing columns"`` phrase plus the offending names — far
     more actionable than the bare ``KeyError: "['typo'] not in index"`` pandas
     would otherwise raise, while staying back-compatible with callers that
@@ -52,14 +54,10 @@ def require_columns(
         )
     missing = [c for c in columns if c not in data.columns]
     if missing:
-        raise DataInsufficient(
-            f"{function}: Missing columns {missing} — not found in data.",
-            recovery_hint="Check the column-name arguments against "
-            f"data.columns: {list(data.columns)}.",
-            diagnostics={
-                "missing_columns": [str(c) for c in missing],
-                "available_columns": [str(c) for c in data.columns],
-            },
+        raise ColumnNotFound.from_missing(
+            missing,
+            list(data.columns),
+            message=f"{function}: Missing columns {missing} — not found in data.",
         )
 
 

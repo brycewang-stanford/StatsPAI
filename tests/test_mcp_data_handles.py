@@ -122,8 +122,11 @@ class TestInlineData:
                 },
             },
         )
-        assert msg["error"]["code"] == -32602
-        assert "exactly one data source" in msg["error"]["message"]
+        # A tool-execution failure: isError result, not a JSON-RPC error.
+        assert msg["result"]["isError"] is True
+        sc = msg["result"]["structuredContent"]
+        assert sc["error_kind"] == "invalid_arguments"
+        assert "exactly one data source" in sc["message"]
 
     def test_bad_records_rejected(self):
         msg = _rpc(
@@ -133,8 +136,8 @@ class TestInlineData:
                 "arguments": {"formula": "y ~ x", "data_records": [1, 2]},
             },
         )
-        assert msg["error"]["code"] == -32602
-        assert "row objects" in msg["error"]["message"]
+        assert msg["result"]["isError"] is True
+        assert "row objects" in msg["result"]["structuredContent"]["message"]
 
 
 class TestTransformChain:
@@ -292,8 +295,12 @@ class TestHandleResource:
                 "arguments": {"formula": "y ~ x", "data_id": "d_deadbeef"},
             },
         )
-        assert call["error"]["code"] == -32602
-        assert "load_data" in call["error"]["message"]
+        assert call["result"]["isError"] is True
+        sc = call["result"]["structuredContent"]
+        assert sc["error_kind"] == "missing_data_handle"
+        assert sc["miss_reason"] == "unknown"
+        assert "load_data" in sc["hint"]
+        assert json.loads(call["result"]["content"][0]["text"]) == sc
 
     def test_evicted_handle_explains_itself(self, panel_csv):
         path, _ = panel_csv
@@ -304,5 +311,8 @@ class TestHandleResource:
         msg = _rpc(
             "tools/call", {"name": "describe_data", "arguments": {"data_id": first}}
         )
-        assert msg["error"]["code"] == -32602
-        assert "evicted" in msg["error"]["message"]
+        assert msg["result"]["isError"] is True
+        sc = msg["result"]["structuredContent"]
+        assert sc["error_kind"] == "missing_data_handle"
+        assert sc["miss_reason"] == "lru"
+        assert "evicted" in sc["hint"]

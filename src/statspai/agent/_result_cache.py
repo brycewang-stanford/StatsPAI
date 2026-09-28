@@ -33,9 +33,10 @@ Design
 Thread-safety
 -------------
 
-The cache uses a re-entrant lock around all mutations. The MCP server
-loop is currently single-threaded, but tests exercise concurrent
-access.
+The cache uses a re-entrant lock around all mutations. The stdio server
+answers ``tools/call`` on a worker pool (one worker by default,
+``STATSPAI_MCP_WORKERS`` to raise it) while the main loop keeps serving
+``resources/read``, so the cache is accessed from several threads.
 """
 
 from __future__ import annotations
@@ -59,6 +60,8 @@ _EVICTION_LEDGER_SIZE = 256
 EVICT_TTL = "ttl"
 EVICT_LRU = "lru"
 EVICT_EXPLICIT = "explicit"
+#: Evicted to keep the cache under its total-bytes budget (data cache).
+EVICT_BYTES = "bytes"
 
 
 def _metadata_value(value: Any) -> Any:
@@ -112,6 +115,11 @@ class CacheEntry:
     tool: str
     arguments: Dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
+    #: Python call that reproduces the fit (``sp.<fn>(data=data, ...)``);
+    #: empty when the producing tool has no single-call equivalent.
+    replay: str = ""
+    #: Approximate in-memory size, tracked only by byte-budgeted caches.
+    nbytes: int = 0
 
     def to_metadata(self) -> Dict[str, Any]:
         """Return a JSON-friendly description of this entry's provenance."""
@@ -121,12 +129,15 @@ class CacheEntry:
         clean: Dict[str, Any] = {
             k: _metadata_value(v) for k, v in self.arguments.items()
         }
-        return {
+        meta: Dict[str, Any] = {
             "tool": self.tool,
             "arguments": clean,
             "created_at": self.created_at,
             "result_class": type(self.obj).__name__,
         }
+        if self.replay:
+            meta["replay"] = self.replay
+        return meta
 
 
 class ResultCache:
@@ -147,15 +158,30 @@ class ResultCache:
         max_size: Optional[int] = None,
         *,
         ttl_seconds: Optional[float] = None,
+        max_bytes: Optional[int] = None,
     ) -> None:
         self._max_size = max_size or _cache_size()
         self._ttl = ttl_seconds if ttl_seconds is not None else _cache_ttl()
+        #: Total-bytes budget (``None`` ⇒ count-bounded only). The newest
+        #: entry is always kept, even when it alone exceeds the budget.
+        self._max_bytes = max_bytes if max_bytes else None
+        self._total_bytes = 0
         self._store: "OrderedDict[str, CacheEntry]" = OrderedDict()
         #: id → reason for handles that left the cache (bounded ledger).
         self._evicted: "OrderedDict[str, str]" = OrderedDict()
         self._lock = threading.RLock()
 
     # -- internal helpers (assume the lock is held) -------------------- #
+
+    def _entry_bytes(self, obj: Any) -> int:
+        """Size estimate used by the bytes budget; subclasses override."""
+        return 0
+
+    def _drop_locked(self, rid: str, reason: str) -> None:
+        entry = self._store.pop(rid, None)
+        if entry is not None:
+            self._total_bytes -= entry.nbytes
+        self._record_eviction(rid, reason)
 
     def _record_eviction(self, rid: str, reason: str) -> None:
         self._evicted[rid] = reason
@@ -174,31 +200,52 @@ class ResultCache:
             rid for rid, e in self._store.items() if (now - e.created_at) > self._ttl
         ]
         for rid in stale:
-            del self._store[rid]
-            self._record_eviction(rid, EVICT_TTL)
+            self._drop_locked(rid, EVICT_TTL)
         return len(stale)
 
     # -- public API ---------------------------------------------------- #
 
     def put(
-        self, obj: Any, *, tool: str = "", arguments: Optional[Dict[str, Any]] = None
+        self,
+        obj: Any,
+        *,
+        tool: str = "",
+        arguments: Optional[Dict[str, Any]] = None,
+        replay: str = "",
     ) -> str:
         """Cache ``obj`` and return its newly-minted handle."""
         rid = self._prefix + secrets.token_hex(4)
+        nbytes = self._entry_bytes(obj) if self._max_bytes else 0
         with self._lock:
             self._purge_expired_locked()
             self._store[rid] = CacheEntry(
                 obj=obj,
                 tool=tool,
                 arguments=dict(arguments or {}),
+                replay=replay or "",
+                nbytes=nbytes,
             )
+            self._total_bytes += nbytes
             self._store.move_to_end(rid)
             # A reused id (vanishingly unlikely) is no longer evicted.
             self._evicted.pop(rid, None)
             while len(self._store) > self._max_size:
-                old_rid, _ = self._store.popitem(last=False)
-                self._record_eviction(old_rid, EVICT_LRU)
+                old_rid = next(iter(self._store))
+                self._drop_locked(old_rid, EVICT_LRU)
+            if self._max_bytes is not None:
+                while self._total_bytes > self._max_bytes and len(self._store) > 1:
+                    old_rid = next(iter(self._store))
+                    self._drop_locked(old_rid, EVICT_BYTES)
         return rid
+
+    def set_replay(self, rid: str, replay: str) -> bool:
+        """Replace the replay string of an existing entry."""
+        with self._lock:
+            entry = self._store.get(rid)
+            if entry is None:
+                return False
+            entry.replay = replay
+            return True
 
     def annotate(self, rid: str, arguments: Dict[str, Any]) -> bool:
         """Merge additional provenance arguments into an existing entry."""
@@ -206,8 +253,7 @@ class ResultCache:
             entry = self._store.get(rid)
             if entry is None or self._is_expired(entry):
                 if entry is not None:
-                    del self._store[rid]
-                    self._record_eviction(rid, EVICT_TTL)
+                    self._drop_locked(rid, EVICT_TTL)
                 return False
             entry.arguments.update(arguments)
             self._store.move_to_end(rid)
@@ -229,8 +275,7 @@ class ResultCache:
             if entry is None:
                 return None
             if self._is_expired(entry):
-                del self._store[rid]
-                self._record_eviction(rid, EVICT_TTL)
+                self._drop_locked(rid, EVICT_TTL)
                 return None
             self._store.move_to_end(rid)
             return entry
@@ -239,8 +284,7 @@ class ResultCache:
         """Explicitly drop a handle. Returns ``True`` if it was present."""
         with self._lock:
             if rid in self._store:
-                del self._store[rid]
-                self._record_eviction(rid, EVICT_EXPLICIT)
+                self._drop_locked(rid, EVICT_EXPLICIT)
                 return True
             return False
 
@@ -251,7 +295,7 @@ class ResultCache:
 
     def miss_reason(self, rid: str) -> str:
         """Explain why ``rid`` is not resolvable: ``ttl`` / ``lru`` /
-        ``explicit`` (from the eviction ledger) or ``unknown`` (never
+        ``bytes`` / ``explicit`` (from the eviction ledger) or ``unknown`` (never
         seen, or evicted long enough ago to fall off the ledger)."""
         with self._lock:
             if rid in self._store and not self._is_expired(self._store[rid]):
@@ -266,6 +310,8 @@ class ResultCache:
                 "max_size": self._max_size,
                 "ttl_seconds": self._ttl,
                 "evicted_tracked": len(self._evicted),
+                "total_bytes": self._total_bytes,
+                "max_bytes": self._max_bytes,
             }
 
     def keys(self) -> list:
@@ -280,8 +326,7 @@ class ResultCache:
             if entry is None:
                 return False
             if self._is_expired(entry):
-                del self._store[rid]
-                self._record_eviction(rid, EVICT_TTL)
+                self._drop_locked(rid, EVICT_TTL)
                 return False
             return True
 
@@ -294,6 +339,7 @@ class ResultCache:
         with self._lock:
             self._store.clear()
             self._evicted.clear()
+            self._total_bytes = 0
 
 
 #: Module-level singleton — shared across the agent + MCP layers so a
@@ -302,4 +348,47 @@ class ResultCache:
 RESULT_CACHE = ResultCache()
 
 
-__all__ = ["RESULT_CACHE", "ResultCache", "CacheEntry"]
+_RESULT_MISS_HINTS = {
+    "ttl": (
+        "result_id expired (server result-cache TTL); the underlying fit may "
+        "be stale — re-fit the estimator with as_handle=true for a fresh handle."
+    ),
+    "lru": (
+        "result_id evicted (the result cache keeps only the most recent fits); "
+        "re-fit the estimator with as_handle=true to obtain a fresh handle."
+    ),
+    "explicit": (
+        "result_id was explicitly dropped; re-fit the estimator with " "as_handle=true."
+    ),
+    "unknown": (
+        "unknown result_id (never cached, evicted long ago, or the server "
+        "restarted); re-fit the estimator with as_handle=true."
+    ),
+}
+
+
+def missing_result_error(rid: str) -> Dict[str, Any]:
+    """Structured error for an unresolvable ``result_id``.
+
+    The twin of :func:`statspai.agent._data_cache.missing_handle_error`:
+    ``error_kind="missing_result_handle"`` plus the cache's
+    ``miss_reason`` so an agent can tell "expired, re-fit" from "never
+    existed" without parsing prose.
+    """
+    reason = RESULT_CACHE.miss_reason(rid)
+    return {
+        "error": f"result_id {rid!r} not found in cache",
+        "error_kind": "missing_result_handle",
+        "miss_reason": reason,
+        "hint": _RESULT_MISS_HINTS.get(reason, _RESULT_MISS_HINTS["unknown"]),
+        "available_result_ids": RESULT_CACHE.keys(),
+    }
+
+
+__all__ = [
+    "RESULT_CACHE",
+    "ResultCache",
+    "CacheEntry",
+    "EVICT_BYTES",
+    "missing_result_error",
+]

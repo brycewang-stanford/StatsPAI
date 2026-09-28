@@ -115,7 +115,9 @@ class TestRun:
         assert "Unknown function" in payload["error"]
         assert "callaway_santanna" in payload["did_you_mean"]
 
-    def test_estimator_error_is_structured_exit_3(self, panel_csv, capsys):
+    def test_column_typo_is_structured_input_error_exit_4(self, panel_csv, capsys):
+        # A missing column is a repairable *input* error (exit 4, kind
+        # column_not_found); other estimator failures keep exit 3.
         rc = main(
             [
                 "run",
@@ -132,11 +134,11 @@ class TestRun:
                 "i=id",
             ]
         )
-        assert rc == 3
+        assert rc == 4
         _, err = capsys.readouterr()
         payload = json.loads(err)
         assert "wage" in payload["error"]
-        assert payload["error_kind"]
+        assert payload["error_kind"] == "column_not_found"
         assert "remediation" in payload
 
     def test_missing_data_file_is_usage_error(self, capsys):

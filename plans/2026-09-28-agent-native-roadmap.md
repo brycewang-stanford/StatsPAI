@@ -213,3 +213,45 @@ MCP, and it is not shipped. There is no `AGENTS.md` / `llms.txt`.
 - 2026-09-28 — W3 evidence-tier field done (structured `evidence` in every discovery view).
 - 2026-09-28 — W6 done (packaged `statspai-analysis` skill, `statspai skill install|validate|path`, AGENTS.md, llms.txt). Remaining across the plan: W3 per-function card refinement (batch 2); the CI workflow patch in `plans/pending-workflow-patches/` needs a user push.
 - 2026-09-28 — W3 per-function cards, batch 2 done (`statspai._function_cards`, 80 entries; seed precedence fixed and tested). Remaining across the plan: the CI workflow patch in `plans/pending-workflow-patches/` needs a user push.
+
+---
+
+## Follow-up audit (2026-09-28, second pass) — W7–W10
+
+A second agent-native audit (hands-on probes + static review) found gaps
+beneath the W1–W6 surfaces. All four landed together.
+
+## W7 — Result contract on every result class
+
+- [x] `to_dict(detail=)` / `violations()` / `next_steps()` / `result_card()` on `ResultProtocolMixin`; legacy `to_dict` wrapped; NamedTuple / plain results via `attach_result_protocol` (298 / 300; gaps listed in `result_protocol_audit.py::AGENT_CONTRACT_GAPS`)
+- [x] `next_steps()` no longer prints by default
+- [x] `result_card` provenance: `result_class`, `seed` / `reproducible` / `seed_source`
+- [x] audit ratchet + `tests/test_result_agent_contract.py`
+
+## W8 — MCP protocol, errors as results, bounded data access
+
+- [x] tool failures are `isError` results with `error_kind`; stale `result_id` errors on every path
+- [x] `ping`; worker pool; `notifications/cancelled`; honest timeout reporting
+- [x] output byte budget with `truncated`; `_nonfinite`; compact text block; `replay`
+- [x] `STATSPAI_MCP_DATA_ROOTS`; remote data opt-in + byte cap; data-cache byte cap; schema-derived `readOnlyHint`; `transform_data` AST allowlist
+- [x] one default profile (`curated`); no hard-coded counts in help / docs
+
+## W9 — Error taxonomy, CLI and pipeline errors
+
+- [x] `ColumnNotFound` with `did_you_mean`; `MissingDependencyError` with install command
+- [x] remediation: `missing_arguments`, `unknown_argument`, `missing_dependency`, `column_not_found`
+- [x] pipeline stages keep structured payloads; fallbacks record degradations
+- [x] CLI strict JSON, `runtime_warnings`, exit codes by kind
+
+## W10 — Discovery, schemas, cards
+
+- [x] search: estimand / design vocabulary, dispatcher-first, card text, partial-match fallback
+- [x] `result_class` + `x_statspai.returns`; enums; `x-statspai-role`; `x-aliases` / `x-canonical`; array item types; classes out of `all_schemas()`
+- [x] `alias_of` (aliases listed once in the MCP manifest); per-field card `provenance`
+- [x] re-frozen coverage floors; placeholder-description ceiling 0.55 → 0.39; 28 new estimator cards
+
+**Left open:** default seeds still differ across stochastic estimators
+(`dml` / `bcf` default 42, `causal_forest` / `callaway_santanna` /
+`rdrobust` default `None`) — unifying them changes seeded numbers and needs
+its own ⚠️ entry; `did_2x2` and other hand-written provenance blocks do not
+record `seed`; `CrossValidationResult.next_steps()` returns `List[str]`.

@@ -57,6 +57,7 @@ from typing import Any, NamedTuple, Optional
 import numpy as np
 from scipy import optimize, special
 
+from .._result_serialize import attach_result_protocol
 from ..exceptions import ConvergenceFailure, MethodIncompatibility
 
 __all__ = [
@@ -147,6 +148,7 @@ def _moments_from_other_estimators(result: Any) -> Optional[tuple]:
     return es.beta, es.vcov, es.times
 
 
+@attach_result_protocol
 class FLCIResult(NamedTuple):
     """Optimal fixed-length CI and the affine estimator that attains it."""
 

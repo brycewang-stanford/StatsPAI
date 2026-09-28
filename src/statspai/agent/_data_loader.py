@@ -9,8 +9,22 @@ needs:
 
 Supported formats: ``.csv`` / ``.tsv`` / ``.txt`` / ``.parquet`` /
 ``.pq`` / ``.feather`` / ``.arrow`` / ``.xlsx`` / ``.xls`` / ``.dta``
-(Stata) / ``.json`` / ``.jsonl``. Schemes: ``file://``, ``s3://``,
-``gs://``, ``https://``, ``http://``.
+(Stata) / ``.json`` / ``.jsonl``. Schemes: absolute paths and
+``file://`` (local), plus ``s3://``, ``gs://``, ``https://``,
+``http://`` (network, opt-in).
+
+Security controls (the server reads whatever path a model asks for, so
+the operator decides what that may be):
+
+* ``STATSPAI_MCP_DATA_ROOTS`` — ``os.pathsep``-separated directories.
+  When set, a local path (or ``file://`` URL) is accepted only if its
+  real path (symlinks resolved) lies inside one of them; otherwise the
+  load fails with :class:`DataPathNotAllowed`.
+* ``STATSPAI_MCP_ALLOW_REMOTE=1`` — network URLs are refused by default
+  (:class:`RemoteDataDisabled`); set this to let the server fetch them.
+  Remote reads are held to the same ``STATSPAI_MCP_MAX_DATA_BYTES`` cap
+  as local files (``Content-Length`` / object size is checked first and
+  the download is aborted once the cap is passed).
 
 Local loads are LRU-cached by ``(path, mtime, columns_key)`` so
 repeated tools/call invocations on the same file are O(1).
@@ -48,8 +62,88 @@ def max_data_bytes() -> int:
         return DEFAULT_MAX_DATA_BYTES
 
 
+_NETWORK_SCHEMES = ("s3://", "gs://", "https://", "http://")
+
+#: Env var: ``os.pathsep``-separated directories local data must live in.
+DATA_ROOTS_ENV = "STATSPAI_MCP_DATA_ROOTS"
+#: Env var: set to ``1`` to allow network (s3/gs/http/https) data URLs.
+ALLOW_REMOTE_ENV = "STATSPAI_MCP_ALLOW_REMOTE"
+
+
+class DataPathNotAllowed(MethodIncompatibility):
+    """A local data path falls outside ``STATSPAI_MCP_DATA_ROOTS``."""
+
+    code = "path_not_allowed"
+
+
+class RemoteDataDisabled(MethodIncompatibility):
+    """A network URL was given but remote loading is not enabled."""
+
+    code = "remote_disabled"
+
+
 def is_remote_url(path: str) -> bool:
-    return path.startswith(("s3://", "gs://", "https://", "http://", "file://"))
+    """True for URL-form sources (``file://`` included, for back-compat).
+
+    Use :func:`is_network_url` to decide whether bytes cross the network;
+    ``file://`` is a local path and is subject to the data roots.
+    """
+    return path.startswith(_NETWORK_SCHEMES + ("file://",))
+
+
+def is_network_url(path: str) -> bool:
+    """True for sources fetched over the network (s3/gs/http/https)."""
+    return path.startswith(_NETWORK_SCHEMES)
+
+
+def remote_loading_enabled() -> bool:
+    """Whether ``STATSPAI_MCP_ALLOW_REMOTE`` opts in to network URLs."""
+    raw = os.environ.get(ALLOW_REMOTE_ENV, "")
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def data_roots() -> Optional[List[str]]:
+    """Resolved ``STATSPAI_MCP_DATA_ROOTS`` entries, or ``None`` if unset."""
+    raw = os.environ.get(DATA_ROOTS_ENV)
+    if raw is None or not raw.strip():
+        return None
+    roots = [os.path.realpath(r.strip()) for r in raw.split(os.pathsep) if r.strip()]
+    return roots or None
+
+
+def _file_url_to_path(url: str) -> str:
+    """``file:///abs/x.csv`` → ``/abs/x.csv`` (``file:///C:/x`` → ``C:/x``)."""
+    local = unquote(urlparse(url).path)
+    if len(local) >= 3 and local[0] == "/" and local[2] == ":" and local[1].isalpha():
+        local = local[1:]
+    return local
+
+
+def check_local_path_allowed(path: str) -> str:
+    """Return the real path of ``path`` or raise :class:`DataPathNotAllowed`.
+
+    With no ``STATSPAI_MCP_DATA_ROOTS`` configured every path is allowed
+    (the historical behaviour). Symlinks are resolved before the check,
+    so a link inside a root that points outside it is refused.
+    """
+    real = os.path.realpath(path)
+    roots = data_roots()
+    if roots is None:
+        return real
+    for root in roots:
+        try:
+            if os.path.commonpath([real, root]) == root:
+                return real
+        except ValueError:  # different drives on Windows
+            continue
+    raise DataPathNotAllowed(
+        f"data_path {path!r} is outside the directories this server may read.",
+        recovery_hint=(
+            f"Place the file under one of the allowed roots ({DATA_ROOTS_ENV}) "
+            "or ask the operator to extend that list."
+        ),
+        diagnostics={"allowed_roots": roots},
+    )
 
 
 def _sanitize_url(url: str) -> str:
@@ -109,7 +203,7 @@ def data_provenance(
     # Echo a bare caller path verbatim so provenance round-trips exactly
     # (no drive-letter case folding); only file:// is unwrapped to a path.
     if path.startswith("file://"):
-        local_path = unquote(urlparse(path).path)
+        local_path = _file_url_to_path(path)
     else:
         local_path = path
     out = {
@@ -306,16 +400,27 @@ def load_dataframe(
                 f"data_sample_n must be a positive integer, got {sample_n!r}"
             )
 
-    if is_remote_url(path):
-        # Remote — defer all guard rails to the underlying loader; we
-        # can't ``os.path.exists`` an s3 URL, and pandas/storage_options
-        # error messages are rich enough.
+    if path.startswith("file://"):
+        path = _file_url_to_path(path)
+
+    if is_network_url(path):
+        if not remote_loading_enabled():
+            raise RemoteDataDisabled(
+                "Remote data URLs are disabled on this server: "
+                f"{_sanitize_url(path)!r}.",
+                recovery_hint=(
+                    f"Download the file and pass a local data_path, send it "
+                    f"inline (data_records / data_csv), or have the operator "
+                    f"set {ALLOW_REMOTE_ENV}=1."
+                ),
+            )
         df = _load_remote(path, columns=columns)
     else:
         if not os.path.isabs(path):
             raise MethodIncompatibility(
                 f"data_path must be absolute or a URL, got {path!r}"
             )
+        check_local_path_allowed(path)
         try:
             stat = os.stat(path)
         except FileNotFoundError:
@@ -408,44 +513,136 @@ def _load_local_cached(
     )
 
 
-def _load_remote(url: str, columns: Optional[List[str]] = None) -> "pd.DataFrame":
-    """Load a DataFrame from a remote URL via pandas storage backends.
+def _read_capped(stream: Any, cap: int, label: str) -> bytes:
+    """Read ``stream`` fully, aborting once more than ``cap`` bytes arrive."""
+    chunks: List[bytes] = []
+    total = 0
+    while True:
+        chunk = stream.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if cap and total > cap:
+            raise MethodIncompatibility(
+                f"remote data {label!r} exceeds STATSPAI_MCP_MAX_DATA_BYTES="
+                f"{cap:,} (download aborted after {total:,} bytes).",
+                recovery_hint=(
+                    "Pre-sample or project the file upstream, or raise the "
+                    "limit with the env var."
+                ),
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
 
-    Pandas dispatches s3:// / gs:// / https:// to fsspec. Authentication
-    is configured by the host environment (e.g. AWS credentials chain);
-    we don't smuggle secrets through the MCP layer.
+
+def _fetch_remote_bytes(url: str) -> bytes:
+    """Download ``url`` under the byte cap; never buffers more than cap+1 MiB."""
+    cap = max_data_bytes()
+    label = _sanitize_url(url)
+    if url.startswith(("http://", "https://")):
+        import urllib.request
+
+        # Scheme is restricted to http(s) by the branch above.
+        with urllib.request.urlopen(url, timeout=60) as resp:  # nosec B310
+            length = resp.headers.get("Content-Length")
+            if cap and length is not None and length.isdigit() and int(length) > cap:
+                raise MethodIncompatibility(
+                    f"remote data {label!r} is {int(length):,} bytes; exceeds "
+                    f"STATSPAI_MCP_MAX_DATA_BYTES={cap:,}.",
+                    recovery_hint=(
+                        "Pre-sample or project the file upstream, or raise the "
+                        "limit with the env var."
+                    ),
+                )
+            return _read_capped(resp, cap, label)
+    try:
+        import fsspec
+    except ImportError as e:
+        raise MethodIncompatibility(
+            f"Reading {label!r} needs fsspec (plus s3fs / gcsfs).",
+            recovery_hint="pip install fsspec s3fs gcsfs",
+        ) from e
+    fs, fs_path = fsspec.core.url_to_fs(url)
+    if cap:
+        size = fs.size(fs_path)
+        if size is not None and int(size) > cap:
+            raise MethodIncompatibility(
+                f"remote data {label!r} is {int(size):,} bytes; exceeds "
+                f"STATSPAI_MCP_MAX_DATA_BYTES={cap:,}.",
+                recovery_hint=(
+                    "Pre-sample or project the file upstream, or raise the "
+                    "limit with the env var."
+                ),
+            )
+    with fs.open(fs_path, "rb") as fh:
+        return _read_capped(fh, cap, label)
+
+
+def _load_remote(url: str, columns: Optional[List[str]] = None) -> "pd.DataFrame":
+    """Load a DataFrame from a network URL under the byte cap.
+
+    The bytes are fetched by :func:`_fetch_remote_bytes` (``urllib`` for
+    http(s), fsspec for s3:// / gs://) with the same
+    ``STATSPAI_MCP_MAX_DATA_BYTES`` cap as local files, then parsed from
+    memory. Authentication is configured by the host environment (e.g.
+    the AWS credentials chain); secrets never travel through MCP.
     """
+    import io
+
     import pandas as pd
 
     lower = url.split("?", 1)[0].lower()
     cols = list(columns) if columns else None
+    supported = (
+        ".csv",
+        ".tsv",
+        ".txt",
+        ".parquet",
+        ".pq",
+        ".feather",
+        ".arrow",
+        ".dta",
+        ".jsonl",
+        ".json",
+        ".xlsx",
+        ".xls",
+    )
+    if not lower.endswith(supported):
+        raise MethodIncompatibility(
+            f"Unsupported remote extension in {_sanitize_url(url)!r}. "
+            f"See load_dataframe docs for supported formats."
+        )
+    buf = io.BytesIO(_fetch_remote_bytes(url))
     if lower.endswith((".csv", ".tsv", ".txt")):
         sep = "\t" if lower.endswith(".tsv") else ","
-        return pd.read_csv(url, sep=sep, usecols=cols)
+        return pd.read_csv(buf, sep=sep, usecols=cols)
     if lower.endswith((".parquet", ".pq")):
-        return pd.read_parquet(url, columns=cols)
+        return pd.read_parquet(buf, columns=cols)
     if lower.endswith((".feather", ".arrow")):
-        return pd.read_feather(url, columns=cols)
+        return pd.read_feather(buf, columns=cols)
     if lower.endswith(".dta"):
-        return pd.read_stata(url, columns=cols)
+        return pd.read_stata(buf, columns=cols)
     if lower.endswith(".jsonl"):
-        df = pd.read_json(url, lines=True)
+        df = pd.read_json(buf, lines=True)
         return df[cols] if cols else df
     if lower.endswith(".json"):
-        df = pd.read_json(url)
+        df = pd.read_json(buf)
         return df[cols] if cols else df
-    if lower.endswith((".xlsx", ".xls")):
-        return pd.read_excel(url, usecols=cols)
-    raise MethodIncompatibility(
-        f"Unsupported remote extension in {url!r}. "
-        f"See load_dataframe docs for supported formats."
-    )
+    return pd.read_excel(buf, usecols=cols)
 
 
 __all__ = [
     "DEFAULT_MAX_DATA_BYTES",
     "max_data_bytes",
     "is_remote_url",
+    "is_network_url",
+    "remote_loading_enabled",
+    "data_roots",
+    "check_local_path_allowed",
+    "DataPathNotAllowed",
+    "RemoteDataDisabled",
+    "DATA_ROOTS_ENV",
+    "ALLOW_REMOTE_ENV",
     "data_provenance",
     "load_dataframe",
     "estimated_load_bytes",

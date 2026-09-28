@@ -29,7 +29,12 @@ import pandas as pd
 
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
-from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    AssumptionWarning,
+    ColumnNotFound,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 from ._absorbing import AbsorbingCheck, check_absorbing
 from ._core import require_bool as _require_bool
 from ._equivalence import EquivalenceResult, pretrend_equivalence, pretrends_equivalence
@@ -500,17 +505,9 @@ def did(
             required[f"covariate ({c})"] = c
     missing = {label: col for label, col in required.items() if col not in data.columns}
     if missing:
-        details = ", ".join(f"{label}={col!r}" for label, col in missing.items())
-        available = ", ".join(sorted(data.columns)[:10])
-        raise MethodIncompatibility(
-            f"Column(s) not found in data: {details}. "
-            f"Available: {available}" + (" ..." if len(data.columns) > 10 else ""),
-            recovery_hint="Check the DID variable names against the DataFrame columns.",
-            diagnostics={
-                "missing_columns": dict(missing),
-                "available_columns": list(data.columns),
-            },
-        )
+        # ColumnNotFound is a MethodIncompatibility (and ValueError), so the
+        # historical except-clauses keep working; it adds did_you_mean.
+        raise ColumnNotFound.from_missing(missing, list(data.columns))
 
     # If estimator-specific aggregation arguments are passed with auto,
     # choose the estimator whose aggregation vocabulary was requested.

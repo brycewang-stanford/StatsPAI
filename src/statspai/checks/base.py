@@ -14,6 +14,7 @@ from typing import Any, Dict, Iterable, List, Optional, Protocol, runtime_checka
 
 import pandas as pd
 
+from .._result_serialize import attach_result_protocol
 from ..core.results import _to_jsonable
 
 
@@ -29,6 +30,7 @@ class CheckContext:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
+@attach_result_protocol
 @dataclass
 class CheckResult:
     """Result of one diagnostic or sensitivity check."""

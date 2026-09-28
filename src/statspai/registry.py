@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import inspect
 import re
+import sys
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -31,6 +32,8 @@ from ._parity_taxonomy import (
     NON_ESTIMATOR_LEAVES,
     validation_tier_for,
 )
+from ._schema_enrich import column_role as _column_role
+from ._schema_enrich import item_type_from_default as _item_type_from_default
 
 
 @dataclass
@@ -229,6 +232,17 @@ class FunctionSpec:
 
     Set to ``None`` (default) for top-level estimators or when no
     sensible parent exists.  Cycles are blocked at render time."""
+    result_class: Optional[str] = None
+    """Name of the object a call returns (``"CausalResult"``,
+    ``"EconometricResults"``, ``"DataFrame"``, ``"dict"`` …), derived from
+    the return annotation, the docstring ``Returns`` section, or an explicit
+    dispatcher map. Exported with the class's data fields as
+    ``x_statspai.returns`` so an agent knows the shape it gets back."""
+    alias_of: Optional[str] = None
+    """Registered name this entry is an alias of (the same callable under a
+    second name, or a thin wrapper that forwards to it unchanged apart from
+    argument spelling). Search ranks the canonical entry first and tool
+    manifests can skip aliases (see :func:`is_alias`)."""
 
     def __post_init__(self) -> None:
         # Validate stability tier early so a typo fails at import / first
@@ -247,16 +261,39 @@ class FunctionSpec:
                 f"{sorted(VALIDATION_STATUSES)}"
             )
 
-    def to_openai_schema(self) -> Dict[str, Any]:
+    def to_openai_schema(self, *, canonical_names: bool = False) -> Dict[str, Any]:
         """Export as OpenAI function-calling compatible JSON schema.
 
         The ``description`` is prefixed with a stability marker
         (``[experimental]`` / ``[deprecated]``) and any known
         ``limitations`` are appended so an LLM tool-caller sees the
         gap inside the same field it already reads.
+
+        Every property may carry three JSON-schema extension keywords
+        (ignored by validators that do not know them):
+
+        * ``x-statspai-role`` -- ``"dataframe"`` / ``"formula"`` /
+          ``"column"`` / ``"columns"``: the value names data, not free
+          text (``data`` itself is typed ``object``);
+        * ``x-aliases`` -- other keyword spellings the call accepts for the
+          same parameter (``@accepts_aliases``);
+        * ``x-canonical`` -- the house-style spelling of the concept when
+          it differs from the exported name (``vce`` for ``robust``). It is
+          only callable when it also appears in ``x-aliases``.
+
+        Parameters
+        ----------
+        canonical_names : bool, default False
+            Export a parameter under its house-style name when the call
+            accepts that spelling (``id`` instead of ``unit`` on
+            ``sp.synth``); the signature name then moves to ``x-aliases``.
+            The default keeps signature names, which every consumer that
+            binds against ``inspect.signature`` (the MCP dispatcher, the
+            CLI) relies on.
         """
         properties = {}
         required = []
+        spelling = _param_spelling_for(self.name)
         for p in self.params:
             prop: Dict[str, Any] = {
                 "description": _param_description(p.name, p.type, p.description)
@@ -265,15 +302,44 @@ class FunctionSpec:
             prop["type"] = _json_schema_type(p.type)
             # JSON schema requires "items" for array types
             if prop["type"] == "array":
-                prop["items"] = {"type": _array_item_type(p.type)}
+                item_type = _array_item_type(p.type)
+                from_default = _item_type_from_default(p.default)
+                if from_default and item_type == "string":
+                    # ``propensity_bounds=[0.05, 0.95]`` annotated as a bare
+                    # ``tuple``: the default says what the items are.
+                    item_type = from_default
+                prop["items"] = {"type": item_type}
             if p.enum:
                 prop["enum"] = list(p.enum)
             if p.default is not None:
                 prop["default"] = p.default
             _reconcile_param_schema(prop, p)
-            properties[p.name] = prop
+            role = _column_role(p.name, p.type, prop["type"])
+            if role:
+                prop["x-statspai-role"] = role
+                if role == "dataframe":
+                    prop["type"] = "object"
+            key = p.name
+            facts = spelling.get(p.name)
+            if facts:
+                aliases = list(facts["aliases"])
+                canonical = facts["canonical"]
+                if (
+                    canonical_names
+                    and canonical
+                    and facts["canonical_accepted"]
+                    and canonical not in properties
+                    and all(q.name != canonical for q in self.params)
+                ):
+                    key = canonical
+                    aliases = [p.name] + [a for a in aliases if a != canonical]
+                if aliases:
+                    prop["x-aliases"] = aliases
+                if canonical and canonical != key:
+                    prop["x-canonical"] = canonical
+            properties[key] = prop
             if p.required:
-                required.append(p.name)
+                required.append(key)
 
         description = self.description
         if self.stability != "stable":
@@ -350,9 +416,12 @@ class FunctionSpec:
         merge_inherited : bool, default True
             Merge a parent spec's agent-native lists (see :meth:`agent_card`).
         """
-        schema = self.to_openai_schema()
+        schema = self.to_openai_schema(canonical_names=True)
         card = self.agent_card(merge_inherited=merge_inherited)
         schema["x_statspai"] = {
+            "returns": card["returns"],
+            "alias_of": card["alias_of"],
+            "provenance": card["provenance"],
             "category": card["category"],
             "stability": card["stability"],
             "validation_status": card["validation_status"],
@@ -424,6 +493,20 @@ class FunctionSpec:
 
         return {
             "name": self.name,
+            "returns": _returns_block_for(self),
+            "alias_of": self.alias_of,
+            "provenance": _card_provenance(
+                self,
+                {
+                    "assumptions": assumptions,
+                    "pre_conditions": pre_conditions,
+                    "failure_modes": failure_modes,
+                    "alternatives": alternatives,
+                    "not_recommended_when": not_recommended_when,
+                    "typical_n_min": typical_n_min,
+                    "cost_profile": cost_profile,
+                },
+            ),
             "category": self.category,
             "stability": self.stability,
             "validation_status": self.validation_status,
@@ -545,6 +628,159 @@ def _merge_inherited_view(
         typical_n_min,
         not_recommended_when,
         cost_profile,
+    )
+
+
+# ====================================================================== #
+#  Card provenance, return shapes, parameter spellings
+# ====================================================================== #
+
+#: List-valued agent-card fields whose items carry a provenance tag.
+_PROVENANCE_LIST_FIELDS: Tuple[str, ...] = (
+    "assumptions",
+    "pre_conditions",
+    "failure_modes",
+    "alternatives",
+    "not_recommended_when",
+)
+_PROVENANCE_SCALAR_FIELDS: Tuple[str, ...] = (
+    "typical_n_min",
+    "cost_profile",
+    "example",
+    "reference",
+    "returns",
+)
+#: Allowed provenance tags (see :meth:`FunctionSpec.agent_card`).
+PROVENANCE_SOURCES: frozenset = frozenset(
+    {"curated", "family", "baseline", "docstring"}
+)
+
+
+def _provenance_key(fld: str, item: Any) -> Any:
+    if fld == "failure_modes":
+        if isinstance(item, FailureMode):
+            return (item.symptom, item.exception)
+        if isinstance(item, dict):
+            return (item.get("symptom", ""), item.get("exception", ""))
+    if fld == "alternatives" and isinstance(item, str):
+        return item.replace("sp.", "").split("(")[0].strip()
+    return item if isinstance(item, (str, int, float, tuple)) else repr(item)
+
+
+def _prov_store(spec: "FunctionSpec") -> Dict[str, Any]:
+    store = getattr(spec, "_provenance", None)
+    if store is None:
+        store = {"items": {}, "scalars": {}}
+        object.__setattr__(spec, "_provenance", store)
+    return store
+
+
+def _record_item_source(spec: "FunctionSpec", fld: str, item: Any, source: str) -> None:
+    items = _prov_store(spec)["items"].setdefault(fld, {})
+    items.setdefault(_provenance_key(fld, item), source)
+
+
+def _record_scalar_source(spec: "FunctionSpec", fields: List[str], source: str) -> None:
+    scalars = _prov_store(spec)["scalars"]
+    for fld in fields:
+        scalars.setdefault(fld, source)
+
+
+def _snapshot_hand_written(spec: "FunctionSpec") -> None:
+    """Tag whatever a spec states before any seed pass as ``curated``."""
+    store = _prov_store(spec)
+    if store.get("snapshot"):
+        return
+    store["snapshot"] = True
+    for fld in _PROVENANCE_LIST_FIELDS:
+        for item in getattr(spec, fld):
+            _record_item_source(spec, fld, item, "curated")
+    for fld in _PROVENANCE_SCALAR_FIELDS:
+        if getattr(spec, fld) not in (None, ""):
+            _record_scalar_source(spec, [fld], "curated")
+
+
+def _card_provenance(spec: "FunctionSpec", view: Dict[str, Any]) -> Dict[str, str]:
+    """Per-field provenance of a rendered card.
+
+    ``curated`` -- written for this entry point (a hand-written
+    ``FunctionSpec``, a per-function card, or a curated per-name seed);
+    ``family`` -- shared family boilerplate (a family card / family template,
+    or inherited through ``inherits_from``); ``baseline`` -- the generated
+    Tier-B baseline table; ``docstring`` -- harvested from the function's
+    own docstring. A list field whose items come from both curated and
+    family sources reads ``"curated+family"``. Empty fields are omitted.
+    """
+    store = getattr(spec, "_provenance", None) or {"items": {}, "scalars": {}}
+    own_items = store["items"]
+    out: Dict[str, str] = {}
+    for fld in _PROVENANCE_LIST_FIELDS:
+        values = view.get(fld) or []
+        if not values:
+            continue
+        own_keys = {_provenance_key(fld, v) for v in getattr(spec, fld)}
+        tags = set()
+        for v in values:
+            key = _provenance_key(fld, v)
+            if key not in own_keys:
+                tags.add("family")  # inherited through ``inherits_from``
+            else:
+                tags.add(own_items.get(fld, {}).get(key, "curated"))
+        if tags == {"curated", "family"}:
+            out[fld] = "curated+family"
+        elif len(tags) == 1:
+            out[fld] = tags.pop()
+        else:
+            # A baseline / docstring item mixed in: report the strongest.
+            for tag in ("curated", "family", "baseline", "docstring"):
+                if tag in tags:
+                    out[fld] = tag
+                    break
+    scalars = store["scalars"]
+    for fld in ("typical_n_min", "cost_profile"):
+        val = view.get(fld)
+        if val in (None, ""):
+            continue
+        own = getattr(spec, fld)
+        out[fld] = scalars.get(fld, "curated") if own not in (None, "") else "family"
+    for fld in ("example", "reference", "returns"):
+        if getattr(spec, fld):
+            out[fld] = scalars.get(fld, "curated")
+    return out
+
+
+def _live_callable(name: str) -> Any:
+    sp = sys.modules.get("statspai")
+    if sp is None:
+        return None
+    return getattr(sp, name, None)
+
+
+_SPELLING_CACHE: Dict[str, Tuple[int, Dict[str, Dict[str, Any]]]] = {}
+
+
+def _param_spelling_for(name: str) -> Dict[str, Dict[str, Any]]:
+    """Cached :func:`statspai._schema_enrich.param_spelling` for ``sp.<name>``."""
+    obj = _live_callable(name)
+    if obj is None or inspect.isclass(obj) or not callable(obj):
+        return {}
+    hit = _SPELLING_CACHE.get(name)
+    if hit is not None and hit[0] == id(obj):
+        return hit[1]
+    from ._schema_enrich import param_spelling
+
+    facts = param_spelling(name, obj)
+    _SPELLING_CACHE[name] = (id(obj), facts)
+    return facts
+
+
+def _returns_block_for(spec: "FunctionSpec") -> Dict[str, Any]:
+    """``{"class", "fields", "description"[, "payload_schema"]}`` for a card."""
+    from ._schema_enrich import returns_block
+
+    cls = getattr(spec, "_result_cls", None)
+    return returns_block(
+        spec.name, None, spec.returns, cls=cls, cname=spec.result_class or ""
     )
 
 
@@ -1849,6 +2085,7 @@ def _build_registry() -> None:
     register(
         FunctionSpec(
             name="route",
+            validation_notes=["API/unit contract evidence: tests/test_routing.py"],
             category="agent",
             description=(
                 "Route a research question to estimator calls. Answer a family's "
@@ -1899,6 +2136,7 @@ def _build_registry() -> None:
     register(
         FunctionSpec(
             name="decision_guide",
+            validation_notes=["API/unit contract evidence: tests/test_routing.py"],
             category="agent",
             description=(
                 "Machine-readable decision table for an estimator family: the "
@@ -1935,6 +2173,9 @@ def _build_registry() -> None:
     register(
         FunctionSpec(
             name="rd",
+            validation_notes=[
+                "API/unit contract evidence: tests/test_rd_dispatcher.py"
+            ],
             category="causal",
             description=(
                 "Unified regression-discontinuity dispatcher. method= selects "
@@ -20565,6 +20806,171 @@ def _apply_family_inheritance() -> None:
     _FAMILY_INHERITANCE_APPLIED = True
 
 
+_SCHEMA_ENRICHMENT_APPLIED = False
+
+_PLACEHOLDER_DESC_RE = re.compile(r"^\w+ parameter( \(.*\))?\.$")
+
+
+def _is_placeholder_desc(text: str) -> bool:
+    t = (text or "").strip()
+    return not t or bool(_PLACEHOLDER_DESC_RE.match(t))
+
+
+def _doc_param_table(obj: Any, alias_target: Any = None) -> Dict[str, Dict[str, Any]]:
+    """Documented parameters of ``obj``, merged from every place they live.
+
+    Order (first wins): the object's own docstring; the unwrapped function's
+    docstring (``functools.wraps`` wrappers); for a class, its ``__init__``
+    docstring and the ``Attributes`` section (dataclass fields are
+    documented there); for an alias, the canonical function's docstring
+    (the parameter means the same thing — it is the same call).
+    """
+    docs: List[str] = []
+    seen: set = set()
+
+    def add(o: Any) -> None:
+        if o is None:
+            return
+        d = inspect.getdoc(o) or ""
+        if d and d not in seen:
+            seen.add(d)
+            docs.append(d)
+
+    add(obj)
+    if callable(obj) and not inspect.isclass(obj):
+        add(inspect.unwrap(obj))
+    if inspect.isclass(obj):
+        init = obj.__dict__.get("__init__")
+        if init is not None:
+            add(init)
+    add(alias_target)
+    out: Dict[str, Dict[str, Any]] = {}
+    for d in docs:
+        for pname, meta in _parse_docstring_params(d).items():
+            if meta.get("description") and pname not in out:
+                out[pname] = meta
+        attrs = _doc_sections(d).get("attributes", "")
+        if attrs.strip():
+            block = "Parameters\n----------\n" + attrs
+            for pname, meta in _parse_docstring_params(block).items():
+                if meta.get("description") and pname not in out:
+                    out[pname] = meta
+    return out
+
+
+def _apply_schema_enrichment() -> None:
+    """Derive what the code already states about each call surface.
+
+    * ``enum`` for string parameters: a ``Literal[...]`` annotation, a
+      dispatcher's method registry, or a docstring choice list that passes
+      the grounding gates in :func:`statspai._schema_enrich.grounded_doc_enum`;
+    * a docstring description for parameters that only had a placeholder
+      (hand-written specs, class fields, alias wrappers);
+    * ``result_class`` from the return annotation / ``Returns`` section;
+    * ``alias_of`` from :data:`statspai._canonical_aliases.FUNCTION_ALIAS_OF`,
+      with an alias that has no card of its own inheriting its canonical
+      entry's (it is the same call).
+
+    Hand-written values always win: an existing ``enum`` / description /
+    ``result_class`` / ``alias_of`` is never replaced.
+    """
+    global _SCHEMA_ENRICHMENT_APPLIED
+    if _SCHEMA_ENRICHMENT_APPLIED:
+        return
+    from ._canonical_aliases import FUNCTION_ALIAS_OF
+    from ._schema_enrich import (
+        dispatcher_enum,
+        grounded_doc_enum,
+        literal_choices,
+        result_class_for,
+    )
+
+    for name, spec in _REGISTRY.items():
+        obj = _live_callable(name)
+        is_class = getattr(spec, "_kind", None) == "class" or inspect.isclass(obj)
+        target_name = FUNCTION_ALIAS_OF.get(name)
+        if target_name and not spec.alias_of and target_name in _REGISTRY:
+            spec.alias_of = target_name
+            target = _REGISTRY[target_name]
+            if (
+                not spec.assumptions
+                and not spec.inherits_from
+                and (target.assumptions or target.inherits_from)
+            ):
+                spec.inherits_from = target_name
+        live_params: Dict[str, inspect.Parameter] = {}
+        if obj is not None and callable(obj):
+            try:
+                live_params = dict(inspect.signature(obj).parameters)
+            except (TypeError, ValueError):
+                live_params = {}
+        doc_table: Optional[Dict[str, Dict[str, Any]]] = None
+
+        def docs() -> Dict[str, Dict[str, Any]]:
+            nonlocal doc_table
+            if doc_table is None:
+                alias_obj = _live_callable(target_name) if target_name else None
+                doc_table = _doc_param_table(obj, alias_obj) if obj is not None else {}
+            return doc_table
+
+        for p in spec.params:
+            if _is_placeholder_desc(p.description):
+                meta = docs().get(p.name)
+                if meta and not _is_placeholder_desc(meta.get("description", "")):
+                    p.description = str(meta["description"])
+            if p.enum:
+                continue
+            live = live_params.get(p.name)
+            choices = None
+            ann = live.annotation if live is not None else p.type
+            lit = literal_choices(ann)
+            if lit and (p.default is None or p.default in lit):
+                choices = lit
+            if choices is None and _json_schema_type(p.type) == "string":
+                choices = dispatcher_enum(name, p.name, p.default)
+                if choices is None and not is_class:
+                    desc = ""
+                    meta = docs().get(p.name)
+                    if meta:
+                        desc = str(meta.get("description") or "")
+                    desc = desc or p.description
+                    choices = grounded_doc_enum(
+                        desc, p.default, p.required, obj, param=p.name
+                    )
+            if choices:
+                p.enum = list(choices)
+
+        if is_class:
+            if obj is not None and not spec.result_class:
+                spec.result_class = obj.__name__
+                object.__setattr__(spec, "_result_cls", obj)
+            continue
+        if not spec.result_class and obj is not None:
+            found = result_class_for(name, obj, spec.returns)
+            if found:
+                spec.result_class, cls = found
+                object.__setattr__(spec, "_result_cls", cls)
+    _SCHEMA_ENRICHMENT_APPLIED = True
+
+
+def is_alias(name: str) -> bool:
+    """True when ``name`` is a registered alias of another entry.
+
+    Tool-manifest builders use it to list each estimator once; the alias
+    keeps working when called directly.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> from statspai.registry import is_alias
+    >>> is_alias("rdd"), is_alias("rdrobust")
+    (True, False)
+    """
+    _ensure_full_registry()
+    spec = _REGISTRY.get(name)
+    return bool(spec is not None and spec.alias_of)
+
+
 def _first_doc_line(doc: Optional[str]) -> str:
     if not doc:
         return ""
@@ -20671,6 +21077,12 @@ def _auto_spec_from_callable(name: str, obj: Any) -> Optional[FunctionSpec]:
     # Hand-written ``register(FunctionSpec(...))`` calls don't touch
     # this attribute, so its absence (or False) means "hand-written".
     object.__setattr__(spec, "_auto", True)
+    # Card-field provenance: what the docstring harvest filled.
+    _record_scalar_source(
+        spec,
+        [f for f in ("returns", "example", "reference") if getattr(spec, f)],
+        "docstring",
+    )
     if is_class:
         # Result / exception / model classes are exported for typing and
         # isinstance checks; an agent never "calls" them as a tool.
@@ -21491,10 +21903,64 @@ def _apply_agent_card_seeds() -> None:
         pass
     merge_curated(_AGENT_CARD_SEED_METADATA, template_names=_TEMPLATE_SEEDED_NAMES)
 
+    # Provenance: which seed items are family boilerplate (a family card or
+    # a family-template copy) rather than written for this entry point.
+    family_items: Dict[str, Dict[str, set]] = {}
+    curated_items: Dict[str, Dict[str, set]] = {}
+
+    def _collect(bucket: Dict[str, Dict[str, set]], name: str, meta: Dict) -> None:
+        slot = bucket.setdefault(name, {})
+        for fld in _PROVENANCE_LIST_FIELDS:
+            for item in meta.get(fld, []) or []:
+                slot.setdefault(fld, set()).add(_provenance_key(fld, item))
+        for fld in ("typical_n_min", "cost_profile", "example", "reference"):
+            if meta.get(fld) not in (None, ""):
+                slot.setdefault(fld, set()).add(_provenance_key(fld, meta[fld]))
+
+    try:
+        from ._family_cards import expand_family_cards as _efc
+
+        for _n, _m in _efc().items():
+            _collect(family_items, _n, _m)
+    except ImportError:  # pragma: no cover - wheel without the module
+        pass
+    for _n in _TEMPLATE_SEEDED_NAMES:
+        _collect(family_items, _n, _AGENT_CARD_SEED_METADATA.get(_n, {}))
+    for _n, _m in function_cards.items():
+        _collect(curated_items, _n, _m)
+    try:
+        from ._agent_cards_extra import EXTRA_AGENT_CARDS as _extra
+
+        for _n, _m in _extra.items():
+            _collect(curated_items, _n, _m)
+    except ImportError:  # pragma: no cover
+        pass
+    for _n, _m in _AGENT_CARD_SEED_METADATA.items():
+        if _n not in _TEMPLATE_SEEDED_NAMES:
+            _collect(curated_items, _n, _m)
+
     for name, meta in seed_sources.items():
         spec = _REGISTRY.get(name)
         if spec is None:
             continue
+        _snapshot_hand_written(spec)
+        fam = family_items.get(name, {})
+        cur = curated_items.get(name, {})
+
+        def _source(fld: str, item: Any) -> str:
+            key = _provenance_key(fld, item)
+            if key in cur.get(fld, ()):
+                return "curated"
+            if key in fam.get(fld, ()):
+                return "family"
+            return "curated"
+
+        for fld in _PROVENANCE_LIST_FIELDS:
+            for item in meta.get(fld, []) or []:
+                _record_item_source(spec, fld, item, _source(fld, item))
+        for fld in ("typical_n_min", "cost_profile", "example", "reference"):
+            if meta.get(fld) not in (None, "") and not getattr(spec, fld):
+                _record_scalar_source(spec, [fld], _source(fld, meta[fld]))
         extend_missing(spec.pre_conditions, list(meta.get("pre_conditions", [])))
         extend_missing(spec.assumptions, list(meta.get("assumptions", [])))
         extend_missing(
@@ -21575,6 +22041,20 @@ def _apply_baseline_cards() -> None:
         # Module hasn't been generated yet — that's fine, just skip.
         _BASELINE_CARDS_APPLIED = True
         return
+    for _name, _enrich in getattr(_bc, "BASELINE_CARDS", {}).items():
+        _spec = _REGISTRY.get(_name)
+        if _spec is None:
+            continue
+        _snapshot_hand_written(_spec)
+        _record_scalar_source(
+            _spec,
+            [
+                f
+                for f in ("example", "reference")
+                if _enrich.get(f) and not getattr(_spec, f)
+            ],
+            "baseline",
+        )
     _bc.apply(_REGISTRY)
     _BASELINE_CARDS_APPLIED = True
 
@@ -21592,6 +22072,7 @@ def _ensure_full_registry() -> None:
         _apply_agent_card_seeds()
         _apply_baseline_cards()
         _apply_negative_guidance_seeds()
+        _apply_schema_enrichment()
         _apply_family_inheritance()
         return
 
@@ -21625,6 +22106,7 @@ def _ensure_full_registry() -> None:
     _apply_agent_card_seeds()
     _apply_baseline_cards()
     _apply_negative_guidance_seeds()
+    _apply_schema_enrichment()
     _apply_family_inheritance()
 
 
@@ -21769,9 +22251,13 @@ def describe_function(name: str) -> Dict[str, Any]:
     >>> d['name']
     'did'
     >>> sorted(d)[:3]
-    ['aliases', 'alternatives', 'assumptions']
+    ['alias_of', 'aliases', 'alternatives']
     >>> d['aliases']['unit']
     'id'
+    >>> d['result_schema']['class']
+    'CausalResult'
+    >>> sp.describe_function('rdd')['alias_of']
+    'rdrobust'
     """
     _ensure_full_registry()
     if name not in _REGISTRY:
@@ -21809,6 +22295,11 @@ def describe_function(name: str) -> Dict[str, Any]:
             out["inheritance"] = "declared"
     out["auto_generated"] = bool(getattr(spec, "_auto", False))
     out["evidence"] = evidence_record(name)
+    # What the call returns, as data: ``{"class", "fields", ...}`` (the
+    # ``returns`` key keeps the docstring sentence for backwards
+    # compatibility), and where each card field came from.
+    out["result_schema"] = _returns_block_for(spec)
+    out["provenance"] = spec.agent_card(merge_inherited=True)["provenance"]
     # Call-time keyword aliases (``@accepts_aliases``) are invisible to the
     # signature; list them so agents can use the house-style spellings.
     import statspai
@@ -21913,255 +22404,60 @@ def agent_schema(name: str) -> Dict[str, Any]:
     return function_schema(name, agent_native=True)
 
 
-_SEARCH_STOPWORDS = frozenset(
-    {
-        "a",
-        "an",
-        "and",
-        "are",
-        "as",
-        "at",
-        "be",
-        "by",
-        "do",
-        "does",
-        "for",
-        "from",
-        "how",
-        "i",
-        "in",
-        "into",
-        "is",
-        "it",
-        "my",
-        "of",
-        "on",
-        "or",
-        "the",
-        "that",
-        "this",
-        "to",
-        "use",
-        "using",
-        "want",
-        "with",
-        "what",
-        "which",
-        "when",
-        "estimate",
-        "estimating",
-        "estimator",
-        "estimation",
-        "data",
-        "function",
-        "method",
-        "model",
-        "run",
-        "compute",
-    }
-)
-
-_SEARCH_SYNONYMS: Dict[str, Tuple[str, ...]] = {
-    "did": ("did", "difference-in-differences", "diff-in-diff"),
-    "diff": ("did",),
-    "differences": ("did",),
-    "rd": ("rd", "discontinuity", "rdrobust"),
-    "rdd": ("rd", "discontinuity"),
-    "discontinuity": ("rd", "discontinuity"),
-    "iv": ("iv", "instrument", "instrumental"),
-    "instrument": ("iv", "instrument", "instrumental"),
-    "instruments": ("iv", "instrument", "instrumental"),
-    "twfe": ("twfe", "two-way", "fixed effects"),
-    "fe": ("fixed effects", "fixest", "feols", "fe"),
-    "staggered": ("staggered", "callaway", "sun-abraham", "cohort"),
-    "cohort": ("cohort", "staggered", "callaway"),
-    "synthetic": ("synthetic", "synth"),
-    "scm": ("synthetic", "synth"),
-    "sc": ("synthetic", "synth"),
-    "matching": ("matching", "match", "psm", "propensity"),
-    "propensity": ("propensity", "psm", "ipw"),
-    "heterogeneous": ("heterogeneous", "cate", "forest", "metalearner"),
-    "cate": ("cate", "forest", "metalearner", "heterogeneous"),
-    "weak": ("weak", "anderson-rubin", "anderson_rubin", "weakrobust"),
-    "confidence": ("confidence", "ci"),
-    "interval": ("interval", "ci"),
-    "intervals": ("interval", "ci"),
-    "ci": ("ci", "confidence"),
-    "bandwidth": ("bandwidth", "rd"),
-    "manipulation": ("mccrary", "density", "manipulation"),
-    "pretrends": ("pretrend", "parallel trends", "pre-trend"),
-    "pretrend": ("pretrend", "parallel trends", "pre-trend"),
-    "trends": ("trend",),
-    "bias": ("bias", "goodman-bacon", "bacon"),
-    "covariates": ("covariate", "control", "adjust"),
-    "controls": ("covariate", "control", "adjust"),
-    "cluster": ("cluster",),
-    "clustered": ("cluster",),
-    "policy": ("policy", "treatment", "intervention"),
-    "effect": ("effect", "att", "ate", "treatment"),
-    "effects": ("effect", "att", "ate", "treatment"),
-    "timing": ("timing", "staggered", "cohort", "event"),
-    "adoption": ("adoption", "staggered", "cohort"),
-    "event": ("event", "event_study", "dynamic"),
-    "dml": ("dml", "double machine learning", "debiased"),
-}
-
-
-_SEARCH_PHRASES: Tuple[Tuple[str, str], ...] = (
-    # Multi-word method names collapse to their canonical token so the
-    # generic half ("regression", "differences", "variables") does not
-    # pull in every regression / decomposition / variable-selection tool.
-    ("regression discontinuity", "rd"),
-    ("regression kink", "rkd"),
-    ("difference in differences", "did"),
-    ("differences in differences", "did"),
-    ("difference-in-differences", "did"),
-    ("differences-in-differences", "did"),
-    ("diff in diff", "did"),
-    ("diff-in-diff", "did"),
-    ("instrumental variables", "iv"),
-    ("instrumental variable", "iv"),
-    ("synthetic control", "synth"),
-    ("fixed effects", "fe"),
-    ("propensity score", "propensity"),
-    ("double machine learning", "dml"),
-    ("event study", "event_study"),
-)
-
-
-def _search_terms(query: str) -> List[Tuple[str, Tuple[str, ...]]]:
-    """Tokenise ``query`` into (word, alternative spellings) pairs."""
-    lowered = query.lower()
-    for phrase, token in _SEARCH_PHRASES:
-        lowered = lowered.replace(phrase, token)
-    raw = [w.strip(".,;:()[]'\"") for w in lowered.replace("_", " ").split()]
-    terms: List[Tuple[str, Tuple[str, ...]]] = []
-    for w in raw:
-        if not w or w in _SEARCH_STOPWORDS:
-            continue
-        alts = tuple(dict.fromkeys((w,) + _SEARCH_SYNONYMS.get(w, ())))
-        terms.append((w, alts))
-    if not terms:
-        # Only stopwords: fall back to the literal tokens so a query such
-        # as "data" still returns something rather than nothing.
-        terms = [(w, (w,)) for w in raw if w]
-    return terms
-
-
-def _is_class_like(name: str) -> bool:
-    return bool(name) and name[0].isupper()
-
-
-def search_functions(query: str) -> List[Dict[str, str]]:
+def search_functions(query: str) -> List[Dict[str, Any]]:
     """
-    Search function names, descriptions and tags by keywords or a short
-    task phrase.
+    Search function names, descriptions, tags and agent cards by keywords,
+    a short task phrase, or a research question.
 
     Scoring (highest first): exact name match, name containing a query
-    word, tag match, then description hits. Stopwords ("the", "of",
-    "estimate", …) are ignored and common econometrics spellings are
-    expanded (``did`` ↔ difference-in-differences, ``rd`` ↔
-    discontinuity, ``iv`` ↔ instrument, ``staggered`` ↔ Callaway /
-    Sun-Abraham, …). A function matches when at least half of the
-    content words hit, so a natural-language query like "effect of a
-    policy with staggered adoption" returns the staggered-DiD family
-    instead of nothing. Result / exception classes (PascalCase) are
-    listed only when the query names them.
+    word, tag match, description hits, then (at low weight) the
+    function's own agent-card text. Stopwords ("the", "of", "estimate",
+    …) are ignored and econometrics vocabulary is normalised: design
+    names (``did`` ↔ difference-in-differences, ``rd`` ↔ regression
+    discontinuity, ``synthetic control``, ``event study``, ``RKD`` …) and
+    estimands (``LATE`` / compliers → IV, ``ATT``, ``ATE``, ``CATE`` /
+    heterogeneous effects → meta-learners and causal forests, doubly
+    robust → AIPW …) map to the entry points that estimate them, with
+    the family dispatcher first (``synthetic control`` → ``sp.synth``).
 
-    Returns a list of ``{'name': ..., 'description': ..., 'category': ...}``
-    (plus ``stability`` / ``validation_status``), most relevant first.
+    A function matches when at least half of the content words hit or it
+    is an entry point for a design / estimand the query names, so domain
+    nouns around the design words ("minimum wage employment difference
+    in differences") do not empty the result. If nothing clears that
+    bar, the best partial matches are returned with ``match='partial'``
+    rather than ``[]``. Aliases (``sp.rdd``) rank below their canonical
+    entry and carry ``alias_of``. Result / exception classes
+    (PascalCase) are listed only when the query names them.
+
+    Returns a list of ``{'name', 'description', 'category', 'stability',
+    'validation_status', 'match'}`` dicts (plus ``alias_of`` for
+    aliases), most relevant first; ``match`` is ``'full'`` or
+    ``'partial'``.
 
     Examples
     --------
     >>> import statspai as sp
     >>> hits = sp.search_functions('synthetic control')
-    >>> len(hits) > 0
-    True
+    >>> hits[0]['name']
+    'synth'
     >>> sorted(hits[0])[:3]
-    ['category', 'description', 'name']
+    ['category', 'description', 'match']
+    >>> sp.search_functions('local average treatment effect')[0]['name']
+    'iv'
     """
+    from ._discovery_search import rank
+
     _ensure_full_registry()
-    terms = _search_terms(query)
-    if not terms:
-        return []
-    needed = max(1, (len(terms) + 1) // 2)
-    query_lower = query.lower().strip()
     # Functions other entries inherit their agent card from (``rdrobust``
     # for the RD family, ``did`` for the DiD family, …) are the canonical
     # entry points and rank above their derived variants on ties.
     parents = {s.inherits_from for s in _REGISTRY.values() if s.inherits_from}
-
-    scored = []
-    for spec in _REGISTRY.values():
-        name = spec.name.lower()
-        name_words = set(name.replace("_", " ").split())
-        desc = (spec.description or "").lower()
-        tags = [t.lower() for t in (spec.tags or [])]
-        tag_text = " ".join(tags)
-        score = 0.0
-        hits = 0
-        for word, alts in terms:
-            term_score = 0.0
-            for alt in alts:
-                if alt == name:
-                    term_score = max(term_score, 10.0)
-                elif alt in name_words:
-                    term_score = max(term_score, 6.0)
-                elif len(alt) >= 2 and any(w.startswith(alt) for w in name_words):
-                    # ``rd`` -> ``rdrobust`` / ``rdplot``; ``synth`` -> ``synthdid``
-                    term_score = max(term_score, 3.5)
-                elif alt in name and len(alt) >= 4:
-                    term_score = max(term_score, 3.0)
-                if alt in tags:
-                    term_score = max(term_score, 4.0)
-                elif alt in tag_text:
-                    term_score = max(term_score, 2.0)
-                if alt in desc:
-                    term_score = max(term_score, 1.0 + min(desc.count(alt), 3) * 0.25)
-            if term_score > 0:
-                hits += 1
-                score += term_score
-        if hits < needed:
-            continue
-        if name == query_lower:
-            score += 20.0
-        if _is_class_like(spec.name) and spec.name.lower() != query_lower:
-            # Result / exception classes are not callables an agent runs.
-            continue
-        # Prefer entries that match *every* term, then shorter names
-        # (dispatchers such as ``did`` / ``rd`` / ``synth`` beat their
-        # long-named variants on ties).
-        score += hits * 2.0
-        if spec.name in parents:
-            score += 3.0
-        if spec.validation_status == "certified":
-            score += 1.0
-        elif spec.validation_status == "validated":
-            score += 0.5
-        if name.startswith("dgp_"):
-            # Simulation DGP helpers share the estimator's vocabulary but
-            # are rarely what a task query is after; rank them below the
-            # estimators.
-            score -= 3.0
-        scored.append(
-            (
-                score,
-                -len(spec.name),
-                {
-                    "name": spec.name,
-                    "description": spec.description,
-                    "category": spec.category,
-                    "stability": spec.stability,
-                    "validation_status": spec.validation_status,
-                },
-            )
-        )
-
-    scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
-    return [item for _, _, item in scored]
+    return rank(_REGISTRY, query, parents=parents)
 
 
-def all_schemas(*, agent_native: bool = False) -> List[Dict[str, Any]]:
+def all_schemas(
+    *, agent_native: bool = False, include_classes: bool = False
+) -> List[Dict[str, Any]]:
     """
     Export all function schemas at once (for bulk agent tool registration).
 
@@ -22170,6 +22466,11 @@ def all_schemas(*, agent_native: bool = False) -> List[Dict[str, Any]]:
     agent_native : bool, default False
         When True, each schema carries the ``x_statspai`` agent-native block
         (see :func:`function_schema`).
+    include_classes : bool, default False
+        Also export the public result / model / exception *classes*. They
+        are registered so ``sp.describe_function`` can explain them, but an
+        agent never calls a class as a tool, so the bulk export leaves them
+        out unless asked.
 
     Register the list as tools in your LLM framework.
 
@@ -22179,15 +22480,22 @@ def all_schemas(*, agent_native: bool = False) -> List[Dict[str, Any]]:
     >>> schemas = sp.all_schemas()
     >>> isinstance(schemas, list)
     True
-    >>> len(schemas) > 1000
+    >>> len(schemas) > 900
     True
     >>> sorted(schemas[0])
     ['description', 'name', 'parameters']
+    >>> 'CausalResult' in {s['name'] for s in schemas}
+    False
     """
     _ensure_full_registry()
+    specs = [
+        spec
+        for spec in _REGISTRY.values()
+        if include_classes or getattr(spec, "_kind", None) != "class"
+    ]
     if agent_native:
-        return [spec.to_agent_schema() for spec in _REGISTRY.values()]
-    return [spec.to_openai_schema() for spec in _REGISTRY.values()]
+        return [spec.to_agent_schema() for spec in specs]
+    return [spec.to_openai_schema() for spec in specs]
 
 
 def agent_card(name: str) -> Dict[str, Any]:

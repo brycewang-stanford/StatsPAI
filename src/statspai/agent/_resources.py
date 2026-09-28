@@ -73,7 +73,9 @@ def _resource_manifest() -> List[Dict[str, Any]]:
     ``mcp_server`` imports this module, so the import stays inside the
     helper to avoid a module-load cycle. Once the server is loaded this
     reuses its static tools/list cache instead of rebuilding the agent
-    manifest for resources/read.
+    manifest for resources/read. Always the ``full`` profile: the
+    resource index covers every callable tool, not just the advertised
+    ``tools/list`` subset.
     """
     try:
         from .mcp_server import _build_mcp_tools
@@ -88,7 +90,7 @@ def _resource_manifest() -> List[Dict[str, Any]]:
             }
             for t in tool_manifest()
         ]
-    return _build_mcp_tools()
+    return _build_mcp_tools("full")
 
 
 @lru_cache(maxsize=8)

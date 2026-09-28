@@ -42,7 +42,26 @@ For clients that prefer a console script, use:
 
 The server speaks stdio JSON-RPC, advertises the `2025-06-18` MCP protocol
 revision, and returns `structuredContent` with a compact `outputSchema`. Older
-clients still receive the text JSON payload.
+clients still receive the same object as compact JSON text.
+
+Useful server settings (set them in the client's `env` block):
+
+```json
+{
+  "mcpServers": {
+    "statspai": {
+      "command": "statspai-mcp",
+      "env": {
+        "STATSPAI_MCP_DATA_ROOTS": "/Users/me/research/data",
+        "STATSPAI_MCP_MAX_OUTPUT_BYTES": "262144"
+      }
+    }
+  }
+}
+```
+
+`STATSPAI_MCP_DATA_ROOTS` limits which directories the model may read;
+network URLs stay off unless you add `"STATSPAI_MCP_ALLOW_REMOTE": "1"`.
 
 ## Data handoff
 
@@ -79,8 +98,13 @@ and returns a DataFrame). A failing step aborts the chain and reports the
 step index, so a half-transformed frame is never registered. `describe_data`
 profiles any handle; `statspai://data/<id>` reads it back with its lineage.
 Handles live in the server process (LRU, `STATSPAI_MCP_DATA_CACHE_SIZE`,
-default 16); a missing handle says whether it was evicted or never existed,
-and the fix is always `load_data` again.
+default 16 frames, and `STATSPAI_MCP_DATA_CACHE_BYTES`, default 2 GiB); a
+missing handle comes back as an `isError` result with
+`error_kind: "missing_data_handle"` and a `miss_reason` saying whether it was
+evicted (`lru` / `bytes`), expired or never existed — the fix is always
+`load_data` again. `query` / `assign` expressions accept columns, constants,
+operators, math functions and `col.isnull()`-style methods only; anything else
+fails with `error_kind: "unsafe_expression"`.
 
 Every result fitted from a handle carries the full chain in
 `data_provenance` (`source_type: "handle"`, `lineage`, and the root file's
@@ -95,7 +119,8 @@ Supported local and remote formats include:
 | `.parquet`, `.pq`, `.feather`, `.arrow` | Column projection supported |
 | `.xlsx`, `.xls` | Spreadsheet inputs |
 | `.json`, `.jsonl` | JSON records |
-| `file://`, `https://`, `http://`, `s3://`, `gs://` | Remote URLs through pandas/fsspec |
+| `file://` | Local file URL (subject to `STATSPAI_MCP_DATA_ROOTS`) |
+| `https://`, `http://`, `s3://`, `gs://` | Network URLs — only with `STATSPAI_MCP_ALLOW_REMOTE=1`; http(s) via urllib, s3/gs via fsspec |
 
 For large files, pass:
 
@@ -109,13 +134,20 @@ For large files, pass:
 `data_columns` narrows the read when the backend supports it. `data_sample_n`
 uses deterministic random sampling for quick exploration. Raise or disable the
 loader cap with `STATSPAI_MCP_MAX_DATA_BYTES` only when the host has enough
-memory.
+memory; the same cap applies to remote downloads (checked against
+`Content-Length` / object size, and enforced while streaming).
 
 When the MCP server loads a local file, tool results include
 `data_provenance`: source path, format, requested columns/sample, file size,
 mtime, and SHA-256. `statspai://result/<id>` exposes the same provenance through
 the cached result metadata. Remote URLs are recorded after dropping query tokens;
 StatsPAI does not hash remote bytes unless the data are first saved locally.
+
+Results are bounded too: `max_output_bytes` (default 256 KiB) trims the
+longest lists / tables and lists each cut under `truncated`; estimates, SEs,
+CIs and p-values are never cut. Every estimator result carries `replay`, the
+Python call (`sp.<fn>(data=data, ...)  # data = data_path '...'`) that
+reproduces it outside the agent loop — paste it into the replication script.
 
 ## The core loop
 

@@ -16,9 +16,11 @@ Hierarchy
     ├── AssumptionViolation          # parallel trends, exclusion, overlap, …
     │   └── IdentificationFailure    # stronger: no valid estimand
     ├── DataInsufficient             # n too small, too few clusters, thin support
+    │   └── ColumnNotFound           # named column absent (+ MethodIncompatibility)
     ├── ConvergenceFailure           # optimizer / MCMC / EM did not converge
     ├── NumericalInstability         # singular design, near-zero variance, NaN
-    └── MethodIncompatibility        # method ≠ data design / options conflict
+    ├── MethodIncompatibility        # method ≠ data design / options conflict
+    └── MissingDependencyError       # optional extra missing (also an ImportError)
 
 Each instance exposes:
 
@@ -75,7 +77,7 @@ code will be migrated to the taxonomy without breaking the old catches
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
 
 class StatsPAIError(Exception):
@@ -278,6 +280,211 @@ class MethodIncompatibility(StatsPAIError, ValueError):
     code = "method_incompatibility"
 
 
+class ColumnNotFound(DataInsufficient, MethodIncompatibility):
+    """A column named in the call is not present in the DataFrame.
+
+    Raised by the shared column validators (``statspai._input_validation``
+    and the ``sp.did`` front door).  It is *both* a
+    :class:`DataInsufficient` and a :class:`MethodIncompatibility` (and
+    therefore a :class:`ValueError`), because the two validators it
+    replaces historically raised one or the other — every existing
+    ``except`` clause keeps catching it.
+
+    ``diagnostics`` carries ``missing_columns``, ``available_columns`` and
+    ``did_you_mean`` (``{argument_or_column: closest_existing_column}``),
+    so an agent can repair the call without parsing the message.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> from statspai.exceptions import ColumnNotFound
+    >>> df = pd.DataFrame({"y": [1.0, 2.0], "d": [0, 1], "t": [0, 1]})
+    >>> try:
+    ...     sp.did(df, y="yy", treat="d", time="t")
+    ... except ColumnNotFound as e:
+    ...     err = e
+    >>> err.to_dict()["kind"], err.diagnostics["did_you_mean"]
+    ('column_not_found', {'y': 'y'})
+    >>> isinstance(err, sp.MethodIncompatibility), isinstance(err, ValueError)
+    (True, True)
+    """
+
+    code = "column_not_found"
+
+    @classmethod
+    def from_missing(
+        cls,
+        missing: Union[Mapping[str, Any], Sequence[Any]],
+        available: Sequence[Any],
+        *,
+        message: Optional[str] = None,
+        recovery_hint: Optional[str] = None,
+        extra_diagnostics: Optional[Dict[str, Any]] = None,
+    ) -> "ColumnNotFound":
+        """Build the error (with did-you-mean suggestions) from the gap.
+
+        Parameters
+        ----------
+        missing : mapping or sequence
+            ``{argument_label: column}`` (preferred; labels are what the
+            caller typed, e.g. ``"y"``) or a plain list of column names.
+        available : sequence
+            The DataFrame's columns.
+        message : str, optional
+            Override the default ``"Column(s) not found in data: ..."``
+            message.
+        recovery_hint : str, optional
+            Override the generated hint.  By default the hint names every
+            suggestion, e.g. ``"y='yy' not found; did you mean 'y'?"``.
+        extra_diagnostics : dict, optional
+            Merged into ``diagnostics``.
+        """
+        if isinstance(missing, Mapping):
+            pairs = [(str(k), v) for k, v in missing.items()]
+            missing_diag: Any = {str(k): v for k, v in missing.items()}
+        else:
+            pairs = [(str(c), c) for c in missing]
+            missing_diag = [str(c) for c in missing]
+        avail = [str(c) for c in available]
+        suggestions = suggest_columns([c for _, c in pairs], avail)
+        did_you_mean = {
+            label: suggestions[str(col)]
+            for label, col in pairs
+            if suggestions.get(str(col)) is not None
+        }
+        details = ", ".join(f"{label}={col!r}" for label, col in pairs)
+        if message is None:
+            shown = ", ".join(sorted(avail)[:10])
+            message = (
+                f"Column(s) not found in data: {details}. "
+                f"Available: {shown}" + (" ..." if len(avail) > 10 else "")
+            )
+        if recovery_hint is None:
+            bits = []
+            for label, col in pairs:
+                sug = did_you_mean.get(label)
+                where = f"{label}={col!r}" if label != str(col) else f"{col!r}"
+                if sug is not None:
+                    bits.append(f"{where} not found; did you mean {sug!r}?")
+                else:
+                    bits.append(f"{where} not found")
+            joined = "; ".join(bits)
+            if not joined.endswith("?"):
+                joined += "."
+            recovery_hint = (
+                f"{joined} Check the column-name arguments against data.columns."
+            )
+        diagnostics: Dict[str, Any] = {
+            "missing_columns": missing_diag,
+            "available_columns": avail,
+            "did_you_mean": did_you_mean,
+        }
+        if extra_diagnostics:
+            diagnostics.update(extra_diagnostics)
+        return cls(message, recovery_hint=recovery_hint, diagnostics=diagnostics)
+
+
+class MissingDependencyError(StatsPAIError, ImportError):
+    """An optional dependency needed by this function is not installed.
+
+    Subclasses :class:`ImportError` so ``except ImportError`` keeps
+    working.  ``diagnostics`` carries ``package`` (the importable module),
+    ``extra`` (the StatsPAI extra that pulls it in, if any) and
+    ``install`` (the exact ``pip install`` command to run).
+
+    Examples
+    --------
+    >>> from statspai.exceptions import MissingDependencyError
+    >>> e = MissingDependencyError.for_package("pyfixest", extra="fixest")
+    >>> e.diagnostics["install"]
+    'pip install "statspai[fixest]"'
+    >>> isinstance(e, ImportError), e.to_dict()["kind"]
+    (True, 'missing_dependency')
+    """
+
+    code = "missing_dependency"
+
+    @classmethod
+    def for_package(
+        cls,
+        package: str,
+        *,
+        extra: Optional[str] = None,
+        pip_name: Optional[str] = None,
+        purpose: str = "",
+    ) -> "MissingDependencyError":
+        """Build the error for a missing importable module ``package``.
+
+        Parameters
+        ----------
+        package : str
+            Importable module name, e.g. ``"pyfixest"``.
+        extra : str, optional
+            StatsPAI optional-dependency group that installs it
+            (``pip install "statspai[<extra>]"``).
+        pip_name : str, optional
+            PyPI distribution name when it differs from ``package``.
+        purpose : str, optional
+            What the package is needed for (appears in the message).
+        """
+        install = (
+            f'pip install "statspai[{extra}]"'
+            if extra
+            else f"pip install {pip_name or package}"
+        )
+        alt = f"pip install {pip_name or package}"
+        what = f" for {purpose}" if purpose else ""
+        message = f"{package} is required{what} but is not installed."
+        hint = f"Install it with: {install}" + (f" (or: {alt})" if extra else "")
+        return cls(
+            message,
+            recovery_hint=hint,
+            diagnostics={
+                "package": package,
+                "extra": extra,
+                "install": install,
+            },
+        )
+
+
+def suggest_columns(
+    wanted: Sequence[Any], available: Sequence[Any], *, cutoff: float = 0.6
+) -> Dict[str, Optional[str]]:
+    """Closest existing column for each requested-but-missing name.
+
+    A case-insensitive exact match wins; otherwise :mod:`difflib` picks the
+    closest name with similarity ``>= cutoff``.  Names with no candidate map
+    to ``None``.
+
+    Examples
+    --------
+    >>> from statspai.exceptions import suggest_columns
+    >>> suggest_columns(["Wage", "yy", "zzz"], ["wage", "y", "id"])
+    {'Wage': 'wage', 'yy': 'y', 'zzz': None}
+    """
+    import difflib
+
+    avail = [str(c) for c in available]
+    lower: Dict[str, str] = {}
+    for c in avail:
+        lower.setdefault(c.lower(), c)
+    out: Dict[str, Optional[str]] = {}
+    for w in wanted:
+        key = str(w)
+        hit = lower.get(key.lower())
+        if hit is None:
+            close = difflib.get_close_matches(key, avail, n=1, cutoff=cutoff)
+            if not close:
+                low = difflib.get_close_matches(
+                    key.lower(), list(lower), n=1, cutoff=cutoff
+                )
+                close = [lower[low[0]]] if low else []
+            hit = close[0] if close else None
+        out[key] = hit
+    return out
+
+
 # --------------------------------------------------------------------- #
 #  Warnings
 # --------------------------------------------------------------------- #
@@ -405,6 +612,9 @@ __all__ = [
     "ConvergenceFailure",
     "NumericalInstability",
     "MethodIncompatibility",
+    "ColumnNotFound",
+    "MissingDependencyError",
+    "suggest_columns",
     "StatsPAIWarning",
     "ConvergenceWarning",
     "AssumptionWarning",

@@ -211,6 +211,7 @@ def _make_registry_entry(name: str, category: str, tags: Optional[List[str]] = N
     entry = MagicMock()
     entry.category = category
     entry.tags = tags or []
+    entry.alias_of = None
     entry.to_openai_schema.return_value = {
         "name": name,
         "description": f"Auto-generated tool for {name}.",
@@ -421,3 +422,18 @@ def test_default_whitelist_is_nonempty():
 
 def test_default_exclude_is_nonempty():
     assert len(DEFAULT_EXCLUDE) >= 5
+
+
+def test_registered_aliases_are_listed_once():
+    """An alias (``spec.alias_of``) is not a separate tool; its canonical is."""
+    registry = {
+        "rdrobust": _make_registry_entry("rdrobust", "causal"),
+        "rdd": _make_registry_entry("rdd", "causal"),
+    }
+    registry["rdd"].alias_of = "rdrobust"
+    with (
+        patch("statspai.registry._REGISTRY", registry),
+        patch("statspai.registry._ensure_full_registry"),
+    ):
+        names = [t["name"] for t in auto_tool_manifest(warn_on_truncate=False)]
+    assert names == ["rdrobust"]
