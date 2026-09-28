@@ -105,6 +105,61 @@ _SIGNATURE_CLAIMS: dict[str, list[str]] = {
     ],
     "kaplan_meier": ["data", "duration", "event", "group"],
     "policy_tree": ["data", "y", "d", "X"],
+    # references/modern-methods.md
+    "did_imputation": ["data", "y", "group", "time", "first_treat", "horizon"],
+    "gardner_did": ["data", "y", "group", "time", "first_treat", "event_study"],
+    "etwfe": ["data", "y", "group", "time", "first_treat", "family"],
+    "stacked_did": ["data", "y", "group", "time", "first_treat", "window"],
+    "lp_did": ["data", "y", "unit", "time", "treatment", "horizons"],
+    "did_multiplegt_dyn": [
+        "data",
+        "y",
+        "group",
+        "time",
+        "treatment",
+        "dynamic",
+        "placebo",
+        "seed",
+    ],
+    "compare_event_study_conventions": ["data", "y", "unit", "time", "first_treat"],
+    "aggte": ["result", "type"],
+    "uniform_bands": ["result", "alpha"],
+    "did_few_treated": ["data", "y", "id", "time", "treat", "method"],
+    "wild_cluster_bootstrap": ["data", "y", "x", "cluster", "test_var"],
+    "cr2_se": ["result", "data", "cluster"],
+    "iv_diag": [
+        "data",
+        "y",
+        "endog",
+        "instruments",
+        "exog",
+        "cluster",
+        "include_clr_ci",
+    ],
+    "effective_f_test": ["data", "endog", "instruments", "exog"],
+    "weakrobust": ["data", "y", "endog", "instruments", "exog"],
+    "causal_forest": ["formula", "data", "fe", "id", "time", "random_state"],
+    "best_linear_projection": ["forest", "A"],
+    "forest_group_effects": ["forest", "by"],
+    "rate": ["forest", "target"],
+    "rate_split": ["forest", "target"],
+    "forest_policy_tree": ["forest", "depth", "cost"],
+    "iv_forest": ["data", "y", "treat", "instrument", "covariates"],
+    "multi_arm_forest": ["data", "y", "treat", "covariates"],
+    "causal_survival_forest": [
+        "data",
+        "time",
+        "event",
+        "treat",
+        "covariates",
+        "horizon",
+    ],
+    "dynamic_dml": ["data", "y", "treat", "id", "time", "covariates", "lags"],
+    "fect": ["data", "y", "treat", "unit", "time", "method", "r"],
+    "gsynth": ["data", "outcome", "unit", "time", "treated_unit", "treatment_time"],
+    "rd_honest": ["data", "y", "x", "c"],
+    "rdhte": ["data", "y", "x", "z", "c"],
+    "validation_scope": ["result"],
 }
 
 # Modules referenced as ``sp.<mod>`` with the members the skill calls on them.
@@ -329,6 +384,72 @@ def check_attributes(failures: list[str]) -> None:
         )
     except Exception as exc:  # noqa: BLE001
         _record(failures, False, "return shapes", f"{type(exc).__name__}: {exc}")
+
+    # --- modern-methods.md: event-study inference, fe forest, fail-loud ---
+    try:
+        from statspai.exceptions import MethodIncompatibility
+
+        rows = []
+        for i in range(120):
+            g = int(rng.choice([0, 4, 5]))
+            a, x = rng.normal(), rng.normal()
+            for t in range(1, 8):
+                d = int(g > 0 and t >= g)
+                rows.append(
+                    dict(
+                        id=i,
+                        year=t,
+                        g=g,
+                        d=d,
+                        x1=x,
+                        y=a + 0.1 * t + (1 + x) * d + rng.normal(),
+                    )
+                )
+        p = pd.DataFrame(rows)
+        es = sp.aggte(
+            sp.callaway_santanna(p, y="y", g="g", t="year", i="id"), type="dynamic"
+        )
+        V = sp.event_study_vcov(es)
+        ub = sp.uniform_bands(es)
+        bjs = sp.did_imputation(p, y="y", group="id", time="year", first_treat="g")
+        fcf = sp.causal_forest(
+            "y ~ d | x1",
+            data=p,
+            fe="twoway",
+            id="id",
+            time="year",
+            n_estimators=200,
+            random_state=0,
+        )
+        pooled = sp.causal_forest(
+            "y ~ t | x1 + x2", data=df, n_estimators=100, random_state=0
+        )
+        fpt_rejects_pooled = False
+        try:
+            sp.forest_policy_tree(pooled, n_splits=1)
+        except MethodIncompatibility:
+            fpt_rejects_pooled = True
+        cmp_rejects_staggered = False
+        try:
+            sp.compare_event_study_conventions(
+                p, y="y", unit="id", time="year", first_treat="g"
+            )
+        except MethodIncompatibility:
+            cmp_rejects_staggered = True
+        ok = (
+            all(hasattr(V, a) for a in ("beta", "vcov", "times", "as_frame"))
+            and {"cband_lower", "cband_upper"} <= set(ub.columns)
+            and isinstance(sp.pretrends_power(es), dict)
+            and abs(float(fcf.att()) - bjs.estimate) < 1e-6  # fe forest ATT == BJS
+            and "gain_over_treat_all" in sp.forest_policy_tree(fcf, depth=1, n_splits=2)
+            and fpt_rejects_pooled
+            and cmp_rejects_staggered
+            and "split_stability"
+            in sp.forest_policy_tree(fcf, depth=1, n_splits=2)["diagnostics"]
+        )
+        _record(failures, ok, "modern methods: ES vcov/bands, fe forest, fail-loud")
+    except Exception as exc:  # noqa: BLE001
+        _record(failures, False, "modern methods", f"{type(exc).__name__}: {exc}")
 
 
 def _silent_ok(thunk) -> bool:

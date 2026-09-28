@@ -38,6 +38,8 @@ sp.event_study(df, y="y", treat_time="first_treat_year",
                time="year", unit="firm_id", window=(-4, 4))                  # Event-study coefficients
 ```
 
+> The robust staggered family (`sp.did_imputation`, `sp.gardner_did`, `sp.etwfe`, `sp.stacked_did`, `sp.lp_did`, `sp.did_multiplegt_dyn`), simultaneous event-study bands and few-treated inference are in `modern-methods.md`.
+
 ### Regression Discontinuity
 ```python
 sp.rdrobust(df, y="y", x="running_var", c=0)                      # Sharp RD (CCT 2014)

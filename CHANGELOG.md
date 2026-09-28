@@ -6,6 +6,20 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Skill: `references/modern-methods.md` covers the 1.29–1.32 estimators.**
+  The packaged `statspai-analysis` skill had no entry for about thirty
+  functions added since 1.29. The new reference file covers the robust
+  staggered-DID family, joint event-study covariance and sup-t bands,
+  pre-trend equivalence and power, few-treated inference, the `sp.iv_diag`
+  bundle, the GRF forest family (fe forests, `rate_split`,
+  `forest_policy_tree`, IV / multi-arm / survival forests), `sp.dynamic_dml`,
+  `fect` / `rd_honest` / `rdhte`, and `sp.validation_scope`. `SKILL.md` gets
+  five new hard rules. Every call shape was run before writing it down;
+  the validation gate gains 30 signature claims and a smoke fit that checks
+  the fe-forest ATT equals `sp.did_imputation` and that
+  `forest_policy_tree` / `compare_event_study_conventions` reject pooled
+  forests and staggered timing.
+
 - **`sp.etwfe(family='poisson')` reproduces Stata `jwdid ..., method(ppmlhdfe)` in one call.**
   Found by redoing a published jwdid table (21 regressions) with StatsPAI
   (`sjjj2026_replication-StatsPAI复现程度.ipynb`): the cell coefficients

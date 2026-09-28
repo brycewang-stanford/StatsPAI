@@ -88,11 +88,23 @@ Step-by-step code: `references/pipeline-econ.md`. Mode A:
   (+ `sp.aggte`) or `sp.sun_abraham`; event-study figures come from those
   results. A passed pre-trend test is not evidence for parallel trends —
   report `sp.honest_did` and `sp.pretrends_power`.
+- **Event-study paths get simultaneous bands**: `sp.uniform_bands` (sup-t)
+  on top of `sp.event_study_vcov`; pointwise CIs do not support a claim
+  about the whole path.
+- **One or a few treated units**: cluster-robust SEs over-reject; use
+  `sp.did_few_treated` (or `sp.wild_cluster_bootstrap`).
+- **Treatment that feeds back into later states**: `sp.dynamic_dml`, not
+  `sp.dml` / `sp.dml_panel`.
+- **Panel forests (`fe=`)**: test heterogeneity with `sp.rate_split`, not
+  `sp.rate` on the forest's own ranking; `sp.forest_policy_tree` is fe-only.
 - **Covariates do not go in a TWFE / 3WFE regression** under conditional
   parallel trends: `sp.drdid`, `sp.callaway_santanna(..., x=[...],
   estimator='dr')`, `sp.ddd(..., method='dr')`.
-- **IV**: report the first-stage / effective F before the 2SLS coefficient;
-  below 10, `sp.anderson_rubin_ci` — not a 2SLS t-ratio.
+- **IV**: report the first-stage / effective F before the 2SLS coefficient
+  (`sp.iv_diag` gives the whole bundle); below 10, `sp.anderson_rubin_ci` —
+  not a 2SLS t-ratio.
+- **Parity claims are per configuration**: quote `sp.validation_scope(result)`
+  instead of a blanket "matches Stata / R".
 - **RD**: `sp.rddensity` and `sp.rdplot` before the effect table; bandwidth
   sensitivity in robustness.
 - **Matching / weighting**: balance (`sp.love_plot`, `sp.ps_balance`) before
@@ -114,6 +126,7 @@ Step-by-step code: `references/pipeline-econ.md`. Mode A:
 | DML / meta-learners / causal forest / policy / conformal / fairness pipeline | `references/pipeline-ml-causal.md` |
 | Word / Excel / LaTeX export, regtable recipes, the 12 standard figures, notebook setup | `references/export.md` |
 | method catalog by family; when to use StatsPAI vs alternatives | `references/method-catalog.md` |
+| robust staggered-DID family, event-study bands, few treated units, IV bundle, GRF forest family, dynamic DML, validation scope | `references/modern-methods.md` |
 | API traps that cost agents real time; agent integration pattern | `references/common-mistakes.md` |
 | driving StatsPAI over MCP (`statspai-mcp`) or the shell (`statspai run`), data handles, routing, the result contract | `references/mcp-and-cli.md` |
 
