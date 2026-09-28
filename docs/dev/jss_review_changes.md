@@ -31,6 +31,28 @@ Rules:
 
 ## Entries
 
+### 2026-09-28 — call traces re-recorded after the agent-surface pass (W7–W10)
+
+- **Commits.** `1e702f2` (result contract on every result class, MCP
+  hardening, error taxonomy, discovery / schemas) changed files on Track A
+  estimation paths — `src/statspai/core/results.py`,
+  `src/statspai/_result_serialize.py`, `src/statspai/did/__init__.py`,
+  `src/statspai/_input_validation.py` — which staled the traces;
+  `71d0df1` re-recorded `tests/r_parity/results/_implementation_trace.json`
+  and `tests/orig_parity/results/_implementation_trace.json`.
+- **Reason.** No estimator's numbers changed: the edits add agent-facing
+  methods (`to_dict(detail=)`, `violations`, `next_steps`, `result_card`),
+  stop `next_steps()` printing, and raise `ColumnNotFound` (still a
+  `MethodIncompatibility`) with a did-you-mean hint.
+- **Effect on the paper.** None. Checked field by field against the
+  previous commit: across all 89 Track A modules and the 12 original-data
+  modules no `packages`, boundary-call package set, `rscript_launches` or
+  `error` changed; only `exercised_sources` digests and `seconds` differ.
+  Traced in a fresh `site-packages` venv (Python 3.11.15, pandas 2.3.3; a
+  first pass under pandas 3.0.6 was discarded because the `50_xtabond`
+  entry script references `pd.errors.SettingWithCopyWarning`, removed in
+  pandas 3).
+
 ### 2026-09-28 — freeze paused: the paper has not been submitted yet
 
 - **Reason.** The freeze was written at 1.32.0 on 2026-09-27 on the
