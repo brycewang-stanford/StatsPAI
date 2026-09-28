@@ -40,6 +40,22 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **MCP stdio loop reads on a thread; server-side sampling no longer
+  deadlocks.** `serve_stdio` used to read stdin on the same thread that
+  ran `tools/call`, so a tool that asked the client's LLM a question
+  (`interpret_result` → `sampling/createMessage`) could never receive the
+  reply and fell back after the 60 s timeout. stdin is now consumed on a
+  reader thread that routes JSON-RPC replies to the sampling matcher
+  immediately and queues requests for the loop; responses, progress
+  notifications and sampling requests share one locked stdout sink so
+  lines cannot interleave. Covered by a real-subprocess test
+  (`tests/test_mcp_stdio_subprocess.py`: initialize → tools/list →
+  fit → interpret_result with a fake sampling client), which also pins
+  the `core` tools/list under 100 KB on the wire and that stdout stays
+  pure JSON-RPC. (The CI change adding these suites to the push-time gate
+  and `statspai-mcp --help` to the wheel smoke test waits in
+  `plans/pending-workflow-patches/` — workflow files cannot be pushed by
+  the GitHub App.)
 - **MCP payloads say what did not happen.** `tools/call` results carry
   `runtime_warnings` (deduplicated Python warnings raised during the
   estimator call — `ConvergenceWarning`, `AssumptionWarning`,

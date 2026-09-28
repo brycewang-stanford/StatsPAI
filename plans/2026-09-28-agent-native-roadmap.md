@@ -44,11 +44,11 @@ only be routed by the same loop, so it times out after 60 s. Tests inject
   `statspai-mcp --help` runs; MCP protocol tests move into the push-time
   fast gate in `ci-cd.yml`.
 
-- [ ] reader-thread stdio loop with a single stdout lock
-- [ ] subprocess end-to-end test (initialize → tools/list → tools/call → sampling round-trip)
-- [ ] `tools/list` byte budget test (`curated` < 300 KB, `core` < 100 KB)
-- [ ] MCP suites in the push-time CI gate; `statspai-mcp --help` in the wheel smoke test
-- [ ] CHANGELOG
+- [x] reader-thread stdio loop with a single stdout lock
+- [x] subprocess end-to-end test (initialize → tools/list → tools/call → sampling round-trip)
+- [x] `tools/list` byte budget test (`curated` < 300 KB, `core` < 100 KB)
+- [~] MCP suites in the push-time CI gate; `statspai-mcp --help` in the wheel smoke test — patch in `plans/pending-workflow-patches/`, needs a user push (App lacks `workflows` permission)
+- [x] CHANGELOG
 
 ## W2 — Data handles, inline data and transform chains (week 1–2)
 
@@ -204,3 +204,4 @@ MCP, and it is not shipped. There is no `AGENTS.md` / `llms.txt`.
 ## Log
 
 - 2026-09-28 — plan written; W1 started.
+- 2026-09-28 — W1 done (reader-thread stdio loop, subprocess e2e test, CI gate). W2 next.

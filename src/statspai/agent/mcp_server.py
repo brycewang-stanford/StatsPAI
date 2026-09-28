@@ -66,7 +66,9 @@ from __future__ import annotations
 
 import json
 import os
+import queue
 import sys
+import threading
 import traceback
 from functools import lru_cache
 from pathlib import Path
@@ -1480,11 +1482,65 @@ def handle_request(line: str) -> Optional[str]:
 # ═══════════════════════════════════════════════════════════════════════
 
 
+class _LockedSink:
+    """A ``write`` / ``flush`` pair serialised by one lock.
+
+    Three writers share the stdio channel: the request loop (responses),
+    the progress drain (``notifications/progress`` from the tool worker)
+    and the sampling client (``sampling/createMessage``). Interleaved
+    partial lines would corrupt the JSON-RPC stream, so every line goes
+    through this object.
+    """
+
+    def __init__(self, stream: TextIO) -> None:
+        self._stream = stream
+        self._lock = threading.Lock()
+
+    def write(self, text: str) -> int:
+        with self._lock:
+            n = self._stream.write(text)
+            self._stream.flush()
+            return n or 0
+
+    def flush(self) -> None:
+        with self._lock:
+            self._stream.flush()
+
+    def write_line(self, line: str) -> None:
+        self.write(line + "\n")
+
+
+def _is_jsonrpc_reply(line: str) -> Optional[Dict[str, Any]]:
+    """Parse ``line`` and return it when it is a JSON-RPC *reply*.
+
+    A reply has an ``id`` and no ``method`` — the shape the client sends
+    back for a server-initiated ``sampling/createMessage``. Anything else
+    (requests, notifications, garbage) returns ``None`` and is handled by
+    the request loop.
+    """
+    try:
+        msg = json.loads(line)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(msg, dict) and "method" not in msg and "id" in msg:
+        return msg
+    return None
+
+
 def serve_stdio(
     stdin: Optional[Iterable[str]] = None,
     stdout: Optional[TextIO] = None,
 ) -> None:
     """Run the JSON-RPC loop on stdio until stdin closes.
+
+    stdin is consumed on a reader thread. The thread routes JSON-RPC
+    *replies* (the client's answer to a server-initiated
+    ``sampling/createMessage``) straight to :mod:`_sampling`, and queues
+    everything else for the request loop. That split is what lets a
+    ``tools/call`` that asks the client's LLM a question
+    (``interpret_result``) receive its answer while the call is still in
+    flight: before, the main thread was blocked inside the tool and the
+    reply sat unread on stdin until the 60 s sampling timeout.
 
     Parameters
     ----------
@@ -1497,8 +1553,10 @@ def serve_stdio(
     if stdout is None:
         stdout = sys.stdout
 
+    sink = _LockedSink(stdout)
+
     global _PROGRESS_SINK
-    _PROGRESS_SINK = stdout
+    _PROGRESS_SINK = cast(TextIO, sink)
 
     # Register a writer for server-initiated ``sampling/createMessage``
     # requests. Helpers that need to invoke the client's LLM go through
@@ -1508,21 +1566,34 @@ def serve_stdio(
     # sampling is opt-in on both sides.
     from . import _sampling
 
-    def _writer(line: str) -> None:
-        stdout.write(line + "\n")
-        stdout.flush()
+    _sampling.set_writer(sink.write_line)
 
-    _sampling.set_writer(_writer)
+    inbox: "queue.Queue[Optional[str]]" = queue.Queue()
+
+    def _reader() -> None:
+        try:
+            for raw in stdin:
+                line = raw.strip()
+                if not line:
+                    continue
+                reply = _is_jsonrpc_reply(line)
+                if reply is not None and _sampling.route_response(reply):
+                    continue
+                inbox.put(line)
+        finally:
+            inbox.put(None)
+
+    reader = threading.Thread(target=_reader, name="statspai-mcp-stdin", daemon=True)
+    reader.start()
     try:
-        for raw in stdin:
-            line = raw.strip()
-            if not line:
-                continue
+        while True:
+            line = inbox.get()
+            if line is None:
+                break
             response = handle_request(line)
             if response is None:
                 continue
-            stdout.write(response + "\n")
-            stdout.flush()
+            sink.write_line(response)
     finally:
         _PROGRESS_SINK = None
         _sampling.set_writer(None)
