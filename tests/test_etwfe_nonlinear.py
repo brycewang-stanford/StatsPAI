@@ -107,7 +107,8 @@ def test_balanced_unit_fe_equals_cohort_dummies(r_fixture):
         coh.model_info["att_link"], abs=1e-8
     )
     # SEs: the same coefficients, different nuisance parameterisation and
-    # K in (N-1)/(N-K); agreement to well under 1% on 1,800 rows.
+    # small-sample factor (statsmodels' cluster default vs ppmlhdfe's
+    # G/(G-1)); agreement to well under 1% on 1,800 rows.
     assert uni.model_info["se_link"] == pytest.approx(
         coh.model_info["se_link"], rel=5e-3
     )
@@ -157,21 +158,17 @@ def test_unit_fe_matches_ppmlhdfe_on_unbalanced_panel():
         [got.loc[c] for c in cells], ref.params[names].to_numpy(), rtol=0, atol=1e-8
     )
     w = n / n.sum()
-    # FIX: cell_n now counts only kept (non-separated) observations, not all.
-    # This changes weights slightly. Tolerance relaxed to accommodate the change.
-    assert uni.estimate == pytest.approx(float(w @ ref.params[names]), abs=1e-4)
-    # Same sandwich; only the small-sample factor differs.  ppmlhdfe drops
-    # the separated units and applies G'/(G'-1); etwfe keeps them in N and
-    # G (jwdid's reporting) and applies G/(G-1) * (N-1)/(N-K), K = the
-    # explicit regressors (period dummies + cells).
+    assert uni.estimate == pytest.approx(float(w @ ref.params[names]), abs=1e-8)
+    # Same sandwich; only the cluster count differs.  ppmlhdfe drops the
+    # separated units and applies G'/(G'-1); etwfe keeps them in G (jwdid's
+    # reporting) and applies G/(G-1) -- ppmlhdfe's clustered convention,
+    # with no (N-1)/(N-K) term.
     V = ref.data_info["var_cov"]
     idx = [list(ref.params.index).index(c) for c in names]
     se_ref = float(np.sqrt(w @ V[np.ix_(idx, idx)] @ w))
-    N, K = uni.n_obs, len(uni.model_info["coef_names"])
     G, Gp = uni.model_info["n_clusters"], ref.data_info["n_clusters"]
-    ratio = (G / (G - 1) * (N - 1) / (N - K)) / (Gp / (Gp - 1))
-    # FIX: cell_n now counts only kept observations, changing weights and SE slightly.
-    assert uni.se == pytest.approx(se_ref * np.sqrt(ratio), rel=1e-4)
+    ratio = (G / (G - 1)) / (Gp / (Gp - 1))
+    assert uni.se == pytest.approx(se_ref * np.sqrt(ratio), rel=1e-7)
     # and the cohort-dummy design is genuinely different here
     coh = _fit(df, family="poisson", scale="link")
     assert abs(coh.estimate - uni.estimate) > 1e-4
@@ -258,3 +255,147 @@ def test_invalid_options_raise():
         _fit(df, fe="unit")  # linear branch
     # the linear model has one scale; either spelling is accepted
     assert _fit(df, scale="link").estimate == pytest.approx(_fit(df).estimate)
+
+
+# ---------------------------------------------------------------------------
+# Aggregation weights, joint event-study covariance and its consumers
+#
+# Regressions caught by redoing the jwdid replication after 027813fb: the
+# aggregation weights had been switched to non-separated rows only (the
+# 21 published coefficients stopped matching; the response ATT inflated
+# ~6x), the event-study covariance was weighted by 1/(n1 n2) (honest_did
+# returned NaN / zero-width sets), and pretrends_test still fell back to
+# the diagonal (chi2 29.9 against jwdid's 52.65).
+# ---------------------------------------------------------------------------
+
+
+def _treated_counts(df):
+    d = df.dropna(subset=["y"])
+    return d[d["g"] > 0].groupby(["g", "year"]).size()
+
+
+def test_separated_rows_stay_in_aggregation_weights():
+    df = _panel(seed=5, zero_units=0.4)
+    zero = df.groupby("id")["y"].transform("sum") == 0
+    res = _fit(df, family="poisson", fe="unit", scale="link")
+    cells = res.model_info["cells"].set_index(["cohort", "period"])
+    counts = _treated_counts(df)
+    # every treated row counts, all-zero ones included (jwdid's weights)
+    for key, n in cells["n_treated"].items():
+        assert n == counts[key]
+    post = cells[cells["post"]]
+    w = post["n_treated"] / post["n_treated"].sum()
+    assert res.estimate == pytest.approx(float(w @ post["coef"]), abs=1e-12)
+    # A separated row's fitted mean and marginal effect are exactly zero:
+    # it enters the response-scale average through the denominator only.
+    kept = _fit(df[~zero], family="poisson", fe="unit", scale="link")
+    n_all = res.model_info["aggregations"]["response"]["simple"]["n_treated"]
+    n_kept = kept.model_info["aggregations"]["response"]["simple"]["n_treated"]
+    assert n_all > n_kept
+    assert res.model_info["att_response"] * n_all == pytest.approx(
+        kept.model_info["att_response"] * n_kept, rel=1e-8
+    )
+
+
+@pytest.mark.parametrize("scale", ["link", "response"])
+def test_event_study_vcov_is_joint_and_matches_the_table(scale):
+    df = _panel(seed=7, zero_units=0.2)
+    res = _fit(df, family="poisson", fe="unit", cgroup="nevertreated", scale=scale)
+    es = res.model_info["event_study"]
+    V = res.model_info["event_study_vcov"]
+    assert list(V.index) == [int(t) for t in es["relative_time"]]
+    assert not V.attrs.get("block_diagonal", False)
+    np.testing.assert_allclose(V.to_numpy(), V.to_numpy().T, atol=1e-15)
+    assert np.linalg.eigvalsh(V.to_numpy()).min() > -1e-12
+    np.testing.assert_allclose(
+        np.sqrt(np.diag(V.to_numpy())), es["se"].to_numpy(), rtol=1e-10
+    )
+    if scale == "link":
+        # link scale: W V W' with W the within-event-time treated shares
+        mi = res.model_info
+        names = list(mi["coef_names"])
+        Vc = pd.DataFrame(mi["vcov"], index=names, columns=names)
+        cells = mi["cells"]
+        W = []
+        for tau in V.index:
+            c = cells[cells["relative_time"] == tau]
+            row = pd.Series(0.0, index=names)
+            row[[f"treat[{g},{t}]" for g, t in zip(c["cohort"], c["period"])]] = (
+                c["n_treated"] / c["n_treated"].sum()
+            ).to_numpy()
+            W.append(row)
+        W = pd.DataFrame(W)
+        np.testing.assert_allclose(V.to_numpy(), (W @ Vc @ W.T).to_numpy(), atol=1e-14)
+    evc = sp.event_study_vcov(res, allow_diagonal=False)
+    assert evc.joint and evc.source == "model_info['event_study_vcov']"
+
+
+def test_emfx_switches_table_and_covariance_together():
+    df = _panel(seed=7)
+    res = _fit(df, family="poisson", fe="unit", cgroup="nevertreated", scale="link")
+    out = sp.etwfe_emfx(res, type="event", scale="response", include_leads=True)
+    V = out.model_info["event_study_vcov"]
+    es = out.model_info["event_study"]
+    resp = res.model_info["aggregations"]["response"]["event"]
+    np.testing.assert_allclose(es["att"].to_numpy(), resp["att"].to_numpy())
+    np.testing.assert_allclose(
+        np.sqrt(np.diag(V.to_numpy())), es["se"].to_numpy(), rtol=1e-10
+    )
+
+
+def test_pretrends_test_uses_the_joint_covariance_and_window():
+    df = _panel(seed=7, zero_units=0.2)
+    res = _fit(df, family="poisson", fe="unit", cgroup="nevertreated", scale="link")
+    V = res.model_info["event_study_vcov"]
+    es = res.model_info["event_study"].set_index("relative_time")
+    leads = [t for t in V.index if t < 0]
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # no diagonal fallback
+        out = sp.pretrends_test(res)
+    b = es.loc[leads, "att"].to_numpy()
+    S = V.loc[leads, leads].to_numpy()
+    assert out["statistic"] == pytest.approx(
+        float(b @ np.linalg.solve(S, b)), rel=1e-10
+    )
+    assert out["df"] == len(leads) and out["pre_periods"] == leads
+    diag = float(np.sum(b**2 / np.diag(S)))
+    assert abs(out["statistic"] - diag) > 1e-3  # really not the diagonal
+    win = [t for t in leads if -3 <= t <= -2]
+    sub = sp.pretrends_test(res, window=(-3, -2))
+    bw = es.loc[win, "att"].to_numpy()
+    Sw = V.loc[win, win].to_numpy()
+    assert sub["statistic"] == pytest.approx(
+        float(bw @ np.linalg.solve(Sw, bw)), rel=1e-10
+    )
+    assert sub["pre_periods"] == win and sub["df"] == len(win)
+
+
+def test_pretrends_test_window_validation():
+    df = _panel(seed=7)
+    res = _fit(df, family="poisson", fe="unit", cgroup="nevertreated", scale="link")
+    from statspai.exceptions import DataInsufficient
+
+    with pytest.raises(MethodIncompatibility, match="lo <= hi"):
+        sp.pretrends_test(res, window=(-2, -5))
+    with pytest.raises(MethodIncompatibility, match="pair"):
+        sp.pretrends_test(res, window=-3)
+    with pytest.raises(DataInsufficient, match="window"):
+        sp.pretrends_test(res, window=(-99, -90))
+
+
+def test_honest_did_reads_the_poisson_etwfe_covariance():
+    df = _panel(seed=7, zero_units=0.2)
+    res = _fit(df, family="poisson", fe="unit", cgroup="nevertreated", scale="link")
+    es = res.model_info["event_study"].set_index("relative_time")
+    est, se = float(es.loc[0, "att"]), float(es.loc[0, "se"])
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)  # no worst-case fallback
+        sd = sp.honest_did(res, e=0, method="smoothness", m_grid=[0.0, 0.05])
+    assert sd.attrs.get("interval") == "flci"
+    rm = sp.honest_did(res, e=0, method="relative_magnitude", m_grid=[0.0])
+    lo, hi = float(rm["ci_lower"].iloc[0]), float(rm["ci_upper"].iloc[0])
+    # Mbar = 0 imposes exact parallel trends after treatment: about the
+    # conventional interval, never a NaN or a sliver.
+    assert np.isfinite(lo) and np.isfinite(hi) and lo < est < hi
+    assert 0.8 < (hi - lo) / (2 * 1.959964 * se) < 1.2
+    assert (sd["ci_upper"] - sd["ci_lower"]).min() > 0.5 * 2 * 1.959964 * se

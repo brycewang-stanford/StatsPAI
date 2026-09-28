@@ -18112,9 +18112,19 @@ def _build_registry() -> None:
                     ["auto", "wald", "f"],
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "window",
+                    "tuple",
+                    False,
+                    None,
+                    "Inclusive (lo, hi) event-time window of leads to test, "
+                    "e.g. (-5, -2) as Stata estat event, window(-5 5) "
+                    "pretrend; uses the sub-block of the joint covariance. "
+                    "None tests every estimated lead.",
+                ),
             ],
             returns="dict with statistic / pvalue / pre_periods",
-            example="sp.pretrends_test(es_result)",
+            example="sp.pretrends_test(es_result, window=(-5, -2))",
             tags=["did", "pretrends", "parallel-trends", "diagnostic", "causal"],
             reference=(
                 "Roth (2022) AER P&P [@roth2022pretest]; Borusyak, Jaravel "

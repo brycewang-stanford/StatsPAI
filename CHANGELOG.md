@@ -28,7 +28,26 @@ All notable changes to StatsPAI will be documented in this file.
   (pre-period cells relative to `g - 1`, i.e. event-study leads, as
   `jwdid, never`). The `fe='unit'` cells equal an explicit
   `sp.ppmlhdfe` fit of the same design to 1e-8
-  (`tests/test_etwfe_nonlinear.py`).
+  (`tests/test_etwfe_nonlinear.py`). The clustered small-sample factor
+  under `fe='unit'` is `G/(G-1)`, `ppmlhdfe`'s convention; on the
+  replication panel every link-scale estimate and SE (21 regressions,
+  group / calendar / event aggregates, `never` leads, a 26-cluster city
+  panel, `exovar`-style `controls`, re-timed cohorts, dropped years)
+  matches `jwdid` to 7 significant digits. Response-scale SEs follow the
+  profiled delta method and differ from `jwdid`'s `margins`, which holds
+  the absorbed effects fixed and differentiates through `ppmlhdfe`'s
+  `_cons` normalisation (0.0262 vs 0.0318 there; point estimates agree).
+- **Poisson / logit ETWFE event studies carry their joint covariance.**
+  `model_info['event_study_vcov']` is `G V G'` over the event-time
+  aggregates (leads and horizons share one regression), on the fit's
+  scale; `sp.etwfe_emfx` switches table and matrix together. So
+  `sp.event_study_vcov`, `sp.pretrends_test`, `sp.honest_did` and
+  `sp.uniform_bands` use the full covariance instead of falling back to
+  the diagonal / worst-case approximation.
+- **`sp.pretrends_test(window=(lo, hi))`** tests only the leads inside an
+  inclusive event-time window, taking the sub-block of the joint
+  covariance — Stata `estat event, window(-5 5) pretrend`. The result
+  reports the `pre_periods` tested.
 - **Every result class speaks the agent contract.** `to_dict(detail=
   "minimal"|"standard"|"agent")`, `violations()`, `next_steps()` and
   `result_card()` used to exist only on the `CausalResult` /
@@ -333,6 +352,21 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **Nonlinear ETWFE aggregation after 027813fb (unreleased regression).**
+  That commit counted only non-separated rows in each cell's
+  `n_treated`, which is also every aggregate's weight: the one-call
+  reproduction of the jwdid table fell from 21/21 to 1/21 (link-scale
+  headline off in the third decimal wherever two cohorts overlap) and the
+  response-scale ATT inflated about sixfold (0.0944 to 0.548). Separated
+  rows are treated observations with a marginal effect of exactly zero, so
+  they belong in the denominator; weights are back to all treated rows.
+  Its `event_study_vcov` weighted the cell covariance by `1/(n1 n2)`,
+  shrinking variances by about `1/n^2`, so `sp.honest_did` returned NaN or
+  near-zero-width sets; replaced by `G V G'` (above). `pretrends_test`
+  never reached that matrix and still used the diagonal (chi2 29.9 against
+  jwdid's 52.65); it now does, and the loosened `rtol=1e-3` /
+  `atol=1e-6` diagonal check it added is back to the strict one.
+  Regression tests in `tests/test_etwfe_nonlinear.py` fail on 027813fb.
 - **`scripts/stability_audit.py --check` is green again.** `sp.rd`,
   `sp.route` and `sp.decision_guide` were registered as stable without an
   evidence record; they now cite their unit-contract tests

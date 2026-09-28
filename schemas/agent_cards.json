@@ -42047,7 +42047,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "sp.pretrends_test(es_result)",
+    "example": "sp.pretrends_test(es_result, window=(-5, -2))",
     "failure_modes": [
       {
         "alternative": "",
@@ -42109,6 +42109,13 @@
               "f"
             ],
             "type": "string"
+          },
+          "window": {
+            "description": "Inclusive (lo, hi) event-time window of leads to test, e.g. (-5, -2) as Stata estat event, window(-5 5) pretrend; uses the sub-block of the joint covariance. None tests every estimated lead.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           }
         },
         "required": [

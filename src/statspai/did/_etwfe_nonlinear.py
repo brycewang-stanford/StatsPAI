@@ -30,7 +30,25 @@ calendar):
 Every aggregate is a function of per-cell sums (count, sum of marginal
 effects, sum of their gradients), so the fit is summarised once per cell and
 each aggregation is a small weighted sum; standard errors are the delta
-method through the cluster-robust coefficient covariance.
+method through the cluster-robust coefficient covariance.  The event-time
+aggregates also carry their joint covariance ``G V G'`` (one regression, so
+leads and horizons covary); it is ``model_info['event_study_vcov']``, the
+matrix ``sp.event_study_vcov``, ``sp.pretrends_test`` and ``sp.honest_did``
+consume.
+
+Aggregation weights are the treated observations of each cell, separated
+(all-zero) rows included, as in ``jwdid``: a separated row's fitted mean and
+marginal effect are exactly zero, so it enters the denominator only.
+
+Response-scale SEs under ``fe='unit'`` are a documented convention
+difference from ``jwdid``.  StatsPAI profiles the unit effect (the Poisson
+first-order condition gives ``sum_t mu_it = sum_t y_it``, so ``mu`` moves
+with ``beta`` only through within-unit shares) and differentiates through
+it.  Stata's ``estat`` runs ``margins`` after ``ppmlhdfe``, which holds the
+absorbed effects fixed and differentiates through ``ppmlhdfe``'s ``_cons``
+normalisation instead; on a 44k-unit patent panel that gives 0.0318 against
+StatsPAI's 0.0262 (rebuilt from Stata's ``e(V)`` to 8e-5).  Point estimates
+and every link-scale SE agree.
 """
 
 from __future__ import annotations
@@ -153,6 +171,11 @@ def _fit_poisson_unit_fe(
     that enters the ``G/(G-1)`` factor, which is how ``jwdid`` reports its
     ``ppmlhdfe`` fits (the replication-package tables print the full-sample
     ``N``).
+
+    The small-sample factor is ``G/(G-1)`` alone, Stata ``ppmlhdfe``'s
+    clustered convention (and ``sp.ppmlhdfe``'s): with 26 clusters and 18
+    regressors a ``(N-1)/(N-K)`` term would inflate every SE by 3.5%
+    relative to ``jwdid``.
     """
     from ..regression.count import _ppml_hdfe_irls, _ppml_separation_mask
 
@@ -192,7 +215,7 @@ def _fit_poisson_unit_fe(
         ) from exc
     k = len(live)
     G = int(n_clusters_full)
-    factor = (G / (G - 1.0) if G > 1 else 1.0) * ((n_full - 1.0) / max(n_full - k, 1.0))
+    factor = G / (G - 1.0) if G > 1 else 1.0
     vcov = _cluster_sandwich(
         X_dm * (yk - mu)[:, None], bread_inv, cl_codes[keep], G, factor
     )
@@ -488,17 +511,13 @@ def etwfe_glm(
                     stacklevel=3,
                 )
         # Cells that were omitted drop out of the aggregation weights.
+        # Separated rows stay in ``cell_n``: they are treated observations,
+        # jwdid weights every cell by all of them, and their fitted mean and
+        # marginal effect are exactly zero, so summing ``me`` / ``grad`` over
+        # the kept rows and dividing by the full count is the exact average.
         cell_live = np.array([c >= 0 for c in live_cells])
         cell_n = np.where(cell_live, cell_n, 0.0)
         cells_arr = np.array(live_cells, dtype=int)
-
-        # **CRITICAL FIX**: When fe='unit', cell_n was computed from all observations
-        # (including separated ones), but me_sum and grad_sum are computed only from
-        # kept (non-separated) observations. This caused the response-scale SE to be
-        # underestimated (denominator too large). Recompute cell_n from kept rows only.
-        cell_n_kept = np.bincount(cell_k[cell_k >= 0], minlength=n_cells).astype(float)
-        # For omitted cells (cell_live=False), set to 0; otherwise use kept count
-        cell_n = np.where(cell_live, cell_n_kept, 0.0)
 
     K = len(beta)
     # Per-cell summaries: the response-scale aggregates only need these.
@@ -520,11 +539,13 @@ def etwfe_glm(
 
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
 
-    def _agg(sel: np.ndarray, sc: str) -> Tuple[float, float, int]:
+    def _agg(sel: np.ndarray, sc: str) -> Tuple[float, float, int, np.ndarray]:
+        """Aggregate over the cells in ``sel``; the gradient is returned so
+        joint covariances of several aggregates are ``G V G'``."""
         sel = sel & (cell_n > 0)
         n_sel = float(cell_n[sel].sum())
         if n_sel <= 0:
-            return np.nan, np.nan, 0
+            return np.nan, np.nan, 0, np.zeros(K)
         if sc == "response":
             est = float(me_sum[sel].sum() / n_sel)
             grad = grad_sum[sel].sum(axis=0) / n_sel
@@ -534,7 +555,7 @@ def etwfe_glm(
             grad = np.zeros(K)
             np.add.at(grad, cells_arr[sel], w)
         var = float(grad @ vcov @ grad)
-        return est, float(np.sqrt(max(var, 0.0))), int(n_sel)
+        return est, float(np.sqrt(max(var, 0.0))), int(n_sel), grad
 
     g_arr = np.array([c[0] for c in interaction_cell], dtype=float)
     t_arr = np.array([c[1] for c in interaction_cell], dtype=float)
@@ -556,27 +577,36 @@ def etwfe_glm(
     aggregations: Dict[str, Dict[str, Any]] = {}
     for sc in _SCALES:
         simple = _agg(post_arr, sc)
-        ev_rows = []
+        ev_rows, ev_times, ev_grads = [], [], []
         for e_val in sorted(set(e_arr.tolist())):
-            est, se, n = _agg(e_arr == e_val, sc)
+            est, se, n, grad = _agg(e_arr == e_val, sc)
             if n:
                 ev_rows.append(_row("relative_time", int(e_val), est, se, n))
+                ev_times.append(int(e_val))
+                ev_grads.append(grad)
         ev = pd.DataFrame(ev_rows)
         if not ev.empty:
             ev["post"] = ev["relative_time"] >= 0
+        # Joint covariance of the event-time aggregates.  Leads and horizons
+        # are cells of one regression, so the matrix is joint (not block
+        # diagonal) and its diagonal is exactly the table's se**2 --
+        # sp.event_study_vcov / pretrends_test / honest_did read it.
+        Gm = np.asarray(ev_grads, dtype=float).reshape(len(ev_times), K)
+        ev_vcov = pd.DataFrame(Gm @ vcov @ Gm.T, index=ev_times, columns=ev_times)
         grp_rows = []
         for g_val in cohorts:
-            est, se, n = _agg(post_arr & (g_arr == g_val), sc)
+            est, se, n, _ = _agg(post_arr & (g_arr == g_val), sc)
             if n:
                 grp_rows.append(_row("cohort", int(g_val), est, se, n))
         cal_rows = []
         for t_val in sorted(set(t_arr[post_arr].tolist())):
-            est, se, n = _agg(post_arr & (t_arr == t_val), sc)
+            est, se, n, _ = _agg(post_arr & (t_arr == t_val), sc)
             if n:
                 cal_rows.append(_row("period", int(t_val), est, se, n))
         aggregations[sc] = {
             "simple": {"att": simple[0], "se": simple[1], "n_treated": simple[2]},
             "event": ev,
+            "event_vcov": ev_vcov,
             "group": pd.DataFrame(grp_rows),
             "calendar": pd.DataFrame(cal_rows),
         }
@@ -593,65 +623,6 @@ def etwfe_glm(
             "ame": np.where(cell_n > 0, me_sum / np.maximum(cell_n, 1), np.nan),
         }
     )
-
-    # Build event-study covariance matrix for use by pretrends_test/honest_did
-    # The cell coefficients' covariance is a submatrix of vcov indexed by
-    # the live cell positions (for fe='unit' with separated observations).
-    event_times = sorted(set(e_arr[cell_n > 0].astype(int).tolist()))
-    if event_times and K > 0:
-        # Identify which cells correspond to each event time
-        event_vcov_map = {}  # event_time -> list of (cell_idx, coef_idx)
-        for i, (coh, period) in enumerate(interaction_cell):
-            if (
-                cell_n[i] > 0 and cells_arr[i] >= 0
-            ):  # cell has observations and coef was estimated
-                e = int(t_arr[i] - g_arr[i])
-                if e not in event_vcov_map:
-                    event_vcov_map[e] = []
-                event_vcov_map[e].append((i, cells_arr[i]))
-
-        if event_vcov_map:
-            # For each event time, aggregate the covariance of its cell coefficients
-            # using the same delta-method aggregation as the point estimates
-            event_vcov_df = pd.DataFrame(
-                index=event_times, columns=event_times, dtype=float
-            )
-            for e1 in event_times:
-                for e2 in event_times:
-                    if e1 in event_vcov_map and e2 in event_vcov_map:
-                        # Covariance between aggregates at e1 and e2
-                        cov = 0.0
-                        for i1, c1 in event_vcov_map[e1]:
-                            n1 = cell_n[i1]
-                            for i2, c2 in event_vcov_map[e2]:
-                                n2 = cell_n[i2]
-                                if c1 >= 0 and c2 >= 0 and c1 < K and c2 < K:
-                                    # Weight by cell sizes and scale to per-treated-obs
-                                    w = 1.0 / (n1 * n2) if n1 > 0 and n2 > 0 else 0.0
-                                    cov += w * vcov[c1, c2]
-                        event_vcov_df.loc[e1, e2] = cov
-
-            event_vcov_df = pd.DataFrame(
-                event_vcov_df.astype(float).values,
-                index=event_times,
-                columns=event_times,
-            )
-            # Mark as block diagonal if pre and post periods are from separate regressions
-            has_pre = any(e < 0 for e in event_times)
-            has_post = any(e >= 0 for e in event_times)
-            if has_pre and has_post and cg == "nevertreated":
-                # With never-treated, leads may be from separate auxiliary regression
-                # Check if the off-diagonal cross terms are near-zero (separate estimation)
-                max_cross = 0.0
-                for e1 in event_times:
-                    if e1 < 0:
-                        for e2 in event_times:
-                            if e2 >= 0:
-                                max_cross = max(
-                                    max_cross, abs(event_vcov_df.loc[e1, e2])
-                                )
-                if max_cross < 1e-10:
-                    event_vcov_df.attrs["block_diagonal"] = True
 
     head = aggregations[scale]
     att, se_att = head["simple"]["att"], head["simple"]["se"]
@@ -694,12 +665,7 @@ def etwfe_glm(
             "fe": fe_mode,
             "scale": scale,
             "event_study": event_study,
-            "event_study_vcov": (
-                event_vcov_df
-                if "event_vcov_df" in locals()
-                and isinstance(event_vcov_df, pd.DataFrame)
-                else None
-            ),
+            "event_study_vcov": head["event_vcov"],
             "calendar": (
                 calendar_tbl[["period", "att", "se", "n_treated"]].copy()
                 if not calendar_tbl.empty
@@ -744,6 +710,11 @@ def etwfe_glm_emfx(
     period with its own delta-method SE; the headline ``estimate`` is the
     unweighted mean of those rows and ``se`` the overall ATT's SE (the rows
     share coefficients, so averaging their SEs would understate).
+
+    ``model_info['event_study']`` and ``model_info['event_study_vcov']`` of
+    the returned result are on the served scale, so ``sp.event_study_vcov``
+    / ``sp.pretrends_test`` / ``sp.honest_did`` applied to it test the
+    scale that was asked for.
     """
     mi = result.model_info or {}
     sc = normalise_scale(scale if scale is not None else mi.get("scale", "response"))
@@ -759,6 +730,15 @@ def etwfe_glm_emfx(
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     simple = agg["simple"]
     se_all = float(simple["se"])
+    ev_full = agg.get("event")
+    scale_mi: Dict[str, Any] = {}
+    if isinstance(ev_full, pd.DataFrame) and not ev_full.empty:
+        scale_mi = {
+            "event_study": ev_full.drop(
+                columns=["ci_lower", "ci_upper"], errors="ignore"
+            ),
+            "event_study_vcov": agg.get("event_vcov"),
+        }
 
     if type == "simple":
         if sc == mi.get("scale", "response") and alpha == result.alpha:
@@ -779,7 +759,7 @@ def etwfe_glm_emfx(
             alpha=alpha,
             n_obs=result.n_obs,
             detail=None,
-            model_info={**mi, "emfx_type": "simple", "emfx_scale": sc},
+            model_info={**mi, **scale_mi, "emfx_type": "simple", "emfx_scale": sc},
             _citation_key="wooldridge2021two",
         )
 
@@ -811,6 +791,7 @@ def etwfe_glm_emfx(
         detail=frame.reset_index(drop=True),
         model_info={
             **mi,
+            **scale_mi,
             "emfx_type": type,
             "emfx_label": label,
             "emfx_scale": sc,

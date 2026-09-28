@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -317,12 +317,7 @@ def _pre_vcv(
         vcv = result.model_info.get("vcv_pre", None)
         withheld = bool(result.model_info.get("vcv_pre_withheld", False))
     if vcv is None and pre_times is not None and not withheld:
-        # Try strict matching first (for linear models with exact SE agreement)
-        joint = _joint_pre_block(result, pre_times, se_pre, strict=True)
-        if joint is not None:
-            return joint
-        # Fall back to lenient matching (for nonlinear models like Poisson)
-        joint = _joint_pre_block(result, pre_times, se_pre, strict=False)
+        joint = _joint_pre_block(result, pre_times, se_pre)
         if joint is not None:
             return joint
     if vcv is None:
@@ -375,7 +370,7 @@ def _pre_vcv(
 
 
 def _joint_pre_block(
-    result: Any, pre_times: np.ndarray, se_pre: np.ndarray, strict: bool = False
+    result: Any, pre_times: np.ndarray, se_pre: np.ndarray
 ) -> Optional[np.ndarray]:
     """Pre-period block of the estimator's joint event-study covariance.
 
@@ -384,13 +379,9 @@ def _joint_pre_block(
     :func:`event_study_vcov`. Returns ``None`` (so the caller takes its
     loud diagonal fallback) when there is none, when it misses a pre-period,
     or when its diagonal does not reproduce the table's standard errors.
-
-    Parameters
-    ----------
-    strict : bool, default False
-        If True, strictly match the reported standard errors to the matrix
-        diagonal (rtol=1e-6). If False, use a more lenient tolerance for
-        nonlinear models where SE computation may differ slightly.
+    The diagonal check is strict on purpose: a matrix that only roughly
+    matches the table belongs to some other quantity, and testing with it
+    would be silently wrong.
     """
     from .es_inference import event_study_vcov
 
@@ -406,10 +397,8 @@ def _joint_pre_block(
     block = np.asarray(evc.vcov, dtype=float)[np.ix_(idx, idx)]
     if not np.all(np.isfinite(block)):
         return None
-    # Nonlinear models (Poisson, logit) may have slightly different SE via delta method
-    tol = 1e-6 if strict else 1e-3
     if not np.allclose(
-        np.sqrt(np.clip(np.diag(block), 0.0, None)), se_pre, rtol=tol, atol=1e-6
+        np.sqrt(np.clip(np.diag(block), 0.0, None)), se_pre, rtol=1e-6, atol=0.0
     ):
         return None
     return block
@@ -442,10 +431,39 @@ def _default_test_type(result: Any) -> str:
     return "wald"
 
 
+def _window_mask(window: Any, times: np.ndarray, context: str) -> np.ndarray:
+    """Boolean mask of ``times`` inside the inclusive ``(lo, hi)`` window."""
+    try:
+        lo, hi = (float(v) for v in window)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"{context}: window must be a (lo, hi) pair of event times.",
+            recovery_hint="e.g. window=(-5, -2) tests the leads -5 ... -2.",
+            diagnostics={"context": context, "window": repr(window)},
+        ) from exc
+    if not (np.isfinite(lo) and np.isfinite(hi)) or lo > hi:
+        raise MethodIncompatibility(
+            f"{context}: window must satisfy lo <= hi, got {window!r}.",
+            recovery_hint="e.g. window=(-5, -2).",
+            diagnostics={"context": context, "window": repr(window)},
+        )
+    mask = (times >= lo) & (times <= hi)
+    if not mask.any():
+        raise DataInsufficient(
+            f"{context}: no estimated pre-treatment period falls inside "
+            f"window={window!r}.",
+            recovery_hint="Widen the window; available pre-periods are "
+            f"{sorted(int(t) for t in times)}.",
+            diagnostics={"context": context, "window": repr(window)},
+        )
+    return mask
+
+
 def pretrends_test(
     result: Any,
     type: str = "auto",
     alpha: float = 0.05,
+    window: Optional[Tuple[float, float]] = None,
 ) -> Dict[str, Any]:
     """Joint test of pre-treatment coefficients.
 
@@ -473,12 +491,21 @@ def pretrends_test(
         ``model_info['pretrend_test']``.
     alpha : float, default 0.05
         Significance level.
+    window : tuple of (lo, hi), optional
+        Test only the pre-treatment periods with ``lo <= relative time <=
+        hi`` (inclusive), e.g. ``(-5, -2)`` for Stata ``estat event,
+        window(-5 5) pretrend``.  The sub-block of the full pre-period
+        covariance is used, so the test is the same Wald statistic a
+        refit on the window would give when the leads share one
+        regression.  ``None`` (default) tests every estimated
+        pre-treatment period.
 
     Returns
     -------
     dict
         Keys: ``statistic``, ``pvalue``, ``df``, ``type``,
-        ``reject``, ``interpretation``.
+        ``reject``, ``interpretation``, ``pre_periods`` (the event
+        times tested).
 
     References
     ----------
@@ -524,6 +551,12 @@ def pretrends_test(
     # Build variance-covariance matrix (diagonal if full VCV unavailable)
     pre_times = pre[time_col].to_numpy(dtype=float)[estimated]
     vcv = _pre_vcv(result, se_pre, estimated, K_all, K, context, pre_times)
+    if window is not None:
+        in_win = _window_mask(window, pre_times, context)
+        beta_pre = beta_pre[in_win]
+        vcv = vcv[np.ix_(in_win, in_win)]
+        pre_times = pre_times[in_win]
+        K = int(in_win.sum())
     vcv_inv = _invert_vcv(vcv, context, "pre-trend test")
     wald_stat = float(beta_pre @ vcv_inv @ beta_pre)
 
@@ -579,6 +612,9 @@ def pretrends_test(
         "reject": reject,
         "alpha": alpha,
         "interpretation": interpretation,
+        "pre_periods": [
+            int(t) if float(t).is_integer() else float(t) for t in pre_times
+        ],
     }
 
 
