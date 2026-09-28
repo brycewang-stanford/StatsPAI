@@ -33,7 +33,7 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **No external software reference** | analytical-only (T1) | 147 |
 | | external-replication (published numbers) | 2 |
 | | **subtotal** | **149** |
-| No numerical evidence yet | unverified | 694 |
+| No numerical evidence yet | unverified | 695 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 416 | 562 | 811 | 51.3% |
+| estimator callables | 416 | 562 | 812 | 51.2% |
 | infrastructure (parity N/A) | 0 | 1 | 128 | 0.0% |
 | result / exception classes | 0 | 2 | 320 | 0.0% |
-| **all registered** | 416 | 565 | 1259 | 33.0% |
+| **all registered** | 416 | 565 | 1260 | 33.0% |
 
 ### Coverage by estimator family
 
@@ -52,7 +52,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 148 | 224 | 361 |
+| causal | 148 | 224 | 362 |
 | regression | 32 | 36 | 37 |
 | spatial | 28 | 29 | 34 |
 | panel | 27 | 28 | 30 |
@@ -689,6 +689,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `xlearner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `yatchew_linearity_test` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) |
 
-## unverified — 694 functions
+## unverified — 695 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

@@ -110,7 +110,7 @@ REMEDIATIONS: List[Dict[str, Any]] = [
         "fix": (
             "Use sp.liml() instead of ivreg (less bias under weak IVs), "
             "or construct Anderson-Rubin confidence sets with "
-            "sp.weak_iv_ci(result, method='ar').  Alternatively, find "
+            "sp.anderson_rubin_ci(...).  Alternatively, find "
             "a stronger instrument or collect a larger sample."
         ),
     },
@@ -352,7 +352,7 @@ REMEDIATIONS: List[Dict[str, Any]] = [
             "effects.  RE estimates are inconsistent for this panel."
         ),
         "fix": (
-            "Use fixed-effects estimation: sp.fixest(..., fe=['id','time']) "
+            "Use fixed-effects estimation: sp.feols('y ~ x | id + time', data=df) "
             "or sp.panel(method='within').  If FE is infeasible "
             "(time-invariant treatment), consider Mundlak's device."
         ),

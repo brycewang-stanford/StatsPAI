@@ -228,7 +228,42 @@ def _require_int_at_least(value: Any, *, argument: str, minimum: int) -> int:
     return out
 
 
-@accepts_aliases(_strict=True, unit="id", controls="covariates")
+def _indicator_to_cohort(
+    data: pd.DataFrame, *, treat: str, id: str, time: str
+) -> pd.Series:
+    """Map a 0/1 treatment indicator to the first-treatment-period cohort.
+
+    Never-treated units get 0 (the R ``did`` convention). Raises when the
+    indicator is not absorbing (a unit switches back to 0), because then
+    no single first-treatment period exists and the user has to say
+    which estimator they mean.
+    """
+    d = data[[id, time, treat]].copy()
+    d[treat] = d[treat].astype(float)
+    first = d[d[treat] == 1].groupby(id)[time].min().rename("_first")
+    merged = d.merge(first, left_on=id, right_index=True, how="left")
+    # Absorbing check: once treated, a unit must stay treated.
+    post = merged["_first"].notna() & (merged[time] >= merged["_first"])
+    if bool(((merged[treat] == 0) & post).any()):
+        raise MethodIncompatibility(
+            f"Treatment indicator {treat!r} switches back to 0 after "
+            "treatment, so no first-treatment period can be derived for "
+            "the staggered estimator.",
+            recovery_hint=(
+                "Pass a first-treatment-period (cohort) column as treat=, or "
+                "use method='2x2' / sp.event_study for non-absorbing "
+                "treatment."
+            ),
+            diagnostics={"treat": treat},
+        )
+    cohort = merged["_first"].fillna(0)
+    cohort.index = data.index
+    return cohort
+
+
+@accepts_aliases(
+    _strict=True, unit="id", controls="covariates", outcome="y", treatment="treat"
+)
 def did(
     data: pd.DataFrame,
     y: str,
@@ -531,6 +566,22 @@ def did(
     if method == "auto":
         if id is not None:
             method = "callaway_santanna"
+            treat_vals = set(data[treat].dropna().unique())
+            if treat_vals <= {0, 1, True, False}:
+                # ``treat`` is documented as "indicator OR first-treatment
+                # period", but Callaway-Sant'Anna needs the cohort coding.
+                # A 0/1 column that switches *within* unit is a treatment
+                # indicator; derive the cohort (first period with treat==1,
+                # 0 = never treated) instead of failing with "no cohorts".
+                # A 0/1 column that is constant within unit is already a
+                # cohort column (period 1) or a time-invariant group flag,
+                # and is left alone.
+                within = data.groupby(id)[treat].nunique(dropna=True)
+                if (within > 1).any():
+                    derived = _indicator_to_cohort(data, treat=treat, id=id, time=time)
+                    data = data.copy()
+                    data["_statspai_cohort"] = derived
+                    treat = "_statspai_cohort"
         else:
             treat_vals = set(data[treat].dropna().unique())
             if treat_vals <= {0, 1, True, False}:

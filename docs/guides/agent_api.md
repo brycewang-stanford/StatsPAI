@@ -301,9 +301,16 @@ statspai-mcp     # speaks JSON-RPC 2.0 over stdio
 
 What the server exposes:
 
-- **`tools/list`** — every registered StatsPAI function as a typed
-  tool with a JSON-Schema input. ~100 tools merged from the
-  hand-curated flagship list and the auto-generated registry.
+- **`tools/list`** — typed tools with JSON-Schema inputs. The shape
+  depends on the profile: `statspai-mcp --profile curated` (the CLI
+  default) lists the ~35 hand-curated estimator / workflow / pipeline
+  tools plus three discovery meta-tools — `search_functions`,
+  `describe_function`, `call_function` — through which every one of the
+  ~1,250 registered functions stays reachable; `--profile core` trims
+  that to ~20; `--profile full` advertises every auto-generated tool
+  (~580 entries, ~2 MB — larger than most client context windows, so
+  only for clients that page or defer tool loading). `tools/call`
+  accepts any tool name under every profile.
 - **`tools/call`** — runs the estimator. Accepts `data_path` (CSV,
   Parquet, etc. — server-side `pd.read_*`) plus the estimator's
   own kwargs plus the `detail` parameter to control payload size.
@@ -313,9 +320,10 @@ What the server exposes:
   per-function rich agent card (description, signature,
   assumptions, failure_modes, alternatives, `typical_n_min`,
   example).
-- **`prompts/list` / `prompts/get`** — three curated workflow
-  templates (`audit_did_result`, `design_then_estimate`,
-  `robustness_followup`) MCP clients surface as direct action buttons.
+- **`prompts/list` / `prompts/get`** — curated workflow templates
+  (`audit_did_result`, `design_then_estimate`, `robustness_followup`,
+  `stata_command_workflow`, `r_command_workflow`, …) MCP clients
+  surface as direct action buttons.
 
 When an estimator raises a structured `StatsPAIError`, the
 `tools/call` response carries the full payload alongside legacy

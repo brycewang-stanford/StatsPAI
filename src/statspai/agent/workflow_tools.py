@@ -472,6 +472,101 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
             "required": ["estimand"],
         },
     },
+    # ------------------------------------------------------------------
+    # Discovery meta-tools. These are what make the curated MCP profile
+    # usable: a client that sees only ~40 tools can still reach every
+    # registered function by searching, reading the schema, and calling
+    # it by name — the same discover -> describe -> call loop that
+    # ``sp.search_functions`` / ``sp.describe_function`` give in Python.
+    # ------------------------------------------------------------------
+    {
+        "name": "search_functions",
+        "description": (
+            "Search the StatsPAI function registry by task keywords or a "
+            "short natural-language phrase (e.g. 'staggered adoption "
+            "event study', 'weak instrument robust CI', 'regression "
+            "discontinuity density test'). Returns ranked matches with "
+            "one-line descriptions, category and validation tier. Use "
+            "this first when no listed tool fits; then call "
+            "describe_function for the full parameter schema and "
+            "call_function to run it."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Keywords or a short task description.",
+                },
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "default": 10,
+                    "description": "Maximum number of matches to return.",
+                },
+                "category": {
+                    "type": "string",
+                    "description": (
+                        "Optional registry category filter (e.g. 'causal', "
+                        "'panel', 'regression', 'diagnostics')."
+                    ),
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "describe_function",
+        "description": (
+            "Full machine-readable metadata for one registered StatsPAI "
+            "function: JSON-Schema parameters (types, defaults, enums), "
+            "assumptions, pre-conditions, failure modes, alternatives, "
+            "validation tier and evidence notes, plus the accepted "
+            "keyword aliases. Read this before calling a function that "
+            "is not in the listed tools."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Registered function name (sp.<name>).",
+                },
+            },
+            "required": ["name"],
+        },
+    },
+    {
+        "name": "call_function",
+        "description": (
+            "Run ANY registered StatsPAI function by name with keyword "
+            "arguments — the escape hatch for the ~1,200 functions that "
+            "are not individually listed as tools. `arguments` follows "
+            "the parameter schema from describe_function; column names "
+            "refer to the file loaded via data_path. Unknown arguments "
+            "are reported under `_unsupported_args`, never silently "
+            "dropped. Supports as_handle / result_id chaining like every "
+            "other tool."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "function": {
+                    "type": "string",
+                    "description": "Registered function name (sp.<name>).",
+                },
+                "arguments": {
+                    "type": "object",
+                    "description": (
+                        "Keyword arguments for the function (JSON object)."
+                    ),
+                    "additionalProperties": True,
+                },
+            },
+            "required": ["function"],
+        },
+    },
 ]
 
 
@@ -521,6 +616,21 @@ def execute_workflow_tool(
 
     if name == "bibtex":
         return _tool_bibtex(arguments)
+
+    if name == "search_functions":
+        return _tool_search_functions(arguments)
+
+    if name == "describe_function":
+        return _tool_describe_function(arguments)
+
+    if name == "call_function":
+        return _tool_call_function(
+            arguments,
+            data=data,
+            detail=detail,
+            result_id=rid_arg,
+            as_handle=as_handle,
+        )
 
     if name == "plot_from_result":
         return _tool_plot_from_result(rid_arg, arguments)
@@ -1593,6 +1703,111 @@ def _load_bibtex_index() -> Dict[str, str]:
 
     _BIBTEX_CACHE = entries
     return _BIBTEX_CACHE
+
+
+def _tool_search_functions(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    """``search_functions`` meta-tool: ranked registry search."""
+    from ..registry import search_functions
+
+    query = arguments.get("query")
+    if not isinstance(query, str) or not query.strip():
+        return {
+            "error": "`query` is required (keywords or a short task phrase).",
+            "example": {"query": "staggered adoption event study"},
+        }
+    limit = arguments.get("limit", 10)
+    try:
+        limit = max(1, min(int(limit), 50))
+    except (TypeError, ValueError):
+        limit = 10
+    category = arguments.get("category")
+    hits = search_functions(query)
+    if isinstance(category, str) and category.strip():
+        cat = category.strip().lower()
+        hits = [h for h in hits if str(h.get("category", "")).lower() == cat]
+    return {
+        "query": query,
+        "n_matches": len(hits),
+        "matches": hits[:limit],
+        "next_step": (
+            "describe_function(name=<match>) for the parameter schema, "
+            "then call_function(function=<match>, arguments={...})."
+        ),
+    }
+
+
+def _tool_describe_function(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    """``describe_function`` meta-tool: full registry metadata + schema."""
+    from ..registry import _REGISTRY, _ensure_full_registry, describe_function
+    from ..registry import function_schema as _function_schema
+
+    name = arguments.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return {"error": "`name` is required (a registered function name)."}
+    name = name.strip()
+    if name.startswith("sp."):
+        name = name[3:]
+    _ensure_full_registry()
+    if name not in _REGISTRY:
+        from difflib import get_close_matches
+
+        return {
+            "error": f"Unknown function: {name!r}.",
+            "did_you_mean": get_close_matches(name, sorted(_REGISTRY), n=5, cutoff=0.6),
+            "hint": "Use search_functions to find the right name.",
+        }
+    out: Dict[str, Any] = dict(describe_function(name))
+    try:
+        out["schema"] = _function_schema(name)
+    except Exception as e:  # pragma: no cover - defensive
+        out["schema_error"] = f"{type(e).__name__}: {e}"
+    out["call_with"] = {
+        "tool": "call_function",
+        "arguments": {"function": name, "arguments": {"<param>": "<value>"}},
+    }
+    return out
+
+
+def _tool_call_function(
+    arguments: Dict[str, Any],
+    *,
+    data: Optional[pd.DataFrame],
+    detail: str,
+    result_id: Optional[str],
+    as_handle: bool,
+) -> Dict[str, Any]:
+    """``call_function`` meta-tool: dispatch any registered function."""
+    fn_name = arguments.get("function")
+    if not isinstance(fn_name, str) or not fn_name.strip():
+        return {
+            "error": "`function` is required (a registered function name).",
+            "example": {
+                "function": "callaway_santanna",
+                "arguments": {"y": "y", "g": "g", "t": "t", "i": "id"},
+            },
+        }
+    fn_name = fn_name.strip()
+    if fn_name.startswith("sp."):
+        fn_name = fn_name[3:]
+    if fn_name == "call_function":
+        return {"error": "call_function cannot call itself."}
+    inner = arguments.get("arguments") or {}
+    if not isinstance(inner, dict):
+        return {"error": "`arguments` must be a JSON object of keyword arguments."}
+    from .tools import execute_tool
+
+    out = execute_tool(
+        fn_name,
+        dict(inner),
+        data=data,
+        detail=detail,
+        result_id=result_id,
+        as_handle=as_handle,
+    )
+    if isinstance(out, dict):
+        out.setdefault("tool", fn_name)
+        out["called_via"] = "call_function"
+    return out
 
 
 def _tool_bibtex(arguments: Dict[str, Any]) -> Dict[str, Any]:

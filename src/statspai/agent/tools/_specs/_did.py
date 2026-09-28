@@ -12,10 +12,11 @@ SPECS: List[Dict[str, Any]] = [
     {
         "name": "did",
         "description": (
-            "Fit a classic 2-period 2-group difference-in-differences. "
-            "Pass treatment / time / post column names. "
-            "For staggered adoption across many cohorts use "
-            "callaway_santanna instead."
+            "Difference-in-differences dispatcher. 2x2 (two periods, "
+            "0/1 treat) when id is omitted; with id, a 0/1 indicator on a "
+            "multi-period panel is converted to first-treatment cohorts "
+            "and Callaway-Sant'Anna runs (method='auto'). Pass method= "
+            "to force '2x2', 'cs', 'sa', 'bjs', 'sdid' or 'ddd'."
         ),
         "input_schema": {
             "type": "object",
@@ -23,12 +24,53 @@ SPECS: List[Dict[str, Any]] = [
                 "y": {"type": "string", "description": "Outcome column"},
                 "treat": {
                     "type": "string",
-                    "description": "Binary treatment-group indicator",
+                    "description": (
+                        "Binary treatment indicator (0/1) or first-treatment "
+                        "period column (0 = never treated)"
+                    ),
                 },
-                "time": {"type": "string", "description": "Time column"},
-                "post": {
+                "time": {"type": "string", "description": "Time period column"},
+                "id": {
                     "type": "string",
-                    "description": "Binary post-treatment period indicator",
+                    "description": (
+                        "Unit identifier; required for staggered designs "
+                        "(method='cs'/'sa'/'bjs') and SDID"
+                    ),
+                },
+                "method": {
+                    "type": "string",
+                    "enum": [
+                        "auto",
+                        "2x2",
+                        "ddd",
+                        "cs",
+                        "callaway_santanna",
+                        "sa",
+                        "sun_abraham",
+                        "bjs",
+                        "sdid",
+                        "staggered_rollout",
+                    ],
+                    "default": "auto",
+                    "description": "Estimator (see sp.describe_function('did')).",
+                },
+                "covariates": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional control columns",
+                },
+                "cluster": {
+                    "type": "string",
+                    "description": "Cluster column for cluster-robust SEs",
+                },
+                "subgroup": {
+                    "type": "string",
+                    "description": "Affected-subgroup column (method='ddd' only)",
+                },
+                "aggregation": {
+                    "type": "string",
+                    "enum": ["simple", "dynamic", "group", "calendar"],
+                    "description": "Callaway-Sant'Anna aggregation of ATT(g,t)",
                 },
             },
             "required": ["y", "treat", "time"],

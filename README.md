@@ -97,7 +97,7 @@ to a published design (`source == "simulated"`), including the
 Callaway–Sant'Anna `mpdta` panel used below; their numbers are not the numbers
 from the original data.
 
-At a glance: 1,259 registered functions across 87 submodules; 405k LOC (core) + 260k LOC (tests). Run `python scripts/registry_stats.py` to reproduce these numbers.
+At a glance: 1,260 registered functions across 87 submodules; 405k LOC (core) + 260k LOC (tests). Run `python scripts/registry_stats.py` to reproduce these numbers.
 
 ---
 
@@ -679,11 +679,16 @@ sp.stata("regress y x, vce(cluster id)", data=df)   # translate and run
 `statspai search "synthetic control"`.
 
 **Over MCP** — the package installs a `statspai-mcp` stdio server (pure Python,
-no extra dependencies). It exposes several hundred estimators and diagnostics as
-tools, plus workflow prompts (for example `audit_did_result`,
-`stata_command_workflow`) and resources such as `statspai://catalog`. Tools take
-a `data_path` (CSV, Stata `.dta`, and other formats pandas can read) and return
-structured JSON with data provenance. For Claude Code:
+no extra dependencies). By default it lists the hand-curated estimators,
+workflow and pipeline tools plus three discovery meta-tools
+(`search_functions` → `describe_function` → `call_function`) that reach every
+registered function; `statspai-mcp --profile full` advertises all ~580
+auto-generated tools for clients that page their tool list. It also ships
+workflow prompts (for example `audit_did_result`, `stata_command_workflow`)
+and resources such as `statspai://catalog`. Tools take a `data_path` (CSV,
+Stata `.dta`, and other formats pandas can read) and return structured JSON
+with data provenance, captured runtime warnings and any unsupported
+arguments. For Claude Code:
 
 ```bash
 claude mcp add statspai -- statspai-mcp

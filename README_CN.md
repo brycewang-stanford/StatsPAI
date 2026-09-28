@@ -63,7 +63,7 @@ print(sp.datasets.list_datasets()[["name", "design", "source"]])
 
 StatsPAI 内置 14 个可离线加载的数据集。大部分是真实的已发表数据（`source == "bundled CSV"`）：Card (1995) NLSYM 教育回报数据、带 PSID 对照组的 LaLonde/NSW、R `rdrobust` 附带的美国参议院 RD 数据、California Proposition 99、castle-doctrine 面板、NHEFS 等。少数是按已发表设计校准的**确定性模拟复刻**（`source == "simulated"`），包括下面用到的 Callaway–Sant'Anna `mpdta` 面板——它们的数字不是原始数据上的数字。
 
-一眼概览：1,259 个注册函数，分布在 87 个子模块；405k 行核心代码 + 260k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
+一眼概览：1,260 个注册函数，分布在 87 个子模块；405k 行核心代码 + 260k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
 
 ---
 
@@ -541,7 +541,7 @@ sp.stata("regress y x, vce(cluster id)", data=df)   # 翻译并运行
 
 **在命令行里**——`statspai list`、`statspai describe rdrobust`、`statspai search "synthetic control"`。
 
-**通过 MCP**——安装包时会附带 `statspai-mcp` stdio 服务（纯 Python，无额外依赖）。它把数百个估计器和诊断工具暴露为 tools，另有工作流 prompts（例如 `audit_did_result`、`stata_command_workflow`）和 `statspai://catalog` 等 resources。工具接收 `data_path`（CSV、Stata `.dta` 以及 pandas 能读取的其他格式），返回带数据来源信息的结构化 JSON。Claude Code 中：
+**通过 MCP**——安装包时会附带 `statspai-mcp` stdio 服务（纯 Python，无额外依赖）。默认列出手工整理的估计器、工作流与流水线工具，外加三个发现类元工具（`search_functions` → `describe_function` → `call_function`），通过它们可以调用全部已注册函数；`statspai-mcp --profile full` 则把约 580 个自动生成的工具全部列出（约 2 MB，仅适合会分页加载工具的客户端）。另有工作流 prompts（例如 `audit_did_result`、`stata_command_workflow`）和 `statspai://catalog` 等 resources。工具接收 `data_path`（CSV、Stata `.dta` 以及 pandas 能读取的其他格式），返回带数据来源信息、运行期警告和未被接受参数清单的结构化 JSON。Claude Code 中：
 
 ```bash
 claude mcp add statspai -- statspai-mcp

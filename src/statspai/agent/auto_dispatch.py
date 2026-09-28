@@ -24,22 +24,38 @@ from typing import Any, Dict, Optional
 import pandas as pd
 
 
-def _allowed_kwargs(name: str) -> Optional[set]:
-    """Return the names of kwargs the registry knows about for ``name``.
+def _allowed_kwargs(name: str, fn: Any = None) -> Optional[set]:
+    """Return the keyword names ``sp.<name>`` can bind.
 
-    ``None`` means the registry has no entry — caller falls back to
-    forwarding all arguments verbatim.
+    The union of the registry ``ParamSpec`` names, the live signature
+    (hand-written registry entries can lag the signature — ``did`` lists
+    8 of its ~28 parameters) and any ``@accepts_aliases`` spellings.
+    ``None`` means "forward everything": the function takes ``**kwargs``
+    or nothing about it could be introspected.
     """
+    import inspect
+
+    names: set = set()
+    if fn is not None:
+        try:
+            params = inspect.signature(fn).parameters
+        except (TypeError, ValueError):
+            params = None
+        if params is not None:
+            if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
+                return None
+            names.update(params)
+        names.update(getattr(fn, "__statspai_aliases__", {}) or {})
     try:
         from ..registry import _REGISTRY, _ensure_full_registry
 
         _ensure_full_registry()
         spec = _REGISTRY.get(name)
-        if spec is None:
-            return None
-        return {p.name for p in (spec.params or [])}
+        if spec is not None:
+            names.update(p.name for p in (spec.params or []))
     except Exception:
-        return None
+        pass
+    return names or None
 
 
 def dispatch_registry_tool(
@@ -65,12 +81,17 @@ def dispatch_registry_tool(
     if fn is None or not callable(fn):
         raise KeyError(name)
 
-    allowed = _allowed_kwargs(name)
+    allowed = _allowed_kwargs(name, fn)
     kwargs = dict(arguments)
+    unsupported: list = []
     if allowed is not None:
-        # Drop unknown kwargs — the LLM occasionally invents arguments
-        # that look plausible but the estimator rejects. Better to log
-        # and proceed than to crash a chained workflow on a typo.
+        # Unknown kwargs are dropped so a typo does not crash a chained
+        # workflow — but NEVER silently: the dropped names ride along
+        # under ``_unsupported_args`` (mirroring the curated path) so the
+        # agent can see that, e.g., a misspelt ``cluster=`` never reached
+        # the estimator and the standard errors are not the ones it asked
+        # for (CLAUDE.md §3.7).
+        unsupported = sorted(k for k in kwargs if k not in allowed)
         kwargs = {k: v for k, v in kwargs.items() if k in allowed}
 
     if data is not None and "data" not in kwargs:
@@ -92,6 +113,8 @@ def dispatch_registry_tool(
             },
             "remediation": _remediate(e, context={"tool": name}),
         }
+        if unsupported:
+            envelope["_unsupported_args"] = unsupported
         if isinstance(e, StatsPAIError):
             try:
                 envelope["error_kind"] = e.code
@@ -116,6 +139,13 @@ def dispatch_registry_tool(
 
     if not isinstance(out, dict):
         out = {"value": out}
+    if unsupported:
+        out["_unsupported_args"] = unsupported
+        out.setdefault(
+            "_unsupported_args_note",
+            "These arguments are not accepted by the estimator and were NOT "
+            "applied; check describe_function for the accepted names.",
+        )
 
     rid: Optional[str] = None
     if as_handle:

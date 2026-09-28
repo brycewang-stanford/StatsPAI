@@ -41,7 +41,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | ------------------- | -----: | ----: | ----------------------------: |
 | `did` | 45,426 | 58 | 90 |
 | `synth` | 27,089 | 35 | 55 |
-| `rd` | 20,270 | 31 | 53 |
+| `rd` | 20,281 | 31 | 54 |
 | `regression` | 19,867 | 24 | 39 |
 | `smart` | 16,475 | 21 | 31 |
 | `forest` | 15,811 | 17 | 31 |

@@ -213,13 +213,26 @@ def _filter_jsonable_scalars(d: Dict[str, Any]) -> Dict[str, Any]:
     """Return the subset of ``d`` whose values round-trip as JSON scalars.
 
     Used for ``diagnostics`` payloads where agents want simple key/value
-    pairs — not nested frames.
+    pairs — not nested frames. One level of nesting is kept when the
+    nested dict itself holds scalars: diagnostics such as
+    ``model_info['mccrary'] = {'pvalue': 0.69}`` or
+    ``model_info['pretrend_test'] = {'statistic': ..., 'pvalue': ...}``
+    are the tests an agent needs to see, and dropping them made a test
+    that *ran* indistinguishable from one that never did.
     """
     out: Dict[str, Any] = {}
     for k, v in (d or {}).items():
         j = _to_jsonable(v)
         if isinstance(j, (int, float, str, bool)) or j is None:
             out[str(k)] = j
+        elif isinstance(v, dict) and v:
+            sub: Dict[str, Any] = {}
+            for kk, vv in v.items():
+                jj = _to_jsonable(vv)
+                if isinstance(jj, (int, float, str, bool)) or jj is None:
+                    sub[str(kk)] = jj
+            if sub:
+                out[str(k)] = sub
     return out
 
 
@@ -1267,16 +1280,27 @@ class EconometricResults:
             return base
 
         # agent: + violations + warnings + next_steps + suggested_functions
+        #
+        # A bug inside a diagnostic must not masquerade as a clean bill of
+        # health: an empty ``violations`` list used to mean either "no
+        # violation" or "the violation detector crashed". Failures are
+        # now recorded under ``degradations`` (and warned about) so the
+        # agent can tell the two apart (CLAUDE.md §3.7).
+        from ..workflow._degradation import record_degradation
+
+        degradations: List[Dict[str, Any]] = []
         try:
             viols = self.violations() or []
-        except Exception:
+        except Exception as exc:
             viols = []
+            record_degradation(degradations, section="violations", exc=exc)
         warns: List[str] = [v.get("message", "") for v in viols if v.get("message")]
 
         try:
             steps = self.next_steps(print_result=False) or []
-        except Exception:
+        except Exception as exc:
             steps = []
+            record_degradation(degradations, section="next_steps", exc=exc)
 
         suggested: List[str] = []
         for s in steps:
@@ -1294,6 +1318,7 @@ class EconometricResults:
                 "warnings": warns,
                 "next_steps": steps[:8],
                 "suggested_functions": suggested,
+                "degradations": degradations,
             }
         )
         return base
@@ -1457,11 +1482,17 @@ class EconometricResults:
 
         return _brief(self)
 
-    def to_json(self, indent: Optional[int] = None) -> str:
-        """Serialise :meth:`to_dict` via ``json.dumps``."""
+    def to_json(self, indent: Optional[int] = None, detail: str = "standard") -> str:
+        """Serialise :meth:`to_dict` via ``json.dumps``.
+
+        ``detail`` is forwarded to :meth:`to_dict`; pass ``"agent"`` to
+        include violations / next_steps / degradations in the JSON.
+        """
         import json
 
-        return json.dumps(self.to_dict(), indent=indent, default=_to_jsonable)
+        return json.dumps(
+            self.to_dict(detail=detail), indent=indent, default=_to_jsonable
+        )
 
     def _repr_html_(self) -> str:
         """Rich HTML display for Jupyter notebooks."""
@@ -4713,16 +4744,27 @@ class CausalResult:
             return out
 
         # agent: + violations + warnings + next_steps + suggested_functions
+        #
+        # A bug inside a diagnostic must not masquerade as a clean bill of
+        # health: an empty ``violations`` list used to mean either "no
+        # violation" or "the violation detector crashed". Failures are
+        # now recorded under ``degradations`` (and warned about) so the
+        # agent can tell the two apart (CLAUDE.md §3.7).
+        from ..workflow._degradation import record_degradation
+
+        degradations: List[Dict[str, Any]] = []
         try:
             viols = self.violations() or []
-        except Exception:
+        except Exception as exc:
             viols = []
+            record_degradation(degradations, section="violations", exc=exc)
         warns: List[str] = [v.get("message", "") for v in viols if v.get("message")]
 
         try:
             steps = self.next_steps(print_result=False) or []
-        except Exception:
+        except Exception as exc:
             steps = []
+            record_degradation(degradations, section="next_steps", exc=exc)
 
         suggested: List[str] = []
         for s in steps:
@@ -4740,6 +4782,7 @@ class CausalResult:
                 "warnings": warns,
                 "next_steps": steps[:8],
                 "suggested_functions": suggested,
+                "degradations": degradations,
             }
         )
         return out
@@ -4764,12 +4807,21 @@ class CausalResult:
 
         return _brief(self)
 
-    def to_json(self, indent: Optional[int] = None, detail_head: int = 5) -> str:
-        """Serialise :meth:`to_dict` via ``json.dumps``."""
+    def to_json(
+        self,
+        indent: Optional[int] = None,
+        detail_head: int = 5,
+        detail: str = "standard",
+    ) -> str:
+        """Serialise :meth:`to_dict` via ``json.dumps``.
+
+        ``detail`` is forwarded to :meth:`to_dict`; pass ``"agent"`` to
+        include violations / next_steps / degradations in the JSON.
+        """
         import json
 
         return json.dumps(
-            self.to_dict(detail_head=detail_head),
+            self.to_dict(detail_head=detail_head, detail=detail),
             indent=indent,
             default=_to_jsonable,
         )

@@ -2968,6 +2968,27 @@
     "name": "california_tobacco"
   },
   {
+    "description": "Run ANY registered StatsPAI function by name with keyword arguments -- the escape hatch for the ~1,200 functions that are not individually listed as tools. `arguments` follows the parameter schema from describe_function; column names refer to the file loaded via data_path. Unknown arguments are reported under `_unsupported_args`, never silently dropped. Supports as_handle / result_id chaining like every other tool.",
+    "input_schema": {
+      "properties": {
+        "arguments": {
+          "additionalProperties": true,
+          "description": "Keyword arguments for the function (JSON object).",
+          "type": "object"
+        },
+        "function": {
+          "description": "Registered function name (sp.<name>).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "function"
+      ],
+      "type": "object"
+    },
+    "name": "call_function"
+  },
+  {
     "description": "Staggered DID (Callaway-Sant'Anna 2021): group-time ATT with doubly-robust, IPW, or regression-adjusted estimators. Robust to heterogeneous treatment effects where TWFE fails. Requires a cohort column g (first-treatment period; 0 = never-treated). Validation: certified evidence with scoped limitations. Known limitations: clustervars is not yet supported with bstrap=False; the analytic standard errors do not account for within-cluster dependence, so the multiplier bootstrap is required.",
     "input_schema": {
       "properties": {
@@ -6107,6 +6128,22 @@
     "name": "demeaned_synth"
   },
   {
+    "description": "Full machine-readable metadata for one registered StatsPAI function: JSON-Schema parameters (types, defaults, enums), assumptions, pre-conditions, failure modes, alternatives, validation tier and evidence notes, plus the accepted keyword aliases. Read this before calling a function that is not in the listed tools.",
+    "input_schema": {
+      "properties": {
+        "name": {
+          "description": "Registered function name (sp.<name>).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "name": "describe_function"
+  },
+  {
     "description": "Route design facts to a method-selection status.",
     "input_schema": {
       "properties": {
@@ -6358,19 +6395,61 @@
     "name": "diagnose_result"
   },
   {
-    "description": "Fit a classic 2-period 2-group difference-in-differences. Pass treatment / time / post column names. For staggered adoption across many cohorts use callaway_santanna instead. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Difference-in-differences dispatcher. 2x2 (two periods, 0/1 treat) when id is omitted; with id, a 0/1 indicator on a multi-period panel is converted to first-treatment cohorts and Callaway-Sant'Anna runs (method='auto'). Pass method= to force '2x2', 'cs', 'sa', 'bjs', 'sdid' or 'ddd'. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
-        "post": {
-          "description": "Binary post-treatment period indicator",
+        "aggregation": {
+          "description": "Callaway-Sant'Anna aggregation of ATT(g,t)",
+          "enum": [
+            "simple",
+            "dynamic",
+            "group",
+            "calendar"
+          ],
+          "type": "string"
+        },
+        "cluster": {
+          "description": "Cluster column for cluster-robust SEs",
+          "type": "string"
+        },
+        "covariates": {
+          "description": "Optional control columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "description": "Unit identifier; required for staggered designs (method='cs'/'sa'/'bjs') and SDID",
+          "type": "string"
+        },
+        "method": {
+          "default": "auto",
+          "description": "Estimator (see sp.describe_function('did')).",
+          "enum": [
+            "auto",
+            "2x2",
+            "ddd",
+            "cs",
+            "callaway_santanna",
+            "sa",
+            "sun_abraham",
+            "bjs",
+            "sdid",
+            "staggered_rollout"
+          ],
+          "type": "string"
+        },
+        "subgroup": {
+          "description": "Affected-subgroup column (method='ddd' only)",
           "type": "string"
         },
         "time": {
-          "description": "Time column",
+          "description": "Time period column",
           "type": "string"
         },
         "treat": {
-          "description": "Binary treatment-group indicator",
+          "description": "Binary treatment indicator (0/1) or first-treatment period column (0 = never treated)",
           "type": "string"
         },
         "y": {
@@ -21810,6 +21889,61 @@
     "name": "rate_split"
   },
   {
+    "description": "Unified regression-discontinuity dispatcher. method= selects the estimator: 'rdrobust' (default; CCT bias-corrected local polynomial), 'honest', 'randinf', 'hte', 'forest', 'boost', 'lasso', 'rkd', 'flex', 'discrete', 'rd2d', 'rdmc', 'rdms', 'rdit', 'extrapolate', 'external_validity', 'distribution', 'bias_aware_fuzzy', 'bayes_hte', 'interference'. Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (McCrary density test); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy); sufficient mass of observations within the optimal bandwidth. Failure modes: McCrary density test p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternative...",
+    "input_schema": {
+      "properties": {
+        "c": {
+          "default": 0,
+          "description": "Cutoff; alias cutoff=",
+          "type": "number"
+        },
+        "method": {
+          "default": "rdrobust",
+          "description": "Estimator variant (see sp.help('rd') for the alias table)",
+          "enum": [
+            "rdrobust",
+            "honest",
+            "randinf",
+            "hte",
+            "forest",
+            "boost",
+            "lasso",
+            "rkd",
+            "flex",
+            "discrete",
+            "rd2d",
+            "rdmc",
+            "rdms",
+            "rdit",
+            "extrapolate",
+            "multi_extrapolate",
+            "external_validity",
+            "distribution",
+            "distributional_design",
+            "bias_aware_fuzzy",
+            "bayes_hte",
+            "interference"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "description": "Running (forcing) variable column; alias running=",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome column",
+          "type": "string"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "rd"
+  },
+  {
     "description": "Boundary discontinuity design: pointwise effects along a 2-D boundary. Validation: certified parity evidence. Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
@@ -26378,6 +26512,33 @@
       "type": "object"
     },
     "name": "sdid"
+  },
+  {
+    "description": "Search the StatsPAI function registry by task keywords or a short natural-language phrase (e.g. 'staggered adoption event study', 'weak instrument robust CI', 'regression discontinuity density test'). Returns ranked matches with one-line descriptions, category and validation tier. Use this first when no listed tool fits; then call describe_function for the full parameter schema and call_function to run it.",
+    "input_schema": {
+      "properties": {
+        "category": {
+          "description": "Optional registry category filter (e.g. 'causal', 'panel', 'regression', 'diagnostics').",
+          "type": "string"
+        },
+        "limit": {
+          "default": 10,
+          "description": "Maximum number of matches to return.",
+          "maximum": 50,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "query": {
+          "description": "Keywords or a short task description.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    },
+    "name": "search_functions"
   },
   {
     "description": "Score and rank candidate proxies for PCI. Assumptions: The proxies are valid negative controls (relevant to the confounder, excluded from the causal channel); A bridge function exists (completeness conditions hold). Pre-conditions: Treatment-inducing and outcome-inducing proxy variables (negative controls) for the unobserved confounder. Failure modes: Proxies are weak or invalid -- the bridge function is poorly identified -> Test proxy relevance, select stronger proxies, or fall back to sensitivity analysis. Alternatives: sp.select_pci_proxies, sp.dml. Typical minimum N: 500.",

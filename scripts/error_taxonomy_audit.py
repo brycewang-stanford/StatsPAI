@@ -91,7 +91,11 @@ GENERIC_RAISE_MAX = 1902
 # not abort the estimate, but it must also not vanish, so every one warns
 # and lands in ``report.degradations`` (§7). Ceiling moves 590 -> 593.
 BROAD_EXCEPT_MAX = 593
-TAXONOMY_RAISE_MIN = 42
+# Floor for structured (StatsPAIError-family) raises. The original 42 was
+# set when the taxonomy was introduced and never ratcheted; with ~2,680
+# structured raises in the tree it let almost all of them regress to bare
+# ``ValueError`` unnoticed. Ratchet upward only.
+TAXONOMY_RAISE_MIN = 2600
 
 
 def _name(node: ast.AST | None) -> str | None:

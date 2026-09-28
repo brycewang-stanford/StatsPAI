@@ -77,7 +77,7 @@ def tool_manifest(*, curated_only: bool = False) -> List[Dict[str, Any]]:
         from :mod:`statspai.agent.pipeline_tools`). The default merges
         them with the auto-generated manifest covering every
         agent-safe registered function so the caller sees the full
-        catalogue (~470 tools).
+        catalogue (~580 tools).
 
     Returns
     -------

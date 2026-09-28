@@ -6,6 +6,88 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **MCP tool-list profiles and discovery meta-tools.** `tools/list` used to
+  return every auto-generated tool (579 entries, ~2 MB, roughly half a
+  million tokens — more than any client context window). `statspai-mcp`
+  now takes `--profile core|curated|full` (also `STATSPAI_MCP_PROFILE`);
+  the CLI default is `curated`: the hand-written estimator / workflow /
+  pipeline tools plus three new meta-tools — `search_functions`,
+  `describe_function`, `call_function` — through which every registered
+  function stays reachable (discover → describe → call). `tools/call`
+  accepts any tool name under every profile. In-process
+  `handle_request` keeps the historical `full` default.
+- **`sp.search_functions` understands task phrases.** Stopwords are
+  ignored, common econometrics spellings are expanded (`did` ↔
+  difference-in-differences, `rd` ↔ discontinuity, `iv` ↔ instrument,
+  `staggered` ↔ Callaway / Sun-Abraham, …), a function matches when at
+  least half of the content words hit, name / tag hits outrank
+  description hits, and result / exception classes are no longer
+  listed. "effect of a policy with panel data" and "two-way fixed
+  effects bias" returned nothing before; they now return the DiD family
+  and `bacon_decomposition`.
+- **`sp.did` accepts `outcome=` / `treatment=`** (aliases for `y` /
+  `treat`, alongside the existing `unit=` / `controls=`), and
+  `sp.did(method='auto', id=...)` with a 0/1 treatment indicator on a
+  multi-period panel derives the first-treatment cohort (0 = never
+  treated) and runs Callaway-Sant'Anna instead of failing with "No
+  treatment cohorts found". A non-absorbing indicator raises
+  `MethodIncompatibility`. The registry / MCP schema for `did` now lists
+  `covariates`, `cluster`, `weights`, `aggregation`, `control_group`,
+  `estimator` and `anticipation`, which the live signature always had.
+- **`CausalResult.to_json(detail=...)`** and `ResultProtocolMixin.to_json()`
+  so every result type serialises through the same entry point; the
+  agent payload gains a `degradations` list (see Fixed).
+
+### Changed
+
+- **MCP payloads say what did not happen.** `tools/call` results carry
+  `runtime_warnings` (deduplicated Python warnings raised during the
+  estimator call — `ConvergenceWarning`, `AssumptionWarning`,
+  weak-instrument / few-cluster notices — which previously went to
+  stderr where no MCP client reads them). Registry-dispatched tools
+  report arguments they could not bind under `_unsupported_args`
+  instead of dropping them silently (a misspelt `cluster=` used to
+  change the standard errors with no trace); the accepted set is now the
+  live signature ∪ registry params ∪ `@accepts_aliases` spellings, so a
+  registry entry that lags the signature never rejects a real argument.
+  Estimator `print()` output is redirected to stderr during a tool call
+  so it cannot corrupt the JSON-RPC stream. Report / export tools that
+  write files (`cs_report`, `did_report`, `rd_dashboard`,
+  `synth_to_excel`, `synth_report_to_file`, `influence_functions`) are
+  annotated `readOnlyHint=false`.
+- `to_dict(detail=...)` keeps one level of nested diagnostics whose
+  values are scalars (`diagnostics['mccrary']['pvalue']`,
+  `diagnostics['pretrend_test']`); previously every nested test result
+  was dropped, so an RD result carried a McCrary p-value that the agent
+  payload could not see.
+- `scripts/error_taxonomy_audit.py`: the structured-raise floor moves
+  from 42 (never ratcheted since the taxonomy was introduced) to 2,600.
+
+### Fixed
+
+- `sp.rd(..., cutoff=0)` raised `TypeError: rdrobust() received both
+  'cutoff' and its canonical target 'c'` because the dispatcher forwarded
+  the alias inside `**kwargs` alongside `c=c`. `cutoff=` / `running=`
+  are now folded into `c` / `x` before dispatch.
+- `@accepts_aliases` on a `**kwargs` function (`sp.did`) let an unknown
+  spelling fall through to Python's "missing 2 required positional
+  arguments: 'y' and 'treat'"; it now raises the did-you-mean
+  `TypeError` (`'outcom' (did you mean 'outcome'?)`).
+- `to_dict(detail='agent')` wrapped `violations()` / `next_steps()` in a
+  bare `except Exception` that returned an empty list, so a crashing
+  diagnostic read as "no violations". Failures now emit
+  `WorkflowDegradedWarning` and land in `degradations`
+  (`{section, error_type, message}`).
+- The MCP `did` tool advertised `post=` (which `sp.did` rejects) and
+  omitted `id` / `method`, so staggered designs could not run through
+  it; the schema now mirrors the dispatcher.
+- Remediation hints pointed at `sp.weak_iv_ci(...)` and
+  `sp.fixest(..., fe=[...])`, neither of which exists; they now name
+  `sp.anderson_rubin_ci` and `sp.feols`. A test pins every `sp.<name>(`
+  in `remediation.py` to the registry.
+- Stale tool counts in `docs/guides/agent_api.md` ("~100 tools", "three
+  prompts"), the MCP server and dispatcher docstrings.
+
 - **`sp.sdid(treat=...)`: staggered adoption, projected covariates and
   Stata's inference rules.** `treat=` takes a 0/1 indicator, as Stata's
   `sdid Y unit time W`. Each adoption cohort is fitted against the

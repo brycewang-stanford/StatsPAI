@@ -298,6 +298,14 @@ class ResultProtocolMixin:
         """JSON-safe dict of every field (agent-native serialization)."""
         return result_to_dict(self)
 
+    def to_json(self, indent: int | None = None) -> str:
+        """``json.dumps`` of :meth:`to_dict` — the same entry point the
+        core result classes offer, so agents serialise every result the
+        same way."""
+        import json
+
+        return json.dumps(self.to_dict(), indent=indent, default=str)
+
     def to_latex(
         self,
         *,

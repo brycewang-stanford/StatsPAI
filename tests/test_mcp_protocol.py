@@ -184,9 +184,18 @@ class TestAnnotationsAndOutputSchema:
         msg = _rpc("tools/list", {})
         tools = msg["result"]["tools"]
         assert tools, "manifest unexpectedly empty"
+        from statspai.agent.mcp_server import _FILE_WRITING_TOOLS
+
         for t in tools:
             ann = t.get("annotations")
             assert isinstance(ann, dict), f"{t['name']} missing annotations"
+            if t["name"] in _FILE_WRITING_TOOLS:
+                # Report / export builders write files on request; they
+                # must NOT be auto-approved as read-only.
+                assert (
+                    ann.get("readOnlyHint") is False
+                ), f"{t['name']} writes files and must be readOnlyHint=false"
+                continue
             assert (
                 ann.get("readOnlyHint") is True
             ), f"{t['name']} should be readOnlyHint=true"

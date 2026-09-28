@@ -851,13 +851,58 @@
       "name": "did",
       "parameters": {
         "properties": {
+          "aggregation": {
+            "description": "Callaway-Sant'Anna / Sun-Abraham aggregation of ATT(g,t)",
+            "enum": [
+              "simple",
+              "dynamic",
+              "group",
+              "calendar"
+            ],
+            "type": "string"
+          },
           "allow_unbalanced_panel": {
             "default": false,
             "description": "Staggered (method='cs') only. False lets units missing a period drop out of the affected ATT(g,t) cells; True keeps every observed row by switching to the repeated-cross-section estimators, with influence functions folded back to the unit level (R did::att_gt(allow_unbalanced_panel=TRUE)). Inert on a balanced panel. The two are different estimators.",
             "type": "boolean"
           },
+          "anticipation": {
+            "default": 0,
+            "description": "Periods of anticipation before treatment (method='cs')",
+            "type": "integer"
+          },
+          "cluster": {
+            "description": "Cluster column for cluster-robust standard errors",
+            "type": "string"
+          },
+          "control_group": {
+            "default": "nevertreated",
+            "description": "Comparison group for method='cs'",
+            "enum": [
+              "nevertreated",
+              "notyettreated"
+            ],
+            "type": "string"
+          },
+          "covariates": {
+            "description": "Control columns (regression adjustment / doubly-robust covariates for method='cs')",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "estimator": {
+            "default": "dr",
+            "description": "Callaway-Sant'Anna estimator: doubly-robust, IPW, or regression adjustment",
+            "enum": [
+              "dr",
+              "ipw",
+              "reg"
+            ],
             "type": "string"
           },
           "id": {
@@ -892,6 +937,10 @@
           },
           "treat": {
             "description": "Treatment indicator or first-treatment-period column",
+            "type": "string"
+          },
+          "weights": {
+            "description": "Unit-weight column (2x2 / cs / sa)",
             "type": "string"
           },
           "y": {
@@ -1527,6 +1576,126 @@
       "Variant-level certification: the native default path (CCT three-stage bandwidth cascade and bias-corrected operator) matches rdrobust::rdrobust on Track A 06; weights= is pinned in tests/reference_parity/test_rd_weights_parity.py; bwselect='cct' delegates to the official port."
     ],
     "validation_status": "certified"
+  },
+  {
+    "alternatives": [
+      "sp.rdrobust",
+      "sp.rd_honest",
+      "sp.rdrandinf",
+      "rd_honest",
+      "rdrbounds",
+      "bounds"
+    ],
+    "assumptions": [
+      "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
+      "No manipulation of x at c (McCrary density test)",
+      "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
+      "Covariate balance at c (optional but recommended)"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Unified regression-discontinuity dispatcher. method= selects the estimator: 'rdrobust' (default; CCT bias-corrected local polynomial), 'honest', 'randinf', 'hte', 'forest', 'boost', 'lasso', 'rkd', 'flex', 'discrete', 'rd2d', 'rdmc', 'rdms', 'rdit', 'extrapolate', 'external_validity', 'distribution', 'bias_aware_fuzzy', 'bayes_hte', 'interference'.",
+    "example": "sp.rd(df, y=\"outcome\", x=\"score\", c=0)",
+    "failure_modes": [
+      {
+        "alternative": "sp.rdrobust",
+        "exception": "AssumptionViolation",
+        "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
+        "symptom": "McCrary density test p < 0.05"
+      },
+      {
+        "alternative": "",
+        "exception": "AssumptionViolation",
+        "remedy": "Include covariates as controls, narrow bandwidth, or report as caveat.",
+        "symptom": "Covariate imbalance at cutoff (sp.rdbalance rejects)"
+      },
+      {
+        "alternative": "sp.rd_honest",
+        "exception": "AssumptionWarning",
+        "remedy": "Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI).",
+        "symptom": "Effect unstable across bandwidth halvings"
+      },
+      {
+        "alternative": "sp.manski_bounds",
+        "exception": "AssumptionViolation",
+        "remedy": "The RD signal is noise; seek an alternative identification strategy.",
+        "symptom": "Placebo cutoffs show significant 'effects'"
+      }
+    ],
+    "inherits_from": "rdrobust",
+    "limitations": [],
+    "name": "rd",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "running variable x is continuous with support on both sides of c",
+      "treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy)",
+      "sufficient mass of observations within the optimal bandwidth"
+    ],
+    "reference": "Calonico, Cattaneo & Titiunik (2014)",
+    "signature": {
+      "description": "Unified regression-discontinuity dispatcher. method= selects the estimator: 'rdrobust' (default; CCT bias-corrected local polynomial), 'honest', 'randinf', 'hte', 'forest', 'boost', 'lasso', 'rkd', 'flex', 'discrete', 'rd2d', 'rdmc', 'rdms', 'rdit', 'extrapolate', 'external_validity', 'distribution', 'bias_aware_fuzzy', 'bayes_hte', 'interference'.",
+      "name": "rd",
+      "parameters": {
+        "properties": {
+          "c": {
+            "default": 0,
+            "description": "Cutoff; alias cutoff=",
+            "type": "number"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "method": {
+            "default": "rdrobust",
+            "description": "Estimator variant (see sp.help('rd') for the alias table)",
+            "enum": [
+              "rdrobust",
+              "honest",
+              "randinf",
+              "hte",
+              "forest",
+              "boost",
+              "lasso",
+              "rkd",
+              "flex",
+              "discrete",
+              "rd2d",
+              "rdmc",
+              "rdms",
+              "rdit",
+              "extrapolate",
+              "multi_extrapolate",
+              "external_validity",
+              "distribution",
+              "distributional_design",
+              "bias_aware_fuzzy",
+              "bayes_hte",
+              "interference"
+            ],
+            "type": "string"
+          },
+          "x": {
+            "description": "Running (forcing) variable column; alias running=",
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome column",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 500,
+    "validation_notes": [],
+    "validation_status": "api_stable"
   },
   {
     "alternatives": [

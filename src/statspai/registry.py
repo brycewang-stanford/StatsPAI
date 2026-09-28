@@ -1204,6 +1204,56 @@ def _build_registry() -> None:
                     "subgroup", "str", False, None, "Affected-subgroup column for DDD"
                 ),
                 ParamSpec(
+                    "covariates",
+                    "List[str]",
+                    False,
+                    None,
+                    "Control columns (regression adjustment / doubly-robust "
+                    "covariates for method='cs')",
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster column for cluster-robust standard errors",
+                ),
+                ParamSpec(
+                    "weights", "str", False, None, "Unit-weight column (2x2 / cs / sa)"
+                ),
+                ParamSpec(
+                    "aggregation",
+                    "str",
+                    False,
+                    None,
+                    "Callaway-Sant'Anna / Sun-Abraham aggregation of ATT(g,t)",
+                    ["simple", "dynamic", "group", "calendar"],
+                ),
+                ParamSpec(
+                    "control_group",
+                    "str",
+                    False,
+                    "nevertreated",
+                    "Comparison group for method='cs'",
+                    ["nevertreated", "notyettreated"],
+                ),
+                ParamSpec(
+                    "estimator",
+                    "str",
+                    False,
+                    "dr",
+                    "Callaway-Sant'Anna estimator: doubly-robust, IPW, or "
+                    "regression adjustment",
+                    ["dr", "ipw", "reg"],
+                ),
+                ParamSpec(
+                    "anticipation",
+                    "int",
+                    False,
+                    0,
+                    "Periods of anticipation before treatment (method='cs')",
+                ),
+                ParamSpec(
                     "allow_unbalanced_panel",
                     "bool",
                     False,
@@ -1786,6 +1836,75 @@ def _build_registry() -> None:
                 "the weighted rbc bootstrap is not supported — passing "
                 "weights= with bootstrap='rbc' raises MethodIncompatibility",
             ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="rd",
+            category="causal",
+            description=(
+                "Unified regression-discontinuity dispatcher. method= selects "
+                "the estimator: 'rdrobust' (default; CCT bias-corrected local "
+                "polynomial), 'honest', 'randinf', 'hte', 'forest', 'boost', "
+                "'lasso', 'rkd', 'flex', 'discrete', 'rd2d', 'rdmc', 'rdms', "
+                "'rdit', 'extrapolate', 'external_validity', 'distribution', "
+                "'bias_aware_fuzzy', 'bayes_hte', 'interference'."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Outcome column"),
+                ParamSpec(
+                    "x",
+                    "str",
+                    True,
+                    description="Running (forcing) variable column; alias running=",
+                ),
+                ParamSpec(
+                    "c",
+                    "float",
+                    False,
+                    0,
+                    "Cutoff; alias cutoff=",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "rdrobust",
+                    "Estimator variant (see sp.help('rd') for the alias table)",
+                    [
+                        "rdrobust",
+                        "honest",
+                        "randinf",
+                        "hte",
+                        "forest",
+                        "boost",
+                        "lasso",
+                        "rkd",
+                        "flex",
+                        "discrete",
+                        "rd2d",
+                        "rdmc",
+                        "rdms",
+                        "rdit",
+                        "extrapolate",
+                        "multi_extrapolate",
+                        "external_validity",
+                        "distribution",
+                        "distributional_design",
+                        "bias_aware_fuzzy",
+                        "bayes_hte",
+                        "interference",
+                    ],
+                ),
+            ],
+            returns="CausalResult (or the method's own result class)",
+            example='sp.rd(df, y="outcome", x="score", c=0)',
+            tags=["rd", "regression discontinuity", "causal", "dispatcher"],
+            reference="Calonico, Cattaneo & Titiunik (2014)",
+            inherits_from="rdrobust",
+            alternatives=["sp.rdrobust", "sp.rd_honest", "sp.rdrandinf"],
         )
     )
 
@@ -21090,16 +21209,164 @@ def agent_schema(name: str) -> Dict[str, Any]:
     return function_schema(name, agent_native=True)
 
 
+_SEARCH_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "by",
+        "do",
+        "does",
+        "for",
+        "from",
+        "how",
+        "i",
+        "in",
+        "into",
+        "is",
+        "it",
+        "my",
+        "of",
+        "on",
+        "or",
+        "the",
+        "that",
+        "this",
+        "to",
+        "use",
+        "using",
+        "want",
+        "with",
+        "what",
+        "which",
+        "when",
+        "estimate",
+        "estimating",
+        "estimator",
+        "estimation",
+        "data",
+        "function",
+        "method",
+        "model",
+        "run",
+        "compute",
+    }
+)
+
+_SEARCH_SYNONYMS: Dict[str, Tuple[str, ...]] = {
+    "did": ("did", "difference-in-differences", "diff-in-diff"),
+    "diff": ("did",),
+    "differences": ("did",),
+    "rd": ("rd", "discontinuity", "rdrobust"),
+    "rdd": ("rd", "discontinuity"),
+    "discontinuity": ("rd", "discontinuity"),
+    "iv": ("iv", "instrument", "instrumental"),
+    "instrument": ("iv", "instrument", "instrumental"),
+    "instruments": ("iv", "instrument", "instrumental"),
+    "twfe": ("twfe", "two-way", "fixed effects"),
+    "fe": ("fixed effects", "fixest"),
+    "staggered": ("staggered", "callaway", "sun-abraham", "cohort"),
+    "cohort": ("cohort", "staggered", "callaway"),
+    "synthetic": ("synthetic", "synth"),
+    "scm": ("synthetic", "synth"),
+    "sc": ("synthetic", "synth"),
+    "matching": ("matching", "match", "psm", "propensity"),
+    "propensity": ("propensity", "psm", "ipw"),
+    "heterogeneous": ("heterogeneous", "cate", "forest", "metalearner"),
+    "cate": ("cate", "forest", "metalearner", "heterogeneous"),
+    "weak": ("weak", "anderson-rubin", "anderson_rubin", "weakrobust"),
+    "confidence": ("confidence", "ci"),
+    "interval": ("interval", "ci"),
+    "intervals": ("interval", "ci"),
+    "ci": ("ci", "confidence"),
+    "bandwidth": ("bandwidth", "rd"),
+    "manipulation": ("mccrary", "density", "manipulation"),
+    "pretrends": ("pretrend", "parallel trends", "pre-trend"),
+    "pretrend": ("pretrend", "parallel trends", "pre-trend"),
+    "trends": ("trend",),
+    "bias": ("bias", "goodman-bacon", "bacon"),
+    "covariates": ("covariate", "control", "adjust"),
+    "controls": ("covariate", "control", "adjust"),
+    "cluster": ("cluster",),
+    "clustered": ("cluster",),
+    "policy": ("policy", "treatment", "intervention"),
+    "effect": ("effect", "att", "ate", "treatment"),
+    "effects": ("effect", "att", "ate", "treatment"),
+    "timing": ("timing", "staggered", "cohort", "event"),
+    "adoption": ("adoption", "staggered", "cohort"),
+    "event": ("event", "event_study", "dynamic"),
+    "fe": ("fixed effects", "fixest", "feols", "fe"),
+    "dml": ("dml", "double machine learning", "debiased"),
+}
+
+
+_SEARCH_PHRASES: Tuple[Tuple[str, str], ...] = (
+    # Multi-word method names collapse to their canonical token so the
+    # generic half ("regression", "differences", "variables") does not
+    # pull in every regression / decomposition / variable-selection tool.
+    ("regression discontinuity", "rd"),
+    ("regression kink", "rkd"),
+    ("difference in differences", "did"),
+    ("differences in differences", "did"),
+    ("difference-in-differences", "did"),
+    ("differences-in-differences", "did"),
+    ("diff in diff", "did"),
+    ("diff-in-diff", "did"),
+    ("instrumental variables", "iv"),
+    ("instrumental variable", "iv"),
+    ("synthetic control", "synth"),
+    ("fixed effects", "fe"),
+    ("propensity score", "propensity"),
+    ("double machine learning", "dml"),
+    ("event study", "event_study"),
+)
+
+
+def _search_terms(query: str) -> List[Tuple[str, Tuple[str, ...]]]:
+    """Tokenise ``query`` into (word, alternative spellings) pairs."""
+    lowered = query.lower()
+    for phrase, token in _SEARCH_PHRASES:
+        lowered = lowered.replace(phrase, token)
+    raw = [w.strip(".,;:()[]'\"") for w in lowered.replace("_", " ").split()]
+    terms: List[Tuple[str, Tuple[str, ...]]] = []
+    for w in raw:
+        if not w or w in _SEARCH_STOPWORDS:
+            continue
+        alts = tuple(dict.fromkeys((w,) + _SEARCH_SYNONYMS.get(w, ())))
+        terms.append((w, alts))
+    if not terms:
+        # Only stopwords: fall back to the literal tokens so a query such
+        # as "data" still returns something rather than nothing.
+        terms = [(w, (w,)) for w in raw if w]
+    return terms
+
+
+def _is_class_like(name: str) -> bool:
+    return bool(name) and name[0].isupper()
+
+
 def search_functions(query: str) -> List[Dict[str, str]]:
     """
-    Keyword search across function names, descriptions, and tags.
+    Search function names, descriptions and tags by keywords or a short
+    task phrase.
 
-    All query words must appear (AND logic), but not necessarily as a
-    contiguous substring. This matches "panel data" against a function
-    whose description contains "panel" and "data" separately.
+    Scoring (highest first): exact name match, name containing a query
+    word, tag match, then description hits. Stopwords ("the", "of",
+    "estimate", …) are ignored and common econometrics spellings are
+    expanded (``did`` ↔ difference-in-differences, ``rd`` ↔
+    discontinuity, ``iv`` ↔ instrument, ``staggered`` ↔ Callaway /
+    Sun-Abraham, …). A function matches when at least half of the
+    content words hit, so a natural-language query like "effect of a
+    policy with staggered adoption" returns the staggered-DiD family
+    instead of nothing. Result / exception classes (PascalCase) are
+    listed only when the query names them.
 
-    Returns a list of ``{'name': ..., 'description': ..., 'category': ...}``,
-    sorted by relevance (number of word hits).
+    Returns a list of ``{'name': ..., 'description': ..., 'category': ...}``
+    (plus ``stability`` / ``validation_status``), most relevant first.
 
     Examples
     --------
@@ -21111,33 +21378,84 @@ def search_functions(query: str) -> List[Dict[str, str]]:
     ['category', 'description', 'name']
     """
     _ensure_full_registry()
-    words = query.lower().split()
-    if not words:
+    terms = _search_terms(query)
+    if not terms:
         return []
+    needed = max(1, (len(terms) + 1) // 2)
+    query_lower = query.lower().strip()
+    # Functions other entries inherit their agent card from (``rdrobust``
+    # for the RD family, ``did`` for the DiD family, …) are the canonical
+    # entry points and rank above their derived variants on ties.
+    parents = {s.inherits_from for s in _REGISTRY.values() if s.inherits_from}
 
     scored = []
     for spec in _REGISTRY.values():
-        text = f"{spec.name} {spec.description} {' '.join(spec.tags)}".lower()
-        # All words must appear
-        if all(w in text for w in words):
-            # Score: count total word occurrences for ranking
-            score = sum(text.count(w) for w in words)
-            scored.append(
-                (
-                    score,
-                    {
-                        "name": spec.name,
-                        "description": spec.description,
-                        "category": spec.category,
-                        "stability": spec.stability,
-                        "validation_status": spec.validation_status,
-                    },
-                )
+        name = spec.name.lower()
+        name_words = set(name.replace("_", " ").split())
+        desc = (spec.description or "").lower()
+        tags = [t.lower() for t in (spec.tags or [])]
+        tag_text = " ".join(tags)
+        score = 0.0
+        hits = 0
+        for word, alts in terms:
+            term_score = 0.0
+            for alt in alts:
+                if alt == name:
+                    term_score = max(term_score, 10.0)
+                elif alt in name_words:
+                    term_score = max(term_score, 6.0)
+                elif len(alt) >= 2 and any(w.startswith(alt) for w in name_words):
+                    # ``rd`` -> ``rdrobust`` / ``rdplot``; ``synth`` -> ``synthdid``
+                    term_score = max(term_score, 3.5)
+                elif alt in name and len(alt) >= 4:
+                    term_score = max(term_score, 3.0)
+                if alt in tags:
+                    term_score = max(term_score, 4.0)
+                elif alt in tag_text:
+                    term_score = max(term_score, 2.0)
+                if alt in desc:
+                    term_score = max(term_score, 1.0 + min(desc.count(alt), 3) * 0.25)
+            if term_score > 0:
+                hits += 1
+                score += term_score
+        if hits < needed:
+            continue
+        if name == query_lower:
+            score += 20.0
+        if _is_class_like(spec.name) and spec.name.lower() != query_lower:
+            # Result / exception classes are not callables an agent runs.
+            continue
+        # Prefer entries that match *every* term, then shorter names
+        # (dispatchers such as ``did`` / ``rd`` / ``synth`` beat their
+        # long-named variants on ties).
+        score += hits * 2.0
+        if spec.name in parents:
+            score += 3.0
+        if spec.validation_status == "certified":
+            score += 1.0
+        elif spec.validation_status == "validated":
+            score += 0.5
+        if name.startswith("dgp_"):
+            # Simulation DGP helpers share the estimator's vocabulary but
+            # are rarely what a task query is after; rank them below the
+            # estimators.
+            score -= 3.0
+        scored.append(
+            (
+                score,
+                -len(spec.name),
+                {
+                    "name": spec.name,
+                    "description": spec.description,
+                    "category": spec.category,
+                    "stability": spec.stability,
+                    "validation_status": spec.validation_status,
+                },
             )
+        )
 
-    # Sort by score descending (most relevant first)
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [item for _, item in scored]
+    scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    return [item for _, _, item in scored]
 
 
 def all_schemas(*, agent_native: bool = False) -> List[Dict[str, Any]]:

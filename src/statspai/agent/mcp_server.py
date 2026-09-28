@@ -422,8 +422,109 @@ _DATALESS_OVERRIDES = frozenset(
         "bibtex",
         "from_stata",
         "from_r",
+        # Discovery meta-tools (search / describe never touch data;
+        # call_function loads data only when the target function needs it).
+        "search_functions",
+        "describe_function",
+        "call_function",
     }
 )
+
+
+#: Tool-list profiles. ``tools/list`` with the historical ``full`` profile
+#: returns every auto-generated tool (~580 entries, ~2 MB on the wire,
+#: roughly half a million tokens) — more than any client context window
+#: holds. ``curated`` (the ``statspai-mcp`` CLI default) lists only the
+#: hand-written estimator / workflow / pipeline tools plus the three
+#: discovery meta-tools (``search_functions`` / ``describe_function`` /
+#: ``call_function``) through which every other registered function
+#: stays reachable. ``core`` is the smallest useful set for constrained
+#: clients. Select with ``statspai-mcp --profile <name>`` or
+#: ``STATSPAI_MCP_PROFILE``; ``tools/call`` accepts any tool name under
+#: every profile — the profile only shapes the advertised list.
+_PROFILES = ("core", "curated", "full")
+
+_CORE_PROFILE_TOOLS = frozenset(
+    {
+        "search_functions",
+        "describe_function",
+        "call_function",
+        "detect_design",
+        "preflight",
+        "recommend",
+        "regress",
+        "did",
+        "callaway_santanna",
+        "rdrobust",
+        "ivreg",
+        "synth",
+        "dml",
+        "audit_result",
+        "brief_result",
+        "interpret_result",
+        "honest_did_from_result",
+        "sensitivity_from_result",
+        "plot_from_result",
+        "bibtex",
+        "pipeline_did",
+        "pipeline_iv",
+        "pipeline_rd",
+    }
+)
+
+#: Tools whose underlying function writes a file when asked to (``save`` /
+#: ``save_to`` / ``filename`` / ``path`` arguments). Their MCP annotations
+#: carry ``readOnlyHint=False`` so a client does not auto-approve a call
+#: that touches the filesystem.
+_FILE_WRITING_TOOLS = frozenset(
+    {
+        "cs_report",
+        "did_report",
+        "influence_functions",
+        "rd_dashboard",
+        "synth_report_to_file",
+        "synth_to_excel",
+    }
+)
+
+
+def _normalise_profile(profile: Optional[str]) -> str:
+    if profile is None:
+        profile = os.environ.get("STATSPAI_MCP_PROFILE", "full")
+    key = str(profile).strip().lower()
+    if key not in _PROFILES:
+        raise ValueError(
+            f"Unknown MCP tool profile {profile!r}; choose one of {list(_PROFILES)}."
+        )
+    return key
+
+
+#: Active profile for this server process (set by :func:`main` /
+#: :func:`serve_stdio`; ``None`` means "read ``STATSPAI_MCP_PROFILE``,
+#: default ``full``" so in-process callers of :func:`handle_request` keep
+#: the historical behaviour).
+_ACTIVE_PROFILE: Optional[str] = None
+
+
+def set_tool_profile(profile: Optional[str]) -> str:
+    """Set the ``tools/list`` profile for this process and return it."""
+    global _ACTIVE_PROFILE
+    _ACTIVE_PROFILE = None if profile is None else _normalise_profile(profile)
+    _build_mcp_tools.cache_clear()
+    _tools_list_result_json.cache_clear()
+    return _normalise_profile(_ACTIVE_PROFILE)
+
+
+def _profile_tool_names(profile: str) -> Optional["frozenset[str]"]:
+    """Names advertised under ``profile``; ``None`` means every tool."""
+    if profile == "full":
+        return None
+    from .tools import tool_manifest as _tool_manifest
+
+    curated = frozenset(t["name"] for t in _tool_manifest(curated_only=True))
+    if profile == "curated":
+        return curated
+    return frozenset(n for n in curated if n in _CORE_PROFILE_TOOLS)
 
 
 #: Backwards-compatible alias for the old hand-curated set. New code
@@ -609,7 +710,7 @@ RESULT_SCHEMA_URI = "statspai://schema/result"
 
 #: The *compact* output schema actually injected into every tool's
 #: ``outputSchema`` in ``tools/list``. The full documented envelope above
-#: is byte-identical for all ~480 tools, so inlining it everywhere would
+#: is byte-identical for all ~580 tools, so inlining it everywhere would
 #: duplicate ~1.3 MB of the same schema across the manifest (half the
 #: payload) for zero added information. Instead each tool advertises this
 #: compact-but-valid schema — enough for a client to validate
@@ -774,6 +875,18 @@ def _build_mcp_tools() -> List[Dict[str, Any]]:
     """
     manifest = _agent_tool_manifest()
     dataless = _dataless_tool_names()
+    profile = _normalise_profile(_ACTIVE_PROFILE)
+    allowed = _profile_tool_names(profile)
+    # The committed snapshot may predate a curated tool added in this
+    # release; make sure every curated entry is advertised regardless.
+    present = {t["name"] for t in manifest}
+    from .tools import tool_manifest as _tool_manifest
+
+    manifest = list(manifest) + [
+        t for t in _tool_manifest(curated_only=True) if t["name"] not in present
+    ]
+    if allowed is not None:
+        manifest = [t for t in manifest if t["name"] in allowed]
     out: List[Dict[str, Any]] = []
     for t in manifest:
         schema = dict(t.get("input_schema") or {})
@@ -874,7 +987,7 @@ def _build_mcp_tools() -> List[Dict[str, Any]]:
         # prompt. A manifest entry may override either hint by carrying
         # its own ``annotations`` dict (none do today).
         annotations = dict(t.get("annotations") or {})
-        annotations.setdefault("readOnlyHint", True)
+        annotations.setdefault("readOnlyHint", t["name"] not in _FILE_WRITING_TOOLS)
         annotations.setdefault("openWorldHint", False)
 
         out.append(
@@ -1134,14 +1247,45 @@ def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
     from ._runner import run_with_progress, tool_timeout
 
     def _do() -> Dict[str, Any]:
-        return execute_tool(
-            name,
-            arguments,
-            data=df,
-            detail=detail,
-            result_id=result_id,
-            as_handle=as_handle,
-        )
+        # Two protections around the estimator call:
+        #
+        # * ``print()`` inside an estimator (``verbose=True`` defaults,
+        #   ``rdsummary``, ``assumption_audit``) would land on the
+        #   JSON-RPC channel and corrupt the stream, so stdout is
+        #   redirected to stderr for the duration of the call.
+        # * Python warnings (``ConvergenceWarning``, ``AssumptionWarning``,
+        #   weak-instrument / few-cluster notices, LIML->2SLS fallbacks)
+        #   were only ever visible on stderr, which an MCP client never
+        #   reads. They are recorded and attached to the payload under
+        #   ``runtime_warnings`` so the agent sees what a human at a
+        #   terminal would (CLAUDE.md §3.7, 失败要响亮).
+        import contextlib
+        import warnings as _warnings
+
+        with contextlib.redirect_stdout(sys.stderr):
+            with _warnings.catch_warnings(record=True) as caught:
+                _warnings.simplefilter("always")
+                out = execute_tool(
+                    name,
+                    arguments,
+                    data=df,
+                    detail=detail,
+                    result_id=result_id,
+                    as_handle=as_handle,
+                )
+        if caught and isinstance(out, dict):
+            seen: set = set()
+            recorded: List[Dict[str, str]] = []
+            for w in caught:
+                key = (w.category.__name__, str(w.message))
+                if key in seen:
+                    continue
+                seen.add(key)
+                recorded.append({"category": key[0], "message": key[1]})
+                if len(recorded) >= 20:
+                    break
+            out["runtime_warnings"] = recorded
+        return out
 
     drain = _make_progress_drain()
 
@@ -1385,14 +1529,39 @@ def serve_stdio(
         _sampling.set_capability(False)
 
 
-def main() -> None:  # pragma: no cover
-    """Entry point for ``python -m statspai.agent.mcp_server``."""
+def main(argv: Optional[List[str]] = None) -> None:  # pragma: no cover
+    """Entry point for ``statspai-mcp`` / ``python -m statspai.agent.mcp_server``.
+
+    ``--profile`` picks the ``tools/list`` shape (see :data:`_PROFILES`).
+    The CLI defaults to ``curated`` because the full catalogue (~580
+    tools, ~2 MB) does not fit a client context window; every function
+    stays callable through ``call_function`` or by name.
+    """
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="statspai-mcp",
+        description="StatsPAI MCP server (JSON-RPC over stdio).",
+    )
+    parser.add_argument(
+        "--profile",
+        choices=list(_PROFILES),
+        default=os.environ.get("STATSPAI_MCP_PROFILE", "curated"),
+        help=(
+            "tools/list profile: 'core' (~20 tools), 'curated' (hand-written "
+            "estimators + workflow + discovery meta-tools; default), or "
+            "'full' (every auto-generated tool, ~580 entries / ~2 MB)."
+        ),
+    )
+    args = parser.parse_args(argv)
+    set_tool_profile(args.profile)
     serve_stdio()
 
 
 __all__ = [
     "serve_stdio",
     "handle_request",
+    "set_tool_profile",
     "tool_manifest",
     "MCP_PROTOCOL_VERSION",
     "SUPPORTED_PROTOCOL_VERSIONS",

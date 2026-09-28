@@ -278,6 +278,17 @@ def _rd_dispatch(
     """
     if not isinstance(method, str):
         raise TypeError(f"method must be a string, got {type(method).__name__}.")
+    # ``cutoff=`` / ``running=`` are the spellings rdrobust's own decorator
+    # accepts, but they used to arrive here inside ``**kwargs`` and were
+    # forwarded *alongside* ``c=c`` / ``x=x`` — so ``sp.rd(..., cutoff=0)``
+    # died with "received both 'cutoff' and its canonical target 'c'".
+    # Fold them into the canonical slots before dispatch.
+    if "cutoff" in kwargs:
+        c = kwargs.pop("cutoff")
+    if "running" in kwargs:
+        if x is not None:
+            raise TypeError("sp.rd() received both 'running' and 'x'; pass only one.")
+        x = kwargs.pop("running")
     key = method.lower().strip().replace("-", "_")
     canon = _RD_METHOD_ALIASES.get(key)
     if canon is None:
