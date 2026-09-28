@@ -595,7 +595,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -761,7 +761,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -928,7 +928,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -1463,7 +1463,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -1698,7 +1698,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -1943,7 +1943,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -2260,7 +2260,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -2687,7 +2687,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -2871,7 +2871,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -3113,7 +3113,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -3313,7 +3313,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -3507,7 +3507,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -3706,7 +3706,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -6341,7 +6341,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -6997,7 +6997,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -7358,7 +7358,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -7611,7 +7611,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -7766,7 +7766,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -9435,7 +9435,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -9706,7 +9706,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -10434,7 +10434,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -10580,7 +10580,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -10735,7 +10735,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -10917,7 +10917,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -11070,7 +11070,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -11242,7 +11242,7 @@
       "description": "PrincipalStratResult",
       "fields": {
         "alpha": "float",
-        "bounds": "Optional[pandas.DataFrame]",
+        "bounds": "Optional[pandas.core.frame.DataFrame]",
         "effects": "DataFrame",
         "method": "str",
         "model_info": "Dict[str, Any]",
@@ -11427,7 +11427,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -17940,7 +17940,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -18105,7 +18105,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -22318,7 +22318,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -23073,7 +23073,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -23240,7 +23240,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -23444,7 +23444,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -24907,7 +24907,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -25510,7 +25510,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -25644,7 +25644,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -25774,7 +25774,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -28949,7 +28949,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -29063,7 +29063,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -29718,7 +29718,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -29865,7 +29865,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -31018,7 +31018,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -31349,7 +31349,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -31607,7 +31607,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -31852,7 +31852,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -32023,7 +32023,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -32286,7 +32286,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -32535,7 +32535,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -32888,7 +32888,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -33579,7 +33579,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -33795,7 +33795,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -34152,7 +34152,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -34326,7 +34326,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -34512,7 +34512,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -34932,7 +34932,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -35119,7 +35119,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -35267,7 +35267,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -35416,7 +35416,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -35593,7 +35593,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -35812,7 +35812,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -36114,7 +36114,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -36339,7 +36339,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -36568,7 +36568,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -36783,7 +36783,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -38562,7 +38562,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -38753,7 +38753,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -38934,7 +38934,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -39656,7 +39656,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -39965,7 +39965,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -40099,7 +40099,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -40311,7 +40311,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -40509,7 +40509,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -42321,7 +42321,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -42824,7 +42824,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -42988,7 +42988,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -43189,7 +43189,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -43386,7 +43386,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -43566,7 +43566,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -44134,7 +44134,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -44451,7 +44451,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -44766,7 +44766,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -45614,7 +45614,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -45793,7 +45793,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -46234,7 +46234,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -47471,7 +47471,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -47629,7 +47629,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -47795,7 +47795,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -48536,7 +48536,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -49055,7 +49055,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -49231,7 +49231,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -49388,7 +49388,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -49732,7 +49732,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -49898,7 +49898,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -50373,7 +50373,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -50558,7 +50558,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -50756,7 +50756,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -50955,7 +50955,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -51159,7 +51159,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -51339,7 +51339,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -51598,7 +51598,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -51742,7 +51742,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -51877,7 +51877,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -52140,7 +52140,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -52335,7 +52335,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -53786,7 +53786,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -54192,7 +54192,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -56275,7 +56275,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -56438,7 +56438,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -57666,7 +57666,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -57816,7 +57816,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -57959,7 +57959,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -58155,7 +58155,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -60931,7 +60931,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -63074,7 +63074,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -63951,7 +63951,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -64076,7 +64076,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -64369,7 +64369,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -69186,7 +69186,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -69323,7 +69323,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -69612,7 +69612,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -69938,7 +69938,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -70274,7 +70274,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -70437,7 +70437,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -71327,7 +71327,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -78506,7 +78506,7 @@
       "description": "KMResult: Object with .survival_table, .median_survival, .plot(), .summary().",
       "fields": {
         "alpha": "float",
-        "tables": "Dict[str, pandas.DataFrame]"
+        "tables": "Dict[str, pandas.core.frame.DataFrame]"
       }
     },
     "signature": {
@@ -80602,7 +80602,7 @@
       "fields": {
         "aic": "float",
         "bic": "float",
-        "coefs": "Dict[str, pandas.DataFrame]",
+        "coefs": "Dict[str, pandas.core.frame.DataFrame]",
         "det_sigma": "float",
         "hqic": "float",
         "lags": "int",
@@ -83125,7 +83125,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -83436,7 +83436,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -83586,7 +83586,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -84034,7 +84034,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -90069,7 +90069,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -90253,7 +90253,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -90808,7 +90808,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -91099,7 +91099,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -96787,7 +96787,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -103200,7 +103200,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -103323,7 +103323,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -103482,7 +103482,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -103636,7 +103636,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -103769,7 +103769,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -104929,7 +104929,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
@@ -105061,7 +105061,7 @@
       "fields": {
         "alpha": "float",
         "ci": "tuple",
-        "detail": "Optional[pandas.DataFrame]",
+        "detail": "Optional[pandas.core.frame.DataFrame]",
         "estimand": "str",
         "estimate": "float",
         "method": "str",
