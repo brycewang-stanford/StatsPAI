@@ -24,6 +24,34 @@ Rules:
 
 ## Entries
 
+### 2026-09-28 — call traces re-recorded for sdid(treat=) and an es_inference docstring
+
+- **Commits.** `80abadb7` (re-trace after `sp.sdid(treat=...)`, commit
+  `46ec6369`) and `fb8c61ff` (re-trace of modules 10 and 21 after a
+  docstring correction in `src/statspai/did/es_inference.py`). Neither
+  recorded an entry here at the time; this one covers both.
+- **Reason.** Both edited source files on Track A estimation paths, so the
+  bound SHA-256 digests went stale. No estimator code path changed in
+  `fb8c61ff`: the edit corrects `sp.uniform_bands`' stated Monte Carlo
+  error (about 5e-3, not 1e-3).
+- **Effect on the paper.** None. Checked field by field against
+  `v1.32.0`: across all 89 modules only `exercised_sources` digests and
+  `seconds` differ, no classification moved, and the 86 / 0 / 3 census is
+  unchanged. No estimate, standard error or table cell is read from this
+  file.
+- **For the next revision (not frozen artifacts).** The same commits and
+  `a089a6f0` add reference tests that pin the full joint event-study
+  covariance behind `sp.event_study_vcov` against R `did`, `fixest`,
+  `did2s`, `etwfe` and Stata `did_imputation`. The registry grade of
+  `sp.event_study_vcov` moves from unverified to bit-exact, so
+  `\ParityCrossLanguage` in `generated_claims.tex` (415 at 1.32.0) will
+  read higher when regenerated; other functions added since 1.32.0 move
+  the totals as well. The HonestDiD passage in Section 4 ("one extractor,
+  `sp.event_study_vcov`") can then cite this cross-language evidence for
+  the off-diagonal blocks, which Track A never compared.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-09-27 — call traces re-recorded after the post-release merge
 
 - **Commits.** The merge of `main` (upstream `a916c7bc`..`881fdf8c`: sdid
