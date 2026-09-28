@@ -16,6 +16,21 @@ All notable changes to StatsPAI will be documented in this file.
   function stays reachable (discover → describe → call). `tools/call`
   accepts any tool name under every profile. In-process
   `handle_request` keeps the historical `full` default.
+- **MCP data handles, inline tables and transform chains.** `load_data`
+  (from `data_path`, `data_records` or `data_csv`) returns a `data_id`
+  that every tool accepts in place of `data_path`; `transform_data`
+  applies an ordered list of operations (`query`, `select`, `drop`,
+  `rename`, `dropna`, `fillna`, `assign`, `sort`, `sample`, `winsor`,
+  `wide_to_long`, `long_to_wide`, `mice`, or any DataFrame-returning
+  `sp.<function>`) and returns a new handle with the parent and every
+  step recorded; `describe_data` profiles a handle; `statspai://data/{id}`
+  reads it back. Results fitted from a handle carry the whole lineage
+  (and the root file's SHA-256) in `data_provenance`. Inline tables are
+  capped by the same byte budget as file loads and hashed. A failing
+  transform step aborts the chain with the step index and a
+  `WorkflowDegradedWarning`; a missing handle explains whether it was
+  evicted or never existed. Before this, a frame derived in one call
+  could not reach the next, and any hand-made table needed a temp file.
 - **`sp.search_functions` understands task phrases.** Stopwords are
   ignored, common econometrics spellings are expanded (`did` ↔
   difference-in-differences, `rd` ↔ discontinuity, `iv` ↔ instrument,

@@ -70,11 +70,11 @@ the next call, and small hand-made tables need a temp file.
   handle and echoed in provenance.
 - Results fitted from a handle carry `data_id` in `result_card.provenance`.
 
-- [ ] `agent/_data_cache.py` + `load_data` / `describe_data` tools
-- [ ] `data_id` accepted by every tool; `data_records` / `data_csv` inline input
-- [ ] `transform_data` with lineage; `statspai://data/{id}` resource
-- [ ] provenance: handle lineage in `data_provenance` and `result_card`
-- [ ] tests (in-process + subprocess), session-instructions text, CHANGELOG, schema regen
+- [x] `agent/_data_cache.py` + `load_data` / `describe_data` tools
+- [x] `data_id` accepted by every tool; `data_records` / `data_csv` inline input
+- [x] `transform_data` with lineage; `statspai://data/{id}` resource
+- [x] provenance: handle lineage in `data_provenance` and `result_card`
+- [x] tests (in-process + subprocess), session-instructions text, CHANGELOG, schema regen
 
 ## W3 — Registry metadata for the 982 auto-generated entries (week 2–3)
 
@@ -204,4 +204,5 @@ MCP, and it is not shipped. There is no `AGENTS.md` / `llms.txt`.
 ## Log
 
 - 2026-09-28 — plan written; W1 started.
-- 2026-09-28 — W1 done (reader-thread stdio loop, subprocess e2e test, CI gate). W2 next.
+- 2026-09-28 — W1 done (reader-thread stdio loop, subprocess e2e test, CI gate).
+- 2026-09-28 — W2 done (data handles, inline tables, transform chains with lineage). W3 next.

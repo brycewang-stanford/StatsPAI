@@ -31,6 +31,7 @@ from typing import Any, Callable, Dict, List, Optional, Type
 
 FUNCTION_URI_PREFIX = "statspai://function/"
 RESULT_URI_PREFIX = "statspai://result/"
+DATA_URI_PREFIX = "statspai://data/"
 PARITY_TRACK_A_URI = "statspai://parity/track-a-summary"
 
 #: Fallback URI for the result-schema resource. ``mcp_server`` owns the
@@ -577,6 +578,39 @@ def handle_resources_read(
             ],
         }
 
+    if uri.startswith(DATA_URI_PREFIX):
+        did = uri[len(DATA_URI_PREFIX) :]
+        if not did or "/" in did:
+            raise InvalidParamsError(
+                f"Data handle in URI {uri!r} is empty or malformed; "
+                f"expected {DATA_URI_PREFIX}<id>."
+            )
+        from ._data_cache import DATA_CACHE, describe_frame, lineage
+
+        entry = DATA_CACHE.get_entry(did)
+        if entry is None:
+            reason = DATA_CACHE.miss_reason(did)
+            raise ResourceNotFoundError(
+                f"Data handle {did!r} not in server cache ({reason}). "
+                "Handles are process-local and LRU-bounded; reload with "
+                "load_data for a fresh data_id."
+            )
+        payload: Dict[str, Any] = {"data_id": did}
+        payload.update(describe_frame(entry.obj))
+        payload["lineage"] = lineage(did)
+        payload["provenance"] = entry.to_metadata()
+        return {
+            "contents": [
+                {
+                    "uri": uri,
+                    "mimeType": "application/json",
+                    "text": json.dumps(
+                        _clean(payload), default=json_default, allow_nan=False
+                    ),
+                },
+            ],
+        }
+
     raise ResourceNotFoundError(f"Unknown resource: {uri!r}")
 
 
@@ -607,6 +641,19 @@ def handle_resources_templates_list(params: Dict[str, Any]) -> Dict[str, Any]:
                 ),
             },
             {
+                "uriTemplate": DATA_URI_PREFIX + "{id}",
+                "name": "StatsPAI dataset handle",
+                "mimeType": "application/json",
+                "description": (
+                    "Read a server-cached dataset by data_id (from "
+                    "load_data / transform_data): shape, dtypes, missing "
+                    "counts, head, numeric summary and the lineage of "
+                    "transforms that produced it. Handles are process-local "
+                    "and LRU-bounded; a missing handle raises -32002 — "
+                    "reload with load_data."
+                ),
+            },
+            {
                 "uriTemplate": RESULT_URI_PREFIX + "{id}",
                 "name": "StatsPAI fitted-result handle",
                 "mimeType": "application/json",
@@ -626,6 +673,7 @@ def handle_resources_templates_list(params: Dict[str, Any]) -> Dict[str, Any]:
 
 
 __all__ = [
+    "DATA_URI_PREFIX",
     "FUNCTION_URI_PREFIX",
     "RESULT_URI_PREFIX",
     "PARITY_TRACK_A_URI",

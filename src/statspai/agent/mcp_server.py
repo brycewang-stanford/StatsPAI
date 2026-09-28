@@ -391,7 +391,13 @@ def _json_default(o: Any) -> Any:
 #: ``CausalResult.to_dict``). Each entry is the (single) source of
 #: truth for both the schema injection in :func:`_build_mcp_tools`
 #: and the argument stripping in :func:`_handle_tools_call`.
-_RESERVED_ARG_NAMES = ("data_path", "detail")
+_RESERVED_ARG_NAMES = (
+    "data_path",
+    "data_id",
+    "data_records",
+    "data_csv",
+    "detail",
+)
 
 #: Allowed values for ``detail`` (mirrors ``CausalResult.to_dict``).
 _DETAIL_LEVELS = ("minimal", "standard", "agent")
@@ -429,8 +435,18 @@ _DATALESS_OVERRIDES = frozenset(
         "search_functions",
         "describe_function",
         "call_function",
+        # Data-handle tools take data_id / data_path / inline data — none of
+        # the three is individually required.
+        "load_data",
+        "describe_data",
+        "transform_data",
     }
 )
+
+#: Tools that receive the resolved data handle / provenance of their input
+#: (under ``_source_data_id`` / ``_source_provenance``) so they can record
+#: lineage. Every other tool sees only the DataFrame.
+_DATA_TOOLS = frozenset({"load_data", "describe_data", "transform_data"})
 
 
 #: Tool-list profiles. ``tools/list`` with the historical ``full`` profile
@@ -911,6 +927,30 @@ def _build_mcp_tools() -> List[Dict[str, Any]]:
             # refuse to dispatch them.
             if t["name"] not in dataless:
                 required.append("data_path")
+        if "data_id" not in props:
+            props["data_id"] = {
+                "type": "string",
+                "description": (
+                    "Handle (d_…) of a dataset already loaded with load_data "
+                    "or derived with transform_data. Use instead of "
+                    "data_path to avoid re-sending the file; the handle's "
+                    "lineage is recorded in data_provenance."
+                ),
+            }
+        if "data_records" not in props:
+            props["data_records"] = {
+                "type": "array",
+                "items": {"type": "object", "additionalProperties": True},
+                "description": (
+                    "Inline table as a JSON array of row objects (small "
+                    "data only; same byte cap as file loads)."
+                ),
+            }
+        if "data_csv" not in props:
+            props["data_csv"] = {
+                "type": "string",
+                "description": "Inline table as CSV text with a header row.",
+            }
         if "data_columns" not in props:
             props["data_columns"] = {
                 "type": "array",
@@ -1097,9 +1137,16 @@ _SESSION_INSTRUCTIONS = (
     "cross_language_command_check. For cross-software evidence, read "
     "statspai://parity/track-a-summary; it summarizes committed artifacts "
     "only and is not a live Stata/R execution.\n\n"
-    "Data provenance: tools/call responses that load data_path include "
+    "Data handling: load_data(data_path=... | data_records=[...] | "
+    "data_csv='...') returns a data_id; pass data_id to any tool instead "
+    "of re-sending the file. transform_data(data_id=..., operations=[...]) "
+    "filters / reshapes / winsorises / imputes and returns a new handle "
+    "whose lineage rides in every result's data_provenance; "
+    "describe_data profiles a handle; statspai://data/{id} reads it.\n\n"
+    "Data provenance: tools/call responses that load data include "
     "data_provenance. Local files carry size, mtime, and SHA-256; remote "
-    "URLs are sanitized and not re-hashed.\n\n"
+    "URLs are sanitized and not re-hashed; inline tables are hashed; "
+    "handles carry their lineage.\n\n"
     "Token economy: pass detail='minimal' on cheap sub-step calls; "
     "default 'agent' carries violations + next_steps. Inline plots "
     "arrive as image content blocks for vision-capable clients."
@@ -1205,6 +1252,9 @@ def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
     data_path = arguments.pop("data_path", None)
     data_columns = arguments.pop("data_columns", None) or None
     data_sample_n = arguments.pop("data_sample_n", None)
+    data_id = arguments.pop("data_id", None)
+    data_records = arguments.pop("data_records", None)
+    data_csv = arguments.pop("data_csv", None)
     result_id = arguments.pop("result_id", None)
     as_handle = bool(arguments.pop("as_handle", False))
 
@@ -1217,7 +1267,51 @@ def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
 
     df = None
     data_prov = None
-    if data_path:
+    sources = [
+        k
+        for k, v in (
+            ("data_id", data_id),
+            ("data_path", data_path),
+            ("data_records", data_records),
+            ("data_csv", data_csv),
+        )
+        if v is not None and v != ""
+    ]
+    if len(sources) > 1:
+        raise _InvalidParamsError(
+            f"Pass exactly one data source; got {sources}. Use data_id for a "
+            "handle from load_data / transform_data, data_path for a file or "
+            "URL, data_records / data_csv for an inline table."
+        )
+    if data_id:
+        from ._data_cache import DATA_CACHE, handle_provenance, missing_handle_error
+
+        if not isinstance(data_id, str):
+            raise _InvalidParamsError("data_id must be a string handle (d_…)")
+        cached = DATA_CACHE.get(data_id)
+        if cached is None:
+            miss = missing_handle_error(data_id)
+            raise _InvalidParamsError(f"{miss['error']} ({miss['hint']})")
+        df = cached
+        data_prov = handle_provenance(data_id)
+        if data_columns:
+            missing_cols = [c for c in data_columns if c not in df.columns]
+            if missing_cols:
+                raise _InvalidParamsError(
+                    f"data_columns not in handle {data_id}: {missing_cols}"
+                )
+            df = df[list(data_columns)]
+            data_prov["columns_requested"] = list(data_columns)
+    elif data_records is not None or data_csv is not None:
+        from ._data_cache import inline_frame
+
+        try:
+            df, data_prov = inline_frame(
+                records=data_records, csv_text=data_csv, max_bytes=_max_data_bytes()
+            )
+        except Exception as e:  # MethodIncompatibility / pandas parse errors
+            raise _InvalidParamsError(str(e))
+    elif data_path:
         try:
             df = _load_dataframe(
                 data_path,
@@ -1233,6 +1327,12 @@ def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
             # Surface as -32602 rather than a generic -32000 — a
             # bad/missing path is a caller-supplied params problem.
             raise _InvalidParamsError(str(e))
+    if name in _DATA_TOOLS:
+        # Let the handle tools record where their input came from.
+        if data_id:
+            arguments["_source_data_id"] = data_id
+        if data_prov is not None:
+            arguments["_source_provenance"] = data_prov
 
     detail = arguments.pop("detail", "agent")
     if detail not in _DETAIL_LEVELS:

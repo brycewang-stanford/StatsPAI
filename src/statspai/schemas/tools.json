@@ -6128,6 +6128,23 @@
     "name": "demeaned_synth"
   },
   {
+    "description": "Profile a dataset (data_id, data_path or inline data): shape, dtypes, missing counts, head, numeric summary and -- for a handle -- the lineage of transforms that produced it.",
+    "input_schema": {
+      "properties": {
+        "head": {
+          "default": 5,
+          "description": "Rows to echo.",
+          "maximum": 50,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "describe_data"
+  },
+  {
     "description": "Full machine-readable metadata for one registered StatsPAI function: JSON-Schema parameters (types, defaults, enums), assumptions, pre-conditions, failure modes, alternatives, validation tier and evidence notes, plus the accepted keyword aliases. Read this before calling a function that is not in the listed tools.",
     "input_schema": {
       "properties": {
@@ -15253,6 +15270,20 @@
       "type": "object"
     },
     "name": "lm_forest"
+  },
+  {
+    "description": "Load a dataset into the server and get a data_id handle. Source: data_path (file or URL), data_records (JSON rows) or data_csv (CSV text). Returns the handle plus shape, dtypes, missing counts, the first rows and a numeric summary. Pass data_id to any later tool instead of re-sending the file; chain transform_data to filter / reshape / winsorise / impute and get a new handle whose lineage is recorded in every result's data_provenance.",
+    "input_schema": {
+      "properties": {
+        "name": {
+          "description": "Optional label recorded with the handle.",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "load_data"
   },
   {
     "description": "Estimate impulse responses via Jorda (2005) local projections. Validation: certified parity evidence. Assumptions: Outcome and shock series are (covariance-)stationary so horizon-h projections are not spurious; Shock is conditionally exogenous at t given controls and the auto-added lags (no contemporaneous feedback from y_t to shock_t); Newey-West truncation lag is adequate for the moving-average serial correlation induced by overlapping horizons. Pre-conditions: Single time-ordered series in a DataFrame with the outcome and shock columns; For identification='lpirfs_cholesky', endog_order contains the outcome and shock columns in the intended Cholesky ordering; Length comfortably exceeds horizons + max lag so the deepest horizon regression retains enough usable rows. Failure modes: Confidence bands explode or flip sign at long horizons after passing already-lagged controls together with auto_lag=True -> Set auto_lag=False for a bare specification, or drop your manual lags so collinear duplicate-lag columns are not formed; The horizon-0 response is zero when the shock is ordered after the response variable -> Use the intended endog_order, or switch back to identification='direct' i...",
@@ -29872,6 +29903,30 @@
       "type": "object"
     },
     "name": "tobit"
+  },
+  {
+    "description": "Derive a new dataset from a data_id (or data_path / inline data) by applying `operations` in order, and return a new data_id with the lineage recorded. Operations (each an object with `op`): query {expr} (pandas DataFrame.query), select {columns}, drop {columns}, rename {mapping}, dropna {columns?}, fillna {value | mapping}, assign {column, expr} (DataFrame.eval), sort {by, ascending?}, sample {n, seed?}, winsor {columns?, cuts?=[1,99]} (replaces in place), wide_to_long {stubnames, i, j, sep?}, long_to_wide {index, columns, values}, mice {columns?, m?} (single completed dataset), function {name, arguments?} (any sp.<name> taking data= and returning a DataFrame).",
+    "input_schema": {
+      "properties": {
+        "name": {
+          "description": "Optional label for the new handle.",
+          "type": "string"
+        },
+        "operations": {
+          "description": "Ordered list of {op, ...} objects.",
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "operations"
+      ],
+      "type": "object"
+    },
+    "name": "transform_data"
   },
   {
     "description": "Visualise staggered treatment adoption timing.",

@@ -132,10 +132,15 @@ class CacheEntry:
 class ResultCache:
     """LRU cache mapping ``result_id → CacheEntry``.
 
+    ``_prefix`` is the handle prefix (``r_`` for results; the data cache
+    subclass uses ``d_`` so the two kinds of handle are never confused).
+
     Optionally TTL-bounded (``ttl_seconds``): entries older than the TTL
     (from creation) are treated as absent and swept lazily on access and
     eagerly on insert. ``ttl_seconds=None`` (the default) disables expiry.
     """
+
+    _prefix = "r_"
 
     def __init__(
         self,
@@ -179,7 +184,7 @@ class ResultCache:
         self, obj: Any, *, tool: str = "", arguments: Optional[Dict[str, Any]] = None
     ) -> str:
         """Cache ``obj`` and return its newly-minted handle."""
-        rid = "r_" + secrets.token_hex(4)
+        rid = self._prefix + secrets.token_hex(4)
         with self._lock:
             self._purge_expired_locked()
             self._store[rid] = CacheEntry(

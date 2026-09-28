@@ -46,7 +46,45 @@ clients still receive the text JSON payload.
 
 ## Data handoff
 
-Every data-bound tool accepts `data_path`.
+Every data-bound tool accepts one of four sources:
+
+| Argument | What it is | When to use it |
+| --- | --- | --- |
+| `data_path` | absolute file path or URL | the first time a file enters the session |
+| `data_id` | handle (`d_…`) returned by `load_data` / `transform_data` | every later call — no re-upload, lineage recorded |
+| `data_records` | JSON array of row objects | a small table you built by hand |
+| `data_csv` | CSV text with a header row | the same, as text |
+
+The recommended pattern is `load_data` once, then handles:
+
+```json
+{"name": "load_data", "arguments": {"data_path": "/abs/cfps_panel.dta", "name": "CFPS"}}
+→ {"data_id": "d_3f9a1c2e", "n_rows": 41230, "dtypes": {...}, "missing": {"wage": 812}, "head": [...]}
+
+{"name": "transform_data", "arguments": {"data_id": "d_3f9a1c2e", "operations": [
+  {"op": "dropna", "columns": ["wage"]},
+  {"op": "query", "expr": "year >= 2010 and age < 65"},
+  {"op": "assign", "column": "lwage", "expr": "log(wage)"},
+  {"op": "winsor", "columns": ["lwage"], "cuts": [1, 99]}
+]}}
+→ {"data_id": "d_8b02e7d4", "parent_id": "d_3f9a1c2e", "operations": [...], "n_rows": 28744}
+
+{"name": "callaway_santanna", "arguments": {"data_id": "d_8b02e7d4", "y": "lwage", "g": "first_treat", "t": "year", "i": "id", "as_handle": true}}
+```
+
+`transform_data` operations: `query`, `select`, `drop`, `rename`, `dropna`,
+`fillna`, `assign`, `sort`, `sample`, `winsor`, `wide_to_long`,
+`long_to_wide`, `mice`, and `function` (any `sp.<name>` that takes `data=`
+and returns a DataFrame). A failing step aborts the chain and reports the
+step index, so a half-transformed frame is never registered. `describe_data`
+profiles any handle; `statspai://data/<id>` reads it back with its lineage.
+Handles live in the server process (LRU, `STATSPAI_MCP_DATA_CACHE_SIZE`,
+default 16); a missing handle says whether it was evicted or never existed,
+and the fix is always `load_data` again.
+
+Every result fitted from a handle carries the full chain in
+`data_provenance` (`source_type: "handle"`, `lineage`, and the root file's
+hash), so a table note can state exactly how the analysis sample was built.
 
 Supported local and remote formats include:
 

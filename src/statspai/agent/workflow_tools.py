@@ -567,6 +567,88 @@ WORKFLOW_TOOL_SPECS: List[Dict[str, Any]] = [
             "required": ["function"],
         },
     },
+    # ------------------------------------------------------------------
+    # Data handles. ``load_data`` turns a file / inline table into a
+    # ``data_id``; ``transform_data`` derives new handles with a recorded
+    # lineage; ``describe_data`` profiles any handle. Every tool accepts
+    # ``data_id`` wherever it accepts ``data_path``.
+    # ------------------------------------------------------------------
+    {
+        "name": "load_data",
+        "description": (
+            "Load a dataset into the server and get a data_id handle. "
+            "Source: data_path (file or URL), data_records (JSON rows) or "
+            "data_csv (CSV text). Returns the handle plus shape, dtypes, "
+            "missing counts, the first rows and a numeric summary. Pass "
+            "data_id to any later tool instead of re-sending the file; "
+            "chain transform_data to filter / reshape / winsorise / impute "
+            "and get a new handle whose lineage is recorded in every "
+            "result's data_provenance."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Optional label recorded with the handle.",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "describe_data",
+        "description": (
+            "Profile a dataset (data_id, data_path or inline data): shape, "
+            "dtypes, missing counts, head, numeric summary and — for a "
+            "handle — the lineage of transforms that produced it."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "head": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 50,
+                    "default": 5,
+                    "description": "Rows to echo.",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "transform_data",
+        "description": (
+            "Derive a new dataset from a data_id (or data_path / inline "
+            "data) by applying `operations` in order, and return a new "
+            "data_id with the lineage recorded. Operations (each an object "
+            "with `op`): query {expr} (pandas DataFrame.query), select "
+            "{columns}, drop {columns}, rename {mapping}, dropna "
+            "{columns?}, fillna {value | mapping}, assign {column, expr} "
+            "(DataFrame.eval), sort {by, ascending?}, sample {n, seed?}, "
+            "winsor {columns?, cuts?=[1,99]} (replaces in place), "
+            "wide_to_long {stubnames, i, j, sep?}, long_to_wide {index, "
+            "columns, values}, mice {columns?, m?} (single completed "
+            "dataset), function {name, arguments?} (any sp.<name> taking "
+            "data= and returning a DataFrame)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "operations": {
+                    "type": "array",
+                    "items": {"type": "object", "additionalProperties": True},
+                    "description": "Ordered list of {op, ...} objects.",
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Optional label for the new handle.",
+                },
+            },
+            "required": ["operations"],
+        },
+    },
 ]
 
 
@@ -622,6 +704,15 @@ def execute_workflow_tool(
 
     if name == "describe_function":
         return _tool_describe_function(arguments)
+
+    if name == "load_data":
+        return _tool_load_data(arguments, data)
+
+    if name == "describe_data":
+        return _tool_describe_data(arguments, data)
+
+    if name == "transform_data":
+        return _tool_transform_data(arguments, data)
 
     if name == "call_function":
         return _tool_call_function(
@@ -1703,6 +1794,375 @@ def _load_bibtex_index() -> Dict[str, str]:
 
     _BIBTEX_CACHE = entries
     return _BIBTEX_CACHE
+
+
+# ----------------------------------------------------------------------
+# Data handles — load_data / describe_data / transform_data
+# ----------------------------------------------------------------------
+
+
+def _need_data(
+    data: Optional[pd.DataFrame], *, tool: str, arguments: Dict[str, Any]
+) -> Any:
+    if data is None:
+        return _missing_argument_error(
+            tool=tool,
+            argument="data_id",
+            arguments=arguments,
+            corrected=(
+                f"{tool}(data_id='d_…')  # or data_path=..., data_records=[...], "
+                "data_csv='...'"
+            ),
+        )
+    return data
+
+
+def _tool_load_data(
+    arguments: Dict[str, Any], data: Optional[pd.DataFrame]
+) -> Dict[str, Any]:
+    from ._data_cache import describe_frame, register_frame
+
+    frame = _need_data(data, tool="load_data", arguments=arguments)
+    if isinstance(frame, dict):
+        return frame
+    prov = dict(arguments.get("_source_provenance") or {})
+    source_id = arguments.get("_source_data_id")
+    if source_id:
+        # Re-registering a handle is a no-op alias: return the same id so
+        # an agent cannot accidentally duplicate a frame in the cache.
+        out: Dict[str, Any] = {"data_id": source_id, "aliased": True}
+        out.update(describe_frame(frame))
+        return out
+    label = arguments.get("name")
+    if isinstance(label, str) and label.strip():
+        prov["label"] = label.strip()
+    data_id = register_frame(frame, provenance=prov, tool="load_data")
+    out = {"data_id": data_id, "data_uri": f"statspai://data/{data_id}"}
+    out.update(describe_frame(frame))
+    out["provenance"] = prov
+    out["next_step"] = (
+        "Pass data_id to any estimator (instead of data_path), or "
+        "transform_data(data_id=..., operations=[...]) for a derived handle."
+    )
+    return out
+
+
+def _tool_describe_data(
+    arguments: Dict[str, Any], data: Optional[pd.DataFrame]
+) -> Dict[str, Any]:
+    from ._data_cache import describe_frame, lineage
+
+    frame = _need_data(data, tool="describe_data", arguments=arguments)
+    if isinstance(frame, dict):
+        return frame
+    head = arguments.get("head", 5)
+    try:
+        head = max(0, min(int(head), 50))
+    except (TypeError, ValueError):
+        head = 5
+    out: Dict[str, Any] = describe_frame(frame, head=head)
+    source_id = arguments.get("_source_data_id")
+    if source_id:
+        out["data_id"] = source_id
+        out["lineage"] = lineage(source_id)
+    prov = arguments.get("_source_provenance")
+    if prov:
+        out["provenance"] = prov
+    return out
+
+
+_TRANSFORM_OPS = (
+    "query",
+    "select",
+    "drop",
+    "rename",
+    "dropna",
+    "fillna",
+    "assign",
+    "sort",
+    "sample",
+    "winsor",
+    "wide_to_long",
+    "long_to_wide",
+    "mice",
+    "function",
+)
+
+
+def _apply_transform(df: pd.DataFrame, step: Dict[str, Any]) -> pd.DataFrame:
+    """Apply one ``transform_data`` step. Raises on a bad step."""
+    from ..exceptions import MethodIncompatibility
+
+    op = step.get("op")
+    if op not in _TRANSFORM_OPS:
+        raise MethodIncompatibility(
+            f"Unknown transform op {op!r}.",
+            recovery_hint=f"Use one of: {', '.join(_TRANSFORM_OPS)}.",
+            diagnostics={"step": step},
+        )
+
+    def _cols(key: str = "columns", required: bool = True) -> List[str]:
+        cols = step.get(key)
+        if cols is None:
+            if required:
+                raise MethodIncompatibility(
+                    f"op={op!r} needs `{key}`.",
+                    recovery_hint=f"Add {key}=[...] to the step.",
+                    diagnostics={"step": step},
+                )
+            return []
+        if isinstance(cols, str):
+            cols = [cols]
+        missing = [c for c in cols if c not in df.columns]
+        if missing:
+            raise MethodIncompatibility(
+                f"op={op!r}: column(s) not found: {missing}. "
+                f"Available: {list(map(str, df.columns))[:40]}",
+                recovery_hint="Check the column names with describe_data.",
+                diagnostics={"missing": missing},
+            )
+        return list(cols)
+
+    if op == "query":
+        expr = step.get("expr")
+        if not isinstance(expr, str) or not expr.strip():
+            raise MethodIncompatibility(
+                "op='query' needs a string `expr`.",
+                recovery_hint="e.g. {'op': 'query', 'expr': 'year >= 2005 and age < 65'}",
+            )
+        return df.query(expr, engine="python")
+    if op == "select":
+        return df[_cols()]
+    if op == "drop":
+        return df.drop(columns=_cols())
+    if op == "rename":
+        mapping = step.get("mapping")
+        if not isinstance(mapping, dict):
+            raise MethodIncompatibility(
+                "op='rename' needs `mapping` {old: new}.",
+                recovery_hint="e.g. {'op': 'rename', 'mapping': {'lwage': 'y'}}",
+            )
+        unknown = [k for k in mapping if k not in df.columns]
+        if unknown:
+            raise MethodIncompatibility(
+                f"op='rename': column(s) not found: {unknown}",
+                recovery_hint="Check the column names with describe_data.",
+            )
+        return df.rename(columns=mapping)
+    if op == "dropna":
+        cols = _cols(required=False)
+        return df.dropna(subset=cols or None)
+    if op == "fillna":
+        value = step.get("value", step.get("mapping"))
+        if value is None:
+            raise MethodIncompatibility(
+                "op='fillna' needs `value` (scalar) or `mapping` {column: value}.",
+                recovery_hint="e.g. {'op': 'fillna', 'mapping': {'x': 0}}",
+            )
+        if isinstance(value, dict):
+            unknown = [k for k in value if k not in df.columns]
+            if unknown:
+                raise MethodIncompatibility(
+                    f"op='fillna': column(s) not found: {unknown}",
+                    recovery_hint="Check the column names with describe_data.",
+                )
+        return df.fillna(value)
+    if op == "assign":
+        column, expr = step.get("column"), step.get("expr")
+        if not isinstance(column, str) or not isinstance(expr, str):
+            raise MethodIncompatibility(
+                "op='assign' needs `column` and a string `expr`.",
+                recovery_hint="e.g. {'op': 'assign', 'column': 'lwage', 'expr': 'log(wage)'}",
+            )
+        out = df.copy()
+        out[column] = out.eval(expr, engine="python")
+        return out
+    if op == "sort":
+        by = _cols("by")
+        asc = step.get("ascending", True)
+        return df.sort_values(by=by, ascending=asc).reset_index(drop=True)
+    if op == "sample":
+        n = step.get("n")
+        try:
+            n = int(n)
+        except (TypeError, ValueError):
+            raise MethodIncompatibility(
+                "op='sample' needs an integer `n`.",
+                recovery_hint="e.g. {'op': 'sample', 'n': 1000, 'seed': 0}",
+            )
+        seed = step.get("seed", 0)
+        return df.sample(n=min(n, len(df)), random_state=int(seed)).reset_index(
+            drop=True
+        )
+    if op == "winsor":
+        from ..utils.data_tools import winsor
+
+        cols = _cols(required=False) or None
+        cuts = step.get("cuts", [1, 99])
+        return winsor(
+            df, vars=cols, cuts=(float(cuts[0]), float(cuts[1])), replace=True
+        )
+    if op == "wide_to_long":
+        stub = step.get("stubnames")
+        i, j = step.get("i"), step.get("j")
+        if not stub or not i or not j:
+            raise MethodIncompatibility(
+                "op='wide_to_long' needs `stubnames`, `i` and `j`.",
+                recovery_hint=(
+                    "e.g. {'op': 'wide_to_long', 'stubnames': ['y'], 'i': 'id', "
+                    "'j': 'year', 'sep': '_'}"
+                ),
+            )
+        return pd.wide_to_long(
+            df, stubnames=stub, i=i, j=j, sep=step.get("sep", "")
+        ).reset_index()
+    if op == "long_to_wide":
+        index, columns, values = (
+            step.get("index"),
+            step.get("columns"),
+            step.get("values"),
+        )
+        if not index or not columns or not values:
+            raise MethodIncompatibility(
+                "op='long_to_wide' needs `index`, `columns` and `values`.",
+                recovery_hint=(
+                    "e.g. {'op': 'long_to_wide', 'index': 'id', 'columns': "
+                    "'year', 'values': 'y'}"
+                ),
+            )
+        wide = df.pivot(index=index, columns=columns, values=values)
+        wide.columns = [f"{values}_{c}" for c in wide.columns]
+        return wide.reset_index()
+    if op == "mice":
+        import statspai as sp
+
+        cols = _cols(required=False) or None
+        m = int(step.get("m", 5))
+        res = sp.mice(df, vars=cols, m=m) if cols else sp.mice(df, m=m)
+        completed = getattr(res, "completed", None) or getattr(res, "imputed", None)
+        if completed is None:
+            raise MethodIncompatibility(
+                "sp.mice returned no completed datasets.",
+                recovery_hint="Impute outside transform_data and load the result.",
+            )
+        first = completed[0] if isinstance(completed, (list, tuple)) else completed
+        if not isinstance(first, pd.DataFrame):
+            raise MethodIncompatibility(
+                "sp.mice completed dataset is not a DataFrame.",
+                recovery_hint="Impute outside transform_data and load the result.",
+            )
+        return first
+    # op == "function"
+    import statspai as sp
+
+    name = step.get("name")
+    if not isinstance(name, str) or not name.strip():
+        raise MethodIncompatibility(
+            "op='function' needs `name` (a registered sp.<name>).",
+            recovery_hint="e.g. {'op': 'function', 'name': 'winsor', 'arguments': {...}}",
+        )
+    name = name.strip()
+    if name.startswith("sp."):
+        name = name[3:]
+    fn = getattr(sp, name, None)
+    if fn is None or not callable(fn):
+        raise MethodIncompatibility(
+            f"Unknown function {name!r}.",
+            recovery_hint="Use search_functions to find the right name.",
+        )
+    kwargs = dict(step.get("arguments") or {})
+    kwargs.pop("data", None)
+    out = fn(data=df, **kwargs)
+    if not isinstance(out, pd.DataFrame):
+        raise MethodIncompatibility(
+            f"sp.{name} returned {type(out).__name__}, not a DataFrame.",
+            recovery_hint=(
+                "transform_data only chains DataFrame-returning functions; "
+                "fit estimators with call_function instead."
+            ),
+        )
+    return out
+
+
+def _tool_transform_data(
+    arguments: Dict[str, Any], data: Optional[pd.DataFrame]
+) -> Dict[str, Any]:
+    from ..workflow._degradation import record_degradation
+    from ._data_cache import describe_frame, register_frame
+
+    frame = _need_data(data, tool="transform_data", arguments=arguments)
+    if isinstance(frame, dict):
+        return frame
+    ops = arguments.get("operations")
+    if (
+        not isinstance(ops, list)
+        or not ops
+        or not all(isinstance(o, dict) for o in ops)
+    ):
+        return {
+            "error": "`operations` must be a non-empty list of {op, ...} objects.",
+            "ops": list(_TRANSFORM_OPS),
+            "example": {
+                "operations": [
+                    {"op": "query", "expr": "year >= 2005"},
+                    {"op": "winsor", "columns": ["wage"], "cuts": [1, 99]},
+                ]
+            },
+        }
+    df = frame
+    applied: List[Dict[str, Any]] = []
+    for k, step in enumerate(ops):
+        before = int(len(df))
+        try:
+            df = _apply_transform(df, step)
+        except Exception as exc:
+            # A failed step aborts the chain: a partially transformed frame
+            # is not what the agent asked for (CLAUDE.md §3.7).
+            entry = record_degradation(
+                None, section=f"transform_data step {k} ({step.get('op')})", exc=exc
+            )
+            envelope: Dict[str, Any] = {
+                "error": f"{type(exc).__name__}: {exc}",
+                "failed_step": k,
+                "step": step,
+                "applied": applied,
+                "degradation": entry,
+            }
+            from ..exceptions import StatsPAIError
+
+            if isinstance(exc, StatsPAIError):
+                envelope["error_kind"] = exc.code
+                envelope["recovery_hint"] = getattr(exc, "recovery_hint", None)
+            return envelope
+        applied.append(
+            {
+                "step": k,
+                "op": step.get("op"),
+                "arguments": {kk: vv for kk, vv in step.items() if kk != "op"},
+                "n_rows_before": before,
+                "n_rows_after": int(len(df)),
+            }
+        )
+    source_id = arguments.get("_source_data_id")
+    prov = dict(arguments.get("_source_provenance") or {})
+    label = arguments.get("name")
+    if isinstance(label, str) and label.strip():
+        prov["label"] = label.strip()
+    data_id = register_frame(
+        df,
+        provenance=prov,
+        parent_id=source_id,
+        operations=applied,
+        tool="transform_data",
+    )
+    out: Dict[str, Any] = {
+        "data_id": data_id,
+        "data_uri": f"statspai://data/{data_id}",
+        "parent_id": source_id,
+        "operations": applied,
+    }
+    out.update(describe_frame(df))
+    return out
 
 
 def _tool_search_functions(arguments: Dict[str, Any]) -> Dict[str, Any]:

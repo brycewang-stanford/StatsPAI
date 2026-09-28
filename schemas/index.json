@@ -2,7 +2,7 @@
   "counts": {
     "agent_cards": 423,
     "functions": 1260,
-    "tools": 583
+    "tools": 586
   },
   "files": [
     "tools.json",
