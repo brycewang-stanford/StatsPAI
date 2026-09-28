@@ -382,6 +382,35 @@ def _make_parser() -> argparse.ArgumentParser:
         help="tools/list profile (default: curated, or STATSPAI_MCP_PROFILE).",
     )
 
+    # skill
+    p_skill = sub.add_parser(
+        "skill",
+        help="Manage the packaged Claude Code skill (statspai-analysis).",
+    )
+    skill_sub = p_skill.add_subparsers(dest="skill_command", metavar="<action>")
+    p_install = skill_sub.add_parser(
+        "install",
+        help="Copy the skill into a skills directory (default ~/.claude/skills).",
+    )
+    p_install.add_argument(
+        "--target",
+        default=None,
+        help="Skills directory; the skill lands in <target>/statspai-analysis/.",
+    )
+    p_install.add_argument(
+        "--force", action="store_true", help="Overwrite an existing installation."
+    )
+    skill_sub.add_parser("path", help="Print the packaged skill's directory.")
+    p_validate = skill_sub.add_parser(
+        "validate",
+        help="Run the skill's API-claim gate against the installed StatsPAI.",
+    )
+    p_validate.add_argument(
+        "--quick",
+        action="store_true",
+        help="Existence + signature checks only (no fits).",
+    )
+
     # version
     sub.add_parser("version", help="Print StatsPAI version and exit.")
 
@@ -549,6 +578,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         _print_route(payload)
         return 0
 
+    if args.command == "skill":
+        return _skill_command(args)
+
     if args.command == "mcp":
         from .agent.mcp_server import main as mcp_main
 
@@ -557,6 +589,67 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     parser.print_help()
     return 1
+
+
+SKILL_NAME = "statspai-analysis"
+
+
+def _packaged_skill_dir():
+    from pathlib import Path
+
+    return Path(__file__).resolve().parent / "agent" / "_skill"
+
+
+def _skill_command(args: argparse.Namespace) -> int:
+    import shutil
+    from pathlib import Path
+
+    src = _packaged_skill_dir()
+    if not (src / "SKILL.md").exists():
+        print(f"packaged skill not found at {src}", file=sys.stderr)
+        return EXIT_USAGE
+    action = args.skill_command
+    if action == "path":
+        print(src)
+        return 0
+    if action == "validate":
+        import runpy
+
+        ns = runpy.run_path(
+            str(src / "validate_api_claims.py"), run_name="_statspai_skill_gate"
+        )
+        saved = sys.argv
+        # The gate parses sys.argv itself; hand it only its own flags.
+        sys.argv = ["validate_api_claims.py"] + (
+            ["--quick"] if getattr(args, "quick", False) else []
+        )
+        try:
+            return int(ns["main"]())
+        finally:
+            sys.argv = saved
+    if action == "install":
+        target = (
+            Path(args.target).expanduser()
+            if args.target
+            else Path.home() / ".claude" / "skills"
+        )
+        dest = target / SKILL_NAME
+        if dest.exists():
+            if not args.force:
+                print(
+                    f"{dest} already exists; pass --force to overwrite.",
+                    file=sys.stderr,
+                )
+                return EXIT_USAGE
+            shutil.rmtree(dest)
+        shutil.copytree(
+            src, dest, ignore=shutil.ignore_patterns("__pycache__", "*.pyc")
+        )
+        n_files = sum(1 for p in dest.rglob("*") if p.is_file())
+        print(f"installed {SKILL_NAME} -> {dest} ({n_files} files)")
+        return 0
+    print("usage: statspai skill install|path|validate", file=sys.stderr)
+    return EXIT_USAGE
 
 
 def _print_route(payload: Dict[str, Any]) -> None:

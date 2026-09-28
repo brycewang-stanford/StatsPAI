@@ -1,0 +1,42 @@
+# StatsPAI
+
+> Agent-native causal inference and applied econometrics in Python: one `import statspai as sp` over 1,200+ registered functions (DiD, RD, IV, synthetic control, DML, meta-learners, matching, panel, spatial, time series, survival, decomposition), numerically aligned with Stata / R reference implementations, with self-describing schemas, structured results and Word / Excel / LaTeX export.
+
+Install: `pip install statspai` (`pip install "statspai[fixest,plotting]"` for high-dimensional fixed effects and figures). MCP server: `statspai-mcp`. CLI: `statspai`.
+
+## Start here
+
+- [AGENTS.md](AGENTS.md): how an agent discovers, calls and reads StatsPAI (discover → describe → call, the result contract, the rules to keep)
+- [Agent API guide](docs/guides/agent_api.md): the 12-piece agent surface, token-budget control, `sp.audit`, citations, MCP server, shell `statspai run`
+- [MCP workflow for economists](docs/guides/economist_mcp_workflow.md): data handoff (`data_path` / `data_id` / inline), result handles, the detect → estimate → audit loop, Stata / R migration
+- [README](README.md): overview, install, quick start
+
+## Choosing an estimator (also `sp.route` / `sp.decision_guide` / MCP `route_estimator`)
+
+- [DiD](docs/guides/choosing_did_estimator.md)
+- [IV](docs/guides/choosing_iv_estimator.md)
+- [RD](docs/guides/choosing_rd_estimator.md)
+- [Matching / weighting](docs/guides/choosing_matching_estimator.md)
+- [ML-causal](docs/guides/choosing_ml_causal_estimator.md)
+- [Quantile treatment effects](docs/guides/choosing_qte_estimator.md)
+- [Dynamic panel](docs/guides/choosing_dynamic_panel_estimator.md)
+
+## Machine-readable
+
+- [schemas/functions.json](schemas/functions.json): JSON-Schema for every registered function
+- [schemas/tools.json](schemas/tools.json): MCP / tool-use manifest
+- [schemas/agent_cards.json](schemas/agent_cards.json): assumptions, pre-conditions, failure modes, alternatives per function
+- [schemas/result.schema.json](schemas/result.schema.json): the result envelope
+- [docs/parity.md](docs/parity.md): numerical evidence index (R / Stata parity per module)
+
+## Evidence and citation
+
+- [Parity rules and tolerances](docs/dev/r_parity_tolerances.md)
+- [Stability guide](docs/guides/stability.md)
+- Cite: `sp.citation()` — Wang & Rozelle (2026), Journal of Open Source Software 11(125), 10604, doi:10.21105/joss.10604
+
+## Optional
+
+- [Contributor guide](CLAUDE.md)
+- [Changelog](CHANGELOG.md)
+- [Migration notes](MIGRATION.md)

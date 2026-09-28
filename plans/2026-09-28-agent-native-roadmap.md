@@ -180,10 +180,10 @@ MCP, and it is not shipped. There is no `AGENTS.md` / `llms.txt`.
   the packaged skill; skill ships in `package-data`.
 - `validate_api_claims.py` runs in CI on the split files.
 
-- [ ] rename + frontmatter + split; drift script updated
-- [ ] `AGENTS.md`, `llms.txt`; README pointers
-- [ ] `statspai skill install`; packaged; CI check
-- [ ] CHANGELOG
+- [x] rename + frontmatter + split; drift script updated
+- [x] `AGENTS.md`, `llms.txt`; README pointers
+- [x] `statspai skill install`; packaged; CI check
+- [x] CHANGELOG
 
 ---
 
@@ -209,4 +209,5 @@ MCP, and it is not shipped. There is no `AGENTS.md` / `llms.txt`.
 - 2026-09-28 — W3 pass 1–2 done (docstring harvest, family inheritance, schema reconciliation, ratchet).
 - 2026-09-28 — W3 pass 3 batch 1 done (28 family cards). Evidence-tier field and batch 2 remain.
 - 2026-09-28 — W4 done (routing tables, sp.route / sp.decision_guide, route_estimator tool, packaged guides).
-- 2026-09-28 — W5 done (statspai run / family shortcuts / route / mcp). W6 next.
+- 2026-09-28 — W5 done (statspai run / family shortcuts / route / mcp).
+- 2026-09-28 — W6 done (packaged `statspai-analysis` skill, `statspai skill install|validate|path`, AGENTS.md, llms.txt). Remaining across the plan: W3 evidence-tier field and per-function card refinement; the CI workflow patch in `plans/pending-workflow-patches/` needs a user push.

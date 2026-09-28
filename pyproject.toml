@@ -186,7 +186,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "statspai" = ["py.typed", "*.pyi", "CITATION.cff", "paper.bib", "schemas/*.json", "_parity_index.json"]
-"statspai.agent" = ["_guides/*.md"]
+"statspai.agent" = ["_guides/*.md", "_skill/*.md", "_skill/*.py", "_skill/references/*.md"]
 "statspai.datasets" = ["data/*.csv"]
 "statspai.smart" = ["data/recommend_corpus.yaml"]
 

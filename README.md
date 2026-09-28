@@ -712,6 +712,12 @@ For Claude Desktop, Cursor, and other clients:
 See the [MCP workflow guide](docs/guides/economist_mcp_workflow.md) for data
 handoff, result handles, and the recommended detect → estimate → audit loop.
 
+**As a Claude Code skill** — `statspai skill install` copies the packaged
+`statspai-analysis` skill (applied-econ / epidemiology / ML-causal pipelines
+with paper-ready exports) into `~/.claude/skills`; `statspai skill validate`
+re-checks every API claim in it against the installed package. Agents using the
+library start at [`AGENTS.md`](AGENTS.md) and [`llms.txt`](llms.txt).
+
 ---
 
 ## Validation: What Has Been Checked, And What Has Not

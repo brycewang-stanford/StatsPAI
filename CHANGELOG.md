@@ -92,6 +92,23 @@ All notable changes to StatsPAI will be documented in this file.
   mcp [--profile]` starts the server. Unknown arguments are reported
   under `_unsupported_args`, estimator errors are the structured payload
   on stderr with exit code 3, usage errors exit 2.
+- **Packaged Claude Code skill `statspai-analysis`, `AGENTS.md`, `llms.txt`.**
+  The JOSS-era `StatsPAI_full_data_analysis_skill/` (2,263-line
+  `SKILL.md`, invalid skill name, description over the 1,024-character
+  limit, stamped 1.19.0, not shipped) is superseded by a packaged skill
+  under `statspai/agent/_skill/`: a valid frontmatter, a 130-line
+  `SKILL.md` (operating loop, pipeline map, hard rules) and nine
+  `references/` files split from the original playbook plus a new
+  `mcp-and-cli.md` (discover → describe → call over MCP and the shell,
+  data handles, routing, the result contract). No version stamp: the
+  bundled `validate_api_claims.py` gate, now run over every skill file,
+  is the stamp (`statspai skill validate [--quick]`). `statspai skill
+  install [--target DIR] [--force]` copies it into `~/.claude/skills`;
+  `statspai skill path` prints the packaged location. `AGENTS.md` (how
+  an agent discovers, calls and reads StatsPAI) and `llms.txt` (an index
+  of the agent-facing docs and machine-readable schemas) are added at the
+  repository root. The original directory is kept unchanged as the JOSS
+  archive artifact.
 - **`sp.search_functions` understands task phrases.** Stopwords are
   ignored, common econometrics spellings are expanded (`did` ↔
   difference-in-differences, `rd` ↔ discontinuity, `iv` ↔ instrument,
