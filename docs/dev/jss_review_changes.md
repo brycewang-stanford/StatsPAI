@@ -77,6 +77,41 @@ Rules:
     `fb8c61ff`)
   - `tests/orig_parity/results/_implementation_trace.json` (`80abadb7`)
 
+### 2026-09-28 — call traces re-recorded after the agent-native audit fixes
+
+- **Commit.** `c18b1183` (the agent-native audit commit; CHANGELOG
+  "Unreleased": MCP tool-list profiles and discovery meta-tools,
+  `search_functions` ranking, `sp.did` aliases / indicator-to-cohort,
+  `sp.rd(cutoff=)` fix, nested diagnostics and `degradations` in the agent
+  payload); re-traced every Track A module and every original-data module.
+- **Reason.** `src/statspai/_aliases.py` (did-you-mean on `**kwargs`
+  functions) and `src/statspai/core/results.py` (`to_dict` diagnostics /
+  degradations, `to_json(detail=)`) sit on every module's estimation path,
+  so every `exercised_sources` digest moved and both traces went stale
+  (`tests/test_parity_implementation_provenance.py`,
+  `tests/test_orig_parity_native_contract.py`). Neither change touches a
+  numerical path: the alias wrapper only changes the exception raised for an
+  unknown keyword, and the result changes only affect serialisation.
+- **Effect on the paper.** None. The re-trace was checked field by field
+  against the previous record: no module's `packages`, boundary-call
+  package set, `rscript_launches` or `error` changed, so the native / port /
+  third-party census of Section 5.3 and Appendix A and the original-data
+  ledger's provenance marks are unchanged. What did change besides the
+  digests: the recorded tracing environment (Python 3.10.20 → 3.11.15,
+  scipy 1.15.3 → 1.17.1, scikit-learn 1.6.1 → 1.9.1; numpy 2.2.6 and
+  pandas 2.3.3 as in the release trace), `seconds`, and a few boundary
+  callee *names* inside the same package (scikit-learn 1.9 renamed
+  `_base.predict` to `_base.MultiOutputLinearModel.predict`), because
+  this run was made in a fresh venv rather than the release container. A
+  first attempt in the container's `dist-packages` layout was discarded:
+  the tracer keys third-party boundaries on `site-packages`, so it had
+  silently reclassified every sklearn / statsmodels / pyfixest call as
+  native. No estimate, standard error or table cell is read from these
+  files.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-09-27 — call traces re-recorded after the post-release merge
 
 - **Commits.** The merge `4ad3a993` of `main` (upstream `a916c7bc`..`881fdf8c`: sdid
