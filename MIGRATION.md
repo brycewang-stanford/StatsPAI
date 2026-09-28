@@ -5,6 +5,26 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="ppml-separation-etwfe-link"></a>
+
+## Unreleased — ⚠️ `sp.ppmlhdfe` drops separated observations; `sp.etwfe(family='poisson')` gains `scale=` / `fe=`
+
+**Who is affected.** Anyone running `sp.ppmlhdfe` on data with fixed-effect
+groups whose outcome is always zero (or a regressor that is non-zero only
+where the outcome is zero), and anyone reproducing Stata `jwdid ...,
+method(ppmlhdfe)` tables with `sp.etwfe`.
+
+| Area | Old | New | Old number, if you need it |
+| --- | --- | --- | --- |
+| `sp.ppmlhdfe`, separated rows | kept (warning only); slow or incomplete convergence, `N` / clusters include them | dropped (Stata default rules `fe simplex`), `model_info['n_separated']`, warning | `separation='warn'` |
+| `sp.ppmlhdfe`, regressor zero after dropping | singular solve | omitted with a warning (Stata's "omitted") | `separation='warn'` |
+| `sp.etwfe(family='poisson')` headline | response-scale AME only | unchanged by default; `scale='link'` gives jwdid's `estat simple, predict(xb)` number | — |
+| `sp.etwfe(family='poisson')` on an unbalanced panel | cohort dummies, silently different from jwdid | same numbers plus a warning; `fe='unit'` reproduces jwdid / ppmlhdfe | `fe='cohort'` (default) |
+| `sp.etwfe(family=..., cgroup='nevertreated')` | raised `MethodIncompatibility` | supported (adds pre-period cells) | — |
+| nonlinear `sp.etwfe_emfx(type='group'/'event'/'calendar')` rows | `att`, `se`, `n_treated` | also `pvalue`, `ci_lower`, `ci_upper`; `scale=` selects the scale | — |
+
+---
+
 <a id="design-and-diagnostic-fixes"></a>
 
 ## Unreleased — ⚠️ `optimal_design` sample sizes, Hausman test, `compare_estimators`, `estat` IV tests

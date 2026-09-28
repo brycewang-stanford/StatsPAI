@@ -198,6 +198,7 @@ TWFE over them.
 | One-call harvesting + precision-weighted            | `sp.harvest_did(df, outcome=..., unit=..., time=..., cohort=...)`                   |
 | Two-way Mundlak / ETWFE — treated-obs-weighted simple ATT (R `emfx(type='simple')`, Stata `jwdid, estat simple`) | `sp.etwfe(df, y, group, time, first_treat)` |
 | Two-way Mundlak / ETWFE — cohort-size-weighted mean of ATT(g), never-treated controls (R `etwfe(cgroup='never')` + `emfx(type='group')`) | `sp.wooldridge_did(df, y, group, time, first_treat)` |
+| Poisson ETWFE for counts, as Stata `jwdid ..., method(ppmlhdfe)` + `estat simple, predict(xb)` (log points, unit FE) | `sp.etwfe(df, y, group, time, first_treat, family='poisson', fe='unit', scale='link')` |
 | Cohort sub-experiments w/ clean controls (CDLZ)     | `sp.stacked_did(df, y, group, time, first_treat, window=(-5, 5))`                   |
 | Continuous / dose treatment                         | `sp.continuous_did(df, y, d, t, i)`                                                 |
 | Changes-in-changes (CIC, not DID-in-mean)           | `sp.cic(df, y, g, t)`                                                               |
@@ -211,6 +212,18 @@ TWFE over them.
 > `17_etwfe` parity bytes they are 15.9% apart, so the choice is not cosmetic —
 > state in your write-up which average you are reporting. Both are pinned
 > against R and Stata in Track A module `17_etwfe`.
+>
+> **Poisson ETWFE: which number is "the ATT"?** `family='poisson'` reports two
+> scales. The default `scale='response'` is the average marginal effect in
+> counts (R `emfx()` default). Papers that run Stata `jwdid ...,
+> method(ppmlhdfe)` usually print `estat simple, predict(xb)`: the
+> treated-observation-weighted mean of the cohort × period coefficients, in log
+> points. That is `scale='link'`, and the two can differ by an order of
+> magnitude. jwdid also absorbs **unit** fixed effects; R `etwfe` uses cohort
+> dummies. They coincide on a balanced panel and not otherwise, so pass
+> `fe='unit'` to reproduce jwdid when outcomes have missing values (the
+> default warns in that case). Both scales live in
+> `res.model_info['aggregations']` and `sp.etwfe_emfx(res, type=..., scale=...)`.
 
 #### Or settle it on your own panel
 

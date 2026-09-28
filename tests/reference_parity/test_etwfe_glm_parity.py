@@ -186,7 +186,9 @@ def test_gaussian_and_default_are_the_historical_linear_path(poisson_panel):
     [
         {"family": "poisson", "xvar": "lpop"},
         {"family": "poisson", "panel": False},
-        {"family": "poisson", "cgroup": "nevertreated"},
+        {"family": "poisson", "weights": "y"},
+        {"family": "logit", "fe": "unit"},
+        {"family": "poisson", "scale": "odds"},
         {"family": "probit"},
     ],
 )

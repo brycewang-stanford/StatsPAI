@@ -686,6 +686,138 @@ def _nb1_fit(
 # ---------------------------------------------------------------------------
 
 
+def _fe_codes(fe_idx: np.ndarray) -> Tuple[np.ndarray, int]:
+    """Dense 0..G-1 integer codes for one fixed-effect dimension."""
+    codes = pd.factorize(np.asarray(fe_idx))[0].astype(np.intp, copy=False)
+    return codes, int(codes.max()) + 1 if codes.size else 0
+
+
+def _fe_weighted_demean(
+    M: np.ndarray,
+    fe_indices_list: Sequence[np.ndarray],
+    w: np.ndarray,
+    maxiter: int = 500,
+    tol: float = 1e-10,
+) -> np.ndarray:
+    """``w``-weighted within-transform of ``M`` by alternating projections.
+
+    Each sweep subtracts the ``w``-weighted group mean of every column, one
+    fixed-effect dimension at a time, until the largest group mean removed
+    in a sweep is below ``tol``.  Groups within a dimension are disjoint, so
+    the per-dimension step is computed for all groups at once with
+    ``np.bincount`` -- O(n) per sweep instead of the O(n * G) of a
+    per-group boolean-mask loop, which made ``sp.ppmlhdfe`` thousands of
+    times slower than ``sp.fepois`` on panels with tens of thousands of
+    units.  With one dimension a single sweep is exact.
+    """
+    Md = np.array(M, dtype=float, copy=True)
+    squeeze = Md.ndim == 1
+    if squeeze:
+        Md = Md[:, None]
+    w = np.asarray(w, dtype=float)
+    blocks = []
+    for fe_idx in fe_indices_list:
+        codes, G = _fe_codes(fe_idx)
+        wsum = np.bincount(codes, weights=w, minlength=G)
+        ok = wsum >= 1e-300
+        inv = np.zeros(G)
+        inv[ok] = 1.0 / wsum[ok]
+        blocks.append((codes, G, inv))
+    n_sweeps = 1 if len(blocks) == 1 else maxiter
+    for _ in range(n_sweeps):
+        max_change = 0.0
+        for codes, G, inv in blocks:
+            for c in range(Md.shape[1]):
+                means = np.bincount(codes, weights=w * Md[:, c], minlength=G) * inv
+                Md[:, c] -= means[codes]
+                if means.size:
+                    max_change = max(max_change, float(np.max(np.abs(means))))
+        if max_change < tol:
+            break
+    return Md[:, 0] if squeeze else Md
+
+
+def _normalise_ppml_separation(separation: Union[bool, str]) -> str:
+    """Map the public ``separation=`` spellings to 'drop' / 'warn' / 'none'."""
+    if separation is True:
+        return "drop"
+    if separation is False or separation is None:
+        return "none"
+    key = str(separation).strip().lower()
+    if key in {"drop", "default", "def", "fe simplex", "fe", "simplex", "on"}:
+        return "drop"
+    if key in {"warn", "check"}:
+        return "warn"
+    if key in {"none", "off", "false", "keep"}:
+        return "none"
+    raise MethodIncompatibility(
+        f"separation={separation!r} is not recognised.",
+        recovery_hint="Use True/'drop' (default), 'warn', or False.",
+        diagnostics={"separation": separation},
+    )
+
+
+def _ppml_separation_mask(
+    y: np.ndarray,
+    X: np.ndarray,
+    fe_indices_list: Optional[Sequence[np.ndarray]] = None,
+    maxiter: int = 100,
+) -> Tuple[np.ndarray, Dict[str, int]]:
+    """Observations PPML can keep after removing separated ones.
+
+    Implements the two cheap, exact rules that Stata ``ppmlhdfe`` applies
+    by default (``correia2020fast``; ``separation(fe simplex)``), iterated
+    to a fixed point because dropping rows under one rule can create
+    separation under the other:
+
+    * **fe** -- a fixed-effect group whose outcomes are all zero.  Its
+      effect diverges to minus infinity, the group contributes nothing to
+      the slope estimates, and keeping it only stalls IRLS.
+    * **simplex (single regressor)** -- a regressor that is zero on every
+      ``y > 0`` observation and one-signed on the ``y = 0`` ones: the
+      rows where it is non-zero are perfectly predicted zeros.
+
+    The general ReLU rule (separation by a linear combination of several
+    regressors) is not implemented; such cases still surface as
+    non-convergence.
+
+    Returns ``(keep, counts)`` where ``counts`` holds how many observations
+    each rule removed.
+    """
+    keep = np.isfinite(y)
+    counts = {"fe": 0, "simplex": 0}
+    fe_list = list(fe_indices_list or [])
+    codes_list = [_fe_codes(fe)[0] for fe in fe_list]
+    for _ in range(maxiter):
+        changed = False
+        for codes in codes_list:
+            G = int(codes.max()) + 1 if codes.size else 0
+            ysum = np.bincount(codes[keep], weights=y[keep], minlength=G)
+            nobs = np.bincount(codes[keep], minlength=G)
+            dead = (ysum <= 0) & (nobs > 0)
+            if dead.any():
+                drop = keep & dead[codes]
+                counts["fe"] += int(drop.sum())
+                keep &= ~drop
+                changed = True
+        pos = keep & (y > 0)
+        zero = keep & (y == 0)
+        for j in range(X.shape[1]):
+            col = X[:, j]
+            nz = zero & (col != 0)
+            if not nz.any() or np.any(col[pos] != 0):
+                continue
+            vals = col[nz]
+            if np.all(vals > 0) or np.all(vals < 0):
+                counts["simplex"] += int(nz.sum())
+                keep &= ~nz
+                zero &= ~nz
+                changed = True
+        if not changed:
+            break
+    return keep, counts
+
+
 def _demean_poisson(
     y: np.ndarray,
     X: np.ndarray,
@@ -711,35 +843,10 @@ def _demean_poisson(
     y_tilde, X_tilde : demeaned arrays
     """
     w = mu
-    n, k = X.shape
-
-    # Stack y and X for joint demeaning
-    Z = np.column_stack(
-        [y.reshape(-1, 1) / mu.reshape(-1, 1) * w.reshape(-1, 1), X * w[:, None]]
-    )  # weighted
-
-    # Actually we need to demean the working response and weighted X.
-    # Working response in IRLS: z_i = eta_i + (y_i - mu_i)/mu_i
-    # We demean each column of Z by subtracting weighted group means iteratively
-    Z_dm = Z.copy()
-    for _ in range(maxiter_demean):
-        max_change = 0.0
-        for fe_idx in fe_indices_list:
-            groups = np.unique(fe_idx)
-            for g in groups:
-                mask = fe_idx == g
-                w_g = w[mask]
-                w_sum = w_g.sum()
-                if w_sum < 1e-300:
-                    continue
-                group_mean = (Z_dm[mask] * w_g[:, None]).sum(axis=0) / w_sum
-                change = np.max(np.abs(group_mean))
-                if change > max_change:
-                    max_change = change
-                Z_dm[mask] -= group_mean[None, :]
-        if max_change < tol_demean:
-            break
-
+    Z = np.column_stack([y.reshape(-1, 1), X]) * w[:, None]
+    Z_dm = _fe_weighted_demean(
+        Z, fe_indices_list, w, maxiter=maxiter_demean, tol=tol_demean
+    )
     return Z_dm[:, 0], Z_dm[:, 1:]
 
 
@@ -776,13 +883,14 @@ def _detect_separation(
     # Check FE groups
     if fe_indices_list:
         for fe_i, fe_idx in enumerate(fe_indices_list):
-            for g in np.unique(fe_idx):
-                mask = fe_idx == g
-                if np.all(y[mask] == 0):
-                    warnings_list.append(
-                        f"Separation: FE group {g} (FE dim {fe_i}) has "
-                        "all-zero outcomes"
-                    )
+            codes, G = _fe_codes(fe_idx)
+            ysum = np.bincount(codes, weights=np.abs(y), minlength=G)
+            n_dead = int((ysum == 0).sum())
+            if n_dead:
+                warnings_list.append(
+                    f"Separation: {n_dead} FE group(s) in FE dim {fe_i} have "
+                    "all-zero outcomes"
+                )
 
     return warnings_list
 
@@ -821,14 +929,22 @@ def _ppml_hdfe_irls(
         # Initialize FE as group log-means
         eta = np.zeros(n)
         for fe_idx in fe_list:
-            for g in np.unique(fe_idx):
-                mask = fe_idx == g
-                gm = np.mean(y_init[mask])
-                eta[mask] += np.log(max(gm, 0.1))
+            codes, G = _fe_codes(fe_idx)
+            gm = np.bincount(codes, weights=y_init, minlength=G) / np.maximum(
+                np.bincount(codes, minlength=G), 1
+            )
+            eta += np.log(np.maximum(gm, 0.1))[codes]
         mu = _safe_exp(eta)
     else:
         beta = np.linalg.lstsq(X, np.log(y_init), rcond=None)[0]
         mu = _safe_exp(X @ beta)
+
+    fe_blocks = []
+    for fe_idx in fe_list:
+        codes, G = _fe_codes(fe_idx)
+        fe_blocks.append(
+            (codes, G, np.bincount(codes, weights=weights * y, minlength=G))
+        )
 
     converged = False
     for it in range(maxiter):
@@ -843,24 +959,7 @@ def _ppml_hdfe_irls(
 
             # Demean z_full and X
             Z = np.column_stack([z_full.reshape(-1, 1), X])
-            Z_dm = Z.copy()
-            for _ in range(500):
-                max_change = 0.0
-                for fe_idx in fe_list:
-                    # Vectorized group demeaning
-                    for g in np.unique(fe_idx):
-                        mask = fe_idx == g
-                        w_g = w[mask]
-                        w_sum = w_g.sum()
-                        if w_sum < 1e-300:
-                            continue
-                        group_mean = (Z_dm[mask] * w_g[:, None]).sum(axis=0) / w_sum
-                        change = np.max(np.abs(group_mean))
-                        if change > max_change:
-                            max_change = change
-                        Z_dm[mask] -= group_mean[None, :]
-                if max_change < 1e-10:
-                    break
+            Z_dm = _fe_weighted_demean(Z, fe_list, w, maxiter=500, tol=1e-10)
 
             z_dm = Z_dm[:, 0]
             X_dm = Z_dm[:, 1:]
@@ -899,29 +998,27 @@ def _ppml_hdfe_irls(
             # the previous eta_fe). This single bug produced both the
             # HC1 SE inflation (finding #6) and the 3-way-FE
             # non-convergence (finding #5) flagged on 2026-05-28.
+            # Groups within one dimension are disjoint, so each block
+            # update is computed for all of its groups at once.
             eta_fe = np.zeros(n)
+            exp_total = _safe_exp(eta_X)
             for _ in range(200):
                 max_score = 0.0
-                eta_total = eta_X + eta_fe
-                exp_total = _safe_exp(eta_total)
-                for fe_idx in fe_list:
-                    for g in np.unique(fe_idx):
-                        mask = fe_idx == g
-                        w_g = weights[mask]
-                        y_sum = float((w_g * y[mask]).sum())
-                        exp_sum = float((w_g * exp_total[mask]).sum())
-                        if y_sum > 0 and exp_sum > 0:
-                            delta = float(np.log(y_sum / exp_sum))
-                        elif exp_sum > 0:
-                            delta = float(np.log(max(y_sum, 0.5) / exp_sum))
-                        else:
-                            delta = 0.0
-                        eta_fe[mask] += delta
-                        # Update exp_total in place so the next FE block
-                        # uses the corrected mu.
-                        exp_total[mask] *= np.exp(delta)
-                        if abs(delta) > max_score:
-                            max_score = abs(delta)
+                for codes, G, wy_sum in fe_blocks:
+                    exp_sum = np.bincount(
+                        codes, weights=weights * exp_total, minlength=G
+                    )
+                    delta = np.zeros(G)
+                    pos = exp_sum > 0
+                    delta[pos] = np.log(np.maximum(wy_sum[pos], 0.5) / exp_sum[pos])
+                    ok = pos & (wy_sum > 0)
+                    delta[ok] = np.log(wy_sum[ok] / exp_sum[ok])
+                    eta_fe += delta[codes]
+                    # Update exp_total in place so the next FE block
+                    # uses the corrected mu.
+                    exp_total *= np.exp(delta)[codes]
+                    if G:
+                        max_score = max(max_score, float(np.max(np.abs(delta))))
                 if max_score < 1e-12:
                     break
 
@@ -946,23 +1043,7 @@ def _ppml_hdfe_irls(
     # ppmlhdfe / fixest::fepois (parity finding #6, 2026-05-28).
     if has_fe:
         w_final = weights * mu
-        X_dm_final = X.copy()
-        for _ in range(500):
-            max_change = 0.0
-            for fe_idx in fe_list:
-                for g in np.unique(fe_idx):
-                    mask = fe_idx == g
-                    w_g = w_final[mask]
-                    w_sum = w_g.sum()
-                    if w_sum < 1e-300:
-                        continue
-                    group_mean = (X_dm_final[mask] * w_g[:, None]).sum(axis=0) / w_sum
-                    change = float(np.max(np.abs(group_mean)))
-                    if change > max_change:
-                        max_change = change
-                    X_dm_final[mask] -= group_mean[None, :]
-            if max_change < 1e-10:
-                break
+        X_dm_final = _fe_weighted_demean(X, fe_list, w_final, maxiter=500, tol=1e-10)
         return beta, mu, converged, it + 1, X_dm_final
 
     return beta, mu, converged, it + 1, None
@@ -2075,19 +2156,7 @@ def _wfe_demean(
     tol: float = 1e-12,
 ) -> np.ndarray:
     """Weighted within-transform: alternating w-weighted FE projections of M."""
-    Md = M.astype(float, copy=True)
-    for _ in range(maxiter):
-        max_change = 0.0
-        for fe_idx in fe_indices_list:
-            for g in np.unique(fe_idx):
-                mask = fe_idx == g
-                wg = w[mask]
-                mean = (wg[:, None] * Md[mask]).sum(axis=0) / wg.sum()
-                Md[mask] -= mean
-                max_change = max(max_change, float(np.max(np.abs(mean))))
-        if max_change < tol:
-            break
-    return Md
+    return _fe_weighted_demean(M, fe_indices_list, w, maxiter=maxiter, tol=tol)
 
 
 def _ppmlhdfe_wild(
@@ -2397,7 +2466,7 @@ def ppmlhdfe(
     robust: str = "robust",
     cluster: Optional[Union[str, List[str], Tuple[str, str]]] = None,
     weights: Optional[str] = None,
-    separation: bool = True,
+    separation: Union[bool, str] = True,
     maxiter: int = 1000,
     tol: float = 1e-8,
     alpha: float = 0.05,
@@ -2458,9 +2527,19 @@ def ppmlhdfe(
         ``ppmlhdfe ..., cluster(a b)``).
     weights : str, optional
         Weight variable name.
-    separation : bool, default True
-        If True, check for separation (perfect prediction of zeros) and
-        warn. Observations causing separation are not dropped automatically.
+    separation : {True, 'drop', 'warn', False}, default True
+        Handling of separated observations (outcomes perfectly predicted to
+        be zero, whose maximum-likelihood fitted value is exactly zero).
+        ``True`` / ``'drop'`` removes them before estimation with the
+        ``fe`` and single-regressor ``simplex`` rules Stata ``ppmlhdfe``
+        applies by default (``correia2020fast``), iterated to a fixed
+        point; the count is reported as ``model_info['n_separated']`` and a
+        warning is issued.  Slopes are unchanged by the removal (the rows
+        carry no information about them), but ``N``, the cluster count and
+        hence the ``G/(G-1)`` factor match Stata, and IRLS no longer chases
+        fixed effects towards minus infinity.  ``'warn'`` is the pre-1.33
+        behaviour (detect and warn, keep the rows); ``False`` skips the
+        check.  The general ReLU rule is not implemented.
     maxiter : int, default 1000
         Maximum IRLS iterations.
     tol : float, default 1e-8
@@ -2559,6 +2638,42 @@ def ppmlhdfe(
         multiway=True,
     )
     cluster = _se.cluster
+
+    # Separated observations are removed from `data` itself, so every SE
+    # path below (CRV1, CR2/CR3, wild, Conley) sees the same sample.
+    sep_mode = _normalise_ppml_separation(separation)
+    sep_counts = {"fe": 0, "simplex": 0}
+    n_before_sep = None
+    if sep_mode == "drop":
+        _y0, _X0, _vn0, _fe0, _data0 = _ppmlhdfe_design(formula, data, y, x, absorb)
+        _keep, sep_counts = _ppml_separation_mask(_y0, _X0, _fe0)
+        n_before_sep = int(len(_y0))
+        n_sep = n_before_sep - int(_keep.sum())
+        if n_sep:
+            if not _keep.any():
+                raise DataInsufficient(
+                    "ppmlhdfe: every observation is separated (all-zero "
+                    "outcomes within each fixed-effect group).",
+                    recovery_hint="Check the outcome column; PPML needs "
+                    "positive outcomes within at least one group.",
+                    diagnostics={"n_separated": n_sep},
+                )
+            warnings.warn(
+                f"ppmlhdfe: dropped {n_sep} separated observation(s) "
+                f"({sep_counts['fe']} in all-zero fixed-effect groups, "
+                f"{sep_counts['simplex']} perfectly predicted by a "
+                "single regressor), as Stata ppmlhdfe does by default. "
+                "Pass separation='warn' to keep them.",
+                stacklevel=2,
+            )
+            data = _data0.iloc[np.flatnonzero(_keep)]
+        # The extended paths re-enter ppmlhdfe; the data is already clean.
+        separation = False
+    elif sep_mode == "none":
+        separation = False
+    else:  # warn
+        separation = True
+
     if _se.kind in ("cr2", "cr3", "jackknife", "wild", "conley"):
         _vce = _se.kind
     else:
@@ -2653,6 +2768,23 @@ def ppmlhdfe(
         X = X[:, 1:]
         var_names = var_names[1:]
         k = X.shape[1]
+
+    # A regressor that was non-zero only on separated rows is identically
+    # zero once they are gone; Stata reports it as omitted.  Do the same
+    # rather than hand a singular X'WX to the solver.
+    if n_before_sep is not None and k:
+        dead_cols = [j for j in range(k) if not np.any(X[:, j] != 0)]
+        if dead_cols:
+            warnings.warn(
+                "ppmlhdfe: omitted regressor(s) "
+                f"{[var_names[j] for j in dead_cols]} — identically zero "
+                "after removing separated observations.",
+                stacklevel=2,
+            )
+            live = [j for j in range(k) if j not in dead_cols]
+            X = X[:, live]
+            var_names = [var_names[j] for j in live]
+            k = X.shape[1]
 
     # Weights
     w_arr = None
@@ -2785,6 +2917,9 @@ def ppmlhdfe(
         "absorbed_fe": fe_names if fe_names else None,
         "n_fe_levels": n_fe,
         "separation_warnings": sep_warnings,
+        "separation": sep_mode,
+        "n_separated": (0 if n_before_sep is None else int(n_before_sep - n)),
+        "n_separated_by_rule": dict(sep_counts),
     }
 
     if cluster_arr is not None:
