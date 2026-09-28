@@ -19799,15 +19799,26 @@ _AGENT_CARD_SEED_METADATA: Dict[str, Dict[str, Any]] = {
 # imported at module top). Each template's identifying assumptions / failure
 # modes are merged into the estimator entry-points that share it.
 # ---------------------------------------------------------------------------
+#: Names whose ``_AGENT_CARD_SEED_METADATA`` entry is a family *template*
+#: copy rather than a hand-written card. A per-function card in
+#: :mod:`statspai._function_cards` is more specific than a template and
+#: replaces it (see :func:`_apply_agent_card_seeds`); it never replaces a
+#: hand-written entry.
+_TEMPLATE_SEEDED_NAMES: set = set()
+
+
 def _expand_family_seeds() -> None:
     """Merge family-template seeds into ``_AGENT_CARD_SEED_METADATA``.
 
     Uses ``setdefault`` so hand-curated entries always win; each function
-    receives a shallow copy of its family template.
+    receives a shallow copy of its family template, and the names that
+    received one are recorded in :data:`_TEMPLATE_SEEDED_NAMES`.
     """
     for template, names in _CAUSAL_FAMILY_SEEDS:
         for fn in names:
-            _AGENT_CARD_SEED_METADATA.setdefault(fn, dict(template))
+            if fn not in _AGENT_CARD_SEED_METADATA:
+                _AGENT_CARD_SEED_METADATA[fn] = dict(template)
+                _TEMPLATE_SEEDED_NAMES.add(fn)
 
 
 _expand_family_seeds()
@@ -20474,7 +20485,7 @@ _FAMILY_SUFFIXES: Tuple[Tuple[str, str], ...] = (
     ("_event_study", "event_study"),
     ("_tmle", "tmle"),
 )
-_NO_INHERIT_PREFIXES = ("dgp_", "plot_", "sim_")
+_NO_INHERIT_PREFIXES = ("dgp_", "plot_", "sim_", "evalue_")
 _NO_INHERIT_SUFFIXES = ("_plot", "_table", "_report", "_dashboard")
 
 _FAMILY_INHERITANCE_APPLIED = False
@@ -21359,6 +21370,29 @@ def _apply_validation_evidence() -> None:
     _VALIDATION_EVIDENCE_APPLIED = True
 
 
+def _merge_card_metadata(
+    primary: Dict[str, Any], secondary: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Field-wise union of two seed cards; ``primary`` items come first.
+
+    List fields are concatenated without duplicates (failure modes compared
+    as dicts), scalar fields are taken from ``primary`` unless empty there.
+    Neither input is mutated.
+    """
+    out: Dict[str, Any] = {}
+    for key in set(primary) | set(secondary):
+        a, b = primary.get(key), secondary.get(key)
+        if isinstance(a, list) or isinstance(b, list):
+            merged: List[Any] = list(a or [])
+            for item in b or []:
+                if item not in merged:
+                    merged.append(item)
+            out[key] = merged
+        else:
+            out[key] = a if a not in (None, "") else b
+    return out
+
+
 def _apply_agent_card_seeds() -> None:
     """Attach conservative planning metadata to tested high-use APIs."""
     global _AGENT_CARD_SEEDS_APPLIED
@@ -21387,13 +21421,44 @@ def _apply_agent_card_seeds() -> None:
         seed_sources.update(expand_family_cards())
     except ImportError:  # pragma: no cover - wheel without the module
         pass
+    # Per-function cards (statspai._function_cards): specific to one entry
+    # point. The family card is the floor: the per-function card overrides
+    # it field by field and inherits the fields it does not state.
+    function_cards: Dict[str, Dict[str, Any]] = {}
+    try:
+        from ._function_cards import FUNCTION_CARDS
+
+        function_cards = dict(FUNCTION_CARDS)
+        for _name, _card in function_cards.items():
+            seed_sources[_name] = {**seed_sources.get(_name, {}), **_card}
+    except ImportError:  # pragma: no cover - wheel without the module
+        pass
+
+    def merge_curated(source: Dict[str, Dict[str, Any]], *, template_names) -> None:
+        # A hand-written per-name entry keeps the last word, and a
+        # per-function card *adds* to it (lists appended after the
+        # hand-written items, scalars only filled when empty). A family
+        # template copy is the floor for a per-function card: the card
+        # overrides field by field, so a field the card leaves out keeps
+        # the template's value, while a field it states replaces it (the
+        # rd template's continuity assumption must not survive on the
+        # local-randomisation estimator ``rdrandinf``).
+        for name, meta in source.items():
+            card = function_cards.get(name)
+            if card is None:
+                seed_sources[name] = meta
+            elif name in template_names:
+                seed_sources[name] = {**meta, **card}
+            else:
+                seed_sources[name] = _merge_card_metadata(meta, card)
+
     try:
         from ._agent_cards_extra import EXTRA_AGENT_CARDS
 
-        seed_sources.update(EXTRA_AGENT_CARDS)
+        merge_curated(EXTRA_AGENT_CARDS, template_names=frozenset())
     except ImportError:
         pass
-    seed_sources.update(_AGENT_CARD_SEED_METADATA)
+    merge_curated(_AGENT_CARD_SEED_METADATA, template_names=_TEMPLATE_SEEDED_NAMES)
 
     for name, meta in seed_sources.items():
         spec = _REGISTRY.get(name)
@@ -21401,7 +21466,14 @@ def _apply_agent_card_seeds() -> None:
             continue
         extend_missing(spec.pre_conditions, list(meta.get("pre_conditions", [])))
         extend_missing(spec.assumptions, list(meta.get("assumptions", [])))
-        extend_missing(spec.alternatives, list(meta.get("alternatives", [])))
+        extend_missing(
+            spec.alternatives,
+            [
+                alt
+                for alt in meta.get("alternatives", [])
+                if alt.replace("sp.", "").split("(")[0].strip() != name
+            ],
+        )
         extend_missing(
             spec.not_recommended_when, list(meta.get("not_recommended_when", []))
         )

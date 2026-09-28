@@ -1178,7 +1178,6 @@ FAMILY_CARDS: Dict[str, Dict[str, Any]] = {
             "target_trial_emulate",
             "target_trial_report",
             "immortal_time_check",
-            "matrix_completion",
             "geolift",
             "interflex",
         ],

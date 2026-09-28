@@ -65,7 +65,24 @@ All notable changes to StatsPAI will be documented in this file.
   post-estimation, rlasso, DiD diagnostics, ML-causal helpers, the
   g-formula / transport / target-trial toolkit, missing data and
   randomization inference. Agent-card coverage on callables moves from
-  46 % to 75 %; the ratchet floor is raised to 70 %. Every discovery
+  46 % to 75 %; the ratchet floor is raised to 70 %. A second, per-function
+  card layer (`statspai._function_cards`, 80 entries) refines the
+  highest-traffic DiD, IV, RD, synthetic-control and DML entry points:
+  the failure the agent will actually see from *this* estimator, the
+  situation in which *this* variant is the wrong pick even though the
+  call succeeds (`not_recommended_when`), and the scaling hazard of
+  *this* implementation (`cost_profile`). Precedence is now explicit and
+  tested (`tests/test_function_cards.py`): a family card or family
+  template is the floor, a per-function card overrides it field by field
+  and inherits the fields it does not state, and a hand-written registry
+  entry keeps its own content first (per-function cards only append to
+  it). Before this the family-template copies in the registry's in-file
+  seed table silently shadowed any later per-name card, and `rdrandinf`
+  carried the RD template's continuity-at-the-cutoff assumption although
+  it is the local-randomisation estimator; it now states its own. An
+  `alternatives` entry can no longer point at the function itself, and
+  `evalue_*` / `dgp_*` / `plot_*` / `sim_*` helpers no longer inherit an
+  estimator card through the family name rule. Every discovery
   view (`describe_function`, `agent_card`, `function_schema(...,
   agent_native=True)['x_statspai']`) now carries a structured `evidence`
   record read from the committed parity index — `status` (bit-exact /

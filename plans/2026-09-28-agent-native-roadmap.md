@@ -112,7 +112,7 @@ and the agent cards are only as good as this metadata.
 - [x] family inheritance + `inherited_from` marker
 - [x] schema contradictions fixed; `kind` marker for classes
 - [x] curated cards, batch 1: family cards for every parity-ledger entry point without one (28 families, 272 members; card coverage 46 % → 75 %)
-- [ ] curated cards, batch 2: per-function refinement of the highest-traffic members (the family card is the floor, not the ceiling)
+- [x] curated cards, batch 2: per-function refinement of the highest-traffic members (80 cards for did / iv / rd / synth / dml; the family card is the floor, the per-function card overrides field by field, hand-written registry entries keep the last word)
 - [x] structured evidence tier field (`evidence` in describe_function / agent_card / x_statspai); `describe_function` merges inheritance
 - [x] CHANGELOG, schema regen, docs/stats
 
@@ -212,3 +212,4 @@ MCP, and it is not shipped. There is no `AGENTS.md` / `llms.txt`.
 - 2026-09-28 — W5 done (statspai run / family shortcuts / route / mcp).
 - 2026-09-28 — W3 evidence-tier field done (structured `evidence` in every discovery view).
 - 2026-09-28 — W6 done (packaged `statspai-analysis` skill, `statspai skill install|validate|path`, AGENTS.md, llms.txt). Remaining across the plan: W3 per-function card refinement (batch 2); the CI workflow patch in `plans/pending-workflow-patches/` needs a user push.
+- 2026-09-28 — W3 per-function cards, batch 2 done (`statspai._function_cards`, 80 entries; seed precedence fixed and tested). Remaining across the plan: the CI workflow patch in `plans/pending-workflow-patches/` needs a user push.

@@ -44,6 +44,27 @@ Rules:
   entries below describe changes against the provisional 1.32.0 anchor;
   they stay as history and do not need to be carried into the new freeze.
 
+### 2026-09-28 — call traces re-recorded after the routing commit changed `__init__.py`
+
+- **Commits.** `e53532f1` (machine-readable estimator routing: exports
+  `sp.route` / `sp.decision_guide` from `src/statspai/__init__.py`) went
+  in without a re-trace; the ten Track A modules whose recorded path
+  includes the package `__init__` (`03_hdfe`, `13_causal_forest`,
+  `15_hdfe_cluster`, `24_coxph`, `25_lmm`, `26_glmm_logit`,
+  `27_glmm_aghq`, `53_cr2`, `65_spatial`, `66_spatial_gmm`) were stale
+  until the commit that carries this entry re-recorded
+  `tests/r_parity/results/_implementation_trace.json`.
+- **Reason.** Only the exported-name table of `src/statspai/__init__.py`
+  changed (two new lazy exports); no estimator source moved. The
+  original-data ledger (`tests/orig_parity/results/_implementation_trace.json`)
+  does not bind `__init__.py` and was not stale.
+- **Effect on the paper.** None. Checked field by field against `HEAD`
+  with the same script as the entry below: across all 89 Track A modules
+  and the 12 original-data modules no `packages`, boundary-call package
+  set, `rscript_launches` or `error` changed; only the ten
+  `exercised_sources` digests and `seconds` differ. Traced in the same
+  `site-packages` venv (Python 3.11.15, pandas 2.3.3) as the entry below.
+
 ### 2026-09-28 — call traces re-recorded for sdid(treat=) and an es_inference docstring
 
 - **Commits.** `80abadb7` (re-trace after `sp.sdid(treat=...)`, commit

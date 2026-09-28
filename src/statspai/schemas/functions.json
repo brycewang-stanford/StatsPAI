@@ -42,7 +42,7 @@
     }
   },
   {
-    "description": "Unified IV estimation and the entry point for the whole IV family: k-class (2SLS, LIML, Fuller, GMM, JIVE) plus the many-weak-instrument jackknife variants (jive1, ujive, ijive, rjive, jive_mw), rigorous/post-Lasso instrument selection (lasso, rlasso, post_lasso), marginal treatment effects (mte) and their MST sharp bounds (ivmte_bounds), plausibly-exogenous sensitivity (plausibly_exog_ltz / plausibly_exog_uci), nonparametric and ML variants (npiv, kernel, ivdml, deepiv), quantile IV (ivqreg), Bayesian IV (bayes), continuous-instrument LATE (continuous_late), many-weak-IV Anderson-Rubin (many_weak_ar) and shift-share (shift_share). Includes first-stage F, Sargan/Hansen J, Kleibergen-Paap rk, Sanderson-Windmeijer per-endog F and Hausman diagnostics. Validation: certified parity evidence.",
+    "description": "Unified IV estimation and the entry point for the whole IV family: k-class (2SLS, LIML, Fuller, GMM, JIVE) plus the many-weak-instrument jackknife variants (jive1, ujive, ijive, rjive, jive_mw), rigorous/post-Lasso instrument selection (lasso, rlasso, post_lasso), marginal treatment effects (mte) and their MST sharp bounds (ivmte_bounds), plausibly-exogenous sensitivity (plausibly_exog_ltz / plausibly_exog_uci), nonparametric and ML variants (npiv, kernel, ivdml, deepiv), quantile IV (ivqreg), Bayesian IV (bayes), continuous-instrument LATE (continuous_late), many-weak-IV Anderson-Rubin (many_weak_ar) and shift-share (shift_share). Includes first-stage F, Sargan/Hansen J, Kleibergen-Paap rk, Sanderson-Windmeijer per-endog F and Hausman diagnostics. Validation: certified parity evidence. Do NOT use when: the instrument is a policy cutoff on a running variable -- that is a fuzzy RD (sp.rdrobust(..., fuzzy=)), whose local inference differs. Cost: augmented_diagnostics=True adds bootstrap SEs and AR / CLR grid inversions; cost is n_boot + grid_size extra fits.",
     "name": "iv",
     "parameters": {
       "properties": {
@@ -122,7 +122,7 @@
     }
   },
   {
-    "description": "Two-stage least squares (2SLS) IV regression. Alias for sp.iv(method='2sls'). Validation: certified parity evidence.",
+    "description": "Two-stage least squares (2SLS) IV regression. Alias for sp.iv(method='2sls'). Validation: certified parity evidence. Do NOT use when: many instruments relative to n -- 2SLS is biased toward OLS; use sp.jive or sp.rlasso_iv. Cost: vce='wild' runs wild_reps wild-cluster bootstrap replications of the restricted-efficient 2SLS; O(wild_reps x n).",
     "name": "ivreg",
     "parameters": {
       "properties": {
@@ -458,7 +458,7 @@
     }
   },
   {
-    "description": "Difference-in-Differences. Supports 2x2, DDD, staggered (Callaway-Sant'Anna, Sun-Abraham), and Synthetic DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: treatment is continuous / dose-valued rather than binary -- use sp.continuous_did or sp.dose_response; exactly one treated unit -- DiD inference is not credible with one treated cluster; use sp.synth or sp.sdid; no pre-treatment period exists -- parallel trends is untestable and the event study cannot be identified.",
+    "description": "Difference-in-Differences. Supports 2x2, DDD, staggered (Callaway-Sant'Anna, Sun-Abraham), and Synthetic DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: treatment is continuous / dose-valued rather than binary -- use sp.continuous_did or sp.dose_response; exactly one treated unit -- DiD inference is not credible with one treated cluster; use sp.synth or sp.sdid; no pre-treatment period exists -- parallel trends is untestable and the event study cannot be identified. Cost: method='cs' with bstrap=True runs biters multiplier-bootstrap draws over every ATT(g,t) cell; cost grows with cohorts x periods x biters. Analytic SEs (default) are O(n).",
     "name": "did",
     "parameters": {
       "properties": {
@@ -569,7 +569,7 @@
     }
   },
   {
-    "description": "Triple Differences (DDD). Extends 2x2 DID with a within-unit subgroup comparison to eliminate additional confounders. method='3wfe' (default) is the triple-interaction regression; covariates there are additive and do not identify the covariate-adjusted ATT, so method='dr'/'reg'/'ipw' with id= routes to the conditional estimators of sp.ddd_heterogeneous. Validation: certified parity evidence.",
+    "description": "Triple Differences (DDD). Extends 2x2 DID with a within-unit subgroup comparison to eliminate additional confounders. method='3wfe' (default) is the triple-interaction regression; covariates there are additive and do not identify the covariate-adjusted ATT, so method='dr'/'reg'/'ipw' with id= routes to the conditional estimators of sp.ddd_heterogeneous. Validation: certified parity evidence. Do NOT use when: the second difference (eligibility) does not split units within the treated group -- without an ineligible comparison inside each group this is a DiD with an extra dummy, not a triple difference.",
     "name": "ddd",
     "parameters": {
       "properties": {
@@ -812,7 +812,7 @@
     }
   },
   {
-    "description": "RD estimation: sharp, fuzzy, kink, and donut-hole designs with robust inference. Validation: certified evidence with scoped limitations. Known limitations: the weighted rbc bootstrap is not supported -- passing weights= with bootstrap='rbc' raises MethodIncompatibility; R-parity certification applies only to the configurations enumerated by sp.validation_scope(function='rdrobust') -- the default native mserd / triangular / p=1 / nn path (Track A 06), a manual bandwidth, and the weighted rows -- other selectors, kernels and vce choices are pinned for sp.rdbwselect or not at all for this entry point.",
+    "description": "RD estimation: sharp, fuzzy, kink, and donut-hole designs with robust inference. Validation: certified evidence with scoped limitations. Known limitations: the weighted rbc bootstrap is not supported -- passing weights= with bootstrap='rbc' raises MethodIncompatibility; R-parity certification applies only to the configurations enumerated by sp.validation_scope(function='rdrobust') -- the default native mserd / triangular / p=1 / nn path (Track A 06), a manual bandwidth, and the weighted rows -- other selectors, kernels and vce choices are pinned for sp.rdbwselect or not at all for this entry point. Do NOT use when: the running variable has few distinct values (dates, integer scores) -- local polynomial asymptotics fail; use sp.rd_discrete or sp.rdit; treatment probability does not change at the cutoff -- there is no RD; consider sp.bunching or a DiD. Cost: bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
     "name": "rdrobust",
     "parameters": {
       "properties": {
@@ -1123,7 +1123,7 @@
     }
   },
   {
-    "description": "Double/Debiased Machine Learning supports PLR, binary-D IRM, PLIV, and binary-D/binary-Z IIVM. Python-only external OOFPredictions supports unweighted, unnormalised IRM ATE scoring with exact alignment; caller_declared records are declarations rather than proof against leakage. Validation: certified evidence with scoped limitations. Known limitations: external_predictions, store_oof, and observation_ids are Python-only and absent from JSON/MCP inputs; external records accept no dict, JSON string, or file path; store_oof=True retains individual-level records for get_oof() and get_residuals() in memory only; ordinary serialization omits them; Retained IRM needs at least 10 rows per treatment arm in each training fold or raises DataInsufficient instead of fallback; internal explicit fold_indices require n_rep=1, while external repeated IRM records are allowed when the explicit partition is equivalent for every repeat.",
+    "description": "Double/Debiased Machine Learning supports PLR, binary-D IRM, PLIV, and binary-D/binary-Z IIVM. Python-only external OOFPredictions supports unweighted, unnormalised IRM ATE scoring with exact alignment; caller_declared records are declarations rather than proof against leakage. Validation: certified evidence with scoped limitations. Known limitations: external_predictions, store_oof, and observation_ids are Python-only and absent from JSON/MCP inputs; external records accept no dict, JSON string, or file path; store_oof=True retains individual-level records for get_oof() and get_residuals() in memory only; ordinary serialization omits them; Retained IRM needs at least 10 rows per treatment arm in each training fold or raises DataInsufficient instead of fallback; internal explicit fold_indices require n_rep=1, while external repeated IRM records are allowed when the explicit partition is equivalent for every repeat. Do NOT use when: the treatment is assigned repeatedly and moves later covariates -- static DML is biased; use sp.dynamic_dml; unit fixed effects carry the confounding -- use sp.dml_panel. Cost: n_folds x n_rep nuisance fits per model (two learners for PLR / IRM, three or four for PLIV / IIVM); a gradient-boosting learner on n ~ 10^5 takes minutes per repetition.",
     "name": "dml",
     "parameters": {
       "properties": {
@@ -4002,7 +4002,7 @@
     }
   },
   {
-    "description": "Augmented Synthetic Control with ridge bias correction (Ben-Michael et al. 2021). Validation: certified parity evidence. Do NOT use when: pre-treatment fit from plain sp.synth is already good -- the ridge augmentation mainly buys bias correction for poor fit and adds a tuning parameter to justify; many treated units -- use sp.gsynth or sp.sdid.",
+    "description": "Augmented Synthetic Control with ridge bias correction (Ben-Michael et al. 2021). Validation: certified parity evidence. Do NOT use when: pre-treatment fit from plain sp.synth is already good -- the ridge augmentation mainly buys bias correction for poor fit and adds a tuning parameter to justify; many treated units -- use sp.gsynth or sp.sdid. Cost: One ridge solve on the donor pre-period matrix; placebo=True adds one fit per donor.",
     "name": "augsynth",
     "parameters": {
       "properties": {
@@ -4608,7 +4608,7 @@
     }
   },
   {
-    "description": "Bartik / shift-share IV estimator (Adao-Kolesar-Morales 2019; Borusyak-Hull-Jaravel 2022). Uses pre-period industry / group shares x exogenous shocks as an instrument for local outcome exposure. Validation: certified parity evidence.",
+    "description": "Bartik / shift-share IV estimator (Adao-Kolesar-Morales 2019; Borusyak-Hull-Jaravel 2022). Uses pre-period industry / group shares x exogenous shocks as an instrument for local outcome exposure. Validation: certified parity evidence. Do NOT use when: there are few shocks (industries / sectors) -- shock-level asymptotics need many; report the Herfindahl of the shares and the effective number of shocks. Cost: Share matrix is n_units x n_industries; leave_one_out doubles the work.",
     "name": "bartik",
     "parameters": {
       "properties": {
@@ -8555,7 +8555,7 @@
     }
   },
   {
-    "description": "Gardner (2022) two-stage DID. Stage-1 fits two-way FEs on untreated observations; Stage-2 regresses the residualised outcome on treatment dummies (ATT or event study). Standard errors are the Butts-Gardner two-stage corrected clustered variance (R/Stata did2s), reproduced to ~1e-8 on castle-doctrine; weights= gives did2s(weights=) / [aw=]. Validation: certified parity evidence.",
+    "description": "Gardner (2022) two-stage DID. Stage-1 fits two-way FEs on untreated observations; Stage-2 regresses the residualised outcome on treatment dummies (ATT or event study). Standard errors are the Butts-Gardner two-stage corrected clustered variance (R/Stata did2s), reproduced to ~1e-8 on castle-doctrine; weights= gives did2s(weights=) / [aw=]. Validation: certified parity evidence. Do NOT use when: there are no never-treated (or long not-yet-treated) units -- stage 1 fits the two-way FEs on untreated observations only and needs them in every period. Cost: vce='bootstrap' re-runs both stages n_boot times; the analytic Butts-Gardner correction is O(n).",
     "name": "gardner_did",
     "parameters": {
       "properties": {
@@ -8643,7 +8643,7 @@
     }
   },
   {
-    "description": "Model-averaging DML (PLR) per Ahrens et al. (2025, JAE). Fits DML-PLR under multiple candidate nuisance learners and reports a risk-weighted (or equal/single-best) average of their theta estimates with a covariance-adjusted SE. Validation: certified parity evidence.",
+    "description": "Model-averaging DML (PLR) per Ahrens et al. (2025, JAE). Fits DML-PLR under multiple candidate nuisance learners and reports a risk-weighted (or equal/single-best) average of their theta estimates with a covariance-adjusted SE. Validation: certified parity evidence. Do NOT use when: one learner is known to be right for the data -- averaging trades a little efficiency for robustness to learner choice. Cost: len(candidates) full DML-PLR fits.",
     "name": "dml_model_averaging",
     "parameters": {
       "properties": {
@@ -8714,7 +8714,7 @@
     }
   },
   {
-    "description": "Dynamic Double/Debiased ML for a treatment assigned repeatedly over time (Lewis & Syrgkanis 2021). Use it when the treatment moves the state that drives later treatment: controlling for the later state blocks the indirect path, not controlling for it leaves the confounding in. Returns the effect of intervening on each period's treatment on the final outcome, the total sequence effect, and the joint covariance -- so a contrast across periods has an honest standard error instead of a sum of variances. Optional linear heterogeneity in baseline modifiers. Reproduces econml's DynamicDML to 1e-15 given the same folds and learners. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Dynamic Double/Debiased ML for a treatment assigned repeatedly over time (Lewis & Syrgkanis 2021). Use it when the treatment moves the state that drives later treatment: controlling for the later state blocks the indirect path, not controlling for it leaves the confounding in. Returns the effect of intervening on each period's treatment on the final outcome, the total sequence effect, and the joint covariance -- so a contrast across periods has an honest standard error instead of a sum of variances. Optional linear heterogeneity in baseline modifiers. Reproduces econml's DynamicDML to 1e-15 given the same folds and learners. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: treatment is assigned once -- the static estimator (sp.dml) is the right one and the dynamic moment system is over-parameterised; lags=0 is tempting -- without treatment history in the state the estimator is confidently wrong (documented bias of -15% / +37%). Cost: periods x n_folds nuisance fits for the outcome and each period's treatment.",
     "name": "dynamic_dml",
     "parameters": {
       "properties": {
@@ -8810,7 +8810,7 @@
     }
   },
   {
-    "description": "Long-panel Double/Debiased ML for static panel models with fixed effects (Clarke & Polselli 2025, simplified). Absorbs unit (and optional time) fixed effects via within-transform, cross-fits ML nuisance learners with folds that split units, and reports cluster-robust SE at the unit level. PLR moment (continuous or binary treatment). Validation: certified parity evidence.",
+    "description": "Long-panel Double/Debiased ML for static panel models with fixed effects (Clarke & Polselli 2025, simplified). Absorbs unit (and optional time) fixed effects via within-transform, cross-fits ML nuisance learners with folds that split units, and reports cluster-robust SE at the unit level. PLR moment (continuous or binary treatment). Validation: certified parity evidence. Do NOT use when: T is short and treatment varies little within unit -- the within transform removes most of the treatment variation. Cost: n_folds cross-fits on the demeaned panel; folds split units.",
     "name": "dml_panel",
     "parameters": {
       "properties": {
@@ -9086,7 +9086,7 @@
     }
   },
   {
-    "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: certified parity evidence.",
+    "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: certified parity evidence. Do NOT use when: a quick point estimate is all that is needed -- this is the full reporting bundle (bootstrap SEs, tF, AR / CLR / K sets, LTZ) and costs many fits. Cost: n_boot bootstrap fits plus grid_size test inversions per confidence set; minutes on n ~ 10^5.",
     "name": "iv_diag",
     "parameters": {
       "properties": {
@@ -10938,7 +10938,7 @@
     }
   },
   {
-    "description": "Quantile Difference-in-Differences (QDiD): applies the DiD contrast to quantiles, [Q11(t)-Q10(t)] - [Q01(t)-Q00(t)], on a 2x2 design with bootstrap SE. This is NOT changes-in-changes -- Athey & Imbens (2006) propose CiC and explicitly criticise QDiD; use sp.cic for CiC. Validation: certified parity evidence.",
+    "description": "Quantile Difference-in-Differences (QDiD): applies the DiD contrast to quantiles, [Q11(t)-Q10(t)] - [Q01(t)-Q00(t)], on a 2x2 design with bootstrap SE. This is NOT changes-in-changes -- Athey & Imbens (2006) propose CiC and explicitly criticise QDiD; use sp.cic for CiC. Validation: certified parity evidence. Do NOT use when: the untreated distribution may shift by different amounts at different ranks -- QDiD assumes a constant shift; use method='cic'. Cost: n_boot bootstrap replications x len(quantiles) quantile fits.",
     "name": "qdid",
     "parameters": {
       "properties": {
@@ -11647,7 +11647,7 @@
     }
   },
   {
-    "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [pending verification] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Validation: certified evidence with scoped limitations. Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable.",
+    "description": "DiD with continuous treatment intensity. Four modes: (i) 'twfe' TWFE with dosexpost interaction; (ii) 'att_gt' dose-quantile group-time ATT versus the untreated (dose=0) arm with bootstrap SE (heuristic); (iii) 'dose_response' local-linear regression of DeltaY=Y_post-Y_pre on baseline dose; (iv) 'cgs' Callaway-Goodman-Bacon-Sant'Anna (2024) ATT(d|g,t) MVP -- 2-period design, OR only, bootstrap SE, [pending verification] markers on paper formulas. Full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap -- see docs/rfc/continuous_did_cgs.md. Validation: certified evidence with scoped limitations. Known limitations: method='cgs' is an MVP -- 2-period design, OR only, bootstrap SE; full CGS parity (cohort aggregation, DR/IPW, analytical IF variance) is on the roadmap (see docs/rfc/continuous_did_cgs.md). Other modes (twfe / att_gt / dose_response) are stable. Do NOT use when: a paper-faithful continuous-treatment ATT(d|g,t) is required -- this is a heuristic family; use sp.cgs_continuous_did. Cost: method='att_gt' / 'dose_response' bootstrap n_boot fits.",
     "name": "continuous_did",
     "parameters": {
       "properties": {
@@ -11736,7 +11736,7 @@
     }
   },
   {
-    "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The heteroskedastic-weights variant and full dCDH (2024) intertemporal event-study (did_multiplegt_dyn Stata) are on the roadmap -- see docs/rfc/multiplegt_dyn.md. Validation: certified parity evidence.",
+    "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The heteroskedastic-weights variant and full dCDH (2024) intertemporal event-study (did_multiplegt_dyn Stata) are on the roadmap -- see docs/rfc/multiplegt_dyn.md. Validation: certified parity evidence. Do NOT use when: treatment is absorbing (never switches off) and a dynamic event study is wanted -- sp.callaway_santanna or sp.did_multiplegt_dyn are the estimators for that; DID_M pools consecutive-period cells. Cost: n_boot cluster-bootstrap replications of the full DID_M rollup.",
     "name": "did_multiplegt",
     "parameters": {
       "properties": {
@@ -11872,7 +11872,7 @@
     }
   },
   {
-    "description": "Doubly-robust DiD (Sant'Anna & Zhao 2020). Combines outcome regression with IPW; consistent if either model is correct. Primary estimator for 2x2 DiD with covariates. Validation: certified parity evidence.",
+    "description": "Doubly-robust DiD (Sant'Anna & Zhao 2020). Combines outcome regression with IPW; consistent if either model is correct. Primary estimator for 2x2 DiD with covariates. Validation: certified parity evidence. Do NOT use when: the design is staggered -- drdid is the 2x2 building block; sp.callaway_santanna(..., estimator='dr') applies it cell by cell with the right controls; no covariates are needed -- the unconditional 2x2 (sp.did) has the same estimand without nuisance models. Cost: n_boot bootstrap replications of a logit + OLS fit; O(n_boot x n).",
     "name": "drdid",
     "parameters": {
       "properties": {
@@ -12069,7 +12069,7 @@
     }
   },
   {
-    "description": "Counterfactual estimators for time-series cross-sectional data (Liu, Wang and Xu 2024): impute the untreated potential outcome of every treated unit-period from a model fitted on untreated cells only -- two-way fixed effects ('fe', the imputation estimator), interactive fixed effects with r factors ('ife'), or nuclear-norm matrix completion ('mc') -- and average Y - Y(0) over treated cells, with the ATT path by relative period. Native port of the R package fect; handles staggered adoption, many treated units, unbalanced panels and treatment reversals. Validation: certified evidence with scoped limitations. Known limitations: Inference is resampling-only (unit bootstrap or jackknife on request); the default returns point estimates only; r and lam are user-supplied; fect's cross-validated choice of r / lambda is not yet supported.",
+    "description": "Counterfactual estimators for time-series cross-sectional data (Liu, Wang and Xu 2024): impute the untreated potential outcome of every treated unit-period from a model fitted on untreated cells only -- two-way fixed effects ('fe', the imputation estimator), interactive fixed effects with r factors ('ife'), or nuclear-norm matrix completion ('mc') -- and average Y - Y(0) over treated cells, with the ATT path by relative period. Native port of the R package fect; handles staggered adoption, many treated units, unbalanced panels and treatment reversals. Validation: certified evidence with scoped limitations. Known limitations: Inference is resampling-only (unit bootstrap or jackknife on request); the default returns point estimates only; r and lam are user-supplied; fect's cross-validated choice of r / lambda is not yet supported. Do NOT use when: the treated units have fewer than min_t0 untreated periods -- they are dropped and the ATT no longer describes the treated group; there is one treated unit and a short pre-period -- factor / matrix-completion models cannot be fitted; use sp.synth. Cost: method='ife' / 'mc' iterate an SVD on the N x T outcome matrix per candidate rank and per bootstrap draw: O(n_boot x ranks x N T min(N,T)).",
     "name": "fect",
     "parameters": {
       "properties": {
@@ -12541,7 +12541,7 @@
     }
   },
   {
-    "description": "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE regression with cohort x post interactions; recovers cohort-specific ATTs. Numerically equivalent to CS / SA / BJS under the saturated specification. Validation: certified parity evidence. Do NOT use when: treatment timing is not staggered -- the extended TWFE saturation buys nothing over sp.did(method='2x2'). Cost: Like sp.etwfe: regressor count grows as O(cohorts x periods) from the saturated interactions, so the design matrix -- not the sample size -- is the binding cost.",
+    "description": "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE regression with cohort x post interactions; recovers cohort-specific ATTs. Numerically equivalent to CS / SA / BJS under the saturated specification. Validation: certified parity evidence. Do NOT use when: treatment timing is not staggered -- the extended TWFE saturation buys nothing over sp.did(method='2x2'). Cost: One saturated OLS with cohorts x periods interaction columns.",
     "name": "wooldridge_did",
     "parameters": {
       "properties": {
@@ -12593,7 +12593,7 @@
     }
   },
   {
-    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale. Validation: certified evidence with scoped limitations. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with xvar, panel=False, or cgroup='nevertreated' is not yet supported; these raise rather than being silently ignored; family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention; weights= is not yet supported together with xvar or with family='poisson'/'logit'; both combinations raise; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: Saturated cohort x period interaction design: the number of regressors grows as O(cohorts x periods), so many-cohort many-period panels produce a wide dense design and a slow solve. Check the cohort x period grid size before calling.",
+    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale. Validation: certified evidence with scoped limitations. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with xvar, panel=False, or cgroup='nevertreated' is not yet supported; these raise rather than being silently ignored; family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention; weights= is not yet supported together with xvar or with family='poisson'/'logit'; both combinations raise; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: One saturated OLS with cohorts x periods interaction columns.",
     "name": "etwfe",
     "parameters": {
       "properties": {
@@ -12799,7 +12799,7 @@
     }
   },
   {
-    "description": "Stacked DiD (Cengiz, Dube, Lindner, Zipperer 2019). For each treatment cohort, constructs a sub-experiment with only that cohort + clean (never-treated or not-yet-treated) controls, then TWFE on the stacked panel. Robust to staggered-adoption contamination at the cost of dropping late-treated units in early sub-experiments. Validation: certified parity evidence. Do NOT use when: there is a single adoption cohort -- stacking produces one sub-experiment and is equivalent to sp.did(method='2x2'). Cost: Duplicates rows into one sub-experiment per treated cohort: the stacked dataset is roughly O(n x number of cohorts) before the event window trims it. Narrow window= to bound memory.",
+    "description": "Stacked DiD (Cengiz, Dube, Lindner, Zipperer 2019). For each treatment cohort, constructs a sub-experiment with only that cohort + clean (never-treated or not-yet-treated) controls, then TWFE on the stacked panel. Robust to staggered-adoption contamination at the cost of dropping late-treated units in early sub-experiments. Validation: certified parity evidence. Do NOT use when: there is a single adoption cohort -- stacking produces one sub-experiment and is equivalent to sp.did(method='2x2'). Cost: The stacked panel has one copy of each clean control per cohort: memory grows as cohorts x n.",
     "name": "stacked_did",
     "parameters": {
       "properties": {
@@ -12867,7 +12867,7 @@
     }
   },
   {
-    "description": "Traditional OLS event-study with entity and time FEs. Generates relative-time dummies around the treatment date, omits a reference period, and estimates via TWFE + optional clustered SE. Exposed for users who want the classical specification alongside CS / SA / BJS; not robust to staggered-effect heterogeneity -- use sp.sun_abraham for that. Validation: certified parity evidence. Do NOT use when: only one pre-treatment period is available -- there are no leads to test parallel trends with, so the plot cannot support a pre-trend claim; treatment timing is staggered and heterogeneous -- a pooled TWFE event study contaminates leads with other cohorts' treated periods; use sp.sun_abraham or sp.callaway_santanna.",
+    "description": "Traditional OLS event-study with entity and time FEs. Generates relative-time dummies around the treatment date, omits a reference period, and estimates via TWFE + optional clustered SE. Exposed for users who want the classical specification alongside CS / SA / BJS; not robust to staggered-effect heterogeneity -- use sp.sun_abraham for that. Validation: certified parity evidence. Do NOT use when: only one pre-treatment period is available -- there are no leads to test parallel trends with, so the plot cannot support a pre-trend claim; treatment timing is staggered and heterogeneous -- a pooled TWFE event study contaminates leads with other cohorts' treated periods; use sp.sun_abraham or sp.callaway_santanna. Cost: One OLS with window x cohort dummies; O(n x window).",
     "name": "event_study",
     "parameters": {
       "properties": {
@@ -13058,7 +13058,7 @@
     }
   },
   {
-    "description": "Harvest every valid 2x2 DID comparison from a staggered panel and aggregate them via precision-weighted / simple / cohort-weighted averages. Agnostic to cohort structure; useful for robustness comparisons against CS / SA / BJS. Validation: certified parity evidence.",
+    "description": "Harvest every valid 2x2 DID comparison from a staggered panel and aggregate them via precision-weighted / simple / cohort-weighted averages. Agnostic to cohort structure; useful for robustness comparisons against CS / SA / BJS. Validation: certified parity evidence. Do NOT use when: a paper-standard estimator is the target -- harvest_did is a robustness comparison against CS / SA, not a replacement for them. Cost: Number of harvested 2x2 comparisons grows as cohorts x periods squared.",
     "name": "harvest_did",
     "parameters": {
       "properties": {
@@ -13352,7 +13352,7 @@
     }
   },
   {
-    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn; weight= is supported. **MVP caveats**: no controls=, trends or normalized/continuous options; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; se_method='analytic' reproduces DIDmultiplegtDYN's variance only for the options implemented here: controls=, trends and normalized/continuous variants are not implemented, and the joint placebo/overall tests come from the bootstrap only; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
+    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. Effects, placebos, switcher counts, the switcher-weighted aggregate and the analytic (se_method='analytic') standard errors are pinned to the authors' DIDmultiplegtDYN / Stata did_multiplegt_dyn; weight= is supported. **MVP caveats**: no controls=, trends or normalized/continuous options; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; se_method='analytic' reproduces DIDmultiplegtDYN's variance only for the options implemented here: controls=, trends and normalized/continuous variants are not implemented, and the joint placebo/overall tests come from the bootstrap only; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Do NOT use when: treatment never switches off and all units adopt at once -- the intertemporal estimator reduces to a 2x2; use sp.did. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
     "name": "did_multiplegt_dyn",
     "parameters": {
       "properties": {
@@ -13708,7 +13708,7 @@
     }
   },
   {
-    "description": "Local-Projections DiD (Dube-Girardi-Jorda-Taylor 2023). At each event-time horizon h in {-P, ..., H}, runs a separate OLS of Y_{t+h} - Y_{t-1} on the treatment change Deltad_{t} with time FE and cluster-robust SE, using 'not-yet-treated' or 'never-treated' units as controls. Event-study beta_h paths are returned in ``model_info['event_study']``. Validation: certified parity evidence.",
+    "description": "Local-Projections DiD (Dube-Girardi-Jorda-Taylor 2023). At each event-time horizon h in {-P, ..., H}, runs a separate OLS of Y_{t+h} - Y_{t-1} on the treatment change Deltad_{t} with time FE and cluster-robust SE, using 'not-yet-treated' or 'never-treated' units as controls. Event-study beta_h paths are returned in ``model_info['event_study']``. Validation: certified parity evidence. Do NOT use when: periods are not consecutive integers -- long differences Y_{t+h} - Y_{t-1} are undefined across gaps; treatment switches on and off within units and the estimand is a single absorbing-adoption effect -- use sp.did_multiplegt for switchers/stayers.",
     "name": "lp_did",
     "parameters": {
       "properties": {
@@ -14618,7 +14618,7 @@
     }
   },
   {
-    "description": "Aggregate Callaway-Sant'Anna group-time ATTs into interpretable summaries -- overall ATT, event-study by relative time, group-specific ATT(g), or calendar-time ATT(t). Inference uses the multiplier bootstrap on the pre-stored influence functions, so SEs are correct under clustering at the unit level. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Aggregate Callaway-Sant'Anna group-time ATTs into interpretable summaries -- overall ATT, event-study by relative time, group-specific ATT(g), or calendar-time ATT(t). Inference uses the multiplier bootstrap on the pre-stored influence functions, so SEs are correct under clustering at the unit level. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: type='dynamic' with unbalanced cohorts and no balance_e -- the long-horizon averages mix cohorts of different composition. Cost: bstrap=True multiplier bootstrap: n_boot draws over the stacked influence functions, O(n_boot x n).",
     "name": "aggte",
     "parameters": {
       "properties": {
@@ -15075,7 +15075,7 @@
     }
   },
   {
-    "description": "Efficient DiD for a randomised staggered rollout (Roth & Sant'Anna 2023). Identifies off random adoption *timing*, not parallel trends, so it is the right estimator for policy lotteries, phased launches and wave-randomised RCTs -- and the wrong one for observational rollouts. Uses the cohort's pre-treatment moments as optimal controls; efficient=False gives the plug-in. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use a parallel-trends estimator such as sp.callaway_santanna instead.",
+    "description": "Efficient DiD for a randomised staggered rollout (Roth & Sant'Anna 2023). Identifies off random adoption *timing*, not parallel trends, so it is the right estimator for policy lotteries, phased launches and wave-randomised RCTs -- and the wrong one for observational rollouts. Uses the cohort's pre-treatment moments as optimal controls; efficient=False gives the plug-in. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use a parallel-trends estimator such as sp.callaway_santanna instead; the pre-trend test, honest DiD or Bacon decomposition are being run on this result -- they diagnose parallel trends, which this estimator does not assume. Cost: fisher=True permutes adoption dates n_fisher times and re-solves the estimator each time; cost is n_fisher x the point-estimate cost.",
     "name": "staggered_rollout",
     "parameters": {
       "properties": {
@@ -15176,7 +15176,7 @@
     }
   },
   {
-    "description": "Callaway-Sant'Anna's estimand with **design-based** inference (Roth & Sant'Anna 2023). Same weights as sp.callaway_santanna -- every not-yet-treated cohort is a control -- but the standard error comes from random adoption timing rather than parallel trends. Use when timing was randomised and you want the familiar CS estimand; use sp.callaway_santanna when it was not. Units already treated in the first period are dropped, since ATT(g,t) is not identified for them. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use sp.callaway_santanna, whose inference rests on parallel trends instead.",
+    "description": "Callaway-Sant'Anna's estimand with **design-based** inference (Roth & Sant'Anna 2023). Same weights as sp.callaway_santanna -- every not-yet-treated cohort is a control -- but the standard error comes from random adoption timing rather than parallel trends. Use when timing was randomised and you want the familiar CS estimand; use sp.callaway_santanna when it was not. Units already treated in the first period are dropped, since ATT(g,t) is not identified for them. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use sp.callaway_santanna, whose inference rests on parallel trends instead. Cost: fisher=True re-solves the estimator n_fisher times.",
     "name": "staggered_cs",
     "parameters": {
       "properties": {
@@ -15262,7 +15262,7 @@
     }
   },
   {
-    "description": "Sun-Abraham's estimand with **design-based** inference (Roth & Sant'Anna 2023). Identical to sp.staggered_cs except that only the last-treated cohort serves as control, which is what Sun & Abraham's interaction-weighted estimator does. Inference identifies off random adoption timing, not parallel trends. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use sp.sun_abraham, whose inference rests on parallel trends instead.",
+    "description": "Sun-Abraham's estimand with **design-based** inference (Roth & Sant'Anna 2023). Identical to sp.staggered_cs except that only the last-treated cohort serves as control, which is what Sun & Abraham's interaction-weighted estimator does. Inference identifies off random adoption timing, not parallel trends. Validation: certified parity evidence. Do NOT use when: adoption timing was not randomised -- use sp.sun_abraham, whose inference rests on parallel trends instead. Cost: fisher=True re-solves the estimator n_fisher times.",
     "name": "staggered_sa",
     "parameters": {
       "properties": {
@@ -15414,7 +15414,7 @@
     }
   },
   {
-    "description": "Butts spillover-ring DiD. The usual fix -- a spatial lag of treatment in a TWFE regression -- measures the direct effect against controls the spillover already reached. This sorts untreated units by distance to the nearest treated unit into spillover rings plus CLEAN controls beyond every ring, and estimates the direct effect and each ring's effect against the clean controls only. Validation: certified evidence with scoped limitations. Known limitations: there is no reference implementation, so this carries design-recovery evidence only and no cross-language parity; ring boundaries are the analyst's choice; there is no selector, and a too-wide outer ring silently contaminates the clean controls; covariate adjustment is not implemented.",
+    "description": "Butts spillover-ring DiD. The usual fix -- a spatial lag of treatment in a TWFE regression -- measures the direct effect against controls the spillover already reached. This sorts untreated units by distance to the nearest treated unit into spillover rings plus CLEAN controls beyond every ring, and estimates the direct effect and each ring's effect against the clean controls only. Validation: certified evidence with scoped limitations. Known limitations: there is no reference implementation, so this carries design-recovery evidence only and no cross-language parity; ring boundaries are the analyst's choice; there is no selector, and a too-wide outer ring silently contaminates the clean controls; covariate adjustment is not implemented. Do NOT use when: there are no coordinates or distances -- ring definitions need a metric; without one use sp.did with an explicit exposure column. Cost: Distance matrix is O(N^2) in the number of units.",
     "name": "spillover_did",
     "parameters": {
       "properties": {
@@ -15485,7 +15485,7 @@
     }
   },
   {
-    "description": "Callaway, Goodman-Bacon & Sant'Anna (2024) DiD with a CONTINUOUS treatment. A dose has no single ATT: the TWFE coefficient averages the 0.2-dose and 0.8-dose comparisons with weights that can be negative. Reports ATT(d) and its derivative ACRT(d) -- the causal response at dose d, which is what a marginal-dose question asks -- from a B-spline regression of the outcome change on the dose. Validation: certified evidence with scoped limitations. Known limitations: standard errors come from the per-cell influence function; contdid routes its own through the pte aggregation layer, which is not implemented here; staggered designs aggregate cells with StatsPAI's own treated-count weights; only the per-cell estimator is pinned against the reference; the cck (nonparametric) dose estimator is not implemented.",
+    "description": "Callaway, Goodman-Bacon & Sant'Anna (2024) DiD with a CONTINUOUS treatment. A dose has no single ATT: the TWFE coefficient averages the 0.2-dose and 0.8-dose comparisons with weights that can be negative. Reports ATT(d) and its derivative ACRT(d) -- the causal response at dose d, which is what a marginal-dose question asks -- from a B-spline regression of the outcome change on the dose. Validation: certified evidence with scoped limitations. Known limitations: standard errors come from the per-cell influence function; contdid routes its own through the pte aggregation layer, which is not implemented here; staggered designs aggregate cells with StatsPAI's own treated-count weights; only the per-cell estimator is pinned against the reference; the cck (nonparametric) dose estimator is not implemented. Do NOT use when: the dose has few distinct values -- a spline in dose is not identified; treat the levels as arms with sp.multi_treatment.",
     "name": "cgs_continuous_did",
     "parameters": {
       "properties": {
@@ -15573,7 +15573,7 @@
     }
   },
   {
-    "description": "Covariate balance for a DiD design, in the shape Baker et al. (2026, Table 4) report it: Imbens-Rubin normalized differences computed twice -- once on baseline covariate LEVELS and once on covariate CHANGES across the treatment date -- optionally weighted and unweighted side by side. The changes panel is the informative half: DiD identifies off trends, so a covariate that is balanced in levels can still be moving differentially, and imbalances routinely flip sign between the two panels. Flags |norm. diff| > 0.25. Evidence about whether UNCONDITIONAL parallel trends is plausible; it cannot test parallel trends itself. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: pooled multi-cohort balance is not implemented: one table per treated cohort only, because the normalized difference is a two-group statistic; only the reliability-weight variance correction is implemented for the weighted panel; survey-design (replicate-weight) variances are not supported; inference is not implemented: the normalized difference is reported as a descriptive effect size with no standard error or test, by design; the weighted denominator convention differs from cobalt::col_w_smd, which holds the pooled SD at its unweighted value; this follows Baker et al. (2026) instead, and the two coincide when unweighted.",
+    "description": "Covariate balance for a DiD design, in the shape Baker et al. (2026, Table 4) report it: Imbens-Rubin normalized differences computed twice -- once on baseline covariate LEVELS and once on covariate CHANGES across the treatment date -- optionally weighted and unweighted side by side. The changes panel is the informative half: DiD identifies off trends, so a covariate that is balanced in levels can still be moving differentially, and imbalances routinely flip sign between the two panels. Flags |norm. diff| > 0.25. Evidence about whether UNCONDITIONAL parallel trends is plausible; it cannot test parallel trends itself. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: pooled multi-cohort balance is not implemented: one table per treated cohort only, because the normalized difference is a two-group statistic; only the reliability-weight variance correction is implemented for the weighted panel; survey-design (replicate-weight) variances are not supported; inference is not implemented: the normalized difference is reported as a descriptive effect size with no standard error or test, by design; the weighted denominator convention differs from cobalt::col_w_smd, which holds the pooled SD at its unweighted value; this follows Baker et al. (2026) instead, and the two coincide when unweighted. Do NOT use when: the covariate is itself affected by treatment -- balance on a post-treatment variable is not evidence about parallel trends.",
     "name": "did_balance",
     "parameters": {
       "properties": {
@@ -15642,7 +15642,7 @@
     }
   },
   {
-    "description": "Treatment effect on the *distribution* of the outcome, bin by bin. Bins the outcome, runs Callaway-Sant'Anna on each bin indicator, and reports the effect on P(Y in bin). The per-bin effects sum to zero by construction -- treatment redistributes probability mass, it does not create it -- so the content is the SHAPE: which parts of the outcome distribution gained and which lost. A mean ATT of zero is perfectly consistent with large offsetting movements in the tails, and this is what shows them. R didFF::distDD. Validation: certified evidence with scoped limitations. Known limitations: reports point estimates and standard errors only; the reference runs no test here and neither does this; simultaneous (uniform) confidence bands over bins are not implemented; the standard errors are pointwise only, so reading several bins at once overstates joint confidence.",
+    "description": "Treatment effect on the *distribution* of the outcome, bin by bin. Bins the outcome, runs Callaway-Sant'Anna on each bin indicator, and reports the effect on P(Y in bin). The per-bin effects sum to zero by construction -- treatment redistributes probability mass, it does not create it -- so the content is the SHAPE: which parts of the outcome distribution gained and which lost. A mean ATT of zero is perfectly consistent with large offsetting movements in the tails, and this is what shows them. R didFF::distDD. Validation: certified evidence with scoped limitations. Known limitations: reports point estimates and standard errors only; the reference runs no test here and neither does this; simultaneous (uniform) confidence bands over bins are not implemented; the standard errors are pointwise only, so reading several bins at once overstates joint confidence. Do NOT use when: the question is a quantile treatment effect rather than where probability mass moved -- use sp.qdid (changes-in-changes). Cost: One Callaway-Sant'Anna fit per bin: n_bins x the CS cost.",
     "name": "distributional_did",
     "parameters": {
       "properties": {
@@ -15951,7 +15951,7 @@
     }
   },
   {
-    "description": "McCrary (2008) density test for manipulation of the running variable at the cutoff in regression-discontinuity designs. A significant discontinuity in the density of x at c is direct evidence that units are sorting around the cutoff (e.g. test-taking strategy, income manipulation), invalidating local randomisation. Validation: certified parity evidence.",
+    "description": "McCrary (2008) density test for manipulation of the running variable at the cutoff in regression-discontinuity designs. A significant discontinuity in the density of x at c is direct evidence that units are sorting around the cutoff (e.g. test-taking strategy, income manipulation), invalidating local randomisation. Validation: certified parity evidence. Do NOT use when: the running variable is discrete or heaped -- the histogram-based test rejects on mass points; prefer sp.rddensity with care or a binomial test at the heap.",
     "name": "mccrary_test",
     "parameters": {
       "properties": {
@@ -16121,7 +16121,7 @@
     }
   },
   {
-    "description": "Armstrong-Kolesar (2018) honest confidence intervals for sharp regression discontinuity -- the only RD inference procedure with provable finite-sample coverage without bandwidth-selection bias. M is the upper bound on the second derivative of E[Y|X] near the cutoff; smaller M means tighter CIs but riskier coverage if the true curvature is larger. Validation: certified parity evidence.",
+    "description": "Armstrong-Kolesar (2018) honest confidence intervals for sharp regression discontinuity -- the only RD inference procedure with provable finite-sample coverage without bandwidth-selection bias. M is the upper bound on the second derivative of E[Y|X] near the cutoff; smaller M means tighter CIs but riskier coverage if the true curvature is larger. Validation: certified parity evidence. Do NOT use when: the smoothness bound M cannot be defended -- an honest CI is only as honest as M; report results for a range of M.",
     "name": "rd_honest",
     "parameters": {
       "properties": {
@@ -16267,7 +16267,7 @@
     }
   },
   {
-    "description": "Bias-aware confidence interval for fuzzy RD via Anderson-Rubin test inversion (Noack-Rothe 2024 Econometrica). Robust to weak first stages and avoids the power asymmetry of conventional 2SLS-style fuzzy RD CIs (Kaliski-Keane-Neal 2025). Validation: certified parity evidence.",
+    "description": "Bias-aware confidence interval for fuzzy RD via Anderson-Rubin test inversion (Noack-Rothe 2024 Econometrica). Robust to weak first stages and avoids the power asymmetry of conventional 2SLS-style fuzzy RD CIs (Kaliski-Keane-Neal 2025). Validation: certified parity evidence. Do NOT use when: the design is sharp -- use sp.rd_honest for honest inference without a first stage. Cost: Test inversion over n_grid candidate effects; O(n_grid x n).",
     "name": "rd_bias_aware_fuzzy",
     "parameters": {
       "properties": {
@@ -17188,7 +17188,7 @@
     }
   },
   {
-    "description": "Rambachan & Roth (2023) sensitivity analysis for parallel trends. Validation: certified parity evidence. Do NOT use when: the fitted result carries fewer than two pre-treatment event study coefficients -- the relative-magnitude restriction is defined against max|pre-period violation| and has nothing to scale against; the design is a 2x2 with no leads -- there is no pre-period violation to bound; report the standard CI instead.",
+    "description": "Rambachan & Roth (2023) sensitivity analysis for parallel trends. Validation: certified parity evidence. Do NOT use when: the fitted result carries fewer than two pre-treatment event study coefficients -- the relative-magnitude restriction is defined against max|pre-period violation| and has nothing to scale against; the design is a 2x2 with no leads -- there is no pre-period violation to bound; report the standard CI instead. Cost: method='C-LF' inverts a conditional test over the m_grid with a simulation per grid point; the FLCI path is a closed-form optimisation per M. Cost is linear in len(m_grid).",
     "name": "honest_did",
     "parameters": {
       "properties": {
@@ -19532,7 +19532,7 @@
     }
   },
   {
-    "description": "Regression Kink Design estimator (Card et al., 2015). Validation: certified parity evidence.",
+    "description": "Regression Kink Design estimator (Card et al., 2015). Validation: certified parity evidence. Do NOT use when: the assignment rule changes in level, not slope -- that is an RD (sp.rdrobust), and the kink estimator will read a jump as a huge slope change. Cost: Same order as sp.rdrobust with deriv=1.",
     "name": "rkd",
     "parameters": {
       "properties": {
@@ -19590,7 +19590,7 @@
     }
   },
   {
-    "description": "Regression Discontinuity in Time (Hausman & Rapson, 2018).",
+    "description": "Regression Discontinuity in Time (Hausman & Rapson, 2018). Do NOT use when: a control series exists -- sp.causal_impact / sp.synth absorb common shocks that a single time series attributes to the policy.",
     "name": "rdit",
     "parameters": {
       "properties": {
@@ -19653,7 +19653,7 @@
     }
   },
   {
-    "description": "Randomization inference for regression discontinuity designs. Validation: certified parity evidence.",
+    "description": "Randomization inference for regression discontinuity designs. Validation: certified parity evidence. Do NOT use when: the window is wide enough that outcomes trend with the score inside it -- as-if randomisation is no longer credible; use the continuity-based estimator. Cost: n_perms permutations of the treatment vector inside the window.",
     "name": "rdrandinf",
     "parameters": {
       "properties": {
@@ -19937,7 +19937,7 @@
     }
   },
   {
-    "description": "Conditional average treatment effects (CATE) in sharp RD designs. Validation: certified parity evidence.",
+    "description": "Conditional average treatment effects (CATE) in sharp RD designs. Validation: certified parity evidence. Do NOT use when: the moderator z is continuous with many levels and n near the cutoff is small -- the interaction fit is under-powered; use sp.rd_forest or coarsen z. Cost: One kernel-weighted least squares per evaluation point.",
     "name": "rdhte",
     "parameters": {
       "properties": {
@@ -20135,7 +20135,7 @@
     }
   },
   {
-    "description": "Causal Forest for RD -- heterogeneous treatment effect estimation.",
+    "description": "Causal Forest for RD -- heterogeneous treatment effect estimation. Do NOT use when: the sample inside the bandwidth is small (hundreds) -- a forest in the moderators has no signal; use sp.rdhte with one or two moderators. Cost: Two random forests with n_trees each inside the bandwidth.",
     "name": "rd_forest",
     "parameters": {
       "properties": {
@@ -20385,7 +20385,7 @@
     }
   },
   {
-    "description": "Angrist-Rokkanen (2015) extrapolation of RD effects away from the cutoff.",
+    "description": "Angrist-Rokkanen (2015) extrapolation of RD effects away from the cutoff. Do NOT use when: the conditional-independence-given-covariates assumption cannot be argued -- extrapolation away from the cutoff rests entirely on it.",
     "name": "rd_extrapolate",
     "parameters": {
       "properties": {
@@ -20647,7 +20647,7 @@
     }
   },
   {
-    "description": "De-meaned / De-trended Synthetic Control Method. Validation: certified parity evidence.",
+    "description": "De-meaned / De-trended Synthetic Control Method. Validation: certified parity evidence. Do NOT use when: covariates must enter the weights -- this variant fits on outcomes only and raises on covariates=.",
     "name": "demeaned_synth",
     "parameters": {
       "properties": {
@@ -20719,7 +20719,7 @@
     }
   },
   {
-    "description": "Robust / unconstrained Synthetic Control. Validation: certified parity evidence.",
+    "description": "Robust / unconstrained Synthetic Control. Validation: certified parity evidence. Do NOT use when: negative weights are not interpretable for the application -- the unconstrained fit extrapolates outside the donor hull.",
     "name": "robust_synth",
     "parameters": {
       "properties": {
@@ -20975,7 +20975,7 @@
     }
   },
   {
-    "description": "Conformal inference for synthetic control (Chernozhukov, Wuthrich & Zhu). Validation: certified parity evidence.",
+    "description": "Conformal inference for synthetic control (Chernozhukov, Wuthrich & Zhu). Validation: certified parity evidence. Cost: Re-estimates the synthetic control under every null on the grid and permutes residuals: grid_size x (T + permutations) fits.",
     "name": "conformal_synth",
     "parameters": {
       "properties": {
@@ -21047,7 +21047,7 @@
     }
   },
   {
-    "description": "Synthetic Difference-in-Differences estimator (and SC / DID variants). Validation: certified parity evidence. Do NOT use when: there is no clean pre-treatment block for every unit -- the unit and time weights are fit on the pre-period grid. Cost: Placebo / bootstrap standard errors refit the full weighting problem n_reps times; the point estimate alone is cheap. Lower n_reps while iterating.",
+    "description": "Synthetic Difference-in-Differences estimator (and SC / DID variants). Validation: certified parity evidence. Do NOT use when: the parallel-trends estimand with unit weights is wanted -- sdid re-weights both units and periods and its estimand differs from CS; there is no clean pre-treatment block for every unit -- the unit and time weights are fit on the pre-period grid. Cost: Placebo / bootstrap standard errors refit the full weighting problem n_reps times; the point estimate alone is cheap. Lower n_reps while iterating.",
     "name": "sdid",
     "parameters": {
       "properties": {
@@ -21453,7 +21453,7 @@
     }
   },
   {
-    "description": "Matrix Completion Synthetic Control Method. Validation: certified parity evidence.",
+    "description": "Matrix Completion Synthetic Control Method. Validation: certified parity evidence. Do NOT use when: the pre-period is short relative to the rank being fitted -- nuclear-norm completion cannot separate signal from noise. Cost: Iterative SVD on the N x T panel per lambda and per CV fold.",
     "name": "mc_synth",
     "parameters": {
       "properties": {
@@ -22715,7 +22715,7 @@
     }
   },
   {
-    "description": "Model-averaging / stacking DML-PLR estimator. Validation: certified parity evidence.",
+    "description": "Model-averaging / stacking DML-PLR estimator. Validation: certified parity evidence. Do NOT use when: one learner is known to be right for the data -- averaging trades a little efficiency for robustness to learner choice. Cost: len(candidates) full DML-PLR fits.",
     "name": "model_averaging_dml",
     "parameters": {
       "properties": {
@@ -22860,7 +22860,7 @@
     }
   },
   {
-    "description": "Compute DML-OVB sensitivity for a fitted DML CausalResult. Validation: certified parity evidence.",
+    "description": "Compute DML-OVB sensitivity for a fitted DML CausalResult. Validation: certified parity evidence. Do NOT use when: the benchmark covariates are weak -- the calibrated cf_y / cf_d then say little about a plausible unobserved confounder.",
     "name": "dml_sensitivity",
     "parameters": {
       "properties": {
@@ -28905,7 +28905,7 @@
     }
   },
   {
-    "description": "CJM (2020) density discontinuity test for RD manipulation. Validation: certified evidence with scoped limitations. Known limitations: Certified native reference-parity evidence covers the default rddensity::rddensity unrestricted triangular-kernel selector and test path on the JSS Lee/RD Senate fixture. Manual side-specific bandwidths follow an explicit user-control convention, not a reference-parity guarantee; backend='r' remains available when direct R package execution is required.",
+    "description": "CJM (2020) density discontinuity test for RD manipulation. Validation: certified evidence with scoped limitations. Known limitations: Certified native reference-parity evidence covers the default rddensity::rddensity unrestricted triangular-kernel selector and test path on the JSS Lee/RD Senate fixture. Manual side-specific bandwidths follow an explicit user-control convention, not a reference-parity guarantee; backend='r' remains available when direct R package execution is required. Do NOT use when: the running variable is heaped or discrete -- a density jump at a mass point is not manipulation; use a binned test or sp.rd_discrete.",
     "name": "rddensity",
     "parameters": {
       "properties": {
@@ -30905,7 +30905,7 @@
     }
   },
   {
-    "description": "Spatial 2SLS estimator. Validation: certified parity evidence.",
+    "description": "Spatial 2SLS estimator. Validation: certified parity evidence. Do NOT use when: the endogeneity is not spatial (no lagged outcome) -- plain sp.ivreg with Conley standard errors is the right tool.",
     "name": "spatial_iv",
     "parameters": {
       "properties": {
@@ -31833,7 +31833,7 @@
     }
   },
   {
-    "description": "Bayesian synthetic control. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Bayesian synthetic control. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: frequentist placebo inference is what the reader expects -- sp.synth with inference='placebo' is the standard. Cost: NUTS over the weight simplex: draws x chains posterior samples; minutes.",
     "name": "bayes_synth",
     "parameters": {
       "properties": {
@@ -34543,7 +34543,7 @@
     }
   },
   {
-    "description": "Estimate treatment effects using matrix completion. Validation: certified parity evidence. Do NOT use when: the panel is nearly fully treated -- matrix completion needs a substantial observed-control block to recover the low-rank structure. Cost: Iterative soft-impute: one SVD of the N x T outcome matrix per iteration, i.e. O(max_iter x N x T x min(N,T)). n_bootstrap multiplies the whole loop -- this is the dominant cost on wide panels.",
+    "description": "Estimate treatment effects using matrix completion. Validation: certified parity evidence. Do NOT use when: the panel is nearly fully treated -- matrix completion needs a substantial observed-control block to recover the low-rank structure. Cost: Iterative soft-impute SVD on the N x T matrix per lambda; n_bootstrap refits for SEs.",
     "name": "mc_panel",
     "parameters": {
       "properties": {
@@ -38776,7 +38776,7 @@
     }
   },
   {
-    "description": "Limited Information Maximum Likelihood (LIML) estimator. Validation: certified parity evidence.",
+    "description": "Limited Information Maximum Likelihood (LIML) estimator. Validation: certified parity evidence. Do NOT use when: the instruments are strong (effective F far above 10) -- 2SLS is more precise and LIML buys nothing.",
     "name": "liml",
     "parameters": {
       "properties": {
@@ -38837,7 +38837,7 @@
     }
   },
   {
-    "description": "Jackknife Instrumental Variables Estimation (JIVE). Validation: certified parity evidence.",
+    "description": "Jackknife Instrumental Variables Estimation (JIVE). Validation: certified parity evidence. Do NOT use when: the instrument set is small -- JIVE corrects many-instrument bias and is less efficient than 2SLS with one or two strong instruments.",
     "name": "jive",
     "parameters": {
       "properties": {
@@ -38899,7 +38899,7 @@
     }
   },
   {
-    "description": "LASSO-selected instrumental variables (information-criterion penalty). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "LASSO-selected instrumental variables (information-criterion penalty). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: valid post-selection inference is required -- this is the information-criterion selector, not Belloni-Chen-Chernozhukov-Hansen; use sp.rlasso_iv.",
     "name": "lasso_iv",
     "parameters": {
       "properties": {
@@ -39119,7 +39119,7 @@
     }
   },
   {
-    "description": "Instrumental-variables estimation with rigorous-Lasso selection. Validation: certified parity evidence.",
+    "description": "Instrumental-variables estimation with rigorous-Lasso selection. Validation: certified parity evidence. Do NOT use when: the instrument set is small (a handful) -- selection adds nothing and the rigorous penalty may drop a valid instrument.",
     "name": "rlasso_iv",
     "parameters": {
       "properties": {
@@ -42008,7 +42008,7 @@
     }
   },
   {
-    "description": "Multi-cutoff RD design. Validation: certified parity evidence.",
+    "description": "Multi-cutoff RD design. Validation: certified parity evidence. Do NOT use when: every unit faces the same cutoff -- pooling across cutoffs is then a single RD; use sp.rdrobust. Cost: One sp.rdrobust fit per cutoff.",
     "name": "rdmc",
     "parameters": {
       "properties": {
@@ -42231,7 +42231,7 @@
     }
   },
   {
-    "description": "User-friendly alias for :func:`sp.rdms` (multi-score RD). Validation: certified parity evidence.",
+    "description": "User-friendly alias for :func:`sp.rdms` (multi-score RD). Validation: certified parity evidence. Do NOT use when: the effect plausibly varies along the boundary -- sp.rd2d reports it pointwise.",
     "name": "geographic_rd",
     "parameters": {
       "properties": {
@@ -47105,7 +47105,7 @@
     }
   },
   {
-    "description": "Multiple Outcomes Synthetic Control Method (Sun, Ben-Michael & Feller). Validation: certified parity evidence.",
+    "description": "Multiple Outcomes Synthetic Control Method (Sun, Ben-Michael & Feller). Validation: certified parity evidence. Do NOT use when: the outcomes have different scales and standardize=False -- one outcome dominates the shared weights.",
     "name": "multi_outcome_synth",
     "parameters": {
       "properties": {
@@ -47178,7 +47178,7 @@
     }
   },
   {
-    "description": "Prediction intervals for synthetic control methods (R ``scpi::scpi``). Validation: certified parity evidence. Cost: Prediction intervals come from a simulation step on top of the point fit, so runtime is dominated by the number of simulations rather than n. cores= is accepted for API compatibility with R scpi but the simulation currently runs serially.",
+    "description": "Prediction intervals for synthetic control methods (R ``scpi::scpi``). Validation: certified parity evidence. Do NOT use when: several units are treated -- this ports the single-treated-unit path; use sp.sdid or sp.gsynth. Cost: Prediction intervals come from a simulation step on top of the point fit, so runtime is dominated by the number of simulations rather than n. cores= is accepted for API compatibility with R scpi but the simulation currently runs serially.",
     "name": "scpi",
     "parameters": {
       "properties": {
@@ -47703,7 +47703,7 @@
     }
   },
   {
-    "description": "Leave-one-out donor sensitivity for Synthetic Control. Validation: certified parity evidence.",
+    "description": "Leave-one-out donor sensitivity for Synthetic Control. Validation: certified parity evidence. Cost: One SCM refit per donor.",
     "name": "synth_loo",
     "parameters": {
       "properties": {
@@ -47754,7 +47754,7 @@
     }
   },
   {
-    "description": "Time-placebo (\"backdating\") test for Synthetic Control. Validation: certified parity evidence.",
+    "description": "Time-placebo (\"backdating\") test for Synthetic Control. Validation: certified parity evidence. Cost: n_placebo_times SCM refits.",
     "name": "synth_time_placebo",
     "parameters": {
       "properties": {
@@ -47809,7 +47809,7 @@
     }
   },
   {
-    "description": "Donor-pool bootstrap sensitivity for Synthetic Control. Validation: certified parity evidence.",
+    "description": "Donor-pool bootstrap sensitivity for Synthetic Control. Validation: certified parity evidence. Cost: n_samples SCM refits.",
     "name": "synth_donor_sensitivity",
     "parameters": {
       "properties": {
@@ -47868,7 +47868,7 @@
     }
   },
   {
-    "description": "Pre-fit-filtered placebo p-values (Abadie et al. 2010). Validation: certified parity evidence.",
+    "description": "Pre-fit-filtered placebo p-values (Abadie et al. 2010). Validation: certified parity evidence. Cost: One placebo SCM per donor.",
     "name": "synth_rmspe_filter",
     "parameters": {
       "properties": {
@@ -48030,7 +48030,7 @@
     }
   },
   {
-    "description": "Power analysis for Synthetic Control designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Power analysis for Synthetic Control designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: n_simulations x len(effect_sizes) placebo-inference SCM fits.",
     "name": "synth_power",
     "parameters": {
       "properties": {
@@ -48092,7 +48092,7 @@
     }
   },
   {
-    "description": "Minimum Detectable Effect for a Synthetic Control design.",
+    "description": "Minimum Detectable Effect for a Synthetic Control design. Cost: Same as sp.synth_power.",
     "name": "synth_mde",
     "parameters": {
       "properties": {
@@ -48187,7 +48187,7 @@
     }
   },
   {
-    "description": "Run multiple SCM variants and compare them side by side. Cost: Runs every estimator in methods= end to end, so cost is the sum of the individual fits -- and each placebo-enabled member internally re-runs once per donor. Expect it to be the slowest call in a synthetic-control workflow; narrow methods= once you have shortlisted.",
+    "description": "Run multiple SCM variants and compare them side by side. Do NOT use when: the method has already been chosen on substantive grounds -- running all 20 variants and picking the best-fitting one is specification search; use it to report a table, not to select. Cost: Runs every estimator in methods= end to end, so cost is the sum of the individual fits -- and each placebo-enabled member internally re-runs once per donor. Expect it to be the slowest call in a synthetic-control workflow; narrow methods= once you have shortlisted.",
     "name": "synth_compare",
     "parameters": {
       "properties": {
@@ -48243,7 +48243,7 @@
     }
   },
   {
-    "description": "Quickly recommend the best SCM method for the given data.",
+    "description": "Quickly recommend the best SCM method for the given data. Do NOT use when: the recommendation would be used as the pre-registered choice -- it is a fit-based heuristic (placebo inference off), not a design argument.",
     "name": "synth_recommend",
     "parameters": {
       "properties": {
@@ -49742,7 +49742,7 @@
     }
   },
   {
-    "description": "Boundary discontinuity design: pointwise effects along a 2-D boundary. Validation: certified parity evidence.",
+    "description": "Boundary discontinuity design: pointwise effects along a 2-D boundary. Validation: certified parity evidence. Do NOT use when: the boundary can be reduced to a signed distance and the effect is assumed constant along it -- sp.geographic_rd is the simpler design. Cost: One local fit per evaluation point along the boundary (n_eval).",
     "name": "rd2d",
     "parameters": {
       "properties": {
@@ -53698,7 +53698,7 @@
     }
   },
   {
-    "description": "Sharp / fuzzy RD -- article-friendly alias for :func:`rdrobust`. Validation: certified parity evidence.",
+    "description": "Sharp / fuzzy RD -- article-friendly alias for :func:`rdrobust`. Validation: certified parity evidence. Do NOT use when: anything beyond the blog-post signature is needed -- call sp.rdrobust directly for bandwidth, kernel, covariates and clustering options.",
     "name": "rdd",
     "parameters": {
       "properties": {
@@ -53935,7 +53935,7 @@
     }
   },
   {
-    "description": "Anderson-Rubin confidence set -- re-export of Validation: certified parity evidence.",
+    "description": "Anderson-Rubin confidence set -- re-export of Validation: certified parity evidence. Do NOT use when: there are several endogenous regressors -- the AR set is joint over them; use the conditional LR or K sets for one coefficient. Cost: n_grid test evaluations over beta_grid; O(n_grid x n).",
     "name": "anderson_rubin_ci",
     "parameters": {
       "properties": {
@@ -54291,7 +54291,7 @@
     }
   },
   {
-    "description": "Matrix-completion causal panel estimator (Athey et al., 2021). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Matrix-completion causal panel estimator (Athey et al., 2021). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the panel is nearly fully treated -- too few untreated cells to complete the matrix. Cost: Iterative soft-impute SVD on the N x T matrix per lambda; n_bootstrap refits for SEs.",
     "name": "matrix_completion",
     "parameters": {
       "properties": {
@@ -56596,7 +56596,7 @@
     }
   },
   {
-    "description": "Debiased ML conformal counterfactual intervals.",
+    "description": "Debiased ML conformal counterfactual intervals. Do NOT use when: the guarantee needed is conditional on x -- conformal intervals are marginal.",
     "name": "conformal_debiased_ml",
     "parameters": {
       "properties": {
@@ -58188,7 +58188,7 @@
     }
   },
   {
-    "description": "Distributional IV: the complier LATE at each quantile of ``y``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Distributional IV: the complier LATE at each quantile of ``y``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the instrument is not binary -- kappa weighting needs a binary Z; discretise or use sp.continuous_iv_late for the average effect. Cost: se='bootstrap' re-estimates all quantiles n_boot times.",
     "name": "dist_iv",
     "parameters": {
       "properties": {
