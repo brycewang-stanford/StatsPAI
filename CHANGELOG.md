@@ -144,22 +144,39 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
-- **`sp.event_study_vcov` is now pinned against R, off-diagonal blocks
-  included.** Track A modules 05 / 73 / 85 compared each event-time
-  coefficient and its SE, i.e. only the diagonal of the covariance that
-  `sp.uniform_bands` and the HonestDiD FLCI consume.
-  `tests/reference_parity/test_event_study_vcov_R_parity.py` now compares
-  the full matrix, read through `sp.event_study_vcov`, for four estimators on
-  the Track A CSV bytes: `sp.callaway_santanna` against `did::aggte`'s
-  influence-function covariance (3.4e-15), `sp.event_study` against `fixest`
-  (5.1e-13), `sp.sun_abraham(share_variance=False)` against `fixest::sunab`
-  (8.9e-11) and `sp.gardner_did(event_study=True)` against `did2s`
-  (3.3e-10). No numbers moved. The parity grade goes from unverified to
-  bit-exact. `sp.uniform_bands` draws its sup-t critical value by Monte
-  Carlo, so it is graded analytical-only. It passes an equivalence test
-  against `mvtnorm::qmvnorm` (20 seeds, margin +/-0.005). Its docstring
-  understated the Monte Carlo error: the seed-to-seed SD at the default
-  100,000 draws is about 5e-3, not 1e-3.
+- **`sp.event_study_vcov` is now pinned against R and Stata, off-diagonal
+  blocks included.** Track A modules 05 / 17 / 73 / 85 compared each
+  event-time coefficient and its SE, i.e. only the diagonal of the
+  covariance that `sp.uniform_bands` and the HonestDiD FLCI consume.
+  `tests/reference_parity/test_event_study_vcov_R_parity.py` and
+  `test_event_study_vcov_Stata_parity.py` now compare the full matrix, read
+  through `sp.event_study_vcov`, for six estimators on the Track A CSV
+  bytes: `sp.callaway_santanna` against `did::aggte`'s influence-function
+  covariance (3.4e-15), `sp.event_study` against `fixest` (5.1e-13),
+  `sp.sun_abraham(share_variance=False)` against `fixest::sunab` (8.9e-11),
+  `sp.gardner_did(event_study=True)` against `did2s` (6.7e-11),
+  `sp.did_imputation` against Stata `did_imputation` (1.2e-9) and
+  `sp.etwfe` against `etwfe::emfx(type="event")` (3.4e-9 not-yet, 8.1e-8
+  never-treated). Each reference is run with its iterative or numerical
+  step tightened so that it is the exact solution. At their defaults,
+  `did2s` sits ~1e-7 away (fixest `fixef.tol` 1e-6), `did_imputation`
+  2e-5 (imputation-weight `tol` 1e-6) and `etwfe` 1e-6 to 3e-5
+  (marginaleffects' forward-difference Jacobian; StatsPAI's is analytic).
+  `did_imputation`'s own point estimates stay 3.6e-7 away because
+  `reghdfe`'s solver tolerance is not exposed; an exact dense `regress` in
+  the same Stata run matches StatsPAI to 1.0e-11. No numbers moved. The
+  parity grade goes from unverified to bit-exact. `sp.uniform_bands` draws
+  its sup-t critical value by Monte Carlo, so it is graded analytical-only.
+  It passes an equivalence test against `mvtnorm::qmvnorm` (20 seeds,
+  margin +/-0.005). Its docstring understated the Monte Carlo error: the
+  seed-to-seed SD at the default 100,000 draws is about 5e-3, not 1e-3.
+
+- `sp.parity_status(...).summary()` no longer contradicts itself on
+  analytical-only and external-replication rows that name a reference. It
+  used to print `no external software reference vs <reference>` even when
+  the reference was software (e.g. `wooldridge_prod` against Stata
+  `prodest`). Such rows now read `known-value check against <reference>;
+  not graded as cross-language parity`. Grades are unchanged.
 
 - **CI: the pandas-3 lane runs nightly instead of on every push.**
   `test-pandas3` (~45 min, the full suite under pandas 3.x) now runs on a

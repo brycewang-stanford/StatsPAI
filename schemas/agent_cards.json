@@ -21499,6 +21499,7 @@
       "Stata parity module 17_etwfe",
       "Cross-language parity (bit-exact) vs etwfe::etwfe + emfx [R version 4.5.2 (2025-10-31), etwfe 0.6.2]; tolerance rel_est<=1e-06, rel_se<=0.001; parity module 17_etwfe -- tests/r_parity/17_etwfe.py",
       "tests/reference_parity/test_etwfe_glm_parity.py",
+      "tests/reference_parity/test_event_study_vcov_R_parity.py",
       "tests/reference_parity/test_track_a_alias_equivalence.py",
       "Default cgroup='notyet' and cgroup='nevertreated' are pinned against R etwfe / Stata jwdid simple ATT values on did::mpdta. The historical cohort-share aggregation remains available via etwfe_emfx(..., weighting='cohort').",
       "Per-cohort ATTs (result.detail, etwfe_emfx(type='group') and every weighting='cohort' aggregation) are pinned against R etwfe::emfx(type='group') and Stata jwdid, estat group under both comparison groups by module 17_etwfe. They were read off an unsaturated cohort x post regression through 1.26.0 and were wrong by up to 37%; see the 1.27.0 CHANGELOG correctness entry. The pooled ATT is unchanged. weights= is pinned on the castle-doctrine and no-fault-divorce panels: estimates under agg_weights='estimation' reproduce Stata jwdid [pw=] + estat (simple / event / group / calendar) to ~1e-12 and the never-treated simple aggregate equals the weighted Callaway-Sant'Anna simple ATT to 1e-14; agg_weights='unit' reproduces R etwfe::emfx with weights= to ~1e-12 (SEs to ~3e-6, marginaleffects' numerical Jacobian). Stata SEs differ from R/StatsPAI only by the documented sqrt((n - K_R) / (n - K_Stata)) degrees-of-freedom factor (tests/test_etwfe_weights_reference.py)."
@@ -25282,7 +25283,7 @@
     "typical_n_min": null,
     "validation_notes": [
       "tests/test_es_inference.py: the diagonal reproduces every estimator's reported SEs to 1e-12; cross-horizon blocks checked against a cluster bootstrap",
-      "Cross-language parity (bit-exact) vs did::aggte(type='dynamic') 2.3.0 influence-function covariance; fixest::sunab 0.14.0 (A V A', cohort shares fixed); fixest::feols i(rel, ref=-1) 0.14.0; did2s::did2s 1.2.1 [R version 4.5.2 (2025-10-31), did 2.3.0, did2s 1.2.1, fixest 0.14.0]; tolerance full joint covariance (every off-diagonal entry) and coefficients 1e-9 rel (observed 3.4e-15 cs / 5.1e-13 twfe / 8.9e-11 sunab / 3.3e-10 did2s) -- tests/reference_parity/test_event_study_vcov_R_parity.py"
+      "Cross-language parity (bit-exact) vs did::aggte(type='dynamic') 2.3.0 influence-function covariance; fixest::sunab 0.14.0 (A V A', cohort shares fixed); fixest::feols i(rel, ref=-1) 0.14.0; did2s::did2s 1.2.1; etwfe::emfx(type='event') 0.6.2; Stata 18 did_imputation (Borusyak, SSC, 2023-11-22) [R version 4.5.2 (2025-10-31), Stata 18, did 2.3.0, did2s 1.2.1, etwfe 0.6.2, fixest 0.14.0, marginaleffects 0.32.0]; tolerance full joint covariance (every off-diagonal entry) 1e-9 rel (observed 3.4e-15 cs / 5.1e-13 twfe / 8.9e-11 sunab / 6.7e-11 did2s), 1e-8 did_imputation (observed 1.2e-9), 1e-6 etwfe (observed 3.4e-9 not-yet / 8.1e-8 never); coefficients 1e-9 (observed <= 3.3e-10) -- tests/reference_parity/test_event_study_vcov_R_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -25355,7 +25356,7 @@
     "typical_n_min": null,
     "validation_notes": [
       "tests/test_es_inference.py: Sidak identity under independence, matches aggte(cband=True) critical value within Monte Carlo error, simultaneous coverage ~ 1-alpha in simulation",
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_event_study_vcov_R_parity.py"
+      "Known-truth recovery (analytical-only) vs mvtnorm::qmvnorm 1.3.7 (Genz-Bretz, abseps 1e-6) as the known sup-t critical value on each reference covariance; tolerance equivalence margin +/-0.005 on the critical value, 20 seeds, 90% interval of the mean inside the margin; band = beta +/- c se with se from the bit-exact event_study_vcov -- tests/reference_parity/test_event_study_vcov_R_parity.py"
     ],
     "validation_status": "validated"
   },

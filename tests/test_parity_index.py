@@ -427,3 +427,25 @@ def test_unbacked_cross_language_promotion_is_refused(tmp_path):
         gen._check_external_evidence(
             "fake_fn", {k: v for k, v in meta.items() if k != "sides"}
         )
+
+
+def test_summary_names_a_known_value_reference_without_contradicting_itself():
+    """An analytical-only row with a software-computed known value says so.
+
+    It used to render "no external software reference vs <reference>",
+    which named a reference in the same breath as denying one.
+    """
+    with_ref = parity_mod.ParityStatus(
+        function="fake_fn",
+        status="analytical-only",
+        reference="mvtnorm::qmvnorm as the known value",
+        tolerance="margin 0.005",
+    ).summary()
+    assert "no external software reference" not in with_ref
+    assert "against mvtnorm::qmvnorm as the known value" in with_ref
+    assert "not graded as cross-language parity" in with_ref
+
+    without_ref = parity_mod.ParityStatus(
+        function="fake_fn", status="analytical-only"
+    ).summary()
+    assert "no external software reference" in without_ref

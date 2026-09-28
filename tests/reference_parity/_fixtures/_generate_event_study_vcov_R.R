@@ -1,5 +1,5 @@
 # Reference for sp.event_study_vcov / sp.uniform_bands: the *full* joint
-# covariance of four event-study estimators, and the sup-t critical value
+# covariance of five event-study estimators, and the sup-t critical value
 # built on it.
 #
 # Track A modules 05 / 73 / 85 compare each event-time coefficient and its
@@ -19,6 +19,14 @@
 #           clustered by unit, on Track A module 85's CSV.
 #   did2s   did2s::did2s(second_stage = ~ i(rel_year, ref = Inf)), clustered
 #           by county: every realised relative time of the treated units.
+#   etwfe_notyet / etwfe_never
+#           etwfe::emfx(type = "event") on etwfe::etwfe (cgroup "notyet" and
+#           "never"), clustered by county, on Track A module 17's CSV;
+#           covariance vcov() of the emfx object. marginaleffects builds it
+#           from a numerical Jacobian, by forward differences unless told
+#           otherwise, which leaves entries ~1e-6 to 3e-5 relative from the
+#           exact linear map; numDeriv's Richardson extrapolation is used
+#           here instead (gap then 3e-9 / 8e-8).
 #
 # supt: for each estimator, the 1 - alpha (alpha = 0.05) quantile of
 # max_j |Z_j|, Z ~ N(0, R), R the correlation matrix of the covered
@@ -34,6 +42,7 @@ suppressPackageStartupMessages({
   library(did)
   library(fixest)
   library(did2s)
+  library(etwfe)
   library(mvtnorm)
   library(jsonlite)
 })
@@ -109,6 +118,23 @@ b_2s <- coef(fit_2s)
 did2s_blk <- block(as.integer(sub("^rel_year::(-?[0-9]+)$", "\\1", names(b_2s))),
                    b_2s, vcov(fit_2s)[names(b_2s), names(b_2s)])
 
+# --- Wooldridge ETWFE event aggregation ----------------------------------
+options(marginaleffects_numDeriv = list(method = "Richardson"))
+ew <- read.csv("tests/r_parity/data/17_etwfe.csv")
+ew$first_treat <- as.numeric(ew$first_treat)
+ew$year <- as.integer(ew$year)
+etwfe_blk <- function(cg) {
+  fit <- etwfe(fml = lemp ~ 0, tvar = year, gvar = first_treat, data = ew,
+               vcov = ~countyreal, cgroup = cg)
+  ev <- emfx(fit, type = "event", post_only = FALSE)
+  ok <- is.finite(ev$std.error)  # reference / unestimated rows are NA
+  V <- unname(as.matrix(vcov(ev)))[ok, ok, drop = FALSE]
+  stopifnot(max(abs(sqrt(diag(V)) / ev$std.error[ok] - 1)) < 1e-12)
+  block(ev$event[ok], ev$estimate[ok], V)
+}
+etwfe_notyet <- etwfe_blk("notyet")
+etwfe_never <- etwfe_blk("never")
+
 # --- sup-t critical values ------------------------------------------------
 supt <- function(blk, alpha = 0.05) {
   one <- function(sel) {
@@ -124,6 +150,7 @@ supt <- function(blk, alpha = 0.05) {
 
 out <- list(
   cs = cs, sunab = sunab, twfe = twfe, did2s = did2s_blk,
+  etwfe_notyet = etwfe_notyet, etwfe_never = etwfe_never,
   supt = list(cs = supt(cs), sunab = supt(sunab), twfe = supt(twfe),
               did2s = supt(did2s_blk)),
   alpha = 0.05,
@@ -132,6 +159,9 @@ out <- list(
     did = as.character(packageVersion("did")),
     fixest = as.character(packageVersion("fixest")),
     did2s = as.character(packageVersion("did2s")),
+    etwfe = as.character(packageVersion("etwfe")),
+    marginaleffects = as.character(packageVersion("marginaleffects")),
+    numDeriv = as.character(packageVersion("numDeriv")),
     mvtnorm = as.character(packageVersion("mvtnorm"))
   )
 )

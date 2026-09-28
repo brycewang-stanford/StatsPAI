@@ -16,13 +16,18 @@ sunab     ``sp.sun_abraham(share_variance=       ``fixest::sunab``, A V A'
           False)``
 twfe      ``sp.event_study``                     ``fixest::feols(i(rel, ref=-1))``
 did2s     ``sp.gardner_did(event_study=True)``   ``did2s::did2s(i(rel_year))``
+etwfe_*   ``sp.etwfe`` (not-yet / never)         ``etwfe::emfx(type="event")``
 ========  =====================================  ==========================
 
 The generator, ``_fixtures/_generate_event_study_vcov_R.R``, documents each
 specification. For did2s it tightens fixest's demeaning tolerance from its
 default 1e-6 to 1e-11: at the default the reference itself sits ~1e-7 from
 the exact least-squares solution (Track A module 73's documented gap), and
-the point here is to pin the exact one.
+the point here is to pin the exact one. For etwfe it has marginaleffects
+take its numerical Jacobian by Richardson extrapolation: the default
+forward differences leave the reference's covariance 1e-6 to 3e-5 from the
+exact linear map (scattered in sign, not a scale factor), while StatsPAI's
+Jacobian is analytic.
 
 ``uniform_bands`` draws its sup-t critical value by Monte Carlo, so it has
 no bit-exact counterpart. The reference is ``mvtnorm::qmvnorm`` at
@@ -48,8 +53,10 @@ _ROOT = Path(__file__).resolve().parents[2]
 _FIXTURE = Path(__file__).resolve().parent / "_fixtures" / "event_study_vcov_R.json"
 _MPDTA = _ROOT / "tests" / "r_parity" / "data" / "05_sunab.csv"
 _TWFE = _ROOT / "tests" / "r_parity" / "data" / "85_twfe_event_study.csv"
+_ETWFE = _ROOT / "tests" / "r_parity" / "data" / "17_etwfe.csv"
 
 KEYS = ["cs", "sunab", "twfe", "did2s"]
+VCOV_KEYS = KEYS + ["etwfe_notyet", "etwfe_never"]
 
 
 @pytest.fixture(scope="module")
@@ -63,7 +70,15 @@ def fits():
     tw = pd.read_csv(_TWFE)
     # sp.event_study wants NaN for never-treated; the shared CSV uses 0.
     tw["g_nan"] = tw["g"].where(tw["g"] > 0)
+    ew = pd.read_csv(_ETWFE)
     common = dict(y="lemp", g="first_treat", t="year", i="countyreal")
+    etwfe_kw = dict(
+        y="lemp",
+        group="countyreal",
+        time="year",
+        first_treat="first_treat",
+        cluster="countyreal",
+    )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return {
@@ -86,23 +101,36 @@ def fits():
                 first_treat="first_treat",
                 event_study=True,
             ),
+            # Track A module 17's two designs: R etwfe's default not-yet
+            # comparison, and never-treated (which adds the leads).
+            "etwfe_notyet": sp.etwfe(ew, panel=False, **etwfe_kw),
+            "etwfe_never": sp.etwfe(ew, cgroup="nevertreated", **etwfe_kw),
         }
 
 
-@pytest.mark.parametrize("key", KEYS)
+# Covariance budget per key. 1e-9 where both sides solve the same linear
+# algebra; etwfe's reference differentiates numerically (Richardson), and
+# its residual is that approximation, so it gets the Track A default.
+_VCOV_RTOL = {"etwfe_notyet": 1e-6, "etwfe_never": 1e-6}
+
+
+@pytest.mark.parametrize("key", VCOV_KEYS)
 def test_event_study_vcov_matches_reference_elementwise(fits, ref, key):
     """Every entry, diagonal and off-diagonal.
 
-    Observed worst relative gaps: cs 3.4e-15, twfe 5.1e-13, sunab 8.9e-11,
-    did2s 6.7e-11 (coefficients 3.3e-10). The budget is 1e-9, inside the
-    Track A default of 1e-6.
+    Observed worst relative gaps in the covariance: cs 3.4e-15, twfe
+    5.1e-13, sunab 8.9e-11, did2s 6.7e-11, etwfe not-yet 3.4e-9, etwfe
+    never 8.1e-8. Coefficients: at most 3.3e-10 (did2s). Budget 1e-9, or
+    the Track A default of 1e-6 for the etwfe rows (see ``_VCOV_RTOL``).
     """
     es = sp.event_study_vcov(fits[key])
     r = ref[key]
     assert es.times.tolist() == r["times"]
     assert es.joint
     np.testing.assert_allclose(es.beta, r["beta"], rtol=1e-9, atol=0)
-    np.testing.assert_allclose(es.vcov, np.asarray(r["vcov"]), rtol=1e-9, atol=0)
+    np.testing.assert_allclose(
+        es.vcov, np.asarray(r["vcov"]), rtol=_VCOV_RTOL.get(key, 1e-9), atol=0
+    )
 
 
 @pytest.mark.parametrize("key", KEYS)

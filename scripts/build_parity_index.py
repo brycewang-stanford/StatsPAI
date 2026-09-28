@@ -6159,28 +6159,67 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "status": "bit-exact",
         "reference": "did::aggte(type='dynamic') 2.3.0 influence-function "
         "covariance; fixest::sunab 0.14.0 (A V A', cohort shares fixed); "
-        "fixest::feols i(rel, ref=-1) 0.14.0; did2s::did2s 1.2.1",
+        "fixest::feols i(rel, ref=-1) 0.14.0; did2s::did2s 1.2.1; "
+        "etwfe::emfx(type='event') 0.6.2; Stata 18 did_imputation "
+        "(Borusyak, SSC, 2023-11-22)",
         "reference_versions": {
             "R": "R version 4.5.2 (2025-10-31)",
             "did": "2.3.0",
             "fixest": "0.14.0",
             "did2s": "1.2.1",
+            "etwfe": "0.6.2",
+            "marginaleffects": "0.32.0",
+            "Stata": "18",
         },
-        "tolerance": "full joint covariance (every off-diagonal entry) and "
-        "coefficients 1e-9 rel (observed 3.4e-15 cs / 5.1e-13 twfe / "
-        "8.9e-11 sunab / 3.3e-10 did2s)",
-        "sides": ["py", "R"],
+        "tolerance": "full joint covariance (every off-diagonal entry) 1e-9 "
+        "rel (observed 3.4e-15 cs / 5.1e-13 twfe / 8.9e-11 sunab / 6.7e-11 "
+        "did2s), 1e-8 did_imputation (observed 1.2e-9), 1e-6 etwfe (observed "
+        "3.4e-9 not-yet / 8.1e-8 never); coefficients 1e-9 (observed <= "
+        "3.3e-10)",
+        "sides": ["py", "R", "Stata"],
+        "test": [
+            "tests/reference_parity/test_event_study_vcov_R_parity.py",
+            "tests/reference_parity/_fixtures/event_study_vcov_R.json",
+            "tests/reference_parity/test_event_study_vcov_Stata_parity.py",
+            "tests/reference_parity/_fixtures/did_imputation_vcov_Stata.json",
+        ],
+        "note": "Track A modules 05 / 17 / 73 / 85 pin only the diagonal; "
+        "this pins the off-diagonal blocks that sup-t bands and the HonestDiD "
+        "FLCI use, read through sp.event_study_vcov from six estimators. Each "
+        "reference is run with its iterative or numerical step tightened, so "
+        "it is the exact solution: did2s with fixest fixef.tol 1e-11 (the "
+        "default 1e-6 is Track A module 73's ~1e-7 gap); etwfe with "
+        "marginaleffects' Jacobian by Richardson extrapolation (the default "
+        "forward differences leave 1e-6 to 3e-5); did_imputation with "
+        "tol(1e-12) maxit(100000) on its imputation weights. did_imputation's "
+        "e(b) still sits 3.6e-7 from the exact imputation because reghdfe's "
+        "1e-8 solver tolerance is not exposed; a dense Stata regress in the "
+        "same generator matches StatsPAI to 1.0e-11. Sun-Abraham is compared "
+        "under share_variance=False, fixest's convention.",
+    },
+    "uniform_bands": {
+        "status": "analytical-only",
+        "reference": "mvtnorm::qmvnorm 1.3.7 (Genz-Bretz, abseps 1e-6) as the "
+        "known sup-t critical value on each reference covariance",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "mvtnorm": "1.3.7",
+        },
+        "tolerance": "equivalence margin +/-0.005 on the critical value, 20 "
+        "seeds, 90% interval of the mean inside the margin; band = beta +/- "
+        "c se with se from the bit-exact event_study_vcov",
+        "sides": ["py"],
         "test": [
             "tests/reference_parity/test_event_study_vcov_R_parity.py",
             "tests/reference_parity/_fixtures/event_study_vcov_R.json",
         ],
-        "note": "Track A modules 05 / 73 / 85 pin only the diagonal; this "
-        "pins the off-diagonal blocks that sup-t bands and the HonestDiD FLCI "
-        "use, read through sp.event_study_vcov from four estimators. The "
-        "did2s reference runs with fixest fixef.tol tightened from 1e-6 to "
-        "1e-11 so it is the exact least-squares solution (Track A module 73's "
-        "~1e-7 gap is that tolerance). Sun-Abraham is compared under "
-        "share_variance=False, fixest's convention.",
+        "note": "The critical value is a Monte Carlo quantile (seed-to-seed SD "
+        "about 5e-3 at the default 100,000 draws), so no bit-exact comparison "
+        "exists and the grade stays analytical-only. It is checked against "
+        "qmvnorm's value by a two one-sided equivalence test on four "
+        "estimators' covariances (full vector and post-period block). Given "
+        "the critical value the band is deterministic and is built on the "
+        "covariance that sp.event_study_vcov pins against R.",
     },
 }
 

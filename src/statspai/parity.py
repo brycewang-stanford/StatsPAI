@@ -123,17 +123,28 @@ class ParityStatus(dict):
         sides = "/".join(self.get("sides", []) or [])
 
         if status not in CROSS_LANGUAGE_STATUSES:
+            tail = f"; tolerance {tol}" if tol else ""
+            if ref:
+                # A known value can come from software (an independent
+                # solver, an R routine used as ground truth) without the row
+                # being a same-bytes cross-language comparison. Saying "no
+                # external software reference" and then naming one read as
+                # a contradiction.
+                kind = (
+                    "known-value check"
+                    if status == "analytical-only"
+                    else "published-reference replication"
+                )
+                return (
+                    f"{fn}: {status} — {kind} against {ref}; not graded as "
+                    f"cross-language parity{tail}."
+                )
             kind = (
                 "known-truth recovery on a deterministic DGP"
                 if status == "analytical-only"
                 else "published-reference replication"
             )
-            detail = f" vs {ref}" if ref else ""
-            tail = f"; tolerance {tol}" if tol else ""
-            return (
-                f"{fn}: {status} — {kind}, no external software reference"
-                f"{detail}{tail}."
-            )
+            return f"{fn}: {status} — {kind}, no external software reference{tail}."
 
         head = self.get("headline", {}) or {}
         rels = [head.get("rel_vs_R"), head.get("rel_vs_Stata")]
