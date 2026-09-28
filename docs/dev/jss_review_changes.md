@@ -16,7 +16,14 @@ Rules:
    reason, and the effect on the paper: which table, listing or quoted
    number moves, and from what to what. "None" is a valid effect only if it
    was checked (for example, a module the paper does not print).
-3. **List every changed path in backticks**, exactly as the test reports it.
+3. **List every changed path in backticks**, exactly as the test reports it,
+   and **the SHA of every commit that changed it** (7+ hex characters, in
+   backticks) in the same entry. Since 2026-09-28 the check is per commit:
+   naming a path once no longer covers later commits to the same file.
+   Merge commits that bring a frozen file in count as commits.
+   A commit cannot name its own SHA, so the entry goes in a follow-up
+   commit pushed together with it; the check runs at pre-push and in CI,
+   never at pre-commit.
 4. The manuscript itself is not edited during review. Recorded changes are
    folded into the next revision, which is re-anchored to a new release and
    re-frozen with `python scripts/jss_review_freeze.py --write --release X.Y.Z`.
@@ -35,10 +42,13 @@ Rules:
   `fb8c61ff`: the edit corrects `sp.uniform_bands`' stated Monte Carlo
   error (about 5e-3, not 1e-3).
 - **Effect on the paper.** None. Checked field by field against
-  `v1.32.0`: across all 89 modules only `exercised_sources` digests and
-  `seconds` differ, no classification moved, and the 86 / 0 / 3 census is
-  unchanged. No estimate, standard error or table cell is read from this
-  file.
+  `v1.32.0`: across all 89 Track A modules and the 12 original-data modules
+  only `exercised_sources` digests and `seconds` differ, no classification
+  moved, the 86 / 0 / 3 census and the original-data provenance marks are
+  unchanged. No estimate, standard error or table cell is read from these
+  files. (`80abadb7` also re-traced the original-data modules; the first
+  version of this entry named only the Track A file, which the per-commit
+  check added the same day caught.)
 - **For the next revision (not frozen artifacts).** The same commits and
   `a089a6f0` add reference tests that pin the full joint event-study
   covariance behind `sp.event_study_vcov` against R `did`, `fixest`,
@@ -50,11 +60,13 @@ Rules:
   `sp.event_study_vcov`") can then cite this cross-language evidence for
   the off-diagonal blocks, which Track A never compared.
 - **Paths.**
-  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/r_parity/results/_implementation_trace.json` (`80abadb7`,
+    `fb8c61ff`)
+  - `tests/orig_parity/results/_implementation_trace.json` (`80abadb7`)
 
 ### 2026-09-27 — call traces re-recorded after the post-release merge
 
-- **Commits.** The merge of `main` (upstream `a916c7bc`..`881fdf8c`: sdid
+- **Commits.** The merge `4ad3a993` of `main` (upstream `a916c7bc`..`881fdf8c`: sdid
   refusal of staggered cohorts, LaTeX output precision, `did_had` bandwidth
   selectors, forest covariance attrs, and others) into the 1.32.0 release
   line; re-traced Track A modules 03 13 15 24 25 26 27 35 53 65 66 and

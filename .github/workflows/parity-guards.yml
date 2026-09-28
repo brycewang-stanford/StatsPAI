@@ -8,6 +8,10 @@ name: Parity guards
 #   2. registry_drift    — registry public-function count + submodule count
 #                          stays within the README floor (1000+ / 80)
 #
+# plus jss-review-freeze: while the JSS paper is under review, every commit
+# that changes a frozen manuscript artifact has its own ledger entry
+# (scripts/jss_review_freeze.py; docs/dev/jss_review_changes.md).
+#
 # The §10 zero-hallucination citation audit lives in its own workflow
 # (.github/workflows/citation-audit.yml) — it used to be duplicated here as a
 # third job, but running the network-dependent auditor twice per push only
@@ -124,6 +128,27 @@ jobs:
         # holds that line. A new example that does not run fails here.
         run: |
           python scripts/check_example_execution.py --quiet --max-failures 0
+
+  jss-review-freeze:
+    name: JSS review freeze ledger
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # The check reads every commit since the freeze tag, which the default
+      # shallow, tagless checkout cannot see; the pytest copy of this check
+      # skips there, so this job is where CI actually enforces it.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.10"
+      - name: jss_review_freeze --check
+        # Standard library only; no install needed.
+        run: |
+          python scripts/jss_review_freeze.py --check
 
   # NOTE: the §10 citation audit job that used to live here was removed —
   # it duplicated .github/workflows/citation-audit.yml (which is more

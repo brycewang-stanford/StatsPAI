@@ -179,6 +179,16 @@ repos:
         always_run: true
         stages: [pre-push]
 
+      - id: jss-review-freeze
+        name: jss_review_freeze --check (every commit to a frozen JSS artifact is logged)
+        # Per commit, so it cannot run at pre-commit: the ledger entry names
+        # the SHA of the commit it covers and lands in a follow-up commit.
+        entry: python3 scripts/jss_review_freeze.py --check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       - id: schema-drift
         name: dump_schemas --check (MCP cold-start bundle drift)
         entry: python3 scripts/dump_schemas.py --check

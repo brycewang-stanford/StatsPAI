@@ -70,3 +70,52 @@ def test_inactive_freeze_passes():
     manifest["active"] = False
     manifest["files"] = {"tests/perf/results/nonexistent.json": "0" * 64}
     assert freeze.unrecorded(manifest) == []
+
+
+def test_every_commit_to_a_frozen_artifact_has_its_own_entry():
+    """Per-commit check: a path named once does not cover later commits."""
+    try:
+        missing = freeze.uncredited_commits()
+    except freeze.HistoryUnavailable as exc:
+        pytest.skip(f"git history unavailable, checked in CI by parity-guards: {exc}")
+    assert not missing, (
+        "These commits changed a frozen JSS artifact but no entry in "
+        f"{freeze.LEDGER.relative_to(ROOT)} names both the commit's SHA and the "
+        "path. Add one (a follow-up commit is fine):\n  " + "\n  ".join(missing)
+    )
+
+
+def test_second_commit_to_a_named_path_is_not_covered(tmp_path, monkeypatch):
+    manifest = json.loads(json.dumps(freeze.load_manifest()))
+    manifest["active"] = True
+    path = "tests/r_parity/results/_implementation_trace.json"
+    first, second = "a" * 40, "b" * 40
+    monkeypatch.setattr(
+        freeze, "commits_touching", lambda m, paths: {path: [second, first]}
+    )
+    ledger = tmp_path / "ledger.md"
+    monkeypatch.setattr(freeze, "LEDGER", ledger)
+
+    ledger.write_text(f"# log\n\n### one\n- `{first[:8]}`\n- `{path}`\n", "utf-8")
+    assert freeze.uncredited_commits(manifest) == [f"{second[:8]} {path}"]
+
+    # The SHA must sit in an entry that also names the path.
+    ledger.write_text(
+        f"# log\n\n### one\n- `{first[:8]}`\n- `{path}`\n\n"
+        f"### two\n- `{second[:8]}`\n- `some/other/path.json`\n",
+        "utf-8",
+    )
+    assert freeze.uncredited_commits(manifest) == [f"{second[:8]} {path}"]
+
+    ledger.write_text(
+        f"# log\n\n### one\n- `{first[:8]}` `{second[:10]}`\n- `{path}`\n", "utf-8"
+    )
+    assert freeze.uncredited_commits(manifest) == []
+
+
+def test_missing_tag_is_reported_not_passed(monkeypatch):
+    manifest = json.loads(json.dumps(freeze.load_manifest()))
+    manifest["active"] = True
+    manifest["tag"] = "v0.0.0-no-such-tag"
+    with pytest.raises(freeze.HistoryUnavailable, match="not in this checkout"):
+        freeze.uncredited_commits(manifest)
