@@ -6,6 +6,30 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.etwfe(family='poisson')` reproduces Stata `jwdid ..., method(ppmlhdfe)` in one call.**
+  Found by redoing a published jwdid table (21 regressions) with StatsPAI
+  (`sjjj2026_replication-StatsPAI复现程度.ipynb`): the cell coefficients
+  matched, but the paper's number could only be rebuilt by hand. New:
+  `scale='link'` reports the treated-observation-weighted mean of the
+  cohort x period coefficients (`estat simple, predict(xb)` /
+  `emfx(predict='link')`; log points for Poisson) — the default stays
+  `'response'`, the average marginal effect. Both scales, and the
+  simple / group / event / calendar aggregations of each with their own
+  delta-method SEs, are stored in `model_info['aggregations']`, with the
+  per-cell counts, coefficients and SEs in `model_info['cells']`;
+  `sp.etwfe_emfx(res, type=..., scale=...)` serves either scale.
+  `fe='unit'` absorbs unit fixed effects as jwdid does (R etwfe's
+  cohort-dummy design stays the default, `fe='cohort'`); the two agree on
+  balanced panels and differ on unbalanced ones, where `fe='cohort'` now
+  warns. With `fe='unit'` all-zero units are separated out of IRLS but kept
+  in `N` and the cluster count, as jwdid reports them
+  (`model_info['n_separated']`); on a 923k-row, 44k-unit panel the fit takes
+  about 5 s. `cgroup='nevertreated'` is now supported for Poisson and logit
+  (pre-period cells relative to `g - 1`, i.e. event-study leads, as
+  `jwdid, never`). The `fe='unit'` cells equal an explicit
+  `sp.ppmlhdfe` fit of the same design to 1e-8
+  (`tests/test_etwfe_nonlinear.py`).
+
 - **MCP tool-list profiles and discovery meta-tools.** `tools/list` used to
   return every auto-generated tool (579 entries, ~2 MB, roughly half a
   million tokens — more than any client context window). `statspai-mcp`
@@ -320,6 +344,22 @@ All notable changes to StatsPAI will be documented in this file.
   joint restrictions -- e.g. the Mundlak test of the unit-mean terms -- work.
 
 ### ⚠️ Correctness
+
+- **`sp.ppmlhdfe` drops separated observations by default.** The default
+  `separation=True` used to warn and keep them: fixed effects of all-zero
+  groups were chased towards minus infinity, IRLS crawled (a 923k-row panel
+  did not finish in 86 minutes), and on a subsample the slopes differed from
+  Stata `ppmlhdfe` / `sp.fepois` at 1e-3 relative with no error, with `N`
+  and the cluster count including the separated rows. It now removes them
+  with the `fe` and single-regressor `simplex` rules Stata applies by
+  default (`correia2020fast`), reports `model_info['n_separated']` and
+  warns; regressors left identically zero are omitted, as in Stata.
+  `separation='warn'` restores the old behaviour. The fixed-effect
+  projections are also vectorised (`np.bincount` instead of a per-group
+  mask loop): the 46k-row, 2.2k-unit subsample that took 299 s now takes
+  well under a second. The Track A fixtures that run through this code
+  (37, 42, 47, 58) have no separated rows and reproduce their committed
+  results to within 6e-15 relative.
 
 - **`sp.did(method="sdid")` and `sp.did_analysis(method="sdid")` estimated
   staggered panels as a block design, silently.** Both read each unit's first

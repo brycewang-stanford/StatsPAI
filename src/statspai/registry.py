@@ -14005,7 +14005,11 @@ def _build_registry() -> None:
                 "selecting not-yet-treated or never-treated controls. "
                 "family='poisson'/'logit' switches to Wooldridge (2023) "
                 "nonlinear ETWFE for count / binary outcomes, reporting the "
-                "average marginal effect on the response scale."
+                "average marginal effect on the response scale, or with "
+                "scale='link' the treated-observation-weighted mean of the "
+                "cohort x period coefficients (Stata jwdid estat simple, "
+                "predict(xb)); fe='unit' absorbs unit fixed effects like "
+                "jwdid ..., method(ppmlhdfe)."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -14043,8 +14047,9 @@ def _build_registry() -> None:
                     "'poisson' (counts) and 'logit' (binary) fit Wooldridge "
                     "(2023) nonlinear ETWFE by MLE and report the average "
                     "marginal effect on the response scale, matching R "
-                    "etwfe::emfx. The nonlinear branch requires panel=True, "
-                    "cgroup='notyet', and no xvar.",
+                    "etwfe::emfx. The nonlinear branch requires panel=True "
+                    "and no xvar or weights; it supports both cgroup values "
+                    "(nevertreated adds pre-period cells / event-study leads).",
                     ["gaussian", "poisson", "logit", "binomial"],
                 ),
                 ParamSpec(
@@ -14074,6 +14079,32 @@ def _build_registry() -> None:
                     "'unit' (R etwfe::emfx): one unit weight per treated "
                     "observation, estimation weights enter the regression only.",
                     ["estimation", "unit"],
+                ),
+                ParamSpec(
+                    "fe",
+                    "str",
+                    False,
+                    None,
+                    "family='poisson' only: heterogeneity control. None / "
+                    "'cohort' is R etwfe's cohort-dummy design; 'unit' absorbs "
+                    "unit fixed effects like Stata jwdid ..., "
+                    "method(ppmlhdfe). Identical on balanced panels; on "
+                    "unbalanced ones fe='cohort' warns. Separated all-zero "
+                    "units stay in N and the cluster count, as jwdid reports.",
+                    ["cohort", "unit"],
+                ),
+                ParamSpec(
+                    "scale",
+                    "str",
+                    False,
+                    "response",
+                    "Nonlinear families only: headline scale. 'response' is "
+                    "the average marginal effect (R emfx default); 'link' the "
+                    "treated-observation-weighted mean of the cohort x period "
+                    "coefficients (log points for Poisson; Stata estat "
+                    "simple, predict(xb)). Both are stored in "
+                    "model_info['aggregations'].",
+                    ["response", "link"],
                 ),
             ],
             returns="CausalResult",

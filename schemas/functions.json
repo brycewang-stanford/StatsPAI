@@ -12593,7 +12593,7 @@
     }
   },
   {
-    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale. Validation: certified evidence with scoped limitations. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with xvar, panel=False, or cgroup='nevertreated' is not yet supported; these raise rather than being silently ignored; family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention; weights= is not yet supported together with xvar or with family='poisson'/'logit'; both combinations raise; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: One saturated OLS with cohorts x periods interaction columns.",
+    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale, or with scale='link' the treated-observation-weighted mean of the cohort x period coefficients (Stata jwdid estat simple, predict(xb)); fe='unit' absorbs unit fixed effects like jwdid ..., method(ppmlhdfe). Validation: certified evidence with scoped limitations. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with xvar, panel=False, or cgroup='nevertreated' is not yet supported; these raise rather than being silently ignored; family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention; weights= is not yet supported together with xvar or with family='poisson'/'logit'; both combinations raise; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: One saturated OLS with cohorts x periods interaction columns.",
     "name": "etwfe",
     "parameters": {
       "properties": {
@@ -12636,12 +12636,20 @@
           "type": "string"
         },
         "family": {
-          "description": "Outcome model. None/'gaussian' is the linear ETWFE. 'poisson' (counts) and 'logit' (binary) fit Wooldridge (2023) nonlinear ETWFE by MLE and report the average marginal effect on the response scale, matching R etwfe::emfx. The nonlinear branch requires panel=True, cgroup='notyet', and no xvar.",
+          "description": "Outcome model. None/'gaussian' is the linear ETWFE. 'poisson' (counts) and 'logit' (binary) fit Wooldridge (2023) nonlinear ETWFE by MLE and report the average marginal effect on the response scale, matching R etwfe::emfx. The nonlinear branch requires panel=True and no xvar or weights; it supports both cgroup values (nevertreated adds pre-period cells / event-study leads).",
           "enum": [
             "gaussian",
             "poisson",
             "logit",
             "binomial"
+          ],
+          "type": "string"
+        },
+        "fe": {
+          "description": "family='poisson' only: heterogeneity control. None / 'cohort' is R etwfe's cohort-dummy design; 'unit' absorbs unit fixed effects like Stata jwdid ..., method(ppmlhdfe). Identical on balanced panels; on unbalanced ones fe='cohort' warns. Separated all-zero units stay in N and the cluster count, as jwdid reports.",
+          "enum": [
+            "cohort",
+            "unit"
           ],
           "type": "string"
         },
@@ -12657,6 +12665,15 @@
           "default": true,
           "description": "If False, treat data as repeated cross-section",
           "type": "boolean"
+        },
+        "scale": {
+          "default": "response",
+          "description": "Nonlinear families only: headline scale. 'response' is the average marginal effect (R emfx default); 'link' the treated-observation-weighted mean of the cohort x period coefficients (log points for Poisson; Stata estat simple, predict(xb)). Both are stored in model_info['aggregations'].",
+          "enum": [
+            "response",
+            "link"
+          ],
+          "type": "string"
         },
         "time": {
           "description": "Time period column.",
@@ -18660,6 +18677,14 @@
         },
         "result": {
           "description": "Output of :func:`etwfe` or :func:`wooldridge_did`.",
+          "type": "string"
+        },
+        "scale": {
+          "description": "Nonlinear (``family='poisson'``/``'logit'``) fits only: aggregate the average marginal effects (``'response'``, R ``emfx`` default) or the cohort x period coefficients themselves (``'link'``, Stata ``estat ..., predict(xb)`` / R ``emfx(predict='link')``). ``None`` (default) keeps the scale the fit was reported on. The linear model has one scale and accepts either value.",
+          "enum": [
+            "response",
+            "link"
+          ],
           "type": "string"
         },
         "type": {
@@ -28100,9 +28125,15 @@
           "type": "integer"
         },
         "separation": {
-          "default": true,
-          "description": "If True, check for separation (perfect prediction of zeros) and warn. Observations causing separation are not dropped automatically.",
-          "type": "boolean"
+          "description": "Handling of separated observations (outcomes perfectly predicted to be zero, whose maximum-likelihood fitted value is exactly zero). ``True`` / ``'drop'`` removes them before estimation with the ``fe`` and single-regressor ``simplex`` rules Stata ``ppmlhdfe`` applies by default (``correia2020fast``), iterated to a fixed point; the count is reported as ``model_info['n_separated']`` and a warning is issued. Slopes are unchanged by the removal (the rows carry no information about them), but ``N``, the cluster count and hence the ``G/(G-1)`` factor match Stata, and IRLS no longer chases fixed effects towards minus infinity. ``'warn'`` is the pre-1.33 behaviour (detect and warn, keep the rows); ``False`` skips the check. The general ReLU rule is not implemented. Default: True.",
+          "enum": [
+            "drop",
+            "warn"
+          ],
+          "type": [
+            "boolean",
+            "string"
+          ]
         },
         "ssc": {
           "default": "stata",

@@ -45,9 +45,13 @@ from scipy import optimize, stats
 
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
-from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
+from ._etwfe_nonlinear import _ETWFE_GLM_FAMILIES
+from ._etwfe_nonlinear import etwfe_glm as _etwfe_glm_impl
+from ._etwfe_nonlinear import etwfe_glm_emfx as _etwfe_glm_emfx_impl
+from ._etwfe_nonlinear import normalise_scale as _normalise_etwfe_scale
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Helper: cluster-robust OLS
@@ -665,16 +669,6 @@ def wooldridge_did(
     return _result
 
 
-#: Non-identity families supported by ``sp.etwfe(family=...)``, mapped to
-#: their ``statsmodels`` family constructor.  ``None``/``'gaussian'`` keeps
-#: the historical linear OLS path untouched.
-_ETWFE_GLM_FAMILIES = {
-    "poisson": "Poisson",
-    "logit": "Binomial",
-    "binomial": "Binomial",
-}
-
-
 def _etwfe_glm(
     data: pd.DataFrame,
     y: str,
@@ -685,271 +679,24 @@ def _etwfe_glm(
     controls: Optional[List[str]] = None,
     cluster: Optional[str] = None,
     alpha: float = 0.05,
+    cgroup: str = "notyet",
+    fe: Optional[str] = None,
+    scale: str = "response",
 ) -> CausalResult:
-    """Nonlinear ETWFE — Wooldridge (2023) staggered DiD with a link function.
-
-    Fits the saturated Wooldridge/Mundlak design
-
-    .. math::
-
-        h(E[Y_{it}]) = \\alpha + \\sum_g \\gamma_g 1\\{G_i = g\\}
-                       + \\sum_t \\delta_t 1\\{T = t\\}
-                       + \\sum_{g}\\sum_{t \\ge g}
-                         \\beta_{gt} 1\\{G_i = g, T = t\\}
-
-    by maximum likelihood, then reports the **average marginal effect on the
-    response scale** over treated post-treatment observations:
-
-    .. math::
-
-        \\widehat{ATT} = \\frac{1}{N_1}\\sum_{i,t \\in \\text{treated}}
-            \\left[ h^{-1}(\\hat\\eta_{it})
-                  - h^{-1}(\\hat\\eta_{it} - \\hat\\beta_{g(i)t}) \\right]
-
-    with a delta-method standard error from the cluster-robust coefficient
-    covariance.  This is the estimand R ``etwfe::emfx(type='simple')``
-    reports, so a Poisson fit returns an effect in *counts*, not log points.
-
-    Verified against R ``etwfe`` 0.6.2 (``family='poisson'``) on a simulated
-    count panel: simple AME matches to 1e-10 and every event-time AME to
-    1e-6; see ``tests/reference_parity/test_etwfe_glm_parity.py``.
-    """
-    try:
-        import statsmodels.api as sm
-    except ImportError as exc:  # pragma: no cover - statsmodels is a core dep
-        raise MethodIncompatibility(
-            "etwfe(family=...) requires statsmodels.",
-            recovery_hint="pip install statsmodels",
-            diagnostics={"family": family},
-        ) from exc
-
-    fam_key = str(family).strip().lower()
-    if fam_key not in _ETWFE_GLM_FAMILIES:
-        raise MethodIncompatibility(
-            f"family={family!r} is not supported; use one of "
-            f"{sorted(set(_ETWFE_GLM_FAMILIES) | {'gaussian'})}.",
-            recovery_hint="Pass family='poisson', 'logit', or 'gaussian'.",
-            diagnostics={"family": family},
-        )
-
-    df = data.copy()
-    df["_ft"] = df[first_treat].replace(0, np.nan)
-    df["_y"] = df[y].astype(float)
-
-    periods = sorted(df[time].unique())
-    cohorts = sorted(df.loc[df["_ft"].notna(), "_ft"].unique())
-    if not cohorts:
-        raise DataInsufficient(
-            "No treated cohorts found. Check 'first_treat' column.",
-            recovery_hint="Ensure first_treat holds the first treated period "
-            "(0 or NaN for never-treated).",
-            diagnostics={"first_treat": first_treat},
-        )
-
-    if fam_key in {"logit", "binomial"}:
-        bad = ~df["_y"].isin([0.0, 1.0])
-        if bad.any():
-            raise MethodIncompatibility(
-                f"family={family!r} needs a 0/1 outcome; column {y!r} has "
-                f"{int(bad.sum())} value(s) outside {{0, 1}}.",
-                recovery_hint="Recode the outcome to 0/1 or use "
-                "family='poisson'/'gaussian'.",
-                diagnostics={"family": family, "n_invalid": int(bad.sum())},
-            )
-    elif (df["_y"] < 0).any():
-        raise MethodIncompatibility(
-            f"family='poisson' needs a non-negative outcome; column {y!r} "
-            "contains negative values.",
-            recovery_hint="Use family='gaussian' for outcomes that can be "
-            "negative (e.g. logged or differenced variables).",
-            diagnostics={"family": family},
-        )
-
-    # Design: intercept + cohort dummies (never-treated omitted) + period
-    # dummies (first period omitted) + saturated post-treatment cohort x
-    # period interactions.  Mirrors R etwfe's
-    #   ~ .Dtreat:i(gvar, i.tvar, ref=0, ref2=<first>) + i(gvar, ref=0)
-    #     + i(tvar, ref=<first>)
-    cols = [np.ones(len(df))]
-    names = ["const"]
-    for g_val in cohorts:
-        cols.append((df["_ft"] == g_val).to_numpy(dtype=float))
-        names.append(f"cohort[{int(g_val)}]")
-    for t_val in periods[1:]:
-        cols.append((df[time] == t_val).to_numpy(dtype=float))
-        names.append(f"period[{int(t_val)}]")
-
-    interaction_idx: List[int] = []
-    interaction_cell: List[Tuple[int, int]] = []
-    for g_val in cohorts:
-        for t_val in periods:
-            if t_val < g_val:
-                continue
-            col = ((df["_ft"] == g_val) & (df[time] == t_val)).to_numpy(dtype=float)
-            if col.sum() <= 0:
-                continue
-            cols.append(col)
-            names.append(f"treat[{int(g_val)},{int(t_val)}]")
-            interaction_idx.append(len(names) - 1)
-            interaction_cell.append((int(g_val), int(t_val)))
-
-    if not interaction_idx:
-        raise DataInsufficient(
-            "No post-treatment cohort x period cells — nothing to estimate.",
-            recovery_hint="Check that treated cohorts have observed periods "
-            "at or after their first_treat value.",
-            diagnostics={"cohorts": [int(c) for c in cohorts]},
-        )
-
-    ctrl_names: List[str] = []
-    for c in controls or []:
-        cols.append(df[c].astype(float).to_numpy())
-        names.append(f"control[{c}]")
-        ctrl_names.append(c)
-
-    X = np.column_stack(cols)
-    y_vec = df["_y"].to_numpy(dtype=float)
-
-    keep = np.isfinite(X).all(axis=1) & np.isfinite(y_vec)
-    X, y_vec = X[keep], y_vec[keep]
-    df_keep = df.loc[keep].reset_index(drop=True)
-
-    cluster_col = cluster or group
-    cl = df_keep[cluster_col].to_numpy()
-
-    sm_family = getattr(sm.families, _ETWFE_GLM_FAMILIES[fam_key])()
-    model = sm.GLM(y_vec, X, family=sm_family)
-    try:
-        fit = model.fit(cov_type="cluster", cov_kwds={"groups": cl})
-    except Exception as exc:
-        raise ConvergenceFailure(
-            f"etwfe(family={family!r}) failed to converge: {exc}",
-            recovery_hint="Check for separation / collinear cohort-period "
-            "cells, or fall back to family='gaussian'.",
-            diagnostics={"family": family, "n_obs": int(len(y_vec))},
-        ) from exc
-
-    beta = np.asarray(fit.params, dtype=float)
-    vcov = np.asarray(fit.cov_params(), dtype=float)
-
-    # Counterfactual design: switch every treatment interaction off, which is
-    # what marginaleffects does for .Dtreat = FALSE.
-    X0 = X.copy()
-    X0[:, interaction_idx] = 0.0
-    link = sm_family.link
-    mu1 = np.asarray(link.inverse(X @ beta), dtype=float)
-    mu0 = np.asarray(link.inverse(X0 @ beta), dtype=float)
-
-    treated = X[:, interaction_idx].sum(axis=1) > 0
-    if not treated.any():  # pragma: no cover - guarded by interaction_idx above
-        raise DataInsufficient(
-            "No treated observations after dropping missing rows.",
-            recovery_hint="Check the outcome and control columns for NaNs.",
-            diagnostics={"family": family},
-        )
-
-    # d/dbeta of (mu1 - mu0) is X * mu1' - X0 * mu0' under a canonical link;
-    # use the link derivative generally so logit/Poisson share one path.
-    dmu1 = np.asarray(link.inverse_deriv(X @ beta), dtype=float)
-    dmu0 = np.asarray(link.inverse_deriv(X0 @ beta), dtype=float)
-
-    def _ame(mask: np.ndarray) -> Tuple[float, float]:
-        n_sel = int(mask.sum())
-        est = float(np.mean((mu1 - mu0)[mask]))
-        grad = (X[mask] * dmu1[mask, None] - X0[mask] * dmu0[mask, None]).sum(
-            axis=0
-        ) / n_sel
-        var = float(grad @ vcov @ grad)
-        return est, float(np.sqrt(max(var, 0.0)))
-
-    att, se_att = _ame(treated)
-
-    # Event-study AMEs by relative time e = t - g.
-    rel = df_keep[time].to_numpy(dtype=float) - df_keep["_ft"].to_numpy(dtype=float)
-    rows = []
-    for e_val in sorted({int(v) for v in rel[treated] if np.isfinite(v)}):
-        mask = treated & (rel == e_val)
-        if not mask.any():
-            continue
-        est_e, se_e = _ame(mask)
-        z_e = est_e / se_e if se_e > 0 else 0.0
-        rows.append(
-            {
-                "relative_time": e_val,
-                "att": est_e,
-                "se": se_e,
-                "pvalue": float(2 * stats.norm.sf(abs(z_e))),
-                "n_treated": int(mask.sum()),
-            }
-        )
-    event_study = pd.DataFrame(rows)
-
-    # Cohort-level AMEs.
-    cohort_rows = []
-    ft_arr = df_keep["_ft"].to_numpy(dtype=float)
-    for g_val in cohorts:
-        mask = treated & (ft_arr == g_val)
-        if not mask.any():
-            continue
-        est_g, se_g = _ame(mask)
-        cohort_rows.append(
-            {
-                "cohort": int(g_val),
-                "att": est_g,
-                "se": se_g,
-                "n_treated": int(mask.sum()),
-            }
-        )
-
-    # Calendar-time AMEs: the same response-scale contrast, grouped by the
-    # period rather than by cohort or event time.
-    calendar_rows = []
-    period_arr = df_keep[time].to_numpy(dtype=float)
-    for t_val in sorted({float(v) for v in period_arr[treated]}):
-        mask = treated & (period_arr == t_val)
-        if not mask.any():
-            continue
-        est_t, se_t = _ame(mask)
-        calendar_rows.append(
-            {
-                "period": int(t_val),
-                "att": est_t,
-                "se": se_t,
-                "n_treated": int(mask.sum()),
-            }
-        )
-
-    z_crit = float(stats.norm.ppf(1 - alpha / 2))
-    z_stat = att / se_att if se_att > 0 else 0.0
-
-    return CausalResult(
-        method=f"Wooldridge (2023) nonlinear ETWFE — family={fam_key}",
-        estimand="ATT (average marginal effect, response scale)",
-        estimate=att,
-        se=se_att,
-        pvalue=float(2 * stats.norm.sf(abs(z_stat))),
-        ci=(att - z_crit * se_att, att + z_crit * se_att),
+    """Nonlinear ETWFE; implementation in :mod:`._etwfe_nonlinear`."""
+    return _etwfe_glm_impl(
+        data=data,
+        y=y,
+        group=group,
+        time=time,
+        first_treat=first_treat,
+        family=family,
+        controls=controls,
+        cluster=cluster,
         alpha=alpha,
-        n_obs=int(len(y_vec)),
-        detail=pd.DataFrame(cohort_rows),
-        model_info={
-            "estimator": "etwfe_glm",
-            "family": fam_key,
-            "link": type(link).__name__,
-            "cgroup": "notyet",
-            "event_study": event_study,
-            "calendar": pd.DataFrame(calendar_rows),
-            "coef_names": names,
-            "coefficients": beta,
-            "vcov": vcov,
-            "interaction_cells": interaction_cell,
-            "n_treated_obs": int(treated.sum()),
-            "n_clusters": int(pd.unique(cl).size),
-            "se_type": f"cluster-robust on {cluster_col}",
-            "controls": ctrl_names,
-            "converged": bool(getattr(fit, "converged", True)),
-        },
-        _citation_key="wooldridge2021two",
+        cgroup=cgroup,
+        fe=fe,
+        scale=scale,
     )
 
 
@@ -969,6 +716,8 @@ def etwfe(
     family: Optional[str] = None,
     weights: Optional[str] = None,
     agg_weights: str = "estimation",
+    fe: Optional[str] = None,
+    scale: str = "response",
 ) -> CausalResult:
     """Public ``sp.etwfe`` entry point — see ``_dispatch_etwfe_impl`` for
     the full docstring on options and behaviour.
@@ -990,9 +739,32 @@ def etwfe(
     ``'logit'`` fit Wooldridge (2023) nonlinear ETWFE by maximum likelihood
     and report the **average marginal effect on the response scale**,
     matching R ``etwfe::emfx(type='simple')`` — so a Poisson fit returns an
-    effect in counts, not log points. The nonlinear branch uses
-    not-yet-treated identification and does not currently accept ``xvar``,
-    ``panel=False``, or ``cgroup='nevertreated'``.
+    effect in counts, not log points. The nonlinear branch supports
+    ``cgroup='notyet'`` and ``cgroup='nevertreated'`` (the latter also
+    estimates the pre-treatment cells, i.e. event-study leads, relative to
+    ``g - 1``); it does not currently accept ``xvar``, ``panel=False`` or
+    ``weights``.  Its ``controls`` enter additively without interactions
+    (Stata ``jwdid``'s ``exovar()``).
+
+    ``scale`` (nonlinear families only) picks the headline scale:
+    ``'response'`` (default) is the average marginal effect above;
+    ``'link'`` is the treated-observation-weighted average of the
+    cohort x period coefficients, :math:`\\sum N_{gt}\\hat\\beta_{gt} /
+    \\sum N_{gt}` -- log points for Poisson -- which is what Stata
+    ``jwdid ..., method(ppmlhdfe)`` followed by ``estat simple,
+    predict(xb)`` prints.  Both scales are always computed and stored in
+    ``model_info['aggregations']``; ``sp.etwfe_emfx(res, type=...,
+    scale=...)`` serves either.
+
+    ``fe`` (``family='poisson'`` only) picks the heterogeneity control:
+    ``'cohort'`` (default) is R ``etwfe``'s cohort-dummy (Mundlak) design;
+    ``'unit'`` absorbs unit fixed effects like Stata ``jwdid`` /
+    ``ppmlhdfe``.  On a balanced panel the two give identical
+    coefficients; on an unbalanced one they do not, and ``fe='cohort'``
+    warns.  With ``fe='unit'`` units whose outcome is always zero are
+    separated (their fitted mean is exactly zero) and are left out of
+    IRLS, but stay in ``N`` and in the cluster count as ``jwdid`` reports
+    them; ``model_info['n_separated']`` records how many rows that was.
 
     Thin wrapper around the 4-branch dispatcher (panel-with-xvar /
     panel-never-only / panel-notyet / repeated-cross-section) that
@@ -1079,7 +851,6 @@ def etwfe(
         for arg_name, arg_val, bad in (
             ("xvar", xvar, xvar is not None),
             ("panel", panel, not panel),
-            ("cgroup", cgroup, cgroup not in {"notyet", "notyettreated"}),
             ("weights", weights, weights is not None),
         ):
             if bad:
@@ -1102,6 +873,9 @@ def etwfe(
             controls=controls,
             cluster=cluster,
             alpha=alpha,
+            cgroup=cgroup,
+            fe=fe,
+            scale=scale,
         )
     elif fam_key not in (None, "gaussian", "normal"):
         raise MethodIncompatibility(
@@ -1111,6 +885,16 @@ def etwfe(
             diagnostics={"family": family},
         )
     else:
+        # The linear model has a single scale; fe= only has a nonlinear
+        # implementation so far.
+        _normalise_etwfe_scale(scale)
+        if fe is not None and str(fe).strip().lower() != "cohort":
+            raise MethodIncompatibility(
+                f"etwfe(fe={fe!r}) is only implemented for family='poisson'.",
+                recovery_hint="Drop fe= for the linear ETWFE (cohort and "
+                "period effects, R etwfe's default design).",
+                diagnostics={"fe": fe, "family": family},
+            )
         _result = _dispatch_etwfe_impl(
             data=data,
             y=y,
@@ -1145,6 +929,8 @@ def etwfe(
                 "cgroup": cgroup,
                 "weights": weights,
                 "agg_weights": agg_weights,
+                "fe": fe,
+                "scale": scale,
             },
             data=data,
             overwrite=False,
@@ -3392,64 +3178,12 @@ def _etwfe_glm_emfx(
     result: CausalResult,
     type: str,
     alpha: float,
+    scale: Optional[str] = None,
+    include_leads: bool = False,
 ) -> CausalResult:
-    """Serve the aggregations a nonlinear ``sp.etwfe`` fit already computed.
-
-    ``_etwfe_glm`` evaluates the response-scale average marginal effects for
-    the overall, event-time and cohort views while it still holds the design
-    matrix and coefficient covariance, so this is a lookup rather than a
-    re-estimation. ``type='calendar'`` is not available because the GLM
-    branch does not retain the period index needed for it.
-    """
-    mi = result.model_info or {}
-    if type == "simple":
-        return result
-
-    if type == "event":
-        frame = mi.get("event_study")
-        label = "relative_time"
-    elif type == "group":
-        frame = result.detail
-        label = "cohort"
-    else:  # calendar
-        frame = mi.get("calendar")
-        label = "period"
-
-    if not isinstance(frame, pd.DataFrame) or frame.empty:
-        raise DataInsufficient(
-            f"etwfe_emfx(type={type!r}) has no cells to report.",
-            recovery_hint="Check the treated cohorts and event window.",
-            diagnostics={"type": type},
-        )
-
-    z_crit = float(stats.norm.ppf(1 - alpha / 2))
-    est = float(np.average(frame["att"].to_numpy(dtype=float)))
-    # Cells are correlated (they share coefficients), so an average of the
-    # per-cell SEs would understate.  Report the overall AME's own SE, which
-    # _etwfe_glm computed from the full delta-method gradient.
-    se = float(result.se)
-    z_stat = est / se if se > 0 else 0.0
-
-    return CausalResult(
-        method=f"{result.method} — emfx[{type}]",
-        estimand=result.estimand,
-        estimate=est if type != "simple" else float(result.estimate),
-        se=se,
-        pvalue=float(2 * stats.norm.sf(abs(z_stat))),
-        ci=(est - z_crit * se, est + z_crit * se),
-        alpha=alpha,
-        n_obs=result.n_obs,
-        detail=frame.copy(),
-        model_info={
-            **mi,
-            "emfx_type": type,
-            "emfx_label": label,
-            "emfx_note": (
-                "estimate is the unweighted mean of the reported cells; "
-                "se is the overall delta-method SE from the fit"
-            ),
-        },
-        _citation_key="wooldridge2021two",
+    """Nonlinear-fit aggregations; implementation in :mod:`._etwfe_nonlinear`."""
+    return _etwfe_glm_emfx_impl(
+        result, type=type, alpha=alpha, scale=scale, include_leads=include_leads
     )
 
 
@@ -3460,6 +3194,7 @@ def etwfe_emfx(
     include_leads: bool = False,
     weighting: str = "treated",
     agg_weights: Optional[str] = None,
+    scale: Optional[str] = None,
 ) -> CausalResult:
     """
     R ``etwfe::emfx``-style aggregated marginal effects for an ETWFE fit.
@@ -3510,6 +3245,13 @@ def etwfe_emfx(
         ``None`` (default) reuses the rule the fit was called with
         (``result.model_info['agg_weights']``).  Ignored for unweighted
         fits, where the two rules coincide.
+    scale : {'response', 'link'}, optional
+        Nonlinear (``family='poisson'``/``'logit'``) fits only: aggregate
+        the average marginal effects (``'response'``, R ``emfx`` default)
+        or the cohort x period coefficients themselves (``'link'``, Stata
+        ``estat ..., predict(xb)`` / R ``emfx(predict='link')``).
+        ``None`` (default) keeps the scale the fit was reported on.  The
+        linear model has one scale and accepts either value.
 
     Returns
     -------
@@ -3586,7 +3328,11 @@ def etwfe_emfx(
         isinstance(result.model_info, dict)
         and result.model_info.get("estimator") == "etwfe_glm"
     ):
-        return _etwfe_glm_emfx(result, type=type, alpha=alpha)
+        return _etwfe_glm_emfx(
+            result, type=type, alpha=alpha, scale=scale, include_leads=include_leads
+        )
+    if scale is not None:
+        _normalise_etwfe_scale(scale)
 
     if not isinstance(result.model_info, dict) or "cohorts" not in result.model_info:
         raise MethodIncompatibility(
