@@ -426,7 +426,7 @@ def check_attributes(failures: list[str]) -> None:
         )
         fpt_rejects_pooled = False
         try:
-            sp.forest_policy_tree(pooled, n_splits=1)
+            sp.forest_policy_tree(pooled, n_splits=2)
         except MethodIncompatibility:
             fpt_rejects_pooled = True
         cmp_rejects_staggered = False
