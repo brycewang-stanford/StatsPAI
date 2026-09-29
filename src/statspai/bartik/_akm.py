@@ -40,22 +40,80 @@ def _resid(v: np.ndarray, M: np.ndarray) -> np.ndarray:
     return v - M @ np.linalg.lstsq(M, v, rcond=None)[0]
 
 
-def _drop_collinear_shares(W: np.ndarray) -> np.ndarray:
-    """Keep share columns in order, dropping any in the span of earlier ones.
+def _dqrdc2_rank_columns(x: np.ndarray, tol: float = 1e-7) -> np.ndarray:
+    """Columns R's ``qr()`` keeps: a port of LINPACK ``dqrdc2`` (R's variant).
 
-    Mirrors ``ShiftShareSE:::drop_collinear`` (R ``qr()``: LINPACK dqrdc2,
-    tolerance 1e-7 relative to the column's own norm, limited pivoting that
-    keeps the original order of the retained columns).
+    Householder QR with *limited* pivoting: a column whose norm, downdated
+    as the reduction proceeds, falls below ``tol`` times its original norm
+    is moved to the end; ``pivot[1:rank]`` are the survivors in their
+    original order. The downdating (with R's 1e-6 recompute threshold) is
+    what decides borderline columns, so an exact Gram-Schmidt test does not
+    pick the same set on nearly collinear share matrices.
     """
-    keep = []
-    Q = np.zeros((W.shape[0], 0))
-    for j in range(W.shape[1]):
-        col = W[:, j]
-        norm0 = np.linalg.norm(col)
-        r = col - Q @ (Q.T @ col) if Q.shape[1] else col
-        if norm0 > 0 and np.linalg.norm(r) > 1e-7 * norm0:
-            keep.append(j)
-            Q = np.column_stack([Q, r / np.linalg.norm(r)])
+    x = np.array(x, dtype=float, order="F", copy=True)
+    n, p = x.shape
+    jpvt = np.arange(p)
+    qraux = np.linalg.norm(x, axis=0)
+    work1 = qraux.copy()
+    work2 = qraux.copy()
+    work2[work2 == 0] = 1.0
+    lup = min(n, p)
+    k = p + 1  # dqrdc2's (1-based) rank marker
+    for col_l in range(lup):
+        while col_l + 1 < k and qraux[col_l] < work2[col_l] * tol:
+            # move the negligible column col_l to the end
+            for arr in (jpvt, qraux, work1, work2):
+                v = arr[col_l]
+                arr[col_l : p - 1] = arr[col_l + 1 : p]
+                arr[p - 1] = v
+            col = x[:, col_l].copy()
+            x[:, col_l : p - 1] = x[:, col_l + 1 : p]
+            x[:, p - 1] = col
+            k -= 1
+        if col_l == n - 1:
+            break
+        nrmxl = np.linalg.norm(x[col_l:, col_l])
+        if nrmxl == 0.0:
+            continue
+        if x[col_l, col_l] != 0.0:
+            nrmxl = np.copysign(nrmxl, x[col_l, col_l])
+        x[col_l:, col_l] /= nrmxl
+        x[col_l, col_l] += 1.0
+        if col_l + 1 < p:
+            t = -(x[col_l:, col_l] @ x[col_l:, col_l + 1 :]) / x[col_l, col_l]
+            x[col_l:, col_l + 1 :] += np.outer(x[col_l:, col_l], t)
+            for j in range(col_l + 1, p):
+                if qraux[j] == 0.0:
+                    continue
+                tt = max(1.0 - (abs(x[col_l, j]) / qraux[j]) ** 2, 0.0)
+                if abs(tt) < 1e-6:
+                    qraux[j] = np.linalg.norm(x[col_l + 1 :, j])
+                    work1[j] = qraux[j]
+                else:
+                    qraux[j] = qraux[j] * np.sqrt(tt)
+        qraux[col_l] = x[col_l, col_l]
+        x[col_l, col_l] = -nrmxl
+    rank = min(k - 1, n)
+    return np.asarray(jpvt[:rank], dtype=int)
+
+
+def _drop_collinear_shares(W: np.ndarray) -> np.ndarray:
+    """Share columns kept for AKM inference, as ``ShiftShareSE:::drop_collinear``.
+
+    R: ``keep <- qr(W)$pivot[seq_len(qr(W)$rank)]`` -- LINPACK ``dqrdc2``
+    with tolerance 1e-7 (:func:`_dqrdc2_rank_columns`). Until 1.32 this was a
+    one-pass Gram-Schmidt test, which on nearly collinear share matrices
+    kept a different set (ADH: 781 columns against R's 776) and so a
+    different AKM standard error.
+
+    Even R's selection can leave a share matrix so ill-conditioned that the
+    control-adjusted shocks, and with them the AKM SE, are numerically
+    meaningless (ADH's raw 794-industry shares give an AKM SE of 1.5e4 in R
+    and here). That is flagged with a warning; the remedy is to drop
+    near-collinear industries before estimation, as BHJ's cleaned share
+    file does.
+    """
+    keep = _dqrdc2_rank_columns(W)
     if len(keep) < W.shape[1]:
         warnings.warn(
             "Share matrix is collinear; dropping "
@@ -64,7 +122,20 @@ def _drop_collinear_shares(W: np.ndarray) -> np.ndarray:
             UserWarning,
             stacklevel=3,
         )
-    return np.asarray(keep, dtype=int)
+    Wk = W[:, keep]
+    if Wk.shape[1]:
+        sv = np.linalg.svd(Wk, compute_uv=False)
+        if sv[-1] <= 1e-8 * sv[0]:
+            warnings.warn(
+                "The share matrix is numerically near-singular even after "
+                f"dropping exactly collinear columns (condition number "
+                f"{sv[0] / max(sv[-1], np.finfo(float).tiny):.1e}); the AKM / "
+                "AKM0 standard errors are not reliable. Drop near-collinear "
+                "share columns (industries) before estimation.",
+                UserWarning,
+                stacklevel=3,
+            )
+    return np.sort(keep)
 
 
 def _akm_fit(

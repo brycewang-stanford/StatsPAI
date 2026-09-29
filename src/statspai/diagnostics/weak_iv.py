@@ -784,8 +784,14 @@ def anderson_rubin_test(
         """AR statistic at candidate beta = b0, as an F-form."""
         Y_adj = Y_t - b0 * D_t
         if cluster_frame is not None:
+            # Wald form, as ivreg2 / ivreghdfe: the cluster meat is built
+            # from the unrestricted reduced-form residual. Using Y_adj itself
+            # (the score form) inflated the variance whenever the instrument
+            # matters and disagreed with the reduced-form test (Web of Power
+            # Table 4 col. 4: p = 0.068 against ivreghdfe's 0.0246).
             moment = Z_t.T @ Y_adj
-            omega = _cluster_meat_multiway(Z_t, Y_adj, cluster_frame)
+            e_rf = Y_adj - Z_t @ (ZtZt_inv @ moment)
+            omega = _cluster_meat_multiway(Z_t, e_rf, cluster_frame)
             omega = omega * (
                 (g_min / max(g_min - 1, 1)) * ((n - 1) / max(n - k_w - k_z - fe_dof, 1))
             )

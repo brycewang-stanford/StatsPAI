@@ -61,7 +61,8 @@ def absorbed_dof_charge(
     (charge, nested_names)
     """
     nested: List[str] = []
-    charge = 0
+    kept_names: List[str] = []
+    kept_cards: List[int] = []
     for name, card in zip(fe_names, fe_cardinality):
         if (
             cluster_frame is not None
@@ -70,7 +71,19 @@ def absorbed_dof_charge(
         ):
             nested.append(name)
         else:
-            charge += int(card) - 1
-    if not nested:
-        charge += 1
+            kept_names.append(name)
+            kept_cards.append(int(card))
+    if fe_frame is not None and len(kept_names) > 1:
+        # Pairwise mobility groups (reghdfe / ivreghdfe): a FE nested in
+        # another -- year inside prefecture x year -- is redundant beyond the
+        # single shared level. Without this the weak-IV statistics charged
+        # the redundant levels and came out ~1.6% small (Web of Power
+        # Table 4 col. 4: 223 against ivreghdfe's 209).
+        from ..panel.hdfe import _reghdfe_intercept_dof
+
+        codes = [pd.factorize(fe_frame[nm])[0] for nm in kept_names]
+        cards = [int(c.max()) + 1 for c in codes]
+        charge = _reghdfe_intercept_dof(codes, cards, any_nested=bool(nested))
+    else:
+        charge = sum(c - 1 for c in kept_cards) + (0 if nested else 1)
     return max(charge, 1), nested

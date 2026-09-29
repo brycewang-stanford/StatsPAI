@@ -650,6 +650,42 @@ def callaway_santanna(
                 },
             )
 
+    # No never-treated units under 'notyettreated': R `did` (pre_process_did)
+    # keeps only the periods before the last cohort's first treatment date
+    # (minus anticipation) and drops that cohort from the estimated groups,
+    # so it serves purely as a not-yet-treated comparison. Without this the
+    # late cells have no comparison units at all.
+    excluded_cohorts: List[Any] = []
+    if control_group == "notyettreated":
+        _g_num = (
+            pd.to_numeric(data[g], errors="coerce")
+            .fillna(0)
+            .replace([np.inf, -np.inf], 0)
+        )
+        _t_max = data[t].max()
+        if not ((_g_num == 0) | (_g_num > _t_max)).any():
+            latest_g = _g_num.max()
+            cutoff_t = latest_g - anticipation
+            n_rows = len(data)
+            data = data.loc[data[t] < cutoff_t].copy()
+            excluded_cohorts = [latest_g]
+            warnings.warn(
+                "callaway_santanna: no never-treated units, so the last "
+                f"treated cohort (g={latest_g:g}) serves as the not-yet-treated "
+                f"comparison group and periods t >= {cutoff_t:g} are dropped "
+                f"({n_rows - len(data)} rows): after that date no unit is "
+                "untreated. Its own ATT(g, t) are not estimated. This is R "
+                "`did`'s rule.",
+                UserWarning,
+                stacklevel=2,
+            )
+            if data.empty:
+                raise DataInsufficient(
+                    "No periods remain before the last cohort is treated.",
+                    recovery_hint="Add never-treated units or earlier periods.",
+                    diagnostics={"latest_cohort": float(latest_g)},
+                )
+
     # ---- Repeated cross-sections / unbalanced-panel branch --------------
     #
     # `allow_unbalanced_panel=True` only bites when the panel really is
@@ -687,12 +723,14 @@ def callaway_santanna(
             cband=cband,
             boot_weight_type=boot_weight_type,
             random_state=random_state,
+            exclude_cohorts=excluded_cohorts,
         )
 
     # 1. Prepare panel data
     y_wide, unit_info, time_periods, cohorts, n_units, unit_weights = _prepare_panel(
         data, y, g, t, i, x, weights
     )
+    cohorts = [c for c in cohorts if not any(c == e for e in excluded_cohorts)]
 
     if not cohorts:
         raise DataInsufficient(
@@ -763,6 +801,9 @@ def callaway_santanna(
         inf_funcs_list.append(inf_func)
 
     detail = pd.DataFrame(gt_results)
+    detail, inf_funcs_list, dropped_cells = _drop_unidentified_cells(
+        detail, inf_funcs_list
+    )
 
     # Stack influence functions: (n_units, n_gt_pairs)
     inf_matrix = np.column_stack(inf_funcs_list) if inf_funcs_list else None
@@ -929,6 +970,8 @@ def callaway_santanna(
         "n_periods": len(time_periods),
         "n_cohorts": len(cohorts),
         "cohorts": cohorts,
+        "comparison_only_cohorts": [float(c) for c in excluded_cohorts],
+        "dropped_gt_cells": dropped_cells,
         "event_study": event_study,
         "pretrend_test": pretrend,
         "cohort_sizes": cohort_sizes,
@@ -1158,6 +1201,52 @@ def _prepare_unit_weights(
             diagnostics={"weights": weights_col},
         )
     return w * (n / total)
+
+
+def _drop_unidentified_cells(
+    detail: pd.DataFrame, inf_funcs_list: List[np.ndarray]
+) -> Tuple[pd.DataFrame, List[np.ndarray], List[Tuple[Any, Any]]]:
+    """Remove ATT(g, t) cells that could not be estimated.
+
+    A cell without comparison (or treated) observations comes back from the
+    cell estimators as ``att = 0, se = inf`` with a zero influence function.
+    Kept, it entered every aggregate as a genuine zero effect and pulled the
+    headline ATT towards zero without a word. R ``did`` reports such cells
+    as NA and ``aggte(na.rm = TRUE)`` skips them; they are dropped here, with
+    a warning, and listed in ``model_info['dropped_gt_cells']``.
+    """
+    if detail.empty:
+        return detail, inf_funcs_list, []
+    bad = ~np.isfinite(detail["se"].to_numpy(dtype=float))
+    if not bad.any():
+        return detail, inf_funcs_list, []
+    cells = [
+        (detail["group"].iloc[k], detail["time"].iloc[k]) for k in np.flatnonzero(bad)
+    ]
+    if bad.all():
+        raise DataInsufficient(
+            "No ATT(g, t) cell has both treated and comparison observations.",
+            recovery_hint=(
+                "Check the comparison group: add never-treated units or use "
+                "control_group='notyettreated'."
+            ),
+            diagnostics={"n_cells": len(cells)},
+        )
+    shown = ", ".join(f"({a}, {b})" for a, b in cells[:8])
+    more = f" and {len(cells) - 8} more" if len(cells) > 8 else ""
+    warnings.warn(
+        f"callaway_santanna: {len(cells)} ATT(g, t) cell(s) have no treated "
+        f"or comparison observations and are left out of the estimates and "
+        f"every aggregate: (g, t) = {shown}{more}.",
+        UserWarning,
+        stacklevel=3,
+    )
+    keep = np.flatnonzero(~bad)
+    return (
+        detail.loc[~bad].reset_index(drop=True),
+        [inf_funcs_list[k] for k in keep],
+        cells,
+    )
 
 
 def _get_gt_pairs(
@@ -2346,6 +2435,26 @@ def _pretrend_test(
 # ======================================================================
 
 
+def _rcs_control_mask(
+    g_arr: np.ndarray,
+    g_val: int,
+    t_val: int,
+    base_val: int,
+    control_group: str,
+    notyet_cutoff: str,
+    anticipation: int,
+) -> np.ndarray:
+    """Comparison-arm rows of one (g, t) cell on the observation-level paths."""
+    if control_group == "nevertreated":
+        return g_arr == 0
+    if notyet_cutoff == "asinr":
+        return (g_arr == 0) | (g_arr > t_val)
+    if notyet_cutoff == "cohort":
+        return (g_arr == 0) | (g_arr > max(t_val, g_val))
+    # notyettreated: untreated through both periods (R did's rule)
+    return (g_arr == 0) | (g_arr > max(t_val, base_val) + anticipation)
+
+
 def _estimate_single_att_rcs_sz(
     y_arr: np.ndarray,
     g_arr: np.ndarray,
@@ -2374,14 +2483,9 @@ def _estimate_single_att_rcs_sz(
     from ._rcs import drdid_rc, reg_did_rc, std_ipw_did_rc
 
     is_treated = g_arr == g_val
-    if control_group == "nevertreated":
-        is_control = g_arr == 0
-    elif notyet_cutoff == "asinr":
-        is_control = (g_arr == 0) | (g_arr > t_val)
-    elif notyet_cutoff == "cohort":
-        is_control = (g_arr == 0) | (g_arr > max(t_val, g_val))
-    else:  # notyettreated: untreated through both periods (R did's rule)
-        is_control = (g_arr == 0) | (g_arr > max(t_val, base_val) + anticipation)
+    is_control = _rcs_control_mask(
+        g_arr, g_val, t_val, base_val, control_group, notyet_cutoff, anticipation
+    )
 
     in_period = (t_arr == t_val) | (t_arr == base_val)
     relevant = (is_treated | is_control) & in_period
@@ -2394,6 +2498,15 @@ def _estimate_single_att_rcs_sz(
     post_sub = (t_arr[relevant] == t_val).astype(float)
     y_sub = y_arr[relevant]
     x_sub = None if x_mat is None else x_mat[relevant]
+    if x_sub is not None:
+        # Covariates constant or collinear within the cell drop out, as R's
+        # lm() aliases them; kept, they made every regression singular and
+        # the cell silently empty.
+        from ._etwfe_glm_fit import _independent_columns
+
+        live = _independent_columns(np.column_stack([np.ones(len(x_sub)), x_sub]))
+        cols = [j - 1 for j in live if j > 0]
+        x_sub = x_sub[:, cols] if cols else None
     # ω is renormalised to mean one *within the cell* by the engine, which
     # is what DRDID does — the ATT for this (g, t) is a within-cell
     # quantity, so the cell's own weight mass is the right denominator.
@@ -2437,6 +2550,7 @@ def _callaway_santanna_rcs(
     cband: bool = False,
     boot_weight_type: str = "rademacher",
     random_state: Optional[int] = None,
+    exclude_cohorts: Sequence[Any] = (),
 ) -> CausalResult:
     """Unconditional (or regression-adjusted) 2×2 cell-mean DID for RCS.
 
@@ -2574,7 +2688,14 @@ def _callaway_santanna_rcs(
 
     time_periods = sorted(df[t].unique())
     t_max = max(time_periods)
-    cohorts = sorted([v for v in df[g].unique() if v > 0 and v <= t_max])
+    cohorts = sorted(
+        [
+            v
+            for v in df[g].unique()
+            if v > 0 and v <= t_max and not any(v == e for e in exclude_cohorts)
+        ]
+    )
+    excluded_cohorts = list(exclude_cohorts)
     if not cohorts:
         raise DataInsufficient(
             "No treatment cohorts found.",
@@ -2644,6 +2765,9 @@ def _callaway_santanna_rcs(
                 base_val=base_val,
                 n_obs=n_obs,
                 w_arr=w_arr,
+                control_group=control_group,
+                notyet_cutoff=notyet_cutoff,
+                anticipation=anticipation,
             )
         if unit_codes is not None:
             # Fold to units, then re-derive the SE from the folded function.
@@ -2680,6 +2804,9 @@ def _callaway_santanna_rcs(
         inf_funcs_list.append(inf_func)
 
     detail = pd.DataFrame(gt_results)
+    detail, inf_funcs_list, dropped_cells = _drop_unidentified_cells(
+        detail, inf_funcs_list
+    )
     inf_matrix = np.column_stack(inf_funcs_list) if inf_funcs_list else None
 
     # ---- optional multiplier bootstrap -------------------------------
@@ -2815,6 +2942,8 @@ def _callaway_santanna_rcs(
         "n_periods": len(time_periods),
         "n_cohorts": len(cohorts),
         "cohorts": cohorts,
+        "comparison_only_cohorts": [float(c) for c in excluded_cohorts],
+        "dropped_gt_cells": dropped_cells,
         "event_study": event_study,
         "pretrend_test": pretrend,
         "cohort_sizes": cohort_sizes,
@@ -2858,8 +2987,17 @@ def _estimate_single_att_rcs(
     base_val: int,
     n_obs: int,
     w_arr: Optional[np.ndarray] = None,
+    control_group: str = "nevertreated",
+    notyet_cutoff: str = "period",
+    anticipation: int = 0,
 ) -> Tuple[float, float, np.ndarray]:
     """Observation-level 2×2 cell-mean DID + influence function.
+
+    The comparison arm follows ``control_group`` with the same rule as
+    :func:`_estimate_single_att_rcs_sz`; until 1.32 it was hard-wired to
+    the never-treated units, so ``control_group='notyettreated'`` was
+    ignored on this path (unbalanced panels, ``estimator='reg'`` without
+    covariates) while ``model_info`` still reported it.
 
     With ``w_arr`` every cell mean becomes an ω-weighted mean and every
     cell share an ω-mass share, so the estimand is the ω-weighted ATT
@@ -2867,10 +3005,15 @@ def _estimate_single_att_rcs(
     same ω factor, which is what keeps the reported SE consistent for the
     quantity actually estimated.
     """
+    # The cohort itself satisfies the not-yet rule in its pre-treatment
+    # cells; it is the treated arm, never its own comparison.
+    is_control = _rcs_control_mask(
+        g_arr, g_val, t_val, base_val, control_group, notyet_cutoff, anticipation
+    ) & (g_arr != g_val)
     m_gt = (g_arr == g_val) & (t_arr == t_val)
     m_gb = (g_arr == g_val) & (t_arr == base_val)
-    m_ct = (g_arr == 0) & (t_arr == t_val)
-    m_cb = (g_arr == 0) & (t_arr == base_val)
+    m_ct = is_control & (t_arr == t_val)
+    m_cb = is_control & (t_arr == base_val)
 
     # Any empty cell kills the estimator for this (g, t).
     for m in (m_gt, m_gb, m_ct, m_cb):

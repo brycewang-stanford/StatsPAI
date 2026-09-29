@@ -238,9 +238,10 @@ def test_slope_absorbs_n_levels_not_n_minus_one():
     res = _fit("c1")
     assert res.dof_fe == 36
     assert res.n_fe == [30]
-    # Same group count absorbed as an ORDINARY FE instead costs one less.
+    # The same prefectures absorbed as an ORDINARY FE are nested in county
+    # and cost nothing extra (reghdfe df_a = 30).
     ordinary = feols("y ~ d | county + pref", data=_bal())
-    assert ordinary.dof_fe == 30 + 6 - 1 == 35
+    assert ordinary.dof_fe == 30
 
 
 def test_intercept_bearing_slope_costs_two_g():
@@ -275,36 +276,28 @@ def test_weighted_clustered_multi_slope_matches_reghdfe():
     assert res.cluster_info["dof_fe_cluster"] == 9 + 1
 
 
-def test_known_gap_nested_intercept_bearing_slope_dof():
-    """KNOWN DIVERGENCE: no nested-FE redundancy detection in dof_fe.
+def test_nested_intercept_bearing_slope_dof_matches_reghdfe():
+    """Nested-FE redundancy is now detected, as reghdfe does.
 
     ``reghdfe y d [aw=w], absorb(county i.pref##c.year)`` on the unbalanced
     panel reports ``e(df_a)=36``: because ``pref == county // 5``, the 6
     ``pref`` intercepts introduced by ``##`` are *entirely* redundant given
-    ``county``, and reghdfe's dof table charges them 0. StatsPAI charges
-    ``30 + 6 - 1 + 6 = 41``, so ``df_resid`` is 453 vs 458 and the reported
-    SE is 0.111100999576 vs reghdfe's 0.110492888826627 (5.5e-3 relative).
-
-    This is NOT specific to varying slopes — StatsPAI has never done
-    nested-FE redundancy detection, and plain ``y ~ d | county + pref``
-    already reports dof_fe=35 against reghdfe's df_a=30 (asserted below).
-    The projection itself is exact: the coefficient matches to 2e-15.
+    ``county`` (one mobility group per prefecture). StatsPAI used to charge
+    ``30 + 6 - 1 + 6 = 41`` (df_resid 453, SE 0.111100999576); it now applies
+    reghdfe's pairwise mobility-group rule.
     """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         res = feols("y ~ d | county + i.pref##c.year", data=_unb(), weights="w")
 
-    # The absorbed projection is correct — only the dof bookkeeping differs.
     assert float(res.params["d"]) == pytest.approx(0.247730742816157, rel=RTOL)
     assert res.n_obs == 495
+    assert res.dof_fe == 36  # reghdfe e(df_a)
+    assert res.df_resid == 458  # reghdfe e(df_r)
+    assert float(res.std_errors["d"]) == pytest.approx(0.110492888826627, rel=1e-9)
 
-    # Documented divergence, asserted so it cannot drift unnoticed.
-    assert res.dof_fe == 41  # reghdfe e(df_a) == 36
-    assert res.df_resid == 453  # reghdfe e(df_r) == 458
-    assert float(res.std_errors["d"]) == pytest.approx(0.111100999576, rel=1e-9)
-
-    # Same gap with ordinary FEs only, i.e. pre-existing and unrelated to slopes.
-    assert feols("y ~ d | county + pref", data=_bal()).dof_fe == 35  # reghdfe: 30
+    # Ordinary FEs: county nested in pref, reghdfe df_a = 30.
+    assert feols("y ~ d | county + pref", data=_bal()).dof_fe == 30
 
 
 # ======================================================================

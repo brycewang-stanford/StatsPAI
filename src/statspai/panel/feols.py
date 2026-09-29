@@ -58,6 +58,7 @@ or for event-study path estimation).
 from __future__ import annotations
 
 import re
+import warnings
 from dataclasses import dataclass
 from itertools import combinations
 from typing import Any, Dict, List, Optional, Union
@@ -795,6 +796,15 @@ def feols(
     coef = pd.Series(result["coef"], index=x_names, name="coef")
     se = pd.Series(result["se"], index=x_names, name="std_err")
     vcov = result["vcov"]
+    omitted = [x_names[j] for j in result.get("omitted", [])]
+    if omitted:
+        warnings.warn(
+            "hdfe_ols: omitted because of collinearity with the absorbed "
+            f"fixed effects or other regressors: {omitted} (reghdfe's rule; "
+            "their coefficients are reported as NaN).",
+            UserWarning,
+            stacklevel=2,
+        )
 
     df_resid = result["df_resid"]
     t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
@@ -803,6 +813,7 @@ def feols(
         2 * stats.t.sf(np.abs(t_stats.fillna(0)), df_resid),
         index=x_names,
     )
+    pvals[coef.isna()] = np.nan
     ci_lo = coef - t_crit * se
     ci_hi = coef + t_crit * se
 
@@ -831,10 +842,20 @@ def feols(
             raise NotImplementedError(  # pragma: no cover
                 "Wild cluster bootstrap with multi-way clustering is not yet supported."
             )
-        from ..inference.wild_bootstrap import wild_cluster_bootstrap
+        if w_arr is not None:
+            from ..exceptions import MethodIncompatibility
 
-        # Run per x_var on the absorbed model: we regress y_tilde on X_tilde.
-        # Build a temporary DataFrame of within-residualized variables.
+            raise MethodIncompatibility(
+                "hdfe_ols(wild=True) does not support weights yet.",
+                recovery_hint="Drop weights= or use the analytic cluster SEs.",
+                diagnostics={"weights": True, "wild": True},
+            )
+        from ._wild_fe import wild_cluster_fe
+
+        # boottest's WCR bootstrap on the absorbed model. The bootstrap
+        # outcomes are re-demeaned inside wild_cluster_fe: skipping that step
+        # (running the bootstrap on already-demeaned data) is only valid when
+        # every absorbed effect is nested in the cluster.
         ab = result["absorber"]
         mask = ab.keep_mask
         df_sub = df.iloc[mask].reset_index(drop=True)
@@ -844,21 +865,23 @@ def feols(
         Xw = ab.demean(
             _materialize_rhs(df_sub, x_terms)[0], copy=True, already_masked=True
         )
+        kept_names = [nm for nm in x_names if nm not in omitted]
+        Xw = Xw[:, [x_names.index(nm) for nm in kept_names]]
         cl_w = df_sub[cluster_names[0]].to_numpy()
 
-        wild_data = pd.DataFrame(
-            {"_y": yw, **{f"_x{i}": Xw[:, i] for i in range(Xw.shape[1])}, "_cl": cl_w}
-        )
+        def _demean(v: np.ndarray) -> np.ndarray:
+            return ab.demean(v, copy=True, already_masked=True)
+
         p_wild: Dict[str, float] = {}
         ci_wild: Dict[str, tuple] = {}
-        for i, name in enumerate(x_names):
-            res_w = wild_cluster_bootstrap(
-                wild_data,
-                y="_y",
-                x=[f"_x{j}" for j in range(Xw.shape[1])],
-                cluster="_cl",
-                test_var=f"_x{i}",
-                h0=0.0,
+        wild_meta: Dict[str, Any] = {}
+        for i, name in enumerate(kept_names):
+            res_w = wild_cluster_fe(
+                _demean,
+                yw,
+                Xw,
+                cl_w,
+                i,
                 n_boot=wild_n_boot,
                 weight_type=wild_weight_type,
                 seed=wild_seed,
@@ -866,6 +889,9 @@ def feols(
             )
             p_wild[name] = res_w["p_boot"]
             ci_wild[name] = res_w["ci_boot"]
+            wild_meta = {k: res_w[k] for k in ("n_boot", "enumerated", "weight_type")}
+        cluster_info["wild_method"] = "WCR (null imposed, FE re-absorbed; boottest)"
+        cluster_info.update({f"wild_{k}": v for k, v in wild_meta.items()})
         cluster_info["wild_p"] = p_wild
         cluster_info["wild_ci"] = ci_wild
         se_type = "wild_cluster"

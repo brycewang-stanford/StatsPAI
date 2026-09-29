@@ -125,15 +125,17 @@ def lee_bounds(
         Stata's ``leebounds`` (default ``vce(analytic)``) computes it;
         ``'bootstrap'`` resamples units ``n_bootstrap`` times.
 
-    trimming : {'quantile', 'exact'}, default 'quantile'
+    trimming : {'quantile', 'exact', 'leebounds'}, default 'quantile'
         How the ``p = |p1 - p0| / max(p1, p0)`` share is trimmed from the
         arm with higher retention. ``'quantile'`` is Lee's (2009) sample
         estimator: keep every retained outcome at or beyond the sample
-        ``p``-quantile (Stata ``_pctile`` definition), which is what
-        Stata's ``leebounds`` returns for continuous outcomes.
+        ``p``-quantile (Stata ``_pctile`` definition).
         ``'exact'`` keeps exactly ``(1 - p) n`` units of mass by giving
         the observations tied at the quantile a fractional weight -- the
         branch ``leebounds`` is written to take at a tie (see Notes).
+        ``'leebounds'`` reproduces Stata ``leebounds`` (Tauchmann) number
+        for number, floating-point artefacts included -- use it to match a
+        published ``leebounds`` table.
 
     Notes
     -----
@@ -144,10 +146,14 @@ def lee_bounds(
     ``leebounds`` (Tauchmann, v1.5) tests ``y == threshold`` against the
     quantile after storing it in a local macro, which does not
     round-trip a double exactly. For continuous outcomes the tie branch
-    therefore never fires and ``leebounds`` computes the quantile rule;
-    holding the threshold in a scalar instead makes it compute
-    ``trimming='exact'``. Both are reproduced exactly by the reference
-    tests.
+    therefore rarely fires and ``leebounds`` usually computes the quantile
+    rule; holding the threshold in a scalar instead makes it compute
+    ``trimming='exact'``. The macro keeps 16 significant digits, so the
+    stored threshold can also land one unit in the last place *beyond* the
+    data value, and then ``y >= threshold`` drops the quantile observation
+    itself: on the UCT replication (QJE 2016, Table III assets) that moves
+    the lower bound from -2.51 (Lee's rule) to Stata's -3.38.
+    ``trimming='leebounds'`` performs the same rounding.
     Returns
     -------
     CausalResult
@@ -190,9 +196,9 @@ def lee_bounds(
         raise MethodIncompatibility(
             f"se_method must be 'bootstrap' or 'analytic', got {se_method!r}"
         )
-    if trimming not in ("quantile", "exact"):
+    if trimming not in ("quantile", "exact", "leebounds"):
         raise MethodIncompatibility(
-            f"trimming must be 'quantile' or 'exact', got {trimming!r}"
+            "trimming must be 'quantile', 'exact' or 'leebounds', got " f"{trimming!r}"
         )
 
     df = data.copy()
@@ -365,6 +371,8 @@ def _lee_trimmed(y: np.ndarray, p_trim: float, top: bool, trimming: str) -> tupl
     """
     y = np.sort(np.asarray(y, dtype=float))
     n = len(y)
+    if trimming == "leebounds":
+        return _leebounds_trimmed(y, p_trim, top)
     thr = _sample_quantile(y, p_trim if top else 1.0 - p_trim)
     beyond = y > thr if top else y < thr
     at = y == thr
@@ -379,6 +387,59 @@ def _lee_trimmed(y: np.ndarray, p_trim: float, top: bool, trimming: str) -> tupl
         w = np.concatenate([np.ones(n_beyond), np.full(int(at.sum()), frac)])
     mean = float(np.sum(vals * w) / np.sum(w))
     return mean, thr, vals, w
+
+
+def _stata_local_macro(v: float) -> float:
+    """``v`` after ``local m = v``: 16 significant digits (digits after the
+    point for ``|v| < 1``), ties rounded half away from zero."""
+    from decimal import ROUND_HALF_UP, Decimal
+
+    if v == 0 or not np.isfinite(v):
+        return float(v)
+    d = Decimal(float(v))
+    q = (
+        Decimal(1).scaleb(max(d.adjusted(), 0) - 15)
+        if abs(v) >= 1
+        else Decimal(1).scaleb(-16)
+    )
+    return float(d.quantize(q, rounding=ROUND_HALF_UP))
+
+
+def _stata_pctile(y_sorted: np.ndarray, pct: float) -> float:
+    """Stata ``_pctile`` of sorted values at ``pct`` percent."""
+    n = len(y_sorted)
+    P = n * pct / 100.0
+    if abs(P - round(P)) < 1e-9 and 0 < round(P) < n:
+        i = int(round(P))
+        return float(0.5 * (y_sorted[i - 1] + y_sorted[i]))
+    return float(y_sorted[min(int(np.ceil(P)) - 1, n - 1)] if P > 0 else y_sorted[0])
+
+
+def _leebounds_trimmed(y: np.ndarray, p_trim: float, top: bool) -> tuple:
+    """Trimmed mean exactly as ``leebounds.ado`` (v1.5) computes it.
+
+    The trimming percentage and the threshold pass through local macros
+    (:func:`_stata_local_macro`); the tie branch fires only when the rounded
+    threshold equals a data value, and otherwise ``y >= threshold`` (or
+    ``<=``) is applied to the rounded value.
+    """
+    n = len(y)
+    trim = _stata_local_macro(100.0 * p_trim)
+    raw_thr = _stata_pctile(y, trim if top else 100.0 - trim)
+    thr = _stata_local_macro(raw_thr)
+    at = y == thr
+    beyond = y > thr if top else y < thr
+    if not at.any():
+        keep = y >= thr if top else y <= thr
+        vals = y[keep]
+        w = np.ones(len(vals))
+    else:
+        n_beyond = int(beyond.sum())
+        frac = (n * (1.0 - p_trim) - n_beyond) / int(at.sum())
+        vals = np.concatenate([y[beyond], y[at]])
+        w = np.concatenate([np.ones(n_beyond), np.full(int(at.sum()), frac)])
+    mean = float(np.sum(vals * w) / np.sum(w))
+    return mean, raw_thr, vals, w
 
 
 def _lee_analytic_se(

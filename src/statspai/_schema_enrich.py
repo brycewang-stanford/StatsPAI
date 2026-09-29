@@ -869,6 +869,15 @@ def returns_block(
             fields = dict(result_fields(cls))
         except (TypeError, ValueError):
             fields = {}
+        # pandas < 3 renders DataFrame as pandas.core.frame.DataFrame; pin
+        # the public path so the bundle does not depend on the pandas version
+        # (the same rule the registry applies to signatures).
+        from .registry import _canonicalize_annotation_path
+
+        fields = {
+            k: _canonicalize_annotation_path(v) if isinstance(v, str) else v
+            for k, v in fields.items()
+        }
     block: Dict[str, Any] = {
         "class": cname or None,
         "fields": fields,

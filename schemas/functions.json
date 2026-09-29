@@ -31545,7 +31545,8 @@
           "description": "How the ``p = |p1 - p0| / max(p1, p0)`` share is trimmed from the arm with higher retention. ``'quantile'`` is Lee's (2009) sample",
           "enum": [
             "quantile",
-            "exact"
+            "exact",
+            "leebounds"
           ],
           "type": "string"
         },

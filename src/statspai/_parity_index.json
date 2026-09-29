@@ -2,6 +2,23 @@
   "generator": "scripts/build_parity_index.py",
   "records": [
     {
+      "function": "BartikIV",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_akm_collinear_shares_R_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "DoubleML",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -146,6 +163,7 @@
         "tests/reference_parity/test_aggte_vcov_r_parity.py",
         "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_cs_base_period_parity.py",
+        "tests/reference_parity/test_cs_no_never_unbalanced_parity.py",
         "tests/reference_parity/test_cs_rcs_parity.py",
         "tests/reference_parity/test_cs_weighted_parity.py",
         "tests/reference_parity/test_rcs_aggregation_conventions.py"
@@ -288,7 +306,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_anderson_rubin_parity.py"
+        "tests/reference_parity/test_anderson_rubin_parity.py",
+        "tests/reference_parity/test_weakiv_nested_fe_Stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -1573,6 +1592,7 @@
         "tests/reference_parity/test_cs_base_period_parity.py",
         "tests/reference_parity/test_cs_gaps_parity.py",
         "tests/reference_parity/test_cs_inference_parity.py",
+        "tests/reference_parity/test_cs_no_never_unbalanced_parity.py",
         "tests/reference_parity/test_cs_notyet_cutoff_parity.py",
         "tests/reference_parity/test_cs_rcs_options_parity.py",
         "tests/reference_parity/test_cs_rcs_parity.py",
@@ -6049,7 +6069,9 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_hdfe_parity.py"
+        "tests/reference_parity/test_hdfe_nested_collinear_parity.py",
+        "tests/reference_parity/test_hdfe_parity.py",
+        "tests/reference_parity/test_hdfe_wild_boottest_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -6837,7 +6859,8 @@
         "tests/reference_parity/test_iv_hdfe_stata_parity.py",
         "tests/reference_parity/test_iv_weights_stata_parity.py",
         "tests/reference_parity/test_regress_weights_iv_robust_parity.py",
-        "tests/reference_parity/test_validation_entry_points.py"
+        "tests/reference_parity/test_validation_entry_points.py",
+        "tests/reference_parity/test_weakiv_nested_fe_Stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -7421,6 +7444,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_lee_bounds_leebounds_Stata_parity.py",
         "tests/reference_parity/test_lee_bounds_parity.py",
         "tests/reference_parity/test_misc_sens_stata_parity.py"
       ],
@@ -14182,6 +14206,9 @@
       "tolerance": "estimate / SEs / Rotemberg / first-stage F 1e-9 rel (observed <= 1.1e-14)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_akm_collinear_shares_R_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],

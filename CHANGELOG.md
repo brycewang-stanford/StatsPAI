@@ -421,6 +421,11 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **Schema bundle: result-field types use the public pandas path.** The
+  `returns.fields` of agent cards rendered `pandas.core.frame.DataFrame`
+  under pandas < 3, so the bundle changed with the pandas version and
+  `test_schema_bundle_has_no_internal_pandas_paths` failed; they now go
+  through the same canonicalisation as signatures.
 - **`sp.gsynth` names the problem when `treated_unit` is a list or missing.**
   It supports one treated unit. A list, tuple or array used to fail deep in
   the factor fit with numpy's `LinAlgError: Incompatible dimensions`; it now
@@ -569,6 +574,91 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.callaway_santanna` without never-treated units no longer averages in
+  zeros.** Found by the QJE 2019 (Princelings) and QJE 2023 (AI-tocracy)
+  replications. With `control_group='notyettreated'` and every unit
+  eventually treated, the late ATT(g, t) cells have no comparison units; they
+  came back as `att = 0, se = inf` and entered every aggregate as genuine
+  zero effects (simple ATT 0.55 against R `did`'s 0.92 on a design with true
+  effect 1). StatsPAI now applies R `did`'s rule: periods from the last
+  cohort's treatment date (minus anticipation) on are dropped and that
+  cohort serves as the not-yet-treated comparison only, with a warning;
+  `model_info['comparison_only_cohorts']` records it. Any cell that still has
+  no comparison units is left out of the estimates and aggregates with a
+  warning (`model_info['dropped_gt_cells']`), instead of counting as zero.
+  Against R `did` 2.3.0 the cells and the simple aggregate agree to 1e-8 on
+  panel and repeated cross-section data, both base periods, anticipation 0/1,
+  `reg` and `dr` (`test_cs_no_never_unbalanced_parity.py`).
+- **`sp.callaway_santanna(allow_unbalanced_panel=True, estimator='reg')`
+  honours `control_group='notyettreated'`.** Without covariates this path
+  used a cell-mean estimator whose comparison arm was hard-wired to the
+  never-treated units, so the not-yet-treated request returned the
+  never-treated numbers while `model_info` reported `notyettreated`. Cells
+  now match R `did` to 1e-14 under both control groups. The same fix applies
+  to `panel=False`. Covariates that are constant or collinear within a cell
+  on the repeated-cross-section path are now dropped (as R's `lm` aliases
+  them) instead of making every cell fail and the fit return zeros.
+- **`sp.hdfe_ols(wild=True)` re-absorbs the fixed effects in the bootstrap.**
+  The wild cluster bootstrap ran on already-demeaned data, which is right
+  only when every absorbed effect is nested in the cluster; with a year
+  effect and county clusters the bootstrap t distribution was too narrow
+  (Web of Power, QJE 2023, Table 5 col. 1: p = 0.045 against `boottest`'s
+  0.218). It is now `boottest`'s WCR bootstrap: null imposed, each bootstrap
+  outcome re-projected on the FE space (reduced to G x G algebra, so a draw
+  is cheap), the confidence set by test inversion, Rademacher sign vectors
+  enumerated when `2^G <= wild_n_boot`, and `|t*| = |t|` counted as a tie.
+  Against Stata `boottest` with full enumeration the p-values agree exactly
+  and the bounds to `boottest`'s own `ptol`
+  (`test_hdfe_wild_boottest_parity.py`). `wild=True` with `weights=` now
+  raises instead of returning an unweighted bootstrap.
+- **`sp.hdfe_ols` / `sp.absorb_ols` omit collinear regressors and count
+  nested fixed effects as `reghdfe` does.** A regressor spanned by the fixed
+  effects made the solve raise (exact) or, with float noise, returned a
+  coefficient of order 1e5 that moved the others (Web of Power Huai column:
+  0.0196 against 0.0214); it is now omitted with a warning and reported as
+  NaN, using `reghdfe`'s `collinear_tol`. Absorbed degrees of freedom follow
+  `reghdfe`'s default `dofadjustments(pairwise clusters continuous)`: a FE
+  nested in another (`year` inside `region x year`, `county` inside
+  `prefecture`) is no longer charged in full, which made SEs 0.5-0.8% too
+  large. Against `reghdfe` 6.12.3 estimates, SEs and `e(df_a)` agree
+  (`test_hdfe_nested_collinear_parity.py`); the documented
+  `absorb(county i.pref##c.year)` gap (df_a 41 against 36) is closed.
+- **Weak-IV statistics with absorbed fixed effects match `ivreghdfe`.**
+  `sp.anderson_rubin_test(absorb=, cluster=)` computed the cluster-robust
+  AR statistic in score form -- the cluster meat built from `y - b0 d`
+  instead of the reduced-form residual -- which disagrees with the
+  reduced-form test whenever the instrument matters (Web of Power Table 4
+  col. 4: p = 0.068 against `ivreghdfe`'s 0.0246). It is now the Wald form
+  `ivreg2` reports. The absorbed-FE charge shared by `anderson_rubin_test`,
+  `effective_f_test`, `iv_diag` and `sp.iv(absorb=)` also applies `reghdfe`'s
+  pairwise mobility-group rule, so a FE nested in another (`year` inside
+  `prefecture x year`) is no longer charged (223 against `ivreghdfe`'s 209
+  there; AR F, effective F and the IV SE were ~1.6% off). Against
+  `ivreghdfe ..., ffirst` the AR F and p-value, the Kleibergen-Paap F, the
+  coefficient and its SE agree to 1e-7 (`test_weakiv_nested_fe_Stata_parity.py`).
+- **AKM shift-share inference drops collinear shares exactly as
+  `ShiftShareSE`.** `sp.shift_share_se` / `sp.ssaggregate` dropped
+  collinear share columns with a one-pass Gram-Schmidt test; R's
+  `qr()` (LINPACK `dqrdc2`, limited pivoting with downdated norms) keeps a
+  different set on nearly collinear matrices (ADH's raw 794 industries: 781
+  columns against R's 776, AKM SE 4.6e4 against R's 1.5e4). The selection
+  is now a port of `dqrdc2`, and the kept columns and AKM SE equal
+  `ShiftShareSE` 1.1.0 (`test_akm_collinear_shares_R_parity.py`). A share
+  matrix that stays numerically singular after the drop (condition number
+  above 1e8) now warns that the AKM / AKM0 SEs are unreliable -- R returns
+  them silently; BHJ's cleaned 773-industry file gives R's 0.1103 on both
+  sides.
+- **`sp.lee_bounds(trimming='leebounds')` reproduces Stata `leebounds`.**
+  `leebounds` stores the trimming percentage and the quantile threshold in
+  16-digit local macros; the rounded threshold can land one unit in the
+  last place beyond the data and drop the quantile observation, so its
+  bounds differ from Lee's rule on six of eight float-stored test samples
+  (UCT, QJE 2016, Table III assets: lower bound -3.38 in Stata, -2.51 under
+  Lee's rule). The new option performs the same rounding and tie branch;
+  bounds agree to 1e-12 and analytic SEs to 1e-8
+  (`test_lee_bounds_leebounds_Stata_parity.py`). The default stays Lee's
+  rule; the docstring no longer claims it equals `leebounds` for
+  continuous outcomes.
 - **`sp.ppmlhdfe` drops separated observations by default.** The default
   `separation=True` used to warn and keep them: fixed effects of all-zero
   groups were chased towards minus infinity, IRLS crawled (a 923k-row panel

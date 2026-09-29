@@ -44,6 +44,7 @@ from __future__ import annotations
 import pathlib
 import warnings
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -196,12 +197,20 @@ def test_agg_weights_csdid_refuses_the_aggregates_it_was_not_read_off(fit, kind)
         sp.aggte(fit, type=kind, bstrap=False, cband=False, agg_weights="csdid")
 
 
-def test_agg_weights_csdid_needs_the_cell_counts(rcs):
+def test_agg_weights_csdid_needs_the_cell_counts():
     """A panel fit does not record them -- and does not need them."""
+    rng = np.random.default_rng(0)
+    panel = pd.DataFrame(
+        [
+            dict(id=u, year=t, gvar=(0, 3, 4)[u % 3], y=rng.normal())
+            for u in range(90)
+            for t in range(1, 6)
+        ]
+    )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         panel_fit = sp.callaway_santanna(
-            rcs,
+            panel,
             y="y",
             g="gvar",
             t="year",
