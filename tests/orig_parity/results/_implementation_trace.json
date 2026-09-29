@@ -37,7 +37,7 @@
  },
  "modules": {
   "01_card_original": {
-   "seconds": 3.29,
+   "seconds": 2.96,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -76,7 +76,7 @@
    "result_sha256": "0770f9a37e8bc72e9f338d602037715ba70cb032401b8582095eebed942621b2"
   },
   "02_mpdta_original": {
-   "seconds": 1.95,
+   "seconds": 2.11,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -112,7 +112,7 @@
    "result_sha256": "f9f0953a27c1326f96e6a259dcd7c01f61ca1e016e2e39c648c8fecc1a8b597b"
   },
   "03_basque_original": {
-   "seconds": 18.46,
+   "seconds": 17.84,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -148,7 +148,7 @@
    "result_sha256": "62388d7c72d0eb6d0c009b02f06f605b78549e92efd3d9eaddb24b6064ba72fc"
   },
   "04_lalonde_original": {
-   "seconds": 2.72,
+   "seconds": 3.12,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -189,7 +189,7 @@
    "result_sha256": "92240387cb9ec539cd1b9b2a5ef77d6898cfde24b4bf579ad99fbf16f1a09aa2"
   },
   "04b_nsw_psid_original": {
-   "seconds": 3.68,
+   "seconds": 2.85,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -230,7 +230,7 @@
    "result_sha256": "6fd62314f0a1aa5901fe52cc6df41bca5d1fa970b7ea52807b12af3099bbd001"
   },
   "05_lee_original": {
-   "seconds": 1.91,
+   "seconds": 1.85,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -267,7 +267,7 @@
    "result_sha256": "3eef9a448bc3efcf1ec7188d67a396cda48aad673999bda6a4f8a95581f6a58b"
   },
   "06_nhefs_ch12_ipw": {
-   "seconds": 9.38,
+   "seconds": 8.23,
    "error": null,
    "boundary_calls": [
     {
@@ -341,7 +341,7 @@
    "result_sha256": "19385647d1d7cb264a1e4c5352088ecdee3af7d4519c8cb93c01c71f646cb1e9"
   },
   "07_nhefs_ch13_gformula": {
-   "seconds": 48.84,
+   "seconds": 97.31,
    "error": null,
    "boundary_calls": [
     {
@@ -452,7 +452,7 @@
    "result_sha256": "7195a81581bfaa5e290c8d2f00d759b67ba8a4561d9a70172710d57f9d452a00"
   },
   "08_nhefs_ch14_gestimation": {
-   "seconds": 2.45,
+   "seconds": 6.75,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -481,7 +481,7 @@
    "result_sha256": "7bdbc6b5bdde259d3ac58e2b9658a8d92a60faf8e4b8712ba1723da8e8bf4fc2"
   },
   "09_nhefs_ch15_outcome": {
-   "seconds": 3.77,
+   "seconds": 12.31,
    "error": null,
    "boundary_calls": [
     {
@@ -555,7 +555,7 @@
    "result_sha256": "462bfbeb1e2d111c25a597e311a484d7e2efc75c968d1e6cc4361de50c63c960"
   },
   "10_nhefs_ch17_survival": {
-   "seconds": 5.01,
+   "seconds": 14.24,
    "error": null,
    "boundary_calls": [
     {
@@ -629,7 +629,7 @@
    "result_sha256": "e62cb21d80f4866599ff4ad6fca3fdc2943693a612292779f9a415ea2e986c7e"
   },
   "11_nhefs_evalue": {
-   "seconds": 10.86,
+   "seconds": 37.86,
    "error": null,
    "boundary_calls": [
     {
