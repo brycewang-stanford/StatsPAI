@@ -32484,7 +32484,7 @@
     ],
     "category": "causal",
     "cost_profile": "method='ife' / 'mc' iterate an SVD on the N x T outcome matrix per candidate rank and per bootstrap draw: O(n_boot x ranks x N T min(N,T)).",
-    "description": "Counterfactual estimators for time-series cross-sectional data (Liu, Wang and Xu 2024): impute the untreated potential outcome of every treated unit-period from a model fitted on untreated cells only -- two-way fixed effects ('fe', the imputation estimator), interactive fixed effects with r factors ('ife'), or nuclear-norm matrix completion ('mc') -- and average Y - Y(0) over treated cells, with the ATT path by relative period. Native port of the R package fect; handles staggered adoption, many treated units, unbalanced panels and treatment reversals. Validation: certified evidence with scoped limitations. Known limitations: Inference is resampling-only (unit bootstrap or jackknife on request); the default returns point estimates only; r and lam are user-supplied; fect's cross-validated choice of r / lambda is not yet supported. Do NOT use when: the treated units have fewer than min_t0 untreated periods -- they are dropped and the ATT no longer describes the treated group; there is one treated unit and a short pre-period -- factor / matrix-completion models cannot be fitted; use sp.synth. Cost: method='ife' / 'mc' iterate an SVD on the N x T outcome matrix per candidate rank and per bootstrap draw: O(n_boot x ranks x N T min(N,T)).",
+    "description": "Counterfactual estimators for time-series cross-sectional data (Liu, Wang and Xu 2024): impute the untreated potential outcome of every treated unit-period from a model fitted on untreated cells only -- two-way fixed effects ('fe', the imputation estimator), interactive fixed effects with r factors ('ife'), or nuclear-norm matrix completion ('mc') -- and average Y - Y(0) over treated cells, with the ATT path by relative period. Native port of the R package fect; handles staggered adoption, many treated units, unbalanced panels and treatment reversals. Validation: certified evidence with scoped limitations. Known limitations: Inference is resampling-only (unit bootstrap or jackknife on request); the default returns point estimates only; cv=True selects r / lam over random holdout folds, so the selection is reproducible only with a fixed random_state; cross-language parity covers only fits at a user-supplied r / lam (the selector is checked by per-fold score equality with fect and a stochastic screen of the selection, not an equivalence test). Do NOT use when: the treated units have fewer than min_t0 untreated periods -- they are dropped and the ATT no longer describes the treated group; there is one treated unit and a short pre-period -- factor / matrix-completion models cannot be fitted; use sp.synth. Cost: method='ife' / 'mc' iterate an SVD on the N x T outcome matrix per candidate rank and per bootstrap draw: O(n_boot x ranks x N T min(N,T)).",
     "evidence": {
       "grade": "T2",
       "grade_basis": "recorded",
@@ -32532,7 +32532,7 @@
     "inherits_from": null,
     "limitations": [
       "Inference is resampling-only (unit bootstrap or jackknife on request); the default returns point estimates only.",
-      "r and lam are user-supplied; fect's cross-validated choice of r / lambda is not yet supported."
+      "cv=True selects r / lam over random holdout folds, so the selection is reproducible only with a fixed random_state; cross-language parity covers only fits at a user-supplied r / lam (the selector is checked by per-fold score equality with fect and a stochastic screen of the selection, not an equivalence test)."
     ],
     "name": "fect",
     "not_recommended_when": [
@@ -32574,7 +32574,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Counterfactual estimators for time-series cross-sectional data (Liu, Wang and Xu 2024): impute the untreated potential outcome of every treated unit-period from a model fitted on untreated cells only -- two-way fixed effects ('fe', the imputation estimator), interactive fixed effects with r factors ('ife'), or nuclear-norm matrix completion ('mc') -- and average Y - Y(0) over treated cells, with the ATT path by relative period. Native port of the R package fect; handles staggered adoption, many treated units, unbalanced panels and treatment reversals. Validation: certified evidence with scoped limitations. Known limitations: Inference is resampling-only (unit bootstrap or jackknife on request); the default returns point estimates only; r and lam are user-supplied; fect's cross-validated choice of r / lambda is not yet supported. Do NOT use when: the treated units have fewer than min_t0 untreated periods -- they are dropped and the ATT no longer describes the treated group; there is one treated unit and a short pre-period -- factor / matrix-completion models cannot be fitted; use sp.synth. Cost: method='ife' / 'mc' iterate an SVD on the N x T outcome matrix per candidate rank and per bootstrap draw: O(n_boot x ranks x N T min(N,T)).",
+      "description": "Counterfactual estimators for time-series cross-sectional data (Liu, Wang and Xu 2024): impute the untreated potential outcome of every treated unit-period from a model fitted on untreated cells only -- two-way fixed effects ('fe', the imputation estimator), interactive fixed effects with r factors ('ife'), or nuclear-norm matrix completion ('mc') -- and average Y - Y(0) over treated cells, with the ATT path by relative period. Native port of the R package fect; handles staggered adoption, many treated units, unbalanced panels and treatment reversals. Validation: certified evidence with scoped limitations. Known limitations: Inference is resampling-only (unit bootstrap or jackknife on request); the default returns point estimates only; cv=True selects r / lam over random holdout folds, so the selection is reproducible only with a fixed random_state; cross-language parity covers only fits at a user-supplied r / lam (the selector is checked by per-fold score equality with fect and a stochastic screen of the selection, not an equivalence test). Do NOT use when: the treated units have fewer than min_t0 untreated periods -- they are dropped and the ATT no longer describes the treated group; there is one treated unit and a short pre-period -- factor / matrix-completion models cannot be fitted; use sp.synth. Cost: method='ife' / 'mc' iterate an SVD on the N x T outcome matrix per candidate rank and per bootstrap draw: O(n_boot x ranks x N T min(N,T)).",
       "name": "fect",
       "parameters": {
         "properties": {
@@ -78138,7 +78138,8 @@
       "tests": [
         "tests/r_parity/03_hdfe.py",
         "tests/r_parity/03_hdfe.R",
-        "tests/stata_parity/03_hdfe.do"
+        "tests/stata_parity/03_hdfe.do",
+        "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },

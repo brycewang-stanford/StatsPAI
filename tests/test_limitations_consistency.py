@@ -74,12 +74,11 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
     "fect": [
         # Scope statements, not code paths that raise: fect's inference is
         # resampling-based by design (the R package offers bootstrap and
-        # jackknife only), and the tuning parameters are user-supplied
-        # because fect's cross-validation is not ported (Track A module 86
-        # pins the fixed-r / fixed-lambda fits, which is what the parity
-        # claim covers).
+        # jackknife only). fect's cross-validation is ported (cv=True, since
+        # 1.29.0), but its folds are random, so Track A module 86 pins the
+        # fixed-r / fixed-lambda fits and that is all the parity claim covers.
         "the default returns point estimates only",
-        "cross-validated choice of r / lambda is not yet supported",
+        "cross-language parity covers only fits at a user-supplied r / lam",
     ],
     "distributional_did": [
         # Scope statements, not code paths that raise. The reference

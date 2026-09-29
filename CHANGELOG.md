@@ -529,6 +529,22 @@ All notable changes to StatsPAI will be documented in this file.
   Module 02 compared a multiplier-bootstrap SE (unseeded, different on every
   run) with R's analytic one; it now uses `aggte(bstrap=False)` like the R
   side and equals R to 1e-15.
+- **Evidence attachment: `sp.feols` inherited Track A modules `03_hdfe` /
+  `15_hdfe_cluster` by name resolution.** Those modules run the native
+  `sp.fast.feols`; the index builder credited the leaf name `feols`, which is
+  the top-level `sp.feols` -- a pyfixest delegate the modules never called.
+  The two agree on the module bytes (coefficients and iid SEs ~1e-14,
+  clustered SEs 2e-10 to 3e-9 under pyfixest's `fixef_tol=1e-6`), so the
+  grade stands, but it is now an explicit measured proof
+  (`_parity_taxonomy.SUBNAMESPACE_LEAF_PROOFS`,
+  `test_track_a_alias_equivalence.py`) whose note discloses the delegation,
+  and `build_parity_index.py` refuses any dotted call whose leaf name is a
+  different, unproven object. Grades and estimates unchanged.
+- **`sp.fect` registry limitation was stale.** It said fect's cross-validated
+  choice of `r` / `lam` was not supported; `cv=True` has existed since
+  1.29.0. The limitation now states what is actually limited: the folds are
+  random, and cross-language parity covers fits at a user-supplied `r` / `lam`.
+
 - **`sp.cgs_continuous_did`: the overall ACRT standard error was about half
   its true value.** The cell influence function is a treated-sample
   quantity (the ACRT is a mean over dosed units) but was aggregated as if

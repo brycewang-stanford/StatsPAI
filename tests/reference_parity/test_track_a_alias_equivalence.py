@@ -33,7 +33,11 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-from statspai._parity_taxonomy import REFUTED_ALIASES, TRACK_A_ALIASES
+from statspai._parity_taxonomy import (
+    REFUTED_ALIASES,
+    SUBNAMESPACE_LEAF_PROOFS,
+    TRACK_A_ALIASES,
+)
 
 DATA = Path(__file__).resolve().parents[2] / "tests" / "r_parity" / "data"
 
@@ -45,9 +49,9 @@ def _max_rel(actual, expected) -> float:
     return float(np.max(np.abs(a - b) / np.maximum(np.abs(b), 1e-12)))
 
 
-def _check(alias_key: str, leg: str, actual, expected) -> None:
+def _check(alias_key: str, leg: str, actual, expected, table=None) -> None:
     """Assert one leg of an alias reproduces the canonical numbers."""
-    proof = TRACK_A_ALIASES[alias_key]
+    proof = (TRACK_A_ALIASES if table is None else table)[alias_key]
     budget, recorded = proof.legs[leg]
     observed = _max_rel(actual, expected)
     assert observed <= budget, (
@@ -111,6 +115,79 @@ def test_hdfe_ols_alias_of_feols(module: str) -> None:
         [float(alias.std_errors[n]) for n in names],
         [float(canonical.se()[n]) for n in names],
     )
+
+
+# --------------------------------------------------------------------------- #
+#  03_hdfe — sp.feols (pyfixest delegate)  ==  sp.fast.feols(ssc='fixest')
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("module", ["03_hdfe", "15_hdfe_cluster"])
+def test_feols_subnamespace_leaf_of_fast_feols(module: str) -> None:
+    """The registered name ``feols`` inherits modules run by ``sp.fast.feols``.
+
+    ``sp.feols`` is a different object (it delegates to pyfixest), so the
+    inheritance is only legitimate if the two agree on the module's bytes.
+    """
+    pytest.importorskip("pyfixest")
+    df = pd.read_csv(DATA / f"{module}.csv")
+    formula = "y ~ x1 + x2 | firm + year"
+    if module == "03_hdfe":
+        canonical = sp.fast.feols(formula, data=df, vcov="iid", ssc="fixest")
+        leaf = sp.feols(formula, data=df, vcov="iid")
+    else:
+        canonical = sp.fast.feols(
+            formula, data=df, vcov="cr1", cluster="firm", ssc="fixest"
+        )
+        leaf = sp.feols(formula, data=df, vcov={"CRV1": "firm"})
+    assert leaf.model_info["backend"] == "pyfixest"
+    names = ["x1", "x2"]
+    table = {"sp.fast.feols": SUBNAMESPACE_LEAF_PROOFS["sp.fast.feols"]}
+    _check(
+        "sp.fast.feols",
+        "coef",
+        [float(leaf.params[n]) for n in names],
+        [float(canonical.coef()[n]) for n in names],
+        table=table,
+    )
+    _check(
+        "sp.fast.feols",
+        "se_iid" if module == "03_hdfe" else "se_cluster",
+        [float(leaf.std_errors[n]) for n in names],
+        [float(canonical.se()[n]) for n in names],
+        table=table,
+    )
+
+
+def test_every_dotted_credit_is_the_same_object_or_proven() -> None:
+    """A dotted Track A call credits its leaf name only with a proof.
+
+    ``build_parity_index`` maps ``sp.fast.feols`` to the registered name
+    ``feols``. When ``sp.feols`` is a different object, the credit must be
+    listed in ``SUBNAMESPACE_LEAF_PROOFS`` (and measured above).
+    """
+    import json
+    import re
+
+    index = json.loads(
+        (Path(sp.__file__).parent / "_parity_index.json").read_text(encoding="utf-8")
+    )
+    unproven = []
+    for rec in index["records"]:
+        if rec.get("source") == "track_a_alias":
+            continue
+        fn = rec["function"]
+        for dotted in re.findall(
+            r"sp\.((?:[A-Za-z_]\w*\.)+[A-Za-z_]\w*)", rec.get("python_call") or ""
+        ):
+            if dotted.split(".")[-1] != fn:
+                continue
+            obj = sp
+            for part in dotted.split("."):
+                obj = getattr(obj, part, None)
+            if obj is not None and getattr(sp, fn, None) is obj:
+                continue
+            if SUBNAMESPACE_LEAF_PROOFS.get(f"sp.{dotted}") is None:
+                unproven.append((fn, dotted))
+    assert not unproven, f"dotted calls credited without a proof: {unproven}"
 
 
 # --------------------------------------------------------------------------- #

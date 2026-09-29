@@ -66,6 +66,7 @@ from statspai._parity_taxonomy import (  # noqa: E402
     INFRASTRUCTURE_CATEGORIES,
     INTERNAL_EVIDENCE_STATUSES,
     NON_ESTIMATOR_LEAVES,
+    SUBNAMESPACE_LEAF_PROOFS,
     TRACK_A_ALIASES,
 )
 
@@ -6292,6 +6293,38 @@ def _leaf_functions(py_api: str) -> List[str]:
     return names
 
 
+def _subnamespace_credit(py_api: str, leaf: str) -> Tuple[List[str], List[str]]:
+    """Notes and tests that justify crediting ``leaf`` from a dotted call.
+
+    ``_leaf_functions`` credits ``sp.fast.feols`` to the registered name
+    ``feols``. That is only right when ``sp.feols`` *is* ``sp.fast.feols``;
+    when the top-level name is a different object the module never ran it,
+    and the credit needs a measured proof in
+    ``_parity_taxonomy.SUBNAMESPACE_LEAF_PROOFS``. Without one the build
+    fails instead of attaching the evidence silently.
+    """
+    import statspai as sp
+
+    for match in _SP_LEAF_RE.findall(py_api):
+        if "." not in match or match.split(".")[-1] != leaf:
+            continue
+        obj: Any = sp
+        for part in match.split("."):
+            obj = getattr(obj, part, None)
+        if obj is not None and getattr(sp, leaf, None) is obj:
+            continue
+        proof = SUBNAMESPACE_LEAF_PROOFS.get(f"sp.{match}")
+        if proof is None or proof.alias != leaf:
+            raise ValueError(
+                f"sp.{match} is credited to the registered name {leaf!r}, but "
+                f"sp.{leaf} is a different object that the module never ran. "
+                "Measure the two on the module bytes and add the proof to "
+                "_parity_taxonomy.SUBNAMESPACE_LEAF_PROOFS, or stop crediting it."
+            )
+        return [proof.evidence_note(), proof.note], [ALIAS_PROOF_TEST]
+    return [], []
+
+
 def _reference_packages(reference: str) -> List[str]:
     """Pull the R package names (token before ``::``) out of a reference cell."""
     return re.findall(r"([A-Za-z][A-Za-z0-9.]*)::", reference)
@@ -6422,6 +6455,7 @@ def build_track_a_records(
         )
 
         for fn in _leaf_functions(meta["py_api"]):
+            leaf_notes, leaf_tests = _subnamespace_credit(meta["py_api"], fn)
             records.append(
                 {
                     "function": fn,
@@ -6456,9 +6490,9 @@ def build_track_a_records(
                         "R": _max_attr(hrows, "rel_se"),
                         "Stata": _max_attr(hrows, "rel_se_st"),
                     },
-                    "test": tests,
+                    "test": tests + leaf_tests,
                     "last_verified": r_version,
-                    "notes": [],
+                    "notes": leaf_notes,
                 }
             )
     return records
@@ -6572,7 +6606,16 @@ def build_dispatcher_alias_records(
         rec = dict(base)
         rec["function"] = alias
         rec["source"] = "track_a_alias"
-        notes = list(base.get("notes", [])) + [proof.evidence_note()]
+        # The base record may carry the sub-namespace proof of *its own*
+        # leaf name (sp.feols is a pyfixest delegate); that note describes
+        # the base, not this alias, so it is not inherited.
+        leaf_only = {
+            n
+            for leaf_proof in SUBNAMESPACE_LEAF_PROOFS.values()
+            for n in (leaf_proof.evidence_note(), leaf_proof.note)
+        }
+        notes = [n for n in base.get("notes", []) if n not in leaf_only]
+        notes.append(proof.evidence_note())
         if proof.note:
             notes.append(proof.note)
         rec["notes"] = notes

@@ -13709,7 +13709,13 @@ def _build_registry() -> None:
             ],
             limitations=[
                 "Inference is resampling-only (unit bootstrap or jackknife on request); the default returns point estimates only.",
-                "r and lam are user-supplied; fect's cross-validated choice of r / lambda is not yet supported.",
+                (
+                    "cv=True selects r / lam over random holdout folds, so the selection "
+                    "is reproducible only with a fixed random_state; cross-language parity "
+                    "covers only fits at a user-supplied r / lam (the selector is checked "
+                    "by per-fold score equality with fect and a stochastic screen of the "
+                    "selection, not an equivalence test)."
+                ),
             ],
         ),
     )

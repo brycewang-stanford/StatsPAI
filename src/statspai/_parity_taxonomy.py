@@ -237,6 +237,43 @@ TRACK_A_ALIASES: Dict[str, AliasProof] = {
 }
 
 
+#: Track A modules whose Python side calls a *sub-namespace* entry point
+#: (``sp.fast.feols``) whose leaf name is registered for a different
+#: top-level object (``sp.feols``, which delegates to pyfixest).
+#:
+#: ``build_parity_index`` credits a module to the leaf names of its call, so
+#: before this table existed ``sp.feols`` silently inherited modules
+#: ``03_hdfe`` / ``15_hdfe_cluster`` although neither ever called it -- the
+#: implicit-inheritance failure the alias table exists to prevent, reached
+#: through name resolution instead of an alias entry. The builder now
+#: refuses such a credit unless an entry here names the measurement, and
+#: :data:`ALIAS_PROOF_TEST` runs it on the module's own bytes.
+SUBNAMESPACE_LEAF_PROOFS: Dict[str, AliasProof] = {
+    "sp.fast.feols": AliasProof(
+        alias="feols",
+        canonical="fast.feols",
+        module="03_hdfe + 15_hdfe_cluster",
+        call="sp.fast.feols(ssc='fixest')",
+        legs={
+            "coef": (1e-12, 5.9e-15),
+            "se_iid": (1e-12, 2.3e-15),
+            "se_cluster": (1e-7, 3.3e-9),
+        },
+        note=(
+            "The module runs the native sp.fast.feols; the registered name "
+            "feols is the top-level sp.feols, which delegates to pyfixest "
+            "(model_info['backend'] == 'pyfixest'). The credit is therefore "
+            "evidence about that delegation, measured on the module bytes, "
+            "not about a native algorithm. The clustered leg is looser "
+            "because pyfixest demeans iteratively to its default "
+            "fixef_tol=1e-6 on a threaded numba backend: the clustered "
+            "standard error moved between 2.0e-10 and 3.3e-9 from sp.fast.feols "
+            "across runs, while coefficients and iid errors stay near 1e-14."
+        ),
+    ),
+}
+
+
 #: Aliases that a previous release asserted and that measurement refuted.
 #: Kept as a data record so the removal is auditable and cannot be
 #: reintroduced by someone re-reading the old docstrings.
