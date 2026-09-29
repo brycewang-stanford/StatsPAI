@@ -715,6 +715,31 @@ def _fe_weighted_demean(
     if squeeze:
         Md = Md[:, None]
     w = np.asarray(w, dtype=float)
+    if len(fe_indices_list) >= 2 and Md.shape[1] and np.all(w > 0):
+        # Several dimensions: the plain sweep converges linearly and, with
+        # five crossed effects on 10^5 rows, still had not reached ``tol``
+        # after 500 sweeps (seconds per call, and the result stopped short
+        # of the projection).  Reuse the shared accelerated kernel of
+        # ``sp.fast.fepois`` -- fused numba (or Rust) sweeps with
+        # Irons-Tuck extrapolation, stopping when a sweep moves no entry by
+        # more than ``tol`` times the column's scale.
+        from ..fast.fepois import _weighted_ap_demean
+
+        codes_list, counts_list = [], []
+        for fe_idx in fe_indices_list:
+            codes, G = _fe_codes(fe_idx)
+            codes_list.append(np.ascontiguousarray(codes, dtype=np.int64))
+            counts_list.append(np.bincount(codes, minlength=G))
+        out, _iters, _conv = _weighted_ap_demean(
+            np.asfortranarray(Md),
+            codes_list,
+            counts_list,
+            np.ascontiguousarray(w),
+            max_iter=max(int(maxiter), 10_000),
+            tol=float(tol),
+        )
+        out = np.asarray(out, dtype=float)
+        return out[:, 0] if squeeze else out
     blocks = []
     for fe_idx in fe_indices_list:
         codes, G = _fe_codes(fe_idx)
@@ -762,6 +787,8 @@ def _ppml_separation_mask(
     X: np.ndarray,
     fe_indices_list: Optional[Sequence[np.ndarray]] = None,
     maxiter: int = 100,
+    drop_singletons: bool = False,
+    separation: bool = True,
 ) -> Tuple[np.ndarray, Dict[str, int]]:
     """Observations PPML can keep after removing separated ones.
 
@@ -781,15 +808,37 @@ def _ppml_separation_mask(
     regressors) is not implemented; such cases still surface as
     non-convergence.
 
+    With ``drop_singletons=True`` a third rule joins the fixed point, as in
+    Stata ``ppmlhdfe`` (and ``reghdfe``): an observation alone in its group
+    of any fixed-effect dimension.  Its fitted value equals its outcome, so
+    it carries no information about the slopes, but it inflates ``N`` and
+    the cluster count.  All three rules are monotone (removing rows never
+    undoes one), so the fixed point does not depend on their order; they
+    run singletons first, as Stata reports them.  ``separation=False``
+    applies the singleton rule alone.
+
     Returns ``(keep, counts)`` where ``counts`` holds how many observations
     each rule removed.
     """
     keep = np.isfinite(y)
-    counts = {"fe": 0, "simplex": 0}
+    counts = {"singleton": 0, "fe": 0, "simplex": 0}
     fe_list = list(fe_indices_list or [])
     codes_list = [_fe_codes(fe)[0] for fe in fe_list]
     for _ in range(maxiter):
         changed = False
+        if drop_singletons:
+            for codes in codes_list:
+                G = int(codes.max()) + 1 if codes.size else 0
+                nobs = np.bincount(codes[keep], minlength=G)
+                drop = keep & (nobs[codes] == 1)
+                if drop.any():
+                    counts["singleton"] += int(drop.sum())
+                    keep &= ~drop
+                    changed = True
+        if not separation:
+            if not changed:
+                break
+            continue
         for codes in codes_list:
             G = int(codes.max()) + 1 if codes.size else 0
             ysum = np.bincount(codes[keep], weights=y[keep], minlength=G)
@@ -935,6 +984,10 @@ def _ppml_hdfe_irls(
             )
             eta += np.log(np.maximum(gm, 0.1))[codes]
         mu = _safe_exp(eta)
+        # Fixed-effect part of the linear predictor, carried across IRLS
+        # iterations so each Gauss-Seidel solve below starts from the
+        # previous one instead of from zero.
+        eta_fe = eta.copy()
     else:
         beta = np.linalg.lstsq(X, np.log(y_init), rcond=None)[0]
         mu = _safe_exp(X @ beta)
@@ -1000,9 +1053,12 @@ def _ppml_hdfe_irls(
             # non-convergence (finding #5) flagged on 2026-05-28.
             # Groups within one dimension are disjoint, so each block
             # update is computed for all of its groups at once.
-            eta_fe = np.zeros(n)
-            exp_total = _safe_exp(eta_X)
-            for _ in range(200):
+            # Warm start from the previous iteration's effects: the fixed
+            # point (every group's score is zero) does not depend on the
+            # start, but from zero the solve took ~200 sweeps per IRLS
+            # iteration on five crossed effects.
+            exp_total = _safe_exp(eta_X + eta_fe)
+            for _ in range(1000):
                 max_score = 0.0
                 for codes, G, wy_sum in fe_blocks:
                     exp_sum = np.bincount(
@@ -2119,6 +2175,117 @@ def _xtnbreg_hhg(
     )
 
 
+def _ppml_front_end(
+    formula: Optional[str],
+    data: pd.DataFrame,
+    y: Optional[str],
+    x: Optional[List[str]],
+    absorb: Optional[str],
+    cluster: Any,
+    weights: Optional[str],
+) -> Tuple[Optional[str], pd.DataFrame, Optional[str], Any]:
+    """Resolve interacted FE / cluster terms and mark out missing rows.
+
+    ``absorb="id + ind^year"`` (fixest) or ``"id + ind#year"`` (Stata) and
+    ``cluster="city^year"`` become integer group columns, so users need not
+    build ``groupby().ngroup()`` columns by hand.  A formula's ``| fe`` part
+    moves into ``absorb`` (unless ``absorb`` is given, which wins, as
+    documented).  Rows missing the outcome, a plain regressor, a fixed
+    effect, the cluster or the weight are dropped, as Stata's ``markout``
+    does -- they used to reach IRLS as NaN.
+    """
+    from ..core._group_terms import resolve_group_terms
+
+    if data is None or not hasattr(data, "columns"):
+        return formula, data, absorb, cluster
+    if formula is not None and "|" in formula:
+        head, fe_part = formula.split("|", 1)
+        formula = head.strip()
+        if absorb is None and fe_part.strip():
+            absorb = fe_part.strip()
+    fe_terms = [t.strip() for t in absorb.split("+") if t.strip()] if absorb else []
+    data, fe_names = resolve_group_terms(data, fe_terms)
+    absorb = " + ".join(fe_names) if fe_names else None
+    if isinstance(cluster, str):
+        data, (cluster,) = resolve_group_terms(data, [cluster])
+        cl_names = [cluster]
+    elif isinstance(cluster, (list, tuple)):
+        data, cl_names = resolve_group_terms(data, list(cluster))
+        cluster = list(cl_names)
+    else:
+        cl_names = []
+
+    used: List[str] = list(fe_names) + list(cl_names)
+    if isinstance(weights, str):
+        used.append(weights)
+    if formula is not None and "~" in formula:
+        parsed = parse_formula(formula)
+        used.append(parsed["dependent"])
+        if not _needs_patsy(formula):
+            used.extend(parsed["exogenous"])
+    else:
+        if y is not None:
+            used.append(y)
+        if x is not None:
+            used.extend([x] if isinstance(x, str) else list(x))
+    used = [c for c in dict.fromkeys(used) if c in data.columns]
+    if used:
+        miss = data[used].isna().any(axis=1).to_numpy()
+        if miss.any():
+            data = data.loc[~miss]
+    return formula, data, absorb, cluster
+
+
+def _ppml_absorbed_columns(
+    X: np.ndarray,
+    fe_indices_list: Sequence[np.ndarray],
+    rtol: float = 1e-9,
+) -> List[int]:
+    """Indices of regressors collinear with the fixed effects / each other.
+
+    Each column is residualised on the absorbed fixed effects (unweighted
+    alternating projections) and then, in order, on the columns already
+    kept; a column whose remaining sum of squares is below ``rtol`` times
+    its own centred sum of squares is omitted -- ``reghdfe`` / Stata's
+    rule, which keeps the first of a collinear set.  A time-invariant
+    regressor under a unit fixed effect is the common case: Stata reports
+    it as ``(omitted)``, where the solver used to overflow and fail with
+    ``LinAlgError``.
+    """
+    n, k = X.shape
+    if k == 0:
+        return []
+    if fe_indices_list:
+        Xd = _fe_weighted_demean(X, fe_indices_list, np.ones(n), maxiter=2000, tol=1e-9)
+    else:
+        Xd = np.asarray(X, dtype=float)
+    scale = np.sum((X - X.mean(axis=0)) ** 2, axis=0)
+    scale = np.where(scale > 0, scale, np.sum(X**2, axis=0))
+    omitted: List[int] = []
+    kept: List[int] = []
+    for j in range(k):
+        v = Xd[:, j]
+        if kept:
+            B = Xd[:, kept]
+            coef, *_ = np.linalg.lstsq(B, v, rcond=None)
+            v = v - B @ coef
+        if scale[j] <= 0 or float(v @ v) <= rtol * float(scale[j]):
+            omitted.append(j)
+        else:
+            kept.append(j)
+    return omitted
+
+
+def _drop_named_columns(
+    X: np.ndarray, var_names: List[str], omitted: Sequence[str]
+) -> Tuple[np.ndarray, List[str]]:
+    """Remove the ``omitted`` regressors from a design (extended vce paths)."""
+    if not omitted:
+        return X, var_names
+    live = [j for j, v in enumerate(var_names) if v not in set(omitted)]
+    return X[:, live], [var_names[j] for j in live]
+
+
 def _ppmlhdfe_design(
     formula: Optional[str],
     data: pd.DataFrame,
@@ -2205,6 +2372,7 @@ def _ppmlhdfe_wild(
         alpha=alpha,
     )
     y_arr, X, var_names, fe_list, data = _ppmlhdfe_design(formula, data, y, x, absorb)
+    X, var_names = _drop_named_columns(X, var_names, base.model_info.get("omitted", []))
     n, k = X.shape
     if k < 2 and not fe_list:
         raise MethodIncompatibility(
@@ -2310,6 +2478,7 @@ def _ppmlhdfe_cr(
         alpha=alpha,
     )
     y_arr, X, var_names, fe_list, data = _ppmlhdfe_design(formula, data, y, x, absorb)
+    X, var_names = _drop_named_columns(X, var_names, base.model_info.get("omitted", []))
     n = len(y_arr)
     blocks: List[np.ndarray] = [X]
     if fe_list:
@@ -2407,6 +2576,7 @@ def _ppmlhdfe_conley(
         alpha=alpha,
     )
     y_arr, X, var_names, fe_list, data = _ppmlhdfe_design(formula, data, y, x, absorb)
+    X, var_names = _drop_named_columns(X, var_names, base.model_info.get("omitted", []))
     n = len(y_arr)
     if data[[conley_lat, conley_lon]].isna().any().any() or len(data) != n:
         raise MethodIncompatibility(
@@ -2478,6 +2648,7 @@ def ppmlhdfe(
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
     ssc: str = "stata",
+    drop_singletons: bool = True,
 ) -> EconometricResults:
     """
     Pseudo-Poisson Maximum Likelihood with high-dimensional fixed effects.
@@ -2501,7 +2672,13 @@ def ppmlhdfe(
         Independent variable names (alternative to formula).
     absorb : str, optional
         Fixed effects to absorb, e.g. ``"origin + destination + year"``.
-        Overrides any FE specification in the formula.
+        Overrides any FE specification in the formula.  Interacted
+        effects are written ``"id + ind^year"`` (fixest) or
+        ``"id + ind#year"`` (Stata ``absorb(ind#year)``); both mean one
+        effect per observed level combination.  Regressors collinear
+        with the absorbed effects (e.g. a time-invariant variable under a
+        unit effect) are omitted with a warning and listed in
+        ``model_info['omitted']``, as Stata reports them.
     robust : str, default "robust"
         Default is robust SE (as in Stata's ppmlhdfe). Options:
         "robust"/"hc1" (sandwich with the ``ssc`` small-sample factor),
@@ -2524,7 +2701,8 @@ def ppmlhdfe(
         ``cluster=["a", "b"]`` requests two-way clustering
         (Cameron-Gelbach-Miller 2011 inclusion-exclusion with the single
         ``G_min/(G_min-1)`` small-sample factor — byte-identical to Stata
-        ``ppmlhdfe ..., cluster(a b)``).
+        ``ppmlhdfe ..., cluster(a b)``).  ``cluster="city^year"`` (or
+        ``"city#year"``) clusters on the level combination.
     weights : str, optional
         Weight variable name.
     separation : {True, 'drop', 'warn', False}, default True
@@ -2540,6 +2718,16 @@ def ppmlhdfe(
         fixed effects towards minus infinity.  ``'warn'`` is the pre-1.33
         behaviour (detect and warn, keep the rows); ``False`` skips the
         check.  The general ReLU rule is not implemented.
+    drop_singletons : bool, default True
+        Drop observations that are alone in their group of any absorbed
+        fixed effect, iterated jointly with the separation rules to a
+        fixed point, as Stata ``ppmlhdfe`` does by default.  Slopes and
+        their robust / clustered variance are unchanged (a singleton is
+        fitted exactly and has a zero FE-residualised design row), but
+        ``N``, the cluster count, the small-sample factors and the pseudo
+        R-squared now equal Stata's.  The count is
+        ``model_info['n_singletons']``.  ``False`` keeps them, as R
+        ``fixest::fepois`` does by default (``fixef.rm = "perfect"``).
     maxiter : int, default 1000
         Maximum IRLS iterations.
     tol : float, default 1e-8
@@ -2638,37 +2826,61 @@ def ppmlhdfe(
         multiway=True,
     )
     cluster = _se.cluster
+    formula, data, absorb, cluster = _ppml_front_end(
+        formula, data, y, x, absorb, cluster, weights
+    )
 
-    # Separated observations are removed from `data` itself, so every SE
-    # path below (CRV1, CR2/CR3, wild, Conley) sees the same sample.
+    # Singletons and separated observations are removed from `data`
+    # itself, so every SE path below (CRV1, CR2/CR3, wild, Conley) sees
+    # the same sample.
     sep_mode = _normalise_ppml_separation(separation)
-    sep_counts = {"fe": 0, "simplex": 0}
+    sep_counts = {"singleton": 0, "fe": 0, "simplex": 0}
     n_before_sep = None
-    if sep_mode == "drop":
+    if sep_mode == "drop" or (drop_singletons and absorb):
         _y0, _X0, _vn0, _fe0, _data0 = _ppmlhdfe_design(formula, data, y, x, absorb)
-        _keep, sep_counts = _ppml_separation_mask(_y0, _X0, _fe0)
+        _keep, sep_counts = _ppml_separation_mask(
+            _y0,
+            _X0,
+            _fe0,
+            drop_singletons=bool(drop_singletons),
+            separation=(sep_mode == "drop"),
+        )
         n_before_sep = int(len(_y0))
         n_sep = n_before_sep - int(_keep.sum())
         if n_sep:
             if not _keep.any():
                 raise DataInsufficient(
-                    "ppmlhdfe: every observation is separated (all-zero "
-                    "outcomes within each fixed-effect group).",
+                    "ppmlhdfe: every observation is a singleton or "
+                    "separated (all-zero outcomes within each fixed-effect "
+                    "group).",
                     recovery_hint="Check the outcome column; PPML needs "
                     "positive outcomes within at least one group.",
-                    diagnostics={"n_separated": n_sep},
+                    diagnostics={"n_dropped": n_sep, **sep_counts},
+                )
+            parts = []
+            if sep_counts["singleton"]:
+                parts.append(
+                    f"{sep_counts['singleton']} singleton(s) of a fixed effect"
+                )
+            if sep_counts["fe"]:
+                parts.append(f"{sep_counts['fe']} in all-zero fixed-effect groups")
+            if sep_counts["simplex"]:
+                parts.append(
+                    f"{sep_counts['simplex']} perfectly predicted by a "
+                    "single regressor"
                 )
             warnings.warn(
-                f"ppmlhdfe: dropped {n_sep} separated observation(s) "
-                f"({sep_counts['fe']} in all-zero fixed-effect groups, "
-                f"{sep_counts['simplex']} perfectly predicted by a "
-                "single regressor), as Stata ppmlhdfe does by default. "
-                "Pass separation='warn' to keep them.",
+                f"ppmlhdfe: dropped {n_sep} observation(s) "
+                f"({'; '.join(parts)}), as Stata ppmlhdfe does by default. "
+                "Pass drop_singletons=False / separation='warn' to keep them.",
                 stacklevel=2,
             )
             data = _data0.iloc[np.flatnonzero(_keep)]
-        # The extended paths re-enter ppmlhdfe; the data is already clean.
-        separation = False
+        if sep_mode == "drop":
+            # The extended paths re-enter ppmlhdfe; the data is already clean.
+            separation = False
+        else:
+            separation = sep_mode == "warn"
     elif sep_mode == "none":
         separation = False
     else:  # warn
@@ -2769,16 +2981,20 @@ def ppmlhdfe(
         var_names = var_names[1:]
         k = X.shape[1]
 
-    # A regressor that was non-zero only on separated rows is identically
-    # zero once they are gone; Stata reports it as omitted.  Do the same
-    # rather than hand a singular X'WX to the solver.
-    if n_before_sep is not None and k:
-        dead_cols = [j for j in range(k) if not np.any(X[:, j] != 0)]
+    # A regressor that is identically zero once separated rows are gone, or
+    # that the fixed effects absorb (a time-invariant variable under a unit
+    # effect), or that is collinear with earlier regressors is omitted, as
+    # Stata reports it, rather than handed to the solver as a singular
+    # X'WX (which overflowed and ended in LinAlgError).
+    omitted: List[str] = []
+    if k:
+        dead_cols = _ppml_absorbed_columns(X, fe_indices_list)
         if dead_cols:
+            omitted = [var_names[j] for j in dead_cols]
             warnings.warn(
-                "ppmlhdfe: omitted regressor(s) "
-                f"{[var_names[j] for j in dead_cols]} — identically zero "
-                "after removing separated observations.",
+                f"ppmlhdfe: omitted regressor(s) {omitted} — collinear with "
+                "the absorbed fixed effects or other regressors (Stata "
+                "reports them as omitted).",
                 stacklevel=2,
             )
             live = [j for j in range(k) if j not in dead_cols]
@@ -2918,8 +3134,14 @@ def ppmlhdfe(
         "n_fe_levels": n_fe,
         "separation_warnings": sep_warnings,
         "separation": sep_mode,
-        "n_separated": (0 if n_before_sep is None else int(n_before_sep - n)),
-        "n_separated_by_rule": dict(sep_counts),
+        "n_separated": int(sep_counts["fe"] + sep_counts["simplex"]),
+        "n_singletons": int(sep_counts["singleton"]),
+        "n_separated_by_rule": {
+            "fe": int(sep_counts["fe"]),
+            "simplex": int(sep_counts["simplex"]),
+        },
+        "drop_singletons": bool(drop_singletons),
+        "omitted": list(omitted),
     }
 
     if cluster_arr is not None:
