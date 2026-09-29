@@ -4170,6 +4170,15 @@
           "description": "Maximum Newton-Raphson iterations.",
           "type": "integer"
         },
+        "perfect_prediction": {
+          "default": "drop",
+          "description": "An indicator regressor whose non-zero rows all share one outcome (e.g. an industry dummy with no treated firm) predicts the outcome",
+          "enum": [
+            "drop",
+            "keep"
+          ],
+          "type": "string"
+        },
         "robust": {
           "default": "nonrobust",
           "description": "``'nonrobust'`` for MLE SE, ``'hc1'`` / ``'robust'`` for sandwich SE.",
@@ -15947,6 +15956,15 @@
           "description": "Report odds ratios instead of log-odds coefficients.",
           "type": "boolean"
         },
+        "perfect_prediction": {
+          "default": "drop",
+          "description": "An indicator regressor whose non-zero rows all share one outcome (e.g. an industry dummy with no treated firm) predicts the outcome",
+          "enum": [
+            "drop",
+            "keep"
+          ],
+          "type": "string"
+        },
         "robust": {
           "default": "nonrobust",
           "description": "``'nonrobust'`` for MLE SE, ``'hc1'`` / ``'robust'`` for sandwich SE.",
@@ -21490,6 +21508,15 @@
           "default": 100,
           "description": "Maximum Newton-Raphson iterations.",
           "type": "integer"
+        },
+        "perfect_prediction": {
+          "default": "drop",
+          "description": "An indicator regressor whose non-zero rows all share one outcome (e.g. an industry dummy with no treated firm) predicts the outcome",
+          "enum": [
+            "drop",
+            "keep"
+          ],
+          "type": "string"
         },
         "robust": {
           "default": "nonrobust",
