@@ -25,7 +25,9 @@ def main() -> None:
         estimator="reg",
         control_group="nevertreated",
     )
-    dyn = sp.aggte(fit, type="dynamic")
+    # Analytic SE, as the R side (did::aggte(bstrap = FALSE)): the default
+    # multiplier bootstrap made this row's SE change on every run.
+    dyn = sp.aggte(fit, type="dynamic", bstrap=False, cband=False)
 
     # The did vignette does not print a simple-aggregation ATT for
     # mpdta, so the simple row carries no published anchor: the claim

@@ -18,7 +18,7 @@
       "side": "py",
       "statistic": "dynamic_overall_ATT",
       "estimate": -0.07723982145731487,
-      "se": 0.02108563218542083,
+      "se": 0.01996498906184918,
       "n": 2500,
       "published": -0.0772,
       "citation": "Callaway-Sant'Anna 'did' vignette (did-basics), overall dynamic ATT, xformla=~1",

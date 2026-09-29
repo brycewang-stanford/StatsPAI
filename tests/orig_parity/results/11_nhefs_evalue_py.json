@@ -26,39 +26,39 @@
       "module": "11_nhefs_evalue",
       "side": "py",
       "statistic": "evalue_ipw_rr_point",
-      "estimate": 1.1087870498223762,
+      "estimate": 1.1087870498223749,
       "se": null,
       "n": 1629,
       "published": 1.0,
       "citation": "VanderWeele-Ding 2017 E-value, IP-weighted mortality RR (~null after adjustment)",
       "extra": {
-        "rr": 0.9903737284446699,
+        "rr": 0.99037372844467,
         "rr_ci": [
-          0.7919947471824496,
-          1.2194126783996204
+          0.7919947471824497,
+          1.21941267839962
         ],
-        "evalue_ci": 1.7366694829388316,
+        "evalue_ci": 1.0,
         "risk1": 0.19342730724770252,
-        "risk0": 0.1953073892130297
+        "risk0": 0.19530738921302968
       }
     },
     {
       "module": "11_nhefs_evalue",
       "side": "py",
       "statistic": "evalue_smd_point",
-      "estimate": 2.351361550411833,
+      "estimate": 2.3397943749351953,
       "se": null,
       "n": 1566,
-      "published": 2.351361550411833,
+      "published": 2.3397943749351953,
       "citation": "VanderWeele-Ding SMD approx exp(0.91*d) on Ch12 weight effect",
       "extra": {
-        "effect_kg": 3.471669354996915,
-        "sd_outcome": 7.879912854359539,
-        "d": 0.4405720493566403,
-        "rr_approx": 1.4931986514263629,
-        "rr_approx_manual": 1.4931986514263629,
-        "evalue_ci": 2.00679567053752,
-        "evalue_manual_point": 2.351361550411833
+        "effect_kg": 3.4405354296461907,
+        "sd_outcome": 7.879912854359538,
+        "d": 0.4366209999064552,
+        "rr_approx": 1.4878395628237582,
+        "rr_approx_manual": 1.4878395628237582,
+        "evalue_ci": 2.0064097957108014,
+        "evalue_manual_point": 2.3397943749351953
       }
     }
   ],

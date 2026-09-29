@@ -516,6 +516,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **Original-data parity results refreshed; module 02 made deterministic.**
+  `tests/orig_parity` modules 04, 04b, 08 and 11 had result files older than
+  the library fixes they exercise (the matched ATT covering every treated
+  unit and the Abadie-Imbens default SE for `sp.psm`, the logit propensity
+  default of `sp.g_estimation`, the E-value CI rule), so a rerun changed
+  them. Regenerated: g-estimation now equals R to 6e-10 (was 4.3e-4), the
+  SMD E-value to 1.5e-11 (was 4.9e-3), and the IPW E-value's CI bound is 1
+  because its RR interval contains 1. The Lalonde PSM row differs from
+  MatchIt by 2.2% because 15 treated units have tied nearest controls:
+  `sp.psm` takes the first in data order, MatchIt breaks ties its own way.
+  Module 02 compared a multiplier-bootstrap SE (unseeded, different on every
+  run) with R's analytic one; it now uses `aggte(bstrap=False)` like the R
+  side and equals R to 1e-15.
 - **`sp.cgs_continuous_did`: the overall ACRT standard error was about half
   its true value.** The cell influence function is a treated-sample
   quantity (the ACRT is a mean over dosed units) but was aggregated as if

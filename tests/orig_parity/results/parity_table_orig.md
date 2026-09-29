@@ -32,17 +32,17 @@ Data source: `MatchIt::lalonde` (614 obs)
 
 | stat | sp | R | published | rel(sp vs R) | rel(sp vs published) | citation |
 |---|---:|---:|---:|---:|---:|---|
-| `naive_ols_att` | -635 | -635 | -8498 | 3.9e-15 | 0.93 | Dehejia-Wahba (1999) Table 3, naive OLS |
-| `adj_ols_att` | 1548 | 1548 | 218 | 1.1e-14 | 6.1 | Dehejia-Wahba (1999) Table 3, covariate-adjusted OLS |
-| `psm_att` | 2012 | 2007 | 1794 | 0.0028 | 0.12 | Dehejia-Wahba (1999) Table 4, PSM 1:1 NN |
+| `naive_ols_att` | -635 | -635 | -8498 | 6.8e-15 | 0.93 | Dehejia-Wahba (1999) Table 3, naive OLS |
+| `adj_ols_att` | 1548 | 1548 | 218 | 2.1e-15 | 6.1 | Dehejia-Wahba (1999) Table 3, covariate-adjusted OLS |
+| `psm_att` | 1963 | 2007 | 1794 | 0.022 | 0.094 | Dehejia-Wahba (1999) Table 4, PSM 1:1 NN |
 
 ## Module `04b_nsw_psid_original`
 Data source: `causalsens::lalonde.psid` (2675 obs)
 
 | stat | sp | R | published | rel(sp vs R) | rel(sp vs published) | citation |
 |---|---:|---:|---:|---:|---:|---|
-| `naive_ols_att` | -1.52e+04 | -1.52e+04 | -1.52e+04 | 3.8e-14 | 1.5e-05 | Dehejia-Wahba (1999) naive OLS on NSW+PSID-1 |
-| `adj_ols_att` | 751.9 | 751.9 | 700 | 2.2e-13 | 0.074 | Dehejia-Wahba (1999) covariate-adjusted OLS on NSW+PSID-1 |
+| `naive_ols_att` | -1.52e+04 | -1.52e+04 | -1.52e+04 | 3.9e-14 | 1.5e-05 | Dehejia-Wahba (1999) naive OLS on NSW+PSID-1 |
+| `adj_ols_att` | 751.9 | 751.9 | 700 | 2.3e-13 | 0.074 | Dehejia-Wahba (1999) covariate-adjusted OLS on NSW+PSID-1 |
 | `psm_att` | 2126 | 2126 | 1690 | 4.3e-16 | 0.26 | Dehejia-Wahba (1999) PSM 1:1 NN on NSW+PSID-1 |
 
 ## Module `05_lee_original`
@@ -75,8 +75,8 @@ Data source: `sp.datasets.nhefs (NHEFS / What If)` (1566 obs)
 
 | stat | sp | R | published | rel(sp vs R) | rel(sp vs published) | citation |
 |---|---:|---:|---:|---:|---:|---|
-| `snmm_psi` | 3.463 | 3.461 | 3.4 | 0.00043 | 0.018 | Hernán-Robins, What If Program 14.2 (G-estimation SNMM psi) |
-| `snmm_psi_linear_check` | 3.463 | — | 3.4 | — | 0.018 | Linear moment-condition g-estimate (StatsPAI algorithm) |
+| `snmm_psi` | 3.461 | 3.461 | 3.4 | 6e-10 | 0.018 | Hernán-Robins, What If Program 14.2 (G-estimation SNMM psi) |
+| `snmm_psi_linear_check` | 3.463 | — | 3.4 | — | 0.018 | Linear moment-condition g-estimate (propensity_model='linear') |
 
 ## Module `09_nhefs_ch15_outcome`
 Data source: `sp.datasets.nhefs (NHEFS / What If)` (1566 obs)
@@ -109,5 +109,5 @@ Data source: `sp.datasets.nhefs (NHEFS / What If)` (? obs)
 |---|---:|---:|---:|---:|---:|---|
 | `evalue_crude_rr_point` | 1.981 | 1.981 | 1.981 | 7.8e-12 | 0 | VanderWeele-Ding 2017 E = RR + sqrt(RR(RR-1)) (crude mortality RR) |
 | `evalue_ipw_rr_point` | 1.109 | 1.109 | 1 | 2e-11 | 0.11 | VanderWeele-Ding 2017 E-value, IP-weighted mortality RR (~null after adjustment) |
-| `evalue_smd_point` | 2.351 | 2.34 | 2.351 | 0.0049 | 0 | VanderWeele-Ding SMD approx exp(0.91*d) on Ch12 weight effect |
+| `evalue_smd_point` | 2.34 | 2.34 | 2.34 | 1.5e-11 | 0 | VanderWeele-Ding SMD approx exp(0.91*d) on Ch12 weight effect |
 
