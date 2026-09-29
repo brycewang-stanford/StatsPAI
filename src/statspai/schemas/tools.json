@@ -222,13 +222,11 @@
           "type": "string"
         },
         "bstrap": {
-          "default": true,
-          "description": "If ``True``, compute SE / CI by multiplier bootstrap (Rademacher weights, matching the R ``did`` implementation) on the influence functions -- required for the uniform ``cband``. If ``False``, use the closed-form influence-function SE instead, which carries the same cross-cell covariances but gives pointwise intervals only.",
+          "description": "Multiplier bootstrap; None inherits the fit's setting (bootstraps if cband=True or n_boot is given)",
           "type": "boolean"
         },
         "cband": {
-          "default": true,
-          "description": "Uniform confidence band",
+          "description": "Uniform confidence band (None follows bstrap / the fit)",
           "type": "boolean"
         },
         "max_e": {
@@ -242,8 +240,7 @@
           "type": "number"
         },
         "n_boot": {
-          "default": 1000,
-          "description": "Number of bootstrap replications.",
+          "description": "Replications (default: fit's biters, else 1000)",
           "type": "integer"
         },
         "na_rm": {
@@ -252,7 +249,7 @@
           "type": "boolean"
         },
         "random_state": {
-          "description": "Seed for the multiplier bootstrap.",
+          "description": "Seed for the multiplier bootstrap. When the bootstrap runs without one, a seed is drawn and recorded in ``model_info['random_state']`` so the reported SE can be reproduced exactly.",
           "type": "integer"
         },
         "result": {
@@ -20894,7 +20891,7 @@
     "input_schema": {
       "properties": {
         "absorb": {
-          "description": "Fixed effects to absorb, e.g. ``\"origin + destination + year\"``. Overrides any FE specification in the formula.",
+          "description": "Fixed effects to absorb, e.g. ``\"origin + destination + year\"``. Overrides any FE specification in the formula. Interacted effects are written ``\"id + ind^year\"`` (fixest) or ``\"id + ind#year\"`` (Stata ``absorb(ind#year)``); both mean one effect per observed level combination. Regressors collinear with the absorbed effects (e.g. a time-invariant variable under a unit effect) are omitted with a warning and listed in ``model_info['omitted']``, as Stata reports them.",
           "type": "string",
           "x-statspai-role": "columns"
         },
@@ -20904,7 +20901,7 @@
           "type": "number"
         },
         "cluster": {
-          "description": "Variable name for clustered standard errors (recommended for gravity models, e.g. cluster on country-pair). A pair ``cluster=[\"a\", \"b\"]`` requests two-way clustering (Cameron-Gelbach-Miller 2011 inclusion-exclusion with the single ``G_min/(G_min-1)`` small-sample factor -- byte-identical to Stata ``ppmlhdfe ..., cluster(a b)``).",
+          "description": "Variable name for clustered standard errors (recommended for gravity models, e.g. cluster on country-pair). A pair ``cluster=[\"a\", \"b\"]`` requests two-way clustering (Cameron-Gelbach-Miller 2011 inclusion-exclusion with the single ``G_min/(G_min-1)`` small-sample factor -- byte-identical to Stata ``ppmlhdfe ..., cluster(a b)``). ``cluster=\"city^year\"`` (or ``\"city#year\"``) clusters on the level combination.",
           "items": {
             "type": "string"
           },
@@ -20921,6 +20918,11 @@
         "conley_lon": {
           "description": "conley_lon parameter (Optional[str]).",
           "type": "string"
+        },
+        "drop_singletons": {
+          "default": true,
+          "description": "Drop observations that are alone in their group of any absorbed fixed effect, iterated jointly with the separation rules to a fixed point, as Stata ``ppmlhdfe`` does by default. Slopes and their robust / clustered variance are unchanged (a singleton is fitted exactly and has a zero FE-residualised design row), but ``N``, the cluster count, the small-sample factors and the pseudo R-squared now equal Stata's. The count is ``model_info['n_singletons']``. ``False`` keeps them, as R ``fixest::fepois`` does by default (``fixef.rm = \"perfect\"``).",
+          "type": "boolean"
         },
         "formula": {
           "description": "Model formula. Fixed effects can be specified via ``|``: ``\"trade ~ dist + contig | origin + destination + year\"``",
