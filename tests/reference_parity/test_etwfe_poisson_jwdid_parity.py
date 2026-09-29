@@ -23,7 +23,20 @@ quantities on both sides (PPML solved to ~1e-15 by both), held to 1e-9 /
 ``margins`` with its own numerical derivatives and solver tolerance, held
 to 1e-6 relative.  Response-scale SEs are a documented convention
 difference (profiled unit effect vs. absorbed effects held fixed; see the
-module docstring of ``statspai.did._etwfe_nonlinear``) and are not compared.
+module docstring of ``statspai.did._etwfe_nonlinear``): the default
+``response_se='profile'`` is not compared, and ``response_se='margins'``
+reproduces ``margins`` and is held to 1e-6 relative (Stata differentiates
+numerically; the largest gap on these fixtures is 7e-7).
+
+``_fixtures/etwfe_poisson_jwdid_margins_Stata.json``
+(``_generate_etwfe_poisson_jwdid_margins_Stata.do``) adds ``estat event`` /
+``group`` / ``calendar`` / ``simple, over(xcat)`` on the response scale for
+the default design, ``i.xcat`` and ``cluster(cl)`` with
+``cl = mod(id + year, 7)`` -- clusters that nest neither units nor periods,
+so the covariance of ``ppmlhdfe``'s ``_cons`` with the slopes enters.  Its
+response-scale point estimates of small subgroups carry ``ppmlhdfe``'s
+default solver tolerance (up to 1.1e-5 relative on one ``over()`` level),
+held to 2e-5.
 """
 
 from __future__ import annotations
@@ -103,6 +116,10 @@ def test_matches_jwdid(ref, panel, name):
     assert agg["response"]["simple"]["att"] == pytest.approx(
         R["simple_response"]["b"][0], rel=1e-6
     )
+    rm = _fit(panel, response_se="margins", **SPECS[name]).model_info
+    assert rm["aggregations"]["response"]["simple"]["se"] == pytest.approx(
+        R["simple_response"]["se"][0], rel=1e-6
+    )
     # estat event lists every event time from the first on (the reference
     # period with b = se = 0 under never); line them up by position.
     ev = agg["link"]["event"].set_index("relative_time")
@@ -122,6 +139,54 @@ def test_matches_jwdid(ref, panel, name):
         ):
             assert by.loc[lev, "att"] == pytest.approx(b, rel=1e-9, abs=1e-12)
             assert by.loc[lev, "se"] == pytest.approx(se, rel=1e-7)
+
+
+MARGINS_SPECS = {
+    "default": {},
+    "xcat": {"xvar": "xcat"},
+    "cluster_mixed": {"cluster": "cl"},
+}
+
+
+@pytest.fixture(scope="module")
+def ref_margins():
+    return json.loads(
+        (_FIX / "etwfe_poisson_jwdid_margins_Stata.json").read_text(encoding="utf-8")
+    )
+
+
+@pytest.mark.parametrize("name", list(MARGINS_SPECS))
+def test_margins_response_scale_matches_jwdid_estat(ref_margins, panel, name):
+    """Every response-scale aggregate of ``estat`` with
+    ``response_se='margins'``; ``estat`` lists them in the order of the
+    StatsPAI tables (event time, cohort, calendar period, xcat level)."""
+    R = ref_margins[name]
+    df = panel.assign(cl=(panel["id"] + panel["year"]) % 7)
+    r = _fit(df, response_se="margins", **MARGINS_SPECS[name])
+    agg = r.model_info["aggregations"]
+    assert r.n_obs == R["N"]
+    assert agg["link"]["simple"]["se"] == pytest.approx(
+        R["simple_link"]["se"][0], rel=1e-7
+    )
+    assert agg["response"]["simple"]["att"] == pytest.approx(
+        R["simple_response"]["b"][0], rel=1e-6
+    )
+    assert agg["response"]["simple"]["se"] == pytest.approx(
+        R["simple_response"]["se"][0], rel=1e-6
+    )
+    for key, tab in [
+        ("event_response", "event"),
+        ("group_response", "group"),
+        ("calendar_response", "calendar"),
+    ]:
+        t = agg["response"][tab]
+        assert len(t) == len(R[key]["b"])
+        np.testing.assert_allclose(t["att"], R[key]["b"], rtol=2e-5)
+        np.testing.assert_allclose(t["se"], R[key]["se"], rtol=1e-6)
+    if "over_response" in R:
+        by = sp.etwfe_emfx(r, type="simple", scale="response", by_xvar=True).detail
+        np.testing.assert_allclose(by["att"], R["over_response"]["b"], rtol=2e-5)
+        np.testing.assert_allclose(by["se"], R["over_response"]["se"], rtol=1e-6)
 
 
 def test_keep_vs_drop_separated(panel):

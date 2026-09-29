@@ -47,15 +47,40 @@ separation (``estat`` averages over ``e(sample)``).  ``hettype`` and
 :mod:`._etwfe_glm_fit` and the aggregation-serving code in
 :mod:`._etwfe_glm_emfx`.
 
-Response-scale SEs under ``fe='unit'`` are a documented convention
-difference from ``jwdid``.  StatsPAI profiles the unit effect (the Poisson
-first-order condition gives ``sum_t mu_it = sum_t y_it``, so ``mu`` moves
-with ``beta`` only through within-unit shares) and differentiates through
-it.  Stata's ``estat`` runs ``margins`` after ``ppmlhdfe``, which holds the
-absorbed effects fixed and differentiates through ``ppmlhdfe``'s ``_cons``
-normalisation instead; on a 44k-unit patent panel that gives 0.0318 against
-StatsPAI's 0.0262 (rebuilt from Stata's ``e(V)`` to 8e-5).  Point estimates
-and every link-scale SE agree.
+Response-scale SEs under ``fe='unit'`` have two conventions, chosen by
+``response_se=``.  ``'profile'`` (default) profiles the unit effect (the
+Poisson first-order condition gives ``sum_t mu_it = sum_t y_it``, so ``mu``
+moves with ``beta`` only through within-unit shares) and differentiates
+through it: the gradient of ``mu_it`` is ``mu_it (x_it - xbar_i)``, with
+``xbar_i`` the unit's mu-weighted mean.  ``'margins'`` is Stata ``jwdid``'s
+``estat``, i.e. ``margins`` after ``ppmlhdfe ..., absorb(ivar tvar)``: the
+absorbed unit *and period* effects are held fixed and the index is
+differentiated through ``ppmlhdfe``'s ``_cons``, which ``ppmlhdfe``
+normalises around the mu-weighted *sample* mean ``xbar``.  So the gradient
+is ``mu_it (x_it - xbar)`` over the non-absorbed regressors plus ``mu_it``
+for the constant, whose covariance with the slopes is zero whenever the
+clusters nest the units or the periods (``y - mu`` sums to zero within
+both).  Because the period effects are held fixed the parametrisation of
+jwdid's covariate terms matters, and a categorical ``xvar`` is mapped to
+jwdid's (levels 1..L-1) before differentiating.  Every aggregate (simple,
+event, group, calendar, ``over()``) and the default, ``i.xcat`` and
+non-nested-cluster designs equal ``estat`` to 7e-7
+(``tests/reference_parity/test_etwfe_poisson_jwdid_parity.py``).  Point
+estimates and link-scale SEs do not depend on the choice.
+
+Which one to report: in a Monte Carlo study
+(``benchmarks/etwfe_poisson_response_se_coverage.py``, 1,000 replications
+per cell) the target is the sample's own ATT, the average of the true
+``mu_1 - mu_0`` over its treated rows.  With 400 units and moderate unit
+heterogeneity the profiled SE matches the sampling error (mean SE / sd
+0.96-1.00, 95% coverage 0.94-0.95); with 100 units or a unit-effect sd of
+1.5 it runs short (0.90-0.97, coverage 0.91-0.93).  The margins SE is
+14-15% larger in every cell: it over-covers where the profiled SE is right
+(0.96-0.98) and is close to nominal where it runs short (0.95).  Neither is
+a population-ATT SE, which needs the between-unit variance both leave out
+(coverage 0.54 / 0.63 of the population ATT with a unit-effect sd of 1.5).
+``'margins'`` reproduces a Stata table and is the conservative choice in
+small or very heterogeneous panels.
 """
 
 from __future__ import annotations
@@ -89,6 +114,61 @@ from ._etwfe_glm_fit import (
 )
 
 
+def _jwdid_parametrisation(
+    Xl: np.ndarray,
+    live: np.ndarray,
+    is_period: np.ndarray,
+    des: Dict[str, Any],
+    keep: np.ndarray,
+    unit_codes: np.ndarray,
+) -> Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
+    """The fitted design in ``jwdid``'s covariate parametrisation.
+
+    The fit expands a categorical ``xvar`` as levels 2..L; ``jwdid`` as
+    levels 1..L-1 in its own terms.  With the period effects free the two
+    are the same model, but Stata ``margins`` holds the absorbed period
+    effects fixed, so its gradient depends on the choice.  Returns the
+    design with the covariate block (period columns + covariate terms)
+    replaced by jwdid's columns, the map ``T`` with ``A = B T`` (fitted
+    block ``A``, jwdid block ``B``; so ``b_S = T b`` and a gradient in the
+    jwdid coefficients maps back as ``g T``) and the block positions.
+    """
+    alt, blk_cols = des.get("jwdid_alt"), des.get("jwdid_block")
+    if alt is None or blk_cols is None:
+        return Xl, None, None
+    pos = {int(j): i for i, j in enumerate(live)}
+    p_idx = np.flatnonzero(is_period)
+    b_idx = np.array([pos[int(j)] for j in blk_cols if int(j) in pos], dtype=int)
+    blk = np.concatenate([p_idx, b_idx])
+    alt_k = alt[keep]
+    cand = np.column_stack([Xl[:, p_idx], alt_k])
+    kept = _independent_columns(cand, groups=unit_codes)
+    alt_kept = kept[kept >= len(p_idx)] - len(p_idx)
+    B = np.column_stack([Xl[:, p_idx], alt_k[:, alt_kept]])
+    A = Xl[:, blk]
+    if B.shape[1] != A.shape[1]:
+        raise MethodIncompatibility(
+            "etwfe(response_se='margins'): the jwdid covariate terms do not "
+            "span the fitted ones (rank "
+            f"{B.shape[1]} vs {A.shape[1]}), so Stata's margins "
+            "parametrisation cannot be rebuilt for this design.",
+            recovery_hint="Use response_se='profile'.",
+            diagnostics={"rank_jwdid": int(B.shape[1]), "rank_fit": int(A.shape[1])},
+        )
+    T_blk = np.linalg.lstsq(B, A, rcond=None)[0]
+    scale = max(1.0, float(np.abs(A).max()))
+    if float(np.abs(B @ T_blk - A).max()) > 1e-8 * scale:  # pragma: no cover
+        raise MethodIncompatibility(
+            "etwfe(response_se='margins'): the jwdid covariate terms do not "
+            "span the fitted ones.",
+            recovery_hint="Use response_se='profile'.",
+            diagnostics={},
+        )
+    Xs = Xl.copy()
+    Xs[:, blk] = B
+    return Xs, T_blk, blk
+
+
 def etwfe_glm(
     data: pd.DataFrame,
     y: str,
@@ -105,6 +185,7 @@ def etwfe_glm(
     hettype: Optional[str] = None,
     xvar: Optional[List[str]] = None,
     separated: str = "keep",
+    response_se: str = "profile",
 ) -> CausalResult:
     """Nonlinear ETWFE — Wooldridge (2023) staggered DiD with a link function.
 
@@ -120,6 +201,8 @@ def etwfe_glm(
     matches Stata ``jwdid ..., method(ppmlhdfe)`` (``estat simple`` on both
     scales, ``estat event``, ``estat simple, over()``); see
     ``tests/reference_parity/test_etwfe_poisson_jwdid_parity.py``.
+    ``response_se='margins'`` reproduces ``estat``'s response-scale SEs;
+    see the module docstring.
     """
     try:
         import statsmodels.api as sm
@@ -145,6 +228,16 @@ def etwfe_glm(
     cg = _normalise_glm_cgroup(cgroup)
     het = normalise_hettype(hettype)
     sep_mode = str(separated).strip().lower()
+    rse = str(response_se).strip().lower()
+    if rse not in {"profile", "margins"}:
+        raise MethodIncompatibility(
+            f"response_se={response_se!r} is not recognised; use 'profile' "
+            "or 'margins'.",
+            recovery_hint="'profile' (default) differentiates through the "
+            "profiled unit effect; 'margins' reproduces Stata jwdid's estat "
+            "(margins after ppmlhdfe).",
+            diagnostics={"response_se": response_se},
+        )
     if sep_mode not in {"keep", "drop"}:
         raise MethodIncompatibility(
             f"separated={separated!r} is not recognised; use 'keep' or 'drop'.",
@@ -286,6 +379,9 @@ def etwfe_glm(
     unit_level = np.tile(np.arange(n_levels), n_cells)
 
     sep_info: Dict[str, Any] = {"n_separated": 0}
+    # Covariance the aggregates are taken through; the Stata-margins
+    # response scale of fe='unit' Poisson appends ppmlhdfe's constant.
+    vcov_agg: Optional[np.ndarray] = None
     omitted: List[str] = []
     treat_cols = des["treat_cols"]
 
@@ -450,9 +546,36 @@ def etwfe_glm(
         X0l = Xl[rows].copy()
         X0l[:, cmask] = 0.0
         me_rows = (mu - mu0)[rows]
-        grad_rows = mu[rows, None] * (Xl[rows] - xbar[rows]) - mu0[rows, None] * (
-            X0l - xbar[rows]
-        )
+        if rse == "margins":
+            # Stata margins after jwdid's ppmlhdfe, abs(ivar tvar): the
+            # absorbed unit and period effects d_it stay fixed and
+            # mu = exp((x - xbar)'b + a + d_it), xbar the mu-weighted sample
+            # mean (ppmlhdfe's _cons normalisation).  The period dummies are
+            # explicit columns here but absorbed there, so they carry no
+            # gradient.  Gradient in (b, a); vcov_cons is their covariance
+            # (its b-block for the other columns is the two-way FWL one).
+            is_period = np.array(
+                [names[j].startswith("period[") for j in live], dtype=bool
+            )
+            Xs, T_blk, blk = _jwdid_parametrisation(
+                Xl, live, is_period, des, keep, unit_codes[keep]
+            )
+            xbar_s = (mu @ Xs) / float(mu.sum())
+            X0s = Xs[rows].copy()
+            X0s[:, cmask] = 0.0
+            g_b = mu[rows, None] * (Xs[rows] - xbar_s) - mu0[rows, None] * (
+                X0s - xbar_s
+            )
+            g_b[:, is_period] = 0.0
+            if blk is not None:
+                # back to the fitted coefficients: b_S = T b on the block
+                g_b[:, blk] = g_b[:, blk] @ T_blk
+            grad_rows = np.column_stack([g_b, mu[rows] - mu0[rows]])
+            vcov_agg = res["vcov_cons"]
+        else:
+            grad_rows = mu[rows, None] * (Xl[rows] - xbar[rows]) - mu0[rows, None] * (
+                X0l - xbar[rows]
+            )
         resp_units = unit_k[rows]
         link_name = "Log"
         ssc = res["ssc"]
@@ -472,25 +595,28 @@ def etwfe_glm(
     unit_n = np.where(cell_live[unit_cell], unit_n, 0.0)
 
     K = len(beta)
+    if vcov_agg is None:
+        vcov_agg = vcov
+    Kc = vcov_agg.shape[0]  # K, or K + 1 with ppmlhdfe's constant
     # Per-unit sums: link-scale effect sum_i z_i' beta and its gradient
     # sum_i z_i (z_i = the treatment columns of row i), and the
     # response-scale marginal effects and their gradients.
     rows_all = np.flatnonzero(in_cell)
     u_all = unit_of[rows_all]
     Zt = np.asarray(Z_all[rows_all][:, treat_k], dtype=float)
-    link_grad = np.zeros((n_units, K))
+    link_grad = np.zeros((n_units, Kc))
     for j, k in enumerate(treat_k):
         link_grad[:, k] = np.bincount(u_all, weights=Zt[:, j], minlength=n_units)
-    link_sum = link_grad @ beta
+    link_sum = link_grad[:, :K] @ beta
     me_sum = np.bincount(resp_units, weights=me_rows, minlength=n_units)
     grad_sum = (
         np.column_stack(
             [
                 np.bincount(resp_units, weights=grad_rows[:, j], minlength=n_units)
-                for j in range(K)
+                for j in range(Kc)
             ]
         )
-        if K
+        if Kc
         else np.zeros((n_units, 0))
     )
 
@@ -503,14 +629,14 @@ def etwfe_glm(
         sel = sel & (unit_n > 0)
         n_sel = float(unit_n[sel].sum())
         if n_sel <= 0:
-            return np.nan, np.nan, 0, np.zeros(K)
+            return np.nan, np.nan, 0, np.zeros(Kc)
         if sc == "response":
             est = float(me_sum[sel].sum() / n_sel)
             grad = grad_sum[sel].sum(axis=0) / n_sel
         else:
             est = float(link_sum[sel].sum() / n_sel)
             grad = link_grad[sel].sum(axis=0) / n_sel
-        var = float(grad @ vcov @ grad)
+        var = float(grad @ vcov_agg @ grad)
         return est, float(np.sqrt(max(var, 0.0))), int(n_sel), grad
 
     g_arr = np.array([c[0] for c in interaction_cell], dtype=float)
@@ -548,8 +674,8 @@ def etwfe_glm(
         # are cells of one regression, so the matrix is joint (not block
         # diagonal) and its diagonal is exactly the table's se**2 --
         # sp.event_study_vcov / pretrends_test / honest_did read it.
-        Gm = np.asarray(ev_grads, dtype=float).reshape(len(ev_times), K)
-        ev_vcov = pd.DataFrame(Gm @ vcov @ Gm.T, index=ev_times, columns=ev_times)
+        Gm = np.asarray(ev_grads, dtype=float).reshape(len(ev_times), Kc)
+        ev_vcov = pd.DataFrame(Gm @ vcov_agg @ Gm.T, index=ev_times, columns=ev_times)
         grp_rows = []
         for g_val in cohorts:
             est, se, n, _ = _agg(base & upost & (ug == g_val), sc)
@@ -666,6 +792,7 @@ def etwfe_glm(
             "fe": fe_mode,
             "hettype": het,
             "scale": scale,
+            "response_se": rse,
             "event_study": event_study,
             "event_study_vcov": head["event_vcov"],
             "calendar": (

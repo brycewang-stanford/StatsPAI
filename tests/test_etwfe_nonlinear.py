@@ -401,3 +401,79 @@ def test_honest_did_reads_the_poisson_etwfe_covariance():
     assert np.isfinite(lo) and np.isfinite(hi) and lo < est < hi
     assert 0.8 < (hi - lo) / (2 * 1.959964 * se) < 1.2
     assert (sd["ci_upper"] - sd["ci_lower"]).min() > 0.5 * 2 * 1.959964 * se
+
+
+# ── response_se: profiled unit effect vs. Stata margins ─────────────────
+
+
+def _fit_unit(df, **kw):
+    return _fit(df, family="poisson", fe="unit", **kw)
+
+
+def test_response_se_changes_only_response_scale_ses():
+    """Point estimates, the link scale and the coefficient covariance do
+    not depend on the convention; the response-scale SEs do."""
+    df = _panel(n_units=300, seed=3)
+    p = _fit_unit(df).model_info
+    m = _fit_unit(df, response_se="margins").model_info
+    assert (p["response_se"], m["response_se"]) == ("profile", "margins")
+    np.testing.assert_array_equal(p["coefficients"], m["coefficients"])
+    np.testing.assert_array_equal(p["vcov"], m["vcov"])
+    for tab in ("event", "group", "calendar"):
+        lp, lm = p["aggregations"]["link"][tab], m["aggregations"]["link"][tab]
+        np.testing.assert_allclose(lp["se"], lm["se"], rtol=1e-12)
+        rp, rm = p["aggregations"]["response"][tab], m["aggregations"]["response"][tab]
+        np.testing.assert_allclose(rp["att"], rm["att"], rtol=1e-12)
+        assert not np.allclose(rp["se"], rm["se"], rtol=1e-3)
+    assert p["se_response"] != pytest.approx(m["se_response"], rel=1e-3)
+
+
+def test_response_se_margins_event_vcov_is_the_table_covariance():
+    df = _panel(n_units=300, seed=4)
+    r = _fit_unit(df, response_se="margins", cgroup="nevertreated")
+    V = r.model_info["event_study_vcov"]
+    ev = r.model_info["event_study"].set_index("relative_time")
+    np.testing.assert_allclose(np.sqrt(np.diag(V)), ev.loc[V.index, "se"], rtol=1e-12)
+
+
+def test_response_se_conventions_coincide_without_absorbed_effects():
+    """With cohort dummies nothing is absorbed, so margins' gradient is
+    the profiled one."""
+    df = _panel(n_units=300, seed=5)
+    a = _fit(df, family="poisson", fe="cohort")
+    b = _fit(df, family="poisson", fe="cohort", response_se="margins")
+    assert a.se == pytest.approx(b.se, rel=1e-12)
+    lin = _fit(df, fe="unit", response_se="margins")
+    assert lin.se == pytest.approx(_fit(df, fe="unit").se, rel=1e-12)
+
+
+def test_response_se_margins_constant_block_zero_iff_clusters_nest_units():
+    """ppmlhdfe's constant has score y - mu, which the Poisson FOC sums to
+    zero within every unit (and, the periods being regressors, within every
+    period): its covariance with the slopes vanishes when the clusters nest
+    either, and not otherwise."""
+    from statspai.did._etwfe_glm_fit import _fit_poisson_unit_fe
+
+    df = _panel(n_units=200, seed=6)
+    y = df["y"].to_numpy(float)
+    units = pd.factorize(df["id"])[0].astype(np.intp)
+    years = pd.factorize(df["year"])[0].astype(np.intp)
+    mixed = ((df["id"] + df["year"]) % 7).to_numpy().astype(np.intp)
+    X = pd.get_dummies(df["year"], drop_first=True).to_numpy(float)
+    X = np.column_stack([X, ((df["g"] > 0) & (df["year"] >= df["g"])).to_numpy(float)])
+    for cl, nested in ((units, True), (years, True), (mixed, False)):
+        res = _fit_poisson_unit_fe(y, X, units, cl, int(cl.max()) + 1, len(y))
+        Vc = res["vcov_cons"]
+        np.testing.assert_allclose(Vc[:-1, :-1], res["vcov"], rtol=1e-12)
+        if nested:
+            assert np.abs(Vc[-1]).max() < 1e-10 * np.abs(Vc).max()
+        else:
+            assert np.abs(Vc[-1]).max() > 1e-4 * np.abs(Vc).max()
+
+
+def test_response_se_invalid_value_raises():
+    df = _panel(n_units=120, seed=7)
+    with pytest.raises(MethodIncompatibility, match="response_se"):
+        _fit_unit(df, response_se="stata")
+    with pytest.raises(MethodIncompatibility, match="response_se"):
+        _fit(df, response_se="unconditional")

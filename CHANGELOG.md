@@ -6,6 +6,28 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.etwfe(family='poisson', fe='unit', response_se='margins')`.**
+  Response-scale (count) standard errors as Stata `jwdid ...,
+  method(ppmlhdfe)` + `estat` reports them. Until now they could only be
+  rebuilt by hand from Stata's `e(V)` (0.0262 vs 0.0318 on the replication
+  panel). `margins` holds the absorbed unit and period effects fixed and
+  differentiates through `ppmlhdfe`'s `_cons`, which is normalised around
+  the mu-weighted sample mean of the regressors, so the gradient is
+  `mu (x - xbar)` plus the constant. A categorical `xvar` is mapped to
+  jwdid's level coding first, since with the periods held fixed the
+  parametrisation matters. Every `estat simple / event / group / calendar /
+  over()` SE equals Stata to 7e-7, including clusters that nest neither
+  units nor periods, where the constant's covariance with the slopes enters
+  (`test_etwfe_poisson_jwdid_parity.py`, new fixture
+  `etwfe_poisson_jwdid_margins_Stata.json`). The default stays
+  `'profile'`. A Monte Carlo study
+  (`benchmarks/etwfe_poisson_response_se_coverage.py`, 6 designs x 1,000
+  replications) finds the profiled interval covering the sample ATT at
+  94-95% with 400 units and 91-93% with 100 units or strong unit
+  heterogeneity. The margins SE is 14-15% larger in every design, so it
+  over-covers in the first case and is near 95% in the second. Point
+  estimates, link-scale SEs and every default output are unchanged.
+
 - **`sp.honest_did_from_moments(betahat, sigma, event_times=...)` and
   `sp.honest_did_from_result`.** Rambachan-Roth sensitivity for an event
   study from *any* estimator -- `reghdfe`, a stacked regression, a published

@@ -14404,6 +14404,23 @@ def _build_registry() -> None:
                     ["keep", "drop"],
                 ),
                 ParamSpec(
+                    "response_se",
+                    "str",
+                    False,
+                    "profile",
+                    "family='poisson', fe='unit': delta-method convention "
+                    "for response-scale (count) SEs. 'profile' "
+                    "differentiates through the profiled unit effect and "
+                    "is sized to the sample ATT's sampling error in "
+                    "large panels; 'margins' reproduces Stata jwdid's "
+                    "estat (margins after ppmlhdfe, absorbed effects held "
+                    "fixed), is 14-15% larger and is the conservative "
+                    "choice in small panels. Point estimates and link-scale SEs do "
+                    "not depend on it; the two coincide for fe='cohort' "
+                    "and the linear model.",
+                    ["profile", "margins"],
+                ),
+                ParamSpec(
                     "scale",
                     "str",
                     False,

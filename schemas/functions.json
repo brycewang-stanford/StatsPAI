@@ -13915,6 +13915,15 @@
           "description": "If False, treat data as repeated cross-section",
           "type": "boolean"
         },
+        "response_se": {
+          "default": "profile",
+          "description": "family='poisson', fe='unit': delta-method convention for response-scale (count) SEs. 'profile' differentiates through the profiled unit effect and is sized to the sample ATT's sampling error in large panels; 'margins' reproduces Stata jwdid's estat (margins after ppmlhdfe, absorbed effects held fixed), is 14-15% larger and is the conservative choice in small panels. Point estimates and link-scale SEs do not depend on it; the two coincide for fe='cohort' and the linear model.",
+          "enum": [
+            "profile",
+            "margins"
+          ],
+          "type": "string"
+        },
         "scale": {
           "default": "response",
           "description": "Nonlinear families only: headline scale. 'response' is the average marginal effect (R emfx default); 'link' the treated-observation-weighted mean of the cohort x period coefficients (log points for Poisson; Stata estat simple, predict(xb)). Both are stored in model_info['aggregations'].",
