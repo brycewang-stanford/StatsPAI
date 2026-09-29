@@ -13,6 +13,13 @@ fixtures in `tests/reference_parity/` (`test_psmatch2_parity.py`,
 `test_psmatch2_llr_parity.py`, `test_pstest_parity.py`,
 `test_psmdid_weight_parity.py`).
 
+Stata's `ties` and `ate` options change which rows carry a `_weight` and
+therefore the PSM-DID sample; pass `ties=True` / `ate=True`
+(one nearest neighbour, with replacement). Given the same propensity score
+the matched sample equals `psmatch2`'s row for row
+(`test_psmatch2_ties_ate_Stata_parity.py`). See also
+[Reproducing Stata defaults](stata_defaults.md).
+
 ---
 
 ## 1. Why a dedicated front door?

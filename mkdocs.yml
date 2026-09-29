@@ -132,6 +132,7 @@ nav:
       - "Panel data — FE / RE / Hausman / HDFE / dynamic GMM": guides/panel_data.md
       - "Social network analysis (centrality / community / QAP / ERGM)": guides/social_network_analysis.md
       - "Migrating from R to StatsPAI": guides/migration-from-r.md
+      - "Reproducing Stata defaults": guides/stata_defaults.md
       - "sp.dml and the DoubleML reference implementation": guides/sp_dml_vs_doubleml.md
       - "Rigorous (data-driven) Lasso — sp.rlasso and the hdm port": guides/rigorous_lasso_hdm.md
       - "Case study: reproducing the DoubleML / hdm 401(k) result": guides/case_study_401k.md
