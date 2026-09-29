@@ -199,6 +199,7 @@ TWFE over them.
 | Two-way Mundlak / ETWFE — treated-obs-weighted simple ATT (R `emfx(type='simple')`, Stata `jwdid, estat simple`) | `sp.etwfe(df, y, group, time, first_treat)` |
 | Two-way Mundlak / ETWFE — cohort-size-weighted mean of ATT(g), never-treated controls (R `etwfe(cgroup='never')` + `emfx(type='group')`) | `sp.wooldridge_did(df, y, group, time, first_treat)` |
 | Poisson ETWFE for counts, as Stata `jwdid ..., method(ppmlhdfe)` + `estat simple, predict(xb)` (log points, unit FE) | `sp.etwfe(df, y, group, time, first_treat, family='poisson', fe='unit', scale='link')` |
+| The same with Stata's option names (`ivar() tvar() gvar() method() never hettype() exovar()`) | `sp.jwdid(df, y, ivar=..., tvar=..., gvar=..., method='ppmlhdfe', predict='xb')` |
 | Cohort sub-experiments w/ clean controls (CDLZ)     | `sp.stacked_did(df, y, group, time, first_treat, window=(-5, 5))`                   |
 | Continuous / dose treatment                         | `sp.continuous_did(df, y, d, t, i)`                                                 |
 | Changes-in-changes (CIC, not DID-in-mean)           | `sp.cic(df, y, g, t)`                                                               |
@@ -239,6 +240,17 @@ TWFE over them.
 > (`separated='keep'`); jwdid drops them whenever `ppmlhdfe` flags the
 > separation, which `separated='drop'` reproduces — check jwdid's `N` to see
 > which case your table is in.
+>
+> `sp.jwdid` takes these options under Stata's names and records the command
+> it reproduces in `res.model_info['stata_equivalent']`; `predict=None` is
+> `estat simple` (counts), `predict='xb'` the log-point headline. Stata factor
+> terms work in `exovar=` / `x=` (and in `sp.etwfe`'s `controls=` / `xvar=`):
+> `exovar='i.year#i.nodecity'` builds the dummies itself, keeping every cell
+> of a `#` product and omitting the collinear ones as Stata does (checked
+> against Stata in `test_jwdid_Stata_parity.py`). The fitted result draws its
+> event study (`res.plot()`, `sp.enhanced_event_study_plot(res)`), runs
+> `res.pretrend_test(window=(-5, -2))`, and fills the unit / year FE and
+> cluster rows of `sp.regtable`.
 
 #### Or settle it on your own panel
 

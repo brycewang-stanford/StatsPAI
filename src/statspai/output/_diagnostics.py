@@ -125,11 +125,26 @@ def _fe_cell(result: Any) -> str:
 
 
 def _fe_raw(result: Any) -> Any:
-    """Return the raw ``fixed_effects`` metadata for the result, if any."""
-    if _is_causal(result):
-        return None
+    """Return the raw ``fixed_effects`` metadata for the result, if any.
+
+    A causal result is read only from the explicit ``fixed_effects`` key
+    (``sp.etwfe`` writes it): its ``fe`` / ``absorbed_fe`` entries, when
+    present, describe estimator options rather than absorbed variables.
+    """
     mi = _model_info(result)
+    if _is_causal(result):
+        return mi.get("fixed_effects")
     return mi.get("fixed_effects") or mi.get("absorbed_fe") or mi.get("fe")
+
+
+def _fe_unknown(result: Any) -> bool:
+    """True for a causal result that does not declare its fixed effects.
+
+    Its FE cells are left blank: writing ``No`` would assert that the
+    estimator absorbs nothing, which the table does not know (an ETWFE or
+    imputation estimator absorbs unit and period effects).
+    """
+    return _is_causal(result) and _fe_raw(result) in (None, "")
 
 
 def _parse_fe_tokens(fe_value: Any) -> List[str]:
@@ -189,6 +204,8 @@ def _cluster_cell(result: Any) -> str:
     results — the metadata shape is identical.
     """
     mi = _model_info(result)
+    if _is_causal(result) and "cluster" not in mi and "cluster_var" not in mi:
+        return ""  # undeclared: blank, not a claim that SEs are unclustered
     cl = mi.get("cluster") or mi.get("cluster_var")
     if cl in (None, "", "None", "none", False):
         return "No"
@@ -394,9 +411,11 @@ def extract_fe_cluster_indicators(
                 union_tokens.append(t)
 
     if union_tokens:
+        unknown = [_fe_unknown(r) for r in results]
         for tok in union_tokens:
             rows[_fe_token_label(tok)] = [
-                "Yes" if tok in tokens else "No" for tokens in per_col_tokens
+                "" if unk else ("Yes" if tok in tokens else "No")
+                for tokens, unk in zip(per_col_tokens, unknown)
             ]
     else:
         # Metadata exists but unparseable (truthy non-string) → single row

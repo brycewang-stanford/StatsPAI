@@ -45815,7 +45815,7 @@
       "tests/reference_parity/test_etwfe_glm_parity.py",
       "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
       "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
-      "tests/reference_parity/test_track_a_alias_equivalence.py"
+      "tests/reference_parity/test_jwdid_Stata_parity.py"
     ],
     "validation_status": "certified"
   },

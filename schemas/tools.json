@@ -14964,6 +14964,103 @@
     "name": "johansen"
   },
   {
+    "description": "Wooldridge ETWFE with Stata ``jwdid``'s option names. Validation: certified parity evidence.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "``cluster()``; defaults to ``ivar``.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "exovar": {
+          "description": "``exovar()``: covariates that enter without interactions. Stata factor terms work, e.g. ``\"i.year#i.nodecity\"``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "gvar": {
+          "description": "Unit, time and first-treatment-period columns (``gvar`` = 0 or missing for never-treated units). ``id=`` (StatsPAI's name for the panel identifier) is accepted for ``ivar``.",
+          "type": "string"
+        },
+        "hettype": {
+          "description": "``hettype()``: ``'timecohort'`` (default), ``'time'``, ``'cohort'``, ``'event'`` or ``'twfe'``.",
+          "type": "string"
+        },
+        "ivar": {
+          "description": "Unit, time and first-treatment-period columns (``gvar`` = 0 or missing for never-treated units). ``id=`` (StatsPAI's name for the panel identifier) is accepted for ``ivar``.",
+          "type": "string",
+          "x-aliases": [
+            "id"
+          ],
+          "x-canonical": "id",
+          "x-statspai-role": "column"
+        },
+        "method": {
+          "description": "``method()``. ``None`` is ``jwdid``'s default linear model (``reghdfe``); ``'ppmlhdfe'`` / ``'poisson'`` the Poisson model.",
+          "enum": [
+            "regress",
+            "ppmlhdfe",
+            "poisson",
+            "logit"
+          ],
+          "type": "string"
+        },
+        "never": {
+          "default": false,
+          "description": "``never``: compare with never-treated units only, which also estimates the pre-treatment (lead) effects.",
+          "type": "boolean"
+        },
+        "predict": {
+          "description": "The ``estat ..., predict()`` scale of the reported ATT for a nonlinear ``method``: ``None`` / ``'mu'`` the count (response) scale, Stata's default; ``'xb'`` the linear index (log points for Poisson).",
+          "enum": [
+            "mu",
+            "xb"
+          ],
+          "type": "string"
+        },
+        "separated": {
+          "default": "keep",
+          "description": "Treatment of units whose outcome is always zero under Poisson; see :func:`sp.etwfe`.",
+          "enum": [
+            "keep",
+            "drop"
+          ],
+          "type": "string"
+        },
+        "tvar": {
+          "description": "Unit, time and first-treatment-period columns (``gvar`` = 0 or missing for never-treated units). ``id=`` (StatsPAI's name for the panel identifier) is accepted for ``ivar``.",
+          "type": "string"
+        },
+        "x": {
+          "description": "``indepvars`` of ``jwdid y x``: covariates that moderate each treatment effect. ``\"i.region\"`` marks a categorical covariate -- the per-level ATTs of ``estat simple, over(region)`` are ``sp.etwfe_emfx(result, type='simple', by_xvar=True)``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome (``depvar``).",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "gvar",
+        "ivar",
+        "tvar",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "jwdid"
+  },
+  {
     "description": "Kaplan-Meier non-parametric survival function estimator. Validation: certified parity evidence. Do NOT use when: competing events are common and the estimand is the probability of the event of interest -- Kaplan-Meier treating them as censored overstates it; use sp.cuminc / sp.finegray. Assumptions: Non-informative (independent) censoring conditional on covariates; Cox: proportional hazards -- covariate effects are constant over time; check Schoenfeld residuals or stratify; AFT / parametric survival: the baseline distribution (Weibull, log-normal, ...) is correctly specified. Pre-conditions: One duration column (> 0) and one event indicator (1 = event, 0 = censored) per subject; competing risks need an event-type code; Time-varying covariates need a (start, stop] counting-process layout. Failure modes: Proportional-hazards test rejects for a covariate -> Stratify on it, add a time interaction, or report an AFT model; Fewer than ~10 events per covariate -> Reduce the model or report Kaplan-Meier / log-rank comparisons instead of a multivariable fit. Alternatives: sp.sp.aft, sp.sp.finegray. Typical minimum N: 50.",
     "input_schema": {
       "properties": {

@@ -5,6 +5,23 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="etwfe-labels-table-rows"></a>
+
+## Unreleased — `sp.etwfe` estimand labels, blank FE / cluster cells for causal results
+
+**Who is affected.** Code that compares `sp.etwfe(...).estimand` with the old
+long label, and tables that mix a `CausalResult` with fixed-effects
+regressions. No estimate or standard error changed.
+
+| Area | Old | New | How to keep the old behaviour |
+| --- | --- | --- | --- |
+| `sp.etwfe(family='poisson' / 'logit', scale='link').estimand` | `"ATT (link scale: treated-observation-weighted mean of the log-point cohort x period effects)"` | `"ATT (link scale)"`; the long text is `model_info['estimand_description']` | test `"link scale" in res.estimand`, or read `estimand_description` |
+| linear jwdid-design `sp.etwfe(hettype= / fe='unit').estimand` | `"ATT (linear ETWFE, treated-observation-weighted)"` | `"ATT (linear ETWFE)"` | as above |
+| `sp.regtable` FE / cluster cells of a `CausalResult` without FE metadata | `No` | blank | `add_rows={"<Var> FE": [...]}` |
+| `sp.regtable` rows for `sp.etwfe` | FE `No`, cluster `No` | unit (or cohort) and period FE `Yes`, cluster variable | — |
+
+---
+
 <a id="ppml-separation-etwfe-link"></a>
 
 ## Unreleased — ⚠️ `sp.ppmlhdfe` drops separated observations; `sp.etwfe(family='poisson')` gains `scale=` / `fe=`

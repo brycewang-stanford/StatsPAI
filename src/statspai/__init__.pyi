@@ -44,6 +44,7 @@ from ._auto_estimators import AutoDIDResult as AutoDIDResult
 from ._auto_estimators import AutoIVResult as AutoIVResult
 from ._auto_estimators import auto_did as auto_did
 from ._auto_estimators import auto_iv as auto_iv
+from ._build_info import version_info as version_info
 from ._citation import citation as citation
 from .bartik.adao_correction import shift_share_se as shift_share_se
 from .bartik.adao_correction import ssaggregate as ssaggregate
@@ -280,6 +281,7 @@ from .did.gardner_2s import gardner_did as did_2stage
 from .did.gardner_2s import gardner_did as gardner_did
 from .did.honest_did import breakdown_m as breakdown_m
 from .did.honest_did import honest_did as honest_did
+from .did.jwdid import jwdid as jwdid
 from .did.lp_did import lp_did as lp_did
 from .did.misclassified import did_misclassified as did_misclassified
 from .did.plots import bacon_plot as bacon_plot

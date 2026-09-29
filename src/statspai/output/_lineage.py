@@ -78,6 +78,16 @@ def _statspai_version() -> str:
         return "unknown"
 
 
+def _statspai_revision() -> Optional[str]:
+    """Git revision of the imported source (None for an installed wheel)."""
+    try:
+        from .._build_info import source_revision
+
+        return source_revision()
+    except Exception:  # pragma: no cover — defensive
+        return None
+
+
 def _python_version() -> str:
     v = sys.version_info
     return f"{v.major}.{v.minor}.{v.micro}"
@@ -260,6 +270,11 @@ class Provenance:
         calls in the same session.
     statspai_version : str
         Package version at the time of the call.
+    statspai_revision : str or None
+        Git revision of the StatsPAI source that ran (``"eed77f6c"``, with
+        ``+dirty`` for uncommitted changes); None for an installed wheel.
+        Many commits share one version string, so this is what pins the
+        code.
     python_version : str
         ``"3.11.5"``-style.
     timestamp : str
@@ -273,7 +288,7 @@ class Provenance:
     >>> prov.function
     'sp.did.callaway_santanna'
     >>> sorted(prov.to_dict())  # JSON-able view
-    ['data_hash', 'data_shape', 'function', 'params', 'python_version', 'run_id', 'statspai_version', 'timestamp']
+    ['data_hash', 'data_shape', 'function', 'params', 'python_version', 'run_id', 'statspai_revision', 'statspai_version', 'timestamp']
     >>> prov.short().startswith("sp.did.callaway_santanna")
     True
     """
@@ -284,6 +299,7 @@ class Provenance:
     data_shape: Optional[list] = None
     run_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
     statspai_version: str = field(default_factory=_statspai_version)
+    statspai_revision: Optional[str] = field(default_factory=_statspai_revision)
     python_version: str = field(default_factory=_python_version)
     timestamp: str = field(
         default_factory=lambda: _dt.datetime.now().isoformat(timespec="seconds")
@@ -701,7 +717,9 @@ def format_provenance(prov: Provenance, *, indent: int = 2) -> str:
         f"{pad}function   : {prov.function}",
         f"{pad}run_id     : {prov.run_id}",
         f"{pad}timestamp  : {prov.timestamp}",
-        f"{pad}StatsPAI v{prov.statspai_version} · Python {prov.python_version}",
+        f"{pad}StatsPAI v{prov.statspai_version}"
+        + (f" (git {prov.statspai_revision})" if prov.statspai_revision else "")
+        + f" · Python {prov.python_version}",
     ]
     if prov.data_hash:
         shape = (
@@ -739,7 +757,7 @@ def lineage_summary(*results: Any) -> Dict[str, Any]:
     >>> report["n_runs"]
     2
     >>> sorted(report)
-    ['data_inputs', 'n_runs', 'python_version', 'runs', 'statspai_version']
+    ['data_inputs', 'n_runs', 'python_version', 'runs', 'statspai_revision', 'statspai_version']
     """
     runs: Dict[str, Dict[str, Any]] = {}
     data_hashes: Dict[str, list] = {}
@@ -757,5 +775,6 @@ def lineage_summary(*results: Any) -> Dict[str, Any]:
         "runs": runs,
         "data_inputs": [{"hash": h, "consumers": v} for h, v in data_hashes.items()],
         "statspai_version": _statspai_version(),
+        "statspai_revision": _statspai_revision(),
         "python_version": _python_version(),
     }

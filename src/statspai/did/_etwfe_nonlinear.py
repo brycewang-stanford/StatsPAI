@@ -624,12 +624,17 @@ def etwfe_glm(
     head = aggregations[scale]
     att, se_att = head["simple"]["att"], head["simple"]["se"]
     z_stat = att / se_att if se_att > 0 else 0.0
+    # ``estimand`` is the row label of regression tables, so it stays short;
+    # the full definition travels in ``model_info['estimand_description']``.
     if fam_key == "gaussian":
-        estimand = "ATT (linear ETWFE, treated-observation-weighted)"
+        estimand = "ATT (linear ETWFE)"
+        estimand_description = "ATT (linear ETWFE, treated-observation-weighted)"
     elif scale == "response":
         estimand = "ATT (average marginal effect, response scale)"
+        estimand_description = estimand
     else:
-        estimand = (
+        estimand = "ATT (link scale)"
+        estimand_description = (
             "ATT (link scale: treated-observation-weighted mean of the "
             + ("log-point" if fam_key == "poisson" else "log-odds")
             + " cohort x period effects)"
@@ -691,6 +696,10 @@ def etwfe_glm(
             "n_treated_obs": int(cell_n[post_arr].sum()),
             "n_clusters": n_clusters,
             "se_type": f"cluster-robust on {cluster_col}",
+            # Read by sp.regtable / sp.etable for the FE and cluster rows.
+            "fixed_effects": [group if fe_mode == "unit" else first_treat, time],
+            "cluster_var": cluster_col,
+            "estimand_description": estimand_description,
             "controls": des["ctrl_names"],
             "balanced_panel": balanced,
             "omitted": omitted,

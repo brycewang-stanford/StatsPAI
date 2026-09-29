@@ -6,6 +6,37 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.jwdid(data, y, ivar=, tvar=, gvar=, x=, method=, never=, hettype=,
+  exovar=, cluster=, predict=)`.** Wooldridge ETWFE under Stata `jwdid`'s
+  option names: `sp.etwfe(fe='unit')` with `method='ppmlhdfe'` -> Poisson,
+  `never` -> `cgroup='nevertreated'`, `exovar` -> `controls`, `x` -> `xvar`,
+  and `predict='xb'` for the `estat simple, predict(xb)` headline (`None` is
+  `estat simple`, counts). `model_info['stata_equivalent']` spells out the
+  command. Against Stata `jwdid` v2.2 on the 13 hettype / never / covariate
+  specifications and three new `exovar()` specifications: link-scale ATT to
+  1e-9, SEs to 1e-7 (`test_jwdid_Stata_parity.py`).
+- **Stata factor terms in `sp.etwfe(controls=, xvar=)` / `sp.jwdid(exovar=,
+  x=)`.** `"i.year#i.nodecity"`, `"c.x#i.f"`, `"i.a##i.b"`, `"i.region"`
+  build their columns (`statspai.did._factor_terms`): a lone `i.v` omits
+  its base level, a `#` product keeps every cell and the estimator omits the
+  collinear ones, as Stata does -- `exovar(c.xc#i.xcat)` needs all three
+  slopes, and equals Stata to 2e-14 only with them. A term that is already a
+  column name is left alone. On the sjjj-2026 panel `exovar="i.year#i.nodecity"`
+  reproduces the appendix column (0.1488 / 0.0676) without the 20 hand-built
+  dummies.
+- **One result API.** `CausalResult` gains `.nobs` (alias of `.n_obs`),
+  `.vcov()` and `.conf_int(alpha=None)` (the reported `ci` at the fit-time
+  level); `EconometricResults` gains `.n_obs` (absent, as before, when no
+  sample size was recorded) and `.vcov()` -- the matrix behind the reported
+  SEs, raising rather than returning a diagonal when none is stored.
+- **`sp.version_info()` and the git revision in provenance.** Many commits
+  share one `__version__` (ten `src/` commits of the 1.32 line did), and an
+  editable install keeps stale pip metadata (1.11.4 / 1.16.1 reported for a
+  1.32.0 tree). `sp.version_info()` returns the version, the git revision of
+  the imported source (`+dirty` with uncommitted changes, `None` for a
+  wheel), the pip metadata and a warning when they disagree. Every
+  `Provenance` record, `format_provenance`, the table footer of
+  `_repro` and the replication-pack manifest carry `statspai_revision`.
 - **`sp.honest_did_from_moments(betahat, sigma, event_times=...)` and
   `sp.honest_did_from_result`.** Rambachan-Roth sensitivity for an event
   study from *any* estimator -- `reghdfe`, a stacked regression, a published
@@ -427,6 +458,21 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **`sp.etwfe` estimand labels are short**: `"ATT (link scale)"` and
+  `"ATT (linear ETWFE)"` (they are regression-table row labels, and the old
+  sentence-long label was truncated by `sp.etable`). The full definition
+  moved to `model_info['estimand_description']`; the response-scale label is
+  unchanged.
+- **Regression tables leave FE / cluster cells blank for a `CausalResult`
+  that does not declare them**, instead of printing `No`: the table does not
+  know that CS-DiD or an imputation estimator absorbs nothing. A causal
+  result that writes `model_info['fixed_effects']` / `cluster_var` (now
+  `sp.etwfe`) gets `Yes` / `No` and the cluster variable like any
+  regression.
+- **`CausalResult.pretrend_test(window=None, type='auto', alpha=None)`**
+  falls back to `sp.pretrends_test(result, ...)` when the estimator stored
+  no test (`sp.etwfe`), so the method and the function agree; with no
+  arguments a stored test is returned as before.
 - **⚠️ MCP tool failures are `isError` results, not protocol errors.**
   An unknown or expired `data_id` / `result_id`, a data-load failure, an
   invalid argument value or a timeout used to come back as a JSON-RPC
@@ -516,6 +562,17 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **Event-study plots of `sp.etwfe` results raised `KeyError: 'ci_lower'`.**
+  `result.plot()`, `result.event_study_plot()` and
+  `sp.enhanced_event_study_plot(...)` indexed the interval columns, which
+  `sp.etwfe` / `sp.etwfe_emfx` leave out of `model_info['event_study']`; the
+  plots now rebuild a missing interval as `att -/+ z * se` (the interval
+  `etwfe_emfx` reports) and leave an existing one untouched. Found by the
+  sjjj-2026 replication, whose Figure 3 had to be drawn by hand.
+- **`sp.regtable` printed "No FE, no clustering" for `sp.etwfe`**, which
+  absorbs unit (or cohort) and period effects and clusters on the unit: the
+  nonlinear / jwdid branch recorded neither. It now writes
+  `model_info['fixed_effects']` and `cluster_var`.
 - **Original-data parity results refreshed; module 02 made deterministic.**
   `tests/orig_parity` modules 04, 04b, 08 and 11 had result files older than
   the library fixes they exercise (the matched ATT covering every treated

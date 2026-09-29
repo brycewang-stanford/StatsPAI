@@ -251,6 +251,68 @@ def _validate_probability(value: Any, *, name: str) -> float:
     return parsed
 
 
+def _params_vcov(result: Any) -> pd.DataFrame:
+    """Covariance matrix of ``result.params``, labelled by parameter.
+
+    The stored full matrix is used when its diagonal reproduces the
+    reported standard errors (``coefficient_covariance``); a single
+    parameter needs no more than its squared SE.  Several parameters
+    without a consistent stored matrix raise instead of returning a
+    diagonal matrix, which would silently claim the estimates are
+    uncorrelated.
+    """
+    from ..postestimation._covariance import coefficient_covariance
+
+    params = result.params
+    names = list(params.index) if isinstance(params, pd.Series) else None
+    V, se = coefficient_covariance(result)
+    if V is None:
+        if len(se) != 1:
+            raise MethodIncompatibility(
+                "This result stores no covariance matrix consistent with its "
+                f"{len(se)} standard errors, so vcov() cannot report the "
+                "covariances between the estimates.",
+                recovery_hint=(
+                    "Use result.std_errors for the variances alone, or refit "
+                    "with an estimator that stores data_info['var_cov']."
+                ),
+                diagnostics={"n_params": int(len(se))},
+            )
+        V = np.array([[float(se[0]) ** 2]])
+    return pd.DataFrame(V, index=names, columns=names)
+
+
+def _event_study_with_ci(es: pd.DataFrame, alpha: float) -> pd.DataFrame:
+    """Return ``es`` with pointwise ``ci_lower`` / ``ci_upper`` columns.
+
+    Most estimators store their event-study table with the interval
+    already in it; ``sp.etwfe`` keeps the historical table without one
+    (``att`` / ``se`` only).  The plots used to index ``ci_lower``
+    unconditionally and raised ``KeyError`` on such a table.  A missing
+    interval is rebuilt as ``att -/+ z_{1-alpha/2} * se`` -- the normal
+    interval ``etwfe_emfx`` reports for the same rows -- and an existing
+    one is left untouched.
+    """
+    if {"ci_lower", "ci_upper"}.issubset(es.columns):
+        return es
+    if "se" not in es.columns or "att" not in es.columns:
+        raise MethodIncompatibility(
+            "The event-study table has neither ci_lower/ci_upper nor "
+            "att/se columns, so no interval can be drawn.",
+            recovery_hint="Add ci_lower/ci_upper columns to the table.",
+            diagnostics={"columns": list(es.columns)},
+        )
+    out = es.copy()
+    z = float(
+        _scipy_stats().norm.ppf(1 - _validate_probability(alpha, name="alpha") / 2)
+    )
+    att = out["att"].to_numpy(dtype=float)
+    se = out["se"].to_numpy(dtype=float)
+    out["ci_lower"] = att - z * se
+    out["ci_upper"] = att + z * se
+    return out
+
+
 class EconometricResults:
     """
     Unified results class for econometric models
@@ -282,6 +344,45 @@ class EconometricResults:
         """Estimation sample size (``data_info['nobs']``), ``None`` if unrecorded."""
         n = (getattr(self, "data_info", None) or {}).get("nobs")
         return None if n is None else int(n)
+
+    @property
+    def n_obs(self) -> int:
+        """Alias of :attr:`nobs`, the name :class:`CausalResult` uses.
+
+        A fit that recorded no sample size has no ``n_obs`` (the attribute
+        raises ``AttributeError``), so ``hasattr(result, "n_obs")`` keeps
+        meaning "the sample size is known".
+        """
+        n = self.nobs
+        if n is None:
+            raise AttributeError("n_obs: this fit recorded no sample size")
+        return n
+
+    @n_obs.setter
+    def n_obs(self, value: Any) -> None:
+        self.data_info["nobs"] = value
+
+    def vcov(self) -> pd.DataFrame:
+        """Covariance matrix of :attr:`params`, labelled by coefficient.
+
+        The matrix behind the reported standard errors (its diagonal equals
+        ``std_errors ** 2``).  Raises when the fit stores no such matrix --
+        e.g. standard errors replaced after the fit by a bootstrap -- rather
+        than returning a diagonal matrix that would claim the estimates are
+        uncorrelated.
+
+        Examples
+        --------
+        >>> import statspai as sp, numpy as np, pandas as pd
+        >>> rng = np.random.default_rng(0)
+        >>> x = rng.normal(size=50)
+        >>> df = pd.DataFrame({"y": 2.0 * x + rng.normal(size=50), "x": x})
+        >>> res = sp.regress("y ~ x", data=df)
+        >>> V = res.vcov()
+        >>> bool(np.allclose(np.sqrt(np.diag(V)), res.std_errors))
+        True
+        """
+        return _params_vcov(self)
 
     @property
     def r2(self) -> Optional[float]:
@@ -3056,6 +3157,82 @@ class CausalResult:
     def data_info(self) -> Dict[str, Any]:
         return {"nobs": self.n_obs}
 
+    @property
+    def nobs(self) -> Optional[int]:
+        """Alias of ``n_obs``, the name :class:`EconometricResults` uses."""
+        n = self.n_obs
+        try:
+            return None if n is None else int(n)
+        except (TypeError, ValueError):
+            return None
+
+    @nobs.setter
+    def nobs(self, value: Any) -> None:
+        self.n_obs = value
+
+    def vcov(self) -> pd.DataFrame:
+        """Covariance matrix of :attr:`params`, labelled like ``params``.
+
+        For the usual single headline effect this is the 1 x 1 matrix
+        ``se ** 2``; results whose ``params`` hold several estimates use the
+        stored matrix behind their standard errors.  The event-study
+        covariance of a DID fit is ``model_info['event_study_vcov']`` (see
+        :func:`sp.event_study_vcov`).
+
+        Examples
+        --------
+        >>> import statspai as sp
+        >>> callable(sp.CausalResult.vcov)
+        True
+        """
+        return _params_vcov(self)
+
+    def conf_int(self, alpha: Optional[float] = None) -> pd.DataFrame:
+        """Confidence intervals for :attr:`params`, as ``EconometricResults.conf_int``.
+
+        At the fit-time ``alpha`` the headline row is the interval the
+        estimator reported (``result.ci`` -- a bootstrap or t interval stays
+        what it was).  Any other ``alpha`` uses the normal approximation
+        ``estimate -/+ z * se``.
+
+        Parameters
+        ----------
+        alpha : float, optional
+            Significance level; defaults to the fit-time ``alpha``.
+
+        Returns
+        -------
+        pd.DataFrame
+            One row per parameter; columns ``f"{alpha/2:.3f}"`` and
+            ``f"{1-alpha/2:.3f}"``.
+
+        Examples
+        --------
+        >>> import statspai as sp
+        >>> callable(sp.CausalResult.conf_int)
+        True
+        """
+        fit_alpha = 0.05 if self.alpha is None else float(self.alpha)
+        a = fit_alpha if alpha is None else _validate_probability(alpha, name="alpha")
+        params = self.params
+        se = self.std_errors
+        z = float(_scipy_stats().norm.ppf(1 - a / 2))
+        lower = params - z * se
+        upper = params + z * se
+        ci = self.ci
+        if (
+            len(params) == 1
+            and np.isclose(a, fit_alpha)
+            and isinstance(ci, (tuple, list, np.ndarray))
+            and len(ci) == 2
+        ):
+            lower = pd.Series([float(ci[0])], index=params.index)
+            upper = pd.Series([float(ci[1])], index=params.index)
+        return pd.DataFrame(
+            {f"{a / 2:.3f}": lower, f"{1 - a / 2:.3f}": upper},
+            index=params.index,
+        )
+
     # ------------------------------------------------------------------
     # Uniform CATE access (shared vocabulary with CausalForest.effect)
     # ------------------------------------------------------------------
@@ -3745,7 +3922,7 @@ class CausalResult:
         if "event_study" not in self.model_info:
             raise ValueError("No event study estimates. Use a staggered DID method.")
 
-        es = self.model_info["event_study"].copy()
+        es = _event_study_with_ci(self.model_info["event_study"], self.alpha or 0.05)
 
         if ax is None:
             fig, ax = plt.subplots(figsize=figsize)
@@ -4479,11 +4656,58 @@ class CausalResult:
             include_provenance=include_provenance,
         )
 
-    def pretrend_test(self) -> Dict[str, Any]:
-        """Return pre-trend test results (DID methods)."""
-        if "pretrend_test" not in self.model_info:
-            raise ValueError("Pre-trend test not available for this method.")
-        return cast(Dict[str, Any], self.model_info["pretrend_test"])
+    def pretrend_test(
+        self,
+        window: Optional[Tuple[float, float]] = None,
+        type: str = "auto",
+        alpha: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Joint pre-trend test of this DID / event-study result.
+
+        With no arguments, returns the test the estimator stored at fit
+        time (``model_info['pretrend_test']``) when there is one.
+        Otherwise -- a ``window``, a non-default ``type`` or ``alpha``, or
+        an estimator that stores no test, such as ``sp.etwfe`` -- it runs
+        :func:`sp.pretrends_test` on this result, so ``result.pretrend_test()``
+        and ``sp.pretrends_test(result)`` agree.
+
+        Parameters
+        ----------
+        window : tuple of (lo, hi), optional
+            Pre-periods to test, e.g. ``(-5, -2)`` for Stata ``estat event,
+            window(-5 5) pretrend``.
+        type : ``'auto'``, ``'wald'`` or ``'f'``, default ``'auto'``
+            See :func:`sp.pretrends_test`.
+        alpha : float, optional
+            Significance level; defaults to the fit-time ``alpha``.
+
+        Returns
+        -------
+        dict
+            ``statistic``, ``pvalue``, ``df``, ``type``, ``reject`` and more.
+
+        Examples
+        --------
+        >>> import statspai as sp
+        >>> callable(sp.CausalResult.pretrend_test)
+        True
+        """
+        stored = self.model_info.get("pretrend_test")
+        if stored is not None and window is None and type == "auto" and alpha is None:
+            return cast(Dict[str, Any], stored)
+        if "event_study" not in self.model_info:
+            raise ValueError(
+                "Pre-trend test not available for this method: the result has "
+                "no event-study estimates (model_info['event_study'])."
+            )
+        from ..did.pretrends import pretrends_test
+
+        return pretrends_test(
+            self,
+            type=type,
+            alpha=(self.alpha or 0.05) if alpha is None else alpha,
+            window=window,
+        )
 
     def next_steps(self, print_result: bool = False) -> List[Dict[str, str]]:
         """

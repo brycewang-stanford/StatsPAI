@@ -19914,6 +19914,109 @@
     }
   },
   {
+    "description": "Wooldridge ETWFE with Stata ``jwdid``'s option names. Validation: certified parity evidence.",
+    "name": "jwdid",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "``cluster()``; defaults to ``ivar``.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "data": {
+          "description": "Panel in long format.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "exovar": {
+          "description": "``exovar()``: covariates that enter without interactions. Stata factor terms work, e.g. ``\"i.year#i.nodecity\"``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "gvar": {
+          "description": "Unit, time and first-treatment-period columns (``gvar`` = 0 or missing for never-treated units). ``id=`` (StatsPAI's name for the panel identifier) is accepted for ``ivar``.",
+          "type": "string"
+        },
+        "hettype": {
+          "description": "``hettype()``: ``'timecohort'`` (default), ``'time'``, ``'cohort'``, ``'event'`` or ``'twfe'``.",
+          "type": "string"
+        },
+        "ivar": {
+          "description": "Unit, time and first-treatment-period columns (``gvar`` = 0 or missing for never-treated units). ``id=`` (StatsPAI's name for the panel identifier) is accepted for ``ivar``.",
+          "type": "string",
+          "x-aliases": [
+            "id"
+          ],
+          "x-canonical": "id",
+          "x-statspai-role": "column"
+        },
+        "method": {
+          "description": "``method()``. ``None`` is ``jwdid``'s default linear model (``reghdfe``); ``'ppmlhdfe'`` / ``'poisson'`` the Poisson model.",
+          "enum": [
+            "regress",
+            "ppmlhdfe",
+            "poisson",
+            "logit"
+          ],
+          "type": "string"
+        },
+        "never": {
+          "default": false,
+          "description": "``never``: compare with never-treated units only, which also estimates the pre-treatment (lead) effects.",
+          "type": "boolean"
+        },
+        "predict": {
+          "description": "The ``estat ..., predict()`` scale of the reported ATT for a nonlinear ``method``: ``None`` / ``'mu'`` the count (response) scale, Stata's default; ``'xb'`` the linear index (log points for Poisson).",
+          "enum": [
+            "mu",
+            "xb"
+          ],
+          "type": "string"
+        },
+        "separated": {
+          "default": "keep",
+          "description": "Treatment of units whose outcome is always zero under Poisson; see :func:`sp.etwfe`.",
+          "enum": [
+            "keep",
+            "drop"
+          ],
+          "type": "string"
+        },
+        "tvar": {
+          "description": "Unit, time and first-treatment-period columns (``gvar`` = 0 or missing for never-treated units). ``id=`` (StatsPAI's name for the panel identifier) is accepted for ``ivar``.",
+          "type": "string"
+        },
+        "x": {
+          "description": "``indepvars`` of ``jwdid y x``: covariates that moderate each treatment effect. ``\"i.region\"`` marks a categorical covariate -- the per-level ATTs of ``estat simple, over(region)`` are ``sp.etwfe_emfx(result, type='simple', by_xvar=True)``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome (``depvar``).",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "ivar",
+        "tvar",
+        "gvar"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "One-call method-robustness comparison for staggered DID.",
     "name": "did_summary",
     "parameters": {
@@ -25582,6 +25685,15 @@
       "required": [
         "result"
       ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Identify the StatsPAI code in use: version, git revision, install.",
+    "name": "version_info",
+    "parameters": {
+      "properties": {},
+      "required": [],
       "type": "object"
     }
   },

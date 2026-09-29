@@ -71,7 +71,7 @@
 | `sp.regtable(ivw, egger, median, ...)` for MR results | `mr_ivw`/`mr_egger`/`mr_median` return **dicts** (`estimate/se/ci_lower/ci_upper/p_value/...`), not result objects. Build a `pd.DataFrame({...}).T` and `.to_excel()`/`.to_latex()` it |
 | `aft.to_word(...)` / hand-rolling a `pd.DataFrame` for an AFT table | `sp.regtable(aft, ...)` works **directly** — `AFTResult` exposes `.params` + `.std_errors`, so regtable renders SEs/stars and the `RegtableResult` exports to Word/Excel/LaTeX. `AFTResult` itself still has no `.to_word`/`.to_latex`/`.conf_int`; read `.n`/`.n_events`/`.aic`/`.family`/`.summary()` for the footer. For a causal survival estimand use `sp.ltmle_survival(...)` |
 | `sp.causal(..., dag=discovered.dag)` | `LLMConstrainedDAGResult` has no `.dag` — use `discovered.to_dag()` (or inspect `.final_edges`) |
-| `result.conf_int()` / `result.data_info["n_obs"]` on a `CausalResult` | `CausalResult` exposes `.estimate` / `.ci` (tuple) / `.n_obs` / `.estimand` (no `.conf_int()`; `data_info` key is `"nobs"`). `.params[name]` + `.conf_int().loc[name]` are for econometric (OLS/feols/ivreg) results |
+| `result.data_info["n_obs"]` / `result.conf_int().loc["treat"]` on a `CausalResult` | `CausalResult` exposes `.estimate` / `.ci` (tuple) / `.n_obs` (alias `.nobs`) / `.estimand`; `data_info`'s key is `"nobs"`. Its `.conf_int()` has a single row labelled by `.estimand` (`.conf_int().loc[result.estimand]`), not by the treatment column |
 
 ---
 

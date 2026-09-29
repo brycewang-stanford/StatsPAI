@@ -206,7 +206,8 @@ def check_attributes(failures: list[str]) -> None:
             and hasattr(ml, "n_obs")
             and hasattr(ml, "estimand")
             and not hasattr(ml, "point_estimate")  # claim: no such attr
-            and not hasattr(ml, "conf_int")  # claim: no such method
+            and list(ml.conf_int().index) == [ml.estimand]  # claim: one row
+            and ml.nobs == ml.n_obs  # claim: nobs is an alias
             and list(ml.data_info) == ["nobs"]  # claim: key is "nobs"
         )
         _record(failures, ok, "metalearner → model_info['cate'] + CausalResult attrs")

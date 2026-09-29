@@ -1067,7 +1067,7 @@ print(c.list())         # DataFrame with name / kind / title for every item
 
 ### 8.5 Reproducibility stamp
 
-> A `CausalResult` (from DID / CS / IV-causal / DML / TMLE / …) exposes `.estimate` (scalar), `.ci` (tuple), `.estimand`, and `.n_obs` — it has **no** `.conf_int()`, and `.data_info`'s key is `"nobs"`, not `"n_obs"`. An `EconometricResults` (regress / feols / ivreg) instead exposes `.params[name]` and `.conf_int().loc[name]` — use that branch for an OLS/FE main result.
+> A `CausalResult` (from DID / CS / IV-causal / DML / TMLE / …) exposes `.estimate` (scalar), `.ci` (tuple), `.estimand`, and `.n_obs` — plus `.nobs` (alias of `.n_obs`) and `.conf_int()` (one row, labelled by `.estimand`, equal to `.ci`); `.data_info`'s key is `"nobs"`, not `"n_obs"`. An `EconometricResults` (regress / feols / ivreg) instead exposes `.params[name]` and `.conf_int().loc[name]` — use that branch for an OLS/FE main result.
 
 ```python
 import json

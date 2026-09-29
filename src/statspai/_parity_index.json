@@ -4287,6 +4287,7 @@
         "tests/reference_parity/test_etwfe_glm_parity.py",
         "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
         "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
+        "tests/reference_parity/test_jwdid_Stata_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "also_verified_by": [
@@ -7221,6 +7222,31 @@
         "tests/reference_parity/test_spdep_parity.py"
       ],
       "tolerance": "BB, WW and BW all exact. A reference-free guard also asserts BB + WW + BW = S0/2, the identity the BW defect violated (70.75 against 50)."
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "jwdid",
+      "notes": [
+        "Stata option names over sp.etwfe(fe='unit'). The exovar() fixture pinned the factor-term rule: a # product keeps every cell (Stata keeps them without the main effects) and the estimator omits the collinear ones; dropping base levels there, as for a lone i.v, gave c.xc#i.xcat two slopes instead of three and a 0.27% different ATT."
+      ],
+      "reference": "Stata 18 jwdid ..., method(ppmlhdfe) + estat simple",
+      "reference_versions": {
+        "Stata": "18 MP",
+        "jwdid": "2.2",
+        "ppmlhdfe": "2.3.3"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_jwdid_Stata_parity.py"
+      ],
+      "tolerance": "Link-scale simple ATT 1e-9 and its SE 1e-7 relative (observed <= 3e-14 and <= 3e-11); response-scale ATT 1e-6 (Stata margins takes numerical derivatives; observed <= 2e-7). Sixteen specifications: every hettype(), never, i.xcat / xc covariates, over(xcat), and exovar(i.year#i.xcat), never exovar(i.year#i.xcat), exovar(c.xc#i.xcat)."
     },
     {
       "function": "kan_dlate",

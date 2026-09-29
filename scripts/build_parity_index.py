@@ -1017,6 +1017,19 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Added in 1.27.0 by the weak-IV / diagnostics sweep, which found two defects: sp.vif returned VIF rounded to two decimals and 1/VIF to four (in the frame, not a display -- the conventional threshold of 10 was being decided in the fourth significant digit), and the grid-inversion confidence sets reported the extreme grid point still inside the acceptance region as the endpoint, biasing every interval inward by up to one grid step. sp.anderson_rubin_test computed the same AR interval analytically all along, so the package disagreed with itself about one quantity by 8e-3."
         ),
     },
+    "jwdid": {
+        "status": "bit-exact",
+        "reference": "Stata 18 jwdid ..., method(ppmlhdfe) + estat simple",
+        "reference_versions": {"Stata": "18 MP", "jwdid": "2.2", "ppmlhdfe": "2.3.3"},
+        "tolerance": (
+            "Link-scale simple ATT 1e-9 and its SE 1e-7 relative (observed <= 3e-14 and <= 3e-11); response-scale ATT 1e-6 (Stata margins takes numerical derivatives; observed <= 2e-7). Sixteen specifications: every hettype(), never, i.xcat / xc covariates, over(xcat), and exovar(i.year#i.xcat), never exovar(i.year#i.xcat), exovar(c.xc#i.xcat)."
+        ),
+        "sides": ["py", "Stata"],
+        "test": ["tests/reference_parity/test_jwdid_Stata_parity.py"],
+        "note": (
+            "Stata option names over sp.etwfe(fe='unit'). The exovar() fixture pinned the factor-term rule: a # product keeps every cell (Stata keeps them without the main effects) and the estimator omits the collinear ones; dropping base levels there, as for a lone i.v, gave c.xc#i.xcat two slopes instead of three and a 0.27% different ATT."
+        ),
+    },
     "panel_fgls": {
         "status": "bit-exact",
         "reference": "Stata 18 xtgls, panels(hetero)",

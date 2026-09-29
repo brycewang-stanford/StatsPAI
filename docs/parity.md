@@ -27,13 +27,13 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 
 | evidence kind | grade | functions |
 | --- | --- | ---: |
-| **Compared against R/Stata** (T2) | bit-exact | 363 |
+| **Compared against R/Stata** (T2) | bit-exact | 364 |
 | | aligned | 53 |
-| | **subtotal** | **416** |
+| | **subtotal** | **417** |
 | **No external software reference** | analytical-only (T1) | 154 |
 | | external-replication (published numbers) | 2 |
 | | **subtotal** | **156** |
-| No numerical evidence yet | unverified | 697 |
+| No numerical evidence yet | unverified | 698 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 416 | 567 | 817 | 50.9% |
+| estimator callables | 417 | 568 | 819 | 50.9% |
 | infrastructure (parity N/A) | 0 | 2 | 131 | 0.0% |
 | result / exception classes | 0 | 3 | 321 | 0.0% |
-| **all registered** | 416 | 572 | 1269 | 32.8% |
+| **all registered** | 417 | 573 | 1271 | 32.8% |
 
 ### Coverage by estimator family
 
@@ -52,7 +52,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 148 | 227 | 365 |
+| causal | 149 | 228 | 366 |
 | regression | 32 | 36 | 37 |
 | spatial | 28 | 29 | 34 |
 | panel | 27 | 28 | 30 |
@@ -72,10 +72,10 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | structural | 5 | 7 | 10 |
 | survival | 8 | 8 | 9 |
 | frontier | 5 | 7 | 9 |
+| other | 2 | 3 | 8 |
 | nonparametric | 2 | 8 | 8 |
 | robustness | 3 | 5 | 7 |
 | interference | 0 | 1 | 7 |
-| other | 2 | 3 | 7 |
 | survey | 6 | 6 | 6 |
 | target_trial | 0 | 6 | 6 |
 | transport | 3 | 5 | 6 |
@@ -96,7 +96,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | censoring | 1 | 1 | 1 |
 | synth | 0 | 1 | 1 |
 
-## bit-exact — 363 functions
+## bit-exact — 364 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -248,6 +248,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `jive` | Stata jive 1.0.2 (Stata Journal st0108) ujive1 / ujive2 | Stata 18 MP; jive 1.0.2 | coefficients and SEs (default and robust) rel 1e-9 (observed 3.0e-13 / 4.4e-13) | — / — | [`test_rd_iv_R_parity.py`](../tests/reference_parity/test_rd_iv_R_parity.py) (+1) |
 | `johansen` | urca::ca.jo 1.3.4; Stata 18 vecrank | R 4.5.2; urca 1.3.4; Stata 18 | eigenvalues, trace & max-eigenvalue statistics 1e-11 rel vs ca.jo, 1e-10 vs vecrank (observed 8.2e-14); Osterwald-Lenum table equal to Stata _vecgetcv cell by cell | — / — | [`test_timeseries_R_parity.py`](../tests/reference_parity/test_timeseries_R_parity.py) (+2) |
 | `join_counts` | R spdep::joincount.multi (binary weights) | spdep 1.4.2; spatialreg 1.4.3 | BB, WW and BW all exact. A reference-free guard also asserts BB + WW + BW = S0/2, the identity the BW defect violated (70.75 against 50). | — / — | [`test_spdep_parity.py`](../tests/reference_parity/test_spdep_parity.py) |
+| `jwdid` | Stata 18 jwdid ..., method(ppmlhdfe) + estat simple | Stata 18 MP; jwdid 2.2; ppmlhdfe 2.3.3 | Link-scale simple ATT 1e-9 and its SE 1e-7 relative (observed <= 3e-14 and <= 3e-11); response-scale ATT 1e-6 (Stata margins takes numerical derivatives; observed <= 2e-7). Sixteen specifications: every hettype(), never, i.xcat / xc covariates, over(xcat), and exovar(i.year#i.xcat), never exovar(i.year#i.xcat), exovar(c.xc#i.xcat). | — / — | [`test_jwdid_Stata_parity.py`](../tests/reference_parity/test_jwdid_Stata_parity.py) |
 | `kaplan_meier` | survival::survfit | R 4.5.2; survival 3.8.3 | S(t) at every event time 1e-12 (observed ~3e-17); median exact | — / — | [`test_survival_km_parity.py`](../tests/reference_parity/test_survival_km_parity.py) (+1) |
 | `karate_club` | R igraph::make_graph('Zachary') | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | Adjacency matrix identical. | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
 | `katz_centrality` | R igraph::alpha_centrality | igraph 2.3.3; sna 2.8; ergm 4.12.0; dyadRobust 0.0.1.0001 | 7.1e-16 with normalized = False (normalized = True L2-scales the same vector). | — / — | [`test_network_parity.py`](../tests/reference_parity/test_network_parity.py) |
@@ -696,6 +697,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `xlearner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `yatchew_linearity_test` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) |
 
-## unverified — 697 functions
+## unverified — 698 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

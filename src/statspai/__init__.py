@@ -65,6 +65,7 @@ import importlib as _importlib
 
 # Agent-native exception taxonomy (load early for registered estimators)
 from . import exceptions as exceptions  # noqa: F401
+from ._build_info import version_info
 
 # Eager: ``bartik`` collides (function + subpackage of same name).
 from .bartik import (
@@ -186,6 +187,7 @@ from .did import (
     honest_did_from_moments,
     honest_did_from_result,
     influence_functions,
+    jwdid,
     overlap_weighted_did,
     panel_view,
     parallel_trends_plot,
@@ -1249,6 +1251,7 @@ __all__ = [
     "wooldridge_did",
     "etwfe",
     "etwfe_emfx",
+    "jwdid",
     "did_summary",
     "did_summary_to_markdown",
     "did_summary_to_latex",
@@ -1423,6 +1426,7 @@ __all__ = [
     "Provenance",
     "attach_provenance",
     "get_provenance",
+    "version_info",
     "compute_data_hash",
     "format_provenance",
     "lineage_summary",

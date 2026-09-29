@@ -92,6 +92,7 @@ from .honest_did import (
     honest_did_from_result,
 )
 from .influence import aggte_from_influence, influence_functions
+from .jwdid import jwdid
 from .misclassified import did_misclassified
 from .overlap_did import dl_propensity_score, overlap_weighted_did
 from .plots import bacon_plot, cohort_event_study_plot, did_plot, did_summary_plot
@@ -1027,6 +1028,7 @@ __all__ = [
     "wooldridge_did",
     "etwfe",
     "etwfe_emfx",
+    "jwdid",
     "did_summary",
     "did_summary_to_markdown",
     "did_summary_to_latex",

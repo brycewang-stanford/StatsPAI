@@ -1,0 +1,11 @@
+{
+  "year_xcat": {"opts": "exovar(i.year#i.xcat)", "N":         2496, 
+    "simple_link": {"b":   2.5226299390304852e-01, "se":   5.2009493265206201e-02},
+    "simple_response": {"b":   7.7251191827124011e-01}},
+  "year_xcat_never": {"opts": "never exovar(i.year#i.xcat)", "N":         2496, 
+    "simple_link": {"b":   1.5980674993096211e-01, "se":   7.8214078536593498e-02},
+    "simple_response": {"b":   5.1511171474097583e-01}},
+  "xc_xcat": {"opts": "exovar(c.xc#i.xcat)", "N":         2496, 
+    "simple_link": {"b":   2.5641276433864563e-01, "se":   5.1141010951452598e-02},
+    "simple_response": {"b":   7.8567360389484842e-01}}
+}

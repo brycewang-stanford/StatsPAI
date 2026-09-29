@@ -803,7 +803,9 @@ def event_study_plot(
             "Use a staggered DID estimator or event_study()."
         )
 
-    es = mi["event_study"].copy()
+    from ..core.results import _event_study_with_ci
+
+    es = _event_study_with_ci(mi["event_study"], getattr(result, "alpha", None) or 0.05)
 
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)

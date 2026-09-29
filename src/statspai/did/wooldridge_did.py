@@ -808,6 +808,12 @@ def etwfe(
     IRLS, but stay in ``N`` and in the cluster count as ``jwdid`` reports
     them; ``model_info['n_separated']`` records how many rows that was.
 
+    ``controls`` and ``xvar`` also take Stata factor-variable terms:
+    ``controls=["i.year#i.nodecity"]`` adds the year-by-node-city dummies
+    (base levels omitted), i.e. Stata ``jwdid ..., exovar(i.year#i.nodecity)``;
+    ``xvar="i.region"`` treats ``region`` as categorical (``jwdid y
+    i.region``).  :func:`sp.jwdid` takes Stata's option names directly.
+
     Thin wrapper around the 4-branch dispatcher (panel-with-xvar /
     panel-never-only / panel-notyet / repeated-cross-section) that
     attaches a :class:`Provenance` record to the returned result so
@@ -840,6 +846,14 @@ def etwfe(
         ``sp.etwfe(cgroup='nevertreated')`` — same comparison group, different
         weights — is still 10.5% from it. Pick the one your write-up claims.
     """
+    # Stata factor terms (``controls=["i.year#i.nodecity"]``,
+    # ``xvar="i.region"``) become columns first; plain column names pass
+    # through untouched.
+    from ._factor_terms import expand_factor_terms, factor_xvar
+
+    data, controls = expand_factor_terms(data, controls, context="etwfe")
+    data, xvar = factor_xvar(data, xvar, context="etwfe")
+
     # Drop rows no branch can use before dispatch, so a wiped outcome surfaces
     # as an error rather than an ATT of exactly 0.0 (or a raw ValueError out of
     # an empty-array reduction further down).

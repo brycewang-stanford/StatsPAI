@@ -39,7 +39,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
-| `did` | 47,403 | 62 | 92 |
+| `did` | 47,929 | 64 | 93 |
 | `synth` | 27,673 | 36 | 55 |
 | `rd` | 20,745 | 32 | 55 |
 | `regression` | 19,867 | 24 | 39 |

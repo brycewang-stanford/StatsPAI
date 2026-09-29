@@ -113,7 +113,12 @@ def build_repro_note(
     parts: list[str] = []
 
     if package_version:
-        parts.append(f"StatsPAI v{_statspai_version()}")
+        from .._build_info import source_revision
+
+        rev = source_revision()
+        parts.append(
+            f"StatsPAI v{_statspai_version()}" + (f" (git {rev})" if rev else "")
+        )
 
     if python_version:
         parts.append(f"Python {_python_version()}")
