@@ -39,6 +39,7 @@ def rdbwsensitivity(
     n_grid: int = 15,
     bw_range: Tuple[float, float] = (0.5, 2.0),
     alpha: float = 0.05,
+    cluster: Optional[str] = None,
     ax: Optional[Any] = None,
     figsize: Tuple[float, float] = (10, 6),
 ) -> pd.DataFrame:
@@ -71,6 +72,10 @@ def rdbwsensitivity(
     ax : matplotlib Axes, optional
     figsize : tuple
 
+    cluster : str, optional
+        Cluster column for the standard errors of every ``rdrobust`` fit
+        (``vce(cluster)``; also the bandwidth selection, as ``rdrobust``
+        does).
     Returns
     -------
     pd.DataFrame
@@ -97,7 +102,17 @@ def rdbwsensitivity(
     from .rdrobust import rdrobust
 
     # Get optimal bandwidth
-    base = rdrobust(data, y=y, x=x, c=c, fuzzy=fuzzy, p=p, kernel=kernel, alpha=alpha)
+    base = rdrobust(
+        data,
+        y=y,
+        x=x,
+        c=c,
+        fuzzy=fuzzy,
+        p=p,
+        kernel=kernel,
+        alpha=alpha,
+        cluster=cluster,
+    )
     h_opt = base.model_info["bandwidth_h"]
 
     if bw_grid is None:
@@ -108,7 +123,16 @@ def rdbwsensitivity(
     for bw in bw_grid:
         try:
             r = rdrobust(
-                data, y=y, x=x, c=c, fuzzy=fuzzy, p=p, kernel=kernel, h=bw, alpha=alpha
+                data,
+                y=y,
+                x=x,
+                c=c,
+                fuzzy=fuzzy,
+                p=p,
+                kernel=kernel,
+                h=bw,
+                alpha=alpha,
+                cluster=cluster,
             )
             rows.append(
                 {
@@ -185,6 +209,7 @@ def rdbalance(
     kernel: str = "triangular",
     h: Optional[float] = None,
     alpha: float = 0.05,
+    cluster: Optional[str] = None,
 ) -> pd.DataFrame:
     """
     Covariate balance test at the RD cutoff.
@@ -209,6 +234,10 @@ def rdbalance(
         Manual bandwidth. If None, uses MSE-optimal per covariate.
     alpha : float, default 0.05
 
+    cluster : str, optional
+        Cluster column for the standard errors of every ``rdrobust`` fit
+        (``vce(cluster)``; also the bandwidth selection, as ``rdrobust``
+        does).
     Returns
     -------
     pd.DataFrame
@@ -243,7 +272,17 @@ def rdbalance(
     rows = []
     for cov in covs:
         try:
-            r = rdrobust(data, y=cov, x=x, c=c, p=p, kernel=kernel, h=h, alpha=alpha)
+            r = rdrobust(
+                data,
+                y=cov,
+                x=x,
+                c=c,
+                p=p,
+                kernel=kernel,
+                h=h,
+                alpha=alpha,
+                cluster=cluster,
+            )
             rows.append(
                 {
                     "covariate": cov,
@@ -286,6 +325,7 @@ def rdplacebo(
     p: int = 1,
     kernel: str = "triangular",
     alpha: float = 0.05,
+    cluster: Optional[str] = None,
     ax: Optional[Any] = None,
     figsize: Tuple[float, float] = (10, 6),
 ) -> pd.DataFrame:
@@ -319,6 +359,10 @@ def rdplacebo(
     ax : matplotlib Axes, optional
     figsize : tuple
 
+    cluster : str, optional
+        Cluster column for the standard errors of every ``rdrobust`` fit
+        (``vce(cluster)``; also the bandwidth selection, as ``rdrobust``
+        does).
     Returns
     -------
     pd.DataFrame
@@ -367,7 +411,15 @@ def rdplacebo(
 
         try:
             r = rdrobust(
-                subset, y=y, x=x, c=cutoff, fuzzy=fuzzy, p=p, kernel=kernel, alpha=alpha
+                subset,
+                y=y,
+                x=x,
+                c=cutoff,
+                fuzzy=fuzzy,
+                p=p,
+                kernel=kernel,
+                alpha=alpha,
+                cluster=cluster,
             )
             rows.append(
                 {
@@ -480,6 +532,7 @@ def rdsummary(
     p: int = 1,
     kernel: str = "triangular",
     alpha: float = 0.05,
+    cluster: Optional[str] = None,
     verbose: bool = True,
     plot: bool = False,
     full: bool = False,
@@ -523,6 +576,10 @@ def rdsummary(
     full : bool, default False
         Run extended diagnostics (honest CI, power, placebos).
 
+    cluster : str, optional
+        Cluster column for the standard errors of every ``rdrobust`` fit
+        (``vce(cluster)``; also the bandwidth selection, as ``rdrobust``
+        does).
     Returns
     -------
     dict with keys:
@@ -559,7 +616,17 @@ def rdsummary(
     results: Dict[str, Any] = {}
 
     # 1. Main estimate
-    est = rdrobust(data, y=y, x=x, c=c, fuzzy=fuzzy, p=p, kernel=kernel, alpha=alpha)
+    est = rdrobust(
+        data,
+        y=y,
+        x=x,
+        c=c,
+        fuzzy=fuzzy,
+        p=p,
+        kernel=kernel,
+        alpha=alpha,
+        cluster=cluster,
+    )
     results["estimate"] = est
 
     # 2. Density test
@@ -571,7 +638,16 @@ def rdsummary(
 
     # 3. Covariate balance
     if covs:
-        bal = rdbalance(data, x=x, c=c, covs=covs, p=p, kernel=kernel, alpha=alpha)
+        bal = rdbalance(
+            data,
+            x=x,
+            c=c,
+            covs=covs,
+            p=p,
+            kernel=kernel,
+            alpha=alpha,
+            cluster=cluster,
+        )
         results["balance"] = bal
     else:
         results["balance"] = None
@@ -584,7 +660,16 @@ def rdsummary(
         matplotlib.use("Agg")
     try:
         bws = rdbwsensitivity(
-            data, y=y, x=x, c=c, fuzzy=fuzzy, p=p, kernel=kernel, n_grid=7, alpha=alpha
+            data,
+            y=y,
+            x=x,
+            c=c,
+            fuzzy=fuzzy,
+            p=p,
+            kernel=kernel,
+            n_grid=7,
+            alpha=alpha,
+            cluster=cluster,
         )
         results["bw_sensitivity"] = bws
     except Exception:  # pragma: no cover
@@ -599,7 +684,9 @@ def rdsummary(
         try:
             from .honest_ci import rd_honest
 
-            honest = rd_honest(data, y=y, x=x, c=c, kernel=kernel, alpha=alpha)
+            honest = rd_honest(
+                data, y=y, x=x, c=c, kernel=kernel, alpha=alpha, cluster=cluster
+            )
             results["honest_ci"] = honest
         except Exception:  # pragma: no cover
             results["honest_ci"] = None
@@ -638,6 +725,7 @@ def rdsummary(
                 p=p,
                 kernel=kernel,
                 alpha=alpha,
+                cluster=cluster,
             )
             results["placebos"] = placebos
         except Exception:  # pragma: no cover
@@ -648,7 +736,15 @@ def rdsummary(
             from .bandwidth import rdbwselect
 
             bw_comp = rdbwselect(
-                data, y=y, x=x, c=c, fuzzy=fuzzy, p=p, kernel=kernel, all=True
+                data,
+                y=y,
+                x=x,
+                c=c,
+                fuzzy=fuzzy,
+                p=p,
+                kernel=kernel,
+                all=True,
+                cluster=cluster,
             )
             results["bandwidth_comparison"] = bw_comp
         except Exception:  # pragma: no cover

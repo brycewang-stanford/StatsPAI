@@ -326,6 +326,7 @@ def rdrobust(
     warn_weak_first_stage: bool = True,
     manipulation_test: bool = True,
     engine: str = "ols",
+    masspoints: str = "adjust",
 ) -> CausalResult:
     """
     Local polynomial RD estimation with robust bias-corrected inference.
@@ -445,6 +446,13 @@ def rdrobust(
         If ``True``, emit a ``UserWarning`` when the running variable
         has fewer than 30 distinct values, recommending
         :func:`rd_discrete` (Kolesár & Rothe 2018) for honest inference.
+    masspoints : {'adjust', 'check', 'off'}, default 'adjust'
+        R ``rdrobust(masspoints=)``, for the data-driven bandwidth. When 20%
+        or more of either side's observations are tied, ``'adjust'`` uses
+        the count of unique running-variable values in the reference
+        bandwidth and floors the pilot bandwidth at the 10th unique value
+        from the cutoff; ``'check'`` only warns; ``'off'`` treats the data
+        as continuous. The shares are in ``model_info['masspoints']``.
     warn_weak_first_stage : bool, default True
         If ``True`` and ``fuzzy`` is set, emit a ``UserWarning`` when
         the first-stage discontinuity F-statistic is below 10,
@@ -699,6 +707,9 @@ def rdrobust(
             )
 
     # --- Mass-points diagnostic (Kolesár-Rothe 2018) -----------------
+    from ._cct_bandwidth import masspoint_shares
+
+    mass_info = masspoint_shares(X_c, masspoints, "rdrobust")
     n_unique = int(np.unique(X_c).size)
     if warn_mass_points and n_unique < 30 and len(X_c) >= 100:
         warnings.warn(
@@ -812,6 +823,7 @@ def rdrobust(
                 cluster=cl_vals_all,
                 fuzzy=D,
                 weights=W_obs,
+                masspoints=masspoints,
             )
         except (ValueError, IndexError, ZeroDivisionError, np.linalg.LinAlgError):
             # Degenerate data (empty side, singular design, kernel/bwselect
@@ -1081,6 +1093,7 @@ def rdrobust(
         "bandwidth_h": h,
         "bandwidth_b": b,
         "bwselect": bwselect if h_auto else "manual",
+        "masspoints": mass_info,
         "cutoff": c,
         "n_left": n_left_total,
         "n_right": n_right_total,
@@ -1522,6 +1535,7 @@ def rdplot(
     h: Optional[float] = None,
     covs: Optional[List[str]] = None,
     weights: Optional[str] = None,
+    cluster: Optional[str] = None,
     hide_ci: bool = False,
     scatter: bool = True,
     ax: Optional[Any] = None,
@@ -1585,6 +1599,12 @@ def rdplot(
         does.
     weights : str, optional
         Observation weights for the polynomial fit.
+    cluster : str, optional
+        Cluster column: the per-bin intervals become cluster-robust (Stata
+        ``mean y, vce(cluster c)`` within each bin, ``t(G - 1)``), and so does
+        the shaded band around the polynomial (CR1). R ``rdplot`` has no
+        cluster option; without it the intervals assume independent
+        observations.
     hide_ci : bool, default False
         If True, suppress all interval displays.
     scatter : bool, default True
@@ -1632,6 +1652,7 @@ def rdplot(
     X = data[x].to_numpy(dtype=float)
     Zc = data[list(covs)].to_numpy(dtype=float) if covs else None
     Wo = data[weights].to_numpy(dtype=float) if weights else None
+    Cl = data[cluster].to_numpy() if cluster else None
 
     res = rdplot_numbers(
         Y,
@@ -1645,6 +1666,7 @@ def rdplot(
         weights=Wo,
         covs=Zc,
         ci=100.0 * ci_level,
+        cluster=Cl,
     )
     vb, vp = res["vars_bins"], res["vars_poly"]
     n_left_bins = int(np.sum(vb["rdplot_mean_bin"] < c))
@@ -1706,11 +1728,25 @@ def rdplot(
         wr = _kweight(X[~left & ok], c, hr, kernel)
         if Wo is not None:
             wl, wr = wl * Wo[left & ok], wr * Wo[~left & ok]
+        if Cl is not None:
+            ok &= ~pd.isna(Cl)
         _, lo_l, hi_l = _weighted_poly_fit_ci(
-            X[left & ok], Y[left & ok], p, grid_l, ci_level, wl
+            X[left & ok],
+            Y[left & ok],
+            p,
+            grid_l,
+            ci_level,
+            wl,
+            None if Cl is None else Cl[left & ok],
         )
         _, lo_r, hi_r = _weighted_poly_fit_ci(
-            X[~left & ok], Y[~left & ok], p, grid_r, ci_level, wr
+            X[~left & ok],
+            Y[~left & ok],
+            p,
+            grid_r,
+            ci_level,
+            wr,
+            None if Cl is None else Cl[~left & ok],
         )
         ax.fill_between(grid_l, lo_l, hi_l, color="#E74C3C", alpha=0.12, zorder=2)
         ax.fill_between(grid_r, lo_r, hi_r, color="#3498DB", alpha=0.12, zorder=2)
@@ -1760,8 +1796,13 @@ def _weighted_poly_fit_ci(
     x_grid: np.ndarray,
     level: float,
     weights: Optional[np.ndarray] = None,
+    cluster: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Weighted global polynomial fit with pointwise confidence intervals."""
+    """Weighted global polynomial fit with pointwise confidence intervals.
+
+    With ``cluster`` the coefficient covariance is CR1 (``G/(G-1)
+    (n-1)/(n-k)``), as ``regress [aw=], vce(cluster)``.
+    """
     order = min(order, len(xv) - 1)
     if len(xv) < 3:
         nan_arr = np.full(len(x_grid), np.nan)
@@ -1789,6 +1830,18 @@ def _weighted_poly_fit_ci(
         else:
             sigma2 = np.sum(resid**2) / max(len(xv) - order - 1, 1)
         cov_beta = sigma2 * np.linalg.pinv(Vw.T @ Vw)
+        if cluster is not None:
+            wv = np.ones(len(xv)) if weights is None else w
+            bread = np.linalg.pinv(Vw.T @ Vw)
+            codes = pd.factorize(cluster)[0]
+            G = int(codes.max()) + 1
+            sc = V_data * (wv * resid)[:, None]
+            S = np.zeros((G, sc.shape[1]))
+            np.add.at(S, codes, sc)
+            k = order + 1
+            nn = len(xv)
+            fac = G / max(G - 1, 1) * (nn - 1) / max(nn - k, 1)
+            cov_beta = fac * bread @ (S.T @ S) @ bread
         se = np.sqrt(np.maximum(np.sum((V_grid @ cov_beta) * V_grid, axis=1), 0))
     except (np.linalg.LinAlgError, ValueError):
         fit = np.full(len(x_grid), np.nan)

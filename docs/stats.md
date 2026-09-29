@@ -41,14 +41,14 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | ------------------- | -----: | ----: | ----------------------------: |
 | `did` | 47,403 | 62 | 92 |
 | `synth` | 27,673 | 36 | 55 |
-| `rd` | 20,281 | 31 | 54 |
+| `rd` | 20,745 | 32 | 55 |
 | `regression` | 19,867 | 24 | 39 |
 | `agent` | 16,678 | 36 | 4 |
 | `smart` | 16,475 | 21 | 31 |
 | `forest` | 15,811 | 17 | 31 |
 | `output` | 13,703 | 22 | 42 |
 | `matching` | 10,493 | 15 | 25 |
-| `core` | 10,155 | 15 | 5 |
+| `core` | 10,245 | 16 | 6 |
 | `decomposition` | 9,776 | 19 | 32 |
 | `panel` | 9,073 | 14 | 18 |
 | `dml` | 8,999 | 24 | 16 |

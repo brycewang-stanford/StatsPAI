@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 import numpy as np
+import pandas as pd
 from scipy import stats
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
@@ -111,11 +112,21 @@ def rdplot_numbers(
     covs: Optional[np.ndarray] = None,
     ci: float = 95.0,
     masspoints: str = "adjust",
+    cluster: Optional[np.ndarray] = None,
 ) -> Dict[str, Any]:
-    """Return R ``rdplot``'s numerical output (see module docstring)."""
+    """Return R ``rdplot``'s numerical output (see module docstring).
+
+    ``cluster`` (labels aligned with ``y``) replaces the per-bin t interval
+    with the cluster-robust one of Stata ``mean y, vce(cluster c)`` within
+    the bin: ``se^2 = G/(G-1) sum_g (sum_{i in g} (y_i - ybar))^2 / n^2``
+    with ``t(G - 1)``; R ``rdplot`` has no cluster option.
+    """
     y = np.asarray(y, dtype=float)
     x = np.asarray(x, dtype=float)
     ok = np.isfinite(x) & np.isfinite(y)
+    if cluster is not None:
+        cluster = np.asarray(cluster)
+        ok &= ~pd.isna(cluster)
     if covs is not None:
         covs = np.asarray(covs, dtype=float)
         if covs.ndim == 1:
@@ -125,6 +136,8 @@ def rdplot_numbers(
         weights = np.asarray(weights, dtype=float)
         ok &= np.isfinite(weights) & (weights >= 0)
     x, y = x[ok], y[ok]
+    if cluster is not None:
+        cluster = cluster[ok]
     if covs is not None:
         covs = covs[ok]
     if weights is not None:
@@ -382,6 +395,22 @@ def rdplot_numbers(
     sd = np.concatenate([sd_l, sd_r])
     se = sd / np.sqrt(N)
     quant = -stats.t.ppf((1 - ci / 100) / 2, np.maximum(N - 1, 1))
+    if cluster is not None:
+        cl_l, cl_r = cluster[ind_l], cluster[ind_r]
+        se_c, g_c = [], []
+        for bins, ys, cls, ub in ((bin_l, y_l, cl_l, ub_l), (bin_r, y_r, cl_r, ub_r)):
+            for b in ub:
+                m = bins == b
+                yb = ys[m]
+                codes = pd.factorize(cls[m])[0]
+                G = int(codes.max()) + 1
+                S = np.bincount(codes, weights=yb - yb.mean(), minlength=G)
+                v = G / (G - 1) * float(np.sum(S**2)) / yb.size**2 if G > 1 else np.nan
+                se_c.append(np.sqrt(v))
+                g_c.append(G)
+        se = np.asarray(se_c)
+        G_bins = np.asarray(g_c)
+        quant = -stats.t.ppf((1 - ci / 100) / 2, np.maximum(G_bins - 1, 1))
     mean_y = np.concatenate([my_l, my_r])
 
     return {

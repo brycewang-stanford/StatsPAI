@@ -82,6 +82,7 @@ from .bartik import (
 from .causal_impact import CausalImpactEstimator, causal_impact, impactplot
 from .core.effect_summary import EffectSummary, effect_summary  # noqa: E402
 from .core.results import CausalResult, EconometricResults, ScalarEffect
+from .core.ssc_presets import ssc  # noqa: E402
 
 # Eager: ``deepiv`` is both a function (sp.deepiv(...)) and a subpackage.
 # Lazy-loading collides with the subpackage attachment — see the
@@ -411,6 +412,7 @@ from .rd import (  # v1.15 polish
     rd_cate_summary,
     rd_compare,
     rd_dashboard,
+    rd_diff_in_disc,
     rd_discrete,
     rd_distribution,
     rd_distributional_design,
@@ -1262,6 +1264,8 @@ __all__ = [
     "rdbwsensitivity",
     "rdbalance",
     "rdplacebo",
+    "rd_diff_in_disc",
+    "ssc",
     "rdsummary",
     "rkd",
     "rd_honest",

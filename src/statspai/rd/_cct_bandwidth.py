@@ -73,6 +73,46 @@ BW_SELECTORS = (
 # rdbwselect's kernel constants for the reference bandwidth c_bw.
 _C_C = {"triangular": 2.576, "uniform": 1.843, "epanechnikov": 2.34}
 
+MASSPOINTS = ("adjust", "check", "off")
+
+
+def masspoint_shares(x_c: np.ndarray, masspoints: str, where: str) -> Dict[str, float]:
+    """Validate ``masspoints`` and report R ``rdrobust``'s mass-point shares.
+
+    ``1 - M/N`` per side (``M`` unique values, ``N`` observations); R flags
+    mass points at 0.2 or more on either side. ``'adjust'`` (R's default)
+    then uses the unique-value count in the reference bandwidth and floors
+    the pilot bandwidth at the 10th unique value from the cutoff
+    (``bwcheck = 10``); ``'check'`` only warns; ``'off'`` does neither.
+    """
+    import warnings
+
+    from ..exceptions import MethodIncompatibility
+
+    if masspoints not in MASSPOINTS:
+        raise MethodIncompatibility(
+            f"{where}: masspoints={masspoints!r}; use 'adjust', 'check' or 'off'.",
+            diagnostics={"masspoints": masspoints},
+        )
+    left, right = x_c < 0, x_c >= 0
+    share_l = 1 - len(np.unique(x_c[left])) / max(int(left.sum()), 1)
+    share_r = 1 - len(np.unique(x_c[right])) / max(int(right.sum()), 1)
+    detected = share_l >= 0.2 or share_r >= 0.2
+    if detected and masspoints == "check":
+        warnings.warn(
+            f"{where}: mass points detected in the running variable "
+            f"(tied share {share_l:.2f} left, {share_r:.2f} right); "
+            "masspoints='adjust' applies R rdrobust's correction.",
+            UserWarning,
+            stacklevel=3,
+        )
+    return {
+        "mass_left": float(share_l),
+        "mass_right": float(share_r),
+        "detected": bool(detected),
+        "masspoints": masspoints,
+    }
+
 
 def _kweight(x: np.ndarray, c: float, h: float, kernel: str) -> np.ndarray:
     """``rdrobust_kweight``: kernel weights, divided by ``h``."""

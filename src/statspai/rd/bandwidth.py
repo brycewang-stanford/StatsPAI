@@ -39,7 +39,7 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
-from ._cct_bandwidth import BW_SELECTORS, cct_bandwidth
+from ._cct_bandwidth import BW_SELECTORS, cct_bandwidth, masspoint_shares
 from ._core import _check_covariate_rank
 
 # ======================================================================
@@ -71,6 +71,7 @@ def rdbwselect(
     bwselect: str = "mserd",
     cluster: Optional[str] = None,
     all: bool = False,
+    masspoints: str = "adjust",
 ) -> pd.DataFrame:
     """
     Bandwidth selection for local polynomial RD estimation.
@@ -149,6 +150,12 @@ def rdbwselect(
         Cluster variable name for cluster-robust variance estimation.
     all : bool, default False
         If True, compute and return all ten bandwidth types.
+    masspoints : {'adjust', 'check', 'off'}, default 'adjust'
+        R ``rdbwselect(masspoints=)``. When 20% or more of either side's
+        observations are tied, ``'adjust'`` uses the count of unique
+        running-variable values in the reference bandwidth and floors the
+        pilot bandwidth at the 10th unique value from the cutoff;
+        ``'check'`` only warns; ``'off'`` treats the data as continuous.
 
     Returns
     -------
@@ -287,6 +294,7 @@ def rdbwselect(
     right = X_c >= 0
     n_left = int(left.sum())
     n_right = int(right.sum())
+    mass = masspoint_shares(X_c, masspoints, "rdbwselect")
 
     if n_left < p + 2 or n_right < p + 2:
         raise ValueError(  # pragma: no cover
@@ -323,6 +331,7 @@ def rdbwselect(
             covs=covs_data,
             cluster=cluster_vals,
             fuzzy=D,
+            masspoints=masspoints,
         )
         return out["h_left"], out["h_right"], out["b_left"], out["b_right"]
 
@@ -353,4 +362,6 @@ def rdbwselect(
                 "n_right": n_eff_r,
             }
         )
-    return pd.DataFrame(rows)
+    out = pd.DataFrame(rows)
+    out.attrs.update(mass)
+    return out

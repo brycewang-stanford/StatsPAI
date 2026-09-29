@@ -79,6 +79,7 @@ from .bayes_hte import BayesRDHTEResult, rd_bayes_hte
 from .bias_aware import rd_bias_aware_fuzzy
 from .dashboard import rd_compare, rd_dashboard, rd_robustness_table
 from .diagnostics import rdbalance, rdbwsensitivity, rdplacebo, rdsummary
+from .diff_in_disc import rd_diff_in_disc
 from .distribution_valued import DistRDResult, rd_distribution
 from .distributional_design import DDDResult, rd_distributional_design
 from .extrapolate import rd_external_validity, rd_extrapolate, rd_multi_extrapolate
@@ -460,6 +461,7 @@ __all__ = [
     "rdbwsensitivity",
     "rdbalance",
     "rdplacebo",
+    "rd_diff_in_disc",
     "rdsummary",
     "rkd",
     "rd_honest",

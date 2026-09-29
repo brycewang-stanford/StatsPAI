@@ -49,6 +49,46 @@ All notable changes to StatsPAI will be documented in this file.
   `test_zero` for the cross-equation "joint test" rows of experimental
   tables; equal to Stata `suest` after `regress` to 1e-12
   (`test_suest_Stata_parity.py`).
+- **`sp.rd_diff_in_disc`.** Difference-in-discontinuities (Grembi, Nannicini
+  and Troiano 2016): one pooled local polynomial, fully interacted in side
+  and period, whose `post x above` coefficient is the change in the
+  discontinuity; clustered by unit or site it carries the covariance between
+  the two periods that differencing two `rdrobust` runs ignores. Equal to
+  Stata `regress [aw=kernel], vce(robust | cluster)` to 1e-14
+  (`test_rd_diff_in_disc_Stata_parity.py`).
+- **`sp.ssc(preset)`.** Small-sample-correction presets for `sp.feols(ssc=)`
+  named after the Stata command they reproduce (`'regress'`, `'areg'`,
+  `'reghdfe'`, `'xtreg'`, `'ivregress'`, `'ivregress_small'`, `'fixest'`) --
+  `areg` charges firm effects nested in the cluster, `reghdfe` / `xtreg, fe`
+  do not, `ivregress` applies no factor without `small`. Each reproduces its
+  command's SE to 1e-10 (`test_ssc_presets_Stata_parity.py`).
+- **`sp.rdrobust(masspoints=)` and `sp.rdbwselect(masspoints=)`**
+  (`'adjust'`, `'check'`, `'off'`, as R). The adjustment for tied running
+  variables was always on; `'off'` and `'check'` now reproduce R's
+  unadjusted bandwidths and estimates, and the tied shares are reported
+  (`model_info['masspoints']`, `.attrs`). Equal to R rdrobust 4.0.0 to 1e-8
+  on a 0.02-grid running variable (`test_rd_masspoints_R_parity.py`).
+- **`cluster=` for `sp.rd_honest`, `sp.rdbwsensitivity`, `sp.rdplacebo`,
+  `sp.rdbalance`, `sp.rdsummary` and `sp.rdplot`.** `rd_honest` follows
+  `RDHonest(clusterid=)` -- cluster-robust SE and the Moulton-corrected
+  bandwidth search -- and equals it to 1e-9 with `M`, `h` fixed and 1e-6
+  with them selected (`test_rdhonest_cluster_R_parity.py`); the diagnostics
+  pass the cluster to every `rdrobust` fit; `rdplot`'s per-bin intervals
+  become Stata `mean, vce(cluster)` within the bin and its band CR1
+  (`test_rd_cluster_diagnostics.py`).
+- **`sp.cgs_continuous_did(cluster=)`.** The overall ACRT SE sums the unit
+  influence functions within a time-invariant cluster; with cluster-level
+  doses and shocks it tracks the Monte Carlo spread (0.63 vs 0.74) where
+  the unclustered SE gives 0.22 (`test_cgs_continuous_cluster.py`).
+- **`sp.bacon_decomposition(balance='drop_units')`.** Decomposes the
+  balanced subpanel of an unbalanced panel (Stata `xtbalance` first) and
+  lists the dropped units; the default still refuses, as R/Stata
+  `bacondecomp` do (`test_bacon_unbalanced.py`).
+- **`sp.spec_curve(fe=)`.** Fixed-effect sets as a choice dimension of the
+  specification curve, estimated as `reghdfe` (singletons dropped, absorbed
+  levels charged, those nested in the cluster not); equal to Stata `reghdfe`
+  / `regress` under all three VCEs to 1e-10
+  (`test_spec_curve_fe_Stata_parity.py`).
 
 - **Skill: `references/modern-methods.md` covers the 1.29–1.32 estimators.**
   The packaged `statspai-analysis` skill had no entry for about thirty
@@ -476,6 +516,15 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **`sp.cgs_continuous_did`: the overall ACRT standard error was about half
+  its true value.** The cell influence function is a treated-sample
+  quantity (the ACRT is a mean over dosed units) but was aggregated as if
+  it were on the whole cell, dropping a factor `n / n_treated`. With half
+  the units dosed the SE was 0.059 against a Monte Carlo spread of 0.123;
+  it is now 0.123 against 0.121 (`test_cgs_continuous_cluster.py`).
+- **`sp.spec_curve`: clustered p-values and CIs used t(n - k)** where Stata
+  `regress, vce(cluster)` uses t(G - 1), overstating significance with few
+  clusters; the SE was already right (`test_spec_curve_fe_Stata_parity.py`).
 - **Stata reference fixtures read the data in double precision.** The
   fixtures added for `hdfe_ols`, the wild bootstraps and the weak-IV
   statistics used `import delimited` without `asdouble`, so Stata worked

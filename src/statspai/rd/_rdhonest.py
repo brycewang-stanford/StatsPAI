@@ -195,10 +195,20 @@ def honest_fit(
     sclass: str = "H",
     J: int = 3,
     sigma2: Optional[np.ndarray] = None,
+    cluster: Optional[np.ndarray] = None,
+    rho: float = 0.0,
 ) -> Dict[str, float]:
-    """One honest RD fit at a given bandwidth and smoothness bound."""
+    """One honest RD fit at a given bandwidth and smoothness bound.
+
+    With ``cluster`` (integer codes aligned with ``x``) the variance is
+    ``NPReg``'s clustered one, ``sum_g (sum_{i in g} w_i e_i)^2`` with ``e``
+    the residuals of the joint local linear fit -- or, when ``sigma2`` is
+    supplied (the bandwidth search), ``sum w^2 sigma2 + rho (sum_g
+    (sum_{i in g} w_i)^2 - sum w^2)`` with the Moulton ``rho``.
+    """
     order = np.argsort(x, kind="mergesort")
     xs, ys = x[order], y[order]
+    cl = None if cluster is None else np.asarray(cluster)[order]
     w = honest_weights(xs, c, h, kernel)
     nz = w != 0
     if nz.sum() < 4:
@@ -208,7 +218,13 @@ def honest_fit(
         )
     est = float(np.sum(w * ys))
     bias = honest_bias(w, xs, c, M, sclass)
-    if sigma2 is None:
+    if cl is not None and sigma2 is None:
+        e = _npreg_resid(xs, ys, c, h, kernel)
+        G = int(cl.max()) + 1
+        S = np.bincount(cl[nz], weights=(w * e)[nz], minlength=G)
+        s2 = None
+        var = float(np.sum(S**2))
+    elif sigma2 is None:
         s2 = np.zeros_like(xs)
         # Each SIDE gets its own nearest-neighbour variance. Pooling across
         # the cutoff lets a point just left of c difference against one just
@@ -220,7 +236,13 @@ def honest_fit(
                 s2[idx] = sigma_nn(xs[idx], ys[idx], J)
     else:
         s2 = sigma2[order]
-    se = float(np.sqrt(np.sum(w[nz] ** 2 * s2[nz])))
+    if s2 is not None:
+        var = float(np.sum(w[nz] ** 2 * s2[nz]))
+        if cl is not None and rho != 0.0:
+            G = int(cl.max()) + 1
+            Sw = np.bincount(cl[nz], weights=w[nz], minlength=G)
+            var += rho * (float(np.sum(Sw**2)) - float(np.sum(w[nz] ** 2)))
+    se = float(np.sqrt(max(var, 0.0)))
     cv = cv_bias(bias / se, alpha) if se > 0 else float("inf")
     half = cv * se
     eff_obs = _eff_obs(xs, c, h, w)
@@ -311,10 +333,10 @@ def _prelim_var_silverman(x: np.ndarray, y: np.ndarray, c: float) -> np.ndarray:
     return _sidewise_mean(r2, x, c, inwin)
 
 
-def _npreg_resid2(
+def _npreg_resid(
     x: np.ndarray, y: np.ndarray, c: float, h: float, kernel: str
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Residuals from ``NPReg``'s JOINT order-1 fit, and the window mask.
+) -> np.ndarray:
+    """Residuals from ``NPReg``'s JOINT order-1 fit.
 
     The design is ``[I(x>=c), I(x>=c)*x, 1, x]`` -- both sides in one
     weighted regression, not two separate ones. Residuals are raw (not
@@ -326,7 +348,18 @@ def _npreg_resid2(
     z = np.column_stack([right, right * xc, np.ones_like(xc), xc])
     sw = np.sqrt(w)
     beta, *_ = np.linalg.lstsq(z * sw[:, None], y * sw, rcond=None)
-    return (y - z @ beta) ** 2, w != 0
+    return y - z @ beta
+
+
+def _moulton(u: np.ndarray, cl: np.ndarray) -> float:
+    """``RDHonest::Moulton``: the within-cluster residual correlation."""
+    G = int(cl.max()) + 1
+    n_g = np.bincount(cl, minlength=G)
+    den = float(np.sum(n_g.astype(float) ** 2) - u.size)
+    if den <= 0:
+        return 0.0
+    S = np.bincount(cl, weights=u, minlength=G)
+    return float((np.sum(S**2) - np.sum(u**2)) / den)
 
 
 def _ik_bandwidth(x: np.ndarray, y: np.ndarray, c: float) -> float:
@@ -373,7 +406,13 @@ def _ik_bandwidth(x: np.ndarray, y: np.ndarray, c: float) -> float:
     return float(const * ((var_p + var_m) / denom) ** (1 / 5))
 
 
-def _prelim_var_ehw(x: np.ndarray, y: np.ndarray, c: float, kernel: str) -> np.ndarray:
+def _prelim_var_ehw(
+    x: np.ndarray,
+    y: np.ndarray,
+    c: float,
+    kernel: str,
+    cluster: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, float]:
     """``PrelimVar(se.initial='EHW')``: the variance ``OptBW`` searches under.
 
     Freezing the variance before the bandwidth search is deliberate: it
@@ -389,8 +428,15 @@ def _prelim_var_ehw(x: np.ndarray, y: np.ndarray, c: float, kernel: str) -> np.n
     # truncating it. Clamping here changed the preliminary variance by ~5%
     # and moved the selected bandwidth by 0.9%.
     h = max(h1, _hmin(x, c))
-    r2, inwin = _npreg_resid2(x, y, c, h, "triangular")
-    return _sidewise_mean(r2, x, c, inwin)
+    e = _npreg_resid(x, y, c, h, "triangular")
+    inwin = _kern((x - c) / h, "triangular") != 0
+    rho = 0.0
+    if cluster is not None:
+        # PrelimVar: Moulton rho from the same preliminary residuals, on
+        # the observations inside the pilot window (clusters re-coded there)
+        codes = np.unique(cluster[inwin], return_inverse=True)[1]
+        rho = _moulton(e[inwin], codes)
+    return _sidewise_mean(e**2, x, c, inwin), rho
 
 
 def honest_bandwidth(
@@ -403,6 +449,7 @@ def honest_bandwidth(
     alpha: float = 0.05,
     beta: float = 0.8,
     sclass: str = "H",
+    cluster: Optional[np.ndarray] = None,
 ) -> float:
     """``RDHonest::OptBW``: the bandwidth minimising the chosen criterion.
 
@@ -417,11 +464,24 @@ def honest_bandwidth(
         )
     order = np.argsort(x, kind="mergesort")
     xs, ys = x[order], y[order]
-    s2 = _prelim_var_ehw(xs, ys, c, kernel)
+    cls = None if cluster is None else np.asarray(cluster)[order]
+    s2, rho = _prelim_var_ehw(xs, ys, c, kernel, cls)
 
     def obj(h: float) -> float:
         try:
-            r = honest_fit(xs, ys, c, float(h), M, kernel, alpha, sclass, sigma2=s2)
+            r = honest_fit(
+                xs,
+                ys,
+                c,
+                float(h),
+                M,
+                kernel,
+                alpha,
+                sclass,
+                sigma2=s2,
+                cluster=cls,
+                rho=rho,
+            )
         except (ValueError, np.linalg.LinAlgError):
             return float("inf")
         if crit == "MSE":
@@ -497,10 +557,14 @@ def honest_rd(
     opt_criterion: str = "MSE",
     sclass: str = "H",
     J: int = 3,
+    cluster: Optional[np.ndarray] = None,
 ) -> Tuple[Dict[str, float], bool]:
     """Full honest RD: pick ``M`` and ``h`` if not supplied, then fit.
 
     Returns the fit dict and whether ``M`` came from the rule of thumb.
+    ``cluster`` (any labels aligned with ``x``) gives ``RDHonest``'s
+    ``clusterid`` behaviour: Moulton-corrected variance in the bandwidth
+    search and the cluster-robust standard error in the fit.
     """
     if kernel not in _KERNELS:
         raise ValueError(f"kernel must be one of {_KERNELS}, got {kernel!r}")
@@ -508,10 +572,17 @@ def honest_rd(
     y = np.asarray(y, dtype=float)
     ok = np.isfinite(x) & np.isfinite(y)
     x, y = x[ok], y[ok]
+    codes = None
+    if cluster is not None:
+        codes = np.unique(np.asarray(cluster)[ok], return_inverse=True)[1]
     m_estimated = M is None
     if M is None:
         M = m_rule_of_thumb(x, y, c)
     if h is None:
-        h = honest_bandwidth(x, y, c, M, kernel, opt_criterion, alpha, sclass=sclass)
-    fit = honest_fit(x, y, c, float(h), float(M), kernel, alpha, sclass, J)
+        h = honest_bandwidth(
+            x, y, c, M, kernel, opt_criterion, alpha, sclass=sclass, cluster=codes
+        )
+    fit = honest_fit(
+        x, y, c, float(h), float(M), kernel, alpha, sclass, J, cluster=codes
+    )
     return fit, m_estimated

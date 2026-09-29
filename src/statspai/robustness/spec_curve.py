@@ -415,8 +415,10 @@ def _run_one_spec(
     model_type: str,
     transform_y: Optional[Callable[[pd.Series], Any]],
     transform_label: str,
+    fe: Optional[List[str]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Run a single specification and return results dict."""
+    fe = list(fe or [])
     df = data.copy()
 
     # Apply subset
@@ -441,10 +443,25 @@ def _run_one_spec(
     all_vars = [y_col, x] + controls
     if cluster_var:
         all_vars.append(cluster_var)
+    all_vars += [f for f in fe if f not in all_vars]
     df_clean = df[all_vars].dropna()
 
     if len(df_clean) < len(controls) + 3:
         return None
+
+    if fe:
+        return _run_one_fe_spec(
+            df_clean,
+            y_col,
+            x,
+            controls,
+            se_type,
+            cluster_var,
+            fe,
+            subset_label,
+            model_type,
+            transform_label,
+        )
 
     Y = df_clean[y_col].values.astype(float)
     X_vars = [x] + controls
@@ -500,7 +517,8 @@ def _run_one_spec(
     # Key variable is index 1 (index 0 is intercept)
     beta_x = params[1]
     se_x = se[1]
-    df_resid = n - k
+    # Stata regress: t(n - k), or t(G - 1) with vce(cluster)
+    df_resid = G - 1 if (se_type == "cluster" and cluster_var) else n - k
     t_stat = beta_x / se_x if se_x > 0 else np.inf
     p_val = 2 * stats.t.sf(abs(t_stat), df_resid)
     t_crit = stats.t.ppf(0.975, df_resid)
@@ -524,6 +542,85 @@ def _run_one_spec(
         "subset": subset_label,
         "model": model_type,
         "y_transform": transform_label,
+        "fe": "(none)",
+    }
+
+
+def _run_one_fe_spec(
+    df_clean: pd.DataFrame,
+    y_col: str,
+    x: str,
+    controls: List[str],
+    se_type: str,
+    cluster_var: Optional[str],
+    fe: List[str],
+    subset_label: str,
+    model_type: str,
+    transform_label: str,
+) -> Optional[Dict[str, Any]]:
+    """One specification with absorbed fixed effects, as Stata ``reghdfe``.
+
+    Singletons are dropped and the absorbed levels charged to the degrees of
+    freedom as ``reghdfe`` does; ``nonrobust`` is ``vce(unadjusted)``,
+    ``hc1`` ``vce(robust)`` and ``cluster`` ``vce(cluster c)`` (fixed
+    effects nested in the cluster not charged, t with G - 1 df).
+    """
+    from ..panel.hdfe import absorb_ols
+
+    Y = df_clean[y_col].to_numpy(dtype=float)
+    X = df_clean[[x] + controls].to_numpy(dtype=float)
+    fe_frame = df_clean[fe].reset_index(drop=True)
+    cl = (
+        df_clean[cluster_var].to_numpy()
+        if se_type == "cluster" and cluster_var
+        else None
+    )
+    try:
+        out = absorb_ols(Y, X, fe_frame, cluster=cl, return_absorber=True)
+    except (ValueError, np.linalg.LinAlgError):
+        return None
+    if 0 in out["omitted"]:
+        return None  # x is collinear with the fixed effects
+    n = int(out["n"])
+    resid = out["resid"]
+    if se_type in ("hc1", "robust"):
+        ab = out["absorber"]
+        kept = [j for j in range(X.shape[1]) if j not in set(out["omitted"])]
+        Xw = ab.demean(X)[:, kept]
+        XtX_inv = np.linalg.inv(Xw.T @ Xw)
+        meat = (Xw * (resid**2)[:, None]).T @ Xw
+        V = (n / out["df_resid"]) * XtX_inv @ meat @ XtX_inv
+        se_x = float(np.sqrt(V[0, 0]))
+        dof = int(out["df_resid"])
+    else:
+        se_x = float(out["se"][0])
+        if cl is not None:
+            dof = len(np.unique(cl[out["absorber"].keep_mask])) - 1
+        else:
+            dof = int(out["df_resid"])
+    beta_x = float(out["coef"][0])
+    t_stat = beta_x / se_x if se_x > 0 else np.inf
+    p_val = 2 * stats.t.sf(abs(t_stat), dof)
+    t_crit = stats.t.ppf(0.975, dof)
+    keep = out["absorber"].keep_mask
+    Yk = Y[keep]
+    ss_tot = float(np.sum((Yk - Yk.mean()) ** 2))
+    r2 = 1 - float(np.sum(resid**2)) / ss_tot if ss_tot > 0 else np.nan
+    return {
+        "estimate": beta_x,
+        "se": se_x,
+        "ci_lower": beta_x - t_crit * se_x,
+        "ci_upper": beta_x + t_crit * se_x,
+        "pvalue": p_val,
+        "tstat": t_stat,
+        "nobs": n,
+        "r_squared": r2,
+        "controls": ", ".join(controls) if controls else "(none)",
+        "se_type": se_type,
+        "subset": subset_label,
+        "model": model_type,
+        "y_transform": transform_label,
+        "fe": ", ".join(fe),
     }
 
 
@@ -543,6 +640,7 @@ def spec_curve(
     cluster_var: Optional[str] = None,
     y_transforms: Optional[Dict[str, Optional[Callable[[pd.Series], Any]]]] = None,
     alpha: float = 0.05,
+    fe: Optional[List[List[str]]] = None,
 ) -> SpecCurveResult:
     """
     Run a specification curve analysis.
@@ -583,6 +681,13 @@ def spec_curve(
         ``None`` value means no transform.
     alpha : float, default 0.05
         Significance threshold.
+    fe : list of list of str, optional
+        Fixed-effect sets, one choice dimension like *controls*: each inner
+        list names the columns absorbed in that specification (``[]`` = none),
+        e.g. ``[[], ['firm'], ['firm', 'year']]``. Specifications with fixed
+        effects are estimated as Stata ``reghdfe`` (singletons dropped,
+        absorbed levels charged to the degrees of freedom, those nested in
+        the cluster not). Default: ``[[]]``.
 
     Returns
     -------
@@ -634,6 +739,15 @@ def spec_curve(
         subsets = {"Full Sample": None}
     if y_transforms is None:
         y_transforms = {"Level": None}
+    if fe is None:
+        fe = [[]]
+    fe = [[f] if isinstance(f, str) else list(f) for f in fe]
+    missing_fe = sorted({f for fs in fe for f in fs} - set(data.columns))
+    if missing_fe:
+        raise MethodIncompatibility(
+            f"Fixed-effect columns not found in data: {missing_fe}",
+            diagnostics={"missing": missing_fe},
+        )
 
     # Auto-add cluster SE type
     if cluster_var and "cluster" not in se_types:
@@ -647,8 +761,15 @@ def spec_curve(
     all_results = []
     spec_id = 0
 
-    for ctrl_set, se_type, (sub_label, sub_mask), (tf_label, tf_func) in product(
+    for (
+        ctrl_set,
+        fe_set,
+        se_type,
+        (sub_label, sub_mask),
+        (tf_label, tf_func),
+    ) in product(
         controls,
+        fe,
         se_types,
         subsets.items(),
         y_transforms.items(),
@@ -665,6 +786,7 @@ def spec_curve(
             model_type="OLS",
             transform_y=tf_func,
             transform_label=tf_label,
+            fe=fe_set,
         )
         if res is not None:
             res["spec_id"] = spec_id
@@ -684,7 +806,7 @@ def spec_curve(
 
     # ---- determine which choice dimensions vary -------------------------
     choice_dims = []
-    for col in ["controls", "se_type", "subset", "y_transform"]:
+    for col in ["controls", "fe", "se_type", "subset", "y_transform"]:
         if results_df[col].nunique() > 1:
             choice_dims.append(col)
     # Always show at least controls

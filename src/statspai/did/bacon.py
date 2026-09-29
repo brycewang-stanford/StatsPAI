@@ -20,13 +20,13 @@ Goodman-Bacon, A., Goldring, T. and Nichols, A. (2019).
 of difference-in-differences estimation."
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 import numpy as np
 import pandas as pd
 
 from ..core.results import CausalResult
-from ..exceptions import MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 
 def bacon_decomposition(
@@ -36,6 +36,7 @@ def bacon_decomposition(
     time: str,
     id: str,
     alpha: float = 0.05,
+    balance: str = "error",
 ) -> Dict[str, Any]:
     """
     Goodman-Bacon (2021) decomposition of the TWFE DID estimator.
@@ -57,6 +58,14 @@ def bacon_decomposition(
         Unit identifier.
     alpha : float, default 0.05
         Significance level.
+    balance : {'error', 'drop_units'}, default 'error'
+        What to do with an unbalanced panel. The decomposition theorem holds
+        for a balanced panel only, so by default an unbalanced one is an
+        error (as in R ``bacondecomp`` and Stata ``bacondecomp``).
+        ``'drop_units'`` keeps the units with a non-missing outcome and
+        treatment in every period -- Stata ``xtbalance`` before
+        ``bacondecomp`` -- and decomposes the TWFE estimate on that balanced
+        subpanel; the dropped units are listed in the output.
 
     Returns
     -------
@@ -73,6 +82,8 @@ def bacon_decomposition(
           truly negative Bacon weights. This is usually zero; already-treated
           control comparisons are reported separately as
           ``already_treated_control_weight_share``.
+        - ``n_units``: units decomposed; ``dropped_units``: the units
+          ``balance='drop_units'`` removed (empty otherwise).
 
     Examples
     --------
@@ -114,6 +125,31 @@ def bacon_decomposition(
     See Goodman-Bacon (2021, *JEcon*), Theorem 1.
     """
     df = data.copy()
+    if balance not in ("error", "drop_units"):
+        raise MethodIncompatibility(
+            f"balance={balance!r}; use 'error' or 'drop_units'.",
+            diagnostics={"balance": balance},
+        )
+    dropped_units: list = []
+    if balance == "drop_units":
+        df = df.dropna(subset=[y, treat, time, id])
+        n_periods = df[time].nunique()
+        per_unit = df.groupby(id)[time].nunique()
+        dup = df.duplicated(subset=[id, time])
+        if dup.any():
+            raise MethodIncompatibility(
+                "Duplicate (unit, time) rows.",
+                recovery_hint="Aggregate or drop duplicates before decomposing.",
+                diagnostics={"n_duplicates": int(dup.sum())},
+            )
+        dropped_units = sorted(per_unit.index[per_unit < n_periods].tolist())
+        df = df[~df[id].isin(dropped_units)]
+        if df[id].nunique() == 0:
+            raise DataInsufficient(
+                "No unit is observed in every period.",
+                recovery_hint="Restrict the time window so some units span it.",
+                diagnostics={"n_periods": int(n_periods)},
+            )
 
     # Validate balanced panel using the same requirement as bacondecomp:
     # each unit must contribute the same number of time observations.
@@ -123,7 +159,8 @@ def bacon_decomposition(
             "Unbalanced Panel",
             recovery_hint=(
                 "Goodman-Bacon decomposition requires the same number of "
-                "time observations per unit; balance the panel or use a "
+                "time observations per unit; pass balance='drop_units' to "
+                "decompose the balanced subpanel, or use a "
                 "heterogeneity-robust DID estimator directly."
             ),
             diagnostics={"panel_balance_counts": counts.value_counts().to_dict()},
@@ -210,6 +247,8 @@ def bacon_decomposition(
             "n_comparisons": 0,
             "negative_weight_share": 0.0,
             "already_treated_control_weight_share": 0.0,
+            "n_units": int(df[id].nunique()),
+            "dropped_units": dropped_units,
         }
 
     # Normalize weights to sum to 1
@@ -242,6 +281,8 @@ def bacon_decomposition(
         "n_comparisons": len(decomp),
         "negative_weight_share": neg_share,
         "already_treated_control_weight_share": forbidden_share,
+        "n_units": int(df[id].nunique()),
+        "dropped_units": dropped_units,
     }
 
 

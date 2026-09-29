@@ -1018,6 +1018,16 @@
           "description": "Run a McCrary density test for sorting at the cutoff; stores model_info['mccrary']['pvalue'] and warns + flags result.violations() when p<0.05. Disable for placebo-cutoff loops.",
           "type": "boolean"
         },
+        "masspoints": {
+          "default": "adjust",
+          "description": "R rdrobust masspoints: 'adjust' (unique-value count and bwcheck=10 in the bandwidth when >=20% of a side is tied), 'check' (warn only) or 'off'",
+          "enum": [
+            "adjust",
+            "check",
+            "off"
+          ],
+          "type": "string"
+        },
         "n_boot": {
           "default": 999,
           "description": "Number of bootstrap draws when bootstrap='rbc'",
@@ -4242,7 +4252,7 @@
     }
   },
   {
-    "description": "Specification curve analysis -- run many model specifications and visualise robustness.",
+    "description": "Specification curve analysis -- run many model specifications and visualise robustness. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "spec_curve",
     "parameters": {
       "properties": {
@@ -4262,6 +4272,13 @@
           "description": "Analysis dataset.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "fe": {
+          "description": "Candidate fixed-effect sets to sweep (reghdfe-style absorption)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "x": {
           "description": "Treatment / focal regressor",
@@ -13959,6 +13976,15 @@
           "description": "Significance level.",
           "type": "number"
         },
+        "balance": {
+          "default": "error",
+          "description": "'error' or 'drop_units' (keep units observed in every period)",
+          "enum": [
+            "error",
+            "drop_units"
+          ],
+          "type": "string"
+        },
         "data": {
           "description": "Balanced panel data.",
           "type": "object",
@@ -17089,6 +17115,11 @@
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
         },
+        "cluster": {
+          "description": "Time-invariant cluster column; influence functions are summed within clusters for the overall ACRT SE",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "cohort": {
           "description": "First-treatment period (0 = never treated)",
           "type": "string",
@@ -17806,6 +17837,11 @@
           "default": 0.0,
           "description": "Cutoff value",
           "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column (RDHonest clusterid): cluster-robust SE and Moulton-corrected bandwidth search",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "data": {
           "description": "Input data.",
@@ -20200,6 +20236,11 @@
           "description": "Level of the per-bin t intervals and the polynomial CI band.",
           "type": "number"
         },
+        "cluster": {
+          "description": "Cluster column: the per-bin intervals become cluster-robust (Stata ``mean y, vce(cluster c)`` within each bin, ``t(G - 1)``), and so does the shaded band around the polynomial (CR1). R ``rdplot`` has no cluster option; without it the intervals assume independent observations.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "covs": {
           "description": "Covariates, adjusted for as R ``rdplot(covs=, covs_eval='mean')`` does.",
           "items": {
@@ -20472,6 +20513,16 @@
           ],
           "type": "string"
         },
+        "masspoints": {
+          "default": "adjust",
+          "description": "R ``rdbwselect(masspoints=)``. When 20% or more of either side's observations are tied, ``'adjust'`` uses the count of unique running-variable values in the reference bandwidth and floors the pilot bandwidth at the 10th unique value from the cutoff; ``'check'`` only warns; ``'off'`` treats the data as continuous.",
+          "enum": [
+            "adjust",
+            "check",
+            "off"
+          ],
+          "type": "string"
+        },
         "p": {
           "default": 1,
           "description": "Polynomial order for point estimation (1 = local linear).",
@@ -20539,6 +20590,11 @@
           "default": 0,
           "description": "Cutoff.",
           "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column for the standard errors of every ``rdrobust`` fit (``vce(cluster)``; also the bandwidth selection, as ``rdrobust`` does).",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -20609,6 +20665,11 @@
           "description": "Cutoff.",
           "type": "number"
         },
+        "cluster": {
+          "description": "Cluster column for the standard errors of every ``rdrobust`` fit (``vce(cluster)``; also the bandwidth selection, as ``rdrobust`` does).",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "covs": {
           "description": "Covariate names to test. If None, tests all numeric columns except x.",
           "items": {
@@ -20671,6 +20732,11 @@
           "default": 0,
           "description": "True cutoff.",
           "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column for the standard errors of every ``rdrobust`` fit (``vce(cluster)``; also the bandwidth selection, as ``rdrobust`` does).",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -20744,6 +20810,109 @@
     }
   },
   {
+    "description": "Difference-in-discontinuities estimate with a pooled local polynomial. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "rd_diff_in_disc",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "c": {
+          "default": 0.0,
+          "description": "Cutoff; observations with ``x >= c`` are above it.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster the standard error (e.g. by unit or site, which lets the two periods' errors correlate): CR1 as Stata ``regress [aw=], vce(cluster c)``. Otherwise HC1 (``vce(robust)``).",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "covariates": {
+          "description": "Additive covariates in the pooled regression (``covs=`` is accepted, as in ``rdrobust``).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covs"
+          ],
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "Pooled pre- and post-period observations.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "h": {
+          "description": "Bandwidth, common to both sides and periods. Default: the smaller of the two periods' MSE-optimal ``rdbwselect`` bandwidths (``mserd``) -- a conservative choice; pass ``h`` to set it.",
+          "type": "number"
+        },
+        "kernel": {
+          "default": "triangular",
+          "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov"
+          ],
+          "type": "string"
+        },
+        "p": {
+          "default": 1,
+          "description": "Polynomial order on each side and period.",
+          "type": "integer"
+        },
+        "post": {
+          "description": "0/1 period indicator (1 = the period in which the cutoff policy is active).",
+          "type": "string"
+        },
+        "x": {
+          "description": "Outcome and running variable.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome and running variable.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "x",
+        "post"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Small-sample correction for ``sp.feols(..., ssc=...)`` by Stata command. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "ssc",
+    "parameters": {
+      "properties": {
+        "preset": {
+          "default": "fixest",
+          "description": "``'regress'``, ``'areg'``, ``'reghdfe'``, ``'xtreg'`` (``xtreg, fe``), ``'ivregress'`` (``ivregress 2sls`` without ``small``), ``'ivregress_small'`` or ``'fixest'`` (the backend default). Stata spellings with a ``stata_`` prefix are accepted.",
+          "enum": [
+            "regress",
+            "areg",
+            "reghdfe",
+            "xtreg",
+            "ivregress",
+            "ivregress_small",
+            "fixest"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
     "description": "One-stop RD diagnostic battery.",
     "name": "rdsummary",
     "parameters": {
@@ -20757,6 +20926,11 @@
           "default": 0,
           "description": "Cutoff.",
           "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column for the standard errors of every ``rdrobust`` fit (``vce(cluster)``; also the bandwidth selection, as ``rdrobust`` does).",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "covs": {
           "description": "Pre-treatment covariates for balance test.",

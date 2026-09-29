@@ -4779,6 +4779,7 @@
         "tests/reference_parity/test_feols_wild_boottest_parity.py",
         "tests/reference_parity/test_iv_hdfe_stata_parity.py",
         "tests/reference_parity/test_sasp_within_parity.py",
+        "tests/reference_parity/test_ssc_presets_Stata_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "also_in_modules": [
@@ -12154,6 +12155,23 @@
       "tolerance": "estimate, std.error, maximum.bias, conf.low/high, M, first stage: rel 1e-9 at fixed h and M (observed 1.1e-14), 1e-6 with selected h (observed 3.5e-8, optimiser)"
     },
     {
+      "function": "rd_diff_in_disc",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_rd_diff_in_disc_Stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "also_verified_by": [
         "reference_parity"
       ],
@@ -12179,6 +12197,9 @@
       "tolerance": "estimate, std.error, maximum.bias, conf.low/high rel 1e-9 at fixed h and for BME; 1e-6 when RDHonest selects h and M (optimiser)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_rdhonest_cluster_R_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -12231,6 +12252,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_rd_masspoints_R_parity.py",
         "tests/reference_parity/test_rdbwselect_comb_rules.py",
         "tests/reference_parity/test_rdrobust_fuzzy_parity.py"
       ],
@@ -12670,7 +12692,9 @@
         "tests/external_parity/test_published_replications.py",
         "tests/reference_parity/test_paper_parity.py",
         "tests/reference_parity/test_rd_covs_cluster_parity.py",
+        "tests/reference_parity/test_rd_diff_in_disc_Stata_parity.py",
         "tests/reference_parity/test_rd_iv_rd_R_parity.py",
+        "tests/reference_parity/test_rd_masspoints_R_parity.py",
         "tests/reference_parity/test_rd_open_R_parity.py",
         "tests/reference_parity/test_rd_vce_parity.py",
         "tests/reference_parity/test_rd_weights_parity.py",
@@ -14443,6 +14467,23 @@
       "tolerance": "vs splm: estimates and SEs 1e-7 rel (observed 7.2e-8 / 1.3e-8, the splm optimize floor); vs xsmle (tightened ml tolerances): estimates and beta SEs 1e-9 (observed 2.5e-13 / 8.5e-11), spatial-parameter SE 1e-8 (observed 3.0e-9)"
     },
     {
+      "function": "spec_curve",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_spec_curve_fe_Stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "spillover",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -14546,6 +14587,23 @@
         "tests/reference_parity/_fixtures/did_synth_shiftshare_stata.json"
       ],
       "tolerance": "1e-9 rel on beta, every SE row (Homoscedastic, EHW, Reg. cluster, AKM, AKM0), AKM/AKM0 CIs and the shock-level frame; p-values also atol 1e-15 (references use 2*(1-Phi)); observed <= 6e-14 (frame 2.9e-13)"
+    },
+    {
+      "function": "ssc",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_ssc_presets_Stata_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [

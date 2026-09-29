@@ -2372,6 +2372,16 @@
             "description": "Run a McCrary density test for sorting at the cutoff; stores model_info['mccrary']['pvalue'] and warns + flags result.violations() when p<0.05. Disable for placebo-cutoff loops.",
             "type": "boolean"
           },
+          "masspoints": {
+            "default": "adjust",
+            "description": "R rdrobust masspoints: 'adjust' (unique-value count and bwcheck=10 in the bandwidth when >=20% of a side is tied), 'check' (warn only) or 'off'",
+            "enum": [
+              "adjust",
+              "check",
+              "off"
+            ],
+            "type": "string"
+          },
           "n_boot": {
             "default": 999,
             "description": "Number of bootstrap draws when bootstrap='rbc'",
@@ -9260,17 +9270,21 @@
     ],
     "category": "robustness",
     "cost_profile": "",
-    "description": "Specification curve analysis -- run many model specifications and visualise robustness.",
+    "description": "Specification curve analysis -- run many model specifications and visualise robustness. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_spec_curve_fe_Stata_parity.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.spec_curve(df, y=\"outcome\", x=\"treat\", controls=[[], [\"x1\"], [\"x1\", \"x2\"]])",
@@ -9322,7 +9336,7 @@
       }
     },
     "signature": {
-      "description": "Specification curve analysis -- run many model specifications and visualise robustness.",
+      "description": "Specification curve analysis -- run many model specifications and visualise robustness. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "spec_curve",
       "parameters": {
         "properties": {
@@ -9342,6 +9356,13 @@
             "description": "Analysis dataset.",
             "type": "object",
             "x-statspai-role": "dataframe"
+          },
+          "fe": {
+            "description": "Candidate fixed-effect sets to sweep (reghdfe-style absorption)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "x": {
             "description": "Treatment / focal regressor",
@@ -9365,9 +9386,10 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_spec_curve_fe_Stata_parity.py",
       "API/unit contract evidence: tests/test_spec_curve.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -34021,6 +34043,12 @@
         "exception": "MethodIncompatibility",
         "remedy": "Bacon decomp assumes absorbing treatment. Use sp.did_multiplegt for on/off switching.",
         "symptom": "Treatment switches on and off (dCDH setting)"
+      },
+      {
+        "alternative": "callaway_santanna",
+        "exception": "MethodIncompatibility",
+        "remedy": "The decomposition holds on a balanced panel; pass balance='drop_units' to decompose the units observed in every period (dropped units are listed).",
+        "symptom": "Unbalanced panel"
       }
     ],
     "inherits_from": null,
@@ -34061,6 +34089,15 @@
             "default": 0.05,
             "description": "Significance level.",
             "type": "number"
+          },
+          "balance": {
+            "default": "error",
+            "description": "'error' or 'drop_units' (keep units observed in every period)",
+            "enum": [
+              "error",
+              "drop_units"
+            ],
+            "type": "string"
           },
           "data": {
             "description": "Balanced panel data.",
@@ -41319,6 +41356,11 @@
             "description": "Significance level for confidence intervals and tests.",
             "type": "number"
           },
+          "cluster": {
+            "description": "Time-invariant cluster column; influence functions are summed within clusters for the overall ACRT SE",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "cohort": {
             "description": "First-treatment period (0 = never treated)",
             "type": "string",
@@ -42909,6 +42951,11 @@
             "description": "Cutoff value",
             "type": "number"
           },
+          "cluster": {
+            "description": "Cluster column (RDHonest clusterid): cluster-robust SE and Moulton-corrected bandwidth search",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "data": {
             "description": "Input data.",
             "type": "object",
@@ -42970,6 +43017,7 @@
     "typical_n_min": 500,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs RDHonest::RDHonest 1.0.1.9000 (Armstrong & Kolesar) [R version 4.5.2 (2025-10-31), RDHonest 1.0.1.9000]; tolerance estimate / std.error / maximum.bias / conf.low / conf.high 1e-9 rel at fixed bandwidth; 1e-6 rel when the bandwidth and M are selected -- tests/reference_parity/test_rdhonest_parity.py",
+      "tests/reference_parity/test_rdhonest_cluster_R_parity.py",
       "API/unit contract evidence: tests/test_rd_validation.py"
     ],
     "validation_status": "certified"
@@ -46503,6 +46551,11 @@
             "description": "Level of the per-bin t intervals and the polynomial CI band.",
             "type": "number"
           },
+          "cluster": {
+            "description": "Cluster column: the per-bin intervals become cluster-robust (Stata ``mean y, vce(cluster c)`` within each bin, ``t(G - 1)``), and so does the shaded band around the polynomial (CR1). R ``rdplot`` has no cluster option; without it the intervals assume independent observations.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "covs": {
             "description": "Covariates, adjusted for as R ``rdplot(covs=, covs_eval='mean')`` does.",
             "items": {
@@ -47004,6 +47057,16 @@
             ],
             "type": "string"
           },
+          "masspoints": {
+            "default": "adjust",
+            "description": "R ``rdbwselect(masspoints=)``. When 20% or more of either side's observations are tied, ``'adjust'`` uses the count of unique running-variable values in the reference bandwidth and floors the pilot bandwidth at the 10th unique value from the cutoff; ``'check'`` only warns; ``'off'`` treats the data as continuous.",
+            "enum": [
+              "adjust",
+              "check",
+              "off"
+            ],
+            "type": "string"
+          },
           "p": {
             "default": 1,
             "description": "Polynomial order for point estimation (1 = local linear).",
@@ -47041,6 +47104,7 @@
       "R parity module 88_rdbwselect",
       "Stata parity module 88_rdbwselect",
       "Cross-language parity (bit-exact) vs rdrobust::rdbwselect; Stata side uses the authors' rdbwselect ado. certwo is R-only: Stata rdbwselect 10.0.0 exits r(3200) on it, including on the package's own rdrobust_senate.dta [R version 4.5.2 (2025-10-31), rdrobust 4.0.0]; tolerance rel_est<=1e-06; parity module 88_rdbwselect -- tests/r_parity/88_rdbwselect.py",
+      "tests/reference_parity/test_rd_masspoints_R_parity.py",
       "tests/reference_parity/test_rdbwselect_comb_rules.py",
       "tests/reference_parity/test_rdrobust_fuzzy_parity.py"
     ],
@@ -47134,6 +47198,11 @@
             "default": 0,
             "description": "Cutoff.",
             "type": "number"
+          },
+          "cluster": {
+            "description": "Cluster column for the standard errors of every ``rdrobust`` fit (``vce(cluster)``; also the bandwidth selection, as ``rdrobust`` does).",
+            "type": "string",
+            "x-statspai-role": "column"
           },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
@@ -47266,6 +47335,11 @@
             "description": "Cutoff.",
             "type": "number"
           },
+          "cluster": {
+            "description": "Cluster column for the standard errors of every ``rdrobust`` fit (``vce(cluster)``; also the bandwidth selection, as ``rdrobust`` does).",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "covs": {
             "description": "Covariate names to test. If None, tests all numeric columns except x.",
             "items": {
@@ -47392,6 +47466,11 @@
             "description": "True cutoff.",
             "type": "number"
           },
+          "cluster": {
+            "description": "Cluster column for the standard errors of every ``rdrobust`` fit (``vce(cluster)``; also the bandwidth selection, as ``rdrobust`` does).",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "object",
@@ -47467,6 +47546,193 @@
     "typical_n_min": null,
     "validation_notes": [],
     "validation_status": "api_stable"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
+      "rd_honest",
+      "rdrbounds",
+      "bounds"
+    ],
+    "assumptions": [
+      "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
+      "No manipulation of x at c (McCrary density test)",
+      "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
+      "Covariate balance at c (optional but recommended)"
+    ],
+    "category": "causal",
+    "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
+    "description": "Difference-in-discontinuities estimate with a pooled local polynomial. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_rd_diff_in_disc_Stata_parity.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "r = sp.rd_diff_in_disc(d, y=\"y\", x=\"x\", post=\"post\", h=0.5)",
+    "failure_modes": [
+      {
+        "alternative": "sp.rdrobust",
+        "exception": "AssumptionViolation",
+        "remedy": "Use donut-hole RD (donut=<delta>) or partial-identification bounds.",
+        "symptom": "McCrary density test p < 0.05"
+      },
+      {
+        "alternative": "",
+        "exception": "AssumptionViolation",
+        "remedy": "Include covariates as controls, narrow bandwidth, or report as caveat.",
+        "symptom": "Covariate imbalance at cutoff (sp.rdbalance rejects)"
+      },
+      {
+        "alternative": "sp.rd_honest",
+        "exception": "AssumptionWarning",
+        "remedy": "Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI).",
+        "symptom": "Effect unstable across bandwidth halvings"
+      },
+      {
+        "alternative": "sp.manski_bounds",
+        "exception": "AssumptionViolation",
+        "remedy": "The RD signal is noise; seek an alternative identification strategy.",
+        "symptom": "Placebo cutoffs show significant 'effects'"
+      }
+    ],
+    "inherits_from": "rdrobust",
+    "limitations": [],
+    "name": "rd_diff_in_disc",
+    "not_recommended_when": [
+      "the running variable has few distinct values (dates, integer scores) -- local polynomial asymptotics fail; use sp.rd_discrete or sp.rdit",
+      "treatment probability does not change at the cutoff -- there is no RD; consider sp.bunching or a DiD"
+    ],
+    "pre_conditions": [
+      "running variable x is continuous with support on both sides of c",
+      "treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy)",
+      "sufficient mass of observations within the optimal bandwidth"
+    ],
+    "provenance": {
+      "alternatives": "family",
+      "assumptions": "family",
+      "cost_profile": "family",
+      "example": "docstring",
+      "failure_modes": "family",
+      "not_recommended_when": "family",
+      "pre_conditions": "family",
+      "reference": "docstring",
+      "returns": "docstring",
+      "typical_n_min": "family"
+    },
+    "reference": "Grembi, V., Nannicini, T. and Troiano, U. (2016). \"Do Fiscal Rules Matter?\" *American Economic Journal: Applied Economics*, 8(3), 1-30.",
+    "returns": {
+      "class": "CausalResult",
+      "description": "CausalResult: estimate is the change in the discontinuity; detail has the pre- and post-period discontinuities; model_info the bandwidth and sample sizes.",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "detail": "Optional[pandas.DataFrame]",
+        "estimand": "str",
+        "estimate": "float",
+        "method": "str",
+        "model_info": "Optional[Dict[str, Any]]",
+        "n_obs": "int",
+        "pvalue": "float",
+        "se": "float"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Difference-in-discontinuities estimate with a pooled local polynomial. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "rd_diff_in_disc",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "c": {
+            "default": 0.0,
+            "description": "Cutoff; observations with ``x >= c`` are above it.",
+            "type": "number"
+          },
+          "cluster": {
+            "description": "Cluster the standard error (e.g. by unit or site, which lets the two periods' errors correlate): CR1 as Stata ``regress [aw=], vce(cluster c)``. Otherwise HC1 (``vce(robust)``).",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "covariates": {
+            "description": "Additive covariates in the pooled regression (``covs=`` is accepted, as in ``rdrobust``).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-aliases": [
+              "covs"
+            ],
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "Pooled pre- and post-period observations.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "h": {
+            "description": "Bandwidth, common to both sides and periods. Default: the smaller of the two periods' MSE-optimal ``rdbwselect`` bandwidths (``mserd``) -- a conservative choice; pass ``h`` to set it.",
+            "type": "number"
+          },
+          "kernel": {
+            "default": "triangular",
+            "description": "Kernel function used for weighting or smoothing.",
+            "enum": [
+              "triangular",
+              "uniform",
+              "epanechnikov"
+            ],
+            "type": "string"
+          },
+          "p": {
+            "default": 1,
+            "description": "Polynomial order on each side and period.",
+            "type": "integer"
+          },
+          "post": {
+            "description": "0/1 period indicator (1 = the period in which the cutoff policy is active).",
+            "type": "string"
+          },
+          "x": {
+            "description": "Outcome and running variable.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Outcome and running variable.",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "x",
+          "post"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 500,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_rd_diff_in_disc_Stata_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,

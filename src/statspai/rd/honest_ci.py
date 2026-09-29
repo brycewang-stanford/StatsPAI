@@ -361,6 +361,7 @@ def rd_honest(
     alpha: float = 0.05,
     opt_criterion: str = "mse",
     sclass: str = "H",
+    cluster: Optional[str] = None,
 ) -> CausalResult:
     """
     Honest confidence intervals for regression discontinuity designs.
@@ -403,6 +404,10 @@ def rd_honest(
         requires ``|f(x) - f(0) - f'(0)x| <= M x^2 / 2`` on each side, which
         permits no cancellation, so its worst-case bias — and hence the
         interval — is always at least as wide for the same *M*.
+    cluster : str, optional
+        Cluster column, as ``RDHonest(clusterid=)``: the standard error sums
+        ``w_i e_i`` within clusters, and the bandwidth search uses the
+        preliminary variance plus a Moulton within-cluster correlation.
 
     Returns
     -------
@@ -453,9 +458,10 @@ def rd_honest(
     if str(sclass).upper() not in ("H", "T", "HOLDER", "TAYLOR"):
         raise ValueError(f"sclass must be 'H' (Holder) or 'T' (Taylor), got {sclass!r}")
 
-    df = data.dropna(subset=[y, x])
+    df = data.dropna(subset=[y, x] + ([cluster] if cluster else []))
     y_arr = df[y].values.astype(float)
     x_arr = df[x].values.astype(float)
+    cl_arr = df[cluster].to_numpy() if cluster else None
     n_obs = len(y_arr)
 
     # Everything below delegates to rd/_rdhonest.py, a port of R RDHonest.
@@ -484,6 +490,7 @@ def rd_honest(
         alpha=alpha,
         opt_criterion=opt_criterion.upper(),
         sclass=sclass_code,
+        cluster=cl_arr,
     )
     tau_hat = fit["estimate"]
     se = fit["se"]
@@ -552,6 +559,8 @@ def rd_honest(
             "ak_critical_value": cv,
             "bias_noise_ratio": b,
             "sclass": sclass_code,
+            "cluster": cluster,
+            "n_clusters": None if cluster is None else int(pd.unique(cl_arr).size),
             "eff_obs": fit["eff_obs"],
             "reference_backend": "RDHonest",
             "validation_tier": "T2_native_reference_parity",

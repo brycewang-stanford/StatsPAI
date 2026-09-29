@@ -2023,6 +2023,16 @@ def _build_registry() -> None:
                         "cutoff loops."
                     ),
                 ),
+                ParamSpec(
+                    "masspoints",
+                    "str",
+                    False,
+                    "adjust",
+                    "R rdrobust masspoints: 'adjust' (unique-value count and "
+                    "bwcheck=10 in the bandwidth when >=20% of a side is tied), "
+                    "'check' (warn only) or 'off'",
+                    ["adjust", "check", "off"],
+                ),
             ],
             returns="CausalResult",
             example='sp.rdrobust(df, y="score", x="income", c=10000)',
@@ -6100,6 +6110,13 @@ def _build_registry() -> None:
                     False,
                     None,
                     "Candidate control sets to sweep",
+                ),
+                ParamSpec(
+                    "fe",
+                    "list",
+                    False,
+                    None,
+                    "Candidate fixed-effect sets to sweep (reghdfe-style absorption)",
                 ),
             ],
             returns="SpecCurveResult",
@@ -14465,6 +14482,14 @@ def _build_registry() -> None:
                 ParamSpec("time", "str", True),
                 ParamSpec("id", "str", True),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "balance",
+                    "str",
+                    False,
+                    "error",
+                    description="'error' or 'drop_units' (keep units observed in every period)",
+                    enum=["error", "drop_units"],
+                ),
             ],
             returns="dict with 'weights', 'estimates', 'summary'",
             example=('sp.bacon_decomposition(df, y="y", treat="d", time="t", id="i")'),
@@ -14486,6 +14511,14 @@ def _build_registry() -> None:
                     remedy="Bacon decomp assumes absorbing treatment. Use "
                     "sp.did_multiplegt for on/off switching.",
                     alternative="did_multiplegt",
+                ),
+                FailureMode(
+                    symptom="Unbalanced panel",
+                    exception="MethodIncompatibility",
+                    remedy="The decomposition holds on a balanced panel; pass "
+                    "balance='drop_units' to decompose the units observed in "
+                    "every period (dropped units are listed).",
+                    alternative="callaway_santanna",
                 ),
             ],
             alternatives=["did_multiplegt", "callaway_santanna"],
@@ -17719,6 +17752,14 @@ def _build_registry() -> None:
                     ),
                     enum=["fitted", "reference"],
                 ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Time-invariant cluster column; influence functions are "
+                    "summed within clusters for the overall ACRT SE",
+                ),
                 ParamSpec("alpha", "float", False, 0.05),
             ],
             returns=(
@@ -18585,6 +18626,14 @@ def _build_registry() -> None:
                     "Smoothness class for the bound M: 'H' (Holder, RDHonest's "
                     "default — f' is M-Lipschitz) or 'T' (Taylor)",
                     ["H", "T"],
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster column (RDHonest clusterid): cluster-robust SE and "
+                    "Moulton-corrected bandwidth search",
                 ),
             ],
             returns="CausalResult with honest CI",

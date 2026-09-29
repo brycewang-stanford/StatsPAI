@@ -3811,6 +3811,11 @@
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
         },
+        "cluster": {
+          "description": "Time-invariant cluster column; influence functions are summed within clusters for the overall ACRT SE",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "cohort": {
           "description": "First-treatment period (0 = never treated)",
           "type": "string",
@@ -23576,6 +23581,79 @@
     "name": "rd_dashboard"
   },
   {
+    "description": "Difference-in-discontinuities estimate with a pooled local polynomial. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (McCrary density test); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy); sufficient mass of observations within the optimal bandwidth. Failure modes: McCrary density test p < 0.05 -> Use donut-hole RD (donut=<delta>) or partial-identification bounds; Covariate imbalance at cutoff (sp.rdbalance rejects) -> Include covariates as controls, narrow bandwidth, or report as caveat; Effect unstable across bandwidth halvings -> Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesar honest CI). Alternatives: sp.rd_honest, sp.rdrbounds, sp.bounds. Typical minimum N: 500.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "c": {
+          "default": 0.0,
+          "description": "Cutoff; observations with ``x >= c`` are above it.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster the standard error (e.g. by unit or site, which lets the two periods' errors correlate): CR1 as Stata ``regress [aw=], vce(cluster c)``. Otherwise HC1 (``vce(robust)``).",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "covariates": {
+          "description": "Additive covariates in the pooled regression (``covs=`` is accepted, as in ``rdrobust``).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "covs"
+          ],
+          "x-statspai-role": "columns"
+        },
+        "h": {
+          "description": "Bandwidth, common to both sides and periods. Default: the smaller of the two periods' MSE-optimal ``rdbwselect`` bandwidths (``mserd``) -- a conservative choice; pass ``h`` to set it.",
+          "type": "number"
+        },
+        "kernel": {
+          "default": "triangular",
+          "description": "Kernel function used for weighting or smoothing.",
+          "enum": [
+            "triangular",
+            "uniform",
+            "epanechnikov"
+          ],
+          "type": "string"
+        },
+        "p": {
+          "default": 1,
+          "description": "Polynomial order on each side and period.",
+          "type": "integer"
+        },
+        "post": {
+          "description": "0/1 period indicator (1 = the period in which the cutoff policy is active).",
+          "type": "string"
+        },
+        "x": {
+          "description": "Outcome and running variable.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome and running variable.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "post",
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "rd_diff_in_disc"
+  },
+  {
     "description": "Honest CI for RD when the running variable takes only a moderate number of distinct values (Kolesar-Rothe 2018 AER). Uses bounded second derivative or bounded misspecification smoothness classes; robust to the loss of asymptotics that affects rdrobust under sparse mass points. Validation: certified parity evidence. Assumptions: Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001); No manipulation of x at c (McCrary density test); Local randomization only in a neighborhood of c -- extrapolation away from c is not identified. Pre-conditions: A running variable with a moderate number of distinct values on each side of the cutoff (dates, integer scores); running variable x is continuous with support on both sides of c; treatment assignment is determined by the cutoff c (sharp) or probabilistically at c (fuzzy). Failure modes: Interval much wider than sp.rdrobust on the same data -> Expected: rdrobust's asymptotics assume a continuous score and understate uncertainty at mass points; Fewer than three support points on one side -> The specification error is not identified; pool or use a parametric fit and say so; McCrary density test p < 0.05 -> Use donut-hole RD...",
     "input_schema": {
       "properties": {
@@ -24027,6 +24105,11 @@
           "description": "Cutoff value",
           "type": "number"
         },
+        "cluster": {
+          "description": "Cluster column (RDHonest clusterid): cluster-robust SE and Moulton-corrected bandwidth search",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "h": {
           "description": "Bandwidth; auto-selected by opt_criterion if None",
           "type": "number"
@@ -24396,6 +24479,11 @@
           "description": "Cutoff.",
           "type": "number"
         },
+        "cluster": {
+          "description": "Cluster column for the standard errors of every ``rdrobust`` fit (``vce(cluster)``; also the bandwidth selection, as ``rdrobust`` does).",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "covs": {
           "description": "Covariate names to test. If None, tests all numeric columns except x.",
           "items": {
@@ -24570,6 +24658,16 @@
           ],
           "type": "string"
         },
+        "masspoints": {
+          "default": "adjust",
+          "description": "R ``rdbwselect(masspoints=)``. When 20% or more of either side's observations are tied, ``'adjust'`` uses the count of unique running-variable values in the reference bandwidth and floors the pilot bandwidth at the 10th unique value from the cutoff; ``'check'`` only warns; ``'off'`` treats the data as continuous.",
+          "enum": [
+            "adjust",
+            "check",
+            "off"
+          ],
+          "type": "string"
+        },
         "p": {
           "default": 1,
           "description": "Polynomial order for point estimation (1 = local linear).",
@@ -24636,6 +24734,11 @@
           "default": 0,
           "description": "Cutoff.",
           "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column for the standard errors of every ``rdrobust`` fit (``vce(cluster)``; also the bandwidth selection, as ``rdrobust`` does).",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "figsize": {
           "default": [
@@ -25074,6 +25177,11 @@
           "description": "True cutoff.",
           "type": "number"
         },
+        "cluster": {
+          "description": "Cluster column for the standard errors of every ``rdrobust`` fit (``vce(cluster)``; also the bandwidth selection, as ``rdrobust`` does).",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "figsize": {
           "default": [
             10,
@@ -25165,6 +25273,11 @@
           "default": 0.95,
           "description": "Level of the per-bin t intervals and the polynomial CI band.",
           "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column: the per-bin intervals become cluster-robust (Stata ``mean y, vce(cluster c)`` within each bin, ``t(G - 1)``), and so does the shaded band around the polynomial (CR1). R ``rdplot`` has no cluster option; without it the intervals assume independent observations.",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "covs": {
           "description": "Covariates, adjusted for as R ``rdplot(covs=, covs_eval='mean')`` does.",
@@ -25751,6 +25864,11 @@
           "default": 0,
           "description": "Cutoff.",
           "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster column for the standard errors of every ``rdrobust`` fit (``vce(cluster)``; also the bandwidth selection, as ``rdrobust`` does).",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "covs": {
           "description": "Pre-treatment covariates for balance test.",
@@ -28216,7 +28334,7 @@
     "name": "source_decompose"
   },
   {
-    "description": "Specification-curve analysis (Simonsohn et al. 2020): enumerates every combination of model choices the user declares defensible, runs them all, and returns the sign/magnitude distribution. Use when an agent needs to report robustness across a researcher-degree-of-freedom multiverse.",
+    "description": "Specification-curve analysis (Simonsohn et al. 2020): enumerates every combination of model choices the user declares defensible, runs them all, and returns the sign/magnitude distribution. Use when an agent needs to report robustness across a researcher-degree-of-freedom multiverse. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
