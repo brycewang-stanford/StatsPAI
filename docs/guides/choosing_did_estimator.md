@@ -239,6 +239,18 @@ TWFE over them.
 > (`separated='keep'`); jwdid drops them whenever `ppmlhdfe` flags the
 > separation, which `separated='drop'` reproduces — check jwdid's `N` to see
 > which case your table is in.
+>
+> Response-scale (count) standard errors under `fe='unit'` come in two
+> conventions. The default `response_se='profile'` differentiates through the
+> profiled unit effect. jwdid's `estat` runs `margins`, which holds the
+> absorbed unit and period effects fixed; `response_se='margins'` reproduces
+> it, and its SEs are 14-15% larger. In a Monte Carlo study
+> (`benchmarks/etwfe_poisson_response_se_coverage.py`) the profiled interval
+> covers the sample's ATT at 94-95% with 400 units but 91-93% with 100 units
+> or strong unit heterogeneity. The margins interval over-covers in the
+> first case and is close to 95% in the second. Use `'margins'` to match a
+> Stata table or to stay conservative in a small panel. Point estimates and
+> log-point SEs are the same under both.
 
 #### Or settle it on your own panel
 
