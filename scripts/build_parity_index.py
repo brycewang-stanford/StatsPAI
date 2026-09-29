@@ -1022,7 +1022,7 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
         "reference": "Stata 18 jwdid ..., method(ppmlhdfe) + estat simple",
         "reference_versions": {"Stata": "18 MP", "jwdid": "2.2", "ppmlhdfe": "2.3.3"},
         "tolerance": (
-            "Link-scale simple ATT 1e-9 and its SE 1e-7 relative (observed <= 3e-14 and <= 3e-11); response-scale ATT 1e-6 (Stata margins takes numerical derivatives; observed <= 2e-7). Sixteen specifications: every hettype(), never, i.xcat / xc covariates, over(xcat), and exovar(i.year#i.xcat), never exovar(i.year#i.xcat), exovar(c.xc#i.xcat)."
+            "Link-scale simple ATT 1e-9 and its SE 1e-7 relative (observed <= 3e-14 and <= 3e-11); response-scale ATT and its default (response_se='margins') SE 1e-6 (Stata margins takes numerical derivatives; observed <= 2e-7). Sixteen specifications: every hettype(), never, i.xcat / xc covariates, over(xcat), and exovar(i.year#i.xcat), never exovar(i.year#i.xcat), exovar(c.xc#i.xcat)."
         ),
         "sides": ["py", "Stata"],
         "test": ["tests/reference_parity/test_jwdid_Stata_parity.py"],

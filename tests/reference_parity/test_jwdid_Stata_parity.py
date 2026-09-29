@@ -121,12 +121,19 @@ def test_exovar_factor_terms_match_stata(panel, name):
     _check_simple(_jwdid(panel, **EXOVAR[name]), R)
 
 
-def test_default_predict_is_the_response_scale(panel):
-    """``estat simple`` without ``predict()`` reports the count scale."""
-    R = _load("etwfe_poisson_jwdid_Stata.json")["default"]
-    r = _jwdid(panel, predict=None)
+@pytest.mark.parametrize("name", ["default", "never", "event", "xc"])
+def test_default_predict_is_estat_simple(panel, name):
+    """``estat simple`` without ``predict()``: the count scale, with the
+    ``margins`` SE that ``estat`` reports (``response_se='margins'``, the
+    ``sp.jwdid`` default; 7e-7 as in the ETWFE margins parity)."""
+    R = _load("etwfe_poisson_jwdid_Stata.json")[name]
+    r = _jwdid(panel, predict=None, **SPECS[name])
     assert r.estimate == pytest.approx(R["simple_response"]["b"][0], rel=1e-6)
+    assert r.se == pytest.approx(R["simple_response"]["se"][0], rel=1e-6)
     assert r.model_info["stata_estat"] == "estat simple"
+    prof = _jwdid(panel, predict=None, response_se="profile", **SPECS[name])
+    assert prof.estimate == pytest.approx(r.estimate, rel=1e-12)
+    assert prof.se != pytest.approx(r.se, rel=1e-3)
 
 
 def test_stata_equivalent_and_errors(panel):

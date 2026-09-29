@@ -200,6 +200,14 @@ def build_glm_design(
     # ── covariates: columns, levels for by-level aggregation ──────────
     x_cols: List[np.ndarray] = []
     x_names: List[str] = []
+    # jwdid's own covariate terms (i.tvar#c.x, ...) expand a factor as
+    # levels 1..L-1: ppmlhdfe omits the last one, collinear with the
+    # absorbed period effects.  The fit keeps levels 2..L (same column
+    # span, so the same fit); the jwdid expansion is returned alongside
+    # because Stata margins holds the absorbed period effects fixed, and
+    # then the parametrisation matters (response_se='margins').
+    xj_cols: List[np.ndarray] = []
+    xj_names: List[str] = []
     level_codes = np.zeros(n, dtype=int)
     level_labels: List[Any] = []
     level_var: Optional[str] = None
@@ -219,10 +227,15 @@ def build_glm_design(
             for k, lev in enumerate(cats[1:], start=1):
                 x_cols.append((codes == k).astype(float))
                 x_names.append(f"{xv}[{lev}]")
+            for k, lev in enumerate(cats[:-1]):
+                xj_cols.append((codes == k).astype(float))
+                xj_names.append(f"{xv}[{lev}]")
             cat_vars.append((xv, codes, cats))
         else:
             x_cols.append(s.to_numpy(dtype=float))
             x_names.append(str(xv))
+            xj_cols.append(x_cols[-1])
+            xj_names.append(str(xv))
     if len(cat_vars) == 1:
         level_var, level_codes, level_labels = (
             cat_vars[0][0],
@@ -279,27 +292,37 @@ def build_glm_design(
             for t_val in periods[1:]:
                 cols.append((tt == t_val) * x_tilde[:, j])
                 names.append(f"x[{xn}]:period[{int(t_val)}]")
-    elif Xx.shape[1]:
+    jwdid_block: Optional[np.ndarray] = None
+    jwdid_alt: Optional[np.ndarray] = None
+    if Xx.shape[1] and fe_mode != "cohort":
         # jwdid: i.tvar#c.(x) with the raw covariate, plus x and i.gvar#c.x
         # when x varies within units (a time-invariant x is absorbed).
         codes_u = pd.factorize(df[group])[0]
         U = int(codes_u.max()) + 1
-        for j, xn in enumerate(x_names):
-            col = Xx[:, j]
-            lo = np.full(U, np.inf)
-            hi = np.full(U, -np.inf)
-            np.minimum.at(lo, codes_u, col)
-            np.maximum.at(hi, codes_u, col)
-            varies = bool(np.any(hi - lo > 1e-12 * max(1.0, np.abs(col).max())))
-            if varies:
-                cols.append(col)
-                names.append(f"x[{xn}]")
-                for g_val in cohorts:
-                    cols.append((ft == g_val) * col)
-                    names.append(f"x[{xn}]:cohort[{int(g_val)}]")
-            for t_val in periods[1:]:
-                cols.append((tt == t_val) * col)
-                names.append(f"x[{xn}]:period[{int(t_val)}]")
+
+        def _jwdid_terms(xcols, xnames, out_cols, out_names):
+            for col, xn in zip(xcols, xnames):
+                lo = np.full(U, np.inf)
+                hi = np.full(U, -np.inf)
+                np.minimum.at(lo, codes_u, col)
+                np.maximum.at(hi, codes_u, col)
+                span = 1e-12 * max(1.0, np.abs(col).max())
+                if bool(np.any(hi - lo > span)):
+                    out_cols.append(col)
+                    out_names.append(f"x[{xn}]")
+                    for g_val in cohorts:
+                        out_cols.append((ft == g_val) * col)
+                        out_names.append(f"x[{xn}]:cohort[{int(g_val)}]")
+                for t_val in periods[1:]:
+                    out_cols.append((tt == t_val) * col)
+                    out_names.append(f"x[{xn}]:period[{int(t_val)}]")
+
+        start = len(names)
+        _jwdid_terms(list(Xx.T), x_names, cols, names)
+        jwdid_block = np.arange(start, len(names))
+        alt_cols: List[np.ndarray] = []
+        _jwdid_terms(xj_cols, xj_names, alt_cols, [])
+        jwdid_alt = np.column_stack(alt_cols) if alt_cols else None
 
     ctrl_names: List[str] = []
     for c in controls or []:
@@ -322,6 +345,8 @@ def build_glm_design(
         "level_codes": level_codes,
         "level_labels": level_labels,
         "ctrl_names": ctrl_names,
+        "jwdid_block": jwdid_block,
+        "jwdid_alt": jwdid_alt,
     }
 
 

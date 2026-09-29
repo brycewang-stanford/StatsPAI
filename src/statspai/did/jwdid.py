@@ -46,6 +46,7 @@ def jwdid(
     exovar: Optional[Union[str, Sequence[str]]] = None,
     cluster: Optional[str] = None,
     predict: Optional[str] = None,
+    response_se: str = "margins",
     alpha: float = 0.05,
     separated: str = "keep",
 ) -> CausalResult:
@@ -93,6 +94,11 @@ def jwdid(
         The ``estat ..., predict()`` scale of the reported ATT for a
         nonlinear ``method``: ``None`` / ``'mu'`` the count (response) scale,
         Stata's default; ``'xb'`` the linear index (log points for Poisson).
+    response_se : {'margins', 'profile'}, default 'margins'
+        Delta-method convention of the count-scale SEs (see
+        :func:`sp.etwfe`).  ``'margins'`` is what ``estat`` reports -- the
+        absorbed effects held fixed -- so the default reproduces Stata's
+        table; ``'profile'`` is ``sp.etwfe``'s own default.
     alpha : float, default 0.05
         Significance level.
     separated : {'keep', 'drop'}, default 'keep'
@@ -161,7 +167,9 @@ def jwdid(
         hettype=hettype,
     )
     if family is not None:
-        kwargs.update(scale=_PREDICT[p_key], separated=separated)
+        kwargs.update(
+            scale=_PREDICT[p_key], separated=separated, response_se=response_se
+        )
     result = etwfe(**kwargs)
 
     opts = [f"ivar({ivar})", f"tvar({tvar})", f"gvar({gvar})"]

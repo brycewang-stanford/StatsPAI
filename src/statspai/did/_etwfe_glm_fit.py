@@ -144,11 +144,31 @@ def _fit_poisson_unit_fe(
     vcov = _cluster_sandwich(
         X_dm * (yk - mu)[:, None], bread_inv, cl_codes[keep], G, factor
     )
+    # ppmlhdfe also reports ``_cons``: the weighted means are added back
+    # before the last IRLS step, so the index is ``(x - xbar)'b + a`` with
+    # ``xbar`` the mu-weighted sample mean and ``a = xbar'b + _cons``.  Its
+    # score is ``y - mu`` and ``X_dm`` is mu-orthogonal to a constant, so the
+    # bread is block diagonal; ``vcov_cons`` is the covariance of
+    # ``(b, a)``.  When the clusters nest the units the ``a`` block is
+    # exactly zero (the Poisson FOC makes ``y - mu`` sum to zero by unit).
+    resid = yk - mu
+    mu_tot = float(mu.sum())
+    bread_c = np.zeros((k + 1, k + 1))
+    bread_c[:k, :k] = bread_inv
+    bread_c[k, k] = 1.0 / mu_tot
+    vcov_cons = _cluster_sandwich(
+        np.column_stack([X_dm * resid[:, None], resid]),
+        bread_c,
+        cl_codes[keep],
+        G,
+        factor,
+    )
     return {
         "keep": keep,
         "live": live,
         "beta": beta_live,
         "vcov": vcov,
+        "vcov_cons": vcov_cons,
         "mu": mu,
         "converged": bool(converged),
         "n_iter": int(n_iter),

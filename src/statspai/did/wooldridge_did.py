@@ -686,6 +686,7 @@ def _etwfe_glm(
     hettype: Optional[str] = None,
     xvar: Optional[Any] = None,
     separated: str = "keep",
+    response_se: str = "profile",
 ) -> CausalResult:
     """Nonlinear ETWFE; implementation in :mod:`._etwfe_nonlinear`."""
     return _etwfe_glm_impl(
@@ -704,6 +705,7 @@ def _etwfe_glm(
         hettype=hettype,
         xvar=xvar,
         separated=separated,
+        response_se=response_se,
     )
 
 
@@ -727,6 +729,7 @@ def etwfe(
     scale: str = "response",
     hettype: Optional[str] = None,
     separated: str = "keep",
+    response_se: str = "profile",
 ) -> CausalResult:
     """Public ``sp.etwfe`` entry point — see ``_dispatch_etwfe_impl`` for
     the full docstring on options and behaviour.
@@ -787,6 +790,20 @@ def etwfe(
     ``jwdid`` reports whenever ``ppmlhdfe`` flags the separation (its
     ``estat`` averages over ``e(sample)``); ``ppmlhdfe`` does not always
     flag it on large panels, and then ``'keep'`` is the matching choice.
+
+    ``response_se`` (nonlinear families) picks the delta-method convention
+    for response-scale standard errors; it matters only for
+    ``family='poisson', fe='unit'``, where the unit effects are absorbed.
+    ``'profile'`` (default) profiles the unit effect out -- the Poisson
+    first-order condition ties each unit's fitted total to its observed
+    total -- and differentiates through it.  ``'margins'`` reproduces
+    Stata ``jwdid ..., method(ppmlhdfe)`` + ``estat``: ``margins`` holds the
+    absorbed effects fixed and differentiates through ``ppmlhdfe``'s
+    ``_cons``, i.e. around the sample-weighted mean of the regressors
+    instead of each unit's own.  Point estimates and link-scale SEs do
+    not depend on it; with cohort dummies (``fe='cohort'``) or the linear
+    model the two conventions coincide.  ``model_info['response_se']``
+    records the choice.
 
     ``scale`` (nonlinear families only) picks the headline scale:
     ``'response'`` (default) is the average marginal effect above;
@@ -934,6 +951,7 @@ def etwfe(
             hettype=hettype,
             xvar=xvar,
             separated=separated,
+            response_se=response_se,
         )
     elif fam_key not in (None, "gaussian", "normal"):
         raise MethodIncompatibility(
@@ -945,6 +963,14 @@ def etwfe(
     else:
         # The linear model has a single scale.
         _normalise_etwfe_scale(scale)
+        if str(response_se).strip().lower() not in {"profile", "margins"}:
+            raise MethodIncompatibility(
+                f"etwfe(response_se={response_se!r}) is not recognised; use "
+                "'profile' or 'margins'.",
+                recovery_hint="Drop response_se=; the linear ETWFE has one "
+                "scale and both conventions coincide on it.",
+                diagnostics={"response_se": response_se, "family": family},
+            )
         if str(separated).strip().lower() != "keep":
             raise MethodIncompatibility(
                 f"etwfe(separated={separated!r}) applies to family='poisson' "
@@ -1044,6 +1070,7 @@ def etwfe(
                 "scale": scale,
                 "hettype": hettype,
                 "separated": separated,
+                "response_se": response_se,
             },
             data=data,
             overwrite=False,
