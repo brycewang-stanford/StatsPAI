@@ -57,10 +57,10 @@ def aggte(
     min_e: float = -np.inf,
     max_e: float = np.inf,
     na_rm: bool = True,
-    bstrap: bool = True,
+    bstrap: Optional[bool] = None,
     boot_type: str = "multiplier",
-    n_boot: int = 1000,
-    cband: bool = True,
+    n_boot: Optional[int] = None,
+    cband: Optional[bool] = None,
     alpha: float = 0.05,
     random_state: Optional[int] = None,
     share_variance: bool = True,
@@ -85,20 +85,33 @@ def aggte(
         Truncate the reported event-time window.
     na_rm : bool, default True
         Drop ATT(g, t) with missing / infinite SE before aggregating.
-    bstrap : bool, default True
+    bstrap : bool, optional
         If ``True``, compute SE / CI by multiplier bootstrap (Rademacher
         weights, matching the R ``did`` implementation) on the influence
         functions — required for the uniform ``cband``. If ``False``, use
         the closed-form influence-function SE instead, which carries the
         same cross-cell covariances but gives pointwise intervals only.
+        ``None`` (default) bootstraps when ``cband=True`` or ``n_boot`` is
+        given, and otherwise inherits the setting of the fit, as R
+        ``did::aggte(bstrap = NULL)`` inherits ``att_gt``'s: a
+        ``callaway_santanna`` fit with its default ``bstrap=False`` is
+        aggregated analytically, so repeated calls return the same SE.
+
+        .. versionchanged:: 1.33.0
+           The default was ``True`` with no seed, so ``sp.aggte(fit)``
+           returned a different SE on every call and disagreed with the
+           analytic SE of the fit it aggregated.
     boot_type : {'multiplier'}, default 'multiplier'
         Only ``'multiplier'`` is supported; kept for ``csdid`` parity.
-    n_boot : int, default 1000
-        Number of bootstrap replications.
-    cband : bool, default True
+    n_boot : int, optional
+        Number of bootstrap replications; defaults to the fit's ``biters``
+        (else 1000).
+    cband : bool, optional
         If ``True`` and ``type != 'simple'``, report a *uniform* confidence
         band (sup-t critical value) across the aggregation dimension.
-        Otherwise pointwise intervals.
+        Otherwise pointwise intervals.  ``None`` inherits the fit's
+        ``cband`` when ``bstrap`` is inherited, and otherwise follows
+        ``bstrap``.
     alpha : float, default 0.05
         Nominal level for confidence intervals.
     agg_weights : {'did', 'csdid'}, default 'did'
@@ -128,7 +141,9 @@ def aggte(
 
         .. versionadded:: 1.29.0
     random_state : int, optional
-        Seed for the multiplier bootstrap.
+        Seed for the multiplier bootstrap.  When the bootstrap runs without
+        one, a seed is drawn and recorded in ``model_info['random_state']``
+        so the reported SE can be reproduced exactly.
 
     Returns
     -------
@@ -179,6 +194,27 @@ def aggte(
     detail = result.detail
     inf_matrix = result._influence_funcs
     model_info = result.model_info or {}
+
+    # Inference settings follow the fit unless overridden (R did::aggte's
+    # bstrap = NULL / cband = NULL / biters from att_gt).
+    if bstrap is None:
+        if cband is True or n_boot is not None:
+            bstrap = True
+        else:
+            bstrap = bool(model_info.get("bstrap", False))
+            if cband is None:
+                cband = bool(model_info.get("cband", False)) and bstrap
+    if cband is None:
+        cband = bool(bstrap)
+    bstrap = bool(bstrap)
+    cband = bool(cband)
+    if n_boot is None:
+        n_boot = int(model_info.get("biters") or 1000)
+    if bstrap and random_state is None:
+        # Draw a seed and report it: an unseeded bootstrap SE could not be
+        # reproduced, not even by the caller who just printed it.
+        random_state = int(np.random.SeedSequence().entropy % (2**31 - 1))
+
     cohort_sizes = model_info.get("cohort_sizes")
     n_units = model_info.get("n_units", result.n_obs)
 
@@ -480,6 +516,7 @@ def aggte(
         "max_e": max_e,
         "bstrap": bstrap,
         "n_boot": n_boot if bstrap else 0,
+        "random_state": random_state if bstrap else None,
         "cband": cband and type != "simple",
         "crit_val_uniform": float(crit_unif),
         "n_units": n_units,

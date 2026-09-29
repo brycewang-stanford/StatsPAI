@@ -5,6 +5,24 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="ppml-singletons-aggte-inherit"></a>
+
+## Unreleased — `sp.ppmlhdfe` drops singletons; `sp.aggte` inherits the fit's inference settings
+
+**Who is affected.** `sp.ppmlhdfe` users whose absorbed effects have
+one-observation groups (unbalanced panels, many crossed effects), and code
+that calls `sp.aggte(fit)` without `bstrap=`. No point estimate changes.
+
+| Area | Old | New | Old number, if you need it |
+| --- | --- | --- | --- |
+| `sp.ppmlhdfe`, singleton groups | kept; `N`, cluster count, `G/(G-1)` and pseudo R² differ from Stata | dropped with the separated rows (Stata default); `model_info['n_singletons']` | `drop_singletons=False` |
+| `sp.ppmlhdfe`, regressor absorbed by the FE | `LinAlgError` | omitted with a warning, `model_info['omitted']` | — |
+| `sp.ppmlhdfe`, rows with a missing estimation variable | NaN reached the solver | dropped | — |
+| `sp.aggte(fit)` default SE | unseeded multiplier bootstrap, new SE every call | the fit's setting: analytic for a default `callaway_santanna` fit | `sp.aggte(fit, bstrap=True, cband=True, random_state=...)` |
+| `sp.aggte(..., bstrap=True)` without a seed | seed not recorded | seed drawn and stored in `model_info['random_state']` | — |
+
+---
+
 <a id="ppml-separation-etwfe-link"></a>
 
 ## Unreleased — ⚠️ `sp.ppmlhdfe` drops separated observations; `sp.etwfe(family='poisson')` gains `scale=` / `fe=`

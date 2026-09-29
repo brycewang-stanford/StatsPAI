@@ -6,6 +6,28 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.ppmlhdfe` matches Stata `ppmlhdfe`'s sample and handles absorbed
+  regressors.** Found by replicating a five-fixed-effect PPML paper whose
+  every `N` and pseudo R-squared differed from Stata. (1) Singletons of any
+  absorbed effect are dropped by default (`drop_singletons=True`), iterated
+  jointly with the separation rules to a fixed point;
+  `model_info['n_singletons']`. Slopes and robust / clustered SEs of the
+  remaining rows are unchanged; `N`, the cluster count and hence
+  `G/(G-1)`, and the pseudo R-squared now equal Stata's. (2) A regressor
+  collinear with the fixed effects (a time-invariant variable under a unit
+  effect) is omitted with a warning and listed in `model_info['omitted']`;
+  it used to overflow and end in `LinAlgError`. (3) `absorb="id + ind^year"`
+  / `"ind#year"` and `cluster="city^year"` build the interacted groups.
+  (4) Rows missing an estimation variable are marked out, as Stata does.
+  (5) With several absorbed effects the within-transform reuses the
+  accelerated kernel of `sp.fast.fepois` and the Poisson fixed-effect solve
+  is warm-started: a 5-way model on 10^5 rows went from 24 s to 7.5 s, and
+  the old 500-sweep cap had stopped short of the projection (estimates
+  moved in the 8th digit). Against Stata 18 `ppmlhdfe` on a fixture with
+  singletons, all-zero units, missing values, two omitted regressors,
+  `ind#year` and a `city#year` cluster: `N`, clusters and the dropped count
+  exact, slopes / SEs / pseudo R-squared to 2e-9
+  (`test_ppmlhdfe_singletons_Stata_parity.py`).
 - **`sp.honest_did_from_moments(betahat, sigma, event_times=...)` and
   `sp.honest_did_from_result`.** Rambachan-Roth sensitivity for an event
   study from *any* estimator -- `reghdfe`, a stacked regression, a published
@@ -427,6 +449,13 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **`sp.aggte` inherits `bstrap` / `cband` / `biters` from the fit** (R
+  `did::aggte(bstrap = NULL)`), instead of defaulting to an unseeded
+  1000-draw bootstrap: `sp.aggte(fit)` on a default `callaway_santanna` fit
+  is now analytic and returns the same SE on every call. `cband=True` or an
+  explicit `n_boot` still requests the bootstrap; an unseeded bootstrap now
+  draws a seed and records it in `model_info['random_state']`. See
+  MIGRATION.md.
 - **⚠️ MCP tool failures are `isError` results, not protocol errors.**
   An unknown or expired `data_id` / `result_id`, a data-load failure, an
   invalid argument value or a timeout used to come back as a JSON-RPC

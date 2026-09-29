@@ -16497,7 +16497,14 @@ def _build_registry() -> None:
                     True,
                     "Drop ATT(g,t) cells with missing / infinite SE before aggregating",
                 ),
-                ParamSpec("bstrap", "bool", False, True),
+                ParamSpec(
+                    "bstrap",
+                    "bool",
+                    False,
+                    None,
+                    "Multiplier bootstrap; None inherits the fit's setting "
+                    "(bootstraps if cband=True or n_boot is given)",
+                ),
                 ParamSpec(
                     "boot_type",
                     "str",
@@ -16506,8 +16513,20 @@ def _build_registry() -> None:
                     "Bootstrap variant",
                     ["multiplier"],
                 ),
-                ParamSpec("n_boot", "int", False, 1000),
-                ParamSpec("cband", "bool", False, True, "Uniform confidence band"),
+                ParamSpec(
+                    "n_boot",
+                    "int",
+                    False,
+                    None,
+                    "Replications (default: fit's biters, else 1000)",
+                ),
+                ParamSpec(
+                    "cband",
+                    "bool",
+                    False,
+                    None,
+                    "Uniform confidence band (None follows bstrap / the fit)",
+                ),
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec("random_state", "int", False, None),
                 ParamSpec(
