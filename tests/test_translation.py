@@ -102,16 +102,32 @@ TIER1_ROUND_TRIPS = [
         "feols",
         {"fml": "y ~ x | id", "cluster": "id"},
     ),
-    # reghdfe
+    # reghdfe -> sp.hdfe_ols (reghdfe's singleton / dof / t(G-1) rules)
     (
         "reghdfe y x, absorb(id year) cluster(id)",
-        "feols",
-        {"fml": "y ~ x | id + year", "cluster": "id"},
+        "hdfe_ols",
+        {"formula": "y ~ x | id + year", "cluster": "id"},
     ),
     (
         "reghdfe wage edu exp, absorb(firm year)",
-        "feols",
-        {"fml": "wage ~ edu + exp | firm + year"},
+        "hdfe_ols",
+        {"formula": "wage ~ edu + exp | firm + year"},
+    ),
+    # interacted FE: Stata's # is hdfe_ols's ^; slopes keep i.g#c.x
+    (
+        "reghdfe y x, absorb(id city#quarter i.ind#i.quarter) vce(cluster ind)",
+        "hdfe_ols",
+        {"formula": "y ~ x | id + city^quarter + ind^quarter", "cluster": "ind"},
+    ),
+    (
+        "reghdfe y x, absorb(id c.z#quarter fe=firm, savefe) vce(cluster a b)",
+        "hdfe_ols",
+        {"formula": "y ~ x | id + i.quarter#c.z + firm", "cluster": ["a", "b"]},
+    ),
+    (
+        "reghdfe y x, absorb(id) vce(robust)",
+        "hdfe_ols",
+        {"formula": "y ~ x | id", "vce": "robust"},
     ),
     # ivreg2
     ("ivreg2 y x1 (d = z1 z2)", "ivreg", {"formula": "y ~ x1 + (d ~ z1 + z2)"}),
@@ -148,16 +164,16 @@ TIER1_ROUND_TRIPS = [
     ),
     (
         "ivreghdfe y x1 x2 (d = z1 z2), absorb(firm year) cluster(firm)",
-        "feols",
+        "hdfe_ols",
         {
-            "fml": "y ~ x1 + x2 | firm + year | d ~ z1 + z2",
+            "formula": "y ~ x1 + x2 | firm + year | d ~ z1 + z2",
             "cluster": "firm",
         },
     ),
     (
-        "ivreghdfe y (d1 d2 = z1 z2) x1, absorb(firm)",
-        "feols",
-        {"fml": "y ~ x1 | firm | d1 + d2 ~ z1 + z2"},
+        "ivreghdfe y (d1 d2 = z1 z2) x1, absorb(firm city#year) robust",
+        "hdfe_ols",
+        {"formula": "y ~ x1 | firm + city^year | d1 + d2 ~ z1 + z2", "vce": "robust"},
     ),
     # csdid
     (
@@ -364,8 +380,10 @@ class TestEconomistMigrationUseCases:
 
         assert stata["ok"] is True, stata
         assert r["ok"] is True, r
-        assert stata["tool"] == r["tool"] == "feols"
-        assert stata["arguments"] == r["arguments"]
+        # reghdfe -> sp.hdfe_ols, fixest -> sp.feols: same model and cluster
+        assert (stata["tool"], r["tool"]) == ("hdfe_ols", "feols")
+        assert stata["arguments"]["formula"] == r["arguments"]["fml"]
+        assert stata["arguments"]["cluster"] == r["arguments"]["cluster"]
 
     def test_csdid_and_att_gt_share_timing_shape(self):
         stata = from_stata(
@@ -393,8 +411,9 @@ class TestEconomistMigrationUseCases:
 
         assert stata["ok"] is True, stata
         assert r["ok"] is True, r
-        assert stata["tool"] == r["tool"] == "feols"
-        assert stata["arguments"] == r["arguments"]
+        assert (stata["tool"], r["tool"]) == ("hdfe_ols", "feols")
+        assert stata["arguments"]["formula"] == r["arguments"]["fml"]
+        assert stata["arguments"]["cluster"] == r["arguments"]["cluster"]
 
 
 # ----------------------------------------------------------------------
@@ -408,7 +427,7 @@ class TestExecuteToolFromStata:
             "from_stata", {"command": "reghdfe y x, absorb(id) cluster(id)"}
         )
         assert out["ok"] is True
-        assert out["tool"] == "feols"
+        assert out["tool"] == "hdfe_ols"
         assert out["source"] == "stata"
 
     def test_psmatch2_via_execute_tool(self):
@@ -428,8 +447,8 @@ class TestExecuteToolFromStata:
             {"command": ("ivreghdfe y x (d = z), absorb(id year) cluster(id)")},
         )
         assert out["ok"] is True
-        assert out["tool"] == "feols"
-        assert out["arguments"]["fml"] == "y ~ x | id + year | d ~ z"
+        assert out["tool"] == "hdfe_ols"
+        assert out["arguments"]["formula"] == "y ~ x | id + year | d ~ z"
 
     def test_missing_command(self):
         out = execute_tool("from_stata", {})
@@ -485,6 +504,25 @@ class TestRpcSurface:
 # ----------------------------------------------------------------------
 
 TIER2_ROUND_TRIPS = [
+    # summarize / sum2docx -> sp.sumstats
+    (
+        "summarize y x",
+        "sumstats",
+        {
+            "vars": ["y", "x"],
+            "stats": ["n", "mean", "sd", "min", "max"],
+            "output": "numeric",
+        },
+    ),
+    (
+        "sum2docx y x, stats(N mean(%9.3f) sd min max)",
+        "sumstats",
+        {
+            "vars": ["y", "x"],
+            "stats": ["n", "mean", "sd", "min", "max"],
+            "output": "numeric",
+        },
+    ),
     # GLM family
     ("probit y x1 x2", "probit", {"formula": "y ~ x1 + x2"}),
     (
@@ -1006,7 +1044,7 @@ _NUMERIC_CASES = [
     (
         "reghdfe y x1 x2, absorb(firm year) cluster(firm)",
         "stata",
-        ("feols", {"fml": "y ~ x1 + x2 | firm + year", "cluster": "firm"}),
+        ("hdfe_ols", {"formula": "y ~ x1 + x2 | firm + year", "cluster": "firm"}),
     ),
     (
         "xtreg y x1, fe i(firm) vce(cluster firm)",
@@ -1016,7 +1054,7 @@ _NUMERIC_CASES = [
     (
         "ivreghdfe y x1 (d = z), absorb(firm) cluster(firm)",
         "stata",
-        ("feols", {"fml": "y ~ x1 | firm | d ~ z", "cluster": "firm"}),
+        ("hdfe_ols", {"formula": "y ~ x1 | firm | d ~ z", "cluster": "firm"}),
     ),
     (
         "feols(y ~ x1 + x2 | firm + year, data=df, cluster=~firm)",
@@ -1551,3 +1589,46 @@ class TestStataIVTranslationRuns:
         with_small = from_stata("ivregress 2sls y (d = z) x, vce(robust) small")
         assert any("small" in n for n in without["notes"])
         assert not any("sqrt(N/(N-K))" in n for n in with_small["notes"])
+
+
+def test_translated_reghdfe_runs_and_matches_the_direct_call():
+    """The emitted python_code must run as is (1.32 left Stata's ``a#b`` in
+    the formula: a SyntaxError), and give the same fit as the direct call."""
+    import numpy as np
+    import pandas as pd
+
+    import statspai as sp
+
+    rng = np.random.default_rng(3)
+    n = 400
+    df = pd.DataFrame(
+        {
+            "id": rng.integers(0, 40, n),
+            "city": rng.integers(0, 5, n),
+            "quarter": rng.integers(0, 4, n),
+            "ind": rng.integers(0, 12, n),
+            "x": rng.normal(size=n),
+        }
+    )
+    df["y"] = 0.5 * df.x + rng.normal(size=n)
+    out = from_stata(
+        "reghdfe y x, absorb(id city#quarter ind#quarter) vce(cluster ind)"
+    )
+    res = eval(out["python_code"], {"sp": sp, "df": df})
+    ref = sp.hdfe_ols("y ~ x | id + city^quarter + ind^quarter", df, cluster="ind")
+    assert float(res.coef["x"]) == float(ref.coef["x"])
+    assert float(res.se["x"]) == float(ref.se["x"])
+
+
+@pytest.mark.parametrize("cmd,func", [("permute", "ri_test"), ("esttab", "etable")])
+def test_untranslated_commands_point_to_the_statspai_function(cmd, func):
+    out = from_stata(f"{cmd} a b, reps(5)")
+    assert out["ok"] is False
+    assert func in out["statspai_functions"]
+    assert f"sp.{func}" in out["error"]
+
+
+def test_sum2docx_using_writes_to_the_named_file():
+    out = from_stata('sum2docx y x using "t1.docx", replace stats(N mean sd)')
+    assert out["ok"] and out["arguments"]["output"] == "t1.docx"
+    assert out["arguments"]["stats"] == ["n", "mean", "sd"]

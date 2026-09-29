@@ -342,10 +342,10 @@
     "typical_n_min": 100,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs AER::ivreg [AER 1.2.16, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 02_iv -- tests/r_parity/02_iv.py",
+      "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
       "tests/reference_parity/test_iv_card_aer_parity.py",
       "tests/reference_parity/test_iv_hdfe_stata_parity.py",
-      "tests/reference_parity/test_iv_weights_stata_parity.py",
-      "tests/reference_parity/test_regress_weights_iv_robust_parity.py"
+      "tests/reference_parity/test_iv_weights_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -43961,7 +43961,7 @@
     "reference": "@rambachan2023more",
     "returns": {
       "class": "DataFrame",
-      "description": "pd.DataFrame: Columns: M, ci_lower, ci_upper, rejects_zero. Each row is a different M value.",
+      "description": "pd.DataFrame: Columns: M, ci_lower, ci_upper, rejects_zero. Each row is a different M value. For relative magnitudes, attrs['grid_extended_at'] lists the Mbar whose grid was extended and attrs['open_at'] those whose set still reaches the gr...",
       "fields": {}
     },
     "signature": {
@@ -43976,7 +43976,7 @@
           },
           "backend": {
             "default": "native",
-            "description": "``'native'`` solves the problem in Python. For ``method='smoothness'`` it computes the true Rambachan-Roth **fixed-length confidence interval**: the optimal affine estimator under ``Delta^SD(M)``, obtained from a convex program over the event-study covariance. With ``HonestDiD``'s Monte-Carlo folded-normal quantile replaced by the exact one, the half-length agrees with R ``HonestDiD::findOptimalFLCI`` to 1e-8 and the bounds to ~2e-5 (HonestDiD's coarser search over ``h``); against the shipped package the gap is that quantile's simulation error, ~1e-3 (``tests/reference_parity/test_did_synth_R_parity.py``). This needs the joint event-study covariance, which is recovered from a Callaway-Sant'Anna fit's influence functions; if it is unavailable the function falls back to a worst-case-bias interval and warns. For ``method='relative_magnitude'`` it inverts the Andrews-Roth-Pakes conditional test (``honestdid_method='Conditional'``) or the conditional least-favourable hybrid (``'C-LF'``, the default, as in ``HonestDiD``) over the union of ``Delta^RM`` pieces, on ``HonestDiD``'s default grid of 1,000 points spanning +/-20 standard deviations of the target. On identical inputs the ``'Conditional'`` set equals R ``HonestDiD::createSensitivityResults_relativeMagnitudes`` exactly (same accepted grid points); the ``'C-LF'`` hybrid simulates its first-stage critical value (NumPy draws, not R's), so it agrees up to that Monte Carlo error. Like the FLCI it needs the joint event-study covariance; without it the function falls back to the worst-case-bias approximation ``theta +/- M*max|delta_pre| +/- z*SE`` and warns. A set that reaches either end of the grid is reported with a warning, because its true bound lies outside the grid. ``'honestdid'``/``'r'`` delegates to the R ``HonestDiD`` package through ``Rscript``. It is handed the same full covariance when one is recoverable; only when it is not does it fall back to ``diag(se2)``, which discards the (large, positive) cross-period covariance and materially changes the confidence set.",
+            "description": "``'native'`` solves the problem in Python. For ``method='smoothness'`` it computes the true Rambachan-Roth **fixed-length confidence interval**: the optimal affine estimator under ``Delta^SD(M)``, obtained from a convex program over the event-study covariance. With ``HonestDiD``'s Monte-Carlo folded-normal quantile replaced by the exact one, the half-length agrees with R ``HonestDiD::findOptimalFLCI`` to 1e-8 and the bounds to ~2e-5 (HonestDiD's coarser search over ``h``); against the shipped package the gap is that quantile's simulation error, ~1e-3 (``tests/reference_parity/test_did_synth_R_parity.py``). This needs the joint event-study covariance, which is recovered from a Callaway-Sant'Anna fit's influence functions; if it is unavailable the function falls back to a worst-case-bias interval and warns. For ``method='relative_magnitude'`` it inverts the Andrews-Roth-Pakes conditional test (``honestdid_method='Conditional'``) or the conditional least-favourable hybrid (``'C-LF'``, the default, as in ``HonestDiD``) over the union of ``Delta^RM`` pieces, on ``HonestDiD``'s default grid of 1,000 points spanning +/-20 standard deviations of the target. On identical inputs the ``'Conditional'`` set equals R ``HonestDiD::createSensitivityResults_relativeMagnitudes`` exactly (same accepted grid points); the ``'C-LF'`` hybrid simulates its first-stage critical value (NumPy draws, not R's), so it agrees up to that Monte Carlo error. Like the FLCI it needs the joint event-study covariance; without it the function falls back to the worst-case-bias approximation ``theta +/- M*max|delta_pre| +/- z*SE`` and warns. A set that reaches an end of the default grid is not truncated",
             "enum": [
               "native",
               "honestdid",
@@ -43988,6 +43988,24 @@
             "default": 0,
             "description": "Relative time period for which to compute robust CIs. 0 = on-impact effect, 1 = one period after, etc.",
             "type": "integer"
+          },
+          "grid_expand": {
+            "default": true,
+            "description": "``method='relative_magnitude'``, native backend: when the accepted set reaches an end of the default grid, extend that side by another ``grid_points`` points at the same step (up to 10 times) instead of reporting the grid end as the bound. HonestDiD (R) and versions of StatsPAI before 1.33 report the grid end, which understates the interval whenever the set is wider than ``+/-20 sd``; ``False`` reproduces that. A set still open after the extensions is reported with a warning and ``attrs['open_at']``. ``backend='r'`` runs HonestDiD's own grid: widen it there with ``grid_lb`` / ``grid_ub``.",
+            "type": "boolean"
+          },
+          "grid_lb": {
+            "description": "``method='relative_magnitude'`` only: the ends of the test-inversion grid for ``l' tau_post`` (HonestDiD's ``grid.lb`` / ``grid.ub``). Default ``-/+ 20 sd(l' tau_post)``. A bound given here is honoured as is and never extended. Both backends.",
+            "type": "number"
+          },
+          "grid_points": {
+            "default": 1000,
+            "description": "``method='relative_magnitude'`` only: points on that grid (HonestDiD's ``gridPoints``). Both backends.",
+            "type": "integer"
+          },
+          "grid_ub": {
+            "description": "``method='relative_magnitude'`` only: the ends of the test-inversion grid for ``l' tau_post`` (HonestDiD's ``grid.lb`` / ``grid.ub``). Default ``-/+ 20 sd(l' tau_post)``. A bound given here is honoured as is and never extended. Both backends.",
+            "type": "number"
           },
           "honestdid_method": {
             "description": "Inference method. The default preserves HonestDiD defaults: ``'C-LF'`` for ``method='relative_magnitude'`` and ``'FLCI'`` for ``method='smoothness'``. The native backend implements ``'FLCI'`` (smoothness) and ``'C-LF'`` / ``'Conditional'`` (relative magnitudes); the R backend accepts all four.",
@@ -56228,7 +56246,7 @@
     "reference": "",
     "returns": {
       "class": "dict",
-      "description": "dict with keys:: coef (p,), se (p,), vcov (p,p), resid (n_kept,), n (n_kept), df_resid, dof_fe, r2_within, n_singletons_dropped, converged, iters, absorber (if requested)",
+      "description": "dict with keys:: coef (p,), se (p,), vcov (p,p), resid (n_kept,), n (n_kept), df_resid, dof_fe, r2_within, rss / tss_within (weighted when weights is given), n_singletons_dropped, converged, iters, absorber (if requested)",
       "fields": {}
     },
     "signature": {
@@ -56412,20 +56430,28 @@
         "conf_int_lower": "pd.Series",
         "conf_int_upper": "pd.Series",
         "converged": "bool",
+        "df_inference": "float",
         "df_resid": "int",
         "dof_fe": "int",
         "fitted_within": "np.ndarray",
         "formula": "str",
         "iters": "int",
+        "iv_diagnostics": "Optional[Dict[str, Any]]",
         "n_fe": "List[int]",
         "n_obs": "int",
         "n_singletons_dropped": "int",
         "params": "pd.Series",
         "pvalues": "pd.Series",
+        "r2": "float",
+        "r2_a": "float",
+        "r2_a_within": "float",
         "r2_within": "float",
         "residuals": "np.ndarray",
+        "rmse": "float",
+        "rss": "float",
         "se_type": "str",
         "std_errors": "pd.Series",
+        "tss": "float",
         "tvalues": "pd.Series",
         "vcov": "np.ndarray"
       }
@@ -56464,13 +56490,24 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "df_inference": {
+            "description": "Reference distribution of the p-values and confidence intervals. ``None`` (default) follows ``reghdfe``'s ``e(df_r)``: ``t(G - 1)`` under clustering (``G`` = the smallest cluster count, capped at the residual df), ``t(N - K - df_a)`` otherwise. ``'resid'`` uses the residual df also under clustering (StatsPAI <= 1.32, close to the normal with many observations); ``'normal'`` the standard normal; a number that many degrees of freedom. The standard errors are the same in every case.",
+            "enum": [
+              "resid",
+              "normal"
+            ],
+            "type": [
+              "number",
+              "string"
+            ]
+          },
           "drop_singletons": {
             "default": true,
             "description": "drop_singletons parameter (bool).",
             "type": "boolean"
           },
           "formula": {
-            "description": "``\"y ~ x1 + x2 | fe1 + fe2 + fe3\"``. The ``| fe...`` part is optional. Both sides accept bare names, ``c.x`` / ``i.f``, ``a:b``, ``a*b``, ``f1^f2`` and the varying-slope forms ``i.f#c.x`` / ``i.f##c.x`` / ``f[[x]]`` / ``f[x]`` -- see the module docstring for the full grammar.",
+            "description": "``\"y ~ x1 + x2 | fe1 + fe2 + fe3\"``. The ``| fe...`` part is optional. Both sides accept bare names, ``c.x`` / ``i.f``, ``a:b``, ``a*b``, ``f1^f2`` and the varying-slope forms ``i.f#c.x`` / ``i.f##c.x`` / ``f[[x]]`` / ``f[x]`` -- see the module docstring for the full grammar. Any Python identifier is a column name, so non-ASCII names (`` ~ ``) work. A third part makes it 2SLS, Stata's ``ivreghdfe``: ``\"y ~ exog | fe1 + fe2 | endog ~ z1 + z2\"`` (``\"y ~ 1 | ...\"`` without exogenous regressors). All variables are swept of the fixed effects by the same absorber, then 2SLS runs on the residuals; ``cluster=`` (one way), ``vce='robust'`` or iid SEs follow ``ivreg2``'s small-sample conventions, and ``result.iv_diagnostics`` carries the first-stage F tests, Kleibergen-Paap rk LM and Wald F, Cragg-Donald F, Anderson-Rubin test and Hansen J (all as ``ivreghdfe ..., first``).",
             "type": "string",
             "x-statspai-role": "formula"
           },
@@ -56505,7 +56542,7 @@
           },
           "wild": {
             "default": false,
-            "description": "If True (and ``cluster`` is given), return wild-cluster-bootstrap p-values / CIs alongside classical cluster SE. Applied variable- by-variable. Only supported with a single cluster column.",
+            "description": "If True (and ``cluster`` is given), return wild-cluster-bootstrap p-values / CIs alongside classical cluster SE. Applied variable- by-variable. Only supported with a single cluster column. This is ``boottest``'s WCR bootstrap with the null imposed and the fixed effects **re-absorbed** in every draw (exactly, through ``2G`` sweeps of cluster-indicator columns done once). Running the bootstrap on already-demeaned data -- the quick \"FWL\" shortcut -- is valid only when every absorbed effect is nested in the cluster; otherwise its bootstrap t distribution is too narrow (see ``panel/_wild_fe.py``; on 1.5 million rows with four FE groups and 100 occupation clusters the shortcut gave p = 0.116 against 0.176). The cost is dominated by those ``2G`` sweeps plus the confidence-set inversion, not by the draws themselves (on a 230,000-row subsample 99, 999 and 9,999 draws took 31, 29 and 35 seconds).",
             "type": "boolean"
           },
           "wild_n_boot": {
@@ -56539,9 +56576,10 @@
     "typical_n_min": 500,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs fixest::feols [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 03_hdfe -- tests/r_parity/03_hdfe.py",
-      "tests/reference_parity/test_hdfe_nested_collinear_parity.py",
-      "tests/reference_parity/test_hdfe_parity.py",
-      "tests/reference_parity/test_hdfe_wild_boottest_parity.py"
+      "tests/reference_parity/test_gelbach_absorb_cluster_b1x2.py",
+      "tests/reference_parity/test_hdfe_fit_stats_reghdfe.py",
+      "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
+      "tests/reference_parity/test_hdfe_nested_collinear_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -62980,6 +63018,14 @@
       "name": "ri_test",
       "parameters": {
         "properties": {
+          "absorb": {
+            "description": "Fixed effects for ``stat='ols'`` / ``'ols_t'``, as ``reghdfe``'s ``absorb()`` (column names, ``\"a^b\"`` for combinations; singletons dropped). They are swept out by the ``sp.hdfe_ols`` absorber (Frisch-Waugh-Lovell). Under ``cluster`` the regressor of any permutation is ``R v`` with ``R`` the swept cluster indicators (times ``interact``) and ``v`` the permuted cluster values, so only ``G`` columns are swept once and each permutation is a small matrix product -- the statistic equals the ``sp.hdfe_ols`` coefficient (or its cluster t) refitted on the permuted treatment. Without ``cluster`` every permutation re-sweeps the regressor.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
           "alpha": {
             "default": 0.05,
             "description": "Significance level for confidence intervals and tests.",
@@ -63003,6 +63049,10 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "interact": {
+            "description": "For ``stat='ols'`` / ``'ols_t'``: the regressor is ``treat * data[interact]`` while ``treat`` is what is permuted -- the intensity DiD ``exposure x post`` with exposure permuted across clusters.",
+            "type": "string"
+          },
           "n_perms": {
             "default": 1000,
             "description": "Number of random permutations. Use 10000+ for publications. When the design admits no more than ``n_perms`` distinct assignments (``C(n, n_1)``, or ``C(G, G_1)`` under ``cluster``) every assignment is enumerated instead and the p-value is exact -- the rule R ``ri2`` / ``randomizr::obtain_permutation_matrix`` apply.",
@@ -63023,7 +63073,7 @@
             "x-statspai-role": "column"
           },
           "treat": {
-            "description": "Binary treatment indicator (0/1).",
+            "description": "Treatment. ``'diff_means'`` / ``'t'`` / ``'ks'`` need a binary 0/1 indicator; ``'ols'`` / ``'ols_t'`` and callables also take a continuous one (an exposure or dose), whose observed values are permuted. Under ``cluster`` it must be constant within clusters (the permuted unit is the cluster); a treatment that switches on within a cluster, such as ``exposure x post``, is passed as ``treat='exposure', interact='post'``.",
             "type": "string",
             "x-statspai-role": "column"
           },
@@ -73965,6 +74015,14 @@
       "name": "gelbach",
       "parameters": {
         "properties": {
+          "absorb": {
+            "description": "Fixed effects kept in both the base and the full regression, as ``reghdfe``'s ``absorb()``: column names, ``\"a^b\"`` for one effect per combination. They are swept out of every variable by the ``sp.hdfe_ols`` absorber (singletons dropped), so the decomposition is of the within coefficients -- the same numbers as ``b1x2`` with the FE dummies among ``x1all()``. The absorbed degrees of freedom enter the long-regression small-sample factor as in ``reghdfe``.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
           "added_x": {
             "description": "Variables added to obtain the full (long) specification.",
             "items": {
@@ -73984,10 +74042,20 @@
             },
             "type": "array"
           },
+          "cluster": {
+            "description": "Cluster-robust covariance, as ``b1x2 ..., cluster()``: Stata's ``_robust`` multipliers ``(N-1)/(N-K)*G/(G-1)`` for the long regression and ``G/(G-1)`` for the stacked auxiliary system.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "data": {
             "description": "Input dataset.",
             "type": "object",
             "x-statspai-role": "dataframe"
+          },
+          "shapley": {
+            "default": false,
+            "description": "Also report, in column ``shapley``, each added variable's Shapley share of the change: its effect on the coefficient averaged over all orders in which the added variables can enter (``2^k`` regressions, from the cross-product matrix; at most 12 added variables). Unlike Gelbach's contributions it depends on the order-free average, not on the full model alone. The shares also sum to the total change. Standard errors were a two-term delta method that treated the auxiliary and long-regression estimates as independent; ``b1x2`` keeps their covariance. On ``cps_wage`` that moved the SEs by 0.03%, but the old formula has no guarantee of being that close. Point estimates are unchanged.",
+            "type": "boolean"
           },
           "var_of_interest": {
             "description": "Which base variable's coefficient change to decompose. Defaults to the first element of ``base_x``.",
@@ -73995,7 +74063,7 @@
           },
           "vce": {
             "default": "robust",
-            "description": "Heteroskedasticity-robust or homoskedastic covariance, as ``b1x2 ..., robust`` and plain ``b1x2``. Standard errors were a two-term delta method that treated the auxiliary and long-regression estimates as independent; ``b1x2`` keeps their covariance. On ``cps_wage`` that moved the SEs by 0.03%, but the old formula has no guarantee of being that close. Point estimates are unchanged.",
+            "description": "Heteroskedasticity-robust or homoskedastic covariance, as ``b1x2 ..., robust`` and plain ``b1x2``.",
             "enum": [
               "robust",
               "nonrobust"
@@ -74021,6 +74089,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata b1x2 (Gelbach's own command), robust and homoskedastic [Stata 18 MP, b1x2 SSC]; tolerance Per-variable contributions at 1e-10; their full covariance, SEs and the total-change variance at 1e-9, robust and homoskedastic. -- tests/reference_parity/test_decomp_R_parity.py",
+      "tests/reference_parity/test_gelbach_absorb_cluster_b1x2.py",
       "tests/reference_parity/test_gelbach_parity.py"
     ],
     "validation_status": "certified"

@@ -23,6 +23,28 @@ that calls `sp.aggte(fit)` without `bstrap=`. No point estimate changes.
 
 ---
 
+<a id="hdfe-t-g-minus-1"></a>
+
+## Unreleased — ⚠️ `sp.hdfe_ols` clustered inference on `t(G-1)`; HonestDiD relative-magnitude sets no longer truncated; `sp.ri_test(cluster=)` checks the design
+
+**Who is affected.** Anyone reading p-values, stars or CIs from clustered
+`sp.hdfe_ols` fits (point estimates and SEs are unchanged); anyone whose
+`sp.honest_did(method='relative_magnitude')` set reached the ±20 sd grid
+(it warned); anyone running `sp.ri_test(cluster=)` with a treatment that
+varies within clusters.
+
+| Area | Old | New | Old number, if you need it |
+| --- | --- | --- | --- |
+| `sp.hdfe_ols(cluster=)` p-values / CIs | `t(N - K - df_a)` | `t(min(G) - 1)`, as `reghdfe` | `df_inference='resid'` |
+| `sp.honest_did` relative-magnitude bound at the grid edge | grid end reported (warning) | grid extended until the set closes | `grid_expand=False` |
+| `sp.ri_test(cluster=)`, treatment varying within clusters | first row's value used for the cluster | `MethodIncompatibility`; `treat=<cluster-level>, interact=<pattern>` | — (the old distribution was not the design's) |
+| `sp.ri_test(stat='diff_means'/'t'/'ks')`, non-binary treatment | silently compared `d == 1` to `d == 0` | `MethodIncompatibility` | use `stat='ols'` |
+| `sp.iv(absorb='a^b')`, rows with `a` or `b` missing | kept as a `"nan"` FE level | dropped, as `ivreghdfe` | pre-fill the missing values yourself |
+| `sp.from_stata("reghdfe ...")` | `tool='feols'`, `arguments['fml']` | `tool='hdfe_ols'`, `arguments['formula']` | call `sp.feols` yourself |
+| `sp.from_stata("ivreghdfe ...")` with `absorb()` | `tool='feols'` | `tool='hdfe_ols'` (IV part) | call `sp.feols` yourself |
+
+---
+
 <a id="ppml-separation-etwfe-link"></a>
 
 ## Unreleased — ⚠️ `sp.ppmlhdfe` drops separated observations; `sp.etwfe(family='poisson')` gains `scale=` / `fe=`

@@ -1937,7 +1937,9 @@ def _materialise_interacted_fe(
         codes = out[parts[0]].astype(str)
         for extra in parts[1:]:
             codes = codes + "\x1f" + out[extra].astype(str)
-        out[name] = codes
+        # A missing component leaves the combination missing (the row is
+        # dropped, as reghdfe drops it); astype(str) would make it "nan".
+        out[name] = codes.where(out[parts].notna().all(axis=1))
         rewritten.append(name)
     return out, rewritten
 
@@ -2052,6 +2054,18 @@ def _iv_absorb_preprocess(
         max_iter=fe_maxiter,
         tol_abs=fe_tol,
     )
+
+    if not all(info.converged):
+        from ..exceptions import ConvergenceWarning
+
+        warnings.warn(
+            f"sp.iv(absorb=...): the fixed-effect sweep did not converge in "
+            f"{fe_maxiter} iterations (max |dx| = {max(info.max_dx):.2e}); the "
+            "estimates are not those of the absorbed model. Raise fe_maxiter, "
+            "or use sp.hdfe_ols('y ~ exog | fe | endog ~ z').",
+            ConvergenceWarning,
+            stacklevel=3,
+        )
 
     keep_mask = info.keep_mask
     n_kept = int(info.n_kept)

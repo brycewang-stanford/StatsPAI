@@ -267,6 +267,7 @@ rule out.
 | StatsPAI | Stata | Agreement |
 | --- | --- | --- |
 | `sp.iv(absorb=, cluster=)` | `ivreghdfe ..., absorb() cluster()` | machine precision |
+| `sp.hdfe_ols("y ~ x \| fe \| d ~ z", cluster=)` | `ivreghdfe ..., absorb() cluster() first` (incl. KP / CD / AR / J) | <= 5e-9; the fast path for large data (1.5M rows, 4 FE groups: 25 s) |
 | `sp.iv(absorb=, cluster=[a, b])` | `ivreghdfe ..., cluster(a b)` | machine precision |
 | `sp.iv(absorb=, method="liml"/"fuller")` | `ivreghdfe ..., liml/fuller(1)` | coefficients exact; SEs differ by `O(kappa-1)` (documented convention gap) |
 | `sp.iv(absorb=, method="gmm", gmm_vcov="efficient")` | `ivreghdfe ..., gmm2s` | machine precision |

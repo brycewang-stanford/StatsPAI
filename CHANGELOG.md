@@ -50,6 +50,49 @@ All notable changes to StatsPAI will be documented in this file.
   over-covers in the first case and is near 95% in the second. Point
   estimates, link-scale SEs and every default output are unchanged.
 
+- **2SLS in `sp.hdfe_ols`: `"y ~ exog | fe1 + fe2 | endog ~ inst"`** (Stata
+  `ivreghdfe`). Every variable is swept once by the reghdfe absorber, then
+  2SLS runs on the residuals; SEs follow `ivreg2`'s small-sample rules
+  (cluster, robust, iid) and `result.iv_diagnostics` carries the first-stage
+  F tests, Kleibergen-Paap rk LM and Wald F, Cragg-Donald F, Anderson-Rubin
+  test and Hansen J / Sargan. Against `ivreghdfe` 1.1.4 every coefficient,
+  SE and statistic agrees to <= 5e-9 (`test_hdfe_iv_ivreghdfe.py`). On the
+  1.5-million-row replication of Zheng, Huang and Zhu (2026, Table 6) it
+  gives -0.1381572 (0.0305366), KP F 509.244 and KP LM 30.714 as published,
+  in 25 s where the pyfixest route took about 4 minutes.
+- **R² family and reference df on `sp.hdfe_ols` results**: `r2`, `r2_a`,
+  `r2_a_within`, `rss`, `tss`, `rmse`, `df_inference`, as `reghdfe`'s
+  `e(r2)`, `e(r2_a)`, `e(r2_a_within)`, `e(rmse)`, `e(df_r)` (FEs nested in
+  the cluster are charged in full for the adjusted statistics,
+  `df_a_nested`); equal to reghdfe 6.13.1 to 1e-16
+  (`test_hdfe_fit_stats_reghdfe.py`). `summary()` shows them.
+- **`sp.hdfe_ols(df_inference=)`**: `'resid'`, `'normal'` or a number, for
+  the reference distribution of p-values and CIs (see ⚠️ below).
+- **Non-ASCII column names in `sp.hdfe_ols` formulas** (`工资 ~ 暴露度 | 企业`).
+- **`sp.honest_did(grid_lb=, grid_ub=, grid_points=, grid_expand=)`** (and
+  `honest_did_from_moments`), HonestDiD's `grid.lb` / `grid.ub` /
+  `gridPoints`, passed to R with `backend='r'` too (see ⚠️ below).
+- **`sp.gelbach(absorb=, cluster=, shapley=)`**: absorbed fixed effects
+  (swept by the reghdfe absorber, i.e. `b1x2` with the FE dummies in
+  `x1all()`), `b1x2 ..., cluster()` covariance, and Shapley shares averaged
+  over entry orders. Equal to `b1x2` 4.1.0 to 1e-10
+  (`test_gelbach_absorb_cluster_b1x2.py`).
+- **`sp.ri_test(absorb=, interact=)` and continuous treatments** for
+  `stat='ols'` / `'ols_t'`: absorbed FEs, and an intensity design
+  (`treat='exposure', interact='post'`) with exposure permuted across
+  clusters. Under clustering only `G` columns are swept once, so 9,999
+  permutations on 1.5 million rows take about a minute.
+- **`sp.sumstats(output='numeric')`**: the unformatted values (`N` as int,
+  the rest float) instead of display strings.
+- **`sp.from_stata`**: `reghdfe` / `ivreghdfe` now map to `sp.hdfe_ols`
+  (reghdfe's singleton, dof and `t(G-1)` rules) with Stata's `a#b` absorbed
+  interactions written `a^b` and `c.x#i.g` slopes as `i.g#c.x` (1.32
+  emitted `city#quarter` into the formula: a `SyntaxError`); `absorb(...,
+  savefe)`, `vce(robust)` and multi-way clusters are handled; `summarize`
+  / `sum2docx` translate to `sp.sumstats`; `permute`, `esttab`, `estout`,
+  `outreg2` and `coefplot` return an error naming the StatsPAI function to
+  use instead of "unknown command".
+
 - **`sp.honest_did_from_moments(betahat, sigma, event_times=...)` and
   `sp.honest_did_from_result`.** Rambachan-Roth sensitivity for an event
   study from *any* estimator -- `reghdfe`, a stacked regression, a published
@@ -773,6 +816,37 @@ All notable changes to StatsPAI will be documented in this file.
   joint restrictions -- e.g. the Mundlak test of the unit-mean terms -- work.
 
 ### ⚠️ Correctness
+
+- **`sp.iv(absorb="a^b")` dropped no rows with a missing `a` or `b`.** The
+  interacted FE was built from strings, so a missing component became the
+  level `"nan"` and the row stayed in the sample, where `ivreghdfe` drops it.
+  On the 1.5-million-row replication of Zheng, Huang and Zhu (2026, Table 6)
+  the 2SLS coefficient was -0.136797 instead of -0.1381572. Such rows are now
+  dropped (`test_hdfe_iv_ivreghdfe.py`). The absorbed sweep also warns
+  (`ConvergenceWarning`) if it stops at `fe_maxiter` without converging; it
+  used to return the unconverged residuals silently.
+- **`sp.hdfe_ols` clustered p-values and CIs use `t(G - 1)`**, reghdfe's
+  `e(df_r)` (`min(G) - 1`, capped at the residual df); they used
+  `t(N - K - df_a)`, practically the normal with many observations. SEs are
+  unchanged. With 100 occupation clusters in the replication of Zheng,
+  Huang and Zhu (2026), p = 0.0906 and CI [-0.1423, 0.0107] as Stata, where
+  1.32 gave 0.0878 and [-0.1414, 0.0098]. The same for the no-FE path
+  (`regress, vce(cluster)`). Old numbers: `df_inference='resid'`.
+- **`sp.honest_did(method='relative_magnitude')` no longer reports the grid
+  edge as the bound.** When the confidence set reached the end of the
+  +/-20 sd test-inversion grid, the grid end was returned (with a warning):
+  the interval was understated, e.g. [-0.325, 0.325] where Stata `honestdid`
+  gives [-0.531, 0.390]. The grid now extends at the same step until the set
+  closes (`attrs['grid_extended_at']`), matching Stata to the grid step and
+  the C-LF simulation (`test_honest_did_grid.py`). HonestDiD (R) truncates
+  like 1.32; `grid_expand=False` reproduces it.
+- **`sp.ri_test(cluster=)` refuses a treatment that varies within clusters.**
+  It used to give every cluster the treatment of its first row and permute
+  those values, a null distribution of a design nobody ran (the HIV-results
+  incentive replication, randomized to individuals, with
+  `cluster='villnum'`). Pass the
+  cluster-level variable with `interact=` for `exposure x post`, or permute
+  rows. `'diff_means'` / `'t'` / `'ks'` also refuse a non-binary treatment.
 
 - **`sp.callaway_santanna` without never-treated units no longer averages in
   zeros.** Found by the QJE 2019 (Princelings) and QJE 2023 (AI-tocracy)

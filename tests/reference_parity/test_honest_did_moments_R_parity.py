@@ -45,10 +45,44 @@ def test_relative_magnitudes_match_r(tgt):
             method="relative_magnitude",
             honestdid_method="Conditional",
             m_grid=R["Mbar"],
+            grid_expand=False,  # HonestDiD's fixed +/-20 sd grid
             **TARGETS[tgt],
         )
     np.testing.assert_allclose(out["ci_lower"], R[f"rm_{tgt}"]["lb"], atol=1e-10)
     np.testing.assert_allclose(out["ci_upper"], R[f"rm_{tgt}"]["ub"], atol=1e-10)
+
+
+@pytest.mark.parametrize("tgt", sorted(TARGETS))
+def test_default_grid_extends_where_r_stops_at_the_grid_edge(tgt):
+    """HonestDiD reports the grid end when the set is wider than +/-20 sd.
+
+    For the average target at Mbar >= 1 R's upper bound is the grid end
+    (the same 0.353101 twice). The default native set extends the grid and
+    closes further out; wherever R's bound is interior the two agree.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        out = sp.honest_did_from_moments(
+            B,
+            S,
+            num_pre_periods=K,
+            method="relative_magnitude",
+            honestdid_method="Conditional",
+            m_grid=R["Mbar"],
+            **TARGETS[tgt],
+        )
+    extended = set(out.attrs["grid_extended_at"])
+    assert out.attrs["open_at"] == []
+    for i, m in enumerate(R["Mbar"]):
+        lo, hi = R[f"rm_{tgt}"]["lb"][i], R[f"rm_{tgt}"]["ub"][i]
+        if m in extended:
+            assert out["ci_lower"][i] <= lo + 1e-12 and out["ci_upper"][i] >= hi - 1e-12
+            assert (out["ci_lower"][i], out["ci_upper"][i]) != pytest.approx((lo, hi))
+        else:
+            assert out["ci_lower"][i] == pytest.approx(lo, abs=1e-10)
+            assert out["ci_upper"][i] == pytest.approx(hi, abs=1e-10)
+    if tgt == "avg":
+        assert extended
 
 
 @pytest.mark.parametrize("tgt", sorted(TARGETS))

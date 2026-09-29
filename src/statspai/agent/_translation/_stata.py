@@ -219,28 +219,177 @@ def _h_xtreg(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("feols", args, _feols_code(fml, cluster), notes)
 
 
+_ABSORB_NAME = r"[^\W\d]\w*"
+
+
+def _absorb_terms(absorb: str) -> Tuple[List[str], Optional[str]]:
+    """Stata ``absorb()`` terms -> ``sp.hdfe_ols`` absorb syntax.
+
+    ``a#b`` / ``i.a#i.b`` -> ``a^b`` (one FE per combination);
+    ``i.g#c.x`` / ``c.x#i.g`` -> ``i.g#c.x`` (slope only) and ``##`` ->
+    ``i.g##c.x`` (FE and slope); ``name=term`` (saved FE) and the
+    ``, savefe`` suboptions are dropped. Returns ``(terms, error)``.
+    """
+    spec = absorb.split(",", 1)[0]
+    out: List[str] = []
+    for raw in spec.split():
+        tok = raw.split("=", 1)[1] if "=" in raw else raw
+        m = re.fullmatch(
+            rf"(?:i\.)?({_ABSORB_NAME})(##|#)c\.({_ABSORB_NAME})", tok
+        ) or re.fullmatch(rf"c\.({_ABSORB_NAME})(##|#)(?:i\.)?({_ABSORB_NAME})", tok)
+        if m:
+            if tok.startswith("c."):
+                x, op, g = m.group(1), m.group(2), m.group(3)
+            else:
+                g, op, x = m.group(1), m.group(2), m.group(3)
+            out.append(f"i.{g}{op}c.{x}")
+            continue
+        parts = tok.split("#")
+        names = [re.fullmatch(rf"(?:i\.)?({_ABSORB_NAME})", q) for q in parts]
+        if all(names):
+            out.append("^".join(n.group(1) for n in names))  # type: ignore[union-attr]
+            continue
+        return [], f"absorb() term {raw!r} is not translated"
+    return out, None
+
+
+def _cluster_vars(cmd: StataCommand) -> List[str]:
+    """All cluster variables of ``vce(cluster a b)`` / ``cluster(a b)``."""
+    vce = cmd.options.get("vce")
+    if vce:
+        parts = vce.split()
+        if parts and parts[0].lower().startswith("cl") and len(parts) >= 2:
+            return parts[1:]
+    cl = cmd.options.get("cluster")
+    return cl.split() if cl else []
+
+
 def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
-    """``reghdfe y x, absorb(id year) cluster(id)`` → ``sp.feols``."""
+    """``reghdfe y x, absorb(id year#q) cluster(id)`` -> ``sp.hdfe_ols``.
+
+    ``sp.hdfe_ols`` is StatsPAI's reghdfe: same singleton pruning, absorbed
+    degrees of freedom, cluster small-sample factor and ``t(G - 1)``
+    reference; ``sp.feols`` (pyfixest) keeps singletons by default.
+    """
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
         return _emit_error("reghdfe requires an outcome variable", command="reghdfe")
     absorb = cmd.options.get("absorb") or ""
-    fe_list = [v for v in absorb.split() if v]
-    cluster = _vce_cluster(cmd) or cmd.options.get("cluster")
-    if cluster:
-        cluster = cluster.split()[0]
+    fe_list, err = _absorb_terms(absorb)
+    if err is not None:
+        return _emit_error(err, command="reghdfe", suggestions=[])
+    clusters = _cluster_vars(cmd)
     main = _build_formula(y, xs)
-    fml = _pyfixest_fml(main, fe_list)
-    args: Dict[str, Any] = {"fml": fml}
-    if cluster:
-        args["cluster"] = cluster
+    formula = main + (" | " + " + ".join(fe_list) if fe_list else "")
+    args: Dict[str, Any] = {"formula": formula}
+    if clusters:
+        args["cluster"] = clusters[0] if len(clusters) == 1 else clusters
+    elif "robust" in cmd.options or _opt_matches(cmd.options.get("vce"), "robust"):
+        args["vce"] = "robust"
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items() if k != "formula")
+    python = f"sp.hdfe_ols({formula!r}, data=df" + (f", {kw})" if kw else ")")
     notes: List[str] = []
     if not fe_list:
         notes.append(
             "reghdfe with no absorb() collapses to OLS — "
             "consider sp.regress instead."
         )
-    return _emit("feols", args, _feols_code(fml, cluster), notes)
+    if cmd.if_cond:
+        notes.append(
+            f"Stata `if {cmd.if_cond}` dropped — pre-filter df via "
+            f"`df = df.query({cmd.if_cond!r})` before calling (Stata treats "
+            "missing as +infinity in comparisons; pandas does not)."
+        )
+    return _emit("hdfe_ols", args, python, notes)
+
+
+_SUM_STATS = {
+    "n": "n",
+    "count": "n",
+    "mean": "mean",
+    "sd": "sd",
+    "min": "min",
+    "max": "max",
+    "p10": "p10",
+    "p25": "p25",
+    "p50": "median",
+    "median": "median",
+    "p75": "p75",
+    "p90": "p90",
+}
+
+
+def _h_summarize(cmd: StataCommand) -> Dict[str, Any]:
+    """``summarize`` / ``sum2docx ... using f.docx, stats(...)`` -> ``sp.sumstats``."""
+    toks = list(cmd.varlist)
+    path = None
+    if "using" in toks:
+        i = toks.index("using")
+        if i + 1 < len(toks):
+            path = toks[i + 1].strip('"')
+        toks = toks[:i]
+    stats = ["n", "mean", "sd", "min", "max"]  # summarize's columns
+    if "detail" in cmd.options or "d" in cmd.options:
+        stats += ["p10", "p25", "median", "p75", "p90"]
+    spec = cmd.options.get("stats") or cmd.options.get("statistics")
+    if spec:
+        stats = []
+        for tok in re.sub(r"\([^)]*\)", "", spec).split():
+            key = _SUM_STATS.get(tok.lower())
+            if key is None:
+                return _emit_error(
+                    f"summary statistic {tok!r} is not translated",
+                    command=cmd.command,
+                    suggestions=[],
+                )
+            stats.append(key)
+    output = path or "numeric"
+    args: Dict[str, Any] = {"stats": stats, "output": output}
+    if toks:
+        args["vars"] = toks
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    notes: List[str] = []
+    if cmd.if_cond:
+        notes.append(
+            f"Stata `if {cmd.if_cond}` dropped — filter df first "
+            f"(`df = df.query({cmd.if_cond!r})`)."
+        )
+    if spec and "(" in spec:
+        notes.append(
+            "Display formats such as mean(%9.3f) are not carried over; pass "
+            "digits= for a fixed number of decimals."
+        )
+    return _emit("sumstats", args, f"sp.sumstats(df, {kw})", notes)
+
+
+#: Stata commands StatsPAI covers but ``from_stata`` cannot translate line by
+#: line (they wrap another command or read stored estimates).
+_UNTRANSLATED_GUIDANCE: Dict[str, Tuple[str, List[str]]] = {
+    "permute": (
+        "`permute` wraps another estimation command; use sp.ri_test(data, y=, "
+        "treat=, cluster=, n_perms=, stat=callable) with a statistic that "
+        "refits the model on the permuted treatment.",
+        ["ri_test"],
+    ),
+    "esttab": (
+        "`esttab` tabulates stored estimates; pass the fitted results to "
+        "sp.etable([r1, r2, ...]) (or sp.esttab).",
+        ["etable", "esttab"],
+    ),
+    "estout": (
+        "`estout` tabulates stored estimates; use sp.etable([...]).",
+        ["etable"],
+    ),
+    "outreg2": (
+        "`outreg2` tabulates stored estimates; use sp.outreg2 / sp.etable "
+        "with the fitted results.",
+        ["outreg2", "etable"],
+    ),
+    "coefplot": (
+        "`coefplot` plots stored estimates; use sp.coefplot(result).",
+        ["coefplot"],
+    ),
+}
 
 
 _IV_BLOCK = re.compile(r"\(\s*([^()=]*?)\s*=\s*([^()]*?)\s*\)")
@@ -338,7 +487,12 @@ def _h_ivreg2(cmd: StataCommand) -> Dict[str, Any]:
 
 
 def _h_ivreghdfe(cmd: StataCommand) -> Dict[str, Any]:
-    """``ivreghdfe y x (d = z), absorb(id year)`` → ``sp.fixest`` IV+FE."""
+    """``ivreghdfe y x (d = z), absorb(id year)`` -> ``sp.hdfe_ols`` IV part.
+
+    ``sp.hdfe_ols("y ~ x | fe | d ~ z")`` absorbs with the reghdfe engine and
+    reports ivreg2's statistics (KP rk LM / Wald F, Cragg-Donald F,
+    Anderson-Rubin, Hansen J) in ``result.iv_diagnostics``.
+    """
     if not cmd.varlist:
         return _emit_error(
             "ivreghdfe requires an outcome variable", command="ivreghdfe"
@@ -347,23 +501,43 @@ def _h_ivreghdfe(cmd: StataCommand) -> Dict[str, Any]:
     if isinstance(parsed, dict):
         return parsed
     y, exog, endog, instruments = parsed
-    main = _build_formula(y, exog)
     absorb = cmd.options.get("absorb") or ""
-    fe_list = [v for v in absorb.split() if v]
-    cluster = _vce_cluster(cmd) or cmd.options.get("cluster")
-    if cluster:
-        cluster = cluster.split()[0]
-    fml = _pyfixest_fml(main, fe_list, " + ".join(endog), " + ".join(instruments))
-    args: Dict[str, Any] = {"fml": fml}
-    if cluster:
-        args["cluster"] = cluster
+    fe_list, err = _absorb_terms(absorb)
+    if err is not None:
+        return _emit_error(err, command="ivreghdfe", suggestions=[])
     notes = [
-        "Mapped Stata ivreghdfe to StatsPAI/fixest IV-with-fixed-effects "
-        "syntax. This is a command migration contract, not a live Stata run."
+        "Mapped Stata ivreghdfe to sp.hdfe_ols's IV part; first-stage and "
+        "weak-instrument statistics are in result.iv_diagnostics."
     ]
+    clusters = _cluster_vars(cmd)
     if not fe_list:
-        notes.append("ivreghdfe without absorb() is equivalent to IV without HDFE.")
-    return _emit("feols", args, _feols_code(fml, cluster), notes)
+        fml = _pyfixest_fml(
+            _build_formula(y, exog), [], " + ".join(endog), " + ".join(instruments)
+        )
+        args: Dict[str, Any] = {"fml": fml}
+        if clusters:
+            args["cluster"] = clusters[0]
+        notes.append("ivreghdfe without absorb() is IV without HDFE (sp.feols).")
+        return _emit("feols", args, _feols_code(fml, args.get("cluster")), notes)
+    if len(clusters) > 1:
+        return _emit_error(
+            "ivreghdfe with multi-way clustering is not translated; "
+            "sp.hdfe_ols IV supports one-way clusters.",
+            command="ivreghdfe",
+            suggestions=[],
+        )
+    formula = (
+        f"{_build_formula(y, exog)} | {' + '.join(fe_list)} | "
+        f"{' + '.join(endog)} ~ {' + '.join(instruments)}"
+    )
+    args = {"formula": formula}
+    if clusters:
+        args["cluster"] = clusters[0]
+    elif "robust" in cmd.options or _opt_matches(cmd.options.get("vce"), "robust"):
+        args["vce"] = "robust"
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items() if k != "formula")
+    python = f"sp.hdfe_ols({formula!r}, data=df" + (f", {kw})" if kw else ")")
+    return _emit("hdfe_ols", args, python, notes)
 
 
 def _h_csdid(cmd: StataCommand) -> Dict[str, Any]:
@@ -1410,6 +1584,10 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "bunching": _h_bunching,
     "mi": _h_mi_estimate,  # ``mi estimate: <inner>`` — we get the head
     "boottest": _h_boottest,
+    "summarize": _h_summarize,
+    "sum": _h_summarize,
+    "su": _h_summarize,
+    "sum2docx": _h_summarize,
 }
 
 
@@ -1655,7 +1833,7 @@ def from_stata(line: str) -> Dict[str, Any]:
     >>> out["ok"]
     True
     >>> out["python_code"]
-    "sp.feols('y ~ x | id + year', data=df, cluster='id')"
+    "sp.hdfe_ols('y ~ x | id + year', data=df, cluster='id')"
     >>> sp.from_stata("notacommand y x")["ok"]
     False
     """
@@ -1665,6 +1843,14 @@ def from_stata(line: str) -> Dict[str, Any]:
         return _emit_error(f"parse_error: {e}", command=None, suggestions=[])
 
     handler = STATA_COMMAND_MAP.get(parsed.command)
+    if handler is None and parsed.command in _UNTRANSLATED_GUIDANCE:
+        msg, funcs = _UNTRANSLATED_GUIDANCE[parsed.command]
+        return _emit_error(
+            f"{parsed.command!r} is not translated line by line: {msg}",
+            command=parsed.command,
+            suggestions=[],
+            statspai_functions=funcs,
+        )
     if handler is None:
         from difflib import get_close_matches
 

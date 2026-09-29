@@ -30,7 +30,7 @@ import tempfile
 import warnings
 from numbers import Real
 from pathlib import Path
-from typing import Any, List, Optional, Sequence, Tuple, cast
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -180,6 +180,10 @@ def honest_did(
     honestdid_method: Optional[str] = None,
     l_vec: Optional[Any] = None,
     window: Optional[Tuple[float, float]] = None,
+    grid_lb: Optional[float] = None,
+    grid_ub: Optional[float] = None,
+    grid_points: int = 1000,
+    grid_expand: bool = True,
 ) -> pd.DataFrame:
     """
     Rambachan & Roth (2023) sensitivity analysis for parallel trends.
@@ -235,8 +239,9 @@ def honest_did(
         up to that Monte Carlo error. Like the FLCI it needs the joint
         event-study covariance; without it the function falls back to the
         worst-case-bias approximation ``θ̂ ± M̄·max|δ_pre| ± z·SE`` and warns.
-        A set that reaches either end of the grid is reported with a warning,
-        because its true bound lies outside the grid.
+        A set that reaches an end of the default grid is not truncated
+        there: with ``grid_expand=True`` that side is extended at the same
+        step until the set closes (see ``grid_expand``).
 
         ``'honestdid'``/``'r'`` delegates to the R ``HonestDiD`` package
         through ``Rscript``. It is handed the same full covariance when
@@ -260,12 +265,33 @@ def honest_did(
         straddle zero), e.g. ``(-5, 5)`` for an analysis run on Stata
         ``estat event, window(-5 5)``.  The leads outside the window no
         longer calibrate the restriction.  Both backends.
+    grid_lb, grid_ub : float, optional
+        ``method='relative_magnitude'`` only: the ends of the test-inversion
+        grid for ``l' tau_post`` (HonestDiD's ``grid.lb`` / ``grid.ub``).
+        Default ``-/+ 20 sd(l' tau_post)``. A bound given here is honoured
+        as is and never extended. Both backends.
+    grid_points : int, default 1000
+        ``method='relative_magnitude'`` only: points on that grid
+        (HonestDiD's ``gridPoints``). Both backends.
+    grid_expand : bool, default True
+        ``method='relative_magnitude'``, native backend: when the accepted set
+        reaches an end of the default grid, extend that side by another
+        ``grid_points`` points at the same step (up to 10 times) instead of
+        reporting the grid end as the bound. HonestDiD (R) and versions of
+        StatsPAI before 1.33 report the grid end, which understates the
+        interval whenever the set is wider than ``+/-20 sd``; ``False``
+        reproduces that. A set still open after the extensions is reported
+        with a warning and ``attrs['open_at']``. ``backend='r'`` runs
+        HonestDiD's own grid: widen it there with ``grid_lb`` / ``grid_ub``.
 
     Returns
     -------
     pd.DataFrame
         Columns: M, ci_lower, ci_upper, rejects_zero.
-        Each row is a different M value.
+        Each row is a different M value.  For relative magnitudes,
+        ``attrs['grid_extended_at']`` lists the ``Mbar`` whose grid was
+        extended and ``attrs['open_at']`` those whose set still reaches the
+        grid edge (bound unknown).
 
     Examples
     --------
@@ -332,6 +358,9 @@ def honest_did(
             honestdid_method=honestdid_method,
             l_vec=l_vec,
             window=win,
+            grid_lb=grid_lb,
+            grid_ub=grid_ub,
+            grid_points=grid_points,
         )
     if backend_norm not in {"native", "statspai"}:
         raise MethodIncompatibility(
@@ -494,7 +523,18 @@ def honest_did(
     elif method == "relative_magnitude":
         # Preferred path: the Rambachan-Roth / ARP confidence set, which needs
         # the joint event-study covariance (as the FLCI does).
-        _rm = _native_rm_table(moments, e, m_grid, alpha, honestdid_method, l_vec=lv)
+        _rm = _native_rm_table(
+            moments,
+            e,
+            m_grid,
+            alpha,
+            honestdid_method,
+            l_vec=lv,
+            grid_lb=grid_lb,
+            grid_ub=grid_ub,
+            grid_points=grid_points,
+            grid_expand=grid_expand,
+        )
         if _rm is not None:
             return _rm
 
@@ -573,6 +613,10 @@ def _native_rm_table(
     alpha: float,
     honestdid_method: Optional[str],
     l_vec: Optional[np.ndarray] = None,
+    grid_lb: Optional[float] = None,
+    grid_ub: Optional[float] = None,
+    grid_points: int = 1000,
+    grid_expand: bool = True,
 ) -> Optional[pd.DataFrame]:
     """Native Delta^RM confidence sets over ``m_grid`` (None if no covariance)."""
     inputs = _rm_inputs(moments, e, l_vec)
@@ -580,8 +624,16 @@ def _native_rm_table(
         return None
     b, s, n_pre, n_post, l_post = inputs
     rm_method = "C-LF" if honestdid_method is None else str(honestdid_method)
+    grid_points = _require_int(grid_points, argument="grid_points")
+    if grid_points < 2:
+        raise MethodIncompatibility(
+            "grid_points must be at least 2.",
+            recovery_hint="HonestDiD's default is 1000.",
+            diagnostics={"grid_points": grid_points},
+        )
     rows = []
     open_at: List[float] = []
+    extended_at: List[float] = []
     for m_bar in m_grid:
         lo, hi, grid, accept = rm_confidence_set(
             b,
@@ -592,7 +644,13 @@ def _native_rm_table(
             l_vec=l_post,
             alpha=alpha,
             method=rm_method,
+            grid_points=grid_points,
+            grid_lb=grid_lb,
+            grid_ub=grid_ub,
+            max_expand=10 if grid_expand else 0,
         )
+        if grid.size > grid_points:
+            extended_at.append(float(m_bar))
         if accept.size and (accept[0] == 1 or accept[-1] == 1):
             open_at.append(float(m_bar))
         rows.append(
@@ -606,13 +664,20 @@ def _native_rm_table(
     if open_at:
         warnings.warn(
             "honest_did(method='relative_magnitude'): the confidence set reaches "
-            f"the edge of the +/-20 SD grid at Mbar = {open_at}; the reported "
-            "bound is the grid edge, not the true bound (HonestDiD reports the "
-            "same and warns likewise).",
+            f"the edge of the test-inversion grid at Mbar = {open_at}; the "
+            "reported bound is the grid edge, not the true bound. "
+            + (
+                "Pass grid_expand=True (the default) or a wider grid_lb / grid_ub."
+                if not grid_expand or grid_lb is not None or grid_ub is not None
+                else "The set did not close within 10 extensions and may be "
+                "unbounded at this Mbar."
+            ),
             UserWarning,
             stacklevel=3,
         )
     out = pd.DataFrame(rows)
+    out.attrs["grid_extended_at"] = extended_at
+    out.attrs["open_at"] = open_at
     out.attrs["interval"] = (
         "arp_conditional" if rm_method.upper() == "CONDITIONAL" else "arp_c_lf"
     )
@@ -628,6 +693,9 @@ def _honest_did_r_backend(
     honestdid_method: Optional[str] = None,
     l_vec: Optional[Any] = None,
     window: Optional[tuple] = None,
+    grid_lb: Optional[float] = None,
+    grid_ub: Optional[float] = None,
+    grid_points: int = 1000,
 ) -> pd.DataFrame:
     """Run the R HonestDiD reference implementation for CI parity.
 
@@ -794,6 +862,13 @@ if (nzchar(l_arg)) {
   l_vec[post_idx] <- 1
 }
 l_vec <- matrix(l_vec, ncol = 1)
+num_or_na <- function(i) {
+  if (length(args) >= i && nzchar(args[[i]])) as.numeric(args[[i]]) else NA
+}
+grid_lb <- num_or_na(9)
+grid_ub <- num_or_na(10)
+grid_points <- num_or_na(11)
+if (is.na(grid_points)) grid_points <- 1000
 if (method == "relative_magnitude") {
   sens <- suppressWarnings(
     HonestDiD::createSensitivityResults_relativeMagnitudes(
@@ -804,7 +879,10 @@ if (method == "relative_magnitude") {
       l_vec = l_vec,
       Mbarvec = grid,
       method = honestdid_method,
-      alpha = alpha
+      alpha = alpha,
+      grid.lb = grid_lb,
+      grid.ub = grid_ub,
+      gridPoints = grid_points
     )
   )
   out <- data.frame(M = sens$Mbar, ci_lower = sens$lb, ci_upper = sens$ub)
@@ -874,6 +952,9 @@ cat(jsonlite::toJSON(out, dataframe = "rows", auto_unbox = TRUE,
                 honestdid_method_arg,
                 sigma_path,
                 "" if lv is None else ",".join(f"{v:.17g}" for v in lv),
+                "" if grid_lb is None else f"{float(grid_lb):.17g}",
+                "" if grid_ub is None else f"{float(grid_ub):.17g}",
+                str(_require_int(grid_points, argument="grid_points")),
             ],
             check=False,
             capture_output=True,
@@ -1196,9 +1277,9 @@ CausalResult._CITATIONS["honest_did"] = (
 
 
 def honest_did_from_moments(
-    betahat: Sequence[float],
-    sigma: Any,
-    event_times: Optional[Sequence[int]] = None,
+    betahat: Any,
+    sigma: Any = None,
+    event_times: Optional[Union[Sequence[int], Dict[str, int]]] = None,
     num_pre_periods: Optional[int] = None,
     e: int = 0,
     m_grid: Optional[List[float]] = None,
@@ -1208,6 +1289,10 @@ def honest_did_from_moments(
     honestdid_method: Optional[str] = None,
     l_vec: Optional[Any] = None,
     window: Optional[Tuple[float, float]] = None,
+    grid_lb: Optional[float] = None,
+    grid_ub: Optional[float] = None,
+    grid_points: int = 1000,
+    grid_expand: bool = True,
 ) -> pd.DataFrame:
     """Rambachan-Roth sensitivity from a coefficient vector and its covariance.
 
@@ -1220,14 +1305,22 @@ def honest_did_from_moments(
 
     Parameters
     ----------
-    betahat : sequence of float
-        Event-study coefficients, the reference period excluded.
+    betahat : sequence of float, or a fitted regression
+        Event-study coefficients, the reference period excluded. Or a fitted
+        result with ``params`` and a full covariance (``sp.hdfe_ols``,
+        ``sp.regress``, ``sp.feols`` ...) together with ``event_times`` as a
+        ``{coefficient name: event time}`` mapping: the coefficients and
+        their covariance block are taken from the fit, so a hand-built
+        intensity event study (``exposure x 1[t = k]`` regressors) goes
+        straight in.
     sigma : array-like
         Their joint covariance matrix (``len(betahat)`` square). Use the full
         matrix: the pre-period covariance is what calibrates the restriction.
-    event_times : sequence of int, optional
+        Omitted when ``betahat`` is a fitted result.
+    event_times : sequence of int or dict, optional
         Relative time of each coefficient (negative = pre-treatment,
-        ``>= 0`` = post). If omitted, ``num_pre_periods`` must be given and the
+        ``>= 0`` = post); a ``{name: time}`` dict with a fitted ``betahat``.
+        If omitted, ``num_pre_periods`` must be given and the
         times are ``-num_pre_periods-1 .. -2`` for the leads (``-1`` is the
         omitted reference) and ``0, 1, ...`` for the lags -- HonestDiD's
         layout.
@@ -1236,6 +1329,9 @@ def honest_did_from_moments(
         omitted.
     e, m_grid, method, alpha, backend, honestdid_method, l_vec, window
         As in :func:`honest_did`.
+    grid_lb, grid_ub, grid_points, grid_expand
+        Test-inversion grid for ``method='relative_magnitude'``, as in
+        :func:`honest_did`.
 
     Returns
     -------
@@ -1254,6 +1350,15 @@ def honest_did_from_moments(
     >>> list(out.columns)[:3]
     ['M', 'ci_lower', 'ci_upper']
     """
+    if hasattr(betahat, "params") and not isinstance(betahat, pd.Series):
+        betahat, sigma, event_times = _moments_from_fit(betahat, sigma, event_times)
+    if sigma is None:
+        raise MethodIncompatibility(
+            "sigma (the joint covariance of betahat) is required.",
+            recovery_hint="Pass sigma=, or a fitted result with "
+            "event_times={name: time}.",
+            diagnostics={},
+        )
     b = np.asarray(betahat, dtype=float).ravel()
     S = np.asarray(sigma, dtype=float)
     if S.shape != (b.size, b.size):
@@ -1323,6 +1428,46 @@ def honest_did_from_moments(
         honestdid_method=honestdid_method,
         l_vec=l_vec,
         window=window,
+        grid_lb=grid_lb,
+        grid_ub=grid_ub,
+        grid_points=grid_points,
+        grid_expand=grid_expand,
+    )
+
+
+def _moments_from_fit(fit: Any, sigma: Any, event_times: Any) -> tuple:
+    """(betahat, sigma, times) from a fitted regression and ``{name: time}``."""
+    from ..postestimation._covariance import coefficient_covariance
+
+    if sigma is not None or not isinstance(event_times, dict) or not event_times:
+        raise MethodIncompatibility(
+            "With a fitted result as betahat, pass event_times as a "
+            "{coefficient name: event time} dict and no sigma.",
+            recovery_hint="e.g. event_times={'lead3': -3, 'lead2': -2, "
+            "'lag0': 0, 'lag1': 1}",
+            diagnostics={"type": type(fit).__name__},
+        )
+    params = fit.params
+    names = list(event_times)
+    missing = [nm for nm in names if nm not in params.index]
+    if missing:
+        raise MethodIncompatibility(
+            f"Coefficients not in the fit: {missing}.",
+            recovery_hint=f"Available: {list(params.index)[:20]}",
+            diagnostics={"missing": missing},
+        )
+    V, _ = coefficient_covariance(fit)
+    if V is None:
+        raise MethodIncompatibility(
+            "The fit carries no covariance matrix consistent with its SEs.",
+            recovery_hint="Pass betahat and sigma arrays directly.",
+            diagnostics={"type": type(fit).__name__},
+        )
+    idx = [list(params.index).index(nm) for nm in names]
+    return (
+        params.to_numpy(dtype=float)[idx],
+        np.asarray(V, dtype=float)[np.ix_(idx, idx)],
+        [int(event_times[nm]) for nm in names],
     )
 
 

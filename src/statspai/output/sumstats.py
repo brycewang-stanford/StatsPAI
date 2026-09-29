@@ -47,11 +47,15 @@ def sumstats(
         Available: 'n', 'mean', 'sd', 'min', 'max', 'p25', 'median',
         'p75', 'p10', 'p90'.
     output : str, default 'text'
-        'text', 'latex', 'html', 'dataframe', or filepath (.xlsx/.docx).
+        'text', 'latex', 'html', 'dataframe', 'numeric', or filepath
+        (.xlsx/.docx). ``'dataframe'`` holds the formatted display strings;
+        ``'numeric'`` the unrounded values (``N`` as int, the rest float) for
+        further computation, with ``fmt`` / ``digits`` ignored.
     title : str
         Table title.
     fmt : str
-        Number format.
+        Number format. The default rounds each cell to a few significant
+        digits; pass ``digits=3`` for a fixed three decimals throughout.
     labels : dict, optional
         Variable labels: ``{'x1': 'Education (years)'}``.
     by_labels : dict, optional
@@ -98,8 +102,11 @@ def sumstats(
         "p90": ("P90", lambda s: s.quantile(0.9)),
     }
 
+    numeric = output == "numeric"
     if by is None:
-        df_result = _compute_stats(data, vars, stats, stat_funcs, fmt, labels)
+        df_result = _compute_stats(
+            data, vars, stats, stat_funcs, fmt, labels, numeric=numeric
+        )
     else:
         groups = sorted(data[by].dropna().unique())
         # Auto Control/Treated for binary 0/1 unless caller supplied labels.
@@ -116,10 +123,14 @@ def sumstats(
         for g in groups:
             label = by_labels.get(g, str(g)) if by_labels else str(g)
             subset = data[data[by] == g]
-            panels[label] = _compute_stats(subset, vars, stats, stat_funcs, fmt, labels)
+            panels[label] = _compute_stats(
+                subset, vars, stats, stat_funcs, fmt, labels, numeric=numeric
+            )
         # Stack panels
         df_result = pd.concat(panels, axis=1)
 
+    if numeric:
+        return df_result
     return _format_output(df_result, output, title, stats)
 
 
@@ -133,8 +144,29 @@ def _compute_stats(
     stat_funcs: Dict[str, _StatFunc],
     fmt: str,
     labels: Optional[Dict[str, str]],
+    numeric: bool = False,
 ) -> pd.DataFrame:
-    """Compute statistics for each variable."""
+    """Compute statistics for each variable (display strings, or values)."""
+    if numeric:
+        vals: Dict[str, Dict[str, Any]] = {}
+        for var in vars:
+            if var not in data.columns:
+                continue
+            s = data[var].dropna()
+            display = labels.get(var, var) if labels else var
+            vals[display] = {
+                stat_funcs[st][0]: (
+                    int(stat_funcs[st][1](s))
+                    if st == "n"
+                    else float(stat_funcs[st][1](s))
+                )
+                for st in stats
+                if st in stat_funcs
+            }
+        out = pd.DataFrame(vals).T
+        if "N" in out.columns:
+            out["N"] = out["N"].astype("int64")
+        return out
     rows: Dict[str, Dict[str, str]] = {}
     for var in vars:
         if var not in data.columns:

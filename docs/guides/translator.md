@@ -42,7 +42,7 @@ translators actually do:
 ```python
 cov = sp.translation_coverage()
 cov["summary"]      # {'n_stata_commands': 38, 'n_r_functions': 11, ...}
-cov["stata"]        # [{'command': 'reghdfe', 'targets': ['sp.feols'], ...}, ...]
+cov["stata"]        # [{'command': 'reghdfe', 'targets': ['sp.hdfe_ols'], ...}, ...]
 cov["limitations"]  # the documented gaps (see below)
 
 print(sp.translation_coverage(fmt="markdown"))   # a ready-to-read table
@@ -54,7 +54,9 @@ always-current list):
 | Stata | → StatsPAI |
 | --- | --- |
 | `regress` / `reg` | `sp.regress` |
-| `reghdfe`, `xtreg`, `ivreghdfe` | `sp.feols` |
+| `reghdfe`, `ivreghdfe` | `sp.hdfe_ols` (reghdfe's singleton / dof / `t(G-1)` rules; `a#b` becomes `a^b`) |
+| `xtreg, fe` | `sp.feols` |
+| `summarize`, `sum2docx` | `sp.sumstats` |
 | `ivreg2` / `ivregress` | `sp.ivreg` |
 | `csdid`, `didregress`, `did_imputation` | `sp.callaway_santanna` / `sp.did` / `sp.did_imputation` |
 | `rdrobust`, `rdplot`, `rddensity` | `sp.rdrobust` / `sp.rdplot` / `sp.rddensity` |

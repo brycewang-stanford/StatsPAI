@@ -68,6 +68,7 @@ import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import MethodIncompatibility
 from .hdfe import Absorber, SlopeSpec, _factorize_multi, absorb_ols
 
 
@@ -97,6 +98,18 @@ class FEOLSResult(ResultProtocolMixin):
         Degrees of freedom consumed by the FEs.
     df_resid : int
     r2_within : float
+    r2, r2_a, r2_a_within : float
+        R², adjusted R² and adjusted within R², as ``reghdfe``'s ``e(r2)``,
+        ``e(r2_a)``, ``e(r2_a_within)``: the adjustment charges the absorbed
+        fixed effects, including those nested in a cluster (``df_a_nested``).
+    rss, tss : float
+        Residual and total (around the mean) sums of squares.
+    rmse : float
+        ``sqrt(rss / (N - K - df_a - df_a_nested))`` (``e(rmse)``).
+    df_inference : float
+        Degrees of freedom of the t reference distribution of ``pvalues`` /
+        ``conf_int_*`` (``inf`` = normal). Clustered: ``min(G) - 1`` capped
+        at the residual df, as ``reghdfe``'s ``e(df_r)``.
     se_type : str
         'iid' | 'cluster' | 'multiway_cluster' | 'wild_cluster'
     cluster_info : dict
@@ -141,6 +154,23 @@ class FEOLSResult(ResultProtocolMixin):
     absorber: Absorber
     converged: bool
     iters: int
+    r2: float = float("nan")
+    r2_a: float = float("nan")
+    r2_a_within: float = float("nan")
+    rss: float = float("nan")
+    tss: float = float("nan")
+    rmse: float = float("nan")
+    df_inference: float = float("nan")
+    iv_diagnostics: Optional[Dict[str, Any]] = None
+
+    @property
+    def data_info(self) -> Dict[str, Any]:
+        """Sample sizes and the reference-distribution df (postestimation)."""
+        return {
+            "nobs": int(self.n_obs),
+            "df_resid": self.df_resid,
+            "df_inference": self.df_inference,
+        }
 
     def summary(self) -> str:
         lines: List[str] = []
@@ -153,8 +183,39 @@ class FEOLSResult(ResultProtocolMixin):
             f"Absorbed FE: groups={self.n_fe}   dof_fe={self.dof_fe}   "
             f"df_resid={self.df_resid}"
         )
-        lines.append(f"R² (within) = {self.r2_within:.4f}")
-        lines.append(f"SE type: {self.se_type}")
+        lines.append(
+            f"R² = {self.r2:.4f}   Adj. R² = {self.r2_a:.4f}   "
+            f"R² (within) = {self.r2_within:.4f}   "
+            f"Adj. R² (within) = {self.r2_a_within:.4f}"
+        )
+        ref = (
+            "normal"
+            if not np.isfinite(self.df_inference)
+            else f"t({self.df_inference:g})"
+        )
+        lines.append(f"SE type: {self.se_type}   p-values / CIs: {ref}")
+        iv = self.iv_diagnostics
+        if iv:
+            lines.append(
+                f"2SLS  instrumented: {', '.join(iv['endogenous'])}   "
+                f"excluded instruments: {', '.join(iv['excluded_instruments'])}"
+            )
+            lines.append(
+                f"{iv['underid_test']} = {iv['kp_rk_lm']:.3f} "
+                f"(chi2({iv['kp_rk_lm_df']}) p = {iv['kp_rk_lm_p']:.4f})   "
+                f"Cragg-Donald F = {iv['cragg_donald_F']:.3f}   "
+                f"KP rk Wald F = {iv['kp_rk_wald_F']:.3f}"
+            )
+            lines.append(
+                f"Anderson-Rubin F = {iv['anderson_rubin_F']:.3f} "
+                f"(p = {iv['anderson_rubin_F_p']:.4f})"
+                + (
+                    f"   {iv['overid_test']} = {iv['hansen_j']:.3f} "
+                    f"(p = {iv['hansen_j_p']:.4f})"
+                    if np.isfinite(iv["hansen_j"])
+                    else ""
+                )
+            )
         if self.cluster_info:
             lines.append(f"Cluster info: {self.cluster_info}")
         lines.append("-" * 60)
@@ -191,7 +252,7 @@ class FEOLSResult(ResultProtocolMixin):
 
 _FORMULA_RE = re.compile(
     r"""
-    ^\s*(?P<lhs>[A-Za-z_][A-Za-z_0-9]*)\s*~\s*      # y ~
+    ^\s*(?P<lhs>[^\W\d]\w*)\s*~\s*               # y ~ (any identifier)
     (?P<rhs>[^|]*?)                                  # regressors
     (?:\|\s*(?P<fe>.*))?                             # optional | fe1 + fe2
     \s*$
@@ -199,7 +260,8 @@ _FORMULA_RE = re.compile(
     re.VERBOSE,
 )
 
-_NAME = r"[A-Za-z_][A-Za-z_0-9]*"
+# Any Python identifier, so non-ASCII column names (``ln常规认知``) parse.
+_NAME = r"[^\W\d]\w*"
 
 _SUPPORTED_SYNTAX = (
     "supported term syntax (both sides of '|'):\n"
@@ -417,6 +479,33 @@ def _parse_side(s: str, side: str) -> List[_Term]:
     return terms
 
 
+def _split_iv(formula: str) -> tuple[str, Optional[str]]:
+    """``"y ~ x | fe | d ~ z"`` -> (``"y ~ x | fe"``, ``"d ~ z"``)."""
+    parts = _split_top(formula, "|")
+    if len(parts) <= 2:
+        return formula, None
+    if len(parts) > 3 or "~" not in parts[2]:
+        raise MethodIncompatibility(
+            f"feols: could not parse formula {formula!r}. The IV form is "
+            "'y ~ exog | fe1 + fe2 | endog ~ instruments' (use 1 for no "
+            "exogenous regressors)."
+        )
+    rhs_exog = parts[0].split("~", 1)
+    if len(rhs_exog) == 2 and rhs_exog[1].strip() in ("1", "0"):
+        parts[0] = rhs_exog[0].strip() + " ~ "
+    return f"{parts[0]} | {parts[1]}", parts[2]
+
+
+def _parse_iv_part(iv: str) -> tuple[List[_Term], List[_Term]]:
+    """``"d1 + d2 ~ z1 + z2 + z3"`` -> (endogenous terms, instrument terms)."""
+    endog, _, inst = iv.partition("~")
+    endog_terms = _parse_side(endog, "left")
+    inst_terms = _parse_side(inst, "left")
+    if not endog_terms or not inst_terms:
+        raise MethodIncompatibility(f"feols: empty side in the IV part {iv!r}.")
+    return endog_terms, inst_terms
+
+
 def _parse_formula(formula: str) -> tuple[str, List[_Term], List[_Term]]:
     """Parse ``"y ~ rhs | fe"`` into a LHS name and two term lists.
 
@@ -593,6 +682,7 @@ def feols(
     drop_singletons: bool = True,
     tol: float = 1e-8,
     maxiter: int = 10_000,
+    df_inference: Optional[Union[str, float]] = None,
 ) -> FEOLSResult:
     """reghdfe-style OLS with high-dimensional fixed effects.
 
@@ -603,7 +693,18 @@ def feols(
         optional. Both sides accept bare names, ``c.x`` / ``i.f``,
         ``a:b``, ``a*b``, ``f1^f2`` and the varying-slope forms
         ``i.f#c.x`` / ``i.f##c.x`` / ``f[[x]]`` / ``f[x]`` — see the
-        module docstring for the full grammar.
+        module docstring for the full grammar. Any Python identifier is
+        a column name, so non-ASCII names (``工资 ~ 暴露度``) work.
+
+        A third part makes it 2SLS, Stata's ``ivreghdfe``:
+        ``"y ~ exog | fe1 + fe2 | endog ~ z1 + z2"`` (``"y ~ 1 | ..."``
+        without exogenous regressors). All variables are swept of the
+        fixed effects by the same absorber, then 2SLS runs on the
+        residuals; ``cluster=`` (one way), ``vce='robust'`` or iid SEs
+        follow ``ivreg2``'s small-sample conventions, and
+        ``result.iv_diagnostics`` carries the first-stage F tests,
+        Kleibergen-Paap rk LM and Wald F, Cragg-Donald F, Anderson-Rubin
+        test and Hansen J (all as ``ivreghdfe ..., first``).
     data : DataFrame
     weights : str or ndarray, optional
         Observation weights. Column name or raw array.
@@ -630,6 +731,18 @@ def feols(
         If True (and ``cluster`` is given), return wild-cluster-bootstrap
         p-values / CIs alongside classical cluster SE. Applied variable-
         by-variable. Only supported with a single cluster column.
+
+        This is ``boottest``'s WCR bootstrap with the null imposed and the
+        fixed effects **re-absorbed** in every draw (exactly, through
+        ``2G`` sweeps of cluster-indicator columns done once). Running the
+        bootstrap on already-demeaned data -- the quick "FWL" shortcut --
+        is valid only when every absorbed effect is nested in the cluster;
+        otherwise its bootstrap t distribution is too narrow (see
+        ``panel/_wild_fe.py``; on 1.5 million rows with four FE groups and
+        100 occupation clusters the shortcut gave p = 0.116 against 0.176).
+        The cost is dominated by those ``2G`` sweeps plus the confidence-set
+        inversion, not by the draws themselves (on a 230,000-row subsample
+        99, 999 and 9,999 draws took 31, 29 and 35 seconds).
     wild_n_boot : int
         Bootstrap replications.
     wild_weight_type : {'rademacher', 'webb', 'mammen'}
@@ -641,6 +754,15 @@ def feols(
     alpha : float
     drop_singletons : bool
     tol, maxiter : convergence controls for the absorber.
+    df_inference : {None, 'resid', 'normal'} or float, optional
+        Reference distribution of the p-values and confidence intervals.
+        ``None`` (default) follows ``reghdfe``'s ``e(df_r)``: ``t(G - 1)``
+        under clustering (``G`` = the smallest cluster count, capped at the
+        residual df), ``t(N - K - df_a)`` otherwise. ``'resid'`` uses the
+        residual df also under clustering (StatsPAI <= 1.32, close to the
+        normal with many observations); ``'normal'`` the standard normal; a
+        number that many degrees of freedom. The standard errors are the
+        same in every case.
 
     Returns
     -------
@@ -705,12 +827,31 @@ def feols(
             "conley_cutoff= (km)."
         )
 
-    lhs, x_terms, fe_terms = _parse_formula(formula)
+    base_formula, iv_part = _split_iv(formula)
+    lhs, x_terms, fe_terms = _parse_formula(base_formula)
+    endog_terms: List[_Term] = []
+    inst_terms: List[_Term] = []
+    if iv_part is not None:
+        endog_terms, inst_terms = _parse_iv_part(iv_part)
+        if not fe_terms:
+            raise MethodIncompatibility(
+                "hdfe_ols with an IV part needs at least one absorbed fixed "
+                "effect ('y ~ x | fe | d ~ z'); use sp.ivreg without FEs."
+            )
+        if wild or (_vce is not None and _vce not in ("robust", "hc1")):
+            raise MethodIncompatibility(
+                "hdfe_ols with an IV part supports cluster= or vce='robust' only."
+            )
     x_vars = [c for t in x_terms for c in t.columns]
     fe_vars = [t.label for t in fe_terms]
 
     # Collect all columns (y, x's, fe's, cluster, weight)
-    cols = [lhs] + x_vars + [c for t in fe_terms for c in t.columns]
+    cols = (
+        [lhs]
+        + x_vars
+        + [c for t in endog_terms + inst_terms for c in t.columns]
+        + [c for t in fe_terms for c in t.columns]
+    )
     if _vce == "conley":
         # Coordinates ride along the same dropna so they stay row-aligned.
         cols += [conley_lat, conley_lon]
@@ -772,7 +913,40 @@ def feols(
                 f"hdfe_ols vce={vce!r} needs at least one absorbed fixed "
                 "effect; use sp.regress for the no-FE SE menu."
             )
-        return _ols_no_fe(df, lhs, X_arr, x_names, w_arr, cluster_names, alpha, formula)
+        return _ols_no_fe(
+            df, lhs, X_arr, x_names, w_arr, cluster_names, alpha, formula, df_inference
+        )
+
+    if iv_part is not None:
+        from ._hdfe_iv import hdfe_iv
+
+        exog_arr, exog_names = (
+            _materialize_rhs(df, x_terms) if x_terms else (np.empty((len(df), 0)), [])
+        )
+        endog_arr, endog_names = _materialize_rhs(df, endog_terms)
+        inst_arr, inst_names = _materialize_rhs(df, inst_terms)
+        return hdfe_iv(
+            df=df,
+            lhs=lhs,
+            exog=exog_arr,
+            exog_names=exog_names,
+            endog=endog_arr,
+            endog_names=endog_names,
+            inst=inst_arr,
+            inst_names=inst_names,
+            fe_mat=fe_mat,
+            slope_specs=slope_specs,
+            fe_names=fe_vars,
+            cluster_names=cluster_names,
+            vce=_vce,
+            weights=w_arr,
+            alpha=alpha,
+            drop_singletons=drop_singletons,
+            tol=tol,
+            maxiter=maxiter,
+            formula=formula,
+            df_inference=df_inference,
+        )
 
     cluster_arr = None
     if cluster_names:
@@ -807,10 +981,47 @@ def feols(
         )
 
     df_resid = result["df_resid"]
-    t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
+    n_kept = int(result["n"])
+    p_kept = len(x_names) - len(omitted)
+    n_fe_levels = list(result["n_fe"])
+    nested_mask = list(result.get("nested_fe_in_cluster", []))
+    if cluster_names and any(nested_mask):
+        # reghdfe: e(df_a) drops the FEs nested in a cluster (plus the
+        # constant's nested_adj); r2_a / rmse charge them again in full
+        # through df_a_nested.
+        df_a = int(result["dof_fe_cluster"]) - 1
+        df_a_nested = int(sum(g for g, is_n in zip(n_fe_levels, nested_mask) if is_n))
+    else:
+        df_a = int(result["dof_fe"])
+        df_a_nested = 0
+    df_r_fit = n_kept - p_kept - df_a - df_a_nested
+    y_kept = y_arr[result["absorber"].keep_mask]
+    w_kept = None if w_arr is None else w_arr[result["absorber"].keep_mask]
+    y_bar = float(np.average(y_kept, weights=w_kept))
+    tss = float(np.sum((y_kept - y_bar) ** 2 * (1.0 if w_kept is None else w_kept)))
+    rss = float(result["rss"])
+    tss_within = float(result["tss_within"])
+    r2 = 1.0 - rss / tss if tss > 0 else float("nan")
+    if df_r_fit > 0 and tss > 0:
+        r2_a = 1.0 - (rss / df_r_fit) / (tss / (n_kept - 1))
+        r2_a_within = (
+            1.0 - (rss / df_r_fit) / (tss_within / (df_r_fit + p_kept))
+            if tss_within > 0
+            else float("nan")
+        )
+        rmse = float(np.sqrt(rss / df_r_fit))
+    else:
+        r2_a = r2_a_within = rmse = float("nan")
+    if cluster_names:
+        n_clusters = [int(pd.Series(df[c]).nunique()) for c in cluster_names]
+        df_cluster = float(min(min(n_clusters) - 1, n_kept - p_kept - df_a))
+    else:
+        df_cluster = float(df_resid)
+    df_t = _resolve_df_inference(df_inference, df_cluster, float(df_resid))
+    t_crit = stats.t.ppf(1 - alpha / 2, df_t)
     t_stats = coef / se.replace(0, np.nan)
     pvals = pd.Series(
-        2 * stats.t.sf(np.abs(t_stats.fillna(0)), df_resid),
+        2 * stats.t.sf(np.abs(t_stats.fillna(0)), df_t),
         index=x_names,
     )
     pvals[coef.isna()] = np.nan
@@ -843,8 +1054,6 @@ def feols(
                 "Wild cluster bootstrap with multi-way clustering is not yet supported."
             )
         if w_arr is not None:
-            from ..exceptions import MethodIncompatibility
-
             raise MethodIncompatibility(
                 "hdfe_ols(wild=True) does not support weights yet.",
                 recovery_hint="Drop weights= or use the analytic cluster SEs.",
@@ -949,6 +1158,9 @@ def feols(
             )
             se_type = f"Conley spatial HAC (acreg planar, {conley_cutoff} km)"
             df_infer = n_w - k_w
+        if df_inference is not None:
+            df_infer = _resolve_df_inference(df_inference, df_infer, df_infer)
+        df_t = float(df_infer)
 
         if _vce == "conley":
             # Kernel-weighted HAC is not PSD by construction; a negative
@@ -994,7 +1206,38 @@ def feols(
         absorber=result["absorber"],
         converged=result["converged"],
         iters=result["iters"],
+        r2=r2,
+        r2_a=r2_a,
+        r2_a_within=r2_a_within,
+        rss=rss,
+        tss=tss,
+        rmse=rmse,
+        df_inference=float(df_t),
     )
+
+
+def _resolve_df_inference(
+    spec: Optional[Union[str, float]], default: float, resid: float
+) -> float:
+    """Reference-distribution df for ``df_inference=`` (``inf`` = normal)."""
+    if spec is None:
+        return float(default)
+    if isinstance(spec, str):
+        key = spec.lower()
+        if key in ("resid", "residual", "df_resid"):
+            return float(resid)
+        if key in ("normal", "z", "asymptotic"):
+            return float("inf")
+        if key in ("cluster", "reghdfe", "auto"):
+            return float(default)
+        raise MethodIncompatibility(
+            f"df_inference={spec!r} not recognised; use None, 'resid', "
+            "'normal' or a positive number."
+        )
+    val = float(spec)
+    if not val > 0:
+        raise MethodIncompatibility(f"df_inference must be positive; got {spec!r}.")
+    return val
 
 
 # ======================================================================
@@ -1011,6 +1254,7 @@ def _ols_no_fe(
     cluster_names: List[str],
     alpha: float,
     formula: str,
+    df_inference: Optional[Union[str, float]] = None,
 ) -> FEOLSResult:
     """Plain OLS/WLS with intercept when no FE is absorbed."""
     y = df[lhs].to_numpy(dtype=np.float64)
@@ -1074,8 +1318,15 @@ def _ols_no_fe(
 
     se = np.sqrt(np.maximum(np.diag(vcov), 0.0))
     t_stats = coef / np.where(se > 0, se, np.nan)
-    t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
-    pvals = 2 * stats.t.sf(np.abs(np.nan_to_num(t_stats)), df_resid)
+    if cluster_names:
+        # regress, vce(cluster): t(G - 1), G the smallest cluster count
+        g_min = min(int(pd.Series(df[c]).nunique()) for c in cluster_names)
+        df_default = float(min(g_min - 1, df_resid))
+    else:
+        df_default = float(df_resid)
+    df_t = _resolve_df_inference(df_inference, df_default, float(df_resid))
+    t_crit = stats.t.ppf(1 - alpha / 2, df_t)
+    pvals = 2 * stats.t.sf(np.abs(np.nan_to_num(t_stats)), df_t)
 
     if w is None:
         y_bar = y.mean()
@@ -1086,6 +1337,7 @@ def _ols_no_fe(
         ss_res = float((w * (y - X @ coef) ** 2).sum())
         ss_tot = float((w * (y - y_bar) ** 2).sum())
     r2 = 1 - ss_res / ss_tot if ss_tot > 0 else np.nan
+    r2_a = 1 - (ss_res / df_resid) / (ss_tot / (n - 1)) if ss_tot > 0 else np.nan
 
     # Minimal Absorber stub (identity) — returned in the ``absorber``
     # field for API symmetry when the user asks for a no-FE regression.
@@ -1119,6 +1371,13 @@ def _ols_no_fe(
         absorber=ab,  # type: ignore[arg-type]
         converged=True,
         iters=0,
+        r2=r2,
+        r2_a=r2_a,
+        r2_a_within=r2_a,
+        rss=ss_res,
+        tss=ss_tot,
+        rmse=float(np.sqrt(ss_res / df_resid)),
+        df_inference=df_t,
     )
 
 

@@ -12096,6 +12096,14 @@
     "description": "Gelbach (2016) decomposition of omitted variable bias. Validation: certified parity evidence. Assumptions: The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used; Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects); Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit. Pre-conditions: A group indicator with both groups well represented, and the same covariate set fitted in each group; Data contains a binary or categorical group indicator with both groups represented; Outcome and covariates are numeric (or properly encoded) and finite. Failure modes: Explained share changes sign when the reference group is switched -> Report both references or the pooled / Shapley-invariant decomposition; the index-number problem is real, not a bug; Trimming warning at common-support boundaries -> Inspect propensity-score support; restrict the analysis sample or use...",
     "input_schema": {
       "properties": {
+        "absorb": {
+          "description": "Fixed effects kept in both the base and the full regression, as ``reghdfe``'s ``absorb()``: column names, ``\"a^b\"`` for one effect per combination. They are swept out of every variable by the ``sp.hdfe_ols`` absorber (singletons dropped), so the decomposition is of the within coefficients -- the same numbers as ``b1x2`` with the FE dummies among ``x1all()``. The absorbed degrees of freedom enter the long-regression small-sample factor as in ``reghdfe``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
         "added_x": {
           "description": "Variables added to obtain the full (long) specification.",
           "items": {
@@ -12115,13 +12123,23 @@
           },
           "type": "array"
         },
+        "cluster": {
+          "description": "Cluster-robust covariance, as ``b1x2 ..., cluster()``: Stata's ``_robust`` multipliers ``(N-1)/(N-K)*G/(G-1)`` for the long regression and ``G/(G-1)`` for the stacked auxiliary system.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "shapley": {
+          "default": false,
+          "description": "Also report, in column ``shapley``, each added variable's Shapley share of the change: its effect on the coefficient averaged over all orders in which the added variables can enter (``2^k`` regressions, from the cross-product matrix; at most 12 added variables). Unlike Gelbach's contributions it depends on the order-free average, not on the full model alone. The shares also sum to the total change. Standard errors were a two-term delta method that treated the auxiliary and long-regression estimates as independent; ``b1x2`` keeps their covariance. On ``cps_wage`` that moved the SEs by 0.03%, but the old formula has no guarantee of being that close. Point estimates are unchanged.",
+          "type": "boolean"
+        },
         "var_of_interest": {
           "description": "Which base variable's coefficient change to decompose. Defaults to the first element of ``base_x``.",
           "type": "string"
         },
         "vce": {
           "default": "robust",
-          "description": "Heteroskedasticity-robust or homoskedastic covariance, as ``b1x2 ..., robust`` and plain ``b1x2``. Standard errors were a two-term delta method that treated the auxiliary and long-regression estimates as independent; ``b1x2`` keeps their covariance. On ``cps_wage`` that moved the SEs by 0.03%, but the old formula has no guarantee of being that close. Point estimates are unchanged.",
+          "description": "Heteroskedasticity-robust or homoskedastic covariance, as ``b1x2 ..., robust`` and plain ``b1x2``.",
           "enum": [
             "robust",
             "nonrobust"
@@ -12989,13 +13007,24 @@
           "description": "Coordinate columns (decimal degrees) for ``vce=\"conley\"``.",
           "type": "string"
         },
+        "df_inference": {
+          "description": "Reference distribution of the p-values and confidence intervals. ``None`` (default) follows ``reghdfe``'s ``e(df_r)``: ``t(G - 1)`` under clustering (``G`` = the smallest cluster count, capped at the residual df), ``t(N - K - df_a)`` otherwise. ``'resid'`` uses the residual df also under clustering (StatsPAI <= 1.32, close to the normal with many observations); ``'normal'`` the standard normal; a number that many degrees of freedom. The standard errors are the same in every case.",
+          "enum": [
+            "resid",
+            "normal"
+          ],
+          "type": [
+            "number",
+            "string"
+          ]
+        },
         "drop_singletons": {
           "default": true,
           "description": "drop_singletons parameter (bool).",
           "type": "boolean"
         },
         "formula": {
-          "description": "``\"y ~ x1 + x2 | fe1 + fe2 + fe3\"``. The ``| fe...`` part is optional. Both sides accept bare names, ``c.x`` / ``i.f``, ``a:b``, ``a*b``, ``f1^f2`` and the varying-slope forms ``i.f#c.x`` / ``i.f##c.x`` / ``f[[x]]`` / ``f[x]`` -- see the module docstring for the full grammar.",
+          "description": "``\"y ~ x1 + x2 | fe1 + fe2 + fe3\"``. The ``| fe...`` part is optional. Both sides accept bare names, ``c.x`` / ``i.f``, ``a:b``, ``a*b``, ``f1^f2`` and the varying-slope forms ``i.f#c.x`` / ``i.f##c.x`` / ``f[[x]]`` / ``f[x]`` -- see the module docstring for the full grammar. Any Python identifier is a column name, so non-ASCII names (`` ~ ``) work. A third part makes it 2SLS, Stata's ``ivreghdfe``: ``\"y ~ exog | fe1 + fe2 | endog ~ z1 + z2\"`` (``\"y ~ 1 | ...\"`` without exogenous regressors). All variables are swept of the fixed effects by the same absorber, then 2SLS runs on the residuals; ``cluster=`` (one way), ``vce='robust'`` or iid SEs follow ``ivreg2``'s small-sample conventions, and ``result.iv_diagnostics`` carries the first-stage F tests, Kleibergen-Paap rk LM and Wald F, Cragg-Donald F, Anderson-Rubin test and Hansen J (all as ``ivreghdfe ..., first``).",
           "type": "string",
           "x-statspai-role": "formula"
         },
@@ -13030,7 +13059,7 @@
         },
         "wild": {
           "default": false,
-          "description": "If True (and ``cluster`` is given), return wild-cluster-bootstrap p-values / CIs alongside classical cluster SE. Applied variable- by-variable. Only supported with a single cluster column.",
+          "description": "If True (and ``cluster`` is given), return wild-cluster-bootstrap p-values / CIs alongside classical cluster SE. Applied variable- by-variable. Only supported with a single cluster column. This is ``boottest``'s WCR bootstrap with the null imposed and the fixed effects **re-absorbed** in every draw (exactly, through ``2G`` sweeps of cluster-indicator columns done once). Running the bootstrap on already-demeaned data -- the quick \"FWL\" shortcut -- is valid only when every absorbed effect is nested in the cluster; otherwise its bootstrap t distribution is too narrow (see ``panel/_wild_fe.py``; on 1.5 million rows with four FE groups and 100 occupation clusters the shortcut gave p = 0.116 against 0.176). The cost is dominated by those ``2G`` sweeps plus the confidence-set inversion, not by the draws themselves (on a 230,000-row subsample 99, 999 and 9,999 draws took 31, 29 and 35 seconds).",
           "type": "boolean"
         },
         "wild_n_boot": {
@@ -13221,9 +13250,9 @@
           "type": "string"
         },
         "betahat": {
-          "description": "Event-study coefficients, the reference period excluded.",
+          "description": "Event-study coefficients, the reference period excluded. Or a fitted result with ``params`` and a full covariance (``sp.hdfe_ols``, ``sp.regress``, ``sp.feols`` ...) together with ``event_times`` as a ``{coefficient name: event time}`` mapping: the coefficients and their covariance block are taken from the fit, so a hand-built intensity event study (``exposure x 1[t = k]`` regressors) goes straight in.",
           "items": {
-            "type": "number"
+            "type": "string"
           },
           "type": "array"
         },
@@ -13233,11 +13262,29 @@
           "type": "integer"
         },
         "event_times": {
-          "description": "Relative time of each coefficient (negative = pre-treatment, ``>= 0`` = post). If omitted, ``num_pre_periods`` must be given and the times are ``-num_pre_periods-1 .. -2`` for the leads (``-1`` is the omitted reference) and ``0, 1, ...`` for the lags -- HonestDiD's layout.",
+          "description": "Relative time of each coefficient (negative = pre-treatment, ``>= 0`` = post); a ``{name: time}`` dict with a fitted ``betahat``. If omitted, ``num_pre_periods`` must be given and the times are ``-num_pre_periods-1 .. -2`` for the leads (``-1`` is the omitted reference) and ``0, 1, ...`` for the lags -- HonestDiD's layout.",
           "items": {
             "type": "integer"
           },
           "type": "array"
+        },
+        "grid_expand": {
+          "default": true,
+          "description": "Test-inversion grid for ``method='relative_magnitude'``, as in :func:`honest_did`.",
+          "type": "boolean"
+        },
+        "grid_lb": {
+          "description": "Test-inversion grid for ``method='relative_magnitude'``, as in :func:`honest_did`.",
+          "type": "number"
+        },
+        "grid_points": {
+          "default": 1000,
+          "description": "Test-inversion grid for ``method='relative_magnitude'``, as in :func:`honest_did`.",
+          "type": "integer"
+        },
+        "grid_ub": {
+          "description": "Test-inversion grid for ``method='relative_magnitude'``, as in :func:`honest_did`.",
+          "type": "number"
         },
         "honestdid_method": {
           "description": "As in :func:`honest_did`.",
@@ -13276,8 +13323,7 @@
         }
       },
       "required": [
-        "betahat",
-        "sigma"
+        "betahat"
       ],
       "type": "object"
     },
@@ -26273,6 +26319,14 @@
     "description": "Randomization inference p-value. Validation: certified parity evidence. Assumptions: Multiple imputation: data are missing at random given the variables in the imputation model, which must include the analysis model's variables (congeniality); Randomization / Fisher-exact inference: the sharp null and the actual assignment mechanism are what is being tested -- the permutation must mirror how treatment was assigned (clusters, strata); Subgroup analyses are pre-specified; post-hoc subgroups need multiple-testing control and interaction tests, not per-group p-values. Pre-conditions: Imputation: every analysis variable present in the imputation model; randomization inference: the assignment design is known. Failure modes: Many subgroups, one 'significant' at 5% -> Test the interaction and adjust with sp.romano_wolf; a lone subgroup finding at nominal size is expected by chance. Alternatives: sp.sp.mice, sp.sp.romano_wolf.",
     "input_schema": {
       "properties": {
+        "absorb": {
+          "description": "Fixed effects for ``stat='ols'`` / ``'ols_t'``, as ``reghdfe``'s ``absorb()`` (column names, ``\"a^b\"`` for combinations; singletons dropped). They are swept out by the ``sp.hdfe_ols`` absorber (Frisch-Waugh-Lovell). Under ``cluster`` the regressor of any permutation is ``R v`` with ``R`` the swept cluster indicators (times ``interact``) and ``v`` the permuted cluster values, so only ``G`` columns are swept once and each permutation is a small matrix product -- the statistic equals the ``sp.hdfe_ols`` coefficient (or its cluster t) refitted on the permuted treatment. Without ``cluster`` every permutation re-sweeps the regressor.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
@@ -26290,6 +26344,10 @@
           },
           "type": "array",
           "x-statspai-role": "columns"
+        },
+        "interact": {
+          "description": "For ``stat='ols'`` / ``'ols_t'``: the regressor is ``treat * data[interact]`` while ``treat`` is what is permuted -- the intensity DiD ``exposure x post`` with exposure permuted across clusters.",
+          "type": "string"
         },
         "n_perms": {
           "default": 1000,
@@ -26311,7 +26369,7 @@
           "x-statspai-role": "column"
         },
         "treat": {
-          "description": "Binary treatment indicator (0/1).",
+          "description": "Treatment. ``'diff_means'`` / ``'t'`` / ``'ks'`` need a binary 0/1 indicator; ``'ols'`` / ``'ols_t'`` and callables also take a continuous one (an exposure or dose), whose observed values are permuted. Under ``cluster`` it must be constant within clusters (the permuted unit is the cluster); a treatment that switches on within a cluster, such as ``exposure x post``, is passed as ``treat='exposure', interact='post'``.",
           "type": "string",
           "x-statspai-role": "column"
         },
