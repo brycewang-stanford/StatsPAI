@@ -7,11 +7,13 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="ppml-singletons-aggte-inherit"></a>
 
-## Unreleased — `sp.ppmlhdfe` drops singletons; `sp.aggte` inherits the fit's inference settings
+## Unreleased — Stata defaults: `ppmlhdfe` singletons, `winsor` percentiles, `logit` perfect prediction; `aggte` inherits
 
 **Who is affected.** `sp.ppmlhdfe` users whose absorbed effects have
 one-observation groups (unbalanced panels, many crossed effects), and code
-that calls `sp.aggte(fit)` without `bstrap=`. No point estimate changes.
+that calls `sp.aggte(fit)` without `bstrap=`, `sp.winsor` users (cutoffs move
+slightly), and binary-choice
+fits with a category that predicts the outcome perfectly.
 
 | Area | Old | New | Old number, if you need it |
 | --- | --- | --- | --- |
@@ -20,6 +22,8 @@ that calls `sp.aggte(fit)` without `bstrap=`. No point estimate changes.
 | `sp.ppmlhdfe`, rows with a missing estimation variable | NaN reached the solver | dropped | — |
 | `sp.aggte(fit)` default SE | unseeded multiplier bootstrap, new SE every call | the fit's setting: analytic for a default `callaway_santanna` fit | `sp.aggte(fit, bstrap=True, cband=True, random_state=...)` |
 | `sp.aggte(..., bstrap=True)` without a seed | seed not recorded | seed drawn and stored in `model_info['random_state']` | — |
+| `sp.winsor` cutoffs | numpy linear interpolation | Stata `_pctile` (`winsor2`) | `method='linear'` |
+| `sp.logit` / `sp.probit` / `sp.cloglog` with an indicator that predicts the outcome perfectly | rows kept, no warning; MLE does not exist | rows and indicator dropped (Stata), warning | `perfect_prediction='keep'` |
 
 ---
 

@@ -2,12 +2,14 @@
 Tests for sumstats and balance_table.
 """
 
-import pytest
 import os
 import tempfile
+
 import numpy as np
 import pandas as pd
-from statspai import sumstats, balance_table
+import pytest
+
+from statspai import balance_table, sumstats
 
 
 @pytest.fixture
@@ -206,3 +208,15 @@ class TestIntegration:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_numeric_output_is_numeric():
+    """output='numeric' returns numbers, not display strings ('5,192')."""
+    df = pd.DataFrame({"x": [0.0, 0.0, 5192.0, 1.5], "y": [1.0, 2.0, np.nan, 4.0]})
+    tab = sumstats(df, vars=["x", "y"], stats=["n", "mean", "max"], output="numeric")
+    assert tab.loc["x", "Max"] == 5192.0
+    assert tab.loc["x", "Mean"] == pytest.approx(df["x"].mean(), rel=1e-15)
+    assert int(tab.loc["y", "N"]) == 3
+    assert all(pd.api.types.is_numeric_dtype(tab[c]) for c in tab.columns)
+    # Rendered outputs keep the formatted table.
+    assert "5,192" in sumstats(df, vars=["x"], stats=["max"])

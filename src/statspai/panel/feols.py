@@ -106,6 +106,9 @@ class FEOLSResult(ResultProtocolMixin):
         Residual and total (around the mean) sums of squares.
     rmse : float
         ``sqrt(rss / (N - K - df_a - df_a_nested))`` (``e(rmse)``).
+    df_a, df_a_nested : int
+        ``reghdfe``'s ``e(df_a)`` (absorbed coefficients, excluding effects
+        nested in a cluster) and ``e(df_a_nested)``.
     df_inference : float
         Degrees of freedom of the t reference distribution of ``pvalues`` /
         ``conf_int_*`` (``inf`` = normal). Clustered: ``min(G) - 1`` capped
@@ -162,6 +165,8 @@ class FEOLSResult(ResultProtocolMixin):
     rmse: float = float("nan")
     df_inference: float = float("nan")
     iv_diagnostics: Optional[Dict[str, Any]] = None
+    df_a: Optional[int] = None
+    df_a_nested: int = 0
 
     @property
     def data_info(self) -> Dict[str, Any]:
@@ -1213,6 +1218,8 @@ def feols(
         tss=tss,
         rmse=rmse,
         df_inference=float(df_t),
+        df_a=df_a,
+        df_a_nested=df_a_nested,
     )
 
 

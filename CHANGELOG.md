@@ -6,6 +6,22 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.hdfe_ols` results carry `df_a` and `df_a_nested`** (`reghdfe`'s
+  `e(df_a)` / `e(df_a_nested)`). A second Stata fixture pins the R-squared
+  family with no cluster, a nested unit cluster and an absorbed
+  `city#year` cluster: degrees of freedom exact, statistics to 1e-12
+  (`test_hdfe_fitstats_Stata_parity.py`); it reproduces the adjusted
+  R-squared of all seven OLS columns of the replicated fundtown paper.
+- **`sp.winsor(method=, subset=, by=)`** -- `winsor2`'s `if` qualifier and
+  `by()` option (see Changed for the percentile definition). Equal to
+  Stata `winsor2` element for element (`test_winsor_winsor2_Stata_parity.py`).
+- **`sp.logit` / `sp.probit` / `sp.cloglog(perfect_prediction='drop')`.**
+  An indicator regressor whose non-zero rows share one outcome is omitted
+  with those rows, iterated, as Stata does ("x != 0 predicts failure
+  perfectly"); a warning names them and `model_info` records them. `N`,
+  log-likelihood, pseudo R-squared and estimates equal Stata `logit` /
+  `probit y x i.g` (`test_logit_perfect_prediction_Stata_parity.py`).
+  `'keep'` restores the old fit (whose MLE does not exist).
 - **`sp.ppmlhdfe` matches Stata `ppmlhdfe`'s sample and handles absorbed
   regressors.** Found by replicating a five-fixed-effect PPML paper whose
   every `N` and pseudo R-squared differed from Stata. (1) Singletons of any
@@ -514,6 +530,15 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **`sp.winsor` uses Stata's percentile definition** (`_pctile`, numpy
+  `averaged_inverted_cdf`) by default, as the `winsor2` equivalence in its
+  docstring promised; it used linear interpolation, which moved every
+  cutoff whose `n p / 100` is not an integer (a replication's 99th
+  percentile: 51,003.45 against Stata's 51,015). `method='linear'` gives
+  the old cutoffs.
+- **`sp.logit` / `sp.probit` / `sp.cloglog` drop perfectly predicting
+  indicators by default** (see Added); `N` and the pseudo R-squared change
+  on data that has them.
 - **`sp.aggte` inherits `bstrap` / `cband` / `biters` from the fit** (R
   `did::aggte(bstrap = NULL)`), instead of defaulting to an unseeded
   1000-draw bootstrap: `sp.aggte(fit)` on a default `callaway_santanna` fit
