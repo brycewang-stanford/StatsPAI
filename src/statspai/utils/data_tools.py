@@ -12,6 +12,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..exceptions import MethodIncompatibility
+
 
 def pwcorr(
     data: pd.DataFrame,
@@ -283,7 +285,9 @@ def winsor(
     else:
         in_sample = np.asarray(subset, dtype=bool)
         if in_sample.shape != (len(df),):
-            raise ValueError("subset mask must have one entry per row of data")
+            raise MethodIncompatibility(
+                "subset mask must have one entry per row of data"
+            )
     if by is None:
         groups = np.zeros(len(df), dtype=np.int64)
     else:

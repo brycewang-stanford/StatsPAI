@@ -33,6 +33,7 @@ from .._aliases import accepts_aliases
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ..core.utils import create_design_matrices
+from ..exceptions import MethodIncompatibility
 from ..output._lineage import records_provenance
 
 LinkFunc = Callable[[np.ndarray], np.ndarray]
@@ -611,7 +612,7 @@ def _fit_binary(
     pp_dropped: List[str] = []
     n_pp = 0
     if perfect_prediction not in ("drop", "keep"):
-        raise ValueError("perfect_prediction must be 'drop' or 'keep'")
+        raise MethodIncompatibility("perfect_prediction must be 'drop' or 'keep'")
     if perfect_prediction == "drop" and X_mat.shape[1] > 1:
         _keep, pp_dropped, pp_notes = _perfect_prediction_mask(
             np.asarray(y_vec, float), X_mat, var_names

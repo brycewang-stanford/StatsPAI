@@ -37,7 +37,7 @@
  },
  "modules": {
   "01_card_original": {
-   "seconds": 1.02,
+   "seconds": 1.0,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -92,7 +92,7 @@
    "result_sha256": "f9f0953a27c1326f96e6a259dcd7c01f61ca1e016e2e39c648c8fecc1a8b597b"
   },
   "03_basque_original": {
-   "seconds": 5.37,
+   "seconds": 5.41,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -118,7 +118,7 @@
    "result_sha256": "62388d7c72d0eb6d0c009b02f06f605b78549e92efd3d9eaddb24b6064ba72fc"
   },
   "04_lalonde_original": {
-   "seconds": 1.05,
+   "seconds": 1.04,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -180,7 +180,7 @@
    "result_sha256": "6fd62314f0a1aa5901fe52cc6df41bca5d1fa970b7ea52807b12af3099bbd001"
   },
   "05_lee_original": {
-   "seconds": 0.66,
+   "seconds": 0.65,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -189,7 +189,7 @@
    "exercised_sources": {
     "src/statspai/_aliases.py": "8b4fa5efd591ab73a8fa51926c2c5d86dcfe0af411654a8b86286e404735f81f",
     "src/statspai/core/results.py": "8949923b8e8d7ca9910f7438b8bb5b8b7935764addbd4f6b3629f3e260c35942",
-    "src/statspai/diagnostics/sensitivity.py": "70d3412767c0976211478958e09ae6d3665f3c6bb6cf8edaf753ae479c7e2407",
+    "src/statspai/diagnostics/sensitivity.py": "1d770700954db96aef95212fc1c5f52535805b5fa7084a2605cbe0cad1c8f11e",
     "src/statspai/exceptions.py": "f08449b52d42502943e06847ace55f0b97c35f61c9e3b7e8c70fd11c46a0a859",
     "src/statspai/output/_lineage.py": "b216796242bf2af5bf2ca869b2a9ea98b831fca3cf83da056e0b5acb1dd1d83f",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
@@ -207,7 +207,7 @@
    "result_sha256": "3eef9a448bc3efcf1ec7188d67a396cda48aad673999bda6a4f8a95581f6a58b"
   },
   "06_nhefs_ch12_ipw": {
-   "seconds": 2.53,
+   "seconds": 2.54,
    "error": null,
    "boundary_calls": [
     {
@@ -271,7 +271,7 @@
    "result_sha256": "19385647d1d7cb264a1e4c5352088ecdee3af7d4519c8cb93c01c71f646cb1e9"
   },
   "07_nhefs_ch13_gformula": {
-   "seconds": 29.44,
+   "seconds": 29.24,
    "error": null,
    "boundary_calls": [
     {
@@ -465,7 +465,7 @@
    "result_sha256": "462bfbeb1e2d111c25a597e311a484d7e2efc75c968d1e6cc4361de50c63c960"
   },
   "10_nhefs_ch17_survival": {
-   "seconds": 2.57,
+   "seconds": 2.55,
    "error": null,
    "boundary_calls": [
     {

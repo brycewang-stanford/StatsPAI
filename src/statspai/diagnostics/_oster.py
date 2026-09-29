@@ -32,6 +32,8 @@ from typing import Dict, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from ..exceptions import MethodIncompatibility
+
 
 def oster_inputs(
     data: pd.DataFrame,
@@ -215,7 +217,7 @@ def resolve_r_max(r_max: object, r2_long: float, r2_a: float = float("nan")) -> 
     try:
         mult = float(mult_s)
     except ValueError:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"r_max={r_max!r}: use a number or '<multiplier>*r2' / "
             "'<multiplier>*r2_a' (e.g. '1.3*r2_a')."
         ) from None
@@ -223,13 +225,13 @@ def resolve_r_max(r_max: object, r2_long: float, r2_a: float = float("nan")) -> 
         return mult * r2_long
     if base == "r2_a":
         if not np.isfinite(r2_a):
-            raise ValueError(
+            raise MethodIncompatibility(
                 "r_max='...*r2_a' needs the adjusted R-squared, available "
                 "from data with absorb= (one panel effect) or from data "
                 "without absorbed effects."
             )
         return mult * r2_a
-    raise ValueError(f"r_max={r_max!r} not understood.")
+    raise MethodIncompatibility(f"r_max={r_max!r} not understood.")
 
 
 def oster_delta_exact(inp: Dict[str, float], r_max: float, beta: float = 0.0) -> float:

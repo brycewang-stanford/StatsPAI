@@ -195,7 +195,7 @@ def oster_bounds(
             data, ab_names = resolve_group_terms(data, _terms(absorb))
             data, abc_names = resolve_group_terms(data, _terms(absorb_controls))
             if not ab_names:
-                raise ValueError(
+                raise MethodIncompatibility(
                     "absorb_controls= needs absorb= (the effects in both "
                     "regressions, e.g. the panel variable)."
                 )
@@ -217,7 +217,7 @@ def oster_bounds(
         if moments is not None:
             missing = {"sigma_yy", "sigma_xx", "t_x"} - set(moments)
             if missing:
-                raise ValueError(
+                raise MethodIncompatibility(
                     f"moments= needs sigma_yy, sigma_xx and t_x; missing "
                     f"{sorted(missing)}."
                 )
