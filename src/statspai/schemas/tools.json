@@ -19267,6 +19267,15 @@
     "description": "Oster (2019) sensitivity to selection on unobservables -- computes the bounding coefficient under the assumption that selection on unobservables (proportional to delta x selection on observables) brings the explained variance to r_max. The breakdown delta tells you how strong unobserved selection has to be to overturn your result. Validation: certified parity evidence. Assumptions: Selection on unobservables is proportional (by factor delta) to selection on observables; r_max upper-bounds the explained variance achievable with all confounders included; Linear functional form for y on (treat, controls). Pre-conditions: you have fitted both a short (treatment-only) and long (treatment + controls) regression of y; long-regression R^2 is meaningfully larger than short-regression R^2. Failure modes: breakdown delta < 1.0 (weak unobservables overturn the result) -> The result is fragile; report the breakdown delta alongside the point estimate; r2_long ~ r2_short (controls add no explanatory power) -> Oster's identified set degenerates when long and short R^2 are nearly equal; use sp.evalue or sp.sensemakr instead. Alternatives: sp.evalue, sp.sensemakr, sp.rosenbaum_bounds. Typical minim...",
     "input_schema": {
       "properties": {
+        "absorb": {
+          "description": "Fixed effects in both regressions (xtreg's panel variable or areg absorb()), e.g. 'id'; coefficients and R^2 become within",
+          "type": "string",
+          "x-statspai-role": "columns"
+        },
+        "absorb_controls": {
+          "description": "Fixed effects that are controls (long regression only), e.g. 'ind^year + city^year' for xtreg's i.ind#i.year dummies",
+          "type": "string"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level for the identified set.",
@@ -19279,6 +19288,11 @@
         "beta_short": {
           "description": "Short-regression coefficient; if None, fit from data",
           "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster of the xtreg fe vce(cluster c) whose e(r2_a) r_max='1.3*r2_a' should reproduce",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "controls": {
           "description": "Control variables (included in the long but not short regression).",
@@ -19296,6 +19310,10 @@
           "default": 1.0,
           "description": "Ratio of unobserved-to-observed selection (1.0 = equally strong)",
           "type": "number"
+        },
+        "moments": {
+          "description": "psacalc variances {sigma_yy, sigma_xx, t_x} for the exact solution from summary statistics",
+          "type": "object"
         },
         "r2_long": {
           "description": "R2 from long regression.",
@@ -21764,6 +21782,11 @@
           "description": "Abadie-Imbens (2006) robust SE with J within-arm matches (Stata ai(J))",
           "type": "integer"
         },
+        "ate": {
+          "default": false,
+          "description": "Stata ate: also match controls to treated (ATU/ATE in model_info); _weight != . then marks units used as a match",
+          "type": "boolean"
+        },
         "bootstrap_reps": {
           "default": 200,
           "description": "Bootstrap replications when se='bootstrap'",
@@ -21851,6 +21874,11 @@
             "bootstrap"
           ],
           "type": "string"
+        },
+        "ties": {
+          "default": false,
+          "description": "Stata ties: every control at the minimal distance is a match (1/m each); neighbor=1 only",
+          "type": "boolean"
         },
         "treat": {
           "description": "Binary treatment column (0/1)",

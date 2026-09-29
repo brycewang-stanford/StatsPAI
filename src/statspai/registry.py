@@ -5044,6 +5044,22 @@ def _build_registry() -> None:
                     "Common-support trimming",
                     ["none", "minmax"],
                 ),
+                ParamSpec(
+                    "ties",
+                    "bool",
+                    False,
+                    False,
+                    "Stata ties: every control at the minimal distance is a match "
+                    "(1/m each); neighbor=1 only",
+                ),
+                ParamSpec(
+                    "ate",
+                    "bool",
+                    False,
+                    False,
+                    "Stata ate: also match controls to treated (ATU/ATE in model_info); "
+                    "_weight != . then marks units used as a match",
+                ),
             ],
             returns=(
                 "PSMatch2Result (.matched_data / .pstest() / .balance() / "
@@ -18509,6 +18525,38 @@ def _build_registry() -> None:
                 ParamSpec("beta_long", "float", False, None),
                 ParamSpec("r2_long", "float", False, None),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "absorb",
+                    "str",
+                    False,
+                    None,
+                    "Fixed effects in both regressions (xtreg's panel variable or "
+                    "areg absorb()), e.g. 'id'; coefficients and R^2 become within",
+                ),
+                ParamSpec(
+                    "absorb_controls",
+                    "str",
+                    False,
+                    None,
+                    "Fixed effects that are controls (long regression only), e.g. "
+                    "'ind^year + city^year' for xtreg's i.ind#i.year dummies",
+                ),
+                ParamSpec(
+                    "moments",
+                    "dict",
+                    False,
+                    None,
+                    "psacalc variances {sigma_yy, sigma_xx, t_x} for the exact "
+                    "solution from summary statistics",
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster of the xtreg fe vce(cluster c) whose e(r2_a) "
+                    "r_max='1.3*r2_a' should reproduce",
+                ),
             ],
             returns="dict with beta_oster, breakdown_delta, identified_set",
             example='sp.oster_bounds(df, y="wage", treat="college", controls=["age", "edu"], delta=1.0)',
