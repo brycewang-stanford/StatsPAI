@@ -26686,7 +26686,7 @@
     }
   },
   {
-    "description": "Winsorize variables at specified percentiles.",
+    "description": "Winsorize variables at specified percentiles. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "winsor",
     "parameters": {
       "properties": {
