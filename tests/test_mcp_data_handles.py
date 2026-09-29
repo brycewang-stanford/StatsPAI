@@ -166,7 +166,10 @@ class TestTransformChain:
         assert ops[0]["n_rows_after"] == len(df) - 8
         # The derived frame really is winsorised at the 1/99 percentiles.
         frame = DATA_CACHE.get(derived["data_id"])
-        lo, hi = expected["wage"].quantile([0.01, 0.99])
+        # sp.winsor uses Stata's percentile definition (winsor2 / _pctile).
+        lo, hi = np.percentile(
+            expected["wage"], [1, 99], method="averaged_inverted_cdf"
+        )
         assert frame["wage"].min() >= lo - 1e-9 and frame["wage"].max() <= hi + 1e-9
 
         # Fit from the derived handle: provenance carries the lineage.
