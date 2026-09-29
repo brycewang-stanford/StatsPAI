@@ -6,6 +6,31 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.psmatch2(ties=True, ate=True)`** -- Stata `psmatch2`'s `ties`
+  (every control at the minimal distance is a match, `1/m` each) and `ate`
+  (controls matched to treated too, two-sided common support, treated
+  rows weighted only by their use as a match; ATU / ATE in `model_info`).
+  PSM-DID papers regress on `_weight != .`, and without these options the
+  matched sample was half the size. With the propensity score supplied,
+  `_weight`, `_support`, ATT / ATU / ATE equal Stata `psmatch2` 4.0.12
+  row for row (`test_psmatch2_ties_ate_Stata_parity.py`); on the
+  replication's 99,878 firm-years, Stata fed StatsPAI's score returns the
+  identical 28,602-row matched sample. The paper's 28,628 differs only
+  through the logit score (1e-7 apart, within Stata's convergence
+  tolerance), which moves a few hundred nearest neighbours.
+- **`sp.oster_bounds(absorb=, absorb_controls=, moments=, cluster=)` and
+  `r_max="1.3*r2_a"`.** The exact Oster solution after a fixed-effects
+  regression, as `psacalc` computes it after `xtreg y d x i.ind#i.year,
+  fe`: within coefficients and R-squared, and `xtreg`'s `e(r2_a)` with the
+  control dummies counted at their exact rank given the panel effect (and
+  the panel means not charged under `cluster=` when the panel is nested in
+  it). `moments=` exposes the exact solution from summary statistics.
+  Equal to Stata `xtreg, fe` + `psacalc` to 1e-12 (delta 1e-8)
+  (`test_oster_absorb_Stata_parity.py`). On the replicated paper the
+  inputs are exact and R_max is 0.18268 against Stata's 0.18265: Stata's
+  `e(r2_a)` implies three more regressors than the dummies' exact rank
+  (the three extra eigenvalues are 1e-15, the next 2e-2), so delta is
+  3.480 against the paper's 3.484; with Stata's R_max it is 3.4857.
 - **`sp.hdfe_ols` results carry `df_a` and `df_a_nested`** (`reghdfe`'s
   `e(df_a)` / `e(df_a_nested)`). A second Stata fixture pins the R-squared
   family with no cluster, a nested unit cluster and an absorbed
@@ -530,6 +555,10 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **`sp.fepois` names `sp.ppmlhdfe` when pyfixest cannot absorb the fixed
+  effects** (`NumericalInstability`, still a `ValueError`), instead of
+  surfacing pyfixest's "Demeaning failed after 100_000 iterations"; a
+  five-way PPML that fails there runs in `sp.ppmlhdfe`.
 - **`sp.winsor` uses Stata's percentile definition** (`_pctile`, numpy
   `averaged_inverted_cdf`) by default, as the `winsor2` equivalence in its
   docstring promised; it used linear interpolation, which moved every
