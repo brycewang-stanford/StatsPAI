@@ -9,21 +9,24 @@ Estimators and utilities:
 
 - **Romano-Wolf stepdown** (Romano & Wolf 2005, 2016) --- bootstrap
   FWER control that exploits dependence across test statistics.
-- **Westfall-Young maxT** (Westfall & Young 1993) --- single-step
-  resampling-based FWER control.
+- **Westfall-Young stepdown maxT** (Westfall & Young 1993) ---
+  ``westfall_young()``: FWER control from the design's own
+  re-randomizations (within strata, by cluster), as Stata
+  ``wyoung, permute()``.
 - **Bonferroni**, **Holm** (1979), **Benjamini-Hochberg** (1995) ---
   classical non-resampling adjustments included for comparison.
 - ``adjust_pvalues()`` --- convenience dispatcher across all methods.
 """
 
 from .romano_wolf import (
-    romano_wolf,
     RomanoWolfResult,
     adjust_pvalues,
+    benjamini_hochberg,
     bonferroni,
     holm,
-    benjamini_hochberg,
+    romano_wolf,
 )
+from .westfall_young import westfall_young
 
 __all__ = [
     "romano_wolf",
@@ -32,4 +35,5 @@ __all__ = [
     "bonferroni",
     "holm",
     "benjamini_hochberg",
+    "westfall_young",
 ]

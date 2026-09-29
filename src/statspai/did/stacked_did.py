@@ -21,7 +21,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 
 @accepts_aliases(_strict=True, id="group", unit="group", covariates="controls")
@@ -30,12 +30,16 @@ def stacked_did(
     y: str,
     group: str,
     time: str,
-    first_treat: str,
+    first_treat: Optional[str] = None,
     window: Tuple[int, int] = (-5, 5),
     controls: Optional[List[str]] = None,
     cluster: Optional[str] = None,
     never_treated_only: bool = True,
     alpha: float = 0.05,
+    weights: Optional[str] = None,
+    event_id: Optional[str] = None,
+    treated: Optional[str] = None,
+    event_time: Optional[str] = None,
 ) -> CausalResult:
     """
     Stacked DID estimator (Cengiz, Dube, Lindner & Zipperer, 2019).
@@ -70,6 +74,28 @@ def stacked_did(
         If False, also include not-yet-treated units as controls.
     alpha : float, default 0.05
         Significance level for confidence intervals.
+    weights : str, optional
+        Column of non-negative observation weights (e.g. population, as in
+        Cengiz et al.). The stacked regression becomes weighted least
+        squares with Stata ``reghdfe [aw=]`` semantics.
+    event_id, treated, event_time : str, optional
+        Pass all three when ``data`` is **already stacked** -- one row per
+        (sub-experiment, unit, period), e.g. a CDLZ stack whose controls were
+        chosen with a clean-control rule (no other event within the window).
+        ``event_id`` names the sub-experiment, ``treated`` is 1 for the
+        sub-experiment's treated units, ``event_time`` is the period relative
+        to its event. No stack is built; ``first_treat`` and
+        ``never_treated_only`` are then ignored, and rows outside ``window``
+        are dropped. Passing a pre-built stack as an ordinary panel used to
+        rebuild it, reusing the never-treated controls in every cohort.
+
+    Notes
+    -----
+    The regression is fitted by :func:`statspai.absorb_ols` with unit x
+    sub-experiment and period x sub-experiment effects, clustered by
+    ``cluster`` (default ``group``), so the standard errors follow
+    ``reghdfe``'s small-sample conventions (effects nested in the cluster are
+    not charged).
 
     Returns
     -------
@@ -93,7 +119,7 @@ def stacked_did(
     """
     # ── Input validation ─────────────────────────────────────────── #
     df = data.copy()
-    required_cols = [y, group, time, first_treat]
+    required_cols = [y, group, time] + ([] if event_id is not None else [first_treat])
     for col in required_cols:
         if col not in df.columns:
             raise ValueError(f"Column '{col}' not found in data.")
@@ -110,66 +136,104 @@ def stacked_did(
     if window[1] < 0:
         raise ValueError("window[1] must be non-negative (post-treatment periods).")
 
-    # ── Normalize first_treat ────────────────────────────────────── #
-    ft = df[first_treat].copy().astype(float)
-    ft = ft.replace(0, np.inf)
-    ft = ft.fillna(np.inf)
-    df["_ft"] = ft
+    prebuilt = event_id is not None
+    if prebuilt:
+        missing = [
+            nm
+            for nm, v in (("treated", treated), ("event_time", event_time))
+            if v is None
+        ]
+        if missing:
+            raise MethodIncompatibility(
+                "A pre-built stack needs event_id, treated and event_time; "
+                f"missing {missing}.",
+                recovery_hint="Pass all three columns of the stack.",
+            )
+        for col in (event_id, treated, event_time):
+            if col not in df.columns:
+                raise MethodIncompatibility(f"Column '{col}' not found in data.")
+        tr = pd.to_numeric(df[treated], errors="coerce")
+        if not tr.dropna().isin([0, 1]).all():
+            raise MethodIncompatibility(f"Column '{treated}' must be 0/1.")
+        rel = pd.to_numeric(df[event_time], errors="coerce").astype(float)
+        keep = (rel >= window[0]) & (rel <= window[1]) & tr.notna()
+        stacked = df.loc[keep].copy()
+        stacked["_cohort"] = stacked[event_id]
+        stacked["_rel_time"] = rel[keep].to_numpy()
+        stacked["_treated_unit"] = tr[keep].astype(int).to_numpy()
+        stacked["_post"] = (stacked["_rel_time"] >= 0).astype(int)
+        cohort_values = sorted(stacked["_cohort"].unique().tolist())
+        if stacked.empty:
+            raise DataInsufficient(
+                "No rows of the pre-built stack fall inside window.",
+                recovery_hint="Widen window or check event_time.",
+            )
+    else:
+        if first_treat is None:
+            raise MethodIncompatibility(
+                "first_treat is required unless event_id is given.",
+                recovery_hint="Pass first_treat=, or a pre-built stack via event_id=.",
+            )
+        # ── Normalize first_treat ────────────────────────────────────── #
+        ft = df[first_treat].copy().astype(float)
+        ft = ft.replace(0, np.inf)
+        ft = ft.fillna(np.inf)
+        df["_ft"] = ft
 
-    # ── Step 1: Identify cohorts ─────────────────────────────────── #
-    cohort_values = sorted(df.loc[np.isfinite(df["_ft"]), "_ft"].unique())
-    if len(cohort_values) == 0:
-        raise ValueError("No treated cohorts found. Check 'first_treat' column.")
+        # ── Step 1: Identify cohorts ─────────────────────────────────── #
+        cohort_values = sorted(df.loc[np.isfinite(df["_ft"]), "_ft"].unique())
+        if len(cohort_values) == 0:
+            raise ValueError("No treated cohorts found. Check 'first_treat' column.")
 
-    never_mask = np.isinf(df["_ft"])
-    never_units = set(df.loc[never_mask, group].unique())
+        never_mask = np.isinf(df["_ft"])
+        never_units = set(df.loc[never_mask, group].unique())
 
-    # ── Step 2 & 3: Build sub-experiments and stack ──────────────── #
-    stacked_frames = []
+        # ── Step 2 & 3: Build sub-experiments and stack ──────────────── #
+        stacked_frames = []
 
-    for g in cohort_values:
-        t_lo = g + window[0]
-        t_hi = g + window[1]
+        for g in cohort_values:
+            t_lo = g + window[0]
+            t_hi = g + window[1]
 
-        # Units in this cohort (treated at time g)
-        cohort_units = set(df.loc[df["_ft"] == g, group].unique())
+            # Units in this cohort (treated at time g)
+            cohort_units = set(df.loc[df["_ft"] == g, group].unique())
 
-        # Control units
-        if never_treated_only:
-            ctrl_units = never_units
-        else:
-            # Not-yet-treated: units whose first_treat > t_hi
-            nyt_mask = df["_ft"] > t_hi
-            ctrl_units = never_units | set(df.loc[nyt_mask, group].unique())
+            # Control units
+            if never_treated_only:
+                ctrl_units = never_units
+            else:
+                # Not-yet-treated: units whose first_treat > t_hi
+                nyt_mask = df["_ft"] > t_hi
+                ctrl_units = never_units | set(df.loc[nyt_mask, group].unique())
 
-        all_units = cohort_units | ctrl_units
-        if len(ctrl_units) == 0:
-            continue  # skip cohort if no controls available
+            all_units = cohort_units | ctrl_units
+            if len(ctrl_units) == 0:
+                continue  # skip cohort if no controls available
 
-        # Restrict to units and time window
-        sub = df[
-            df[group].isin(all_units)
-            & (df[time].astype(float) >= t_lo)
-            & (df[time].astype(float) <= t_hi)
-        ].copy()
+            # Restrict to units and time window
+            sub = df[
+                df[group].isin(all_units)
+                & (df[time].astype(float) >= t_lo)
+                & (df[time].astype(float) <= t_hi)
+            ].copy()
 
-        if len(sub) == 0:
-            continue
+            if len(sub) == 0:
+                continue
 
-        sub["_cohort"] = g
-        sub["_rel_time"] = sub[time].astype(float) - g
-        sub["_treated_unit"] = sub[group].isin(cohort_units).astype(int)
-        sub["_post"] = (sub["_rel_time"] >= 0).astype(int)
+            sub["_cohort"] = g
+            sub["_rel_time"] = sub[time].astype(float) - g
+            sub["_treated_unit"] = sub[group].isin(cohort_units).astype(int)
+            sub["_post"] = (sub["_rel_time"] >= 0).astype(int)
 
-        stacked_frames.append(sub)
+            stacked_frames.append(sub)
 
-    if len(stacked_frames) == 0:
-        raise ValueError(
-            "No valid sub-experiments could be constructed. "
-            "Check data coverage and window size."
-        )
+        if len(stacked_frames) == 0:
+            raise ValueError(
+                "No valid sub-experiments could be constructed. "
+                "Check data coverage and window size."
+            )
 
-    stacked = pd.concat(stacked_frames, ignore_index=True)
+        stacked = pd.concat(stacked_frames, ignore_index=True)
     n_cohorts = len(stacked["_cohort"].unique())
     n_units = stacked[group].nunique()
     n_stacked = len(stacked)
@@ -205,17 +269,43 @@ def stacked_did(
         stacked[time].astype(str) + "_" + stacked["_cohort"].astype(str)
     )
 
-    # Within-group demeaning (Frisch-Waugh-Lovell for two-way FE)
-    y_vec = stacked[y].values.astype(float)
-    X_mat = stacked[x_cols].values.astype(float)
+    # Two-way FE regression by the HDFE kernel: unit x sub-experiment and
+    # period x sub-experiment effects, reghdfe's weighting and CRV1
+    # conventions (effects nested in the cluster are not charged).
+    from ..panel.hdfe import absorb_ols
 
-    uc_groups = stacked["_unit_cohort"].values
-    tc_groups = stacked["_time_cohort"].values
-
-    y_dm, X_dm = _twoway_demean(y_vec, X_mat, uc_groups, tc_groups)
-
-    # OLS on demeaned data
-    beta, residuals = _ols(X_dm, y_dm)
+    w_arr = None
+    if weights is not None:
+        if weights not in stacked.columns:
+            raise MethodIncompatibility(f"Weight column '{weights}' not found in data.")
+        w_arr = pd.to_numeric(stacked[weights], errors="coerce").to_numpy(float)
+        if not np.all(np.isfinite(w_arr)) or (w_arr < 0).any():
+            raise MethodIncompatibility("weights must be finite and non-negative.")
+        pos = w_arr > 0
+        stacked = stacked.loc[pos].reset_index(drop=True)
+        w_arr = w_arr[pos]
+    if cluster not in stacked.columns:
+        raise MethodIncompatibility(f"Cluster column '{cluster}' not found in data.")
+    complete = stacked[[y] + x_cols + [cluster]].notna().all(axis=1).to_numpy()
+    if not complete.all():
+        stacked = stacked.loc[complete].reset_index(drop=True)
+        if w_arr is not None:
+            w_arr = w_arr[complete]
+    fe_frame = stacked[["_unit_cohort", "_time_cohort"]]
+    fit = absorb_ols(
+        y=stacked[y].to_numpy(dtype=float),
+        X=stacked[x_cols].to_numpy(dtype=float),
+        fe=fe_frame,
+        weights=w_arr,
+        cluster=stacked[cluster].to_numpy(),
+        drop_singletons=False,
+    )
+    beta = np.asarray(fit["coef"], dtype=float)
+    V = np.asarray(fit["vcov"], dtype=float)
+    n_stacked = int(fit["n"])
+    dropped_terms = [
+        int(rel_times_est[j]) for j in fit.get("omitted", []) if j < len(rel_times_est)
+    ]
 
     # Map coefficients to event-study names
     es_betas = {}
@@ -223,18 +313,15 @@ def stacked_did(
         es_betas[k] = beta[idx]
 
     # ── Step 5: Cluster-robust standard errors ───────────────────── #
-    cluster_ids = stacked[cluster].values
-    se_vec = _cluster_robust_se(X_dm, residuals, cluster_ids)
-
+    se_vec = np.sqrt(np.maximum(np.diag(V), 0.0))
     es_se = {}
     for idx, k in enumerate(rel_times_est):
         es_se[k] = se_vec[idx]
 
     # Joint covariance of the event-study coefficients (one stacked
     # regression, so the cross-horizon terms are available exactly).
-    V = _cluster_robust_vcov(X_dm, residuals, cluster_ids)
     es_vcov = pd.DataFrame(
-        np.asarray(V, dtype=float)[: len(rel_times_est), : len(rel_times_est)],
+        V[: len(rel_times_est), : len(rel_times_est)],
         index=[int(k) for k in rel_times_est],
         columns=[int(k) for k in rel_times_est],
     )
@@ -304,6 +391,9 @@ def stacked_did(
         "n_stacked_obs": n_stacked,
         "window": window,
         "never_treated_only": never_treated_only,
+        "prebuilt_stack": prebuilt,
+        "weights": weights,
+        "omitted_event_times": dropped_terms,
         "cluster_var": cluster,
         "event_study": detail,
         "event_study_betas": es_betas,
@@ -340,6 +430,8 @@ def stacked_did(
                 "cluster": cluster,
                 "never_treated_only": never_treated_only,
                 "alpha": alpha,
+                "weights": weights,
+                "event_id": event_id,
             },
             data=data,
             overwrite=False,

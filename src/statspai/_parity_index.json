@@ -280,6 +280,9 @@
       "tolerance": "1e-9 rel"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_ar_ci_cluster_Stata_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -766,6 +769,9 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_shiftshare_weights_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -1602,6 +1608,7 @@
         "tests/reference_parity/test_event_study_vcov_R_parity.py",
         "tests/reference_parity/test_fect_equivalence_parity.py",
         "tests/reference_parity/test_honest_did_backend_parity.py",
+        "tests/reference_parity/test_honest_did_moments_R_parity.py",
         "tests/reference_parity/test_rcs_aggregation_conventions.py",
         "tests/reference_parity/test_staggered_rollout_parity.py"
       ],
@@ -4539,7 +4546,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py"
+        "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
+        "tests/reference_parity/test_honest_did_moments_R_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -6286,6 +6294,7 @@
         "tests/external_parity/test_honest_did_paper_parity.py",
         "tests/reference_parity/test_honest_did_backend_parity.py",
         "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
+        "tests/reference_parity/test_honest_did_moments_R_parity.py",
         "tests/reference_parity/test_honest_rm_R_parity.py"
       ],
       "also_in_modules": [
@@ -6348,6 +6357,40 @@
       ],
       "tier": "machine",
       "tolerance": "abs_est<=1e-06, abs_se<=1e-06"
+    },
+    {
+      "function": "honest_did_from_moments",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_honest_did_moments_R_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "honest_did_from_result",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_honest_did_moments_R_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "honest_variance",
@@ -12962,6 +13005,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_recovery_batch2_parity.py",
+        "tests/reference_parity/test_ri_strata_R_parity.py",
         "tests/reference_parity/test_thornton_ri_parity.py"
       ],
       "also_verified_by": [
@@ -14209,7 +14253,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_akm_collinear_shares_R_parity.py"
+        "tests/reference_parity/test_akm_collinear_shares_R_parity.py",
+        "tests/reference_parity/test_shiftshare_weights_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -14467,7 +14512,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_bartik_ssagg_parity.py"
+        "tests/reference_parity/test_bartik_ssagg_parity.py",
+        "tests/reference_parity/test_shiftshare_weights_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -14533,7 +14579,8 @@
     },
     {
       "additional_tests": [
-        "tests/reference_parity/test_stacked_did_parity.py"
+        "tests/reference_parity/test_stacked_did_parity.py",
+        "tests/reference_parity/test_stacked_did_prebuilt_weights_Stata_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -14542,8 +14589,8 @@
       "function": "stacked_did",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 3.937439976034717e-13,
-        "rel_vs_Stata": 7.108384271002561e-13,
+        "rel_vs_R": 3.6308417036111083e-13,
+        "rel_vs_Stata": 7.414982543425831e-13,
         "statistic": [
           "never_att_rel_-3",
           "never_att_rel_-2",
@@ -14561,8 +14608,8 @@
       "module_id": "75_stacked",
       "notes": [],
       "point_estimate_rel": {
-        "R": 3.937439976034717e-13,
-        "Stata": 7.108384271002561e-13
+        "R": 3.6308417036111083e-13,
+        "Stata": 7.414982543425831e-13
       },
       "python_call": "sp.stacked_did",
       "reference": "hand-written stack + fixest::feols",
@@ -14571,8 +14618,8 @@
         "fixest": "0.14.0"
       },
       "se_rel": {
-        "R": 0.004208857239655125,
-        "Stata": 0.004208857239631583
+        "R": 2.264127307196615e-14,
+        "Stata": 1.7663404524229341e-15
       },
       "sides": [
         "py",
@@ -14863,6 +14910,23 @@
         "tests/reference_parity/test_decomp_R_parity.py"
       ],
       "tolerance": "GE(0), GE(1), GE(2) totals and within components at 1e-12, between components at 1e-11. The Gini path (Dagum) has no ineqdeco counterpart and keeps its analytical checks."
+    },
+    {
+      "function": "suest",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_suest_Stata_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [

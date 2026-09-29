@@ -5,7 +5,7 @@
 *   stata-mp -b do tests/reference_parity/_fixtures/_generate_iv_wild_Stata.do
 version 18
 clear all
-import delimited using "tests/reference_parity/_fixtures/iv_wild_data.csv", clear
+import delimited using "tests/reference_parity/_fixtures/iv_wild_data.csv", clear asdouble
 qui ivregress 2sls y w (x = z), vce(cluster cl)
 qui boottest x, reps(2000) weight(rademacher) nograph
 matrix C = r(CI)

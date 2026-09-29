@@ -39,6 +39,7 @@ def bartik(
     regional_shocks: Optional[pd.DataFrame] = None,
     robust: str = "hc1",
     alpha: float = 0.05,
+    weights: Optional[str] = None,
 ) -> EconometricResults:
     """
     Estimate using Shift-Share (Bartik) instrumental variables.
@@ -78,6 +79,12 @@ def bartik(
         Hull-Jaravel 2022-style exact leave-one-out). Row index must
         align with ``shares``; columns must be a superset of
         ``shocks.index``.
+    weights : str, optional
+        Column of non-negative analytic weights (Stata ``[aw=]``): weighted
+        2SLS, HC1 as ``ivregress ... [aw=w], vce(robust) small``, weighted
+        Rotemberg weights; the weights are recorded for
+        :func:`sp.shift_share_se`, which then computes the weighted AKM SE
+        (``ShiftShareSE``'s ``w``).
     robust : {'hc1', 'nonrobust'}, default 'hc1'
         Standard error type: ``'hc1'`` is the 2SLS sandwich with the
         ``n / (n - k)`` factor (Stata ``ivregress 2sls, vce(robust) small``,
@@ -127,6 +134,7 @@ def bartik(
         regional_shocks=regional_shocks,
         robust=robust,
         alpha=alpha,
+        weights=weights,
     )
     _result = estimator.fit()
     try:
@@ -231,6 +239,7 @@ class BartikIV:
         regional_shocks: Optional[pd.DataFrame] = None,
         robust: str = "hc1",
         alpha: float = 0.05,
+        weights: Optional[str] = None,
     ):
         self.data = data
         self.y = y
@@ -242,6 +251,7 @@ class BartikIV:
         self.regional_shocks = regional_shocks
         self.robust = robust
         self.alpha = alpha
+        self.weights = weights
 
         self._validate()
 
@@ -364,19 +374,23 @@ class BartikIV:
 
         # Annihilator for the exogenous block, applied to vectors rather than
         # formed (the n x n matrix made Rotemberg weights O(n^2) in memory).
+        wv = self._weight_vector(n)
+        sw = np.sqrt(wv)
+
         def _annihilate(v: np.ndarray) -> np.ndarray:
             out: np.ndarray
             if X_exog is not None:
-                out = v - X_exog @ np.linalg.lstsq(X_exog, v, rcond=None)[0]
+                coef = np.linalg.lstsq(X_exog * sw[:, None], v * sw, rcond=None)[0]
+                out = v - X_exog @ coef
             else:
-                out = v - np.mean(v, axis=0)
+                out = v - np.average(v, axis=0, weights=wv)
             return out
 
         g = self.shocks.values.astype(float)
         Qx = _annihilate(X_endog)
         Qy = _annihilate(Y)
-        zx = S.T @ Qx  # Z_k' M_W x
-        zy = S.T @ Qy  # Z_k' M_W y
+        zx = S.T @ (wv * Qx)  # Z_k' W M_W x
+        zy = S.T @ (wv * Qy)  # Z_k' W M_W y
         # alpha_k = g_k Z_k'M_W x / sum_k g_k Z_k'M_W x (GPSS 2020; as Stata
         # bartik_weight / R bartik.weight::bw). The denominator is the Bartik
         # first-stage moment B'M_W x only when B = S g (no leave-one-out).
@@ -406,9 +420,29 @@ class BartikIV:
             .reset_index(drop=True)
         )
 
+    def _weight_vector(self, n: int) -> np.ndarray:
+        """Analytic weights normalised to mean one (Stata ``[aw=]``)."""
+        if self.weights is None:
+            return np.ones(n)
+        if self.weights not in self.data.columns:
+            raise MethodIncompatibility(
+                f"weights column '{self.weights}' not found in data",
+                recovery_hint="Check the column name passed as weights=.",
+            )
+        w = pd.to_numeric(self.data[self.weights], errors="coerce").to_numpy(float)
+        if not np.all(np.isfinite(w)) or (w < 0).any() or w.sum() <= 0:
+            raise MethodIncompatibility(
+                "weights must be finite, non-negative and not all zero.",
+                recovery_hint="Drop or fix rows with missing / negative weights.",
+                diagnostics={"weights": self.weights},
+            )
+        return w * (n / w.sum())
+
     def fit(self) -> EconometricResults:
         """Fit Bartik IV via 2SLS."""
         n = len(self.data)
+        wv = self._weight_vector(n)
+        sw = np.sqrt(wv)
 
         Y = self.data[self.y].values.astype(float)
         X_endog = self.data[self.endog].values.astype(float)
@@ -429,15 +463,15 @@ class BartikIV:
 
         # --- First stage: endog ~ B + exog ---
         Z = np.column_stack([X_exog, B])
-        gamma = np.linalg.lstsq(Z, X_endog, rcond=None)[0]
+        gamma = np.linalg.lstsq(Z * sw[:, None], X_endog * sw, rcond=None)[0]
         X_endog_hat = Z @ gamma
 
         # First-stage F
         resid_full = X_endog - Z @ gamma
-        gamma_r = np.linalg.lstsq(X_exog, X_endog, rcond=None)[0]
+        gamma_r = np.linalg.lstsq(X_exog * sw[:, None], X_endog * sw, rcond=None)[0]
         resid_restricted = X_endog - X_exog @ gamma_r
-        rss_f = resid_full @ resid_full
-        rss_r = resid_restricted @ resid_restricted
+        rss_f = resid_full @ (wv * resid_full)
+        rss_r = resid_restricted @ (wv * resid_restricted)
         df_denom = n - Z.shape[1]
         f_stat = ((rss_r - rss_f) / 1) / (rss_f / df_denom) if df_denom > 0 else np.nan
         f_pvalue = stats.f.sf(f_stat, 1, df_denom) if not np.isnan(f_stat) else np.nan
@@ -447,8 +481,8 @@ class BartikIV:
         X_actual = np.column_stack([X_exog, X_endog])
         all_names = exog_names + [self.endog]
 
-        XhXh_inv = np.linalg.inv(X_2sls.T @ X_2sls)
-        params = XhXh_inv @ X_2sls.T @ Y
+        XhXh_inv = np.linalg.inv(X_2sls.T @ (X_2sls * wv[:, None]))
+        params = XhXh_inv @ X_2sls.T @ (wv * Y)
 
         # Residuals from actual regressors
         fitted = X_actual @ params
@@ -457,11 +491,11 @@ class BartikIV:
 
         # Standard errors (HC1)
         if self.robust != "nonrobust":
-            weights = (n / (n - k)) * residuals**2
-            meat = (X_2sls * (weights)[:, None]).T @ X_2sls
+            hc = (n / (n - k)) * (wv * residuals) ** 2
+            meat = (X_2sls * hc[:, None]).T @ X_2sls
             var_cov = XhXh_inv @ meat @ XhXh_inv
         else:
-            sigma2 = np.sum(residuals**2) / (n - k)
+            sigma2 = np.sum(wv * residuals**2) / (n - k)
             var_cov = sigma2 * XhXh_inv
 
         std_errors = np.sqrt(np.diag(var_cov))
@@ -470,8 +504,8 @@ class BartikIV:
         rotemberg = self._rotemberg_weights(B, Y, X_endog, X_exog)
 
         # R-squared
-        tss = np.sum((Y - np.mean(Y)) ** 2)
-        rss = np.sum(residuals**2)
+        tss = np.sum(wv * (Y - np.average(Y, weights=wv)) ** 2)
+        rss = np.sum(wv * residuals**2)
         r_squared = 1 - rss / tss
 
         # Build results
@@ -497,6 +531,7 @@ class BartikIV:
                 "endog": X_endog,
                 "shift_share": B,
                 "controls": X_exog,
+                "weights": None if self.weights is None else wv,
             },
         }
         model_info["rotemberg_weights"] = rotemberg

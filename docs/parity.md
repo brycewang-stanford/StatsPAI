@@ -30,10 +30,10 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 363 |
 | | aligned | 53 |
 | | **subtotal** | **416** |
-| **No external software reference** | analytical-only (T1) | 148 |
+| **No external software reference** | analytical-only (T1) | 151 |
 | | external-replication (published numbers) | 2 |
-| | **subtotal** | **150** |
-| No numerical evidence yet | unverified | 696 |
+| | **subtotal** | **153** |
+| No numerical evidence yet | unverified | 698 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 416 | 562 | 812 | 51.2% |
+| estimator callables | 416 | 565 | 816 | 51.0% |
 | infrastructure (parity N/A) | 0 | 1 | 130 | 0.0% |
-| result / exception classes | 0 | 3 | 320 | 0.0% |
-| **all registered** | 416 | 566 | 1262 | 33.0% |
+| result / exception classes | 0 | 3 | 321 | 0.0% |
+| **all registered** | 416 | 569 | 1267 | 32.8% |
 
 ### Coverage by estimator family
 
@@ -52,13 +52,13 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 148 | 224 | 362 |
+| causal | 148 | 226 | 364 |
 | regression | 32 | 36 | 37 |
 | spatial | 28 | 29 | 34 |
 | panel | 27 | 28 | 30 |
 | decomposition | 20 | 21 | 29 |
+| inference | 18 | 22 | 25 |
 | network | 23 | 24 | 25 |
-| inference | 18 | 21 | 23 |
 | mendelian | 18 | 19 | 23 |
 | diagnostics | 17 | 18 | 22 |
 | epi | 16 | 17 | 17 |
@@ -419,7 +419,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `sqreg` | R quantreg::rq (Barrodale-Roberts), Koenker 2005 | quantreg see sqreg_R.json provenance | Coefficients 3.5e-14 against quantreg::rq at tau = 0.25 / 0.50 / 0.75 -- both sides minimise the same pinball loss with the same simplex. Standard errors differ from R's se='iid' by ONE SCALAR PER QUANTILE, constant across coefficients to 6e-16: the sandwich is identical and only the sparsity estimate 1/f(0) differs (Powell kernel here, Koenker-Bassett with a Siddiqui/Hall-Sheather bandwidth there). The test asserts the ratio's constancy rather than a numerical band, which a structural difference could not satisfy. R's default se='nid' (Hendricks-Koenker, also Stata qreg's) is a third convention and is recorded as one. | — / — | [`test_sqreg_parity.py`](../tests/reference_parity/test_sqreg_parity.py) |
 | `ssaggregate` | R ShiftShareSE::ivreg_ss / reg_ss (Adao, Kolesar & Morales) and ssaggregate (Borusyak, Hull & Jaravel; R kylebutts/ssaggregate + AER::ivreg/sandwich HC0); Stata SSC ivreg_ss / reg_ss and ssaggregate + ivreg2, robust | R 4.5.2; ShiftShareSE 1.1.0; ssaggregate (R) 0.0.0.9000 (GitHub kylebutts/ssaggregate@22df93980250891a0cc247f6020136cd33c65ba2); AER 1.2.16; sandwich 3.1.1; Stata 18 MP; reg_ss / ivreg_ss SSC 20241116; ssaggregate (Stata) SSC 1.2.2 (20200826) | 1e-9 rel on beta, every SE row (Homoscedastic, EHW, Reg. cluster, AKM, AKM0), AKM/AKM0 CIs and the shock-level frame; p-values also atol 1e-15 (references use 2*(1-Phi)); observed <= 6e-14 (frame 2.9e-13) | — / — | [`test_did_synth_shiftshare_parity.py`](../tests/reference_parity/test_did_synth_shiftshare_parity.py) (+2) |
 | `stabilized_weights` | ipw::ipwtm 1.3.0 (type = 'all'; binomial logit; gaussian via geepack::geeglm) | R 4.5.2; ipw 1.3.0; geepack 1.3.13 | 1e-10 rel on every weight (observed 1.5e-12) | — / — | [`test_teffects_R_parity.py`](../tests/reference_parity/test_teffects_R_parity.py) (+2) |
-| `stacked_did` | hand-written stack + fixest::feols | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06 | 3.9e-13 / 7.1e-13 | [`75_stacked.py`](../tests/r_parity/75_stacked.py) (+2) |
+| `stacked_did` | hand-written stack + fixest::feols | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06 | 3.6e-13 / 7.4e-13 | [`75_stacked.py`](../tests/r_parity/75_stacked.py) (+2) |
 | `staggered_cs` | staggered::staggered_cs 1.2.2 (Roth & Sant'Anna) | R 4.5.2; staggered 1.2.2 | estimate, Neyman SE and adjusted SE at abs 1e-9 on mpdta, a randomised rollout and a null panel x simple/cohort/calendar (observed rel 6.6e-14) | — / — | [`test_staggered_extended_parity.py`](../tests/reference_parity/test_staggered_extended_parity.py) (+1) |
 | `staggered_rollout` | staggered::staggered / staggered_cs / staggered_sa (1.2.2) | R 4.5.2; staggered 1.2.2 | rel_est<=1e-10 | 9.1e-16 / 5.7e-16 | [`82_staggered.py`](../tests/r_parity/82_staggered.py) (+2) |
 | `staggered_sa` | staggered::staggered_sa 1.2.2 (Roth & Sant'Anna) | R 4.5.2; staggered 1.2.2 | estimate, Neyman SE and adjusted SE at abs 1e-9 on mpdta, a randomised rollout and a null panel x simple/cohort/calendar (observed rel 6.6e-14) | — / — | [`test_staggered_extended_parity.py`](../tests/reference_parity/test_staggered_extended_parity.py) (+1) |
@@ -535,7 +535,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `aggte` | [`test_honest_did_paper_parity.py`](../tests/external_parity/test_honest_did_paper_parity.py) (+1) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 148 functions
+## analytical-only — 151 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -607,6 +607,8 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `gformula_mc` | [`test_gformula_family_parity.py`](../tests/reference_parity/test_gformula_family_parity.py) (+1) |
 | `hal_tmle` | [`test_ml_causal_recovery_parity_round2.py`](../tests/reference_parity/test_ml_causal_recovery_parity_round2.py) |
 | `hausman_test` | [`test_diag_recovery_parity.py`](../tests/reference_parity/test_diag_recovery_parity.py) (+1) |
+| `honest_did_from_moments` | [`test_honest_did_moments_R_parity.py`](../tests/reference_parity/test_honest_did_moments_R_parity.py) |
+| `honest_did_from_result` | [`test_honest_did_moments_R_parity.py`](../tests/reference_parity/test_honest_did_moments_R_parity.py) |
 | `honest_variance` | [`test_forest_rate_honest_parity.py`](../tests/reference_parity/test_forest_rate_honest_parity.py) (+1) |
 | `identify_transport` | [`test_misc_sens_R_parity.py`](../tests/reference_parity/test_misc_sens_R_parity.py) |
 | `immortal_time_check` | [`test_target_trial_parity.py`](../tests/reference_parity/test_target_trial_parity.py) |
@@ -668,6 +670,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `spillover` | [`test_interference_parity.py`](../tests/reference_parity/test_interference_parity.py) |
 | `stepwise` | [`test_stepwise_parity.py`](../tests/reference_parity/test_stepwise_parity.py) |
 | `stochastic_dominance` | [`test_distributional_te_parity.py`](../tests/reference_parity/test_distributional_te_parity.py) |
+| `suest` | [`test_suest_Stata_parity.py`](../tests/reference_parity/test_suest_Stata_parity.py) |
 | `super_learner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `surrogate_index` | [`test_surrogate_parity.py`](../tests/reference_parity/test_surrogate_parity.py) |
 | `survival_forest` | [`test_grf_family_statistical_parity.py`](../tests/reference_parity/test_grf_family_statistical_parity.py) |
@@ -690,6 +693,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `xlearner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `yatchew_linearity_test` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) |
 
-## unverified — 696 functions
+## unverified — 698 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

@@ -6,6 +6,50 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.honest_did_from_moments(betahat, sigma, event_times=...)` and
+  `sp.honest_did_from_result`.** Rambachan-Roth sensitivity for an event
+  study from *any* estimator -- `reghdfe`, a stacked regression, a published
+  table -- given its coefficients and joint covariance, as R
+  `HonestDiD::createSensitivityResults(betahat, sigma, ...)`. On HonestDiD's
+  own `BCdata_EventStudy` the relative-magnitudes (Conditional) sets equal R
+  exactly and the FLCI agrees within R's simulation noise
+  (`test_honest_did_moments_R_parity.py`). `honest_did_from_result` is the
+  MCP tool's name on the Python side (`design_audit` already pointed to it).
+- **`sp.stacked_did(weights=, event_id=, treated=, event_time=)`.** Population
+  (or any analytic) weights, as Cengiz et al. use, and a pre-built stack --
+  one row per (sub-experiment, unit, period), e.g. built with a clean-control
+  rule -- used as is instead of being stacked again (which reused the
+  never-treated controls in every sub-experiment). The regression now runs on
+  the HDFE kernel, so its SEs follow `reghdfe` (they differed by a constant
+  degrees-of-freedom factor). Against `reghdfe [aw=]` on a CDLZ stack the
+  coefficients, SEs and ATT agree to 1e-9
+  (`test_stacked_did_prebuilt_weights_Stata_parity.py`).
+- **`weights=` for `sp.ssaggregate`, `sp.bartik` / `sp.BartikIV` and (through
+  the fit) `sp.shift_share_se`.** Weighted 2SLS / OLS with the AKM, AKM0,
+  EHW and Homoscedastic rows of `ShiftShareSE`'s `w`, weighted Rotemberg
+  weights, and the BHJ shock-level view with `l_weights`. Equal to R
+  `ShiftShareSE` 1.1.0 and Stata `ivregress [aw=], vce(robust) small` to
+  1e-12 (`test_shiftshare_weights_parity.py`).
+- **`sp.anderson_rubin_ci(cluster=)`.** The cluster-robust Anderson-Rubin
+  set, inverting `ivreg2`'s Wald-form AR statistic (F(k, G-1)); equal to
+  `ivreg2`'s `e(arf)` / `e(arfp)` to 1e-12 on a grid of nulls
+  (`test_ar_ci_cluster_Stata_parity.py`).
+- **`sp.ri_test(strata=, stat='ols' | 'ols_t', covariates=)`.** Re-randomize
+  within strata (and by cluster within strata), with a regression-adjusted
+  statistic including stratum effects; enumerated designs equal R `ri2` 0.5.0
+  exactly (`test_ri_strata_R_parity.py`).
+- **`sp.westfall_young`.** Westfall-Young (1993) stepdown maxT from the
+  design's own re-randomizations (within strata, by cluster, each outcome on
+  its own rows), as Stata `wyoung, permute()`; the MHT module advertised it
+  but only shipped the bootstrap Romano-Wolf. Checked against a from-scratch
+  enumeration of the textbook algorithm and for FWER under the null
+  (`test_westfall_young.py`).
+- **`sp.suest`.** Seemingly unrelated estimation across separately fitted OLS
+  equations (own samples), robust or clustered, with `wald` / `test_equal` /
+  `test_zero` for the cross-equation "joint test" rows of experimental
+  tables; equal to Stata `suest` after `regress` to 1e-12
+  (`test_suest_Stata_parity.py`).
+
 - **Skill: `references/modern-methods.md` covers the 1.29–1.32 estimators.**
   The packaged `statspai-analysis` skill had no entry for about thirty
   functions added since 1.29. The new reference file covers the robust
@@ -432,6 +476,12 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **Stata reference fixtures read the data in double precision.** The
+  fixtures added for `hdfe_ols`, the wild bootstraps and the weak-IV
+  statistics used `import delimited` without `asdouble`, so Stata worked
+  on float-rounded data and the comparisons stopped at ~1e-7 -- attributed
+  at the time to the demeaning tolerance. Regenerated; they now agree to
+  ~1e-14 and the tolerances are tightened accordingly.
 - **`sp.rdrobust` accepts asymmetric bandwidths `h=(left, right)`,
   `b=(left, right)`.** The signature and estimator supported them, but the
   input check called `float()` and rejected every pair (Watering Down, QJE
@@ -680,7 +730,7 @@ All notable changes to StatsPAI will be documented in this file.
   `prefecture x year`) is no longer charged (223 against `ivreghdfe`'s 209
   there; AR F, effective F and the IV SE were ~1.6% off). Against
   `ivreghdfe ..., ffirst` the AR F and p-value, the Kleibergen-Paap F, the
-  coefficient and its SE agree to 1e-7 (`test_weakiv_nested_fe_Stata_parity.py`).
+  coefficient and its SE agree to 1e-10 (`test_weakiv_nested_fe_Stata_parity.py`).
 - **AKM shift-share inference drops collinear shares exactly as
   `ShiftShareSE`.** `sp.shift_share_se` / `sp.ssaggregate` dropped
   collinear share columns with a one-pass Gram-Schmidt test; R's

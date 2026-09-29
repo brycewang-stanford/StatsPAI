@@ -188,7 +188,7 @@ checked; two more were skipped as "no Stata implementation" when in fact
 | 86 fect | `fect` (fect_stata, GitHub) | 1e-9 (fe / mc headline), 1.5e-7 (ife headline) | all three outcome models on one staggered panel; fect_stata's own EM stopping rule leaves the ife fixed point at ~1e-7 while R/Python run the same iteration path to 1e-10 |
 | 73 did2s | `did2s` | 1.3e-14 (SE), 2.4e-12 (estimate) | estimate and corrected two-stage SE three-way: sp.gardner_did's default `vce='analytic'` builds the same two-stage influence function as R/Stata `did2s`; the pre-correction stage-2-only SE is kept as the unjoined `static_ATT_stage2_se` row |
 | 71 dml_family | `ddml` | 6.9e-7 | shared fold partition via `foldvar()`; PLIV gap is ddml's second-stage intercept |
-| 75 stacked | hand-built stack + `reghdfe` | 7.1e-13 | three independent stack constructions agree; SEs differ by a constant dof factor |
+| 75 stacked | hand-built stack + `reghdfe` | 7.1e-13 | three independent stack constructions agree; SEs agree since the fit moved to the HDFE kernel (was a constant dof factor) |
 | 76 pretrends | `pretrends` | 5.1e-4 | inside the registered 1e-3 budget; the closed-form LR row agrees to 1e-15 |
 | 74 cic | `cic` (`discrete_ci`) | 6.0e-3 | 8 of 9 deciles bit-identical; `qte_50` and the ATT are a documented tie-break gap |
 | 88 rdbwselect | `rdbwselect` | 3.7e-9 | 64 of the 68 bandwidths the R side pins; the four `certwo` cells are R-only because Stata rdbwselect 10.0.0 errors on that selector. Worst cell is the `msesum`/`cersum` bias bandwidth |

@@ -6860,6 +6860,14 @@ def _build_registry() -> None:
                     description="Shock column (e.g. industry-level change)",
                 ),
                 ParamSpec("covariates", "list", False),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Analytic location weights (Stata [aw=]); weighted 2SLS, "
+                    "weighted AKM via sp.shift_share_se",
+                ),
             ],
             returns="BartikIV result",
             example=(
@@ -14578,7 +14586,13 @@ def _build_registry() -> None:
                 ParamSpec("y", "str", True),
                 ParamSpec("group", "str", True, description="Unit identifier"),
                 ParamSpec("time", "str", True),
-                ParamSpec("first_treat", "str", True),
+                ParamSpec(
+                    "first_treat",
+                    "str",
+                    False,
+                    None,
+                    "First treatment period; not needed when event_id is given",
+                ),
                 ParamSpec(
                     "window",
                     "tuple",
@@ -14596,6 +14610,35 @@ def _build_registry() -> None:
                     "Use only never-treated as controls (drops late-treated)",
                 ),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "weights",
+                    "str",
+                    False,
+                    None,
+                    "Observation weights (e.g. population); reghdfe [aw=] semantics",
+                ),
+                ParamSpec(
+                    "event_id",
+                    "str",
+                    False,
+                    None,
+                    "Sub-experiment id of a pre-built stack (with treated, "
+                    "event_time); the stack is then used as is",
+                ),
+                ParamSpec(
+                    "treated",
+                    "str",
+                    False,
+                    None,
+                    "Pre-built stack: 1 for the sub-experiment's treated units",
+                ),
+                ParamSpec(
+                    "event_time",
+                    "str",
+                    False,
+                    None,
+                    "Pre-built stack: period relative to the sub-experiment's event",
+                ),
             ],
             returns="CausalResult with event-study coefficients",
             example=(

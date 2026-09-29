@@ -182,6 +182,8 @@ from .did import (
     group_time_plot,
     harvest_did,
     honest_did,
+    honest_did_from_moments,
+    honest_did_from_result,
     influence_functions,
     overlap_weighted_did,
     panel_view,
@@ -243,6 +245,7 @@ from .inference import (
     FisherResult,
     MetaAnalysisResult,
     PATEEstimator,
+    SuestResult,
     aipw,
     bootstrap,
     cluster_robust_se,
@@ -261,6 +264,7 @@ from .inference import (
     ppi_ols,
     ri_test,
     subcluster_wild_bootstrap,
+    suest,
     twoway_cluster,
     wild_cluster_boot,
     wild_cluster_bootstrap,
@@ -534,6 +538,7 @@ from ._article_aliases import (  # noqa: E402,F811
 
 # === Auto-race estimators (CS/SA/BJS DiD + 2SLS/LIML/JIVE IV) ===
 from ._auto_estimators import AutoDIDResult, AutoIVResult, auto_did, auto_iv
+from ._routing import decision_guide, route
 
 # ``OPEResult`` is intentionally *not* eagerly imported from
 # ``.policy_learning`` here: the canonical class lives in
@@ -890,7 +895,6 @@ from .qte import (
     qte_hd_panel,
 )
 from .quasi import ancova, negd
-from ._routing import decision_guide, route
 from .question import (
     CausalQuestion,
     EstimationResult,
@@ -1194,6 +1198,8 @@ __all__ = [
     "sun_abraham",
     "bacon_decomposition",
     "honest_did",
+    "honest_did_from_moments",
+    "honest_did_from_result",
     "breakdown_m",
     "compare_event_study_conventions",
     "did_cluster_diagnostics",
@@ -1532,6 +1538,8 @@ __all__ = [
     "KitagawaResult",
     # Inference
     "wild_cluster_bootstrap",
+    "suest",
+    "SuestResult",
     "aipw",
     "ri_test",
     "ipw",
@@ -1729,6 +1737,7 @@ __all__ = [
     "QTEResult",
     # Multiple Hypothesis Testing
     "romano_wolf",
+    "westfall_young",
     "RomanoWolfResult",
     "adjust_pvalues",
     "bonferroni",
@@ -3263,6 +3272,7 @@ _register_lazy(
 _register_lazy(
     "mht",
     "romano_wolf",
+    "westfall_young",
     "RomanoWolfResult",
     "adjust_pvalues",
     "bonferroni",

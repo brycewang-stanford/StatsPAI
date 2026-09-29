@@ -37,7 +37,7 @@
  },
  "modules": {
   "01_card_original": {
-   "seconds": 1.24,
+   "seconds": 2.0,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -66,7 +66,7 @@
    "result_sha256": "0770f9a37e8bc72e9f338d602037715ba70cb032401b8582095eebed942621b2"
   },
   "02_mpdta_original": {
-   "seconds": 0.67,
+   "seconds": 1.26,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -92,7 +92,7 @@
    "result_sha256": "9fb2174b4a9d51fa90754fd3bd9a774762ae80a5192577aaa59f6ce4d85012f2"
   },
   "03_basque_original": {
-   "seconds": 5.6,
+   "seconds": 10.08,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -118,7 +118,7 @@
    "result_sha256": "62388d7c72d0eb6d0c009b02f06f605b78549e92efd3d9eaddb24b6064ba72fc"
   },
   "04_lalonde_original": {
-   "seconds": 1.1,
+   "seconds": 2.19,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -149,7 +149,7 @@
    "result_sha256": "fa489b60ccd893a499bdb6501c55dd4f12a2f8fe765826272bc5e147e09f1e60"
   },
   "04b_nsw_psid_original": {
-   "seconds": 1.14,
+   "seconds": 2.24,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -180,7 +180,7 @@
    "result_sha256": "4b6d48504f0d944353db8f03facdf0c8f2598b7c5f583d9760e4f2c86d6b4f6b"
   },
   "05_lee_original": {
-   "seconds": 0.69,
+   "seconds": 1.37,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -207,7 +207,7 @@
    "result_sha256": "3eef9a448bc3efcf1ec7188d67a396cda48aad673999bda6a4f8a95581f6a58b"
   },
   "06_nhefs_ch12_ipw": {
-   "seconds": 2.59,
+   "seconds": 4.85,
    "error": null,
    "boundary_calls": [
     {
@@ -271,7 +271,7 @@
    "result_sha256": "19385647d1d7cb264a1e4c5352088ecdee3af7d4519c8cb93c01c71f646cb1e9"
   },
   "07_nhefs_ch13_gformula": {
-   "seconds": 30.29,
+   "seconds": 58.68,
    "error": null,
    "boundary_calls": [
     {
@@ -372,14 +372,14 @@
    "result_sha256": "7195a81581bfaa5e290c8d2f00d759b67ba8a4561d9a70172710d57f9d452a00"
   },
   "08_nhefs_ch14_gestimation": {
-   "seconds": 1.75,
+   "seconds": 2.43,
    "error": null,
    "boundary_calls": [],
    "packages": [],
    "rscript_launches": 0,
    "subprocesses": [],
    "exercised_sources": {
-    "src/statspai/__init__.py": "f0d883730b3389f6f60340a449890508b2f04189cf273c4de2108a69fa00c288",
+    "src/statspai/__init__.py": "b91fe328264843bf32a6f6dfd2e0e251f1c3bbce5afe070ec49d70aad3aa1c74",
     "src/statspai/_aliases.py": "8b4fa5efd591ab73a8fa51926c2c5d86dcfe0af411654a8b86286e404735f81f",
     "src/statspai/_result_serialize.py": "380cb2d8b5ed65cad656dd0cb2f0721f45e6b3977dd4a0d87568dff9a87b312b",
     "src/statspai/core/results.py": "8949923b8e8d7ca9910f7438b8bb5b8b7935764addbd4f6b3629f3e260c35942",
@@ -401,7 +401,7 @@
    "result_sha256": "31f48d2f82dbfa336d9525672f23f41e25f4911b478512607798d7d3cd6f7c00"
   },
   "09_nhefs_ch15_outcome": {
-   "seconds": 2.09,
+   "seconds": 3.88,
    "error": null,
    "boundary_calls": [
     {
@@ -465,7 +465,7 @@
    "result_sha256": "462bfbeb1e2d111c25a597e311a484d7e2efc75c968d1e6cc4361de50c63c960"
   },
   "10_nhefs_ch17_survival": {
-   "seconds": 2.61,
+   "seconds": 5.09,
    "error": null,
    "boundary_calls": [
     {
@@ -529,7 +529,7 @@
    "result_sha256": "e62cb21d80f4866599ff4ad6fca3fdc2943693a612292779f9a415ea2e986c7e"
   },
   "11_nhefs_evalue": {
-   "seconds": 5.72,
+   "seconds": 11.73,
    "error": null,
    "boundary_calls": [
     {

@@ -39,7 +39,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
-| `did` | 45,504 | 58 | 90 |
+| `did` | 47,403 | 62 | 92 |
 | `synth` | 27,673 | 36 | 55 |
 | `rd` | 20,281 | 31 | 54 |
 | `regression` | 19,867 | 24 | 39 |
@@ -52,7 +52,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `decomposition` | 9,776 | 19 | 32 |
 | `panel` | 9,073 | 14 | 18 |
 | `dml` | 8,999 | 24 | 16 |
-| `inference` | 8,792 | 19 | 26 |
+| `inference` | 9,158 | 20 | 28 |
 | `iv` | 8,569 | 17 | 10 |
 | `diagnostics` | 7,929 | 14 | 25 |
 | `spatial` | 7,848 | 30 | 38 |
@@ -113,7 +113,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `selection` | 904 | 2 | 3 |
 | `transport` | 831 | 5 | 10 |
 | `deepiv` | 810 | 2 | 2 |
-| `mht` | 770 | 2 | 6 |
+| `mht` | 1,058 | 3 | 7 |
 | `msm` | 736 | 2 | 3 |
 | `causal_impact` | 715 | 2 | 3 |
 | `assimilation` | 706 | 3 | 4 |

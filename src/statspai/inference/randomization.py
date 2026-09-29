@@ -34,6 +34,7 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
+from ..exceptions import MethodIncompatibility
 
 StatFn = Callable[[np.ndarray, np.ndarray], float]
 Permuter = Callable[[], np.ndarray]
@@ -499,6 +500,8 @@ def ri_test(
     cluster: Optional[str] = None,
     seed: Optional[int] = None,
     alpha: float = 0.05,
+    strata: Optional[str] = None,
+    covariates: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Randomization inference p-value.
@@ -518,6 +521,11 @@ def ri_test(
         - ``'diff_means'``: difference in means (Y_bar_1 - Y_bar_0)
         - ``'ks'``: Kolmogorov-Smirnov statistic
         - ``'t'``: t-statistic
+        - ``'ols'``: coefficient on the treatment in the OLS regression of
+          ``y`` on the treatment, ``covariates`` and (with ``strata``)
+          stratum fixed effects -- the regression-adjusted statistic of
+          stratified experiments (R ``ri2::conduct_ri(y ~ Z + x + block)``)
+        - ``'ols_t'``: its t-statistic (HC1, or CR1 by ``cluster``)
         - A callable ``f(Y, D) -> float`` for custom statistics.
     n_perms : int, default 1000
         Number of random permutations. Use 10000+ for publications. When
@@ -530,6 +538,14 @@ def ri_test(
     seed : int, optional
         Random seed.
     alpha : float, default 0.05
+    strata : str, optional
+        Randomization strata (blocks): treatment is re-randomized *within*
+        each stratum, keeping its number of treated units (or clusters,
+        with ``cluster``). Permuting across strata when the experiment
+        assigned within them tests the wrong null distribution and loses
+        power (UCT, QJE 2016: education p 0.70 unstratified against 0.17).
+    covariates : list of str, optional
+        Controls for ``stat='ols'`` / ``'ols_t'``.
 
     Returns
     -------
@@ -574,9 +590,12 @@ def ri_test(
     """
     rng = np.random.default_rng(seed)
 
-    df = data[[y, treat]].copy()
+    covariates = list(covariates or [])
+    df = data[[y, treat] + covariates].copy()
     if cluster:
         df["_cluster"] = data[cluster].values
+    if strata:
+        df["_strata"] = data[strata].values
     n_before = len(df)
     df = df.dropna()
     n_dropped = n_before - len(df)
@@ -597,6 +616,12 @@ def ri_test(
     Y = df[y].values.astype(float)
     D = df[treat].values.astype(float)
     n = len(Y)
+    st = df["_strata"].values if strata else None
+    if covariates and not (isinstance(stat, str) and stat in ("ols", "ols_t")):
+        raise MethodIncompatibility(
+            "covariates= is used by stat='ols' / 'ols_t' only.",
+            recovery_hint="Pass stat='ols' or 'ols_t' with covariates.",
+        )
 
     # Select test statistic function
     stat_fn: StatFn
@@ -616,9 +641,18 @@ def ri_test(
             return float(stats.ks_2samp(y_[d_ == 1], y_[d_ == 0]).statistic)
 
         stat_fn = ks_stat
+    elif stat in ("ols", "ols_t"):
+        stat_fn = _ols_stat_factory(
+            df,
+            covariates,
+            st,
+            df["_cluster"].values if cluster else None,
+            t_stat=stat == "ols_t",
+        )
     else:
         raise ValueError(
-            f"Unknown stat: '{stat}'. Use 'diff_means', 't', 'ks', or callable."
+            f"Unknown stat: '{stat}'. Use 'diff_means', 't', 'ks', 'ols', "
+            "'ols_t' or a callable."
         )
 
     # Observed statistic
@@ -628,25 +662,40 @@ def ri_test(
     # distinct assignments than ``n_perms`` (the ri2 / randomizr rule),
     # otherwise ``n_perms`` random re-randomizations.
     cl = df["_cluster"].values if cluster else None
-    assignments = _enumerate_assignments(D, clusters=cl, max_count=n_perms)
+    assignments = _enumerate_assignments(D, clusters=cl, strata=st, max_count=n_perms)
     if assignments is not None:
         perm_stats = np.array([stat_fn(Y, a) for a in assignments])
     elif cluster:
         perm_stats = np.zeros(n_perms)
-        # Cluster-level permutation
+        # Cluster-level permutation (within strata when given)
         unique_cl = np.unique(cl)
         # Get treatment per cluster (first obs)
         cl_treat = np.array([D[cl == c][0] for c in unique_cl])
+        cl_rows = [np.flatnonzero(cl == c) for c in unique_cl]
+        if st is not None:
+            cl_st = np.array([st[r[0]] for r in cl_rows])
+            groups = [np.flatnonzero(cl_st == s_) for s_ in np.unique(cl_st)]
+        else:
+            groups = [np.arange(unique_cl.size)]
         for b in range(n_perms):
-            cl_perm = rng.permutation(cl_treat)
+            cl_perm = cl_treat.copy()
+            for gidx in groups:
+                cl_perm[gidx] = rng.permutation(cl_treat[gidx])
             D_perm = np.zeros(n)
-            for i, c in enumerate(unique_cl):
-                D_perm[cl == c] = cl_perm[i]
+            for i, rows in enumerate(cl_rows):
+                D_perm[rows] = cl_perm[i]
             perm_stats[b] = stat_fn(Y, D_perm)
     else:
         perm_stats = np.zeros(n_perms)
+        groups = (
+            [np.flatnonzero(st == s_) for s_ in np.unique(st)]
+            if st is not None
+            else [np.arange(n)]
+        )
         for b in range(n_perms):
-            D_perm = rng.permutation(D)
+            D_perm = D.copy()
+            for gidx in groups:
+                D_perm[gidx] = rng.permutation(D[gidx])
             perm_stats[b] = stat_fn(Y, D_perm)
 
     # P-values (ties with the observed statistic count as extreme; the
@@ -667,6 +716,53 @@ def ri_test(
 # ======================================================================
 # Helper functions
 # ======================================================================
+
+
+def _ols_stat_factory(
+    df: pd.DataFrame,
+    covariates: List[str],
+    strata: Optional[np.ndarray],
+    clusters: Optional[np.ndarray],
+    t_stat: bool,
+) -> StatFn:
+    """Treatment coefficient (or its t) after partialling out the controls.
+
+    By Frisch-Waugh-Lovell only ``M_W d`` changes across permutations, so the
+    projection onto the controls ``W`` (intercept, covariates, stratum
+    dummies) is factored once.
+    """
+    n = len(df)
+    parts = [np.ones((n, 1))]
+    if covariates:
+        parts.append(df[covariates].to_numpy(dtype=float))
+    if strata is not None:
+        parts.append(
+            pd.get_dummies(pd.Series(strata), drop_first=True, dtype=float).to_numpy()
+        )
+    Wm = np.column_stack(parts)
+    Q, _ = np.linalg.qr(Wm)
+    k = int(np.linalg.matrix_rank(Wm)) + 1
+    cl_codes = None if clusters is None else pd.factorize(clusters)[0]
+
+    def fn(y_: np.ndarray, d_: np.ndarray) -> float:
+        dt = d_ - Q @ (Q.T @ d_)
+        yt = y_ - Q @ (Q.T @ y_)
+        dd = float(dt @ dt)
+        if dd <= 0:
+            return 0.0
+        b = float(dt @ yt) / dd
+        if not t_stat:
+            return b
+        e = yt - b * dt
+        if cl_codes is None:
+            var = (n / (n - k)) * float(np.sum((dt * e) ** 2)) / dd**2
+        else:
+            G = int(cl_codes.max()) + 1
+            sc = np.bincount(cl_codes, weights=dt * e, minlength=G)
+            var = (G / (G - 1)) * ((n - 1) / (n - k)) * float(sc @ sc) / dd**2
+        return b / np.sqrt(var) if var > 0 else 0.0
+
+    return fn
 
 
 def _t_stat(y: np.ndarray, d: np.ndarray) -> float:
@@ -735,7 +831,11 @@ def _enumerate_assignments(
         unit_D = np.array([D[inv == g][0] for g in range(n_units)])
         if not all(np.all(D[inv == g] == unit_D[g]) for g in range(n_units)):
             return None  # treatment varies within a cluster
-        blocks = [np.arange(n_units)]
+        if strata is not None:
+            cl_strata = np.array([strata[inv == g][0] for g in range(n_units)])
+            blocks = [np.where(cl_strata == s_)[0] for s_ in np.unique(cl_strata)]
+        else:
+            blocks = [np.arange(n_units)]
     else:
         inv = None
         unit_D = D

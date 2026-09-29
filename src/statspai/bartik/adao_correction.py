@@ -46,6 +46,7 @@ def ssaggregate(
     controls: Optional[List[str]] = None,
     cluster: Optional[str] = None,
     alpha: float = 0.05,
+    weights: Optional[str] = None,
 ) -> EconometricResults:
     """
     Shift-share IV with AKM (2019) inference and the BHJ shock-level view.
@@ -99,6 +100,11 @@ def ssaggregate(
         ``SE (Reg. cluster)`` diagnostic. The reported SE is AKM.
     alpha : float, default 0.05
         Level of the AKM / AKM0 confidence intervals in the diagnostics.
+    weights : str, optional
+        Column of non-negative location weights (e.g. ADH's
+        ``timepwt48``). The regression becomes weighted 2SLS / OLS and the
+        AKM scores carry the weights, as ``ShiftShareSE``'s ``w``; the BHJ
+        shock-level view uses them as ``l_weights``.
 
     Returns
     -------
@@ -147,6 +153,7 @@ def ssaggregate(
     n = len(data)
     Y = data[y].values.astype(float)
     X_endog = data[x].values.astype(float)
+    w_loc = _location_weights(data, weights)
 
     # ------------------------------------------------------------------
     # Parse shares
@@ -216,16 +223,20 @@ def ssaggregate(
     # ------------------------------------------------------------------
     if iv_constructed:
         B = S @ g  # Bartik instrument
-        akm = _akm_fit(Y, B, S, W, y2=X_endog, region_cvar=region, alpha=alpha)
+        akm = _akm_fit(Y, B, S, W, y2=X_endog, region_cvar=region, alpha=alpha, w=w_loc)
     else:
         # Reduced form: x is itself the shift-share variable -> OLS.
         B = X_endog
-        akm = _akm_fit(Y, X_endog, S, W, y2=None, region_cvar=region, alpha=alpha)
+        akm = _akm_fit(
+            Y, X_endog, S, W, y2=None, region_cvar=region, alpha=alpha, w=w_loc
+        )
+    wv = np.ones(n) if w_loc is None else w_loc
+    sw = np.sqrt(wv)
 
     # First-stage F (homoskedastic partial F on the residualised instrument)
     if iv_constructed:
-        X_tilde = _resid(X_endog, W)
-        Z_tilde = _resid(B, W)
+        X_tilde = _resid(X_endog * sw, W * sw[:, None])
+        Z_tilde = _resid(B * sw, W * sw[:, None])
         gamma_hat = np.dot(Z_tilde, X_tilde) / np.dot(Z_tilde, Z_tilde)
         resid_fs = X_tilde - gamma_hat * Z_tilde
         rss_restricted = np.dot(X_tilde, X_tilde)
@@ -245,18 +256,20 @@ def ssaggregate(
     # ------------------------------------------------------------------
     if iv_constructed:
         Z_full = np.column_stack([W, B])
-        gamma_full = np.linalg.lstsq(Z_full, X_endog, rcond=None)[0]
+        gamma_full = np.linalg.lstsq(Z_full * sw[:, None], X_endog * sw, rcond=None)[0]
         Xfull = np.column_stack([W, Z_full @ gamma_full])
     else:
         Xfull = np.column_stack([W, X_endog])
     Xactual = np.column_stack([W, X_endog])
     all_names = control_names + [x]
 
-    XtX_inv = np.linalg.inv(Xfull.T @ Xfull)
-    params_full = XtX_inv @ (Xfull.T @ Y)
+    XtX_inv = np.linalg.inv(Xfull.T @ (Xfull * wv[:, None]))
+    params_full = XtX_inv @ (Xfull.T @ (wv * Y))
     eps_full = Y - Xactual @ params_full
     k_params = len(all_names)
-    hc1_meat = (Xfull * ((n / max(n - k_params, 1)) * eps_full**2)[:, None]).T @ Xfull
+    hc1_meat = (
+        Xfull * ((n / max(n - k_params, 1)) * (wv * eps_full) ** 2)[:, None]
+    ).T @ Xfull
     var_full = XtX_inv @ hc1_meat @ XtX_inv
     se_full = np.sqrt(np.diag(var_full))
     se_hc1 = float(se_full[-1])
@@ -265,8 +278,8 @@ def ssaggregate(
     params_s = pd.Series(params_full, index=all_names)
     se_s = pd.Series(se_full, index=all_names)
 
-    tss = np.sum((Y - np.mean(Y)) ** 2)
-    rss = np.sum(eps_full**2)
+    tss = np.sum(wv * (Y - np.average(Y, weights=wv)) ** 2)
+    rss = np.sum(wv * eps_full**2)
     r_squared = 1 - rss / tss if tss > 0 else np.nan
 
     model_info = {
@@ -294,6 +307,7 @@ def ssaggregate(
             "endog": X_endog if iv_constructed else None,
             "shift_share": B,
             "controls": W,
+            "weights": w_loc,
         },
     }
     diagnostics = _akm_diagnostics(akm, alpha)
@@ -303,7 +317,7 @@ def ssaggregate(
     if iv_constructed:
         diagnostics["First-stage F"] = float(f_stat)
         diagnostics["First-stage F p-value"] = float(f_pvalue)
-        bhj = _bhj_aggregate(Y, X_endog, S, g, W, shock_ids, y, x)
+        bhj = _bhj_aggregate(Y, X_endog, S, g, W, shock_ids, y, x, w=w_loc)
         data_info["shock_data"] = bhj["shock_data"]
         diagnostics["beta (BHJ shock-level)"] = bhj["beta"]
         diagnostics["SE (BHJ shock-level, HC0)"] = bhj["se_hc0"]
@@ -315,6 +329,27 @@ def ssaggregate(
         data_info=data_info,
         diagnostics=diagnostics,
     )
+
+
+def _location_weights(
+    data: pd.DataFrame, weights: Optional[str]
+) -> Optional[np.ndarray]:
+    """Validated location weights, or ``None``."""
+    if weights is None:
+        return None
+    if weights not in data.columns:
+        raise MethodIncompatibility(
+            f"weights column '{weights}' not found in data",
+            recovery_hint="Check the column name passed as weights=.",
+        )
+    w = pd.to_numeric(data[weights], errors="coerce").to_numpy(dtype=float)
+    if not np.all(np.isfinite(w)) or (w < 0).any() or w.sum() <= 0:
+        raise MethodIncompatibility(
+            "weights must be finite, non-negative and not all zero.",
+            recovery_hint="Drop or fix rows with missing / negative weights.",
+            diagnostics={"weights": weights},
+        )
+    return w
 
 
 def _akm_diagnostics(akm: dict, alpha: float) -> dict:
@@ -421,6 +456,7 @@ def shift_share_se(
         inputs["controls"],
         y2=inputs["endog"],
         alpha=alpha,
+        w=inputs.get("weights"),
     )
     params = iv_result.params.copy()
     if not np.isclose(akm["beta"], float(params.iloc[-1]), rtol=1e-8, atol=1e-12):

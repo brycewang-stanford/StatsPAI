@@ -4,7 +4,7 @@
 *   stata-mp -b do tests/reference_parity/_fixtures/_generate_weakiv_nested_fe_Stata.do
 version 18
 clear all
-import delimited using "tests/reference_parity/_fixtures/weakiv_nested_fe.csv", clear case(preserve)
+import delimited using "tests/reference_parity/_fixtures/weakiv_nested_fe.csv", clear asdouble case(preserve)
 ivreghdfe y (d = z) w1, absorb(year unit rXy) cluster(unit) ffirst
 tempname fh
 file open `fh' using "tests/reference_parity/_fixtures/weakiv_nested_fe_Stata.json", write replace

@@ -304,6 +304,7 @@ def anderson_rubin_ci(
     n_grid: int = 401,
     beta_grid: Optional[np.ndarray] = None,
     add_const: bool = True,
+    cluster: Optional[Union[str, np.ndarray, pd.Series]] = None,
 ) -> WeakIVConfidenceSet:
     """
     Anderson-Rubin (1949) confidence set by grid inversion.
@@ -317,16 +318,59 @@ def anderson_rubin_ci(
 
     Valid under any instrument strength. Under weak identification the
     set can be disconnected or unbounded — we flag both.
+
+    With ``cluster`` (a column of ``data`` or an array) the statistic is the
+    cluster-robust Wald form ``ivreg2`` / ``ivreghdfe`` report: the Wald test
+    of the instruments in the regression of ``y - b0 d`` on them, CR0 meat,
+    scaled to an F by ``(n - kW - k) / (n - 1) * (G - 1) / G`` and referred
+    to ``F(k, G - 1)``. (For absorbed fixed effects use
+    :func:`sp.anderson_rubin_test` with ``absorb=``.)
     """
     Yt, Dt, Zt, kW, n = _prep(y, endog, instruments, exog, data, add_const)
     k = Zt.shape[1]
     dfd = max(n - kW - k, 1)
-    crit = stats.f.ppf(level, k, dfd)
+    cl_codes = None
+    if cluster is not None:
+        cl = data[cluster] if isinstance(cluster, str) else pd.Series(cluster)
+        if len(cl) != n or pd.isna(cl).any():
+            raise MethodIncompatibility(
+                "cluster must be row-aligned with the data and have no "
+                "missing values.",
+                recovery_hint="Drop rows with a missing cluster id first.",
+            )
+        cl_codes = pd.factorize(np.asarray(cl))[0]
+        G = int(cl_codes.max()) + 1
+        if G < 2:
+            raise MethodIncompatibility("cluster needs at least two clusters.")
+        crit = stats.f.ppf(level, k, G - 1)
+        scale = (n - kW - k) / (n - 1) * (G - 1) / G
+        ZtZ_inv = np.linalg.inv(Zt.T @ Zt)
+    else:
+        crit = stats.f.ppf(level, k, dfd)
 
     if beta_grid is None:
         beta_grid = _default_grid(Yt, Dt, Zt, n_grid)
+        if cluster is not None:
+            # clustered sets are wider than the homoskedastic SE suggests
+            mid = 0.5 * (beta_grid[0] + beta_grid[-1])
+            beta_grid = mid + 4.0 * (beta_grid - mid)
+
+    def _ar_cluster(b0: float) -> float:
+        u0 = Yt - b0 * Dt
+        pi = ZtZ_inv @ (Zt.T @ u0)
+        e = u0 - Zt @ pi
+        sc = np.zeros((G, k))
+        np.add.at(sc, cl_codes, Zt * e[:, None])
+        V = ZtZ_inv @ (sc.T @ sc) @ ZtZ_inv
+        try:
+            wald = float(pi @ np.linalg.solve(V, pi))
+        except np.linalg.LinAlgError:  # pragma: no cover - degenerate
+            return float("inf")
+        return wald / k * scale
 
     def _ar_stat(b0: float) -> float:
+        if cl_codes is not None:
+            return _ar_cluster(b0)
         u0 = Yt - b0 * Dt
         pi, *_ = np.linalg.lstsq(Zt, u0, rcond=None)
         u_hat = Zt @ pi
@@ -346,7 +390,11 @@ def anderson_rubin_ci(
         stats_arr,
         np.full_like(stats_arr, crit),
         in_set,
-        extra={"df_num": k, "df_denom": dfd},
+        extra={
+            "df_num": k,
+            "df_denom": (G - 1) if cl_codes is not None else dfd,
+            "vcov": "cluster" if cl_codes is not None else "homoskedastic",
+        },
         excess=lambda b0: _ar_stat(b0) - crit,
     )
 

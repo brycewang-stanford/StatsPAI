@@ -11632,6 +11632,11 @@
             "description": "Shock column (e.g. industry-level change)",
             "type": "string"
           },
+          "weights": {
+            "description": "Analytic location weights (Stata [aw=]); weighted 2SLS, weighted AKM via sp.shift_share_se",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "y": {
             "description": "Outcome (e.g. local wage growth)",
             "type": "string",
@@ -11652,6 +11657,7 @@
     "typical_n_min": 100,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs 2SLS: R AER::ivreg + sandwich (HC1 / classical), Stata ivregress 2sls, vce(robust) small / small; Rotemberg weights: R bartik.weight::bw and Stata bartik_weight (Goldsmith-Pinkham, Sorkin & Swift) [AER 1.2.16, R 4.5.2, Stata 18 MP, bartik.weight 0.1.0 (GitHub paulgp/bartik-weight@722ceb85484d6a2bf77985edf2403515eacd1770, R-code/pkg), bartik_weight GitHub paulgp/bartik-weight@722ceb85484d6a2bf77985edf2403515eacd1770 code/bartik_weight.ado, sandwich 3.1.1]; tolerance 1e-9 rel on all coefficients and SEs (observed <= 5.4e-15) and on Rotemberg alpha_k / beta_k (observed 2.5e-12) -- tests/reference_parity/test_did_synth_shiftshare_parity.py",
+      "tests/reference_parity/test_shiftshare_weights_parity.py",
       "API/unit contract evidence: tests/test_bartik.py"
     ],
     "validation_status": "certified"
@@ -34392,8 +34398,16 @@
             "type": "object",
             "x-statspai-role": "dataframe"
           },
+          "event_id": {
+            "description": "Sub-experiment id of a pre-built stack (with treated, event_time); the stack is then used as is",
+            "type": "string"
+          },
+          "event_time": {
+            "description": "Pre-built stack: period relative to the sub-experiment's event",
+            "type": "string"
+          },
           "first_treat": {
-            "description": "Column indicating the period of first treatment. Use ``np.inf``, ``np.nan``, or ``0`` for never-treated units.",
+            "description": "First treatment period; not needed when event_id is given",
             "type": "string",
             "x-statspai-role": "column"
           },
@@ -34413,6 +34427,15 @@
           },
           "time": {
             "description": "Time period column.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "treated": {
+            "description": "Pre-built stack: 1 for the sub-experiment's treated units",
+            "type": "string"
+          },
+          "weights": {
+            "description": "Observation weights (e.g. population); reghdfe [aw=] semantics",
             "type": "string",
             "x-statspai-role": "column"
           },
@@ -34437,8 +34460,7 @@
           "data",
           "y",
           "group",
-          "time",
-          "first_treat"
+          "time"
         ],
         "type": "object"
       }
@@ -34450,6 +34472,7 @@
       "Stata parity module 75_stacked",
       "Cross-language parity (bit-exact) vs hand-written stack + fixest::feols [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06; parity module 75_stacked -- tests/r_parity/75_stacked.py",
       "tests/reference_parity/test_stacked_did_parity.py",
+      "tests/reference_parity/test_stacked_did_prebuilt_weights_Stata_parity.py",
       "API/unit contract evidence: tests/test_cov95_did_r3_stacked.py",
       "API/unit contract evidence: tests/test_cov95_did_estimators_extra.py"
     ],
@@ -39437,7 +39460,8 @@
     "validation_notes": [
       "tests/test_es_inference.py: the diagonal reproduces every estimator's reported SEs to 1e-12; cross-horizon blocks checked against a cluster bootstrap",
       "Cross-language parity (bit-exact) vs did::aggte(type='dynamic') 2.3.0 influence-function covariance; fixest::sunab 0.14.0 (A V A', cohort shares fixed); fixest::feols i(rel, ref=-1) 0.14.0; did2s::did2s 1.2.1; etwfe::emfx(type='event') 0.6.2; Stata 18 did_imputation (Borusyak, SSC, 2023-11-22) [R version 4.5.2 (2025-10-31), Stata 18, did 2.3.0, did2s 1.2.1, etwfe 0.6.2, fixest 0.14.0, marginaleffects 0.32.0]; tolerance full joint covariance (every off-diagonal entry) 1e-9 rel (observed 3.4e-15 cs / 5.1e-13 twfe / 8.9e-11 sunab / 6.7e-11 did2s), 1e-8 did_imputation (observed 1.2e-9), 1e-6 etwfe (observed 3.4e-9 not-yet / 8.1e-8 never); coefficients 1e-9 (observed <= 3.3e-10) -- tests/reference_parity/test_event_study_vcov_R_parity.py",
-      "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py"
+      "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
+      "tests/reference_parity/test_honest_did_moments_R_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -60412,6 +60436,11 @@
             "description": "Shock vector, or a column name in *shock_data*.",
             "type": "string"
           },
+          "weights": {
+            "description": "Column of non-negative location weights (e.g. ADH's ``timepwt48``). The regression becomes weighted 2SLS / OLS and the AKM scores carry the weights, as ``ShiftShareSE``'s ``w``; the BHJ shock-level view uses them as ``l_weights``.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "x": {
             "description": "Endogenous regressor (IV mode, *shocks* given) or the shift-share variable itself (OLS mode, *shocks* omitted).",
             "type": "string",
@@ -60436,7 +60465,8 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R ShiftShareSE::ivreg_ss / reg_ss (Adao, Kolesar & Morales) and ssaggregate (Borusyak, Hull & Jaravel; R kylebutts/ssaggregate + AER::ivreg/sandwich HC0); Stata SSC ivreg_ss / reg_ss and ssaggregate + ivreg2, robust [AER 1.2.16, R 4.5.2, ShiftShareSE 1.1.0, Stata 18 MP, reg_ss / ivreg_ss SSC 20241116, sandwich 3.1.1, ssaggregate (R) 0.0.0.9000 (GitHub kylebutts/ssaggregate@22df93980250891a0cc247f6020136cd33c65ba2), ssaggregate (Stata) SSC 1.2.2 (20200826)]; tolerance 1e-9 rel on beta, every SE row (Homoscedastic, EHW, Reg. cluster, AKM, AKM0), AKM/AKM0 CIs and the shock-level frame; p-values also atol 1e-15 (references use 2*(1-Phi)); observed <= 6e-14 (frame 2.9e-13) -- tests/reference_parity/test_did_synth_shiftshare_parity.py",
-      "tests/reference_parity/test_bartik_ssagg_parity.py"
+      "tests/reference_parity/test_bartik_ssagg_parity.py",
+      "tests/reference_parity/test_shiftshare_weights_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -60559,7 +60589,8 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R ShiftShareSE::ivreg_ss (Adao, Kolesar & Morales), AKM row; Stata SSC ivreg_ss [R 4.5.2, ShiftShareSE 1.1.0, Stata 18 MP, ivreg_ss SSC 20241116]; tolerance 1e-9 rel on beta and the AKM / AKM0 / EHW / Homoscedastic SEs; observed <= 6e-14 -- tests/reference_parity/test_did_synth_shiftshare_parity.py",
-      "tests/reference_parity/test_akm_collinear_shares_R_parity.py"
+      "tests/reference_parity/test_akm_collinear_shares_R_parity.py",
+      "tests/reference_parity/test_shiftshare_weights_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -62682,6 +62713,14 @@
             "type": "string",
             "x-statspai-role": "column"
           },
+          "covariates": {
+            "description": "Controls for ``stat='ols'`` / ``'ols_t'``.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "object",
@@ -62698,8 +62737,13 @@
           },
           "stat": {
             "default": "diff_means",
-            "description": "Test statistic: - ``'diff_means'``: difference in means (Y_bar_1 - Y_bar_0) - ``'ks'``: Kolmogorov-Smirnov statistic - ``'t'``: t-statistic - A callable ``f(Y, D) -> float`` for custom statistics.",
+            "description": "Test statistic: - ``'diff_means'``: difference in means (Y_bar_1 - Y_bar_0) - ``'ks'``: Kolmogorov-Smirnov statistic - ``'t'``: t-statistic - ``'ols'``: coefficient on the treatment in the OLS regression of ``y`` on the treatment, ``covariates`` and (with ``strata``) stratum fixed effects -- the regression-adjusted statistic of stratified experiments (R ``ri2::conduct_ri(y ~ Z + x + block)``) - ``'ols_t'``: its t-statistic (HC1, or CR1 by ``cluster``) - A callable ``f(Y, D) -> float`` for custom statistics.",
             "type": "string"
+          },
+          "strata": {
+            "description": "Randomization strata (blocks): treatment is re-randomized *within* each stratum, keeping its number of treated units (or clusters, with ``cluster``). Permuting across strata when the experiment assigned within them tests the wrong null distribution and loses power (UCT, QJE 2016: education p 0.70 unstratified against 0.17).",
+            "type": "string",
+            "x-statspai-role": "column"
           },
           "treat": {
             "description": "Binary treatment indicator (0/1).",
@@ -62725,6 +62769,7 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs R ri2::conduct_ri (randomizr full enumeration); Stata ritest over the full assignment set [R version 4.5.2 (2025-10-31), Stata 18, ri2 0.5.0, ritest 1.1.7]; tolerance p exact (k / N_assignments); statistic 1e-12 rel vs R, 2^-23 vs Stata -- tests/reference_parity/test_inference_sens_R_parity.py",
       "tests/reference_parity/test_recovery_batch2_parity.py",
+      "tests/reference_parity/test_ri_strata_R_parity.py",
       "tests/reference_parity/test_thornton_ri_parity.py"
     ],
     "validation_status": "certified"
@@ -104155,6 +104200,11 @@
             "description": "Grid of beta values to evaluate.",
             "type": "string"
           },
+          "cluster": {
+            "description": "Cluster identifier column for clustered standard errors.",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "object",
@@ -104208,7 +104258,8 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs R ivmodel::AR.test confidence set [car 3.1.5, ivmodel 1.9.1, metafor 5.0.1]; tolerance Both endpoints at 5e-15 after the boundary bisection replaced the grid-point endpoints (previously 8.1e-3 / 4.9e-3). A reference-free test also asserts the two AR entry points agree with each other and that neither endpoint lands exactly on a grid node. -- tests/reference_parity/test_weakiv_meta_parity.py"
+      "Cross-language parity (bit-exact) vs R ivmodel::AR.test confidence set [car 3.1.5, ivmodel 1.9.1, metafor 5.0.1]; tolerance Both endpoints at 5e-15 after the boundary bisection replaced the grid-point endpoints (previously 8.1e-3 / 4.9e-3). A reference-free test also asserts the two AR entry points agree with each other and that neither endpoint lands exactly on a grid node. -- tests/reference_parity/test_weakiv_meta_parity.py",
+      "tests/reference_parity/test_ar_ci_cluster_Stata_parity.py"
     ],
     "validation_status": "certified"
   },

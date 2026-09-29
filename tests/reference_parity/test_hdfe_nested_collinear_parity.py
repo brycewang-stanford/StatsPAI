@@ -16,8 +16,10 @@ the Web of Power replication (QJE 2023):
   and moved the others. It is now omitted as ``reghdfe`` omits it
   (``collinear_tol = min(1e-6, tol/10)``), reported as NaN, with a warning.
 
-Estimates are held to 1e-7 and SEs to 1e-7 relative (the MAP demeaning
-tolerance on both sides); the absorbed degrees of freedom exactly.
+Estimates and SEs are held to 1e-10 relative (observed ~1e-15; the Stata
+side imports the CSV as double -- ``import delimited`` defaults to float,
+which alone moves the numbers at 1e-7); the absorbed degrees of freedom
+exactly.
 """
 
 from __future__ import annotations
@@ -69,8 +71,8 @@ def test_matches_reghdfe(ref, panel, key):
         # reghdfe's e(df_a) is the unclustered count
         assert r.dof_fe == R["df_a"]
     for v in ("x", "x2"):
-        assert r.coef[v] == pytest.approx(R[f"b_{v}"], rel=1e-7)
-        assert r.se[v] == pytest.approx(R[f"se_{v}"], rel=1e-7)
+        assert r.coef[v] == pytest.approx(R[f"b_{v}"], rel=1e-10)
+        assert r.se[v] == pytest.approx(R[f"se_{v}"], rel=1e-10)
     for v in ("v_exact", "v_near"):
         if v in rhs:
             assert np.isnan(r.coef[v]) and np.isnan(r.se[v])

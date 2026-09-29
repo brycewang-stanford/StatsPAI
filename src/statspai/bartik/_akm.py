@@ -147,8 +147,13 @@ def _akm_fit(
     region_cvar: Optional[np.ndarray] = None,
     beta0: float = 0.0,
     alpha: float = 0.05,
+    w: Optional[np.ndarray] = None,
 ) -> Dict[str, object]:
     """AKM / AKM0 inference for OLS (``y2 is None``) or just-identified IV.
+
+    ``w`` are regression weights, as ``ShiftShareSE``'s ``w`` argument: every
+    projection becomes weighted least squares (``lm.wfit``) and every score
+    carries its weight.
 
     ``y`` outcome, ``X`` shift-share variable, ``W`` shares, ``Z`` controls
     incl. intercept, ``y2`` the endogenous regressor instrumented by ``X``.
@@ -165,19 +170,28 @@ def _akm_fit(
     mm = np.column_stack([X, Z])
     p = int(np.linalg.matrix_rank(mm))
 
-    ddX = _resid(X, Z)
-    hX = np.linalg.lstsq(W, ddX, rcond=None)[0]
-    coef1 = np.linalg.lstsq(mm, y, rcond=None)[0]
+    wv = np.ones(n) if w is None else np.asarray(w, dtype=float)
+    sw = np.sqrt(wv)
+
+    def _wcoef(M: np.ndarray, v: np.ndarray) -> np.ndarray:
+        return np.linalg.lstsq(M * sw[:, None], v * sw, rcond=None)[0]
+
+    def _wres(v: np.ndarray, M: np.ndarray) -> np.ndarray:
+        return v - M @ _wcoef(M, v)
+
+    ddX = _wres(X, Z)
+    hX = _wcoef(W, ddX)
+    coef1 = _wcoef(mm, y)
     res1 = y - mm @ coef1
 
     se = dict.fromkeys(_SE_ROWS, np.nan)
     if y2 is None:
-        ddY = _resid(y, Z)
+        ddY = _wres(y, Z)
         beta = float(coef1[0])
         resid = res1
-        RX = float(ddX @ ddX)
-        se["Homoscedastic"] = np.sqrt((resid @ resid) / (n - p) / RX)
-        u = resid * ddX
+        RX = float(wv @ ddX**2)
+        se["Homoscedastic"] = np.sqrt((wv @ resid**2) / (n - p) / RX)
+        u = wv * resid * ddX
         se["EHW"] = np.sqrt((n / (n - p)) * (u @ u)) / RX
         if region_cvar is not None:
             uc = pd.Series(u).groupby(np.asarray(region_cvar)).sum().to_numpy()
@@ -189,17 +203,17 @@ def _akm_fit(
         endog_dd = ddX
     else:
         y2 = np.asarray(y2, dtype=float)
-        ddY1 = _resid(y, Z)
-        ddY2 = _resid(y2, Z)
-        coef2 = np.linalg.lstsq(mm, y2, rcond=None)[0]
+        ddY1 = _wres(y, Z)
+        ddY2 = _wres(y2, Z)
+        coef2 = _wcoef(mm, y2)
         res2 = y2 - mm @ coef2
         beta = float(coef1[0] / coef2[0])
         resid = res1 - res2 * beta
-        RX = float(ddY2 @ ddX)
-        se["Homoscedastic"] = np.sqrt((resid @ resid) / n) / (
-            np.sqrt(ddX @ ddX) * abs(coef2[0])
+        RX = float(wv @ (ddY2 * ddX))
+        se["Homoscedastic"] = np.sqrt((wv @ resid**2) / n) / (
+            np.sqrt(wv @ ddX**2) * abs(coef2[0])
         )
-        u = resid * ddX
+        u = wv * resid * ddX
         se["EHW"] = np.sqrt((u @ u) / RX**2)
         if region_cvar is not None:
             uc = pd.Series(u).groupby(np.asarray(region_cvar)).sum().to_numpy()
@@ -207,9 +221,9 @@ def _akm_fit(
         null_resid = ddY1 - ddY2 * beta0
         endog_dd = ddY2
 
-    cR = hX * (W.T @ resid)
-    cR0 = hX * (W.T @ null_resid)
-    cW = hX * (W.T @ endog_dd)
+    cR = hX * (W.T @ (wv * resid))
+    cR0 = hX * (W.T @ (wv * null_resid))
+    cW = hX * (W.T @ (wv * endog_dd))
     se["AKM"] = np.sqrt(np.sum(cR**2)) / abs(RX)
     se0_akm0 = np.sqrt(np.sum(cR0**2)) / abs(RX)
 
@@ -263,24 +277,36 @@ def _bhj_aggregate(
     shock_ids,
     y_name: str,
     x_name: str,
+    w: Optional[np.ndarray] = None,
 ) -> Dict[str, object]:
     """BHJ shock-level aggregation plus the shock-level IV (HC0).
+
+    ``w`` are location weights (``ssaggregate``'s ``l_weights``): the
+    controls are partialled out by weighted least squares and a location's
+    exposure enters the shock-level means and ``s_n`` with its weight, so the
+    shock-level IV reproduces the *weighted* location-level shift-share IV.
 
     ``Z`` are the location-level controls including the intercept. Returns
     the aggregated frame (``shock``, ``s_n``, ``y``, ``x``, ``g``) and the
     shock-level IV coefficient / HC0 SE of ``y_n`` on ``x_n`` instrumented
     by ``g_n`` with an intercept and weights ``s_n``.
     """
-    y_perp = _resid(np.asarray(y, dtype=float), Z)
-    x_perp = _resid(np.asarray(x, dtype=float), Z)
+    wv = np.ones(len(y)) if w is None else np.asarray(w, dtype=float)
+    sw = np.sqrt(wv)
+
+    def _wres(v: np.ndarray, M: np.ndarray) -> np.ndarray:
+        return v - M @ np.linalg.lstsq(M * sw[:, None], v * sw, rcond=None)[0]
+
+    y_perp = _wres(np.asarray(y, dtype=float), Z)
+    x_perp = _wres(np.asarray(x, dtype=float), Z)
 
     tot = S.sum(axis=1)
     if np.std(tot, ddof=1) > 1e-5:
         # Incomplete shares: the shock-level IV equals the location-level
         # shift-share IV only if the sum of shares is spanned by the controls.
-        fitted = Z @ np.linalg.lstsq(Z, tot, rcond=None)[0]
-        ss_res = np.sum((tot - fitted) ** 2)
-        ss_tot = np.sum((tot - tot.mean()) ** 2)
+        resid_tot = _wres(tot, Z)
+        ss_res = np.sum(wv * resid_tot**2)
+        ss_tot = np.sum(wv * (tot - np.average(tot, weights=wv)) ** 2)
         if 1 - ss_res / ss_tot < 0.9999:
             warnings.warn(
                 "Incomplete shares (the sum of exposure shares varies across "
@@ -292,6 +318,7 @@ def _bhj_aggregate(
                 stacklevel=3,
             )
 
+    S = S * wv[:, None]
     S_n = S.sum(axis=0)
     ok = S_n > 0
     if not np.all(ok):

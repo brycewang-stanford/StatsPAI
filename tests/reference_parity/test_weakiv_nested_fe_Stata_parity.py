@@ -15,8 +15,8 @@ of Power replication (QJE 2023, Table 4 col. 4):
   small-sample-scaled statistic (AR F, effective F, the IV SE) came out
   ~1.6% off.
 
-Both now follow ``ivreg2`` / ``reghdfe``. Tolerance 1e-7 relative (the
-demeaning tolerance on both sides).
+Both now follow ``ivreg2`` / ``reghdfe``. Tolerance 1e-10 relative (observed
+~1e-15 with the CSV imported as double on the Stata side).
 """
 
 from __future__ import annotations
@@ -58,18 +58,18 @@ def test_anderson_rubin_matches_ivreghdfe(ref, data):
             absorb=FE,
             cluster="unit",
         )
-    assert ar["ar_stat"] == pytest.approx(ref["ar_f"], rel=1e-7)
-    assert ar["ar_pvalue"] == pytest.approx(ref["ar_p"], rel=1e-6)
+    assert ar["ar_stat"] == pytest.approx(ref["ar_f"], rel=1e-10)
+    assert ar["ar_pvalue"] == pytest.approx(ref["ar_p"], rel=1e-9)
     assert ar["ar_df"] == (1, ref["N_clust"] - 1)
-    assert ar["effective_F"] == pytest.approx(ref["kp_f"], rel=1e-7)
+    assert ar["effective_F"] == pytest.approx(ref["kp_f"], rel=1e-10)
 
 
 def test_iv_absorb_se_matches_ivreghdfe(ref, data):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         r = sp.iv("y ~ (d ~ z) + w1", data=data, absorb=FE, cluster="unit")
-    assert float(r.params["d"]) == pytest.approx(ref["b"], rel=1e-7)
-    assert float(r.std_errors["d"]) == pytest.approx(ref["se"], rel=1e-7)
+    assert float(r.params["d"]) == pytest.approx(ref["b"], rel=1e-10)
+    assert float(r.std_errors["d"]) == pytest.approx(ref["se"], rel=1e-10)
 
 
 def test_nested_fe_charge_matches_reghdfe(ref, data):

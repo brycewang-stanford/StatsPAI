@@ -406,6 +406,11 @@
           "description": "Grid of beta values to evaluate.",
           "type": "string"
         },
+        "cluster": {
+          "description": "Cluster identifier column for clustered standard errors.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "endog": {
           "description": "endog parameter (Union[np.ndarray, pd.Series, str]).",
           "type": "string",
@@ -1369,6 +1374,11 @@
         "shocks": {
           "description": "Shock column (e.g. industry-level change)",
           "type": "string"
+        },
+        "weights": {
+          "description": "Analytic location weights (Stata [aw=]); weighted 2SLS, weighted AKM via sp.shift_share_se",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "y": {
           "description": "Outcome (e.g. local wage growth)",
@@ -13186,7 +13196,84 @@
     "name": "honest_did"
   },
   {
-    "description": "Rambachan-Roth (2023) honest CIs on a fitted DID / event-study result. Auto-extracts betas + sigma + pre/post-period counts from the result; the LLM never ferries arrays.",
+    "description": "Rambachan-Roth sensitivity from a coefficient vector and its covariance. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "As in :func:`honest_did`.",
+          "type": "number"
+        },
+        "backend": {
+          "default": "native",
+          "description": "As in :func:`honest_did`.",
+          "type": "string"
+        },
+        "betahat": {
+          "description": "Event-study coefficients, the reference period excluded.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "e": {
+          "default": 0,
+          "description": "As in :func:`honest_did`.",
+          "type": "integer"
+        },
+        "event_times": {
+          "description": "Relative time of each coefficient (negative = pre-treatment, ``>= 0`` = post). If omitted, ``num_pre_periods`` must be given and the times are ``-num_pre_periods-1 .. -2`` for the leads (``-1`` is the omitted reference) and ``0, 1, ...`` for the lags -- HonestDiD's layout.",
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "honestdid_method": {
+          "description": "As in :func:`honest_did`.",
+          "type": "string"
+        },
+        "l_vec": {
+          "description": "As in :func:`honest_did`.",
+          "type": "string"
+        },
+        "m_grid": {
+          "description": "As in :func:`honest_did`.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "method": {
+          "default": "smoothness",
+          "description": "As in :func:`honest_did`.",
+          "type": "string"
+        },
+        "num_pre_periods": {
+          "description": "Number of leading pre-treatment coefficients when ``event_times`` is omitted.",
+          "type": "integer"
+        },
+        "sigma": {
+          "description": "Their joint covariance matrix (``len(betahat)`` square). Use the full",
+          "type": "string"
+        },
+        "window": {
+          "description": "As in :func:`honest_did`.",
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "betahat",
+        "sigma"
+      ],
+      "type": "object"
+    },
+    "name": "honest_did_from_moments"
+  },
+  {
+    "description": "Rambachan-Roth (2023) honest CIs on a fitted DID / event-study result. Auto-extracts betas + sigma + pre/post-period counts from the result; the LLM never ferries arrays. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "e": {
@@ -26067,6 +26154,14 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "covariates": {
+          "description": "Controls for ``stat='ols'`` / ``'ols_t'``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
         "n_perms": {
           "default": 1000,
           "description": "Number of random permutations. Use 10000+ for publications. When the design admits no more than ``n_perms`` distinct assignments (``C(n, n_1)``, or ``C(G, G_1)`` under ``cluster``) every assignment is enumerated instead and the p-value is exact -- the rule R ``ri2`` / ``randomizr::obtain_permutation_matrix`` apply.",
@@ -26078,8 +26173,13 @@
         },
         "stat": {
           "default": "diff_means",
-          "description": "Test statistic: - ``'diff_means'``: difference in means (Y_bar_1 - Y_bar_0) - ``'ks'``: Kolmogorov-Smirnov statistic - ``'t'``: t-statistic - A callable ``f(Y, D) -> float`` for custom statistics.",
+          "description": "Test statistic: - ``'diff_means'``: difference in means (Y_bar_1 - Y_bar_0) - ``'ks'``: Kolmogorov-Smirnov statistic - ``'t'``: t-statistic - ``'ols'``: coefficient on the treatment in the OLS regression of ``y`` on the treatment, ``covariates`` and (with ``strata``) stratum fixed effects -- the regression-adjusted statistic of stratified experiments (R ``ri2::conduct_ri(y ~ Z + x + block)``) - ``'ols_t'``: its t-statistic (HC1, or CR1 by ``cluster``) - A callable ``f(Y, D) -> float`` for custom statistics.",
           "type": "string"
+        },
+        "strata": {
+          "description": "Randomization strata (blocks): treatment is re-randomized *within* each stratum, keeping its number of treated units (or clusters, with ``cluster``). Permuting across strata when the experiment assigned within them tests the wrong null distribution and loses power (UCT, QJE 2016: education p 0.70 unstratified against 0.17).",
+          "type": "string",
+          "x-statspai-role": "column"
         },
         "treat": {
           "description": "Binary treatment indicator (0/1).",
@@ -28423,8 +28523,16 @@
           "x-canonical": "covariates",
           "x-statspai-role": "columns"
         },
+        "event_id": {
+          "description": "Sub-experiment id of a pre-built stack (with treated, event_time); the stack is then used as is",
+          "type": "string"
+        },
+        "event_time": {
+          "description": "Pre-built stack: period relative to the sub-experiment's event",
+          "type": "string"
+        },
         "first_treat": {
-          "description": "Column indicating the period of first treatment. Use ``np.inf``, ``np.nan``, or ``0`` for never-treated units.",
+          "description": "First treatment period; not needed when event_id is given",
           "type": "string",
           "x-statspai-role": "column"
         },
@@ -28447,6 +28555,15 @@
           "type": "string",
           "x-statspai-role": "column"
         },
+        "treated": {
+          "description": "Pre-built stack: 1 for the sub-experiment's treated units",
+          "type": "string"
+        },
+        "weights": {
+          "description": "Observation weights (e.g. population); reghdfe [aw=] semantics",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "window": {
           "default": [
             -5,
@@ -28465,7 +28582,6 @@
         }
       },
       "required": [
-        "first_treat",
         "group",
         "time",
         "y"
@@ -29159,6 +29275,30 @@
       "type": "object"
     },
     "name": "subgroup_decompose"
+  },
+  {
+    "description": "Joint (seemingly unrelated) inference across separately fitted OLS equations. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "input_schema": {
+      "properties": {
+        "cluster": {
+          "description": "Cluster variable: the joint covariance sums the stacked influence functions within clusters and scales by ``G/(G-1)`` (Stata ``suest, vce(cluster c)``); otherwise it is the robust ``n/(n-1)`` version.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "equations": {
+          "description": "Each equation is ``(y, [x1, x2, ...])`` or a formula string ``\"y ~ x1 + x2\"`` (plain column names; an intercept is added). Each is fitted on its own complete rows.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "equations"
+      ],
+      "type": "object"
+    },
+    "name": "suest"
   },
   {
     "description": "Sun-Abraham (2021) interaction-weighted event-study. Fixes the contamination in dynamic event-study TWFE coefficients from other relative-time bins by using cohort-specific interaction weights. Canonical companion to Callaway-Sant'Anna for event studies. Validation: certified parity evidence. Do NOT use when: all units adopt treatment simultaneously -- the cohort x relative-time interactions collapse; use sp.did(method='2x2'); cohorts are very small (a handful of units each) -- interaction-weighted estimates become noisy and the cohort-share weights unstable. Cost: Builds a saturated cohort x relative-time interaction design: columns grow as (cohorts x event-time window), so a wide window on a many-cohort panel produces a large dense design matrix. Trim via event_window=. Assumptions: Parallel trends across cohorts; No anticipation within event_window lead horizon; SUTVA. Pre-conditions: panel with unit x time x outcome; g is the first-treatment period (int), 0 / NaN for never-treated; >= 2 pre-periods per cohort for event-study leads. Failure modes: No never-treated cohort when control_group='nevertreated' -> Pass control_group='notyettreated' or add never-treated units; share_va...",
@@ -31894,6 +32034,58 @@
       "type": "object"
     },
     "name": "weakrobust"
+  },
+  {
+    "description": "Westfall-Young permutation stepdown p-values across outcomes.",
+    "input_schema": {
+      "properties": {
+        "cluster": {
+          "description": "Unit of randomization when treatment was assigned to groups; also the cluster of the CR1 standard error.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "covariates": {
+          "description": "Controls in every regression.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "n_perms": {
+          "default": 10000,
+          "description": "Re-randomizations (all of them when there are no more).",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "strata": {
+          "description": "Randomization strata (blocks).",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treat": {
+          "description": "Binary (0/1) treatment.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcomes (one hypothesis each).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "treat",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "westfall_young"
   },
   {
     "description": "Wild cluster bootstrap t-test for a single coefficient. Validation: certified parity evidence. Do NOT use when: dependence is spatial rather than by group -- use sp.conley with a distance cutoff. Assumptions: Errors are independent across clusters; any within-cluster dependence is unrestricted; Clusters are defined at (or above) the level at which treatment was assigned; Asymptotics run in the number of clusters: the default CR1 sandwich over-rejects with few (< ~30-50) or very unbalanced clusters; CR2 / CR3 / wild cluster bootstrap are the small-G repairs. Pre-conditions: A fitted regression result (or its design matrix and residuals) and a cluster column with no missing values; Two-way clustering needs both dimensions to have many clusters. Failure modes: Few clusters (G < 30) or one dominant cluster -> Report wild cluster bootstrap p-values / inverted CIs (sp.wild_cluster_boot, sp.wild_cluster_ci_inv) or CR3 jackknife; Very few treated clusters -> Cluster-robust SEs are unreliable; use sp.did_few_treated or randomization inference. Alternatives: sp.sp.cr2_se, sp.sp.conley.",

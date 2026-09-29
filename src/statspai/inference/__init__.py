@@ -22,6 +22,7 @@ from .multiway_cluster import (
 from .pate import PATEEstimator, pate
 from .ppi import ppi_mean, ppi_ols
 from .randomization import FisherResult, fisher_exact, ri_test
+from .suest import SuestResult, suest
 from .twoway_cluster import twoway_cluster
 from .wild_bootstrap import wild_cluster_bootstrap
 from .wild_subcluster import subcluster_wild_bootstrap, wild_cluster_ci_inv
@@ -30,6 +31,8 @@ __all__ = [
     "wild_cluster_bootstrap",
     "aipw",
     "ri_test",
+    "suest",
+    "SuestResult",
     "fisher_exact",
     "FisherResult",
     "ipw",

@@ -85,7 +85,12 @@ from .functional_form import (
 )
 from .gardner_2s import did_2stage, gardner_did
 from .harvest import HarvestDIDResult, harvest_did
-from .honest_did import breakdown_m, honest_did
+from .honest_did import (
+    breakdown_m,
+    honest_did,
+    honest_did_from_moments,
+    honest_did_from_result,
+)
 from .influence import aggte_from_influence, influence_functions
 from .misclassified import did_misclassified
 from .overlap_did import dl_propensity_score, overlap_weighted_did
@@ -986,6 +991,8 @@ __all__ = [
     "sun_abraham",
     "bacon_decomposition",
     "honest_did",
+    "honest_did_from_moments",
+    "honest_did_from_result",
     "breakdown_m",
     "DiDClusterDiagnostics",
     "DiDDesignContract",

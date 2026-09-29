@@ -1193,3 +1193,150 @@ CausalResult._CITATIONS["honest_did"] = (
     "  publisher={Oxford University Press}\n"
     "}"
 )
+
+
+def honest_did_from_moments(
+    betahat: Sequence[float],
+    sigma: Any,
+    event_times: Optional[Sequence[int]] = None,
+    num_pre_periods: Optional[int] = None,
+    e: int = 0,
+    m_grid: Optional[List[float]] = None,
+    method: str = "smoothness",
+    alpha: float = 0.05,
+    backend: str = "native",
+    honestdid_method: Optional[str] = None,
+    l_vec: Optional[Any] = None,
+    window: Optional[Tuple[float, float]] = None,
+) -> pd.DataFrame:
+    """Rambachan-Roth sensitivity from a coefficient vector and its covariance.
+
+    The array interface of R ``HonestDiD::createSensitivityResults(betahat,
+    sigma, numPrePeriods, numPostPeriods, ...)``: pass the event-study
+    coefficients of *any* estimator -- a ``reghdfe`` / ``sp.hdfe_ols`` /
+    ``sp.feols`` event study, a stacked regression, estimates copied from a
+    paper -- with their joint covariance, and run the same solvers as
+    :func:`honest_did`.
+
+    Parameters
+    ----------
+    betahat : sequence of float
+        Event-study coefficients, the reference period excluded.
+    sigma : array-like
+        Their joint covariance matrix (``len(betahat)`` square). Use the full
+        matrix: the pre-period covariance is what calibrates the restriction.
+    event_times : sequence of int, optional
+        Relative time of each coefficient (negative = pre-treatment,
+        ``>= 0`` = post). If omitted, ``num_pre_periods`` must be given and the
+        times are ``-num_pre_periods-1 .. -2`` for the leads (``-1`` is the
+        omitted reference) and ``0, 1, ...`` for the lags -- HonestDiD's
+        layout.
+    num_pre_periods : int, optional
+        Number of leading pre-treatment coefficients when ``event_times`` is
+        omitted.
+    e, m_grid, method, alpha, backend, honestdid_method, l_vec, window
+        As in :func:`honest_did`.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns ``M, ci_lower, ci_upper, rejects_zero`` (as :func:`honest_did`).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> b = np.array([0.02, -0.01, 0.00, 0.30, 0.35])
+    >>> V = np.diag([0.02, 0.02, 0.02, 0.03, 0.04]) ** 2
+    >>> out = sp.honest_did_from_moments(
+    ...     b, V, event_times=[-4, -3, -2, 0, 1], e=0, m_grid=[0.0, 0.02]
+    ... )
+    >>> list(out.columns)[:3]
+    ['M', 'ci_lower', 'ci_upper']
+    """
+    b = np.asarray(betahat, dtype=float).ravel()
+    S = np.asarray(sigma, dtype=float)
+    if S.shape != (b.size, b.size):
+        raise MethodIncompatibility(
+            f"sigma must be {b.size} x {b.size} to match betahat; got {S.shape}.",
+            recovery_hint="Pass the joint covariance of the event-study coefficients.",
+            diagnostics={"n_beta": int(b.size), "sigma_shape": list(S.shape)},
+        )
+    if not (np.all(np.isfinite(b)) and np.all(np.isfinite(S))):
+        raise MethodIncompatibility(
+            "betahat and sigma must be finite.",
+            recovery_hint="Drop the omitted reference period before passing.",
+            diagnostics={},
+        )
+    if event_times is None:
+        if num_pre_periods is None:
+            raise MethodIncompatibility(
+                "Pass event_times, or num_pre_periods for HonestDiD's layout.",
+                recovery_hint="e.g. event_times=[-4, -3, -2, 0, 1, 2].",
+                diagnostics={},
+            )
+        k = int(num_pre_periods)
+        if not 1 <= k < b.size:
+            raise MethodIncompatibility(
+                "num_pre_periods must leave at least one post period.",
+                recovery_hint="Check the coefficient count.",
+                diagnostics={"num_pre_periods": k, "n_beta": int(b.size)},
+            )
+        times = np.r_[np.arange(-k - 1, -1), np.arange(b.size - k)]
+    else:
+        times = np.asarray(event_times, dtype=int).ravel()
+        if times.size != b.size or len(set(times.tolist())) != b.size:
+            raise MethodIncompatibility(
+                "event_times must hold one distinct time per coefficient.",
+                recovery_hint="Drop the omitted reference period from both.",
+                diagnostics={"n_beta": int(b.size), "n_times": int(times.size)},
+            )
+    if not ((times < 0).any() and (times >= 0).any()):
+        raise MethodIncompatibility(
+            "Need both pre-treatment (< 0) and post-treatment (>= 0) coefficients.",
+            recovery_hint="HonestDiD calibrates the restriction on the leads.",
+            diagnostics={"event_times": times.tolist()},
+        )
+    order = np.argsort(times)
+    b, S, times = b[order], S[np.ix_(order, order)], times[order]
+    se = np.sqrt(np.clip(np.diag(S), 0.0, None))
+    detail = pd.DataFrame({"relative_time": times, "att": b, "se": se})
+    res = CausalResult(
+        method="Event study (user-supplied moments)",
+        estimand="ATT",
+        estimate=float(b[times >= 0][0]),
+        se=float(se[times >= 0][0]),
+        pvalue=float("nan"),
+        ci=(float("nan"), float("nan")),
+        alpha=alpha,
+        n_obs=0,
+        detail=detail,
+        model_info={"aggregation": "dynamic", "vcov": S},
+    )
+    return honest_did(
+        res,
+        e=e,
+        m_grid=m_grid,
+        method=method,
+        alpha=alpha,
+        backend=backend,
+        honestdid_method=honestdid_method,
+        l_vec=l_vec,
+        window=window,
+    )
+
+
+def honest_did_from_result(result: CausalResult, **kwargs: Any) -> pd.DataFrame:
+    """:func:`honest_did` under the name of the MCP tool.
+
+    The MCP server exposes ``honest_did_from_result(result_id=...)``; this is
+    the same analysis on a result object, so scripts written against the tool
+    names run unchanged. All keyword arguments go to :func:`honest_did`.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> sp.honest_did_from_result is not sp.honest_did
+    True
+    """
+    return honest_did(result, **kwargs)

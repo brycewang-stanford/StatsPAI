@@ -6,7 +6,7 @@
 *   stata-mp -b do tests/reference_parity/_fixtures/_generate_hdfe_wild_Stata.do
 version 18
 clear all
-import delimited using "tests/reference_parity/_fixtures/hdfe_wild_panel.csv", clear
+import delimited using "tests/reference_parity/_fixtures/hdfe_wild_panel.csv", clear asdouble
 tempname fh
 file open `fh' using "tests/reference_parity/_fixtures/hdfe_wild_Stata.json", write replace
 file write `fh' "{" _n
