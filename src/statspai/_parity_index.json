@@ -11370,6 +11370,7 @@
         "tests/r_parity/47_ppmlhdfe_3fe.py",
         "tests/r_parity/47_ppmlhdfe_3fe.R",
         "tests/stata_parity/47_ppmlhdfe_3fe.do",
+        "tests/reference_parity/test_ppmlhdfe_singletons_Stata_parity.py",
         "tests/reference_parity/test_ppmlhdfe_twoway_parity.py"
       ],
       "also_in_modules": [
