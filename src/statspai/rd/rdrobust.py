@@ -122,6 +122,26 @@ def _require_positive_float(value: Any, name: str) -> float:
     return out
 
 
+def _require_bandwidth(value: Any, name: str) -> Any:
+    """A positive bandwidth, or a ``(left, right)`` pair of them.
+
+    The signature (and the estimator below) accept asymmetric bandwidths,
+    e.g. ``h`` and ``b`` from ``rdbwselect(bwselect='msetwo')``; the scalar
+    check used to reject every tuple.
+    """
+    if isinstance(value, (tuple, list, np.ndarray)) and not isinstance(value, str):
+        vals = list(np.asarray(value, dtype=object).ravel())
+        if len(vals) != 2:
+            raise MethodIncompatibility(
+                f"`{name}` must be a positive number or a (left, right) pair.",
+                diagnostics={name: repr(value)},
+            )
+        left = _require_positive_float(vals[0], f"{name}[0]")
+        right = _require_positive_float(vals[1], f"{name}[1]")
+        return (left, right)
+    return _require_positive_float(value, name)
+
+
 def _require_int_at_least(value: Any, name: str, minimum: int) -> int:
     if isinstance(value, (bool, np.bool_)):
         raise MethodIncompatibility(
@@ -563,9 +583,9 @@ def rdrobust(
     alpha = _require_open_unit_float(alpha, "alpha")
     n_boot = _require_int_at_least(n_boot, "n_boot", 0)
     if h is not None:
-        h = _require_positive_float(h, "h")
+        h = _require_bandwidth(h, "h")
     if b is not None:
-        b = _require_positive_float(b, "b")
+        b = _require_bandwidth(b, "b")
     if rho is not None:
         rho = _require_positive_float(rho, "rho")
 

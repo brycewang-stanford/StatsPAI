@@ -28026,7 +28026,7 @@
         "properties": {
           "alpha": {
             "default": 0.05,
-            "description": "Forwarded to :func:`sp.bartik`. With national ``shocks`` and no regional shocks ``sp.bartik`` cannot form a leave-one-out instrument; it warns and uses the plain Bartik instrument.",
+            "description": "Forwarded to :func:`sp.bartik`. With national ``shocks`` and no regional shocks there is no leave-one-out instrument: the default ``None`` uses the plain Bartik instrument, ``True`` raises.",
             "type": "number"
           },
           "covariates": {
@@ -28048,8 +28048,7 @@
             "x-statspai-role": "columns"
           },
           "leave_one_out": {
-            "default": true,
-            "description": "Forwarded to :func:`sp.bartik`. With national ``shocks`` and no regional shocks ``sp.bartik`` cannot form a leave-one-out instrument; it warns and uses the plain Bartik instrument.",
+            "description": "Forwarded to :func:`sp.bartik`. With national ``shocks`` and no regional shocks there is no leave-one-out instrument: the default ``None`` uses the plain Bartik instrument, ``True`` raises.",
             "type": "boolean"
           },
           "outcome": {
@@ -74163,7 +74162,7 @@
             "x-statspai-role": "columns"
           },
           "data": {
-            "description": "Analysis data (complete cases used; rows with NaN in any relevant column are dropped).",
+            "description": "Analysis data. Rows missing ``x``, a control or the cluster are dropped; each outcome is then estimated on its own non-missing rows (Stata ``rwolf``), reported in ``table['n_obs']``.",
             "type": "object",
             "x-statspai-role": "dataframe"
           },

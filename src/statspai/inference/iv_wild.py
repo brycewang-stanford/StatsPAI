@@ -346,59 +346,116 @@ def iv_wild_bootstrap(
     beta_hat, V_hat = _fit(X, y)
     se = float(np.sqrt(max(V_hat[test_idx, test_idx], 1e-20)))
     t_obs = (beta_hat[test_idx] - beta0) / se if se > 0 else 0.0
-
-    # --- restricted estimation under H0: beta_test = beta0 ---
-    # Fix the tested coefficient and re-estimate the rest by 2SLS (the *other*
-    # endogenous regressors stay endogenous), giving the restricted structural
-    # residual u_tilde. With a single endogenous regressor `Xo` is all-exogenous
-    # and this 2SLS reduces to OLS.
-    y_tilde = y - beta0 * X[:, test_idx]
     other = [j for j in range(k) if j != test_idx]
     Xo = X[:, other]
     AXo = P_W @ Xo
-    g = np.linalg.solve(Xo.T @ AXo, AXo.T @ y_tilde)
-    u_tilde = y_tilde - Xo @ g
-
-    # --- restricted reduced form for every endogenous regressor ---
-    # Efficient: regress each endogenous variable on the instruments AND the
-    # restricted structural residual (exploiting the u-v correlation). The
-    # instrument-explained part is the bootstrap base; the remainder is
-    # wild-resampled with the *same* weight as u_tilde.
     n_w = W.shape[1]
-    rf_base: Dict[int, np.ndarray] = {}
-    rf_resid: Dict[int, np.ndarray] = {}
-    wd = np.column_stack([W, u_tilde]) if efficient else W
-    for e in endog_cols:
-        if efficient:
-            coef = np.linalg.lstsq(wd, X[:, e], rcond=None)[0]
-            d_base = W @ coef[:n_w]
-        else:
-            d_base = P_W @ X[:, e]
-        rf_base[e] = d_base
-        rf_resid[e] = X[:, e] - d_base
 
-    # --- bootstrap ---
     # With Rademacher weights and 2**G <= n_boot every sign vector is used
     # exactly once (the boottest / fwildclusterboot rule), so the bootstrap
-    # distribution and the p-value are exact rather than simulated.
+    # distribution and the p-value are exact rather than simulated. The same
+    # draws serve every null value, as in boottest's test inversion.
     weights, enumerated = _wild_weight_matrix(n_clusters, n_boot, weight_type, rng)
-    t_boot = np.empty(weights.shape[0])
-    for b, w_g in enumerate(weights):
-        eps = w_g[cl_codes]
-        u_star = eps * u_tilde
-        x_star = X.copy()
-        for e in endog_cols:
-            x_star[:, e] = rf_base[e] + eps * rf_resid[e]
-        y_star = beta0 * x_star[:, test_idx] + x_star[:, other] @ g + u_star
-        beta_s, V_s = _fit(x_star, y_star)
-        se_s = float(np.sqrt(max(V_s[test_idx, test_idx], 1e-20)))
-        t_boot[b] = (beta_s[test_idx] - beta0) / se_s if se_s > 0 else 0.0
 
-    # Symmetric two-sided p with a strict inequality, as boottest counts it.
-    p_boot = float(np.mean(np.abs(t_boot) > np.abs(t_obs)))
-    t_lo = float(np.percentile(t_boot, 100 * alpha / 2))
-    t_hi = float(np.percentile(t_boot, 100 * (1 - alpha / 2)))
-    ci = (beta_hat[test_idx] - t_hi * se, beta_hat[test_idx] - t_lo * se)
+    def _restricted(b0: float):
+        # Fix the tested coefficient and re-estimate the rest by 2SLS (the
+        # *other* endogenous regressors stay endogenous), giving the
+        # restricted structural residual u_tilde; then the (efficient)
+        # restricted reduced form of every endogenous regressor.
+        y_tilde = y - b0 * X[:, test_idx]
+        g = np.linalg.solve(Xo.T @ AXo, AXo.T @ y_tilde)
+        u_tilde = y_tilde - Xo @ g
+        wd = np.column_stack([W, u_tilde]) if efficient else W
+        base, rres = {}, {}
+        for e in endog_cols:
+            if efficient:
+                coef = np.linalg.lstsq(wd, X[:, e], rcond=None)[0]
+                d_base = W @ coef[:n_w]
+            else:
+                d_base = P_W @ X[:, e]
+            base[e] = d_base
+            rres[e] = X[:, e] - d_base
+        return g, u_tilde, base, rres
+
+    # Fast path: one endogenous regressor whose exogenous companions are
+    # among the instruments. By Frisch-Waugh-Lovell the tested 2SLS
+    # coefficient and its CRV1 variance are then a few vector operations per
+    # draw, so the draws are processed as matrices.
+    single = len(endog_cols) == 1 and np.allclose(AXo, Xo, atol=1e-9)
+    corr = (n_clusters / (n_clusters - 1)) * ((n - 1) / (n - k))
+    if single:
+        Q_w, _ = np.linalg.qr(W)
+        ZtZi_Zt = np.linalg.solve(Xo.T @ Xo, Xo.T)
+        onehot = np.zeros((n_clusters, n))
+        onehot[cl_codes, np.arange(n)] = 1.0
+
+    def _t_boot(b0: float) -> np.ndarray:
+        g, u_tilde, base, rres = _restricted(b0)
+        if single:
+            e = endog_cols[0]
+            fixed = Xo @ g
+            out = np.empty(weights.shape[0])
+            for lo in range(0, weights.shape[0], 512):
+                eps = weights[lo : lo + 512][:, cl_codes].T  # (n, C)
+                xs = base[e][:, None] + eps * rres[e][:, None]
+                ys = b0 * xs + fixed[:, None] + eps * u_tilde[:, None]
+                px = Q_w @ (Q_w.T @ xs)
+                a = px - Xo @ (ZtZi_Zt @ px)
+                den = np.sum(a * xs, axis=0)
+                bs = np.sum(a * ys, axis=0) / den
+                r = ys - bs * xs
+                u = r - Xo @ (ZtZi_Zt @ r)
+                sc = onehot @ (a * u)
+                se_s = np.sqrt(corr * np.sum(sc**2, axis=0)) / np.abs(den)
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    out[lo : lo + 512] = np.where(se_s > 0, (bs - b0) / se_s, 0.0)
+            return out
+        out = np.empty(weights.shape[0])
+        for b, w_g in enumerate(weights):
+            eps = w_g[cl_codes]
+            x_star = X.copy()
+            for e in endog_cols:
+                x_star[:, e] = base[e] + eps * rres[e]
+            y_star = b0 * x_star[:, test_idx] + x_star[:, other] @ g + eps * u_tilde
+            beta_s, V_s = _fit(x_star, y_star)
+            se_s = float(np.sqrt(max(V_s[test_idx, test_idx], 1e-20)))
+            out[b] = (beta_s[test_idx] - b0) / se_s if se_s > 0 else 0.0
+        return out
+
+    def _pvalue(b0: float) -> float:
+        t0 = (beta_hat[test_idx] - b0) / se
+        # Symmetric two-sided p with a strict inequality, as boottest counts it.
+        return float(np.mean(np.abs(_t_boot(b0)) > abs(t0) * (1 + 1e-10)))
+
+    t_boot = _t_boot(beta0)
+    p_boot = float(np.mean(np.abs(t_boot) > np.abs(t_obs) * (1 + 1e-10)))
+
+    # Confidence set by test inversion (boottest). The previous interval --
+    # the beta0-imposed bootstrap-t quantiles placed around beta_hat -- is
+    # valid only at beta0 itself (ADH, AER 2013: [-0.496, -0.078] against
+    # boottest's [-0.580, -0.112]).
+    def _bound(direction: float) -> float:
+        step = 2.0 * se
+        inside = float(beta_hat[test_idx])
+        outside = inside + direction * step
+        for _ in range(40):
+            if _pvalue(outside) <= alpha:
+                break
+            inside, outside = outside, outside + direction * step
+            step *= 2
+        else:
+            return float(direction * np.inf)
+        for _ in range(60):
+            mid = 0.5 * (inside + outside)
+            if _pvalue(mid) > alpha:
+                inside = mid
+            else:
+                outside = mid
+            if abs(outside - inside) < 1e-6 * max(se, 1e-12):
+                break
+        return 0.5 * (inside + outside)
+
+    ci = (_bound(-1.0), _bound(1.0))
 
     return {
         "beta_hat": float(beta_hat[test_idx]),

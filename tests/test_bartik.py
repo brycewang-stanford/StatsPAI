@@ -4,10 +4,11 @@ Tests for Shift-Share (Bartik) IV module.
 
 import warnings
 
-import pytest
 import numpy as np
 import pandas as pd
-from statspai.bartik import bartik, BartikIV
+import pytest
+
+from statspai.bartik import BartikIV, bartik
 from statspai.core.results import EconometricResults
 
 
@@ -168,9 +169,13 @@ class TestBartikLeaveOneOut:
         regional = pd.DataFrame(G, columns=shares.columns)
         return data, shares, shocks, regional
 
-    def test_loo_warns_when_regional_shocks_missing(self, bartik_data):
+    def test_explicit_loo_without_regional_shocks_raises(self, bartik_data):
+        """Explicit leave_one_out=True cannot be honoured without the
+        per-region panel; it used to warn and fall back."""
+        from statspai.exceptions import MethodIncompatibility
+
         data, shares, shocks = bartik_data
-        with pytest.warns(UserWarning, match="regional_shocks"):
+        with pytest.raises(MethodIncompatibility, match="regional_shocks"):
             bartik(
                 data,
                 y="y",
@@ -179,6 +184,13 @@ class TestBartikLeaveOneOut:
                 shocks=shocks,
                 leave_one_out=True,
             )
+
+    def test_default_is_silent_without_regional_shocks(self, bartik_data):
+        """The default (None) uses the simple instrument without warning."""
+        data, shares, shocks = bartik_data
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            bartik(data, y="y", endog="x_endog", shares=shares, shocks=shocks)
 
     def test_loo_silent_when_disabled(self, bartik_data):
         data, shares, shocks = bartik_data

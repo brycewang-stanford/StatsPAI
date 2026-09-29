@@ -390,7 +390,7 @@ def shift_share_political(
     shares: pd.DataFrame,
     shocks: pd.Series,
     covariates: Optional[Sequence[str]] = None,
-    leave_one_out: bool = True,
+    leave_one_out: Optional[bool] = None,
     alpha: float = 0.05,
 ) -> ShiftSharePoliticalResult:
     """Long-difference shift-share IV with AKM SE and Rotemberg weights.
@@ -412,8 +412,8 @@ def shift_share_political(
         used for the share-balance diagnostic.
     leave_one_out, alpha
         Forwarded to :func:`sp.bartik`. With national ``shocks`` and no
-        regional shocks ``sp.bartik`` cannot form a leave-one-out
-        instrument; it warns and uses the plain Bartik instrument.
+        regional shocks there is no leave-one-out instrument: the default
+        ``None`` uses the plain Bartik instrument, ``True`` raises.
 
     Returns
     -------
@@ -463,7 +463,8 @@ def shift_share_political(
     endog = _require_column_name(endog, argument="endog")
     covariates = _coerce_optional_columns(covariates, argument="covariates")
     alpha = _require_alpha(alpha)
-    leave_one_out = _require_bool(leave_one_out, argument="leave_one_out")
+    if leave_one_out is not None:
+        leave_one_out = _require_bool(leave_one_out, argument="leave_one_out")
     _require_columns(
         data,
         (unit, time, outcome, endog, *covariates),

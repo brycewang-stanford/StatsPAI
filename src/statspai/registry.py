@@ -11523,7 +11523,7 @@ def _build_registry() -> None:
                 ParamSpec("shares", "DataFrame", True),
                 ParamSpec("shocks", "Series", True),
                 ParamSpec("covariates", "list", False),
-                ParamSpec("leave_one_out", "bool", False, True),
+                ParamSpec("leave_one_out", "bool", False, None),
                 ParamSpec("alpha", "float", False, 0.05),
             ],
             returns="ShiftSharePoliticalResult",

@@ -308,7 +308,7 @@ def mlogit(
     # observed information and per-observation scores by complex-step
     # differentiation. The numerical Hessian of the total log-likelihood used
     # before (BFGS ``hess_inv`` before that) carried ~1e-5 relative error.
-    from ._optim_helpers import inverse_information, ml_newton_polish
+    from ._optim_helpers import inverse_information, ml_newton_polish, newton_converged
 
     theta_hat, S_obs, H, _ = ml_newton_polish(obs_loglik, _as_float_array(res.x))
     ll = float(np.sum(obs_loglik(theta_hat)))
@@ -483,7 +483,7 @@ def mlogit(
         "pseudo_r2": float(pseudo_r2),
         "aic": float(aic),
         "bic": float(bic),
-        "converged": robust_convergence(res)[0],
+        "converged": newton_converged(S_obs, H),
         "rrr": rrr,
         "robust": robust if cluster is None else f"cluster({cluster})",
         "iia_skipped": iia_skipped,
@@ -685,7 +685,7 @@ def _ordered_model(
     # observed information and per-observation scores by complex-step
     # differentiation, replacing a second-difference Hessian and a forward-
     # difference score that carried ~1e-6 to 1e-5 relative error.
-    from ._optim_helpers import inverse_information, ml_newton_polish
+    from ._optim_helpers import inverse_information, ml_newton_polish, newton_converged
 
     theta_hat, S_obs_exact, H_exact, _ = ml_newton_polish(
         obs_loglik, _as_float_array(res.x)
@@ -863,7 +863,7 @@ def _ordered_model(
         "pseudo_r2": float(pseudo_r2),
         "aic": float(aic),
         "bic": float(bic),
-        "converged": robust_convergence(res)[0],
+        "converged": newton_converged(S_obs_exact, H_exact),
         "robust": robust if cluster is None else f"cluster({cluster})",
         "brant_skipped": brant_skipped,
         "brant_error": brant_error,

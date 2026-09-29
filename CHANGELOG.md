@@ -419,8 +419,29 @@ All notable changes to StatsPAI will be documented in this file.
 - `scripts/error_taxonomy_audit.py`: the structured-raise floor moves
   from 42 (never ratcheted since the taxonomy was introduced) to 2,600.
 
+### Changed
+
+- **`sp.bartik` / `sp.BartikIV` / `sp.shift_share_political`:
+  `leave_one_out` defaults to `None`.** Leave-one-out needs
+  `regional_shocks`; the old default `True` only ever warned and fell back
+  on the basic API. `None` uses leave-one-out exactly when `regional_shocks`
+  is given; an explicit `True` without it now raises `MethodIncompatibility`.
+- **`EconometricResults.pvalues` is a labelled Series** like `params` and
+  `std_errors` (it was a bare ndarray on `sp.regress`), and results expose
+  `.nobs` and `.r2`.
+
 ### Fixed
 
+- **`sp.rdrobust` accepts asymmetric bandwidths `h=(left, right)`,
+  `b=(left, right)`.** The signature and estimator supported them, but the
+  input check called `float()` and rejected every pair (Watering Down, QJE
+  2020). Matches R `rdrobust` 4.0.0 to 1e-9 with and without clusters
+  (`test_rdrobust_asym_bandwidth_R_parity.py`).
+- **`sp.oprobit` / `sp.ologit` / `sp.mlogit` report convergence at the
+  polished optimum.** The flag came from the BFGS start, which often stops
+  on a line-search failure; after the exact Newton polish the estimate was
+  right but `converged` read `False` (Princelings, QJE 2019). It is now
+  Stata's `g' (-H)^{-1} g < 1e-5`.
 - **Schema bundle: result-field types use the public pandas path.** The
   `returns.fields` of agent cards rendered `pandas.core.frame.DataFrame`
   under pandas < 3, so the bundle changed with the pandas version and
@@ -623,6 +644,30 @@ All notable changes to StatsPAI will be documented in this file.
   large. Against `reghdfe` 6.12.3 estimates, SEs and `e(df_a)` agree
   (`test_hdfe_nested_collinear_parity.py`); the documented
   `absorb(county i.pref##c.year)` gap (df_a 41 against 36) is closed.
+- **`sp.ivreg(vce='wild')` reports the test-inversion confidence set.** The
+  interval was the null-imposed bootstrap-t quantiles placed around the
+  estimate, valid only at the null value (ADH, AER 2013: [-0.496, -0.078]
+  against `boottest`'s [-0.580, -0.112]). It is now `boottest`'s: the
+  `{b0 : p(b0) > alpha}` set over the same draws. With one endogenous
+  regressor the draws are vectorised (Frisch-Waugh-Lovell per draw), so the
+  inversion takes seconds; several endogenous regressors use the per-draw
+  loop. Against Stata `boottest` after `ivregress` with enumerated
+  Rademacher weights the p-value is exact and the bounds within
+  `boottest`'s `ptol` (`test_iv_wild_ci_inversion_parity.py`).
+- **`sp.romano_wolf` uses each outcome's own sample and has no p-value
+  floor.** Rows missing *any* outcome were dropped from every regression
+  (Kinship, QJE 2019: six samples of 66-79 countries shrank to 15); each
+  outcome now uses its own non-missing rows, as Stata `rwolf`, reported in
+  `table['n_obs']`. A bootstrap draw in which a control dummy was all zero
+  made the fit singular and was scored as `t* = 0`, i.e. as exceeding every
+  observed statistic -- a floor under `p_rw` (UCT, QJE 2016: 0.027 at
+  `|t| = 10`); aliased controls are now omitted per draw and only draws with
+  an unidentified treatment coefficient are discarded, with a warning. The
+  bootstrap statistic is the studentised `|b* - b| / se*` of Clarke, Romano
+  & Wolf (2020) rather than `|b*/se* - b/se|`.
+- **`sp.rlasso_iv` returns NaN when no instrument is selected.** The
+  coefficient is then not identified; it used to come back with an SE of
+  order 1e14 (AI-tocracy, QJE 2023). A warning names the regressor.
 - **Weak-IV statistics with absorbed fixed effects match `ivreghdfe`.**
   `sp.anderson_rubin_test(absorb=, cluster=)` computed the cluster-robust
   AR statistic in score form -- the cluster meat built from `y - b0 d`

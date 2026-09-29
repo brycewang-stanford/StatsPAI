@@ -35,6 +35,7 @@ Chernozhukov, V., Hansen, C. and Spindler, M. (2016). "hdm:
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -236,6 +237,39 @@ def _select_z(
             dihat = fit.predict(Z)
             select_mat.append(fit.index.copy())
         Dhat_list.append(dihat)
+
+    # An endogenous regressor with no *instrument* selected (nothing, or
+    # only controls) is not identified: its first stage is a constant or a
+    # function of the controls. hdm solves on anyway and returned SEs of
+    # order 1e14 (AI-tocracy replication, Table II B); report NaN instead.
+    n_inst = np.asarray(z).reshape(n, -1).shape[1]
+    unidentified = [
+        treat_names[i] if i < len(treat_names) else f"d{i}"
+        for i, sm in enumerate(select_mat)
+        if not np.any(sm[:n_inst])
+    ]
+    if unidentified:
+        warnings.warn(
+            "rlasso_iv: no instrument was selected for "
+            f"{unidentified}; the coefficient is not identified and is "
+            "reported as NaN. Lower the penalty or check instrument strength.",
+            UserWarning,
+            stacklevel=3,
+        )
+        nan = np.full(ke, np.nan)
+        return RLassoIVResult(
+            coef=nan,
+            se=nan.copy(),
+            vcov=np.full((ke, ke), np.nan),
+            method="select Z (rlassoIVselectZ)",
+            n_obs=n,
+            treat_names=treat_names,
+            selection={
+                "n_selected_Z": int(np.sum([s.sum() for s in select_mat])),
+                "selection_matrix_Z": np.column_stack(select_mat),
+                "unidentified": unidentified,
+            },
+        )
 
     Dhat = np.column_stack(Dhat_list)
     if x is not None:

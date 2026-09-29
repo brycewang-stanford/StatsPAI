@@ -277,6 +277,18 @@ class EconometricResults:
     #: pickled before the attribute existed (or built via ``__new__``) valid.
     alpha: float = 0.05
 
+    @property
+    def nobs(self) -> Optional[int]:
+        """Estimation sample size (``data_info['nobs']``), ``None`` if unrecorded."""
+        n = (getattr(self, "data_info", None) or {}).get("nobs")
+        return None if n is None else int(n)
+
+    @property
+    def r2(self) -> Optional[float]:
+        """R-squared as recorded in ``diagnostics``, ``None`` if the fit has none."""
+        v = (getattr(self, "diagnostics", None) or {}).get("R-squared")
+        return None if v is None else float(v)
+
     def __init__(
         self,
         params: pd.Series,
@@ -371,7 +383,9 @@ class EconometricResults:
         # under clustering, else df_resid (see postestimation._covariance).
         df_resid = self._inference_df()
         self.tvalues = pd.Series(tvalues, index=index)
-        self.pvalues = 2 * stats.t.sf(np.abs(tvalues), df_resid)
+        # Labelled like params / std_errors / tvalues; a bare ndarray here
+        # made ``r.pvalues['x']`` fail on sp.regress results (UCT replication).
+        self.pvalues = pd.Series(2 * stats.t.sf(np.abs(tvalues), df_resid), index=index)
 
         # Intervals at the fit-time level (95% unless ``alpha`` was given).
         t_crit = stats.t.ppf(1 - self.alpha / 2, df_resid)
