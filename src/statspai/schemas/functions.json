@@ -26718,6 +26718,13 @@
     "name": "winsor",
     "parameters": {
       "properties": {
+        "by": {
+          "description": "Compute the cutoffs within groups, as ``winsor2 ..., by(g)``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "cuts": {
           "default": [
             1,
@@ -26734,10 +26741,19 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "method": {
+          "default": "stata",
+          "description": "Percentile definition. ``'stata'`` is Stata's ``_pctile`` default, used by ``winsor2`` (the empirical quantile, averaging the two order statistics when ``n p / 100`` is an integer; numpy's ``'averaged_inverted_cdf'``). Any other value is passed to :func:`numpy.percentile` as its ``method``; ``'linear'`` reproduces StatsPAI before 1.33.",
+          "type": "string"
+        },
         "replace": {
           "default": false,
           "description": "If True, overwrite original columns. If False, create new columns with ``suffix``.",
           "type": "boolean"
+        },
+        "subset": {
+          "description": "Rows used to compute the cutoffs and winsorized, as ``winsor2 ... if <cond>``: a :meth:`pandas.DataFrame.query` string such as ``\"year >= 2007 & year <= 2020\"`` or a boolean mask. Rows outside keep their value when ``replace=True`` and get NaN in the new column otherwise (Stata's ``generate ... if``).",
+          "type": "string"
         },
         "suffix": {
           "default": "_w",
@@ -27227,6 +27243,15 @@
           "description": "Report odds ratios instead of log-odds coefficients.",
           "type": "boolean"
         },
+        "perfect_prediction": {
+          "default": "drop",
+          "description": "An indicator regressor whose non-zero rows all share one outcome (e.g. an industry dummy with no treated firm) predicts the outcome",
+          "enum": [
+            "drop",
+            "keep"
+          ],
+          "type": "string"
+        },
         "robust": {
           "default": "nonrobust",
           "description": "``'nonrobust'`` for MLE SE, ``'hc1'`` / ``'robust'`` for sandwich SE.",
@@ -27301,6 +27326,15 @@
           "description": "Maximum Newton-Raphson iterations.",
           "type": "integer"
         },
+        "perfect_prediction": {
+          "default": "drop",
+          "description": "An indicator regressor whose non-zero rows all share one outcome (e.g. an industry dummy with no treated firm) predicts the outcome",
+          "enum": [
+            "drop",
+            "keep"
+          ],
+          "type": "string"
+        },
         "robust": {
           "default": "nonrobust",
           "description": "``'nonrobust'`` for MLE SE, ``'hc1'`` / ``'robust'`` for sandwich SE.",
@@ -27374,6 +27408,15 @@
           "default": 100,
           "description": "Maximum Newton-Raphson iterations.",
           "type": "integer"
+        },
+        "perfect_prediction": {
+          "default": "drop",
+          "description": "An indicator regressor whose non-zero rows all share one outcome (e.g. an industry dummy with no treated firm) predicts the outcome",
+          "enum": [
+            "drop",
+            "keep"
+          ],
+          "type": "string"
         },
         "robust": {
           "default": "nonrobust",

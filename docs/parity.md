@@ -30,10 +30,10 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 363 |
 | | aligned | 53 |
 | | **subtotal** | **416** |
-| **No external software reference** | analytical-only (T1) | 155 |
+| **No external software reference** | analytical-only (T1) | 156 |
 | | external-replication (published numbers) | 2 |
-| | **subtotal** | **157** |
-| No numerical evidence yet | unverified | 696 |
+| | **subtotal** | **158** |
+| No numerical evidence yet | unverified | 695 |
 
 ### Honest denominators
 
@@ -42,9 +42,9 @@ The all-registered denominator understates coverage: it counts result and except
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
 | estimator callables | 416 | 568 | 817 | 50.9% |
-| infrastructure (parity N/A) | 0 | 2 | 131 | 0.0% |
+| infrastructure (parity N/A) | 0 | 3 | 131 | 0.0% |
 | result / exception classes | 0 | 3 | 321 | 0.0% |
-| **all registered** | 416 | 573 | 1269 | 32.8% |
+| **all registered** | 416 | 574 | 1269 | 32.8% |
 
 ### Coverage by estimator family
 
@@ -535,7 +535,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `aggte` | [`test_honest_did_paper_parity.py`](../tests/external_parity/test_honest_did_paper_parity.py) (+1) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 155 functions
+## analytical-only — 156 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -693,10 +693,11 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `validation_scope` | [`test_iv_card_aer_parity.py`](../tests/reference_parity/test_iv_card_aer_parity.py) (+2) |
 | `variable_importance` | [`test_grf_family_operator_parity.py`](../tests/reference_parity/test_grf_family_operator_parity.py) |
 | `weighted_conformal_prediction` | [`test_conformal_causal_parity.py`](../tests/reference_parity/test_conformal_causal_parity.py) |
+| `winsor` | [`test_winsor_winsor2_Stata_parity.py`](../tests/reference_parity/test_winsor_winsor2_Stata_parity.py) |
 | `wooldridge_prod` | [`test_prodest_parity.py`](../tests/reference_parity/test_prodest_parity.py) |
 | `xlearner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `yatchew_linearity_test` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) |
 
-## unverified — 696 functions
+## unverified — 695 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

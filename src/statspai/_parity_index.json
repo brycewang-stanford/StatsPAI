@@ -6084,6 +6084,7 @@
       "additional_tests": [
         "tests/reference_parity/test_gelbach_absorb_cluster_b1x2.py",
         "tests/reference_parity/test_hdfe_fit_stats_reghdfe.py",
+        "tests/reference_parity/test_hdfe_fitstats_Stata_parity.py",
         "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
         "tests/reference_parity/test_hdfe_nested_collinear_parity.py",
         "tests/reference_parity/test_hdfe_parity.py",
@@ -7790,6 +7791,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py",
@@ -10618,6 +10620,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_oster_absorb_Stata_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -11768,6 +11773,9 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_psmatch2_ties_ate_Stata_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -16501,6 +16509,23 @@
         "tests/reference_parity/_fixtures/inference_sens_R.json"
       ],
       "tolerance": "CI endpoints 1e-9 rel (observed 4.8e-12)"
+    },
+    {
+      "function": "winsor",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_winsor_winsor2_Stata_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [

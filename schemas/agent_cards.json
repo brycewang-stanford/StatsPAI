@@ -6932,7 +6932,8 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Cross-language parity (bit-exact) vs Stata 18 MP + psmatch2 4.0.12 / pstest 4.2.2 (Leuven & Sianesi 2003) [Stata 18 MP, psmatch2 4.0.12]; tolerance Observed py<->Stata relative gaps on the committed fixtures: nearest-neighbour ATT 1.2e-16 and its analytic SE exactly 0 (as is _weight per row); radius ATT 2.8e-16; Abadie-Imbens ai(1)/ai(2) SE 3.0e-15/1.7e-15; PSM-DID across all five weight regimes 2.0e-14; pstest per-covariate rows 1.3e-14; Mahalanobis ATT 1.2e-13; llr ATT 2.1e-10 (worst of four kernels); kernel ATT 9.1e-10; pstest summary block 1.3e-9. The two loosest rows are bounded by fixture precision, not by the estimator: pstest accumulates MeanBias/MedBias in a Stata float (2.6e-9) and r(seatt) for the llr reroute was captured at 8 significant digits (9.9e-9). -- tests/reference_parity/test_psmatch2_parity.py"
+      "Cross-language parity (bit-exact) vs Stata 18 MP + psmatch2 4.0.12 / pstest 4.2.2 (Leuven & Sianesi 2003) [Stata 18 MP, psmatch2 4.0.12]; tolerance Observed py<->Stata relative gaps on the committed fixtures: nearest-neighbour ATT 1.2e-16 and its analytic SE exactly 0 (as is _weight per row); radius ATT 2.8e-16; Abadie-Imbens ai(1)/ai(2) SE 3.0e-15/1.7e-15; PSM-DID across all five weight regimes 2.0e-14; pstest per-covariate rows 1.3e-14; Mahalanobis ATT 1.2e-13; llr ATT 2.1e-10 (worst of four kernels); kernel ATT 9.1e-10; pstest summary block 1.3e-9. The two loosest rows are bounded by fixture precision, not by the estimator: pstest accumulates MeanBias/MedBias in a Stata float (2.6e-9) and r(seatt) for the llr reroute was captured at 8 significant digits (9.9e-9). -- tests/reference_parity/test_psmatch2_parity.py",
+      "tests/reference_parity/test_psmatch2_ties_ate_Stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -42668,6 +42669,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs Stata psacalc (Oster); R robomit::o_delta / o_beta [R version 4.5.2 (2025-10-31), Stata 18, psacalc 2.1, robomit 1.0.7]; tolerance 1e-12 rel vs psacalc (observed 4.4e-14); 5e-7 abs vs robomit (it rounds to 6 dp) -- tests/reference_parity/test_inference_sens_R_parity.py",
+      "tests/reference_parity/test_oster_absorb_Stata_parity.py",
       "API/unit contract evidence: tests/test_diagnostics.py",
       "API/unit contract evidence: tests/test_workflow_degradations.py"
     ],
@@ -56458,6 +56460,8 @@
         "conf_int_lower": "pd.Series",
         "conf_int_upper": "pd.Series",
         "converged": "bool",
+        "df_a": "Optional[int]",
+        "df_a_nested": "int",
         "df_inference": "float",
         "df_resid": "int",
         "dof_fe": "int",
@@ -56606,8 +56610,8 @@
       "Cross-language parity (bit-exact) vs fixest::feols [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 03_hdfe -- tests/r_parity/03_hdfe.py",
       "tests/reference_parity/test_gelbach_absorb_cluster_b1x2.py",
       "tests/reference_parity/test_hdfe_fit_stats_reghdfe.py",
-      "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
-      "tests/reference_parity/test_hdfe_nested_collinear_parity.py"
+      "tests/reference_parity/test_hdfe_fitstats_Stata_parity.py",
+      "tests/reference_parity/test_hdfe_iv_ivreghdfe.py"
     ],
     "validation_status": "certified"
   },
@@ -58942,6 +58946,15 @@
             "description": "Report odds ratios instead of log-odds coefficients.",
             "type": "boolean"
           },
+          "perfect_prediction": {
+            "default": "drop",
+            "description": "An indicator regressor whose non-zero rows all share one outcome (e.g. an industry dummy with no treated firm) predicts the outcome",
+            "enum": [
+              "drop",
+              "keep"
+            ],
+            "type": "string"
+          },
           "robust": {
             "default": "nonrobust",
             "description": "``'nonrobust'`` for MLE SE, ``'hc1'`` / ``'robust'`` for sandwich SE.",
@@ -58984,10 +58997,10 @@
       "R parity module 57_logit",
       "Stata parity module 57_logit",
       "Cross-language parity (bit-exact) vs stats::glm(family=binomial(\"logit\")) [R version 4.5.2 (2025-10-31), stats 4.5.2]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 57_logit -- tests/r_parity/57_logit.py",
+      "tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py",
       "tests/reference_parity/test_margins_ext_parity.py",
       "tests/reference_parity/test_postestimation_stata_parity.py",
-      "tests/reference_parity/test_r2_postest_parity.py",
-      "tests/reference_parity/test_vce_grammar_stata_parity.py"
+      "tests/reference_parity/test_r2_postest_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -59117,6 +59130,15 @@
             "default": 100,
             "description": "Maximum Newton-Raphson iterations.",
             "type": "integer"
+          },
+          "perfect_prediction": {
+            "default": "drop",
+            "description": "An indicator regressor whose non-zero rows all share one outcome (e.g. an industry dummy with no treated firm) predicts the outcome",
+            "enum": [
+              "drop",
+              "keep"
+            ],
+            "type": "string"
           },
           "robust": {
             "default": "nonrobust",
@@ -59290,6 +59312,15 @@
             "default": 100,
             "description": "Maximum Newton-Raphson iterations.",
             "type": "integer"
+          },
+          "perfect_prediction": {
+            "default": "drop",
+            "description": "An indicator regressor whose non-zero rows all share one outcome (e.g. an industry dummy with no treated firm) predicts the outcome",
+            "enum": [
+              "drop",
+              "keep"
+            ],
+            "type": "string"
           },
           "robust": {
             "default": "nonrobust",
