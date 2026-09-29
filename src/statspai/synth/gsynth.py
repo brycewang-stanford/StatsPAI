@@ -111,6 +111,20 @@ def gsynth(
     >>> bool(result.estimate is not None)
     True
     """
+    if isinstance(treated_unit, (list, tuple, set, np.ndarray, pd.Index, pd.Series)):
+        from statspai.exceptions import MethodIncompatibility
+
+        raise MethodIncompatibility(
+            "gsynth takes a single treated_unit; got "
+            f"{type(treated_unit).__name__} of length {len(treated_unit)}.",
+            recovery_hint=(
+                "Pass one unit identifier. For several treated units or "
+                "treatment that switches on and off, use sp.fect(data, y, "
+                "treat, unit, time, method='ife')."
+            ),
+            diagnostics={"n_treated_units": int(len(treated_unit))},
+            alternative_functions=["sp.fect", "sp.synth"],
+        )
     backend_norm = backend.lower().replace("-", "_")
     if backend_norm in {"gsynth", "r", "gsynth_r"}:
         if covariates:
@@ -143,6 +157,16 @@ def gsynth(
 
     # --- Build panel ---
     pivot = data.pivot_table(index=unit, columns=time, values=outcome)
+    if treated_unit not in pivot.index:
+        from statspai.exceptions import DataInsufficient
+
+        raise DataInsufficient(
+            f"treated_unit {treated_unit!r} not found in column '{unit}' "
+            f"(or it has no non-missing '{outcome}').",
+            recovery_hint=f"Check the identifier against data['{unit}'].unique().",
+            diagnostics={"n_units": int(len(pivot.index))},
+            alternative_functions=[],
+        )
     all_times = sorted(pivot.columns.tolist())
     pre_times = [t for t in all_times if t < treatment_time]
     post_times = [t for t in all_times if t >= treatment_time]

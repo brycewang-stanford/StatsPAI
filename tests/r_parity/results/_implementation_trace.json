@@ -602,7 +602,7 @@
    "result_sha256": "deec5e183d36dea6ab1cd3a07857ab0ef3f9860dc11edca8b30f5242b758a14f"
   },
   "19_gsynth": {
-   "seconds": 1.63,
+   "seconds": 0.97,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -614,13 +614,13 @@
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656",
     "src/statspai/synth/_core.py": "ef92306dee67fe8d9ad439a754ecda552d9ceb06aab6285c0c5705b5519c7991",
     "src/statspai/synth/datasets.py": "f2ddece3fbd49364f598646f6b6ace80c7e95114c54ba1f38279a240a493a792",
-    "src/statspai/synth/gsynth.py": "3c2052158111f50f89554007f6c32d4e0ffa2f8b65e09873b1b7cb4cd6740cbc"
+    "src/statspai/synth/gsynth.py": "f5376d918e586df9ae137642bcd770d06fa0e749a2b2fadf4d5bcb08d8e08203"
    },
    "dependency_versions": {
-    "numpy": "2.4.6",
-    "scipy": "1.17.1",
+    "numpy": "2.2.6",
+    "scipy": "1.15.3",
     "pandas": "2.3.3",
-    "scikit-learn": "1.9.1"
+    "scikit-learn": "1.6.1"
    },
    "source_sha256": "d29de90132363f0e98164cbd2af2246dda916979beef8dc2136e4cecd59848de",
    "result_sha256": "143c423a1304d62c34cdde02849c5d2cae5d6b26bf95233125e3ae130c8eafa0"

@@ -398,6 +398,14 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **`sp.gsynth` names the problem when `treated_unit` is a list or missing.**
+  It supports one treated unit. A list, tuple or array used to fail deep in
+  the factor fit with numpy's `LinAlgError: Incompatible dimensions`; it now
+  raises `MethodIncompatibility` pointing to `sp.fect`. An identifier not
+  in the unit column raised a bare `KeyError`; it now raises
+  `DataInsufficient` naming the column. Estimates are unchanged (the Track A
+  19_gsynth result file reproduces byte for byte; trace re-recorded).
+
 - **Nonlinear ETWFE aggregation after 027813fb (unreleased regression).**
   That commit counted only non-separated rows in each cell's
   `n_treated`, which is also every aggregate's weight: the one-call

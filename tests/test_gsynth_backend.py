@@ -83,3 +83,47 @@ def test_gsynth_rejects_unknown_backend():
             treatment_time=1970,
             backend="unknown",
         )
+
+
+def _small_panel():
+    import pandas as pd
+
+    rng = np.random.default_rng(0)
+    rows = [
+        dict(u=i, t=t, y=rng.normal() + 0.1 * t + 2.0 * (i == 1 and t >= 10))
+        for i in range(12)
+        for t in range(15)
+    ]
+    return pd.DataFrame(rows)
+
+
+@pytest.mark.parametrize("treated", [[1, 2], (1, 2), np.array([1, 2])])
+def test_gsynth_rejects_several_treated_units(treated):
+    from statspai.exceptions import MethodIncompatibility
+
+    with pytest.raises(MethodIncompatibility, match="single treated_unit") as exc:
+        sp.gsynth(
+            _small_panel(),
+            outcome="y",
+            unit="u",
+            time="t",
+            treated_unit=treated,
+            treatment_time=10,
+            placebo=False,
+        )
+    assert "sp.fect" in exc.value.alternative_functions
+
+
+def test_gsynth_unknown_treated_unit_is_named():
+    from statspai.exceptions import DataInsufficient
+
+    with pytest.raises(DataInsufficient, match="not found in column 'u'"):
+        sp.gsynth(
+            _small_panel(),
+            outcome="y",
+            unit="u",
+            time="t",
+            treated_unit=99,
+            treatment_time=10,
+            placebo=False,
+        )
