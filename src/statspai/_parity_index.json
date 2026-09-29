@@ -4200,7 +4200,9 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_etwfe_glm_parity.py",
+        "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
         "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
+        "tests/reference_parity/test_etwfe_poisson_xvar_R_parity.py",
         "tests/reference_parity/test_event_study_vcov_R_parity.py",
         "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
@@ -4256,6 +4258,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_etwfe_glm_parity.py",
+        "tests/reference_parity/test_etwfe_linear_jwdid_parity.py",
         "tests/reference_parity/test_etwfe_poisson_jwdid_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],

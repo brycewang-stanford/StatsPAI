@@ -204,6 +204,9 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         # path that raises, so it is descriptive.  The numeric claim is pinned
         # in tests/reference_parity/test_etwfe_glm_parity.py.
         "reports an average marginal effect",
+        # T4 reference difference: R etwfe 0.6.2's summed period slope for
+        # a factor xvar; pinned in test_etwfe_poisson_xvar_R_parity.py.
+        "keeps one period slope per level",
         # A documented convention difference in how the response-scale SE
         # is computed (profiled unit effect vs. jwdid's margins), not a code
         # path that raises; pinned in the module docstring of
@@ -383,7 +386,7 @@ def _runtime_map() -> (
             ),
             MethodIncompatibility,
         ),
-        ("etwfe", "hettype= other than the saturated default"): (
+        ("etwfe", "linear hettype= combined with fe='cohort'"): (
             lambda: sp.etwfe(
                 df_panel,
                 y="y",
@@ -391,6 +394,7 @@ def _runtime_map() -> (
                 time="t",
                 first_treat="g",
                 hettype="event",
+                fe="cohort",
             ),
             MethodIncompatibility,
         ),

@@ -254,12 +254,12 @@ def honest_did(
         ``l_vec``): one weight per post-treatment event time of the
         (windowed) event study, in increasing order.  ``'average'`` is the
         mean of the post-treatment effects.  ``e`` is ignored when given.
-        Native backend only.
+        Both backends: ``backend='r'`` passes the weights to HonestDiD.
     window : tuple of (lo, hi), optional
         Use only the event times with ``lo <= t <= hi`` (inclusive; must
         straddle zero), e.g. ``(-5, 5)`` for an analysis run on Stata
         ``estat event, window(-5 5)``.  The leads outside the window no
-        longer calibrate the restriction.  Native backend only.
+        longer calibrate the restriction.  Both backends.
 
     Returns
     -------
@@ -323,13 +323,6 @@ def honest_did(
     backend_norm = backend.lower().replace("-", "_")
     win = _coerce_window(window)
     if backend_norm in {"r", "honestdid", "honest_did", "honestdid_r"}:
-        if l_vec is not None or win is not None:
-            raise MethodIncompatibility(
-                "l_vec= and window= are implemented by backend='native'.",
-                recovery_hint="Use backend='native' (it matches R HonestDiD "
-                "on identical inputs), or drop l_vec / window.",
-                diagnostics={"backend": backend},
-            )
         return _honest_did_r_backend(
             result=result,
             e=e,
@@ -337,6 +330,8 @@ def honest_did(
             method=method,
             alpha=alpha,
             honestdid_method=honestdid_method,
+            l_vec=l_vec,
+            window=win,
         )
     if backend_norm not in {"native", "statspai"}:
         raise MethodIncompatibility(
@@ -631,8 +626,14 @@ def _honest_did_r_backend(
     method: str,
     alpha: float,
     honestdid_method: Optional[str] = None,
+    l_vec: Optional[Any] = None,
+    window: Optional[tuple] = None,
 ) -> pd.DataFrame:
-    """Run the R HonestDiD reference implementation for CI parity."""
+    """Run the R HonestDiD reference implementation for CI parity.
+
+    ``window`` restricts the event study (table and covariance) before it is
+    handed to R; ``l_vec`` goes to HonestDiD's ``l_vec`` as given.
+    """
     e = _require_int(e, argument="e")
     method = _require_string(method, argument="method")
     alpha = _require_alpha(alpha)
@@ -696,19 +697,32 @@ def _honest_did_r_backend(
         )
 
     es = _extract_event_study(result)
-    target_row = es[es["relative_time"] == e]
-    if len(target_row) == 0:
-        raise DataInsufficient(
-            f"No event study estimate at relative time e={e}",
-            recovery_hint="Choose an `e` value present in the event-study table.",
-            diagnostics={"e": e, "available": es["relative_time"].tolist()},
-        )
-
-    se_hat = float(target_row["se"].iloc[0])
-    m_grid = _coerce_m_grid(m_grid, se_hat=se_hat)
-
+    if window is not None:
+        es = es[(es["relative_time"] >= window[0]) & (es["relative_time"] <= window[1])]
+    moments = _window_filter(event_study_moments(result), window)
     pre = es[es["relative_time"] < 0].sort_values("relative_time")
     post = es[es["relative_time"] >= 0].sort_values("relative_time")
+
+    lv: Optional[np.ndarray] = None
+    if l_vec is not None:
+        post_t = post["relative_time"].to_numpy(dtype=int)
+        lv = _coerce_l_vec(l_vec, post_t)
+        if moments is not None and len(moments[2]) == len(es):
+            pm = moments[2] >= 0
+            se_hat = float(np.sqrt(lv @ moments[1][np.ix_(pm, pm)] @ lv))
+        else:
+            se_hat = float(np.sqrt(lv**2 @ post["se"].to_numpy(dtype=float) ** 2))
+        e = int(post_t[np.flatnonzero(lv != 0)].max())
+    else:
+        target_row = es[es["relative_time"] == e]
+        if len(target_row) == 0:
+            raise DataInsufficient(
+                f"No event study estimate at relative time e={e}",
+                recovery_hint="Choose an `e` value present in the event-study table.",
+                diagnostics={"e": e, "available": es["relative_time"].tolist()},
+            )
+        se_hat = float(target_row["se"].iloc[0])
+    m_grid = _coerce_m_grid(m_grid, se_hat=se_hat)
     if len(pre) == 0:
         raise DataInsufficient(
             "backend='honestdid' requires at least one pre-treatment period.",
@@ -748,9 +762,17 @@ post <- post[order(post$relative_time), ]
 if (nrow(pre) < 1 || nrow(post) < 1) {
   stop("HonestDiD backend requires pre and post event-study periods")
 }
-post_idx <- which(post$relative_time == target_e)
-if (length(post_idx) != 1) {
-  stop("target e must match exactly one post-treatment period")
+l_arg <- if (length(args) >= 8) args[[8]] else ""
+if (nzchar(l_arg)) {
+  l_given <- as.numeric(strsplit(l_arg, ",", fixed = TRUE)[[1]])
+  if (length(l_given) != nrow(post)) {
+    stop("l_vec must have one weight per post-treatment period")
+  }
+} else {
+  post_idx <- which(post$relative_time == target_e)
+  if (length(post_idx) != 1) {
+    stop("target e must match exactly one post-treatment period")
+  }
 }
 betahat <- c(pre$att, post$att)
 ses <- c(pre$se, post$se)
@@ -765,8 +787,12 @@ if (length(args) >= 7 && nzchar(args[[7]]) && file.exists(args[[7]])) {
 } else {
   sigma <- diag(ses^2)
 }
-l_vec <- rep(0, nrow(post))
-l_vec[post_idx] <- 1
+if (nzchar(l_arg)) {
+  l_vec <- l_given
+} else {
+  l_vec <- rep(0, nrow(post))
+  l_vec[post_idx] <- 1
+}
 l_vec <- matrix(l_vec, ncol = 1)
 if (method == "relative_magnitude") {
   sens <- suppressWarnings(
@@ -812,7 +838,7 @@ cat(jsonlite::toJSON(out, dataframe = "rows", auto_unbox = TRUE,
         # Feeding HonestDiD diag(se^2) silently drops the cross-period
         # covariance, which changes the confidence set materially.
         sigma_path = ""
-        _moments = event_study_moments(result)
+        _moments = moments
         if _moments is not None:
             _beta_r, _sigma_r, _times_r = _moments
             _es_times = es["relative_time"].to_numpy()
@@ -847,6 +873,7 @@ cat(jsonlite::toJSON(out, dataframe = "rows", auto_unbox = TRUE,
                 f"{float(e):.17g}",
                 honestdid_method_arg,
                 sigma_path,
+                "" if lv is None else ",".join(f"{v:.17g}" for v in lv),
             ],
             check=False,
             capture_output=True,

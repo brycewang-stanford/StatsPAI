@@ -82,7 +82,11 @@ from ._etwfe_glm_design import (  # noqa: F401 - re-exported
     normalise_scale,
 )
 from ._etwfe_glm_emfx import etwfe_glm_emfx  # noqa: F401 - re-exported
-from ._etwfe_glm_fit import _fit_poisson_unit_fe, _independent_columns
+from ._etwfe_glm_fit import (
+    _cluster_sandwich,
+    _fit_poisson_unit_fe,
+    _independent_columns,
+)
 
 
 def etwfe_glm(
@@ -127,7 +131,9 @@ def etwfe_glm(
         ) from exc
 
     fam_key = str(family).strip().lower()
-    if fam_key not in _ETWFE_GLM_FAMILIES:
+    if fam_key in {"normal", "linear"}:
+        fam_key = "gaussian"
+    if fam_key not in _ETWFE_GLM_FAMILIES and fam_key != "gaussian":
         raise MethodIncompatibility(
             f"family={family!r} is not supported; use one of "
             f"{sorted(set(_ETWFE_GLM_FAMILIES) | {'gaussian'})}.",
@@ -147,7 +153,14 @@ def etwfe_glm(
             "them, as jwdid does whenever ppmlhdfe flags the separation.",
             diagnostics={"separated": separated},
         )
-    if sep_mode == "drop" and fe_mode != "unit":
+    if fam_key == "gaussian" and fe_mode != "unit":
+        raise MethodIncompatibility(
+            "The linear branch of etwfe_glm absorbs unit effects (Stata "
+            "jwdid / reghdfe); pass fe='unit'.",
+            recovery_hint="sp.etwfe without family= is R etwfe's linear design.",
+            diagnostics={"fe": fe_mode},
+        )
+    if sep_mode == "drop" and (fe_mode != "unit" or fam_key != "poisson"):
         raise MethodIncompatibility(
             "separated='drop' applies to fe='unit' (the only design that "
             "separates units).",
@@ -202,7 +215,7 @@ def etwfe_glm(
                 "family='poisson'/'gaussian'.",
                 diagnostics={"family": family, "n_invalid": int(bad.sum())},
             )
-    elif (df["_y"] < 0).any():
+    elif fam_key == "poisson" and (df["_y"] < 0).any():
         raise MethodIncompatibility(
             f"family='poisson' needs a non-negative outcome; column {y!r} "
             "contains negative values.",
@@ -276,7 +289,52 @@ def etwfe_glm(
     omitted: List[str] = []
     treat_cols = des["treat_cols"]
 
-    if fe_mode == "cohort":
+    if fam_key == "gaussian":
+        # Stata jwdid without method(): reghdfe absorbing ivar and tvar
+        # (the period effects are explicit columns here).  OLS on the
+        # within-unit transform; the link and response scales coincide.
+        unit_codes = pd.factorize(df[group])[0].astype(np.intp)
+        live = _independent_columns(X, groups=unit_codes)
+        omitted = [names[j] for j in range(len(names)) if j not in set(live.tolist())]
+        Xl = X[:, live]
+        U = int(unit_codes.max()) + 1
+        cnt = np.bincount(unit_codes, minlength=U).astype(float)
+
+        def _within(a: np.ndarray) -> np.ndarray:
+            return (
+                a - (np.bincount(unit_codes, weights=a, minlength=U) / cnt)[unit_codes]
+            )
+
+        Xd = np.column_stack([_within(Xl[:, j]) for j in range(Xl.shape[1])])
+        yd = _within(y_vec)
+        bread = Xd.T @ Xd
+        bread_inv = np.linalg.inv(bread)
+        beta = bread_inv @ (Xd.T @ yd)
+        resid = yd - Xd @ beta
+        k_reg = int(Xl.shape[1]) + 1  # reghdfe counts the constant
+        G = n_clusters
+        factor = ((n_obs - 1.0) / max(n_obs - k_reg, 1.0)) * (
+            G / (G - 1.0) if G > 1 else 1.0
+        )
+        vcov = _cluster_sandwich(Xd * resid[:, None], bread_inv, cl_codes, G, factor)
+        converged = True
+        pos_in_live = {int(j): i for i, j in enumerate(live)}
+        treat_k = np.array(
+            [pos_in_live[int(j)] for j in treat_cols if int(j) in pos_in_live],
+            dtype=int,
+        )
+        rows = np.flatnonzero(in_cell)
+        Zt_rows = np.zeros((len(rows), Xl.shape[1]))
+        Zt_rows[:, treat_k] = Xl[rows][:, treat_k]
+        me_rows = Zt_rows @ beta
+        grad_rows = Zt_rows
+        resp_units = unit_of[rows]
+        Z_all = Xl
+        link_name = "Identity"
+        coef_names = [names[j] for j in live]
+        ssc = {"n": int(n_obs), "k": k_reg, "G": int(G), "factor": float(factor)}
+        param_live = np.array([int(c) in pos_in_live for c in des["param_col"]])
+    elif fe_mode == "cohort":
         sm_family = getattr(sm.families, _ETWFE_GLM_FAMILIES[fam_key])()
         live = _independent_columns(X)
         omitted = [names[j] for j in range(len(names)) if j not in set(live.tolist())]
@@ -566,7 +624,9 @@ def etwfe_glm(
     head = aggregations[scale]
     att, se_att = head["simple"]["att"], head["simple"]["se"]
     z_stat = att / se_att if se_att > 0 else 0.0
-    if scale == "response":
+    if fam_key == "gaussian":
+        estimand = "ATT (linear ETWFE, treated-observation-weighted)"
+    elif scale == "response":
         estimand = "ATT (average marginal effect, response scale)"
     else:
         estimand = (
@@ -581,7 +641,11 @@ def etwfe_glm(
     calendar_tbl = head["calendar"]
 
     return CausalResult(
-        method=f"Wooldridge (2023) nonlinear ETWFE — family={fam_key}",
+        method=(
+            f"Wooldridge (2021) ETWFE — linear, unit FE, hettype={het}"
+            if fam_key == "gaussian"
+            else f"Wooldridge (2023) nonlinear ETWFE — family={fam_key}"
+        ),
         estimand=estimand,
         estimate=att,
         se=se_att,

@@ -753,20 +753,30 @@ def etwfe(
     estimates the pre-treatment cells, i.e. event-study leads, relative to
     ``g - 1``); it does not currently accept ``panel=False`` or
     ``weights``.  Its ``controls`` enter additively without interactions
-    (Stata ``jwdid``'s ``exovar()``).  Its ``xvar`` follows Stata ``jwdid
-    y x``: each treatment effect is moderated by the covariate demeaned
-    within the ``hettype`` cells, with covariate-by-period (and, when the
-    covariate varies within units, covariate-by-cohort) terms; a
-    categorical column (pandas ``category`` / ``object`` / ``bool``)
-    enters as level dummies, and ``sp.etwfe_emfx(..., by_xvar=True)``
-    reports the ATT per level (``estat ..., over()``).
+    (Stata ``jwdid``'s ``exovar()``).  With ``fe='unit'`` its ``xvar``
+    follows Stata ``jwdid y x``: each treatment effect is moderated by the
+    covariate demeaned within the ``hettype`` cells, with
+    covariate-by-period (and, when the covariate varies within units,
+    covariate-by-cohort) terms.  With ``fe='cohort'`` it is R ``etwfe``'s
+    design: the covariate demeaned within cohort x period cells,
+    interacted with the cells and with the periods (one period slope per
+    level of a categorical covariate, where ``etwfe`` 0.6.2 fits a single
+    summed slope).  A categorical column (pandas ``category`` /
+    ``object`` / ``bool``) enters as level dummies, and
+    ``sp.etwfe_emfx(..., by_xvar=True)`` reports the ATT per level
+    (``estat ..., over()``).
 
-    ``hettype`` (nonlinear families) pools the cohort x period cells as
-    Stata ``jwdid, hettype()``: ``'timecohort'`` (default, saturated),
-    ``'time'`` (one effect per calendar period), ``'cohort'`` (one per
-    cohort), ``'event'`` (one per event time) or ``'twfe'`` (a single
-    effect).  The restricted designs are the robustness checks of an
-    ETWFE table, not heterogeneity-robust estimators themselves.
+    ``hettype`` pools the cohort x period cells as Stata ``jwdid,
+    hettype()``: ``'timecohort'`` (default, saturated), ``'time'`` (one
+    effect per calendar period), ``'cohort'`` (one per cohort), ``'event'``
+    (one per event time) or ``'twfe'`` (a single effect).  The restricted
+    designs are the robustness checks of an ETWFE table, not
+    heterogeneity-robust estimators themselves.  On the linear model a
+    non-default ``hettype`` -- or ``fe='unit'`` -- fits Stata ``jwdid``
+    without ``method()``: ``reghdfe`` with unit and period effects,
+    clustered on the unit with its small-sample factor, ``jwdid``'s
+    covariate design for ``xvar``, and the aggregations of the nonlinear
+    branch (``scale='link'``; ``panel=True`` and no ``weights``).
 
     ``separated`` (``family='poisson', fe='unit'``) decides what happens to
     separated rows (all-zero units, perfectly predicted zeros) after they
@@ -788,10 +798,10 @@ def etwfe(
     ``model_info['aggregations']``; ``sp.etwfe_emfx(res, type=...,
     scale=...)`` serves either.
 
-    ``fe`` (``family='poisson'`` only) picks the heterogeneity control:
-    ``'cohort'`` (default) is R ``etwfe``'s cohort-dummy (Mundlak) design;
-    ``'unit'`` absorbs unit fixed effects like Stata ``jwdid`` /
-    ``ppmlhdfe``.  On a balanced panel the two give identical
+    ``fe`` (linear model and ``family='poisson'``) picks the heterogeneity
+    control: ``'cohort'`` (default) is R ``etwfe``'s cohort-dummy (Mundlak)
+    design; ``'unit'`` absorbs unit fixed effects like Stata ``jwdid``
+    (``reghdfe`` / ``ppmlhdfe``).  On a balanced panel the two give identical
     coefficients; on an unbalanced one they do not, and ``fe='cohort'``
     warns.  With ``fe='unit'`` units whose outcome is always zero are
     separated (their fitted mean is exactly zero) and are left out of
@@ -919,16 +929,8 @@ def etwfe(
             diagnostics={"family": family},
         )
     else:
-        # The linear model has a single scale; fe= only has a nonlinear
-        # implementation so far.
+        # The linear model has a single scale.
         _normalise_etwfe_scale(scale)
-        if fe is not None and str(fe).strip().lower() != "cohort":
-            raise MethodIncompatibility(
-                f"etwfe(fe={fe!r}) is only implemented for family='poisson'.",
-                recovery_hint="Drop fe= for the linear ETWFE (cohort and "
-                "period effects, R etwfe's default design).",
-                diagnostics={"fe": fe, "family": family},
-            )
         if str(separated).strip().lower() != "keep":
             raise MethodIncompatibility(
                 f"etwfe(separated={separated!r}) applies to family='poisson' "
@@ -936,29 +938,75 @@ def etwfe(
                 recovery_hint="Drop separated= for the linear ETWFE.",
                 diagnostics={"separated": separated, "family": family},
             )
-        if _normalise_hettype(hettype) != "timecohort":
+        fe_key = None if fe is None else str(fe).strip().lower()
+        if fe_key not in (None, "cohort", "unit", "ivar", "id", "individual"):
             raise MethodIncompatibility(
-                f"etwfe(hettype={hettype!r}) is only implemented for the "
-                "nonlinear families so far.",
-                recovery_hint="Use family='poisson' / 'logit', or drop "
-                "hettype= for the saturated linear ETWFE.",
-                diagnostics={"hettype": hettype, "family": family},
+                f"etwfe(fe={fe!r}) is not recognised; use 'cohort' or 'unit'.",
+                recovery_hint="Drop fe= for R etwfe's linear design.",
+                diagnostics={"fe": fe, "family": family},
             )
-        _result = _dispatch_etwfe_impl(
-            data=data,
-            y=y,
-            group=group,
-            time=time,
-            first_treat=first_treat,
-            controls=controls,
-            cluster=cluster,
-            alpha=alpha,
-            xvar=xvar,
-            panel=panel,
-            cgroup=cgroup,
-            weights=weights,
-            agg_weights=agg_weights,
+        jwdid_linear = _normalise_hettype(hettype) != "timecohort" or fe_key in (
+            "unit",
+            "ivar",
+            "id",
+            "individual",
         )
+        if jwdid_linear:
+            # Stata jwdid without method(): reghdfe with unit and period
+            # effects, any hettype, jwdid's covariate design -- served by
+            # the design / aggregation code of the nonlinear branch.
+            if fe_key == "cohort":
+                raise MethodIncompatibility(
+                    f"etwfe(hettype={hettype!r}) on the linear model absorbs "
+                    "unit fixed effects (Stata jwdid); fe='cohort' is only "
+                    "available with the saturated default design.",
+                    recovery_hint="Drop fe= (or pass fe='unit') with hettype=.",
+                    diagnostics={"fe": fe, "hettype": hettype},
+                )
+            for arg_name, arg_val, bad in (
+                ("panel", panel, not panel),
+                ("weights", weights, weights is not None),
+            ):
+                if bad:
+                    raise MethodIncompatibility(
+                        "etwfe(hettype= / fe='unit') on the linear model does "
+                        f"not support {arg_name}={arg_val!r} yet.",
+                        recovery_hint="Drop the option, or use the saturated "
+                        "default design (no hettype=, no fe=).",
+                        diagnostics={arg_name: arg_val, "hettype": hettype},
+                    )
+            _result = _etwfe_glm(
+                data=data,
+                y=y,
+                group=group,
+                time=time,
+                first_treat=first_treat,
+                family="gaussian",
+                controls=controls,
+                cluster=cluster,
+                alpha=alpha,
+                cgroup=cgroup,
+                fe="unit",
+                scale="link",
+                hettype=hettype,
+                xvar=xvar,
+            )
+        else:
+            _result = _dispatch_etwfe_impl(
+                data=data,
+                y=y,
+                group=group,
+                time=time,
+                first_treat=first_treat,
+                controls=controls,
+                cluster=cluster,
+                alpha=alpha,
+                xvar=xvar,
+                panel=panel,
+                cgroup=cgroup,
+                weights=weights,
+                agg_weights=agg_weights,
+            )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 

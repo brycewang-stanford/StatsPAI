@@ -187,7 +187,8 @@ def test_gaussian_and_default_are_the_historical_linear_path(poisson_panel):
         {"family": "poisson", "hettype": "calendar_cohort"},
         {"family": "poisson", "fe": "unit", "separated": "sometimes"},
         {"family": "poisson", "separated": "drop"},  # needs fe='unit'
-        {"hettype": "event"},  # linear branch: saturated design only
+        {"hettype": "event", "fe": "cohort"},  # linear hettype: unit FE only
+        {"hettype": "event", "weights": "y"},  # linear hettype: no weights
         {"family": "poisson", "panel": False},
         {"family": "poisson", "weights": "y"},
         {"family": "logit", "fe": "unit"},

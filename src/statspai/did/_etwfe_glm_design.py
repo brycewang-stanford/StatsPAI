@@ -20,12 +20,17 @@ and how covariates moderate the effect (``xvar``).
 reference period ``g - 1``, 1 for earlier pre-periods, 2 for ``t >= g``.
 Pre-period parameters exist only under ``cgroup='nevertreated'``.
 
-A covariate ``x`` enters as in jwdid: ``D_p * (x - mean_group(x))`` for each
-treatment parameter ``p`` (the effect moderator, demeaned within the
-``hettype`` groups over the estimation sample), ``1{T = t} * x`` for every
-period but the first, and -- when ``x`` varies within units, or under
-``fe='cohort'`` where nothing absorbs it -- ``x`` itself plus ``1{G = g} *
-x`` for every treated cohort.  A categorical covariate (pandas ``category``
+A covariate ``x`` moderates each treatment parameter ``p`` as
+``D_p * (x - mean_group(x))``, demeaned within the ``hettype`` groups over
+the estimation sample (the cohort x period cells by default, as both
+references do).  The remaining covariate terms follow the reference each
+``fe`` mode reproduces:
+
+* ``fe='unit'`` (Stata ``jwdid y x``): ``1{T = t} * x`` with the raw
+  covariate for every period but the first, and -- when ``x`` varies within
+  units -- ``x`` itself plus ``1{G = g} * x`` for every treated cohort;
+* ``fe='cohort'`` (R ``etwfe(xvar = x)``): ``1{T = t} * (x - mean_group(x))``
+  for every period but the first, nothing else.  A categorical covariate (pandas ``category``
 / ``object`` / ``bool`` dtype) becomes dummies for every level but the
 first, as Stata's ``i.var``.
 """
@@ -267,7 +272,16 @@ def build_glm_design(
             names.append(f"{_param_label(key)}:{xn}")
             treat_cols.append(len(names) - 1)
 
-    if Xx.shape[1]:
+    if Xx.shape[1] and fe_mode == "cohort":
+        # R etwfe: i(tvar, x_dm, ref = tref) -- the demeaned covariate by
+        # period, and nothing else (no main effect, no cohort interaction).
+        for j, xn in enumerate(x_names):
+            for t_val in periods[1:]:
+                cols.append((tt == t_val) * x_tilde[:, j])
+                names.append(f"x[{xn}]:period[{int(t_val)}]")
+    elif Xx.shape[1]:
+        # jwdid: i.tvar#c.(x) with the raw covariate, plus x and i.gvar#c.x
+        # when x varies within units (a time-invariant x is absorbed).
         codes_u = pd.factorize(df[group])[0]
         U = int(codes_u.max()) + 1
         for j, xn in enumerate(x_names):
@@ -277,7 +291,7 @@ def build_glm_design(
             np.minimum.at(lo, codes_u, col)
             np.maximum.at(hi, codes_u, col)
             varies = bool(np.any(hi - lo > 1e-12 * max(1.0, np.abs(col).max())))
-            if fe_mode == "cohort" or varies:
+            if varies:
                 cols.append(col)
                 names.append(f"x[{xn}]")
                 for g_val in cohorts:
@@ -361,7 +375,7 @@ def normalise_glm_fe(fe: Optional[str], fam_key: str) -> str:
             "method(ppmlhdfe).",
             diagnostics={"fe": fe},
         )
-    if key == "unit" and fam_key != "poisson":
+    if key == "unit" and fam_key not in {"poisson", "gaussian"}:
         raise MethodIncompatibility(
             f"fe='unit' is only available for family='poisson'; a {fam_key} "
             "model with unit effects suffers the incidental-parameters bias.",

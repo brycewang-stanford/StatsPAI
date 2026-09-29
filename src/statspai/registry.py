@@ -14252,7 +14252,8 @@ def _build_registry() -> None:
                 "predict(xb)); fe='unit' absorbs unit fixed effects like "
                 "jwdid ..., method(ppmlhdfe); hettype= and a covariate xvar= "
                 "follow jwdid hettype() and jwdid y x (estat ..., over() via "
-                "etwfe_emfx(by_xvar=True))."
+                "etwfe_emfx(by_xvar=True)). On the linear model hettype= / "
+                "fe='unit' fit jwdid's reghdfe design."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -14268,10 +14269,12 @@ def _build_registry() -> None:
                     "list",
                     False,
                     None,
-                    "Effect moderator(s). Linear: R etwfe-style centred "
-                    "moderators. Nonlinear: Stata jwdid y x -- each treatment "
+                    "Effect moderator(s). Linear default and fe='cohort': R "
+                    "etwfe's design (moderator demeaned within cohort x "
+                    "period, interacted with the cells and the periods). "
+                    "hettype= / fe='unit': Stata jwdid y x -- each treatment "
                     "effect interacted with the covariate demeaned within the "
-                    "hettype cells; a categorical column (category / object / "
+                    "hettype cells. A categorical column (category / object / "
                     "bool) enters as level dummies and etwfe_emfx(by_xvar=True) "
                     "reports the ATT per level.",
                 ),
@@ -14340,12 +14343,13 @@ def _build_registry() -> None:
                     "str",
                     False,
                     None,
-                    "family='poisson' only: heterogeneity control. None / "
-                    "'cohort' is R etwfe's cohort-dummy design; 'unit' absorbs "
-                    "unit fixed effects like Stata jwdid ..., "
-                    "method(ppmlhdfe). Identical on balanced panels; on "
-                    "unbalanced ones fe='cohort' warns. What happens to "
-                    "separated all-zero units is set by separated=.",
+                    "Heterogeneity control. None / 'cohort' is R etwfe's "
+                    "cohort-dummy design; 'unit' absorbs unit fixed effects "
+                    "like Stata jwdid (reghdfe for the linear model, "
+                    "method(ppmlhdfe) for family='poisson'). Identical on "
+                    "balanced panels; on unbalanced ones the Poisson "
+                    "fe='cohort' warns. What happens to separated all-zero "
+                    "units is set by separated=. Not for family='logit'.",
                     ["cohort", "unit"],
                 ),
                 ParamSpec(
@@ -14353,13 +14357,13 @@ def _build_registry() -> None:
                     "str",
                     False,
                     None,
-                    "Nonlinear families: which cohort x period cells share a "
-                    "coefficient, as Stata jwdid hettype(). None / "
-                    "'timecohort' is the saturated design; 'time', 'cohort', "
-                    "'event' and 'twfe' pool across cohorts, periods, event "
-                    "times, or all cells (robustness checks of an ETWFE "
-                    "table). The linear branch raises for anything but the "
-                    "default.",
+                    "Which cohort x period cells share a coefficient, as Stata "
+                    "jwdid hettype(). None / 'timecohort' is the saturated "
+                    "design; 'time', 'cohort', 'event' and 'twfe' pool across "
+                    "cohorts, periods, event times, or all cells (robustness "
+                    "checks of an ETWFE table). On the linear model any "
+                    "non-default value fits jwdid's reghdfe design with unit "
+                    "effects (panel=True, no weights).",
                     ["timecohort", "time", "cohort", "event", "twfe"],
                 ),
                 ParamSpec(
@@ -14410,8 +14414,13 @@ def _build_registry() -> None:
                 "family='poisson'/'logit' with panel=False or weights= is "
                 "not yet supported; these raise rather than being silently "
                 "ignored",
-                "hettype= other than the saturated default is implemented "
-                "for the nonlinear families only",
+                "linear hettype= combined with fe='cohort', panel=False or "
+                "weights= is not yet supported (the jwdid design absorbs unit "
+                "effects); these raise",
+                "fe='cohort' with a categorical xvar keeps one period slope "
+                "per level, while R etwfe 0.6.2 gives the levels a single "
+                "summed period slope, so the numbers can differ (documented "
+                "reference difference)",
                 "response-scale SEs under fe='unit' use the profiled delta "
                 "method; Stata jwdid's margins holds the absorbed effects "
                 "fixed (documented convention difference, point estimates "

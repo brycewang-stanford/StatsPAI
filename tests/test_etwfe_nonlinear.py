@@ -252,7 +252,9 @@ def test_invalid_options_raise():
     with pytest.raises(MethodIncompatibility, match="scale"):
         _fit(df, family="poisson", scale="odds")
     with pytest.raises(MethodIncompatibility, match="fe="):
-        _fit(df, fe="unit")  # linear branch
+        _fit(df, fe="within")
+    with pytest.raises(MethodIncompatibility, match="fe='cohort'"):
+        _fit(df, fe="cohort", hettype="event")  # linear hettype absorbs units
     # the linear model has one scale; either spelling is accepted
     assert _fit(df, scale="link").estimate == pytest.approx(_fit(df).estimate)
 

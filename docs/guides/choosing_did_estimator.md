@@ -227,7 +227,8 @@ TWFE over them.
 >
 > The rest of a jwdid table maps one to one. `hettype='event' | 'cohort' |
 > 'time' | 'twfe'` is `jwdid, hettype()` (the restricted-heterogeneity
-> robustness columns). `xvar='x'` is `jwdid y x`; a categorical column
+> robustness columns) -- on the linear model too, where `hettype=` or
+> `fe='unit'` fits jwdid's `reghdfe` design. `xvar='x'` is `jwdid y x`; a categorical column
 > (`.astype('category')`) is `jwdid y i.x`, and
 > `sp.etwfe_emfx(res, by_xvar=True)` is `estat simple, over(x)`.
 > `cgroup='nevertreated'` is `jwdid, never`, and its leads feed

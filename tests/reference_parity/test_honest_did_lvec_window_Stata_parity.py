@@ -155,5 +155,73 @@ def test_invalid_l_vec_and_window(fit):
         sp.honest_did(fit, l_vec="median")
     with pytest.raises(MethodIncompatibility, match="leads and horizons"):
         sp.honest_did(fit, window=(0, 3))
-    with pytest.raises(MethodIncompatibility, match="native"):
-        sp.honest_did(fit, backend="r", l_vec="average")
+
+
+def _skip_unless_r_honestdid():
+    import subprocess
+
+    from statspai.did.honest_did import _find_rscript
+
+    rscript = _find_rscript()
+    if rscript is None:
+        pytest.skip("Rscript is not installed")
+    ok = subprocess.run(
+        [
+            rscript,
+            "-e",
+            "quit(status = !(requireNamespace('HonestDiD', quietly=TRUE) && "
+            "requireNamespace('jsonlite', quietly=TRUE)))",
+        ],
+        capture_output=True,
+    )
+    if ok.returncode != 0:
+        pytest.skip("R packages HonestDiD/jsonlite are not installed")
+
+
+@pytest.mark.slow  # ~15 s per call through Rscript
+@pytest.mark.parametrize(
+    "kw",
+    [{"l_vec": "average"}, {"e": 1}, {"l_vec": [0.1, 0.2, 0.3, 0.4]}],
+)
+def test_r_backend_takes_l_vec_and_window(fit, kw):
+    """backend='r' hands HonestDiD the windowed event study and l_vec.  The
+    Conditional relative-magnitudes set is deterministic, so R and the
+    native solver must return the same accepted grid points."""
+    _skip_unless_r_honestdid()
+    common = dict(
+        method="relative_magnitude",
+        honestdid_method="Conditional",
+        window=WINDOW,
+        m_grid=[0.0, 0.5, 1.0],
+        **kw,
+    )
+    r = sp.honest_did(fit, backend="r", **common)
+    n = sp.honest_did(fit, **common)
+    np.testing.assert_allclose(r["ci_lower"], n["ci_lower"], rtol=0, atol=1e-10)
+    np.testing.assert_allclose(r["ci_upper"], n["ci_upper"], rtol=0, atol=1e-10)
+
+
+@pytest.mark.slow  # Rscript round trips
+def test_r_backend_flci_with_l_vec(ref, fit):
+    """R HonestDiD's FLCI on the same windowed inputs and l_vec.  Its
+    simulated folded-normal quantile and coarser search over h leave it up
+    to ~1e-2 from the exact FLCI (which Stata's port matches to 3e-6, see
+    test_flci_matches_stata); the bound holds that gap, the rest pins that
+    l_vec and window reached R."""
+    _skip_unless_r_honestdid()
+    R = ref["sd_avg"]
+    r = sp.honest_did(
+        fit,
+        method="smoothness",
+        backend="r",
+        l_vec="average",
+        window=WINDOW,
+        m_grid=R["M"],
+    )
+    np.testing.assert_allclose(r["M"], R["M"])
+    np.testing.assert_allclose(r["ci_lower"], R["lb"], rtol=0, atol=2e-2)
+    np.testing.assert_allclose(r["ci_upper"], R["ub"], rtol=0, atol=2e-2)
+    e1 = sp.honest_did(
+        fit, method="smoothness", backend="r", e=1, window=WINDOW, m_grid=R["M"]
+    )
+    assert not np.allclose(e1["ci_upper"], r["ci_upper"], atol=1e-3)

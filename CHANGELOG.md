@@ -74,15 +74,38 @@ All notable changes to StatsPAI will be documented in this file.
   replication panel, Appendix Table 3's hettype columns and Figure 4's
   `over()` ATTs match to 6 digits. The nonlinear design moved to
   `did/_etwfe_glm_design.py` (with `_etwfe_glm_fit.py`,
-  `_etwfe_glm_emfx.py`); `sp.etwfe(hettype=)` on the linear branch raises.
+  `_etwfe_glm_emfx.py`). With `fe='cohort'` (R etwfe's design) `xvar=`
+  follows R `etwfe` instead -- the covariate demeaned within cohort x
+  period cells, interacted with the cells and with the periods: a
+  continuous covariate matches `etwfe` 0.6.2 / `fixest` 0.14.0 to 1e-7
+  (`emfx` simple and event, both scales). For a factor covariate `etwfe`
+  0.6.2 writes the period term as `i(year, (x2_dm + x3_dm))`, which
+  `fixest` reads as one summed slope; StatsPAI keeps a slope per level and
+  matches that per-level design fitted with `fixest::feglm` to 5e-8
+  overall and per level (`test_etwfe_poisson_xvar_R_parity.py`, which
+  also pins that `etwfe`'s own numbers differ).
+- **Linear `sp.etwfe(hettype=)` and `fe='unit'` reproduce Stata `jwdid`
+  without `method()`.** Any `hettype`, or `fe='unit'`, fits `jwdid`'s
+  `reghdfe` design: unit and period effects, SEs clustered on the unit
+  with `reghdfe`'s `(N-1)/(N-K) * G/(G-1)` (K = regressors + constant),
+  `jwdid`'s `xvar` design and the aggregations (`estat simple / event /
+  over()`) of the nonlinear branch. Against `jwdid` v2.201 / `reghdfe`
+  6.12.3 on an unbalanced fixture (13 specifications: every hettype,
+  `never`, categorical and time-varying covariates) estimates agree to
+  1e-13 and SEs to 3e-12 (`test_etwfe_linear_jwdid_parity.py`). The
+  default linear design (R etwfe, cohort dummies) is unchanged;
+  `fe='cohort'` with a non-default hettype, `panel=False` or `weights=`
+  raise.
 - **`sp.honest_did(l_vec=, window=)`.** `l_vec` targets `l' tau_post`
   (HonestDiD's `l_vec`; `'average'` for the mean post-treatment effect)
   instead of a single period; `window=(lo, hi)` restricts the event study
   first, as an analysis run on `estat event, window()`. Against Stata
   `honestdid` 1.3.0 the FLCI agrees to 3e-6 and the Conditional
   relative-magnitudes bounds to within one grid step
-  (`test_honest_did_lvec_window_Stata_parity.py`). Native backend only; the
-  R backend raises when either is passed.
+  (`test_honest_did_lvec_window_Stata_parity.py`). `backend='r'` takes
+  both: it hands R `HonestDiD` the windowed event study and `l_vec`, and
+  its Conditional relative-magnitudes sets equal the native ones to 1e-10
+  (`average`, `e=1`, a custom `l_vec`).
 - **Poisson / logit ETWFE event studies carry their joint covariance.**
   `model_info['event_study_vcov']` is `G V G'` over the event-time
   aggregates (leads and horizons share one regression), on the fit's
