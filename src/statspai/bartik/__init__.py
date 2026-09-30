@@ -16,19 +16,21 @@ Borusyak, K., Hull, P., and Jaravel, X. (2022).
 *Review of Economic Studies*, 89(1), 181-213. [@borusyak2022quasi]
 """
 
-from .shift_share import bartik, BartikIV
-from .adao_correction import ssaggregate, shift_share_se
+from .adao_correction import shift_share_se, ssaggregate
 from .political import (
-    shift_share_political,
-    ShiftSharePoliticalResult,
-    shift_share_political_panel,
     ShiftSharePoliticalPanelResult,
+    ShiftSharePoliticalResult,
+    shift_share_political,
+    shift_share_political_panel,
 )
+from .rotemberg_summary import rotemberg_summary
+from .shift_share import BartikIV, bartik
 
 __all__ = [
     "bartik",
     "BartikIV",
     "ssaggregate",
+    "rotemberg_summary",
     "shift_share_se",
     "shift_share_political",
     "ShiftSharePoliticalResult",

@@ -2267,6 +2267,76 @@ def _scale_vcov_for_fe_dof(
         result.data_info["df_resid"] = int(df_resid_new)
 
 
+def _apply_small(
+    result: EconometricResults, small: bool, method: str, absorbed: bool
+) -> None:
+    """Honour ``small=``; ``True`` (the fitted convention) is a no-op."""
+    if not isinstance(small, bool):
+        raise MethodIncompatibility(f"small must be True or False, got {small!r}")
+    if small:
+        return
+    if absorbed:
+        raise MethodIncompatibility(
+            "small=False is not defined with absorb= (ivreghdfe follows "
+            "ivreg2's conventions).",
+            recovery_hint="Drop small=False, or partial the effects out as dummies.",
+        )
+    _ivregress_large_sample(result, method)
+
+
+def _ivregress_large_sample(result: EconometricResults, method: str) -> None:
+    """Rescale a fitted IV result to ``ivregress`` without ``small``.
+
+    Stata's ``ivregress`` reports large-sample statistics by default: the
+    classical variance divides the residual sum of squares by ``N``,
+    ``vce(robust)`` is HC0, ``vce(cluster)`` carries no finite-sample factor
+    at all, and inference is z / chi2 (read off Stata 18: the clustered SE
+    is the ``small`` one times ``sqrt((G-1)/G * (N-K)/(N-1))``). The
+    ``small`` option restores the ``N - K`` divisor, the
+    ``G/(G-1) * (N-1)/(N-K)`` cluster factor and t / F -- the convention
+    ``sp.iv`` has always reported.
+    """
+    if method not in ("2sls", "tsls", "iv", "liml"):
+        raise MethodIncompatibility(
+            "small=False reproduces ivregress for 2SLS and LIML; "
+            f"got method={method!r}.",
+            recovery_hint="Use small=True (the default) for other estimators.",
+        )
+    di, mi = result.data_info, result.model_info
+    n = int(di["nobs"])
+    df_resid = int(di["df_resid"])
+    robust = str(mi.get("robust", "nonrobust")).lower()
+    n_cl = mi.get("n_clusters")
+    if isinstance(n_cl, list):
+        raise MethodIncompatibility(
+            "small=False is defined for one-way clustering (ivregress); "
+            "multiway clustering follows ivreg2's small-sample convention.",
+            recovery_hint="Drop small=False, or cluster on one variable.",
+        )
+    if n_cl is not None:
+        g = int(n_cl)
+        factor = (df_resid / (n - 1)) * ((g - 1) / g)
+    elif robust in ("nonrobust", "hc1"):
+        factor = df_resid / n
+    elif robust == "hc0":
+        factor = 1.0
+    else:
+        raise MethodIncompatibility(
+            f"small=False matches ivregress, which has no {robust.upper()} "
+            "variance; use robust='robust' (HC0 without small) or small=True.",
+        )
+    V = di.get("var_cov")
+    if V is not None:
+        di["var_cov"] = np.asarray(V) * factor
+    result.std_errors = result.std_errors * float(np.sqrt(factor))
+    di["inference"] = "z"
+    di.pop("df_inference", None)
+    mi["small"] = False
+    if robust == "hc1" and n_cl is None:
+        mi["robust"] = "hc0"
+    result._compute_statistics()
+
+
 def iv(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,
@@ -2275,6 +2345,7 @@ def iv(
     cluster: Optional[str] = None,
     fuller_alpha: float = 1.0,
     absorb: Optional[Union[str, List[str]]] = None,
+    small: bool = True,
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -2331,6 +2402,14 @@ def iv(
         ``reghdfe``: ``sum(G_k - 1)`` over fixed effects *not* nested
         within a clustering dimension, plus one for the absorbed
         constant.
+    small : bool, default True
+        Small-sample statistics, as Stata's ``ivregress ..., small``: the
+        classical variance divides by ``N - K``, ``robust`` is HC1, a
+        cluster variance carries ``G/(G-1) * (N-1)/(N-K)``, and inference
+        is t / F. ``small=False`` gives ``ivregress``'s default
+        large-sample statistics instead: ``N`` divisor, HC0, no cluster
+        factor, and z / chi2 (2SLS and LIML, one-way clustering, no
+        ``absorb``).
     **kwargs
         Estimator-specific options forwarded to the underlying fitter.
         The one most users reach for is ``gmm_vcov``
@@ -2448,6 +2527,7 @@ def iv(
             fuller_alpha=fuller_alpha,
         )
         _result = model.fit(robust=robust, cluster=cluster, **kwargs)
+    _apply_small(_result, small, str(method).lower(), bool(absorb_terms))
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 

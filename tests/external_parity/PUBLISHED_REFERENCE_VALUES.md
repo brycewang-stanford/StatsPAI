@@ -192,3 +192,17 @@ in the repository. Pinned regression tests live in
    - One test asserting the output is in a reasonable neighbourhood
      of the published value on the original data (calibration check).
 4. Document the primary-source citation in this file.
+
+## Cengiz, Dube, Lindner & Zipperer (2019) minimum-wage bunching
+
+| Statistic | Value | Source |
+| --- | --- | --- |
+| Missing jobs below new MW (Delta b) | -0.018 (SE 0.004) | QJE 2019, Table 1, col 1 |
+| Excess jobs above new MW (Delta a) | 0.021 (SE 0.003) | QJE 2019, Table 1, col 1 |
+| % change affected wages | 0.068 (SE 0.010) | QJE 2019, Table 1, col 1 |
+| % change affected employment | 0.028 (SE 0.029) | QJE 2019, Table 1, col 1 |
+| Employment elasticity w.r.t. MW | 0.024 (SE 0.025) | QJE 2019, Table 1, col 1 |
+| Employment elasticity w.r.t. affected wage | 0.411 (SE 0.430) | QJE 2019, Table 1, col 1 |
+
+Test: `test_cdlz_bunching_table1.py`, from the column's regression
+coefficients (`data/cdlz_table1_col1.json`).

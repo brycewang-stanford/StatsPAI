@@ -51,7 +51,7 @@ class TestQuantileLPFallbackWarns:
         with pytest.warns(RuntimeWarning, match="LP solver failed"):
             res = sp.qreg(df, "y ~ x", quantile=0.5)
         # The IRLS fallback still delivers usable coefficients.
-        slope = float(res.params["Q(0.5) x"])
+        slope = float(res.params["x"])
         assert abs(slope - 2.0) < 0.5
 
     def test_healthy_lp_path_stays_silent(self):

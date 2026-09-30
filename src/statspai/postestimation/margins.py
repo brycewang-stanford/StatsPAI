@@ -1365,12 +1365,29 @@ def event_study_table(
     """
     mi = getattr(result, "model_info", {}) or {}
     es_df = mi.get("event_study") if isinstance(mi, dict) else None
+    if not (isinstance(es_df, pd.DataFrame) and "relative_time" in es_df.columns):
+        # The same resolution the event-study inference uses: a Gardner
+        # 'D_k+h' dict, or aggte(type='dynamic')'s ``detail`` frame.
+        from ..did.es_inference import _es_frame
+
+        es_df = _es_frame(result) if regex is None else None
     rows: List[Tuple[int, float, float, float, float, float]] = []
 
     if isinstance(es_df, pd.DataFrame) and "relative_time" in es_df.columns:
+        # Estimators name the point estimate ``estimate`` (sp.event_study)
+        # or ``att`` (Sun-Abraham, stacked, BJS, CS). Reading only
+        # ``estimate`` returned NaN for every ``att`` table through 1.32.
+        est_col = next(
+            (c for c in ("estimate", "att", "dy/dx") if c in es_df.columns), None
+        )
+        if est_col is None:
+            raise MethodIncompatibility(
+                "event_study_table: the event-study table has no estimate "
+                f"column (looked for estimate / att / dy/dx in {list(es_df.columns)})."
+            )
         for _, row in es_df.iterrows():
             t = int(row["relative_time"])
-            est = float(row.get("estimate", row.get("dy/dx", np.nan)))
+            est = float(row[est_col])
             se = float(row.get("se", np.nan))
             lo = float(row.get("ci_lower", np.nan))
             hi = float(row.get("ci_upper", np.nan))
@@ -1419,6 +1436,11 @@ def event_study_table(
         raise ValueError(
             "event_study_table: no event-time rows extracted. Check "
             "the regex pattern or include_reference=True."
+        )
+    if all(not np.isfinite(r[1]) for r in rows):
+        raise MethodIncompatibility(
+            "event_study_table: every extracted estimate is NaN; the table "
+            "does not carry the point estimates."
         )
 
     rows.sort(key=lambda r: r[0])

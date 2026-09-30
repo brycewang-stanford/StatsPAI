@@ -134,16 +134,26 @@ def test_provider_level_controls_are_annihilated(sasp, demeaned):
     assert len(dead) == 12
 
 
-def test_regress_refuses_a_constant_regressor_instead_of_dropping_it(demeaned):
-    """StatsPAI names the unidentified regressor; Stata omits it silently.
+def test_regress_omits_a_constant_regressor_loudly(demeaned):
+    """A demeaned time-invariant control is unidentified.
 
-    Guards the "fail loudly" contract: handing a demeaned time-invariant
-    control to sp.regress must raise, not silently return a zero.
+    Stata omits it with a note; ``sp.regress`` does the same (1.33) with a
+    warning naming it and ``model_info['omitted']``, and raises under
+    ``collinear='raise'``. Never a silent zero.
     """
     from statspai.exceptions import NumericalInstability
 
+    with pytest.warns(UserWarning, match="w_age omitted because of collinearity"):
+        r = sp.regress("w_lnw ~ w_age + w_unsafe", data=demeaned, robust="hc1")
+    assert "w_age" not in r.params.index
+    assert r.model_info["omitted"][0]["variable"] == "w_age"
     with pytest.raises(NumericalInstability, match="w_age"):
-        sp.regress("w_lnw ~ w_age + w_unsafe", data=demeaned, robust="hc1")
+        sp.regress(
+            "w_lnw ~ w_age + w_unsafe",
+            data=demeaned,
+            robust="hc1",
+            collinear="raise",
+        )
 
 
 def test_pooled_and_within_disagree_substantively(sasp):

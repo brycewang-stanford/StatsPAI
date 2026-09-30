@@ -39,7 +39,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
-| `did` | 47,929 | 64 | 93 |
+| `did` | 49,798 | 67 | 95 |
 | `synth` | 27,673 | 36 | 55 |
 | `rd` | 20,745 | 32 | 55 |
 | `regression` | 19,867 | 24 | 39 |
@@ -78,7 +78,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `causal_llm` | 2,976 | 10 | 15 |
 | `bounds` | 2,812 | 5 | 12 |
 | `crossval` | 2,761 | 7 | 2 |
-| `bartik` | 2,628 | 5 | 8 |
+| `bartik` | 3,142 | 6 | 9 |
 | `postestimation` | 2,612 | 6 | 12 |
 | `conformal_causal` | 2,551 | 9 | 21 |
 | `epi` | 2,516 | 6 | 20 |

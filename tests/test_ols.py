@@ -4,19 +4,22 @@ Tests for OLS regression functionality
 
 import warnings
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 from patsy import dmatrices
 from scipy import stats
+
 from statspai import regress
 from statspai.core.utils import (
     _try_simple_numeric_design_matrices,
     create_design_matrices,
 )
-from statspai.exceptions import DataInsufficient
-from statspai.exceptions import MethodIncompatibility
-from statspai.exceptions import NumericalInstability
+from statspai.exceptions import (
+    DataInsufficient,
+    MethodIncompatibility,
+    NumericalInstability,
+)
 from statspai.regression.ols import OLSEstimator, OLSRegression
 
 
@@ -115,14 +118,23 @@ class TestOLSRegression:
         with pytest.raises(ValueError, match="X contains non-finite values"):
             regress("y ~ x1 + x2", data=df)
 
-    def test_regress_rejects_perfectly_collinear_regressors(self, sample_data):
+    def test_regress_omits_or_rejects_perfectly_collinear_regressors(self, sample_data):
         df = sample_data.copy()
         df["x1_twice"] = 2.0 * df["x1"]
 
         with pytest.raises(NumericalInstability, match="perfectly collinear"):
-            regress("y ~ x1 + x1_twice + x2", data=df)
+            regress("y ~ x1 + x1_twice + x2", data=df, collinear="raise")
+        with pytest.warns(
+            UserWarning, match="x1_twice omitted because of collinearity"
+        ):
+            r = regress("y ~ x1 + x1_twice + x2", data=df)
+        assert list(r.params.index) == ["Intercept", "x1", "x2"]
+        assert r.model_info["omitted"][0]["variable"] == "x1_twice"
+        base = regress("y ~ x1 + x2", data=df)
+        np.testing.assert_allclose(r.params, base.params, rtol=1e-12)
+        np.testing.assert_allclose(r.std_errors, base.std_errors, rtol=1e-12)
 
-    def test_regress_rejects_low_order_linear_dependence(self):
+    def test_regress_omits_or_rejects_low_order_linear_dependence(self):
         rng = np.random.default_rng(20260617)
         x1 = rng.normal(size=80)
         x2 = rng.normal(size=80)
@@ -136,7 +148,10 @@ class TestOLSRegression:
         )
 
         with pytest.raises(NumericalInstability, match="exact linear combination"):
-            regress("y ~ x1 + x2 + x_sum", data=df)
+            regress("y ~ x1 + x2 + x_sum", data=df, collinear="raise")
+        with pytest.warns(UserWarning, match="x_sum omitted because of collinearity"):
+            r = regress("y ~ x1 + x2 + x_sum", data=df)
+        assert list(r.params.index) == ["Intercept", "x1", "x2"]
 
     def test_regress_rejects_no_residual_degrees_of_freedom(self):
         df = pd.DataFrame({"y": [1.0, 2.0], "x": [0.0, 1.0]})

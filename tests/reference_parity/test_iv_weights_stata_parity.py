@@ -127,12 +127,22 @@ def test_alpha_sets_the_reported_interval() -> None:
     assert res.tidy().set_index("term").loc["d", "conf_high"] == pytest.approx(hi)
 
 
-@pytest.mark.parametrize("bad", [{"zzz": 1}, {"small": True}, {"iv_diag": True}])
+@pytest.mark.parametrize("bad", [{"zzz": 1}, {"smal": True}, {"iv_diag": True}])
 def test_unknown_options_are_rejected(bad: Dict[str, Any]) -> None:
     with pytest.raises(TypeError, match="unexpected keyword"):
         sp.iv(FORMULA, data=_data(), **bad)
     with pytest.raises(TypeError, match="unexpected keyword"):
         sp.ivreg(FORMULA, data=_data(), **bad)
+
+
+def test_small_is_an_iv_option_but_not_an_ivreg_one() -> None:
+    """``sp.iv(small=)`` selects ivregress's convention (1.33);
+    ``sp.ivreg`` has no such option and still rejects it."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        sp.iv(FORMULA, data=_data(), small=False)
+    with pytest.raises(TypeError, match="unexpected keyword"):
+        sp.ivreg(FORMULA, data=_data(), small=True)
 
 
 def test_bad_weights_fail_loudly() -> None:

@@ -7,6 +7,7 @@ StatsPAI's ``EconometricResults``, making them compatible with
 """
 
 import re
+import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
@@ -78,6 +79,23 @@ def _translate_varying_slopes(fml: str) -> Tuple[str, bool]:
     if rest:
         new += " |" + rest
     return new, not has_intercept_fe
+
+
+def _native_eligible(
+    fml: str, vcov: Any, ssc: Any, extra: Dict[str, Any], weights: Any = None
+) -> bool:
+    """Whether ``backend='native'`` can fit this ``feols`` call."""
+    if ssc is not None or extra or fml.count("|") > 1:
+        return False
+    if weights is not None and isinstance(vcov, str) and vcov.lower() != "iid":
+        return False  # the native robust menu is unweighted
+    if any(tok in fml for tok in ("sw(", "csw(", "sw0(", "csw0(", "C(", "i(")):
+        return False
+    if vcov is None or isinstance(vcov, dict):
+        return vcov is None or (
+            len(vcov) == 1 and str(next(iter(vcov))).upper() in ("CRV1", "CLUSTER")
+        )
+    return str(vcov).lower() in ("iid", "hetero", "hc1", "robust")
 
 
 def _feols_varying_slopes(
@@ -167,7 +185,8 @@ def _feols_varying_slopes(
         data_info["df_inference"] = int(min(n_cl)) - 1
     model_info: Dict[str, Any] = {
         "model_type": "OLS (StatsPAI native HDFE)",
-        "method": "High-Dimensional Fixed Effects (varying slopes)",
+        "method": "High-Dimensional Fixed Effects"
+        + (" (varying slopes)" if _has_varying_slopes(fml) else ""),
         "formula": fml,
         "absorbed_formula": translated,
         "vcov_type": label,
@@ -178,7 +197,12 @@ def _feols_varying_slopes(
     }
     if cluster is not None and n_cl:
         model_info["n_clusters"] = int(min(n_cl))
-    diagnostics = {"R-squared (within)": float(res.r2_within)}
+    diagnostics = {
+        "R-squared": float(res.r2),
+        "Adj. R-squared": float(res.r2_a),
+        "R-squared (within)": float(res.r2_within),
+        "Adj. R-squared (within)": float(res.r2_a_within),
+    }
     return EconometricResults(
         params=params.rename(None),
         std_errors=ses.rename(None),
@@ -221,6 +245,100 @@ def _reject_silent_varying_slopes(fml: str) -> None:
         f"  2. Absorb it with StatsPAI's own HDFE kernel:\n"
         f"       sp.hdfe_ols('... | <other FE> + i.{factor}#c.{var}', data=...)"
     )
+
+
+_MULTI_REF_RE = re.compile(
+    r"i\(\s*(?P<f>[^\W\d]\w*)\s*(?:,\s*(?P<v>[^\W\d]\w*)\s*)?,"
+    r"\s*ref\s*=\s*(?:\[(?P<lst>[^\]]*)\]|c\((?P<rc>[^)]*)\))\s*\)"
+)
+
+
+def _parse_ref_levels(text: str, column: pd.Series) -> List[Any]:
+    """Reference levels written in a formula, typed like the column."""
+    out: List[Any] = []
+    for tok in (t.strip().strip("'\"") for t in text.split(",") if t.strip()):
+        match = [v for v in pd.unique(column.dropna()) if str(v) == tok]
+        if not match:
+            try:
+                num = float(tok)
+                match = [v for v in pd.unique(column.dropna()) if v == num]
+            except ValueError:
+                match = []
+        if not match:
+            raise MethodIncompatibility(
+                f"i(..., ref=[...]): level {tok!r} is not a value of "
+                f"'{column.name}'.",
+            )
+        out.append(match[0])
+    return out
+
+
+def _expand_multi_ref(
+    fml: str, data: pd.DataFrame
+) -> Tuple[str, pd.DataFrame, Dict[str, str]]:
+    """``i(f, ref=[a, b])`` (fixest ``ref = c(a, b)``) for pyfixest.
+
+    pyfixest takes one reference level. Omitting the dummies of levels
+    ``a`` and ``b`` is the same model as merging ``b`` into ``a`` and using
+    that merged level as the base, so the term is rewritten on a copy of the
+    factor with ``b -> a`` and the coefficient names are mapped back.
+    Returns the new formula, the (possibly augmented) data and the
+    name mapping ``{pyfixest name: user-facing name}``.
+    """
+    renames: Dict[str, str] = {}
+    if "ref" not in fml:
+        return fml, data, renames
+    work = data
+    counter = 0
+
+    def repl(m: "re.Match[str]") -> str:
+        nonlocal work, counter
+        f, v = m.group("f"), m.group("v")
+        levels = _parse_ref_levels(m.group("lst") or m.group("rc") or "", data[f])
+        if len(levels) == 1:  # ref=[a] is ref=a
+            ref1 = repr(levels[0]) if isinstance(levels[0], str) else str(levels[0])
+            return f"i({f}, {v}, ref={ref1})" if v else f"i({f}, ref={ref1})"
+        counter += 1
+        # No leading underscores: pyfixest drops ``__x`` terms silently.
+        tmp = f"{f}_multiref{counter}"
+        while tmp in data.columns:
+            counter += 1
+            tmp = f"{f}_multiref{counter}"
+        if work is data:
+            work = data.copy()
+        base = levels[0]
+        work[tmp] = data[f].where(~data[f].isin(levels[1:]), base)
+        for lev in pd.unique(data[f].dropna()):
+            if lev in levels:
+                continue
+            suffix = f":{v}" if v else ""
+            renames[f"{tmp}::{lev}{suffix}"] = f"{f}::{lev}{suffix}"
+        ref = repr(base) if isinstance(base, str) else str(base)
+        return f"i({tmp}, {v}, ref={ref})" if v else f"i({tmp}, ref={ref})"
+
+    new = _MULTI_REF_RE.sub(repl, fml)
+    return new, work, renames
+
+
+def _rename_terms(res: Any, renames: Dict[str, str]) -> Any:
+    """Map coefficient names on a fitted result (see ``_expand_multi_ref``)."""
+    if not renames:
+        return res
+    for attr in (
+        "params",
+        "std_errors",
+        "tvalues",
+        "pvalues",
+        "conf_int_lower",
+        "conf_int_upper",
+    ):
+        val = getattr(res, attr, None)
+        if isinstance(val, pd.Series):
+            setattr(res, attr, val.rename(index=lambda n: renames.get(str(n), n)))
+    di = getattr(res, "data_info", None)
+    if isinstance(di, dict) and isinstance(di.get("var_names"), list):
+        di["var_names"] = [renames.get(str(n), n) for n in di["var_names"]]
+    return res
 
 
 def _check_pyfixest() -> Any:
@@ -859,6 +977,7 @@ def feols(
     conley_lat: Optional[str] = None,
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
+    backend: str = "pyfixest",
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
@@ -923,6 +1042,15 @@ def feols(
         Coordinate columns (decimal degrees) for ``vce="conley"``.
     conley_cutoff : float, optional
         Conley distance cutoff in km for ``vce="conley"``.
+    backend : {'pyfixest', 'native'}, default 'pyfixest'
+        ``'native'`` fits the regression on StatsPAI's HDFE kernel
+        (``sp.hdfe_ols``) and reports it as ``feols`` does: same
+        coefficients, SEs within the demeaning tolerance (~1e-9) for
+        ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': col}``, and 10-60x
+        faster on millions of rows (2M rows, two effects: 1.9 s vs 110 s).
+        No IV part, multiple-estimation syntax or ``ssc=``. With the
+        default, a regression of at least a million rows that the native
+        kernel can fit warns once with this suggestion.
     **kwargs
         Additional arguments passed to ``pyfixest.feols()``.
 
@@ -961,10 +1089,46 @@ def feols(
     >>> r2 = sp.feols("y ~ x1 | firm", data=df)  # doctest: +SKIP
     >>> sp.outreg2(r1, r2, filename="table.xlsx")  # doctest: +SKIP
     """
-    if _has_varying_slopes(fml):
-        # pyfixest parses fixest's varying-slope syntax but silently drops the
-        # slope (see _reject_silent_varying_slopes); route to StatsPAI's own
-        # HDFE kernel, which absorbs it.
+    # ``i(rel, ref=[-1, -5])``: several reference levels (fixest's
+    # ``ref = c(-1, -5)``); pyfixest takes one, so rewrite and map back.
+    if isinstance(fml, str) and isinstance(data, pd.DataFrame):
+        fml2, data2, renames = _expand_multi_ref(fml, data)
+        if fml2 != fml:
+            res = feols(
+                fml2,
+                data2,
+                vcov=vcov,
+                weights=weights,
+                ssc=ssc,
+                fixef_rm=fixef_rm,
+                collin_tol=collin_tol,
+                lean=lean,
+                cluster=cluster,
+                wild_reps=wild_reps,
+                wild_weight_type=wild_weight_type,
+                seed=seed,
+                conley_lat=conley_lat,
+                conley_lon=conley_lon,
+                conley_cutoff=conley_cutoff,
+                **kwargs,
+            )
+            fits = res if isinstance(res, list) else [res]
+            for r in fits:
+                if renames and not any(str(n) in renames for n in r.params.index):
+                    raise MethodIncompatibility(
+                        "feols: the i(..., ref=[...]) terms were not estimated; "
+                        "check the factor has levels besides the references.",
+                    )
+                _rename_terms(r, renames)
+            return res
+    if backend not in ("pyfixest", "native"):
+        raise MethodIncompatibility(
+            f"feols: backend must be 'pyfixest' or 'native', got {backend!r}."
+        )
+    if backend == "native" or _has_varying_slopes(fml):
+        # Varying slopes always take this path: pyfixest parses fixest's
+        # varying-slope syntax but silently drops the slope (see
+        # _reject_silent_varying_slopes).
         return _feols_varying_slopes(
             fml,
             data,
@@ -974,6 +1138,14 @@ def feols(
             ssc=ssc,
             fixef_rm=fixef_rm,
             extra=kwargs,
+        )
+    if len(data) >= 1_000_000 and _native_eligible(fml, vcov, ssc, kwargs, weights):
+        warnings.warn(
+            f"feols: {len(data):,} rows through pyfixest; backend='native' fits "
+            "this regression on StatsPAI's HDFE kernel with the same "
+            "coefficients and SEs (within ~1e-9), typically 10-60x faster.",
+            UserWarning,
+            stacklevel=3,
         )
 
     # Wild cluster bootstrap path (Stata ``boottest`` / ``vce()``-style):

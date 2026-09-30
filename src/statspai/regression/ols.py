@@ -3,11 +3,12 @@ OLS regression implementation with comprehensive features
 """
 
 import warnings
-from typing import Any, Callable, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 import pandas as pd
 from scipy import stats
+from scipy.linalg import solve_triangular
 
 from .._aliases import accepts_aliases
 from ..core._vcov_spec import markout_clusters
@@ -237,6 +238,130 @@ def _detect_perfect_collinearity(X: np.ndarray, var_names: List[str]) -> None:
                     )
 
 
+def _written_column_order(
+    formula: Optional[str], design_info: Any, k: int
+) -> List[int]:
+    """Design columns in the order the formula writes its terms.
+
+    patsy moves categorical terms ahead of numeric ones, so ``d1 + C(g)``
+    arrives as ``C(g), d1``. Stata scans ``d1 i.g`` as written; the
+    collinearity scan follows the written order so the same member is
+    omitted. Falls back to the design order when the terms cannot be
+    matched.
+    """
+    identity = list(range(k))
+    if not formula or design_info is None:
+        return identity
+    try:
+        import patsy
+
+        written = list(patsy.ModelDesc.from_formula(formula).rhs_termlist)
+        slices = design_info.term_slices
+        keyed = []
+        for pos, (term, sl) in enumerate(slices.items()):
+            rank = written.index(term) if term in written else len(written) + pos
+            keyed.extend((rank, j) for j in range(sl.start, sl.stop))
+    except Exception:  # patsy absent or an unparsable formula: design order
+        return identity
+    order = [j for _, j in sorted(keyed, key=lambda t: t[0])]
+    return order if sorted(order) == identity else identity
+
+
+def _collinear_omissions(X: np.ndarray, var_names: List[str]) -> List[Tuple[int, str]]:
+    """Columns Stata's ``regress`` would omit, scanned left to right.
+
+    Returns ``(column index, reason)`` pairs. A column is omitted when it adds
+    nothing to the columns kept before it, so the *later* member of a
+    collinear set goes, as with Stata's ``_rmcoll``. Three structural cases
+    are covered:
+
+    * a zero column, or a constant column after the intercept;
+    * a column proportional to a kept one (``|corr| = 1``; through the origin
+      when the design has no constant);
+    * an exact dependence among discrete columns -- intercept and integer-
+      valued regressors such as dummies (the dummy-variable trap,
+      ``C(g)`` plus a hand-made level dummy). Integer data carry exact
+      dependencies, so a pivot-free Cholesky sweep of their cross-product in
+      column order separates them from full-rank columns by many orders of
+      magnitude.
+
+    Continuous columns are not swept against each other: a relative
+    tolerance that caught a three-way continuous dependence would also drop a
+    column of NIST's full-rank Filippelli design (``s_min / s_max ~ 6e-16``).
+    Those dependencies are caught after the cross-product fit fails (see
+    :func:`_detect_low_order_linear_dependence`).
+    """
+    n, k = X.shape
+    names = list(var_names)
+    omitted: List[Tuple[int, str]] = []
+    if k == 0 or n == 0:
+        return omitted
+
+    has_const = False
+    for j in range(k):
+        col = X[:, j]
+        if np.ptp(col) == 0 and col[0] != 0:
+            has_const = True
+            break
+
+    kept: List[int] = []
+    const_kept: Optional[int] = None
+    # Discrete sweep state: kept discrete columns and the Cholesky factor of
+    # their cross-product (grown one column at a time).
+    disc_kept: List[int] = []
+    L = np.zeros((0, 0))
+    centered = X - X.mean(axis=0) if has_const else X
+    norms = np.sqrt(np.sum(centered * centered, axis=0))
+
+    for j in range(k):
+        col = X[:, j]
+        scale = max(1.0, float(np.max(np.abs(col))))
+        if not np.any(col):
+            omitted.append((j, "zero column"))
+            continue
+        is_const = np.ptp(col) <= 1e-12 * scale
+        if is_const:
+            if const_kept is not None:
+                omitted.append((j, f"constant, collinear with '{names[const_kept]}'"))
+                continue
+            const_kept = j
+        else:
+            dup = None
+            for i in kept:
+                if i == const_kept or norms[i] == 0 or norms[j] == 0:
+                    continue
+                c = float(centered[:, i] @ centered[:, j]) / (norms[i] * norms[j])
+                if np.isfinite(c) and abs(c) >= 1.0 - 1e-8:
+                    dup = i
+                    break
+            if dup is not None:
+                omitted.append((j, f"collinear with '{names[dup]}'"))
+                continue
+
+        is_discrete = bool(
+            np.all(np.isfinite(col))
+            and np.all(col == np.round(col))
+            and float(np.max(np.abs(col))) <= 1e6
+        )
+        if is_discrete:
+            g = X[:, disc_kept].T @ col if disc_kept else np.zeros(0)
+            gjj = float(col @ col)
+            v = solve_triangular(L, g, lower=True) if disc_kept else np.zeros(0)
+            d = gjj - float(v @ v)
+            if d <= 1e-9 * gjj:
+                omitted.append((j, "collinear with earlier discrete regressors"))
+                continue
+            m = len(disc_kept)
+            L_new = np.zeros((m + 1, m + 1))
+            L_new[:m, :m] = L
+            L_new[m, :m] = v
+            L_new[m, m] = np.sqrt(d)
+            L = L_new
+            disc_kept.append(j)
+        kept.append(j)
+    return omitted
+
+
 def _detect_low_order_linear_dependence(
     X: np.ndarray,
     var_names: Optional[List[str]],
@@ -259,7 +384,9 @@ def _detect_low_order_linear_dependence(
 
     names = list(var_names) if var_names is not None else [f"x{i}" for i in range(k)]
     eps = np.finfo(float).eps
-    for target in range(k):
+    # Scan from the last column: the later member of a dependent set is the
+    # one reported (and omitted by ``collinear='omit'``), as in Stata.
+    for target in reversed(range(k)):
         y_col = X[:, target]
         y_norm = float(np.linalg.norm(y_col))
         others = [idx for idx in range(k) if idx != target]
@@ -686,6 +813,7 @@ class OLSRegression(BaseModel):
         y: Optional[np.ndarray] = None,
         X: Optional[np.ndarray] = None,
         var_names: Optional[List[str]] = None,
+        collinear: str = "omit",
     ) -> None:
         """
         Initialize OLS regression
@@ -702,8 +830,17 @@ class OLSRegression(BaseModel):
             Independent variables (alternative to formula)
         var_names : List[str], optional
             Variable names when using y, X directly
+        collinear : {'omit', 'raise'}, default 'omit'
+            Rank-deficient design: omit the later member of each collinear
+            set with a warning (Stata ``regress``), or raise
+            :class:`NumericalInstability`.
         """
         super().__init__()
+        if collinear not in ("omit", "raise"):
+            raise MethodIncompatibility(
+                f"collinear must be 'omit' or 'raise', got {collinear!r}"
+            )
+        self.collinear = collinear
 
         self.formula = formula
         self.data = data
@@ -793,8 +930,31 @@ class OLSRegression(BaseModel):
                 f"entries but X has {self.X.shape[1]} columns"
             )
 
-        # Fail loudly on an exactly rank-deficient design rather than returning
-        # unidentified garbage coefficients.
+        # A rank-deficient design: omit the later member of each collinear set
+        # as Stata's ``regress`` does (``collinear='omit'``, the default), or
+        # fail loudly (``collinear='raise'``). Never return unidentified
+        # coefficients.
+        collinear = getattr(self, "collinear", "omit")
+        omitted: List[Dict[str, str]] = []
+        if collinear == "omit":
+            order = _written_column_order(
+                self.formula, self._design_info, self.X.shape[1]
+            )
+            drops = [
+                (order[j], r)
+                for j, r in _collinear_omissions(
+                    self.X[:, order], [self.var_names[i] for i in order]
+                )
+            ]
+            if drops:
+                omitted = [
+                    {"variable": self.var_names[j], "reason": r} for j, r in drops
+                ]
+                keep = [
+                    j for j in range(self.X.shape[1]) if j not in {d[0] for d in drops}
+                ]
+                self.X = self.X[:, keep]
+                self.var_names = [self.var_names[j] for j in keep]
         _detect_perfect_collinearity(self.X, self.var_names)
 
         # Resolve analytic regression weights (Stata ``aweight`` semantics).
@@ -816,14 +976,51 @@ class OLSRegression(BaseModel):
                 cluster_var = cluster_var.reindex(design_index)
 
         # Estimate model
-        results = self.estimator.estimate(
-            self.y,
-            self.X,
-            robust=robust,
-            cluster=cluster_var,
-            var_names=self.var_names,
-            **kwargs,
-        )
+        while True:
+            try:
+                results = self.estimator.estimate(
+                    self.y,
+                    self.X,
+                    robust=robust,
+                    cluster=cluster_var,
+                    var_names=self.var_names,
+                    **kwargs,
+                )
+                break
+            except NumericalInstability as exc:
+                # A continuous exact dependence (``x3 = x1 + x2``) only shows
+                # once the cross-product fit fails; omit its later member.
+                dep = (getattr(exc, "diagnostics", None) or {}).get("linear_dependence")
+                if (
+                    collinear != "omit"
+                    or not dep
+                    or dep["target"] not in self.var_names
+                ):
+                    raise
+                j = self.var_names.index(dep["target"])
+                omitted.append(
+                    {
+                        "variable": dep["target"],
+                        "reason": "linear combination of '"
+                        + "', '".join(dep["basis"])
+                        + "'",
+                    }
+                )
+                self.X = np.delete(self.X, j, axis=1)
+                self.var_names = [v for i, v in enumerate(self.var_names) if i != j]
+
+        if omitted:
+            warnings.warn(
+                "regress: "
+                + "; ".join(
+                    f"note: {o['variable']} omitted because of collinearity "
+                    f"({o['reason']})"
+                    for o in omitted
+                )
+                + ". Pass collinear='raise' to fail instead.",
+                UserWarning,
+                stacklevel=3,
+            )
 
         # Create results object
         params = pd.Series(results["params"], index=self.var_names)
@@ -867,6 +1064,8 @@ class OLSRegression(BaseModel):
             "robust": robust,
             "cluster": cluster,
         }
+        if omitted:
+            model_info["omitted"] = omitted
         if cluster_var is not None:
             model_info["n_clusters"] = n_clusters_obs
 
@@ -1149,6 +1348,7 @@ def regress(
     conley_lat: Optional[str] = None,
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
+    collinear: str = "omit",
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -1315,7 +1515,13 @@ def regress(
                 "small-sample adjustment)."
             )
         kind = "CR3" if vce_kw.lower() in ("cr3", "jackknife") else "CR2"
-        base = regress(formula=formula, data=data, robust="nonrobust", cluster=cluster)
+        base = regress(
+            formula=formula,
+            data=data,
+            robust="nonrobust",
+            cluster=cluster,
+            collinear=collinear,
+        )
         from scipy import stats as _stats
 
         from ..inference.jackknife import cr_vcov_ols
@@ -1348,7 +1554,13 @@ def regress(
                 "regress(vce='conley') requires conley_lat=, conley_lon=, and "
                 "conley_cutoff= (planar distance cutoff in km; matches Stata acreg)."
             )
-        base = regress(formula=formula, data=data, robust="nonrobust", cluster=None)
+        base = regress(
+            formula=formula,
+            data=data,
+            robust="nonrobust",
+            cluster=None,
+            collinear=collinear,
+        )
         from scipy import stats as _stats
 
         from ..inference.conley import ols_conley_vcov
@@ -1376,7 +1588,13 @@ def regress(
             raise MethodIncompatibility(
                 "regress(vce='jackknife') requires cluster=... ."
             )
-        base = regress(formula=formula, data=data, robust="nonrobust", cluster=cluster)
+        base = regress(
+            formula=formula,
+            data=data,
+            robust="nonrobust",
+            cluster=cluster,
+            collinear=collinear,
+        )
         from ..inference.jackknife import jackknife_se
 
         jk = jackknife_se(base, data, cluster=cluster)
@@ -1401,6 +1619,7 @@ def regress(
             data=data,
             robust={"CRV1": cluster},
             cluster=cluster,
+            collinear=collinear,
         )
         wild_reps = kwargs.pop("wild_reps", 999)
         wild_weight_type = kwargs.pop("wild_weight_type", "rademacher")
@@ -1442,7 +1661,13 @@ def regress(
     # sandwich on the projected-score meat.
     if isinstance(cluster, (list, tuple)) and len(cluster) == 2:
         c1, c2 = cluster
-        base = regress(formula=formula, data=data, robust="nonrobust", cluster=c1)
+        base = regress(
+            formula=formula,
+            data=data,
+            robust="nonrobust",
+            cluster=c1,
+            collinear=collinear,
+        )
         from scipy import stats as _stats
 
         from ..inference.jackknife import two_way_correction_ols
@@ -1477,7 +1702,7 @@ def regress(
 
     reject_unknown_kwargs(kwargs, function="regress", known=("weights",))
 
-    model = OLSRegression(formula=formula, data=data)
+    model = OLSRegression(formula=formula, data=data, collinear=collinear)
     robust_kw = vce_kw if vce_kw is not None else robust
     _result = model.fit(robust=robust_kw, cluster=cluster, **kwargs)
     try:

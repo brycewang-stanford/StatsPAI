@@ -120,6 +120,7 @@ def did_imputation(
     save_weights: bool = False,
     save_residuals: bool = False,
     weights: Optional[str] = None,
+    autosample: bool = False,
 ) -> CausalResult:
     """
     Borusyak, Jaravel & Spiess (2024) imputation DID estimator.
@@ -274,6 +275,14 @@ def did_imputation(
         composition is stable across ``k`` (no cohort churn).
         Never-treated units are always kept.  Requires ``horizon`` (or
         ``pretrends``).  Warns with the number of units dropped.
+    autosample : bool, default False
+        Stata ``did_imputation, autosample``. A treated observation whose
+        unit (or period) has no untreated observation has no imputable
+        fixed effect. By default that is an error, as in Stata; with
+        ``autosample=True`` those observations are dropped from the
+        estimation sample, with a warning and the count in
+        ``model_info['n_obs_autosample_dropped']``. Typical case: units
+        treated from the first period of the panel.
     min_n : int, optional
         Stata ``did_imputation, minn(#)``: drop event-study horizons
         with fewer than ``min_n`` treated observations (they are noisy
@@ -537,6 +546,31 @@ def did_imputation(
             keep_mask = (~ev_mask) | df[group].isin(keep_units).values
             df = df[keep_mask].copy()
 
+    # ── Optional autosample (Stata: autosample) ─────────────────── #
+    # A treated row needs an untreated row in its unit and in its period
+    # for both fixed effects to be imputable.
+    n_autosample_dropped = 0
+    if not isinstance(autosample, bool):
+        raise MethodIncompatibility(
+            f"autosample must be True or False, got {autosample!r}"
+        )
+    if autosample:
+        untr = df["_untreated_obs"]
+        unit_ok = df[group].isin(df.loc[untr, group].unique())
+        time_ok = df[time].isin(df.loc[untr, time].unique())
+        bad = df["_treated_obs"] & ~(unit_ok & time_ok)
+        n_autosample_dropped = int(bad.sum())
+        if n_autosample_dropped:
+            warnings.warn(
+                f"did_imputation: autosample dropped {n_autosample_dropped} "
+                "treated observation(s) whose unit or period has no untreated "
+                "observation (fixed effect not imputable); the estimates "
+                "refer to the remaining sample.",
+                UserWarning,
+                stacklevel=2,
+            )
+            df = df[~bad].copy()
+
     n_treated = df["_treated_obs"].sum()
     n_untreated = df["_untreated_obs"].sum()
 
@@ -582,6 +616,8 @@ def did_imputation(
             "every treated unit to estimate its unit fixed effect. "
             f"Missing untreated history for unit(s): {preview}"
             + (" ..." if len(missing_units) > 5 else "")
+            + ". Pass autosample=True to drop those observations (Stata "
+            "did_imputation, autosample)."
         )
     if missing_times:
         preview = ", ".join(map(str, missing_times[:5]))
@@ -1072,6 +1108,9 @@ def did_imputation(
     if balanced:
         model_info["balanced"] = True
         model_info["n_units_dropped_balance"] = n_units_balanced_out
+    if autosample:
+        model_info["autosample"] = True
+        model_info["n_obs_autosample_dropped"] = n_autosample_dropped
     if min_n is not None:
         model_info["min_n"] = min_n
     if hetby_df is not None:

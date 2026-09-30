@@ -102,6 +102,29 @@ from .rdpower import RDPowerResult, RDSampSiResult, rdpower, rdsampsi
 from .rdrobust import rdplot, rdplotdensity, rdrobust
 from .rkd import rkd
 
+# ``import statspai.rd.rdrobust as m`` binds this package's attribute, which
+# the import above set to the *function*: ``m.rdplot`` then failed (top-5
+# replication list, API friction). The attribute is the module itself,
+# made callable as the function, so both ``statspai.rd.rdrobust(...)`` and
+# ``statspai.rd.rdrobust.<helper>`` work. ``sp.rdrobust`` stays the plain
+# function.
+_rdrobust_fn = rdrobust
+
+
+class _CallableRdrobustModule(_ModuleType):
+    """The ``rdrobust`` module, callable as :func:`rdrobust`."""
+
+    def __call__(self, *args: _Any, **kwargs: _Any) -> _Any:
+        return _rdrobust_fn(*args, **kwargs)
+
+
+_rdrobust_module = _sys.modules[__name__ + ".rdrobust"]
+_rdrobust_module.__class__ = _CallableRdrobustModule
+_sig = _inspect.signature(_rdrobust_fn)
+_rdrobust_module.__signature__ = _sig  # type: ignore[attr-defined]
+_rdrobust_module.__wrapped__ = _rdrobust_fn  # type: ignore[attr-defined]
+rdrobust = _rdrobust_module  # type: ignore[assignment]
+
 # ═══════════════════════════════════════════════════════════════════════
 #  Unified dispatcher — sp.rd(..., method=...)
 # ═══════════════════════════════════════════════════════════════════════

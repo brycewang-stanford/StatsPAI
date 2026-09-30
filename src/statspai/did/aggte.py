@@ -540,6 +540,11 @@ def aggte(
         "source_method": result.method,
         "share_variance": bool(share_variance),
     }
+    if type == "dynamic":
+        # Where Sun-Abraham, stacked and BJS keep theirs, so one accessor
+        # (``model_info['event_study']`` / ``sp.event_study_table``) serves
+        # every event-study estimator; ``detail`` is the same frame.
+        agg_info["event_study"] = out
 
     _result = CausalResult(
         method=f"Callaway and Sant'Anna (2021) — aggte[{type}]",

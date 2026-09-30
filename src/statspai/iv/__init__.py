@@ -375,8 +375,9 @@ def _dispatch(
         absorb = kwargs.pop("absorb", None)
         vce = kwargs.pop("vce", None)
         vcov = kwargs.pop("vcov", None)
+        small = kwargs.pop("small", True)
 
-        from ..regression.iv import _iv_absorb_run, _normalise_absorb
+        from ..regression.iv import _apply_small, _iv_absorb_run, _normalise_absorb
 
         absorb_terms = _normalise_absorb(absorb)
         if vce is not None or vcov is not None:
@@ -388,6 +389,14 @@ def _dispatch(
             )
             if delegate is not None:
                 from ..regression.iv import ivreg as _ivreg
+
+                if small is not True:
+                    from ..exceptions import MethodIncompatibility
+
+                    raise MethodIncompatibility(
+                        f"small=False is not available with vce={delegate!r}.",
+                        recovery_hint="Use robust= / cluster= with small=False.",
+                    )
 
                 result = _ivreg(
                     formula=formula,
@@ -420,6 +429,7 @@ def _dispatch(
                 fuller_alpha=fuller_alpha,
             )
             result = model.fit(robust=robust, cluster=cluster, **kwargs)
+        _apply_small(result, small, canon, bool(absorb_terms))
         if augmented_diagnostics:
             _attach_augmented_diagnostics(model, result)
         return _iv_provenance(result, formula, data, canon, cluster, kwargs)

@@ -95,6 +95,63 @@ def _build_matrices(
     return Y, X, df, var_names
 
 
+def _formula_design(
+    formula: Optional[str],
+    data: Optional[pd.DataFrame],
+    y: Optional[str],
+    x: Optional[List[str]],
+    add_constant: bool,
+    extra_cols: Optional[List[str]] = None,
+) -> Tuple[np.ndarray, np.ndarray, pd.DataFrame, List[str], str]:
+    """Y, X, the estimation frame, regressor names and the outcome name.
+
+    Formulas made of bare column names keep the direct path. Anything else
+    -- ``C(g)``, ``I(x**2)``, interactions -- is expanded by patsy, so
+    ``oprobit("y ~ x + C(g)")`` works as ``oprobit y x i.g`` does (it used to
+    fail with ``KeyError: ['C'] not in index``). Ordered models drop the
+    intercept (the cutpoints absorb it); the rest call it ``_cons``.
+    """
+    y_name, x_names = _parse_inputs(formula, data, y, x)
+    if formula is None or all(
+        isinstance(v, str) and data is not None and v in data.columns for v in x_names
+    ):
+        Y, X, df, names = _build_matrices(
+            data, y_name, x_names, add_constant=add_constant, extra_cols=extra_cols
+        )
+        return Y, X, df, names, y_name
+    if data is None:
+        raise MethodIncompatibility("'data' must be provided.")
+    from ..core.utils import create_design_matrices
+
+    extra = [c for c in (extra_cols or []) if c in data.columns]
+    frame = data.dropna(subset=extra) if extra else data
+    y_df, X_df = create_design_matrices(formula, frame)
+    y_name = str(y_df.columns[0])
+    names = [str(c) for c in X_df.columns]
+    X = np.asarray(X_df, dtype=float)
+    if "Intercept" in names:
+        j = names.index("Intercept")
+        X = np.delete(X, j, axis=1)
+        names.pop(j)
+        if add_constant:
+            X = np.column_stack([np.ones(len(X)), X])
+            names = ["_cons"] + names
+    elif add_constant:
+        X = np.column_stack([np.ones(len(X)), X])
+        names = ["_cons"] + names
+    df = frame.loc[y_df.index].copy()
+    # patsy returns the outcome as float; category labels come from the
+    # column itself when the left-hand side names one.
+    Y = (
+        df[y_name].to_numpy()
+        if y_name in df.columns
+        else np.asarray(y_df.iloc[:, 0].to_numpy())
+    )
+    if not add_constant and X.shape[1] == 0:
+        raise MethodIncompatibility("The formula has no regressors.")
+    return Y, X, df, names, y_name
+
+
 def _softmax(Z: np.ndarray) -> np.ndarray:
     """Numerically stable softmax, Z is (n, J)."""
     Z_shift = Z - Z.max(axis=1, keepdims=True)
@@ -238,9 +295,10 @@ def mlogit(
     """
     # --- Parse inputs ---
     robust, cluster = _parse_se(robust, cluster, "mlogit")
-    y_name, x_names = _parse_inputs(formula, data, y, x)
     extra = [c for c in [cluster] if c]
-    Y_raw, X, df, var_names = _build_matrices(data, y_name, x_names, extra_cols=extra)
+    Y_raw, X, df, var_names, y_name = _formula_design(
+        formula, data, y, x, add_constant=True, extra_cols=extra
+    )
     n, k = X.shape
 
     categories = np.sort(np.unique(Y_raw))
@@ -271,47 +329,23 @@ def mlogit(
             V[:, j] = X @ theta[idx * k : (idx + 1) * k]
         return _softmax(V)
 
-    def neg_loglik(theta: np.ndarray) -> float:
-        P = _probs(theta)
-        ll = np.sum(Y_oh * np.log(np.maximum(P, 1e-300)))
-        return float(-ll)
+    # --- Optimise: analytic Newton-Raphson ---
+    # Closed-form scores and Hessian (``_ml_newton.mlogit_newton``). The
+    # BFGS + complex-step Hessian it replaces cost O(p^2) likelihood
+    # evaluations: minutes with a few dozen dummies in three equations.
+    from ._ml_newton import mlogit_newton
+    from ._optim_helpers import inverse_information
 
-    def score(theta: np.ndarray) -> np.ndarray:
-        """Gradient (vectorised)."""
-        P = _probs(theta)
-        R = Y_oh - P  # (n, J)
-        grad = np.zeros(n_params)
-        for idx, j in enumerate(non_base):
-            grad[idx * k : (idx + 1) * k] = X.T @ R[:, j]
-        return _as_float_array(-grad)
-
-    # --- Optimise ---
-    theta0 = np.zeros(n_params)
-    res = optimize.minimize(
-        neg_loglik,
-        theta0,
-        jac=score,
-        method="BFGS",
-        options={"maxiter": maxiter, "gtol": tol},
+    theta_hat, ll, S_obs, H, n_iter, converged = mlogit_newton(
+        X, Y_idx, J, base, maxiter=maxiter, tol=tol
     )
-
-    def obs_loglik(theta: np.ndarray) -> np.ndarray:
-        """Per-observation log-likelihood; complex-step safe."""
-        V = np.zeros((n, J), dtype=np.result_type(theta, float))
-        for idx, j in enumerate(non_base):
-            V[:, j] = X @ theta[idx * k : (idx + 1) * k]
-        shift = np.max(V.real, axis=1, keepdims=True)
-        log_denominator = shift[:, 0] + np.log(np.sum(np.exp(V - shift), axis=1))
-        return V[np.arange(n), Y_idx] - log_denominator
-
-    # Exact Newton steps from the BFGS solution; the same call returns the
-    # observed information and per-observation scores by complex-step
-    # differentiation. The numerical Hessian of the total log-likelihood used
-    # before (BFGS ``hess_inv`` before that) carried ~1e-5 relative error.
-    from ._optim_helpers import inverse_information, ml_newton_polish, newton_converged
-
-    theta_hat, S_obs, H, _ = ml_newton_polish(obs_loglik, _as_float_array(res.x))
-    ll = float(np.sum(obs_loglik(theta_hat)))
+    if not converged:
+        warnings.warn(
+            f"mlogit: Newton-Raphson did not converge in {maxiter} iterations; "
+            "estimates are not an optimum. model_info['converged'] is False.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
 
     # Null model log-likelihood (intercept only => equal probs)
     freq = np.array([np.sum(Y_idx == j) for j in range(J)]) / n
@@ -383,43 +417,25 @@ def mlogit(
         if mask.sum() < k * (len(restricted_cats) - 1) + 10:
             continue
 
-        Y_r = Y_idx[mask]
+        # Restricted model: mlogit on the subsample over the remaining
+        # categories only (``mlogit y x if y != j``). Through 1.32 the dropped
+        # category stayed in the softmax as a phantom zero-utility option and
+        # the variance was BFGS's ``hess_inv`` approximation.
         X_r = X[mask]
-        Y_oh_r = np.zeros((mask.sum(), J))
-        Y_oh_r[np.arange(mask.sum()), Y_r] = 1.0
-        n_r = int(mask.sum())
+        remap = {j2: pos for pos, j2 in enumerate(restricted_cats)}
+        y_r = np.array([remap[v] for v in Y_idx[mask]])
         non_base_r = [j for j in restricted_cats if j != base]
         n_params_r = len(non_base_r) * k
-
-        def neg_ll_r(
-            theta_r: np.ndarray,
-            nb: List[int] = non_base_r,
-        ) -> float:
-            V_r = np.zeros((n_r, J))
-            for idx2, j2 in enumerate(nb):
-                V_r[:, j2] = X_r @ theta_r[idx2 * k : (idx2 + 1) * k]
-            P_r = _softmax(V_r)
-            # Only include restricted cats in likelihood
-            ll_r = 0.0
-            for j2 in restricted_cats:
-                ll_r += np.sum(Y_oh_r[:, j2] * np.log(np.maximum(P_r[:, j2], 1e-300)))
-            return float(-ll_r)
-
-        theta0_r = np.zeros(n_params_r)
-        # Warm-start from full model
-        for idx2, j2 in enumerate(non_base_r):
-            full_idx = non_base.index(j2)
-            theta0_r[idx2 * k : (idx2 + 1) * k] = theta_hat[
-                full_idx * k : (full_idx + 1) * k
-            ]
-
-        res_r = optimize.minimize(
-            neg_ll_r, theta0_r, method="BFGS", options={"maxiter": maxiter, "gtol": tol}
+        theta_r, _, _, H_r, _, conv_r = mlogit_newton(
+            X_r, y_r, len(restricted_cats), remap[base], maxiter=maxiter, tol=tol
         )
+        if not conv_r:
+            iia_skipped.append(str(categories[drop_j]))
+            continue
 
         # Hausman statistic: (b_r - b_f)' [V_r - V_f]^{-1} (b_r - b_f)
         # Simplified: use the restricted params corresponding to non_base_r
-        b_r = _as_float_array(res_r.x)
+        b_r = _as_float_array(theta_r)
         b_f = np.concatenate(
             [
                 theta_hat[non_base.index(j2) * k : (non_base.index(j2) + 1) * k]
@@ -429,11 +445,7 @@ def mlogit(
         diff = b_r - b_f
         df_test = len(diff)
         try:
-            V_r_mat = (
-                np.asarray(res_r.hess_inv)
-                if hasattr(res_r, "hess_inv")
-                else np.eye(n_params_r)
-            )
+            V_r_mat = inverse_information(H_r)
             V_f_sub = np.zeros((n_params_r, n_params_r))
             for i1, j1 in enumerate(non_base_r):
                 for i2, j2 in enumerate(non_base_r):
@@ -443,22 +455,25 @@ def mlogit(
                         fi1 * k : (fi1 + 1) * k, fi2 * k : (fi2 + 1) * k
                     ]
             V_diff = V_r_mat - V_f_sub
-            eigvals = np.linalg.eigvalsh(V_diff)
-            if np.all(eigvals > -1e-6):
-                V_diff = V_diff + np.eye(n_params_r) * max(0, -eigvals.min() + 1e-8)
-                chi2 = float(diff @ np.linalg.solve(V_diff, diff))
-                chi2 = max(chi2, 0.0)
-                p_iia = float(stats.chi2.sf(chi2, df_test))
-                iia_tests[categories[drop_j]] = {
-                    "chi2": chi2,
-                    "df": df_test,
-                    "pvalue": p_iia,
-                }
-            else:
-                # Hausman regularity (V_r - V_f PSD) failed — common in
-                # finite samples. Record the skip instead of silently
-                # omitting the test row (CLAUDE.md §7).
-                iia_skipped.append(str(categories[drop_j]))
+            V_diff = (V_diff + V_diff.T) / 2.0
+            # Generalised inverse over the non-null eigenvalues and df =
+            # rank, as Stata's ``hausman`` reports (``df`` 4 for two
+            # equations of three coefficients: the difference is singular).
+            # A negative eigenvalue is kept, not skipped; the statistic can
+            # then be negative, which Stata also prints (the asymptotic
+            # assumptions fail on these data).
+            w, U = np.linalg.eigh(V_diff)
+            keep_w = np.abs(w) > 1e-8 * np.max(np.abs(w))
+            G = (U[:, keep_w] / w[keep_w]) @ U[:, keep_w].T
+            chi2 = float(diff @ G @ diff)
+            df_test = int(keep_w.sum())
+            p_iia = float(stats.chi2.sf(chi2, df_test)) if chi2 >= 0 else 1.0
+            iia_tests[categories[drop_j]] = {
+                "chi2": chi2,
+                "df": df_test,
+                "pvalue": p_iia,
+                "v_diff_psd": bool(np.all(w[keep_w] > 0)),
+            }
         except np.linalg.LinAlgError:
             iia_skipped.append(str(categories[drop_j]))
 
@@ -483,7 +498,8 @@ def mlogit(
         "pseudo_r2": float(pseudo_r2),
         "aic": float(aic),
         "bic": float(bic),
-        "converged": newton_converged(S_obs, H),
+        "converged": bool(converged),
+        "iterations": int(n_iter),
         "rrr": rrr,
         "robust": robust if cluster is None else f"cluster({cluster})",
         "iia_skipped": iia_skipped,
@@ -554,10 +570,9 @@ def _ordered_model(
         ``"logit"`` or ``"probit"``.
     """
     robust, cluster = _parse_se(robust, cluster, f"o{link}")
-    y_name, x_names = _parse_inputs(formula, data, y, x)
     extra = [c for c in [cluster] if c]
-    Y_raw, X_no_const, df, _ = _build_matrices(
-        data, y_name, x_names, add_constant=False, extra_cols=extra
+    Y_raw, X_no_const, df, x_names, y_name = _formula_design(
+        formula, data, y, x, add_constant=False, extra_cols=extra
     )
     n, k = X_no_const.shape
     var_names = list(x_names)
@@ -587,19 +602,6 @@ def _ordered_model(
     else:
         raise ValueError("link must be 'logit' or 'probit'.")
 
-    # Parameterisation: theta = [beta (k), delta (n_cuts)]
-    # where kappa_1 = delta_1, kappa_j = kappa_{j-1} + exp(delta_j) for j >= 2
-    # This ensures kappa is strictly increasing.
-
-    def _unpack(theta: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        beta = theta[:k]
-        delta = theta[k:]
-        kappa = np.empty(n_cuts)
-        kappa[0] = delta[0]
-        for j in range(1, n_cuts):
-            kappa[j] = kappa[j - 1] + np.exp(delta[j])
-        return beta, kappa
-
     def _cum_probs(beta: np.ndarray, kappa: np.ndarray) -> np.ndarray:
         """Return (n, J+1) cumulative probabilities including 0 and 1 boundaries."""
         xb = X_no_const @ beta  # (n,)
@@ -616,122 +618,56 @@ def _ordered_model(
         P = np.diff(cum, axis=1)  # (n, J)
         return _as_float_array(np.maximum(P, 1e-300))
 
-    def neg_loglik(theta: np.ndarray) -> float:
-        beta, kappa = _unpack(theta)
-        P = _cat_probs(beta, kappa)
-        ll = np.sum(np.log(P[np.arange(n), Y_idx]))
-        return float(-ll)
-
     # --- Initial values ---
-    # Simple: beta = 0, cutpoints equally spaced
-    freq_cum = np.cumsum([np.mean(Y_idx == j) for j in range(J)])
-    kappa_init = np.zeros(n_cuts)
-    for j in range(n_cuts):
-        p = min(max(freq_cum[j], 0.01), 0.99)
-        if link == "logit":
-            kappa_init[j] = np.log(p / (1 - p))
-        else:
-            kappa_init[j] = stats.norm.ppf(p)
+    # beta = 0 and the cutpoints of the cutpoint-only model, F^{-1} of the
+    # cumulative category shares (every category is observed, so each share
+    # is strictly inside (0, 1) and the cutpoints are strictly increasing).
+    freq_cum = np.cumsum(np.bincount(Y_idx, minlength=J))[:n_cuts] / n
+    if link == "logit":
+        kappa_init = np.log(freq_cum / (1.0 - freq_cum))
+    else:
+        kappa_init = stats.norm.ppf(freq_cum)
 
-    delta_init = np.zeros(n_cuts)
-    delta_init[0] = kappa_init[0]
-    for j in range(1, n_cuts):
-        delta_init[j] = np.log(max(kappa_init[j] - kappa_init[j - 1], 0.01))
+    # --- Optimise: analytic Newton-Raphson on (beta, kappa) ---
+    # Stata's parameterisation. Scores and the observed information are
+    # closed-form (``_ml_newton``); the BFGS + finite-difference fit and
+    # complex-step Hessian it replaces took minutes with a few hundred
+    # dummies and stopped early on unscaled regressors.
+    from ._ml_newton import OrderedLikelihood, fit_ordered
+    from ._optim_helpers import inverse_information
 
-    theta0 = np.concatenate([np.zeros(k), delta_init])
-
-    # --- Optimise ---
-    res = optimize.minimize(
-        neg_loglik,
-        theta0,
-        method="BFGS",
-        options={"maxiter": maxiter, "gtol": tol},
+    lik = OrderedLikelihood(X_no_const, Y_idx, J, link)
+    theta0 = np.concatenate([np.zeros(k), kappa_init])
+    theta_hat, ll, S_obs_exact, H_exact, n_iter, converged = fit_ordered(
+        lik, theta0, maxiter=maxiter, tol=tol
     )
+    beta_hat, kappa_hat = theta_hat[:k], theta_hat[k:]
+    if not converged:
+        warnings.warn(
+            f"o{link}: Newton-Raphson did not converge in {maxiter} "
+            "iterations (scaled gradient above tol); estimates are not an "
+            "optimum. model_info['converged'] is False.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
 
-    def obs_loglik(theta: np.ndarray) -> np.ndarray:
-        """Per-observation log-likelihood at (beta, delta); complex-step safe."""
-        from scipy import special
-
-        beta = theta[:k]
-        delta = theta[k:]
-        cuts = [delta[0]]
-        for j in range(1, n_cuts):
-            cuts.append(cuts[-1] + np.exp(delta[j]))
-        xb = X_no_const @ beta
-        if link == "logit":
-
-            def log_cdf(z: np.ndarray) -> np.ndarray:
-                return -np.log1p(np.exp(-z))
-
-            def cdf_c(z: np.ndarray) -> np.ndarray:
-                return 1.0 / (1.0 + np.exp(-z))
-
-        else:
-            log_cdf, cdf_c = special.log_ndtr, special.ndtr
-        out = np.empty(n, dtype=np.result_type(theta, float))
-        for j in range(J):
-            m = Y_idx == j
-            if not m.any():
-                continue
-            if j == 0:
-                out[m] = log_cdf(cuts[0] - xb[m])
-            elif j == n_cuts:
-                out[m] = log_cdf(xb[m] - cuts[-1])
-            else:
-                out[m] = np.log(cdf_c(cuts[j] - xb[m]) - cdf_c(cuts[j - 1] - xb[m]))
-        return out
-
-    # Exact Newton steps from the BFGS solution; the same call returns the
-    # observed information and per-observation scores by complex-step
-    # differentiation, replacing a second-difference Hessian and a forward-
-    # difference score that carried ~1e-6 to 1e-5 relative error.
-    from ._optim_helpers import inverse_information, ml_newton_polish, newton_converged
-
-    theta_hat, S_obs_exact, H_exact, _ = ml_newton_polish(
-        obs_loglik, _as_float_array(res.x)
-    )
-    beta_hat, kappa_hat = _unpack(theta_hat)
-    ll = float(np.sum(obs_loglik(theta_hat)))
-
-    # Null model (beta=0, only cutpoints)
-    def neg_loglik_null(delta: np.ndarray) -> float:
-        theta_null = np.concatenate([np.zeros(k), delta])
-        return neg_loglik(theta_null)
-
-    res_null = optimize.minimize(
-        neg_loglik_null,
-        delta_init,
-        method="BFGS",
-        options={"maxiter": maxiter, "gtol": tol},
-    )
-    ll_0 = float(-res_null.fun)
+    # Null model (cutpoints only) is saturated in the category shares, so
+    # its maximum is closed-form: sum_j n_j log(n_j / n).
+    counts = np.bincount(Y_idx, minlength=J).astype(float)
+    ll_0 = float(np.sum(counts[counts > 0] * np.log(counts[counts > 0] / n)))
 
     pseudo_r2 = 1.0 - ll / ll_0
     aic = -2 * ll + 2 * n_params
     bic = -2 * ll + np.log(n) * n_params
 
     # --- Standard errors ---
-    # Observed information and scores from the complex-step derivatives
-    # above (BFGS ``hess_inv`` once inflated beta_x SEs by 26%, parity
-    # finding #11; the numerical Hessian that replaced it carried ~1e-6).
+    # One covariance for (beta, kappa) under the requested vce. Through 1.32
+    # the cutpoint SEs came from the model-based block whatever ``robust`` /
+    # ``cluster`` said.
     H_inv = _as_float_array(inverse_information(H_exact))
     se_all = _compute_se(S_obs_exact, H_inv, robust, cluster_vals)
-
-    # Delta-method for cutpoints: kappa_j SE from delta SE
-    # We report beta SE directly and kappa SE via Jacobian
     se_beta = se_all[:k]
-
-    # Jacobian d kappa / d delta
-    J_kd = np.zeros((n_cuts, n_cuts))
-    J_kd[0, 0] = 1.0
-    for j in range(1, n_cuts):
-        J_kd[j, 0] = 1.0
-        for m in range(1, j + 1):
-            J_kd[j, m] = np.exp(theta_hat[k + m])
-
-    V_delta = H_inv[k:, k:]
-    V_kappa = J_kd @ V_delta @ J_kd.T
-    se_kappa = _as_float_array(np.sqrt(np.maximum(np.diag(V_kappa), 1e-20)))
+    se_kappa = se_all[k:]
 
     # --- Predicted probabilities ---
     P_hat = _cat_probs(beta_hat, kappa_hat)
@@ -762,54 +698,29 @@ def _ordered_model(
     brant_skipped: List[str] = []
     brant_error = None
     try:
+        from ._ml_newton import logit_newton
+
         chi2_total = 0.0
         df_total = 0
+        X_bin = np.column_stack([np.ones(n), X_no_const])
+        fits = [logit_newton(X_bin, (Y_idx <= j).astype(float)) for j in range(n_cuts)]
         for m in range(k):
-            beta_binaries: List[float] = []
-            se_binaries: List[float] = []
-            for j in range(n_cuts):
-                # Binary: Y <= j vs Y > j
-                Y_bin = (Y_idx <= j).astype(float)
-                X_bin = np.column_stack([np.ones(n), X_no_const])
-
-                def neg_ll_bin(
-                    b: np.ndarray,
-                    yb: np.ndarray = Y_bin,
-                    xb: np.ndarray = X_bin,
-                ) -> float:
-                    p = 1.0 / (1.0 + np.exp(-np.clip(xb @ b, -500, 500)))
-                    ll_bin = yb * np.log(np.maximum(p, 1e-300))
-                    ll_bin += (1 - yb) * np.log(np.maximum(1 - p, 1e-300))
-                    return float(-np.sum(ll_bin))
-
-                b0 = np.zeros(k + 1)
-                res_bin = optimize.minimize(
-                    neg_ll_bin, b0, method="BFGS", options={"maxiter": 50}
+            beta_binary_arr = np.array([f[0][m + 1] for f in fits])
+            se_binary_arr = np.sqrt(
+                np.maximum([f[1][m + 1, m + 1] for f in fits], 1e-20)
+            )
+            # Test: all beta_j equal (Wald test)
+            if n_cuts > 1 and np.all(np.isfinite(se_binary_arr)):
+                beta_mean = float(np.mean(beta_binary_arr))
+                chi2_m = float(
+                    np.sum(((beta_binary_arr - beta_mean) / se_binary_arr) ** 2)
                 )
-                # beta for variable m is at index m+1 (skip intercept)
-                beta_binaries.append(float(res_bin.x[m + 1]))
-                if hasattr(res_bin, "hess_inv"):
-                    h_bin = np.asarray(res_bin.hess_inv)
-                    se_binaries.append(float(np.sqrt(max(h_bin[m + 1, m + 1], 1e-20))))
-                else:
-                    se_binaries.append(np.nan)
-
-                beta_binary_arr = np.asarray(beta_binaries, dtype=float)
-                se_binary_arr = np.asarray(se_binaries, dtype=float)
-
-                # Test: all beta_j equal (Wald test)
-                if n_cuts > 1 and np.all(np.isfinite(se_binary_arr)):
-                    beta_mean = float(np.mean(beta_binary_arr))
-                    chi2_m = float(
-                        np.sum(((beta_binary_arr - beta_mean) / se_binary_arr) ** 2)
-                    )
-                    df_m = n_cuts - 1
-                    p_m = float(stats.chi2.sf(chi2_m, df_m))
-                    brant_test[var_names[m]] = {
-                        "chi2": chi2_m,
-                        "df": df_m,
-                        "pvalue": p_m,
-                    }
+                df_m = n_cuts - 1
+                brant_test[var_names[m]] = {
+                    "chi2": chi2_m,
+                    "df": df_m,
+                    "pvalue": float(stats.chi2.sf(chi2_m, df_m)),
+                }
                 chi2_total += chi2_m
                 df_total += df_m
             else:
@@ -863,7 +774,8 @@ def _ordered_model(
         "pseudo_r2": float(pseudo_r2),
         "aic": float(aic),
         "bic": float(bic),
-        "converged": newton_converged(S_obs_exact, H_exact),
+        "converged": bool(converged),
+        "iterations": int(n_iter),
         "robust": robust if cluster is None else f"cluster({cluster})",
         "brant_skipped": brant_skipped,
         "brant_error": brant_error,

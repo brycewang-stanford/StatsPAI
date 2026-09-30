@@ -51,6 +51,7 @@ from .balance import DiDBalanceResult, did_balance
 from .bjs_inference import bjs_pretrend_joint
 from .calibrated_simulation import DidSimulationStudy, did_calibrated_simulation
 from .callaway_santanna import callaway_santanna
+from .cdlz_bunching import cdlz_bunching
 from .cgs_continuous import ContinuousDoseResult, cgs_continuous_did
 from .cic import cic
 from .cohort_anchored import cohort_anchored_event_study
@@ -128,6 +129,7 @@ from .summary import (
 )
 from .sun_abraham import sun_abraham
 from .wooldridge_did import drdid, etwfe, etwfe_emfx, twfe_decomposition, wooldridge_did
+from .xtevent import xtevent
 
 bjs = did_imputation
 borusyak_jaravel_spiess = did_imputation
@@ -1010,6 +1012,8 @@ __all__ = [
     "bjs",
     "borusyak_jaravel_spiess",
     "stacked_did",
+    "cdlz_bunching",
+    "xtevent",
     "gardner_did",
     "did_2stage",
     "harvest_did",

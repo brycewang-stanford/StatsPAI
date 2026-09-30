@@ -78,8 +78,12 @@ def _pyfixest_to_econometric_results(
     diagnostics: Dict[str, Any] = {}
     if hasattr(fit, "_r2"):
         diagnostics["R-squared"] = fit._r2
+    if hasattr(fit, "_adj_r2"):
+        diagnostics["Adj. R-squared"] = fit._adj_r2
     if hasattr(fit, "_r2_within"):
         diagnostics["R-squared (within)"] = fit._r2_within
+    if hasattr(fit, "_adj_r2_within"):
+        diagnostics["Adj. R-squared (within)"] = fit._adj_r2_within
     if hasattr(fit, "_rmse"):
         diagnostics["RMSE"] = fit._rmse
 

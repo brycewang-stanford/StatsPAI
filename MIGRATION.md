@@ -5,6 +5,38 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="regress-collinear-omit"></a>
+
+## Unreleased: `sp.regress` omits collinear regressors instead of raising
+
+**Who is affected.** Code that relied on `sp.regress` raising
+`NumericalInstability` on a rank-deficient design.
+
+| Area | Old | New | Old behaviour |
+| --- | --- | --- | --- |
+| `sp.regress` on collinear regressors | raised `NumericalInstability` | omits the later member of each set with a `UserWarning`, lists it in `model_info['omitted']` (Stata `regress`) | `sp.regress(..., collinear='raise')` |
+
+---
+
+<a id="ordered-cutpoint-vce"></a>
+
+## Unreleased: ⚠️ ordered-model cutpoint SEs and the mlogit IIA test
+
+**Who is affected.** Anyone reading cutpoint standard errors from
+`sp.oprobit` / `sp.ologit` with `robust=` or `cluster=`, the `brant_test`
+of those models, or `iia_test` from `sp.mlogit`. Coefficients and their
+SEs are unchanged.
+
+| Area | Old | New |
+| --- | --- | --- |
+| cutpoint SEs with `robust` / `cluster` | model-based (the VCE was ignored) | the requested VCE, as Stata |
+| `brant_test` SEs | BFGS `hess_inv` approximation | exact binary-logit information |
+| `mlogit` `iia_test` | restricted model with the dropped category left in the softmax; `hess_inv` variance; non-PSD categories skipped | `mlogit ... if y != j`; Stata `hausman` generalised inverse and df; every category reported |
+
+There is no switch back: the old numbers were wrong.
+
+---
+
 <a id="stacked-did-reghdfe-k"></a>
 
 ## 1.33.0 — ⚠️ `sp.stacked_did` standard errors follow `reghdfe`

@@ -38,7 +38,7 @@ doi:10.1111/j.1468-0262.2004.00555.x.
 """
 
 import warnings
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -111,9 +111,14 @@ def lee_bounds(
     selection : str
         Binary selection/retention indicator (1 = observed, 0 = missing).
     covariates : list of str, optional
-        Reserved for covariate-tightened bounds, which are not
-        implemented; a non-empty list is ignored with a ``UserWarning``
-        (it used to be ignored silently).
+        Discrete covariates for Lee's (2009) tightened bounds (Stata
+        ``leebounds, tight()``): each covariate cell is trimmed by its own
+        share and the trimmed means are averaged over the covariate
+        distribution of the always-observed (the retained units of the
+        less-retained arm). Continuous covariates must be binned first.
+        Cell-level results are in ``model_info['cells']``. Analytic SEs of
+        tightened bounds follow ``leebounds``' approximation and need
+        ``trimming='leebounds'``; the bootstrap works with every trimming.
     n_bootstrap : int, default 500
         Bootstrap iterations for inference.
     alpha : float, default 0.05
@@ -184,14 +189,6 @@ def lee_bounds(
     missing = [c for c in cols if c not in data.columns]
     if missing:
         raise ValueError(f"Columns not found in data: {missing}")
-    if covariates:
-        warnings.warn(
-            "lee_bounds: covariate-tightened Lee bounds are not implemented; "
-            "`covariates` is ignored and the unconditional bounds are "
-            "returned (it used to be ignored silently).",
-            UserWarning,
-            stacklevel=2,
-        )
     if se_method not in ("bootstrap", "analytic"):
         raise MethodIncompatibility(
             f"se_method must be 'bootstrap' or 'analytic', got {se_method!r}"
@@ -202,6 +199,29 @@ def lee_bounds(
         )
 
     df = data.copy()
+    covariates = list(covariates) if covariates else []
+    missing_cov = [c for c in covariates if c not in df.columns]
+    if missing_cov:
+        raise MethodIncompatibility(
+            f"Covariate columns not found in data: {missing_cov}"
+        )
+    if covariates:
+        n_before = len(df)
+        df = df.dropna(subset=covariates)
+        if len(df) < n_before:
+            warnings.warn(
+                f"lee_bounds: dropped {n_before - len(df)} row(s) with missing "
+                "covariates.",
+                UserWarning,
+                stacklevel=2,
+            )
+        if se_method == "analytic" and trimming != "leebounds":
+            raise MethodIncompatibility(
+                "lee_bounds: analytic SEs of covariate-tightened bounds are "
+                "available as Stata's leebounds approximates them "
+                "(trimming='leebounds'); otherwise use the bootstrap.",
+                recovery_hint="Use se_method='bootstrap', or trimming='leebounds'.",
+            )
     D = df[treat].values.astype(float)
     S = df[selection].values.astype(float)
 
@@ -223,9 +243,37 @@ def lee_bounds(
     Y1 = Y_obs[D_obs == 1]
     Y0 = Y_obs[D_obs == 0]
 
-    lb, ub = _compute_lee_bounds(Y1, Y0, p1, p0, trimming)
+    tight: Optional[Dict[str, Any]] = None
+    if covariates:
+        from ._lee_tight import cell_codes, tightened_lee_bounds
 
-    if se_method == "analytic":
+        cells = cell_codes(df, covariates)
+        Y_all = df[y].to_numpy(dtype=float)
+        tight = tightened_lee_bounds(
+            Y_all, D, S, cells, trimming, analytic=(se_method == "analytic")
+        )
+        lb, ub = tight["lower"], tight["upper"]
+        if tight["hetero"]:
+            warnings.warn(
+                "lee_bounds: retention differs in opposite directions across "
+                "covariate cells; monotonicity is doubtful and the tightened "
+                "bounds may fail (Stata: 'heterogenous selection direction')."
+                + (
+                    " Cells where the trimmed arm is less retained are not " "trimmed."
+                    if trimming != "leebounds"
+                    else ""
+                ),
+                UserWarning,
+                stacklevel=2,
+            )
+    else:
+        lb, ub = _compute_lee_bounds(Y1, Y0, p1, p0, trimming)
+
+    if se_method == "analytic" and tight is not None:
+        se_lb, se_ub = float(np.sqrt(tight["var_lower"])), float(
+            np.sqrt(tight["var_upper"])
+        )
+    elif se_method == "analytic":
         se_lb, se_ub = _lee_analytic_se(Y_obs, D_obs, D, S, trimming)
     else:
         rng = np.random.RandomState(random_state)
@@ -249,7 +297,16 @@ def lee_bounds(
             Y1_b = Y_obs_b[D_obs_b == 1]
             Y0_b = Y_obs_b[D_obs_b == 0]
 
-            if len(Y1_b) > 0 and len(Y0_b) > 0 and p1_b > 0 and p0_b > 0:
+            if tight is not None:
+                try:
+                    tb = tightened_lee_bounds(
+                        df[y].to_numpy(dtype=float)[idx], D_b, S_b, cells[idx], trimming
+                    )
+                    boot_lb[b], boot_ub[b] = tb["lower"], tb["upper"]
+                except MethodIncompatibility:
+                    # A draw that empties a cell arm has no tightened bound.
+                    boot_lb[b] = boot_ub[b] = np.nan
+            elif len(Y1_b) > 0 and len(Y0_b) > 0 and p1_b > 0 and p0_b > 0:
                 boot_lb[b], boot_ub[b] = _compute_lee_bounds(
                     Y1_b, Y0_b, p1_b, p0_b, trimming
                 )
@@ -266,8 +323,21 @@ def lee_bounds(
         # two-sided z to *both* endpoints instead -- the previous code --
         # yields the Horowitz-Manski CI that covers the identified SET and
         # therefore over-covers the parameter.
-        se_lb = float(np.std(boot_lb, ddof=1))
-        se_ub = float(np.std(boot_ub, ddof=1))
+        n_failed = int(np.isnan(boot_lb).sum())
+        if n_failed:
+            warnings.warn(
+                f"lee_bounds: {n_failed} of {n_bootstrap} bootstrap draws left "
+                "a covariate cell without one arm and were skipped.",
+                UserWarning,
+                stacklevel=2,
+            )
+            if n_bootstrap - n_failed < 20:
+                raise MethodIncompatibility(
+                    "lee_bounds: too few usable bootstrap draws; use coarser "
+                    "covariates."
+                )
+        se_lb = float(np.nanstd(boot_lb, ddof=1))
+        se_ub = float(np.nanstd(boot_ub, ddof=1))
     c_n = _imbens_manski_cn(float(ub - lb), max(se_lb, se_ub), alpha)
     ci_lower = float(lb - c_n * se_lb)
     ci_upper = float(ub + c_n * se_ub)
@@ -296,6 +366,15 @@ def lee_bounds(
         "se_method": se_method,
         "trimming": trimming,
     }
+    if tight is not None:
+        model_info["covariates"] = covariates
+        model_info["tightened"] = True
+        model_info["cells"] = tight["cells"]
+        model_info["n_cells"] = int(len(tight["cells"]))
+        model_info["cell_selection_direction"] = "hetero" if tight["hetero"] else "homo"
+        if "ntall" in tight:
+            # leebounds' between-cell divisor (None: its "/ + vc" branch).
+            model_info["leebounds_ntall"] = tight["ntall"]
 
     _result = CausalResult(
         method="Lee Bounds (Lee 2009)",

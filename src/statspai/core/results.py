@@ -390,6 +390,16 @@ class EconometricResults:
         v = (getattr(self, "diagnostics", None) or {}).get("R-squared")
         return None if v is None else float(v)
 
+    @property
+    def r2_adj(self) -> Optional[float]:
+        """Adjusted R-squared (``e(r2_a)``), ``None`` if the fit has none."""
+        v = (getattr(self, "diagnostics", None) or {}).get("Adj. R-squared")
+        return None if v is None else float(v)
+
+    def cov_params(self) -> pd.DataFrame:
+        """Labelled coefficient covariance; the same matrix as ``vcov()``."""
+        return self.vcov()
+
     def __init__(
         self,
         params: pd.Series,
@@ -3804,7 +3814,9 @@ class CausalResult:
         # Hard-coding group/time produced a useless ``att(g=,t=)`` for
         # every row of an event study, discarding the event time.
         detail_cols = list(getattr(self.detail, "columns", []))
-        if self.detail is not None and "att" in detail_cols:
+        # aggte(type='dynamic') publishes its detail frame as the event study
+        # too; its rows are already in the table.
+        if self.detail is not None and "att" in detail_cols and self.detail is not es:
             has_group = "group" in detail_cols
             has_time = "time" in detail_cols
             has_rel = "relative_time" in detail_cols

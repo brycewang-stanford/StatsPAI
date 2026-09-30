@@ -73,6 +73,7 @@ from .bartik import (
     ShiftSharePoliticalPanelResult,
     ShiftSharePoliticalResult,
     bartik,
+    rotemberg_summary,
     shift_share_political,
     shift_share_political_panel,
     shift_share_se,
@@ -139,6 +140,7 @@ from .did import (
     borusyak_jaravel_spiess,
     breakdown_m,
     callaway_santanna,
+    cdlz_bunching,
     cgs_continuous_did,
     check_absorbing,
     cic,
@@ -209,6 +211,7 @@ from .did import (
     twfe_decomposition,
     uniform_bands,
     wooldridge_did,
+    xtevent,
 )
 from .dml import (  # v1.7 long-panel DML; v1.13 DML-OVB sensitivity + diagnostics
     DMLAveragingResult,
@@ -441,13 +444,15 @@ from .rd import (  # v1.15 polish
     rdpower,
     rdrandinf,
     rdrbounds,
-    rdrobust,
     rdsampsi,
     rdsensitivity,
     rdsummary,
     rdwinselect,
     rkd,
 )
+
+# The function itself: ``statspai.rd.rdrobust`` is the (callable) module.
+from .rd.rdrobust import rdrobust  # noqa: E402
 
 # NB: ``iv`` is intentionally NOT imported here.  ``sp.iv`` resolves to the
 # callable :mod:`statspai.iv` subpackage (loaded via ``from .iv.* import``
@@ -1217,6 +1222,8 @@ __all__ = [
     "bjs",
     "borusyak_jaravel_spiess",
     "stacked_did",
+    "xtevent",
+    "cdlz_bunching",
     "gardner_did",
     "did_2stage",
     "cic",
@@ -1520,6 +1527,7 @@ __all__ = [
     "bartik",
     "BartikIV",
     "ssaggregate",
+    "rotemberg_summary",
     "shift_share_se",
     # Diagnostics
     "oster_bounds",

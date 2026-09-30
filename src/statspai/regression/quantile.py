@@ -28,12 +28,59 @@ from scipy import stats
 from scipy.optimize import linprog
 
 from .._aliases import accepts_formula_first
-from ..core.results import CausalResult
+from ..core.results import CausalResult, EconometricResults
 from ..exceptions import MethodIncompatibility
 
 
 def _as_float_array(value: object) -> np.ndarray:
     return np.asarray(value, dtype=float)
+
+
+class QuantileRegressionResult(CausalResult):
+    """``sp.qreg`` result: a ``CausalResult`` whose coefficient accessors
+    cover every regressor.
+
+    ``estimate`` / ``se`` / ``ci`` stay the first regressor's (the headline
+    of the causal-result interface), but ``params``, ``std_errors``,
+    ``tvalues``, ``pvalues``, ``vcov()`` and ``conf_int()`` report the whole
+    coefficient table, as Stata's ``qreg`` and ``sp.regress`` do. Through
+    1.32 they held the first regressor alone (top-5 replication list), so a
+    regression table of a ``qreg`` fit showed one row.
+    """
+
+    def _coef_table(self) -> pd.DataFrame:
+        return self.detail.set_index("variable")
+
+    @property
+    def params(self) -> pd.Series:
+        return self._coef_table()["coefficient"].rename(None)
+
+    @property
+    def std_errors(self) -> pd.Series:
+        return self._coef_table()["se"].rename(None)
+
+    @property
+    def tvalues(self) -> pd.Series:
+        return self._coef_table()["t"].rename(None)
+
+    @property
+    def pvalues(self) -> pd.Series:
+        return self._coef_table()["pvalue"].rename(None)
+
+    def vcov(self) -> pd.DataFrame:
+        names = list(self._coef_table().index)
+        V = self.model_info.get("vcov")
+        if isinstance(V, pd.DataFrame):
+            return V.loc[names, names]
+        # vce='powell' stores SEs only; its sandwich is not kept.
+        se = self.std_errors.to_numpy()
+        return pd.DataFrame(np.diag(se**2), index=names, columns=names)
+
+    def conf_int(self, alpha: Optional[float] = None) -> pd.DataFrame:
+        a = self.alpha if alpha is None else alpha
+        crit = stats.t.ppf(1 - a / 2, self.model_info["df_inference"])
+        b, se = self.params, self.std_errors
+        return pd.DataFrame({0: b - crit * se, 1: b + crit * se})
 
 
 @accepts_formula_first()
@@ -252,7 +299,7 @@ def qreg(
         if kind == "cluster":
             model_info.update({"cluster": cluster, "n_clusters": n_clusters})
 
-    return CausalResult(
+    return QuantileRegressionResult(
         method=f"Quantile Regression (tau={quantile})",
         estimand=f"Q({quantile}) {x_names[0]}",
         estimate=main_coef,
@@ -273,11 +320,17 @@ def sqreg(
     x: List[str],
     quantiles: Optional[List[float]] = None,
     alpha: float = 0.05,
-) -> pd.DataFrame:
+    reps: Optional[int] = None,
+    seed: Optional[int] = None,
+    cluster: Optional[str] = None,
+) -> "pd.DataFrame | EconometricResults":
     """
     Simultaneous quantile regression at multiple quantiles.
 
-    Equivalent to Stata's ``sqreg y x, quantiles(10 25 50 75 90)``.
+    Equivalent to Stata's ``sqreg y x, quantiles(10 25 50 75 90)``. With
+    ``reps`` the covariance is Stata's: one bootstrap across all quantiles
+    jointly, so coefficients can be compared across quantiles
+    (``sp.test(r, "q25:x = q75:x")``, Stata ``test [q25]x = [q75]x``).
 
     Parameters
     ----------
@@ -287,11 +340,23 @@ def sqreg(
     quantiles : list of float, optional
         Default: [0.1, 0.25, 0.5, 0.75, 0.9].
     alpha : float, default 0.05
+    reps : int, optional
+        Bootstrap replications for the joint covariance (Stata ``sqreg``
+        always bootstraps, ``reps(20)`` by default). Without ``reps`` each
+        quantile keeps its own analytic ``qreg`` SE and the return value is
+        the table below.
+    seed : int, optional
+        Bootstrap seed.
+    cluster : str, optional
+        Resample clusters instead of observations.
 
     Returns
     -------
-    pd.DataFrame
-        Rows: variables. Columns: quantiles with coefficients and SEs.
+    pd.DataFrame or EconometricResults
+        Without ``reps``: rows are variables, columns the coefficient and SE
+        at each quantile. With ``reps``: an ``EconometricResults`` whose
+        coefficients are named ``q<100 tau>:<variable>`` (``q25:x``), with
+        the bootstrap covariance across quantiles in ``vcov()``.
 
     Examples
     --------
@@ -303,6 +368,11 @@ def sqreg(
     """
     if quantiles is None:
         quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]
+
+    if reps is not None:
+        return _sqreg_bootstrap(
+            data, y, list(x), list(quantiles), alpha, int(reps), seed, cluster
+        )
 
     results = {}
     for q in quantiles:
@@ -333,8 +403,31 @@ def sqreg(
 
 
 def _qreg_fit(Y: np.ndarray, X: np.ndarray, tau: float) -> np.ndarray:
-    """Solve quantile regression via linear programming (interior point)."""
+    """Solve quantile regression by linear programming.
+
+    The dual LP [@koenker2005quantile] -- ``max y'a`` subject to
+    ``X'a = (1 - tau) X'1``, ``0 <= a <= 1`` -- has ``k`` equality rows
+    instead of ``n``; HiGHS' interior point with crossover returns its
+    vertex, and ``b(tau)`` is the vector of equality multipliers. It is the
+    same solution as the primal LP (to 1e-15, ties included) and 5-8x
+    faster (n = 20,000, k = 11: 0.5 s vs 3.8 s), which matters because every
+    ``qreg`` SE refits at ``tau +/- h``. The primal LP is the fallback.
+    """
     n, k = X.shape
+    try:
+        dual = linprog(
+            -Y,
+            A_eq=X.T,
+            b_eq=(1.0 - tau) * X.sum(axis=0),
+            bounds=(0.0, 1.0),
+            method="highs-ipm",
+        )
+        if dual.success and dual.eqlin is not None:
+            beta = -np.asarray(dual.eqlin.marginals, dtype=float)
+            if np.all(np.isfinite(beta)):
+                return _as_float_array(beta)
+    except Exception:  # pragma: no cover - solver-dependent; primal below
+        pass
 
     # Reformulate as LP:
     # min tau * 1'u + (1-tau) * 1'v
@@ -643,3 +736,48 @@ CausalResult._CITATIONS["qreg"] = (
     "  publisher={Wiley}\n"
     "}"
 )
+
+
+def _quantile_label(q: float) -> str:
+    """Stata's equation name for a quantile: 0.25 -> 'q25', 0.125 -> 'q12.5'."""
+    v = round(100 * q, 6)
+    return f"q{int(v)}" if v == int(v) else f"q{v:g}"
+
+
+def _sqreg_bootstrap(
+    data: pd.DataFrame,
+    y: str,
+    x: List[str],
+    quantiles: List[float],
+    alpha: float,
+    reps: int,
+    seed: Optional[int],
+    cluster: Optional[str],
+) -> "EconometricResults":
+    """Stata ``sqreg ..., reps()``: all quantiles bootstrapped jointly."""
+    from ..inference.bootstrap import bootstrap
+
+    cols = [y] + list(x) + ([cluster] if cluster else [])
+    df = data[cols].dropna().reset_index(drop=True)
+    names = ["_cons"] + list(x)
+
+    def stat(d: pd.DataFrame) -> pd.Series:
+        Y = d[y].to_numpy(dtype=float)
+        X = np.column_stack([np.ones(len(d))] + [d[v].to_numpy(float) for v in x])
+        out = {}
+        for q in quantiles:
+            b = _qreg_fit(Y, X, q)
+            for name, val in zip(names, b):
+                out[f"{_quantile_label(q)}:{name}"] = val
+        return pd.Series(out)
+
+    res = bootstrap(df, stat, n_boot=reps, cluster=cluster, alpha=alpha, seed=seed)
+    res.model_info.update(
+        {
+            "model_type": "Simultaneous quantile regression",
+            "quantiles": list(quantiles),
+            "method": f"sqreg, bootstrap ({res.model_info['n_boot']} reps)"
+            + (f", cluster({cluster})" if cluster else ""),
+        }
+    )
+    return res

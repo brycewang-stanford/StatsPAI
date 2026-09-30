@@ -868,6 +868,16 @@ def _build_registry() -> None:
                     False,
                     description="Column name for cluster-robust SEs",
                 ),
+                ParamSpec(
+                    "collinear",
+                    "str",
+                    False,
+                    "omit",
+                    "Rank-deficient design: 'omit' drops the later member of each "
+                    "collinear set with a warning (Stata regress), listed in "
+                    "model_info['omitted']; 'raise' raises",
+                    ["omit", "raise"],
+                ),
             ],
             returns="EconometricResults",
             example='sp.regress("wage ~ education + experience", data=df, robust="hc1")',
@@ -1010,6 +1020,16 @@ def _build_registry() -> None:
                     False,
                     1.0,
                     "Fuller constant (method='fuller' only)",
+                ),
+                ParamSpec(
+                    "small",
+                    "bool",
+                    False,
+                    True,
+                    "Small-sample statistics as Stata ivregress, small (N-K "
+                    "divisor, HC1, G/(G-1)(N-1)/(N-K) cluster factor, t/F); "
+                    "False gives ivregress' default large-sample statistics "
+                    "(N divisor, HC0, no cluster factor, z/chi2). 2SLS/LIML",
                 ),
             ],
             returns="EconometricResults",
@@ -6370,8 +6390,22 @@ def _build_registry() -> None:
                     "CI method",
                     ["percentile", "bca", "normal"],
                 ),
+                ParamSpec(
+                    "idcluster",
+                    "str",
+                    False,
+                    description=(
+                        "With cluster=, name of a new column giving every "
+                        "resampled cluster its own id (Stata idcluster()), so a "
+                        "cluster drawn twice is two groups for fixed effects"
+                    ),
+                ),
             ],
-            returns="BootstrapResult with estimate, se, ci, pvalue",
+            returns=(
+                "BootstrapResult for a scalar statistic; EconometricResults "
+                "(bootstrap SEs, covariance, z inference) for a vector or a "
+                "fitted result with .params"
+            ),
             example='sp.bootstrap(df, lambda d: d["y"].mean(), n_boot=2000)',
             tags=["bootstrap", "inference", "ci", "resampling"],
             reference="Efron & Tibshirani (1993)",
@@ -13908,6 +13942,15 @@ def _build_registry() -> None:
                     False,
                     "Store untreated-fit residuals in model_info (Stata: saveresid())",
                 ),
+                ParamSpec(
+                    "autosample",
+                    "bool",
+                    False,
+                    False,
+                    "Drop treated observations whose unit or period has no "
+                    "untreated observation (fixed effect not imputable) instead "
+                    "of raising (Stata: autosample)",
+                ),
             ],
             returns="CausalResult",
             example=(
@@ -14752,6 +14795,24 @@ def _build_registry() -> None:
                     "before their own treatment); overrides never_treated_only",
                     ["nevertreated", "notyettreated", "notyettreated_rows"],
                 ),
+                ParamSpec(
+                    "events",
+                    "str",
+                    False,
+                    None,
+                    "0/1 column marking event periods, for repeated (non-absorbing) "
+                    "events: one sub-experiment per event, controls = units with no "
+                    "event in its window. Replaces first_treat",
+                ),
+                ParamSpec(
+                    "own_overlap",
+                    "str",
+                    False,
+                    "drop",
+                    "With events=: drop (or keep) events whose own unit has another "
+                    "event inside the window",
+                    ["drop", "keep"],
+                ),
             ],
             returns="CausalResult with event-study coefficients",
             example=(
@@ -14895,6 +14956,222 @@ def _build_registry() -> None:
                 ),
             ],
             alternatives=["sun_abraham", "callaway_santanna", "did_imputation"],
+            typical_n_min=50,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="rotemberg_summary",
+            category="causal",
+            description=(
+                "Goldsmith-Pinkham, Sorkin & Swift's Rotemberg-weight summary of a "
+                "Bartik instrument: weights and just-identified estimates per "
+                "industry x period, industry aggregates, first-stage F, negative / "
+                "positive weights, correlations, by-period split, top industries "
+                "with clustered Anderson-Rubin intervals (their ch_weak), and beta "
+                "by weight sign. Equals GPSS's own code to 1e-12."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True),
+                ParamSpec("x", "str", True, description="Endogenous regressor"),
+                ParamSpec("shares", "list", True, description="Industry share columns"),
+                ParamSpec(
+                    "shocks",
+                    "DataFrame",
+                    True,
+                    description="Columns industry (share column name), g, [period]",
+                ),
+                ParamSpec("time", "str", False, None, "Period column"),
+                ParamSpec(
+                    "covariates", "list", False, None, "Controls (intercept added)"
+                ),
+                ParamSpec("weights", "str", False, None, "Analytic weights"),
+                ParamSpec("cluster", "str", False, None, "Cluster variable"),
+                ParamSpec("top", "int", False, 5, "Industries listed in panel D"),
+                ParamSpec(
+                    "ci_grid", "list", False, None, "AR grid (default -10..10 by 0.1)"
+                ),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="dict: cells, industries, panel_a..panel_e, beta",
+            example=(
+                'sp.rotemberg_summary(df, y="y", x="x", shares=shares, shocks=shocks, '
+                'time="year", weights="w", cluster="czone")'
+            ),
+            tags=["bartik", "shift_share", "iv", "rotemberg"],
+            reference="Goldsmith-Pinkham, Sorkin & Swift (2020) [@goldsmithpinkham2020bartik]",
+            alternatives=["bartik", "ssaggregate"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="cdlz_bunching",
+            category="causal",
+            description=(
+                "Bunching summaries of a bin-by-event-time minimum-wage event "
+                "study (Cengiz, Dube, Lindner & Zipperer 2019): missing jobs "
+                "below and excess jobs above the new minimum, % change in "
+                "affected employment and wage, elasticities w.r.t. the minimum "
+                "and the affected wage, with analytic delta-method SEs, plus "
+                "the event-year path and bin profile. Reproduces the paper's "
+                "Table 1 col 1 from its regression coefficients."
+            ),
+            params=[
+                ParamSpec(
+                    "result",
+                    "object",
+                    False,
+                    None,
+                    "Fitted regression with params and a covariance (e.g. sp.hdfe_ols)",
+                ),
+                ParamSpec(
+                    "terms",
+                    "DataFrame",
+                    True,
+                    description="Columns term (coefficient name), year (event "
+                    "time), bin (units from the new minimum; negative below)",
+                ),
+                ParamSpec(
+                    "epop",
+                    "float",
+                    True,
+                    description="Pre-period employment per capita E",
+                ),
+                ParamSpec(
+                    "below_share",
+                    "float",
+                    True,
+                    description="Share of jobs below the new minimum B",
+                ),
+                ParamSpec(
+                    "wage_bill",
+                    "float",
+                    True,
+                    description="Pre-period wage bill per capita EWB",
+                ),
+                ParamSpec(
+                    "pct_mw",
+                    "float",
+                    True,
+                    description="Mean % increase of the minimum wage",
+                ),
+                ParamSpec(
+                    "mw_level",
+                    "float",
+                    True,
+                    description="Mean new minimum, in bin units",
+                ),
+                ParamSpec(
+                    "post_years",
+                    "list",
+                    False,
+                    None,
+                    "Event years averaged (default every year >= 0)",
+                ),
+                ParamSpec(
+                    "bins_per_unit",
+                    "float",
+                    False,
+                    4.0,
+                    "Fine bins per unit of bin carried by each term (CDLZ: 4)",
+                ),
+                ParamSpec("params", "Series", False, None, "Coefficients if no result"),
+                ParamSpec(
+                    "covariance", "DataFrame", False, None, "Covariance if no result"
+                ),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns=(
+                "CausalResult: % change in affected employment; summary, "
+                "event_path and bin_profile in model_info"
+            ),
+            example=(
+                "sp.cdlz_bunching(fit, terms=terms, epop=0.571, below_share=0.086, "
+                "wage_bill=0.351, pct_mw=0.101, mw_level=8.77)"
+            ),
+            tags=["minimum_wage", "bunching", "event_study", "did", "labor"],
+            reference="Cengiz, Dube, Lindner & Zipperer (2019) [@cengiz2019effect]",
+            alternatives=["stacked_did", "bunching"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="xtevent",
+            category="causal",
+            description=(
+                "Panel event study of a policy that may be continuous and change "
+                "several times per unit (Stata xtevent, Freyaldenhoven et al.): "
+                "leads and lags of the policy's first difference inside the "
+                "window, endpoint regressors for the tails, unit and period "
+                "effects, one event time normalised to zero. areg or reghdfe "
+                "conventions; equals Stata xtevent to 1e-12."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True),
+                ParamSpec(
+                    "policy",
+                    "str",
+                    True,
+                    description="Policy variable (0/1 or continuous)",
+                ),
+                ParamSpec("panel", "str", True, description="Unit identifier"),
+                ParamSpec("time", "str", True, description="Integer period"),
+                ParamSpec(
+                    "window",
+                    "int",
+                    False,
+                    None,
+                    "Positive int (symmetric) or (lo, hi); endpoints lo-1 and hi+1",
+                ),
+                ParamSpec("covariates", "list", False, None, "Additional regressors"),
+                ParamSpec("norm", "int", False, -1, "Event time normalised to 0"),
+                ParamSpec(
+                    "static",
+                    "bool",
+                    False,
+                    False,
+                    "Regress on the policy level instead",
+                ),
+                ParamSpec(
+                    "engine",
+                    "str",
+                    False,
+                    "areg",
+                    "Small-sample conventions of Stata areg (xtevent default) or reghdfe",
+                    ["areg", "reghdfe"],
+                ),
+                ParamSpec(
+                    "absorb",
+                    "str",
+                    False,
+                    None,
+                    "Extra fixed effects (Stata addabsorb()); needs engine='reghdfe'",
+                ),
+                ParamSpec("cluster", "str", False, None, "Cluster variable"),
+                ParamSpec("vce", "str", False, None, "'robust' for HC SEs", ["robust"]),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns=(
+                "CausalResult: mean post-event effect; event_study table, "
+                "vcov_event, diffavg and coef_table in model_info"
+            ),
+            example=(
+                'sp.xtevent(df, y="y", policy="z", panel="id", time="t", '
+                'window=3, cluster="state")'
+            ),
+            tags=["did", "event_study", "continuous_treatment", "xtevent", "panel"],
+            reference="Freyaldenhoven, Hansen & Shapiro (2019) [@freyaldenhoven2019event]",
+            assumptions=[
+                "Parallel trends in the absence of policy changes",
+                "No anticipation beyond the window's leads",
+                "Effects homogeneous across units (see sun_abraham for binary staggered adoption)",
+            ],
+            alternatives=["event_study", "sun_abraham", "did_multiplegt_dyn"],
             typical_n_min=50,
         )
     )

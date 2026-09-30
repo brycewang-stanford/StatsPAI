@@ -51,6 +51,7 @@ from scipy import stats
 
 from .._aliases import accepts_aliases
 from ..core.results import CausalResult
+from ..exceptions import MethodIncompatibility
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import fe_dof_not_nested as _fe_dof_not_nested
 
@@ -465,6 +466,7 @@ def sun_abraham(
 
     df[g] = df[g].fillna(0).replace([np.inf, -np.inf], 0).astype(int)
     time_periods = sorted(df[t].unique())
+    time_set = set(time_periods)
     t_max = max(time_periods)
     cohorts_all = sorted([v for v in df[g].unique() if v > 0 and v <= t_max])
 
@@ -524,28 +526,47 @@ def sun_abraham(
     # Reference relative time = -1 (CS-SA standard).
     rel_times = [e for e in range(e_min, e_max + 1) if e != -1]
 
-    # ----- Saturated design matrix: 1(G=g) × 1(e=ℓ) -----
-    interact_meta: List[Tuple[int, int]] = []  # (g, e) per column
-    X_cols: List[np.ndarray] = []
-    for g_val in cohorts:
-        in_cohort = (df[g] == g_val).values
-        for e in rel_times:
-            col = (in_cohort & (df["_rel_time"].values == e)).astype(float)
-            # Only cells that exist in the data are parameters. A cohort
-            # first treated late has no observations at the most negative
-            # relative times (and vice versa); an all-zero column is not an
-            # estimated coefficient, and counting it in K would inflate the
-            # small-sample degrees-of-freedom factor relative to fixest and
-            # reghdfe, which only ever see the observed cells.
-            if not col.any():
-                continue
-            X_cols.append(col)
-            interact_meta.append((g_val, e))
+    # ----- Saturated design: 1(G=g) × 1(e=ℓ), one column per observed cell -----
+    # Only cells that exist in the data are parameters. A cohort first
+    # treated late has no observations at the most negative relative times
+    # (and vice versa); an all-zero column is not an estimated coefficient,
+    # and counting it in K would inflate the small-sample degrees-of-freedom
+    # factor relative to fixest and reghdfe, which only ever see the
+    # observed cells. The design is kept as a cell index per row (one-hot):
+    # with ~100 cohorts the dense columns cost ~35 s and several GB
+    # (``_sa_within``).
+    g_vals = df[g].to_numpy()
+    rel_vals = df["_rel_time"].to_numpy()
+    rel_set = set(rel_times)
+    cohort_set = set(cohorts)
+    present = (
+        pd.DataFrame({"g": g_vals, "e": rel_vals})[
+            pd.Series(g_vals).isin(cohort_set).to_numpy()
+            & pd.Series(rel_vals).isin(rel_set).to_numpy()
+        ]
+        .drop_duplicates()
+        .itertuples(index=False)
+    )
+    present_cells = {(pg, int(pe)) for pg, pe in present}
+    interact_meta: List[Tuple[int, int]] = [
+        (g_val, e)
+        for g_val in cohorts
+        for e in rel_times
+        if (g_val, e) in present_cells
+    ]
+    cell_index = {m: j for j, m in enumerate(interact_meta)}
+    keys = pd.DataFrame(
+        {
+            "_g": [float(m[0]) for m in interact_meta],
+            "_e": [float(m[1]) for m in interact_meta],
+            "_j": np.arange(len(interact_meta)),
+        }
+    )
+    rows = pd.DataFrame(
+        {"_g": g_vals.astype(float), "_e": rel_vals.astype(float)}
+    ).merge(keys, on=["_g", "_e"], how="left")
+    cell = rows["_j"].fillna(-1).to_numpy(dtype=np.int64)
 
-    X_int = np.column_stack(X_cols)
-
-    # Unit + time FE via two-way within transformation ("within" projection).
-    # Build the panel of y and X, demean, then flatten.
     unit_idx = pd.Categorical(df[i])
     time_idx = pd.Categorical(df[t])
     # Observation weights omega. Unit weights are constant within unit, but
@@ -555,54 +576,42 @@ def sun_abraham(
         if weights is None
         else df[weights].to_numpy(dtype=float)
     )
-    y_dm = _two_way_demean(df[y].values.astype(float), unit_idx, time_idx, w=w_all)
-    X_dm = np.column_stack(
-        [
-            _two_way_demean(X_int[:, k], unit_idx, time_idx, w=w_all)
-            for k in range(X_int.shape[1])
-        ]
-    )
-
-    if covariates:
-        for c in covariates:
-            X_dm = np.column_stack(
-                [
-                    X_dm,
-                    _two_way_demean(
-                        df[c].values.astype(float), unit_idx, time_idx, w=w_all
-                    ),
-                ]
-            )
-
-    valid = np.isfinite(y_dm) & np.all(np.isfinite(X_dm), axis=1)
-    y_v = y_dm[valid]
-    X_v = X_dm[valid]
-    w_v = w_all[valid]
-    cluster_v = df.loc[valid, cluster_col].values
     k_int = len(interact_meta)
+    y_raw = df[y].to_numpy(dtype=float)
+    Z_raw = (
+        np.column_stack([df[c].to_numpy(dtype=float) for c in covariates])
+        if covariates
+        else None
+    )
+    cluster_codes = pd.factorize(df[cluster_col])[0]
+    if not (
+        np.all(np.isfinite(y_raw))
+        and (Z_raw is None or np.all(np.isfinite(Z_raw)))
+        and np.all(cluster_codes >= 0)
+    ):
+        raise MethodIncompatibility(
+            "sun_abraham: the outcome, covariates and cluster variable must "
+            "be non-missing on the estimation sample; drop incomplete rows "
+            "first.",
+        )
+    from ._sa_within import within_fit
 
-    # ----- (W)LS with ridge safety -----
-    # At omega == 1 every product below reduces to the unweighted form.
-    Xw = X_v * w_v[:, None]
-    XtX = Xw.T @ X_v
-    try:
-        XtX_inv = np.linalg.inv(XtX + 1e-10 * np.eye(X_v.shape[1]))
-    except np.linalg.LinAlgError:
-        XtX_inv = np.linalg.pinv(XtX)
-    beta = XtX_inv @ (Xw.T @ y_v)
-
-    # ----- Cluster-robust sandwich SE (Liang-Zeger) -----
-    # The meat is built from the *weighted* score w_i x_i u_i, matching
-    # fixest's weighted cluster-robust variance.
-    u = y_v - X_v @ beta
-    Xu = Xw * u[:, None]
-    clusters = pd.Series(cluster_v)
-    Xu_sum = np.zeros_like(XtX)
-    for _, idx in clusters.groupby(clusters).indices.items():
-        s = Xu[idx].sum(axis=0)
-        Xu_sum += np.outer(s, s)
-    n_clust = clusters.nunique()
-    n, k = X_v.shape
+    fit = within_fit(
+        y_raw,
+        cell,
+        k_int,
+        Z_raw,
+        unit_idx.codes.astype(np.int64),
+        time_idx.codes.astype(np.int64),
+        len(unit_idx.categories),
+        len(time_idx.categories),
+        w_all,
+        cluster_codes,
+    )
+    beta, XtX_inv, Xu_sum = fit["beta"], fit["XtX_inv"], fit["meat"]
+    n, k = int(fit["n"]), int(fit["k"])
+    valid = np.ones(len(df), dtype=bool)
+    n_clust = int(cluster_codes.max()) + 1
     # Small-sample factor: fixest / reghdfe "nested" convention. K counts
     # the slope parameters plus the levels of every fixed effect that is
     # not nested inside the cluster variable; a fixed effect nested in the
@@ -660,7 +669,7 @@ def sun_abraham(
         eligible = [
             g_val
             for g_val in cohorts
-            if (g_val, e) in {m for m in interact_meta} and (g_val + e) in time_periods
+            if (g_val, e) in cell_index and (g_val + e) in time_set
         ]
         if not eligible:
             continue
@@ -675,7 +684,7 @@ def sun_abraham(
         # Selection vector w of length k_int picking out (g, e) positions.
         w = np.zeros(k_int)
         for share, g_val in zip(shares, eligible):
-            idx = interact_meta.index((g_val, e))
+            idx = cell_index[(g_val, e)]
             w[idx] = share
 
         est_e = float(w @ beta_int)
@@ -693,7 +702,7 @@ def sun_abraham(
         # to 0.02% at single-cohort relative times and drifted up to 2%
         # wherever two cohorts contributed, always downward.
         beta_e = np.array(
-            [beta_int[interact_meta.index((g_val, e))] for g_val in eligible],
+            [beta_int[cell_index[(g_val, e)]] for g_val in eligible],
             dtype=float,
         )
         if not share_variance:
@@ -758,7 +767,7 @@ def sun_abraham(
                 continue
             shares = shares / shares.sum()
             for share, g_val in zip(shares, eligible):
-                W_event[interact_meta.index((g_val, e))] += share
+                W_event[cell_index[(g_val, e)]] += share
             event_total += 1.0
         if event_total > 0:
             W_event /= event_total
@@ -780,7 +789,7 @@ def sun_abraham(
                 count = float(cohort_counts.get(g_val, 0))
                 if count <= 0:
                     continue
-                W_fixest[interact_meta.index((g_val, e))] += count
+                W_fixest[cell_index[(g_val, e)]] += count
                 cell_total += count
         if cell_total > 0:
             W_fixest /= cell_total
@@ -802,7 +811,7 @@ def sun_abraham(
                 continue
             omega_e = float(
                 sum(
-                    W_fixest[interact_meta.index((g_val, e))]
+                    W_fixest[cell_index[(g_val, e)]]
                     for g_val in cohorts
                     if (g_val, e) in meta_set
                 )

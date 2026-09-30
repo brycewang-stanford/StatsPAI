@@ -2058,6 +2058,11 @@
           "description": "Significance level for confidence intervals.",
           "type": "number"
         },
+        "autosample": {
+          "default": false,
+          "description": "Stata ``did_imputation, autosample``. A treated observation whose unit (or period) has no untreated observation has no imputable fixed effect. By default that is an error, as in Stata; with ``autosample=True`` those observations are dropped from the estimation sample, with a warning and the count in ``model_info['n_obs_autosample_dropped']``. Typical case: units treated from the first period of the panel.",
+          "type": "boolean"
+        },
         "balanced": {
           "default": false,
           "description": "Stata ``did_imputation, hbalance``: keep only eventually-treated units observed at *every* requested horizon, so the event-study composition is stable across ``k`` (no cohort churn). Never-treated units are always kept. Requires ``horizon`` (or ``pretrends``). Warns with the number of units dropped.",
@@ -2400,6 +2405,10 @@
           "description": "Cluster variable for cluster bootstrap",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "idcluster": {
+          "description": "With cluster=, name of a new column giving every resampled cluster its own id (Stata idcluster()), so a cluster drawn twice is two groups for fixed effects",
+          "type": "string"
         },
         "n_boot": {
           "default": 1000,
@@ -3729,6 +3738,76 @@
       "type": "object"
     },
     "name": "cbps"
+  },
+  {
+    "description": "Bunching summaries of a bin-by-event-time minimum-wage event study (Cengiz, Dube, Lindner & Zipperer 2019): missing jobs below and excess jobs above the new minimum, % change in affected employment and wage, elasticities w.r.t. the minimum and the affected wage, with analytic delta-method SEs, plus the event-year path and bin profile. Reproduces the paper's Table 1 col 1 from its regression coefficients. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.stacked_did, sp.bunching.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "below_share": {
+          "description": "Share of jobs below the new minimum B",
+          "type": "number"
+        },
+        "bins_per_unit": {
+          "default": 4.0,
+          "description": "Fine bins per unit of bin carried by each term (CDLZ: 4)",
+          "type": "number"
+        },
+        "covariance": {
+          "description": "Covariance if no result",
+          "type": "string"
+        },
+        "epop": {
+          "description": "Pre-period employment per capita E",
+          "type": "number"
+        },
+        "mw_level": {
+          "description": "Mean new minimum, in bin units",
+          "type": "number"
+        },
+        "params": {
+          "description": "Coefficients if no result",
+          "type": "string"
+        },
+        "pct_mw": {
+          "description": "Mean % increase of the minimum wage",
+          "type": "number"
+        },
+        "post_years": {
+          "description": "Event years averaged (default every year >= 0)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "result": {
+          "description": "Fitted regression with params and a covariance (e.g. sp.hdfe_ols)",
+          "type": "string"
+        },
+        "terms": {
+          "description": "Columns term (coefficient name), year (event time), bin (units from the new minimum; negative below)",
+          "type": "string"
+        },
+        "wage_bill": {
+          "description": "Pre-period wage bill per capita EWB",
+          "type": "number"
+        }
+      },
+      "required": [
+        "below_share",
+        "epop",
+        "mw_level",
+        "pct_mw",
+        "terms",
+        "wage_bill"
+      ],
+      "type": "object"
+    },
+    "name": "cdlz_bunching"
   },
   {
     "description": "Chernozhukov-Fernandez-Val-Melly (2013) counterfactual decomposition. Validation: certified parity evidence. Assumptions: The 'explained' component depends on the reference coefficient vector; sequential (path-dependent) decompositions depend on the ordering unless a Shapley / Gelbach-type invariant is used; Distributional decompositions (Machado-Mata, Melly, CFM, RIF) assume the conditional distribution is invariant to the counterfactual change (no general-equilibrium effects); Gap-closing and four-way (mediation) decompositions need the causal assumptions of the underlying intervention, not only a regression fit. Pre-conditions: A group indicator with both groups well represented, and the same covariate set fitted in each group; Data contains a binary or categorical group indicator with both groups represented; Outcome and covariates are numeric (or properly encoded) and finite. Failure modes: Explained share changes sign when the reference group is switched -> Report both references or the pooled / Shapley-invariant decomposition; the index-number problem is real, not a bug; Trimming warning at common-support boundaries -> Inspect propensity-score support; restrict the analysis...",
@@ -10685,6 +10764,15 @@
     "description": "Estimate OLS / IV with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- that path is dense O(n^2) (see cost); use sp.conley on the fitted result, which is sparse and scales. Cost: Default (OLS / HC / CRV1) is linear in n. vce='conley' is the exception: it calls conley_vcov_matrix, which materialises several dense n x n float64 arrays (lat/lon differences, distances, the uniform kernel) -- ~0.8 GB at n=10,000, ~80 GB at n=100,000, ~157 GB at n=140,000. Prefer sp.conley (sparse cKDTree) above ~20,000 rows. Assumptions: Strict exogeneity conditional on the absorbed fixed effects; No perfect collinearity after FE absorption (within-transformation rank); Cluster structure for `vcov={'CRV1': '...'}` matches the relevant dependence. Pre-conditions: Data is a long-format DataFrame; FE columns are categorical or convertible; Every absorbed FE level has more than one observation (singleton dropping behaviour controlled by `drop_singletons`); Optional IV stage: instruments are at least as many as endogenous regressors. Failure modes: Singleton groups dropped warning -> Aggregate small categories or...",
     "input_schema": {
       "properties": {
+        "backend": {
+          "default": "pyfixest",
+          "description": "``'native'`` fits the regression on StatsPAI's HDFE kernel (``sp.hdfe_ols``) and reports it as ``feols`` does: same coefficients, SEs within the demeaning tolerance (~1e-9) for ``vcov`` in ``iid`` / ``hetero`` / ``{'CRV1': col}``, and 10-60x faster on millions of rows (2M rows, two effects: 1.9 s vs 110 s). No IV part, multiple-estimation syntax or ``ssc=``. With the default, a regression of at least a million rows that the native kernel can fit warns once with this suggestion.",
+          "enum": [
+            "pyfixest",
+            "native"
+          ],
+          "type": "string"
+        },
         "cluster": {
           "description": "Cluster id column for the extended ``vce=`` menu; also a shorthand for one-way ``{\"CRV1\": cluster}``.",
           "type": "string",
@@ -13025,12 +13113,47 @@
           "description": "Conley distance cutoff in km for ``vce=\"conley\"``.",
           "type": "number"
         },
+        "conley_kernel": {
+          "default": "uniform",
+          "description": "Spatial kernel (``acreg``'s ``bartlett`` option selects Bartlett).",
+          "enum": [
+            "uniform",
+            "bartlett"
+          ],
+          "type": "string"
+        },
+        "conley_lag": {
+          "description": "Panel Conley: spatial + time HAC as Stata ``acreg ..., id() time() lag()`` with ``pfe1() pfe2()``. Pairs within a unit take the time kernel alone up to ``conley_lag`` periods; pairs of different units take the spatial kernel times the time kernel up to ``conley_lag_cross`` periods (``acreg``'s ``lagdist()``, default 0: contemporaneous only). All three must be given together. Without them the spatial kernel runs over every pair of rows, which on a panel treats a unit's own rows in different periods -- and every cross-period pair of neighbours -- as correlated; that warns.",
+          "type": "integer"
+        },
+        "conley_lag_cross": {
+          "default": 0,
+          "description": "Time bandwidth for pairs of different units (``lagdist()``).",
+          "type": "integer"
+        },
         "conley_lat": {
           "description": "Coordinate columns (decimal degrees) for ``vce=\"conley\"``.",
           "type": "string"
         },
         "conley_lon": {
           "description": "Coordinate columns (decimal degrees) for ``vce=\"conley\"``.",
+          "type": "string"
+        },
+        "conley_time": {
+          "description": "Panel Conley: spatial + time HAC as Stata ``acreg ..., id() time() lag()`` with ``pfe1() pfe2()``. Pairs within a unit take the time kernel alone up to ``conley_lag`` periods; pairs of different units take the spatial kernel times the time kernel up to ``conley_lag_cross`` periods (``acreg``'s ``lagdist()``, default 0: contemporaneous only). All three must be given together. Without them the spatial kernel runs over every pair of rows, which on a panel treats a unit's own rows in different periods -- and every cross-period pair of neighbours -- as correlated; that warns.",
+          "type": "string"
+        },
+        "conley_time_kernel": {
+          "default": "bartlett",
+          "description": "Time kernel of the panel variant (``acreg``'s ``hac`` is Bartlett, ``1 - |dt| / (lag + 1)``; without ``hac`` it is uniform).",
+          "enum": [
+            "bartlett",
+            "uniform"
+          ],
+          "type": "string"
+        },
+        "conley_unit": {
+          "description": "Panel Conley: spatial + time HAC as Stata ``acreg ..., id() time() lag()`` with ``pfe1() pfe2()``. Pairs within a unit take the time kernel alone up to ``conley_lag`` periods; pairs of different units take the spatial kernel times the time kernel up to ``conley_lag_cross`` periods (``acreg``'s ``lagdist()``, default 0: contemporaneous only). All three must be given together. Without them the spatial kernel runs over every pair of rows, which on a panel treats a unit's own rows in different periods -- and every cross-period pair of neighbours -- as correlated; that warns.",
           "type": "string"
         },
         "df_inference": {
@@ -14417,6 +14540,11 @@
             "hc3"
           ],
           "type": "string"
+        },
+        "small": {
+          "default": true,
+          "description": "Small-sample statistics as Stata ivregress, small (N-K divisor, HC1, G/(G-1)(N-1)/(N-K) cluster factor, t/F); False gives ivregress' default large-sample statistics (N divisor, HC0, no cluster factor, z/chi2). 2SLS/LIML",
+          "type": "boolean"
         }
       },
       "required": [
@@ -15525,7 +15653,7 @@
           "type": "number"
         },
         "covariates": {
-          "description": "Reserved for covariate-tightened bounds, which are not implemented; a non-empty list is ignored with a ``UserWarning`` (it used to be ignored silently).",
+          "description": "Discrete covariates for Lee's (2009) tightened bounds (Stata ``leebounds, tight()``): each covariate cell is trimmed by its own share and the trimmed means are averaged over the covariate distribution of the always-observed (the retained units of the less-retained arm). Continuous covariates must be binned first. Cell-level results are in ``model_info['cells']``. Analytic SEs of tightened bounds follow ``leebounds``' approximation and need ``trimming='leebounds'``; the bootstrap works with every trimming.",
           "items": {
             "type": "string"
           },
@@ -27353,6 +27481,88 @@
     "name": "rosenbaum_bounds"
   },
   {
+    "description": "Goldsmith-Pinkham, Sorkin & Swift's Rotemberg-weight summary of a Bartik instrument: weights and just-identified estimates per industry x period, industry aggregates, first-stage F, negative / positive weights, correlations, by-period split, top industries with clustered Anderson-Rubin intervals (their ch_weak), and beta by weight sign. Equals GPSS's own code to 1e-12. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Alternatives: sp.bartik, sp.ssaggregate.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level of the Anderson-Rubin test.",
+          "type": "number"
+        },
+        "ci_grid": {
+          "description": "AR grid (default -10..10 by 0.1)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "cluster": {
+          "description": "Cluster variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "covariates": {
+          "description": "Controls (intercept added)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "controls"
+          ],
+          "x-statspai-role": "columns"
+        },
+        "shares": {
+          "description": "Industry share columns",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "shocks": {
+          "description": "Columns industry (share column name), g, [period]",
+          "type": "string"
+        },
+        "time": {
+          "description": "Period column",
+          "type": "string",
+          "x-aliases": [
+            "period"
+          ],
+          "x-statspai-role": "column"
+        },
+        "top": {
+          "default": 5,
+          "description": "Industries listed in panel D",
+          "type": "integer"
+        },
+        "weights": {
+          "description": "Analytic weights",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "x": {
+          "description": "Endogenous regressor",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome and endogenous regressor.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "shares",
+        "shocks",
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "rotemberg_summary"
+  },
+  {
     "description": "Route a research question to estimator calls without data. Give the family (did / iv / rd / matching / ml_causal / qte / dynamic_panel) and answers to its decision questions; get the matching registered functions with example calls, why each is right, the assumptions it adds and the guide section to read, plus the unanswered questions and the one that narrows the choice most. Call with no answers to see the questions. The full guide is readable at statspai://guide/{family}.",
     "input_schema": {
       "properties": {
@@ -28765,12 +28975,25 @@
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
         },
+        "cluster": {
+          "description": "Resample clusters instead of observations.",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
         "quantiles": {
           "description": "quantiles parameter (Optional[List[float]]).",
           "items": {
             "type": "number"
           },
           "type": "array"
+        },
+        "reps": {
+          "description": "Bootstrap replications for the joint covariance (Stata ``sqreg`` always bootstraps, ``reps(20)`` by default). Without ``reps`` each quantile keeps its own analytic ``qreg`` SE and the return value is the table below.",
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Bootstrap seed.",
+          "type": "integer"
         },
         "x": {
           "description": "Primary running variable, regressor, or feature input for this estimator.",
@@ -28909,6 +29132,10 @@
           "description": "Pre-built stack: period relative to the sub-experiment's event",
           "type": "string"
         },
+        "events": {
+          "description": "0/1 column marking event periods, for repeated (non-absorbing) events: one sub-experiment per event, controls = units with no event in its window. Replaces first_treat",
+          "type": "string"
+        },
         "family": {
           "default": "gaussian",
           "description": "'poisson' fits the stack by PPML (sp.ppmlhdfe, Stata ppmlhdfe rules) for count outcomes",
@@ -28936,6 +29163,15 @@
           "default": true,
           "description": "Use only never-treated as controls (drops late-treated)",
           "type": "boolean"
+        },
+        "own_overlap": {
+          "default": "drop",
+          "description": "With events=: drop (or keep) events whose own unit has another event inside the window",
+          "enum": [
+            "drop",
+            "keep"
+          ],
+          "type": "string"
         },
         "spec": {
           "default": "event_study",
@@ -32842,6 +33078,95 @@
       "type": "object"
     },
     "name": "xtabond"
+  },
+  {
+    "description": "Panel event study of a policy that may be continuous and change several times per unit (Stata xtevent, Freyaldenhoven et al.): leads and lags of the policy's first difference inside the window, endpoint regressors for the tails, unit and period effects, one event time normalised to zero. areg or reghdfe conventions; equals Stata xtevent to 1e-12. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Parallel trends in the absence of policy changes; No anticipation beyond the window's leads; Effects homogeneous across units (see sun_abraham for binary staggered adoption). Alternatives: sp.event_study, sp.sun_abraham, sp.did_multiplegt_dyn. Typical minimum N: 50.",
+    "input_schema": {
+      "properties": {
+        "absorb": {
+          "description": "Extra fixed effects (Stata addabsorb()); needs engine='reghdfe'",
+          "type": "string",
+          "x-statspai-role": "columns"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster variable",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "covariates": {
+          "description": "Additional regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-aliases": [
+            "controls"
+          ],
+          "x-statspai-role": "columns"
+        },
+        "engine": {
+          "default": "areg",
+          "description": "Small-sample conventions of Stata areg (xtevent default) or reghdfe",
+          "enum": [
+            "areg",
+            "reghdfe"
+          ],
+          "type": "string"
+        },
+        "norm": {
+          "default": -1,
+          "description": "Event time normalised to 0",
+          "type": "integer"
+        },
+        "panel": {
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "policy": {
+          "description": "Policy variable (0/1 or continuous)",
+          "type": "string"
+        },
+        "static": {
+          "default": false,
+          "description": "Regress on the policy level instead",
+          "type": "boolean"
+        },
+        "time": {
+          "description": "Integer period",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "vce": {
+          "description": "'robust' for HC SEs",
+          "enum": [
+            "robust"
+          ],
+          "type": "string"
+        },
+        "window": {
+          "description": "Positive int (symmetric) or (lo, hi); endpoints lo-1 and hi+1",
+          "type": "integer"
+        },
+        "y": {
+          "description": "Outcome.",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "panel",
+        "policy",
+        "time",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "xtevent"
   },
   {
     "description": "Bias-corrected LSDV (LSDVC) estimator for dynamic panels. Validation: certified parity evidence. Do NOT use when: T is large relative to N -- the Nickell bias that motivates GMM is O(1/T) and within estimation is fine. Assumptions: Sequential exogeneity: errors are uncorrelated with past values of the regressors (lags are valid instruments); No second-order serial correlation in the differenced errors (Arellano-Bond AR(2) test) -- otherwise the lagged instruments are invalid; System GMM additionally assumes the first differences of the instruments are uncorrelated with the fixed effect (stationarity of initial conditions). Pre-conditions: A panel with T >= 3 (T >= 4 for AR(2) testing) and unit / time identifiers; Data is a long-format panel keyed by (entity, time) with at least 2 time periods per entity; Outcome and regressors are numeric or properly encoded. Failure modes: Hansen J-test p-value near 1 with many instruments -> Instrument proliferation weakens the test; collapse the instrument matrix or limit the lag depth; AR(2) test rejects -> Use deeper lags as instruments or a bias-corrected LSDV estimator (sp.xtlsdvc); Hausman test rejects RE -> Switch to fixed effects (method...",

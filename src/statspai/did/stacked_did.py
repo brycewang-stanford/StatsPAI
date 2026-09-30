@@ -45,6 +45,8 @@ def stacked_did(
     spec: str = "event_study",
     absorb: Optional[str] = None,
     control_group: Optional[str] = None,
+    events: Optional[str] = None,
+    own_overlap: str = "drop",
 ) -> CausalResult:
     """
     Stacked DID estimator (Cengiz, Dube, Lindner & Zipperer, 2019).
@@ -116,6 +118,18 @@ def stacked_did(
         takes every later-treated unit but only in the periods before its
         own treatment, as the stacking of Cunningham's *Mixtape* and many
         applied papers does. Overrides ``never_treated_only`` when given.
+    events : str, optional
+        A 0/1 column marking the periods in which a unit has an event, for
+        treatments that happen more than once (several minimum-wage
+        increases in one state). Every event becomes its own sub-experiment
+        over ``window``; its controls are the units with **no** event inside
+        that window (Cengiz et al.'s clean-control rule), in the window's
+        periods. Replaces ``first_treat``.
+    own_overlap : {'drop', 'keep'}, default 'drop'
+        With ``events``: an event whose own unit has another event inside
+        its window has a contaminated comparison; ``'drop'`` leaves it out
+        (counted in ``model_info['n_events_dropped_overlap']``), ``'keep'``
+        keeps it.
 
     Notes
     -----
@@ -147,7 +161,9 @@ def stacked_did(
     """
     # ── Input validation ─────────────────────────────────────────── #
     df = data.copy()
-    required_cols = [y, group, time] + ([] if event_id is not None else [first_treat])
+    required_cols = [y, group, time] + (
+        [] if (event_id is not None or events is not None) else [first_treat]
+    )
     for col in required_cols:
         if col not in df.columns:
             raise ValueError(f"Column '{col}' not found in data.")
@@ -183,6 +199,26 @@ def stacked_did(
         raise ValueError("window[0] must be negative (pre-treatment periods).")
     if window[1] < 0:
         raise ValueError("window[1] must be non-negative (post-treatment periods).")
+
+    if events is not None:
+        if event_id is not None or first_treat is not None:
+            raise MethodIncompatibility(
+                "stacked_did: pass one of events=, first_treat= or a pre-built "
+                "stack (event_id=), not several.",
+            )
+        if own_overlap not in ("drop", "keep"):
+            raise MethodIncompatibility("own_overlap must be 'drop' or 'keep'.")
+        if events not in df.columns:
+            raise MethodIncompatibility(f"Column '{events}' not found in data.")
+        ev_col = pd.to_numeric(df[events], errors="coerce")
+        if not ev_col.dropna().isin([0, 1]).all():
+            raise MethodIncompatibility(f"Column '{events}' must be 0/1.")
+        df, n_events_dropped = _stack_events(
+            df, group, time, ev_col, window, own_overlap
+        )
+        event_id, treated, event_time = "_ev_id", "_ev_treated", "_ev_time"
+    else:
+        n_events_dropped = None
 
     prebuilt = event_id is not None
     if prebuilt:
@@ -511,6 +547,8 @@ def stacked_did(
         "cohorts": sorted(cohort_values),
         "n_units": n_units,
         "n_stacked_obs": n_stacked,
+        "events": events,
+        "n_events_dropped_overlap": n_events_dropped,
         "window": window,
         "never_treated_only": never_treated_only,
         "control_group": control_group,
@@ -679,3 +717,63 @@ def _cluster_robust_se(
     if V.size == 0:
         return np.array([])
     return np.asarray(np.sqrt(np.maximum(np.diag(V), 0.0)), dtype=float)
+
+
+def _stack_events(
+    df: pd.DataFrame,
+    group: str,
+    time: str,
+    ev: pd.Series,
+    window: Tuple[int, int],
+    own_overlap: str,
+) -> Tuple[pd.DataFrame, int]:
+    """One sub-experiment per event (unit, g) with clean controls.
+
+    The window is ``[g + window[0], g + window[1]]``, truncated at the edges
+    of the panel. Controls are the units with no event inside it; the
+    treated unit contributes its own rows. Returns the stack (columns
+    ``_ev_id``, ``_ev_treated``, ``_ev_time``) and the number of events
+    dropped for another event of their own unit inside the window.
+    """
+    lo, hi = window
+    t = df[time].to_numpy(dtype=float)
+    u = df[group].to_numpy()
+    is_ev = ev.fillna(0).to_numpy() == 1
+    ev_rows = df.loc[is_ev, [group, time]]
+    ev_times = {
+        unit: np.sort(ts.to_numpy(dtype=float))
+        for unit, ts in ev_rows.groupby(group)[time]
+    }
+    order = ev_rows.assign(_t=ev_rows[time].astype(float)).sort_values(["_t", group])
+    frames: List[pd.DataFrame] = []
+    dropped = 0
+    for eu, g in zip(order[group].to_numpy(), order["_t"].to_numpy()):
+        w_lo, w_hi = g + lo, g + hi
+        own = ev_times[eu]
+        if own_overlap == "drop" and np.any((own != g) & (own >= w_lo) & (own <= w_hi)):
+            dropped += 1
+            continue
+        dirty = [
+            unit
+            for unit, ts in ev_times.items()
+            if unit != eu and np.any((ts >= w_lo) & (ts <= w_hi))
+        ]
+        keep = (t >= w_lo) & (t <= w_hi) & ((u == eu) | ~np.isin(u, dirty))
+        sub = df.loc[keep].copy()
+        sub["_ev_id"] = f"{eu}:{g:g}"
+        sub["_ev_treated"] = (sub[group].to_numpy() == eu).astype(int)
+        sub["_ev_time"] = sub[time].astype(float) - g
+        frames.append(sub)
+    if not frames:
+        raise DataInsufficient(
+            "stacked_did(events=): no event has a usable window.",
+            recovery_hint="Check the events column, or use own_overlap='keep'.",
+        )
+    if dropped:
+        warnings.warn(
+            f"stacked_did: dropped {dropped} event(s) whose own unit has another "
+            "event inside the window (own_overlap='drop').",
+            UserWarning,
+            stacklevel=3,
+        )
+    return pd.concat(frames, ignore_index=True), dropped

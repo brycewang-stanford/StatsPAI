@@ -129,7 +129,9 @@ def oster_bounds(
         - ``beta_short``, ``r2_short``: short regression estimates
         - ``beta_long``, ``r2_long``: long regression estimates
         - ``r_max``: maximum R² used
-        - ``delta_for_zero``: δ* such that adjusted β = 0 (robustness measure)
+        - ``delta_star`` (also ``delta_for_zero``): δ* such that adjusted
+          β = 0 (robustness measure) -- the key ``sp.oster_delta`` uses in
+          ``model_info['delta_star']``
         - ``beta_adjusted``: bias-adjusted β under (δ, R_max)
         - ``beta_adjusted_alternatives``: the other real roots of Oster's
           quadratic (δ = 1) / cubic (δ ≠ 1) -- exact method only
@@ -317,6 +319,8 @@ def oster_bounds(
         "r_max": r_max,
         "delta": delta,
         "delta_for_zero": delta_star,
+        # psacalc / sp.oster_delta name for the same number.
+        "delta_star": delta_star,
         "beta_adjusted": beta_adj,
         "beta_adjusted_alternatives": beta_alternatives,
         "method": method,

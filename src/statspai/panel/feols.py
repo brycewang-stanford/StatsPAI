@@ -83,7 +83,8 @@ class FEOLSResult(ResultProtocolMixin):
     std_errors : pd.Series
         Standard errors indexed by regressor name.
     vcov : np.ndarray
-        Variance-covariance matrix of the coefficients.
+        Variance-covariance matrix of the coefficients, in ``params`` order;
+        ``cov_params()`` returns it labelled.
     tvalues, pvalues : pd.Series
     conf_int_lower, conf_int_upper : pd.Series
     residuals : np.ndarray
@@ -245,6 +246,25 @@ class FEOLSResult(ResultProtocolMixin):
     @property
     def coef(self) -> pd.Series:
         return self.params
+
+    @property
+    def nobs(self) -> int:
+        """Estimation-sample size (``e(N)``); alias of ``n_obs``."""
+        return int(self.n_obs)
+
+    @property
+    def r2_adj(self) -> float:
+        """Adjusted R-squared (``e(r2_a)``); alias of ``r2_a``."""
+        return float(self.r2_a)
+
+    def cov_params(self) -> pd.DataFrame:
+        """Coefficient covariance labelled by regressor (``e(V)``).
+
+        ``vcov`` stays the bare array other code indexes positionally; this
+        is the same matrix with the regressor names on both axes.
+        """
+        names = list(self.params.index)
+        return pd.DataFrame(np.asarray(self.vcov), index=names, columns=names)
 
     @property
     def se(self) -> pd.Series:
@@ -683,6 +703,12 @@ def feols(
     conley_lat: Optional[str] = None,
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
+    conley_time: Optional[str] = None,
+    conley_unit: Optional[str] = None,
+    conley_lag: Optional[int] = None,
+    conley_lag_cross: int = 0,
+    conley_kernel: str = "uniform",
+    conley_time_kernel: str = "bartlett",
     alpha: float = 0.05,
     drop_singletons: bool = True,
     tol: Optional[float] = None,
@@ -756,6 +782,23 @@ def feols(
         Coordinate columns (decimal degrees) for ``vce="conley"``.
     conley_cutoff : float, optional
         Conley distance cutoff in km for ``vce="conley"``.
+    conley_time, conley_unit, conley_lag : optional
+        Panel Conley: spatial + time HAC as Stata ``acreg ..., id() time()
+        lag()`` with ``pfe1() pfe2()``. Pairs within a unit take the time
+        kernel alone up to ``conley_lag`` periods; pairs of different units
+        take the spatial kernel times the time kernel up to
+        ``conley_lag_cross`` periods (``acreg``'s ``lagdist()``, default 0:
+        contemporaneous only). All three must be given together. Without
+        them the spatial kernel runs over every pair of rows, which on a
+        panel treats a unit's own rows in different periods -- and every
+        cross-period pair of neighbours -- as correlated; that warns.
+    conley_lag_cross : int, default 0
+        Time bandwidth for pairs of different units (``lagdist()``).
+    conley_kernel : {'uniform', 'bartlett'}, default 'uniform'
+        Spatial kernel (``acreg``'s ``bartlett`` option selects Bartlett).
+    conley_time_kernel : {'bartlett', 'uniform'}, default 'bartlett'
+        Time kernel of the panel variant (``acreg``'s ``hac`` is Bartlett,
+        ``1 - |dt| / (lag + 1)``; without ``hac`` it is uniform).
     alpha : float
     drop_singletons : bool
     tol : float, optional
@@ -825,7 +868,7 @@ def feols(
             "'CR2'/'CR3'/'jackknife', 'conley', or 'wild'."
         )
     if _vce is not None and weights is not None:
-        raise ValueError(
+        raise MethodIncompatibility(
             f"hdfe_ols vce={vce!r} does not support weights= — the extended "
             "SE menu is unweighted."
         )
@@ -840,6 +883,13 @@ def feols(
             "hdfe_ols vce='conley' requires conley_lat=, conley_lon= and "
             "conley_cutoff= (km)."
         )
+    _conley_panel = [conley_time, conley_unit, conley_lag]
+    if _vce == "conley" and any(v is not None for v in _conley_panel):
+        if any(v is None for v in _conley_panel):
+            raise MethodIncompatibility(
+                "hdfe_ols panel Conley needs conley_time=, conley_unit= and "
+                "conley_lag= together.",
+            )
 
     base_formula, iv_part = _split_iv(formula)
     lhs, x_terms, fe_terms = _parse_formula(base_formula)
@@ -873,6 +923,7 @@ def feols(
     if _vce == "conley":
         # Coordinates ride along the same dropna so they stay row-aligned.
         cols += [conley_lat, conley_lon]
+        cols += [c for c in (conley_time, conley_unit) if c is not None]
     if cluster is not None:
         cluster_names = [cluster] if isinstance(cluster, str) else list(cluster)
         cols += cluster_names
@@ -1167,12 +1218,67 @@ def feols(
             }[_vce]
             cluster_info = {"cluster": [cluster], "n_clusters": [n_cl]}
             df_infer = n_cl - 1
-        else:  # conley
+        elif conley_time is not None:  # panel Conley, acreg pfe1/pfe2
+            from ..inference.conley import _spatiotemporal_meat
+
+            u_codes, _u = pd.factorize(df_sub[conley_unit])
+            t_raw = pd.to_numeric(df_sub[conley_time], errors="coerce").to_numpy(float)
+            if np.any(~np.isfinite(t_raw)) or np.any(t_raw != np.round(t_raw)):
+                raise MethodIncompatibility("conley_time must be integer periods.")
+            t_codes = (t_raw - t_raw.min()).astype(np.int64)
+            if pd.Series(list(zip(u_codes, t_codes))).duplicated().any():
+                raise MethodIncompatibility(
+                    "conley_unit x conley_time does not uniquely index the rows."
+                )
+            lat_v = df_sub[conley_lat].to_numpy(dtype=np.float64)
+            lon_v = df_sub[conley_lon].to_numpy(dtype=np.float64)
+            per_unit = pd.DataFrame({"u": u_codes, "a": lat_v, "o": lon_v})
+            if (per_unit.groupby("u")[["a", "o"]].nunique() > 1).any().any():
+                raise MethodIncompatibility(
+                    "conley: a unit's coordinates must be constant over time."
+                )
+            bread = np.linalg.inv(Xw.T @ Xw)
+            e_w = yw - Xw @ (bread @ (Xw.T @ yw))
+            meat = _spatiotemporal_meat(
+                Xw * e_w[:, None],
+                lat_v,
+                lon_v,
+                u_codes.astype(np.int64),
+                t_codes,
+                int(u_codes.max()) + 1,
+                int(t_codes.max()) + 1,
+                float(conley_cutoff),
+                conley_kernel,
+                conley_time_kernel,
+                int(conley_lag),
+                int(conley_lag_cross),
+                "planar",
+            )
+            vcov = bread @ meat @ bread
+            vcov = 0.5 * (vcov + vcov.T)
+            se_type = (
+                f"Conley spatial + time HAC (acreg planar, {conley_cutoff} km, "
+                f"lag {conley_lag}, cross-unit lag {conley_lag_cross})"
+            )
+            df_infer = n_w - k_w
+        else:  # conley, spatial only
+            lat_v = df_sub[conley_lat].to_numpy(dtype=np.float64)
+            lon_v = df_sub[conley_lon].to_numpy(dtype=np.float64)
+            if pd.DataFrame({"a": lat_v, "o": lon_v}).duplicated().any():
+                warnings.warn(
+                    "hdfe_ols vce='conley': rows share coordinates (a panel?). "
+                    "The spatial kernel runs over every pair of rows, so a "
+                    "unit's own rows in different periods count as correlated. "
+                    "For a panel pass conley_time=, conley_unit= and "
+                    "conley_lag= (Stata acreg's id() time() lag()).",
+                    UserWarning,
+                    stacklevel=2,
+                )
             vcov = conley_vcov_matrix(
                 Xw,
                 yw,
-                df_sub[conley_lat].to_numpy(dtype=np.float64),
-                df_sub[conley_lon].to_numpy(dtype=np.float64),
+                lat_v,
+                lon_v,
                 float(conley_cutoff),
             )
             se_type = f"Conley spatial HAC (acreg planar, {conley_cutoff} km)"

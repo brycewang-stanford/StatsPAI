@@ -43,7 +43,7 @@ def test_ols_duplicate_columns_raises():
     x = rng.normal(size=n)
     df = pd.DataFrame({"y": x + rng.normal(size=n), "x1": x, "x2": x})
     with pytest.raises(NumericalInstability, match="collinear"):
-        sp.regress("y ~ x1 + x2", data=df)
+        sp.regress("y ~ x1 + x2", data=df, collinear="raise")
 
 
 def test_ols_proportional_columns_raises():
@@ -53,7 +53,7 @@ def test_ols_proportional_columns_raises():
     x = rng.normal(size=n)
     df = pd.DataFrame({"y": x + rng.normal(size=n), "x1": x, "x2": 2.5 * x})
     with pytest.raises(NumericalInstability):
-        sp.regress("y ~ x1 + x2", data=df)
+        sp.regress("y ~ x1 + x2", data=df, collinear="raise")
 
 
 def test_ols_constant_regressor_raises():
@@ -62,7 +62,7 @@ def test_ols_constant_regressor_raises():
     n = 100
     df = pd.DataFrame({"y": rng.normal(size=n), "x": np.full(n, 3.0)})
     with pytest.raises(NumericalInstability, match="constant"):
-        sp.regress("y ~ x", data=df)
+        sp.regress("y ~ x", data=df, collinear="raise")
 
 
 def test_ols_complementary_dummies_raises():
@@ -72,7 +72,7 @@ def test_ols_complementary_dummies_raises():
     male = rng.binomial(1, 0.5, n).astype(float)
     df = pd.DataFrame({"y": rng.normal(size=n), "male": male, "female": 1.0 - male})
     with pytest.raises(NumericalInstability):
-        sp.regress("y ~ male + female", data=df)
+        sp.regress("y ~ male + female", data=df, collinear="raise")
 
 
 def test_ols_collinearity_error_names_the_columns():
@@ -82,10 +82,36 @@ def test_ols_collinearity_error_names_the_columns():
     x = rng.normal(size=n)
     df = pd.DataFrame({"y": rng.normal(size=n), "a": x, "b": x})
     with pytest.raises(NumericalInstability) as ei:
-        sp.regress("y ~ a + b", data=df)
+        sp.regress("y ~ a + b", data=df, collinear="raise")
     diag = ei.value.diagnostics
     assert "collinear_pair" in diag
     assert set(diag["collinear_pair"]) == {"a", "b"}
+
+
+@pytest.mark.parametrize(
+    "cols, formula, omitted",
+    [
+        ({"x1": "x", "x2": "x"}, "y ~ x1 + x2", "x2"),
+        ({"x1": "x", "x2": "2.5x"}, "y ~ x1 + x2", "x2"),
+        ({"x": "const"}, "y ~ x", "x"),
+        ({"male": "d", "female": "1-d"}, "y ~ male + female", "female"),
+    ],
+)
+def test_ols_default_omits_the_later_collinear_regressor(cols, formula, omitted):
+    """Stata's regress omits instead of failing; the omission is reported."""
+    rng = np.random.default_rng(5)
+    n = 120
+    x = rng.normal(size=n)
+    d = rng.binomial(1, 0.5, n).astype(float)
+    make = {"x": x, "2.5x": 2.5 * x, "const": np.full(n, 3.0), "d": d, "1-d": 1.0 - d}
+    df = pd.DataFrame(
+        {"y": rng.normal(size=n), **{c: make[v] for c, v in cols.items()}}
+    )
+    with pytest.warns(UserWarning, match=f"{omitted} omitted because of collinearity"):
+        r = sp.regress(formula, data=df)
+    assert omitted not in r.params.index
+    assert [o["variable"] for o in r.model_info["omitted"]] == [omitted]
+    assert np.all(np.isfinite(r.std_errors))
 
 
 def test_logit_perfect_separation_warns():
@@ -148,7 +174,7 @@ def test_ols_zero_variance_outcome_warns():
     df = pd.DataFrame({"y": np.ones(n), "x": rng.normal(size=n)})
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        sp.regress("y ~ x", data=df)
+        sp.regress("y ~ x", data=df, collinear="raise")
     assert len(w) >= 1, "zero-variance outcome produced no warning"
 
 
@@ -173,7 +199,7 @@ def test_clean_regress_does_not_raise_or_warn():
     df = pd.DataFrame({"y": y, "x1": x1, "x2": x2})
     with warnings.catch_warnings():
         warnings.simplefilter("error")  # any warning becomes an error
-        res = sp.regress("y ~ x1 + x2", data=df)
+        res = sp.regress("y ~ x1 + x2", data=df, collinear="raise")
     assert np.all(np.isfinite(np.asarray(res.params)))
 
 
@@ -190,7 +216,7 @@ def test_correlated_but_full_rank_does_not_raise():
     x2 = x1 + 0.05 * rng.normal(size=n)  # corr ~0.998, full rank
     y = x1 + x2 + rng.normal(size=n)
     df = pd.DataFrame({"y": y, "x1": x1, "x2": x2})
-    res = sp.regress("y ~ x1 + x2", data=df)  # must not raise
+    res = sp.regress("y ~ x1 + x2", data=df, collinear="raise")  # must not raise
     assert np.all(np.isfinite(np.asarray(res.params)))
 
 

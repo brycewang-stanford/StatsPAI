@@ -2,6 +2,155 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+Closes the remaining items of the top-5 replication list (eight QJE / AER
+papers). Each item is pinned by a reference fixture from Stata 18 or R.
+
+### Added
+
+- **`sp.xtevent`: event study of a policy that is continuous or changes
+  several times per unit** (Stata `xtevent`, Freyaldenhoven et al.). Leads
+  and lags of the policy's first difference inside the window, endpoint
+  regressors for the tails, unit and period effects, `norm=`, `static=`,
+  `engine='areg'|'reghdfe'`, `absorb=`, and Stata's `diffavg` contrast.
+  Against Stata `xtevent` 3.1.0 on five specifications (default, clustered
+  asymmetric window, another normalisation with robust SEs, the `reghdfe`
+  engine, the static model): coefficients, SEs, N and `diffavg` to 1e-12
+  (`test_xtevent_Stata_parity.py`). `sp.event_study` covers binary adoption
+  dates only.
+- **`sp.rotemberg_summary`: the Goldsmith-Pinkham, Sorkin & Swift
+  Rotemberg-weight table** of a Bartik instrument: weights and just-identified
+  estimates per industry x period, industry aggregates, first-stage F,
+  negative / positive weight panels, correlations, the by-period split, the
+  top industries with the clustered Anderson-Rubin interval of their
+  `ch_weak`, and beta by weight sign. Against GPSS's own `bartik_weight` +
+  `ch_weak` code on a synthetic panel: every number to 1e-12
+  (`test_rotemberg_summary_Stata_parity.py`); on the ADH data it reproduces
+  every number of their published ADH table.
+- **Panel Conley in `sp.hdfe_ols`: `conley_time=`, `conley_unit=`,
+  `conley_lag=`** (and `conley_lag_cross=`, `conley_kernel=`,
+  `conley_time_kernel=`): Stata `acreg`'s spatial + time HAC on the
+  FE-absorbed design, in O(neighbour pairs) memory. Equal to `acreg ...,
+  pfe1(id) pfe2(t)` to 1e-12 on three specifications
+  (`test_hdfe_conley_panel_acreg_parity.py`). Spatial-only Conley on rows
+  that share coordinates now warns: its kernel treats a unit's own rows in
+  different periods as correlated.
+- **`sp.feols(backend='native')`** fits on StatsPAI's HDFE kernel and reports
+  as `feols`: same coefficients and SEs (within ~1e-9) for iid / hetero /
+  CRV1, 10-60x faster on millions of rows (2M rows, two effects: 1.9 s vs
+  110 s). A pyfixest fit of at least a million rows that the native kernel
+  can take warns with the suggestion.
+- **`sp.cdlz_bunching`: the minimum-wage bunching estimator's summaries**
+  (Cengiz, Dube, Lindner & Zipperer 2019). From a bin x event-year
+  regression it reports missing jobs below and excess jobs above the new
+  minimum, the percentage change in affected employment and wage, and the
+  two elasticities, with analytic delta-method SEs, plus the event-year
+  path and the bin profile. From the coefficients of the paper's Table 1
+  column 1 it reproduces every statistic and SE of that column
+  (`tests/external_parity/test_cdlz_bunching_table1.py`). `sp.bunching`
+  remains the Saez / Kleven kink and notch estimator.
+- **`sp.stacked_did(events=)`: repeated (non-absorbing) events.** A 0/1
+  event column replaces `first_treat`; every event is a sub-experiment over
+  the window, its controls are the units with no event inside that window,
+  and an event whose own unit has another event in the window is dropped
+  by default (`own_overlap=`). Equal to the same stack built independently
+  in Stata and fitted by `reghdfe`, unweighted and `[aw=]`, to 1e-12
+  (`test_stacked_did_events_Stata_parity.py`).
+- **`sp.regress(collinear='omit')` omits collinear regressors as Stata
+  does.** A rank-deficient design used to raise. The later member of each
+  collinear set is now dropped with a note and listed in
+  `model_info['omitted']`, scanning terms in the order the formula writes
+  them. With factor variables this is the set Stata's `regress` omits
+  (`x i.g d1` drops `d1`, `d1 i.g x` drops `1.g`, an event study with
+  `i.unit i.period` drops the last period dummies), with coefficients and
+  SEs to 1e-10. With plain variables only, `regress` pivots on the data
+  inside its solver; the kept set is then another normalisation of the
+  same model (same R-squared, root MSE and coefficients outside the set).
+  `collinear='raise'` keeps the old error (`test_regress_collinear_Stata_parity.py`).
+- **`sp.iv(small=False)`** gives Stata `ivregress`'s default large-sample
+  statistics: `N` divisor, HC0, no cluster factor, z / chi2. `small=True`
+  (the default, unchanged) is `ivregress ..., small`. 2SLS and LIML match
+  Stata to 1e-12 in all six combinations (`test_iv_small_Stata_parity.py`).
+- **`sp.did_imputation(autosample=True)`** drops treated observations whose
+  unit or period has no untreated observation, as Stata
+  `did_imputation, autosample`. The default still refuses (Stata rc 198).
+  Overall ATT and event study with pre-trends agree with Stata to 1e-7;
+  the remaining 1e-8 is Stata's iterative solver, since ours equals the
+  exact dummy-variable solution to 1e-12
+  (`test_did_imputation_autosample_Stata_parity.py`).
+- **Covariate-tightened Lee bounds: `sp.lee_bounds(covariates=[...])`.**
+  Each covariate cell is trimmed by its own share and the trimmed means are
+  averaged over the covariates of the always-observed (Lee 2009). With
+  `trimming='leebounds'` the bounds equal Stata `leebounds, tight()` to
+  1e-14 and its analytic variances to 1e-8, including that command's
+  between-cell divisor. The bootstrap covers every trimming
+  (`test_lee_bounds_tight_Stata_parity.py`). `covariates` used to be ignored
+  with a warning.
+- **`sp.feols("... i(rel, ref=[-1, -5]) ...")`** accepts several reference
+  levels (fixest `ref = c(-1, -5)`). Names, coefficients and clustered SEs
+  equal R fixest 0.14.0 to 1e-11 (`test_feols_multiref_R_parity.py`).
+- **`C()` terms in `sp.oprobit` / `sp.ologit` / `sp.mlogit` formulas.**
+  `oprobit("y ~ x + C(g)")` equals Stata `oprobit y x i.g` to 1e-13.
+- **`sp.bootstrap` of a coefficient vector.** A statistic returning a vector
+  or a fitted result (`lambda d: sp.regress("y ~ x", data=d)`) returns an
+  `EconometricResults` with bootstrap SEs, the bootstrap covariance, z
+  inference and normal-based intervals, as Stata `bootstrap _b: regress`.
+  Percentile intervals, bias and replicates are in `model_info`.
+  `idcluster=` gives each resampled cluster its own id (Stata
+  `idcluster()`). Failed replications are now counted and reported.
+- **`sp.sqreg(reps=)`** bootstraps all quantiles jointly (Stata `sqreg`),
+  so `sp.test(r, "q25:x = q75:x")` compares coefficients across quantiles.
+  Without `reps` the table is unchanged.
+- **Result accessors.** `r2_adj` on regression results (`sp.feols` now
+  records adjusted R-squared, equal to `sp.hdfe_ols`), `nobs` and a labelled
+  `cov_params()` on `sp.hdfe_ols` results, `delta_star` in
+  `sp.oster_bounds` (alias of `delta_for_zero`), and the full coefficient
+  table in `sp.qreg`'s `params` / `std_errors` / `vcov()` / `conf_int()`.
+
+### Changed
+
+- **`sp.oprobit` / `sp.ologit` / `sp.mlogit` fit by analytic Newton-Raphson.**
+  Closed-form scores and Hessians replace BFGS on numerical gradients plus
+  a complex-step Hessian. With 100 dummies `oprobit` took 260 s and now
+  takes 0.03 s; `mlogit` with 40 dummies went from 11 s to 0.1 s. Estimates
+  are unchanged (Track A 44 / 45 / 49 move by 1e-12). Against Stata 18 with
+  119 dummies and an unscaled regressor: coefficients 7e-12, clustered SEs
+  3e-10 (`test_oprobit_dummies_Stata_parity.py`).
+- **`sp.sun_abraham` never forms the dense interacted design.** Unit and
+  period effects are eliminated exactly (a Schur complement over periods),
+  so 100 cohorts on 180,000 rows take 0.9 s instead of 36 s and a fraction
+  of the memory. Results are unchanged to 2e-12, and exact rather than
+  iterative on unbalanced panels.
+- **`sp.qreg` solves the dual linear program.** Same vertex as before (to
+  1e-15, ties included), 5-8x faster; each SE refits at `tau +/- h`, so a
+  20,000-row, 10-regressor fit takes 1.4 s instead of 8.3 s.
+- **`statspai.rd.rdrobust` is the module again,** callable as the function,
+  so `import statspai.rd.rdrobust as m; m.rdplot` works. `sp.rdrobust` is
+  the plain function as before.
+- **One event-study location.** `sp.aggte(type='dynamic')` also publishes
+  its table as `model_info['event_study']`, like Sun-Abraham, stacked DiD
+  and BJS, and `sp.event_study_table` reads every one of them.
+
+### ⚠️ Correctness
+
+- **`sp.event_study_table` returned NaN estimates** for every estimator that
+  names the point estimate `att` (Sun-Abraham, stacked DiD, BJS,
+  Callaway-Sant'Anna), with no error. It now reads `estimate`, `att` or
+  `dy/dx` and refuses a table of NaNs.
+- **Cutpoint SEs of `sp.oprobit` / `sp.ologit` ignored `robust` /
+  `cluster`.** They came from the model-based block of the covariance. They
+  now use the requested VCE, as Stata does. Coefficient SEs were already
+  right.
+- **`sp.mlogit` IIA test.** The restricted model kept the dropped category
+  in the softmax as a zero-utility option, and its variance was BFGS's
+  `hess_inv` approximation. It is now `mlogit ... if y != j`, with Stata
+  `hausman`'s generalised inverse and df (rank). Chi-squared statistics
+  agree with Stata to 2e-5, and categories that were skipped as non-PSD are
+  now reported.
+- **Brant test standard errors** in `sp.oprobit` / `sp.ologit` use the exact
+  information of each binary logit instead of BFGS's `hess_inv`.
+
 ## [1.33.0] — 2026-09-30
 
 ### Added
