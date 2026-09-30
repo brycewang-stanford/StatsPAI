@@ -171,8 +171,10 @@ class TestWinsor:
 
     def test_custom_cuts(self, sample_df):
         result = winsor(sample_df, vars=["wage"], cuts=(5, 95))
-        p5 = np.percentile(sample_df["wage"].dropna(), 5)
-        p95 = np.percentile(sample_df["wage"].dropna(), 95)
+        # Stata's percentile definition (winsor2 / _pctile).
+        p5, p95 = np.percentile(
+            sample_df["wage"].dropna(), [5, 95], method="averaged_inverted_cdf"
+        )
         assert result["wage_w"].min() >= p5 - 0.01
         assert result["wage_w"].max() <= p95 + 0.01
 

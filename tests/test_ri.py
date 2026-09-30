@@ -2,9 +2,9 @@
 Tests for Randomization Inference.
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
 from statspai.inference.randomization import ri_test
 
@@ -72,11 +72,18 @@ class TestRITest:
         assert result["p_value"] < 0.05
 
     def test_cluster_permutation(self, rct_data):
-        """Cluster-level permutation."""
-        result = ri_test(
-            rct_data, y="y", treat="d", cluster="cluster", n_perms=299, seed=42
-        )
+        """Cluster-level permutation of a cluster-level treatment."""
+        df = rct_data.copy()
+        df["d"] = (df["cluster"] % 2).astype(int)  # assigned by cluster
+        result = ri_test(df, y="y", treat="d", cluster="cluster", n_perms=299, seed=42)
         assert "p_value" in result
+
+    def test_cluster_permutation_rejects_unit_level_treatment(self, rct_data):
+        """d was assigned to units: one value per cluster would be invented."""
+        import statspai as sp
+
+        with pytest.raises(sp.exceptions.MethodIncompatibility, match="varies within"):
+            ri_test(rct_data, y="y", treat="d", cluster="cluster", n_perms=99)
 
     def test_perm_distribution(self, rct_data):
         result = ri_test(rct_data, y="y", treat="d", n_perms=99, seed=42)

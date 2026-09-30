@@ -36,7 +36,7 @@ Heckman, J.J., Ichimura, H. and Todd, P.E. (1997). Review of Economic
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Any, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -937,6 +937,90 @@ def _fresh_column(base: str, used: set) -> str:
 # ======================================================================
 
 
+def _apply_ties_ate(
+    result: Any,
+    matched: pd.DataFrame,
+    model_info: Dict[str, Any],
+    *,
+    data: pd.DataFrame,
+    treat: str,
+    out_var: Optional[str],
+    ties: bool,
+    ate: bool,
+    k: int,
+    method: str,
+    distance: str,
+    replace: bool,
+    se_method: str,
+    common_support: str,
+    caliper: Optional[float],
+    alpha: float,
+) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+    """Redo the one-nearest-neighbour assignment with psmatch2 ties / ate."""
+    from scipy import stats as _stats
+
+    from ._psmatch2_nn import psmatch2_nn
+
+    if method not in ("neighbor", "nearest", "nn") or distance != "propensity":
+        raise _psmatch2_error(
+            "ties= / ate= are implemented for propensity-score "
+            "nearest-neighbour matching (method='neighbor').",
+            diagnostics={"method": method, "distance": distance},
+            recovery_hint="Use method='neighbor' with the propensity score.",
+        )
+    if int(k) != 1 or not replace:
+        raise _psmatch2_error(
+            "ties= / ate= support neighbor=1 with replacement only.",
+            diagnostics={"neighbor": k, "replace": replace},
+            recovery_hint="Pass neighbor=1, replace=True.",
+        )
+    if se_method != "psmatch2":
+        raise _psmatch2_error(
+            "ties= / ate= report psmatch2's default analytic ATT SE; "
+            f"se={se_method!r} is not available with them.",
+            diagnostics={"se": se_method},
+            recovery_hint="Leave se='psmatch2' (and ai=0).",
+        )
+    idx = matched.index
+    pscore = matched[_mf.COL_PSCORE].to_numpy(dtype=float)
+    treated = matched[_mf.COL_TREATED].to_numpy(dtype=float).astype(int)
+    yv = None if out_var is None else data.loc[idx, out_var].to_numpy(dtype=float)
+    res = psmatch2_nn(
+        pscore,
+        treated,
+        yv,
+        ties=ties,
+        ate=ate,
+        common_support=str(common_support).lower() == "minmax",
+        caliper=caliper,
+    )
+    matched = matched.copy()
+    matched[_mf.COL_SUPPORT] = np.asarray(res["support"], dtype=float)
+    matched[_mf.COL_WEIGHT] = res["weight"]
+    matched[_mf.neighbor_col(1)] = res["n1"]
+    matched[_mf.COL_NN] = res["nn"]
+    matched[_mf.COL_PDIF] = res["pdif"]
+    if _mf.COL_Y in matched.columns or yv is not None:
+        matched[_mf.COL_Y] = res["matched_y"]
+    info = dict(model_info)
+    info.update({"ties": ties, "ate": ate})
+    if yv is not None:
+        att = float(res["att"])  # type: ignore[arg-type]
+        se_att = float(res["se_att"])  # type: ignore[arg-type]
+        z = att / se_att if se_att > 0 else float("nan")
+        crit = float(_stats.norm.ppf(1 - alpha / 2))
+        result.estimate = att
+        result.se = se_att
+        result.pvalue = float(2 * _stats.norm.sf(abs(z)))
+        result.ci = (att - crit * se_att, att + crit * se_att)
+        info["n_treated_on_support"] = res["n_treated_on_support"]
+        if ate:
+            info["atu"] = float(res["atu"])  # type: ignore[arg-type]
+            info["ate"] = float(res["ate"])  # type: ignore[arg-type]
+            info["n_controls_on_support"] = res["n_controls_on_support"]
+    return matched, info
+
+
 @accepts_aliases(_strict=True, controls="covariates")
 def psmatch2(
     data: pd.DataFrame,
@@ -961,6 +1045,8 @@ def psmatch2(
     bootstrap_seed: Optional[int] = None,
     llr_stata_compat: bool = False,
     alpha: float = 0.05,
+    ties: bool = False,
+    ate: bool = False,
 ) -> PSMatch2Result:
     """Stata ``psmatch2``-faithful supported propensity-score matching.
 
@@ -1036,6 +1122,18 @@ def psmatch2(
         Matching metric; ``'propensity'`` reproduces psmatch2.
     alpha : float, default 0.05
         Significance level for the ATT confidence interval.
+    ties : bool, default False
+        Stata ``ties``: every control at the minimal propensity-score
+        distance is a match, each receiving ``1/m`` of the treated unit
+        (instead of one arbitrary control). One nearest neighbour only.
+    ate : bool, default False
+        Stata ``ate``: also match controls to treated units and report the
+        ATU and ATE (``model_info['atu']`` / ``['ate']``). Common support
+        becomes two-sided, and a treated row's ``_weight`` counts only its
+        use as a control's match (it starts at 0, not 1), so
+        ``matched_data['_weight'].notna()`` is the sample psmatch2's
+        ``_weight != .`` selects for PSM-DID. The headline ``att`` stays the
+        ATT. One nearest neighbour only.
 
     Returns
     -------
@@ -1241,6 +1339,25 @@ def psmatch2(
             ),
         }
     )
+    if ties or ate:
+        matched, model_info = _apply_ties_ate(
+            result,
+            matched,
+            model_info,
+            data=data,
+            treat=treat,
+            out_var=out_var,
+            ties=bool(ties),
+            ate=bool(ate),
+            k=k,
+            method=method,
+            distance=distance,
+            replace=replace,
+            se_method=se_method,
+            common_support=common_support,
+            caliper=caliper,
+            alpha=alpha,
+        )
     if out_var is None:
         # Drop the synthetic outcome and its matched-outcome column; the ATT
         # is meaningless without a real outcome.

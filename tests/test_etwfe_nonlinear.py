@@ -477,3 +477,102 @@ def test_response_se_invalid_value_raises():
         _fit_unit(df, response_se="stata")
     with pytest.raises(MethodIncompatibility, match="response_se"):
         _fit(df, response_se="unconditional")
+
+
+# ── response_se='unconditional': influence function vs. jackknife ───────
+
+
+def _jackknife_se(df, **kw):
+    """Delete-one-unit jackknife of the simple ATT and the event-time ATTs:
+    an independent approximation of the unconditional (unit-sampling)
+    variance of the whole estimator, refit included."""
+    ids = df["id"].unique()
+    simple, event = [], []
+    for i in ids:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            r = sp.etwfe(df[df["id"] != i], **kw)
+        simple.append(r.estimate)
+        event.append(r.model_info["event_study"].set_index("relative_time")["att"])
+    G = len(ids)
+    s = np.asarray(simple)
+    E = pd.concat(event, axis=1)
+    jk = np.sqrt((G - 1) / G * ((s - s.mean()) ** 2).sum())
+    jk_ev = np.sqrt((G - 1) / G * (E.sub(E.mean(axis=1), axis=0) ** 2).sum(axis=1))
+    return jk, jk_ev
+
+
+def _heterogeneous_panel(n_units=150, seed=11, family="poisson"):
+    rng = np.random.default_rng(seed)
+    T = 8
+    u = np.repeat(np.arange(n_units), T)
+    t = np.tile(np.arange(1, T + 1), n_units)
+    g = rng.choice([4, 6, 0], size=n_units, p=[0.3, 0.3, 0.4])[u]
+    c = rng.normal(0.0, 1.2, n_units)[u]
+    post = (g > 0) & (t >= g)
+    eta = c + 0.05 * t + 0.3 * post
+    if family == "poisson":
+        y = rng.poisson(np.exp(0.5 + eta))
+    else:
+        y = (rng.random(len(u)) < 1 / (1 + np.exp(-eta))).astype(float)
+    return pd.DataFrame({"id": u, "t": t, "g": g, "y": y})
+
+
+@pytest.mark.parametrize(
+    "family,fe", [("poisson", "unit"), ("poisson", "cohort"), ("logit", "cohort")]
+)
+def test_response_se_unconditional_matches_the_jackknife(family, fe):
+    """The influence-function variance of the aggregates equals the
+    delete-one-unit jackknife of the full refit to a few percent (both are
+    first-order approximations of the same unit-sampling variance)."""
+    df = _heterogeneous_panel(family=family)
+    kw = dict(time="t", group="id", family=family, fe=fe)
+
+    def fit(**extra):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return sp.etwfe(df, y="y", first_treat="g", **kw, **extra)
+
+    r = fit(response_se="unconditional")
+    jk, jk_ev = _jackknife_se(df, y="y", first_treat="g", **kw)
+    assert r.se == pytest.approx(jk, rel=0.04)
+    ev = r.model_info["event_study"].set_index("relative_time")["se"]
+    np.testing.assert_allclose(ev.loc[jk_ev.index], jk_ev, rtol=0.05)
+    if fe == "unit":
+        # profiling conditions on the units' own levels: far below the
+        # unit-sampling SE when the unit effects are heterogeneous
+        assert fit().se < 0.85 * r.se
+
+
+def test_response_se_unconditional_leaves_estimates_and_link_scale():
+    df = _panel(n_units=250, seed=8)
+    p = _fit_unit(df).model_info
+    u = _fit_unit(df, response_se="unconditional").model_info
+    assert u["response_se"] == "unconditional"
+    np.testing.assert_array_equal(p["coefficients"], u["coefficients"])
+    np.testing.assert_array_equal(p["vcov"], u["vcov"])
+    for tab in ("event", "group", "calendar"):
+        lp, lu = p["aggregations"]["link"][tab], u["aggregations"]["link"][tab]
+        np.testing.assert_allclose(lp["se"], lu["se"], rtol=1e-12)
+        rp, ru = p["aggregations"]["response"][tab], u["aggregations"]["response"][tab]
+        np.testing.assert_allclose(rp["att"], ru["att"], rtol=1e-12)
+
+
+@pytest.mark.parametrize("separated", ["keep", "drop"])
+def test_response_se_unconditional_event_vcov_is_the_table_covariance(separated):
+    df = _panel(n_units=250, seed=9, zero_units=0.15)
+    r = _fit_unit(
+        df, response_se="unconditional", cgroup="nevertreated", separated=separated
+    )
+    V = r.model_info["event_study_vcov"]
+    ev = r.model_info["event_study"].set_index("relative_time")
+    np.testing.assert_allclose(np.sqrt(np.diag(V)), ev.loc[V.index, "se"], rtol=1e-12)
+    assert np.all(np.linalg.eigvalsh(V.to_numpy()) > -1e-12)
+
+
+def test_response_se_unconditional_is_nonlinear_only():
+    df = _panel(n_units=120, seed=7)
+    with pytest.raises(MethodIncompatibility, match="nonlinear"):
+        _fit(df, response_se="unconditional")
+    with pytest.raises(MethodIncompatibility, match="nonlinear"):
+        _fit(df, fe="unit", response_se="unconditional")

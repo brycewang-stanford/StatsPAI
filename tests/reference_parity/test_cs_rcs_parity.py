@@ -42,6 +42,7 @@ import hashlib
 import pathlib
 import warnings
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -173,16 +174,15 @@ def test_unconditional_reg_rcs_matches_the_panel_simple_att(mpdta):
     assert agg.estimate == pytest.approx(-0.0399512752, abs=1e-6)
 
 
-def test_clustervars_under_rcs_requires_the_bootstrap(mpdta):
-    """RCS now clusters, but only with the multiplier bootstrap.
-
-    The analytic per-cell SEs cannot express within-cluster dependence,
-    so reporting them under clustervars would understate uncertainty.
-    """
-    with pytest.raises(MethodIncompatibility, match="requires bstrap=True"):
-        _rcs_fit(
-            mpdta,
-            "dr",
-            "nevertreated",
-            clustervars=["countyreal", "first_treat"],
-        )
+def test_clustervars_under_rcs_give_clustered_analytic_ses(mpdta):
+    """RCS clusters with the analytic SEs too (Stata csdid, cluster())."""
+    r = _rcs_fit(
+        mpdta,
+        "dr",
+        "nevertreated",
+        clustervars=["countyreal", "first_treat"],
+    )
+    plain = _rcs_fit(mpdta, "dr", "nevertreated")
+    assert r.model_info["se_method"] == "analytic"
+    np.testing.assert_allclose(r.detail["att"], plain.detail["att"])
+    assert not np.allclose(r.detail["se"], plain.detail["se"])

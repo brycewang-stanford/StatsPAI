@@ -24,11 +24,13 @@ regressions. No estimate or standard error changed.
 
 <a id="ppml-singletons-aggte-inherit"></a>
 
-## Unreleased — `sp.ppmlhdfe` drops singletons; `sp.aggte` inherits the fit's inference settings
+## Unreleased — Stata defaults: `ppmlhdfe` singletons, `winsor` percentiles, `logit` perfect prediction; `aggte` inherits
 
 **Who is affected.** `sp.ppmlhdfe` users whose absorbed effects have
 one-observation groups (unbalanced panels, many crossed effects), and code
-that calls `sp.aggte(fit)` without `bstrap=`. No point estimate changes.
+that calls `sp.aggte(fit)` without `bstrap=`, `sp.winsor` users (cutoffs move
+slightly), and binary-choice
+fits with a category that predicts the outcome perfectly.
 
 | Area | Old | New | Old number, if you need it |
 | --- | --- | --- | --- |
@@ -37,6 +39,33 @@ that calls `sp.aggte(fit)` without `bstrap=`. No point estimate changes.
 | `sp.ppmlhdfe`, rows with a missing estimation variable | NaN reached the solver | dropped | — |
 | `sp.aggte(fit)` default SE | unseeded multiplier bootstrap, new SE every call | the fit's setting: analytic for a default `callaway_santanna` fit | `sp.aggte(fit, bstrap=True, cband=True, random_state=...)` |
 | `sp.aggte(..., bstrap=True)` without a seed | seed not recorded | seed drawn and stored in `model_info['random_state']` | — |
+| `sp.winsor` cutoffs | numpy linear interpolation | Stata `_pctile` (`winsor2`) | `method='linear'` |
+| `sp.callaway_santanna(clustervars=..., bstrap=False)` | `MethodIncompatibility` | clustered analytic SEs (csdid) | — |
+| `sp.aggte(bstrap=False)` on a clustered fit | unclustered SE | clustered SE | — |
+| `sp.aggte(agg_weights='csdid')` on `panel=False` fits | cell weights treated as fixed | csdid's weight influence included (SE up to ~1% larger) | — |
+| `sp.logit` / `sp.probit` / `sp.cloglog` with an indicator that predicts the outcome perfectly | rows kept, no warning; MLE does not exist | rows and indicator dropped (Stata), warning | `perfect_prediction='keep'` |
+
+---
+
+<a id="hdfe-t-g-minus-1"></a>
+
+## Unreleased — ⚠️ `sp.hdfe_ols` clustered inference on `t(G-1)`; HonestDiD relative-magnitude sets no longer truncated; `sp.ri_test(cluster=)` checks the design
+
+**Who is affected.** Anyone reading p-values, stars or CIs from clustered
+`sp.hdfe_ols` fits (point estimates and SEs are unchanged); anyone whose
+`sp.honest_did(method='relative_magnitude')` set reached the ±20 sd grid
+(it warned); anyone running `sp.ri_test(cluster=)` with a treatment that
+varies within clusters.
+
+| Area | Old | New | Old number, if you need it |
+| --- | --- | --- | --- |
+| `sp.hdfe_ols(cluster=)` p-values / CIs | `t(N - K - df_a)` | `t(min(G) - 1)`, as `reghdfe` | `df_inference='resid'` |
+| `sp.honest_did` relative-magnitude bound at the grid edge | grid end reported (warning) | grid extended until the set closes | `grid_expand=False` |
+| `sp.ri_test(cluster=)`, treatment varying within clusters | first row's value used for the cluster | `MethodIncompatibility`; `treat=<cluster-level>, interact=<pattern>` | — (the old distribution was not the design's) |
+| `sp.ri_test(stat='diff_means'/'t'/'ks')`, non-binary treatment | silently compared `d == 1` to `d == 0` | `MethodIncompatibility` | use `stat='ols'` |
+| `sp.iv(absorb='a^b')`, rows with `a` or `b` missing | kept as a `"nan"` FE level | dropped, as `ivreghdfe` | pre-fill the missing values yourself |
+| `sp.from_stata("reghdfe ...")` | `tool='feols'`, `arguments['fml']` | `tool='hdfe_ols'`, `arguments['formula']` | call `sp.feols` yourself |
+| `sp.from_stata("ivreghdfe ...")` with `absorb()` | `tool='feols'` | `tool='hdfe_ols'` (IV part) | call `sp.feols` yourself |
 
 ---
 

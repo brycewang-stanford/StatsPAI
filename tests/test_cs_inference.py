@@ -171,23 +171,18 @@ class TestBstrap:
         assert r.se > 0
 
     def test_rcs_supports_the_clustered_bootstrap(self, panel):
-        """Repeated cross-sections used to refuse clustervars; now they run.
-
-        Clustering beyond the unit still requires bstrap=True: the
-        analytic per-cell SEs cannot express within-cluster dependence, so
-        reporting them under clustervars would understate uncertainty.
-        """
-        with pytest.raises(MethodIncompatibility, match="requires bstrap=True"):
-            sp.callaway_santanna(
-                panel,
-                y="y",
-                g="g",
-                t="t",
-                i="i",
-                panel=False,
-                estimator="reg",
-                clustervars=["i", "cl"],
-            )
+        """Repeated cross-sections cluster, analytically and by bootstrap."""
+        a = sp.callaway_santanna(
+            panel,
+            y="y",
+            g="g",
+            t="t",
+            i="i",
+            panel=False,
+            estimator="reg",
+            clustervars=["i", "cl"],
+        )
+        assert a.model_info["se_method"] == "analytic"
         r = sp.callaway_santanna(
             panel,
             y="y",
@@ -246,11 +241,17 @@ class TestClustervars:
             r_plain.detail["se"].values, r_id.detail["se"].values
         )
 
-    def test_clustervars_without_bstrap_raises(self, panel):
-        with pytest.raises(MethodIncompatibility, match="bstrap"):
-            sp.callaway_santanna(
-                panel, y="y", g="g", t="t", i="i", clustervars=["i", "cl"]
-            )
+    def test_clustervars_without_bstrap_clusters_the_analytic_se(self, panel):
+        from statspai.did._core import influence_se_did
+
+        r = sp.callaway_santanna(
+            panel, y="y", g="g", t="t", i="i", clustervars=["i", "cl"]
+        )
+        cl = r.model_info["_cluster_ids"]
+        n = r._influence_funcs.shape[0]
+        np.testing.assert_allclose(
+            r.detail["se"], influence_se_did(r._influence_funcs, n, cl), rtol=1e-12
+        )
 
     def test_two_extra_clustervars_raise(self, panel):
         df = panel.assign(cl2=panel["cl"])

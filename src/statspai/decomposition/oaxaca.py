@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..exceptions import MethodIncompatibility
 from ._common import add_constant as _add_constant
 from ._common import sig_stars as _significance_stars
 from ._common import wls as _ols_wls
@@ -754,6 +755,42 @@ def oaxaca(
 # ════════════════════════════════════════════════════════════════════════
 
 
+def _shapley_shares(
+    XX: np.ndarray, Xy: np.ndarray, *, k1_base: int, k2: int, voi_pos: int
+) -> List[float]:
+    """Shapley shares of ``b_short - b_long`` across the added variables.
+
+    Columns of ``XX`` are (base, added, [constant]); the coefficient on the
+    variable of interest for every subset of the added variables comes from
+    the cross products, so each of the ``2^k2`` fits is a small solve.
+    """
+    from itertools import combinations
+    from math import factorial
+
+    base_idx = list(range(k1_base))
+    tail = list(range(k1_base + k2, XX.shape[0]))  # the constant, if any
+
+    def coef(subset: tuple) -> float:
+        idx = base_idx + [k1_base + j for j in subset] + tail
+        return float(np.linalg.solve(XX[np.ix_(idx, idx)], Xy[idx])[voi_pos])
+
+    cache = {}
+    for r in range(k2 + 1):
+        for sub in combinations(range(k2), r):
+            cache[sub] = coef(sub)
+    shares = []
+    for j in range(k2):
+        others = [i for i in range(k2) if i != j]
+        tot = 0.0
+        for r in range(k2):
+            w = factorial(r) * factorial(k2 - r - 1) / factorial(k2)
+            for sub in combinations(others, r):
+                with_j = tuple(sorted(sub + (j,)))
+                tot += w * (cache[sub] - cache[with_j])
+        shares.append(tot)
+    return shares
+
+
 def gelbach(
     data: pd.DataFrame,
     y: str,
@@ -762,6 +799,9 @@ def gelbach(
     var_of_interest: Optional[str] = None,
     alpha: float = 0.05,
     vce: str = "robust",
+    absorb: Optional[Union[str, Sequence[str]]] = None,
+    cluster: Optional[str] = None,
+    shapley: bool = False,
 ) -> GelbachResult:
     """
     Gelbach (2016) decomposition of omitted variable bias.
@@ -789,6 +829,25 @@ def gelbach(
     vce : {"robust", "nonrobust"}, default "robust"
         Heteroskedasticity-robust or homoskedastic covariance, as
         ``b1x2 ..., robust`` and plain ``b1x2``.
+    absorb : str or list of str, optional
+        Fixed effects kept in both the base and the full regression, as
+        ``reghdfe``'s ``absorb()``: column names, ``"a^b"`` for one effect
+        per combination. They are swept out of every variable by the
+        ``sp.hdfe_ols`` absorber (singletons dropped), so the decomposition
+        is of the within coefficients -- the same numbers as ``b1x2`` with
+        the FE dummies among ``x1all()``. The absorbed degrees of freedom
+        enter the long-regression small-sample factor as in ``reghdfe``.
+    cluster : str, optional
+        Cluster-robust covariance, as ``b1x2 ..., cluster()``: Stata's
+        ``_robust`` multipliers ``(N-1)/(N-K)·G/(G-1)`` for the long
+        regression and ``G/(G-1)`` for the stacked auxiliary system.
+    shapley : bool, default False
+        Also report, in column ``shapley``, each added variable's Shapley
+        share of the change: its effect on the coefficient averaged over all
+        orders in which the added variables can enter (``2^k`` regressions,
+        from the cross-product matrix; at most 12 added variables). Unlike
+        Gelbach's contributions it depends on the order-free average, not on
+        the full model alone. The shares also sum to the total change.
 
     Notes on inference
     ------------------
@@ -857,9 +916,19 @@ def gelbach(
     overlap = set(base_x) & set(added_x)
     if overlap:
         raise ValueError(f"Variables appear in both base_x and added_x: {overlap}")
+    if cluster is not None and vce != "robust":
+        raise MethodIncompatibility(
+            "cluster= needs vce='robust' (b1x2's cluster() is robust)."
+        )
+    if shapley and len(added_x) > 12:
+        raise MethodIncompatibility("shapley=True supports at most 12 added variables.")
 
+    fe_terms = [absorb] if isinstance(absorb, str) else list(absorb or [])
+    fe_cols = [c for t in fe_terms for c in t.split("^")]
     all_x = base_x + added_x
-    required_cols = [y] + all_x
+    required_cols = list(
+        dict.fromkeys([y] + all_x + fe_cols + ([cluster] if cluster else []))
+    )
     missing = [c for c in required_cols if c not in data.columns]
     if missing:
         raise ValueError(f"Columns not found in data: {missing}")
@@ -872,32 +941,58 @@ def gelbach(
     y_vec = data[y].values.astype(float)
     X_base_raw = data[base_x].values.astype(float)
     X_full_raw = data[all_x].values.astype(float)
+    cl_vec = data[cluster].to_numpy() if cluster else None
 
-    X_base = _add_constant(X_base_raw)
-    X_full = _add_constant(X_full_raw)
+    # Absorbed fixed effects: sweep them out of every variable (FWL); the
+    # constant goes with them and their degrees of freedom join K below.
+    dof_absorbed = 0
+    if fe_terms:
+        from ..panel.hdfe import (
+            Absorber,
+            _absorbed_total_dof,
+            _cluster_effective_fe_dof,
+            _factorize_multi,
+        )
 
-    # ── Base and full regressions ────────────────────────────────────
-    beta_base, vcov_base, _ = _ols(y_vec, X_base)
-    beta_full, vcov_full, _ = _ols(y_vec, X_full)
-
-    # Index of var_of_interest in base spec (offset by 1 for constant)
-    voi_idx_base = base_x.index(var_of_interest) + 1
-    voi_idx_full = all_x.index(var_of_interest) + 1
-
-    base_coef = beta_base[voi_idx_base]
-    full_coef = beta_full[voi_idx_full]
-    total_change = base_coef - full_coef
+        fe_mat = np.column_stack(
+            [
+                _factorize_multi([data[c].to_numpy() for c in t.split("^")])[0]
+                for t in fe_terms
+            ]
+        )
+        ab = Absorber(fe_mat, drop_singletons=True, tol=1e-12)
+        swept = ab.demean(np.column_stack([y_vec, X_full_raw]))
+        y_vec, X_full_raw = swept[:, 0], swept[:, 1:]
+        X_base_raw = X_full_raw[:, : len(base_x)]
+        n = int(ab.n_kept)
+        if cl_vec is not None:
+            cl_vec = cl_vec[ab.keep_mask]
+            dof_absorbed = int(
+                _cluster_effective_fe_dof(
+                    ab.fe_codes, list(ab.n_fe), cl_vec, ab.slope_ops
+                )[0]
+            )
+        else:
+            dof_absorbed = int(
+                _absorbed_total_dof(list(ab.n_fe), ab.slope_ops, fe_codes=ab.fe_codes)
+            )
+    const = np.empty((n, 0)) if fe_terms else np.ones((n, 1))
 
     # ── Contributions and their joint covariance (port of b1x2) ──────
     # Stata order: base variables, added variables, constant.
-    X_b1 = np.column_stack([X_base_raw, np.ones(n)])  # x1 (k1 cols)
-    X_long = np.column_stack([X_base_raw, X_full_raw[:, len(base_x) :], np.ones(n)])
+    X_b1 = np.column_stack([X_base_raw, const])  # x1 (k1 cols)
+    X_long = np.column_stack([X_base_raw, X_full_raw[:, len(base_x) :], const])
+    voi_pos = base_x.index(var_of_interest)
+    base_coef = float(np.linalg.lstsq(X_b1, y_vec, rcond=None)[0][voi_pos])
     k1 = X_b1.shape[1]
     k2 = len(added_x)
     K = k1 + k2
     XX = X_long.T @ X_long
     b_long = np.linalg.solve(XX, X_long.T @ y_vec)
+    full_coef = float(b_long[voi_pos])
+    total_change = base_coef - full_coef
     e_long = y_vec - X_long @ b_long
+    K_dof = K + dof_absorbed  # absorbed FE parameters count as regressors
     XX_inv = np.linalg.inv(XX)
     x1x1 = X_b1.T @ X_b1
     x1x1_inv = np.linalg.inv(x1x1)
@@ -911,22 +1006,34 @@ def gelbach(
     Rres = H - X_b1 @ Dmat  # n x k2
 
     if vce == "robust":
-        vu = XX_inv @ ((X_long * e_long[:, None]).T @ (X_long * e_long[:, None]))
-        vu = vu @ XX_inv * n / (n - K)
-        # stacked system: scores X'e and x1'r_g; _robust default n/(n-1)
         S = np.column_stack(
             [X_long * e_long[:, None]] + [X_b1 * Rres[:, [g]] for g in range(k2)]
         )
+        if cl_vec is not None:
+            # _robust, cluster(): sum the scores within clusters;
+            # multipliers (N-1)/(N-K) G/(G-1) and G/(G-1) (minus(1))
+            codes = pd.factorize(cl_vec)[0]
+            n_cl = int(codes.max()) + 1
+            Sg = np.zeros((n_cl, S.shape[1]))
+            np.add.at(Sg, codes, S)
+            S = Sg
+            f_long = (n - 1) / (n - K_dof) * n_cl / (n_cl - 1)
+            f_stack = n_cl / (n_cl - 1)
+        else:
+            f_long = n / (n - K_dof)
+            f_stack = n / (n - 1)
+        SK = S[:, :K]
+        vu = XX_inv @ (SK.T @ SK) @ XX_inv * f_long
         big = np.zeros((K + k2 * k1, K + k2 * k1))
         big[:K, :K] = XX
         for g in range(k2):
             big[K + g * k1 : K + (g + 1) * k1, K + g * k1 : K + (g + 1) * k1] = x1x1
         big_inv = np.linalg.inv(big)
-        C = big_inv @ (S.T @ S) @ big_inv * n / (n - 1)
+        C = big_inv @ (S.T @ S) @ big_inv * f_stack
     else:
         resid = np.column_stack([e_long, Rres])
         resid = resid - resid.mean(axis=0)
-        acc = resid.T @ resid / (n - K)
+        acc = resid.T @ resid / (n - K_dof)
         vu = acc[0, 0] * XX_inv
         C = np.zeros((K + k2 * k1, K + k2 * k1))
         C[:K, :K] = vu
@@ -948,7 +1055,6 @@ def gelbach(
                 Gamma[:, g], C[idx2[g], K + h * k1 : K + (h + 1) * k1]
             )
     full = aux + Big @ v2u @ Big.T + cov + cov.T
-    voi_pos = base_x.index(var_of_interest)
     sel = [g * k1 + voi_pos for g in range(k2)]
     V_delta = full[np.ix_(sel, sel)]
     delta_vec = Dmat[voi_pos, :]
@@ -979,6 +1085,10 @@ def gelbach(
         )
 
     decomposition = pd.DataFrame(decomp_rows)
+    if shapley:
+        decomposition["shapley"] = _shapley_shares(
+            XX, X_long.T @ y_vec, k1_base=len(base_x), k2=k2, voi_pos=voi_pos
+        )
 
     # Sanity check: sum of deltas should ≈ total_change
     sum_delta = delta_vec.sum()

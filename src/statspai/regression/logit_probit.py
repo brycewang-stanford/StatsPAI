@@ -33,6 +33,7 @@ from .._aliases import accepts_aliases
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
 from ..core.utils import create_design_matrices
+from ..exceptions import MethodIncompatibility
 from ..output._lineage import records_provenance
 
 LinkFunc = Callable[[np.ndarray], np.ndarray]
@@ -515,6 +516,56 @@ def _predict(
 # =========================================================================
 
 
+def _perfect_prediction_mask(
+    y: np.ndarray, X: np.ndarray, var_names: List[str]
+) -> Tuple[np.ndarray, List[str], List[str]]:
+    """Stata's perfect-prediction rule for indicator regressors.
+
+    For a column taking the value 0 and one other value, if the outcome is
+    constant among its non-zero rows, those rows carry no information about
+    the other coefficients and the column's own coefficient is infinite:
+    Stata ``logit`` / ``probit`` report ``"x != 0 predicts failure
+    perfectly"``, drop the rows and omit ``x``.  A category of a
+    ``C(ind)`` factor in which nobody is treated is the common case.
+    Iterated, since dropping rows can create another such column or leave
+    a column identically zero (then omitted as collinear).
+
+    Returns ``(keep_rows, dropped_columns, notes)``.
+    """
+    n, k = X.shape
+    keep = np.ones(n, dtype=bool)
+    dropped: List[str] = []
+    notes: List[str] = []
+    changed = True
+    while changed:
+        changed = False
+        for j in range(k):
+            if var_names[j] in dropped:
+                continue
+            col = X[keep, j]
+            nz = col != 0
+            if nz.all() or not nz.any():
+                if not nz.any() and keep.any():
+                    dropped.append(var_names[j])
+                    notes.append(f"{var_names[j]} omitted (identically zero)")
+                    changed = True
+                continue
+            if np.unique(col[nz]).size != 1:
+                continue
+            yv = y[keep][nz]
+            if yv.min() == yv.max():
+                outcome = "success" if yv[0] == 1 else "failure"
+                idx = np.flatnonzero(keep)[nz]
+                keep[idx] = False
+                dropped.append(var_names[j])
+                notes.append(
+                    f"{var_names[j]} != 0 predicts {outcome} perfectly; "
+                    f"{var_names[j]} omitted and {idx.size} obs not used"
+                )
+                changed = True
+    return keep, dropped, notes
+
+
 def _fit_binary(
     formula: Optional[str],
     data: Optional[pd.DataFrame],
@@ -530,6 +581,7 @@ def _fit_binary(
     tol: float,
     alpha: float,
     at_values: Optional[Dict[str, float]] = None,
+    perfect_prediction: str = "drop",
 ) -> EconometricResults:
     """
     Internal workhorse for logit / probit / cloglog estimation.
@@ -551,6 +603,33 @@ def _fit_binary(
         var_names = ["Intercept"] + list(x)
     else:
         raise ValueError("Provide either (formula, data) or (y, x, data).")
+    row_index = X_df.index if formula is not None and data is not None else clean.index
+
+    # Stata drops indicator regressors that predict the outcome perfectly
+    # together with the rows they predict; keeping them leaves an MLE that
+    # does not exist and a sample that differs from Stata's (silently).
+    pp_notes: List[str] = []
+    pp_dropped: List[str] = []
+    n_pp = 0
+    if perfect_prediction not in ("drop", "keep"):
+        raise MethodIncompatibility("perfect_prediction must be 'drop' or 'keep'")
+    if perfect_prediction == "drop" and X_mat.shape[1] > 1:
+        _keep, pp_dropped, pp_notes = _perfect_prediction_mask(
+            np.asarray(y_vec, float), X_mat, var_names
+        )
+        if pp_dropped:
+            n_pp = int((~_keep).sum())
+            live = [j for j, v in enumerate(var_names) if v not in pp_dropped]
+            y_vec = y_vec[_keep]
+            X_mat = X_mat[_keep][:, live]
+            var_names = [var_names[j] for j in live]
+            row_index = row_index[_keep]
+            warnings.warn(
+                f"{link}: " + "; ".join(pp_notes) + " (Stata's rule). "
+                "Pass perfect_prediction='keep' to keep them.",
+                UserWarning,
+                stacklevel=3,
+            )
 
     # Validate binary outcome
     unique_vals = np.unique(y_vec)
@@ -568,9 +647,7 @@ def _fit_binary(
     # Weights
     w = None
     if weights is not None and data is not None:
-        w = data.loc[X_df.index if formula else clean.index, weights].values.astype(
-            float
-        )
+        w = data.loc[row_index, weights].values.astype(float)
 
     # Standard-error request (Stata grammar: vce='robust', 'cluster firm', ...)
     from ..core._vcov import ml_vcov
@@ -589,7 +666,7 @@ def _fit_binary(
     if cluster is not None:
         if data is None:
             raise ValueError("`data` must be provided for clustered SEs.")
-        cluster_arr = data.loc[X_df.index if formula else clean.index, cluster].values
+        cluster_arr = data.loc[row_index, cluster].values
 
     cdf_func, pdf_func, pdf_deriv_func = _LINKS[link]
 
@@ -686,6 +763,9 @@ def _fit_binary(
         "classification": cls_table,
         "hosmer_lemeshow": {"chi2": hl_chi2, "p_value": hl_pval},
         "auc": auc,
+        "perfect_prediction": perfect_prediction,
+        "perfect_prediction_omitted": list(pp_dropped),
+        "n_perfect_prediction_dropped": n_pp,
     }
 
     data_info = {
@@ -802,6 +882,7 @@ def logit(
     tol: float = 1e-8,
     alpha: float = 0.05,
     at_values: Optional[Dict[str, float]] = None,
+    perfect_prediction: str = "drop",
 ) -> EconometricResults:
     """
     Logit (logistic) regression via maximum likelihood.
@@ -836,6 +917,13 @@ def logit(
         Significance level for confidence intervals.
     at_values : dict, optional
         Variable values for ``marginal_effects='at'``.
+    perfect_prediction : {'drop', 'keep'}, default 'drop'
+        An indicator regressor whose non-zero rows all share one outcome
+        (e.g. an industry dummy with no treated firm) predicts the outcome
+        perfectly: its coefficient is infinite. ``'drop'`` removes those
+        rows and omits the regressor, iterated, as Stata does ("x != 0
+        predicts failure perfectly"); the omitted names and row count are
+        in ``model_info``. ``'keep'`` is the pre-1.33 behaviour.
 
     Returns
     -------
@@ -875,6 +963,7 @@ def logit(
         tol=tol,
         alpha=alpha,
         at_values=at_values,
+        perfect_prediction=perfect_prediction,
     )
 
 
@@ -894,6 +983,7 @@ def probit(
     tol: float = 1e-8,
     alpha: float = 0.05,
     at_values: Optional[Dict[str, float]] = None,
+    perfect_prediction: str = "drop",
 ) -> EconometricResults:
     """
     Probit regression via maximum likelihood.
@@ -926,6 +1016,13 @@ def probit(
         Significance level for confidence intervals.
     at_values : dict, optional
         Variable values for ``marginal_effects='at'``.
+    perfect_prediction : {'drop', 'keep'}, default 'drop'
+        An indicator regressor whose non-zero rows all share one outcome
+        (e.g. an industry dummy with no treated firm) predicts the outcome
+        perfectly: its coefficient is infinite. ``'drop'`` removes those
+        rows and omits the regressor, iterated, as Stata does ("x != 0
+        predicts failure perfectly"); the omitted names and row count are
+        in ``model_info``. ``'keep'`` is the pre-1.33 behaviour.
 
     Returns
     -------
@@ -961,6 +1058,7 @@ def probit(
         tol=tol,
         alpha=alpha,
         at_values=at_values,
+        perfect_prediction=perfect_prediction,
     )
 
 
@@ -980,6 +1078,7 @@ def cloglog(
     tol: float = 1e-8,
     alpha: float = 0.05,
     at_values: Optional[Dict[str, float]] = None,
+    perfect_prediction: str = "drop",
 ) -> EconometricResults:
     """
     Complementary log-log regression via maximum likelihood.
@@ -1015,6 +1114,13 @@ def cloglog(
         Significance level for confidence intervals.
     at_values : dict, optional
         Variable values for ``marginal_effects='at'``.
+    perfect_prediction : {'drop', 'keep'}, default 'drop'
+        An indicator regressor whose non-zero rows all share one outcome
+        (e.g. an industry dummy with no treated firm) predicts the outcome
+        perfectly: its coefficient is infinite. ``'drop'`` removes those
+        rows and omits the regressor, iterated, as Stata does ("x != 0
+        predicts failure perfectly"); the omitted names and row count are
+        in ``model_info``. ``'keep'`` is the pre-1.33 behaviour.
 
     Returns
     -------
@@ -1045,4 +1151,5 @@ def cloglog(
         tol=tol,
         alpha=alpha,
         at_values=at_values,
+        perfect_prediction=perfect_prediction,
     )

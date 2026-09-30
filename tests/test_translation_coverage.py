@@ -22,11 +22,11 @@ def test_translators_exposed_in_python_namespace():
 def test_from_stata_round_trip():
     out = sp.from_stata("reghdfe y x, absorb(id year) vce(cluster id)")
     assert out["ok"]
-    # HDFE commands target the real, callable sp.feols (there is no sp.fixest
-    # callable — it is a package), with FE folded into the pyfixest formula.
-    assert out["tool"] == "feols"
-    assert out["python_code"].startswith("sp.feols")
-    assert out["arguments"]["fml"] == "y ~ x | id + year"
+    # reghdfe targets sp.hdfe_ols, StatsPAI's reghdfe (singletons, absorbed
+    # dof and t(G-1) as Stata), with the FE after the bar.
+    assert out["tool"] == "hdfe_ols"
+    assert out["python_code"].startswith("sp.hdfe_ols")
+    assert out["arguments"]["formula"] == "y ~ x | id + year"
     # unrecognized command fails softly, with suggestions, not an exception
     bad = sp.from_stata("definitelynotacommand y x")
     assert bad["ok"] is False
@@ -44,9 +44,9 @@ def test_coverage_matrix_is_introspected_from_live_tables():
     cov = sp.translation_coverage()
     assert cov["summary"]["n_stata_commands"] >= 30
     assert cov["summary"]["n_r_functions"] >= 9
-    # reghdfe really maps to sp.feols (parsed from the handler source)
+    # reghdfe really maps to sp.hdfe_ols (parsed from the handler source)
     reghdfe = next(r for r in cov["stata"] if r["command"] == "reghdfe")
-    assert "sp.feols" in reghdfe["targets"]
+    assert "sp.hdfe_ols" in reghdfe["targets"]
     # limitations are part of the contract
     assert any("panel" in lim.lower() for lim in cov["limitations"])
 

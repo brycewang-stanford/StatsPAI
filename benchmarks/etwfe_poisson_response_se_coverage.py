@@ -6,9 +6,12 @@ average of ``mu_1 - mu_0`` over treated observations) with a delta-method
 SE.  ``response_se='profile'`` (default) differentiates through the
 profiled unit effect; ``response_se='margins'`` reproduces Stata
 ``jwdid ..., method(ppmlhdfe)`` + ``estat`` (``margins`` with the absorbed
-effects held fixed, differentiated through ``ppmlhdfe``'s ``_cons``).
-The parity tests show ``'margins'`` equals Stata; this study asks which
-convention covers the truth.
+effects held fixed, differentiated through ``ppmlhdfe``'s ``_cons``);
+``response_se='unconditional'`` adds the sampling variability of the units
+averaged over (the influence function of a ratio of sample means, as
+Stata ``margins, vce(unconditional)``).  The parity tests show
+``'margins'`` equals Stata; this study asks which convention covers which
+truth.
 
 DGP: ``N`` units x 8 periods, cohorts 4 / 6 / never (30 / 30 / 40%), unit
 effects ``c_i ~ N(0.5, c_sd^2)``, a linear period trend, a constant
@@ -17,8 +20,10 @@ dispersion ``od``).  Two estimands:
 
 ``conditional``  mean over the realised treated rows of the true
                  ``mu_1 - mu_0`` -- the ATT of the sample's units
-``population``   the same cells with ``exp(c_i)`` replaced by its mean
-                 over the unit-effect distribution
+``population``   its expectation over the unit effects and the cohort
+                 draw, as a ratio of expectations: E[sum of
+                 ``mu_1 - mu_0`` over treated rows] / E[number of
+                 treated rows]
 
 Per cell: ``sd_cond`` = sd(estimate - conditional ATT), ``sd_est`` =
 sd(estimate), the mean SE of each convention and the share of 95% CIs
@@ -48,6 +53,7 @@ import pandas as pd
 import statspai as sp
 
 TAU = 0.3
+MODES = ("profile", "margins", "unconditional")
 T = 8
 CELLS = [
     # (N, overdispersion, c_sd)
@@ -64,6 +70,14 @@ def _one_cell(args) -> Dict[str, Any]:
     N, od, c_sd, reps, seed0 = args
     gam = np.linspace(0.0, 0.4, T)
     Ec = np.exp(0.5 + c_sd**2 / 2)
+    # cohort 4 is treated in periods 4..8, cohort 6 in 6..8 (p = 0.3 each)
+    e_gam = np.exp(gam)
+    pop = float(
+        Ec
+        * (np.exp(TAU) - 1)
+        * (0.3 * e_gam[3:].sum() + 0.3 * e_gam[5:].sum())
+        / (0.3 * 5 + 0.3 * 3)
+    )
     rows: List[Dict[str, float]] = []
     for r in range(reps):
         rng = np.random.default_rng(seed0 + 100000 * r)
@@ -78,11 +92,8 @@ def _one_cell(args) -> Dict[str, Any]:
         if od > 0:
             lam = lam * rng.gamma(1 / od, od, size=lam.size)
         df = pd.DataFrame({"id": ii, "t": tt, "g": gi, "y": rng.poisson(lam)})
-        row = {
-            "cond": float((base[D] * (np.exp(TAU) - 1)).mean()),
-            "pop": float((Ec * np.exp(gam[tt[D] - 1]) * (np.exp(TAU) - 1)).mean()),
-        }
-        for m in ("profile", "margins"):
+        row = {"cond": float((base[D] * (np.exp(TAU) - 1)).mean()), "pop": pop}
+        for m in MODES:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 f = sp.etwfe(
@@ -107,7 +118,7 @@ def _one_cell(args) -> Dict[str, Any]:
         "sd_cond": float((d["est"] - d["cond"]).std()),
         "sd_est": float(d["est"].std()),
     }
-    for m in ("profile", "margins"):
+    for m in MODES:
         se = d["se_" + m]
         out["se_" + m] = float(se.mean())
         out["cov_cond_" + m] = float((abs(d["est"] - d["cond"]) <= 1.96 * se).mean())
@@ -137,17 +148,30 @@ def main() -> None:
         "",
         f"StatsPAI {meta['statspai']}, {reps} replications per cell, nominal 95%.",
         "",
-        "| N | od | c_sd | sd(est - cond) | se profile | se margins | sd(est) "
-        "| cov cond profile | cov cond margins | cov pop profile | cov pop margins |",
-        "|---|---|---|---|---|---|---|---|---|---|---|",
+        "Mean SE per convention against the two sampling SDs:",
+        "",
+        "| N | od | c_sd | sd(est - cond) | sd(est) | se profile | se margins "
+        "| se unconditional |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for r in res:
         lines.append(
             f"| {r['N']} | {r['od']} | {r['c_sd']} | {r['sd_cond']:.4f} "
-            f"| {r['se_profile']:.4f} | {r['se_margins']:.4f} | {r['sd_est']:.4f} "
-            f"| {r['cov_cond_profile']:.3f} | {r['cov_cond_margins']:.3f} "
-            f"| {r['cov_pop_profile']:.3f} | {r['cov_pop_margins']:.3f} |"
+            f"| {r['sd_est']:.4f} | {r['se_profile']:.4f} | {r['se_margins']:.4f} "
+            f"| {r['se_unconditional']:.4f} |"
         )
+    lines += [
+        "",
+        "Coverage of the conditional (sample) ATT / the population ATT:",
+        "",
+        "| N | od | c_sd | profile | margins | unconditional |",
+        "|---|---|---|---|---|---|",
+    ]
+    for r in res:
+        cells = " | ".join(
+            f"{r['cov_cond_' + m]:.3f} / {r['cov_pop_' + m]:.3f}" for m in MODES
+        )
+        lines.append(f"| {r['N']} | {r['od']} | {r['c_sd']} | {cells} |")
     stem.with_suffix(".md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
 

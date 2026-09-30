@@ -1040,6 +1040,7 @@ def absorb_ols(
     dict with keys:
         ``coef`` (p,), ``se`` (p,), ``vcov`` (p,p), ``resid`` (n_kept,),
         ``n`` (n_kept), ``df_resid``, ``dof_fe``, ``r2_within``,
+        ``rss`` / ``tss_within`` (weighted when ``weights`` is given),
         ``n_singletons_dropped``, ``converged``, ``iters``,
         ``absorber`` (if requested)
 
@@ -1196,6 +1197,8 @@ def absorb_ols(
         "dof_fe_cluster": dof_fe_cluster,
         "nested_fe_in_cluster": nested_fe_in_cluster,
         "r2_within": r2_within,
+        "rss": ss_res,
+        "tss_within": ss_tot,
         "n_singletons_dropped": ab.n_dropped,
         "converged": ab._converged,
         "iters": ab._iters,

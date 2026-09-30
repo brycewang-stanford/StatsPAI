@@ -25,7 +25,7 @@ Hodges, J.L. and Lehmann, E.L. (1963).
 """
 
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Tuple, cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -502,6 +502,8 @@ def ri_test(
     alpha: float = 0.05,
     strata: Optional[str] = None,
     covariates: Optional[List[str]] = None,
+    absorb: Optional[Union[str, List[str]]] = None,
+    interact: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Randomization inference p-value.
@@ -515,7 +517,13 @@ def ri_test(
     y : str
         Outcome variable.
     treat : str
-        Binary treatment indicator (0/1).
+        Treatment. ``'diff_means'`` / ``'t'`` / ``'ks'`` need a binary 0/1
+        indicator; ``'ols'`` / ``'ols_t'`` and callables also take a
+        continuous one (an exposure or dose), whose observed values are
+        permuted. Under ``cluster`` it must be constant within clusters
+        (the permuted unit is the cluster); a treatment that switches on
+        within a cluster, such as ``exposure x post``, is passed as
+        ``treat='exposure', interact='post'``.
     stat : str or callable, default 'diff_means'
         Test statistic:
         - ``'diff_means'``: difference in means (Y_bar_1 - Y_bar_0)
@@ -546,6 +554,22 @@ def ri_test(
         power (UCT, QJE 2016: education p 0.70 unstratified against 0.17).
     covariates : list of str, optional
         Controls for ``stat='ols'`` / ``'ols_t'``.
+    absorb : str or list of str, optional
+        Fixed effects for ``stat='ols'`` / ``'ols_t'``, as ``reghdfe``'s
+        ``absorb()`` (column names, ``"a^b"`` for combinations; singletons
+        dropped). They are swept out by the ``sp.hdfe_ols`` absorber
+        (Frisch-Waugh-Lovell). Under ``cluster`` the regressor of any
+        permutation is ``R v`` with ``R`` the swept cluster indicators
+        (times ``interact``) and ``v`` the permuted cluster values, so only
+        ``G`` columns are swept once and each permutation is a small matrix
+        product -- the statistic equals the ``sp.hdfe_ols`` coefficient
+        (or its cluster t) refitted on the permuted treatment. Without
+        ``cluster`` every permutation re-sweeps the regressor.
+    interact : str, optional
+        For ``stat='ols'`` / ``'ols_t'``: the regressor is
+        ``treat * data[interact]`` while ``treat`` is what is permuted --
+        the intensity DiD ``exposure x post`` with exposure permuted across
+        clusters.
 
     Returns
     -------
@@ -591,7 +615,17 @@ def ri_test(
     rng = np.random.default_rng(seed)
 
     covariates = list(covariates or [])
-    df = data[[y, treat] + covariates].copy()
+    fe_terms = [absorb] if isinstance(absorb, str) else list(absorb or [])
+    fe_cols = [c for t in fe_terms for c in t.split("^")]
+    regress_stat = isinstance(stat, str) and stat in ("ols", "ols_t")
+    if (fe_terms or interact) and not regress_stat:
+        raise MethodIncompatibility(
+            "absorb= and interact= are used by stat='ols' / 'ols_t' only.",
+            recovery_hint="Pass stat='ols' (coefficient) or 'ols_t' (its t).",
+        )
+    extra = list(dict.fromkeys(fe_cols + ([interact] if interact else [])))
+    extra = [c for c in extra if c not in (y, treat, *covariates)]
+    df = data[[y, treat] + covariates + extra].copy()
     if cluster:
         df["_cluster"] = data[cluster].values
     if strata:
@@ -613,10 +647,45 @@ def ri_test(
             stacklevel=2,
         )
 
+    if fe_terms:
+        from ..panel.hdfe import Absorber, _factorize_multi
+
+        fe_mat = np.column_stack(
+            [
+                _factorize_multi([df[c].to_numpy() for c in t.split("^")])[0]
+                for t in fe_terms
+            ]
+            + ([pd.factorize(df["_strata"])[0]] if strata else [])
+        )
+        absorber = Absorber(fe_mat, drop_singletons=True, tol=1e-10)
+        df = df.iloc[np.flatnonzero(absorber.keep_mask)]
+
     Y = df[y].values.astype(float)
     D = df[treat].values.astype(float)
     n = len(Y)
     st = df["_strata"].values if strata else None
+    binary = bool(np.all(np.isin(D, (0.0, 1.0))))
+    if not binary and isinstance(stat, str) and stat in ("diff_means", "t", "ks"):
+        raise MethodIncompatibility(
+            f"stat={stat!r} compares treated and control units and needs a "
+            f"binary 0/1 treatment; {treat!r} takes other values.",
+            recovery_hint="For a continuous treatment use stat='ols' / 'ols_t' "
+            "(with absorb= for fixed effects) or a callable.",
+            diagnostics={"n_distinct": int(np.unique(D).size)},
+        )
+    if cluster:
+        cl_codes_chk = pd.factorize(df["_cluster"])[0]
+        first = np.zeros(int(cl_codes_chk.max()) + 1)
+        first[cl_codes_chk[::-1]] = D[::-1]
+        if not np.allclose(D, first[cl_codes_chk], rtol=0, atol=0):
+            raise MethodIncompatibility(
+                f"{treat!r} varies within {cluster!r} clusters, but the "
+                "permutation assigns one value per cluster.",
+                recovery_hint="Pass the cluster-level variable as treat= and the "
+                "within-cluster pattern as interact= (e.g. treat='exposure', "
+                "interact='post'), or permute at the row level (no cluster=).",
+                diagnostics={"cluster": cluster},
+            )
     if covariates and not (isinstance(stat, str) and stat in ("ols", "ols_t")):
         raise MethodIncompatibility(
             "covariates= is used by stat='ols' / 'ols_t' only.",
@@ -641,6 +710,17 @@ def ri_test(
             return float(stats.ks_2samp(y_[d_ == 1], y_[d_ == 0]).statistic)
 
         stat_fn = ks_stat
+    elif stat in ("ols", "ols_t") and (fe_terms or interact):
+        stat_fn = _absorbed_ols_stat_factory(
+            df,
+            y,
+            covariates,
+            absorber if fe_terms else None,
+            df[interact].to_numpy(dtype=float) if interact else None,
+            df["_cluster"].values if cluster else None,
+            None if fe_terms else st,
+            t_stat=stat == "ols_t",
+        )
     elif stat in ("ols", "ols_t"):
         stat_fn = _ols_stat_factory(
             df,
@@ -763,6 +843,107 @@ def _ols_stat_factory(
         return b / np.sqrt(var) if var > 0 else 0.0
 
     return fn
+
+
+def _absorbed_ols_stat_factory(
+    df: pd.DataFrame,
+    y: str,
+    covariates: List[str],
+    absorber: Any,
+    interact: Optional[np.ndarray],
+    clusters: Optional[np.ndarray],
+    strata: Optional[np.ndarray],
+    t_stat: bool,
+) -> StatFn:
+    """``ols`` / ``ols_t`` with absorbed fixed effects and an interaction.
+
+    The regressor is ``M (d * s)`` with ``M`` the FE sweep (then the
+    covariates partialled out) and ``s`` the interaction (or 1). Under
+    cluster permutation ``d`` is ``v[cluster]``, so the regressor is
+    ``R v`` with ``R = M [1_g * s]``: ``G`` columns are swept once, and
+    ``b = v'a / v'Bv`` with ``a = R'y~``, ``B = R'R``; the cluster scores are
+    ``A_g v - b v'B_g v`` from per-cluster blocks. Without clusters each call
+    sweeps its regressor.
+    """
+    n = len(df)
+    s = np.ones(n) if interact is None else interact
+
+    def sweep(A: np.ndarray) -> np.ndarray:
+        return absorber.demean(A, copy=True, already_masked=True) if absorber else A
+
+    parts = [] if absorber is not None else [np.ones((n, 1))]
+    if covariates:
+        parts.append(df[covariates].to_numpy(dtype=float))
+    if strata is not None:
+        parts.append(
+            pd.get_dummies(pd.Series(strata), drop_first=True, dtype=float).to_numpy()
+        )
+    W = (
+        sweep(np.column_stack(parts))
+        if parts and absorber is not None
+        else (np.column_stack(parts) if parts else np.empty((n, 0)))
+    )
+    if W.shape[1]:
+        Q, _ = np.linalg.qr(W)
+    else:
+        Q = np.empty((n, 0))
+
+    def resid(A: np.ndarray) -> np.ndarray:
+        return A - Q @ (Q.T @ A) if Q.shape[1] else A
+
+    yt = resid(sweep(df[y].to_numpy(dtype=float)))
+    k = Q.shape[1] + 1
+    cl_codes = None if clusters is None else pd.factorize(clusters)[0]
+
+    def finish(dt: np.ndarray) -> float:
+        dd = float(dt @ dt)
+        if dd <= 0:
+            return 0.0
+        b = float(dt @ yt) / dd
+        if not t_stat:
+            return b
+        e = yt - b * dt
+        if cl_codes is None:
+            var = (n / (n - k)) * float(np.sum((dt * e) ** 2)) / dd**2
+        else:
+            G = int(cl_codes.max()) + 1
+            sc = np.bincount(cl_codes, weights=dt * e, minlength=G)
+            var = (G / (G - 1)) * ((n - 1) / (n - k)) * float(sc @ sc) / dd**2
+        return b / np.sqrt(var) if var > 0 else 0.0
+
+    if cl_codes is None:
+        return lambda y_, d_: finish(resid(sweep(np.asarray(d_, float) * s)))
+
+    G = int(cl_codes.max()) + 1
+    first_row = np.full(G, -1)
+    first_row[cl_codes[::-1]] = np.arange(n)[::-1]
+    R = np.zeros((n, G))
+    R[np.arange(n), cl_codes] = s
+    R = resid(sweep(R))
+    a = R.T @ yt
+    B = R.T @ R
+    if G > 400:  # per-cluster G x G blocks would not fit; sweep-free matvec
+        return lambda y_, d_: finish(R @ np.asarray(d_, float)[first_row])
+    Ag = np.zeros((G, G))
+    np.add.at(Ag, cl_codes, R * yt[:, None])
+    Bg = np.zeros((G, G, G))
+    for g in range(G):
+        rg = R[cl_codes == g]
+        Bg[g] = rg.T @ rg
+
+    def fast(y_: np.ndarray, d_: np.ndarray) -> float:
+        v = np.asarray(d_, float)[first_row]
+        den = float(v @ B @ v)
+        if den <= 0:
+            return 0.0
+        b = float(v @ a) / den
+        if not t_stat:
+            return b
+        sc = Ag @ v - b * np.einsum("i,gij,j->g", v, Bg, v)
+        var = (G / (G - 1)) * ((n - 1) / (n - k)) * float(sc @ sc) / den**2
+        return b / np.sqrt(var) if var > 0 else 0.0
+
+    return fast
 
 
 def _t_stat(y: np.ndarray, d: np.ndarray) -> float:

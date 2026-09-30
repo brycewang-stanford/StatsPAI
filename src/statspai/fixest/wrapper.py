@@ -15,7 +15,7 @@ import pandas as pd
 from .._aliases import accepts_aliases
 from ..core._vcov_spec import markout_clusters
 from ..core.results import EconometricResults
-from ..exceptions import MethodIncompatibility
+from ..exceptions import MethodIncompatibility, NumericalInstability
 from ..output._lineage import records_provenance
 from .adapter import _multi_fit_to_results, _pyfixest_to_econometric_results
 
@@ -1243,7 +1243,27 @@ def fepois(
     if ssc is not None:
         pf_kwargs["ssc"] = ssc
 
-    fit = pf.fepois(**pf_kwargs)
+    try:
+        fit = pf.fepois(**pf_kwargs)
+    except ValueError as exc:
+        if "Demeaning failed" not in str(exc):
+            raise
+        # pyfixest's alternating projections give up on some crossed
+        # multi-way designs (five crossed effects on 10^5 rows in a
+        # replication) that sp.ppmlhdfe solves; say so instead of leaving
+        # the user with a backend message.
+        raise NumericalInstability(
+            f"sp.fepois: the pyfixest backend could not absorb the fixed "
+            f"effects ({exc}).",
+            recovery_hint=(
+                "Use sp.ppmlhdfe(formula, data=..., absorb=..., cluster=...), "
+                "the native PPML-HDFE solver with Stata ppmlhdfe's defaults "
+                "(singleton and separation rules); its point estimates and "
+                "clustered SEs match ppmlhdfe."
+            ),
+            diagnostics={"backend": "pyfixest", "formula": fml},
+            alternative_functions=["sp.ppmlhdfe"],
+        ) from exc
 
     if hasattr(fit, "all_fitted_models"):
         return _multi_fit_to_results(fit, vcov=None)

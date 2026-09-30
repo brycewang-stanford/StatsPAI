@@ -125,30 +125,21 @@ def test_ri_supports_a_distributional_statistic(hiv):
     assert 0.0 <= ks["p_value"] <= 1.0
 
 
-def test_clustered_ri_permutes_villages_and_says_what_it_dropped(hiv):
-    """Assignment was within villages; cluster-aware RI honours that.
+def test_clustered_ri_refuses_a_treatment_assigned_within_villages(hiv):
+    """Thornton randomized the incentive to individuals, not villages.
 
-    Four of the 2834 complete-case rows have no ``villnum``, so the
-    clustered test necessarily runs on 2830 rows across 119 villages and
-    its observed statistic is 0.451982, not the full-sample 0.450552.
-    That is correct — a row with an unknown cluster cannot be permuted
-    with its cluster — but it must be *announced*, or the two numbers
-    look like a discrepancy.
+    Until 1.32 ``cluster='villnum'`` quietly gave every village the incentive
+    status of its first respondent and permuted those invented village
+    values, a null distribution of a design nobody ran. Now it refuses and
+    says how to state the design.
     """
+    usable = hiv.dropna(subset=["villnum", "got", "any"])
+    assert usable.groupby("villnum")["any"].nunique().max() > 1
     with pytest.warns(UserWarning, match="dropped 4 of 2834"):
-        clustered = sp.ri_test(
-            hiv, y="got", treat="any", cluster="villnum", n_perms=200, seed=42
-        )
-
-    usable = hiv.dropna(subset=["villnum"])
-    expected = float(
-        usable.loc[usable["any"] == 1, "got"].mean()
-        - usable.loc[usable["any"] == 0, "got"].mean()
-    )
-    assert clustered["observed"] == pytest.approx(expected, abs=1e-9)
-    assert clustered["observed"] == pytest.approx(0.4519822744, abs=ATOL)
-    assert usable["villnum"].nunique() == 119
-    assert 0.0 <= clustered["p_value"] <= 1.0
+        with pytest.raises(sp.exceptions.MethodIncompatibility, match="varies within"):
+            sp.ri_test(
+                hiv, y="got", treat="any", cluster="villnum", n_perms=200, seed=42
+            )
 
 
 def test_unclustered_ri_does_not_warn_on_a_clean_sample(hiv):

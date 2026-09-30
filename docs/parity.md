@@ -30,10 +30,10 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 364 |
 | | aligned | 53 |
 | | **subtotal** | **417** |
-| **No external software reference** | analytical-only (T1) | 154 |
+| **No external software reference** | analytical-only (T1) | 156 |
 | | external-replication (published numbers) | 2 |
-| | **subtotal** | **156** |
-| No numerical evidence yet | unverified | 698 |
+| | **subtotal** | **158** |
+| No numerical evidence yet | unverified | 696 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 417 | 568 | 819 | 50.9% |
-| infrastructure (parity N/A) | 0 | 2 | 131 | 0.0% |
+| estimator callables | 417 | 569 | 819 | 50.9% |
+| infrastructure (parity N/A) | 0 | 3 | 131 | 0.0% |
 | result / exception classes | 0 | 3 | 321 | 0.0% |
-| **all registered** | 417 | 573 | 1271 | 32.8% |
+| **all registered** | 417 | 575 | 1271 | 32.8% |
 
 ### Coverage by estimator family
 
@@ -72,7 +72,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | structural | 5 | 7 | 10 |
 | survival | 8 | 8 | 9 |
 | frontier | 5 | 7 | 9 |
-| other | 2 | 3 | 8 |
+| other | 2 | 4 | 8 |
 | nonparametric | 2 | 8 | 8 |
 | robustness | 3 | 5 | 7 |
 | interference | 0 | 1 | 7 |
@@ -536,7 +536,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `aggte` | [`test_honest_did_paper_parity.py`](../tests/external_parity/test_honest_did_paper_parity.py) (+1) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 154 functions
+## analytical-only — 156 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -664,6 +664,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `rate_split` | [`test_fe_forest_rate_recovery.py`](../tests/reference_parity/test_fe_forest_rate_recovery.py) |
 | `rd_diff_in_disc` | [`test_rd_diff_in_disc_Stata_parity.py`](../tests/reference_parity/test_rd_diff_in_disc_Stata_parity.py) |
 | `regime` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
+| `result_card` | [`test_hdfe_fit_stats_reghdfe.py`](../tests/reference_parity/test_hdfe_fit_stats_reghdfe.py) |
 | `romano_wolf` | [`test_romano_wolf_parity.py`](../tests/reference_parity/test_romano_wolf_parity.py) |
 | `selection_bounds` | [`test_selection_bounds_parity.py`](../tests/reference_parity/test_selection_bounds_parity.py) |
 | `sequential_sdid` | [`test_synth_rest_R_parity.py`](../tests/reference_parity/test_synth_rest_R_parity.py) |
@@ -693,10 +694,11 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `validation_scope` | [`test_iv_card_aer_parity.py`](../tests/reference_parity/test_iv_card_aer_parity.py) (+2) |
 | `variable_importance` | [`test_grf_family_operator_parity.py`](../tests/reference_parity/test_grf_family_operator_parity.py) |
 | `weighted_conformal_prediction` | [`test_conformal_causal_parity.py`](../tests/reference_parity/test_conformal_causal_parity.py) |
+| `winsor` | [`test_winsor_winsor2_Stata_parity.py`](../tests/reference_parity/test_winsor_winsor2_Stata_parity.py) |
 | `wooldridge_prod` | [`test_prodest_parity.py`](../tests/reference_parity/test_prodest_parity.py) |
 | `xlearner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `yatchew_linearity_test` | [`test_did_had_parity.py`](../tests/reference_parity/test_did_had_parity.py) |
 
-## unverified — 698 functions
+## unverified — 696 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

@@ -504,6 +504,7 @@ def rm_confidence_set(
     grid_ub: Optional[float] = None,
     seed: int = 0,
     progress: Optional[Callable[[int], None]] = None,
+    max_expand: int = 0,
 ) -> Tuple[float, float, np.ndarray, np.ndarray]:
     """Confidence set for ``l' tau_post`` under ``Delta^RM(Mbar)``.
 
@@ -511,6 +512,14 @@ def rm_confidence_set(
     accepted grid values (``nan`` if none is accepted) and the full
     acceptance vector, so a caller can detect a non-convex or
     boundary-open set.
+
+    The default grid is HonestDiD's: ``grid_points`` values spanning
+    ``+/-20 sd(l' tau_post)``. With ``max_expand > 0``, a side whose end
+    point is accepted -- and whose bound the caller did not fix through
+    ``grid_lb`` / ``grid_ub`` -- is extended by another ``grid_points``
+    points at the same step (40 sd on the default grid), up to
+    ``max_expand`` times, so the reported bound is the set's end point
+    rather than the grid's. Only the new points are tested.
     """
     betahat = np.asarray(betahat, dtype=float).ravel()
     sigma = np.asarray(sigma, dtype=float)
@@ -530,28 +539,49 @@ def rm_confidence_set(
     lb = -20.0 * sd_theta if grid_lb is None else float(grid_lb)
     ub = 20.0 * sd_theta if grid_ub is None else float(grid_ub)
     grid = np.linspace(lb, ub, int(grid_points))
-    accept = np.zeros(grid.size)
-    for s in range(-(n_pre - 1), 1):
-        for positive in (True, False):
-            acc = _ci_fixed_s(
-                betahat,
-                sigma,
-                n_pre,
-                n_post,
-                l_vec,
-                m_bar,
-                s,
-                positive,
-                alpha,
-                hybrid,
-                kappa,
-                grid,
-                seed,
-                skip=accept == 1,
-            )
-            accept = np.maximum(accept, acc)
-            if progress is not None:
-                progress(1)
+
+    def union_accept(pts: np.ndarray) -> np.ndarray:
+        accept = np.zeros(pts.size)
+        for s in range(-(n_pre - 1), 1):
+            for positive in (True, False):
+                acc = _ci_fixed_s(
+                    betahat,
+                    sigma,
+                    n_pre,
+                    n_post,
+                    l_vec,
+                    m_bar,
+                    s,
+                    positive,
+                    alpha,
+                    hybrid,
+                    kappa,
+                    pts,
+                    seed,
+                    skip=accept == 1,
+                )
+                accept = np.maximum(accept, acc)
+                if progress is not None:
+                    progress(1)
+        return accept
+
+    accept = union_accept(grid)
+    if grid.size > 1:
+        step = float(grid[1] - grid[0])
+        for _ in range(int(max_expand)):
+            grow_lo = grid_lb is None and accept[0] == 1
+            grow_hi = grid_ub is None and accept[-1] == 1
+            if not (grow_lo or grow_hi):
+                break
+            n_new = int(grid_points)
+            if grow_lo:
+                new = grid[0] - step * np.arange(n_new, 0, -1)
+                grid = np.concatenate([new, grid])
+                accept = np.concatenate([union_accept(new), accept])
+            if grow_hi:
+                new = grid[-1] + step * np.arange(1, n_new + 1)
+                grid = np.concatenate([grid, new])
+                accept = np.concatenate([accept, union_accept(new)])
     hit = grid[accept == 1]
     if hit.size == 0:
         return float("nan"), float("nan"), grid, accept

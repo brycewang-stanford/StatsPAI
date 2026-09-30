@@ -1826,9 +1826,10 @@ def _build_registry() -> None:
                     "list",
                     False,
                     None,
-                    "Cluster variable(s) for the multiplier bootstrap; unit id "
-                    "implied, at most one extra time-invariant variable "
-                    "(R did::att_gt clustervars / Stata csdid cluster())",
+                    "Cluster variable(s) for the analytic SEs and the multiplier "
+                    "bootstrap; unit id implied, at most one extra variable, "
+                    "time-invariant on a panel, any row-level variable with "
+                    "panel=False (R did::att_gt clustervars / Stata csdid cluster())",
                 ),
                 ParamSpec(
                     "bstrap",
@@ -1902,9 +1903,9 @@ def _build_registry() -> None:
             ],
             typical_n_min=50,
             limitations=[
-                "clustervars is not yet supported with bstrap=False; the "
-                "analytic standard errors do not account for within-cluster "
-                "dependence, so the multiplier bootstrap is required",
+                "clustervars accepts a cluster that varies within unit only "
+                "with panel=False (repeated cross-sections, as Stata csdid "
+                "without ivar()); on a panel the influence functions are per unit",
             ],
         )
     )
@@ -5043,6 +5044,22 @@ def _build_registry() -> None:
                     "none",
                     "Common-support trimming",
                     ["none", "minmax"],
+                ),
+                ParamSpec(
+                    "ties",
+                    "bool",
+                    False,
+                    False,
+                    "Stata ties: every control at the minimal distance is a match "
+                    "(1/m each); neighbor=1 only",
+                ),
+                ParamSpec(
+                    "ate",
+                    "bool",
+                    False,
+                    False,
+                    "Stata ate: also match controls to treated (ATU/ATE in model_info); "
+                    "_weight != . then marks units used as a match",
                 ),
             ],
             returns=(
@@ -14421,10 +14438,14 @@ def _build_registry() -> None:
                     "large panels; 'margins' reproduces Stata jwdid's "
                     "estat (margins after ppmlhdfe, absorbed effects held "
                     "fixed), is 14-15% larger and is the conservative "
-                    "choice in small panels. Point estimates and link-scale SEs do "
-                    "not depend on it; the two coincide for fe='cohort' "
-                    "and the linear model.",
-                    ["profile", "margins"],
+                    "choice in small panels; 'unconditional' (poisson or "
+                    "logit, either fe) is the population-ATT SE, as Stata "
+                    "margins, vce(unconditional), and agrees with the "
+                    "delete-one-unit jackknife. Point estimates and "
+                    "link-scale SEs do not depend on it; 'profile' and "
+                    "'margins' coincide for fe='cohort' and the linear "
+                    "model, which rejects 'unconditional'.",
+                    ["profile", "margins", "unconditional"],
                 ),
                 ParamSpec(
                     "scale",
@@ -18509,6 +18530,38 @@ def _build_registry() -> None:
                 ParamSpec("beta_long", "float", False, None),
                 ParamSpec("r2_long", "float", False, None),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "absorb",
+                    "str",
+                    False,
+                    None,
+                    "Fixed effects in both regressions (xtreg's panel variable or "
+                    "areg absorb()), e.g. 'id'; coefficients and R^2 become within",
+                ),
+                ParamSpec(
+                    "absorb_controls",
+                    "str",
+                    False,
+                    None,
+                    "Fixed effects that are controls (long regression only), e.g. "
+                    "'ind^year + city^year' for xtreg's i.ind#i.year dummies",
+                ),
+                ParamSpec(
+                    "moments",
+                    "dict",
+                    False,
+                    None,
+                    "psacalc variances {sigma_yy, sigma_xx, t_x} for the exact "
+                    "solution from summary statistics",
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Cluster of the xtreg fe vce(cluster c) whose e(r2_a) "
+                    "r_max='1.3*r2_a' should reproduce",
+                ),
             ],
             returns="dict with beta_oster, breakdown_delta, identified_set",
             example='sp.oster_bounds(df, y="wage", treat="college", controls=["age", "edu"], delta=1.0)',

@@ -164,6 +164,7 @@
         "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_cs_base_period_parity.py",
         "tests/reference_parity/test_cs_no_never_unbalanced_parity.py",
+        "tests/reference_parity/test_cs_rc_cluster_csdid_parity.py",
         "tests/reference_parity/test_cs_rcs_parity.py",
         "tests/reference_parity/test_cs_weighted_parity.py",
         "tests/reference_parity/test_rcs_aggregation_conventions.py"
@@ -1600,6 +1601,7 @@
         "tests/reference_parity/test_cs_inference_parity.py",
         "tests/reference_parity/test_cs_no_never_unbalanced_parity.py",
         "tests/reference_parity/test_cs_notyet_cutoff_parity.py",
+        "tests/reference_parity/test_cs_rc_cluster_csdid_parity.py",
         "tests/reference_parity/test_cs_rcs_options_parity.py",
         "tests/reference_parity/test_cs_rcs_parity.py",
         "tests/reference_parity/test_cs_weighted_parity.py",
@@ -5533,6 +5535,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_gelbach_absorb_cluster_b1x2.py",
         "tests/reference_parity/test_gelbach_parity.py"
       ],
       "also_verified_by": [
@@ -6082,6 +6085,10 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_gelbach_absorb_cluster_b1x2.py",
+        "tests/reference_parity/test_hdfe_fit_stats_reghdfe.py",
+        "tests/reference_parity/test_hdfe_fitstats_Stata_parity.py",
+        "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
         "tests/reference_parity/test_hdfe_nested_collinear_parity.py",
         "tests/reference_parity/test_hdfe_parity.py",
         "tests/reference_parity/test_hdfe_wild_boottest_parity.py"
@@ -6903,6 +6910,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
         "tests/reference_parity/test_iv_card_aer_parity.py",
         "tests/reference_parity/test_iv_hdfe_stata_parity.py",
         "tests/reference_parity/test_iv_weights_stata_parity.py",
@@ -7811,6 +7819,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_logit_perfect_prediction_Stata_parity.py",
         "tests/reference_parity/test_margins_ext_parity.py",
         "tests/reference_parity/test_postestimation_stata_parity.py",
         "tests/reference_parity/test_r2_postest_parity.py",
@@ -10639,6 +10648,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_oster_absorb_Stata_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -11789,6 +11801,9 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_psmatch2_ties_ate_Stata_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
@@ -13055,6 +13070,23 @@
         "tests/reference_parity/_fixtures/diagnostics_R.json"
       ],
       "tolerance": "F-statistic & p-value 1e-10 rel (observed ~1e-13)"
+    },
+    {
+      "function": "result_card",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_hdfe_fit_stats_reghdfe.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [
@@ -16505,6 +16537,23 @@
         "tests/reference_parity/_fixtures/inference_sens_R.json"
       ],
       "tolerance": "CI endpoints 1e-9 rel (observed 4.8e-12)"
+    },
+    {
+      "function": "winsor",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_winsor_winsor2_Stata_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [

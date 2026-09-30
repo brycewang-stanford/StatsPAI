@@ -172,21 +172,22 @@ def test_rcs_accepts_notyettreated_control():
     assert np.isfinite(r.estimate)
 
 
-def test_rcs_clustervars_requires_the_bootstrap():
-    """Repeated cross-sections now cluster — but only with bstrap=True."""
+def test_rcs_clustervars_analytic_and_bootstrap():
+    """Repeated cross-sections cluster with analytic SEs and the bootstrap."""
     df = _rcs_panel(seed=3)
     df["cl"] = df["obs"] % 7
-    with pytest.raises(MethodIncompatibility, match="requires bstrap=True"):
-        callaway_santanna(
-            df,
-            y="y",
-            g="g",
-            t="t",
-            i="obs",
-            estimator="reg",
-            panel=False,
-            clustervars=["obs", "cl"],
-        )
+    a = callaway_santanna(
+        df,
+        y="y",
+        g="g",
+        t="t",
+        i="obs",
+        estimator="reg",
+        panel=False,
+        clustervars=["obs", "cl"],
+    )
+    assert a.model_info["se_method"] == "analytic"
+    assert np.all(np.isfinite(a.detail["se"].to_numpy()))
     r = callaway_santanna(
         df,
         y="y",

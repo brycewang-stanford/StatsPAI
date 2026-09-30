@@ -163,12 +163,27 @@ def _fit_poisson_unit_fe(
         G,
         factor,
     )
+    # Cluster-summed scores (in the full cluster coding) and the bread, for
+    # the unconditional variance of the aggregates (response_se=
+    # 'unconditional'): vcov == factor * bread_inv S'S bread_inv.
+    score_cl = np.column_stack(
+        [
+            np.bincount(
+                cl_codes[keep],
+                weights=X_dm[:, j] * resid,
+                minlength=int(cl_codes.max()) + 1,
+            )
+            for j in range(k)
+        ]
+    )
     return {
         "keep": keep,
         "live": live,
         "beta": beta_live,
         "vcov": vcov,
         "vcov_cons": vcov_cons,
+        "score_cl": score_cl,
+        "bread_inv": bread_inv,
         "mu": mu,
         "converged": bool(converged),
         "n_iter": int(n_iter),

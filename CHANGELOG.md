@@ -38,28 +38,64 @@ All notable changes to StatsPAI will be documented in this file.
   wheel), the pip metadata and a warning when they disagree. Every
   `Provenance` record, `format_provenance`, the table footer of
   `_repro` and the replication-pack manifest carry `statspai_revision`.
-- **`sp.etwfe(family='poisson', fe='unit', response_se='margins')`.**
-  Response-scale (count) standard errors as Stata `jwdid ...,
-  method(ppmlhdfe)` + `estat` reports them. Until now they could only be
-  rebuilt by hand from Stata's `e(V)` (0.0262 vs 0.0318 on the replication
-  panel). `margins` holds the absorbed unit and period effects fixed and
-  differentiates through `ppmlhdfe`'s `_cons`, which is normalised around
-  the mu-weighted sample mean of the regressors, so the gradient is
-  `mu (x - xbar)` plus the constant. A categorical `xvar` is mapped to
-  jwdid's level coding first, since with the periods held fixed the
-  parametrisation matters. Every `estat simple / event / group / calendar /
-  over()` SE equals Stata to 7e-7, including clusters that nest neither
-  units nor periods, where the constant's covariance with the slopes enters
-  (`test_etwfe_poisson_jwdid_parity.py`, new fixture
-  `etwfe_poisson_jwdid_margins_Stata.json`). The default stays
-  `'profile'`. A Monte Carlo study
-  (`benchmarks/etwfe_poisson_response_se_coverage.py`, 6 designs x 1,000
-  replications) finds the profiled interval covering the sample ATT at
-  94-95% with 400 units and 91-93% with 100 units or strong unit
-  heterogeneity. The margins SE is 14-15% larger in every design, so it
-  over-covers in the first case and is near 95% in the second. Point
-  estimates, link-scale SEs and every default output are unchanged.
-
+- **Callaway-Sant'Anna analytic SEs honour `clustervars`**, and on
+  repeated cross-sections (`panel=False`) the cluster may vary within
+  unit (e.g. city x year, as `csdid ..., cluster(cy)` without `ivar()`).
+  The influence functions are summed within cluster, csdid's analytic
+  variance; `sp.aggte`'s analytic path uses the fit's clusters too (it
+  ignored them). `sp.aggte(agg_weights='csdid')` on repeated
+  cross-sections now carries the influence of csdid's estimated
+  treated-count cell weights. Every ATT(g,t), group and simple aggregate
+  and SE equals Stata `csdid` (v1) to 1e-9, on a panel with a
+  time-invariant cluster and on repeated cross-sections with a row-level
+  one (`test_cs_rc_cluster_csdid_parity.py`); on the replicated paper
+  StatsPAI returns `csdid`'s GAverage 0.104033392 with SE 0.033423408.
+  `csdid2` agrees on every point estimate but reports smaller SEs on
+  repeated cross-sections (0.0328111 in the paper): its control-row
+  influence function is scaled by the 2x2 subsample share instead of the
+  control cell's, which R `DRDID` and `csdid` do not do. StatsPAI follows
+  the latter two.
+- **`sp.psmatch2(ties=True, ate=True)`** -- Stata `psmatch2`'s `ties`
+  (every control at the minimal distance is a match, `1/m` each) and `ate`
+  (controls matched to treated too, two-sided common support, treated
+  rows weighted only by their use as a match; ATU / ATE in `model_info`).
+  PSM-DID papers regress on `_weight != .`, and without these options the
+  matched sample was half the size. With the propensity score supplied,
+  `_weight`, `_support`, ATT / ATU / ATE equal Stata `psmatch2` 4.0.12
+  row for row (`test_psmatch2_ties_ate_Stata_parity.py`); on the
+  replication's 99,878 firm-years, Stata fed StatsPAI's score returns the
+  identical 28,602-row matched sample. The paper's 28,628 differs only
+  through the logit score (1e-7 apart, within Stata's convergence
+  tolerance), which moves a few hundred nearest neighbours.
+- **`sp.oster_bounds(absorb=, absorb_controls=, moments=, cluster=)` and
+  `r_max="1.3*r2_a"`.** The exact Oster solution after a fixed-effects
+  regression, as `psacalc` computes it after `xtreg y d x i.ind#i.year,
+  fe`: within coefficients and R-squared, and `xtreg`'s `e(r2_a)` with the
+  control dummies counted at their exact rank given the panel effect (and
+  the panel means not charged under `cluster=` when the panel is nested in
+  it). `moments=` exposes the exact solution from summary statistics.
+  Equal to Stata `xtreg, fe` + `psacalc` to 1e-12 (delta 1e-8)
+  (`test_oster_absorb_Stata_parity.py`). On the replicated paper the
+  inputs are exact and R_max is 0.18268 against Stata's 0.18265: Stata's
+  `e(r2_a)` implies three more regressors than the dummies' exact rank
+  (the three extra eigenvalues are 1e-15, the next 2e-2), so delta is
+  3.480 against the paper's 3.484; with Stata's R_max it is 3.4857.
+- **`sp.hdfe_ols` results carry `df_a` and `df_a_nested`** (`reghdfe`'s
+  `e(df_a)` / `e(df_a_nested)`). A second Stata fixture pins the R-squared
+  family with no cluster, a nested unit cluster and an absorbed
+  `city#year` cluster: degrees of freedom exact, statistics to 1e-12
+  (`test_hdfe_fitstats_Stata_parity.py`); it reproduces the adjusted
+  R-squared of all seven OLS columns of the replicated fundtown paper.
+- **`sp.winsor(method=, subset=, by=)`** -- `winsor2`'s `if` qualifier and
+  `by()` option (see Changed for the percentile definition). Equal to
+  Stata `winsor2` element for element (`test_winsor_winsor2_Stata_parity.py`).
+- **`sp.logit` / `sp.probit` / `sp.cloglog(perfect_prediction='drop')`.**
+  An indicator regressor whose non-zero rows share one outcome is omitted
+  with those rows, iterated, as Stata does ("x != 0 predicts failure
+  perfectly"); a warning names them and `model_info` records them. `N`,
+  log-likelihood, pseudo R-squared and estimates equal Stata `logit` /
+  `probit y x i.g` (`test_logit_perfect_prediction_Stata_parity.py`).
+  `'keep'` restores the old fit (whose MLE does not exist).
 - **`sp.ppmlhdfe` matches Stata `ppmlhdfe`'s sample and handles absorbed
   regressors.** Found by replicating a five-fixed-effect PPML paper whose
   every `N` and pseudo R-squared differed from Stata. (1) Singletons of any
@@ -82,6 +118,87 @@ All notable changes to StatsPAI will be documented in this file.
   `ind#year` and a `city#year` cluster: `N`, clusters and the dropped count
   exact, slopes / SEs / pseudo R-squared to 2e-9
   (`test_ppmlhdfe_singletons_Stata_parity.py`).
+- **`sp.etwfe(family='poisson', fe='unit', response_se='margins')`.**
+  Response-scale (count) standard errors as Stata `jwdid ...,
+  method(ppmlhdfe)` + `estat` reports them. Until now they could only be
+  rebuilt by hand from Stata's `e(V)` (0.0262 vs 0.0318 on the replication
+  panel). `margins` holds the absorbed unit and period effects fixed and
+  differentiates through `ppmlhdfe`'s `_cons`, which is normalised around
+  the mu-weighted sample mean of the regressors, so the gradient is
+  `mu (x - xbar)` plus the constant. A categorical `xvar` is mapped to
+  jwdid's level coding first, since with the periods held fixed the
+  parametrisation matters. Every `estat simple / event / group / calendar /
+  over()` SE equals Stata to 7e-7, including clusters that nest neither
+  units nor periods, where the constant's covariance with the slopes enters
+  (`test_etwfe_poisson_jwdid_parity.py`, new fixture
+  `etwfe_poisson_jwdid_margins_Stata.json`). The default stays
+  `'profile'`. A Monte Carlo study
+  (`benchmarks/etwfe_poisson_response_se_coverage.py`, 6 designs x 1,000
+  replications) finds the profiled interval covering the sample ATT at
+  94-95% with 400 units and 91-93% with 100 units or strong unit
+  heterogeneity. The margins SE is 14-15% larger in every design, so it
+  over-covers in the first case and is near 95% in the second. Point
+  estimates, link-scale SEs and every default output are unchanged.
+- **`sp.etwfe(family='poisson' | 'logit', response_se='unconditional')`.**
+  A response-scale SE for the population ATT, as Stata `margins,
+  vce(unconditional)`. The aggregate is a ratio of sample means over
+  treated rows, so its influence function per cluster adds the composition
+  term `sum (m_r - ATT) / n` to the delta-method term, with their
+  covariance; event-time aggregates keep a joint covariance. The profiled
+  SE conditions on each unit's observed level, so with heterogeneous units
+  it is far below the unit-sampling SE (0.300 against 0.646 on a panel
+  whose unit-effect sd is 1.2). Against the delete-one-unit jackknife of the
+  full refit the new SE agrees to 1% (fe='unit' and fe='cohort', simple and
+  event time; `test_etwfe_nonlinear.py`). With cohort dummies
+  (`fe='cohort'`, R `etwfe`) the ordinary delta-method SE is already close
+  to it, because the cohort intercepts carry the between-unit variance. In
+  the Monte Carlo study it covers the population ATT at 94.0-95.6% in five
+  designs where the profiled SE reaches 90.6-94.5%, and at 88.7% when unit
+  effects are lognormal with sd 1.5 (profile 54%, margins 63%).
+
+- **2SLS in `sp.hdfe_ols`: `"y ~ exog | fe1 + fe2 | endog ~ inst"`** (Stata
+  `ivreghdfe`). Every variable is swept once by the reghdfe absorber, then
+  2SLS runs on the residuals; SEs follow `ivreg2`'s small-sample rules
+  (cluster, robust, iid) and `result.iv_diagnostics` carries the first-stage
+  F tests, Kleibergen-Paap rk LM and Wald F, Cragg-Donald F, Anderson-Rubin
+  test and Hansen J / Sargan. Against `ivreghdfe` 1.1.4 every coefficient,
+  SE and statistic agrees to <= 5e-9 (`test_hdfe_iv_ivreghdfe.py`). On the
+  1.5-million-row replication of Zheng, Huang and Zhu (2026, Table 6) it
+  gives -0.1381572 (0.0305366), KP F 509.244 and KP LM 30.714 as published,
+  in 25 s where the pyfixest route took about 4 minutes.
+- **R² family and reference df on `sp.hdfe_ols` results**: `r2`, `r2_a`,
+  `r2_a_within`, `rss`, `tss`, `rmse`, `df_inference`, as `reghdfe`'s
+  `e(r2)`, `e(r2_a)`, `e(r2_a_within)`, `e(rmse)`, `e(df_r)` (FEs nested in
+  the cluster are charged in full for the adjusted statistics,
+  `df_a_nested`); equal to reghdfe 6.13.1 to 1e-16
+  (`test_hdfe_fit_stats_reghdfe.py`). `summary()` shows them.
+- **`sp.hdfe_ols(df_inference=)`**: `'resid'`, `'normal'` or a number, for
+  the reference distribution of p-values and CIs (see ⚠️ below).
+- **Non-ASCII column names in `sp.hdfe_ols` formulas** (`工资 ~ 暴露度 | 企业`).
+- **`sp.honest_did(grid_lb=, grid_ub=, grid_points=, grid_expand=)`** (and
+  `honest_did_from_moments`), HonestDiD's `grid.lb` / `grid.ub` /
+  `gridPoints`, passed to R with `backend='r'` too (see ⚠️ below).
+- **`sp.gelbach(absorb=, cluster=, shapley=)`**: absorbed fixed effects
+  (swept by the reghdfe absorber, i.e. `b1x2` with the FE dummies in
+  `x1all()`), `b1x2 ..., cluster()` covariance, and Shapley shares averaged
+  over entry orders. Equal to `b1x2` 4.1.0 to 1e-10
+  (`test_gelbach_absorb_cluster_b1x2.py`).
+- **`sp.ri_test(absorb=, interact=)` and continuous treatments** for
+  `stat='ols'` / `'ols_t'`: absorbed FEs, and an intensity design
+  (`treat='exposure', interact='post'`) with exposure permuted across
+  clusters. Under clustering only `G` columns are swept once, so 9,999
+  permutations on 1.5 million rows take about a minute.
+- **`sp.sumstats(output='numeric')`**: the unformatted values (`N` as int,
+  the rest float) instead of display strings.
+- **`sp.from_stata`**: `reghdfe` / `ivreghdfe` now map to `sp.hdfe_ols`
+  (reghdfe's singleton, dof and `t(G-1)` rules) with Stata's `a#b` absorbed
+  interactions written `a^b` and `c.x#i.g` slopes as `i.g#c.x` (1.32
+  emitted `city#quarter` into the formula: a `SyntaxError`); `absorb(...,
+  savefe)`, `vce(robust)` and multi-way clusters are handled; `summarize`
+  / `sum2docx` translate to `sp.sumstats`; `permute`, `esttab`, `estout`,
+  `outreg2` and `coefplot` return an error naming the StatsPAI function to
+  use instead of "unknown command".
+
 - **`sp.honest_did_from_moments(betahat, sigma, event_times=...)` and
   `sp.honest_did_from_result`.** Rambachan-Roth sensitivity for an event
   study from *any* estimator -- `reghdfe`, a stacked regression, a published
@@ -518,6 +635,23 @@ All notable changes to StatsPAI will be documented in this file.
   falls back to `sp.pretrends_test(result, ...)` when the estimator stored
   no test (`sp.etwfe`), so the method and the function agree; with no
   arguments a stored test is returned as before.
+- **`sp.callaway_santanna(clustervars=...)` no longer requires
+  `bstrap=True`**; analytic SEs are clustered. With `bstrap=True` the
+  pre-trend Wald test now clusters as well (it used unit-level influence
+  functions).
+- **`sp.fepois` names `sp.ppmlhdfe` when pyfixest cannot absorb the fixed
+  effects** (`NumericalInstability`, still a `ValueError`), instead of
+  surfacing pyfixest's "Demeaning failed after 100_000 iterations"; a
+  five-way PPML that fails there runs in `sp.ppmlhdfe`.
+- **`sp.winsor` uses Stata's percentile definition** (`_pctile`, numpy
+  `averaged_inverted_cdf`) by default, as the `winsor2` equivalence in its
+  docstring promised; it used linear interpolation, which moved every
+  cutoff whose `n p / 100` is not an integer (a replication's 99th
+  percentile: 51,003.45 against Stata's 51,015). `method='linear'` gives
+  the old cutoffs.
+- **`sp.logit` / `sp.probit` / `sp.cloglog` drop perfectly predicting
+  indicators by default** (see Added); `N` and the pseudo R-squared change
+  on data that has them.
 - **`sp.aggte` inherits `bstrap` / `cband` / `biters` from the fit** (R
   `did::aggte(bstrap = NULL)`), instead of defaulting to an unseeded
   1000-draw bootstrap: `sp.aggte(fit)` on a default `callaway_santanna` fit
@@ -831,6 +965,37 @@ All notable changes to StatsPAI will be documented in this file.
   joint restrictions -- e.g. the Mundlak test of the unit-mean terms -- work.
 
 ### ⚠️ Correctness
+
+- **`sp.iv(absorb="a^b")` dropped no rows with a missing `a` or `b`.** The
+  interacted FE was built from strings, so a missing component became the
+  level `"nan"` and the row stayed in the sample, where `ivreghdfe` drops it.
+  On the 1.5-million-row replication of Zheng, Huang and Zhu (2026, Table 6)
+  the 2SLS coefficient was -0.136797 instead of -0.1381572. Such rows are now
+  dropped (`test_hdfe_iv_ivreghdfe.py`). The absorbed sweep also warns
+  (`ConvergenceWarning`) if it stops at `fe_maxiter` without converging; it
+  used to return the unconverged residuals silently.
+- **`sp.hdfe_ols` clustered p-values and CIs use `t(G - 1)`**, reghdfe's
+  `e(df_r)` (`min(G) - 1`, capped at the residual df); they used
+  `t(N - K - df_a)`, practically the normal with many observations. SEs are
+  unchanged. With 100 occupation clusters in the replication of Zheng,
+  Huang and Zhu (2026), p = 0.091 and CI [-0.1423, 0.0107] as Stata, where
+  1.32 gave 0.0878 and [-0.1414, 0.0098]. The same for the no-FE path
+  (`regress, vce(cluster)`). Old numbers: `df_inference='resid'`.
+- **`sp.honest_did(method='relative_magnitude')` no longer reports the grid
+  edge as the bound.** When the confidence set reached the end of the
+  +/-20 sd test-inversion grid, the grid end was returned (with a warning):
+  the interval was understated, e.g. [-0.325, 0.325] where Stata `honestdid`
+  gives [-0.531, 0.390]. The grid now extends at the same step until the set
+  closes (`attrs['grid_extended_at']`), matching Stata to the grid step and
+  the C-LF simulation (`test_honest_did_grid.py`). HonestDiD (R) truncates
+  like 1.32; `grid_expand=False` reproduces it.
+- **`sp.ri_test(cluster=)` refuses a treatment that varies within clusters.**
+  It used to give every cluster the treatment of its first row and permute
+  those values, a null distribution of a design nobody ran (the HIV-results
+  incentive replication, randomized to individuals, with
+  `cluster='villnum'`). Pass the
+  cluster-level variable with `interact=` for `exposure x post`, or permute
+  rows. `'diff_means'` / `'t'` / `'ks'` also refuse a non-binary treatment.
 
 - **`sp.callaway_santanna` without never-treated units no longer averages in
   zeros.** Found by the QJE 2019 (Princelings) and QJE 2023 (AI-tocracy)

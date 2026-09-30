@@ -27,10 +27,12 @@ values are known (e.g. read off a published table).
 
 from __future__ import annotations
 
-from typing import Dict, Sequence
+from typing import Dict, Optional, Sequence
 
 import numpy as np
 import pandas as pd
+
+from ..exceptions import MethodIncompatibility
 
 
 def oster_inputs(
@@ -78,7 +80,158 @@ def oster_inputs(
         "sigma_xx": float(np.var(e_xm, ddof=1)),
         "t_x": float(np.var(e_xr, ddof=1)),
         "n": float(n),
+        # Stata `regress` e(r2_a) of the long regression.
+        "r2_a": 1.0 - (1.0 - r_t) * (n - 1) / (n - np.linalg.matrix_rank(X_long)),
     }
+
+
+def _within_rank(
+    Z: np.ndarray, other_codes: Sequence[np.ndarray], group_codes: np.ndarray
+) -> int:
+    """Rank of ``[Z, dummies(other_codes)]`` after removing group means.
+
+    This is the number of regressors Stata ``xtreg, fe`` keeps (its
+    ``e(df_m)`` minus ``N_g - 1``) when the other fixed effects enter as
+    ``i.`` dummies: ``rank(W' (I - P_g) W)`` for ``W = [Z, D]``, built from
+    group sums so the dummies never need to be demeaned densely.
+    """
+    from scipy import sparse
+
+    n = Z.shape[0]
+    blocks = [sparse.csr_matrix(Z)]
+    for codes in other_codes:
+        c = pd.factorize(np.asarray(codes))[0]
+        blocks.append(
+            sparse.csr_matrix((np.ones(n), (np.arange(n), c)), shape=(n, c.max() + 1))
+        )
+    W = sparse.hstack(blocks).tocsr()
+    g = pd.factorize(np.asarray(group_codes))[0]
+    G = g.max() + 1
+    Dg = sparse.csr_matrix((np.ones(n), (np.arange(n), g)), shape=(n, G))
+    C = (Dg.T @ W).toarray()
+    ng = np.bincount(g, minlength=G).astype(float)
+    M = (W.T @ W).toarray() - C.T @ (C / ng[:, None])
+    d = np.sqrt(np.clip(np.diag(M), 0.0, None))
+    live = d > 1e-10 * max(1.0, float(d.max()) if d.size else 1.0)
+    if not live.any():
+        return 0
+    Ms = M[np.ix_(live, live)] / np.outer(d[live], d[live])
+    eig = np.linalg.eigvalsh((Ms + Ms.T) / 2.0)
+    return int(np.sum(eig > eig.max() * max(Ms.shape) * 1e-12))
+
+
+def oster_inputs_fe(
+    data: pd.DataFrame,
+    y: str,
+    treat: str,
+    controls: Sequence[str],
+    absorb: Sequence[str],
+    absorb_controls: Sequence[str] = (),
+    cluster: Optional[str] = None,
+) -> Dict[str, float]:
+    """``psacalc`` inputs after a fixed-effects regression (``xtreg, fe``).
+
+    ``absorb`` are the effects in both regressions (``xtreg``'s panel
+    variable, or ``areg``'s ``absorb()``); ``absorb_controls`` are fixed
+    effects that are *controls* -- in the long regression only, as
+    ``i.ind#i.year`` dummies are in ``xtreg y d x i.ind#i.year, fe``.
+    As ``psacalc`` does after ``xtreg, fe``: the coefficients and R-squared
+    values are within (the R-squared relative to the within sum of squares
+    of ``y``), ``sigma_yy`` is the variance of ``y`` itself, ``sigma_xx``
+    the variance of the within-transformed treatment and ``t_x`` that of
+    the treatment residualised on every other regressor and effect.
+
+    Also returns ``r2_a`` -- Stata ``xtreg, fe``'s ``e(r2_a)``,
+    ``1 - (1 - R2_within)(N - 1)/(N - N_g - K)`` with ``K`` the exact rank
+    of the regressors and control dummies given the panel effect (one
+    ``absorb`` effect only) -- the usual base of ``R_max = 1.3 r2_a``.
+    Singletons are kept, as ``xtreg`` keeps them. With ``cluster`` (Stata
+    ``vce(cluster c)``) and the panel nested in it, ``xtreg`` stops
+    charging the ``N_g`` panel means: ``r2_a`` then uses ``N - K - 1``.
+    """
+    from ..panel.hdfe import Absorber
+
+    absorb = list(absorb)
+    absorb_controls = list(absorb_controls)
+    extra = [cluster] if cluster is not None else []
+    cols = list(dict.fromkeys([y, treat, *controls, *absorb, *absorb_controls, *extra]))
+    df = data[cols].dropna()
+    Y = df[y].to_numpy(dtype=float)
+    D = df[treat].to_numpy(dtype=float)
+    C = df[list(controls)].to_numpy(dtype=float) if controls else np.empty((len(df), 0))
+    n = Y.size
+
+    ab_s = Absorber(df[absorb], drop_singletons=False, tol=1e-12)
+    ab_l = Absorber(df[absorb + absorb_controls], drop_singletons=False, tol=1e-12)
+    Yw_s, Dw_s = ab_s.demean(Y), ab_s.demean(D)
+    Yw_l, Dw_l = ab_l.demean(Y), ab_l.demean(D)
+    Cw_l = ab_l.demean(C) if C.shape[1] else C
+
+    def _ols(X: np.ndarray, v: np.ndarray) -> np.ndarray:
+        return np.asarray(np.linalg.lstsq(X, v, rcond=None)[0], dtype=float)
+
+    tss_w = float(np.sum(Yw_s**2))
+    b_s = _ols(Dw_s[:, None], Yw_s)
+    r_o = 1.0 - float(np.sum((Yw_s - Dw_s * b_s[0]) ** 2)) / tss_w
+    X_l = np.column_stack([Dw_l, Cw_l])
+    b_l = _ols(X_l, Yw_l)
+    rss_l = float(np.sum((Yw_l - X_l @ b_l) ** 2))
+    r_t = 1.0 - rss_l / tss_w
+    e_x = Dw_l - (Cw_l @ _ols(Cw_l, Dw_l) if C.shape[1] else 0.0)
+
+    out = {
+        "beta_o": float(b_s[0]),
+        "r_o": float(r_o),
+        "beta_t": float(b_l[0]),
+        "r_t": float(r_t),
+        "sigma_yy": float(np.var(Y, ddof=1)),
+        "sigma_xx": float(np.var(Dw_s, ddof=1)),
+        "t_x": float(np.var(e_x, ddof=1)),
+        "n": float(n),
+    }
+    if len(absorb) == 1:
+        g = df[absorb[0]].to_numpy()
+        n_g = int(pd.Series(g).nunique())
+        k = _within_rank(
+            np.column_stack([D, C]), [df[a].to_numpy() for a in absorb_controls], g
+        )
+        nested = cluster is not None and bool(
+            (df.groupby(absorb[0])[cluster].nunique() <= 1).all()
+        )
+        df_r = n - k - 1 if nested else n - n_g - k
+        out["r2_a"] = 1.0 - (1.0 - r_t) * (n - 1) / df_r
+        out["panel_nested_in_cluster"] = float(nested)
+        out["n_groups"] = float(n_g)
+        out["rank"] = float(k)
+    return out
+
+
+def resolve_r_max(r_max: object, r2_long: float, r2_a: float = float("nan")) -> float:
+    """``r_max`` as a number, or a ``"<mult>*r2"`` / ``"<mult>*r2_a"`` rule."""
+    if r_max is None or isinstance(r_max, (int, float, np.floating)):
+        return r_max  # type: ignore[return-value]
+    text = str(r_max).replace(" ", "").lower()
+    mult_s, _, base = text.partition("*")
+    if base not in ("r2", "r2_a"):
+        mult_s, base = base, mult_s  # also accept "r2_a*1.3"
+    try:
+        mult = float(mult_s)
+    except ValueError:
+        raise MethodIncompatibility(
+            f"r_max={r_max!r}: use a number or '<multiplier>*r2' / "
+            "'<multiplier>*r2_a' (e.g. '1.3*r2_a')."
+        ) from None
+    if base == "r2":
+        return mult * r2_long
+    if base == "r2_a":
+        if not np.isfinite(r2_a):
+            raise MethodIncompatibility(
+                "r_max='...*r2_a' needs the adjusted R-squared, available "
+                "from data with absorb= (one panel effect) or from data "
+                "without absorbed effects."
+            )
+        return mult * r2_a
+    raise MethodIncompatibility(f"r_max={r_max!r} not understood.")
 
 
 def oster_delta_exact(inp: Dict[str, float], r_max: float, beta: float = 0.0) -> float:
