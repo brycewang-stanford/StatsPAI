@@ -38,6 +38,16 @@ All notable changes to StatsPAI will be documented in this file.
   wheel), the pip metadata and a warning when they disagree. Every
   `Provenance` record, `format_provenance`, the table footer of
   `_repro` and the replication-pack manifest carry `statspai_revision`.
+- **`sp.stacked_did(family='poisson', spec='pooled', absorb=,
+  control_group='notyettreated_rows')`.** Stacked DID as applied papers run
+  it: PPML through `sp.ppmlhdfe` (Stata `ppmlhdfe` rules), a single
+  treated x post coefficient, extra fixed effects on top of unit x event
+  and period x event, and later-treated units as controls only before
+  their own treatment. A hand-built Stata stack with `ppmlhdfe` (pooled,
+  with extra `id city#year` effects, and the event study with `lincom` of
+  the post coefficients) agrees to 1e-9
+  (`test_stacked_ppml_Stata_parity.py`); one call reproduces the replicated
+  paper's stacked estimates (0.321 / z 4.223 / N 501,400; 0.285 / 3.792).
 - **Callaway-Sant'Anna analytic SEs honour `clustervars`**, and on
   repeated cross-sections (`panel=False`) the cluster may vary within
   unit (e.g. city x year, as `csdid ..., cluster(cy)` without `ivar()`).
@@ -110,10 +120,9 @@ All notable changes to StatsPAI will be documented in this file.
   / `"ind#year"` and `cluster="city^year"` build the interacted groups.
   (4) Rows missing an estimation variable are marked out, as Stata does.
   (5) With several absorbed effects the within-transform reuses the
-  accelerated kernel of `sp.fast.fepois` and the Poisson fixed-effect solve
-  is warm-started: a 5-way model on 10^5 rows went from 24 s to 7.5 s, and
-  the old 500-sweep cap had stopped short of the projection (estimates
-  moved in the 8th digit). Against Stata 18 `ppmlhdfe` on a fixture with
+  accelerated kernel of `sp.fast.fepois` (see Changed for the speed); the
+  old 500-sweep cap had stopped short of the projection (estimates moved
+  in the 8th digit). Against Stata 18 `ppmlhdfe` on a fixture with
   singletons, all-zero units, missing values, two omitted regressors,
   `ind#year` and a `city#year` cluster: `N`, clusters and the dropped count
   exact, slopes / SEs / pseudo R-squared to 2e-9
@@ -635,6 +644,18 @@ All notable changes to StatsPAI will be documented in this file.
   falls back to `sp.pretrends_test(result, ...)` when the estimator stored
   no test (`sp.etwfe`), so the method and the function agree; with no
   arguments a stored test is returned as before.
+- **`sp.ppmlhdfe` is 10x faster on multi-way fixed effects.** The IRLS
+  step now updates the linear predictor as the working variable minus the
+  within residual (the `ppmlhdfe` algorithm) instead of solving the
+  effects' score equations by Gauss-Seidel, which needed thousands of
+  sweeps per iteration with nested or many crossed effects; the inner
+  within-transform follows a tolerance schedule and is warm-started from
+  the previous iteration (exact: the projection removes the fixed-effect
+  span under any weights); fixed-effect dimensions nested in another are
+  dropped from the projection. A five-way PPML on 10^5 rows: 24 s -> 2.4 s
+  (Stata 2.9 s); a seven-way stacked PPML on 6.9x10^5 rows: 347 s -> 45 s.
+  Estimates move by at most ~1e-9 (relative), inside the IRLS tolerance;
+  all Stata `ppmlhdfe` parity fixtures are unchanged.
 - **`sp.callaway_santanna(clustervars=...)` no longer requires
   `bstrap=True`**; analytic SEs are clustered. With `bstrap=True` the
   pre-trend Wald test now clusters as well (it used unit-level influence
@@ -759,6 +780,9 @@ All notable changes to StatsPAI will be documented in this file.
   absorbs unit (or cohort) and period effects and clusters on the unit: the
   nonlinear / jwdid branch recorded neither. It now writes
   `model_info['fixed_effects']` and `cluster_var`.
+- `sp.stacked_did(controls=...)` crashed in the event-study ATT: the delta
+  method multiplied event-time weights by the full covariance, which also
+  carried the controls.
 - **Original-data parity results refreshed; module 02 made deterministic.**
   `tests/orig_parity` modules 04, 04b, 08 and 11 had result files older than
   the library fixes they exercise (the matched ATT covering every treated

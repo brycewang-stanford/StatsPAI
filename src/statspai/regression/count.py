@@ -762,6 +762,31 @@ def _fe_weighted_demean(
     return Md[:, 0] if squeeze else Md
 
 
+def _drop_nested_fe(fe_indices_list: Sequence[np.ndarray]) -> List[np.ndarray]:
+    """Fixed-effect dimensions minus those nested in another one.
+
+    If every level of dimension B lies inside one level of A (``id`` inside
+    ``id x cohort`` in a stacked regression, or a duplicated dimension), A's
+    dummies are in B's span: the within-transform is the same without A,
+    but alternating projections over redundant dimensions converge far
+    more slowly.  Used for the numerical projection only; degree-of-freedom
+    bookkeeping keeps every dimension.
+    """
+    codes = [_fe_codes(fe)[0] for fe in fe_indices_list]
+    counts = [int(c.max()) + 1 if c.size else 0 for c in codes]
+    keep = [True] * len(codes)
+    for a in range(len(codes)):
+        for b in range(len(codes)):
+            if a == b or not keep[b] or not keep[a]:
+                continue
+            # A nested in B: each B level maps to a single A level.
+            pairs = np.unique(codes[b].astype(np.int64) * max(counts[a], 1) + codes[a])
+            if pairs.size == counts[b] and (counts[a] < counts[b] or a > b):
+                keep[a] = False
+                break
+    return [fe for fe, k in zip(fe_indices_list, keep) if k]
+
+
 def _normalise_ppml_separation(separation: Union[bool, str]) -> str:
     """Map the public ``separation=`` spellings to 'drop' / 'warn' / 'none'."""
     if separation is True:
@@ -966,7 +991,7 @@ def _ppml_hdfe_irls(
     Returns (beta, mu, converged, n_iter).
     """
     n, k = X.shape
-    fe_list = list(fe_indices_list or [])
+    fe_list = _drop_nested_fe(list(fe_indices_list or []))
     has_fe = len(fe_list) > 0
     if weights is None:
         weights = np.ones(n)
@@ -984,22 +1009,26 @@ def _ppml_hdfe_irls(
             )
             eta += np.log(np.maximum(gm, 0.1))[codes]
         mu = _safe_exp(eta)
-        # Fixed-effect part of the linear predictor, carried across IRLS
-        # iterations so each Gauss-Seidel solve below starts from the
-        # previous one instead of from zero.
-        eta_fe = eta.copy()
     else:
         beta = np.linalg.lstsq(X, np.log(y_init), rcond=None)[0]
         mu = _safe_exp(X @ beta)
 
-    fe_blocks = []
-    for fe_idx in fe_list:
-        codes, G = _fe_codes(fe_idx)
-        fe_blocks.append(
-            (codes, G, np.bincount(codes, weights=weights * y, minlength=G))
-        )
-
     converged = False
+    # Tolerance schedule for the inner within-transform (ppmlhdfe's
+    # practice): early IRLS steps only need a rough projection, so the
+    # demeaning tolerance starts loose and tightens with the coefficient
+    # change; convergence is declared only on a step taken at the final
+    # tolerance, so the answer is the same as demeaning tightly throughout.
+    demean_tol_final = 1e-10
+    demean_tol = 1e-6 if len(fe_list) >= 2 else demean_tol_final
+    # Warm start of the within-transform.  For any weights, the projection
+    # removes everything in the span of the fixed effects, and the previous
+    # raw-minus-demeaned columns lie in that span; so projecting
+    # ``Zd_prev + (Z - Z_prev)`` gives the same answer as projecting ``Z``
+    # but starts next to it.  On a 7-way stacked PPML this cut the tight
+    # final projections from thousands of sweeps to a few dozen.
+    Z_prev: Optional[np.ndarray] = None
+    Zd_prev: Optional[np.ndarray] = None
     for it in range(maxiter):
         # Working variable and weights
         w = weights * mu
@@ -1007,12 +1036,15 @@ def _ppml_hdfe_irls(
 
         if has_fe:
             # Demean z and X by FEs (weighted by w)
-            # Build the full z including current linear predictor component
-            z_full = X @ beta + z  # eta_X + working_residual
+            # Working variable on the full linear predictor (slopes and
+            # fixed effects); demeaning removes the fixed-effect part.
+            z_full = eta + z
 
             # Demean z_full and X
             Z = np.column_stack([z_full.reshape(-1, 1), X])
-            Z_dm = _fe_weighted_demean(Z, fe_list, w, maxiter=500, tol=1e-10)
+            Z_start = Z if Z_prev is None else Zd_prev + (Z - Z_prev)
+            Z_dm = _fe_weighted_demean(Z_start, fe_list, w, maxiter=500, tol=demean_tol)
+            Z_prev, Zd_prev = Z, Z_dm
 
             z_dm = Z_dm[:, 0]
             X_dm = Z_dm[:, 1:]
@@ -1033,60 +1065,51 @@ def _ppml_hdfe_irls(
         except np.linalg.LinAlgError:
             beta_new = np.linalg.lstsq(XtWX, XtWz, rcond=None)[0]
 
-        # Update mu: need to recover FE contributions
+        # Update the linear predictor.  With absorbed effects this is the
+        # IRLS step of Correia, Guimaraes & Zylkin's ppmlhdfe: the fitted
+        # working variable is z minus the within residual, so the effects
+        # are never solved for separately.  (A Gauss-Seidel solve of the
+        # effects' score equations used to sit here; with nested or many
+        # crossed effects, e.g. unit x cohort and unit in a stacked
+        # regression, it needed thousands of sweeps per iteration.)
         if has_fe:
-            eta_X = X @ beta_new
-            # Solve the Poisson FOC for each FE block: at convergence,
-            # the score with respect to alpha_g must be
-            # Sigma_{i in g} w_i (y_i - mu_i) = 0 in EVERY FE dimension.
-            # With multiple FE dimensions (e.g. gravity's origin + dest
-            # + year), no closed-form per-dimension formula exists —
-            # we run a Gauss-Seidel inner loop, updating one FE
-            # dimension at a time (holding the others fixed) until the
-            # marginal sum-of-residuals score is zero in every block.
-            # The previous OLS-style mean(log y - X beta) recovery was
-            # both (a) the wrong functional form (OLS, not PPML) and
-            # (b) only kept the *last* FE dimension's contribution when
-            # multiple were absorbed (each loop iteration overwrote
-            # the previous eta_fe). This single bug produced both the
-            # HC1 SE inflation (finding #6) and the 3-way-FE
-            # non-convergence (finding #5) flagged on 2026-05-28.
-            # Groups within one dimension are disjoint, so each block
-            # update is computed for all of its groups at once.
-            # Warm start from the previous iteration's effects: the fixed
-            # point (every group's score is zero) does not depend on the
-            # start, but from zero the solve took ~200 sweeps per IRLS
-            # iteration on five crossed effects.
-            exp_total = _safe_exp(eta_X + eta_fe)
-            for _ in range(1000):
-                max_score = 0.0
-                for codes, G, wy_sum in fe_blocks:
-                    exp_sum = np.bincount(
-                        codes, weights=weights * exp_total, minlength=G
-                    )
-                    delta = np.zeros(G)
-                    pos = exp_sum > 0
-                    delta[pos] = np.log(np.maximum(wy_sum[pos], 0.5) / exp_sum[pos])
-                    ok = pos & (wy_sum > 0)
-                    delta[ok] = np.log(wy_sum[ok] / exp_sum[ok])
-                    eta_fe += delta[codes]
-                    # Update exp_total in place so the next FE block
-                    # uses the corrected mu.
-                    exp_total *= np.exp(delta)[codes]
-                    if G:
-                        max_score = max(max_score, float(np.max(np.abs(delta))))
-                if max_score < 1e-12:
-                    break
-
-            mu_new = _safe_exp(eta_X + eta_fe)
+            resid_w = z_dm - X_dm @ beta_new
+            eta = z_full - resid_w
+            mu_new = _safe_exp(eta)
         else:
             mu_new = _safe_exp(X @ beta_new)
 
-        delta = np.max(np.abs(beta_new - beta) / (np.abs(beta) + 1e-12))
+        delta = np.max(np.abs(beta_new - beta) / (np.abs(beta) + 1e-12)) if k else 0.0
+        if has_fe:
+            # The effects move too: also require the deviance to settle
+            # (ppmlhdfe's criterion), so beta cannot stop while mu drifts.
+            dev_new = float(
+                2.0
+                * np.sum(
+                    weights
+                    * (
+                        np.where(y > 0, y * np.log(np.maximum(y, 1e-300) / mu_new), 0.0)
+                        - (y - mu_new)
+                    )
+                )
+            )
+            dev_old = float(
+                2.0
+                * np.sum(
+                    weights
+                    * (
+                        np.where(y > 0, y * np.log(np.maximum(y, 1e-300) / mu), 0.0)
+                        - (y - mu)
+                    )
+                )
+            )
+            delta = max(delta, abs(dev_new - dev_old) / max(abs(dev_new), 0.1))
         beta = beta_new
         mu = mu_new
 
-        if delta < tol:
+        used_tol = demean_tol
+        demean_tol = float(np.clip(delta * 1e-3, demean_tol_final, demean_tol))
+        if delta < tol and used_tol <= demean_tol_final:
             converged = True
             break
 
@@ -1099,7 +1122,10 @@ def _ppml_hdfe_irls(
     # ppmlhdfe / fixest::fepois (parity finding #6, 2026-05-28).
     if has_fe:
         w_final = weights * mu
-        X_dm_final = _fe_weighted_demean(X, fe_list, w_final, maxiter=500, tol=1e-10)
+        X_start = X if Zd_prev is None else Zd_prev[:, 1:]
+        X_dm_final = _fe_weighted_demean(
+            X_start, fe_list, w_final, maxiter=500, tol=1e-10
+        )
         return beta, mu, converged, it + 1, X_dm_final
 
     return beta, mu, converged, it + 1, None
@@ -2256,6 +2282,7 @@ def _ppml_absorbed_columns(
     if k == 0:
         return []
     if fe_indices_list:
+        fe_indices_list = _drop_nested_fe(fe_indices_list)
         Xd = _fe_weighted_demean(X, fe_indices_list, np.ones(n), maxiter=2000, tol=1e-9)
     else:
         Xd = np.asarray(X, dtype=float)

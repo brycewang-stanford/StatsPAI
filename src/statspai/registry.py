@@ -14716,6 +14716,42 @@ def _build_registry() -> None:
                     None,
                     "Pre-built stack: period relative to the sub-experiment's event",
                 ),
+                ParamSpec(
+                    "family",
+                    "str",
+                    False,
+                    "gaussian",
+                    "'poisson' fits the stack by PPML (sp.ppmlhdfe, Stata "
+                    "ppmlhdfe rules) for count outcomes",
+                    ["gaussian", "poisson"],
+                ),
+                ParamSpec(
+                    "spec",
+                    "str",
+                    False,
+                    "event_study",
+                    "'event_study' (one coefficient per event time) or 'pooled' "
+                    "(a single treated x post coefficient)",
+                    ["event_study", "pooled"],
+                ),
+                ParamSpec(
+                    "absorb",
+                    "str",
+                    False,
+                    None,
+                    "Extra fixed effects on top of unit x event and period x "
+                    "event, e.g. 'id + ind^year'",
+                ),
+                ParamSpec(
+                    "control_group",
+                    "str",
+                    False,
+                    None,
+                    "'nevertreated', 'notyettreated' (units untreated through "
+                    "the window) or 'notyettreated_rows' (later-treated units "
+                    "before their own treatment); overrides never_treated_only",
+                    ["nevertreated", "notyettreated", "notyettreated_rows"],
+                ),
             ],
             returns="CausalResult with event-study coefficients",
             example=(

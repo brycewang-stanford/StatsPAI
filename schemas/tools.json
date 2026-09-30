@@ -28850,6 +28850,11 @@
     "description": "Stacked DiD (Cengiz, Dube, Lindner, Zipperer 2019). For each treatment cohort, constructs a sub-experiment with only that cohort + clean (never-treated or not-yet-treated) controls, then TWFE on the stacked panel. Robust to staggered-adoption contamination at the cost of dropping late-treated units in early sub-experiments. Validation: certified parity evidence. Do NOT use when: there is a single adoption cohort -- stacking produces one sub-experiment and is equivalent to sp.did(method='2x2'). Cost: The stacked panel has one copy of each clean control per cohort: memory grows as cohorts x n. Assumptions: Parallel trends within each sub-experiment; No anticipation within window; SUTVA. Pre-conditions: staggered adoption with >= 2 cohorts; window horizon available per cohort (else dropped). Failure modes: No clean controls for the latest cohort -> Late cohort's sub-experiment is dropped; check coverage in model_info. Consider sp.callaway_santanna. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
+        "absorb": {
+          "description": "Extra fixed effects on top of unit x event and period x event, e.g. 'id + ind^year'",
+          "type": "string",
+          "x-statspai-role": "columns"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level for confidence intervals.",
@@ -28859,6 +28864,15 @@
           "description": "Variable for cluster-robust standard errors. Defaults to ``group`` (unit-level clustering).",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "control_group": {
+          "description": "'nevertreated', 'notyettreated' (units untreated through the window) or 'notyettreated_rows' (later-treated units before their own treatment); overrides never_treated_only",
+          "enum": [
+            "nevertreated",
+            "notyettreated",
+            "notyettreated_rows"
+          ],
+          "type": "string"
         },
         "controls": {
           "description": "Additional control covariates.",
@@ -28880,6 +28894,15 @@
           "description": "Pre-built stack: period relative to the sub-experiment's event",
           "type": "string"
         },
+        "family": {
+          "default": "gaussian",
+          "description": "'poisson' fits the stack by PPML (sp.ppmlhdfe, Stata ppmlhdfe rules) for count outcomes",
+          "enum": [
+            "gaussian",
+            "poisson"
+          ],
+          "type": "string"
+        },
         "first_treat": {
           "description": "First treatment period; not needed when event_id is given",
           "type": "string",
@@ -28898,6 +28921,15 @@
           "default": true,
           "description": "Use only never-treated as controls (drops late-treated)",
           "type": "boolean"
+        },
+        "spec": {
+          "default": "event_study",
+          "description": "'event_study' (one coefficient per event time) or 'pooled' (a single treated x post coefficient)",
+          "enum": [
+            "event_study",
+            "pooled"
+          ],
+          "type": "string"
         },
         "time": {
           "description": "Time period column.",

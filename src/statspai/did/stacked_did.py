@@ -13,6 +13,7 @@ Cengiz, D., Dube, A., Lindner, A. and Zipperer, B. (2019).
 *Quarterly Journal of Economics*, 134(3), 1405-1454. [@cengiz2019effect]
 """
 
+import warnings
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -40,6 +41,10 @@ def stacked_did(
     event_id: Optional[str] = None,
     treated: Optional[str] = None,
     event_time: Optional[str] = None,
+    family: str = "gaussian",
+    spec: str = "event_study",
+    absorb: Optional[str] = None,
+    control_group: Optional[str] = None,
 ) -> CausalResult:
     """
     Stacked DID estimator (Cengiz, Dube, Lindner & Zipperer, 2019).
@@ -88,6 +93,29 @@ def stacked_did(
         ``never_treated_only`` are then ignored, and rows outside ``window``
         are dropped. Passing a pre-built stack as an ordinary panel used to
         rebuild it, reusing the never-treated controls in every cohort.
+    family : {'gaussian', 'poisson'}, default 'gaussian'
+        ``'poisson'`` fits the stacked regression by PPML with
+        :func:`statspai.ppmlhdfe` (Stata ``ppmlhdfe``'s singleton and
+        separation rules included), for count outcomes; coefficients are
+        on the log scale.
+    spec : {'event_study', 'pooled'}, default 'event_study'
+        ``'event_study'`` estimates one coefficient per event time (the
+        reference period -1 omitted) and reports the mean of the
+        post-treatment ones as the ATT. ``'pooled'`` estimates a single
+        treated x post coefficient -- the specification most stacked
+        regressions in applied papers report.
+    absorb : str, optional
+        Fixed effects absorbed on top of unit x sub-experiment and period x
+        sub-experiment, e.g. ``"id + ind^year + city^year"`` (``#`` also
+        accepted).
+    control_group : {'nevertreated', 'notyettreated', 'notyettreated_rows'}, optional
+        Which rows serve as controls in a cohort's sub-experiment.
+        ``'nevertreated'`` (``never_treated_only=True``) and
+        ``'notyettreated'`` (units first treated after the window,
+        ``never_treated_only=False``) take whole units; ``'notyettreated_rows'``
+        takes every later-treated unit but only in the periods before its
+        own treatment, as the stacking of Cunningham's *Mixtape* and many
+        applied papers does. Overrides ``never_treated_only`` when given.
 
     Notes
     -----
@@ -130,6 +158,26 @@ def stacked_did(
 
     if cluster is None:
         cluster = group
+
+    family = str(family).lower()
+    if family not in ("gaussian", "poisson"):
+        raise MethodIncompatibility(
+            f"family must be 'gaussian' or 'poisson', got {family!r}."
+        )
+    spec = str(spec).lower()
+    if spec not in ("event_study", "pooled"):
+        raise MethodIncompatibility(
+            f"spec must be 'event_study' or 'pooled', got {spec!r}."
+        )
+    if control_group is None:
+        control_group = "nevertreated" if never_treated_only else "notyettreated"
+    control_group = str(control_group).lower()
+    if control_group not in ("nevertreated", "notyettreated", "notyettreated_rows"):
+        raise MethodIncompatibility(
+            "control_group must be 'nevertreated', 'notyettreated' or "
+            f"'notyettreated_rows', got {control_group!r}."
+        )
+    never_treated_only = control_group == "nevertreated"
 
     if window[0] >= 0:
         raise ValueError("window[0] must be negative (pre-treatment periods).")
@@ -198,24 +246,31 @@ def stacked_did(
             # Units in this cohort (treated at time g)
             cohort_units = set(df.loc[df["_ft"] == g, group].unique())
 
-            # Control units
-            if never_treated_only:
-                ctrl_units = never_units
+            in_window = (df[time].astype(float) >= t_lo) & (
+                df[time].astype(float) <= t_hi
+            )
+            if control_group == "notyettreated_rows":
+                # Later-treated units are controls only before their own
+                # treatment; never-treated units throughout.
+                ctrl_rows = (df["_ft"] > g) & (df[time].astype(float) < df["_ft"])
+                if not (ctrl_rows & in_window).any():
+                    continue
+                sub = df[in_window & (df[group].isin(cohort_units) | ctrl_rows)].copy()
             else:
-                # Not-yet-treated: units whose first_treat > t_hi
-                nyt_mask = df["_ft"] > t_hi
-                ctrl_units = never_units | set(df.loc[nyt_mask, group].unique())
+                # Control units
+                if never_treated_only:
+                    ctrl_units = never_units
+                else:
+                    # Not-yet-treated: units whose first_treat > t_hi
+                    nyt_mask = df["_ft"] > t_hi
+                    ctrl_units = never_units | set(df.loc[nyt_mask, group].unique())
 
-            all_units = cohort_units | ctrl_units
-            if len(ctrl_units) == 0:
-                continue  # skip cohort if no controls available
+                all_units = cohort_units | ctrl_units
+                if len(ctrl_units) == 0:
+                    continue  # skip cohort if no controls available
 
-            # Restrict to units and time window
-            sub = df[
-                df[group].isin(all_units)
-                & (df[time].astype(float) >= t_lo)
-                & (df[time].astype(float) <= t_hi)
-            ].copy()
+                # Restrict to units and time window
+                sub = df[df[group].isin(all_units) & in_window].copy()
 
             if len(sub) == 0:
                 continue
@@ -247,14 +302,21 @@ def stacked_did(
     if len(rel_times_est) == 0:
         raise ValueError("Not enough relative time periods for estimation.")
 
-    # Build treatment interaction dummies
-    D_cols = []
-    for k in rel_times_est:
-        col_name = f"_D_{int(k)}"
-        stacked[col_name] = (
-            (stacked["_rel_time"] == k) & (stacked["_treated_unit"] == 1)
+    if spec == "pooled":
+        rel_times_est = []
+        stacked["_treat_post"] = (
+            (stacked["_treated_unit"] == 1) & (stacked["_post"] == 1)
         ).astype(float)
-        D_cols.append(col_name)
+        D_cols = ["_treat_post"]
+    else:
+        # Build treatment interaction dummies (names safe for formulas)
+        D_cols = []
+        for k in rel_times_est:
+            col_name = f"_D_{'m' if k < 0 else ''}{abs(int(k))}"
+            stacked[col_name] = (
+                (stacked["_rel_time"] == k) & (stacked["_treated_unit"] == 1)
+            ).astype(float)
+            D_cols.append(col_name)
 
     # Add controls if specified
     x_cols = list(D_cols)
@@ -268,11 +330,14 @@ def stacked_did(
     stacked["_time_cohort"] = (
         stacked[time].astype(str) + "_" + stacked["_cohort"].astype(str)
     )
+    extra_fe: List[str] = []
+    if absorb:
+        from ..core._group_terms import resolve_group_terms
 
-    # Two-way FE regression by the HDFE kernel: unit x sub-experiment and
-    # period x sub-experiment effects, reghdfe's weighting and CRV1
-    # conventions (effects nested in the cluster are not charged).
-    from ..panel.hdfe import absorb_ols
+        stacked, extra_fe = resolve_group_terms(
+            stacked, [t.strip() for t in str(absorb).split("+") if t.strip()]
+        )
+    fe_cols = ["_unit_cohort", "_time_cohort"] + extra_fe
 
     w_arr = None
     if weights is not None:
@@ -286,25 +351,74 @@ def stacked_did(
         w_arr = w_arr[pos]
     if cluster not in stacked.columns:
         raise MethodIncompatibility(f"Cluster column '{cluster}' not found in data.")
-    complete = stacked[[y] + x_cols + [cluster]].notna().all(axis=1).to_numpy()
+    complete = (
+        stacked[[y] + x_cols + [cluster] + fe_cols].notna().all(axis=1).to_numpy()
+    )
     if not complete.all():
         stacked = stacked.loc[complete].reset_index(drop=True)
         if w_arr is not None:
             w_arr = w_arr[complete]
-    fe_frame = stacked[["_unit_cohort", "_time_cohort"]]
-    fit = absorb_ols(
-        y=stacked[y].to_numpy(dtype=float),
-        X=stacked[x_cols].to_numpy(dtype=float),
-        fe=fe_frame,
-        weights=w_arr,
-        cluster=stacked[cluster].to_numpy(),
-        drop_singletons=False,
-    )
-    beta = np.asarray(fit["coef"], dtype=float)
-    V = np.asarray(fit["vcov"], dtype=float)
-    n_stacked = int(fit["n"])
+
+    if family == "poisson":
+        # PPML on the stack, Stata ppmlhdfe conventions (singletons and
+        # separated rows dropped, regressors absorbed by the effects
+        # omitted).
+        from ..regression.count import ppmlhdfe
+
+        if w_arr is not None:
+            stacked["_stack_w"] = w_arr
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="ppmlhdfe: dropped")
+            pf = ppmlhdfe(
+                data=stacked,
+                y=y,
+                x=x_cols,
+                absorb=" + ".join(fe_cols),
+                cluster=cluster,
+                weights="_stack_w" if w_arr is not None else None,
+            )
+        names = list(pf.params.index)
+        beta_s = pf.params.reindex(x_cols)
+        V_full = np.asarray(pf.data_info["var_cov"], dtype=float)
+        pos_of = {nm: i for i, nm in enumerate(names)}
+        idx = [pos_of.get(c) for c in x_cols]
+        beta = beta_s.to_numpy(dtype=float)
+        V = np.full((len(x_cols), len(x_cols)), np.nan)
+        for a, ia in enumerate(idx):
+            for b, ib in enumerate(idx):
+                if ia is not None and ib is not None:
+                    V[a, b] = V_full[ia, ib]
+        n_stacked = int(pf.data_info["nobs"])
+        omitted_names = list(pf.model_info.get("omitted", []))
+        fit_info = {
+            "estimator": "PPML (ppmlhdfe)",
+            "n_singletons": pf.model_info.get("n_singletons"),
+            "n_separated": pf.model_info.get("n_separated"),
+            "pseudo_r2": pf.model_info.get("pseudo_r2"),
+        }
+    else:
+        # Two-way FE regression by the HDFE kernel: unit x sub-experiment and
+        # period x sub-experiment effects, reghdfe's weighting and CRV1
+        # conventions (effects nested in the cluster are not charged).
+        from ..panel.hdfe import absorb_ols
+
+        fit = absorb_ols(
+            y=stacked[y].to_numpy(dtype=float),
+            X=stacked[x_cols].to_numpy(dtype=float),
+            fe=stacked[fe_cols],
+            weights=w_arr,
+            cluster=stacked[cluster].to_numpy(),
+            drop_singletons=False,
+        )
+        beta = np.asarray(fit["coef"], dtype=float)
+        V = np.asarray(fit["vcov"], dtype=float)
+        n_stacked = int(fit["n"])
+        omitted_names = [x_cols[j] for j in fit.get("omitted", [])]
+        fit_info = {"estimator": "OLS (HDFE)"}
     dropped_terms = [
-        int(rel_times_est[j]) for j in fit.get("omitted", []) if j < len(rel_times_est)
+        int(rel_times_est[j])
+        for j, c in enumerate(D_cols)
+        if c in omitted_names and j < len(rel_times_est)
     ]
 
     # Map coefficients to event-study names
@@ -328,14 +442,17 @@ def stacked_did(
 
     # ── Step 6: Aggregate ATT (post-treatment periods) ───────────── #
     post_ks = [k for k in rel_times_est if k >= 0]
-    if len(post_ks) == 0:
+    if spec == "pooled":
+        att = float(beta[0])
+        att_se = float(np.sqrt(max(V[0, 0], 0.0)))
+    elif len(post_ks) == 0:
         raise DataInsufficient(
             f"stacked_did: window={window} contains no post-treatment "
             "relative time (k >= 0) with data, so the ATT is not defined. "
             "Widen the window's upper end.",
             diagnostics={"window": list(window)},
         )
-    if len(post_ks) > 0:
+    if spec != "pooled" and len(post_ks) > 0:
         att = np.mean([es_betas[k] for k in post_ks])
         # Delta method: ATT = mean of post betas → se = sqrt(w' V w)
         post_indices = [rel_times_est.index(k) for k in post_ks]
@@ -343,7 +460,9 @@ def stacked_did(
         w = np.zeros(len(rel_times_est))
         for pi in post_indices:
             w[pi] = 1.0 / n_post
-        att_var = w @ V @ w
+        # Event-time block only: V also carries the controls.
+        k_es = len(rel_times_est)
+        att_var = w @ V[:k_es, :k_es] @ w
         att_se = np.sqrt(max(att_var, 0.0))
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
@@ -351,7 +470,7 @@ def stacked_did(
     att_ci = (att - z_crit * att_se, att + z_crit * att_se)
 
     # ── Build event study detail DataFrame ───────────────────────── #
-    all_ks = sorted(set(rel_times_est) | {-1})
+    all_ks = sorted(set(rel_times_est) | {-1}) if spec != "pooled" else []
     rows = []
     for k in all_ks:
         if k == -1:
@@ -380,7 +499,10 @@ def stacked_did(
                 }
             )
 
-    detail = pd.DataFrame(rows)
+    detail = pd.DataFrame(
+        rows,
+        columns=["relative_time", "att", "se", "ci_lower", "ci_upper", "pvalue"],
+    )
 
     # ── Build model_info ─────────────────────────────────────────── #
     model_info = {
@@ -391,6 +513,11 @@ def stacked_did(
         "n_stacked_obs": n_stacked,
         "window": window,
         "never_treated_only": never_treated_only,
+        "control_group": control_group,
+        "family": family,
+        "spec": spec,
+        "absorb": absorb,
+        "fit": fit_info,
         "prebuilt_stack": prebuilt,
         "weights": weights,
         "omitted_event_times": dropped_terms,
@@ -432,6 +559,10 @@ def stacked_did(
                 "alpha": alpha,
                 "weights": weights,
                 "event_id": event_id,
+                "family": family,
+                "spec": spec,
+                "absorb": absorb,
+                "control_group": control_group,
             },
             data=data,
             overwrite=False,

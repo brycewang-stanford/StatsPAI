@@ -14120,6 +14120,11 @@
     "name": "stacked_did",
     "parameters": {
       "properties": {
+        "absorb": {
+          "description": "Extra fixed effects on top of unit x event and period x event, e.g. 'id + ind^year'",
+          "type": "string",
+          "x-statspai-role": "columns"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level for confidence intervals.",
@@ -14129,6 +14134,15 @@
           "description": "Variable for cluster-robust standard errors. Defaults to ``group`` (unit-level clustering).",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "control_group": {
+          "description": "'nevertreated', 'notyettreated' (units untreated through the window) or 'notyettreated_rows' (later-treated units before their own treatment); overrides never_treated_only",
+          "enum": [
+            "nevertreated",
+            "notyettreated",
+            "notyettreated_rows"
+          ],
+          "type": "string"
         },
         "controls": {
           "description": "Additional control covariates.",
@@ -14155,6 +14169,15 @@
           "description": "Pre-built stack: period relative to the sub-experiment's event",
           "type": "string"
         },
+        "family": {
+          "default": "gaussian",
+          "description": "'poisson' fits the stack by PPML (sp.ppmlhdfe, Stata ppmlhdfe rules) for count outcomes",
+          "enum": [
+            "gaussian",
+            "poisson"
+          ],
+          "type": "string"
+        },
         "first_treat": {
           "description": "First treatment period; not needed when event_id is given",
           "type": "string",
@@ -14173,6 +14196,15 @@
           "default": true,
           "description": "Use only never-treated as controls (drops late-treated)",
           "type": "boolean"
+        },
+        "spec": {
+          "default": "event_study",
+          "description": "'event_study' (one coefficient per event time) or 'pooled' (a single treated x post coefficient)",
+          "enum": [
+            "event_study",
+            "pooled"
+          ],
+          "type": "string"
         },
         "time": {
           "description": "Time period column.",
