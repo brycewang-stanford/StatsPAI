@@ -2,7 +2,7 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.33.0] — 2026-09-30
 
 ### Added
 
@@ -1010,6 +1010,18 @@ All notable changes to StatsPAI will be documented in this file.
   joint restrictions -- e.g. the Mundlak test of the unit-mean terms -- work.
 
 ### ⚠️ Correctness
+
+- **`sp.stacked_did` standard errors charge the absorbed stack-by-period
+  effects, as `reghdfe` does.** The stacked regression now runs on the HDFE
+  kernel (see `sp.stacked_did(weights=, ...)` under Added). Its CR1 factor
+  `(N-1)/(N-K)` used to count only the event-time dummies in `K`; the
+  stack-by-period effects are not nested in the unit cluster and belong in
+  `K` (the stack-by-unit effects are nested and still do not). Every SE and
+  interval widens by the constant `sqrt((N - k_event)/(N - K))`: 1.5% on
+  the castle-doctrine panel (`window=(-5, 5)`, never-treated controls,
+  50 states) and 7.0% on the unilateral-divorce panel (41 states), where
+  `se` now equals `reghdfe` on the same stack to 1e-13. Point estimates are
+  unchanged. See MIGRATION `#stacked-did-reghdfe-k`.
 
 - **`sp.from_stata` no longer passes Stata varlist wildcards / ranges
   through.** `reghdfe y t2pre* t2current t2post*` came back `ok=True` with

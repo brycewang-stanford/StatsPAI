@@ -5,9 +5,26 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="stacked-did-reghdfe-k"></a>
+
+## 1.33.0 — ⚠️ `sp.stacked_did` standard errors follow `reghdfe`
+
+**Who is affected.** Anyone reading standard errors, p-values or intervals
+from `sp.stacked_did`. Point estimates are unchanged.
+
+| Area | Old | New | Old number, if you need it |
+| --- | --- | --- | --- |
+| `sp.stacked_did` CR1 small-sample factor `(N-1)/(N-K)` | `K` = event-time dummies only | `K` also counts the absorbed stack-by-period effects (not nested in the unit cluster), as `reghdfe` on the same stack | `se_new * sqrt((N - K)/(N - k_event))` |
+
+Every SE widens by the same constant within a fit: 1.5% on the
+castle-doctrine panel and 7.0% on the unilateral-divorce panel, where the
+new SE equals `reghdfe` on the manual stack to 1e-13.
+
+---
+
 <a id="etwfe-labels-table-rows"></a>
 
-## Unreleased — `sp.etwfe` estimand labels, blank FE / cluster cells for causal results
+## 1.33.0 — `sp.etwfe` estimand labels, blank FE / cluster cells for causal results
 
 **Who is affected.** Code that compares `sp.etwfe(...).estimand` with the old
 long label, and tables that mix a `CausalResult` with fixed-effects
@@ -24,7 +41,7 @@ regressions. No estimate or standard error changed.
 
 <a id="ppml-singletons-aggte-inherit"></a>
 
-## Unreleased — Stata defaults: `ppmlhdfe` singletons, `winsor` percentiles, `logit` perfect prediction; `aggte` inherits
+## 1.33.0 — Stata defaults: `ppmlhdfe` singletons, `winsor` percentiles, `logit` perfect prediction; `aggte` inherits
 
 **Who is affected.** `sp.ppmlhdfe` users whose absorbed effects have
 one-observation groups (unbalanced panels, many crossed effects), and code
@@ -49,7 +66,7 @@ fits with a category that predicts the outcome perfectly.
 
 <a id="hdfe-t-g-minus-1"></a>
 
-## Unreleased — ⚠️ `sp.hdfe_ols` clustered inference on `t(G-1)`; HonestDiD relative-magnitude sets no longer truncated; `sp.ri_test(cluster=)` checks the design
+## 1.33.0 — ⚠️ `sp.hdfe_ols` clustered inference on `t(G-1)`; HonestDiD relative-magnitude sets no longer truncated; `sp.ri_test(cluster=)` checks the design
 
 **Who is affected.** Anyone reading p-values, stars or CIs from clustered
 `sp.hdfe_ols` fits (point estimates and SEs are unchanged); anyone whose
@@ -72,7 +89,7 @@ varies within clusters.
 
 <a id="ppml-separation-etwfe-link"></a>
 
-## Unreleased — ⚠️ `sp.ppmlhdfe` drops separated observations; `sp.etwfe(family='poisson')` gains `scale=` / `fe=`
+## 1.33.0 — ⚠️ `sp.ppmlhdfe` drops separated observations; `sp.etwfe(family='poisson')` gains `scale=` / `fe=`
 
 **Who is affected.** Anyone running `sp.ppmlhdfe` on data with fixed-effect
 groups whose outcome is always zero (or a regressor that is non-zero only
@@ -92,7 +109,7 @@ method(ppmlhdfe)` tables with `sp.etwfe`.
 
 <a id="agent-surface-hardening"></a>
 
-## Unreleased — ⚠️ MCP errors as `isError` results, remote data opt-in, `next_steps()` stops printing
+## 1.33.0 — ⚠️ MCP errors as `isError` results, remote data opt-in, `next_steps()` stops printing
 
 **Who is affected.** MCP clients and scripts that parse `statspai-mcp`
 responses, code that calls `handle_request` in-process, shell pipelines
@@ -123,7 +140,7 @@ subclasses `ImportError`, so existing `except` clauses keep catching them.
 
 <a id="design-and-diagnostic-fixes"></a>
 
-## Unreleased — ⚠️ `optimal_design` sample sizes, Hausman test, `compare_estimators`, `estat` IV tests
+## 1.33.0 — ⚠️ `optimal_design` sample sizes, Hausman test, `compare_estimators`, `estat` IV tests
 
 **Who is affected.** Anyone who sized a study with `sp.optimal_design`, chose
 between fixed and random effects with `sp.hausman_test` or
@@ -152,7 +169,7 @@ seeded draws differ from earlier releases.
 
 <a id="sdid-staggered"></a>
 
-## Unreleased — ⚠️ `sp.did` / `sp.did_analysis` with `method="sdid"` estimate staggered adoption by cohort
+## 1.33.0 — ⚠️ `sp.did` / `sp.did_analysis` with `method="sdid"` estimate staggered adoption by cohort
 
 **Who is affected.** Anyone who ran `sp.did(..., method="sdid")` or
 `sp.did_analysis(..., method="sdid")` on a panel whose `treat` column holds
@@ -176,7 +193,7 @@ placebo SE needs more never-treated than treated units (Stata's rule); use
 
 <a id="result-display-precision"></a>
 
-## Unreleased — `.to_latex()`, `.summary()` and generic result tables use the adaptive precision
+## 1.33.0 — `.to_latex()`, `.summary()` and generic result tables use the adaptive precision
 
 Display only; no estimate, standard error or p-value changes.
 
