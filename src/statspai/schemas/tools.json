@@ -10143,6 +10143,14 @@
     "description": "Traditional OLS event-study with entity and time FEs. Generates relative-time dummies around the treatment date, omits a reference period, and estimates via TWFE + optional clustered SE. Exposed for users who want the classical specification alongside CS / SA / BJS; not robust to staggered-effect heterogeneity -- use sp.sun_abraham for that. Validation: certified parity evidence. Do NOT use when: only one pre-treatment period is available -- there are no leads to test parallel trends with, so the plot cannot support a pre-trend claim; treatment timing is staggered and heterogeneous -- a pooled TWFE event study contaminates leads with other cohorts' treated periods; use sp.sun_abraham or sp.callaway_santanna. Cost: One OLS with window x cohort dummies; O(n x window). Assumptions: Parallel trends across event time; No anticipation beyond window lead; SUTVA. Pre-conditions: panel with unit x time x outcome; treat_time column gives first-treatment period (or 0/NaN). Failure modes: Staggered heterogeneity -- TWFE event-study biased -> Use sp.sun_abraham for contamination-robust event-study coefficients. Alternatives: sp.sun_abraham, sp.callaway_santanna, sp.did_imputation, sp.sp.sun_ab...",
     "input_schema": {
       "properties": {
+        "absorb": {
+          "description": "Extra fixed effects besides unit and time, in sp.hdfe_ols syntax ('occ', 'city^time'); routes the fit through sp.hdfe_ols.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level.",
@@ -10173,6 +10181,10 @@
           "description": "Publish the pre-period covariance into model_info['vcv_pre'] (default). pretrends_test / pretrends_power / sensitivity_rr then use the full cluster-robust covariance of the pre-treatment coefficients; False withholds the key and restores the pre-1.31 diagonal fallback, which warns.",
           "type": "boolean"
         },
+        "intensity": {
+          "description": "Continuous exposure column: the event-time regressors become intensity x 1[t - treat_time = k] (a common shock with heterogeneous exposure; treat_time may then be a number, the common date). Fitted with sp.hdfe_ols.",
+          "type": "string"
+        },
         "ref_period": {
           "default": -1,
           "description": "Reference relative-time period to omit",
@@ -10184,7 +10196,7 @@
           "x-statspai-role": "column"
         },
         "treat_time": {
-          "description": "First-treatment period column",
+          "description": "First-treatment period column, or a number for a common date",
           "type": "string"
         },
         "unit": {

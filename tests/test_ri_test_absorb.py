@@ -114,3 +114,33 @@ def test_binary_statistics_reject_continuous_treatment(panel):
 def test_absorb_needs_regression_statistic(panel):
     with pytest.raises(sp.exceptions.MethodIncompatibility, match="ols"):
         sp.ri_test(panel, y="y", treat="d", stat="t", absorb="firm", n_perms=5)
+
+
+def test_ols_then_ols_t_reuses_the_sweep_without_changing_results(panel):
+    from statspai.inference import randomization as ri
+
+    kw = dict(
+        y="y",
+        treat="exposure",
+        interact="post",
+        absorb=FE,
+        covariates=["x"],
+        cluster="occ",
+        n_perms=40,
+        seed=5,
+    )
+    ri._SWEEP_CACHE.clear()
+    sp.ri_test(panel, stat="ols", **kw)
+    assert len(ri._SWEEP_CACHE) == 1
+    reused = sp.ri_test(panel, stat="ols_t", **kw)
+    ri._SWEEP_CACHE.clear()
+    fresh = sp.ri_test(panel, stat="ols_t", **kw)
+    np.testing.assert_array_equal(
+        reused["perm_distribution"], fresh["perm_distribution"]
+    )
+    assert reused["observed"] == fresh["observed"]
+    # a different outcome is a different design: no stale reuse
+    other = sp.ri_test(panel.assign(y=panel.y * 2), stat="ols", **kw)
+    assert other["observed"] == pytest.approx(
+        2 * sp.ri_test(panel, stat="ols", **kw)["observed"], rel=1e-9
+    )

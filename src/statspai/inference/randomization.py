@@ -657,7 +657,7 @@ def ri_test(
             ]
             + ([pd.factorize(df["_strata"])[0]] if strata else [])
         )
-        absorber = Absorber(fe_mat, drop_singletons=True, tol=1e-10)
+        absorber = Absorber(fe_mat, drop_singletons=True, tol=1e-8)
         df = df.iloc[np.flatnonzero(absorber.keep_mask)]
 
     Y = df[y].values.astype(float)
@@ -761,6 +761,12 @@ def ri_test(
             cl_perm = cl_treat.copy()
             for gidx in groups:
                 cl_perm[gidx] = rng.permutation(cl_treat[gidx])
+            on_values = getattr(stat_fn, "on_cluster_values", None)
+            if on_values is not None:
+                # the statistic needs only the cluster-level values (in
+                # np.unique order); skip expanding them to rows
+                perm_stats[b] = on_values(cl_perm)
+                continue
             D_perm = np.zeros(n)
             for i, rows in enumerate(cl_rows):
                 D_perm[rows] = cl_perm[i]
@@ -891,9 +897,17 @@ def _absorbed_ols_stat_factory(
     def resid(A: np.ndarray) -> np.ndarray:
         return A - Q @ (Q.T @ A) if Q.shape[1] else A
 
-    yt = resid(sweep(df[y].to_numpy(dtype=float)))
     k = Q.shape[1] + 1
-    cl_codes = None if clusters is None else pd.factorize(clusters)[0]
+    # sorted codes: the permutation loop hands over values in np.unique order
+    cl_codes = None if clusters is None else np.unique(clusters, return_inverse=True)[1]
+    y_raw = df[y].to_numpy(dtype=float)
+    key = None
+    if cl_codes is not None:
+        key = _sweep_key(y_raw, s, absorber, cl_codes, parts)
+        hit = _SWEEP_CACHE.get(key)
+        if hit is not None:
+            return _cluster_stat(*hit, t_stat=t_stat)
+    yt = resid(sweep(y_raw))
 
     def finish(dt: np.ndarray) -> float:
         dd = float(dt @ dt)
@@ -924,15 +938,48 @@ def _absorbed_ols_stat_factory(
     B = R.T @ R
     if G > 400:  # per-cluster G x G blocks would not fit; sweep-free matvec
         return lambda y_, d_: finish(R @ np.asarray(d_, float)[first_row])
+    order = np.argsort(cl_codes, kind="stable")
+    bounds = np.searchsorted(cl_codes[order], np.arange(G + 1))
     Ag = np.zeros((G, G))
-    np.add.at(Ag, cl_codes, R * yt[:, None])
     Bg = np.zeros((G, G, G))
     for g in range(G):
-        rg = R[cl_codes == g]
+        rows = order[bounds[g] : bounds[g + 1]]
+        rg = R[rows]
+        Ag[g] = rg.T @ yt[rows]
         Bg[g] = rg.T @ rg
+    blocks = (a, B, Ag, Bg, first_row, n, k)
+    _SWEEP_CACHE.clear()  # one entry: the ols / ols_t pair on the same design
+    _SWEEP_CACHE[key] = blocks
+    return _cluster_stat(*blocks, t_stat=t_stat)
 
-    def fast(y_: np.ndarray, d_: np.ndarray) -> float:
-        v = np.asarray(d_, float)[first_row]
+
+#: The swept cluster blocks of the last design, so ``stat='ols'`` followed by
+#: ``stat='ols_t'`` on the same data sweeps the ``G`` columns once.
+_SWEEP_CACHE: Dict[Any, tuple] = {}
+
+
+def _sweep_key(y, s, absorber, cl_codes, parts) -> str:
+    """Fingerprint of everything the swept cluster blocks depend on."""
+    import hashlib
+
+    h = hashlib.blake2b(digest_size=16)
+    arrays = [y, s, cl_codes] + list(parts)
+    if absorber is not None:
+        arrays += list(absorber.fe_codes)
+        h.update(repr((absorber.tol, absorber.n_kept)).encode())
+    for arr in arrays:
+        arr = np.ascontiguousarray(arr)
+        h.update(repr((arr.dtype.str, arr.shape)).encode())
+        h.update(arr.tobytes())
+    return h.hexdigest()
+
+
+def _cluster_stat(a, B, Ag, Bg, first_row, n, k, *, t_stat: bool) -> StatFn:
+    """The statistic from the swept cluster blocks, for row- or cluster-level input."""
+    G = B.shape[0]
+
+    def on_values(v: np.ndarray) -> float:
+        v = np.asarray(v, float)
         den = float(v @ B @ v)
         if den <= 0:
             return 0.0
@@ -943,6 +990,10 @@ def _absorbed_ols_stat_factory(
         var = (G / (G - 1)) * ((n - 1) / (n - k)) * float(sc @ sc) / den**2
         return b / np.sqrt(var) if var > 0 else 0.0
 
+    def fast(y_: np.ndarray, d_: np.ndarray) -> float:
+        return on_values(np.asarray(d_, float)[first_row])
+
+    fast.on_cluster_values = on_values  # type: ignore[attr-defined]
     return fast
 
 

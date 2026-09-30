@@ -343,9 +343,9 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs AER::ivreg [AER 1.2.16, R version 4.5.2 (2025-10-31)]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 02_iv -- tests/r_parity/02_iv.py",
       "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
+      "tests/reference_parity/test_hdfe_iv_paths_agree.py",
       "tests/reference_parity/test_iv_card_aer_parity.py",
-      "tests/reference_parity/test_iv_hdfe_stata_parity.py",
-      "tests/reference_parity/test_iv_weights_stata_parity.py"
+      "tests/reference_parity/test_iv_hdfe_stata_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -34665,6 +34665,14 @@
       "name": "event_study",
       "parameters": {
         "properties": {
+          "absorb": {
+            "description": "Extra fixed effects besides unit and time, in sp.hdfe_ols syntax ('occ', 'city^time'); routes the fit through sp.hdfe_ols.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
           "alpha": {
             "default": 0.05,
             "description": "Significance level.",
@@ -34700,6 +34708,10 @@
             "description": "Publish the pre-period covariance into model_info['vcv_pre'] (default). pretrends_test / pretrends_power / sensitivity_rr then use the full cluster-robust covariance of the pre-treatment coefficients; False withholds the key and restores the pre-1.31 diagonal fallback, which warns.",
             "type": "boolean"
           },
+          "intensity": {
+            "description": "Continuous exposure column: the event-time regressors become intensity x 1[t - treat_time = k] (a common shock with heterogeneous exposure; treat_time may then be a number, the common date). Fitted with sp.hdfe_ols.",
+            "type": "string"
+          },
           "ref_period": {
             "default": -1,
             "description": "Reference relative-time period to omit",
@@ -34711,7 +34723,7 @@
             "x-statspai-role": "column"
           },
           "treat_time": {
-            "description": "First-treatment period column",
+            "description": "First-treatment period column, or a number for a common date",
             "type": "string"
           },
           "unit": {

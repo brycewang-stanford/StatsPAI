@@ -3051,7 +3051,7 @@
    "result_sha256": "464be9e43ddef1ea0fdc64ee0c1d1dd4b04a6bc6a8cd9bda7e38c31a86c94878"
   },
   "85_twfe_event_study": {
-   "seconds": 1.22,
+   "seconds": 0.68,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -3071,7 +3071,7 @@
     "src/statspai/_build_info.py": "903fb565e7705345dbc7bf6965be614c37421881824c18358349d81126ddf1ce",
     "src/statspai/core/results.py": "dc025c78f7869d9af9b8314f74b2d5fa316610b8514a6b97d05667a46fccfdd2",
     "src/statspai/did/_core.py": "ebea749136aea63babd1f1c79344c91eb3dced4436adafdfcacaebe27e465f71",
-    "src/statspai/did/event_study.py": "87f81c570bd8243a5c98990c3be4193c8bbcfc1a971d16d08b5f4fdd1a13a4ff",
+    "src/statspai/did/event_study.py": "56237154cfbdd3432294961510d633f60c5bd5538c7ed8202f05fe3ad9a17f0c",
     "src/statspai/output/_lineage.py": "4f2cd0038f097d0e8d00604406bc667924a77d7b63b00ecd9b6cb84b49fb6405",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },

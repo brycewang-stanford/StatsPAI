@@ -232,6 +232,7 @@ def effective_f_test(
     # dedicated path).
     absorb_terms = _as_name_list(absorb)
     cluster_names = _as_name_list(cluster)
+    data, absorb_terms = _interacted_fe(data, absorb_terms)
     cols = [endog] + list(instruments) + list(exog or [])
     cols += absorb_terms + cluster_names
     seen: set = set()
@@ -571,6 +572,20 @@ def _beta_se_scale(
     return float(np.sqrt(max(var, 0.0))) or 1.0
 
 
+def _interacted_fe(data: pd.DataFrame, absorb_terms: List[str]) -> tuple:
+    """Materialise ``a^b`` absorb terms as columns (as ``sp.iv(absorb=)`` does).
+
+    Without this every ``a^b`` term raised ``KeyError`` here, so the
+    Olea-Pflueger effective F of ``sp.iv(absorb="... + a^b")`` was replaced
+    by an error string.
+    """
+    if not any("^" in t for t in absorb_terms):
+        return data, absorb_terms
+    from ..regression.iv import _materialise_interacted_fe
+
+    return _materialise_interacted_fe(data, absorb_terms)
+
+
 def _prep_matrices_absorbed(
     data: pd.DataFrame,
     y: str,
@@ -588,6 +603,7 @@ def _prep_matrices_absorbed(
     the constant is dropped (the FE block spans it) and ``W`` holds only the
     residualised controls.
     """
+    data, absorb_terms = _interacted_fe(data, list(absorb_terms))
     cols = [y, endog] + list(instruments) + list(exog or [])
     cols += list(absorb_terms) + list(cluster_names)
     seen: set = set()

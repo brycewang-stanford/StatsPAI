@@ -6,6 +6,27 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Intensity event studies: `sp.event_study(intensity=, absorb=)`.** The
+  event-time regressors become `intensity x 1[t - T0 = k]` (a common shock
+  with heterogeneous exposure; `treat_time` may now be a number, the common
+  date), `absorb=` adds fixed effects in `sp.hdfe_ols` syntax, and either
+  routes the fit through `sp.hdfe_ols`. The result carries the joint
+  covariance, so `sp.honest_did(result)` runs on it directly. On the
+  replication of Zheng, Huang and Zhu (2026, Figure 3) it equals the
+  hand-built `exposure x quarter` regression to 7e-9 (coefficients) / 6e-8
+  (SEs) (`test_event_study_intensity.py`). Without either argument the
+  historical unit + time path is unchanged.
+- **`sp.ri_test(absorb=)` reuses its fixed-effect sweep.** `stat='ols'`
+  followed by `stat='ols_t'` on the same design sweeps the `G` cluster
+  columns once, the sweep runs at `hdfe_ols`'s tolerance, and cluster
+  permutations skip the row-level expansion: 9,999 + 9,999 permutations on
+  1.5 million rows take 4.6 minutes instead of 37, with the same p-values.
+- **Equivalence gate for the two absorbed-IV paths**
+  (`test_hdfe_iv_paths_agree.py`): `sp.iv(absorb=)` and
+  `sp.hdfe_ols("y ~ x | fe | d ~ z")` must agree to 1e-8 in coefficients,
+  SEs, KP rk LM / Wald F and Hansen J, clustered, robust and iid, with and
+  without missing interaction components.
+
 - **`sp.jwdid(data, y, ivar=, tvar=, gvar=, x=, method=, never=, hettype=,
   exovar=, cluster=, predict=)`.** Wooldridge ETWFE under Stata `jwdid`'s
   option names: `sp.etwfe(fe='unit')` with `method='ppmlhdfe'` -> Poisson,
@@ -989,6 +1010,12 @@ All notable changes to StatsPAI will be documented in this file.
   joint restrictions -- e.g. the Mundlak test of the unit-mean terms -- work.
 
 ### ⚠️ Correctness
+
+- **`sp.iv(absorb="... + a^b")` reported no Olea-Pflueger effective F.**
+  The weak-IV helpers looked up `a^b` as a column, raised `KeyError`, and
+  the diagnostic was replaced by an error string. Interacted terms are now
+  materialised as in `sp.iv` itself; with one instrument the effective F
+  equals the KP rk Wald F, as it should.
 
 - **`sp.hdfe_ols` converges further when a varying slope is absorbed.**
   `tol` now defaults to `1e-12` with an `i.f#c.x` / `f[x]` term (`1e-8`

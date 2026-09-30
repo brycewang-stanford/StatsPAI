@@ -6089,6 +6089,7 @@
         "tests/reference_parity/test_hdfe_fit_stats_reghdfe.py",
         "tests/reference_parity/test_hdfe_fitstats_Stata_parity.py",
         "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
+        "tests/reference_parity/test_hdfe_iv_paths_agree.py",
         "tests/reference_parity/test_hdfe_nested_collinear_parity.py",
         "tests/reference_parity/test_hdfe_parity.py",
         "tests/reference_parity/test_hdfe_wild_boottest_parity.py"
@@ -6911,6 +6912,7 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_hdfe_iv_ivreghdfe.py",
+        "tests/reference_parity/test_hdfe_iv_paths_agree.py",
         "tests/reference_parity/test_iv_card_aer_parity.py",
         "tests/reference_parity/test_iv_hdfe_stata_parity.py",
         "tests/reference_parity/test_iv_weights_stata_parity.py",

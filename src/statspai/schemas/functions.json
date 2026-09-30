@@ -14251,6 +14251,14 @@
     "name": "event_study",
     "parameters": {
       "properties": {
+        "absorb": {
+          "description": "Extra fixed effects besides unit and time, in sp.hdfe_ols syntax ('occ', 'city^time'); routes the fit through sp.hdfe_ols.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level.",
@@ -14286,6 +14294,10 @@
           "description": "Publish the pre-period covariance into model_info['vcv_pre'] (default). pretrends_test / pretrends_power / sensitivity_rr then use the full cluster-robust covariance of the pre-treatment coefficients; False withholds the key and restores the pre-1.31 diagonal fallback, which warns.",
           "type": "boolean"
         },
+        "intensity": {
+          "description": "Continuous exposure column: the event-time regressors become intensity x 1[t - treat_time = k] (a common shock with heterogeneous exposure; treat_time may then be a number, the common date). Fitted with sp.hdfe_ols.",
+          "type": "string"
+        },
         "ref_period": {
           "default": -1,
           "description": "Reference relative-time period to omit",
@@ -14297,7 +14309,7 @@
           "x-statspai-role": "column"
         },
         "treat_time": {
-          "description": "First-treatment period column",
+          "description": "First-treatment period column, or a number for a common date",
           "type": "string"
         },
         "unit": {

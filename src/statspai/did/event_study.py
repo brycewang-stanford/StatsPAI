@@ -224,7 +224,7 @@ def _build_bins(
 def event_study(
     data: pd.DataFrame,
     y: str,
-    treat_time: str,
+    treat_time: Union[str, float],
     time: str,
     unit: str,
     window: Tuple[int, int] = (-4, 4),
@@ -235,6 +235,8 @@ def event_study(
     weights: Optional[str] = None,
     bin_width: Optional[int] = None,
     expose_pre_vcov: bool = True,
+    intensity: Optional[str] = None,
+    absorb: Optional[Union[str, List[str]]] = None,
 ) -> CausalResult:
     """
     Traditional OLS event study with entity and time fixed effects.
@@ -249,10 +251,11 @@ def event_study(
         Panel data in long format.
     y : str
         Outcome variable.
-    treat_time : str
+    treat_time : str or number
         Column with each unit's treatment time (period when treatment
         starts).  Units never treated should have ``NaN`` or a value
-        outside the data range.
+        outside the data range. A number is a common adoption date for
+        every unit (the design of an ``intensity`` event study).
     time : str
         Calendar time column (integer or datetime coercible to integer).
     unit : str
@@ -291,6 +294,18 @@ def event_study(
     weights : str, optional
         Column name for analytical weights (e.g. population weights).
         Equivalent to Stata's ``[aweight=...]``.
+    intensity : str, optional
+        Continuous treatment intensity (dose, exposure). The event-time
+        regressors become ``intensity x 1[t - treat_time = k]`` instead of
+        indicators, so each coefficient is the effect per unit of intensity
+        at event time ``k`` -- the "exposure x period" event study of a
+        common shock with heterogeneous exposure. Rows with zero intensity
+        are the comparison group. Estimated with ``sp.hdfe_ols`` (reghdfe's
+        singleton, dof and cluster conventions).
+    absorb : str or list of str, optional
+        Fixed effects absorbed besides ``unit`` and ``time``, in
+        ``sp.hdfe_ols`` syntax (``"occ"``, ``"city^time"``). Also routes the
+        fit through ``sp.hdfe_ols``.
     expose_pre_vcov : bool, default True
         Whether to publish the pre-period covariance matrix into
         ``model_info['vcv_pre']``. With ``True`` (the default since 1.31),
@@ -397,7 +412,10 @@ def event_study(
     est_bins = sorted(b for b in bins_members if b not in set(ref_bins))
 
     # --- Compute relative time ---
-    df["__treat_time__"] = df[treat_time]
+    if isinstance(treat_time, str):
+        df["__treat_time__"] = df[treat_time]
+    else:
+        df["__treat_time__"] = float(treat_time)
     df["__time__"] = df[time]
     df["__unit__"] = df[unit]
 
@@ -447,6 +465,8 @@ def event_study(
             df["__rel_time_binned__"].between(start, end, inclusive="both")
         )
         df.loc[mask, col] = 1.0
+        if intensity is not None:
+            df[col] = df[col] * df[intensity]
         dummy_cols.append(col)
 
     # --- Build OLS with entity + time FE via demeaning ---
@@ -457,7 +477,16 @@ def event_study(
     dropna_cols = all_y_x_cols + ["__unit__", "__time_num__"]
     if weights is not None:
         dropna_cols.append(weights)
+    absorb_terms = (
+        [t.strip() for t in absorb.split("+") if t.strip()]
+        if isinstance(absorb, str)
+        else list(absorb or [])
+    )
+    dropna_cols += [c for t in absorb_terms for c in t.split("^")]
+    if intensity is not None:
+        dropna_cols.append(intensity)
     df_clean = df.dropna(subset=dropna_cols).copy()
+    cluster_var = cluster or unit
 
     # Prepare weights array (before demeaning)
     if weights is not None:
@@ -469,44 +498,14 @@ def event_study(
     else:
         w_arr = None
 
-    Y, X_mat, col_names = _demean_twfe(
-        df_clean,
-        y,
-        dummy_cols + cov_cols,
-        "__unit__",
-        "__time_num__",
-        w=w_arr,
-    )
-
-    n, k = X_mat.shape
-
-    # --- OLS (possibly weighted) ---
-    if w_arr is not None:
-        sqrt_w = np.sqrt(w_arr)
-        Xw = X_mat * sqrt_w[:, np.newaxis]
-        Yw = Y * sqrt_w
+    if intensity is not None or absorb_terms:
+        beta, se, vcov, n, cluster_ids = _hdfe_event_fit(
+            df_clean, y, dummy_cols, cov_cols, absorb_terms, cluster_var, weights
+        )
     else:
-        Xw = X_mat
-        Yw = Y
-
-    try:
-        XtX_inv = np.linalg.inv(Xw.T @ Xw)
-    except np.linalg.LinAlgError:
-        XtX_inv = np.linalg.pinv(Xw.T @ Xw)
-
-    beta = XtX_inv @ Xw.T @ Yw
-    resid = Y - X_mat @ beta  # residuals in original scale
-
-    # --- Standard errors (clustered by default) ---
-    cluster_var = cluster or unit
-    cluster_ids = df_clean[cluster_var].values
-    # Small-sample K follows the fixest / reghdfe "nested" rule: the
-    # absorbed unit and time effects count unless nested in the cluster
-    # (unit effects are, under the default cluster=unit; time effects are
-    # not). This is what makes the default output match both
-    # fixest::feols and reghdfe at machine precision (parity module 85).
-    k_fe = _fe_dof_not_nested(df_clean, ["__unit__", "__time_num__"], cluster_var)
-    se, vcov = _cluster_se(Xw, resid, XtX_inv, cluster_ids, w=w_arr, k_fe=k_fe)
+        beta, se, vcov, n, cluster_ids = _twfe_event_fit(
+            df_clean, y, dummy_cols, cov_cols, cluster_var, w_arr
+        )
 
     # --- Build event study table ---
     def _bin_label(start: int, end: int) -> str:
@@ -622,7 +621,11 @@ def event_study(
     att_p = float(2 * sp_stats.norm.sf(abs(att / att_se))) if att_se > 0 else 1.0
 
     _result = CausalResult(
-        method="OLS Event Study (TWFE)",
+        method=(
+            "Intensity event study (HDFE)"
+            if intensity is not None
+            else "OLS Event Study (HDFE)" if absorb_terms else "OLS Event Study (TWFE)"
+        ),
         estimand="ATT",
         estimate=att,
         se=att_se,
@@ -687,6 +690,8 @@ def event_study(
                 "cluster": cluster,
                 "alpha": alpha,
                 "weights": weights,
+                "intensity": intensity,
+                "absorb": absorb_terms or None,
             },
             data=data,
             overwrite=False,
@@ -694,6 +699,84 @@ def event_study(
     except Exception:  # pragma: no cover
         pass
     return _result
+
+
+def _twfe_event_fit(df_clean, y, dummy_cols, cov_cols, cluster_var, w_arr):
+    """Unit + time FE by the event-study demeaning (the historical path)."""
+    Y, X_mat, col_names = _demean_twfe(
+        df_clean,
+        y,
+        dummy_cols + cov_cols,
+        "__unit__",
+        "__time_num__",
+        w=w_arr,
+    )
+    n, k = X_mat.shape
+    # --- OLS (possibly weighted) ---
+    if w_arr is not None:
+        sqrt_w = np.sqrt(w_arr)
+        Xw = X_mat * sqrt_w[:, np.newaxis]
+        Yw = Y * sqrt_w
+    else:
+        Xw = X_mat
+        Yw = Y
+
+    try:
+        XtX_inv = np.linalg.inv(Xw.T @ Xw)
+    except np.linalg.LinAlgError:
+        XtX_inv = np.linalg.pinv(Xw.T @ Xw)
+
+    beta = XtX_inv @ Xw.T @ Yw
+    resid = Y - X_mat @ beta  # residuals in original scale
+
+    # --- Standard errors (clustered by default) ---
+    cluster_ids = df_clean[cluster_var].values
+    # Small-sample K follows the fixest / reghdfe "nested" rule: the
+    # absorbed unit and time effects count unless nested in the cluster
+    # (unit effects are, under the default cluster=unit; time effects are
+    # not). This is what makes the default output match both
+    # fixest::feols and reghdfe at machine precision (parity module 85).
+    k_fe = _fe_dof_not_nested(df_clean, ["__unit__", "__time_num__"], cluster_var)
+    se, vcov = _cluster_se(Xw, resid, XtX_inv, cluster_ids, w=w_arr, k_fe=k_fe)
+    return beta, se, vcov, n, cluster_ids
+
+
+def _hdfe_event_fit(
+    df_clean, y, dummy_cols, cov_cols, absorb_terms, cluster_var, weights
+):
+    """Event-time regressors on ``sp.hdfe_ols`` (intensity / extra FEs)."""
+    from ..exceptions import MethodIncompatibility as _MI
+    from ..panel.feols import feols as _hdfe_ols
+
+    safe = {c: f"__es{i}__" for i, c in enumerate(dummy_cols)}
+    work = df_clean.rename(columns=safe)
+    regs = list(safe.values()) + list(cov_cols)
+    fe = ["__unit__", "__time_num__"] + list(absorb_terms)
+    fit = _hdfe_ols(
+        f"{y} ~ {' + '.join(regs)} | {' + '.join(fe)}",
+        work,
+        cluster=cluster_var,
+        weights=weights,
+    )
+    beta = fit.params.to_numpy(dtype=float)
+    if np.isnan(beta[: len(dummy_cols)]).any():
+        dropped = [c for c, b in zip(dummy_cols, beta) if np.isnan(b)]
+        raise _MI(
+            f"event_study: event-time regressors {dropped} are collinear with "
+            "the absorbed fixed effects.",
+            recovery_hint="Widen the window or drop an absorbed effect that "
+            "varies only with event time.",
+            diagnostics={"dropped": dropped},
+        )
+    keep = fit.absorber.keep_mask
+    cluster_ids = df_clean[cluster_var].to_numpy()[keep]
+    return (
+        beta,
+        fit.std_errors.to_numpy(dtype=float),
+        np.asarray(fit.vcov, dtype=float),
+        int(fit.n_obs),
+        cluster_ids,
+    )
 
 
 # ====================================================================== #

@@ -14803,7 +14803,7 @@ def _build_registry() -> None:
                     "treat_time",
                     "str",
                     True,
-                    description="First-treatment period column",
+                    description="First-treatment period column, or a number for a common date",
                 ),
                 ParamSpec("time", "str", True),
                 ParamSpec("unit", "str", True, description="Unit identifier"),
@@ -14835,6 +14835,25 @@ def _build_registry() -> None:
                     False,
                     None,
                     "Analytical weights column, as Stata's [aweight=...].",
+                ),
+                ParamSpec(
+                    "intensity",
+                    "str",
+                    False,
+                    None,
+                    "Continuous exposure column: the event-time regressors "
+                    "become intensity x 1[t - treat_time = k] (a common shock "
+                    "with heterogeneous exposure; treat_time may then be a "
+                    "number, the common date). Fitted with sp.hdfe_ols.",
+                ),
+                ParamSpec(
+                    "absorb",
+                    "list",
+                    False,
+                    None,
+                    "Extra fixed effects besides unit and time, in "
+                    "sp.hdfe_ols syntax ('occ', 'city^time'); routes the fit "
+                    "through sp.hdfe_ols.",
                 ),
                 ParamSpec(
                     "expose_pre_vcov",
