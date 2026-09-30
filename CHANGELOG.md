@@ -2,7 +2,7 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
-## [Unreleased]
+## [1.34.0] — 2026-09-30
 
 Closes the remaining items of the top-5 replication list (eight QJE / AER
 papers). Each item is pinned by a reference fixture from Stata 18 or R.

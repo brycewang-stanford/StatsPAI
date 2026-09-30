@@ -35,6 +35,10 @@ prune tests/stata_parity/results/_repro_check
 exclude tests/stata_parity/results/_stata_core.txt
 exclude tests/stata_parity/results/_stata_ado_versions.tsv
 prune tests/perf/data
+# Third-party Stata ado packages the reference do files install locally
+# (gitignored; not ours to redistribute).
+prune tests/reference_parity/_fixtures/_ado_*
+prune tests/stata_parity/_ado_*
 recursive-exclude tests/orig_parity/data *_nhefs_*.csv
 # A maintainer's local-only test (listed in .git/info/exclude).
 exclude tests/test_joss_martin_reviewer_prep.py

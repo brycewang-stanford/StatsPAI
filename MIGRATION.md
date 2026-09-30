@@ -7,7 +7,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="regress-collinear-omit"></a>
 
-## Unreleased: `sp.regress` omits collinear regressors instead of raising
+## 1.34.0: `sp.regress` omits collinear regressors instead of raising
 
 **Who is affected.** Code that relied on `sp.regress` raising
 `NumericalInstability` on a rank-deficient design.
@@ -20,7 +20,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="ordered-cutpoint-vce"></a>
 
-## Unreleased: ⚠️ ordered-model cutpoint SEs and the mlogit IIA test
+## 1.34.0: ⚠️ ordered-model cutpoint SEs and the mlogit IIA test
 
 **Who is affected.** Anyone reading cutpoint standard errors from
 `sp.oprobit` / `sp.ologit` with `robust=` or `cluster=`, the `brant_test`
