@@ -26614,6 +26614,13 @@
     "name": "from_stata",
     "parameters": {
       "properties": {
+        "columns": {
+          "description": "The dataset's columns, in order. Varlist wildcards (``t2pre*``, ``x?``) and ranges (``a-b``) name columns and are expanded against them; without ``columns`` such a command is refused rather than translated into a formula where ``*`` would mean an interaction.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "line": {
           "description": "One Stata command. Multi-line ``do`` files must be split by the caller.",
           "type": "string"

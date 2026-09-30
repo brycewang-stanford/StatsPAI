@@ -27,7 +27,7 @@ Design principles
 from __future__ import annotations
 
 import re
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from ._stata_lexer import StataCommand, StataParseError
 from ._stata_lexer import parse as _parse_stata
@@ -1674,7 +1674,54 @@ def _fv_token(tok: str) -> Optional[str]:
     return _fv_part(tok)
 
 
-def _normalise_command(cmd: StataCommand) -> Tuple[Optional[str], Dict[str, Any]]:
+_VARLIST_RANGE = re.compile(r"^([^\W\d]\w*)-([^\W\d]\w*)$")
+
+
+def _expand_abbreviations(
+    toks: List[str], columns: Optional[Sequence[str]]
+) -> Tuple[Optional[str], List[str]]:
+    """Expand Stata varlist wildcards (``x*``, ``x?``) and ranges (``a-b``).
+
+    They name columns of the dataset, so they can only be expanded against
+    it: ``*`` / ``~`` match any run of characters and ``?`` one character,
+    in dataset order; ``a-b`` is every column from ``a`` to ``b``. Without
+    ``columns`` they are refused -- left in place, ``t2pre*`` reads as an
+    interaction in a formula, a confident but wrong translation.
+    """
+    import fnmatch
+
+    out: List[str] = []
+    for tok in toks:
+        rng = _VARLIST_RANGE.match(tok)
+        wild = any(ch in tok for ch in "*?~") and not tok.startswith("(")
+        if not (rng or wild):
+            out.append(tok)
+            continue
+        if columns is None:
+            return (
+                f"varlist abbreviation {tok!r} names dataset columns; pass "
+                "columns=list(df.columns) to expand it (sp.stata does), or "
+                "list the variables",
+                toks,
+            )
+        cols = [str(c) for c in columns]
+        if rng:
+            a, b = rng.group(1), rng.group(2)
+            if a not in cols or b not in cols or cols.index(a) > cols.index(b):
+                return f"varlist range {tok!r} does not match the dataset order", toks
+            out.extend(cols[cols.index(a) : cols.index(b) + 1])
+            continue
+        pattern = tok.replace("~", "*")
+        hits = [c for c in cols if fnmatch.fnmatchcase(c, pattern)]
+        if not hits:
+            return f"varlist wildcard {tok!r} matches no column", toks
+        out.extend(hits)
+    return None, out
+
+
+def _normalise_command(
+    cmd: StataCommand, columns: Optional[Sequence[str]] = None
+) -> Tuple[Optional[str], Dict[str, Any]]:
     """Strip the weight clause and translate factor notation in place.
 
     Returns ``(error, info)``; ``info`` carries ``weight`` = (kind, var) and
@@ -1689,6 +1736,9 @@ def _normalise_command(cmd: StataCommand) -> Tuple[Optional[str], Dict[str, Any]
     elif "[" in joined:
         return "unrecognised weight clause in " + repr(joined), info
     toks = joined.split()
+    err, toks = _expand_abbreviations(toks, columns)
+    if err is not None:
+        return err, info
     out: List[str] = []
     factor_used = False
     for tok in toks:
@@ -1794,7 +1844,7 @@ _POSTEST_HANDLERS = frozenset(
 )
 
 
-def from_stata(line: str) -> Dict[str, Any]:
+def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, Any]:
     """Translate a Stata command line to a StatsPAI tool-call payload.
 
     Parameters
@@ -1802,6 +1852,11 @@ def from_stata(line: str) -> Dict[str, Any]:
     line : str
         One Stata command. Multi-line ``do`` files must be split by
         the caller.
+    columns : sequence of str, optional
+        The dataset's columns, in order. Varlist wildcards (``t2pre*``,
+        ``x?``) and ranges (``a-b``) name columns and are expanded against
+        them; without ``columns`` such a command is refused rather than
+        translated into a formula where ``*`` would mean an interaction.
 
     Returns
     -------
@@ -1869,7 +1924,7 @@ def from_stata(line: str) -> Dict[str, Any]:
         # their handlers interpret themselves (``contrast i.g`` -> ``g``)
         err, info = None, {"weight": None, "semantics": []}
     else:
-        err, info = _normalise_command(parsed)
+        err, info = _normalise_command(parsed, columns)
     if err is not None:
         return _emit_error(err, command=parsed.command, suggestions=[])
     payload = handler(parsed)

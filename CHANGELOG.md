@@ -1011,6 +1011,15 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.from_stata` no longer passes Stata varlist wildcards / ranges
+  through.** `reghdfe y t2pre* t2current t2post*` came back `ok=True` with
+  `t2pre*` left in the formula, where `*` reads as an interaction: a
+  confidently wrong model. Wildcards (`x*`, `x?`) and ranges (`a-b`) name
+  dataset columns, so `from_stata(line, columns=list(df.columns))` now
+  expands them in dataset order (`sp.stata` passes its data's columns) and
+  without `columns` the command is refused with that hint. Found by the
+  AIGC-wage replication's do file (`TestVarlistAbbreviations`).
+
 - **`sp.iv(absorb="... + a^b")` reported no Olea-Pflueger effective F.**
   The weak-IV helpers looked up `a^b` as a column, raised `KeyError`, and
   the diagnostic was replaced by an error string. Interacted terms are now

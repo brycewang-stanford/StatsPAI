@@ -1632,3 +1632,51 @@ def test_sum2docx_using_writes_to_the_named_file():
     out = from_stata('sum2docx y x using "t1.docx", replace stats(N mean sd)')
     assert out["ok"] and out["arguments"]["output"] == "t1.docx"
     assert out["arguments"]["stats"] == ["n", "mean", "sd"]
+
+
+class TestVarlistAbbreviations:
+    """Stata wildcards / ranges name dataset columns (1.32 left ``t2pre*`` in
+    the formula, where ``*`` reads as an interaction: ok=True, wrong model)."""
+
+    COLS = ["y", "t2pre6", "t2pre5", "t2pre2", "t2current", "t2post1", "t2post4", "id"]
+
+    def test_refused_without_columns(self):
+        for cmd in (
+            "reghdfe y t2pre* t2current, absorb(id)",
+            "regress y t2pre6-t2post1",
+        ):
+            out = from_stata(cmd)
+            assert out["ok"] is False
+            assert "columns=" in out["error"]
+
+    def test_wildcard_and_range_expand_in_dataset_order(self):
+        a = from_stata(
+            "reghdfe y t2pre* t2current t2post*, absorb(id)", columns=self.COLS
+        )
+        assert a["arguments"]["formula"] == (
+            "y ~ t2pre6 + t2pre5 + t2pre2 + t2current + t2post1 + t2post4 | id"
+        )
+        b = from_stata("regress y t2pre5-t2post1", columns=self.COLS)
+        assert b["arguments"]["formula"] == "y ~ t2pre5 + t2pre2 + t2current + t2post1"
+
+    def test_no_match_and_bad_range_fail_loudly(self):
+        assert (
+            "matches no column"
+            in from_stata("regress y z*", columns=self.COLS)["error"]
+        )
+        assert (
+            "dataset order"
+            in from_stata("regress y t2post4-t2pre6", columns=self.COLS)["error"]
+        )
+
+    def test_sp_stata_expands_against_its_data(self):
+        import numpy as np
+        import pandas as pd
+
+        import statspai as sp
+
+        rng = np.random.default_rng(0)
+        df = pd.DataFrame(rng.normal(size=(200, 3)), columns=["y", "x1", "x2"])
+        a = sp.stata("regress y x*", data=df)
+        b = sp.regress("y ~ x1 + x2", data=df)
+        np.testing.assert_allclose(a.params.to_numpy(), b.params.to_numpy())

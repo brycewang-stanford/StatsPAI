@@ -130,7 +130,7 @@ def stata(
     last = result
     output: Any = result
     for line in lines:
-        out = from_stata(line)
+        out = from_stata(line, columns=None if data is None else list(data.columns))
         if not out.get("ok"):
             suggestions = out.get("suggestions") or []
             raise MethodIncompatibility(
