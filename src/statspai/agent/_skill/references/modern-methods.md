@@ -32,6 +32,11 @@ dch = sp.did_multiplegt_dyn(df, "y", group="id", time="year", treatment="d",
 - `sp.did_multiplegt_dyn` is the one to use when treatment switches **on and
   off** or is non-binary. The others assume absorbing treatment.
 - `sp.etwfe(..., family="poisson")` handles count / non-negative outcomes.
+  With `fe="unit"` say which count-scale SE you report. The default
+  `response_se="profile"` is for the sample's own units. Use
+  `"unconditional"` when the claim is a population ATT, since profile runs
+  narrow when units are heterogeneous. `"margins"` matches Stata `jwdid`'s
+  `estat`.
 - `sp.compare_event_study_conventions(df, y=, unit=, time=, first_treat=)`
   explains why TWFE and the robust estimators disagree on the reference
   period. It is defined for **one treatment cohort only** and raises
