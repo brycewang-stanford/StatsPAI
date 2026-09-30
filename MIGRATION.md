@@ -23,6 +23,9 @@ fits with a category that predicts the outcome perfectly.
 | `sp.aggte(fit)` default SE | unseeded multiplier bootstrap, new SE every call | the fit's setting: analytic for a default `callaway_santanna` fit | `sp.aggte(fit, bstrap=True, cband=True, random_state=...)` |
 | `sp.aggte(..., bstrap=True)` without a seed | seed not recorded | seed drawn and stored in `model_info['random_state']` | — |
 | `sp.winsor` cutoffs | numpy linear interpolation | Stata `_pctile` (`winsor2`) | `method='linear'` |
+| `sp.callaway_santanna(clustervars=..., bstrap=False)` | `MethodIncompatibility` | clustered analytic SEs (csdid) | — |
+| `sp.aggte(bstrap=False)` on a clustered fit | unclustered SE | clustered SE | — |
+| `sp.aggte(agg_weights='csdid')` on `panel=False` fits | cell weights treated as fixed | csdid's weight influence included (SE up to ~1% larger) | — |
 | `sp.logit` / `sp.probit` / `sp.cloglog` with an indicator that predicts the outcome perfectly | rows kept, no warning; MLE does not exist | rows and indicator dropped (Stata), warning | `perfect_prediction='keep'` |
 
 ---

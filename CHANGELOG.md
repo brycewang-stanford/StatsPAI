@@ -6,6 +6,23 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Callaway-Sant'Anna analytic SEs honour `clustervars`**, and on
+  repeated cross-sections (`panel=False`) the cluster may vary within
+  unit (e.g. city x year, as `csdid ..., cluster(cy)` without `ivar()`).
+  The influence functions are summed within cluster, csdid's analytic
+  variance; `sp.aggte`'s analytic path uses the fit's clusters too (it
+  ignored them). `sp.aggte(agg_weights='csdid')` on repeated
+  cross-sections now carries the influence of csdid's estimated
+  treated-count cell weights. Every ATT(g,t), group and simple aggregate
+  and SE equals Stata `csdid` (v1) to 1e-9, on a panel with a
+  time-invariant cluster and on repeated cross-sections with a row-level
+  one (`test_cs_rc_cluster_csdid_parity.py`); on the replicated paper
+  StatsPAI returns `csdid`'s GAverage 0.104033392 with SE 0.033423408.
+  `csdid2` agrees on every point estimate but reports smaller SEs on
+  repeated cross-sections (0.0328111 in the paper): its control-row
+  influence function is scaled by the 2x2 subsample share instead of the
+  control cell's, which R `DRDID` and `csdid` do not do. StatsPAI follows
+  the latter two.
 - **`sp.psmatch2(ties=True, ate=True)`** -- Stata `psmatch2`'s `ties`
   (every control at the minimal distance is a match, `1/m` each) and `ate`
   (controls matched to treated too, two-sided common support, treated
@@ -571,6 +588,10 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **`sp.callaway_santanna(clustervars=...)` no longer requires
+  `bstrap=True`**; analytic SEs are clustered. With `bstrap=True` the
+  pre-trend Wald test now clusters as well (it used unit-level influence
+  functions).
 - **`sp.fepois` names `sp.ppmlhdfe` when pyfixest cannot absorb the fixed
   effects** (`NumericalInstability`, still a `ValueError`), instead of
   surfacing pyfixest's "Demeaning failed after 100_000 iterations"; a

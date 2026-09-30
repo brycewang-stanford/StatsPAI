@@ -1826,9 +1826,10 @@ def _build_registry() -> None:
                     "list",
                     False,
                     None,
-                    "Cluster variable(s) for the multiplier bootstrap; unit id "
-                    "implied, at most one extra time-invariant variable "
-                    "(R did::att_gt clustervars / Stata csdid cluster())",
+                    "Cluster variable(s) for the analytic SEs and the multiplier "
+                    "bootstrap; unit id implied, at most one extra variable, "
+                    "time-invariant on a panel, any row-level variable with "
+                    "panel=False (R did::att_gt clustervars / Stata csdid cluster())",
                 ),
                 ParamSpec(
                     "bstrap",
@@ -1902,9 +1903,9 @@ def _build_registry() -> None:
             ],
             typical_n_min=50,
             limitations=[
-                "clustervars is not yet supported with bstrap=False; the "
-                "analytic standard errors do not account for within-cluster "
-                "dependence, so the multiplier bootstrap is required",
+                "clustervars accepts a cluster that varies within unit only "
+                "with panel=False (repeated cross-sections, as Stata csdid "
+                "without ivar()); on a panel the influence functions are per unit",
             ],
         )
     )

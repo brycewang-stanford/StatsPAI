@@ -33,7 +33,7 @@ Mammen, E. (1993).
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -337,6 +337,14 @@ def aggte(
             # term as well.
             pg_cells = ind_cells = None
             psi_cells = inf_matrix @ W.T
+        if agg_weights == "csdid":
+            count_wif = _csdid_count_weight_influence(detail, W, att_vec, model_info)
+            if count_wif is not None and count_wif.shape[0] == inf_matrix.shape[0]:
+                # Stata csdid: on repeated cross-sections the cell weights
+                # (treated-observation counts) are random; csdid carries
+                # their influence function, and so do we.  This replaces
+                # R did's cohort-share term, a different convention.
+                psi_cells = inf_matrix @ W.T + count_wif
 
     # SE + CI per cell, plus uniform band if requested.
     if bstrap and psi_cells is not None:
@@ -352,7 +360,7 @@ def aggte(
         # Aggregating through the influence functions carries the
         # covariance between ATT(g, t) cells that share control units;
         # summing per-cell variances would treat them as independent.
-        se_cells = _se_from_influence(psi_cells, n_units)
+        se_cells = _se_from_influence(psi_cells, n_units, cluster_ids)
         crit_unif = stats.norm.ppf(1 - alpha / 2)
     else:
         se_cells = _analytic_se(W, detail)
@@ -477,7 +485,9 @@ def aggte(
                 )
                 overall_se = float(se_overall_arr[0])
             else:
-                overall_se = float(_se_from_influence(overall_inf[:, None], n_units)[0])
+                overall_se = float(
+                    _se_from_influence(overall_inf[:, None], n_units, cluster_ids)[0]
+                )
         else:
             overall_se = float(np.sqrt(np.sum((w_overall**2) * se_cells**2)))
 
@@ -640,6 +650,55 @@ def _weights_csdid(
         {g: float(v) for g, v in zip(cohorts, share / share.sum())}
     )
     return np.array(cohorts), W
+
+
+def _csdid_count_weight_influence(
+    detail: pd.DataFrame,
+    W: np.ndarray,
+    att_vec: np.ndarray,
+    model_info: Dict[str, Any],
+) -> Optional[np.ndarray]:
+    """Influence of csdid's estimated treated-count weights (RCS only).
+
+    A cell's weight is ``p_k / sum p``, with ``p_k`` the share of rows in
+    cohort ``g`` observed at ``t`` or at the base period ``g - 1 -
+    anticipation``.  On a repeated cross-section those shares are random,
+    and Stata ``csdid`` adds ``sum_k IF(w_k) ATT_k`` with ``IF(w_k) =
+    (IF(p_k) - w_k sum_j IF(p_j)) / sum p`` to each aggregate (each
+    cohort's ATT(g) and the simple ATT); the group average then combines
+    the cohort functions with its cohort weights held fixed.  Returns
+    ``None`` unless the fit is a true repeated cross-section.
+    """
+    rg = model_info.get("_row_cohorts")
+    rt = model_info.get("_row_times")
+    if rg is None or rt is None:
+        return None
+    rg = np.asarray(rg, dtype=float)
+    rt = np.asarray(rt, dtype=float)
+    antic = float(model_info.get("anticipation", 0) or 0)
+    groups = detail["group"].to_numpy(dtype=float)
+    times = detail["time"].to_numpy(dtype=float)
+    n = rg.size
+    out = np.zeros((n, W.shape[0]))
+    for r in range(W.shape[0]):
+        keep = np.nonzero(W[r])[0]
+        if keep.size == 0:
+            continue
+        I = np.column_stack(
+            [
+                (rg == groups[k]) & np.isin(rt, [times[k], groups[k] - 1 - antic])
+                for k in keep
+            ]
+        ).astype(float)
+        pk = I.mean(axis=0)
+        tot = pk.sum()
+        if tot <= 0:
+            continue
+        w = pk / tot
+        ifp = I - pk
+        ifw = (ifp - np.outer(ifp.sum(axis=1), w)) / tot
+        out[:, r] = ifw @ att_vec[keep]
+    return out
 
 
 def _cohort_weight_series(
@@ -816,9 +875,19 @@ def _plain_labels(labels: np.ndarray) -> List[Any]:
     return out
 
 
-def _se_from_influence(psi: np.ndarray, n_units: int) -> np.ndarray:
-    """``sqrt(mean(ψ²) / n)`` per column — R ``did``'s ``getSE``."""
-    return np.asarray(np.sqrt(np.mean(psi**2, axis=0) / n_units), dtype=float)
+def _se_from_influence(
+    psi: np.ndarray, n_units: int, cluster_ids: Optional[np.ndarray] = None
+) -> np.ndarray:
+    """``sqrt(mean(ψ²) / n)`` per column — R ``did``'s ``getSE``.
+
+    With ``cluster_ids`` the cluster sums replace the rows (Stata
+    ``csdid, cluster()``); see :func:`statspai.did._core.influence_se_did`.
+    """
+    from ._core import influence_se_did
+
+    return np.atleast_1d(
+        np.asarray(influence_se_did(psi, n_units, cluster_ids), dtype=float)
+    )
 
 
 def _aggregated_influence(

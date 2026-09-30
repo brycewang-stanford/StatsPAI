@@ -42,6 +42,7 @@ from ..exceptions import (
 from ._core import cohort_share_context as _cohort_share_context
 from ._core import covariates_from_formula as _covariates_from_formula
 from ._core import drop_unusable_rows as _drop_unusable_rows
+from ._core import influence_se_did
 from ._core import multiplier_bootstrap as _core_multiplier_bootstrap
 from ._core import normalize_se_method as _normalize_se_method
 from ._core import parallel_trends_block as _pt_block
@@ -371,13 +372,20 @@ def callaway_santanna(
     alpha : float, default 0.05
         Significance level.
     clustervars : str or list of str, optional
-        Cluster variable(s) for the multiplier bootstrap, mirroring R
-        ``did::att_gt(clustervars=...)`` (Stata: ``csdid, cluster()``).
-        The unit id ``i`` is always implied and may be included or
-        omitted; at most **one** additional variable is allowed, and it
-        must be time-invariant within unit.  Clustering beyond the unit
-        level requires ``bstrap=True`` — analytic SEs do not account for
-        it, so passing ``clustervars`` with ``bstrap=False`` raises.
+        Cluster variable(s), mirroring R ``did::att_gt(clustervars=...)``
+        and Stata ``csdid, cluster()``. The unit id ``i`` is always implied
+        and may be included or omitted; at most **one** additional variable
+        is allowed. The analytic SEs sum the influence functions within
+        cluster (``sqrt(sum_c (sum_i psi_i)^2) / n``, csdid's analytic
+        variance; equal to Stata ``csdid`` v1 to 1e-9) and the bootstrap
+        draws one multiplier per cluster. On a panel the influence
+        functions are per unit, so the cluster must be time-invariant; with
+        ``panel=False`` (repeated cross-sections, as ``csdid`` / ``csdid2``
+        without ``ivar()``) any row-level variable works, e.g. city x year.
+
+        .. versionchanged:: 1.33.0
+           Analytic SEs honour ``clustervars`` (it used to require
+           ``bstrap=True``).
     bstrap : bool, default False
         If ``True``, replace the analytic (delta-method) SEs of each
         ATT(g, t) with multiplier-bootstrap SEs on the influence
@@ -600,16 +608,12 @@ def callaway_santanna(
                 diagnostics={"clustervars": clustervars, "extras": extras},
             )
         extra_cluster = extras[0] if extras else None
-    if extra_cluster is not None and not bstrap:
-        raise MethodIncompatibility(
-            "Clustering beyond the unit level requires bstrap=True — the "
-            "analytic SEs do not account for within-cluster dependence, so "
-            "reporting them under clustervars would silently understate "
-            "uncertainty.",
-            recovery_hint="Pass bstrap=True together with clustervars.",
-            diagnostics={"clustervars": clustervars, "bstrap": bstrap},
-        )
-    if extra_cluster is not None:
+    # Analytic SEs honour the cluster too: the influence functions are
+    # summed within cluster (Stata csdid, cluster()).  On a panel the
+    # influence functions live at the unit level, so the cluster must be
+    # time-invariant; a repeated cross-section (panel=False) can cluster on
+    # any row-level variable, e.g. city x year.
+    if extra_cluster is not None and panel and not allow_unbalanced_panel:
         nuniq = data.groupby(i)[extra_cluster].nunique(dropna=False)
         if (nuniq > 1).any():
             bad = nuniq[nuniq > 1].index.tolist()[:5]
@@ -619,7 +623,10 @@ def callaway_santanna(
                 "requires a time-invariant cluster membership.",
                 recovery_hint=(
                     "Use a time-invariant cluster variable (R did::mboot "
-                    "imposes the same restriction)."
+                    "imposes the same restriction), or treat the rows as "
+                    "repeated cross-sections with panel=False (Stata "
+                    "csdid / csdid2 without ivar()), where any row-level "
+                    "cluster is allowed."
                 ),
                 diagnostics={
                     "clustervar": extra_cluster,
@@ -818,6 +825,9 @@ def callaway_santanna(
         )
     boot_cfg: Optional[Dict[str, Any]] = None
     crit_val_uniform: Optional[float] = None
+    analytic_cluster = cluster_ids if (not bstrap) else None
+    if analytic_cluster is not None and inf_matrix is not None:
+        detail = _cluster_detail_se(detail, inf_matrix, n_units, cluster_ids, alpha)
     if bstrap and inf_matrix is not None:
         boot_cfg = {
             "n_boot": biters,
@@ -889,6 +899,7 @@ def callaway_santanna(
         boot_cfg=boot_cfg,
         unit_cohorts=unit_info[g].to_numpy(),
         unit_weights=unit_weights,
+        cluster_ids=analytic_cluster,
     )
 
     # 6. Event study aggregation
@@ -901,11 +912,17 @@ def callaway_santanna(
         boot_cfg=boot_cfg,
         unit_cohorts=unit_info[g].to_numpy(),
         unit_weights=unit_weights,
+        cluster_ids=analytic_cluster,
     )
 
     # 7. Pre-trend test
     pretrend = _pretrend_test(
-        detail, inf_matrix, n_units, pretest=pretest, pretest_periods=pretest_periods
+        detail,
+        inf_matrix,
+        n_units,
+        pretest=pretest,
+        pretest_periods=pretest_periods,
+        cluster_ids=cluster_ids,
     )
 
     # Trimming that binds changes the estimand — it silently redefines the
@@ -2180,6 +2197,34 @@ def _estimate_outcome_reg(
 # ======================================================================
 
 
+def _cluster_detail_se(
+    detail: pd.DataFrame,
+    inf_matrix: np.ndarray,
+    n_scale: int,
+    cluster_ids: np.ndarray,
+    alpha: float,
+) -> pd.DataFrame:
+    """Replace the per-cell analytic SEs by their cluster-robust version.
+
+    ``influence_se_did`` with clusters: Stata ``csdid, cluster()``'s
+    analytic variance.  Cells whose SE was not finite (unidentified) stay
+    as they were.
+    """
+    detail = detail.copy()
+    se_cl = np.asarray(influence_se_did(inf_matrix, n_scale, cluster_ids))
+    ok = np.isfinite(detail["se"].to_numpy(dtype=float))
+    se_new = np.where(ok, se_cl, detail["se"].to_numpy(dtype=float))
+    att = detail["att"].to_numpy(dtype=float)
+    z_crit = stats.norm.ppf(1 - alpha / 2)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        z = np.where(se_new > 0, att / se_new, 0.0)
+    detail["se"] = se_new
+    detail["pvalue"] = np.where(se_new > 0, 2 * stats.norm.sf(np.abs(z)), 1.0)
+    detail["ci_lower"] = att - z_crit * se_new
+    detail["ci_upper"] = att + z_crit * se_new
+    return detail
+
+
 def _aggregate_simple(
     post_detail: pd.DataFrame,
     post_inf: Optional[np.ndarray],
@@ -2189,6 +2234,7 @@ def _aggregate_simple(
     boot_cfg: Optional[Dict[str, Any]] = None,
     unit_cohorts: Optional[np.ndarray] = None,
     unit_weights: Optional[np.ndarray] = None,
+    cluster_ids: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, float, Tuple[float, float]]:
     """Simple aggregation: group-size-weighted average of post-treatment ATTs.
 
@@ -2230,7 +2276,7 @@ def _aggregate_simple(
             )
             se_agg = float(se_arr[0])
         else:
-            se_agg = float(np.sqrt(np.mean(inf_agg**2) / n_total))
+            se_agg = float(influence_se_did(inf_agg, n_total, cluster_ids))
     else:
         se_agg = float(
             np.sqrt(np.average(post_detail["se"].values ** 2, weights=weights))
@@ -2253,6 +2299,7 @@ def _aggregate_event_study(
     boot_cfg: Optional[Dict[str, Any]] = None,
     unit_cohorts: Optional[np.ndarray] = None,
     unit_weights: Optional[np.ndarray] = None,
+    cluster_ids: Optional[np.ndarray] = None,
 ) -> pd.DataFrame:
     """Event study aggregation: average ATT by relative time e = t − g.
 
@@ -2295,7 +2342,7 @@ def _aggregate_event_study(
                 inf_e = inf_e + _weight_influence(pg, ind) @ (
                     sub["att"].values.astype(float)
                 )
-            se_e = float(np.sqrt(np.mean(inf_e**2) / n_total))
+            se_e = float(influence_se_did(inf_e, n_total, cluster_ids))
             psi_cols.append(inf_e)
         else:
             se_e = float(np.sqrt(np.average(sub["se"].values ** 2, weights=weights)))
@@ -2345,6 +2392,7 @@ def _pretrend_test(
     n_total: int,
     pretest: str = "joint",
     pretest_periods: Optional[int] = None,
+    cluster_ids: Optional[np.ndarray] = None,
 ) -> Optional[Dict[str, Any]]:
     """Joint Wald test for H0: all pre-treatment ATT(g,t) = 0.
 
@@ -2376,6 +2424,12 @@ def _pretrend_test(
     if inf_matrix is not None:
         col_idx = np.where(pre_mask.values)[0]
         inf_pre = inf_matrix[:, col_idx]
+        if cluster_ids is not None:
+            # Cluster sums replace the rows (csdid, cluster()).
+            codes = pd.factorize(np.asarray(cluster_ids))[0]
+            sums = np.zeros((codes.max() + 1, inf_pre.shape[1]))
+            np.add.at(sums, codes, inf_pre)
+            inf_pre = sums
         # Variance-covariance: V = (1/n²) IF' IF
         V = inf_pre.T @ inf_pre / (n_total**2)
         G = int(inf_pre.shape[0])  # number of IF contributions (units)
@@ -2819,6 +2873,31 @@ def _callaway_santanna_rcs(
     # under allow_unbalanced_panel -- so the cluster vector is mapped to
     # the same space.
     crit_val_uniform: Optional[float] = None
+    rc_cluster_ids: Optional[np.ndarray] = None
+    if clustervar is not None:
+        if unit_codes is not None:
+            n_varying = int((df.groupby(unit_col)[clustervar].nunique() > 1).sum())
+            if n_varying:
+                raise MethodIncompatibility(
+                    f"cluster variable {clustervar!r} is time-varying within "
+                    f"unit for {n_varying} units.",
+                    recovery_hint=(
+                        "Under allow_unbalanced_panel=True the influence "
+                        "functions are per unit, so the cluster must be "
+                        "time-invariant. To cluster on a row-level variable "
+                        "(e.g. city x year) treat the rows as repeated "
+                        "cross-sections with panel=False, as Stata csdid / "
+                        "csdid2 do without ivar()."
+                    ),
+                    diagnostics={"clustervar": clustervar, "n_varying": n_varying},
+                )
+            slot = np.empty(n_scale, dtype=object)
+            slot[unit_codes] = df[clustervar].to_numpy()
+            rc_cluster_ids = slot
+        else:
+            rc_cluster_ids = df[clustervar].to_numpy()
+    if not bstrap and rc_cluster_ids is not None and inf_matrix is not None:
+        detail = _cluster_detail_se(detail, inf_matrix, n_scale, rc_cluster_ids, alpha)
     if bstrap and inf_matrix is not None:
         cluster_ids = None
         if clustervar is not None:
@@ -2909,6 +2988,7 @@ def _callaway_santanna_rcs(
         n_scale,
         alpha,
         unit_cohorts=cohort_by_slot,
+        cluster_ids=rc_cluster_ids,
     )
     event_study = _aggregate_event_study(
         detail,
@@ -2917,9 +2997,15 @@ def _callaway_santanna_rcs(
         n_scale,
         alpha,
         unit_cohorts=cohort_by_slot,
+        cluster_ids=rc_cluster_ids,
     )
     pretrend = _pretrend_test(
-        detail, inf_matrix, n_scale, pretest=pretest, pretest_periods=pretest_periods
+        detail,
+        inf_matrix,
+        n_scale,
+        pretest=pretest,
+        pretest_periods=pretest_periods,
+        cluster_ids=rc_cluster_ids,
     )
 
     unbalanced = unit_codes is not None
@@ -2951,7 +3037,13 @@ def _callaway_santanna_rcs(
         # fold a row is a unit; for a true RCS it is an observation.
         "se_method": "multiplier" if bstrap else "analytic",
         "crit_val_uniform": crit_val_uniform,
-        "_cluster_ids": None,
+        "_cluster_ids": rc_cluster_ids,
+        # Row cohort / period of a true repeated cross-section (influence
+        # rows = observations): sp.aggte(agg_weights='csdid') rebuilds the
+        # cell memberships from them to carry csdid's estimated
+        # treated-count weights into the variance.
+        "_row_cohorts": g_arr if unit_codes is None else None,
+        "_row_times": t_arr if unit_codes is None else None,
         "_unit_ids": (np.asarray(unit_uniques) if unbalanced else df.index.to_numpy()),
         "_unit_cohorts": cohort_by_slot,
     }

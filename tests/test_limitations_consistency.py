@@ -250,8 +250,10 @@ def _runtime_map() -> (
             "g": np.repeat(rng.choice([0, 2, 3], size=n // 4), 4),
             "d": rng.binomial(1, 0.4, size=n),
             "dose": rng.uniform(0, 1, size=n),
-            # time-invariant cluster label, for the clustervars limitation
+            # time-invariant cluster label
             "cl": np.repeat(rng.integers(0, 5, size=n // 4), 4),
+            # time-varying cluster label, for the clustervars limitation
+            "cl_tv": rng.integers(0, 5, size=n),
         }
     )
 
@@ -344,20 +346,17 @@ def _runtime_map() -> (
             NotImplementedError,
         ),
         ("callaway_santanna", "clustervars"): (
-            # panel=False now supports clustervars, weights and the
-            # multiplier bootstrap. What remains is that clustering beyond
-            # the unit needs bstrap=True: the analytic per-cell SEs cannot
-            # express within-cluster dependence.
+            # Analytic and bootstrap SEs both honour clustervars now; on a
+            # panel the influence functions are per unit, so a cluster that
+            # varies within unit needs panel=False.
             lambda: sp.callaway_santanna(
                 df_panel,
                 y="y",
                 g="g",
                 t="t",
                 i="i",
-                panel=False,
                 estimator="dr",
-                clustervars=["i", "cl"],
-                bstrap=False,
+                clustervars=["i", "cl_tv"],
             ),
             MethodIncompatibility,
         ),

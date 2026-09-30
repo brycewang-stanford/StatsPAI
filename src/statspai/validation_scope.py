@@ -880,6 +880,26 @@ _add(
                 "sp.aggte(type='dynamic')",
             ),
             _Row(
+                "T2",
+                _RP + "test_cs_rc_cluster_csdid_parity.py",
+                {
+                    "estimator": _vals("dr"),
+                    "control_group": _vals("nevertreated"),
+                    "weights": _vals("none"),
+                    "covariates": _vals("none"),
+                    "inference": _vals("analytic"),
+                    "base_period": _vals("universal"),
+                    "anticipation": _vals("0"),
+                    "clustering": _vals("set"),
+                },
+                _EST_SE,
+                "clustered analytic SEs vs Stata csdid (v1) cluster() to 1e-9: "
+                "every ATT(g,t), group and simple aggregates, on a panel with "
+                "a time-invariant cluster (mpdta) and on repeated "
+                "cross-sections clustered on a row-level city x year",
+                "sp.callaway_santanna(clustervars=...)",
+            ),
+            _Row(
                 "S",
                 _RP + "test_cs_inference_parity.py",
                 {

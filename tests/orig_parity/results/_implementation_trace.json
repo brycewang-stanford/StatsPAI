@@ -37,7 +37,7 @@
  },
  "modules": {
   "01_card_original": {
-   "seconds": 1.0,
+   "seconds": 1.18,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -66,7 +66,7 @@
    "result_sha256": "0770f9a37e8bc72e9f338d602037715ba70cb032401b8582095eebed942621b2"
   },
   "02_mpdta_original": {
-   "seconds": 0.63,
+   "seconds": 0.72,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -76,9 +76,9 @@
     "src/statspai/_aliases.py": "8b4fa5efd591ab73a8fa51926c2c5d86dcfe0af411654a8b86286e404735f81f",
     "src/statspai/core/_validate.py": "ce1e4ab28fd4e990ddb3f51182795952808ac14aaaeb67faa3ea60cf6f36bc26",
     "src/statspai/core/results.py": "8949923b8e8d7ca9910f7438b8bb5b8b7935764addbd4f6b3629f3e260c35942",
-    "src/statspai/did/_core.py": "bf839973cac9af9d0ff86ae8da0f851aa97483dcdf080373257a5b17074b9d3f",
-    "src/statspai/did/aggte.py": "5065d927ed21e09bf364230361b2a0b9da9009eb67ed1d2ba0f69dc6e10361ee",
-    "src/statspai/did/callaway_santanna.py": "61fcc4bbdd7a47486172b90471b7e099411a3d4f1f6dfebd5a5a060498d2f2fb",
+    "src/statspai/did/_core.py": "ebea749136aea63babd1f1c79344c91eb3dced4436adafdfcacaebe27e465f71",
+    "src/statspai/did/aggte.py": "9ed5eb62096dd39252c0ec1ed10473465d507a73fc1f12416f91be034228c10c",
+    "src/statspai/did/callaway_santanna.py": "3c1e91a9818d007c2402f988f7e0804b7e6c735162d8d0d0015a931a3e8b6241",
     "src/statspai/output/_lineage.py": "b216796242bf2af5bf2ca869b2a9ea98b831fca3cf83da056e0b5acb1dd1d83f",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
@@ -92,7 +92,7 @@
    "result_sha256": "f9f0953a27c1326f96e6a259dcd7c01f61ca1e016e2e39c648c8fecc1a8b597b"
   },
   "03_basque_original": {
-   "seconds": 5.41,
+   "seconds": 5.99,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -118,7 +118,7 @@
    "result_sha256": "62388d7c72d0eb6d0c009b02f06f605b78549e92efd3d9eaddb24b6064ba72fc"
   },
   "04_lalonde_original": {
-   "seconds": 1.04,
+   "seconds": 1.18,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -149,7 +149,7 @@
    "result_sha256": "92240387cb9ec539cd1b9b2a5ef77d6898cfde24b4bf579ad99fbf16f1a09aa2"
   },
   "04b_nsw_psid_original": {
-   "seconds": 1.09,
+   "seconds": 1.2,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -180,7 +180,7 @@
    "result_sha256": "6fd62314f0a1aa5901fe52cc6df41bca5d1fa970b7ea52807b12af3099bbd001"
   },
   "05_lee_original": {
-   "seconds": 0.65,
+   "seconds": 0.73,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -207,7 +207,7 @@
    "result_sha256": "3eef9a448bc3efcf1ec7188d67a396cda48aad673999bda6a4f8a95581f6a58b"
   },
   "06_nhefs_ch12_ipw": {
-   "seconds": 2.54,
+   "seconds": 2.77,
    "error": null,
    "boundary_calls": [
     {
@@ -271,7 +271,7 @@
    "result_sha256": "19385647d1d7cb264a1e4c5352088ecdee3af7d4519c8cb93c01c71f646cb1e9"
   },
   "07_nhefs_ch13_gformula": {
-   "seconds": 29.24,
+   "seconds": 33.59,
    "error": null,
    "boundary_calls": [
     {
@@ -372,7 +372,7 @@
    "result_sha256": "7195a81581bfaa5e290c8d2f00d759b67ba8a4561d9a70172710d57f9d452a00"
   },
   "08_nhefs_ch14_gestimation": {
-   "seconds": 1.21,
+   "seconds": 1.36,
    "error": null,
    "boundary_calls": [],
    "packages": [],
@@ -401,7 +401,7 @@
    "result_sha256": "7bdbc6b5bdde259d3ac58e2b9658a8d92a60faf8e4b8712ba1723da8e8bf4fc2"
   },
   "09_nhefs_ch15_outcome": {
-   "seconds": 1.81,
+   "seconds": 2.02,
    "error": null,
    "boundary_calls": [
     {
@@ -465,7 +465,7 @@
    "result_sha256": "462bfbeb1e2d111c25a597e311a484d7e2efc75c968d1e6cc4361de50c63c960"
   },
   "10_nhefs_ch17_survival": {
-   "seconds": 2.55,
+   "seconds": 2.83,
    "error": null,
    "boundary_calls": [
     {
@@ -529,7 +529,7 @@
    "result_sha256": "e62cb21d80f4866599ff4ad6fca3fdc2943693a612292779f9a415ea2e986c7e"
   },
   "11_nhefs_evalue": {
-   "seconds": 5.7,
+   "seconds": 6.1,
    "error": null,
    "boundary_calls": [
     {

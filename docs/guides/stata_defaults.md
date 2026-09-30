@@ -20,6 +20,7 @@ by a test in `tests/reference_parity/`.
 | `psmatch2 d x, outcome(y) neighbor(1) ties ate common` | `sp.psmatch2(df, treat="d", covariates=["x"], outcome="y", common_support="minmax", ties=True, ate=True)` | PSM-DID on `_weight != .` uses `m.matched_data["_weight"].notna()`. ATU / ATE are in `m.result.model_info`. |
 | `xtreg y d x i.ind#i.year, fe vce(cluster c)` then `psacalc` with `rmax(1.3*e(r2_a))` | `sp.oster_bounds(df, y="y", treat="d", controls=["x"], absorb="id", absorb_controls="ind#year", cluster="c", r_max="1.3*r2_a")` | Exact Oster solution. `moments=` gives the exact solution from summary statistics. |
 | `csdid2 y, ivar(id) time(t) gvar(g)` on an unbalanced panel | `sp.callaway_santanna(..., allow_unbalanced_panel=True)` | The default (`False`) keeps only units observed in both periods of a comparison and gives a different point estimate. |
+| `csdid y, time(t) gvar(g) cluster(c) agg(group)` without `ivar()` (rows as repeated cross-sections) | `sp.callaway_santanna(..., panel=False, clustervars="c")` then `sp.aggte(r, type="group", agg_weights="csdid", share_variance=False)` | Any row-level cluster, e.g. `city#year`. Equal to `csdid` v1, including its estimated cell-count weights. |
 | `csdid2` with no never-treated units | `control_group="notyettreated"` | `csdid2` switches to not-yet-treated controls without saying so; StatsPAI asks for it explicitly. |
 
 ## Known remaining differences
@@ -33,6 +34,10 @@ by a test in `tests/reference_parity/`.
   replication, Stata's figure implied three more regressors than that rank.
   Pass Stata's number as `r_max=` when a table must be reproduced digit for
   digit.
-- **`csdid2`'s clustered standard errors** (for example `cluster(city#year)`)
-  are not reproduced. StatsPAI clusters the Callaway–Sant'Anna influence
-  function at the unit or a time-invariant level.
+- **`csdid2`'s standard errors on repeated cross-sections.** `csdid2`
+  (without `ivar()`) gives the same point estimates as `csdid` and StatsPAI,
+  but smaller SEs. Its influence function for control rows is scaled by the
+  share of the whole 2×2 subsample instead of the control cell's share.
+  StatsPAI follows `csdid` v1 and R `DRDID`, which agree with each other.
+  On one replication this moved a z statistic from 3.171 (`csdid2`) to
+  3.113 (`csdid`, StatsPAI).

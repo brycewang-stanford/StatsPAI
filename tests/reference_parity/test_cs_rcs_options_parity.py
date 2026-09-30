@@ -166,10 +166,17 @@ def test_clustering_changes_the_standard_errors(panel):
     assert not np.allclose(clustered.detail["se"], plain.detail["se"])
 
 
-def test_clustering_requires_the_bootstrap(panel):
-    """Analytic SEs cannot express within-cluster dependence."""
-    with pytest.raises(MethodIncompatibility, match="requires bstrap=True"):
-        _fit(panel, panel=False, clustervars=["i", "state"], bstrap=False)
+def test_analytic_clustering_sums_influence_within_cluster(panel):
+    """Analytic SEs cluster too (Stata csdid, cluster()): CR0 on the IF."""
+    from statspai.did._core import influence_se_did
+
+    r = _fit(panel, panel=False, clustervars=["i", "state"], bstrap=False)
+    plain = _fit(panel, panel=False, bstrap=False)
+    cl = r.model_info["_cluster_ids"]
+    se = influence_se_did(r._influence_funcs, r._influence_funcs.shape[0], cl)
+    ok = np.isfinite(plain.detail["se"].to_numpy())
+    np.testing.assert_allclose(r.detail["se"].to_numpy()[ok], se[ok], rtol=1e-12)
+    assert not np.allclose(r.detail["se"][ok], plain.detail["se"][ok])
 
 
 def test_unbalanced_route_rejects_time_varying_clusters(unbalanced):

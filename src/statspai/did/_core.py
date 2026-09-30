@@ -216,6 +216,39 @@ def influence_function_se(
     return float(se[0]) if scalar else se
 
 
+def influence_se_did(
+    psi: np.ndarray,
+    n: int,
+    cluster_ids: Optional[np.ndarray] = None,
+) -> np.ndarray:
+    """R ``did`` / Stata ``csdid`` analytic SE from influence functions.
+
+    Without clusters: ``sqrt(mean(psi^2) / n)`` per column (R ``did``'s
+    ``getSE``).  With ``cluster_ids`` (row-aligned with ``psi``): the
+    cluster sums replace the rows, ``sqrt(sum_c (sum_{i in c} psi_i)^2) /
+    n`` -- no ``G/(G-1)`` factor, which is Stata ``csdid, cluster()``'s
+    analytic variance (and ``csdid2``'s clustering step).  With every row
+    its own cluster the two coincide.
+    """
+    psi = np.asarray(psi, dtype=float)
+    squeeze = psi.ndim == 1
+    if squeeze:
+        psi = psi[:, None]
+    if cluster_ids is None:
+        out = np.sqrt(np.mean(psi**2, axis=0) / n)
+    else:
+        codes = pd.factorize(np.asarray(cluster_ids))[0]
+        if codes.shape[0] != psi.shape[0]:
+            raise MethodIncompatibility(
+                f"cluster_ids has {codes.shape[0]} entries for {psi.shape[0]} "
+                "influence-function rows."
+            )
+        sums = np.zeros((codes.max() + 1, psi.shape[1]))
+        np.add.at(sums, codes, psi)
+        out = np.sqrt(np.sum(sums**2, axis=0)) / n
+    return out[0] if squeeze else out
+
+
 # ----------------------------------------------------------------------
 # Multiplier bootstrap (Callaway–Sant'Anna / R did::mboot convention)
 # ----------------------------------------------------------------------

@@ -164,6 +164,7 @@
         "tests/reference_parity/test_castle_stata_parity.py",
         "tests/reference_parity/test_cs_base_period_parity.py",
         "tests/reference_parity/test_cs_no_never_unbalanced_parity.py",
+        "tests/reference_parity/test_cs_rc_cluster_csdid_parity.py",
         "tests/reference_parity/test_cs_rcs_parity.py",
         "tests/reference_parity/test_cs_weighted_parity.py",
         "tests/reference_parity/test_rcs_aggregation_conventions.py"
@@ -1600,6 +1601,7 @@
         "tests/reference_parity/test_cs_inference_parity.py",
         "tests/reference_parity/test_cs_no_never_unbalanced_parity.py",
         "tests/reference_parity/test_cs_notyet_cutoff_parity.py",
+        "tests/reference_parity/test_cs_rc_cluster_csdid_parity.py",
         "tests/reference_parity/test_cs_rcs_options_parity.py",
         "tests/reference_parity/test_cs_rcs_parity.py",
         "tests/reference_parity/test_cs_weighted_parity.py",
