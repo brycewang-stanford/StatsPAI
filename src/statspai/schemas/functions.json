@@ -24667,6 +24667,10 @@
           ],
           "type": "string"
         },
+        "collinear_tol": {
+          "description": "The ``tol`` that reghdfe's collinearity screen is derived from (``min(1e-6, collinear_tol / 10)``); defaults to ``tol``. Lets a caller tighten the sweep without moving the collinearity threshold.",
+          "type": "number"
+        },
         "drop_singletons": {
           "default": true,
           "description": "drop_singletons parameter (bool).",
@@ -24782,7 +24786,7 @@
         },
         "maxiter": {
           "default": 10000,
-          "description": "maxiter parameter (int).",
+          "description": "Iteration cap of the absorber.",
           "type": "integer"
         },
         "se_type": {
@@ -24796,8 +24800,7 @@
           "type": "string"
         },
         "tol": {
-          "default": 1e-08,
-          "description": "Numerical convergence tolerance.",
+          "description": "Convergence tolerance of the absorber (largest change of a sweep, relative to the variable's scale). Default ``1e-8``, or ``1e-12`` when a varying slope (``i.f#c.x`` / ``f[x]``) is absorbed: slope sweeps converge slowly, and at ``1e-8`` the SEs of a four-FE model with a quarter-specific slope were still 1e-5 away from reghdfe's (which converges at its own 1e-8), against 4e-8 at ``1e-12``. reghdfe's collinearity screen is derived from ``1e-8`` either way.",
           "type": "number"
         },
         "vce": {

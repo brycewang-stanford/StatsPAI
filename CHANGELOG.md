@@ -990,6 +990,17 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.hdfe_ols` converges further when a varying slope is absorbed.**
+  `tol` now defaults to `1e-12` with an `i.f#c.x` / `f[x]` term (`1e-8`
+  otherwise). Slope sweeps converge slowly, and the per-sweep stopping rule
+  stopped early: on the replication of Zheng, Huang and Zhu (2026, Table 5B
+  col. 3, four FE groups plus a quarter-specific slope) the clustered SE was
+  1.05e-5 (relative) from reghdfe's at the old default and 3.8e-8 now; the
+  coefficient agreed either way. reghdfe's collinearity screen still uses its
+  `1e-8`-based threshold (new `sp.absorb_ols(collinear_tol=)`). The fit takes
+  roughly 1.5x as long. Old numbers: `tol=1e-8`
+  (`test_hdfe_slope_default_tol.py`).
+
 - **`sp.iv(absorb="a^b")` dropped no rows with a missing `a` or `b`.** The
   interacted FE was built from strings, so a missing component became the
   level `"nan"` and the row stayed in the sample, where `ivreghdfe` drops it.

@@ -999,6 +999,7 @@ def absorb_ols(
     solver: str = "map",
     slopes: Optional[Sequence[SlopeSpec]] = None,
     cluster_df: str = "per_term",
+    collinear_tol: Optional[float] = None,
 ) -> dict:
     """OLS with absorbed high-dimensional fixed effects (reghdfe-style).
 
@@ -1026,6 +1027,10 @@ def absorb_ols(
         If True, also return the ``Absorber`` object for reuse.
     solver : {"map", "lsmr", "lsqr"}, default "map"
         Within-transformation backend. See :class:`Absorber`.
+    collinear_tol : float, optional
+        The ``tol`` that reghdfe's collinearity screen is derived from
+        (``min(1e-6, collinear_tol / 10)``); defaults to ``tol``. Lets a
+        caller tighten the sweep without moving the collinearity threshold.
     cluster_df : {"per_term", "min"}, default "per_term"
         Small-sample factor of the multi-way (inclusion-exclusion) cluster
         variance.  ``"per_term"`` scales each term by its own
@@ -1096,7 +1101,9 @@ def absorb_ols(
     # near collinearity (float noise) blow up the coefficient and move the
     # others.
     p_full = p
-    kept_cols = _reghdfe_kept_columns(X[ab.keep_mask], Xw, w, tol)
+    kept_cols = _reghdfe_kept_columns(
+        X[ab.keep_mask], Xw, w, tol if collinear_tol is None else collinear_tol
+    )
     omitted_cols = [j for j in range(p_full) if j not in set(kept_cols)]
     if omitted_cols:
         if not kept_cols:

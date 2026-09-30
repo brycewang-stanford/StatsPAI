@@ -685,7 +685,7 @@ def feols(
     conley_cutoff: Optional[float] = None,
     alpha: float = 0.05,
     drop_singletons: bool = True,
-    tol: float = 1e-8,
+    tol: Optional[float] = None,
     maxiter: int = 10_000,
     df_inference: Optional[Union[str, float]] = None,
 ) -> FEOLSResult:
@@ -758,7 +758,16 @@ def feols(
         Conley distance cutoff in km for ``vce="conley"``.
     alpha : float
     drop_singletons : bool
-    tol, maxiter : convergence controls for the absorber.
+    tol : float, optional
+        Convergence tolerance of the absorber (largest change of a sweep,
+        relative to the variable's scale). Default ``1e-8``, or ``1e-12``
+        when a varying slope (``i.f#c.x`` / ``f[x]``) is absorbed: slope
+        sweeps converge slowly, and at ``1e-8`` the SEs of a four-FE model
+        with a quarter-specific slope were still 1e-5 away from reghdfe's
+        (which converges at its own 1e-8), against 4e-8 at ``1e-12``.
+        reghdfe's collinearity screen is derived from ``1e-8`` either way.
+    maxiter : int
+        Iteration cap of the absorber.
     df_inference : {None, 'resid', 'normal'} or float, optional
         Reference distribution of the p-values and confidence intervals.
         ``None`` (default) follows ``reghdfe``'s ``e(df_r)``: ``t(G - 1)``
@@ -834,6 +843,10 @@ def feols(
 
     base_formula, iv_part = _split_iv(formula)
     lhs, x_terms, fe_terms = _parse_formula(base_formula)
+    collinear_tol = None
+    if tol is None:
+        tol = 1e-12 if any(t.kind == "slope" for t in fe_terms) else 1e-8
+        collinear_tol = 1e-8
     endog_terms: List[_Term] = []
     inst_terms: List[_Term] = []
     if iv_part is not None:
@@ -970,6 +983,7 @@ def feols(
         maxiter=maxiter,
         return_absorber=True,
         slopes=slope_specs,
+        collinear_tol=collinear_tol,
     )
 
     coef = pd.Series(result["coef"], index=x_names, name="coef")

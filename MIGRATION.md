@@ -63,6 +63,7 @@ varies within clusters.
 | `sp.honest_did` relative-magnitude bound at the grid edge | grid end reported (warning) | grid extended until the set closes | `grid_expand=False` |
 | `sp.ri_test(cluster=)`, treatment varying within clusters | first row's value used for the cluster | `MethodIncompatibility`; `treat=<cluster-level>, interact=<pattern>` | — (the old distribution was not the design's) |
 | `sp.ri_test(stat='diff_means'/'t'/'ks')`, non-binary treatment | silently compared `d == 1` to `d == 0` | `MethodIncompatibility` | use `stat='ols'` |
+| `sp.hdfe_ols` with an absorbed varying slope, default `tol` | `1e-8` | `1e-12` (SEs move in the 5th-6th digit) | `tol=1e-8` |
 | `sp.iv(absorb='a^b')`, rows with `a` or `b` missing | kept as a `"nan"` FE level | dropped, as `ivreghdfe` | pre-fill the missing values yourself |
 | `sp.from_stata("reghdfe ...")` | `tool='feols'`, `arguments['fml']` | `tool='hdfe_ols'`, `arguments['formula']` | call `sp.feols` yourself |
 | `sp.from_stata("ivreghdfe ...")` with `absorb()` | `tool='feols'` | `tool='hdfe_ols'` (IV part) | call `sp.feols` yourself |
