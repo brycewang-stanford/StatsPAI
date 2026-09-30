@@ -2,6 +2,25 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.34.1] — 2026-10-01
+
+Documentation-only release. No code, default, or numerical output changes
+from 1.34.0; the estimators are byte-identical.
+
+### Fixed
+
+- **`docs/guides/stability.md` and `docs/jss_source_audit_dossier.md` still
+  quoted the 1.32.0 registry census**, and `docs/index.md` cited the
+  software as version 1.30.1. 1.33.0 and 1.34.0 shipped them unchanged; the
+  1.34 registry has 1,274 registered functions and 416 / 161 / 694 / 3
+  certified / validated / api_stable / experimental symbols, with 577
+  certified-or-validated symbols backed by 578 registry-evidence source
+  files. The JSS replication archive is built from a tagged release and its
+  claim linter checks these figures, so the correction ships as a release
+  (as 1.30.1 did).
+- The Track C timings on `main` since 1.34.0 (`5e02ae0a`) were measured
+  on the 1.34.0 source and are carried unchanged.
+
 ## [1.34.0] — 2026-09-30
 
 Closes the remaining items of the top-5 replication list (eight QJE / AER

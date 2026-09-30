@@ -195,7 +195,7 @@ estimator-level reference:
   title   = {StatsPAI: A Unified, Agent-Native Python Toolkit for
              Causal Inference and Applied Econometrics},
   year    = {2026},
-  version = {1.30.1},
+  version = {1.34.1},
   doi     = {10.5281/zenodo.19933900},
   url     = {https://doi.org/10.5281/zenodo.19933900},
   license = {MIT}
