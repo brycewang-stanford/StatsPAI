@@ -802,8 +802,15 @@ def etwfe(
     ``_cons``, i.e. around the sample-weighted mean of the regressors
     instead of each unit's own.  Point estimates and link-scale SEs do
     not depend on it; with cohort dummies (``fe='cohort'``) or the linear
-    model the two conventions coincide.  ``model_info['response_se']``
-    records the choice.
+    model the two conventions coincide.  ``'unconditional'`` (nonlinear
+    families, either ``fe``) targets the population ATT, as Stata
+    ``margins, vce(unconditional)``: it adds the sampling variability of
+    the units averaged over to the delta-method term through the
+    aggregates' influence function, and agrees with the delete-one-unit
+    jackknife.  Use it when the estimand is the population ATT rather than
+    the ATT of the sample's own units; it is well above ``'profile'``
+    under ``fe='unit'`` when unit effects are heterogeneous.
+    ``model_info['response_se']`` records the choice.
 
     ``scale`` (nonlinear families only) picks the headline scale:
     ``'response'`` (default) is the average marginal effect above;
@@ -951,10 +958,11 @@ def etwfe(
         _normalise_etwfe_scale(scale)
         if str(response_se).strip().lower() not in {"profile", "margins"}:
             raise MethodIncompatibility(
-                f"etwfe(response_se={response_se!r}) is not recognised; use "
-                "'profile' or 'margins'.",
-                recovery_hint="Drop response_se=; the linear ETWFE has one "
-                "scale and both conventions coincide on it.",
+                f"etwfe(response_se={response_se!r}) applies to the "
+                "nonlinear families (family='poisson' / 'logit'); the linear "
+                "ETWFE accepts only 'profile' or 'margins', which coincide "
+                "on it.",
+                recovery_hint="Drop response_se=; the linear ETWFE has one " "scale.",
                 diagnostics={"response_se": response_se, "family": family},
             )
         if str(separated).strip().lower() != "keep":

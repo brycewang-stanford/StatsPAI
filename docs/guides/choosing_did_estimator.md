@@ -249,8 +249,13 @@ TWFE over them.
 > covers the sample's ATT at 94-95% with 400 units but 91-93% with 100 units
 > or strong unit heterogeneity. The margins interval over-covers in the
 > first case and is close to 95% in the second. Use `'margins'` to match a
-> Stata table or to stay conservative in a small panel. Point estimates and
-> log-point SEs are the same under both.
+> Stata table or to stay conservative in a small panel. Both condition on
+> the sample's units. When the paper claims a population ATT, use
+> `response_se='unconditional'` (Stata `margins, vce(unconditional)`),
+> which adds the variability of the units averaged over. It agrees with a
+> delete-one-unit jackknife and covers the population ATT at 94-96% in the
+> same study, where the profiled interval reaches 91-95%. Point estimates
+> and log-point SEs are the same under all three.
 
 #### Or settle it on your own panel
 

@@ -68,19 +68,32 @@ non-nested-cluster designs equal ``estat`` to 7e-7
 (``tests/reference_parity/test_etwfe_poisson_jwdid_parity.py``).  Point
 estimates and link-scale SEs do not depend on the choice.
 
-Which one to report: in a Monte Carlo study
-(``benchmarks/etwfe_poisson_response_se_coverage.py``, 1,000 replications
-per cell) the target is the sample's own ATT, the average of the true
-``mu_1 - mu_0`` over its treated rows.  With 400 units and moderate unit
-heterogeneity the profiled SE matches the sampling error (mean SE / sd
-0.96-1.00, 95% coverage 0.94-0.95); with 100 units or a unit-effect sd of
-1.5 it runs short (0.90-0.97, coverage 0.91-0.93).  The margins SE is
-14-15% larger in every cell: it over-covers where the profiled SE is right
-(0.96-0.98) and is close to nominal where it runs short (0.95).  Neither is
-a population-ATT SE, which needs the between-unit variance both leave out
-(coverage 0.54 / 0.63 of the population ATT with a unit-effect sd of 1.5).
-``'margins'`` reproduces a Stata table and is the conservative choice in
-small or very heterogeneous panels.
+``'unconditional'`` targets the population ATT (Stata ``margins,
+vce(unconditional)``).  Each aggregate is a ratio of sample means over
+treated rows, so its influence function per cluster ``g`` is
+``psi_g = [sum_{r in g} (m_r - ATT)] / n + grad' B S_g``: the composition
+term (which units, at which levels, are averaged over) plus the
+delta-method term of the profiled SE (``B`` the bread, ``S_g`` the cluster
+score), with their covariance; the variance is ``factor * sum_g psi_g^2``
+with the fit's small-sample factor, and event-time aggregates keep the
+joint ``factor * Psi Psi'``.  It agrees with the delete-one-unit jackknife
+of the full refit to 1% (``tests/test_etwfe_nonlinear.py``).  Profiling
+conditions on each unit's observed total, so with heterogeneous units the
+profiled SE is well below it; with cohort dummies (``fe='cohort'``) the
+cohort intercepts carry the between-unit variance and the ordinary
+delta-method SE is already close.
+
+Which one to report (``benchmarks/etwfe_poisson_response_se_coverage.py``,
+1,000 replications per design).  For the sample's own ATT (the average of
+the true ``mu_1 - mu_0`` over its treated rows) the profiled SE matches the
+sampling error with 400 units (coverage 0.94-0.95) and runs short with 100
+units or a unit-effect sd of 1.5 (0.91-0.93); the margins SE is 14-15%
+larger everywhere.  For the population ATT the unconditional SE matches
+the estimator's sampling SD and covers at 0.94-0.96, against 0.91-0.95 for
+the profiled SE; with lognormal unit effects of sd 1.5 it covers at 0.89
+while the other two reach 0.54 and 0.63.  ``'margins'`` reproduces a
+Stata table; choose between ``'profile'`` and ``'unconditional'`` by the
+estimand the paper claims.
 """
 
 from __future__ import annotations
@@ -229,14 +242,22 @@ def etwfe_glm(
     het = normalise_hettype(hettype)
     sep_mode = str(separated).strip().lower()
     rse = str(response_se).strip().lower()
-    if rse not in {"profile", "margins"}:
+    if rse not in {"profile", "margins", "unconditional"}:
         raise MethodIncompatibility(
-            f"response_se={response_se!r} is not recognised; use 'profile' "
-            "or 'margins'.",
+            f"response_se={response_se!r} is not recognised; use 'profile', "
+            "'margins' or 'unconditional'.",
             recovery_hint="'profile' (default) differentiates through the "
             "profiled unit effect; 'margins' reproduces Stata jwdid's estat "
-            "(margins after ppmlhdfe).",
+            "(margins after ppmlhdfe); 'unconditional' adds the sampling "
+            "variability of the units averaged over (population ATT).",
             diagnostics={"response_se": response_se},
+        )
+    if rse == "unconditional" and fam_key == "gaussian":
+        raise MethodIncompatibility(
+            "response_se='unconditional' applies to the nonlinear families "
+            "(family='poisson' / 'logit'); the linear ETWFE has one scale.",
+            recovery_hint="Drop response_se= for the linear model.",
+            diagnostics={"response_se": response_se, "family": family},
         )
     if sep_mode not in {"keep", "drop"}:
         raise MethodIncompatibility(
@@ -382,6 +403,11 @@ def etwfe_glm(
     # Covariance the aggregates are taken through; the Stata-margins
     # response scale of fe='unit' Poisson appends ppmlhdfe's constant.
     vcov_agg: Optional[np.ndarray] = None
+    # response_se='unconditional': cluster-summed coefficient scores S, the
+    # bread B and the small-sample factor (vcov == factor * B S'S B), plus
+    # the response-scale effect of every row, for the aggregates'
+    # influence functions.
+    if_parts: Optional[Dict[str, Any]] = None
     omitted: List[str] = []
     treat_cols = des["treat_cols"]
 
@@ -466,6 +492,23 @@ def etwfe_glm(
         grad_rows = X[rows] * dmu1[rows, None] - X0[rows] * dmu0[rows, None]
         resp_units = unit_of[rows]
         Z_all = X  # link-scale effect of row i is Z_i[treat] @ beta[treat]
+        if rse == "unconditional":
+            # Canonical links (log / logit): score x (y - mu), information
+            # X' diag(dmu/deta) X; statsmodels' clustered factor.
+            n_cl = int(cl_codes.max()) + 1
+            resid = y_vec - mu1
+            S = np.column_stack(
+                [
+                    np.bincount(cl_codes, weights=X[:, j] * resid, minlength=n_cl)
+                    for j in range(X.shape[1])
+                ]
+            )
+            B = np.linalg.inv(X.T @ (dmu1[:, None] * X))
+            n_fit, k_fit = X.shape
+            factor = (n_cl / (n_cl - 1.0)) * ((n_fit - 1.0) / (n_fit - k_fit))
+            me_full = np.zeros(n_fit)
+            me_full[rows] = me_rows
+            if_parts = {"S": S, "B": B, "factor": factor, "me": me_full}
         link_name = type(link).__name__
         coef_names = [names[j] for j in live]
         ssc = None
@@ -576,6 +619,15 @@ def etwfe_glm(
             grad_rows = mu[rows, None] * (Xl[rows] - xbar[rows]) - mu0[rows, None] * (
                 X0l - xbar[rows]
             )
+        if rse == "unconditional":
+            me_full = np.zeros(len(keep))
+            me_full[np.flatnonzero(keep)[rows]] = me_rows
+            if_parts = {
+                "S": res["score_cl"],
+                "B": res["bread_inv"],
+                "factor": res["ssc"]["factor"],
+                "me": me_full,
+            }
         resp_units = unit_k[rows]
         link_name = "Log"
         ssc = res["ssc"]
@@ -622,20 +674,52 @@ def etwfe_glm(
 
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
 
+    # Unconditional response-scale variance: the aggregate is a ratio of
+    # sample means over treated rows, so its influence function per cluster
+    # is psi_g = [sum_{rows in g} (m_r - est)] / n + grad' B S_g -- the
+    # composition term (which units, at which levels, are averaged over)
+    # plus the delta-method term of the conditional SE, with their
+    # covariance.  N_ug / M_ug: treated-row counts / effect sums by
+    # aggregation unit and cluster; SB = S B maps a gradient to its
+    # per-cluster term.
+    if if_parts is not None:
+        from scipy import sparse
+
+        n_g = if_parts["S"].shape[0]
+        r_t = np.flatnonzero(in_cell & (unit_of >= 0))
+        shape = (n_units, n_g)
+        ij = (unit_of[r_t], cl_codes[r_t])
+        N_ug = sparse.csr_matrix((np.ones(len(r_t)), ij), shape=shape)
+        M_ug = sparse.csr_matrix((if_parts["me"][r_t], ij), shape=shape)
+        SB = if_parts["S"] @ if_parts["B"]
+        uncond_factor = float(if_parts["factor"])
+
+    def _unconditional(sc: str) -> bool:
+        return sc == "response" and if_parts is not None
+
     def _agg(sel: np.ndarray, sc: str) -> Tuple[float, float, int, np.ndarray]:
-        """Aggregate over the (cell, level) units in ``sel``; the gradient
-        is returned so joint covariances of several aggregates are
-        ``G V G'``."""
+        """Aggregate over the (cell, level) units in ``sel``.  Also returns
+        the vector joint covariances are built from: the gradient
+        (``G V G'``), or under ``response_se='unconditional'`` on the
+        response scale the per-cluster influence function
+        (``factor * Psi Psi'``)."""
         sel = sel & (unit_n > 0)
         n_sel = float(unit_n[sel].sum())
         if n_sel <= 0:
-            return np.nan, np.nan, 0, np.zeros(Kc)
+            width = SB.shape[0] if _unconditional(sc) else Kc
+            return np.nan, np.nan, 0, np.zeros(width)
         if sc == "response":
             est = float(me_sum[sel].sum() / n_sel)
             grad = grad_sum[sel].sum(axis=0) / n_sel
         else:
             est = float(link_sum[sel].sum() / n_sel)
             grad = link_grad[sel].sum(axis=0) / n_sel
+        if _unconditional(sc):
+            w = sel.astype(float)
+            dev = (M_ug.T @ w - est * (N_ug.T @ w)) / n_sel
+            psi = dev + SB @ grad
+            var = uncond_factor * float(psi @ psi)
+            return est, float(np.sqrt(max(var, 0.0))), int(n_sel), psi
         var = float(grad @ vcov_agg @ grad)
         return est, float(np.sqrt(max(var, 0.0))), int(n_sel), grad
 
@@ -674,8 +758,13 @@ def etwfe_glm(
         # are cells of one regression, so the matrix is joint (not block
         # diagonal) and its diagonal is exactly the table's se**2 --
         # sp.event_study_vcov / pretrends_test / honest_did read it.
-        Gm = np.asarray(ev_grads, dtype=float).reshape(len(ev_times), Kc)
-        ev_vcov = pd.DataFrame(Gm @ vcov_agg @ Gm.T, index=ev_times, columns=ev_times)
+        if _unconditional(sc):
+            Gm = np.asarray(ev_grads, dtype=float).reshape(len(ev_times), -1)
+            ev_cov = uncond_factor * (Gm @ Gm.T)
+        else:
+            Gm = np.asarray(ev_grads, dtype=float).reshape(len(ev_times), Kc)
+            ev_cov = Gm @ vcov_agg @ Gm.T
+        ev_vcov = pd.DataFrame(ev_cov, index=ev_times, columns=ev_times)
         grp_rows = []
         for g_val in cohorts:
             est, se, n, _ = _agg(base & upost & (ug == g_val), sc)

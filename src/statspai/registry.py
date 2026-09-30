@@ -14437,10 +14437,14 @@ def _build_registry() -> None:
                     "large panels; 'margins' reproduces Stata jwdid's "
                     "estat (margins after ppmlhdfe, absorbed effects held "
                     "fixed), is 14-15% larger and is the conservative "
-                    "choice in small panels. Point estimates and link-scale SEs do "
-                    "not depend on it; the two coincide for fe='cohort' "
-                    "and the linear model.",
-                    ["profile", "margins"],
+                    "choice in small panels; 'unconditional' (poisson or "
+                    "logit, either fe) is the population-ATT SE, as Stata "
+                    "margins, vce(unconditional), and agrees with the "
+                    "delete-one-unit jackknife. Point estimates and "
+                    "link-scale SEs do not depend on it; 'profile' and "
+                    "'margins' coincide for fe='cohort' and the linear "
+                    "model, which rejects 'unconditional'.",
+                    ["profile", "margins", "unconditional"],
                 ),
                 ParamSpec(
                     "scale",

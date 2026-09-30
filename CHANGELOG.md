@@ -90,6 +90,22 @@ All notable changes to StatsPAI will be documented in this file.
   heterogeneity. The margins SE is 14-15% larger in every design, so it
   over-covers in the first case and is near 95% in the second. Point
   estimates, link-scale SEs and every default output are unchanged.
+- **`sp.etwfe(family='poisson' | 'logit', response_se='unconditional')`.**
+  A response-scale SE for the population ATT, as Stata `margins,
+  vce(unconditional)`. The aggregate is a ratio of sample means over
+  treated rows, so its influence function per cluster adds the composition
+  term `sum (m_r - ATT) / n` to the delta-method term, with their
+  covariance; event-time aggregates keep a joint covariance. The profiled
+  SE conditions on each unit's observed level, so with heterogeneous units
+  it is far below the unit-sampling SE (0.300 against 0.646 on a panel
+  whose unit-effect sd is 1.2). Against the delete-one-unit jackknife of the
+  full refit the new SE agrees to 1% (fe='unit' and fe='cohort', simple and
+  event time; `test_etwfe_nonlinear.py`). With cohort dummies
+  (`fe='cohort'`, R `etwfe`) the ordinary delta-method SE is already close
+  to it, because the cohort intercepts carry the between-unit variance. In
+  the Monte Carlo study it covers the population ATT at 94.0-95.6% in five
+  designs where the profiled SE reaches 90.6-94.5%, and at 88.7% when unit
+  effects are lognormal with sd 1.5 (profile 54%, margins 63%).
 
 - **2SLS in `sp.hdfe_ols`: `"y ~ exog | fe1 + fe2 | endog ~ inst"`** (Stata
   `ivreghdfe`). Every variable is swept once by the reghdfe absorber, then

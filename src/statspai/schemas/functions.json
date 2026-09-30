@@ -13927,10 +13927,11 @@
         },
         "response_se": {
           "default": "profile",
-          "description": "family='poisson', fe='unit': delta-method convention for response-scale (count) SEs. 'profile' differentiates through the profiled unit effect and is sized to the sample ATT's sampling error in large panels; 'margins' reproduces Stata jwdid's estat (margins after ppmlhdfe, absorbed effects held fixed), is 14-15% larger and is the conservative choice in small panels. Point estimates and link-scale SEs do not depend on it; the two coincide for fe='cohort' and the linear model.",
+          "description": "family='poisson', fe='unit': delta-method convention for response-scale (count) SEs. 'profile' differentiates through the profiled unit effect and is sized to the sample ATT's sampling error in large panels; 'margins' reproduces Stata jwdid's estat (margins after ppmlhdfe, absorbed effects held fixed), is 14-15% larger and is the conservative choice in small panels; 'unconditional' (poisson or logit, either fe) is the population-ATT SE, as Stata margins, vce(unconditional), and agrees with the delete-one-unit jackknife. Point estimates and link-scale SEs do not depend on it; 'profile' and 'margins' coincide for fe='cohort' and the linear model, which rejects 'unconditional'.",
           "enum": [
             "profile",
-            "margins"
+            "margins",
+            "unconditional"
           ],
           "type": "string"
         },
