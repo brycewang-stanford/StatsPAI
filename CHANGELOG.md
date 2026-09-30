@@ -920,7 +920,7 @@ All notable changes to StatsPAI will be documented in this file.
   `e(df_r)` (`min(G) - 1`, capped at the residual df); they used
   `t(N - K - df_a)`, practically the normal with many observations. SEs are
   unchanged. With 100 occupation clusters in the replication of Zheng,
-  Huang and Zhu (2026), p = 0.0906 and CI [-0.1423, 0.0107] as Stata, where
+  Huang and Zhu (2026), p = 0.091 and CI [-0.1423, 0.0107] as Stata, where
   1.32 gave 0.0878 and [-0.1414, 0.0098]. The same for the no-FE path
   (`regress, vce(cluster)`). Old numbers: `df_inference='resid'`.
 - **`sp.honest_did(method='relative_magnitude')` no longer reports the grid
