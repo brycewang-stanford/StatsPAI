@@ -179,8 +179,8 @@ PARITY_COMPACT_SECTION = (
 COMPUTATIONAL_DETAILS_SECTION = (
     REPO_ROOT / "Paper-JSS" / "manuscript" / "sections" / "08-computational-details.tex"
 )
-ROOT_README = REPO_ROOT / "README.md"
-ROOT_README_CN = REPO_ROOT / "README_CN.md"
+ROOT_README = REPO_ROOT / "README_EN.md"
+ROOT_README_CN = REPO_ROOT / "README.md"
 MANUSCRIPT_MD_EXPORT = REPO_ROOT / "Paper-JSS" / "manuscript" / "main.md"
 MANUSCRIPT_ZH_EXPORT = REPO_ROOT / "Paper-JSS" / "manuscript" / "main-zh.md"
 
@@ -205,7 +205,7 @@ ROOT_RELEASE_PREFIXES = (
     "CHANGELOG.md",
     "MIGRATION.md",
     "README.md",
-    "README_CN.md",
+    "README_EN.md",
     "pyproject.toml",
 )
 

@@ -219,7 +219,7 @@ PyPI 凭据在 `~/.pypirc`——**不要**提交仓库、不要写进 memory。�
 | 类别 | 文件 | 为什么争 |
 | --- | --- | --- |
 | 手工追加点 | `registry.py`、`__init__.py`（三处：import 块 / `__all__` / `_register_lazy`）、`CHANGELOG.md`、`MIGRATION.md`、`CLAUDE.md` 本身 | 两边都往同一段尾部追加 |
-| **计数行** | `README.md`、`README_CN.md`、`docs/index.md`、`docs/reference/index.md` | 四处手写的「N 个注册函数」，由 `registry_stats.py --check` 门控。**对方加一个函数，你这四行同时作废** |
+| **计数行** | `README.md`（中文，默认）、`README_EN.md`（英文，PyPI 长描述用它）、`docs/index.md`、`docs/reference/index.md` | 四处手写的「N 个注册函数」，由 `registry_stats.py --check` 门控。**对方加一个函数，你这四行同时作废** |
 | 生成产物 | `schemas/*` **与** `src/statspai/schemas/*`（包内镜像）、`_parity_index.json`、`docs/parity.md`、`docs/stats.md`（两类冲突：at-a-glance 行 + 按模块行） | 纯粹因为两边都重新生成 |
 | 字节同步对 | `paper.bib` ↔ `src/statspai/paper.bib` | 必须逐字节一致 |
 | 棘轮基线 | `scripts/signature_house_style_baseline.json`、`quality_gate` 的 mypy / flake8 基线 | 只降不升，两边都想动 |

@@ -2,6 +2,17 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- **The repository's default README is now the Chinese edition.** `README.md`
+  holds the Chinese text (formerly `README_CN.md`) and the English text moved
+  to `README_EN.md`. The PyPI long description stays English
+  (`pyproject.toml` now reads `README_EN.md`). Both editions open with the
+  Stanford REAP affiliation and the published JOSS article
+  (<https://doi.org/10.21105/joss.10604>). No code changes.
+
 ## [1.34.2] — 2026-10-01
 
 No estimator, default, or numerical output changes from 1.34.1. Two fixes

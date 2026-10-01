@@ -2,6 +2,7 @@
 include LICENSE
 include THIRD_PARTY_NOTICES.md
 include README.md
+include README_EN.md
 include CHANGELOG.md
 include CONTRIBUTING.md
 include CITATION.cff

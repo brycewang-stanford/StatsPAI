@@ -1,4 +1,4 @@
-"""Pin the beginner examples printed in README.md / README_CN.md.
+"""Pin the beginner examples printed in README.md / README_EN.md.
 
 The README once shipped outputs from a simulated Card replica, an RD call on
 columns the dataset no longer had, and a DiD standard error that predated a
@@ -24,7 +24,7 @@ import pytest
 import statspai as sp
 
 ROOT = Path(__file__).resolve().parent.parent
-READMES = [ROOT / "README.md", ROOT / "README_CN.md"]
+READMES = [ROOT / "README.md", ROOT / "README_EN.md"]
 R_RESULTS = ROOT / "tests" / "r_parity" / "results"
 
 CARD_CONTROLS = ["exper", "expersq", "black", "south", "smsa"]

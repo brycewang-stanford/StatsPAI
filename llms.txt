@@ -9,7 +9,7 @@ Install: `pip install statspai` (`pip install "statspai[fixest,plotting]"` for h
 - [AGENTS.md](AGENTS.md): how an agent discovers, calls and reads StatsPAI (discover → describe → call, the result contract, the rules to keep)
 - [Agent API guide](docs/guides/agent_api.md): the 12-piece agent surface, token-budget control, `sp.audit`, citations, MCP server, shell `statspai run`
 - [MCP workflow for economists](docs/guides/economist_mcp_workflow.md): data handoff (`data_path` / `data_id` / inline), result handles, the detect → estimate → audit loop, Stata / R migration
-- [README](README.md): overview, install, quick start
+- [README](README_EN.md): overview, install, quick start (English; `README.md` is the Chinese edition)
 
 ## Choosing an estimator (also `sp.route` / `sp.decision_guide` / MCP `route_estimator`)
 

@@ -2,7 +2,7 @@
 
 This script is the **single source of truth** for the function-count,
 submodule-count, and per-module breakdown numbers that appear in
-``README.md``, ``README_CN.md``, ``CLAUDE.md``, ``docs/stats.md``, and
+``README.md``, ``README_EN.md``, ``CLAUDE.md``, ``docs/stats.md``, and
 ``docs/index.md``. Run it before a release (or when those numbers feel
 stale) and copy the relevant figures into the markdown files.
 
@@ -49,8 +49,9 @@ TESTS_ROOT = REPO_ROOT / "tests"
 DOCS_STATS = REPO_ROOT / "docs" / "stats.md"
 DOCS_INDEX = REPO_ROOT / "docs" / "index.md"
 DOCS_REFERENCE_INDEX = REPO_ROOT / "docs" / "reference" / "index.md"
-README = REPO_ROOT / "README.md"
-README_CN = REPO_ROOT / "README_CN.md"
+# README.md is the Chinese edition (the default); README_EN.md is English.
+README = REPO_ROOT / "README_EN.md"
+README_CN = REPO_ROOT / "README.md"
 
 
 def _module_loc_and_files() -> Dict[str, Tuple[int, int]]:
@@ -197,7 +198,7 @@ DRIFT_TOLERANCE = 100  # bump the floor once we're > floor + tolerance
 # would otherwise red the ``parity-guards`` CI on every coverage commit.
 # This relaxes ONLY the vanity LOC band — the registered-function and
 # submodule floors/exact-counts stay enforced. Restore to 3000 and run a
-# single ``registry_stats.py --table`` + README/README_CN refresh once the
+# single ``registry_stats.py --table`` + README/README_EN refresh once the
 # campaign completes and the test-LOC total stabilises.
 LOC_DRIFT_TOLERANCE = 60000
 

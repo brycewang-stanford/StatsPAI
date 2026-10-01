@@ -83,7 +83,7 @@ def test_scm_pvalue_is_treated_rank_over_units(readme_fit):
 
 
 def test_scm_readme_numbers(readme_fit):
-    """Pins the numbers printed in README.md / README_CN.md."""
+    """Pins the numbers printed in README.md / README_EN.md."""
     assert readme_fit.estimate == pytest.approx(-19.760529, abs=5e-7)
     assert readme_fit.se == pytest.approx(11.233914, abs=5e-7)
     w = dict(
