@@ -111,6 +111,18 @@ adding an option changes the translation or is reported, and
   (`pyproject.toml` now reads `README_EN.md`). Both editions open with the
   Stanford REAP affiliation and the published JOSS article
   (<https://doi.org/10.21105/joss.10604>). No code changes.
+- **Bibliography: software citations and title case.** `paper.bib` gains
+  verified entries for R, Stata, the Python reference manual,
+  `linearmodels`, `pyfixest`, `differences`, eight CRAN packages cited at
+  the version the parity harness pins (`quantreg`, `clubSandwich`,
+  `WeightIt`, `ShiftShareSE`, `DIDmultiplegt`, `data.table`, `wooldridge`,
+  `renv`) and the Stata Journal articles for `rdmulti` and `ddml`.
+  Twenty-three article titles that were stored in sentence case are now in
+  title case, so `sp.bibtex()` and `.cite()` print them that way. The
+  maintainer remark on the CBPS entry moved from `note` to `annote`, since
+  `note` is printed in a reference list. Refs verified via Crossref,
+  DataCite, CRAN metadata, Zenodo, Open Library and the projects' own
+  citation files; each entry's `annote` records its sources.
 
 
 ## [1.34.2] — 2026-10-01
