@@ -16,11 +16,13 @@
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19933900-blue.svg)](https://doi.org/10.5281/zenodo.19933900)
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/stanford-reap-logo.png" alt="Stanford Rural Education Action Program (REAP) - Center on China's Economy &amp; Institutions" width="420">
+  <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/stanford-reap-logo.png" alt="Stanford Rural Education Action Program (REAP) - Center on China's Economy &amp; Institutions" height="72">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://doi.org/10.21105/joss.10604"><img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/joss-logo.png" alt="JOSS - The Journal of Open Source Software" height="72"></a>
   <br>
   Developed and maintained by the <strong>Stanford REAP</strong> team
   <br>
-  <sub>Published in the <em>Journal of Open Source Software</em>: Wang &amp; Rozelle (2026), 11(125), 10604 · <a href="https://doi.org/10.21105/joss.10604">doi:10.21105/joss.10604</a></sub>
+  Published in the <strong><em>Journal of Open Source Software</em> (JOSS)</strong>: Wang &amp; Rozelle (2026), 11(125), 10604 · <a href="https://doi.org/10.21105/joss.10604">doi:10.21105/joss.10604</a>
 </p>
 
 StatsPAI is for empirical researchers who would normally jump between Stata, R,
@@ -860,6 +862,12 @@ If you use StatsPAI in research, cite the JOSS paper (preferred) and the
 underlying method papers for each estimator. `sp.citation()` returns the paper
 citation, `sp.citation(which="software")` the versioned software entry, and
 many result objects expose estimator-level citation helpers.
+
+<p align="center">
+  <a href="https://doi.org/10.21105/joss.10604"><img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/joss-paper-page.jpg" alt="The StatsPAI article page at the Journal of Open Source Software" width="720"></a>
+  <br>
+  <sub>The JOSS article page, published 3 September 2026</sub>
+</p>
 
 ```bibtex
 @article{wang2026statspaijoss,

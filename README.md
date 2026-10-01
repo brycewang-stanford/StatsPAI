@@ -4,7 +4,7 @@
   <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/readme-1.png" alt="StatsPAI - Stata 与 R 的 Python 平替工具包" width="780">
 </p>
 
-# StatsPAI：面向实证研究的 Stata/R Python 平替
+# StatsPAI：面向 Agent 设计的 Stata/R 平替
 
 [![PyPI version](https://img.shields.io/pypi/v/StatsPAI.svg)](https://pypi.org/project/StatsPAI/)
 [![Python versions](https://img.shields.io/pypi/pyversions/StatsPAI.svg)](https://pypi.org/project/StatsPAI/)
@@ -16,11 +16,13 @@
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19933900-blue.svg)](https://doi.org/10.5281/zenodo.19933900)
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/stanford-reap-logo.png" alt="Stanford Rural Education Action Program (REAP) - Center on China's Economy &amp; Institutions" width="420">
+  <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/stanford-reap-logo.png" alt="Stanford Rural Education Action Program (REAP) - Center on China's Economy &amp; Institutions" height="72">
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://doi.org/10.21105/joss.10604"><img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/joss-logo.png" alt="JOSS - The Journal of Open Source Software" height="72"></a>
   <br>
   由 <strong>Stanford REAP</strong> 团队开发和维护
   <br>
-  <sub>论文已发表于 <em>Journal of Open Source Software</em>：Wang &amp; Rozelle (2026), 11(125), 10604 · <a href="https://doi.org/10.21105/joss.10604">doi:10.21105/joss.10604</a></sub>
+  论文已发表于 <strong><em>Journal of Open Source Software</em>（JOSS）</strong>：Wang &amp; Rozelle (2026), 11(125), 10604 · <a href="https://doi.org/10.21105/joss.10604">doi:10.21105/joss.10604</a>
 </p>
 
 StatsPAI 面向那些原本需要在 Stata、R 和 Python 之间来回切换的实证研究者。它的目标很直接：把常见的计量经济学、因果推断、诊断、稳健性、表格导出和 Agent 可读元数据，放到一个 Python-native API 里。
@@ -664,6 +666,12 @@ StatsPAI 的同行评审论文已发表于 *Journal of Open Source Software*（2
 ## 引用
 
 如果在研究中使用 StatsPAI，请优先引用 JOSS 论文，并同时引用具体估计器背后的方法论文。`sp.citation()` 返回论文引用，`sp.citation(which="software")` 返回带版本号的软件引用，许多结果对象也提供 estimator-level citation helpers。
+
+<p align="center">
+  <a href="https://doi.org/10.21105/joss.10604"><img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/joss-paper-page.jpg" alt="StatsPAI 论文在 Journal of Open Source Software 的发表页面" width="720"></a>
+  <br>
+  <sub>JOSS 论文页面，2026 年 9 月 3 日发表</sub>
+</p>
 
 ```bibtex
 @article{wang2026statspaijoss,
