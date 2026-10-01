@@ -2,7 +2,7 @@
 
 These close the gaps found when reproducing a published Stata
 ``jwdid ..., method(ppmlhdfe)`` + ``estat simple, predict(xb)`` table with
-StatsPAI (``sjjj2026_replication-StatsPAI复现程度.ipynb``):
+StatsPAI (the 21-regression ``sjjj2026`` replication):
 
 * the paper's number is the **link-scale** simple ATT, the
   treated-observation-weighted mean of the cohort x period log-point

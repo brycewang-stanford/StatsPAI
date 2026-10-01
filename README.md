@@ -16,7 +16,7 @@
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19933900-blue.svg)](https://doi.org/10.5281/zenodo.19933900)
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/stanford-reap-logo.png" alt="Stanford Rural Education Action Program (REAP) - Center on China's Economy &amp; Institutions" height="72">
+  <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/stanford-reap-logo.png" alt="Stanford Rural Education Action Program (REAP) - Center on China's Economy &amp; Institutions" height="94">
   &nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://doi.org/10.21105/joss.10604"><img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/joss-logo.png" alt="JOSS - The Journal of Open Source Software" height="72"></a>
   <br>
