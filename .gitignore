@@ -166,12 +166,8 @@ Thumbs.db
 Start Superpower for R.md
 
 test-notebooks/
-!test-notebooks/demo_causal_inference.ipynb
 StatsPAI/statspai-推文-agent时代的统计包生态.md
 社媒文档/
-test-notebooks/
-/Users/brycewang/Documents/GitHub/StatsPAI/test-notebooks/demo_causal_inference.ipynb
-test-notebooks/demo_causal_inference.ipynb
 
 # mkdocs build output
 /site/
@@ -215,10 +211,10 @@ MORNING_REPORT_2026-04-29.md
 # Core-coverage campaign working dir (heavy XML/logs ignored; tracker kept)
 .coverage_campaign/*
 !.coverage_campaign/CAMPAIGN.md
+!.coverage_campaign/DECOMP_CAMPAIGN.md
 
-# Decomposition coverage campaign working dir (private coverage files ignored; tracker kept)
-.cov_decomp/*
-!.cov_decomp/DECOMP_CAMPAIGN.md
+# Decomposition coverage campaign scratch dir (tracker lives in .coverage_campaign/)
+.cov_decomp/
 
 # NHEFS / What If parity dumps: regenerable byte-for-byte from the bundled
 # sp.datasets.nhefs() by running the Python side of each paired script, so we

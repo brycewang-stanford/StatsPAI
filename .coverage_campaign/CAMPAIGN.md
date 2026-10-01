@@ -272,7 +272,7 @@ independently confirmed the headline result:
   short of its 95% goal. +155 real-assertion tests (5 files) + 22 verified
   defensive pragmas + one output-preserving NumPy-1.25 deprecation fix in
   `rif._kernel_density_at`. Every decomposition source file now 100%. Details
-  in `.cov_decomp/DECOMP_CAMPAIGN.md` session N.
+  in `.coverage_campaign/DECOMP_CAMPAIGN.md` session N.
 
 - **Flagged, deliberately untouched:** `sp.wooldridge_did` carries a
   pre-existing ~22% parity divergence vs R `etwfe` (`xfail(strict=False)`,

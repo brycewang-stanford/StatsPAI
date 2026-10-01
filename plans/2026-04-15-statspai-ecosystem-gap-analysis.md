@@ -102,4 +102,4 @@ Legend: 🟢 parity / 🟡 usable but gap / 🟠 large gap / 🔴 missing or pla
 
 **SP-01 (Spatial econometrics full-stack)** enters brainstorming immediately after
 this document is committed. Its spec will live at
-`specs/2026-04-15-sp-01-spatial-full-stack-design.md`.
+`plans/2026-04-15-sp-01-spatial-full-stack-design.md`.
