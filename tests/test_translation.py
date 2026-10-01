@@ -219,6 +219,18 @@ TIER1_ROUND_TRIPS = [
             "time": "year",
         },
     ),
+    # areg -> sp.regress with group dummies (areg's degrees of freedom)
+    (
+        "areg y x, absorb(id) vce(cluster id)",
+        "regress",
+        {"formula": "y ~ x + C(id)", "cluster": "id"},
+    ),
+    # rdbwselect
+    (
+        "rdbwselect y x, c(0.5) bwselect(cerrd)",
+        "rdbwselect",
+        {"y": "y", "x": "x", "c": 0.5, "bwselect": "cerrd"},
+    ),
     # rdrobust
     ("rdrobust y x, c(0.5)", "rdrobust", {"y": "y", "x": "x", "c": 0.5}),
     (
