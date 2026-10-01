@@ -1,7 +1,7 @@
 {
   "description": "SHA-256 (LF-normalised) of the experiment artifacts the JSS manuscript re-tabulates, frozen at the submitted release. Written by scripts/jss_review_freeze.py; checked by tests/test_jss_review_freeze.py against docs/dev/jss_review_changes.md.",
-  "release": "1.34.1",
-  "tag": "v1.34.1",
+  "release": "1.34.2",
+  "tag": "v1.34.2",
   "frozen_on": "2026-10-01",
   "active": false,
   "globs": [
