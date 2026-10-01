@@ -769,9 +769,20 @@ def cct_bandwidth(
     else:
         h_l = h_r = clamp(_combine(H_l, H_r, form, scaleregul))
 
-    # CER variants shrink the MSE bandwidth by n^{-eps}.
+    # CER variants shrink the MSE bandwidth by m^{-eps}. m is the sample
+    # size, or with clustered data the number of clusters, counted on each
+    # side of the cutoff and added (a cluster that straddles the cutoff
+    # counts twice), as rdrobust does in both R and Stata.
+    #
+    # correctness fix (2026-10): m was the number of observations whether
+    # or not the data were clustered, so a clustered CER bandwidth came out
+    # too narrow: 0.2054 where rdrobust 4.0.0 (R) and Stata's rdbwselect
+    # both give 0.2305 on 1,200 observations in 60 clusters.
     if bwselect.startswith("cer"):
-        cer = n ** (-(p / ((3 + p) * (3 + 2 * p))))
+        m_cer = float(n)
+        if Cc is not None:
+            m_cer = float(len(np.unique(Cc[left])) + len(np.unique(Cc[right])))
+        cer = m_cer ** (-(p / ((3 + p) * (3 + 2 * p))))
         h_l, h_r = h_l * cer, h_r * cer
 
     return {"h_left": h_l, "h_right": h_r, "b_left": b_l, "b_right": b_r}
