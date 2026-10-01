@@ -3,7 +3,8 @@
 :func:`statspai.from_stata` translates one command into a tool call; this
 module executes the translation and returns the fitted result, so a Stata
 user can paste the lines they already know.  Anything the translator could
-not map faithfully (an unknown command, or a translation carrying a
+not map faithfully (an unknown command, an option or ``if`` / ``in``
+qualifier the call does not carry over, or a translation carrying a
 ``<placeholder>`` the user must fill in) raises instead of running a
 different model.
 """
@@ -149,6 +150,30 @@ def stata(
             raise MethodIncompatibility(
                 f"sp.stata: {line!r} cannot be run as written. {blocking[0]}",
                 recovery_hint=f"Run it directly: {out.get('python_code')}",
+                diagnostics={"command": line, "translation": out},
+            )
+        lost = list(out.get("untranslated_options") or [])
+        sample = out.get("unapplied_sample")
+        if lost or sample:
+            what = []
+            if lost:
+                what.append("option(s) " + ", ".join(lost) + " are not translated")
+            if sample:
+                what.append(f"`{sample}` is not applied")
+            raise MethodIncompatibility(
+                f"sp.stata: {line!r} cannot be run as written: "
+                + "; ".join(what)
+                + ". Running it would fit a different model.",
+                recovery_hint=(
+                    (
+                        "Filter the DataFrame first (Stata treats missing as "
+                        "+infinity in comparisons; pandas does not) and drop "
+                        "the qualifier. "
+                        if sample
+                        else ""
+                    )
+                    + f"Then run it directly: {out.get('python_code')}"
+                ),
                 diagnostics={"command": line, "translation": out},
             )
         code = str(out.get("python_code") or "")

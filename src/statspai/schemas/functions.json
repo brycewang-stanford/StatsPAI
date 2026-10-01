@@ -26956,7 +26956,7 @@
           "type": "array"
         },
         "line": {
-          "description": "One Stata command. Multi-line ``do`` files must be split by the caller.",
+          "description": "One Stata command. Multi-line ``do`` files must be split by the caller. Stata's option abbreviations (``r``, ``cl()``, ``a()``, ``vce(cl id)``) are expanded and output-only prefixes (``quietly``, ``capture``, ``eststo:``, ``xi:``) are peeled; macros and prefixes that change the estimate (``by``, ``bootstrap``, ``svy`` ...) are refused.",
           "type": "string"
         }
       },

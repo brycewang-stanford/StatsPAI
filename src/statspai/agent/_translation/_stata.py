@@ -18,8 +18,10 @@ Design principles
   some commands). Translating each command means we control the
   mapping precisely.
 * **No silent guesses** — when an option has no clean StatsPAI
-  equivalent, the handler emits a ``notes`` entry surfaced back
-  to the user. We never quietly drop options.
+  equivalent, it is surfaced back to the user. Handlers read options by
+  full name; :mod:`._stata_options` expands Stata's abbreviations before
+  they run and reports every option no handler looked at, so nothing is
+  dropped quietly.
 * **Round-trippable** — the output's ``python_code`` should always
   be valid Python; ``arguments`` should always be JSON-serialisable.
 """
@@ -29,6 +31,7 @@ from __future__ import annotations
 import re
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+from . import _stata_options as _opts
 from ._stata_lexer import StataCommand, StataParseError
 from ._stata_lexer import parse as _parse_stata
 
@@ -185,10 +188,18 @@ def _h_xtreg(cmd: StataCommand) -> Dict[str, Any]:
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
         return _emit_error("xtreg requires an outcome variable", command="xtreg")
-    if "re" in cmd.options:
+    for model in ("re", "be", "fd"):
+        if model in cmd.options:
+            return _emit_error(
+                f"xtreg, {model} is not translated — call "
+                f"sp.panel(method={model!r}) directly.",
+                command="xtreg",
+            )
+    if "fe" not in cmd.options:
         return _emit_error(
-            "random-effects xtreg is not supported — use sp.panel(method='re') "
-            "directly via the Python API for now.",
+            "xtreg without `fe` is Stata's random-effects estimator, which is "
+            "not translated — call sp.panel(method='re') directly, or add "
+            "`fe` for the fixed-effects model.",
             command="xtreg",
         )
 
@@ -198,23 +209,25 @@ def _h_xtreg(cmd: StataCommand) -> Dict[str, Any]:
     panel_id = cmd.options.get("i") or cmd.options.get("id") or "<panel_id>"
     main = _build_formula(y, xs)
     cluster = _vce_cluster(cmd)
+    notes: List[str] = []
+    if not cluster and _robust_kind(cmd) == "hc1":
+        # [XT] xtreg: with fe, vce(robust) is vce(cluster panelvar)
+        cluster = panel_id
+        notes.append(
+            "xtreg, fe vce(robust) clusters on the panel id in Stata; "
+            f"translated to cluster={panel_id!r}."
+        )
     # Keep the placeholder IN the formula: dropping it would print a pooled
     # OLS call (``y ~ x``) that runs and silently is not the fixed-effects model.
     fml = _pyfixest_fml(main, [panel_id])
     args: Dict[str, Any] = {"fml": fml}
     if cluster:
         args["cluster"] = cluster
-    notes: List[str] = []
     if panel_id == "<panel_id>":
         notes.append(
             "Couldn't recover the panel-id from this command alone "
             "(Stata's `xtset id` lives in another line). Replace "
             "<panel_id> with the actual unit id column."
-        )
-    if "be" in cmd.options or "fd" in cmd.options:
-        notes.append(
-            "Between-effects / first-difference variants are not yet "
-            "translated — use sp.panel(method='be'/'fd') directly."
         )
     return _emit("feols", args, _feols_code(fml, cluster), notes)
 
@@ -540,14 +553,26 @@ def _h_ivreghdfe(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("hdfe_ols", args, python, notes)
 
 
+#: csdid ``method()`` -> ``sp.callaway_santanna(estimator=)``; the table in
+#: docs/guides/callaway_santanna.md. ``method(ipw)`` is Abadie's IPW, which
+#: StatsPAI (following R ``did``) calls ``'ipw_abadie'``.
+_CSDID_METHODS = {"dripw": "dr", "reg": "reg", "stdipw": "stdipw", "ipw": "ipw_abadie"}
+
+
 def _h_csdid(cmd: StataCommand) -> Dict[str, Any]:
-    """``csdid y, ivar(id) tvar(t) gvar(g)`` → ``sp.callaway_santanna``."""
+    """``csdid y [x], ivar(id) time(t) gvar(g)`` → ``sp.callaway_santanna``.
+
+    The two commands differ in their defaults, so csdid's are written out:
+    ``base_period='varying'`` unless ``long2``, and with ``notyet`` the
+    cohort cutoff ``notyet_cutoff='cohort'`` unless ``asinr``.
+    """
     if not cmd.varlist:
         return _emit_error("csdid requires an outcome variable", command="csdid")
-    y = cmd.varlist[0]
-    i = cmd.options.get("ivar") or cmd.options.get("id")
-    t = cmd.options.get("tvar") or cmd.options.get("time")
-    g = cmd.options.get("gvar") or cmd.options.get("cohort")
+    opts = cmd.options
+    y, xs = cmd.varlist[0], list(cmd.varlist[1:])
+    i = opts.get("ivar") or opts.get("id")
+    t = opts.get("tvar") or opts.get("time")
+    g = opts.get("gvar") or opts.get("cohort")
     missing = [name for name, val in (("ivar", i), ("tvar", t), ("gvar", g)) if not val]
     if missing:
         return _emit_error(
@@ -555,15 +580,49 @@ def _h_csdid(cmd: StataCommand) -> Dict[str, Any]:
             "via Stata's `ivar()` / `tvar()` / `gvar()`.",
             command="csdid",
         )
+    notes: List[str] = []
+    lost: List[str] = []
     args: Dict[str, Any] = {"y": y, "i": i, "t": t, "g": g}
-    method = cmd.options.get("method", "dr") or "dr"
-    if method.lower() in {"dr", "ipw", "reg"}:
-        args["estimator"] = method.lower()
-    python = (
-        f"sp.callaway_santanna(data=df, y={y!r}, i={i!r}, t={t!r}, "
-        f"g={g!r}, estimator={args.get('estimator', 'dr')!r})"
+    if xs:
+        args["x"] = xs
+    method = (opts.get("method") or "dripw").split()[0].lower()
+    if method in _CSDID_METHODS:
+        args["estimator"] = _CSDID_METHODS[method]
+    else:
+        return _emit_error(
+            f"csdid method({method}) has no sp.callaway_santanna estimator; "
+            f"translated methods: {sorted(_CSDID_METHODS)}.",
+            command="csdid",
+        )
+    if "long" in opts:
+        lost.append("long")
+        notes.append(
+            "csdid `long` flips the sign of the pre-treatment cells, which "
+            "sp.callaway_santanna does not mirror; translated as `long2`."
+        )
+    args["base_period"] = (
+        "universal" if "long2" in opts or "long" in lost else "varying"
     )
-    return _emit("callaway_santanna", args, python)
+    if "notyet" in opts:
+        args["control_group"] = "notyettreated"
+        args["notyet_cutoff"] = "asinr" if "asinr" in opts else "cohort"
+    if opts.get("pscoretrim") is not None:
+        try:
+            args["pscore_trim"] = float(opts.get("pscoretrim") or "")
+        except ValueError:
+            lost.append("pscoretrim")
+            notes.append(f"pscoretrim({opts.get('pscoretrim')}) is not a number.")
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    out = _emit(
+        "callaway_santanna", args, f"sp.callaway_santanna(data=df, {kw})", notes
+    )
+    out["untranslated_options"] = lost
+    out["semantics"] = [
+        "csdid defaults written out: base_period='varying' (short gaps) "
+        "unless long2; notyet_cutoff='cohort' unless asinr. csdid's "
+        "method(ipw) is estimator='ipw_abadie'."
+    ]
+    return out
 
 
 def _h_didregress(cmd: StataCommand) -> Dict[str, Any]:
@@ -657,8 +716,30 @@ def _h_didregress(cmd: StataCommand) -> Dict[str, Any]:
         code_pairs.append(f"covariates={covariates!r}")
     if cluster:
         code_pairs.append(f"cluster={cluster!r}")
+    if "se_method" in args:
+        code_pairs.append(f"se_method={args['se_method']!r}")
     python = f"sp.did({', '.join(code_pairs)})"
     return _emit("did", args, python, notes)
+
+
+def _numlist(text: str) -> Optional[List[int]]:
+    """A Stata numlist of integers: ``0 1 2``, ``0/3``, ``-4(2)4``."""
+    out: List[int] = []
+    for tok in text.replace(",", " ").split():
+        m = re.fullmatch(r"(-?\d+)(?:/(-?\d+)|\((\d+)\)(-?\d+))?", tok)
+        if not m:
+            return None
+        lo = int(m.group(1))
+        if m.group(2) is not None:
+            hi, step = int(m.group(2)), 1
+        elif m.group(4) is not None:
+            hi, step = int(m.group(4)), int(m.group(3))
+        else:
+            hi, step = lo, 1
+        if step < 1 or hi < lo:
+            return None
+        out.extend(range(lo, hi + 1, step))
+    return out or None
 
 
 def _h_did_imputation(cmd: StataCommand) -> Dict[str, Any]:
@@ -683,23 +764,34 @@ def _h_did_imputation(cmd: StataCommand) -> Dict[str, Any]:
         "time": time,
         "first_treat": first_treat,
     }
-    horizon = cmd.options.get("horizon") or cmd.options.get("horizons")
-    if horizon:
+    opts = cmd.options
+    notes: List[str] = []
+    lost: List[str] = []
+    for name in ("horizons", "horizon"):
+        if opts.get(name):
+            values = _numlist(opts.get(name) or "")
+            if values is None:
+                lost.append(name)
+                notes.append(f"{name}({opts.get(name)}) is not a numlist of integers.")
+            else:
+                args["horizon"] = values
+    if opts.get("pretrends") is not None:
         try:
-            args["horizon"] = int(horizon.split()[-1])
-        except (ValueError, AttributeError, IndexError):
-            pass
-    code_pairs = [
-        "data=df",
-        f"y={y!r}",
-        f"group={group!r}",
-        f"time={time!r}",
-        f"first_treat={first_treat!r}",
-    ]
-    if "horizon" in args:
-        code_pairs.append(f"horizon={args['horizon']}")
-    python = f"sp.did_imputation({', '.join(code_pairs)})"
-    return _emit("did_imputation", args, python)
+            args["pretrends"] = int(opts.get("pretrends") or "")
+        except ValueError:
+            lost.append("pretrends")
+            notes.append(f"pretrends({opts.get('pretrends')}) is not an integer.")
+    if "autosample" in opts:
+        args["autosample"] = True
+    if opts.get("controls"):
+        args["controls"] = (opts.get("controls") or "").split()
+    cluster = _vce_cluster(cmd)
+    if cluster:
+        args["cluster"] = cluster
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    out = _emit("did_imputation", args, f"sp.did_imputation(data=df, {kw})", notes)
+    out["untranslated_options"] = lost
+    return out
 
 
 def _h_synth(cmd: StataCommand) -> Dict[str, Any]:
@@ -749,36 +841,126 @@ def _h_synth(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("synth", args, python, notes)
 
 
+_RD_KERNELS = {"tri": "triangular", "uni": "uniform", "epa": "epanechnikov"}
+
+
+def _rd_numbers(raw: Optional[str]) -> Any:
+    """``h(5)`` -> 5.0; ``h(5 8)`` -> (5.0, 8.0); anything else -> None."""
+    try:
+        vals = [float(v) for v in (raw or "").split()]
+    except ValueError:
+        return None
+    if len(vals) == 1:
+        return vals[0]
+    return tuple(vals) if len(vals) == 2 else None
+
+
 def _h_rdrobust(cmd: StataCommand) -> Dict[str, Any]:
-    """``rdrobust y x, c(0)`` → ``sp.rdrobust``. Same name in Stata + sp."""
+    """``rdrobust y x, c(0) h(5) vce(cluster id)`` → ``sp.rdrobust``.
+
+    The options keep their Stata names in ``sp.rdrobust``; ``vce(cluster
+    v)`` becomes ``cluster=``, ``level(#)`` becomes ``alpha=``. An option
+    value that cannot be carried over is reported in ``notes``.
+    """
     if len(cmd.varlist) < 2:
         return _emit_error(
             "rdrobust requires y + running variable: `rdrobust y x, c(<v>)`",
             command="rdrobust",
         )
     y, x = cmd.varlist[0], cmd.varlist[1]
-    c_raw = cmd.options.get("c", "0")
+    opts = cmd.options
+    notes: List[str] = []
+
+    def text(name: str) -> str:
+        return opts.get(name) or ""
+
+    lost: List[str] = []
+
+    def skipped(name: str) -> None:
+        lost.append(name)
+        notes.append(
+            f"{name}({opts.get(name)}) is not translated; sp.rdrobust keeps "
+            "its default."
+        )
+
+    c_raw = opts.get("c", "0")
     try:
         c = float(c_raw) if c_raw is not None else 0.0
     except (TypeError, ValueError):
-        c = 0.0
+        return _emit_error(f"rdrobust c({c_raw}) is not a number", command="rdrobust")
     args: Dict[str, Any] = {"y": y, "x": x, "c": c}
-    if "fuzzy" in cmd.options and cmd.options["fuzzy"]:
-        args["fuzzy"] = cmd.options["fuzzy"].split()[0]
-    kernel = cmd.options.get("kernel")
-    if kernel and kernel.split()[0].lower() in {
-        "triangular",
-        "uniform",
-        "epanechnikov",
-    }:
-        args["kernel"] = kernel.split()[0].lower()
-    python = (
-        f"sp.rdrobust(data=df, y={y!r}, x={x!r}, c={c}"
-        + (f", fuzzy={args['fuzzy']!r}" if "fuzzy" in args else "")
-        + (f", kernel={args['kernel']!r}" if "kernel" in args else "")
-        + ")"
+    if opts.get("fuzzy"):
+        fz = text("fuzzy").split()
+        args["fuzzy"] = fz[0]
+        if len(fz) > 1:
+            notes.append(f"fuzzy(... {' '.join(fz[1:])}) suboption is not translated.")
+    for name in ("deriv", "p", "q"):
+        if opts.get(name) is not None:
+            try:
+                args[name] = int(text(name))
+            except ValueError:
+                skipped(name)
+    if opts.get("kernel"):
+        kernel = _RD_KERNELS.get(text("kernel").split()[0].lower()[:3])
+        if kernel:
+            args["kernel"] = kernel
+        else:
+            skipped("kernel")
+    if opts.get("bwselect"):
+        args["bwselect"] = text("bwselect").split()[0].lower()
+    for name in ("h", "b"):
+        if opts.get(name) is not None:
+            val = _rd_numbers(opts[name])
+            if val is None:
+                skipped(name)
+            else:
+                args[name] = val
+    if opts.get("rho") is not None:
+        val = _rd_numbers(opts["rho"])
+        if isinstance(val, float):
+            args["rho"] = val
+        else:
+            skipped("rho")
+    if "h" in args and (
+        args.get("b", args["h"]) != args["h"] or args.get("rho", 1.0) != 1.0
+    ):
+        notes.append(
+            "b differs from h: sp.rdrobust's bias-corrected row is then not "
+            "exactly Stata's (see the rho note in sp.rdrobust)."
+        )
+    if opts.get("covs"):
+        args["covs"] = text("covs").split()
+    if opts.get("vce"):
+        vce = text("vce").split()
+        kind = vce[0].lower()
+        if kind == "cluster" and len(vce) == 2:
+            args["cluster"] = vce[1]
+        elif kind in {"hc0", "hc1", "hc2", "hc3"} and len(vce) == 1:
+            args["vce"] = kind
+        elif kind == "nn" and vce[1:] in ([], ["3"]):
+            args["vce"] = "nn"
+        else:
+            skipped("vce")
+    if opts.get("masspoints"):
+        mp = text("masspoints").split()[0].lower()
+        if mp in {"adjust", "check", "off"}:
+            args["masspoints"] = mp
+        else:
+            skipped("masspoints")
+    if opts.get("weights"):
+        args["weights"] = text("weights").split()[0]
+    if opts.get("level") is not None:
+        try:
+            args["alpha"] = round(1 - float(text("level")) / 100, 10)
+        except ValueError:
+            skipped("level")
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items() if k not in ("y", "x", "c"))
+    python = f"sp.rdrobust(data=df, y={y!r}, x={x!r}, c={c}" + (
+        f", {kw})" if kw else ")"
     )
-    return _emit("rdrobust", args, python)
+    out = _emit("rdrobust", args, python, notes)
+    out["untranslated_options"] = lost
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -1418,13 +1600,15 @@ def _h_xtabond_family(cmd: StataCommand, *, sp_kind: str) -> Dict[str, Any]:
         "robust": "robust" in cmd.options
         or _opt_matches(cmd.options.get("vce"), "robust"),
     }
+    lost: List[str] = []
+    notes: List[str] = []
     lags_opt = cmd.options.get("lags")
     if lags_opt:
         try:
             args["lags"] = int(lags_opt)
         except (TypeError, ValueError):
-            pass
-    notes: List[str] = []
+            lost.append("lags")
+            notes.append(f"lags({lags_opt}) is not an integer.")
     if panel_id == "<panel_id>":
         notes.append(
             "Stata's `xtset id [t]` set the panel id; replace "
@@ -1437,12 +1621,16 @@ def _h_xtabond_family(cmd: StataCommand, *, sp_kind: str) -> Dict[str, Any]:
     ]
     if args["id"]:
         code_pairs.append(f"id={args['id']!r}")
+    if "lags" in args:
+        code_pairs.append(f"lags={args['lags']}")
     if args["twostep"]:
         code_pairs.append("twostep=True")
-    if args["robust"]:
-        code_pairs.append("robust=True")
+    # written out: the sp default is robust=True, Stata's is not
+    code_pairs.append(f"robust={args['robust']}")
     python = f"sp.{sp_kind}({', '.join(code_pairs)})"
-    return _emit(sp_kind, args, python, notes)
+    out = _emit(sp_kind, args, python, notes)
+    out["untranslated_options"] = lost
+    return out
 
 
 def _h_xtabond(cmd: StataCommand) -> Dict[str, Any]:
@@ -1765,6 +1953,12 @@ def _normalise_command(
     return None, info
 
 
+#: Tools that take ``weights=`` through ``**kwargs``, so the signature check
+#: below cannot see it. Each entry is pinned by a test that the weights
+#: change the estimate (a ``**kwargs`` that swallowed them would not).
+_WEIGHTS_VIA_KWARGS = frozenset({"ivreg"})
+
+
 def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str, Any]:
     """Attach a Stata weight to a translated call, or refuse it."""
     import inspect
@@ -1777,7 +1971,7 @@ def _apply_weight(payload: Dict[str, Any], weight: Tuple[str, str]) -> Dict[str,
         params = inspect.signature(inspect.unwrap(fn)).parameters if fn else {}
     except (TypeError, ValueError):
         params = {}
-    if "weights" not in params:
+    if "weights" not in params and payload.get("tool") not in _WEIGHTS_VIA_KWARGS:
         return _emit_error(
             f"[{kind}={var}] cannot be carried over: sp.{payload.get('tool')} "
             "takes no weights= argument.",
@@ -1851,7 +2045,11 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
     ----------
     line : str
         One Stata command. Multi-line ``do`` files must be split by
-        the caller.
+        the caller. Stata's option abbreviations (``r``, ``cl()``,
+        ``a()``, ``vce(cl id)``) are expanded and output-only prefixes
+        (``quietly``, ``capture``, ``eststo:``, ``xi:``) are peeled;
+        macros and prefixes that change the estimate (``by``,
+        ``bootstrap``, ``svy`` ...) are refused.
     columns : sequence of str, optional
         The dataset's columns, in order. Varlist wildcards (``t2pre*``,
         ``x?``) and ranges (``a-b``) name columns and are expanded against
@@ -1869,7 +2067,16 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
                 "arguments": {...},  # ready for execute_tool
                 "python_code": "<sp.xxx(...)>",
                 "notes": [<warning>, ...],
+                "semantics": [<convention relied on>, ...],
+                "untranslated_options": [<option name>, ...],
+                "ignored_display_options": [<option name>, ...],
+                "unapplied_sample": "<if / in qualifier>" or None,
             }
+
+        ``untranslated_options`` lists the options the call does not carry
+        over and ``unapplied_sample`` the ``if`` / ``in`` qualifier: when
+        both are empty the call fits the same model. Options that only
+        change what Stata prints go to ``ignored_display_options``.
 
         On failure::
 
@@ -1889,11 +2096,22 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
     True
     >>> out["python_code"]
     "sp.hdfe_ols('y ~ x | id + year', data=df, cluster='id')"
+    >>> sp.from_stata("qui reghdfe y x, a(id year) cl(id)")["python_code"]
+    "sp.hdfe_ols('y ~ x | id + year', data=df, cluster='id')"
+    >>> sp.from_stata("reg y x, nocons")["untranslated_options"]
+    ['noconstant']
     >>> sp.from_stata("notacommand y x")["ok"]
     False
     """
+    prefixes, refused_prefix, core = _opts.peel_prefixes(line or "")
+    if refused_prefix is not None:
+        return _emit_error(
+            _opts.semantic_prefix_error(refused_prefix),
+            command=refused_prefix,
+            suggestions=[],
+        )
     try:
-        parsed = _parse_stata(line)
+        parsed = _parse_stata(core)
     except StataParseError as e:
         return _emit_error(f"parse_error: {e}", command=None, suggestions=[])
 
@@ -1918,6 +2136,23 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
             suggestions=suggestions,
         )
 
+    canonical, expanded = _opts.canonicalise_options(parsed.command, parsed.options)
+    macro = _opts.find_macro_in_command(
+        StataCommand(
+            command=parsed.command,
+            varlist=parsed.varlist,
+            if_cond=parsed.if_cond,
+            in_range=parsed.in_range,
+            options=canonical,
+        )
+    )
+    if macro is not None:
+        return _emit_error(
+            _opts.macro_error(macro), command=parsed.command, suggestions=[]
+        )
+    tracked = _opts.TrackedOptions(canonical)
+    parsed.options = tracked
+
     info: Dict[str, Any]
     if handler in _POSTEST_HANDLERS:
         # postestimation commands take variable names / expressions, which
@@ -1938,6 +2173,94 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
         payload["semantics"].append(
             "The `if` sample is not applied by the call; filter df first "
             "(see notes)."
+        )
+    if payload.get("ok"):
+        payload = _report_options(
+            payload, tracked, dict(canonical), expanded, prefixes, parsed
+        )
+    return payload
+
+
+def _carry_level(payload: Dict[str, Any], level: Optional[str]) -> str:
+    """``level(#)`` -> ``alpha=`` when the sp function takes it.
+
+    The confidence level does not change the fit; where the function has no
+    ``alpha`` it is chosen when the intervals are reported.
+    """
+    import inspect
+
+    import statspai as sp
+
+    try:
+        alpha = round(1 - float(level or "") / 100, 10)
+    except ValueError:
+        return f"level({level}) is not a number; ignored."
+    fn = getattr(sp, str(payload.get("tool") or ""), None)
+    try:
+        params = inspect.signature(inspect.unwrap(fn)).parameters if fn else {}
+    except (TypeError, ValueError):
+        params = {}
+    code = str(payload.get("python_code") or "")
+    if "alpha" in params and code.endswith(")"):
+        payload["arguments"]["alpha"] = alpha
+        payload["python_code"] = f"{code[:-1]}, alpha={alpha})"
+        return f"level({level}) -> alpha={alpha}."
+    return (
+        f"level({level}) only sets the confidence level of the printed "
+        f"intervals; request alpha={alpha} when reporting them."
+    )
+
+
+def _report_options(
+    payload: Dict[str, Any],
+    tracked: "_opts.TrackedOptions",
+    options: Dict[str, Optional[str]],
+    expanded: List[str],
+    prefixes: List[str],
+    parsed: StataCommand,
+) -> Dict[str, Any]:
+    """Surface what the translation did with options, prefixes and sample.
+
+    ``untranslated_options`` lists every option the call does not carry
+    over and ``unapplied_sample`` the ``if`` / ``in`` qualifier, so a caller
+    can tell a faithful translation from a partial one without reading the
+    notes.
+    """
+    reported = list(payload.get("untranslated_options") or [])
+    unread = [n for n in tracked.unread() if n not in reported]
+    sem = payload.setdefault("semantics", [])
+    if "level" in unread:
+        unread.remove("level")
+        sem.append(_carry_level(payload, options["level"]))
+    display = [n for n in unread if _opts.is_display_option(parsed.command, n)]
+    lossy = [n for n in unread if n not in display]
+    notes = list(payload.get("notes") or [])
+    notes += _opts.untranslated_notes(lossy, display, options)
+    se, se_names = _opts.se_note(
+        options, payload.get("arguments") or {}, reported + unread
+    )
+    if se:
+        notes.append(se)
+    payload["notes"] = notes
+    payload["untranslated_options"] = reported + lossy + se_names
+    payload["ignored_display_options"] = display
+    sample = " ".join(
+        part
+        for part in (
+            f"if {parsed.if_cond}" if parsed.if_cond else "",
+            f"in {parsed.in_range}" if parsed.in_range else "",
+        )
+        if part
+    )
+    payload["unapplied_sample"] = sample or None
+    if parsed.in_range:
+        sem.append("The `in` range is not applied by the call; slice df first.")
+    if expanded:
+        sem.append("Stata abbreviations expanded: " + ", ".join(expanded) + ".")
+    if prefixes:
+        sem.append(
+            "Prefix " + ", ".join(f"`{p}`" for p in prefixes) + " only affects "
+            "what Stata prints or stores; dropped."
         )
     return payload
 

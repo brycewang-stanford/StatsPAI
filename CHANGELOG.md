@@ -4,6 +4,82 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness
+
+- **`sp.from_stata` dropped abbreviated options without a trace.** Handlers
+  read options by full name, so the abbreviations in Stata's own syntax
+  diagrams translated to a different model with `ok=True` and empty notes:
+  `reg y x, r` and `vce(r)` lost the robust SEs, `cl(id)` and `vce(cl id)`
+  the clustering, and `reghdfe y x, a(id year)` (also `ivreghdfe`,
+  `ppmlhdfe`) every fixed effect. `nocons` and any option a handler did
+  not know (`keepsingletons`, `small`) vanished the same way, and
+  `rdrobust` carried over only `c()`, `fuzzy()` and a spelled-out
+  `kernel()`. Abbreviations are now expanded before the handler runs, and
+  every option is carried into the call, listed in the new
+  `untranslated_options` (with a note), or listed in
+  `ignored_display_options` when it only changes what Stata prints
+  (`noheader`, `or`, `irr`, `beta`). `rdrobust` maps `p q deriv h b rho
+  kernel bwselect covs vce masspoints weights level`.
+- **Macros were pasted into the call.** `reg y x $controls` returned
+  `sp.regress('y ~ x + $controls')` with `ok=True`. A `$global` or
+  `` `local' `` in the varlist, `if` / `in` or an estimation option is now
+  refused.
+- **`by g:` was dropped.** `by g: reg y x` translated to the pooled
+  regression. Prefixes that change the estimate (`by`, `bysort`,
+  `bootstrap`, `jackknife`, `permute`, `svy`, `rolling`, `statsby`) are
+  refused; `quietly` / `capture` / `noisily` (with or without the colon),
+  `eststo [name]:` and `xi:` are peeled, where `qui reg y x` used to fail
+  as an unknown command.
+- **`xtreg` without `fe` was translated as the fixed-effects model.** It
+  is Stata's random-effects estimator and is now refused, as `re`, `be`
+  and `fd` are. `xtreg, fe vce(robust)` clusters on the panel id, as Stata
+  does; it used to translate with default SEs.
+- **`csdid` was translated with StatsPAI's defaults, not csdid's.** The
+  call now follows the table in `docs/guides/callaway_santanna.md`:
+  covariates in the varlist go to `x=` (they were dropped),
+  `method(ipw)` is `estimator='ipw_abadie'` (it was mapped to the
+  stabilised `'ipw'`, a different estimator), `base_period='varying'`
+  unless `long2`, and with `notyet` the cutoff is `'cohort'` unless
+  `asinr`. `method(drimp)` is refused. `sp.stata` on the `csdid ...
+  method(reg) long2` line of parity module 04 reproduces the Stata golden
+  file to 1e-9 (simple ATT, SE and event-study cells).
+- **`did_imputation, horizons(0/3)` lost the horizons**: the numlist
+  failed an `int()` and was swallowed, and `horizon(3)` was passed as an
+  integer where `sp.did_imputation` takes a list. Stata numlists (`0/3`,
+  `-4(2)4`, `0 1 2`) are parsed; `pretrends()`, `autosample`, `controls()`
+  and `cluster()` are carried over.
+- **The printed `python_code` disagreed with `arguments`** for
+  `xtabond` / `xtdpdsys` (`lags()` missing; `robust` omitted although
+  `sp.xtabond` defaults to `robust=True` and Stata does not) and for
+  `didregress, wboot` (`se_method` missing). Running the printed code
+  gave another model than the tool call.
+- **`sp.stata` ran a partial translation with a warning.**
+  `sp.stata("reg y x if z > 0", data=df)` fitted all rows, and an
+  untranslated option only warned. Both now raise `MethodIncompatibility`
+  with the call to run by hand. See MIGRATION.
+
+### Fixed
+
+- `ivregress` / `ivreg2` with `[aw=w]` or `[pw=w]` was refused ("sp.ivreg
+  takes no weights= argument"): the signature check did not see that
+  `sp.ivreg` takes `weights=` through `**kwargs`. The translated call is
+  checked against the closed-form weighted IV estimate.
+- `level(#)` becomes `alpha=` where the sp function takes it.
+
+### Added
+
+- `sp.from_stata` payload keys `untranslated_options`,
+  `ignored_display_options` and `unapplied_sample`: a translation with the
+  first empty and the last `None` fits the same model.
+
+Found by running the estimation commands of twelve published replication
+packages through the translator, then checked on do-files that played no
+part in the fix (no exception, and no option without a trace). The fixes
+follow Stata's documented grammar and are tested on synthetic commands
+(`tests/test_stata_translation_grammar.py`), including two invariants:
+adding an option changes the translation or is reported, and
+`python_code` spells out the same call as `arguments`.
+
 ### Changed
 
 - **The repository's default README is now the Chinese edition.** `README.md`
@@ -12,6 +88,7 @@ All notable changes to StatsPAI will be documented in this file.
   (`pyproject.toml` now reads `README_EN.md`). Both editions open with the
   Stanford REAP affiliation and the published JOSS article
   (<https://doi.org/10.21105/joss.10604>). No code changes.
+
 
 ## [1.34.2] — 2026-10-01
 

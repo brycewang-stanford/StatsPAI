@@ -40,7 +40,12 @@ LIMITATIONS: List[str] = [
     "Estimation-table commands (esttab, eststo, outreg2) are not translated; use "
     "sp.regtable on the fitted results.",
     "Dropped Stata `if`/`in` qualifiers and unrecognized options are never "
-    "silently lost — they are surfaced in the per-command `notes` field.",
+    "silently lost — they come back in `unapplied_sample` / "
+    "`untranslated_options` and in the per-command `notes`; sp.stata refuses "
+    "to run a translation that carries either.",
+    "Stata macros (`$global`, `local') and prefixes that change the estimate "
+    "(by, bootstrap, jackknife, permute, svy, rolling, statsby) are refused: "
+    "expand the macro, or apply the prefix in Python.",
     "One command per call: multi-command .do / multi-line R scripts must be "
     "split by the caller before translation.",
 ]

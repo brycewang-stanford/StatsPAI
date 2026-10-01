@@ -5,6 +5,42 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="stata-translation-grammar"></a>
+
+## Unreleased: ⚠️ `sp.from_stata` / `sp.stata` stop translating a different model
+
+**Who is affected.** Anyone who translated or ran Stata lines that use
+option abbreviations, prefixes, macros, `if` / `in`, or `xtreg` without
+`fe`. Lines written with full option names and no qualifier are unchanged.
+
+| Stata line | Old | New |
+| --- | --- | --- |
+| `reg y x, r` · `cl(id)` · `vce(cl id)` | default SEs, no note | robust / clustered SEs |
+| `reghdfe y x, a(id year)` | pooled OLS, fixed effects lost | `y ~ x \| id + year` |
+| `rdrobust y x, h(5) vce(cluster id) covs(a)` | options dropped | carried into `sp.rdrobust` |
+| `reg y x, nocons` or an unknown option | dropped, no note | `ok=True`, listed in `untranslated_options` |
+| `reg y x $ctrl` | `'y ~ x + $ctrl'`, `ok=True` | refused |
+| `by g: reg y x` | pooled regression | refused |
+| `qui reg y x` · `eststo: reg y x` | "unknown command" | translated |
+| `xtreg y x` (no `fe`) | fixed-effects model | refused (it is random effects) |
+| `xtreg y x, fe vce(robust)` | default SEs | clustered on the panel id |
+| `csdid y x, ivar() time() gvar()` | covariates dropped; StatsPAI defaults | `x=['x']`, `base_period='varying'` (csdid's default; `long2` gives `'universal'`) |
+| `csdid ..., method(ipw)` | `estimator='ipw'` (stabilised) | `estimator='ipw_abadie'` |
+| `did_imputation ..., horizons(0/3)` | horizons dropped | `horizon=[0, 1, 2, 3]` |
+| `xtabond y x` printed code | no `robust=`, so `True` when run | `robust=False`, as Stata |
+| `sp.stata("reg y x if z > 0", data=df)` | ran on all rows, warned | raises `MethodIncompatibility` |
+| `sp.stata("reg y x, nocons", data=df)` | ran with a constant, warned | raises `MethodIncompatibility` |
+
+**What to do.** Numbers obtained by running abbreviated lines through
+`sp.stata` before this change may have used the wrong standard errors or
+dropped the fixed effects: rerun them. For `if`, filter first and drop the
+qualifier, `sp.stata("reg y x", data=df[df.z > 0])`, minding that Stata
+counts a missing `z` as larger than any number. For an option reported in
+`untranslated_options`, run the printed `python_code` and set the option
+on the sp call.
+
+---
+
 <a id="regress-collinear-omit"></a>
 
 ## 1.34.0: `sp.regress` omits collinear regressors instead of raising
