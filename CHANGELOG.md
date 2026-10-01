@@ -122,6 +122,14 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **51 curated registry entries advertised no example.**
+  `sp.describe_function(name)["example"]`, the agent cards and the MCP
+  tool descriptions were blank for hand-written specs that left the field
+  empty, although each function's docstring has an `Examples` block. The
+  registry now takes the first docstring statement that calls the
+  function (`sp.<name>(` or through a sub-namespace such as
+  `sp.epi.<name>(`), and never overwrites a curated example. Entries
+  without an example go from 58 to 9.
 - `ivreghdfe` without an `(endog = instruments)` block is `reghdfe`; it
   was a parse error.
 - `reghdfe, keepsingletons` becomes `drop_singletons=False`.

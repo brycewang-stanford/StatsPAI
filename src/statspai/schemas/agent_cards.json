@@ -12382,7 +12382,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.clone_censor_weight(df, id_col=\"id\", time_col=\"time\",\n treatment_col=\"treat\", strategies=strategies)",
     "failure_modes": [
       {
         "alternative": "sp.ipcw",
@@ -12401,6 +12401,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -12520,7 +12521,7 @@
       ],
       "tolerance": "1e-9 rel on every weight (observed 2.0e-11)"
     },
-    "example": "",
+    "example": "res = sp.ipcw(df, time=\"time\", event=\"event\",\n censor_covariates=[\"age\", \"biomarker\"])",
     "failure_modes": [
       {
         "alternative": "clone_censor_weight",
@@ -12547,6 +12548,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -12791,7 +12793,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "",
+    "example": "sw = sp.swig(g, {\"X\": \"x\"})",
     "failure_modes": [
       {
         "alternative": "dag",
@@ -12817,6 +12819,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -12896,7 +12899,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.icp(X, y, env, alpha=0.05)",
     "failure_modes": [
       {
         "alternative": "dynotears",
@@ -12922,6 +12925,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -13027,7 +13031,7 @@
       ],
       "tolerance": "1e-12 rel"
     },
-    "example": "",
+    "example": "res = sp.transport_weights_fn(\n source, target, features=[\"x\"], treatment=\"a\", outcome=\"y\")",
     "failure_modes": [
       {
         "alternative": "sp.target_trial_emulate",
@@ -13052,6 +13056,7 @@
     "provenance": {
       "alternatives": "family",
       "assumptions": "family",
+      "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
       "reference": "curated",
@@ -13167,7 +13172,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.identify_transport(\n g, treatment=\"X\", outcome=\"Y\", selection_nodes=\"S\")",
     "failure_modes": [
       {
         "alternative": "sp.transport_weights_fn",
@@ -13187,6 +13192,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -13558,7 +13564,7 @@
       ],
       "tolerance": "point 1e-10 rel vs ltmle (observed 2.1e-11), 1e-12 vs hand lm (observed 2.4e-15); sandwich SE 1e-9 rel (observed 7.1e-12)"
     },
-    "example": "",
+    "example": "res = sp.gformula_ice_fn(\n df, id_col=\"id\", time_col=\"id\",\n treatment_cols=[\"A0\", \"A1\"],\n confounder_cols=[[\"L0\"], [\"L1\"]],\n outcome_col=\"Y\", treatment_strategy=[1, 1])",
     "failure_modes": [
       {
         "alternative": "sp.target_trial_emulate",
@@ -13583,6 +13589,7 @@
     "provenance": {
       "alternatives": "family",
       "assumptions": "family",
+      "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
       "reference": "curated",
@@ -13974,7 +13981,7 @@
       ],
       "tolerance": "estimate, se, CI 1e-12 abs (observed 0)"
     },
-    "example": "",
+    "example": "res = sp.epi.risk_difference(40, 60, 20, 80)",
     "failure_modes": [
       {
         "alternative": "relative_risk",
@@ -14000,6 +14007,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -14106,7 +14114,7 @@
       ],
       "tolerance": "AFE + PAF point estimates 1e-12 abs (observed 0); CI not pinned"
     },
-    "example": "",
+    "example": "res = sp.epi.attributable_risk(40, 60, 20, 80)",
     "failure_modes": [
       {
         "alternative": "relative_risk",
@@ -14132,6 +14140,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -14227,7 +14236,7 @@
       ],
       "tolerance": "estimate 1e-12; exact CI 1e-10 abs (observed ~3e-15)"
     },
-    "example": "",
+    "example": "res = sp.epi.incidence_rate_ratio(30, 1000.0, 15, 1000.0)",
     "failure_modes": [
       {
         "alternative": "mantel_haenszel",
@@ -14253,6 +14262,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -14364,7 +14374,7 @@
       ],
       "tolerance": "estimate, se_log, CI 1e-12 abs (observed 0)"
     },
-    "example": "",
+    "example": "res = sp.mantel_haenszel(tables, measure=\"OR\")",
     "failure_modes": [
       {
         "alternative": "breslow_day_test",
@@ -14390,6 +14400,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -14490,7 +14501,7 @@
       ],
       "tolerance": "1e-10 rel (observed 1.3e-14)"
     },
-    "example": "",
+    "example": "chi2, p = sp.breslow_day_test(tables)",
     "failure_modes": [
       {
         "alternative": "mantel_haenszel",
@@ -14516,6 +14527,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -14598,7 +14610,7 @@
       ],
       "tolerance": "1e-10 rel (observed 3e-13)"
     },
-    "example": "",
+    "example": "res = sp.direct_standardize(events, population, standard_weights)",
     "failure_modes": [
       {
         "alternative": "indirect_standardize",
@@ -14624,6 +14636,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -14751,7 +14764,7 @@
       ],
       "tolerance": "1e-10 rel (observed 6e-16)"
     },
-    "example": "",
+    "example": "res = sp.indirect_standardize(\n observed=120,\n events_reference=[30, 50, 80],\n population_reference=[1000, 1000, 500],\n population_study=[800, 1200, 600],\n)",
     "failure_modes": [
       {
         "alternative": "direct_standardize",
@@ -14777,6 +14790,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -14889,7 +14903,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.epi.bradford_hill(\n strength=1.0,\n consistency=1.0,\n temporality=1.0,\n biological_gradient=0.5,\n plausibility=1.0,\n specificity=0.0,\n coherence=1.0,\n experiment=0.5,\n analogy=0.5,\n notes={\"strength\": \"HR > 5 in meta-analysis\"},\n)",
     "failure_modes": [
       {
         "alternative": "",
@@ -14915,6 +14929,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -15038,7 +15053,7 @@
       ],
       "tolerance": "IVW and Egger (Ruecker) Q, degrees of freedom and p-values at 1e-10."
     },
-    "example": "",
+    "example": "het = sp.mr_heterogeneity(beta_exposure, beta_outcome, se_outcome)",
     "failure_modes": [
       {
         "alternative": "sp.mr_median",
@@ -15078,6 +15093,7 @@
     "provenance": {
       "alternatives": "family",
       "assumptions": "family",
+      "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
       "reference": "curated",
@@ -15182,7 +15198,7 @@
       ],
       "tolerance": "Intercept, SE and t(n - 2) p-value at 1e-10."
     },
-    "example": "",
+    "example": "pleio = sp.mr_pleiotropy_egger(beta_exposure, beta_outcome, se_outcome)",
     "failure_modes": [
       {
         "alternative": "sp.mr_median",
@@ -15222,6 +15238,7 @@
     "provenance": {
       "alternatives": "family",
       "assumptions": "family",
+      "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
       "reference": "curated",
@@ -15316,7 +15333,7 @@
       ],
       "tolerance": "All 28 leave-one-out estimates and default-model SEs at 1e-10."
     },
-    "example": "",
+    "example": "loo = sp.mr_leave_one_out(beta_exposure, beta_outcome, se_outcome)",
     "failure_modes": [
       {
         "alternative": "sp.mr_median",
@@ -15356,6 +15373,7 @@
     "provenance": {
       "alternatives": "family",
       "assumptions": "family",
+      "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
       "returns": "curated",
@@ -15467,7 +15485,7 @@
       ],
       "tolerance": "R^2 on both traits and the direction at 1e-10; the p-value (1.8e-73) at 1e-12."
     },
-    "example": "",
+    "example": "st = sp.mr_steiger(\n beta_exposure, se_exposure, 50000,\n beta_outcome, se_outcome, 50000,\n)",
     "failure_modes": [
       {
         "alternative": "sp.mr_median",
@@ -15507,6 +15525,7 @@
     "provenance": {
       "alternatives": "family",
       "assumptions": "family",
+      "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
       "reference": "curated",
@@ -15804,7 +15823,7 @@
       ],
       "tolerance": "Square-root weights, per-variant Q contributions and total Q at 1e-10; the outlier set is identical with bonferroni=False (StatsPAI's default applies Bonferroni)."
     },
-    "example": "",
+    "example": "rad = sp.mr_radial(beta_exposure, beta_outcome, se_outcome)",
     "failure_modes": [
       {
         "alternative": "sp.mr_median",
@@ -15844,6 +15863,7 @@
     "provenance": {
       "alternatives": "family",
       "assumptions": "family",
+      "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
       "reference": "curated",
@@ -16118,7 +16138,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.longitudinal_contrast(\n df, id=\"id\", time=\"time\", treatment=\"A\", outcome=\"Y\",\n regime_a=\"always_treat\", regime_b=\"never_treat\")",
     "failure_modes": [
       {
         "alternative": "msm",
@@ -16145,6 +16165,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "returns": "curated",
@@ -16363,7 +16384,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "report = sp.target_trial_report(res, fmt=\"markdown\")",
     "failure_modes": [
       {
         "alternative": "sp.target_trial_emulate",
@@ -16388,6 +16409,7 @@
     "provenance": {
       "alternatives": "family",
       "assumptions": "family",
+      "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
       "reference": "curated",
@@ -16681,7 +16703,7 @@
       ],
       "tolerance": "Point estimates for both weightings at 1e-10 -- the same point of the same 512-point density grid. The bootstrap SE is Monte Carlo on both sides and is not compared (T3)."
     },
-    "example": "",
+    "example": "res = sp.mr_mode(bx, by, sx, sy, n_boot=200, seed=0)",
     "failure_modes": [
       {
         "alternative": "sp.mr_median",
@@ -16721,6 +16743,7 @@
     "provenance": {
       "alternatives": "family",
       "assumptions": "family",
+      "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
       "reference": "curated",
@@ -16856,7 +16879,7 @@
       ],
       "tolerance": "Mean F statistic at 1e-10."
     },
-    "example": "",
+    "example": "f = sp.mr_f_statistic(bx, sx)",
     "failure_modes": [
       {
         "alternative": "sp.mr_median",
@@ -16896,6 +16919,7 @@
     "provenance": {
       "alternatives": "family",
       "assumptions": "family",
+      "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
       "reference": "curated",
@@ -16989,7 +17013,7 @@
       ],
       "tolerance": "1e-12 rel on intervals, 1e-10 on ratios (observed 2e-15)"
     },
-    "example": "",
+    "example": "res = sp.sensitivity_specificity(tp=90, fn=10, fp=5, tn=95)",
     "failure_modes": [
       {
         "alternative": "roc_curve",
@@ -17015,6 +17039,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -17136,7 +17161,7 @@
       ],
       "tolerance": "1e-10 rel (observed 6e-15)"
     },
-    "example": "",
+    "example": "roc = sp.roc_curve(y, s)",
     "failure_modes": [
       {
         "alternative": "sensitivity_specificity",
@@ -17162,6 +17187,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -17261,7 +17287,7 @@
       ],
       "tolerance": "kappa + agreements 1e-12 abs (observed ~1e-16); SE not pinned"
     },
-    "example": "",
+    "example": "k = sp.cohen_kappa(a, b)",
     "failure_modes": [
       {
         "alternative": "sensitivity_specificity",
@@ -17287,6 +17313,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -17378,7 +17405,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "",
+    "example": "written = sp.preregister(q, path, note=\"frozen before data collection\")",
     "failure_modes": [
       {
         "alternative": "sp.causal_question",
@@ -17397,6 +17424,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -17480,7 +17508,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "",
+    "example": "q2 = sp.load_preregister(path)",
     "failure_modes": [
       {
         "alternative": "preregister",
@@ -17506,6 +17534,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "returns": "curated",
@@ -18278,7 +18307,7 @@
       ],
       "tolerance": "1e-12 rel"
     },
-    "example": "",
+    "example": "res = sp.synthesise_evidence(\n rct_estimate=0.50, rct_se=0.20,\n rwd_estimate=0.42, rwd_se=0.10,\n transport_shift=-0.05, transport_shift_se=0.02,\n)",
     "failure_modes": [
       {
         "alternative": "heterogeneity_of_effect",
@@ -18304,6 +18333,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -18417,7 +18447,7 @@
       ],
       "tolerance": "1e-12 rel"
     },
-    "example": "",
+    "example": "het = sp.heterogeneity_of_effect(\n estimates=[0.50, 0.42, 0.55], ses=[0.20, 0.10, 0.15],\n)",
     "failure_modes": [
       {
         "alternative": "synthesise_evidence",
@@ -18443,6 +18473,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "returns": "curated",
@@ -18525,7 +18556,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "con = sp.rwd_rct_concordance(\n rct_estimate=0.50, rct_se=0.20, rwd_estimate=0.42,\n)",
     "failure_modes": [
       {
         "alternative": "synthesise_evidence",
@@ -18551,6 +18582,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "returns": "curated",
@@ -18628,7 +18660,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.llm_causal_assess(\n level1_items=level1, llm_client=stub_client, llm_identifier=\"stub\",\n)",
     "failure_modes": [
       {
         "alternative": "pairwise_causal_benchmark",
@@ -18656,6 +18688,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -18737,7 +18770,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.pairwise_causal_benchmark(gt, llm_client=stub_client)",
     "failure_modes": [
       {
         "alternative": "llm_causal_assess",
@@ -18763,6 +18796,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -18837,7 +18871,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.causal_bandit([\"A\", \"B\", \"C\"], reward_fn=reward_fn,\n n_samples=300, rng_seed=0)",
     "failure_modes": [
       {
         "alternative": "sp.ipw",
@@ -18856,6 +18890,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -18941,7 +18976,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.counterfactual_policy_optimization(\n df, state=\"s\", action=\"a\", reward=\"r\",\n target_policy=lambda si: si + 1.0)",
     "failure_modes": [
       {
         "alternative": "policy_value",
@@ -18967,6 +19002,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -19053,7 +19089,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.structural_mdp(\n df, state_cols=[\"s1\", \"s2\"], action_cols=[\"a1\"],\n reward=\"r\", next_state_cols=[\"ns1\", \"ns2\"])",
     "failure_modes": [
       {
         "alternative": "sp.sharp_ope_unobserved",
@@ -19072,6 +19108,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -19181,7 +19218,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "",
+    "example": "e = sp.dl_propensity_score(df, treatment=\"treat\",\n covariates=[\"x1\", \"x2\"], random_state=0)",
     "failure_modes": [
       {
         "alternative": "overlap_weighted_did",
@@ -19208,6 +19245,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -19300,7 +19338,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.conformal_continuous(\n train, y='y', treatment='t', covariates=['x'],\n test_data=test, alpha=0.1, random_state=0,\n)",
     "failure_modes": [
       {
         "alternative": "conformal",
@@ -19327,6 +19365,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -19432,7 +19471,7 @@
       "tests": [],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.conformal_interference(\n df, y='y', treatment='treat', cluster='cluster',\n covariates=['x'], test_clusters=[0, 1], alpha=0.1, random_state=0,\n)",
     "failure_modes": [
       {
         "alternative": "sp.interference",
@@ -19451,6 +19490,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -19567,7 +19607,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.sharp_ope_unobserved(\n df, actions=\"action\", rewards=\"reward\",\n logging_prob=\"e_hat\", target_prob=\"pi\", gamma=1.5)",
     "failure_modes": [
       {
         "alternative": "policy_value",
@@ -19593,6 +19633,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -19690,7 +19731,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.causal_policy_forest(\n df, actions=\"action\", rewards=\"reward\",\n covariates=[\"x0\", \"x1\"], n_trees=10, depth=2, random_state=0)",
     "failure_modes": [
       {
         "alternative": "sp.causal_forest",
@@ -19710,6 +19751,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -19815,7 +19857,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.network_hte(\n df, y=\"y\", treatment=\"d\", neighbor_exposure=\"e\",\n covariates=[\"x1\", \"x2\"], n_folds=3, random_state=0,\n)",
     "failure_modes": [
       {
         "alternative": "spillover",
@@ -19841,6 +19883,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -19953,7 +19996,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.inward_outward_spillover(\n df, y=\"y\", treatment=\"d\",\n inward_exposure=\"e_in\", outward_exposure=\"e_out\",\n)",
     "failure_modes": [
       {
         "alternative": "network_hte",
@@ -19972,6 +20015,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -20725,7 +20769,7 @@
       ],
       "tolerance": "1e-12 rel"
     },
-    "example": "",
+    "example": "res = sp.mr_mediation(snp)",
     "failure_modes": [
       {
         "alternative": "mr",
@@ -20752,6 +20796,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -20853,7 +20898,7 @@
       ],
       "tolerance": "1e-12 rel"
     },
-    "example": "",
+    "example": "res = sp.mr_bma(snp, outcome=\"beta_y\", outcome_se=\"se_y\")",
     "failure_modes": [
       {
         "alternative": "sp.mr_median",
@@ -20893,6 +20938,7 @@
     "provenance": {
       "alternatives": "family",
       "assumptions": "family",
+      "example": "docstring",
       "failure_modes": "family",
       "pre_conditions": "family",
       "reference": "curated",
@@ -22776,7 +22822,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.demographic_parity(df, predictions=\"pred\", protected=\"group\")",
     "failure_modes": [
       {
         "alternative": "fairness_audit",
@@ -22802,6 +22848,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -22893,7 +22940,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "res = sp.equalized_odds(df, predictions=\"pred\", labels=\"label\",\n protected=\"group\")",
     "failure_modes": [
       {
         "alternative": "demographic_parity",
@@ -22919,6 +22966,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "reference": "curated",
@@ -23013,7 +23061,7 @@
       ],
       "tolerance": ""
     },
-    "example": "",
+    "example": "audit = sp.fairness_audit(df, predictions=\"pred\", protected=\"group\",\n labels=\"label\")",
     "failure_modes": [
       {
         "alternative": "sp.demographic_parity",
@@ -23033,6 +23081,7 @@
     "provenance": {
       "alternatives": "curated",
       "assumptions": "curated",
+      "example": "docstring",
       "failure_modes": "curated",
       "pre_conditions": "curated",
       "returns": "curated",
@@ -107240,7 +107289,7 @@
       ],
       "tolerance": "estimate 1e-12 abs (observed 0); CI not pinned"
     },
-    "example": "round(res.estimate, 2)",
+    "example": "res = sp.epi.number_needed_to_treat(20, 80, 40, 60)",
     "failure_modes": [],
     "inherits_from": null,
     "limitations": [],
@@ -107338,7 +107387,7 @@
       ],
       "tolerance": "estimate, se_log, CI 1e-12 abs (observed ~2e-16)"
     },
-    "example": "round(res.estimate, 3)",
+    "example": "res = sp.epi.prevalence_ratio(40, 60, 20, 80)",
     "failure_modes": [],
     "inherits_from": null,
     "limitations": [],

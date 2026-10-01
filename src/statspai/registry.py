@@ -21079,9 +21079,19 @@ def _harvest_returns(sections: Dict[str, str]) -> str:
     return _squash(head, 120)
 
 
-def _harvest_example(sections: Dict[str, str], name: str, obj: Any = None) -> str:
+def _harvest_example(
+    sections: Dict[str, str],
+    name: str,
+    obj: Any = None,
+    require_call: bool = False,
+) -> str:
     """First ``>>>`` statement that calls ``sp.<name>(`` (with its ``...``
-    continuation lines), else the first non-import statement (≤ 300 chars)."""
+    continuation lines), else the first non-import statement (≤ 300 chars).
+
+    A call through a sub-namespace (``sp.epi.<name>(``) counts as a call.
+    With ``require_call`` there is no fallback: a statement that does not
+    call the function is not an example of it.
+    """
     block = sections.get("examples") or ""
     if not block.strip():
         return ""
@@ -21103,8 +21113,10 @@ def _harvest_example(sections: Dict[str, str], name: str, obj: Any = None) -> st
                 cur = []
     if cur:
         stmts.append("\n".join(cur))
-    call_re = re.compile(rf"\bsp\.{re.escape(name)}\(")
+    call_re = re.compile(rf"\bsp\.(?:[A-Za-z_]\w*\.)*{re.escape(name)}\(")
     candidates = [s.strip() for s in stmts if call_re.search(s)]
+    if not candidates and require_call:
+        return ""
     if not candidates:
         candidates = [
             s.strip()
@@ -22643,6 +22655,36 @@ def _apply_baseline_cards() -> None:
     _BASELINE_CARDS_APPLIED = True
 
 
+_DOCSTRING_EXAMPLE_DONE: set = set()
+
+
+def _apply_docstring_examples() -> None:
+    """Fill an empty ``example`` on a hand-written spec from the docstring.
+
+    Auto-registered specs harvest their example when they are built. A
+    hand-written ``FunctionSpec`` that leaves ``example`` blank used to
+    stay blank, although every public function carries an ``Examples``
+    block: 51 curated entries advertised no example to an agent while the
+    call sat one ``help()`` away. Only a statement that calls the function
+    is taken, and a curated example is never overwritten.
+    """
+    for name, spec in list(_REGISTRY.items()):
+        if name in _DOCSTRING_EXAMPLE_DONE:
+            continue
+        _DOCSTRING_EXAMPLE_DONE.add(name)
+        if spec.example:
+            continue
+        obj = _live_callable(name)
+        if obj is None or inspect.isclass(obj) or not callable(obj):
+            continue
+        example = _harvest_example(
+            _doc_sections(inspect.getdoc(obj) or ""), name, obj, require_call=True
+        )
+        if example:
+            object.__setattr__(spec, "example", example)
+            _record_scalar_source(spec, ["example"], "docstring")
+
+
 def _ensure_full_registry() -> None:
     """Populate the registry with hand-written specs + auto-registered tail.
 
@@ -22657,6 +22699,7 @@ def _ensure_full_registry() -> None:
         _apply_baseline_cards()
         _apply_negative_guidance_seeds()
         _apply_schema_enrichment()
+        _apply_docstring_examples()
         _apply_family_inheritance()
         return
 
@@ -22691,6 +22734,7 @@ def _ensure_full_registry() -> None:
     _apply_baseline_cards()
     _apply_negative_guidance_seeds()
     _apply_schema_enrichment()
+    _apply_docstring_examples()
     _apply_family_inheritance()
 
 
