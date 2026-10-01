@@ -171,9 +171,12 @@ _MARKER_RE = re.compile(
     re.I,
 )
 _LABEL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9 ,/()\-']{0,60}:\s+")
-#: Phrases that signal an open (non-exhaustive) value set.
+#: Phrases that signal an open (non-exhaustive) value set. The ellipsis is
+#: written as the escape ``\u2026`` (``re`` resolves it): the JSS archive
+#: transliterates non-ASCII source to ASCII, which turned a literal one into an
+#: unescaped ``...`` that matched any three characters and dropped every enum.
 _OPEN_SET_RE = re.compile(
-    r"e\.g\.|\betc\b|such as|for example|\bany\b|\.\.\.|…|\balias|also accept|"
+    r"e\.g\.|\betc\b|such as|for example|\bany\b|\.\.\.|\u2026|\balias|also accept|"
     r"\bor an? \b|callable|\bdict\b|\bcustom\b|\blike\b|including",
     re.I,
 )

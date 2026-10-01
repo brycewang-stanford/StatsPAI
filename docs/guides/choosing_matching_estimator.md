@@ -94,7 +94,7 @@ r = sp.dml(df, y='y', treat='d', covariates=[...],
            cross_fitting_folds=5)
 ```
 
-DML is the state of the art for observational ATE with many controls.
+DML is designed for observational ATE estimation with many controls.
 
 ## 6. Meta-learners (for heterogeneous effects)
 

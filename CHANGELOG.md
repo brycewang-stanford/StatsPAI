@@ -2,6 +2,26 @@
 
 All notable changes to StatsPAI will be documented in this file.
 
+## [1.34.2] — 2026-10-01
+
+No estimator, default, or numerical output changes from 1.34.1. Two fixes
+found by building the JSS replication archive.
+
+### Fixed
+
+- **Schema enums were lost when the source was transliterated to ASCII.**
+  `statspai._schema_enrich._OPEN_SET_RE` held a literal ellipsis (U+2026).
+  The JSS archive rewrites non-ASCII source to ASCII
+  (`scripts/ascii_source.py`), which turned it into an unescaped `...`
+  that matches any three characters, so every documented choice list read
+  as an open set and `function_schema()` / `schemas/` regenerated from the
+  archive had no enums (e.g. `causal_survival_forest(target=)`). The
+  pattern now spells it `…`; behaviour in the package is unchanged
+  and `schemas/` is byte-identical.
+- **The packaged matching guide** (`docs/guides/choosing_matching_estimator.md`
+  and its copy under `statspai/agent/_guides/`) called DML "the state of
+  the art"; it now says what DML is designed for.
+
 ## [1.34.1] — 2026-10-01
 
 Documentation-only release. No code, default, or numerical output changes
