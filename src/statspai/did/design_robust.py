@@ -46,7 +46,11 @@ def design_robust_event_study(
     y, treat, time, id : str
         Same conventions as :func:`callaway_santanna`.
     leads, lags : int
-        Event-time window.
+        Event-time window. Treated observations later than ``lags`` are
+        absorbed by an unreported dummy, so they are neither reported nor
+        used as comparisons; their count and pooled coefficient are in
+        ``model_info['diagnostics']``. Observations earlier than
+        ``-leads`` stay in the reference category with ``-1``.
     cluster : str, optional
     alpha : float
 
@@ -71,11 +75,13 @@ def design_robust_event_study(
     >>> res = sp.design_robust_event_study(
     ...     df, y='y', treat='first_treat', time='time', id='unit',
     ...     leads=2, lags=2)
-    >>> round(float(res.estimate), 4)
-    0.2886
+    >>> round(float(res.estimate), 4)  # the DGP's effect is 0.5
+    0.4055
     >>> diag = res.model_info['diagnostics']
     >>> diag['n_negative_weight_periods']
-    1
+    0
+    >>> diag['n_obs_binned_post']  # treated rows later than ``lags``
+    61
     """
     df = (
         data[[y, treat, time, id] + ([cluster] if cluster else [])]
@@ -97,6 +103,21 @@ def design_robust_event_study(
     for k in rel_times:
         df[f"_es_{k}"] = ((df["_rel_time"] == k)).astype(int)
 
+    # Treated observations later than the last reported lag get their own
+    # (unreported) dummy. Without it they sit in the omitted category next
+    # to the never-treated and not-yet-treated rows, so already-treated
+    # outcomes serve as the comparison for every reported coefficient.
+    #
+    # correctness fix (2026-10): the bin was missing. With a homogeneous
+    # effect of 2.0 and exposure running to four periods, ``lags=2``
+    # returned 1.21 and a spurious pre-trend of -0.45.
+    nuis_cols = []
+    post_bin = (df["_rel_time"] > lags).astype(int)
+    n_binned_post = int(post_bin.sum())
+    if n_binned_post > 0:
+        df["_es_post_bin"] = post_bin
+        nuis_cols.append("_es_post_bin")
+
     # OLS with id and time fixed effects, demeaned.  The within-transform
     # below uses ``id`` / ``time`` groupers directly, so we only keep
     # the category-code columns for potential downstream reporting.
@@ -104,7 +125,9 @@ def design_robust_event_study(
     df_demean["_id_fe"] = df[id].astype("category").cat.codes
     df_demean["_t_fe"] = df[time].astype("category").cat.codes
     # Within transform via mean-removal (id then time, alternating, 5 iters)
-    es_cols = [f"_es_{k}" for k in rel_times]
+    report_cols = [f"_es_{k}" for k in rel_times]
+    es_cols = report_cols + nuis_cols
+    n_report = len(report_cols)
     work = df_demean[[y] + es_cols].copy()
     work[id] = df_demean[id].values
     work[time] = df_demean[time].values
@@ -138,6 +161,12 @@ def design_robust_event_study(
         beta = np.zeros(len(es_cols))
         se_beta = np.full(len(es_cols), np.nan)
         vcov = np.full((len(es_cols), len(es_cols)), np.nan)
+
+    # Keep the nuisance bin out of everything that is reported.
+    binned_post_coef = float(beta[n_report]) if nuis_cols else None
+    beta = beta[:n_report]
+    se_beta = se_beta[:n_report]
+    vcov = vcov[:n_report, :n_report]
 
     # Implicit TWFE weights: ω_k = X'X⁻¹ X'D_k where D_k indicates the
     # rel-time-k cell. Negative ω flags contamination.
@@ -187,6 +216,8 @@ def design_robust_event_study(
     diagnostics = {
         "n_negative_weight_periods": n_negative,
         "contamination_warning": n_negative > leads,
+        "n_obs_binned_post": n_binned_post,
+        "binned_post_coef": binned_post_coef,
     }
 
     z_crit = float(stats.norm.ppf(1 - alpha / 2))

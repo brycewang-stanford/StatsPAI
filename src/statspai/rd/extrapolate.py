@@ -569,7 +569,21 @@ def rd_extrapolate(
     # Average treatment effect across evaluation points
     valid = ~np.isnan(cate_hat)
     ate = float(np.nanmean(cate_hat))
-    ate_se = float(np.sqrt(np.nanmean(se_hat[valid] ** 2) / max(valid.sum(), 1)))
+    # SE of the average: the spread, across bootstrap draws, of the same
+    # average. The evaluation points are estimated from one sample and are
+    # close to perfectly correlated, so their variances do not average down.
+    #
+    # correctness fix (2026-10): this was sqrt(mean(se_k^2) / n_eval), which
+    # treats the evaluation points as independent. With the default 20
+    # points the SE was about sqrt(20) times too small and the 95% interval
+    # covered the truth 40% of the time.
+    from ..core._bootstrap import bootstrap_se
+
+    draw_ok = valid_boot[valid].any(axis=0) if valid.any() else np.zeros(0, bool)
+    boot_ate = np.full(boot_cates.shape[1], np.nan)
+    if valid.any():
+        boot_ate[draw_ok] = np.nanmean(boot_cates[valid][:, draw_ok], axis=0)
+    ate_se = bootstrap_se(boot_ate, label="rd.rd_extrapolate")
     ate_pv = float(2 * sp_stats.norm.sf(abs(ate) / max(ate_se, 1e-20)))
     ate_ci = (ate - z_crit * ate_se, ate + z_crit * ate_se)
 

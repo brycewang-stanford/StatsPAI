@@ -148,39 +148,46 @@ def balke_pearl(
     n = len(df)
     P = _joint_probs(df, y, treat, instrument)
 
-    # Shorthand: P[z, d, y]
-    # y(d) means potential outcome under d
-    # Balke-Pearl (1997, Theorem 4) for ATE = E[Y(1) - Y(0)]:
-    # Upper bound
-    #
-    # u_BP = min(
-    #    P(1,1|0) + P(0,0|1) + P(0,1|0) + P(0,1|1),     # four-term 1
-    #    P(1,1|1) + P(0,0|1) + P(0,0|0) + P(0,1|0),
-    #    ...
-    # )
-    #
-    # Lower bound mirrors with sign flips.
-    #
-    # We use the 8-term formulation from Balke-Pearl 1997 eq. 14-15.
+    # p(y, d, z) = P(Y=y, D=d | Z=z).
+    def p(yv: int, dv: int, zv: int) -> float:
+        return float(P[zv, dv, yv])
 
-    p00z0, p01z0, p10z0, p11z0 = P[0, 0, 0], P[0, 0, 1], P[0, 1, 0], P[0, 1, 1]
-    p00z1, p01z1, p10z1, p11z1 = P[1, 0, 0], P[1, 0, 1], P[1, 1, 0], P[1, 1, 1]
-
-    # From Richardson-Robins (2014, eq. 3.13) — Balke-Pearl ATE bounds:
-    upper_terms = [
-        p11z1 + p00z1,
-        p11z0 + p00z0,
-        p11z1 - p11z0 - p10z0 + p01z1 + p00z1 + p00z0,  # +
-        p11z0 - p11z1 + p01z0 - p10z1 + p00z0 + p00z1,
-        -p01z0 + p01z1 + p11z1 + p00z0 + p01z0 + p10z0,
-    ]
+    # Balke-Pearl (1997) sharp bounds on ATE = E[Y(1) - Y(0)]: the lower
+    # bound is the maximum of eight linear expressions in p, the upper bound
+    # the minimum of eight. They are the vertices of the linear program over
+    # the 16 (compliance type) x (outcome response type) cells, and
+    # tests/reference_parity/test_balke_pearl_lp_parity.py checks them
+    # against that program solved directly.
+    #
+    # correctness fix (2026-10): this block used to carry five expressions
+    # per side, three of them not Balke-Pearl terms. On random valid IV
+    # models the reported interval differed from the sharp one 87% of the
+    # time and excluded the true ATE about 5% of the time.
     lower_terms = [
-        -p01z1 - p10z1,
-        -p01z0 - p10z0,
-        p11z0 - p11z1 - p10z1 - p01z0 - p01z1 - p10z0,
-        p11z1 - p11z0 - p10z0 - p01z1 - p01z0 - p10z1,
-        -p00z0 + p00z1 - p11z1 - p10z0 - p01z1 - p10z1,
+        p(1, 1, 1) + p(0, 0, 0) - 1.0,
+        p(1, 1, 0) + p(0, 0, 1) - 1.0,
+        p(1, 1, 0) - p(1, 1, 1) - p(1, 0, 1) - p(0, 1, 0) - p(1, 0, 0),
+        p(1, 1, 1) - p(1, 1, 0) - p(1, 0, 0) - p(0, 1, 1) - p(1, 0, 1),
+        -p(0, 1, 1) - p(1, 0, 1),
+        -p(0, 1, 0) - p(1, 0, 0),
+        p(0, 0, 1) - p(0, 1, 1) - p(1, 0, 1) - p(0, 1, 0) - p(0, 0, 0),
+        p(0, 0, 0) - p(0, 1, 0) - p(1, 0, 0) - p(0, 1, 1) - p(0, 0, 1),
     ]
+    upper_terms = [
+        1.0 - p(0, 1, 1) - p(1, 0, 0),
+        1.0 - p(0, 1, 0) - p(1, 0, 1),
+        -p(0, 1, 0) + p(0, 1, 1) + p(0, 0, 1) + p(1, 1, 0) + p(0, 0, 0),
+        -p(0, 1, 1) + p(1, 1, 1) + p(0, 0, 1) + p(0, 1, 0) + p(0, 0, 0),
+        p(1, 1, 1) + p(0, 0, 1),
+        p(1, 1, 0) + p(0, 0, 0),
+        -p(1, 0, 1) + p(1, 1, 1) + p(0, 0, 1) + p(1, 1, 0) + p(1, 0, 0),
+        -p(1, 0, 0) + p(1, 1, 0) + p(0, 0, 0) + p(1, 1, 1) + p(1, 0, 1),
+    ]
+
+    p00z0, p01z0 = P[0, 0, 0], P[0, 0, 1]
+    p10z0, p11z0 = P[0, 1, 0], P[0, 1, 1]
+    p00z1, p01z1 = P[1, 0, 0], P[1, 0, 1]
+    p10z1, p11z1 = P[1, 1, 0], P[1, 1, 1]
 
     ub = float(min(upper_terms))
     lb = float(max(lower_terms))

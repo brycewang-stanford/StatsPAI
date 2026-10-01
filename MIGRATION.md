@@ -5,6 +5,36 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="oct2026-known-truth-fixes"></a>
+
+## Unreleased: ⚠️ six estimators that missed a known truth
+
+**Who is affected.** Anyone who reported numbers from the functions below.
+The old output cannot be reproduced by an option, because it was not an
+estimate of the documented quantity.
+
+| Function | What changes | Old on a design with a known answer | New |
+| --- | --- | --- | --- |
+| `sp.balke_pearl` | `lower`, `upper`, `width` | interval excluded the true ATE in 5% of valid IV models | the sharp bounds |
+| `sp.rd_multi_score`, `sp.multi_score_rd` | `boundary_effect`, `se` | 0.14 (truth 0.8) | 0.80 |
+| `sp.design_robust_event_study` when exposure exceeds `lags` | every coefficient and the headline | 1.21 (truth 2.0) | 2.05 |
+| `sp.cluster_staggered_rollout` with two or more cohorts | `event_study`, `overall_att`, all SEs | 1.22 (truth 1.5) | 1.51 |
+| `sp.rd_extrapolate` | `se`, `ci`, `pvalue` of the average | 40% coverage | 92% |
+| `sp.kitagawa_test` | `p_value` | near 0.5 on any data | a test with power |
+
+**What to do.** Re-run. For `design_robust_event_study`, results are
+unchanged when `lags` already covers the longest exposure in the data
+(`model_info['diagnostics']['n_obs_binned_post'] == 0`). For
+`cluster_staggered_rollout`, results with a single treated cohort are
+unchanged in the point estimates. `balke_pearl`'s `lower_monotone` and
+`upper_monotone` are unchanged.
+
+Separately, estimators that used to swallow an internal failure now warn
+(see the changelog). Code that runs with warnings as errors will surface
+them; the remedy is in each message.
+
+---
+
 <a id="stata-translation-grammar"></a>
 
 ## Unreleased: ⚠️ `sp.from_stata` / `sp.stata` stop translating a different model

@@ -316,21 +316,26 @@ def kitagawa_test(
     # Observed test statistic
     stat_obs, viol_t, viol_u = _compute_test_statistic(y_arr, d_arr, z_arr, grid)
 
-    # Bootstrap
+    # Bootstrap under the least-favourable null. The inequalities bind when
+    # the joint law of (Y, D) is the same in both instrument arms, so each
+    # replicate draws (Y, D) pairs from the pooled sample and leaves the
+    # instrument labels where they are (Kitagawa 2015 resamples both arms
+    # from the pooled empirical measure).
+    #
+    # correctness fix (2026-10): replicates used to be drawn from the
+    # sample as it stands, instrument label included. That bootstrap
+    # distribution is centred on the observed statistic, not on the null,
+    # so the p-value sat near 0.5 whatever the data: the test rejected 0 of
+    # 40 samples with a gross exclusion violation.
     rng = np.random.default_rng(seed)
     boot_stats = np.empty(n_boot)
-
     for b in range(n_boot):
         idx = rng.choice(n_obs, size=n_obs, replace=True)
-        boot_stat, _, _ = _compute_test_statistic(
-            y_arr[idx], d_arr[idx], z_arr[idx], grid
-        )
+        boot_stat, _, _ = _compute_test_statistic(y_arr[idx], d_arr[idx], z_arr, grid)
         boot_stats[b] = boot_stat
 
-    # P-value: fraction of bootstrap stats >= observed
-    # Under H0 we re-centre: the test statistic should be 0.
-    # Use the bootstrap distribution of the statistic itself.
-    p_value = np.mean(boot_stats >= stat_obs)
+    # Monte Carlo p-value with the +1 correction, so it is never exactly 0.
+    p_value = float((1 + np.sum(boot_stats >= stat_obs)) / (n_boot + 1))
 
     return KitagawaResult(
         statistic=stat_obs,

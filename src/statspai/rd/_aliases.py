@@ -146,8 +146,8 @@ def multi_score_rd(*args: Any, **kwargs: Any) -> MultiScoreRDResult:
     ... )
     >>> res.n_obs
     800
-    >>> round(float(res.boundary_effect), 3)
-    0.137
+    >>> round(float(res.boundary_effect), 3)  # true jump is 0.8
+    0.76
     """
     return rd_multi_score(*args, **kwargs)
 

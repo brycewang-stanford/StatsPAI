@@ -16,8 +16,8 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 
-from ._core import _kernel_fn
 from .._result_serialize import ResultProtocolMixin
+from ._core import _kernel_fn
 
 
 @dataclass
@@ -148,8 +148,15 @@ def rd_multi_score(
             )
         )
 
-    # Distance to boundary = max(distance to each cutoff)
-    dist = np.max(R, axis=1)  # negative when not all crossed
+    # Signed distance to the treatment boundary: the binding (smallest)
+    # centred score. It is non-negative exactly when every running variable
+    # has crossed its cutoff, which is the assignment rule documented above.
+    #
+    # correctness fix (2026-10): this used np.max, which is non-negative as
+    # soon as ANY score crosses. Units that crossed one cutoff but not all
+    # were coded as treated, and the kernel weighted distance to the wrong
+    # frontier. On a design with a 0.8 jump the estimate was 0.14.
+    dist = np.min(R, axis=1)
     treat = (dist >= 0).astype(int)
     weights = _kernel_fn(np.abs(dist) / bandwidth, kernel)
     mask = weights > 0

@@ -129,121 +129,87 @@ def cluster_staggered_rollout(
         df.groupby([cluster, time]).agg({y: "mean", first_treat: "first"}).reset_index()
     )
 
-    # Cohort-level event-study atts
     cohorts = sorted(cl.loc[cl[first_treat] > 0, first_treat].unique())
-    control_clusters = cl.loc[cl[first_treat] == 0, cluster].unique()
-    if len(control_clusters) == 0:
+    wide = cl.pivot(index=cluster, columns=time, values=y)
+    g_by_cluster = cl.groupby(cluster)[first_treat].first().reindex(wide.index)
+    Yw = wide.to_numpy(float)
+    g_arr = g_by_cluster.to_numpy()
+    pos = {t: j for j, t in enumerate(wide.columns)}
+    if not np.any(g_arr == 0):
         raise ValueError("No never-treated control clusters available.")
 
-    rel_rows = []
-    cell_failures: list = []
-    for c in cohorts:
-        cohort_clusters = cl.loc[cl[first_treat] == c, cluster].unique()
-        for k in range(-leads, lags + 1):
-            t = c + k
-            sub = cl[cl[time] == t]
-            if sub.empty:
-                continue
-            sub = sub.assign(_t=lambda d: d[cluster].isin(cohort_clusters).astype(int))
-            ref = cl[cl[time] == c - 1]
-            if ref.empty:
-                continue
-            ref = ref.assign(_t=lambda d: d[cluster].isin(cohort_clusters).astype(int))
-            try:
-                m = sub.groupby("_t")[y].mean()
-                m_ref = ref.groupby("_t")[y].mean()
-                att = float(
-                    (m.get(1, np.nan) - m.get(0, np.nan))
-                    - (m_ref.get(1, np.nan) - m_ref.get(0, np.nan))
-                )
-                if np.isfinite(att):
-                    rel_rows.append(
-                        {
-                            "cohort": c,
-                            "rel_time": k,
-                            "att": att,
-                        }
-                    )
-            except Exception as exc:  # noqa: BLE001 - counted and reported below
-                cell_failures.append(f"cohort={c}, rel_time={k}: {exc!r}")
-                continue
-    if cell_failures:
-        warnings.warn(
-            f"cluster_staggered_rollout: {len(cell_failures)} cohort x event-time "
-            f"cell(s) could not be estimated and were skipped "
-            f"(first: {cell_failures[0]}).",
-            RuntimeWarning,
-            stacklevel=2,
-        )
+    rel_times = list(range(-leads, lags + 1))
 
-    es_long = pd.DataFrame(rel_rows)
-    if es_long.empty:
-        raise ValueError("Could not estimate any event-time ATTs.")
-    # Aggregate per relative time (simple mean across cohorts)
-    es = es_long.groupby("rel_time")["att"].mean().reset_index()
-    # SE via cluster bootstrap
-    rng = np.random.default_rng(0)
-    boot = []
-    boot_failures: list = []
-    n_clusters = cl[cluster].nunique()
-    for b in range(100):
-        sample_clusters = rng.choice(
-            cl[cluster].unique(), size=n_clusters, replace=True
-        )
-        sub_cl = pd.concat(
-            [cl[cl[cluster] == cc] for cc in sample_clusters], ignore_index=True
-        )
-        try:
-            inner_atts = []
-            for c in cohorts:
-                cohort_cls = sub_cl.loc[sub_cl[first_treat] == c, cluster].unique()
-                if len(cohort_cls) == 0:
+    def _event_study(idx: np.ndarray) -> np.ndarray:
+        """ATT by relative time on the clusters ``idx`` (with multiplicity).
+
+        Each cohort is compared with the never-treated clusters only.
+
+        correctness fix (2026-10): the comparison group used to be every
+        cluster outside the cohort, so a cohort that switched on between
+        the reference period and ``t`` entered as a control. With two
+        cohorts and a constant effect of 1.5 the later event times came
+        out at 0.8 to 0.9.
+        """
+        Yb = Yw[idx]
+        gb = g_arr[idx]
+        ctrl = Yb[gb == 0]
+        out = np.full((len(cohorts), len(rel_times)), np.nan)
+        if len(ctrl) == 0:
+            return np.full(len(rel_times), np.nan)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            m_ctrl = np.nanmean(ctrl, axis=0)
+            for i, c in enumerate(cohorts):
+                trt = Yb[gb == c]
+                if len(trt) == 0 or (c - 1) not in pos:
                     continue
-                for k in range(0, lags + 1):
+                m_trt = np.nanmean(trt, axis=0)
+                base = m_trt[pos[c - 1]] - m_ctrl[pos[c - 1]]
+                for j, k in enumerate(rel_times):
                     t = c + k
-                    sub = sub_cl[sub_cl[time] == t]
-                    ref = sub_cl[sub_cl[time] == c - 1]
-                    if sub.empty or ref.empty:
-                        continue
-                    sub = sub.assign(
-                        _t=lambda d: d[cluster].isin(cohort_cls).astype(int)
-                    )
-                    ref = ref.assign(
-                        _t=lambda d: d[cluster].isin(cohort_cls).astype(int)
-                    )
-                    m = sub.groupby("_t")[y].mean()
-                    mr = ref.groupby("_t")[y].mean()
-                    att = (m.get(1, np.nan) - m.get(0, np.nan)) - (
-                        mr.get(1, np.nan) - mr.get(0, np.nan)
-                    )
-                    if np.isfinite(att):
-                        inner_atts.append(att)
-            if inner_atts:
-                boot.append(np.mean(inner_atts))
-        except Exception as exc:  # noqa: BLE001 - counted and reported below
-            boot_failures.append(repr(exc))
-            continue
-    if boot_failures:
-        warnings.warn(
-            f"cluster_staggered_rollout: {len(boot_failures)} of 100 bootstrap "
-            f"replications failed and were dropped (first: {boot_failures[0]}).",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-    if len(boot) < 2:
-        warnings.warn(
-            "cluster_staggered_rollout: fewer than 2 usable bootstrap "
-            "replications; the reported standard error (1e-6) is a placeholder, "
-            "not an estimate of sampling variability.",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-    se = float(np.std(boot, ddof=1)) if len(boot) >= 2 else 1e-6
-    overall = float(es.loc[es["rel_time"] >= 0, "att"].mean())
+                    if t in pos:
+                        out[i, j] = (m_trt[pos[t]] - m_ctrl[pos[t]]) - base
+            # Simple mean across cohorts at each relative time.
+            return np.nanmean(out, axis=0)
+
+    def _overall(es_vec: np.ndarray) -> float:
+        post = es_vec[[j for j, k in enumerate(rel_times) if k >= 0]]
+        post = post[np.isfinite(post)]
+        return float(post.mean()) if len(post) else float("nan")
+
+    n_clusters = len(wide)
+    es_vec = _event_study(np.arange(n_clusters))
+    keep = np.isfinite(es_vec)
+    if not keep.any():
+        raise ValueError("Could not estimate any event-time ATTs.")
+
+    # Cluster bootstrap: one joint draw gives every event time and the
+    # post-period average, so each row carries its own standard error.
+    n_boot = 100
+    rng = np.random.default_rng(0)
+    boot_es = np.full((n_boot, len(rel_times)), np.nan)
+    boot_overall = np.full(n_boot, np.nan)
+    for b in range(n_boot):
+        idx = rng.integers(0, n_clusters, size=n_clusters)
+        boot_es[b] = _event_study(idx)
+        boot_overall[b] = _overall(boot_es[b])
+
+    from ..core._bootstrap import bootstrap_se
+
+    label = "interference.cluster_staggered_rollout"
+    se = bootstrap_se(boot_overall, label=label)
+    overall = _overall(es_vec)
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
-    es["se"] = se
-    es["ci_low"] = es["att"] - z_crit * se
-    es["ci_high"] = es["att"] + z_crit * se
+    es = pd.DataFrame({"rel_time": rel_times, "att": es_vec})[keep].reset_index(
+        drop=True
+    )
+    es["se"] = [
+        bootstrap_se(boot_es[:, j], label=label, warn=False)
+        for j in np.flatnonzero(keep)
+    ]
+    es["ci_low"] = es["att"] - z_crit * es["se"]
+    es["ci_high"] = es["att"] + z_crit * es["se"]
 
     return StaggeredClusterRCTResult(
         overall_att=overall,

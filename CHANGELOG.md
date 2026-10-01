@@ -6,6 +6,46 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **Six estimators did not recover a known truth.** None had numerical
+  evidence attached. Each was run on a simulated design with a planted
+  answer, missed it, and the cause was traced to the code. The anchors are
+  in `tests/reference_parity/test_oct2026_correctness_fixes.py`.
+  - **`sp.balke_pearl` reported bounds that are not the Balke-Pearl
+    bounds.** The lower and upper bound each took the extremum of five
+    expressions, three of which are not among the eight the sharp bounds
+    need. On 300 random valid IV models the interval differed from the
+    sharp one in 260 and excluded the true ATE in 16. The bounds now equal
+    the optimum of the response-type linear program to machine precision. The
+    `lower_monotone` / `upper_monotone` fields were already correct.
+  - **`sp.rd_multi_score` / `sp.multi_score_rd` coded a unit as treated
+    when any score crossed its cutoff**, where the documented rule is all
+    of them (`max` for `min`). A design with a 0.8 jump returned 0.14;
+    it now returns 0.80.
+  - **`sp.design_robust_event_study` used already-treated rows as
+    comparisons.** Treated observations later than `lags` had no dummy and
+    fell into the omitted category. With a constant effect of 2.0 and
+    exposure up to four periods, `lags=2` returned 1.21 and a lead of
+    -0.45. They now get one unreported dummy. The count and pooled
+    coefficient are in `model_info['diagnostics']`.
+  - **`sp.cluster_staggered_rollout` compared each cohort with every
+    other cluster**, including cohorts that switched on between the
+    reference period and the event time. The never-treated clusters were
+    computed and not used. A constant effect of 1.5 came out at 0.8 to 0.9
+    at the later event times and 1.22 overall; it is now 1.51 with 95%
+    coverage. Each event time carries its own bootstrap SE, where every
+    row used to repeat the SE of the post-period average.
+  - **`sp.rd_extrapolate` understated the SE of the averaged effect by
+    about `sqrt(n_eval)`.** The evaluation points are estimated from one
+    sample and move together, and their variances were averaged as if
+    independent. Coverage of the 95% interval was 40%; it is 92%. The
+    point estimate and the per-point SEs are unchanged.
+  - **`sp.kitagawa_test` could not reject.** Bootstrap replicates were
+    drawn from the sample with its instrument labels, so their
+    distribution was centred on the observed statistic and the p-value sat
+    near 0.5. Replicates are now drawn from the pooled sample, the
+    least-favourable null. Power against a gross exclusion violation went
+    from 0 of 40 to about 70%, with no false rejections of a valid
+    instrument in 60 samples. The p-value is `(1 + #{T* >= T}) / (B + 1)`.
 - **`sp.from_stata` dropped abbreviated options without a trace.** Handlers
   read options by full name, so the abbreviations in Stata's own syntax
   diagrams translated to a different model with `ok=True` and empty notes:
@@ -81,6 +121,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Known-truth evidence for 60 more estimators.** Three new files under
+  `tests/reference_parity/` hold 140 tests: closed-form identities checked
+  to 1e-9 or tighter, recoveries of a planted parameter within four
+  standard errors, and the six anchors above. Estimator callables with
+  numerical evidence go from 572 to 632 of 822 (`docs/parity.md`). All of
+  it is `analytical-only`; none is a comparison with R or Stata.
+- **`scripts/silent_except_audit.py`, a ratchet on silent broad `except`
+  handlers across the package** (pre-push hook `silent-except`,
+  `tests/test_silent_except_audit.py`). A handler counts when it catches
+  `Exception` or wider and neither re-raises, warns, logs, nor reads the
+  exception. The per-file baseline may only go down. It starts at 165
+  sites; wrappers around `attach_provenance`, which guards itself, are
+  exempt. The count before this release was 227.
 - **`sp.stata` reads a do-file snippet.** `///` continuations, `/* */` and
   `//` comments and `#delimit ;` are resolved; `global` / `local` macros
   whose value is written out are expanded (also when defined from other
@@ -105,6 +158,23 @@ adding an option changes the translation or is reported, and
 
 ### Changed
 
+- **Fallbacks inside estimators now warn.** Sixty-two handlers caught an
+  exception and substituted something else without a trace: a marginal
+  mean for a propensity score (`focal_cate`, `conformal_debiased_ml`,
+  `gnn_causal`, `ivdml`), NaN for a standard error or test statistic
+  (`spatial` ML, `auto_cate` BLP, Bayesian R-hat and ESS), a dropped
+  cohort, pair or placebo unit (`did_misclassified`,
+  `cohort_anchored_event_study`, `cluster_matched_pair`, `gsynth`, `sdid`,
+  `did_sc_bridge`), an uncalibrated score for a calibrated one
+  (`dr_calib_bridge`), a heuristic for an LLM proposal (`llm_dag_propose`
+  and the two LLM sensitivity helpers), or an untransformed confidence
+  interval beside a transformed coefficient (`regtable(apply_coef=)`).
+  Each now emits a `RuntimeWarning` naming the step, the error and the
+  substitute (`ConvergenceWarning` for the Bayesian diagnostics);
+  `sp.rdsummary` records failed side analyses in
+  `result['degradations']`. Numbers on a run where nothing fails are
+  unchanged: the full suite passes and every Track A Python result
+  re-derives to 1e-9.
 - **The repository's default README is now the Chinese edition.** `README.md`
   holds the Chinese text (formerly `README_CN.md`) and the English text moved
   to `README_EN.md`. The PyPI long description stays English

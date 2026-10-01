@@ -103,14 +103,22 @@ def test_design_robust(staggered_panel):
     # against a 400-draw cluster bootstrap of the full procedure on this
     # fixture: bootstrap SE 0.31009 vs analytic 0.30652 (the old pinned
     # 0.24139 was ~22% below the bootstrap truth).
+    #
+    # ⚠️ correctness fix (2026-10): treated rows later than ``lags`` now get
+    # their own unreported dummy. They used to sit in the omitted category
+    # and act as comparisons, which pulled this fixture's estimate to
+    # 1.2399 against a true effect of 2.0 (2.5 SE low). The 2026-07
+    # bootstrap check validated the SE of that procedure, not its target.
+    assert res.ci[0] < 2.0 < res.ci[1]
+    assert res.model_info["diagnostics"]["n_obs_binned_post"] == 24
     np.testing.assert_allclose(
         [res.estimate, res.se, res.pvalue, res.ci[0], res.ci[1]],
         [
-            1.2398673925548866,
-            0.30651882192011204,
-            5.2324029183870024e-05,
-            0.6391015410078206,
-            1.8406332441019528,
+            1.9267159263975826,
+            0.2806863920186107,
+            6.681753714428635e-12,
+            1.3765807070906146,
+            2.4768511457045506,
         ],
         atol=1e-12,
     )
@@ -118,10 +126,10 @@ def test_design_robust(staggered_panel):
         es[["rel_time", "att", "se"]].to_numpy(),
         np.array(
             [
-                [-2.0, -0.165497, 0.429303],
-                [0.0, 1.341270, 0.388341],
-                [1.0, 1.218834, 0.369759],
-                [2.0, 1.159498, 0.486713],
+                [-2.0, 0.288411, 0.407313],
+                [0.0, 1.935775, 0.373040],
+                [1.0, 1.888157, 0.341940],
+                [2.0, 1.956215, 0.474201],
             ]
         ),
         atol=5e-7,
