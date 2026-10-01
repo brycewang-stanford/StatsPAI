@@ -6,6 +6,18 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **Clustered CER bandwidths were too narrow in `sp.rdbwselect` and
+  `sp.rdrobust`.** The coverage-error-rate bandwidths (`cerrd`, `certwo`,
+  `cersum`, `cercomb1`, `cercomb2`) shrink the MSE-optimal bandwidth by
+  `m ** (-p / ((3 + p)(3 + 2p)))`. With `cluster=`, rdrobust takes `m` to
+  be the number of clusters, counted on each side of the cutoff and added;
+  StatsPAI used the number of observations. On 1,200 observations in 60
+  clusters `h_cerrd` was 0.2054 where rdrobust 4.0.0 (R) and Stata 18 both
+  give 0.2305. Bandwidths, the bias-corrected estimate and the robust SE
+  now match R to 1e-8
+  (`tests/reference_parity/test_rd_cluster_cer_parity.py`). Unclustered
+  fits and every MSE bandwidth are unchanged, and all 89 Track A results
+  re-derive.
 - **Six estimators did not recover a known truth.** None had numerical
   evidence attached. Each was run on a simulated design with a planted
   answer, missed it, and the cause was traced to the code. The anchors are
@@ -121,6 +133,16 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.from_stata` / `sp.stata` translate `areg` and `rdbwselect`.**
+  `areg y x, absorb(g)` becomes `sp.regress('y ~ x + C(g)')`, the
+  dummy-variable regression, because `areg` counts the absorbed groups in
+  the degrees of freedom of every variance estimator and keeps singleton
+  groups, where `reghdfe` (and `sp.hdfe_ols`) does neither. `rdbwselect`
+  maps `c p q deriv kernel bwselect covs fuzzy masspoints all` and
+  `vce(cluster v)`; any other `vce()`, `weights()` and `scaleregul()` are
+  listed in `untranslated_options`. Both are pinned to Stata 18 output at
+  1e-7 across eight `areg` and four `rdbwselect` specifications
+  (`tests/test_stata_translation_areg_rdbwselect.py`).
 - **Known-truth evidence for 60 more estimators.** Three new files under
   `tests/reference_parity/` hold 140 tests: closed-form identities checked
   to 1e-9 or tighter, recoveries of a planted parameter within four

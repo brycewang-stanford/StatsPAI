@@ -318,6 +318,57 @@ def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("hdfe_ols", args, python, notes)
 
 
+def _h_areg(cmd: StataCommand) -> Dict[str, Any]:
+    """``areg y x, absorb(g) vce(cluster c)`` -> ``sp.regress`` with ``C(g)``.
+
+    ``areg`` counts the absorbed groups in the degrees of freedom of every
+    variance estimator, clustered ones included, and keeps singleton groups.
+    ``sp.hdfe_ols`` follows ``reghdfe`` on both points (a fixed effect
+    nested in the cluster variable costs no degrees of freedom there), so
+    the counterpart that reproduces ``areg`` is the dummy-variable
+    regression. Checked against Stata 18 for the default, ``vce(robust)``,
+    ``vce(cluster)`` on the absorbed variable and on another one, each
+    with and without ``[aw=]``, on data with singleton groups.
+    """
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return _emit_error("areg requires an outcome variable", command="areg")
+    absorb = (cmd.options.get("absorb") or "").strip()
+    m = re.fullmatch(rf"(?:i\.)?({_ABSORB_NAME})", absorb)
+    if m is None:
+        return _emit_error(
+            f"areg absorbs exactly one categorical variable; got absorb({absorb}). "
+            "Several fixed effects or interactions are reghdfe syntax.",
+            command="areg",
+            suggestions=[],
+        )
+    group = m.group(1)
+    formula = _build_formula(y, xs + [f"C({group})"])
+    cluster = _vce_cluster(cmd)
+    robust = _robust_kind(cmd)
+    args: Dict[str, Any] = {"formula": formula}
+    if robust != "nonrobust":
+        args["robust"] = robust
+    if cluster:
+        args["cluster"] = cluster
+    code_kwargs = ", ".join(
+        [f"{k}={v!r}" for k, v in args.items() if k != "formula"] + ["data=df"]
+    )
+    python = f"sp.regress({formula!r}, {code_kwargs})"
+    notes = [
+        f"areg absorb({group}) -> C({group}) dummies in sp.regress: areg's "
+        "standard errors count the absorbed groups in the degrees of "
+        "freedom. sp.hdfe_ols gives the same coefficients faster but "
+        "follows reghdfe's degrees of freedom and drops singletons."
+    ]
+    if cmd.if_cond:
+        notes.append(
+            f"Stata `if {cmd.if_cond}` dropped — pre-filter df via "
+            f"`df = df.query({cmd.if_cond!r})` before calling."
+        )
+    return _emit("regress", args, python, notes)
+
+
 _SUM_STATS = {
     "n": "n",
     "count": "n",
@@ -980,6 +1031,96 @@ def _h_rdrobust(cmd: StataCommand) -> Dict[str, Any]:
     )
     out = _emit("rdrobust", args, python, notes)
     out["untranslated_options"] = lost
+    return out
+
+
+def _h_rdbwselect(cmd: StataCommand) -> Dict[str, Any]:
+    """``rdbwselect y x, c(0) bwselect(cerrd) vce(cluster id)`` -> ``sp.rdbwselect``.
+
+    Options keep their Stata names; ``vce(cluster v)`` becomes ``cluster=``
+    and ``all`` becomes ``all=True``. ``sp.rdbwselect`` uses the
+    nearest-neighbour variance of ``vce(nn 3)``, Stata's default, so any
+    other ``vce()`` is reported as not carried over, as are ``weights()``
+    and ``scaleregul()``.
+    """
+    if len(cmd.varlist) < 2:
+        return _emit_error(
+            "rdbwselect requires y + running variable: `rdbwselect y x, c(<v>)`",
+            command="rdbwselect",
+        )
+    y, x = cmd.varlist[0], cmd.varlist[1]
+    opts = cmd.options
+    notes: List[str] = []
+    lost: List[str] = []
+
+    def text(name: str) -> str:
+        return opts.get(name) or ""
+
+    def skipped(name: str) -> None:
+        lost.append(name)
+        notes.append(
+            f"{name}({opts.get(name)}) is not translated; sp.rdbwselect keeps "
+            "its default."
+        )
+
+    c_raw = opts.get("c", "0")
+    try:
+        c = float(c_raw) if c_raw is not None else 0.0
+    except (TypeError, ValueError):
+        return _emit_error(
+            f"rdbwselect c({c_raw}) is not a number", command="rdbwselect"
+        )
+    args: Dict[str, Any] = {"y": y, "x": x, "c": c}
+    if opts.get("fuzzy"):
+        fz = text("fuzzy").split()
+        args["fuzzy"] = fz[0]
+        if len(fz) > 1:
+            notes.append(f"fuzzy(... {' '.join(fz[1:])}) suboption is not translated.")
+    for name in ("deriv", "p", "q"):
+        if opts.get(name) is not None:
+            try:
+                args[name] = int(text(name))
+            except ValueError:
+                skipped(name)
+    if opts.get("kernel"):
+        kernel = _RD_KERNELS.get(text("kernel").split()[0].lower()[:3])
+        if kernel:
+            args["kernel"] = kernel
+        else:
+            skipped("kernel")
+    if opts.get("bwselect"):
+        args["bwselect"] = text("bwselect").split()[0].lower()
+    if opts.get("covs"):
+        args["covs"] = text("covs").split()
+    vce_is_default = False
+    if opts.get("vce"):
+        vce = text("vce").split()
+        kind = vce[0].lower()
+        if kind == "cluster" and len(vce) == 2:
+            args["cluster"] = vce[1]
+        elif kind == "nn" and vce[1:] in ([], ["3"]):
+            vce_is_default = True  # sp.rdbwselect's variance estimator
+        else:
+            skipped("vce")
+    if "all" in opts:
+        args["all"] = True
+    if opts.get("masspoints"):
+        mp = text("masspoints").split()[0].lower()
+        if mp in {"adjust", "check", "off"}:
+            args["masspoints"] = mp
+        else:
+            skipped("masspoints")
+    for name in ("weights", "scaleregul"):
+        if opts.get(name) is not None:
+            skipped(name)
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items() if k not in ("y", "x", "c"))
+    python = f"sp.rdbwselect(data=df, y={y!r}, x={x!r}, c={c}" + (
+        f", {kw})" if kw else ")"
+    )
+    out = _emit("rdbwselect", args, python, notes)
+    out["untranslated_options"] = lost
+    if vce_is_default:
+        out["_vce_is_sp_default"] = True
     return out
 
 
@@ -1771,6 +1912,7 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "reg": _h_regress,
     "xtreg": _h_xtreg,
     "reghdfe": _h_reghdfe,
+    "areg": _h_areg,
     "ivreg2": _h_ivreg2,
     "ivregress": _h_ivreg2,  # close-enough mapping
     "ivreghdfe": _h_ivreghdfe,
@@ -1780,6 +1922,7 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "did_imputation": _h_did_imputation,
     "synth": _h_synth,
     "rdrobust": _h_rdrobust,
+    "rdbwselect": _h_rdbwselect,
     # Tier 2 — follow-on commands (push coverage to ~85%)
     "probit": _h_probit,
     "logit": _h_logit,
@@ -2275,6 +2418,10 @@ def _report_options(
     se, se_names = _opts.se_note(
         options, payload.get("arguments") or {}, reported + unread
     )
+    if payload.pop("_vce_is_sp_default", False):
+        # The handler checked that the vce() Stata was given is what the sp
+        # function computes with no argument.
+        se, se_names = None, []
     if se:
         notes.append(se)
     payload["notes"] = notes

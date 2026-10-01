@@ -223,6 +223,8 @@ _COMMANDS = {
     "oprobit o x1 x2": "",
     "mlogit o x1 x2": "",
     "rdrobust y x1": "",
+    "rdbwselect y x1": "",
+    "areg y x1": "absorb(id)",
     "rddensity x1": "",
     "rdplot y x1": "",
     "heckman y x1": "select(b = x1 x2)",

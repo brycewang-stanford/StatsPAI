@@ -7,7 +7,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="oct2026-known-truth-fixes"></a>
 
-## Unreleased: ⚠️ six estimators that missed a known truth
+## Unreleased: ⚠️ six estimators that missed a known truth, and clustered CER bandwidths
 
 **Who is affected.** Anyone who reported numbers from the functions below.
 The old output cannot be reproduced by an option, because it was not an
@@ -21,6 +21,7 @@ estimate of the documented quantity.
 | `sp.cluster_staggered_rollout` with two or more cohorts | `event_study`, `overall_att`, all SEs | 1.22 (truth 1.5) | 1.51 |
 | `sp.rd_extrapolate` | `se`, `ci`, `pvalue` of the average | 40% coverage | 92% |
 | `sp.kitagawa_test` | `p_value` | near 0.5 on any data | a test with power |
+| `sp.rdbwselect`, `sp.rdrobust` with a `cer*` bandwidth and `cluster=` | `h`, and through it the estimate and SEs | `h_cerrd` 0.2054 (rdrobust: 0.2305) | 0.2305 |
 
 **What to do.** Re-run. For `design_robust_event_study`, results are
 unchanged when `lags` already covers the longest exposure in the data

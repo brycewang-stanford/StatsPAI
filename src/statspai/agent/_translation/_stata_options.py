@@ -210,6 +210,8 @@ def canonicalise_options(
     only expanded when the full name is not also given.
     """
     table = _COMMON_OPTIONS + (_HDFE_OPTIONS if command in _HDFE_COMMANDS else ())
+    if command == "areg":
+        table = table + (("absorb", 1),)
     out: Dict[str, Optional[str]] = {}
     expanded: List[str] = []
     for name, value in options.items():
