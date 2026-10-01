@@ -144,7 +144,15 @@ def focal_cate(
     try:
         ps = LogisticRegression(max_iter=1000).fit(X, D).predict_proba(X)[:, 1]
         ps = np.clip(ps, 0.02, 0.98)
-    except Exception:
+    except Exception as exc:
+        from ..core._fallback import warn_fallback
+
+        warn_fallback(
+            "focal_cate propensity model",
+            exc,
+            "using a constant propensity of 0.5, which removes the "
+            "confounding adjustment from the DR pseudo-outcome",
+        )
         ps = np.full(n_train, 0.5)
 
     cate_grid = np.zeros((n_test, len(y_columns)))
@@ -165,7 +173,15 @@ def focal_cate(
             se_grid[:, j] = float(
                 np.std(psi - cate_model.predict(X), ddof=1)
             ) * np.ones(n_test)
-        except Exception:
+        except Exception as exc:
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                f"focal_cate CATE regression for outcome {ycol!r}",
+                exc,
+                "reporting the mean pseudo-outcome, a constant effect, at "
+                "every test point",
+            )
             cate_grid[:, j] = float(np.mean(psi))
             se_grid[:, j] = float(np.std(psi, ddof=1) / np.sqrt(n_train))
 

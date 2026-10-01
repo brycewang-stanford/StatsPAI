@@ -109,19 +109,40 @@ class MeanComparisonResult:
             if self.test == "ranksum":
                 try:
                     stat, pval = sp_stats.mannwhitneyu(v0, v1, alternative="two-sided")
-                except Exception:
+                except Exception as exc:
+                    from ..core._fallback import warn_fallback
+
+                    warn_fallback(
+                        f"rank-sum test for {var!r}",
+                        exc,
+                        "its p-value is reported as NaN",
+                    )
                     pval = np.nan
             elif self.test == "chi2":
                 try:
                     ct = pd.crosstab(data[self.group], data[var])
                     chi2, pval, _, _ = sp_stats.chi2_contingency(ct)
-                except Exception:
+                except Exception as exc:
+                    from ..core._fallback import warn_fallback
+
+                    warn_fallback(
+                        f"chi-squared test for {var!r}",
+                        exc,
+                        "its p-value is reported as NaN",
+                    )
                     pval = np.nan
             else:
                 # Default: Welch t-test
                 try:
                     stat, pval = sp_stats.ttest_ind(v0, v1, equal_var=False)
-                except Exception:
+                except Exception as exc:
+                    from ..core._fallback import warn_fallback
+
+                    warn_fallback(
+                        f"Welch t test for {var!r}",
+                        exc,
+                        "its p-value is reported as NaN",
+                    )
                     pval = np.nan
 
             stars = _format_stars(pval, (0.10, 0.05, 0.01))

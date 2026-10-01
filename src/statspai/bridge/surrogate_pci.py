@@ -14,9 +14,9 @@ from __future__ import annotations
 from typing import List, Optional
 
 import numpy as np
-from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from .core import BridgeResult, _agreement_test, _dr_combine, _register
 
 
@@ -91,7 +91,14 @@ def surrogate_pci_bridge(
 
     try:
         att_surr = _surrogate(Y, D, S, X)
-    except Exception:
+    except Exception as exc:
+        from ..core._fallback import warn_fallback
+
+        warn_fallback(
+            "surrogate-index path of surrogate_pci_bridge",
+            exc,
+            "its ATT is reported as NaN and the bridge has only the PCI " "path",
+        )
         att_surr = np.nan
 
     # ---------- Path B: PCI bridge (two-model counterfactual) ---------- #

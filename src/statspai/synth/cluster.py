@@ -35,11 +35,12 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core.results import CausalResult
+
 # sklearn is imported lazily inside the helpers that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
 # file when the user never touches cluster_synth.
 
-from ..core.results import CausalResult
 
 __all__ = ["cluster_synth"]
 
@@ -419,11 +420,7 @@ def _fit_cluster(
     seed: Optional[int],
 ) -> np.ndarray:
     """Run one clustering algorithm and return labels."""
-    from sklearn.cluster import (
-        AgglomerativeClustering,
-        KMeans,
-        SpectralClustering,
-    )
+    from sklearn.cluster import AgglomerativeClustering, KMeans, SpectralClustering
 
     if method == "kmeans":
         model = KMeans(
@@ -622,7 +619,14 @@ def _run_placebos(
             post_rmspes.append(np.sqrt(post_mspe))
             ratios.append(float(ratio))
             units.append(placebo_unit)
-        except Exception:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                f"cluster-synth placebo fit for unit {placebo_unit!r}",
+                exc,
+                "it is left out of the placebo distribution",
+            )
             continue  # pragma: no cover
 
     return {

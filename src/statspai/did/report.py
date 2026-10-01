@@ -1340,7 +1340,14 @@ def cs_report(
         e_int = int(row["relative_time"])
         try:
             m_star = breakdown_m(dynamic, e=e_int, method=rr_method, alpha=alpha)
-        except Exception:  # pragma: no cover - defensive
+        except Exception as exc:  # pragma: no cover - defensive
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                f"breakdown M at event time {e_int}",
+                exc,
+                "it is reported as NaN in the robustness table",
+            )
             m_star = float("nan")
         rr_rows.append(
             {

@@ -14,9 +14,9 @@ from __future__ import annotations
 from typing import List
 
 import numpy as np
-from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from .core import BridgeResult, _agreement_test, _dr_combine, _register
 
 
@@ -76,7 +76,15 @@ def dr_calib_bridge(
                 mu0_cal[Di == 0] = _isotonic_calibrate(mu0[Di == 0], Yi[Di == 0])
                 ps_cal = _isotonic_calibrate(ps, Di.astype(float))
                 ps_cal = np.clip(ps_cal, 0.02, 0.98)
-            except Exception:
+            except Exception as exc:
+                from ..core._fallback import warn_fallback
+
+                warn_fallback(
+                    "dr_calib isotonic calibration",
+                    exc,
+                    "the calibrated path reuses the uncalibrated nuisances, so "
+                    "the agreement test compares AIPW with itself",
+                )
                 mu1_cal, mu0_cal, ps_cal = mu1, mu0, ps
             mu1, mu0, ps = mu1_cal, mu0_cal, ps_cal
         # AIPW score

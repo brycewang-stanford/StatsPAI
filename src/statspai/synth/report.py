@@ -1029,8 +1029,13 @@ def synth_report(
                 seed=seed,
                 alpha=alpha,
             )
-        except Exception:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover
             # Sensitivity is best-effort; do not fail the whole report
+            from ..workflow._degradation import record_degradation
+
+            record_degradation(
+                None, section="synth report: sensitivity analysis", exc=exc
+            )
             sens_result = None
 
     # --- Format ---

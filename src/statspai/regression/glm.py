@@ -1136,7 +1136,15 @@ class GLMEstimator(BaseEstimator):
                 method="bounded",
             )
             return float(np.exp(res.x))
-        except Exception:
+        except Exception as exc:
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                "NB2 dispersion (alpha) profile likelihood",
+                exc,
+                "keeping the starting value of alpha, so the reported "
+                "dispersion is not a maximum-likelihood estimate",
+            )
             return alpha_init
 
 

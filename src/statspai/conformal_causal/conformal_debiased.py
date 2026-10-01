@@ -15,6 +15,7 @@ from typing import List, Optional
 
 import numpy as np
 import pandas as pd
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -140,7 +141,16 @@ def conformal_debiased_ml(
         try:
             lr = LogisticRegression(max_iter=1000).fit(X[tr], D[tr])
             ps[te] = np.clip(lr.predict_proba(X[te])[:, 1], 0.02, 0.98)
-        except Exception:
+        except Exception as exc:
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                "conformal_debiased_ml propensity model in a cross-fitting fold",
+                exc,
+                "using the training-fold treated share as a constant "
+                "propensity, which drops the confounding adjustment for that "
+                "fold",
+            )
             ps[te] = float(D[tr].mean())
 
     # AIPW score per unit (debiased ITE estimate)

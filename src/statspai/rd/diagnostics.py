@@ -672,7 +672,14 @@ def rdsummary(
             cluster=cluster,
         )
         results["bw_sensitivity"] = bws
-    except Exception:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover
+        from ..workflow._degradation import record_degradation
+
+        record_degradation(
+            results.setdefault("degradations", []),
+            section="rd diagnostics: bandwidth sensitivity",
+            exc=exc,
+        )
         results["bw_sensitivity"] = None
     finally:
         if not plot:
@@ -688,7 +695,14 @@ def rdsummary(
                 data, y=y, x=x, c=c, kernel=kernel, alpha=alpha, cluster=cluster
             )
             results["honest_ci"] = honest
-        except Exception:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover
+            from ..workflow._degradation import record_degradation
+
+            record_degradation(
+                results.setdefault("degradations", []),
+                section="rd diagnostics: honest confidence interval",
+                exc=exc,
+            )
             results["honest_ci"] = None
 
         # 6. Power analysis
@@ -710,7 +724,14 @@ def rdsummary(
                 alpha=alpha,
             )
             results["power"] = power_res
-        except Exception:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover
+            from ..workflow._degradation import record_degradation
+
+            record_degradation(
+                results.setdefault("degradations", []),
+                section="rd diagnostics: power analysis",
+                exc=exc,
+            )
             results["power"] = None
 
         # 7. Placebo cutoff tests
@@ -728,7 +749,14 @@ def rdsummary(
                 cluster=cluster,
             )
             results["placebos"] = placebos
-        except Exception:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover
+            from ..workflow._degradation import record_degradation
+
+            record_degradation(
+                results.setdefault("degradations", []),
+                section="rd diagnostics: placebo cutoffs",
+                exc=exc,
+            )
             results["placebos"] = None
 
         # 8. Bandwidth comparison across methods
@@ -747,7 +775,14 @@ def rdsummary(
                 cluster=cluster,
             )
             results["bandwidth_comparison"] = bw_comp
-        except Exception:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover
+            from ..workflow._degradation import record_degradation
+
+            record_degradation(
+                results.setdefault("degradations", []),
+                section="rd diagnostics: bandwidth-selector comparison",
+                exc=exc,
+            )
             results["bandwidth_comparison"] = None
 
     # Print summary
@@ -759,7 +794,14 @@ def rdsummary(
         try:
             fig = _rd_diagnostic_plot(data, y, x, c, results, alpha)
             results["figure"] = fig
-        except Exception:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover
+            from ..workflow._degradation import record_degradation
+
+            record_degradation(
+                results.setdefault("degradations", []),
+                section="rd diagnostics: diagnostic figure",
+                exc=exc,
+            )
             results["figure"] = None
 
     return results

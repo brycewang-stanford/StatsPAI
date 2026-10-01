@@ -414,7 +414,14 @@ def _linear_iv_fit(
             df_denom = n - full.shape[1]
             if rss_full > 0 and q > 0 and df_denom > 0:
                 first_stage_F = ((rss_restr - rss_full) / q) / (rss_full / df_denom)
-        except Exception:
+        except Exception as exc:
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                "proximal 2SLS first-stage F statistic",
+                exc,
+                "it is not reported",
+            )
             first_stage_F = None
 
     return beta, vcov, first_stage_F

@@ -399,6 +399,15 @@ def bcf_longitudinal(
         if t_vals_b:
             boot_point.append(float(np.mean(t_vals_b)))
 
+    if len(boot_point) < n_bootstrap:
+        from ..core._fallback import warn_fallback
+
+        warn_fallback(
+            f"{n_bootstrap - len(boot_point)} of {n_bootstrap} "
+            "bcf_longitudinal bootstrap draws",
+            None,
+            "the standard errors use the survivors only",
+        )
     if len(boot_point) < max(20, n_bootstrap // 4):
         raise RuntimeError(
             f"Only {len(boot_point)}/{n_bootstrap} bootstrap draws succeeded. "

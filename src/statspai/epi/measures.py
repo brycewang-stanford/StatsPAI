@@ -394,7 +394,14 @@ def odds_ratio(
                 ci_lo, ci_hi = obj.confidence_interval(confidence_level=1 - alpha)
                 ci = (float(ci_lo), float(ci_hi))
                 or_point = or_exact
-            except Exception:
+            except Exception as exc:
+                from ..core._fallback import warn_fallback
+
+                warn_fallback(
+                    "exact conditional confidence interval for the odds ratio",
+                    exc,
+                    "reporting the Woolf (log-normal) interval instead",
+                )
                 # Fall back to Woolf CI.
                 z = _z_crit(alpha)
                 ci = (

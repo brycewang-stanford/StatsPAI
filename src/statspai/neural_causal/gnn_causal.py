@@ -305,7 +305,15 @@ def gnn_causal(
         lr = LogisticRegression(C=1e6, solver="lbfgs", max_iter=500)
         lr.fit(F, D)
         e_hat = lr.predict_proba(F)[:, 1]
-    except Exception:
+    except Exception as exc:
+        from ..core._fallback import warn_fallback
+
+        warn_fallback(
+            "gnn_causal propensity model",
+            exc,
+            "using the treated share as a constant propensity, which "
+            "drops the confounding adjustment",
+        )
         e_hat = np.full(n, float(D.mean()))
     e_hat = np.clip(e_hat, p_lo, p_hi)
 

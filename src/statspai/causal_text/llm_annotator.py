@@ -874,7 +874,14 @@ def _run_pipeline(
                 classes,
                 alpha,
             )
-    except Exception:
+    except Exception as exc:
+        from ..core._fallback import warn_fallback
+
+        warn_fallback(
+            "measurement-error correction of the LLM-annotated treatment",
+            exc,
+            "the corrected estimate is omitted",
+        )
         return None
     return float(payload["estimate"])
 

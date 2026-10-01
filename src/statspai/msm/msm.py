@@ -582,7 +582,15 @@ def _gauss_density(X: np.ndarray, y: np.ndarray, ml: bool = False) -> np.ndarray
         sigma = max(sigma, 1e-6)
         dens = stats.norm.pdf(y, loc=fitted, scale=sigma)
         return np.asarray(np.clip(dens, 1e-12, None), dtype=float)
-    except Exception:
+    except Exception as exc:
+        from ..core._fallback import warn_fallback
+
+        warn_fallback(
+            "MSM Gaussian treatment-density model",
+            exc,
+            "using the marginal density of the treatment, which drops the"
+            " confounding adjustment from this weight term",
+        )
         mean = float(np.mean(y))
         sigma = max(float(np.std(y, ddof=1)), 1e-6)
         return np.asarray(

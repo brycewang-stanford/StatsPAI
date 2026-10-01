@@ -103,14 +103,30 @@ def ivdml(
         try:
             lasso_d = LassoCV(cv=3, max_iter=2000).fit(ZX_tr, D[tr])
             D_hat[te] = lasso_d.predict(ZX_te)
-        except Exception:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                "ivdml first-stage LASSO in a cross-fitting fold",
+                exc,
+                "predicting the training-fold mean of the treatment, which "
+                "carries no instrument variation for that fold",
+            )
             D_hat[te] = D[tr].mean()
         # Outcome model: linear of Y on X (just controls; not Z)
         if X.shape[1] > 0:
             try:
                 lin_y = LinearRegression().fit(X[tr], Y[tr])
                 Y_hat[te] = lin_y.predict(X[te])
-            except Exception:  # pragma: no cover
+            except Exception as exc:  # pragma: no cover
+                from ..core._fallback import warn_fallback
+
+                warn_fallback(
+                    "ivdml outcome model in a cross-fitting fold",
+                    exc,
+                    "predicting the training-fold outcome mean, which drops the "
+                    "covariate adjustment for that fold",
+                )
                 Y_hat[te] = Y[tr].mean()
         else:
             Y_hat[te] = Y[tr].mean()
@@ -140,7 +156,14 @@ def ivdml(
         q = Z.shape[1]
         df_d = max(n - ZX.shape[1], 1)
         first_F = ((rss_red - rss_full) / q) / (rss_full / df_d)
-    except Exception:  # pragma: no cover
+    except Exception as exc:  # pragma: no cover
+        from ..core._fallback import warn_fallback
+
+        warn_fallback(
+            "ivdml first-stage F statistic",
+            exc,
+            "it is reported as NaN",
+        )
         first_F = float("nan")
 
     z_crit = float(stats.norm.ppf(1 - alpha / 2))

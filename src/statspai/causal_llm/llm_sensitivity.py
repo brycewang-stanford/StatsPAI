@@ -144,8 +144,14 @@ def llm_sensitivity_priors(
                 domain=domain,
                 backend=type(client).__name__,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                "LLM backend call for sensitivity priors",
+                exc,
+                "falling back to the built-in domain priors",
+            )
 
     prior = _DOMAIN_PRIORS.get(
         domain.lower(),

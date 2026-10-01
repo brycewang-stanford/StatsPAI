@@ -147,7 +147,14 @@ def did_sc_bridge(
                     placebo_gap_table["time"] >= treatment_time, "gap"
                 ]
                 placebo.append(float(placebo_post_gap.mean()))
-            except Exception:
+            except Exception as exc:
+                from ..core._fallback import warn_fallback
+
+                warn_fallback(
+                    f"did_sc_bridge placebo synthetic control for donor {du!r}",
+                    exc,
+                    "it is left out of the placebo standard error",
+                )
                 continue
         if len(placebo) >= 3:
             sc_se = float(np.std(placebo, ddof=1))

@@ -1043,8 +1043,15 @@ class RegtableResult:
             try:
                 ci_lo = float(self.apply_coef(ci_lo)) if not pd.isna(ci_lo) else ci_lo
                 ci_hi = float(self.apply_coef(ci_hi)) if not pd.isna(ci_hi) else ci_hi
-            except Exception:
-                pass
+            except Exception as exc:
+                from ..core._fallback import warn_fallback
+
+                warn_fallback(
+                    f"apply_coef on the confidence bounds of {var!r}",
+                    exc,
+                    "the interval stays on the original scale while the "
+                    "coefficient is transformed",
+                )
 
         marker = self._format_marker(p_val) if self.show_stars else ""
         pair_fmt = self._pair_fmt(var, flat_idx)
@@ -1111,8 +1118,15 @@ class RegtableResult:
                         lo_v = float(apply_coef(lo_v))
                     if not (hi_v is None or pd.isna(hi_v)):
                         hi_v = float(apply_coef(hi_v))
-                except Exception:
-                    pass
+                except Exception as exc:
+                    from ..core._fallback import warn_fallback
+
+                    warn_fallback(
+                        f"apply_coef on the confidence bounds of {var!r}",
+                        exc,
+                        "the interval stays on the original scale while the "
+                        "coefficient is transformed",
+                    )
             cell_fmt = fmt_override or self._se_cell_fmt(var, flat_idx)
             lo = _fmt_val(lo_v, cell_fmt)
             hi = _fmt_val(hi_v, cell_fmt)

@@ -474,7 +474,14 @@ def ivmte_bounds(
                 "atu": m.atu,
                 "late": m.late_2sls,
             }.get(target, None)
-        except Exception:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                "ivmte_lp parametric (Brinch-Mogstad-Wiswall) point estimate",
+                exc,
+                "only the bounds are reported",
+            )
             bmw_point = None
 
     shape_strs = []

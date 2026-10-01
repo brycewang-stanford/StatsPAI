@@ -878,7 +878,14 @@ def synthdid_placebo(
                     "pvalue": r.pvalue,
                 }
             )
-        except Exception:
+        except Exception as exc:
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                f"sdid placebo fit for control unit {cu!r}",
+                exc,
+                "it is left out of the placebo table",
+            )
             continue
 
     return pd.DataFrame(rows)

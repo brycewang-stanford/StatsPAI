@@ -409,7 +409,14 @@ def dml_sensitivity(
                 r2_d = float(cov[0, 1] ** 2 / max(cov[0, 0] * cov[1, 1], 1e-12))
                 cov_y = np.cov(xk, y_resid)
                 r2_y = float(cov_y[0, 1] ** 2 / max(cov_y[0, 0] * cov_y[1, 1], 1e-12))
-            except Exception:  # pragma: no cover
+            except Exception as exc:  # pragma: no cover
+                from ..core._fallback import warn_fallback
+
+                warn_fallback(
+                    f"DML sensitivity benchmark for covariate {name!r}",
+                    exc,
+                    "it is left out of the benchmark table",
+                )
                 continue  # pragma: no cover
             cf_y_b = float(np.clip(k_y * r2_y, 0.0, 0.999))
             cf_d_b = float(np.clip(k_d * r2_d, 0.0, 0.999))

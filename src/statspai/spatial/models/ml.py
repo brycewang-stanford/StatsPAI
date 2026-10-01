@@ -817,7 +817,14 @@ def sac(
         dll = _num_d2(neg_conc_ll, np.array([rho_hat, lam_hat]), 1, 1)
         se_rho = float(1.0 / np.sqrt(max(drr, 1e-10)))
         se_lam = float(1.0 / np.sqrt(max(dll, 1e-10)))
-    except Exception:
+    except Exception as exc:
+        from ...core._fallback import warn_fallback
+
+        warn_fallback(
+            "numerical Hessian for the spatial parameters",
+            exc,
+            "the standard errors of rho and lambda are reported as NaN",
+        )
         se_rho = se_lam = float("nan")
 
     var_names = ["const"] + list(indep) + ["rho", "lambda"]

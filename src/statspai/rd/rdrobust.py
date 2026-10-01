@@ -2333,7 +2333,15 @@ def _local_residual_var(
         beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
         resid = y_bw - X @ beta
         return float(np.average(resid**2, weights=w_bw))
-    except Exception:
+    except Exception as exc:
+        from ..core._fallback import warn_fallback
+
+        warn_fallback(
+            "rdrobust pilot residual-variance fit",
+            exc,
+            "using the unconditional variance inside the pilot bandwidth,"
+            " so the selected bandwidth may be off",
+        )
         return float(np.var(y_bw))
 
 
@@ -2361,7 +2369,15 @@ def _estimate_second_deriv(
     try:
         beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
         return float(2 * beta[2])  # m''(0) = 2 * β₂
-    except Exception:
+    except Exception as exc:
+        from ..core._fallback import warn_fallback
+
+        warn_fallback(
+            "rdrobust pilot curvature (local cubic) fit",
+            exc,
+            "treating the second derivative as zero, which keeps the "
+            "pilot bandwidth instead of the MSE-optimal one",
+        )
         return 0.0
 
 

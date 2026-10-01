@@ -276,7 +276,14 @@ def sparse_synth(
                 gap_post_p = actual_post_p - synth_post_p
                 placebo_atts.append(float(np.mean(gap_post_p)))
                 placebo_pre_mspes.append(float(np.mean(gap_pre_p**2)))
-            except Exception:  # pragma: no cover
+            except Exception as exc:  # pragma: no cover
+                from ..core._fallback import warn_fallback
+
+                warn_fallback(
+                    f"sparse-synth placebo fit for donor index {j}",
+                    exc,
+                    "it is left out of the placebo distribution",
+                )
                 continue  # pragma: no cover
 
     if len(placebo_atts) > 0:
@@ -675,7 +682,14 @@ def _cv_lambda(
 
                 y_hat = Y_d.T @ w
                 mse_matrix[j, li] = float(np.mean((y_j - y_hat) ** 2))
-            except Exception:  # pragma: no cover
+            except Exception as exc:  # pragma: no cover
+                from ..core._fallback import warn_fallback
+
+                warn_fallback(
+                    f"sparse-synth CV fit (donor index {j}, lambda index {li})",
+                    exc,
+                    "that cell is excluded from the cross-validated MSE",
+                )
                 continue  # pragma: no cover
 
     mean_mse = np.nanmean(mse_matrix, axis=0)

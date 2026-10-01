@@ -266,7 +266,15 @@ def gsynth(
                 plac_fit = _fit_control_factor_model(Y_ctrl_all, Y_plac, T0, r_p)
                 hat_post = np.asarray(plac_fit["treated_counterfactual"])[T0:]
                 placebo_atts.append(float(np.mean(Y_plac_post - hat_post)))
-            except Exception:
+            except Exception as exc:
+                from ..core._fallback import warn_fallback
+
+                warn_fallback(
+                    f"gsynth placebo fit for donor index {j}",
+                    exc,
+                    "it is left out of the placebo distribution behind the SE and"
+                    " p-value",
+                )
                 continue
 
     if len(placebo_atts) > 0:

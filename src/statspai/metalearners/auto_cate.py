@@ -345,7 +345,14 @@ def _blp_calibration(
             p1 = np.nan
         b2 = float(ols.params[2])
         p2 = float(ols.pvalues[2])
-    except Exception:
+    except Exception as exc:
+        from ..core._fallback import warn_fallback
+
+        warn_fallback(
+            "auto_cate BLP calibration regression",
+            exc,
+            "the BLP coefficients and p-values are reported as NaN",
+        )
         b1, p1, b2, p2 = np.nan, np.nan, np.nan, np.nan
     return {
         "blp_beta1": b1,

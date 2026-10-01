@@ -238,9 +238,11 @@ def dnc_gnn_did(
             )
             beta_b = np.linalg.solve(X_b.T @ X_b, X_b.T @ sub["delta"].to_numpy(float))
             boot[b] = float(beta_b[1])
-        except Exception:
-            continue
-    se = float(np.nanstd(boot, ddof=1)) or se_closed
+        except np.linalg.LinAlgError:
+            continue  # replicate stays NaN; bootstrap_se tracks the failure
+    from ..core._bootstrap import bootstrap_se
+
+    se = bootstrap_se(boot, label="interference.dnc_gnn_did") or se_closed
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (att - z_crit * se, att + z_crit * se)
 

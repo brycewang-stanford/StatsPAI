@@ -372,7 +372,14 @@ def _fit_ivqreg_one(
             Y_p = Y - P @ Y
             D_p = D[:, 0] - P @ D[:, 0]
             slope = float(D_p @ Y_p / (D_p @ D_p + 1e-12))
-        except Exception:
+        except Exception as exc:
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                "ivqreg starting slope for the alpha grid",
+                exc,
+                "centring the search grid at zero",
+            )
             slope = 0.0
         lo = slope - 5.0 * (abs(slope) + 1.0)
         hi = slope + 5.0 * (abs(slope) + 1.0)

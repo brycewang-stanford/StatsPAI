@@ -125,6 +125,10 @@ def did_misclassified(
 
     naive_atts = []
     anticip_leads = []
+    skipped_cohorts: list = []
+    cohort_errors: list = []
+    skipped_leads: list = []
+    lead_errors: list = []
     for c in cohorts:
         cohort_units = df.loc[df[treat] == c, id].unique()
         sub = df[df[id].isin(np.concatenate([cohort_units, control_units]))]
@@ -132,6 +136,7 @@ def did_misclassified(
         post_periods = sorted(sub.loc[sub[time] >= c, time].unique())
         pre_periods = sorted(sub.loc[sub[time] < c, time].unique())
         if not post_periods or not pre_periods:
+            skipped_cohorts.append(c)
             continue
         # Use t = c (first post period) and t = c-1 (last pre period)
         post = sub[sub[time] == post_periods[0]]
@@ -153,7 +158,11 @@ def did_misclassified(
             )
             if np.isfinite(att_c):
                 naive_atts.append(att_c)
-        except Exception:
+            else:
+                skipped_cohorts.append(c)
+        except Exception as exc:
+            skipped_cohorts.append(c)
+            cohort_errors.append(exc)
             continue
         # Anticipation leads: avg ATT for k = -anticipation_periods..-1
         if anticipation_periods > 0:
@@ -186,9 +195,27 @@ def did_misclassified(
                                     - (mref.get(1, np.nan) - mref.get(0, np.nan))
                                 )
                             )
-                    except Exception:
+                    except Exception as exc:
+                        skipped_leads.append((c, k))
+                        lead_errors.append(exc)
                         continue
 
+    from ..core._fallback import warn_dropped
+
+    warn_dropped(
+        "treatment cohorts",
+        skipped_cohorts,
+        len(cohorts),
+        "the reported ATT averages over the remaining cohorts only",
+        errors=cohort_errors,
+    )
+    warn_dropped(
+        "anticipation lead cells (cohort, lead)",
+        skipped_leads,
+        len(cohorts) * max(anticipation_periods, 0),
+        "the anticipation offset uses the remaining cells only",
+        errors=lead_errors,
+    )
     if not naive_atts:
         raise ValueError("Could not estimate any cohort ATT.")
     naive_att = float(np.mean(naive_atts))

@@ -211,9 +211,15 @@ def llm_dag_propose(
                 backend=type(client).__name__,
                 confidence=0.7,
             )
-        except Exception:
-            # Fall through to heuristic
-            pass
+        except Exception as exc:
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                "LLM backend call for the DAG proposal",
+                exc,
+                "falling back to the built-in heuristic, so the returned DAG "
+                "is not LLM-proposed",
+            )
 
     # Heuristic backend
     roles = {v: _classify_variable(v) for v in variables}

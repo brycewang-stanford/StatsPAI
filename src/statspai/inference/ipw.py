@@ -324,7 +324,15 @@ def _estimate_propensity(
         if getattr(res, "converged", True) is False:
             raise RuntimeError("statsmodels GLM did not converge")
         ps = np.asarray(res.predict(X_const), dtype=float)
-    except Exception:
+    except Exception as exc:
+        from ..core._fallback import warn_fallback
+
+        warn_fallback(
+            "IPW propensity logit (statsmodels GLM)",
+            exc,
+            "refitting with scikit-learn's unpenalised logistic "
+            "regression; check for separation or collinear covariates",
+        )
         from sklearn.linear_model import LogisticRegression
 
         try:

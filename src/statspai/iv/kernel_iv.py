@@ -14,6 +14,7 @@ from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -167,7 +168,16 @@ def kernel_iv(
         try:
             boot[b] = _fit(Y_b, D, Z)
         except Exception:  # pragma: no cover
-            pass
+            pass  # replicate stays NaN; counted below
+    n_boot_failed = int(np.isnan(boot).all(axis=1).sum())
+    if n_boot_failed:
+        from ..core._fallback import warn_fallback
+
+        warn_fallback(
+            f"{n_boot_failed} of {n_boot} kernel_iv wild-bootstrap replicates",
+            None,
+            "the uniform band uses the survivors only",
+        )
     sd = np.nanstd(boot, axis=0, ddof=1)
     sd = np.where(np.isfinite(sd) & (sd > 0), sd, 1e-6)
     # Sup-norm critical value across grid

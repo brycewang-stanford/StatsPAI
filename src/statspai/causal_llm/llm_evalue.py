@@ -157,8 +157,14 @@ def llm_unobserved_confounders(
                 domain=domain,
                 backend=type(client).__name__,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                "LLM backend call for unobserved-confounder candidates",
+                exc,
+                "falling back to the built-in domain heuristic",
+            )
 
     # Heuristic backend
     candidates = _DOMAIN_CONFOUNDERS.get(

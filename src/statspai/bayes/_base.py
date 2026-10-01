@@ -15,8 +15,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
-from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
 # ---------------------------------------------------------------------------
 # Optional-dependency guard
@@ -50,8 +50,8 @@ _BAYES_ALTERNATIVES = [
 def _require_pymc() -> Tuple[Any, Any]:
     """Import PyMC and ArviZ, or raise a clear ImportError."""
     try:
-        import pymc as pm  # noqa: F401
         import arviz as az  # noqa: F401
+        import pymc as pm  # noqa: F401
     except ImportError as err:
         raise ImportError(_PYMC_INSTALL_HINT) from err
     return pm, az
@@ -1384,11 +1384,29 @@ def _summarise_posterior(
     # Convergence diagnostics
     try:
         rhat = float(az.rhat(trace, var_names=[var_name])[var_name].values)
-    except Exception:
+    except Exception as exc:
+        from ..core._fallback import warn_fallback
+        from ..exceptions import ConvergenceWarning
+
+        warn_fallback(
+            "R-hat computation",
+            exc,
+            "chain convergence could not be verified for this fit",
+            category=ConvergenceWarning,
+        )
         rhat = float("nan")
     try:
         ess = float(az.ess(trace, var_names=[var_name])[var_name].values)
-    except Exception:
+    except Exception as exc:
+        from ..core._fallback import warn_fallback
+        from ..exceptions import ConvergenceWarning
+
+        warn_fallback(
+            "effective-sample-size computation",
+            exc,
+            "the effective sample size is unknown for this fit",
+            category=ConvergenceWarning,
+        )
         ess = float("nan")
 
     out = {

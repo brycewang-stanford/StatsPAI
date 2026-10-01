@@ -60,8 +60,15 @@ def _kernel_density_at(y: np.ndarray, point: float, bw: str = "silverman") -> fl
         # to avoid the NumPy 1.25 ndim>0→scalar DeprecationWarning (the value
         # is unchanged — it is the same single element ``float()`` would pull).
         return float(np.asarray(kde(point)).ravel()[0])
-    except Exception:
-        # fallback: histogram-based density
+    except Exception as exc:
+        from ..core._fallback import warn_fallback
+
+        warn_fallback(
+            "RIF kernel density (scipy gaussian_kde)",
+            exc,
+            "using a Gaussian kernel with a rule-of-thumb bandwidth",
+        )
+        # fallback: rule-of-thumb Gaussian kernel density
         h = 1.06 * y.std() * len(y) ** (-0.2)
         return float(
             np.mean(np.exp(-0.5 * ((y - point) / h) ** 2)) / (h * np.sqrt(2 * np.pi))

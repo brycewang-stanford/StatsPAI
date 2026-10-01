@@ -699,7 +699,14 @@ def _run_placebos(
                 lambda_pen,
                 penalty_type,
             )
-        except Exception:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                f"penalized-SCM placebo fit for unit {placebo_unit!r}",
+                exc,
+                "it is left out of the placebo distribution",
+            )
             continue  # pragma: no cover
 
         Y_synth_pre_p = Y0_pre_p.T @ w_p

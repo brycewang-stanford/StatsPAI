@@ -120,6 +120,8 @@ def cohort_anchored_event_study(
     rel_times = list(range(-leads, lags + 1))
     rows = []
     cohort_weights = []
+    failed_cells: list = []
+    cell_errors: list = []
     for c in cohorts:
         cohort_units = df.loc[df[treat] == c, id].unique()
         # Control = never-treated units only (clean comparison)
@@ -156,10 +158,21 @@ def cohort_anchored_event_study(
                         "n": int(len(sub)),
                     }
                 )
-            except Exception:
+            except Exception as exc:
+                failed_cells.append((c, k))
+                cell_errors.append(exc)
                 continue
         cohort_weights.append((c, int((df[treat] == c).sum())))
 
+    from ..core._fallback import warn_dropped
+
+    warn_dropped(
+        "cohort-by-event-time cells (cohort, rel_time)",
+        failed_cells,
+        len(cohorts) * len(rel_times),
+        "the event-study path aggregates the remaining cells only",
+        errors=cell_errors,
+    )
     if not rows:
         raise ValueError("No cohort-time cells could be estimated.")
     cohort_atts = pd.DataFrame(rows)

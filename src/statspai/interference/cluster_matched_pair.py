@@ -120,15 +120,32 @@ def cluster_matched_pair(
     # Cluster-level means
     cl = df.groupby([pair, cluster, treat])[y].mean().reset_index()
     pair_diff_list = []
+    dropped_pairs: list = []
+    pair_errors: list = []
+    n_pairs_seen = 0
     for p, sub in cl.groupby(pair):
+        n_pairs_seen += 1
         if len(sub) != 2:
+            dropped_pairs.append(p)
             continue
         try:
             yt = sub.loc[sub[treat] == 1, y].iloc[0]
             yc = sub.loc[sub[treat] == 0, y].iloc[0]
             pair_diff_list.append(yt - yc)
-        except Exception:
+        except Exception as exc:
+            dropped_pairs.append(p)
+            pair_errors.append(exc)
             continue
+    from ..core._fallback import warn_dropped
+
+    warn_dropped(
+        "matched pairs",
+        dropped_pairs,
+        n_pairs_seen,
+        "pairs without exactly one treated and one control cluster are "
+        "excluded from the estimate and its variance",
+        errors=pair_errors,
+    )
     pair_diffs = np.array(pair_diff_list)
     if len(pair_diffs) < 2:
         raise ValueError(f"Need at least 2 valid pairs (got {len(pair_diffs)}).")

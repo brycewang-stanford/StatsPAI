@@ -38,9 +38,10 @@ Long, S., Piché, A., Zantedeschi, V., Schuster, T., & Drouin, A.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Any
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import pandas as pd
+
 from .._result_serialize import ResultProtocolMixin
 
 Edge = Tuple[str, str]
@@ -194,8 +195,15 @@ def llm_dag(
                         ci_asserts.append((a, b))
                     else:
                         ci_rejects.append((a, b))
-        except Exception:  # pragma: no cover
-            pass
+        except Exception as exc:  # pragma: no cover
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                "PC-skeleton check of the proposed DAG",
+                exc,
+                "the DAG is returned without conditional-independence "
+                "evidence from the data",
+            )
 
     # 3) Merge
     oracle_set: set[Edge] = set(oracle_edges)

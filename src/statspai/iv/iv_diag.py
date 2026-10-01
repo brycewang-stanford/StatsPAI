@@ -1021,8 +1021,14 @@ def iv_diag(
         kp_rk_lm = float(kp.rk_lm)
         kp_rk_lm_pvalue = float(kp.rk_lm_pvalue)
         kp_rk_f = float(kp.rk_f)
-    except Exception:  # pragma: no cover
-        pass
+    except Exception as exc:  # pragma: no cover
+        from ..core._fallback import warn_fallback
+
+        warn_fallback(
+            "iv_diag Kleibergen-Paap rk statistics",
+            exc,
+            "they are omitted from the report",
+        )
 
     # ── Optional CLR / K confidence sets ──────────────────────────────
     clr_ci = k_ci = None
@@ -1055,8 +1061,14 @@ def iv_diag(
                     n_grid=grid_size,
                 )
                 k_ci = (float(k_cs.lower), float(k_cs.upper))
-        except Exception:  # pragma: no cover
-            pass
+        except Exception as exc:  # pragma: no cover
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                "iv_diag CLR / K confidence sets",
+                exc,
+                "the sets that did not complete are omitted from the report",
+            )
 
     # ── Bootstrap ─────────────────────────────────────────────────────
     rng = np.random.default_rng(random_state)

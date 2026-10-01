@@ -1393,7 +1393,14 @@ class EconometricResults:
                     "conf_low": _to_jsonable(self.conf_int_lower.iloc[i]),
                     "conf_high": _to_jsonable(self.conf_int_upper.iloc[i]),
                 }
-        except Exception:
+        except Exception as exc:
+            from ._fallback import warn_fallback
+
+            warn_fallback(
+                "serialising the coefficient table in to_dict()",
+                exc,
+                "the 'coefficients' block is empty in this payload",
+            )
             coefs = {}
 
         base.update(

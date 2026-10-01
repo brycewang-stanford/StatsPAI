@@ -678,12 +678,30 @@ def bayes_did(
     try:
         rhat_series = az.rhat(trace, var_names=["tau_cohort"])["tau_cohort"].values
         rhat = float(np.nanmax(rhat_series))
-    except Exception:
+    except Exception as exc:
+        from ..core._fallback import warn_fallback
+        from ..exceptions import ConvergenceWarning
+
+        warn_fallback(
+            "R-hat computation",
+            exc,
+            "chain convergence could not be verified for this fit",
+            category=ConvergenceWarning,
+        )
         rhat = float("nan")
     try:
         ess_series = az.ess(trace, var_names=["tau_cohort"])["tau_cohort"].values
         ess = float(np.nanmin(ess_series))
-    except Exception:
+    except Exception as exc:
+        from ..core._fallback import warn_fallback
+        from ..exceptions import ConvergenceWarning
+
+        warn_fallback(
+            "effective-sample-size computation",
+            exc,
+            "the effective sample size is unknown for this fit",
+            category=ConvergenceWarning,
+        )
         ess = float("nan")
 
     model_info["cohort_column"] = cohort

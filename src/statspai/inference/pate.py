@@ -477,6 +477,7 @@ class PATEEstimator:
         n_exp = len(Y)
         n_tgt = X_tgt.shape[0]
         estimates = np.empty(self.n_boot)
+        last_exc: Optional[BaseException] = None
 
         for b in range(self.n_boot):
             idx_exp = self.rng.choice(n_exp, size=n_exp, replace=True)
@@ -488,9 +489,19 @@ class PATEEstimator:
                     X_exp[idx_exp],
                     X_tgt[idx_tgt],
                 )
-            except Exception:
+            except Exception as exc:
                 estimates[b] = np.nan
+                last_exc = exc
 
+        n_failed = int(np.isnan(estimates).sum())
+        if n_failed:
+            from ..core._fallback import warn_fallback
+
+            warn_fallback(
+                f"{n_failed} of {self.n_boot} PATE bootstrap replicates",
+                last_exc,
+                "the bootstrap standard error uses the survivors only",
+            )
         return np.asarray(estimates[~np.isnan(estimates)], dtype=float)
 
     # ------------------------------------------------------------------
