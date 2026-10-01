@@ -215,6 +215,8 @@ def dml(
     orthogonal score makes nuisance error second order, not zero; pass
     learners suited to the problem, and check ``sp.validation_scope`` for
     which learner configurations carry evidence.
+    A PLR fit that used the defaults records this in
+    ``model_info["learner_note"]``, which ``summary()`` prints.
 
     Examples
     --------

@@ -2,11 +2,12 @@
 Tests for Double/Debiased Machine Learning module.
 """
 
-import pytest
 import numpy as np
 import pandas as pd
-from statspai.dml import dml, DoubleML
+import pytest
+
 from statspai.core.results import CausalResult
+from statspai.dml import DoubleML, dml
 
 
 @pytest.fixture
@@ -154,6 +155,45 @@ class TestDMLGeneral:
     def test_invalid_nfolds(self, plr_data):
         with pytest.raises(ValueError, match="n_folds"):
             dml(plr_data, y="y", treat="d", covariates=["x1"], n_folds=1)
+
+    def test_default_plr_learners_carry_a_coverage_note(self, plr_data):
+        """The default PLR learners have below-nominal coverage evidence.
+
+        The fit says so in ``model_info`` and ``summary()``; a supplied
+        learner, and the IRM model, carry no such note.
+        """
+        from sklearn.linear_model import LinearRegression
+
+        default = dml(plr_data, y="y", treat="d", covariates=["x1", "x2"])
+        assert default.model_info["default_learners"] is True
+        assert "0.88" in default.model_info["learner_note"]
+        assert "Learner Note" in default.summary()
+
+        supplied = dml(
+            plr_data,
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            ml_g=LinearRegression(),
+            ml_m=LinearRegression(),
+        )
+        assert "learner_note" not in supplied.model_info
+        # The note changes no number.
+        assert (
+            default.estimate
+            == dml(plr_data, y="y", treat="d", covariates=["x1", "x2"]).estimate
+        )
+
+    def test_default_irm_learners_carry_no_note(self):
+        rng = np.random.default_rng(0)
+        n = 400
+        x = rng.normal(size=(n, 2))
+        d = (rng.uniform(size=n) < 1 / (1 + np.exp(-x[:, 0]))).astype(int)
+        y = d + x[:, 0] + rng.normal(size=n)
+        df = pd.DataFrame({"y": y, "d": d, "x1": x[:, 0], "x2": x[:, 1]})
+        fit = dml(df, y="y", treat="d", covariates=["x1", "x2"], model="irm")
+        assert fit.model_info["default_learners"] is True
+        assert "learner_note" not in fit.model_info
 
 
 if __name__ == "__main__":

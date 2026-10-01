@@ -72,6 +72,15 @@ def _coerce_column_list(value: Any, *, name: str, context: str) -> List[str]:
 _FOLD_AWARE_MODELS = frozenset({"PLR", "IRM", "PLIV", "IIVM"})
 
 
+#: Printed by ``summary()`` on a PLR fit that used the default learners.
+#: Numbers are the Track B coverage row and its learner experiment
+#: (``tests/coverage_monte_carlo/mechanisms/dml_plr_learners.py``).
+_DEFAULT_PLR_LEARNER_NOTE = (
+    "default gradient boosting; 95% CI covered 0.88 on the one design "
+    "tested (n=500). Pass learners or compare sp.dml_model_averaging."
+)
+
+
 class _DoubleMLBase:
     """Abstract base: common plumbing for all DML estimators."""
 
@@ -926,6 +935,12 @@ class _DoubleMLBase:
             "n_covariates": len(self.covariates),
             "fold_source": fold_source,
         }
+        if model_info["default_learners"] and self._MODEL_TAG == "PLR":
+            # The only coverage evidence for this configuration is below
+            # nominal, so the result says so where summary() prints it.
+            # A warning on every default call would be noise: the evidence
+            # is one design, and the docstring gives the full account.
+            model_info["learner_note"] = _DEFAULT_PLR_LEARNER_NOTE
         if self.cluster is not None:
             model_info["cluster"] = self.cluster
             model_info["n_clusters"] = (

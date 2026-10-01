@@ -123,6 +123,12 @@ adding an option changes the translation or is reported, and
   `note` is printed in a reference list. Refs verified via Crossref,
   DataCite, CRAN metadata, Zenodo, Open Library and the projects' own
   citation files; each entry's `annote` records its sources.
+- **`sp.dml(model="plr")` with the default learners says what its coverage
+  evidence is.** The result carries `model_info["learner_note"]`, and
+  `summary()` prints it: the default gradient boosting covered 0.88 at a
+  nominal 0.95 on the one design tested. No estimate, standard error or
+  default changes, and no warning is raised. A fit with supplied learners,
+  and the other DML models, carry no note.
 
 
 ## [1.34.2] — 2026-10-01
