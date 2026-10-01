@@ -299,6 +299,8 @@ def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
         args["cluster"] = clusters[0] if len(clusters) == 1 else clusters
     elif "robust" in cmd.options or _opt_matches(cmd.options.get("vce"), "robust"):
         args["vce"] = "robust"
+    if "keepsingletons" in cmd.options:
+        args["drop_singletons"] = False
     kw = ", ".join(f"{k}={v!r}" for k, v in args.items() if k != "formula")
     python = f"sp.hdfe_ols({formula!r}, data=df" + (f", {kw})" if kw else ")")
     notes: List[str] = []
@@ -418,22 +420,32 @@ def _parse_iv_varlist(
     as valid as ``y x1 x2 (d = z)`` -- and every list may hold several
     variables. Returns an ``_emit_error`` payload when the shape is wrong.
     """
-    joined = " ".join(tokens)
+    # A factor-variable term arrives already translated and may hold blanks
+    # (``c.x##c.z`` -> ``x + z + x:z``); protect them so that splitting the
+    # varlist on blanks keeps each term in one piece.
+    shield = {f"\x00{i}\x00": tok for i, tok in enumerate(tokens) if " " in tok}
+    back = {tok: key for key, tok in shield.items()}
+    joined = " ".join(back.get(tok, tok) for tok in tokens)
+
+    def words(text: str) -> List[str]:
+        return [shield.get(w, w) for w in text.split()]
+
     blocks = list(_IV_BLOCK.finditer(joined))
     expected = "expected `y [exog...] (endog... = instruments...) [exog...]`"
+    shown = " ".join(tokens)
     if len(blocks) != 1:
         return _emit_error(
-            f"could not parse {command} syntax {joined!r}; {expected}",
+            f"could not parse {command} syntax {shown!r}; {expected}",
             command=command,
         )
     block = blocks[0]
-    before = joined[: block.start()].split()
-    after = joined[block.end() :].split()
-    endog = block.group(1).split()
-    instruments = block.group(2).split()
+    before = words(joined[: block.start()])
+    after = words(joined[block.end() :])
+    endog = words(block.group(1))
+    instruments = words(block.group(2))
     if not before or not endog or not instruments or "(" in after or ")" in after:
         return _emit_error(
-            f"could not parse {command} syntax {joined!r}; {expected}",
+            f"could not parse {command} syntax {shown!r}; {expected}",
             command=command,
         )
     return before[0], before[1:] + after, endog, instruments
@@ -510,6 +522,14 @@ def _h_ivreghdfe(cmd: StataCommand) -> Dict[str, Any]:
         return _emit_error(
             "ivreghdfe requires an outcome variable", command="ivreghdfe"
         )
+    if not any("=" in tok for tok in cmd.varlist):
+        # no (endog = instruments) block: ivreghdfe then runs reghdfe
+        out = _h_reghdfe(cmd)
+        if out.get("ok"):
+            out["notes"].append(
+                "ivreghdfe without an (endog = instruments) block is reghdfe."
+            )
+        return out
     parsed = _parse_iv_varlist(list(cmd.varlist), "ivreghdfe")
     if isinstance(parsed, dict):
         return parsed
@@ -1327,13 +1347,20 @@ def _h_psmatch2(cmd: StataCommand) -> Dict[str, Any]:
             notes.append(f"Could not parse ai({ai}); using default standard error.")
     if "noreplacement" in cmd.options or "noreplace" in cmd.options:
         args["replace"] = False
-    if "probit" in cmd.options:
+    lost: List[str] = []
+    cmd.options.get("probit")  # psmatch2's default: same message either way
+    if "logit" not in cmd.options:
+        lost.append("probit")
         notes.append(
-            "Stata psmatch2 probit propensity-score option is not exposed "
-            "by sp.psmatch2; check parity before relying on this translation."
+            "Stata psmatch2 estimates the propensity score by probit unless "
+            "`logit` is given; sp.psmatch2 uses a logit, so the scores and "
+            "possibly the matches differ. Add `logit` in Stata for an exact "
+            "counterpart."
         )
+    if "ties" in cmd.options:
+        args["ties"] = True
     if "ate" in cmd.options:
-        notes.append("sp.psmatch2 is ATT-focused; use sp.match for ATE.")
+        args["ate"] = True
 
     code_pairs = [
         "data=df",
@@ -1350,11 +1377,15 @@ def _h_psmatch2(cmd: StataCommand) -> Dict[str, Any]:
         "common_support",
         "ai",
         "replace",
+        "ties",
+        "ate",
     ):
         if key in args:
             code_pairs.append(f"{key}={args[key]!r}")
     python = f"sp.psmatch2({', '.join(code_pairs)})"
-    return _emit("psmatch2", args, python, notes)
+    out = _emit("psmatch2", args, python, notes)
+    out["untranslated_options"] = lost
+    return out
 
 
 #: ``margins`` options with a faithful ``sp.margins`` counterpart. Anything
@@ -1602,6 +1633,9 @@ def _h_xtabond_family(cmd: StataCommand, *, sp_kind: str) -> Dict[str, Any]:
     }
     lost: List[str] = []
     notes: List[str] = []
+    panel_time = cmd.options.get("t") or cmd.options.get("time")
+    if panel_time:
+        args["time"] = panel_time
     lags_opt = cmd.options.get("lags")
     if lags_opt:
         try:
@@ -1621,6 +1655,8 @@ def _h_xtabond_family(cmd: StataCommand, *, sp_kind: str) -> Dict[str, Any]:
     ]
     if args["id"]:
         code_pairs.append(f"id={args['id']!r}")
+    if panel_time:
+        code_pairs.append(f"time={panel_time!r}")
     if "lags" in args:
         code_pairs.append(f"lags={args['lags']}")
     if args["twostep"]:

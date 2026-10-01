@@ -14,7 +14,7 @@ from __future__ import annotations
 import inspect
 import re
 import warnings
-from typing import Any, List, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import pandas as pd
 
@@ -58,13 +58,30 @@ def _uses_estimation_sample(fn: Any, result: Any) -> bool:
     )
 
 
-def _command_lines(commands: str) -> List[str]:
-    lines = []
-    for raw in commands.replace(";", "\n").splitlines():
-        line = raw.split("//", 1)[0].strip()
-        if line and not line.startswith("*"):
-            lines.append(line)
-    return lines
+def _with_panel(
+    line: str,
+    out: Dict[str, Any],
+    panel: Tuple[Optional[str], Optional[str]],
+    columns: Any,
+) -> Dict[str, Any]:
+    """Fill a ``<panel_id>`` placeholder from an earlier ``xtset``.
+
+    The handlers that need the panel id take Stata's own ``i()`` option, so
+    the declaration is appended to the command and it is translated again.
+    """
+    from ._stata import from_stata
+    from ._stata_lexer import _split_options
+
+    unit, time = panel
+    notes = " ".join(out.get("notes") or []) + str(out.get("python_code") or "")
+    if unit is None or not out.get("ok") or "<panel_id>" not in notes:
+        return out
+    sep = " " if _split_options(line)[1] else ", "
+    if time is not None:
+        both = from_stata(f"{line}{sep}i({unit}) t({time})", columns=columns)
+        if both.get("ok") and "t" not in (both.get("untranslated_options") or []):
+            return both
+    return from_stata(f"{line}{sep}i({unit})", columns=columns)
 
 
 def stata(
@@ -78,10 +95,13 @@ def stata(
     Parameters
     ----------
     commands : str
-        One Stata command, or several separated by newlines or ``;``.
-        ``*`` and ``//`` comments are ignored. Post-estimation commands
-        (``margins``, ``test``, ``lincom`` ...) apply to the most recent
-        estimation result.
+        One Stata command, or a do-file snippet: commands separated by
+        newlines or ``;``, with ``///`` continuations, ``*`` / ``//`` /
+        ``/* */`` comments and ``#delimit ;``. ``global`` / ``local``
+        macros whose value is written out are expanded, and ``xtset id
+        [time]`` supplies the panel of a later ``xtreg, fe`` / ``xtabond``.
+        Post-estimation commands (``margins``, ``test``, ``lincom`` ...)
+        apply to the most recent estimation result.
     data : pandas.DataFrame, optional
         The dataset estimation commands run on. Required unless every
         command is a post-estimation command applied to ``result``.
@@ -101,7 +121,8 @@ def stata(
         When a command is not supported by :func:`statspai.from_stata`, or
         its translation needs information the line does not carry (for
         example the panel identifier of ``xtreg, fe``, which Stata takes
-        from an earlier ``xtset``).
+        from an earlier ``xtset`` when the snippet has none), or the snippet
+        uses a loop, an undefined macro, or a macro only Stata can evaluate.
     TypeError
         When an estimation command is run without ``data``, or a
         post-estimation command before any estimation result exists.
@@ -117,6 +138,13 @@ def stata(
     >>> direct = sp.regress("y ~ x1 + x2", data=df, vce="robust")
     >>> bool((r.std_errors == direct.std_errors).all())
     True
+    >>> m = sp.stata('''
+    ...     global rhs "x1 x2"
+    ...     regress y $rhs, ///
+    ...         r            // robust
+    ... ''', data=df)
+    >>> bool((m.std_errors == r.std_errors).all())
+    True
     >>> out = sp.stata("regress y x1 x2; lincom x1 + x2", data=df)
     >>> out == sp.lincom(sp.regress("y ~ x1 + x2", data=df), "x1 + x2")
     True
@@ -124,14 +152,48 @@ def stata(
     import statspai as sp
 
     from ._stata import from_stata
+    from ._stata_script import (
+        MacroTable,
+        ScriptError,
+        control_flow,
+        panel_declaration,
+        split_commands,
+    )
 
-    lines = _command_lines(commands)
+    lines = split_commands(commands)
     if not lines:
         raise ValueError("sp.stata: no command given.")
     last = result
     output: Any = result
+    macros = MacroTable()
+    panel: Tuple[Optional[str], Optional[str]] = (None, None)
+    columns = None if data is None else list(data.columns)
     for line in lines:
-        out = from_stata(line, columns=None if data is None else list(data.columns))
+        flow = control_flow(line)
+        if flow is not None:
+            raise MethodIncompatibility(
+                f"sp.stata: {line!r} is control flow ({flow}); loops, programs "
+                "and blocks are not run.",
+                recovery_hint="Write the loop in Python around sp.stata(...) "
+                "or the sp.* call.",
+                diagnostics={"command": line},
+            )
+        try:
+            if macros.define(line):
+                continue
+            line = macros.expand(line)
+        except ScriptError as exc:
+            raise MethodIncompatibility(
+                f"sp.stata: cannot run {line!r}: {exc}",
+                recovery_hint="Define the macro with `global name ...` / "
+                "`local name ...` above the command, or write it out.",
+                diagnostics={"command": line},
+            ) from exc
+        declared = panel_declaration(line)
+        if declared is not None:
+            panel = declared
+            continue
+        out = _with_panel(line, from_stata(line, columns=columns), panel, columns)
         if not out.get("ok"):
             suggestions = out.get("suggestions") or []
             raise MethodIncompatibility(

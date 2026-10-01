@@ -58,8 +58,21 @@ All notable changes to StatsPAI will be documented in this file.
   untranslated option only warned. Both now raise `MethodIncompatibility`
   with the call to run by hand. See MIGRATION.
 
+- **A factor interaction in an IV varlist produced a broken formula.**
+  `ivreghdfe y c.x1##c.x2 (d = z), absorb(id)` returned
+  `'y ~ x1 + + + x2 + + + x1:x2 | id | d ~ z'` with `ok=True`: the
+  translated term was split on its blanks again. Same for `ivregress` /
+  `ivreg2`.
+- **`psmatch2` without `logit` is a probit score in Stata**, a logit in
+  `sp.psmatch2`; the translation now lists `probit` in
+  `untranslated_options` instead of passing as exact. `ties` and `ate`
+  are carried over (they were dropped / described as unsupported).
+
 ### Fixed
 
+- `ivreghdfe` without an `(endog = instruments)` block is `reghdfe`; it
+  was a parse error.
+- `reghdfe, keepsingletons` becomes `drop_singletons=False`.
 - `ivregress` / `ivreg2` with `[aw=w]` or `[pw=w]` was refused ("sp.ivreg
   takes no weights= argument"): the signature check did not see that
   `sp.ivreg` takes `weights=` through `**kwargs`. The translated call is
@@ -68,6 +81,16 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.stata` reads a do-file snippet.** `///` continuations, `/* */` and
+  `//` comments and `#delimit ;` are resolved; `global` / `local` macros
+  whose value is written out are expanded (also when defined from other
+  macros); `xtset id year` supplies the panel id and time of a later
+  `xtreg, fe` / `xtabond`. A macro set by an expression or extended
+  function, an undefined macro, and `foreach` / `forvalues` / `program`
+  blocks are refused with the reason.
+- `scripts/stata_corpus_scan.py`: translation coverage of a folder of
+  do-files, with the commands and options behind the losses ranked by the
+  number of projects they appear in. No do-file ships with StatsPAI.
 - `sp.from_stata` payload keys `untranslated_options`,
   `ignored_display_options` and `unapplied_sample`: a translation with the
   first empty and the last `None` fits the same model.

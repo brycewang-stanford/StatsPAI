@@ -28,6 +28,9 @@ option abbreviations, prefixes, macros, `if` / `in`, or `xtreg` without
 | `csdid ..., method(ipw)` | `estimator='ipw'` (stabilised) | `estimator='ipw_abadie'` |
 | `did_imputation ..., horizons(0/3)` | horizons dropped | `horizon=[0, 1, 2, 3]` |
 | `xtabond y x` printed code | no `robust=`, so `True` when run | `robust=False`, as Stata |
+| `psmatch2 d x, out(y)` (no `logit`) | translated as exact | `ok=True`, `probit` in `untranslated_options`; `sp.stata` raises |
+| `psmatch2 ..., ties ate` | dropped / "use sp.match" note | `ties=True`, `ate=True` |
+| `ivreghdfe y c.a##c.b (d = z), absorb(id)` | formula `a + + + b + + + a:b` | `a + b + a:b` |
 | `sp.stata("reg y x if z > 0", data=df)` | ran on all rows, warned | raises `MethodIncompatibility` |
 | `sp.stata("reg y x, nocons", data=df)` | ran with a constant, warned | raises `MethodIncompatibility` |
 

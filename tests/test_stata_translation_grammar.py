@@ -81,7 +81,7 @@ def test_a_full_name_wins_over_an_abbreviation_of_it():
     [
         ("reg y x, foobar(3)", ["foobar"]),
         ("reg y x, nocons", ["noconstant"]),
-        ("reghdfe y x, absorb(id) keepsin", ["keepsingletons"]),
+        ("reghdfe y x, absorb(id) dofadjustments(none)", ["dofadjustments"]),
         ("reg y x, small", ["small"]),
         ("reg y x, vce(bootstrap)", ["vce"]),
         ("rdrobust y x, scaleregul(0)", ["scaleregul"]),
@@ -104,6 +104,9 @@ def test_an_option_that_is_not_carried_over_is_reported(line, lost):
         ("poisson y x, irr", ["irr"]),
         ("reg y x, beta", ["beta"]),
         ("rdrobust y x, all", ["all"]),
+        ("rdplot y x, graph_options(title(RD))", ["graph_options"]),
+        ("rddensity x, plot", ["plot"]),
+        ("reghdfe y x, noabsorb", ["noabsorb"]),
     ],
 )
 def test_display_options_are_listed_but_do_not_count_as_lost(line, shown):
@@ -340,7 +343,7 @@ def test_the_abbreviated_absorb_changes_the_point_estimate(df):
         ("reg y x in 1/100", "is not applied"),
         ("reg y x, nocons", "noconstant"),
         ("reg y x, foobar(1)", "foobar"),
-        ("reghdfe y x, absorb(id) keepsingletons", "keepsingletons"),
+        ("reghdfe y x, absorb(id) dofadjustments(none)", "dofadjustments"),
         ("reg y x, vce(bootstrap)", "vce"),
     ],
 )
@@ -468,6 +471,9 @@ def _call_keywords(code):
     [
         "regress y x1 x2, vce(cluster id)",
         "reghdfe y x1, absorb(id year) cluster(id)",
+        "reghdfe y x1, absorb(id) keepsingletons",
+        "psmatch2 d x1, outcome(y) logit ties ate",
+        "xtabond y x1, i(id) t(year)",
         "xtreg y x1, fe i(id) vce(robust)",
         "ivregress 2sls y x2 (d = z), vce(cluster id)",
         "csdid y x1, ivar(id) time(t) gvar(g) method(reg) notyet",
@@ -513,3 +519,37 @@ def test_xtabond_writes_stata_nonrobust_default_into_the_code():
     assert (
         "robust=True" in sp.from_stata("xtabond y x, i(id) vce(robust)")["python_code"]
     )
+
+
+def test_iv_varlists_keep_factor_terms_whole():
+    # c.x1##c.x2 is translated to "x1 + x2 + x1:x2"; splitting the IV varlist
+    # on blanks used to turn it into "x1 + + + x2 + + + x1:x2"
+    out = sp.from_stata("ivreghdfe y c.x1##c.x2 (d = z), absorb(id)")
+    assert out["arguments"]["formula"] == "y ~ x1 + x2 + x1:x2 | id | d ~ z"
+    out = sp.from_stata("ivregress 2sls y i.g (d = z)")
+    assert out["arguments"]["formula"] == "y ~ C(g) + (d ~ z)"
+
+
+def test_ivreghdfe_without_an_iv_block_is_reghdfe():
+    a = sp.from_stata("ivreghdfe y x1 x2, absorb(id) cluster(id)")
+    b = sp.from_stata("reghdfe y x1 x2, absorb(id) cluster(id)")
+    assert a["ok"] and _same_call(a, b)
+
+
+def test_keepsingletons_reaches_hdfe_ols(df):
+    out = sp.from_stata("reghdfe y x, a(id) keepsin")
+    assert out["arguments"]["drop_singletons"] is False
+    assert out["untranslated_options"] == []
+    # one observation per group for the first ten ids: they are singletons
+    d = pd.concat([df[df.id >= 10], df[df.id < 10].groupby("id").head(1)])
+    kept = _quiet(sp.stata, "reghdfe y x, a(id) keepsingletons", data=d)
+    dropped = _quiet(sp.stata, "reghdfe y x, a(id)", data=d)
+    assert kept.data_info["nobs"] - dropped.data_info["nobs"] == 10
+
+
+def test_psmatch2_options_and_its_probit_default():
+    out = sp.from_stata("psmatch2 d x1 x2, outcome(y) neighbor(1) logit ate ties")
+    assert out["arguments"]["ties"] is True and out["arguments"]["ate"] is True
+    assert out["untranslated_options"] == []
+    # without `logit` Stata fits a probit score; sp.psmatch2 fits a logit
+    assert sp.from_stata("psmatch2 d x, out(y)")["untranslated_options"] == ["probit"]

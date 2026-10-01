@@ -26972,7 +26972,7 @@
     "parameters": {
       "properties": {
         "commands": {
-          "description": "One Stata command, or several separated by newlines or ``;``. ``*`` and ``//`` comments are ignored. Post-estimation commands (``margins``, ``test``, ``lincom`` ...) apply to the most recent estimation result.",
+          "description": "One Stata command, or a do-file snippet: commands separated by newlines or ``;``, with ``///`` continuations, ``*`` / ``//`` / ``/* */`` comments and ``#delimit ;``. ``global`` / ``local`` macros whose value is written out are expanded, and ``xtset id [time]`` supplies the panel of a later ``xtreg, fe`` / ``xtabond``. Post-estimation commands (``margins``, ``test``, ``lincom`` ...) apply to the most recent estimation result.",
           "type": "string"
         },
         "data": {

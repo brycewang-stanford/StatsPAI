@@ -253,6 +253,11 @@ _DISPLAY_BY_COMMAND = {
     "xtnbreg": {"irr"},
     "ppmlhdfe": {"irr", "eform"},
     "rdrobust": {"all"},
+    "rdplot": {"graph_options"},
+    "rddensity": {"plot"},
+    "boottest": {"nograph"},
+    # reghdfe's way of saying "no fixed effects": what the call does without absorb()
+    "reghdfe": {"noabsorb"},
 }
 
 

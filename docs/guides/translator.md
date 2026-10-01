@@ -61,6 +61,35 @@ Three things are refused instead of guessed at:
 - **`xtreg` without `fe`**. That is Stata's random-effects estimator; use
   `sp.panel(method='re')`.
 
+### A do-file snippet, not just one line
+
+`sp.stata(...)` takes the lines as they stand in a do-file. It resolves what
+can be resolved by reading:
+
+```python
+sp.stata("""
+    * baseline specification
+    global ctrl "age educ"
+    local fe id year
+    xtset id year
+    reghdfe y x $ctrl ///
+        , a(`fe') cl(id)        // main
+    xtreg y x $ctrl, fe r
+""", data=df)
+```
+
+- `//`, `*` and `/* */` comments, `///` continuations and `#delimit ;`;
+- `global` / `local` macros whose value is written out (`global ctrl "age
+  educ"`, `local k = 3`), including macros defined from other macros;
+- the panel declared by `xtset id year`, which supplies the `<panel_id>` of
+  a later `xtreg, fe` or `xtabond`.
+
+What only Stata can evaluate is refused: a macro set by an expression or an
+extended function (`local n = _N`, `local k : word count ...`), a macro that
+is never defined (Stata would expand it to nothing and run another model),
+and `foreach` / `forvalues` / `program` blocks. Write the loop in Python
+around `sp.stata`.
+
 `sp.stata(...)` runs a translation only when nothing was lost: an entry in
 `untranslated_options` or an `if` / `in` qualifier raises
 `MethodIncompatibility` with the call to run by hand. Filter the DataFrame
@@ -121,8 +150,21 @@ These are part of the queryable contract — `sp.translation_coverage()["limitat
 - **Dropped qualifiers are surfaced, not lost.** A Stata `if`/`in` qualifier
   comes back in `unapplied_sample` and an unrecognized option in
   `untranslated_options`, each with a note.
-- **Macros and loops.** One command is translated at a time, so `$global` /
-  `` `local' `` references and `foreach` bodies must be expanded first.
+- **Macros and loops.** `sp.from_stata` translates one command and refuses a
+  macro; `sp.stata` expands the macros defined by text in the same snippet.
+  Loops and macros computed by Stata are not run.
+- **`psmatch2` without `logit`.** Stata then fits a probit propensity score;
+  `sp.psmatch2` fits a logit, so the translation lists `probit` in
+  `untranslated_options`.
 
 For the hand-written equivalence reference, see also
 [Migrating from R to StatsPAI](migration-from-r.md).
+
+## Checking a set of do-files
+
+`python scripts/stata_corpus_scan.py <folder> [--csv out.csv]` runs every
+estimation command of the do-files under a folder through the translator and
+reports how many translate faithfully, how many say what they lost, and which
+commands and options account for the rest, ranked by the number of projects
+they appear in. It is the detector behind the grammar rules above; fixes go
+into the translator against Stata's documented syntax, with synthetic tests.

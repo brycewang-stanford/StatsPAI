@@ -797,7 +797,9 @@ class TestTier2EdgeCases:
         assert out["ok"] is True
         assert out["tool"] == "psmatch2"
         assert any("probit" in note for note in out["notes"])
-        assert any("ATT-focused" in note for note in out["notes"])
+        assert out["untranslated_options"] == ["probit"]
+        # sp.psmatch2 reports the ATU / ATE with ate=True (1.34)
+        assert out["arguments"]["ate"] is True
 
     def test_psmatch2_without_outcome_emits_matched_frame_note(self):
         out = from_stata("psmatch2 d x1 x2, n(1)")
