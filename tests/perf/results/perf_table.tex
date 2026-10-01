@@ -10,7 +10,7 @@ Estimator & Common task & Ref. & Max.~$N$ & \statspai{} (s) & Ref. (s) & Faster 
 \midrule
 HDFE & OLS, two absorbed FE, iid SE & \pkg{fixest} & 1{,}000{,}000 & 0.121 (0.001) & 0.075 (0.000) & ref. $\mathbf{1.6\times}$ & 2e-14 \\
 CS-DiD & ATT(g,t), pre-test, simple and dynamic aggregation & \pkg{did} & 125{,}000 & 0.028 (0.000) & 0.457 (0.005) & sp $\mathbf{16.1\times}$ & 4e-13 \\
-SCM & ADH special predictors, nested V, no placebos & \pkg{Synth} & 100 & 264.019 (0.238) & 4.579 (0.161) & ref. $\mathbf{58\times}$ & 0.000 \\
+SCM & ADH special predictors, nested V, no placebos & \pkg{Synth} & 100 & 264.019 (0.238) & 4.579 (0.161) & ref. $\mathbf{58\times}$ & 3e-06 \\
 DML & PLR, linear learners, 5 folds & \pkg{DoubleML} & 10{,}000 & 0.0077 (0.0001) & 0.0085 (0.0000) & tie $1.10\times$ & 0.00 SE \\
 \bottomrule
 \end{tabular}
