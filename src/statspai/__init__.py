@@ -1035,6 +1035,7 @@ from .smart import (
 # (lazy) nonparametric: see _LAZY_SUBMODULES / _LAZY_ATTRS
 # Time Series (for causal inference)
 from .timeseries import (
+    ARDLResult,
     ARIMAResult,
     BVARResult,
     CointegrationResult,
@@ -1044,6 +1045,7 @@ from .timeseries import (
     StructuralBreakResult,
     UnitRootResult,
     VARResult,
+    ardl,
     arima,
     bvar,
     cusum_test,
@@ -1920,6 +1922,8 @@ __all__ = [
     "PanelUnitRootResult",
     "unitroot",
     "UnitRootResult",
+    "ardl",
+    "ARDLResult",
     "engle_granger",
     "johansen",
     "CointegrationResult",

@@ -373,6 +373,23 @@
       "tolerance": "Statistic 1.1e-15, p-value 1.2e-13, degrees of freedom exact, and the analytic AR confidence set 1.2e-14."
     },
     {
+      "function": "ardl",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_stock_watson_4e_ch15.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "evidence_grade": "T2",
       "function": "arima",
       "headline": {
@@ -17579,9 +17596,11 @@
     },
     {
       "additional_tests": [
+        "tests/external_parity/test_stock_watson_4e_ch15.py",
         "tests/reference_parity/test_structural_break_parity.py"
       ],
       "also_verified_by": [
+        "external_parity",
         "reference_parity"
       ],
       "function": "structural_break",
@@ -19128,6 +19147,23 @@
         "tests/reference_parity/_fixtures/event_study_vcov_R.json"
       ],
       "tolerance": "equivalence margin +/-0.005 on the critical value, 20 seeds, 90% interval of the mean inside the margin; band = beta +/- c se with se from the bit-exact event_study_vcov"
+    },
+    {
+      "function": "unitroot",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_stock_watson_4e_ch15.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "validation_scope",

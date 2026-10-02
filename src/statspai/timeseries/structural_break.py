@@ -245,6 +245,8 @@ def structural_break(
     method: str = "bai-perron",
     alpha: float = 0.05,
     pvalue_method: str = "hansen",
+    break_vars: Optional[List[str]] = None,
+    vce: str = "nonrobust",
 ) -> StructuralBreakResult:
     """
     Structural break detection.
@@ -289,6 +291,18 @@ def structural_break(
         an ordinary Chow F test, as in strucchange). ``'simulate'`` is the
         earlier Monte-Carlo draw from the same limit law (5,000 fixed-seed
         Brownian-bridge replications on a grid tied to ``n``).
+    break_vars : list of str, optional
+        For 'sup-f' / 'chow': the coefficients allowed to change at the
+        break, as names from ``x`` plus ``"const"`` for the intercept. The
+        others are held equal across the two regimes. Default: every
+        coefficient changes. Naming a subset gives the Quandt likelihood
+        ratio statistic as usually applied to a forecasting regression,
+        where the lags of ``y`` stay fixed and the intercept and the
+        predictor's coefficients are tested.
+    vce : {'nonrobust', 'hc0', 'hc1'}, default 'nonrobust'
+        For 'sup-f' / 'chow': covariance estimator of the Wald statistic at
+        each candidate date. ``'hc1'`` gives a heteroskedasticity-robust
+        sup-F. The limit law, and so the p-value, is the same.
 
     Returns
     -------
@@ -362,6 +376,36 @@ def structural_break(
 
     if method == "global":
         return _breakpoints_global(y_data, X_full, min_segment, max_breaks, rss_full)
+
+    if vce not in ("nonrobust", "hc0", "hc1"):
+        raise MethodIncompatibility("vce must be 'nonrobust', 'hc0' or 'hc1'")
+    partial = break_vars is not None or vce != "nonrobust"
+    if partial and method not in ("chow", "sup-f"):
+        raise MethodIncompatibility(
+            "break_vars= and vce= apply to method='sup-f' / 'chow' only; the "
+            "Bai-Perron procedures here assume every coefficient breaks and "
+            "homoskedastic errors."
+        )
+    if partial:
+        names = ["const"] + list(x or [])
+        chosen = names if break_vars is None else list(break_vars)
+        unknown = [v for v in chosen if v not in names]
+        if unknown or not chosen:
+            raise MethodIncompatibility(
+                f"break_vars {unknown or chosen} must be drawn from {names}"
+            )
+        cols = [names.index(v) for v in dict.fromkeys(chosen)]
+        return _sup_wald_break(
+            y_data,
+            X_full,
+            cols,
+            vce,
+            min_segment,
+            alpha,
+            pvalue_method,
+            rss_full,
+            method,
+        )
 
     if method == "chow" or method == "sup-f":
         # Sup-F test: find the single break maximizing F. Candidate break
@@ -437,6 +481,93 @@ def structural_break(
     return _bai_perron_sequential(
         y_data, X_full, min_segment, max_breaks, alpha, rss_full
     )
+
+
+def _sup_wald_break(
+    y: np.ndarray,
+    X: np.ndarray,
+    cols: List[int],
+    vce: str,
+    min_segment: float,
+    alpha: float,
+    pvalue_method: str,
+    rss_full: float,
+    method: str,
+) -> "StructuralBreakResult":
+    """Sup-F for a break in a subset of coefficients, optionally robust.
+
+    At each candidate date ``t`` (size of the first regime) the model is
+    augmented with ``D_t * X[:, cols]``, where ``D_t`` is one in the second
+    regime, and the Wald statistic that those ``q`` coefficients are zero is
+    computed with the requested covariance estimator. ``F = W / q``. With
+    every coefficient breaking and ``vce='nonrobust'`` this is the Chow F of
+    the split-sample formula.
+    """
+    n, k = X.shape
+    q = len(cols)
+    Z = X[:, cols]
+    kk = k + q
+    t_from = max(int(np.floor(min_segment * n)), kk + 1)
+    t_to = min(n - int(np.floor(min_segment * n)), n - kk - 1)
+    if t_to < t_from:
+        raise MethodIncompatibility(
+            "structural_break: too few observations for the trimming and the "
+            "number of coefficients."
+        )
+    best_f, best_break = -np.inf, None
+    f_stats = []
+    for t in range(t_from, t_to + 1):
+        d = (np.arange(n) >= t).astype(float)
+        W = np.column_stack([X, Z * d[:, None]])
+        WtW_inv = np.linalg.pinv(W.T @ W)
+        beta = WtW_inv @ (W.T @ y)
+        e = y - W @ beta
+        if vce == "nonrobust":
+            V = WtW_inv * float(e @ e) / (n - kk)
+        else:
+            meat = (W * (e**2)[:, None]).T @ W
+            V = WtW_inv @ meat @ WtW_inv
+            if vce == "hc1":
+                V = V * (n / (n - kk))
+        b = beta[k:]
+        wald = float(b @ np.linalg.solve(V[k:, k:], b))
+        f_stat = wald / q
+        f_stats.append((t, f_stat))
+        if f_stat > best_f:
+            best_f, best_break = f_stat, t
+
+    if pvalue_method == "hansen":
+        lam = ((n - t_from) * t_to) / (t_from * (n - t_to))
+        if lam == 1:
+            from scipy import stats as _st
+
+            p_value = float(_st.f.sf(best_f, q, n - kk))
+        else:
+            p_value = hansen_supf_pvalue(q * best_f, q, lam)
+    else:
+        p_value = _supf_pvalue(best_f, q, n, min_segment)
+    selected = [best_break] if p_value < alpha and best_break is not None else []
+    res = StructuralBreakResult(
+        test_type="Sup-F" if method == "sup-f" else "Chow",
+        break_dates=selected,
+        f_stats=best_f,
+        p_values=p_value,
+        n_breaks=len(selected),
+        rss_full=rss_full,
+        rss_segments=None,
+        bic=None,
+        n_obs=n,
+    )
+    for name, value in (
+        ("sup_wald", float(q * best_f)),
+        ("sup_break", best_break),
+        ("f_path", np.array([f for _, f in f_stats])),
+        ("candidate_breaks", np.array([t for t, _ in f_stats])),
+        ("n_restrictions", q),
+        ("vce", vce),
+    ):
+        setattr(res, name, value)
+    return res
 
 
 _BP_LEVELS = (0.10, 0.05, 0.025, 0.01)

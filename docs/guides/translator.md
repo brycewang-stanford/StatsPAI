@@ -91,10 +91,55 @@ and `foreach` / `forvalues` / `program` blocks. Write the loop in Python
 around `sp.stata`.
 
 `sp.stata(...)` runs a translation only when nothing was lost: an entry in
-`untranslated_options` or an `if` / `in` qualifier raises
-`MethodIncompatibility` with the call to run by hand. Filter the DataFrame
-first for `if` (Stata treats missing as +infinity in comparisons; pandas does
-not, so the filter is not applied automatically).
+`untranslated_options` raises `MethodIncompatibility` with the call to run
+by hand.
+
+### Qualifiers and data steps
+
+`sp.stata` applies `if` and `in`, and runs the data steps a do-file usually
+has between its estimation lines:
+
+```python
+sp.stata("""
+    gen lwage = ln(wage)
+    gen exp2 = exper^2
+    keep if !missing(union)
+    reg lwage educ exper exp2 if year >= 1985, r
+    test exper exp2
+""", data=df)
+```
+
+The caller's DataFrame is never modified. What is run:
+
+| Stata | Note |
+| --- | --- |
+| `if exp`, `in f/l` | on estimation and descriptive commands |
+| `generate`, `replace` | `x[_n-1]`, `_n`, `_N`; stores single precision unless `double`, as Stata |
+| `keep` / `drop` (`if`, `in` or a variable list), `sort`, `preserve` / `restore` | |
+| `mvdecode v, mv(#)`, `encode s, gen(v)` | |
+| `predict v [, xb \| residuals]` | after `regress` / `ivreg` on plain columns |
+| `scalar s = exp`, `display exp` | may use `_b[x]`, `_se[x]`, `e(N)`, `e(r2)`, `e(r2_a)`, and `r()` after `summarize`, `test`, `ttest` |
+
+Expressions follow Stata's rules for missing values, which is where a
+hand-written pandas filter goes wrong:
+
+| Stata | Value where `x` is missing | pandas `df.x > 0` |
+| --- | --- | --- |
+| `x > 0` | true (missing is larger than any number) | false |
+| `x < .` | false: the idiom for "x is observed" | |
+| `x == .` | true | `NaN == NaN` is false |
+| `if x` | true (missing is not zero) | |
+| `x + 1`, `x / 0`, `ln(-1)` | missing | |
+
+The functions available are `ln` `log` `log10` `exp` `sqrt` `abs` `floor`
+`ceil` `int` `round` `mod` `min` `max` `sign` `cond` `missing` `mi`
+`inlist` `inrange` `normal` `normalden` `invnormal` `chi2` `chi2tail`
+`ttail` `invttail` `F` `Ftail`. Anything else is refused with the reason:
+`e(sample)`, time-series operators (`L.x`), string functions, extended
+missing values (`.a`), `egen`, `merge`, `reshape`, `collapse`. `use` is
+refused as well, since it replaces the data; pass the DataFrame in. Settings
+and output-only lines (`set more off`, `log using`, `label`, `describe`) are
+skipped, and graph or export commands are skipped with a warning.
 
 ## What's covered — and how to check
 
@@ -103,7 +148,7 @@ translators actually do:
 
 ```python
 cov = sp.translation_coverage()
-cov["summary"]      # {'n_stata_commands': 38, 'n_r_functions': 11, ...}
+cov["summary"]      # {'n_stata_commands': 51, 'n_r_functions': 16, ...}
 cov["stata"]        # [{'command': 'reghdfe', 'targets': ['sp.hdfe_ols'], ...}, ...]
 cov["limitations"]  # the documented gaps (see below)
 
@@ -119,7 +164,12 @@ always-current list):
 | `reghdfe`, `ivreghdfe` | `sp.hdfe_ols` (reghdfe's singleton / dof / `t(G-1)` rules; `a#b` becomes `a^b`) |
 | `xtreg, fe` | `sp.feols` |
 | `summarize`, `sum2docx` | `sp.sumstats` |
-| `ivreg2` / `ivregress` | `sp.ivreg` |
+| `correlate`, `pwcorr` | `sp.pwcorr` (casewise for `correlate`, pairwise for `pwcorr`) |
+| `ttest` | `sp.ttest` |
+| `ivreg2` / `ivregress` / `ivreg` | `sp.ivreg` (`robust` without `small` is `robust='hc0'`; the legacy `ivreg` is small-sample) |
+| `probit`, `logit`, `poisson`, `nbreg`, `tobit` | `sp.probit` ... ; `vce(robust)` is `robust='robust'`, Stata's `N/(N-1)` |
+| `newey y x, lag(m)` | `sp.regress(robust='hac', hac_lags=m, hac_small=True)` |
+| `dfuller` | `sp.unitroot(test='adf')` |
 | `csdid`, `didregress`, `did_imputation` | `sp.callaway_santanna` / `sp.did` / `sp.did_imputation` |
 | `rdrobust`, `rdplot`, `rddensity` | `sp.rdrobust` / `sp.rdplot` / `sp.rddensity` |
 | `synth` | `sp.synth` |
@@ -144,12 +194,21 @@ These are part of the queryable contract — `sp.translation_coverage()["limitat
   placeholder when the `xtset` / `tsset` declaration is on a different line; pass
   `id=` / `time=` explicitly to the resulting `sp.*` call.
 - **Time series.** `arima` / `var` / `vec` / `granger` are not translated — call
-  `sp.arima` / `sp.var` / `sp.johansen` directly.
+  `sp.arima` / `sp.var` / `sp.johansen` directly. Time-series operators
+  (`L.x`, `D.x`) are refused; build the lag with `gen lx = x[_n-1]` after
+  `sort`. `dfgls` is answered with the matching `sp.unitroot` call.
 - **Estimation tables.** `esttab` / `eststo` / `outreg2` are not translated; use
   `sp.regtable` on the fitted results.
-- **Dropped qualifiers are surfaced, not lost.** A Stata `if`/`in` qualifier
-  comes back in `unapplied_sample` and an unrecognized option in
-  `untranslated_options`, each with a note.
+- **Dropped qualifiers are surfaced, not lost.** From `sp.from_stata`, which
+  translates one line without data, a Stata `if`/`in` qualifier comes back
+  in `unapplied_sample` and an unrecognized option in
+  `untranslated_options`, each with a note. `sp.stata` applies the
+  qualifier.
+- **`xtreg, fe` has no `_cons`.** Stata prints the average fixed effect;
+  `sp.feols` absorbs it.
+- **`summarize, detail` percentiles** are interpolated between order
+  statistics; Stata's rule picks an order statistic, so the two can differ
+  within a gap between observations.
 - **Macros and loops.** `sp.from_stata` translates one command and refuses a
   macro; `sp.stata` expands the macros defined by text in the same snippet.
   Loops and macros computed by Stata are not run.
@@ -168,3 +227,11 @@ reports how many translate faithfully, how many say what they lost, and which
 commands and options account for the rest, ranked by the number of projects
 they appear in. It is the detector behind the grammar rules above; fixes go
 into the translator against Stata's documented syntax, with synthetic tests.
+
+That scan asks whether a command is translated. When the logs are at hand,
+`python scripts/stata_log_replay.py <logs> --data <folder with the .dta files>`
+asks whether it gives Stata's numbers: it runs every logged command through
+one `sp.stata` session and compares each coefficient, standard error, test
+statistic, p-value and displayed scalar with what Stata printed, to the
+precision it printed. A translation that fits the right model with the wrong
+small-sample factor passes the scan and fails the replay.

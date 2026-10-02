@@ -6057,6 +6057,80 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="ardl",
+            category="timeseries",
+            description=(
+                "Autoregression AR(p) or autoregressive distributed lag "
+                "ADL(p, q) forecasting regression by OLS: y on its own lags "
+                "and on lags of other series, dated t-1 or earlier so the "
+                "fit forecasts the next period. Lag order fixed or chosen by "
+                "BIC / AIC on a common sample. The result gives the one-step "
+                "forecast with an interval, a Granger-causality F test "
+                "(.granger()) and pseudo out-of-sample forecasts with their "
+                "root mean squared forecast error and bias (.poos()). "
+                "Robust or HAC standard errors. Coefficients are predictive, "
+                "not causal. statsmodels ARDL, R dynlm / ARDL."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, None, "One row per period"),
+                ParamSpec("y", "str", True, None, "Series to forecast"),
+                ParamSpec(
+                    "x", "str|list", False, None, "Other predictors; omit for AR(p)"
+                ),
+                ParamSpec(
+                    "lags",
+                    "int|str",
+                    False,
+                    1,
+                    "Autoregressive order p, or 'bic' / 'aic' to search "
+                    "0..max_lags on a common sample",
+                ),
+                ParamSpec(
+                    "x_lags",
+                    "int|str|dict",
+                    False,
+                    1,
+                    "Lags of each x: an order, {name: order}, or 'same' (= p)",
+                ),
+                ParamSpec("max_lags", "int", False, None, "Largest order searched"),
+                ParamSpec(
+                    "contemporaneous",
+                    "bool",
+                    False,
+                    False,
+                    "Include x[t]; the model then cannot forecast",
+                ),
+                ParamSpec(
+                    "trend", "str", False, "c", "Deterministics", ["c", "ct", "n"]
+                ),
+                ParamSpec("time", "str", False, None, "Column to sort and index by"),
+                ParamSpec(
+                    "sample",
+                    "tuple",
+                    False,
+                    None,
+                    "(start, end) labels of the estimation sample; lags still "
+                    "come from earlier rows",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "hc1",
+                    "Covariance estimator, as sp.regress",
+                    ["hc1", "hc0", "nonrobust", "hac"],
+                ),
+                ParamSpec("hac_lags", "int", False, None, "Newey-West lags for 'hac'"),
+                ParamSpec("alpha", "float", False, 0.05, "Forecast interval level"),
+            ],
+            returns="ARDLResult",
+            example='sp.ardl(df, "gdp_growth", "term_spread", lags="bic", x_lags="same")',
+            tags=["timeseries", "forecasting", "autoregression", "adl", "granger"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="unitroot",
             category="timeseries",
             description=(

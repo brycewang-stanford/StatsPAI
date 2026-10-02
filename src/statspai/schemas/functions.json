@@ -4167,7 +4167,101 @@
     }
   },
   {
-    "description": "Unit-root test for one time series: augmented Dickey-Fuller or DF-GLS (Elliott-Rothenberg-Stock), with a constant or a constant and trend, a fixed lag order or one chosen by AIC / BIC. H0 is a unit root. ADF reports MacKinnon p-values and critical values (same statistic, p-value and lag choice as statsmodels adfuller); DF-GLS has more power near a unit root and uses finite-sample critical values in the sample size and lag order. Not rejecting is not evidence of a unit root. Stata dfuller / dfgls, R urca.",
+    "description": "Autoregression AR(p) or autoregressive distributed lag ADL(p, q) forecasting regression by OLS: y on its own lags and on lags of other series, dated t-1 or earlier so the fit forecasts the next period. Lag order fixed or chosen by BIC / AIC on a common sample. The result gives the one-step forecast with an interval, a Granger-causality F test (.granger()) and pseudo out-of-sample forecasts with their root mean squared forecast error and bias (.poos()). Robust or HAC standard errors. Coefficients are predictive, not causal. statsmodels ARDL, R dynlm / ARDL. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "ardl",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Forecast interval level",
+          "type": "number"
+        },
+        "contemporaneous": {
+          "default": false,
+          "description": "Include x[t]; the model then cannot forecast",
+          "type": "boolean"
+        },
+        "data": {
+          "description": "One row per period",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "hac_lags": {
+          "description": "Newey-West lags for 'hac'",
+          "type": "integer"
+        },
+        "lags": {
+          "default": 1,
+          "description": "Autoregressive order p, or 'bic' / 'aic' to search 0..max_lags on a common sample",
+          "type": "integer"
+        },
+        "max_lags": {
+          "description": "Largest order searched",
+          "type": "integer"
+        },
+        "sample": {
+          "description": "(start, end) labels of the estimation sample; lags still come from earlier rows",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "time": {
+          "description": "Column to sort and index by",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "trend": {
+          "default": "c",
+          "description": "Deterministics",
+          "enum": [
+            "c",
+            "ct",
+            "n"
+          ],
+          "type": "string"
+        },
+        "vce": {
+          "default": "hc1",
+          "description": "Covariance estimator, as sp.regress",
+          "enum": [
+            "hc1",
+            "hc0",
+            "nonrobust",
+            "hac"
+          ],
+          "type": "string"
+        },
+        "x": {
+          "description": "Other predictors; omit for AR(p)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "x_lags": {
+          "default": 1,
+          "description": "Lags of each x: an order, {name: order}, or 'same' (= p)",
+          "type": [
+            "object",
+            "integer"
+          ]
+        },
+        "y": {
+          "description": "Series to forecast",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Unit-root test for one time series: augmented Dickey-Fuller or DF-GLS (Elliott-Rothenberg-Stock), with a constant or a constant and trend, a fixed lag order or one chosen by AIC / BIC. H0 is a unit root. ADF reports MacKinnon p-values and critical values (same statistic, p-value and lag choice as statsmodels adfuller); DF-GLS has more power near a unit root and uses finite-sample critical values in the sample size and lag order. Not rejecting is not evidence of a unit root. Stata dfuller / dfgls, R urca. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "unitroot",
     "parameters": {
       "properties": {
@@ -37766,6 +37860,14 @@
           "description": "Significance level.",
           "type": "number"
         },
+        "break_vars": {
+          "description": "For 'sup-f' / 'chow': the coefficients allowed to change at the break, as names from ``x`` plus ``\"const\"`` for the intercept. The others are held equal across the two regimes. Default: every coefficient changes. Naming a subset gives the Quandt likelihood ratio statistic as usually applied to a forecasting regression, where the lags of ``y`` stay fixed and the intercept and the predictor's coefficients are tested.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
         "data": {
           "description": "Time series data (assumed ordered by time).",
           "type": "object",
@@ -37792,6 +37894,16 @@
           "enum": [
             "hansen",
             "simulate"
+          ],
+          "type": "string"
+        },
+        "vce": {
+          "default": "nonrobust",
+          "description": "For 'sup-f' / 'chow': covariance estimator of the Wald statistic at each candidate date. ``'hc1'`` gives a heteroskedasticity-robust sup-F. The limit law, and so the p-value, is the same.",
+          "enum": [
+            "nonrobust",
+            "hc0",
+            "hc1"
           ],
           "type": "string"
         },

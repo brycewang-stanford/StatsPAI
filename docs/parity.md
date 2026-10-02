@@ -31,8 +31,8 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | | aligned | 53 |
 | | **subtotal** | **417** |
 | **No external software reference** | analytical-only (T1) | 325 |
-| | external-replication (published numbers) | 3 |
-| | **subtotal** | **328** |
+| | external-replication (published numbers) | 5 |
+| | **subtotal** | **330** |
 | No numerical evidence yet | unverified | 533 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 417 | 735 | 738 | 56.5% |
+| estimator callables | 417 | 737 | 739 | 56.4% |
 | infrastructure (parity N/A) | 0 | 7 | 217 | 0.0% |
-| result / exception classes | 0 | 3 | 323 | 0.0% |
-| **all registered** | 417 | 745 | 1278 | 32.6% |
+| result / exception classes | 0 | 3 | 324 | 0.0% |
+| **all registered** | 417 | 747 | 1280 | 32.6% |
 
 ### Coverage by estimator family
 
@@ -62,8 +62,8 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | diagnostics | 17 | 22 | 22 |
 | mendelian | 18 | 20 | 20 |
 | epi | 16 | 17 | 17 |
+| timeseries | 11 | 14 | 14 |
 | bayes | 0 | 14 | 14 |
-| timeseries | 11 | 12 | 13 |
 | power | 6 | 11 | 11 |
 | structural | 5 | 10 | 10 |
 | conformal_causal | 0 | 9 | 9 |
@@ -526,15 +526,17 @@ Agreement within a documented, pre-registered looser tolerance.
 | `zinb` | pscl::zeroinfl(dist="negbin") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-05, rel_se<=0.001 | 9.5e-07 / 4.5e-11 | [`64_zinb.py`](../tests/r_parity/64_zinb.py) (+2) |
 | `zisf` | Stata chks 1.1 (estimation(zsf) eoption(ml)); R sfa::zsfm 1.2.0 (ZISF / ZISF_Z, likelihood at its optimum) | R 4.5.2; sfa 1.2.0; numDeriv 2016.8.1.1; stata 18; chks 1.1 (chks.pkg dated 20190320) | estimates and OIM SEs 1e-6 rel (observed chks 8.6e-8 / 9.4e-8; sfa likelihood at its optimum 1.3e-8 / 5.4e-8); sfa's reported L-BFGS-B point 5e-5 / 5e-4 (observed 1.6e-5 / 1.8e-4) | — / — | [`test_r2_frontier_parity.py`](../tests/reference_parity/test_r2_frontier_parity.py) (+2) |
 
-## external-replication — 3 functions
+## external-replication — 5 functions
 
 Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_REFERENCE_VALUES.md`.
 
 | function | test |
 | --- | --- |
 | `aggte` | [`test_honest_did_paper_parity.py`](../tests/external_parity/test_honest_did_paper_parity.py) (+1) |
+| `ardl` | [`test_stock_watson_4e_ch15.py`](../tests/external_parity/test_stock_watson_4e_ch15.py) |
 | `cdlz_bunching` | [`test_cdlz_bunching_table1.py`](../tests/external_parity/test_cdlz_bunching_table1.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
+| `unitroot` | [`test_stock_watson_4e_ch15.py`](../tests/external_parity/test_stock_watson_4e_ch15.py) |
 
 ## analytical-only — 325 functions
 

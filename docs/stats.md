@@ -43,7 +43,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `synth` | 27,878 | 36 | 55 |
 | `rd` | 21,269 | 32 | 55 |
 | `regression` | 21,108 | 25 | 39 |
-| `agent` | 20,234 | 40 | 4 |
+| `agent` | 20,240 | 40 | 4 |
 | `smart` | 16,475 | 21 | 31 |
 | `forest` | 15,811 | 17 | 31 |
 | `output` | 13,825 | 22 | 42 |
@@ -58,7 +58,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `spatial` | 7,855 | 30 | 38 |
 | `fast` | 7,743 | 16 | 0 |
 | `plots` | 6,011 | 7 | 8 |
-| `timeseries` | 6,121 | 12 | 22 |
+| `timeseries` | 6,905 | 13 | 24 |
 | `multilevel` | 5,283 | 9 | 11 |
 | `bayes` | 5,243 | 12 | 20 |
 | `mendelian` | 5,166 | 13 | 41 |

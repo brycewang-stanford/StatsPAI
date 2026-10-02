@@ -36,13 +36,19 @@ LIMITATIONS: List[str] = [
     "the `xtset`/`tsset` declaration is not on the same line — pass id=/time= "
     "explicitly to the resulting sp.* call.",
     "Time-series commands (arima, var, vec, varsoc, granger) are not translated; "
-    "call sp.arima / sp.var / sp.vecm directly.",
+    "call sp.arima / sp.var / sp.vecm directly. Time-series operators (L.x, "
+    "D.x) in a variable list or expression are refused.",
     "Estimation-table commands (esttab, eststo, outreg2) are not translated; use "
     "sp.regtable on the fitted results.",
     "Dropped Stata `if`/`in` qualifiers and unrecognized options are never "
-    "silently lost — they come back in `unapplied_sample` / "
-    "`untranslated_options` and in the per-command `notes`; sp.stata refuses "
-    "to run a translation that carries either.",
+    "silently lost — sp.from_stata returns them in `unapplied_sample` / "
+    "`untranslated_options` and in the per-command `notes`. sp.stata applies "
+    "an `if`/`in` qualifier with Stata's missing-value rules and refuses to "
+    "run a translation with an untranslated option, or a qualifier it "
+    "cannot evaluate (e(sample), string functions).",
+    "sp.stata runs generate / replace / keep / drop / sort / mvdecode / "
+    "encode / preserve / restore / predict / scalar / display; egen, merge, "
+    "reshape, collapse and `use` are refused.",
     "Stata macros (`$global`, `local') and prefixes that change the estimate "
     "(by, bootstrap, jackknife, permute, svy, rolling, statsby) are refused: "
     "expand the macro, or apply the prefix in Python.",

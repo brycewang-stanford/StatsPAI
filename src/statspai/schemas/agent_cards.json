@@ -82706,6 +82706,14 @@
             "description": "Significance level.",
             "type": "number"
           },
+          "break_vars": {
+            "description": "For 'sup-f' / 'chow': the coefficients allowed to change at the break, as names from ``x`` plus ``\"const\"`` for the intercept. The others are held equal across the two regimes. Default: every coefficient changes. Naming a subset gives the Quandt likelihood ratio statistic as usually applied to a forecasting regression, where the lags of ``y`` stay fixed and the intercept and the predictor's coefficients are tested.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
           "data": {
             "description": "Time series data (assumed ordered by time).",
             "type": "object",
@@ -82735,6 +82743,16 @@
             ],
             "type": "string"
           },
+          "vce": {
+            "default": "nonrobust",
+            "description": "For 'sup-f' / 'chow': covariance estimator of the Wald statistic at each candidate date. ``'hc1'`` gives a heteroskedasticity-robust sup-F. The limit law, and so the p-value, is the same.",
+            "enum": [
+              "nonrobust",
+              "hc0",
+              "hc1"
+            ],
+            "type": "string"
+          },
           "x": {
             "description": "Regressors. If None, uses constant only (mean shift).",
             "items": {
@@ -82756,6 +82774,7 @@
     "typical_n_min": null,
     "validation_notes": [
       "Cross-language parity (bit-exact) vs strucchange::Fstats + sctest(type = 'supF') / breakpoints; mbreaks::dosequa (Bai-Perron sequential); Stata estat sbsingle [R version 4.5.2 (2025-10-31), Stata 18, mbreaks 1.0.1, strucchange 1.5.4]; tolerance statistics 1e-10 rel (observed <= 1e-14); sup-F p-values 1e-10 rel for p > 1e-6, 1e-13 abs below (R uses 1 - pchisq); break dates exact -- tests/reference_parity/test_r2_ts_parity.py",
+      "tests/external_parity/test_stock_watson_4e_ch15.py",
       "tests/reference_parity/test_structural_break_parity.py"
     ],
     "validation_status": "certified"

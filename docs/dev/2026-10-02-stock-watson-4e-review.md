@@ -59,6 +59,8 @@ STATSPAI_SW4E_DIR=<files> pytest tests/external_parity/test_stock_watson_4e_logs
 | 8 | No data steps, so a do-file had to be rewritten before it ran | coverage | `generate`, `replace`, `keep`, `drop`, `sort`, `mvdecode`, `encode`, `preserve`, `restore`, `predict`, `scalar`, `display` |
 | 9 | `sp.regress(robust='hac')` had no way to set the lag length, and could not reproduce Stata's `newey` (it scales by `N/(N-K)`) | missing option | `hac_lags=`, `hac_small=` |
 | 10 | No unit-root test for a single series | missing function | `sp.unitroot` (ADF, DF-GLS) |
+| 11 | AR / ADL forecasting, lag selection and pseudo out-of-sample evaluation had to be assembled by hand | missing function | `sp.ardl` |
+| 12 | `sp.structural_break(method='sup-f')` tested every coefficient with a homoskedastic F; the textbook's QLR holds the lags of `y` fixed and is robust | missing option | `break_vars=`, `vce=` |
 
 Item 9 deserves a note. Track A module `51_newey` passed against Stata with
 a 1e-2 tolerance. The gap was the documented `N/(N-K)` factor. With
@@ -72,6 +74,17 @@ surface in the sample size and the lag order, fitted to a simulated null by
 `scripts/simulate_dfgls_critical_values.py`. The asymptotic values are too
 lenient at the sample sizes macro data come in: with a constant the 5% point
 is -1.95 in the limit and about -2.27 at 50 observations.
+
+Items 11 and 12 are checked against the RATS output of chapter 15, number
+for number: the AR(1), AR(2), ADL(2,1) and ADL(2,2) coefficients and robust
+standard errors, their forecasts of 2017:Q4, the Granger statistic, the two
+BIC / AIC tables, the pseudo out-of-sample bias and mean squared error, and
+the QLR statistic with its date. RATS `linreg(robust)` is HC0; its QLR
+scales the HC0 Wald by `ndf/nobs`, which is the HC1 statistic.
+
+```bash
+STATSPAI_SW4E_DIR=<files> pytest tests/external_parity/test_stock_watson_4e_ch15.py
+```
 
 ## Where the textbook's practice has moved since 2018
 
@@ -90,7 +103,7 @@ docstring.
 | 12 | 2SLS, first-stage F above 10, J test | Effective F, Anderson-Rubin intervals, tF critical values; the F above 10 rule does not control size with robust errors | `sp.iv_diag`, `sp.effective_f_test`, `sp.anderson_rubin_ci`, `sp.tF_adjustment` |
 | 13 | Differences estimator, difference-in-differences, sharp and fuzzy regression discontinuity | Event studies with heterogeneity-robust estimators and sensitivity to pre-trends; local polynomial RD with robust bias-corrected intervals and a density test | `sp.did`, `sp.event_study`, `sp.honest_did`, `sp.rdrobust`, `sp.rddensity` |
 | 14 | Ridge, lasso and principal components for prediction, tuned by cross-validation | The same tools as nuisance learners inside a causal estimator | `sp.lasso_select`, `sp.rlasso`, `sp.dml`; ridge and principal-components prediction are not offered as standalone functions |
-| 15 | AR and ADL forecasts, BIC, QLR break test, pseudo out-of-sample RMSFE | Unchanged as teaching material | AR / ADL by `sp.regress` on lagged columns; `sp.structural_break`; no single forecasting function |
+| 15 | AR and ADL forecasts, BIC, QLR break test, pseudo out-of-sample RMSFE | Unchanged as teaching material | `sp.ardl` (`.forecast()`, `.granger()`, `.poos()`), `sp.structural_break(method='sup-f', break_vars=, vce='hc1')`, `sp.unitroot` |
 | 16 | Distributed lags with HAC errors, truncation `m = 0.75 T^(1/3)` | Local projections; larger HAC bandwidths with fixed-b critical values | `sp.local_projections`, `sp.regress(robust='hac', hac_lags=)`; fixed-b and EWC inference are not implemented |
 | 17 | VAR, DF-GLS, cointegration, GARCH | Unchanged | `sp.var`, `sp.unitroot`, `sp.engle_granger`, `sp.johansen`, `sp.garch` |
 
@@ -101,8 +114,6 @@ docstring.
 | `xtreg, fe` prints `_cons` (mean of the fixed effects); the translation has slopes only | 20 numbers in chapters 10 and 13 have no counterpart | small |
 | Time-series operators `L.` `D.` `F.` in a varlist are refused | every time-series do-file uses them | medium |
 | `tin()`, `tsset` dates, `pctile` | chapter 2 and 4 boxes do not replay | small |
-| AR / ADL with lag selection and pseudo out-of-sample forecasts as one function | chapter 15 is reproducible only by hand | medium |
-| QLR with heteroskedasticity-robust F and a break in a subset of coefficients | `sp.structural_break(method='sup-f')` tests all coefficients with a homoskedastic F | medium |
 | Fixed-b / EWC inference for HAC | the textbook authors' own later recommendation | medium |
 | Ridge and principal-components prediction with cross-validated MSPE | chapter 14 | medium |
 | Chapters 8, 14, 16, 17 files | not downloaded | needs Bryce |

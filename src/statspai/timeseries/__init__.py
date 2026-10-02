@@ -5,6 +5,7 @@ Provides VAR (vector autoregression), structural break tests,
 Granger causality, unit-root tests, and cointegration analysis.
 """
 
+from .ardl import ARDLResult, ardl
 from .arima import ARIMAResult, arima
 from .bvar import BVARResult, bvar
 from .cointegration import CointegrationResult, engle_granger, johansen
@@ -38,4 +39,6 @@ __all__ = [
     "ITSResult",
     "unitroot",
     "UnitRootResult",
+    "ardl",
+    "ARDLResult",
 ]

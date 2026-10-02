@@ -64,6 +64,22 @@ has the findings and what is still open.
   the lag order, from a response surface fitted to 200,000 simulated null
   draws per grid point (`scripts/simulate_dfgls_critical_values.py`); the
   asymptotic values reject too often in short samples.
+- **`sp.ardl`**: AR(p) and ADL(p, q) forecasting regressions, with the lag
+  order fixed or chosen by BIC / AIC on a common sample, the one-step
+  forecast and its interval, a Granger-causality F test (`.granger()`) and
+  pseudo out-of-sample forecasts with their RMSFE and bias (`.poos()`).
+  Coefficients agree with `statsmodels` `ARDL`. On the textbook's GDP-growth
+  application it reproduces the RATS output digit for digit: four
+  regressions with robust standard errors, their forecasts, the Granger
+  statistic, both BIC / AIC tables and the out-of-sample forecast errors
+  (`tests/external_parity/test_stock_watson_4e_ch15.py`).
+- **`sp.structural_break(method='sup-f', break_vars=, vce=)`**: a break in
+  a subset of the coefficients, with a heteroskedasticity-robust statistic.
+  This is the QLR test as applied to a forecasting regression, where the
+  lags of `y` are held fixed. Reproduces the textbook's QLR of 6.4746 at
+  1980:Q4. Under heteroskedasticity and no break the classical sup-F
+  rejected in more than 15% of simulated samples and the robust one in
+  under 10%. The defaults are unchanged.
 - **`sp.regress(robust='hac', hac_lags=, hac_small=)`**. The lag length of
   the Newey-West estimator could not be set, and Stata's `newey` could only
   be matched to 0.5% because it scales the covariance by `N/(N-K)`. With
