@@ -46,6 +46,21 @@ The scripts cover canonical causal-inference designs:
   schooling, recovering the classic pattern that the IV estimate exceeds the
   partialling-out one. The DoubleML-aligned, high-dimensional entry point.
 
+## 5-minute tutorial for Stata users (offline, in Chinese)
+
+- `notebooks/statspai_vs_stata_5min.ipynb` - a first-contact tutorial that puts
+  each Stata command (`regress`, `reghdfe`, `ivregress 2sls`, `esttab`,
+  `csdid`, `rdrobust`) next to its one-line StatsPAI equivalent on the bundled
+  datasets, and ends with `sp.from_stata`. The Stata output shown in the
+  notebook was produced by Stata 18 on the same data; running the notebook
+  needs no Stata. Prose and code comments are in Chinese. Uses only core
+  StatsPAI plus matplotlib for the two figures.
+
+```bash
+python -m pip install "statspai[plotting]" jupyter
+jupyter notebook examples/notebooks/statspai_vs_stata_5min.ipynb
+```
+
 ## Networked notebook (requires internet + `doubleml`)
 
 One reviewer notebook is **not** offline — it fetches the canonical 401(k)
