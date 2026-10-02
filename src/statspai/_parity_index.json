@@ -589,8 +589,8 @@
       "function": "augsynth",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 7.906189966696879e-06,
-        "rel_vs_Stata": 1.7134607052272396e-08,
+        "rel_vs_R": 7.923323499216129e-06,
+        "rel_vs_Stata": 9.38777409479801e-13,
         "statistic": [
           "att_augmented"
         ],
@@ -602,8 +602,8 @@
       "module_id": "18_augsynth",
       "notes": [],
       "point_estimate_rel": {
-        "R": 7.906189966696879e-06,
-        "Stata": 1.7134607052272396e-08
+        "R": 7.923323499216129e-06,
+        "Stata": 9.38777409479801e-13
       },
       "python_call": "sp.augsynth(backend=\"native\")",
       "reference": "augsynth::augsynth",
@@ -4502,6 +4502,23 @@
       "tolerance": "ATT(g,t) and overall ATT 1e-9 rel (observed 3.8e-15)"
     },
     {
+      "function": "didregress",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_didregress_stata.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "difference_in_means",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -5406,6 +5423,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_didregress_stata.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_textbook_methods_stata_parity.py"
@@ -6405,7 +6423,9 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_iv_stata_commands_parity.py"
+        "tests/reference_parity/test_didregress_stata.py",
+        "tests/reference_parity/test_iv_stata_commands_parity.py",
+        "tests/reference_parity/test_sdid_optimized_covariates.py"
       ],
       "tolerance": ""
     },
@@ -14970,6 +14990,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_rddensity_all_stata.py",
         "tests/reference_parity/test_rddensity_parity.py"
       ],
       "also_verified_by": [
@@ -15541,6 +15562,7 @@
         "tests/reference_parity/test_cross_estimator_parity.py",
         "tests/reference_parity/test_did2x2_wild_parity.py",
         "tests/reference_parity/test_did_synth_shiftshare_parity.py",
+        "tests/reference_parity/test_didregress_stata.py",
         "tests/reference_parity/test_difference_in_means_estimatr.py",
         "tests/reference_parity/test_feols_bias_reduced_parity.py",
         "tests/reference_parity/test_hdfe_ols_se_menu_parity.py",
@@ -16607,6 +16629,7 @@
       "additional_tests": [
         "tests/reference_parity/test_did_synth_R_parity.py",
         "tests/reference_parity/test_oct2026_fourth_pass.py",
+        "tests/reference_parity/test_sdid_optimized_covariates.py",
         "tests/reference_parity/test_sdid_parity.py",
         "tests/reference_parity/test_sdid_staggered_parity.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
@@ -17683,6 +17706,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_didregress_stata.py",
         "tests/reference_parity/test_iv_stata_commands_parity.py",
         "tests/reference_parity/test_mediate_potential_outcomes.py"
       ],

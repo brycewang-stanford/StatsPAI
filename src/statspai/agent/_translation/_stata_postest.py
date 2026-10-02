@@ -31,6 +31,8 @@ _SUBCOMMANDS: Tuple[Tuple[str, int], ...] = (
     ("firststage", 5),
     ("endogenous", 5),
     ("classification", 4),
+    ("ptrends", 3),
+    ("granger", 3),
     ("summarize", 2),
     ("vce", 3),
 )
@@ -164,6 +166,16 @@ def _h_estat(cmd: StataCommand) -> Dict[str, Any]:
 
     if sub in ("dwatson", "vif", "ic", "overid", "firststage", "endogenous"):
         return _call(sub, {}, [])
+
+    if sub in ("ptrends", "granger"):
+        return _call(
+            sub,
+            {},
+            [
+                "After didregress / xtdidregress (sp.didregress). Stata "
+                "refuses both tests when treatment dates vary; so does this."
+            ],
+        )
 
     return _emit_error(
         f"estat {sub} is not translated", command="estat", suggestions=[]

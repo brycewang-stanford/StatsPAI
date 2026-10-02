@@ -14710,6 +14710,70 @@
     }
   },
   {
+    "description": "Two-way fixed-effects difference-in-differences as Stata didregress (group effects counted as regressors) and, with id=, xtdidregress (unit effects, xtreg's variance). treat is the 0/1 treatment-status indicator. Standard errors cluster on group and statistics use t(G - 1). The parallel-trends and Granger tests of estat ptrends / estat granger are fitted with the model: sp.estat(result, 'ptrends'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "didregress",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster (default: group)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "covariates": {
+          "description": "Controls of the outcome equation",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "group": {
+          "description": "Level at which treatment is assigned; default cluster",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "id": {
+          "description": "Panel unit; given, the fit is xtdidregress",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "time": {
+          "description": "Time period",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treat": {
+          "description": "0/1 treatment status, 1 in the periods a group is treated",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat",
+        "group",
+        "time"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Goodman-Bacon (2021) decomposition of the TWFE DiD coefficient into a weighted sum of underlying 2x2 DID comparisons: treated-vs-never, treated-vs-notyet, earlier-vs-later. Diagnoses when TWFE is contaminated by already-treated units acting as controls. Validation: certified parity evidence. Do NOT use when: treatment timing is not staggered -- with a single adoption date there is exactly one 2x2 comparison and the decomposition is uninformative; the panel is unbalanced or has never-treated units only -- the weights are defined for staggered two-way comparisons. Cost: Enumerates every pair of timing groups: O(G^2) 2x2 regressions for G distinct adoption dates. Fine for a handful of cohorts, slow when adoption dates are near-continuous (e.g. a distinct date per unit).",
     "name": "bacon_decomposition",
     "parameters": {
@@ -23890,11 +23954,15 @@
           "type": "string"
         },
         "covariate_method": {
-          "description": "With ``treat=`` and ``covariates=``: ``'projected'`` removes ``X beta``, ``beta`` from a unit and period fixed-effects regression on the never-treated units, before estimation (Stata's ``covariates(..., projected)``). Required whenever covariates are given; Stata's default ``'optimized'`` is not implemented.",
+          "description": "With ``treat=`` and ``covariates=``: ``'projected'`` removes ``X beta``, ``beta`` from a unit and period fixed-effects regression on the never-treated units, before estimation (Stata's ``covariates(..., projected)``). ``'optimized'`` puts the covariates into the weight problem, as R ``synthdid_estimate(X=)`` does (single adoption date, point estimate",
+          "enum": [
+            "projected",
+            "optimized"
+          ],
           "type": "string"
         },
         "covariates": {
-          "description": "Covariates, with ``treat=`` and ``covariate_method=\"projected\"`` only. With ``treated_unit=`` / ``treatment_time=`` passing any raises :class:`~statspai.exceptions.MethodIncompatibility` rather than silently estimating the unadjusted model (through 1.28.0 the argument was accepted and ignored).",
+          "description": "Covariates, with ``treat=`` and ``covariate_method=``. With ``treated_unit=`` / ``treatment_time=`` passing any raises :class:`~statspai.exceptions.MethodIncompatibility` rather than silently estimating the unadjusted model (through 1.28.0 the argument was accepted and ignored).",
           "items": {
             "type": "string"
           },
@@ -30334,7 +30402,7 @@
         },
         "test": {
           "default": "all",
-          "description": "Name of the diagnostic test. One of ``'hettest'``, ``'white'``, ``'imtest'`` (White's test with the skewness and kurtosis parts), ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'dwatson'``, ``'vif'``, ``'ic'``, ``'linktest'``, ``'normality'``, ``'leverage'``, ``'endogenous'``, ``'overid'``, ``'firststage'``, ``'classification'`` (after ``sp.logit`` / ``sp.probit``), ``'all'``. After ``sp.var``: ``'varlmar'`` (LM test for residual autocorrelation, at lag orders 1 .. ``lags``), ``'varwle'`` (lag exclusion), ``'varstable'`` (eigenvalues), ``'vargranger'`` (Granger causality); after ``sp.vec``: ``'veclmar'``, ``'vecstable'``. Each returns ``{'test', 'table'}``.",
+          "description": "Name of the diagnostic test. One of ``'hettest'``, ``'white'``, ``'imtest'`` (White's test with the skewness and kurtosis parts), ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'dwatson'``, ``'vif'``, ``'ic'``, ``'linktest'``, ``'normality'``, ``'leverage'``, ``'endogenous'``, ``'overid'``, ``'firststage'``, ``'classification'`` (after ``sp.logit`` / ``sp.probit``), ``'all'``. After ``sp.var``: ``'varlmar'`` (LM test for residual autocorrelation, at lag orders 1 .. ``lags``), ``'varwle'`` (lag exclusion), ``'varstable'`` (eigenvalues), ``'vargranger'`` (Granger causality); after ``sp.vec``: ``'veclmar'``, ``'vecstable'``. Each returns ``{'test', 'table'}``. After ``sp.didregress``: ``'ptrends'`` and ``'granger'``.",
           "enum": [
             "hettest",
             "white",

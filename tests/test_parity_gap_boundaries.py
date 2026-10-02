@@ -339,7 +339,9 @@ def test_scm_nonunique_row_is_bounded_by_unique_solution_counterpart():
     # 0f4b9e2b (exact SLSQP adding-up Jacobian) relabelled the winning Basque start
     # regression -> dirichlet_3: the two starts tie to 1e-12 and the optimum is
     # unchanged (CHANGELOG [Unreleased]); the non-uniqueness bounds below still hold.
-    assert nonunique["solver_best_start"] == "dirichlet_3"
+    # The exact inner solver (certified-unique simplex least squares) moved the
+    # label back to regression: the same tie, broken at 1e-7 the other way.
+    assert nonunique["solver_best_start"] == "regression"
     assert nonunique["solver_near_best_start_count"] >= 2
     assert nonunique["solver_near_best_weight_class_count"] >= 2
     assert nonunique["solver_near_best_weight_l1_max"] > 0.004

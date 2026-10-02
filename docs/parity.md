@@ -30,9 +30,9 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **Compared against R/Stata** (T2) | bit-exact | 364 |
 | | aligned | 53 |
 | | **subtotal** | **417** |
-| **No external software reference** | analytical-only (T1) | 337 |
+| **No external software reference** | analytical-only (T1) | 338 |
 | | external-replication (published numbers) | 5 |
-| | **subtotal** | **342** |
+| | **subtotal** | **343** |
 | No numerical evidence yet | unverified | 531 |
 
 ### Honest denominators
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 417 | 747 | 748 | 55.7% |
+| estimator callables | 417 | 748 | 749 | 55.7% |
 | infrastructure (parity N/A) | 0 | 9 | 217 | 0.0% |
 | result / exception classes | 0 | 3 | 325 | 0.0% |
-| **all registered** | 417 | 759 | 1290 | 32.3% |
+| **all registered** | 417 | 760 | 1291 | 32.3% |
 
 ### Coverage by estimator family
 
@@ -52,7 +52,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 
 | family | cross-language | any evidence | estimator callables |
 | --- | ---: | ---: | ---: |
-| causal | 149 | 326 | 326 |
+| causal | 149 | 327 | 327 |
 | regression | 32 | 37 | 37 |
 | spatial | 28 | 33 | 33 |
 | panel | 27 | 32 | 32 |
@@ -474,7 +474,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | --- | --- | --- | --- | --- | --- |
 | `ackerberg_caves_frazer` | Stata prodest, method(lp) acf valueadded; R prodest::prodestACF | Stata 18 MP; prodest SSC; R prodest 1.0.2 | StatsPAI returns an exact root of the just-identified moment conditions (criterion < 1e-25), the one nearest the stage-1 coefficients; R stops 2.4e-6 (relative) from that root with criterion 9e-16. Stata's Nelder-Mead stops at non-roots (criterion 4e-6 / 7e-6), which the test records. The parity panel has three roots, all reported in diagnostics['acf_roots']. | — / — | [`test_prodest_parity.py`](../tests/reference_parity/test_prodest_parity.py) |
 | `aft` | survival::survreg (Weibull AFT) | R 4.5.2; survival 3.8.3 | coefficients & log-scale 5e-5 abs (observed ~1e-5) | — / — | [`test_aft_parity.py`](../tests/reference_parity/test_aft_parity.py) (+1) |
-| `augsynth` | augsynth::augsynth | R 4.5.2; augsynth 0.2.0 | rel_est<=2e-05, rel_se<=1e-06 | 7.9e-06 / 1.7e-08 | [`18_augsynth.py`](../tests/r_parity/18_augsynth.py) (+2) |
+| `augsynth` | augsynth::augsynth | R 4.5.2; augsynth 0.2.0 | rel_est<=2e-05, rel_se<=1e-06 | 7.9e-06 / 9.4e-13 | [`18_augsynth.py`](../tests/r_parity/18_augsynth.py) (+2) |
 | `blp` | pyblp 1.2.0 (Conlon & Gortmaker), identical Halton nodes via agent_data | pyblp 1.2.0; numpy 2.2.6; python 3.10.20 | beta, sigma, SEs, objective/N, own elasticities 1e-6 rel (observed <= 1.6e-8) | — / — | [`test_blp_pyblp_parity.py`](../tests/reference_parity/test_blp_pyblp_parity.py) (+1) |
 | `breakdown_m` | HonestDiD::findOptimalFLCI 0.2.8 (Rambachan & Roth), breakdown by uniroot on the bound facing zero | R 4.5.2; HonestDiD 0.2.8; CVXR 1.8.2 | vs HonestDiD with its Monte-Carlo folded-normal quantile replaced by the exact one: 1e-9 (observed 6.1e-11); vs HonestDiD as shipped: 1e-3 (observed 4.3e-4), the simulation error of .qfoldednormal (1e6 draws, seed 0; 1.96224 vs exact 1.95996 at mu = 0) | — / — | [`test_did_synth_R_parity.py`](../tests/reference_parity/test_did_synth_R_parity.py) (+1) |
 | `cate_eval` | grf::rank_average_treatment_effect 2.6.1 (AUTOC, QINI, TOC), fed grf's nuisances; shares sp.rate's operator | R 4.5.2; grf 2.6.1 | Point estimate (AUTOC, QINI) and TOC curve on q = 0.1..1 exact at 1e-10 rel (observed 4.6e-15), including a 30-group tied-priority case against rank_average_treatment_effect.fit. SE is T3: the analytic rank-corrected influence-function SE is compared with grf's half-sample bootstrap (R = 2000) at 6% rel (observed 2.6% AUTOC, 1.7% QINI). | — / — | [`test_ml_causal_R_parity.py`](../tests/reference_parity/test_ml_causal_R_parity.py) (+1) |
@@ -538,7 +538,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 | `unitroot` | [`test_stock_watson_4e_ch15.py`](../tests/external_parity/test_stock_watson_4e_ch15.py) |
 
-## analytical-only — 337 functions
+## analytical-only — 338 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -641,6 +641,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `did_misclassified` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `did_report` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `did_summary` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
+| `didregress` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) |
 | `difference_in_means` | [`test_difference_in_means_estimatr.py`](../tests/reference_parity/test_difference_in_means_estimatr.py) |
 | `discos_test` | [`test_oct2026_fourth_pass.py`](../tests/reference_parity/test_oct2026_fourth_pass.py) |
 | `disparity_decompose` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
@@ -660,7 +661,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `dynamic_dml` | [`test_dynamic_dml_econml_parity.py`](../tests/reference_parity/test_dynamic_dml_econml_parity.py) |
 | `dynotears` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 | `equalized_odds` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
-| `estat` | [`test_iv_stata_commands_parity.py`](../tests/reference_parity/test_iv_stata_commands_parity.py) (+2) |
+| `estat` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) (+3) |
 | `evidence_without_injustice` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `fairness_audit` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `fci` | [`test_fci_parity.py`](../tests/reference_parity/test_fci_parity.py) |
@@ -670,7 +671,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `forest_policy_tree` | [`test_fe_forest_policy_recovery.py`](../tests/reference_parity/test_fe_forest_policy_recovery.py) |
 | `forest_support` | [`test_oct2026_fifth_pass.py`](../tests/reference_parity/test_oct2026_fifth_pass.py) |
 | `fortified_pci` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
-| `from_stata` | [`test_iv_stata_commands_parity.py`](../tests/reference_parity/test_iv_stata_commands_parity.py) |
+| `from_stata` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) (+2) |
 | `front_door` | [`test_front_door_parity.py`](../tests/reference_parity/test_front_door_parity.py) |
 | `frontdoor` | [`test_frontdoor_parity.py`](../tests/reference_parity/test_frontdoor_parity.py) |
 | `general_bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |
@@ -832,7 +833,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `spec_curve` | [`test_spec_curve_fe_Stata_parity.py`](../tests/reference_parity/test_spec_curve_fe_Stata_parity.py) |
 | `spillover` | [`test_interference_parity.py`](../tests/reference_parity/test_interference_parity.py) |
 | `ssc` | [`test_ssc_presets_Stata_parity.py`](../tests/reference_parity/test_ssc_presets_Stata_parity.py) |
-| `stata` | [`test_iv_stata_commands_parity.py`](../tests/reference_parity/test_iv_stata_commands_parity.py) (+1) |
+| `stata` | [`test_didregress_stata.py`](../tests/reference_parity/test_didregress_stata.py) (+2) |
 | `stepwise` | [`test_stepwise_parity.py`](../tests/reference_parity/test_stepwise_parity.py) |
 | `stochastic_dominance` | [`test_distributional_te_parity.py`](../tests/reference_parity/test_distributional_te_parity.py) |
 | `structural_mdp` | [`test_oct2026_second_pass.py`](../tests/reference_parity/test_oct2026_second_pass.py) |

@@ -31,6 +31,46 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — exact inner solver for synthetic-control weights; three Track A result files and the Basque original-data file move below 4e-7
+
+- **Commits.** `95d87260` (`sp.didregress`, optimized SDID covariates,
+  `rddensity` conventional statistic and binomial tests, exact inner
+  solver for simplex weights). The traces, schemas, parity index and
+  fixture lock are re-recorded in the commit that follows it, which
+  carries this entry.
+- **Reason.** `synth/_core.py::solve_simplex_weights` solved problems
+  with fewer rows than donors by SLSQP, which stops about 1e-5 short in
+  the weights. When the minimiser is certified unique (optimality and
+  affine independence of the tight donors) it is now solved exactly. Where
+  the certificate fails SLSQP's choice is kept. A nested fit on the
+  Proposition 99 data goes from 55 seconds to 2.
+- **Effect on the paper.** Inside every registered budget; no verdict
+  changes. `07_scm`: five values move, the largest
+  `weight_Asturias` 0.01489185 to 0.01489185 (3.7e-7 relative; the
+  printed table cell goes from 0.0148919 to 0.0148918), and the recorded
+  winning start of the outer search is `regression` again in place of
+  `dirichlet_3` (the two starts tie; the optimum is the same).
+  `18_augsynth`:
+  three values, at most 1.0e-7 (`att_augmented` relative gap to R 7.91e-06
+  to 7.92e-06, `pre_rmspe` 3e-06 to 3.01e-06). `52_scm_unique`: the
+  standard error of `avg_post_gap`, 1.1e-7. Original-data
+  `03_basque_original`: estimate -0.89458856 to -0.89458854. Modules 12,
+  19 and 09 were rerun and did not change. No implementation
+  classification moved in either ledger. Track C synthetic-control timings
+  were not re-measured; `scripts/trace_perf_path.py --check` decides at
+  the next re-anchor whether they are stale.
+- **Paths.**
+  - `tests/r_parity/results/07_scm_py.json`
+  - `tests/r_parity/results/18_augsynth_py.json`
+  - `tests/r_parity/results/52_scm_unique_py.json`
+  - `tests/r_parity/results/parity_table.md`
+  - `tests/r_parity/results/parity_table_3way.md`
+  - `tests/r_parity/results/parity_table_3way.tex`
+  - `tests/orig_parity/results/03_basque_original_py.json`
+  - `tests/r_parity/TIER_A_FIXTURE_LOCK.json`
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `tests/orig_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — call traces re-recorded for 16, 73 and 84 after the bootstrap seed was recorded
 
 - **Commit.** `3d9e056d`.

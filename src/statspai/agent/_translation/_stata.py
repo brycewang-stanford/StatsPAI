@@ -1017,53 +1017,6 @@ def _h_didregress(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("didregress", args, f"sp.didregress(data=df, {kw})", notes)
 
 
-_ESTAT_TESTS = {
-    "hettest": "hettest",
-    "imtest": "white",
-    "ovtest": "reset",
-    "vif": "vif",
-    "ic": "ic",
-    "bgodfrey": "bgodfrey",
-    "dwatson": "dwatson",
-    "endogenous": "endogenous",
-    "overid": "overid",
-    "firststage": "firststage",
-    "ptrends": "ptrends",
-    "granger": "granger",
-}
-
-
-def _h_estat(cmd: StataCommand) -> Dict[str, Any]:
-    """``estat <test>`` after an estimation command -> ``sp.estat(result, ...)``.
-
-    Only the subcommands ``sp.estat`` implements, written without a varlist.
-    ``estat imtest`` is White's test only with its ``white`` option.
-    """
-    if not cmd.varlist:
-        return _emit_error("estat needs a subcommand.", command="estat")
-    sub = cmd.varlist[0].lower()
-    matches = [k for k in _ESTAT_TESTS if k.startswith(sub) and len(sub) >= 3]
-    if sub in _ESTAT_TESTS:
-        matches = [sub]
-    if len(matches) != 1 or len(cmd.varlist) > 1:
-        return _emit_error(
-            f"`estat {' '.join(cmd.varlist)}` is not translated. sp.estat "
-            f"implements: {', '.join(sorted(_ESTAT_TESTS))} (no varlist).",
-            command="estat",
-        )
-    name = matches[0]
-    if name == "imtest" and "white" not in cmd.options:
-        return _emit_error(
-            "`estat imtest` without `white` is the Cameron-Trivedi "
-            "decomposition, which sp.estat does not implement.",
-            command="estat",
-        )
-    args = {"test": _ESTAT_TESTS[name], "print_results": False}
-    notes = ["sp.estat takes the fitted result of the previous command."]
-    code = f"sp.estat(result, test={args['test']!r}, print_results=False)"
-    return _emit("estat", args, code, notes)
-
-
 def _numlist(text: str) -> Optional[List[int]]:
     """A Stata numlist of integers: ``0 1 2``, ``0/3``, ``-4(2)4``."""
     out: List[int] = []
@@ -2862,7 +2815,6 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "csdid": _h_csdid,
     "didregress": _h_didregress,
     "xtdidregress": _h_didregress,
-    "estat": _h_estat,
     "did_imputation": _h_did_imputation,
     "synth": _h_synth,
     "sdid": _h_sdid,
@@ -3439,7 +3391,6 @@ _POSTEST_HANDLERS = frozenset(
         _h_contrast,
         _h_test,
         _h_lincom,
-        _h_estat,
         _h_xtset,
         _h_boottest,
         _h_ttest,

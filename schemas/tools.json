@@ -8255,6 +8255,64 @@
     "name": "did_timevarying_covariates"
   },
   {
+    "description": "Two-way fixed-effects difference-in-differences as Stata didregress (group effects counted as regressors) and, with id=, xtdidregress (unit effects, xtreg's variance). treat is the 0/1 treatment-status indicator. Standard errors cluster on group and statistics use t(G - 1). The parallel-trends and Granger tests of estat ptrends / estat granger are fitted with the model: sp.estat(result, 'ptrends'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Parallel trends between treated and untreated groups; No anticipation of treatment; With staggered adoption: homogeneous treatment effects across cohorts and over time, or the coefficient is a weighted average with possibly negative weights. Pre-conditions: treat is 0/1 and constant within group-period cells; with id=, one row per unit and period. Failure modes: Adoption is staggered and effects vary -> Inspect sp.bacon_decomposition and use an estimator robust to heterogeneous effects; estat ptrends / granger with several treatment dates -> Test pre-trends on an event study instead; Few treated or few total clusters -> Cluster-robust inference over-rejects; use a method...",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "cluster": {
+          "description": "Cluster (default: group)",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "covariates": {
+          "description": "Controls of the outcome equation",
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "x-statspai-role": "columns"
+        },
+        "group": {
+          "description": "Level at which treatment is assigned; default cluster",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "id": {
+          "description": "Panel unit; given, the fit is xtdidregress",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "time": {
+          "description": "Time period",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "treat": {
+          "description": "0/1 treatment status, 1 in the periods a group is treated",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "group",
+        "time",
+        "treat",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "didregress"
+  },
+  {
     "description": "Design-based difference in means for a randomized experiment (Neyman; R estimatr::difference_in_means). The variance follows the design: complete randomization (s1^2/n1 + s0^2/n0, Satterthwaite df), blocks (size-weighted block estimates, N - 2J df), matched pairs (J - 1 df), clusters (CR2 with Bell-McCaffrey df), blocks of clusters and matched pairs of clusters. estimand='ATT' weights blocks by their treated units. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Treatment was randomized, within blocks and by cluster as declared in blocks= and cluster=; No interference between units (between clusters when clustered). Pre-conditions: treat takes exactly two values; every cluster lies in one arm and in one block; every block has at least two treated and two control units (or clusters), or every block is a pair. Failure modes: A block has fewer than two treated or two control units -> Merge thin blocks, or drop them and say so; the variance inside such a block is not identified; A cluster contains both treated and control units -> Treatment varies inside the group, so it is a block, not a cluster: pass it as blocks=;...",
     "input_schema": {
       "properties": {
@@ -9884,7 +9942,7 @@
         },
         "test": {
           "default": "all",
-          "description": "Name of the diagnostic test. One of ``'hettest'``, ``'white'``, ``'imtest'`` (White's test with the skewness and kurtosis parts), ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'dwatson'``, ``'vif'``, ``'ic'``, ``'linktest'``, ``'normality'``, ``'leverage'``, ``'endogenous'``, ``'overid'``, ``'firststage'``, ``'classification'`` (after ``sp.logit`` / ``sp.probit``), ``'all'``. After ``sp.var``: ``'varlmar'`` (LM test for residual autocorrelation, at lag orders 1 .. ``lags``), ``'varwle'`` (lag exclusion), ``'varstable'`` (eigenvalues), ``'vargranger'`` (Granger causality); after ``sp.vec``: ``'veclmar'``, ``'vecstable'``. Each returns ``{'test', 'table'}``.",
+          "description": "Name of the diagnostic test. One of ``'hettest'``, ``'white'``, ``'imtest'`` (White's test with the skewness and kurtosis parts), ``'reset'``, ``'ovtest'``, ``'bgodfrey'``, ``'dwatson'``, ``'vif'``, ``'ic'``, ``'linktest'``, ``'normality'``, ``'leverage'``, ``'endogenous'``, ``'overid'``, ``'firststage'``, ``'classification'`` (after ``sp.logit`` / ``sp.probit``), ``'all'``. After ``sp.var``: ``'varlmar'`` (LM test for residual autocorrelation, at lag orders 1 .. ``lags``), ``'varwle'`` (lag exclusion), ``'varstable'`` (eigenvalues), ``'vargranger'`` (Granger causality); after ``sp.vec``: ``'veclmar'``, ``'vecstable'``. Each returns ``{'test', 'table'}``. After ``sp.didregress``: ``'ptrends'`` and ``'granger'``.",
           "enum": [
             "hettest",
             "white",
@@ -28428,11 +28486,15 @@
           "type": "string"
         },
         "covariate_method": {
-          "description": "With ``treat=`` and ``covariates=``: ``'projected'`` removes ``X beta``, ``beta`` from a unit and period fixed-effects regression on the never-treated units, before estimation (Stata's ``covariates(..., projected)``). Required whenever covariates are given; Stata's default ``'optimized'`` is not implemented.",
+          "description": "With ``treat=`` and ``covariates=``: ``'projected'`` removes ``X beta``, ``beta`` from a unit and period fixed-effects regression on the never-treated units, before estimation (Stata's ``covariates(..., projected)``). ``'optimized'`` puts the covariates into the weight problem, as R ``synthdid_estimate(X=)`` does (single adoption date, point estimate",
+          "enum": [
+            "projected",
+            "optimized"
+          ],
           "type": "string"
         },
         "covariates": {
-          "description": "Covariates, with ``treat=`` and ``covariate_method=\"projected\"`` only. With ``treated_unit=`` / ``treatment_time=`` passing any raises :class:`~statspai.exceptions.MethodIncompatibility` rather than silently estimating the unadjusted model (through 1.28.0 the argument was accepted and ignored).",
+          "description": "Covariates, with ``treat=`` and ``covariate_method=``. With ``treated_unit=`` / ``treatment_time=`` passing any raises :class:`~statspai.exceptions.MethodIncompatibility` rather than silently estimating the unadjusted model (through 1.28.0 the argument was accepted and ignored).",
           "items": {
             "type": "string"
           },

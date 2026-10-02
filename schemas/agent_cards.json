@@ -35317,6 +35317,165 @@
   {
     "alias_of": null,
     "alternatives": [
+      "callaway_santanna",
+      "did_imputation",
+      "etwfe",
+      "feols"
+    ],
+    "assumptions": [
+      "Parallel trends between treated and untreated groups",
+      "No anticipation of treatment",
+      "With staggered adoption: homogeneous treatment effects across cohorts and over time, or the coefficient is a weighted average with possibly negative weights"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Two-way fixed-effects difference-in-differences as Stata didregress (group effects counted as regressors) and, with id=, xtdidregress (unit effects, xtreg's variance). treat is the 0/1 treatment-status indicator. Standard errors cluster on group and statistics use t(G - 1). The parallel-trends and Granger tests of estat ptrends / estat granger are fitted with the model: sp.estat(result, 'ptrends'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "evidence": {
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
+      "module_id": null,
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_didregress_stata.py"
+      ],
+      "tolerance": ""
+    },
+    "example": "sp.didregress(df, \"lemp\", \"d\", group=\"countyreal\", time=\"year\")",
+    "failure_modes": [
+      {
+        "alternative": "sp.callaway_santanna",
+        "exception": "",
+        "remedy": "Inspect sp.bacon_decomposition and use an estimator robust to heterogeneous effects.",
+        "symptom": "Adoption is staggered and effects vary"
+      },
+      {
+        "alternative": "sp.pretrends_test",
+        "exception": "MethodIncompatibility",
+        "remedy": "Test pre-trends on an event study instead.",
+        "symptom": "estat ptrends / granger with several treatment dates"
+      },
+      {
+        "alternative": "sp.did_few_treated",
+        "exception": "",
+        "remedy": "Cluster-robust inference over-rejects; use a method built for few treated groups.",
+        "symptom": "Few treated or few total clusters"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "didregress",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "treat is 0/1 and constant within group-period cells",
+      "with id=, one row per unit and period"
+    ],
+    "provenance": {
+      "alternatives": "curated",
+      "assumptions": "curated",
+      "example": "curated",
+      "failure_modes": "curated",
+      "pre_conditions": "curated",
+      "returns": "curated",
+      "typical_n_min": "curated"
+    },
+    "reference": "",
+    "returns": {
+      "class": "CausalResult",
+      "description": "CausalResult",
+      "fields": {
+        "alpha": "float",
+        "ci": "tuple",
+        "detail": "Optional[pandas.DataFrame]",
+        "estimand": "str",
+        "estimate": "float",
+        "method": "str",
+        "model_info": "Optional[Dict[str, Any]]",
+        "n_obs": "int",
+        "pvalue": "float",
+        "se": "float"
+      },
+      "payload_schema": "result.schema.json"
+    },
+    "signature": {
+      "description": "Two-way fixed-effects difference-in-differences as Stata didregress (group effects counted as regressors) and, with id=, xtdidregress (unit effects, xtreg's variance). treat is the 0/1 treatment-status indicator. Standard errors cluster on group and statistics use t(G - 1). The parallel-trends and Granger tests of estat ptrends / estat granger are fitted with the model: sp.estat(result, 'ptrends'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "didregress",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "1 - confidence level",
+            "type": "number"
+          },
+          "cluster": {
+            "description": "Cluster (default: group)",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "covariates": {
+            "description": "Controls of the outcome equation",
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "x-statspai-role": "columns"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "object",
+            "x-statspai-role": "dataframe"
+          },
+          "group": {
+            "description": "Level at which treatment is assigned; default cluster",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "id": {
+            "description": "Panel unit; given, the fit is xtdidregress",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "time": {
+            "description": "Time period",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "treat": {
+            "description": "0/1 treatment status, 1 in the periods a group is treated",
+            "type": "string",
+            "x-statspai-role": "column"
+          },
+          "y": {
+            "description": "Outcome",
+            "type": "string",
+            "x-statspai-role": "column"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "treat",
+          "group",
+          "time"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 50,
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_didregress_stata.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alias_of": null,
+    "alternatives": [
       "did_multiplegt",
       "callaway_santanna"
     ],
@@ -53755,11 +53914,15 @@
             "type": "string"
           },
           "covariate_method": {
-            "description": "With ``treat=`` and ``covariates=``: ``'projected'`` removes ``X beta``, ``beta`` from a unit and period fixed-effects regression on the never-treated units, before estimation (Stata's ``covariates(..., projected)``). Required whenever covariates are given; Stata's default ``'optimized'`` is not implemented.",
+            "description": "With ``treat=`` and ``covariates=``: ``'projected'`` removes ``X beta``, ``beta`` from a unit and period fixed-effects regression on the never-treated units, before estimation (Stata's ``covariates(..., projected)``). ``'optimized'`` puts the covariates into the weight problem, as R ``synthdid_estimate(X=)`` does (single adoption date, point estimate",
+            "enum": [
+              "projected",
+              "optimized"
+            ],
             "type": "string"
           },
           "covariates": {
-            "description": "Covariates, with ``treat=`` and ``covariate_method=\"projected\"`` only. With ``treated_unit=`` / ``treatment_time=`` passing any raises :class:`~statspai.exceptions.MethodIncompatibility` rather than silently estimating the unadjusted model (through 1.28.0 the argument was accepted and ignored).",
+            "description": "Covariates, with ``treat=`` and ``covariate_method=``. With ``treated_unit=`` / ``treatment_time=`` passing any raises :class:`~statspai.exceptions.MethodIncompatibility` rather than silently estimating the unadjusted model (through 1.28.0 the argument was accepted and ignored).",
             "items": {
               "type": "string"
             },
@@ -53864,8 +54027,8 @@
       "Cross-language parity (bit-exact) vs synthdid::synthdid_estimate [R version 4.5.2 (2025-10-31), synthdid 0.0.9]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 12_sdid -- tests/r_parity/12_sdid.py",
       "tests/reference_parity/test_did_synth_R_parity.py",
       "tests/reference_parity/test_oct2026_fourth_pass.py",
-      "tests/reference_parity/test_sdid_parity.py",
-      "tests/reference_parity/test_sdid_staggered_parity.py"
+      "tests/reference_parity/test_sdid_optimized_covariates.py",
+      "tests/reference_parity/test_sdid_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -63474,7 +63637,7 @@
     "reference": "",
     "returns": {
       "class": "CausalResult",
-      "description": "CausalResult: - estimate: T-statistic for density discontinuity - pvalue: p-value for H0: continuous density at cutoff - model_info: density estimates left/right, bandwidth",
+      "description": "CausalResult: - estimate: T-statistic for density discontinuity - pvalue: p-value for H0: continuous density at cutoff - model_info: density estimates left/right, bandwidth;",
       "fields": {
         "alpha": "float",
         "ci": "tuple",
@@ -63555,6 +63718,7 @@
       "R parity module 09_rddensity",
       "Stata parity module 09_rddensity",
       "Cross-language parity (bit-exact) vs rddensity::rddensity [R version 4.5.2 (2025-10-31), rddensity 2.6]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 09_rddensity -- tests/r_parity/09_rddensity.py",
+      "tests/reference_parity/test_rddensity_all_stata.py",
       "tests/reference_parity/test_rddensity_parity.py",
       "Track A rddensity module 09 is native Python reference parity: StatsPAI ports rdbwdensity combination bandwidths, mass-point ECDF handling, and jackknife CJM local-polynomial density inference, matching rddensity::rddensity on the same CSV bytes."
     ],

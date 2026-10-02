@@ -825,8 +825,6 @@ TIER2_ROUND_TRIPS = [
     ("lincom x1 - 2*x2", "lincom", {"expression": "x1 - 2*x2"}),
     ("lincom x1 + x2, level(90)", "lincom", {"expression": "x1 + x2", "alpha": 0.1}),
     ("estat ptrends", "estat", {"test": "ptrends", "print_results": False}),
-    ("estat ovtest", "estat", {"test": "reset", "print_results": False}),
-    ("estat imtest, white", "estat", {"test": "white", "print_results": False}),
     # xtset / tsset are intentionally excluded: no sp equivalent, the
     # translator now fails loud with a note pointing at sp.panel / sp.feols.
 ]
@@ -1042,9 +1040,10 @@ class TestTier2EdgeCases:
         triple = from_stata("didregress (y) (treated), group(id g2) time(year)")
         assert triple["ok"] is False and "ddd" in triple["error"]
 
-    def test_estat_subcommands(self):
+    def test_estat_did_subcommands(self):
         assert from_stata("estat gra")["arguments"]["test"] == "granger"
-        for line in ("estat imtest", "estat bdecomp", "estat", "estat vif x1"):
+        assert from_stata("estat ptr")["arguments"]["test"] == "ptrends"
+        for line in ("estat bdecomp", "estat", "estat ptrends x1"):
             assert from_stata(line)["ok"] is False
 
     def test_didregress_missing_group_or_time_is_error(self):
@@ -1153,7 +1152,6 @@ _NON_EXECUTABLE_TOOLS = frozenset(
         "contrast",
         "test",
         "lincom",
-        "estat",
         "wild_cluster_bootstrap",
         "mi_estimate",
         "estat",
@@ -1552,7 +1550,6 @@ def test_python_code_and_arguments_describe_the_same_call(command, channel):
         "contrast",
         "test",
         "lincom",
-        "estat",
         "wild_cluster_bootstrap",
         "estat",
         "mi_estimate",
@@ -1589,7 +1586,6 @@ POSTEST_TOOLS = {
     "contrast",
     "test",
     "lincom",
-    "estat",
     "wild_cluster_bootstrap",
     "mi_estimate",
     "estat",

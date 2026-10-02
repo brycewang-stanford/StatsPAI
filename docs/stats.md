@@ -39,9 +39,9 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
-| `did` | 50,359 | 67 | 95 |
-| `synth` | 28,760 | 37 | 55 |
-| `agent` | 24,019 | 47 | 4 |
+| `did` | 50,724 | 68 | 96 |
+| `synth` | 29,016 | 38 | 55 |
+| `agent` | 24,419 | 48 | 4 |
 | `regression` | 21,778 | 26 | 40 |
 | `rd` | 21,323 | 32 | 55 |
 | `smart` | 16,475 | 21 | 31 |
@@ -53,7 +53,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `inference` | 10,395 | 22 | 31 |
 | `decomposition` | 9,910 | 19 | 32 |
 | `dml` | 9,023 | 24 | 16 |
-| `diagnostics` | 8,943 | 15 | 26 |
+| `diagnostics` | 9,048 | 15 | 26 |
 | `iv` | 8,856 | 17 | 10 |
 | `timeseries` | 7,990 | 16 | 28 |
 | `spatial` | 7,855 | 30 | 38 |
@@ -78,7 +78,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `bounds` | 3,173 | 6 | 12 |
 | `bartik` | 3,142 | 6 | 9 |
 | `causal_llm` | 3,026 | 10 | 15 |
-| `crossval` | 2,761 | 7 | 2 |
+| `crossval` | 2,809 | 7 | 2 |
 | `postestimation` | 2,656 | 6 | 12 |
 | `conformal_causal` | 2,596 | 9 | 21 |
 | `utils` | 2,545 | 10 | 32 |
