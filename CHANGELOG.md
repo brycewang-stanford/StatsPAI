@@ -76,6 +76,23 @@ test.
   an equivalent model, and the gradient it implies is 0.0065 where the
   exact one is zero. The analytic ones here do not move. The default
   behaviour of `sp.mediate` is unchanged.
+- **`sp.synth(v_method='regression')`, the default of Stata `synth`.**
+  Without its `nested` option Stata does not search for the predictor
+  weights. It regresses the pre-treatment outcomes on the predictors and
+  takes the diagonal of the outer product of the slopes. That is
+  deterministic and takes a least-squares fit, where the nested search took
+  79 seconds for one fit on the Proposition 99 data (39 fits for the
+  placebo test). On `sp.california_prop99()` the predictor weights agree
+  with `e(V_matrix)` to 1e-10 and the pre-treatment RMSPE to 2e-10. Stata
+  stores donor weights rounded to three decimals and builds
+  `e(Y_synthetic)` from the rounded weights, which there sum to 0.999. Its
+  post-treatment average is -18.70 where the exact weights give -18.81.
+  Rounding our weights reproduces its path to 1e-9. The donor weights in
+  this path are polished to the exact optimum.
+- **`sp.rdrobust(scalepar=)`**, the rescaling of a regression kink
+  estimate by the kink in the policy rule. Matches Stata to 1e-11.
+- **`sp.mediate(inference='robust')` takes `C(g)` in `covariates`**, one
+  indicator per level but the lowest.
 - **IV formulas accept `C(g)`, `C(g, Treatment(k))`, interactions and
   `I()`** among the exogenous regressors and the instruments, in `sp.iv`,
   `sp.ivreg` and the absorbed-effects path. They used to fail with
@@ -105,6 +122,24 @@ test.
   equations is refused.
 - **`did_imputation`** reads `h()` and `pre()`, the abbreviations of
   `horizons()` and `pretrends()`.
+- **New translations.** `synth` predictors with periods (`y(1988)`,
+  `y(1980(1)1988)`, `y(1975&1980)`) and `xperiod()` become
+  `special_predictors`, and the call asks for the V method Stata used.
+  `sdid` maps to `sp.sdid`, `mediate` to `sp.mediate(inference='robust')`,
+  `bacondecomp` to `sp.bacon_decomposition`, with the panel taken from an
+  earlier `tsset` / `xtset`. `rdplot` carries `p()`, `nbins()`, `ci()`,
+  `shade`, `kernel()` and `h()`; `rddensity` carries `p()` and `h()`;
+  `rdrobust` carries `scalepar()`. A command name may be followed by its
+  first equation without a blank (`mediate(y x)(m x)(d)`).
+- **Commands with no line-by-line translation name what to call.**
+  `ritest`, `honestdid`, `pretrends`, `fect`, `xthdidregress`,
+  `hdidregress`, `synth_runner`, `ddml`, `qddml`, `poregress`, `dsregress`,
+  `xporegress`, `telasso`, `tebalance`, `teoverlap`, `weakivtest`,
+  `panelview` and `event_plot` used to come back as "unknown command".
+- On the textbook's 13 do-files the share of estimation commands that
+  `sp.stata` can run as written went from 59% to 88%. The rest are loops
+  over macros, `xthdidregress`, `synth_runner` and one factor term, all
+  refused with a reason.
 - **`sp.panel(robust=...)` with an unknown value** such as `'hc1'` or
   `'cluster'` returned classical standard errors without a word. It raises.
 

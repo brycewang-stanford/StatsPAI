@@ -247,6 +247,42 @@ def solve_simplex_weights(
     return w
 
 
+def polish_simplex_weights(y: np.ndarray, X: np.ndarray, w: np.ndarray) -> np.ndarray:
+    """Refine an approximate simplex least-squares solution to the exact one.
+
+    With fewer rows than donors the problem ``min ||y - X w||^2`` on the
+    simplex is solved by SLSQP, which stops about 1e-7 from the optimum.
+    This re-solves it exactly on the donors that carry weight and accepts
+    the result only if it satisfies the optimality conditions of the full
+    problem (no excluded donor would lower the loss); otherwise ``w`` is
+    returned unchanged.
+    """
+    w = np.asarray(w, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64).ravel()
+    X = np.asarray(X, dtype=np.float64)
+    support = np.flatnonzero(w > 1e-8)
+    if support.size < 2 or support.size > X.shape[0]:
+        return w
+    Xs = X[:, support]
+    if np.linalg.matrix_rank(Xs) < support.size:
+        return w
+    try:
+        ws = _eq_bounded_lsq(Xs, y, 0.0, 1.0)
+    except RuntimeError:  # pragma: no cover - keep the approximate solution
+        return w
+    out = np.zeros_like(w)
+    out[support] = ws
+    grad = -2.0 * X.T @ (y - X @ out)
+    inside = support[ws > 1e-12]
+    if inside.size == 0:  # pragma: no cover - defensive
+        return w
+    lam = float(np.mean(grad[inside]))
+    scale = max(1.0, float(np.abs(grad).max()))
+    if np.any(grad - lam < -1e-8 * scale):
+        return w
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Placebo (permutation) inference
 # ---------------------------------------------------------------------------
@@ -415,6 +451,45 @@ def _regression_v_init(
         return np.asarray(K * v / v.sum())
     except np.linalg.LinAlgError:
         return np.ones(K)
+
+
+def regression_based_v(
+    X1: np.ndarray,
+    X0: np.ndarray,
+    Z1: np.ndarray,
+    Z0: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Regression-based predictor weights, the default of Stata ``synth``.
+
+    Every pre-treatment outcome period is regressed, across units (treated
+    and donors together, with a constant), on the predictors scaled to unit
+    standard deviation. With ``B`` the ``K x T0`` matrix of slopes, the
+    weight of predictor ``k`` is the ``k``-th diagonal element of ``B B'``:
+    how much the predictor moves the outcome path. No search is involved,
+    so the result is deterministic and takes a least-squares fit.
+
+    Returns ``(V, scale)`` with ``V`` normalised to ``tr(V) = K`` (Stata
+    reports ``V / K``, which sums to one) and ``scale`` the standard
+    deviations the predictors were divided by. Checked against
+    ``e(V_matrix)`` of Stata ``synth`` on the Proposition 99 data: all
+    eight printed digits.
+    """
+    K, J = X0.shape
+    X_all = np.column_stack([X1[:, None], X0])  # (K, J + 1)
+    scale = X_all.std(axis=1, ddof=1)
+    scale = np.where(scale > 0, scale, 1.0)
+    design = np.column_stack([np.ones(J + 1), (X_all / scale[:, None]).T])
+    outcomes = np.column_stack([Z1[:, None], Z0]).T  # (J + 1, T0)
+    if J + 1 <= K + 1:
+        raise ValueError(
+            "regression-based V needs more units than predictors: "
+            f"{J + 1} units, {K} predictors."
+        )
+    coef = np.linalg.lstsq(design, outcomes, rcond=None)[0][1:]  # (K, T0)
+    v = np.einsum("kt,kt->k", coef, coef)
+    if not np.all(np.isfinite(v)) or v.sum() <= 0:
+        raise ValueError("regression-based V is degenerate (no predictor moves Y).")
+    return np.asarray(K * v / v.sum()), scale
 
 
 def _hull_feasibility(

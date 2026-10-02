@@ -38,6 +38,7 @@ imai2010general, vanderweele2014unification
 
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -102,6 +103,44 @@ def _mean_and_slope(eta: np.ndarray, link: str) -> Tuple[np.ndarray, np.ndarray]
     return stats.norm.cdf(eta), stats.norm.pdf(eta)
 
 
+_CATEGORICAL = re.compile(r"^C\(\s*([^\W\d]\w*)\s*\)$")
+
+
+def _expand_categorical_covariates(
+    data: pd.DataFrame, covariates: List[str]
+) -> Tuple[pd.DataFrame, List[str]]:
+    """Replace ``C(g)`` in the covariate list by indicator columns.
+
+    One indicator per level except the lowest, named ``g[level]`` -- the
+    coding ``i.g`` has in Stata and ``C(g)`` in a formula. Rows where ``g``
+    is missing get missing indicators and drop out with the rest.
+    """
+    if not any(_CATEGORICAL.match(c) for c in covariates):
+        return data, covariates
+    frame = data.copy()
+    out: List[str] = []
+    for cov in covariates:
+        m = _CATEGORICAL.match(cov)
+        if not m:
+            out.append(cov)
+            continue
+        name = m.group(1)
+        if name not in frame.columns:
+            raise MethodIncompatibility(
+                f"mediate: column {name!r} (from {cov!r}) not found in data.",
+                diagnostics={"missing_columns": [name]},
+            )
+        levels = sorted(frame[name].dropna().unique().tolist())
+        for level in levels[1:]:
+            label = int(level) if float(level).is_integer() else level
+            col = f"{name}[{label}]"
+            frame[col] = np.where(
+                frame[name].isna(), np.nan, (frame[name] == level).astype(float)
+            )
+            out.append(col)
+    return frame, out
+
+
 def potential_outcome_mediation(
     data: pd.DataFrame,
     y: str,
@@ -128,7 +167,7 @@ def potential_outcome_mediation(
             f"got {mediator_model!r}.",
             diagnostics={"mediator_model": mediator_model},
         )
-    covs = list(covariates or [])
+    data, covs = _expand_categorical_covariates(data, list(covariates or []))
     cols = [y, treat, mediator, *covs]
     missing = [c for c in cols if c not in data.columns]
     if missing:

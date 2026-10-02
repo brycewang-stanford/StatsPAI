@@ -253,3 +253,52 @@ def test_collinear_covariates_are_refused(df):
 def test_unknown_mediator_model_is_refused(df):
     with pytest.raises(MethodIncompatibility, match="mediator_model"):
         _fit(df, mediator_model="poisson")
+
+
+def test_categorical_covariate_equals_hand_made_dummies(df):
+    # `i.g` in Stata, `C(g)` here: one indicator per level but the lowest.
+    banded = df.assign(
+        band=np.select([df.age < 22, df.age < 28, df.age < 35], [1, 2, 3], 4)
+    )
+    dummies = pd.get_dummies(banded["band"], prefix="b", drop_first=True).astype(float)
+    wide = pd.concat([banded, dummies], axis=1)
+    by_term = sp.mediate(
+        banded,
+        "lre78",
+        "treat",
+        "emp75",
+        ["education", "C(band)"],
+        inference="robust",
+        interaction=True,
+    )
+    by_hand = sp.mediate(
+        wide,
+        "lre78",
+        "treat",
+        "emp75",
+        ["education", "b_2", "b_3", "b_4"],
+        inference="robust",
+        interaction=True,
+    )
+    np.testing.assert_allclose(
+        by_term.detail["estimate"], by_hand.detail["estimate"], rtol=1e-12
+    )
+    np.testing.assert_allclose(by_term.detail["se"], by_hand.detail["se"], rtol=1e-12)
+    assert "band[2]" in by_term.model_info["outcome_coef"].index
+
+
+def test_stata_line_runs_through_sp_stata(df):
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sp.stata(
+            "mediate(lre78 age education black married)"
+            "(emp75 age education black married, logit)(treat), all",
+            df,
+        )
+    detail = res.detail.set_index("effect")
+    reference = STATA["logit_interaction"][1]
+    for effect, (est, se) in reference.items():
+        assert detail.loc[effect, "estimate"] == pytest.approx(est, rel=RTOL_EST)
+        assert detail.loc[effect, "se"] == pytest.approx(se, rel=RTOL_SE)

@@ -327,6 +327,7 @@ def rdrobust(
     manipulation_test: bool = True,
     engine: str = "ols",
     masspoints: str = "adjust",
+    scalepar: float = 1.0,
 ) -> CausalResult:
     """
     Local polynomial RD estimation with robust bias-corrected inference.
@@ -453,6 +454,15 @@ def rdrobust(
         bandwidth and floors the pilot bandwidth at the 10th unique value
         from the cutoff; ``'check'`` only warns; ``'off'`` treats the data
         as continuous. The shares are in ``model_info['masspoints']``.
+    scalepar : float, default 1.0
+        Multiply the estimate, its standard errors and its confidence
+        limits by this constant (``rdrobust``'s ``scalepar``). The use is
+        the sharp regression kink design: with ``deriv=1`` the estimate is
+        the change in the slope of the outcome, and dividing it by the
+        known change in the slope of the policy rule gives the effect of
+        the policy variable, so pass ``scalepar = 1 / (kink in the rule)``.
+        Not available with ``bwselect='cct'``, ``engine='bayes'`` or
+        ``bootstrap=``.
     warn_weak_first_stage : bool, default True
         If ``True`` and ``fuzzy`` is set, emit a ``UserWarning`` when
         the first-stage discontinuity F-statistic is below 10,
@@ -512,6 +522,30 @@ def rdrobust(
     """
     if engine not in ("ols", "bayes"):
         raise ValueError(f"engine must be 'ols' or 'bayes'; got {engine!r}.")
+
+    try:
+        scalepar = float(scalepar)
+    except (TypeError, ValueError) as exc:
+        raise MethodIncompatibility(
+            f"rdrobust: scalepar must be a number, got {scalepar!r}."
+        ) from exc
+    if not np.isfinite(scalepar) or scalepar == 0:
+        raise MethodIncompatibility(
+            f"rdrobust: scalepar must be finite and non-zero, got {scalepar!r}."
+        )
+    if scalepar != 1.0 and (
+        engine == "bayes" or bwselect == "cct" or bootstrap is not None
+    ):
+        raise MethodIncompatibility(
+            "rdrobust: scalepar is applied by the native estimator only, not "
+            "with engine='bayes', bwselect='cct' or bootstrap=.",
+            recovery_hint="Drop the option and rescale the result yourself.",
+            diagnostics={
+                "engine": engine,
+                "bwselect": bwselect,
+                "bootstrap": bootstrap,
+            },
+        )
     p_given = p is not None
     if engine == "bayes":
         return _rdrobust_bayes_engine(
@@ -1045,6 +1079,10 @@ def rdrobust(
             )
             fs_F = float((fs_c / fs_s) ** 2) if fs_s > 0 else float("inf")
 
+    if scalepar != 1.0:
+        tau_conv, tau_bc = tau_conv * scalepar, tau_bc * scalepar
+        se_conv, se_robust = se_conv * abs(scalepar), se_robust * abs(scalepar)
+
     # --- Inference ---
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
@@ -1112,6 +1150,7 @@ def rdrobust(
             "ci": ci_robust,
         },
         "rho": float(rho) if rho is not None else None,
+        "scalepar": scalepar,
         "first_stage_F": fs_F,
         "n_unique_running": n_unique,
         # Options that change the computation, recorded for

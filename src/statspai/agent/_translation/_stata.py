@@ -513,6 +513,111 @@ _UNTRANSLATED_GUIDANCE: Dict[str, Tuple[str, List[str]]] = {
         "k equals maxlag.",
         ["unitroot"],
     ),
+    "ritest": (
+        "`ritest` wraps another estimation command; use sp.ri_test(data, y=, "
+        "treat=, strata=, cluster=, n_perms=, stat='ols', covariates=, "
+        "absorb=) for the coefficient of a regression re-estimated on each "
+        "re-randomization.",
+        ["ri_test", "fisher_exact"],
+    ),
+    "honestdid": (
+        "`honestdid` reads e(b) / e(V) of the last event study; pass the "
+        "fitted result (or the coefficients and their covariance) to "
+        "sp.honest_did_from_moments(betahat, sigma, num_pre_periods=, "
+        "l_vec=, m_grid=, method='smoothness' | 'relative_magnitude').",
+        ["honest_did", "honest_did_from_moments"],
+    ),
+    "pretrends": (
+        "`pretrends` reads e(b) / e(V) of the last event study; use "
+        "sp.pretrends_power / sp.pretrends_slope_for_power, which take a "
+        "fitted event study or its coefficients and covariance.",
+        ["pretrends_power", "pretrends_slope_for_power"],
+    ),
+    "fect": (
+        "`fect` maps to sp.fect(data, y=, treat=, unit=, time=, "
+        "method='fe' | 'ife' | 'mc', r=, vce=); its options are spelled "
+        "differently enough that the call is best written directly.",
+        ["fect"],
+    ),
+    "xthdidregress": (
+        "`xthdidregress` fits one ATT per cohort and period. `ra` / `ipw` / "
+        "`aipw` are sp.callaway_santanna(estimator='reg' | 'ipw' | 'dr', "
+        "control_group=) followed by sp.aggte(type='simple' | 'group' | "
+        "'calendar' | 'dynamic') for `estat aggregation`; `twfe` is "
+        "sp.etwfe with sp.etwfe_emfx.",
+        ["callaway_santanna", "aggte", "etwfe", "etwfe_emfx"],
+    ),
+    "hdidregress": (
+        "`hdidregress` is the repeated-cross-section form of xthdidregress; "
+        "use sp.callaway_santanna(panel=False) or sp.etwfe(panel=False).",
+        ["callaway_santanna", "etwfe"],
+    ),
+    "synth_runner": (
+        "`synth_runner` runs synth on the treated unit and on every donor; "
+        "sp.synth(..., placebo=True) does both and reports the rank p-value "
+        "of the post/pre RMSPE ratio, with the placebo gaps in model_info.",
+        ["synth", "synth_time_placebo"],
+    ),
+    "ddml": (
+        "`ddml` is a multi-line workflow (init, learners, crossfit, "
+        "estimate); the whole of it is one call, sp.dml(data, y=, treat=, "
+        "covariates=, model='plr' | 'irm' | 'pliv' | 'iivm', ml_g=, ml_m=, "
+        "n_folds=).",
+        ["dml"],
+    ),
+    "qddml": (
+        "`qddml` is sp.dml(data, y=, treat=, covariates=, model=, ml_g=, "
+        "ml_m=, n_folds=) in one call.",
+        ["dml"],
+    ),
+    "poregress": (
+        "`poregress` is partialling-out lasso with a plug-in penalty; the "
+        "counterpart is sp.rlasso_effect (rigorous lasso, post-double "
+        "selection or partialling out). Penalty rules differ in detail, so "
+        "selected controls and the estimate can differ.",
+        ["rlasso_effect", "dml"],
+    ),
+    "dsregress": (
+        "`dsregress` is double-selection lasso; use sp.rlasso_effect("
+        "method='double selection').",
+        ["rlasso_effect"],
+    ),
+    "xporegress": (
+        "`xporegress` is cross-fit partialling-out lasso; use sp.dml("
+        "model='plr') with lasso learners.",
+        ["dml"],
+    ),
+    "telasso": (
+        "`telasso` is augmented IPW with lasso-selected models; use "
+        "sp.dml(model='irm') or sp.aipw with the chosen learners.",
+        ["dml", "aipw"],
+    ),
+    "tebalance": (
+        "`tebalance summarize` after teffects nnmatch is the `detail` table "
+        "of sp.match(method='nnmatch'); for other estimators use "
+        "sp.balance_diagnostics.",
+        ["match", "balance_diagnostics"],
+    ),
+    "teoverlap": (
+        "`teoverlap` plots the propensity-score densities by arm; use "
+        "sp.overlap_plot(data, treatment=, covariates=).",
+        ["overlap_plot"],
+    ),
+    "weakivtest": (
+        "`weakivtest` is sp.effective_f_test(data, endog=, instruments=, "
+        "exog=), which reports the effective F and the Montiel Olea-Pflueger "
+        "critical values.",
+        ["effective_f_test"],
+    ),
+    "panelview": (
+        "`panelview` is sp.panel_view(data, unit=, time=, treat=, y=).",
+        ["panel_view"],
+    ),
+    "event_plot": (
+        "`event_plot` plots stored event-study estimates; call .plot() on "
+        "the fitted result or sp.enhanced_event_study_plot.",
+        ["enhanced_event_study_plot"],
+    ),
 }
 
 
@@ -934,51 +1039,295 @@ def _h_did_imputation(cmd: StataCommand) -> Dict[str, Any]:
     return out
 
 
+_SYNTH_PREDICTOR = re.compile(r"^([^\W\d]\w*)\((.+)\)$")
+
+
+def _synth_periods(text: str) -> Optional[List[int]]:
+    """Periods of a synth predictor: ``1988``, ``1980(1)1988``, ``1980&1985``."""
+    out: List[int] = []
+    for piece in text.replace("&", " ").split():
+        values = _numlist(piece)
+        if values is None:
+            return None
+        out.extend(values)
+    return out or None
+
+
+def _panel_options(cmd: StataCommand) -> Tuple[Optional[str], Optional[str]]:
+    """Unit and time columns from ``i()`` / ``t()``, which ``sp.stata``
+    appends from an earlier ``xtset`` / ``tsset``."""
+    opts = cmd.options
+    unit = opts.get("i") or opts.get("unit")
+    time = opts.get("t") or opts.get("time")
+    return (unit.split()[0] if unit else None, time.split()[0] if time else None)
+
+
+_PANEL_NOTE = (
+    "The panel variables come from `tsset` / `xtset` on another line. "
+    "Replace <panel_id> and <panel_time> with the unit and time columns "
+    "(sp.stata does when the snippet declares them)."
+)
+
+
 def _h_synth(cmd: StataCommand) -> Dict[str, Any]:
-    """``synth gdp predictors..., trunit(treatedid) trperiod(year)`` →
-    ``sp.synth``. Stata `synth` uses a different variable convention —
-    first variable is outcome; remaining variables are predictors;
-    treated unit + treatment period live in options.
+    """``synth y x1 x2 y(1988) y(1975(1)1980), trunit() trperiod()`` ->
+    ``sp.synth(method='classic')``.
+
+    A plain predictor is averaged over ``xperiod()`` (the whole
+    pre-treatment period when the option is absent); ``var(periods)``
+    is averaged over those periods. Without ``nested`` Stata takes the
+    predictor weights from a regression, which is ``v_method='regression'``.
     """
     if not cmd.varlist:
         return _emit_error("synth requires an outcome variable", command="synth")
+    opts = cmd.options
     outcome = cmd.varlist[0]
-    predictors = cmd.varlist[1:]
-    trunit = cmd.options.get("trunit") or cmd.options.get("treatedid")
-    trperiod = cmd.options.get("trperiod") or cmd.options.get("treatment_time")
+    trunit = opts.get("trunit")
+    trperiod = opts.get("trperiod")
     if not (trunit and trperiod):
         return _emit_error(
             "synth needs `trunit(<id>)` and `trperiod(<year>)`.", command="synth"
         )
-    unit = cmd.options.get("unit") or "<unit_col>"
-    time = cmd.options.get("time") or "<time_col>"
+    unit, time = _panel_options(cmd)
+    notes: List[str] = []
+    lost: List[str] = []
+
+    xperiod: Optional[List[int]] = None
+    if opts.get("xperiod") is not None:
+        xperiod = _synth_periods(opts.get("xperiod") or "")
+        if xperiod is None:
+            lost.append("xperiod")
+    covariates: List[str] = []
+    special: List[Tuple[str, Any, str]] = []
+    for tok in cmd.varlist[1:]:
+        m = _SYNTH_PREDICTOR.match(tok)
+        if m:
+            periods = _synth_periods(m.group(2))
+            if periods is None:
+                return _emit_error(
+                    f"synth: cannot read the periods of predictor {tok!r}.",
+                    command="synth",
+                    suggestions=[],
+                )
+            special.append(
+                (m.group(1), periods[0] if len(periods) == 1 else periods, "mean")
+            )
+        elif xperiod is not None:
+            special.append((tok, xperiod, "mean"))
+        else:
+            covariates.append(tok)
+
     args: Dict[str, Any] = {
         "outcome": outcome,
-        "unit": unit,
-        "time": time,
+        "unit": unit or "<panel_id>",
+        "time": time or "<panel_time>",
         "treated_unit": _coerce_scalar(trunit),
         "treatment_time": _coerce_scalar(trperiod),
+        "method": "classic",
     }
-    # sp.synth's covariate argument is ``covariates`` (not ``predictors``);
-    # emitting the wrong name means execute_tool silently drops it and the
-    # synthetic control is fit with no predictors — wrong weights, no error.
-    if predictors:
-        args["covariates"] = predictors
-    notes: List[str] = []
-    if unit == "<unit_col>" or time == "<time_col>":
-        notes.append(
-            "Stata `tsset` / `xtset` info isn't visible from the "
-            "command alone — replace <unit_col>/<time_col> with "
-            "the panel-id / time columns."
-        )
-    python = (
-        f"sp.synth(data=df, outcome={outcome!r}, unit={unit!r}, "
-        f"time={time!r}, treated_unit={args['treated_unit']!r}, "
-        f"treatment_time={args['treatment_time']!r}"
-        + (f", covariates={predictors!r}" if predictors else "")
-        + ")"
+    if covariates:
+        args["covariates"] = covariates
+    if special:
+        args["special_predictors"] = special
+    if covariates or special:
+        if "nested" in opts:
+            args["v_method"] = "nested"
+            if "allopt" in opts:
+                notes.append(
+                    "allopt: sp.synth restarts the nested search from several "
+                    "starting values by default."
+                )
+        else:
+            args["v_method"] = "regression"
+    else:
+        "nested" in opts  # nothing to weight without predictors
+    for name in ("mspeperiod", "resultsperiod", "counit", "customV"):
+        if opts.get(name) is not None:
+            lost.append(name)
+    if unit is None or time is None:
+        notes.append(_PANEL_NOTE)
+    notes.append(
+        "Stata stores the donor weights rounded to three decimals and builds "
+        "e(Y_synthetic) from the rounded weights; sp.synth uses the exact ones."
     )
-    return _emit("synth", args, python, notes)
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    out = _emit("synth", args, f"sp.synth(data=df, {kw})", notes)
+    out["untranslated_options"] = lost
+    return out
+
+
+_SDID_VCE = {"placebo", "bootstrap", "jackknife", "noinference"}
+
+
+def _h_sdid(cmd: StataCommand) -> Dict[str, Any]:
+    """``sdid y unit time treat, vce(placebo) reps() seed() method()`` ->
+    ``sp.sdid``."""
+    if len(cmd.varlist) < 4:
+        return _emit_error(
+            "sdid is positional: `sdid Y unit time treatment, vce(...)`.",
+            command="sdid",
+        )
+    y, unit, time, treat = cmd.varlist[:4]
+    opts = cmd.options
+    args: Dict[str, Any] = {"outcome": y, "unit": unit, "time": time, "treat": treat}
+    lost: List[str] = []
+    notes: List[str] = []
+    vce = (opts.get("vce") or "").split()
+    if vce:
+        if vce[0].lower() in _SDID_VCE:
+            args["se_method"] = vce[0].lower()
+        else:
+            lost.append("vce")
+    method = (opts.get("method") or "").split()
+    if method:
+        if method[0].lower() in {"sdid", "did", "sc"}:
+            args["method"] = method[0].lower()
+        else:
+            lost.append("method")
+    for name, key in (("reps", "n_reps"), ("seed", "seed")):
+        if opts.get(name) is not None:
+            try:
+                args[key] = int(opts.get(name) or "")
+            except ValueError:
+                lost.append(name)
+    if opts.get("covariates"):
+        spec = (opts.get("covariates") or "").replace(",", " , ").split()
+        names = spec[: spec.index(",")] if "," in spec else spec
+        how = spec[spec.index(",") + 1 :] if "," in spec else []
+        if [h.lower() for h in how] == ["projected"]:
+            args["covariates"] = names
+            args["covariate_method"] = "projected"
+        else:
+            lost.append("covariates")
+            notes.append(
+                "covariates(): sp.sdid adjusts by the projected method only "
+                "(`covariates(x, projected)`); Stata's default is `optimized`."
+            )
+    if "seed" in args:
+        notes.append(
+            "The seed fixes the placebo / bootstrap draws within StatsPAI; the "
+            "draws are not Stata's, so the standard error agrees up to "
+            "resampling noise."
+        )
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    out = _emit("sdid", args, f"sp.sdid(data=df, {kw})", notes)
+    out["untranslated_options"] = lost
+    return out
+
+
+def _h_mediate(cmd: StataCommand) -> Dict[str, Any]:
+    """``mediate (y x) (m x [, logit]) (treat)`` -> ``sp.mediate`` with the
+    potential-outcome estimator (``inference='robust'``)."""
+    eqs = _equations(list(cmd.varlist))
+    if not eqs or len(eqs) != 3 or not all(eq[0] for eq in eqs):
+        return _emit_error(
+            "mediate expects `(outcome x) (mediator x) (treatment)` equations.",
+            command="mediate",
+        )
+    (out_vars, out_opts), (med_vars, med_opts), (treat_vars, treat_opts) = eqs
+    if out_opts and [o.lower() for o in out_opts] != ["linear"]:
+        return _emit_error(
+            f"mediate: the outcome model {' '.join(out_opts)!r} is not "
+            "translated; sp.mediate(inference='robust') has a linear outcome "
+            "model.",
+            command="mediate",
+            suggestions=[],
+        )
+    link = [o.lower() for o in med_opts] or ["linear"]
+    if len(link) != 1 or link[0] not in {"linear", "logit", "probit"}:
+        return _emit_error(
+            f"mediate: the mediator model {' '.join(med_opts)!r} is not "
+            "translated (linear, logit and probit are).",
+            command="mediate",
+            suggestions=[],
+        )
+    if len(treat_vars) != 1 or treat_opts:
+        return _emit_error(
+            "mediate: only a binary treatment without options is translated.",
+            command="mediate",
+            suggestions=[],
+        )
+    if out_vars[1:] != med_vars[1:]:
+        return _emit_error(
+            "mediate with different covariates in the outcome and mediator "
+            "equations is not translated: sp.mediate takes one covariate list.",
+            command="mediate",
+            suggestions=[],
+        )
+    covariates = out_vars[1:]
+    bad = [c for c in covariates if not re.fullmatch(r"(?:C\()?[^\W\d]\w*\)?", c)]
+    if bad:
+        return _emit_error(
+            f"mediate: covariate term(s) {bad} are not translated; create "
+            "them as columns first.",
+            command="mediate",
+            suggestions=[],
+        )
+    opts = cmd.options
+    args: Dict[str, Any] = {
+        "y": out_vars[0],
+        "treat": treat_vars[0],
+        "mediator": med_vars[0],
+        "covariates": covariates,
+        "inference": "robust",
+        "interaction": "nointeraction" not in opts,
+        "mediator_model": link[0],
+    }
+    lost: List[str] = []
+    vce = (opts.get("vce") or "").split()
+    if vce and vce[0].lower() != "robust":
+        lost.append("vce")
+    for shown in ("all", "nie", "nde", "pnie", "tnde", "te", "pomeans", "aequations"):
+        shown in opts  # which effects are printed; sp.mediate reports all
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    notes = [
+        "Estimates agree with Stata to 1e-9. Effect standard errors agree to "
+        "about 1e-4: Stata's variance uses numerical derivatives, sp.mediate "
+        "the exact sandwich."
+    ]
+    out = _emit("mediate", args, f"sp.mediate(data=df, {kw})", notes)
+    out["untranslated_options"] = lost
+    return out
+
+
+def _h_bacondecomp(cmd: StataCommand) -> Dict[str, Any]:
+    """``bacondecomp y treat, ddetail`` -> ``sp.bacon_decomposition``."""
+    if len(cmd.varlist) < 2:
+        return _emit_error(
+            "bacondecomp needs an outcome and a treatment indicator.",
+            command="bacondecomp",
+        )
+    if len(cmd.varlist) > 2:
+        return _emit_error(
+            "bacondecomp with control variables is not translated: "
+            "sp.bacon_decomposition decomposes the two-way fixed effects "
+            "coefficient without controls.",
+            command="bacondecomp",
+            suggestions=[],
+        )
+    y, treat = cmd.varlist[:2]
+    unit, time = _panel_options(cmd)
+    args: Dict[str, Any] = {
+        "y": y,
+        "treat": treat,
+        "time": time or "<panel_time>",
+        "id": unit or "<panel_id>",
+    }
+    notes: List[str] = []
+    if unit is None or time is None:
+        notes.append(_PANEL_NOTE)
+    notes.append(
+        "With no never-treated group, bacondecomp's table uses the last "
+        "cohort as if it were never treated and need not add up to the "
+        "two-way fixed effects coefficient; sp.bacon_decomposition lists "
+        "every 2x2 comparison and its weighted sum is that coefficient."
+    )
+    for shown in ("ddetail", "nograph", "stub", "robust", "gropt"):
+        cmd.options.get(shown)
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    return _emit(
+        "bacon_decomposition", args, f"sp.bacon_decomposition(data=df, {kw})", notes
+    )
 
 
 _RD_KERNELS = {"tri": "triangular", "uni": "uniform", "epa": "epanechnikov"}
@@ -1089,6 +1438,11 @@ def _h_rdrobust(cmd: StataCommand) -> Dict[str, Any]:
             skipped("masspoints")
     if opts.get("weights"):
         args["weights"] = text("weights").split()[0]
+    if opts.get("scalepar") is not None:
+        try:
+            args["scalepar"] = float(text("scalepar"))
+        except ValueError:
+            skipped("scalepar")
     if opts.get("level") is not None:
         try:
             args["alpha"] = round(1 - float(text("level")) / 100, 10)
@@ -1393,33 +1747,99 @@ def _h_heckman(cmd: StataCommand) -> Dict[str, Any]:
 
 
 def _h_rdplot(cmd: StataCommand) -> Dict[str, Any]:
+    """``rdplot y x, c() p() nbins() binselect() kernel() h() ci() shade``."""
     if len(cmd.varlist) < 2:
         return _emit_error(
             "rdplot needs y + running variable: `rdplot y x, c(<v>)`", command="rdplot"
         )
     y, x = cmd.varlist[0], cmd.varlist[1]
-    c_raw = cmd.options.get("c", "0")
+    opts = cmd.options
+    c_raw = opts.get("c", "0")
     try:
         c = float(c_raw) if c_raw is not None else 0.0
     except (TypeError, ValueError):
         c = 0.0
     args: Dict[str, Any] = {"y": y, "x": x, "c": c}
-    python = f"sp.rdplot(data=df, y={y!r}, x={x!r}, c={c})"
-    return _emit("rdplot", args, python)
+    lost: List[str] = []
+    notes: List[str] = []
+    if opts.get("p") is not None:
+        try:
+            args["p"] = int(opts.get("p") or "")
+        except ValueError:
+            lost.append("p")
+    if opts.get("nbins") is not None:
+        bins = (opts.get("nbins") or "").split()
+        try:
+            counts = [int(b) for b in bins]
+        except ValueError:
+            counts = []
+        if len(counts) in (1, 2) and len(set(counts)) == 1:
+            args["nbins"] = counts[0]
+        else:
+            lost.append("nbins")
+            notes.append(
+                f"nbins({opts.get('nbins')}): sp.rdplot takes one bin count "
+                "for both sides."
+            )
+    if opts.get("binselect"):
+        args["binselect"] = (opts.get("binselect") or "").split()[0].lower()
+    if opts.get("kernel"):
+        kernel = _RD_KERNELS.get((opts.get("kernel") or "").split()[0].lower()[:3])
+        if kernel:
+            args["kernel"] = kernel
+        else:
+            lost.append("kernel")
+    if opts.get("h") is not None:
+        val = _rd_numbers(opts.get("h"))
+        if isinstance(val, float):
+            args["h"] = val
+        else:
+            lost.append("h")
+    if opts.get("ci") is not None:
+        try:
+            args["ci_level"] = round(float(opts.get("ci") or "") / 100, 10)
+        except ValueError:
+            lost.append("ci")
+    else:
+        # rdplot draws no confidence intervals unless ci() is given.
+        args["hide_ci"] = True
+    if "shade" in opts:
+        args["shade_ci"] = True
+    if opts.get("covs"):
+        args["covs"] = (opts.get("covs") or "").split()
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    out = _emit("rdplot", args, f"sp.rdplot(data=df, {kw})", notes)
+    out["untranslated_options"] = lost
+    return out
 
 
 def _h_rddensity(cmd: StataCommand) -> Dict[str, Any]:
     if not cmd.varlist:
         return _emit_error("rddensity requires a running variable", command="rddensity")
     x = cmd.varlist[0]
-    c_raw = cmd.options.get("c", "0")
+    opts = cmd.options
+    c_raw = opts.get("c", "0")
     try:
         c = float(c_raw) if c_raw is not None else 0.0
     except (TypeError, ValueError):
         c = 0.0
     args: Dict[str, Any] = {"x": x, "c": c}
-    python = f"sp.rddensity(data=df, x={x!r}, c={c})"
-    return _emit("rddensity", args, python)
+    lost: List[str] = []
+    if opts.get("p") is not None:
+        try:
+            args["p"] = int(opts.get("p") or "")
+        except ValueError:
+            lost.append("p")
+    if opts.get("h") is not None:
+        val = _rd_numbers(opts.get("h"))
+        if val is None:
+            lost.append("h")
+        else:
+            args["h"] = val
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    out = _emit("rddensity", args, f"sp.rddensity(data=df, {kw})")
+    out["untranslated_options"] = lost
+    return out
 
 
 def _equations(tokens: List[str]) -> Optional[List[Tuple[List[str], List[str]]]]:
@@ -2316,6 +2736,9 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "xtdidregress": _h_didregress,
     "did_imputation": _h_did_imputation,
     "synth": _h_synth,
+    "sdid": _h_sdid,
+    "mediate": _h_mediate,
+    "bacondecomp": _h_bacondecomp,
     "rdrobust": _h_rdrobust,
     "rdbwselect": _h_rdbwselect,
     # Tier 2 — follow-on commands (push coverage to ~85%)
@@ -2492,7 +2915,8 @@ def _tokenise_head(text: str) -> List[str]:
     ``(d=z)`` read the same as their spaced-out spellings. A parenthesis
     attached to what precedes it belongs to that token and is kept whole,
     blanks included: ``cigsale(1988)``, ``beer(1984(1)1988)``,
-    ``c.(x x2)``, ``d##c.(x x2)#i.g``.
+    ``c.(x x2)``, ``d##c.(x x2)#i.g`` -- unless it holds an ``=`` or is
+    followed directly by another parenthesis, which only an equation is.
     """
     tokens: List[str] = []
     cur: List[str] = []
@@ -2509,20 +2933,25 @@ def _tokenise_head(text: str) -> List[str]:
         if ch.isspace():
             flush()
         elif ch == "(":
-            if cur:
+            depth, j = 0, i
+            while j < n:
+                if text[j] == "(":
+                    depth += 1
+                elif text[j] == ")":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                j += 1
+            # A parenthesis glued to a name is still an equation when it
+            # holds an `=` (``x(d=z)``) or another one follows it directly
+            # (``psmatch(y)(treat x)``).
+            glued_equation = "=" in text[i:j] or text[j + 1 : j + 2] == "("
+            if cur and not glued_equation:
                 # attached: copy through the matching parenthesis
-                depth, j = 0, i
-                while j < n:
-                    if text[j] == "(":
-                        depth += 1
-                    elif text[j] == ")":
-                        depth -= 1
-                        if depth == 0:
-                            break
-                    j += 1
                 cur.append(text[i : j + 1])
                 i = j
             else:
+                flush()
                 tokens.append("(")
                 eq_depth += 1
         elif ch == ")" and eq_depth > 0:

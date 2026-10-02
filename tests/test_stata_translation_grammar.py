@@ -568,3 +568,209 @@ def test_psmatch2_options_and_its_probit_default():
     assert out["untranslated_options"] == []
     # without `logit` Stata fits a probit score; sp.psmatch2 fits a logit
     assert sp.from_stata("psmatch2 d x, out(y)")["untranslated_options"] == ["probit"]
+
+
+# ---------------------------------------------------------------------------
+# Equation punctuation, spaced ranges, grouped factor notation
+# ---------------------------------------------------------------------------
+#
+# Stata does not need blanks around the parentheses of an equation, around
+# `=` or around the hyphen of a varlist range, and factor notation can be
+# applied to a parenthesised list. Each of these used to be refused or, worse,
+# translated into a formula that meant something else.
+
+_COLUMNS = ["y", "d", "x", "x2", "x3", "z1", "z2", "z3", "g", "treat", "post", "id"]
+
+
+@pytest.mark.parametrize(
+    "compact, spaced",
+    [
+        ("ivregress 2sls y (d=z1 z2)x, small", "ivregress 2sls y (d = z1 z2) x, small"),
+        ("ivreg2 y x(d=z1), small", "ivreg2 y x (d = z1), small"),
+        ("teffects nnmatch (y x)(treat), atet", "teffects nnmatch (y x) (treat), atet"),
+        ("teffects psmatch(y)(treat x), atet", "teffects psmatch (y) (treat x), atet"),
+        (
+            "didregress (y x)(d), group(id) time(post)",
+            "didregress (y x) (d), group(id) time(post)",
+        ),
+        ("mediate(y x)(d x)(treat)", "mediate (y x) (d x) (treat)"),
+    ],
+)
+def test_equations_need_no_blanks(compact, spaced):
+    a = sp.from_stata(compact, columns=_COLUMNS)
+    b = sp.from_stata(spaced, columns=_COLUMNS)
+    assert a["ok"], a
+    assert _same_call(a, b)
+
+
+@pytest.mark.parametrize(
+    "line, formula",
+    [
+        ("reg y x - x3", "y ~ x + x2 + x3"),
+        ("reg y x -x3", "y ~ x + x2 + x3"),
+        ("reg y x- x3", "y ~ x + x2 + x3"),
+        ("ivregress 2sls y (d = z1 - z3) x, small", "y ~ x + (d ~ z1 + z2 + z3)"),
+        (
+            "ivregress 2sls y (d=z1-z3) x - x3, small",
+            "y ~ x + x2 + x3 + (d ~ z1 + z2 + z3)",
+        ),
+    ],
+)
+def test_range_written_with_blanks(line, formula):
+    out = sp.from_stata(line, columns=_COLUMNS)
+    assert out["ok"], out
+    assert out["arguments"]["formula"] == formula
+    # without the dataset's columns a range cannot be expanded: refuse
+    assert sp.from_stata(line)["ok"] is False
+
+
+def test_a_lone_hyphen_is_never_a_regressor():
+    out = sp.from_stata("ivregress 2sls y (d = z1 - z3) x, small", columns=_COLUMNS)
+    assert "-" not in out["python_code"].split("data=df")[0].replace("~", "")
+
+
+@pytest.mark.parametrize(
+    "line, formula",
+    [
+        ("reg y c.(x x2)", "y ~ x + x2"),
+        ("reg y i.(g post)", "y ~ C(g) + C(post)"),
+        ("reg y d##c.(x x2)", "y ~ d + x + x2 + d:x + d:x2"),
+        ("reg y i.g#c.(x x2)", "y ~ C(g):x + C(g):x2"),
+        ("reg y c.(x - x3)#i.g", "y ~ x:C(g) + x2:C(g) + x3:C(g)"),
+        ("reg y 1.d", "y ~ I(1 * (d == 1))"),
+        ("reg y c.x#1.post", "y ~ x:I(1 * (post == 1))"),
+        ("reg y c.(x x2)#1.post", "y ~ x:I(1 * (post == 1)) + x2:I(1 * (post == 1))"),
+        ("ivregress 2sls y (d = i.g) x, small", "y ~ x + (d ~ C(g))"),
+    ],
+)
+def test_grouped_factor_notation_and_level_terms(line, formula):
+    out = sp.from_stata(line, columns=_COLUMNS)
+    assert out["ok"], out
+    assert out["arguments"]["formula"] == formula
+
+
+@pytest.mark.parametrize(
+    "line, needle",
+    [
+        # a factor crossed with one level of another: Stata builds a column
+        # per level of the factor, which a product of two columns is not
+        ("reg y treat#1.post", "treat#1.post"),
+        ("reg y i.g#1.post", "i.g#1.post"),
+        ("reg y d##c.(x x2)##i.g", "is not translated"),
+        ("reg y c.(L.x x2)", "is not translated"),
+    ],
+)
+def test_untranslatable_factor_terms_are_refused(line, needle):
+    out = sp.from_stata(line, columns=_COLUMNS)
+    assert out["ok"] is False
+    assert needle in out["error"]
+
+
+def test_level_indicator_runs_and_equals_the_dummy():
+    rng = np.random.default_rng(0)
+    df = pd.DataFrame({"d": rng.integers(0, 2, 300), "x": rng.normal(size=300)})
+    df["post"] = rng.integers(0, 2, 300)
+    df["y"] = 1 + 2 * df.d + 0.5 * df.x * df.post + rng.normal(size=300)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        via_stata = sp.stata("reg y 1.d c.x#1.post, vce(robust)", df)
+    by_hand = sp.regress(
+        "y ~ d + xp", df.assign(xp=df.x * (df.post == 1)), vce="robust"
+    )
+    np.testing.assert_allclose(
+        via_stata.params.to_numpy(), by_hand.params.to_numpy(), rtol=1e-10
+    )
+    np.testing.assert_allclose(
+        via_stata.std_errors.to_numpy(), by_hand.std_errors.to_numpy(), rtol=1e-10
+    )
+
+
+def test_attached_parentheses_stay_inside_their_token():
+    # cigsale(1988) and beer(1984(1)1988) are predictors with periods, not
+    # equations
+    out = sp.from_stata(
+        "synth y beer(1984(1)1988) y(1988), trunit(3) trperiod(1989) i(s) t(t)"
+    )
+    assert out["arguments"]["special_predictors"] == [
+        ("beer", [1984, 1985, 1986, 1987, 1988], "mean"),
+        ("y", 1988, "mean"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "abbreviated, full",
+    [
+        (
+            "teffects nnmatch (y x) (treat), atet nn(2) bias(x) em(g) cal(.5)",
+            "teffects nnmatch (y x) (treat), atet nneighbor(2) biasadj(x) "
+            "ematch(g) caliper(.5)",
+        ),
+        (
+            "did_imputation y id post g, h(0 1 2) pre(3)",
+            "did_imputation y id post g, horizons(0 1 2) pretrends(3)",
+        ),
+    ],
+)
+def test_command_specific_abbreviations(abbreviated, full):
+    a, b = sp.from_stata(abbreviated), sp.from_stata(full)
+    assert a["ok"] and a["untranslated_options"] == []
+    assert _same_call(a, b)
+
+
+@pytest.mark.parametrize(
+    "line, lost",
+    [
+        ("sdid y s t d, vce(placebo) covariates(x)", ["covariates"]),
+        ("synth y x, trunit(1) trperiod(5) counit(2 3) i(s) t(t)", ["counit"]),
+        ("teffects psmatch (y) (treat x)", ["ate"]),
+        ("rdplot y x, nbins(20 30)", ["nbins"]),
+    ],
+)
+def test_what_cannot_be_carried_over_is_reported(line, lost):
+    out = sp.from_stata(line)
+    assert out["ok"]
+    assert out["untranslated_options"] == lost
+
+
+@pytest.mark.parametrize(
+    "line, needle",
+    [
+        ("teffects ra (y x) (treat)", "separate outcome regression"),
+        ("teffects ipwra (y x) (treat x)", "separate outcome regression"),
+        ("teffects aipw (y x1) (treat x2)", "different covariates"),
+        ("teffects psmatch (y) (treat x, probit), atet", "logit"),
+        ("mediate (y x1) (m x2) (treat)", "different covariates"),
+        ("mediate (y x, logit) (m x) (treat)", "outcome model"),
+        ("bacondecomp y treat x, ddetail", "control variables"),
+    ],
+)
+def test_a_different_estimator_is_refused_not_approximated(line, needle):
+    out = sp.from_stata(line)
+    assert out["ok"] is False
+    assert needle in out["error"]
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "ritest",
+        "honestdid",
+        "pretrends",
+        "fect",
+        "xthdidregress",
+        "hdidregress",
+        "synth_runner",
+        "ddml",
+        "poregress",
+        "xporegress",
+        "telasso",
+        "tebalance",
+        "weakivtest",
+    ],
+)
+def test_untranslated_commands_name_the_sp_function(command):
+    out = sp.from_stata(f"{command} y x")
+    assert out["ok"] is False
+    assert "not translated line by line" in out["error"]
+    for name in out["statspai_functions"]:
+        assert hasattr(sp, name), name

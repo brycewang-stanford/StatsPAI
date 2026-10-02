@@ -2071,6 +2071,15 @@ def _build_registry() -> None:
                     "'check' (warn only) or 'off'",
                     ["adjust", "check", "off"],
                 ),
+                ParamSpec(
+                    "scalepar",
+                    "float",
+                    False,
+                    1.0,
+                    "Rescale the estimate, SEs and CI (rdrobust scalepar). For "
+                    "a sharp kink design with deriv=1, 1 / (kink in the policy "
+                    "rule) turns the slope change into the policy effect.",
+                ),
             ],
             returns="CausalResult",
             example='sp.rdrobust(df, y="score", x="income", c=10000)',

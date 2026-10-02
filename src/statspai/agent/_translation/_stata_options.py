@@ -220,6 +220,7 @@ _COMMAND_OPTIONS: Dict[str, _Table] = {
         ("horizons", 1),
         ("pretrends", 3),
     ),
+    "synth": (("figure", 3),),
 }
 
 
@@ -281,8 +282,22 @@ _DISPLAY_BY_COMMAND = {
     "ppmlhdfe": {"irr", "eform"},
     "rdrobust": {"all"},
     "rdplot": {"graph_options"},
-    "rddensity": {"plot", "plot_range", "hist_range", "graph_opt"},
+    # `all` also prints the conventional statistic; the robust one, which
+    # is the test, is unchanged.
+    "rddensity": {"plot", "plot_range", "hist_range", "graph_opt", "all"},
     "synth": {"figure", "keep"},
+    "sdid": {"graph", "g1on", "g1_opt", "g2_opt", "graph_export", "msize"},
+    "bacondecomp": {"ddetail", "nograph", "stub", "gropt"},
+    "mediate": {
+        "all",
+        "nie",
+        "nde",
+        "pnie",
+        "tnde",
+        "te",
+        "pomeans",
+        "aequations",
+    },
     "boottest": {"nograph"},
     "dfuller": {"regress"},
     # reghdfe's way of saying "no fixed effects": what the call does without absorb()

@@ -1072,6 +1072,11 @@
           "description": "Ratio h/b for bias correction",
           "type": "number"
         },
+        "scalepar": {
+          "default": 1.0,
+          "description": "Rescale the estimate, SEs and CI (rdrobust scalepar). For a sharp kink design with deriv=1, 1 / (kink in the policy rule) turns the slope change into the policy effect.",
+          "type": "number"
+        },
         "warn_mass_points": {
           "default": true,
           "description": "Warn when the running variable has few distinct values",

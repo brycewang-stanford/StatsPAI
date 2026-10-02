@@ -17598,7 +17598,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_iv_stata_commands_parity.py"
+        "tests/reference_parity/test_iv_stata_commands_parity.py",
+        "tests/reference_parity/test_mediate_potential_outcomes.py"
       ],
       "tolerance": ""
     },
@@ -18161,6 +18162,7 @@
         "tests/reference_parity/test_oct2026_fifth_pass.py",
         "tests/reference_parity/test_scm_recovery.py",
         "tests/reference_parity/test_synth_parity.py",
+        "tests/reference_parity/test_synth_regression_v_stata.py",
         "tests/reference_parity/test_texas_synth_parity.py"
       ],
       "also_in_modules": [

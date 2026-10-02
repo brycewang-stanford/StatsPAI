@@ -1187,12 +1187,18 @@ class SyntheticControl:
         ``covariates``, the pre-treatment outcome vector itself is used as
         the predictor (V has no identifying power and is fixed to the
         identity, following Kaul et al. 2022).
-    v_method : {'auto', 'nested', 'equal'}, default 'auto'
+    v_method : {'auto', 'nested', 'equal', 'regression'}, default 'auto'
         ``'auto'`` → nested V-W when covariates / special predictors are
         supplied, equal V otherwise. ``'nested'`` forces the outer V
         optimisation even when only Y lags are used (note: the outer
         problem is then under-identified, per Kaul et al. 2022). Equal
         V reduces to the outcome-only simplex LS estimator.
+        ``'regression'`` is the default of Stata ``synth`` (without its
+        ``nested`` option): V comes from regressing the pre-treatment
+        outcomes on the predictors, with no search, so the fit is
+        deterministic and instant, and the donor weights reproduce Stata's
+        (its pre-treatment RMSPE to 3e-9 on the Proposition 99 data).
+        It needs ``covariates`` or ``special_predictors``.
     standardize_predictors : bool, default True
         Rescale predictors to unit range before the V optimization.
     n_random_starts : int, default 4
@@ -1284,9 +1290,9 @@ class SyntheticControl:
         self.covariates = _coerce_optional_column_list(covariates, "covariates") or []
         self.special_predictors = special_predictors or []
         self.v_method = _require_string_option(v_method, "v_method")
-        if self.v_method not in {"auto", "equal", "nested"}:
+        if self.v_method not in {"auto", "equal", "nested", "regression"}:
             raise MethodIncompatibility(
-                "v_method must be one of 'auto', 'equal', or 'nested'.",
+                "v_method must be one of 'auto', 'equal', 'nested' or 'regression'.",
                 diagnostics={"v_method": v_method},
             )
         if not isinstance(standardize_predictors, (bool, np.bool_)):
@@ -1506,9 +1512,57 @@ class SyntheticControl:
         """
         from ._core import (
             _inner_w_given_v,
+            polish_simplex_weights,
+            regression_based_v,
             solve_synth_weights_adh,
             standardize_predictors,
         )
+
+        if getattr(self, "v_method", "auto") == "regression":
+            try:
+                V, scale = regression_based_v(
+                    X_treated, X_donors, Y_treated_pre, Y_donors_pre
+                )
+            except ValueError as exc:
+                raise MethodIncompatibility(
+                    f"synth(v_method='regression'): {exc}",
+                    recovery_hint=(
+                        "Use fewer predictors, or v_method='nested' / 'equal'."
+                    ),
+                    diagnostics={"n_predictors": int(X_donors.shape[0])},
+                ) from exc
+            X1s = X_treated / scale
+            X0s = X_donors / scale[:, None]
+            w = _inner_w_given_v(V, X1s, X0s, penalization=self.penalization)
+            if self.penalization == 0:
+                # V is fixed here, so the donor weights are a plain convex
+                # problem: solve it to full precision.
+                sqrt_v = np.sqrt(V)
+                w = polish_simplex_weights(sqrt_v * X1s, sqrt_v[:, None] * X0s, w)
+            r_outer = Y_treated_pre - Y_donors_pre @ w
+            r_inner = X1s - X0s @ w
+            loss = float(r_outer @ r_outer)
+            inner_loss = float(np.sum(V * r_inner**2))
+            return {
+                "w": w,
+                "v": V,
+                "loss": loss,
+                "inner_loss": inner_loss,
+                "scale": scale,
+                "n_starts": 1,
+                "converged": True,
+                "best_start": "regression",
+                "start_diagnostics": [
+                    {
+                        "start": "regression",
+                        "success": True,
+                        "loss": loss,
+                        "inner_loss": inner_loss,
+                        "weights": w,
+                        "v": V,
+                    }
+                ],
+            }
 
         if run_nested:
             return solve_synth_weights_adh(
@@ -1562,7 +1616,7 @@ class SyntheticControl:
 
     def _should_run_nested(self) -> bool:
         """Decide whether to run the outer V optimization."""
-        if self.v_method == "equal":
+        if self.v_method in ("equal", "regression"):
             return False
         if self.v_method == "nested":
             return True
@@ -1585,6 +1639,18 @@ class SyntheticControl:
         """
         Y_pre_treated = self.Y_treated[self.pre_mask]
         Y_pre_donors = self.Y_donors[self.pre_mask]
+
+        if self.v_method == "regression" and not self._has_predictors:
+            raise MethodIncompatibility(
+                "synth(v_method='regression') weights predictors by how well "
+                "they explain the pre-treatment outcomes, so it needs "
+                "predictors other than those outcomes themselves.",
+                recovery_hint=(
+                    "Pass covariates= or special_predictors=, or leave "
+                    "v_method='auto' for the outcome-only fit."
+                ),
+                diagnostics={"v_method": self.v_method},
+            )
 
         run_nested = self._should_run_nested()
         solver_out = self._solve_weights(
@@ -1796,7 +1862,11 @@ class SyntheticControl:
             "Y_synth": Y_synth,
             "Y_treated": self.Y_treated,
             "times": self.times,
-            "v_method": "nested" if run_nested else "equal",
+            "v_method": (
+                "regression"
+                if self.v_method == "regression"
+                else "nested" if run_nested else "equal"
+            ),
             "n_starts": solver_out["n_starts"],
             "converged": solver_out["converged"],
             "perfect_fit": self.perfect_fit,
@@ -1895,6 +1965,7 @@ class SyntheticControl:
                 n_random_starts=self.n_random_starts,
                 penalization=self.penalization,
                 perfect_fit=self.perfect_fit,
+                v_method=self.v_method,
             )
             task = functools.partial(
                 _placebo_one,

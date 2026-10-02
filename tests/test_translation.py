@@ -629,7 +629,98 @@ TIER2_ROUND_TRIPS = [
     ),
     # RD ancillary
     ("rdplot y x, c(0)", "rdplot", {"y": "y", "x": "x", "c": 0.0}),
+    (
+        "rdplot y x, c(0) p(1) nbins(50 50) ci(95) shade kernel(tri)",
+        "rdplot",
+        {
+            "p": 1,
+            "nbins": 50,
+            "ci_level": 0.95,
+            "shade_ci": True,
+            "kernel": "triangular",
+        },
+    ),
     ("rddensity x, c(0.5)", "rddensity", {"x": "x", "c": 0.5}),
+    ("rddensity x, p(1) all", "rddensity", {"x": "x", "p": 1}),
+    (
+        "rdrobust y x, c(10) deriv(1) scalepar(-2)",
+        "rdrobust",
+        {"deriv": 1, "scalepar": -2.0},
+    ),
+    # synthetic control and synthetic DiD
+    (
+        "synth y x1 x2 y(1988) y(1980(1)1985) y(1975&1979), trunit(3) "
+        "trperiod(1989) xperiod(1980(1)1988) i(state) t(year)",
+        "synth",
+        {
+            "outcome": "y",
+            "unit": "state",
+            "time": "year",
+            "treated_unit": 3,
+            "treatment_time": 1989,
+            "method": "classic",
+            "v_method": "regression",
+            "special_predictors": [
+                ("x1", list(range(1980, 1989)), "mean"),
+                ("x2", list(range(1980, 1989)), "mean"),
+                ("y", 1988, "mean"),
+                ("y", list(range(1980, 1986)), "mean"),
+                ("y", [1975, 1979], "mean"),
+            ],
+        },
+    ),
+    (
+        "synth y x1 y(1988), trunit(3) trperiod(1989) nested i(state) t(year)",
+        "synth",
+        {
+            "covariates": ["x1"],
+            "special_predictors": [("y", 1988, "mean")],
+            "v_method": "nested",
+        },
+    ),
+    (
+        "sdid y state year treat, vce(placebo) reps(50) seed(7) method(sc)",
+        "sdid",
+        {
+            "outcome": "y",
+            "unit": "state",
+            "time": "year",
+            "treat": "treat",
+            "se_method": "placebo",
+            "n_reps": 50,
+            "seed": 7,
+            "method": "sc",
+        },
+    ),
+    (
+        "sdid y state year treat, vce(jackknife) covariates(x, projected)",
+        "sdid",
+        {"covariates": ["x"], "covariate_method": "projected"},
+    ),
+    # causal mediation
+    (
+        "mediate (y x1 i.g) (m x1 i.g, logit) (treat), all",
+        "mediate",
+        {
+            "y": "y",
+            "treat": "treat",
+            "mediator": "m",
+            "covariates": ["x1", "C(g)"],
+            "inference": "robust",
+            "interaction": True,
+            "mediator_model": "logit",
+        },
+    ),
+    (
+        "mediate(y x1)(m x1)(treat), nointeraction",
+        "mediate",
+        {"covariates": ["x1"], "interaction": False, "mediator_model": "linear"},
+    ),
+    (
+        "bacondecomp y treat, ddetail i(id) t(year)",
+        "bacon_decomposition",
+        {"y": "y", "treat": "treat", "id": "id", "time": "year"},
+    ),
     # teffects
     (
         "teffects ipw (y) (treat z1 z2)",

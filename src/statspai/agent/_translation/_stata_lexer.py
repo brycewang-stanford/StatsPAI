@@ -87,6 +87,11 @@ def parse(line: str) -> StataCommand:
     tokens = head.split()
     if not tokens:
         raise StataParseError("empty command head")
+    # ``mediate(y x)(m x)(d)``: an equation may follow the command name
+    # without a blank.
+    glued = re.match(r"^([A-Za-z_]\w*)(\(.*)$", tokens[0])
+    if glued:
+        tokens = [glued.group(1), glued.group(2)] + tokens[1:]
     command = tokens[0].lower()
     rest = tokens[1:]
 
