@@ -31,6 +31,18 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — parity index: `sp.ttest` gained a reference test
+
+- **Commit.** `606fb6c3` added
+  `tests/reference_parity/test_ttest_known_values.py` and regenerated
+  `docs/parity.md`.
+- **Reason.** The stability audit found `sp.ttest` stable with no
+  parity-test evidence.
+- **Effect on the paper.** None on any table. In `docs/parity.md`, `ttest`
+  moves from "unverified" to analytical-only (T1).
+- **Paths.**
+  - `docs/parity.md`
+
 ### 2026-10-02 — pre-trend power integrated to 1e-7; traces re-recorded for 02, 10, 21, 59, 76 and the original-data ledger
 
 - **Commits.** `826295bf` (Montiel Olea-Pflueger critical values, robust
