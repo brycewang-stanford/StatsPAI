@@ -80,7 +80,8 @@ def test_summary_counts_describe_the_full_list_not_the_shown_part():
     entry = out["risk_summary"]["violations"]
     assert entry["by_severity"] == {"error": 25, "warning": 75}
     assert entry["categories"] == {"pretrend": 34, "weak_iv": 33, "overlap": 33}
-    assert sum(entry["by_severity"].values()) == entry["total"]
+    assert sum(entry["by_severity"].values()) == entry["total"] == 100
+    assert entry["omitted"] == 100 - len(out["violations"]) > 0
 
 
 def test_every_risk_category_survives_together():

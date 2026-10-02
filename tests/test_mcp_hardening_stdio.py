@@ -289,6 +289,10 @@ def test_duplicate_in_flight_id_is_refused_and_keeps_the_cancel_handle(slow_tool
         srv.send(_call(1))
         dup = srv.read_until(lambda m: m.get("id") == 1 and "error" in m)
         assert dup["error"]["code"] == -32600
+        assert "still in flight" in dup["error"]["message"]
+        # The duplicate was not run: the tool was entered once and is
+        # still stepping.
+        assert slow_tool["steps"] >= 1
         # The original call still owns id 1: cancelling it stops the tool.
         srv.send(
             {
