@@ -965,6 +965,464 @@
         }
       ]
     },
+    "etwfe": {
+      "dimensions": {
+        "family": [
+          "linear",
+          "glm"
+        ],
+        "panel": [
+          "true",
+          "false"
+        ],
+        "cgroup": [
+          "notyet",
+          "nevertreated"
+        ],
+        "controls": [
+          "none",
+          "set"
+        ],
+        "xvar": [
+          "none",
+          "set"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ],
+        "agg_weights": [
+          "estimation",
+          "unit"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {},
+      "cells": 128,
+      "overall": {
+        "estimate_only": 3,
+        "not_covered": 125
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 3,
+          "not_covered": 125
+        },
+        "se": {
+          "disclosure": 3,
+          "not_covered": 125
+        },
+        "vcov": {
+          "reference": 3,
+          "not_covered": 125
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/17_etwfe.py",
+          "entry_point": "sp.etwfe(panel=False)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "agg_weights": [
+              "estimation"
+            ],
+            "panel": [
+              "false"
+            ],
+            "cgroup": [
+              "notyet"
+            ]
+          },
+          "compares": "simple ATT (treated-observation-weighted) vs etwfe::emfx(type='simple') and Stata jwdid"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/17_etwfe.py",
+          "entry_point": "sp.etwfe(cgroup='nevertreated')",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "agg_weights": [
+              "estimation"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "nevertreated"
+            ]
+          },
+          "compares": "simple ATT with never-treated controls vs etwfe(cgroup='never') and Stata jwdid, never"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/r_parity/17_etwfe.py",
+          "entry_point": "sp.etwfe(panel=False)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "agg_weights": [
+              "estimation"
+            ],
+            "panel": [
+              "false"
+            ],
+            "cgroup": [
+              "notyet"
+            ]
+          },
+          "compares": "delta-method SE of the simple ATT: 2.4e-6 from etwfe::emfx, whose Jacobian is a forward difference (StatsPAI's is analytic), and 6e-4 from Stata jwdid, which leaves absorbed unit effects out of K; inside the registered 1e-3 budget, outside same-byte parity"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/r_parity/17_etwfe.py",
+          "entry_point": "sp.etwfe(cgroup='nevertreated')",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "agg_weights": [
+              "estimation"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "nevertreated"
+            ]
+          },
+          "compares": "delta-method SE of the simple ATT: 2.0e-6 from etwfe::emfx (forward-difference Jacobian in the reference) and 6e-4 from Stata jwdid (K convention)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_vcov_R_parity.py",
+          "entry_point": "sp.etwfe(panel=False)",
+          "outputs": [
+            "vcov"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "agg_weights": [
+              "estimation"
+            ],
+            "panel": [
+              "false"
+            ],
+            "cgroup": [
+              "notyet"
+            ]
+          },
+          "compares": "event-time effects and every entry of their covariance vs etwfe::emfx(type='event') with a Richardson-extrapolated Jacobian"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_vcov_R_parity.py",
+          "entry_point": "sp.etwfe(cgroup='nevertreated')",
+          "outputs": [
+            "vcov"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "agg_weights": [
+              "estimation"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "nevertreated"
+            ]
+          },
+          "compares": "event-time effects (leads included) and every entry of their covariance vs etwfe::emfx(type='event'), never-treated controls"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_validation_entry_points.py",
+          "entry_point": "sp.etwfe()",
+          "outputs": [
+            "estimate",
+            "vcov"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "agg_weights": [
+              "estimation"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "notyet"
+            ]
+          },
+          "compares": "the default call is bit-identical (estimate, SE, event-study covariance) to the panel=False fit that module 17 and the covariance test pin, on module 17's bytes"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_validation_entry_points.py",
+          "entry_point": "sp.etwfe()",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "family": [
+              "linear"
+            ],
+            "controls": [
+              "none"
+            ],
+            "xvar": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "agg_weights": [
+              "estimation"
+            ],
+            "panel": [
+              "true"
+            ],
+            "cgroup": [
+              "notyet"
+            ]
+          },
+          "compares": "same SE as the panel=False fit, so the same convention difference from etwfe::emfx and jwdid applies"
+        }
+      ]
+    },
+    "event_study": {
+      "dimensions": {
+        "adoption": [
+          "single_date",
+          "staggered"
+        ],
+        "window": [
+          "-4_4",
+          "other"
+        ],
+        "ref_period": [
+          "-1",
+          "other"
+        ],
+        "covariates": [
+          "none",
+          "set"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ],
+        "cluster": [
+          "unit",
+          "other"
+        ],
+        "bins": [
+          "none",
+          "set"
+        ],
+        "intensity": [
+          "none",
+          "set"
+        ],
+        "absorb": [
+          "none",
+          "set"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {},
+      "cells": 512,
+      "overall": {
+        "covered": 1,
+        "not_covered": 511
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 1,
+          "not_covered": 511
+        },
+        "se": {
+          "reference": 1,
+          "not_covered": 511
+        },
+        "vcov": {
+          "reference": 1,
+          "not_covered": 511
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/85_twfe_event_study.py",
+          "entry_point": "sp.event_study(window=(-4, 4), cluster='unit')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "adoption": [
+              "single_date"
+            ],
+            "window": [
+              "-4_4"
+            ],
+            "ref_period": [
+              "-1"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "bins": [
+              "none"
+            ],
+            "intensity": [
+              "none"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "every lead and lag coefficient and its unit-clustered SE vs fixest::feols(i(rel, ref=-1)) and Stata reghdfe"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_vcov_R_parity.py",
+          "entry_point": "sp.event_study(window=(-4, 4), cluster='unit')",
+          "outputs": [
+            "vcov"
+          ],
+          "configuration": {
+            "adoption": [
+              "single_date"
+            ],
+            "window": [
+              "-4_4"
+            ],
+            "ref_period": [
+              "-1"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "weights": [
+              "none"
+            ],
+            "cluster": [
+              "unit"
+            ],
+            "bins": [
+              "none"
+            ],
+            "intensity": [
+              "none"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "every entry of the event-time covariance (off-diagonal blocks included) vs fixest::feols"
+        }
+      ]
+    },
     "fast.feols": {
       "dimensions": {
         "vcov": [
@@ -3141,15 +3599,16 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 348,
+      "reference": 352,
       "seed_equivalence": 3,
       "disclosure": 5,
-      "not_covered": 39938
+      "not_covered": 40574
     },
     "se": {
-      "reference": 147,
+      "reference": 148,
       "stochastic_screen": 3,
-      "not_covered": 40136
+      "disclosure": 3,
+      "not_covered": 40772
     },
     "coverage": {
       "coverage_simulation": 11,
@@ -3160,8 +3619,8 @@
       "not_covered": 415
     },
     "vcov": {
-      "reference": 5,
-      "not_covered": 659
+      "reference": 9,
+      "not_covered": 1295
     },
     "joint_test": {
       "reference": 3,

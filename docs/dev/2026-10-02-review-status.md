@@ -25,6 +25,7 @@
 | R3 | option fixture 进入统一清单：消费者测试、SHA-256、无人读取即失败 | 同上生成器 | `tests/test_evidence_inventory.py::test_option_fixtures_are_read_and_hashed` |
 | R3 | 六个 option fixture 全部按双精度实跑重生成；消费者测试改为直接读文件；84 号的 7 个 Stata SE 首次被比较 | `tests/stata_parity/option_parity/*.do` 与 `results/`；`tests/reference_parity/test_option_fixture_bindings.py` | 同左，另有 `test_bjs_fe_covariates_parity.py::TestExactSolution` |
 | R1 | `did_imputation`、`gardner_did` 建 scope 映射并登记已有的完整协方差证据 | `src/statspai/validation_scope.py` | `tests/test_validation_scope.py` 末三条 |
+| R1 | `event_study`（TWFE）、`etwfe` 建 scope 映射；`etwfe` 默认调用通过逐位相等测试挂到模块 17 的证据上 | `src/statspai/validation_scope.py`；`tests/reference_parity/test_validation_entry_points.py` | `tests/test_validation_scope.py` 末三条 |
 | G1 | roadmap 里已落地的 CI 项不再标 pending；`CLAUDE.md` 更新日期 | `plans/2026-09-28-agent-native-roadmap.md`、`CLAUDE.md` | 无（文档） |
 | G2 | fast gate 覆盖整条 agent 链 | `.github/workflows/ci-cd.yml` | CI |
 
@@ -49,7 +50,7 @@
 | S1 | 带 `**kwargs` 的 81 个调用的关键字检查 | 静态无法判定 | 可执行 snippet 清单，按 extras 分组 |
 | S2 | skill 行为评测 | 需要预注册、预算和授权 | 先做确定性 workflow fixture |
 | S3 | 短路径 playbook | 建议项 | — |
-| R1 | `event_study`（TWFE）与 `etwfe` 的 scope 映射 | 两者的完整协方差已在 `test_event_study_vcov_R_parity.py` 对上，但选项轴多（`panel` / `cgroup` / `family` / `xvar`），需要逐项核对各 Track A 模块实际跑的配置 | 按 `did_imputation` 的做法：先让结果记录配置，再登记 |
+| R1 | `etwfe` 的协变量、`xvar`、加权、`agg_weights='unit'`、GLM 族；`event_study` 的其它窗口与交错面板 | 没有任何产物跑过这些配置（GLM 族有自己的 parity 文件，未接入映射） | 按清单里的空格逐项补参考，或确认不该补（交错面板上的 TWFE 事件研究本来就不该被认证） |
 | R1 | reference_parity / orig_parity / external_parity 各轨的统一 manifest | 本轮只做了 option fixture 一轨 | 按同一生成器扩展 |
 | R2 | 锁定环境与漂移环境分轨 | 改 `r-parity.yml` 的触发与 `renv::restore`，需要在 CI 上实测 | 单独一条线 |
 | R4 | Stata 翻译 holdout 五层覆盖 | 需要冻结语料 | — |
@@ -64,3 +65,5 @@
 - **六个 option fixture 是在 Stata 单精度下生成的。** 这些 do 文件不走 Track A 的 `_common.do`（那里强制 `set type double`），`import delimited` 把小数列存成 float，Stata 实际上是在第 8 位被舍入的数据上估计。此前记录的差距（`csdid` 相对 2e-5、`did_imputation` 2e-6）被解释成优化器和吸收容差，其实是这个。按双精度重生成后分别是 4.9e-13 和 6e-8。定位过程走的是 §5.1 决策树第 1 步：与稠密精确最小二乘解比较，StatsPAI 差 5e-16，Stata 差 9.7e-8。Track A 不受影响。
 - **`did_imputation, unitcontrols(year)` 这一行达不到 1e-6。** StatsPAI 与精确解差 7.5e-12；Stata 差 1.4e-6，且它的 ATT 在不同 `tol()` 下非单调地漂移 6e-7。按决策树第 3 步记为参考精度披露（scope 里是 T4），不写成对齐；独立证据是 `TestExactSolution`。
 - **`validation_scope` 的总体状态名不够用。** 上面这一行的估计量是 `disclosure`、SE 是 `reference`，总体状态落到 `stochastic_only`，而文档对这个词的定义是"没有任何主输出有 T1/T2 证据"。逐输出的状态是对的，总体标签有歧义。没有改分类法，记在这里。
+- **`sp.etwfe` 的默认调用此前没有证据行。** 模块 17 和协方差测试跑的是 `panel=False`，默认是 `panel=True`。两者在面板上逐位相同（估计、SE、事件研究协方差），现在由 `test_etwfe_default_panel_call_is_bit_identical_to_module_17` 断言并据此挂接。
+- **`etwfe` 的 headline SE 不是同字节对齐。** 对 `etwfe::emfx` 差 2.4e-6（参考侧用前向差分求 Jacobian），对 Stata `jwdid` 差 6e-4（K 约定）。在注册的 1e-3 预算内，scope 里记为 `disclosure`，总体状态 `estimate_only`。协方差测试的 R fixture 用 Richardson 外推后事件研究矩阵能到 1e-6；headline SE 若也用同样办法重生成参考，有机会升到 T2，本轮没做。

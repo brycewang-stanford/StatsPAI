@@ -11,6 +11,13 @@ need their own proof:
   separate code path from ``sp.iv(method="liml")``. The map's LIML row
   rests on this test, which runs ``sp.iv(method="liml")`` on module 59's
   bytes against the same R golden (coefficient, SE and kappa).
+
+One ETWFE attachment rests here too. Track A module 17 and the event-study
+covariance test run ``sp.etwfe(panel=False)`` for the not-yet-treated
+design; the default call is ``panel=True``. On a panel the two go through
+the same cohort x period cell design and differ only in the default
+cluster, which is the unit either way, so the default call inherits those
+rows only because it is asserted bit-identical here.
 """
 
 from __future__ import annotations
@@ -100,3 +107,25 @@ def test_iv_rejects_a_vce_its_method_cannot_compute():
             vce="cr2",
             cluster="cl",
         )
+
+
+@pytest.mark.parametrize("cluster", ["countyreal", None], ids=["explicit", "default"])
+def test_etwfe_default_panel_call_is_bit_identical_to_module_17(cluster):
+    """``sp.etwfe()`` (panel=True, not-yet-treated) vs module 17's panel=False."""
+    data = pd.read_csv(_RP / "data" / "17_etwfe.csv")
+    keys = dict(y="lemp", group="countyreal", time="year", first_treat="first_treat")
+    module_17 = _quiet(sp.etwfe, data, panel=False, cluster="countyreal", **keys)
+    extra = {} if cluster is None else {"cluster": cluster}
+    default = _quiet(sp.etwfe, data, **keys, **extra)
+    assert default.model_info["panel"] is True
+    assert default.model_info["cgroup"] == "notyet"
+    assert default.estimate == module_17.estimate
+    assert default.se == module_17.se
+    assert np.array_equal(
+        default.model_info["event_vcov"], module_17.model_info["event_vcov"]
+    )
+    pd.testing.assert_frame_equal(
+        default.model_info["event_study"],
+        module_17.model_info["event_study"],
+        check_exact=True,
+    )

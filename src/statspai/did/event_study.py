@@ -732,6 +732,13 @@ def event_study(
             "n_clusters": n_clusters,
             "cluster_var": cluster_var,
             "weights": weights,
+            # The specification that was fitted, recorded for
+            # sp.validation_scope (which reads, never infers, it).
+            "n_adoption_dates": int(df["__treat_time_num__"].dropna().nunique()),
+            "covariates": list(covariates) if covariates else [],
+            "intensity": intensity,
+            "absorb": absorb,
+            "cluster_level": "unit" if cluster_var == unit else "other",
         },
     )
     try:

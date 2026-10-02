@@ -356,6 +356,18 @@ changes its numbers.
   `did_imputation` and `did2s::did2s`, is registered. `gardner_did(vce=
   'stage2')` reads as `estimate_only`; covariates, weights and bootstrap
   SEs read as not covered.
+- **`sp.validation_scope` covers `event_study` and `etwfe`.** The TWFE
+  event study is covered where Track A module 85 ran it (one adoption
+  date, window `(-4, 4)`, unit clustering); a staggered panel or another
+  window reads as not covered. For `etwfe` the estimate and the
+  event-study covariance are `reference`, and the headline SE is a
+  `disclosure`: it sits 2e-6 from `etwfe::emfx` (forward-difference
+  Jacobian in the reference) and 6e-4 from Stata `jwdid` (K convention).
+  The default call, `panel=True` with not-yet-treated controls, had no
+  evidence row because module 17 runs `panel=False`; it is now attached
+  through a test asserting the two are bit-identical. Both results record
+  the configuration the map reads (`n_adoption_dates`, `covariates`,
+  `intensity`, `absorb`, `cluster_level`; `family`).
 
 ### ⚠️ Correctness (reference fixtures, not estimators)
 

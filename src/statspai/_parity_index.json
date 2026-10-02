@@ -5403,7 +5403,8 @@
         "tests/reference_parity/test_etwfe_poisson_xvar_R_parity.py",
         "tests/reference_parity/test_event_study_vcov_R_parity.py",
         "tests/reference_parity/test_honest_did_lvec_window_Stata_parity.py",
-        "tests/reference_parity/test_track_a_alias_equivalence.py"
+        "tests/reference_parity/test_track_a_alias_equivalence.py",
+        "tests/reference_parity/test_validation_entry_points.py"
       ],
       "also_verified_by": [
         "reference_parity"

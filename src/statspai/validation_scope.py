@@ -283,6 +283,46 @@ def _x_did2s(r: Any) -> Dict[str, Optional[str]]:
     }
 
 
+def _x_twfe_es(r: Any) -> Dict[str, Optional[str]]:
+    mi = _mi(r)
+    dates = mi.get("n_adoption_dates")
+    window = mi.get("window")
+    ref = mi.get("ref_periods")
+    return {
+        "adoption": (
+            None if dates is None else ("single_date" if dates == 1 else "staggered")
+        ),
+        "window": (
+            None
+            if window is None
+            else ("-4_4" if tuple(window) == (-4, 4) else "other")
+        ),
+        "ref_period": None if ref is None else ("-1" if list(ref) == [-1] else "other"),
+        "covariates": None if "covariates" not in mi else _set(mi.get("covariates")),
+        "weights": _set(mi.get("weights")),
+        "cluster": _lower(mi.get("cluster_level")),
+        "bins": None if "bin_width" not in mi else _set(mi.get("bin_width")),
+        "intensity": None if "intensity" not in mi else _set(mi.get("intensity")),
+        "absorb": None if "absorb" not in mi else _set(mi.get("absorb")),
+    }
+
+
+def _x_etwfe(r: Any) -> Dict[str, Optional[str]]:
+    mi = _mi(r)
+    family = mi.get("family")
+    return {
+        "family": (
+            None if family is None else ("linear" if family == "linear" else "glm")
+        ),
+        "panel": {True: "true", False: "false"}.get(mi.get("panel")),
+        "cgroup": _lower(mi.get("cgroup")),
+        "controls": None if "controls" not in mi else _set(mi.get("controls")),
+        "xvar": None if "xvar" not in mi else _set(mi.get("xvar")),
+        "weights": _set(mi.get("weights")),
+        "agg_weights": _lower(mi.get("agg_weights")),
+    }
+
+
 def _x_rd(r: Any) -> Dict[str, Optional[str]]:
     mi = _mi(r)
     if mi.get("cluster") is not None:
@@ -1241,6 +1281,175 @@ _add(
     )
 )
 
+_TWFE_ES_RAN = {
+    "adoption": _vals("single_date"),
+    "window": _vals("-4_4"),
+    "ref_period": _vals("-1"),
+    "covariates": _vals("none"),
+    "weights": _vals("none"),
+    "cluster": _vals("unit"),
+    "bins": _vals("none"),
+    "intensity": _vals("none"),
+    "absorb": _vals("none"),
+}
+
+_add(
+    _Scope(
+        "event_study",
+        {
+            "adoption": ("single_date", "staggered"),
+            "window": ("-4_4", "other"),
+            "ref_period": ("-1", "other"),
+            "covariates": ("none", "set"),
+            "weights": ("none", "set"),
+            "cluster": ("unit", "other"),
+            "bins": ("none", "set"),
+            "intensity": ("none", "set"),
+            "absorb": ("none", "set"),
+        },
+        _x_twfe_es,
+        (
+            _Row(
+                "T2",
+                _R + "85_twfe_event_study.py",
+                dict(_TWFE_ES_RAN),
+                _EST_SE,
+                "every lead and lag coefficient and its unit-clustered SE vs "
+                "fixest::feols(i(rel, ref=-1)) and Stata reghdfe",
+                "sp.event_study(window=(-4, 4), cluster='unit')",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_event_study_vcov_R_parity.py",
+                dict(_TWFE_ES_RAN),
+                ("vcov",),
+                "every entry of the event-time covariance (off-diagonal blocks "
+                "included) vs fixest::feols",
+                "sp.event_study(window=(-4, 4), cluster='unit')",
+            ),
+        ),
+        note="Module 85 is non-staggered by construction: a saturated dynamic "
+        "TWFE regression on a staggered panel is the contaminated estimator "
+        "the heterogeneity-robust methods replace, and matching a reference "
+        "there would certify the specification, not the estimand. Only the "
+        "window, reference period and clustering that ran are covered.",
+    )
+)
+
+_ETWFE_BASE = {
+    "family": _vals("linear"),
+    "controls": _vals("none"),
+    "xvar": _vals("none"),
+    "weights": _vals("none"),
+    "agg_weights": _vals("estimation"),
+}
+_ETWFE_NOTYET_RCS = {**_ETWFE_BASE, "panel": _vals("false"), "cgroup": _vals("notyet")}
+_ETWFE_NEVER = {**_ETWFE_BASE, "panel": _vals("true"), "cgroup": _vals("nevertreated")}
+_ETWFE_NOTYET_PANEL = {**_ETWFE_BASE, "panel": _vals("true"), "cgroup": _vals("notyet")}
+
+_add(
+    _Scope(
+        "etwfe",
+        {
+            "family": ("linear", "glm"),
+            "panel": ("true", "false"),
+            "cgroup": ("notyet", "nevertreated"),
+            "controls": ("none", "set"),
+            "xvar": ("none", "set"),
+            "weights": ("none", "set"),
+            "agg_weights": ("estimation", "unit"),
+        },
+        _x_etwfe,
+        (
+            _Row(
+                "T2",
+                _R + "17_etwfe.py",
+                dict(_ETWFE_NOTYET_RCS),
+                _EST,
+                "simple ATT (treated-observation-weighted) vs etwfe::emfx("
+                "type='simple') and Stata jwdid",
+                "sp.etwfe(panel=False)",
+            ),
+            _Row(
+                "T2",
+                _R + "17_etwfe.py",
+                dict(_ETWFE_NEVER),
+                _EST,
+                "simple ATT with never-treated controls vs etwfe(cgroup='never') "
+                "and Stata jwdid, never",
+                "sp.etwfe(cgroup='nevertreated')",
+            ),
+            _Row(
+                "T4",
+                _R + "17_etwfe.py",
+                dict(_ETWFE_NOTYET_RCS),
+                ("se",),
+                "delta-method SE of the simple ATT: 2.4e-6 from etwfe::emfx, whose "
+                "Jacobian is a forward difference (StatsPAI's is analytic), and "
+                "6e-4 from Stata jwdid, which leaves absorbed unit effects out of "
+                "K; inside the registered 1e-3 budget, outside same-byte parity",
+                "sp.etwfe(panel=False)",
+            ),
+            _Row(
+                "T4",
+                _R + "17_etwfe.py",
+                dict(_ETWFE_NEVER),
+                ("se",),
+                "delta-method SE of the simple ATT: 2.0e-6 from etwfe::emfx "
+                "(forward-difference Jacobian in the reference) and 6e-4 from "
+                "Stata jwdid (K convention)",
+                "sp.etwfe(cgroup='nevertreated')",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_event_study_vcov_R_parity.py",
+                dict(_ETWFE_NOTYET_RCS),
+                ("vcov",),
+                "event-time effects and every entry of their covariance vs "
+                "etwfe::emfx(type='event') with a Richardson-extrapolated Jacobian",
+                "sp.etwfe(panel=False)",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_event_study_vcov_R_parity.py",
+                dict(_ETWFE_NEVER),
+                ("vcov",),
+                "event-time effects (leads included) and every entry of their "
+                "covariance vs etwfe::emfx(type='event'), never-treated controls",
+                "sp.etwfe(cgroup='nevertreated')",
+            ),
+            _Row(
+                "T2",
+                _ATTACH,
+                dict(_ETWFE_NOTYET_PANEL),
+                ("estimate", "vcov"),
+                "the default call is bit-identical (estimate, SE, event-study "
+                "covariance) to the panel=False fit that module 17 and the "
+                "covariance test pin, on module 17's bytes",
+                "sp.etwfe()",
+            ),
+            _Row(
+                "T4",
+                _ATTACH,
+                dict(_ETWFE_NOTYET_PANEL),
+                ("se",),
+                "same SE as the panel=False fit, so the same convention "
+                "difference from etwfe::emfx and jwdid applies",
+                "sp.etwfe()",
+            ),
+        ),
+        note="The headline SE is a documented convention difference, not a "
+        "match: the R reference differentiates numerically and Stata counts K "
+        "differently (docs/dev/r_parity_tolerances.md). The event-study "
+        "covariance is pinned to 1e-6 against a reference that extrapolates "
+        "its Jacobian. The default call (panel=True, not-yet-treated controls) "
+        "inherits the panel=False rows through a bit-identity test in "
+        + _ATTACH
+        + ". Covariates, xvar moderators, weights, agg_weights='unit' and the "
+        "GLM families have no row here; the GLM branch has its own parity file.",
+    )
+)
+
 _add(
     _Scope(
         "rdrobust",
@@ -2119,6 +2328,8 @@ _METHOD_TO_FUNCTION = (
     ("sun-abraham", "sun_abraham"),
     ("rd estimation", "rdrobust"),
     ("density test", "rddensity"),
+    ("ols event study (twfe)", "event_study"),
+    ("etwfe", "etwfe"),
     ("gardner", "gardner_did"),
     ("imputation estimator", "did_imputation"),
     ("bjs imputation", "did_imputation"),

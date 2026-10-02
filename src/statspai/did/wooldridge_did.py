@@ -1202,6 +1202,8 @@ def _etwfe_with_simple_headline(
             "headline_aggregation": "emfx_simple",
             "headline_weighting": "treated_observations",
             "headline_source_branch": source_branch,
+            # Recorded for sp.validation_scope; the GLM branch writes its own.
+            "family": "linear",
         }
     )
     return CausalResult(

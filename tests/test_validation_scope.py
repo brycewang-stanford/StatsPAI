@@ -610,3 +610,75 @@ def test_gardner_scope_separates_the_corrected_and_the_legacy_variance(mpdta):
     assert scope["status"] == "estimate_only" and out["se"] == "not_covered"
     assert _scope_of(dynamic)[1]["vcov"] == "reference"
     assert _scope_of(controls)[0]["status"] == "not_covered"
+
+
+def test_twfe_event_study_is_covered_only_where_module_85_ran(mpdta):
+    """A staggered panel, or another window, is not what the reference pinned."""
+    twfe = pd.read_csv(ROOT / "tests/r_parity/data/85_twfe_event_study.csv")
+    twfe["g_nan"] = twfe["g"].where(twfe["g"] > 0)
+    keys = dict(y="y", treat_time="g_nan", time="time", unit="unit")
+    staggered = mpdta.assign(g=mpdta["first_treat"].where(mpdta["first_treat"] > 0))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ran = sp.event_study(twfe, **keys, window=(-4, 4), cluster="unit")
+        narrow = sp.event_study(twfe, **keys, window=(-3, 3))
+        stag = sp.event_study(
+            staggered, y="lemp", treat_time="g", time="year", unit="countyreal"
+        )
+    scope, out = _scope_of(ran)
+    assert scope["function"] == "event_study" and scope["unchecked"] == []
+    assert (out["estimate"], out["se"], out["vcov"]) == ("reference",) * 3
+    assert _scope_of(narrow)[0]["configuration"]["window"] == "other"
+    assert _scope_of(narrow)[0]["status"] == "not_covered"
+    scope, _ = _scope_of(stag)
+    assert scope["configuration"]["adoption"] == "staggered"
+    assert scope["status"] == "not_covered"
+
+
+def test_etwfe_headline_se_is_a_disclosure_and_the_default_call_is_attached():
+    data = pd.read_csv(ROOT / "tests/r_parity/data/17_etwfe.csv")
+    keys = dict(y="lemp", group="countyreal", time="year", first_treat="first_treat")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        rcs = sp.etwfe(data, panel=False, cluster="countyreal", **keys)
+        default = sp.etwfe(data, **keys)
+        never = sp.etwfe(data, cgroup="nevertreated", **keys)
+        unit_w = sp.etwfe(data, agg_weights="unit", **keys)
+        logit = sp.etwfe(
+            data.assign(yb=(data["lemp"] > data["lemp"].median()).astype(int)),
+            y="yb",
+            group="countyreal",
+            time="year",
+            first_treat="first_treat",
+            family="logit",
+        )
+    for fit in (rcs, default, never):
+        scope, out = _scope_of(fit)
+        assert scope["function"] == "etwfe"
+        assert out["estimate"] == "reference" and out["vcov"] == "reference"
+        # 2e-6 from etwfe::emfx, 6e-4 from jwdid: documented, not same-byte.
+        assert out["se"] == "disclosure"
+        assert scope["status"] == "estimate_only"
+    attached = _scope_of(default)[0]["outputs"]["estimate"]["evidence"]
+    assert [e["artifact"] for e in attached] == [
+        "tests/reference_parity/test_validation_entry_points.py"
+    ]
+    assert _scope_of(unit_w)[0]["status"] == "not_covered"
+    scope, _ = _scope_of(logit)
+    assert scope["status"] == "not_covered" and "panel" in scope["unchecked"]
+
+
+def test_wooldridge_did_does_not_borrow_the_etwfe_map():
+    """Different aggregation (see MIGRATION): it must not read as etwfe."""
+    data = pd.read_csv(ROOT / "tests/r_parity/data/17_etwfe.csv")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.wooldridge_did(
+            data=data,
+            y="lemp",
+            group="countyreal",
+            time="year",
+            first_treat="first_treat",
+        )
+    with pytest.raises(MethodIncompatibility):
+        sp.validation_scope(fit)

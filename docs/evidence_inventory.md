@@ -15,6 +15,8 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | `causal_forest` | 96 | 0 / 96 | 0 / 96 | -- | -- | -- | 0 / 96 |
 | `did_imputation` | 240 | 18 / 240 | 7 / 240 | 1 / 240 | -- | -- | 6 / 240 |
 | `dml` | 9120 | 4 / 9120 | 4 / 9120 | -- | -- | -- | 4 / 9120 |
+| `etwfe` | 128 | 3 / 128 | 0 / 128 | 3 / 128 | -- | -- | 0 / 128 |
+| `event_study` | 512 | 1 / 512 | 1 / 512 | 1 / 512 | -- | -- | 1 / 512 |
 | `fast.feols` | 12 | 6 / 12 | 2 / 12 | -- | -- | -- | 2 / 12 |
 | `gardner_did` | 32 | 8 / 32 | 2 / 32 | 1 / 32 | -- | -- | 2 / 32 |
 | `iv` | 208 | 39 / 208 | 7 / 208 | -- | -- | 1 / 208 | 7 / 208 |
@@ -49,6 +51,12 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `dml` | estimate | 0 | 0 | 0 | 0 | 9116 |
 | `dml` | se | 0 | 0 | 0 | 0 | 9116 |
 | `dml` | coverage | 0 | 0 | 2 | 0 | 9118 |
+| `etwfe` | estimate | 0 | 0 | 0 | 0 | 125 |
+| `etwfe` | se | 0 | 0 | 0 | 3 | 125 |
+| `etwfe` | vcov | 0 | 0 | 0 | 0 | 125 |
+| `event_study` | estimate | 0 | 0 | 0 | 0 | 511 |
+| `event_study` | se | 0 | 0 | 0 | 0 | 511 |
+| `event_study` | vcov | 0 | 0 | 0 | 0 | 511 |
 | `fast.feols` | estimate | 0 | 0 | 0 | 0 | 6 |
 | `fast.feols` | se | 0 | 0 | 0 | 0 | 10 |
 | `fast.feols` | coverage | 0 | 0 | 1 | 0 | 11 |
@@ -140,6 +148,30 @@ Dimensions: `model` in {plr, irm, pliv, iivm}; `score` in {partialling out, iv-t
 | T2 | estimate, se | model=iivm; score=late; learners=linear; n_folds=5; n_rep=1; ipw=trim1e-12 | `tests/r_parity/71_dml_family.py` | `sp.dml(model='iivm')` |
 | B | coverage | model=plr; score=partialling out; learners=default; n_folds=5; n_rep=1; ipw=n/a | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.dml(model='plr', n_folds=5)` |
 | B | coverage | model=irm; score=ate; learners=default; n_folds=5; n_rep=1; ipw=trim0.01 | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.causal_question(design='dml')` |
+
+### `etwfe`
+
+Dimensions: `family` in {linear, glm}; `panel` in {true, false}; `cgroup` in {notyet, nevertreated}; `controls` in {none, set}; `xvar` in {none, set}; `weights` in {none, set}; `agg_weights` in {estimation, unit}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=false; cgroup=notyet | `tests/r_parity/17_etwfe.py` | `sp.etwfe(panel=False)` |
+| T2 | estimate | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=true; cgroup=nevertreated | `tests/r_parity/17_etwfe.py` | `sp.etwfe(cgroup='nevertreated')` |
+| T4 | se | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=false; cgroup=notyet | `tests/r_parity/17_etwfe.py` | `sp.etwfe(panel=False)` |
+| T4 | se | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=true; cgroup=nevertreated | `tests/r_parity/17_etwfe.py` | `sp.etwfe(cgroup='nevertreated')` |
+| T2 | vcov | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=false; cgroup=notyet | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.etwfe(panel=False)` |
+| T2 | vcov | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=true; cgroup=nevertreated | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.etwfe(cgroup='nevertreated')` |
+| T2 | estimate, vcov | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=true; cgroup=notyet | `tests/reference_parity/test_validation_entry_points.py` | `sp.etwfe()` |
+| T4 | se | family=linear; controls=none; xvar=none; weights=none; agg_weights=estimation; panel=true; cgroup=notyet | `tests/reference_parity/test_validation_entry_points.py` | `sp.etwfe()` |
+
+### `event_study`
+
+Dimensions: `adoption` in {single_date, staggered}; `window` in {-4_4, other}; `ref_period` in {-1, other}; `covariates` in {none, set}; `weights` in {none, set}; `cluster` in {unit, other}; `bins` in {none, set}; `intensity` in {none, set}; `absorb` in {none, set}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=none; cluster=unit; bins=none; intensity=none; absorb=none | `tests/r_parity/85_twfe_event_study.py` | `sp.event_study(window=(-4, 4), cluster='unit')` |
+| T2 | vcov | adoption=single_date; window=-4_4; ref_period=-1; covariates=none; weights=none; cluster=unit; bins=none; intensity=none; absorb=none | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.event_study(window=(-4, 4), cluster='unit')` |
 
 ### `fast.feols`
 
