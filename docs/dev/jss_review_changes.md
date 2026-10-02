@@ -33,7 +33,7 @@ Rules:
 
 ### 2026-10-02 — call traces re-recorded after the example-data loaders were labelled as simulated
 
-- **Commits.** `a2a760d3` changed `src/statspai/synth/datasets.py` and
+- **Commits.** `8b3c53ab` changed `src/statspai/synth/datasets.py` and
   `src/statspai/synth/sdid.py` (docstrings, and `df.attrs['simulated']`
   on the returned frames) and re-recorded
   `tests/r_parity/results/_implementation_trace.json` for modules 07,
