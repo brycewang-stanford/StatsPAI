@@ -38,6 +38,7 @@ reg2hdfe acreg csdid2 did_multiplegt did_multiplegt_dyn eventstudyinteract
 jwdid xthdidregress sdid synth_runner rdbwselect kmatch ebalance xtabond2
 xtscc newey gmm sureg reg3 glm fracreg stcox mixed xtevent did2s lpdid
 stackedev eventdd leebounds rwolf
+ivreg ivprobit ivtobit prais arima arch var vec dfuller dfgls ttest prtest
 """.split())
 _SKIP = {
     "su",

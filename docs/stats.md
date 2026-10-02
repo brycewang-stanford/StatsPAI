@@ -40,10 +40,10 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
 | `did` | 50,096 | 67 | 95 |
-| `synth` | 27,861 | 36 | 55 |
-| `rd` | 21,265 | 32 | 55 |
+| `synth` | 27,878 | 36 | 55 |
+| `rd` | 21,269 | 32 | 55 |
 | `regression` | 21,058 | 25 | 39 |
-| `agent` | 18,291 | 38 | 4 |
+| `agent` | 18,997 | 38 | 4 |
 | `smart` | 16,475 | 21 | 31 |
 | `forest` | 15,811 | 17 | 31 |
 | `output` | 13,825 | 22 | 42 |
@@ -51,7 +51,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `core` | 10,788 | 19 | 6 |
 | `panel` | 10,146 | 16 | 18 |
 | `decomposition` | 9,910 | 19 | 32 |
-| `inference` | 9,599 | 20 | 28 |
+| `inference` | 9,962 | 21 | 30 |
 | `dml` | 9,023 | 24 | 16 |
 | `iv` | 8,843 | 17 | 10 |
 | `diagnostics` | 8,190 | 14 | 25 |
@@ -77,7 +77,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `robustness` | 3,279 | 6 | 11 |
 | `bounds` | 3,173 | 6 | 12 |
 | `bartik` | 3,142 | 6 | 9 |
-| `causal_llm` | 2,994 | 10 | 15 |
+| `causal_llm` | 3,026 | 10 | 15 |
 | `crossval` | 2,761 | 7 | 2 |
 | `postestimation` | 2,634 | 6 | 12 |
 | `conformal_causal` | 2,596 | 9 | 21 |
@@ -112,7 +112,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `ope` | 991 | 3 | 5 |
 | `gformula` | 974 | 3 | 4 |
 | `selection` | 904 | 2 | 3 |
-| `deepiv` | 880 | 2 | 2 |
+| `deepiv` | 882 | 2 | 2 |
 | `transport` | 831 | 5 | 10 |
 | `msm` | 744 | 2 | 3 |
 | `causal_impact` | 715 | 2 | 3 |

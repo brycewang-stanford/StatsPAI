@@ -132,7 +132,19 @@ TIER1_ROUND_TRIPS = [
     # ivreg2
     ("ivreg2 y x1 (d = z1 z2)", "ivreg", {"formula": "y ~ x1 + (d ~ z1 + z2)"}),
     (
+        # without `small`, ivreg2's robust VCE has no N/(N-K) factor
         "ivreg2 y x1 x2 (d = z1 z2), robust",
+        "ivreg",
+        {"formula": "y ~ x1 + x2 + (d ~ z1 + z2)", "robust": "hc0"},
+    ),
+    (
+        "ivreg2 y x1 x2 (d = z1 z2), robust small",
+        "ivreg",
+        {"formula": "y ~ x1 + x2 + (d ~ z1 + z2)", "robust": "hc1"},
+    ),
+    (
+        # the pre-Stata-10 command is small-sample by construction
+        "ivreg y x1 x2 (d = z1 z2), robust",
         "ivreg",
         {"formula": "y ~ x1 + x2 + (d ~ z1 + z2)", "robust": "hc1"},
     ),
@@ -516,6 +528,15 @@ class TestRpcSurface:
 # ----------------------------------------------------------------------
 
 TIER2_ROUND_TRIPS = [
+    # correlate / pwcorr -> sp.pwcorr; ttest -> sp.ttest
+    (
+        "correlate y x z",
+        "pwcorr",
+        {"vars": ["y", "x", "z"], "listwise": True, "output": "dataframe"},
+    ),
+    ("pwcorr y x, obs", "pwcorr", {"vars": ["y", "x"], "listwise": False, "obs": True}),
+    ("ttest y, by(g) unequal", "ttest", {"y": "y", "by": "g", "unequal": True}),
+    ("ttest y == x, unpaired", "ttest", {"y": "y", "other": "x", "paired": False}),
     # summarize / sum2docx -> sp.sumstats
     (
         "summarize y x",
@@ -543,9 +564,10 @@ TIER2_ROUND_TRIPS = [
         {"formula": "treated ~ age + income", "cluster": "fid"},
     ),
     (
+        # an ML command's vce(robust) is N/(N-1), sp's robust='robust'
         "poisson visits age, robust",
         "poisson",
-        {"formula": "visits ~ age", "robust": "hc1"},
+        {"formula": "visits ~ age", "robust": "robust"},
     ),
     ("nbreg counts x1 x2", "nbreg", {"formula": "counts ~ x1 + x2"}),
     (
@@ -1599,10 +1621,25 @@ class TestStataIVTranslationRuns:
         assert "could not parse ivregress syntax" in out["error"]
 
     def test_small_convention_note_only_without_small(self):
-        without = from_stata("ivregress 2sls y (d = z) x, vce(robust)")
-        with_small = from_stata("ivregress 2sls y (d = z) x, vce(robust) small")
-        assert any("small" in n for n in without["notes"])
-        assert not any("sqrt(N/(N-K))" in n for n in with_small["notes"])
+        # robust without `small` is matched exactly (hc0): no note needed
+        robust_large = from_stata("ivregress 2sls y (d = z) x, vce(robust)")
+        assert robust_large["arguments"]["robust"] == "hc0"
+        assert not any("sqrt(N/(N-K))" in n for n in robust_large["notes"])
+        # the default and the cluster VCE have no large-sample counterpart
+        for line in (
+            "ivregress 2sls y (d = z) x",
+            "ivregress 2sls y (d = z) x, vce(cluster g)",
+            "ivreg2 y (d = z) x",
+        ):
+            assert any("sqrt(N/(N-K))" in n for n in from_stata(line)["notes"]), line
+        for line in (
+            "ivregress 2sls y (d = z) x, vce(robust) small",
+            "ivregress 2sls y (d = z) x, small",
+            "ivreg y (d = z) x",
+        ):
+            out = from_stata(line)
+            assert not any("sqrt(N/(N-K))" in n for n in out["notes"]), line
+            assert out["untranslated_options"] == [], line
 
 
 def test_translated_reghdfe_runs_and_matches_the_direct_call():

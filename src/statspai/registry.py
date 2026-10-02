@@ -6040,6 +6040,63 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="ttest",
+            category="inference",
+            description=(
+                "t test on a mean, a paired difference, or a difference of "
+                "two means (Stata ttest, R t.test). Two independent samples "
+                "pool the variances unless unequal=True, which uses "
+                "Satterthwaite's degrees of freedom; welch=True switches to "
+                "Welch's (1947) approximation, as Stata's welch option. "
+                "Returns the estimate, its standard error, t, degrees of "
+                "freedom, the two-sided and both one-sided p-values, the "
+                "confidence interval and a per-sample table."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, None, "Variable whose mean is tested"),
+                ParamSpec(
+                    "by",
+                    "str",
+                    False,
+                    None,
+                    "Grouping column with exactly two values; the estimate is "
+                    "mean(lower group) - mean(higher group)",
+                ),
+                ParamSpec(
+                    "other",
+                    "str",
+                    False,
+                    None,
+                    "Second variable: paired test on y - other, or two "
+                    "independent samples with paired=False",
+                ),
+                ParamSpec("mu", "float", False, 0.0, "Null value"),
+                ParamSpec("paired", "bool", False, True, "Only used with other="),
+                ParamSpec(
+                    "unequal",
+                    "bool",
+                    False,
+                    False,
+                    "Do not pool the two variances (Satterthwaite df)",
+                ),
+                ParamSpec(
+                    "welch",
+                    "bool",
+                    False,
+                    False,
+                    "Unequal variances with Welch's df (Stata welch)",
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="TTestResult",
+            example='sp.ttest(df, "wage", by="female", unequal=True)',
+            tags=["inference", "descriptive", "stata", "means"],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="mean_comparison",
             category="output",
             description=(

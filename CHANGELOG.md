@@ -4,6 +4,54 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Stata translation, checked against a textbook's own logs
+
+The replication files of Stock and Watson's *Introduction to Econometrics*
+(4th edition) ship the Stata logs that produced the book's tables. Replaying
+those 13 logs through `sp.stata` compares about 1,150 printed numbers. The
+estimators agreed; the translation layer did not always ask them for the
+convention Stata uses.
+
+#### ⚠️ Correctness
+
+- **`sp.stata` / `sp.from_stata`: `probit`, `logit`, `poisson` and `nbreg`
+  with `vce(robust)` were run with HC1.** Stata's robust variance for a
+  maximum-likelihood command carries `N/(N-1)`; the translation asked for
+  `robust='hc1'`, which is `N/(N-K)`. Standard errors were too large by
+  `sqrt((N-1)/(N-K))`, 0.4% on the textbook's mortgage data with 21
+  regressors, and every Wald test after such a fit was off by the square.
+  The translation now emits `robust='robust'`. Calling `sp.probit` and the
+  others directly is unchanged.
+- **`ivreg2` and `ivregress` with `robust` and no `small` were run with
+  HC1.** Without `small` Stata applies no degrees-of-freedom factor; the
+  translation now emits `robust='hc0'`, which matches exactly. `ivreg2`'s
+  `small` option was also reported as untranslated; it is now read.
+- **A descriptive command between a fit and `test` replaced the fit.**
+  `regress ...; summarize x; test x` applied `test` to the summary table.
+  `summarize`, `correlate`, `pwcorr` and `ttest` now leave the last
+  estimation result in place, as r-class commands do in Stata.
+
+#### Added
+
+- **`sp.ttest`**: one-sample, paired and two-sample t tests (Stata `ttest`,
+  R `t.test`), with pooled, Satterthwaite or Welch degrees of freedom and
+  both one-sided p-values. Checked against `scipy.stats` and Stata's output
+  for the textbook's class-size comparison.
+- **Stata commands now translated**: the pre-Stata-10 `ivreg` (small-sample
+  standard errors by construction), `ttest`, `correlate` (casewise) and
+  `pwcorr` (pairwise). `tobit` carries `vce(robust)` and `vce(cluster)`.
+- **Command abbreviations**: `regr`, `summ`, `cor`, `prob`, `logi`, `poi`,
+  `tob`, `te` resolve to the full command, down to the minimal abbreviation
+  in Stata's syntax diagrams and no further.
+- `xtreg, fe` and `summarize, detail` now state in `semantics` what Stata
+  prints that the call does not return (`_cons`; Stata's percentile rule,
+  skewness, kurtosis).
+- `scripts/stata_corpus_scan.py` counts `ivreg`, `ttest`, `dfuller` and other
+  commands the translator does not know. They were left out of the
+  denominator, so a corpus that used them looked fully covered.
+
+### Agent surface
+
 Agent-surface hardening from the 2026-10-02 repository review
 (`docs/dev/2026-10-02-review-status.md` tracks every item). No estimator
 changes its numbers.

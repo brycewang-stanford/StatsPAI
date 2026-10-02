@@ -5,6 +5,26 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="oct2026-stata-translation-conventions"></a>
+
+## Unreleased: ⚠️ `sp.stata` standard errors for robust ML commands and large-sample IV
+
+**Who is affected.** Anyone who ran these Stata lines through `sp.stata`,
+`sp.from_stata` or the MCP `from_stata` tool and reported the standard
+errors. Coefficients are unchanged. Direct calls to `sp.probit`,
+`sp.ivreg` and the others are unchanged.
+
+| Stata line | Before | Now | Size of the change |
+| --- | --- | --- | --- |
+| `probit` / `logit` / `poisson` / `nbreg ..., vce(robust)` | `robust='hc1'`, factor `N/(N-K)` | `robust='robust'`, Stata's `N/(N-1)` | SE smaller by `sqrt((N-1)/(N-K))` |
+| `ivreg2` / `ivregress ..., robust` without `small` | `robust='hc1'` | `robust='hc0'`, no factor, as Stata | SE smaller by `sqrt((N-K)/N)` |
+| `regress ...; summarize x; test x` | `test` ran on the summary table | `test` runs on the regression | |
+
+To reproduce an old number, call the estimator directly with
+`robust='hc1'`.
+
+---
+
 <a id="oct2026-known-truth-fixes"></a>
 
 ## 1.34.2 → 1.35.0: ⚠️ estimators that missed a known truth, and clustered CER bandwidths

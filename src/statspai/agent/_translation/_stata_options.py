@@ -212,6 +212,8 @@ def canonicalise_options(
     table = _COMMON_OPTIONS + (_HDFE_OPTIONS if command in _HDFE_COMMANDS else ())
     if command == "areg":
         table = table + (("absorb", 1),)
+    if command == "ttest":
+        table = (("unpaired", 3), ("unequal", 3), ("welch", 1))
     out: Dict[str, Optional[str]] = {}
     expanded: List[str] = []
     for name, value in options.items():

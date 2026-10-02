@@ -4158,6 +4158,62 @@
     }
   },
   {
+    "description": "t test on a mean, a paired difference, or a difference of two means (Stata ttest, R t.test). Two independent samples pool the variances unless unequal=True, which uses Satterthwaite's degrees of freedom; welch=True switches to Welch's (1947) approximation, as Stata's welch option. Returns the estimate, its standard error, t, degrees of freedom, the two-sided and both one-sided p-values, the confidence interval and a per-sample table.",
+    "name": "ttest",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "by": {
+          "description": "Grouping column with exactly two values; the estimate is mean(lower group) - mean(higher group)",
+          "type": "string"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "mu": {
+          "default": 0.0,
+          "description": "Null value",
+          "type": "number"
+        },
+        "other": {
+          "description": "Second variable: paired test on y - other, or two independent samples with paired=False",
+          "type": "string"
+        },
+        "paired": {
+          "default": true,
+          "description": "Only used with other=",
+          "type": "boolean"
+        },
+        "unequal": {
+          "default": false,
+          "description": "Do not pool the two variances (Satterthwaite df)",
+          "type": "boolean"
+        },
+        "welch": {
+          "default": false,
+          "description": "Unequal variances with Welch's df (Stata welch)",
+          "type": "boolean"
+        },
+        "y": {
+          "description": "Variable whose mean is tested",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data",
+        "y"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Balance / mean-comparison table -- Mean (SD) per group, difference, and t-test/ranksum/chi2 p-value. Renders to text/LaTeX/HTML/Markdown/Excel/Word.",
     "name": "mean_comparison",
     "parameters": {

@@ -48,14 +48,19 @@ def _emit(
     arguments: Dict[str, Any],
     python_code: str,
     notes: Optional[List[str]] = None,
+    *,
+    semantics: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    return {
+    payload: Dict[str, Any] = {
         "tool": tool,
         "arguments": dict(arguments),
         "python_code": python_code,
         "notes": list(notes or []),
         "ok": True,
     }
+    if semantics:
+        payload["semantics"] = list(semantics)
+    return payload
 
 
 def _emit_error(message: str, **extra: Any) -> Dict[str, Any]:
@@ -229,7 +234,11 @@ def _h_xtreg(cmd: StataCommand) -> Dict[str, Any]:
             "(Stata's `xtset id` lives in another line). Replace "
             "<panel_id> with the actual unit id column."
         )
-    return _emit("feols", args, _feols_code(fml, cluster), notes)
+    semantics = [
+        "xtreg, fe also prints _cons, the average of the fixed effects; "
+        "sp.feols absorbs it, so the result has slope coefficients only."
+    ]
+    return _emit("feols", args, _feols_code(fml, cluster), notes, semantics=semantics)
 
 
 _ABSORB_NAME = r"[^\W\d]\w*"
@@ -425,7 +434,47 @@ def _h_summarize(cmd: StataCommand) -> Dict[str, Any]:
             "Display formats such as mean(%9.3f) are not carried over; pass "
             "digits= for a fixed number of decimals."
         )
-    return _emit("sumstats", args, f"sp.sumstats(df, {kw})", notes)
+    semantics: List[str] = []
+    if any(st.startswith("p") or st == "median" for st in stats):
+        semantics.append(
+            "Percentiles are linearly interpolated between order statistics; "
+            "Stata takes an order statistic, or the mean of two adjacent ones "
+            "when N*p/100 is an integer, so they can differ within a gap "
+            "between observations."
+        )
+    if not spec and len(stats) > 5:
+        semantics.append(
+            "summarize, detail also prints the 1st, 5th, 95th and 99th "
+            "percentiles, the variance, skewness and kurtosis and the four "
+            "smallest and largest values; those are not in the sp.sumstats call."
+        )
+    return _emit("sumstats", args, f"sp.sumstats(df, {kw})", notes, semantics=semantics)
+
+
+def _h_correlate(cmd: StataCommand) -> Dict[str, Any]:
+    """``correlate x y z`` / ``pwcorr x y z, obs`` -> ``sp.pwcorr``.
+
+    ``correlate`` uses one common sample (casewise deletion); ``pwcorr``
+    uses every pair's own sample unless ``listwise`` is given.
+    """
+    command = cmd.command or "correlate"
+    listwise = command == "correlate" or "listwise" in cmd.options
+    args: Dict[str, Any] = {"output": "dataframe", "listwise": listwise}
+    if cmd.varlist:
+        args["vars"] = list(cmd.varlist)
+    if command == "pwcorr":
+        if "obs" in cmd.options:
+            args["obs"] = True
+        # sig / star() / print() only choose what is printed next to each
+        # coefficient; the p-values are on the returned frame either way.
+        for shown in ("sig", "star", "print"):
+            cmd.options.get(shown)
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    semantics = [
+        "The p-values and pairwise observation counts are on the returned "
+        "DataFrame as .attrs['pvalues'] and .attrs['nobs']."
+    ]
+    return _emit("pwcorr", args, f"sp.pwcorr(df, {kw})", semantics=semantics)
 
 
 #: Stata commands StatsPAI covers but ``from_stata`` cannot translate line by
@@ -503,7 +552,12 @@ def _parse_iv_varlist(
 
 
 def _h_ivreg2(cmd: StataCommand) -> Dict[str, Any]:
-    """``ivreg2 y x1 (d = z1 z2), cluster(id)`` → ``sp.ivreg``."""
+    """``ivreg2 y x1 (d = z1 z2), cluster(id)`` → ``sp.ivreg``.
+
+    Also serves ``ivregress`` and the legacy ``ivreg``. ``sp.ivreg`` reports
+    small-sample standard errors, which is what ``ivreg`` always does and
+    what ``ivreg2`` / ``ivregress`` do under ``small``.
+    """
     command = cmd.command or "ivreg2"
     if not cmd.varlist:
         return _emit_error(f"{command} requires an outcome variable", command=command)
@@ -530,6 +584,12 @@ def _h_ivreg2(cmd: StataCommand) -> Dict[str, Any]:
     if method:
         args["method"] = method
     robust = _robust_kind(cmd)
+    # ``ivreg`` is small-sample by construction; the other two only with
+    # ``small``. Read the option either way so it is accounted for.
+    small = "small" in cmd.options or command == "ivreg"
+    if robust == "hc1" and not small and not cluster:
+        # large-sample robust: no degrees-of-freedom factor
+        robust = "hc0"
     if robust != "nonrobust":
         args["robust"] = robust
     if cluster:
@@ -542,12 +602,14 @@ def _h_ivreg2(cmd: StataCommand) -> Dict[str, Any]:
             "`first` (first-stage display) not translated; the sp "
             "result already exposes first_stage_F via diagnostics."
         )
-    if cmd.command == "ivregress" and "small" not in cmd.options:
+    if not small and (cluster or robust == "nonrobust"):
         notes.append(
-            "sp.ivreg standard errors follow `ivregress ..., small` (N-K "
+            f"sp.ivreg standard errors follow `{command} ..., small` (N-K "
             "divisor; cluster SEs add (N-1)/(N-K)). Without `small`, Stata "
-            "reports large-sample SEs -- vce(robust) equals sp.ivreg "
-            "robust='hc0' -- so SEs differ by about sqrt(N/(N-K))."
+            "reports large-sample SEs, so these differ by a "
+            "degrees-of-freedom factor of about sqrt(N/(N-K)). "
+            "(vce(robust) without `small` is matched exactly by "
+            "robust='hc0'.)"
         )
     if method in {"liml", "gmm"}:
         notes.append(
@@ -1224,6 +1286,10 @@ def _h_glm_like(cmd: StataCommand, *, sp_fn: str, display_name: str) -> Dict[str
     formula = _build_formula(y, xs)
     cluster = _vce_cluster(cmd)
     robust = _robust_kind(cmd)
+    if robust == "hc1":
+        # Stata's vce(robust) for a maximum-likelihood command carries
+        # N/(N-1), which is sp's robust='robust'; HC1's N/(N-K) is regress's.
+        robust = "robust"
     args: Dict[str, Any] = {"formula": formula}
     if robust != "nonrobust":
         args["robust"] = robust
@@ -1272,6 +1338,14 @@ def _h_tobit(cmd: StataCommand) -> Dict[str, Any]:
     for kw_name in ("ll", "ul"):
         if kw_name in args:
             code_pairs.append(f"{kw_name}={args[kw_name]}")
+    # sp.tobit's vce='robust' / cluster= carry Stata's ML factors
+    cluster = _vce_cluster(cmd)
+    if cluster:
+        args["cluster"] = cluster
+        code_pairs.append(f"cluster={cluster!r}")
+    elif _robust_kind(cmd) == "hc1":
+        args["vce"] = "robust"
+        code_pairs.append("vce='robust'")
     python = f"sp.tobit({', '.join(code_pairs)})"
     return _emit("tobit", args, python)
 
@@ -1898,6 +1972,57 @@ def _h_boottest(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("wild_cluster_bootstrap", args, python, notes)
 
 
+_TTEST_EQ = re.compile(r"([^\W\d]\w*)\s*={1,2}\s*(\S+)")
+
+
+def _h_ttest(cmd: StataCommand) -> Dict[str, Any]:
+    """``ttest y == 5`` / ``ttest y, by(g) unequal`` / ``ttest y == x`` ->
+    ``sp.ttest``."""
+    text = " ".join(cmd.varlist).strip()
+    args: Dict[str, Any] = {}
+    eq = _TTEST_EQ.fullmatch(text)
+    two_samples = False
+    if eq:
+        args["y"] = eq.group(1)
+        try:
+            args["mu"] = float(eq.group(2))
+        except ValueError:
+            args["other"] = eq.group(2)
+            if "unpaired" in cmd.options:
+                args["paired"] = False
+                two_samples = True
+    elif len(cmd.varlist) == 1 and cmd.options.get("by"):
+        args["y"] = cmd.varlist[0]
+        args["by"] = str(cmd.options["by"]).split()[0]
+        two_samples = True
+        cmd.options.get("unpaired")  # by() groups are unpaired already
+    else:
+        return _emit_error(
+            "ttest: expected `ttest y == #`, `ttest y, by(group)` or "
+            "`ttest y == x [, unpaired]`",
+            command="ttest",
+            suggestions=[],
+        )
+    if two_samples:
+        # only meaningful for two independent samples; elsewhere they stay
+        # unread and are reported as untranslated
+        if "welch" in cmd.options:
+            args["welch"] = True
+        elif "unequal" in cmd.options:
+            args["unequal"] = True
+        cmd.options.get("unequal")
+    level = cmd.options.get("level")
+    if level is not None:
+        try:
+            args["alpha"] = round(1 - float(level) / 100, 10)
+        except (TypeError, ValueError):
+            return _emit_error(
+                f"ttest: level({level}) is not a number", command="ttest"
+            )
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    return _emit("ttest", args, f"sp.ttest(df, {kw})")
+
+
 # ---------------------------------------------------------------------------
 # Command dispatch table
 # ---------------------------------------------------------------------------
@@ -1915,6 +2040,7 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "areg": _h_areg,
     "ivreg2": _h_ivreg2,
     "ivregress": _h_ivreg2,  # close-enough mapping
+    "ivreg": _h_ivreg2,  # pre-Stata-10 syntax, still common in teaching files
     "ivreghdfe": _h_ivreghdfe,
     "csdid": _h_csdid,
     "didregress": _h_didregress,
@@ -1955,7 +2081,36 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "sum": _h_summarize,
     "su": _h_summarize,
     "sum2docx": _h_summarize,
+    "correlate": _h_correlate,
+    "pwcorr": _h_correlate,
+    "ttest": _h_ttest,
 }
+
+
+#: Stata lets a command be cut down to its documented minimal abbreviation
+#: (``regress`` to ``reg``, ``summarize`` to ``su``). ``full name -> shortest
+#: accepted length``; only commands whose abbreviation rule is in the Stata
+#: manual entry are listed.
+_COMMAND_ABBREVIATIONS: Dict[str, int] = {
+    "regress": 3,
+    "summarize": 2,
+    "correlate": 3,
+    "probit": 4,
+    "logit": 4,
+    "poisson": 3,
+    "tobit": 3,
+    "test": 2,
+}
+
+
+def _resolve_command(name: str) -> str:
+    """Expand a Stata command abbreviation; unknown names pass through."""
+    if name in STATA_COMMAND_MAP:
+        return name
+    for full, shortest in _COMMAND_ABBREVIATIONS.items():
+        if shortest <= len(name) < len(full) and full.startswith(name):
+            return full
+    return name
 
 
 def _coerce_scalar(s: str) -> Any:
@@ -2213,6 +2368,7 @@ _POSTEST_HANDLERS = frozenset(
         _h_lincom,
         _h_xtset,
         _h_boottest,
+        _h_ttest,
     }
 )
 
@@ -2294,6 +2450,7 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
     except StataParseError as e:
         return _emit_error(f"parse_error: {e}", command=None, suggestions=[])
 
+    parsed.command = _resolve_command(parsed.command)
     handler = STATA_COMMAND_MAP.get(parsed.command)
     if handler is None and parsed.command in _UNTRANSLATED_GUIDANCE:
         msg, funcs = _UNTRANSLATED_GUIDANCE[parsed.command]

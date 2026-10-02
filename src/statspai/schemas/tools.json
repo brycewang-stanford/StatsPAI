@@ -32162,6 +32162,56 @@
     "name": "truncreg"
   },
   {
+    "description": "t test on a mean, a paired difference, or a difference of two means (Stata ttest, R t.test). Two independent samples pool the variances unless unequal=True, which uses Satterthwaite's degrees of freedom; welch=True switches to Welch's (1947) approximation, as Stata's welch option. Returns the estimate, its standard error, t, degrees of freedom, the two-sided and both one-sided p-values, the confidence interval and a per-sample table.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "1 - confidence level",
+          "type": "number"
+        },
+        "by": {
+          "description": "Grouping column with exactly two values; the estimate is mean(lower group) - mean(higher group)",
+          "type": "string"
+        },
+        "mu": {
+          "default": 0.0,
+          "description": "Null value",
+          "type": "number"
+        },
+        "other": {
+          "description": "Second variable: paired test on y - other, or two independent samples with paired=False",
+          "type": "string"
+        },
+        "paired": {
+          "default": true,
+          "description": "Only used with other=",
+          "type": "boolean"
+        },
+        "unequal": {
+          "default": false,
+          "description": "Do not pool the two variances (Satterthwaite df)",
+          "type": "boolean"
+        },
+        "welch": {
+          "default": false,
+          "description": "Unequal variances with Welch's df (Stata welch)",
+          "type": "boolean"
+        },
+        "y": {
+          "description": "Variable whose mean is tested",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "ttest"
+  },
+  {
     "description": "TWFE decomposition: Goodman-Bacon (2021) + de Chaisemartin-D'Haultfoeuille weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Conditional parallel trends between treated and comparison groups absent treatment; No anticipation of treatment before its onset; Treatment effects may be heterogeneous across cohorts and time (no homogeneity required). Pre-conditions: Panel or repeated cross-section with a unit (or group) identifier and a time identifier; At least one never-treated or not-yet-treated comparison group; Pre-treatment periods to assess parallel trends. Failure modes: Pre-treatment event-study coefficients are jointly non-zero (pre-trend violation) -> Use honest DiD bounds to quantify robustness to trend violations, or condition on covariates; Two-way fixed-effects estimate is contaminated by 'forbidden' comparisons / negative weights -> Use a heterogeneity-robust estimator (Callaway-Sant'Anna, Borusyak et al., Gardner two-stage). Alternatives: sp.callaway_santanna, sp.did, sp.honest_did. Typical minimum N: 100.",
     "input_schema": {
       "properties": {

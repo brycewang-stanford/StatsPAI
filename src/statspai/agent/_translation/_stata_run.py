@@ -22,6 +22,11 @@ from ...exceptions import MethodIncompatibility
 
 __all__ = ["stata"]
 
+#: Tools that describe the data without fitting anything. As in Stata,
+#: where ``summarize`` is r-class and leaves ``e()`` alone, they do not
+#: replace the estimation result later post-estimation commands apply to.
+_DESCRIPTIVE_TOOLS = frozenset({"sumstats", "pwcorr", "ttest"})
+
 _PLACEHOLDER = re.compile(r"<[A-Za-z_][A-Za-z0-9_ ]*>")
 _PIPE_NOTE = re.compile(r"\bpipe\b")
 
@@ -280,5 +285,6 @@ def stata(
             if data is None:
                 raise TypeError(f"sp.stata: {line!r} needs data=<DataFrame>.")
             output = fn(data=data, **arguments)
-            last = output
+            if out["tool"] not in _DESCRIPTIVE_TOOLS:
+                last = output
     return output
