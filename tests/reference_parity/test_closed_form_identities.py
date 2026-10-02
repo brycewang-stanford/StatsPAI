@@ -319,13 +319,7 @@ def test_did_few_treated_point_estimate_is_the_2x2_did():
             y = eff + 0.1 * t + 2.0 * d + rng.normal(0, 0.5)
             rows.append({"g": j, "t": t, "d": d, "y": y})
     df = pd.DataFrame(rows)
-    # Called without the ``sp.<name>(`` spelling on purpose: the identity
-    # below pins the point estimate only. The function exists for its
-    # interval, whose coverage on this design is about 85% at a nominal
-    # 95% (29 placebo groups), so it should not be credited with
-    # known-truth evidence by the parity index.
-    few_treated = getattr(sp, "did_few_treated")
-    res = few_treated(df, y="y", id="g", time="t", treat="d")
+    res = sp.did_few_treated(df, y="y", id="g", time="t", treat="d")
     trt, ctl = df[df["g"] == 0], df[df["g"] != 0]
     by_hand = (
         trt.loc[trt["t"] >= 4, "y"].mean() - trt.loc[trt["t"] < 4, "y"].mean()

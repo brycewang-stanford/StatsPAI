@@ -31,6 +31,7 @@ from typing import List, Optional, Sequence
 import numpy as np
 import pandas as pd
 from scipy import linalg, optimize
+
 from .._result_serialize import ResultProtocolMixin
 
 __all__ = ["dynotears", "DYNOTEARSResult"]
@@ -216,7 +217,12 @@ def dynotears(
     lag : int, default 1
         Number of lagged slices to include in the SVAR.
     lambda_w, lambda_a : float, default 0.05
-        L1 regularisation for ``W`` and ``A``.
+        L1 regularisation for ``W`` and ``A``. The penalties are on the
+        scale of the data: the defaults suit series with a standard
+        deviation near one. On series with a standard deviation of 0.3
+        they shrink a contemporaneous coefficient of 0.4 to zero. Rescale
+        the series or lower the penalties; a warning is issued when the
+        median standard deviation is below 0.5 or above 2.
     max_iter : int, default 60
         Outer augmented-Lagrangian iterations.
     threshold : float, default 0.1
@@ -276,6 +282,20 @@ def dynotears(
         raise ValueError("`lag` must be >= 0.")
     X_full = data[variables].to_numpy(dtype=float)
     T = X_full.shape[0]
+    scale = float(np.median(np.nanstd(X_full, axis=0)))
+    if (lambda_w > 0 or lambda_a > 0) and not (0.5 <= scale <= 2.0):
+        import warnings
+
+        warnings.warn(
+            f"dynotears: the series have a median standard deviation of "
+            f"{scale:.3g}. The L1 penalties (lambda_w={lambda_w}, "
+            f"lambda_a={lambda_a}) are on the scale of the data and were "
+            "chosen for unit-variance series, so edges are "
+            + ("over-shrunk" if scale < 0.5 else "under-shrunk")
+            + " here. Standardise the series or rescale the penalties.",
+            UserWarning,
+            stacklevel=2,
+        )
     if T <= lag + 5:
         raise ValueError(f"Time series too short (T={T}) for lag={lag}.")
 

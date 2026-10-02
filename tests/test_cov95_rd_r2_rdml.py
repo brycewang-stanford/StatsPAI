@@ -72,8 +72,12 @@ def test_rd_forest_no_honesty():
     assert np.all(np.isfinite(cate))
     assert cate.min() > 0
     assert JUMP_Z0 - 1.0 <= cate.min() <= cate.max() <= JUMP_Z1 + 1.0
-    # ATE is the mean of the per-obs CATEs (internal consistency).
-    assert abs(est - cate.mean()) < 1e-6
+    # The headline is the local-linear RD effect on the cross-fitted
+    # residual, not the mean of the fitted CATEs; that mean is reported
+    # beside it and both sit near the planted average of 3.5.
+    assert abs(r.model_info["mean_cate"] - cate.mean()) < 1e-12
+    assert abs(r.model_info["mean_cate"] - 3.5) < 0.5
+    assert lo < 3.5 < hi
     # Per-obs CIs are ordered and bracket their own CATE.
     assert np.all(detail["ci_lower"].to_numpy() <= cate)
     assert np.all(cate <= detail["ci_upper"].to_numpy())

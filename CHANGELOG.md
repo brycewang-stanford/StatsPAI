@@ -6,6 +6,41 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.rd_forest` and `sp.rd_boost` did not adjust for the running
+  variable.** The learners see covariates only and were fitted to the raw
+  outcome inside the bandwidth, so the result was the difference of
+  within-window means: off by the slope of the regression function times
+  the distance from the cutoff, with a standard error that ignored it. On
+  `y = D + 0.5 x + ...` they returned 1.29 with a reported SE near 0.01
+  and covered the truth 0% of the time. Now a side-specific linear trend
+  in the running variable is removed first, and the headline `estimate` /
+  `se` / `ci` are the average effect at the cutoff from a local-linear RD
+  (`sp.rdrobust`, robust bias-corrected) on the outcome residualised on
+  the covariates with the same learner, cross-fitted, as in `sp.rd_flex`.
+  Estimates average 1.03 and the interval covers. `detail` still holds the
+  CATE by covariate profile; its mean is `model_info['mean_cate']`, and
+  `estimand` reads `'ATE at cutoff'`.
+- **`sp.rd_distribution` returned a change in probability under the name
+  `qte`.** The field held the jump in `P(Y <= y_q)` at the pooled
+  quantiles, which is negative where the treatment raises the outcome: a
+  design that shifts the outcome up by 2.0 reported -0.48 at the median.
+  `qte` is now the quantile treatment effect at the cutoff, from inverting
+  the local-linear CDFs on the two sides, with bootstrap `se`, `ci_lower`
+  and `ci_upper` (coverage 92% to 97% across quantiles in simulation).
+  The old numbers are unchanged under `cdf_effect` / `cdf_se`, with the
+  thresholds in `y_at_quantile`. New arguments `n_boot=200`, `seed=0`.
+- **`sp.did_few_treated`'s interval did not match its own p-value and
+  under-covered.** The interval was the estimate minus the interpolated
+  `alpha/2` and `1 - alpha/2` quantiles of the placebo draws, which with
+  29 control groups sit between the two most extreme draws. It covered
+  88% at a nominal 95% (91% with 60 groups), and a null could lie outside
+  it while the reported p-value was above `alpha`. The interval is now the
+  exact inversion of the reported test: the estimate plus or minus the
+  `m`-th largest `|W|`, `m = floor(alpha (n_draws + 1))`. Coverage is
+  96.6% and 94.4% in the same simulations. With fewer than `1/alpha - 1`
+  draws the interval is unbounded and says so. The old interval is kept
+  in `model_info['quantile_interval']`; the estimate and the p-value are
+  unchanged.
 - **Clustered CER bandwidths were too narrow in `sp.rdbwselect` and
   `sp.rdrobust`.** The coverage-error-rate bandwidths (`cerrd`, `certwo`,
   `cersum`, `cercomb1`, `cercomb2`) shrink the MSE-optimal bandwidth by
@@ -188,6 +223,16 @@ adding an option changes the translation or is reported, and
 
 ### Changed
 
+- **Measured limitations are now stated where they apply.** `sp.rdit`
+  warns below 100 effective observations (the Newey-West SE is biased
+  downward in short windows: nominal 95% intervals cover about 83% at 30
+  and 89% at 60). `sp.dynotears` warns when the series are far from unit
+  variance, since its L1 penalties are on the scale of the data.
+  `sp.q_learning` documents that a working model without the needed
+  history interaction biases the earlier-stage rule (`sp.a_learning` and
+  `sp.snmm` do not have the problem), and `sp.overlap_weighted_did` that
+  its SE treats the two periods as independent samples and is conservative
+  on a panel.
 - **Fallbacks inside estimators now warn.** Sixty-two handlers caught an
   exception and substituted something else without a trace: a marginal
   mean for a propensity score (`focal_cate`, `conformal_debiased_ml`,

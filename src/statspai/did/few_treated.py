@@ -20,8 +20,8 @@ Conley--Taber
     ytilde_jt / sum_jt dtilde_jt^2``. Impose the null, and apply the
     *treated* groups' residualised treatment path to each control group's
     residual path. The resulting scalars are draws from the distribution of
-    ``alphahat - alpha`` under the null; the test inverts them, and the
-    confidence interval is ``alphahat`` minus their quantiles. Arbitrary
+    ``alphahat - alpha`` under the null; the test compares ``alphahat``
+    with them, and the confidence interval inverts that test. Arbitrary
     serial correlation within a group is allowed -- the path enters as one
     linear combination -- at the price of assuming the group-level errors
     are identically distributed across groups.
@@ -165,18 +165,31 @@ def did_few_treated(
         ``estimate`` is the two-way fixed-effects coefficient (unchanged by
         the method), ``se`` is the standard deviation of the placebo
         distribution -- reported for scale only, since the interval is not
-        ``estimate +/- z * se`` -- ``ci`` is the inverted interval
-        ``estimate - quantiles``, and ``pvalue`` tests ``null_value``.
+        ``estimate +/- z * se`` -- ``ci`` is the set of nulls the placebo
+        test does not reject at ``alpha``, and ``pvalue`` tests
+        ``null_value``.
         ``detail`` holds one row per placebo draw; ``model_info`` records
         the treated groups, the counts, and, for Ferman--Pinto, the fitted
         variance function.
 
     Notes
     -----
-    The interval is not symmetric around the estimate: it inverts an
-    empirical distribution, which is exactly the point when that
-    distribution is skewed. ``pvalue`` is the two-sided placebo p-value,
-    ``(1 + #{|W| >= |alphahat - null|}) / (1 + n_draws)``.
+    ``pvalue`` is the two-sided placebo p-value,
+    ``(1 + #{|W| >= |alphahat - null|}) / (1 + n_draws)``, and ``ci`` is
+    its exact inversion: ``alphahat`` plus or minus the ``m``-th largest
+    ``|W|`` with ``m = floor(alpha * (n_draws + 1))``. A null is inside the
+    interval if and only if its p-value exceeds ``alpha``, and under the
+    exchangeability of group-level errors the method assumes, coverage is
+    at least ``1 - alpha`` for any number of control groups. With fewer
+    than ``1 / alpha - 1`` draws no bounded interval exists and the
+    interval is infinite, with a warning.
+
+    ``model_info['quantile_interval']`` keeps ``alphahat`` minus the
+    interpolated ``alpha / 2`` and ``1 - alpha / 2`` quantiles of the
+    draws, which was the reported interval before the 2026-10 fix. It is
+    asymmetric when the placebo distribution is skewed, and it
+    under-covers when control groups are few (88% at a nominal 95% with
+    29 control groups, 91% with 60).
 
     Both methods require many control groups, since the placebo distribution
     is estimated from them; fewer than ten raises.
@@ -417,9 +430,36 @@ def did_few_treated(
     n_draws = int(draws.size)
     lo = float(np.quantile(draws, alpha / 2.0))
     hi = float(np.quantile(draws, 1.0 - alpha / 2.0))
-    ci = (estimate - hi, estimate - lo)
+    quantile_ci = (estimate - hi, estimate - lo)
     gap = abs(estimate - float(null_value))
     pvalue = float((1 + np.sum(np.abs(draws) >= gap)) / (1 + n_draws))
+
+    # The interval is the set of nulls the test above does not reject:
+    # p(a) > alpha  <=>  at least m of the |W| are >= |alphahat - a|, with
+    # m = floor(alpha * (n_draws + 1)), i.e. |alphahat - a| <= the m-th
+    # largest |W|. Under the exchangeability the method assumes, this covers
+    # with probability at least 1 - alpha for any number of control groups.
+    #
+    # correctness fix (2026-10): the interval used to be alphahat minus the
+    # interpolated alpha/2 and 1 - alpha/2 quantiles of the draws. With 29
+    # control groups those sit between the two most extreme order
+    # statistics, the interval covered 88% at a nominal 95%, and a null
+    # could fall outside it while the reported p-value was above alpha.
+    m_reject = int(np.floor(alpha * (n_draws + 1) + 1e-12))
+    if m_reject >= 1:
+        half_width = float(np.sort(np.abs(draws))[::-1][m_reject - 1])
+        ci = (estimate - half_width, estimate + half_width)
+    else:
+        half_width = float("inf")
+        ci = (float("-inf"), float("inf"))
+        warnings.warn(
+            f"did_few_treated: {n_draws} placebo draws cannot support a "
+            f"{100 * (1 - alpha):g}% interval (the smallest attainable "
+            f"p-value is 1/{n_draws + 1}); the interval is unbounded. Use a "
+            "larger alpha or more control groups.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     detail = pd.DataFrame(
         {
@@ -445,6 +485,9 @@ def did_few_treated(
         "null_value": float(null_value),
         "alpha": float(alpha),
         "quantiles": {"lower": lo, "upper": hi},
+        "quantile_interval": quantile_ci,
+        "interval": "inversion of the two-sided placebo test",
+        "half_width": half_width,
         "covariates": covariates,
         "group_size": group_size,
         "variance_function": var_fit or None,

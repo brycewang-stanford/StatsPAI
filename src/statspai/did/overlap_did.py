@@ -70,7 +70,12 @@ def overlap_weighted_did(
     -------
     CausalResult
         ``estimand = 'ATT (overlap)'``. Uses a sandwich-style
-        bootstrap-ready SE derived from weighted residuals.
+        bootstrap-ready SE derived from weighted residuals. The two
+        periods are treated as independent samples (the function takes no
+        unit identifier), which is right for repeated cross-sections. On
+        a panel, where the same units appear in both periods, the SE is
+        conservative: about 1.9 times the sampling standard deviation in a
+        simulation with a unit effect of the size of the noise.
 
     References
     ----------

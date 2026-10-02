@@ -133,6 +133,20 @@ def q_learning(
     -------
     QLearningResult
 
+    Notes
+    -----
+    Each stage's Q-function is linear in the history ``H_k`` (baseline,
+    earlier actions and covariates as main effects) and in ``A_k * H_k``.
+    The pseudo-outcome passed to the previous stage is the fitted maximum,
+    so the earlier rule is only as good as the later working model. If the
+    outcome depends on an interaction among history variables that the
+    model has no term for, such as an earlier action times an earlier
+    covariate, that component is lost on the way back and the earlier rule
+    is biased; on ``y = x1 + a1 (1 + x1) + a2 (0.5 - x2)`` the stage-1 rule
+    comes out as "always treat" where the optimum treats 84%.
+    ``sp.a_learning`` and ``sp.snmm`` model the blip only and recover both
+    stages on that design.
+
     Examples
     --------
     >>> import numpy as np, pandas as pd, statspai as sp

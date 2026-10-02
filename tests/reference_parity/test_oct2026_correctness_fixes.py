@@ -413,3 +413,204 @@ class TestKitagawaSizeAndPower:
         # (1 + #{T* >= T}) / (B + 1) lies on the grid {1/100, ..., 1}.
         assert 0.01 - 1e-12 <= res.p_value <= 1.0
         assert abs(res.p_value * 100 - round(res.p_value * 100)) < 1e-9
+
+
+# --------------------------------------------------------------------- #
+#  Few treated groups: the interval inverts the reported test
+# --------------------------------------------------------------------- #
+
+
+def _one_treated_group(seed: int, n_control: int) -> pd.DataFrame:
+    """One treated group (the last) switching on at t = 4; effect 2.0."""
+    rng = np.random.default_rng(50_000 + 7919 * seed + n_control)
+    T = 8
+    eff = rng.normal(size=n_control + 1)
+    noise = rng.normal(0, 0.5, size=(n_control + 1, T))
+    g = np.repeat(np.arange(n_control + 1), T)
+    t = np.tile(np.arange(T), n_control + 1)
+    d = ((g == n_control) & (t >= 4)).astype(float)
+    y = eff[g] + 0.1 * t + 2.0 * d + noise.ravel()
+    return pd.DataFrame({"g": g, "t": t, "d": d, "y": y})
+
+
+class TestDidFewTreatedInterval:
+    def test_interval_is_the_mth_largest_placebo_draw(self):
+        df = _one_treated_group(seed=0, n_control=29)
+        res = sp.did_few_treated(df, y="y", id="g", time="t", treat="d")
+        draws = np.abs(res.detail["w"].to_numpy())
+        # 29 draws at alpha = 0.05: m = floor(0.05 * 30) = 1, the largest.
+        assert res.ci[1] - res.estimate == pytest.approx(draws.max(), abs=1e-12)
+        assert res.estimate - res.ci[0] == pytest.approx(draws.max(), abs=1e-12)
+        res60 = sp.did_few_treated(
+            _one_treated_group(seed=0, n_control=60),
+            y="y",
+            id="g",
+            time="t",
+            treat="d",
+        )
+        third = np.sort(np.abs(res60.detail["w"].to_numpy()))[::-1][2]
+        # 60 draws: m = floor(0.05 * 61) = 3.
+        assert res60.ci[1] - res60.estimate == pytest.approx(third, abs=1e-12)
+
+    def test_coverage_is_at_least_nominal_and_the_old_interval_was_not(self):
+        new, old = [], []
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for s in range(300):
+                res = sp.did_few_treated(
+                    _one_treated_group(seed=s, n_control=29),
+                    y="y",
+                    id="g",
+                    time="t",
+                    treat="d",
+                )
+                lo, hi = res.model_info["quantile_interval"]
+                new.append(res.ci[0] <= 2.0 <= res.ci[1])
+                old.append(lo <= 2.0 <= hi)
+        # Exchangeable groups: coverage is 29/30 = 0.967 exactly. With 300
+        # draws the MC SE is 0.010; 0.93 is 3.5 SE below.
+        assert np.mean(new) >= 0.93
+        # The interpolated-quantile interval sits near 0.88.
+        assert np.mean(old) <= 0.92
+
+    def test_too_few_draws_give_an_unbounded_interval_and_say_so(self):
+        df = _one_treated_group(seed=1, n_control=15)
+        with pytest.warns(UserWarning, match="unbounded"):
+            res = sp.did_few_treated(df, y="y", id="g", time="t", treat="d")
+        assert res.ci == (float("-inf"), float("inf"))
+        # At alpha = 0.10, floor(0.1 * 16) = 1 and the interval is finite.
+        res10 = sp.did_few_treated(df, y="y", id="g", time="t", treat="d", alpha=0.10)
+        assert np.isfinite(res10.ci[0]) and np.isfinite(res10.ci[1])
+
+
+# --------------------------------------------------------------------- #
+#  ML-RD: the running variable has to be adjusted for
+# --------------------------------------------------------------------- #
+
+
+def _ml_rd_frame(seed: int, n: int = 2000, het: float = 0.8) -> pd.DataFrame:
+    """Effect 1 + het * z1 at the cutoff, slope 0.5 in the running variable."""
+    rng = np.random.default_rng(seed)
+    x = rng.uniform(-1, 1, n)
+    z1 = rng.normal(size=n)
+    z2 = rng.normal(size=n)
+    y = (1.0 + het * z1) * (x >= 0) + 0.5 * x + 0.3 * z1 + rng.normal(0, 0.3, n)
+    return pd.DataFrame({"x": x, "y": y, "z1": z1, "z2": z2})
+
+
+_ML_RD = {
+    "rd_forest": lambda df, seed: sp.rd_forest(
+        df, y="y", x="x", c=0, covs=["z1", "z2"], n_trees=200, seed=seed
+    ),
+    "rd_boost": lambda df, seed: sp.rd_boost(
+        df, y="y", x="x", c=0, covs=["z1", "z2"], n_estimators=60, seed=seed
+    ),
+}
+
+
+class TestMlRdRecoversTheEffectAtTheCutoff:
+    @pytest.mark.parametrize("fn_name", sorted(_ML_RD))
+    def test_headline_mean_cate_and_heterogeneity(self, fn_name):
+        df = _ml_rd_frame(seed=0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            res = _ML_RD[fn_name](df, 0)
+        # Average effect 1.0. Fitted to the raw outcome these returned 1.29
+        # with an SE near 0.01: the slope 0.5 times the distance to the
+        # cutoff, and no allowance for it.
+        assert abs(res.estimate - 1.0) <= 4.0 * res.se
+        assert 0.05 < res.se < 0.3
+        assert res.estimand == "ATE at cutoff"
+        # The fitted CATEs average to the same effect ...
+        assert res.model_info["mean_cate"] == pytest.approx(1.0, abs=0.2)
+        assert res.model_info["mean_cate"] == pytest.approx(
+            res.detail["cate"].mean(), abs=1e-12
+        )
+        # ... and vary with z1 as planted (slope 0.8; a forest shrinks it).
+        z1 = df.loc[res.detail["obs_index"], "z1"].to_numpy()
+        slope = np.polyfit(z1, res.detail["cate"].to_numpy(), 1)[0]
+        assert 0.5 < slope < 1.0
+
+    def test_forest_headline_is_calibrated_across_seeds(self):
+        draws, slopes = [], []
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for s in range(20):
+                res = _ML_RD["rd_forest"](_ml_rd_frame(seed=s), s)
+                draws.append((res.estimate, res.se))
+                slopes.append(
+                    [res.model_info["running_slopes"][k] for k in ("left", "right")]
+                )
+        est, se = np.array(draws).T
+        # The trend removed on each side is the planted slope of 0.5 (noisy
+        # in any one sample: the window is a fraction of the support).
+        slopes_arr = np.array(slopes)
+        slope_se = slopes_arr.std(axis=0, ddof=1) / np.sqrt(len(slopes_arr))
+        assert np.all(np.abs(slopes_arr.mean(axis=0) - 0.5) <= 4.0 * slope_se)
+        assert abs(est.mean() - 1.0) <= 4.0 * est.std(ddof=1) / np.sqrt(len(est))
+        assert np.mean(np.abs(est - 1.0) <= 1.96 * se) >= 0.8
+        # The robust bias-corrected SE is somewhat conservative here.
+        assert 0.7 <= se.mean() / est.std(ddof=1) <= 2.0
+
+
+# --------------------------------------------------------------------- #
+#  Distributional RD: quantile effects in units of the outcome
+# --------------------------------------------------------------------- #
+
+
+class TestRdDistributionQuantileEffects:
+    levels = np.array([0.1, 0.25, 0.5, 0.75, 0.9])
+
+    def _frame(self, seed: int, n: int = 3000) -> pd.DataFrame:
+        """Left of the cutoff N(0, 1); right of it N(2, 2^2)."""
+        rng = np.random.default_rng(seed)
+        x = rng.uniform(-1, 1, n)
+        y = 0.5 * x + (1.0 + 1.0 * (x >= 0)) * rng.normal(0, 1, n) + 2.0 * (x >= 0)
+        return pd.DataFrame({"y": y, "x": x})
+
+    def test_qte_recovers_the_quantile_shift(self):
+        from scipy.stats import norm
+
+        truth = 2.0 + norm.ppf(self.levels)  # Q1(q) - Q0(q) = 2 + z_q (2 - 1)
+        est, cover = [], []
+        for s in range(30):
+            res = sp.rd_distribution(
+                self._frame(s), y="y", running="x", quantiles=self.levels, seed=s
+            )
+            est.append(res.qte)
+            cover.append((res.ci_lower <= truth) & (truth <= res.ci_upper))
+        est = np.array(est)
+        mc_se = est.std(axis=0, ddof=1) / np.sqrt(len(est))
+        assert np.all(np.abs(est.mean(axis=0) - truth) <= 4.0 * mc_se)
+        # Pooled over five quantiles and 30 seeds; observed 0.95.
+        assert np.mean(cover) >= 0.88
+
+    def test_cdf_effect_is_the_old_output_and_has_the_opposite_sign(self):
+        res = sp.rd_distribution(
+            self._frame(0), y="y", running="x", quantiles=self.levels
+        )
+        # An upward shift lowers P(Y <= y) at every threshold.
+        assert np.all(res.cdf_effect < 0)
+        assert np.all(res.qte > 0)
+        # The CDF jump at the pooled median, by hand: local-linear regression
+        # of 1{Y <= y_q} on (1, R, D, R * D) with triangular weights.
+        df = self._frame(0)
+        R, Y = df["x"].to_numpy(), df["y"].to_numpy()
+        h = float(np.subtract(*np.percentile(R, [75, 25])))
+        w = np.clip(1 - np.abs(R / h), 0, None)
+        keep = w > 0
+        D = (R >= 0).astype(float)
+        X = np.column_stack([np.ones(keep.sum()), R[keep], D[keep], R[keep] * D[keep]])
+        ind = (Y <= np.quantile(Y, 0.5)).astype(float)[keep]
+        sw = np.sqrt(w[keep])
+        beta = np.linalg.lstsq(X * sw[:, None], ind * sw, rcond=None)[0]
+        assert res.cdf_effect[2] == pytest.approx(beta[2], abs=1e-10)
+
+    def test_no_discontinuity_gives_no_effect(self):
+        rng = np.random.default_rng(3)
+        x = rng.uniform(-1, 1, 3000)
+        y = 0.5 * x + rng.normal(0, 1, 3000)
+        res = sp.rd_distribution(
+            pd.DataFrame({"y": y, "x": x}), y="y", running="x", quantiles=self.levels
+        )
+        assert np.all(np.abs(res.qte) <= 4.0 * res.se)

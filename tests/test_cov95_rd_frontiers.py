@@ -89,10 +89,19 @@ def test_rd_distribution():
         bandwidth=0.6,
     )
     assert len(res.qte) == 3
+    # correctness fix (2026-10): these pinned numbers are the jump in the
+    # CDF at the pooled quantiles. They used to be returned as ``qte``;
+    # they are now ``cdf_effect`` / ``cdf_se``, unchanged, and ``qte`` holds
+    # the quantile effect in units of the outcome.
     np.testing.assert_allclose(
-        res.qte, [-0.33078488, -0.73963088, -0.01037915], atol=5e-9
+        res.cdf_effect, [-0.33078488, -0.73963088, -0.01037915], atol=5e-9
     )
-    np.testing.assert_allclose(res.se, [0.09683768, 0.08051699, 0.08282056], atol=5e-9)
+    np.testing.assert_allclose(
+        res.cdf_se, [0.09683768, 0.08051699, 0.08282056], atol=5e-9
+    )
+    assert res.qte.shape == res.se.shape == (3,)
+    assert np.all(np.isfinite(res.qte)) and np.all(res.se > 0)
+    assert np.all(res.ci_lower <= res.qte) and np.all(res.qte <= res.ci_upper)
 
 
 def test_rd_distributional_design():
