@@ -923,6 +923,10 @@ def etwfe(
             },
         )
 
+    data, _last_cohort_ref = _trim_to_notyet_support(
+        data, time=time, first_treat=first_treat, cgroup=cgroup
+    )
+
     fam_key = None if family is None else str(family).strip().lower()
     if fam_key in _ETWFE_GLM_FAMILIES:
         # Fail loudly rather than silently ignoring an option the nonlinear
@@ -1055,6 +1059,8 @@ def etwfe(
                 weights=weights,
                 agg_weights=agg_weights,
             )
+    if _last_cohort_ref is not None:
+        _result.model_info["last_cohort_reference"] = _last_cohort_ref
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 
@@ -1086,6 +1092,79 @@ def etwfe(
     except Exception:  # pragma: no cover
         pass
     return _result
+
+
+def _trim_to_notyet_support(
+    data: pd.DataFrame,
+    *,
+    time: str,
+    first_treat: str,
+    cgroup: str,
+) -> Tuple[pd.DataFrame, Optional[Dict[str, Any]]]:
+    """Restrict a panel in which every unit is eventually treated to the
+    periods that still have a not-yet-treated comparison.
+
+    With no never-treated unit and no cohort adopting after the last observed
+    period, nothing is untreated from the last cohort's adoption date on, so
+    the period effects of those dates are not identified: the saturated
+    design is rank-deficient there and ``pinv`` returns arbitrary numbers
+    (observed: an overall ATT of 4.7e11 on a panel whose true ATT is 68).
+    R ``etwfe`` handles the case by taking the last cohort as the reference
+    group and dropping the periods from its adoption onwards
+    (``.Dtreat = NA`` for ``t >= gref``); the same sample is what
+    ``did_imputation, autosample`` and Callaway-Sant'Anna's not-yet-treated
+    comparison keep. This does that, and says so.
+
+    Returns the (possibly trimmed) data and, when it trimmed, a record for
+    ``model_info['last_cohort_reference']``.
+    """
+    if cgroup != "notyet" or data.empty:
+        return data, None
+    ft = data[first_treat].replace(0, np.nan)
+    max_time = data[time].max()
+    # A never-treated unit, or a cohort adopting after the panel ends, is an
+    # untreated comparison in every observed period: nothing to trim.
+    if ft.isna().any() or (ft > max_time).any():
+        return data, None
+    cohorts = sorted(ft.unique().tolist())
+    g_ref = cohorts[-1]
+    keep = (data[time] < g_ref).to_numpy()
+    trimmed = data.loc[keep].copy()
+    # Inside the retained window the last cohort is never treated.
+    trimmed[first_treat] = trimmed[first_treat].where(ft.loc[keep] != g_ref, np.nan)
+    n_dropped = int((~keep).sum())
+    ft_kept = trimmed[first_treat].replace(0, np.nan)
+    if not (ft_kept.notna() & (trimmed[time] >= ft_kept)).any():
+        raise DataInsufficient(
+            "Every unit is eventually treated and no treated observation has "
+            "a not-yet-treated comparison: once the periods from the last "
+            f"cohort's adoption ({g_ref}) are set aside, no cohort × post "
+            "cell is left to identify an ATT from.",
+            recovery_hint=(
+                "A single adoption date with no untreated group identifies "
+                "nothing by difference-in-differences; add never-treated "
+                "units or a later-treated cohort."
+            ),
+            diagnostics={
+                "function": "etwfe",
+                "cohorts": cohorts,
+                "reference_cohort": g_ref,
+            },
+        )
+    warnings.warn(
+        "etwfe: every unit is eventually treated, so no untreated comparison "
+        f"exists from period {g_ref} on. The last cohort ({g_ref}) is used as "
+        f"the not-yet-treated reference and the {n_dropped} observation(s) "
+        f"with {time} >= {g_ref} are dropped, as R etwfe does; effects for "
+        "that cohort and those periods are not identified.",
+        UserWarning,
+        stacklevel=3,
+    )
+    return trimmed, {
+        "reference_cohort": g_ref,
+        "n_obs_dropped": n_dropped,
+        "last_period_kept": trimmed[time].max(),
+    }
 
 
 def _etwfe_with_simple_headline(

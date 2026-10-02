@@ -1216,7 +1216,20 @@ def _build_cov_kwargs(
         return {"cov_type": "robust"}
     elif robust == "kernel" or robust == "driscoll-kraay":
         return {"cov_type": "kernel"}
-    return {"cov_type": "unadjusted"}
+    elif robust in ("nonrobust", "unadjusted", None, False):
+        return {"cov_type": "unadjusted"}
+    # Anything else used to fall through to the classical covariance, so
+    # robust='hc1' or robust='cluster' returned homoskedastic SEs labelled as
+    # requested.
+    raise _panel_method_error(
+        f"robust={robust!r} is not a standard-error type sp.panel knows.",
+        diagnostics={"robust": robust},
+        recovery_hint=(
+            "Use robust='nonrobust', 'robust', 'kernel' or 'driscoll-kraay'; "
+            "for cluster-robust standard errors pass cluster='entity', "
+            "'time', 'twoway' or a column name."
+        ),
+    )
 
 
 _METHOD_NAMES = {
