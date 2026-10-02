@@ -1,9 +1,14 @@
 """Third batch of known-truth anchors from the 2026-10 pass.
 
 Fixes. ``sp.kernel_iv`` (the structural function under confounding),
-``sp.bcf_ordinal`` (standard error of the dose-level effects) and
+``sp.bcf_ordinal`` (standard error of the dose-level effects),
 ``sp.bcf_longitudinal`` (second-pass bias; periods with no treatment
-variation).
+variation), and two simulators whose data did not carry the effect they
+declared: ``sp.dgp_rd(fuzzy=True)`` and ``sp.dgp_rdit``.
+
+Simulators and utilities. Each ``sp.dgp_*`` design checked against the
+estimator that is unbiased for it, and the row / rank helpers checked
+against pandas.
 
 Recoveries. One simulated design per estimator with a planted answer.
 Every design is fixed by its seed, so the bands below are deterministic
@@ -395,3 +400,567 @@ def test_compare_metalearners_share_one_ate_and_differ_in_cate():
     assert abs(ate - 1.0) <= 4.0 * se
     assert 0.03 < se < 0.09
     assert table["cate_std"].nunique() == len(table)
+
+
+# --------------------------------------------------------------------- #
+#  Simulators: the declared truth is the truth
+# --------------------------------------------------------------------- #
+
+
+def _mean_and_se(values):
+    v = np.asarray(values, dtype=float)
+    return float(v.mean()), float(v.std(ddof=1) / np.sqrt(len(v)))
+
+
+class TestRDSimulator:
+    def test_sharp_default_draws_are_unchanged(self):
+        # The fix to the fuzzy branch and to `cutoff` must not move the
+        # default sharp design: same generator calls, same order.
+        rng = np.random.default_rng(3)
+        x = rng.uniform(-1, 1, size=500)
+        y = 0.5 * x + 0.3 * x**2 + 0.3 * (x >= 0) + rng.normal(0, 0.3, size=500)
+        df = sp.dgp_rd(n=500, seed=3)
+        np.testing.assert_array_equal(df["x"].to_numpy(), x)
+        np.testing.assert_array_equal(df["y"].to_numpy(), y)
+
+    def test_fuzzy_design_has_a_first_stage_jump(self):
+        # It used to draw treatment from a logistic curve that is smooth
+        # through the cutoff, which is not a fuzzy RD and identifies
+        # nothing: fuzzy estimates had a median of 0.34 and no finite mean.
+        df = sp.dgp_rd(n=40000, fuzzy=True, seed=0)
+        assert df.attrs["first_stage_jump"] == 0.6
+        near = df[df["x"].abs() < 0.05]
+        jump = (
+            near.loc[near["x"] >= 0, "treatment"].mean()
+            - near.loc[near["x"] < 0, "treatment"].mean()
+        )
+        assert jump == pytest.approx(0.6, abs=0.05)
+
+    def test_fuzzy_design_delivers_the_declared_effect(self):
+        est = []
+        for seed in range(8):
+            df = sp.dgp_rd(n=6000, effect=0.3, fuzzy=True, seed=seed)
+            res = sp.rdrobust(df, y="y", x="x", c=0.0, fuzzy="treatment")
+            est.append(res.estimate)
+        mean, se = _mean_and_se(est)
+        # 60 seeds: 0.301 with a standard error of the mean of 0.009.
+        assert abs(mean - 0.3) <= 4.0 * se
+        assert se < 0.05
+
+    def test_cutoff_and_spread_move_the_running_variable(self):
+        # `cutoff=5` used to leave x on (-1, 1): nobody treated.
+        df = sp.dgp_rd(n=6000, effect=0.3, cutoff=5.0, bandwidth_relevant=2.0, seed=0)
+        assert df["x"].min() == pytest.approx(1.0, abs=0.01)
+        assert df["x"].max() == pytest.approx(9.0, abs=0.01)
+        assert df["treatment"].mean() == pytest.approx(0.5, abs=0.03)
+        res = sp.rdrobust(df, y="y", x="x", c=5.0)
+        assert abs(res.estimate - 0.3) <= 4.0 * res.se
+
+    def test_spread_must_be_positive(self):
+        with pytest.raises(ValueError, match="positive"):
+            sp.dgp_rd(n=100, bandwidth_relevant=0.0, seed=0)
+
+
+def test_rdit_simulator_level_shift_is_the_declared_effect():
+    # The AR(1) recursion used to run on the outcome, so the shift fed
+    # back into itself and settled at effect / 0.7 = 2.86. A regression
+    # on a step and two linear trends gave 2.81 over 60 seeds.
+    est = []
+    for seed in range(40):
+        df = sp.dgp_rdit(
+            n_periods=400, effect=2.0, cutoff_period=200, seasonality=False, seed=seed
+        )
+        post = (df["time"] >= 200).to_numpy(dtype=float)
+        tc = (df["time"] - 200).to_numpy(dtype=float)
+        X = np.column_stack([np.ones(len(df)), post, tc, post * tc])
+        beta = np.linalg.lstsq(X, df["y"].to_numpy(), rcond=None)[0]
+        est.append(beta[1])
+    mean, se = _mean_and_se(est)
+    assert abs(mean - 2.0) <= 4.0 * se
+    assert se < 0.04
+
+
+def test_rdit_simulator_errors_are_ar1():
+    # 3000 monthly periods is the most the date index can hold.
+    df = sp.dgp_rdit(n_periods=3000, effect=0.0, seasonality=False, seed=0)
+    e = df["y"].to_numpy() - 0.01 * df["time"].to_numpy()
+    rho = np.corrcoef(e[1:], e[:-1])[0, 1]
+    assert rho == pytest.approx(0.3, abs=0.07)
+    # Stationary variance 0.25 / (1 - 0.09).
+    assert e.var() == pytest.approx(0.25 / 0.91, rel=0.15)
+
+
+def _ols_coef(df: pd.DataFrame, y: str, target: str, others=(), absorb=()):
+    cols = [df[target].to_numpy(dtype=float)]
+    cols += [df[c].to_numpy(dtype=float) for c in others]
+    for a in absorb:
+        cols += list(pd.get_dummies(df[a], drop_first=True).to_numpy(dtype=float).T)
+    X = np.column_stack([np.ones(len(df))] + cols)
+    return float(np.linalg.lstsq(X, df[y].to_numpy(dtype=float), rcond=None)[0][1])
+
+
+@pytest.mark.parametrize(
+    "name, draw, estimate, truth",
+    [
+        (
+            "rct",
+            lambda s: sp.dgp_rct(n=2000, effect=0.3, seed=s),
+            lambda d: _ols_coef(d, "y", "treatment"),
+            0.3,
+        ),
+        (
+            "rct, heterogeneous",
+            lambda s: sp.dgp_rct(n=2000, effect=0.3, heterogeneous=True, seed=s),
+            lambda d: _ols_coef(d, "y", "treatment"),
+            0.3,
+        ),
+        (
+            "observational, adjusted",
+            lambda s: sp.dgp_observational(n=4000, effect=0.5, seed=s),
+            lambda d: _ols_coef(d, "y", "treatment", others=["x1", "x2"]),
+            0.5,
+        ),
+        (
+            "panel, two-way FE",
+            lambda s: sp.dgp_panel(n_units=60, n_periods=20, seed=s),
+            lambda d: _ols_coef(d, "y", "x", absorb=["unit", "time"]),
+            1.0,
+        ),
+        (
+            "did, two-way FE",
+            lambda s: sp.dgp_did(n_units=120, n_periods=10, effect=0.5, seed=s),
+            lambda d: _ols_coef(d, "y", "treated", absorb=["unit", "time"]),
+            0.5,
+        ),
+        (
+            "cluster rct",
+            lambda s: sp.dgp_cluster_rct(n_clusters=200, cluster_size=20, seed=s),
+            lambda d: _ols_coef(d, "y", "treatment"),
+            0.3,
+        ),
+        (
+            "bartik",
+            lambda s: sp.dgp_bartik(n_regions=400, effect=1.0, seed=s)["data"],
+            lambda d: _ols_coef(d, "y", "bartik"),
+            1.0,
+        ),
+    ],
+)
+def test_simulator_delivers_its_declared_effect(name, draw, estimate, truth):
+    est = [estimate(draw(seed)) for seed in range(24)]
+    mean, se = _mean_and_se(est)
+    assert abs(mean - truth) <= 4.0 * se, name
+    assert se < 0.05, name
+
+
+def test_observational_simulator_is_actually_confounded():
+    raw = []
+    for seed in range(8):
+        d = sp.dgp_observational(n=4000, effect=0.5, seed=seed)
+        raw.append(_ols_coef(d, "y", "treatment"))
+    assert np.mean(raw) > 0.6
+
+
+def test_iv_simulator_is_endogenous_and_the_instrument_fixes_it():
+    iv, ols = [], []
+    for seed in range(12):
+        d = sp.dgp_iv(n=4000, effect=0.5, seed=seed)
+        res = sp.ivreg("y ~ x1 + x2 + (treatment ~ instrument)", data=d)
+        iv.append(float(res.params["treatment"]))
+        ols.append(_ols_coef(d, "y", "treatment", others=["x1", "x2"]))
+    mean, se = _mean_and_se(iv)
+    assert abs(mean - 0.5) <= 4.0 * se
+    assert np.mean(ols) > 0.7
+
+
+def test_cluster_rct_simulator_has_the_declared_icc():
+    sb, sw = [], []
+    for seed in range(12):
+        d = sp.dgp_cluster_rct(n_clusters=200, cluster_size=20, icc=0.1, seed=seed)
+        c = d[d["treatment"] == 0]
+        within = c.groupby("cluster_id")["y"].var().mean()
+        between = c.groupby("cluster_id")["y"].mean().var() - within / 20
+        sb.append(between)
+        sw.append(within)
+    icc = np.mean(sb) / (np.mean(sb) + np.mean(sw))
+    assert icc == pytest.approx(0.1, abs=0.02)
+
+
+def test_bartik_simulator_instrument_is_the_share_weighted_shock():
+    d = sp.dgp_bartik(n_regions=50, n_industries=10, seed=0)
+    np.testing.assert_allclose(
+        np.asarray(d["shares"]) @ np.asarray(d["shocks"]),
+        d["data"]["bartik"].to_numpy(),
+        atol=1e-12,
+    )
+
+
+def test_bunching_simulator_matches_the_iso_elastic_model():
+    df = sp.dgp_bunching(n=100000, kink_point=50000.0, elasticity=0.3, seed=0)
+    upper = 50000.0 * (1.0 / 0.8) ** 0.3
+    assert df.attrs["bunching_upper"] == pytest.approx(upper, rel=1e-12)
+    cf = df["counterfactual_income"].to_numpy()
+    inc = df["income"].to_numpy()
+    below = cf <= 50000.0
+    bunch = (cf > 50000.0) & (cf < upper)
+    above = cf >= upper
+    np.testing.assert_array_equal(inc[below], cf[below])
+    np.testing.assert_allclose(inc[bunch], 50000.0)
+    np.testing.assert_allclose(inc[above], cf[above] * 0.8**0.3, rtol=1e-12)
+    assert df.attrs["n_bunchers"] == int(bunch.sum())
+
+
+# --------------------------------------------------------------------- #
+#  Data utilities: identities against pandas / numpy
+# --------------------------------------------------------------------- #
+
+
+class TestRowAndRankUtilities:
+    @pytest.fixture(scope="class")
+    def frame(self):
+        rng = np.random.default_rng(0)
+        df = pd.DataFrame(rng.normal(size=(50, 3)), columns=list("abc"))
+        df.loc[3, "b"] = np.nan
+        df["g"] = rng.integers(0, 3, 50)
+        df["v"] = rng.integers(0, 10, 50).astype(float)
+        return df
+
+    @pytest.mark.parametrize(
+        "name, reference",
+        [
+            ("rowmean", lambda d: d.mean(axis=1)),
+            ("rowtotal", lambda d: d.sum(axis=1)),
+            ("rowmax", lambda d: d.max(axis=1)),
+            ("rowmin", lambda d: d.min(axis=1)),
+            ("rowsd", lambda d: d.std(axis=1, ddof=1)),
+        ],
+    )
+    def test_row_functions_skip_missing_like_stata_egen(self, frame, name, reference):
+        got = getattr(sp, name)(frame, list("abc"))
+        np.testing.assert_allclose(got, reference(frame[list("abc")]), atol=1e-14)
+
+    def test_rowcount_counts_non_missing(self, frame):
+        got = getattr(sp, "rowcount")(frame, list("abc"))
+        assert got.iloc[3] == 2
+        assert (got.drop(index=3) == 3).all()
+
+    def test_rank_average_ties_overall_and_by_group(self, frame):
+        np.testing.assert_allclose(sp.rank(frame, "v"), frame["v"].rank())
+        np.testing.assert_allclose(
+            sp.rank(frame, "v", by="g"), frame.groupby("g")["v"].rank()
+        )
+
+    def test_pwcorr_is_pairwise_complete(self, frame):
+        got = sp.pwcorr(frame, vars=list("abc"), output="dataframe", stars=False)
+        want = frame[list("abc")].corr()
+        np.testing.assert_allclose(
+            got.to_numpy(dtype=float), want.to_numpy(), atol=5e-4
+        )
+
+    def test_outlier_indicator_flags_outside_the_percentiles(self):
+        rng = np.random.default_rng(0)
+        df = pd.DataFrame({"v": rng.normal(size=1000)})
+        out = sp.outlier_indicator(df, ["v"], cuts=(1, 99))
+        lo, hi = np.percentile(df["v"], [1, 99])
+        want = ((df["v"] < lo) | (df["v"] > hi)).to_numpy()
+        np.testing.assert_array_equal(out["v_outlier"].to_numpy().astype(bool), want)
+
+
+def test_scalar_iv_projection_is_the_first_stage_fitted_value():
+    rng = np.random.default_rng(0)
+    n = 500
+    z1, z2, x = rng.normal(size=(3, n))
+    d = 0.5 * z1 + 0.3 * z2 + 0.2 * x + rng.normal(size=n)
+    df = pd.DataFrame({"d": d, "z1": z1, "z2": z2, "x": x})
+    got = sp.scalar_iv_projection(
+        df, "d", ["z1", "z2"], covariates=["x"], return_column=True
+    )
+    X = np.column_stack([np.ones(n), z1, z2, x])
+    fitted = X @ np.linalg.lstsq(X, d, rcond=None)[0]
+    np.testing.assert_allclose(got, fitted, atol=1e-12)
+
+
+# --------------------------------------------------------------------- #
+#  conformal_ite_multidp: the interval is for an effect, not an outcome
+# --------------------------------------------------------------------- #
+
+
+def _two_stage_potential_outcomes(seed: int, dependence: str, n: int = 1500):
+    """Two randomised stages; returns the data and the true unit effects."""
+    rng = np.random.default_rng(seed)
+    frames, effects = {}, []
+    x_prev = None
+    for k, (base, slope, tau) in enumerate([(1.0, 0.5, 0.8), (0.5, 0.3, 0.6)], 1):
+        x = rng.normal(size=n) if x_prev is None else 0.5 * x_prev + rng.normal(size=n)
+        d = rng.binomial(1, 0.5, n)
+        e0 = rng.normal(0, 0.5, n)
+        e1 = rng.normal(0, 0.5, n) if dependence == "independent" else -e0
+        y0 = base + slope * x + e0
+        y1 = base + slope * x + tau + e1
+        frames[f"x{k}"], frames[f"d{k}"] = x, d
+        frames[f"y{k}"] = np.where(d == 1, y1, y0)
+        effects.append(y1 - y0)
+        x_prev = x
+    return pd.DataFrame(frames), effects
+
+
+@pytest.mark.parametrize("dependence", ["independent", "opposed"])
+def test_conformal_ite_multidp_covers_the_individual_effects(dependence):
+    # alpha = 0.1 over two stages: each stage owes 95%, both together 90%.
+    # The half-width used to be one quantile of single-outcome residuals,
+    # which covers a potential outcome and not a difference of two: 83%
+    # per stage with independent noise. With one quantile per arm the
+    # union bound holds for any dependence; opposed noise is the case
+    # that comes closest to using it up (97.5% per stage in theory).
+    per_stage, joint = [], []
+    for seed in range(6):
+        df, effects = _two_stage_potential_outcomes(seed, dependence)
+        res = sp.conformal_ite_multidp(
+            df.iloc[:1000],
+            y_per_stage=["y1", "y2"],
+            treat_per_stage=["d1", "d2"],
+            history_per_stage=[["x1"], ["x1", "x2"]],
+            test_data=df.iloc[1000:],
+            alpha=0.1,
+            seed=seed,
+        )
+        inside = []
+        for interval, effect in zip(res.intervals_per_stage, effects):
+            truth = effect[1000:]
+            inside.append((interval[:, 0] <= truth) & (truth <= interval[:, 1]))
+            per_stage.append(inside[-1].mean())
+        joint.append((inside[0] & inside[1]).mean())
+        total = effects[0][1000:] + effects[1][1000:]
+        cum = res.cumulative_interval
+        assert np.mean((cum[:, 0] <= total) & (total <= cum[:, 1])) >= 0.9
+    assert np.mean(per_stage) >= 0.95
+    assert np.mean(joint) >= 0.90
+    if dependence == "opposed":
+        # Not vacuous: the worst case sits within a few points of nominal.
+        assert np.mean(per_stage) <= 0.995
+
+
+def test_conformal_ite_multidp_reports_a_calibration_set_that_is_too_small():
+    df, _ = _two_stage_potential_outcomes(0, "independent", n=40)
+    with pytest.warns(RuntimeWarning, match="cannot support level"):
+        sp.conformal_ite_multidp(
+            df,
+            y_per_stage=["y1", "y2"],
+            treat_per_stage=["d1", "d2"],
+            history_per_stage=[["x1"], ["x1", "x2"]],
+            alpha=0.1,
+        )
+
+
+# --------------------------------------------------------------------- #
+#  deepiv: the default loss is the consistent one
+# --------------------------------------------------------------------- #
+
+
+def _linear_iv_design(seed: int, n: int = 3000) -> pd.DataFrame:
+    """y = d + 0.5 x + u; the instrument explains 56% of d given x."""
+    rng = np.random.default_rng(seed)
+    z, x, u = rng.normal(size=(3, n))
+    d = 0.8 * z + 0.5 * u + 0.3 * x + rng.normal(0, 0.5, n)
+    y = 1.0 * d + 0.5 * x + u + rng.normal(0, 0.3, n)
+    return pd.DataFrame({"y": y, "d": d, "z": z, "x": x})
+
+
+class TestDeepIVLoss:
+    kw = dict(y="y", treat="d", instruments=["z"], covariates=["x"])
+
+    @staticmethod
+    def _per_unit(res) -> float:
+        # The estimate is the effect of a one-SD rise in the treatment.
+        return float(res.estimate / res.model_info["treatment_shift"])
+
+    def test_default_recovers_a_linear_structural_slope(self):
+        pytest.importorskip("torch")
+        # Eight seeds: 0.90 to 1.14, mean 1.04. OLS gives 1.53.
+        slopes = []
+        for seed in (0, 1):
+            df = _linear_iv_design(seed)
+            res = sp.deepiv(df, random_state=seed, **self.kw)
+            assert res.model_info["gradient_estimator"] == "unbiased (paired)"
+            slopes.append(self._per_unit(res))
+        assert 0.85 < np.mean(slopes) < 1.25
+
+    def test_single_sample_loss_is_attenuated_and_says_so(self):
+        pytest.importorskip("torch")
+        # The former default. Its limit on this design is the first-stage
+        # share 0.64 / (0.64 + 0.50) = 0.56; three seeds gave 0.50 to 0.71.
+        df = _linear_iv_design(1)
+        with pytest.warns(AssumptionWarning, match="upper bound"):
+            res = getattr(sp, "deepiv")(
+                df, n_gradient_samples=0, random_state=1, **self.kw
+            )
+        assert self._per_unit(res) < 0.8
+
+    def test_fixed_network_se_is_flagged(self):
+        pytest.importorskip("torch")
+        df = _linear_iv_design(2, n=600)
+        res = sp.deepiv(
+            df,
+            first_stage_epochs=10,
+            second_stage_epochs=10,
+            random_state=2,
+            **self.kw,
+        )
+        assert res.model_info["se_valid_for_ate"] is False
+
+
+# --------------------------------------------------------------------- #
+#  vcnet / scigan: the curve is read off the basis it was fitted on
+# --------------------------------------------------------------------- #
+
+
+def _dose_design(seed: int, n: int = 2000) -> pd.DataFrame:
+    """E[Y(t)] = 1 + 2 t - t^2; the dose rises with the confounder x."""
+    rng = np.random.default_rng(seed)
+    x = rng.normal(size=n)
+    t = np.clip(0.5 + 0.2 * x + rng.normal(0, 0.2, n), 0, 1)
+    y = 1 + 2 * t - t**2 + 0.5 * x + rng.normal(0, 0.3, n)
+    return pd.DataFrame({"y": y, "t": t, "x": x})
+
+
+class TestVCNetCurve:
+    grid = [0.2, 0.5, 0.8]
+    truth = np.array([1.36, 1.75, 1.96])
+
+    def test_curve_on_an_interior_grid(self):
+        # The knots for the evaluation grid used to be laid on the grid's
+        # own range, so the first point returned the curve at the smallest
+        # observed dose and the last at the largest: 1.01 and 1.99 here
+        # (the truth at t = 0 and t = 1), 0% coverage at t = 0.2.
+        # 60 seeds now: 1.354, 1.752, 1.963; SE equal to the across-seed
+        # SD; 93% coverage at each point.
+        df = _dose_design(0)
+        res = sp.vcnet(
+            df, y="y", treatment="t", covariates=["x"], t_grid=self.grid, n_bootstrap=60
+        )
+        assert np.all(np.abs(res.mu_hat - self.truth) <= 4.0 * res.se)
+        assert np.all(res.se < 0.06)
+        # A quadratic in t alone is confounded by x: 0.97 and 2.36.
+        raw = np.polyval(np.polyfit(df["t"], df["y"], 2), self.grid)
+        assert abs(raw[0] - self.truth[0]) > 0.25
+        assert abs(raw[2] - self.truth[2]) > 0.25
+
+    def test_default_grid_agrees_with_a_grid_given_by_hand(self):
+        df = _dose_design(1)
+        kw = dict(y="y", treatment="t", covariates=["x"], n_bootstrap=20)
+        auto = sp.vcnet(df, **kw)
+        by_hand = sp.vcnet(df, t_grid=auto.t_grid[5:30], **kw)
+        np.testing.assert_allclose(by_hand.mu_hat, auto.mu_hat[5:30], atol=1e-10)
+
+    def test_se_includes_the_average_over_covariates(self):
+        # At t = 0.5 the spline part is tight and most of the sampling
+        # error is 0.5 * mean(x): SD 0.5 / sqrt(2000) = 0.011. Holding the
+        # covariate mean fixed across bootstrap draws gave 0.012 against
+        # an across-seed SD of 0.017.
+        est, se = [], []
+        for seed in range(12):
+            res = sp.vcnet(
+                _dose_design(seed),
+                y="y",
+                treatment="t",
+                covariates=["x"],
+                t_grid=[0.5],
+                n_bootstrap=60,
+                random_state=seed,
+            )
+            est.append(res.mu_hat[0])
+            se.append(res.se[0])
+        ratio = np.mean(se) / np.std(est, ddof=1)
+        assert 0.65 < ratio < 1.6
+        assert np.mean(se) > 0.0135
+
+    def test_grid_outside_the_observed_doses_is_not_extrapolated(self):
+        df = _dose_design(2)
+        with pytest.warns(AssumptionWarning, match="outside the observed dose"):
+            res = sp.vcnet(
+                df,
+                y="y",
+                treatment="t",
+                covariates=["x"],
+                t_grid=[-0.5, 0.5, 1.5],
+                n_bootstrap=20,
+            )
+        assert np.isnan(res.mu_hat[0]) and np.isnan(res.mu_hat[2])
+        assert res.mu_hat[1] == pytest.approx(1.75, abs=0.08)
+
+
+class TestSciganWeights:
+    kw = dict(y="y", treatment="t", covariates=["x"], t_grid=[0.2, 0.5, 0.8])
+
+    def test_unit_weights_reproduce_vcnet(self):
+        # The weights used to be applied by drawing a weighted resample of
+        # the rows, so unit weights returned a noisier vcnet.
+        df = _dose_design(3)
+        a = sp.vcnet(df, n_bootstrap=20, **self.kw)
+        b = sp.scigan(
+            df, propensity_weights=np.ones(len(df)), n_bootstrap=20, **self.kw
+        )
+        np.testing.assert_array_equal(a.mu_hat, b.mu_hat)
+        np.testing.assert_array_equal(a.se, b.se)
+
+    def test_integer_weights_equal_row_duplication(self):
+        df = _dose_design(4, n=600)
+        w = np.random.default_rng(0).integers(1, 4, len(df))
+        weighted = sp.scigan(df, propensity_weights=w, n_bootstrap=20, **self.kw)
+        dup = df.loc[df.index.repeat(w)].reset_index(drop=True)
+        # The weights are normalised to sum to n, so the ridge penalty of
+        # the duplicated fit is scaled to match.
+        expanded = sp.vcnet(
+            dup, ridge=1e-2 * len(dup) / len(df), n_bootstrap=20, **self.kw
+        )
+        np.testing.assert_allclose(weighted.mu_hat, expanded.mu_hat, atol=1e-10)
+
+
+def test_gnn_causal_adjusts_for_neighbour_confounding():
+    # Treatment and outcome both load on the neighbours' mean covariate.
+    # 30 seeds: mean 1.01, SE 0.050 against an across-seed SD of 0.048,
+    # 97% coverage; the raw contrast is 1.83.
+    est, se, raw = [], [], []
+    for seed in range(5):
+        rng = np.random.default_rng(seed)
+        n = 600
+        A = np.triu((rng.uniform(size=(n, n)) < 0.015).astype(float), 1)
+        A = A + A.T
+        x = rng.normal(size=n)
+        xn = (A @ x) / np.maximum(A.sum(1), 1)
+        d = rng.binomial(1, 1 / (1 + np.exp(-0.8 * x - 0.8 * xn)))
+        y = 1 + x + 1.5 * xn + 1.0 * d + rng.normal(0, 0.5, n)
+        df = pd.DataFrame({"y": y, "d": d, "x": x})
+        res = sp.gnn_causal(
+            df, y="y", treat="d", covariates=["x"], adjacency=A, random_state=seed
+        )
+        est.append(res.ate)
+        se.append(res.se)
+        raw.append(y[d == 1].mean() - y[d == 0].mean())
+    assert np.mean(raw) > 1.5
+    assert abs(np.mean(est) - 1.0) <= 4.0 * np.mean(se) / np.sqrt(len(est))
+    assert 0.03 < np.mean(se) < 0.08
+
+
+@pytest.mark.parametrize("name", ["tarnet", "cfrnet", "dragonnet"])
+def test_neural_outcome_models_remove_observed_confounding(name):
+    pytest.importorskip("torch")
+    # ATE 1.0 with a heterogeneous effect; the raw contrast is 1.65.
+    # Four seeds each: 0.96 to 1.03. Only dragonnet's SE is a standard
+    # error for the ATE (0.026, on the scale of the efficiency bound);
+    # the other two flag theirs in model_info.
+    rng = np.random.default_rng(0)
+    n = 2000
+    x1, x2 = rng.normal(size=(2, n))
+    d = rng.binomial(1, 1 / (1 + np.exp(-0.8 * x1)))
+    y = 1 + x1 + 0.5 * x2 + (1.0 + 0.5 * x2) * d + rng.normal(0, 0.5, n)
+    df = pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2})
+    res = getattr(sp, name)(
+        df, y="y", treat="d", covariates=["x1", "x2"], epochs=150, n_bootstrap=50
+    )
+    assert y[d == 1].mean() - y[d == 0].mean() > 1.5
+    assert res.estimate == pytest.approx(1.0, abs=0.12)
+    if name == "dragonnet":
+        assert 0.015 < res.se < 0.05
+    else:
+        assert res.model_info["se_valid_for_ate"] is False

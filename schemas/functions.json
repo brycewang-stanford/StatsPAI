@@ -24372,7 +24372,7 @@
     }
   },
   {
-    "description": "Estimate causal effects using Deep Instrumental Variables. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
+    "description": "Estimate causal effects using Deep Instrumental Variables. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "name": "deepiv",
     "parameters": {
       "properties": {
@@ -24434,8 +24434,8 @@
           "type": "integer"
         },
         "n_gradient_samples": {
-          "default": 0,
-          "description": "Number of **independent** additional samples used for the gradient path. When ``0`` (default), a single set of samples is used, matching Microsoft EconML's default behaviour and producing a biased but variance-regularized gradient estimator. When ``> 0``, two independent sample sets are drawn and the unbiased paired-sample estimator ``mean((y - h(p, x)) * (y - h(p', x)))`` from Hartford et al. Section 3.2 is used instead. Set to ``1`` or higher if you specifically need unbiased gradients (e.g. for asymptotic consistency arguments).",
+          "default": 1,
+          "description": "Number of **independent** additional samples used for the gradient path. When ``> 0`` (default), two independent sample sets are drawn and the unbiased paired-sample estimator ``mean((y - h(p, x)) * (y - h(p', x)))`` from Hartford et al. Section 3.2 is used. ``0`` uses a single set of samples: an upper bound on the loss whose minimiser is attenuated toward zero (see Notes), kept to reproduce results from 1.34.2 and earlier.",
           "type": "integer"
         },
         "n_samples": {
@@ -27159,7 +27159,7 @@
     }
   },
   {
-    "description": "Pairwise correlation matrix with significance stars.",
+    "description": "Pairwise correlation matrix with significance stars. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "pwcorr",
     "parameters": {
       "properties": {
@@ -27435,7 +27435,7 @@
     }
   },
   {
-    "description": "Rank a variable, optionally within groups.",
+    "description": "Rank a variable, optionally within groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rank",
     "parameters": {
       "properties": {
@@ -27481,7 +27481,7 @@
     }
   },
   {
-    "description": "Flag outlier observations by percentile cutoffs.",
+    "description": "Flag outlier observations by percentile cutoffs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "outlier_indicator",
     "parameters": {
       "properties": {
@@ -27542,7 +27542,7 @@
     }
   },
   {
-    "description": "Project a vector of instruments onto a scalar first-stage index.",
+    "description": "Project a vector of instruments onto a scalar first-stage index. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "scalar_iv_projection",
     "parameters": {
       "properties": {
@@ -34814,22 +34814,22 @@
       "properties": {
         "bandwidth_relevant": {
           "default": 0.5,
-          "description": "Standard deviation of the running variable (controls spread).",
+          "description": "Spread of the running variable, which is uniform on ``cutoff +/- 2 * bandwidth_relevant`` (``+/- 1`` at the default).",
           "type": "number"
         },
         "cutoff": {
           "default": 0.0,
-          "description": "RD cutoff value.",
+          "description": "RD cutoff value. The running variable is centred on it.",
           "type": "number"
         },
         "effect": {
           "default": 0.3,
-          "description": "Treatment effect at the cutoff.",
+          "description": "Treatment effect at the cutoff. The effect is constant, so in the fuzzy design it is also the complier effect.",
           "type": "number"
         },
         "fuzzy": {
           "default": false,
-          "description": "If True, generate a fuzzy RD design.",
+          "description": "If True, generate a fuzzy RD design: the probability of treatment is ``0.2 + 0.1 (x - cutoff) / s`` below the cutoff and 0.6 higher above it, where ``s`` is the half-width of the support.",
           "type": "boolean"
         },
         "n": {
@@ -46014,7 +46014,7 @@
         },
         "effect": {
           "default": 2.0,
-          "description": "Treatment effect at the policy change date.",
+          "description": "Treatment effect at the policy change date: a permanent level shift of this size.",
           "type": "number"
         },
         "n_periods": {
@@ -46028,7 +46028,7 @@
           "type": "boolean"
         },
         "seed": {
-          "description": "Random seed.",
+          "description": "Random seed for reproducible stochastic steps.",
           "type": "integer"
         }
       },
@@ -49830,7 +49830,7 @@
     }
   },
   {
-    "description": "Multi-decision-point conformal ITE. Do NOT use when: there is a single decision point -- use sp.conformal_cate.",
+    "description": "Multi-decision-point conformal ITE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there is a single decision point -- use sp.conformal_cate.",
     "name": "conformal_ite_multidp",
     "parameters": {
       "properties": {
@@ -52520,7 +52520,7 @@
     }
   },
   {
-    "description": "GCN-featurised AIPW ATE estimator under network interference. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds. Do NOT use when: units do not interact -- plain sp.aipw is the same estimand without the network featurisation.",
+    "description": "GCN-featurised AIPW ATE estimator under network interference. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds. Do NOT use when: units do not interact -- plain sp.aipw is the same estimand without the network featurisation.",
     "name": "gnn_causal",
     "parameters": {
       "properties": {
@@ -54122,7 +54122,7 @@
     }
   },
   {
-    "description": "Adversarial dose-response estimator (Bica et al. 2020).",
+    "description": "Adversarial dose-response estimator (Bica et al. 2020). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "scigan",
     "parameters": {
       "properties": {
@@ -54175,7 +54175,7 @@
     }
   },
   {
-    "description": "Varying-coefficient dose-response estimator.",
+    "description": "Varying-coefficient dose-response estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "vcnet",
     "parameters": {
       "properties": {

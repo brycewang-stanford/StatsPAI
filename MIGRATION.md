@@ -34,6 +34,14 @@ estimate of the documented quantity.
 | `sp.bcf_longitudinal` | `average_ate`, `per_time_ate`, `individual_cate` | 7.44 to 7.77 (truth 6.0, randomised treatment) | 5.99 to 6.00 |
 | `sp.bcf_longitudinal` with a period where treatment does not vary | `average_ate`; that row of `per_time_ate` | the period counted as an effect of 0 | NaN for that period, left out of the average, with a warning |
 | `sp.bcf_ordinal` | `ate_se`, `ate_ci` | SE 0.001 (across-seed SD 0.03 to 0.05) | 0.024 to 0.042 |
+| `sp.dgp_rd(fuzzy=True)` | `treatment`, `y` for every seed | no first-stage jump; fuzzy estimates had no finite mean | jump of 0.6; fuzzy `rdrobust` averages 0.301 for a declared 0.3 |
+| `sp.dgp_rd` with `cutoff != 0` or a non-default `bandwidth_relevant` | `x`, `treatment` | `x` stayed on `(-1, 1)`; the spread argument was ignored | `x` uniform on `cutoff +/- 2 * bandwidth_relevant` |
+| `sp.dgp_rdit` | `y` for every seed | level shift 2.86 for a declared 2.0 | 2.0 |
+| `sp.conformal_ite_multidp` | `intervals_per_stage`, `cumulative_interval` | 83% per-stage coverage of the individual effect (95% owed) | 99.8%; intervals about 2.3 times wider |
+| `sp.deepiv` at its defaults | `estimate`, `detail`, `effect()` | 0.50 to 0.71 per unit (truth 1.0) | 0.90 to 1.14; pass `n_gradient_samples=0` for the old loss |
+| `sp.vcnet`, `sp.scigan` with a `t_grid` that does not span the observed doses | `mu_hat`, `se`, `ci_lo`, `ci_hi` | 1.01 at `t = 0.2` (truth 1.36), 0% coverage | 1.354, 93% coverage |
+| `sp.vcnet` | `se`, `ci_lo`, `ci_hi` | 78% coverage at mid-range | 93% |
+| `sp.scigan` with `propensity_weights` | `mu_hat`, `se` | a weighted random resample of the rows | weighted fit; unit weights equal `sp.vcnet` |
 | `sp.rdbwselect`, `sp.rdrobust` with a `cer*` bandwidth and `cluster=` | `h`, and through it the estimate and SEs | `h_cerrd` 0.2054 (rdrobust: 0.2305) | 0.2305 |
 
 **What to do.** Re-run. Code that read `res.qte` from `sp.rd_distribution`

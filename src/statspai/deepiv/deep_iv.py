@@ -12,21 +12,33 @@ first stage.
 
 Implementation notes
 --------------------
-This implementation follows the same defaults as Microsoft's EconML
-``DeepIVEstimator``: the Stage-2 gradient is computed from a single set
-of MC samples (``n_gradient_samples=0``). Per Hartford et al. Section
-3.2, the resulting gradient is a biased estimator of the true loss
-gradient, because the treatment sample appears in both the residual and
-the gradient path. As discussed in the EconML docs, the single-sample
-version *"is not guaranteed to lead to consistent estimates, but has the
-advantage of requiring only a single set of samples from the
-distribution, and can be interpreted as regularizing the loss with a
-variance penalty"*.
+Stage 2 has two losses.
 
-To enable the **unbiased paired-sample gradient** described in the
-paper, set ``n_gradient_samples > 0``. This draws two independent sets
-of MC samples per gradient step and uses the identity
-``E[(y - h(p, x))(y - h(p', x))] = (y - E[h(p, x)])^2`` for ``p ⊥ p'``.
+**Paired-sample loss (default, ``n_gradient_samples >= 1``).** Two
+independent sets of MC samples are drawn per gradient step and the
+identity ``E[(y - h(p, x))(y - h(p', x))] = (y - E[h(p, x)])^2`` for
+``p`` independent of ``p'`` gives an unbiased estimate of the loss and of
+its gradient (Hartford et al., Section 3.2).
+
+**Single-sample loss (``n_gradient_samples=0``).** The same draw sits in
+the residual and in the gradient path, and the loss is the mean over draws
+of ``(y - h(p, x))^2``. By Jensen's inequality this is an upper bound on
+the true loss, larger by ``Var(h(T, x) | z, x)``. Its minimiser is the
+regression of ``y`` on a draw from the first stage, which is attenuated
+exactly like a regression on a mismeasured regressor: with a linear
+response the slope converges to the truth times the share of the
+treatment variance that the instruments explain, however many samples
+are drawn. As the EconML documentation puts it, this version *"is not
+guaranteed to lead to consistent estimates, but has the advantage of
+requiring only a single set of samples from the distribution, and can be
+interpreted as regularizing the loss with a variance penalty"*. It was
+the default here through 1.34.2 and now warns.
+
+The reported ``se`` holds the trained networks fixed: it is the
+dispersion of the fitted effects across units over ``sqrt(n)`` and does
+not include the sampling variability of either stage.
+``model_info['se_valid_for_ate']`` is ``False``. Refit on bootstrap
+samples for a standard error.
 
 When to use DeepIV
 ------------------
@@ -55,8 +67,8 @@ Hartford, J., Lewis, G., Leyton-Brown, K., & Taddy, M. (2017).
     Proceedings of the 34th International Conference on Machine Learning.
     [@hartford2017deep]
 
-Microsoft EconML. ``DeepIVEstimator`` — reference implementation whose
-    ``n_gradient_samples`` default of 0 this package follows.
+Microsoft EconML. ``DeepIVEstimator`` — reference implementation with
+    the same ``n_samples`` / ``n_gradient_samples`` arguments.
     https://github.com/py-why/EconML
 
 Bennett, A., Kallus, N., & Schnabel, T. (2019).
@@ -72,6 +84,7 @@ Muandet, K., Mehrjou, A., Lee, S. K., & Raj, A. (2020).
 """
 
 import math
+import warnings
 from typing import Any, List, Optional, Tuple
 
 import numpy as np
@@ -79,6 +92,7 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
+from ..exceptions import AssumptionWarning
 from ..utils._rng import preserve_global_rng
 
 # ---------------------------------------------------------------------------
@@ -97,7 +111,7 @@ def deepiv(
     first_stage_epochs: int = 100,
     second_stage_epochs: int = 100,
     n_samples: int = 1,
-    n_gradient_samples: int = 0,
+    n_gradient_samples: int = 1,
     batch_size: int = 256,
     learning_rate: float = 1e-3,
     alpha: float = 0.05,
@@ -130,17 +144,14 @@ def deepiv(
     n_samples : int, default 1
         Number of MC samples per observation used to form the Stage-2
         residual ``(y - h(t, x))``.
-    n_gradient_samples : int, default 0
+    n_gradient_samples : int, default 1
         Number of **independent** additional samples used for the
-        gradient path. When ``0`` (default), a single set of samples is
-        used, matching Microsoft EconML's default behaviour and
-        producing a biased but variance-regularized gradient estimator.
-        When ``> 0``, two independent sample sets are drawn and the
-        unbiased paired-sample estimator
+        gradient path. When ``> 0`` (default), two independent sample
+        sets are drawn and the unbiased paired-sample estimator
         ``mean((y - h(p, x)) * (y - h(p', x)))`` from Hartford et al.
-        Section 3.2 is used instead. Set to ``1`` or higher if you
-        specifically need unbiased gradients (e.g. for asymptotic
-        consistency arguments).
+        Section 3.2 is used. ``0`` uses a single set of samples: an
+        upper bound on the loss whose minimiser is attenuated toward
+        zero (see Notes), kept to reproduce results from 1.34.2 and earlier.
     batch_size : int, default 256
         Mini-batch size.
     learning_rate : float, default 1e-3
@@ -158,13 +169,19 @@ def deepiv(
 
     Notes
     -----
-    Use the **single-sample default** (``n_gradient_samples=0``) for
-    most applications — it matches EconML, trains roughly 2x faster, and
-    the implicit variance regularization often helps in small samples.
+    The estimate is the average effect of raising the treatment by one
+    standard deviation from its mean (``model_info['treatment_shift']``),
+    not a per-unit slope.
 
-    Use ``n_gradient_samples >= 1`` when you need the unbiased gradient
-    (e.g. for theoretical guarantees or when training with very large
-    batches where the bias dominates).
+    ``n_gradient_samples=0`` is not a faster version of the same
+    estimator. On ``y = d + 0.5 x + u`` with a first stage that explains
+    56% of the variance of ``d``, it returned 0.50 to 0.71 per unit of
+    ``d`` across seeds (the errors-in-variables limit is 0.56), against
+    1.05 to 1.12 for the paired-sample default, and a larger
+    ``n_samples`` did not help. It warns when selected.
+
+    ``se`` holds the networks fixed and is far too small as a standard
+    error for the effect; ``model_info['se_valid_for_ate']`` is ``False``.
 
     For high-dimensional covariates or weak instruments, consider
     DeepGMM / DFIV / DualIV instead — see the module docstring for
@@ -250,11 +267,10 @@ class DeepIV:
         Stage 2 training epochs.
     n_samples : int
         MC samples per observation used to form the Stage-2 residual.
-    n_gradient_samples : int, default 0
-        Independent additional samples for the gradient path. ``0``
-        reproduces EconML's default (biased but variance-regularized);
-        ``>= 1`` activates Hartford et al.'s paired-sample unbiased
-        gradient estimator.
+    n_gradient_samples : int, default 1
+        Independent additional samples for the gradient path. ``>= 1``
+        is Hartford et al.'s paired-sample unbiased gradient estimator;
+        ``0`` is the single-sample upper-bound loss, which is attenuated.
     batch_size : int
     learning_rate : float
     alpha : float
@@ -300,7 +316,7 @@ class DeepIV:
         first_stage_epochs: int = 100,
         second_stage_epochs: int = 100,
         n_samples: int = 1,
-        n_gradient_samples: int = 0,
+        n_gradient_samples: int = 1,
         batch_size: int = 256,
         learning_rate: float = 1e-3,
         alpha: float = 0.05,
@@ -434,10 +450,20 @@ class DeepIV:
         opt2 = optim.Adam(response_net.parameters(), lr=self.learning_rate)
 
         # Whether to use the unbiased paired-sample gradient from
-        # Hartford et al. (2017) Section 3.2. When False, we fall back
-        # to the single-sample biased (but variance-regularized) loss
-        # that matches EconML's default (``n_gradient_samples=0``).
+        # Hartford et al. (2017) Section 3.2. When False, the loss is the
+        # single-sample upper bound, whose minimiser is attenuated.
         use_unbiased_grad = self.n_gradient_samples > 0
+        if not use_unbiased_grad:
+            warnings.warn(
+                "deepiv(n_gradient_samples=0) minimises an upper bound on "
+                "the DeepIV loss. Its solution is attenuated toward zero "
+                "by the share of treatment variance the instruments do "
+                "not explain, and more samples do not remove that. Use "
+                "n_gradient_samples >= 1 (the default) for the unbiased "
+                "paired-sample loss.",
+                AssumptionWarning,
+                stacklevel=3,
+            )
         n_pairs = max(self.n_samples, self.n_gradient_samples)
 
         for epoch in range(self.second_stage_epochs):
@@ -471,11 +497,9 @@ class DeepIV:
                         loss = loss + torch.mean((y_batch - h_a) * (y_batch - h_b))
                     loss = loss / n_pairs
                 else:
-                    # Single-sample biased estimator (EconML default).
-                    # Same treatment sample is used in both the residual
-                    # and the gradient path; this introduces a bias but
-                    # trains ~2x faster and acts as implicit variance
-                    # regularization.
+                    # Single-sample upper-bound loss: the same treatment
+                    # sample is used in the residual and in the gradient
+                    # path.
                     with torch.no_grad():
                         t_samples = _sample_mdn(pi, mu, sigma, self.n_samples)
 
@@ -572,8 +596,10 @@ class DeepIV:
             "gradient_estimator": (
                 "unbiased (paired)"
                 if self.n_gradient_samples > 0
-                else "single-sample (EconML default)"
+                else "single-sample (upper-bound loss, attenuated)"
             ),
+            "se_method": "fitted-effect dispersion, networks held fixed",
+            "se_valid_for_ate": False,
             "treatment_baseline": round(float(t0_raw), 4),
             "treatment_shift": round(float(self._t_std), 4),
         }

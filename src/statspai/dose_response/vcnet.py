@@ -40,6 +40,7 @@ Effects of Continuous Treatments." *ICLR 2021*. [@nie2021quasi]
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Sequence
 
@@ -49,7 +50,7 @@ from scipy.interpolate import BSpline
 
 from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
 
 
 @dataclass
@@ -113,9 +114,24 @@ class VCNetResult(ResultProtocolMixin):
         return f"VCNetResult(n={self.n_obs}, grid_size={len(self.t_grid)})"
 
 
-def _bspline_basis(t: np.ndarray, n_basis: int = 6, degree: int = 3) -> np.ndarray:
-    """B-spline basis matrix evaluated at t (shape: len(t) x n_basis)."""
-    t_min, t_max = float(np.min(t)), float(np.max(t))
+def _bspline_basis(
+    t: np.ndarray,
+    n_basis: int = 6,
+    degree: int = 3,
+    t_range: Optional[tuple] = None,
+) -> np.ndarray:
+    """B-spline basis matrix evaluated at t (shape: len(t) x n_basis).
+
+    ``t_range`` fixes the support the knots are laid on. The coefficients
+    are fitted on the basis of the observed treatments, so any other set
+    of points must be evaluated on that same basis: pass the observed
+    range. Without it the knots follow ``t`` itself, which is only right
+    for the fitting sample. Points outside the support get a row of zeros.
+    """
+    if t_range is None:
+        t_min, t_max = float(np.min(t)), float(np.max(t))
+    else:
+        t_min, t_max = float(t_range[0]), float(t_range[1])
     if t_min >= t_max:
         t_max = t_min + 1.0
     # interior knots
@@ -361,6 +377,41 @@ def vcnet(
     >>> res.t_grid.shape, res.mu_hat.shape  # doctest: +SKIP
     ((20,), (20,))
     """
+    return _vcnet_core(
+        data,
+        y=y,
+        treatment=treatment,
+        covariates=covariates,
+        t_grid=t_grid,
+        n_basis=n_basis,
+        spline_degree=spline_degree,
+        ridge=ridge,
+        n_bootstrap=n_bootstrap,
+        alpha=alpha,
+        random_state=random_state,
+    )
+
+
+def _vcnet_core(
+    data: pd.DataFrame,
+    y: str,
+    treatment: str,
+    covariates: Sequence[str],
+    t_grid: Optional[Sequence[float]] = None,
+    n_basis: int = 6,
+    spline_degree: int = 3,
+    ridge: float = 1e-2,
+    n_bootstrap: int = 200,
+    alpha: float = 0.05,
+    random_state: int = 42,
+    sample_weight: Optional[np.ndarray] = None,
+) -> VCNetResult:
+    """Varying-coefficient fit behind :func:`vcnet` and :func:`scigan`.
+
+    ``sample_weight`` (aligned to the complete rows of ``data``) enters the
+    ridge normal equations and the covariate average the curve is
+    evaluated at.
+    """
     n_basis, spline_degree, ridge, n_bootstrap, alpha = _validate_vcnet_controls(
         n_basis=n_basis,
         spline_degree=spline_degree,
@@ -376,47 +427,93 @@ def vcnet(
     t_grid_arr = _prepare_t_grid(t_grid, T)
 
     # Full design: [phi(t) tensor (1, X)], i.e. n x (B * (p+1))
-    B = _bspline_basis(T, n_basis=n_basis, degree=spline_degree)
+    t_range = (float(T.min()), float(T.max()))
+    B = _bspline_basis(T, n_basis=n_basis, degree=spline_degree, t_range=t_range)
     X_aug = np.column_stack([np.ones(n), X])  # n x (p+1)
     # outer per-row: shape n x (n_basis * (p+1))
     design = np.einsum("nb,np->nbp", B, X_aug).reshape(n, -1)
 
-    def fit(design: np.ndarray, Y: np.ndarray) -> np.ndarray:
-        G = design.T @ design + ridge * np.eye(design.shape[1])
-        rhs = design.T @ Y
+    w_all = (
+        np.ones(n)
+        if sample_weight is None
+        else np.asarray(sample_weight, dtype=float) * n / float(np.sum(sample_weight))
+    )
+
+    def fit(design: np.ndarray, Y: np.ndarray, w: np.ndarray) -> np.ndarray:
+        dw = design * w[:, None]
+        G = dw.T @ design + ridge * np.eye(design.shape[1])
+        rhs = dw.T @ Y
         return np.asarray(np.linalg.solve(G, rhs), dtype=float)
 
-    beta = fit(design, Y)
+    beta = fit(design, Y, w_all)
     coef_matrix = beta.reshape(n_basis, X_aug.shape[1])
 
-    # Predict curve on grid
-    B_grid = _bspline_basis(t_grid_arr, n_basis=n_basis, degree=spline_degree)
+    # Predict curve on the grid, on the basis the coefficients were fitted
+    # on. Laying the knots on the grid's own range instead stretches the
+    # curve: the first grid point would return the value at the smallest
+    # observed dose and the last the value at the largest.
+    B_grid = _bspline_basis(
+        t_grid_arr, n_basis=n_basis, degree=spline_degree, t_range=t_range
+    )
+    outside = (t_grid_arr < t_range[0]) | (t_grid_arr > t_range[1])
+    if outside.any():
+        warnings.warn(
+            f"vcnet(): {int(outside.sum())} of {len(t_grid_arr)} grid points "
+            f"lie outside the observed dose range [{t_range[0]:.4g}, "
+            f"{t_range[1]:.4g}]. The curve is not extrapolated; those "
+            "points report NaN.",
+            AssumptionWarning,
+            stacklevel=3,
+        )
 
-    def predict_curve(coef: np.ndarray) -> np.ndarray:
+    def predict_curve(
+        coef: np.ndarray, rows: Optional[np.ndarray] = None
+    ) -> np.ndarray:
         # For each t, mu(t) = mean_i sum_b phi_b(t) * (x_i dot coef[b])
-        # = sum_b phi_b(t) * (mean(x) dot coef[b])
-        x_mean = X_aug.mean(axis=0)
+        # = sum_b phi_b(t) * (mean(x) dot coef[b]). The average over x is
+        # part of the estimate, so a bootstrap draw averages over its own
+        # rows: holding it at the full-sample mean leaves that term out
+        # of the standard error.
+        if rows is None:
+            x_mean = np.average(X_aug, axis=0, weights=w_all)
+        else:
+            x_mean = np.average(X_aug[rows], axis=0, weights=w_all[rows])
         mu_per_basis = coef @ x_mean  # shape (n_basis,)
-        return np.asarray(B_grid @ mu_per_basis, dtype=float)
+        curve = np.asarray(B_grid @ mu_per_basis, dtype=float)
+        curve[outside] = np.nan
+        return curve
 
     mu_hat = predict_curve(coef_matrix)
 
     # Bootstrap for SE
     rng = np.random.default_rng(random_state)
     boot_curves = np.zeros((n_bootstrap, len(t_grid_arr)))
+    n_boot_failed = 0
     for b in range(n_bootstrap):
         idx = rng.integers(0, n, size=n)
         d_boot = design[idx]
         y_boot = Y[idx]
         try:
-            beta_b = fit(d_boot, y_boot)
-            boot_curves[b] = predict_curve(beta_b.reshape(n_basis, X_aug.shape[1]))
-        except np.linalg.LinAlgError:
-            boot_curves[b] = mu_hat
+            beta_b = fit(d_boot, y_boot, w_all[idx])
+            boot_curves[b] = predict_curve(beta_b.reshape(n_basis, X_aug.shape[1]), idx)
+        except (np.linalg.LinAlgError, ZeroDivisionError):
+            boot_curves[b] = np.nan
+            n_boot_failed += 1
 
-    se = boot_curves.std(axis=0, ddof=1)
-    q_lo = np.quantile(boot_curves, alpha / 2, axis=0)
-    q_hi = np.quantile(boot_curves, 1 - alpha / 2, axis=0)
+    if n_boot_failed:
+        warnings.warn(
+            f"vcnet(): {n_boot_failed} of {n_bootstrap} bootstrap fits failed; "
+            "the standard errors use the remaining draws.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+
+    with warnings.catch_warnings():
+        # Grid points outside the observed range are NaN in every draw.
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        se = np.nanstd(boot_curves, axis=0, ddof=1)
+        q_lo = np.nanquantile(boot_curves, alpha / 2, axis=0)
+        q_hi = np.nanquantile(boot_curves, 1 - alpha / 2, axis=0)
 
     _result = VCNetResult(
         t_grid=t_grid_arr,
@@ -478,7 +575,9 @@ def scigan(
     propensity-weighted VCNet fit that captures the essential
     "balancing" behaviour of SCIGAN: residual imbalance along the
     treatment axis is re-weighted using a user-provided ``propensity_weights``
-    (``g(T | X)^{-1}``). For the full SCIGAN training loop, plug in
+    (``g(T | X)^{-1}``), which enter the fit as observation weights. With
+    unit weights the result is :func:`vcnet`'s. For the full SCIGAN
+    training loop, plug in
     your own GAN-generated counterfactual samples and pass the
     re-weighting through ``propensity_weights``.
 
@@ -526,19 +625,15 @@ def scigan(
                 "scigan(): propensity_weights have zero total mass.",
                 recovery_hint="Pass at least one positive balancing weight.",
             )
-        df = df.assign(_w=w)
-        # Expand (sample with replacement by weight); simplest proxy.
-        rng = np.random.default_rng(kwargs.get("random_state", 42))
-        probs = np.clip(w, 1e-6, None)
-        probs /= probs.sum()
-        idx = rng.choice(len(df), size=len(df), replace=True, p=probs)
-        df = df.iloc[idx].reset_index(drop=True)
-    return vcnet(
+    else:
+        w = None
+    return _vcnet_core(
         df,
         y=y,
         treatment=treatment,
         covariates=X_cols,
         t_grid=t_grid,
+        sample_weight=w,
         **kwargs,
     )
 

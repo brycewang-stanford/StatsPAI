@@ -6,15 +6,28 @@ Extends conformal ITE to multi-stage / sequential decision settings
 stage k+1 depends on history through stage k. Uses a Bonferroni
 adjustment across stages (or sequential calibration) to maintain
 joint coverage.
+
+The interval at a stage is for the individual effect ``Y(1) - Y(0)``, so
+its half-width is the sum of two split-conformal quantiles, one per arm,
+each at level ``1 - alpha_k / 2``: the effect lies inside whenever both
+potential outcomes lie inside their own intervals, whatever the
+dependence between them. A half-width taken from a single outcome's
+residuals covers one potential outcome, not their difference.
+
+The calibration is unweighted, which is valid when treatment at each
+stage is randomised given the history. Under confounding the arm-specific
+quantiles would need covariate-shift weights.
 """
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import List, Optional
 
 import numpy as np
 import pandas as pd
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -71,6 +84,31 @@ class MultiDPConformalResult(ResultProtocolMixin):
             f"{(self.cumulative_interval[:, 1] - self.cumulative_interval[:, 0]).mean():.4f}",
         ]
         return "\n".join(rows)
+
+
+def _conformal_quantile(resid: np.ndarray, level: float, label: str) -> float:
+    """Split-conformal quantile ``ceil((n + 1)(1 - level))``-th residual.
+
+    With too few calibration points the finite-sample quantile does not
+    exist. The largest residual is used and the shortfall is reported.
+    """
+    n = len(resid)
+    if n == 0:
+        raise ValueError(
+            f"conformal_ite_multidp: no calibration observations at {label}."
+        )
+    rank = int(np.ceil((n + 1) * (1 - level)))
+    if rank > n:
+        warnings.warn(
+            f"conformal_ite_multidp: {n} calibration residuals at {label} "
+            f"cannot support level {1 - level:.4f} (needs "
+            f"{int(np.ceil(1 / level)) - 1}); using the largest residual, "
+            "so the interval is narrower than the nominal guarantee.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        rank = n
+    return float(np.sort(resid)[rank - 1])
 
 
 def conformal_ite_multidp(
@@ -166,18 +204,14 @@ def conformal_ite_multidp(
         cal = perm[n // 2 :]
         m1 = LinearRegression().fit(X[train][D[train] == 1], Y[train][D[train] == 1])
         m0 = LinearRegression().fit(X[train][D[train] == 0], Y[train][D[train] == 0])
-        # Calibration residuals
-        resid = np.concatenate(
-            [
-                np.abs(Y[cal][D[cal] == 1] - m1.predict(X[cal][D[cal] == 1])),
-                np.abs(Y[cal][D[cal] == 0] - m0.predict(X[cal][D[cal] == 0])),
-            ]
-        )
-        if len(resid) < 5:
-            q = float(np.std(resid)) if len(resid) else 1.0
-        else:
-            idx = min(int(np.ceil((len(resid) + 1) * (1 - alpha_k))), len(resid)) - 1
-            q = float(np.sort(resid)[idx])
+        # Calibration residuals, one quantile per arm at 1 - alpha_k / 2:
+        # the union bound over the two potential outcomes gives the
+        # effect its 1 - alpha_k.
+        q = 0.0
+        for arm, model in ((1, m1), (0, m0)):
+            in_arm = D[cal] == arm
+            resid = np.abs(Y[cal][in_arm] - model.predict(X[cal][in_arm]))
+            q += _conformal_quantile(resid, alpha_k / 2.0, f"stage {k + 1}, arm {arm}")
         ite_k = m1.predict(Xt) - m0.predict(Xt)
         interval_k = np.column_stack([ite_k - q, ite_k + q])
         intervals_per_stage.append(interval_k)

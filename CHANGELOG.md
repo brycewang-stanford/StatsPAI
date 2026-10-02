@@ -6,6 +6,68 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.vcnet` and `sp.scigan` stretched the dose-response curve on a
+  user-supplied grid.** The spline basis for the evaluation grid was
+  built on the grid's own range, not on the range of the observed doses
+  the coefficients were fitted on. The first grid point therefore
+  returned the curve at the smallest observed dose and the last at the
+  largest: with doses on `[0, 1]` and `t_grid=[0.2, 0.5, 0.8]` the result
+  was 1.01 and 1.99 at the ends, the truth at 0 and 1, where the truth at
+  0.2 and 0.8 is 1.36 and 1.96. The default grid, which spans the observed
+  range, was not affected. The grid is now evaluated on the fitted basis
+  (1.354, 1.752, 1.963 over 60 seeds). Grid points outside the observed
+  range report NaN with a warning instead of a silent zero basis row.
+- **`sp.vcnet` standard errors left out the average over covariates.**
+  The bootstrap refitted the coefficients and evaluated them at the
+  full-sample covariate mean. Each draw now averages over its own rows:
+  at mid-range the SE goes from 0.012 to 0.016 against an across-seed SD
+  of 0.016, and coverage from 78% to 93%. Failed bootstrap fits are
+  counted and reported instead of being filled with the point estimate.
+- **`sp.scigan` applied `propensity_weights` by drawing a weighted
+  resample of the rows.** Unit weights therefore returned a noisier
+  `sp.vcnet`, different for each `random_state`. The weights now enter the
+  ridge fit directly: unit weights reproduce `sp.vcnet` exactly, and
+  integer weights equal row duplication to 1e-13.
+- **`sp.deepiv`'s default loss was attenuated toward zero.** The default
+  `n_gradient_samples=0` minimised the mean over first-stage draws of
+  `(y - h(t, x))^2`, an upper bound on the DeepIV loss whose solution is
+  the regression of `y` on a draw from the first stage. With a linear
+  response that converges to the true slope times the share of treatment
+  variance the instruments explain. On `y = d + 0.5 x + u` with a share
+  of 0.56 it returned 0.50 to 0.71 per unit of `d`, with a reported SE of
+  0.003, and raising `n_samples` changed nothing. The default is now
+  `n_gradient_samples=1`, the unbiased paired-sample loss of the original
+  paper: 0.90 to 1.14 over eight seeds, mean 1.04. `n_gradient_samples=0`
+  reproduces the old numbers and warns. The reported `se` holds both
+  networks fixed and is now flagged with
+  `model_info['se_valid_for_ate'] = False`.
+- **`sp.conformal_ite_multidp` intervals covered a potential outcome,
+  not the individual effect.** The half-width at a stage was one quantile
+  of the pooled single-outcome residuals. An individual effect is a
+  difference of two potential outcomes, and with independent noise the
+  stage intervals covered 83% where the Bonferroni split promises 95%.
+  The half-width is now the sum of two arm-specific split-conformal
+  quantiles, each at `1 - alpha_k / 2`, which holds for any dependence
+  between the potential outcomes (99.8% with independent noise, about
+  97.5% in the worst case). Intervals are wider by roughly a factor of
+  2.3. A calibration set too small for the requested level now warns
+  instead of silently using the largest residual, and an empty arm
+  raises.
+- **`sp.dgp_rd(fuzzy=True)` did not generate a fuzzy RD.** Treatment was
+  drawn from a logistic curve that is smooth through the cutoff, so there
+  was no jump in the probability of treatment and nothing for a fuzzy
+  estimator to identify: over 60 seeds `sp.rdrobust(fuzzy=)` had a median
+  of 0.34 for a declared 0.3 and no finite mean. The probability now jumps
+  by 0.6 at the cutoff (recorded in `attrs['first_stage_jump']`) and the
+  same estimator averages 0.301. `cutoff=` now centres the running
+  variable (it used to stay on `(-1, 1)`, so `cutoff=5` produced no
+  treated units) and `bandwidth_relevant=`, which was ignored, sets its
+  spread. The default sharp design is unchanged draw for draw.
+- **`sp.dgp_rdit` declared an effect of 2.0 and generated 2.86.** The
+  AR(1) recursion ran on the outcome, so the level shift fed back into
+  itself and settled at `effect / (1 - 0.3)`. The recursion now runs on
+  the errors only and the shift is `effect` at every horizon. Data from
+  this simulator change for every seed.
 - **`sp.kernel_iv` returned a function that was not the structural
   function.** On `y = sin(d) + u` with `d` correlated with `u`, the
   estimate sat 0.25 (RMSE over the grid) from `sin(d)`, about where the

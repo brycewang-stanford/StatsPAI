@@ -39,7 +39,7 @@ def test_parity_status_bit_exact_function():
 def test_parity_status_unverified_is_honest():
     # A registered function with no parity evidence returns an explicit,
     # non-raising unverified record (the honest gap, not a crash).
-    rec = sp.parity_status("scigan")
+    rec = sp.parity_status("bayes_mte")
     assert rec["status"] == "unverified"
     assert rec["notes"]
 

@@ -27806,7 +27806,7 @@
     "name": "scest"
   },
   {
-    "description": "Adversarial dose-response estimator (Bica et al. 2020). Assumptions: Unconfoundedness given covariates X for the continuous treatment; Positivity over the dose support; The adversarial generator recovers the counterfactual dose distribution (Bica et al. 2020). Pre-conditions: data with a continuous treatment (dose), outcome and covariates; torch is installed (neural extra) -- imported lazily. Failure modes: Unstable adversarial training -- dose-response estimates vary across seeds -> Average across seeds or use the smoother varying-coefficient estimator. Alternatives: sp.vcnet, sp.dose_response. Typical minimum N: 500.",
+    "description": "Adversarial dose-response estimator (Bica et al. 2020). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given covariates X for the continuous treatment; Positivity over the dose support; The adversarial generator recovers the counterfactual dose distribution (Bica et al. 2020). Pre-conditions: data with a continuous treatment (dose), outcome and covariates; torch is installed (neural extra) -- imported lazily. Failure modes: Unstable adversarial training -- dose-response estimates vary across seeds -> Average across seeds or use the smoother varying-coefficient estimator. Alternatives: sp.vcnet, sp.dose_response. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -32406,7 +32406,7 @@
     "name": "variable_importance"
   },
   {
-    "description": "Varying-coefficient dose-response estimator. Assumptions: Unconfoundedness given covariates X (no hidden confounding of the continuous treatment); Positivity over the dose: every dose has support across X; The dose-response curve is smooth (varying-coefficient prior). Pre-conditions: data with a continuous treatment (dose), outcome and covariates; torch is installed (neural extra) -- imported lazily. Failure modes: Sparse support at extreme doses yields an unreliable dose-response curve there -> Restrict the reported dose range to the supported region or compare against scigan. Alternatives: sp.scigan, sp.dose_response. Typical minimum N: 500.",
+    "description": "Varying-coefficient dose-response estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given covariates X (no hidden confounding of the continuous treatment); Positivity over the dose: every dose has support across X; The dose-response curve is smooth (varying-coefficient prior). Pre-conditions: data with a continuous treatment (dose), outcome and covariates; torch is installed (neural extra) -- imported lazily. Failure modes: Sparse support at extreme doses yields an unreliable dose-response curve there -> Restrict the reported dose range to the supported region or compare against scigan. Alternatives: sp.scigan, sp.dose_response. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {

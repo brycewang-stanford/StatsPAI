@@ -467,7 +467,7 @@
     "src/statspai/dtr/__init__.py": "a5730f094c38b6c4bde2ef425cf9970aba5ab602e23970e8cf5fe07aaeead48c",
     "src/statspai/dtr/a_learning.py": "da657c37ad2a83aad3a4a87cfa060c78277475a1ae7fb64ac041c513c01651e7",
     "src/statspai/dtr/g_estimation.py": "be8e3cc0f660ebb03d643aadec12a054fca6e2385ace4dd8d380f3335e365045",
-    "src/statspai/dtr/q_learning.py": "0890271ba643855de27d51cd24c1bd8045546c25b4bf878301952a6f1fed176e",
+    "src/statspai/dtr/q_learning.py": "546df0e6751f138eb95a90f4a4a2f5c8159608d3d28d210d5876a3f52535e9e5",
     "src/statspai/dtr/snmm.py": "273e2f65883d241a9aa0eadf4632e569331f1749ee9e6e228c2395f316ffd1f4",
     "src/statspai/plots/__init__.py": "ff2da7ad7e31cf5248d0a1b7ee5284d2256608c9001fd105dbd4de0547b3d656"
    },
