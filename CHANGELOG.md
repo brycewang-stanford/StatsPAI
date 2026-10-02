@@ -573,6 +573,19 @@ changes its numbers.
   `sp.sun_abraham` advertised `control_group='notyettreated'` (it takes
   `'lastcohort'`), `sp.aipw` advertised `estimand='ATC'`: none is
   accepted. `sp.feols` and `sp.match` named the wrong result class.
+- **Agent cards carried statements of their family that are false of the
+  variant.** Binary `sp.logit` / `sp.probit` listed the multinomial
+  model's IIA and the ordered models' proportional odds among their
+  assumptions. `sp.callaway_santanna`, `sp.sun_abraham`,
+  `sp.did_imputation` and `sp.etwfe` advised "use CS or SA" and carried
+  the failure mode "staggered timing with TWFE". `sp.rdrobust` described
+  the sharp design only and called the continuity framework local
+  randomization; it now states the fuzzy, kink and clustered conditions.
+  Point-treatment `sp.ipw` was described in the longitudinal g-methods'
+  terms. `sp.dml` promised a "√n CATE". Fourteen cards corrected through
+  a per-variant override table (`statspai._family_cards.VARIANT_OVERRIDES`)
+  after reading the thirty audited cards; the rest of the registry has
+  not been read this way.
 - **`sp.match(method='llr')` raised `ZeroDivisionError` at the default
   bandwidth.** In a bootstrap replicate whose local linear weights sum to
   zero for some treated unit, the matched-outcome bookkeeping divided by

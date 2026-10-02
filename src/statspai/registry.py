@@ -489,6 +489,14 @@ class FunctionSpec:
                 cost_profile,
             ) = merged
 
+        # Statements a family card or a parent makes that are not true of
+        # this variant are removed, and the variant's own are added.
+        from ._family_cards import apply_variant_overrides
+
+        assumptions, failure_modes = apply_variant_overrides(
+            self.name, assumptions, failure_modes
+        )
+
         signature = self.to_openai_schema()
 
         return {
@@ -2546,7 +2554,7 @@ def _build_registry() -> None:
             assumptions=[
                 "Unconfoundedness: Y(d) ⊥ D | X (conditional ignorability)",
                 "Overlap: 0 < P(D=1 | X) < 1 for the estimand support (strong for IRM)",
-                "Nuisance-function estimators converge at op(n^{-1/4}) — fast enough that orthogonal moments give √n CATE",
+                "Nuisance-function estimators converge at op(n^{-1/4}) — fast enough that the orthogonal moment gives a √n-consistent, asymptotically normal estimate of the target parameter",
                 "For IV variants (PLIV/IIVM): relevance + exclusion + monotonicity",
             ],
             failure_modes=[
@@ -23739,6 +23747,16 @@ def describe_function(name: str) -> Dict[str, Any]:
             out["inheritance"] = "family (derived from the name)"
         else:
             out["inheritance"] = "declared"
+    else:
+        # No parent, but a family card may still have seeded statements
+        # that are not true of this variant.
+        from ._family_cards import apply_variant_overrides
+
+        out["assumptions"], out["failure_modes"] = apply_variant_overrides(
+            name,
+            list(out.get("assumptions") or []),
+            list(out.get("failure_modes") or []),
+        )
     out["auto_generated"] = bool(getattr(spec, "_auto", False))
     out["evidence"] = evidence_record(name)
     # What the call returns, as data: ``{"class", "fields", ...}`` (the

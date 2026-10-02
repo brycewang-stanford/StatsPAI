@@ -135,12 +135,16 @@
     },
     {
       "id": "A1",
-      "title": "card 文字内容的人工审查（同一家族内各变体的识别条件是否写对，例如 sharp / fuzzy / cluster RD）",
-      "status": "not_done",
-      "where": [],
-      "tests": [],
-      "note": "自动核对能判断“枚举值能不能用”“返回类型对不对”，判断不了一句假设陈述对某个变体是否成立。这需要懂方法的人逐条读。",
-      "next": "按 `docs/dev/agent_card_audit.md` 的 30 行逐个读 `assumptions` / `failure_modes`"
+      "title": "前 30 个入口的 card 文字通读：家族陈述继承到不适用变体上的问题",
+      "status": "done",
+      "where": [
+        "src/statspai/_family_cards.py"
+      ],
+      "tests": [
+        "tests/test_agent_card_audit.py"
+      ],
+      "note": "通读 30 个 card 的 `assumptions` 与 `failure_modes`，修正 14 个：二元 `logit` / `probit` / `cloglog` 不再列多项模型的 IIA 和有序模型的比例优势；`callaway_santanna` / `sun_abraham` / `did_imputation` / `etwfe` 不再被建议“改用 CS 或 SA”，也不再带 TWFE 的失败模式；`rdrobust` 补上 fuzzy、kink、聚类的条件，并去掉把连续性框架说成 local randomization 的一句；点处理的 `ipw` 不再套用纵向 g 方法的表述；`dml` 的“√n CATE”改为目标参数。这是我读的一遍，不是领域专家的评审。",
+      "next": ""
     },
     {
       "id": "A1",
@@ -148,7 +152,7 @@
       "status": "not_done",
       "where": [],
       "tests": [],
-      "note": "审查脚本需要每个函数一份手写的小数据调用，目前只有 30 份。",
+      "note": "审查脚本需要每个函数一份手写的小数据调用，目前只有 30 份；文字通读也只读了这 30 个加上同家族的 `mlogit` / `ologit` / `oprobit`。家族卡片共有几十个，其余成员上很可能还有同类问题。",
       "next": "按使用频率每次加 10 个"
     },
     {
@@ -401,15 +405,6 @@
       "next": ""
     },
     {
-      "id": "R4",
-      "title": "R 迁移的概念映射表",
-      "status": "not_done",
-      "where": [],
-      "tests": [],
-      "note": "审查说可以先做映射表而不是 parser；没有做。",
-      "next": ""
-    },
-    {
       "id": "R5",
       "title": "把已有的覆盖率、压力设计、size / power 结果接进 evidence 视图，失败的重复计入分母，附 Monte Carlo SE",
       "status": "done",
@@ -458,7 +453,8 @@
     }
   ],
   "verified_no_change": [
-    "**M3 的 sampling 死锁。** 审查已说明这是旧问题，reader thread 与真实 subprocess 的 sampling 测试都在，本轮未动。"
+    "**M3 的 sampling 死锁。** 审查已说明这是旧问题，reader thread 与真实 subprocess 的 sampling 测试都在，本轮未动。",
+    "**R4 的 R 迁移概念映射表。** `docs/guides/migration-from-r.md` 已经是一份按包分节的 R → StatsPAI 映射（215 行）；其中出现的 82 个 `sp.*` 名字全部能解析。没有对每一行的参数写法逐条执行验证。"
   ],
   "findings": [
     "**macOS 上 fork 不安全。** 同一 pytest 进程里先跑过一次估计、再用 `subprocess.Popen` 默认方式启动 MCP 子进程，子进程会在 `exec` 之前段错误（返回码 -11）。原有的 `tests/test_mcp_stdio_subprocess.py` 也受影响，只是此前排在它前面的测试恰好没触发。两个子进程测试文件现在都走 `posix_spawn`（`close_fds=False`）。包内其他在估计之后起子进程的路径（R / Stata 后端）没有排查。",

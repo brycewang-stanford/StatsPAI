@@ -4,7 +4,7 @@
 
 对应 `docs/dev/2026-10-02-repository-agent-parity-review.md`。审查基线是 d1025b29 (1.34.2)，工作基于 e4fdfddc (1.35.0)。
 
-共 37 项：已完成 **26**，部分完成 **2**，未做 **9**。“已完成”的每一项都列出守着它的测试；“部分完成”和“未做”写明缺什么、为什么、下一步。
+共 36 项：已完成 **27**，部分完成 **2**，未做 **7**。“已完成”的每一项都列出守着它的测试；“部分完成”和“未做”写明缺什么、为什么、下一步。
 
 ## 已完成
 
@@ -18,6 +18,7 @@
 | M4 | 一条完整分析链跑在真实 stdio 子进程上 | — | `tests/test_mcp_stdio_chain.py` |  |
 | M4 | 客户端能力矩阵：三个协议版本、未知版本、只读 text、无 sampling、发 cursor、重启后旧句柄、跳过 initialize、未知方法 | — | `tests/test_mcp_client_matrix.py` | 只覆盖服务器声称支持的组合；没有 HTTP / OAuth。 |
 | A1 | 前 30 个高频入口的 card 用真实调用核对：必填参数、返回类型、每个枚举值、替代方法是否存在、字段来源（curated / inherited / 其它） | `scripts/agent_card_audit.py`<br>`docs/dev/agent_card_audit.md` | `tests/test_agent_card_audit.py` | 查出并修复 6 个缺陷，见“顺带发现”。 |
+| A1 | 前 30 个入口的 card 文字通读：家族陈述继承到不适用变体上的问题 | `src/statspai/_family_cards.py` | `tests/test_agent_card_audit.py` | 通读 30 个 card 的 `assumptions` 与 `failure_modes`，修正 14 个：二元 `logit` / `probit` / `cloglog` 不再列多项模型的 IIA 和有序模型的比例优势；`callaway_santanna` / `sun_abraham` / `did_imputation` / `etwfe` 不再被建议“改用 CS 或 SA”，也不再带 TWFE 的失败模式；`rdrobust` 补上 fuzzy、kink、聚类的条件，并去掉把连续性框架说成 local randomization 的一句；点处理的 `ipw` 不再套用纵向 g 方法的表述；`dml` 的“√n CATE”改为目标参数。这是我读的一遍，不是领域专家的评审。 |
 | A2 | 配置级证据进入标准结果与 MCP 输出；预算不得裁掉 evidence 块；自动注册的长尾工具也带 `result_card` | `src/statspai/result_card.py`<br>`src/statspai/agent/auto_dispatch.py` | `tests/test_mcp_stdio_chain.py`<br>`tests/agent_eval/test_red_line_scenarios.py` |  |
 | A3 | 诊断状态统一：`result_card.assumptions.checks` 给出 `passed` / `failed` / `not_run` / `not_applicable` | `src/statspai/result_card.py` | `tests/test_result_card_checks.py` |  |
 | A3 | `next_steps()` 统一返回对象列表（`CrossValidationResult` 是最后一个返回字符串的） | `src/statspai/crossval/_result.py`<br>`MIGRATION.md` | `tests/test_result_card_checks.py` |  |
@@ -48,19 +49,18 @@
 
 | ID | 事项 | 理由 | 下一步 |
 | --- | --- | --- | --- |
-| A1 | card 文字内容的人工审查（同一家族内各变体的识别条件是否写对，例如 sharp / fuzzy / cluster RD） | 自动核对能判断“枚举值能不能用”“返回类型对不对”，判断不了一句假设陈述对某个变体是否成立。这需要懂方法的人逐条读。 | 按 `docs/dev/agent_card_audit.md` 的 30 行逐个读 `assumptions` / `failure_modes` |
-| A1 | 30 个之外的入口 | 审查脚本需要每个函数一份手写的小数据调用，目前只有 30 份。 | 按使用频率每次加 10 个 |
+| A1 | 30 个之外的入口 | 审查脚本需要每个函数一份手写的小数据调用，目前只有 30 份；文字通读也只读了这 30 个加上同家族的 `mlogit` / `ologit` / `oprobit`。家族卡片共有几十个，其余成员上很可能还有同类问题。 | 按使用频率每次加 10 个 |
 | A3 | 把各估计器的默认种子统一成一个值 | 故意不做。259 个带种子的函数里默认值有 `None` 125、`42` 73、`0` 56 等；改默认值会改变已发表的带种子数字。审查本身也说不应机械统一。 | 若要改，逐个估计器走 ⚠️ correctness / MIGRATION 流程 |
 | S2 | 真实模型的行为评测（成功率、严重错误率、token、延迟） | 需要付费模型调用、预注册和你的授权；`tests/agent_bench` 的 900-trial 设计已经写明这三个前提。mock 结果只能验证 harness。 | 先批一个小规模 smoke 的预算和模型快照 |
 | R1 | 清单里空着的格子补参考（`etwfe` 的协变量 / `xvar` / 加权 / `agg_weights='unit'`，`event_study` 的其它窗口，`rdrobust` / `dml` / `psm` 的大部分网格） | 每一格都要在 R 或 Stata 里实跑一份新参考并登记容差，是逐格的 parity 工作。交错面板上的 TWFE 事件研究不该补。 | 按使用频率挑格子；每补一格重跑 `build_evidence_inventory.py` |
 | R1 | joint test 的参考证据（目前只有 `regress` 的 3 格） | 每一格都要在 R 或 Stata 里实跑一份新参考并登记容差；`test`、`lincom` 等后估计入口还没有 scope 映射。 | 先给 `sp.test` 的 Wald / F 建映射，再按估计器补 Stata `test` 的参考 |
 | R2 | 在 CI 里按 `renv.lock` 复现；重依赖 R 模块与 Stata 的定期自动重推导 | 需要自托管 runner（354 个 R 包，含仅 GitHub 发布的）和 Stata 许可。一个没法在 CI 上实测的 workflow job 我没有加：写了不跑等于没有，写了跑挂会挡住别人。 | 有 runner 之后加一个只在手动触发时运行的 job |
-| R4 | R 迁移的概念映射表 | 审查说可以先做映射表而不是 parser；没有做。 | — |
 | R5 | 新的仿真：少簇、不平衡面板、RD mass points、极端权重、学习器变化 | 需要预先定义设计和计算预算；审查也写明不应作为隐含任务执行。 | — |
 
 ## 已核实无需改动
 
 - **M3 的 sampling 死锁。** 审查已说明这是旧问题，reader thread 与真实 subprocess 的 sampling 测试都在，本轮未动。
+- **R4 的 R 迁移概念映射表。** `docs/guides/migration-from-r.md` 已经是一份按包分节的 R → StatsPAI 映射（215 行）；其中出现的 82 个 `sp.*` 名字全部能解析。没有对每一行的参数写法逐条执行验证。
 
 ## 做的过程中查出的问题
 

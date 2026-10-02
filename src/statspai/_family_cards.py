@@ -28,7 +28,7 @@ loudly here instead of silently dropping a card.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 Card = Dict[str, Any]
 
@@ -1327,4 +1327,133 @@ def family_members() -> Dict[str, List[str]]:
     return {k: list(v["members"]) for k, v in FAMILY_CARDS.items()}
 
 
-__all__ = ["FAMILY_CARDS", "expand_family_cards", "family_members"]
+# --------------------------------------------------------------------------- #
+#  Per-variant corrections to inherited statements
+# --------------------------------------------------------------------------- #
+#: A family card, or a parent reached through ``inherits_from``, is written
+#: for the family. Read on one member it can say something that is not true
+#: of that member: the binary logit card listed the multinomial model's IIA
+#: among its assumptions, and the Callaway-Sant'Anna card advised "use CS or
+#: SA". This table removes such statements from a variant's card and adds
+#: the ones the variant needs. ``drop`` entries are matched as prefixes of
+#: the statement (an assumption string, or a failure mode's symptom).
+#:
+#: Entries come from reading the cards of the 30 entry points audited by
+#: ``scripts/agent_card_audit.py`` (2026-10-03). The rest of the registry
+#: has not been read this way.
+_ORDERED = "Ordered models (ologit / oprobit)"
+_IIA = "Multinomial logit: independence of irrelevant alternatives"
+_USE_CS = "For staggered / heterogeneous effects: use CS or SA"
+_TWFE_STAGGERED = "Staggered treatment timing with TWFE method"
+
+VARIANT_OVERRIDES: Dict[str, Dict[str, Dict[str, List[str]]]] = {
+    "logit": {"drop": {"assumptions": [_ORDERED, _IIA]}},
+    "probit": {"drop": {"assumptions": [_ORDERED, _IIA]}},
+    "cloglog": {"drop": {"assumptions": [_ORDERED, _IIA]}},
+    "mlogit": {"drop": {"assumptions": [_ORDERED]}},
+    "ologit": {"drop": {"assumptions": [_IIA]}},
+    "oprobit": {"drop": {"assumptions": [_IIA]}},
+    "poisson": {"drop": {"assumptions": ["Zero-inflated and hurdle models"]}},
+    # These estimators ARE the remedy the parent `did` card recommends; on
+    # their own cards the advice and the TWFE failure mode do not apply.
+    "callaway_santanna": {
+        "drop": {
+            "assumptions": [_USE_CS, "SUTVA", "No anticipation: outcomes in pre"],
+            "failure_modes": [_TWFE_STAGGERED],
+        },
+        "add": {"assumptions": ["SUTVA: no spillovers between units"]},
+    },
+    "sun_abraham": {
+        "drop": {
+            "assumptions": [_USE_CS, "SUTVA", "No anticipation: outcomes in pre"],
+            "failure_modes": [_TWFE_STAGGERED],
+        },
+        "add": {"assumptions": ["SUTVA: no spillovers between units"]},
+    },
+    "did_imputation": {
+        "drop": {
+            "assumptions": [_USE_CS, "SUTVA", "No anticipation (no pre-treatment"],
+            "failure_modes": [_TWFE_STAGGERED],
+        },
+        "add": {"assumptions": ["SUTVA: no spillovers between units"]},
+    },
+    "etwfe": {
+        "drop": {"assumptions": [_USE_CS], "failure_modes": [_TWFE_STAGGERED]},
+    },
+    "gardner_did": {
+        "drop": {
+            "failure_modes": ["Two-way fixed-effects estimate is contaminated"],
+        },
+    },
+    # The card described the sharp design only, and called the continuity
+    # framework "local randomization".
+    "rdrobust": {
+        "drop": {"assumptions": ["Local randomization only in a neighborhood"]},
+        "add": {
+            "assumptions": [
+                "The estimand is local to c: the effect at the cutoff, not an "
+                "average over the support of x; extrapolation away from c is "
+                "not identified",
+                "fuzzy=: the probability of treatment jumps at c (first stage) "
+                "and no unit is pushed out of treatment by crossing it "
+                "(monotonicity); the estimand is the effect on compliers at c",
+                "deriv=1 (kink): the first derivative of the potential-outcome "
+                "regression is continuous at c, and the policy rule has a kink "
+                "there",
+                "cluster=: observations are independent across clusters; "
+                "bandwidths and the variance then follow the clustered formulas",
+            ],
+        },
+    },
+    # A point-treatment estimator filed under the longitudinal g-methods card.
+    "ipw": {
+        "drop": {
+            "assumptions": [
+                "Sequential exchangeability",
+                "Positivity: every treatment level is possible given the past",
+                "Correct specification of the treatment and/or outcome models",
+            ],
+        },
+        "add": {
+            "assumptions": [
+                "The propensity model is correctly specified: IPW has no "
+                "outcome model to fall back on (sp.aipw is doubly robust)",
+                "Unconfoundedness: no unmeasured confounding of the "
+                "point treatment given the covariates",
+                "Positivity / overlap: 0 < P(D=1 | X) < 1 on the estimand's " "support",
+            ],
+        },
+    },
+}
+
+
+def apply_variant_overrides(
+    name: str, assumptions: List[str], failure_modes: List[Dict[str, Any]]
+) -> Tuple[List[str], List[Dict[str, Any]]]:
+    """Drop and add statements for one variant; no-op without an entry."""
+    override = VARIANT_OVERRIDES.get(name)
+    if not override:
+        return assumptions, failure_modes
+    drop = override.get("drop", {})
+    add = override.get("add", {})
+    drop_a = tuple(drop.get("assumptions", ()))
+    kept = [a for a in assumptions if not (drop_a and str(a).startswith(drop_a))]
+    for text in add.get("assumptions", ()):
+        if text not in kept:
+            kept.append(text)
+    drop_f = tuple(drop.get("failure_modes", ()))
+    modes = [
+        fm
+        for fm in failure_modes
+        if not (drop_f and str(fm.get("symptom", "")).startswith(drop_f))
+    ]
+    return kept, modes
+
+
+__all__ = [
+    "FAMILY_CARDS",
+    "VARIANT_OVERRIDES",
+    "apply_variant_overrides",
+    "expand_family_cards",
+    "family_members",
+]

@@ -108,3 +108,80 @@ def test_every_precondition_carries_its_reason(report):
             for outcome in per_value.values():
                 if outcome["status"] == "precondition":
                     assert len(outcome["error"]) > 20
+
+
+# ---------------------------------------------------------------------------
+# What the cards say (read by hand on 2026-10-03; see VARIANT_OVERRIDES)
+# ---------------------------------------------------------------------------
+
+
+def _assumptions(name):
+    return " | ".join(sp.describe_function(name)["assumptions"])
+
+
+def _symptoms(name):
+    return " | ".join(f["symptom"] for f in sp.describe_function(name)["failure_modes"])
+
+
+def test_binary_models_do_not_list_ordered_or_multinomial_assumptions():
+    for name in ("logit", "probit"):
+        text = _assumptions(name)
+        assert "independence of irrelevant alternatives" not in text
+        assert "proportional odds" not in text
+        assert "link function" in text  # the family statement that does apply
+    # ...and the models those statements are about keep them.
+    assert "independence of irrelevant alternatives" in _assumptions("mlogit")
+    assert "proportional odds" in _assumptions("ologit")
+    assert "proportional odds" not in _assumptions("mlogit")
+    assert "independence of irrelevant alternatives" not in _assumptions("ologit")
+
+
+def test_robust_did_estimators_are_not_told_to_use_themselves():
+    for name in ("callaway_santanna", "sun_abraham", "did_imputation", "etwfe"):
+        assert "use CS or SA" not in _assumptions(name), name
+        assert "TWFE method" not in _symptoms(name), name
+        assert "Parallel trends" in _assumptions(name)
+        assert _assumptions(name).count("SUTVA") == 1, name
+    # The advice stays where it belongs: on the dispatcher that can run TWFE.
+    assert "use CS or SA" in _assumptions("did")
+    assert "TWFE method" in _symptoms("did")
+
+
+def test_rdrobust_card_covers_the_fuzzy_and_kink_designs():
+    text = _assumptions("rdrobust")
+    assert "Continuity of potential outcomes" in text
+    assert "fuzzy=" in text and "monotonicity" in text and "compliers" in text
+    assert "deriv=1 (kink)" in text
+    # Continuity-based local polynomials, not the local-randomization framework.
+    assert "Local randomization only" not in text
+
+
+def test_point_treatment_ipw_is_not_described_as_a_longitudinal_method():
+    text = _assumptions("ipw")
+    assert "Sequential exchangeability" not in text and "given the past" not in text
+    assert "point treatment" in text and "propensity model" in text
+
+
+def test_dml_card_names_the_parameter_it_estimates():
+    text = _assumptions("dml")
+    assert "√n CATE" not in text
+    assert "√n-consistent" in text
+
+
+def test_overrides_only_name_real_functions_and_real_statements():
+    """An override that matches nothing is a typo or a stale entry."""
+    from statspai._family_cards import VARIANT_OVERRIDES
+    from statspai.registry import _REGISTRY
+
+    for name, override in VARIANT_OVERRIDES.items():
+        assert name in _REGISTRY, name
+        raw = _REGISTRY[name].agent_card()  # after overrides
+        for field, texts in override.get("add", {}).items():
+            for text in texts:
+                assert text in raw[field], (name, text[:40])
+        for field, prefixes in override.get("drop", {}).items():
+            values = [v["symptom"] if isinstance(v, dict) else v for v in raw[field]]
+            added = override.get("add", {}).get(field, [])
+            for prefix in prefixes:
+                left = [v for v in values if v.startswith(prefix) and v not in added]
+                assert not left, (name, prefix)

@@ -1845,11 +1845,8 @@
       "Parallel trends conditional on X (if covariates supplied)",
       "No anticipation (or adjust via anticipation= parameter)",
       "Overlap: positive propensity for each cohort",
-      "SUTVA",
       "Parallel trends: treated and control groups would have followed the same trajectory absent treatment",
-      "No anticipation: outcomes in pre-treatment periods are unaffected by future treatment",
-      "SUTVA: no spillovers between units",
-      "For staggered / heterogeneous effects: use CS or SA -- TWFE can produce negative weights (Goodman-Bacon)"
+      "SUTVA: no spillovers between units"
     ],
     "category": "causal",
     "cost_profile": "Runtime scales with (number of cohorts x number of periods): one doubly-robust 2x2 estimate plus an influence function per (g,t) cell. Memory is O(n) -- the hazard is wall-clock on many-cohort panels, not RAM.",
@@ -1902,12 +1899,6 @@
         "exception": "AssumptionViolation",
         "remedy": "Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna.",
         "symptom": "Pre-trend joint test p < 0.05 (or underpowered at 0.10)"
-      },
-      {
-        "alternative": "sp.callaway_santanna",
-        "exception": "AssumptionWarning",
-        "remedy": "TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation.",
-        "symptom": "Staggered treatment timing with TWFE method"
       },
       {
         "alternative": "sp.sensitivity_rr",
@@ -2197,8 +2188,11 @@
     "assumptions": [
       "Continuity of potential outcomes in x at c (Hahn, Todd, van der Klaauw 2001)",
       "No manipulation of x at c (McCrary density test)",
-      "Local randomization only in a neighborhood of c -- extrapolation away from c is not identified",
-      "Covariate balance at c (optional but recommended)"
+      "Covariate balance at c (optional but recommended)",
+      "The estimand is local to c: the effect at the cutoff, not an average over the support of x; extrapolation away from c is not identified",
+      "fuzzy=: the probability of treatment jumps at c (first stage) and no unit is pushed out of treatment by crossing it (monotonicity); the estimand is the effect on compliers at c",
+      "deriv=1 (kink): the first derivative of the potential-outcome regression is continuous at c, and the policy rule has a kink there",
+      "cluster=: observations are independent across clusters; bandwidths and the variance then follow the clustered formulas"
     ],
     "category": "causal",
     "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
@@ -2270,7 +2264,7 @@
     ],
     "provenance": {
       "alternatives": "curated",
-      "assumptions": "curated",
+      "assumptions": "curated+family",
       "cost_profile": "curated",
       "example": "curated",
       "failure_modes": "curated",
@@ -3066,7 +3060,7 @@
     "assumptions": [
       "Unconfoundedness: Y(d) perp D | X (conditional ignorability)",
       "Overlap: 0 < P(D=1 | X) < 1 for the estimand support (strong for IRM)",
-      "Nuisance-function estimators converge at op(n^{-1/4}) -- fast enough that orthogonal moments give sqrtn CATE",
+      "Nuisance-function estimators converge at op(n^{-1/4}) -- fast enough that the orthogonal moment gives a sqrtn-consistent, asymptotically normal estimate of the target parameter",
       "For IV variants (PLIV/IIVM): relevance + exclusion + monotonicity"
     ],
     "category": "causal",
@@ -10427,9 +10421,9 @@
       "g_computation"
     ],
     "assumptions": [
-      "Sequential exchangeability / no unmeasured confounding at each time point.",
-      "Positivity: every treatment level is possible given the past.",
-      "Correct specification of the treatment and/or outcome models."
+      "The propensity model is correctly specified: IPW has no outcome model to fall back on (sp.aipw is doubly robust)",
+      "Unconfoundedness: no unmeasured confounding of the point treatment given the covariates",
+      "Positivity / overlap: 0 < P(D=1 | X) < 1 on the estimand's support"
     ],
     "category": "causal",
     "cost_profile": "",
@@ -24451,12 +24445,6 @@
         "exception": "statspai.AssumptionViolation",
         "remedy": "Use honest DiD bounds to quantify robustness to trend violations, or condition on covariates.",
         "symptom": "Pre-treatment event-study coefficients are jointly non-zero (pre-trend violation)"
-      },
-      {
-        "alternative": "sp.callaway_santanna",
-        "exception": "statspai.AssumptionWarning",
-        "remedy": "Use a heterogeneity-robust estimator (Callaway-Sant'Anna, Borusyak et al., Gardner two-stage).",
-        "symptom": "Two-way fixed-effects estimate is contaminated by 'forbidden' comparisons / negative weights"
       }
     ],
     "inherits_from": null,
@@ -33469,11 +33457,8 @@
     "assumptions": [
       "Parallel trends across cohorts",
       "No anticipation within event_window lead horizon",
-      "SUTVA",
       "Parallel trends: treated and control groups would have followed the same trajectory absent treatment",
-      "No anticipation: outcomes in pre-treatment periods are unaffected by future treatment",
-      "SUTVA: no spillovers between units",
-      "For staggered / heterogeneous effects: use CS or SA -- TWFE can produce negative weights (Goodman-Bacon)"
+      "SUTVA: no spillovers between units"
     ],
     "category": "causal",
     "cost_profile": "Builds a saturated cohort x relative-time interaction design: columns grow as (cohorts x event-time window), so a wide window on a many-cohort panel produces a large dense design matrix. Trim via event_window=.",
@@ -33520,12 +33505,6 @@
         "exception": "AssumptionViolation",
         "remedy": "Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna.",
         "symptom": "Pre-trend joint test p < 0.05 (or underpowered at 0.10)"
-      },
-      {
-        "alternative": "sp.callaway_santanna",
-        "exception": "AssumptionWarning",
-        "remedy": "TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation.",
-        "symptom": "Staggered treatment timing with TWFE method"
       },
       {
         "alternative": "sp.sensitivity_rr",
@@ -34073,12 +34052,9 @@
     ],
     "assumptions": [
       "Parallel trends in absolute levels",
-      "No anticipation (no pre-treatment reaction)",
-      "SUTVA",
       "Parallel trends: treated and control groups would have followed the same trajectory absent treatment",
       "No anticipation: outcomes in pre-treatment periods are unaffected by future treatment",
-      "SUTVA: no spillovers between units",
-      "For staggered / heterogeneous effects: use CS or SA -- TWFE can produce negative weights (Goodman-Bacon)"
+      "SUTVA: no spillovers between units"
     ],
     "category": "causal",
     "cost_profile": "Fits the untreated two-way model once, then imputes; cheap in memory. vce='bootstrap' multiplies total runtime by n_boot -- budget accordingly before raising n_boot.",
@@ -34119,12 +34095,6 @@
         "exception": "AssumptionViolation",
         "remedy": "Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna.",
         "symptom": "Pre-trend joint test p < 0.05 (or underpowered at 0.10)"
-      },
-      {
-        "alternative": "sp.callaway_santanna",
-        "exception": "AssumptionWarning",
-        "remedy": "TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation.",
-        "symptom": "Staggered treatment timing with TWFE method"
       },
       {
         "alternative": "sp.sensitivity_rr",
@@ -34999,8 +34969,7 @@
       "Uniform (sup-t) bands and joint tests use the full event-study covariance -- pointwise intervals understate joint uncertainty",
       "Parallel trends: treated and control groups would have followed the same trajectory absent treatment",
       "No anticipation: outcomes in pre-treatment periods are unaffected by future treatment",
-      "SUTVA: no spillovers between units",
-      "For staggered / heterogeneous effects: use CS or SA -- TWFE can produce negative weights (Goodman-Bacon)"
+      "SUTVA: no spillovers between units"
     ],
     "category": "causal",
     "cost_profile": "One saturated OLS with cohorts x periods interaction columns.",
@@ -35041,12 +35010,6 @@
         "exception": "AssumptionViolation",
         "remedy": "Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna.",
         "symptom": "Pre-trend joint test p < 0.05 (or underpowered at 0.10)"
-      },
-      {
-        "alternative": "sp.callaway_santanna",
-        "exception": "AssumptionWarning",
-        "remedy": "TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation.",
-        "symptom": "Staggered treatment timing with TWFE method"
       },
       {
         "alternative": "sp.sensitivity_rr",
@@ -61055,9 +61018,7 @@
     "assumptions": [
       "The link function (logistic / normal / complementary log-log) and the index form are correctly specified; coefficients are index weights, not marginal effects",
       "Observations are independent conditional on covariates, or the dependence is declared through cluster= / the random-effects structure",
-      "No perfect separation: every outcome category occurs at every level of each discrete covariate",
-      "Ordered models (ologit / oprobit): proportional odds / parallel regressions -- one set of slopes shifts every threshold",
-      "Multinomial logit: independence of irrelevant alternatives (IIA); mixlogit relaxes it through random coefficients"
+      "No perfect separation: every outcome category occurs at every level of each discrete covariate"
     ],
     "category": "regression",
     "cost_profile": "",
@@ -61245,9 +61206,7 @@
     "assumptions": [
       "The link function (logistic / normal / complementary log-log) and the index form are correctly specified; coefficients are index weights, not marginal effects",
       "Observations are independent conditional on covariates, or the dependence is declared through cluster= / the random-effects structure",
-      "No perfect separation: every outcome category occurs at every level of each discrete covariate",
-      "Ordered models (ologit / oprobit): proportional odds / parallel regressions -- one set of slopes shifts every threshold",
-      "Multinomial logit: independence of irrelevant alternatives (IIA); mixlogit relaxes it through random coefficients"
+      "No perfect separation: every outcome category occurs at every level of each discrete covariate"
     ],
     "category": "regression",
     "cost_profile": "",
@@ -61430,9 +61389,7 @@
     "assumptions": [
       "The link function (logistic / normal / complementary log-log) and the index form are correctly specified; coefficients are index weights, not marginal effects",
       "Observations are independent conditional on covariates, or the dependence is declared through cluster= / the random-effects structure",
-      "No perfect separation: every outcome category occurs at every level of each discrete covariate",
-      "Ordered models (ologit / oprobit): proportional odds / parallel regressions -- one set of slopes shifts every threshold",
-      "Multinomial logit: independence of irrelevant alternatives (IIA); mixlogit relaxes it through random coefficients"
+      "No perfect separation: every outcome category occurs at every level of each discrete covariate"
     ],
     "category": "regression",
     "cost_profile": "",
@@ -61802,7 +61759,6 @@
     ],
     "assumptions": [
       "The conditional mean is exp(x'b); Poisson pseudo-ML is consistent for the mean under this alone, but its default SEs assume equidispersion -- use robust / clustered SEs",
-      "Zero-inflated and hurdle models assume a separate process generates the excess zeros; they are not a fix for over-dispersion by itself",
       "Observations are independent conditional on covariates or the dependence is declared (cluster= / random effects)"
     ],
     "category": "regression",
@@ -77472,7 +77428,6 @@
       "The link function (logistic / normal / complementary log-log) and the index form are correctly specified; coefficients are index weights, not marginal effects",
       "Observations are independent conditional on covariates, or the dependence is declared through cluster= / the random-effects structure",
       "No perfect separation: every outcome category occurs at every level of each discrete covariate",
-      "Ordered models (ologit / oprobit): proportional odds / parallel regressions -- one set of slopes shifts every threshold",
       "Multinomial logit: independence of irrelevant alternatives (IIA); mixlogit relaxes it through random coefficients"
     ],
     "category": "regression",
@@ -77643,8 +77598,7 @@
       "The link function (logistic / normal / complementary log-log) and the index form are correctly specified; coefficients are index weights, not marginal effects",
       "Observations are independent conditional on covariates, or the dependence is declared through cluster= / the random-effects structure",
       "No perfect separation: every outcome category occurs at every level of each discrete covariate",
-      "Ordered models (ologit / oprobit): proportional odds / parallel regressions -- one set of slopes shifts every threshold",
-      "Multinomial logit: independence of irrelevant alternatives (IIA); mixlogit relaxes it through random coefficients"
+      "Ordered models (ologit / oprobit): proportional odds / parallel regressions -- one set of slopes shifts every threshold"
     ],
     "category": "regression",
     "cost_profile": "",
@@ -77805,8 +77759,7 @@
       "The link function (logistic / normal / complementary log-log) and the index form are correctly specified; coefficients are index weights, not marginal effects",
       "Observations are independent conditional on covariates, or the dependence is declared through cluster= / the random-effects structure",
       "No perfect separation: every outcome category occurs at every level of each discrete covariate",
-      "Ordered models (ologit / oprobit): proportional odds / parallel regressions -- one set of slopes shifts every threshold",
-      "Multinomial logit: independence of irrelevant alternatives (IIA); mixlogit relaxes it through random coefficients"
+      "Ordered models (ologit / oprobit): proportional odds / parallel regressions -- one set of slopes shifts every threshold"
     ],
     "category": "regression",
     "cost_profile": "",
