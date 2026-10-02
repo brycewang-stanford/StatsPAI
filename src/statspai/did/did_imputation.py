@@ -1093,6 +1093,10 @@ def did_imputation(
         ),
         "horizon_requested": horizon is not None,
     }
+    if vce == "bootstrap":
+        # The only stochastic step; recorded so the result card can say
+        # whether the SE is reproducible.
+        model_info["boot_seed"] = boot_seed
 
     if has_controls:
         model_info["controls"] = control_names

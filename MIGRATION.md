@@ -5,6 +5,18 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="oct2026-crossval-next-steps"></a>
+
+## Unreleased: `CrossValidationResult.next_steps()` returns dicts
+
+`sp.cross_validate(...).next_steps()` returned a list of strings; every
+other result class returns a list of `{"action", "reason", "priority",
+"category"}` dicts. It now does the same, and so does the `next_steps`
+entry of its `to_dict()`. Code that printed the strings should print
+`step["action"]`. No numbers change.
+
+---
+
 <a id="oct2026-dbe-textbook-fixes"></a>
 
 ## Unreleased: ⚠️ `sp.etwfe` without an untreated group, RD pilot bandwidth, LIML `kappa`, CR2 degrees of freedom

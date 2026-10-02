@@ -185,7 +185,9 @@ cv.to_dict(detail="agent")
 #   "engine_status_counts": {"ok": 3},
 #   "can_claim_cross_engine_agreement": true,
 #   "agreement": {"max_rel_coef_diff": 1.7e-15, "policy": {...}, ...},
-#   "next_steps": ["Estimate is engine-robust; safe to report. ..."],
+#   "next_steps": [{"action": "Report the estimate and cite the engines ...",
+#                   "reason": "The estimate is engine-robust.",
+#                   "priority": "low", "category": "reporting"}],
 #   "provenance": {"data": {...}, "statspai": "1.18.0",
 #                  "R::fixest": "R 4.5.2", ...},
 #   "degradations": [...],   # engines asked for but unavailable

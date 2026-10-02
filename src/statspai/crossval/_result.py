@@ -254,32 +254,80 @@ class CrossValidationResult(ResultProtocolMixin):
         return ax
 
     # -- agent surface ---------------------------------------------------- #
-    def next_steps(self) -> List[str]:
+    def next_steps(self) -> List[Dict[str, str]]:
+        """What to do given the verdict, as the other result classes report it.
+
+        Returns a list of ``{"action", "reason", "priority", "category"}``
+        dicts. Until 1.35 this method returned plain strings, the one
+        result class that did; a caller had to handle both shapes.
+        """
+
+        def step(
+            action: str, reason: str, priority: str, category: str
+        ) -> Dict[str, str]:
+            return {
+                "action": action,
+                "reason": reason,
+                "priority": priority,
+                "category": category,
+            }
+
         v = self.verdict
         if v == VERDICT_AGREE:
             return [
-                "Estimate is engine-robust; safe to report. Cite the engines "
-                "and versions from `.provenance` for reproducibility."
+                step(
+                    "Report the estimate and cite the engines and versions "
+                    "from `.provenance`.",
+                    "The estimate is engine-robust.",
+                    "low",
+                    "reporting",
+                )
             ]
         if v == VERDICT_PARTIAL:
             return [
-                "Align the variance estimator across engines (pass `vcov=`).",
-                "If only standard errors differ, point identification is "
-                "robust — clarify which SE you report and why.",
+                step(
+                    "Align the variance estimator across engines (pass `vcov=`).",
+                    "The engines agree on the point estimate but not on the "
+                    "standard error.",
+                    "high",
+                    "inference",
+                ),
+                step(
+                    "State which standard error you report and why.",
+                    "If only standard errors differ, point identification is "
+                    "robust.",
+                    "medium",
+                    "reporting",
+                ),
             ]
         if v == VERDICT_DISAGREE:
             return [
-                "Inspect the per-engine specification: same sample, same "
-                "controls, same fixed effects, same treatment coding?",
-                "For randomised estimators (DML/forests) widen the tolerance "
-                "with `tol={'se_band': 0.5}` or fix learners/seeds.",
+                step(
+                    "Inspect the per-engine specification: same sample, same "
+                    "controls, same fixed effects, same treatment coding?",
+                    "The engines disagree on the point estimate.",
+                    "high",
+                    "specification",
+                ),
+                step(
+                    "For randomised estimators (DML / forests) widen the "
+                    "tolerance with `tol={'se_band': 0.5}` or fix learners "
+                    "and seeds.",
+                    "Algorithmic randomness can exceed the default band.",
+                    "medium",
+                    "robustness",
+                ),
             ]
         unavailable = [e.engine for e in self.estimates if e.status == "unavailable"]
         return [
-            "Cross-validation needs ≥2 engines. Unavailable: "
-            f"{', '.join(unavailable) or 'none reported'}.",
-            "Install another backend (e.g. `pip install pyfixest linearmodels`, "
-            "or put Rscript/Stata on PATH) and retry.",
+            step(
+                "Install another backend (e.g. `pip install pyfixest "
+                "linearmodels`, or put Rscript / Stata on PATH) and retry.",
+                "Cross-validation needs at least 2 engines. Unavailable: "
+                f"{', '.join(unavailable) or 'none reported'}.",
+                "high",
+                "setup",
+            )
         ]
 
     def to_dict(self, *, detail: str = "agent") -> Dict[str, Any]:

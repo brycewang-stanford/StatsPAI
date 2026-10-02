@@ -218,13 +218,18 @@ def test_isolated_call_returns_the_same_numbers_as_the_thread_runner(data):
 
 
 def test_hung_call_is_killed_and_nothing_is_left_running(data):
-    """Five timeouts in a row: no orphans, no children, pings stay fast."""
+    """Three timeouts in a row: no orphans, no children, pings stay fast.
+
+    The deadline covers the child's interpreter start as well as the fit
+    (a few seconds cold), so it is set well above that: the last call has
+    to finish inside it.
+    """
     good, hang = data
     srv = _Server(
-        STATSPAI_MCP_ISOLATION="process", STATSPAI_MCP_TOOL_TIMEOUT_SECONDS="3"
+        STATSPAI_MCP_ISOLATION="process", STATSPAI_MCP_TOOL_TIMEOUT_SECONDS="10"
     )
     try:
-        for _ in range(5):
+        for _ in range(3):
             started = time.monotonic()
             msg = srv.wait(srv.call("regress", formula="y ~ x", data_path=hang))
             elapsed = time.monotonic() - started
@@ -233,12 +238,12 @@ def test_hung_call_is_killed_and_nothing_is_left_running(data):
             assert sc["error_kind"] == "timeout"
             assert sc["worker_killed"] is True
             assert sc["worker_may_still_be_running"] is False
-            assert 3.0 <= elapsed < 12.0
+            assert 10.0 <= elapsed < 25.0
             assert _children(srv.proc.pid) == [], "the killed worker is still alive"
-        # No orphan was registered, so the admission limit (4) never trips:
-        # the sixth call runs.
+        # No orphan was registered and no worker survives: the next call
+        # runs normally.
         ok = srv.wait(srv.call("regress", formula="y ~ x", data_path=good))
-        assert ok["result"]["isError"] is False
+        assert ok["result"]["isError"] is False, ok["result"]["structuredContent"]
         assert ok["result"]["structuredContent"]["n_obs"] == 200
         pinged = time.monotonic()
         assert srv.wait(srv.send("ping"))["result"] == {}

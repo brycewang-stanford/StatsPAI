@@ -759,6 +759,11 @@ def gardner_did(
         ),
     }
 
+    if vce == "bootstrap":
+        # The only stochastic step; recorded so the result card can say
+        # whether the SE is reproducible.
+        model_info["boot_seed"] = boot_seed
+
     _result = CausalResult(
         method="Gardner 2022 two-stage DID (did2s)",
         estimand="ATT",

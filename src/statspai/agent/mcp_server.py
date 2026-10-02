@@ -1575,10 +1575,9 @@ def _run_isolated_call(
 
     meta = params.get("_meta") if isinstance(params.get("_meta"), dict) else None
     sink = _PROGRESS_SINK
-    forward = None
-    if sink is not None:
 
-        def forward(line: str) -> None:
+    def _forward(line: str) -> None:
+        if sink is not None:
             sink.write(line + "\n")
             sink.flush()
 
@@ -1589,7 +1588,7 @@ def _run_isolated_call(
         meta,
         timeout=timeout,
         cancel_event=current_cancel_event(),
-        forward=forward,
+        forward=_forward,
     )
     if status == "result":
         return _process_worker.annotate(payload)

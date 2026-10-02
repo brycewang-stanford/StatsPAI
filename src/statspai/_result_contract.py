@@ -61,7 +61,22 @@ _CI_ATTRS = ("ci", "conf_int", "confint")
 _CI_PAIR_ATTRS = (("ci_lower", "ci_upper"), ("ci_low", "ci_high"))
 _NOBS_ATTRS = ("n_obs", "nobs", "n")
 
-_SEED_PARAMS = ("seed", "random_state")
+#: Argument names that carry a seed. Until 2026-10 only the first two were
+#: read, so a function spelling it otherwise (``boot_seed`` on the
+#: imputation / two-stage DiD estimators, ``bootstrap_seed``, ...) got a
+#: card that said nothing about the seed of its stochastic output.
+#: ``scripts/seed_inventory.py`` lists every seed-like parameter in the
+#: registry and ``tests/test_seed_contract.py`` fails on a new spelling.
+_SEED_PARAMS = (
+    "seed",
+    "random_state",
+    "boot_seed",
+    "bootstrap_seed",
+    "rng_seed",
+    "wild_seed",
+    "halton_seed",
+    "rng",
+)
 
 
 def check_detail(detail: str) -> None:

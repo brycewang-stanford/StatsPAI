@@ -379,6 +379,16 @@ changes its numbers.
   covers `structuredContent` only.
 - **A second `tools/call` reusing an in-flight request id took over its
   cancel handle.** It is refused with `-32600`.
+- **Six seed spellings were invisible to the result card.** `sp.result_card`
+  reports `seed` / `reproducible` / `seed_source` by argument name and
+  knew only `seed` and `random_state`. `boot_seed` (`did_imputation`,
+  `gardner_did` and aliases), `bootstrap_seed`, `rng_seed`, `wild_seed`,
+  `halton_seed` and `rng` are now read, the two imputation-family results
+  record the bootstrap seed they used, and
+  `tests/test_seed_contract.py` fails on a new spelling.
+  `python scripts/seed_inventory.py` lists all 259 seeded functions and
+  their defaults (`None` 125, `42` 73, `0` 56, `12345` 7, `1234` 2); the
+  defaults are deliberately left as they are.
 - **Loading the data was outside the tool timeout.** `data_path` was read
   before the supervised runner started, so a read that never returns (a
   FIFO, a stalled network mount, a slow URL) held the worker forever and
@@ -412,6 +422,14 @@ changes its numbers.
   supported protocol revision, an unknown revision, a text-only client, a
   client without sampling, a client that sends cursors, a server restart
   with stale handles, and a client that skips `initialize`.
+- **`sp.result_card`: which expected diagnostics ran.** The `assumptions`
+  section gains `checks` and `checks_summary`: every diagnostic the
+  estimator family expects, with status `passed` / `failed` / `not_run` /
+  `not_applicable`, why the check exists, and the function that runs it.
+  An empty `violations()` no longer reads the same whether every check
+  passed or none ran. Read from `sp.audit`; nothing is re-estimated. A
+  result whose estimator cannot be identified gets
+  `checks_available: false` rather than a guessed checklist.
 - **`replay_completeness` on every MCP result that has a `replay`.**
   `level` is `standalone` (a new process can re-run the string given the
   file named in `needs`), `session_replayable` (it depends on a `data_id`
@@ -493,6 +511,9 @@ changes its numbers.
 
 ### Changed
 
+- `CrossValidationResult.next_steps()` returns `{"action", "reason",
+  "priority", "category"}` dicts like every other result class; it was the
+  one class returning plain strings. See `MIGRATION.md`.
 - The option-level Stata fixtures are bound to their tests. Three of the
   six were opened by no test (the numbers are literals in the test
   source) and none is in the Track A hash lock. Every consumer now opens

@@ -411,7 +411,79 @@ def _assumptions(
             checks[str(k)] = _jsonable(v)
     if checks:
         out["diagnostics_run"] = checks
+    out.update(_check_status(result))
     return out
+
+
+#: sp.audit's ``missing`` is "this check was not run": say so in the
+#: vocabulary the card uses, so it cannot be read as "nothing was found".
+_CHECK_STATUS = {
+    "passed": "passed",
+    "failed": "failed",
+    "missing": "not_run",
+    "not_applicable": "not_applicable",
+}
+
+
+def _check_status(result: Any) -> Dict[str, Any]:
+    """Which expected diagnostics passed, failed, or were never run.
+
+    ``violations() == []`` does not distinguish "every check passed" from
+    "no check ran". This lists, for the estimator family, each check the
+    reviewer checklist expects (:func:`statspai.smart.audit`, read-only)
+    with one status from ``passed`` / ``failed`` / ``not_run`` /
+    ``not_applicable``, the reason the check exists, and the function that
+    would run it.
+    """
+    try:
+        from .smart.audit import audit
+
+        found = audit(result)
+        report = found.to_dict() if hasattr(found, "to_dict") else dict(found)
+    except (ImportError, AttributeError, KeyError, TypeError, ValueError) as exc:
+        return {
+            "checks_available": False,
+            "checks_note": (
+                f"no diagnostic checklist for this result ({type(exc).__name__}); "
+                "an empty violations list is not evidence that checks passed"
+            ),
+        }
+    raw = report.get("checks") or []
+    if not report.get("method"):
+        # sp.audit falls back to the regression checklist when it cannot
+        # tell what was estimated; listing those checks would be a guess.
+        raw = []
+    if not raw:
+        return {
+            "checks_available": False,
+            "checks_note": (
+                "no diagnostic checklist is defined for this estimator family; "
+                "an empty violations list is not evidence that checks passed"
+            ),
+        }
+    entries = []
+    summary = {"passed": 0, "failed": 0, "not_run": 0, "not_applicable": 0}
+    for check in raw:
+        status = _CHECK_STATUS.get(str(check.get("status")), "not_run")
+        summary[status] += 1
+        entry = {
+            "name": check.get("name"),
+            "status": status,
+            "severity": check.get("severity"),
+            "reason": check.get("question"),
+        }
+        if check.get("suggest_function") and status in ("not_run", "failed"):
+            entry["run_with"] = check["suggest_function"]
+        for key in ("value", "threshold"):
+            if check.get(key) is not None:
+                entry[key] = _jsonable(check[key])
+        entries.append(entry)
+    return {
+        "checks_available": True,
+        "checks_family": report.get("method_family"),
+        "checks": entries,
+        "checks_summary": summary,
+    }
 
 
 def _limitations(result: Any, mi: Dict[str, Any], reg: Dict[str, Any]) -> List[str]:
@@ -478,7 +550,11 @@ def result_card(result: Any) -> ResultCard:
           :func:`sp.validation_scope` where a map exists, otherwise the
           function-level tier flagged as such;
         * ``assumptions`` -- identifying assumptions (declared, not
-          verified) and the diagnostics that were actually run;
+          verified), the diagnostics that were actually run, and
+          ``checks`` / ``checks_summary``: every diagnostic the estimator
+          family expects with status ``passed`` / ``failed`` / ``not_run``
+          / ``not_applicable``, so an empty ``violations()`` cannot be read
+          as "all checks passed" when none ran;
         * ``limitations`` -- registry limitations, non-finite SEs,
           degraded workflow steps, experimental status.
 
