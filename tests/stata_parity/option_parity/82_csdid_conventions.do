@@ -22,7 +22,11 @@ set more off
 
 local here "`c(pwd)'"
 local data "../../orig_parity/data/02_mpdta_original.csv"
-import delimited "`data'", clear
+* Double precision throughout: without `asdouble`, `import delimited`
+* stores lemp / lpop as float and rounds the data in the 8th digit, and
+* generated variables follow `set type` (see 84_bjs_fe_covariates.do).
+set type double
+import delimited "`data'", clear asdouble
 
 tempname fh
 file open `fh' using "results/82_csdid_conventions_Stata.json", write replace
@@ -67,8 +71,9 @@ qui csdid lemp lpop, ivar(countyreal) time(year) gvar(first_treat) ///
     long2 method(ipw)
 _dump_atts `fh' "ipw_abadie_lpop"
 
-file write `fh' `"  "_meta": {"csdid_version": "1.81", "stata": "18 MP"}"' _n
+file write `fh' `"  "_meta": {"csdid_version": "1.81", "stata": "18 MP", "precision": "double"}"' _n
 file write `fh' "}" _n
 file close `fh'
 
+set type float
 di as txt "wrote results/82_csdid_conventions_Stata.json"

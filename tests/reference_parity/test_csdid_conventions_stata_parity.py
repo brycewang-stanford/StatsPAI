@@ -15,13 +15,21 @@ DiD option-depth campaign:
   ``method(stdipw)`` and ``method(ipw)`` respectively.
 
 The golden numbers were produced by Stata 18 MP with ``csdid`` v1.81 on
-``mpdta``; the generating do-file is ``tests/stata_parity/82_csdid_conventions.do``.
-Point estimates are pinned; the residual gap is propensity-logit optimizer
-tolerance (statsmodels Newton vs Stata's ML), which lands at ~5e-8.
+``mpdta``; the generating do-file is
+``tests/stata_parity/option_parity/82_csdid_conventions.do`` and the numbers
+are read from ``option_parity/results/82_csdid_conventions_Stata.json``.
+
+Tolerance: relative 1e-9; the observed worst case is 4.9e-13. The first
+version of the fixture sat 5e-8 away (2e-5 relative on the small
+pre-treatment cells) and the gap was put down to the propensity logit's
+optimizer. It was Stata running in single precision: ``import delimited``
+stored ``lemp`` / ``lpop`` as float. The do-file now imports ``asdouble``
+under ``set type double``.
 """
 
 from __future__ import annotations
 
+import json
 import pathlib
 
 import numpy as np
@@ -37,12 +45,27 @@ _MPDTA = (
     / "02_mpdta_original.csv"
 )
 
-# Stata is not required at test time — these are committed golden values.
-# atol is set one order above the observed 5.2e-8 worst case so that a
-# genuine convention regression (>= 1e-5, as seen when the cutoff was
-# wrongly applied to post-treatment cells) fails loudly while optimizer
-# noise does not.
-ATOL = 5e-7
+# Stata is not required at test time: the committed fixture is read.
+_STATA = json.loads(
+    (
+        pathlib.Path(__file__).resolve().parents[1]
+        / "stata_parity"
+        / "option_parity"
+        / "results"
+        / "82_csdid_conventions_Stata.json"
+    ).read_text(encoding="utf-8")
+)
+
+# Observed worst case 4.9e-13; a convention regression moves a cell by
+# 1e-5 or more.
+RTOL = 1e-9
+
+
+def _cells(block: str, keys: list) -> dict:
+    """Attach (g, t) to csdid's e(b) columns, which come in this order."""
+    values = list(_STATA[block].values())
+    assert len(values) == len(keys) == 12
+    return dict(zip(keys, values))
 
 
 def _mpdta() -> pd.DataFrame:
@@ -66,77 +89,89 @@ def _atts(**kwargs) -> dict:
 # ----------------------------------------------------------------------
 # csdid ... notyet long2 asinr method(reg)      [R convention = default]
 # ----------------------------------------------------------------------
-STATA_ASINR = {
-    (2004, 2004): -0.019372312476,
-    (2004, 2005): -0.078319045405,
-    (2004, 2006): -0.136274308508,
-    (2004, 2007): -0.100811371526,
-    (2006, 2003): 0.001080322525,
-    (2006, 2004): 0.001939205961,
-    (2006, 2006): 0.004660857808,
-    (2006, 2007): -0.041224479598,
-    (2007, 2003): -0.004222612298,
-    (2007, 2004): 0.032971100525,
-    (2007, 2005): 0.030560489610,
-    (2007, 2007): -0.026054398766,
-}
+STATA_ASINR = _cells(
+    "notyet_asinr_reg",
+    [
+        (2004, 2004),
+        (2004, 2005),
+        (2004, 2006),
+        (2004, 2007),
+        (2006, 2003),
+        (2006, 2004),
+        (2006, 2006),
+        (2006, 2007),
+        (2007, 2003),
+        (2007, 2004),
+        (2007, 2005),
+        (2007, 2007),
+    ],
+)
 
 # ----------------------------------------------------------------------
 # csdid ... notyet long2 method(reg)            [csdid's own default]
 # ----------------------------------------------------------------------
-STATA_CSDID_DEFAULT = {
-    (2004, 2004): -0.019372312476,
-    (2004, 2005): -0.078319045405,
-    (2004, 2006): -0.136274308508,
-    (2004, 2007): -0.100811371526,
-    (2006, 2003): 0.004501809315,
-    (2006, 2004): 0.001939205961,
-    (2006, 2006): 0.004660857808,
-    (2006, 2007): -0.041224479598,
-    (2007, 2003): 0.003306351642,
-    (2007, 2004): 0.033812979532,
-    (2007, 2005): 0.031087093360,
-    (2007, 2007): -0.026054398766,
-}
+STATA_CSDID_DEFAULT = _cells(
+    "notyet_csdid_default_reg",
+    [
+        (2004, 2004),
+        (2004, 2005),
+        (2004, 2006),
+        (2004, 2007),
+        (2006, 2003),
+        (2006, 2004),
+        (2006, 2006),
+        (2006, 2007),
+        (2007, 2003),
+        (2007, 2004),
+        (2007, 2005),
+        (2007, 2007),
+    ],
+)
 
 # ----------------------------------------------------------------------
 # csdid lemp lpop ... long2 method(stdipw) / method(ipw)
 # ----------------------------------------------------------------------
-STATA_STDIPW = {
-    (2004, 2004): -0.014548390416,
-    (2004, 2005): -0.076449812427,
-    (2004, 2006): -0.140464559636,
-    (2004, 2007): -0.106932567121,
-    (2006, 2003): 0.007265814814,
-    (2006, 2004): 0.006397198285,
-    (2006, 2006): 0.001208037786,
-    (2006, 2007): -0.041308248592,
-    (2007, 2003): 0.006445096473,
-    (2007, 2004): 0.033001174450,
-    (2007, 2005): 0.028340276029,
-    (2007, 2007): -0.028894759817,
-}
+STATA_STDIPW = _cells(
+    "stdipw_lpop",
+    [
+        (2004, 2004),
+        (2004, 2005),
+        (2004, 2006),
+        (2004, 2007),
+        (2006, 2003),
+        (2006, 2004),
+        (2006, 2006),
+        (2006, 2007),
+        (2007, 2003),
+        (2007, 2004),
+        (2007, 2005),
+        (2007, 2007),
+    ],
+)
 
-STATA_IPW_ABADIE = {
-    (2004, 2004): -0.014541146050,
-    (2004, 2005): -0.076444396927,
-    (2004, 2006): -0.140463010488,
-    (2004, 2007): -0.106934128119,
-    (2006, 2003): 0.007102507260,
-    (2006, 2004): 0.006466480172,
-    (2006, 2006): 0.001088945174,
-    (2006, 2007): -0.041545749606,
-    (2007, 2003): 0.006434015814,
-    (2007, 2004): 0.033041718038,
-    (2007, 2005): 0.028367848826,
-    (2007, 2007): -0.028916821396,
-}
+STATA_IPW_ABADIE = _cells(
+    "ipw_abadie_lpop",
+    [
+        (2004, 2004),
+        (2004, 2005),
+        (2004, 2006),
+        (2004, 2007),
+        (2006, 2003),
+        (2006, 2004),
+        (2006, 2006),
+        (2006, 2007),
+        (2007, 2003),
+        (2007, 2004),
+        (2007, 2005),
+        (2007, 2007),
+    ],
+)
 
 
 def _assert_matches(got: dict, want: dict, label: str) -> None:
     assert set(got) == set(want), f"{label}: (g,t) cell set differs"
     for key, expected in want.items():
-        assert got[key] == pytest.approx(expected, abs=ATOL), (
+        assert got[key] == pytest.approx(expected, rel=RTOL), (
             f"{label}: ATT{key} = {got[key]:.12f}, Stata {expected:.12f} "
             f"(diff {abs(got[key] - expected):.2e})"
         )

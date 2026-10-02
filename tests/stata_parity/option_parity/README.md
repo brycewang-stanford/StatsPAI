@@ -24,20 +24,39 @@ is the intended effect, not an accident.
 
 | file | pins | consumed by |
 | --- | --- | --- |
-| `82_csdid_conventions_Stata.json` | `csdid` `asinr` vs default, `method(stdipw)` vs `method(ipw)` | `tests/reference_parity/test_csdid_conventions_stata_parity.py` (as literals) |
-| `83_sunab_control_cohort_Stata.json` | `eventstudyinteract control_cohort()` under two reference groups | `tests/reference_parity/test_sunab_control_cohort_parity.py` (as literals) |
-| `84_bjs_fe_covariates_Stata.json` | `did_imputation` `fe()` / `unitcontrols()` / `timecontrols()` | `tests/reference_parity/test_bjs_fe_covariates_parity.py` (ATTs, as literals); `test_option_fixture_bindings.py` (SEs, from the file) |
+| `82_csdid_conventions_Stata.json` | `csdid` `asinr` vs default, `method(stdipw)` vs `method(ipw)` | `tests/reference_parity/test_csdid_conventions_stata_parity.py` |
+| `83_sunab_control_cohort_Stata.json` | `eventstudyinteract control_cohort()` under two reference groups | `tests/reference_parity/test_sunab_control_cohort_parity.py` |
+| `84_bjs_fe_covariates_Stata.json` | `did_imputation` `fe()` / `unitcontrols()` / `timecontrols()` | `tests/reference_parity/test_bjs_fe_covariates_parity.py` (ATTs); `test_option_fixture_bindings.py` (SEs) |
 | `85_multiplegt_dyn_options_Stata.json` | `did_multiplegt_dyn` `switchers()` / `same_switchers` | `tests/reference_parity/test_multiplegt_dyn_options_parity.py` |
 | `86_lprobust_Stata.json` | `lprobust` at supplied bandwidths | `tests/reference_parity/test_lprobust_parity.py` |
 | `87_did_had_Stata.json` | `did_had` | `tests/reference_parity/test_did_had_parity.py` |
 
-The tests for 82-84 carry the Stata numbers as literals in their source
-and do not open the file. `tests/reference_parity/test_option_fixture_bindings.py`
-ties the two together: every number in those fixtures must appear as a
-literal in its test. These files are not in `TIER_A_FIXTURE_LOCK.json`;
-their SHA-256 is recorded in `docs/evidence_inventory.json`, whose drift
-gate (`python scripts/build_evidence_inventory.py --check`) fails on an
-edited fixture, and on a fixture that no test reads.
+Every consumer opens its fixture; none carries the Stata numbers as
+literals. These files are not in `TIER_A_FIXTURE_LOCK.json`: their SHA-256
+is recorded in `docs/evidence_inventory.json`, whose drift gate
+(`python scripts/build_evidence_inventory.py --check`) fails on an edited
+fixture and on a fixture that no test reads.
+
+## Double precision is required
+
+These do-files do not source Track A's `_common.do`, which forces
+`set type double`. Each one must therefore do it itself:
+
+```stata
+set type double
+import delimited "...", clear asdouble
+```
+
+Without it `import delimited` stores every decimal column as float and
+rounds the data in the 8th digit, so Stata is not estimating on the bytes
+StatsPAI reads. The first versions of all six fixtures were generated that
+way. The gaps this produced (2e-5 relative for `csdid`, 2e-6 for
+`did_imputation` and `eventstudyinteract`) had been attributed to optimizer
+and absorption tolerance; regenerated in double precision on 2026-10-02
+they are 5e-13, 6e-8 and 2e-10. Each fixture records
+`"precision": "double"` in `_meta`, and
+`tests/reference_parity/test_option_fixture_bindings.py` fails a do-file
+that imports without `asdouble`.
 
 Regenerate any of them by running the matching `.do` from
 `tests/stata_parity/` with Stata 18 MP and the packages named in its

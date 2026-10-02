@@ -25,7 +25,16 @@ version 17
 clear all
 set more off
 
-import delimited "../../orig_parity/data/02_mpdta_original.csv", clear
+* Double precision throughout. Without `asdouble`, `import delimited`
+* stored lemp / lpop as float here, rounding the data in the 8th digit,
+* and did_imputation's generated variables follow `set type`. Run in
+* single precision the ATT lands 1e-7 (2e-6 relative) from the exact
+* least-squares answer, which is what the first version of this fixture
+* recorded. tol(1e-12) removes most of the iteration slack that is left
+* (1.4e-7 relative at the default tolerance, 6e-8 with it).
+set type double
+import delimited "../../orig_parity/data/02_mpdta_original.csv", clear asdouble
+local tight "tol(1e-12) maxit(10000)"
 
 * did_imputation wants the cohort variable missing for never-treated.
 gen Ei = first_treat
@@ -41,19 +50,19 @@ program define _dump_tau
         `", "se": "' %20.15f (_se[tau]) "}`comma'" _n
 end
 
-qui did_imputation lemp countyreal year Ei
+qui did_imputation lemp countyreal year Ei, `tight'
 _dump_tau `fh' "default" ","
 
-qui did_imputation lemp countyreal year Ei, fe(year)
+qui did_imputation lemp countyreal year Ei, fe(year) `tight'
 _dump_tau `fh' "fe_time_only" ","
 
-qui did_imputation lemp countyreal year Ei, fe(.)
+qui did_imputation lemp countyreal year Ei, fe(.) `tight'
 _dump_tau `fh' "fe_none" ","
 
-qui did_imputation lemp countyreal year Ei, timecontrols(lpop)
+qui did_imputation lemp countyreal year Ei, timecontrols(lpop) `tight'
 _dump_tau `fh' "timecontrols_lpop" ","
 
-qui did_imputation lemp countyreal year Ei, controls(lpop)
+qui did_imputation lemp countyreal year Ei, controls(lpop) `tight'
 _dump_tau `fh' "controls_lpop" ","
 
 * --- identified subset for unitcontrols -------------------------------
@@ -62,16 +71,17 @@ egen nuntr = total(untreated), by(countyreal)
 preserve
 keep if nuntr >= 2
 
-qui did_imputation lemp countyreal year Ei
+qui did_imputation lemp countyreal year Ei, `tight'
 _dump_tau `fh' "default_identified_subset" ","
 
-qui did_imputation lemp countyreal year Ei, unitcontrols(year)
+qui did_imputation lemp countyreal year Ei, unitcontrols(year) `tight'
 _dump_tau `fh' "unitcontrols_year_subset" ","
 
 restore
 
-file write `fh' `"  "_meta": {"command": "did_imputation", "stata": "18 MP"}"' _n
+file write `fh' `"  "_meta": {"command": "did_imputation", "stata": "18 MP", "precision": "double", "tol": "1e-12"}"' _n
 file write `fh' "}" _n
 file close `fh'
 
+set type float
 di as txt "wrote results/84_bjs_fe_covariates_Stata.json"

@@ -64,7 +64,10 @@ _HERE = pathlib.Path(__file__).resolve().parents[1] / "stata_parity" / "option_p
 _DATA = _HERE / "data_86_lprobust.csv"
 _GOLDEN = _HERE / "results" / "86_lprobust_Stata.json"
 
-ATOL = 1e-7
+# Fixture regenerated in double precision 2026-10-02; every Stata comparison
+# here holds at 1e-9. Against the single-precision fixture the budget was
+# 1e-6 / 1e-7.
+ATOL = 1e-9
 
 
 @pytest.fixture(scope="module")
@@ -273,7 +276,7 @@ class TestBandwidthSelection:
     def test_h_matches_stata_too(self, xy, bwgolden):
         x, y = xy
         got = sp.lpbwselect_mse_dpi(x, y, 0.0)
-        assert got["h"] == pytest.approx(bwgolden["mse-dpi"]["h"], abs=1e-7)
+        assert got["h"] == pytest.approx(bwgolden["mse-dpi"]["h"], abs=1e-9)
 
     def test_b_exceeds_h_here(self, xy):
         """Pins that b and h are genuinely different objects.
@@ -332,7 +335,7 @@ class TestRuleOfThumbSelection:
     def test_h_matches_stata_too(self, xy, bwgolden):
         x, y = xy
         got = sp.lpbwselect_mse_rot(x, y, 0.0)
-        assert got["h"] == pytest.approx(bwgolden["mse-rot"]["h"], abs=1e-7)
+        assert got["h"] == pytest.approx(bwgolden["mse-rot"]["h"], abs=1e-9)
 
     def test_no_b_is_reported(self, xy):
         """R's rot 'b' (3.93756301237494) is deliberately not ported.
@@ -386,8 +389,8 @@ class TestRuleOfThumbSelection:
         bw = sp.lpbwselect_mse_rot(x, y, 0.0)
         fit = sp.lprobust_at_point(x, y, 0.0, h=bw["h"], b=bw["h"])
         assert fit.n_eff == want["N"] == 243
-        assert fit.tau_us == pytest.approx(want["tau_us"], abs=1e-7)
-        assert fit.se_us == pytest.approx(want["se_us"], abs=1e-7)
+        assert fit.tau_us == pytest.approx(want["tau_us"], abs=1e-9)
+        assert fit.se_us == pytest.approx(want["se_us"], abs=1e-9)
 
     def test_even_case_is_rejected_not_approximated(self, xy):
         x, y = xy

@@ -1085,6 +1085,13 @@ def did_imputation(
         "cluster_var": cluster,
         "vce": vce,
         "weights": weights,
+        # The Y(0) specification that was fitted, recorded for
+        # sp.validation_scope (which reads, never infers, the configuration).
+        "y0_fe": _y0_fe_label(fe, group, time),
+        "y0_covariates": _y0_covariates_label(
+            has_controls, unit_cov_names, time_cov_names
+        ),
+        "horizon_requested": horizon is not None,
     }
 
     if has_controls:
@@ -1178,6 +1185,38 @@ def did_imputation(
 # ══════════════════════════════════════════════════════════════════════
 # Internal helpers
 # ══════════════════════════════════════════════════════════════════════
+
+
+def _y0_fe_label(fe: Optional[Sequence[str]], group: str, time: str) -> str:
+    """``unit_time`` (the default), ``time``, ``none``, or ``custom``."""
+    if fe is None:
+        return "unit_time"
+    spec = [str(f) for f in fe]
+    if not spec:
+        return "none"
+    if sorted(spec) == sorted([group, time]):
+        return "unit_time"
+    if spec == [time]:
+        return "time"
+    return "custom"
+
+
+def _y0_covariates_label(
+    has_controls: bool, unit_cov_names: Sequence[str], time_cov_names: Sequence[str]
+) -> str:
+    """Which covariate block entered Y(0): one kind, ``none`` or ``mixed``."""
+    kinds = [
+        name
+        for name, present in (
+            ("controls", has_controls),
+            ("unit_covariates", bool(unit_cov_names)),
+            ("time_covariates", bool(time_cov_names)),
+        )
+        if present
+    ]
+    if not kinds:
+        return "none"
+    return kinds[0] if len(kinds) == 1 else "mixed"
 
 
 def _ols_coef(X: np.ndarray, y: np.ndarray) -> np.ndarray:

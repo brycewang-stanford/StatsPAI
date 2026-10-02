@@ -23,7 +23,8 @@
 | R1 | 入口 × 配置 × 输出的 evidence 清单，生成式，带漂移闸门 | `scripts/build_evidence_inventory.py` → `docs/evidence_inventory.{md,json}`；pre-push hook `evidence-inventory` | `tests/test_evidence_inventory.py` |
 | R1 | 盘点已有 vcov 产物：Sun-Abraham 完整事件研究协方差已对 `fixest`，登记进 scope（新增 `share_variance` 维度） | `src/statspai/validation_scope.py` | `tests/test_validation_scope.py` 末条 |
 | R3 | option fixture 进入统一清单：消费者测试、SHA-256、无人读取即失败 | 同上生成器 | `tests/test_evidence_inventory.py::test_option_fixtures_are_read_and_hashed` |
-| R3 | 82–84 号 fixture 与测试里的硬编码数字绑定；84 号的 7 个 Stata SE 首次被比较 | `tests/reference_parity/test_option_fixture_bindings.py` | 自身 |
+| R3 | 六个 option fixture 全部按双精度实跑重生成；消费者测试改为直接读文件；84 号的 7 个 Stata SE 首次被比较 | `tests/stata_parity/option_parity/*.do` 与 `results/`；`tests/reference_parity/test_option_fixture_bindings.py` | 同左，另有 `test_bjs_fe_covariates_parity.py::TestExactSolution` |
+| R1 | `did_imputation`、`gardner_did` 建 scope 映射并登记已有的完整协方差证据 | `src/statspai/validation_scope.py` | `tests/test_validation_scope.py` 末三条 |
 | G1 | roadmap 里已落地的 CI 项不再标 pending；`CLAUDE.md` 更新日期 | `plans/2026-09-28-agent-native-roadmap.md`、`CLAUDE.md` | 无（文档） |
 | G2 | fast gate 覆盖整条 agent 链 | `.github/workflows/ci-cd.yml` | CI |
 
@@ -48,7 +49,7 @@
 | S1 | 带 `**kwargs` 的 81 个调用的关键字检查 | 静态无法判定 | 可执行 snippet 清单，按 extras 分组 |
 | S2 | skill 行为评测 | 需要预注册、预算和授权 | 先做确定性 workflow fixture |
 | S3 | 短路径 playbook | 建议项 | — |
-| R1 | 其余入口的 vcov / joint test 证据 | 清单显示只有 `callaway_santanna`（1 格）、`sun_abraham`（2 格）有 vcov 参考，只有 `regress`（3 格）有 joint test 参考；`test_event_study_vcov_R_parity.py` 里 did2s / etwfe / TWFE 的矩阵已对上，但这些入口没有 scope 映射 | 给事件研究家族建 scope 映射，再登记 |
+| R1 | `event_study`（TWFE）与 `etwfe` 的 scope 映射 | 两者的完整协方差已在 `test_event_study_vcov_R_parity.py` 对上，但选项轴多（`panel` / `cgroup` / `family` / `xvar`），需要逐项核对各 Track A 模块实际跑的配置 | 按 `did_imputation` 的做法：先让结果记录配置，再登记 |
 | R1 | reference_parity / orig_parity / external_parity 各轨的统一 manifest | 本轮只做了 option fixture 一轨 | 按同一生成器扩展 |
 | R2 | 锁定环境与漂移环境分轨 | 改 `r-parity.yml` 的触发与 `renv::restore`，需要在 CI 上实测 | 单独一条线 |
 | R4 | Stata 翻译 holdout 五层覆盖 | 需要冻结语料 | — |
@@ -60,4 +61,6 @@
 - **macOS 上 fork 不安全。** 同一 pytest 进程里先跑过一次估计、再用 `subprocess.Popen` 默认方式启动 MCP 子进程，子进程会在 `exec` 之前段错误（返回码 -11）。原有的 `tests/test_mcp_stdio_subprocess.py` 也受影响，只是此前排在它前面的测试恰好没触发。两个子进程测试文件现在都走 `posix_spawn`（`close_fds=False`）。包内其他在估计之后起子进程的路径（R / Stata 后端）没有排查。
 - **`sp.regress` 带 `**kwargs` 但会拒绝未知关键字。** 运行时是安全的；只是静态检查看不到，所以 skill 的调用检查对这类函数只能数位置参数。
 - **option fixture 没有被测试读取。** `option_parity` 的 82–84 号 Stata fixture 没有任何测试打开，README 却写着 "consumed by"；测试里是硬编码数字。数字目前与 fixture 一致（90 个值全部对上），所以不是数值问题，是绑定缺失。已补。
-- **`did_imputation` 选项测试的 ATT 相对误差是 2e-6 到 3.4e-6。** 该测试用绝对容差 1e-6 并注明是 lsqr 迭代解对 `reghdfe` 的差距；按 §5.1 的相对 1e-6 门槛它不是严格 T2。本轮没有改它的等级表述，只是记在这里。SE 的相对误差在 1.8e-7 以内。
+- **六个 option fixture 是在 Stata 单精度下生成的。** 这些 do 文件不走 Track A 的 `_common.do`（那里强制 `set type double`），`import delimited` 把小数列存成 float，Stata 实际上是在第 8 位被舍入的数据上估计。此前记录的差距（`csdid` 相对 2e-5、`did_imputation` 2e-6）被解释成优化器和吸收容差，其实是这个。按双精度重生成后分别是 4.9e-13 和 6e-8。定位过程走的是 §5.1 决策树第 1 步：与稠密精确最小二乘解比较，StatsPAI 差 5e-16，Stata 差 9.7e-8。Track A 不受影响。
+- **`did_imputation, unitcontrols(year)` 这一行达不到 1e-6。** StatsPAI 与精确解差 7.5e-12；Stata 差 1.4e-6，且它的 ATT 在不同 `tol()` 下非单调地漂移 6e-7。按决策树第 3 步记为参考精度披露（scope 里是 T4），不写成对齐；独立证据是 `TestExactSolution`。
+- **`validation_scope` 的总体状态名不够用。** 上面这一行的估计量是 `disclosure`、SE 是 `reference`，总体状态落到 `stochastic_only`，而文档对这个词的定义是"没有任何主输出有 T1/T2 证据"。逐输出的状态是对的，总体标签有歧义。没有改分类法，记在这里。

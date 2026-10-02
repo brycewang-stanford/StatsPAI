@@ -63,7 +63,10 @@ _HERE = pathlib.Path(__file__).resolve().parents[1] / "stata_parity" / "option_p
 _DATA = _HERE / "data_87_did_had.csv"
 _GOLDEN = _HERE / "results" / "87_did_had_Stata.json"
 
-ATOL = 1e-6
+# Fixture regenerated in double precision 2026-10-02; every Stata comparison
+# here holds at 1e-9. Against the single-precision fixture the budget was
+# 1e-6 / 1e-7.
+ATOL = 1e-9
 
 # Stata row name -> StatsPAI relative time.
 ROW_TO_HORIZON = {
@@ -375,7 +378,7 @@ class TestQuasiUntreatedTest:
         assert row["qug_statistic"] == pytest.approx(
             golden["Effect_1"]["qug_t"], abs=1e-6
         )
-        assert row["qug_pvalue"] == pytest.approx(golden["Effect_1"]["qug_p"], abs=1e-6)
+        assert row["qug_pvalue"] == pytest.approx(golden["Effect_1"]["qug_p"], abs=1e-9)
 
     def test_identical_across_effects_when_treatment_changes_once(self, fitted):
         """The reference documents this as the diagnostic for a single switch."""
@@ -490,7 +493,7 @@ class TestYatchewTest:
         got = fitted_yatchew.detail.loc[
             fitted_yatchew.detail["relative_time"] == h, f"yatchew_{field}"
         ].iloc[0]
-        assert got == pytest.approx(golden[row][ref], abs=1e-6)
+        assert got == pytest.approx(golden[row][ref], abs=1e-9)
 
     def test_effects_test_linearity_placebos_test_independence(self, panel):
         """The reference uses order 1 for effects and order 0 for placebos.

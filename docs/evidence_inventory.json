@@ -424,6 +424,289 @@
         }
       ]
     },
+    "did_imputation": {
+      "dimensions": {
+        "fe": [
+          "unit_time",
+          "time",
+          "none",
+          "custom"
+        ],
+        "covariates": [
+          "none",
+          "controls",
+          "time_covariates",
+          "unit_covariates",
+          "mixed"
+        ],
+        "vce": [
+          "analytic",
+          "bootstrap",
+          "none"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ],
+        "horizon": [
+          "overall",
+          "horizons"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "vce": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the covariance is computed after the imputation"
+        }
+      },
+      "cells": 240,
+      "overall": {
+        "covered": 6,
+        "estimate_only": 12,
+        "stochastic_only": 1,
+        "disclosure_only": 2,
+        "not_covered": 219
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 18,
+          "disclosure": 3,
+          "not_covered": 219
+        },
+        "se": {
+          "reference": 7,
+          "not_covered": 233
+        },
+        "vcov": {
+          "reference": 1,
+          "not_covered": 239
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/16_bjs.py",
+          "entry_point": "sp.did_imputation()",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "vce": [
+              "analytic"
+            ],
+            "weights": [
+              "none"
+            ],
+            "horizon": [
+              "overall"
+            ],
+            "fe": [
+              "unit_time"
+            ],
+            "covariates": [
+              "none"
+            ]
+          },
+          "compares": "overall ATT vs didimputation and Stata did_imputation"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_bjs_fe_covariates_parity.py",
+          "entry_point": "sp.did_imputation(fe=...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "vce": [
+              "analytic"
+            ],
+            "weights": [
+              "none"
+            ],
+            "horizon": [
+              "overall"
+            ],
+            "fe": [
+              "none",
+              "time",
+              "unit_time"
+            ],
+            "covariates": [
+              "none"
+            ]
+          },
+          "compares": "overall ATT under fe(i t) / fe(t) / fe(.) vs Stata did_imputation run in double precision"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_bjs_fe_covariates_parity.py",
+          "entry_point": "sp.did_imputation(controls=...|time_covariates=...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "vce": [
+              "analytic"
+            ],
+            "weights": [
+              "none"
+            ],
+            "horizon": [
+              "overall"
+            ],
+            "fe": [
+              "unit_time"
+            ],
+            "covariates": [
+              "controls",
+              "time_covariates"
+            ]
+          },
+          "compares": "overall ATT with controls() / timecontrols() vs Stata did_imputation"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/reference_parity/test_bjs_fe_covariates_parity.py",
+          "entry_point": "sp.did_imputation(unit_covariates=...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "vce": [
+              "analytic"
+            ],
+            "weights": [
+              "none"
+            ],
+            "horizon": [
+              "overall"
+            ],
+            "fe": [
+              "unit_time"
+            ],
+            "covariates": [
+              "unit_covariates"
+            ]
+          },
+          "compares": "unitcontrols(): Stata's iteration does not settle below 1e-6 relative (its ATT moves 6e-7 across tol() settings); StatsPAI equals the dense least-squares fit to 1e-11, Stata sits 1.4e-6 from it"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_option_fixture_bindings.py",
+          "entry_point": "sp.did_imputation(fe=...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "analytic"
+            ],
+            "weights": [
+              "none"
+            ],
+            "horizon": [
+              "overall"
+            ],
+            "fe": [
+              "none",
+              "time",
+              "unit_time"
+            ],
+            "covariates": [
+              "none"
+            ]
+          },
+          "compares": "SE under fe(i t) / fe(t) / fe(.) vs Stata did_imputation"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_option_fixture_bindings.py",
+          "entry_point": "sp.did_imputation(controls=...|time_covariates=...|unit_covariates=...)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "analytic"
+            ],
+            "weights": [
+              "none"
+            ],
+            "horizon": [
+              "overall"
+            ],
+            "fe": [
+              "unit_time"
+            ],
+            "covariates": [
+              "controls",
+              "time_covariates",
+              "unit_covariates"
+            ]
+          },
+          "compares": "SE with controls() / timecontrols() / unitcontrols() vs Stata did_imputation"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/84_bjs_pretrends.py",
+          "entry_point": "sp.did_imputation(horizon=[...], pretrend_method='bjs')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "fe": [
+              "unit_time"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "vce": [
+              "analytic"
+            ],
+            "weights": [
+              "none"
+            ],
+            "horizon": [
+              "horizons"
+            ]
+          },
+          "compares": "per-horizon ATTs, the pre-treatment lead vector and their SEs vs didimputation and Stata did_imputation"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_vcov_Stata_parity.py",
+          "entry_point": "sp.did_imputation(horizon=[...])",
+          "outputs": [
+            "vcov"
+          ],
+          "configuration": {
+            "fe": [
+              "unit_time"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "vce": [
+              "analytic"
+            ],
+            "weights": [
+              "none"
+            ],
+            "horizon": [
+              "horizons"
+            ]
+          },
+          "compares": "every entry of the per-horizon covariance vs Stata did_imputation's e(V)"
+        }
+      ]
+    },
     "dml": {
       "dimensions": {
         "model": [
@@ -798,6 +1081,111 @@
             ]
           },
           "compares": "95% CI coverage of the within estimator on a two-way FE panel DGP"
+        }
+      ]
+    },
+    "gardner_did": {
+      "dimensions": {
+        "vce": [
+          "analytic",
+          "stage2",
+          "bootstrap",
+          "none"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ],
+        "covariates": [
+          "none",
+          "set"
+        ],
+        "event_study": [
+          "off",
+          "on"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "vce": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the covariance is computed after the two stages"
+        }
+      },
+      "cells": 32,
+      "overall": {
+        "covered": 2,
+        "estimate_only": 6,
+        "not_covered": 24
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 8,
+          "not_covered": 24
+        },
+        "se": {
+          "reference": 2,
+          "not_covered": 30
+        },
+        "vcov": {
+          "reference": 1,
+          "not_covered": 31
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/73_did2s.py",
+          "entry_point": "sp.gardner_did()",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "analytic"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "event_study": [
+              "off"
+            ]
+          },
+          "compares": "static two-stage ATT and its corrected two-stage clustered SE vs did2s::did2s and Stata did2s"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_vcov_R_parity.py",
+          "entry_point": "sp.gardner_did(event_study=True)",
+          "outputs": [
+            "estimate",
+            "se",
+            "vcov"
+          ],
+          "configuration": {
+            "vce": [
+              "analytic"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "event_study": [
+              "on"
+            ]
+          },
+          "compares": "event-study coefficients and every entry of their covariance (diagonal and off-diagonal) vs did2s::did2s(i(rel_year))"
         }
       ]
     },
@@ -2753,15 +3141,15 @@
   },
   "totals_by_output": {
     "estimate": {
-      "reference": 322,
+      "reference": 348,
       "seed_equivalence": 3,
-      "disclosure": 2,
-      "not_covered": 39695
+      "disclosure": 5,
+      "not_covered": 39938
     },
     "se": {
-      "reference": 138,
+      "reference": 147,
       "stochastic_screen": 3,
-      "not_covered": 39873
+      "not_covered": 40136
     },
     "coverage": {
       "coverage_simulation": 11,
@@ -2772,8 +3160,8 @@
       "not_covered": 415
     },
     "vcov": {
-      "reference": 3,
-      "not_covered": 389
+      "reference": 5,
+      "not_covered": 659
     },
     "joint_test": {
       "reference": 3,
@@ -2783,31 +3171,32 @@
   "option_fixtures": [
     {
       "fixture": "tests/stata_parity/option_parity/results/82_csdid_conventions_Stata.json",
-      "sha256": "4c8b379a0ac8f3f7867438834aed855db9815ce385c09494c5b5c7becd4b68e9",
+      "sha256": "c988134a90bb0dec8aad0312ecae3b281ba874c55ad5e18b89570b8dd6293709",
       "consumers": [
-        "tests/reference_parity/test_option_fixture_bindings.py"
+        "tests/reference_parity/test_csdid_conventions_stata_parity.py"
       ],
       "in_tier_a_lock": false
     },
     {
       "fixture": "tests/stata_parity/option_parity/results/83_sunab_control_cohort_Stata.json",
-      "sha256": "492865cd2ffdae848a3659d86a73db5ebc4b51e38820d3360e9652d245cd89d4",
+      "sha256": "fd4d59285d8606fb03593c82df9a82b8bdb292df658ba058d08df642b4f927b0",
       "consumers": [
-        "tests/reference_parity/test_option_fixture_bindings.py"
+        "tests/reference_parity/test_sunab_control_cohort_parity.py"
       ],
       "in_tier_a_lock": false
     },
     {
       "fixture": "tests/stata_parity/option_parity/results/84_bjs_fe_covariates_Stata.json",
-      "sha256": "6252b6f531d6a41c8d6bc68e0457da133333e258a0b0d0fa45d11479bb2d4260",
+      "sha256": "eead3fb4a701b7709f1ad023298ab5d1291a3295d34cc1df528216ff56122c4c",
       "consumers": [
+        "tests/reference_parity/test_bjs_fe_covariates_parity.py",
         "tests/reference_parity/test_option_fixture_bindings.py"
       ],
       "in_tier_a_lock": false
     },
     {
       "fixture": "tests/stata_parity/option_parity/results/85_multiplegt_dyn_options_Stata.json",
-      "sha256": "090a8b699c78d577da7ff98f80f4ef0bd843fcba48717d839105bcbfd36b0107",
+      "sha256": "a6b6c27ad860d8a710eb3f6c42ed5c01337732f7f3ca1c23ba7711c178c2de9f",
       "consumers": [
         "tests/reference_parity/test_multiplegt_dyn_options_parity.py"
       ],
@@ -2815,7 +3204,7 @@
     },
     {
       "fixture": "tests/stata_parity/option_parity/results/86_lprobust_Stata.json",
-      "sha256": "b419f5edf5136415239b6cf28d633f645e7ca4547693fe570d2fb450120ebe32",
+      "sha256": "5dc6478d44596acd3f67ec7b9cc74508c2ea30c23b35906738516438429d390f",
       "consumers": [
         "tests/reference_parity/test_lprobust_parity.py"
       ],
@@ -2823,7 +3212,7 @@
     },
     {
       "fixture": "tests/stata_parity/option_parity/results/87_did_had_Stata.json",
-      "sha256": "1c2c75c8beef5a234943b18998bdcfaca72aa73d70c06cc7adf04c9d1bb6fc42",
+      "sha256": "0f158aa295005c951d6c42d652fb7eca3e4a335553df4591c8b263c70ad0f98a",
       "consumers": [
         "tests/reference_parity/test_did_had_parity.py"
       ],

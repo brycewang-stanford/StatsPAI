@@ -38,7 +38,7 @@ Options and evidence for the flagship estimators, read from their signatures and
 | `sp.did` | `weights` | `cluster` | `vce=None`, `robust=True`, `se_method='placebo'` | native | core | validated | — | — |
 | `sp.callaway_santanna` | `weights` | `clustervars` | `se_method=None` | native | core | certified | yes | 1 |
 | `sp.sun_abraham` | `weights` | `cluster` | — | native | core | certified | yes | — |
-| `sp.did_imputation` | `weights` | `cluster` | `vce='analytic'`, `se_method=None` | native | core | certified | — | 1 |
+| `sp.did_imputation` | `weights` | `cluster` | `vce='analytic'`, `se_method=None` | native | core | certified | yes | 1 |
 | `sp.etwfe` | `weights` | `cluster` | — | native | core | certified | — | 8 |
 | `sp.did_multiplegt_dyn` | `weights` | `cluster` | `se_method='bootstrap'` | native | research | experimental | — | 3 |
 | `sp.honest_did` | — | — | — | native (`backend='native'`) | core | certified | — | — |

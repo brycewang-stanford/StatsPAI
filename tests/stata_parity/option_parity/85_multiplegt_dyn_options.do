@@ -24,7 +24,11 @@ version 17
 clear all
 set more off
 
-import delimited "data_85_dcdh_switch.csv", clear
+* Double precision throughout: without `asdouble`, `import delimited`
+* stores the decimals as float and rounds the data in the 8th digit, and
+* generated variables follow `set type` (see 84_bjs_fe_covariates.do).
+set type double
+import delimited "data_85_dcdh_switch.csv", clear asdouble
 
 capture program drop _dumpdyn
 program define _dumpdyn
@@ -59,8 +63,9 @@ _dumpdyn `fh' "switchers_out" ","
 qui did_multiplegt_dyn y i t d, effects(4) placebo(2) same_switchers graph_off
 _dumpdyn `fh' "same_switchers" ","
 
-file write `fh' `"  "_meta": {"cmd": "did_multiplegt_dyn", "stata": "18 MP"}"' _n
+file write `fh' `"  "_meta": {"cmd": "did_multiplegt_dyn", "stata": "18 MP", "precision": "double"}"' _n
 file write `fh' "}" _n
 file close `fh'
 
+set type float
 di as txt "wrote results/85_multiplegt_dyn_options_Stata.json"

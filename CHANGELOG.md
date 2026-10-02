@@ -122,15 +122,49 @@ changes its numbers.
   credited to the default setting only, which is what it ran.
 - **`did_imputation` standard errors under the Y(0)-model options are
   compared with Stata.** The seven SEs were recorded in the option fixture
-  and asserted by no test; they agree to 1.8e-7 or better.
+  and asserted by no test; they agree to 1.3e-9 or better.
+- **`sp.validation_scope` covers `did_imputation` and `gardner_did`.** Both
+  results now record the configuration the map reads (`y0_fe`,
+  `y0_covariates`, `horizon_requested`; `covariates`). The joint
+  event-study covariance of each, already pinned against Stata
+  `did_imputation` and `did2s::did2s`, is registered. `gardner_did(vce=
+  'stage2')` reads as `estimate_only`; covariates, weights and bootstrap
+  SEs read as not covered.
+
+### ⚠️ Correctness (reference fixtures, not estimators)
+
+- **The six option-level Stata fixtures were generated in single
+  precision.** Their do-files do not source Track A's `_common.do`, so
+  `import delimited` stored the decimal columns as float and Stata
+  estimated on data rounded in the 8th digit. The resulting gaps had been
+  explained as optimizer and absorption tolerance and absorbed by loose
+  test tolerances. All six were regenerated on Stata 18 MP with
+  `set type double` and `asdouble`. No StatsPAI number changes; what
+  changes is how close the references are:
+
+  | reference | before | after | test tolerance |
+  | --- | --- | --- | --- |
+  | `csdid` ATT(g,t) | 2e-5 rel | 4.9e-13 | abs 5e-7 -> rel 1e-9 |
+  | `eventstudyinteract` ATT / SE | 2e-5 / 3e-7 | 1.9e-10 / 2.0e-11 | abs 1e-6, rel 2e-3 -> rel 1e-9 |
+  | `did_imputation` ATT, `fe(t)` / `fe(.)` | 5e-7 | 5e-14 | abs 1e-6 -> rel 1e-6 |
+  | `did_imputation` ATT, unit effects absorbed | 2e-6 to 3.4e-6 | 3e-8 to 4e-7 | abs 1e-6 -> rel 1e-6 |
+  | `did_imputation` SE | 1.8e-7 | 1.3e-9 | none -> rel 1e-8 |
+  | `did_multiplegt_dyn`, `lprobust`, `did_had` (217 assertions) | within 1e-6 / 1e-7 | within 1e-9 | abs 1e-6 / 1e-7 -> abs 1e-9 |
+
+  One row does not reach 1e-6 and is recorded as a reference-precision
+  disclosure, not a match: `did_imputation, unitcontrols(year)`.
+  StatsPAI equals a dense exact least-squares fit to 7.5e-12; Stata sits
+  1.4e-6 from it, and its ATT moves by 6e-7 across `tol()` settings
+  without converging. Track A is not affected: `_common.do` has always
+  forced double precision there.
 
 ### Changed
 
 - The option-level Stata fixtures are bound to their tests. Three of the
   six were opened by no test (the numbers are literals in the test
-  source) and none is in the Track A hash lock. Every fixture number must
-  now appear in its test, each fixture's SHA-256 is recorded in the
-  evidence inventory, and a fixture no test reads fails the build.
+  source) and none is in the Track A hash lock. Every consumer now opens
+  its fixture, each fixture's SHA-256 is recorded in the evidence
+  inventory, and a fixture no test reads fails the build.
 - CI fast gate runs the whole agent chain: a full analysis over a real
   stdio subprocess (route, load, transform, fit under two covariance
   options, audit, follow-up, resource reads, tight budget, stale handle),

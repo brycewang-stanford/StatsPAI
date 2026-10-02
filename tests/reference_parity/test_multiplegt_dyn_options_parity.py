@@ -63,7 +63,10 @@ _GOLDEN = (
     / "85_multiplegt_dyn_options_Stata.json"
 )
 
-ATOL = 1e-6
+# Fixture regenerated in double precision 2026-10-02; every Stata comparison
+# here holds at 1e-9. Against the single-precision fixture the budget was
+# 1e-6 / 1e-7.
+ATOL = 1e-9
 
 # aggregation='switchers' matches e(Av_tot_effect); se_method='analytic'
 # with n_boot=0 keeps the point-estimate comparison fast and deterministic.
@@ -154,7 +157,7 @@ class TestSwitcherOptionsParity:
             "the option, or the test proves nothing"
         )
 
-    def test_restricted_switchers_stay_available_as_controls(self, panel):
+    def test_restricted_switchers_stay_available_as_controls(self, panel, golden):
         """same_switchers must not delete those units from the panel.
 
         A unit that switches at F=8 cannot support horizon 3, so it is
@@ -164,7 +167,7 @@ class TestSwitcherOptionsParity:
         put same_switchers 2.9e-2 away from Stata before it was fixed.
         """
         res = _fit(panel, same_switchers=True)
-        want = 0.441039354850848  # Stata
+        want = golden["same_switchers"]["Av_tot_eff"]  # Stata
         assert res.estimate == pytest.approx(want, abs=ATOL)
 
     def test_in_and_out_partition_the_switchers(self, panel, golden):

@@ -7,20 +7,22 @@ offered no way to nominate it, so a design whose never-treated group is
 contaminated (or absent) could not be expressed.
 
 Golden numbers from Stata 18 MP, ``eventstudyinteract`` v0.1 (Sun 2022) on
-``mpdta``; generating do-file ``tests/stata_parity/83_sunab_control_cohort.do``.
+``mpdta``; generating do-file
+``tests/stata_parity/option_parity/83_sunab_control_cohort.do``.
 
 Tolerances
 ----------
-ATT is pinned at 1e-6 — the observed worst case is 5.1e-8, driven by
-reghdfe's absorb tolerance versus StatsPAI's dense solve.
+Relative 1e-9 on both the ATT and the SE, read from
+``option_parity/results/83_sunab_control_cohort_Stata.json``. Observed
+worst case: 1.9e-10 (ATT), 2.0e-11 (SE).
 
-SE is pinned at 0.2% *relative*. What remains after the share-variance
-fix (below) is a **uniform** offset — 0.020% for the control_cohort=2007
-fit and 0.081% for the never-treated fit — reflecting reghdfe's
-small-sample cluster correction, whose K counts absorbed fixed effects
-differently from StatsPAI's sandwich. Uniformity across relative times is
-the diagnostic that matters: a per-relative-time *pattern* in the gap
-means a real estimator difference, not a scaling convention.
+The first version of the fixture was held to 1e-6 absolute on the ATT and
+0.2% on the SE. Two things have changed since. The SE offset then
+attributed to reghdfe's small-sample correction went away with the
+Sun-Abraham design-matrix fix (ghost cohort x event columns, nested time
+effects in K). And the remaining 2e-5 relative gap in the ATT was Stata
+running in single precision: ``import delimited`` stored ``lemp`` as
+float. The do-file now imports ``asdouble`` under ``set type double``.
 
 Regression history
 ------------------
@@ -36,6 +38,7 @@ cannot be dropped again unnoticed.
 
 from __future__ import annotations
 
+import json
 import pathlib
 
 import numpy as np
@@ -51,32 +54,36 @@ _MPDTA = (
     / "02_mpdta_original.csv"
 )
 
-ATT_ATOL = 1e-6
-SE_RTOL = 0.002
+RTOL = 1e-9
+
+_STATA = json.loads(
+    (
+        pathlib.Path(__file__).resolve().parents[1]
+        / "stata_parity"
+        / "option_parity"
+        / "results"
+        / "83_sunab_control_cohort_Stata.json"
+    ).read_text(encoding="utf-8")
+)
+
+
+def _rows(block: str, times: list) -> dict:
+    """``{relative time: (att, se)}`` from the fixture's g_m<k> / g_p<k> keys."""
+    out = {}
+    for e in times:
+        row = _STATA[block][f"g_{'m' if e < 0 else 'p'}{abs(e)}"]
+        out[e] = (row["att"], row["se"])
+    return out
+
 
 # eventstudyinteract ... control_cohort(never)
-STATA_NEVERTREATED = {
-    -4: (0.0033063516, 0.0245550964),
-    -3: (0.0250218088, 0.0181950652),
-    -2: (0.0244587152, 0.0142962529),
-    0: (-0.0199318068, 0.0118761305),
-    1: (-0.0509573570, 0.0169640080),
-    2: (-0.1372586996, 0.0365894800),
-    3: (-0.1008113715, 0.0345042783),
-}
+STATA_NEVERTREATED = _rows("control_cohort_never", [-4, -3, -2, 0, 1, 2, 3])
 
 # eventstudyinteract ... control_cohort(c2007), c2007 = first_treat==2007.
 # g_m4 comes back exactly 0 in Stata (no estimable cohort at that lead once
 # 2007 becomes the reference); StatsPAI omits the row instead of reporting
 # a spurious zero, so it is not part of the comparison.
-STATA_CONTROL_2007 = {
-    -3: (0.0045018093, 0.0309631845),
-    -2: (0.0019392060, 0.0191071653),
-    0: (-0.0034213824, 0.0134061135),
-    1: (-0.0423726647, 0.0165548420),
-    2: (-0.1362743085, 0.0355242405),
-    3: (-0.0920698754, 0.0334977475),
-}
+STATA_CONTROL_2007 = _rows("control_cohort_2007", [-3, -2, 0, 1, 2, 3])
 
 
 def _mpdta() -> pd.DataFrame:
@@ -99,10 +106,10 @@ def _assert_matches(got: dict, want: dict, label: str) -> None:
     for e, (att, se) in want.items():
         got_att, got_se = got[e]
         assert got_att == pytest.approx(
-            att, abs=ATT_ATOL
+            att, rel=RTOL
         ), f"{label}: ATT at e={e} is {got_att:.10f}, Stata {att:.10f}"
         assert got_se == pytest.approx(
-            se, rel=SE_RTOL
+            se, rel=RTOL
         ), f"{label}: SE at e={e} is {got_se:.10f}, Stata {se:.10f}"
 
 

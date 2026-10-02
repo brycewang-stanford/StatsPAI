@@ -11,8 +11,8 @@ learners -- is the one the parity row exercised; and a row that pins the
 2SLS coefficient and its classical, HC1 and CR1 standard errors says
 nothing about the HC3 standard error of the same coefficient.
 
-This module records, for the twelve estimators of the paper's validation
-suite, which configurations each artifact exercised and which outputs it
+This module records, for the estimators listed in ``SCOPE_FUNCTIONS`` (the
+paper's validation suite and the event-study estimators added since), which configurations each artifact exercised and which outputs it
 compared. Every dimension has an enumerated domain; every row lists the
 values it actually ran, never a wildcard. A dimension can be ignored only
 for an output that provably does not depend on it (the 2SLS point
@@ -257,6 +257,29 @@ def _x_sa(r: Any) -> Dict[str, Optional[str]]:
         "share_variance": {True: "estimated", False: "fixed"}.get(
             mi.get("share_variance")
         ),
+    }
+
+
+def _x_bjs(r: Any) -> Dict[str, Optional[str]]:
+    mi = _mi(r)
+    return {
+        "fe": _lower(mi.get("y0_fe")),
+        "covariates": _lower(mi.get("y0_covariates")),
+        "vce": _lower(mi.get("vce")),
+        "weights": _set(mi.get("weights")),
+        "horizon": {True: "horizons", False: "overall"}.get(
+            mi.get("horizon_requested")
+        ),
+    }
+
+
+def _x_did2s(r: Any) -> Dict[str, Optional[str]]:
+    mi = _mi(r)
+    return {
+        "vce": _lower(mi.get("vce")),
+        "weights": _set(mi.get("weights")),
+        "covariates": _lower(mi.get("covariates")),
+        "event_study": "on" if mi.get("event_study") is not None else "off",
     }
 
 
@@ -1027,6 +1050,194 @@ _add(
         "settings. The joint event-study covariance has a reference only with "
         "share_variance=False: fixest holds the shares fixed, and no reference "
         "pins the off-diagonal blocks of the Prop. 3 matrix.",
+    )
+)
+
+_BJS_BASE = {
+    "vce": _vals("analytic"),
+    "weights": _vals("none"),
+    "horizon": _vals("overall"),
+}
+_BJS_OPT = _RP + "test_bjs_fe_covariates_parity.py"
+_BJS_SE = _RP + "test_option_fixture_bindings.py"
+
+_add(
+    _Scope(
+        "did_imputation",
+        {
+            "fe": ("unit_time", "time", "none", "custom"),
+            "covariates": (
+                "none",
+                "controls",
+                "time_covariates",
+                "unit_covariates",
+                "mixed",
+            ),
+            "vce": ("analytic", "bootstrap", "none"),
+            "weights": ("none", "set"),
+            "horizon": ("overall", "horizons"),
+        },
+        _x_bjs,
+        (
+            _Row(
+                "T2",
+                _R + "16_bjs.py",
+                {**_BJS_BASE, "fe": _vals("unit_time"), "covariates": _vals("none")},
+                _EST,
+                "overall ATT vs didimputation and Stata did_imputation",
+                "sp.did_imputation()",
+            ),
+            _Row(
+                "T2",
+                _BJS_OPT,
+                {
+                    **_BJS_BASE,
+                    "fe": _vals("unit_time", "time", "none"),
+                    "covariates": _vals("none"),
+                },
+                _EST,
+                "overall ATT under fe(i t) / fe(t) / fe(.) vs Stata did_imputation "
+                "run in double precision",
+                "sp.did_imputation(fe=...)",
+            ),
+            _Row(
+                "T2",
+                _BJS_OPT,
+                {
+                    **_BJS_BASE,
+                    "fe": _vals("unit_time"),
+                    "covariates": _vals("controls", "time_covariates"),
+                },
+                _EST,
+                "overall ATT with controls() / timecontrols() vs Stata did_imputation",
+                "sp.did_imputation(controls=...|time_covariates=...)",
+            ),
+            _Row(
+                "T4",
+                _BJS_OPT,
+                {
+                    **_BJS_BASE,
+                    "fe": _vals("unit_time"),
+                    "covariates": _vals("unit_covariates"),
+                },
+                _EST,
+                "unitcontrols(): Stata's iteration does not settle below 1e-6 "
+                "relative (its ATT moves 6e-7 across tol() settings); StatsPAI "
+                "equals the dense least-squares fit to 1e-11, Stata sits 1.4e-6 "
+                "from it",
+                "sp.did_imputation(unit_covariates=...)",
+            ),
+            _Row(
+                "T2",
+                _BJS_SE,
+                {
+                    **_BJS_BASE,
+                    "fe": _vals("unit_time", "time", "none"),
+                    "covariates": _vals("none"),
+                },
+                ("se",),
+                "SE under fe(i t) / fe(t) / fe(.) vs Stata did_imputation",
+                "sp.did_imputation(fe=...)",
+            ),
+            _Row(
+                "T2",
+                _BJS_SE,
+                {
+                    **_BJS_BASE,
+                    "fe": _vals("unit_time"),
+                    "covariates": _vals(
+                        "controls", "time_covariates", "unit_covariates"
+                    ),
+                },
+                ("se",),
+                "SE with controls() / timecontrols() / unitcontrols() vs Stata "
+                "did_imputation",
+                "sp.did_imputation(controls=...|time_covariates=...|"
+                "unit_covariates=...)",
+            ),
+            _Row(
+                "T2",
+                _R + "84_bjs_pretrends.py",
+                {
+                    "fe": _vals("unit_time"),
+                    "covariates": _vals("none"),
+                    "vce": _vals("analytic"),
+                    "weights": _vals("none"),
+                    "horizon": _vals("horizons"),
+                },
+                _EST_SE,
+                "per-horizon ATTs, the pre-treatment lead vector and their SEs vs "
+                "didimputation and Stata did_imputation",
+                "sp.did_imputation(horizon=[...], pretrend_method='bjs')",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_event_study_vcov_Stata_parity.py",
+                {
+                    "fe": _vals("unit_time"),
+                    "covariates": _vals("none"),
+                    "vce": _vals("analytic"),
+                    "weights": _vals("none"),
+                    "horizon": _vals("horizons"),
+                },
+                ("vcov",),
+                "every entry of the per-horizon covariance vs Stata "
+                "did_imputation's e(V)",
+                "sp.did_imputation(horizon=[...])",
+            ),
+        ),
+        invariant={
+            "vce": (_EST, "the covariance is computed after the imputation"),
+        },
+        note="The Stata rows for the Y(0)-model options were regenerated in "
+        "double precision on 2026-10-02; in single precision Stata sat 2e-6 "
+        "from the exact answer. Weighted fits, custom fixed-effect specs and "
+        "the bootstrap SE have no reference row.",
+    )
+)
+
+_DID2S_BASE = {
+    "vce": _vals("analytic"),
+    "weights": _vals("none"),
+    "covariates": _vals("none"),
+}
+
+_add(
+    _Scope(
+        "gardner_did",
+        {
+            "vce": ("analytic", "stage2", "bootstrap", "none"),
+            "weights": ("none", "set"),
+            "covariates": ("none", "set"),
+            "event_study": ("off", "on"),
+        },
+        _x_did2s,
+        (
+            _Row(
+                "T2",
+                _R + "73_did2s.py",
+                {**_DID2S_BASE, "event_study": _vals("off")},
+                _EST_SE,
+                "static two-stage ATT and its corrected two-stage clustered SE vs "
+                "did2s::did2s and Stata did2s",
+                "sp.gardner_did()",
+            ),
+            _Row(
+                "T2",
+                _RP + "test_event_study_vcov_R_parity.py",
+                {**_DID2S_BASE, "event_study": _vals("on")},
+                ("estimate", "se", "vcov"),
+                "event-study coefficients and every entry of their covariance "
+                "(diagonal and off-diagonal) vs did2s::did2s(i(rel_year))",
+                "sp.gardner_did(event_study=True)",
+            ),
+        ),
+        invariant={
+            "vce": (_EST, "the covariance is computed after the two stages"),
+        },
+        note="vce='stage2' is the pre-correction convention and understates; "
+        "module 73 records its size as a diagnostic, not as a reference row. "
+        "Covariates, weights and the bootstrap SE have no reference row.",
     )
 )
 
@@ -1908,6 +2119,9 @@ _METHOD_TO_FUNCTION = (
     ("sun-abraham", "sun_abraham"),
     ("rd estimation", "rdrobust"),
     ("density test", "rddensity"),
+    ("gardner", "gardner_did"),
+    ("imputation estimator", "did_imputation"),
+    ("bjs imputation", "did_imputation"),
     ("synthetic control", "synth"),
     ("synthetic difference", "sdid"),
     ("double ml", "dml"),

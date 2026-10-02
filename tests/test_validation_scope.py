@@ -535,3 +535,78 @@ def test_sun_abraham_joint_covariance_has_a_reference_only_with_fixed_shares():
         function="sun_abraham", control_group="nevertreated", aggregation="event_time"
     )
     assert by_name["configuration"]["share_variance"] == "estimated"
+
+
+@pytest.fixture(scope="module")
+def mpdta():
+    return pd.read_csv(ROOT / "tests/orig_parity/data/02_mpdta_original.csv")
+
+
+_BJS = dict(y="lemp", group="countyreal", time="year", first_treat="first_treat")
+
+
+def _scope_of(fit):
+    scope = sp.validation_scope(fit)
+    return scope, {k: v["status"] for k, v in scope["outputs"].items()}
+
+
+def test_did_imputation_scope_follows_the_y0_specification(mpdta):
+    """Each Y(0)-model option has its own evidence; none borrows the default's."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        default = sp.did_imputation(mpdta, **_BJS)
+        time_only = sp.did_imputation(mpdta, **_BJS, fe=["year"])
+        custom = sp.did_imputation(
+            mpdta.assign(st=mpdta["countyreal"] // 1000),
+            **_BJS,
+            fe=["countyreal", "st#year"],
+        )
+        horizons = sp.did_imputation(mpdta, **_BJS, horizon=[0, 1, 2, 3])
+    scope, out = _scope_of(default)
+    assert scope["function"] == "did_imputation" and scope["unchecked"] == []
+    assert scope["configuration"] == {
+        "fe": "unit_time",
+        "covariates": "none",
+        "vce": "analytic",
+        "weights": "none",
+        "horizon": "overall",
+    }
+    assert (out["estimate"], out["se"], out["vcov"]) == (
+        "reference",
+        "reference",
+        "not_covered",
+    )
+    assert _scope_of(time_only)[0]["status"] == "covered"
+    assert _scope_of(custom)[0]["status"] == "not_covered"
+    # The joint covariance is pinned only where horizons were requested.
+    assert _scope_of(horizons)[1]["vcov"] == "reference"
+
+
+def test_did_imputation_unit_slopes_are_a_disclosure_not_a_match(mpdta):
+    """Stata's unitcontrols() ATT is not stable to 1e-6; say so, not 'aligned'."""
+    untreated = (mpdta["first_treat"] == 0) | (mpdta["year"] < mpdta["first_treat"])
+    keep = untreated.groupby(mpdta["countyreal"]).transform("sum") >= 2
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.did_imputation(mpdta[keep].copy(), **_BJS, unit_covariates=["year"])
+    scope, out = _scope_of(fit)
+    assert out["estimate"] == "disclosure"
+    assert out["se"] == "reference"
+    assert scope["status"] != "covered"
+
+
+def test_gardner_scope_separates_the_corrected_and_the_legacy_variance(mpdta):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        default = sp.gardner_did(mpdta, **_BJS)
+        stage2 = sp.gardner_did(mpdta, **_BJS, vce="stage2")
+        dynamic = sp.gardner_did(mpdta, **_BJS, event_study=True)
+        controls = sp.gardner_did(mpdta, **_BJS, controls=["lpop"])
+    scope, out = _scope_of(default)
+    assert scope["function"] == "gardner_did" and scope["status"] == "covered"
+    assert out["vcov"] == "not_covered"
+    # Same point estimate, but module 73 pins the corrected variance only.
+    scope, out = _scope_of(stage2)
+    assert scope["status"] == "estimate_only" and out["se"] == "not_covered"
+    assert _scope_of(dynamic)[1]["vcov"] == "reference"
+    assert _scope_of(controls)[0]["status"] == "not_covered"

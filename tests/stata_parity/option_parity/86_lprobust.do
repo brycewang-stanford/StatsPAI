@@ -22,7 +22,11 @@ version 17
 clear all
 set more off
 
-import delimited "data_86_lprobust.csv", clear
+* Double precision throughout: without `asdouble`, `import delimited`
+* stores the decimals as float and rounds the data in the 8th digit, and
+* generated variables follow `set type` (see 84_bjs_fe_covariates.do).
+set type double
+import delimited "data_86_lprobust.csv", clear asdouble
 * The CSV round-trips through Stata's default float; recast so the
 * comparison measures the estimator rather than single precision.
 recast double d y, force
@@ -72,8 +76,9 @@ foreach sel in mse-dpi mse-rot {
 }
 file write `fh' _n "  }" _n
 
-file write `fh' _n `"  , "_meta": {"cmd": "lprobust", "vce": "nn(3)", "p": 1, "deriv": 0, "stata": "18 MP"}"' _n
+file write `fh' _n `"  , "_meta": {"cmd": "lprobust", "vce": "nn(3)", "p": 1, "deriv": 0, "stata": "18 MP", "precision": "double"}"' _n
 file write `fh' "}" _n
 file close `fh'
 
+set type float
 di as txt "wrote results/86_lprobust_Stata.json"

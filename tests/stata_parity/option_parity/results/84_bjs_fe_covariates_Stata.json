@@ -1,10 +1,10 @@
 {
-  "default": {"att":   -0.047710015124267, "se":    0.013222491066798},
-  "fe_time_only": {"att":    0.411346594258703, "se":    0.139121217702877},
-  "fe_none": {"att":    0.358597062890112, "se":    0.120126510309709},
-  "timecontrols_lpop": {"att":   -0.050627012049063, "se":    0.012717374175951},
-  "controls_lpop": {"att":   -0.047710015124267, "se":    0.013222490843009},
-  "default_identified_subset": {"att":   -0.033715967954549, "se":    0.014650272946075},
-  "unitcontrols_year_subset": {"att":   -0.029441151707260, "se":    0.017216972782992},
-  "_meta": {"command": "did_imputation", "stata": "18 MP"}
+  "default": {"att":   -0.047709915419267, "se":    0.013222488649680},
+  "fe_time_only": {"att":    0.411346406124515, "se":    0.139121214451702},
+  "fe_none": {"att":    0.358597252503752, "se":    0.120126508662163},
+  "timecontrols_lpop": {"att":   -0.050627031482257, "se":    0.012717372953115},
+  "controls_lpop": {"att":   -0.047709915419267, "se":    0.013222488649680},
+  "default_identified_subset": {"att":   -0.033715840658901, "se":    0.014650272328004},
+  "unitcontrols_year_subset": {"att":   -0.029441169263082, "se":    0.017216970143778},
+  "_meta": {"command": "did_imputation", "stata": "18 MP", "precision": "double", "tol": "1e-12"}
 }

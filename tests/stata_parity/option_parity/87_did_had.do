@@ -29,7 +29,11 @@ version 17
 clear all
 set more off
 
-import delimited "data_87_did_had.csv", clear
+* Double precision throughout: without `asdouble`, `import delimited`
+* stores the decimals as float and rounds the data in the 8th digit, and
+* generated variables follow `set type` (see 84_bjs_fe_covariates.do).
+set type double
+import delimited "data_87_did_had.csv", clear asdouble
 recast double d y, force
 
 local effects = 3
@@ -83,8 +87,9 @@ foreach m in mse-dpi mse-rot imse-dpi imse-rot ce-dpi ce-rot {
 }
 file write `fh' _n "  }" _n
 
-file write `fh' `"  , "_meta": {"cmd": "did_had", "effects": 3, "placebo": 2, "kernel": "epanechnikov", "bw_method": "mse-dpi", "yatchew": "het_robust", "stata": "18 MP"}"' _n
+file write `fh' `"  , "_meta": {"cmd": "did_had", "effects": 3, "placebo": 2, "kernel": "epanechnikov", "bw_method": "mse-dpi", "yatchew": "het_robust", "stata": "18 MP", "precision": "double"}"' _n
 file write `fh' "}" _n
 file close `fh'
 
+set type float
 di as txt "wrote results/87_did_had_Stata.json"

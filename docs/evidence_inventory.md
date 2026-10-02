@@ -13,8 +13,10 @@ Functions without a scope map are not listed. That is not a claim that they lack
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | `callaway_santanna` | 384 | 50 / 384 | 25 / 384 | 1 / 384 | -- | -- | 25 / 384 |
 | `causal_forest` | 96 | 0 / 96 | 0 / 96 | -- | -- | -- | 0 / 96 |
+| `did_imputation` | 240 | 18 / 240 | 7 / 240 | 1 / 240 | -- | -- | 6 / 240 |
 | `dml` | 9120 | 4 / 9120 | 4 / 9120 | -- | -- | -- | 4 / 9120 |
 | `fast.feols` | 12 | 6 / 12 | 2 / 12 | -- | -- | -- | 2 / 12 |
+| `gardner_did` | 32 | 8 / 32 | 2 / 32 | 1 / 32 | -- | -- | 2 / 32 |
 | `iv` | 208 | 39 / 208 | 7 / 208 | -- | -- | 1 / 208 | 7 / 208 |
 | `ivreg` | 208 | 39 / 208 | 7 / 208 | -- | -- | 1 / 208 | 7 / 208 |
 | `panel` | 144 | 99 / 144 | 46 / 144 | -- | -- | -- | 46 / 144 |
@@ -41,12 +43,18 @@ Cells whose strongest evidence for an output is not a reference row. These are r
 | `causal_forest` | estimate | 3 | 0 | 0 | 0 | 93 |
 | `causal_forest` | se | 0 | 1 | 0 | 0 | 95 |
 | `causal_forest` | coverage | 0 | 0 | 1 | 0 | 95 |
+| `did_imputation` | estimate | 0 | 0 | 0 | 3 | 219 |
+| `did_imputation` | se | 0 | 0 | 0 | 0 | 233 |
+| `did_imputation` | vcov | 0 | 0 | 0 | 0 | 239 |
 | `dml` | estimate | 0 | 0 | 0 | 0 | 9116 |
 | `dml` | se | 0 | 0 | 0 | 0 | 9116 |
 | `dml` | coverage | 0 | 0 | 2 | 0 | 9118 |
 | `fast.feols` | estimate | 0 | 0 | 0 | 0 | 6 |
 | `fast.feols` | se | 0 | 0 | 0 | 0 | 10 |
 | `fast.feols` | coverage | 0 | 0 | 1 | 0 | 11 |
+| `gardner_did` | estimate | 0 | 0 | 0 | 0 | 24 |
+| `gardner_did` | se | 0 | 0 | 0 | 0 | 30 |
+| `gardner_did` | vcov | 0 | 0 | 0 | 0 | 31 |
 | `iv` | estimate | 0 | 0 | 0 | 0 | 169 |
 | `iv` | se | 0 | 0 | 0 | 0 | 201 |
 | `iv` | coverage | 0 | 0 | 1 | 0 | 207 |
@@ -103,6 +111,23 @@ Dimensions: `treatment` in {binary, continuous}; `trees` in {100, 200, 300, 500,
 | S | estimate, se | treatment=binary; trees=2000; tuning=grf_defaults; design=iid | `tests/r_parity/13_causal_forest.py` | `sp.causal_forest(n_estimators=2000)` |
 | B | coverage | treatment=binary; trees=2000; tuning=grf_defaults; design=iid | `tests/coverage_monte_carlo/results_b1000/coverage_b1000.json` | `sp.causal_question(design='causal_forest')` |
 
+### `did_imputation`
+
+Dimensions: `fe` in {unit_time, time, none, custom}; `covariates` in {none, controls, time_covariates, unit_covariates, mixed}; `vce` in {analytic, bootstrap, none}; `weights` in {none, set}; `horizon` in {overall, horizons}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate | vce=analytic; weights=none; horizon=overall; fe=unit_time; covariates=none | `tests/r_parity/16_bjs.py` | `sp.did_imputation()` |
+| T2 | estimate | vce=analytic; weights=none; horizon=overall; fe=none/time/unit_time; covariates=none | `tests/reference_parity/test_bjs_fe_covariates_parity.py` | `sp.did_imputation(fe=...)` |
+| T2 | estimate | vce=analytic; weights=none; horizon=overall; fe=unit_time; covariates=controls/time_covariates | `tests/reference_parity/test_bjs_fe_covariates_parity.py` | `sp.did_imputation(controls=...|time_covariates=...)` |
+| T4 | estimate | vce=analytic; weights=none; horizon=overall; fe=unit_time; covariates=unit_covariates | `tests/reference_parity/test_bjs_fe_covariates_parity.py` | `sp.did_imputation(unit_covariates=...)` |
+| T2 | se | vce=analytic; weights=none; horizon=overall; fe=none/time/unit_time; covariates=none | `tests/reference_parity/test_option_fixture_bindings.py` | `sp.did_imputation(fe=...)` |
+| T2 | se | vce=analytic; weights=none; horizon=overall; fe=unit_time; covariates=controls/time_covariates/unit_covariates | `tests/reference_parity/test_option_fixture_bindings.py` | `sp.did_imputation(controls=...|time_covariates=...|unit_covariates=...)` |
+| T2 | estimate, se | fe=unit_time; covariates=none; vce=analytic; weights=none; horizon=horizons | `tests/r_parity/84_bjs_pretrends.py` | `sp.did_imputation(horizon=[...], pretrend_method='bjs')` |
+| T2 | vcov | fe=unit_time; covariates=none; vce=analytic; weights=none; horizon=horizons | `tests/reference_parity/test_event_study_vcov_Stata_parity.py` | `sp.did_imputation(horizon=[...])` |
+
+`vce` is ignored for estimate: the covariance is computed after the imputation
+
 ### `dml`
 
 Dimensions: `model` in {plr, irm, pliv, iivm}; `score` in {partialling out, iv-type, ate, atte, late}; `learners` in {linear, default, other}; `n_folds` in {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}; `n_rep` in {1, >1}; `ipw` in {n/a, trim0.01, trim1e-12, other}.
@@ -129,6 +154,17 @@ Dimensions: `vcov` in {iid, hc1, cr1}; `ssc` in {fixest, statspai}; `weights` in
 `vcov` is ignored for estimate: the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator
 
 `ssc` is ignored for estimate: the small-sample factor scales the covariance only
+
+### `gardner_did`
+
+Dimensions: `vce` in {analytic, stage2, bootstrap, none}; `weights` in {none, set}; `covariates` in {none, set}; `event_study` in {off, on}.
+
+| Kind | Outputs | Configuration run | Artifact | Entry point |
+| --- | --- | --- | --- | --- |
+| T2 | estimate, se | vce=analytic; weights=none; covariates=none; event_study=off | `tests/r_parity/73_did2s.py` | `sp.gardner_did()` |
+| T2 | estimate, se, vcov | vce=analytic; weights=none; covariates=none; event_study=on | `tests/reference_parity/test_event_study_vcov_R_parity.py` | `sp.gardner_did(event_study=True)` |
+
+`vce` is ignored for estimate: the covariance is computed after the two stages
 
 ### `iv`
 
@@ -272,9 +308,9 @@ Fixtures under `tests/stata_parity/option_parity/` pin option switches within an
 
 | Fixture | Read by | SHA-256 (first 16) |
 | --- | --- | --- |
-| `tests/stata_parity/option_parity/results/82_csdid_conventions_Stata.json` | `tests/reference_parity/test_option_fixture_bindings.py` | `4c8b379a0ac8f3f7` |
-| `tests/stata_parity/option_parity/results/83_sunab_control_cohort_Stata.json` | `tests/reference_parity/test_option_fixture_bindings.py` | `492865cd2ffdae84` |
-| `tests/stata_parity/option_parity/results/84_bjs_fe_covariates_Stata.json` | `tests/reference_parity/test_option_fixture_bindings.py` | `6252b6f531d6a41c` |
-| `tests/stata_parity/option_parity/results/85_multiplegt_dyn_options_Stata.json` | `tests/reference_parity/test_multiplegt_dyn_options_parity.py` | `090a8b699c78d577` |
-| `tests/stata_parity/option_parity/results/86_lprobust_Stata.json` | `tests/reference_parity/test_lprobust_parity.py` | `b419f5edf5136415` |
-| `tests/stata_parity/option_parity/results/87_did_had_Stata.json` | `tests/reference_parity/test_did_had_parity.py` | `1c2c75c8beef5a23` |
+| `tests/stata_parity/option_parity/results/82_csdid_conventions_Stata.json` | `tests/reference_parity/test_csdid_conventions_stata_parity.py` | `c988134a90bb0dec` |
+| `tests/stata_parity/option_parity/results/83_sunab_control_cohort_Stata.json` | `tests/reference_parity/test_sunab_control_cohort_parity.py` | `fd4d59285d8606fb` |
+| `tests/stata_parity/option_parity/results/84_bjs_fe_covariates_Stata.json` | `tests/reference_parity/test_bjs_fe_covariates_parity.py`<br>`tests/reference_parity/test_option_fixture_bindings.py` | `eead3fb4a701b770` |
+| `tests/stata_parity/option_parity/results/85_multiplegt_dyn_options_Stata.json` | `tests/reference_parity/test_multiplegt_dyn_options_parity.py` | `a6b6c27ad860d8a7` |
+| `tests/stata_parity/option_parity/results/86_lprobust_Stata.json` | `tests/reference_parity/test_lprobust_parity.py` | `5dc6478d44596acd` |
+| `tests/stata_parity/option_parity/results/87_did_had_Stata.json` | `tests/reference_parity/test_did_had_parity.py` | `0f158aa295005c95` |

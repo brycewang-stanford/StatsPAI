@@ -15,19 +15,39 @@ Stata                        StatsPAI
 ===========================  ==========================================
 
 Golden numbers from Stata 18 MP, ``did_imputation`` (2023-11-22 build) on
-``mpdta``; generating do-file ``tests/stata_parity/84_bjs_fe_covariates.do``.
+``mpdta``; generating do-file
+``tests/stata_parity/option_parity/84_bjs_fe_covariates.do``, read here from
+``option_parity/results/84_bjs_fe_covariates_Stata.json``.
 
 Tolerance
 ---------
-1e-6 on the ATT. StatsPAI solves the untreated Y(0) fit with a sparse
-``lsqr`` while Stata absorbs via ``reghdfe``, so agreement is
-iterative-vs-direct and lands at ~2e-7 across every variant here.
+Relative 1e-6 on the ATT, the default same-byte budget, for every variant
+but one. Observed: 2e-14 to 5e-14 for ``fe(t)`` / ``fe(.)``, 3e-8 to 4e-7
+where a unit effect is absorbed.
+
+The first version of the fixture sat 2e-6 to 3.4e-6 away and was held to
+an absolute 1e-6. That gap was Stata running in single precision:
+``import delimited`` stored ``lemp`` as float and ``did_imputation``'s
+generated variables followed ``set type float``. The do-file now imports
+``asdouble`` under ``set type double`` with ``tol(1e-12)``.
+
+What is left is the reference's own iteration. StatsPAI's sparse solve
+agrees with a dense exact least-squares fit to 1e-11 or better on every
+specification (``TestExactSolution``); Stata's alternating projections
+stop 6e-8 to 1.4e-6 from it. For ``unitcontrols(year)`` the reference
+does not settle below that: ``tol(1e-6)``, ``1e-10``, ``1e-12`` and
+``1e-14`` return ATTs spread over 6.4e-7 relative, not monotonically. That
+row is therefore held to 5e-6 and is a reference-precision disclosure, not
+a same-byte match; the claim that StatsPAI is right rests on the exact
+solution.
 """
 
 from __future__ import annotations
 
+import json
 import pathlib
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -40,7 +60,21 @@ _MPDTA = (
     / "02_mpdta_original.csv"
 )
 
-ATOL = 1e-6
+_STATA = json.loads(
+    (
+        pathlib.Path(__file__).resolve().parents[1]
+        / "stata_parity"
+        / "option_parity"
+        / "results"
+        / "84_bjs_fe_covariates_Stata.json"
+    ).read_text(encoding="utf-8")
+)
+
+#: Default same-byte budget (relative).
+RTOL = 1e-6
+#: ``unitcontrols(year)``: the reference's iteration does not settle below
+#: ~1e-6 (see the module docstring); observed gap 1.4e-6.
+RTOL_UNIT_SLOPES = 5e-6
 
 KEYS = dict(y="lemp", group="countyreal", time="year", first_treat="first_treat")
 
@@ -69,16 +103,16 @@ class TestFixedEffectSpec:
     @pytest.mark.parametrize(
         "fe,expected",
         [
-            (None, -0.047710015124267),  # did_imputation ... (default)
-            (["countyreal", "year"], -0.047710015124267),  # fe(i t), explicit
-            (["year"], 0.411346594258703),  # fe(t)
-            ([], 0.358597062890112),  # fe(.)
+            (None, "default"),  # did_imputation ... (default)
+            (["countyreal", "year"], "default"),  # fe(i t), explicit
+            (["year"], "fe_time_only"),  # fe(t)
+            ([], "fe_none"),  # fe(.)
         ],
         ids=["default", "fe_unit_time", "fe_time_only", "fe_none"],
     )
     def test_fe_variants_match_stata(self, mpdta, fe, expected):
         res = sp.did_imputation(mpdta, **KEYS, fe=fe)
-        assert res.estimate == pytest.approx(expected, abs=ATOL)
+        assert res.estimate == pytest.approx(_STATA[expected]["att"], rel=RTOL)
 
     def test_explicit_two_way_fe_is_bit_identical_to_default(self, mpdta):
         """fe=['unit','time'] must not merely approximate the default path."""
@@ -108,16 +142,26 @@ class TestFixedEffectSpec:
 class TestInteractedCovariates:
     def test_timecontrols_matches_stata(self, mpdta):
         res = sp.did_imputation(mpdta, **KEYS, time_covariates=["lpop"])
-        assert res.estimate == pytest.approx(-0.050627011117740, abs=ATOL)
+        assert res.estimate == pytest.approx(
+            _STATA["timecontrols_lpop"]["att"], rel=RTOL
+        )
+
+    def test_controls_matches_stata(self, mpdta):
+        res = sp.did_imputation(mpdta, **KEYS, controls=["lpop"])
+        assert res.estimate == pytest.approx(_STATA["controls_lpop"]["att"], rel=RTOL)
 
     def test_unitcontrols_matches_stata(self, mpdta_identified):
         res = sp.did_imputation(mpdta_identified, **KEYS, unit_covariates=["year"])
-        assert res.estimate == pytest.approx(-0.029441151707260, abs=ATOL)
+        assert res.estimate == pytest.approx(
+            _STATA["unitcontrols_year_subset"]["att"], rel=RTOL_UNIT_SLOPES
+        )
 
     def test_identified_subset_default_matches_stata(self, mpdta_identified):
         """Pins the subset itself, so a fixture drift cannot fake the above."""
         res = sp.did_imputation(mpdta_identified, **KEYS)
-        assert res.estimate == pytest.approx(-0.033715967954549, abs=ATOL)
+        assert res.estimate == pytest.approx(
+            _STATA["default_identified_subset"]["att"], rel=RTOL
+        )
 
     def test_unit_trends_move_the_estimate(self, mpdta_identified):
         with_trend = sp.did_imputation(
@@ -143,6 +187,64 @@ class TestInteractedCovariates:
         raw = sp.did_imputation(data, **KEYS, unit_covariates=["year"]).estimate
         scaled = sp.did_imputation(data, **KEYS, unit_covariates=["yr_scaled"]).estimate
         assert raw == pytest.approx(scaled, abs=1e-9)
+
+
+def _exact_att(frame: pd.DataFrame, *, fe: str, unit_slopes: bool = False) -> float:
+    """Imputation ATT from a dense least-squares fit of Y(0).
+
+    Dummies for the requested effects (and, optionally, a unit-specific
+    slope in ``year``) are fitted on the untreated observations by
+    ``numpy.linalg.lstsq`` (SVD), with no iteration and no absorption; the
+    ATT is the mean of ``y - yhat0`` over the treated ones.
+    """
+    untreated = (
+        (frame["first_treat"] == 0) | (frame["year"] < frame["first_treat"])
+    ).to_numpy()
+    blocks = [np.ones((len(frame), 1))]
+    unit = pd.get_dummies(frame["countyreal"], dtype=float).to_numpy()
+    if "unit" in fe:
+        blocks.append(unit)
+    if "time" in fe:
+        blocks.append(pd.get_dummies(frame["year"], dtype=float).to_numpy())
+    if unit_slopes:
+        centred = (frame["year"] - frame["year"].mean()).to_numpy()
+        blocks.append(unit * centred[:, None])
+    design = np.hstack(blocks)
+    y = frame["lemp"].to_numpy()
+    coef, *_ = np.linalg.lstsq(design[untreated], y[untreated], rcond=None)
+    return float((y - design @ coef)[~untreated].mean())
+
+
+class TestExactSolution:
+    """The independent evidence behind the reference-precision disclosure.
+
+    Where StatsPAI and Stata differ by more than rounding, one of them is
+    off the least-squares answer. These pin StatsPAI to it, so the residual
+    gap in the Stata rows is the reference's.
+    """
+
+    @pytest.mark.parametrize(
+        "fe,spec",
+        [(None, "unit+time"), (["year"], "time"), ([], "")],
+        ids=["two_way", "time_only", "none"],
+    )
+    def test_fe_variants_equal_the_dense_fit(self, mpdta, fe, spec):
+        res = sp.did_imputation(mpdta, **KEYS, fe=fe)
+        assert res.estimate == pytest.approx(_exact_att(mpdta, fe=spec), rel=1e-9)
+
+    def test_identified_subset_equals_the_dense_fit(self, mpdta_identified):
+        res = sp.did_imputation(mpdta_identified, **KEYS)
+        assert res.estimate == pytest.approx(
+            _exact_att(mpdta_identified, fe="unit+time"), rel=1e-9
+        )
+
+    def test_unit_slopes_equal_the_dense_fit(self, mpdta_identified):
+        """Observed 7.5e-12; Stata sits 1.4e-6 from the same number."""
+        res = sp.did_imputation(mpdta_identified, **KEYS, unit_covariates=["year"])
+        exact = _exact_att(mpdta_identified, fe="unit+time", unit_slopes=True)
+        assert res.estimate == pytest.approx(exact, rel=1e-9)
+        stata = _STATA["unitcontrols_year_subset"]["att"]
+        assert abs(res.estimate - exact) < 1e-3 * abs(stata - exact)
 
 
 class TestIdentificationGuard:

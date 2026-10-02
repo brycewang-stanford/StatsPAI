@@ -731,6 +731,8 @@ def gardner_did(
         "vce": vce,
         "se_convention": se_convention,
         "weights": weights,
+        # Recorded for sp.validation_scope, which reads the configuration.
+        "covariates": "set" if controls else "none",
         "n_obs": n,
         "n_units": n_units,
         "n_treated_units": n_treated_units,

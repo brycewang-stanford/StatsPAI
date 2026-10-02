@@ -17,7 +17,11 @@ version 17
 clear all
 set more off
 
-import delimited "../../orig_parity/data/02_mpdta_original.csv", clear
+* Double precision throughout: without `asdouble`, `import delimited`
+* stores lemp / lpop as float and rounds the data in the 8th digit, and
+* generated variables follow `set type` (see 84_bjs_fe_covariates.do).
+set type double
+import delimited "../../orig_parity/data/02_mpdta_original.csv", clear asdouble
 
 * eventstudyinteract wants cohort missing for never-treated units.
 gen cohort = first_treat
@@ -72,8 +76,9 @@ eventstudyinteract lemp `dumlist', cohort(cohort) control_cohort(c2007) ///
     absorb(countyreal year) vce(cluster countyreal)
 _dump_iw `fh' "control_cohort_2007"
 
-file write `fh' `"  "_meta": {"eventstudyinteract": "0.1", "stata": "18 MP"}"' _n
+file write `fh' `"  "_meta": {"eventstudyinteract": "0.1", "stata": "18 MP", "precision": "double"}"' _n
 file write `fh' "}" _n
 file close `fh'
 
+set type float
 di as txt "wrote results/83_sunab_control_cohort_Stata.json"
