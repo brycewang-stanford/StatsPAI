@@ -492,7 +492,7 @@ class EconometricResults:
         # t(df) or z, by the fit's own convention: data_info['inference'] ==
         # 'z' for likelihood-based fits, data_info['df_inference'] for G - 1
         # under clustering, else df_resid (see postestimation._covariance).
-        df_resid = self._inference_df()
+        df_resid = self._coefficient_df()
         self.tvalues = pd.Series(tvalues, index=index)
         # Labelled like params / std_errors / tvalues; a bare ndarray here
         # made ``r.pvalues['x']`` fail on sp.regress results (UCT replication).
@@ -512,6 +512,22 @@ class EconometricResults:
         from ..postestimation._covariance import inference_df
 
         return inference_df(self, stores=("data_info",))
+
+    def _coefficient_df(self) -> Any:
+        """Degrees of freedom for each coefficient's t distribution.
+
+        The scalar of :meth:`_inference_df` unless the fit recorded
+        ``data_info['df_by_coefficient']`` (a mapping from coefficient name
+        to df, as the Bell-McCaffrey correction gives), in which case an
+        array aligned with ``params``; names it does not cover fall back to
+        the scalar.
+        """
+        scalar = self._inference_df()
+        per = self.data_info.get("df_by_coefficient")
+        if per is None:
+            return scalar
+        aligned = pd.Series(per, dtype=float).reindex(self.params.index)
+        return aligned.fillna(scalar).to_numpy(dtype=float)
 
     def summary(self, alpha: Optional[float] = None) -> str:
         """
@@ -599,7 +615,7 @@ class EconometricResults:
         alpha = self.alpha if alpha is None else alpha
         alpha = _validate_probability(alpha, name="alpha")
         stats = _scipy_stats()
-        t_crit = stats.t.ppf(1 - alpha / 2, self._inference_df())
+        t_crit = stats.t.ppf(1 - alpha / 2, self._coefficient_df())
         lower = self.params - t_crit * self.std_errors
         upper = self.params + t_crit * self.std_errors
 
@@ -670,7 +686,7 @@ class EconometricResults:
             conf_level = 1 - self.alpha
         conf_level = _validate_probability(conf_level, name="conf_level")
         alpha = 1 - conf_level
-        df_resid = self._inference_df()
+        df_resid = self._coefficient_df()
         stats = _scipy_stats()
         t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
         lo = self.params - t_crit * self.std_errors

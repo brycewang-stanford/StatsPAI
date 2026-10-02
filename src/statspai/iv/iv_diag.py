@@ -322,10 +322,17 @@ class IVDiagResult(ResultProtocolMixin):
                 f"   p = {d.kp_rk_lm_pvalue:.4f}"
             )
             lines.append(f"  Kleibergen–Paap rk Wald F   : {d.kp_rk_f:10.4f}")
-        lines.append(
-            f"  LMMP 2022 tF adjusted crit. : {d.tF_critical_value:10.4f}"
-            f"   (F = {d.first_stage_F:.2f})"
-        )
+        tf_defined = not np.isnan(d.tF_critical_value)
+        if tf_defined:
+            lines.append(
+                f"  LMMP 2022 tF adjusted crit. : {d.tF_critical_value:10.4f}"
+                f"   (F = {d.first_stage_F:.2f})"
+            )
+        else:
+            lines.append(
+                "  LMMP 2022 tF adjusted crit. : not defined with more than "
+                "one instrument"
+            )
         lines.append("-" * 70)
         lines.append("Point estimate:")
         lines.append(
@@ -338,8 +345,14 @@ class IVDiagResult(ResultProtocolMixin):
             f"  Wald  {100 * (1 - d.alpha):.0f}% CI                : "
             f"[{ci_lo:.4f}, {ci_hi:.4f}]"
         )
-        lo, hi = d.tF_adjusted_ci
-        lines.append(f"  tF-corrected CI             : [{lo:.4f}, {hi:.4f}]")
+        if tf_defined:
+            lo, hi = d.tF_adjusted_ci
+            lines.append(f"  tF-corrected CI             : [{lo:.4f}, {hi:.4f}]")
+        else:
+            lines.append(
+                "  tF-corrected CI             : n/a (use the Anderson-Rubin "
+                "interval)"
+            )
         if d.bootstrap_ci_pairs is not None:
             lo, hi = d.bootstrap_ci_pairs
             lines.append(

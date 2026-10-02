@@ -9,6 +9,7 @@ Provides robust inference methods for supported estimator results:
 from .aipw import aipw
 from .bootstrap import BootstrapResult, bootstrap
 from .conley import conley
+from .difference_in_means import difference_in_means
 from .front_door import front_door
 from .g_computation import g_computation
 from .ipw import ipw
@@ -59,4 +60,5 @@ __all__ = [
     "ppi_ols",
     "ttest",
     "TTestResult",
+    "difference_in_means",
 ]

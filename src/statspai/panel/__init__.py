@@ -105,6 +105,7 @@ _PANEL_METHOD_ALIASES: Dict[str, str] = {
     "two_way_fe": "twoway",
     "twoway_fe": "twoway",
     "2way": "twoway",
+    "twfe": "twoway",
     # --- Correlated random effects ---
     "mundlak": "mundlak",
     "mundlak_cre": "mundlak",

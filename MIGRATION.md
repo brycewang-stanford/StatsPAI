@@ -7,7 +7,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="oct2026-dbe-textbook-fixes"></a>
 
-## Unreleased: ⚠️ `sp.etwfe` without an untreated group, RD pilot bandwidth, LIML `kappa`
+## Unreleased: ⚠️ `sp.etwfe` without an untreated group, RD pilot bandwidth, LIML `kappa`, CR2 degrees of freedom
 
 **`sp.etwfe`, every unit eventually treated.** Results from such a panel
 were arbitrary before (the design was rank deficient and a warning said
@@ -27,6 +27,22 @@ the new value is the one R and Stata `rdrobust` compute.
 **`sp.iv(method='liml')` / `sp.liml`.** Estimates change by about the
 relative error the old `kappa` carried, 1e-6 on a design with first-stage
 F of 30 and `kappa - 1` of 7e-6, less when instruments are stronger.
+
+**`sp.cr2_se` p-values and confidence intervals.** The standard errors are
+unchanged. The degrees of freedom were an approximation that is not the
+Bell-McCaffrey formula, and every coefficient was referred to the smallest
+of them. Each coefficient now has its own exact df (those of R `estimatr`
+and `clubSandwich`), so intervals change, usually to narrower ones for the
+coefficient of interest. `diagnostics['satterthwaite_dof']` holds the new
+values and `data_info['df_resid']` is still their minimum.
+
+**`sp.estat(result, 'endogenous')` after `robust=` or `cluster=`.** The
+headline statistic is now the robust regression-based F, as in Stata. The
+Durbin and Wu-Hausman statistics it used to return assume homoskedastic
+errors. They are still in the output under `wu_hausman_F`.
+
+**`sp.pretrends_power` / `sp.pretrends_slope_for_power`.** Values move in
+the sixth digit because the probability is integrated more finely.
 
 **`sp.from_stata` / `sp.stata`.**
 

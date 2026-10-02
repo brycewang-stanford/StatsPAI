@@ -230,6 +230,11 @@ def cr2_se(
     of the hat matrix. This removes the downward bias in the
     conventional cluster-robust variance estimator.
 
+    Each coefficient's p-value and confidence interval use a t
+    distribution with that coefficient's own Bell-McCaffrey degrees of
+    freedom (``diagnostics['satterthwaite_dof']``), the ones R ``estimatr``
+    and ``clubSandwich`` report. ``data_info['df_resid']`` is their minimum.
+
     See Bell & McCaffrey (2002) and Pustejovsky & Tipton (2018).
 
     Examples
@@ -303,9 +308,15 @@ def cr2_se(
     model_info["n_clusters"] = G
 
     data_info = dict(result.data_info)
-    # Use minimum Satterthwaite DoF across coefficients
+    # Each coefficient is referred to a t with its own Bell-McCaffrey df.
+    # ``df_resid`` keeps the smallest, the conservative single number for
+    # anything that needs one (a joint test, a summary line).
     min_dof = float(np.nanmin(dof)) if len(dof) > 0 else G - 1
     data_info["df_resid"] = min_dof
+    data_info.pop("df_inference", None)
+    data_info["df_by_coefficient"] = {
+        name: float(value) for name, value in dof_series.dropna().items()
+    }
 
     diagnostics = dict(result.diagnostics)
     diagnostics["n_clusters"] = G
@@ -662,38 +673,52 @@ def _satterthwaite_dof(
     k: int,
 ) -> np.ndarray:
     """
-    Satterthwaite degrees of freedom approximation for CR2.
+    Bell-McCaffrey (Satterthwaite) degrees of freedom for CR2, per coefficient.
 
-    Approximates the effective DoF for each coefficient using:
-        dof_j = (sum_g A_{jj,g})^2 / sum_g A_{jj,g}^2
+    Under the working model of independent homoskedastic errors the CR2
+    variance of coefficient ``j`` is a quadratic form ``e' G_j G_j' e`` with
+    one column of ``G_j`` per cluster,
 
-    where A_{jj,g} is the j-th diagonal of the g-th cluster
-    contribution to the variance.
+        g_s = (I - H)_s' A_s X_s (X'X)^{-1} c_j,   A_s = (I - H_ss)^{-1/2},
+
+    and the degrees of freedom match its first two moments,
+
+        dof_j = tr(G_j'G_j)^2 / tr((G_j'G_j)^2).
+
+    ``G_j'G_j = diag(v_s'v_s) - U B U'`` with ``v_s = A_s X_s B c_j``,
+    ``u_s = X_s'v_s`` and ``B = (X'X)^{-1}``, so neither the n x n projection
+    nor the S x S matrix is formed. This is the df of R ``estimatr``
+    (``se_type='CR2'``) and of ``clubSandwich::coef_test(test='Satterthwaite')``.
     """
-    G = len(unique_cl)
-    A_diag = np.zeros((G, k))  # A_{jj,g} for each cluster and coeff
-
-    for g_idx, g_val in enumerate(unique_cl):
-        idx = cl == g_val
-        X_g = X[idx]
-        n_g = idx.sum()
-
-        H_gg = X_g @ XtX_inv @ X_g.T
-        I_H = np.eye(n_g) - H_gg
-
+    codes = np.searchsorted(unique_cl, cl)
+    n_cl = len(unique_cl)
+    order = np.argsort(codes, kind="stable")
+    bounds = np.searchsorted(codes[order], np.arange(n_cl + 1))
+    vv = np.zeros((n_cl, k))
+    U = np.zeros((n_cl, k, k))
+    for s in range(n_cl):
+        idx = order[bounds[s] : bounds[s + 1]]
+        X_s = X[idx]
+        I_H = np.eye(len(idx)) - X_s @ XtX_inv @ X_s.T
         eigvals, eigvecs = np.linalg.eigh(I_H)
-        eigvals = np.maximum(eigvals, 1e-12)
-        I_H_inv = eigvecs @ np.diag(1.0 / eigvals) @ eigvecs.T
-
-        # Contribution: (X'X)^{-1} X_g' (I-H_gg)^{-1} X_g (X'X)^{-1}
-        M_g = XtX_inv @ X_g.T @ I_H_inv @ X_g @ XtX_inv
-        A_diag[g_idx] = np.diag(M_g)
-
-    # Satterthwaite: dof = (sum A_jj)^2 / sum A_jj^2
-    sum_A = A_diag.sum(axis=0)
-    sum_A2 = (A_diag**2).sum(axis=0)
-    dof = np.where(sum_A2 > 1e-20, sum_A**2 / sum_A2, G - 1)
-
+        # A cluster a regressor singles out has a zero eigenvalue; the
+        # adjustment there is the generalized inverse.
+        keep = eigvals > 1e-10
+        inv_sqrt = np.where(keep, 1.0 / np.sqrt(np.where(keep, eigvals, 1.0)), 0.0)
+        A_s = (eigvecs * inv_sqrt) @ eigvecs.T
+        V = A_s @ X_s @ XtX_inv  # column j is v_s for coefficient j
+        vv[s] = (V**2).sum(axis=0)
+        U[s] = X_s.T @ V
+    dof = np.full(k, float(n_cl - 1))
+    for j in range(k):
+        Uj = U[:, :, j]
+        UB = Uj @ XtX_inv
+        quad = np.einsum("sk,sk->s", UB, Uj)  # u_s' B u_s
+        trace = vv[:, j].sum() - quad.sum()
+        M = XtX_inv @ (Uj.T @ Uj)
+        frob = (vv[:, j] ** 2).sum() - 2.0 * (vv[:, j] * quad).sum() + np.trace(M @ M)
+        if frob > 1e-300:
+            dof[j] = trace**2 / frob
     return dof
 
 

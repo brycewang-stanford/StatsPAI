@@ -49,9 +49,31 @@ test.
   intercept absorbs, turned `kappa - 1` negative. The part the excluded
   instruments explain is now formed directly. Track A `59_liml` moves at
   1e-15.
+- **`sp.cr2_se` used approximate degrees of freedom, and one of them for
+  every coefficient.** The Satterthwaite df came from a formula that is
+  not Bell and McCaffrey's, and all coefficients were then referred to a t
+  with the smallest df among them. On a 110-cluster design with a
+  treatment, a covariate and ten block dummies the treatment's df was 83.6
+  where the exact value is 79.1, and its interval used the intercept's 3.5,
+  a critical value of 2.93 in place of 1.99. The df is now the exact one
+  and each coefficient uses its own. Df and confidence limits agree with R
+  `estimatr::lm_robust(se_type = "CR2")` and `clubSandwich::coef_test` to
+  1e-10. Standard errors are unchanged. `EconometricResults` reads
+  `data_info['df_by_coefficient']` when a fit records it.
 
 #### Added
 
+- **`sp.difference_in_means`, the Neyman estimator with the variance of the
+  design.** The textbook opens with randomized experiments, and its
+  stratified estimates had to be assembled by hand. One call now covers
+  complete randomization (Satterthwaite df), blocks (`N - 2J` df), matched
+  pairs, clusters (CR2 with Bell-McCaffrey df), blocks of clusters and
+  matched pairs of clusters, chosen from `blocks=` and `cluster=`.
+  `estimand='ATT'` weights blocks by their treated units. All six designs
+  agree with R `estimatr::difference_in_means` 2.0.0 to 1e-11 in the
+  estimate, the standard error, the df and the interval. A block with a
+  single treated or control unit, a cluster in both arms and a cluster in
+  two blocks raise.
 - **`sp.match(method='nnmatch')`, Abadie-Imbens covariate matching as Stata
   `teffects nnmatch`.** Every tie kept, `metric=` Mahalanobis / inverse
   variance / Euclidean, `exact=` (`ematch`), `caliper=`, `bias_adjust=` on a
@@ -124,6 +146,19 @@ test.
   probability on both sides and agrees to 2e-4. The integration tolerance
   here went from SciPy's default 1e-5 to 1e-7, so the power no longer moves
   in the fifth digit between two calls.
+- **Guide: a design-based econometrics textbook in StatsPAI**
+  (`docs/guides/design_based_econometrics.md`). A chapter map from the
+  Stata commands of the do-files to the StatsPAI call, the same analyses on
+  bundled datasets with the numbers Stata gives, and the places where two
+  correct programs print different numbers.
+- **`sp.bacon_decomposition` returns `summary`**, the total weight and the
+  weight-averaged estimate of each comparison type. These are the summary
+  rows of Stata `estat bdecomp`, matched on the castle-doctrine panel to
+  the digits Stata prints.
+- **`sp.panel` formulas accept `C(g)`, interactions and `I()`.**
+  `sp.panel(df, "y ~ d + C(year)", method="fe")`, the textbook way to write
+  a two-way model, failed with "Column 'C(year)' not found in data".
+  `method='twfe'` is accepted as a name for `'twoway'`.
 - **IV formulas accept `C(g)`, `C(g, Treatment(k))`, interactions and
   `I()`** among the exogenous regressors and the instruments, in `sp.iv`,
   `sp.ivreg` and the absorbed-effects path. They used to fail with
@@ -171,6 +206,9 @@ test.
   `sp.stata` can run as written went from 59% to 88%. The rest are loops
   over macros, `xthdidregress`, `synth_runner` and one factor term, all
   refused with a reason.
+- **`sp.iv_diag` with several instruments** printed `nan` for the tF
+  critical value and interval. The report now says the tF adjustment is
+  defined for one instrument and points to the Anderson-Rubin interval.
 - **`sp.panel(robust=...)` with an unknown value** such as `'hc1'` or
   `'cluster'` returned classical standard errors without a word. It raises.
 

@@ -127,7 +127,9 @@ def test_fit_time_alpha_sets_every_interval(name: str) -> None:
     assert res.alpha == pytest.approx(0.10)
     term = res.params.index[-1]
     se = float(res.std_errors[term])
-    crit = stats.t.ppf(0.95, res._inference_df())
+    # a fit may refer each coefficient to its own t (CR2's Bell-McCaffrey df)
+    dof = np.broadcast_to(res._coefficient_df(), (len(res.params),))[-1]
+    crit = stats.t.ppf(0.95, dof)
     want = 2 * crit * se
     ci = res.conf_int()
     np.testing.assert_allclose(

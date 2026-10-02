@@ -601,6 +601,76 @@ def balance_panel(
     return balanced.reset_index(drop=True)
 
 
+def _expand_formula_terms(
+    indep: str, data: pd.DataFrame, formula: str
+) -> Tuple[List[str], pd.DataFrame]:
+    """Regressor names of a panel formula, with ``C(g)``, ``I(...)`` and
+    interaction terms built as columns.
+
+    A formula of plain column names is split and returned with the data it
+    came with. Anything else is expanded with the rules ``sp.regress`` and
+    ``sp.iv`` use (treatment coding, the lowest level omitted; columns named
+    ``g[2]``, ``x:z``) on a copy of the data.
+    """
+    from ..regression.iv import _PLAIN_NAME, _safe_term_name, _top_level_terms
+
+    terms = _top_level_terms(indep)
+
+    def plain(term: str) -> bool:
+        return term in data.columns or bool(_PLAIN_NAME.match(term.replace(" ", "")))
+
+    if all(plain(t) for t in terms):
+        return terms, data
+
+    from patsy import NAAction, dmatrix
+
+    from ..core.utils import _coerce_string_extension_dtypes
+
+    frame = _coerce_string_extension_dtypes(data).copy()
+    if not frame.index.is_unique:
+        frame = frame.reset_index(drop=True)
+    build = [t for t in terms if not plain(t)]
+    try:
+        design = dmatrix(
+            "1 + " + " + ".join(build),
+            frame,
+            return_type="dataframe",
+            NA_action=NAAction(on_NA="drop"),
+        )
+    except Exception as exc:
+        raise _panel_method_error(
+            f"Could not build the formula term(s) {build!r}: {exc}",
+            diagnostics={"formula": formula},
+            recovery_hint="Check the column names inside C(...) / I(...).",
+        ) from exc
+    built: Dict[str, List[str]] = {t: [] for t in build}
+    slices = design.design_info.term_name_slices
+    for term_name, where in slices.items():
+        if term_name == "Intercept":
+            continue
+        for col in design.columns[where]:
+            safe = _safe_term_name(str(col))
+            # rows with a missing value stay missing and leave the
+            # estimation sample with the other incomplete rows
+            frame[safe] = design[col].reindex(frame.index)
+            built.setdefault(term_name, []).append(safe)
+    names: List[str] = []
+    ordered = list(slices)
+    cursor = [n for n in ordered if n != "Intercept"]
+    for term in terms:
+        if plain(term):
+            names.append(term)
+        elif cursor:
+            names.extend(built.get(cursor.pop(0), []))
+    # terms patsy split further (``a*b``) leave names behind; keep them all
+    for leftover in cursor:
+        names.extend(built.get(leftover, []))
+    seen: Dict[str, None] = {}
+    for name in names:
+        seen.setdefault(name, None)
+    return list(seen), frame
+
+
 def panel(
     data: pd.DataFrame,
     formula: str,
@@ -901,7 +971,7 @@ def _dispatch_panel_impl(
         )
     dep, indep = formula.split("~", 1)
     dep_var = dep.strip()
-    indep_vars = [v.strip() for v in indep.split("+") if v.strip()]
+    indep_vars, data = _expand_formula_terms(indep, data, formula)
 
     dep_var = _require_panel_column(data, dep_var, "dependent variable")
     indep_vars = [_require_panel_column(data, col, "regressor") for col in indep_vars]

@@ -29,6 +29,23 @@ from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 
+def _summary_by_type(decomp: pd.DataFrame) -> pd.DataFrame:
+    """Total weight and weight-averaged estimate of each comparison type."""
+    columns = ["type", "n_comparisons", "weight", "estimate"]
+    if len(decomp) == 0:
+        return pd.DataFrame(columns=columns)
+    rows = []
+    for kind, part in decomp.groupby("type", sort=False):
+        weight = float(part["weight"].sum())
+        average = (
+            float((part["weight"] * part["estimate"]).sum() / weight)
+            if weight != 0
+            else float("nan")
+        )
+        rows.append((kind, len(part), weight, average))
+    return pd.DataFrame(rows, columns=columns)
+
+
 def bacon_decomposition(
     data: pd.DataFrame,
     y: str,
@@ -74,6 +91,10 @@ def bacon_decomposition(
         - ``beta_twfe``: overall TWFE estimate
         - ``decomposition``: pd.DataFrame with columns
           [type, treated, control, estimate, weight]
+        - ``summary``: pd.DataFrame with one row per comparison type
+          [type, n_comparisons, weight, estimate]: the total weight of the
+          type and the weight-averaged 2×2 estimate within it, the summary
+          rows of Stata ``estat bdecomp`` and ``bacondecomp``
         - ``weighted_sum``: Σ(weight × estimate) — equals beta_twfe
           under the same dyad conventions as R ``bacondecomp`` and Stata
           ``bacondecomp``
@@ -243,6 +264,7 @@ def bacon_decomposition(
         return {
             "beta_twfe": beta_twfe,
             "decomposition": decomp,
+            "summary": _summary_by_type(decomp),
             "weighted_sum": 0.0,
             "n_comparisons": 0,
             "negative_weight_share": 0.0,
@@ -277,6 +299,7 @@ def bacon_decomposition(
     return {
         "beta_twfe": beta_twfe,
         "decomposition": decomp,
+        "summary": _summary_by_type(decomp),
         "weighted_sum": weighted_sum,
         "n_comparisons": len(decomp),
         "negative_weight_share": neg_share,

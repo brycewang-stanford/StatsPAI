@@ -6275,6 +6275,99 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="difference_in_means",
+            category="inference",
+            description=(
+                "Design-based difference in means for a randomized "
+                "experiment (Neyman; R estimatr::difference_in_means). The "
+                "variance follows the design: complete randomization "
+                "(s1^2/n1 + s0^2/n0, Satterthwaite df), blocks (size-"
+                "weighted block estimates, N - 2J df), matched pairs "
+                "(J - 1 df), clusters (CR2 with Bell-McCaffrey df), blocks "
+                "of clusters and matched pairs of clusters. estimand='ATT' "
+                "weights blocks by their treated units."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, None, "Outcome"),
+                ParamSpec(
+                    "treat",
+                    "str",
+                    True,
+                    None,
+                    "Two-valued treatment; the estimate is mean(larger value) "
+                    "- mean(smaller value)",
+                ),
+                ParamSpec(
+                    "blocks",
+                    "str",
+                    False,
+                    None,
+                    "Blocks within which treatment was randomized; blocks of "
+                    "two units (or two clusters) are matched pairs",
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    None,
+                    "Clusters assigned to treatment as a whole",
+                ),
+                ParamSpec(
+                    "estimand",
+                    "str",
+                    False,
+                    "ATE",
+                    "Block weights: units (ATE) or treated units (ATT)",
+                    ["ATE", "ATT"],
+                ),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="CausalResult",
+            example='sp.difference_in_means(df, "score", "small", blocks="school")',
+            tags=["inference", "experiment", "rct", "neyman", "blocks", "cluster"],
+            pre_conditions=[
+                "treat takes exactly two values",
+                "every cluster lies in one arm and in one block",
+                "every block has at least two treated and two control units "
+                "(or clusters), or every block is a pair",
+            ],
+            assumptions=[
+                "Treatment was randomized, within blocks and by cluster as "
+                "declared in blocks= and cluster=",
+                "No interference between units (between clusters when " "clustered)",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="A block has fewer than two treated or two "
+                    "control units",
+                    exception="DataInsufficient",
+                    remedy="Merge thin blocks, or drop them and say so; the "
+                    "variance inside such a block is not identified.",
+                    alternative="sp.regress",
+                ),
+                FailureMode(
+                    symptom="A cluster contains both treated and control units",
+                    exception="MethodIncompatibility",
+                    remedy="Treatment varies inside the group, so it is a "
+                    "block, not a cluster: pass it as blocks=.",
+                    alternative="",
+                ),
+                FailureMode(
+                    symptom="Treatment was not randomized",
+                    exception="",
+                    remedy="The design-based variance has no justification; "
+                    "use a method for observational data.",
+                    alternative="sp.match",
+                ),
+            ],
+            alternatives=["ttest", "regress", "ri_test", "match"],
+            typical_n_min=20,
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="mean_comparison",
             category="output",
             description=(

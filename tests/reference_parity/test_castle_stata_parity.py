@@ -220,6 +220,32 @@ def test_bacon_decomposition_matches_stata(castle):
     assert float(clean) == pytest.approx(STATA_BACON_NEVER_TREATED_WEIGHT, abs=ATOL)
 
 
+# Stata 18: xtdidregress (l_homicide) (post), group(sid) time(year)
+#           estat bdecomp, summaryonly
+# type: (ATET component, weight), as printed (8 and 6 decimals).
+STATA_BDECOMP_SUMMARY = {
+    "Treated vs Untreated": (0.07843799, 0.898809),
+    "Earlier vs Later Treated": (-0.02857714, 0.077079),
+    "Later vs Earlier Treated": (0.04563468, 0.024112),
+}
+
+
+def test_bacon_summary_by_type_matches_estat_bdecomp(castle):
+    bacon = sp.bacon_decomposition(
+        castle, y="l_homicide", treat="post", time="year", id="sid"
+    )
+    summary = bacon["summary"].set_index("type")
+    assert set(summary.index) == set(STATA_BDECOMP_SUMMARY)
+    for kind, (component, weight) in STATA_BDECOMP_SUMMARY.items():
+        # atol: half a unit in the last digit Stata prints
+        assert summary.loc[kind, "estimate"] == pytest.approx(component, abs=6e-9)
+        assert summary.loc[kind, "weight"] == pytest.approx(weight, abs=6e-7)
+    assert int(summary["n_comparisons"].sum()) == STATA_BACON_N_COMPARISONS
+    assert float((summary["weight"] * summary["estimate"]).sum()) == pytest.approx(
+        bacon["beta_twfe"], abs=1e-12
+    )
+
+
 # ---------------------------------------------------------------------------
 # Callaway-Sant'Anna — Stata `csdid` / R `did` parity
 # ---------------------------------------------------------------------------
