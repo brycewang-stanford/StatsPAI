@@ -63,6 +63,7 @@ STATSPAI_SW4E_DIR=<files> pytest tests/external_parity/test_stock_watson_4e_logs
 | 12 | `sp.structural_break(method='sup-f')` tested every coefficient with a homoskedastic F; the textbook's QLR holds the lags of `y` fixed and is robust | missing option | `break_vars=`, `vce=` |
 | 13 | Time-series operators (`L.x`, `D.x`, `L(1/4).x`) were refused | coverage | resolved against the `tsset` / `xtset` time variable, within panel |
 | 14 | `summarize, detail` used pandas' percentile interpolation and lacked the 1st / 5th / 95th / 99th percentiles, skewness and kurtosis; `sp.sumstats` dropped an unknown statistic silently | convention, silent | `percentile_method='stata'`, new statistics, unknown names raise; `tabstat` and `tin()` translated |
+| 15 | HAC inference stopped at Newey-West with normal critical values | missing option | `sp.regress(robust='ewc', ewc_df=)`, the estimator the book's authors recommended later that year |
 
 Item 9 deserves a note. Track A module `51_newey` passed against Stata with
 a 1e-2 tolerance. The gap was the documented `N/(N-K)` factor. With
@@ -106,7 +107,7 @@ docstring.
 | 13 | Differences estimator, difference-in-differences, sharp and fuzzy regression discontinuity | Event studies with heterogeneity-robust estimators and sensitivity to pre-trends; local polynomial RD with robust bias-corrected intervals and a density test | `sp.did`, `sp.event_study`, `sp.honest_did`, `sp.rdrobust`, `sp.rddensity` |
 | 14 | Ridge, lasso and principal components for prediction, tuned by cross-validation | The same tools as nuisance learners inside a causal estimator | `sp.lasso_select`, `sp.rlasso`, `sp.dml`; ridge and principal-components prediction are not offered as standalone functions |
 | 15 | AR and ADL forecasts, BIC, QLR break test, pseudo out-of-sample RMSFE | Unchanged as teaching material | `sp.ardl` (`.forecast()`, `.granger()`, `.poos()`), `sp.structural_break(method='sup-f', break_vars=, vce='hc1')`, `sp.unitroot` |
-| 16 | Distributed lags with HAC errors, truncation `m = 0.75 T^(1/3)` | Local projections; larger HAC bandwidths with fixed-b critical values | `sp.local_projections`, `sp.regress(robust='hac', hac_lags=)`; fixed-b and EWC inference are not implemented |
+| 16 | Distributed lags with HAC errors, truncation `m = 0.75 T^(1/3)` | Local projections; HAR inference with fixed-b critical values | `sp.local_projections`, `sp.regress(robust='hac', hac_lags=)`, `sp.regress(robust='ewc')` (t and F critical values). Newey-West with the `1.3 T^(1/2)` rule needs nonstandard fixed-b critical values and is not implemented |
 | 17 | VAR, DF-GLS, cointegration, GARCH | Unchanged | `sp.var`, `sp.unitroot`, `sp.engle_granger`, `sp.johansen`, `sp.garch` |
 
 ## Open items
@@ -115,6 +116,6 @@ docstring.
 | --- | --- | --- |
 | `xtreg, fe` prints `_cons` (mean of the fixed effects); the translation has slopes only | 20 numbers in chapters 10 and 13 have no counterpart | small |
 | `pctile` | two lines of chapter 4 build a percentile table that is only listed | small |
-| Fixed-b / EWC inference for HAC | the textbook authors' own later recommendation | medium |
+| Fixed-b critical values for Newey-West at `S = 1.3 T^(1/2)` | the other half of the same recommendation; needs the Kiefer-Vogelsang tables | medium |
 | Ridge and principal-components prediction with cross-validated MSPE | chapter 14 | medium |
 | Chapters 8, 14, 16, 17 files | not downloaded | needs Bryce |

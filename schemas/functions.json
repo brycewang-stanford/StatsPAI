@@ -23,6 +23,10 @@
           "type": "object",
           "x-statspai-role": "dataframe"
         },
+        "ewc_df": {
+          "description": "With robust='ewc' (equal-weighted cosine long-run variance, t and F critical values): number of cosine terms = degrees of freedom. Default floor(0.4*T^(2/3))",
+          "type": "integer"
+        },
         "formula": {
           "description": "R-style formula, e.g. 'y ~ x1 + x2'",
           "type": "string",

@@ -106,6 +106,28 @@ def test(
 
     q = R.shape[0]
     df_resid = inference_df(result)
+    hotelling = (getattr(result, "data_info", None) or {}).get("hotelling_df")
+    if hotelling:
+        # An orthogonal-series long-run variance with B terms (robust='ewc'):
+        # W is Hotelling T2(q, B), and (B - q + 1) / (B q) * W is
+        # F(q, B - q + 1).
+        df2 = float(hotelling) - q + 1
+        if df2 < 1:
+            raise MethodIncompatibility(
+                f"test({hypothesis!r}): {q} restrictions need more than "
+                f"{int(hotelling)} cosine terms in the EWC covariance.",
+                recovery_hint="Refit with a larger ewc_df, or test fewer "
+                "restrictions.",
+            )
+        f_stat = wald * df2 / (float(hotelling) * q)
+        return {
+            "statistic": f_stat,
+            "pvalue": float(sp_stats.f.sf(f_stat, q, df2)),
+            "df": (q, _df_out(df2)),
+            "hypothesis": hypothesis,
+            "chi2": wald,
+            "distribution": "F",
+        }
     if np.isfinite(df_resid):
         f_stat = wald / q
         return {

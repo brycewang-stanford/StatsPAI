@@ -895,6 +895,15 @@ def _build_registry() -> None:
                     "With robust='hac': scale the covariance by N/(N-K), as "
                     "Stata's newey and sandwich::NeweyWest(adjust=TRUE)",
                 ),
+                ParamSpec(
+                    "ewc_df",
+                    "int",
+                    False,
+                    None,
+                    "With robust='ewc' (equal-weighted cosine long-run "
+                    "variance, t and F critical values): number of cosine "
+                    "terms = degrees of freedom. Default floor(0.4*T^(2/3))",
+                ),
             ],
             returns="EconometricResults",
             example='sp.regress("wage ~ education + experience", data=df, robust="hc1")',

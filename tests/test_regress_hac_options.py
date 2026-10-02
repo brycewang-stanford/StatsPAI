@@ -127,3 +127,122 @@ def test_stata_newey_translates_to_the_same_call(df):
     np.testing.assert_allclose(got.std_errors["x"], stata["beta_x"]["se"], rtol=1e-12)
     assert sp.from_stata("newey y x")["ok"] is False
     assert sp.from_stata("newey y x, lag(4) force")["untranslated_options"] == ["force"]
+
+
+# ------------------------------------------------------------------ EWC
+# The equal-weighted cosine estimator of Lazarus, Lewis, Stock and Watson
+# (2018): eq. (10) for the estimator, eq. (4) for the number of terms,
+# eq. (14) for the F statistic. No other package ships it, so the evidence
+# is the definition computed by an independent route, an exact identity,
+# and the rejection rate on a design where the null is true.
+def _ar1_pair(rng, n, rho):
+    x, e = np.zeros(n), np.zeros(n)
+    ex, ee = rng.normal(size=n), rng.normal(size=n)
+    for t in range(1, n):
+        x[t] = rho * x[t - 1] + ex[t]
+        e[t] = rho * e[t - 1] + ee[t]
+    return x, e
+
+
+def test_ewc_covariance_is_the_definition(df):
+    nu = 7
+    res = sp.regress("y ~ x", df, robust="ewc", ewc_df=nu)
+    X = np.column_stack([np.ones(len(df)), df.x])
+    u = df.y.to_numpy() - X @ np.linalg.solve(X.T @ X, X.T @ df.y.to_numpy())
+    T = len(df)
+    omega = np.zeros((2, 2))
+    for j in range(1, nu + 1):
+        lam = np.zeros(2)
+        for t in range(1, T + 1):  # a plain double loop, on purpose
+            lam += X[t - 1] * u[t - 1] * np.cos(np.pi * j * (t - 0.5) / T)
+        lam *= np.sqrt(2 / T)
+        omega += np.outer(lam, lam) / nu
+    bread = np.linalg.inv(X.T @ X)
+    want = np.sqrt(np.diag(bread @ (T * omega) @ bread))
+    np.testing.assert_allclose(res.std_errors.to_numpy(), want, rtol=1e-10)
+    assert res.model_info["ewc_df"] == nu
+
+
+def test_ewc_with_every_cosine_is_hc0(df):
+    # The T - 1 Type II cosines with j >= 1 span everything orthogonal to a
+    # constant, and OLS scores sum to zero, so the average of all T - 1
+    # outer products is sum(z z') / (T - 1): HC0 scaled by T / (T - 1).
+    T = len(df)
+    ewc = sp.regress("y ~ x", df, robust="ewc", ewc_df=T - 1)
+    hc0 = sp.regress("y ~ x", df, robust="hc0")
+    np.testing.assert_allclose(
+        ewc.std_errors.to_numpy(),
+        hc0.std_errors.to_numpy() * np.sqrt(T / (T - 1)),
+        rtol=1e-10,
+    )
+
+
+def test_ewc_default_terms_and_t_reference(df):
+    from scipy import stats
+
+    res = sp.regress("y ~ x", df, robust="ewc")
+    nu = int(np.floor(0.4 * len(df) ** (2 / 3)))  # 13 at T = 200
+    assert res.model_info["ewc_df"] == nu == 13
+    t = res.params["x"] / res.std_errors["x"]
+    np.testing.assert_allclose(res.pvalues["x"], 2 * stats.t.sf(abs(t), nu), rtol=1e-12)
+    # wider than the normal interval the same standard error would give
+    lo, hi = res.conf_int().loc["x"]
+    assert hi - lo > 2 * 1.96 * res.std_errors["x"]
+
+
+def test_ewc_joint_test_uses_the_rescaled_f():
+    from scipy import stats
+
+    rng = np.random.default_rng(3)
+    x, e = _ar1_pair(rng, 240, 0.5)
+    data = pd.DataFrame({"x": x, "w": rng.normal(size=240), "y": 1 + 0.2 * x + e})
+    res = sp.regress("y ~ x + w", data, robust="ewc", ewc_df=12)
+    out = sp.test(res, "x w")
+    b = res.params[["x", "w"]].to_numpy()
+    V = res.cov_params().loc[["x", "w"], ["x", "w"]].to_numpy()
+    wald = float(b @ np.linalg.solve(V, b))
+    m, B = 2, 12
+    np.testing.assert_allclose(out["chi2"], wald, rtol=1e-12)
+    np.testing.assert_allclose(
+        out["statistic"], wald * (B - m + 1) / (B * m), rtol=1e-12
+    )
+    assert out["df"] == (m, B - m + 1)
+    np.testing.assert_allclose(
+        out["pvalue"], stats.f.sf(out["statistic"], m, B - m + 1), rtol=1e-12
+    )
+    few = sp.regress("y ~ x + w", data, robust="ewc", ewc_df=1)
+    with pytest.raises(MethodIncompatibility, match="cosine terms"):
+        sp.test(few, "x w")
+
+
+def test_ewc_holds_size_better_than_newey_west_under_persistence():
+    # x and the error are AR(1) with rho = 0.7 and the true slope is zero.
+    rng = np.random.default_rng(2018)
+    reps, T = 400, 200
+    m = int(np.ceil(0.75 * T ** (1 / 3)))  # the textbook truncation, 5
+    reject = {"hc1": 0, "nw": 0, "ewc": 0}
+    for _ in range(reps):
+        x, e = _ar1_pair(rng, T, 0.7)
+        data = pd.DataFrame({"x": x, "y": e})
+        reject["hc1"] += sp.regress("y ~ x", data, robust="hc1").pvalues["x"] < 0.05
+        reject["nw"] += (
+            sp.regress("y ~ x", data, robust="hac", hac_lags=m - 1).pvalues["x"] < 0.05
+        )
+        reject["ewc"] += sp.regress("y ~ x", data, robust="ewc").pvalues["x"] < 0.05
+    rate = {k: v / reps for k, v in reject.items()}
+    # nominal 5%; binomial SE at 400 draws is about 0.011 to 0.022
+    assert rate["hc1"] > 0.18
+    assert rate["ewc"] < rate["nw"] < rate["hc1"]
+    assert rate["ewc"] < 0.11
+
+
+def test_ewc_options_are_checked(df):
+    with pytest.raises(MethodIncompatibility, match="only applies to robust='ewc'"):
+        sp.regress("y ~ x", df, robust="hac", ewc_df=8)
+    with pytest.raises(MethodIncompatibility, match="positive integer"):
+        sp.regress("y ~ x", df, robust="ewc", ewc_df=0)
+    with pytest.raises(DataInsufficient):
+        sp.regress("y ~ x", df, robust="ewc", ewc_df=len(df))
+    clustered = df.assign(g=np.arange(len(df)) // 10)
+    with pytest.raises(MethodIncompatibility, match="cannot be combined"):
+        sp.regress("y ~ x", clustered, robust="ewc", cluster="g")

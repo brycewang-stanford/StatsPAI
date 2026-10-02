@@ -42,13 +42,13 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `did` | 50,216 | 67 | 95 |
 | `synth` | 28,022 | 36 | 55 |
 | `rd` | 21,323 | 32 | 55 |
-| `regression` | 21,243 | 25 | 39 |
+| `regression` | 21,312 | 25 | 39 |
 | `agent` | 21,404 | 41 | 4 |
 | `smart` | 16,475 | 21 | 31 |
 | `forest` | 15,811 | 17 | 31 |
 | `output` | 13,898 | 22 | 42 |
 | `matching` | 11,384 | 17 | 25 |
-| `core` | 10,788 | 19 | 6 |
+| `core` | 10,789 | 19 | 6 |
 | `panel` | 10,159 | 16 | 18 |
 | `decomposition` | 9,910 | 19 | 32 |
 | `inference` | 9,965 | 21 | 30 |
@@ -79,7 +79,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `bartik` | 3,142 | 6 | 9 |
 | `causal_llm` | 3,026 | 10 | 15 |
 | `crossval` | 2,761 | 7 | 2 |
-| `postestimation` | 2,634 | 6 | 12 |
+| `postestimation` | 2,656 | 6 | 12 |
 | `conformal_causal` | 2,596 | 9 | 21 |
 | `utils` | 2,545 | 10 | 32 |
 | `epi` | 2,523 | 6 | 20 |

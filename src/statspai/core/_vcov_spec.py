@@ -241,6 +241,7 @@ _SE_KIND_SYNONYMS: Dict[str, str] = {
     "hc2": "hc2",
     "hc3": "hc3",
     "hac": "hac",
+    "ewc": "ewc",
     # Cluster-robust.  Stata accepts cl / clu / clus / clust.
     "cluster": "cluster",
     "cl": "cluster",
@@ -285,7 +286,7 @@ class SERequest:
     ----------
     kind : str
         Canonical kind: ``"nonrobust"``, ``"robust"``, ``"hc0"``–``"hc3"``,
-        ``"hac"``, ``"cluster"``, ``"cr2"``, ``"cr3"``, ``"jackknife"``,
+        ``"hac"``, ``"ewc"``, ``"cluster"``, ``"cr2"``, ``"cr3"``, ``"jackknife"``,
         ``"wild"`` or ``"conley"``.
     cluster : Any
         The cluster specification after merging ``cluster=`` with any

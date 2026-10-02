@@ -241,6 +241,16 @@ has the findings and what is still open.
   1980:Q4. Under heteroskedasticity and no break the classical sup-F
   rejected in more than 15% of simulated samples and the robust one in
   under 10%. The defaults are unchanged.
+- **`sp.regress(robust='ewc')`**: the equal-weighted cosine estimator of
+  the long-run variance (Lazarus, Lewis, Stock and Watson 2018), with
+  `ewc_df` cosine terms (default `floor(0.4 * T ** (2/3))`). P-values and
+  intervals use the t distribution with that many degrees of freedom, and
+  `sp.test` uses the rescaled F of the paper's equation (14). It is what
+  the textbook's authors recommend in place of Newey-West with a short lag
+  length and normal critical values. With every cosine term it equals HC0
+  times `T / (T - 1)`, exactly. On an AR(1) design with a true null (T =
+  200, both autocorrelations 0.7) a 5% t test rejected 26% of the time with
+  HC1, 11% with Newey-West at the textbook's truncation and 7% with EWC.
 - **`sp.regress(robust='hac', hac_lags=, hac_small=)`**. The lag length of
   the Newey-West estimator could not be set, and Stata's `newey` could only
   be matched to 0.5% because it scales the covariance by `N/(N-K)`. With

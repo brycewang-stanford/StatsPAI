@@ -492,6 +492,7 @@ class OLSEstimator(BaseEstimator):
             )
         # Stata ``regress, vce(robust)`` is HC1; ``True`` means the same.
         robust_key = "hc1" if robust is True else str(robust).lower()
+        ewc_df: Optional[int] = None
         if robust_key == "robust":
             robust_key = "hc1"
         elif robust_key in ("false", "none", "ols", "oim", "iid", "classical"):
@@ -663,6 +664,26 @@ class OLSEstimator(BaseEstimator):
             if kwargs.get("hac_small"):
                 # Stata `newey` / sandwich::NeweyWest(adjust = TRUE)
                 var_cov = var_cov * (n / (n - k))
+        elif robust_key == "ewc":
+            # Equal-weighted cosine estimator of the long-run variance
+            # (Lazarus, Lewis, Stock and Watson 2018, eq. 10): the average of
+            # the outer products of the first nu Type II cosine transforms
+            # of z_t = x_t * u_t.
+            nu = kwargs.get("ewc_df", None)
+            if nu is None:
+                nu = int(np.floor(0.4 * n ** (2.0 / 3.0)))  # their eq. (4)
+            if not 1 <= nu < n:
+                raise DataInsufficient(
+                    f"EWC: {nu} cosine terms with {n} observations.",
+                    recovery_hint="ewc_df must be between 1 and N - 1.",
+                )
+            ewc_df = int(nu)
+            moments = X * residuals[:, None]
+            t_mid = np.arange(1, n + 1) - 0.5
+            cosines = np.cos(np.pi * np.outer(t_mid, np.arange(1, ewc_df + 1)) / n)
+            lam = np.sqrt(2.0 / n) * (cosines.T @ moments)  # (nu, k)
+            omega = lam.T @ lam / ewc_df
+            var_cov = XtX_inv @ (n * omega) @ XtX_inv
         else:
             raise MethodIncompatibility(f"Unknown robust option: {robust}")
 
@@ -718,6 +739,7 @@ class OLSEstimator(BaseEstimator):
             "df_resid": n - k,
             "rss": rss,
             "tss": tss,
+            "ewc_df": ewc_df,
         }
 
     def _robust_cov_matrix(
@@ -1095,6 +1117,10 @@ class OLSRegression(BaseModel):
             # clusters and 1,200 observations understated a p-value by 17
             # orders of magnitude.
             data_info["df_inference"] = int(n_clusters_obs) - 1
+        if results.get("ewc_df"):
+            # the EWC t ratio is t(nu) and the rescaled Wald is F(m, nu-m+1)
+            data_info["df_inference"] = int(results["ewc_df"])
+            data_info["hotelling_df"] = int(results["ewc_df"])
 
         rss_per_obs = results["rss"] / results["nobs"]
         if rss_per_obs <= 0:
@@ -1359,6 +1385,7 @@ def regress(
     collinear: str = "omit",
     hac_lags: Optional[int] = None,
     hac_small: bool = False,
+    ewc_df: Optional[int] = None,
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -1371,8 +1398,13 @@ def regress(
     data : pd.DataFrame
         Data containing variables
     robust : str, default 'nonrobust'
-        Type of standard errors ('nonrobust', 'hc0'–'hc3', 'hac';
-        case-insensitive)
+        Type of standard errors ('nonrobust', 'hc0'–'hc3', 'hac', 'ewc';
+        case-insensitive). ``'hac'`` is Newey-West with normal critical
+        values. ``'ewc'`` is the equal-weighted cosine estimator of
+        Lazarus, Lewis, Stock and Watson (2018), with t and F critical
+        values whose degrees of freedom are the number of cosine terms: in
+        time-series regressions it rejects a true null much less often than
+        Newey-West with a short lag length.
     cluster : str, optional
         Variable name for clustering
     weights : str or array-like, optional
@@ -1401,6 +1433,13 @@ def regress(
         as Stata's ``newey`` and ``sandwich::NeweyWest(adjust = TRUE)`` do.
         The default (no factor) is ``NeweyWest(adjust = FALSE)`` and
         statsmodels' ``cov_type='HAC'``.
+    ewc_df : int, optional
+        With ``robust='ewc'``: the number of cosine terms ``nu``, which is
+        also the degrees of freedom of the t distribution used for p-values
+        and intervals. Default ``floor(0.4 * T ** (2 / 3))``. The rows must
+        be in time order. Joint tests through :func:`statspai.test` use the
+        rescaled statistic ``(nu - m + 1) / (nu * m) * W``, which is
+        ``F(m, nu - m + 1)``.
     **kwargs
         Additional options. Unrecognised keywords raise ``TypeError``
         rather than being ignored — a misspelled option must not
@@ -1410,7 +1449,13 @@ def regress(
     -------
     EconometricResults
         Fitted model results. With ``robust='hac'``,
-        ``model_info['hac_lags']`` is the lag length used.
+        ``model_info['hac_lags']`` is the lag length used; with
+        ``robust='ewc'``, ``model_info['ewc_df']`` the number of cosines.
+
+    References
+    ----------
+    [@newey1987simple]
+    [@lazarus2018har]
 
     Examples
     --------
@@ -1465,6 +1510,7 @@ def regress(
                 "hc2",
                 "hc3",
                 "hac",
+                "ewc",
                 "cluster",
                 "cr2",
                 "cr3",
@@ -1746,7 +1792,30 @@ def regress(
         kwargs["lags"] = int(hac_lags)
     if hac_small:
         kwargs["hac_small"] = True
+    is_ewc = str(robust_kw).lower() == "ewc"
+    if is_ewc and cluster is not None:
+        raise MethodIncompatibility(
+            "regress: robust='ewc' is a time-series covariance estimator and "
+            "cannot be combined with cluster=.",
+            recovery_hint="Drop cluster= for a single time series, or use "
+            "cluster-robust standard errors for a panel.",
+        )
+    if ewc_df is not None:
+        if not is_ewc:
+            raise MethodIncompatibility(
+                f"regress: ewc_df= only applies to robust='ewc'; this call "
+                f"asks for {robust_kw!r}.",
+                recovery_hint="Add robust='ewc', or drop ewc_df.",
+            )
+        if isinstance(ewc_df, bool) or int(ewc_df) != ewc_df or ewc_df < 1:
+            raise MethodIncompatibility(
+                f"regress: ewc_df must be a positive integer, got {ewc_df!r}.",
+                recovery_hint="The default is floor(0.4 * T ** (2 / 3)).",
+            )
+        kwargs["ewc_df"] = int(ewc_df)
     _result = model.fit(robust=robust_kw, cluster=cluster, **kwargs)
+    if is_ewc:
+        _result.model_info["ewc_df"] = int(_result.data_info["df_inference"])
     if is_hac:
         n_used = int(_result.data_info["nobs"])
         _result.model_info["hac_lags"] = (
