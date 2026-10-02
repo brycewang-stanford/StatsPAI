@@ -4,7 +4,7 @@
 
 对应 `docs/dev/2026-10-02-repository-agent-parity-review.md`。审查基线是 d1025b29 (1.34.2)，工作基于 e4fdfddc (1.35.0)。
 
-共 38 项：已完成 **26**，部分完成 **2**，未做 **10**。“已完成”的每一项都列出守着它的测试；“部分完成”和“未做”写明缺什么、为什么、下一步。
+共 37 项：已完成 **26**，部分完成 **2**，未做 **9**。“已完成”的每一项都列出守着它的测试；“部分完成”和“未做”写明缺什么、为什么、下一步。
 
 ## 已完成
 
@@ -32,7 +32,7 @@
 | R2 | R parity CI 的范围写准确；每周一的上游漂移探针 | `.github/workflows/r-parity.yml`<br>`tests/r_parity/R_ENVIRONMENT.md` | `tests/test_r_parity_ci_scope.py` | 每周定时任务还没在 CI 上实际跑过。 |
 | R2 | 机器可读的 run manifest：每个模块每一侧的状态、参考版本、平台、输入输出哈希、是否由 CI 重推导、缺 Stata 侧的理由、上次重推导的提交与日期 | `scripts/build_reproduction_manifest.py`<br>`docs/reproduction_manifest.json` | `tests/test_reproduction_manifest.py` |  |
 | R3 | option fixture 双精度重生成、被测试直接读取、哈希入清单；跨六条证据轨道的统一清单 | `scripts/evidence_track_manifest.py`<br>`tests/stata_parity/option_parity/README.md` | `tests/reference_parity/test_option_fixture_bindings.py`<br>`tests/test_evidence_tracks.py` |  |
-| R4 | Stata 翻译 holdout：39 条按文档语法写的命令，Stata 18 MP 实跑的金标准，五层评分 | `tests/stata_translation_holdout/build_holdout.py` | `tests/test_stata_translation_holdout.py` | 33 条可执行命令里 29 条五层全过，4 条被明确拒绝，0 条静默错误。 |
+| R4 | Stata 翻译 holdout：39 条按文档语法写的命令，Stata 18 MP 实跑的金标准，五层评分 | `tests/stata_translation_holdout/build_holdout.py` | `tests/test_stata_translation_holdout.py` | 首次评分：33 条可执行命令里 29 条五层全过，4 条被明确拒绝，0 条静默错误。四个缺口现已全部关闭，33 条全部复现 Stata，6 条应拒绝的命令全部拒绝。其中 `[fweight=]` 和 `xtreg, re` 是并行的另一条线在没看过这份语料的情况下补的，holdout 对它们是真正的盲测，并且通过了。 |
 | R5 | 把已有的覆盖率、压力设计、size / power 结果接进 evidence 视图，失败的重复计入分母，附 Monte Carlo SE | `scripts/build_evidence_inventory.py` | `tests/test_evidence_inventory.py` | 4 个设计的覆盖率离 0.95 超过 2 个 MC SE（`rdrobust` 0.934、`sdid` 0.928、DML IRM 0.968、DML PLR 0.883），表里照实标出。 |
 | G1 | 机器可读的 backlog 生成状态文档 | `docs/dev/review_backlog.json`<br>`scripts/build_review_status.py` | `tests/test_review_backlog.py` |  |
 | G2 | fast gate 覆盖整条 agent 链 | `.github/workflows/ci-cd.yml` | — |  |
@@ -55,7 +55,6 @@
 | R1 | 清单里空着的格子补参考（`etwfe` 的协变量 / `xvar` / 加权 / `agg_weights='unit'`，`event_study` 的其它窗口，`rdrobust` / `dml` / `psm` 的大部分网格） | 每一格都要在 R 或 Stata 里实跑一份新参考并登记容差，是逐格的 parity 工作。交错面板上的 TWFE 事件研究不该补。 | 按使用频率挑格子；每补一格重跑 `build_evidence_inventory.py` |
 | R1 | joint test 的参考证据（目前只有 `regress` 的 3 格） | 每一格都要在 R 或 Stata 里实跑一份新参考并登记容差；`test`、`lincom` 等后估计入口还没有 scope 映射。 | 先给 `sp.test` 的 Wald / F 建映射，再按估计器补 Stata `test` 的参考 |
 | R2 | 在 CI 里按 `renv.lock` 复现；重依赖 R 模块与 Stata 的定期自动重推导 | 需要自托管 runner（354 个 R 包，含仅 GitHub 发布的）和 Stata 许可。一个没法在 CI 上实测的 workflow job 我没有加：写了不跑等于没有，写了跑挂会挡住别人。 | 有 runner 之后加一个只在手动触发时运行的 job |
-| R4 | holdout 查出的 4 个翻译缺口：`[fweight=]`、`noconstant`、`qreg`、`xtreg, re` | 都是响亮的拒绝，不是错误结果。补翻译要按 Stata 文档逐个核对默认值和 SE 约定。 | 每补一个，把它移出 `KNOWN_GAPS` 并更新层计数 |
 | R4 | R 迁移的概念映射表 | 审查说可以先做映射表而不是 parser；没有做。 | — |
 | R5 | 新的仿真：少簇、不平衡面板、RD mass points、极端权重、学习器变化 | 需要预先定义设计和计算预算；审查也写明不应作为隐含任务执行。 | — |
 
@@ -79,3 +78,4 @@
 - **`sp.match(method='llr')` 在默认带宽下会崩。** bootstrap 的某个重抽样里局部线性权重之和为零，匹配结果的记账代码直接除零，抛出 `ZeroDivisionError`，整个调用失败。已改为把该处理单位的匹配结果记为缺失。点估计不受影响。
 - **六种种子参数名不被结果卡识别。** `boot_seed`、`bootstrap_seed`、`rng_seed`、`wild_seed`、`halton_seed`、`rng`。用这些名字的函数，结果卡对其随机输出是否可复现一个字都不说。已补，并有测试挡新拼法。
 - **`areg` 翻译出来的常数项不是 Stata 的 `_cons`。** 斜率和 SE 与 `areg` 完全一致；`Intercept` 是第一组的水平，`_cons` 是平均吸收效应处的截距。翻译说明原来只提了 SE 的自由度，没提常数项。holdout 查出，已补说明。
+- **holdout 第一次真正派上用场。** 我补 `noconstant` 的同时，并行的另一条线也补了它，还补了 `[fweight=]` 和 `xtreg, re`。rebase 之后 holdout 对后两者是盲测：`xtreg, re` 的系数、常规 SE、聚类 SE、以及用正态分布的置信区间都与 Stata 逐位一致；`[fweight=]` 由 runner 按行展开，N 和 SE 也对。评分规则里有一处误判（把“只有 runner 能翻译”算成了静默错误），已修正。

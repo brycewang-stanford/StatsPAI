@@ -174,6 +174,47 @@ def _h_regress(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("regress", args, python, notes, semantics=semantics)
 
 
+def _h_qreg(cmd: StataCommand) -> Dict[str, Any]:
+    """``qreg y x [, quantile(#)]`` -> ``sp.qreg``.
+
+    Only the default variance is translated: Stata's ``qreg`` default
+    (iid, fitted density, Hall-Sheather bandwidth) is ``sp.qreg``'s. A
+    ``vce()`` option is left unread, so it is reported as untranslated
+    and ``sp.stata`` refuses to run the command.
+    """
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None or not xs:
+        return _emit_error("qreg requires an outcome and a regressor", command="qreg")
+    formula = _build_formula(y, xs)
+    args: Dict[str, Any] = {"formula": formula}
+    raw = cmd.options.get("quantile")
+    if raw is not None:
+        try:
+            q = float(str(raw).strip())
+        except ValueError:
+            return _emit_error(f"qreg: quantile({raw}) is not a number", command="qreg")
+        # [R] qreg: a value of 1 or more is read as a percentage.
+        if q >= 1:
+            q = q / 100.0
+        if not 0 < q < 1:
+            return _emit_error(
+                f"qreg: quantile({raw}) is outside (0, 100)", command="qreg"
+            )
+        args["quantile"] = q
+    pairs = [repr(formula)] + [f"{k}={v!r}" for k, v in args.items() if k != "formula"]
+    python = f"sp.qreg(df, {', '.join(pairs)})"
+    notes: List[str] = []
+    if cmd.if_cond:
+        notes.append(
+            f"Stata `if {cmd.if_cond}` dropped — pre-filter df via "
+            f"`df = df.query({cmd.if_cond!r})` before calling."
+        )
+    if cmd.in_range:
+        notes.append(f"Stata `in {cmd.in_range}` dropped — use df.iloc[...].")
+    semantics = ["The constant is reported as `const`, Stata's `_cons`."]
+    return _emit("qreg", args, python, notes, semantics=semantics)
+
+
 def _pyfixest_fml(
     main: str,
     fe_terms: List[str],
@@ -2811,6 +2852,7 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "regress": _h_regress,
     "reg": _h_regress,
     "xtreg": _h_xtreg,
+    "qreg": _h_qreg,
     "reghdfe": _h_reghdfe,
     "areg": _h_areg,
     "ivreg2": _h_ivreg2,

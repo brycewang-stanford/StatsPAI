@@ -397,17 +397,8 @@
       "tests": [
         "tests/test_stata_translation_holdout.py"
       ],
-      "note": "33 条可执行命令里 29 条五层全过，4 条被明确拒绝，0 条静默错误。",
+      "note": "首次评分：33 条可执行命令里 29 条五层全过，4 条被明确拒绝，0 条静默错误。四个缺口现已全部关闭，33 条全部复现 Stata，6 条应拒绝的命令全部拒绝。其中 `[fweight=]` 和 `xtreg, re` 是并行的另一条线在没看过这份语料的情况下补的，holdout 对它们是真正的盲测，并且通过了。",
       "next": ""
-    },
-    {
-      "id": "R4",
-      "title": "holdout 查出的 4 个翻译缺口：`[fweight=]`、`noconstant`、`qreg`、`xtreg, re`",
-      "status": "not_done",
-      "where": [],
-      "tests": [],
-      "note": "都是响亮的拒绝，不是错误结果。补翻译要按 Stata 文档逐个核对默认值和 SE 约定。",
-      "next": "每补一个，把它移出 `KNOWN_GAPS` 并更新层计数"
     },
     {
       "id": "R4",
@@ -483,6 +474,7 @@
     "**`sp.match` 的 schema 写错了参数名。** schema 把 `treatment=` / `outcome=` 标成必填，函数实际只接受 `treat=` / `y=`，照着 schema 调用会直接失败。card 审查查出，已改。同批查出：`sp.panel` 的枚举里有不存在的 `method='cre'`；`sp.sun_abraham` 的 `control_group` 枚举写的是 `notyettreated`（实际是 `lastcohort`）；`sp.aipw` 的 `estimand` 枚举多了不支持的 `ATC`；`sp.feols` 的返回类型被解析成 `list`；`sp.match` 的返回类型写成 `MatchEstimator`。",
     "**`sp.match(method='llr')` 在默认带宽下会崩。** bootstrap 的某个重抽样里局部线性权重之和为零，匹配结果的记账代码直接除零，抛出 `ZeroDivisionError`，整个调用失败。已改为把该处理单位的匹配结果记为缺失。点估计不受影响。",
     "**六种种子参数名不被结果卡识别。** `boot_seed`、`bootstrap_seed`、`rng_seed`、`wild_seed`、`halton_seed`、`rng`。用这些名字的函数，结果卡对其随机输出是否可复现一个字都不说。已补，并有测试挡新拼法。",
-    "**`areg` 翻译出来的常数项不是 Stata 的 `_cons`。** 斜率和 SE 与 `areg` 完全一致；`Intercept` 是第一组的水平，`_cons` 是平均吸收效应处的截距。翻译说明原来只提了 SE 的自由度，没提常数项。holdout 查出，已补说明。"
+    "**`areg` 翻译出来的常数项不是 Stata 的 `_cons`。** 斜率和 SE 与 `areg` 完全一致；`Intercept` 是第一组的水平，`_cons` 是平均吸收效应处的截距。翻译说明原来只提了 SE 的自由度，没提常数项。holdout 查出，已补说明。",
+    "**holdout 第一次真正派上用场。** 我补 `noconstant` 的同时，并行的另一条线也补了它，还补了 `[fweight=]` 和 `xtreg, re`。rebase 之后 holdout 对后两者是盲测：`xtreg, re` 的系数、常规 SE、聚类 SE、以及用正态分布的置信区间都与 Stata 逐位一致；`[fweight=]` 由 runner 按行展开，N 和 SE 也对。评分规则里有一处误判（把“只有 runner 能翻译”算成了静默错误），已修正。"
   ]
 }

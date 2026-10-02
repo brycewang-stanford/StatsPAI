@@ -204,6 +204,8 @@ _VCE_TYPES = (
 #: Command-specific abbreviations, as underlined in each command's syntax
 #: diagram. ``atet`` precedes ``ate`` so that the longer word wins.
 _COMMAND_OPTIONS: Dict[str, _Table] = {
+    # [R] qreg: quantile(#), minimum abbreviation q(#).
+    "qreg": (("quantile", 1),),
     "teffects": (
         ("nneighbor", 2),
         ("ematch", 2),

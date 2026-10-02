@@ -632,10 +632,20 @@ changes its numbers.
 - **Stata translation holdout** (`tests/stata_translation_holdout/`): 39
   commands written against Stata's documented grammar, with the numbers
   Stata 18 MP gives for the 33 that run. Scored on five layers
-  (recognised, translated, executed, same sample, same numbers): 29 of 33
-  reproduce Stata, 4 are refused out loud (`[fweight=]`, `noconstant`,
-  `qreg`, `xtreg, re`), none is silently wrong, and all 6 commands that
-  must be refused are.
+  (recognised, translated, executed, same sample, same numbers). First
+  run: 29 of 33 reproduce Stata, 4 are refused out loud (`[fweight=]`,
+  `noconstant`, `qreg`, `xtreg, re`), none is silently wrong, and all 6
+  commands that must be refused are. All four gaps are now closed and
+  all 33 reproduce Stata. `[fweight=]` and `xtreg, re` were translated the
+  same night by a separate line of work that had not seen the corpus, so
+  for those two the holdout was a blind test, and they pass: coefficients,
+  classical and clustered SEs, and the normal-based interval of
+  `xtreg, re` equal Stata's.
+- **`sp.from_stata` / `sp.stata` translate `qreg`.** `qreg y x
+  [, quantile(#)]` maps to `sp.qreg`, whose default variance is Stata's
+  (agreement to 1e-14 at three quantiles); a percentage `quantile(75)` and
+  the abbreviation `q()` are read. `qreg, vce()` is not translated and is
+  refused rather than dropped.
 - **Red-line scenarios** (`tests/agent_eval/test_red_line_scenarios.py`):
   for each way an agent can produce a confidently wrong report (weak
   instrument, few clusters, diagnostics not run, an unvalidated SE, a lost

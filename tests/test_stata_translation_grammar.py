@@ -782,3 +782,13 @@ def test_untranslated_commands_name_the_sp_function(command):
     assert "not translated line by line" in out["error"]
     for name in out["statspai_functions"]:
         assert hasattr(sp, name), name
+
+
+def test_noconstant_enters_the_call_as_a_formula_term():
+    """Carried over, not dropped: the code and the arguments both change."""
+    with_const = sp.from_stata("reg y x1 x2")
+    without = sp.from_stata("reg y x1 x2, nocons")
+    assert without["untranslated_options"] == []
+    assert without["arguments"]["formula"] == "y ~ x1 + x2 - 1"
+    assert with_const["arguments"]["formula"] == "y ~ x1 + x2"
+    assert "'y ~ x1 + x2 - 1'" in without["python_code"]
