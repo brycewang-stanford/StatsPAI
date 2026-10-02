@@ -211,13 +211,14 @@ class TestInputs:
         with pytest.raises(MethodIncompatibility, match="covariate_method="):
             _fit(_quota().dropna(subset=["lngdp"]), "quota", covariates=["lngdp"])
 
-    def test_optimized_covariates_are_not_implemented(self):
-        with pytest.raises(MethodIncompatibility, match="only 'projected'"):
+    def test_optimized_covariates_refuse_staggered_adoption(self):
+        with pytest.raises(MethodIncompatibility, match="single adoption date"):
             _fit(
                 _quota().dropna(subset=["lngdp"]),
                 "quota",
                 covariates=["lngdp"],
                 covariate_method="optimized",
+                se_method="noinference",
             )
 
     def test_missing_covariate_is_refused(self):

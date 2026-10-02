@@ -70,6 +70,7 @@ from .did_bcf import did_bcf
 from .did_forest import DIDForestResult, did_forest
 from .did_imputation import did_imputation
 from .did_multiplegt import did_multiplegt
+from .didregress import didregress
 from .es_convention import (
     EventStudyConventionResult,
     compare_event_study_conventions,
@@ -993,6 +994,7 @@ __all__ = [
     "bjs_pretrend_joint",
     "sun_abraham",
     "bacon_decomposition",
+    "didregress",
     "honest_did",
     "honest_did_from_moments",
     "honest_did_from_result",

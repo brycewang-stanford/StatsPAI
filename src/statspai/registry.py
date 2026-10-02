@@ -15267,6 +15267,95 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="didregress",
+            category="causal",
+            description=(
+                "Two-way fixed-effects difference-in-differences as Stata "
+                "didregress (group effects counted as regressors) and, with "
+                "id=, xtdidregress (unit effects, xtreg's variance). treat is "
+                "the 0/1 treatment-status indicator. Standard errors cluster "
+                "on group and statistics use t(G - 1). The parallel-trends "
+                "and Granger tests of estat ptrends / estat granger are "
+                "fitted with the model: sp.estat(result, 'ptrends')."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, None, "Outcome"),
+                ParamSpec(
+                    "treat",
+                    "str",
+                    True,
+                    None,
+                    "0/1 treatment status, 1 in the periods a group is treated",
+                ),
+                ParamSpec(
+                    "group",
+                    "str",
+                    True,
+                    None,
+                    "Level at which treatment is assigned; default cluster",
+                ),
+                ParamSpec("time", "str", True, None, "Time period"),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    False,
+                    None,
+                    "Controls of the outcome equation",
+                ),
+                ParamSpec(
+                    "id",
+                    "str",
+                    False,
+                    None,
+                    "Panel unit; given, the fit is xtdidregress",
+                ),
+                ParamSpec("cluster", "str", False, None, "Cluster (default: group)"),
+                ParamSpec("alpha", "float", False, 0.05, "1 - confidence level"),
+            ],
+            returns="CausalResult",
+            example=('sp.didregress(df, "lemp", "d", group="countyreal", time="year")'),
+            tags=["did", "twfe", "stata", "didregress", "xtdidregress", "ptrends"],
+            pre_conditions=[
+                "treat is 0/1 and constant within group-period cells",
+                "with id=, one row per unit and period",
+            ],
+            assumptions=[
+                "Parallel trends between treated and untreated groups",
+                "No anticipation of treatment",
+                "With staggered adoption: homogeneous treatment effects "
+                "across cohorts and over time, or the coefficient is a "
+                "weighted average with possibly negative weights",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Adoption is staggered and effects vary",
+                    exception="",
+                    remedy="Inspect sp.bacon_decomposition and use an "
+                    "estimator robust to heterogeneous effects.",
+                    alternative="sp.callaway_santanna",
+                ),
+                FailureMode(
+                    symptom="estat ptrends / granger with several treatment dates",
+                    exception="MethodIncompatibility",
+                    remedy="Test pre-trends on an event study instead.",
+                    alternative="sp.pretrends_test",
+                ),
+                FailureMode(
+                    symptom="Few treated or few total clusters",
+                    exception="",
+                    remedy="Cluster-robust inference over-rejects; use a "
+                    "method built for few treated groups.",
+                    alternative="sp.did_few_treated",
+                ),
+            ],
+            alternatives=["callaway_santanna", "did_imputation", "etwfe", "feols"],
+            typical_n_min=50,
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="bacon_decomposition",
             category="causal",
             description=(

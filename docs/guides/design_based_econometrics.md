@@ -26,7 +26,7 @@ from a bundled dataset, and each is pinned by a test under
 | 4 Randomized experiments | `ttest`, `reg, vce(hc2)`, hand-built stratified Neyman estimates, `ritest` | `sp.ttest`, `sp.regress(robust='hc2')`, `sp.difference_in_means(blocks=, cluster=)`, `sp.ri_test` |
 | 5 Unconfoundedness | `teffects nnmatch`, `teffects psmatch`, `tebalance summarize`, `teffects ipw` / `aipw` | `sp.match(method='nnmatch')` and its `detail` table, `sp.match(method='psm')`, `sp.ipw`, `sp.aipw` |
 | 6 Instrumental variables | `ivregress 2sls` / `liml`, `ivreg2`, `estat firststage`, `estat endogenous`, `weakivtest` | `sp.iv`, `sp.iv(method='liml')`, `sp.estat`, `sp.effective_f_test(y=)`, `sp.iv_diag` |
-| 7 Difference-in-differences | `xtreg, fe`, `reghdfe`, `didregress`, `bacondecomp`, `csdid`, `xthdidregress`, `did_imputation`, `pretrends`, `honestdid` | `sp.panel`, `sp.feols`, `sp.did`, `sp.bacon_decomposition`, `sp.callaway_santanna`, `sp.etwfe`, `sp.did_imputation`, `sp.pretrends_power`, `sp.honest_did` |
+| 7 Difference-in-differences | `xtreg, fe`, `reghdfe`, `didregress`, `bacondecomp`, `csdid`, `xthdidregress`, `did_imputation`, `pretrends`, `honestdid` | `sp.panel`, `sp.feols`, `sp.didregress`, `sp.estat(result, 'ptrends')`, `sp.bacon_decomposition`, `sp.callaway_santanna`, `sp.etwfe`, `sp.did_imputation`, `sp.pretrends_power`, `sp.honest_did` |
 | 8 Imputation and synthetic control | `synth`, `synth_runner`, `sdid`, `fect` | `sp.synth(v_method='regression')`, `sp.sdid`, `sp.fect` |
 | 9 Regression discontinuity | `rdrobust`, `rdbwselect`, `rdplot`, `rddensity`, kink designs with `deriv(1)` and `scalepar()` | `sp.rdrobust`, `sp.rdbwselect`, `sp.rdplot`, `sp.rddensity`, `sp.rdrobust(deriv=1, scalepar=)` |
 | 10 Causal mediation | `mediate` (Stata 18) | `sp.mediate(inference='robust')` |
@@ -155,6 +155,22 @@ bjs = sp.did_imputation(mp, y="lemp", group="countyreal", time="year",
                         first_treat="first_treat")
 ```
 
+`didregress` and `xtdidregress` are `sp.didregress`, and the two tests the
+book runs after them are `sp.estat`.
+
+```python
+two = mp[mp.first_treat.isin([0, 2006])].copy()
+two["d"] = ((two.first_treat > 0) & (two.year >= two.first_treat)).astype(int)
+
+did = sp.didregress(two, "lemp", "d", group="countyreal", time="year")
+did.estimate, did.se                    # -0.0300, 0.0103
+sp.estat(did, "ptrends")                # F(1, 249) = 1.61
+sp.estat(did, "granger")                # F(2, 249) = 0.86
+
+xt = sp.didregress(two, "lemp", "d", group="countyreal", time="year",
+                   id="countyreal")     # xtdidregress: se 0.0092
+```
+
 The book's simulated staggered panel has no never-treated unit. From the
 last cohort's adoption on there is nothing to compare with. `sp.etwfe` now
 drops those periods, takes the last cohort as the reference and says so in a
@@ -208,7 +224,9 @@ lee = sp.datasets.lee_2008_senate()
 
 rd = sp.rdrobust(lee, "y", "x")
 sp.rdbwselect(lee, "y", "x", all=True)
-sp.rddensity(lee, "x")
+den = sp.rddensity(lee, "x")
+den.model_info["conventional"]          # rddensity, all
+den.model_info["binomial_tests"]        # the binomial table Stata prints
 sp.rdplot(lee, "y", "x")
 ```
 
@@ -257,13 +275,15 @@ line-by-line translation, such as `ritest`, `honestdid`, `pretrends`,
 | `synth` post-treatment gap of -18.70 against -18.81 | Stata stores donor weights rounded to three decimals and builds its synthetic path from them. They sum to 0.999 here. Rounding our weights reproduces its path to 1e-9. |
 | `mediate` standard errors differ in the fourth digit | Stata's variance uses numerical derivatives. Its standard errors move by 1e-4 when a covariate is centred, which is an equivalent model. The analytic ones here do not move. |
 | `weakivtest` 30% critical values differ by 6e-4 | It evaluates the non-centrality at 3.33 where the definition is 1/0.3. |
+| `sdid ..., covariates(x)` differs by 3e-4 | Stata's default `optimized` method and R `synthdid` both stop a gradient iteration at 10,000 steps, at different points. `covariate_method='optimized'` follows R. `'projected'` is a regression and agrees with Stata. |
+| `estat ptrends` differs by 3e-6 | The trend on raw years is nearly collinear with the treatment dummy. Stata's own `areg` with centred time gives the value here. |
 | `pretrends` power differs by 2e-4 | Both sides integrate a multivariate normal probability numerically. The likelihood ratio, which is closed form, agrees to 1e-13. |
 | `teffects ra` and `ipwra` are refused by `sp.stata` | They have no StatsPAI call with the same estimator. Translating them to a regression would change the estimand. |
 
 ## Fixes this exercise produced
 
 Running a textbook is a cheap way to find bugs, because the book says what
-the answer should be. Five came out of this one.
+the answer should be. Six came out of this one.
 
 - `sp.etwfe` returned arbitrary numbers when every unit is eventually
   treated.
@@ -274,5 +294,6 @@ the answer should be. Five came out of this one.
   every coefficient.
 - `sp.estat(result, 'endogenous')` returned the homoskedastic test after a
   robust fit.
+- `didregress` was translated to a 2x2 on collapsed periods.
 
 Each is in the changelog with the reference value and the test that pins it.

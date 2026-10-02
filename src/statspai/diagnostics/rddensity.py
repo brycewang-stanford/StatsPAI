@@ -161,7 +161,11 @@ def rddensity(
     CausalResult
         - ``estimate``: T-statistic for density discontinuity
         - ``pvalue``: p-value for H0: continuous density at cutoff
-        - ``model_info``: density estimates left/right, bandwidth
+        - ``model_info``: density estimates left/right, bandwidth;
+          ``'conventional'``, the statistic without bias correction that
+          ``rddensity, all`` also prints (the robust one above is the
+          test); ``'binomial_tests'``, the table of exact binomial tests
+          in ten symmetric windows around the cutoff
 
     Examples
     --------
@@ -221,11 +225,30 @@ def rddensity(
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (diff - z_crit * se_diff, diff + z_crit * se_diff)
 
+    # The conventional statistic (order p, no bias correction), which
+    # Stata's `rddensity, all` prints above the robust one.
+    conv = _rddensity_fit(X_c, h_l=h_l, h_r=h_r, p=p, order=p)
+    conv_se = float(np.sqrt(conv[2, 1])) if np.isfinite(conv[2, 1]) else float("nan")
+    conv_t = float(conv[2, 0]) / conv_se if conv_se > 0 else float("nan")
+    conventional = {
+        "density_left": float(conv[0, 0]),
+        "density_right": float(conv[1, 0]),
+        "se_left": float(np.sqrt(conv[0, 1])),
+        "se_right": float(np.sqrt(conv[1, 1])),
+        "se": conv_se,
+        "statistic": conv_t,
+        "pvalue": float(2 * stats.norm.sf(abs(conv_t))),
+    }
+
     model_info = {
         "test": "Cattaneo-Jansson-Ma (2020)",
         "density_left": f_left,
         "density_right": f_right,
         "density_diff": diff,
+        "se_left": float(np.sqrt(fV[0, 1])),
+        "se_right": float(np.sqrt(fV[1, 1])),
+        "conventional": conventional,
+        "binomial_tests": _binomial_tests(X_c),
         "bandwidth_left": h_l,
         "bandwidth_right": h_r,
         "bandwidth_source": h_source,
@@ -755,10 +778,44 @@ def _rddensity_default_bandwidths(
     return h_left, h_right
 
 
+def _binomial_tests(
+    x_centered: np.ndarray, n_first: int = 20, n_windows: int = 10
+) -> pd.DataFrame:
+    """Exact binomial tests of equal counts in symmetric windows.
+
+    The table ``rddensity`` prints under its density test. The first
+    half-width is the smallest that holds ``n_first`` observations (the
+    ``n_first``-th smallest distance to the cutoff) and window ``k`` is
+    ``k`` times as wide. In each, the count below the cutoff is tested
+    against a fair split.
+    """
+    distance = np.sort(np.abs(x_centered))
+    columns = ["half_width", "n_left", "n_right", "pvalue"]
+    if distance.size < n_first:
+        return pd.DataFrame(columns=columns, dtype=float)
+    first = float(distance[n_first - 1])
+    rows = []
+    for k in range(1, n_windows + 1):
+        half = k * first
+        n_left = int(np.sum((x_centered < 0) & (x_centered >= -half)))
+        n_right = int(np.sum((x_centered >= 0) & (x_centered <= half)))
+        total = n_left + n_right
+        pvalue = float(stats.binomtest(n_left, total, 0.5).pvalue) if total else np.nan
+        rows.append((half, n_left, n_right, pvalue))
+    return pd.DataFrame(rows, columns=columns)
+
+
 def _rddensity_fit(
-    x_centered: np.ndarray, *, h_l: float, h_r: float, p: int
+    x_centered: np.ndarray,
+    *,
+    h_l: float,
+    h_r: float,
+    p: int,
+    order: Optional[int] = None,
 ) -> np.ndarray:
-    """Default ``rddensity`` density/test fit with q=p+1."""
+    """``rddensity`` density/test fit of polynomial order ``order``: ``p + 1``
+    by default (the robust, bias-corrected test), ``p`` for the conventional
+    one."""
     x = np.sort(np.asarray(x_centered, dtype=float))
     n = len(x)
     n_l = int(np.sum(x < 0))
@@ -777,7 +834,7 @@ def _rddensity_fit(
         int(np.sum(x_h >= 0)),
         h_l,
         h_r,
-        p + 1,
+        p + 1 if order is None else order,
         1,
     )
 

@@ -90,8 +90,7 @@ def sdid(
         * ``'sc'``   — Synthetic Control (unit weights only)
         * ``'did'``  — DID (uniform weights)
     covariates : list of str, optional
-        Covariates, with ``treat=`` and ``covariate_method="projected"``
-        only. With ``treated_unit=`` / ``treatment_time=`` passing any raises
+        Covariates, with ``treat=`` and ``covariate_method=``. With ``treated_unit=`` / ``treatment_time=`` passing any raises
         :class:`~statspai.exceptions.MethodIncompatibility` rather than
         silently estimating the unadjusted model (through 1.28.0 the
         argument was accepted and ignored).
@@ -121,13 +120,18 @@ def sdid(
         units x post periods ([@clarke2024synthetic], eq. 7). This path follows
         Stata ``sdid`` 2.0.2, including its checks and inference rules;
         cohort detail is in ``model_info['tau_by_cohort']``.
-    covariate_method : {'projected'}, optional
+    covariate_method : {'projected', 'optimized'}, optional
         With ``treat=`` and ``covariates=``: ``'projected'`` removes
         ``X beta``, ``beta`` from a unit and period fixed-effects regression
         on the never-treated units, before estimation (Stata's
         ``covariates(..., projected)``).
-        Required whenever covariates are given; Stata's default
-        ``'optimized'`` is not implemented.
+        ``'optimized'`` puts the covariates into the weight problem, as R
+        ``synthdid_estimate(X=)`` does (single adoption date, point estimate
+        only: pass ``se_method='noinference'``). It reproduces R to 1e-12.
+        The iteration stops at its cap of 10,000 steps, not at an optimum,
+        and it depends on the scale of the covariates; Stata's ``sdid``,
+        whose default this is, lands about 3e-4 away from R on the same
+        data. Required whenever covariates are given.
 
     Returns
     -------
@@ -1560,6 +1564,101 @@ def _sc_weight_fw(
         prev = val
 
     return weights
+
+
+def _fw_step(A: np.ndarray, x: np.ndarray, b: np.ndarray, eta: float) -> np.ndarray:
+    """One Frank-Wolfe step on ``||A x - b||^2 + eta ||x||^2`` over the simplex."""
+    ax = A @ x
+    half_grad = (ax - b) @ A + eta * x
+    vertex = int(np.argmin(half_grad))
+    direction = -x.copy()
+    direction[vertex] += 1.0
+    if not direction.any():
+        return x
+    err_dir = A[:, vertex] - ax
+    denom = float(err_dir @ err_dir) + eta * float(direction @ direction)
+    step = 0.0 if denom <= 0 else -float(half_grad @ direction) / denom
+    return np.asarray(x + min(1.0, max(0.0, step)) * direction)
+
+
+def _sdid_optimized_covariates(
+    Y: np.ndarray, X: np.ndarray, N0: int, T0: int, max_iter: int = 10000
+) -> Tuple[float, np.ndarray, np.ndarray, np.ndarray, int]:
+    """SDID with covariates entering the weight problem (``optimized``).
+
+    The procedure of ``synthdid_estimate(Y, N0, T0, X=)``, written by the
+    method's authors [@arkhangelsky2021synthetic]: starting from uniform
+    weights and ``beta = 0``, each iteration takes a gradient step of size
+    ``1/t`` on ``beta`` and one Frank-Wolfe step on each of ``lambda`` and
+    ``omega`` for the adjusted outcome ``Y - X beta``, on the collapsed
+    panel. It stops when the objective changes by less than
+    ``(1e-5 sigma)^2`` or after ``max_iter`` iterations, and in practice it
+    is the cap that binds: the result is the state of the iteration at that
+    point, not a converged optimum, and it depends on the scale of ``X``.
+
+    ``Y`` is ``(N, T)`` and ``X`` is ``(N, T, K)`` with the ``N0`` controls
+    first and the ``T0`` pre-treatment periods first. Returns
+    ``(tau, beta, lambda, omega, iterations)``.
+    """
+    N, T = Y.shape
+    N1, T1 = N - N0, T - T0
+
+    def collapse(M: np.ndarray) -> np.ndarray:
+        top = np.column_stack([M[:N0, :T0], M[:N0, T0:].mean(axis=1)])
+        bottom = np.r_[M[N0:, :T0].mean(axis=0), M[N0:, T0:].mean()]
+        return np.vstack([top, bottom])
+
+    noise = _sdid_noise_level(Y[:N0, :T0])
+    zeta_omega = (N1 * T1) ** 0.25 * noise
+    zeta_lambda = 1e-6 * noise
+    min_dec2 = (1e-5 * noise) ** 2
+    Yc = collapse(Y)
+    K = X.shape[-1]
+    Xc = np.stack([collapse(X[..., k]) for k in range(K)], axis=-1)
+    lam = np.full(T0, 1.0 / T0)
+    omega = np.full(N0, 1.0 / N0)
+    beta = np.zeros(K)
+
+    def update(
+        Yb: np.ndarray, lam: np.ndarray, omega: np.ndarray
+    ) -> Tuple[float, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        Yl = Yb[:N0, :] - Yb[:N0, :].mean(axis=0, keepdims=True)
+        lam = _fw_step(Yl[:, :T0], lam, Yl[:, T0], N0 * zeta_lambda**2)
+        err_l = Yl @ np.r_[lam, -1.0]
+        Yo = Yb[:, :T0].T
+        Yo = Yo - Yo.mean(axis=0, keepdims=True)
+        omega = _fw_step(Yo[:, :N0], omega, Yo[:, N0], T0 * zeta_omega**2)
+        err_o = Yo @ np.r_[omega, -1.0]
+        val = (
+            zeta_omega**2 * float(omega @ omega)
+            + zeta_lambda**2 * float(lam @ lam)
+            + float(err_o @ err_o) / T0
+            + float(err_l @ err_l) / N0
+        )
+        return val, lam, omega, err_l, err_o
+
+    _, lam, omega, err_l, err_o = update(Yc - Xc @ beta, lam, omega)
+    vals: List[float] = []
+    t = 0
+    while t < max_iter and (t < 2 or abs(vals[t - 2] - vals[t - 1]) > min_dec2):
+        t += 1
+        lam1, om1 = np.r_[lam, -1.0], np.r_[omega, -1.0]
+        grad = -np.array(
+            [
+                err_l @ Xc[:N0, :, k] @ lam1 / N0 + err_o @ Xc[:, :T0, k].T @ om1 / T0
+                for k in range(K)
+            ]
+        )
+        beta = beta - grad / t
+        val, lam, omega, err_l, err_o = update(Yc - Xc @ beta, lam, omega)
+        vals.append(val)
+    adjusted = Y - X @ beta
+    tau = float(
+        np.r_[-omega, np.full(N1, 1.0 / N1)]
+        @ adjusted
+        @ np.r_[-lam, np.full(T1, 1.0 / T1)]
+    )
+    return tau, beta, lam, omega, t
 
 
 def _sparsify_function(weights: np.ndarray) -> np.ndarray:

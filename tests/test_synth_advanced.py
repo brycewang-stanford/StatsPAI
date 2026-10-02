@@ -534,11 +534,13 @@ class TestSensitivity:
         assert "att" in tp.columns
         np.testing.assert_allclose(
             [tp["att"].sum(), tp["att"].mean(), tp["att"].min(), tp["att"].max()],
+            # exact simplex weights since the certified inner solver; with
+            # SLSQP the first three were 3.2070739, 0.4008842, -0.1673991
             [
-                3.2070738962818575,
-                0.4008842370352322,
-                -0.16739911527023565,
-                0.7630928354486967,
+                3.207063927776472,
+                0.400882990972059,
+                -0.16740083023242036,
+                0.763092835448704,
             ],
             atol=1e-12,
         )

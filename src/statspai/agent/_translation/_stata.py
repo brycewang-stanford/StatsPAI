@@ -954,13 +954,12 @@ def _h_csdid(cmd: StataCommand) -> Dict[str, Any]:
 
 
 def _h_didregress(cmd: StataCommand) -> Dict[str, Any]:
-    """``didregress (y x) (treated), group(id) time(year)`` → ``sp.did``.
+    """``didregress (y x) (D), group(g) time(t)`` -> ``sp.didregress``.
 
-    Stata's official ``didregress`` / ``xtdidregress`` commands take an
-    outcome equation and a treatment-status equation.  StatsPAI's staggered
-    DID APIs use cohort columns, so this translator deliberately routes the
-    official Stata treatment-status form through ``method='twfe'`` and emits a
-    note rather than silently treating a 0/1 treatment indicator as a cohort.
+    ``xtdidregress`` is the same call with ``id=`` set to the panel unit of
+    ``xtset``, which switches the variance to the ``xtreg, fe`` convention.
+    Options that change the estimator (``wildbootstrap()``, ``aggregate()``,
+    ``nogteffects``) are not read, so they are reported as untranslated.
     """
     eqs = _equations(list(cmd.varlist))
     if not eqs or len(eqs) != 2 or eqs[0][1] or eqs[1][1]:
@@ -969,17 +968,14 @@ def _h_didregress(cmd: StataCommand) -> Dict[str, Any]:
             command=cmd.command,
         )
     outcome_tokens, treat_tokens = eqs[0][0], eqs[1][0]
-    if not outcome_tokens or not treat_tokens:
+    if not outcome_tokens or len(treat_tokens) != 1:
         return _emit_error(
-            "didregress outcome and treatment equations must be non-empty.",
+            "didregress needs an outcome and exactly one treatment variable "
+            "(the `continuous` treatment form is not translated).",
             command=cmd.command,
         )
-
-    y = outcome_tokens[0]
-    covariates = outcome_tokens[1:]
-    treat = treat_tokens[0]
-    group = cmd.options.get("group") or cmd.options.get("ivar") or cmd.options.get("id")
-    time = cmd.options.get("time") or cmd.options.get("tvar")
+    group = cmd.options.get("group")
+    time = cmd.options.get("time")
     missing = [name for name, val in (("group", group), ("time", time)) if not val]
     if missing:
         return _emit_error(
@@ -987,55 +983,85 @@ def _h_didregress(cmd: StataCommand) -> Dict[str, Any]:
             "`group()` and `time()`.",
             command=cmd.command,
         )
-
-    assert group is not None
-    assert time is not None
-    group = group.split()[0]
-    time = time.split()[0]
+    assert group is not None and time is not None
+    if len(group.split()) != 1:
+        return _emit_error(
+            f"{cmd.command} with several group() variables (a triple "
+            "difference) is not translated; see sp.ddd.",
+            command=cmd.command,
+        )
     args: Dict[str, Any] = {
-        "y": y,
-        "treat": treat,
-        "time": time,
-        "id": group,
-        "method": "twfe",
+        "y": outcome_tokens[0],
+        "treat": treat_tokens[0],
+        "group": group.split()[0],
+        "time": time.split()[0],
     }
+    covariates = outcome_tokens[1:]
     if covariates:
         args["covariates"] = covariates
+    notes: List[str] = []
+    if cmd.command == "xtdidregress":
+        unit = cmd.options.get("i") or cmd.options.get("unit")
+        args["id"] = unit.split()[0] if unit else "<panel_id>"
+        cmd.options.get("t")
+        if unit is None:
+            notes.append(_PANEL_NOTE)
     cluster = _vce_cluster(cmd)
     if cluster:
         args["cluster"] = cluster
-    if "wboot" in cmd.options or "wildbootstrap" in cmd.options:
-        args["se_method"] = "wild_cluster_bootstrap"
+    notes.append(
+        "One coefficient for all treated periods. `estat ptrends` and "
+        "`estat granger` are sp.estat(result, 'ptrends' | 'granger')."
+    )
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    return _emit("didregress", args, f"sp.didregress(data=df, {kw})", notes)
 
-    notes = [
-        "Stata didregress/xtdidregress uses a treatment-status indicator; "
-        "StatsPAI staggered DID needs a first-treatment cohort column. "
-        "This translation uses sp.did(..., method='twfe') for the "
-        "treatment-status command shape.",
-    ]
-    if len(treat_tokens) > 1:
-        notes.append(
-            "Extra tokens inside the treatment equation were not translated; "
-            "put controls in the outcome equation or build the desired "
-            "StatsPAI call explicitly."
+
+_ESTAT_TESTS = {
+    "hettest": "hettest",
+    "imtest": "white",
+    "ovtest": "reset",
+    "vif": "vif",
+    "ic": "ic",
+    "bgodfrey": "bgodfrey",
+    "dwatson": "dwatson",
+    "endogenous": "endogenous",
+    "overid": "overid",
+    "firststage": "firststage",
+    "ptrends": "ptrends",
+    "granger": "granger",
+}
+
+
+def _h_estat(cmd: StataCommand) -> Dict[str, Any]:
+    """``estat <test>`` after an estimation command -> ``sp.estat(result, ...)``.
+
+    Only the subcommands ``sp.estat`` implements, written without a varlist.
+    ``estat imtest`` is White's test only with its ``white`` option.
+    """
+    if not cmd.varlist:
+        return _emit_error("estat needs a subcommand.", command="estat")
+    sub = cmd.varlist[0].lower()
+    matches = [k for k in _ESTAT_TESTS if k.startswith(sub) and len(sub) >= 3]
+    if sub in _ESTAT_TESTS:
+        matches = [sub]
+    if len(matches) != 1 or len(cmd.varlist) > 1:
+        return _emit_error(
+            f"`estat {' '.join(cmd.varlist)}` is not translated. sp.estat "
+            f"implements: {', '.join(sorted(_ESTAT_TESTS))} (no varlist).",
+            command="estat",
         )
-
-    code_pairs = [
-        "data=df",
-        f"y={y!r}",
-        f"treat={treat!r}",
-        f"time={time!r}",
-        f"id={group!r}",
-        "method='twfe'",
-    ]
-    if covariates:
-        code_pairs.append(f"covariates={covariates!r}")
-    if cluster:
-        code_pairs.append(f"cluster={cluster!r}")
-    if "se_method" in args:
-        code_pairs.append(f"se_method={args['se_method']!r}")
-    python = f"sp.did({', '.join(code_pairs)})"
-    return _emit("did", args, python, notes)
+    name = matches[0]
+    if name == "imtest" and "white" not in cmd.options:
+        return _emit_error(
+            "`estat imtest` without `white` is the Cameron-Trivedi "
+            "decomposition, which sp.estat does not implement.",
+            command="estat",
+        )
+    args = {"test": _ESTAT_TESTS[name], "print_results": False}
+    notes = ["sp.estat takes the fitted result of the previous command."]
+    code = f"sp.estat(result, test={args['test']!r}, print_results=False)"
+    return _emit("estat", args, code, notes)
 
 
 def _numlist(text: str) -> Optional[List[int]]:
@@ -1274,8 +1300,12 @@ def _h_sdid(cmd: StataCommand) -> Dict[str, Any]:
         else:
             lost.append("covariates")
             notes.append(
-                "covariates(): sp.sdid adjusts by the projected method only "
-                "(`covariates(x, projected)`); Stata's default is `optimized`."
+                "covariates() without `projected` is Stata's `optimized` "
+                "method, an iteration stopped at its cap. "
+                "sp.sdid(covariate_method='optimized', se_method="
+                "'noinference') runs the R synthdid version of it, which "
+                "differs from Stata's by about 3e-4, so it is not "
+                "substituted here; `covariates(x, projected)` translates."
             )
     if "seed" in args:
         notes.append(
@@ -2832,6 +2862,7 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "csdid": _h_csdid,
     "didregress": _h_didregress,
     "xtdidregress": _h_didregress,
+    "estat": _h_estat,
     "did_imputation": _h_did_imputation,
     "synth": _h_synth,
     "sdid": _h_sdid,
@@ -3408,6 +3439,7 @@ _POSTEST_HANDLERS = frozenset(
         _h_contrast,
         _h_test,
         _h_lincom,
+        _h_estat,
         _h_xtset,
         _h_boottest,
         _h_ttest,

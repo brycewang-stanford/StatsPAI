@@ -64,7 +64,7 @@ balanced panels are unchanged.
 
 <a id="oct2026-dbe-textbook-fixes"></a>
 
-## Unreleased: ⚠️ `sp.etwfe` without an untreated group, RD pilot bandwidth, LIML `kappa`, CR2 degrees of freedom
+## Unreleased: ⚠️ `sp.etwfe` without an untreated group, RD pilot bandwidth, LIML `kappa`, CR2 degrees of freedom, `didregress` translation
 
 **`sp.etwfe`, every unit eventually treated.** Results from such a panel
 were arbitrary before (the design was rank deficient and a warning said
@@ -84,6 +84,17 @@ the new value is the one R and Stata `rdrobust` compute.
 **`sp.iv(method='liml')` / `sp.liml`.** Estimates change by about the
 relative error the old `kappa` carried, 1e-6 on a design with first-stage
 F of 30 and `kappa - 1` of 7e-6, less when instruments are stronger.
+
+**`sp.stata("didregress ...")` / `"xtdidregress ..."`.** The result is
+now Stata's two-way fixed-effects ATET. Before, a panel with more than two
+periods was collapsed to a 2x2 and the number was a different estimand.
+Call `sp.did(method='twfe')` directly if the collapsed 2x2 is what you
+want.
+
+**`sp.synth` and other simplex-weight solvers with fewer rows than
+donors.** Donor weights move by up to 2e-5 and estimates by about 1e-7
+where the solution is unique, because it is now solved exactly. Fits where
+the solution is not unique are unchanged.
 
 **`sp.cr2_se` p-values and confidence intervals.** The standard errors are
 unchanged. The degrees of freedom were an approximation that is not the

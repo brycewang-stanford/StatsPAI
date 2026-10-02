@@ -73,6 +73,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from ..exceptions import MethodIncompatibility
 from . import _estat_regression as _reg
 
 # ======================================================================
@@ -120,6 +121,7 @@ def estat(
         ``'varwle'`` (lag exclusion), ``'varstable'`` (eigenvalues),
         ``'vargranger'`` (Granger causality); after ``sp.vec``:
         ``'veclmar'``, ``'vecstable'``. Each returns ``{'test', 'table'}``.
+        After ``sp.didregress``: ``'ptrends'`` and ``'granger'``.
     print_results : bool, default True
         If True, print a formatted table to stdout.
     lags : int, optional
@@ -223,6 +225,8 @@ def estat(
         "endogenous": lambda: _estat_endogenous(result, alpha=alpha),
         "overid": lambda: _estat_overid(result, alpha=alpha),
         "firststage": lambda: _estat_firststage(result, alpha=alpha),
+        "ptrends": lambda: _estat_did_test(result, "ptrends", alpha=alpha),
+        "granger": lambda: _estat_did_test(result, "granger", alpha=alpha),
     }
 
     # A VAR has its own post-estimation suite (Stata: varlmar, varwle,
@@ -714,6 +718,50 @@ def _estat_endogenous(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 # ------------------------------------------------------------------
 #  IV-specific: over-identification (Sargan / Hansen J)
 # ------------------------------------------------------------------
+
+
+def _estat_did_test(result: Any, which: str, *, alpha: float = 0.05) -> Dict[str, Any]:
+    """``estat ptrends`` / ``estat granger`` after ``sp.didregress``.
+
+    The tests are fitted with the model (they need the data), so this
+    reads them from the result.
+    """
+    info = getattr(result, "model_info", None) or {}
+    stored = info.get(which)
+    if not isinstance(stored, dict):
+        raise MethodIncompatibility(
+            f"estat {which} is a post-estimation test of sp.didregress; this "
+            "result does not carry it.",
+            recovery_hint="Fit the model with sp.didregress(...).",
+        )
+    if "unavailable" in stored:
+        raise MethodIncompatibility(
+            f"estat {which}: {stored['unavailable']}.",
+            recovery_hint=(
+                "With staggered adoption test pre-trends on an event study: "
+                "sp.callaway_santanna(...) then sp.pretrends_test(...)."
+            ),
+            diagnostics={"treatment_times": info.get("treatment_times")},
+        )
+    label = (
+        "Parallel-trends test (pretreatment time period)"
+        if which == "ptrends"
+        else "Granger causality test"
+    )
+    pvalue = float(stored["pvalue"])
+    return {
+        "test": label,
+        "H0": stored["H0"],
+        "statistic": float(stored["F"]),
+        "statistic_label": f"F({int(stored['df'])}, {int(stored['df_denom'])})",
+        "df": (int(stored["df"]), int(stored["df_denom"])),
+        "pvalue": pvalue,
+        "interpretation": (
+            f"REJECT H0 at {alpha:.0%}."
+            if pvalue < alpha
+            else f"Do not reject H0 at {alpha:.0%}."
+        ),
+    }
 
 
 def _estat_overid(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:

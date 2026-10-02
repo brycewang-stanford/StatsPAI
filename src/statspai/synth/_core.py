@@ -137,6 +137,93 @@ def _eq_bounded_lsq(C: np.ndarray, t: np.ndarray, lb: float, ub: float) -> np.nd
     raise ConvergenceFailure("bounded least squares (active set) did not converge")
 
 
+def _unique_simplex_lsq(y: np.ndarray, X: np.ndarray) -> Optional[np.ndarray]:
+    """``min ||y - X w||^2`` on the simplex when ``X`` has fewer rows than
+    columns, returned only if the minimiser is certified unique.
+
+    Active-set method that builds the support up from the single best donor
+    (Lawson-Hanson with the adding-up constraint): add the donor with the
+    most negative reduced gradient, solve the equality-constrained least
+    squares on the support through its KKT system, step back to the
+    boundary and drop donors when the solution leaves the simplex. The
+    support never exceeds ``rows + 1`` donors, so each step is a small
+    linear solve.
+
+    The certificate has two parts. Optimality: no donor has a negative
+    reduced gradient. Uniqueness: the donors whose reduced gradient is zero
+    are affinely independent, so the optimal face is a single point.
+    ``None`` is returned when either fails or the iteration does not finish.
+    """
+    n, J = X.shape
+    scale = max(1.0, 2.0 * float(np.abs(X.T @ y).max()))
+    tol = 1e-10 * scale
+    support = [int(np.argmin(((X - y[:, None]) ** 2).sum(axis=0)))]
+    w = np.zeros(J)
+    w[support[0]] = 1.0
+
+    def solve_on(cols: list[int]) -> Optional[np.ndarray]:
+        k = len(cols)
+        if k == 1:
+            return np.array([1.0])
+        Xp = X[:, cols]
+        kkt = np.zeros((k + 1, k + 1))
+        kkt[:k, :k] = 2.0 * Xp.T @ Xp
+        kkt[:k, k] = 1.0
+        kkt[k, :k] = 1.0
+        try:
+            sol = np.linalg.solve(kkt, np.append(2.0 * Xp.T @ y, 1.0))
+        except np.linalg.LinAlgError:
+            return None
+        return np.asarray(sol[:k])
+
+    for _ in range(20 * (n + 2)):
+        grad = -2.0 * X.T @ (y - X @ w)
+        reduced = grad - float(grad[support] @ w[support])
+        reduced[support] = 0.0
+        entering = int(np.argmin(reduced))
+        if reduced[entering] >= -tol:
+            break
+        support.append(entering)
+        while True:
+            if len(support) > n + 1:
+                return None
+            target = solve_on(support)
+            if target is None:
+                return None
+            if (target > 1e-14).all():
+                w[:] = 0.0
+                w[support] = target
+                break
+            current = w[support]
+            leaving = target <= 1e-14
+            step = float(
+                np.min(current[leaving] / (current[leaving] - target[leaving]))
+            )
+            moved = current + step * (target - current)
+            keep = moved > 1e-13
+            w[:] = 0.0
+            support = [c for c, k in zip(support, keep) if k]
+            if not support:
+                return None
+            w[support] = moved[keep]
+    else:
+        return None
+
+    w = np.clip(w, 0.0, None)
+    w = w / w.sum()
+    grad = -2.0 * X.T @ (y - X @ w)
+    reduced = grad - float(grad[support] @ w[support])
+    if (reduced < -1e-9 * scale).any():
+        return None
+    tight = np.flatnonzero(reduced <= 1e-7 * scale)
+    if tight.size > n + 1:
+        return None
+    face = np.vstack([X[:, tight], np.ones((1, tight.size))])
+    if np.linalg.matrix_rank(face) < tight.size:
+        return None
+    return w
+
+
 def solve_simplex_weights(
     y: np.ndarray,
     X: np.ndarray,
@@ -191,9 +278,10 @@ def solve_simplex_weights(
     # ridge penalty): the minimiser is unique, so solve it exactly with the
     # primal active-set method instead of stopping at SLSQP's tolerance
     # (which left weights ~1e-7 and gaps ~1e-6 away from the optimum).
-    # Rank-deficient problems (fewer pre-periods than donors, the usual
-    # Prop. 99 shape) have a set of minimisers; there SLSQP's choice is
-    # kept so that the selected point does not change.
+    # Rank-deficient problems (fewer rows than donors, the usual Prop. 99
+    # shape) can have a set of minimisers. When the minimiser is certified
+    # unique it is returned exactly; otherwise SLSQP's choice is kept so
+    # that the selected point does not change.
     y_arr = np.asarray(y, dtype=np.float64).ravel()
     X_arr = np.asarray(X, dtype=np.float64)
     if penalization > 0:
@@ -211,6 +299,15 @@ def solve_simplex_weights(
                     RuntimeWarning,
                     stacklevel=2,
                 )
+
+        elif penalization == 0:
+            # Rank deficient, but the minimiser is usually still unique: the
+            # target lies outside the donors' hull and its projection has
+            # one representation. Solve that case exactly; when uniqueness
+            # cannot be certified SLSQP's choice below is kept.
+            w_exact = _unique_simplex_lsq(y_arr, X_arr)
+            if w_exact is not None:
+                return w_exact
 
     if w0 is None:
         w0 = np.ones(J) / J

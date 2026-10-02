@@ -210,13 +210,35 @@ def _cohort_blocks(
     return Y_co[:, :T0], Y_co[:, T0:], Y_tr[:, :T0], Y_tr[:, T0:]
 
 
+def _fit_optimized(Y: np.ndarray, X: np.ndarray, adopt: np.ndarray) -> _Fit:
+    """Block design with covariates in the weight problem (R ``synthdid``)."""
+    from .sdid import _sdid_optimized_covariates
+
+    never = adopt < 0
+    a = int(adopt[~never][0])
+    order = np.r_[np.flatnonzero(never), np.flatnonzero(~never)]
+    tau, beta, lam, omega, iterations = _sdid_optimized_covariates(
+        Y[order], X[order], int(never.sum()), a
+    )
+    weight = float((~never).sum() * (Y.shape[1] - a))
+    fit = _Fit(tau, {a: tau}, {a: weight}, {a: omega}, {a: lam}, beta)
+    fit.iterations = iterations  # type: ignore[attr-defined]
+    return fit
+
+
 def _fit(
-    panel_Y: np.ndarray, X: Optional[np.ndarray], adopt: np.ndarray, method: str
+    panel_Y: np.ndarray,
+    X: Optional[np.ndarray],
+    adopt: np.ndarray,
+    method: str,
+    covariate_method: Optional[str] = "projected",
 ) -> _Fit:
     """Point estimate: one block fit per adoption cohort, eq. (7) aggregate."""
     from .sdid import _compute_weights, _estimate_tau
 
     never = adopt < 0
+    if X is not None and covariate_method == "optimized":
+        return _fit_optimized(panel_Y, X, adopt)
     Y, beta = _project(panel_Y, X, never) if X is not None else (panel_Y, None)
     T = Y.shape[1]
     tau, weight, omega, lam = {}, {}, {}, {}
@@ -419,17 +441,33 @@ def sdid_from_treatment(
     if covariates:
         if covariate_method is None:
             raise MethodIncompatibility(
-                "sdid: covariates need covariate_method=. Only 'projected' "
-                "is implemented; Stata's default is 'optimized', "
-                "so it is not chosen silently.",
-                recovery_hint="Pass covariate_method='projected'.",
+                "sdid: covariates need covariate_method= ('projected' or "
+                "'optimized'). The two give different estimates, and Stata's "
+                "default is 'optimized', so neither is chosen silently.",
+                recovery_hint="Pass covariate_method='projected' (a regression "
+                "adjustment, with standard errors) or 'optimized'.",
             )
-        if covariate_method != "projected":
+        if covariate_method not in ("projected", "optimized"):
             raise MethodIncompatibility(
-                f"sdid: covariate_method={covariate_method!r} is not implemented; "
-                "only 'projected' is.",
-                recovery_hint="Pass covariate_method='projected'.",
+                f"sdid: covariate_method={covariate_method!r} is not one of "
+                "'projected', 'optimized'.",
+                recovery_hint="Pass covariate_method='projected' or 'optimized'.",
             )
+        if covariate_method == "optimized":
+            if method != "sdid":
+                raise MethodIncompatibility(
+                    "sdid: covariate_method='optimized' is defined for "
+                    f"method='sdid', not {method!r}.",
+                    recovery_hint="Use covariate_method='projected'.",
+                )
+            if se_method != "noinference":
+                raise MethodIncompatibility(
+                    "sdid: covariate_method='optimized' returns the point "
+                    "estimate only; its resampling standard errors are not "
+                    f"implemented (se_method={se_method!r}).",
+                    recovery_hint="Pass se_method='noinference', or use "
+                    "covariate_method='projected' for standard errors.",
+                )
     elif covariate_method is not None:
         raise MethodIncompatibility(
             "sdid: covariate_method= was given without covariates=.",
@@ -438,7 +476,14 @@ def sdid_from_treatment(
 
     panel = _build_panel(data, y, unit, time, treatment, covariates)
     _check_se_method(panel, se_method)
-    fit = _fit(panel.Y, panel.X, panel.adopt, method)
+    if covariate_method == "optimized" and len(set(panel.adopt[panel.adopt >= 0])) > 1:
+        raise MethodIncompatibility(
+            "sdid: covariate_method='optimized' is implemented for a single "
+            "adoption date.",
+            recovery_hint="Use covariate_method='projected' with staggered "
+            "adoption.",
+        )
+    fit = _fit(panel.Y, panel.X, panel.adopt, method, covariate_method)
 
     rng = np.random.default_rng(seed)
     cohort_se: Dict[int, float] = {a: float("nan") for a in fit.tau}
@@ -511,6 +556,7 @@ def sdid_from_treatment(
         "resampling_draws": draws,
         "covariates": covariates or None,
         "covariate_method": covariate_method,
+        "covariate_iterations": getattr(fit, "iterations", None),
         "covariate_beta": (
             pd.Series(fit.beta, index=covariates) if fit.beta is not None else None
         ),

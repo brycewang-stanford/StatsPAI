@@ -202,6 +202,33 @@ test.
   estimate, the standard error, the df and the interval. A block with a
   single treated or control unit, a cluster in both arms and a cluster in
   two blocks raise.
+- **`sp.didregress`, Stata's `didregress` and `xtdidregress`.** The
+  two-way fixed-effects DID with the variance of each command: group
+  dummies counted as regressors for `didregress`, the `xtreg, fe`
+  convention with `id=` for `xtdidregress`, clustering on the group, and
+  t(G - 1). `sp.estat(result, 'ptrends')` and `sp.estat(result, 'granger')`
+  are `estat ptrends` and `estat granger`. On `sp.datasets.mpdta()` the
+  ATET, its standard error and the Granger test agree with Stata 18 to
+  1e-11, with and without a covariate, for both commands and under
+  staggered adoption. The linear-trend test agrees with `estat ptrends` to
+  3e-6, and the gap is on Stata's side: the same model fitted in Stata by
+  `areg` with time centred gives the value here to 1e-12, and with raw
+  years it differs from both. Like Stata, the two tests are refused when
+  treatment dates vary.
+- **`sp.sdid(covariate_method='optimized')`**, the covariate method of R
+  `synthdid_estimate(X=)` and the default of Stata `sdid`. Single adoption
+  date, point estimate only. The estimate, `beta` and the weights agree
+  with R `synthdid` 0.0.9 to 1e-11. Stata lands 3e-4 away from R on the
+  same data. Both run a gradient iteration to its cap of 10,000 steps, so
+  neither returns a converged optimum, and the result depends on the units
+  of the covariate. The test pins both facts. `'projected'` remains the
+  method with standard errors.
+- **`sp.rddensity` returns the rest of Stata's output.**
+  `model_info['conventional']` is the statistic without bias correction
+  that `rddensity, all` prints, and `model_info['binomial_tests']` is the
+  table of exact binomial tests in ten windows around the cutoff. Both
+  match Stata on the Lee senate data to 1e-9 and to the printed digits.
+  The robust statistic is still the test.
 - **`sp.match(method='nnmatch')`, Abadie-Imbens covariate matching as Stata
   `teffects nnmatch`.** Every tie kept, `metric=` Mahalanobis / inverse
   variance / Euclidean, `exact=` (`ematch`), `caliper=`, `bias_adjust=` on a
@@ -334,6 +361,26 @@ test.
   `sp.stata` can run as written went from 59% to 88%. The rest are loops
   over macros, `xthdidregress`, `synth_runner` and one factor term, all
   refused with a reason.
+- **`didregress` and `xtdidregress` were translated to a different
+  estimator.** `sp.stata` sent them to `sp.did(method='twfe')`, which
+  collapses a panel with more than two periods to a 2x2 at the median
+  period. On a five-period panel that returned -0.0149 where Stata gives
+  -0.0300. They now go to `sp.didregress`. `wildbootstrap()`,
+  `aggregate()` and `nogteffects` are reported as untranslated, and
+  `estat <test>` after an estimation command runs `sp.estat`.
+- **A nested synthetic-control fit took a minute.** With fewer predictors
+  than donors every evaluation of the outer search solved its inner
+  problem with SLSQP, a few thousand times. When the treated unit lies
+  outside the donors' hull that problem has one solution, which is now
+  found exactly by a small active-set method and returned with a
+  certificate of optimality and uniqueness. One fit on the Proposition 99
+  data goes from 55 seconds to 2. Where the certificate fails (a treated
+  unit inside the hull, a predictor weighted to zero) SLSQP's choice is
+  kept, so those fits are as slow as before and their answers do not
+  move. Weights change by up to 2e-5, towards the exact minimiser. The
+  README's Proposition 99 fit goes from -19.760529 to -19.760541 (it
+  prints -19.76). Track A `07_scm`, `18_augsynth` and `52_scm_unique` move
+  by at most 4e-7.
 - **`sp.iv_diag` with several instruments** printed `nan` for the tF
   critical value and interval. The report now says the tF adjustment is
   defined for one instrument and points to the Anderson-Rubin interval.

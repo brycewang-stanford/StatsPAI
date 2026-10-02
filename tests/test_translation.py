@@ -223,13 +223,12 @@ TIER1_ROUND_TRIPS = [
     (
         "didregress (wage education) (treated), group(worker_id) time(year) "
         "vce(cluster worker_id)",
-        "did",
+        "didregress",
         {
             "y": "wage",
             "treat": "treated",
+            "group": "worker_id",
             "time": "year",
-            "id": "worker_id",
-            "method": "twfe",
             "covariates": ["education"],
             "cluster": "worker_id",
         },
@@ -825,6 +824,9 @@ TIER2_ROUND_TRIPS = [
     ("test x1 = x2", "test", {"hypothesis": "x1 = x2"}),
     ("lincom x1 - 2*x2", "lincom", {"expression": "x1 - 2*x2"}),
     ("lincom x1 + x2, level(90)", "lincom", {"expression": "x1 + x2", "alpha": 0.1}),
+    ("estat ptrends", "estat", {"test": "ptrends", "print_results": False}),
+    ("estat ovtest", "estat", {"test": "reset", "print_results": False}),
+    ("estat imtest, white", "estat", {"test": "white", "print_results": False}),
     # xtset / tsset are intentionally excluded: no sp equivalent, the
     # translator now fails loud with a note pointing at sp.panel / sp.feols.
 ]
@@ -1020,9 +1022,30 @@ class TestTier2EdgeCases:
     def test_xtdidregress_notes_treatment_status_semantics(self):
         out = from_stata("xtdidregress (y) (treated), group(id) time(year)")
         assert out["ok"] is True
-        assert out["tool"] == "did"
-        assert out["arguments"]["method"] == "twfe"
-        assert any("treatment-status" in note for note in out["notes"])
+        # sp.did(method='twfe') collapses a multi-period panel to a 2x2;
+        # the Stata command is a two-way fixed-effects regression
+        assert out["tool"] == "didregress"
+        assert out["arguments"]["group"] == "id"
+        assert out["arguments"]["id"] == "<panel_id>"
+        with_panel = from_stata(
+            "xtdidregress (y) (treated), group(state) time(year) i(firm)"
+        )
+        assert with_panel["arguments"]["id"] == "firm"
+        plain = from_stata("didregress (y) (treated), group(id) time(year)")
+        assert "id" not in plain["arguments"]
+
+    def test_didregress_estimator_options_are_not_dropped(self):
+        out = from_stata(
+            "didregress (y) (treated), group(id) time(year) wildbootstrap(rseed(1))"
+        )
+        assert out["untranslated_options"] == ["wildbootstrap"]
+        triple = from_stata("didregress (y) (treated), group(id g2) time(year)")
+        assert triple["ok"] is False and "ddd" in triple["error"]
+
+    def test_estat_subcommands(self):
+        assert from_stata("estat gra")["arguments"]["test"] == "granger"
+        for line in ("estat imtest", "estat bdecomp", "estat", "estat vif x1"):
+            assert from_stata(line)["ok"] is False
 
     def test_didregress_missing_group_or_time_is_error(self):
         out = from_stata("didregress (y) (treated), group(id)")
@@ -1130,6 +1153,7 @@ _NON_EXECUTABLE_TOOLS = frozenset(
         "contrast",
         "test",
         "lincom",
+        "estat",
         "wild_cluster_bootstrap",
         "mi_estimate",
         "estat",
@@ -1528,6 +1552,7 @@ def test_python_code_and_arguments_describe_the_same_call(command, channel):
         "contrast",
         "test",
         "lincom",
+        "estat",
         "wild_cluster_bootstrap",
         "estat",
         "mi_estimate",
@@ -1564,6 +1589,7 @@ POSTEST_TOOLS = {
     "contrast",
     "test",
     "lincom",
+    "estat",
     "wild_cluster_bootstrap",
     "mi_estimate",
     "estat",
