@@ -384,7 +384,7 @@ python scripts/registry_stats.py --table        # 重生 docs/stats.md 的按模
 ## 其它关键事项
 - **论文的版本锚定（2026-10-02 起，所有会话遵守）。** StatsPAI 一天可能发几个版本，论文不追版本。**只在三个时点改锚：投稿、返修、接收后定稿。** 平时发新版时论文一个字都不改，只回答"新版本还能不能复现论文的数字"：
   - DiD 论文：`python Paper-DiD-JAE/scripts/check_release_compat.py --statspai-root <检出> [--full]` 在临时副本里重跑 Python 端、与已提交归档逐行比对，结论记入 `Paper-DiD-JAE/parity/RELEASE_COMPAT.{json,md}`。"不复现"不是论文的错，是下次改锚时要并入的变化清单。
-  - JSS 论文：等价的机制已经有了，就是下面的审稿期冻结（`tests/jss_review_freeze.json` + `docs/dev/jss_review_changes.md`）：冻结产物变了就逐条登记对论文的影响，改锚时统一并入。投稿时把冻结设为启用即可，不需要另写脚本。下次改锚 JSS 时，把 `Paper-JSS/replication/scripts/check_headline_numbers.py` 里手写的"非计时模块"白名单换成调用 `scripts/trace_perf_path.py --check`。
+  - JSS 论文：等价的机制已经有了，就是下面的审稿期冻结（`tests/jss_review_freeze.json` + `docs/dev/jss_review_changes.md`）：冻结产物变了就逐条登记对论文的影响，改锚时统一并入。投稿时把冻结设为启用即可，不需要另写脚本。`Paper-JSS/replication/scripts/check_headline_numbers.py` 已改为调用 `scripts/trace_perf_path.py --check`（Paper-JSS `d3bb3f2`）：检出在所钉 tag 上时哈希结论有约束力；main 走在 tag 前面时只打 NOTE，仍由 tag-diff 规则裁决，因为论文描述的是所钉版本；v1.34.2 及更早的 tag 没有这份记录，沿用白名单。**下次改锚 JSS 时要做的三件事**：在安静的机器上重跑 `tests/perf/run_when_idle.sh`，在测出计时的那棵树上重跑 `python scripts/trace_perf_path.py`，并把 SCM 求解器一致性改科学计数法的那次修复（`0fd17cda`，因表格须与稿件逐字节一致而被 `dfab16a3` 回退）重新应用。
   - Track C 计时绑定的是**代码**不是版本号：`tests/perf/results/_timed_path.json` 记录每个计时模块执行到的源文件哈希（版本行已屏蔽），`python scripts/trace_perf_path.py --check` 回答"已提交的计时对这棵树还有效吗"，过时会点名文件。文档版本、无关模块的改动都不需要重测；过时了才在安静的机器上重跑 `tests/perf/run_when_idle.sh`，并在**测量所用的那棵树**上重跑 `trace_perf_path.py`（它会拒绝在别的版本上追踪）。
   - **不要为了让论文的检查通过而发补丁版本**，也不要因为出了新版本就去改论文的锚点、表格或归档。论文周期内确实需要修包（如审稿人要求）时，开维护分支 `paper/<名>-X.Y.x` 只合入论文需要的修复并从该分支发补丁，main 照常前进。
   - 同一时间只能有一个会话改某篇论文的仓库；改锚前先 `git fetch` 看对方有没有在动（2026-10-01 两个会话各自改锚 JSS，互相覆盖过一次）。
