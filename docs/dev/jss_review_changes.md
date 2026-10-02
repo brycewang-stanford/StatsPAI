@@ -31,6 +31,20 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded for 16, 73 and 84 after the bootstrap seed was recorded
+
+- **Commit.** `3d9e056d`.
+- **Reason.** `sp.did_imputation` and `sp.gardner_did` now write
+  `boot_seed` into `model_info` when `vce='bootstrap'`, so the result
+  card can report whether the bootstrap SE is reproducible. Both source
+  files are on the estimation paths of Track A modules 16, 73 and 84.
+- **Effect on the paper.** None. Only the `exercised_sources` digests of
+  those three modules changed; the committed `_py.json` results are
+  byte-identical (the modules use the analytic variance, where the new
+  field is not written).
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — call traces re-recorded after per-coefficient degrees of freedom in the result class
 
 - **Commits.** `bcc3070c` (`sp.difference_in_means`, exact CR2 degrees of
