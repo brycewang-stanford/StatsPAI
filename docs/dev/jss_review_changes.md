@@ -31,6 +31,22 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded for 11, 35 and 69 after a matching bookkeeping fix and the panel vce check
+
+- **Commits.** `ac01445f` (module 11), `25aeed06` (modules 35 and 69).
+- **Reason.** `matching/_matched_frame.py` no longer divides by a zero
+  weight sum when a bootstrap replicate of local linear matching has
+  cancelling weights (module 11's estimation path), and
+  `panel/panel_reg.py` now raises on a `vce=` value it does not
+  implement instead of ignoring it (modules 35 and 69). The traces bind
+  the SHA-256 of every source file executed.
+- **Effect on the paper.** None. Only the `exercised_sources` digests of
+  those three modules changed; their committed `_py.json` results are
+  byte-identical. Module 11 runs nearest-neighbour matching, not the
+  local linear path that was fixed; modules 35 and 69 pass no `vce=`.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-03 — exact inner solver for synthetic-control weights; three Track A result files and the Basque original-data file move below 4e-7
 
 - **Commits.** `95d87260` (`sp.didregress`, optimized SDID covariates,
