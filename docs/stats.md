@@ -39,17 +39,17 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
-| `did` | 50,137 | 67 | 95 |
-| `synth` | 27,878 | 36 | 55 |
-| `rd` | 21,269 | 32 | 55 |
-| `regression` | 21,108 | 25 | 39 |
-| `agent` | 20,541 | 41 | 4 |
+| `did` | 50,216 | 67 | 95 |
+| `synth` | 28,022 | 36 | 55 |
+| `rd` | 21,323 | 32 | 55 |
+| `regression` | 21,243 | 25 | 39 |
+| `agent` | 21,404 | 41 | 4 |
 | `smart` | 16,475 | 21 | 31 |
 | `forest` | 15,811 | 17 | 31 |
 | `output` | 13,898 | 22 | 42 |
-| `matching` | 10,815 | 16 | 25 |
+| `matching` | 11,384 | 17 | 25 |
 | `core` | 10,788 | 19 | 6 |
-| `panel` | 10,146 | 16 | 18 |
+| `panel` | 10,159 | 16 | 18 |
 | `decomposition` | 9,910 | 19 | 32 |
 | `inference` | 9,965 | 21 | 30 |
 | `dml` | 9,023 | 24 | 16 |
@@ -93,7 +93,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `nonparametric` | 1,923 | 4 | 11 |
 | `causal_text` | 1,768 | 4 | 4 |
 | `bcf` | 1,731 | 5 | 8 |
-| `mediation` | 1,673 | 4 | 6 |
+| `mediation` | 2,188 | 5 | 6 |
 | `power` | 1,517 | 3 | 12 |
 | `target_trial` | 1,475 | 7 | 9 |
 | `survey` | 1,462 | 4 | 7 |
