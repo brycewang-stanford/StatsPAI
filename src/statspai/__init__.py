@@ -1042,6 +1042,7 @@ from .timeseries import (
     ITSResult,
     LocalProjectionsResult,
     StructuralBreakResult,
+    UnitRootResult,
     VARResult,
     arima,
     bvar,
@@ -1054,6 +1055,7 @@ from .timeseries import (
     johansen,
     local_projections,
     structural_break,
+    unitroot,
     var,
 )
 
@@ -1916,6 +1918,8 @@ __all__ = [
     "interactive_fe",
     "panel_unitroot",
     "PanelUnitRootResult",
+    "unitroot",
+    "UnitRootResult",
     "engle_granger",
     "johansen",
     "CointegrationResult",

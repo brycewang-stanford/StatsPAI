@@ -32400,6 +32400,62 @@
     "name": "uniform_bands"
   },
   {
+    "description": "Unit-root test for one time series: augmented Dickey-Fuller or DF-GLS (Elliott-Rothenberg-Stock), with a constant or a constant and trend, a fixed lag order or one chosen by AIC / BIC. H0 is a unit root. ADF reports MacKinnon p-values and critical values (same statistic, p-value and lag choice as statsmodels adfuller); DF-GLS has more power near a unit root and uses finite-sample critical values in the sample size and lag order. Not rejecting is not evidence of a unit root. Stata dfuller / dfgls, R urca.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level for result.reject (DF-GLS: 0.01, 0.05 or 0.10)",
+          "type": "number"
+        },
+        "lags": {
+          "default": "aic",
+          "description": "Lagged differences: an integer, or 'aic' / 'bic' to search 0..max_lags. Stata dfuller defaults to 0",
+          "type": [
+            "integer",
+            "string"
+          ]
+        },
+        "max_lags": {
+          "description": "Search limit; default floor(12 * (T/100)^0.25)",
+          "type": "integer"
+        },
+        "test": {
+          "default": "adf",
+          "description": "Which test",
+          "enum": [
+            "adf",
+            "dfgls"
+          ],
+          "type": "string"
+        },
+        "time": {
+          "description": "Column to sort by first",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "trend": {
+          "default": "c",
+          "description": "Deterministic terms: constant, constant and trend, none (ADF only). Use 'ct' for a trending series",
+          "enum": [
+            "c",
+            "ct",
+            "n"
+          ],
+          "type": "string"
+        },
+        "y": {
+          "description": "Column, when data is a DataFrame",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "unitroot"
+  },
+  {
     "description": "Estimate a Vector Autoregression (VAR) model. Validation: certified parity evidence. Assumptions: All system variables are jointly covariance-stationary (no unit roots / cointegration left unmodeled); Lag order p is adequate so residuals are white noise; under-fitting biases IRFs and Granger tests; Reduced-form errors are serially uncorrelated; structural IRF identification relies on the chosen ordering/recursive scheme. Pre-conditions: Multivariate (>=2 column) time-ordered DataFrame of comparable-frequency series; Sample length large relative to k*p+trend parameters to estimate each equation. Failure modes: Coefficient covariance is singular or IRFs diverge because k^2*p parameters exceed available observations -> Reduce lags, drop variables, or extend the sample so n is much larger than k*p; Explosive IRFs / non-decaying responses from a non-stationary (unit-root or trending) system -> Difference or detrend the series first, or use trend='ct', and confirm stationarity before fitting. Alternatives: sp.local_projections, sp.arima, sp.iv. Typical minimum N: 100.",
     "input_schema": {
       "properties": {

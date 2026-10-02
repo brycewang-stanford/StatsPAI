@@ -341,8 +341,11 @@ def test_the_abbreviated_absorb_changes_the_point_estimate(df):
 @pytest.mark.parametrize(
     "line, match",
     [
-        ("reg y x if z > 0", "is not applied"),
-        ("reg y x in 1/100", "is not applied"),
+        # a qualifier is applied when it can be evaluated (next test);
+        # one that cannot be is still refused
+        ("reg y x if e(sample)", "is not applied"),
+        ("reg y x if strlen(g) > 1", "is not applied"),
+        ("reg y x in 1/100000", "is not applied"),
         ("reg y x, nocons", "noconstant"),
         ("reg y x, foobar(1)", "foobar"),
         ("reghdfe y x, absorb(id) dofadjustments(none)", "dofadjustments"),
@@ -352,6 +355,16 @@ def test_the_abbreviated_absorb_changes_the_point_estimate(df):
 def test_stata_refuses_to_run_a_translation_that_lost_something(df, line, match):
     with pytest.raises(MethodIncompatibility, match=match):
         _quiet(sp.stata, line, data=df)
+
+
+def test_stata_applies_if_and_in_qualifiers(df):
+    kept = df[(df.z > 0) | df.z.isna()]  # a missing z is larger than 0
+    got = _quiet(sp.stata, "reg y x if z > 0", data=df)
+    want = _quiet(sp.regress, "y ~ x", data=kept)
+    assert got.nobs == want.nobs
+    np.testing.assert_array_equal(got.params.to_numpy(), want.params.to_numpy())
+    head = _quiet(sp.stata, "reg y x in 1/100", data=df)
+    assert head.nobs == _quiet(sp.regress, "y ~ x", data=df.iloc[:100]).nobs
 
 
 def test_display_options_do_not_stop_a_run(df):

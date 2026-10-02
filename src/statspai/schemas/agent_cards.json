@@ -122,6 +122,15 @@
             "type": "string",
             "x-statspai-role": "formula"
           },
+          "hac_lags": {
+            "description": "With robust='hac': autocovariances in the Newey-West estimator (Stata newey lag(#)). Default floor(4*(T/100)^(2/9)). Rows must be in time order",
+            "type": "integer"
+          },
+          "hac_small": {
+            "default": false,
+            "description": "With robust='hac': scale the covariance by N/(N-K), as Stata's newey and sandwich::NeweyWest(adjust=TRUE)",
+            "type": "boolean"
+          },
           "robust": {
             "default": "nonrobust",
             "description": "Standard error type",

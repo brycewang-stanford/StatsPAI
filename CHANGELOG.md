@@ -8,9 +8,11 @@ All notable changes to StatsPAI will be documented in this file.
 
 The replication files of Stock and Watson's *Introduction to Econometrics*
 (4th edition) ship the Stata logs that produced the book's tables. Replaying
-those 13 logs through `sp.stata` compares about 1,150 printed numbers. The
+those 13 logs through `sp.stata` compares 1,186 printed numbers. The
 estimators agreed; the translation layer did not always ask them for the
-convention Stata uses.
+convention Stata uses, and it could not run a do-file that prepared its own
+data. Both are addressed here. `docs/dev/2026-10-02-stock-watson-4e-review.md`
+has the findings and what is still open.
 
 #### ⚠️ Correctness
 
@@ -33,13 +35,50 @@ convention Stata uses.
 
 #### Added
 
+- **`sp.stata` runs the data steps of a do-file and applies `if` / `in`.**
+  A qualifier used to make the runner refuse the line. It is now applied
+  with Stata's rules for missing values: a missing value is larger than any
+  number, so `if x > 0` keeps the rows where `x` is missing, which a pandas
+  filter drops. `generate`, `replace`, `keep`, `drop`, `sort`, `mvdecode`,
+  `encode`, `preserve` and `restore` run on a private copy of the data;
+  `generate` stores single precision unless the line says `double`, as
+  Stata does, so regressions on generated variables reproduce Stata's
+  digits. `predict` gives fitted values and residuals after a linear fit.
+  `scalar` and `display` evaluate an expression that may use `_b[x]`,
+  `_se[x]`, `e(N)`, `e(r2)`, `e(r2_a)` and the `r()` results of
+  `summarize`, `test` and `ttest`, and named scalars are written into
+  `test` restrictions. Expressions go through a parser with a closed set of
+  operators and functions; nothing is passed to `eval`. What is outside the
+  set (`e(sample)`, time-series operators, string functions, `egen`, `use`)
+  is refused with the reason.
+- **`scripts/stata_log_replay.py`**: replays a Stata log through `sp.stata`
+  and compares every printed number to the precision Stata printed it.
+  `tests/external_parity/test_stock_watson_4e_logs.py` runs it on the
+  textbook's logs when `STATSPAI_SW4E_DIR` points at them.
+- **`sp.unitroot`**: augmented Dickey-Fuller and DF-GLS tests for one
+  series, with a constant or a trend and a lag order that is fixed or chosen
+  by AIC / BIC. The ADF statistic, p-value, critical values and chosen lag
+  agree with `statsmodels.adfuller`, and the regression reproduces the RATS
+  output in the textbook's chapter 15. The DF-GLS statistic agrees with the
+  `arch` package to 1e-14. Its critical values depend on the sample size and
+  the lag order, from a response surface fitted to 200,000 simulated null
+  draws per grid point (`scripts/simulate_dfgls_critical_values.py`); the
+  asymptotic values reject too often in short samples.
+- **`sp.regress(robust='hac', hac_lags=, hac_small=)`**. The lag length of
+  the Newey-West estimator could not be set, and Stata's `newey` could only
+  be matched to 0.5% because it scales the covariance by `N/(N-K)`. With
+  `hac_small=True` the Stata golden of Track A module 51 is matched to
+  3e-16; the default still matches `sandwich::NeweyWest(adjust = FALSE)`.
+  The default lag rule is unchanged.
 - **`sp.ttest`**: one-sample, paired and two-sample t tests (Stata `ttest`,
   R `t.test`), with pooled, Satterthwaite or Welch degrees of freedom and
   both one-sided p-values. Checked against `scipy.stats` and Stata's output
   for the textbook's class-size comparison.
 - **Stata commands now translated**: the pre-Stata-10 `ivreg` (small-sample
-  standard errors by construction), `ttest`, `correlate` (casewise) and
-  `pwcorr` (pairwise). `tobit` carries `vce(robust)` and `vce(cluster)`.
+  standard errors by construction), `ttest`, `correlate` (casewise),
+  `pwcorr` (pairwise), `newey` and `dfuller`. `tobit` carries `vce(robust)`
+  and `vce(cluster)`. `dfgls` is answered with the equivalent `sp.unitroot`
+  call and why its numbers differ.
 - **Command abbreviations**: `regr`, `summ`, `cor`, `prob`, `logi`, `poi`,
   `tob`, `te` resolve to the full command, down to the minimal abbreviation
   in Stata's syntax diagrams and no further.

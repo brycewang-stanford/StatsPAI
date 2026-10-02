@@ -42,8 +42,8 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `did` | 50,096 | 67 | 95 |
 | `synth` | 27,878 | 36 | 55 |
 | `rd` | 21,269 | 32 | 55 |
-| `regression` | 21,058 | 25 | 39 |
-| `agent` | 18,997 | 38 | 4 |
+| `regression` | 21,108 | 25 | 39 |
+| `agent` | 20,234 | 40 | 4 |
 | `smart` | 16,475 | 21 | 31 |
 | `forest` | 15,811 | 17 | 31 |
 | `output` | 13,825 | 22 | 42 |
@@ -51,14 +51,14 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `core` | 10,788 | 19 | 6 |
 | `panel` | 10,146 | 16 | 18 |
 | `decomposition` | 9,910 | 19 | 32 |
-| `inference` | 9,962 | 21 | 30 |
+| `inference` | 9,965 | 21 | 30 |
 | `dml` | 9,023 | 24 | 16 |
 | `iv` | 8,843 | 17 | 10 |
 | `diagnostics` | 8,190 | 14 | 25 |
 | `spatial` | 7,855 | 30 | 38 |
 | `fast` | 7,743 | 16 | 0 |
 | `plots` | 6,011 | 7 | 8 |
-| `timeseries` | 5,659 | 11 | 20 |
+| `timeseries` | 6,125 | 12 | 22 |
 | `multilevel` | 5,283 | 9 | 11 |
 | `bayes` | 5,243 | 12 | 20 |
 | `mendelian` | 5,166 | 13 | 41 |

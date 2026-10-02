@@ -653,8 +653,16 @@ class OLSEstimator(BaseEstimator):
             var_cov = _fast_sandwich_hc(X, residuals, XtX_inv, robust_key)
         elif robust_key == "hac":
             lags = kwargs.get("lags", None)
+            if lags is not None and lags >= n:
+                raise DataInsufficient(
+                    f"HAC: {lags} autocovariances need more than {n} " "observations.",
+                    recovery_hint="Lower hac_lags.",
+                )
             meat = _fast_hac_meat(X, residuals, lags)
             var_cov = XtX_inv @ meat @ XtX_inv
+            if kwargs.get("hac_small"):
+                # Stata `newey` / sandwich::NeweyWest(adjust = TRUE)
+                var_cov = var_cov * (n / (n - k))
         else:
             raise MethodIncompatibility(f"Unknown robust option: {robust}")
 
@@ -1349,6 +1357,8 @@ def regress(
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
     collinear: str = "omit",
+    hac_lags: Optional[int] = None,
+    hac_small: bool = False,
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -1379,6 +1389,18 @@ def regress(
         or a cluster dict such as ``{"CRV1": "firm"}`` (``CRV2`` /
         ``CRV3`` select the matching small-sample correction). Mutually
         exclusive with ``robust`` / ``cluster`` / ``vce``.
+    hac_lags : int, optional
+        With ``robust='hac'``: the number of autocovariances in the
+        Newey-West (Bartlett kernel) estimator, Stata's ``newey, lag(#)``
+        and R's ``sandwich::NeweyWest(lag = #)``. Default: the Newey-West
+        (1994) rule ``floor(4 * (T / 100) ** (2 / 9))``. The rows must be in
+        time order. Stock and Watson's truncation parameter
+        ``m = 0.75 * T ** (1 / 3)`` corresponds to ``hac_lags = m - 1``.
+    hac_small : bool, default False
+        With ``robust='hac'``: multiply the covariance by ``N / (N - K)``,
+        as Stata's ``newey`` and ``sandwich::NeweyWest(adjust = TRUE)`` do.
+        The default (no factor) is ``NeweyWest(adjust = FALSE)`` and
+        statsmodels' ``cov_type='HAC'``.
     **kwargs
         Additional options. Unrecognised keywords raise ``TypeError``
         rather than being ignored — a misspelled option must not
@@ -1387,7 +1409,8 @@ def regress(
     Returns
     -------
     EconometricResults
-        Fitted model results
+        Fitted model results. With ``robust='hac'``,
+        ``model_info['hac_lags']`` is the lag length used.
 
     Examples
     --------
@@ -1704,7 +1727,34 @@ def regress(
 
     model = OLSRegression(formula=formula, data=data, collinear=collinear)
     robust_kw = vce_kw if vce_kw is not None else robust
+    is_hac = str(robust_kw).lower() == "hac" and cluster is None
+    if (hac_lags is not None or hac_small) and not is_hac:
+        raise MethodIncompatibility(
+            "regress: hac_lags= and hac_small= only apply to robust='hac'; "
+            f"this call asks for {robust_kw!r}"
+            + (f" clustered on {cluster!r}." if cluster is not None else "."),
+            recovery_hint="Add robust='hac', or drop the two options.",
+        )
+    if hac_lags is not None:
+        if isinstance(hac_lags, bool) or int(hac_lags) != hac_lags or hac_lags < 0:
+            raise MethodIncompatibility(
+                f"regress: hac_lags must be a non-negative integer, got "
+                f"{hac_lags!r}.",
+                recovery_hint="hac_lags=0 is the heteroskedasticity-robust "
+                "HC0 estimator.",
+            )
+        kwargs["lags"] = int(hac_lags)
+    if hac_small:
+        kwargs["hac_small"] = True
     _result = model.fit(robust=robust_kw, cluster=cluster, **kwargs)
+    if is_hac:
+        n_used = int(_result.data_info["nobs"])
+        _result.model_info["hac_lags"] = (
+            int(hac_lags)
+            if hac_lags is not None
+            else int(np.floor(4 * (n_used / 100) ** (2 / 9)))
+        )
+        _result.model_info["hac_small"] = bool(hac_small)
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 

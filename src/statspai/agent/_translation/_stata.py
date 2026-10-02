@@ -504,6 +504,15 @@ _UNTRANSLATED_GUIDANCE: Dict[str, Tuple[str, List[str]]] = {
         "`coefplot` plots stored estimates; use sp.coefplot(result).",
         ["coefplot"],
     ),
+    "dfgls": (
+        "`dfgls` prints the statistic for every lag up to maxlag() on one "
+        "common sample; call sp.unitroot(df, y, test='dfgls', trend='ct', "
+        "lags=k) for a given lag order (trend is dfgls's default; "
+        "`notrend` is trend='c'). sp.unitroot uses every observation the "
+        "lag order allows, so its statistic differs from dfgls's unless "
+        "k equals maxlag.",
+        ["unitroot"],
+    ),
 }
 
 
@@ -1972,6 +1981,74 @@ def _h_boottest(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("wild_cluster_bootstrap", args, python, notes)
 
 
+def _h_newey(cmd: StataCommand) -> Dict[str, Any]:
+    """``newey y x, lag(4)`` -> ``sp.regress(..., robust='hac', hac_lags=4,
+    hac_small=True)``: OLS with Newey-West standard errors, which Stata
+    scales by N/(N-K)."""
+    y, xs = _split_varlist_y_x(cmd.varlist)
+    if y is None:
+        return _emit_error("newey requires an outcome variable", command="newey")
+    raw = cmd.options.get("lag")
+    try:
+        lag = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return _emit_error(
+            "newey requires lag(#), the number of autocovariances",
+            command="newey",
+            suggestions=[],
+        )
+    formula = _build_formula(y, xs)
+    args: Dict[str, Any] = {
+        "formula": formula,
+        "robust": "hac",
+        "hac_lags": lag,
+        "hac_small": True,
+    }
+    python = (
+        f"sp.regress({formula!r}, robust='hac', hac_lags={lag}, "
+        "hac_small=True, data=df)"
+    )
+    semantics = [
+        "Rows are taken in the DataFrame's order; sort by the time variable "
+        "of `tsset` first. newey refuses a series with gaps unless `force` "
+        "is given; the sp call does not check."
+    ]
+    return _emit("regress", args, python, semantics=semantics)
+
+
+def _h_dfuller(cmd: StataCommand) -> Dict[str, Any]:
+    """``dfuller y, lags(4) trend`` -> ``sp.unitroot(df, 'y', test='adf')``."""
+    if len(cmd.varlist) != 1:
+        return _emit_error(
+            "dfuller takes one variable", command="dfuller", suggestions=[]
+        )
+    args: Dict[str, Any] = {"y": cmd.varlist[0], "test": "adf", "lags": 0}
+    raw = cmd.options.get("lags")
+    if raw is not None:
+        try:
+            args["lags"] = int(str(raw).strip())
+        except ValueError:
+            return _emit_error(
+                f"dfuller: lags({raw}) is not an integer", command="dfuller"
+            )
+    if "trend" in cmd.options:
+        args["trend"] = "ct"
+    elif "noconstant" in cmd.options:
+        args["trend"] = "n"
+    # `drift` changes the null distribution (a t distribution): left unread,
+    # so it is reported as untranslated.
+    kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
+    semantics = [
+        "The series is read in the DataFrame's row order; sort by the time "
+        "variable of `tsset` first.",
+        "The statistic is Stata's. Critical values are MacKinnon's response "
+        "surface, not the interpolated Fuller table dfuller prints, so they "
+        "differ in the second decimal; the p-value is MacKinnon's, as "
+        "Stata's.",
+    ]
+    return _emit("unitroot", args, f"sp.unitroot(df, {kw})", semantics=semantics)
+
+
 _TTEST_EQ = re.compile(r"([^\W\d]\w*)\s*={1,2}\s*(\S+)")
 
 
@@ -2084,6 +2161,8 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "correlate": _h_correlate,
     "pwcorr": _h_correlate,
     "ttest": _h_ttest,
+    "dfuller": _h_dfuller,
+    "newey": _h_newey,
 }
 
 

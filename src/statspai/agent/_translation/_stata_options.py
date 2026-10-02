@@ -260,6 +260,7 @@ _DISPLAY_BY_COMMAND = {
     "rdplot": {"graph_options"},
     "rddensity": {"plot"},
     "boottest": {"nograph"},
+    "dfuller": {"regress"},
     # reghdfe's way of saying "no fixed effects": what the call does without absorb()
     "reghdfe": {"noabsorb"},
 }

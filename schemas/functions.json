@@ -28,6 +28,15 @@
           "type": "string",
           "x-statspai-role": "formula"
         },
+        "hac_lags": {
+          "description": "With robust='hac': autocovariances in the Newey-West estimator (Stata newey lag(#)). Default floor(4*(T/100)^(2/9)). Rows must be in time order",
+          "type": "integer"
+        },
+        "hac_small": {
+          "default": false,
+          "description": "With robust='hac': scale the covariance by N/(N-K), as Stata's newey and sandwich::NeweyWest(adjust=TRUE)",
+          "type": "boolean"
+        },
         "robust": {
           "default": "nonrobust",
           "description": "Standard error type",
@@ -4153,6 +4162,69 @@
       },
       "required": [
         "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Unit-root test for one time series: augmented Dickey-Fuller or DF-GLS (Elliott-Rothenberg-Stock), with a constant or a constant and trend, a fixed lag order or one chosen by AIC / BIC. H0 is a unit root. ADF reports MacKinnon p-values and critical values (same statistic, p-value and lag choice as statsmodels adfuller); DF-GLS has more power near a unit root and uses finite-sample critical values in the sample size and lag order. Not rejecting is not evidence of a unit root. Stata dfuller / dfgls, R urca.",
+    "name": "unitroot",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Level for result.reject (DF-GLS: 0.01, 0.05 or 0.10)",
+          "type": "number"
+        },
+        "data": {
+          "description": "The series, in time order",
+          "type": "object",
+          "x-statspai-role": "dataframe"
+        },
+        "lags": {
+          "default": "aic",
+          "description": "Lagged differences: an integer, or 'aic' / 'bic' to search 0..max_lags. Stata dfuller defaults to 0",
+          "type": [
+            "integer",
+            "string"
+          ]
+        },
+        "max_lags": {
+          "description": "Search limit; default floor(12 * (T/100)^0.25)",
+          "type": "integer"
+        },
+        "test": {
+          "default": "adf",
+          "description": "Which test",
+          "enum": [
+            "adf",
+            "dfgls"
+          ],
+          "type": "string"
+        },
+        "time": {
+          "description": "Column to sort by first",
+          "type": "string",
+          "x-statspai-role": "column"
+        },
+        "trend": {
+          "default": "c",
+          "description": "Deterministic terms: constant, constant and trend, none (ADF only). Use 'ct' for a trending series",
+          "enum": [
+            "c",
+            "ct",
+            "n"
+          ],
+          "type": "string"
+        },
+        "y": {
+          "description": "Column, when data is a DataFrame",
+          "type": "string",
+          "x-statspai-role": "column"
+        }
+      },
+      "required": [
+        "data"
       ],
       "type": "object"
     }
@@ -27057,7 +27129,7 @@
     "parameters": {
       "properties": {
         "commands": {
-          "description": "One Stata command, or a do-file snippet: commands separated by newlines or ``;``, with ``///`` continuations, ``*`` / ``//`` / ``/* */`` comments and ``#delimit ;``. ``global`` / ``local`` macros whose value is written out are expanded, and ``xtset id [time]`` supplies the panel of a later ``xtreg, fe`` / ``xtabond``. Post-estimation commands (``margins``, ``test``, ``lincom`` ...) apply to the most recent estimation result.",
+          "description": "One Stata command, or a do-file snippet: commands separated by newlines or ``;``, with ``///`` continuations, ``*`` / ``//`` / ``/* */`` comments and ``#delimit ;``. ``global`` / ``local`` macros whose value is written out are expanded, and ``xtset id [time]`` supplies the panel of a later ``xtreg, fe`` / ``xtabond``. Post-estimation commands (``margins``, ``test``, ``lincom`` ...) apply to the most recent estimation result. ``if`` / ``in`` qualifiers are applied with Stata's rules for missing values (a missing value is larger than any number, so ``if x > 0`` keeps the rows where ``x`` is missing). The data steps ``generate``, ``replace``, ``keep``, ``drop``, ``sort``, ``preserve`` and ``restore`` run on a private copy of ``data``; ``generate`` stores single precision unless the line says ``double``, as Stata does. ``predict`` gives fitted values or residuals after a linear fit. ``scalar name = exp`` and ``display exp`` evaluate one numeric expression, which may use ``_b[x]``, ``_se[x]``, ``e(N)`` / ``e(r2)`` / ``e(r2_a)`` and the ``r()`` results of ``summarize``, ``test`` and ``ttest``. Session settings and output-only lines (``set more off``, ``log``, ``label``, ``describe`` ...) are skipped; graph and export commands are skipped with a warning. ``use`` is refused: pass the data in.",
           "type": "string"
         },
         "data": {

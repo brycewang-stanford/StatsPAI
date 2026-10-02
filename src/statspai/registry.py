@@ -878,6 +878,23 @@ def _build_registry() -> None:
                     "model_info['omitted']; 'raise' raises",
                     ["omit", "raise"],
                 ),
+                ParamSpec(
+                    "hac_lags",
+                    "int",
+                    False,
+                    None,
+                    "With robust='hac': autocovariances in the Newey-West "
+                    "estimator (Stata newey lag(#)). Default "
+                    "floor(4*(T/100)^(2/9)). Rows must be in time order",
+                ),
+                ParamSpec(
+                    "hac_small",
+                    "bool",
+                    False,
+                    False,
+                    "With robust='hac': scale the covariance by N/(N-K), as "
+                    "Stata's newey and sandwich::NeweyWest(adjust=TRUE)",
+                ),
             ],
             returns="EconometricResults",
             example='sp.regress("wage ~ education + experience", data=df, robust="hc1")',
@@ -6035,6 +6052,71 @@ def _build_registry() -> None:
             returns="str",
             example='sp.cite(m_iv, "treat")  # → "0.234*** (0.041)"',
             tags=["output", "inline", "citation", "publication"],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="unitroot",
+            category="timeseries",
+            description=(
+                "Unit-root test for one time series: augmented Dickey-Fuller "
+                "or DF-GLS (Elliott-Rothenberg-Stock), with a constant or a "
+                "constant and trend, a fixed lag order or one chosen by "
+                "AIC / BIC. H0 is a unit root. ADF reports MacKinnon "
+                "p-values and critical values (same statistic, p-value and "
+                "lag choice as statsmodels adfuller); DF-GLS has more power "
+                "near a unit root and uses finite-sample critical values in "
+                "the sample size and lag order. Not rejecting is not "
+                "evidence of a unit root. Stata dfuller / dfgls, R urca."
+            ),
+            params=[
+                ParamSpec(
+                    "data",
+                    "DataFrame|Series|array",
+                    True,
+                    None,
+                    "The series, in time order",
+                ),
+                ParamSpec("y", "str", False, None, "Column, when data is a DataFrame"),
+                ParamSpec("test", "str", False, "adf", "Which test", ["adf", "dfgls"]),
+                ParamSpec(
+                    "trend",
+                    "str",
+                    False,
+                    "c",
+                    "Deterministic terms: constant, constant and trend, none "
+                    "(ADF only). Use 'ct' for a trending series",
+                    ["c", "ct", "n"],
+                ),
+                ParamSpec(
+                    "lags",
+                    "int|str",
+                    False,
+                    "aic",
+                    "Lagged differences: an integer, or 'aic' / 'bic' to "
+                    "search 0..max_lags. Stata dfuller defaults to 0",
+                ),
+                ParamSpec(
+                    "max_lags",
+                    "int",
+                    False,
+                    None,
+                    "Search limit; default floor(12 * (T/100)^0.25)",
+                ),
+                ParamSpec("time", "str", False, None, "Column to sort by first"),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Level for result.reject (DF-GLS: 0.01, 0.05 or 0.10)",
+                ),
+            ],
+            returns="UnitRootResult",
+            example='sp.unitroot(df, "log_gdp", trend="ct", lags="aic")',
+            tags=["timeseries", "unit-root", "adf", "dfgls", "stationarity"],
+            reference="dickey1979distribution; elliott1996efficient",
         )
     )
 

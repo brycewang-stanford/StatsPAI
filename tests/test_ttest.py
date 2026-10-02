@@ -120,7 +120,7 @@ def test_refuses_what_it_cannot_test(df):
         sp.ttest(pd.DataFrame({"c": [1.0, 1.0, 1.0]}), "c")
     with pytest.raises(MethodIncompatibility, match="fewer than two"):
         sp.ttest(pd.DataFrame({"c": [1.0, np.nan]}), "c")
-    with pytest.raises(KeyError):
+    with pytest.raises(MethodIncompatibility, match="not in data"):
         sp.ttest(df, "nope")
 
 

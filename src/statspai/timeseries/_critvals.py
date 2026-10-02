@@ -212,3 +212,41 @@ def mackinnon_cv(case: str, n_series: int, level_pct: int, nobs: float) -> float
     """MacKinnon (2010) response-surface critical value for sample size nobs."""
     b0, b1, b2, b3 = MACKINNON_2010[case][(int(n_series), int(level_pct))]
     return b0 + b1 / nobs + b2 / nobs**2 + b3 / nobs**3
+
+
+# DF-GLS (Elliott, Rothenberg and Stock 1996) critical values:
+#   cv(T, k) = b0 + b1/T + b2/T**2 + b3/T**3
+#                 + c1*(k/T) + c2*(k/T)**2 + c3*(k/T**2)
+# with T the length of the series and k the number of lagged differences.
+# Fitted by scripts/simulate_dfgls_critical_values.py to 200,000 simulated
+# null draws at each of T in {25, ..., 1000} x k in {0, ..., 12}; the
+# quantiles are in tests/reference_parity/_fixtures/dfgls_null_quantiles.json
+# and tests/test_unitroot.py checks this table is the fit to that file.
+# Keys are (trend, level_pct). Largest fitting error on the grid: 0.04 at
+# the 5% and 10% levels, 0.075 at 1% (short series with many lags).
+DFGLS_SURFACE = {
+    ("c", 1): (-2.57148, -19.7033, 200.817, -2423.39, 1.48195, -2.60862, 6.23536),
+    ("c", 5): (-1.94115, -21.92, 315.628, -3355.39, 1.02204, -0.808918, 13.3367),
+    ("c", 10): (-1.61949, -23.4186, 356.994, -3638.55, 0.851798, -0.499808, 16.6676),
+    ("ct", 1): (-3.39862, -21.446, 33.4338, -931.705, 1.77311, 0.211917, 28.4),
+    ("ct", 5): (-2.84166, -20.0288, 136.048, -1550.4, 1.37183, 1.20524, 30.5317),
+    ("ct", 10): (-2.55375, -20.0739, 198.292, -2192.2, 1.11583, 1.77836, 31.1342),
+}
+
+#: Shortest series the surface was fitted on.
+DFGLS_MIN_T = 25
+
+
+def dfgls_cv(trend: str, level_pct: int, nobs: float, lags: int) -> float:
+    """DF-GLS critical value for a series of length nobs and a lag order."""
+    b0, b1, b2, b3, c1, c2, c3 = DFGLS_SURFACE[(trend, int(level_pct))]
+    r = lags / nobs
+    return (
+        b0
+        + b1 / nobs
+        + b2 / nobs**2
+        + b3 / nobs**3
+        + c1 * r
+        + c2 * r * r
+        + c3 * r / nobs
+    )

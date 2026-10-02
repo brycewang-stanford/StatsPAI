@@ -151,7 +151,11 @@ def _row(x: np.ndarray, alpha: float) -> Dict[str, float]:
 
 def _column(data: pd.DataFrame, name: str) -> pd.Series:
     if name not in data.columns:
-        raise KeyError(f"ttest: column {name!r} is not in data.")
+        raise MethodIncompatibility(
+            f"ttest: column {name!r} is not in data.",
+            recovery_hint="Check the column name.",
+            diagnostics={"columns": [str(c) for c in data.columns][:20]},
+        )
     col = data[name]
     if not pd.api.types.is_numeric_dtype(col):
         raise MethodIncompatibility(

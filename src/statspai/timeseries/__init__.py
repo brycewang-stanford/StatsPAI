@@ -2,21 +2,18 @@
 Time series methods for causal inference contexts.
 
 Provides VAR (vector autoregression), structural break tests,
-Granger causality, and cointegration analysis.
+Granger causality, unit-root tests, and cointegration analysis.
 """
 
-from .var import var, VARResult, granger_causality, irf
-from .structural_break import (
-    structural_break,
-    StructuralBreakResult,
-    cusum_test,
-)
-from .cointegration import engle_granger, johansen, CointegrationResult
-from .local_projections import local_projections, LocalProjectionsResult
-from .garch import garch, GARCHResult
-from .arima import arima, ARIMAResult
-from .bvar import bvar, BVARResult
-from .its import its, ITSResult
+from .arima import ARIMAResult, arima
+from .bvar import BVARResult, bvar
+from .cointegration import CointegrationResult, engle_granger, johansen
+from .garch import GARCHResult, garch
+from .its import ITSResult, its
+from .local_projections import LocalProjectionsResult, local_projections
+from .structural_break import StructuralBreakResult, cusum_test, structural_break
+from .unit_root import UnitRootResult, unitroot
+from .var import VARResult, granger_causality, irf, var
 
 __all__ = [
     "var",
@@ -39,4 +36,6 @@ __all__ = [
     "BVARResult",
     "its",
     "ITSResult",
+    "unitroot",
+    "UnitRootResult",
 ]

@@ -33,7 +33,7 @@ Read the two evidence kinds separately. Only the first answers "does StatsPAI ag
 | **No external software reference** | analytical-only (T1) | 325 |
 | | external-replication (published numbers) | 3 |
 | | **subtotal** | **328** |
-| No numerical evidence yet | unverified | 531 |
+| No numerical evidence yet | unverified | 533 |
 
 ### Honest denominators
 
@@ -41,10 +41,10 @@ The all-registered denominator understates coverage: it counts result and except
 
 | denominator | cross-language | any evidence | total | cross-lang share |
 | --- | ---: | ---: | ---: | ---: |
-| estimator callables | 417 | 735 | 737 | 56.6% |
+| estimator callables | 417 | 735 | 738 | 56.5% |
 | infrastructure (parity N/A) | 0 | 7 | 217 | 0.0% |
-| result / exception classes | 0 | 3 | 322 | 0.0% |
-| **all registered** | 417 | 745 | 1276 | 32.7% |
+| result / exception classes | 0 | 3 | 323 | 0.0% |
+| **all registered** | 417 | 745 | 1278 | 32.6% |
 
 ### Coverage by estimator family
 
@@ -63,7 +63,7 @@ Families with zero cross-language rows are the highest-leverage targets when a r
 | mendelian | 18 | 20 | 20 |
 | epi | 16 | 17 | 17 |
 | bayes | 0 | 14 | 14 |
-| timeseries | 11 | 12 | 12 |
+| timeseries | 11 | 12 | 13 |
 | power | 6 | 11 | 11 |
 | structural | 5 | 10 | 10 |
 | conformal_causal | 0 | 9 | 9 |
@@ -868,6 +868,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `yun_nonlinear` | [`test_closed_form_identities.py`](../tests/reference_parity/test_closed_form_identities.py) |
 | `zero_first_stage` | [`test_frontier_known_truth_recovery.py`](../tests/reference_parity/test_frontier_known_truth_recovery.py) |
 
-## unverified — 531 functions
+## unverified — 533 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

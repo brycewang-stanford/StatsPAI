@@ -537,6 +537,13 @@ TIER2_ROUND_TRIPS = [
     ("pwcorr y x, obs", "pwcorr", {"vars": ["y", "x"], "listwise": False, "obs": True}),
     ("ttest y, by(g) unequal", "ttest", {"y": "y", "by": "g", "unequal": True}),
     ("ttest y == x, unpaired", "ttest", {"y": "y", "other": "x", "paired": False}),
+    # newey -> sp.regress with Stata's N/(N-K); dfuller -> sp.unitroot
+    (
+        "newey y x1 x2, lag(4)",
+        "regress",
+        {"formula": "y ~ x1 + x2", "robust": "hac", "hac_lags": 4, "hac_small": True},
+    ),
+    ("dfuller y, lags(2) trend", "unitroot", {"y": "y", "lags": 2, "trend": "ct"}),
     # summarize / sum2docx -> sp.sumstats
     (
         "summarize y x",
