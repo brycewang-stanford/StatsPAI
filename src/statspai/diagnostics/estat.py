@@ -895,6 +895,47 @@ def _estat_endogenous(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     else:
         interp = "p-value not available."
 
+    # After a robust or clustered fit the Wu-Hausman F is not valid; the
+    # regression-based robust F is the test, as in Stata `estat endogenous`.
+    robust_f = _iv_stat(result, "Robust regression F (endogeneity)")
+    if robust_f is not None:
+        robust_p = _iv_stat(result, "Robust regression F p-value")
+        df_num = _iv_stat(result, "Robust regression F df (num)")
+        df_den = _iv_stat(result, "Robust regression F df (denom)")
+        df_pair = None if df_num is None or df_den is None else (df_num, df_den)
+        reject = robust_p < alpha if robust_p is not None else None
+        if reject is True:
+            interp = (
+                f"REJECT H0 at {alpha:.0%}: regressors are endogenous. "
+                "IV estimation is warranted."
+            )
+        elif reject is False:
+            interp = (
+                f"Cannot reject H0 at {alpha:.0%}: no evidence of endogeneity. "
+                "OLS may be consistent and more efficient."
+            )
+        out: Dict[str, Any] = {
+            "test": "Robust regression-based endogeneity test",
+            "H0": "Regressors are exogenous",
+            "H1": "Regressors are endogenous",
+            "statistic": float(robust_f),
+            "statistic_label": (
+                f"F({int(df_pair[0])}, {int(df_pair[1])})"
+                if df_pair is not None
+                else "F"
+            ),
+            "pvalue": float(robust_p) if robust_p is not None else None,
+            "interpretation": interp,
+            "wu_hausman_F": float(dwh),
+            "wu_hausman_pvalue": float(dwh_pval) if dwh_pval is not None else None,
+        }
+        score = _iv_stat(result, "Robust score chi2 (endogeneity)")
+        if score is not None:
+            out["robust_score_chi2"] = float(score)
+            score_p = _iv_stat(result, "Robust score chi2 p-value")
+            out["robust_score_pvalue"] = float(score_p) if score_p is not None else None
+        return out
+
     return {
         "test": "Durbin-Wu-Hausman endogeneity test",
         "H0": "Regressors are exogenous",

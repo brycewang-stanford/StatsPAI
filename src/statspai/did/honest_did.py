@@ -1276,6 +1276,97 @@ CausalResult._CITATIONS["honest_did"] = (
 )
 
 
+def event_study_from_moments(
+    betahat: Any,
+    sigma: Any = None,
+    event_times: Optional[Union[Sequence[int], Dict[str, int]]] = None,
+    num_pre_periods: Optional[int] = None,
+    alpha: float = 0.05,
+) -> CausalResult:
+    """An event-study result built from coefficients and their covariance.
+
+    The common input of :func:`honest_did_from_moments`,
+    :func:`pretrends_power` and :func:`pretrends_slope_for_power` when the
+    event study was not fitted by a StatsPAI event-study estimator: a
+    hand-built lead/lag regression, or numbers taken from a paper. See
+    :func:`honest_did_from_moments` for the arguments.
+    """
+    if hasattr(betahat, "params") and not isinstance(betahat, pd.Series):
+        betahat, sigma, event_times = _moments_from_fit(betahat, sigma, event_times)
+    if sigma is None:
+        raise MethodIncompatibility(
+            "sigma (the joint covariance of betahat) is required.",
+            recovery_hint="Pass sigma=, or a fitted result with "
+            "event_times={name: time}.",
+            diagnostics={},
+        )
+    b = np.asarray(betahat, dtype=float).ravel()
+    S = np.asarray(sigma, dtype=float)
+    if S.shape != (b.size, b.size):
+        raise MethodIncompatibility(
+            f"sigma must be {b.size} x {b.size} to match betahat; got {S.shape}.",
+            recovery_hint="Pass the joint covariance of the event-study coefficients.",
+            diagnostics={"n_beta": int(b.size), "sigma_shape": list(S.shape)},
+        )
+    if not (np.all(np.isfinite(b)) and np.all(np.isfinite(S))):
+        raise MethodIncompatibility(
+            "betahat and sigma must be finite.",
+            recovery_hint="Drop the omitted reference period before passing.",
+            diagnostics={},
+        )
+    if event_times is None:
+        if num_pre_periods is None:
+            raise MethodIncompatibility(
+                "Pass event_times, or num_pre_periods for HonestDiD's layout.",
+                recovery_hint="e.g. event_times=[-4, -3, -2, 0, 1, 2].",
+                diagnostics={},
+            )
+        k = int(num_pre_periods)
+        if not 1 <= k < b.size:
+            raise MethodIncompatibility(
+                "num_pre_periods must leave at least one post period.",
+                recovery_hint="Check the coefficient count.",
+                diagnostics={"num_pre_periods": k, "n_beta": int(b.size)},
+            )
+        times = np.r_[np.arange(-k - 1, -1), np.arange(b.size - k)]
+    else:
+        times = np.asarray(event_times, dtype=int).ravel()
+        if times.size != b.size or len(set(times.tolist())) != b.size:
+            raise MethodIncompatibility(
+                "event_times must hold one distinct time per coefficient.",
+                recovery_hint="Drop the omitted reference period from both.",
+                diagnostics={"n_beta": int(b.size), "n_times": int(times.size)},
+            )
+    if not ((times < 0).any() and (times >= 0).any()):
+        raise MethodIncompatibility(
+            "Need both pre-treatment (< 0) and post-treatment (>= 0) coefficients.",
+            recovery_hint="HonestDiD calibrates the restriction on the leads.",
+            diagnostics={"event_times": times.tolist()},
+        )
+    order = np.argsort(times)
+    b, S, times = b[order], S[np.ix_(order, order)], times[order]
+    se = np.sqrt(np.clip(np.diag(S), 0.0, None))
+    detail = pd.DataFrame({"relative_time": times, "att": b, "se": se})
+    res = CausalResult(
+        method="Event study (user-supplied moments)",
+        estimand="ATT",
+        estimate=float(b[times >= 0][0]),
+        se=float(se[times >= 0][0]),
+        pvalue=float("nan"),
+        ci=(float("nan"), float("nan")),
+        alpha=alpha,
+        n_obs=0,
+        detail=detail,
+        model_info={
+            "aggregation": "dynamic",
+            "vcov": S,
+            # the block the pre-trend functions read
+            "vcv_pre": S[np.ix_(times < 0, times < 0)],
+        },
+    )
+    return res
+
+
 def honest_did_from_moments(
     betahat: Any,
     sigma: Any = None,
@@ -1350,73 +1441,12 @@ def honest_did_from_moments(
     >>> list(out.columns)[:3]
     ['M', 'ci_lower', 'ci_upper']
     """
-    if hasattr(betahat, "params") and not isinstance(betahat, pd.Series):
-        betahat, sigma, event_times = _moments_from_fit(betahat, sigma, event_times)
-    if sigma is None:
-        raise MethodIncompatibility(
-            "sigma (the joint covariance of betahat) is required.",
-            recovery_hint="Pass sigma=, or a fitted result with "
-            "event_times={name: time}.",
-            diagnostics={},
-        )
-    b = np.asarray(betahat, dtype=float).ravel()
-    S = np.asarray(sigma, dtype=float)
-    if S.shape != (b.size, b.size):
-        raise MethodIncompatibility(
-            f"sigma must be {b.size} x {b.size} to match betahat; got {S.shape}.",
-            recovery_hint="Pass the joint covariance of the event-study coefficients.",
-            diagnostics={"n_beta": int(b.size), "sigma_shape": list(S.shape)},
-        )
-    if not (np.all(np.isfinite(b)) and np.all(np.isfinite(S))):
-        raise MethodIncompatibility(
-            "betahat and sigma must be finite.",
-            recovery_hint="Drop the omitted reference period before passing.",
-            diagnostics={},
-        )
-    if event_times is None:
-        if num_pre_periods is None:
-            raise MethodIncompatibility(
-                "Pass event_times, or num_pre_periods for HonestDiD's layout.",
-                recovery_hint="e.g. event_times=[-4, -3, -2, 0, 1, 2].",
-                diagnostics={},
-            )
-        k = int(num_pre_periods)
-        if not 1 <= k < b.size:
-            raise MethodIncompatibility(
-                "num_pre_periods must leave at least one post period.",
-                recovery_hint="Check the coefficient count.",
-                diagnostics={"num_pre_periods": k, "n_beta": int(b.size)},
-            )
-        times = np.r_[np.arange(-k - 1, -1), np.arange(b.size - k)]
-    else:
-        times = np.asarray(event_times, dtype=int).ravel()
-        if times.size != b.size or len(set(times.tolist())) != b.size:
-            raise MethodIncompatibility(
-                "event_times must hold one distinct time per coefficient.",
-                recovery_hint="Drop the omitted reference period from both.",
-                diagnostics={"n_beta": int(b.size), "n_times": int(times.size)},
-            )
-    if not ((times < 0).any() and (times >= 0).any()):
-        raise MethodIncompatibility(
-            "Need both pre-treatment (< 0) and post-treatment (>= 0) coefficients.",
-            recovery_hint="HonestDiD calibrates the restriction on the leads.",
-            diagnostics={"event_times": times.tolist()},
-        )
-    order = np.argsort(times)
-    b, S, times = b[order], S[np.ix_(order, order)], times[order]
-    se = np.sqrt(np.clip(np.diag(S), 0.0, None))
-    detail = pd.DataFrame({"relative_time": times, "att": b, "se": se})
-    res = CausalResult(
-        method="Event study (user-supplied moments)",
-        estimand="ATT",
-        estimate=float(b[times >= 0][0]),
-        se=float(se[times >= 0][0]),
-        pvalue=float("nan"),
-        ci=(float("nan"), float("nan")),
+    res = event_study_from_moments(
+        betahat,
+        sigma,
+        event_times=event_times,
+        num_pre_periods=num_pre_periods,
         alpha=alpha,
-        n_obs=0,
-        detail=detail,
-        model_info={"aggregation": "dynamic", "vcov": S},
     )
     return honest_did(
         res,

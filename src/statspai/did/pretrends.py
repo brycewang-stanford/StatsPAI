@@ -159,6 +159,34 @@ def _extract_event_study(result: Any) -> pd.DataFrame:
     return es
 
 
+def _from_moments(
+    result: Any,
+    sigma: Any,
+    event_times: Any,
+    num_pre_periods: Optional[int],
+    alpha: float,
+) -> Any:
+    """``result`` itself, or the event study built from coefficients and
+    their covariance when any of the moment arguments is given.
+
+    Lets the pre-trend functions take what Stata's ``pretrends, b() v()
+    numpre()`` and R's ``pretrends(betahat, sigma, tVec)`` take: the
+    coefficients of a hand-built lead/lag regression (or a fitted regression
+    with ``event_times={name: time}``), not only a StatsPAI event study.
+    """
+    if sigma is None and event_times is None and num_pre_periods is None:
+        return result
+    from .honest_did import event_study_from_moments
+
+    return event_study_from_moments(
+        result,
+        sigma,
+        event_times=event_times,
+        num_pre_periods=num_pre_periods,
+        alpha=alpha,
+    )
+
+
 def _resolve_columns(df: pd.DataFrame) -> tuple:
     """Return (time_col, est_col, se_col) after inspecting column names."""
     if not isinstance(df, pd.DataFrame):
@@ -261,6 +289,9 @@ def _pre_arrays(
     return beta_pre_all, se_pre_all, estimated
 
 
+_RECTANGLE_TOL = 1e-7
+
+
 def _normal_rectangle_probability(
     mean: np.ndarray,
     cov: np.ndarray,
@@ -285,8 +316,19 @@ def _normal_rectangle_probability(
     upper = np.asarray(upper, dtype=float)
     mvn = sp_stats.multivariate_normal
     try:
+        # SciPy's default absolute tolerance is 1e-5, which leaves the power
+        # (and the slope solved from it) moving in the fifth digit from one
+        # call to the next. 1e-7 costs a few hundredths of a second.
         prob = float(
-            mvn.cdf(upper, mean=mean, cov=cov, lower_limit=lower, allow_singular=True)
+            mvn.cdf(
+                upper,
+                mean=mean,
+                cov=cov,
+                lower_limit=lower,
+                allow_singular=True,
+                abseps=_RECTANGLE_TOL,
+                releps=_RECTANGLE_TOL,
+            )
         )
     except TypeError:  # pragma: no cover - SciPy < 1.10
         import itertools
@@ -629,6 +671,11 @@ def pretrends_power(
     delta: Optional[np.ndarray] = None,
     alpha: float = 0.05,
     test: str = "individual",
+    *,
+    slope: Optional[float] = None,
+    sigma: Any = None,
+    event_times: Any = None,
+    num_pre_periods: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Power of the pre-trend test against a hypothesised violation.
 
@@ -648,6 +695,18 @@ def pretrends_power(
         at the furthest lag, declining linearly to near-zero.
     alpha : float, default 0.05
         Significance level of the pre-trend test.
+    slope : float, optional
+        Shorthand for a linear violation ``delta_t = slope * (t - t_ref)``
+        with the reference period ``t_ref = -1`` (Stata / R ``pretrends``'s
+        ``slope``). Give ``slope`` or ``delta``, not both.
+    sigma, event_times, num_pre_periods : optional
+        Take the event study from coefficients instead of a StatsPAI result:
+        ``result`` is then the coefficient vector with ``sigma`` its
+        covariance, or a fitted regression with
+        ``event_times={coefficient name: event time}``. Same conventions as
+        :func:`honest_did_from_moments` (``num_pre_periods=k`` places the
+        leads at ``-k-1, ..., -2`` and the rest at ``0, 1, ...``). This is
+        the input of Stata ``pretrends, b() v() numpre()``.
     test : {"individual", "joint"}, default "individual"
         Which pre-test the power refers to.
 
@@ -730,6 +789,7 @@ def pretrends_power(
             f"{context}: `test` must be 'individual' or 'joint'.",
             diagnostics={"context": context, "test": test},
         )
+    result = _from_moments(result, sigma, event_times, num_pre_periods, alpha)
     es = _extract_event_study(result)
     time_col, est_col, se_col = _resolve_columns(es)
     pre, _ = _split_pre_post(es, time_col, est_col, se_col)
@@ -740,6 +800,14 @@ def pretrends_power(
     se_pre = se_pre_all[estimated]
     beta_pre = beta_pre_all[estimated]
     K = len(se_pre)
+    if slope is not None:
+        if delta is not None:
+            raise MethodIncompatibility(
+                f"{context}: pass `slope` or `delta`, not both.",
+                diagnostics={"context": context},
+            )
+        slope_value = _finite_vector([slope], "slope", context)[0]
+        delta = slope_value * (pre[time_col].to_numpy(dtype=float) + 1.0)
 
     # Build VCV (diagonal if full VCV unavailable)
     vcv = _pre_vcv(
@@ -850,6 +918,10 @@ def pretrends_slope_for_power(
     target_power: float = 0.5,
     alpha: float = 0.05,
     test: str = "individual",
+    *,
+    sigma: Any = None,
+    event_times: Any = None,
+    num_pre_periods: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Slope of a linear pre-trend the pre-test would detect ``target_power``
     of the time.
@@ -879,6 +951,9 @@ def pretrends_slope_for_power(
         Significance level of the pre-test.
     test : {"individual", "joint"}, default "individual"
         Which pre-test to solve against; see :func:`pretrends_power`.
+    sigma, event_times, num_pre_periods : optional
+        Coefficients and covariance instead of a StatsPAI result, as in
+        :func:`pretrends_power`.
 
     Returns
     -------
@@ -914,6 +989,7 @@ def pretrends_slope_for_power(
     context = "pretrends_slope_for_power"
     target_power = _require_open_unit_float(target_power, "target_power", context)
     alpha = _require_open_unit_float(alpha, "alpha", context)
+    result = _from_moments(result, sigma, event_times, num_pre_periods, alpha)
 
     es = _extract_event_study(result)
     time_col, est_col, se_col = _resolve_columns(es)
@@ -962,15 +1038,20 @@ def pretrends_slope_for_power(
             diagnostics={"context": context, "target_power": target_power},
         )
 
-    for _ in range(100):
-        mid = 0.5 * (lo + hi)
-        if _power_at(mid) < target_power:
-            lo = mid
-        else:
-            hi = mid
-        if hi - lo < 1e-10 * max(1.0, hi):
-            break
-    slope = 0.5 * (lo + hi)
+    # The power is integrated numerically to about 1e-7, so there is nothing
+    # to gain from locating the root more finely than that.
+    from scipy.optimize import brentq
+
+    slope = float(
+        brentq(
+            lambda s: _power_at(s) - target_power,
+            lo,
+            hi,
+            xtol=1e-9 * hi,
+            rtol=1e-8,
+            maxiter=200,
+        )
+    )
 
     return {
         "slope": slope,

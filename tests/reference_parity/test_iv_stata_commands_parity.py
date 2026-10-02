@@ -190,3 +190,66 @@ def test_kappa_ignores_a_collinear_instrument():
     clean = _liml_kappa(y, x, d[:, None], z)
     redundant = _liml_kappa(y, x, d[:, None], np.column_stack([z, z[:, 0] + z[:, 1]]))
     assert redundant == pytest.approx(clean, rel=1e-10)
+
+
+# ---------------------------------------------------------------------------
+# estat endogenous after a robust or clustered fit
+# ---------------------------------------------------------------------------
+#
+# Stata 18, same data:
+#   ivregress 2sls lwage (educ = nearc4 nearc2) exper expersq black south smsa, <vce>
+#   estat endogenous
+# vce(robust):       robust score chi2(1) 3.96186750203015 (p .04654204192604)
+#                    robust regression F(1,3002) 3.97786108490807 (p .04619235644120)
+# vce(cluster band): robust regression F(1,11) 1.935232994298283 (p .1916830891411493)
+#                    with band = floor(exper / 2); no score test is reported
+# unadjusted:        Wu-Hausman F(1,3002) 3.86849860538490
+# two endogenous regressors (educ exper = nearc4 nearc2 black#c.nearc4), robust:
+#                    score chi2(2) 4.20308868366919, F(2,3001) 2.10758448653565
+
+_ENDOG_FORMULA = (
+    "lwage ~ exper + expersq + black + south + smsa + (educ ~ nearc4 + nearc2)"
+)
+
+
+def test_robust_endogeneity_tests_match_estat_endogenous(card):
+    res = sp.iv(_ENDOG_FORMULA, card, robust="hc1", small=False)
+    out = sp.estat(res, "endogenous", print_results=False)
+    assert out["statistic"] == pytest.approx(3.97786108490807, rel=1e-9)
+    assert out["pvalue"] == pytest.approx(0.04619235644120, rel=1e-8)
+    assert out["statistic_label"] == "F(1, 3002)"
+    assert out["robust_score_chi2"] == pytest.approx(3.96186750203015, rel=1e-9)
+    assert out["robust_score_pvalue"] == pytest.approx(0.04654204192604, rel=1e-8)
+    # the homoskedastic statistic is still there for comparison
+    assert out["wu_hausman_F"] == pytest.approx(3.86849860538490, rel=1e-9)
+
+
+def test_clustered_endogeneity_test_matches_estat_endogenous(card):
+    banded = card.assign(band=(card["exper"] // 2).astype(int))
+    res = sp.iv(_ENDOG_FORMULA, banded, cluster="band")
+    out = sp.estat(res, "endogenous", print_results=False)
+    assert out["statistic"] == pytest.approx(1.935232994298283, rel=1e-9)
+    assert out["pvalue"] == pytest.approx(0.1916830891411493, rel=1e-8)
+    assert out["statistic_label"] == "F(1, 11)"
+    assert "robust_score_chi2" not in out
+
+
+def test_two_endogenous_regressors(card):
+    wide = card.assign(bn4=card["black"] * card["nearc4"])
+    res = sp.iv(
+        "lwage ~ expersq + black + south + smsa + (educ + exper ~ nearc4 + nearc2 + bn4)",
+        wide,
+        robust="hc1",
+    )
+    out = sp.estat(res, "endogenous", print_results=False)
+    assert out["statistic"] == pytest.approx(2.10758448653565, rel=1e-9)
+    assert out["statistic_label"] == "F(2, 3001)"
+    assert out["robust_score_chi2"] == pytest.approx(4.20308868366919, rel=1e-9)
+
+
+def test_classical_fit_keeps_the_wu_hausman_test(card):
+    res = sp.iv(_ENDOG_FORMULA, card)
+    out = sp.estat(res, "endogenous", print_results=False)
+    assert out["test"] == "Durbin-Wu-Hausman endogeneity test"
+    assert out["statistic"] == pytest.approx(3.86849860538490, rel=1e-9)
+    assert not any("Robust" in key for key in res.diagnostics)

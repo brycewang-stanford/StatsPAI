@@ -1,5 +1,5 @@
 {
-  "aggregate_sha256": "2c09a8d2ca970773c6c09e1765e80731ab817cfa4ca3a921b171f67197296992",
+  "aggregate_sha256": "2ce04549c9c5d7ae020219255de00320c7cbe2443d2b2409e0268cade864f94e",
   "counts": {
     "files": 637,
     "input_csvs": 88,
@@ -2143,9 +2143,9 @@
       "sha256": "79e6e7e86844d3f8ade0be3515679c7037979b63c6831b87ce8856c64e84a4c8"
     },
     {
-      "bytes": 2059,
+      "bytes": 2058,
       "path": "tests/r_parity/results/76_pretrends_py.json",
-      "sha256": "16a95b8e59178f30e03099d46255651188a5436bbc0b4c0a976dc970168ed735"
+      "sha256": "cc1c7657939710f8b102b00b6d9a7e428b9e2a8b3f100a279e193aa142cab30c"
     },
     {
       "bytes": 7702,
@@ -2283,9 +2283,9 @@
       "sha256": "8afc46a5182d14ee41bacadb1767f7a3db4a28ae3512484ee649948ba54d4d7e"
     },
     {
-      "bytes": 133200,
+      "bytes": 133199,
       "path": "tests/r_parity/results/parity_table.md",
-      "sha256": "a506efe10ac20fa0f89e3fa49352856cb3ff1936ce2e0a0e693d9986714b76a2"
+      "sha256": "1ba931dda3fb66f65acdd2379136e606ee4720f11026842dc0adbd676cc23e47"
     },
     {
       "bytes": 15054,
@@ -2293,9 +2293,9 @@
       "sha256": "4aba406e6b0eb76cab174709b233943e9b1905d0ab332a9f32ba153190399fd1"
     },
     {
-      "bytes": 174759,
+      "bytes": 174758,
       "path": "tests/r_parity/results/parity_table_3way.md",
-      "sha256": "363ada3cf13fcf7a2164d98b489071af5ae3d1f76bb8c104d864cb2af06ff1a5"
+      "sha256": "7565229f5a7c1c4dbcb7ab031390af801ad653739c57a0e68e628f24609b0d83"
     },
     {
       "bytes": 18071,

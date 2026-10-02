@@ -1035,6 +1035,80 @@ def _hausman_test(
     return {"statistic": f_stat, "pvalue": f_pvalue, "df": k2}
 
 
+def _robust_endogeneity_tests(
+    y: np.ndarray,
+    X_exog: np.ndarray,
+    X_endog: np.ndarray,
+    Z: np.ndarray,
+    cluster: Optional[np.ndarray] = None,
+) -> Dict[str, float]:
+    """Endogeneity tests that stay valid under heteroskedasticity or
+    clustering: what Stata ``estat endogenous`` reports after
+    ``ivregress ..., vce(robust)`` / ``vce(cluster)``.
+
+    The Durbin and Wu-Hausman statistics assume homoskedastic errors. Two
+    replacements, both built on the first-stage residuals ``v``:
+
+    * the *regression-based* test: the Wald F for ``v`` in the regression of
+      ``y`` on the regressors and ``v``, with the HC1 (or cluster-robust)
+      covariance; ``F(k, N - K)`` or ``F(k, G - 1)``;
+    * the *robust score* test of Wooldridge (1995), which needs only the
+      restricted fit: regress 1 on ``u * r`` with ``u`` the OLS residual
+      and ``r`` the part of ``v`` orthogonal to the regressors; the
+      statistic is ``N`` minus the residual sum of squares, ``chi2(k)``.
+      It is reported for the heteroskedastic case only, as in Stata.
+
+    Checked against Stata 18 on ``sp.datasets.card_1995()``: 1e-10.
+    """
+    y = np.asarray(y, dtype=np.float64)
+    X_exog = np.asarray(X_exog, dtype=np.float64)
+    X_endog = np.asarray(X_endog, dtype=np.float64)
+    W = np.column_stack([X_exog, np.asarray(Z, dtype=np.float64)])
+    n, k2 = len(y), X_endog.shape[1]
+    out: Dict[str, float] = {}
+    try:
+        v_hat = X_endog - W @ np.linalg.lstsq(W, X_endog, rcond=None)[0]
+        X_orig = np.column_stack([X_exog, X_endog])
+        X_aug = np.column_stack([X_orig, v_hat])
+        ka = X_aug.shape[1]
+        beta = np.linalg.lstsq(X_aug, y, rcond=None)[0]
+        resid = y - X_aug @ beta
+        bread = np.linalg.inv(X_aug.T @ X_aug)
+        scores = X_aug * resid[:, None]
+        if cluster is None:
+            df_denom = n - ka
+            meat = scores.T @ scores * (n / df_denom)
+        else:
+            codes, uniques = pd.factorize(np.asarray(cluster), sort=False)
+            n_g = len(uniques)
+            sums = np.zeros((n_g, ka))
+            np.add.at(sums, codes, scores)
+            df_denom = n_g - 1
+            meat = sums.T @ sums * (n_g / (n_g - 1) * (n - 1) / (n - ka))
+        if df_denom <= 0:
+            return out
+        V = bread @ meat @ bread
+        idx = np.arange(ka - k2, ka)
+        f_stat = float(beta[idx] @ np.linalg.solve(V[np.ix_(idx, idx)], beta[idx]) / k2)
+        out.update(
+            regression_F=f_stat,
+            regression_F_pvalue=float(stats.f.sf(f_stat, k2, df_denom)),
+            df_num=float(k2),
+            df_denom=float(df_denom),
+        )
+        if cluster is None:
+            u0 = y - X_orig @ np.linalg.lstsq(X_orig, y, rcond=None)[0]
+            r = v_hat - X_orig @ np.linalg.lstsq(X_orig, v_hat, rcond=None)[0]
+            g = r * u0[:, None]
+            ones = np.ones(n)
+            coef = np.linalg.lstsq(g, ones, rcond=None)[0]
+            score = float(n - np.sum((ones - g @ coef) ** 2))
+            out.update(score_chi2=score, score_pvalue=float(stats.chi2.sf(score, k2)))
+    except np.linalg.LinAlgError:
+        return {}
+    return out
+
+
 # ====================================================================== #
 #  Legacy IVEstimator (kept for backward compat)
 # ====================================================================== #
@@ -1720,6 +1794,36 @@ class IVRegression(BaseModel):
         if results["hausman"] is not None:
             diagnostics["Hausman F-stat"] = results["hausman"]["statistic"]
             diagnostics["Hausman p-value"] = results["hausman"]["pvalue"]
+            # The Wu-Hausman F assumes homoskedastic errors. Under a robust
+            # or clustered covariance report the tests that do not.
+            _cl_vec = None
+            _robust_endog_ok = str(robust).lower() != "nonrobust"
+            if cluster_var is not None:
+                try:
+                    _cl_frame = _as_cluster_frame(cluster_var)
+                    if _cl_frame.shape[1] == 1:
+                        _cl_vec = _cl_frame.iloc[:, 0].to_numpy()
+                        _robust_endog_ok = True
+                    else:
+                        _robust_endog_ok = False
+                except (TypeError, ValueError):  # pragma: no cover - defensive
+                    _robust_endog_ok = False
+            if _robust_endog_ok:
+                _re = _robust_endogeneity_tests(
+                    y_fit, X_exog_fit, X_endog_fit, Z_fit, cluster=_cl_vec
+                )
+                if "regression_F" in _re:
+                    diagnostics["Robust regression F (endogeneity)"] = _re[
+                        "regression_F"
+                    ]
+                    diagnostics["Robust regression F p-value"] = _re[
+                        "regression_F_pvalue"
+                    ]
+                    diagnostics["Robust regression F df (num)"] = int(_re["df_num"])
+                    diagnostics["Robust regression F df (denom)"] = int(_re["df_denom"])
+                if "score_chi2" in _re:
+                    diagnostics["Robust score chi2 (endogeneity)"] = _re["score_chi2"]
+                    diagnostics["Robust score chi2 p-value"] = _re["score_pvalue"]
 
         # Store for programmatic access
         self._first_stage = [dict(fs) for fs in results["first_stage"]]

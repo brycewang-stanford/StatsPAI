@@ -93,6 +93,37 @@ test.
   estimate by the kink in the policy rule. Matches Stata to 1e-11.
 - **`sp.mediate(inference='robust')` takes `C(g)` in `covariates`**, one
   indicator per level but the lowest.
+- **`sp.effective_f_test` reports the Montiel Olea-Pflueger critical
+  values.** It compared the effective F with 23.1, which is the critical
+  value for one instrument at a 10% bias tolerance. With several instruments
+  the critical value depends on the data and on the estimator. Passing
+  `y=` now returns `critical_values` for TSLS and LIML at tolerances of 5,
+  10, 20 and 30%, with the effective degrees of freedom and the worst-case
+  bias behind them. Without `y` the simplified, estimator-free values are
+  returned. On `sp.datasets.card_1995()` with two and with four instruments
+  every value agrees with Stata `weakivtest` to its seven printed digits.
+  With four instruments the 10% TSLS value is 12.0, not 23.1. `weakivtest`
+  evaluates its 30% column at 3.33 where the definition is 1/0.3. The exact
+  value is returned here. `alpha=` sets the level.
+- **`sp.estat(result, 'endogenous')` after a robust or clustered IV fit
+  returns the robust tests.** It returned the Durbin and Wu-Hausman
+  statistics, which assume homoskedastic errors, whatever the VCE of the
+  fit. After `robust=` or `cluster=` the result now carries the robust
+  regression-based F and Wooldridge's robust score chi-squared, as Stata's
+  `estat endogenous` does. They agree with Stata to 1e-9 with one and with
+  two endogenous regressors, robust and clustered. The classical fit is
+  unchanged.
+- **`sp.pretrends_power` and `sp.pretrends_slope_for_power` take
+  coefficients and a covariance.** Stata's `pretrends` reads `e(b)` and
+  `e(V)` of any event-study regression. These two functions took only a
+  StatsPAI event-study result, so a hand-built lead and lag regression had
+  no way in. `sigma=` with `num_pre_periods=` or `event_times=` now does
+  that, a fitted regression with `event_times={name: time}` does too, and
+  `slope=` is shorthand for a linear violation. The likelihood ratio agrees
+  with Stata `pretrends` to 1e-13. The power is a numerically integrated
+  probability on both sides and agrees to 2e-4. The integration tolerance
+  here went from SciPy's default 1e-5 to 1e-7, so the power no longer moves
+  in the fifth digit between two calls.
 - **IV formulas accept `C(g)`, `C(g, Treatment(k))`, interactions and
   `I()`** among the exogenous regressors and the instruments, in `sp.iv`,
   `sp.ivreg` and the absorbed-effects path. They used to fail with

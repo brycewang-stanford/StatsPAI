@@ -656,7 +656,7 @@ _UNTRANSLATED_GUIDANCE: Dict[str, Tuple[str, List[str]]] = {
     ),
     "weakivtest": (
         "`weakivtest` is sp.effective_f_test(data, endog=, instruments=, "
-        "exog=), which reports the effective F and the Montiel Olea-Pflueger "
+        "exog=, y=), which reports the effective F and the Montiel Olea-Pflueger "
         "critical values.",
         ["effective_f_test"],
     ),

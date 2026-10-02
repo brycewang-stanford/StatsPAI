@@ -103,10 +103,14 @@ def _cluster_meat_multiway(
     Z: np.ndarray, resid: np.ndarray, frame: pd.DataFrame
 ) -> np.ndarray:
     """Cameron-Gelbach-Miller cluster meat ``sum_g s_g s_g'`` for scores ``Z*e``."""
+    return _cluster_meat_scores(Z * resid[:, None], frame)
+
+
+def _cluster_meat_scores(scores: np.ndarray, frame: pd.DataFrame) -> np.ndarray:
+    """Cameron-Gelbach-Miller cluster meat for an arbitrary score matrix."""
     from itertools import combinations
 
-    n, k = Z.shape
-    scores = Z * resid[:, None]
+    k = scores.shape[1]
     d = frame.shape[1]
     meat = np.zeros((k, k))
     for size in range(1, d + 1):
@@ -130,6 +134,90 @@ def _cluster_meat_multiway(
     return meat
 
 
+_MOP_TAUS = (0.05, 0.10, 0.20, 0.30)
+
+
+def _mop_keff(W2: np.ndarray, x: float) -> float:
+    """Effective degrees of freedom of the Patnaik approximation."""
+    tr = float(np.trace(W2))
+    lam_max = float(np.max(np.linalg.eigvalsh(0.5 * (W2 + W2.T))))
+    return tr**2 * (1.0 + 2.0 * x) / (float(np.sum(W2 * W2)) + 2.0 * x * tr * lam_max)
+
+
+def _mop_critical_value(W2: np.ndarray, x: float, alpha: float) -> Tuple[float, float]:
+    """Critical value for the effective F and its ``K_eff``: the upper
+    ``alpha`` point of a non-central chi-square with ``K_eff`` degrees of
+    freedom and non-centrality ``x * K_eff``, divided by ``K_eff``."""
+    k_eff = _mop_keff(W2, x)
+    return float(stats.ncx2.ppf(1.0 - alpha, k_eff, x * k_eff) / k_eff), k_eff
+
+
+def _mop_sup(fn: Any) -> float:
+    """Supremum over the real line of a bounded, continuous ``fn``.
+
+    The Nagar-bias ratios below tend to a limit as ``beta`` goes to plus or
+    minus infinity and are often largest there, so the search runs over
+    ``beta = tan(theta)`` on an even grid of angles, refines the best grid
+    point locally and compares with the limits.
+    """
+    from scipy import optimize
+
+    theta = np.linspace(-np.pi / 2, np.pi / 2, 2001)[1:-1]
+    values = np.array([fn(float(np.tan(t))) for t in theta])
+    best = int(np.argmax(values))
+    lo, hi = theta[max(best - 1, 0)], theta[min(best + 1, len(theta) - 1)]
+    res = optimize.minimize_scalar(
+        lambda t: -fn(float(np.tan(t))),
+        bounds=(float(lo), float(hi)),
+        method="bounded",
+        options={"xatol": 1e-12},
+    )
+    return float(max(values.max(), -res.fun, fn(1e9), fn(-1e9)))
+
+
+def _mop_bias_bounds(
+    W1: np.ndarray, W12: np.ndarray, W2: np.ndarray, omega: np.ndarray
+) -> Dict[str, float]:
+    """Worst-case Nagar bias of TSLS and LIML relative to the benchmark.
+
+    With ``S1 = W1 - 2 b W12 + b^2 W2`` and ``S12 = W12 - b W2`` for a
+    structural coefficient ``b``, the benchmark is
+    ``sqrt(tr(S1) / tr(W2))`` and the Nagar bias in the direction of a unit
+    vector ``c`` is
+
+    * TSLS: ``[tr(S12) - 2 c'S12 c] / tr(W2)``
+    * LIML: ``[tr(S12) - r tr(S1) - c'(2 S12 - r S1) c] / tr(W2)`` with
+      ``r = s12 / s1``, ``s1 = w1 - 2 b w12 + b^2 w2`` and
+      ``s12 = w12 - b w2`` from the reduced-form error covariance.
+
+    The supremum over ``c`` is attained at an extreme eigenvector, and the
+    one over ``b`` is found numerically.
+    """
+    tr2 = float(np.trace(W2))
+
+    def tsls(beta: float) -> float:
+        S1 = W1 - 2.0 * beta * W12 + beta**2 * W2
+        S12 = W12 - beta * W2
+        lam = np.linalg.eigvalsh(0.5 * (S12 + S12.T))
+        t = float(np.trace(S12))
+        return max(abs(t - 2.0 * lam[0]), abs(t - 2.0 * lam[-1])) / np.sqrt(
+            float(np.trace(S1)) * tr2
+        )
+
+    def liml(beta: float) -> float:
+        S1 = W1 - 2.0 * beta * W12 + beta**2 * W2
+        S12 = W12 - beta * W2
+        s1 = omega[0, 0] - 2.0 * beta * omega[0, 1] + beta**2 * omega[1, 1]
+        r = (omega[0, 1] - beta * omega[1, 1]) / s1
+        lam = np.linalg.eigvalsh((S12 + S12.T) - r * S1)
+        a = float(np.trace(S12)) - r * float(np.trace(S1))
+        return max(abs(a - lam[0]), abs(a - lam[-1])) / np.sqrt(
+            float(np.trace(S1)) * tr2
+        )
+
+    return {"tsls": _mop_sup(tsls), "liml": _mop_sup(liml)}
+
+
 @accepts_aliases(vce="vcov")
 def effective_f_test(
     data: pd.DataFrame,
@@ -139,6 +227,9 @@ def effective_f_test(
     vcov: str = "HC1",
     absorb: Optional[Union[str, List[str]]] = None,
     cluster: Optional[Union[str, List[str]]] = None,
+    *,
+    y: Optional[str] = None,
+    alpha: float = 0.05,
 ) -> Dict[str, Any]:
     """
     Olea-Pflueger (2013) robust effective F statistic for weak instruments.
@@ -179,6 +270,15 @@ def effective_f_test(
         clustered: heteroskedasticity-only F_eff routinely overstates
         instrument strength under within-cluster correlation.
 
+    y : str, optional
+        The outcome. Needed for the estimator-specific critical values:
+        the worst-case bias of TSLS and of LIML depends on the reduced form
+        as well as the first stage. Without it only the ``'simplified'``
+        critical values are returned.
+    alpha : float, default 0.05
+        Level of the test of the null that the worst-case bias exceeds a
+        fraction ``tau`` of the benchmark.
+
     Returns
     -------
     dict
@@ -187,7 +287,21 @@ def effective_f_test(
         ``'n_instruments'`` : Number of excluded instruments (``k_z``).
         ``'n_obs'`` : Sample size.
         ``'strength'`` : Interpretation string.
-        ``'stock_yogo_10pct'`` : 23.1 (conventional threshold for <10 % bias).
+        ``'critical_values'`` : ``{'simplified': {tau: c}, 'tsls': {...},
+        'liml': {...}}`` for ``tau`` in 5%, 10%, 20% and 30%. Reject weak
+        instruments (bias above ``tau`` of the benchmark) when ``F_eff``
+        exceeds ``c``. ``'simplified'`` uses the bound that holds for any
+        estimator and data; ``'tsls'`` and ``'liml'`` use the worst-case
+        Nagar bias computed from the data and are smaller. They are what
+        Stata ``weakivtest`` prints, and agree with it to seven digits at
+        5%, 10% and 20%. At 30% ``weakivtest`` uses ``x = 3.33`` where the
+        definition gives ``1 / 0.3``; the exact value is used here.
+        ``'effective_df'`` : the matching ``K_eff``, same layout.
+        ``'worst_case_bias'`` : ``{'tsls': B, 'liml': B}`` (with ``y``).
+        ``'stock_yogo_10pct'`` : 23.1. Despite the key, kept for
+        compatibility, this is the Montiel Olea-Pflueger rule of thumb for
+        ``tau = 10%`` (the largest ``'simplified'`` critical value over
+        designs), not a Stock-Yogo value.
 
     Notes
     -----
@@ -233,13 +347,17 @@ def effective_f_test(
     absorb_terms = _as_name_list(absorb)
     cluster_names = _as_name_list(cluster)
     data, absorb_terms = _interacted_fe(data, absorb_terms)
-    cols = [endog] + list(instruments) + list(exog or [])
+    if not 0.0 < float(alpha) < 1.0:
+        raise ValueError(f"alpha must be in (0, 1); got {alpha!r}")
+    cols = ([y] if y is not None else []) + [endog]
+    cols += list(instruments) + list(exog or [])
     cols += absorb_terms + cluster_names
     seen: set = set()
     cols = [c for c in cols if not (c in seen or seen.add(c))]
     df = data[cols].dropna()
     n = len(df)
     D = df[endog].values.astype(float)
+    Yv = df[y].values.astype(float) if y is not None else None
     Z = df[instruments].values.astype(float)
     if Z.ndim == 1:
         Z = Z.reshape(-1, 1)
@@ -255,13 +373,17 @@ def effective_f_test(
     if absorb_terms:
         from ..fast.demean import demean as _demean
 
-        stacked = np.column_stack([D.reshape(-1, 1), Z, W[:, 1:]])
+        lead = [D.reshape(-1, 1)] + ([Yv.reshape(-1, 1)] if Yv is not None else [])
+        n_lead = len(lead)
+        stacked = np.column_stack(lead + [Z, W[:, 1:]])
         stacked, info = _demean(stacked, df[absorb_terms], drop_singletons=True)
         keep = info.keep_mask
         n = int(info.n_kept)
         D = stacked[:, 0]
-        Z = stacked[:, 1 : 1 + k_z]
-        W = stacked[:, 1 + k_z :]
+        if Yv is not None:
+            Yv = stacked[:, 1]
+        Z = stacked[:, n_lead : n_lead + k_z]
+        W = stacked[:, n_lead + k_z :]
         if W.shape[1] == 0:
             W = np.zeros((n, 0))
         k_w = W.shape[1]
@@ -337,6 +459,52 @@ def effective_f_test(
     else:
         strength = "WEAK (F_eff < 10) — use AR test or tF-adjusted inference"
 
+    # ---- Montiel Olea-Pflueger critical values ----------------------------
+    # Everything is expressed for instruments orthonormalised so that
+    # Z'Z / n = I, in which W2 is the robust covariance of sqrt(n) * pi_hat.
+    critical: Dict[str, Dict[float, float]] = {}
+    k_eff_out: Dict[str, Dict[float, float]] = {}
+    bias: Dict[str, float] = {}
+    if np.isfinite(f_eff) and df_resid > 0:
+        try:
+            chol = np.linalg.cholesky(ZtZt / n)
+            Zo = np.linalg.solve(chol, Z_t.T).T
+        except np.linalg.LinAlgError:
+            Zo = None
+        if Zo is not None:
+            rf_resid = None
+            if Yv is not None:
+                Y_t = _partial_out(Yv, W) if k_w else Yv
+                rf_resid = Y_t - Zo @ (Zo.T @ Y_t / n)
+            residuals = [eta_hat] if rf_resid is None else [rf_resid, eta_hat]
+            scores = np.column_stack([Zo * r[:, None] for r in residuals])
+            if cluster_frame is not None:
+                meat = _cluster_meat_scores(scores, cluster_frame)
+                meat = meat * ((g_min / max(g_min - 1, 1)) * ((n - 1) / df_resid))
+            elif vcov == "classic":
+                cov = np.atleast_2d(np.cov(np.vstack(residuals)) * (n - 1) / df_resid)
+                meat = np.kron(cov, Zo.T @ Zo)
+            else:
+                meat = scores.T @ scores
+                if vcov == "HC1":
+                    meat = meat * (n / df_resid)
+            Wfull = meat / n
+            W2 = Wfull[-k_z:, -k_z:]
+            x_values = {"simplified": 1.0}
+            if rf_resid is not None:
+                W1, W12 = Wfull[:k_z, :k_z], Wfull[:k_z, k_z:]
+                omega_rf = np.atleast_2d(
+                    np.cov(np.vstack([rf_resid, eta_hat])) * (n - 1) / df_resid
+                )
+                bias = _mop_bias_bounds(W1, W12, W2, omega_rf)
+                x_values.update(bias)
+            for name, bound in x_values.items():
+                critical[name], k_eff_out[name] = {}, {}
+                for tau in _MOP_TAUS:
+                    c, k_eff = _mop_critical_value(W2, bound / tau, float(alpha))
+                    critical[name][tau] = c
+                    k_eff_out[name][tau] = k_eff
+
     return {
         "F_eff": float(f_eff) if not np.isnan(f_eff) else np.nan,
         "first_stage_F": float(f_first) if not np.isnan(f_first) else np.nan,
@@ -346,6 +514,10 @@ def effective_f_test(
         "fe_dof": int(fe_dof),
         "strength": strength,
         "stock_yogo_10pct": 23.1,
+        "critical_values": critical,
+        "effective_df": k_eff_out,
+        "worst_case_bias": bias,
+        "alpha": float(alpha),
     }
 
 
