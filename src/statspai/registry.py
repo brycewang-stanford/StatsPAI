@@ -4770,11 +4770,15 @@ def _build_registry() -> None:
                     False,
                     "nearest",
                     "Matching method. 'caliper' is not a method -- pass "
-                    "caliper= to any nearest-neighbour variant.",
+                    "caliper= to any nearest-neighbour variant. 'nnmatch' "
+                    "is Abadie-Imbens covariate matching with ties kept, "
+                    "bias adjustment and the Abadie-Imbens (2006) variance "
+                    "(Stata teffects nnmatch).",
                     [
                         "nearest",
                         "psm",
                         "mahalanobis",
+                        "nnmatch",
                         "kernel",
                         "radius",
                         "llr",

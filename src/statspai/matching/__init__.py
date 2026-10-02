@@ -50,6 +50,7 @@ from .genmatch import GenMatchResult, genmatch
 from .match import MatchEstimator, balanceplot
 from .match import match as _match_classical
 from .match import psplot
+from .nnmatch import nnmatch as _nnmatch
 from .optimal import (
     CardinalityMatchResult,
     OptimalMatchResult,
@@ -143,6 +144,9 @@ _MATCH_METHOD_ALIASES: Dict[str, str] = {
     "llr": "llr",
     "local_linear": "llr",
     "local_linear_regression": "llr",
+    # Abadie-Imbens covariate matching (Stata teffects nnmatch)
+    "nnmatch": "nnmatch",
+    "teffects_nnmatch": "nnmatch",
     # Weighting
     "ebalance": "ebalance",
     "entropy_balancing": "ebalance",
@@ -190,6 +194,13 @@ def match(
 
         - **Classical:** ``'nearest'`` (default), ``'stratify'``,
           ``'cem'``, ``'psm'``, ``'mahalanobis'``.
+        - **Covariate matching:** ``'nnmatch'`` -- Abadie-Imbens
+          nearest-neighbour matching on covariates with all ties kept,
+          the Abadie-Imbens (2006) variance and optional bias adjustment;
+          reproduces Stata ``teffects nnmatch`` (point estimates and
+          standard errors to 1e-13 on the NSW-CPS sample). Keywords:
+          ``estimand``, ``n_matches``, ``metric``, ``exact``, ``caliper``,
+          ``bias_adjust``, ``vce``, ``vce_nn``.
         - **Weighting:** ``'ebalance'``, ``'cbps'``, ``'sbw'``,
           ``'overlap'``.
         - **Genetic:** ``'genmatch'``.
@@ -222,6 +233,11 @@ def match(
     >>> # Default: nearest-neighbour propensity-score matching
     >>> r = sp.match(df, y='log_wage', treat='union',
     ...              covariates=['education', 'experience', 'tenure'])
+
+    >>> # Abadie-Imbens covariate matching (Stata `teffects nnmatch`)
+    >>> r = sp.match(df, y='log_wage', treat='union',
+    ...              covariates=['education', 'experience', 'tenure'],
+    ...              method='nnmatch', bias_adjust=True)
 
     >>> # Entropy balancing
     >>> r = sp.match(df, y='log_wage', treat='union',
@@ -280,6 +296,10 @@ def match(
             method=canon,
             **kwargs,
         )
+
+    # ── Abadie-Imbens covariate matching: its own keyword set ─────────
+    if canon == "nnmatch":
+        return _nnmatch(data=data, y=y, treat=treat, covariates=covariates, **kwargs)
 
     # ── Advanced: strip classical-only kwargs and forward ────────────
     bad = [k for k in kwargs if k in _CLASSICAL_ONLY_KWARGS]
