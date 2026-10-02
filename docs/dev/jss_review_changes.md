@@ -31,6 +31,21 @@ Rules:
 
 ## Entries
 
+### 2026-10-02 — release 1.35.0: parity tables carry the new version string
+
+- **Commits.** `173f2bf8` (release 1.35.0) regenerated
+  `tests/r_parity/results/parity_table.tex` and
+  `tests/r_parity/results/parity_table_3way.tex` with
+  `python tests/r_parity/compare.py`, and refreshed
+  `tests/r_parity/TIER_A_FIXTURE_LOCK.json`.
+- **Reason.** The tables print the StatsPAI version in their caption.
+  One line changes in each; no row, estimate or standard error moves.
+- **Effect on the paper.** The appendix parity tables read "StatsPAI
+  1.35.0" once the manuscript is re-anchored to this release. Everything
+  the paper quotes from the registry and the parity index should be
+  regenerated against the `v1.35.0` tag at the same time (see the entries
+  below for what moved since 1.34.2).
+
 ### 2026-10-02 — call traces re-recorded for 12 and 76 after the pre-trend and placebo fixes
 
 - **Commits.** `3958ab1c` changed `src/statspai/did/pretrends.py`
