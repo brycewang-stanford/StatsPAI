@@ -31,6 +31,50 @@ Rules:
 
 ## Entries
 
+### 2026-10-02 — call traces re-recorded after the design-based textbook pass; three estimator fixes on Track A paths
+
+- **Commits.** `fd2d0af3` (`sp.etwfe` with no untreated comparison),
+  `58169a79` (RD pilot-bandwidth quantile), `d4a47bac`
+  (`sp.match(method='nnmatch')`), `55654839`
+  (`sp.mediate(inference='robust')`), `27ebf052` (LIML `kappa`, factor
+  terms in IV formulas), `47d229a1` (`sp.synth(v_method='regression')`,
+  `sp.rdrobust(scalepar=)`). The regenerated artefacts are in `6fdcfa8f`,
+  `47d229a1` and `740fa734`: `docs/parity.md`, and
+  `tests/r_parity/results/_implementation_trace.json` re-recorded for
+  modules 02 03 06 07 13 15 17 18 19 24 25 26 27 35 36 38 52 53 59 65 66
+  69 88 89.
+- **Reason.** The traces bind the digests of every source file on each
+  module's estimation path, and these commits edited
+  `did/wooldridge_did.py`, `rd/_cct_bandwidth.py`, `rd/rdrobust.py`,
+  `regression/iv.py`, `panel/panel_reg.py`, `mediation/mediate.py`,
+  `synth/_core.py`, `synth/scm.py` and `matching/__init__.py`.
+- **Effect on the paper.** No Track A number moved. Three of the commits
+  are correctness fixes on code the Track A modules execute, so each was
+  re-run and compared with the committed Python result:
+  - `06_rd`, `88_rdbwselect`, `89_rdms`: byte-identical. The fix changes
+    the pilot bandwidth only when `IQR / 1.349` of the running variable is
+    below its standard deviation, which is not the case on those fixtures.
+    The claim "data-driven bandwidths match `rdrobust`" was false on such
+    data before the fix (5.6e-5 on the Lee House data) and holds to 6e-12
+    now; if the paper states the scope of the RD rows, heavy-tailed
+    running variables are now covered by
+    `tests/reference_parity/test_rdbwselect_iqr_pilot.py`.
+  - `59_liml`: moves at 1e-15 (not re-committed). The fixture's `kappa`
+    is 1.00057, far enough from 1 that the old computation was accurate;
+    the error grew as `kappa` approached 1.
+  - `17_etwfe`, `38_drdid`: unchanged. The trim applies only when no unit
+    is untreated in some period, and both fixtures have never-treated
+    units.
+  In `docs/parity.md` the "analytical-only (T1)" count goes from 325 to
+  327 and "unverified" from 533 to 531: `from_stata` and `stata` are now
+  credited to `tests/reference_parity/test_iv_stata_commands_parity.py`,
+  which runs Stata command lines through them and compares with Stata 18
+  output. Only `exercised_sources` digests and `seconds` changed in the
+  trace; no module's implementation classification moved.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+  - `docs/parity.md`
+
 ### 2026-10-03 — call traces re-recorded after `sp.ardl` was exported; two functions gained external-replication evidence
 
 - **Commit.** `d6d3eb0b` added `sp.ardl` and `ARDLResult` (new exports in
