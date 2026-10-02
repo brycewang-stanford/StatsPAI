@@ -31,6 +31,22 @@ Rules:
 
 ## Entries
 
+### 2026-10-02 — call traces re-recorded for 12 and 76 after the pre-trend and placebo fixes
+
+- **Commits.** `3958ab1c` changed `src/statspai/did/pretrends.py`
+  (`sp.sensitivity_rr`), `src/statspai/synth/sdid.py`
+  (`sp.synthdid_placebo(kind='time')`) and `src/statspai/registry.py`,
+  and re-recorded `tests/r_parity/results/_implementation_trace.json`
+  for modules 12 and 76.
+- **Reason.** Correctness fix to `sp.sensitivity_rr` and a new option on
+  the SDID placebo helper. Neither is called by a Track A module:
+  `verify_reproduce_py.py --no-report 12_sdid 76_pretrends` reports 2
+  reproduce, 0 drift.
+- **Effect on the paper.** None on any table. If the text describes
+  `sp.sensitivity_rr` intervals or quotes a breakdown `Mbar` from it, the
+  numbers move (wider intervals; see `MIGRATION.md`). The honest-DiD rows
+  of the paper use `sp.honest_did`, which is unchanged.
+
 ### 2026-10-02 — call traces re-recorded after the example-data loaders were labelled as simulated
 
 - **Commits.** `8b3c53ab` changed `src/statspai/synth/datasets.py` and
