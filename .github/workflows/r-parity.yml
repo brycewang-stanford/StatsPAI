@@ -1,12 +1,27 @@
 name: R cross-language parity
 
-# Makes the JSS Section 8 claim "the R closed-form parity refreshes on
-# every push" literally true for the closed-form / MLE / matching core of
-# the Track A harness. It re-runs the canonical R reference for those
+# Re-derives the R golden values of the closed-form / MLE / matching core
+# of the Track A harness. It re-runs the canonical R reference for those
 # modules on the committed data/*.csv bytes and diffs every statistic
 # against the committed results/<module>_R.json golden value at a 1e-9
 # reproducibility tolerance (tests/r_parity/verify_reproduce.py). A drift
 # fails the build.
+#
+# What this is, and is not (tests/r_parity/R_ENVIRONMENT.md, "What CI
+# re-derives", is the reader-facing statement; tests/test_r_parity_ci_scope.py
+# keeps the two in step):
+#
+# * It checks that the *R side* still reproduces. It does not import
+#   statspai, so a change under src/ cannot move it, and it is not
+#   triggered by one. StatsPAI-vs-golden parity is the job of the Python
+#   suites in parity-guards.yml.
+# * It runs when tests/r_parity/** or this file changes, on a weekly
+#   schedule, and on demand. Not on every push.
+# * It installs current CRAN binaries (`any::`), not renv.lock. A red run
+#   therefore means either an edited script / fixture or an upstream
+#   package release that moved a number: the weekly run exists to surface
+#   the second without waiting for a push. The locked environment is
+#   reproduced locally with the full reference library.
 #
 # Heavy / slow-to-install reference packages (grf, did, gsynth, augsynth,
 # DoubleML+mlr3, lpirfs, ...) are deliberately NOT installed here: their
@@ -33,6 +48,9 @@ on:
     paths:
       - "tests/r_parity/**"
       - ".github/workflows/r-parity.yml"
+  schedule:
+    # Mondays 06:17 UTC: upstream-drift probe against current CRAN.
+    - cron: "17 6 * * 1"
   workflow_dispatch:
 
 concurrency:

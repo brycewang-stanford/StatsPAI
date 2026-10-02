@@ -26,6 +26,7 @@
 | R3 | 六个 option fixture 全部按双精度实跑重生成；消费者测试改为直接读文件；84 号的 7 个 Stata SE 首次被比较 | `tests/stata_parity/option_parity/*.do` 与 `results/`；`tests/reference_parity/test_option_fixture_bindings.py` | 同左，另有 `test_bjs_fe_covariates_parity.py::TestExactSolution` |
 | R1 | `did_imputation`、`gardner_did` 建 scope 映射并登记已有的完整协方差证据 | `src/statspai/validation_scope.py` | `tests/test_validation_scope.py` 末三条 |
 | R1 | `event_study`（TWFE）、`etwfe` 建 scope 映射；`etwfe` 默认调用通过逐位相等测试挂到模块 17 的证据上 | `src/statspai/validation_scope.py`；`tests/reference_parity/test_validation_entry_points.py` | `tests/test_validation_scope.py` 末三条 |
+| R2 | R parity CI 的范围写准确（17 / 89 个模块、路径触发、当前 CRAN 而非 renv、不 import statspai），并加每周一的上游漂移探针 | `.github/workflows/r-parity.yml`；`tests/r_parity/R_ENVIRONMENT.md` 的 "What CI re-derives" | `tests/test_r_parity_ci_scope.py` |
 | G1 | roadmap 里已落地的 CI 项不再标 pending；`CLAUDE.md` 更新日期 | `plans/2026-09-28-agent-native-roadmap.md`、`CLAUDE.md` | 无（文档） |
 | G2 | fast gate 覆盖整条 agent 链 | `.github/workflows/ci-cd.yml` | CI |
 
@@ -52,7 +53,7 @@
 | S3 | 短路径 playbook | 建议项 | — |
 | R1 | `etwfe` 的协变量、`xvar`、加权、`agg_weights='unit'`、GLM 族；`event_study` 的其它窗口与交错面板 | 没有任何产物跑过这些配置（GLM 族有自己的 parity 文件，未接入映射） | 按清单里的空格逐项补参考，或确认不该补（交错面板上的 TWFE 事件研究本来就不该被认证） |
 | R1 | reference_parity / orig_parity / external_parity 各轨的统一 manifest | 本轮只做了 option fixture 一轨 | 按同一生成器扩展 |
-| R2 | 锁定环境与漂移环境分轨 | 改 `r-parity.yml` 的触发与 `renv::restore`，需要在 CI 上实测 | 单独一条线 |
+| R2 | 在 CI 里跑 renv 锁定环境的复现；重依赖 R 模块与 Stata 的定期自动重推导；机器可读的 run manifest（last_reproduced_at 等） | 需要自托管 runner 或 Stata 许可，且新 job 要在 CI 上实测；每周定时任务本身也还没在 CI 上实际跑过一次 | 先观察第一次定时运行的结果 |
 | R4 | Stata 翻译 holdout 五层覆盖 | 需要冻结语料 | — |
 | R5 | 推断可靠性仿真接入 evidence view | 新仿真要先预算 | — |
 | G1 | machine-readable backlog 生成 roadmap | 本文件是手写的过渡形态 | 与 R1 的 builder 一起做 |

@@ -43,6 +43,47 @@ JSONs, rendered tables, and reference-environment files. Verify it with
 an intentional fixture change with
 `python scripts/tier_a_fixture_lock.py --write`.
 
+## What CI re-derives
+
+Reproduction of the reference side runs at three levels. They answer
+different questions and should not be read as one claim.
+
+| Level | What runs | When | Environment |
+|---|---|---|---|
+| Automatic | The R reference of 17 Track A modules, diffed against the committed `_R.json` at 1e-9 (`.github/workflows/r-parity.yml`) | A push or pull request that touches `tests/r_parity/**` or the workflow; every Monday; on demand | Current CRAN binaries (`any::`), not `renv.lock` |
+| Local, full R | All 89 R modules (`python tests/r_parity/verify_reproduce.py`) | Before a release and whenever a golden value is refreshed; recorded in [`results/REPRODUCIBILITY_REPORT.md`](results/REPRODUCIBILITY_REPORT.md) | The pinned library of this file and `renv.lock` |
+| Local, Stata | All 85 Stata modules (`python tests/stata_parity/verify_reproduce_stata.py`) | Same; recorded in `tests/stata_parity/results/REPRODUCIBILITY_REPORT_STATA.md` | A licensed Stata 18 MP with the ado versions listed below |
+
+The 17 modules re-derived automatically are the ones whose reference
+packages install in seconds:
+
+`01_ols` `02_iv` `03_hdfe` `05_sunab` `11_psm` `14_ols_cluster`
+`15_hdfe_cluster` `24_coxph` `30_oaxaca` `42_nbreg` `48_probit`
+`49_oprobit` `51_newey` `53_cr2` `54_twoway_cluster` `55_hc2_hc3`
+`56_multiway_cluster`
+
+Three boundaries follow from how the job is built.
+
+- **It tests the R side only.** `verify_reproduce.py` does not import
+  `statspai`. A change under `src/` cannot move it and does not trigger
+  it. Whether StatsPAI still matches the golden values is checked by the
+  Python suites (`tests/reference_parity/`, `tests/r_parity/compare.py`,
+  and the gates in `.github/workflows/parity-guards.yml`).
+- **It is a drift probe, not a locked reproduction.** The job installs
+  whatever CRAN serves that day. A failure means either an edited script
+  or fixture, or an upstream release that moved a number; the weekly run
+  exists to surface the second kind without waiting for a push. The
+  locked environment is reproduced locally.
+- **The other 72 R modules and every Stata module are frozen
+  artefacts.** Their reference packages are slow to install (`grf`,
+  `did`, `gsynth`, `augsynth`, `DoubleML` with `mlr3`, ...) or need a
+  licence. Each `_R.json` carries the versions it was produced under, the
+  fixture lock hashes it, and the reports above record the last full
+  re-derivation. Nothing re-runs them between those.
+
+`tests/test_r_parity_ci_scope.py` fails if the module list or the
+triggers above stop matching the workflow.
+
 ## R
 
 | Field | Value |

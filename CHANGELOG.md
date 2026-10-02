@@ -403,6 +403,17 @@ changes its numbers.
   source) and none is in the Track A hash lock. Every consumer now opens
   its fixture, each fixture's SHA-256 is recorded in the evidence
   inventory, and a fixture no test reads fails the build.
+- **The R parity workflow says what it does, and runs weekly.** Its
+  header claimed the R closed-form parity "refreshes on every push". It
+  runs on pushes that touch `tests/r_parity/**`, re-derives 17 of the 89 R
+  modules, installs current CRAN binaries rather than `renv.lock`, and
+  never imports `statspai`. The header and a new "What CI re-derives"
+  section of `tests/r_parity/R_ENVIRONMENT.md` now state this, with the
+  other 72 R modules and all 85 Stata modules named as frozen artefacts
+  re-derived locally. A Monday schedule was added so that an upstream
+  package release that moves a number surfaces without waiting for a
+  push. `tests/test_r_parity_ci_scope.py` keeps the document, the
+  workflow and the artefacts on disk in step.
 - CI fast gate runs the whole agent chain: a full analysis over a real
   stdio subprocess (route, load, transform, fit under two covariance
   options, audit, follow-up, resource reads, tight budget, stale handle),
