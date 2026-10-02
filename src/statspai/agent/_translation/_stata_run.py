@@ -39,9 +39,11 @@ _SKIPPED = re.compile(
     r"log\s|cap(?:ture)?\s+log\s|label\s|format\s|describe\b|desc\b|"
     r"list\b|browse\b|notes?\b|version\s|clear\s+(?:all|matrix|mata)\s*$|"
     r"macro\s+drop|eststo\s+clear|estimates\s+clear|graph\s+(?:export|save)|"
-    r"pause\b|exit\s*$)",
+    r"pause\b)",
     re.I,
 )
+
+_EXIT = re.compile(r"\s*exit\s*(?:,\s*clear\s*)?$", re.I)
 
 
 #: Commands that draw or write a file. They do not change any estimate, so
@@ -229,6 +231,8 @@ def stata(
         raise ValueError("sp.stata: no command given.")
     session = StataSession(data, result=result)
     for line in lines:
+        if _EXIT.match(line):
+            break  # `exit` ends a do-file; Stata runs nothing after it
         session.run(line)
     return session.output
 

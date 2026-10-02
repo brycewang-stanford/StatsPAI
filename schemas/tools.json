@@ -32332,7 +32332,7 @@
     "name": "truncreg"
   },
   {
-    "description": "t test on a mean, a paired difference, or a difference of two means (Stata ttest, R t.test). Two independent samples pool the variances unless unequal=True, which uses Satterthwaite's degrees of freedom; welch=True switches to Welch's (1947) approximation, as Stata's welch option. Returns the estimate, its standard error, t, degrees of freedom, the two-sided and both one-sided p-values, the confidence interval and a per-sample table.",
+    "description": "t test on a mean, a paired difference, or a difference of two means (Stata ttest, R t.test). Two independent samples pool the variances unless unequal=True, which uses Satterthwaite's degrees of freedom; welch=True switches to Welch's (1947) approximation, as Stata's welch option. Returns the estimate, its standard error, t, degrees of freedom, the two-sided and both one-sided p-values, the confidence interval and a per-sample table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {

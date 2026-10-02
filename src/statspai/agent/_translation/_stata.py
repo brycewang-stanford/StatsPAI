@@ -3455,8 +3455,10 @@ def from_stata(line: str, columns: Optional[Sequence[str]] = None) -> Dict[str, 
         payload = _apply_weight(payload, info["weight"])
     if payload.get("ok") and parsed.if_cond:
         payload["semantics"].append(
-            "The `if` sample is not applied by the call; filter df first "
-            "(see notes)."
+            "The `if` sample is not applied by this call. sp.stata(line, "
+            "data=df) applies it with Stata's rules for missing values (a "
+            "missing value is larger than any number, so `if x > 0` keeps "
+            "the rows where x is missing); a pandas filter does not."
         )
     if payload.get("ok"):
         payload = _report_options(

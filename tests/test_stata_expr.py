@@ -343,3 +343,15 @@ def test_tin_needs_a_time_variable_and_a_readable_date():
         _run("summarize v if tin(01jan2020,02jan2020)", data)
     with pytest.raises(MethodIncompatibility, match="cannot read the date"):
         _run("tsset day; summarize v if tin(2020q1,2020q2)", data)
+
+
+def test_exit_ends_the_snippet(panel):
+    # Stata stops a do-file at `exit`; nothing after it runs
+    got = _run("reg y x\nexit\nreg y w", panel)
+    assert list(got.params.index) == ["Intercept", "x"]
+
+
+def test_from_stata_points_to_sp_stata_for_an_if_qualifier():
+    out = sp.from_stata("reg y x if w > 0")
+    assert out["unapplied_sample"] == "if w > 0"
+    assert any("sp.stata" in line and "missing" in line for line in out["semantics"])

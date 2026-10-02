@@ -243,6 +243,9 @@ has the findings and what is still open.
   How to run the book's do-files with `sp.stata`, how to check the numbers
   against its logs, and, chapter by chapter, what a paper written today
   adds to the book's analysis and the call for it.
+- `sp.stata` stops at `exit`, as a do-file does. `sp.from_stata` no longer
+  suggests a pandas filter for an `if` qualifier without saying that pandas
+  and Stata treat missing values differently; it points to `sp.stata`.
 - **`scripts/stata_log_replay.py`**: replays a Stata log through `sp.stata`
   and compares every printed number to the precision Stata printed it.
   `tests/external_parity/test_stock_watson_4e_logs.py` runs it on the
