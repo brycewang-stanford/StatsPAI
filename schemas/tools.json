@@ -2839,7 +2839,7 @@
     "name": "calibration_test"
   },
   {
-    "description": "California Proposition 99 tobacco control dataset.",
+    "description": "Simulated panel with the shape of the California Proposition 99 data.",
     "input_schema": {
       "properties": {},
       "required": [],
@@ -31489,7 +31489,7 @@
     "name": "synth_to_markdown"
   },
   {
-    "description": "Run placebo estimates assigning treatment to each control unit. Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit. Assumptions: Control units are exchangeable with the treated unit, so the distribution of placebo estimates approximates the null distribution. Pre-conditions: Same inputs as sp.sdid; enough control units for a placebo distribution. Alternatives: sp.sp.sdid, sp.sp.synth.",
+    "description": "Run placebo estimates assigning treatment to each control unit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit. Assumptions: Control units are exchangeable with the treated unit, so the distribution of placebo estimates approximates the null distribution. Pre-conditions: Same inputs as sp.sdid; enough control units for a placebo distribution. Alternatives: sp.sp.sdid, sp.sp.synth.",
     "input_schema": {
       "properties": {
         "method": {

@@ -29,6 +29,25 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **`sp.california_prop99()` described simulated data as the real
+  panel.** The top-level loader generates its rows from a seeded design
+  laid out like the Proposition 99 data, and its docstring called it "the
+  canonical `synthdid` example dataset". Estimates on it do not reproduce
+  published ones: `sp.sdid` gives -17.9, against the well-known -15.60. The
+  numbers are unchanged, since reference fixtures are built on them; the
+  docstring now says the data are simulated and points to
+  `sp.datasets.california_prop99()` for the real panel, on which
+  `sp.sdid` agrees with R `synthdid` 0.0.9 to 1e-9 (-15.6038279). Every
+  simulated example loader (`california_prop99`, `california_tobacco`,
+  `basque_terrorism`, `german_reunification`, `cps_wage`,
+  `chilean_households`, `mincer_wage_panel`, `disparity_panel`) now sets
+  `df.attrs['simulated'] = True` and says so in its docstring.
+- **`sp.synthdid_placebo` claimed to replicate
+  `synthdid::synthdid_placebo`.** It returns one refit per control unit
+  (an in-space placebo table). The R function is an in-time placebo: one
+  estimate on the pre-treatment periods with the treatment date moved
+  earlier. The docstring now describes what the function does. The output
+  is unchanged.
 - `statspai.agent.remediation`: the DML orthogonality rule spelled its
   not-equal sign as a literal character inside a pattern; it is now
   `\u2260`, so the pattern is the same in the ASCII archive. Behaviour is

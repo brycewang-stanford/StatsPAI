@@ -811,7 +811,12 @@ def synthdid_placebo(
     """
     Run placebo estimates assigning treatment to each control unit.
 
-    Replicates ``synthdid::synthdid_placebo``.
+    This is the in-space placebo table: the treated units are set aside
+    and :func:`sdid` is refitted once per control unit as if that unit had
+    been treated at ``treat_time``. It is not R's
+    ``synthdid::synthdid_placebo``, which is an in-time placebo (one
+    estimate on the pre-treatment periods with the treatment date moved
+    earlier, reusing the original fit's regularisation).
 
     Accepts the same arguments as :func:`sdid`, plus any extra keyword
     arguments.
@@ -1141,17 +1146,24 @@ def synthdid_rmse_plot(
 
 def california_prop99() -> pd.DataFrame:
     """
-    California Proposition 99 tobacco control dataset.
+    Simulated panel with the shape of the California Proposition 99 data.
 
-    Returns a balanced panel of per-capita cigarette sales for 39 US states,
-    1970-2000. California implemented Proposition 99 in 1989.
+    A balanced panel of per-capita cigarette sales for 39 US states,
+    1970-2000, with California treated from 1989. **The numbers are
+    simulated** (fixed seed), laid out like the ``synthdid`` example
+    dataset with the same states, years and column meaning. They are not
+    the Abadie, Diamond and Hainmueller data: estimates on this panel do
+    not reproduce published ones (``sp.sdid`` gives -17.9 here, and -15.60
+    on the real panel, where it agrees with R ``synthdid`` to 1e-9).
 
-    This is the canonical ``synthdid`` example dataset.
+    For the real panel use ``sp.datasets.california_prop99()``, whose
+    outcome column is ``cigsale``.
 
     Returns
     -------
     pd.DataFrame
         Columns: ``state``, ``year``, ``packspercapita``, ``treated``.
+        ``df.attrs['simulated']`` is ``True``.
 
     Examples
     --------
@@ -1239,7 +1251,14 @@ def california_prop99() -> pd.DataFrame:
                 }
             )
 
-    return pd.DataFrame(rows)
+    out = pd.DataFrame(rows)
+    out.attrs["simulated"] = True
+    out.attrs["data_source"] = "simulated"
+    out.attrs["notes"] = (
+        "Simulated replica with the layout of the Prop 99 panel; the real "
+        "ADH panel is sp.datasets.california_prop99()."
+    )
+    return out
 
 
 # ======================================================================

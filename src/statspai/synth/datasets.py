@@ -17,6 +17,14 @@ import numpy as np
 import pandas as pd
 
 
+def _simulated(rows: list) -> pd.DataFrame:
+    """Build the frame and mark it as simulated data."""
+    out = pd.DataFrame(rows)
+    out.attrs["simulated"] = True
+    out.attrs["data_source"] = "simulated"
+    return out
+
+
 def german_reunification() -> pd.DataFrame:
     """
     German reunification dataset (simulated).
@@ -149,7 +157,7 @@ def german_reunification() -> pd.DataFrame:
                 }
             )
 
-    return pd.DataFrame(rows)
+    return _simulated(rows)
 
 
 def basque_terrorism() -> pd.DataFrame:
@@ -283,7 +291,7 @@ def basque_terrorism() -> pd.DataFrame:
                 }
             )
 
-    return pd.DataFrame(rows)
+    return _simulated(rows)
 
 
 def california_tobacco() -> pd.DataFrame:
@@ -461,4 +469,4 @@ def california_tobacco() -> pd.DataFrame:
                 }
             )
 
-    return pd.DataFrame(rows)
+    return _simulated(rows)

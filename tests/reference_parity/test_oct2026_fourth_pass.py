@@ -570,3 +570,92 @@ def test_pretrends_test_size_and_power():
             store.append(sp.pretrends_test(es)["pvalue"])
     assert np.mean(np.array(null) < 0.05) <= 0.2
     assert np.mean(np.array(trend) < 0.05) >= 0.7
+
+
+# --------------------------------------------------------------------- #
+#  California: which panel is which
+# --------------------------------------------------------------------- #
+
+
+def test_sdid_on_the_real_prop99_panel_matches_r_synthdid():
+    # R: synthdid_estimate on data(california_prop99), synthdid 0.0.9,
+    # run on 2026-10-02: -15.6038278727.
+    df = sp.datasets.california_prop99()
+    assert df.attrs["simulated"] is False
+    res = sp.sdid(
+        df,
+        y="cigsale",
+        unit="state",
+        time="year",
+        treat_unit="California",
+        treat_time=1989,
+        n_reps=5,
+        seed=0,
+    )
+    assert res.estimate == pytest.approx(-15.6038278727, rel=1e-8)
+
+
+def test_top_level_california_loader_says_it_is_simulated():
+    # sp.california_prop99() is a simulated replica with the same layout.
+    # Its docstring used to call it the canonical dataset.
+    df = sp.california_prop99()
+    assert df.attrs["simulated"] is True
+    real = sp.datasets.california_prop99()
+    ca = df[(df["state"] == "California") & (df["year"] == 1970)]
+    ca_real = real[(real["state"] == "California") & (real["year"] == 1970)]
+    assert ca_real["cigsale"].iloc[0] == pytest.approx(123.0)
+    assert ca["packspercapita"].iloc[0] != pytest.approx(123.0, abs=1.0)
+    assert "simulated" in sp.california_prop99.__doc__.lower()
+
+
+def test_synthdid_placebo_is_one_refit_per_control_unit():
+    df = sp.california_prop99()
+    df = df[df["state"].isin(sorted(df["state"].unique())[:8] + ["California"])]
+    table = sp.synthdid_placebo(
+        df,
+        y="packspercapita",
+        unit="state",
+        time="year",
+        treat_unit="California",
+        treat_time=1989,
+        n_reps=5,
+        seed=0,
+    )
+    controls = sorted(set(df["state"]) - {"California"})
+    assert sorted(table["unit"]) == controls
+    first = controls[0]
+    direct = sp.sdid(
+        df[df["state"] != "California"],
+        y="packspercapita",
+        unit="state",
+        time="year",
+        treat_unit=first,
+        treat_time=1989,
+        n_reps=5,
+        seed=0,
+    )
+    got = table.set_index("unit").loc[first, "estimate"]
+    assert got == pytest.approx(direct.estimate, rel=1e-12)
+
+
+@pytest.mark.parametrize(
+    "loader",
+    [
+        "california_prop99",
+        "california_tobacco",
+        "basque_terrorism",
+        "german_reunification",
+        "cps_wage",
+        "chilean_households",
+        "mincer_wage_panel",
+        "disparity_panel",
+    ],
+)
+def test_simulated_example_data_is_labelled(loader):
+    # These loaders generate their rows from a seeded design. Names like
+    # "california_prop99" or "cps_wage" invite reading them as the real
+    # data, so both the docstring and the frame say otherwise.
+    fn = getattr(sp, loader)
+    assert fn().attrs.get("simulated") is True
+    doc = fn.__doc__.lower()
+    assert "simulated" in doc or "synthetic" in doc

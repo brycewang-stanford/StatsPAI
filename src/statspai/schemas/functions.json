@@ -23411,7 +23411,7 @@
     }
   },
   {
-    "description": "Run placebo estimates assigning treatment to each control unit. Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit.",
+    "description": "Run placebo estimates assigning treatment to each control unit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit.",
     "name": "synthdid_placebo",
     "parameters": {
       "properties": {
@@ -23587,7 +23587,7 @@
     }
   },
   {
-    "description": "California Proposition 99 tobacco control dataset.",
+    "description": "Simulated panel with the shape of the California Proposition 99 data.",
     "name": "california_prop99",
     "parameters": {
       "properties": {},

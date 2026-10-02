@@ -9,15 +9,26 @@ racial education gap, rural/urban income gap).
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
 
 
+def _simulated(*args: Any, **kwargs: Any) -> pd.DataFrame:
+    """Build the frame and mark it as simulated data."""
+    out = pd.DataFrame(*args, **kwargs)
+    out.attrs["simulated"] = True
+    out.attrs["data_source"] = "simulated"
+    return out
+
+
 def cps_wage(n: int = 3000, seed: Optional[int] = 42) -> pd.DataFrame:
     """
     CPS-style wage data with a gender gap.
+
+    Simulated from a fixed-seed Mincer equation; not Current Population
+    Survey microdata. ``df.attrs['simulated']`` is ``True``.
 
     Columns:
       - female : int {0, 1}
@@ -66,7 +77,7 @@ def cps_wage(n: int = 3000, seed: Optional[int] = 42) -> pd.DataFrame:
         X @ beta_m,
     ) + rng.normal(0, 0.35, n)
 
-    return pd.DataFrame(
+    return _simulated(
         {
             "female": female.astype(int),
             "education": educ,
@@ -82,6 +93,9 @@ def cps_wage(n: int = 3000, seed: Optional[int] = 42) -> pd.DataFrame:
 def chilean_households(n: int = 2500, seed: Optional[int] = 42) -> pd.DataFrame:
     """
     Chilean-style household income with urban/rural gap.
+
+    Simulated from a fixed-seed design; not survey microdata.
+    ``df.attrs['simulated']`` is ``True``.
 
     Columns:
       - rural : int {0, 1}
@@ -118,7 +132,7 @@ def chilean_households(n: int = 2500, seed: Optional[int] = 42) -> pd.DataFrame:
         X @ beta_u,
     ) + rng.normal(0, 0.42, n)
 
-    return pd.DataFrame(
+    return _simulated(
         {
             "rural": rural.astype(int),
             "head_education": educ,
@@ -132,6 +146,9 @@ def chilean_households(n: int = 2500, seed: Optional[int] = 42) -> pd.DataFrame:
 def mincer_wage_panel(n: int = 5000, seed: Optional[int] = 42) -> pd.DataFrame:
     """
     Two-period Mincer wage distribution with a structural shift.
+
+    Simulated from a fixed-seed design. ``df.attrs['simulated']`` is
+    ``True``.
 
     Useful for DFL / FFL examples where Group 0 is early period and
     Group 1 is late period.
@@ -172,7 +189,7 @@ def mincer_wage_panel(n: int = 5000, seed: Optional[int] = 42) -> pd.DataFrame:
         X @ beta_early,
     ) + rng.normal(0, 0.35, n)
 
-    return pd.DataFrame(
+    return _simulated(
         {
             "period": period.astype(int),
             "education": educ,
@@ -225,7 +242,7 @@ def disparity_panel(n: int = 3000, seed: Optional[int] = 42) -> pd.DataFrame:
         + 0.01 * (age - age.mean())
         + rng.normal(0, 0.5, n)
     )
-    return pd.DataFrame(
+    return _simulated(
         {
             "group": group.astype(int),
             "education": educ,

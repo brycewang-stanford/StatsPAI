@@ -52715,9 +52715,9 @@
       "Stata parity module 12_sdid",
       "Cross-language parity (bit-exact) vs synthdid::synthdid_estimate [R version 4.5.2 (2025-10-31), synthdid 0.0.9]; tolerance rel_est<=1e-06, rel_se<=1e-06; parity module 12_sdid -- tests/r_parity/12_sdid.py",
       "tests/reference_parity/test_did_synth_R_parity.py",
+      "tests/reference_parity/test_oct2026_fourth_pass.py",
       "tests/reference_parity/test_sdid_parity.py",
-      "tests/reference_parity/test_sdid_staggered_parity.py",
-      "tests/reference_parity/test_track_a_alias_equivalence.py"
+      "tests/reference_parity/test_sdid_staggered_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -53191,17 +53191,21 @@
     ],
     "category": "causal",
     "cost_profile": "One full sdid / sc / did fit per control unit.",
-    "description": "Run placebo estimates assigning treatment to each control unit. Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit.",
+    "description": "Run placebo estimates assigning treatment to each control unit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "",
@@ -53230,7 +53234,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Run placebo estimates assigning treatment to each control unit. Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit.",
+      "description": "Run placebo estimates assigning treatment to each control unit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit.",
       "name": "synthdid_placebo",
       "parameters": {
         "properties": {
@@ -53290,8 +53294,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
