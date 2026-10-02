@@ -31,6 +31,25 @@ Rules:
 
 ## Entries
 
+### 2026-10-02 — call traces re-recorded for 16, 73 and 84 after the scope-map fields were added
+
+- **Commit.** `f88b6bee`.
+- **Reason.** `sp.did_imputation` and `sp.gardner_did` now record the
+  configuration that `sp.validation_scope` reads (`y0_fe`, `y0_covariates`,
+  `horizon_requested`; `covariates`) in `model_info`. The traces bind the
+  SHA-256 of every source file on each module's estimation path, and
+  `did/did_imputation.py` and `did/gardner_2s.py` are on the paths of
+  Track A modules 16, 73 and 84.
+- **Effect on the paper.** None. Only the `exercised_sources` digests of
+  those three modules changed; their committed `_py.json` results are
+  byte-identical, so no estimate or standard error moved, and no module's
+  implementation classification changed. The same commit regenerates the
+  six option-level Stata fixtures under `tests/stata_parity/option_parity/`
+  in double precision. Those are outside the Track A enumeration and are
+  not read by any manuscript table.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-02 — release 1.35.0: parity tables carry the new version string
 
 - **Commits.** `173f2bf8` (release 1.35.0) regenerated
