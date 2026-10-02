@@ -517,13 +517,14 @@ def pretrends_test(
     >>> rng = np.random.default_rng(0)
     >>> rows = []
     >>> for i in range(80):
-    ...     cohort = 4 if i < 40 else 0          # 0 = never treated
+    ...     cohort = 4 if i < 40 else np.nan     # NaN = never treated
     ...     for t in range(8):
-    ...         post = cohort > 0 and t >= cohort
+    ...         post = i < 40 and t >= 4
     ...         y = 0.3 * t + (2.0 if post else 0.0) + (i % 5) + rng.normal()
     ...         rows.append((i, t, cohort, y))
     >>> df = pd.DataFrame(rows, columns=["id", "t", "cohort", "y"])
-    >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id")
+    >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id",
+    ...                     window=(-4, 3))
     >>> out = sp.pretrends_test(es)
     >>> out["type"], out["df"], bool(out["reject"])
     ('f', 3, False)
@@ -707,13 +708,14 @@ def pretrends_power(
     >>> rng = np.random.default_rng(0)
     >>> rows = []
     >>> for i in range(80):
-    ...     cohort = 4 if i < 40 else 0          # 0 = never treated
+    ...     cohort = 4 if i < 40 else np.nan     # NaN = never treated
     ...     for t in range(8):
-    ...         post = cohort > 0 and t >= cohort
+    ...         post = i < 40 and t >= 4
     ...         y = 0.3 * t + (2.0 if post else 0.0) + (i % 5) + rng.normal()
     ...         rows.append((i, t, cohort, y))
     >>> df = pd.DataFrame(rows, columns=["id", "t", "cohort", "y"])
-    >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id")
+    >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id",
+    ...                     window=(-4, 3))
     >>> pw = sp.pretrends_power(es)
     >>> pw["test"], pw["df"]
     ('individual', 3)
@@ -890,16 +892,17 @@ def pretrends_slope_for_power(
     >>> rng = np.random.default_rng(0)
     >>> rows = []
     >>> for i in range(80):
-    ...     cohort = 4 if i < 40 else 0          # 0 = never treated
+    ...     cohort = 4 if i < 40 else np.nan     # NaN = never treated
     ...     for t in range(8):
-    ...         post = cohort > 0 and t >= cohort
+    ...         post = i < 40 and t >= 4
     ...         y = 0.3 * t + (2.0 if post else 0.0) + (i % 5) + rng.normal()
     ...         rows.append((i, t, cohort, y))
     >>> df = pd.DataFrame(rows, columns=["id", "t", "cohort", "y"])
-    >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id")
+    >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id",
+    ...                     window=(-4, 3))
     >>> out = sp.pretrends_slope_for_power(es)
     >>> round(out["slope"], 2)
-    0.29
+    0.19
     >>> out["target_power"]
     0.5
 
@@ -1249,16 +1252,18 @@ def sensitivity_rr(
     >>> rng = np.random.default_rng(0)
     >>> rows = []
     >>> for i in range(80):
-    ...     cohort = 4 if i < 40 else 0          # 0 = never treated
+    ...     cohort = 4 if i < 40 else np.nan     # NaN = never treated
     ...     for t in range(8):
-    ...         post = cohort > 0 and t >= cohort
+    ...         post = i < 40 and t >= 4
     ...         y = 0.3 * t + (2.0 if post else 0.0) + (i % 5) + rng.normal()
     ...         rows.append((i, t, cohort, y))
     >>> df = pd.DataFrame(rows, columns=["id", "t", "cohort", "y"])
-    >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id")
+    >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id",
+    ...                     window=(-4, 3))
     >>> sens = sp.sensitivity_rr(es, Mbar=[0, 0.01, 0.02, 0.05])
-    >>> text = sens.summary()
-    >>> "Breakdown Mbar" in text
+    >>> round(sens.att, 2)                   # the planted effect is 2.0
+    2.04
+    >>> "No breakdown" in sens.summary()     # robust over this grid
     True
     >>> sens.mbar_grid.tolist()
     [0.0, 0.01, 0.02, 0.05]

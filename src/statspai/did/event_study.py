@@ -28,6 +28,7 @@ Trends." *American Economic Review: Insights*, 4(3), 305-322. [@roth2022pretest]
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -436,6 +437,38 @@ def event_study(
         df["__time_num__"] = df["__time__"].astype(float)
         df["__treat_time_num__"] = df["__treat_time__"].astype(float)
 
+    # A treatment time that is not finite, or earlier than the first period
+    # in the data, marks a never-treated unit: the documented contract
+    # ("NaN or a value outside the data range"), and the 0-for-never coding
+    # of csdid / R did when the calendar starts later.
+    #
+    # correctness fix (2026-10): such a value used to go through the
+    # relative-time arithmetic. Far below the range it was harmless (every
+    # period fell in the last bin and the unit fixed effect absorbed it);
+    # within ``max_lag`` of the first period, e.g. 0 with periods 1..8, the
+    # never-treated units were spread over the post-treatment dummies.
+    tt = df["__treat_time_num__"].astype(float)
+    t_first = float(df["__time_num__"].min())
+    coded_never = tt.notna() & (~np.isfinite(tt) | (tt < t_first))
+    n_coded_never_units = int(df.loc[coded_never, "__unit__"].nunique())
+    df["__treat_time_num__"] = tt.mask(coded_never)
+    at_start = df["__treat_time_num__"] == t_first
+    n_at_start_units = int(df.loc[at_start, "__unit__"].nunique())
+    if n_at_start_units and isinstance(treat_time, str):
+        from ..exceptions import AssumptionWarning
+
+        warnings.warn(
+            f"event_study: {n_at_start_units} unit(s) have {treat_time!r} equal "
+            f"to the first period in the data ({df.loc[at_start, '__treat_time__'].iloc[0]!r}) "
+            "and are taken as treated in every period. They have no "
+            "pre-treatment observation, and their post-treatment periods "
+            "enter the event-time dummies. If that value is a code for "
+            "never-treated units, recode it to NaN: left as it is, it "
+            "assigns the control group to the treated bins.",
+            AssumptionWarning,
+            stacklevel=2,
+        )
+
     # Relative time
     df["__rel_time__"] = df["__time_num__"] - df["__treat_time_num__"]
 
@@ -487,6 +520,36 @@ def event_study(
         dropna_cols.append(intensity)
     df_clean = df.dropna(subset=dropna_cols).copy()
     cluster_var = cluster or unit
+
+    # An event time no treated unit is observed at cannot be estimated.
+    #
+    # correctness fix (2026-10): its all-zero dummy used to stay in the
+    # regression, come back with coefficient 0 and SE 0, and be averaged
+    # into the headline ATT as an estimated zero effect. With window
+    # (-4, 4) and exposure observed to +3 the ATT of a 2.0 effect was 1.56.
+    empty_bins = [
+        b for b, col in zip(est_bins, dummy_cols) if not (df_clean[col] != 0).any()
+    ]
+    if empty_bins:
+        if len(empty_bins) == len(est_bins):
+            raise MethodIncompatibility(
+                "event_study: no treated observation falls in any event time "
+                f"of window=({min_lag}, {max_lag}).",
+                recovery_hint="Check treat_time and the window.",
+                diagnostics={"window": (min_lag, max_lag)},
+            )
+        keep = [b not in set(empty_bins) for b in est_bins]
+        dummy_cols = [c for c, k in zip(dummy_cols, keep) if k]
+        est_bins = [b for b, k in zip(est_bins, keep) if k]
+        rel_periods = [b[0] for b in est_bins]
+        warnings.warn(
+            "event_study: no treated observation at event time(s) "
+            f"{[b[0] if b[0] == b[1] else b for b in empty_bins]}; they are "
+            "left out of the table and of the average. Narrow `window` to "
+            "the exposure the data cover.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     # Prepare weights array (before demeaning)
     if weights is not None:
@@ -641,6 +704,9 @@ def event_study(
             "model_type": "DID Event Study",
             "event_study": event_study_df,
             "pretrend_test": pretrend_result,
+            "empty_event_times": [b[0] for b in empty_bins],
+            "n_units_coded_never_treated": n_coded_never_units,
+            "n_units_treated_from_first_period": n_at_start_units,
             # Full cluster-robust covariance of the event-time coefficients
             # (covariate block excluded). Exposed for inspection: nothing
             # downstream reads these two keys to change a result, so they are

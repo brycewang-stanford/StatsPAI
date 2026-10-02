@@ -6,6 +6,56 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.event_study` averaged a non-existent event time into the ATT.**
+  `window=(-4, 4)` on data whose exposure reaches +3 left an all-zero
+  dummy in the regression. It came back as coefficient 0 with SE 0, was
+  listed in the table, and entered the headline average as an estimated
+  zero: 1.56 for a true 2.0. Event times with no treated observation are
+  now left out of the table and of the average, with a warning, and
+  listed in `model_info['empty_event_times']`. A window that fits the data
+  is unchanged.
+- **`sp.event_study` treated some never-treated codings as treated.** The
+  documented contract is "NaN or a value outside the data range". A value
+  far below the range happened to work; within `max_lag` of the first
+  period it did not, so the common `0` for never-treated with periods
+  numbered from 1 spread the control group over the post-treatment
+  dummies. Non-finite values and values before the first period are now
+  never-treated outright. A value equal to the first period is taken as
+  treated throughout, as before, with an `AssumptionWarning` that says to
+  recode it to NaN if it is a never-treated code: with periods numbered
+  from 0 and `0` for the controls the estimate is 0.20 for a true 2.0. The
+  docstring examples of `sp.pretrends_test`, `sp.pretrends_power`,
+  `sp.pretrends_slope_for_power` and `sp.sensitivity_rr` were written that
+  way and are corrected.
+- **`sp.power_did`, `sp.power_rd` and `sp.power_iv` did not match the
+  power of the tests they describe.** Checked against simulated rejection
+  rates:
+  - `power_iv` multiplied OLS power by `F / (F + 1)`, which hardly moves
+    for any F above 10. 400 observations, an effect of 0.2 and a
+    first-stage F of 37 returned 0.95; simulation gives 0.21. It now uses
+    the 2SLS variance `sigma^2 / (n R2_z)` with `R2_z = F / (F + n)`.
+  - `power_rd` used the variance of a difference between two local means.
+    2,000 observations and an effect of 0.25 returned 0.93; the
+    local-linear test has 0.74. It now uses the boundary local-linear
+    variance `2 C_K sigma^2 / (n h f)` (`C_K` = 4.8 for the triangular
+    kernel).
+  - `power_did` applied a cluster design effect `1 + (T - 1) rho` to a
+    within-unit change and omitted the `1 / (p (1 - p))` of a two-group
+    comparison. 200 units, ten periods and `rho = 0.5` returned 0.48;
+    simulation with AR(1) errors gives 0.38. It now uses the exact
+    variance of the DiD estimator under AR(1) errors, and takes
+    `prop_treat` (default 0.5).
+  `sp.power("did" | "rd" | "iv", ...)` and `sp.mde` follow. The tests for
+  these functions restated the old formulas, so they could not fail.
+- **`sp.identify` printed the wrong estimand for queries that need the
+  full recursion.** The identifiability verdict was right; the formula was
+  not, because the ID algorithm's line 7 replaces the distribution and the
+  implementation carried only the graph. The front-door graph returned
+  `sum_{M} [P(Y) * P(M | X)]`, which is `P(Y)`. It now returns
+  `sum_{M} [P(M | X) * sum_{X'} [P(X') * P(Y | M, X')]]`. Seven graphs are
+  checked numerically against the interventional distribution of random
+  structural models (gap 2e-16), and the printed formula no longer depends
+  on the hash seed.
 - **`sp.rd_forest` and `sp.rd_boost` did not adjust for the running
   variable.** The learners see covariates only and were fitted to the raw
   outcome inside the bandwidth, so the result was the difference of

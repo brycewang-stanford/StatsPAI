@@ -174,10 +174,10 @@ def identify(
     ccs = _c_components(dag, observable)
 
     try:
-        estimand = _ID(Y, X, dag, observable)
-        return IdentificationResult(
+        expr = _ID(Y, X, _subgraph(dag, observable), observable)
+        result = IdentificationResult(
             identifiable=True,
-            estimand=estimand,
+            estimand=_render(expr),
             c_components=[set(c) for c in ccs],
             hedge=None,
             explanation=(
@@ -186,6 +186,9 @@ def identify(
                 f"expression involves only observed joint distributions."
             ),
         )
+        # The expression tree behind the string, for numeric checks.
+        object.__setattr__(result, "_expression", expr)
+        return result
     except _NotIdentifiable as exc:
         return IdentificationResult(
             identifiable=False,
@@ -199,15 +202,187 @@ def identify(
         )
 
 
-# --------------------------------------------------------------------------- #
-#  Core recursion (Shpitser-Pearl Alg. 1)
-# --------------------------------------------------------------------------- #
-
-
 class _NotIdentifiable(Exception):
     def __init__(self, F: Iterable[str], F_prime: Iterable[str]) -> None:
         self.F = frozenset(F)
         self.F_prime = frozenset(F_prime)
+
+
+# --------------------------------------------------------------------------- #
+#  Symbolic distributions
+# --------------------------------------------------------------------------- #
+#
+# The recursion manipulates a distribution, not only a graph: line 7 replaces
+# P by a product of conditionals of P and recurses on a sub-graph, and every
+# later line has to marginalise or condition *that* product. The expressions
+# below carry it. correctness fix (2026-10): the recursion used to pass the
+# graph alone and write "P(...)" for whatever distribution was current, so a
+# query that reached line 7 came back with the wrong formula; the front-door
+# graph returned sum_M [P(Y) * P(M | X)], which is P(Y).
+
+
+@dataclass(frozen=True)
+class _Prob:
+    """Observational ``P(vars | given)``."""
+
+    vars: tuple[str, ...]
+    given: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class _Prod:
+    terms: tuple[Any, ...]
+
+
+@dataclass(frozen=True)
+class _Sum:
+    over: tuple[str, ...]
+    body: Any
+
+
+@dataclass(frozen=True)
+class _Frac:
+    num: Any
+    den: Any
+
+
+def _tup(s: Iterable[str]) -> tuple[str, ...]:
+    return tuple(sorted(s))
+
+
+def _marginal(dist: Any, V: frozenset[str], keep: frozenset[str]) -> Any:
+    """``sum_{V minus keep} dist`` for a distribution over ``V``."""
+    drop = V - keep
+    if not drop:
+        return dist
+    if isinstance(dist, _Prob) and not dist.given:
+        return _Prob(_tup(keep))
+    return _Sum(_tup(drop), dist)
+
+
+def _conditional(dist: Any, V: frozenset[str], v: str, prior: Iterable[str]) -> Any:
+    """``dist(v | prior)`` for a distribution over ``V``."""
+    prior_set = frozenset(prior)
+    if isinstance(dist, _Prob) and not dist.given:
+        return _Prob((v,), _tup(prior_set))
+    num = _marginal(dist, V, prior_set | {v})
+    if not prior_set:
+        return num
+    return _Frac(num, _marginal(dist, V, prior_set))
+
+
+def _product(terms: list[Any]) -> Any:
+    flat: list[Any] = []
+    for t in terms:
+        flat.extend(t.terms if isinstance(t, _Prod) else [t])
+    return flat[0] if len(flat) == 1 else _Prod(tuple(flat))
+
+
+def _render(
+    expr: Any,
+    names: dict[str, str] | None = None,
+    reserved: set[str] | None = None,
+) -> str:
+    """Write ``expr`` out, priming a summation variable that is already in use.
+
+    The front-door formula sums over the treatment inside a term that also
+    has the treatment free; the inner one is written ``X'``. ``reserved``
+    holds the names in use around ``expr``: the free variables of the whole
+    estimand and the variables bound by enclosing sums.
+    """
+    names = dict(names or {})
+    if reserved is None:
+        reserved = set(_free_vars(expr))
+
+    def nm(v: str) -> str:
+        return names.get(v, v)
+
+    if isinstance(expr, _Prob):
+        head = ", ".join(nm(v) for v in expr.vars)
+        if expr.given:
+            return f"P({head} | {', '.join(nm(v) for v in expr.given)})"
+        return f"P({head})"
+    if isinstance(expr, _Prod):
+        # Sorted, so the printed formula does not depend on set iteration.
+        return " * ".join(sorted(_render(t, names, reserved) for t in expr.terms))
+    if isinstance(expr, _Frac):
+        num = _render(expr.num, names, reserved)
+        den = _render(expr.den, names, reserved)
+        return f"[{num}] / [{den}]"
+    if isinstance(expr, _Sum):
+        inner = dict(names)
+        taken = set(reserved)
+        for v in expr.over:
+            label = v
+            while label in taken:
+                label += "'"
+            inner[v] = label
+            taken.add(label)
+        over = ", ".join(sorted(inner[v] for v in expr.over))
+        return f"sum_{{{over}}} [{_render(expr.body, inner, taken)}]"
+    raise TypeError(f"unknown expression node {type(expr).__name__}")
+
+
+def _free_vars(expr: Any) -> frozenset[str]:
+    if isinstance(expr, _Prob):
+        return frozenset(expr.vars) | frozenset(expr.given)
+    if isinstance(expr, _Prod):
+        out: frozenset[str] = frozenset()
+        for t in expr.terms:
+            out |= _free_vars(t)
+        return out
+    if isinstance(expr, _Frac):
+        return _free_vars(expr.num) | _free_vars(expr.den)
+    if isinstance(expr, _Sum):
+        return _free_vars(expr.body) - frozenset(expr.over)
+    raise TypeError(f"unknown expression node {type(expr).__name__}")
+
+
+def _evaluate(expr: Any, joint: Any, values: dict[str, int]) -> float:
+    """Numeric value of ``expr`` under an observational joint.
+
+    ``joint`` maps a tuple of ``(variable, value)`` pairs, sorted by
+    variable, to its probability, for binary variables. Used by the tests
+    to check an estimand against the interventional distribution of a
+    structural model; not part of the public API.
+    """
+    import itertools
+
+    variables = sorted({v for key in joint for v, _ in key})
+
+    def prob(fixed: dict[str, int]) -> float:
+        total = 0.0
+        for key, pr in joint.items():
+            if all(dict(key)[v] == val for v, val in fixed.items()):
+                total += pr
+        return total
+
+    if isinstance(expr, _Prob):
+        given = {v: values[v] for v in expr.given}
+        both = dict(given, **{v: values[v] for v in expr.vars})
+        den = prob(given) if given else 1.0
+        return prob(both) / den if den > 0 else 0.0
+    if isinstance(expr, _Prod):
+        out = 1.0
+        for t in expr.terms:
+            out *= _evaluate(t, joint, values)
+        return out
+    if isinstance(expr, _Frac):
+        den = _evaluate(expr.den, joint, values)
+        return _evaluate(expr.num, joint, values) / den if den > 0 else 0.0
+    if isinstance(expr, _Sum):
+        total = 0.0
+        for combo in itertools.product((0, 1), repeat=len(expr.over)):
+            total += _evaluate(
+                expr.body, joint, dict(values, **dict(zip(expr.over, combo)))
+            )
+        return total
+    raise TypeError(f"unknown expression node {type(expr).__name__} ({variables})")
+
+
+# --------------------------------------------------------------------------- #
+#  Core recursion (Shpitser-Pearl Alg. 1)
+# --------------------------------------------------------------------------- #
 
 
 def _ID(
@@ -215,65 +390,65 @@ def _ID(
     X: frozenset[str],
     dag: Any,
     V: frozenset[str],
-) -> str:
-    """Non-parametric identification over observed set V. Returns a
-    string-form estimand (sum / product of conditional densities)."""
-    # Line 1: if X empty -> marginalize
-    if not X:
-        extra = V - Y
-        if extra:
-            return f"sum_{{{_fmt(extra)}}} P({_fmt(V)})"
-        return f"P({_fmt(Y)})"
+    dist: Any = None,
+) -> Any:
+    """Non-parametric identification of ``P(Y | do(X))`` over observed ``V``.
 
-    # Line 2: restrict to ancestors of Y
+    ``dist`` is the current distribution over ``V`` as a symbolic
+    expression (the observational joint when omitted). Returns the
+    estimand as an expression; :func:`_render` writes it out.
+    """
+    if dist is None:
+        dist = _Prob(_tup(V))
+
+    # Line 1: no intervention left -> marginalise.
+    if not X:
+        return _marginal(dist, V, Y)
+
+    # Line 2: restrict to the ancestors of Y.
     An_Y = _ancestors_in(dag, Y, V)
     if An_Y != V:
-        return _ID(Y, X & An_Y, dag, An_Y)
+        return _ID(Y, X & An_Y, _subgraph(dag, An_Y), An_Y, _marginal(dist, V, An_Y))
 
-    # Line 3: insert do-null term
+    # Line 3: intervene also on what cannot reach Y once X is fixed.
     W = (V - X) - _ancestors_in(dag, Y, V - X)
     if W:
-        return _ID(Y, X | W, dag, V)
+        return _ID(Y, X | W, dag, V, dist)
 
-    # Line 4: c-component decomposition
+    # Line 4: c-component decomposition of G minus X.
     G_minus_X = _subgraph_without_nodes(dag, X)
     ccs = _c_components(G_minus_X, V - X)
     if len(ccs) > 1:
-        parts: list[str] = []
-        for S in ccs:
-            parts.append(_ID(frozenset(S), V - frozenset(S), dag, V))
+        parts = [_ID(frozenset(S), V - frozenset(S), dag, V, dist) for S in ccs]
+        body = _product(parts)
         extra = V - Y - X
-        body = " * ".join(parts)
-        if extra:
-            return f"sum_{{{_fmt(extra)}}} [{body}]"
-        return body
+        return _Sum(_tup(extra), body) if extra else body
 
-    S = ccs[0]
-    # Line 5: entire graph is one c-component
-    CV = _c_components(dag, V)
-    if len(CV) == 1 and frozenset(CV[0]) == V:
+    S = frozenset(ccs[0])
+    # Line 5: the whole graph is one c-component -> a hedge.
+    CV = [frozenset(c) for c in _c_components(dag, V)]
+    if len(CV) == 1 and CV[0] == V:
         raise _NotIdentifiable(V, S)
 
-    # Line 6: S is itself a c-component of the whole graph
-    if frozenset(S) in [frozenset(c) for c in CV]:
-        order = _topo_order(dag, V)
-        pieces = []
-        for v in order:
-            if v in S:
-                pre = _prior(order, v)
-                pieces.append(f"P({v} | {_fmt(pre)})" if pre else f"P({v})")
-        extra = frozenset(S) - Y
-        body = " * ".join(pieces)
-        if extra:
-            return f"sum_{{{_fmt(extra)}}} [{body}]"
-        return body
+    order = _topo_order(dag, V)
 
-    # Line 7: S strictly contained in some c-component S' of full graph
+    # Line 6: S is a c-component of the whole graph.
+    if S in CV:
+        body = _product(
+            [_conditional(dist, V, v, _prior(order, v)) for v in order if v in S]
+        )
+        extra = S - Y
+        return _Sum(_tup(extra), body) if extra else body
+
+    # Line 7: S sits strictly inside a c-component S' of the whole graph.
+    # Recurse on G[S'] with the distribution
+    #   prod_{v in S'} dist(v | predecessors of v in the order of V).
     for Sp in CV:
-        if set(S).issubset(Sp) and set(S) != set(Sp):
-            V_new = frozenset(Sp)
-            X_new = X & V_new
-            return _ID(Y, X_new, _subgraph(dag, V_new), V_new)
+        if S < Sp:
+            new_dist = _product(
+                [_conditional(dist, V, v, _prior(order, v)) for v in order if v in Sp]
+            )
+            return _ID(Y, X & Sp, _subgraph(dag, Sp), Sp, new_dist)
 
     raise _NotIdentifiable(V, S)
 
@@ -311,7 +486,7 @@ def _c_components(dag: Any, observed: Iterable[str]) -> list[NodeSet]:
     unvisited = set(observed)
     components: list[NodeSet] = []
     while unvisited:
-        seed = next(iter(unvisited))
+        seed = min(unvisited)
         stack = [seed]
         comp: NodeSet = set()
         while stack:
@@ -372,7 +547,7 @@ def _subgraph_without_nodes(dag: Any, remove: Iterable[str]) -> Any:
 
 def _topo_order(dag: Any, V: Iterable[str]) -> list[str]:
     V = set(V)
-    indeg = {v: 0 for v in V}
+    indeg = {v: 0 for v in sorted(V)}
     for p, ch in dag._edges.items():
         if _is_latent(p):
             continue
@@ -384,7 +559,7 @@ def _topo_order(dag: Any, V: Iterable[str]) -> list[str]:
     while stack:
         v = stack.pop(0)
         order.append(v)
-        for c in dag._edges.get(v, set()):
+        for c in sorted(dag._edges.get(v, set())):
             if c in V and not _is_latent(c):
                 indeg[c] -= 1
                 if indeg[c] == 0:

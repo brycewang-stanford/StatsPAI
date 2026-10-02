@@ -127,27 +127,26 @@ class TestPowerIVAnalytic:
         expected = norm.cdf(es * np.sqrt(n) - Z_ALPHA)
         assert sp.power_iv(n, es).power == pytest.approx(expected, abs=1e-9)
 
-    def test_first_stage_f_one_halves_power(self):
-        # adjustment = F / (F + 1); F=1 -> exactly half the OLS-benchmark power.
-        n, es = 500, 0.3
-        ols = norm.cdf(es * np.sqrt(n) - Z_ALPHA)
-        assert sp.power_iv(n, es, first_stage_f=1.0).power == pytest.approx(
-            0.5 * ols, abs=1e-9
+    def test_first_stage_f_sets_the_identifying_share(self):
+        # R2_z = F / (F + n) for one instrument; the test then has the power
+        # of OLS on n * R2_z observations.
+        n, es, f = 500, 0.3, 25.0
+        r2 = f / (f + n)
+        expected = norm.cdf(es * np.sqrt(n * r2) - Z_ALPHA)
+        assert sp.power_iv(n, es, first_stage_f=f).power == pytest.approx(
+            expected, abs=1e-9
         )
 
     def test_strong_first_stage_recovers_ols(self):
         n, es = 500, 0.3
         ols = norm.cdf(es * np.sqrt(n) - Z_ALPHA)
         strong = sp.power_iv(n, es, first_stage_f=1e6).power
-        assert strong == pytest.approx(ols, rel=1e-5)
+        assert strong == pytest.approx(ols, rel=1e-3)
 
-    def test_r2z_path_matches_f_approximation(self):
-        # r2_z route: F ~ n * r2_z / (1 - r2_z); adjustment = F / (F + 1).
+    def test_r2z_path_is_ols_power_on_the_identified_share(self):
         n, es, r2 = 500, 0.3, 0.1
-        ols = norm.cdf(es * np.sqrt(n) - Z_ALPHA)
-        f_approx = n * r2 / (1 - r2)
-        expected = ols * f_approx / (f_approx + 1)
-        assert sp.power_iv(n, es, r2_z=r2).power == pytest.approx(expected, abs=1e-7)
+        expected = norm.cdf(es * np.sqrt(n * r2) - Z_ALPHA)
+        assert sp.power_iv(n, es, r2_z=r2).power == pytest.approx(expected, abs=1e-9)
 
     def test_first_stage_f_takes_precedence_over_r2z(self):
         n, es = 500, 0.3

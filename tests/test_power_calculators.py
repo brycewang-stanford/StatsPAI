@@ -8,6 +8,7 @@ effect, and — for clustered designs — falls as the intra-cluster correlation
 grows.
 """
 
+import numpy as np
 import pytest
 from scipy.stats import norm
 
@@ -48,7 +49,7 @@ def test_result_objects_carry_design_tag():
     assert sp.power_rd(n=1000, effect_size=0.3, bandwidth=0.5).design == "rd"
 
 
-def test_power_did_matches_closed_form_formula():
+def test_power_did_matches_the_ar1_variance_of_the_did_estimator():
     res = sp.power_did(
         n=400,
         effect_size=0.3,
@@ -57,19 +58,28 @@ def test_power_did_matches_closed_form_formula():
         rho=0.5,
     )
     z_alpha = norm.ppf(0.975)
-    se = (1.0 / 400**0.5) * ((1.0 + 3.0 * 0.5) / (2.0 * (1.0 - 2.0 / 4.0))) ** 0.5
-    expected = norm.cdf(0.3 / se - z_alpha)
-    assert res.power == pytest.approx(expected)
+    # Var(post mean - pre mean) for one unit, AR(1) correlation rho^|s-t|:
+    # c = (-1/2, -1/2, 1/2, 1/2).
+    c = np.array([-0.5, -0.5, 0.5, 0.5])
+    corr = 0.5 ** np.abs(np.subtract.outer(np.arange(4), np.arange(4)))
+    se = np.sqrt(float(c @ corr @ c) / (0.5 * 0.5 * 400))
+    assert res.power == pytest.approx(norm.cdf(0.3 / se - z_alpha))
+    # rho = 0 is the textbook 2 sigma sqrt((1/m + 1/r) / n).
+    iid = sp.power_did(n=400, effect_size=0.3, n_periods=4, n_treated_periods=2, rho=0)
+    assert iid.power == pytest.approx(
+        norm.cdf(0.3 / (2 * np.sqrt(1.0 / 400)) - z_alpha)
+    )
 
 
-def test_power_rd_matches_closed_form_formula():
+def test_power_rd_matches_the_boundary_local_linear_variance():
     res = sp.power_rd(n=1000, effect_size=0.3, bandwidth=0.5)
     z_alpha = norm.ppf(0.975)
-    n_eff = 1000.0 * 0.5 * 1.0 * 0.75
-    n_side = n_eff / 2.0
-    se = (2.0 / n_side) ** 0.5
-    expected = norm.cdf(0.3 / se - z_alpha)
-    assert res.power == pytest.approx(expected)
+    # se = sigma sqrt(2 C_K / (n h f)), C_K = 4.8 for the triangular kernel.
+    se = (2.0 * 4.8 / (1000.0 * 0.5 * 1.0)) ** 0.5
+    assert res.power == pytest.approx(norm.cdf(0.3 / se - z_alpha))
+    uniform = sp.power_rd(n=1000, effect_size=0.3, bandwidth=0.5, kernel="uniform")
+    se_u = (2.0 * 4.0 / 500.0) ** 0.5
+    assert uniform.power == pytest.approx(norm.cdf(0.3 / se_u - z_alpha))
 
 
 def test_power_ols_matches_closed_form_formula():

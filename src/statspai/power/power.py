@@ -352,32 +352,61 @@ def power_did(
     rho: float = 0.5,
     alpha: float = 0.05,
     sigma: float = 1.0,
+    prop_treat: float = 0.5,
 ) -> PowerResult:
-    """Power for Difference-in-Differences.
+    r"""Power for Difference-in-Differences.
 
-    Follows Burlig, Preonas & Woerman (2020) accounting for serial
-    correlation and the number of pre/post periods.
+    Two groups observed for ``n_periods`` periods, the last
+    ``n_treated_periods`` of them after treatment, with errors that follow a
+    stationary AR(1) process within unit: the serially correlated setting of
+    Burlig, Preonas & Woerman (2020). The estimator is the difference in
+    post-minus-pre mean changes between the groups, which is the two-way
+    fixed-effects coefficient on a balanced panel. Its variance is exact
+    under the stated error process:
+
+    .. math::
+
+        \mathrm{Var}(\hat\tau) = \frac{\sigma^2\, c' R c}{p(1-p)\, n},
+
+    where ``c`` puts ``1 / n_treated_periods`` on each post period and
+    ``-1 / (n_periods - n_treated_periods)`` on each pre period, and ``R``
+    is the AR(1) correlation matrix ``rho ** |s - t|``.
 
     Parameters
     ----------
     n : int or array-like
         Total number of units (treated + control).
     effect_size : float or array-like
-        Standardised effect size.
+        Effect in units of ``sigma``.
     n_periods : int
         Total number of time periods.
     n_treated_periods : int
         Number of post-treatment periods.
     rho : float
-        First-order autocorrelation of errors (0–1).
+        First-order autocorrelation of the errors within a unit. Positive
+        autocorrelation lowers the variance of a pre/post change when the
+        panel is short and raises it as the panel lengthens.
     alpha : float
         Significance level (two-sided).
     sigma : float
-        Error standard deviation.
+        Standard deviation of the error in one unit-period.
+    prop_treat : float, default 0.5
+        Share of units that are treated.
 
     Returns
     -------
     PowerResult
+
+    Notes
+    -----
+    Until the 2026-10 fix the variance was
+    ``sigma^2 (1 + (T - 1) rho) T / (n T_pre T_post)``: a cluster design
+    effect, which does not apply to a within-unit change, and without the
+    ``1 / (p (1 - p))`` factor of a two-group comparison. With ``rho = 0``
+    it overstated power (the standard error was half its value); with a
+    large ``rho`` it understated it. For 200 units, ten periods of which
+    five treated, ``rho = 0.5`` and an effect of 0.2 it returned 0.48 where
+    simulation gives 0.38.
 
     Examples
     --------
@@ -385,23 +414,31 @@ def power_did(
     >>> res = sp.power_did(n=1000, effect_size=0.1, n_periods=10,
     ...                    n_treated_periods=5)
     >>> round(float(res.power), 4)
-    0.5683
+    0.4516
     """
     n_arr = _to_array(n)
     es_arr = _to_array(effect_size)
     z_alpha = norm.ppf(1 - alpha / 2)
 
-    T = n_periods
-    T_post = n_treated_periods
+    T = int(n_periods)
+    T_post = int(n_treated_periods)
+    T_pre = T - T_post
+    if T_pre < 1 or T_post < 1:
+        raise ValueError(
+            "power_did needs at least one pre-treatment and one "
+            f"post-treatment period (n_periods={n_periods}, "
+            f"n_treated_periods={n_treated_periods})."
+        )
+    if not 0.0 < prop_treat < 1.0:
+        raise ValueError(f"prop_treat must be in (0, 1), got {prop_treat}.")
+    if not -1.0 < rho < 1.0:
+        raise ValueError(f"rho must be in (-1, 1), got {rho}.")
 
-    # SE(DID) ~ sigma / sqrt(N) times the serial-correlation adjustment.
-    # Denominator captures information gain from pre/post split
-    numerator = 1 + (T - 1) * rho
-    denominator = T_post * (1 - T_post / T)
-    # Guard against degenerate cases
-    denominator = np.maximum(denominator, 1e-12)
-
-    se = sigma / np.sqrt(n_arr) * np.sqrt(numerator / denominator)
+    # Variance of (post mean - pre mean) for one unit under AR(1) errors.
+    c = np.concatenate([np.full(T_pre, -1.0 / T_pre), np.full(T_post, 1.0 / T_post)])
+    lags = np.abs(np.subtract.outer(np.arange(T), np.arange(T)))
+    change_var = float(c @ (float(rho) ** lags) @ c)
+    se = sigma * np.sqrt(change_var / (prop_treat * (1.0 - prop_treat) * n_arr))
     pwr = norm.cdf(np.abs(es_arr) * sigma / se - z_alpha)
 
     return PowerResult(
@@ -417,8 +454,19 @@ def power_did(
             n_treated_periods=n_treated_periods,
             rho=rho,
             sigma=sigma,
+            prop_treat=prop_treat,
         ),
     )
+
+
+#: Variance constant of the local-linear estimator at a boundary,
+#: ``(mu2^2 nu0 - 2 mu1 mu2 nu1 + mu1^2 nu2) / (mu0 mu2 - mu1^2)^2`` with
+#: ``mu_j = int_0^1 u^j K(u) du`` and ``nu_j = int_0^1 u^j K(u)^2 du``.
+_BOUNDARY_LL_CONSTANT = {
+    "uniform": 4.0,
+    "triangular": 24.0 / 5.0,
+    "epanechnikov": 56832.0 / 12635.0,
+}
 
 
 def power_rd(
@@ -430,23 +478,37 @@ def power_rd(
     alpha: float = 0.05,
     sigma: float = 1.0,
 ) -> PowerResult:
-    """Power for Regression Discontinuity designs.
+    r"""Power for Regression Discontinuity designs.
 
-    Following Cattaneo, Titiunik & Vazquez-Bare (2019).
+    Power of the conventional local-linear t test at a fixed bandwidth.
+    Each side's boundary intercept has asymptotic variance
+    ``sigma^2 C_K / (n h f)``, where ``n h f`` is the expected number of
+    observations within ``h`` of the cutoff on that side and ``C_K`` is the
+    kernel's boundary constant (4 for uniform, 4.8 for triangular, about
+    4.5 for Epanechnikov), so
+
+    .. math::
+
+        \mathrm{se}(\hat\tau) = \sigma \sqrt{\frac{2\, C_K}{n\, h\, f}}.
+
+    The robust bias-corrected test that ``sp.rdrobust`` reports by default
+    is less powerful than this; for a design calculation anchored on pilot
+    data use ``sp.rdpower`` (Cattaneo, Titiunik & Vazquez-Bare 2019).
 
     Parameters
     ----------
     n : int or array-like
         Total sample size in the data.
     effect_size : float or array-like
-        Standardised effect size at the cutoff.
+        Effect at the cutoff in units of ``sigma``.
     bandwidth : float or None
-        Bandwidth around the cutoff.  If *None*, defaults to 0.5
-        (half the running-variable range on each side).
+        Bandwidth on each side of the cutoff, in units of the running
+        variable. If *None*, defaults to 0.5 (the whole support of a
+        running variable on [0, 1] with the cutoff at its midpoint).
     kernel : {'triangular', 'uniform', 'epanechnikov'}
         Kernel used for local weighting.
     density_at_cutoff : float
-        Estimated density of the running variable at the cutoff
+        Density of the running variable at the cutoff
         (default 1.0 for a uniform running variable on [0,1]).
     alpha : float
         Significance level.
@@ -457,6 +519,13 @@ def power_rd(
     -------
     PowerResult
 
+    Notes
+    -----
+    Until the 2026-10 fix the standard error was that of a difference
+    between two local means with an efficiency discount, about half the
+    local-linear value: 2,000 observations and an effect of 0.25 returned
+    0.93 where simulation of the local-linear test gives 0.74.
+
     References
     ----------
     cattaneo2019power
@@ -466,7 +535,7 @@ def power_rd(
     >>> import statspai as sp
     >>> res = sp.power_rd(n=2000, effect_size=0.25)
     >>> round(float(res.power), 4)
-    0.9283
+    0.7229
     """
     n_arr = _to_array(n)
     es_arr = _to_array(effect_size)
@@ -474,23 +543,15 @@ def power_rd(
 
     if bandwidth is None:
         bandwidth = 0.5
+    if kernel not in _BOUNDARY_LL_CONSTANT:
+        raise ValueError(
+            f"kernel must be one of {sorted(_BOUNDARY_LL_CONSTANT)}, got {kernel!r}."
+        )
+    c_k = _BOUNDARY_LL_CONSTANT[kernel]
 
-    # Kernel efficiency relative to uniform
-    kernel_eff = {
-        "triangular": 0.75,
-        "uniform": 1.0,
-        "epanechnikov": 0.85,
-    }
-    eff = kernel_eff.get(kernel, 0.75)
-
-    # Effective sample near cutoff
-    n_eff = n_arr * bandwidth * density_at_cutoff * eff
-    n_eff = np.maximum(n_eff, 1.0)
-
-    # Each side of cutoff gets ~half the effective sample
-    n_side = n_eff / 2.0
-    se = sigma * np.sqrt(2.0 / n_side)  # comparing two local means
-
+    # Expected observations within the bandwidth on one side of the cutoff.
+    n_side = np.maximum(n_arr * bandwidth * density_at_cutoff, 1.0)
+    se = sigma * np.sqrt(2.0 * c_k / n_side)
     pwr = norm.cdf(np.abs(es_arr) * sigma / se - z_alpha)
 
     return PowerResult(
@@ -520,19 +581,24 @@ def power_iv(
 ) -> PowerResult:
     """Power for Instrumental Variables / 2SLS estimation.
 
-    Accounts for the power penalty from a weak first stage.
+    The 2SLS estimator has asymptotic variance ``sigma^2 / (n R2_z)`` for a
+    regressor with unit variance, where ``R2_z`` is the share of the
+    endogenous regressor's variance the instruments explain: only that
+    share identifies the effect. Power is therefore that of OLS on a sample
+    of ``n R2_z`` observations.
 
     Parameters
     ----------
     n : int or array-like
         Sample size.
     effect_size : float or array-like
-        Standardised effect size of the endogenous variable.
+        Effect of a one-standard-deviation change in the endogenous
+        variable, in units of ``sigma``.
     first_stage_f : float or None
-        First-stage F-statistic.  If provided, power is adjusted for
-        instrument weakness: effective_power ~ power_ols * F / (F + 1).
+        First-stage F-statistic of a single instrument, converted with
+        ``R2_z = F / (F + n)``. With several instruments pass ``r2_z``.
     r2_z : float or None
-        R-squared of the first-stage regression.  Alternative to
+        Partial R-squared of the first-stage regression.  Alternative to
         *first_stage_f*; if both are given, *first_stage_f* takes precedence.
     alpha : float
         Significance level.
@@ -543,6 +609,19 @@ def power_iv(
     -------
     PowerResult
 
+    Notes
+    -----
+    With neither ``first_stage_f`` nor ``r2_z`` the result is the OLS
+    benchmark. The normal approximation is unreliable for a weak first
+    stage (F below about 10), where 2SLS is biased and its t test
+    over-rejects.
+
+    Until the 2026-10 fix the result was the OLS power multiplied by
+    ``F / (F + 1)``, which barely moves for any F above 10 however little
+    of the regressor the instrument explains: 400 observations, an effect
+    of 0.2 and a first-stage F of 37 returned 0.95 where simulation gives
+    0.21.
+
     References
     ----------
     stock2005testing
@@ -552,31 +631,26 @@ def power_iv(
     >>> import statspai as sp
     >>> res = sp.power_iv(n=1000, effect_size=0.2, first_stage_f=20)
     >>> round(float(res.power), 4)
-    0.9524
+    0.1413
     """
     n_arr = _to_array(n)
     es_arr = _to_array(effect_size)
     z_alpha = norm.ppf(1 - alpha / 2)
 
-    # Baseline: OLS-like power
-    se_ols = sigma / np.sqrt(n_arr)
-    pwr_ols = norm.cdf(np.abs(es_arr) * sigma / se_ols - z_alpha)
-
-    # Adjustment for first-stage weakness
-    adjustment: Any
+    r2: Any
     if first_stage_f is not None:
-        adjustment = first_stage_f / (first_stage_f + 1)
+        if first_stage_f <= 0:
+            raise ValueError(f"first_stage_f must be positive, got {first_stage_f}.")
+        r2 = first_stage_f / (first_stage_f + n_arr)
     elif r2_z is not None:
-        # F ~ n * r2_z / (1 - r2_z)  for single instrument
-        f_approx = n_arr * r2_z / (1 - r2_z + 1e-12)
-        adjustment = f_approx / (f_approx + 1)
+        if not 0.0 < r2_z <= 1.0:
+            raise ValueError(f"r2_z must be in (0, 1], got {r2_z}.")
+        r2 = r2_z
     else:
-        adjustment = 1.0  # no first-stage penalty
+        r2 = 1.0  # no first-stage information: the OLS benchmark
 
-    # IV power = OLS power * adjustment
-    # More precisely: IV variance is sigma^2 / (n * R^2_z), but the
-    # F-based shortcut captures the intuition cleanly.
-    pwr = pwr_ols * adjustment
+    se = sigma / np.sqrt(n_arr * r2)
+    pwr = norm.cdf(np.abs(es_arr) * sigma / se - z_alpha)
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
@@ -784,14 +858,14 @@ def power(
     >>> import statspai as sp
     >>> sp.power("did", n=1000, effect_size=0.1,
     ...          n_periods=10, n_treated_periods=5)
-    PowerResult(design='did', power=0.5683, n=1000, effect_size=0.1000)
+    PowerResult(design='did', power=0.4516, n=1000, effect_size=0.1000)
     >>> sp.power("did", power=0.8, effect_size=0.1,
     ...          n_periods=10, n_treated_periods=5)
-    PowerResult(design='did', power=0.8001, n=1727, effect_size=0.1000)
+    PowerResult(design='did', power=0.8000, n=2323, effect_size=0.1000)
     >>> result = sp.power("did", n=range(100, 2000, 100), effect_size=0.1,
     ...                   n_periods=10, n_treated_periods=5)
     >>> result
-    PowerResult(design='did', power=[0.0993..0.8362], len=19)
+    PowerResult(design='did', power=[0.0840..0.7170], len=19)
     >>> ax = result.plot()
     """
     # Accept 'power' kwarg as alias for power_target (convenience API)
@@ -876,7 +950,7 @@ def mde(
     --------
     >>> import statspai as sp
     >>> sp.mde("did", n=1000, n_periods=10, n_treated_periods=5)
-    PowerResult(design='did', power=0.8000, n=1000, effect_size=0.1314)
+    PowerResult(design='did', power=0.8000, n=1000, effect_size=0.1524)
     """
     if n is None:
         raise ValueError("n must be specified for MDE calculation.")
