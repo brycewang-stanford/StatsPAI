@@ -208,6 +208,17 @@ jobs:
           tests/test_mcp_protocol.py \
           tests/test_mcp_tool_contract.py \
           tests/test_mcp_stdio_subprocess.py \
+          tests/test_mcp_stdio_chain.py \
+          tests/test_mcp_hardening.py \
+          tests/test_mcp_hardening_stdio.py \
+          tests/test_mcp_output_budget_risk.py \
+          tests/test_mcp_replay_completeness.py \
+          tests/test_mcp_data_handles.py \
+          tests/test_mcp_result_handle.py \
+          tests/test_mcp_error_envelope.py \
+          tests/test_registry_metadata_ratchet.py \
+          tests/test_validation_scope.py \
+          tests/test_skill_package.py \
           tests/test_agent_native_gaps.py \
           -q --no-header -o addopts=''
 
