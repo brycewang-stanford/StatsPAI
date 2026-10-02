@@ -1420,7 +1420,7 @@
     }
   },
   {
-    "description": "Treatment-Agnostic Representation Network for neural CATE/ATE estimation. Stores CATE, potential-outcome predictions, training diagnostics, and export-ready unit effects. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
+    "description": "Treatment-Agnostic Representation Network for neural CATE/ATE estimation. Stores CATE, potential-outcome predictions, training diagnostics, and export-ready unit effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "name": "tarnet",
     "parameters": {
       "properties": {
@@ -1475,6 +1475,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed",
+          "type": "integer"
+        },
+        "refit_bootstrap": {
+          "default": 0,
+          "description": "Bootstrap refits for a valid SE (0 = plug-in dispersion)",
           "type": "integer"
         },
         "repr_layers": {
@@ -1574,6 +1579,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed",
+          "type": "integer"
+        },
+        "refit_bootstrap": {
+          "default": 0,
+          "description": "Bootstrap refits for a valid SE (0 = plug-in dispersion)",
           "type": "integer"
         },
         "repr_layers": {
@@ -3431,7 +3441,7 @@
     }
   },
   {
-    "description": "Estimate the same model with multiple panel methods and return a side-by-side comparison table.",
+    "description": "Estimate the same model with multiple panel methods and return a side-by-side comparison table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "panel_compare",
     "parameters": {
       "properties": {
@@ -10039,7 +10049,7 @@
     }
   },
   {
-    "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting.",
+    "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "iv_compare",
     "parameters": {
       "properties": {
@@ -17953,7 +17963,7 @@
     }
   },
   {
-    "description": "Rambachan-Roth (2023) honest-DiD sensitivity analysis: computes the largest violation of parallel trends (parametrised by Mbar -- relative magnitude of the post-period violation versus the worst observed pre-period one) under which the post-treatment ATT is still different from zero at level alpha. Reports both the robust confidence sets and the breakdown Mbar.",
+    "description": "Rambachan-Roth (2023) honest-DiD sensitivity analysis: computes the largest violation of parallel trends (parametrised by Mbar -- relative magnitude of the post-period violation versus the worst observed pre-period one) under which the post-treatment ATT is still different from zero at level alpha. Reports both the robust confidence sets and the breakdown Mbar. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "sensitivity_rr",
     "parameters": {
       "properties": {
@@ -23411,7 +23421,7 @@
     }
   },
   {
-    "description": "Run placebo estimates assigning treatment to each control unit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit.",
+    "description": "Placebo estimates for a synthetic difference-in-differences fit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit.",
     "name": "synthdid_placebo",
     "parameters": {
       "properties": {
@@ -23419,6 +23429,15 @@
           "description": "pandas DataFrame containing the variables used by the estimator.",
           "type": "object",
           "x-statspai-role": "dataframe"
+        },
+        "kind": {
+          "default": "unit",
+          "description": "kind parameter (Literal['unit', 'time']).",
+          "enum": [
+            "unit",
+            "time"
+          ],
+          "type": "string"
         },
         "method": {
           "default": "sdid",
@@ -24451,6 +24470,11 @@
         "random_state": {
           "default": 42,
           "description": "Random seed for reproducibility.",
+          "type": "integer"
+        },
+        "refit_bootstrap": {
+          "default": 0,
+          "description": "Number of bootstrap refits for a standard error that carries the sampling variability of both networks. Each refit trains both stages on a resample of the rows from its own initialisation, so the run takes ``refit_bootstrap + 1`` times as long. With it, ``se``, ``ci`` and ``pvalue`` come from the spread of the refits, ``model_info['se_valid_for_ate']`` is ``True`` and the fixed-network number moves to ``model_info['se_plugin']``. Must be 0 or at least 5.",
           "type": "integer"
         },
         "second_stage_epochs": {
@@ -30760,7 +30784,7 @@
     }
   },
   {
-    "description": "Predict CATE on new (out-of-sample) data.",
+    "description": "Predict CATE on new (out-of-sample) data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "predict_cate",
     "parameters": {
       "properties": {
@@ -48984,7 +49008,7 @@
     }
   },
   {
-    "description": "Causal-discovery dispatcher -- article-facing alias.",
+    "description": "Causal-discovery dispatcher -- article-facing alias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "causal_discovery",
     "parameters": {
       "properties": {

@@ -6,6 +6,26 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`refit_bootstrap=` on `sp.tarnet`, `sp.cfrnet` and `sp.deepiv`.** The
+  default `se` of these estimators holds the trained network fixed and is
+  flagged `model_info['se_valid_for_ate'] = False`. With
+  `refit_bootstrap=B` the networks are retrained on `B` resamples, each
+  from its own initialisation, and `se`, `ci` and `pvalue` come from the
+  spread of the refits; the fixed-network number moves to
+  `model_info['se_plugin']`. The run takes `B + 1` times as long.
+  Over 40 replications at `n = 600` with 20 refits, the refit interval
+  covered the true ATE 95% of the time for `tarnet` (SE 0.068 against an
+  across-seed SD of 0.056) and 97.5% for `cfrnet`; the fixed-network
+  interval covered 57.5% and 47.5%. For `deepiv` the refit SE was 0.31
+  against an SD of 0.24 over ten replications, the fixed-network one
+  0.009. The default is unchanged (`refit_bootstrap=0`).
+- **`sp.synthdid_placebo(kind='time')`** is R's
+  `synthdid::synthdid_placebo`: the estimator on the pre-treatment
+  periods with the treatment date moved earlier and the original fit's
+  regularisation. On the real Proposition 99 panel it gives -1.6674165
+  against -1.6674164 from `synthdid` 0.0.9 (and -11.00774 for
+  `method='did'`, the same in both). The default `kind='unit'` is the
+  in-space table the function always returned.
 - **Release gate (`scripts/release_gate.py`, pre-push hook `release-gate`).**
   Three things reached PyPI in 1.33.0 / 1.34.0 and were found only when a
   paper's replication archive was built from the tag, each costing a patch
@@ -29,6 +49,11 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **`sp.notears` documents that edge directions are not identified.** The
+  data are standardised before fitting, so on linear Gaussian data the
+  orientation within a Markov equivalence class depends on the sample.
+  The adjacencies are recovered; the docstring now says to read the
+  output as a skeleton.
 - **`sp.california_prop99()` described simulated data as the real
   panel.** The top-level loader generates its rows from a seeded design
   laid out like the Proposition 99 data, and its docstring called it "the
@@ -55,6 +80,24 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.sensitivity_rr` made no allowance for a linear pre-trend.** The
+  interval is the ATT plus or minus the bias implied by extrapolating the
+  fitted pre-trend, plus `Mbar` of slack. The extrapolation was
+  multiplied by the first post-period's relative time measured from zero,
+  and relative time 0 was left out of the treated periods. Coefficients
+  are measured against the reference period, so a drift of `b` per period
+  biases the coefficient at relative time `k` by `b (k - ref)`. With a
+  drift of 0.2 and four treated periods the average ATT is off by 0.5 and
+  the `Mbar = 0` interval covered the truth in 2% of replications. The
+  bias term is now `|b|` times the mean distance of the treated periods
+  from the reference period, `Mbar` scales by the same distance, and the
+  standard error of the fitted slope is carried into the width. Coverage
+  is 100% in the same design, with or without a trend: the interval is
+  an upper bound. Intervals are wider than before; `breakdown_mbar`
+  moves accordingly.
+- **`sp.iv_compare` reported `first_stage_F` as NaN in every row.** The
+  lookup used a diagnostics key without the endogenous regressor's name.
+  The column now carries the first-stage F of each fit.
 - **`sp.llm_annotator_correct` used the wrong attenuation factor for a
   binary label.** It divided the naive coefficient by `1 - p_01 - p_10`.
   That is the attenuation for a misclassified outcome. For a

@@ -2645,7 +2645,16 @@ def _build_registry() -> None:
                 "estimation. Stores CATE, potential-outcome predictions, training "
                 "diagnostics, and export-ready unit effects."
             ),
-            params=_neural_common_params,
+            params=_neural_common_params
+            + [
+                ParamSpec(
+                    "refit_bootstrap",
+                    "int",
+                    False,
+                    0,
+                    "Bootstrap refits for a valid SE (0 = plug-in dispersion)",
+                ),
+            ],
             returns="CausalResult",
             example='sp.tarnet(df, y="outcome", treat="treated", covariates=["x1","x2"], validation_fraction=0.2)',
             tags=[
@@ -2681,6 +2690,13 @@ def _build_registry() -> None:
                     False,
                     1.0,
                     "Weight on the MMD representation-balance penalty",
+                ),
+                ParamSpec(
+                    "refit_bootstrap",
+                    "int",
+                    False,
+                    0,
+                    "Bootstrap refits for a valid SE (0 = plug-in dispersion)",
                 ),
             ],
             returns="CausalResult",

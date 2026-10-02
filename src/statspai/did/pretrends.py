@@ -1204,7 +1204,14 @@ def sensitivity_rr(
     bounded departures from parallel trends.  The *conditional
     linear-in-relative-time* (C-LF) restriction assumes the
     post-treatment violation is bounded by a linear extrapolation of the
-    pre-trend plus an additional M-bar of slack.
+    pre-trend plus an additional M-bar of slack on its slope. With a
+    fitted pre-trend slope ``b`` and post-period coefficients at an average
+    distance ``h`` from the reference period, the interval is
+    ``ATT +/- ((|b| + Mbar) * h + z * (se + h * se_b))``. It is
+    symmetric: it allows for a trend of the fitted size in either
+    direction and does not recentre the estimate. ``se_b`` is the
+    standard error of the fitted slope; adding ``h * se_b`` to the ATT's
+    standard error is an upper bound that ignores their covariance.
 
     Parameters
     ----------
@@ -1360,18 +1367,48 @@ def sensitivity_rr(
                 diagnostics={"context": context, "n_pre": int(len(pre_t))},
             ) from exc
         slope = coefs[1]
+        try:
+            slope_var = float(np.linalg.inv(XtWX)[1, 1])
+        except np.linalg.LinAlgError:
+            slope_var = float("nan")
+        # With exactly two pre-periods, one of them the pinned reference,
+        # the line is fitted through a single estimate and (X'WX)^-1 is
+        # the variance of that estimate over the squared distance.
+        slope_se = float(np.sqrt(slope_var)) if slope_var >= 0 else float("nan")
     else:
         # Single pre-period: slope = estimate / |time|
         slope = pre_est[0] / max(abs(pre_t[0]), 1.0)
+        slope_se = float(np.asarray(pre[se_col], dtype=float)[0]) / max(
+            abs(pre_t[0]), 1.0
+        )
+    if not np.isfinite(slope_se):
+        slope_se = 0.0
 
     # ── Extrapolate linear trend to post-period ──────────────────── #
     post_t = _finite_vector(post[time_col], time_col, context)
-    # Baseline bias for the first post-period
-    baseline_bias = abs(slope) * post_t[0]
+    # Event-study coefficients are measured against a reference period
+    # (the one pinned to zero, -1 by convention), so a differential trend
+    # of ``slope`` per period shows up at relative time k as
+    # ``slope * (k - ref)``. The headline ATT averages the post-period
+    # coefficients, so its bias under the extrapolated trend is the slope
+    # times the average distance from the reference period. Measuring the
+    # distance from zero instead gives the first post-period (k = 0) no
+    # bias at all, and with it the average.
+    pre_se_all = np.asarray(pre[se_col], dtype=float)
+    pinned = np.asarray(pre_t)[pre_se_all == 0]
+    ref_t = float(pinned.max()) if pinned.size else -1.0
+    # Relative time 0 is the first treated period and is part of the
+    # averaged ATT, so it counts here even though the shared pre/post
+    # split starts the post-period at 1.
+    all_t = np.asarray(es[time_col], dtype=float)
+    treated_t = all_t[np.isfinite(all_t) & (all_t >= 0)]
+    mean_horizon = float(np.mean(treated_t - ref_t))
+    baseline_bias = abs(slope) * mean_horizon
 
-    # Sensitivity factor: how much each unit of Mbar adds to the bias.
-    # Under C-LF, the sensitivity factor for relative time h is h itself.
-    sensitivity_factor = float(np.max(post_t))
+    # Mbar is slack on the slope: the post-period trend may differ from
+    # the pre-period one by up to Mbar per period, which moves the average
+    # by Mbar times the same average distance.
+    sensitivity_factor = mean_horizon
 
     # ── Build Mbar grid ──────────────────────────────────────────── #
     max_pre_slope = max(abs(slope), 1e-6)
@@ -1390,10 +1427,15 @@ def sensitivity_rr(
     ci_lower = np.empty(len(mbar_grid))
     ci_upper = np.empty(len(mbar_grid))
 
+    # The slope is estimated. Its sampling error moves the extrapolated
+    # bias by ``mean_horizon * slope_se``, added to the ATT's own standard
+    # error (their covariance is not used; the sum bounds the standard
+    # deviation of the trend-adjusted estimate from above).
+    noise = att_se + mean_horizon * slope_se
     for i, m in enumerate(mbar_grid):
         max_bias = baseline_bias + m * sensitivity_factor
-        ci_lower[i] = att - max_bias - z * att_se
-        ci_upper[i] = att + max_bias + z * att_se
+        ci_lower[i] = att - max_bias - z * noise
+        ci_upper[i] = att + max_bias + z * noise
 
     # ── Breakdown M-bar ──────────────────────────────────────────── #
     includes_zero = (ci_lower <= 0) & (ci_upper >= 0)

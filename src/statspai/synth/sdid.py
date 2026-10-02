@@ -806,26 +806,33 @@ def synthdid_placebo(
     treat_unit: Any,
     treat_time: Any,
     method: Literal["sdid", "sc", "did"] = "sdid",
+    kind: Literal["unit", "time"] = "unit",
     **kw: Any,
 ) -> pd.DataFrame:
     """
-    Run placebo estimates assigning treatment to each control unit.
+    Placebo estimates for a synthetic difference-in-differences fit.
 
-    This is the in-space placebo table: the treated units are set aside
-    and :func:`sdid` is refitted once per control unit as if that unit had
-    been treated at ``treat_time``. It is not R's
-    ``synthdid::synthdid_placebo``, which is an in-time placebo (one
-    estimate on the pre-treatment periods with the treatment date moved
-    earlier, reusing the original fit's regularisation).
+    ``kind='unit'`` (default) is the in-space placebo table: the treated
+    units are set aside and :func:`sdid` is refitted once per control unit
+    as if that unit had been treated at ``treat_time``.
+
+    ``kind='time'`` is R's ``synthdid::synthdid_placebo``: the estimator
+    is run on the pre-treatment periods only, with the treatment date
+    moved earlier so that the placebo post-period is the same fraction of
+    the panel as the real one, and with the regularisation constants of
+    the original fit. On the real Proposition 99 panel it returns
+    -1.6674164, equal to ``synthdid`` 0.0.9 to 1e-8.
 
     Accepts the same arguments as :func:`sdid`, plus any extra keyword
-    arguments.
+    arguments (used by ``kind='unit'`` only).
 
     Returns
     -------
     pd.DataFrame
-        One row per control unit with columns:
-        ``unit``, ``estimate``, ``se``, ``pvalue``.
+        Columns ``unit``, ``estimate``, ``se``, ``pvalue``. One row per
+        control unit for ``kind='unit'``. One row for ``kind='time'``,
+        with ``unit`` set to ``'in-time placebo'``, no standard error, and
+        the placebo treatment date in ``attrs['placebo_treat_time']``.
 
     Examples
     --------
@@ -851,9 +858,18 @@ def synthdid_placebo(
     """
     if not isinstance(treat_unit, (list, tuple, np.ndarray)):
         treat_unit = [treat_unit]
+    if kind not in ("unit", "time"):
+        raise MethodIncompatibility(
+            f"synthdid_placebo: kind must be 'unit' or 'time', got {kind!r}."
+        )
 
     panel = data.pivot_table(index=unit, columns=time, values=y, aggfunc="first")
     control_units = [u for u in panel.index if u not in treat_unit]
+
+    if kind == "time":
+        return _synthdid_time_placebo(
+            panel, control_units, treat_unit, treat_time, method
+        )
 
     # Subset data to exclude the real treated units
     control_data = data[~data[unit].isin(treat_unit)]
@@ -894,6 +910,66 @@ def synthdid_placebo(
             continue
 
     return pd.DataFrame(rows)
+
+
+def _synthdid_time_placebo(
+    panel: pd.DataFrame,
+    control_units: list,
+    treat_units: Any,
+    treat_time: Any,
+    method: str,
+) -> pd.DataFrame:
+    """``synthdid::synthdid_placebo(estimate)`` on a unit-by-time panel.
+
+    Keeps the pre-treatment columns, sets the placebo ``T0`` to
+    ``floor(T0 * T0 / T)`` (the default ``treated.fraction``), and reruns
+    the estimator from uniform weights with the constants of the original
+    fit -- ``attr(estimate, 'opts')`` in R -- not ones recomputed on the
+    shorter panel.
+    """
+    times = sorted(panel.columns)
+    treated = [u for u in panel.index if u in set(treat_units)]
+    Y = panel.loc[list(control_units) + treated, times].to_numpy(dtype=float)
+    if not np.isfinite(Y).all():
+        raise DataInsufficient(
+            "synthdid_placebo(kind='time') needs a balanced panel without "
+            "missing outcomes."
+        )
+    N0 = len(control_units)
+    T0 = int(sum(t < treat_time for t in times))
+    if N0 == 0 or not treated or T0 == 0 or T0 == len(times):
+        raise DataInsufficient(
+            "synthdid_placebo(kind='time') needs control units, treated "
+            "units, and periods on both sides of treat_time."
+        )
+    placebo_T0 = int(np.floor(T0 * (T0 / len(times))))
+    if placebo_T0 < 1:
+        raise DataInsufficient(
+            f"synthdid_placebo(kind='time'): {T0} pre-treatment periods out "
+            f"of {len(times)} leave no placebo pre-period."
+        )
+    opts = _synthdid_opts(Y, N0, T0, method)
+    theta = _synthdid_refit(
+        Y[:, :T0],
+        N0,
+        placebo_T0,
+        np.full(N0, 1.0 / N0),
+        np.full(placebo_T0, 1.0 / placebo_T0),
+        opts,
+    )
+    out = pd.DataFrame(
+        [
+            {
+                "unit": "in-time placebo",
+                "estimate": theta,
+                "se": np.nan,
+                "pvalue": np.nan,
+            }
+        ]
+    )
+    out.attrs["placebo_treat_time"] = times[placebo_T0]
+    out.attrs["placebo_pre_periods"] = placebo_T0
+    return out
 
 
 # ======================================================================

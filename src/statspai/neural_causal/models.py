@@ -78,6 +78,7 @@ def tarnet(
     verbose: bool = False,
     d: Optional[str] = None,
     x: Optional[List[str]] = None,
+    refit_bootstrap: int = 0,
 ) -> CausalResult:
     """
     Estimate treatment effects using TARNet (Shalit et al. 2017).
@@ -113,7 +114,18 @@ def tarnet(
     alpha : float, default 0.05
         Significance level for confidence intervals.
     n_bootstrap : int, default 500
-        Bootstrap iterations for standard error estimation.
+        Draws for the plug-in dispersion reported as ``se`` when
+        ``refit_bootstrap`` is 0. It resamples the fitted effects with the
+        network held fixed and is not a standard error for the ATE
+        (``model_info['se_valid_for_ate']`` is ``False``).
+    refit_bootstrap : int, default 0
+        Number of bootstrap refits for a standard error that is one. Each
+        refit trains a new network on a resample of the rows from its own
+        initialisation, so the run takes ``refit_bootstrap + 1`` times as
+        long. With it, ``se``, ``ci`` and ``pvalue`` come from the spread
+        of the refits, ``model_info['se_valid_for_ate']`` is ``True`` and
+        the plug-in number moves to ``model_info['se_plugin']``. Must be
+        0 or at least 5; 20 or more is a reasonable choice.
     random_state : int, default 42
         Random seed.
     verbose : bool, default False
@@ -186,6 +198,41 @@ def tarnet(
     # Attach the fitted network so result.effect(X_new) can predict
     # out-of-sample (uniform CATE access across estimators).
     _result._effect_fn = est.effect
+    if refit_bootstrap:
+        from ..core._refit_bootstrap import apply_refit_bootstrap
+
+        def _refit(sample: pd.DataFrame, seed: int) -> CausalResult:
+            return TARNet(
+                data=sample,
+                y=y,
+                treat=treat,
+                covariates=covariates,
+                repr_layers=repr_layers,
+                head_layers=head_layers,
+                epochs=epochs,
+                batch_size=batch_size,
+                learning_rate=learning_rate,
+                weight_decay=weight_decay,
+                dropout=dropout,
+                alpha=alpha,
+                n_bootstrap=2,
+                random_state=seed,
+                validation_fraction=validation_fraction,
+                early_stopping=early_stopping,
+                patience=patience,
+                min_delta=min_delta,
+                verbose=False,
+            ).fit()
+
+        apply_refit_bootstrap(
+            _result,
+            data,
+            _refit,
+            n_refits=int(refit_bootstrap),
+            random_state=random_state,
+            alpha=alpha,
+            label="tarnet",
+        )
     return _result
 
 
@@ -212,6 +259,7 @@ def cfrnet(
     verbose: bool = False,
     d: Optional[str] = None,
     x: Optional[List[str]] = None,
+    refit_bootstrap: int = 0,
 ) -> CausalResult:
     """
     Estimate treatment effects using CFRNet (Shalit et al. 2017).
@@ -250,7 +298,18 @@ def cfrnet(
     alpha : float, default 0.05
         Significance level for confidence intervals.
     n_bootstrap : int, default 500
-        Bootstrap iterations for standard error estimation.
+        Draws for the plug-in dispersion reported as ``se`` when
+        ``refit_bootstrap`` is 0. It resamples the fitted effects with the
+        network held fixed and is not a standard error for the ATE
+        (``model_info['se_valid_for_ate']`` is ``False``).
+    refit_bootstrap : int, default 0
+        Number of bootstrap refits for a standard error that is one. Each
+        refit trains a new network on a resample of the rows from its own
+        initialisation, so the run takes ``refit_bootstrap + 1`` times as
+        long. With it, ``se``, ``ci`` and ``pvalue`` come from the spread
+        of the refits, ``model_info['se_valid_for_ate']`` is ``True`` and
+        the plug-in number moves to ``model_info['se_plugin']``. Must be
+        0 or at least 5; 20 or more is a reasonable choice.
     random_state : int, default 42
         Random seed.
     verbose : bool, default False
@@ -323,6 +382,42 @@ def cfrnet(
     # Attach the fitted network so result.effect(X_new) can predict
     # out-of-sample (uniform CATE access across estimators).
     _result._effect_fn = est.effect
+    if refit_bootstrap:
+        from ..core._refit_bootstrap import apply_refit_bootstrap
+
+        def _refit(sample: pd.DataFrame, seed: int) -> CausalResult:
+            return CFRNet(
+                data=sample,
+                y=y,
+                treat=treat,
+                covariates=covariates,
+                repr_layers=repr_layers,
+                head_layers=head_layers,
+                ipm_weight=ipm_weight,
+                epochs=epochs,
+                batch_size=batch_size,
+                learning_rate=learning_rate,
+                weight_decay=weight_decay,
+                dropout=dropout,
+                alpha=alpha,
+                n_bootstrap=2,
+                random_state=seed,
+                validation_fraction=validation_fraction,
+                early_stopping=early_stopping,
+                patience=patience,
+                min_delta=min_delta,
+                verbose=False,
+            ).fit()
+
+        apply_refit_bootstrap(
+            _result,
+            data,
+            _refit,
+            n_refits=int(refit_bootstrap),
+            random_state=random_state,
+            alpha=alpha,
+            label="cfrnet",
+        )
     return _result
 
 

@@ -82,6 +82,17 @@ def notears(
         'lambda1' : float
         'w_threshold' : float
 
+    Notes
+    -----
+    The columns are standardised before fitting, and the weights are on
+    that scale. Read the output as a skeleton with weights, not as
+    evidence of direction: with linear Gaussian data the least-squares
+    score cannot tell Markov-equivalent graphs apart except through the
+    variables' scales, and standardising removes those. On the chain
+    ``a -> b -> c`` with unit noise the two adjacencies are found in every
+    run, and the arrows come out as ``b -> a``, ``c -> b`` or ``b -> a``,
+    ``b -> c`` depending on the sample.
+
     Examples
     --------
     >>> import numpy as np

@@ -3295,7 +3295,7 @@
     "name": "causal"
   },
   {
-    "description": "Causal-discovery dispatcher -- article-facing alias.",
+    "description": "Causal-discovery dispatcher -- article-facing alias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "method": {
@@ -14624,7 +14624,7 @@
     "name": "iv_bounds"
   },
   {
-    "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting. Assumptions: Instrument relevance (non-zero first stage); Exclusion restriction: the instrument affects the outcome only through the treatment; Independence/exogeneity of the instrument; for LATE, monotonicity (no defiers). Pre-conditions: An instrument plausibly affecting treatment, an endogenous treatment, and an outcome; A strong first stage (assess instrument strength before interpreting estimates). Failure modes: Weak first stage -- biased point estimates and unreliable conventional SEs -> Report first-stage F / effective F and use weak-IV-robust inference (Anderson-Rubin). Alternatives: sp.iv, sp.anderson_rubin_ci, sp.dml. Typical minimum N: 200.",
+    "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Instrument relevance (non-zero first stage); Exclusion restriction: the instrument affects the outcome only through the treatment; Independence/exogeneity of the instrument; for LATE, monotonicity (no defiers). Pre-conditions: An instrument plausibly affecting treatment, an endogenous treatment, and an outcome; A strong first stage (assess instrument strength before interpreting estimates). Failure modes: Weak first stage -- biased point estimates and unreliable conventional SEs -> Report first-stage F / effective F and use weak-IV-robust inference (Anderson-Rubin). Alternatives: sp.iv, sp.anderson_rubin_ci, sp.dml. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -19929,7 +19929,7 @@
     "name": "panel"
   },
   {
-    "description": "Estimate the same model with multiple panel methods and return a side-by-side comparison table.",
+    "description": "Estimate the same model with multiple panel methods and return a side-by-side comparison table. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "entity": {
@@ -21352,7 +21352,7 @@
     "name": "ppmlhdfe"
   },
   {
-    "description": "Predict CATE on new (out-of-sample) data. Assumptions: Unconfoundedness given the covariates; Overlap / positivity across the covariate space; Nuisance functions are estimated consistently; cross-fitting controls overfitting bias. Pre-conditions: Covariates, a treatment indicator, and an outcome for each unit; Enough data to fit flexible nuisance models with sample-splitting / cross-fitting. Failure modes: CATE estimates are unstable or extrapolate beyond the covariate support -> Restrict to the overlap region, increase data, or use a doubly-robust learner (DR-/R-learner). Alternatives: sp.dml, sp.causal_forest, sp.tmle. Typical minimum N: 500.",
+    "description": "Predict CATE on new (out-of-sample) data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap / positivity across the covariate space; Nuisance functions are estimated consistently; cross-fitting controls overfitting bias. Pre-conditions: Covariates, a treatment indicator, and an outcome for each unit; Enough data to fit flexible nuisance models with sample-splitting / cross-fitting. Failure modes: CATE estimates are unstable or extrapolate beyond the covariate support -> Restrict to the overlap region, increase data, or use a doubly-robust learner (DR-/R-learner). Alternatives: sp.dml, sp.causal_forest, sp.tmle. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "new_data": {
@@ -28496,7 +28496,7 @@
     "name": "sensitivity_plot"
   },
   {
-    "description": "Rambachan-Roth (2023) honest-DiD sensitivity analysis: computes the largest violation of parallel trends (parametrised by Mbar -- relative magnitude of the post-period violation versus the worst observed pre-period one) under which the post-treatment ATT is still different from zero at level alpha. Reports both the robust confidence sets and the breakdown Mbar. Assumptions: Pre-period violations bound the magnitude of post-period violations (relative-magnitude family); Post-treatment effects are constant across event time (relax via alternative parameter families in Rambachan-Roth 2023 Section 3). Pre-conditions: result has at least one pre-period and one post-period coefficient; result carries the variance-covariance matrix of those coefficients. Failure modes: Breakdown Mbar < 1.0 (small parallel-trends violation overturns the sign) -> The result is fragile to plausible pretrends violations; report the breakdown alongside the point estimate; Confidence set is the entire real line (Mbar grid too coarse) -> Re-run with a finer grid (n_grid=50+) or restrict Mbar to a tighter interval. Alternatives: sp.honest_did, sp.pretrends_test, sp.breakdown_m. Typical minimum N: 50.",
+    "description": "Rambachan-Roth (2023) honest-DiD sensitivity analysis: computes the largest violation of parallel trends (parametrised by Mbar -- relative magnitude of the post-period violation versus the worst observed pre-period one) under which the post-treatment ATT is still different from zero at level alpha. Reports both the robust confidence sets and the breakdown Mbar. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Pre-period violations bound the magnitude of post-period violations (relative-magnitude family); Post-treatment effects are constant across event time (relax via alternative parameter families in Rambachan-Roth 2023 Section 3). Pre-conditions: result has at least one pre-period and one post-period coefficient; result carries the variance-covariance matrix of those coefficients. Failure modes: Breakdown Mbar < 1.0 (small parallel-trends violation overturns the sign) -> The result is fragile to plausible pretrends violations; report the breakdown alongside the point estimate; Confidence set is the entire real line (Mbar grid too coarse) -> Re-run with a finer grid (n_grid=50+) or restrict Mbar to a tighter inte...",
     "input_schema": {
       "properties": {
         "Mbar": {
@@ -31489,9 +31489,18 @@
     "name": "synth_to_markdown"
   },
   {
-    "description": "Run placebo estimates assigning treatment to each control unit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit. Assumptions: Control units are exchangeable with the treated unit, so the distribution of placebo estimates approximates the null distribution. Pre-conditions: Same inputs as sp.sdid; enough control units for a placebo distribution. Alternatives: sp.sp.sdid, sp.sp.synth.",
+    "description": "Placebo estimates for a synthetic difference-in-differences fit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit. Assumptions: Control units are exchangeable with the treated unit, so the distribution of placebo estimates approximates the null distribution. Pre-conditions: Same inputs as sp.sdid; enough control units for a placebo distribution. Alternatives: sp.sp.sdid, sp.sp.synth.",
     "input_schema": {
       "properties": {
+        "kind": {
+          "default": "unit",
+          "description": "kind parameter (Literal['unit', 'time']).",
+          "enum": [
+            "unit",
+            "time"
+          ],
+          "type": "string"
+        },
         "method": {
           "default": "sdid",
           "description": "Estimator or algorithm variant to use.",

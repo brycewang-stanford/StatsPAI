@@ -206,6 +206,13 @@ class TestCovarianceExport:
         shifted from 0.504/0.500 when the headline ATT SE moved from the
         independence approximation onto the full w'Vw covariance form --
         a wider, correct CI breaks down at a slightly smaller Mbar.)
+
+        (2026-10 ⚠️ correctness fix: 0.485 / 0.481 became 0.497 / 0.489.
+        The extrapolated bias now uses the mean distance of the treated
+        periods from the reference period, and the slope's standard error
+        enters the width, so the interval starts wider; ``Mbar`` scales by
+        that mean distance, not by the largest relative time, so each
+        unit of slack adds less.)
         """
         df = _panel(n_units=120, n_periods=11, treat_at=6, pre_trend=0.12, seed=7)
         r = sp.event_study(
@@ -229,8 +236,8 @@ class TestCovarianceExport:
         t_true = sp.pretrends_test(r, type="wald")
 
         assert s_true.breakdown_mbar != s_diag.breakdown_mbar
-        assert s_true.breakdown_mbar == pytest.approx(0.485, abs=2e-3)
-        assert s_diag.breakdown_mbar == pytest.approx(0.481, abs=2e-3)
+        assert s_true.breakdown_mbar == pytest.approx(0.497, abs=2e-3)
+        assert s_diag.breakdown_mbar == pytest.approx(0.489, abs=2e-3)
         # Pinned after the 1.24.0 nested-K small-sample rule.
         assert t_true["statistic"] == pytest.approx(38.417, abs=0.05)
         assert t_diag["statistic"] == pytest.approx(64.430, abs=0.05)

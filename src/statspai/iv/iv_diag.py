@@ -1343,7 +1343,12 @@ def iv_compare(
             lo = beta - z_crit * se
             hi = beta + z_crit * se
             diag = getattr(res, "diagnostics", {}) or {}
-            f_first = diag.get("First-stage F", diag.get("first_stage_F", np.nan))
+            # sp.iv stores the first-stage F under a key that names the
+            # endogenous regressor; the bare spellings are older ones.
+            f_first = diag.get(
+                f"First-stage F ({local_endog})",
+                diag.get("First-stage F", diag.get("first_stage_F", np.nan)),
+            )
             f_eff = diag.get(
                 "Olea-Pflueger effective F", diag.get("effective_F", np.nan)
             )

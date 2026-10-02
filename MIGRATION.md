@@ -46,6 +46,8 @@ estimate of the documented quantity.
 | `sp.llm_annotator_correct`, every path | `se`, `ci`, `pvalue` | first-order SE 0.059 (across-seed SD 0.074) | delta-method SE 0.077; first-order kept in `model_info` |
 | `sp.discos_test(test='ks')` | `statistic`, `pvalue` | 57% rejection of a true null | placebo rank of the sup-norm quantile gap; NaN without placebos |
 | `sp.discos_test(test='cvm' / 'stochastic_dominance')` on a result fitted with `placebo=False` | `pvalue` | a chi-squared or KS approximation over grid nodes | NaN |
+| `sp.sensitivity_rr` | `ci_lower`, `ci_upper`, `breakdown_mbar` | 2% coverage at `Mbar = 0` under a linear pre-trend | covers; intervals wider |
+| `sp.iv_compare` | `first_stage_F` column | NaN | the first-stage F |
 | `sp.rdbwselect`, `sp.rdrobust` with a `cer*` bandwidth and `cluster=` | `h`, and through it the estimate and SEs | `h_cerrd` 0.2054 (rdrobust: 0.2305) | 0.2305 |
 
 **What to do.** Re-run. Code that read `res.qte` from `sp.rd_distribution`

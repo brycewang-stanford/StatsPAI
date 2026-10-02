@@ -659,3 +659,266 @@ def test_simulated_example_data_is_labelled(loader):
     assert fn().attrs.get("simulated") is True
     doc = fn.__doc__.lower()
     assert "simulated" in doc or "synthetic" in doc
+
+
+def test_in_time_placebo_matches_r_synthdid_placebo():
+    # R, synthdid 0.0.9, data(california_prop99), run on 2026-10-02:
+    #   synthdid_placebo(synthdid_estimate(Y, N0, T0)) = -1.6674163977
+    #   synthdid_placebo(did_estimate(Y, N0, T0))      = -11.00774
+    # (synthdid_placebo(sc_estimate(...)) raises inside R, so the 'sc'
+    # variant has no reference value.)
+    df = sp.datasets.california_prop99()
+    kw = dict(
+        y="cigsale", unit="state", time="year", treat_unit="California", treat_time=1989
+    )
+    sdid_placebo = sp.synthdid_placebo(df, kind="time", **kw)
+    assert len(sdid_placebo) == 1
+    assert sdid_placebo["estimate"].iloc[0] == pytest.approx(-1.6674163977, rel=1e-6)
+    # 19 pre-periods of 31: placebo T0 = floor(19 * 19 / 31) = 11, so the
+    # placebo treatment starts in 1981.
+    assert sdid_placebo.attrs["placebo_pre_periods"] == 11
+    assert sdid_placebo.attrs["placebo_treat_time"] == 1981
+    did_placebo = sp.synthdid_placebo(df, kind="time", method="did", **kw)
+    assert did_placebo["estimate"].iloc[0] == pytest.approx(-11.00774, abs=5e-6)
+    # A real effect of -15.6 against a placebo of -1.7.
+    assert abs(sdid_placebo["estimate"].iloc[0]) < 3.0
+
+
+def test_in_time_placebo_rejects_an_unknown_kind():
+    df = sp.california_prop99()
+    with pytest.raises(ValueError, match="kind must be"):
+        sp.synthdid_placebo(
+            df,
+            y="packspercapita",
+            unit="state",
+            time="year",
+            treat_unit="California",
+            treat_time=1989,
+            kind="space",
+        )
+
+
+# --------------------------------------------------------------------- #
+#  sensitivity_rr: the extrapolated trend reaches the post-periods
+# --------------------------------------------------------------------- #
+
+
+def _trending_panel(seed, slope):
+    """Effect 1.0 from t = 4; the treated group drifts by `slope` a period."""
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(300):
+        tr = i < 150
+        a = rng.normal()
+        for t in range(8):
+            y = a + 0.2 * t + (slope * (t - 3) if tr else 0.0) + rng.normal(0, 0.5)
+            if tr and t >= 4:
+                y += 1.0
+            rows.append(dict(id=i, t=t, g=(4 if tr else np.nan), y=y))
+    return pd.DataFrame(rows)
+
+
+def _honest(seed, slope, mbar=(0.0, 0.2)):
+    es = sp.event_study(
+        _trending_panel(seed, slope),
+        y="y",
+        treat_time="g",
+        time="t",
+        unit="id",
+        window=(-4, 3),
+    )
+    return es, sp.sensitivity_rr(es, Mbar=list(mbar))
+
+
+class TestSensitivityRR:
+    @pytest.mark.parametrize("slope", [0.2, -0.2])
+    def test_linear_pretrend_is_allowed_for_at_mbar_zero(self, slope):
+        # The four post coefficients sit 1 to 4 periods past the reference
+        # period, so a drift of 0.2 biases their average by 0.5. The
+        # extrapolation used to be multiplied by the first post-period's
+        # relative time and the first treated period was left out of the
+        # horizon: the Mbar = 0 interval covered the truth in 2% of 60
+        # replications. Every one of 80 covers now (the interval is an
+        # upper bound, see the docstring).
+        hits = []
+        for seed in range(12):
+            es, sens = _honest(seed, slope)
+            assert abs(es.estimate - 1.0) > 0.3  # the naive ATT is off
+            hits.append(sens.ci_lower[0] <= 1.0 <= sens.ci_upper[0])
+        assert np.mean(hits) >= 0.9
+
+    def test_half_width_is_the_documented_formula(self):
+        es, sens = _honest(0, 0.2, mbar=(0.0, 0.1, 0.3))
+        half = (sens.ci_upper - sens.ci_lower) / 2
+        # Slack enters as Mbar times the mean distance from the reference
+        # period: (1 + 2 + 3 + 4) / 4 = 2.5.
+        np.testing.assert_allclose(np.diff(half), [0.1 * 2.5, 0.2 * 2.5], atol=1e-10)
+        # The baseline is |slope| * 2.5 + z * (se + 2.5 * se_slope), with a
+        # slope near 0.2: at least the 0.5 of drift, plus the slope's noise.
+        baseline = half[0] - 1.959963984540054 * sens.att_se
+        assert 0.4 < baseline < 0.9
+        np.testing.assert_allclose((sens.ci_upper + sens.ci_lower) / 2, sens.att)
+
+    def test_no_pretrend_keeps_the_interval_tight(self):
+        widths = []
+        for seed in range(8):
+            _, sens = _honest(seed, 0.0)
+            assert sens.ci_lower[0] <= 1.0 <= sens.ci_upper[0]
+            widths.append(sens.ci_upper[0] - sens.ci_lower[0])
+        # 80 replications: mean width 0.61 without a trend, 1.49 with one.
+        assert np.mean(widths) < 0.9
+
+
+# --------------------------------------------------------------------- #
+#  Comparison tables and dispatchers agree with the direct calls
+# --------------------------------------------------------------------- #
+
+
+def test_iv_compare_rows_are_the_direct_fits():
+    df = sp.dgp_iv(n=2000, seed=0)
+    formula = "y ~ x1 + x2 + (treatment ~ instrument)"
+    table = sp.iv_compare(formula, data=df).set_index("method")
+    for method in ("2sls", "liml", "jive"):
+        direct = sp.iv(formula, data=df, method=method)
+        assert table.loc[method, "estimate"] == pytest.approx(
+            float(direct.params["treatment"]), rel=1e-12
+        )
+    # One instrument, one endogenous regressor: LIML is 2SLS.
+    assert table.loc["liml", "estimate"] == pytest.approx(
+        table.loc["2sls", "estimate"], rel=1e-10
+    )
+    # The first-stage F column used to be NaN in every row: the lookup
+    # used a key without the regressor's name.
+    direct = sp.iv(formula, data=df, method="2sls")
+    want = float(direct.diagnostics["First-stage F (treatment)"])
+    np.testing.assert_allclose(table["first_stage_F"].to_numpy(), want, rtol=1e-12)
+    # And with one instrument it is the squared first-stage t statistic.
+    Z = np.column_stack([np.ones(len(df)), df[["x1", "x2", "instrument"]]])
+    d = df["treatment"].to_numpy()
+    beta = np.linalg.lstsq(Z, d, rcond=None)[0]
+    resid = d - Z @ beta
+    cov = resid @ resid / (len(d) - Z.shape[1]) * np.linalg.inv(Z.T @ Z)
+    assert want == pytest.approx(beta[3] ** 2 / cov[3, 3], rel=0.05)
+
+
+def test_panel_compare_within_column_is_the_fe_fit():
+    df = sp.dgp_panel(n_units=50, n_periods=10, seed=0)
+    table = sp.panel_compare(df, "y ~ x", entity="unit", time="time")
+    fe = sp.panel(df, "y ~ x", entity="unit", time="time", method="fe")
+    shown = float(str(table.loc["x", "Panel FE (Within)"]).rstrip("*"))
+    assert shown == pytest.approx(float(fe.params["x"]), abs=5e-5)
+
+
+def test_causal_discovery_dispatcher_is_notears_by_default():
+    rng = np.random.default_rng(0)
+    n = 2000
+    a = rng.normal(size=n)
+    b = 0.8 * a + rng.normal(size=n)
+    c = 0.5 * b + rng.normal(size=n)
+    df = pd.DataFrame(dict(a=a, b=b, c=c))
+    via = sp.causal_discovery(df, method="notears")
+    direct = sp.notears(df)
+    np.testing.assert_allclose(
+        np.asarray(via["adjacency"], dtype=float),
+        np.asarray(direct["adjacency"], dtype=float),
+        atol=1e-12,
+    )
+    # The chain a -> b -> c: both adjacencies are found and a, c are not
+    # joined. The arrows are not checked. The data are standardised, so
+    # the direction within the Markov equivalence class is not identified
+    # (the docstring says so), and it differs between samples.
+    adj = pd.DataFrame(
+        np.asarray(via["adjacency"], dtype=float),
+        index=via["variables"],
+        columns=via["variables"],
+    )
+    link = lambda u, v: max(abs(adj.loc[u, v]), abs(adj.loc[v, u]))  # noqa: E731
+    assert link("a", "b") > 0.3 and link("b", "c") > 0.3
+    assert link("a", "c") == 0.0
+
+
+def test_predict_cate_follows_the_planted_heterogeneity():
+    rng = np.random.default_rng(0)
+    n = 1500
+    x1, x2 = rng.normal(size=(2, n))
+    d = rng.integers(0, 2, n)
+    y = x1 + (1 + x2) * d + rng.normal(0, 0.5, n)
+    df = pd.DataFrame(dict(y=y, d=d, x1=x1, x2=x2))
+    fit = sp.metalearner(df, y="y", treat="d", covariates=["x1", "x2"], learner="t")
+    new = pd.DataFrame(dict(x1=[0.0, 0.0, 0.0], x2=[-1.0, 0.0, 1.0]))
+    np.testing.assert_allclose(sp.predict_cate(fit, new), [0.0, 1.0, 2.0], atol=0.45)
+
+
+# --------------------------------------------------------------------- #
+#  Refit bootstrap for the neural estimators
+# --------------------------------------------------------------------- #
+
+
+def _small_confounded(seed=0, n=400):
+    rng = np.random.default_rng(seed)
+    x1, x2 = rng.normal(size=(2, n))
+    d = rng.binomial(1, 1 / (1 + np.exp(-0.8 * x1)))
+    y = 1 + x1 + 0.5 * x2 + (1.0 + 0.5 * x2) * d + rng.normal(0, 0.5, n)
+    return pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2})
+
+
+@pytest.mark.parametrize("name", ["tarnet", "cfrnet"])
+def test_refit_bootstrap_replaces_the_fixed_network_se(name):
+    pytest.importorskip("torch")
+    # 40 replications at n = 600, 20 refits each: the refit interval
+    # covered the true ATE 95% (tarnet) and 97.5% (cfrnet) of the time,
+    # the fixed-network one 57.5% and 47.5%. Here: the mechanics.
+    df = _small_confounded()
+    kw = dict(y="y", treat="d", covariates=["x1", "x2"], epochs=60, n_bootstrap=20)
+    plain = getattr(sp, name)(df, **kw)
+    refit = getattr(sp, name)(df, refit_bootstrap=6, **kw)
+    assert plain.model_info["se_valid_for_ate"] is False
+    assert refit.model_info["se_valid_for_ate"] is True
+    assert refit.model_info["se_method"] == "refit_bootstrap"
+    assert refit.estimate == plain.estimate
+    assert refit.model_info["se_plugin"] == pytest.approx(plain.se)
+    draws = refit.model_info["refit_bootstrap"]["draws"]
+    assert len(draws) == 6
+    assert refit.se == pytest.approx(float(np.std(draws, ddof=1)))
+    # The plug-in number is the dispersion of fitted effects over sqrt(n);
+    # the spread of refits is several times that.
+    assert refit.se > 1.5 * plain.se
+    lo, hi = refit.ci
+    assert (hi - lo) / 2 == pytest.approx(1.959963984540054 * refit.se)
+
+
+def test_refit_bootstrap_needs_enough_refits():
+    pytest.importorskip("torch")
+    with pytest.raises(ValueError, match="at least 5"):
+        sp.tarnet(
+            _small_confounded(n=200),
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            epochs=5,
+            refit_bootstrap=2,
+        )
+
+
+def test_deepiv_refit_bootstrap():
+    pytest.importorskip("torch")
+    # Ten replications at n = 1500: per-unit refit SE 0.31 against an
+    # across-seed SD of 0.24; the fixed-network number is 0.009.
+    rng = np.random.default_rng(0)
+    n = 600
+    z, x, u = rng.normal(size=(3, n))
+    d = 0.8 * z + 0.5 * u + 0.3 * x + rng.normal(0, 0.5, n)
+    y = 1.0 * d + 0.5 * x + u + rng.normal(0, 0.3, n)
+    df = pd.DataFrame({"y": y, "d": d, "z": z, "x": x})
+    res = sp.deepiv(
+        df,
+        y="y",
+        treat="d",
+        instruments=["z"],
+        covariates=["x"],
+        first_stage_epochs=20,
+        second_stage_epochs=20,
+        refit_bootstrap=5,
+    )
+    assert res.model_info["se_valid_for_ate"] is True
+    assert res.se > 5 * res.model_info["se_plugin"]

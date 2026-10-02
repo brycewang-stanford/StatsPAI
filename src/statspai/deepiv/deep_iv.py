@@ -37,8 +37,8 @@ the default here through 1.34.2 and now warns.
 The reported ``se`` holds the trained networks fixed: it is the
 dispersion of the fitted effects across units over ``sqrt(n)`` and does
 not include the sampling variability of either stage.
-``model_info['se_valid_for_ate']`` is ``False``. Refit on bootstrap
-samples for a standard error.
+``model_info['se_valid_for_ate']`` is ``False``. ``refit_bootstrap=B``
+refits both stages on ``B`` resamples and reports the spread instead.
 
 When to use DeepIV
 ------------------
@@ -117,6 +117,7 @@ def deepiv(
     alpha: float = 0.05,
     random_state: int = 42,
     verbose: bool = False,
+    refit_bootstrap: int = 0,
 ) -> CausalResult:
     """
     Estimate causal effects using Deep Instrumental Variables.
@@ -162,6 +163,15 @@ def deepiv(
         Random seed for reproducibility.
     verbose : bool, default False
         Print training progress.
+    refit_bootstrap : int, default 0
+        Number of bootstrap refits for a standard error that carries the
+        sampling variability of both networks. Each refit trains both
+        stages on a resample of the rows from its own initialisation, so
+        the run takes ``refit_bootstrap + 1`` times as long. With it,
+        ``se``, ``ci`` and ``pvalue`` come from the spread of the refits,
+        ``model_info['se_valid_for_ate']`` is ``True`` and the
+        fixed-network number moves to ``model_info['se_plugin']``. Must
+        be 0 or at least 5.
 
     Returns
     -------
@@ -180,8 +190,9 @@ def deepiv(
     1.05 to 1.12 for the paired-sample default, and a larger
     ``n_samples`` did not help. It warns when selected.
 
-    ``se`` holds the networks fixed and is far too small as a standard
-    error for the effect; ``model_info['se_valid_for_ate']`` is ``False``.
+    Without ``refit_bootstrap``, ``se`` holds the networks fixed and is
+    far too small as a standard error for the effect;
+    ``model_info['se_valid_for_ate']`` is ``False``.
 
     For high-dimensional covariates or weak instruments, consider
     DeepGMM / DFIV / DualIV instead — see the module docstring for
@@ -230,7 +241,40 @@ def deepiv(
         random_state=random_state,
         verbose=verbose,
     )
-    return estimator.fit()
+    result = estimator.fit()
+    if refit_bootstrap:
+        from ..core._refit_bootstrap import apply_refit_bootstrap
+
+        def _refit(sample: pd.DataFrame, seed: int) -> CausalResult:
+            return DeepIV(
+                data=sample,
+                y=y,
+                treat=treat,
+                instruments=instruments,
+                covariates=covariates,
+                n_components=n_components,
+                hidden_layers=hidden_layers,
+                first_stage_epochs=first_stage_epochs,
+                second_stage_epochs=second_stage_epochs,
+                n_samples=n_samples,
+                n_gradient_samples=n_gradient_samples,
+                batch_size=batch_size,
+                learning_rate=learning_rate,
+                alpha=alpha,
+                random_state=seed,
+                verbose=False,
+            ).fit()
+
+        apply_refit_bootstrap(
+            result,
+            data,
+            _refit,
+            n_refits=int(refit_bootstrap),
+            random_state=random_state,
+            alpha=alpha,
+            label="deepiv",
+        )
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -242,9 +286,9 @@ class DeepIV:
     """
     Deep Instrumental Variables estimator (Hartford et al. 2017).
 
-    Follows the same defaults as Microsoft EconML's ``DeepIVEstimator``.
-    See the module docstring for a discussion of the biased vs unbiased
-    gradient trade-off and when to prefer modern alternatives.
+    The default Stage-2 loss is the unbiased paired-sample one
+    (``n_gradient_samples=1``). See the module docstring for the
+    single-sample alternative and when to prefer modern estimators.
 
     Parameters
     ----------

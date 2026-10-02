@@ -3279,17 +3279,21 @@
     ],
     "category": "neural_causal",
     "cost_profile": "",
-    "description": "Treatment-Agnostic Representation Network for neural CATE/ATE estimation. Stores CATE, potential-outcome predictions, training diagnostics, and export-ready unit effects. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
+    "description": "Treatment-Agnostic Representation Network for neural CATE/ATE estimation. Stores CATE, potential-outcome predictions, training diagnostics, and export-ready unit effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.tarnet(df, y=\"outcome\", treat=\"treated\", covariates=[\"x1\",\"x2\"], validation_fraction=0.2)",
@@ -3354,7 +3358,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Treatment-Agnostic Representation Network for neural CATE/ATE estimation. Stores CATE, potential-outcome predictions, training diagnostics, and export-ready unit effects. Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
+      "description": "Treatment-Agnostic Representation Network for neural CATE/ATE estimation. Stores CATE, potential-outcome predictions, training diagnostics, and export-ready unit effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: no numerical evidence -- only API/unit tests; no known-truth or cross-package comparison in the parity index, and estimates depend on network initialisation, training schedule and seed. Treat intervals as unvalidated and report results across seeds.",
       "name": "tarnet",
       "parameters": {
         "properties": {
@@ -3411,6 +3415,11 @@
             "description": "Random seed",
             "type": "integer"
           },
+          "refit_bootstrap": {
+            "default": 0,
+            "description": "Bootstrap refits for a valid SE (0 = plug-in dispersion)",
+            "type": "integer"
+          },
           "repr_layers": {
             "default": [
               200,
@@ -3450,10 +3459,11 @@
     "stability": "stable",
     "typical_n_min": 1000,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py",
       "API/unit contract evidence: tests/test_neural_causal.py",
       "API/unit contract evidence: tests/test_neural_causal_exports.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -3608,6 +3618,11 @@
           "random_state": {
             "default": 42,
             "description": "Random seed",
+            "type": "integer"
+          },
+          "refit_bootstrap": {
+            "default": 0,
+            "description": "Bootstrap refits for a valid SE (0 = plug-in dispersion)",
             "type": "integer"
           },
           "repr_layers": {
@@ -6453,7 +6468,8 @@
     "validation_notes": [
       "Cross-language parity (bit-exact) vs econml.metalearners SLearner / TLearner / XLearner; tolerance S / T / X conditional-average-treatment-effect vectors match econml elementwise to 1e-12 absolute (observed <= 1.1e-15) when both fitting stages use the same base learner -- tests/external_parity/test_metalearner_econml_parity.py",
       "tests/external_parity/test_causalml_book.py",
-      "tests/reference_parity/test_closed_form_identities.py"
+      "tests/reference_parity/test_closed_form_identities.py",
+      "tests/reference_parity/test_oct2026_fourth_pass.py"
     ],
     "validation_status": "certified"
   },
@@ -7323,9 +7339,9 @@
       "Stata parity module 35_panel",
       "Cross-language parity (bit-exact) vs plm::plm + plm::phtest [R version 4.5.2 (2025-10-31), plm 2.6.7]; tolerance rel_est<=1e-06, rel_se<=0.001; parity module 35_panel; implementation: third party python -- tests/r_parity/35_panel.py",
       "tests/reference_parity/test_hausman_stata_parity.py",
+      "tests/reference_parity/test_oct2026_fourth_pass.py",
       "tests/reference_parity/test_panel_bias_reduced_parity.py",
-      "tests/reference_parity/test_panel_parity.py",
-      "tests/reference_parity/test_panel_ssc_stata_parity.py"
+      "tests/reference_parity/test_panel_parity.py"
     ],
     "validation_status": "certified"
   },
@@ -24790,17 +24806,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting.",
+    "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.iv.iv_compare('wage ~ (educ ~ nearc4 + nearc2) + exper', data=df, methods=('2sls','liml','fuller','jive','ujive'))",
@@ -24836,7 +24856,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting.",
+      "description": "Run several k-class / JIVE estimators on the same IV specification and return a one-row-per-method comparison DataFrame (estimate, SE, CI, first-stage F). Useful as a sensitivity sanity check before reporting. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "iv_compare",
       "parameters": {
         "properties": {
@@ -24883,9 +24903,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py",
       "API/unit contract evidence: tests/iv/test_iv_diag.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -43025,17 +43046,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Rambachan-Roth (2023) honest-DiD sensitivity analysis: computes the largest violation of parallel trends (parametrised by Mbar -- relative magnitude of the post-period violation versus the worst observed pre-period one) under which the post-treatment ATT is still different from zero at level alpha. Reports both the robust confidence sets and the breakdown Mbar.",
+    "description": "Rambachan-Roth (2023) honest-DiD sensitivity analysis: computes the largest violation of parallel trends (parametrised by Mbar -- relative magnitude of the post-period violation versus the worst observed pre-period one) under which the post-treatment ATT is still different from zero at level alpha. Reports both the robust confidence sets and the breakdown Mbar. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.sensitivity_rr(es_result, alpha=0.05)",
@@ -43087,7 +43112,7 @@
       }
     },
     "signature": {
-      "description": "Rambachan-Roth (2023) honest-DiD sensitivity analysis: computes the largest violation of parallel trends (parametrised by Mbar -- relative magnitude of the post-period violation versus the worst observed pre-period one) under which the post-treatment ATT is still different from zero at level alpha. Reports both the robust confidence sets and the breakdown Mbar.",
+      "description": "Rambachan-Roth (2023) honest-DiD sensitivity analysis: computes the largest violation of parallel trends (parametrised by Mbar -- relative magnitude of the post-period violation versus the worst observed pre-period one) under which the post-treatment ATT is still different from zero at level alpha. Reports both the robust confidence sets and the breakdown Mbar. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "sensitivity_rr",
       "parameters": {
         "properties": {
@@ -43127,9 +43152,10 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py",
       "API/unit contract evidence: tests/test_api_stable_evidence.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -53191,7 +53217,7 @@
     ],
     "category": "causal",
     "cost_profile": "One full sdid / sc / did fit per control unit.",
-    "description": "Run placebo estimates assigning treatment to each control unit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit.",
+    "description": "Placebo estimates for a synthetic difference-in-differences fit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit.",
     "evidence": {
       "grade": "T1",
       "grade_basis": "derived from status and sides",
@@ -53230,11 +53256,11 @@
     "reference": "",
     "returns": {
       "class": "DataFrame",
-      "description": "pd.DataFrame: One row per control unit with columns: unit, estimate, se, pvalue.",
+      "description": "pd.DataFrame: Columns unit, estimate, se, pvalue. One row per control unit for kind='unit'. One row for kind='time', with unit set to 'in-time placebo', no standard error, and the placebo treatment date in attrs['placebo_treat_time'].",
       "fields": {}
     },
     "signature": {
-      "description": "Run placebo estimates assigning treatment to each control unit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit.",
+      "description": "Placebo estimates for a synthetic difference-in-differences fit. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: there are only a handful of control units -- the placebo distribution has too few draws to calibrate a test. Cost: One full sdid / sc / did fit per control unit.",
       "name": "synthdid_placebo",
       "parameters": {
         "properties": {
@@ -53242,6 +53268,15 @@
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "object",
             "x-statspai-role": "dataframe"
+          },
+          "kind": {
+            "default": "unit",
+            "description": "kind parameter (Literal['unit', 'time']).",
+            "enum": [
+              "unit",
+              "time"
+            ],
+            "type": "string"
           },
           "method": {
             "default": "sdid",
@@ -55417,6 +55452,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py",
         "tests/reference_parity/test_oct2026_third_pass.py"
       ],
       "tolerance": ""
@@ -55544,6 +55580,11 @@
             "description": "Random seed for reproducibility.",
             "type": "integer"
           },
+          "refit_bootstrap": {
+            "default": 0,
+            "description": "Number of bootstrap refits for a standard error that carries the sampling variability of both networks. Each refit trains both stages on a resample of the rows from its own initialisation, so the run takes ``refit_bootstrap + 1`` times as long. With it, ``se``, ``ci`` and ``pvalue`` come from the spread of the refits, ``model_info['se_valid_for_ate']`` is ``True`` and the fixed-network number moves to ``model_info['se_plugin']``. Must be 0 or at least 5.",
+            "type": "integer"
+          },
           "second_stage_epochs": {
             "default": 100,
             "description": "Training epochs for the response model.",
@@ -55578,7 +55619,7 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_third_pass.py"
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py"
     ],
     "validation_status": "validated"
   },
@@ -66914,17 +66955,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Predict CATE on new (out-of-sample) data.",
+    "description": "Predict CATE on new (out-of-sample) data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "tau_hat = sp.predict_cate(res, new_data)",
@@ -66960,7 +67005,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Predict CATE on new (out-of-sample) data.",
+      "description": "Predict CATE on new (out-of-sample) data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "predict_cate",
       "parameters": {
         "properties": {
@@ -66982,8 +67027,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_fourth_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -69091,7 +69138,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
-        "tests/reference_parity/test_causal_discovery_parity.py"
+        "tests/reference_parity/test_causal_discovery_parity.py",
+        "tests/reference_parity/test_oct2026_fourth_pass.py"
       ],
       "tolerance": ""
     },
