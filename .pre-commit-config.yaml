@@ -187,6 +187,16 @@ repos:
         always_run: true
         stages: [pre-push]
 
+      - id: release-gate
+        name: release_gate --check (ASCII-safe patterns, packaged wording; census while a release is being cut)
+        # The census part only runs between the version bump and the tag, so
+        # it never fires on an ordinary push while other lines add functions.
+        entry: python3 scripts/release_gate.py --check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       - id: jss-review-freeze
         name: jss_review_freeze --check (every commit to a frozen JSS artifact is logged)
         # Per commit, so it cannot run at pre-commit: the ledger entry names

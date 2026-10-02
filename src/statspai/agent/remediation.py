@@ -253,7 +253,7 @@ REMEDIATIONS: List[Dict[str, Any]] = [
     },
     # --- DML: orthogonality / score mean ≠ 0 ---
     {
-        "match": r"(orthogonal.{0,20}(fail|violat)|score mean.{0,10}≠|score mean.{0,10}!=|dml.*bias)",
+        "match": r"(orthogonal.{0,20}(fail|violat)|score mean.{0,10}\u2260|score mean.{0,10}!=|dml.*bias)",
         "category": "dml_ortho_fail",
         "diagnosis": (
             "Double-ML nuisance estimates did not yield a zero-mean "

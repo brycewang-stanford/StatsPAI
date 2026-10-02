@@ -4,6 +4,36 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Release gate (`scripts/release_gate.py`, pre-push hook `release-gate`).**
+  Three things reached PyPI in 1.33.0 / 1.34.0 and were found only when a
+  paper's replication archive was built from the tag, each costing a patch
+  release. They are now checked where a release is made. `--fix-census`
+  rewrites the registry census quoted in `docs/guides/stability.md` and
+  `docs/jss_source_audit_dossier.md` from the live registry, and the check
+  enforces it between the version bump and the tag (never on an ordinary
+  push, since other lines add functions all day). Patterns passed to `re`
+  and raw string literals must survive the JSS archive's ASCII
+  transliteration (`scripts/ascii_source.py`): write `\u2026`, not the
+  character. Text shipped in the wheel must not carry promotional wording
+  the archive verifier rejects.
+- **Track C timings are bound to the code they timed
+  (`scripts/trace_perf_path.py`, `tests/perf/results/_timed_path.json`).**
+  The record holds the hash of every source file that ran inside the timed
+  calls, the harness and the Rust backend, with the `__version__` line
+  masked. `--check` says whether the committed timings still describe the
+  tree and names the files if not. The 1.34.0 timings are valid for 1.34.1
+  and 1.34.2 (no timed-path file changed); a documentation-only release no
+  longer calls for a two-hour rerun on a quiet machine.
+
+### Fixed
+
+- `statspai.agent.remediation`: the DML orthogonality rule spelled its
+  not-equal sign as a literal character inside a pattern; it is now
+  `\u2260`, so the pattern is the same in the ASCII archive. Behaviour is
+  unchanged.
+
 ### ⚠️ Correctness
 
 - **`sp.vcnet` and `sp.scigan` stretched the dose-response curve on a
