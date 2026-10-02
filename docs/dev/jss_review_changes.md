@@ -31,6 +31,25 @@ Rules:
 
 ## Entries
 
+### 2026-10-02 — call traces re-recorded after the example-data loaders were labelled as simulated
+
+- **Commits.** `a2a760d3` changed `src/statspai/synth/datasets.py` and
+  `src/statspai/synth/sdid.py` (docstrings, and `df.attrs['simulated']`
+  on the returned frames) and re-recorded
+  `tests/r_parity/results/_implementation_trace.json` for modules 07,
+  12, 18 and 19, whose entry scripts load those datasets.
+- **Reason.** The loaders did not say their rows are simulated. No row
+  of any dataset changed: the modules' dumped CSVs and committed results
+  are byte-identical, and `verify_reproduce_py.py --no-report` reports 89
+  reproduce, 0 drift.
+- **Effect on the paper.** None on any number. One thing to check in the
+  text: wherever the manuscript calls the module 12 input "California
+  Proposition 99", it is the simulated replica
+  (`sp.datasets.california_prop99(simulated=True)`), on which both
+  StatsPAI and R give -17.9, not the published -15.60. On the real panel
+  StatsPAI gives -15.6038279 against R `synthdid` 0.0.9's -15.6038279
+  (`tests/reference_parity/test_oct2026_fourth_pass.py`).
+
 ### 2026-10-02 — call traces re-recorded twice during the known-truth hardening pass; parity-index denominators moved
 
 - **Commits.** `e364393e` and `06fe553d` re-recorded
