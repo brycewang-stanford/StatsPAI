@@ -504,3 +504,34 @@ def test_sdid_treat_path_has_its_own_rows():
         covariates="none",
     )
     assert boot["outputs"]["se"]["status"] == "not_covered"
+
+
+def test_sun_abraham_joint_covariance_has_a_reference_only_with_fixed_shares():
+    """The vcov row ran ``share_variance=False``; the default must not borrow it.
+
+    fixest holds cohort shares fixed, so its ``A V A'`` pins the full
+    event-study matrix of that setting only. Under the default (the
+    Sun-Abraham Prop. 3 share term) the diagonal is pinned against
+    ``eventstudyinteract`` by module 05, the off-diagonal blocks by nothing.
+    """
+    mp = pd.read_csv(ROOT / "tests/orig_parity/data/02_mpdta_original.csv")
+    keys = dict(y="lemp", g="first_treat", t="year", i="countyreal")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        default = sp.validation_scope(sp.sun_abraham(mp, **keys))
+        fixed = sp.validation_scope(sp.sun_abraham(mp, **keys, share_variance=False))
+    assert default["configuration"]["share_variance"] == "estimated"
+    assert default["outputs"]["vcov"]["status"] == "not_covered"
+    assert default["outputs"]["se"]["status"] == "reference"
+    assert fixed["outputs"]["vcov"]["status"] == "reference"
+    assert fixed["outputs"]["vcov"]["evidence"][0]["artifact"].endswith(
+        "test_event_study_vcov_R_parity.py"
+    )
+    # The coverage simulation ran the default only.
+    assert default["outputs"]["coverage"]["status"] == "coverage_simulation"
+    assert fixed["outputs"]["coverage"]["status"] == "not_covered"
+    # A by-name query that omits the new dimension means the default.
+    by_name = sp.validation_scope(
+        function="sun_abraham", control_group="nevertreated", aggregation="event_time"
+    )
+    assert by_name["configuration"]["share_variance"] == "estimated"

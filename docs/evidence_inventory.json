@@ -1,0 +1,2833 @@
+{
+  "schema": 1,
+  "generated_by": "scripts/build_evidence_inventory.py",
+  "source": "statspai.validation_scope.SCOPES",
+  "note": "Counts are cells of each estimator's configuration grid. A cell is one value per dimension; 'reference' means a T1/T2 row ran that configuration and compared that output. Functions without a scope map are absent, which is not a statement about them.",
+  "functions": {
+    "callaway_santanna": {
+      "dimensions": {
+        "estimator": [
+          "dr",
+          "reg",
+          "ipw"
+        ],
+        "control_group": [
+          "nevertreated",
+          "notyettreated"
+        ],
+        "weights": [
+          "none",
+          "weighted"
+        ],
+        "covariates": [
+          "none",
+          "set"
+        ],
+        "inference": [
+          "analytic",
+          "bootstrap"
+        ],
+        "base_period": [
+          "universal",
+          "varying"
+        ],
+        "anticipation": [
+          "0",
+          ">0"
+        ],
+        "clustering": [
+          "none",
+          "set"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "inference": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the multiplier bootstrap resamples influence functions for SEs and bands; the ATT(g,t) and their aggregates are unchanged"
+        }
+      },
+      "cells": 384,
+      "overall": {
+        "covered": 25,
+        "estimate_only": 25,
+        "not_covered": 334
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 50,
+          "not_covered": 334
+        },
+        "se": {
+          "reference": 25,
+          "stochastic_screen": 2,
+          "not_covered": 357
+        },
+        "coverage": {
+          "coverage_simulation": 1,
+          "not_covered": 383
+        },
+        "vcov": {
+          "reference": 1,
+          "not_covered": 383
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/04_csdid.py",
+          "entry_point": "sp.callaway_santanna(estimator='reg') + sp.aggte(bstrap=False)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "reg"
+            ],
+            "control_group": [
+              "nevertreated"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "universal"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none"
+            ]
+          },
+          "compares": "simple / dynamic / group ATT and analytic SEs vs did and csdid"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_cs_weighted_parity.py",
+          "entry_point": "sp.callaway_santanna(...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "dr",
+              "ipw",
+              "reg"
+            ],
+            "control_group": [
+              "nevertreated",
+              "notyettreated"
+            ],
+            "weights": [
+              "none",
+              "weighted"
+            ],
+            "covariates": [
+              "none",
+              "set"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "universal"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none"
+            ]
+          },
+          "compares": "simple / dynamic / group ATT and analytic SE vs did::att_gt over dr/reg/ipw x never/not-yet x weights x covariates (72 cells)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_aggte_vcov_r_parity.py",
+          "entry_point": "sp.aggte(type='dynamic')",
+          "outputs": [
+            "vcov"
+          ],
+          "configuration": {
+            "estimator": [
+              "dr"
+            ],
+            "control_group": [
+              "nevertreated"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "universal"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none"
+            ]
+          },
+          "compares": "every entry of the dynamic event-study covariance (off-diagonal blocks included) vs did::aggte influence functions; the matrix sp.honest_did and sp.uniform_bands consume"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_cs_rc_cluster_csdid_parity.py",
+          "entry_point": "sp.callaway_santanna(clustervars=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "dr"
+            ],
+            "control_group": [
+              "nevertreated"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "universal"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "set"
+            ]
+          },
+          "compares": "clustered analytic SEs vs Stata csdid (v1) cluster() to 1e-9: every ATT(g,t), group and simple aggregates, on a panel with a time-invariant cluster (mpdta) and on repeated cross-sections clustered on a row-level city x year"
+        },
+        {
+          "kind": "S",
+          "artifact": "tests/reference_parity/test_cs_inference_parity.py",
+          "entry_point": "sp.callaway_santanna(bstrap=True)",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "dr"
+            ],
+            "control_group": [
+              "nevertreated"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "inference": [
+              "bootstrap"
+            ],
+            "base_period": [
+              "universal"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none",
+              "set"
+            ]
+          },
+          "compares": "multiplier-bootstrap SEs within 8-10% and uniform critical values within 5% of did at 9,999 draws (one seed per side; a tolerance screen, not an equivalence test)"
+        },
+        {
+          "kind": "B",
+          "artifact": "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json",
+          "entry_point": "sp.callaway_santanna(estimator='reg')",
+          "outputs": [
+            "coverage"
+          ],
+          "configuration": {
+            "estimator": [
+              "reg"
+            ],
+            "control_group": [
+              "nevertreated"
+            ],
+            "weights": [
+              "none"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "inference": [
+              "analytic"
+            ],
+            "base_period": [
+              "universal"
+            ],
+            "anticipation": [
+              "0"
+            ],
+            "clustering": [
+              "none"
+            ]
+          },
+          "compares": "95% CI coverage of the simple ATT on a staggered DGP"
+        }
+      ]
+    },
+    "causal_forest": {
+      "dimensions": {
+        "treatment": [
+          "binary",
+          "continuous"
+        ],
+        "trees": [
+          "100",
+          "200",
+          "300",
+          "500",
+          "1000",
+          "2000",
+          "4000",
+          "8000"
+        ],
+        "tuning": [
+          "grf_defaults",
+          "custom"
+        ],
+        "design": [
+          "iid",
+          "clustered",
+          "fixed_effects"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {},
+      "cells": 96,
+      "overall": {
+        "stochastic_only": 3,
+        "not_covered": 93
+      },
+      "by_output": {
+        "estimate": {
+          "seed_equivalence": 3,
+          "not_covered": 93
+        },
+        "se": {
+          "stochastic_screen": 1,
+          "not_covered": 95
+        },
+        "coverage": {
+          "coverage_simulation": 1,
+          "not_covered": 95
+        }
+      },
+      "rows": [
+        {
+          "kind": "T3",
+          "artifact": "tests/reference_parity/test_grf_seed_mc_equivalence.py",
+          "entry_point": "sp.causal_forest(...).average_treatment_effect()",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "treatment": [
+              "binary"
+            ],
+            "trees": [
+              "2000",
+              "500",
+              "8000"
+            ],
+            "tuning": [
+              "grf_defaults"
+            ],
+            "design": [
+              "iid"
+            ]
+          },
+          "compares": "seed-replicated AIPW ATE/ATT vs grf at 500, 2,000 and 8,000 trees: TOST equivalence within 0.1 sampling SE on two datasets"
+        },
+        {
+          "kind": "S",
+          "artifact": "tests/r_parity/13_causal_forest.py",
+          "entry_point": "sp.causal_forest(n_estimators=2000)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "treatment": [
+              "binary"
+            ],
+            "trees": [
+              "2000"
+            ],
+            "tuning": [
+              "grf_defaults"
+            ],
+            "design": [
+              "iid"
+            ]
+          },
+          "compares": "single-draw AIPW ATE/ATT and SE vs grf (one fit per engine)"
+        },
+        {
+          "kind": "B",
+          "artifact": "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json",
+          "entry_point": "sp.causal_question(design='causal_forest')",
+          "outputs": [
+            "coverage"
+          ],
+          "configuration": {
+            "treatment": [
+              "binary"
+            ],
+            "trees": [
+              "2000"
+            ],
+            "tuning": [
+              "grf_defaults"
+            ],
+            "design": [
+              "iid"
+            ]
+          },
+          "compares": "coverage of the forest's own AIPW interval (2,000 trees)"
+        }
+      ]
+    },
+    "dml": {
+      "dimensions": {
+        "model": [
+          "plr",
+          "irm",
+          "pliv",
+          "iivm"
+        ],
+        "score": [
+          "partialling out",
+          "iv-type",
+          "ate",
+          "atte",
+          "late"
+        ],
+        "learners": [
+          "linear",
+          "default",
+          "other"
+        ],
+        "n_folds": [
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "10",
+          "11",
+          "12",
+          "13",
+          "14",
+          "15",
+          "16",
+          "17",
+          "18",
+          "19",
+          "20"
+        ],
+        "n_rep": [
+          "1",
+          ">1"
+        ],
+        "ipw": [
+          "n/a",
+          "trim0.01",
+          "trim1e-12",
+          "other"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {},
+      "cells": 9120,
+      "overall": {
+        "covered": 4,
+        "stochastic_only": 2,
+        "not_covered": 9114
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 4,
+          "not_covered": 9116
+        },
+        "se": {
+          "reference": 4,
+          "not_covered": 9116
+        },
+        "coverage": {
+          "coverage_simulation": 2,
+          "not_covered": 9118
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/08_dml.py",
+          "entry_point": "sp.dml(model='plr')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "plr"
+            ],
+            "score": [
+              "partialling out"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "5"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "n/a"
+            ]
+          },
+          "compares": "theta and SE vs DoubleML on shared folds"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/71_dml_family.py",
+          "entry_point": "sp.dml(model='irm')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "irm"
+            ],
+            "score": [
+              "ate"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "5"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "trim1e-12"
+            ]
+          },
+          "compares": "theta and SE vs DoubleML on shared folds"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/71_dml_family.py",
+          "entry_point": "sp.dml(model='pliv')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "pliv"
+            ],
+            "score": [
+              "partialling out"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "5"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "n/a"
+            ]
+          },
+          "compares": "theta and SE vs DoubleML on shared folds"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/71_dml_family.py",
+          "entry_point": "sp.dml(model='iivm')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "model": [
+              "iivm"
+            ],
+            "score": [
+              "late"
+            ],
+            "learners": [
+              "linear"
+            ],
+            "n_folds": [
+              "5"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "trim1e-12"
+            ]
+          },
+          "compares": "theta and SE vs DoubleML on shared folds"
+        },
+        {
+          "kind": "B",
+          "artifact": "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json",
+          "entry_point": "sp.dml(model='plr', n_folds=5)",
+          "outputs": [
+            "coverage"
+          ],
+          "configuration": {
+            "model": [
+              "plr"
+            ],
+            "score": [
+              "partialling out"
+            ],
+            "learners": [
+              "default"
+            ],
+            "n_folds": [
+              "5"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "n/a"
+            ]
+          },
+          "compares": "95% CI coverage with the default learners: 0.883 (bias 0.5 MC SD, mean SE 0.88 of the MC SD); see mechanisms/dml_plr_learners.py"
+        },
+        {
+          "kind": "B",
+          "artifact": "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json",
+          "entry_point": "sp.causal_question(design='dml')",
+          "outputs": [
+            "coverage"
+          ],
+          "configuration": {
+            "model": [
+              "irm"
+            ],
+            "score": [
+              "ate"
+            ],
+            "learners": [
+              "default"
+            ],
+            "n_folds": [
+              "5"
+            ],
+            "n_rep": [
+              "1"
+            ],
+            "ipw": [
+              "trim0.01"
+            ]
+          },
+          "compares": "95% CI coverage with the default learners"
+        }
+      ]
+    },
+    "fast.feols": {
+      "dimensions": {
+        "vcov": [
+          "iid",
+          "hc1",
+          "cr1"
+        ],
+        "ssc": [
+          "fixest",
+          "statspai"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "vcov": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator"
+        },
+        "ssc": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the small-sample factor scales the covariance only"
+        }
+      },
+      "cells": 12,
+      "overall": {
+        "covered": 2,
+        "estimate_only": 4,
+        "not_covered": 6
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 6,
+          "not_covered": 6
+        },
+        "se": {
+          "reference": 2,
+          "not_covered": 10
+        },
+        "coverage": {
+          "coverage_simulation": 1,
+          "not_covered": 11
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/03_hdfe.py",
+          "entry_point": "sp.fast.feols(vcov='iid')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vcov": [
+              "iid"
+            ],
+            "ssc": [
+              "fixest"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and iid SEs vs fixest::feols"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/15_hdfe_cluster.py",
+          "entry_point": "sp.fast.feols(vcov='cr1')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vcov": [
+              "cr1"
+            ],
+            "ssc": [
+              "fixest"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "CR1 SEs vs fixest::feols(cluster=)"
+        },
+        {
+          "kind": "B",
+          "artifact": "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json",
+          "entry_point": "sp.fast.feols(vcov='cr1')",
+          "outputs": [
+            "coverage"
+          ],
+          "configuration": {
+            "vcov": [
+              "cr1"
+            ],
+            "ssc": [
+              "fixest"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "95% CI coverage of the within estimator on a two-way FE panel DGP"
+        }
+      ]
+    },
+    "iv": {
+      "dimensions": {
+        "estimator": [
+          "2sls",
+          "liml",
+          "fuller",
+          "gmm"
+        ],
+        "vce": [
+          "classical",
+          "hc0",
+          "hc1",
+          "hc2",
+          "hc3",
+          "cr1",
+          "cr2",
+          "cr3",
+          "cluster_multiway",
+          "hac",
+          "wild",
+          "conley",
+          "jackknife"
+        ],
+        "identification": [
+          "just",
+          "over"
+        ],
+        "absorb": [
+          "none",
+          "set"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "vce": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator"
+        }
+      },
+      "cells": 208,
+      "overall": {
+        "covered": 7,
+        "estimate_only": 32,
+        "not_covered": 169
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 39,
+          "not_covered": 169
+        },
+        "se": {
+          "reference": 7,
+          "not_covered": 201
+        },
+        "coverage": {
+          "coverage_simulation": 1,
+          "not_covered": 207
+        },
+        "diagnostic": {
+          "reference": 1,
+          "not_covered": 207
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_card_aer_parity.py",
+          "entry_point": "sp.iv(formula, data, robust=..., cluster=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "classical",
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "coefficient and classical / HC1 / CR1 SEs vs AER::ivreg + sandwich on the original Card extract, just- and over-identified"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_card_aer_parity.py",
+          "entry_point": "sp.iv(formula, data)",
+          "outputs": [
+            "diagnostic"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "classical"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "Sargan over-identification statistic vs AER"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/02_iv.py",
+          "entry_point": "sp.ivreg(robust='hc1')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "hc1"
+            ],
+            "identification": [
+              "just"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and HC1 SEs vs AER::ivreg (via sp.ivreg, bit-identical to sp.iv: tests/reference_parity/test_validation_entry_points.py)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_validation_entry_points.py",
+          "entry_point": "sp.iv(formula, data, method='liml')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "liml"
+            ],
+            "vce": [
+              "classical"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "LIML coefficient, SE and kappa vs ivmodel on Track A module 59's bytes, through sp.iv(method='liml')"
+        },
+        {
+          "kind": "B",
+          "artifact": "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json",
+          "entry_point": "sp.ivreg(robust='hc1')",
+          "outputs": [
+            "coverage"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "hc1"
+            ],
+            "identification": [
+              "just"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "95% CI coverage, strong single instrument (via sp.ivreg)"
+        }
+      ]
+    },
+    "ivreg": {
+      "dimensions": {
+        "estimator": [
+          "2sls",
+          "liml",
+          "fuller",
+          "gmm"
+        ],
+        "vce": [
+          "classical",
+          "hc0",
+          "hc1",
+          "hc2",
+          "hc3",
+          "cr1",
+          "cr2",
+          "cr3",
+          "cluster_multiway",
+          "hac",
+          "wild",
+          "conley",
+          "jackknife"
+        ],
+        "identification": [
+          "just",
+          "over"
+        ],
+        "absorb": [
+          "none",
+          "set"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "vce": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator"
+        }
+      },
+      "cells": 208,
+      "overall": {
+        "covered": 7,
+        "estimate_only": 32,
+        "not_covered": 169
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 39,
+          "not_covered": 169
+        },
+        "se": {
+          "reference": 7,
+          "not_covered": 201
+        },
+        "coverage": {
+          "coverage_simulation": 1,
+          "not_covered": 207
+        },
+        "diagnostic": {
+          "reference": 1,
+          "not_covered": 207
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_card_aer_parity.py",
+          "entry_point": "sp.iv(formula, data, robust=..., cluster=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "classical",
+              "cr1",
+              "hc1"
+            ],
+            "identification": [
+              "just",
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "coefficient and classical / HC1 / CR1 SEs vs AER::ivreg + sandwich on the original Card extract, just- and over-identified"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_iv_card_aer_parity.py",
+          "entry_point": "sp.iv(formula, data)",
+          "outputs": [
+            "diagnostic"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "classical"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "Sargan over-identification statistic vs AER"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/02_iv.py",
+          "entry_point": "sp.ivreg(robust='hc1')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "hc1"
+            ],
+            "identification": [
+              "just"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and HC1 SEs vs AER::ivreg (via sp.ivreg, bit-identical to sp.iv: tests/reference_parity/test_validation_entry_points.py)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_validation_entry_points.py",
+          "entry_point": "sp.iv(formula, data, method='liml')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "estimator": [
+              "liml"
+            ],
+            "vce": [
+              "classical"
+            ],
+            "identification": [
+              "over"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "LIML coefficient, SE and kappa vs ivmodel on Track A module 59's bytes, through sp.iv(method='liml')"
+        },
+        {
+          "kind": "B",
+          "artifact": "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json",
+          "entry_point": "sp.ivreg(robust='hc1')",
+          "outputs": [
+            "coverage"
+          ],
+          "configuration": {
+            "estimator": [
+              "2sls"
+            ],
+            "vce": [
+              "hc1"
+            ],
+            "identification": [
+              "just"
+            ],
+            "absorb": [
+              "none"
+            ]
+          },
+          "compares": "95% CI coverage, strong single instrument (via sp.ivreg)"
+        }
+      ]
+    },
+    "panel": {
+      "dimensions": {
+        "method": [
+          "fe",
+          "twoway",
+          "pooled",
+          "fd",
+          "re",
+          "be",
+          "mundlak",
+          "chamberlain"
+        ],
+        "vce": [
+          "unadjusted",
+          "robust",
+          "cluster"
+        ],
+        "ssc": [
+          "linearmodels",
+          "stata",
+          "fixest"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "vce": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the covariance is computed after the coefficients"
+        },
+        "ssc": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the small-sample convention scales the covariance only"
+        }
+      },
+      "cells": 144,
+      "overall": {
+        "covered": 46,
+        "estimate_only": 53,
+        "not_covered": 45
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 99,
+          "not_covered": 45
+        },
+        "se": {
+          "reference": 46,
+          "not_covered": 98
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/35_panel.py",
+          "entry_point": "sp.panel(data=df, ...)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "method": [
+              "fe",
+              "re"
+            ],
+            "vce": [
+              "unadjusted"
+            ],
+            "ssc": [
+              "linearmodels"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "FE / RE coefficients vs plm::plm (SE budget 1e-3)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_panel_ssc_stata_parity.py",
+          "entry_point": "sp.panel(data, ..., ssc=ssc)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "fd",
+              "fe",
+              "pooled",
+              "re",
+              "twoway"
+            ],
+            "vce": [
+              "cluster",
+              "robust",
+              "unadjusted"
+            ],
+            "ssc": [
+              "stata"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "coefficients, SEs and t / z df vs Stata xtreg / areg / regress"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_panel_ssc_stata_parity.py",
+          "entry_point": "sp.panel(data, ..., ssc=ssc)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "be"
+            ],
+            "vce": [
+              "unadjusted"
+            ],
+            "ssc": [
+              "stata"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and SEs vs Stata xtreg, be"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_panel_ssc_stata_parity.py",
+          "entry_point": "sp.panel(data, ..., ssc=ssc)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "mundlak"
+            ],
+            "vce": [
+              "cluster",
+              "unadjusted"
+            ],
+            "ssc": [
+              "stata"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and SEs vs Stata xtreg, re with unit means"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_panel_ssc_stata_parity.py",
+          "entry_point": "sp.panel(data, ..., ssc=ssc)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "chamberlain"
+            ],
+            "vce": [
+              "cluster"
+            ],
+            "ssc": [
+              "stata"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and SEs vs Stata xtreg, re with Chamberlain terms"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_panel_ssc_stata_parity.py",
+          "entry_point": "sp.panel(data, ..., ssc=ssc)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "fe",
+              "pooled",
+              "twoway"
+            ],
+            "vce": [
+              "cluster",
+              "unadjusted"
+            ],
+            "ssc": [
+              "stata"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted fits vs Stata xtreg / regress [aw=]"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_panel_ssc_stata_parity.py",
+          "entry_point": "sp.panel(data, ..., ssc=ssc)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "fd",
+              "fe",
+              "pooled",
+              "twoway"
+            ],
+            "vce": [
+              "cluster",
+              "robust",
+              "unadjusted"
+            ],
+            "ssc": [
+              "fixest"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "coefficients, SEs and t df vs R fixest default ssc()"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_panel_ssc_stata_parity.py",
+          "entry_point": "sp.panel(data, ..., ssc=ssc)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "fe",
+              "pooled",
+              "twoway"
+            ],
+            "vce": [
+              "cluster",
+              "robust",
+              "unadjusted"
+            ],
+            "ssc": [
+              "fixest"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted fits vs R fixest weights="
+        }
+      ]
+    },
+    "psm": {
+      "dimensions": {
+        "method": [
+          "nearest",
+          "caliper",
+          "kernel",
+          "radius",
+          "stratify"
+        ],
+        "distance": [
+          "propensity",
+          "mahalanobis",
+          "logit"
+        ],
+        "n_matches": [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5",
+          "6",
+          "7",
+          "8",
+          "9",
+          "10"
+        ],
+        "replace": [
+          "true",
+          "false"
+        ],
+        "caliper": [
+          "none",
+          "set"
+        ],
+        "bias_correction": [
+          "true",
+          "false"
+        ],
+        "se_method": [
+          "abadie_imbens",
+          "abadie_imbens_2016",
+          "bootstrap"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "se_method": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the variance estimator does not change the matches"
+        }
+      },
+      "cells": 3600,
+      "overall": {
+        "covered": 1,
+        "estimate_only": 2,
+        "not_covered": 3597
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 3,
+          "not_covered": 3597
+        },
+        "se": {
+          "reference": 1,
+          "not_covered": 3599
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/11_psm.py",
+          "entry_point": "sp.psm(method='nn')",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "method": [
+              "nearest"
+            ],
+            "distance": [
+              "propensity"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "replace": [
+              "true"
+            ],
+            "caliper": [
+              "none"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "abadie_imbens",
+              "abadie_imbens_2016"
+            ]
+          },
+          "compares": "ATT vs MatchIt"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/11_psm.py",
+          "entry_point": "sp.psm(se_method='abadie_imbens_2016')",
+          "outputs": [
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "nearest"
+            ],
+            "distance": [
+              "propensity"
+            ],
+            "n_matches": [
+              "1"
+            ],
+            "replace": [
+              "true"
+            ],
+            "caliper": [
+              "none"
+            ],
+            "bias_correction": [
+              "false"
+            ],
+            "se_method": [
+              "abadie_imbens_2016"
+            ]
+          },
+          "compares": "Abadie-Imbens (2016) estimated-score SE vs Stata teffects psmatch"
+        }
+      ]
+    },
+    "rddensity": {
+      "dimensions": {
+        "code_path": [
+          "native",
+          "rddensity"
+        ]
+      },
+      "primary_outputs": [
+        "diagnostic"
+      ],
+      "invariant": {},
+      "cells": 2,
+      "overall": {
+        "covered": 1,
+        "not_covered": 1
+      },
+      "by_output": {
+        "diagnostic": {
+          "reference": 1,
+          "not_covered": 1
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/09_rddensity.py",
+          "entry_point": "sp.rddensity(backend='native')",
+          "outputs": [
+            "diagnostic"
+          ],
+          "configuration": {
+            "code_path": [
+              "native"
+            ]
+          },
+          "compares": "density-difference test statistic and p-value vs rddensity"
+        }
+      ]
+    },
+    "rdrobust": {
+      "dimensions": {
+        "design": [
+          "sharp",
+          "fuzzy",
+          "kink"
+        ],
+        "bwselect": [
+          "mserd",
+          "msetwo",
+          "msesum",
+          "msecomb1",
+          "msecomb2",
+          "cerrd",
+          "certwo",
+          "cersum",
+          "cercomb1",
+          "cercomb2",
+          "cct",
+          "manual"
+        ],
+        "kernel": [
+          "triangular",
+          "epanechnikov",
+          "uniform"
+        ],
+        "p": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4"
+        ],
+        "vce": [
+          "nn",
+          "hc0",
+          "hc1",
+          "hc2",
+          "hc3",
+          "cluster"
+        ],
+        "covariates": [
+          "none",
+          "set"
+        ],
+        "code_path": [
+          "native",
+          "port"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {},
+      "cells": 25920,
+      "overall": {
+        "covered": 12,
+        "not_covered": 25908
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 12,
+          "not_covered": 25908
+        },
+        "se": {
+          "reference": 12,
+          "not_covered": 25908
+        },
+        "coverage": {
+          "coverage_simulation": 1,
+          "not_covered": 25919
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/06_rd.py",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "conventional / robust estimates, SEs and h, b vs rdrobust (R and Stata)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/06_rd.py",
+          "entry_point": "sp.rdrobust(h=15)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "manual"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "estimates and SEs at a forced common bandwidth h = 15"
+        },
+        {
+          "kind": "B",
+          "artifact": "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json",
+          "entry_point": "sp.rdrobust(df, y, x, c)",
+          "outputs": [
+            "coverage"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "robust bias-corrected CI coverage on a known-jump DGP"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_weights_parity.py",
+          "entry_point": "sp.rdrobust(weights=)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted estimates, SEs and h vs R rdrobust(weights=)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_weights_parity.py",
+          "entry_point": "sp.rdrobust(weights=)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "msetwo"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "hc1"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted msetwo / hc1 vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_weights_parity.py",
+          "entry_point": "sp.rdrobust(weights=)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "cerrd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "2"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted cerrd, p = 2 vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_weights_parity.py",
+          "entry_point": "sp.rdrobust(weights=)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "set"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted, covariate-adjusted vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_weights_parity.py",
+          "entry_point": "sp.rdrobust(weights=)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "cluster"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted, clustered vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_weights_parity.py",
+          "entry_point": "sp.rdrobust(weights=)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "uniform"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "hc3"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted hc3 / uniform kernel vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_weights_parity.py",
+          "entry_point": "sp.rdrobust(weights=)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "sharp"
+            ],
+            "bwselect": [
+              "manual"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted at fixed h, b vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_weights_parity.py",
+          "entry_point": "sp.rdrobust(weights=)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "fuzzy"
+            ],
+            "bwselect": [
+              "mserd"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted fuzzy RD vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_weights_parity.py",
+          "entry_point": "sp.rdrobust(weights=)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "fuzzy"
+            ],
+            "bwselect": [
+              "msecomb2"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "set"
+            ]
+          },
+          "compares": "weighted fuzzy RD, msecomb2 vs R rdrobust"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_rd_weights_parity.py",
+          "entry_point": "sp.rdrobust(weights=)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "design": [
+              "fuzzy"
+            ],
+            "bwselect": [
+              "msecomb2"
+            ],
+            "kernel": [
+              "triangular"
+            ],
+            "p": [
+              "1"
+            ],
+            "vce": [
+              "nn"
+            ],
+            "covariates": [
+              "none"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "fuzzy RD, msecomb2 (comb recursion now keeps the first stage)"
+        }
+      ]
+    },
+    "regress": {
+      "dimensions": {
+        "vce": [
+          "classical",
+          "hc0",
+          "hc1",
+          "hc2",
+          "hc3",
+          "cr1",
+          "cr2",
+          "cr3",
+          "cluster_multiway",
+          "hac",
+          "wild",
+          "conley",
+          "jackknife"
+        ],
+        "weights": [
+          "none",
+          "set"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "vce": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the least-squares / k-class point estimate is computed before, and independently of, the covariance estimator"
+        }
+      },
+      "cells": 26,
+      "overall": {
+        "covered": 6,
+        "estimate_only": 7,
+        "not_covered": 13
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 13,
+          "not_covered": 13
+        },
+        "se": {
+          "reference": 6,
+          "not_covered": 20
+        },
+        "coverage": {
+          "coverage_simulation": 1,
+          "not_covered": 25
+        },
+        "joint_test": {
+          "reference": 3,
+          "not_covered": 23
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/01_ols.py",
+          "entry_point": "sp.regress(robust='hc1')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "hc1"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and HC1 SEs vs lm+sandwich"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_vce_grammar_stata_parity.py",
+          "entry_point": "sp.regress(vce=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "cr1",
+              "hc1",
+              "hc3"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "coefficients and SEs vs Stata regress (ols, robust, hc3, cluster)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_r2_postest_parity.py",
+          "entry_point": "sp.test(result, 'C(g)[T.2] = ... = 0')",
+          "outputs": [
+            "joint_test"
+          ],
+          "configuration": {
+            "vce": [
+              "classical",
+              "cr1",
+              "hc1"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "joint Wald F of the factor dummies (and its t(G - 1) / F(q, G - 1) reference law under clustering) vs Stata contrast's joint row"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/55_hc2_hc3.py",
+          "entry_point": "sp.regress(robust='hc2'|'hc3')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "hc2",
+              "hc3"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "HC2 / HC3 SEs vs sandwich::vcovHC"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/14_ols_cluster.py",
+          "entry_point": "sp.regress(cluster=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "cr1"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "CR1 SEs vs sandwich::vcovCL"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/51_newey.py",
+          "entry_point": "sp.regress(robust='hac')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "vce": [
+              "hac"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "Newey-West SEs vs sandwich::NeweyWest"
+        },
+        {
+          "kind": "B",
+          "artifact": "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json",
+          "entry_point": "sp.regress(robust='hc1')",
+          "outputs": [
+            "coverage"
+          ],
+          "configuration": {
+            "vce": [
+              "hc1"
+            ],
+            "weights": [
+              "none"
+            ]
+          },
+          "compares": "95% CI coverage on a known-truth RCT DGP"
+        }
+      ]
+    },
+    "sdid": {
+      "dimensions": {
+        "method": [
+          "sdid",
+          "sc",
+          "did"
+        ],
+        "se_method": [
+          "placebo",
+          "bootstrap",
+          "jackknife",
+          "noinference"
+        ],
+        "code_path": [
+          "native",
+          "synthdid",
+          "r"
+        ],
+        "interface": [
+          "treated_unit",
+          "treat"
+        ],
+        "design": [
+          "block",
+          "staggered"
+        ],
+        "covariates": [
+          "none",
+          "projected"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "se_method": {
+          "outputs": [
+            "estimate"
+          ],
+          "reason": "the SE method resamples after the unit and time weights are solved; the ATT is unchanged"
+        }
+      },
+      "cells": 288,
+      "overall": {
+        "covered": 24,
+        "estimate_only": 28,
+        "not_covered": 236
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 52,
+          "not_covered": 236
+        },
+        "se": {
+          "reference": 24,
+          "not_covered": 264
+        },
+        "coverage": {
+          "coverage_simulation": 1,
+          "not_covered": 287
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/12_sdid.py",
+          "entry_point": "sp.sdid(backend='native')",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "method": [
+              "sdid"
+            ],
+            "se_method": [
+              "placebo"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "interface": [
+              "treated_unit"
+            ],
+            "design": [
+              "block"
+            ],
+            "covariates": [
+              "none"
+            ]
+          },
+          "compares": "point ATT vs synthdid (the SE is not part of this row)"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_sdid_staggered_parity.py",
+          "entry_point": "sp.sdid(treat=...)",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "method": [
+              "did",
+              "sc",
+              "sdid"
+            ],
+            "se_method": [
+              "jackknife",
+              "noinference"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "interface": [
+              "treat"
+            ],
+            "design": [
+              "block",
+              "staggered"
+            ],
+            "covariates": [
+              "none",
+              "projected"
+            ]
+          },
+          "compares": "ATT, per-cohort tau and jackknife SE vs Stata sdid 2.0.2 (Prop 99 block, quota staggered, projected covariates)"
+        },
+        {
+          "kind": "B",
+          "artifact": "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json",
+          "entry_point": "sp.sdid()",
+          "outputs": [
+            "coverage"
+          ],
+          "configuration": {
+            "method": [
+              "sdid"
+            ],
+            "se_method": [
+              "placebo"
+            ],
+            "code_path": [
+              "native"
+            ],
+            "interface": [
+              "treated_unit"
+            ],
+            "design": [
+              "block"
+            ],
+            "covariates": [
+              "none"
+            ]
+          },
+          "compares": "placebo-SE CI coverage, one treated unit"
+        }
+      ]
+    },
+    "sun_abraham": {
+      "dimensions": {
+        "control_group": [
+          "nevertreated",
+          "lastcohort"
+        ],
+        "aggregation": [
+          "fixest_att",
+          "event_time"
+        ],
+        "share_variance": [
+          "estimated",
+          "fixed"
+        ]
+      },
+      "primary_outputs": [
+        "estimate",
+        "se"
+      ],
+      "invariant": {
+        "aggregation": {
+          "outputs": [
+            "vcov"
+          ],
+          "reason": "the event-time covariance is formed before the summary aggregate is chosen"
+        }
+      },
+      "cells": 8,
+      "overall": {
+        "covered": 4,
+        "not_covered": 4
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 4,
+          "not_covered": 4
+        },
+        "se": {
+          "reference": 4,
+          "not_covered": 4
+        },
+        "coverage": {
+          "coverage_simulation": 1,
+          "not_covered": 7
+        },
+        "vcov": {
+          "reference": 2,
+          "not_covered": 6
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/05_sunab.py",
+          "entry_point": "sp.sun_abraham(aggregation='fixest_att')",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "control_group": [
+              "nevertreated"
+            ],
+            "aggregation": [
+              "fixest_att"
+            ],
+            "share_variance": [
+              "estimated",
+              "fixed"
+            ]
+          },
+          "compares": "cohort-size-weighted ATT (agg='att') and SE vs fixest::sunab and eventstudyinteract"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_sunab_event_time_aggregate_parity.py",
+          "entry_point": "sp.sun_abraham()",
+          "outputs": [
+            "estimate",
+            "se"
+          ],
+          "configuration": {
+            "control_group": [
+              "nevertreated"
+            ],
+            "aggregation": [
+              "event_time"
+            ],
+            "share_variance": [
+              "estimated",
+              "fixed"
+            ]
+          },
+          "compares": "equal-weighted post-period event-time average and its SE vs the same linear combination of fixest::sunab coefficients, on both share_variance settings"
+        },
+        {
+          "kind": "B",
+          "artifact": "tests/coverage_monte_carlo/results_b1000/coverage_b1000.json",
+          "entry_point": "sp.sun_abraham()",
+          "outputs": [
+            "coverage"
+          ],
+          "configuration": {
+            "control_group": [
+              "nevertreated"
+            ],
+            "aggregation": [
+              "event_time"
+            ],
+            "share_variance": [
+              "estimated"
+            ]
+          },
+          "compares": "95% CI coverage of the default event-time aggregate"
+        },
+        {
+          "kind": "T2",
+          "artifact": "tests/reference_parity/test_event_study_vcov_R_parity.py",
+          "entry_point": "sp.sun_abraham(share_variance=False)",
+          "outputs": [
+            "vcov"
+          ],
+          "configuration": {
+            "control_group": [
+              "nevertreated"
+            ],
+            "aggregation": [
+              "event_time"
+            ],
+            "share_variance": [
+              "fixed"
+            ]
+          },
+          "compares": "every entry of the event-study covariance (off-diagonal blocks included) vs fixest::sunab's A V A'; the matrix sp.uniform_bands and sp.honest_did consume"
+        }
+      ]
+    },
+    "synth": {
+      "dimensions": {
+        "v_method": [
+          "equal",
+          "nested"
+        ],
+        "weights": [
+          "unique",
+          "nonunique"
+        ],
+        "code_path": [
+          "native",
+          "synth"
+        ]
+      },
+      "primary_outputs": [
+        "estimate"
+      ],
+      "invariant": {},
+      "cells": 8,
+      "overall": {
+        "covered": 1,
+        "disclosure_only": 2,
+        "not_covered": 5
+      },
+      "by_output": {
+        "estimate": {
+          "reference": 1,
+          "disclosure": 2,
+          "not_covered": 5
+        }
+      },
+      "rows": [
+        {
+          "kind": "T2",
+          "artifact": "tests/r_parity/52_scm_unique.py",
+          "entry_point": "sp.synth(method='classic')",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "v_method": [
+              "equal"
+            ],
+            "weights": [
+              "unique"
+            ],
+            "code_path": [
+              "native"
+            ]
+          },
+          "compares": "donor weights and average gap vs Synth and synth on a uniquely identified DGP"
+        },
+        {
+          "kind": "T4",
+          "artifact": "tests/r_parity/07_scm.py",
+          "entry_point": "sp.synth(method='classic', special predictors)",
+          "outputs": [
+            "estimate"
+          ],
+          "configuration": {
+            "v_method": [
+              "nested"
+            ],
+            "weights": [
+              "nonunique",
+              "unique"
+            ],
+            "code_path": [
+              "native"
+            ]
+          },
+          "compares": "Basque gap: reference implementations disagree (non-unique V, W)"
+        }
+      ]
+    }
+  },
+  "totals_by_output": {
+    "estimate": {
+      "reference": 322,
+      "seed_equivalence": 3,
+      "disclosure": 2,
+      "not_covered": 39695
+    },
+    "se": {
+      "reference": 138,
+      "stochastic_screen": 3,
+      "not_covered": 39873
+    },
+    "coverage": {
+      "coverage_simulation": 11,
+      "not_covered": 36259
+    },
+    "diagnostic": {
+      "reference": 3,
+      "not_covered": 415
+    },
+    "vcov": {
+      "reference": 3,
+      "not_covered": 389
+    },
+    "joint_test": {
+      "reference": 3,
+      "not_covered": 23
+    }
+  },
+  "option_fixtures": [
+    {
+      "fixture": "tests/stata_parity/option_parity/results/82_csdid_conventions_Stata.json",
+      "sha256": "4c8b379a0ac8f3f7867438834aed855db9815ce385c09494c5b5c7becd4b68e9",
+      "consumers": [
+        "tests/reference_parity/test_option_fixture_bindings.py"
+      ],
+      "in_tier_a_lock": false
+    },
+    {
+      "fixture": "tests/stata_parity/option_parity/results/83_sunab_control_cohort_Stata.json",
+      "sha256": "492865cd2ffdae848a3659d86a73db5ebc4b51e38820d3360e9652d245cd89d4",
+      "consumers": [
+        "tests/reference_parity/test_option_fixture_bindings.py"
+      ],
+      "in_tier_a_lock": false
+    },
+    {
+      "fixture": "tests/stata_parity/option_parity/results/84_bjs_fe_covariates_Stata.json",
+      "sha256": "6252b6f531d6a41c8d6bc68e0457da133333e258a0b0d0fa45d11479bb2d4260",
+      "consumers": [
+        "tests/reference_parity/test_option_fixture_bindings.py"
+      ],
+      "in_tier_a_lock": false
+    },
+    {
+      "fixture": "tests/stata_parity/option_parity/results/85_multiplegt_dyn_options_Stata.json",
+      "sha256": "090a8b699c78d577da7ff98f80f4ef0bd843fcba48717d839105bcbfd36b0107",
+      "consumers": [
+        "tests/reference_parity/test_multiplegt_dyn_options_parity.py"
+      ],
+      "in_tier_a_lock": false
+    },
+    {
+      "fixture": "tests/stata_parity/option_parity/results/86_lprobust_Stata.json",
+      "sha256": "b419f5edf5136415239b6cf28d633f645e7ca4547693fe570d2fb450120ebe32",
+      "consumers": [
+        "tests/reference_parity/test_lprobust_parity.py"
+      ],
+      "in_tier_a_lock": false
+    },
+    {
+      "fixture": "tests/stata_parity/option_parity/results/87_did_had_Stata.json",
+      "sha256": "1c2c75c8beef5a234943b18998bdcfaca72aa73d70c06cc7adf04c9d1bb6fc42",
+      "consumers": [
+        "tests/reference_parity/test_did_had_parity.py"
+      ],
+      "in_tier_a_lock": false
+    }
+  ]
+}

@@ -254,6 +254,9 @@ def _x_sa(r: Any) -> Dict[str, Optional[str]]:
     return {
         "control_group": _lower(mi.get("control_group")),
         "aggregation": _lower(mi.get("summary_aggregation")),
+        "share_variance": {True: "estimated", False: "fixed"}.get(
+            mi.get("share_variance")
+        ),
     }
 
 
@@ -952,6 +955,7 @@ _add(
         {
             "control_group": ("nevertreated", "lastcohort"),
             "aggregation": ("fixest_att", "event_time"),
+            "share_variance": ("estimated", "fixed"),
         },
         _x_sa,
         (
@@ -961,6 +965,7 @@ _add(
                 {
                     "control_group": _vals("nevertreated"),
                     "aggregation": _vals("fixest_att"),
+                    "share_variance": _vals("estimated", "fixed"),
                 },
                 _EST_SE,
                 "cohort-size-weighted ATT (agg='att') and SE vs fixest::sunab and "
@@ -973,6 +978,7 @@ _add(
                 {
                     "control_group": _vals("nevertreated"),
                     "aggregation": _vals("event_time"),
+                    "share_variance": _vals("estimated", "fixed"),
                 },
                 _EST_SE,
                 "equal-weighted post-period event-time average and its SE vs the "
@@ -986,16 +992,41 @@ _add(
                 {
                     "control_group": _vals("nevertreated"),
                     "aggregation": _vals("event_time"),
+                    "share_variance": _vals("estimated"),
                 },
                 _COV,
                 "95% CI coverage of the default event-time aggregate",
                 "sp.sun_abraham()",
             ),
+            _Row(
+                "T2",
+                _RP + "test_event_study_vcov_R_parity.py",
+                {
+                    "control_group": _vals("nevertreated"),
+                    "aggregation": _vals("event_time"),
+                    "share_variance": _vals("fixed"),
+                },
+                ("vcov",),
+                "every entry of the event-study covariance (off-diagonal blocks "
+                "included) vs fixest::sunab's A V A'; the matrix sp.uniform_bands "
+                "and sp.honest_did consume",
+                "sp.sun_abraham(share_variance=False)",
+            ),
         ),
+        invariant={
+            "aggregation": (
+                ("vcov",),
+                "the event-time covariance is formed before the summary "
+                "aggregate is chosen",
+            ),
+        },
+        defaults={"share_variance": "estimated"},
         note="share_variance changes the per-period SEs only (module 05 pins both "
         "conventions: fixest for fixed shares, eventstudyinteract for the Prop. 3 "
         "term); the overall aggregate's SE treats cohort shares as fixed on both "
-        "settings.",
+        "settings. The joint event-study covariance has a reference only with "
+        "share_variance=False: fixest holds the shares fixed, and no reference "
+        "pins the off-diagonal blocks of the Prop. 3 matrix.",
     )
 )
 

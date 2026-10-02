@@ -57,8 +57,32 @@ changes its numbers.
   "verified" note now states this scope instead of claiming every
   signature and attribute.
 
+- **`docs/evidence_inventory.md` / `.json`: the entry x configuration x
+  output evidence view, generated.** `scripts/build_evidence_inventory.py`
+  walks every cell of each `sp.validation_scope` grid and counts, per
+  output, the cells with reference evidence. It replaces the hand-kept
+  1.22.0 table as the current view and is drift-gated on push. The counts
+  say what a function tier cannot: `rdrobust` has reference evidence in
+  12 of 25,920 cells, `dml` in 4 of 9,120, and no estimator is covered on
+  its whole grid.
+- **Sun-Abraham joint covariance evidence is now in the scope map.** The
+  full event-study matrix was already pinned against `fixest::sunab`
+  (8.9e-11) but not registered. `sp.validation_scope` gains a
+  `share_variance` dimension for `sun_abraham`: `vcov` is `reference` with
+  `share_variance=False` and `not_covered` under the default, where no
+  reference pins the off-diagonal blocks. The coverage simulation is now
+  credited to the default setting only, which is what it ran.
+- **`did_imputation` standard errors under the Y(0)-model options are
+  compared with Stata.** The seven SEs were recorded in the option fixture
+  and asserted by no test; they agree to 1.8e-7 or better.
+
 ### Changed
 
+- The option-level Stata fixtures are bound to their tests. Three of the
+  six were opened by no test (the numbers are literals in the test
+  source) and none is in the Track A hash lock. Every fixture number must
+  now appear in its test, each fixture's SHA-256 is recorded in the
+  evidence inventory, and a fixture no test reads fails the build.
 - CI fast gate runs the whole agent chain: a full analysis over a real
   stdio subprocess (route, load, transform, fit under two covariance
   options, audit, follow-up, resource reads, tight budget, stale handle),

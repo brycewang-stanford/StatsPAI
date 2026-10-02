@@ -218,6 +218,7 @@ jobs:
           tests/test_mcp_error_envelope.py \
           tests/test_registry_metadata_ratchet.py \
           tests/test_validation_scope.py \
+          tests/test_evidence_inventory.py \
           tests/test_skill_package.py \
           tests/test_agent_native_gaps.py \
           -q --no-header -o addopts=''

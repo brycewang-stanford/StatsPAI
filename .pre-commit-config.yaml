@@ -207,6 +207,14 @@ repos:
         always_run: true
         stages: [pre-push]
 
+      - id: evidence-inventory
+        name: build_evidence_inventory --check (configuration x output evidence view, option-fixture hashes)
+        entry: python3 scripts/build_evidence_inventory.py --check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       - id: schema-drift
         name: dump_schemas --check (MCP cold-start bundle drift)
         entry: python3 scripts/dump_schemas.py --check

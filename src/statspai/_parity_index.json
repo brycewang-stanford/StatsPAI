@@ -4216,6 +4216,7 @@
         "tests/reference_parity/test_did_variants_parity.py",
         "tests/reference_parity/test_event_study_vcov_Stata_parity.py",
         "tests/reference_parity/test_oct2026_second_pass.py",
+        "tests/reference_parity/test_option_fixture_bindings.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "also_in_modules": [

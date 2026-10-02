@@ -99,6 +99,7 @@ nav:
   - JSS source-audit dossier: jss_source_audit_dossier.md
   - "R/Stata parity tolerance registry": dev/r_parity_tolerances.md
   - "Cross-language parity matrix": parity.md
+  - "Evidence inventory: configuration x output (generated)": evidence_inventory.md
   - "Capability table (generated)": capabilities.md
   - Guides:
       - "Research tasks: where to start": guides/research_tasks.md
