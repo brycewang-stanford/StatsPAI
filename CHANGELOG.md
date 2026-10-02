@@ -273,6 +273,20 @@ adding an option changes the translation or is reported, and
 
 ### Changed
 
+- **The estimator denominator of the parity index no longer counts
+  functions that cannot have a reference value.** The registry files a
+  function under the module it lives in, so 84 plots, bundled datasets,
+  exporters, language-model helpers and catalogue listings in estimator
+  modules were counted as estimators with no evidence. They are now
+  counted with the infrastructure, by name and with the reason, in
+  `statspai._parity_taxonomy.NON_NUMERIC_CALLABLES`
+  (`tests/test_parity_taxonomy_non_numeric.py` holds the list to its
+  admission rule, and fails if a listed function acquires evidence). In
+  `docs/parity.md` and `sp.parity_summary()["denominators"]` the estimator
+  row goes from 822 to 738 callables. The cross-language count is
+  unchanged at 417, so its share reads 56.5% where it read 50.7%; a
+  function that computes anything of its own, such as `did_summary`,
+  `rd_compare` or `lisa_cluster_map`, stays an estimator.
 - **Measured limitations are now stated where they apply.** `sp.rdit`
   warns below 100 effective observations (the Newey-West SE is biased
   downward in short windows: nominal 95% intervals cover about 83% at 30

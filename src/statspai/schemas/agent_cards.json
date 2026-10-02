@@ -9605,7 +9605,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "tests": [
-        "tests/reference_parity/test_misc_sens_R_parity.py"
+        "tests/reference_parity/test_misc_sens_R_parity.py",
+        "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "tolerance": ""
     },
@@ -12660,17 +12661,21 @@
     ],
     "category": "dag",
     "cost_profile": "",
-    "description": "Shpitser-Pearl ID algorithm: decide if P(Y | do(X)) is non-parametrically identifiable on a semi-Markovian DAG, return the do-free estimand or a witness hedge.",
+    "description": "Shpitser-Pearl ID algorithm: decide if P(Y | do(X)) is non-parametrically identifiable on a semi-Markovian DAG, return the do-free estimand or a witness hedge. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.identify(sp.dag(\"Z->X;Z->Y;X->Y\"), treatment=\"X\", outcome=\"Y\")",
@@ -12719,7 +12724,7 @@
       }
     },
     "signature": {
-      "description": "Shpitser-Pearl ID algorithm: decide if P(Y | do(X)) is non-parametrically identifiable on a semi-Markovian DAG, return the do-free estimand or a witness hedge.",
+      "description": "Shpitser-Pearl ID algorithm: decide if P(Y | do(X)) is non-parametrically identifiable on a semi-Markovian DAG, return the do-free estimand or a witness hedge. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "identify",
       "parameters": {
         "properties": {
@@ -12761,9 +12766,10 @@
     "stability": "stable",
     "typical_n_min": 1,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py",
       "API/unit contract evidence: tests/test_dag_scm.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -12780,17 +12786,21 @@
     ],
     "category": "dag",
     "cost_profile": "",
-    "description": "Build a Single-World Intervention Graph (SWIG) by node-splitting intervened variables. Bridges Pearl's SCM and Hernan-Robins potential-outcome languages.",
+    "description": "Build a Single-World Intervention Graph (SWIG) by node-splitting intervened variables. Bridges Pearl's SCM and Hernan-Robins potential-outcome languages. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sw = sp.swig(g, {\"X\": \"x\"})",
@@ -12836,7 +12846,7 @@
       }
     },
     "signature": {
-      "description": "Build a Single-World Intervention Graph (SWIG) by node-splitting intervened variables. Bridges Pearl's SCM and Hernan-Robins potential-outcome languages.",
+      "description": "Build a Single-World Intervention Graph (SWIG) by node-splitting intervened variables. Bridges Pearl's SCM and Hernan-Robins potential-outcome languages. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "swig",
       "parameters": {
         "properties": {
@@ -12862,10 +12872,11 @@
     "stability": "stable",
     "typical_n_min": 1,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py",
       "API/unit contract evidence: tests/test_dag_scm.py",
       "API/unit contract evidence: tests/test_transport.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -18963,17 +18974,21 @@
     ],
     "category": "causal_rl",
     "cost_profile": "",
-    "description": "Counterfactual policy evaluation under a linear-Gaussian SCM via noise inversion (Oberst-Sontag 2019, Buesing et al. 2019).",
+    "description": "Counterfactual policy evaluation under a linear-Gaussian SCM via noise inversion (Oberst-Sontag 2019, Buesing et al. 2019). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.counterfactual_policy_optimization(\n df, state=\"s\", action=\"a\", reward=\"r\",\n target_policy=lambda si: si + 1.0)",
@@ -19021,7 +19036,7 @@
       }
     },
     "signature": {
-      "description": "Counterfactual policy evaluation under a linear-Gaussian SCM via noise inversion (Oberst-Sontag 2019, Buesing et al. 2019).",
+      "description": "Counterfactual policy evaluation under a linear-Gaussian SCM via noise inversion (Oberst-Sontag 2019, Buesing et al. 2019). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "counterfactual_policy_optimization",
       "parameters": {
         "properties": {
@@ -19060,9 +19075,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py",
       "API/unit contract evidence: tests/test_causal_rl_core.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -19076,17 +19092,21 @@
     ],
     "category": "causal_rl",
     "cost_profile": "",
-    "description": "Fit a linear SVAR for a Markov decision process and roll out counterfactual trajectories under alternative policies.",
+    "description": "Fit a linear SVAR for a Markov decision process and roll out counterfactual trajectories under alternative policies. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.structural_mdp(\n df, state_cols=[\"s1\", \"s2\"], action_cols=[\"a1\"],\n reward=\"r\", next_state_cols=[\"ns1\", \"ns2\"])",
@@ -19128,7 +19148,7 @@
       }
     },
     "signature": {
-      "description": "Fit a linear SVAR for a Markov decision process and roll out counterfactual trajectories under alternative policies.",
+      "description": "Fit a linear SVAR for a Markov decision process and roll out counterfactual trajectories under alternative policies. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "structural_mdp",
       "parameters": {
         "properties": {
@@ -19187,9 +19207,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py",
       "API/unit contract evidence: tests/test_causal_rl_core.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -22366,12 +22387,12 @@
           },
           "lambda_a": {
             "default": 0.05,
-            "description": "L1 regularisation for ``W`` and ``A``.",
+            "description": "L1 regularisation for ``W`` and ``A``. The penalties are on the scale of the data: the defaults suit series with a standard deviation near one. On series with a standard deviation of 0.3 they shrink a contemporaneous coefficient of 0.4 to zero. Rescale the series or lower the penalties; a warning is issued when the median standard deviation is below 0.5 or above 2.",
             "type": "number"
           },
           "lambda_w": {
             "default": 0.05,
-            "description": "L1 regularisation for ``W`` and ``A``.",
+            "description": "L1 regularisation for ``W`` and ``A``. The penalties are on the scale of the data: the defaults suit series with a standard deviation near one. On series with a standard deviation of 0.3 they shrink a contemporaneous coefficient of 0.4 to zero. Rescale the series or lower the penalties; a warning is issued when the median standard deviation is below 0.5 or above 2.",
             "type": "number"
           },
           "threshold": {
@@ -25885,17 +25906,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Proximal causal inference for modified treatment policies (Park & Ying 2025). Estimates the effect of a policy that shifts the treatment distribution (e.g., raises the dose by 10%) under unobserved confounding identified by PCI.",
+    "description": "Proximal causal inference for modified treatment policies (Park & Ying 2025). Estimates the effect of a policy that shifts the treatment distribution (e.g., raises the dose by 10%) under unobserved confounding identified by PCI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.pci_mtp(df, y=\"y\", treat=\"d\", proxy_z=[\"z\"], proxy_w=[\"w\"], delta=0.1)",
@@ -25943,7 +25968,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Proximal causal inference for modified treatment policies (Park & Ying 2025). Estimates the effect of a policy that shifts the treatment distribution (e.g., raises the dose by 10%) under unobserved confounding identified by PCI.",
+      "description": "Proximal causal inference for modified treatment policies (Park & Ying 2025). Estimates the effect of a policy that shifts the treatment distribution (e.g., raises the dose by 10%) under unobserved confounding identified by PCI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "pci_mtp",
       "parameters": {
         "properties": {
@@ -25995,9 +26020,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py",
       "API/unit contract evidence: tests/test_proximal_frontiers.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -27668,15 +27694,19 @@
     "cost_profile": "",
     "description": "[experimental] Measurement-error correction for downstream OLS coefficients when a regressor was produced by an LLM (or any imperfect annotator). Binary T uses Hausman (1998) 1/(1 - p_01 - p_10) inflation; multi-class T (K>=3) uses the inverse-confusion-matrix transform built from the validation-set Bayes posterior (Egami et al. 2023); continuous scores (e.g. LLM sentiment) use regression calibration on the human-audited subsample (Fuller 1987; Carroll et al. 2006) -- the classical reliability-ratio correction when no covariates are present. Optional bias-corrected bootstrap jointly resamples the validation set and the unlabeled corpus for honest CIs. SE inflation factor (delta-method) always reported in diagnostics. Validation status: experimental. Known limitations: discrete corrections cover Hausman (binary) and the inverse-confusion-matrix transform (K>=3); the logistic and Bayesian variants from Egami et al. (2023) are not yet implemented; continuous correction assumes non-differential (classical) measurement error; differential measurement error is not supported.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.llm_annotator_correct(annotations_llm=df.llm_label, annotations_human=df.human_label, outcome=df.y, bootstrap=True, n_bootstrap=500)",
@@ -34912,6 +34942,7 @@
       "Cross-language parity (bit-exact) vs fixest::feols(y ~ i(rel, treat, ref=-1) [R version 4.5.2 (2025-10-31), fixest 0.14.0]; tolerance rel_est<=1e-09, rel_se<=1e-09; parity module 85_twfe_event_study -- tests/r_parity/85_twfe_event_study.py",
       "tests/external_parity/test_rebel_canal_published.py",
       "tests/reference_parity/test_event_study_vcov_R_parity.py",
+      "tests/reference_parity/test_oct2026_second_pass.py",
       "API/unit contract evidence: tests/test_did.py",
       "API/unit contract evidence: tests/test_fast_event_study.py"
     ],
@@ -37450,17 +37481,21 @@
     ],
     "category": "causal",
     "cost_profile": "method='cs' with bstrap=True runs biters multiplier-bootstrap draws over every ATT(g,t) cell; cost grows with cohorts x periods x biters. Analytic SEs (default) are O(n).",
-    "description": "DiD with a BCF-style forest on long-differenced outcomes: each cohort is compared with never-treated units over its own pre and post periods, and a prognostic forest plus treatment-effect booster (bootstrap uncertainty, not MCMC) is fitted to the long difference. For heterogeneous effects with group-time inference prefer sp.did_forest.",
+    "description": "DiD with a BCF-style forest on long-differenced outcomes: each cohort is compared with never-treated units over its own pre and post periods, and a prognostic forest plus treatment-effect booster (bootstrap uncertainty, not MCMC) is fitted to the long difference. For heterogeneous effects with group-time inference prefer sp.did_forest. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.did_bcf(df, y=\"y\", treat=\"d\", time=\"t\", id=\"i\")",
@@ -37541,7 +37576,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "DiD with a BCF-style forest on long-differenced outcomes: each cohort is compared with never-treated units over its own pre and post periods, and a prognostic forest plus treatment-effect booster (bootstrap uncertainty, not MCMC) is fitted to the long difference. For heterogeneous effects with group-time inference prefer sp.did_forest.",
+      "description": "DiD with a BCF-style forest on long-differenced outcomes: each cohort is compared with never-treated units over its own pre and post periods, and a prognostic forest plus treatment-effect booster (bootstrap uncertainty, not MCMC) is fitted to the long difference. For heterogeneous effects with group-time inference prefer sp.did_forest. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "did_bcf",
       "parameters": {
         "properties": {
@@ -37611,10 +37646,11 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py",
       "API/unit contract evidence: tests/test_did_frontiers.py",
       "API/unit contract evidence: tests/test_cov95_did_r3_did_bcf.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -39639,17 +39675,22 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Conley-Taber (2011) and Ferman-Pinto (2019) inference for a DiD with few treated groups: the placebo distribution of the coefficient is read off the control groups, the interval is inverted from it, and Ferman-Pinto rescales the draws for the heteroskedasticity unequal group sizes generate. Use when one or a handful of clusters are treated, where the cluster-robust variance over-rejects badly.",
+    "description": "Conley-Taber (2011) and Ferman-Pinto (2019) inference for a DiD with few treated groups: the placebo distribution of the coefficient is read off the control groups, the interval is inverted from it, and Ferman-Pinto rescales the draws for the heteroskedasticity unequal group sizes generate. Use when one or a handful of clusters are treated, where the cluster-robust variance over-rejects badly. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_closed_form_identities.py",
+        "tests/reference_parity/test_oct2026_correctness_fixes.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.did_few_treated(df, y=\"y\", id=\"state\", time=\"year\", treat=\"policy\", method=\"ferman_pinto\", group_size=\"n\")",
@@ -39704,7 +39745,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Conley-Taber (2011) and Ferman-Pinto (2019) inference for a DiD with few treated groups: the placebo distribution of the coefficient is read off the control groups, the interval is inverted from it, and Ferman-Pinto rescales the draws for the heteroskedasticity unequal group sizes generate. Use when one or a handful of clusters are treated, where the cluster-robust variance over-rejects badly.",
+      "description": "Conley-Taber (2011) and Ferman-Pinto (2019) inference for a DiD with few treated groups: the placebo distribution of the coefficient is read off the control groups, the interval is inverted from it, and Ferman-Pinto rescales the draws for the heteroskedasticity unequal group sizes generate. Use when one or a handful of clusters are treated, where the cluster-robust variance over-rejects badly. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "did_few_treated",
       "parameters": {
         "properties": {
@@ -39795,9 +39836,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "tests/test_did_few_treated.py: with one treated group and AR(1) errors the cluster-robust test rejects a true null 74% of the time at nominal 5% while Conley-Taber rejects 3%; under the Ferman-Pinto heteroskedasticity structure with a small treated group Conley-Taber rejects 18% at nominal 10% and Ferman-Pinto 13.5%. The statistic is also reconstructed from a hand-built two-way demeaning."
+      "tests/test_did_few_treated.py: with one treated group and AR(1) errors the cluster-robust test rejects a true null 74% of the time at nominal 5% while Conley-Taber rejects 3%; under the Ferman-Pinto heteroskedasticity structure with a small treated group Conley-Taber rejects 18% at nominal 10% and Ferman-Pinto 13.5%. The statistic is also reconstructed from a hand-built two-way demeaning.",
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_closed_form_identities.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -48013,17 +48055,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Covariate balance test at the RD cutoff. Do NOT use when: covs includes post-treatment variables -- they can jump because of the treatment itself.",
+    "description": "Covariate balance test at the RD cutoff. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: covs includes post-treatment variables -- they can jump because of the treatment itself.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "bal = sp.rdbalance(df, x=\"x\", covs=[\"w1\", \"w2\"])",
@@ -48060,7 +48106,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Covariate balance test at the RD cutoff. Do NOT use when: covs includes post-treatment variables -- they can jump because of the treatment itself.",
+      "description": "Covariate balance test at the RD cutoff. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: covs includes post-treatment variables -- they can jump because of the treatment itself.",
       "name": "rdbalance",
       "parameters": {
         "properties": {
@@ -48125,8 +48171,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -50089,17 +50137,21 @@
     ],
     "category": "causal",
     "cost_profile": "Two random forests with n_trees each inside the bandwidth.",
-    "description": "Causal Forest for RD -- heterogeneous treatment effect estimation. Do NOT use when: the sample inside the bandwidth is small (hundreds) -- a forest in the moderators has no signal; use sp.rdhte with one or two moderators. Cost: Two random forests with n_trees each inside the bandwidth.",
+    "description": "Causal Forest for RD -- heterogeneous treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the sample inside the bandwidth is small (hundreds) -- a forest in the moderators has no signal; use sp.rdhte with one or two moderators. Cost: Two random forests with n_trees each inside the bandwidth.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_correctness_fixes.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.rd_forest(\n df, y=\"y\", x=\"x\", c=0, covs=[\"z1\", \"z2\"],\n n_trees=50, seed=42,\n)",
@@ -50141,7 +50193,7 @@
     "reference": "",
     "returns": {
       "class": "CausalResult",
-      "description": "CausalResult: estimate = average CATE; detail = DataFrame with per-obs CATE and SE; model_info includes variable importance.",
+      "description": "CausalResult: estimate = average effect at the cutoff (see above); detail = DataFrame with per-obs CATE and its across-tree SE; model_info includes mean_cate, running_slopes and variable importance.",
       "fields": {
         "alpha": "float",
         "ci": "tuple",
@@ -50157,7 +50209,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Causal Forest for RD -- heterogeneous treatment effect estimation. Do NOT use when: the sample inside the bandwidth is small (hundreds) -- a forest in the moderators has no signal; use sp.rdhte with one or two moderators. Cost: Two random forests with n_trees each inside the bandwidth.",
+      "description": "Causal Forest for RD -- heterogeneous treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the sample inside the bandwidth is small (hundreds) -- a forest in the moderators has no signal; use sp.rdhte with one or two moderators. Cost: Two random forests with n_trees each inside the bandwidth.",
       "name": "rd_forest",
       "parameters": {
         "properties": {
@@ -50233,8 +50285,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_correctness_fixes.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -50251,17 +50305,21 @@
     ],
     "category": "causal",
     "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
-    "description": "Gradient Boosting for RD -- flexible CATE estimation.",
+    "description": "Gradient Boosting for RD -- flexible CATE estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_correctness_fixes.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.rd_boost(\n df, y=\"y\", x=\"x\", c=0, covs=[\"z1\", \"z2\"],\n n_estimators=50, seed=42,\n)",
@@ -50317,7 +50375,7 @@
     "reference": "",
     "returns": {
       "class": "CausalResult",
-      "description": "CausalResult: estimate = average CATE; detail = per-obs CATE and bootstrap SE.",
+      "description": "CausalResult: estimate = average effect at the cutoff (see above); detail = per-obs CATE and bootstrap SE; model_info['mean_cate'] is the mean of the fitted CATEs.",
       "fields": {
         "alpha": "float",
         "ci": "tuple",
@@ -50333,7 +50391,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Gradient Boosting for RD -- flexible CATE estimation.",
+      "description": "Gradient Boosting for RD -- flexible CATE estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "rd_boost",
       "parameters": {
         "properties": {
@@ -50409,8 +50467,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_correctness_fixes.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -50947,17 +51007,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Multi-cutoff RD extrapolation (Cattaneo, Keele, Titiunik, Vazquez-Bare 2021).",
+    "description": "Multi-cutoff RD extrapolation (Cattaneo, Keele, Titiunik, Vazquez-Bare 2021). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "result = sp.rd_multi_extrapolate(df, y='y', x='x', cutoffs=[1.0, 3.0])",
@@ -51012,7 +51076,7 @@
       "payload_schema": "result.schema.json"
     },
     "signature": {
-      "description": "Multi-cutoff RD extrapolation (Cattaneo, Keele, Titiunik, Vazquez-Bare 2021).",
+      "description": "Multi-cutoff RD extrapolation (Cattaneo, Keele, Titiunik, Vazquez-Bare 2021). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "rd_multi_extrapolate",
       "parameters": {
         "properties": {
@@ -51069,8 +51133,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -68563,17 +68629,21 @@
     ],
     "category": "bayes",
     "cost_profile": "",
-    "description": "**Stylised** PRTE weights -- convenience builder, NOT the Do NOT use when: the exact policy-relevant weight for the observed propensity distribution is needed -- use sp.policy_weight_observed_prte.",
+    "description": "**Stylised** PRTE weights -- convenience builder, NOT the Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the exact policy-relevant weight for the observed propensity distribution is needed -- use sp.policy_weight_observed_prte.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "w = sp.policy_weight_prte(0.4)",
@@ -68609,7 +68679,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "**Stylised** PRTE weights -- convenience builder, NOT the Do NOT use when: the exact policy-relevant weight for the observed propensity distribution is needed -- use sp.policy_weight_observed_prte.",
+      "description": "**Stylised** PRTE weights -- convenience builder, NOT the Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the exact policy-relevant weight for the observed propensity distribution is needed -- use sp.policy_weight_observed_prte.",
       "name": "policy_weight_prte",
       "parameters": {
         "properties": {
@@ -68626,8 +68696,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -73251,17 +73323,21 @@
     ],
     "category": "power",
     "cost_profile": "",
-    "description": "Compute statistical power (or solve for sample size) for a causal",
+    "description": "Compute statistical power (or solve for sample size) for a causal Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.power(\"did\", n=1000, effect_size=0.1,\n n_periods=10, n_treated_periods=5)",
@@ -73308,7 +73384,7 @@
       }
     },
     "signature": {
-      "description": "Compute statistical power (or solve for sample size) for a causal",
+      "description": "Compute statistical power (or solve for sample size) for a causal Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "power",
       "parameters": {
         "properties": {
@@ -73345,8 +73421,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -73480,17 +73558,21 @@
     ],
     "category": "power",
     "cost_profile": "method='cs' with bstrap=True runs biters multiplier-bootstrap draws over every ATT(g,t) cell; cost grows with cohorts x periods x biters. Analytic SEs (default) are O(n).",
-    "description": "Power for Difference-in-Differences.",
+    "description": "Power for Difference-in-Differences. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.power_did(n=1000, effect_size=0.1, n_periods=10,\n n_treated_periods=5)",
@@ -73564,7 +73646,7 @@
       }
     },
     "signature": {
-      "description": "Power for Difference-in-Differences.",
+      "description": "Power for Difference-in-Differences. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "power_did",
       "parameters": {
         "properties": {
@@ -73574,7 +73656,7 @@
             "type": "number"
           },
           "effect_size": {
-            "description": "Standardised effect size.",
+            "description": "Effect in units of ``sigma``.",
             "type": "string"
           },
           "n": {
@@ -73589,14 +73671,19 @@
             "description": "Number of post-treatment periods.",
             "type": "integer"
           },
+          "prop_treat": {
+            "default": 0.5,
+            "description": "Share of units that are treated.",
+            "type": "number"
+          },
           "rho": {
             "default": 0.5,
-            "description": "First-order autocorrelation of errors (0-1).",
+            "description": "First-order autocorrelation of the errors within a unit. Positive autocorrelation lowers the variance of a pre/post change when the panel is short and raises it as the panel lengthens.",
             "type": "number"
           },
           "sigma": {
             "default": 1.0,
-            "description": "Error standard deviation.",
+            "description": "Standard deviation of the error in one unit-period.",
             "type": "number"
           }
         },
@@ -73611,8 +73698,10 @@
     },
     "stability": "stable",
     "typical_n_min": 50,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -73629,17 +73718,21 @@
     ],
     "category": "power",
     "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
-    "description": "Power for Regression Discontinuity designs.",
+    "description": "Power for Regression Discontinuity designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.power_rd(n=2000, effect_size=0.25)",
@@ -73706,7 +73799,7 @@
       }
     },
     "signature": {
-      "description": "Power for Regression Discontinuity designs.",
+      "description": "Power for Regression Discontinuity designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "power_rd",
       "parameters": {
         "properties": {
@@ -73716,16 +73809,16 @@
             "type": "number"
           },
           "bandwidth": {
-            "description": "Bandwidth around the cutoff. If *None*, defaults to 0.5 (half the running-variable range on each side).",
+            "description": "Bandwidth on each side of the cutoff, in units of the running variable. If *None*, defaults to 0.5 (the whole support of a running variable on [0, 1] with the cutoff at its midpoint).",
             "type": "number"
           },
           "density_at_cutoff": {
             "default": 1.0,
-            "description": "Estimated density of the running variable at the cutoff (default 1.0 for a uniform running variable on [0,1]).",
+            "description": "Density of the running variable at the cutoff (default 1.0 for a uniform running variable on [0,1]).",
             "type": "number"
           },
           "effect_size": {
-            "description": "Standardised effect size at the cutoff.",
+            "description": "Effect at the cutoff in units of ``sigma``.",
             "type": "string"
           },
           "kernel": {
@@ -73757,8 +73850,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -73775,17 +73870,21 @@
     ],
     "category": "power",
     "cost_profile": "augmented_diagnostics=True adds bootstrap SEs and AR / CLR grid inversions; cost is n_boot + grid_size extra fits.",
-    "description": "Power for Instrumental Variables / 2SLS estimation.",
+    "description": "Power for Instrumental Variables / 2SLS estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.power_iv(n=1000, effect_size=0.2, first_stage_f=20)",
@@ -73851,7 +73950,7 @@
       }
     },
     "signature": {
-      "description": "Power for Instrumental Variables / 2SLS estimation.",
+      "description": "Power for Instrumental Variables / 2SLS estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "power_iv",
       "parameters": {
         "properties": {
@@ -73861,11 +73960,11 @@
             "type": "number"
           },
           "effect_size": {
-            "description": "Standardised effect size of the endogenous variable.",
+            "description": "Effect of a one-standard-deviation change in the endogenous variable, in units of ``sigma``.",
             "type": "string"
           },
           "first_stage_f": {
-            "description": "First-stage F-statistic. If provided, power is adjusted for instrument weakness: effective_power ~ power_ols * F / (F + 1).",
+            "description": "First-stage F-statistic of a single instrument, converted with ``R2_z = F / (F + n)``. With several instruments pass ``r2_z``.",
             "type": "number"
           },
           "n": {
@@ -73873,7 +73972,7 @@
             "type": "string"
           },
           "r2_z": {
-            "description": "R-squared of the first-stage regression. Alternative to *first_stage_f*; if both are given, *first_stage_f* takes precedence.",
+            "description": "Partial R-squared of the first-stage regression. Alternative to *first_stage_f*; if both are given, *first_stage_f* takes precedence.",
             "type": "number"
           },
           "sigma": {
@@ -73891,8 +73990,10 @@
     },
     "stability": "stable",
     "typical_n_min": 100,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -102500,17 +102601,21 @@
     ],
     "category": "causal",
     "cost_profile": "n_boot full imputation re-fits (default 300); the docstring's worked figure is about 90 s on a 10,000-row panel with 10 horizons.",
-    "description": "Cluster-bootstrap joint Wald test for BJS pre-treatment coefficients. Cost: n_boot full imputation re-fits (default 300); the docstring's worked figure is about 90 s on a 10,000-row panel with 10 horizons.",
+    "description": "Cluster-bootstrap joint Wald test for BJS pre-treatment coefficients. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: n_boot full imputation re-fits (default 300); the docstring's worked figure is about 90 s on a 10,000-row panel with 10 horizons.",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "jt = sp.bjs_pretrend_joint(\n imp, df, y='y', group='unit', time='time',\n first_treat='first_treat', n_boot=50, seed=0)",
@@ -102551,7 +102656,7 @@
       "fields": {}
     },
     "signature": {
-      "description": "Cluster-bootstrap joint Wald test for BJS pre-treatment coefficients. Cost: n_boot full imputation re-fits (default 300); the docstring's worked figure is about 90 s on a 10,000-row panel with 10 horizons.",
+      "description": "Cluster-bootstrap joint Wald test for BJS pre-treatment coefficients. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: n_boot full imputation re-fits (default 300); the docstring's worked figure is about 90 s on a 10,000-row panel with 10 horizons.",
       "name": "bjs_pretrend_joint",
       "parameters": {
         "properties": {
@@ -102631,8 +102736,10 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -106608,17 +106715,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Alias for ``icp(..., method='nonlinear')`` -- Heinze-Deml et al. 2018.",
+    "description": "Alias for ``icp(..., method='nonlinear')`` -- Heinze-Deml et al. 2018. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.nonlinear_icp(X, y, env, alpha=0.05)",
@@ -106660,7 +106771,7 @@
       }
     },
     "signature": {
-      "description": "Alias for ``icp(..., method='nonlinear')`` -- Heinze-Deml et al. 2018.",
+      "description": "Alias for ``icp(..., method='nonlinear')`` -- Heinze-Deml et al. 2018. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "nonlinear_icp",
       "parameters": {
         "properties": {
@@ -106692,8 +106803,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -108408,17 +108521,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Score and rank candidate proxies for PCI.",
+    "description": "Score and rank candidate proxies for PCI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.select_pci_proxies(df, y=\"y\", treat=\"d\",\n candidates=[\"z\", \"w\"])",
@@ -108458,7 +108575,7 @@
       }
     },
     "signature": {
-      "description": "Score and rank candidate proxies for PCI.",
+      "description": "Score and rank candidate proxies for PCI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "select_pci_proxies",
       "parameters": {
         "properties": {
@@ -108509,8 +108626,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -108708,17 +108827,22 @@
     ],
     "category": "causal",
     "cost_profile": "bwselect runs the pilot bandwidth estimators once; vce='nn' nearest-neighbour residuals are O(n log n). Cheap at any n.",
-    "description": "Distribution-valued sharp RDD.",
+    "description": "Distribution-valued sharp RDD. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_correctness_fixes.py",
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.rd_distribution(data, y=\"y\", running=\"x\", cutoff=0.0)",
@@ -108788,27 +108912,32 @@
     "reference": "",
     "returns": {
       "class": "DistRDResult",
-      "description": "DistRDResult: RDD effect (qte) and standard error (se) on the conditional CDF of y at each requested quantile.",
+      "description": "DistRDResult: qte with bootstrap se / ci_lower / ci_upper, and cdf_effect with cdf_se, at each requested quantile.",
       "fields": {
         "bandwidth": "float",
+        "cdf_effect": "Optional[np.ndarray]",
+        "cdf_se": "Optional[np.ndarray]",
+        "ci_lower": "Optional[np.ndarray]",
+        "ci_upper": "Optional[np.ndarray]",
         "n_obs": "int",
         "qte": "np.ndarray",
         "quantiles": "np.ndarray",
-        "se": "np.ndarray"
+        "se": "np.ndarray",
+        "y_at_quantile": "Optional[np.ndarray]"
       }
     },
     "signature": {
-      "description": "Distribution-valued sharp RDD.",
+      "description": "Distribution-valued sharp RDD. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "rd_distribution",
       "parameters": {
         "properties": {
           "alpha": {
             "default": 0.05,
-            "description": "Significance level for confidence intervals and tests.",
+            "description": "Level of the percentile-bootstrap interval for ``qte``.",
             "type": "number"
           },
           "bandwidth": {
-            "description": "Bandwidth used for local smoothing or kernel weighting.",
+            "description": "Defaults to the interquartile range of the running variable.",
             "type": "number"
           },
           "cutoff": {
@@ -108826,6 +108955,11 @@
             "description": "Kernel function used for weighting or smoothing.",
             "type": "string"
           },
+          "n_boot": {
+            "default": 200,
+            "description": "Bootstrap replications for the ``qte`` standard errors.",
+            "type": "integer"
+          },
           "quantiles": {
             "description": "Defaults to (0.1, 0.25, 0.5, 0.75, 0.9).",
             "type": "string"
@@ -108834,6 +108968,11 @@
             "description": "running parameter (str).",
             "type": "string",
             "x-statspai-role": "column"
+          },
+          "seed": {
+            "default": 0,
+            "description": "Random seed for reproducible stochastic steps.",
+            "type": "integer"
           },
           "y": {
             "description": "Outcome variable column name or outcome array.",
@@ -108851,8 +108990,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_correctness_fixes.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -108868,17 +109009,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Sharp RDD with network interference (Cabrelli-Marconi 2024).",
+    "description": "Sharp RDD with network interference (Cabrelli-Marconi 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.rd_interference(df, y=\"y\", running=\"run\",\n neighbour_running=\"nbr_run\")",
@@ -108927,7 +109072,7 @@
       }
     },
     "signature": {
-      "description": "Sharp RDD with network interference (Cabrelli-Marconi 2024).",
+      "description": "Sharp RDD with network interference (Cabrelli-Marconi 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "rd_interference",
       "parameters": {
         "properties": {
@@ -108981,8 +109126,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -109448,17 +109595,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "ML-enhanced partial-identification bounds on the ATE.",
+    "description": "ML-enhanced partial-identification bounds on the ATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.ml_bounds(df, y='log_wage', treat='union',\n covariates=['education', 'experience', 'tenure'],\n n_bootstrap=50, random_state=0)",
@@ -109508,7 +109659,7 @@
       }
     },
     "signature": {
-      "description": "ML-enhanced partial-identification bounds on the ATE.",
+      "description": "ML-enhanced partial-identification bounds on the ATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "ml_bounds",
       "parameters": {
         "properties": {
@@ -109587,8 +109738,10 @@
     },
     "stability": "stable",
     "typical_n_min": 100,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -110467,17 +110620,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Joint RDD + RKD on the conditional distribution of Y.",
+    "description": "Joint RDD + RKD on the conditional distribution of Y. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "res = sp.rd_distributional_design(data, y=\"y\", running=\"x\", cutoff=0.0)",
@@ -110525,7 +110682,7 @@
       }
     },
     "signature": {
-      "description": "Joint RDD + RKD on the conditional distribution of Y.",
+      "description": "Joint RDD + RKD on the conditional distribution of Y. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "rd_distributional_design",
       "parameters": {
         "properties": {
@@ -110573,8 +110730,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -115401,17 +115560,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Instrumental forest: heterogeneous local average treatment effects.",
+    "description": "Instrumental forest: heterogeneous local average treatment effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "n = 800",
@@ -115471,7 +115634,7 @@
       }
     },
     "signature": {
-      "description": "Instrumental forest: heterogeneous local average treatment effects.",
+      "description": "Instrumental forest: heterogeneous local average treatment effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "instrumental_forest",
       "parameters": {
         "properties": {
@@ -115599,8 +115762,10 @@
     },
     "stability": "stable",
     "typical_n_min": 1000,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -115619,17 +115784,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Honest regression forest for ``E[Y | X]`` (``grf::regression_forest``).",
+    "description": "Honest regression forest for ``E[Y | X]`` (``grf::regression_forest``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "rf = sp.regression_forest(y=y, covariates=X, n_estimators=200)",
@@ -115690,7 +115859,7 @@
       }
     },
     "signature": {
-      "description": "Honest regression forest for ``E[Y | X]`` (``grf::regression_forest``).",
+      "description": "Honest regression forest for ``E[Y | X]`` (``grf::regression_forest``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "regression_forest",
       "parameters": {
         "properties": {
@@ -115793,8 +115962,10 @@
     },
     "stability": "stable",
     "typical_n_min": 1000,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -115813,17 +115984,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Multi-task regression forest for ``E[Y_1, ..., Y_q | X]``",
+    "description": "Multi-task regression forest for ``E[Y_1, ..., Y_q | X]`` Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "sp.multi_regression_forest(y=Y, covariates=X,\n n_estimators=100).predictions.shape",
@@ -115884,7 +116059,7 @@
       }
     },
     "signature": {
-      "description": "Multi-task regression forest for ``E[Y_1, ..., Y_q | X]``",
+      "description": "Multi-task regression forest for ``E[Y_1, ..., Y_q | X]`` Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "multi_regression_forest",
       "parameters": {
         "properties": {
@@ -115987,8 +116162,10 @@
     },
     "stability": "stable",
     "typical_n_min": 1000,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -116007,17 +116184,21 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Probability forest for ``P[Y = k | X]`` (``grf::probability_forest``).",
+    "description": "Probability forest for ``P[Y = k | X]`` (``grf::probability_forest``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "pf = sp.probability_forest(y=cls, covariates=X, n_estimators=200)",
@@ -116078,7 +116259,7 @@
       }
     },
     "signature": {
-      "description": "Probability forest for ``P[Y = k | X]`` (``grf::probability_forest``).",
+      "description": "Probability forest for ``P[Y = k | X]`` (``grf::probability_forest``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "probability_forest",
       "parameters": {
         "properties": {
@@ -116181,8 +116362,10 @@
     },
     "stability": "stable",
     "typical_n_min": 1000,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,
@@ -116616,17 +116799,21 @@
     ],
     "category": "survival",
     "cost_profile": "",
-    "description": "Causal survival forest: heterogeneous effects on censored survival.",
+    "description": "Causal survival forest: heterogeneous effects on censored survival. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "evidence": {
-      "grade": null,
-      "grade_basis": "no numerical evidence",
+      "grade": "T1",
+      "grade_basis": "derived from status and sides",
       "module_id": null,
       "reference": "",
       "reference_versions": {},
-      "sides": [],
-      "source": null,
-      "status": "unverified",
-      "tests": [],
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "tests": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
       "tolerance": ""
     },
     "example": "C = rng.exponential(3, n)",
@@ -116673,7 +116860,7 @@
       }
     },
     "signature": {
-      "description": "Causal survival forest: heterogeneous effects on censored survival.",
+      "description": "Causal survival forest: heterogeneous effects on censored survival. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "causal_survival",
       "parameters": {
         "properties": {
@@ -116825,8 +117012,10 @@
     },
     "stability": "stable",
     "typical_n_min": 1000,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "Known-truth recovery (analytical-only) -- tests/reference_parity/test_oct2026_second_pass.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alias_of": null,

@@ -163,7 +163,13 @@ def test_public_parity_doc_is_in_sync():
 # table): a function whose *API* is still experimental keeps the experimental
 # tier even when its *numbers* are parity-backed, because promoting it would
 # promise signature stability the package has not committed to.
-_EXPERIMENTAL_WITH_PARITY_EVIDENCE = {"did_multiplegt_dyn"}
+_EXPERIMENTAL_WITH_PARITY_EVIDENCE = {
+    "did_multiplegt_dyn",
+    # 2026-10: known-truth recovery of the corrected coefficient under 15%
+    # annotation noise (tests/reference_parity/test_oct2026_second_pass.py).
+    # The API stays experimental; the evidence is about the point estimate.
+    "llm_annotator_correct",
+}
 
 
 def _registry_and_index():

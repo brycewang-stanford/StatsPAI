@@ -1223,6 +1223,23 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "function": "bjs_pretrend_joint",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "also_verified_by": [
         "reference_parity"
       ],
@@ -1908,6 +1925,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_ope_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "causal_survival",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "tolerance": ""
     },
@@ -2791,6 +2825,23 @@
       "tolerance": ""
     },
     {
+      "function": "counterfactual_policy_optimization",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_survival_epi_R_parity.py"
       ],
@@ -3051,7 +3102,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_misc_sens_R_parity.py"
+        "tests/reference_parity/test_misc_sens_R_parity.py",
+        "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "tolerance": ""
     },
@@ -3564,6 +3616,23 @@
       "tolerance": ""
     },
     {
+      "function": "did_bcf",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "did_estimate",
       "notes": [
         "Uniform weights reduce to the 2x2 difference in means, asserted reference-free at 1e-12. Placebo/bootstrap end-to-end SE is T3 (see sc_estimate). Regenerate via _generate_did_synth_R.R."
@@ -3584,6 +3653,24 @@
         "tests/reference_parity/_fixtures/did_synth_R.json"
       ],
       "tolerance": "estimate and jackknife SE at 1e-9 on the Prop. 99 replica and a five-treated panel (observed est 3.1e-15, jackknife SE 5.7e-16); R's 40 placebo and 40 bootstrap replications replayed at 1e-9 (observed 1.9e-13)"
+    },
+    {
+      "function": "did_few_treated",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_closed_form_identities.py",
+        "tests/reference_parity/test_oct2026_correctness_fixes.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "did_forest",
@@ -3629,6 +3716,7 @@
         "tests/reference_parity/test_did_imputation_autosample_Stata_parity.py",
         "tests/reference_parity/test_did_variants_parity.py",
         "tests/reference_parity/test_event_study_vcov_Stata_parity.py",
+        "tests/reference_parity/test_oct2026_second_pass.py",
         "tests/reference_parity/test_track_a_alias_equivalence.py"
       ],
       "also_in_modules": [
@@ -4227,6 +4315,74 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_frontier_known_truth_recovery.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "do_calculus_apply",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "do_rule1",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "do_rule2",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "do_rule3",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "tolerance": ""
     },
@@ -4870,7 +5026,8 @@
     {
       "additional_tests": [
         "tests/external_parity/test_rebel_canal_published.py",
-        "tests/reference_parity/test_event_study_vcov_R_parity.py"
+        "tests/reference_parity/test_event_study_vcov_R_parity.py",
+        "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -6903,6 +7060,23 @@
       "tolerance": ""
     },
     {
+      "function": "identify",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "identify_transport",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -7053,6 +7227,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_aggte_r_did_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "instrumental_forest",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "tolerance": ""
     },
@@ -8178,6 +8369,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_causal_discovery_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "llm_annotator_correct",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "tolerance": ""
     },
@@ -9708,6 +9916,23 @@
       "tolerance": "means / SDs / Sigma / SEs rtol 1e-6 (observed <= 2.2e-7), log-likelihood rtol 1e-10 (observed 5e-13)"
     },
     {
+      "function": "ml_bounds",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_vce_grammar_stata_parity.py"
       ],
@@ -10507,6 +10732,23 @@
       "tolerance": "weights 1e-10 abs (observed <= 9e-15); per-outcome ATT 1e-9 rel"
     },
     {
+      "function": "multi_regression_forest",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "multi_score_rd",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -10905,6 +11147,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_longitudinal_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "nonlinear_icp",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "tolerance": ""
     },
@@ -11692,6 +11951,23 @@
       "tolerance": ""
     },
     {
+      "function": "pci_mtp",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "pcmci",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -11936,6 +12212,23 @@
       "tolerance": ""
     },
     {
+      "function": "policy_weight_prte",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "policy_weight_subsidy",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -11949,6 +12242,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_policy_weight_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "power",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "tolerance": ""
     },
@@ -12005,6 +12315,40 @@
         "tests/reference_parity/_fixtures/power_extra_R.json"
       ],
       "tolerance": "power 1e-12 abs (observed ~2e-16)"
+    },
+    {
+      "function": "power_did",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "power_iv",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
     },
     {
       "also_verified_by": [
@@ -12070,6 +12414,23 @@
         "tests/reference_parity/_fixtures/power_R.json"
       ],
       "tolerance": "power 1e-12 abs (observed ~2e-16)"
+    },
+    {
+      "function": "power_rd",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
     },
     {
       "also_verified_by": [
@@ -12367,6 +12728,23 @@
         "tests/reference_parity/_fixtures/teffects_Stata.json"
       ],
       "tolerance": "1e-10 rel on the monotonicity complier LATE"
+    },
+    {
+      "function": "probability_forest",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [
@@ -12995,6 +13373,23 @@
       "tolerance": "estimate, std.error, maximum.bias, conf.low/high, M, first stage: rel 1e-9 at fixed h and M (observed 1.1e-14), 1e-6 with selected h (observed 3.5e-8, optimiser)"
     },
     {
+      "function": "rd_boost",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_correctness_fixes.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "rd_diff_in_disc",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -13037,6 +13432,41 @@
       "tolerance": "estimate, std.error, maximum.bias, conf.low/high rel 1e-9 at fixed h and for BME; 1e-6 when RDHonest selects h and M (optimiser)"
     },
     {
+      "function": "rd_distribution",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_correctness_fixes.py",
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "rd_distributional_design",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "rd_extrapolate",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -13071,6 +13501,23 @@
       "tolerance": ""
     },
     {
+      "function": "rd_forest",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_correctness_fixes.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_rdhonest_cluster_R_parity.py"
       ],
@@ -13099,6 +13546,23 @@
       "tolerance": "estimate / std.error / maximum.bias / conf.low / conf.high 1e-9 rel at fixed bandwidth; 1e-6 rel when the bandwidth and M are selected"
     },
     {
+      "function": "rd_interference",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "rd_lasso",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -13116,6 +13580,23 @@
       "tolerance": ""
     },
     {
+      "function": "rd_multi_extrapolate",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "rd_multi_score",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -13129,6 +13610,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_oct2026_correctness_fixes.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "rdbalance",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
       ],
       "tolerance": ""
     },
@@ -13936,6 +14434,23 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "regression_forest",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [
@@ -14957,6 +15472,23 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "function": "select_pci_proxies",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "selection_bounds",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -15925,6 +16457,23 @@
       "tolerance": "statistics 1e-10 rel (observed <= 1e-14); sup-F p-values 1e-10 rel for p > 1e-6, 1e-13 abs below (R uses 1 - pchisq); break dates exact"
     },
     {
+      "function": "structural_mdp",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_wcb_recovery_parity.py"
       ],
@@ -16370,6 +16919,23 @@
         "tests/reference_parity/_fixtures/survey_R.json"
       ],
       "tolerance": "estimate 1e-12 rel; SE 1e-10 rel (observed ~2e-12 / 1e-14)"
+    },
+    {
+      "function": "swig",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_oct2026_second_pass.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [

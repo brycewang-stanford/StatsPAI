@@ -5537,7 +5537,7 @@
     }
   },
   {
-    "description": "Shpitser-Pearl ID algorithm: decide if P(Y | do(X)) is non-parametrically identifiable on a semi-Markovian DAG, return the do-free estimand or a witness hedge.",
+    "description": "Shpitser-Pearl ID algorithm: decide if P(Y | do(X)) is non-parametrically identifiable on a semi-Markovian DAG, return the do-free estimand or a witness hedge. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "identify",
     "parameters": {
       "properties": {
@@ -5577,7 +5577,7 @@
     }
   },
   {
-    "description": "Build a Single-World Intervention Graph (SWIG) by node-splitting intervened variables. Bridges Pearl's SCM and Hernan-Robins potential-outcome languages.",
+    "description": "Build a Single-World Intervention Graph (SWIG) by node-splitting intervened variables. Bridges Pearl's SCM and Hernan-Robins potential-outcome languages. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "swig",
     "parameters": {
       "properties": {
@@ -7773,7 +7773,7 @@
     }
   },
   {
-    "description": "Counterfactual policy evaluation under a linear-Gaussian SCM via noise inversion (Oberst-Sontag 2019, Buesing et al. 2019).",
+    "description": "Counterfactual policy evaluation under a linear-Gaussian SCM via noise inversion (Oberst-Sontag 2019, Buesing et al. 2019). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "counterfactual_policy_optimization",
     "parameters": {
       "properties": {
@@ -7810,7 +7810,7 @@
     }
   },
   {
-    "description": "Fit a linear SVAR for a Markov decision process and roll out counterfactual trajectories under alternative policies.",
+    "description": "Fit a linear SVAR for a Markov decision process and roll out counterfactual trajectories under alternative policies. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "structural_mdp",
     "parameters": {
       "properties": {
@@ -8993,12 +8993,12 @@
         },
         "lambda_a": {
           "default": 0.05,
-          "description": "L1 regularisation for ``W`` and ``A``.",
+          "description": "L1 regularisation for ``W`` and ``A``. The penalties are on the scale of the data: the defaults suit series with a standard deviation near one. On series with a standard deviation of 0.3 they shrink a contemporaneous coefficient of 0.4 to zero. Rescale the series or lower the penalties; a warning is issued when the median standard deviation is below 0.5 or above 2.",
           "type": "number"
         },
         "lambda_w": {
           "default": 0.05,
-          "description": "L1 regularisation for ``W`` and ``A``.",
+          "description": "L1 regularisation for ``W`` and ``A``. The penalties are on the scale of the data: the defaults suit series with a standard deviation near one. On series with a standard deviation of 0.3 they shrink a contemporaneous coefficient of 0.4 to zero. Rescale the series or lower the penalties; a warning is issued when the median standard deviation is below 0.5 or above 2.",
           "type": "number"
         },
         "threshold": {
@@ -10470,7 +10470,7 @@
     }
   },
   {
-    "description": "Proximal causal inference for modified treatment policies (Park & Ying 2025). Estimates the effect of a policy that shifts the treatment distribution (e.g., raises the dose by 10%) under unobserved confounding identified by PCI.",
+    "description": "Proximal causal inference for modified treatment policies (Park & Ying 2025). Estimates the effect of a policy that shifts the treatment distribution (e.g., raises the dose by 10%) under unobserved confounding identified by PCI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "pci_mtp",
     "parameters": {
       "properties": {
@@ -15585,7 +15585,7 @@
     }
   },
   {
-    "description": "DiD with a BCF-style forest on long-differenced outcomes: each cohort is compared with never-treated units over its own pre and post periods, and a prognostic forest plus treatment-effect booster (bootstrap uncertainty, not MCMC) is fitted to the long difference. For heterogeneous effects with group-time inference prefer sp.did_forest.",
+    "description": "DiD with a BCF-style forest on long-differenced outcomes: each cohort is compared with never-treated units over its own pre and post periods, and a prognostic forest plus treatment-effect booster (bootstrap uncertainty, not MCMC) is fitted to the long difference. For heterogeneous effects with group-time inference prefer sp.did_forest. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "did_bcf",
     "parameters": {
       "properties": {
@@ -16578,7 +16578,7 @@
     }
   },
   {
-    "description": "Conley-Taber (2011) and Ferman-Pinto (2019) inference for a DiD with few treated groups: the placebo distribution of the coefficient is read off the control groups, the interval is inverted from it, and Ferman-Pinto rescales the draws for the heteroskedasticity unequal group sizes generate. Use when one or a handful of clusters are treated, where the cluster-robust variance over-rejects badly.",
+    "description": "Conley-Taber (2011) and Ferman-Pinto (2019) inference for a DiD with few treated groups: the placebo distribution of the coefficient is read off the control groups, the interval is inverted from it, and Ferman-Pinto rescales the draws for the heteroskedasticity unequal group sizes generate. Use when one or a handful of clusters are treated, where the cluster-robust variance over-rejects badly. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "did_few_treated",
     "parameters": {
       "properties": {
@@ -21176,7 +21176,7 @@
     }
   },
   {
-    "description": "Covariate balance test at the RD cutoff. Do NOT use when: covs includes post-treatment variables -- they can jump because of the treatment itself.",
+    "description": "Covariate balance test at the RD cutoff. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: covs includes post-treatment variables -- they can jump because of the treatment itself.",
     "name": "rdbalance",
     "parameters": {
       "properties": {
@@ -22190,7 +22190,7 @@
     }
   },
   {
-    "description": "Causal Forest for RD -- heterogeneous treatment effect estimation. Do NOT use when: the sample inside the bandwidth is small (hundreds) -- a forest in the moderators has no signal; use sp.rdhte with one or two moderators. Cost: Two random forests with n_trees each inside the bandwidth.",
+    "description": "Causal Forest for RD -- heterogeneous treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the sample inside the bandwidth is small (hundreds) -- a forest in the moderators has no signal; use sp.rdhte with one or two moderators. Cost: Two random forests with n_trees each inside the bandwidth.",
     "name": "rd_forest",
     "parameters": {
       "properties": {
@@ -22265,7 +22265,7 @@
     }
   },
   {
-    "description": "Gradient Boosting for RD -- flexible CATE estimation.",
+    "description": "Gradient Boosting for RD -- flexible CATE estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rd_boost",
     "parameters": {
       "properties": {
@@ -22555,7 +22555,7 @@
     }
   },
   {
-    "description": "Multi-cutoff RD extrapolation (Cattaneo, Keele, Titiunik, Vazquez-Bare 2021).",
+    "description": "Multi-cutoff RD extrapolation (Cattaneo, Keele, Titiunik, Vazquez-Bare 2021). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rd_multi_extrapolate",
     "parameters": {
       "properties": {
@@ -31591,7 +31591,7 @@
     }
   },
   {
-    "description": "**Stylised** PRTE weights -- convenience builder, NOT the Do NOT use when: the exact policy-relevant weight for the observed propensity distribution is needed -- use sp.policy_weight_observed_prte.",
+    "description": "**Stylised** PRTE weights -- convenience builder, NOT the Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the exact policy-relevant weight for the observed propensity distribution is needed -- use sp.policy_weight_observed_prte.",
     "name": "policy_weight_prte",
     "parameters": {
       "properties": {
@@ -33349,7 +33349,7 @@
     }
   },
   {
-    "description": "Compute statistical power (or solve for sample size) for a causal",
+    "description": "Compute statistical power (or solve for sample size) for a causal Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "power",
     "parameters": {
       "properties": {
@@ -33421,7 +33421,7 @@
     }
   },
   {
-    "description": "Power for Difference-in-Differences.",
+    "description": "Power for Difference-in-Differences. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "power_did",
     "parameters": {
       "properties": {
@@ -33431,7 +33431,7 @@
           "type": "number"
         },
         "effect_size": {
-          "description": "Standardised effect size.",
+          "description": "Effect in units of ``sigma``.",
           "type": "string"
         },
         "n": {
@@ -33446,14 +33446,19 @@
           "description": "Number of post-treatment periods.",
           "type": "integer"
         },
+        "prop_treat": {
+          "default": 0.5,
+          "description": "Share of units that are treated.",
+          "type": "number"
+        },
         "rho": {
           "default": 0.5,
-          "description": "First-order autocorrelation of errors (0-1).",
+          "description": "First-order autocorrelation of the errors within a unit. Positive autocorrelation lowers the variance of a pre/post change when the panel is short and raises it as the panel lengthens.",
           "type": "number"
         },
         "sigma": {
           "default": 1.0,
-          "description": "Error standard deviation.",
+          "description": "Standard deviation of the error in one unit-period.",
           "type": "number"
         }
       },
@@ -33467,7 +33472,7 @@
     }
   },
   {
-    "description": "Power for Regression Discontinuity designs.",
+    "description": "Power for Regression Discontinuity designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "power_rd",
     "parameters": {
       "properties": {
@@ -33477,16 +33482,16 @@
           "type": "number"
         },
         "bandwidth": {
-          "description": "Bandwidth around the cutoff. If *None*, defaults to 0.5 (half the running-variable range on each side).",
+          "description": "Bandwidth on each side of the cutoff, in units of the running variable. If *None*, defaults to 0.5 (the whole support of a running variable on [0, 1] with the cutoff at its midpoint).",
           "type": "number"
         },
         "density_at_cutoff": {
           "default": 1.0,
-          "description": "Estimated density of the running variable at the cutoff (default 1.0 for a uniform running variable on [0,1]).",
+          "description": "Density of the running variable at the cutoff (default 1.0 for a uniform running variable on [0,1]).",
           "type": "number"
         },
         "effect_size": {
-          "description": "Standardised effect size at the cutoff.",
+          "description": "Effect at the cutoff in units of ``sigma``.",
           "type": "string"
         },
         "kernel": {
@@ -33517,7 +33522,7 @@
     }
   },
   {
-    "description": "Power for Instrumental Variables / 2SLS estimation.",
+    "description": "Power for Instrumental Variables / 2SLS estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "power_iv",
     "parameters": {
       "properties": {
@@ -33527,11 +33532,11 @@
           "type": "number"
         },
         "effect_size": {
-          "description": "Standardised effect size of the endogenous variable.",
+          "description": "Effect of a one-standard-deviation change in the endogenous variable, in units of ``sigma``.",
           "type": "string"
         },
         "first_stage_f": {
-          "description": "First-stage F-statistic. If provided, power is adjusted for instrument weakness: effective_power ~ power_ols * F / (F + 1).",
+          "description": "First-stage F-statistic of a single instrument, converted with ``R2_z = F / (F + n)``. With several instruments pass ``r2_z``.",
           "type": "number"
         },
         "n": {
@@ -33539,7 +33544,7 @@
           "type": "string"
         },
         "r2_z": {
-          "description": "R-squared of the first-stage regression. Alternative to *first_stage_f*; if both are given, *first_stage_f* takes precedence.",
+          "description": "Partial R-squared of the first-stage regression. Alternative to *first_stage_f*; if both are given, *first_stage_f* takes precedence.",
           "type": "number"
         },
         "sigma": {
@@ -47429,7 +47434,7 @@
     }
   },
   {
-    "description": "Cluster-bootstrap joint Wald test for BJS pre-treatment coefficients. Cost: n_boot full imputation re-fits (default 300); the docstring's worked figure is about 90 s on a 10,000-row panel with 10 horizons.",
+    "description": "Cluster-bootstrap joint Wald test for BJS pre-treatment coefficients. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: n_boot full imputation re-fits (default 300); the docstring's worked figure is about 90 s on a 10,000-row panel with 10 horizons.",
     "name": "bjs_pretrend_joint",
     "parameters": {
       "properties": {
@@ -49074,7 +49079,7 @@
     }
   },
   {
-    "description": "Alias for ``icp(..., method='nonlinear')`` -- Heinze-Deml et al. 2018.",
+    "description": "Alias for ``icp(..., method='nonlinear')`` -- Heinze-Deml et al. 2018. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "nonlinear_icp",
     "parameters": {
       "properties": {
@@ -49105,7 +49110,7 @@
     }
   },
   {
-    "description": "Check Rule 1: can we *insert or delete observation* of Z?",
+    "description": "Check Rule 1: can we *insert or delete observation* of Z? Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "do_rule1",
     "parameters": {
       "properties": {
@@ -49140,7 +49145,7 @@
     }
   },
   {
-    "description": "Check Rule 2: can do(Z) be swapped for observing Z?",
+    "description": "Check Rule 2: can do(Z) be swapped for observing Z? Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "do_rule2",
     "parameters": {
       "properties": {
@@ -49175,7 +49180,7 @@
     }
   },
   {
-    "description": "Check Rule 3: can we delete do(Z)?",
+    "description": "Check Rule 3: can we delete do(Z)? Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "do_rule3",
     "parameters": {
       "properties": {
@@ -49210,7 +49215,7 @@
     }
   },
   {
-    "description": "Try all three rules and return every applicable simplification.",
+    "description": "Try all three rules and return every applicable simplification. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "do_calculus_apply",
     "parameters": {
       "properties": {
@@ -49880,7 +49885,7 @@
     }
   },
   {
-    "description": "Score and rank candidate proxies for PCI.",
+    "description": "Score and rank candidate proxies for PCI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "select_pci_proxies",
     "parameters": {
       "properties": {
@@ -50022,17 +50027,17 @@
     }
   },
   {
-    "description": "Distribution-valued sharp RDD.",
+    "description": "Distribution-valued sharp RDD. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rd_distribution",
     "parameters": {
       "properties": {
         "alpha": {
           "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
+          "description": "Level of the percentile-bootstrap interval for ``qte``.",
           "type": "number"
         },
         "bandwidth": {
-          "description": "Bandwidth used for local smoothing or kernel weighting.",
+          "description": "Defaults to the interquartile range of the running variable.",
           "type": "number"
         },
         "cutoff": {
@@ -50050,6 +50055,11 @@
           "description": "Kernel function used for weighting or smoothing.",
           "type": "string"
         },
+        "n_boot": {
+          "default": 200,
+          "description": "Bootstrap replications for the ``qte`` standard errors.",
+          "type": "integer"
+        },
         "quantiles": {
           "description": "Defaults to (0.1, 0.25, 0.5, 0.75, 0.9).",
           "type": "string"
@@ -50058,6 +50068,11 @@
           "description": "running parameter (str).",
           "type": "string",
           "x-statspai-role": "column"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
         },
         "y": {
           "description": "Outcome variable column name or outcome array.",
@@ -50074,7 +50089,7 @@
     }
   },
   {
-    "description": "Sharp RDD with network interference (Cabrelli-Marconi 2024).",
+    "description": "Sharp RDD with network interference (Cabrelli-Marconi 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rd_interference",
     "parameters": {
       "properties": {
@@ -50336,7 +50351,7 @@
     }
   },
   {
-    "description": "ML-enhanced partial-identification bounds on the ATE.",
+    "description": "ML-enhanced partial-identification bounds on the ATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "ml_bounds",
     "parameters": {
       "properties": {
@@ -50748,7 +50763,7 @@
     }
   },
   {
-    "description": "Joint RDD + RKD on the conditional distribution of Y.",
+    "description": "Joint RDD + RKD on the conditional distribution of Y. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rd_distributional_design",
     "parameters": {
       "properties": {
@@ -52698,7 +52713,7 @@
     }
   },
   {
-    "description": "Instrumental forest: heterogeneous local average treatment effects.",
+    "description": "Instrumental forest: heterogeneous local average treatment effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "instrumental_forest",
     "parameters": {
       "properties": {
@@ -52825,7 +52840,7 @@
     }
   },
   {
-    "description": "Honest regression forest for ``E[Y | X]`` (``grf::regression_forest``).",
+    "description": "Honest regression forest for ``E[Y | X]`` (``grf::regression_forest``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "regression_forest",
     "parameters": {
       "properties": {
@@ -52927,7 +52942,7 @@
     }
   },
   {
-    "description": "Multi-task regression forest for ``E[Y_1, ..., Y_q | X]``",
+    "description": "Multi-task regression forest for ``E[Y_1, ..., Y_q | X]`` Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "multi_regression_forest",
     "parameters": {
       "properties": {
@@ -53029,7 +53044,7 @@
     }
   },
   {
-    "description": "Probability forest for ``P[Y = k | X]`` (``grf::probability_forest``).",
+    "description": "Probability forest for ``P[Y = k | X]`` (``grf::probability_forest``). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "probability_forest",
     "parameters": {
       "properties": {
@@ -53354,7 +53369,7 @@
     }
   },
   {
-    "description": "Causal survival forest: heterogeneous effects on censored survival.",
+    "description": "Causal survival forest: heterogeneous effects on censored survival. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "causal_survival",
     "parameters": {
       "properties": {

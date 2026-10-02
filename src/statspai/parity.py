@@ -44,6 +44,7 @@ from ._parity_taxonomy import (
     CROSS_LANGUAGE_STATUSES,
     INFRASTRUCTURE_CATEGORIES,
     INTERNAL_EVIDENCE_STATUSES,
+    NON_NUMERIC_CALLABLES,
 )
 
 _SNAPSHOT = Path(__file__).resolve().parent / "_parity_index.json"
@@ -307,7 +308,10 @@ def _denominator_strata(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, int]]
     metric anyone should quote: about a quarter of the registered surface is
     result and exception classes, which can never carry a parity grade, and
     another sixth is infrastructure that renders tables, draws plots, builds
-    agent schemas or loads data. Reporting the strata keeps the estimator
+    agent schemas or loads data (the infrastructure categories, plus the
+    plots, datasets, exporters, language-model helpers and catalogues that
+    live in estimator modules and are listed by name in
+    ``_parity_taxonomy.NON_NUMERIC_CALLABLES``). Reporting the strata keeps the estimator
     fraction — the number worth driving release over release — visible next
     to the diluted one instead of leaving readers to recompute it.
     """
@@ -331,7 +335,9 @@ def _denominator_strata(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, int]]
         obj = getattr(sp, name, None)
         if inspect.isclass(obj):
             key = "classes"
-        elif spec is not None and spec.category in infra_categories:
+        elif (
+            spec is not None and spec.category in infra_categories
+        ) or name in NON_NUMERIC_CALLABLES:
             key = "infrastructure"
         else:
             key = "estimator"

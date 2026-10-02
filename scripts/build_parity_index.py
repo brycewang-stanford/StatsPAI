@@ -66,6 +66,7 @@ from statspai._parity_taxonomy import (  # noqa: E402
     INFRASTRUCTURE_CATEGORIES,
     INTERNAL_EVIDENCE_STATUSES,
     NON_ESTIMATOR_LEAVES,
+    NON_NUMERIC_CALLABLES,
     SUBNAMESPACE_LEAF_PROOFS,
     TRACK_A_ALIASES,
 )
@@ -6884,7 +6885,9 @@ def _denominators(index: Dict[str, Any]) -> Dict[str, Dict[str, int]]:
         obj = getattr(sp, name, None)
         if inspect.isclass(obj):
             key = "classes"
-        elif spec is not None and spec.category in infra_categories:
+        elif (
+            spec is not None and spec.category in infra_categories
+        ) or name in NON_NUMERIC_CALLABLES:
             key = "infra"
         else:
             key = "estimator"
@@ -6925,6 +6928,8 @@ def _family_coverage(
     for name in sp.list_functions():
         spec = R._REGISTRY.get(name)
         if spec is None or spec.category in infra_categories:
+            continue
+        if name in NON_NUMERIC_CALLABLES:
             continue
         if inspect.isclass(getattr(sp, name, None)):
             continue
@@ -7049,8 +7054,12 @@ def render_parity_doc(index: Dict[str, Any], total_functions: int) -> str:
         "The all-registered denominator understates coverage: it counts "
         "result and exception classes, which can never carry a parity grade, "
         "and infrastructure functions that render tables, draw plots, build "
-        "agent schemas or load data. The estimator denominator is the number "
-        "to drive release over release."
+        "agent schemas or load data. Infrastructure is the registry's "
+        "infrastructure categories plus the plots, bundled datasets, "
+        "exporters, language-model helpers and catalogue listings that live "
+        "in estimator modules, listed by name with the reason in "
+        "`statspai._parity_taxonomy.NON_NUMERIC_CALLABLES`. The estimator "
+        "denominator is the number to drive release over release."
     )
     w("")
     w("| denominator | cross-language | any evidence | total | cross-lang share |")

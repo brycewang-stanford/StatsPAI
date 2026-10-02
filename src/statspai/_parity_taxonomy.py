@@ -390,6 +390,125 @@ INFRASTRUCTURE_CATEGORIES: FrozenSet[str] = frozenset(
 )
 
 
+#: Registered callables outside the infrastructure categories that cannot
+#: carry a numerical-evidence grade, with the reason.
+#:
+#: The registry files a function under the module it lives in, so a plot of
+#: a DiD result is ``causal`` and a bundled dataset in the decomposition
+#: module is ``decomposition``. Counting them as estimators awaiting
+#: evidence misstates the gap: no reference value exists for a figure, a
+#: rendered table, a data loader, a catalogue listing or a call to a
+#: language model. They are counted with the infrastructure.
+#:
+#: Admission rule, one of:
+#:
+#: * ``plot`` -- returns a figure or axes;
+#: * ``dataset`` -- returns bundled or simulated data;
+#: * ``export`` -- renders or reshapes a result that is already computed
+#:   (LaTeX / Markdown / Excel / HTML, a tidy frame, a table adapter);
+#: * ``llm`` -- its output is, or depends on, a language-model response;
+#: * ``catalog`` -- lists names or metadata, or reports what a result
+#:   supports.
+#:
+#: A function that computes an estimate, a test statistic or a
+#: classification of its own does not belong here even when it also draws
+#: (``lisa_cluster_map``) or summarises several fits (``did_summary``,
+#: ``rd_compare``): those can be checked against their components.
+#: ``tests/test_parity_taxonomy_non_numeric.py`` holds the list to that
+#: rule, and fails if a listed name acquires an evidence record.
+NON_NUMERIC_CALLABLES: Dict[str, str] = {
+    # plot
+    "bacon_plot": "plot",
+    "balanceplot": "plot",
+    "cate_group_plot": "plot",
+    "cate_plot": "plot",
+    "cohort_event_study_plot": "plot",
+    "did_plot": "plot",
+    "did_summary_plot": "plot",
+    "discos_plot": "plot",
+    "enhanced_event_study_plot": "plot",
+    "ggdid": "plot",
+    "group_time_plot": "plot",
+    "impactplot": "plot",
+    "love_plot": "plot",
+    "overlap_plot": "plot",
+    "panel_view": "plot",
+    "parallel_trends_plot": "plot",
+    "psplot": "plot",
+    "rd2d_plot": "plot",
+    "sensitivity_plot": "plot",
+    "synth_power_plot": "plot",
+    "synth_sensitivity_plot": "plot",
+    "synthdid_plot": "plot",
+    "synthdid_rmse_plot": "plot",
+    "synthdid_units_plot": "plot",
+    "synthplot": "plot",
+    "treatment_rollout_plot": "plot",
+    "neural_causal_plot": "plot",
+    "margins_at_plot": "plot",
+    "marginsplot": "plot",
+    "moran_plot": "plot",
+    "mr_funnel_plot": "plot",
+    "mr_scatter_plot": "plot",
+    "interflex_plot": "plot",
+    "network_plot": "plot",
+    # dataset
+    "basque_terrorism": "dataset",
+    "california_prop99": "dataset",
+    "california_tobacco": "dataset",
+    "german_reunification": "dataset",
+    "dag_example": "dataset",
+    "chilean_households": "dataset",
+    "cps_wage": "dataset",
+    "disparity_panel": "dataset",
+    "mincer_wage_panel": "dataset",
+    # export
+    "did_summary_to_latex": "export",
+    "did_summary_to_markdown": "export",
+    "synth_to_excel": "export",
+    "synth_to_latex": "export",
+    "synth_to_markdown": "export",
+    "synth_report_to_file": "export",
+    "neural_causal_to_excel": "export",
+    "neural_causal_to_html": "export",
+    "neural_causal_to_markdown": "export",
+    "neural_effects_frame": "export",
+    "neural_summary_frame": "export",
+    "neural_training_frame": "export",
+    "event_study_table": "export",
+    "margins_table": "export",
+    "etable": "export",
+    # llm
+    "llm_dag_propose": "llm",
+    "llm_sensitivity_priors": "llm",
+    "llm_unobserved_confounders": "llm",
+    "llm_causal_assess": "llm",
+    "llm_dag": "llm",
+    "llm_dag_constrained": "llm",
+    "pairwise_causal_benchmark": "llm",
+    "anthropic_client": "llm",
+    "echo_client": "llm",
+    "openai_client": "llm",
+    "causal_mas": "llm",
+    # catalog
+    "did_design_contract": "catalog",
+    "event_study_convention": "catalog",
+    "dag_example_positions": "catalog",
+    "dag_examples": "catalog",
+    "dag_recommend_estimator": "catalog",
+    "postestimation_contract": "catalog",
+    "postestimation_report": "catalog",
+    "available_methods": "catalog",
+    "conformal_available_kinds": "catalog",
+    "mr_available_methods": "catalog",
+    "interference_available_designs": "catalog",
+    "parity_matrix": "catalog",
+    "parity_status": "catalog",
+    "parity_summary": "catalog",
+    "version_info": "catalog",
+}
+
+
 #: Parity grades that mean "compared against a named external reference
 #: implementation on identical inputs" (evidence tier T2), as opposed to
 #: recovering a known truth with no second implementation in the loop.
