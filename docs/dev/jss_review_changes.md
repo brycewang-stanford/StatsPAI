@@ -31,6 +31,24 @@ Rules:
 
 ## Entries
 
+### 2026-10-03 — call traces re-recorded after `sp.regress(robust='ewc')`
+
+- **Commit.** `503cb21e` added the `ewc` covariance kind to
+  `src/statspai/regression/ols.py` and `src/statspai/core/_vcov_spec.py`,
+  a rescaled F for it in `src/statspai/postestimation/hypothesis.py`, and
+  re-recorded `tests/r_parity/results/_implementation_trace.json` for
+  modules 01 02 07 14 18 37 41 42 43 44 45 46 47 48 49 51 52 53 54 55 56 57
+  58 59 61 62 63 64 67.
+- **Reason.** Those 29 modules execute one of the two edited files. The
+  new kind is opt-in and no existing branch changed:
+  `verify_reproduce_py.py --no-report 01_ols 02_iv 14_ols_cluster 51_newey
+  53_cr2 54_twoway_cluster 55_hc2_hc3 56_multiway_cluster` reports 8
+  reproduce, 0 drift.
+- **Effect on the paper.** None. Only `exercised_sources` digests and
+  `seconds` changed; no module's implementation classification moved.
+- **Paths.**
+  - `tests/r_parity/results/_implementation_trace.json`
+
 ### 2026-10-02 — call traces re-recorded after the design-based textbook pass; three estimator fixes on Track A paths
 
 - **Commits.** `fd2d0af3` (`sp.etwfe` with no untreated comparison),
